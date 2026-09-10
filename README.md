@@ -118,7 +118,7 @@ Full system images use the hardware **Boot flashing procedure**. They are not ac
 - `scripts/`: component build/staging tools; external SDK and toolchain inputs are required.
 - `tools/` and `kvmapp/system/init.d/`: EDID tools and device startup services.
 
-See [BUILD.md](docs/BUILD.md). The repository starts with one source snapshot, without private development history or device credentials. Vendor dependencies are not automatically relicensed or made fully source-available by this snapshot.
+See [BUILD.md](docs/BUILD.md) for build instructions.
 
 ## ❤️ Credits and licenses
 

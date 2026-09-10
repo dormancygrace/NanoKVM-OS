@@ -1,0 +1,43 @@
+--- a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
++++ b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+@@ -52,10 +52,13 @@
+ 		// Match the actual OpenSBI PMP range copied by the installed U-Boot.
+ 		// Equal ranges are deduplicated; a larger no-map node overlaps and fails.
+ 		mmode_resv0@80000000 { reg = <0x80000000 0x40000>; no-map; };
++		// Preserve the reservation used by the unchanged installed FIP.
++		c906l@8d000000 { reg = <0x8d000000 0x200000>; no-map; };
+ 		ion_region: ion {
+-			compatible = "ion-region";
+-			size = <0x03000000>;
+-			alignment = <0x1000>;
++			compatible = "shared-dma-pool";
++			size = <0x04000000>;
++			alignment = <0x00400000>;
++			reusable;
+ 		};
+ 	};
+ 	cvitek-ion {
+@@ -63,6 +66,7 @@
+ 		heap-carveout {
+ 			compatible = "cvitek,carveout";
+ 			memory-region = <&ion_region>;
++			nanokvm,cma-backend;
+ 		};
+ 	};
+ 	hdmi-reset {
+@@ -394,3 +398,15 @@
+ 		};
+ 	};
+ };
++
++// Reset mode; no pretimeout interrupt. Clock and reset IDs match qualified DT.
++&{/soc} {
++    watchdog@3010000 {
++        compatible = "snps,dw-wdt";
++        reg = <0x03010000 0x1000>;
++        clocks = <&clk 58>;
++        resets = <&rst 48>;
++        timeout-sec = <30>;
++        status = "okay";
++    };
++};

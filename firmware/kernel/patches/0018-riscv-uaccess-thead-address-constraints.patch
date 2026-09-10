@@ -1,0 +1,68 @@
+--- a/arch/riscv/include/asm/uaccess.h
++++ b/arch/riscv/include/asm/uaccess.h
+@@ -87,6 +87,9 @@
+  * on our cache or tlb entries.
+  */
+ 
++/* Base-ISA loads/stores require register-indirect addresses. XTheadMemIdx
++ * also permits indexed addresses for "m", which these asm templates cannot use.
++ */
+ #define __LSW	0
+ #define __MSW	1
+ 
+@@ -111,7 +114,7 @@
+ 		"	" insn " %0, %1\n"			\
+ 		_ASM_EXTABLE_UACCESS_ERR(1b, %l2, %0)		\
+ 		: "=&r" (__tmp)					\
+-		: "m" (*(ptr)) : : label);			\
++		: "A" (*(ptr)) : : label);			\
+ 	(x) = (__force __typeof__(x))(unsigned long)__tmp;	\
+ } while (0)
+ #else /* !CONFIG_CC_HAS_ASM_GOTO_OUTPUT */
+@@ -124,7 +127,7 @@
+ 		"2:\n"						\
+ 		_ASM_EXTABLE_UACCESS_ERR_ZERO(1b, 2b, %0, %1)	\
+ 		: "+r" (__gua_err), "=&r" (x)			\
+-		: "m" (*(ptr)));				\
++		: "A" (*(ptr)));				\
+ 	if (__gua_err)						\
+ 		goto label;					\
+ } while (0)
+@@ -148,7 +151,7 @@
+ 		_ASM_EXTABLE_UACCESS_ERR(1b, %l4, %0)		\
+ 		_ASM_EXTABLE_UACCESS_ERR(2b, %l4, %0)		\
+ 		: "=&r" (__lo), "=r" (__hi)			\
+-		: "m" (__ptr[__LSW]), "m" (__ptr[__MSW])	\
++		: "A" (__ptr[__LSW]), "A" (__ptr[__MSW])	\
+ 		: : label);                                     \
+ 	(x) = (__typeof__(x))((__typeof__((x) - (x)))(		\
+ 		(((u64)__hi << 32) | __lo)));			\
+@@ -168,7 +171,7 @@
+ 		_ASM_EXTABLE_UACCESS_ERR_ZERO(1b, 3b, %0, %1)	\
+ 		_ASM_EXTABLE_UACCESS_ERR_ZERO(2b, 3b, %0, %1)	\
+ 		: "+r" (__gu8_err), "=&r" (__lo), "=r" (__hi)	\
+-		: "m" (__ptr[__LSW]), "m" (__ptr[__MSW]));	\
++		: "A" (__ptr[__LSW]), "A" (__ptr[__MSW]));	\
+ 	if (__gu8_err) {					\
+ 		__hi = 0;					\
+ 		goto label;					\
+@@ -293,7 +296,7 @@
+ 		"1:\n"						\
+ 		"	" insn " %z0, %1\n"			\
+ 		_ASM_EXTABLE(1b, %l2)				\
+-		: : "rJ" (__x), "m"(*(ptr)) : : label);		\
++		: : "rJ" (__x), "A"(*(ptr)) : : label);		\
+ } while (0)
+ 
+ #ifdef CONFIG_64BIT
+@@ -312,8 +315,8 @@
+ 		_ASM_EXTABLE(1b, %l4)				\
+ 		_ASM_EXTABLE(2b, %l4)				\
+ 		: : "rJ" (__x), "rJ" (__x >> 32),		\
+-			"m" (__ptr[__LSW]),			\
+-			"m" (__ptr[__MSW]) : : label);		\
++			"A" (__ptr[__LSW]),			\
++			"A" (__ptr[__MSW]) : : label);		\
+ } while (0)
+ #endif /* CONFIG_64BIT */
+ 

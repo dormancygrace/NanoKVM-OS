@@ -1,0 +1,934 @@
+From fe5cd705a4a97db29cd013d068e3512e24f16104 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 16:55:23 +0300
+Subject: [PATCH] Forward-port VI APIs and preserve capture thread scheduling
+ on Linux 7.2
+
+---
+ interdrv/vi/chip/cv181x/proc/vi_dbg_proc.c   |  2 +-
+ interdrv/vi/chip/cv181x/proc/vi_isp_proc.c   |  4 +-
+ interdrv/vi/chip/cv181x/proc/vi_proc.c       |  2 +-
+ interdrv/vi/chip/cv181x/vi.c                 | 93 +++++++++++---------
+ interdrv/vi/chip/cv181x/vi.h                 |  1 -
+ interdrv/vi/chip/cv181x/vi_interfaces.h      | 11 ---
+ interdrv/vi/chip/cv181x/vi_isp_buf_ctrl.h    |  1 -
+ interdrv/vi/chip/cv181x/vi_sdk_layer.c       | 44 ++++-----
+ interdrv/vi/chip/cv181x/vip/vi_drv.c         | 75 ++--------------
+ interdrv/vi/chip/cv181x/vip/vi_perf_chk.c    |  1 +
+ interdrv/vi/chip/cv181x/vip/vi_tun_ip_ctrl.c |  2 +-
+ interdrv/vi/common/vi_common.h               |  3 +-
+ interdrv/vi/common/vi_core.c                 | 20 ++++-
+ interdrv/vi/common/vi_core.h                 |  1 -
+ 14 files changed, 105 insertions(+), 155 deletions(-)
+
+diff --git a/interdrv/vi/chip/cv181x/proc/vi_dbg_proc.c b/interdrv/vi/chip/cv181x/proc/vi_dbg_proc.c
+index 7fa1f28..ca79c5e 100644
+--- a/interdrv/vi/chip/cv181x/proc/vi_dbg_proc.c
++++ b/interdrv/vi/chip/cv181x/proc/vi_dbg_proc.c
+@@ -168,7 +168,7 @@ static ssize_t vi_dbg_proc_write(struct file *file, const char __user *user_buf,
+ 
+ static int vi_dbg_proc_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, vi_dbg_proc_show, PDE_DATA(inode));
++	return single_open(file, vi_dbg_proc_show, pde_data(inode));
+ }
+ 
+ #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+diff --git a/interdrv/vi/chip/cv181x/proc/vi_isp_proc.c b/interdrv/vi/chip/cv181x/proc/vi_isp_proc.c
+index d0af9ad..33de7a8 100644
+--- a/interdrv/vi/chip/cv181x/proc/vi_isp_proc.c
++++ b/interdrv/vi/chip/cv181x/proc/vi_isp_proc.c
+@@ -64,12 +64,12 @@ static int _isp_proc_show(struct seq_file *m, void *v)
+ 
+ static int _isp_proc_open(struct inode *inode, struct file *file)
+ {
+-	struct cvi_vi_dev *vdev = PDE_DATA(inode);
++	struct cvi_vi_dev *vdev = pde_data(inode);
+ 
+ 	isp_prc_unit.isp_prc_int_flag = 0;
+ 	vi_event_queue(vdev, VI_EVENT_ISP_PROC_READ, 0);
+ 
+-	return single_open(file, _isp_proc_show, PDE_DATA(inode));
++	return single_open(file, _isp_proc_show, pde_data(inode));
+ }
+ 
+ #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+diff --git a/interdrv/vi/chip/cv181x/proc/vi_proc.c b/interdrv/vi/chip/cv181x/proc/vi_proc.c
+index 9c48fb9..ff583b2 100644
+--- a/interdrv/vi/chip/cv181x/proc/vi_proc.c
++++ b/interdrv/vi/chip/cv181x/proc/vi_proc.c
+@@ -339,7 +339,7 @@ static int _vi_proc_show(struct seq_file *m, void *v)
+ 
+ static int _vi_proc_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, _vi_proc_show, PDE_DATA(inode));
++	return single_open(file, _vi_proc_show, pde_data(inode));
+ }
+ #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+ static const struct proc_ops _vi_proc_fops = {
+diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
+index c95fba6..f0a8018 100644
+--- a/interdrv/vi/chip/cv181x/vi.c
++++ b/interdrv/vi/chip/cv181x/vi.c
+@@ -1,6 +1,7 @@
+ #include <vi.h>
++#include <vi_interfaces.h>
+ #include <linux/cvi_base_ctx.h>
+-#include <linux/of_gpio.h>
++#include <linux/gpio.h>
+ #include <proc/vi_dbg_proc.h>
+ #include <proc/vi_proc.h>
+ #include <proc/vi_isp_proc.h>
+@@ -81,7 +82,7 @@ struct cvi_gdc_mesh g_vi_mesh[VI_MAX_CHN_NUM];
+ #if (KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE)
+ static void legacy_timer_emu_func(struct timer_list *t)
+ {
+-	struct legacy_timer_emu *lt = from_timer(lt, t, t);
++	struct legacy_timer_emu *lt = timer_container_of(lt, t, t);
+ 
+ 	lt->function(lt->data);
+ }
+@@ -207,7 +208,7 @@ static void _vi_release_ext_buf(uint64_t u64PhyAddr)
+ 	}
+ }
+ 
+-void _isp_snr_cfg_enq(struct cvi_isp_snr_update *snr_node, const enum cvi_isp_raw raw_num)
++static void _isp_snr_cfg_enq(struct cvi_isp_snr_update *snr_node, const enum cvi_isp_raw raw_num)
+ {
+ 	unsigned long flags;
+ 	struct _isp_snr_i2c_node *n, *q;
+@@ -252,7 +253,7 @@ void _isp_snr_cfg_enq(struct cvi_isp_snr_update *snr_node, const enum cvi_isp_ra
+ 	spin_unlock_irqrestore(&snr_node_lock[raw_num], flags);
+ }
+ 
+-void pre_raw_num_enq(struct _isp_sof_raw_num_q *q, struct _isp_raw_num_n *n)
++static void pre_raw_num_enq(struct _isp_sof_raw_num_q *q, struct _isp_raw_num_n *n)
+ {
+ 	unsigned long flags;
+ 
+@@ -261,7 +262,7 @@ void pre_raw_num_enq(struct _isp_sof_raw_num_q *q, struct _isp_raw_num_n *n)
+ 	spin_unlock_irqrestore(&raw_num_lock, flags);
+ }
+ 
+-void cvi_isp_buf_queue(struct cvi_vi_dev *vdev, struct cvi_isp_buf *b)
++static void cvi_isp_buf_queue(struct cvi_vi_dev *vdev, struct cvi_isp_buf *b)
+ {
+ 	unsigned long flags;
+ 
+@@ -332,7 +333,7 @@ struct cvi_isp_buf *_cvi_isp_next_buf(struct cvi_vi_dev *vdev, const u8 chn_num)
+ 	return b;
+ }
+ 
+-int cvi_isp_rdy_buf_empty(struct cvi_vi_dev *vdev, const u8 chn_num)
++static int cvi_isp_rdy_buf_empty(struct cvi_vi_dev *vdev, const u8 chn_num)
+ {
+ 	unsigned long flags;
+ 	int empty = 0;
+@@ -344,7 +345,7 @@ int cvi_isp_rdy_buf_empty(struct cvi_vi_dev *vdev, const u8 chn_num)
+ 	return empty;
+ }
+ 
+-void cvi_isp_rdy_buf_pop(struct cvi_vi_dev *vdev, const u8 chn_num)
++static void cvi_isp_rdy_buf_pop(struct cvi_vi_dev *vdev, const u8 chn_num)
+ {
+ 	unsigned long flags;
+ 
+@@ -353,7 +354,7 @@ void cvi_isp_rdy_buf_pop(struct cvi_vi_dev *vdev, const u8 chn_num)
+ 	spin_unlock_irqrestore(&vdev->qbuf_lock, flags);
+ }
+ 
+-void cvi_isp_rdy_buf_remove(struct cvi_vi_dev *vdev, const u8 chn_num)
++static void cvi_isp_rdy_buf_remove(struct cvi_vi_dev *vdev, const u8 chn_num)
+ {
+ 	unsigned long flags;
+ 	struct cvi_isp_buf *b = NULL;
+@@ -422,7 +423,7 @@ void isp_fill_rgbmap(struct isp_ctx *ctx, enum cvi_isp_raw raw_num, const u8 chn
+ 	}
+ }
+ 
+-void _vi_yuv_dma_setup(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
++static void _vi_yuv_dma_setup(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
+ {
+ 	struct isp_buffer *b;
+ 	uint32_t bufsize_yuyv = 0;
+@@ -623,7 +624,7 @@ static void _isp_yuvtop_dma_dump(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
+ 	vi_pr(VI_INFO, "*************************************************\n");
+ }
+ 
+-void _isp_preraw_fe_dma_setup(struct isp_ctx *ictx, enum cvi_isp_raw raw_num)
++static void _isp_preraw_fe_dma_setup(struct isp_ctx *ictx, enum cvi_isp_raw raw_num)
+ {
+ 	uint64_t bufaddr = 0;
+ 	uint32_t bufsize = 0;
+@@ -757,7 +758,7 @@ EXIT:
+ 	_isp_preraw_fe_dma_dump(ictx, raw_num);
+ }
+ 
+-void _isp_preraw_be_dma_setup(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
++static void _isp_preraw_be_dma_setup(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
+ {
+ 	uint64_t bufaddr = 0;
+ 	uint32_t bufsize = 0;
+@@ -860,7 +861,7 @@ EXIT:
+ 	_isp_preraw_be_dma_dump(ictx, raw_max);
+ }
+ 
+-void _isp_rawtop_dma_setup(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
++static void _isp_rawtop_dma_setup(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
+ {
+ 	uint64_t bufaddr = 0;
+ 	uint32_t bufsize = 0;
+@@ -938,7 +939,7 @@ EXIT:
+ 	_isp_rawtop_dma_dump(ictx, raw_max);
+ }
+ 
+-void _isp_rgbtop_dma_setup(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
++static void _isp_rgbtop_dma_setup(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
+ {
+ 	uint64_t bufaddr = 0;
+ 	uint32_t bufsize = 0;
+@@ -1045,7 +1046,7 @@ EXIT:
+ 	_isp_rgbtop_dma_dump(ictx, raw_max);
+ }
+ 
+-void _isp_yuvtop_dma_setup(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
++static void _isp_yuvtop_dma_setup(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
+ {
+ 	uint64_t bufaddr = 0;
+ 	uint64_t tmp_bufaddr = 0;
+@@ -1112,7 +1113,7 @@ EXIT:
+ 	_isp_yuvtop_dma_dump(ictx, raw_max);
+ }
+ 
+-void _vi_dma_setup(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
++static void _vi_dma_setup(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
+ {
+ 	enum cvi_isp_raw raw_num = ISP_PRERAW_A;
+ 
+@@ -1128,7 +1129,7 @@ void _vi_dma_setup(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
+ 	_isp_yuvtop_dma_setup(ictx, raw_max);
+ }
+ 
+-void _vi_dma_set_sw_mode(struct isp_ctx *ctx)
++static void _vi_dma_set_sw_mode(struct isp_ctx *ctx)
+ {
+ 	ispblk_dma_set_sw_mode(ctx, ISP_BLK_ID_DMA_CTL4, false); //be_le_rdma_ctl
+ 	ispblk_dma_set_sw_mode(ctx, ISP_BLK_ID_DMA_CTL5, false); //be_se_rdma_ctl
+@@ -1191,7 +1192,7 @@ void _vi_dma_set_sw_mode(struct isp_ctx *ctx)
+ 	ispblk_dma_set_sw_mode(ctx, ISP_BLK_ID_DMA_CTL49, true); //ldci_iir_r
+ }
+ 
+-void _vi_yuv_get_dma_size(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
++static void _vi_yuv_get_dma_size(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
+ {
+ 	uint32_t bufsize_yuyv = 0;
+ 	uint8_t  i = 0;
+@@ -1217,7 +1218,7 @@ void _vi_yuv_get_dma_size(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
+ 	}
+ }
+ 
+-void _vi_pre_fe_get_dma_size(struct isp_ctx *ictx, enum cvi_isp_raw  raw_num)
++static void _vi_pre_fe_get_dma_size(struct isp_ctx *ictx, enum cvi_isp_raw  raw_num)
+ {
+ 	uint32_t bufsize = 0;
+ 	uint8_t  i = 0;
+@@ -1311,7 +1312,7 @@ EXIT:
+ 	return;
+ }
+ 
+-void _vi_pre_be_get_dma_size(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
++static void _vi_pre_be_get_dma_size(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
+ {
+ 	uint32_t bufsize = 0;
+ 	uint8_t  buf_num = 0;
+@@ -1370,7 +1371,7 @@ EXIT:
+ 	return;
+ }
+ 
+-void _vi_rawtop_get_dma_size(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
++static void _vi_rawtop_get_dma_size(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
+ {
+ 	uint32_t bufsize = 0;
+ 
+@@ -1427,7 +1428,7 @@ EXIT:
+ 	return;
+ }
+ 
+-void _vi_rgbtop_get_dma_size(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
++static void _vi_rgbtop_get_dma_size(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
+ {
+ 	uint32_t bufsize = 0;
+ 
+@@ -1496,7 +1497,7 @@ EXIT:
+ 	return;
+ }
+ 
+-void _vi_yuvtop_get_dma_size(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
++static void _vi_yuvtop_get_dma_size(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
+ {
+ 	uint32_t bufsize = 0;
+ 	uint64_t bufaddr = 0;
+@@ -1541,7 +1542,7 @@ EXIT:
+ 	return;
+ }
+ 
+-void _vi_get_dma_buf_size(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
++static void _vi_get_dma_buf_size(struct isp_ctx *ictx, enum cvi_isp_raw raw_max)
+ {
+ 	enum cvi_isp_raw raw_num = ISP_PRERAW_A;
+ 
+@@ -2154,11 +2155,11 @@ void usr_pic_time_remove(void)
+ {
+ #if (KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE)
+ 	if (timer_pending(&usr_pic_timer.t)) {
+-		del_timer_sync(&usr_pic_timer.t);
++		timer_delete_sync(&usr_pic_timer.t);
+ 		timer_setup(&usr_pic_timer.t, legacy_timer_emu_func, 0);
+ #else
+ 	if (timer_pending(&usr_pic_timer)) {
+-		del_timer_sync(&usr_pic_timer);
++		timer_delete_sync(&usr_pic_timer);
+ 		init_timer(&usr_pic_timer);
+ #endif
+ 	}
+@@ -2216,7 +2217,7 @@ void vi_event_queue(struct cvi_vi_dev *vdev, const u32 type, const u32 frm_num)
+ 	wake_up(&vdev->isp_event_wait_q);
+ }
+ 
+-void cvi_isp_dqbuf_list(struct cvi_vi_dev *vdev, const u32 frm_num, const u8 raw_id, const u8 chn_id)
++static void cvi_isp_dqbuf_list(struct cvi_vi_dev *vdev, const u32 frm_num, const u8 raw_id, const u8 chn_id)
+ {
+ 	unsigned long flags;
+ 	struct _isp_dqbuf_n *n;
+@@ -2236,7 +2237,7 @@ void cvi_isp_dqbuf_list(struct cvi_vi_dev *vdev, const u32 frm_num, const u8 raw
+ 	spin_unlock_irqrestore(&dq_lock, flags);
+ }
+ 
+-int vi_dqbuf(struct _vi_buffer *b)
++static int vi_dqbuf(struct _vi_buffer *b)
+ {
+ 	unsigned long flags;
+ 	struct _isp_dqbuf_n *n = NULL;
+@@ -2386,7 +2387,7 @@ static int _isp_yuv_bypass_trigger(struct cvi_vi_dev *vdev, const enum cvi_isp_r
+ 	return 0;
+ }
+ 
+-void _vi_postraw_ctrl_setup(struct cvi_vi_dev *vdev)
++static void _vi_postraw_ctrl_setup(struct cvi_vi_dev *vdev)
+ {
+ 	struct isp_ctx *ctx = &vdev->ctx;
+ 	u8 cfg_post = false;
+@@ -2406,7 +2407,7 @@ void _vi_postraw_ctrl_setup(struct cvi_vi_dev *vdev)
+ 	ispblk_isptop_config(ctx);
+ }
+ 
+-void _vi_pre_fe_ctrl_setup(enum cvi_isp_raw raw_num, struct cvi_vi_dev *vdev)
++static void _vi_pre_fe_ctrl_setup(enum cvi_isp_raw raw_num, struct cvi_vi_dev *vdev)
+ {
+ 	struct isp_ctx *ictx = &vdev->ctx;
+ 	u32 blc_le_id, blc_se_id, wbg_le_id, wbg_se_id;
+@@ -2477,7 +2478,7 @@ void _vi_pre_fe_ctrl_setup(enum cvi_isp_raw raw_num, struct cvi_vi_dev *vdev)
+ 	}
+ }
+ 
+-void _vi_ctrl_init(enum cvi_isp_raw raw_num, struct cvi_vi_dev *vdev)
++static void _vi_ctrl_init(enum cvi_isp_raw raw_num, struct cvi_vi_dev *vdev)
+ {
+ 	struct isp_ctx *ictx = &vdev->ctx;
+ 	enum cvi_isp_raw raw = ISP_PRERAW_A;
+@@ -2623,7 +2624,7 @@ void _vi_ctrl_init(enum cvi_isp_raw raw_num, struct cvi_vi_dev *vdev)
+ 	}
+ }
+ 
+-void _vi_scene_ctrl(struct cvi_vi_dev *vdev, enum cvi_isp_raw *raw_max)
++static void _vi_scene_ctrl(struct cvi_vi_dev *vdev, enum cvi_isp_raw *raw_max)
+ {
+ 	struct isp_ctx *ctx = &vdev->ctx;
+ 	enum cvi_isp_raw raw_num = ISP_PRERAW_A;
+@@ -2775,7 +2776,7 @@ void _vi_scene_ctrl(struct cvi_vi_dev *vdev, enum cvi_isp_raw *raw_max)
+ 			ctx->total_chn_num, ctx->rawb_chnstr_num);
+ }
+ 
+-void _viBWCalSet(struct cvi_vi_dev *vdev)
++static void _viBWCalSet(struct cvi_vi_dev *vdev)
+ {
+ 	struct isp_ctx *ctx = &vdev->ctx;
+ 	struct cvi_vi_ctx *pviProcCtx = NULL;
+@@ -4635,7 +4636,12 @@ void vi_destory_thread(struct cvi_vi_dev *vdev, enum E_VI_TH th_id)
+ 
+ int vi_create_thread(struct cvi_vi_dev *vdev, enum E_VI_TH th_id)
+ {
+-	struct sched_param param;
++	/* Preserve the vendor capture-thread priority for this kernel-owned task. */
++	struct sched_attr attr = {
++		.size = sizeof(attr),
++		.sched_policy = SCHED_FIFO,
++		.sched_priority = MAX_RT_PRIO - 10,
++	};
+ 	int rc = 0;
+ 
+ 	if (th_id < 0 || th_id >= E_VI_TH_MAX) {
+@@ -4643,7 +4649,6 @@ int vi_create_thread(struct cvi_vi_dev *vdev, enum E_VI_TH th_id)
+ 		return -1;
+ 	}
+ 
+-	param.sched_priority = MAX_USER_RT_PRIO - 10;
+ 
+ 	if (vdev->vi_th[th_id].w_thread == NULL) {
+ 		switch (th_id) {
+@@ -4676,10 +4681,17 @@ int vi_create_thread(struct cvi_vi_dev *vdev, enum E_VI_TH th_id)
+ 								vdev->vi_th[th_id].th_name);
+ 		if (IS_ERR(vdev->vi_th[th_id].w_thread)) {
+ 			pr_err("Unable to start %s.\n", vdev->vi_th[th_id].th_name);
+-			return -1;
++			rc = PTR_ERR(vdev->vi_th[th_id].w_thread);
++			vdev->vi_th[th_id].w_thread = NULL;
++			return rc;
+ 		}
+ 
+-		sched_setscheduler(vdev->vi_th[th_id].w_thread, SCHED_FIFO, &param);
++		rc = sched_setattr_nocheck(vdev->vi_th[th_id].w_thread, &attr);
++		if (rc) {
++			kthread_stop(vdev->vi_th[th_id].w_thread);
++			vdev->vi_th[th_id].w_thread = NULL;
++			return rc;
++		}
+ 
+ 		vdev->vi_th[th_id].flag = 0;
+ 		atomic_set(&vdev->vi_th[th_id].thread_exit, 0);
+@@ -5014,7 +5026,7 @@ EXIT:
+ }
+ #endif
+ 
+-void _vi_sdk_release(struct cvi_vi_dev *vdev)
++static void _vi_sdk_release(struct cvi_vi_dev *vdev)
+ {
+ 	u8 i = 0;
+ 
+@@ -5128,7 +5140,8 @@ static int ai_isp_resolve_cfg(struct cvi_vi_dev *vdev, ai_isp_cfg_t cfg)
+ 			}
+ 
+ 			if (cfg.param_size == sizeof(ai_isp_bnr_cfg_t)) {
+-				copy_from_user(&bnr_cfg, (void *)(uintptr_t)cfg.param_addr, cfg.param_size);
++				if (copy_from_user(&bnr_cfg, (void __user *)(uintptr_t)cfg.param_addr, cfg.param_size))
++					return -EFAULT;
+ 				ctx->isp_pipe_cfg[raw_num].is_rgbmap_ai_isp = bnr_cfg.ai_rgbmap;
+ 				vi_pr(VI_INFO, "is ai isp rgbmap %d\n", ctx->isp_pipe_cfg[raw_num].is_rgbmap_ai_isp);
+ 			} else {
+@@ -6998,7 +7011,7 @@ static void _vi_err_retrig_preraw(struct cvi_vi_dev *vdev, const enum cvi_isp_ra
+ 	}
+ }
+ 
+-void _vi_err_handler(struct cvi_vi_dev *vdev, const enum cvi_isp_raw err_raw_num)
++static void _vi_err_handler(struct cvi_vi_dev *vdev, const enum cvi_isp_raw err_raw_num)
+ {
+ 	struct isp_ctx *ctx = &vdev->ctx;
+ 	uintptr_t tnr = ctx->phys_regs[ISP_BLK_ID_TNR];
+@@ -7209,7 +7222,7 @@ static inline void vi_err_wake_up_th(struct cvi_vi_dev *vdev, enum cvi_isp_raw e
+ 	wake_up(&vdev->vi_th[E_VI_TH_ERR_HANDLER].wq);
+ }
+ 
+-u32 isp_err_chk(
++static u32 isp_err_chk(
+ 	struct cvi_vi_dev *vdev,
+ 	struct isp_ctx *ctx,
+ 	union REG_ISP_CSI_BDG_INTERRUPT_STATUS_0 cbdg_0_sts,
+diff --git a/interdrv/vi/chip/cv181x/vi.h b/interdrv/vi/chip/cv181x/vi.h
+index a534ba5..d8ad70d 100644
+--- a/interdrv/vi/chip/cv181x/vi.h
++++ b/interdrv/vi/chip/cv181x/vi.h
+@@ -13,7 +13,6 @@
+ #include <linux/poll.h>
+ #include <linux/sched/signal.h>
+ #include <linux/slab.h>
+-#include <linux/streamline_annotate.h>
+ #include <linux/version.h>
+ #if (KERNEL_VERSION(4, 11, 0) <= LINUX_VERSION_CODE)
+ #include <uapi/linux/sched/types.h>
+diff --git a/interdrv/vi/chip/cv181x/vi_interfaces.h b/interdrv/vi/chip/cv181x/vi_interfaces.h
+index 9f5159a..c5c9036 100644
+--- a/interdrv/vi/chip/cv181x/vi_interfaces.h
++++ b/interdrv/vi/chip/cv181x/vi_interfaces.h
+@@ -7,17 +7,6 @@
+ 
+ #include <base_cb.h>
+ 
+-const char * const clk_sys_name[] = {
+-	"clk_sys_0", "clk_sys_1", "clk_sys_2", "clk_sys_3"
+-};
+-const char * const clk_isp_name[] = {
+-	"clk_axi", "clk_csi_be", "clk_raw", "clk_isp_top"
+-};
+-const char * const clk_mac_name[] = {
+-	"clk_csi_mac0", "clk_csi_mac1", "clk_csi_mac2"
+-};
+-
+-
+ /*******************************************************
+  *  File operations for core
+  ******************************************************/
+diff --git a/interdrv/vi/chip/cv181x/vi_isp_buf_ctrl.h b/interdrv/vi/chip/cv181x/vi_isp_buf_ctrl.h
+index eafc7cd..648d868 100644
+--- a/interdrv/vi/chip/cv181x/vi_isp_buf_ctrl.h
++++ b/interdrv/vi/chip/cv181x/vi_isp_buf_ctrl.h
+@@ -13,7 +13,6 @@
+ #include <linux/poll.h>
+ #include <linux/sched/signal.h>
+ #include <linux/slab.h>
+-#include <linux/streamline_annotate.h>
+ #include <linux/version.h>
+ #include <uapi/linux/sched/types.h>
+ #include <linux/vi_tun_cfg.h>
+diff --git a/interdrv/vi/chip/cv181x/vi_sdk_layer.c b/interdrv/vi/chip/cv181x/vi_sdk_layer.c
+index 5035e0d..69cf333 100644
+--- a/interdrv/vi/chip/cv181x/vi_sdk_layer.c
++++ b/interdrv/vi/chip/cv181x/vi_sdk_layer.c
+@@ -125,7 +125,7 @@ int vi_sdk_qbuf(MMF_CHN_S chn)
+ 	return rc;
+ }
+ 
+-CVI_S32 vi_set_motion_lv(struct mlv_info_s *mlv_i)
++static CVI_S32 vi_set_motion_lv(struct mlv_info_s *mlv_i)
+ {
+ 	struct isp_ctx *ctx = &gvdev->ctx;
+ 
+@@ -174,7 +174,7 @@ void vi_fill_dis_info(struct vb_s *blk)
+ 	}
+ }
+ 
+-CVI_S32 vi_set_dis_info(struct dis_info_s dis_i)
++static CVI_S32 vi_set_dis_info(struct dis_info_s dis_i)
+ {
+ 	CVI_U32 frm_num = dis_i.frm_num;
+ 	CVI_U8 snr_num = dis_i.sensor_num;
+@@ -362,7 +362,7 @@ CVI_S32 vi_set_chn_attr(VI_PIPE ViPipe, VI_CHN ViChn, VI_CHN_ATTR_S *pstChnAttr)
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_set_dev_timing_attr(VI_DEV ViDev, const VI_DEV_TIMING_ATTR_S *pstTimingAttr)
++static CVI_S32 vi_set_dev_timing_attr(VI_DEV ViDev, const VI_DEV_TIMING_ATTR_S *pstTimingAttr)
+ {
+ 	gViCtx->stTimingAttr[ViDev] = *pstTimingAttr;
+ 	stTimingAttr[ViDev] = *pstTimingAttr;
+@@ -382,7 +382,7 @@ CVI_S32 vi_set_dev_timing_attr(VI_DEV ViDev, const VI_DEV_TIMING_ATTR_S *pstTimi
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_get_dev_timing_attr(VI_DEV ViDev, VI_DEV_TIMING_ATTR_S *pstTimingAttr)
++static CVI_S32 vi_get_dev_timing_attr(VI_DEV ViDev, VI_DEV_TIMING_ATTR_S *pstTimingAttr)
+ {
+ 	if (gViCtx->isDevEnable[ViDev] == CVI_FALSE) {
+ 		vi_pr(VI_ERR, "EnableDev first\n");
+@@ -394,7 +394,7 @@ CVI_S32 vi_get_dev_timing_attr(VI_DEV ViDev, VI_DEV_TIMING_ATTR_S *pstTimingAttr
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_set_pipe_frame_source(VI_PIPE ViPipe, const VI_PIPE_FRAME_SOURCE_E enSource)
++static CVI_S32 vi_set_pipe_frame_source(VI_PIPE ViPipe, const VI_PIPE_FRAME_SOURCE_E enSource)
+ {
+ 	gViCtx->enSource[ViPipe] = enSource;
+ 	gvdev->isp_source = (u32)enSource;
+@@ -408,7 +408,7 @@ CVI_S32 vi_set_pipe_frame_source(VI_PIPE ViPipe, const VI_PIPE_FRAME_SOURCE_E en
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_send_pipe_raw(VI_PIPE PipeId, const VIDEO_FRAME_INFO_S *pstVideoFrame)
++static CVI_S32 vi_send_pipe_raw(VI_PIPE PipeId, const VIDEO_FRAME_INFO_S *pstVideoFrame)
+ {
+ 	struct isp_ctx *ctx = &gvdev->ctx;
+ 	u64 phy_addr;
+@@ -603,7 +603,7 @@ CVI_S32 vi_disable_chn(VI_CHN ViChn)
+ 	return rc;
+ }
+ 
+-CVI_S32 vi_get_chn_frame(VI_PIPE ViPipe, VI_CHN ViChn, VIDEO_FRAME_INFO_S *pstFrameInfo, CVI_S32 s32MilliSec)
++static CVI_S32 vi_get_chn_frame(VI_PIPE ViPipe, VI_CHN ViChn, VIDEO_FRAME_INFO_S *pstFrameInfo, CVI_S32 s32MilliSec)
+ {
+ 	VB_BLK blk;
+ 	struct vb_s *vb;
+@@ -652,7 +652,7 @@ CVI_S32 vi_get_chn_frame(VI_PIPE ViPipe, VI_CHN ViChn, VIDEO_FRAME_INFO_S *pstFr
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_release_chn_frame(VI_PIPE ViPipe, VI_CHN ViChn, VIDEO_FRAME_INFO_S *pstFrameInfo)
++static CVI_S32 vi_release_chn_frame(VI_PIPE ViPipe, VI_CHN ViChn, VIDEO_FRAME_INFO_S *pstFrameInfo)
+ {
+ 	VB_BLK blk;
+ 
+@@ -672,7 +672,7 @@ CVI_S32 vi_release_chn_frame(VI_PIPE ViPipe, VI_CHN ViChn, VIDEO_FRAME_INFO_S *p
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_set_chn_crop(VI_PIPE ViPipe, VI_CHN ViChn, VI_CROP_INFO_S *pstChnCrop)
++static CVI_S32 vi_set_chn_crop(VI_PIPE ViPipe, VI_CHN ViChn, VI_CROP_INFO_S *pstChnCrop)
+ {
+ 	struct isp_ctx *ctx = &gvdev->ctx;
+ 	struct vi_rect crop;
+@@ -696,14 +696,14 @@ CVI_S32 vi_set_chn_crop(VI_PIPE ViPipe, VI_CHN ViChn, VI_CROP_INFO_S *pstChnCrop
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_get_chn_crop(VI_PIPE ViPipe, VI_CHN ViChn, VI_CROP_INFO_S *pstChnCrop)
++static CVI_S32 vi_get_chn_crop(VI_PIPE ViPipe, VI_CHN ViChn, VI_CROP_INFO_S *pstChnCrop)
+ {
+ 	*pstChnCrop = gViCtx->chnCrop[ViChn];
+ 
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_set_pipe_attr(VI_PIPE ViPipe, VI_PIPE_ATTR_S *pstPipeAttr)
++static CVI_S32 vi_set_pipe_attr(VI_PIPE ViPipe, VI_PIPE_ATTR_S *pstPipeAttr)
+ {
+ 	if (gViCtx->isPipeCreated[ViPipe] == CVI_FALSE) {
+ 		vi_pr(VI_WARN, "Pipe(%d) is stop\n", ViPipe);
+@@ -715,7 +715,7 @@ CVI_S32 vi_set_pipe_attr(VI_PIPE ViPipe, VI_PIPE_ATTR_S *pstPipeAttr)
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_get_pipe_attr(VI_PIPE ViPipe, VI_PIPE_ATTR_S *pstPipeAttr)
++static CVI_S32 vi_get_pipe_attr(VI_PIPE ViPipe, VI_PIPE_ATTR_S *pstPipeAttr)
+ {
+ 	if (gViCtx->isPipeCreated[ViPipe] == CVI_FALSE) {
+ 		vi_pr(VI_WARN, "Pipe(%d) is stop\n", ViPipe);
+@@ -733,7 +733,7 @@ CVI_S32 vi_get_pipe_attr(VI_PIPE ViPipe, VI_PIPE_ATTR_S *pstPipeAttr)
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_set_pipe_dump_attr(VI_PIPE ViPipe, VI_DUMP_ATTR_S *pstDumpAttr)
++static CVI_S32 vi_set_pipe_dump_attr(VI_PIPE ViPipe, VI_DUMP_ATTR_S *pstDumpAttr)
+ {
+ 	if (gViCtx->isPipeCreated[ViPipe] == CVI_FALSE) {
+ 		vi_pr(VI_WARN, "Pipe(%d) is stop\n", ViPipe);
+@@ -745,7 +745,7 @@ CVI_S32 vi_set_pipe_dump_attr(VI_PIPE ViPipe, VI_DUMP_ATTR_S *pstDumpAttr)
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_get_pipe_dump_attr(VI_PIPE ViPipe, VI_DUMP_ATTR_S *pstDumpAttr)
++static CVI_S32 vi_get_pipe_dump_attr(VI_PIPE ViPipe, VI_DUMP_ATTR_S *pstDumpAttr)
+ {
+ 	if (gViCtx->isPipeCreated[ViPipe] == CVI_FALSE) {
+ 		vi_pr(VI_WARN, "Pipe(%d) is stop\n", ViPipe);
+@@ -757,7 +757,7 @@ CVI_S32 vi_get_pipe_dump_attr(VI_PIPE ViPipe, VI_DUMP_ATTR_S *pstDumpAttr)
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_get_pipe_frame(VI_PIPE ViPipe, VIDEO_FRAME_INFO_S *pstFrameInfo, CVI_S32 s32MilliSec)
++static CVI_S32 vi_get_pipe_frame(VI_PIPE ViPipe, VIDEO_FRAME_INFO_S *pstFrameInfo, CVI_S32 s32MilliSec)
+ {
+ 	CVI_S32 ret;
+ 	struct cvi_vip_isp_raw_blk dump[2];
+@@ -967,7 +967,7 @@ CVI_S32 vi_get_pipe_frame(VI_PIPE ViPipe, VIDEO_FRAME_INFO_S *pstFrameInfo, CVI_
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_release_pipe_frame(VI_PIPE ViPipe, VIDEO_FRAME_INFO_S *pstFrameInfo)
++static CVI_S32 vi_release_pipe_frame(VI_PIPE ViPipe, VIDEO_FRAME_INFO_S *pstFrameInfo)
+ {
+ 	u8 i = 0;
+ 
+@@ -988,7 +988,7 @@ CVI_S32 vi_release_pipe_frame(VI_PIPE ViPipe, VIDEO_FRAME_INFO_S *pstFrameInfo)
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_get_smooth_rawdump(VI_PIPE ViPipe, VIDEO_FRAME_INFO_S *pstFrameInfo, CVI_S32 s32MilliSec)
++static CVI_S32 vi_get_smooth_rawdump(VI_PIPE ViPipe, VIDEO_FRAME_INFO_S *pstFrameInfo, CVI_S32 s32MilliSec)
+ {
+ 	CVI_S32 ret;
+ 	struct cvi_vip_isp_raw_blk dump[2];
+@@ -1046,7 +1046,7 @@ CVI_S32 vi_get_smooth_rawdump(VI_PIPE ViPipe, VIDEO_FRAME_INFO_S *pstFrameInfo,
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_put_smooth_rawdump(VI_PIPE ViPipe, VIDEO_FRAME_INFO_S *pstFrameInfo)
++static CVI_S32 vi_put_smooth_rawdump(VI_PIPE ViPipe, VIDEO_FRAME_INFO_S *pstFrameInfo)
+ {
+ 	CVI_S32 ret;
+ 	struct cvi_vip_isp_raw_blk dump[2];
+@@ -1122,14 +1122,14 @@ static CVI_S32 _vi_update_ldc_mesh(VPSS_CHN ViChn, const VI_LDC_ATTR_S *pstLDCAt
+ }
+ 
+ 
+-CVI_S32 vi_set_chn_rotation(VI_CHN ViChn, ROTATION_E enRotation)
++static CVI_S32 vi_set_chn_rotation(VI_CHN ViChn, ROTATION_E enRotation)
+ {
+ 	vi_pr(VI_DBG, "Chn(%d) rotation(%d).\n", ViChn, enRotation);
+ 
+ 	return _vi_update_rotation_mesh(ViChn, enRotation);
+ }
+ 
+-CVI_S32 vi_set_chn_ldc_attr(VI_CHN ViChn, ROTATION_E enRotation,
++static CVI_S32 vi_set_chn_ldc_attr(VI_CHN ViChn, ROTATION_E enRotation,
+ 	const VI_LDC_ATTR_S *pstLDCAttr, CVI_U64 mesh_addr)
+ {
+ 	vi_pr(VI_DBG, "Chn(%d) mesh base(0x%llx)\n", ViChn, (unsigned long long)mesh_addr);
+@@ -1137,7 +1137,7 @@ CVI_S32 vi_set_chn_ldc_attr(VI_CHN ViChn, ROTATION_E enRotation,
+ 	return _vi_update_ldc_mesh(ViChn, pstLDCAttr, enRotation, mesh_addr);
+ }
+ 
+-CVI_S32 vi_attach_vb_pool(VI_PIPE ViPipe, VI_CHN ViChn, VB_POOL VbPool)
++static CVI_S32 vi_attach_vb_pool(VI_PIPE ViPipe, VI_CHN ViChn, VB_POOL VbPool)
+ {
+ 	gViCtx->chnAttr[ViChn].u32BindVbPool = VbPool;
+ 
+@@ -1146,7 +1146,7 @@ CVI_S32 vi_attach_vb_pool(VI_PIPE ViPipe, VI_CHN ViChn, VB_POOL VbPool)
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 vi_detach_vb_pool(VI_PIPE ViPipe, VI_CHN ViChn)
++static CVI_S32 vi_detach_vb_pool(VI_PIPE ViPipe, VI_CHN ViChn)
+ {
+ 	gViCtx->chnAttr[ViChn].u32BindVbPool = VB_INVALID_POOLID;
+ 
+diff --git a/interdrv/vi/chip/cv181x/vip/vi_drv.c b/interdrv/vi/chip/cv181x/vip/vi_drv.c
+index fda9885..f168281 100644
+--- a/interdrv/vi/chip/cv181x/vip/vi_drv.c
++++ b/interdrv/vi/chip/cv181x/vip/vi_drv.c
+@@ -1349,37 +1349,6 @@ void ispblk_blc_enable(struct isp_ctx *ctx, int blc_id, bool en, bool bypass)
+ 	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_2, BLC_ENABLE, en);
+ }
+ 
+-int ispblk_blc_config(struct isp_ctx *ctx, uint32_t blc_id, bool en, bool bypass)
+-{
+-	int id = blc_find_hwid(blc_id);
+-	uintptr_t blc;
+-
+-	if (id < 0)
+-		return -1;
+-
+-	blc = ctx->phys_regs[id];
+-
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_0, BLC_BYPASS, bypass);
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_2, BLC_ENABLE, en);
+-
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_3, BLC_OFFSET_R, 511);
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_3, BLC_OFFSET_GR, 511);
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_4, BLC_OFFSET_GB, 511);
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_4, BLC_OFFSET_B, 511);
+-
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_5, BLC_GAIN_R, 0x40f);
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_5, BLC_GAIN_GR, 0x419);
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_6, BLC_GAIN_GB, 0x419);
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_6, BLC_GAIN_B, 0x405);
+-
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_9, BLC_2NDOFFSET_R, 0);
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_9, BLC_2NDOFFSET_GR, 0);
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_A, BLC_2NDOFFSET_GB, 0);
+-	ISP_WR_BITS(blc, REG_ISP_BLC_T, BLC_A, BLC_2NDOFFSET_B, 0);
+-
+-	return 0;
+-}
+-
+ int wbg_find_hwid(int id)
+ {
+ 	int wbg_id = -1;
+@@ -1468,7 +1437,7 @@ void isp_first_frm_reset(struct isp_ctx *ctx, uint8_t reset)
+ 	ISP_WR_BITS(tnr, REG_ISP_444_422_T, REG_8, FORCE_DMA_DISABLE, reset ? 0x3F : 0);
+ }
+ 
+-void _ispblk_isptop_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
++static void _ispblk_isptop_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
+ {
+ 	uintptr_t isptopb = ctx->phys_regs[ISP_BLK_ID_ISPTOP];
+ 	union REG_ISP_TOP_SCENARIOS_CTRL scene_ctrl;
+@@ -1510,37 +1479,7 @@ void _ispblk_isptop_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_n
+ 	ISP_WR_REG(isptopb, REG_ISP_TOP_T, SCENARIOS_CTRL, scene_ctrl.raw);
+ }
+ 
+-void _ispblk_be_yuv_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
+-{
+-	uintptr_t preraw_be = ctx->phys_regs[ISP_BLK_ID_PRE_RAW_BE];
+-	uintptr_t vi_sel = ctx->phys_regs[ISP_BLK_ID_PRE_RAW_VI_SEL];
+-	uintptr_t af = ctx->phys_regs[ISP_BLK_ID_AF];
+-
+-	if (!_is_be_post_online(ctx))
+-		return;
+-
+-	if (ctx->isp_pipe_cfg[raw_num].is_yuv_bypass_path) { //YUV sensor
+-		//Disable af dma
+-		ISP_WR_BITS(af, REG_ISP_AF_T, KICKOFF, AF_ENABLE, 0);
+-		ISP_WR_BITS(af, REG_ISP_AF_T, DMI_ENABLE, DMI_ENABLE, 0);
+-		//dpcm off
+-		ISP_WR_BITS(vi_sel, REG_PRE_RAW_VI_SEL_T, REG_0, DMA_LD_DPCM_MODE, 0);
+-		ISP_WR_BITS(vi_sel, REG_PRE_RAW_VI_SEL_T, REG_0, DPCM_RX_XSTR, 0);
+-	} else { //RGB sensor
+-		if (ctx->is_dpcm_on) {
+-			ISP_WR_BITS(vi_sel, REG_PRE_RAW_VI_SEL_T, REG_0, DMA_LD_DPCM_MODE, 7);
+-			ISP_WR_BITS(vi_sel, REG_PRE_RAW_VI_SEL_T, REG_0, DPCM_RX_XSTR, 8191);
+-		}
+-	}
+-
+-	ISP_WR_BITS(vi_sel, REG_PRE_RAW_VI_SEL_T, REG_1, FRAME_WIDTHM1, ctx->img_width - 1);
+-	ISP_WR_BITS(vi_sel, REG_PRE_RAW_VI_SEL_T, REG_1, FRAME_HEIGHTM1, ctx->img_height - 1);
+-
+-	ISP_WR_BITS(preraw_be, REG_PRE_RAW_BE_T, IMG_SIZE_LE, FRAME_WIDTHM1, ctx->img_width - 1);
+-	ISP_WR_BITS(preraw_be, REG_PRE_RAW_BE_T, IMG_SIZE_LE, FRAME_HEIGHTM1, ctx->img_height - 1);
+-}
+-
+-void _ispblk_rawtop_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
++static void _ispblk_rawtop_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
+ {
+ 	uintptr_t rawtop = ctx->phys_regs[ISP_BLK_ID_RAWTOP];
+ 	uintptr_t raw_rdma = ctx->phys_regs[ISP_BLK_ID_RAW_RDMA];
+@@ -1628,7 +1567,7 @@ void _ispblk_rawtop_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_n
+ 	ISP_WR_BITS(rawtop, REG_RAW_TOP_T, RAW_2, IMG_HEIGHTM1, ctx->img_height - 1);
+ }
+ 
+-void _ispblk_rgbtop_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
++static void _ispblk_rgbtop_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
+ {
+ 	uintptr_t rgbtop = ctx->phys_regs[ISP_BLK_ID_RGBTOP];
+ 	uintptr_t manr = ctx->phys_regs[ISP_BLK_ID_MMAP];
+@@ -1657,7 +1596,7 @@ void _ispblk_rgbtop_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_n
+ 	ISP_WR_BITS(rgbtop, REG_ISP_RGB_TOP_T, REG_9, RGBTOP_IMGH_M1, ctx->img_height - 1);
+ }
+ 
+-void _ispblk_yuvtop_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
++static void _ispblk_yuvtop_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
+ {
+ 	uintptr_t yuvtop = ctx->phys_regs[ISP_BLK_ID_YUVTOP];
+ 	uintptr_t tnr = ctx->phys_regs[ISP_BLK_ID_TNR];
+@@ -1743,7 +1682,7 @@ void ispblk_post_yuv_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_
+ 	_ispblk_yuvtop_cfg_update(ctx, raw_num);
+ }
+ 
+-void _ispblk_lsc_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
++static void _ispblk_lsc_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
+ {
+ 	uintptr_t lsc = ctx->phys_regs[ISP_BLK_ID_LSC];
+ 
+@@ -1773,7 +1712,7 @@ void _ispblk_lsc_cfg_update(struct isp_ctx *ctx, const enum cvi_isp_raw raw_num)
+ 	ISP_WR_REG(lsc, REG_ISP_LSC_T, LSC_INITY0, reg_lsc_imgy0);
+ }
+ 
+-void _ispblk_ldci_cfg_update(struct isp_ctx *ctx)
++static void _ispblk_ldci_cfg_update(struct isp_ctx *ctx)
+ {
+ 	uintptr_t ldci = ctx->phys_regs[ISP_BLK_ID_LDCI];
+ 	union REG_ISP_LDCI_BLK_SIZE_X          blk_size_x;
+@@ -2249,7 +2188,7 @@ void isp_slice_buf_trig(struct isp_ctx *ctx, enum cvi_isp_raw raw_num)
+ 	}
+ }
+ 
+-void _ispblk_dma_slice_config(struct isp_ctx *ctx, int dmaid, int en)
++static void _ispblk_dma_slice_config(struct isp_ctx *ctx, int dmaid, int en)
+ {
+ 	uintptr_t dmab = ctx->phys_regs[dmaid];
+ 
+diff --git a/interdrv/vi/chip/cv181x/vip/vi_perf_chk.c b/interdrv/vi/chip/cv181x/vip/vi_perf_chk.c
+index 9a929e4..82d0572 100644
+--- a/interdrv/vi/chip/cv181x/vip/vi_perf_chk.c
++++ b/interdrv/vi/chip/cv181x/vip/vi_perf_chk.c
+@@ -1,4 +1,5 @@
+ #include <vi_defines.h>
++#include "vi_perf_chk.h"
+ #include <linux/math64.h>
+ 
+ // #define ISP_PERF_MEASURE
+diff --git a/interdrv/vi/chip/cv181x/vip/vi_tun_ip_ctrl.c b/interdrv/vi/chip/cv181x/vip/vi_tun_ip_ctrl.c
+index 887d96d..89edd24 100644
+--- a/interdrv/vi/chip/cv181x/vip/vi_tun_ip_ctrl.c
++++ b/interdrv/vi/chip/cv181x/vip/vi_tun_ip_ctrl.c
+@@ -1043,7 +1043,7 @@ void ispblk_bnr_tun_cfg(
+ 	ISP_WO_BITS(bnr, REG_ISP_BNR_T, SHADOW_RD_SEL, SHADOW_RD_SEL, 1);
+ }
+ 
+-void ispblk_clut_partial_update(
++static void ispblk_clut_partial_update(
+ 	struct isp_ctx *ctx,
+ 	struct cvi_vip_isp_clut_config *cfg,
+ 	const enum cvi_isp_raw raw_num)
+diff --git a/interdrv/vi/common/vi_common.h b/interdrv/vi/common/vi_common.h
+index 9942711..806b963 100644
+--- a/interdrv/vi/common/vi_common.h
++++ b/interdrv/vi/common/vi_common.h
+@@ -8,6 +8,7 @@
+ #include <linux/clk.h>
+ #include <linux/debugfs.h>
+ #include <linux/io.h>
++#include <linux/minmax.h>
+ 
+ 
+ #ifdef PORTING_TEST
+@@ -30,8 +31,6 @@ extern int vi_dump_reg;
+ 	}
+ #endif
+ 
+-#define MIN(a, b) (((a) < (b))?(a):(b))
+-#define MAX(a, b) (((a) > (b))?(a):(b))
+ #define VI_64_ALIGN(x) (((x) + 0x3F) & ~0x3F)   // for 64byte alignment
+ #define VI_256_ALIGN(x) (((x) + 0xFF) & ~0xFF)   // for 256byte alignment
+ #define VI_ALIGN(x) (((x) + 0xF) & ~0xF)   // for 16byte alignment
+diff --git a/interdrv/vi/common/vi_core.c b/interdrv/vi/common/vi_core.c
+index 7f2a3a7..d1de692 100644
+--- a/interdrv/vi/common/vi_core.c
++++ b/interdrv/vi/common/vi_core.c
+@@ -1,6 +1,19 @@
+ #include <vi_core.h>
+ #include <base_cb.h>
+ 
++static const char * const clk_sys_name[] = {
++	"clk_sys_0", "clk_sys_1", "clk_sys_2", "clk_sys_3"
++};
++static const char * const clk_isp_name[] = {
++	"clk_axi", "clk_csi_be", "clk_raw", "clk_isp_top"
++};
++static const char * const clk_mac_name[] = {
++	"clk_csi_mac0", "clk_csi_mac1", "clk_csi_mac2"
++};
++
++
++
++
+ #define CVI_VI_IRQ_NAME            "isp"
+ #define CVI_VI_CLASS_NAME          "cvi-vi"
+ #define CVI_VI_DEV_NAME            "cvi-vi"
+@@ -66,7 +79,7 @@ const struct file_operations vi_fops = {
+ 	.poll = vi_core_poll,
+ };
+ 
+-int vi_core_cb(void *dev, enum ENUM_MODULES_ID caller, u32 cmd, void *arg)
++static int vi_core_cb(void *dev, enum ENUM_MODULES_ID caller, u32 cmd, void *arg)
+ {
+ 	return vi_cb(dev, caller, cmd, arg);
+ }
+@@ -101,7 +114,7 @@ static int vi_core_register_cdev(struct cvi_vi_dev *dev)
+ 	struct device *dev_t;
+ 	int err = 0;
+ 
+-	dev->vi_class = class_create(THIS_MODULE, CVI_VI_CLASS_NAME);
++	dev->vi_class = class_create(CVI_VI_CLASS_NAME);
+ 	if (IS_ERR(dev->vi_class)) {
+ 		dev_err(dev->dev, "create class failed\n");
+ 		return PTR_ERR(dev->vi_class);
+@@ -253,7 +266,7 @@ err_req_irq:
+ 	return ret;
+ }
+ 
+-static int vi_core_remove(struct platform_device *pdev)
++static void vi_core_remove(struct platform_device *pdev)
+ {
+ 	int ret = 0;
+ 
+@@ -280,7 +293,6 @@ static int vi_core_remove(struct platform_device *pdev)
+ err_destroy_instance:
+ 	vi_pr(VI_INFO, "%s -\n", __func__);
+ 
+-	return ret;
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
+diff --git a/interdrv/vi/common/vi_core.h b/interdrv/vi/common/vi_core.h
+index a75420b..972ffbc 100644
+--- a/interdrv/vi/common/vi_core.h
++++ b/interdrv/vi/common/vi_core.h
+@@ -20,7 +20,6 @@
+ #include <linux/pm_qos.h>
+ #include <linux/slab.h>
+ #include <linux/spinlock.h>
+-#include <linux/streamline_annotate.h>
+ #include <linux/version.h>
+ #if (KERNEL_VERSION(4, 11, 0) <= LINUX_VERSION_CODE)
+ #include <uapi/linux/sched/types.h>
+-- 
+2.43.0
+

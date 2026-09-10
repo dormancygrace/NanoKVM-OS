@@ -1,0 +1,206 @@
+#!/bin/bash
+
+export MAIXCDK_PATH="${MAIXCDK_PATH:-$HOME/MaixCDK}"
+export NanoKVM_PATH="${NanoKVM_PATH:-$HOME/NanoKVM}"
+
+Project_Name="None"
+Project_PATH="None"
+Project_Action="None"
+KVMAPP_PATH="$NanoKVM_PATH/kvmapp"
+
+maixcdk_build() {
+  local input_value="$1"
+
+  DIST_PATH="./dist"
+  rm -rf $DIST_PATH
+  
+  if [ "$input_value" = "from_zero" ]
+  then
+    maixcdk build -p maixcam
+  else
+    maixcdk build
+  fi
+}
+
+chack_build(){
+  DIST_PATH="./dist"  
+  if [ -d "$DIST_PATH" ]
+  then
+    echo "SUCCESS"
+  else
+    echo "FAILURE"
+  fi
+}
+
+maixcdk_clean(){
+  maixcdk distclean
+  maixcdk clean
+}
+
+sync_component(){
+  local source="$1"
+  local target="$2"
+
+  case "$target" in
+    "$MAIXCDK_PATH"/components/*) ;;
+    *)
+      echo "Refusing to replace component outside MaixCDK: $target" >&2
+      exit 1
+    ;;
+  esac
+
+  rm -rf -- "$target"
+  cp -rf -- "$source" "$target"
+}
+
+case "$1" in
+  update_lib)
+    # This script does not run under "set -e", and a release build relies on
+    # update_lib to guarantee the SDK components match the source tree. A copy
+    # that fails silently here would produce stale libraries, so fail loudly.
+    set -e
+    sync_component "$NanoKVM_PATH/support/sg2002/additional/kvm" "$MAIXCDK_PATH/components/kvm"
+    sync_component "$NanoKVM_PATH/support/sg2002/additional/kvm_mmf" "$MAIXCDK_PATH/components/kvm_mmf"
+    sync_component "$NanoKVM_PATH/support/sg2002/additional/vision" "$MAIXCDK_PATH/components/vision"
+    cp -f $NanoKVM_PATH/support/sg2002/additional/peripheral/port/maixcam/maix_i2c.cpp $MAIXCDK_PATH/components/peripheral/port/maixcam/maix_i2c.cpp
+    cp -f $NanoKVM_PATH/support/sg2002/additional/sophgo-middleware/v2/sample/common/sample_common_sensor.c $MAIXCDK_PATH/components/3rd_party/sophgo-middleware/sophgo-middleware/v2/sample/common/
+
+    echo -e "\e[36m[build] \e[32mupdate_lib ok!\e[0m"
+    exit 0
+  ;;
+  kvm_system)
+    Project_Name="kvm_system"
+    Project_PATH="$NanoKVM_PATH/support/sg2002/kvm_system"
+    echo -e "\e[36m[build] \e[32mProject: kvm_system \e[0m"
+  ;;
+  kvm_vision)
+    Project_Name="kvm_vision"
+    Project_PATH="$NanoKVM_PATH/support/sg2002/kvm_vision_test"
+    echo -e "\e[36m[build] \e[32mProject: kvm_vision \e[0m"
+  ;;
+  *)
+    echo -e "\e[36m[build] \e[31mInvalid project name \e[0m"
+    echo -e "\e[36m[build] \e[32mPlease select a project:\e[0m"
+    echo -e "0: kvm_system"
+    echo -e "1: kvm_vision"
+    while true; do
+      read -p "Please enter 0 or 1 : " input
+      if [[ "$input" -eq 0 ]]
+      then
+        Project_Name="kvm_system"
+        Project_PATH="$NanoKVM_PATH/support/sg2002/kvm_system"
+        break
+      elif [[ "$input" -eq 1 ]]
+      then
+        Project_Name="kvm_vision"
+        Project_PATH="$NanoKVM_PATH/support/sg2002/kvm_vision_test"
+        break
+      else
+        echo -e "\e[36m[build] \e[31mInvalid Index \e[0m"
+      fi
+    done
+esac
+
+if [ -z "$2" ]
+then
+    Project_Action="build"
+else
+    Project_Action=$2
+fi
+
+if [ ! "$Project_Name" = "None" ]
+then
+  case "$Project_Action" in
+    build)
+      # echo -e "\e[36m[build] \e[32mStart using MaixCDK to compile kvm_system...\e[0m"
+
+      JSON_PATH="$Project_PATH/build/config/project_vars.json"
+      Platform_Char="\"PLATFORM\": \"maixcam\""
+      SDK_Char="\"SDK_PATH\": \"$MAIXCDK_PATH\""
+
+      if [ ! -e "$MAIXCDK_PATH/components/kvm" ]
+      then
+        echo -e "\e[36m[build] \e[32mDetected that the library has not been modified; first, move the library\e[0m"
+        
+        mkdir $NanoKVM_PATH/support/sg2002/additional/original
+        mv -f $MAIXCDK_PATH/components/vision $NanoKVM_PATH/support/sg2002/additional/original
+        # mv $MAIXCDK_PATH/components/maixcam_lib $NanoKVM_PATH/support/sg2002/additional/original
+        mv -f $MAIXCDK_PATH/components/peripheral/port/maixcam/maix_i2c.cpp $NanoKVM_PATH/support/sg2002/additional/original
+        mv -f $MAIXCDK_PATH/components/3rd_party/sophgo-middleware/sophgo-middleware/v2/sample/common/sample_common_sensor.c $NanoKVM_PATH/support/sg2002/additional/original
+      
+        cp -rf $NanoKVM_PATH/support/sg2002/additional/kvm $MAIXCDK_PATH/components
+        cp -rf $NanoKVM_PATH/support/sg2002/additional/kvm_mmf $MAIXCDK_PATH/components
+        cp -rf $NanoKVM_PATH/support/sg2002/additional/vision $MAIXCDK_PATH/components
+        cp -f $NanoKVM_PATH/support/sg2002/additional/peripheral/port/maixcam/maix_i2c.cpp $MAIXCDK_PATH/components/peripheral/port/maixcam/maix_i2c.cpp
+        cp -f $NanoKVM_PATH/support/sg2002/additional/sophgo-middleware/v2/sample/common/sample_common_sensor.c $MAIXCDK_PATH/components/3rd_party/sophgo-middleware/sophgo-middleware/v2/sample/common/
+
+        echo -e "\e[36m[build] \e[32mMove the library completed!\e[0m"
+      fi
+
+      cd $Project_PATH
+      if [ -f $JSON_PATH ]
+      then
+        if grep -Fq "$Platform_Char" "$JSON_PATH" &&
+           grep -Fq "$SDK_Char" "$JSON_PATH"; then
+          maixcdk_build
+        else
+          maixcdk_clean
+          maixcdk_build "from_zero"
+        fi
+      else
+        maixcdk_build "from_zero"
+      fi
+
+      RES=$(chack_build)
+      
+      if [ "$RES" = "SUCCESS" ]
+      then
+        echo -e "\e[36m[build] \e[32mBuild completed! Use \e[34m./build $Project_Name add_to_kvmapp\e[32m to add it to kvmapp.\e[0m"
+      else
+        echo -e "\e[36m[build] \e[31mBuild Error!\e[0m"
+        exit 1
+      fi
+    ;;
+    clean)
+      cd $Project_PATH
+      maixcdk_clean
+      echo -e "\e[36m[build] \e[32m$Project_Name cleanup completed!\e[0m"
+    ;;
+    add_to_kvmapp)
+      if [ "$Project_Name" = "kvm_system" ]
+      then
+        SOURCE_PATH="$Project_PATH/dist/kvm_system_release/kvm_system"
+        TARGET_PATH="$KVMAPP_PATH/kvm_system"
+        chmod +x $SOURCE_PATH
+      else
+        SOURCE_PATH="$Project_PATH/dist/kvm_vision_test_release/dl_lib"
+        TARGET_PATH="$KVMAPP_PATH/server/"
+      fi
+      if [ ! -d $TARGET_PATH ]
+      then
+        mkdir -p $TARGET_PATH
+      fi
+      if [ -e $SOURCE_PATH ]
+      then
+        cp -rf $SOURCE_PATH $TARGET_PATH
+        if [ "$Project_Name" = "kvm_system" ]
+        then
+          echo -e "\e[36m[build] \e[32mkvm_system has been moved to kvmapp.\e[0m"
+        else
+          echo -e "\e[36m[build] \e[32mkvm_vision has been moved to kvmapp.\e[0m"
+        fi
+        
+      else
+        echo -e "\e[36m[build] \e[31mThe source file does not exist. Please compile using \e[34m./build kvm_system \e[31mfirst.\e[0m"
+        exit 1
+      fi
+    ;;
+    *)
+      echo -e "\e[36m[build] \e[31mInvalid Action: \e[34m$2 \e[0m"
+      echo -e "\e[36m[build] \e[31mUsage: $0 [Project Name]{kvm_system|kvm_vision} [Action]{-/build|clean|add_to_kvmapp} e.g. \e[34m./build kvm_system clean \e[0m"
+      exit 1
+  esac
+else
+  echo -e "\e[36m[build] \e[31mInvalid Name \e[0m"
+  exit 1
+fi

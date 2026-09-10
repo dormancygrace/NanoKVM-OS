@@ -1,0 +1,234 @@
+--- a/drivers/staging/android/ion/ion_carveout_heap.c
++++ b/drivers/staging/android/ion/ion_carveout_heap.c
+@@ -14,6 +14,9 @@
+ #include <linux/slab.h>
+ #include <linux/vmalloc.h>
+ #include <linux/of.h>
++#include <linux/cma.h>
++#include <linux/bitmap.h>
++#include <linux/dma-map-ops.h>
+ #include "ion.h"
+ 
+ #define ION_CARVEOUT_ALLOCATE_FAIL	-1
+@@ -22,14 +25,77 @@
+ 	struct ion_heap heap;
+ 	struct gen_pool *pool;
+ 	phys_addr_t base;
++#ifdef CONFIG_DMA_CMA
++	struct cma *cma;
++	unsigned long *allocated;
++	unsigned long nr_pages;
++	spinlock_t bitmap_lock;
++#endif
+ };
++
++/* Keep the CVITEK carveout ABI, but lend unused pages to Linux through CMA.
++ * The bitmap tracks ION ownership only. Free runs are reclaimable upper
++ * bounds: migration can fail or take time, so they are not reservations. */
++bool ion_carveout_cma_state(struct ion_heap *heap, u64 *total, u64 *free,
++			   u64 *largest)
++{
++#ifdef CONFIG_DMA_CMA
++	struct ion_carveout_heap *h = container_of(heap, struct ion_carveout_heap, heap);
++	unsigned long start = 0, end, available = 0, maximum = 0;
++	unsigned long flags;
++
++	if (!h->cma)
++		return false;
++	spin_lock_irqsave(&h->bitmap_lock, flags);
++	while (start < h->nr_pages) {
++		start = find_next_zero_bit(h->allocated, h->nr_pages, start);
++		if (start == h->nr_pages)
++			break;
++		end = find_next_bit(h->allocated, h->nr_pages, start);
++		available += end - start;
++		maximum = max(maximum, end - start);
++		start = end;
++	}
++	spin_unlock_irqrestore(&h->bitmap_lock, flags);
++	*total += (u64)h->nr_pages << PAGE_SHIFT;
++	*free += (u64)available << PAGE_SHIFT;
++	*largest = max(*largest, (u64)maximum << PAGE_SHIFT);
++	return true;
++#else
++	return false;
++#endif
++}
+ 
+ static phys_addr_t ion_carveout_allocate(struct ion_heap *heap,
+ 					 unsigned long size)
+ {
+ 	struct ion_carveout_heap *carveout_heap =
+ 		container_of(heap, struct ion_carveout_heap, heap);
+-	unsigned long offset = gen_pool_alloc(carveout_heap->pool, size);
++	unsigned long offset;
++#ifdef CONFIG_DMA_CMA
++	if (carveout_heap->cma) {
++		unsigned long count = PAGE_ALIGN(size) >> PAGE_SHIFT;
++		unsigned long flags, index;
++		struct page *pages;
++
++		/* Page alignment matches the existing CVITEK heap contract and
++		 * avoids wasting large alignment gaps in this small CMA area. */
++		pages = cma_alloc(carveout_heap->cma, count, 0, false);
++		if (!pages)
++			return ION_CARVEOUT_ALLOCATE_FAIL;
++		offset = page_to_phys(pages);
++		index = (offset - carveout_heap->base) >> PAGE_SHIFT;
++		memset(page_address(pages), 0, count << PAGE_SHIFT);
++		/* CMA pages had a cacheable Linux linear mapping. Clean and
++		 * invalidate before exposing the existing uncached DMA aliases. */
++		arch_dma_prep_coherent(pages, count << PAGE_SHIFT);
++		spin_lock_irqsave(&carveout_heap->bitmap_lock, flags);
++		bitmap_set(carveout_heap->allocated, index, count);
++		spin_unlock_irqrestore(&carveout_heap->bitmap_lock, flags);
++		return offset;
++	}
++#endif
++	offset = gen_pool_alloc(carveout_heap->pool, size);
+ 
+ 	if (!offset)
+ 		return ION_CARVEOUT_ALLOCATE_FAIL;
+@@ -45,6 +111,23 @@
+ 
+ 	if (addr == ION_CARVEOUT_ALLOCATE_FAIL)
+ 		return;
++#ifdef CONFIG_DMA_CMA
++	if (carveout_heap->cma) {
++		unsigned long count = PAGE_ALIGN(size) >> PAGE_SHIFT;
++		unsigned long index = (addr - carveout_heap->base) >> PAGE_SHIFT;
++		unsigned long flags;
++		struct page *pages = pfn_to_page(PFN_DOWN(addr));
++
++		/* The buffer owner must already have stopped DMA and mappings.
++		 * Flush aliases before returning pages to the Linux allocator. */
++		arch_dma_prep_coherent(pages, count << PAGE_SHIFT);
++		spin_lock_irqsave(&carveout_heap->bitmap_lock, flags);
++		bitmap_clear(carveout_heap->allocated, index, count);
++		spin_unlock_irqrestore(&carveout_heap->bitmap_lock, flags);
++		WARN_ON_ONCE(!cma_release(carveout_heap->cma, pages, count));
++		return;
++	}
++#endif
+ 	gen_pool_free(carveout_heap->pool, addr, size);
+ }
+ 
+@@ -157,6 +240,38 @@
+ 	phys_addr_t heap_end_addr;
+ #endif
+ 
++#ifdef CONFIG_DMA_CMA
++	if (of_property_read_bool(((struct device *)heap_data->priv)->of_node,
++				 "nanokvm,cma-backend")) {
++		struct device *dev = heap_data->priv;
++		struct cma *area = dev->cma_area;
++
++		/* Never fall back to the default CMA pool: this heap owns only
++		 * the explicit memory-region attached by the OF reserved API. */
++		if (!area || cma_get_size(area) != heap_data->size ||
++		    cma_get_base(area) != heap_data->base)
++			return ERR_PTR(-EINVAL);
++		carveout_heap = kzalloc(sizeof(*carveout_heap), GFP_KERNEL);
++		if (!carveout_heap)
++			return ERR_PTR(-ENOMEM);
++		carveout_heap->cma = area;
++		carveout_heap->base = heap_data->base;
++		carveout_heap->nr_pages = heap_data->size >> PAGE_SHIFT;
++		carveout_heap->allocated = bitmap_zalloc(carveout_heap->nr_pages, GFP_KERNEL);
++		if (!carveout_heap->allocated) {
++			kfree(carveout_heap);
++			return ERR_PTR(-ENOMEM);
++		}
++		spin_lock_init(&carveout_heap->bitmap_lock);
++		carveout_heap->heap.ops = &carveout_heap_ops;
++		carveout_heap->heap.type = ION_HEAP_TYPE_CARVEOUT;
++		carveout_heap->heap.name = heap_data->name;
++		carveout_heap->heap.total_size = heap_data->size;
++		pr_info("ION: CMA backend base=%pa size=%zu, carveout ABI retained\n",
++			&heap_data->base, heap_data->size);
++		return &carveout_heap->heap;
++	}
++#endif
+ 	page = pfn_to_page(PFN_DOWN(heap_data->base));
+ 	size = heap_data->size;
+ 
+--- a/drivers/staging/android/ion/ion.h
++++ b/drivers/staging/android/ion/ion.h
+@@ -352,6 +352,8 @@
+ }
+ #endif
+ struct gen_pool *ion_carveout_get_pool(struct ion_heap *heap);
++bool ion_carveout_cma_state(struct ion_heap *heap, u64 *total, u64 *free,
++			   u64 *largest);
+ /** ion_page_pool_shrink - shrinks the size of the memory cached in the pool
+  * @pool:		the pool
+  * @gfp_mask:		the memory type to reclaim
+--- a/drivers/staging/android/ion/ion.c
++++ b/drivers/staging/android/ion/ion.c
+@@ -589,6 +589,8 @@
+ 	if (heap->type != ION_HEAP_TYPE_CARVEOUT)
+ 		return -1;
+ 
++	if (ion_carveout_cma_state(heap, total_size, free_size, max_avail_size))
++		return 0;
+ 	pool = ion_carveout_get_pool(heap);
+ 	order = pool->min_alloc_order;
+ 
+--- a/drivers/staging/android/ion/cvitek/cvitek_ion_debugfs.c
++++ b/drivers/staging/android/ion/cvitek/cvitek_ion_debugfs.c
+@@ -65,6 +65,15 @@
+ 	if (heap->type != ION_HEAP_TYPE_CARVEOUT)
+ 		return;
+ 
++	{
++		u64 total = 0, free = 0, largest = 0;
++		if (ion_carveout_cma_state(heap, &total, &free, &largest)) {
++			seq_printf(s, "\nCMA reclaimable capacity: %llu bytes; largest ION-free run: %llu bytes\n",
++				   free, largest);
++			seq_puts(s, "Migration is required for borrowed pages; allocation success/latency is not guaranteed.\n");
++			return;
++		}
++	}
+ 	pool = ion_carveout_get_pool(heap);
+ 	order = pool->min_alloc_order;
+ 
+--- a/drivers/staging/android/ion/cvitek/cvitek_ion.c
++++ b/drivers/staging/android/ion/cvitek/cvitek_ion.c
+@@ -15,6 +15,7 @@
+ #include <linux/of_address.h>
+ #include <linux/of_reserved_mem.h>
+ #include <linux/slab.h>
++#include <linux/cma.h>
+ #include <linux/uaccess.h>
+ #include <asm/cacheflush.h>
+ #include <asm/pgtable.h>
+@@ -118,6 +119,17 @@
+ 		break;
+ 	}
+ 
++	if (!ret && of_property_read_bool(heap_node, "nanokvm,cma-backend")) {
++#ifdef CONFIG_DMA_CMA
++		struct device *dev = heap->priv;
++		if (!dev->cma_area)
++			return -ENODEV;
++		heap->base = cma_get_base(dev->cma_area);
++		heap->size = cma_get_size(dev->cma_area);
++#else
++		return -EOPNOTSUPP;
++#endif
++	}
+ 	return ret;
+ }
+ 
+@@ -171,7 +183,10 @@
+ 	}
+ 
+ 	data->heaps = heaps;
+-	data->nr = num_heaps;
++	/* Failed reserved-memory setup must never become a zero-sized heap. */
++	data->nr = i;
++	if (!i)
++		return ERR_PTR(-ENODEV);
+ 	return data;
+ }
+ 

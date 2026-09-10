@@ -1,0 +1,75 @@
+From e9b9dd59a6e82b177c9c5773873d853227312c85 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 21:06:27 +0300
+Subject: [PATCH] pinctrl: allow direct MIPI functions and configure NanoKVM
+ CSI pads
+
+---
+ .../dts/sophgo/sg2002-nanokvm-enhanced.dts    | 21 +++++++++++++++++--
+ drivers/pinctrl/sophgo/pinctrl-cv18xx.c       |  8 +++----
+ 2 files changed, 23 insertions(+), 6 deletions(-)
+
+diff --git a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+index bbdf25449..80544d5bf 100644
+--- a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
++++ b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+@@ -102,14 +102,16 @@ base@a0c8000 {
+ 
+ 	cif@a0c2000 {
+ 		compatible = "cvitek,cif";
++		pinctrl-names = "default";
++		pinctrl-0 = <&nanokvm_csi_cfg>;
+ 		reg = <0xa0c2000 0x2000 0xa0d0000 0x1000 0xa0c4000 0x2000 0xa0c6000 0x2000 0x3001c30 0x30 >;
+ 		reg-names = "csi_mac0", "csi_wrap0", "csi_mac1", "csi_mac2", "pad_ctrl";
+ 		// PCIe HDMI reset is GPIOB3, owned by hdmi-reset above. No CSI sensor
+ 		// reset is wired to GPIOE1; do not claim the legacy LT interrupt pin.
+ 		resets = <&rst 0x46 &rst 0x48 &rst 0x47 &rst 0x49>;
+ 		reset-names = "phy0", "phy1", "phy-apb0", "phy-apb1";
+-		clocks = <&clk CLK_CAM0>, <&clk CLK_CAM1>, <&clk CLK_SRC_VIP_SYS_2>, <&clk CLK_MIPIMPLL>, <&clk CLK_DISPPLL>, <&clk CLK_FPLL>;
+-		clock-names = "clk_cam0", "clk_cam1", "clk_sys_2", "clk_mipimpll", "clk_disppll", "clk_fpll";
++		clocks = <&clk CLK_CAM0>, <&clk CLK_CAM1>, <&clk CLK_SRC_VIP_SYS_2>, <&clk CLK_MIPIMPLL>, <&clk CLK_DISPPLL>, <&clk CLK_FPLL>, <&clk CLK_CSI0_RX_VIP>;
++		clock-names = "clk_cam0", "clk_cam1", "clk_sys_2", "clk_mipimpll", "clk_disppll", "clk_fpll", "csi0_rx";
+ 		interrupts = <0x1a 0x04 0x1b 0x04>;
+ 		interrupt-names = "csi0", "csi1";
+ 		interrupt-parent = <&plic>;
+@@ -377,3 +379,18 @@ uart2-pins {
+ 		};
+ 	};
+ };
++
++&pinctrl {
++	nanokvm_csi_cfg: nanokvm-csi-cfg {
++		csi-pins {
++			/* LT6911UXC: one clock pair and four data pairs. */
++			pinmux = <PINMUX(PIN_MIPIRX0P, 3)>, <PINMUX(PIN_MIPIRX0N, 3)>,
++				 <PINMUX(PIN_MIPIRX1P, 3)>, <PINMUX(PIN_MIPIRX1N, 3)>,
++				 <PINMUX(PIN_MIPIRX2P, 3)>, <PINMUX(PIN_MIPIRX2N, 3)>,
++				 <PINMUX(PIN_MIPIRX3P, 3)>, <PINMUX(PIN_MIPIRX3N, 3)>,
++				 <PINMUX(PIN_MIPIRX4P, 3)>, <PINMUX(PIN_MIPIRX4N, 3)>;
++			power-source = <1800>;
++			bias-disable;
++		};
++	};
++};
+diff --git a/drivers/pinctrl/sophgo/pinctrl-cv18xx.c b/drivers/pinctrl/sophgo/pinctrl-cv18xx.c
+index 022e8cd8d..8d09d9e89 100644
+--- a/drivers/pinctrl/sophgo/pinctrl-cv18xx.c
++++ b/drivers/pinctrl/sophgo/pinctrl-cv18xx.c
+@@ -134,10 +134,10 @@ static int cv1800_verify_pinmux_config(const struct sophgo_pin_mux_config *confi
+ 	if (mux > pin->mux.max)
+ 		return -EINVAL;
+ 
+-	if (pin->pin.flags & CV1800_PIN_HAVE_MUX2) {
+-		if (mux != pin->mux2.pfunc)
+-			return -EINVAL;
+-
++	/* A second mux is used only by its selected primary function. Direct
++	 * functions such as MIPI must not be rejected on dual-mux pads.
++	 */
++	if ((pin->pin.flags & CV1800_PIN_HAVE_MUX2) && mux == pin->mux2.pfunc) {
+ 		if (mux2 > pin->mux2.max)
+ 			return -EINVAL;
+ 	} else {
+-- 
+2.43.0
+

@@ -1,0 +1,170 @@
+From 4bf35e656532958b43ba9864a48bc9b9f1f3f05d Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 20:39:00 +0300
+Subject: [PATCH] sensor: identify NanoKVM LT6911UXC and propagate I2C failures
+
+---
+ .../cv182x/lontium_lt6911/lt6911_sensor_ctl.c | 83 ++++++++++---------
+ 1 file changed, 46 insertions(+), 37 deletions(-)
+
+diff --git a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c b/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
+index c88fb37..1af0ff8 100644
+--- a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
++++ b/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
+@@ -66,7 +66,7 @@ int lt6911_i2c_exit(VI_PIPE ViPipe)
+ int lt6911_read_register(VI_PIPE ViPipe, int addr)
+ {
+ 	int ret, data;
+-	char buf[8];
++	unsigned char buf[8];
+ 	int idx = 0;
+ 
+ 	if (g_fd[ViPipe] < 0)
+@@ -79,17 +79,17 @@ int lt6911_read_register(VI_PIPE ViPipe, int addr)
+ 	buf[idx++] = addr & 0xff;
+ 
+ 	ret = write(g_fd[ViPipe], buf, lt6911_addr_byte);
+-	if (ret < 0) {
++	if (ret != (int)lt6911_addr_byte) {
+ 		CVI_TRACE_SNS(CVI_DBG_ERR, "I2C_WRITE error!\n");
+-		return ret;
++		return CVI_FAILURE;
+ 	}
+ 
+ 	buf[0] = 0;
+ 	buf[1] = 0;
+ 	ret = read(g_fd[ViPipe], buf, lt6911_data_byte);
+-	if (ret < 0) {
++	if (ret != (int)lt6911_data_byte) {
+ 		CVI_TRACE_SNS(CVI_DBG_ERR, "I2C_READ error!\n");
+-		return ret;
++		return CVI_FAILURE;
+ 	}
+ 
+ 	// pack read back data
+@@ -109,10 +109,10 @@ int lt6911_write_register(VI_PIPE ViPipe, int addr, int data)
+ {
+ 	int idx = 0;
+ 	int ret;
+-	char buf[8];
++	unsigned char buf[8];
+ 
+ 	if (g_fd[ViPipe] < 0)
+-		return CVI_SUCCESS;
++		return CVI_FAILURE;
+ 
+ 	if (lt6911_addr_byte == 2) {
+ 		buf[idx] = (addr >> 8) & 0xff;
+@@ -130,7 +130,7 @@ int lt6911_write_register(VI_PIPE ViPipe, int addr, int data)
+ 	idx++;
+ 
+ 	ret = write(g_fd[ViPipe], buf, lt6911_addr_byte + lt6911_data_byte);
+-	if (ret < 0) {
++	if (ret != (int)(lt6911_addr_byte + lt6911_data_byte)) {
+ 		CVI_TRACE_SNS(CVI_DBG_ERR, "I2C_WRITE error!\n");
+ 		return CVI_FAILURE;
+ 	}
+@@ -144,7 +144,8 @@ static int lt6911_i2c_read(VI_PIPE ViPipe, int RegAddr)
+ 	uint8_t bank = RegAddr >> 8;
+ 	uint8_t addr = RegAddr & 0xff;
+ 
+-	lt6911_write_register(ViPipe, LT6911_I2C_BANK_ADDR, bank);
++	if (lt6911_write_register(ViPipe, LT6911_I2C_BANK_ADDR, bank) != CVI_SUCCESS)
++		return CVI_FAILURE;
+ 	return lt6911_read_register(ViPipe, addr);
+ }
+ 
+@@ -153,54 +154,62 @@ static int lt6911_i2c_write(VI_PIPE ViPipe, int RegAddr, int data)
+ 	uint8_t bank = RegAddr >> 8;
+ 	uint8_t addr = RegAddr & 0xff;
+ 
+-	lt6911_write_register(ViPipe, LT6911_I2C_BANK_ADDR, bank);
++	if (lt6911_write_register(ViPipe, LT6911_I2C_BANK_ADDR, bank) != CVI_SUCCESS)
++		return CVI_FAILURE;
+ 	return lt6911_write_register(ViPipe, addr, data);
+ }
+ 
+ int lt6911_read(VI_PIPE ViPipe, int addr)
+ {
+-	int data = 0;
+-
+-	lt6911_i2c_write(ViPipe, 0x80ee, 0x01);
+-	data = lt6911_i2c_read(ViPipe, addr);
+-	lt6911_i2c_write(ViPipe, 0x80ee, 0x00);
++	if (lt6911_i2c_write(ViPipe, 0x80ee, 0x01) != CVI_SUCCESS)
++		return CVI_FAILURE;
++	int data = lt6911_i2c_read(ViPipe, addr);
++	if (lt6911_i2c_write(ViPipe, 0x80ee, 0x00) != CVI_SUCCESS)
++		return CVI_FAILURE;
+ 	return data;
+ }
+ 
+ int lt6911_write(VI_PIPE ViPipe, int addr, int data)
+ {
+-	lt6911_i2c_write(ViPipe, 0x80ee, 0x01);
+-	lt6911_i2c_write(ViPipe, addr, data);
+-	lt6911_i2c_write(ViPipe, 0x80ee, 0x00);
+-	return CVI_SUCCESS;
++	if (lt6911_i2c_write(ViPipe, 0x80ee, 0x01) != CVI_SUCCESS)
++		return CVI_FAILURE;
++	int ret = lt6911_i2c_write(ViPipe, addr, data);
++	if (lt6911_i2c_write(ViPipe, 0x80ee, 0x00) != CVI_SUCCESS)
++		return CVI_FAILURE;
++	return ret;
+ }
+ 
+-#define LT6911_CHIP_ID_ADDR_H	0xa000
+-#define LT6911_CHIP_ID_ADDR_L	0xa001
+-#define LT6911_CHIP_ID          0x1605
+-
+-int  lt6911_probe(VI_PIPE ViPipe)
++static int lt6911_read_id(VI_PIPE ViPipe, int base)
+ {
+-	int nVal;
+-	int nVal2;
++	int high = lt6911_read(ViPipe, base);
++	if (high < 0)
++		return CVI_FAILURE;
++	int low = lt6911_read(ViPipe, base + 1);
++	return low < 0 ? CVI_FAILURE : (high << 8) | low;
++}
+ 
++int lt6911_probe(VI_PIPE ViPipe)
++{
+ 	usleep(50);
+ 	if (lt6911_i2c_init(ViPipe) != CVI_SUCCESS)
+ 		return CVI_FAILURE;
+ 
+-	nVal  = lt6911_read(ViPipe, LT6911_CHIP_ID_ADDR_H);
+-	nVal2 = lt6911_read(ViPipe, LT6911_CHIP_ID_ADDR_L);
+-	if (nVal < 0 || nVal2 < 0) {
+-		CVI_TRACE_SNS(CVI_DBG_ERR, "read sensor id error.\n");
+-		return nVal;
++	/* The legacy LT6911 and the NanoKVM UXC use different ID banks. */
++	int legacy_id = lt6911_read_id(ViPipe, 0xa000);
++	if (legacy_id == 0x1605) {
++		printf("LT6911 ID: %04x\n", legacy_id);
++		return CVI_SUCCESS;
+ 	}
+-	printf("data:%02x %02x\n", nVal, nVal2);
+-	if ((((nVal & 0xFF) << 8) | (nVal2 & 0xFF)) != LT6911_CHIP_ID) {
+-		CVI_TRACE_SNS(CVI_DBG_ERR, "Sensor ID Mismatch! Use the wrong sensor??\n");
+-		return CVI_FAILURE;
++#ifdef NANOKVM_ENHANCED
++	int uxc_id = legacy_id < 0 ? CVI_FAILURE : lt6911_read_id(ViPipe, 0x8100);
++	if (uxc_id == 0x1704) {
++		printf("LT6911UXC ID: %04x\n", uxc_id);
++		return CVI_SUCCESS;
+ 	}
+-
+-	return CVI_SUCCESS;
++#endif
++	CVI_TRACE_SNS(CVI_DBG_ERR, "LT6911 identification failed.\n");
++	lt6911_i2c_exit(ViPipe);
++	return CVI_FAILURE;
+ }
+ 
+ void lt6911_init(VI_PIPE ViPipe)
+-- 
+2.43.0
+

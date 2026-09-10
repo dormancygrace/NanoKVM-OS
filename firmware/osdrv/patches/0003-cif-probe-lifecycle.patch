@@ -1,0 +1,192 @@
+From 60df03bb2be55c5dfbfd89e6e412b3dfa131a121 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 16:44:10 +0300
+Subject: [PATCH] Fix CIF resource mapping and probe error unwinding
+
+---
+ interdrv/cif/chip/cv181x/cif.c | 112 +++++++++++++++++++--------------
+ 1 file changed, 66 insertions(+), 46 deletions(-)
+
+diff --git a/interdrv/cif/chip/cv181x/cif.c b/interdrv/cif/chip/cv181x/cif.c
+index c09ff77..7eca203 100644
+--- a/interdrv/cif/chip/cv181x/cif.c
++++ b/interdrv/cif/chip/cv181x/cif.c
+@@ -2423,7 +2423,8 @@ static int cif_gpio_init(struct platform_device *pdev, struct snsr_rst_gpio_s sn
+ 
+ 	if (snsr_gpio.devno >= MAX_LINK_NUM ||
+ 	    !gpio_is_valid(snsr_gpio.snsr_rst_pin) ||
+-	    snsr_gpio.snsr_rst_pol > GPIO_ACTIVE_LOW)
++	    (snsr_gpio.snsr_rst_pol != GPIO_ACTIVE_HIGH &&
++	     snsr_gpio.snsr_rst_pol != GPIO_ACTIVE_LOW))
+ 		return -EINVAL;
+ 	link = &dev->link[snsr_gpio.devno];
+ 	if (link->snsr_rst_pin != snsr_gpio.snsr_rst_pin) {
+@@ -2800,8 +2801,10 @@ static int cif_init_miscdev(struct platform_device *pdev, struct cvi_cif_dev *de
+ 
+ 	/* register cif_cb */
+ 	rc = cif_register_cb(dev);
+-	if (rc)
++	if (rc) {
+ 		dev_err(&pdev->dev, "cif: failed to register callbacks.\n");
++		misc_deregister(&dev->miscdev);
++	}
+ 
+ 	return rc;
+ }
+@@ -2853,7 +2856,9 @@ static int _init_resource(struct platform_device *pdev)
+ {
+ #if (DEVICE_FROM_DTS)
+ 	struct resource *res = NULL;
+-	void *reg_base[6];
++	void __iomem *wrap_base;
++	void __iomem *mac_base;
++	char resource_name[16];
+ 	struct cvi_cif_dev *dev;
+ 	int i;
+ 	struct cvi_link *link;
+@@ -2865,58 +2870,71 @@ static int _init_resource(struct platform_device *pdev)
+ 	}
+ 	/* cam clk shall not depend on the link so we separate them from link. */
+ 	dev->clk_cam0.clk_o = devm_clk_get(&pdev->dev, "clk_cam0");
++	if (IS_ERR(dev->clk_cam0.clk_o))
++		return dev_err_probe(&pdev->dev, PTR_ERR(dev->clk_cam0.clk_o),
++				     "cannot get clk_cam0 clock\n");
+ 	if (!IS_ERR_OR_NULL(dev->clk_cam0.clk_o))
+ 		dev_info(&pdev->dev, "cam0 clk installed\n");
+ 	dev->clk_cam1.clk_o = devm_clk_get(&pdev->dev, "clk_cam1");
++	if (IS_ERR(dev->clk_cam1.clk_o))
++		return dev_err_probe(&pdev->dev, PTR_ERR(dev->clk_cam1.clk_o),
++				     "cannot get clk_cam1 clock\n");
+ 	if (!IS_ERR_OR_NULL(dev->clk_cam1.clk_o))
+ 		dev_info(&pdev->dev, "cam1 clk installed\n");
+ 	dev->vip_sys2.clk_o = devm_clk_get(&pdev->dev, "clk_sys_2");
++	if (IS_ERR(dev->vip_sys2.clk_o))
++		return dev_err_probe(&pdev->dev, PTR_ERR(dev->vip_sys2.clk_o),
++				     "cannot get clk_sys_2 clock\n");
+ 	if (!IS_ERR_OR_NULL(dev->vip_sys2.clk_o))
+ 		dev_info(&pdev->dev, "vip_sys_2 clk installed\n");
+ 	dev->clk_mipimpll.clk_o = devm_clk_get(&pdev->dev, "clk_mipimpll");
++	if (IS_ERR(dev->clk_mipimpll.clk_o))
++		return dev_err_probe(&pdev->dev, PTR_ERR(dev->clk_mipimpll.clk_o),
++				     "cannot get clk_mipimpll clock\n");
+ 	if (!IS_ERR_OR_NULL(dev->clk_mipimpll.clk_o))
+ 		dev_info(&pdev->dev, "clk_mipimpll clk installed %p\n", dev->clk_mipimpll.clk_o);
+ 	dev->clk_disppll.clk_o = devm_clk_get(&pdev->dev, "clk_disppll");
++	if (IS_ERR(dev->clk_disppll.clk_o))
++		return dev_err_probe(&pdev->dev, PTR_ERR(dev->clk_disppll.clk_o),
++				     "cannot get clk_disppll clock\n");
+ 	if (!IS_ERR_OR_NULL(dev->clk_disppll.clk_o))
+ 		dev_info(&pdev->dev, "clk_disppll clk installed %p\n", dev->clk_disppll.clk_o);
+ 	dev->clk_fpll.clk_o = devm_clk_get(&pdev->dev, "clk_fpll");
++	if (IS_ERR(dev->clk_fpll.clk_o))
++		return dev_err_probe(&pdev->dev, PTR_ERR(dev->clk_fpll.clk_o),
++				     "cannot get clk_fpll clock\n");
+ 	if (!IS_ERR_OR_NULL(dev->clk_fpll.clk_o))
+ 		dev_info(&pdev->dev, "clk_fpll clk installed %p\n", dev->clk_fpll.clk_o);
+ 
+-	for (i = 0; i < (MAX_LINK_NUM * 2 - 1); ++i) {
+-		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
+-		if (!res)
+-			break;
+-#if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+-		reg_base[i] = devm_ioremap(&pdev->dev, res->start, res->end - res->start);
+-#else
+-		reg_base[i] = devm_ioremap_nocache(&pdev->dev, res->start, res->end - res->start);
+-#endif
+-
+-		dev_info(&pdev->dev,
+-			 "(%d) res-reg: start: 0x%llx, end: 0x%llx.",
+-			 i, res->start, res->end);
+-		dev_info(&pdev->dev, " virt-addr(%p)\n", reg_base[i]);
+-	}
+-	if (i > 1)
+-		cif_set_base_addr(0, reg_base[0], reg_base[1]);
+-	if (i > 2)
+-		cif_set_base_addr(1, reg_base[2], reg_base[1]);
+-	if (i > 3)
+-		cif_set_base_addr(2, reg_base[3], reg_base[1]);
+-	/* init pad_ctrl. */
+-	res = platform_get_resource(pdev, IORESOURCE_MEM, i);
+-	if (!res) {
+-		dev_info(&pdev->dev, "no pad_ctrl for cif\n");
+-	} else {
+-#if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+-		dev->pad_ctrl = devm_ioremap(&pdev->dev, res->start, res->end - res->start);
+-#else
+-		dev->pad_ctrl = devm_ioremap_nocache(&pdev->dev, res->start, res->end - res->start);
+-#endif
+-		dev_info(&pdev->dev,
+-			 "pad-ctrl res-reg: start: 0x%llx, end: 0x%llx.",
+-			 res->start, res->end);
++	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "csi_wrap0");
++	if (!res)
++		return -EINVAL;
++	wrap_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
++	if (!wrap_base)
++		return -ENOMEM;
++	for (i = 0; i < MAX_LINK_NUM; ++i) {
++		link = &dev->link[i];
++		link->dev = &pdev->dev;
++		link->cif_ctx.mac_num = i;
++		snprintf(resource_name, sizeof(resource_name), "csi_mac%d", i);
++		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, resource_name);
++		if (!res) {
++			if (i == 0)
++				return -EINVAL;
++			continue;
++		}
++		mac_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
++		if (!mac_base)
++			return -ENOMEM;
++		cif_set_base_addr(i, mac_base, wrap_base);
++		link->cif_ctx.mac_phys_regs = cif_get_mac_phys_reg_bases(i);
++		link->cif_ctx.wrap_phys_regs = cif_get_wrap_phys_reg_bases(i);
++	}
++	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pad_ctrl");
++	if (res) {
++		dev->pad_ctrl = devm_ioremap(&pdev->dev, res->start, resource_size(res));
++		if (!dev->pad_ctrl)
++			return -ENOMEM;
+ 	}
+ 
+ 	/* Init max mac clock. */
+@@ -2933,9 +2951,13 @@ static int _init_resource(struct platform_device *pdev)
+ 
+ 		link->irq_num = platform_get_irq(pdev, i);
+ 		if (link->irq_num < 0)
+-			break;
+-		if (devm_request_irq(&pdev->dev, link->irq_num, cif_isr, IRQF_SHARED, irq_name[i], link))
+-			break;
++			return link->irq_num;
++		{
++			int ret = devm_request_irq(&pdev->dev, link->irq_num, cif_isr,
++						   IRQF_SHARED, irq_name[i], link);
++			if (ret)
++				return ret;
++		}
+ 		dev_info(&pdev->dev, "request irq-%d as %s\n",
+ 			 link->irq_num, irq_name[i]);
+ 
+@@ -3353,15 +3375,13 @@ static int cvi_cif_probe(struct platform_device *pdev)
+ 	dev_set_drvdata(&pdev->dev, dev);
+ 	platform_set_drvdata(pdev, dev);
+ 
+-	rc = cif_init_miscdev(pdev, dev);
++	rc = _init_resource(pdev);
+ 	if (rc < 0)
+-		return rc;
++		return dev_err_probe(&pdev->dev, rc, "cannot initialize CIF resources\n");
+ 
+-	rc = _init_resource(pdev);
+-	if (rc < 0) {
+-		dev_err(&pdev->dev, "Failed to init res for cif, %d\n", rc);
++	rc = cif_init_miscdev(pdev, dev);
++	if (rc < 0)
+ 		return rc;
+-	}
+ 
+ #ifdef CONFIG_PROC_FS
+ 	cif_proc_entry = proc_create_data("mipi-rx", 0, NULL,
+-- 
+2.43.0
+

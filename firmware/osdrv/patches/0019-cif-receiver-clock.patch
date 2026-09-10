@@ -1,0 +1,44 @@
+From f6f7410cd30b5a0512bba3fe460311544085311d Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 21:06:27 +0300
+Subject: [PATCH] cif: own the CSI0 receiver gate while bound
+
+---
+ interdrv/cif/chip/cv181x/cif.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/interdrv/cif/chip/cv181x/cif.c b/interdrv/cif/chip/cv181x/cif.c
+index 281ed5f..0fc24e8 100644
+--- a/interdrv/cif/chip/cv181x/cif.c
++++ b/interdrv/cif/chip/cv181x/cif.c
+@@ -3339,6 +3339,9 @@ static int cvi_cif_probe(struct platform_device *pdev)
+ {
+ 	int rc = 0;
+ 	struct cvi_cif_dev *dev;
++#if defined(CONFIG_CLK_SOPHGO_CV1800)
++	struct clk *rx_clk;
++#endif
+ 
+ 	/* allocate main cif state structure */
+ 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
+@@ -3352,6 +3355,17 @@ static int cvi_cif_probe(struct platform_device *pdev)
+ 	dev_set_drvdata(&pdev->dev, dev);
+ 	platform_set_drvdata(pdev, dev);
+ 
++#if defined(CONFIG_CLK_SOPHGO_CV1800)
++	/* CSI0 reception needs a separate gate from CSI_MAC0. The modern
++	 * clock framework disables unclaimed gates after boot. Own this clock
++	 * while the receiver is bound, with balanced devres cleanup on failure.
++	 */
++	rx_clk = devm_clk_get_enabled(&pdev->dev, "csi0_rx");
++	if (IS_ERR(rx_clk))
++		return dev_err_probe(&pdev->dev, PTR_ERR(rx_clk),
++				     "cannot enable CSI0 receiver clock\n");
++#endif
++
+ 	rc = _init_resource(pdev);
+ 	if (rc < 0)
+ 		return dev_err_probe(&pdev->dev, rc, "cannot initialize CIF resources\n");
+-- 
+2.43.0
+

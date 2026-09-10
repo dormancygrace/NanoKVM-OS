@@ -1,0 +1,36 @@
+From 9be2e70b6d2c7e5e362388a82b6f9bb509e89b53 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 19:05:20 +0300
+Subject: [PATCH] usb: dwc2: index endpoint FIFO status by endpoint number
+
+---
+ drivers/usb/dwc2/gadget.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/dwc2/gadget.c b/drivers/usb/dwc2/gadget.c
+index c8b02c27d..3d6cca0fd 100644
+--- a/drivers/usb/dwc2/gadget.c
++++ b/drivers/usb/dwc2/gadget.c
+@@ -561,8 +561,9 @@ static int dwc2_hsotg_write_fifo(struct dwc2_hsotg *hsotg,
+ 			return -ENOSPC;
+ 		}
+ 	} else if (hsotg->dedicated_fifos && hs_ep->index != 0) {
++		/* DTXFSTS is indexed by endpoint, regardless of its assigned FIFO. */
+ 		can_write = dwc2_readl(hsotg,
+-				       DTXFSTS(hs_ep->fifo_index));
++				       DTXFSTS(hs_ep->index));
+ 
+ 		can_write &= 0xffff;
+ 		can_write *= 4;
+@@ -3299,7 +3300,7 @@ static void kill_all_requests(struct dwc2_hsotg *hsotg,
+ 
+ 	if (!hsotg->dedicated_fifos)
+ 		return;
+-	size = (dwc2_readl(hsotg, DTXFSTS(ep->fifo_index)) & 0xffff) * 4;
++	size = (dwc2_readl(hsotg, DTXFSTS(ep->index)) & 0xffff) * 4;
+ 	if (size < ep->fifo_size)
+ 		dwc2_hsotg_txfifo_flush(hsotg, ep->fifo_index);
+ }
+-- 
+2.43.0
+

@@ -1,0 +1,246 @@
+From 0ddca9541e221c8f236bdc78005870c06d15e485 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 00:55:24 +0300
+Subject: [PATCH] Add owned HDMI maintenance reset interface for NanoKVM PCIe
+
+---
+ .../testing/sysfs-platform-nanokvm-hdmi-reset | 17 ++++
+ .../misc/sipeed,nanokvm-hdmi-reset.yaml       | 32 +++++++
+ .../dts/sophgo/sg2002-nanokvm-enhanced.dts    | 20 ++---
+ drivers/misc/Kconfig                          |  7 ++
+ drivers/misc/Makefile                         |  1 +
+ drivers/misc/nanokvm-hdmi-reset.c             | 90 +++++++++++++++++++
+ 6 files changed, 154 insertions(+), 13 deletions(-)
+ create mode 100644 Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset
+ create mode 100644 Documentation/devicetree/bindings/misc/sipeed,nanokvm-hdmi-reset.yaml
+ create mode 100644 drivers/misc/nanokvm-hdmi-reset.c
+
+diff --git a/Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset b/Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset
+new file mode 100644
+index 000000000..1663d2ea9
+--- /dev/null
++++ b/Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset
+@@ -0,0 +1,17 @@
++What:           /sys/bus/platform/devices/hdmi-reset/pulse
++Date:           September 2026
++Contact:        NanoKVM Enhanced maintainers
++Description:
++                Write "1" to assert the board HDMI receiver reset for 100ms,
++                then release it and wait another 100ms. Root write permission
++                is required. This is a synchronous operation. Overlapping
++                requests return EBUSY instead of queuing another reset.
++
++                The line is requested deasserted during probe and remains
++                owned by the driver. GPIO polarity comes from Device Tree.
++                Release is attempted even if assertion reports an error.
++                Removal drains active sysfs callbacks before freeing the GPIO.
++
++                Users must stop competing HDMI/I2C activity before using this
++                maintenance interface. It does not update EDID, manage the
++                video pipeline, or operate the host's ATX reset.
+diff --git a/Documentation/devicetree/bindings/misc/sipeed,nanokvm-hdmi-reset.yaml b/Documentation/devicetree/bindings/misc/sipeed,nanokvm-hdmi-reset.yaml
+new file mode 100644
+index 000000000..78d79f118
+--- /dev/null
++++ b/Documentation/devicetree/bindings/misc/sipeed,nanokvm-hdmi-reset.yaml
+@@ -0,0 +1,32 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/misc/sipeed,nanokvm-hdmi-reset.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: NanoKVM PCIe HDMI maintenance reset
++
++maintainers:
++  - dgrace <g.pesin@globalte.ru>
++
++description: |
++  Board reset line of the HDMI-to-CSI receiver. It is separate from the
++  optional camera sensor reset handled by CIF and from host ATX controls.
++
++properties:
++  compatible:
++    const: sipeed,nanokvm-hdmi-reset
++  reset-gpios:
++    maxItems: 1
++    description: Active-low HDMI receiver reset.
++  pinctrl-names:
++    items:
++      - const: default
++  pinctrl-0: true
++
++required:
++  - compatible
++  - reset-gpios
++
++additionalProperties: false
++...
+diff --git a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+index dd994586b..d6648817c 100644
+--- a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
++++ b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+@@ -64,6 +64,12 @@ heap-carveout {
+ 			memory-region = <&ion_region>;
+ 		};
+ 	};
++	hdmi-reset {
++		compatible = "sipeed,nanokvm-hdmi-reset";
++		pinctrl-names = "default";
++		pinctrl-0 = <&nanokvm_hdmi_reset_cfg>;
++		reset-gpios = <&portb 3 GPIO_ACTIVE_LOW>;
++	};
+ 	oled_i2c: i2c-oled {
+ 		compatible = "i2c-gpio";
+ 		#address-cells = <1>;
+@@ -95,7 +101,7 @@ cif@a0c2000 {
+ 		compatible = "cvitek,cif";
+ 		reg = <0xa0c2000 0x2000 0xa0d0000 0x1000 0xa0c4000 0x2000 0xa0c6000 0x2000 0x3001c30 0x30 >;
+ 		reg-names = "csi_mac0", "csi_wrap0", "csi_mac1", "csi_mac2", "pad_ctrl";
+-		// PCIe HDMI reset is GPIOB3, held deasserted below. No CSI sensor
++		// PCIe HDMI reset is GPIOB3, owned by hdmi-reset above. No CSI sensor
+ 		// reset is wired to GPIOE1; do not claim the legacy LT interrupt pin.
+ 		resets = <&rst 0x46 &rst 0x48 &rst 0x47 &rst 0x49>;
+ 		reset-names = "phy0", "phy1", "phy-apb0", "phy-apb1";
+@@ -295,18 +301,6 @@ oled-reset-hog {
+ 		line-name = "nanokvm-oled-reset";
+ 	};
+ };
+-&gpio1 {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&nanokvm_hdmi_reset_cfg>;
+-};
+-&portb {
+-	hdmi-reset-hog {
+-		gpio-hog;
+-		gpios = <3 GPIO_ACTIVE_HIGH>;
+-		output-high;
+-		line-name = "nanokvm-hdmi-reset";
+-	};
+-};
+ &i2c4 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&nanokvm_hdmi_i2c_cfg>;
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index 3a294dee2..b6149db8f 100644
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -659,3 +659,10 @@ config NANOKVM_EFUSE
+ 	help
+ 	  Compatibility interface used by the Sophgo base module to read the
+ 	  chip identifier. Also retains the vendor factory programming API.
++
++config NANOKVM_HDMI_RESET
++	bool "NanoKVM PCIe HDMI maintenance reset"
++	depends on ARCH_SOPHGO && OF && GPIOLIB
++	help
++	  Own the board HDMI reset line, initially deasserted, and provide a
++	  serialized 100ms reset pulse for the privileged EDID maintenance tool.
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+index 4e2c62964..c1ab303c2 100644
+--- a/drivers/misc/Makefile
++++ b/drivers/misc/Makefile
+@@ -75,3 +75,4 @@ obj-y				+= keba/
+ obj-y				+= amd-sbi/
+ obj-$(CONFIG_MISC_RP1)		+= rp1/
+ obj-$(CONFIG_NANOKVM_EFUSE) += nanokvm-efuse.o
++obj-$(CONFIG_NANOKVM_HDMI_RESET) += nanokvm-hdmi-reset.o
+diff --git a/drivers/misc/nanokvm-hdmi-reset.c b/drivers/misc/nanokvm-hdmi-reset.c
+new file mode 100644
+index 000000000..1bfab3d48
+--- /dev/null
++++ b/drivers/misc/nanokvm-hdmi-reset.c
+@@ -0,0 +1,90 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* NanoKVM PCIe maintenance reset, separate from CIF sensor reset. */
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++#include <linux/sysfs.h>
++
++struct nanokvm_hdmi_reset {
++	struct gpio_desc *gpio;
++	struct mutex lock;
++};
++
++static int nanokvm_hdmi_pulse(struct nanokvm_hdmi_reset *reset)
++{
++	int ret, release;
++
++	/* A second maintenance request must not queue another hardware reset. */
++	if (!mutex_trylock(&reset->lock))
++		return -EBUSY;
++	ret = gpiod_direction_output(reset->gpio, 1);
++	if (!ret)
++		msleep(100);
++	/* Also attempt release after an activation error. */
++	release = gpiod_direction_output(reset->gpio, 0);
++	if (!ret)
++		ret = release;
++	if (!release)
++		msleep(100);
++	mutex_unlock(&reset->lock);
++	return ret;
++}
++
++static ssize_t pulse_store(struct device *dev, struct device_attribute *attr,
++			   const char *buf, size_t count)
++{
++	int ret;
++
++	if (!sysfs_streq(buf, "1"))
++		return -EINVAL;
++	ret = nanokvm_hdmi_pulse(dev_get_drvdata(dev));
++	return ret ? ret : (ssize_t)count;
++}
++static DEVICE_ATTR_WO(pulse);
++
++static struct attribute *nanokvm_hdmi_attrs[] = {
++	&dev_attr_pulse.attr,
++	NULL,
++};
++static const struct attribute_group nanokvm_hdmi_group = {
++	.attrs = nanokvm_hdmi_attrs,
++};
++
++static int nanokvm_hdmi_probe(struct platform_device *pdev)
++{
++	struct nanokvm_hdmi_reset *reset;
++
++	reset = devm_kzalloc(&pdev->dev, sizeof(*reset), GFP_KERNEL);
++	if (!reset)
++		return -ENOMEM;
++	/* GPIO_ACTIVE_LOW in DT makes logical0 physical-high/deasserted. */
++	reset->gpio = devm_gpiod_get(&pdev->dev, "reset", GPIOD_OUT_LOW);
++	if (IS_ERR(reset->gpio))
++		return dev_err_probe(&pdev->dev, PTR_ERR(reset->gpio),
++				     "cannot acquire HDMI reset\n");
++	mutex_init(&reset->lock);
++	platform_set_drvdata(pdev, reset);
++	/* Managed sysfs removal drains active writes before GPIO/state cleanup. */
++	return devm_device_add_group(&pdev->dev, &nanokvm_hdmi_group);
++}
++
++static const struct of_device_id nanokvm_hdmi_of_match[] = {
++	{ .compatible = "sipeed,nanokvm-hdmi-reset" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, nanokvm_hdmi_of_match);
++
++static struct platform_driver nanokvm_hdmi_driver = {
++	.probe = nanokvm_hdmi_probe,
++	.driver = {
++		.name = "nanokvm-hdmi-reset",
++		.of_match_table = nanokvm_hdmi_of_match,
++	},
++};
++module_platform_driver(nanokvm_hdmi_driver);
++MODULE_DESCRIPTION("NanoKVM PCIe HDMI maintenance reset");
++MODULE_LICENSE("GPL");
+-- 
+2.43.0
+

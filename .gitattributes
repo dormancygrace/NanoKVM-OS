@@ -1,0 +1,9 @@
+# Unified diff context and mail signatures contain intentional whitespace.
+# Validate applied source whitespace separately; preserve patch syntax.
+*.patch whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+
+# Preserve the verbatim upstream INI redistribution notice.
+firmware/release/source-components/board-service/LICENSES/inifile2.txt whitespace=-blank-at-eol
+
+# Upstream license texts are retained byte-for-byte.
+firmware/release/licenses/target/** -whitespace

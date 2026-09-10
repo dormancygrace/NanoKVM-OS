@@ -1,0 +1,912 @@
+From de47a923f0b955ba69a5eb57a13a1a1f766d98f0 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 20:39:29 +0300
+Subject: [PATCH] Port IVE interfaces and checked startup to Linux 7.2
+
+---
+ interdrv/ive/common/cvi_ive_interface.c    | 251 ++++++++++++---------
+ interdrv/ive/common/cvi_ive_interface.h    |   2 +
+ interdrv/ive/hal/cv181x/cvi_ive_platform.c | 177 ++++++++-------
+ interdrv/ive/hal/cv181x/cvi_ive_platform.h |   2 +-
+ 4 files changed, 248 insertions(+), 184 deletions(-)
+
+diff --git a/interdrv/ive/common/cvi_ive_interface.c b/interdrv/ive/common/cvi_ive_interface.c
+index d6ed616..5e27ce1 100644
+--- a/interdrv/ive/common/cvi_ive_interface.c
++++ b/interdrv/ive/common/cvi_ive_interface.c
+@@ -13,6 +13,7 @@
+ 
+ #include <linux/device.h>
+ #include <linux/interrupt.h>
++#include <linux/vmalloc.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
+@@ -32,10 +33,10 @@
+ #define CVI_IVE_CLASS_NAME "cvi-ive"
+ 
+ #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+-uint32_t get_duration_us(const struct timespec64 *start,
++static uint32_t get_duration_us(const struct timespec64 *start,
+ 				const struct timespec64 *end)
+ #else
+-uint32_t get_duration_us(const struct timespec *start,
++static uint32_t get_duration_us(const struct timespec *start,
+ 				const struct timespec *end)
+ #endif
+ {
+@@ -58,8 +59,7 @@ uint32_t get_duration_us(const struct timespec *start,
+ 	return event_duration_us;
+ }
+ 
+-static char *g_kdata;
+-struct class *class_id;
++static struct class *class_id;
+ static dev_t cdev_id;
+ static uint32_t g_enable_usage_profiling;
+ static struct ive_profiling_info *g_time_infos;
+@@ -151,8 +151,8 @@ void start_vld_time(int optype)
+ 
+ void stop_vld_time(int optype, int tile_num)
+ {
+-	if (tile_num > 6)
+-		return;
++    if (!g_enable_usage_profiling || !g_time_infos || tile_num < 0 || tile_num >= 6
++        || optype < MOD_BYP || optype >= MOD_ALL) return;
+ 	if (g_enable_usage_profiling && optype < MOD_ALL &&
+ 		optype >= MOD_BYP &&
+ 		strlen(g_time_infos[optype].op_name) > 0) {
+@@ -315,7 +315,7 @@ static ssize_t ive_proc_write(struct file *file, const char __user *user_buf,
+ 
+ static int ive_proc_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, ive_proc_show, PDE_DATA(inode));
++	return single_open(file, ive_proc_show, pde_data(inode));
+ }
+ 
+ #ifdef CONFIG_COMPAT
+@@ -330,14 +330,70 @@ static long cvi_ive_compat_ioctl(struct file *file, unsigned int cmd,
+ }
+ #endif
+ 
+-static long cvi_ive_ioctl(struct file *filp, unsigned int cmd,
++/* The vendor UAPI encodes sizeof(u64), not the pointed-to structure size.
++ * Keep the wire command numbers, but copy only the actual request bytes. */
++static int ive_ioctl_arg_size(unsigned int cmd)
++{
++    switch (cmd) {
++    case CVI_IVE_IOC_QUERY: return sizeof(struct cvi_ive_query_arg);
++    case CVI_IVE_IOC_RESET: return sizeof(int);
++    case CVI_IVE_IOC_DUMP: return 0;
++    case CVI_IVE_IOC_TEST: return sizeof(struct cvi_ive_test_arg);
++    case CVI_IVE_IOC_DMA: return sizeof(struct cvi_ive_ioctl_dma_arg);
++    case CVI_IVE_IOC_And: return sizeof(struct cvi_ive_ioctl_and_arg);
++    case CVI_IVE_IOC_Or: return sizeof(struct cvi_ive_ioctl_or_arg);
++    case CVI_IVE_IOC_Xor: return sizeof(struct cvi_ive_ioctl_xor_arg);
++    case CVI_IVE_IOC_Add: return sizeof(struct cvi_ive_ioctl_add_arg);
++    case CVI_IVE_IOC_Sub: return sizeof(struct cvi_ive_ioctl_sub_arg);
++    case CVI_IVE_IOC_Thresh: return sizeof(struct cvi_ive_ioctl_thresh_arg);
++    case CVI_IVE_IOC_Dilate: return sizeof(struct cvi_ive_ioctl_dilate_arg);
++    case CVI_IVE_IOC_Erode: return sizeof(struct cvi_ive_ioctl_erode_arg);
++    case CVI_IVE_IOC_MatchBgModel: return sizeof(struct cvi_ive_ioctl_match_bgmodel_arg);
++    case CVI_IVE_IOC_UpdateBgModel: return sizeof(struct cvi_ive_ioctl_update_bgmodel_arg);
++    case CVI_IVE_IOC_GMM: return sizeof(struct cvi_ive_ioctl_gmm_arg);
++    case CVI_IVE_IOC_GMM2: return sizeof(struct cvi_ive_ioctl_gmm2_arg);
++    case CVI_IVE_IOC_Bernsen: return sizeof(struct cvi_ive_ioctl_bernsen_arg);
++    case CVI_IVE_IOC_Filter: return sizeof(struct cvi_ive_ioctl_filter_arg);
++    case CVI_IVE_IOC_Sobel: return sizeof(struct cvi_ive_ioctl_sobel_arg);
++    case CVI_IVE_IOC_MagAndAng: return sizeof(struct cvi_ive_ioctl_maganang_arg);
++    case CVI_IVE_IOC_CSC: return sizeof(struct cvi_ive_ioctl_csc_arg);
++    case CVI_IVE_IOC_Hist: return sizeof(struct cvi_ive_ioctl_hist_arg);
++    case CVI_IVE_IOC_FilterAndCSC: return sizeof(struct cvi_ive_ioctl_filter_and_csc_arg);
++    case CVI_IVE_IOC_Map: return sizeof(struct cvi_ive_ioctl_map_arg);
++    case CVI_IVE_IOC_NCC: return sizeof(struct cvi_ive_ioctl_ncc_arg);
++    case CVI_IVE_IOC_Integ: return sizeof(struct cvi_ive_ioctl_integ_arg);
++    case CVI_IVE_IOC_LBP: return sizeof(struct cvi_ive_ioctl_lbp_arg);
++    case CVI_IVE_IOC_Thresh_S16: return sizeof(struct cvi_ive_ioctl_thresh_s16_arg);
++    case CVI_IVE_IOC_Thresh_U16: return sizeof(struct cvi_ive_ioctl_thres_su16_arg);
++    case CVI_IVE_IOC_16BitTo8Bit: return sizeof(struct cvi_ive_ioctl_16bit_to_8bit_arg);
++    case CVI_IVE_IOC_OrdStatFilter: return sizeof(struct cvi_ive_ioctl_ord_stat_filter_arg);
++    case CVI_IVE_IOC_CannyHysEdge: return sizeof(struct cvi_ive_ioctl_canny_hys_edge_arg);
++    case CVI_IVE_IOC_NormGrad: return sizeof(struct cvi_ive_ioctl_norm_grad_arg);
++    case CVI_IVE_IOC_GradFg: return sizeof(struct cvi_ive_ioctl_grad_fg_arg);
++    case CVI_IVE_IOC_SAD: return sizeof(struct cvi_ive_ioctl_sad_arg);
++    case CVI_IVE_IOC_Resize: return sizeof(struct cvi_ive_ioctl_resize_arg);
++    case CVI_IVE_IOC_imgInToOdma: return sizeof(struct cvi_ive_ioctl_filter_arg);
++    case CVI_IVE_IOC_rgbPToYuvToErodeToDilate: return sizeof(struct cvi_ive_ioctl_rgbPToYuvToErodeToDilate);
++    case CVI_IVE_IOC_STCandiCorner: return sizeof(struct cvi_ive_ioctl_stcandicorner);
++    case CVI_IVE_IOC_MD: return sizeof(struct cvi_ive_ioctl_md);
++    case CVI_IVE_IOC_CMDQ: return 0;
++    default: return -ENOTTY;
++    }
++}
++
++static long cvi_ive_dispatch(struct file *filp, unsigned int cmd,
+ 			  unsigned long arg)
+ {
+ 	struct cvi_ive_device *ndev = filp->private_data;
+-	CVI_S32 ret = -1;
+-
+-	if (!copy_from_user(g_kdata, (void __user *)arg, 512) ||
+-		cmd == CVI_IVE_IOC_DUMP || cmd == CVI_IVE_IOC_CMDQ) {
++    u64 request[64] = { 0 };
++    char *g_kdata = (char *)request;
++    int argument_size = ive_ioctl_arg_size(cmd);
++    CVI_S32 ret = -1;
++
++    if (argument_size < 0) return argument_size;
++    if (argument_size > sizeof(request)) return -E2BIG;
++    if (argument_size && copy_from_user(request, (void __user *)arg, argument_size)) return -EFAULT;
++    {
+ 		switch (cmd) {
+ 		case CVI_IVE_IOC_QUERY: {
+ 			CVI_BOOL bFinish;
+@@ -345,12 +401,10 @@ static long cvi_ive_ioctl(struct file *filp, unsigned int cmd,
+ 					(struct cvi_ive_query_arg *) g_kdata;
+ 
+ 			start_ioctl_time(&g_time_infos[MOD_QUERY], "QUERY");
+-			ret = copy_from_user(&bFinish,
+-							(void __user *)val->pbFinish,
+-							sizeof(bool));
+-			ret = cvi_ive_Query(ndev, &bFinish, val->bBlock);
+-			ret = copy_to_user((void __user *)val->pbFinish,
+-						&bFinish, sizeof(bool));
++            bFinish = CVI_FALSE;
++            ret = cvi_ive_Query(ndev, &bFinish, val->bBlock);
++            if (ret == CVI_SUCCESS && copy_to_user((void __user *)val->pbFinish, &bFinish, sizeof(bFinish)))
++                ret = -EFAULT;
+ 			stop_ioctl_time(&g_time_infos[MOD_QUERY]);
+ 		} break;
+ 		case CVI_IVE_IOC_RESET: {
+@@ -681,30 +735,23 @@ static long cvi_ive_ioctl(struct file *filp, unsigned int cmd,
+ 						val->bInstant);
+ 			stop_ioctl_time(&g_time_infos[MOD_SAD]);
+ 		} break;
+-		case CVI_IVE_IOC_Resize: {
+-			int i = 0;
+-			struct cvi_ive_ioctl_resize_arg *val =
+-					(struct cvi_ive_ioctl_resize_arg *) g_kdata;
+-			IVE_SRC_IMAGE_S *Src;
+-			IVE_DST_IMAGE_S *Dst;
+-
+-			start_ioctl_time(&g_time_infos[MOD_RESIZE], "Resize");
+-			Src = vmalloc(sizeof(IVE_IMAGE_S) * val->stCtrl.u16Num);
+-			Dst = vmalloc(sizeof(IVE_IMAGE_S) * val->stCtrl.u16Num);
+-			for (i = 0; i < val->stCtrl.u16Num; i++) {
+-				ret = copy_from_user(
+-					&Src[i], (void __user *)&val->astSrc[i],
+-					sizeof(Src[i]));
+-				ret = copy_from_user(
+-					&Dst[i], (void __user *)&val->astDst[i],
+-					sizeof(Dst[i]));
+-			}
+-			ret = cvi_ive_Resize(ndev, Src, Dst, &val->stCtrl,
+-							val->bInstant);
+-			vfree(Src);
+-			vfree(Dst);
+-			stop_ioctl_time(&g_time_infos[MOD_RESIZE]);
+-		} break;
++        case CVI_IVE_IOC_Resize: {
++            struct cvi_ive_ioctl_resize_arg *val = (void *)g_kdata;
++            IVE_SRC_IMAGE_S *src;
++            IVE_DST_IMAGE_S *dst;
++            size_t bytes;
++            if (!val->stCtrl.u16Num) return -EINVAL;
++            bytes = array_size(sizeof(*src), val->stCtrl.u16Num);
++            src = vmemdup_user((void __user *)val->astSrc, bytes);
++            if (IS_ERR(src)) return PTR_ERR(src);
++            dst = vmemdup_user((void __user *)val->astDst, bytes);
++            if (IS_ERR(dst)) { ret = PTR_ERR(dst); vfree(src); return ret; }
++            start_ioctl_time(&g_time_infos[MOD_RESIZE], "Resize");
++            ret = cvi_ive_Resize(ndev, src, dst, &val->stCtrl, val->bInstant);
++            vfree(src);
++            vfree(dst);
++            stop_ioctl_time(&g_time_infos[MOD_RESIZE]);
++        } break;
+ 		case CVI_IVE_IOC_imgInToOdma: {
+ 			struct cvi_ive_ioctl_filter_arg *val =
+ 					(struct cvi_ive_ioctl_filter_arg *) g_kdata;
+@@ -764,6 +811,16 @@ static long cvi_ive_ioctl(struct file *filp, unsigned int cmd,
+ 	return ret;
+ }
+ 
++static long cvi_ive_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
++{
++    struct cvi_ive_device *ndev = filp->private_data;
++    long ret;
++    if (mutex_lock_interruptible(&ndev->ioctl_lock)) return -ERESTARTSYS;
++    ret = cvi_ive_dispatch(filp, cmd, arg);
++    mutex_unlock(&ndev->ioctl_lock);
++    return ret;
++}
++
+ static int cvi_ive_open(struct inode *inode, struct file *filp)
+ {
+ 	//struct cvi_ive_device *ndev =
+@@ -810,31 +867,28 @@ static int cvi_ive_close(struct inode *inode, struct file *filp)
+ //	return 0;
+ //}
+ 
+-int cvi_ive_register_cdev(struct cvi_ive_device *ndev)
++static int cvi_ive_register_cdev(struct cvi_ive_device *ndev)
+ {
+-	int ret;
+-	// Create device to /sys/class/
+-	class_id = class_create(THIS_MODULE, CVI_IVE_CLASS_NAME);
+-	if (IS_ERR(class_id)) {
+-		pr_err("[IVE] create class failed\n");
+-		return PTR_ERR(class_id);
+-	}
+-	// Apply for a character device driver id (cdev)
+-	ret = alloc_chrdev_region(&cdev_id, 0, 1, CVI_IVE_CDEV_NAME);
+-	if (ret < 0) {
+-		pr_err("[IVE] alloc chrdev failed\n");
+-		return ret;
+-	}
+-	// Init character device and link file_ops
+-	cdev_init(&ndev->cdev, &ive_fops);
+-	ndev->cdev.owner = THIS_MODULE;
+-	// Add cdev to kernel character device list
+-	cdev_add(&ndev->cdev, cdev_id, 1);
+-	// Automatically create device node under /dev/
+-	device_create(class_id, ndev->dev, cdev_id, NULL, "%s",
+-		      CVI_IVE_CDEV_NAME);
+-
+-	return 0;
++    struct device *device;
++    int ret;
++    class_id = class_create(CVI_IVE_CLASS_NAME);
++    if (IS_ERR(class_id)) return PTR_ERR(class_id);
++    ret = alloc_chrdev_region(&cdev_id, 0, 1, CVI_IVE_CDEV_NAME);
++    if (ret) goto destroy_class;
++    cdev_init(&ndev->cdev, &ive_fops);
++    ndev->cdev.owner = THIS_MODULE;
++    ret = cdev_add(&ndev->cdev, cdev_id, 1);
++    if (ret) goto unregister_region;
++    device = device_create(class_id, ndev->dev, cdev_id, NULL, "%s", CVI_IVE_CDEV_NAME);
++    if (!IS_ERR(device)) return 0;
++    ret = PTR_ERR(device);
++    cdev_del(&ndev->cdev);
++unregister_region:
++    unregister_chrdev_region(cdev_id, 1);
++destroy_class:
++    class_destroy(class_id);
++    class_id = NULL;
++    return ret;
+ }
+ 
+ static int cvi_ive_probe(struct platform_device *pdev)
+@@ -857,15 +911,19 @@ static int cvi_ive_probe(struct platform_device *pdev)
+ 	if (IS_ERR(ndev->ive_base))
+ 		return PTR_ERR(ndev->ive_base);
+ 
+-	if (assign_ive_block_addr(ndev->ive_base))
+-		return PTR_ERR(ndev->ive_base);
++    ret = assign_ive_block_addr(ndev->ive_base);
++    if (ret) return ret;
+ 
+ 	ndev->ive_irq = platform_get_irq(pdev, 0);
+-	if (ndev->ive_irq <= 0)
+-		return -EBUSY;
++    if (ndev->ive_irq < 0) return ndev->ive_irq;
+ 
+ 	spin_lock_init(&ndev->close_lock);
+-	ndev->use_count = 0;
++    ndev->use_count = 0;
++    mutex_init(&ndev->ioctl_lock);
++    init_completion(&ndev->frame_done);
++    init_completion(&ndev->op_done);
++    g_time_infos = devm_kcalloc(dev, MOD_ALL, sizeof(*g_time_infos), GFP_KERNEL);
++    if (!g_time_infos) return -ENOMEM;
+ 
+ 	ret = devm_request_irq(&pdev->dev, ndev->ive_irq, cvi_ive_irq_handler,
+ 			       IRQF_TRIGGER_NONE, dev_name(&pdev->dev), ndev);
+@@ -873,41 +931,32 @@ static int cvi_ive_probe(struct platform_device *pdev)
+ 		dev_err(&pdev->dev,
+ 			"Unable to request interrupt for device (err=%d).\n",
+ 			ret);
+-		return -ENXIO;
+-	}
+-
+-	init_completion(&ndev->frame_done);
+-	init_completion(&ndev->op_done);
+-	//ret = cvi_ive_register_misc(ndev);
+-	//if (ret < 0) {
+-	//	pr_err("[IVE] register misc error\n");
+-	//	return ret;
+-	//}
+-	g_kdata = vmalloc(512);
+-	g_time_infos = devm_kzalloc(&pdev->dev,
+-				  MOD_ALL * sizeof(struct ive_profiling_info),
+-				  GFP_KERNEL);
+-
+-	ret = cvi_ive_register_cdev(ndev);
+-	if (ret < 0) {
+-		pr_err("[IVE] register chrdev error\n");
+ 		return ret;
+ 	}
+ 
+-	// Create drvdata(global variables)
+-	platform_set_drvdata(pdev, ndev);
+-	// Create ive proc descript
+-	ndev->proc_dir = proc_mkdir("ive", NULL);
+-	if (proc_create_data("hw_profiling", 0644, ndev->proc_dir,
+-			     &ive_proc_ops, ndev) == NULL)
+-		pr_err("[IVE] ive hw_profiling proc creation failed\n");
+-	g_enable_usage_profiling = 0;
+ 
+-	stcandicorner_workaround(ndev);
+-	return 0;
++    g_enable_usage_profiling = 0;
++    ret = stcandicorner_workaround(ndev);
++    if (ret) return dev_err_probe(dev, ret, "IVE initialization failed\n");
++
++    ndev->proc_dir = proc_mkdir("ive", NULL);
++    if (!ndev->proc_dir) return -ENOMEM;
++    if (!proc_create_data("hw_profiling", 0644, ndev->proc_dir,
++                          &ive_proc_ops, ndev)) {
++        ret = -ENOMEM;
++        goto remove_proc;
++    }
++    /* Publish the user interface only after hardware initialization. */
++    ret = cvi_ive_register_cdev(ndev);
++    if (ret) goto remove_proc;
++    platform_set_drvdata(pdev, ndev);
++    return 0;
++remove_proc:
++    proc_remove(ndev->proc_dir);
++    return ret;
+ }
+ 
+-static int cvi_ive_remove(struct platform_device *pdev)
++static void cvi_ive_remove(struct platform_device *pdev)
+ {
+ 	// Get drvdata(global variables)
+ 	struct cvi_ive_device *ndev = platform_get_drvdata(pdev);
+@@ -924,12 +973,10 @@ static int cvi_ive_remove(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, NULL);
+ 
+-	vfree(g_kdata);
+ 	// clk_disable_unprepare(ndev->clk);
+ 
+ 	// remove ive proc
+ 	proc_remove(ndev->proc_dir);
+-	return 0;
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
+diff --git a/interdrv/ive/common/cvi_ive_interface.h b/interdrv/ive/common/cvi_ive_interface.h
+index 2818dfb..7c9df0d 100644
+--- a/interdrv/ive/common/cvi_ive_interface.h
++++ b/interdrv/ive/common/cvi_ive_interface.h
+@@ -9,6 +9,7 @@
+ #define __CVI_IVE_INTERFACE_H__
+ 
+ #include <linux/cdev.h>
++#include <linux/mutex.h>
+ #include <linux/completion.h>
+ #include <linux/version.h>
+ 
+@@ -26,6 +27,7 @@ struct cvi_ive_device {
+ 	struct proc_dir_entry *proc_dir;
+ 	struct clk *clk;
+ 	spinlock_t close_lock;
++	struct mutex ioctl_lock;
+ 	struct completion frame_done;
+ 	struct completion op_done;
+ 	int cur_optype;
+diff --git a/interdrv/ive/hal/cv181x/cvi_ive_platform.c b/interdrv/ive/hal/cv181x/cvi_ive_platform.c
+index 091b6b9..d04dc0b 100644
+--- a/interdrv/ive/hal/cv181x/cvi_ive_platform.c
++++ b/interdrv/ive/hal/cv181x/cvi_ive_platform.c
+@@ -13,6 +13,7 @@
+ 
+ #include <linux/delay.h>
+ #include <linux/interrupt.h>
++#include <linux/vmalloc.h>
+ #include <linux/string.h>
+ #include <linux/timer.h>
+ #include <linux/uaccess.h>
+@@ -76,9 +77,6 @@ struct _IVE_DEBUG_INFO_S g_debug_info = {
+ };
+ 
+ IVE_DST_MEM_INFO_S *g_pDst;
+-CVI_U16 g_u16MaxEig;
+-CVI_U32 g_u32SizeS8C2;
+-IVE_ST_CANDI_CORNER_CTRL_S *g_pStCandiCornerCtrl;
+ uintptr_t g_phy_shift;
+ CVI_BOOL g_dump_reg_info;
+ CVI_BOOL g_dump_image_info;
+@@ -1025,7 +1023,7 @@ static void cmdq_printk(CMDQ_C *p)
+ }
+ 
+ 
+-uint32_t WidthAlign(const uint32_t width, const uint32_t align)
++static uint32_t WidthAlign(const uint32_t width, const uint32_t align)
+ {
+ 	uint32_t stride = (uint32_t)(width / align) * align;
+ 	if (stride < width) {
+@@ -1035,7 +1033,7 @@ uint32_t WidthAlign(const uint32_t width, const uint32_t align)
+ }
+ 
+ //#define ENUM_TYPE_CASE(x) (#x+15)
+-CVI_U32 getChannelCount(IVE_IMAGE_TYPE_E type)
++static CVI_U32 getChannelCount(IVE_IMAGE_TYPE_E type)
+ {
+ 	switch (type) {
+ 	case IVE_IMAGE_TYPE_U8C1:
+@@ -1064,7 +1062,7 @@ CVI_U32 getChannelCount(IVE_IMAGE_TYPE_E type)
+ 	}
+ }
+ 
+-void dump_ive_image(char *name, IVE_IMAGE_S *img)
++static void dump_ive_image(char *name, IVE_IMAGE_S *img)
+ {
+ 	CVI_S32 i = 0;
+ 
+@@ -1086,7 +1084,7 @@ void dump_ive_image(char *name, IVE_IMAGE_S *img)
+ 	}
+ }
+ 
+-void dump_ive_data(char *name, IVE_DATA_S *data)
++static void dump_ive_data(char *name, IVE_DATA_S *data)
+ {
+ 	pr_info("Data %s\n", name);
+ 	if (data != NULL) {
+@@ -1101,7 +1099,7 @@ void dump_ive_data(char *name, IVE_DATA_S *data)
+ 	}
+ }
+ 
+-void dump_ive_mem(char *name, IVE_MEM_INFO_S *mem)
++static void dump_ive_mem(char *name, IVE_MEM_INFO_S *mem)
+ {
+ 	pr_info("Mem %s\n", name);
+ 	if (mem != NULL) {
+@@ -1114,7 +1112,7 @@ void dump_ive_mem(char *name, IVE_MEM_INFO_S *mem)
+ 	}
+ }
+ 
+-CVI_S32 getImgFmtSel(IVE_IMAGE_TYPE_E enType)
++static CVI_S32 getImgFmtSel(IVE_IMAGE_TYPE_E enType)
+ {
+ 	CVI_S32 r = CVI_FAILURE;
+ 
+@@ -1423,7 +1421,7 @@ CVI_S32 cvi_ive_dump_reg_state(CVI_BOOL bDump)
+ 	return CVI_SUCCESS;
+ }
+ 
+-void ive_reset_reg(CVI_S32 select, IVE_TOP_C *Top)
++static void ive_reset_reg(CVI_S32 select, IVE_TOP_C *Top)
+ {
+ 	CVI_S32 i = 0;
+ 	CVI_S32 size = 0;
+@@ -1762,7 +1760,7 @@ void ive_reset_reg(CVI_S32 select, IVE_TOP_C *Top)
+ 	}
+ }
+ 
+-CVI_S32 clearFramedone(CVI_S32 status, CVI_S32 log)
++static CVI_S32 clearFramedone(CVI_S32 status, CVI_S32 log)
+ {
+ 	if (log)
+ 		pr_info("framedone [%x]\n", status);
+@@ -1773,7 +1771,7 @@ CVI_S32 clearFramedone(CVI_S32 status, CVI_S32 log)
+ 	return status;
+ }
+ 
+-CVI_S32 clearInterruptStatus(CVI_S32 status, CVI_BOOL enlog)
++static CVI_S32 clearInterruptStatus(CVI_S32 status, CVI_BOOL enlog)
+ {
+ 	if (enlog)
+ 		pr_info("interrupt status [%x]\n", status);
+@@ -1842,6 +1840,7 @@ inline CVI_S32 cvi_ive_go(struct cvi_ive_device *ndev, IVE_TOP_C *ive_top_c,
+ 	clearFramedone(readl(IVE_BLK_BA.IVE_TOP + IVE_TOP_REG_90), 0);
+ 	clearInterruptStatus(readl(IVE_BLK_BA.IVE_TOP + IVE_TOP_REG_98), 0);
+ 	//}
++	reinit_completion(&ndev->frame_done);
+ 	// GoGoGo
+ 	cvi_ive_dump_reg_state(false);
+ 	//cvi_ive_dump_hw_flow();
+@@ -1860,7 +1859,6 @@ inline CVI_S32 cvi_ive_go(struct cvi_ive_device *ndev, IVE_TOP_C *ive_top_c,
+ 			cnt++;
+ 		}
+ 		stop_vld_time(optype, ndev->tile_num);
+-		complete(&ndev->frame_done);
+ 		if (cnt >= 10000)
+ 			ret = CVI_FAILURE;
+ 	} else {
+@@ -1878,7 +1876,7 @@ inline CVI_S32 cvi_ive_go(struct cvi_ive_device *ndev, IVE_TOP_C *ive_top_c,
+ 	return ret;
+ }
+ 
+-CVI_S32 emitBGMTile(
++static CVI_S32 emitBGMTile(
+ 	struct cvi_ive_device *ndev, CVI_BOOL enWdma_y, CVI_BOOL enOdma, CVI_S32 optype,
+ 	IVE_TOP_C *ive_top_c, IVE_FILTEROP_C *ive_filterop_c,
+ 	IMG_IN_C *img_in_c, IVE_GMM_C *ive_gmm_c, ISP_DMA_CTL_C *wdma_y_ctl_c,
+@@ -2515,7 +2513,7 @@ CVI_S32 emitBGMTile(
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 emitTile(struct cvi_ive_device *ndev, IVE_TOP_C *ive_top_c,
++static CVI_S32 emitTile(struct cvi_ive_device *ndev, IVE_TOP_C *ive_top_c,
+ 		 IVE_FILTEROP_C *ive_filterop_c, IMG_IN_C *img_in_c,
+ 		 ISP_DMA_CTL_C *wdma_y_ctl_c, ISP_DMA_CTL_C *rdma_img1_ctl_c,
+ 		 ISP_DMA_CTL_C *wdma_c_ctl_c, ISP_DMA_CTL_C *rdma_eigval_ctl_c,
+@@ -3134,7 +3132,7 @@ CVI_S32 emitTile(struct cvi_ive_device *ndev, IVE_TOP_C *ive_top_c,
+ 	return CVI_SUCCESS;
+ }
+ 
+-void ive_set_int(IVE_TOP_C *ive_top_c, CVI_BOOL isEnable)
++static void ive_set_int(IVE_TOP_C *ive_top_c, CVI_BOOL isEnable)
+ {
+ 	ive_top_c->REG_94.reg_intr_en_hist = isEnable;
+ 	ive_top_c->REG_94.reg_intr_en_intg = isEnable;
+@@ -3149,7 +3147,7 @@ void ive_set_int(IVE_TOP_C *ive_top_c, CVI_BOOL isEnable)
+ 	writel(ive_top_c->REG_94.val, (IVE_BLK_BA.IVE_TOP + IVE_TOP_REG_94));
+ }
+ 
+-void ive_reset(struct cvi_ive_device *ndev, IVE_TOP_C *ive_top_c)
++static void ive_reset(struct cvi_ive_device *ndev, IVE_TOP_C *ive_top_c)
+ {
+ 	CVI_S32 i = 0;
+ 	//DEFINE_IVE_FILTEROP_C(ive_filterop_c);
+@@ -3215,7 +3213,7 @@ void ive_reset(struct cvi_ive_device *ndev, IVE_TOP_C *ive_top_c)
+ 	}
+ }
+ 
+-CVI_S32 ive_get_mod_u8(CVI_S32 tpye)
++static CVI_S32 ive_get_mod_u8(CVI_S32 tpye)
+ {
+ 	switch (tpye) {
+ 	case IVE_IMAGE_TYPE_U8C1:
+@@ -3227,7 +3225,7 @@ CVI_S32 ive_get_mod_u8(CVI_S32 tpye)
+ 	return -1;
+ }
+ 
+-void ive_set_wh(IVE_TOP_C *top, CVI_U32 w, CVI_U32 h, char *name)
++static void ive_set_wh(IVE_TOP_C *top, CVI_U32 w, CVI_U32 h, char *name)
+ {
+ 	top->REG_2.reg_img_heightm1 = h - 1;
+ 	top->REG_2.reg_img_widthm1 = w - 1;
+@@ -3238,7 +3236,7 @@ void ive_set_wh(IVE_TOP_C *top, CVI_U32 w, CVI_U32 h, char *name)
+ 	g_debug_info.src_h = top->REG_2.reg_img_heightm1;
+ }
+ 
+-CVI_S32 setImgDst1(IVE_DST_IMAGE_S *dst_img, ISP_DMA_CTL_C *wdma_y_ctl_c)
++static CVI_S32 setImgDst1(IVE_DST_IMAGE_S *dst_img, ISP_DMA_CTL_C *wdma_y_ctl_c)
+ {
+ 	CVI_S32 swMode = 0;
+ 	//DEFINE_ISP_DMA_CTL_C(_wdma_y_ctl_c);
+@@ -3305,7 +3303,7 @@ CVI_S32 setImgDst1(IVE_DST_IMAGE_S *dst_img, ISP_DMA_CTL_C *wdma_y_ctl_c)
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 setImgDst2(IVE_DST_IMAGE_S *dst_img, ISP_DMA_CTL_C *wdma_c_ctl_c)
++static CVI_S32 setImgDst2(IVE_DST_IMAGE_S *dst_img, ISP_DMA_CTL_C *wdma_c_ctl_c)
+ {
+ 	//DEFINE_ISP_DMA_CTL_C(_wdma_c_ctl_c);
+ 	ISP_DMA_CTL_C _wdma_c_ctl_c = _DEFINE_ISP_DMA_CTL_C;
+@@ -3345,7 +3343,7 @@ CVI_S32 setImgDst2(IVE_DST_IMAGE_S *dst_img, ISP_DMA_CTL_C *wdma_c_ctl_c)
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 setImgSrc1(IVE_SRC_IMAGE_S *src_img, IMG_IN_C *img_in_c, IVE_TOP_C *ive_top_c)
++static CVI_S32 setImgSrc1(IVE_SRC_IMAGE_S *src_img, IMG_IN_C *img_in_c, IVE_TOP_C *ive_top_c)
+ {
+ 	//reset image in ip before input
+ 	img_in_c->REG_068.reg_ip_clr_w1t = 1;
+@@ -3488,7 +3486,7 @@ CVI_S32 setImgSrc1(IVE_SRC_IMAGE_S *src_img, IMG_IN_C *img_in_c, IVE_TOP_C *ive_
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 setImgSrc2(IVE_SRC_IMAGE_S *src_img, ISP_DMA_CTL_C *rdma_img1_ctl_c)
++static CVI_S32 setImgSrc2(IVE_SRC_IMAGE_S *src_img, ISP_DMA_CTL_C *rdma_img1_ctl_c)
+ {
+ 	//DEFINE_ISP_DMA_CTL_C(_rdma_img1_ctl_c);
+ 	ISP_DMA_CTL_C _rdma_img1_ctl_c = _DEFINE_ISP_DMA_CTL_C;
+@@ -3522,7 +3520,7 @@ CVI_S32 setImgSrc2(IVE_SRC_IMAGE_S *src_img, ISP_DMA_CTL_C *rdma_img1_ctl_c)
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 setRdmaEigval(IVE_SRC_IMAGE_S *pstSrc, ISP_DMA_CTL_C *rdma_eigval_ctl_c)
++static CVI_S32 setRdmaEigval(IVE_SRC_IMAGE_S *pstSrc, ISP_DMA_CTL_C *rdma_eigval_ctl_c)
+ {
+ 	//DEFINE_ISP_DMA_CTL_C(_rdma_eigval_ctl_c);
+ 	ISP_DMA_CTL_C _rdma_eigval_ctl_c = _DEFINE_ISP_DMA_CTL_C;
+@@ -3558,7 +3556,7 @@ CVI_S32 setRdmaEigval(IVE_SRC_IMAGE_S *pstSrc, ISP_DMA_CTL_C *rdma_eigval_ctl_c)
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 setOdma(IVE_SRC_IMAGE_S *dst_img, IVE_FILTEROP_C *ive_filterop_c, CVI_S32 w,
++static CVI_S32 setOdma(IVE_SRC_IMAGE_S *dst_img, IVE_FILTEROP_C *ive_filterop_c, CVI_S32 w,
+ 		CVI_S32 h)
+ {
+ 	ive_filterop_c->ODMA_REG_00.reg_fmt_sel = getImgFmtSel(dst_img->enType);
+@@ -3675,7 +3673,7 @@ CVI_S32 setOdma(IVE_SRC_IMAGE_S *dst_img, IVE_FILTEROP_C *ive_filterop_c, CVI_S3
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 cvi_ive_base_op(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc1,
++static CVI_S32 cvi_ive_base_op(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc1,
+ 			IVE_SRC_IMAGE_S *pstSrc2, IVE_DST_IMAGE_S *pstDst,
+ 			CVI_BOOL bInstant, CVI_S32 op, void *pstCtrl)
+ {
+@@ -4150,7 +4148,7 @@ CVI_S32 assign_ive_block_addr(void __iomem *ive_phy_base)
+ 	return CVI_SUCCESS;
+ }
+ 
+-void cmdQ_set_package(struct cmdq_set_reg *set, CVI_U32 addr, CVI_U32 data)
++static void cmdQ_set_package(struct cmdq_set_reg *set, CVI_U32 addr, CVI_U32 data)
+ {
+ 	set->data = data;
+ 	set->addr = addr >> 2;
+@@ -4158,7 +4156,7 @@ void cmdQ_set_package(struct cmdq_set_reg *set, CVI_U32 addr, CVI_U32 data)
+ 	set->action = CMDQ_SET_REG;
+ }
+ 
+-void cmdQ_engine(CMDQ_C *ive_cmdq_c, uintptr_t tbl_addr, CVI_U16 apb_base,
++static void cmdQ_engine(CMDQ_C *ive_cmdq_c, uintptr_t tbl_addr, CVI_U16 apb_base,
+ 		bool is_hw_restart, bool is_adma, CVI_U16 cnt)
+ {
+ 	// adma or cmdq_set tbl addr
+@@ -4185,7 +4183,7 @@ void cmdQ_engine(CMDQ_C *ive_cmdq_c, uintptr_t tbl_addr, CVI_U16 apb_base,
+ 	writel(ive_cmdq_c->JOB_CTL.val, (IVE_BLK_BA.CMDQ + CMDQ_JOB_CTL));
+ }
+ 
+-void cmdQ_adma_package(struct cmdq_adma *item, CVI_U64 addr, CVI_U32 size,
++static void cmdQ_adma_package(struct cmdq_adma *item, CVI_U64 addr, CVI_U32 size,
+ 		bool is_link, bool is_end)
+ {
+ 	item->addr = addr;
+@@ -4673,7 +4671,7 @@ CVI_S32 cvi_ive_Thresh(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 	return ret;
+ }
+ 
+-CVI_S32 erode_dilate_op(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
++static CVI_S32 erode_dilate_op(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 			IVE_DST_IMAGE_S *pstDst, CVI_U8 *au8Mask,
+ 			CVI_BOOL bInstant, CVI_S32 op)
+ {
+@@ -5106,7 +5104,7 @@ cvi_ive_FrameDiffMotion(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc1,
+ 	return ret;
+ }
+ 
+-CVI_S32 gmm_gmm2_op(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
++static CVI_S32 gmm_gmm2_op(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 			IVE_DST_IMAGE_S *pstBg, IVE_SRC_IMAGE_S *_pstModel,
+ 			IVE_DST_IMAGE_S *pstFg, IVE_TOP_C *ive_top_c,
+ 			IVE_FILTEROP_C *ive_filterop_c, IMG_IN_C *img_in_c,
+@@ -6321,7 +6319,7 @@ CVI_S32 cvi_ive_Bernsen(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 	return ret;
+ }
+ 
+-CVI_S32 _cvi_ive_filter(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
++static CVI_S32 _cvi_ive_filter(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 			IVE_DST_IMAGE_S *pstDst, IVE_FILTER_CTRL_S *pstFltCtrl,
+ 			CVI_BOOL bInstant, IVE_TOP_C *ive_top_c,
+ 			IMG_IN_C *img_in_c, IVE_FILTEROP_C *ive_filterop_c,
+@@ -6507,7 +6505,7 @@ CVI_S32 cvi_ive_Filter(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 	return ret;
+ }
+ 
+-CVI_S32 _cvi_ive_csc(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
++static CVI_S32 _cvi_ive_csc(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 			 IVE_DST_IMAGE_S *pstDst, IVE_CSC_CTRL_S *pstCscCtrl,
+ 			 CVI_BOOL bInstant, IVE_TOP_C *ive_top_c,
+ 			 IMG_IN_C *img_in_c, IVE_FILTEROP_C *ive_filterop_c,
+@@ -7733,7 +7731,7 @@ CVI_S32 cvi_ive_LBP(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 	return ret;
+ }
+ 
+-CVI_S32 _cvi_ive_16BitTo8Bit(IVE_SRC_IMAGE_S *pstSrc, IVE_DST_IMAGE_S *pstDst,
++static CVI_S32 _cvi_ive_16BitTo8Bit(IVE_SRC_IMAGE_S *pstSrc, IVE_DST_IMAGE_S *pstDst,
+ 				 IVE_TOP_C *ive_top_c, IVE_FILTEROP_C *ive_filterop_c,
+ 				 ISP_DMA_CTL_C *wdma_y_ctl_c, ISP_DMA_CTL_C *rdma_eigval_ctl_c)
+ {
+@@ -8861,7 +8859,7 @@ CVI_S32 cvi_ive_SAD(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc1,
+ 	return ret;
+ }
+ 
+-void _sclr_get_2tap_scale(IVE_TOP_C *ive_top_c, IVE_SRC_IMAGE_S *pstSrc,
++static void _sclr_get_2tap_scale(IVE_TOP_C *ive_top_c, IVE_SRC_IMAGE_S *pstSrc,
+ 			  IVE_DST_IMAGE_S *pstDst)
+ {
+ 	CVI_U32 src_wd, src_ht, dst_wd, dst_ht, scale_x, scale_y;
+@@ -9222,13 +9220,14 @@ CVI_S32 CVI_IVE_HW_EqualizeHist(struct cvi_ive_device *ndev,
+ 
+ #endif
+ 
+-CVI_S32
++static CVI_S32
+ _CVI_HW_STBoxFltAndEigCalc(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 			   IVE_DST_IMAGE_S *pstDst, CVI_S8 *as8Mask,
+ 			   CVI_U16 *u16MaxEig, CVI_BOOL bInstant,
+ 			   IVE_TOP_C *ive_top_c, IVE_FILTEROP_C *ive_filterop_c,
+ 			   IMG_IN_C *img_in_c, ISP_DMA_CTL_C *wdma_y_ctl_c)
+ {
++	CVI_S32 ret;
+ 	CVI_DBG_INFO("CVI_HW_STBoxFltAndEigCalc\n");
+ 	// top
+ 	ive_set_wh(ive_top_c, pstSrc->u32Width, pstSrc->u32Height, "STBoxFAndEigCal");
+@@ -9332,22 +9331,23 @@ _CVI_HW_STBoxFltAndEigCalc(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 		   (IVE_BLK_BA.FILTEROP + IVE_FILTEROP_REG_H14));
+ 
+ 	if (pstSrc->u32Width > 480) {
+-		emitTile(ndev, ive_top_c, ive_filterop_c, img_in_c,
++		ret = emitTile(ndev, ive_top_c, ive_filterop_c, img_in_c,
+ 			 wdma_y_ctl_c, NULL, NULL, NULL, pstSrc, NULL, NULL,
+ 			 pstDst, NULL, true, 2, false, 1, false, MOD_STBOX,
+ 			 bInstant);
+ 	} else {
+-		cvi_ive_go(ndev, ive_top_c, bInstant,
++		ret = cvi_ive_go(ndev, ive_top_c, bInstant,
+ 			   IVE_TOP_REG_FRAME_DONE_FILTEROP_WDMA_Y_MASK,
+ 			   MOD_STBOX);
+ 	}
+ 
++	if (ret != CVI_SUCCESS) return ret;
+ 	*u16MaxEig = readl(IVE_BLK_BA.FILTEROP + IVE_FILTEROP_REG_ST_EIGVAL_0) &
+ 			 IVE_FILTEROP_REG_ST_EIGVAL_MAX_EIGVAL_MASK;
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 _CVI_HW_STCandiCorner(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
++static CVI_S32 _CVI_HW_STCandiCorner(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 			  IVE_DST_IMAGE_S *pstDst, CVI_U16 u16MaxEig,
+ 			  IVE_ST_CANDI_CORNER_CTRL_S *pstStCandiCornerCtrl,
+ 			  CVI_BOOL bInstant, IVE_TOP_C *ive_top_c,
+@@ -9467,16 +9467,16 @@ CVI_S32 _CVI_HW_STCandiCorner(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstS
+ 	return ret;
+ }
+ 
+-CVI_S32 cvi_ive_STCandiCorner(struct cvi_ive_device *ndev,
++static CVI_S32 ive_st_candi_corner(struct cvi_ive_device *ndev,
+ 				  IVE_SRC_IMAGE_S *pstSrc,
+ 				  IVE_DST_IMAGE_S *pstCandiCorner,
+ 				  IVE_ST_CANDI_CORNER_CTRL_S *pstStCandiCornerCtrl,
+-				  CVI_BOOL bInstant)
++				  CVI_BOOL bInstant, bool user_result)
+ {
+ 	CVI_S32 ret = CVI_SUCCESS;
+ 	CVI_U32 u32SizeS8C2, u32SizeU8C1;
+ 	CVI_U16 u16MaxEig;
+-	IVE_DST_IMAGE_S stEigenMap;
++	IVE_DST_IMAGE_S stEigenMap = { 0 };
+ 	CVI_S8 as8Mask[25] = { 0, 0, 0, 0,  0, 0, -1, 0, 1, 0, 0, -2, 0,
+ 				   2, 0, 0, -1, 0, 1, 0,  0, 0, 0, 0, 0 };
+ 	//DEFINE_IVE_FILTEROP_C(ive_filterop_c);
+@@ -9556,63 +9556,78 @@ CVI_S32 cvi_ive_STCandiCorner(struct cvi_ive_device *ndev,
+ 	stEigenMap.u32Height = pstSrc->u32Height;
+ 	stEigenMap.u32Stride[0] = pstSrc->u32Stride[0] * 2;
+ 
+-	_CVI_HW_STBoxFltAndEigCalc(ndev, pstSrc, &stEigenMap, as8Mask,
++	ret = _CVI_HW_STBoxFltAndEigCalc(ndev, pstSrc, &stEigenMap, as8Mask,
+ 				   &u16MaxEig, bInstant, ive_top_c,
+ 				   &ive_filterop_c, &img_in_c, &wdma_y_ctl_c);
+ 
++	if (ret != CVI_SUCCESS) goto out;
+ 	if (u16MaxEig == 65535) {
+-		_CVI_HW_STBoxFltAndEigCalc(ndev, pstSrc, &stEigenMap, as8Mask,
++		ret = _CVI_HW_STBoxFltAndEigCalc(ndev, pstSrc, &stEigenMap, as8Mask,
+ 					   &u16MaxEig, bInstant, ive_top_c,
+ 					   &ive_filterop_c, &img_in_c,
+ 					   &wdma_y_ctl_c);
+ 	}
+-	g_u32SizeS8C2 = u32SizeS8C2;
+-	g_u16MaxEig = u16MaxEig;
+-	g_pStCandiCornerCtrl = pstStCandiCornerCtrl;
++	if (ret != CVI_SUCCESS) goto out;
+ 	ret = _CVI_HW_STCandiCorner(ndev, &stEigenMap, pstCandiCorner,
+ 					u16MaxEig, pstStCandiCornerCtrl, bInstant,
+ 					ive_top_c, &ive_filterop_c, &img_in_c,
+ 					&wdma_y_ctl_c, &rdma_eigval_ctl_c);
+-	if (bInstant) {
+-		copy_to_user((void __user *)(unsigned long)
+-				pstStCandiCornerCtrl->stMem.u64VirAddr + u32SizeS8C2 * 2,
+-				&u16MaxEig, sizeof(CVI_U16));
++	if (ret == CVI_SUCCESS && bInstant && user_result) {
++        if (copy_to_user((void __user *)(unsigned long)
++                pstStCandiCornerCtrl->stMem.u64VirAddr + u32SizeS8C2 * 2,
++                &u16MaxEig, sizeof(CVI_U16)))
++            ret = -EFAULT;
+ 	}
++out:
+ 	kfree(ive_top_c);
+ 	return ret;
+ }
+ 
+-void stcandicorner_workaround(struct cvi_ive_device *ndev)
++CVI_S32 cvi_ive_STCandiCorner(struct cvi_ive_device *ndev,
++    IVE_SRC_IMAGE_S *src, IVE_DST_IMAGE_S *dst,
++    IVE_ST_CANDI_CORNER_CTRL_S *ctrl, CVI_BOOL instant)
++{
++    return ive_st_candi_corner(ndev, src, dst, ctrl, instant, true);
++}
++
++int stcandicorner_workaround(struct cvi_ive_device *ndev)
+ {
+-	CVI_U32 u32Len;
+-	IVE_IMAGE_S pstSrc, pstDst;
+-	IVE_ST_CANDI_CORNER_CTRL_S stStCandiCornerCtrl;
+-
+-	pstSrc.enType = IVE_IMAGE_TYPE_U8C1;
+-	pstSrc.u32Stride[0] = 64;
+-	pstSrc.u32Width = 64;
+-	pstSrc.u32Height = 64;
+-	pstDst.enType = IVE_IMAGE_TYPE_U8C1;
+-	pstDst.u32Stride[0] = 64;
+-	pstDst.u32Width = 64;
+-	pstDst.u32Height = 64;
+-	u32Len = pstSrc.u32Stride[0] * 64;
+-	sys_ion_alloc(&pstSrc.u64PhyAddr[0], (CVI_VOID **)&pstSrc.u64VirAddr[0],
+-		"ive_mesh", u32Len, false);
+-	sys_ion_alloc(&pstDst.u64PhyAddr[0], (CVI_VOID **)&pstDst.u64VirAddr[0],
+-		"ive_mesh", u32Len, false);
+-	stStCandiCornerCtrl.u0q8QualityLevel = 25;
+-	sys_ion_alloc((CVI_U64 *)&stStCandiCornerCtrl.stMem.u64PhyAddr,
+-		(CVI_VOID **)&stStCandiCornerCtrl.stMem.u64VirAddr,
+-		"ive_mesh", 4 * pstSrc.u32Height * pstSrc.u32Stride[0] +
+-		sizeof(IVE_ST_MAX_EIG_S), false);
+-
+-	cvi_ive_STCandiCorner(ndev, &pstSrc,
+-		&pstDst, &stStCandiCornerCtrl, 0);
+-
+-	sys_ion_free(pstSrc.u64PhyAddr[0]);
+-	sys_ion_free(pstDst.u64PhyAddr[0]);
+-	sys_ion_free(stStCandiCornerCtrl.stMem.u64PhyAddr);
++    IVE_IMAGE_S src = { 0 }, dst = { 0 };
++    IVE_ST_CANDI_CORNER_CTRL_S ctrl = { 0 };
++    int ret;
++
++    src.enType = dst.enType = IVE_IMAGE_TYPE_U8C1;
++    src.u32Stride[0] = dst.u32Stride[0] = 64;
++    src.u32Width = dst.u32Width = 64;
++    src.u32Height = dst.u32Height = 64;
++    ctrl.u0q8QualityLevel = 25;
++    ctrl.stMem.u32Size = 4 * 64 * 64 + sizeof(IVE_ST_MAX_EIG_S);
++    ret = sys_ion_alloc(&src.u64PhyAddr[0], (void **)&src.u64VirAddr[0],
++                        (CVI_U8 *)"ive_init_src", 64 * 64, false);
++    if (ret) return ret;
++    ret = sys_ion_alloc(&dst.u64PhyAddr[0], (void **)&dst.u64VirAddr[0],
++                        (CVI_U8 *)"ive_init_dst", 64 * 64, false);
++    if (ret) goto free_src;
++    ret = sys_ion_alloc(&ctrl.stMem.u64PhyAddr, (void **)&ctrl.stMem.u64VirAddr,
++                        (CVI_U8 *)"ive_init_work", ctrl.stMem.u32Size, false);
++    if (ret) goto free_dst;
++    memset((void *)(uintptr_t)src.u64VirAddr[0], 0, 64 * 64);
++    memset((void *)(uintptr_t)dst.u64VirAddr[0], 0, 64 * 64);
++    memset((void *)(uintptr_t)ctrl.stMem.u64VirAddr, 0, ctrl.stMem.u32Size);
++    /* Poll during probe, before any user opens the device. Kernel-owned
++     * scratch memory must never be passed through copy_to_user(). */
++    ret = ive_st_candi_corner(ndev, &src, &dst, &ctrl, CVI_TRUE, false);
++    if (ret != CVI_SUCCESS) {
++        /* Stop the engine before releasing its scratch buffers. */
++        cvi_ive_reset(ndev, 0);
++        ret = -EIO;
++    }
++    sys_ion_free(ctrl.stMem.u64PhyAddr);
++free_dst:
++    sys_ion_free(dst.u64PhyAddr[0]);
++free_src:
++    sys_ion_free(src.u64PhyAddr[0]);
++    return ret;
+ }
+ 
+ irqreturn_t platform_ive_irq(struct cvi_ive_device *ndev)
+diff --git a/interdrv/ive/hal/cv181x/cvi_ive_platform.h b/interdrv/ive/hal/cv181x/cvi_ive_platform.h
+index e5c9d0e..e8056bd 100644
+--- a/interdrv/ive/hal/cv181x/cvi_ive_platform.h
++++ b/interdrv/ive/hal/cv181x/cvi_ive_platform.h
+@@ -302,7 +302,7 @@ CVI_S32 cvi_ive_dump_reg_state(CVI_BOOL enable);
+ CVI_S32 cvi_ive_set_dma_dump(CVI_BOOL enable);
+ CVI_S32 cvi_ive_set_reg_dump(CVI_BOOL enable);
+ CVI_S32 cvi_ive_set_img_dump(CVI_BOOL enable);
+-void stcandicorner_workaround(struct cvi_ive_device *ndev);
++int stcandicorner_workaround(struct cvi_ive_device *ndev);
+ 
+ CVI_S32 cvi_ive_reset(struct cvi_ive_device *ndev, int select);
+ 
+-- 
+2.43.0
+

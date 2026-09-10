@@ -1,0 +1,32 @@
+/* Internal MPI BIN adapter to current upstream declarations. */
+#pragma once
+#include <json-c/json.h>
+#define cvi_json_bool json_bool
+#define cvi_json_object json_object
+#define cvi_json_object_array_add json_object_array_add
+#define cvi_json_object_array_get_idx json_object_array_get_idx
+#define cvi_json_object_array_length json_object_array_length
+#define cvi_json_object_get_double json_object_get_double
+#define cvi_json_object_get_int json_object_get_int
+#define cvi_json_object_get_int64 json_object_get_int64
+#define cvi_json_object_get_string json_object_get_string
+#define cvi_json_object_get_type json_object_get_type
+#define cvi_json_object_get_uint64 json_object_get_uint64
+#define cvi_json_object_is_type json_object_is_type
+#define cvi_json_object_new_array json_object_new_array
+#define cvi_json_object_new_double json_object_new_double
+#define cvi_json_object_new_int json_object_new_int
+#define cvi_json_object_new_int64 json_object_new_int64
+#define cvi_json_object_new_object json_object_new_object
+#define cvi_json_object_new_string_len json_object_new_string_len
+#define cvi_json_object_new_uint64 json_object_new_uint64
+#define cvi_json_object_object_add json_object_object_add
+#define cvi_json_object_object_get_ex json_object_object_get_ex
+#define cvi_json_object_put json_object_put
+#define cvi_json_tokener_parse json_tokener_parse
+#define cvi_json_type json_type
+#define cvi_json_type_array json_type_array
+#define cvi_json_type_double json_type_double
+#define cvi_json_type_int json_type_int
+#define cvi_json_type_string json_type_string
+#define cvi_json_object_to_cvi_json_string json_object_to_json_string

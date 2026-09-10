@@ -1,0 +1,1583 @@
+From a691ecdeebb02c72618214beac792e7bceef7aba Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 17:28:49 +0300
+Subject: [PATCH] Port common video codec to Linux 7.2 and repair packet locks
+ and file I/O
+
+---
+ .../rcKernel/cvi_float_point/cvi_soft_float.c |  15 ++-
+ .../rcKernel/cvi_float_point/cvi_soft_float.h |   4 +
+ .../common/rcKernel/cvi_rc_kernel.c           |  22 ++--
+ interdrv/cvi_vc_drv/cvi_vc_drv.c              |   9 +-
+ interdrv/cvi_vc_drv/cvi_vc_drv_proc.c         |  29 ++---
+ interdrv/cvi_vc_drv/include/cvi_venc.h        |   4 +
+ .../src/cvi_jpg_enc_internal.c                |  18 +--
+ .../cvi_jpg_interface/src/cvi_jpg_interface.c |  23 ++--
+ interdrv/cvi_vc_drv/jpeg/jdi/linux/jdi.c      |  17 ---
+ interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c  |   5 +-
+ interdrv/cvi_vc_drv/module/src/cvi_vdec.c     |  17 ++-
+ interdrv/cvi_vc_drv/module/src/cvi_venc.c     |  22 ++--
+ interdrv/cvi_vc_drv/module/src/enc_ctx.c      |   3 +-
+ .../cvi_vc_drv/vcodec/cvi/cvi_dec_internal.c  |  34 +++---
+ .../cvi_vc_drv/vcodec/cvi/cvi_enc_internal.c  |  20 +++-
+ interdrv/cvi_vc_drv/vcodec/cvi/cvi_enc_rc.c   |   4 +-
+ .../sample/helper/bitstream/bitstreamfeeder.c |   5 +-
+ .../sample/helper/bitstream/bsfeeder_es_in.h  |  11 ++
+ .../helper/bitstream/bsfeeder_es_in_impl.c    |   4 +-
+ .../vcodec/sample/helper/main_helper.c        |   4 +-
+ .../sample/helper/misc/cnm_video_helper.c     |   2 +-
+ .../vcodec/sample/helper/yuv/yuvAddrfeeder.c  |   1 +
+ .../sample/helper/yuv/yuv_addr_feeder.h       |  13 +++
+ .../vcodec/sample/helper/yuv/yuvfeeder.c      |   7 +-
+ .../vcodec/sample/main_enc_cvitest.c          |  34 +++---
+ interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c    |   8 +-
+ .../cvi_vc_drv/vcodec/vdi/linux/vdi_osal.c    | 104 +++++++++++-------
+ .../vpuapi/coda9/980_roi_rc_lib/hevc_enc_rc.h |   4 +
+ interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c    |   2 +-
+ .../cvi_vc_drv/vcodec/vpuapi/vpuapifunc.c     |   4 +-
+ 30 files changed, 258 insertions(+), 191 deletions(-)
+ create mode 100644 interdrv/cvi_vc_drv/vcodec/sample/helper/bitstream/bsfeeder_es_in.h
+ create mode 100644 interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuv_addr_feeder.h
+
+diff --git a/interdrv/cvi_vc_drv/common/rcKernel/cvi_float_point/cvi_soft_float.c b/interdrv/cvi_vc_drv/common/rcKernel/cvi_float_point/cvi_soft_float.c
+index 08428ee..c3baeb3 100644
+--- a/interdrv/cvi_vc_drv/common/rcKernel/cvi_float_point/cvi_soft_float.c
++++ b/interdrv/cvi_vc_drv/common/rcKernel/cvi_float_point/cvi_soft_float.c
+@@ -177,7 +177,7 @@ sw_float expf_poly[] = {
+ };
+ /* EXP */
+ 
+-void float_raise(CVI_S8 flags)
++static void float_raise(CVI_S8 flags)
+ {
+ 	float_exception_flags |= flags;
+ }
+@@ -485,7 +485,7 @@ static inline CVI_S16 extractFloat32Exp(sw_float a)
+ 	return (a >> 23) & 0xFF;
+ }
+ 
+-flag float32_is_signaling_nan(sw_float a)
++static flag float32_is_signaling_nan(sw_float a)
+ {
+ 	return (((a >> 22) & 0x1FF) == 0x1FE) && (a & 0x003FFFFF);
+ }
+@@ -497,12 +497,12 @@ flag float32_is_signaling_nan(sw_float a)
+  *  -------------------------------------------------------------------------------
+  */
+ 
+-flag float32_is_nan(sw_float a)
++static flag float32_is_nan(sw_float a)
+ {
+ 	return (0xFF000000 < (bits32)(a << 1));
+ }
+ 
+-void shift64RightJamming(bits64 a, CVI_S16 count, bits64 *zPtr)
++static void shift64RightJamming(bits64 a, CVI_S16 count, bits64 *zPtr)
+ {
+ 	bits64 z;
+ 
+@@ -1141,8 +1141,7 @@ sw_float cvi_float32_round_to_int(struct roundingData *roundData, sw_float a)
+ 
+ void cvi_float32_extract_int_and_float(sw_float a, sw_float *int_a, sw_float *float_a)
+ {
+-	struct roundingData roundData;
+-	roundData.mode = float_round_to_zero;
++	struct roundingData roundData = { .mode = float_round_to_zero };
+ 	*int_a = cvi_float32_round_to_int(&roundData, a);
+ 	*float_a = cvi_float32_sub(&roundData, a, *int_a);
+ }
+@@ -1354,7 +1353,7 @@ sw_float cvi_float32_exp(sw_float x_32)
+ 	return y;
+ }
+ 
+-sw_float cvi_float32_exp2(sw_float xd, CVI_U32 sign_bias)
++static sw_float cvi_float32_exp2(sw_float xd, CVI_U32 sign_bias)
+ {
+ 	struct roundingData roundData;
+ 	sw_float shift32 = 0x48c00000; //(0x1.8p+23 / N);
+@@ -1381,7 +1380,7 @@ sw_float cvi_float32_exp2(sw_float xd, CVI_U32 sign_bias)
+ 	return y;
+ }
+ 
+-sw_float cvi_float32_log2(CVI_U32 ix)
++static sw_float cvi_float32_log2(CVI_U32 ix)
+ {
+ 	struct roundingData roundData;
+ 	/* double_t for better performance on targets with FLT_EVAL_METHOD==2.  */
+diff --git a/interdrv/cvi_vc_drv/common/rcKernel/cvi_float_point/cvi_soft_float.h b/interdrv/cvi_vc_drv/common/rcKernel/cvi_float_point/cvi_soft_float.h
+index 1e67b16..a4373c3 100644
+--- a/interdrv/cvi_vc_drv/common/rcKernel/cvi_float_point/cvi_soft_float.h
++++ b/interdrv/cvi_vc_drv/common/rcKernel/cvi_float_point/cvi_soft_float.h
+@@ -60,4 +60,8 @@ sw_float cvi_float32_sqrt(struct roundingData *roundData, sw_float a);
+ sw_float cvi_float32_exp(sw_float x);
+ sw_float cvi_float32_log(sw_float x_32);
+ sw_float cvi_float32_pow(sw_float x_32, sw_float y_32);
++
++sw_float cvi_float32_frexp(sw_float a, int *pw2);
++void cvi_float32_extract_int_and_float(sw_float a, sw_float *int_a, sw_float *float_a);
++
+ #endif
+diff --git a/interdrv/cvi_vc_drv/common/rcKernel/cvi_rc_kernel.c b/interdrv/cvi_vc_drv/common/rcKernel/cvi_rc_kernel.c
+index 1d40292..c5f9b08 100644
+--- a/interdrv/cvi_vc_drv/common/rcKernel/cvi_rc_kernel.c
++++ b/interdrv/cvi_vc_drv/common/rcKernel/cvi_rc_kernel.c
+@@ -63,7 +63,7 @@ static RC_Float lambdaToBpp(RC_Float lambda, RC_Float alpha, RC_Float beta)
+ 
+ // ----------------------------------------------------------------
+ 
+-void rcModelUpdateParam_Init(stRcKernelInfo *info, RC_Float targetBpp)
++static void rcModelUpdateParam_Init(stRcKernelInfo *info, RC_Float targetBpp)
+ {
+ 	CVI_VCOM_FLOAT("targetBpp = %f\n", getFloat(targetBpp));
+ 
+@@ -84,7 +84,7 @@ void rcModelUpdateParam_Init(stRcKernelInfo *info, RC_Float targetBpp)
+ 
+ // ----------------------------------------------------------------
+ 
+-void updateAlphaBetaIntra(RC_Float *alpha, RC_Float *beta, RC_Float tc, int targetBits, int encodedBits)
++static void updateAlphaBetaIntra(RC_Float *alpha, RC_Float *beta, RC_Float tc, int targetBits, int encodedBits)
+ {
+ 	RC_Float lnbpp = CVI_FLOAT_LOG(tc);
+ 	RC_Float diffLambda = CVI_FLOAT_MUL(
+@@ -102,7 +102,7 @@ void updateAlphaBetaIntra(RC_Float *alpha, RC_Float *beta, RC_Float tc, int targ
+ 	*beta = CVI_FLOAT_ADD(*beta, CVI_FLOAT_DIV(diffLambda, lnbpp));
+ }
+ 
+-void rcGopBitAlloc(stRcKernelInfo *info, int picIdx)
++static void rcGopBitAlloc(stRcKernelInfo *info, int picIdx)
+ {
+ 	int picIdxInIPeriod = picIdx % info->intraPeriod;
+ 	int smoothWinSize = MAX(info->statFrameNum - picIdxInIPeriod + 1, info->framerate);
+@@ -166,7 +166,7 @@ void rcGopBitAlloc(stRcKernelInfo *info, int picIdx)
+ 	info->lastRcGopBit = 0;
+ }
+ 
+-void rcGopBitReAlloc(stRcKernelInfo *info, int picIdx)
++static void rcGopBitReAlloc(stRcKernelInfo *info, int picIdx)
+ {
+ 	int picIdxInIPeriod = picIdx % info->intraPeriod;
+ 	int smoothWinSize = MAX(info->statFrameNum - picIdxInIPeriod + 1, info->framerate);
+@@ -190,7 +190,7 @@ void rcGopBitReAlloc(stRcKernelInfo *info, int picIdx)
+ 	info->bitrateChange = 0;
+ }
+ 
+-int getAvgPFrameQp(stRcKernelInfo *info)
++static int getAvgPFrameQp(stRcKernelInfo *info)
+ {
+ 	if (info->pPicCnt > 0) {
+ 		return (((CVI_FLOAT_TO_INT(info->pPicQpAccum) + (info->pPicCnt>>1)) /  info->pPicCnt)) +
+@@ -201,7 +201,7 @@ int getAvgPFrameQp(stRcKernelInfo *info)
+ 	}
+ }
+ 
+-int estPicBitByModel(stRcKernelInfo *info, RC_Float lambda, int isIPic)
++static int estPicBitByModel(stRcKernelInfo *info, RC_Float lambda, int isIPic)
+ {
+ 	RC_Float alpha = info->rqModel[isIPic == 0].alpha;
+ 	RC_Float beta = info->rqModel[isIPic == 0].beta;
+@@ -219,7 +219,7 @@ int estPicBitByModel(stRcKernelInfo *info, RC_Float lambda, int isIPic)
+ 	return ((long long int)bpp_frac * info->numOfPixel)>>FIX_POINT_FRAC_BIT;
+ }
+ 
+-int rcIPicBitAlloc(stRcKernelInfo *info, int qp)
++static int rcIPicBitAlloc(stRcKernelInfo *info, int qp)
+ {
+ 	RC_Float lambda = QpToLambda(INT_TO_CVI_FLOAT(qp));
+ 	int intraOrgBits = estPicBitByModel(info, lambda, 1);
+@@ -237,7 +237,7 @@ int rcIPicBitAlloc(stRcKernelInfo *info, int qp)
+ 	return intraBits;
+ }
+ 
+-int estPicTargetBits(stRcKernelInfo *info, int rcGopFrameIdx)
++static int estPicTargetBits(stRcKernelInfo *info, int rcGopFrameIdx)
+ {
+ 	int gopRemainAvgBit = CLIP(info->minPicBit, info->gopPicAvgBit, MAX(0, info->gopBitLeft) / MAX(1, info->gopPicLeft));
+ 	int targetBits = (g_rcGopRemainBitWeight * gopRemainAvgBit +
+@@ -252,7 +252,7 @@ int estPicTargetBits(stRcKernelInfo *info, int rcGopFrameIdx)
+ 	return targetBits;
+ }
+ 
+-RC_Float calculateLambdaIntra(RC_Float alpha, RC_Float beta, RC_Float picTextCplx, RC_Float bitsPerPixel)
++static RC_Float calculateLambdaIntra(RC_Float alpha, RC_Float beta, RC_Float picTextCplx, RC_Float bitsPerPixel)
+ {
+ 	return CVI_FLOAT_MUL(
+ 			FRAC_INT_TO_CVI_FLOAT(
+@@ -260,7 +260,7 @@ RC_Float calculateLambdaIntra(RC_Float alpha, RC_Float beta, RC_Float picTextCpl
+ 			CVI_FLOAT_POW(CVI_FLOAT_DIV(picTextCplx, bitsPerPixel), beta));
+ }
+ 
+-RC_Float estPicLambda(stRcKernelInfo *info, int targetBits, int isIPic, int picIdx)
++static RC_Float estPicLambda(stRcKernelInfo *info, int targetBits, int isIPic, int picIdx)
+ {
+ 	int picLv = isIPic == 0;
+ 	RC_Float alpha = info->rqModel[picLv].alpha;
+@@ -349,7 +349,7 @@ RC_Float estPicLambda(stRcKernelInfo *info, int targetBits, int isIPic, int picI
+ 	return estLambda;
+ }
+ 
+-int estPicQP(stRcKernelInfo *info, RC_Float lambda, int isIPic, int picIdx)
++static int estPicQP(stRcKernelInfo *info, RC_Float lambda, int isIPic, int picIdx)
+ {
+ 	int qp = LambdaToQp(lambda);
+ 	int picLv = isIPic == 0;
+diff --git a/interdrv/cvi_vc_drv/cvi_vc_drv.c b/interdrv/cvi_vc_drv/cvi_vc_drv.c
+index f870ef4..e40c99d 100644
+--- a/interdrv/cvi_vc_drv/cvi_vc_drv.c
++++ b/interdrv/cvi_vc_drv/cvi_vc_drv.c
+@@ -1,5 +1,6 @@
+ #include <linux/cvi_base_ctx.h>
+ #include <linux/slab.h>
++#include <linux/platform_device.h>
+ #include <base_cb.h>
+ #include <base_ctx.h>
+ 
+@@ -1320,7 +1321,6 @@ static long cvi_vc_drv_vdec_ioctl(struct file *filp, u_int cmd, u_long arg)
+ 	return s32Ret;
+ }
+ #endif
+-extern CVI_S32 cviGetLeftStreamFrames(CVI_S32 VeChn);
+ static unsigned int cvi_vc_drv_poll(struct file *filp,
+ 				    struct poll_table_struct *wait)
+ {
+@@ -1357,7 +1357,7 @@ static int cvi_vc_drv_register_cdev(struct cvi_vc_drv_device *vdev)
+ 	int err = 0;
+ 	int i = 0;
+ 
+-	vdev->cvi_vc_class = class_create(THIS_MODULE, CVI_VC_DRV_CLASS_NAME);
++	vdev->cvi_vc_class = class_create(CVI_VC_DRV_CLASS_NAME);
+ 	if (IS_ERR(vdev->cvi_vc_class)) {
+ 		pr_err("create class failed\n");
+ 		return PTR_ERR(vdev->cvi_vc_class);
+@@ -1501,7 +1501,7 @@ static int cvi_vc_drv_get_reg_resource(struct cvi_vc_drv_device *vdev,
+ 	return 0;
+ }
+ 
+-int vcodec_drv_cb(void *dev, enum ENUM_MODULES_ID caller, u32 cmd, void *arg)
++static int vcodec_drv_cb(void *dev, enum ENUM_MODULES_ID caller, u32 cmd, void *arg)
+ {
+ 	int ret = CVI_FAILURE;
+ 
+@@ -1662,7 +1662,7 @@ ERROR_PROBE_DEVICE:
+ 	return err;
+ }
+ 
+-static int cvi_vc_drv_remove(struct platform_device *pdev)
++static void cvi_vc_drv_remove(struct platform_device *pdev)
+ {
+ 	struct cvi_vc_drv_device *vdev = platform_get_drvdata(pdev);
+ 
+@@ -1697,7 +1697,6 @@ static int cvi_vc_drv_remove(struct platform_device *pdev)
+ 	}
+ #endif
+ 	class_destroy(vdev->cvi_vc_class);
+-	return 0;
+ }
+ 
+ unsigned int cvi_vc_drv_read_vc_reg(REG_TYPE eRegType, unsigned long addr)
+diff --git a/interdrv/cvi_vc_drv/cvi_vc_drv_proc.c b/interdrv/cvi_vc_drv/cvi_vc_drv_proc.c
+index 92ea900..813ebc1 100644
+--- a/interdrv/cvi_vc_drv/cvi_vc_drv_proc.c
++++ b/interdrv/cvi_vc_drv/cvi_vc_drv_proc.c
+@@ -1,3 +1,4 @@
++#include <linux/utsname.h>
+ 
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+@@ -243,7 +244,7 @@ static void getFrameRate(VENC_CHN_ATTR_S *pstChnAttr, CVI_U32 *pu32SrcFrameRate,
+ 
+ static int venc_proc_show(struct seq_file *m, void *v)
+ {
+-	seq_printf(m, "Module: [VENC] System Build Time [%s]\n", UTS_VERSION);
++	seq_printf(m, "Module: [VENC] System Build Time [%s]\n", utsname()->version);
+ 
+ 	if (handle != NULL) {
+ 		int idx = 0;
+@@ -537,7 +538,7 @@ static int venc_proc_show(struct seq_file *m, void *v)
+ 
+ static int venc_proc_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, venc_proc_show, PDE_DATA(inode));
++	return single_open(file, venc_proc_show, pde_data(inode));
+ }
+ 
+ static ssize_t
+@@ -698,7 +699,7 @@ static int h265e_proc_show(struct seq_file *m, void *v)
+ 	int idx = 0;
+ 	CVI_VENC_PARAM_MOD_S *pVencModParam;
+ 
+-	seq_printf(m, "Module: [H265E] System Build Time [%s]\n", UTS_VERSION);
++	seq_printf(m, "Module: [H265E] System Build Time [%s]\n", utsname()->version);
+ 
+ 	if (handle == NULL)
+ 		return 0;
+@@ -779,7 +780,7 @@ static int h265e_proc_show(struct seq_file *m, void *v)
+ 
+ static int h265e_proc_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, h265e_proc_show, PDE_DATA(inode));
++	return single_open(file, h265e_proc_show, pde_data(inode));
+ }
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+@@ -806,7 +807,7 @@ static int codecinst_proc_show(struct seq_file *m, void *v)
+ 	venc_enc_ctx *pEncCtx;
+ 	PAYLOAD_TYPE_E enType;
+ 
+-	seq_printf(m, "Module: [CodecInst] System Build Time [%s]\n", UTS_VERSION);
++	seq_printf(m, "Module: [CodecInst] System Build Time [%s]\n", utsname()->version);
+ 
+ 	if (handle == NULL)
+ 		return 0;
+@@ -831,7 +832,7 @@ static int codecinst_proc_show(struct seq_file *m, void *v)
+ 
+ static int codecinst_proc_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, codecinst_proc_show, PDE_DATA(inode));
++	return single_open(file, codecinst_proc_show, pde_data(inode));
+ }
+ 
+ 
+@@ -901,7 +902,7 @@ static int h264e_proc_show(struct seq_file *m, void *v)
+ 	CVI_VENC_PARAM_MOD_S *pVencModParam;
+ 	CVI_U32 u32Profile;
+ 
+-	seq_printf(m, "Module: [H264E] System Build Time [%s]\n", UTS_VERSION);
++	seq_printf(m, "Module: [H264E] System Build Time [%s]\n", utsname()->version);
+ 
+ 	if (handle == NULL)
+ 		return 0;
+@@ -984,7 +985,7 @@ static int h264e_proc_show(struct seq_file *m, void *v)
+ 
+ static int h264e_proc_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, h264e_proc_show, PDE_DATA(inode));
++	return single_open(file, h264e_proc_show, pde_data(inode));
+ }
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+@@ -1027,7 +1028,7 @@ static int jpege_proc_show(struct seq_file *m, void *v)
+ 	int idx = 0;
+ 	CVI_VENC_PARAM_MOD_S *pVencModParam;
+ 
+-	seq_printf(m, "Module: [JPEGE] System Build Time [%s]\n", UTS_VERSION);
++	seq_printf(m, "Module: [JPEGE] System Build Time [%s]\n", utsname()->version);
+ 
+ 	if (handle == NULL)
+ 		return 0;
+@@ -1129,7 +1130,7 @@ static int jpege_proc_show(struct seq_file *m, void *v)
+ 
+ static int jpege_proc_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, jpege_proc_show, PDE_DATA(inode));
++	return single_open(file, jpege_proc_show, pde_data(inode));
+ }
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+@@ -1171,7 +1172,7 @@ static int rc_proc_show(struct seq_file *m, void *v)
+ {
+ 	int idx = 0;
+ 
+-	seq_printf(m, "Module: [RC] System Build Time [%s]\n", UTS_VERSION);
++	seq_printf(m, "Module: [RC] System Build Time [%s]\n", utsname()->version);
+ 
+ 	if (handle == NULL)
+ 		return 0;
+@@ -1759,7 +1760,7 @@ static int rc_proc_show(struct seq_file *m, void *v)
+ 
+ static int rc_proc_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, rc_proc_show, PDE_DATA(inode));
++	return single_open(file, rc_proc_show, pde_data(inode));
+ }
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+@@ -1798,7 +1799,7 @@ int rc_proc_deinit(void)
+ #ifdef ENABLE_DEC
+ static int vdec_proc_show(struct seq_file *m, void *v)
+ {
+-	seq_printf(m, "Module: [VDEC] System Build Time [%s]\n", UTS_VERSION);
++	seq_printf(m, "Module: [VDEC] System Build Time [%s]\n", utsname()->version);
+ 	if (vdec_handle != NULL && MaxVdecChnNum > 0) {
+ 		int idx;
+ 		VDEC_MOD_PARAM_S *pVdecModParam = &vdec_handle->g_stModParam;
+@@ -2046,7 +2047,7 @@ static int vdec_proc_show(struct seq_file *m, void *v)
+ 
+ static int vdec_proc_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, vdec_proc_show, PDE_DATA(inode));
++	return single_open(file, vdec_proc_show, pde_data(inode));
+ }
+ 
+ static ssize_t vdec_proc_write(struct file *file, const char __user *user_buf,
+diff --git a/interdrv/cvi_vc_drv/include/cvi_venc.h b/interdrv/cvi_vc_drv/include/cvi_venc.h
+index 70f03a6..235f08e 100644
+--- a/interdrv/cvi_vc_drv/include/cvi_venc.h
++++ b/interdrv/cvi_vc_drv/include/cvi_venc.h
+@@ -492,6 +492,10 @@ CVI_S32 CVI_VENC_GetSvcParam(VENC_CHN VeChn, VENC_SVC_PARAM_S *pstSvcParam);
+ #define DEF_264_MAXBITRATE 5000
+ #define DEF_26X_CHANGE_POS 90
+ 
++/* Shared internal diagnostics used by the kernel driver. */
++void *venc_get_share_mem(void);
++CVI_S32 cviGetLeftStreamFrames(CVI_S32 VeChn);
++
+ #ifdef __cplusplus
+ #if __cplusplus
+ }
+diff --git a/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_enc_internal.c b/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_enc_internal.c
+index 563f85e..30096e4 100644
+--- a/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_enc_internal.c
++++ b/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_enc_internal.c
+@@ -53,7 +53,7 @@ static int cviJpgGetEnv(char *envVar);
+ static int cviJpegEncWaitInterrupt(CVIJpgHandle jpgHandle, JpgRet *pRet);
+ static int cviJpgEncGetOneFrameData(CVIJpgHandle jpgHandle, void *data);
+ 
+-void add_stats(stSlideWinStats *ptSWStats, int stats)
++static void add_stats(stSlideWinStats *ptSWStats, int stats)
+ {
+ 	int curr_ptr = ptSWStats->ptrIdx;
+ 	ptSWStats->total -= ptSWStats->stats[curr_ptr];
+@@ -62,7 +62,7 @@ void add_stats(stSlideWinStats *ptSWStats, int stats)
+ 	ptSWStats->ptrIdx = (ptSWStats->ptrIdx + 1) % ptSWStats->winSize;
+ }
+ 
+-int get_stats(stSlideWinStats *ptSWStats)
++static int get_stats(stSlideWinStats *ptSWStats)
+ {
+ 	return ptSWStats->total;
+ }
+@@ -116,7 +116,7 @@ typedef enum {
+ 
+ // ----------------------------------------------
+ // main API
+-void cviJpeRc_Open(stRcInfo *pRcInfo, stRcCfg *pRcCfg)
++static void cviJpeRc_Open(stRcInfo *pRcInfo, stRcCfg *pRcCfg)
+ {
+ 	CVI_JPG_DBG_RC("targetBitrate %dk byte\n", pRcCfg->targetBitrate);
+ 	CVI_JPG_DBG_RC("picAvgBit %d byte\n", pRcInfo->picAvgBit);
+@@ -255,7 +255,7 @@ static int cviJpeRc_RcKernelEstimatePic(stRcInfo *pRcInfo)
+ 	return qs;
+ }
+ 
+-void cviJpeRc_UpdatePic(stRcInfo *pRcInfo, int encByte)
++static void cviJpeRc_UpdatePic(stRcInfo *pRcInfo, int encByte)
+ {
+ 	CVI_JPG_DBG_RC("(%d)qs %d target %dk, actual %dk\n", pRcInfo->picIdx,
+ 		       pRcInfo->lastPicQ, pRcInfo->picTargetBit / 1000,
+@@ -327,7 +327,7 @@ static const unsigned int std_chrominance_quant_tbl[DCTSIZE2] = {
+ 	99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+ };
+ 
+-void cvi_jpeg_add_quant_table(unsigned char *q_table,
++static void cvi_jpeg_add_quant_table(unsigned char *q_table,
+ 			      const unsigned int base_table[DCTSIZE2],
+ 			      int scale_factor, unsigned int force_baseline)
+ {
+@@ -399,7 +399,7 @@ int cvi_jpeg_scale_quality(int scale_factor)
+ 	return scale_factor;
+ }
+ 
+-void cvi_jpgGetQMatrix(int scale_factor, unsigned char *qMatTab0,
++static void cvi_jpgGetQMatrix(int scale_factor, unsigned char *qMatTab0,
+ 		       unsigned char *qMatTab1)
+ {
+ 	unsigned int force_baseline = 1;
+@@ -409,7 +409,8 @@ void cvi_jpgGetQMatrix(int scale_factor, unsigned char *qMatTab0,
+ 				 scale_factor, force_baseline);
+ }
+ 
+-int LoadYuvImageBurstFormat2(Uint8 *src, unsigned long addrY,
++#ifdef VC_DRIVER_TEST
++static int LoadYuvImageBurstFormat2(Uint8 *src, unsigned long addrY,
+ 			     unsigned long addrCb, unsigned long addrCr,
+ 			     int picWidth, int picHeight, int stride,
+ 			     int interLeave, int format, int endian, int packed)
+@@ -680,6 +681,7 @@ int LoadYuvImageBurstFormat2(Uint8 *src, unsigned long addrY,
+ 
+ 	return size;
+ }
++#endif
+ 
+ int cviJpgEncOpen(CVIJpgHandle *pHandle, CVIEncConfigParam *pConfig)
+ {
+@@ -1512,7 +1514,7 @@ int cviJpgEncGetInputDataBuf(CVIJpgHandle jpgHandle, void *data)
+ 	pJpgInst = (JpgEncHandle)jpgHandle;
+ 	pEncInfo = &pJpgInst->JpgInfo.encInfo;
+ 
+-	if (NULL == pEncInfo->pFrame)
++	if (NULL == pEncInfo->pFrame[0])
+ 		return JPG_RET_WRONG_CALL_SEQUENCE;
+ 	if (NULL == data)
+ 		return JPG_RET_INVALID_PARAM;
+diff --git a/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_interface.c b/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_interface.c
+index 43fd513..7ee31ab 100644
+--- a/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_interface.c
++++ b/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_interface.c
+@@ -424,14 +424,7 @@ int CVIJpgGetInputDataBuf(CVIJpgHandle jpgHandle, void *data, int length)
+ 	return ret;
+ }
+ 
+-int CVIVidJpuReset(void)
+-{
+-	JPU_HWReset();
+-
+-	return JPG_RET_SUCCESS;
+-}
+-
+-int cviJpegSetQuality(CVIJpgHandle jpgHandle, void *data)
++static int cviJpegSetQuality(CVIJpgHandle jpgHandle, void *data)
+ {
+ 	int ret = 0;
+ 	int *quality = data;
+@@ -502,7 +495,7 @@ static int cviJpegSetMCUPerECS(CVIJpgHandle jpgHandle, void *data)
+ 	return ret;
+ }
+ 
+-int cviJpegResetChn(CVIJpgHandle jpgHandle, void *data)
++static int cviJpegResetChn(CVIJpgHandle jpgHandle, void *data)
+ {
+ 	int ret = 0;
+ 	JpgInst *pJpgInst;
+@@ -537,7 +530,7 @@ int cviJpegResetChn(CVIJpgHandle jpgHandle, void *data)
+ 	return ret;
+ }
+ 
+-int cviJpegSetUserData(CVIJpgHandle jpgHandle, void *data)
++static int cviJpegSetUserData(CVIJpgHandle jpgHandle, void *data)
+ {
+ 	int ret = 0;
+ 	JpgInst *pJpgInst;
+@@ -564,7 +557,7 @@ int cviJpegSetUserData(CVIJpgHandle jpgHandle, void *data)
+ 	return ret;
+ }
+ 
+-int cviJpegStart(CVIJpgHandle jpgHandle, void *data)
++static int cviJpegStart(CVIJpgHandle jpgHandle, void *data)
+ {
+ 	int ret = JPG_RET_SUCCESS;
+ 	JpgInst *pJpgInst;
+@@ -587,7 +580,7 @@ int cviJpegStart(CVIJpgHandle jpgHandle, void *data)
+ 	return ret;
+ }
+ 
+-int cviJpegSetSbmEnable(CVIJpgHandle jpgHandle, void *data)
++static int cviJpegSetSbmEnable(CVIJpgHandle jpgHandle, void *data)
+ {
+ 	int ret = JPG_RET_SUCCESS;
+ 	JpgInst *pJpgInst;
+@@ -612,7 +605,7 @@ int cviJpegSetSbmEnable(CVIJpgHandle jpgHandle, void *data)
+ 	return ret;
+ }
+ 
+-int cviJpegWaitEncodeDone(CVIJpgHandle jpgHandle, void *data)
++static int cviJpegWaitEncodeDone(CVIJpgHandle jpgHandle, void *data)
+ {
+ 	int ret = JPG_RET_SUCCESS;
+ 
+@@ -626,7 +619,7 @@ int cviJpegWaitEncodeDone(CVIJpgHandle jpgHandle, void *data)
+ #ifdef CLI_DEBUG_SUPPORT
+ extern void cli_show_jdi_info(void);
+ 
+-int cviJpegShowChnInfo(CVIJpgHandle jpgHandle, void *data)
++static int cviJpegShowChnInfo(CVIJpgHandle jpgHandle, void *data)
+ {
+ 	int ret = 0;
+ 	JpgInst *pJpgInst;
+@@ -784,7 +777,7 @@ int cviJpegShowChnInfo(CVIJpgHandle jpgHandle, void *data)
+ }
+ 
+ #else
+-int cviJpegShowChnInfo(CVIJpgHandle jpgHandle, void *data)
++static int cviJpegShowChnInfo(CVIJpgHandle jpgHandle, void *data)
+ {
+ 	UNREFERENCED_PARAM(jpgHandle);
+ 	UNREFERENCED_PARAM(data);
+diff --git a/interdrv/cvi_vc_drv/jpeg/jdi/linux/jdi.c b/interdrv/cvi_vc_drv/jpeg/jdi/linux/jdi.c
+index c134f18..e5dc343 100644
+--- a/interdrv/cvi_vc_drv/jpeg/jdi/linux/jdi.c
++++ b/interdrv/cvi_vc_drv/jpeg/jdi/linux/jdi.c
+@@ -710,23 +710,6 @@ unsigned int jdi_read_register(unsigned int addr)
+ }
+ 
+ // It could be removed in the future
+-void *jdi_osal_memcpy(void *dst, const void *src, int count)
+-{
+-	// return memcpy(dst, src, count);
+-	int i;
+-	unsigned char *dst_c = (unsigned char *)dst;
+-	unsigned char *src_c = (unsigned char *)src;
+-	unsigned char tmp;
+-	for (i = 0; i < count; i++) {
+-		tmp = *src_c;
+-		*dst_c = tmp;
+-		src_c++;
+-		dst_c++;
+-	}
+-
+-	return dst;
+-}
+-
+ int jdi_write_memory(unsigned long addr, unsigned char *data, int len,
+ 		     int endian)
+ {
+diff --git a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
+index 0d8850a..58615ee 100644
+--- a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
++++ b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
+@@ -2014,7 +2014,7 @@ JpgRet CheckJpgEncParam(JpgEncHandle handle, JpgEncParam *param)
+ 	return JPG_RET_SUCCESS;
+ }
+ 
+-int JpgEncGenHuffTab(JpgEncInfo *pEncInfo, int tabNum)
++static int JpgEncGenHuffTab(JpgEncInfo *pEncInfo, int tabNum)
+ {
+ 	int p, i, l, lastp, si, maxsymbol;
+ 
+@@ -2236,7 +2236,8 @@ int JpgEncEncodeHeader(JpgEncHandle handle, JpgEncParamSet *para)
+ 
+ JpgRet JpgEnterLock(void)
+ {
+-	mutex_lock_interruptible(&jpgLock);
++	/* Existing callers require ownership and do not handle lock interruption. */
++	mutex_lock(&jpgLock);
+ 
+ 	return JPG_RET_SUCCESS;
+ }
+diff --git a/interdrv/cvi_vc_drv/module/src/cvi_vdec.c b/interdrv/cvi_vc_drv/module/src/cvi_vdec.c
+index 1c64c12..770a112 100644
+--- a/interdrv/cvi_vc_drv/module/src/cvi_vdec.c
++++ b/interdrv/cvi_vc_drv/module/src/cvi_vdec.c
+@@ -426,7 +426,7 @@ static CVI_S32 allocate_vdec_frame(vdec_chn_context *pChnHandle, CVI_U32 idx)
+ 	return s32Ret;
+ }
+ 
+-CVI_S32 _CVI_VDEC_InitHandle(void)
++static CVI_S32 _CVI_VDEC_InitHandle(void)
+ {
+ 	CVI_S32 s32Ret = CVI_SUCCESS;
+ 
+@@ -640,7 +640,7 @@ static CVI_S32 _cvi_vdec_CallbackFunc(unsigned int VdChn, unsigned int CbType,
+ }
+ 
+ #define VDEC_NO_FRAME_IDX 0xFFFFFFFF
+-CVI_BOOL _cvi_vdec_FindBlkInfo(vdec_chn_context *pChnHandle, CVI_U64 u64PhyAddr,
++static CVI_BOOL _cvi_vdec_FindBlkInfo(vdec_chn_context *pChnHandle, CVI_U64 u64PhyAddr,
+ 			       VB_BLK *pVbBLK, CVI_U32 *pFrmIdx)
+ {
+ 	CVI_U32 i = 0;
+@@ -675,7 +675,7 @@ typedef struct _VDEC_BIND_FRM_S {
+ 	CVI_BOOL bIsFrmOutput;
+ } VDEC_BIND_FRM_S;
+ 
+-CVI_S32 _cvi_vdec_FindFrameIdx(vdec_chn_context *pChnHandle,
++static CVI_S32 _cvi_vdec_FindFrameIdx(vdec_chn_context *pChnHandle,
+ 			       const VIDEO_FRAME_INFO_S *pstFrameInfo)
+ {
+ 	CVI_U32 i = 0;
+@@ -1123,7 +1123,9 @@ CVI_S32 CVI_VDEC_SendStream(VDEC_CHN VdChn, const VDEC_STREAM_S *pstStream,
+ 	cviGetDebugConfigFromDecProc();
+ 
+ 	if (IF_WANNA_ENABLE_BIND_MODE()) {
+-		struct sched_param param = {
++		struct sched_attr param = {
++			.size = sizeof(param),
++			.sched_policy = SCHED_RR,
+ 			.sched_priority = 95,
+ 		};
+ 
+@@ -1132,7 +1134,12 @@ CVI_S32 CVI_VDEC_SendStream(VDEC_CHN VdChn, const VDEC_STREAM_S *pstStream,
+ 		pVbCtx->currBindMode = CVI_TRUE;
+ 		pVbCtx->thread = kthread_run(vdec_event_handler,
+ 				(CVI_VOID *) pChnHandle, "cvitask_vdec_%d", VdChn);
+-		sched_setscheduler(pVbCtx->thread, SCHED_RR, &param);
++		if (IS_ERR(pVbCtx->thread)) {
++			pVbCtx->thread = NULL;
++			pVbCtx->currBindMode = CVI_FALSE;
++			return CVI_FAILURE;
++		}
++		if (sched_setattr_nocheck(pVbCtx->thread, &param))			pr_warn("NanoKVM codec: failed to set worker RT priority\n");
+ 	}
+ 
+ 
+diff --git a/interdrv/cvi_vc_drv/module/src/cvi_venc.c b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
+index db35473..bca979d 100644
+--- a/interdrv/cvi_vc_drv/module/src/cvi_venc.c
++++ b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
+@@ -778,7 +778,7 @@ VENC_EVENT_HANDLER_ERR:
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 check_chn_handle(VENC_CHN VeChn)
++static CVI_S32 check_chn_handle(VENC_CHN VeChn)
+ {
+ 	if (handle == NULL) {
+ 		CVI_VENC_ERR("Call VENC Destroy before Create, failed\n");
+@@ -1894,7 +1894,7 @@ static CVI_S32 cviSetRcParamToDrv(venc_chn_context *pChnHandle)
+ 	return s32Ret;
+ }
+ 
+-CVI_S32 _cvi_h26x_trans_chn_attr(VENC_CHN_ATTR_S *pInChnAttr,
++static CVI_S32 _cvi_h26x_trans_chn_attr(VENC_CHN_ATTR_S *pInChnAttr,
+ 				 cviVidChnAttr *pOutAttr)
+ {
+ 	CVI_S32 s32Ret = CVI_FAILURE;
+@@ -1974,7 +1974,7 @@ CVI_S32 _cvi_h26x_trans_chn_attr(VENC_CHN_ATTR_S *pInChnAttr,
+ 	return s32Ret;
+ }
+ 
+-CVI_S32 _cvi_jpg_trans_chn_attr(VENC_CHN_ATTR_S *pInChnAttr,
++static CVI_S32 _cvi_jpg_trans_chn_attr(VENC_CHN_ATTR_S *pInChnAttr,
+ 				cviJpegChnAttr *pOutAttr)
+ {
+ 	CVI_S32 s32Ret = CVI_FAILURE;
+@@ -3083,7 +3083,9 @@ CVI_S32 CVI_VENC_StartRecvFrame(VENC_CHN VeChn,
+ 	MUTEX_UNLOCK(&pChnHandle->chnMutex);
+ 
+ 	if (IF_WANNA_ENABLE_BIND_MODE()) {
+-		struct sched_param param = {
++		struct sched_attr param = {
++			.size = sizeof(param),
++			.sched_policy = SCHED_RR,
+ 			.sched_priority = 95,
+ 		};
+ 
+@@ -3112,9 +3114,10 @@ CVI_S32 CVI_VENC_StartRecvFrame(VENC_CHN VeChn,
+ 				CVI_VENC_ERR(
+ 					"failed to create venc binde mode thread for chn %d\n",
+ 					VeChn);
++				pVbCtx->thread = NULL;
+ 				return CVI_FAILURE;
+ 			}
+-			sched_setscheduler(pVbCtx->thread, SCHED_RR, &param);
++			if (sched_setattr_nocheck(pVbCtx->thread, &param))				pr_warn("NanoKVM codec: failed to set worker RT priority\n");
+ 			SEMA_POST(&pChnVars->sem_send);
+ 		}
+ 	}
+@@ -6487,7 +6490,7 @@ static unsigned int _cviEncReadReg(unsigned long addr)
+ 	return value;
+ }
+ 
+-CVI_S32 cviSbSkipOneFrm(VENC_CHN VeChn, cviVencSbSetting *pstSbSetting)
++static CVI_S32 cviSbSkipOneFrm(VENC_CHN VeChn, cviVencSbSetting *pstSbSetting)
+ {
+ 	CVI_S32 s32Ret = CVI_SUCCESS;
+ 	venc_chn_context *pChnHandle = NULL;
+@@ -6959,7 +6962,9 @@ CVI_S32 cvi_VENC_CB_SendFrame(CVI_S32 VpssGrp, CVI_S32 VpssChn, CVI_S32 VpssChn1
+ 			pChnHandle->sbm_state = VENC_SBM_STATE_IDLE;
+ 
+ 			if (!pSbmHandle->pSBMSendFrameThread) {
+-				struct sched_param param = {
++				struct sched_attr param = {
++			.size = sizeof(param),
++			.sched_policy = SCHED_RR,
+ 					.sched_priority = 99,
+ 				};
+ 
+@@ -6969,9 +6974,10 @@ CVI_S32 cvi_VENC_CB_SendFrame(CVI_S32 VpssGrp, CVI_S32 VpssChn, CVI_S32 VpssChn1
+ 					CVI_VENC_ERR(
+ 						"venc-sbm-send_frame_threadfor chn %d\n",
+ 						priChn);
++					pSbmHandle->pSBMSendFrameThread = NULL;
+ 					goto SBM_CB_FAILURE;
+ 				}
+-				sched_setscheduler(pSbmHandle->pSBMSendFrameThread, SCHED_RR, &param);
++				if (sched_setattr_nocheck(pSbmHandle->pSBMSendFrameThread, &param))					pr_warn("NanoKVM codec: failed to set worker RT priority\n");
+ 			}
+ 		}
+ 
+diff --git a/interdrv/cvi_vc_drv/module/src/enc_ctx.c b/interdrv/cvi_vc_drv/module/src/enc_ctx.c
+index 2c3d0d1..e789365 100644
+--- a/interdrv/cvi_vc_drv/module/src/enc_ctx.c
++++ b/interdrv/cvi_vc_drv/module/src/enc_ctx.c
+@@ -1157,7 +1157,8 @@ static CVI_S32 vidEnc_get_stream(CVI_VOID *ctx, VENC_STREAM_S *pstStream,
+ 		return CVI_ERR_VENC_NULL_PTR;
+ 	}
+ 
+-	MUTEX_LOCK(&psp->packMutex);
++	/* A retrieved stream must be published with packet ownership protected. */
++	mutex_lock(&psp->packMutex);
+ 	pstStream->u32PackCount = 0;
+ 	for (idx = 0; (idx < psp->totalPacks) && (idx < MAX_NUM_PACKS); idx++) {
+ 		ppack = &pstStream->pstPack[idx];
+diff --git a/interdrv/cvi_vc_drv/vcodec/cvi/cvi_dec_internal.c b/interdrv/cvi_vc_drv/vcodec/cvi/cvi_dec_internal.c
+index 650c890..ce43aa4 100644
+--- a/interdrv/cvi_vc_drv/vcodec/cvi/cvi_dec_internal.c
++++ b/interdrv/cvi_vc_drv/vcodec/cvi/cvi_dec_internal.c
+@@ -605,7 +605,7 @@ static int cviBitstreamFeeder_Act(cviVideoDecoder *pvdec)
+ 				   pdeccfg->streamEndian, bsBuf);
+ }
+ 
+-BOOL _AllocateH265DecFrameBuffer(cviVideoDecoder *pvdec, DecHandle decHandle,
++static BOOL _AllocateH265DecFrameBuffer(cviVideoDecoder *pvdec, DecHandle decHandle,
+ 				 cviDecConfig *pdeccfg, Uint32 tiledFbCount,
+ 				 Uint32 linearFbCount, FrameBuffer *retFbArray,
+ 				 vpu_buffer_t *retFbAddrs, Uint32 *retStride)
+@@ -791,7 +791,7 @@ BOOL _AllocateH265DecFrameBuffer(cviVideoDecoder *pvdec, DecHandle decHandle,
+ 	return TRUE;
+ }
+ 
+-int _cviH265_FreeFrmBuf(cviVideoDecoder *pvdec)
++static int _cviH265_FreeFrmBuf(cviVideoDecoder *pvdec)
+ {
+ 	if (pvdec->eVdecVBSource == E_CVI_VB_SRC_COMMON) {
+ 		CVI_VC_WARN("Don't support E_CVI_VB_SRC_COMMON now!!\n");
+@@ -836,7 +836,7 @@ static void _ReleasePreviousSequenceResources(DecHandle handle,
+ 	}
+ }
+ 
+-int _cviH265_Free_ReAlloc_FrmBuf(cviVideoDecoder *pvdec)
++static int _cviH265_Free_ReAlloc_FrmBuf(cviVideoDecoder *pvdec)
+ {
+ 	cviDecConfig *pdeccfg = &pvdec->decConfig;
+ 	DecInitialInfo *pSeqInfo = &pvdec->sequenceInfo;
+@@ -902,7 +902,7 @@ int _cviH265_Free_ReAlloc_FrmBuf(cviVideoDecoder *pvdec)
+ 	return CVI_INIT_SEQ_OK;
+ }
+ 
+-int _cviH264_Free_ReAlloc_FrmBuf(cviVideoDecoder *pvdec)
++static int _cviH264_Free_ReAlloc_FrmBuf(cviVideoDecoder *pvdec)
+ {
+ 	cviDecConfig *pdeccfg = &pvdec->decConfig;
+ 	CVI_DEC_STATUS decStatus;
+@@ -929,7 +929,7 @@ int _cviH264_Free_ReAlloc_FrmBuf(cviVideoDecoder *pvdec)
+ 	return decStatus;
+ }
+ 
+-int _cviH265_AllocFrmBuf(cviVideoDecoder *pvdec)
++static int _cviH265_AllocFrmBuf(cviVideoDecoder *pvdec)
+ {
+ 	DecInitialInfo *pSeqInfo = &pvdec->sequenceInfo;
+ 	cviDecConfig *pdeccfg = &pvdec->decConfig;
+@@ -1008,7 +1008,7 @@ int _cviH265_AllocFrmBuf(cviVideoDecoder *pvdec)
+ 	return CVI_INIT_SEQ_OK;
+ }
+ 
+-int _cviH264_FreeFrmBuf(cviVideoDecoder *pvdec)
++static int _cviH264_FreeFrmBuf(cviVideoDecoder *pvdec)
+ {
+ 	cviDecConfig *pdeccfg = &pvdec->decConfig;
+ 	vpu_buffer_t *pvb = NULL;
+@@ -1028,7 +1028,7 @@ int _cviH264_FreeFrmBuf(cviVideoDecoder *pvdec)
+ 	return CVI_INIT_SEQ_OK;
+ }
+ 
+-int _cviH264_AllocFrmBuf(cviVideoDecoder *pvdec)
++static int _cviH264_AllocFrmBuf(cviVideoDecoder *pvdec)
+ {
+ 	MaverickCacheConfig *pCacheCfg = &pvdec->cacheCfg;
+ 	FrameBufferAllocInfo *pFbAllocInfo = &pvdec->fbAllocInfo;
+@@ -1466,7 +1466,7 @@ static int cviInitSeq(cviVideoDecoder *pvdec)
+ 	return CVI_INIT_SEQ_OK;
+ }
+ 
+-int _cviH265_DecodeOneFrame(cviVideoDecoder *pvdec)
++static int _cviH265_DecodeOneFrame(cviVideoDecoder *pvdec)
+ {
+ 	/********************************************************************************
+ 	* DEC_PIC                                                                       *
+@@ -1561,7 +1561,7 @@ int _cviH265_DecodeOneFrame(cviVideoDecoder *pvdec)
+ 	return CVI_DECODE_ONE_FRAME_OK;
+ }
+ 
+-int _cviH264_DecodeOneFrame(cviVideoDecoder *pvdec)
++static int _cviH264_DecodeOneFrame(cviVideoDecoder *pvdec)
+ {
+ 	cviDecConfig *pdeccfg = &pvdec->decConfig;
+ 	DecParam *pdp = &pvdec->decParam;
+@@ -1700,7 +1700,7 @@ int cviDecodeOneFrame(cviVideoDecoder *pvdec)
+ 	return ret;
+ }
+ 
+-int _cviH265_WaitInterrupt(cviVideoDecoder *pvdec)
++static int _cviH265_WaitInterrupt(cviVideoDecoder *pvdec)
+ {
+ 	cviDecConfig *pdeccfg = &pvdec->decConfig;
+ 	BOOL repeat;
+@@ -1788,7 +1788,7 @@ int _cviH265_WaitInterrupt(cviVideoDecoder *pvdec)
+ 	return CVI_WAIT_INT_OK;
+ }
+ 
+-int _cviH264_WaitInterrupt(cviVideoDecoder *pvdec)
++static int _cviH264_WaitInterrupt(cviVideoDecoder *pvdec)
+ {
+ 	cviDecConfig *pdeccfg = &pvdec->decConfig;
+ #ifdef REDUNDENT_CODE
+@@ -1983,7 +1983,7 @@ static void _cviH265FreeAllocatedFrmBuffer(cviVideoDecoder *pvdec,
+ 	}
+ }
+ #endif
+-int _cviH265_GetDecodedData(cviVideoDecoder *pvdec)
++static int _cviH265_GetDecodedData(cviVideoDecoder *pvdec)
+ {
+ 	cviDecConfig *pdeccfg = &pvdec->decConfig;
+ 	DecOutputInfo *pdoi = &pvdec->outputInfo;
+@@ -2352,7 +2352,7 @@ int _cviH265_GetDecodedData(cviVideoDecoder *pvdec)
+ 	return CVI_DECODE_DATA_OK;
+ }
+ 
+-int _cviH264_GetDecodedData(cviVideoDecoder *pvdec)
++static int _cviH264_GetDecodedData(cviVideoDecoder *pvdec)
+ {
+ 	cviDecConfig *pdeccfg = &pvdec->decConfig;
+ 	DecOutputInfo *pdoi = &pvdec->outputInfo;
+@@ -2725,7 +2725,7 @@ static int cviWriteComp(cviVideoDecoder *pvdec, PhysicalAddress buf, int width,
+ }
+ #endif
+ 
+-void _cviH265_CloseDecoder(cviVideoDecoder *pvdec)
++static void _cviH265_CloseDecoder(cviVideoDecoder *pvdec)
+ {
+ 	cviDecConfig *pdeccfg = &pvdec->decConfig;
+ 	//DecOutputInfo *pdoi = &pvdec->outputInfo;
+@@ -2787,7 +2787,7 @@ void _cviH265_CloseDecoder(cviVideoDecoder *pvdec)
+ 	VLOG(INFO, "\nDec End. Tot Frame %d\n", pvdec->decodedIdx);
+ }
+ 
+-void _cviH264_CloseDecoder(cviVideoDecoder *pvdec)
++static void _cviH264_CloseDecoder(cviVideoDecoder *pvdec)
+ {
+ 	cviDecConfig *pdeccfg = &pvdec->decConfig;
+ #ifdef REDUNDENT_CODE
+@@ -2850,14 +2850,14 @@ void cviCloseDecoder(cviVideoDecoder *pvdec)
+ 		_cviH265_CloseDecoder(pvdec);
+ }
+ 
+-void _cviH265_DeInitDecoder(cviVideoDecoder *pvdec)
++static void _cviH265_DeInitDecoder(cviVideoDecoder *pvdec)
+ {
+ 	cviDecConfig *pdeccfg = &pvdec->decConfig;
+ 
+ 	VPU_DeInit(pdeccfg->coreIdx);
+ }
+ 
+-void _cviH264_DeInitDecoder(cviVideoDecoder *pvdec)
++static void _cviH264_DeInitDecoder(cviVideoDecoder *pvdec)
+ {
+ 	cviDecConfig *pdeccfg = &pvdec->decConfig;
+ 	vpu_buffer_t *pvbs = &pvdec->vbStream[0];
+diff --git a/interdrv/cvi_vc_drv/vcodec/cvi/cvi_enc_internal.c b/interdrv/cvi_vc_drv/vcodec/cvi/cvi_enc_internal.c
+index 5d1f78e..90a00fa 100644
+--- a/interdrv/cvi_vc_drv/vcodec/cvi/cvi_enc_internal.c
++++ b/interdrv/cvi_vc_drv/vcodec/cvi/cvi_enc_internal.c
+@@ -81,7 +81,7 @@ static int cviEncode265HeaderByType(stTestEncoder *pTestEnc,
+ 
+ 	#if CACHE_ENCODE_HEADER
+ 		if (pTestEnc->bEncHeader == 1) {
+-			MUTEX_LOCK(&psp->packMutex);
++			/* Complete packet ownership changes while holding the lock. */			mutex_lock(&psp->packMutex);
+ 			if (psp->totalPacks >= MAX_NUM_PACKS) {
+ 				CVI_VC_ERR("hevc cache header droped, type:%d, totalpacks:%d\n",
+ 					nal_type, psp->totalPacks);
+@@ -258,7 +258,8 @@ int cviEncode264Header(stTestEncoder *pTestEnc)
+ 					continue;
+ 				}
+ 
+-				MUTEX_LOCK(&psp->packMutex);
++				/* Complete packet ownership changes while holding the lock. */
++				mutex_lock(&psp->packMutex);
+ 				if (psp->totalPacks >= MAX_NUM_PACKS) {
+ 					CVI_VC_ERR("avc cache header droped, type:%d, totalpacks:%d\n",
+ 						nalType, psp->totalPacks);
+@@ -579,7 +580,8 @@ static int cviInsertOneUserDataSegment(stStreamPack *psp, Uint8 *pUserData,
+ 	stPack *pPack;
+ 	Uint8 *pBuffer;
+ 
+-	MUTEX_LOCK(&psp->packMutex);
++	/* Complete packet ownership changes while holding the lock. */
++	mutex_lock(&psp->packMutex);
+ 	if (psp->totalPacks >= MAX_NUM_PACKS) {
+ 		CVI_VC_ERR("totalPacks (%d) >= MAX_NUM_PACKS\n",
+ 			   psp->totalPacks);
+@@ -596,7 +598,14 @@ static int cviInsertOneUserDataSegment(stStreamPack *psp, Uint8 *pUserData,
+ 
+ 	memcpy(pBuffer, pUserData, userDataLen);
+ 
+-	MUTEX_LOCK(&psp->packMutex);
++	/* Complete packet ownership changes while holding the lock. */
++	mutex_lock(&psp->packMutex);
++	/* The queue may have filled while the allocation ran without the lock. */
++	if (psp->totalPacks >= MAX_NUM_PACKS) {
++		MUTEX_UNLOCK(&psp->packMutex);
++		osal_kfree(pBuffer);
++		return FALSE;
++	}
+ 	pPack = &psp->pack[psp->totalPacks++];
+ 	pPack->addr = pBuffer;
+ 	pPack->len = userDataLen;
+@@ -703,7 +712,8 @@ int cviPutEsInPack(stTestEncoder *pTestEnc, PhysicalAddress paBsBufStart,
+ 		return FALSE;
+ 	}
+ 
+-	MUTEX_LOCK(&psp->packMutex);
++	/* Complete packet ownership changes while holding the lock. */
++	mutex_lock(&psp->packMutex);
+ 	if (psp->totalPacks >= MAX_NUM_PACKS) {
+ 		CVI_VENC_DEBUG("[WARN]totalPacks (%d) >= MAX_NUM_PACKS,drop this packet\n",
+ 			   psp->totalPacks);
+diff --git a/interdrv/cvi_vc_drv/vcodec/cvi/cvi_enc_rc.c b/interdrv/cvi_vc_drv/vcodec/cvi/cvi_enc_rc.c
+index fa2ddf4..45bd331 100644
+--- a/interdrv/cvi_vc_drv/vcodec/cvi/cvi_enc_rc.c
++++ b/interdrv/cvi_vc_drv/vcodec/cvi/cvi_enc_rc.c
+@@ -41,7 +41,7 @@ static void set_pic_qp_by_delta(stRcInfo *pRcInfo, EncOpenParam *pEncOP,
+ }
+ 
+ // ---------------------------------------------------------
+-int _cviEncRc_getBitrate(stRcInfo *pRcInfo)
++static int _cviEncRc_getBitrate(stRcInfo *pRcInfo)
+ {
+ 	if (!pRcInfo->rcEnable) {
+ 		return 0;
+@@ -132,7 +132,7 @@ static void _cviEncRc_setBitrateParam(stRcInfo *pRcInfo, EncOpenParam *pEncOP)
+ 	}
+ }
+ 
+-int _cviEncRc_getFramerate(stRcInfo *pRcInfo)
++static int _cviEncRc_getFramerate(stRcInfo *pRcInfo)
+ {
+ 	if (!pRcInfo->rcEnable) {
+ 		return 0;
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/helper/bitstream/bitstreamfeeder.c b/interdrv/cvi_vc_drv/vcodec/sample/helper/bitstream/bitstreamfeeder.c
+index 22e72e2..01c6bdb 100644
+--- a/interdrv/cvi_vc_drv/vcodec/sample/helper/bitstream/bitstreamfeeder.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/helper/bitstream/bitstreamfeeder.c
+@@ -16,6 +16,7 @@
+ 
+ #include "vpuapifunc.h"
+ #include "main_helper.h"
++#include "bsfeeder_es_in.h"
+ 
+ typedef struct {
+ 	FeedingMethod method;
+@@ -75,10 +76,6 @@ extern Int32 BSFeederSizePlusEs_Act(void *feeder, BSChunk *chunk);
+ extern Int32 BSFeederSizePlusEs_Rewind(void *feeder);
+ #endif
+ 
+-extern void *BSFeederEsIn_Create(void);
+-extern BOOL BSFeederEsIn_Destroy(void *feeder);
+-extern Int32 BSFeederEsIn_Act(void *feeder, BSChunk *chunk);
+-extern BOOL BSFeederEsIn_Rewind(void *feeder);
+ 
+ /**
+  * Abstract Bitstream Feeader Functions
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/helper/bitstream/bsfeeder_es_in.h b/interdrv/cvi_vc_drv/vcodec/sample/helper/bitstream/bsfeeder_es_in.h
+new file mode 100644
+index 0000000..a8d385b
+--- /dev/null
++++ b/interdrv/cvi_vc_drv/vcodec/sample/helper/bitstream/bsfeeder_es_in.h
+@@ -0,0 +1,11 @@
++#ifndef CVI_BSFEEDER_ES_IN_H
++#define CVI_BSFEEDER_ES_IN_H
++
++#include "main_helper.h"
++
++void *BSFeederEsIn_Create(void);
++BOOL BSFeederEsIn_Destroy(void *feeder);
++Int32 BSFeederEsIn_Act(void *feeder, BSChunk *chunk);
++BOOL BSFeederEsIn_Rewind(void *feeder);
++
++#endif
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/helper/bitstream/bsfeeder_es_in_impl.c b/interdrv/cvi_vc_drv/vcodec/sample/helper/bitstream/bsfeeder_es_in_impl.c
+index d5e3d79..2a6cd83 100644
+--- a/interdrv/cvi_vc_drv/vcodec/sample/helper/bitstream/bsfeeder_es_in_impl.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/helper/bitstream/bsfeeder_es_in_impl.c
+@@ -6,6 +6,7 @@
+ 
+ #include "vpuapifunc.h"
+ #include "main_helper.h"
++#include "bsfeeder_es_in.h"
+ 
+ #define MAX_FEEDING_SIZE 0x400000 /* 4MBytes */
+ 
+@@ -67,7 +68,8 @@ Int32 BSFeederEsIn_Act(void *feeder, BSChunk *chunk)
+ 	return chunk->size;
+ }
+ 
+-BOOL BSFeederEsIn_Rewind(void)
++BOOL BSFeederEsIn_Rewind(void *feeder)
+ {
++	UNREFERENCED_PARAMETER(feeder);
+ 	return TRUE;
+ }
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/helper/main_helper.c b/interdrv/cvi_vc_drv/vcodec/sample/helper/main_helper.c
+index 0a6cdcd..e1f1375 100644
+--- a/interdrv/cvi_vc_drv/vcodec/sample/helper/main_helper.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/helper/main_helper.c
+@@ -223,7 +223,7 @@ void PrintDecSeqWarningMessages(Uint32 productId, DecInitialInfo *seqInfo)
+ 	}
+ }
+ 
+-void DisplayDecodedInformationForHevc(DecHandle handle, Uint32 frameNo,
++static void DisplayDecodedInformationForHevc(DecHandle handle, Uint32 frameNo,
+ 				      DecOutputInfo *decodedInfo)
+ {
+ 	Int32 logLevel;
+@@ -351,7 +351,7 @@ void DisplayDecodedInformationForVP9(DecHandle handle, Uint32 frameNo,
+ }
+ #endif
+ 
+-void DisplayDecodedInformationCommon(DecHandle handle, CodStd codec,
++static void DisplayDecodedInformationCommon(DecHandle handle, CodStd codec,
+ 				     Uint32 frameNo, DecOutputInfo *decodedInfo)
+ {
+ 	Int32 logLevel;
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/helper/misc/cnm_video_helper.c b/interdrv/cvi_vc_drv/vcodec/sample/helper/misc/cnm_video_helper.c
+index 755b37c..d14b15d 100644
+--- a/interdrv/cvi_vc_drv/vcodec/sample/helper/misc/cnm_video_helper.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/helper/misc/cnm_video_helper.c
+@@ -1026,7 +1026,7 @@ static void StoreYuvImageBurstLinearCbCrInterleaveHelper(
+ 	}
+ }
+ 
+-Uint32 StoreYuvImageBurstLinear(Uint32 coreIdx, FrameBuffer *fbSrc,
++static Uint32 StoreYuvImageBurstLinear(Uint32 coreIdx, FrameBuffer *fbSrc,
+ 				TiledMapConfig mapCfg, Uint8 *pDst,
+ 				VpuRect cropRect, BOOL enableCrop, BOOL isVP9)
+ {
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuvAddrfeeder.c b/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuvAddrfeeder.c
+index f72f365..a2632d0 100644
+--- a/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuvAddrfeeder.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuvAddrfeeder.c
+@@ -1,4 +1,5 @@
+ #include "main_helper.h"
++#include "yuv_addr_feeder.h"
+ 
+ typedef struct _YUV_ADDR_FP_ {
+ 	int frameNo;
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuv_addr_feeder.h b/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuv_addr_feeder.h
+new file mode 100644
+index 0000000..bb7a291
+--- /dev/null
++++ b/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuv_addr_feeder.h
+@@ -0,0 +1,13 @@
++#ifndef CVI_YUV_ADDR_FEEDER_H
++#define CVI_YUV_ADDR_FEEDER_H
++
++#include "main_helper.h"
++
++BOOL yuvAddrFeeder_Create(YuvFeederImpl *impl, const char *path, Uint32 packed,
++			  Uint32 fbStride, Uint32 fbHeight);
++BOOL yuvAddrFeeder_Feed(YuvFeederImpl *impl, Int32 coreIdx, FrameBuffer *fb,
++			size_t picWidth, size_t picHeight, void *arg);
++BOOL yuvAddrFeeder_Destory(YuvFeederImpl *impl);
++BOOL yuvAddrFeeder_Configure(YuvFeederImpl *impl, Uint32 cmd, YuvInfo yuv);
++
++#endif
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuvfeeder.c b/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuvfeeder.c
+index 3429eaa..3968b75 100644
+--- a/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuvfeeder.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuvfeeder.c
+@@ -15,6 +15,7 @@
+ //--=========================================================================--
+ 
+ #include "main_helper.h"
++#include "yuv_addr_feeder.h"
+ 
+ extern YuvFeederImpl loaderYuvFeederImpl;
+ 
+@@ -40,15 +41,9 @@ BOOL fpgaYuvFeeder_Destory(YuvFeederImpl *impl);
+ BOOL fpgaYuvFeeder_Configure(YuvFeederImpl *impl, Uint32 cmd, YuvInfo yuv);
+ #endif
+ 
+-BOOL yuvAddrFeeder_Create(YuvFeederImpl *impl, const char *path, Uint32 packed,
+-			  Uint32 fbStride, Uint32 fbHeight);
+ 
+-BOOL yuvAddrFeeder_Feed(YuvFeederImpl *impl, Int32 coreIdx, FrameBuffer *fb,
+-			size_t picWidth, size_t picHeight, void *arg);
+ 
+-BOOL yuvAddrFeeder_Destory(YuvFeederImpl *impl);
+ 
+-BOOL yuvAddrFeeder_Configure(YuvFeederImpl *impl, Uint32 cmd, YuvInfo yuv);
+ 
+ static void printYuvInfo(YuvInfo *yuvInfo);
+ 
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+index 3468973..5868468 100644
+--- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+@@ -1109,7 +1109,8 @@ static int cviH264SpsAddVui(stTestEncoder *pTestEnc)
+ 	cviH264Vui *pVui = &pTestEnc->encConfig.cviEc.h264Vui;
+ 	int i;
+ 
+-	MUTEX_LOCK(&psp->packMutex);
++	/* Packet updates/cleanup must finish with this mutex held. */
++	mutex_lock(&psp->packMutex);
+ 	for (i = 0; i < psp->totalPacks; i++) {
+ 		if (psp->pack[i].cviNalType == NAL_SPS) {
+ 			H264SpsAddVui(pVui, &psp->pack[i].addr,
+@@ -1129,7 +1130,8 @@ static int cviH265SpsAddVui(stTestEncoder *pTestEnc)
+ 	cviH265Vui *pVui = &pTestEnc->encConfig.cviEc.h265Vui;
+ 	int i;
+ 
+-	MUTEX_LOCK(&psp->packMutex);
++	/* Packet updates/cleanup must finish with this mutex held. */
++	mutex_lock(&psp->packMutex);
+ 	for (i = 0; i < psp->totalPacks; i++) {
+ 		if (psp->pack[i].cviNalType == NAL_SPS) {
+ 			H265SpsAddVui(pVui, &psp->pack[i].addr,
+@@ -2881,7 +2883,7 @@ int initEncoder(stTestEncoder *pTestEnc, TestEncConfig *pEncConfig)
+ 	return ret;
+ }
+ 
+-void cvi_vc_get_motion_tbl(void *arg)
++static void cvi_vc_get_motion_tbl(void *arg)
+ {
+ 	struct base_exe_m_cb exe_cb;
+ 	/* Notify vi to send buffer as soon as possible */
+@@ -3137,7 +3139,7 @@ static int cviGetOneStream(void *handle, cviVEncStreamInfo *pStreamInfo,
+ 
+ 		// if drop IDR, need clear vps sps pps header
+ 		if (pTestEnc->encParam.is_idr_frame) {
+-			MUTEX_LOCK(&pTestEnc->streamPack.packMutex);
++			/* Packet updates/cleanup must finish with this mutex held. */			mutex_lock(&pTestEnc->streamPack.packMutex);
+ 			cviDropEsPacks(&pTestEnc->streamPack);
+ 			MUTEX_UNLOCK(&pTestEnc->streamPack.packMutex);
+ 		}
+@@ -3288,7 +3290,8 @@ static int cviReEncodeIDR(stTestEncoder *pTestEnc,
+ 
+ 	pTestEnc->encParam.idr_request = TRUE;
+ 
+-	MUTEX_LOCK(&pStreamInfo->psp->packMutex);
++	/* Packet updates/cleanup must finish with this mutex held. */
++	mutex_lock(&pStreamInfo->psp->packMutex);
+ 	// only drop latest super frame
+ 	totalPacks = pStreamInfo->psp->totalPacks;
+ 	if (totalPacks >= 1) {
+@@ -3353,7 +3356,8 @@ int cviVEncReleaseStream(void *handle, cviVEncStreamInfo *pStreamInfo)
+ 
+ 	CVI_VC_IF("\n");
+ 
+-	MUTEX_LOCK(&psp->packMutex);
++	/* Packet updates/cleanup must finish with this mutex held. */
++	mutex_lock(&psp->packMutex);
+ 	if (psp->totalPacks) {
+ 		for (idx = 0; idx < psp->totalPacks; idx++) {
+ 			pPack = &psp->pack[idx];
+@@ -5082,7 +5086,7 @@ static int cviVEncStart(stTestEncoder *pTestEnc, void *arg)
+ 	}
+ 
+ 	psp = &pTestEnc->streamPack;
+-	MUTEX_LOCK(&psp->packMutex);
++	/* Packet updates/cleanup must finish with this mutex held. */	mutex_lock(&psp->packMutex);
+ 	if (psp->totalPacks) {
+ 		for (idx = 0; idx < psp->totalPacks; idx++) {
+ 			pPack = &psp->pack[idx];
+@@ -5416,14 +5420,14 @@ static int cviVEncSetH265Dblk(stTestEncoder *pTestEnc, void *arg)
+ 	return 0;
+ }
+ 
+-int cviVEncDropFrame(stTestEncoder *pTestEnc, void *arg)
++static int cviVEncDropFrame(stTestEncoder *pTestEnc, void *arg)
+ {
+ 	pTestEnc->bSbmSkipFrm = TRUE;
+ 
+ 	return 0;
+ }
+ 
+-int cviVEncSbmSetting(stTestEncoder *pTestEnc, void *arg)
++static int cviVEncSbmSetting(stTestEncoder *pTestEnc, void *arg)
+ {
+ 	cviVencSbSetting *SbSetting = (cviVencSbSetting *)arg;
+ 
+@@ -5435,7 +5439,7 @@ int cviVEncSbmSetting(stTestEncoder *pTestEnc, void *arg)
+ 	return 0;
+ }
+ 
+-int cviVEncSvcEnable(stTestEncoder *pTestEnc, void *arg)
++static int cviVEncSvcEnable(stTestEncoder *pTestEnc, void *arg)
+ {
+ 	bool *svc_enable = (bool *)arg;
+ 	TestEncConfig *pEncCfg = &pTestEnc->encConfig;
+@@ -5445,7 +5449,7 @@ int cviVEncSvcEnable(stTestEncoder *pTestEnc, void *arg)
+ 	return 0;
+ }
+ 
+-int cviVEncSetSvcParam(stTestEncoder *pTestEnc, void *arg)
++static int cviVEncSetSvcParam(stTestEncoder *pTestEnc, void *arg)
+ {
+ 	TestEncConfig *pEncCfg = &pTestEnc->encConfig;
+ 	cviSvcParam *svc_param = &pEncCfg->cviEc.svcParam;
+@@ -5477,7 +5481,7 @@ bool cviGetSvcEnable(void *handle)
+ 	return pTestEnc->encOP.svc_enable;
+ }
+ 
+-int cviVEncShowRcRealInfo(stTestEncoder *pTestEnc, void *arg)
++static int cviVEncShowRcRealInfo(stTestEncoder *pTestEnc, void *arg)
+ {
+ 	stRcInfo *pRcInfo = &pTestEnc->handle->rcInfo;
+ 	struct seq_file *m = (struct seq_file *)arg;
+@@ -6444,7 +6448,9 @@ int cvitest_venc_main(int argc, char **argv)
+ 	struct task_struct *thread_id[MAX_NUM_INSTANCE];
+ 	int ret = 0;
+ 	int i = 0;
+-	struct sched_param param = {
++	struct sched_attr param = {
++			.size = sizeof(param),
++			.sched_policy = SCHED_RR,
+ 				.sched_priority = 80,
+ 			};
+ 
+@@ -6489,7 +6495,7 @@ int cvitest_venc_main(int argc, char **argv)
+ 			ret = 0;
+ 			goto BAILOUT;
+ 		}
+-		sched_setscheduler(thread_id[i], SCHED_RR, &param);
++		if (sched_setattr_nocheck(thread_id[i], &param))			pr_warn("NanoKVM codec: failed to set worker RT priority\n");
+ 	}
+ 
+ 	for (i = 0; i < gNumInstance; i++) {
+diff --git a/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c b/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c
+index 355e8ee..18b67af 100644
+--- a/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c
++++ b/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c
+@@ -19,6 +19,7 @@
+ #include <linux/dma-buf.h>
+ #include <linux/delay.h>
+ #include <linux/mutex.h>
++#include <linux/string.h>
+ #include <linux/sched.h>
+ #include <vc_ctx.h>
+ #include "../vdi.h"
+@@ -189,7 +190,7 @@ int vdi_get_single_core(unsigned long core_idx)
+ 	return vdi->SingleCore;
+ }
+ 
+-void vdi_change_task_count(unsigned long core_idx, int add)
++static void vdi_change_task_count(unsigned long core_idx, int add)
+ {
+ 	int locked = 0;
+ 	vdi_info_t *vdi;
+@@ -1179,7 +1180,8 @@ int vdi_disp_lock(unsigned long core_idx)
+ 	}
+ 
+ #if defined(ANDROID) || !defined(PTHREAD_MUTEX_ROBUST_NP)
+-	MUTEX_LOCK((MUTEX_HANDLE *)vdi->vpu_disp_mutex);
++	if (MUTEX_LOCK((MUTEX_HANDLE *)vdi->vpu_disp_mutex) != 0)
++		return -1;
+ #else
+ 	if (MUTEX_LOCK((MUTEX_HANDLE *)vdi->vpu_disp_mutex) != 0) {
+ 		CVI_VC_ERR("failed to pthread_mutex_lock\n");
+@@ -1664,7 +1666,7 @@ int vdi_allocate_single_es_buf_memory(unsigned long core_idx,
+ 		vb->base = vdi->vdb_bitstream.base;
+ 		vb->virt_addr = vdi->vdb_bitstream.virt_addr;
+ 	} else {
+-		strncpy(ionName, "singleEsBuf", MAX_VPU_ION_BUFFER_NAME);
++		strscpy_pad(ionName, "singleEsBuf", sizeof(ionName));
+ 		if (VDI_ALLOCATE_MEMORY(core_idx, vb, bBsStreamCached,
+ 					ionName) < 0) {
+ 			CVI_VC_ERR(
+diff --git a/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi_osal.c b/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi_osal.c
+index 70be2cf..8cef140 100644
+--- a/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi_osal.c
++++ b/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi_osal.c
+@@ -8,6 +8,7 @@
+ #include "vpuconfig.h"
+ #include <linux/slab.h>
+ #include <linux/fs.h>
++#include <linux/overflow.h>
+ #include <asm/uaccess.h>
+ 
+ #include "../vdi_osal.h"
+@@ -36,7 +37,7 @@ static FILE *fpLog;
+ 
+ struct cvi_osal_file {
+ 	struct file *filep;
+-	mm_segment_t old_fs;
++	bool eof;
+ };
+ 
+ 
+@@ -200,76 +201,101 @@ void osal_free(void *p)
+ 
+ int osal_feof(osal_file_t fp)
+ {
+-	return 0;
++	struct cvi_osal_file *cvi_fp = fp;
++
++	return cvi_fp && cvi_fp->eof;
+ }
+ 
+-osal_file_t osal_fopen(const char *osal_file_tname, const char *mode)
++osal_file_t osal_fopen(const char *name, const char *mode)
+ {
+-	struct cvi_osal_file *cvi_fp = (struct cvi_osal_file *)
+-				       vmalloc(sizeof(struct cvi_osal_file));
++	struct cvi_osal_file *cvi_fp;
++	int flags;
+ 
+-	if (!cvi_fp)
++	if (!name || !mode || !mode[0])
+ 		return NULL;
+-
+-	if (!strncmp(mode, "rb", 2)) {
+-		cvi_fp->filep = filp_open(osal_file_tname, O_RDONLY/*|O_NONBLOCK*/, 0644);
+-	} else if (!strncmp(mode, "wb", 2)) {
+-		cvi_fp->filep = filp_open(osal_file_tname, O_RDWR | O_CREAT, 0644);
++	/* Accept the standard binary/update suffixes without leaving filep unset. */
++	if (mode[1] && strcmp(mode + 1, "b") && strcmp(mode + 1, "+") &&
++	    strcmp(mode + 1, "b+") && strcmp(mode + 1, "+b"))
++		return NULL;
++	switch (mode[0]) {
++	case 'r': flags = O_RDONLY; break;
++	case 'w': flags = O_WRONLY | O_CREAT | O_TRUNC; break;
++	case 'a': flags = O_WRONLY | O_CREAT | O_APPEND; break;
++	default: return NULL;
+ 	}
+-
++	if (strchr(mode, '+'))
++		flags = (flags & ~O_ACCMODE) | O_RDWR;
++	cvi_fp = kzalloc(sizeof(*cvi_fp), GFP_KERNEL);
++	if (!cvi_fp)
++		return NULL;
++	cvi_fp->filep = filp_open(name, flags, 0644);
+ 	if (IS_ERR(cvi_fp->filep)) {
+-		vfree(cvi_fp);
++		kfree(cvi_fp);
+ 		return NULL;
+ 	}
+-
+-	cvi_fp->old_fs = get_fs();
+ 	return cvi_fp;
+ }
++
++/* Retain the vendor byte-count return convention, including size > 1. */
+ size_t osal_fwrite(const void *p, int size, int count, osal_file_t fp)
+ {
+-	struct cvi_osal_file *cvi_fp = (struct cvi_osal_file *)fp;
+-	struct file *filep = cvi_fp->filep;
++	struct cvi_osal_file *cvi_fp = fp;
++	size_t bytes;
++	ssize_t written;
+ 
+-	return kernel_write(filep, p, size * count, &filep->f_pos);
++	if (!cvi_fp || !p || size <= 0 || count <= 0 ||
++	    check_mul_overflow((size_t)size, (size_t)count, &bytes))
++		return 0;
++	written = kernel_write(cvi_fp->filep, p, bytes, &cvi_fp->filep->f_pos);
++	return written > 0 ? written : 0;
+ }
++
+ size_t osal_fread(void *p, int size, int count, osal_file_t fp)
+ {
+-	struct cvi_osal_file *cvi_fp = (struct cvi_osal_file *)fp;
+-	struct file *filep = cvi_fp->filep;
++	struct cvi_osal_file *cvi_fp = fp;
++	size_t bytes;
++	ssize_t received;
+ 
+-	return kernel_read(filep, p, size * count, &filep->f_pos);
++	if (!cvi_fp || !p || size <= 0 || count <= 0 ||
++	    check_mul_overflow((size_t)size, (size_t)count, &bytes))
++		return 0;
++	received = kernel_read(cvi_fp->filep, p, bytes, &cvi_fp->filep->f_pos);
++	if (received == 0)
++		cvi_fp->eof = true;
++	return received > 0 ? received : 0;
+ }
++
+ long osal_ftell(osal_file_t fp)
+ {
+-	struct cvi_osal_file *cvi_fp = (struct cvi_osal_file *)fp;
+-	struct file *filep = cvi_fp->filep;
++	struct cvi_osal_file *cvi_fp = fp;
+ 
+-	return filep->f_pos;
+-	return 0;
++	return cvi_fp ? cvi_fp->filep->f_pos : -EINVAL;
+ }
+ 
+ int osal_fseek(osal_file_t fp, long offset, int origin)
+ {
+-	struct cvi_osal_file *cvi_fp = (struct cvi_osal_file *)fp;
+-	struct file *filep = cvi_fp->filep;
+-
+-	return default_llseek(filep, offset, origin);
++	struct cvi_osal_file *cvi_fp = fp;
++	loff_t pos;
+ 
++	if (!cvi_fp)
++		return -EINVAL;
++	pos = vfs_llseek(cvi_fp->filep, offset, origin);
++	if (pos < 0)
++		return pos;
++	cvi_fp->eof = false;
+ 	return 0;
+ }
++
+ int osal_fclose(osal_file_t fp)
+ {
+-	struct cvi_osal_file *cvi_fp = (struct cvi_osal_file *)fp;
+-	struct file *filep;
+-
+-	if (!fp)
+-		return -1;
++	struct cvi_osal_file *cvi_fp = fp;
++	int ret;
+ 
+-	filep = cvi_fp->filep;
+-	filp_close(filep, 0);
+-	set_fs(cvi_fp->old_fs);
+-	vfree(cvi_fp);
+-	return 0;
++	if (!cvi_fp)
++		return -EINVAL;
++	ret = filp_close(cvi_fp->filep, NULL);
++	kfree(cvi_fp);
++	return ret;
+ }
+ 
+ #ifdef REDUNDENT_CODE
+diff --git a/interdrv/cvi_vc_drv/vcodec/vpuapi/coda9/980_roi_rc_lib/hevc_enc_rc.h b/interdrv/cvi_vc_drv/vcodec/vpuapi/coda9/980_roi_rc_lib/hevc_enc_rc.h
+index f2f3bc2..eddcde9 100644
+--- a/interdrv/cvi_vc_drv/vcodec/vpuapi/coda9/980_roi_rc_lib/hevc_enc_rc.h
++++ b/interdrv/cvi_vc_drv/vcodec/vpuapi/coda9/980_roi_rc_lib/hevc_enc_rc.h
+@@ -6,8 +6,12 @@
+ #define MAX_GOP_SIZE 8
+ #define PARA_CHANGE_RC_SEQ_INIT
+ 
++#ifdef USE_KERNEL_MODE
++#include <linux/minmax.h>
++#else
+ #define MAX(a, b) (((a) > (b)) ? (a) : (b))
+ #define MIN(a, b) (((a) < (b)) ? (a) : (b))
++#endif
+ #define CLIP3(a, b, c) (MIN(b, MAX(a, c)))
+ #define ABS(a) ((a >= 0) ? a : -a)
+ 
+diff --git a/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c b/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
+index f577425..9583f3f 100644
+--- a/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
++++ b/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
+@@ -3102,7 +3102,7 @@ RetCode cviConfigEncParam(CodecInst *pCodec, EncOpenParam *param)
+ 	return ret;
+ }
+ 
+-void VPU_WaitPendingInst(CodecInst *pCodecInst)
++static void VPU_WaitPendingInst(CodecInst *pCodecInst)
+ {
+ RETRY:
+ 	if (GetPendingInst(pCodecInst->coreIdx)) {
+diff --git a/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapifunc.c b/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapifunc.c
+index 4420d98..8bf306e 100644
+--- a/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapifunc.c
++++ b/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapifunc.c
+@@ -170,7 +170,7 @@ void FreeCodecInstance(CodecInst *pCodecInst)
+ 	pCodecInst->CodecInfo = NULL;
+ }
+ 
+-RetCode CheckInstanceValidity(CodecInst *pCodecInst)
++static RetCode CheckInstanceValidity(CodecInst *pCodecInst)
+ {
+ 	int i;
+ 	vpu_instance_pool_t *vip;
+@@ -2502,7 +2502,7 @@ RetCode AllocateTiledFrameBufferGdiV2(TiledMapType mapType, FrameBuffer *fbArr,
+ 	return RETCODE_SUCCESS;
+ }
+ 
+-Int32 _ConfigSecAXICoda9_182x(Uint32 coreIdx, Int32 codecMode, SecAxiInfo *sa,
++static Int32 _ConfigSecAXICoda9_182x(Uint32 coreIdx, Int32 codecMode, SecAxiInfo *sa,
+ 			      Uint32 width)
+ {
+ 	vpu_buffer_t vb;
+-- 
+2.43.0
+

@@ -1,0 +1,81 @@
+From 1a33c9f6fdfe55694270faf10d15ea9f92a44844 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 21:49:42 +0300
+Subject: [PATCH] nanokvm: expose owned HDMI reset level for capture control
+
+---
+ .../testing/sysfs-platform-nanokvm-hdmi-reset | 13 +++++++
+ drivers/misc/nanokvm-hdmi-reset.c             | 35 +++++++++++++++++++
+ 2 files changed, 48 insertions(+)
+
+diff --git a/Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset b/Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset
+index 1663d2ea9..ffd7a0972 100644
+--- a/Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset
++++ b/Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset
+@@ -15,3 +15,16 @@ Description:
+                 Users must stop competing HDMI/I2C activity before using this
+                 maintenance interface. It does not update EDID, manage the
+                 video pipeline, or operate the host's ATX reset.
++
++What:           /sys/bus/platform/devices/hdmi-reset/asserted
++Date:           September 2026
++Contact:        NanoKVM Enhanced maintainers
++Description:
++                Read the logical reset level. Write "1" to hold the HDMI
++                receiver in reset, or "0" to release it. Polarity follows DT;
++                on NanoKVM PCIe asserted means the physical line is low.
++                Writes require root and reject any other value with EINVAL.
++                Access overlaps with pulse are rejected with EBUSY. GPIO errors
++                propagate. No delay or capture/I2C coordination is implicit.
++                The driver starts with reset released. Users must coordinate
++                capture before assertion and allow bridge startup after release.
+diff --git a/drivers/misc/nanokvm-hdmi-reset.c b/drivers/misc/nanokvm-hdmi-reset.c
+index 1bfab3d48..3d81fa733 100644
+--- a/drivers/misc/nanokvm-hdmi-reset.c
++++ b/drivers/misc/nanokvm-hdmi-reset.c
+@@ -46,7 +46,42 @@ static ssize_t pulse_store(struct device *dev, struct device_attribute *attr,
+ }
+ static DEVICE_ATTR_WO(pulse);
+ 
++/* Hold reset while HDMI is disabled, using the same owner as pulse. */
++static ssize_t asserted_show(struct device *dev, struct device_attribute *attr,
++                             char *buf)
++{
++	struct nanokvm_hdmi_reset *reset = dev_get_drvdata(dev);
++	int value;
++
++	if (!mutex_trylock(&reset->lock))
++		return -EBUSY;
++	value = gpiod_get_value_cansleep(reset->gpio);
++	mutex_unlock(&reset->lock);
++	return value < 0 ? value : sysfs_emit(buf, "%d\n", value);
++}
++
++static ssize_t asserted_store(struct device *dev, struct device_attribute *attr,
++                              const char *buf, size_t count)
++{
++	struct nanokvm_hdmi_reset *reset = dev_get_drvdata(dev);
++	int value, ret;
++
++	if (sysfs_streq(buf, "0"))
++		value = 0;
++	else if (sysfs_streq(buf, "1"))
++		value = 1;
++	else
++		return -EINVAL;
++	if (!mutex_trylock(&reset->lock))
++		return -EBUSY;
++	ret = gpiod_direction_output(reset->gpio, value);
++	mutex_unlock(&reset->lock);
++	return ret ? ret : (ssize_t)count;
++}
++static DEVICE_ATTR_RW(asserted);
++
+ static struct attribute *nanokvm_hdmi_attrs[] = {
++	&dev_attr_asserted.attr,
+ 	&dev_attr_pulse.attr,
+ 	NULL,
+ };
+-- 
+2.43.0
+

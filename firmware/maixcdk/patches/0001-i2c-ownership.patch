@@ -1,0 +1,59 @@
+From 2663aa4862f675a857fc85b8ea8fe0915f268595 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 21:10:28 +0300
+Subject: [PATCH] Fix MaixCAM I2C descriptor and failed-read ownership
+
+---
+ components/peripheral/port/maixcam/maix_i2c.cpp | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/components/peripheral/port/maixcam/maix_i2c.cpp b/components/peripheral/port/maixcam/maix_i2c.cpp
+index cc6ca60..978d8e7 100755
+--- a/components/peripheral/port/maixcam/maix_i2c.cpp
++++ b/components/peripheral/port/maixcam/maix_i2c.cpp
+@@ -25,6 +25,7 @@ namespace maix::peripheral::i2c
+         std::vector<int> data;
+         // list all files in /dev, find i2c-*
+         std::vector<std::string> *files = fs::listdir("/dev");
++        if (!files) return data;
+         for (auto &file : *files)
+         {
+             if (file.find("i2c-") != std::string::npos)
+@@ -70,7 +71,7 @@ namespace maix::peripheral::i2c
+ 
+     I2C::~I2C()
+     {
+-        if (_fd > 0)
++        if (_fd >= 0)
+         {
+             ::close(_fd);
+         }
+@@ -120,6 +121,8 @@ namespace maix::peripheral::i2c
+ 
+     int I2C::writeto(int addr, const uint8_t *data, int len)
+     {
++        if (addr < 0 || addr > 0x7f || len < 0 || (len && !data))
++            return -err::ERR_ARGS;
+         if (_mode != i2c::Mode::MASTER)
+         {
+             log::error("Only for master mode");
+@@ -153,7 +156,7 @@ namespace maix::peripheral::i2c
+ 
+     Bytes* I2C::readfrom(int addr, int len)
+     {
+-        Bytes *data = new Bytes(nullptr, len);
++        if (addr < 0 || addr > 0x7f || len <= 0) return nullptr;
+ 
+         if (_mode != i2c::Mode::MASTER)
+         {
+@@ -167,6 +170,7 @@ namespace maix::peripheral::i2c
+             return nullptr;
+         }
+ 
++        Bytes *data = new Bytes(nullptr, len);
+         if (len != ::read(_fd, data->data, len))
+         {
+             log::error("read failed");
+-- 
+2.43.0
+

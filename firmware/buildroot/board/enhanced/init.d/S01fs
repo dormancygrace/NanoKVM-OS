@@ -1,0 +1,30 @@
+#!/bin/sh
+# Enhanced mounts existing filesystems. Partitioning/formatting is manual.
+set -eu
+[ "${1:-}" = start ] || exit 0
+
+: "${NANOKVM_BOOT_PART:=/dev/mmcblk0p1}"
+: "${NANOKVM_DATA_PART:=/dev/mmcblk0p3}"
+: "${NANOKVM_BOOT_DIR:=/boot}"
+: "${NANOKVM_DATA_DIR:=/data}"
+: "${NANOKVM_DISK0_MARKER:=/etc/kvm.disk0}"
+
+mkdir -p "$NANOKVM_BOOT_DIR" "$NANOKVM_DATA_DIR"
+mountpoint -q "$NANOKVM_BOOT_DIR" || mount -t vfat "$NANOKVM_BOOT_PART" "$NANOKVM_BOOT_DIR"
+mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config
+mountpoint -q /sys/kernel/debug || mount -t debugfs debugfs /sys/kernel/debug
+
+if mountpoint -q "$NANOKVM_DATA_DIR"; then
+    touch "$NANOKVM_DISK0_MARKER"
+elif [ -b "$NANOKVM_DATA_PART" ] && [ -n "$(blkid "$NANOKVM_DATA_PART" 2>/dev/null)" ]; then
+    if mount "$NANOKVM_DATA_PART" "$NANOKVM_DATA_DIR"; then
+        touch "$NANOKVM_DISK0_MARKER"
+    else
+        rm -f "$NANOKVM_DISK0_MARKER"
+        echo "Existing data filesystem could not be mounted" >&2
+        exit 1
+    fi
+else
+    rm -f "$NANOKVM_DISK0_MARKER"
+    echo "No recognized data filesystem; leaving storage unchanged" >&2
+fi

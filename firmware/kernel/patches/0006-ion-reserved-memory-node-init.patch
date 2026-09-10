@@ -1,0 +1,31 @@
+From 27aea1bda8747e9b97387529b2ff4129056c8141 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 18:07:28 +0300
+Subject: [PATCH] ion: initialize reserved memory nodes with the Linux 7.2 API
+
+---
+ drivers/staging/android/ion/cvitek/cvitek_ion.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/staging/android/ion/cvitek/cvitek_ion.c b/drivers/staging/android/ion/cvitek/cvitek_ion.c
+index 94cf85830..a73fc05ec 100644
+--- a/drivers/staging/android/ion/cvitek/cvitek_ion.c
++++ b/drivers/staging/android/ion/cvitek/cvitek_ion.c
+@@ -535,7 +535,14 @@ static void rmem_ion_device_release(struct reserved_mem *rmem,
+ {
+ }
+ 
++/* The OF core requires node_init before attaching device operations. */
++static int __init rmem_ion_node_init(unsigned long node, struct reserved_mem *rmem)
++{
++	return 0;
++}
++
+ static const struct reserved_mem_ops rmem_dma_ops = {
++	.node_init = rmem_ion_node_init,
+ 	.device_init = rmem_ion_device_init,
+ 	.device_release = rmem_ion_device_release,
+ };
+-- 
+2.43.0
+

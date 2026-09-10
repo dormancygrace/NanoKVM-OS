@@ -1,0 +1,85 @@
+From 95f74565968645f5bab42c5dc68c068e6cf2e01e Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 19:51:23 +0300
+Subject: [PATCH] ive: own register, AXI and SYS1 core clocks before hardware
+ initialization
+
+---
+ interdrv/ive/common/cvi_ive_interface.c    | 15 +++++++++++++++
+ interdrv/ive/hal/cv181x/cvi_ive_platform.c | 14 +++++++++++++-
+ 2 files changed, 28 insertions(+), 1 deletion(-)
+
+diff --git a/interdrv/ive/common/cvi_ive_interface.c b/interdrv/ive/common/cvi_ive_interface.c
+index 5e27ce1..aaa400e 100644
+--- a/interdrv/ive/common/cvi_ive_interface.c
++++ b/interdrv/ive/common/cvi_ive_interface.c
+@@ -11,6 +11,7 @@
+  *
+  */
+ 
++#include <linux/clk.h>
+ #include <linux/device.h>
+ #include <linux/interrupt.h>
+ #include <linux/vmalloc.h>
+@@ -894,11 +895,25 @@ destroy_class:
+ static int cvi_ive_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
++	struct clk *clk;
+ 	struct cvi_ive_device *ndev;
+ 	struct resource *res;
+ 	int ret;
+ 
+ 	pr_debug("%s start\n", __func__);
++	/* Probe already runs an IVE operation. Keep the register, AXI and
++	 * selected core clocks enabled from probe until unbind.
++	 */
++	clk = devm_clk_get_enabled(dev, "cfg_reg");
++	if (IS_ERR(clk))
++		return dev_err_probe(dev, PTR_ERR(clk), "cannot enable IVE register clock\n");
++	clk = devm_clk_get_enabled(dev, "ive");
++	if (IS_ERR(clk))
++		return dev_err_probe(dev, PTR_ERR(clk), "cannot enable IVE bus clock\n");
++	clk = devm_clk_get_enabled(dev, "core");
++	if (IS_ERR(clk))
++		return dev_err_probe(dev, PTR_ERR(clk), "cannot enable IVE core clock\n");
++
+ 	// Alloc a zero cvi_ive_device struct, and it will auto free when remod
+ 	ndev = devm_kzalloc(&pdev->dev, sizeof(struct cvi_ive_device),
+ 			    GFP_KERNEL);
+diff --git a/interdrv/ive/hal/cv181x/cvi_ive_platform.c b/interdrv/ive/hal/cv181x/cvi_ive_platform.c
+index d04dc0b..263f403 100644
+--- a/interdrv/ive/hal/cv181x/cvi_ive_platform.c
++++ b/interdrv/ive/hal/cv181x/cvi_ive_platform.c
+@@ -1859,8 +1859,14 @@ inline CVI_S32 cvi_ive_go(struct cvi_ive_device *ndev, IVE_TOP_C *ive_top_c,
+ 			cnt++;
+ 		}
+ 		stop_vld_time(optype, ndev->tile_num);
+-		if (cnt >= 10000)
++		if (cnt >= 10000) {
++			dev_err_ratelimited(ndev->dev,
++				"operation %d timed out: done=%#x expected=%#x irq=%#x reset=%#x\n",
++				optype, readl(IVE_BLK_BA.IVE_TOP + IVE_TOP_REG_90),
++				done_mask, readl(IVE_BLK_BA.IVE_TOP + IVE_TOP_REG_98),
++				vip_sys_reg_read(VIP_SYS_REG_RST_IVE_TOP));
+ 			ret = CVI_FAILURE;
++		}
+ 	} else {
+ 		long leavetime = wait_for_completion_timeout(
+ 			&ndev->frame_done, msecs_to_jiffies(1 * TIMEOUT_MS));
+@@ -9596,6 +9602,12 @@ int stcandicorner_workaround(struct cvi_ive_device *ndev)
+     IVE_ST_CANDI_CORNER_CTRL_S ctrl = { 0 };
+     int ret;
+ 
++    /* CLK_IVE_VIP gates AXI; the core has a separate VIP source mux.
++     * Select SYS1, held by the platform driver's core clock dependency.
++     */
++    vip_sys_reg_write_mask(VIP_SYS_CLK_IVE_SRC_SEL,
++        VIP_SYS_CLK_IVE_SRC_SEL_MASK, 1U << VIP_SYS_CLK_IVE_SRC_SEL_OFFSET);
++
+     src.enType = dst.enType = IVE_IMAGE_TYPE_U8C1;
+     src.u32Stride[0] = dst.u32Stride[0] = 64;
+     src.u32Width = dst.u32Width = 64;
+-- 
+2.43.0
+

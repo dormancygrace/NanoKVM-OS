@@ -1,0 +1,141 @@
+From 93b99e38662f70c4902b7e3943ff5120973934b4 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 19:06:14 +0300
+Subject: [PATCH] Port NanoKVM dynamic capture sizing and validate sample
+ configuration
+
+---
+ sample/common/sample_common_sensor.c | 27 +++++++++++++++++++++++----
+ sample/common/sample_common_vdec.c   | 18 ++++++++----------
+ sample/common/sample_common_vi.c     |  5 +++--
+ 3 files changed, 34 insertions(+), 16 deletions(-)
+
+diff --git a/sample/common/sample_common_sensor.c b/sample/common/sample_common_sensor.c
+index 41e1e87..ae08e36 100644
+--- a/sample/common/sample_common_sensor.c
++++ b/sample/common/sample_common_sensor.c
+@@ -17,6 +17,9 @@
+ #include "cvi_comm_isp.h"
+ #include "sample_comm.h"
+ #include "ini.h"
++#ifdef NANOKVM_ENHANCED
++#include "nanokvm_capture_size.h"
++#endif
+ #define INI_FILE_PATH	"/mnt/data/sensor_cfg.ini"
+ #define INI_DEF_PATH	"/mnt/system/usr/bin/sensor_cfg.ini"
+ #define SNSCFGPATH_SIZE 100
+@@ -253,7 +256,9 @@ CVI_S32 SAMPLE_COMM_SNS_GetSize(SAMPLE_SNS_TYPE_E enMode, PIC_SIZE_E *penSize)
+ 	case VIVO_MM308M2_2M_25FPS_8BIT:
+ 	case IMGDS_MIS2008_MIPI_2M_1080P_30FPS_12BIT:
+ 	case IMGDS_MIS2008_1L_MIPI_2M_1080P_30FPS_12BIT:
++#ifndef NANOKVM_ENHANCED
+ 	case LONTIUM_LT6911_2M_60FPS_8BIT:
++#endif
+ 	case LONTIUM_LT7911_2M_60FPS_8BIT:
+ 	case CVSENS_CV2002_MIPI_2M_1080P_30FPS_10BIT:
+ 	case CVSENS_CV2002_MIPI_2M_1080P_30FPS_WDR2TO1:
+@@ -263,6 +268,11 @@ CVI_S32 SAMPLE_COMM_SNS_GetSize(SAMPLE_SNS_TYPE_E enMode, PIC_SIZE_E *penSize)
+ 	case CVSENS_CV2003_1L_SLAVE1_MIPI_2M_1080P_30FPS_10BIT:
+ 		*penSize = PIC_1080P;
+ 		break;
++#ifdef NANOKVM_ENHANCED
++	case LONTIUM_LT6911_2M_60FPS_8BIT:
++		*penSize = PIC_CUSTOMIZE;
++		break;
++#endif
+ 	case GCORE_GC4023_MIPI_4M_30FPS_10BIT:
+ 	case GCORE_GC4653_MIPI_4M_30FPS_10BIT:
+ 	case GCORE_GC4653_SLAVE_MIPI_4M_30FPS_10BIT:
+@@ -409,6 +419,8 @@ CVI_S32 SAMPLE_COMM_SNS_GetSize(SAMPLE_SNS_TYPE_E enMode, PIC_SIZE_E *penSize)
+  */
+ CVI_S32 SAMPLE_COMM_SNS_GetPicSize(PIC_SIZE_E enPicSize, SIZE_S *pstSize)
+ {
++	if (pstSize == CVI_NULL)
++		return CVI_FAILURE;
+ 	switch (enPicSize) {
+ 	case PIC_CIF:   /* 352 * 288 */
+ 		pstSize->u32Width  = 352;
+@@ -568,6 +580,11 @@ CVI_S32 SAMPLE_COMM_SNS_GetPicSize(PIC_SIZE_E enPicSize, SIZE_S *pstSize)
+ 		pstSize->u32Width = 1024;
+ 		pstSize->u32Height = 1280;
+ 		break;
++#ifdef NANOKVM_ENHANCED
++	case PIC_CUSTOMIZE:
++		return nanokvm_read_capture_size("/run/nanokvm",
++			&pstSize->u32Width, &pstSize->u32Height) ? CVI_FAILURE : CVI_SUCCESS;
++#endif
+ 	default:
+ 		return CVI_FAILURE;
+ 	}
+@@ -585,8 +602,9 @@ CVI_S32 SAMPLE_COMM_SNS_GetDevAttr(SAMPLE_SNS_TYPE_E enSnsType, VI_DEV_ATTR_S *p
+ 
+ 	memcpy(pstViDevAttr, &DEV_ATTR_SENSOR_BASE, sizeof(VI_DEV_ATTR_S));
+ 
+-	SAMPLE_COMM_SNS_GetSize(enSnsType, &enPicSize);
+-	SAMPLE_COMM_SNS_GetPicSize(enPicSize, &stSize);
++	if (SAMPLE_COMM_SNS_GetSize(enSnsType, &enPicSize) != CVI_SUCCESS ||
++	    SAMPLE_COMM_SNS_GetPicSize(enPicSize, &stSize) != CVI_SUCCESS)
++		return CVI_FAILURE;
+ 
+ 	pstViDevAttr->stSize.u32Width = stSize.u32Width;
+ 	pstViDevAttr->stSize.u32Height = stSize.u32Height;
+@@ -897,8 +915,9 @@ CVI_S32 SAMPLE_COMM_SNS_GetIspAttrBySns(SAMPLE_SNS_TYPE_E enSnsType, ISP_PUB_ATT
+ 
+ 	memcpy(pstPubAttr, &ISP_PUB_ATTR_SAMPLE, sizeof(ISP_PUB_ATTR_S));
+ 
+-	SAMPLE_COMM_SNS_GetSize(enSnsType, &enPicSize);
+-	SAMPLE_COMM_SNS_GetPicSize(enPicSize, &stSize);
++	if (SAMPLE_COMM_SNS_GetSize(enSnsType, &enPicSize) != CVI_SUCCESS ||
++	    SAMPLE_COMM_SNS_GetPicSize(enPicSize, &stSize) != CVI_SUCCESS)
++		return CVI_FAILURE;
+ 
+ 	pstPubAttr->stSnsSize.u32Width = stSize.u32Width;
+ 	pstPubAttr->stSnsSize.u32Height = stSize.u32Height;
+diff --git a/sample/common/sample_common_vdec.c b/sample/common/sample_common_vdec.c
+index 2caf043..22e3779 100644
+--- a/sample/common/sample_common_vdec.c
++++ b/sample/common/sample_common_vdec.c
+@@ -296,16 +296,14 @@ CVI_VOID *SAMPLE_COMM_VDEC_SendStream(CVI_VOID *pArgs)
+ 	prctl(PR_SET_NAME, "VideoSendStream", 0, 0, 0);
+ 
+ 	snprintf(cStreamFile, sizeof(cStreamFile), "%s", pstVdecThreadParam->cFileName);
+-	if (cStreamFile != 0) {
+-		fpStrm = fopen(cStreamFile, "rb");
+-		CVI_VDEC_INFO("cStreamFile = %s\n", cStreamFile);
+-
+-		if (fpStrm == NULL) {
+-			CVI_VDEC_ERR("chn %d can't open file %s in send stream thread!\n",
+-					pstVdecThreadParam->s32ChnId, cStreamFile);
+-			pstVdecThreadParam->bFileEnd = CVI_TRUE;
+-			return (CVI_VOID *)(CVI_FAILURE);
+-		}
++	fpStrm = fopen(cStreamFile, "rb");
++	CVI_VDEC_INFO("cStreamFile = %s\n", cStreamFile);
++
++	if (fpStrm == NULL) {
++		CVI_VDEC_ERR("chn %d can't open file %s in send stream thread!\n",
++				pstVdecThreadParam->s32ChnId, cStreamFile);
++		pstVdecThreadParam->bFileEnd = CVI_TRUE;
++		return (CVI_VOID *)(CVI_FAILURE);
+ 	}
+ 
+ 	CVI_VDEC_TRACE("\n \033[0;36m chn %d, stream file:%s, userbufsize: %d \033[0;39m\n",
+diff --git a/sample/common/sample_common_vi.c b/sample/common/sample_common_vi.c
+index b3ed670..9e462f0 100644
+--- a/sample/common/sample_common_vi.c
++++ b/sample/common/sample_common_vi.c
+@@ -664,8 +664,9 @@ CVI_S32 SAMPLE_COMM_VI_StartDev(SAMPLE_VI_INFO_S *pstViInfo)
+ 	ViDev       = pstViInfo->stDevInfo.ViDev;
+ 	enSnsType   = pstViInfo->stSnsInfo.enSnsType;
+ 
+-	SAMPLE_COMM_VI_GetDevAttrBySns(enSnsType, &stViDevAttr);
+-	SAMPLE_COMM_ISP_GetIspAttrBySns(enSnsType, &pstPubAttr);
++	if (SAMPLE_COMM_VI_GetDevAttrBySns(enSnsType, &stViDevAttr) != CVI_SUCCESS ||
++	    SAMPLE_COMM_ISP_GetIspAttrBySns(enSnsType, &pstPubAttr) != CVI_SUCCESS)
++		return CVI_FAILURE;
+ 	stViDevAttr.stWDRAttr.enWDRMode = pstViInfo->stDevInfo.enWDRMode;
+ 	stViDevAttr.snrFps = (CVI_U32)pstPubAttr.f32FrameRate;
+ 
+-- 
+2.43.0
+

@@ -1,0 +1,29 @@
+#!/bin/sh
+# Persistent IPv6 policy; apply before interfaces are created. Keep ::1 usable.
+set -eu
+: "${NANOKVM_IPV6_CONF:=/etc/kvm/network/ipv6}"
+: "${NANOKVM_IPV6_SYSCTL:=/proc/sys/net/ipv6/conf}"
+case "${1:-start}" in
+    start|restart)
+        enabled=0
+        if [ -f "$NANOKVM_IPV6_CONF" ]; then enabled=$(cat "$NANOKVM_IPV6_CONF"); fi
+        ;;
+    apply) enabled=${2:?Missing IPv6 state} ;;
+    stop) exit 0 ;;
+    *) exit 2 ;;
+esac
+case "$enabled" in 0) disabled=1 ;; 1) disabled=0 ;; *) echo 'Invalid IPv6 configuration' >&2; exit 1 ;; esac
+# A kernel without IPv6 already satisfies the disabled policy.
+if [ ! -d "$NANOKVM_IPV6_SYSCTL" ]; then [ "$enabled" = 0 ]; exit; fi
+for name in default all; do
+    file="$NANOKVM_IPV6_SYSCTL/$name/disable_ipv6"
+    if [ "$(cat "$file")" != "$disabled" ]; then printf '%s\n' "$disabled" > "$file"; fi
+done
+# Also reconcile existing interfaces individually: another service may have
+# changed one while all/default retained their previous values.
+for file in "$NANOKVM_IPV6_SYSCTL"/*/disable_ipv6; do
+    case "$file" in */all/*|*/default/*|*/lo/*) continue ;; esac
+    if [ "$(cat "$file")" != "$disabled" ]; then printf '%s\n' "$disabled" > "$file"; fi
+done
+file="$NANOKVM_IPV6_SYSCTL/lo/disable_ipv6"
+if [ -f "$file" ] && [ "$(cat "$file")" != 0 ]; then printf '0\n' > "$file"; fi

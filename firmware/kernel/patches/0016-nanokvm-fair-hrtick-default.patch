@@ -1,0 +1,24 @@
+From: NanoKVM Enhanced maintainers
+Subject: [PATCH] sched: keep fair-class HRTICK disabled for NanoKVM
+
+RC4 Linux 5.10 defaults HRTICK off. On Enhanced Linux 7.2.3 the
+HRTIMER_REARM_DEFERRED branch enables it, adding scheduler timer interrupts
+on the single 850 MHz C906. Live on/off repeats reduce Direct system CPU
+at similar delivered traffic. Keep the deadline feature and high-resolution
+timers unchanged. See firmware/cpu/HRTICK-VIDEO-2026-09-07.md for measurements
+and qualification limits.
+
+This is a NanoKVM board-tree policy, not a proposed global upstream default.
+
+--- a/kernel/sched/features.h
++++ b/kernel/sched/features.h
+@@ -66,7 +66,8 @@
+ SCHED_FEAT(WAKEUP_PREEMPTION, true)
+ 
+ #ifdef CONFIG_HRTIMER_REARM_DEFERRED
+-SCHED_FEAT(HRTICK, true)
++/* NanoKVM: avoid fair-class hrtick overhead on the single C906 CPU. */
++SCHED_FEAT(HRTICK, false)
+ SCHED_FEAT(HRTICK_DL, true)
+ #else
+ SCHED_FEAT(HRTICK, false)

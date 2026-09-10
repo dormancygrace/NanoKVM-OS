@@ -1,0 +1,16 @@
+{
+  "userspace_arch": "rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector",
+  "userspace_flags": "-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso",
+  "kernel": {
+    "arch": "rv64imac_zicsr_zifencei_zacas_zabha_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync",
+    "kcflags": "-march=rv64imac_zicsr_zifencei_zacas_zabha_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync -mtune=thead-c906 -mno-fence-tso -fno-tree-vectorize -fno-tree-slp-vectorize",
+    "baseline_config": "firmware/kernel/nanokvm_enhanced_defconfig",
+    "status": "built and booted on NanoKVM; short runtime qualification passed, endurance not established",
+    "assembler_only_alternatives": [
+      "zacas",
+      "zabha"
+    ]
+  },
+  "qualification": "Ten instruction-family probes and 14 standard cryptodev algorithm KATs passed on device; paired OpenSSL comparison and browser QHD video recorded in release evidence",
+  "vector_autovectorization": "GCC16 scalar output for tested loop even at O3; explicit vector probe passes"
+}

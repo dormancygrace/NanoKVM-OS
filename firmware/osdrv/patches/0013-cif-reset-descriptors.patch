@@ -1,0 +1,303 @@
+From 0d9a5ba62d89d656f116b57cbea7b624f514778d Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 00:32:07 +0300
+Subject: [PATCH] Bind CIF sensor reset to DT descriptors and validate proc
+ commands
+
+---
+ interdrv/cif/chip/cv181x/cif.c | 173 ++++++++++++++-------------------
+ interdrv/cif/chip/cv181x/cif.h |   4 +-
+ 2 files changed, 77 insertions(+), 100 deletions(-)
+
+diff --git a/interdrv/cif/chip/cv181x/cif.c b/interdrv/cif/chip/cv181x/cif.c
+index 2c58777..281ed5f 100644
+--- a/interdrv/cif/chip/cv181x/cif.c
++++ b/interdrv/cif/chip/cv181x/cif.c
+@@ -2374,23 +2374,16 @@ static inline int cif_enable_snsr_clk(struct cvi_cif_dev *dev,
+ static int cif_reset_snsr_gpio(struct cvi_cif_dev *dev,
+ 			       unsigned int devno, uint8_t on)
+ {
+-	struct cvi_link *link;
+-	int reset;
++	struct gpio_desc *reset;
+ 
+-	if (devno >= MAX_LINK_NUM)
++	if (devno >= MAX_LINK_NUM || on > 1)
+ 		return -EINVAL;
+-
+-	link = &dev->link[devno];
+-	reset = (link->snsr_rst_pol == GPIO_ACTIVE_LOW) ? 0 : 1;
+-
+-	if (!gpio_is_valid(link->snsr_rst_pin))
++	reset = dev->link[devno].snsr_reset;
++	/* Bridges without a DT sensor-reset line intentionally need no toggle. */
++	if (!reset)
+ 		return 0;
+-	if (on)
+-		gpio_direction_output(link->snsr_rst_pin, reset);
+-	else
+-		gpio_direction_output(link->snsr_rst_pin, !reset);
+-
+-	return 0;
++	/* Logical assertion observes the polarity of the owned DT descriptor. */
++	return gpiod_direction_output(reset, on);
+ }
+ 
+ static inline int cif_reset_lvds(struct cvi_cif_dev *dev,
+@@ -2410,34 +2403,23 @@ static inline int cif_bt_fmt_out(struct cvi_cif_dev *dev,
+ 	return 0;
+ }
+ 
+-static void cif_release_legacy_gpio(void *data)
+-{
+-	gpio_free((unsigned long)data);
+-}
+-
+-static int cif_gpio_init(struct platform_device *pdev, struct snsr_rst_gpio_s snsr_gpio)
++static int cif_gpio_init(struct cvi_cif_dev *dev, struct snsr_rst_gpio_s snsr_gpio)
+ {
+-	struct cvi_cif_dev *dev = dev_get_drvdata(&pdev->dev);
+-	struct cvi_link *link;
+-	int ret;
++	struct gpio_desc *reset;
+ 
+ 	if (snsr_gpio.devno >= MAX_LINK_NUM ||
+-	    !gpio_is_valid(snsr_gpio.snsr_rst_pin) ||
+ 	    (snsr_gpio.snsr_rst_pol != GPIO_ACTIVE_HIGH &&
+ 	     snsr_gpio.snsr_rst_pol != GPIO_ACTIVE_LOW))
+ 		return -EINVAL;
+-	link = &dev->link[snsr_gpio.devno];
+-	if (link->snsr_rst_pin != snsr_gpio.snsr_rst_pin) {
+-		ret = gpio_request(snsr_gpio.snsr_rst_pin, "snsr-rst-gpio");
+-		if (ret)
+-			return ret;
+-		ret = devm_add_action_or_reset(&pdev->dev, cif_release_legacy_gpio,
+-					      (void *)(unsigned long)snsr_gpio.snsr_rst_pin);
+-		if (ret)
+-			return ret;
+-	}
+-	link->snsr_rst_pin = snsr_gpio.snsr_rst_pin;
+-	link->snsr_rst_pol = snsr_gpio.snsr_rst_pol;
++	reset = dev->link[snsr_gpio.devno].snsr_reset;
++	if (!reset)
++		return -EOPNOTSUPP;
++	/* Keep the old ioctl layout for callers that confirm the configured line,
++	 * but never let a global number reassign ownership or DT polarity.
++	 */
++	if (snsr_gpio.snsr_rst_pin != desc_to_gpio(reset) ||
++	    snsr_gpio.snsr_rst_pol != gpiod_is_active_low(reset))
++		return -EINVAL;
+ 	return 0;
+ }
+ 
+@@ -2690,11 +2672,8 @@ static long _cif_ioctl(struct cvi_cif_dev *dev, unsigned int cmd,
+ 	}
+ 	case CVI_MIPI_GPIO_INIT:
+ 	{
+-		struct platform_device *pdev;
+ 		struct snsr_rst_gpio_s sns_gpio;
+ 
+-		pdev = to_platform_device(_dev);
+-
+ 		if (from_user) {
+ 			if (copy_from_user(&sns_gpio, (void *)arg, sizeof(sns_gpio))) {
+ 				dev_err(_dev, "copy_from_user failed.\n");
+@@ -2702,7 +2681,7 @@ static long _cif_ioctl(struct cvi_cif_dev *dev, unsigned int cmd,
+ 			}
+ 		} else
+ 			memcpy(&sns_gpio, (void *)arg, sizeof(sns_gpio));
+-		return cif_gpio_init(pdev, sns_gpio);
++		return cif_gpio_init(dev, sns_gpio);
+ 	}
+ 	case CVI_MIPI_SET_SNS_I2C_INFO:
+ 	{
+@@ -2972,16 +2951,12 @@ static int _init_resource(struct platform_device *pdev)
+ 		link = &dev->link[i];
+ 		link->dev = &pdev->dev;
+ 		link->mac_clk = RX_MAC_CLK_400M;
+-		link->snsr_rst_pin = -1;
+ 		reset_gpio = devm_gpiod_get_index_optional(&pdev->dev,
+ 							 "snsr-reset", i, GPIOD_ASIS);
+ 		if (IS_ERR(reset_gpio))
+ 			return dev_err_probe(&pdev->dev, PTR_ERR(reset_gpio),
+ 					     "cannot get sensor reset GPIO\n");
+-		if (!reset_gpio)
+-			continue;
+-		link->snsr_rst_pin = desc_to_gpio(reset_gpio);
+-		link->snsr_rst_pol = gpiod_is_active_low(reset_gpio);
++		link->snsr_reset = reset_gpio;
+ 	}
+ 
+ 	/* sw reset */
+@@ -3161,7 +3136,7 @@ static int proc_cif_show(struct seq_file *m, void *v)
+ 	return 0;
+ }
+ 
+-static u8 *dbg_type[] = {
++static const char * const dbg_type[] = {
+ 	"reset",
+ 	"hs_s",
+ 	"snsr_r",
+@@ -3185,41 +3160,52 @@ static void dbg_print_usage(struct device *dev)
+ 	dev_info(dev, "mac_clk [devno] [200/400/600]: set mac clock (MHz)\n");
+ }
+ 
++struct cif_debug_request {
++	unsigned int type, devno, value, extra;
++};
++
++static int cif_parse_debug(const char *input, struct cif_debug_request *request)
++{
++	static const int fields[] = { 2, 3, 3, 4, 3, 3 };
++	char command[80], trailing;
++	unsigned int a = 0, v = 0, v2 = 0, i;
++	int count;
++	char *p;
++
++	count = sscanf(input, "%79s %u %u %u %c", command, &a, &v, &v2, &trailing);
++	if (count < 2 || count > 4)
++		return -EINVAL;
++	for (p = command; *p; ++p)
++		*p = tolower((unsigned char)*p);
++	for (i = 0; i < ARRAY_SIZE(dbg_type); ++i) {
++		if (strcmp(command, dbg_type[i]))
++			continue;
++		if (count != fields[i] || a >= MAX_LINK_NUM)
++			return -EINVAL;
++		request->type = i;
++		request->devno = a;
++		request->value = v;
++		request->extra = v2;
++		return 0;
++	}
++	return -EINVAL;
++}
++
+ static int dbg_hdler(struct cvi_cif_dev *dev, char const *input)
+ {
+ 	struct cvi_link *link = &dev->link[0];
+ 	struct cif_ctx *ctx;
+-	int reset;
+-	u32 num;
+-	u8 str[80] = {0};
+-	u8 t = 0;
+-	u32 a, v, v2;
+-	u8 i, n;
+-	u8 *p;
+-
+-	num = sscanf(input, "%s %d %d %d", str, &a, &v, &v2);
+-	if (num > 4) {
+-		dbg_print_usage(link->dev);
+-		return -EINVAL;
+-	}
++	struct cif_debug_request request;
++	u32 a, v, v2, t;
+ 
+-	dev_info(link->dev, "input = %s %d\n", str, num);
+-	/* convert to lower case for following type compare */
+-	p = str;
+-	for (; *p; ++p)
+-		*p = tolower(*p);
+-	n = ARRAY_SIZE(dbg_type);
+-	for (i = 0; i < n; i++) {
+-		if (!strcmp(str, dbg_type[i])) {
+-			t = i;
+-			break;
+-		}
+-	}
+-	if (i == n) {
+-		dev_info(link->dev, "unknown type(%s)!\n", str);
++	if (cif_parse_debug(input, &request)) {
+ 		dbg_print_usage(link->dev);
+ 		return -EINVAL;
+ 	}
++	a = request.devno;
++	v = request.value;
++	v2 = request.extra;
++	t = request.type;
+ 
+ 	switch (t) {
+ 	case 0:
+@@ -3252,22 +3238,10 @@ static int dbg_hdler(struct cvi_cif_dev *dev, char const *input)
+ 		cif_set_hs_settle(ctx, v);
+ 		break;
+ 	case 2:
+-		/* sensor reset */
+-		if (a >= MAX_LINK_NUM)
++		/* Same validation, polarity and error propagation as the ioctl. */
++		if (v > 1)
+ 			return -EINVAL;
+-
+-		link = &dev->link[a];
+-		ctx = &link->cif_ctx;
+-
+-		reset = (link->snsr_rst_pol == GPIO_ACTIVE_LOW) ? 0 : 1;
+-
+-		if (!gpio_is_valid(link->snsr_rst_pin))
+-			return 0;
+-		if (v)
+-			gpio_direction_output(link->snsr_rst_pin, reset);
+-		else
+-			gpio_direction_output(link->snsr_rst_pin, !reset);
+-		break;
++		return cif_reset_snsr_gpio(dev, a, v);
+ 	case 3:
+ 		/* sensor enable */
+ 		if (a >= MAX_LINK_NUM)
+@@ -3314,18 +3288,21 @@ static int dbg_hdler(struct cvi_cif_dev *dev, char const *input)
+ static ssize_t cif_proc_write(struct file *file, const char __user *user_buf, size_t count, loff_t *ppos)
+ {
+ 	struct cvi_cif_dev *dev = pde_data(file_inode(file));
+-#if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+ 	char txt_buff[MAX_CIF_PROC_BUF];
++	int ret;
+ 
+-	count = simple_write_to_buffer(txt_buff, MAX_CIF_PROC_BUF, ppos,
+-					user_buf, count);
+-
+-	dbg_hdler(dev, txt_buff);
+-#else
+-
+-	dbg_hdler(dev, user_buf);
+-#endif
+-
++	if (!count)
++		return 0;
++	if (count >= sizeof(txt_buff))
++		return -E2BIG;
++	if (copy_from_user(txt_buff, user_buf, count))
++		return -EFAULT;
++	if (memchr(txt_buff, '\0', count))
++		return -EINVAL;
++	txt_buff[count] = '\0';
++	ret = dbg_hdler(dev, txt_buff);
++	if (ret)
++		return ret;
+ 	return count;
+ }
+ 
+diff --git a/interdrv/cif/chip/cv181x/cif.h b/interdrv/cif/chip/cv181x/cif.h
+index cd6ca37..42c665f 100644
+--- a/interdrv/cif/chip/cv181x/cif.h
++++ b/interdrv/cif/chip/cv181x/cif.h
+@@ -2,6 +2,7 @@
+ #define _CIF_H_
+ 
+ #include <linux/miscdevice.h>
++#include <linux/gpio/consumer.h>
+ #include "drv/cif_drv.h"
+ #include "linux/cif_uapi.h"
+ 
+@@ -31,8 +32,7 @@ struct cvi_link {
+ 	enum output_msb_e		msb;
+ 	unsigned int			crop_top;
+ 	unsigned int			distance_fp;
+-	int				snsr_rst_pin;
+-	unsigned int		snsr_rst_pol;
++	struct gpio_desc		*snsr_reset;
+ 	union {
+ 		struct cvi_csi_status	sts_csi;
+ 		struct cvi_lvds_status	sts_lvds;
+-- 
+2.43.0
+

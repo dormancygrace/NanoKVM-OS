@@ -1,0 +1,39 @@
+From 05eb9ca997a43884ccfb3f4c6dda7bf98d44483f Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 19:20:47 +0300
+Subject: [PATCH] base: hold VIP configuration clock before accessing registers
+
+---
+ interdrv/base/base.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/interdrv/base/base.c b/interdrv/base/base.c
+index 9c6df57..2474424 100644
+--- a/interdrv/base/base.c
++++ b/interdrv/base/base.c
+@@ -814,6 +814,7 @@ static int base_pm_notif(struct notifier_block *b, unsigned long v, void *d)
+ static int base_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
++	struct clk *cfg_clk;
+ 	struct base_device *ndev;
+ 	struct resource *res;
+ 	void __iomem *reg_base;
+@@ -821,6 +822,14 @@ static int base_probe(struct platform_device *pdev)
+ 
+ 	CVI_TRACE_BASE(CVI_BASE_DBG_DEBUG, "start\n");
+ 
++	/* VIP register accesses stall the bus when its configuration clock is
++	 * gated. Hold it for the entire binding, including dependent media users.
++	 */
++	cfg_clk = devm_clk_get_enabled(dev, "cfg_reg");
++	if (IS_ERR(cfg_clk))
++		return dev_err_probe(dev, PTR_ERR(cfg_clk),
++				     "cannot enable VIP register clock\n");
++
+ 	ndev = devm_kzalloc(&pdev->dev, sizeof(*ndev), GFP_KERNEL);
+ 	if (!ndev)
+ 		return -ENOMEM;
+-- 
+2.43.0
+

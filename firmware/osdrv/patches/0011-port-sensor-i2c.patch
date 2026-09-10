@@ -1,0 +1,992 @@
+From c9ce59840d8b8fd8c61575a71142e241b648f04d Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 21:30:04 +0300
+Subject: [PATCH] Port sensor I2C transport and validate sensor command
+ boundaries
+
+---
+ interdrv/base/base.c                    |  72 ++-
+ interdrv/base/chip/cv181x/vip_common.h  |   1 +
+ interdrv/cif/chip/cv181x/cif.c          |  76 ++--
+ interdrv/include/common/kapi/snsr_i2c.h |   6 +-
+ interdrv/snsr_i2c/Makefile              |   2 +-
+ interdrv/snsr_i2c/common/snsr_i2c.c     | 561 +++++++-----------------
+ interdrv/vi/chip/cv181x/vi.c            |  36 +-
+ 7 files changed, 264 insertions(+), 490 deletions(-)
+
+diff --git a/interdrv/base/base.c b/interdrv/base/base.c
+index 58a8e84..9c6df57 100644
+--- a/interdrv/base/base.c
++++ b/interdrv/base/base.c
+@@ -28,6 +28,7 @@
+ #include "cvi_sys_proc.h"
+ #include <linux/cvi_base_ctx.h>
+ #include <linux/semaphore.h>
++#include <linux/rwsem.h>
+ #include <base_cb.h>
+ #include <sys_k.h>
+ #include <vip_common.h>
+@@ -1010,42 +1011,69 @@ struct vip_sys_cmm_dev {
+ static struct vip_sys_cmm_dev cmm_ssp;
+ static struct vip_sys_cmm_dev cmm_i2c;
+ 
++/* CMM callbacks may sleep during I2C/SPI transfers. Unregister waits for
++ * outstanding callers before the provider frees its state or unloads. */
++static DECLARE_RWSEM(cmm_lock);
++
+ int vip_sys_register_cmm_cb(unsigned long cmm, void *hdlr, void *cb)
+ {
+-	struct vip_sys_cmm_dev *cmm_dev;
+-
+-	if ((cmm >= VIP_CMM_BUTT) || !hdlr || !cb)
+-		return -1;
++    struct vip_sys_cmm_dev *entry;
++    int ret = 0;
++
++    if (cmm >= VIP_CMM_BUTT || !hdlr || !cb) return -EINVAL;
++    entry = cmm == VIP_CMM_I2C ? &cmm_i2c : &cmm_ssp;
++    down_write(&cmm_lock);
++    if (entry->ops.cb) {
++        ret = -EBUSY;
++    } else {
++        entry->cmm_type = cmm;
++        entry->hdlr = hdlr;
++        entry->ops.cb = cb;
++    }
++    up_write(&cmm_lock);
++    return ret;
++}
++EXPORT_SYMBOL_GPL(vip_sys_register_cmm_cb);
+ 
+-	cmm_dev = (cmm == VIP_CMM_I2C) ? &cmm_i2c : &cmm_ssp;
++int vip_sys_unregister_cmm_cb(unsigned long cmm, void *hdlr)
++{
++    struct vip_sys_cmm_dev *entry;
++    int ret = 0;
++
++    if (cmm >= VIP_CMM_BUTT || !hdlr) return -EINVAL;
++    entry = cmm == VIP_CMM_I2C ? &cmm_i2c : &cmm_ssp;
++    down_write(&cmm_lock);
++    if (entry->hdlr != hdlr) {
++        ret = -ENOENT;
++    } else {
++        entry->ops.cb = NULL;
++        entry->hdlr = NULL;
++    }
++    up_write(&cmm_lock);
++    return ret;
++}
++EXPORT_SYMBOL_GPL(vip_sys_unregister_cmm_cb);
+ 
+-	cmm_dev->cmm_type = cmm;
+-	cmm_dev->hdlr = hdlr;
+-	cmm_dev->ops.cb = cb;
++static int vip_sys_cmm_call(struct vip_sys_cmm_dev *entry,
++                            unsigned int cmd, void *arg)
++{
++    int ret;
+ 
+-	return 0;
++    down_read(&cmm_lock);
++    ret = entry->ops.cb ? entry->ops.cb(entry->hdlr, cmd, arg) : -ENODEV;
++    up_read(&cmm_lock);
++    return ret;
+ }
+-EXPORT_SYMBOL_GPL(vip_sys_register_cmm_cb);
+ 
+ int vip_sys_cmm_cb_i2c(unsigned int cmd, void *arg)
+ {
+-	struct vip_sys_cmm_dev *cmm_dev = &cmm_i2c;
+-
+-	if (cmm_dev->cmm_type != VIP_CMM_I2C)
+-		return -1;
+-
+-	return (cmm_dev->ops.cb) ? cmm_dev->ops.cb(cmm_dev->hdlr, cmd, arg) : (-1);
++    return vip_sys_cmm_call(&cmm_i2c, cmd, arg);
+ }
+ EXPORT_SYMBOL_GPL(vip_sys_cmm_cb_i2c);
+ 
+ int vip_sys_cmm_cb_ssp(unsigned int cmd, void *arg)
+ {
+-	struct vip_sys_cmm_dev *cmm_dev = &cmm_ssp;
+-
+-	if (cmm_dev->cmm_type != VIP_CMM_SSP)
+-		return -1;
+-
+-	return (cmm_dev->ops.cb) ? cmm_dev->ops.cb(cmm_dev->hdlr, cmd, arg) : (-1);
++    return vip_sys_cmm_call(&cmm_ssp, cmd, arg);
+ }
+ EXPORT_SYMBOL_GPL(vip_sys_cmm_cb_ssp);
+ 
+diff --git a/interdrv/base/chip/cv181x/vip_common.h b/interdrv/base/chip/cv181x/vip_common.h
+index a7d684a..3302f60 100644
+--- a/interdrv/base/chip/cv181x/vip_common.h
++++ b/interdrv/base/chip/cv181x/vip_common.h
+@@ -156,6 +156,7 @@ unsigned int vip_sys_reg_read(uintptr_t addr);
+ void vip_sys_reg_write_mask(uintptr_t addr, u32 mask, u32 data);
+ void vip_sys_set_offline(enum vip_sys_axi_bus bus, bool offline);
+ int vip_sys_register_cmm_cb(unsigned long cmm, void *hdlr, void *cb);
++int vip_sys_unregister_cmm_cb(unsigned long cmm, void *hdlr);
+ int vip_sys_cmm_cb_i2c(unsigned int cmd, void *arg);
+ int vip_sys_cmm_cb_ssp(unsigned int cmd, void *arg);
+ 
+diff --git a/interdrv/cif/chip/cv181x/cif.c b/interdrv/cif/chip/cv181x/cif.c
+index 7eca203..2c58777 100644
+--- a/interdrv/cif/chip/cv181x/cif.c
++++ b/interdrv/cif/chip/cv181x/cif.c
+@@ -3418,49 +3418,39 @@ static void cvi_cif_remove(struct platform_device *pdev)
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
+-static void sensor_i2c_write(struct isp_i2c_data *i2c_data, unsigned short reg_addr, unsigned short data)
+-{
+-	i2c_data->reg_addr = reg_addr;
+-	i2c_data->data = data;
+-	vip_sys_cmm_cb_i2c(CVI_SNS_I2C_WRITE, (void *)i2c_data);
+-}
+-
+-static void sensor_standby_restart(struct cvi_cif_dev *dev, bool enable)
+-{
+-	int i;
+-	struct isp_i2c_data *i2c_data;
+-	i2c_data = kzalloc(sizeof(struct isp_i2c_data), __GFP_RETRY_MAYFAIL);
+-	if (!i2c_data) {
+-		printk("i2c_data kzalloc failed\n");
+-	}
+-
+-	i2c_data->i2c_dev = dev->sensor_i2c_info.i2c_base_info.i2c_dev;
+-	i2c_data->dev_addr = dev->sensor_i2c_info.i2c_base_info.dev_addr;
+-	i2c_data->addr_bytes = dev->sensor_i2c_info.i2c_base_info.addr_bytes;
+-	i2c_data->data_bytes = dev->sensor_i2c_info.i2c_base_info.data_bytes;
+-	if (enable) {
+-		for (i = 0; i < dev->sensor_i2c_info.i2c_base_info.resume_seq_length; i++) {
+-			sensor_i2c_write(i2c_data, dev->sensor_i2c_info.sns_resume_info[i].addr,
+-				dev->sensor_i2c_info.sns_resume_info[i].data);
+-		}
+-	} else {
+-		for (i = 0; i < dev->sensor_i2c_info.i2c_base_info.suspend_seq_length; i++) {
+-			sensor_i2c_write(i2c_data, dev->sensor_i2c_info.sns_suspend_info[i].addr,
+-				dev->sensor_i2c_info.sns_suspend_info[i].data);
+-		}
++/* PM callbacks run in sleepable context. Stop at the first failed write;
++ * a partially applied sensor sequence cannot be treated as successful. */
++static int sensor_standby_restart(struct cvi_cif_dev *dev, bool enable)
++{
++	const struct sns_i2c_info *info = &dev->sensor_i2c_info;
++	const struct sns_i2c_attr *attr = &info->i2c_base_info;
++	const struct addr_data_seq *seq = enable ? info->sns_resume_info : info->sns_suspend_info;
++	int count = enable ? attr->resume_seq_length : attr->suspend_seq_length;
++	struct isp_i2c_data data = {0};
++	int i, ret;
++
++	if (count < 0 || count > (int)ARRAY_SIZE(info->sns_resume_info))
++		return -EINVAL;
++	data.i2c_dev = attr->i2c_dev;
++	data.dev_addr = attr->dev_addr;
++	data.addr_bytes = attr->addr_bytes;
++	data.data_bytes = attr->data_bytes;
++	for (i = 0; i < count; i++) {
++		data.reg_addr = seq[i].addr;
++		data.data = seq[i].data;
++		ret = vip_sys_cmm_cb_i2c(CVI_SNS_I2C_WRITE, &data);
++		if (ret)
++			return ret;
+ 	}
+-	kfree(i2c_data);
+-	i2c_data = NULL;
++	return 0;
+ }
+ static int cvi_cif_suspend(struct platform_device *pdev)
+ {
+ 	struct cvi_cif_dev *dev;
+-	int i;
++	int i, ret;
+ 
+-	if (!pdev) {
+-		dev_err(&pdev->dev, "invalid param");
++	if (!pdev)
+ 		return -EINVAL;
+-	}
+ 
+ 	dev = dev_get_drvdata(&pdev->dev);
+ 
+@@ -3469,7 +3459,9 @@ static int cvi_cif_suspend(struct platform_device *pdev)
+ 		return 0;
+ 	}
+ 
+-	sensor_standby_restart(dev, 0);
++	ret = sensor_standby_restart(dev, 0);
++	if (ret)
++		return ret;
+ 	cif_enable_snsr_clk(dev, 0, 0);
+   
+ 	for (i = 0; i < MAX_LINK_NUM; i++) {
+@@ -3488,12 +3480,10 @@ static int cvi_cif_suspend(struct platform_device *pdev)
+ static int cvi_cif_resume(struct platform_device *pdev)
+ {
+ 	struct cvi_cif_dev *dev;
+-	int i;
++	int i, ret;
+ 
+-	if (!pdev) {
+-		dev_err(&pdev->dev, "invalid param");
++	if (!pdev)
+ 		return -EINVAL;
+-	}
+ 
+ 	dev = dev_get_drvdata(&pdev->dev);
+ 
+@@ -3510,7 +3500,9 @@ static int cvi_cif_resume(struct platform_device *pdev)
+ 	}
+ 
+ 	cif_enable_snsr_clk(dev, 0, 1);
+-	sensor_standby_restart(dev, 1);
++	ret = sensor_standby_restart(dev, 1);
++	if (ret)
++		return ret;
+ 
+ 	dev_info(&pdev->dev, "cif resume end");
+ 	return 0;
+diff --git a/interdrv/include/common/kapi/snsr_i2c.h b/interdrv/include/common/kapi/snsr_i2c.h
+index 7b9a007..4b58930 100644
+--- a/interdrv/include/common/kapi/snsr_i2c.h
++++ b/interdrv/include/common/kapi/snsr_i2c.h
+@@ -10,14 +10,14 @@
+ #define I2C_BUF_SIZE		(I2C_MAX_MSG_NUM << 2)
+ 
+ int vip_sys_register_cmm_cb(unsigned long cmm, void *hdlr, void *cb);
++int vip_sys_unregister_cmm_cb(unsigned long cmm, void *hdlr);
+ 
+ struct cvi_i2c_ctx {
+-	struct i2c_client	*client;
++	struct i2c_adapter	*adapter;
+ 	struct i2c_msg		msg[I2C_MAX_MSG_NUM];
+ 	uint8_t			*buf;
+ 	uint32_t		msg_idx;
+-	uint16_t		addr_bytes;
+-	uint16_t		data_bytes;
++	uint8_t			addr_bytes[I2C_MAX_MSG_NUM];
+ };
+ 
+ struct cvi_i2c_dev {
+diff --git a/interdrv/snsr_i2c/Makefile b/interdrv/snsr_i2c/Makefile
+index e385cc1..3c6c083 100644
+--- a/interdrv/snsr_i2c/Makefile
++++ b/interdrv/snsr_i2c/Makefile
+@@ -10,7 +10,7 @@ ccflags-y += -I$(PWD)/../include/common/kapi/
+ 
+ ccflags-y +=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
+ 
+-KBUILD_EXTRA_SYMBOLS = $(PWD)/../base/Module.symvers
++KBUILD_EXTRA_SYMBOLS += $(PWD)/../base/Module.symvers
+ else
+ all:
+ 	$(MAKE) ARCH=$(ARCH) -C $(KERNEL_DIR) M=$(PWD) modules
+diff --git a/interdrv/snsr_i2c/common/snsr_i2c.c b/interdrv/snsr_i2c/common/snsr_i2c.c
+index 59db682..5836a79 100644
+--- a/interdrv/snsr_i2c/common/snsr_i2c.c
++++ b/interdrv/snsr_i2c/common/snsr_i2c.c
+@@ -1,450 +1,183 @@
++/* Sophgo sensor register transport, ported to the upstream I2C ABI. */
+ #include <linux/module.h>
+-#include <linux/kernel.h>
+-#include <linux/interrupt.h>
+-#include <linux/of_platform.h>
+-#include <linux/of_reserved_mem.h>
+-#include <linux/of_gpio.h>
+ #include <linux/platform_device.h>
+-#include <linux/delay.h>
+-#include <linux/iommu.h>
+-#include <linux/debugfs.h>
+ #include <linux/i2c.h>
+-#include <linux/version.h>
+-
+-#include "linux/vi_snsr.h"
++#include <linux/slab.h>
++#include <linux/delay.h>
++#include <linux/mutex.h>
+ #include "snsr_i2c.h"
+ 
+-enum {
+-	SNSR_I2C_DBG_DISABLE = 0,
+-	SNSR_I2C_DBG_VERIFY,
+-	SNSR_I2C_DBG_PRINT,
+-};
+-
+-static int snsr_i2c_dbg = SNSR_I2C_DBG_DISABLE;
++enum { SNSR_I2C_DBG_DISABLE, SNSR_I2C_DBG_VERIFY, SNSR_I2C_DBG_PRINT };
++static int snsr_i2c_dbg;
+ module_param(snsr_i2c_dbg, int, 0644);
+ 
+-static struct i2c_board_info cvi_info = {
+-	I2C_BOARD_INFO("sensor_i2c", (0x7b >> 1)),
+-};
+-
+-static int snsr_i2c_write(struct cvi_i2c_dev *dev, struct isp_i2c_data *i2c)
++static int snsr_i2c_pack(const struct isp_i2c_data *data, u8 *tx)
+ {
+-	struct i2c_client *client;
+-	struct i2c_adapter *adap;
+-	struct i2c_msg msg;
+-	u8 i2c_dev = i2c->i2c_dev;
+-	u8 tx[4];
+-	int ret, retry = 5, idx = 0;
+-
+-	if (!dev)
+-		return -ENODEV;
+-
+-	/* check i2c device number. */
+-	if (i2c_dev >= I2C_MAX_NUM)
+-		return -EINVAL;
+-
+-	/* Get i2c client */
+-	client = dev->ctx[i2c_dev].client;
+-	adap = client->adapter;
+-
+-	/* Config reg addr */
+-	if (i2c->addr_bytes == 1) {
+-		tx[idx++] = i2c->reg_addr & 0xff;
+-	} else {
+-		tx[idx++] = i2c->reg_addr >> 8;
+-		tx[idx++] = i2c->reg_addr & 0xff;
+-	}
+-
+-	/* Config data */
+-	if (i2c->data_bytes == 1) {
+-		tx[idx++] = i2c->data & 0xff;
+-	} else {
+-		tx[idx++] = i2c->data >> 8;
+-		tx[idx++] = i2c->data & 0xff;
+-	}
+-
+-	/* send the i2c with retry */
+-	msg.addr = i2c->dev_addr;
+-	msg.buf = tx;
+-	msg.len = idx;
+-	msg.flags = 0;
+-
+-	while (retry--) {
+-		ret = i2c_transfer(adap, &msg, 1);
+-		if (ret == 1) {
+-			dev_dbg(&client->dev, "0x%x = 0x%x\n",
+-				i2c->reg_addr, i2c->data);
+-			break;
+-		} else if (ret == -EAGAIN) {
+-			dev_dbg(&client->dev, "retry 0x%x = 0x%x\n",
+-					i2c->reg_addr, i2c->data);
+-		} else {
+-			dev_err(&client->dev, "fail to send 0x%x, 0x%x, %d\n",
+-						i2c->reg_addr, i2c->data, ret);
+-		}
+-	}
+-
+-	return ret == 1 ? 0 : -EIO;
++    int n = 0;
++
++    if (!data || data->dev_addr > 0x7f ||
++        (data->addr_bytes != 1 && data->addr_bytes != 2) ||
++        (data->data_bytes != 1 && data->data_bytes != 2)) return -EINVAL;
++    if (data->addr_bytes == 2) tx[n++] = data->reg_addr >> 8;
++    tx[n++] = data->reg_addr & 0xff;
++    if (data->data_bytes == 2) tx[n++] = data->data >> 8;
++    tx[n++] = data->data & 0xff;
++    return n;
+ }
+ 
+-static int snsr_i2c_burst_queue(struct cvi_i2c_dev *dev, struct isp_i2c_data *i2c)
++/* Called with dev->mutex held. Lazy lookup handles adapters registered after
++ * this platform driver. Hold the adapter reference until provider removal. */
++static int snsr_i2c_get(struct cvi_i2c_dev *dev, unsigned int bus)
+ {
+-	struct i2c_client *client;
+-	struct i2c_adapter *adap;
+-	u8 i2c_dev = i2c->i2c_dev;
+-	struct cvi_i2c_ctx *ctx;
+-	struct i2c_msg *msg;
+-	int idx = 0;
+-	u8 *tx;
+-
+-	if (!dev)
+-		return -ENODEV;
+-
+-	/* check i2c device number. */
+-	if (i2c_dev >= I2C_MAX_NUM)
+-		return -EINVAL;
+-
+-	/* Get i2c client */
+-	ctx = &dev->ctx[i2c_dev];
+-	if (ctx->msg_idx >= I2C_MAX_MSG_NUM)
+-		return -EINVAL;
+-
+-	client = ctx->client;
+-	adap = client->adapter;
+-	msg = &ctx->msg[ctx->msg_idx];
+-	tx = &ctx->buf[4*ctx->msg_idx];
+-
+-	/* Config reg addr */
+-	if (i2c->addr_bytes == 1) {
+-		tx[idx++] = i2c->reg_addr & 0xff;
+-	} else {
+-		tx[idx++] = i2c->reg_addr >> 8;
+-		tx[idx++] = i2c->reg_addr & 0xff;
+-	}
+-
+-	/* Config data */
+-	if (i2c->data_bytes == 1) {
+-		tx[idx++] = i2c->data & 0xff;
+-	} else {
+-		tx[idx++] = i2c->data >> 8;
+-		tx[idx++] = i2c->data & 0xff;
+-	}
+-
+-	/* Config msg */
+-	msg->addr = i2c->dev_addr;
+-	msg->buf = tx;
+-	msg->len = idx;
+-	msg->flags = I2C_M_WRSTOP;
+-
+-	ctx->addr_bytes = i2c->addr_bytes;
+-	ctx->data_bytes = i2c->data_bytes;
+-	ctx->msg_idx++;
+-
+-	return 0;
++    struct cvi_i2c_ctx *ctx;
++
++    if (bus >= I2C_MAX_NUM) return -EINVAL;
++    ctx = &dev->ctx[bus];
++    if (ctx->adapter) return 0;
++    ctx->adapter = i2c_get_adapter(bus);
++    if (!ctx->adapter) return -ENODEV;
++    if (!i2c_check_functionality(ctx->adapter, I2C_FUNC_I2C)) {
++        i2c_put_adapter(ctx->adapter);
++        ctx->adapter = NULL;
++        return -EOPNOTSUPP;
++    }
++    ctx->buf = kmalloc(I2C_BUF_SIZE, GFP_KERNEL);
++    if (!ctx->buf) {
++        i2c_put_adapter(ctx->adapter);
++        ctx->adapter = NULL;
++        return -ENOMEM;
++    }
++    return 0;
+ }
+ 
+-static void snsr_i2c_verify(struct i2c_client *client, struct cvi_i2c_ctx *ctx, uint32_t size)
++static int snsr_i2c_write(struct cvi_i2c_dev *dev, struct isp_i2c_data *data)
+ {
+-	struct i2c_adapter *adap = client->adapter;
+-	struct i2c_msg msg;
+-	int i, step, ret;
+-	u8 tx[4];
+-
+-	msg.addr = ctx->msg[0].addr;
+-	msg.buf = tx;
+-
+-	/*
+-	 * In burst mode we have no idea when the transfer completes,
+-	 * therefore we wait for 1ms before verifying the results in debug mode.
+-	 */
+-	usleep_range(1000, 2000);
+-	step = ctx->addr_bytes + ctx->data_bytes;
+-	for (i = 0; i < size; i++) {
+-		if (step == 2) {
+-			/* 1 byte address, 1 byte data*/
+-			tx[0] = ctx->msg[i].buf[0];
+-			msg.buf = tx;
+-			msg.len = 1;
+-			msg.flags = 0;
+-			ret = i2c_transfer(adap, &msg, 1);
+-			if (ret != 1) {
+-				dev_dbg(&client->dev, "%s, i2c xfer ng\n", __func__);
+-				break;
+-			}
+-			tx[0] = 0;
+-			msg.flags = I2C_M_RD;
+-			ret = i2c_transfer(adap, &msg, 1);
+-			if (ret != 1) {
+-				dev_dbg(&client->dev, "%s, i2c xfer ng\n", __func__);
+-				break;
+-			}
+-			if (ctx->msg[i].buf[1] != tx[0]) {
+-				dev_dbg(&client->dev, "%s, addr 0x%02x, w: 0x%02x, r: 0x%02x\n",
+-						__func__, ctx->msg[i].buf[0], ctx->msg[i].buf[1], tx[0]);
+-			}
+-		} else if (step == 3) {
+-			/* 2 byte address, 1 byte data*/
+-			tx[0] = ctx->msg[i].buf[0];
+-			tx[1] = ctx->msg[i].buf[1];
+-			msg.buf = tx;
+-			msg.len = 2;
+-			msg.flags = 0;
+-			ret = i2c_transfer(adap, &msg, 1);
+-			if (ret != 1) {
+-				dev_dbg(&client->dev, "%s, i2c xfer ng\n", __func__);
+-				break;
+-			}
+-			tx[0] = 0;
+-			msg.len = 1;
+-			msg.flags = I2C_M_RD;
+-			ret = i2c_transfer(adap, &msg, 1);
+-			if (ret != 1) {
+-				dev_dbg(&client->dev, "%s, i2c xfer ng\n", __func__);
+-				break;
+-			}
+-			if (ctx->msg[i].buf[2] != tx[0]) {
+-				dev_dbg(&client->dev, "%s, addr 0x%02x,0x%02x w: 0x%02x, r: 0x%02x\n",
+-						__func__, ctx->msg[i].buf[0], ctx->msg[i].buf[1],
+-						ctx->msg[i].buf[2], tx[0]);
+-			}
+-		} else {
+-			/* 2 byte address, 2 byte data*/
+-			tx[0] = ctx->msg[i].buf[0];
+-			tx[1] = ctx->msg[i].buf[1];
+-			msg.buf = tx;
+-			msg.len = 2;
+-			msg.flags = 0;
+-			ret = i2c_transfer(adap, &msg, 1);
+-			if (ret != 1) {
+-				dev_dbg(&client->dev, "%s, i2c xfer ng\n", __func__);
+-				break;
+-			}
+-			tx[0] = 0;
+-			tx[1] = 0;
+-			msg.len = 2;
+-			msg.flags = I2C_M_RD;
+-			ret = i2c_transfer(adap, &msg, 1);
+-			if (ret != 1) {
+-				dev_dbg(&client->dev, "%s, i2c xfer ng\n", __func__);
+-				break;
+-			}
+-			if ((ctx->msg[i].buf[2] != tx[0]) || (ctx->msg[i].buf[3] != tx[1])) {
+-				dev_dbg(&client->dev, "%s, addr 0x%02x 0x%02x, w: 0x%02x 0x%02x, r: 0x%02x 0x%02x\n",
+-						__func__, ctx->msg[i].buf[0], ctx->msg[i].buf[1],
+-						ctx->msg[i].buf[2], ctx->msg[i].buf[3],
+-						tx[0], tx[1]);
+-			}
+-		}
+-	}
++    u8 tx[4];
++    struct i2c_msg msg;
++    int len = snsr_i2c_pack(data, tx), ret;
++
++    if (len < 0) return len;
++    ret = snsr_i2c_get(dev, data->i2c_dev);
++    if (ret) return ret;
++    msg.addr = data->dev_addr;
++    msg.flags = 0;
++    msg.len = len;
++    msg.buf = tx;
++    ret = i2c_transfer(dev->ctx[data->i2c_dev].adapter, &msg, 1);
++    return ret == 1 ? 0 : ret < 0 ? ret : -EIO;
+ }
+ 
+-static void snsr_i2c_print(struct i2c_client *client, struct cvi_i2c_ctx *ctx, uint32_t size)
++static int snsr_i2c_burst_queue(struct cvi_i2c_dev *dev, struct isp_i2c_data *data)
+ {
+-	int i, step;
+-
+-	step = ctx->addr_bytes + ctx->data_bytes;
+-
+-	for (i = 0; i < size; i++) {
+-		if (step == 2)
+-			dev_dbg(&client->dev, "a: 0x%02x, d: 0x%02x",
+-					ctx->msg[i].buf[0], ctx->msg[i].buf[1]);
+-		else if (step == 3)
+-			dev_dbg(&client->dev, "a: 0x%02x, 0x%02x, d: 0x%02x",
+-					ctx->msg[i].buf[0], ctx->msg[i].buf[1], ctx->msg[i].buf[2]);
+-		else
+-			dev_dbg(&client->dev, "a: 0x%02x, 0x%02x, d: 0x%02x, 0x%02x",
+-					ctx->msg[i].buf[0], ctx->msg[i].buf[1],
+-					ctx->msg[i].buf[2], ctx->msg[i].buf[3]);
+-	}
++    struct cvi_i2c_ctx *ctx;
++    struct i2c_msg *msg;
++    u8 tx[4];
++    int len = snsr_i2c_pack(data, tx), ret;
++
++    if (len < 0) return len;
++    ret = snsr_i2c_get(dev, data->i2c_dev);
++    if (ret) return ret;
++    ctx = &dev->ctx[data->i2c_dev];
++    if (ctx->msg_idx >= I2C_MAX_MSG_NUM) return -ENOSPC;
++    msg = &ctx->msg[ctx->msg_idx];
++    msg->addr = data->dev_addr;
++    /* Upstream DesignWare splits transactions at I2C_M_STOP. This replaces
++     * the vendor I2C_M_WRSTOP=0x0002, not its numerical flag value. */
++    msg->flags = I2C_M_STOP;
++    msg->len = len;
++    msg->buf = &ctx->buf[4 * ctx->msg_idx];
++    memcpy(msg->buf, tx, len);
++    ctx->addr_bytes[ctx->msg_idx] = data->addr_bytes;
++    ctx->msg_idx++;
++    return 0;
+ }
+ 
+-static int snsr_i2c_burst_fire(struct cvi_i2c_dev *dev, uint32_t i2c_dev)
++static void snsr_i2c_debug(struct cvi_i2c_ctx *ctx, unsigned int count)
+ {
+-	struct i2c_client *client;
+-	struct i2c_adapter *adap;
+-	struct cvi_i2c_ctx *ctx;
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+-	struct timespec64 ts;
+-#else
+-	struct timeval tv;
+-#endif
+-	uint64_t t1, t2;
+-	int ret, retry = 5;
+-
+-	if (!dev)
+-		return -ENODEV;
+-
+-	/* check i2c device number. */
+-	if (i2c_dev >= I2C_MAX_NUM)
+-		return -EINVAL;
+-
+-	/* Get i2c client */
+-	ctx = &dev->ctx[i2c_dev];
+-	if (!ctx->msg_idx)
+-		return 0;
+-	client = ctx->client;
+-	adap = client->adapter;
+-
+-	while (retry--) {
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+-		ktime_get_real_ts64(&ts);
+-		t1 = ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+-#else
+-		do_gettimeofday(&tv);
+-		t1 = tv.tv_sec * 1000000 + tv.tv_usec;
+-#endif
+-		ret = i2c_transfer(adap, ctx->msg, ctx->msg_idx);
+-		if (ret == ctx->msg_idx) {
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+-			ktime_get_real_ts64(&ts);
+-			t2 = ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+-#else
+-			do_gettimeofday(&tv);
+-			t2 = tv.tv_sec * 1000000 + tv.tv_usec;
+-#endif
+-
+-			dev_dbg(&client->dev, "burst [%d] success %lld us\n", ret, (t2 - t1));
+-			if (snsr_i2c_dbg == SNSR_I2C_DBG_VERIFY)
+-				snsr_i2c_verify(client, ctx, ret);
+-			else if (snsr_i2c_dbg == SNSR_I2C_DBG_PRINT)
+-				snsr_i2c_print(client, ctx, ret);
+-			break;
+-		} else if (ret == -EAGAIN) {
+-			dev_dbg(&client->dev, "retry\n");
+-		} else {
+-			dev_err(&client->dev, "fail to send burst\n");
+-		}
+-	}
+-
+-	ctx->msg_idx = 0;
+-
+-	return ret == 1 ? 0 : -EIO;
++    unsigned int i;
++
++    if (snsr_i2c_dbg == SNSR_I2C_DBG_VERIFY) usleep_range(1000, 2000);
++    for (i = 0; i < count; i++) {
++        struct i2c_msg *sent = &ctx->msg[i];
++        u8 addr_len = ctx->addr_bytes[i], data_len = sent->len - addr_len;
++        u8 result[2];
++        struct i2c_msg msg = { .addr = sent->addr, .flags = 0,
++                              .len = addr_len, .buf = sent->buf };
++        if (snsr_i2c_dbg == SNSR_I2C_DBG_PRINT) {
++            dev_dbg(&ctx->adapter->dev, "sensor %02x write %*ph\n",
++                    sent->addr, sent->len, sent->buf);
++        } else if (snsr_i2c_dbg == SNSR_I2C_DBG_VERIFY) {
++            if (i2c_transfer(ctx->adapter, &msg, 1) != 1) break;
++            msg.flags = I2C_M_RD;
++            msg.len = data_len;
++            msg.buf = result;
++            if (i2c_transfer(ctx->adapter, &msg, 1) != 1) break;
++            if (memcmp(result, sent->buf + addr_len, data_len))
++                dev_dbg(&ctx->adapter->dev, "sensor %02x verify mismatch\n", sent->addr);
++        }
++    }
+ }
+ 
+-static long snsr_i2c_ioctl(void *hdlr, unsigned int cmd, void *arg)
++static int snsr_i2c_burst_fire(struct cvi_i2c_dev *dev, unsigned int bus)
+ {
+-	struct cvi_i2c_dev *dev = (struct cvi_i2c_dev *)hdlr;
+-	uint32_t *argp = (uint32_t *)arg;
+-	uint32_t i2c_dev;
+-
+-	switch (cmd) {
+-	case CVI_SNS_I2C_WRITE:
+-		return snsr_i2c_write(dev, (struct isp_i2c_data *)arg);
+-	case CVI_SNS_I2C_BURST_QUEUE:
+-		return snsr_i2c_burst_queue(dev, (struct isp_i2c_data *)arg);
+-	case CVI_SNS_I2C_BURST_FIRE:
+-		i2c_dev = *argp;
+-		return snsr_i2c_burst_fire(dev, i2c_dev);
+-	default:
+-		return -ENOIOCTLCMD;
+-	}
+-
+-	return 0;
++    struct cvi_i2c_ctx *ctx;
++    unsigned int count;
++    int ret;
++
++    if (bus >= I2C_MAX_NUM) return -EINVAL;
++    ctx = &dev->ctx[bus];
++    count = ctx->msg_idx;
++    if (!count) return 0;
++    ret = i2c_transfer(ctx->adapter, ctx->msg, count);
++    if (ret == (int)count && snsr_i2c_dbg) snsr_i2c_debug(ctx, count);
++    ctx->msg_idx = 0;
++    /* i2c_transfer returns the number of messages, not always one. */
++    return ret == (int)count ? 0 : ret < 0 ? ret : -EIO;
+ }
+ 
+-static int snsr_i2c_register_cb(struct platform_device *pdev,
+-				struct cvi_i2c_dev *dev)
+-{
+-	/* register cmm callbacks */
+-	return vip_sys_register_cmm_cb(0, dev, snsr_i2c_ioctl);
+-}
+-
+-static int _init_resource(struct platform_device *pdev)
++static long snsr_i2c_ioctl(void *hdlr, unsigned int cmd, void *arg)
+ {
+-	struct i2c_adapter *i2c_adap;
+-	struct cvi_i2c_dev *dev = dev_get_drvdata(&pdev->dev);
+-	int i = 0;
+-
+-	if (!dev)
+-		return -ENODEV;
+-
+-	for (i = 0; i < I2C_MAX_NUM; i++) {
+-		struct cvi_i2c_ctx *ctx;
+-
+-		i2c_adap = i2c_get_adapter(i);
+-		if (!i2c_adap)
+-			continue;
+-		dev_info(&pdev->dev, "i2c:-------hook %d\n", i2c_adap->i2c_idx);
+-		if (i2c_adap->i2c_idx < I2C_MAX_NUM) {
+-			ctx = &dev->ctx[i2c_adap->i2c_idx];
+-			if (!ctx->client) {
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+-				ctx->client = i2c_new_client_device(i2c_adap, &cvi_info);
+-#else
+-				ctx->client = i2c_new_device(i2c_adap, &cvi_info);
+-#endif
+-				ctx->buf = kmalloc(I2C_BUF_SIZE, GFP_KERNEL);
+-				if (!ctx->buf)
+-					return -ENOMEM;
+-			} else
+-				dev_err(&pdev->dev, "duplicate i2c_adpa idx %d\n", i2c_adap->i2c_idx);
+-
+-		}
+-		i2c_put_adapter(i2c_adap);
+-	}
+-
+-	return 0;
++    struct cvi_i2c_dev *dev = hdlr;
++    int ret;
++
++    if (!dev || !arg) return -EINVAL;
++    mutex_lock(&dev->mutex);
++    switch (cmd) {
++    case CVI_SNS_I2C_WRITE: ret = snsr_i2c_write(dev, arg); break;
++    case CVI_SNS_I2C_BURST_QUEUE: ret = snsr_i2c_burst_queue(dev, arg); break;
++    case CVI_SNS_I2C_BURST_FIRE:
++        ret = snsr_i2c_burst_fire(dev, *(unsigned int *)arg); break;
++    default: ret = -ENOIOCTLCMD; break;
++    }
++    mutex_unlock(&dev->mutex);
++    return ret;
+ }
+ 
+ static int cvi_snsr_i2c_probe(struct platform_device *pdev)
+ {
+-	int rc = 0;
+-	struct cvi_i2c_dev *dev;
+-
+-	/* allocate main snsr state structure */
+-	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
+-	if (!dev)
+-		return -ENOMEM;
+-
+-	/* initialize locks */
+-	spin_lock_init(&dev->lock);
+-	mutex_init(&dev->mutex);
+-
+-	platform_set_drvdata(pdev, dev);
+-
+-	rc = snsr_i2c_register_cb(pdev, dev);
+-	if (rc < 0) {
+-		dev_err(&pdev->dev, "Failed to register cmm for snsr, %d\n", rc);
+-		return rc;
+-	}
+-
+-	rc = _init_resource(pdev);
+-	if (rc < 0) {
+-		dev_err(&pdev->dev, "Failed to init res for snsr, %d\n", rc);
+-		return rc;
+-	}
+-
+-	return 0;
++    struct cvi_i2c_dev *dev;
++    int ret;
++
++    dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
++    if (!dev) return -ENOMEM;
++    mutex_init(&dev->mutex);
++    platform_set_drvdata(pdev, dev);
++    ret = vip_sys_register_cmm_cb(0, dev, snsr_i2c_ioctl);
++    if (ret) platform_set_drvdata(pdev, NULL);
++    return ret;
+ }
+ 
+-static int cvi_snsr_i2c_remove(struct platform_device *pdev)
++static void cvi_snsr_i2c_remove(struct platform_device *pdev)
+ {
+-	struct cvi_i2c_dev *dev;
+-	int i = 0;
+-
+-	if (!pdev) {
+-		dev_err(&pdev->dev, "invalid param");
+-		return -EINVAL;
+-	}
+-
+-	dev = dev_get_drvdata(&pdev->dev);
+-	if (!dev) {
+-		dev_err(&pdev->dev, "Can not get cvi_snsr drvdata");
+-		return 0;
+-	}
+-
+-	for (i = 0; i < I2C_MAX_NUM; i++) {
+-		struct cvi_i2c_ctx *ctx;
+-
+-		ctx = &dev->ctx[i];
+-		if (ctx->client)
+-			i2c_unregister_device(ctx->client);
+-		kfree(ctx->buf);
+-	}
+-
+-	dev_set_drvdata(&pdev->dev, NULL);
+-
+-	return 0;
++    struct cvi_i2c_dev *dev = platform_get_drvdata(pdev);
++    int i;
++
++    vip_sys_unregister_cmm_cb(0, dev);
++    for (i = 0; i < I2C_MAX_NUM; i++) {
++        if (dev->ctx[i].adapter) i2c_put_adapter(dev->ctx[i].adapter);
++        kfree(dev->ctx[i].buf);
++    }
++    platform_set_drvdata(pdev, NULL);
+ }
+ 
+ static void cvi_snsr_i2c_pdev_release(struct device *dev)
+diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
+index f0a8018..6f55ebb 100644
+--- a/interdrv/vi/chip/cv181x/vi.c
++++ b/interdrv/vi/chip/cv181x/vi.c
+@@ -1874,6 +1874,7 @@ static void _snr_i2c_update(
+ 	struct isp_i2c_data *next_i2c_data;
+ 	unsigned long flags;
+ 	u16 i = 0, j = 0;
++	int ret;
+ 	// 0: Delete Node, 1: Postpone Node, 2: Do nothing
+ 	u16 del_node = 0;
+ 	uint32_t dev_mask = 0;
+@@ -1899,6 +1900,7 @@ static void _snr_i2c_update(
+ 
+ 	for (j = 0; j < _i2c_num; j++) {
+ 		node = _i2c_n[j];
++		del_node = 0;
+ 		no_update = CVI_TRUE;
+ 
+ 		vi_pr(VI_DBG, "raw_num=%d, i2c_num=%d, j=%d, magic_num=%d, magic_num_vblank=%d\n",
+@@ -1935,7 +1937,12 @@ static void _snr_i2c_update(
+ 				if (i2c_data->update && (i2c_data->dly_frm_num == 0)) {
+ 					if ((i2c_data->vblank_update && is_vblank_update)
+ 					|| (!i2c_data->vblank_update && !is_vblank_update)) {
+-						vip_sys_cmm_cb_i2c(cmd, (void *)i2c_data);
++						ret = vip_sys_cmm_cb_i2c(cmd, (void *)i2c_data);
++						if (ret) {
++							pr_err_ratelimited("VI sensor I2C submit failed: %d\n", ret);
++							no_update = CVI_FALSE;
++							continue;
++						}
+ 						i2c_data->update = 0;
+ 						if (burst_i2c_en)
+ 							dev_mask |= BIT(i2c_data->i2c_dev);
+@@ -1998,7 +2005,9 @@ static void _snr_i2c_update(
+ 	while (dev_mask) {
+ 		uint32_t tmp = ffs(dev_mask) - 1;
+ 
+-		vip_sys_cmm_cb_i2c(CVI_SNS_I2C_BURST_FIRE, (void *)&tmp);
++		ret = vip_sys_cmm_cb_i2c(CVI_SNS_I2C_BURST_FIRE, (void *)&tmp);
++		if (ret)
++			pr_err_ratelimited("VI sensor I2C burst failed on bus %u: %d\n", tmp, ret);
+ 		dev_mask &= ~BIT(tmp);
+ 	}
+ }
+@@ -2009,7 +2018,7 @@ static void _isp_snr_cfg_deq_and_fire(
+ 	int needvblank)
+ {
+ 	struct list_head *pos, *temp;
+-	struct _isp_snr_i2c_node *i2c_n[VI_MAX_SNS_CFG_NUM], *i2c_n_temp[0];
++	struct _isp_snr_i2c_node *i2c_n[VI_MAX_SNS_CFG_NUM], *i2c_n_temp;
+ 	struct _isp_crop_node *crop_n[VI_MAX_SNS_CFG_NUM];
+ 	unsigned long flags;
+ 	u16 i2c_num = 0, crop_num = 0;
+@@ -2018,6 +2027,8 @@ static void _isp_snr_cfg_deq_and_fire(
+ 	spin_lock_irqsave(&snr_node_lock[raw_num], flags);
+ 	if (needvblank == 0) {
+ 		list_for_each_safe(pos, temp, &isp_snr_i2c_queue[raw_num].list) {
++			if (i2c_num == ARRAY_SIZE(i2c_n))
++				break;
+ 			i2c_n[i2c_num] = list_entry(pos, struct _isp_snr_i2c_node, list);
+ 			i2c_num++;
+ 		}
+@@ -2031,10 +2042,12 @@ static void _isp_snr_cfg_deq_and_fire(
+ 
+ 	} else {
+ 		list_for_each_safe(pos, temp, &isp_snr_i2c_queue[raw_num].list) {
+-			i2c_n_temp[0] = list_entry(pos, struct _isp_snr_i2c_node, list);
+-			for (i = 0; i < i2c_n_temp[0]->n.regs_num; i++) {
+-				if (i2c_n_temp[0]->n.i2c_data[i].vblank_update && i2c_n_temp[0]->n.i2c_data[i].update) {
+-					i2c_n[i2c_num] = i2c_n_temp[0];
++			if (i2c_num == ARRAY_SIZE(i2c_n))
++				break;
++			i2c_n_temp = list_entry(pos, struct _isp_snr_i2c_node, list);
++			for (i = 0; i < i2c_n_temp->n.regs_num; i++) {
++				if (i2c_n_temp->n.i2c_data[i].vblank_update && i2c_n_temp->n.i2c_data[i].update) {
++					i2c_n[i2c_num] = i2c_n_temp;
+ 					i2c_num++;
+ 					break;
+ 				}
+@@ -5447,14 +5460,21 @@ static long _vi_s_ctrl(struct cvi_vi_dev *vdev, struct vi_ext_control *p)
+ 			break;
+ 
+ 		snr_update = vmalloc(sizeof(struct cvi_isp_snr_update));
++		if (!snr_update) {
++			rc = -ENOMEM;
++			break;
++		}
+ 		if (copy_from_user(snr_update, p->ptr, sizeof(struct cvi_isp_snr_update)) != 0) {
+ 			vi_pr(VI_ERR, "SNR_CFG_NODE copy from user fail.\n");
++			rc = -EFAULT;
+ 			vfree(snr_update);
+ 			break;
+ 		}
+ 		raw_num = snr_update->raw_num;
+ 
+-		if (raw_num >= ISP_PRERAW_VIRT_MAX) {
++		if (raw_num >= ISP_PRERAW_VIRT_MAX ||
++		    snr_update->snr_cfg_node.snsr.regs_num > ISP_MAX_SNS_REGS) {
++			rc = -EINVAL;
+ 			vfree(snr_update);
+ 			break;
+ 		}
+-- 
+2.43.0
+

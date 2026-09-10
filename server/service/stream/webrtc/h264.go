@@ -1,0 +1,245 @@
+package webrtc
+
+import (
+	"NanoKVM-Server/common/pathmtu"
+	"NanoKVM-Server/common/rtpmtu"
+	"NanoKVM-Server/common/udpfast"
+	"NanoKVM-Server/config"
+	"NanoKVM-Server/middleware"
+	"NanoKVM-Server/service/stream"
+	"encoding/json"
+	"net/http"
+	"os"
+	"sync"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"github.com/pion/dtls/v3"
+	"github.com/pion/interceptor"
+	"github.com/pion/webrtc/v4"
+	log "github.com/sirupsen/logrus"
+)
+
+var (
+	upgrader = websocket.Upgrader{
+		WriteBufferSize: 256 * 1024,
+		CheckOrigin:     middleware.CheckWebSocketOrigin,
+	}
+	globalManager *WebRTCManager
+	managerOnce   sync.Once
+)
+
+func getManager() *WebRTCManager {
+	managerOnce.Do(func() {
+		globalManager = NewWebRTCManager()
+	})
+	return globalManager
+}
+
+func Connect(c *gin.Context) {
+	encoderConfig, err := stream.ParseEncoderConfig(c.Request.URL.Query(), stream.DefaultEncoderConfig())
+	if err != nil {
+		c.String(http.StatusBadRequest, err.Error())
+		return
+	}
+	connect(c, encoderConfig)
+}
+
+func ConnectLegacy(c *gin.Context) {
+	connect(c, stream.LegacyEncoderConfig())
+}
+
+func connect(c *gin.Context, encoderConfig stream.EncoderConfig) {
+	// create WebSocket connection
+	wsConn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Errorf("failed to create h264 websocket: %s", err)
+		return
+	}
+	stopSessionWatcher := middleware.WatchWebSocket(c.Request.Context(), wsConn)
+	defer stopSessionWatcher()
+	defer func() {
+		_ = wsConn.Close()
+		log.Debugf("h264 websocket disconnected: %s", c.ClientIP())
+	}()
+	log.Debugf("h264 websocket connected: %s", c.ClientIP())
+
+	var zeroTime time.Time
+	_ = wsConn.SetReadDeadline(zeroTime)
+
+	// create video connection
+	iceServers := createICEServers()
+
+	mediaEngine, err := createMediaEngine(encoderConfig)
+	if err != nil {
+		log.Errorf("failed to create h264 media engine: %s", err)
+		return
+	}
+
+	pathBudget := newPeerPathMTU()
+	videoConn, err := createPeerConnection(iceServers, mediaEngine, pathBudget)
+	if err != nil {
+		log.Errorf("failed to create h264 video peer connection: %s", err)
+		return
+	}
+	defer func() {
+		_ = videoConn.Close()
+		log.Debugf("h264 video peer disconnected: %s", c.ClientIP())
+	}()
+
+	// create client
+	client := NewClient(wsConn, videoConn, encoderConfig)
+	client.pathMTU = pathBudget
+	if err := client.AddTrack(); err != nil {
+		log.Errorf("failed to add track: %s", err)
+		return
+	}
+
+	// handle signaling
+	signalingHandler := NewSignalingHandler(client)
+	defer signalingHandler.Close()
+	signalingHandler.RegisterCallbacks()
+	if err := sendICEServers(client, iceServers); err != nil {
+		log.Errorf("failed to send ICE servers: %s", err)
+		return
+	}
+
+	// read and wait
+	for {
+		message, err := client.ReadMessage()
+		if err != nil {
+			return
+		}
+		if message != nil {
+			if err := signalingHandler.HandleMessage(message); err != nil {
+				log.Errorf("failed to handle signaling message: %s", err)
+			}
+		}
+	}
+}
+
+func createICEServers() []webrtc.ICEServer {
+	var iceServers []webrtc.ICEServer
+
+	conf := config.GetInstance()
+
+	if conf.Stun != "" && conf.Stun != "disable" {
+		iceServers = append(iceServers, webrtc.ICEServer{
+			URLs: []string{"stun:" + conf.Stun},
+		})
+	}
+
+	if conf.Turn.TurnAddr != "" && conf.Turn.TurnUser != "" && conf.Turn.TurnCred != "" {
+		iceServers = append(iceServers, webrtc.ICEServer{
+			URLs:       []string{"turn:" + conf.Turn.TurnAddr},
+			Username:   conf.Turn.TurnUser,
+			Credential: conf.Turn.TurnCred,
+		})
+	}
+
+	return iceServers
+}
+
+type clientICEServer struct {
+	URLs       []string    `json:"urls"`
+	Username   string      `json:"username,omitempty"`
+	Credential interface{} `json:"credential,omitempty"`
+}
+
+func sendICEServers(client *Client, iceServers []webrtc.ICEServer) error {
+	clientServers := make([]clientICEServer, 0, len(iceServers))
+	for _, server := range iceServers {
+		clientServers = append(clientServers, clientICEServer{
+			URLs:       server.URLs,
+			Username:   server.Username,
+			Credential: server.Credential,
+		})
+	}
+
+	data, err := json.Marshal(clientServers)
+	if err != nil {
+		return err
+	}
+
+	return client.WriteMessage("ice-servers", string(data))
+}
+
+func createMediaEngine(config stream.EncoderConfig) (*webrtc.MediaEngine, error) {
+	mediaEngine := &webrtc.MediaEngine{}
+	codec := webrtc.RTPCodecParameters{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeH264,
+			ClockRate:   90000,
+			SDPFmtpLine: h264SDPFmtpLine,
+			RTCPFeedback: []webrtc.RTCPFeedback{
+				{Type: "goog-remb"},
+				{Type: "ccm", Parameter: "fir"},
+				{Type: "nack"},
+				{Type: "nack", Parameter: "pli"},
+			},
+		},
+		PayloadType: 102,
+	}
+	if config.Codec == stream.VideoCodecH265 {
+		codec.RTPCodecCapability.MimeType = webrtc.MimeTypeH265
+		codec.RTPCodecCapability.SDPFmtpLine = ""
+		codec.PayloadType = 126
+	}
+
+	if err := mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeVideo); err != nil {
+		log.Errorf("failed to register %s codec: %s", config.Codec, err)
+		return nil, err
+	}
+
+	return mediaEngine, nil
+}
+
+func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.MediaEngine, budgets ...*peerPathMTU) (*webrtc.PeerConnection, error) {
+	initializeHardwareAES()
+	settingEngine := webrtc.SettingEngine{}
+	// Keep a fixed-budget override for controlled comparisons and recovery.
+	if len(budgets) > 0 && budgets[0] != nil && os.Getenv("NANOKVM_WEBRTC_PMTU") != "0" {
+		network, err := pathmtu.NewNet(budgets[0].receive, os.Getenv("NANOKVM_WEBRTC_UDP_FAST") == "1")
+		if err != nil {
+			return nil, err
+		}
+		settingEngine.SetNet(network)
+	} else if os.Getenv("NANOKVM_WEBRTC_UDP_FAST") == "1" {
+		network, err := udpfast.NewNet()
+		if err != nil {
+			return nil, err
+		}
+		settingEngine.SetNet(network)
+	}
+	settingEngine.SetSRTPProtectionProfiles(
+		dtls.SRTP_AES128_CM_HMAC_SHA1_80,
+		dtls.SRTP_AEAD_AES_128_GCM,
+	)
+
+	apiOptions := []func(api *webrtc.API){
+		webrtc.WithSettingEngine(settingEngine),
+	}
+	if mediaEngine != nil {
+		registry := &interceptor.Registry{}
+		// First is closest to SRTP: NACK's cached writer must pass this guard.
+		if len(budgets) > 0 && budgets[0] != nil {
+			registry.Add(&rtpmtu.Factory{Budget: budgets[0].size})
+		}
+		if err := webrtc.ConfigureNack(mediaEngine, registry); err != nil {
+			return nil, err
+		}
+		if err := webrtc.ConfigureRTCPReports(registry); err != nil {
+			return nil, err
+		}
+		apiOptions = append(apiOptions, webrtc.WithInterceptorRegistry(registry))
+		apiOptions = append(apiOptions, webrtc.WithMediaEngine(mediaEngine))
+	}
+
+	api := webrtc.NewAPI(apiOptions...)
+
+	return api.NewPeerConnection(webrtc.Configuration{
+		ICEServers:   iceServers,
+		SDPSemantics: webrtc.SDPSemanticsUnifiedPlan,
+	})
+}

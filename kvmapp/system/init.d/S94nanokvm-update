@@ -1,0 +1,12 @@
+#!/bin/sh
+# Restore an interrupted application transaction before S95 starts the server.
+case "$1" in
+ start)
+   if ! /usr/sbin/nkos-update recover; then
+     touch /run/nkos-update-recovery-failed
+     exit 1
+   fi
+   rm -f /run/nkos-update-recovery-failed
+   ;;
+ *) exit 0 ;;
+esac

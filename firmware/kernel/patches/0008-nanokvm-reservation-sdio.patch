@@ -1,0 +1,62 @@
+From ba5fdd11889666eeefa903927abe4c753e4ce27f Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 18:26:30 +0300
+Subject: [PATCH] riscv: correct NanoKVM M-mode reservation and 3.3 V SDIO
+ setup
+
+---
+ arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts | 7 +++++--
+ drivers/mmc/host/sdhci-of-dwcmshc.c                    | 5 +++++
+ 2 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+index d6648817c..7a1c27784 100644
+--- a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
++++ b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+@@ -49,8 +49,9 @@ reserved-memory {
+ 		#address-cells = <1>;
+ 		#size-cells = <1>;
+ 		ranges;
+-		// Match working firmware's M-mode reservation. Recheck with new OpenSBI.
+-		mmode@80000000 { reg = <0x80000000 0x80000>; no-map; };
++		// Match the actual OpenSBI PMP range copied by the installed U-Boot.
++		// Equal ranges are deduplicated; a larger no-map node overlaps and fails.
++		mmode_resv0@80000000 { reg = <0x80000000 0x40000>; no-map; };
+ 		ion_region: ion {
+ 			compatible = "ion-region";
+ 			size = <0x03000000>;
+@@ -243,6 +244,8 @@ sdio-pins {
+ 	};
+ };
+ &sdhci1 {
++	// Module VDDIO is tied to VDD3V3_SYS; no 1.8 V switching circuitry.
++	no-1-8-v;
+ 	pinctrl-0 = <&sdhci1_cfg>;
+ 	pinctrl-names = "default";
+ 	bus-width = <4>;
+diff --git a/drivers/mmc/host/sdhci-of-dwcmshc.c b/drivers/mmc/host/sdhci-of-dwcmshc.c
+index c688f3eaf..b6306f19e 100644
+--- a/drivers/mmc/host/sdhci-of-dwcmshc.c
++++ b/drivers/mmc/host/sdhci-of-dwcmshc.c
+@@ -71,6 +71,7 @@
+ #define CV18XX_SDHCI_MSHC_CTRL			0x00
+ #define  CV18XX_EMMC_FUNC_EN			BIT(0)
+ #define  CV18XX_LATANCY_1T			BIT(1)
++#define  CV18XX_SDIO_MODE			BIT(16)
+ #define CV18XX_SDHCI_PHY_TX_RX_DLY		0x40
+ #define  CV18XX_PHY_TX_DLY_MSK			GENMASK(6, 0)
+ #define  CV18XX_PHY_TX_SRC_MSK			GENMASK(9, 8)
+@@ -1098,6 +1099,10 @@ static void cv18xx_sdhci_reset(struct sdhci_host *host, u8 mask)
+ 
+ 	val = sdhci_readl(host, priv->vendor_specific_area1 + CV18XX_SDHCI_MSHC_CTRL);
+ 	val |= CV18XX_LATANCY_1T;
++	/* Sophgo SD1 requires bit 16 restored after reset (vendor SDIO path). */
++	if ((host->mmc->caps2 & (MMC_CAP2_NO_SD | MMC_CAP2_NO_MMC)) ==
++	    (MMC_CAP2_NO_SD | MMC_CAP2_NO_MMC))
++		val |= CV18XX_SDIO_MODE;
+ 	sdhci_writel(host, val, priv->vendor_specific_area1 + CV18XX_SDHCI_MSHC_CTRL);
+ 
+ 	val = sdhci_readl(host, priv->vendor_specific_area1 + CV18XX_SDHCI_PHY_CONFIG);
+-- 
+2.43.0
+

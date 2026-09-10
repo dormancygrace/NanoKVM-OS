@@ -1,0 +1,28 @@
+From 5ded7b8dd5c232f83d42b328be9a07077301cb84 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 20:39:00 +0300
+Subject: [PATCH] mpi: use baseline C906 ISA with modern Linux Ghostwrite
+ mitigation
+
+---
+ mpi_param.mk | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/mpi_param.mk b/mpi_param.mk
+index b4d137e..b3726c3 100644
+--- a/mpi_param.mk
++++ b/mpi_param.mk
+@@ -42,8 +42,8 @@ ifeq ($(TARGET_MACHINE), arm-linux-gnueabihf)
+ else ifeq ($(TARGET_MACHINE), aarch64-linux-gnu)
+   OPT_LEVEL := -O3
+ else ifeq ($(TARGET_MACHINE), riscv64-buildroot-linux-musl)
+-  # Upstream GCC spelling for C906 vendor-vector instructions; not RVV 1.0.
+-  OPT_LEVEL := -Os -march=rv64gc_xtheadvector -mtune=thead-c906 -mno-fence-tso -mcmodel=medany -mabi=lp64d
++  # Baseline ISA: modern Linux disables xtheadvector for Ghostwrite mitigation.
++  OPT_LEVEL := -Os -march=rv64gc -mtune=thead-c906 -mno-fence-tso -mcmodel=medany -mabi=lp64d
+ else ifeq ($(TARGET_MACHINE), riscv64-unknown-linux-gnu)
+   OPT_LEVEL := -Os
+   OPT_LEVEL += -mno-ldd -mcpu=c906fdv -march=rv64imafdcv0p7xthead -mcmodel=medany -mabi=lp64d
+-- 
+2.43.0
+

@@ -1,0 +1,336 @@
+From 38e83f064bfc321328f8ca1ec93afb05a5123be3 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 21:30:04 +0300
+Subject: [PATCH] Port RGN interfaces and correct file instance ownership
+
+---
+ interdrv/rgn/Makefile                    |  2 +-
+ interdrv/rgn/chip/cv181x/proc/rgn_proc.c | 14 +++--
+ interdrv/rgn/chip/cv181x/rgn.c           | 75 ++++++++++--------------
+ interdrv/rgn/chip/cv181x/rgn.h           |  1 -
+ interdrv/rgn/chip/cv181x/vip/rgn_drv.h   |  1 -
+ interdrv/rgn/common/rgn_common.h         |  4 +-
+ interdrv/rgn/common/rgn_core.c           | 55 +++++------------
+ interdrv/rgn/common/rgn_core.h           |  1 -
+ 8 files changed, 58 insertions(+), 95 deletions(-)
+
+diff --git a/interdrv/rgn/Makefile b/interdrv/rgn/Makefile
+index 33f27e8..92e2b32 100644
+--- a/interdrv/rgn/Makefile
++++ b/interdrv/rgn/Makefile
+@@ -25,7 +25,7 @@ ccflags-y += -I$(PWD)/common/ \
+              -I$(PWD)/chip/$(CVIARCH_L) \
+              -I$(PWD)/../rtos_cmdqu/
+ 
+-KBUILD_EXTRA_SYMBOLS = $(PWD)/../base/Module.symvers
++KBUILD_EXTRA_SYMBOLS += $(PWD)/../base/Module.symvers
+ KBUILD_EXTRA_SYMBOLS += $(PWD)/../sys/Module.symvers
+ KBUILD_EXTRA_SYMBOLS += $(PWD)/../vpss/Module.symvers
+ else
+diff --git a/interdrv/rgn/chip/cv181x/proc/rgn_proc.c b/interdrv/rgn/chip/cv181x/proc/rgn_proc.c
+index d452f52..0de8136 100644
+--- a/interdrv/rgn/chip/cv181x/proc/rgn_proc.c
++++ b/interdrv/rgn/chip/cv181x/proc/rgn_proc.c
+@@ -1,3 +1,5 @@
++#include <generated/utsversion.h>
++#include <linux/string.h>
+ #include "rgn_proc.h"
+ 
+ #define GENERATE_STRING(STRING)	(#STRING),
+@@ -12,19 +14,19 @@ static void _pixFmt_to_String(enum _PIXEL_FORMAT_E PixFmt, char *str, int len)
+ {
+ 	switch (PixFmt) {
+ 	case PIXEL_FORMAT_8BIT_MODE:
+-		strncpy(str, "256LUT", len);
++		strscpy(str, "256LUT", len);
+ 		break;
+ 	case PIXEL_FORMAT_ARGB_1555:
+-		strncpy(str, "ARGB_1555", len);
++		strscpy(str, "ARGB_1555", len);
+ 		break;
+ 	case PIXEL_FORMAT_ARGB_4444:
+-		strncpy(str, "ARGB_4444", len);
++		strscpy(str, "ARGB_4444", len);
+ 		break;
+ 	case PIXEL_FORMAT_ARGB_8888:
+-		strncpy(str, "ARGB_8888", len);
++		strscpy(str, "ARGB_8888", len);
+ 		break;
+ 	default:
+-		strncpy(str, "Unknown Fmt", len);
++		strscpy(str, "Unknown Fmt", len);
+ 		break;
+ 	}
+ }
+@@ -249,7 +251,7 @@ static int rgn_proc_show(struct seq_file *m, void *v)
+ 
+ static int rgn_proc_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, rgn_proc_show, PDE_DATA(inode));
++	return single_open(file, rgn_proc_show, pde_data(inode));
+ }
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+diff --git a/interdrv/rgn/chip/cv181x/rgn.c b/interdrv/rgn/chip/cv181x/rgn.c
+index 33b293e..b0909d9 100644
+--- a/interdrv/rgn/chip/cv181x/rgn.c
++++ b/interdrv/rgn/chip/cv181x/rgn.c
+@@ -9,6 +9,7 @@
+ #include <linux/random.h>
+ 
+ #include <rgn.h>
++#include <rgn_interfaces.h>
+ #include "proc/rgn_proc.h"
+ #include <cif_cb.h>
+ #include <vpss_cb.h>
+@@ -844,8 +845,8 @@ static CVI_S32 _rgn_mosaic_set_hw_cfg(RGN_HANDLE hdls[], CVI_U8 size, MMF_CHN_S
+ 			enBlkSize = MOSAIC_BLK_SIZE_8;
+ 			grid_size = 8;
+ 		}
+-		start_x = MIN(start_x, rect[rgn_idx].s32X);
+-		start_y = MIN(start_y, rect[rgn_idx].s32Y);
++		start_x = RGN_MIN(start_x, rect[rgn_idx].s32X);
++		start_y = RGN_MIN(start_y, rect[rgn_idx].s32Y);
+ 		rgn_idx++;
+ 	}
+ 
+@@ -868,8 +869,8 @@ static CVI_S32 _rgn_mosaic_set_hw_cfg(RGN_HANDLE hdls[], CVI_U8 size, MMF_CHN_S
+ 		rect[i].s32Y -= grid_offset;
+ 		rect[i].u32Height = ALIGN(rect[i].u32Height + grid_offset, grid_size);
+ 
+-		end_x = MAX(end_x, rect[i].s32X + rect[i].u32Width);
+-		end_y = MAX(end_y, rect[i].s32Y + rect[i].u32Height);
++		end_x = RGN_MAX(end_x, rect[i].s32X + rect[i].u32Width);
++		end_y = RGN_MAX(end_y, rect[i].s32Y + rect[i].u32Height);
+ 	}
+ 
+ 	grid_num_w = (end_x - start_x) / grid_size;
+@@ -2038,7 +2039,7 @@ RGN_COMP_INFO_S s_ConvertInfo[RGN_COLOR_FMT_BUTT] = {
+ 		{ 8, 8, 8, 8 }  /*ARGB8888*/
+ };
+ 
+-CVI_U16 RGN_MAKECOLOR_U16_A(CVI_U8 a, CVI_U8 r, CVI_U8 g, CVI_U8 b, RGN_COMP_INFO_S input_fmt)
++static CVI_U16 RGN_MAKECOLOR_U16_A(CVI_U8 a, CVI_U8 r, CVI_U8 g, CVI_U8 b, RGN_COMP_INFO_S input_fmt)
+ {
+ 	CVI_U8 a1, r1, g1, b1;
+ 	CVI_U16 pixel;
+@@ -2450,7 +2451,7 @@ long rgn_ioctl(struct file *file, u_int cmd, u_long arg)
+ 	struct rgn_ext_control p;
+ 
+ 	if (copy_from_user(&p, (void __user *)arg, sizeof(struct rgn_ext_control)))
+-		return ret;
++		return -EFAULT;
+ 
+ 	switch (cmd) {
+ 	case RGN_IOC_S_CTRL:
+@@ -2465,54 +2466,40 @@ long rgn_ioctl(struct file *file, u_int cmd, u_long arg)
+ 	}
+ 
+ 	if (copy_to_user((void __user *)arg, &p, sizeof(struct rgn_ext_control)))
+-		return ret;
++		return -EFAULT;
+ 
+ 	return ret;
+ }
+ 
+ int rgn_open(struct inode *inode, struct file *file)
+ {
+-	int ret = 0;
+-
+-	// only open once
+-	if (!atomic_read(&dev_open_cnt)) {
+-		struct cvi_rgn_dev *rdev =
+-		container_of(file->private_data, struct cvi_rgn_dev, miscdev);
+-
+-		file->private_data = rdev;
+-		_rgn_sw_init(rdev);
+-
+-		CVI_TRACE_RGN(RGN_INFO, "-\n");
+-
+-		ret = CVI_SUCCESS;
+-	}
+-
+-	atomic_inc(&dev_open_cnt);
+-
+-	return ret;
++    struct cvi_rgn_dev *rdev = container_of(file->private_data,
++                                           struct cvi_rgn_dev, miscdev);
++    int ret = 0;
++
++    mutex_lock(&rdev->mutex);
++    if (!atomic_read(&dev_open_cnt))
++        ret = _rgn_sw_init(rdev);
++    if (!ret) {
++        /* Every open file uses the same private-data representation. */
++        file->private_data = rdev;
++        atomic_inc(&dev_open_cnt);
++    }
++    mutex_unlock(&rdev->mutex);
++    return ret;
+ }
+ 
+ int rgn_release(struct inode *inode, struct file *file)
+ {
+-	int ret = 0;
+-
+-	// only exit once
+-	if (atomic_dec_and_test(&dev_open_cnt)) {
+-		struct cvi_rgn_dev *rdev =
+-		container_of(file->private_data, struct cvi_rgn_dev, miscdev);
+-
+-		/* This should move to stop streaming */
+-		_rgn_release_op(rdev);
+-
+-		CVI_TRACE_RGN(RGN_INFO, "-\n");
+-
+-		ret = CVI_SUCCESS;
+-	}
+-
+-	if (atomic_read(&dev_open_cnt) < 0)
+-		atomic_set(&dev_open_cnt, 0);
+-
+-	return ret;
++    struct cvi_rgn_dev *rdev = file->private_data;
++    int ret = 0;
++
++    mutex_lock(&rdev->mutex);
++    if (atomic_dec_and_test(&dev_open_cnt))
++        ret = _rgn_release_op(rdev);
++    mutex_unlock(&rdev->mutex);
++    file->private_data = NULL;
++    return ret;
+ }
+ 
+ int rgn_cb(void *dev, enum ENUM_MODULES_ID caller, u32 cmd, void *arg)
+diff --git a/interdrv/rgn/chip/cv181x/rgn.h b/interdrv/rgn/chip/cv181x/rgn.h
+index 0d27fcc..1278406 100644
+--- a/interdrv/rgn/chip/cv181x/rgn.h
++++ b/interdrv/rgn/chip/cv181x/rgn.h
+@@ -9,7 +9,6 @@
+ #include <linux/poll.h>
+ #include <linux/sched/signal.h>
+ #include <linux/slab.h>
+-#include <linux/streamline_annotate.h>
+ #include <linux/version.h>
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0))
+ #include <uapi/linux/sched/types.h>
+diff --git a/interdrv/rgn/chip/cv181x/vip/rgn_drv.h b/interdrv/rgn/chip/cv181x/vip/rgn_drv.h
+index 2aafd4f..755565f 100644
+--- a/interdrv/rgn/chip/cv181x/vip/rgn_drv.h
++++ b/interdrv/rgn/chip/cv181x/vip/rgn_drv.h
+@@ -7,7 +7,6 @@
+ 
+ #include <linux/delay.h>
+ #include <linux/types.h>
+-#include <stdbool.h>
+ 
+ #include <rgn_common.h>
+ 
+diff --git a/interdrv/rgn/common/rgn_common.h b/interdrv/rgn/common/rgn_common.h
+index 2450d20..0b46e4e 100644
+--- a/interdrv/rgn/common/rgn_common.h
++++ b/interdrv/rgn/common/rgn_common.h
+@@ -10,8 +10,8 @@
+ #include <linux/io.h>
+ 
+ 
+-#define MIN(a, b) (((a) < (b))?(a):(b))
+-#define MAX(a, b) (((a) > (b))?(a):(b))
++#define RGN_MIN(a, b) (((a) < (b))?(a):(b))
++#define RGN_MAX(a, b) (((a) > (b))?(a):(b))
+ #define RGN_64_ALIGN(x) (((x) + 0x3F) & ~0x3F)   // for 64byte alignment
+ #define RGN_256_ALIGN(x) (((x) + 0xFF) & ~0xFF)   // for 256byte alignment
+ #define RGN_ALIGN(x) (((x) + 0xF) & ~0xF)   // for 16byte alignment
+diff --git a/interdrv/rgn/common/rgn_core.c b/interdrv/rgn/common/rgn_core.c
+index 44e0f6f..20601dc 100644
+--- a/interdrv/rgn/common/rgn_core.c
++++ b/interdrv/rgn/common/rgn_core.c
+@@ -28,7 +28,7 @@ const struct file_operations rgn_fops = {
+ 	.release = rgn_core_release,
+ };
+ 
+-int rgn_core_cb(void *dev, enum ENUM_MODULES_ID caller, u32 cmd, void *arg)
++static int rgn_core_cb(void *dev, enum ENUM_MODULES_ID caller, u32 cmd, void *arg)
+ {
+ 	return rgn_cb(dev, caller, cmd, arg);
+ }
+@@ -87,49 +87,26 @@ static int cvi_rgn_probe(struct platform_device *pdev)
+ 		goto err_create_instance;
+ 	}
+ 
+-	if (register_rgn_dev(&pdev->dev, rdev)) {
+-		CVI_TRACE_RGN(RGN_ERR, "Failed to register rgn-dev\n");
+-		goto err_create_instance;
+-	}
+-
+-	if (rgn_core_register_cb(rdev)) {
+-		dev_err(&pdev->dev, "Failed to register rgn cb, err %d\n", ret);
+-		goto err_create_instance;
+-	}
+-
+-	CVI_TRACE_RGN(RGN_INFO, "done with ret(%d).\n", ret);
+-	return ret;
+-
++    ret = rgn_core_register_cb(rdev);
++    if (ret) goto destroy_instance;
++    ret = register_rgn_dev(&pdev->dev, rdev);
++    if (!ret) return 0;
++    rgn_core_rm_cb();
++destroy_instance:
++    rgn_destroy_instance(pdev);
+ err_create_instance:
+-	misc_deregister(&rdev->miscdev);
+-	dev_set_drvdata(&pdev->dev, NULL);
+-
+-	CVI_TRACE_RGN(RGN_INFO, "failed with rc(%d).\n", ret);
+-	return ret;
++    dev_set_drvdata(&pdev->dev, NULL);
++    return ret;
+ }
+ 
+-static int cvi_rgn_remove(struct platform_device *pdev)
++static void cvi_rgn_remove(struct platform_device *pdev)
+ {
+-	struct cvi_rgn_dev *rdev = platform_get_drvdata(pdev);
+-	int ret = 0;
++    struct cvi_rgn_dev *rdev = platform_get_drvdata(pdev);
+ 
+-	ret = rgn_destroy_instance(pdev);
+-	if (ret) {
+-		dev_err(&pdev->dev, "Failed to destroy instance, err %d\n", ret);
+-		goto err_destroy_instance;
+-	}
+-
+-	if (rgn_core_rm_cb()) {
+-		dev_err(&pdev->dev, "Failed to rm rgn cb, err %d\n", ret);
+-	}
+-
+-	misc_deregister(&rdev->miscdev);
+-	dev_set_drvdata(&pdev->dev, NULL);
+-
+-err_destroy_instance:
+-	CVI_TRACE_RGN(RGN_INFO, "%s -\n", __func__);
+-
+-	return ret;
++    misc_deregister(&rdev->miscdev);
++    rgn_core_rm_cb();
++    rgn_destroy_instance(pdev);
++    platform_set_drvdata(pdev, NULL);
+ }
+ 
+ static const struct of_device_id cvi_rgn_dt_match[] = {
+diff --git a/interdrv/rgn/common/rgn_core.h b/interdrv/rgn/common/rgn_core.h
+index e8b78af..c7a17c6 100644
+--- a/interdrv/rgn/common/rgn_core.h
++++ b/interdrv/rgn/common/rgn_core.h
+@@ -20,7 +20,6 @@
+ #include <linux/pm_qos.h>
+ #include <linux/slab.h>
+ #include <linux/spinlock.h>
+-#include <linux/streamline_annotate.h>
+ #include <linux/version.h>
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0))
+ #include <uapi/linux/sched/types.h>
+-- 
+2.43.0
+

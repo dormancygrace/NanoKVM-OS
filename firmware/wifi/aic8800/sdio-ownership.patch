@@ -1,0 +1,73 @@
+--- a/aic8800_bsp/aicsdio.c
++++ b/aic8800_bsp/aicsdio.c
+@@ -50,6 +50,8 @@
+ static struct semaphore *aicbsp_notify_semaphore;
+ extern struct semaphore aicbsp_probe_semaphore;
+ 
++#include "aicbsp_sdio_ids.h"
++
+ static const struct sdio_device_id aicbsp_sdmmc_ids[];
+ static bool aicbsp_load_fw_in_fdrv = false;
+ static bool fdrv_no_reg_sdio = false;
+@@ -95,6 +97,9 @@
+ 
+ static int aicbsp_dummy_probe(struct sdio_func *func, const struct sdio_device_id *id)
+ {
++	/* Check ownership before the primary-function early success path. */
++	if (!func || !aicbsp_sdio_id_supported(func->vendor, func->device))
++		return -ENODEV;
+ 	if (func && (func->num != 2) &&
+ 		!(func->vendor == SDIO_VENDOR_ID_AIC8800D80N &&
+ 		(func->device == SDIO_DEVICE_ID_AIC8800D80N ||
+@@ -107,17 +112,6 @@
+ 	}
+ 
+ 
+-	if(func->vendor != SDIO_VENDOR_ID_AIC8801 &&
+-		func->device != SDIO_DEVICE_ID_AIC8801 &&
+-		func->device != SDIO_DEVICE_ID_AIC8801_FUNC2 &&
+-		func->vendor != SDIO_VENDOR_ID_AIC8800DC &&
+-		func->device != SDIO_DEVICE_ID_AIC8800DC &&
+-		func->vendor != SDIO_VENDOR_ID_AIC8800D80 &&
+-		func->device != SDIO_DEVICE_ID_AIC8800D80 &&
+-		func->device != SDIO_DEVICE_ID_AIC8800D80_FUNC2){
+-			printk("VID:%x DID:%X \r\n", func->vendor, func->device);
+-			aicbsp_load_fw_in_fdrv = true;
+-    }
+ 
+ 	if (aicbsp_notify_semaphore)
+ 		up(aicbsp_notify_semaphore);
+@@ -318,17 +312,8 @@
+ 	sdio_dbg("%s:%d vid:0x%04X  did:0x%04X\n", __func__, func->num,
+ 		func->vendor, func->device);
+ 
+-	if(func->vendor != SDIO_VENDOR_ID_AIC8801 &&
+-		func->device != SDIO_DEVICE_ID_AIC8801 &&
+-		func->device != SDIO_DEVICE_ID_AIC8801_FUNC2 &&
+-		func->vendor != SDIO_VENDOR_ID_AIC8800DC &&
+-		func->device != SDIO_DEVICE_ID_AIC8800DC &&
+-		func->vendor != SDIO_VENDOR_ID_AIC8800D80 &&
+-		func->device != SDIO_DEVICE_ID_AIC8800D80 &&
+-		func->device != SDIO_DEVICE_ID_AIC8800D80_FUNC2){
+-		aicbsp_load_fw_in_fdrv = true;
+-		return err;
+-	}
++	if (!aicbsp_sdio_id_supported(func->vendor, func->device))
++		return -ENODEV;
+ 
+ 	if (func->num != 2 &&
+ 		!(func->vendor == SDIO_VENDOR_ID_AIC8800D80N &&
+@@ -522,10 +507,12 @@
+ 	return 0;
+ }
+ 
++#define AICBSP_ID_ENTRY(v, d) { .class = SDIO_CLASS_WLAN, .vendor = (v), .device = (d) },
+ static const struct sdio_device_id aicbsp_sdmmc_ids[] = {
+-	{SDIO_DEVICE_CLASS(SDIO_CLASS_WLAN)},
++	AICBSP_SDIO_IDS(AICBSP_ID_ENTRY)
+ 	{ },
+ };
++#undef AICBSP_ID_ENTRY
+ 
+ MODULE_DEVICE_TABLE(sdio, aicbsp_sdmmc_ids);
+ 

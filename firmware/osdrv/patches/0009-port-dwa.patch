@@ -1,0 +1,362 @@
+From 54d47927b953937768217d1222d087a916905465 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 20:44:39 +0300
+Subject: [PATCH] Port DWA GDC interfaces and checked worker creation to Linux
+ 7.2
+
+---
+ interdrv/dwa/Makefile                  |  3 +-
+ interdrv/dwa/chip/cv181x/gdc.c         | 50 +++++++++++-------------
+ interdrv/dwa/chip/cv181x/mesh.c        |  2 +-
+ interdrv/dwa/common/cvi_vip_gdc_proc.c | 20 +++++-----
+ interdrv/dwa/common/dwa_platform.c     | 54 ++++++++++++--------------
+ 5 files changed, 59 insertions(+), 70 deletions(-)
+
+diff --git a/interdrv/dwa/Makefile b/interdrv/dwa/Makefile
+index 0f8552a..9c4297f 100644
+--- a/interdrv/dwa/Makefile
++++ b/interdrv/dwa/Makefile
+@@ -19,9 +19,8 @@ ccflags-y += -I$(srctree)/drivers/staging/android
+ 
+ ccflags-y +=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
+ 
+-KBUILD_EXTRA_SYMBOLS = $(PWD)/../base/Module.symvers
++KBUILD_EXTRA_SYMBOLS += $(PWD)/../base/Module.symvers
+ KBUILD_EXTRA_SYMBOLS += $(PWD)/../sys/Module.symvers
+-KBUILD_EXTRA_SYMBOLS += $(PWD)/../Module.symvers
+ all:
+ 	$(MAKE) ARCH=${ARCH} -C $(KERNEL_DIR) M=$(PWD) modules
+ 
+diff --git a/interdrv/dwa/chip/cv181x/gdc.c b/interdrv/dwa/chip/cv181x/gdc.c
+index c07a520..92f5e3e 100644
+--- a/interdrv/dwa/chip/cv181x/gdc.c
++++ b/interdrv/dwa/chip/cv181x/gdc.c
+@@ -4,7 +4,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/clk.h>
+ #include <linux/mm.h>
+-#include <uapi/linux/sched/types.h>
++#include <linux/sched.h>
+ 
+ #include <linux/cvi_comm_video.h>
+ #include <linux/cvi_comm_gdc.h>
+@@ -55,7 +55,7 @@ static inline CVI_S32 CHECK_GDC_FORMAT(VIDEO_FRAME_INFO_S imgIn, VIDEO_FRAME_INF
+ 
+ struct cvi_gdc_proc_ctx *gdc_proc_ctx;
+ 
+-int gdc_handle_to_procIdx(struct cvi_dwa_job *job)
++static int gdc_handle_to_procIdx(struct cvi_dwa_job *job)
+ {
+ 	int idx = 0;
+ 
+@@ -78,7 +78,7 @@ int gdc_handle_to_procIdx(struct cvi_dwa_job *job)
+ 	return -1;
+ }
+ 
+-void gdc_proc_record_hw_start(struct cvi_dwa_job *job)
++static void gdc_proc_record_hw_start(struct cvi_dwa_job *job)
+ {
+ 	struct timespec64 curTime;
+ 
+@@ -107,7 +107,7 @@ void gdc_proc_record_hw_end(struct cvi_dwa_job *job)
+ 	gdc_proc_ctx->stJobInfo[idx].u32HwTime += end_time - job->hw_start_time;
+ }
+ 
+-void gdc_proc_record_job_start(struct cvi_dwa_job *job)
++static void gdc_proc_record_job_start(struct cvi_dwa_job *job)
+ {
+ 	int idx;
+ 	struct timespec64 curTime;
+@@ -131,7 +131,7 @@ void gdc_proc_record_job_start(struct cvi_dwa_job *job)
+ 	gdc_proc_ctx->stJobStatus.u32ProcingNum = 1;
+ }
+ 
+-void gdc_proc_record_job_end(struct cvi_dwa_job *job)
++static void gdc_proc_record_job_end(struct cvi_dwa_job *job)
+ {
+ 	int idx;
+ 	struct timespec64 curTime;
+@@ -157,7 +157,7 @@ void gdc_proc_record_job_end(struct cvi_dwa_job *job)
+ 		(u32)(curTimeUs - gdc_proc_ctx->stJobInfo[idx].u64SubmitTime);
+ }
+ 
+-void gdcq_init(void)
++static void gdcq_init(void)
+ {
+ #if 0
+ 	pthread_mutexattr_t ma;
+@@ -522,7 +522,7 @@ int dwa_vpss_sdm_cb_done(struct cvi_dwa_vdev *wdev)
+ }
+ 
+ /* == gdc_event_handler */
+-void gdc_job_worker(struct kthread_work *work)
++static void gdc_job_worker(struct kthread_work *work)
+ {
+ 	struct cvi_dwa_vdev *wdev =
+ 		container_of(work, struct cvi_dwa_vdev, work);
+@@ -598,7 +598,6 @@ void gdc_job_worker(struct kthread_work *work)
+ 
+ int cvi_gdc_init(struct cvi_dwa_vdev *wdev)
+ {
+-	struct sched_param tsk;
+ 	int ret;
+ 
+ 	INIT_LIST_HEAD(&wdev->event_list);
+@@ -612,16 +611,14 @@ int cvi_gdc_init(struct cvi_dwa_vdev *wdev)
+ 	wdev->thread = kthread_run(kthread_worker_fn, &wdev->worker,
+ 				   "gdc_work");
+ 
+-	// Same as sched_set_fifo in linux 5.x
+-	tsk.sched_priority = MAX_USER_RT_PRIO / 2;
+-	ret = sched_setscheduler(wdev->thread, SCHED_FIFO, &tsk);
+-	if (ret)
+-		CVI_TRACE_DWA(CVI_DBG_WARN, "gdc thread priority update failed: %d\n", ret);
+-
+ 	if (IS_ERR(wdev->thread)) {
+-		CVI_TRACE_DWA(CVI_DBG_ERR, "failed to create gdc kthread\n");
+-		return -1;
+-	}
++        ret = PTR_ERR(wdev->thread);
++        wdev->thread = NULL;
++        CVI_TRACE_DWA(CVI_DBG_ERR, "failed to create gdc kthread: %d\n", ret);
++        return ret;
++    }
++    /* Exported helper preserves the vendor FIFO priority of 50. */
++    sched_set_fifo(wdev->thread);
+ 
+ 	gdc_proc_ctx = wdev->shared_mem;
+ 
+@@ -835,7 +832,7 @@ s32 gdc_add_ldc_task(struct cvi_dwa_vdev *wdev, struct gdc_task_attr *attr)
+ 	return CVI_SUCCESS;
+ }
+ 
+-s32 gdc_is_same_task_attr(const struct gdc_task_attr *tsk1, const struct gdc_task_attr *tsk2)
++static s32 gdc_is_same_task_attr(const struct gdc_task_attr *tsk1, const struct gdc_task_attr *tsk2)
+ {
+ 	CVI_TRACE_DWA(CVI_DBG_DEBUG, "tsk1: IW=%d, IH=%d, OW=%d, OH=%d\n",
+ 			tsk1->stImgIn.stVFrame.u32Width, tsk1->stImgIn.stVFrame.u32Height,
+@@ -972,7 +969,6 @@ s32 dwa_stop_handler(struct cvi_dwa_vdev *wdev_dwa)
+ s32 dwa_start_handler(struct cvi_dwa_vdev *wdev_dwa)
+ {
+ 	s32 ret = CVI_SUCCESS;
+-	struct sched_param tsk;
+ 
+ 	if(wdev_dwa->thread){
+ 		CVI_TRACE_DWA(CVI_DBG_ERR, "dwa thread has been initialized\n");
+@@ -982,16 +978,14 @@ s32 dwa_start_handler(struct cvi_dwa_vdev *wdev_dwa)
+ 	wdev_dwa->thread = kthread_run(kthread_worker_fn, &wdev_dwa->worker,
+ 				   "gdc_work");
+ 
+-	// Same as sched_set_fifo in linux 5.x
+-	tsk.sched_priority = MAX_USER_RT_PRIO / 2;
+-	ret = sched_setscheduler(wdev_dwa->thread, SCHED_FIFO, &tsk);
+-	if (ret)
+-		CVI_TRACE_DWA(CVI_DBG_WARN, "gdc thread priority update failed: %d\n", ret);
+-
+ 	if (IS_ERR(wdev_dwa->thread)) {
+-		CVI_TRACE_DWA(CVI_DBG_ERR, "failed to create gdc kthread\n");
+-		return -1;
+-	}
++        ret = PTR_ERR(wdev_dwa->thread);
++        wdev_dwa->thread = NULL;
++        CVI_TRACE_DWA(CVI_DBG_ERR, "failed to create gdc kthread: %d\n", ret);
++        return ret;
++    }
++    /* Exported helper preserves the vendor FIFO priority of 50. */
++    sched_set_fifo(wdev_dwa->thread);
+ 
+ 	return ret;
+ }
+diff --git a/interdrv/dwa/chip/cv181x/mesh.c b/interdrv/dwa/chip/cv181x/mesh.c
+index 5ad6e81..2bfb0f5 100644
+--- a/interdrv/dwa/chip/cv181x/mesh.c
++++ b/interdrv/dwa/chip/cv181x/mesh.c
+@@ -33,7 +33,7 @@ typedef struct COORD2D_INT_HW {
+ 
+ extern struct cvi_gdc_proc_ctx *gdc_proc_ctx;
+ 
+-void mesh_gen_get_1st_size(SIZE_S in_size, u32 *mesh_1st_size)
++static void mesh_gen_get_1st_size(SIZE_S in_size, u32 *mesh_1st_size)
+ {
+ 	u32 ori_src_width, ori_src_height, src_width_s1, src_height_s1;
+ 	u32 dst_height_s1, dst_width_s1, num_tilex_s1, num_tiley_s1;
+diff --git a/interdrv/dwa/common/cvi_vip_gdc_proc.c b/interdrv/dwa/common/cvi_vip_gdc_proc.c
+index a1ec994..f51c0cf 100644
+--- a/interdrv/dwa/common/cvi_vip_gdc_proc.c
++++ b/interdrv/dwa/common/cvi_vip_gdc_proc.c
+@@ -1,4 +1,6 @@
+ #include "cvi_vip_gdc_proc.h"
++#include <generated/utsversion.h>
++#include <linux/string.h>
+ 
+ #define GENERATE_STRING(STRING)	(#STRING),
+ #define GDC_PROC_NAME "cvitek/gdc"
+@@ -34,13 +36,13 @@ static int gdc_proc_show(struct seq_file *m, void *v)
+ 
+ 		memset(c, 0, sizeof(c));
+ 		if (pgdcCtx->stJobInfo[idx].eState == GDC_JOB_SUCCESS)
+-			strncpy(c, "SUCCESS", sizeof(c));
++			strscpy(c, "SUCCESS", sizeof(c));
+ 		else if (pgdcCtx->stJobInfo[idx].eState == GDC_JOB_FAIL)
+-			strncpy(c, "FAIL", sizeof(c));
++			strscpy(c, "FAIL", sizeof(c));
+ 		else if (pgdcCtx->stJobInfo[idx].eState == GDC_JOB_WORKING)
+-			strncpy(c, "WORKING", sizeof(c));
++			strscpy(c, "WORKING", sizeof(c));
+ 		else
+-			strncpy(c, "UNKNOWN", sizeof(c));
++			strscpy(c, "UNKNOWN", sizeof(c));
+ 
+ 		seq_printf(m, "%8s%2d%10s%10d%10s%20d%20d%20d%20d\n",
+ 				"#",
+@@ -76,13 +78,13 @@ static int gdc_proc_show(struct seq_file *m, void *v)
+ 	if (pgdcCtx->stJobInfo[idx].hHandle) {
+ 		memset(c, 0, sizeof(c));
+ 		if (pgdcCtx->stJobInfo[idx].eState == GDC_JOB_SUCCESS)
+-			strncpy(c, "SUCCESS", sizeof(c));
++			strscpy(c, "SUCCESS", sizeof(c));
+ 		else if (pgdcCtx->stJobInfo[idx].eState == GDC_JOB_FAIL)
+-			strncpy(c, "FAIL", sizeof(c));
++			strscpy(c, "FAIL", sizeof(c));
+ 		else if (pgdcCtx->stJobInfo[idx].eState == GDC_JOB_WORKING)
+-			strncpy(c, "WORKING", sizeof(c));
++			strscpy(c, "WORKING", sizeof(c));
+ 		else
+-			strncpy(c, "UNKNOWN", sizeof(c));
++			strscpy(c, "UNKNOWN", sizeof(c));
+ 
+ 		seq_printf(m, "%10s%10d%10s%20d%20d%20d%20d\n",
+ 					MOD_STRING[pgdcCtx->stJobInfo[idx].enModId],
+@@ -146,7 +148,7 @@ static int gdc_proc_show(struct seq_file *m, void *v)
+ 
+ static int gdc_proc_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, gdc_proc_show, PDE_DATA(inode));
++	return single_open(file, gdc_proc_show, pde_data(inode));
+ }
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+diff --git a/interdrv/dwa/common/dwa_platform.c b/interdrv/dwa/common/dwa_platform.c
+index 380d195..d488dce 100644
+--- a/interdrv/dwa/common/dwa_platform.c
++++ b/interdrv/dwa/common/dwa_platform.c
+@@ -237,7 +237,7 @@ static int _register_dev(struct cvi_dwa_vdev *wdev)
+ /*************************************************************************
+  *	General functions
+  *************************************************************************/
+-int dwa_create_instance(struct platform_device *pdev)
++static int dwa_create_instance(struct platform_device *pdev)
+ {
+ 	int i, rc = 0;
+ 	struct cvi_dwa_vdev *wdev;
+@@ -274,31 +274,30 @@ int dwa_create_instance(struct platform_device *pdev)
+ 
+ 	//wdev->align = LDC_ADDR_ALIGN;
+ 
+-	_register_dev(wdev);
+-
+-	wdev->shared_mem = kzalloc(GDC_SHARE_MEM_SIZE, GFP_ATOMIC);
++	wdev->shared_mem = kzalloc(GDC_SHARE_MEM_SIZE, GFP_KERNEL);
+ 	if (!wdev->shared_mem) {
+ 		pr_err("gdc shared mem alloc fail\n");
+ 		return -ENOMEM;
+ 	}
+ 
+-	if (gdc_proc_init(wdev->shared_mem) < 0)
+-		pr_err("gdc proc init failed\n");
+-
+-	if (cvi_gdc_init(wdev)) {
+-		pr_err("gdc init fail\n");
+-		goto err_work_init;
+-	}
+-
+-	mutex_init(&dwa_reg_lock);
+-
+-	return 0;
+-
+-err_work_init:
+-	return rc;
++    rc = gdc_proc_init(wdev->shared_mem);
++    if (rc) goto free_shared;
++    mutex_init(&dwa_reg_lock);
++    rc = cvi_gdc_init(wdev);
++    if (rc) goto remove_proc;
++    rc = _register_dev(wdev);
++    if (!rc) return 0;
++    dwa_stop_handler(wdev);
++remove_proc:
++    mutex_destroy(&dwa_reg_lock);
++    gdc_proc_remove();
++free_shared:
++    kfree(wdev->shared_mem);
++    wdev->shared_mem = NULL;
++    return rc;
+ }
+ 
+-int dwa_destroy_instance(struct platform_device *pdev)
++static int dwa_destroy_instance(struct platform_device *pdev)
+ {
+ 	struct cvi_dwa_vdev *wdev;
+ 
+@@ -403,7 +402,7 @@ static MOD_ID_E convert_mod_id(enum ENUM_MODULES_ID cbModId)
+ 	return CVI_ID_BUTT;
+ }
+ 
+-int dwa_cmd_cb(void *dev, enum ENUM_MODULES_ID caller, u32 cmd, void *arg)
++static int dwa_cmd_cb(void *dev, enum ENUM_MODULES_ID caller, u32 cmd, void *arg)
+ {
+ 	struct cvi_dwa_vdev *wdev = (struct cvi_dwa_vdev *)dev;
+ 	int rc = -1;
+@@ -517,7 +516,7 @@ err_irq:
+  * cvi_ldc_remove - device remove method.
+  * @pdev: Pointer of platform device.
+  */
+-static int cvi_dwa_remove(struct platform_device *pdev)
++static void cvi_dwa_remove(struct platform_device *pdev)
+ {
+ 	struct cvi_dwa_vdev *wdev;
+ 
+@@ -531,20 +530,15 @@ static int cvi_dwa_remove(struct platform_device *pdev)
+ 		dev_err(&pdev->dev, "Failed to rm dwa cb\n");
+ 	}
+ 
+-	if (!pdev) {
+-		dev_err(&pdev->dev, "invalid param");
+-		return -EINVAL;
+-	}
+-
+ 	wdev = dev_get_drvdata(&pdev->dev);
+ 	if (!wdev) {
+ 		dev_err(&pdev->dev, "Can not get cvi_vip drvdata");
+-		return 0;
++		return;
+ 	}
+ 
+ 	dev_set_drvdata(&pdev->dev, NULL);
+ 
+-	return 0;
++	return;
+ }
+ 
+ static const struct of_device_id cvi_dwa_dt_match[] = {
+@@ -553,7 +547,7 @@ static const struct of_device_id cvi_dwa_dt_match[] = {
+ };
+ 
+ #ifdef CONFIG_PM_SLEEP
+-int dwa_suspend(struct device *dev)
++static int dwa_suspend(struct device *dev)
+ {
+ 	CVI_S32 ret = CVI_SUCCESS;
+ 
+@@ -579,7 +573,7 @@ int dwa_suspend(struct device *dev)
+ 	return ret;
+ }
+ 
+-int dwa_resume(struct device *dev)
++static int dwa_resume(struct device *dev)
+ {
+ 	CVI_S32 ret = CVI_SUCCESS;
+ 
+-- 
+2.43.0
+

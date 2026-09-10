@@ -1,0 +1,1672 @@
+From 293f0e0565b8f7eaa1240026e6c9781626672b23 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 16:17:31 +0300
+Subject: [PATCH] Port CIF reset GPIO, clock and proc interfaces to modern
+ Linux
+
+---
+ interdrv/cif/chip/cv181x/cif.c                | 143 ++--
+ interdrv/cif/chip/cv181x/cif.h                |   2 +-
+ .../cif/chip/cv181x/cv181x_pinlist_swconfig.h | 676 ++++++++++++++++++
+ .../cif/chip/cv181x/cv181x_reg_fmux_gpio.h    | 482 +++++++++++++
+ interdrv/cif/chip/cv181x/pinctrl-cv181x.h     |  42 ++
+ 5 files changed, 1282 insertions(+), 63 deletions(-)
+ create mode 100644 interdrv/cif/chip/cv181x/cv181x_pinlist_swconfig.h
+ create mode 100644 interdrv/cif/chip/cv181x/cv181x_reg_fmux_gpio.h
+ create mode 100644 interdrv/cif/chip/cv181x/pinctrl-cv181x.h
+
+diff --git a/interdrv/cif/chip/cv181x/cif.c b/interdrv/cif/chip/cv181x/cif.c
+index 2e14aa5..c09ff77 100644
+--- a/interdrv/cif/chip/cv181x/cif.c
++++ b/interdrv/cif/chip/cv181x/cif.c
+@@ -3,7 +3,8 @@
+ #include <linux/interrupt.h>
+ #include <linux/of_platform.h>
+ #include <linux/of_reserved_mem.h>
+-#include <linux/of_gpio.h>
++#include <linux/gpio/consumer.h>
++#include <linux/gpio/legacy.h>
+ #include <linux/platform_device.h>
+ #include <linux/delay.h>
+ #include <linux/iommu.h>
+@@ -20,6 +21,8 @@
+ #endif
+ #include <linux/ctype.h>
+ #include <linux/version.h>
++#include <dt-bindings/gpio/gpio.h>
++#include <linux/utsname.h>
+ 
+ #ifdef CONFIG_PROC_FS
+ #include <linux/proc_fs.h>
+@@ -113,7 +116,7 @@ static struct cvi_cif_dev *file_cif_dev(struct file *file)
+ 	return container_of(file->private_data, struct cvi_cif_dev, miscdev);
+ }
+ 
+-const char *_to_string_input_mode(enum input_mode_e input_mode)
++static const char *_to_string_input_mode(enum input_mode_e input_mode)
+ {
+ 	switch (input_mode) {
+ 	case INPUT_MODE_MIPI:
+@@ -139,7 +142,7 @@ const char *_to_string_input_mode(enum input_mode_e input_mode)
+ 	}
+ }
+ 
+-const char *_to_string_mac_clk(enum rx_mac_clk_e mac_clk)
++static const char *_to_string_mac_clk(enum rx_mac_clk_e mac_clk)
+ {
+ 	switch (mac_clk) {
+ 	case RX_MAC_CLK_200M:
+@@ -157,7 +160,7 @@ const char *_to_string_mac_clk(enum rx_mac_clk_e mac_clk)
+ 	}
+ }
+ 
+-const char *_to_string_cmd(unsigned int cmd)
++static const char *_to_string_cmd(unsigned int cmd)
+ {
+ 	switch (cmd) {
+ 	case CVI_MIPI_SET_DEV_ATTR:
+@@ -196,7 +199,7 @@ const char *_to_string_cmd(unsigned int cmd)
+ 	return "unknown";
+ }
+ 
+-const char *_to_string_raw_data_type(enum raw_data_type_e raw_data_type)
++static const char *_to_string_raw_data_type(enum raw_data_type_e raw_data_type)
+ {
+ 	switch (raw_data_type) {
+ 	case RAW_DATA_8BIT:
+@@ -214,7 +217,7 @@ const char *_to_string_raw_data_type(enum raw_data_type_e raw_data_type)
+ 	}
+ }
+ 
+-const char *_to_string_mipi_wdr_mode(enum mipi_wdr_mode_e wdr)
++static const char *_to_string_mipi_wdr_mode(enum mipi_wdr_mode_e wdr)
+ {
+ 	switch (wdr) {
+ 	case CVI_MIPI_WDR_MODE_NONE:
+@@ -232,7 +235,7 @@ const char *_to_string_mipi_wdr_mode(enum mipi_wdr_mode_e wdr)
+ 	}
+ }
+ 
+-const char *_to_string_wdr_mode(enum wdr_mode_e wdr)
++static const char *_to_string_wdr_mode(enum wdr_mode_e wdr)
+ {
+ 	switch (wdr) {
+ 	case CVI_WDR_MODE_NONE:
+@@ -250,7 +253,7 @@ const char *_to_string_wdr_mode(enum wdr_mode_e wdr)
+ 	}
+ }
+ 
+-const char *_to_string_lvds_sync_mode(enum lvds_sync_mode_e mode)
++static const char *_to_string_lvds_sync_mode(enum lvds_sync_mode_e mode)
+ {
+ 	switch (mode) {
+ 	case LVDS_SYNC_MODE_SOF:
+@@ -262,7 +265,7 @@ const char *_to_string_lvds_sync_mode(enum lvds_sync_mode_e mode)
+ 	}
+ }
+ 
+-const char *_to_string_bit_endian(enum lvds_bit_endian endian)
++static const char *_to_string_bit_endian(enum lvds_bit_endian endian)
+ {
+ 	switch (endian) {
+ 	case LVDS_ENDIAN_LITTLE:
+@@ -274,7 +277,7 @@ const char *_to_string_bit_endian(enum lvds_bit_endian endian)
+ 	}
+ }
+ 
+-const char *_to_string_lvds_vsync_type(enum lvds_vsync_type_e type)
++static const char *_to_string_lvds_vsync_type(enum lvds_vsync_type_e type)
+ {
+ 	switch (type) {
+ 	case LVDS_VSYNC_NORMAL:
+@@ -288,7 +291,7 @@ const char *_to_string_lvds_vsync_type(enum lvds_vsync_type_e type)
+ 	}
+ }
+ 
+-const char *_to_string_lvds_fid_type(enum lvds_fid_type_e type)
++static const char *_to_string_lvds_fid_type(enum lvds_fid_type_e type)
+ {
+ 	switch (type) {
+ 	case LVDS_FID_NONE:
+@@ -300,7 +303,7 @@ const char *_to_string_lvds_fid_type(enum lvds_fid_type_e type)
+ 	}
+ }
+ 
+-const char *_to_string_mclk(enum cam_pll_freq_e freq)
++static const char *_to_string_mclk(enum cam_pll_freq_e freq)
+ {
+ 	switch (freq) {
+ 	case CAMPLL_FREQ_NONE:
+@@ -320,7 +323,7 @@ const char *_to_string_mclk(enum cam_pll_freq_e freq)
+ 	}
+ }
+ 
+-const char *_to_string_csi_decode(enum csi_decode_fmt_e fmt)
++static const char *_to_string_csi_decode(enum csi_decode_fmt_e fmt)
+ {
+ 	switch (fmt) {
+ 	case DEC_FMT_YUV422_8:
+@@ -338,7 +341,7 @@ const char *_to_string_csi_decode(enum csi_decode_fmt_e fmt)
+ 	}
+ }
+ 
+-const char *_to_string_dlane_state(enum mipi_dlane_state_e state)
++static const char *_to_string_dlane_state(enum mipi_dlane_state_e state)
+ {
+ 	switch (state) {
+ 	case HS_IDLE:
+@@ -360,7 +363,7 @@ const char *_to_string_dlane_state(enum mipi_dlane_state_e state)
+ 	}
+ }
+ 
+-const char *_to_string_deskew_state(enum mipi_deskew_state_e state)
++static const char *_to_string_deskew_state(enum mipi_deskew_state_e state)
+ {
+ 	switch (state) {
+ 	case DESKEW_IDLE:
+@@ -1794,7 +1797,7 @@ static int _cif_set_mac_clk(struct cvi_cif_dev *cdev, uint32_t devno,
+ 		clk_set_parent(cdev->vip_sys2.clk_o, cdev->clk_disppll.clk_o);
+ 	}
+ 
+-#if defined(CONFIG_COMMON_CLK_CVITEK)
++#if (defined(CONFIG_COMMON_CLK_CVITEK) || defined(CONFIG_CLK_SOPHGO_CV1800))
+ 	{
+ 	/* target = source * (1 + ratio) / 32, ratio <= 0x1F */
+ 	u32 tmp = clk_val * 32 / cdev->max_mac_clk;
+@@ -2121,7 +2124,7 @@ static inline int cif_set_lvds_fp_vs(struct cvi_cif_dev *dev,
+ 	return 0;
+ }
+ 
+-#if defined(CONFIG_COMMON_CLK_CVITEK)
++#if (defined(CONFIG_COMMON_CLK_CVITEK) || defined(CONFIG_CLK_SOPHGO_CV1800))
+ struct cam_pll_s {
+ //	uint32_t	pll_rate;
+ 	uint32_t	clk_rate;
+@@ -2205,7 +2208,7 @@ static int _cif_enable_snsr_clk(struct device *dev,
+ 
+ 		/* camera interface. */
+ 		// PINMUX_CONFIG(CAM_MCLK0, CAM_MCLK0);
+-	#if defined(CONFIG_COMMON_CLK_CVITEK)
++	#if (defined(CONFIG_COMMON_CLK_CVITEK) || defined(CONFIG_CLK_SOPHGO_CV1800))
+ 		(void)value;
+ 		/* set rate of clk_cam0pll */
+ 		// clk_set_rate(clk_get_parent(cdev->clk_cam0.clk_o), clk->pll_rate);
+@@ -2278,7 +2281,7 @@ static int _cif_enable_snsr_clk(struct device *dev,
+ 
+ 		/* camera interface. */
+ 		// PINMUX_CONFIG(CAM_MCLK1, CAM_MCLK1);
+-	#if defined(CONFIG_COMMON_CLK_CVITEK)
++	#if (defined(CONFIG_COMMON_CLK_CVITEK) || defined(CONFIG_CLK_SOPHGO_CV1800))
+ 		(void)value;
+ 		/* set rate of clk_cam1pll */
+ 		// clk_set_rate(clk_get_parent(cdev->clk_cam1.clk_o), clk->pll_rate);
+@@ -2378,7 +2381,7 @@ static int cif_reset_snsr_gpio(struct cvi_cif_dev *dev,
+ 		return -EINVAL;
+ 
+ 	link = &dev->link[devno];
+-	reset = (link->snsr_rst_pol == OF_GPIO_ACTIVE_LOW) ? 0 : 1;
++	reset = (link->snsr_rst_pol == GPIO_ACTIVE_LOW) ? 0 : 1;
+ 
+ 	if (!gpio_is_valid(link->snsr_rst_pin))
+ 		return 0;
+@@ -2407,27 +2410,33 @@ static inline int cif_bt_fmt_out(struct cvi_cif_dev *dev,
+ 	return 0;
+ }
+ 
++static void cif_release_legacy_gpio(void *data)
++{
++	gpio_free((unsigned long)data);
++}
++
+ static int cif_gpio_init(struct platform_device *pdev, struct snsr_rst_gpio_s snsr_gpio)
+ {
+-	struct cvi_cif_dev *dev;
++	struct cvi_cif_dev *dev = dev_get_drvdata(&pdev->dev);
+ 	struct cvi_link *link;
+-	char sns_rst_gpio_name[64];
+-	dev = dev_get_drvdata(&pdev->dev);
++	int ret;
+ 
++	if (snsr_gpio.devno >= MAX_LINK_NUM ||
++	    !gpio_is_valid(snsr_gpio.snsr_rst_pin) ||
++	    snsr_gpio.snsr_rst_pol > GPIO_ACTIVE_LOW)
++		return -EINVAL;
+ 	link = &dev->link[snsr_gpio.devno];
++	if (link->snsr_rst_pin != snsr_gpio.snsr_rst_pin) {
++		ret = gpio_request(snsr_gpio.snsr_rst_pin, "snsr-rst-gpio");
++		if (ret)
++			return ret;
++		ret = devm_add_action_or_reset(&pdev->dev, cif_release_legacy_gpio,
++					      (void *)(unsigned long)snsr_gpio.snsr_rst_pin);
++		if (ret)
++			return ret;
++	}
+ 	link->snsr_rst_pin = snsr_gpio.snsr_rst_pin;
+ 	link->snsr_rst_pol = snsr_gpio.snsr_rst_pol;
+-
+-	if (link->snsr_rst_pin < 0 || link->snsr_rst_pol < 0)
+-		return -1;
+-
+-	sprintf(sns_rst_gpio_name, "snsr-rst-gpio-%d", link->snsr_rst_pin);
+-
+-	if (gpio_request(link->snsr_rst_pin, sns_rst_gpio_name))
+-		return 0;
+-
+-	dev_info(&pdev->dev, "rst_pin = %d, pol = %d\n", link->snsr_rst_pin, link->snsr_rst_pol);
+-
+ 	return 0;
+ }
+ 
+@@ -2934,36 +2943,50 @@ static int _init_resource(struct platform_device *pdev)
+ 		link->cif_ctx.mac_num = i;
+ 	}
+ 
+-	/* reset pin */
++	/* GPIO descriptors own DT reset lines for the device lifetime. */
+ 	for (i = 0; i < MAX_LINK_NUM; ++i) {
++		struct gpio_desc *reset_gpio;
++
+ 		link = &dev->link[i];
+ 		link->dev = &pdev->dev;
+ 		link->mac_clk = RX_MAC_CLK_400M;
+-		link->snsr_rst_pin = of_get_named_gpio_flags(pdev->dev.of_node,
+-				"snsr-reset", i, &link->snsr_rst_pol);
+-		if (link->snsr_rst_pin < 0)
+-			break;
+-
+-		if (gpio_request(link->snsr_rst_pin, "snsr-rst-gpio"))
+-			return 0;
+-
+-		dev_info(&pdev->dev, "rst_pin = %d, pol = %d\n",
+-			link->snsr_rst_pin, link->snsr_rst_pol);
++		link->snsr_rst_pin = -1;
++		reset_gpio = devm_gpiod_get_index_optional(&pdev->dev,
++							 "snsr-reset", i, GPIOD_ASIS);
++		if (IS_ERR(reset_gpio))
++			return dev_err_probe(&pdev->dev, PTR_ERR(reset_gpio),
++					     "cannot get sensor reset GPIO\n");
++		if (!reset_gpio)
++			continue;
++		link->snsr_rst_pin = desc_to_gpio(reset_gpio);
++		link->snsr_rst_pol = gpiod_is_active_low(reset_gpio);
+ 	}
+ 
+ 	/* sw reset */
+ 	link = &dev->link[0];
+ 	link->phy_reset = devm_reset_control_get(&pdev->dev, "phy0");
++	if (IS_ERR(link->phy_reset))
++		return dev_err_probe(&pdev->dev, PTR_ERR(link->phy_reset),
++				     "cannot get phy0 reset\n");
+ 	if (link->phy_reset)
+ 		dev_info(&pdev->dev, "phy0 reset installed\n");
+ 	link->phy_apb_reset = devm_reset_control_get(&pdev->dev, "phy-apb0");
++	if (IS_ERR(link->phy_apb_reset))
++		return dev_err_probe(&pdev->dev, PTR_ERR(link->phy_apb_reset),
++				     "cannot get phy-apb0 reset\n");
+ 	if (link->phy_apb_reset)
+ 		dev_info(&pdev->dev, "phy0 apb reset installed\n");
+ 	link = &dev->link[1];
+ 	link->phy_reset = devm_reset_control_get(&pdev->dev, "phy1");
++	if (IS_ERR(link->phy_reset))
++		return dev_err_probe(&pdev->dev, PTR_ERR(link->phy_reset),
++				     "cannot get phy1 reset\n");
+ 	if (link->phy_reset)
+ 		dev_info(&pdev->dev, "phy1 reset installed\n");
+ 	link->phy_apb_reset = devm_reset_control_get(&pdev->dev, "phy-apb1");
++	if (IS_ERR(link->phy_apb_reset))
++		return dev_err_probe(&pdev->dev, PTR_ERR(link->phy_apb_reset),
++				     "cannot get phy-apb1 reset\n");
+ 	if (link->phy_apb_reset)
+ 		dev_info(&pdev->dev, "phy1 apb reset installed\n");
+ #endif
+@@ -3099,7 +3122,7 @@ static int proc_cif_show(struct seq_file *m, void *v)
+ 	int i;
+ 
+ 	seq_printf(m, "\nModule: [MIPI_RX], Build Time[%s]\n",
+-			UTS_VERSION);
++			init_utsname()->version);
+ 	seq_puts(m, "\n------------Combo DEV ATTR--------------\n");
+ 	for (i = 0; i < MAX_LINK_NUM; i++)
+ 		if (dev->link[i].is_on)
+@@ -3179,7 +3202,7 @@ static int dbg_hdler(struct cvi_cif_dev *dev, char const *input)
+ 	switch (t) {
+ 	case 0:
+ 		/* reset */
+-		if (a > MAX_LINK_NUM)
++		if (a >= MAX_LINK_NUM)
+ 			return -EINVAL;
+ 
+ 		link = &dev->link[a];
+@@ -3198,7 +3221,7 @@ static int dbg_hdler(struct cvi_cif_dev *dev, char const *input)
+ 		break;
+ 	case 1:
+ 		/* hs-settle */
+-		if (a > MAX_LINK_NUM)
++		if (a >= MAX_LINK_NUM)
+ 			return -EINVAL;
+ 
+ 		link = &dev->link[a];
+@@ -3208,13 +3231,13 @@ static int dbg_hdler(struct cvi_cif_dev *dev, char const *input)
+ 		break;
+ 	case 2:
+ 		/* sensor reset */
+-		if (a > MAX_LINK_NUM)
++		if (a >= MAX_LINK_NUM)
+ 			return -EINVAL;
+ 
+ 		link = &dev->link[a];
+ 		ctx = &link->cif_ctx;
+ 
+-		reset = (link->snsr_rst_pol == OF_GPIO_ACTIVE_LOW) ? 0 : 1;
++		reset = (link->snsr_rst_pol == GPIO_ACTIVE_LOW) ? 0 : 1;
+ 
+ 		if (!gpio_is_valid(link->snsr_rst_pin))
+ 			return 0;
+@@ -3237,7 +3260,7 @@ static int dbg_hdler(struct cvi_cif_dev *dev, char const *input)
+ 		break;
+ 	case 4:
+ 		/* bt format out */
+-		if (a > MAX_LINK_NUM)
++		if (a >= MAX_LINK_NUM)
+ 			return -EINVAL;
+ 
+ 		link = &dev->link[a];
+@@ -3268,7 +3291,7 @@ static int dbg_hdler(struct cvi_cif_dev *dev, char const *input)
+ 
+ static ssize_t cif_proc_write(struct file *file, const char __user *user_buf, size_t count, loff_t *ppos)
+ {
+-	struct cvi_cif_dev *dev = PDE_DATA(file_inode(file));
++	struct cvi_cif_dev *dev = pde_data(file_inode(file));
+ #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+ 	char txt_buff[MAX_CIF_PROC_BUF];
+ 
+@@ -3286,7 +3309,7 @@ static ssize_t cif_proc_write(struct file *file, const char __user *user_buf, si
+ 
+ static int proc_cif_open(struct inode *inode, struct file *file)
+ {
+-	struct cvi_cif_dev *dev = PDE_DATA(inode);
++	struct cvi_cif_dev *dev = pde_data(inode);
+ 
+ 	return single_open(file, proc_cif_show, dev);
+ }
+@@ -3350,14 +3373,10 @@ static int cvi_cif_probe(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-static int cvi_cif_remove(struct platform_device *pdev)
++static void cvi_cif_remove(struct platform_device *pdev)
+ {
+ 	struct cvi_cif_dev *dev;
+ 
+-	if (!pdev) {
+-		dev_err(&pdev->dev, "invalid param");
+-		return -EINVAL;
+-	}
+ 
+ 	/* rm cif_cb */
+ 	if (cif_rm_cb())
+@@ -3366,7 +3385,7 @@ static int cvi_cif_remove(struct platform_device *pdev)
+ 	dev = dev_get_drvdata(&pdev->dev);
+ 	if (!dev) {
+ 		dev_err(&pdev->dev, "Can not get cvi_cif drvdata");
+-		return 0;
++		return;
+ 	}
+ 
+ 	misc_deregister(&dev->miscdev);
+@@ -3375,18 +3394,18 @@ static int cvi_cif_remove(struct platform_device *pdev)
+ #ifdef CONFIG_PROC_FS
+ 	proc_remove(cif_proc_entry);
+ #endif
+-	return 0;
++	return;
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
+-void sensor_i2c_write(struct isp_i2c_data *i2c_data, unsigned short reg_addr, unsigned short data)
++static void sensor_i2c_write(struct isp_i2c_data *i2c_data, unsigned short reg_addr, unsigned short data)
+ {
+ 	i2c_data->reg_addr = reg_addr;
+ 	i2c_data->data = data;
+ 	vip_sys_cmm_cb_i2c(CVI_SNS_I2C_WRITE, (void *)i2c_data);
+ }
+ 
+-void sensor_standby_restart(struct cvi_cif_dev *dev, bool enable)
++static void sensor_standby_restart(struct cvi_cif_dev *dev, bool enable)
+ {
+ 	int i;
+ 	struct isp_i2c_data *i2c_data;
+diff --git a/interdrv/cif/chip/cv181x/cif.h b/interdrv/cif/chip/cv181x/cif.h
+index 75e1428..cd6ca37 100644
+--- a/interdrv/cif/chip/cv181x/cif.h
++++ b/interdrv/cif/chip/cv181x/cif.h
+@@ -32,7 +32,7 @@ struct cvi_link {
+ 	unsigned int			crop_top;
+ 	unsigned int			distance_fp;
+ 	int				snsr_rst_pin;
+-	enum of_gpio_flags		snsr_rst_pol;
++	unsigned int		snsr_rst_pol;
+ 	union {
+ 		struct cvi_csi_status	sts_csi;
+ 		struct cvi_lvds_status	sts_lvds;
+diff --git a/interdrv/cif/chip/cv181x/cv181x_pinlist_swconfig.h b/interdrv/cif/chip/cv181x/cv181x_pinlist_swconfig.h
+new file mode 100644
+index 0000000..6c023c0
+--- /dev/null
++++ b/interdrv/cif/chip/cv181x/cv181x_pinlist_swconfig.h
+@@ -0,0 +1,676 @@
++//##==============================================================================
++//##=== This script is generate by genswconfig.pl from .\00_CV181X_Pinlist_20210827.xls
++//##=== Generate Time stamp is : 2021-08-27 20:43:11
++//##==============================================================================
++
++#ifndef __CV181X_PINLIST_SWCONFIG_H__
++#define __CV181X_PINLIST_SWCONFIG_H__
++
++
++#define CAM_MCLK0__CAM_MCLK0 0
++#define CAM_MCLK0__AUX1 2
++#define CAM_MCLK0__XGPIOA_0 3
++#define CAM_PD0__IIS1_MCLK 1
++#define CAM_PD0__XGPIOA_1 3
++#define CAM_PD0__CAM_HS0 4
++#define CAM_RST0__XGPIOA_2 3
++#define CAM_RST0__CAM_VS0 4
++#define CAM_RST0__IIC4_SCL 6
++#define CAM_MCLK1__CAM_MCLK1 0
++#define CAM_MCLK1__AUX2 2
++#define CAM_MCLK1__XGPIOA_3 3
++#define CAM_MCLK1__CAM_HS0 4
++#define CAM_PD1__IIS1_MCLK 1
++#define CAM_PD1__XGPIOA_4 3
++#define CAM_PD1__CAM_VS0 4
++#define CAM_PD1__IIC4_SDA 6
++#define IIC3_SCL__IIC3_SCL 0
++#define IIC3_SCL__XGPIOA_5 3
++#define IIC3_SDA__IIC3_SDA 0
++#define IIC3_SDA__XGPIOA_6 3
++#define SD0_CLK__SDIO0_CLK 0
++#define SD0_CLK__IIC1_SDA 1
++#define SD0_CLK__SPI0_SCK 2
++#define SD0_CLK__XGPIOA_7 3
++#define SD0_CLK__PWM_15 5
++#define SD0_CLK__EPHY_LNK_LED 6
++#define SD0_CLK__DBG_0 7
++#define SD0_CMD__SDIO0_CMD 0
++#define SD0_CMD__IIC1_SCL 1
++#define SD0_CMD__SPI0_SDO 2
++#define SD0_CMD__XGPIOA_8 3
++#define SD0_CMD__PWM_14 5
++#define SD0_CMD__EPHY_SPD_LED 6
++#define SD0_CMD__DBG_1 7
++#define SD0_D0__SDIO0_D_0 0
++#define SD0_D0__CAM_MCLK1 1
++#define SD0_D0__SPI0_SDI 2
++#define SD0_D0__XGPIOA_9 3
++#define SD0_D0__UART3_TX 4
++#define SD0_D0__PWM_13 5
++#define SD0_D0__WG0_D0 6
++#define SD0_D0__DBG_2 7
++#define SD0_D1__SDIO0_D_1 0
++#define SD0_D1__IIC1_SDA 1
++#define SD0_D1__AUX0 2
++#define SD0_D1__XGPIOA_10 3
++#define SD0_D1__UART1_TX 4
++#define SD0_D1__PWM_12 5
++#define SD0_D1__WG0_D1 6
++#define SD0_D1__DBG_3 7
++#define SD0_D2__SDIO0_D_2 0
++#define SD0_D2__IIC1_SCL 1
++#define SD0_D2__AUX1 2
++#define SD0_D2__XGPIOA_11 3
++#define SD0_D2__UART1_RX 4
++#define SD0_D2__PWM_11 5
++#define SD0_D2__WG1_D0 6
++#define SD0_D2__DBG_4 7
++#define SD0_D3__SDIO0_D_3 0
++#define SD0_D3__CAM_MCLK0 1
++#define SD0_D3__SPI0_CS_X 2
++#define SD0_D3__XGPIOA_12 3
++#define SD0_D3__UART3_RX 4
++#define SD0_D3__PWM_10 5
++#define SD0_D3__WG1_D1 6
++#define SD0_D3__DBG_5 7
++#define SD0_CD__SDIO0_CD 0
++#define SD0_CD__XGPIOA_13 3
++#define SD0_PWR_EN__SDIO0_PWR_EN 0
++#define SD0_PWR_EN__XGPIOA_14 3
++#define SPK_EN__XGPIOA_15 3
++#define UART0_TX__UART0_TX 0
++#define UART0_TX__CAM_MCLK1 1
++#define UART0_TX__PWM_4 2
++#define UART0_TX__XGPIOA_16 3
++#define UART0_TX__UART1_TX 4
++#define UART0_TX__AUX1 5
++#define UART0_TX__DBG_6 7
++#define UART0_RX__UART0_RX 0
++#define UART0_RX__CAM_MCLK0 1
++#define UART0_RX__PWM_5 2
++#define UART0_RX__XGPIOA_17 3
++#define UART0_RX__UART1_RX 4
++#define UART0_RX__AUX0 5
++#define UART0_RX__DBG_7 7
++#define EMMC_RSTN__EMMC_RSTN 0
++#define EMMC_RSTN__XGPIOA_21 3
++#define EMMC_RSTN__AUX2 4
++#define EMMC_DAT2__EMMC_DAT_2 0
++#define EMMC_DAT2__SPINOR_HOLD_X 1
++#define EMMC_DAT2__SPINAND_HOLD 2
++#define EMMC_DAT2__XGPIOA_26 3
++#define EMMC_CLK__EMMC_CLK 0
++#define EMMC_CLK__SPINOR_SCK 1
++#define EMMC_CLK__SPINAND_CLK 2
++#define EMMC_CLK__XGPIOA_22 3
++#define EMMC_DAT0__EMMC_DAT_0 0
++#define EMMC_DAT0__SPINOR_MOSI 1
++#define EMMC_DAT0__SPINAND_MOSI 2
++#define EMMC_DAT0__XGPIOA_25 3
++#define EMMC_DAT3__EMMC_DAT_3 0
++#define EMMC_DAT3__SPINOR_WP_X 1
++#define EMMC_DAT3__SPINAND_WP 2
++#define EMMC_DAT3__XGPIOA_27 3
++#define EMMC_CMD__EMMC_CMD 0
++#define EMMC_CMD__SPINOR_MISO 1
++#define EMMC_CMD__SPINAND_MISO 2
++#define EMMC_CMD__XGPIOA_23 3
++#define EMMC_DAT1__EMMC_DAT_1 0
++#define EMMC_DAT1__SPINOR_CS_X 1
++#define EMMC_DAT1__SPINAND_CS 2
++#define EMMC_DAT1__XGPIOA_24 3
++#define JTAG_CPU_TMS__CV_2WTMS_CR_4WTMS 0
++#define JTAG_CPU_TMS__CAM_MCLK0 1
++#define JTAG_CPU_TMS__PWM_7 2
++#define JTAG_CPU_TMS__XGPIOA_19 3
++#define JTAG_CPU_TMS__UART1_RTS 4
++#define JTAG_CPU_TMS__AUX0 5
++#define JTAG_CPU_TMS__UART1_TX 6
++#define JTAG_CPU_TMS__VO_D_28 7
++#define JTAG_CPU_TCK__CV_2WTCK_CR_4WTCK 0
++#define JTAG_CPU_TCK__CAM_MCLK1 1
++#define JTAG_CPU_TCK__PWM_6 2
++#define JTAG_CPU_TCK__XGPIOA_18 3
++#define JTAG_CPU_TCK__UART1_CTS 4
++#define JTAG_CPU_TCK__AUX1 5
++#define JTAG_CPU_TCK__UART1_RX 6
++#define JTAG_CPU_TCK__VO_D_29 7
++#define JTAG_CPU_TRST__JTAG_CPU_TRST 0
++#define JTAG_CPU_TRST__XGPIOA_20 3
++#define JTAG_CPU_TRST__VO_D_30 6
++#define IIC0_SCL__CV_SCL0__CR_4WTDI 0
++#define IIC0_SCL__UART1_TX 1
++#define IIC0_SCL__UART2_TX 2
++#define IIC0_SCL__XGPIOA_28 3
++#define IIC0_SCL__WG0_D0 5
++#define IIC0_SCL__DBG_10 7
++#define IIC0_SDA__CV_SDA0__CR_4WTDO 0
++#define IIC0_SDA__UART1_RX 1
++#define IIC0_SDA__UART2_RX 2
++#define IIC0_SDA__XGPIOA_29 3
++#define IIC0_SDA__WG0_D1 5
++#define IIC0_SDA__WG1_D0 6
++#define IIC0_SDA__DBG_11 7
++#define AUX0__AUX0 0
++#define AUX0__XGPIOA_30 3
++#define AUX0__IIS1_MCLK 4
++#define AUX0__VO_D_31 5
++#define AUX0__WG1_D1 6
++#define AUX0__DBG_12 7
++#define PWR_VBAT_DET__PWR_VBAT_DET 0
++#define PWR_RSTN__PWR_RSTN 0
++#define PWR_SEQ1__PWR_SEQ1 0
++#define PWR_SEQ1__PWR_GPIO_3 3
++#define PWR_SEQ2__PWR_SEQ2 0
++#define PWR_SEQ2__PWR_GPIO_4 3
++#define PWR_SEQ3__PWR_SEQ3 0
++#define PWR_SEQ3__PWR_GPIO_5 3
++#define PTEST__PWR_PTEST 0
++#define PWR_WAKEUP0__PWR_WAKEUP0 0
++#define PWR_WAKEUP0__PWR_IR0 1
++#define PWR_WAKEUP0__PWR_UART0_TX 2
++#define PWR_WAKEUP0__PWR_GPIO_6 3
++#define PWR_WAKEUP0__UART1_TX 4
++#define PWR_WAKEUP0__IIC4_SCL 5
++#define PWR_WAKEUP0__EPHY_LNK_LED 6
++#define PWR_WAKEUP0__WG2_D0 7
++#define PWR_WAKEUP1__PWR_WAKEUP1 0
++#define PWR_WAKEUP1__PWR_IR1 1
++#define PWR_WAKEUP1__PWR_GPIO_7 3
++#define PWR_WAKEUP1__UART1_TX 4
++#define PWR_WAKEUP1__IIC4_SCL 5
++#define PWR_WAKEUP1__EPHY_LNK_LED 6
++#define PWR_WAKEUP1__WG0_D0 7
++#define PWR_BUTTON1__PWR_BUTTON1 0
++#define PWR_BUTTON1__PWR_GPIO_8 3
++#define PWR_BUTTON1__UART1_RX 4
++#define PWR_BUTTON1__IIC4_SDA 5
++#define PWR_BUTTON1__EPHY_SPD_LED 6
++#define PWR_BUTTON1__WG2_D1 7
++#define PWR_ON__PWR_ON 0
++#define PWR_ON__PWR_GPIO_9 3
++#define PWR_ON__UART1_RX 4
++#define PWR_ON__IIC4_SDA 5
++#define PWR_ON__EPHY_SPD_LED 6
++#define PWR_ON__WG0_D1 7
++#define XTAL_XIN__PWR_XTAL_CLKIN 0
++#define PWR_GPIO0__PWR_GPIO_0 0
++#define PWR_GPIO0__UART2_TX 1
++#define PWR_GPIO0__PWR_UART0_RX 2
++#define PWR_GPIO0__PWM_8 4
++#define PWR_GPIO1__PWR_GPIO_1 0
++#define PWR_GPIO1__UART2_RX 1
++#define PWR_GPIO1__EPHY_LNK_LED 3
++#define PWR_GPIO1__PWM_9 4
++#define PWR_GPIO1__PWR_IIC_SCL 5
++#define PWR_GPIO1__IIC2_SCL 6
++#define PWR_GPIO1__CV_4WTMS_CR_SDA0 7
++#define PWR_GPIO2__PWR_GPIO_2 0
++#define PWR_GPIO2__PWR_SECTICK 2
++#define PWR_GPIO2__EPHY_SPD_LED 3
++#define PWR_GPIO2__PWM_10 4
++#define PWR_GPIO2__PWR_IIC_SDA 5
++#define PWR_GPIO2__IIC2_SDA 6
++#define PWR_GPIO2__CV_4WTCK_CR_2WTCK 7
++#define CLK32K__CLK32K 0
++#define CLK32K__AUX0 1
++#define CLK32K__CV_4WTDI_CR_SCL0 2
++#define CLK32K__PWR_GPIO_10 3
++#define CLK32K__PWM_2 4
++#define CLK32K__KEY_COL0 5
++#define CLK32K__CAM_MCLK0 6
++#define CLK32K__DBG_0 7
++#define CLK25M__CLK25M 0
++#define CLK25M__AUX1 1
++#define CLK25M__CV_4WTDO_CR_2WTMS 2
++#define CLK25M__PWR_GPIO_11 3
++#define CLK25M__PWM_3 4
++#define CLK25M__KEY_COL1 5
++#define CLK25M__CAM_MCLK1 6
++#define CLK25M__DBG_1 7
++#define IIC2_SCL__IIC2_SCL 0
++#define IIC2_SCL__PWM_14 1
++#define IIC2_SCL__PWR_GPIO_12 3
++#define IIC2_SCL__UART2_RX 4
++#define IIC2_SCL__KEY_COL2 7
++#define IIC2_SDA__IIC2_SDA 0
++#define IIC2_SDA__PWM_15 1
++#define IIC2_SDA__PWR_GPIO_13 3
++#define IIC2_SDA__UART2_TX 4
++#define IIC2_SDA__IIS1_MCLK 5
++#define IIC2_SDA__IIS2_MCLK 6
++#define IIC2_SDA__KEY_COL3 7
++#define UART2_TX__UART2_TX 0
++#define UART2_TX__PWM_11 1
++#define UART2_TX__PWR_UART1_TX 2
++#define UART2_TX__PWR_GPIO_14 3
++#define UART2_TX__KEY_ROW3 4
++#define UART2_TX__UART4_TX 5
++#define UART2_TX__IIS2_BCLK 6
++#define UART2_TX__WG2_D0 7
++#define UART2_RTS__UART2_RTS 0
++#define UART2_RTS__PWM_8 1
++#define UART2_RTS__PWR_GPIO_15 3
++#define UART2_RTS__KEY_ROW0 4
++#define UART2_RTS__UART4_RTS 5
++#define UART2_RTS__IIS2_DO 6
++#define UART2_RTS__WG1_D0 7
++#define UART2_RX__UART2_RX 0
++#define UART2_RX__PWM_10 1
++#define UART2_RX__PWR_UART1_RX 2
++#define UART2_RX__PWR_GPIO_16 3
++#define UART2_RX__KEY_COL3 4
++#define UART2_RX__UART4_RX 5
++#define UART2_RX__IIS2_DI 6
++#define UART2_RX__WG2_D1 7
++#define UART2_CTS__UART2_CTS 0
++#define UART2_CTS__PWM_9 1
++#define UART2_CTS__PWR_GPIO_17 3
++#define UART2_CTS__KEY_ROW1 4
++#define UART2_CTS__UART4_CTS 5
++#define UART2_CTS__IIS2_LRCK 6
++#define UART2_CTS__WG1_D1 7
++#define SD1_D3__PWR_SD1_D3_VO32 0
++#define SD1_D3__SPI2_CS_X 1
++#define SD1_D3__IIC1_SCL 2
++#define SD1_D3__PWR_GPIO_18 3
++#define SD1_D3__CAM_MCLK0 4
++#define SD1_D3__UART3_CTS 5
++#define SD1_D3__PWR_SPINOR1_CS_X 6
++#define SD1_D3__PWM_4 7
++#define SD1_D2__PWR_SD1_D2_VO33 0
++#define SD1_D2__IIC1_SCL 1
++#define SD1_D2__UART2_TX 2
++#define SD1_D2__PWR_GPIO_19 3
++#define SD1_D2__CAM_MCLK0 4
++#define SD1_D2__UART3_TX 5
++#define SD1_D2__PWR_SPINOR1_HOLD_X 6
++#define SD1_D2__PWM_5 7
++#define SD1_D1__PWR_SD1_D1_VO34 0
++#define SD1_D1__IIC1_SDA 1
++#define SD1_D1__UART2_RX 2
++#define SD1_D1__PWR_GPIO_20 3
++#define SD1_D1__CAM_MCLK1 4
++#define SD1_D1__UART3_RX 5
++#define SD1_D1__PWR_SPINOR1_WP_X 6
++#define SD1_D1__PWM_6 7
++#define SD1_D0__PWR_SD1_D0_VO35 0
++#define SD1_D0__SPI2_SDI 1
++#define SD1_D0__IIC1_SDA 2
++#define SD1_D0__PWR_GPIO_21 3
++#define SD1_D0__CAM_MCLK1 4
++#define SD1_D0__UART3_RTS 5
++#define SD1_D0__PWR_SPINOR1_MISO 6
++#define SD1_D0__PWM_7 7
++#define SD1_CMD__PWR_SD1_CMD_VO36 0
++#define SD1_CMD__SPI2_SDO 1
++#define SD1_CMD__IIC3_SCL 2
++#define SD1_CMD__PWR_GPIO_22 3
++#define SD1_CMD__CAM_VS0 4
++#define SD1_CMD__EPHY_LNK_LED 5
++#define SD1_CMD__PWR_SPINOR1_MOSI 6
++#define SD1_CMD__PWM_8 7
++#define SD1_CLK__PWR_SD1_CLK_VO37 0
++#define SD1_CLK__SPI2_SCK 1
++#define SD1_CLK__IIC3_SDA 2
++#define SD1_CLK__PWR_GPIO_23 3
++#define SD1_CLK__CAM_HS0 4
++#define SD1_CLK__EPHY_SPD_LED 5
++#define SD1_CLK__PWR_SPINOR1_SCK 6
++#define SD1_CLK__PWM_9 7
++#define RSTN__RSTN 0
++#define PWM0_BUCK__PWM_0 0
++#define PWM0_BUCK__XGPIOB_0 3
++#define ADC3__CAM_MCLK0 1
++#define ADC3__IIC4_SCL 2
++#define ADC3__XGPIOB_1 3
++#define ADC3__PWM_12 4
++#define ADC3__EPHY_LNK_LED 5
++#define ADC3__WG2_D0 6
++#define ADC3__UART3_TX 7
++#define ADC2__CAM_MCLK1 1
++#define ADC2__IIC4_SDA 2
++#define ADC2__XGPIOB_2 3
++#define ADC2__PWM_13 4
++#define ADC2__EPHY_SPD_LED 5
++#define ADC2__WG2_D1 6
++#define ADC2__UART3_RX 7
++#define ADC1__XGPIOB_3 3
++#define ADC1__KEY_COL2 4
++#define USB_ID__USB_ID 0
++#define USB_ID__XGPIOB_4 3
++#define USB_VBUS_EN__USB_VBUS_EN 0
++#define USB_VBUS_EN__XGPIOB_5 3
++#define PKG_TYPE0__PKG_TYPE0 0
++#define USB_VBUS_DET__USB_VBUS_DET 0
++#define USB_VBUS_DET__XGPIOB_6 3
++#define USB_VBUS_DET__CAM_MCLK0 4
++#define USB_VBUS_DET__CAM_MCLK1 5
++#define PKG_TYPE1__PKG_TYPE1 0
++#define PKG_TYPE2__PKG_TYPE2 0
++#define MUX_SPI1_MISO__UART3_RTS 1
++#define MUX_SPI1_MISO__IIC1_SDA 2
++#define MUX_SPI1_MISO__XGPIOB_8 3
++#define MUX_SPI1_MISO__PWM_9 4
++#define MUX_SPI1_MISO__KEY_COL1 5
++#define MUX_SPI1_MISO__SPI1_SDI 6
++#define MUX_SPI1_MISO__DBG_14 7
++#define MUX_SPI1_MOSI__UART3_RX 1
++#define MUX_SPI1_MOSI__IIC1_SCL 2
++#define MUX_SPI1_MOSI__XGPIOB_7 3
++#define MUX_SPI1_MOSI__PWM_8 4
++#define MUX_SPI1_MOSI__KEY_COL0 5
++#define MUX_SPI1_MOSI__SPI1_SDO 6
++#define MUX_SPI1_MOSI__DBG_13 7
++#define MUX_SPI1_CS__UART3_CTS 1
++#define MUX_SPI1_CS__CAM_MCLK0 2
++#define MUX_SPI1_CS__XGPIOB_10 3
++#define MUX_SPI1_CS__PWM_11 4
++#define MUX_SPI1_CS__KEY_ROW3 5
++#define MUX_SPI1_CS__SPI1_CS_X 6
++#define MUX_SPI1_CS__DBG_16 7
++#define MUX_SPI1_SCK__UART3_TX 1
++#define MUX_SPI1_SCK__CAM_MCLK1 2
++#define MUX_SPI1_SCK__XGPIOB_9 3
++#define MUX_SPI1_SCK__PWM_10 4
++#define MUX_SPI1_SCK__KEY_ROW2 5
++#define MUX_SPI1_SCK__SPI1_SCK 6
++#define MUX_SPI1_SCK__DBG_15 7
++#define PAD_ETH_TXP__UART3_RX 1
++#define PAD_ETH_TXP__IIC1_SCL 2
++#define PAD_ETH_TXP__XGPIOB_25 3
++#define PAD_ETH_TXP__PWM_13 4
++#define PAD_ETH_TXP__CAM_MCLK0 5
++#define PAD_ETH_TXP__SPI1_SDO 6
++#define PAD_ETH_TXP__IIS2_LRCK 7
++#define PAD_ETH_TXM__UART3_RTS 1
++#define PAD_ETH_TXM__IIC1_SDA 2
++#define PAD_ETH_TXM__XGPIOB_24 3
++#define PAD_ETH_TXM__PWM_12 4
++#define PAD_ETH_TXM__CAM_MCLK1 5
++#define PAD_ETH_TXM__SPI1_SDI 6
++#define PAD_ETH_TXM__IIS2_BCLK 7
++#define PAD_ETH_RXP__UART3_TX 1
++#define PAD_ETH_RXP__CAM_MCLK1 2
++#define PAD_ETH_RXP__XGPIOB_27 3
++#define PAD_ETH_RXP__PWM_15 4
++#define PAD_ETH_RXP__CAM_HS0 5
++#define PAD_ETH_RXP__SPI1_SCK 6
++#define PAD_ETH_RXP__IIS2_DO 7
++#define PAD_ETH_RXM__UART3_CTS 1
++#define PAD_ETH_RXM__CAM_MCLK0 2
++#define PAD_ETH_RXM__XGPIOB_26 3
++#define PAD_ETH_RXM__PWM_14 4
++#define PAD_ETH_RXM__CAM_VS0 5
++#define PAD_ETH_RXM__SPI1_CS_X 6
++#define PAD_ETH_RXM__IIS2_DI 7
++#define VIVO_D10__PWM_1 0
++#define VIVO_D10__VI1_D_10 1
++#define VIVO_D10__VO_D_23 2
++#define VIVO_D10__XGPIOB_11 3
++#define VIVO_D10__RMII0_IRQ 4
++#define VIVO_D10__CAM_MCLK0 5
++#define VIVO_D10__IIC1_SDA 6
++#define VIVO_D10__UART2_TX 7
++#define VIVO_D9__PWM_2 0
++#define VIVO_D9__VI1_D_9 1
++#define VIVO_D9__VO_D_22 2
++#define VIVO_D9__XGPIOB_12 3
++#define VIVO_D9__CAM_MCLK1 5
++#define VIVO_D9__IIC1_SCL 6
++#define VIVO_D9__UART2_RX 7
++#define VIVO_D8__PWM_3 0
++#define VIVO_D8__VI1_D_8 1
++#define VIVO_D8__VO_D_21 2
++#define VIVO_D8__XGPIOB_13 3
++#define VIVO_D8__RMII0_MDIO 4
++#define VIVO_D8__SPI3_SDO 5
++#define VIVO_D8__IIC2_SCL 6
++#define VIVO_D8__CAM_VS0 7
++#define VIVO_D7__VI2_D_7 0
++#define VIVO_D7__VI1_D_7 1
++#define VIVO_D7__VO_D_20 2
++#define VIVO_D7__XGPIOB_14 3
++#define VIVO_D7__RMII0_RXD1 4
++#define VIVO_D7__SPI3_SDI 5
++#define VIVO_D7__IIC2_SDA 6
++#define VIVO_D7__CAM_HS0 7
++#define VIVO_D6__VI2_D_6 0
++#define VIVO_D6__VI1_D_6 1
++#define VIVO_D6__VO_D_19 2
++#define VIVO_D6__XGPIOB_15 3
++#define VIVO_D6__RMII0_REFCLKI 4
++#define VIVO_D6__SPI3_SCK 5
++#define VIVO_D6__UART2_TX 6
++#define VIVO_D6__CAM_VS0 7
++#define VIVO_D5__VI2_D_5 0
++#define VIVO_D5__VI1_D_5 1
++#define VIVO_D5__VO_D_18 2
++#define VIVO_D5__XGPIOB_16 3
++#define VIVO_D5__RMII0_RXD0 4
++#define VIVO_D5__SPI3_CS_X 5
++#define VIVO_D5__UART2_RX 6
++#define VIVO_D5__CAM_HS0 7
++#define VIVO_D4__VI2_D_4 0
++#define VIVO_D4__VI1_D_4 1
++#define VIVO_D4__VO_D_17 2
++#define VIVO_D4__XGPIOB_17 3
++#define VIVO_D4__RMII0_MDC 4
++#define VIVO_D4__IIC1_SDA 5
++#define VIVO_D4__UART2_CTS 6
++#define VIVO_D4__CAM_VS0 7
++#define VIVO_D3__VI2_D_3 0
++#define VIVO_D3__VI1_D_3 1
++#define VIVO_D3__VO_D_16 2
++#define VIVO_D3__XGPIOB_18 3
++#define VIVO_D3__RMII0_TXD0 4
++#define VIVO_D3__IIC1_SCL 5
++#define VIVO_D3__UART2_RTS 6
++#define VIVO_D3__CAM_HS0 7
++#define VIVO_D2__VI2_D_2 0
++#define VIVO_D2__VI1_D_2 1
++#define VIVO_D2__VO_D_15 2
++#define VIVO_D2__XGPIOB_19 3
++#define VIVO_D2__RMII0_TXD1 4
++#define VIVO_D2__CAM_MCLK1 5
++#define VIVO_D2__PWM_2 6
++#define VIVO_D2__UART2_TX 7
++#define VIVO_D1__VI2_D_1 0
++#define VIVO_D1__VI1_D_1 1
++#define VIVO_D1__VO_D_14 2
++#define VIVO_D1__XGPIOB_20 3
++#define VIVO_D1__RMII0_RXDV 4
++#define VIVO_D1__IIC3_SDA 5
++#define VIVO_D1__PWM_3 6
++#define VIVO_D1__IIC4_SCL 7
++#define VIVO_D0__VI2_D_0 0
++#define VIVO_D0__VI1_D_0 1
++#define VIVO_D0__VO_D_13 2
++#define VIVO_D0__XGPIOB_21 3
++#define VIVO_D0__RMII0_TXCLK 4
++#define VIVO_D0__IIC3_SCL 5
++#define VIVO_D0__WG1_D0 6
++#define VIVO_D0__IIC4_SDA 7
++#define VIVO_CLK__VI2_CLK 0
++#define VIVO_CLK__VI1_CLK 1
++#define VIVO_CLK__VO_CLK1 2
++#define VIVO_CLK__XGPIOB_22 3
++#define VIVO_CLK__RMII0_TXEN 4
++#define VIVO_CLK__CAM_MCLK0 5
++#define VIVO_CLK__WG1_D1 6
++#define VIVO_CLK__UART2_RX 7
++#define PAD_MIPIRX5N__VI1_D_11 1
++#define PAD_MIPIRX5N__VO_D_12 2
++#define PAD_MIPIRX5N__XGPIOC_0 3
++#define PAD_MIPIRX5N__CAM_MCLK0 5
++#define PAD_MIPIRX5N__WG0_D0 6
++#define PAD_MIPIRX5N__DBG_0 7
++#define PAD_MIPIRX5P__VI1_D_12 1
++#define PAD_MIPIRX5P__VO_D_11 2
++#define PAD_MIPIRX5P__XGPIOC_1 3
++#define PAD_MIPIRX5P__IIS1_MCLK 4
++#define PAD_MIPIRX5P__CAM_MCLK1 5
++#define PAD_MIPIRX5P__WG0_D1 6
++#define PAD_MIPIRX5P__DBG_1 7
++#define PAD_MIPIRX4N__CV_4WTDI_CR_SCL0 0
++#define PAD_MIPIRX4N__VI0_CLK 1
++#define PAD_MIPIRX4N__VI1_D_13 2
++#define PAD_MIPIRX4N__XGPIOC_2 3
++#define PAD_MIPIRX4N__IIC1_SDA 4
++#define PAD_MIPIRX4N__CAM_MCLK0 5
++#define PAD_MIPIRX4N__KEY_ROW0 6
++#define PAD_MIPIRX4N__MUX_SPI1_SCK 7
++#define PAD_MIPIRX4P__CV_4WTMS_CR_SDA0 0
++#define PAD_MIPIRX4P__VI0_D_0 1
++#define PAD_MIPIRX4P__VI1_D_14 2
++#define PAD_MIPIRX4P__XGPIOC_3 3
++#define PAD_MIPIRX4P__IIC1_SCL 4
++#define PAD_MIPIRX4P__CAM_MCLK1 5
++#define PAD_MIPIRX4P__KEY_ROW1 6
++#define PAD_MIPIRX4P__MUX_SPI1_CS 7
++#define PAD_MIPIRX3N__CV_4WTDO_CR_2WTMS 0
++#define PAD_MIPIRX3N__VI0_D_1 1
++#define PAD_MIPIRX3N__VI1_D_15 2
++#define PAD_MIPIRX3N__XGPIOC_4 3
++#define PAD_MIPIRX3N__CAM_MCLK0 4
++#define PAD_MIPIRX3N__MUX_SPI1_MISO 7
++#define PAD_MIPIRX3P__CV_4WTCK_CR_2WTCK 0
++#define PAD_MIPIRX3P__VI0_D_2 1
++#define PAD_MIPIRX3P__VI1_D_16 2
++#define PAD_MIPIRX3P__XGPIOC_5 3
++#define PAD_MIPIRX3P__MUX_SPI1_MOSI 7
++#define PAD_MIPIRX2N__VI0_D_3 1
++#define PAD_MIPIRX2N__VO_D_10 2
++#define PAD_MIPIRX2N__XGPIOC_6 3
++#define PAD_MIPIRX2N__VI1_D_17 4
++#define PAD_MIPIRX2N__IIC4_SCL 5
++#define PAD_MIPIRX2N__DBG_6 7
++#define PAD_MIPIRX2P__VI0_D_4 1
++#define PAD_MIPIRX2P__VO_D_9 2
++#define PAD_MIPIRX2P__XGPIOC_7 3
++#define PAD_MIPIRX2P__VI1_D_18 4
++#define PAD_MIPIRX2P__IIC4_SDA 5
++#define PAD_MIPIRX2P__DBG_7 7
++#define PAD_MIPIRX1N__VI0_D_5 1
++#define PAD_MIPIRX1N__VO_D_8 2
++#define PAD_MIPIRX1N__XGPIOC_8 3
++#define PAD_MIPIRX1N__KEY_ROW3 6
++#define PAD_MIPIRX1N__DBG_8 7
++#define PAD_MIPIRX1P__VI0_D_6 1
++#define PAD_MIPIRX1P__VO_D_7 2
++#define PAD_MIPIRX1P__XGPIOC_9 3
++#define PAD_MIPIRX1P__IIC1_SDA 4
++#define PAD_MIPIRX1P__KEY_ROW2 6
++#define PAD_MIPIRX1P__DBG_9 7
++#define PAD_MIPIRX0N__VI0_D_7 1
++#define PAD_MIPIRX0N__VO_D_6 2
++#define PAD_MIPIRX0N__XGPIOC_10 3
++#define PAD_MIPIRX0N__IIC1_SCL 4
++#define PAD_MIPIRX0N__CAM_MCLK1 5
++#define PAD_MIPIRX0N__DBG_10 7
++#define PAD_MIPIRX0P__VI0_D_8 1
++#define PAD_MIPIRX0P__VO_D_5 2
++#define PAD_MIPIRX0P__XGPIOC_11 3
++#define PAD_MIPIRX0P__CAM_MCLK0 4
++#define PAD_MIPIRX0P__DBG_11 7
++#define PAD_MIPI_TXM4__VI0_D_15 0
++#define PAD_MIPI_TXM4__SD1_CLK 1
++#define PAD_MIPI_TXM4__VO_D_24 2
++#define PAD_MIPI_TXM4__XGPIOC_18 3
++#define PAD_MIPI_TXM4__CAM_MCLK1 4
++#define PAD_MIPI_TXM4__PWM_12 5
++#define PAD_MIPI_TXM4__IIC1_SDA 6
++#define PAD_MIPI_TXM4__DBG_18 7
++#define PAD_MIPI_TXP4__VI0_D_16 0
++#define PAD_MIPI_TXP4__SD1_CMD 1
++#define PAD_MIPI_TXP4__VO_D_25 2
++#define PAD_MIPI_TXP4__XGPIOC_19 3
++#define PAD_MIPI_TXP4__CAM_MCLK0 4
++#define PAD_MIPI_TXP4__PWM_13 5
++#define PAD_MIPI_TXP4__IIC1_SCL 6
++#define PAD_MIPI_TXP4__DBG_19 7
++#define PAD_MIPI_TXM3__VI0_D_17 0
++#define PAD_MIPI_TXM3__SD1_D0 1
++#define PAD_MIPI_TXM3__VO_D_26 2
++#define PAD_MIPI_TXM3__XGPIOC_20 3
++#define PAD_MIPI_TXM3__IIC2_SDA 4
++#define PAD_MIPI_TXM3__PWM_14 5
++#define PAD_MIPI_TXM3__IIC1_SDA 6
++#define PAD_MIPI_TXM3__CAM_VS0 7
++#define PAD_MIPI_TXP3__VI0_D_18 0
++#define PAD_MIPI_TXP3__SD1_D1 1
++#define PAD_MIPI_TXP3__VO_D_27 2
++#define PAD_MIPI_TXP3__XGPIOC_21 3
++#define PAD_MIPI_TXP3__IIC2_SCL 4
++#define PAD_MIPI_TXP3__PWM_15 5
++#define PAD_MIPI_TXP3__IIC1_SCL 6
++#define PAD_MIPI_TXP3__CAM_HS0 7
++#define PAD_MIPI_TXM2__CV_4WTMS_CR_SDA0 0
++#define PAD_MIPI_TXM2__VI0_D_13 1
++#define PAD_MIPI_TXM2__VO_D_0 2
++#define PAD_MIPI_TXM2__XGPIOC_16 3
++#define PAD_MIPI_TXM2__IIC1_SDA 4
++#define PAD_MIPI_TXM2__PWM_8 5
++#define PAD_MIPI_TXM2__SPI0_SCK 6
++#define PAD_MIPI_TXM2__SD1_D2 7
++#define PAD_MIPI_TXP2__CV_4WTDI_CR_SCL0 0
++#define PAD_MIPI_TXP2__VI0_D_14 1
++#define PAD_MIPI_TXP2__VO_CLK0 2
++#define PAD_MIPI_TXP2__XGPIOC_17 3
++#define PAD_MIPI_TXP2__IIC1_SCL 4
++#define PAD_MIPI_TXP2__PWM_9 5
++#define PAD_MIPI_TXP2__SPI0_CS_X 6
++#define PAD_MIPI_TXP2__SD1_D3 7
++#define PAD_MIPI_TXM1__CV_4WTDO_CR_2WTMS 0
++#define PAD_MIPI_TXM1__VI0_D_11 1
++#define PAD_MIPI_TXM1__VO_D_2 2
++#define PAD_MIPI_TXM1__XGPIOC_14 3
++#define PAD_MIPI_TXM1__IIC2_SDA 4
++#define PAD_MIPI_TXM1__PWM_10 5
++#define PAD_MIPI_TXM1__SPI0_SDO 6
++#define PAD_MIPI_TXM1__DBG_14 7
++#define PAD_MIPI_TXP1__CV_4WTCK_CR_2WTCK 0
++#define PAD_MIPI_TXP1__VI0_D_12 1
++#define PAD_MIPI_TXP1__VO_D_1 2
++#define PAD_MIPI_TXP1__XGPIOC_15 3
++#define PAD_MIPI_TXP1__IIC2_SCL 4
++#define PAD_MIPI_TXP1__PWM_11 5
++#define PAD_MIPI_TXP1__SPI0_SDI 6
++#define PAD_MIPI_TXP1__DBG_15 7
++#define PAD_MIPI_TXM0__VI0_D_9 1
++#define PAD_MIPI_TXM0__VO_D_4 2
++#define PAD_MIPI_TXM0__XGPIOC_12 3
++#define PAD_MIPI_TXM0__CAM_MCLK1 4
++#define PAD_MIPI_TXM0__PWM_14 5
++#define PAD_MIPI_TXM0__CAM_VS0 6
++#define PAD_MIPI_TXM0__DBG_12 7
++#define PAD_MIPI_TXP0__VI0_D_10 1
++#define PAD_MIPI_TXP0__VO_D_3 2
++#define PAD_MIPI_TXP0__XGPIOC_13 3
++#define PAD_MIPI_TXP0__CAM_MCLK0 4
++#define PAD_MIPI_TXP0__PWM_15 5
++#define PAD_MIPI_TXP0__CAM_HS0 6
++#define PAD_MIPI_TXP0__DBG_13 7
++#define PAD_AUD_AINL_MIC__XGPIOC_23 3
++#define PAD_AUD_AINL_MIC__IIS1_BCLK 4
++#define PAD_AUD_AINL_MIC__IIS2_BCLK 5
++#define PAD_AUD_AINR_MIC__XGPIOC_22 3
++#define PAD_AUD_AINR_MIC__IIS1_DO 4
++#define PAD_AUD_AINR_MIC__IIS2_DI 5
++#define PAD_AUD_AINR_MIC__IIS1_DI 6
++#define PAD_AUD_AOUTL__XGPIOC_25 3
++#define PAD_AUD_AOUTL__IIS1_LRCK 4
++#define PAD_AUD_AOUTL__IIS2_LRCK 5
++#define PAD_AUD_AOUTR__XGPIOC_24 3
++#define PAD_AUD_AOUTR__IIS1_DI 4
++#define PAD_AUD_AOUTR__IIS2_DO 5
++#define PAD_AUD_AOUTR__IIS1_DO 6
++#define GPIO_RTX__XGPIOB_23 3
++#define GPIO_RTX__PWM_1 4
++#define GPIO_RTX__CAM_MCLK0 5
++#define GPIO_ZQ__PWR_GPIO_24 3
++#define GPIO_ZQ__PWM_2 4
++
++
++#endif /* __CV181X_PINLIST_SWCONFIG_H__ */
+diff --git a/interdrv/cif/chip/cv181x/cv181x_reg_fmux_gpio.h b/interdrv/cif/chip/cv181x/cv181x_reg_fmux_gpio.h
+new file mode 100644
+index 0000000..918a5df
+--- /dev/null
++++ b/interdrv/cif/chip/cv181x/cv181x_reg_fmux_gpio.h
+@@ -0,0 +1,482 @@
++// $Module: fmux_gpio $
++// $RegisterBank Version: V 1.0.00 $
++// $Author: ghost $
++// $Date: Fri, 27 Aug 2021 08:47:09 PM $
++//
++
++//GEN REG ADDR/OFFSET/MASK
++
++#ifndef __CV181X_REG_FMUX_GPIO_H__
++#define __CV181X_REG_FMUX_GPIO_H__
++
++#define  FMUX_GPIO_REG_IOCTRL_CAM_MCLK0  0x0
++#define  FMUX_GPIO_REG_IOCTRL_CAM_PD0  0x4
++#define  FMUX_GPIO_REG_IOCTRL_CAM_RST0  0x8
++#define  FMUX_GPIO_REG_IOCTRL_CAM_MCLK1  0xc
++#define  FMUX_GPIO_REG_IOCTRL_CAM_PD1  0x10
++#define  FMUX_GPIO_REG_IOCTRL_IIC3_SCL  0x14
++#define  FMUX_GPIO_REG_IOCTRL_IIC3_SDA  0x18
++#define  FMUX_GPIO_REG_IOCTRL_SD0_CLK  0x1c
++#define  FMUX_GPIO_REG_IOCTRL_SD0_CMD  0x20
++#define  FMUX_GPIO_REG_IOCTRL_SD0_D0  0x24
++#define  FMUX_GPIO_REG_IOCTRL_SD0_D1  0x28
++#define  FMUX_GPIO_REG_IOCTRL_SD0_D2  0x2c
++#define  FMUX_GPIO_REG_IOCTRL_SD0_D3  0x30
++#define  FMUX_GPIO_REG_IOCTRL_SD0_CD  0x34
++#define  FMUX_GPIO_REG_IOCTRL_SD0_PWR_EN  0x38
++#define  FMUX_GPIO_REG_IOCTRL_SPK_EN  0x3c
++#define  FMUX_GPIO_REG_IOCTRL_UART0_TX  0x40
++#define  FMUX_GPIO_REG_IOCTRL_UART0_RX  0x44
++#define  FMUX_GPIO_REG_IOCTRL_EMMC_RSTN  0x48
++#define  FMUX_GPIO_REG_IOCTRL_EMMC_DAT2  0x4c
++#define  FMUX_GPIO_REG_IOCTRL_EMMC_CLK  0x50
++#define  FMUX_GPIO_REG_IOCTRL_EMMC_DAT0  0x54
++#define  FMUX_GPIO_REG_IOCTRL_EMMC_DAT3  0x58
++#define  FMUX_GPIO_REG_IOCTRL_EMMC_CMD  0x5c
++#define  FMUX_GPIO_REG_IOCTRL_EMMC_DAT1  0x60
++#define  FMUX_GPIO_REG_IOCTRL_JTAG_CPU_TMS  0x64
++#define  FMUX_GPIO_REG_IOCTRL_JTAG_CPU_TCK  0x68
++#define  FMUX_GPIO_REG_IOCTRL_JTAG_CPU_TRST  0x6c
++#define  FMUX_GPIO_REG_IOCTRL_IIC0_SCL  0x70
++#define  FMUX_GPIO_REG_IOCTRL_IIC0_SDA  0x74
++#define  FMUX_GPIO_REG_IOCTRL_AUX0  0x78
++#define  FMUX_GPIO_REG_IOCTRL_PWR_VBAT_DET  0x7c
++#define  FMUX_GPIO_REG_IOCTRL_PWR_RSTN  0x80
++#define  FMUX_GPIO_REG_IOCTRL_PWR_SEQ1  0x84
++#define  FMUX_GPIO_REG_IOCTRL_PWR_SEQ2  0x88
++#define  FMUX_GPIO_REG_IOCTRL_PWR_SEQ3  0x8c
++#define  FMUX_GPIO_REG_IOCTRL_PWR_WAKEUP0  0x90
++#define  FMUX_GPIO_REG_IOCTRL_PWR_WAKEUP1  0x94
++#define  FMUX_GPIO_REG_IOCTRL_PWR_BUTTON1  0x98
++#define  FMUX_GPIO_REG_IOCTRL_PWR_ON  0x9c
++#define  FMUX_GPIO_REG_IOCTRL_XTAL_XIN  0xa0
++#define  FMUX_GPIO_REG_IOCTRL_PWR_GPIO0  0xa4
++#define  FMUX_GPIO_REG_IOCTRL_PWR_GPIO1  0xa8
++#define  FMUX_GPIO_REG_IOCTRL_PWR_GPIO2  0xac
++#define  FMUX_GPIO_REG_IOCTRL_CLK32K  0xb0
++#define  FMUX_GPIO_REG_IOCTRL_CLK25M  0xb4
++#define  FMUX_GPIO_REG_IOCTRL_IIC2_SCL  0xb8
++#define  FMUX_GPIO_REG_IOCTRL_IIC2_SDA  0xbc
++#define  FMUX_GPIO_REG_IOCTRL_UART2_TX  0xc0
++#define  FMUX_GPIO_REG_IOCTRL_UART2_RTS  0xc4
++#define  FMUX_GPIO_REG_IOCTRL_UART2_RX  0xc8
++#define  FMUX_GPIO_REG_IOCTRL_UART2_CTS  0xcc
++#define  FMUX_GPIO_REG_IOCTRL_SD1_D3  0xd0
++#define  FMUX_GPIO_REG_IOCTRL_SD1_D2  0xd4
++#define  FMUX_GPIO_REG_IOCTRL_SD1_D1  0xd8
++#define  FMUX_GPIO_REG_IOCTRL_SD1_D0  0xdc
++#define  FMUX_GPIO_REG_IOCTRL_SD1_CMD  0xe0
++#define  FMUX_GPIO_REG_IOCTRL_SD1_CLK  0xe4
++#define  FMUX_GPIO_REG_IOCTRL_RSTN  0xe8
++#define  FMUX_GPIO_REG_IOCTRL_PWM0_BUCK  0xec
++#define  FMUX_GPIO_REG_IOCTRL_ADC3  0xf0
++#define  FMUX_GPIO_REG_IOCTRL_ADC2  0xf4
++#define  FMUX_GPIO_REG_IOCTRL_ADC1  0xf8
++#define  FMUX_GPIO_REG_IOCTRL_USB_ID  0xfc
++#define  FMUX_GPIO_REG_IOCTRL_USB_VBUS_EN  0x100
++#define  FMUX_GPIO_REG_IOCTRL_PKG_TYPE0  0x104
++#define  FMUX_GPIO_REG_IOCTRL_USB_VBUS_DET  0x108
++#define  FMUX_GPIO_REG_IOCTRL_PKG_TYPE1  0x10c
++#define  FMUX_GPIO_REG_IOCTRL_PKG_TYPE2  0x110
++#define  FMUX_GPIO_REG_IOCTRL_MUX_SPI1_MISO  0x114
++#define  FMUX_GPIO_REG_IOCTRL_MUX_SPI1_MOSI  0x118
++#define  FMUX_GPIO_REG_IOCTRL_MUX_SPI1_CS  0x11c
++#define  FMUX_GPIO_REG_IOCTRL_MUX_SPI1_SCK  0x120
++#define  FMUX_GPIO_REG_IOCTRL_PAD_ETH_TXP  0x124
++#define  FMUX_GPIO_REG_IOCTRL_PAD_ETH_TXM  0x128
++#define  FMUX_GPIO_REG_IOCTRL_PAD_ETH_RXP  0x12c
++#define  FMUX_GPIO_REG_IOCTRL_PAD_ETH_RXM  0x130
++#define  FMUX_GPIO_REG_IOCTRL_VIVO_D10  0x134
++#define  FMUX_GPIO_REG_IOCTRL_VIVO_D9  0x138
++#define  FMUX_GPIO_REG_IOCTRL_VIVO_D8  0x13c
++#define  FMUX_GPIO_REG_IOCTRL_VIVO_D7  0x140
++#define  FMUX_GPIO_REG_IOCTRL_VIVO_D6  0x144
++#define  FMUX_GPIO_REG_IOCTRL_VIVO_D5  0x148
++#define  FMUX_GPIO_REG_IOCTRL_VIVO_D4  0x14c
++#define  FMUX_GPIO_REG_IOCTRL_VIVO_D3  0x150
++#define  FMUX_GPIO_REG_IOCTRL_VIVO_D2  0x154
++#define  FMUX_GPIO_REG_IOCTRL_VIVO_D1  0x158
++#define  FMUX_GPIO_REG_IOCTRL_VIVO_D0  0x15c
++#define  FMUX_GPIO_REG_IOCTRL_VIVO_CLK  0x160
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPIRX5N  0x164
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPIRX5P  0x168
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPIRX4N  0x16c
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPIRX4P  0x170
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPIRX3N  0x174
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPIRX3P  0x178
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPIRX2N  0x17c
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPIRX2P  0x180
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPIRX1N  0x184
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPIRX1P  0x188
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPIRX0N  0x18c
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPIRX0P  0x190
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPI_TXM4  0x194
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPI_TXP4  0x198
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPI_TXM3  0x19c
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPI_TXP3  0x1a0
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPI_TXM2  0x1a4
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPI_TXP2  0x1a8
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPI_TXM1  0x1ac
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPI_TXP1  0x1b0
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPI_TXM0  0x1b4
++#define  FMUX_GPIO_REG_IOCTRL_PAD_MIPI_TXP0  0x1b8
++#define  FMUX_GPIO_REG_IOCTRL_PAD_AUD_AINL_MIC  0x1bc
++#define  FMUX_GPIO_REG_IOCTRL_PAD_AUD_AINR_MIC  0x1c0
++#define  FMUX_GPIO_REG_IOCTRL_PAD_AUD_AOUTL  0x1c4
++#define  FMUX_GPIO_REG_IOCTRL_PAD_AUD_AOUTR  0x1c8
++#define  FMUX_GPIO_REG_IOCTRL_GPIO_RTX  0x1cc
++#define  FMUX_GPIO_REG_IOCTRL_GPIO_ZQ  0x1d0
++#define  FMUX_GPIO_FUNCSEL_CAM_MCLK0   0x0
++#define  FMUX_GPIO_FUNCSEL_CAM_MCLK0_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_CAM_MCLK0_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_CAM_PD0   0x4
++#define  FMUX_GPIO_FUNCSEL_CAM_PD0_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_CAM_PD0_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_CAM_RST0   0x8
++#define  FMUX_GPIO_FUNCSEL_CAM_RST0_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_CAM_RST0_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_CAM_MCLK1   0xc
++#define  FMUX_GPIO_FUNCSEL_CAM_MCLK1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_CAM_MCLK1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_CAM_PD1   0x10
++#define  FMUX_GPIO_FUNCSEL_CAM_PD1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_CAM_PD1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_IIC3_SCL   0x14
++#define  FMUX_GPIO_FUNCSEL_IIC3_SCL_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_IIC3_SCL_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_IIC3_SDA   0x18
++#define  FMUX_GPIO_FUNCSEL_IIC3_SDA_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_IIC3_SDA_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD0_CLK   0x1c
++#define  FMUX_GPIO_FUNCSEL_SD0_CLK_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD0_CLK_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD0_CMD   0x20
++#define  FMUX_GPIO_FUNCSEL_SD0_CMD_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD0_CMD_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD0_D0   0x24
++#define  FMUX_GPIO_FUNCSEL_SD0_D0_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD0_D0_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD0_D1   0x28
++#define  FMUX_GPIO_FUNCSEL_SD0_D1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD0_D1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD0_D2   0x2c
++#define  FMUX_GPIO_FUNCSEL_SD0_D2_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD0_D2_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD0_D3   0x30
++#define  FMUX_GPIO_FUNCSEL_SD0_D3_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD0_D3_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD0_CD   0x34
++#define  FMUX_GPIO_FUNCSEL_SD0_CD_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD0_CD_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD0_PWR_EN   0x38
++#define  FMUX_GPIO_FUNCSEL_SD0_PWR_EN_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD0_PWR_EN_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SPK_EN   0x3c
++#define  FMUX_GPIO_FUNCSEL_SPK_EN_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SPK_EN_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_UART0_TX   0x40
++#define  FMUX_GPIO_FUNCSEL_UART0_TX_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_UART0_TX_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_UART0_RX   0x44
++#define  FMUX_GPIO_FUNCSEL_UART0_RX_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_UART0_RX_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_EMMC_RSTN   0x48
++#define  FMUX_GPIO_FUNCSEL_EMMC_RSTN_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_EMMC_RSTN_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_EMMC_DAT2   0x4c
++#define  FMUX_GPIO_FUNCSEL_EMMC_DAT2_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_EMMC_DAT2_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_EMMC_CLK   0x50
++#define  FMUX_GPIO_FUNCSEL_EMMC_CLK_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_EMMC_CLK_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_EMMC_DAT0   0x54
++#define  FMUX_GPIO_FUNCSEL_EMMC_DAT0_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_EMMC_DAT0_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_EMMC_DAT3   0x58
++#define  FMUX_GPIO_FUNCSEL_EMMC_DAT3_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_EMMC_DAT3_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_EMMC_CMD   0x5c
++#define  FMUX_GPIO_FUNCSEL_EMMC_CMD_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_EMMC_CMD_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_EMMC_DAT1   0x60
++#define  FMUX_GPIO_FUNCSEL_EMMC_DAT1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_EMMC_DAT1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_JTAG_CPU_TMS   0x64
++#define  FMUX_GPIO_FUNCSEL_JTAG_CPU_TMS_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_JTAG_CPU_TMS_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_JTAG_CPU_TCK   0x68
++#define  FMUX_GPIO_FUNCSEL_JTAG_CPU_TCK_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_JTAG_CPU_TCK_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_JTAG_CPU_TRST   0x6c
++#define  FMUX_GPIO_FUNCSEL_JTAG_CPU_TRST_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_JTAG_CPU_TRST_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_IIC0_SCL   0x70
++#define  FMUX_GPIO_FUNCSEL_IIC0_SCL_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_IIC0_SCL_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_IIC0_SDA   0x74
++#define  FMUX_GPIO_FUNCSEL_IIC0_SDA_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_IIC0_SDA_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_AUX0   0x78
++#define  FMUX_GPIO_FUNCSEL_AUX0_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_AUX0_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PWR_VBAT_DET   0x7c
++#define  FMUX_GPIO_FUNCSEL_PWR_VBAT_DET_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PWR_VBAT_DET_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PWR_RSTN   0x80
++#define  FMUX_GPIO_FUNCSEL_PWR_RSTN_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PWR_RSTN_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PWR_SEQ1   0x84
++#define  FMUX_GPIO_FUNCSEL_PWR_SEQ1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PWR_SEQ1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PWR_SEQ2   0x88
++#define  FMUX_GPIO_FUNCSEL_PWR_SEQ2_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PWR_SEQ2_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PWR_SEQ3   0x8c
++#define  FMUX_GPIO_FUNCSEL_PWR_SEQ3_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PWR_SEQ3_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PWR_WAKEUP0   0x90
++#define  FMUX_GPIO_FUNCSEL_PWR_WAKEUP0_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PWR_WAKEUP0_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PWR_WAKEUP1   0x94
++#define  FMUX_GPIO_FUNCSEL_PWR_WAKEUP1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PWR_WAKEUP1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PWR_BUTTON1   0x98
++#define  FMUX_GPIO_FUNCSEL_PWR_BUTTON1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PWR_BUTTON1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PWR_ON   0x9c
++#define  FMUX_GPIO_FUNCSEL_PWR_ON_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PWR_ON_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_XTAL_XIN   0xa0
++#define  FMUX_GPIO_FUNCSEL_XTAL_XIN_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_XTAL_XIN_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PWR_GPIO0   0xa4
++#define  FMUX_GPIO_FUNCSEL_PWR_GPIO0_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PWR_GPIO0_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PWR_GPIO1   0xa8
++#define  FMUX_GPIO_FUNCSEL_PWR_GPIO1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PWR_GPIO1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PWR_GPIO2   0xac
++#define  FMUX_GPIO_FUNCSEL_PWR_GPIO2_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PWR_GPIO2_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_CLK32K   0xb0
++#define  FMUX_GPIO_FUNCSEL_CLK32K_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_CLK32K_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_CLK25M   0xb4
++#define  FMUX_GPIO_FUNCSEL_CLK25M_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_CLK25M_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_IIC2_SCL   0xb8
++#define  FMUX_GPIO_FUNCSEL_IIC2_SCL_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_IIC2_SCL_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_IIC2_SDA   0xbc
++#define  FMUX_GPIO_FUNCSEL_IIC2_SDA_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_IIC2_SDA_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_UART2_TX   0xc0
++#define  FMUX_GPIO_FUNCSEL_UART2_TX_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_UART2_TX_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_UART2_RTS   0xc4
++#define  FMUX_GPIO_FUNCSEL_UART2_RTS_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_UART2_RTS_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_UART2_RX   0xc8
++#define  FMUX_GPIO_FUNCSEL_UART2_RX_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_UART2_RX_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_UART2_CTS   0xcc
++#define  FMUX_GPIO_FUNCSEL_UART2_CTS_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_UART2_CTS_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD1_D3   0xd0
++#define  FMUX_GPIO_FUNCSEL_SD1_D3_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD1_D3_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD1_D2   0xd4
++#define  FMUX_GPIO_FUNCSEL_SD1_D2_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD1_D2_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD1_D1   0xd8
++#define  FMUX_GPIO_FUNCSEL_SD1_D1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD1_D1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD1_D0   0xdc
++#define  FMUX_GPIO_FUNCSEL_SD1_D0_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD1_D0_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD1_CMD   0xe0
++#define  FMUX_GPIO_FUNCSEL_SD1_CMD_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD1_CMD_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_SD1_CLK   0xe4
++#define  FMUX_GPIO_FUNCSEL_SD1_CLK_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_SD1_CLK_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_RSTN   0xe8
++#define  FMUX_GPIO_FUNCSEL_RSTN_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_RSTN_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PWM0_BUCK   0xec
++#define  FMUX_GPIO_FUNCSEL_PWM0_BUCK_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PWM0_BUCK_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_ADC3   0xf0
++#define  FMUX_GPIO_FUNCSEL_ADC3_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_ADC3_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_ADC2   0xf4
++#define  FMUX_GPIO_FUNCSEL_ADC2_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_ADC2_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_ADC1   0xf8
++#define  FMUX_GPIO_FUNCSEL_ADC1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_ADC1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_USB_ID   0xfc
++#define  FMUX_GPIO_FUNCSEL_USB_ID_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_USB_ID_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_USB_VBUS_EN   0x100
++#define  FMUX_GPIO_FUNCSEL_USB_VBUS_EN_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_USB_VBUS_EN_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PKG_TYPE0   0x104
++#define  FMUX_GPIO_FUNCSEL_PKG_TYPE0_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PKG_TYPE0_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_USB_VBUS_DET   0x108
++#define  FMUX_GPIO_FUNCSEL_USB_VBUS_DET_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_USB_VBUS_DET_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PKG_TYPE1   0x10c
++#define  FMUX_GPIO_FUNCSEL_PKG_TYPE1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PKG_TYPE1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PKG_TYPE2   0x110
++#define  FMUX_GPIO_FUNCSEL_PKG_TYPE2_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PKG_TYPE2_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_MUX_SPI1_MISO   0x114
++#define  FMUX_GPIO_FUNCSEL_MUX_SPI1_MISO_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_MUX_SPI1_MISO_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_MUX_SPI1_MOSI   0x118
++#define  FMUX_GPIO_FUNCSEL_MUX_SPI1_MOSI_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_MUX_SPI1_MOSI_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_MUX_SPI1_CS   0x11c
++#define  FMUX_GPIO_FUNCSEL_MUX_SPI1_CS_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_MUX_SPI1_CS_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_MUX_SPI1_SCK   0x120
++#define  FMUX_GPIO_FUNCSEL_MUX_SPI1_SCK_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_MUX_SPI1_SCK_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_ETH_TXP   0x124
++#define  FMUX_GPIO_FUNCSEL_PAD_ETH_TXP_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_ETH_TXP_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_ETH_TXM   0x128
++#define  FMUX_GPIO_FUNCSEL_PAD_ETH_TXM_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_ETH_TXM_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_ETH_RXP   0x12c
++#define  FMUX_GPIO_FUNCSEL_PAD_ETH_RXP_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_ETH_RXP_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_ETH_RXM   0x130
++#define  FMUX_GPIO_FUNCSEL_PAD_ETH_RXM_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_ETH_RXM_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_VIVO_D10   0x134
++#define  FMUX_GPIO_FUNCSEL_VIVO_D10_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_VIVO_D10_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_VIVO_D9   0x138
++#define  FMUX_GPIO_FUNCSEL_VIVO_D9_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_VIVO_D9_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_VIVO_D8   0x13c
++#define  FMUX_GPIO_FUNCSEL_VIVO_D8_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_VIVO_D8_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_VIVO_D7   0x140
++#define  FMUX_GPIO_FUNCSEL_VIVO_D7_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_VIVO_D7_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_VIVO_D6   0x144
++#define  FMUX_GPIO_FUNCSEL_VIVO_D6_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_VIVO_D6_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_VIVO_D5   0x148
++#define  FMUX_GPIO_FUNCSEL_VIVO_D5_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_VIVO_D5_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_VIVO_D4   0x14c
++#define  FMUX_GPIO_FUNCSEL_VIVO_D4_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_VIVO_D4_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_VIVO_D3   0x150
++#define  FMUX_GPIO_FUNCSEL_VIVO_D3_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_VIVO_D3_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_VIVO_D2   0x154
++#define  FMUX_GPIO_FUNCSEL_VIVO_D2_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_VIVO_D2_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_VIVO_D1   0x158
++#define  FMUX_GPIO_FUNCSEL_VIVO_D1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_VIVO_D1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_VIVO_D0   0x15c
++#define  FMUX_GPIO_FUNCSEL_VIVO_D0_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_VIVO_D0_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_VIVO_CLK   0x160
++#define  FMUX_GPIO_FUNCSEL_VIVO_CLK_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_VIVO_CLK_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX5N   0x164
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX5N_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX5N_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX5P   0x168
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX5P_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX5P_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX4N   0x16c
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX4N_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX4N_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX4P   0x170
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX4P_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX4P_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX3N   0x174
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX3N_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX3N_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX3P   0x178
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX3P_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX3P_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX2N   0x17c
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX2N_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX2N_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX2P   0x180
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX2P_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX2P_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX1N   0x184
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX1N_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX1N_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX1P   0x188
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX1P_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX1P_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX0N   0x18c
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX0N_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX0N_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX0P   0x190
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX0P_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPIRX0P_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM4   0x194
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM4_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM4_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP4   0x198
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP4_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP4_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM3   0x19c
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM3_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM3_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP3   0x1a0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP3_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP3_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM2   0x1a4
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM2_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM2_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP2   0x1a8
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP2_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP2_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM1   0x1ac
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP1   0x1b0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP1_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP1_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM0   0x1b4
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM0_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXM0_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP0   0x1b8
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP0_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_MIPI_TXP0_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_AUD_AINL_MIC   0x1bc
++#define  FMUX_GPIO_FUNCSEL_PAD_AUD_AINL_MIC_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_AUD_AINL_MIC_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_AUD_AINR_MIC   0x1c0
++#define  FMUX_GPIO_FUNCSEL_PAD_AUD_AINR_MIC_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_AUD_AINR_MIC_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_AUD_AOUTL   0x1c4
++#define  FMUX_GPIO_FUNCSEL_PAD_AUD_AOUTL_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_AUD_AOUTL_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_PAD_AUD_AOUTR   0x1c8
++#define  FMUX_GPIO_FUNCSEL_PAD_AUD_AOUTR_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_PAD_AUD_AOUTR_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_GPIO_RTX   0x1cc
++#define  FMUX_GPIO_FUNCSEL_GPIO_RTX_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_GPIO_RTX_MASK   0x7
++#define  FMUX_GPIO_FUNCSEL_GPIO_ZQ   0x1d0
++#define  FMUX_GPIO_FUNCSEL_GPIO_ZQ_OFFSET 0
++#define  FMUX_GPIO_FUNCSEL_GPIO_ZQ_MASK   0x7
++
++
++#endif /* __CV181X_REG_FMUX_GPIO_H__ */
+diff --git a/interdrv/cif/chip/cv181x/pinctrl-cv181x.h b/interdrv/cif/chip/cv181x/pinctrl-cv181x.h
+new file mode 100644
+index 0000000..09a1b8b
+--- /dev/null
++++ b/interdrv/cif/chip/cv181x/pinctrl-cv181x.h
+@@ -0,0 +1,42 @@
++/*
++ * Copyright (C) Cvitek Co., Ltd. 2019-2020. All rights reserved.
++ *
++ * File Name: pinctrl-cv1822.h
++ * Description:
++ */
++
++#ifndef __PINCTRL_CV181X_H__
++#define __PINCTRL_CV181X_H__
++
++#include <linux/io.h>
++#include "cv181x_pinlist_swconfig.h"
++#include "cv181x_reg_fmux_gpio.h"
++
++#define PINMUX_BASE 0x03001000
++#define PINMUX_RANGE 0xC8C + 4 // the last pinctl reg of 181x
++#define PINMUX_MASK(PIN_NAME) FMUX_GPIO_FUNCSEL_##PIN_NAME##_MASK
++#define PINMUX_OFFSET(PIN_NAME) FMUX_GPIO_FUNCSEL_##PIN_NAME##_OFFSET
++#define PINMUX_VALUE(PIN_NAME, FUNC_NAME) PIN_NAME##__##FUNC_NAME
++#define PINMUX_CONFIG(PIN_NAME, FUNC_NAME) \
++		mmio_clrsetbits_32(PINMUX_BASE + FMUX_GPIO_FUNCSEL_##PIN_NAME, \
++						   PINMUX_MASK(PIN_NAME) << PINMUX_OFFSET(PIN_NAME), \
++						   PINMUX_VALUE(PIN_NAME, FUNC_NAME))
++
++static inline void mmio_clrsetbits_32(uintptr_t addr,
++				      uint32_t clear,
++				      uint32_t set)
++{
++	void __iomem *tpreg;
++
++	tpreg = ioremap(addr, 0x4);
++	if (!tpreg) {
++		pr_err("ioremap %p failed\n", (void *)addr);
++		return;
++	}
++
++	iowrite32((ioread32(tpreg) & ~clear) | set, tpreg);
++
++	iounmap(tpreg);
++}
++
++#endif /* __PINCTRL_CV181X_H__ */
+-- 
+2.43.0
+

@@ -1,0 +1,72 @@
+From ec6819221c7acbf374aa082c3f91c67b882aeadb Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 23:49:22 +0300
+Subject: [PATCH] sophgo: prepare SD PHY setup and LicheeRV reset device
+
+---
+ .../dts/sg2002-licheerv-nano-b-u-boot.dtsi    |  6 +++++
+ drivers/mmc/cv1800b_sdhci.c                   | 27 +++++++++++++++++++
+ 2 files changed, 33 insertions(+)
+ create mode 100644 arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
+
+diff --git a/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi b/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
+new file mode 100644
+index 00000000..b108990a
+--- /dev/null
++++ b/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
+@@ -0,0 +1,6 @@
++// SPDX-License-Identifier: (GPL-2.0 OR MIT)
++/ {
++	sysreset {
++		compatible = "sophgo,cv1800b-sysreset";
++	};
++};
+diff --git a/drivers/mmc/cv1800b_sdhci.c b/drivers/mmc/cv1800b_sdhci.c
+index 036e798f..8ff55565 100644
+--- a/drivers/mmc/cv1800b_sdhci.c
++++ b/drivers/mmc/cv1800b_sdhci.c
+@@ -8,6 +8,11 @@
+ #include <sdhci.h>
+ #include <linux/delay.h>
+ 
++#define CV1800B_MSHC_CTRL     0x200
++#define CV1800B_PHY_CONFIG    0x24c
++#define CV1800B_LATENCY_1T    BIT(1)
++#define CV1800B_PHY_TX_BYPASS BIT(0)
++#define PHY_RX_SRC_INVERT    BIT(24)
+ #define SDHCI_PHY_TX_RX_DLY  0x240
+ #define MMC_MAX_CLOCK        375000000
+ #define TUNE_MAX_PHCODE      128
+@@ -64,7 +69,29 @@ static int cv1800b_execute_tuning(struct mmc *mmc, u8 opcode)
+ }
+ #endif
+ 
++static void cv1800b_set_control_reg(struct sdhci_host *host)
++{
++	u32 val;
++
++	sdhci_set_control_reg(host);
++	/* Reset clears the PHY settings. Legacy/SD high-speed needs the
++	 * inverted TX/RX clock sources and bypass, as in the Linux driver.
++	 * Do not overwrite the tuned receive phase of UHS modes.
++	 */
++	if (host->mmc->selected_mode != MMC_LEGACY &&
++	    host->mmc->selected_mode != SD_HS)
++		return;
++
++	val = sdhci_readl(host, CV1800B_MSHC_CTRL);
++	sdhci_writel(host, val | CV1800B_LATENCY_1T, CV1800B_MSHC_CTRL);
++	val = sdhci_readl(host, CV1800B_PHY_CONFIG);
++	sdhci_writel(host, val | CV1800B_PHY_TX_BYPASS, CV1800B_PHY_CONFIG);
++	sdhci_writel(host, PHY_TX_SRC_INVERT | PHY_RX_SRC_INVERT,
++		     SDHCI_PHY_TX_RX_DLY);
++}
++
+ const struct sdhci_ops cv1800b_sdhci_sd_ops = {
++	.set_control_reg = cv1800b_set_control_reg,
+ #if CONFIG_IS_ENABLED(MMC_SUPPORTS_TUNING)
+ 	.platform_execute_tuning = cv1800b_execute_tuning,
+ #endif
+-- 
+2.43.0
+

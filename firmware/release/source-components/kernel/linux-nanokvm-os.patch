@@ -1,0 +1,6183 @@
+diff --git a/Documentation/ABI/testing/configfs-usb-gadget-hid b/Documentation/ABI/testing/configfs-usb-gadget-hid
+index 748705c..f5f39d5 100644
+--- a/Documentation/ABI/testing/configfs-usb-gadget-hid
++++ b/Documentation/ABI/testing/configfs-usb-gadget-hid
+@@ -11,3 +11,12 @@ Description:
+ 		report_length	HID report length
+ 		subclass	HID device subclass to use
+ 		=============	============================================
++
++What:		/config/usb-gadget/gadget/functions/hid.name/wakeup_on_write
++Date:		September 2026
++Contact:	NanoKVM Enhanced maintainers
++Description:
++		Boolean, default 0. When enabled, a nonempty HID report write
++		requests USB remote wakeup if the gadget is suspended. The UDC
++		still requires the host to authorize remote wakeup. Configure
++		before linking the function; linked changes return EBUSY.
+diff --git a/Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset b/Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset
+new file mode 100644
+index 0000000..ffd7a09
+--- /dev/null
++++ b/Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset
+@@ -0,0 +1,30 @@
++What:           /sys/bus/platform/devices/hdmi-reset/pulse
++Date:           September 2026
++Contact:        NanoKVM Enhanced maintainers
++Description:
++                Write "1" to assert the board HDMI receiver reset for 100ms,
++                then release it and wait another 100ms. Root write permission
++                is required. This is a synchronous operation. Overlapping
++                requests return EBUSY instead of queuing another reset.
++
++                The line is requested deasserted during probe and remains
++                owned by the driver. GPIO polarity comes from Device Tree.
++                Release is attempted even if assertion reports an error.
++                Removal drains active sysfs callbacks before freeing the GPIO.
++
++                Users must stop competing HDMI/I2C activity before using this
++                maintenance interface. It does not update EDID, manage the
++                video pipeline, or operate the host's ATX reset.
++
++What:           /sys/bus/platform/devices/hdmi-reset/asserted
++Date:           September 2026
++Contact:        NanoKVM Enhanced maintainers
++Description:
++                Read the logical reset level. Write "1" to hold the HDMI
++                receiver in reset, or "0" to release it. Polarity follows DT;
++                on NanoKVM PCIe asserted means the physical line is low.
++                Writes require root and reject any other value with EINVAL.
++                Access overlaps with pulse are rejected with EBUSY. GPIO errors
++                propagate. No delay or capture/I2C coordination is implicit.
++                The driver starts with reset released. Users must coordinate
++                capture before assertion and allow bridge startup after release.
+diff --git a/Documentation/devicetree/bindings/misc/sipeed,nanokvm-hdmi-reset.yaml b/Documentation/devicetree/bindings/misc/sipeed,nanokvm-hdmi-reset.yaml
+new file mode 100644
+index 0000000..78d79f1
+--- /dev/null
++++ b/Documentation/devicetree/bindings/misc/sipeed,nanokvm-hdmi-reset.yaml
+@@ -0,0 +1,32 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/misc/sipeed,nanokvm-hdmi-reset.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: NanoKVM PCIe HDMI maintenance reset
++
++maintainers:
++  - dgrace <g.pesin@globalte.ru>
++
++description: |
++  Board reset line of the HDMI-to-CSI receiver. It is separate from the
++  optional camera sensor reset handled by CIF and from host ATX controls.
++
++properties:
++  compatible:
++    const: sipeed,nanokvm-hdmi-reset
++  reset-gpios:
++    maxItems: 1
++    description: Active-low HDMI receiver reset.
++  pinctrl-names:
++    items:
++      - const: default
++  pinctrl-0: true
++
++required:
++  - compatible
++  - reset-gpios
++
++additionalProperties: false
++...
+diff --git a/Documentation/devicetree/bindings/pinctrl/sophgo,cv1800-pinctrl.yaml b/Documentation/devicetree/bindings/pinctrl/sophgo,cv1800-pinctrl.yaml
+index feb4785..74a9a09 100644
+--- a/Documentation/devicetree/bindings/pinctrl/sophgo,cv1800-pinctrl.yaml
++++ b/Documentation/devicetree/bindings/pinctrl/sophgo,cv1800-pinctrl.yaml
+@@ -61,6 +61,8 @@ patternProperties:
+               node apply to. This should be set using the PINMUX or PINMUX2
+               macro.
+ 
++          bias-disable: true
++
+           bias-pull-up:
+             type: boolean
+ 
+diff --git a/arch/riscv/boot/dts/sophgo/Makefile b/arch/riscv/boot/dts/sophgo/Makefile
+index 6f65526..3dc4f00 100644
+--- a/arch/riscv/boot/dts/sophgo/Makefile
++++ b/arch/riscv/boot/dts/sophgo/Makefile
+@@ -6,3 +6,4 @@ dtb-$(CONFIG_ARCH_SOPHGO) += sg2042-milkv-pioneer.dtb
+ dtb-$(CONFIG_ARCH_SOPHGO) += sg2042-evb-v1.dtb
+ dtb-$(CONFIG_ARCH_SOPHGO) += sg2042-evb-v2.dtb
+ dtb-$(CONFIG_ARCH_SOPHGO) += sg2044-sophgo-srd3-10.dtb
++dtb-$(CONFIG_ARCH_SOPHGO) += sg2002-nanokvm-enhanced.dtb
+diff --git a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+new file mode 100644
+index 0000000..789eb8f
+--- /dev/null
++++ b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+@@ -0,0 +1,412 @@
++// SPDX-License-Identifier: (GPL-2.0 OR MIT)
++// NanoKVM Enhanced port: board qualification is still pending.
++/dts-v1/;
++#include "sg2002-licheerv-nano-b.dts"
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/gpio/gpio.h>
++
++/ {
++	model = "Sipeed NanoKVM Enhanced PCIe";
++	sipeed,board-revision = "pcie";
++	compatible = "sipeed,nanokvm", "sophgo,sg2002";
++	aliases {
++		mmc0 = &sdhci0;
++		mmc1 = &sdhci1;
++		gpio4 = &gpio4;
++		ethernet0 = &gmac0;
++		i2c0 = &i2c0;
++		i2c1 = &i2c1;
++		i2c2 = &i2c2;
++		i2c3 = &i2c3;
++		i2c4 = &i2c4;
++		i2c5 = &oled_i2c;
++	};
++	chosen {
++		bootargs = "root=/dev/mmcblk0p2 rootwait rw console=ttyS0,115200 earlycon=sbi";
++	};
++	gpio-keys {
++		compatible = "gpio-keys";
++		pinctrl-names = "default";
++		pinctrl-0 = <&nanokvm_boot_key_cfg>;
++		key-user {
++			label = "User Key";
++			linux,code = <KEY_DISPLAYTOGGLE>;
++			debounce-interval = <1>;
++			gpios = <&porta 30 GPIO_ACTIVE_LOW>;
++		};
++	};
++	leds {
++		compatible = "gpio-leds";
++		pinctrl-names = "default";
++		pinctrl-0 = <&nanokvm_user_led_cfg>;
++		led-user {
++			label = "led-user";
++			gpios = <&porta 14 GPIO_ACTIVE_HIGH>;
++			linux,default-trigger = "activity";
++		};
++	};
++	reserved-memory {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		ranges;
++		// Match the actual OpenSBI PMP range copied by the installed U-Boot.
++		// Equal ranges are deduplicated; a larger no-map node overlaps and fails.
++		mmode_resv0@80000000 { reg = <0x80000000 0x40000>; no-map; };
++		// Preserve the reservation used by the unchanged installed FIP.
++		c906l@8d000000 { reg = <0x8d000000 0x200000>; no-map; };
++		ion_region: ion {
++			compatible = "shared-dma-pool";
++			size = <0x04000000>;
++			alignment = <0x00400000>;
++			reusable;
++		};
++	};
++	cvitek-ion {
++		compatible = "cvitek,cvitek-ion";
++		heap-carveout {
++			compatible = "cvitek,carveout";
++			memory-region = <&ion_region>;
++			nanokvm,cma-backend;
++		};
++	};
++	hdmi-reset {
++		compatible = "sipeed,nanokvm-hdmi-reset";
++		pinctrl-names = "default";
++		pinctrl-0 = <&nanokvm_hdmi_reset_cfg>;
++		reset-gpios = <&portb 3 GPIO_ACTIVE_LOW>;
++	};
++	oled_i2c: i2c-oled {
++		compatible = "i2c-gpio";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&nanokvm_oled_i2c_cfg>;
++		scl-gpios = <&porta 15 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		sda-gpios = <&porta 27 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		i2c-gpio,delay-us = <5>;
++	};
++	wifi_pwrseq: wifi-pwrseq {
++		compatible = "mmc-pwrseq-simple";
++		pinctrl-names = "default";
++		pinctrl-0 = <&nanokvm_wifi_enable_cfg>;
++		reset-gpios = <&porta 26 GPIO_ACTIVE_LOW>;
++		post-power-on-delay-ms = <200>;
++	};
++	sys {
++		compatible = "cvitek,sys";
++	};
++
++	base@a0c8000 {
++		compatible = "cvitek,base";
++		reg = <0xa0c8000 0x20 >;
++		reg-names = "vip_sys";
++		clocks = <&clk CLK_CFG_REG_VIP>;
++		clock-names = "cfg_reg";
++	};
++
++	cif@a0c2000 {
++		compatible = "cvitek,cif";
++		pinctrl-names = "default";
++		pinctrl-0 = <&nanokvm_csi_cfg>;
++		reg = <0xa0c2000 0x2000 0xa0d0000 0x1000 0xa0c4000 0x2000 0xa0c6000 0x2000 0x3001c30 0x30 >;
++		reg-names = "csi_mac0", "csi_wrap0", "csi_mac1", "csi_mac2", "pad_ctrl";
++		// PCIe HDMI reset is GPIOB3, owned by hdmi-reset above. No CSI sensor
++		// reset is wired to GPIOE1; do not claim the legacy LT interrupt pin.
++		resets = <&rst 0x46 &rst 0x48 &rst 0x47 &rst 0x49>;
++		reset-names = "phy0", "phy1", "phy-apb0", "phy-apb1";
++		clocks = <&clk CLK_CAM0>, <&clk CLK_CAM1>, <&clk CLK_SRC_VIP_SYS_2>, <&clk CLK_MIPIMPLL>, <&clk CLK_DISPPLL>, <&clk CLK_FPLL>, <&clk CLK_CSI0_RX_VIP>;
++		clock-names = "clk_cam0", "clk_cam1", "clk_sys_2", "clk_mipimpll", "clk_disppll", "clk_fpll", "csi0_rx";
++		interrupts = <0x1a 0x04 0x1b 0x04>;
++		interrupt-names = "csi0", "csi1";
++		interrupt-parent = <&plic>;
++	};
++
++	vi@a000000 {
++		compatible = "cvitek,vi";
++		reg = <0xa000000 0x80000 >;
++		clocks = <&clk CLK_SRC_VIP_SYS_0>, <&clk CLK_SRC_VIP_SYS_1>, <&clk CLK_SRC_VIP_SYS_2>, <&clk CLK_SRC_VIP_SYS_3>, <&clk CLK_AXI_VIP>, <&clk CLK_CSI_BE_VIP>, <&clk CLK_RAW_VIP>, <&clk CLK_ISP_TOP_VIP>, <&clk CLK_CSI_MAC0_VIP>, <&clk CLK_CSI_MAC1_VIP>, <&clk CLK_CSI_MAC2_VIP>;
++		clock-names = "clk_sys_0", "clk_sys_1", "clk_sys_2", "clk_sys_3", "clk_axi", "clk_csi_be", "clk_raw", "clk_isp_top", "clk_csi_mac0", "clk_csi_mac1", "clk_csi_mac2";
++		clock-freq-vip-sys1 = <0x11e1a300>;
++		interrupts = <0x18 0x04>;
++		interrupt-parent = <&plic>;
++		interrupt-names = "isp";
++	};
++
++	vpss@a080000 {
++		compatible = "cvitek,vpss";
++		reg = <0xa080000 0x10000 0xa0d1000 0x100 >;
++		reg-names = "sc";
++		clocks = <&clk CLK_SRC_VIP_SYS_0>, <&clk CLK_SRC_VIP_SYS_1>, <&clk CLK_SRC_VIP_SYS_2>, <&clk CLK_IMG_D_VIP>, <&clk CLK_IMG_V_VIP>, <&clk CLK_SC_TOP_VIP>, <&clk CLK_SC_D_VIP>, <&clk CLK_SC_V1_VIP>, <&clk CLK_SC_V2_VIP>, <&clk CLK_SC_V3_VIP>;
++		clock-names = "clk_sys_0", "clk_sys_1", "clk_sys_2", "clk_img_d", "clk_img_v", "clk_sc_top", "clk_sc_d", "clk_sc_v1", "clk_sc_v2", "clk_sc_v3";
++		clock-freq-vip-sys1 = <0x11e1a300>;
++		interrupts = <0x19 0x04>;
++		interrupt-names = "sc";
++		interrupt-parent = <&plic>;
++	};
++
++	rgn {
++		compatible = "cvitek,rgn";
++	};
++
++	vcodec@b020000 {
++		compatible = "cvitek,asic-vcodec";
++		reg = <0xb020000 0x10000 0xb010000 0x10000 0xb030000 0x100 0xb058000 0x100 0xb050000 0x400 >;
++		reg-names = "h265", "h264", "vc_ctrl", "vc_sbm", "vc_addr_remap";
++		clocks = <&clk CLK_AXI_VIDEO_CODEC>, <&clk CLK_H264C>, <&clk CLK_APB_H264C>, <&clk CLK_H265C>, <&clk CLK_APB_H265C>, <&clk CLK_VC_SRC0>, <&clk CLK_VC_SRC1>, <&clk CLK_VC_SRC2>, <&clk CLK_CFG_REG_VC>;
++		clock-names = "clk_axi_video_codec", "clk_h264c", "clk_apb_h264c", "clk_h265c", "clk_apb_h265c", "clk_vc_src0", "clk_vc_src1", "clk_vc_src2", "clk_cfg_reg_vc";
++		interrupts = <0x16 0x04 0x15 0x04 0x17 0x04>;
++		interrupt-names = "h265", "h264", "sbm";
++		interrupt-parent = <&plic>;
++	};
++
++	jpu@b000000 {
++		compatible = "cvitek,asic-jpeg";
++		reg = <0xb000000 0x300 0xb030000 0x100 0xb058000 0x100 >;
++		reg-names = "jpeg", "vc_ctrl", "vc_sbm";
++		clocks = <&clk CLK_AXI_VIDEO_CODEC>, <&clk CLK_JPEG>, <&clk CLK_APB_JPEG>, <&clk CLK_VC_SRC0>, <&clk CLK_VC_SRC1>, <&clk CLK_VC_SRC2>, <&clk CLK_CFG_REG_VC>;
++		clock-names = "clk_axi_video_codec", "clk_jpeg", "clk_apb_jpeg", "clk_vc_src0", "clk_vc_src1", "clk_vc_src2", "clk_cfg_reg_vc";
++		resets = <&rst 0x04>;
++		reset-names = "jpeg";
++		interrupts = <0x14 0x04>;
++		interrupt-names = "jpeg";
++		interrupt-parent = <&plic>;
++	};
++
++	cvi-vc-drv@b030000 {
++		compatible = "cvitek,cvi_vc_drv";
++		reg = <0xb030000 0x100 0xb058000 0x100 0xb050000 0x400 >;
++		reg-names = "vc_ctrl", "vc_sbm", "vc_addr_remap";
++	};
++
++	ive@a0a0000 {
++		compatible = "cvitek,ive";
++		reg = <0xa0a0000 0x3100 >;
++		reg-names = "ive_base";
++		clocks = <&clk CLK_CFG_REG_VIP>, <&clk CLK_IVE_VIP>,
++			 <&clk CLK_SRC_VIP_SYS_1>;
++		clock-names = "cfg_reg", "ive", "core";
++		interrupt-names = "ive_irq";
++		interrupt-parent = <&plic>;
++		interrupts = <0x61 0x04>;
++	};
++
++	dwa@a0c0000 {
++		compatible = "cvitek,dwa";
++		reg = <0xa0c0000 0x1000 >;
++		reg-names = "dwa";
++		clocks = <&clk CLK_SRC_VIP_SYS_0>, <&clk CLK_SRC_VIP_SYS_1>, <&clk CLK_SRC_VIP_SYS_2>, <&clk CLK_SRC_VIP_SYS_3>, <&clk CLK_SRC_VIP_SYS_4>, <&clk CLK_DWA_VIP>;
++		clock-names = "clk_sys_0", "clk_sys_1", "clk_sys_2", "clk_sys_3", "clk_sys_4", "clk_dwa";
++		clock-freq-vip-sys1 = <0x11e1a300>;
++		interrupts = <0x1c 0x04>;
++		interrupt-names = "dwa";
++		interrupt-parent = <&plic>;
++	};
++
++	vo@a080000 {
++		compatible = "cvitek,vo";
++		reg = <0xa080000 0x10000 0xa0c8000 0xa0 0xa0d1000 0x100 >;
++		reg-names = "sc", "vip_sys", "dphy";
++		clocks = <&clk CLK_DISP_VIP>, <&clk CLK_DSI_MAC_VIP>, <&clk CLK_BT_VIP>;
++		clock-names = "clk_disp", "clk_dsi", "clk_bt";
++	};
++
++	fast-image {
++		compatible = "cvitek,rtos_image";
++		ion-size = <0x1600000>;
++	};
++};
++
++&cpu0 {
++	// C906 has the pre-ratification T-Head vector ISA, not standard RVV 1.0.
++	riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicntr", "zicsr",
++			       "zifencei", "zihpm", "xtheadvector";
++};
++&{/soc} {
++	gpio4: gpio@5021000 {
++		compatible = "snps,dw-apb-gpio";
++		reg = <0x05021000 0x1000>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		porte: gpio-controller@0 {
++			compatible = "snps,dw-apb-gpio-port";
++			reg = <0>;
++			gpio-controller;
++			#gpio-cells = <2>;
++			snps,nr-gpios = <32>;
++			interrupt-controller;
++			#interrupt-cells = <2>;
++			interrupts = <70 IRQ_TYPE_LEVEL_HIGH>;
++		};
++	};
++	efuse@3050000 {
++		compatible = "sophgo,sg2002-efuse";
++		reg = <0x03050000 0x1000>;
++		clocks = <&clk CLK_EFUSE>;
++	};
++};
++&pinctrl {
++	sdhci1_cfg: sdhci1-cfg {
++		sdio-pins {
++			power-source = <3300>;
++			pinmux = <PINMUX(PIN_SD1_CLK, 0)>, <PINMUX(PIN_SD1_CMD, 0)>,
++				 <PINMUX(PIN_SD1_D0, 0)>, <PINMUX(PIN_SD1_D1, 0)>,
++				 <PINMUX(PIN_SD1_D2, 0)>, <PINMUX(PIN_SD1_D3, 0)>;
++		};
++	};
++};
++&sdhci1 {
++	// Module VDDIO is tied to VDD3V3_SYS; no 1.8 V switching circuitry.
++	no-1-8-v;
++	pinctrl-0 = <&sdhci1_cfg>;
++	pinctrl-names = "default";
++	bus-width = <4>;
++	max-frequency = <25000000>;
++	non-removable;
++	no-mmc;
++	no-sd;
++	keep-power-in-suspend;
++	mmc-pwrseq = <&wifi_pwrseq>;
++	status = "okay";
++};
++&mdio { status = "okay"; };
++&gmac0 { status = "okay"; };
++&i2c0 { status = "okay"; };
++&i2c1 { status = "okay"; };
++&i2c2 { status = "okay"; };
++&i2c3 { status = "okay"; };
++&usb {
++	dr_mode = "peripheral";
++	// Working device's FIFO partition, required for composite gadgets.
++	g-rx-fifo-size = <536>;
++	g-np-tx-fifo-size = <32>;
++	g-tx-fifo-size = <768 512 512 384 128 128>;
++	status = "okay";
++};
++
++&pinctrl {
++	nanokvm_boot_key_cfg: nanokvm-boot-key-cfg {
++		boot-key-pins {
++			pinmux = <PINMUX(PIN_AUX0, 3)>;
++			bias-pull-up;
++			power-source = <3300>;
++		};
++	};
++	nanokvm_user_led_cfg: nanokvm-user-led-cfg {
++		user-led-pins {
++			pinmux = <PINMUX(PIN_SD0_PWR_EN, 3)>;
++			bias-disable;
++			drive-strength-microamp = <10800>;
++			power-source = <3300>;
++		};
++	};
++};
++
++// GPIO hogs hold only board enable/reset lines. ATX lines remain available
++// to the server's exclusive GPIO-v2 requests; these are not ATX buttons.
++&gpio0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&nanokvm_board_outputs_cfg &nanokvm_atx_cfg>;
++};
++&porta {
++	oled-reset-hog {
++		gpio-hog;
++		gpios = <22 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "nanokvm-oled-reset";
++	};
++};
++&i2c4 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&nanokvm_hdmi_i2c_cfg>;
++	clock-frequency = <400000>;
++	status = "okay";
++};
++&uart1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&nanokvm_uart1_cfg>;
++	status = "okay";
++};
++&uart2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&nanokvm_uart2_cfg>;
++	status = "okay";
++};
++&pinctrl {
++	nanokvm_oled_i2c_cfg: nanokvm-oled-i2c-cfg {
++		oled-pins {
++			pinmux = <PINMUX(PIN_SPK_EN, 3)>, <PINMUX(PIN_EMMC_DAT3, 3)>;
++			power-source = <3300>;
++		};
++	};
++	nanokvm_board_outputs_cfg: nanokvm-board-outputs-cfg {
++		board-pins {
++			pinmux = <PINMUX(PIN_EMMC_CLK, 3)>;
++			power-source = <3300>;
++		};
++	};
++	nanokvm_wifi_enable_cfg: nanokvm-wifi-enable-cfg {
++		wifi-enable-pins {
++			pinmux = <PINMUX(PIN_EMMC_DAT2, 3)>;
++			power-source = <3300>;
++		};
++	};
++	nanokvm_atx_cfg: nanokvm-atx-cfg {
++		atx-pins {
++			pinmux = <PINMUX(PIN_EMMC_CMD, 3)>, <PINMUX(PIN_EMMC_DAT0, 3)>,
++				 <PINMUX(PIN_EMMC_DAT1, 3)>;
++			power-source = <3300>;
++		};
++	};
++	nanokvm_hdmi_reset_cfg: nanokvm-hdmi-reset-cfg {
++		hdmi-reset-pins {
++			pinmux = <PINMUX(PIN_ADC1, 3)>;
++			power-source = <1800>;
++		};
++	};
++	nanokvm_hdmi_i2c_cfg: nanokvm-hdmi-i2c-cfg {
++		hdmi-i2c-pins {
++			// Actual PCIe CAM_SCL/CAM_SDA, not legacy ADC3/ADC2 recovery pads.
++			pinmux = <PINMUX(PIN_PWR_WAKEUP0, 5)>, <PINMUX(PIN_PWR_BUTTON1, 5)>;
++			power-source = <1800>;
++		};
++	};
++	nanokvm_uart1_cfg: nanokvm-uart1-cfg {
++		uart1-pins {
++			pinmux = <PINMUX(PIN_JTAG_CPU_TMS, 6)>, <PINMUX(PIN_JTAG_CPU_TCK, 6)>;
++			power-source = <3300>;
++		};
++	};
++	nanokvm_uart2_cfg: nanokvm-uart2-cfg {
++		uart2-pins {
++			pinmux = <PINMUX(PIN_IIC0_SCL, 2)>, <PINMUX(PIN_IIC0_SDA, 2)>;
++			power-source = <3300>;
++		};
++	};
++};
++
++&pinctrl {
++	nanokvm_csi_cfg: nanokvm-csi-cfg {
++		csi-pins {
++			/* LT6911UXC: one clock pair and four data pairs. */
++			pinmux = <PINMUX(PIN_MIPIRX0P, 3)>, <PINMUX(PIN_MIPIRX0N, 3)>,
++				 <PINMUX(PIN_MIPIRX1P, 3)>, <PINMUX(PIN_MIPIRX1N, 3)>,
++				 <PINMUX(PIN_MIPIRX2P, 3)>, <PINMUX(PIN_MIPIRX2N, 3)>,
++				 <PINMUX(PIN_MIPIRX3P, 3)>, <PINMUX(PIN_MIPIRX3N, 3)>,
++				 <PINMUX(PIN_MIPIRX4P, 3)>, <PINMUX(PIN_MIPIRX4N, 3)>;
++			power-source = <1800>;
++			bias-disable;
++		};
++	};
++};
++
++// Reset mode; no pretimeout interrupt. Clock and reset IDs match qualified DT.
++&{/soc} {
++    watchdog@3010000 {
++        compatible = "snps,dw-wdt";
++        reg = <0x03010000 0x1000>;
++        clocks = <&clk 58>;
++        resets = <&rst 48>;
++        timeout-sec = <30>;
++        status = "okay";
++    };
++};
+diff --git a/arch/riscv/include/asm/uaccess.h b/arch/riscv/include/asm/uaccess.h
+index 5d4ec15..27938a2 100644
+--- a/arch/riscv/include/asm/uaccess.h
++++ b/arch/riscv/include/asm/uaccess.h
+@@ -87,6 +87,9 @@ static inline unsigned long __untagged_addr_remote(struct mm_struct *mm, unsigne
+  * on our cache or tlb entries.
+  */
+ 
++/* Base-ISA loads/stores require register-indirect addresses. XTheadMemIdx
++ * also permits indexed addresses for "m", which these asm templates cannot use.
++ */
+ #define __LSW	0
+ #define __MSW	1
+ 
+@@ -111,7 +114,7 @@ do {								\
+ 		"	" insn " %0, %1\n"			\
+ 		_ASM_EXTABLE_UACCESS_ERR(1b, %l2, %0)		\
+ 		: "=&r" (__tmp)					\
+-		: "m" (*(ptr)) : : label);			\
++		: "A" (*(ptr)) : : label);			\
+ 	(x) = (__force __typeof__(x))(unsigned long)__tmp;	\
+ } while (0)
+ #else /* !CONFIG_CC_HAS_ASM_GOTO_OUTPUT */
+@@ -124,7 +127,7 @@ do {								\
+ 		"2:\n"						\
+ 		_ASM_EXTABLE_UACCESS_ERR_ZERO(1b, 2b, %0, %1)	\
+ 		: "+r" (__gua_err), "=&r" (x)			\
+-		: "m" (*(ptr)));				\
++		: "A" (*(ptr)));				\
+ 	if (__gua_err)						\
+ 		goto label;					\
+ } while (0)
+@@ -148,7 +151,7 @@ do {								\
+ 		_ASM_EXTABLE_UACCESS_ERR(1b, %l4, %0)		\
+ 		_ASM_EXTABLE_UACCESS_ERR(2b, %l4, %0)		\
+ 		: "=&r" (__lo), "=r" (__hi)			\
+-		: "m" (__ptr[__LSW]), "m" (__ptr[__MSW])	\
++		: "A" (__ptr[__LSW]), "A" (__ptr[__MSW])	\
+ 		: : label);                                     \
+ 	(x) = (__typeof__(x))((__typeof__((x) - (x)))(		\
+ 		(((u64)__hi << 32) | __lo)));			\
+@@ -168,7 +171,7 @@ do {								\
+ 		_ASM_EXTABLE_UACCESS_ERR_ZERO(1b, 3b, %0, %1)	\
+ 		_ASM_EXTABLE_UACCESS_ERR_ZERO(2b, 3b, %0, %1)	\
+ 		: "+r" (__gu8_err), "=&r" (__lo), "=r" (__hi)	\
+-		: "m" (__ptr[__LSW]), "m" (__ptr[__MSW]));	\
++		: "A" (__ptr[__LSW]), "A" (__ptr[__MSW]));	\
+ 	if (__gu8_err) {					\
+ 		__hi = 0;					\
+ 		goto label;					\
+@@ -293,7 +296,7 @@ do {								\
+ 		"1:\n"						\
+ 		"	" insn " %z0, %1\n"			\
+ 		_ASM_EXTABLE(1b, %l2)				\
+-		: : "rJ" (__x), "m"(*(ptr)) : : label);		\
++		: : "rJ" (__x), "A"(*(ptr)) : : label);		\
+ } while (0)
+ 
+ #ifdef CONFIG_64BIT
+@@ -312,8 +315,8 @@ do {								\
+ 		_ASM_EXTABLE(1b, %l4)				\
+ 		_ASM_EXTABLE(2b, %l4)				\
+ 		: : "rJ" (__x), "rJ" (__x >> 32),		\
+-			"m" (__ptr[__LSW]),			\
+-			"m" (__ptr[__MSW]) : : label);		\
++			"A" (__ptr[__LSW]),			\
++			"A" (__ptr[__MSW]) : : label);		\
+ } while (0)
+ #endif /* CONFIG_64BIT */
+ 
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index 390256e..b6149db 100644
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -652,3 +652,17 @@ source "drivers/misc/keba/Kconfig"
+ source "drivers/misc/amd-sbi/Kconfig"
+ source "drivers/misc/rp1/Kconfig"
+ endmenu
++
++config NANOKVM_EFUSE
++	bool "NanoKVM SG2002 vendor efuse interface"
++	depends on ARCH_SOPHGO && OF && COMMON_CLK
++	help
++	  Compatibility interface used by the Sophgo base module to read the
++	  chip identifier. Also retains the vendor factory programming API.
++
++config NANOKVM_HDMI_RESET
++	bool "NanoKVM PCIe HDMI maintenance reset"
++	depends on ARCH_SOPHGO && OF && GPIOLIB
++	help
++	  Own the board HDMI reset line, initially deasserted, and provide a
++	  serialized 100ms reset pulse for the privileged EDID maintenance tool.
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+index fed47c7..c1ab303 100644
+--- a/drivers/misc/Makefile
++++ b/drivers/misc/Makefile
+@@ -74,3 +74,5 @@ obj-$(CONFIG_MCHP_LAN966X_PCI)	+= lan966x-pci.o
+ obj-y				+= keba/
+ obj-y				+= amd-sbi/
+ obj-$(CONFIG_MISC_RP1)		+= rp1/
++obj-$(CONFIG_NANOKVM_EFUSE) += nanokvm-efuse.o
++obj-$(CONFIG_NANOKVM_HDMI_RESET) += nanokvm-hdmi-reset.o
+diff --git a/drivers/misc/nanokvm-efuse.c b/drivers/misc/nanokvm-efuse.c
+new file mode 100644
+index 0000000..d409d75
+--- /dev/null
++++ b/drivers/misc/nanokvm-efuse.c
+@@ -0,0 +1,279 @@
++// SPDX-License-Identifier: GPL-2.0+
++//
++// EFUSE implementation
++//
++
++#include <linux/kernel.h>
++#include <linux/io.h>
++#include <linux/clk.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/of.h>
++#include "linux/cv180x_efuse.h"
++
++#define ERROR(fmt, ...) pr_err(fmt, ##__VA_ARGS__)
++#define VERBOSE(fmt, ...) pr_debug(fmt, ##__VA_ARGS__)
++
++#define EFUSE_BASE (0x03050000)
++
++#define EFUSE_SHADOW_REG (efuse_base + 0x100)
++#define EFUSE_SIZE 0x100
++
++#define EFUSE_MODE (efuse_base + 0x0)
++#define EFUSE_ADR (efuse_base + 0x4)
++#define EFUSE_DIR_CMD (efuse_base + 0x8)
++#define EFUSE_RD_DATA (efuse_base + 0xC)
++#define EFUSE_STATUS (efuse_base + 0x10)
++#define EFUSE_ONE_WAY (efuse_base + 0x14)
++
++#define EFUSE_BIT_AREAD BIT(0)
++#define EFUSE_BIT_MREAD BIT(1)
++#define EFUSE_BIT_PRG BIT(2)
++#define EFUSE_BIT_PWR_DN BIT(3)
++#define EFUSE_BIT_CMD BIT(4)
++#define EFUSE_BIT_BUSY BIT(0)
++#define EFUSE_CMD_REFRESH (0x30)
++
++enum EFUSE_READ_TYPE { EFUSE_AREAD, EFUSE_MREAD };
++
++static void __iomem *efuse_base;
++static struct clk *efuse_clk;
++
++static inline void mmio_write_32(void __iomem *addr, uint32_t value)
++{
++	iowrite32(value, addr);
++}
++
++static inline uint32_t mmio_read_32(void __iomem *addr)
++{
++	return ioread32(addr);
++}
++
++static inline void mmio_setbits_32(void __iomem *addr, uint32_t set)
++{
++	mmio_write_32(addr, mmio_read_32(addr) | set);
++}
++
++static void cvi_efuse_wait_for_ready(void)
++{
++	while (mmio_read_32(EFUSE_STATUS) & EFUSE_BIT_BUSY)
++		;
++}
++
++static void cvi_efuse_power_on(uint32_t on)
++{
++	if (on)
++		mmio_setbits_32(EFUSE_MODE, EFUSE_BIT_CMD);
++	else
++		mmio_setbits_32(EFUSE_MODE, EFUSE_BIT_PWR_DN | EFUSE_BIT_CMD);
++}
++
++static void cvi_efuse_refresh(void)
++{
++	mmio_write_32(EFUSE_MODE, EFUSE_CMD_REFRESH);
++}
++
++static void cvi_efuse_prog_bit(uint32_t word_addr, uint32_t bit_addr,
++			       uint32_t high_row)
++{
++	uint32_t phy_addr;
++
++	// word_addr: virtual addr, take "lower 6-bits" from 7-bits (0-127)
++	// bit_addr: virtual addr, 5-bits (0-31)
++
++	// composite physical addr[11:0] = [11:7]bit_addr + [6:0]word_addr
++	phy_addr =
++		((bit_addr & 0x1F) << 7) | ((word_addr & 0x3F) << 1) | high_row;
++
++	cvi_efuse_wait_for_ready();
++
++	// send efuse program cmd
++	mmio_write_32(EFUSE_ADR, phy_addr);
++	mmio_write_32(EFUSE_MODE, EFUSE_BIT_PRG | EFUSE_BIT_CMD);
++}
++
++static uint32_t cvi_efuse_read_from_phy(uint32_t phy_word_addr,
++					enum EFUSE_READ_TYPE type)
++{
++	// power on efuse macro
++	cvi_efuse_power_on(1);
++
++	cvi_efuse_wait_for_ready();
++
++	mmio_write_32(EFUSE_ADR, phy_word_addr);
++
++	if (type == EFUSE_AREAD) // array read
++		mmio_write_32(EFUSE_MODE, EFUSE_BIT_AREAD | EFUSE_BIT_CMD);
++	else if (type == EFUSE_MREAD) // margin read
++		mmio_write_32(EFUSE_MODE, EFUSE_BIT_MREAD | EFUSE_BIT_CMD);
++	else {
++		ERROR("EFUSE: Unsupported read type!");
++		return (uint32_t)-1;
++	}
++
++	cvi_efuse_wait_for_ready();
++
++	return mmio_read_32(EFUSE_RD_DATA);
++}
++
++static int cvi_efuse_write_word(uint32_t vir_word_addr, uint32_t val)
++{
++	uint32_t i, j, row_val, zero_bit;
++	uint32_t new_value;
++	int err_cnt = 0;
++
++	for (j = 0; j < 2; j++) {
++		VERBOSE("EFUSE: Program physical word addr #%d\n",
++			(vir_word_addr << 1) | j);
++
++		// array read by word address
++		row_val = cvi_efuse_read_from_phy(
++			(vir_word_addr << 1) | j,
++			EFUSE_AREAD); // read low word of word_addr
++		zero_bit = val & (~row_val); // only program zero bit
++
++		// program row which bit is zero
++		for (i = 0; i < 32; i++) {
++			if ((zero_bit >> i) & 1)
++				cvi_efuse_prog_bit(vir_word_addr, i, j);
++		}
++
++		// check by margin read
++		new_value = cvi_efuse_read_from_phy((vir_word_addr << 1) | j,
++						    EFUSE_MREAD);
++		VERBOSE("%s(): val=0x%x new_value=0x%x\n", __func__, val,
++			new_value);
++		if ((val & new_value) != val) {
++			err_cnt += 1;
++			ERROR("EFUSE: Program bits check failed (%d)!\n",
++			      err_cnt);
++		}
++	}
++
++	cvi_efuse_refresh();
++
++	return err_cnt >= 2 ? -EIO : 0;
++}
++
++static int cvi_efuse_probe(struct platform_device *pdev)
++{
++	efuse_base = devm_platform_ioremap_resource(pdev, 0);
++	if (IS_ERR(efuse_base))
++		return PTR_ERR(efuse_base);
++	efuse_clk = devm_clk_get(&pdev->dev, NULL);
++	if (IS_ERR(efuse_clk))
++		return dev_err_probe(&pdev->dev, PTR_ERR(efuse_clk),
++				     "cannot get efuse clock\n");
++	return 0;
++}
++
++int64_t cvi_efuse_read_from_shadow(uint32_t addr)
++{
++	int64_t ret = -1;
++
++	if (!efuse_base || !efuse_clk || IS_ERR(efuse_clk))
++		return -EPROBE_DEFER;
++
++	if (addr >= EFUSE_SIZE)
++		return -EFAULT;
++
++	if (addr % 4 != 0)
++		return -EFAULT;
++
++	ret = clk_prepare_enable(efuse_clk);
++	if (ret) {
++		pr_err("%s: clock failed to prepare+enable: %lld\n", __func__,
++		       (long long)ret);
++		return ret;
++	}
++
++	ret = mmio_read_32(EFUSE_SHADOW_REG + addr);
++	clk_disable_unprepare(efuse_clk);
++
++	return ret;
++}
++EXPORT_SYMBOL(cvi_efuse_read_from_shadow);
++
++int cvi_efuse_write(uint32_t addr, uint32_t value)
++{
++	int ret;
++
++	if (!efuse_base || !efuse_clk || IS_ERR(efuse_clk))
++		return -EPROBE_DEFER;
++
++	VERBOSE("%s(): 0x%x = 0x%x\n", __func__, addr, value);
++
++	if (addr >= EFUSE_SIZE)
++		return -EFAULT;
++
++	if (addr % 4 != 0)
++		return -EFAULT;
++
++	ret = clk_prepare_enable(efuse_clk);
++	if (ret) {
++		pr_err("%s: clock failed to prepare+enable: %lld\n", __func__,
++		       (long long)ret);
++		return ret;
++	}
++
++	ret = cvi_efuse_write_word(addr / 4, value);
++	VERBOSE("%s(): ret=%d\n", __func__, ret);
++
++	cvi_efuse_power_on(1);
++	cvi_efuse_refresh();
++	cvi_efuse_wait_for_ready();
++
++	clk_disable_unprepare(efuse_clk);
++
++	return ret;
++}
++EXPORT_SYMBOL(cvi_efuse_write);
++
++int cvi_efuse_read_buf(u32 addr, void *buf, size_t buf_size)
++{
++	int64_t ret = -1;
++	int i;
++
++	if (!buf)
++		return -EFAULT;
++
++	if (addr >= EFUSE_SIZE || addr % 4)
++		return -EINVAL;
++	buf_size = min_t(size_t, buf_size, EFUSE_SIZE - addr);
++
++	memset(buf, 0, buf_size);
++
++	for (i = 0; i < buf_size; i += 4) {
++		ret = cvi_efuse_read_from_shadow(addr + i);
++		if (ret < 0)
++			return ret;
++
++		if (ret > 0) {
++			u32 v = ret;
++
++			memcpy(buf + i, &v, min_t(size_t, sizeof(v), buf_size - i));
++		}
++	}
++
++	return buf_size;
++}
++EXPORT_SYMBOL(cvi_efuse_read_buf);
++
++static const struct of_device_id cvi_efuse_match[] = {
++	{ .compatible = "sophgo,sg2002-efuse" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, cvi_efuse_match);
++static struct platform_driver cvi_efuse_driver = {
++	.probe = cvi_efuse_probe,
++	.driver = {
++		.name = "nanokvm-efuse",
++		.of_match_table = cvi_efuse_match,
++		.suppress_bind_attrs = true,
++	},
++};
++module_platform_driver(cvi_efuse_driver);
++
++MODULE_AUTHOR("leon.liao@cvitek.com");
++MODULE_DESCRIPTION("cv180x efuse driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/misc/nanokvm-hdmi-reset.c b/drivers/misc/nanokvm-hdmi-reset.c
+new file mode 100644
+index 0000000..3d81fa7
+--- /dev/null
++++ b/drivers/misc/nanokvm-hdmi-reset.c
+@@ -0,0 +1,125 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* NanoKVM PCIe maintenance reset, separate from CIF sensor reset. */
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++#include <linux/sysfs.h>
++
++struct nanokvm_hdmi_reset {
++	struct gpio_desc *gpio;
++	struct mutex lock;
++};
++
++static int nanokvm_hdmi_pulse(struct nanokvm_hdmi_reset *reset)
++{
++	int ret, release;
++
++	/* A second maintenance request must not queue another hardware reset. */
++	if (!mutex_trylock(&reset->lock))
++		return -EBUSY;
++	ret = gpiod_direction_output(reset->gpio, 1);
++	if (!ret)
++		msleep(100);
++	/* Also attempt release after an activation error. */
++	release = gpiod_direction_output(reset->gpio, 0);
++	if (!ret)
++		ret = release;
++	if (!release)
++		msleep(100);
++	mutex_unlock(&reset->lock);
++	return ret;
++}
++
++static ssize_t pulse_store(struct device *dev, struct device_attribute *attr,
++			   const char *buf, size_t count)
++{
++	int ret;
++
++	if (!sysfs_streq(buf, "1"))
++		return -EINVAL;
++	ret = nanokvm_hdmi_pulse(dev_get_drvdata(dev));
++	return ret ? ret : (ssize_t)count;
++}
++static DEVICE_ATTR_WO(pulse);
++
++/* Hold reset while HDMI is disabled, using the same owner as pulse. */
++static ssize_t asserted_show(struct device *dev, struct device_attribute *attr,
++                             char *buf)
++{
++	struct nanokvm_hdmi_reset *reset = dev_get_drvdata(dev);
++	int value;
++
++	if (!mutex_trylock(&reset->lock))
++		return -EBUSY;
++	value = gpiod_get_value_cansleep(reset->gpio);
++	mutex_unlock(&reset->lock);
++	return value < 0 ? value : sysfs_emit(buf, "%d\n", value);
++}
++
++static ssize_t asserted_store(struct device *dev, struct device_attribute *attr,
++                              const char *buf, size_t count)
++{
++	struct nanokvm_hdmi_reset *reset = dev_get_drvdata(dev);
++	int value, ret;
++
++	if (sysfs_streq(buf, "0"))
++		value = 0;
++	else if (sysfs_streq(buf, "1"))
++		value = 1;
++	else
++		return -EINVAL;
++	if (!mutex_trylock(&reset->lock))
++		return -EBUSY;
++	ret = gpiod_direction_output(reset->gpio, value);
++	mutex_unlock(&reset->lock);
++	return ret ? ret : (ssize_t)count;
++}
++static DEVICE_ATTR_RW(asserted);
++
++static struct attribute *nanokvm_hdmi_attrs[] = {
++	&dev_attr_asserted.attr,
++	&dev_attr_pulse.attr,
++	NULL,
++};
++static const struct attribute_group nanokvm_hdmi_group = {
++	.attrs = nanokvm_hdmi_attrs,
++};
++
++static int nanokvm_hdmi_probe(struct platform_device *pdev)
++{
++	struct nanokvm_hdmi_reset *reset;
++
++	reset = devm_kzalloc(&pdev->dev, sizeof(*reset), GFP_KERNEL);
++	if (!reset)
++		return -ENOMEM;
++	/* GPIO_ACTIVE_LOW in DT makes logical0 physical-high/deasserted. */
++	reset->gpio = devm_gpiod_get(&pdev->dev, "reset", GPIOD_OUT_LOW);
++	if (IS_ERR(reset->gpio))
++		return dev_err_probe(&pdev->dev, PTR_ERR(reset->gpio),
++				     "cannot acquire HDMI reset\n");
++	mutex_init(&reset->lock);
++	platform_set_drvdata(pdev, reset);
++	/* Managed sysfs removal drains active writes before GPIO/state cleanup. */
++	return devm_device_add_group(&pdev->dev, &nanokvm_hdmi_group);
++}
++
++static const struct of_device_id nanokvm_hdmi_of_match[] = {
++	{ .compatible = "sipeed,nanokvm-hdmi-reset" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, nanokvm_hdmi_of_match);
++
++static struct platform_driver nanokvm_hdmi_driver = {
++	.probe = nanokvm_hdmi_probe,
++	.driver = {
++		.name = "nanokvm-hdmi-reset",
++		.of_match_table = nanokvm_hdmi_of_match,
++	},
++};
++module_platform_driver(nanokvm_hdmi_driver);
++MODULE_DESCRIPTION("NanoKVM PCIe HDMI maintenance reset");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/mmc/host/sdhci-of-dwcmshc.c b/drivers/mmc/host/sdhci-of-dwcmshc.c
+index c688f3e..b6306f1 100644
+--- a/drivers/mmc/host/sdhci-of-dwcmshc.c
++++ b/drivers/mmc/host/sdhci-of-dwcmshc.c
+@@ -71,6 +71,7 @@
+ #define CV18XX_SDHCI_MSHC_CTRL			0x00
+ #define  CV18XX_EMMC_FUNC_EN			BIT(0)
+ #define  CV18XX_LATANCY_1T			BIT(1)
++#define  CV18XX_SDIO_MODE			BIT(16)
+ #define CV18XX_SDHCI_PHY_TX_RX_DLY		0x40
+ #define  CV18XX_PHY_TX_DLY_MSK			GENMASK(6, 0)
+ #define  CV18XX_PHY_TX_SRC_MSK			GENMASK(9, 8)
+@@ -1098,6 +1099,10 @@ static void cv18xx_sdhci_reset(struct sdhci_host *host, u8 mask)
+ 
+ 	val = sdhci_readl(host, priv->vendor_specific_area1 + CV18XX_SDHCI_MSHC_CTRL);
+ 	val |= CV18XX_LATANCY_1T;
++	/* Sophgo SD1 requires bit 16 restored after reset (vendor SDIO path). */
++	if ((host->mmc->caps2 & (MMC_CAP2_NO_SD | MMC_CAP2_NO_MMC)) ==
++	    (MMC_CAP2_NO_SD | MMC_CAP2_NO_MMC))
++		val |= CV18XX_SDIO_MODE;
+ 	sdhci_writel(host, val, priv->vendor_specific_area1 + CV18XX_SDHCI_MSHC_CTRL);
+ 
+ 	val = sdhci_readl(host, priv->vendor_specific_area1 + CV18XX_SDHCI_PHY_CONFIG);
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 099f25d..655c89e 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -477,3 +477,9 @@ config XILINX_GMII2RGMII
+ 	  Ethernet physical media devices and the Gigabit Ethernet controller.
+ 
+ endif # PHYLIB
++
++config NANOKVM_CVITEK_PHY
++	tristate "NanoKVM SG2002 internal Ethernet PHY"
++	depends on ARCH_SOPHGO && NANOKVM_EFUSE && PHYLIB
++	help
++	  Apply the Sophgo CV181X analog calibration for SG2002 Ethernet.
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index de660ae..2cbf9df 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -100,3 +100,4 @@ obj-$(CONFIG_STE10XP)		+= ste10Xp.o
+ obj-$(CONFIG_TERANETICS_PHY)	+= teranetics.o
+ obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
+ obj-$(CONFIG_XILINX_GMII2RGMII) += xilinx_gmii2rgmii.o
++obj-$(CONFIG_NANOKVM_CVITEK_PHY) += cvitek.o
+diff --git a/drivers/net/phy/cvitek.c b/drivers/net/phy/cvitek.c
+new file mode 100644
+index 0000000..1332a2d
+--- /dev/null
++++ b/drivers/net/phy/cvitek.c
+@@ -0,0 +1,290 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/* SG2002 internal Ethernet PHY calibration, derived from Sophgo SDK.
++ * Keep the CV181X register sequence; CV180X uses different filter values.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mii.h>
++#include <linux/ethtool.h>
++#include <linux/phy.h>
++#include <linux/netdevice.h>
++#include <linux/bitops.h>
++#include <linux/io.h>
++#include <linux/of.h>
++#include <linux/cv180x_efuse.h>
++
++#define REG_EPHY_TOP_WRAP 0x03009800
++#define REG_EPHY_BASE 0x03009000
++#define EPHY_EFUSE_TXECHORC_FLAG 0x00000100 // bit 8
++#define EPHY_EFUSE_TXITUNE_FLAG 0x00000200 // bit 9
++#define EPHY_EFUSE_TXRXTERM_FLAG 0x00000800 // bit 11
++
++static int cv182xa_phy_config_init(struct phy_device *phydev)
++{
++	int ret = 0;
++	u32 val = 0;
++	void __iomem *reg_ephy_top_wrap = NULL;
++	void __iomem *reg_ephy_base = NULL;
++	s64 efuse20, efuse24;
++
++	if (!of_machine_is_compatible("sophgo,sg2002"))
++		return -ENODEV;
++
++	/* Read calibration shadow only: never program OTP. */
++	efuse20 = cvi_efuse_read_from_shadow(0x20);
++	if (efuse20 < 0)
++		return efuse20;
++	efuse24 = cvi_efuse_read_from_shadow(0x24);
++	if (efuse24 < 0)
++		return efuse24;
++
++	reg_ephy_top_wrap = ioremap(REG_EPHY_TOP_WRAP, 0x8);
++	if (!reg_ephy_top_wrap) {
++		ret = -EBUSY;
++		goto err_ephy_mem_1;
++	}
++	reg_ephy_base = ioremap(REG_EPHY_BASE, 0x80);
++	if (!reg_ephy_base) {
++		ret = -EBUSY;
++		goto err_ephy_mem_2;
++	}
++
++	/* Exclude MDIO accesses while the same registers are owned by APB. */
++	mutex_lock(&phydev->mdio.bus->mdio_lock);
++
++	// set rg_ephy_apb_rw_sel 0x0804@[0]=1/APB by using APB interface
++	writel(0x0001, reg_ephy_top_wrap + 4);
++
++	writel(0x0, reg_ephy_base + 0x7c);
++
++	/* FSBL has already released the analog block and PLL reset. */
++
++// Efuse register
++	// Set Double Bias Current
++	//Set rg_eth_txitune1  reg_ephy_base + 0x64 [15:8]
++	//Set rg_eth_txitune0  reg_ephy_base + 0x64 [7:0]
++	if ((efuse20 & EPHY_EFUSE_TXITUNE_FLAG) ==
++		EPHY_EFUSE_TXITUNE_FLAG) {
++		val = ((efuse24 >> 24) & 0xFF) |
++				(((efuse24 >> 16) & 0xFF) << 8);
++		writel((readl(reg_ephy_base + 0x64) & ~0xFFFF) | val, reg_ephy_base + 0x64);
++	} else
++		writel(0x5a5a, reg_ephy_base + 0x64);
++
++	// Set Echo_I
++	// Set rg_eth_txechoiadj reg_ephy_base + 0x54  [15:8]
++	if ((efuse20 & EPHY_EFUSE_TXECHORC_FLAG) ==
++		EPHY_EFUSE_TXECHORC_FLAG) {
++		writel((readl(reg_ephy_base + 0x54) & ~0xFF00) |
++			   (((efuse24 >> 8) & 0xFF) << 8), reg_ephy_base + 0x54);
++	} else
++		writel(0x0000, reg_ephy_base + 0x54);
++
++	//Set TX_Rterm & Echo_RC_Delay
++	// Set rg_eth_txrterm_p1  reg_ephy_base + 0x58 [11:8]
++	// Set rg_eth_txrterm     reg_ephy_base + 0x58  [7:4]
++	// Set rg_eth_txechorcadj reg_ephy_base + 0x58  [3:0]
++	if ((efuse20 & EPHY_EFUSE_TXRXTERM_FLAG) ==
++		EPHY_EFUSE_TXRXTERM_FLAG) {
++		val = (((efuse20 >> 28) & 0xF) << 4) |
++				(((efuse20 >> 24) & 0xF) << 8);
++		writel((readl(reg_ephy_base + 0x58) & ~0xFF0) | val, reg_ephy_base + 0x58);
++	} else
++		writel(0x0bb0, reg_ephy_base + 0x58);
++
++// ETH_100BaseT
++	// Set Rise update
++	writel(0x0c10, reg_ephy_base + 0x5c);
++
++	// Set Falling phase
++	writel(0x0003, reg_ephy_base + 0x68);
++
++	// Set Double TX Bias Current
++	writel(0x0000, reg_ephy_base + 0x54);
++
++	// Switch to MII-page16
++	writel(0x1000, reg_ephy_base + 0x7c);
++
++	// Set MLT3 Positive phase code, Set MLT3 +0
++	writel(0x1000, reg_ephy_base + 0x68);
++	writel(0x3020, reg_ephy_base + 0x6c);
++	writel(0x5040, reg_ephy_base + 0x70);
++	writel(0x7060, reg_ephy_base + 0x74);
++
++	// Set MLT3 +I
++	writel(0x1708, reg_ephy_base + 0x58);
++	writel(0x3827, reg_ephy_base + 0x5c);
++	writel(0x5748, reg_ephy_base + 0x60);
++	writel(0x7867, reg_ephy_base + 0x64);
++
++	// Switch to MII-page17
++	writel(0x1100, reg_ephy_base + 0x7c);
++
++	// Set MLT3 Negative phase code, Set MLT3 -0
++	writel(0x9080, reg_ephy_base + 0x40);
++	writel(0xb0a0, reg_ephy_base + 0x44);
++	writel(0xd0c0, reg_ephy_base + 0x48);
++	writel(0xf0e0, reg_ephy_base + 0x4c);
++
++	// Set MLT3 -I
++	writel(0x9788, reg_ephy_base + 0x50);
++	writel(0xb8a7, reg_ephy_base + 0x54);
++	writel(0xd7c8, reg_ephy_base + 0x58);
++	writel(0xf8e7, reg_ephy_base + 0x5c);
++
++	// @Switch to MII-page5
++	writel(0x0500, reg_ephy_base + 0x7c);
++
++	// En TX_Rterm
++	writel((0x0001 | readl(reg_ephy_base + 0x40)), reg_ephy_base + 0x40);
++	//Change rx vcm
++	writel((0x820 |readl(reg_ephy_base + 0x4c)), reg_ephy_base + 0x4c);
++//	Link Pulse
++	// Switch to MII-page10
++	writel(0x0a00, reg_ephy_base + 0x7c);
++	// from sean
++	// Fix err: the status is still linkup when removed the network cable.
++	writel(0x2000, reg_ephy_base + 0x40);
++	writel(0x3832, reg_ephy_base + 0x44);
++	writel(0x3132, reg_ephy_base + 0x48);
++	writel(0x2d2f, reg_ephy_base + 0x4c);
++	writel(0x2c2d, reg_ephy_base + 0x50);
++	writel(0x1b2b, reg_ephy_base + 0x54);
++	writel(0x94a0, reg_ephy_base + 0x58);
++	writel(0x8990, reg_ephy_base + 0x5c);
++	writel(0x8788, reg_ephy_base + 0x60);
++	writel(0x8485, reg_ephy_base + 0x64);
++	writel(0x8283, reg_ephy_base + 0x68);
++	writel(0x8182, reg_ephy_base + 0x6c);
++	writel(0x0081, reg_ephy_base + 0x70);
++// TP_IDLE
++	// Switch to MII-page11
++	writel(0x0b00, reg_ephy_base + 0x7c);
++
++// Set TP_IDLE
++	writel(0x5252, reg_ephy_base + 0x40);
++	writel(0x5252, reg_ephy_base + 0x44);
++	writel(0x4B52, reg_ephy_base + 0x48);
++	writel(0x3D47, reg_ephy_base + 0x4c);
++	writel(0xAA99, reg_ephy_base + 0x50);
++	writel(0x989E, reg_ephy_base + 0x54);
++	writel(0x9395, reg_ephy_base + 0x58);
++	writel(0x9091, reg_ephy_base + 0x5c);
++	writel(0x8E8F, reg_ephy_base + 0x60);
++	writel(0x8D8E, reg_ephy_base + 0x64);
++	writel(0x8C8C, reg_ephy_base + 0x68);
++	writel(0x8B8B, reg_ephy_base + 0x6c);
++	writel(0x008A, reg_ephy_base + 0x70);
++
++// ETH 10BaseT Data
++	// Switch to MII-page13
++	writel(0x0d00, reg_ephy_base + 0x7c);
++
++	writel(0x1E0A, reg_ephy_base + 0x40);
++	writel(0x3862, reg_ephy_base + 0x44);
++	writel(0x1E62, reg_ephy_base + 0x48);
++	writel(0x2A08, reg_ephy_base + 0x4c);
++	writel(0x244C, reg_ephy_base + 0x50);
++	writel(0x1A44, reg_ephy_base + 0x54);
++	writel(0x061C, reg_ephy_base + 0x58);
++
++	// Switch to MII-page14
++	writel(0x0e00, reg_ephy_base + 0x7c);
++
++	writel(0x2D30, reg_ephy_base + 0x40);
++	writel(0x3470, reg_ephy_base + 0x44);
++	writel(0x0648, reg_ephy_base + 0x48);
++	writel(0x261C, reg_ephy_base + 0x4c);
++	writel(0x3160, reg_ephy_base + 0x50);
++	writel(0x2D5E, reg_ephy_base + 0x54);
++
++	// Switch to MII-page15
++	writel(0x0f00, reg_ephy_base + 0x7c);
++
++	writel(0x2922, reg_ephy_base + 0x40);
++	writel(0x366E, reg_ephy_base + 0x44);
++	writel(0x0752, reg_ephy_base + 0x48);
++	writel(0x2556, reg_ephy_base + 0x4c);
++	writel(0x2348, reg_ephy_base + 0x50);
++	writel(0x0C30, reg_ephy_base + 0x54);
++
++	// Switch to MII-page16
++	writel(0x1000, reg_ephy_base + 0x7c);
++
++	writel(0x1E08, reg_ephy_base + 0x40);
++	writel(0x3868, reg_ephy_base + 0x44);
++	writel(0x1462, reg_ephy_base + 0x48);
++	writel(0x1A0E, reg_ephy_base + 0x4c);
++	writel(0x305E, reg_ephy_base + 0x50);
++	writel(0x2F62, reg_ephy_base + 0x54);
++
++// LED
++	// Switch to MII-page1
++	writel(0x0100, reg_ephy_base + 0x7c);
++
++	// select LED_LNK/SPD/DPX out to LED_PAD
++	writel((readl(reg_ephy_base + 0x68) & ~0x0f00), reg_ephy_base + 0x68);
++
++	// Switch to MII-page19
++	writel(0x1300, reg_ephy_base + 0x7c);
++	writel(0x0012, reg_ephy_base + 0x58);
++	// set agc max/min swing
++	writel(0x6848, reg_ephy_base + 0x5c);
++
++	// Switch to MII-page18
++	writel(0x1200, reg_ephy_base + 0x7c);
++	/* mars LPF(8, 8, 8, 8) HPF(-8, 50(+32), -36, -8) */
++	// lpf
++	writel(0x0808, reg_ephy_base + 0x48);
++	writel(0x0808, reg_ephy_base + 0x4c);
++	// hpf
++	writel(0x32f8, reg_ephy_base + 0x50);
++	writel(0xf8dc, reg_ephy_base + 0x54);
++
++	// Switch to MII-page0
++	writel(0x0000, reg_ephy_base + 0x7c);
++	// EPHY start auto-neg procedure
++	writel(0x090e, reg_ephy_top_wrap);
++
++	// from jinyu.zhao
++	/* EPHY is configured as half-duplex after reset, but we need force full-duplex */
++	writel((readl(reg_ephy_base) | 0x100), reg_ephy_base);
++
++	// switch to MDIO control by ETH_MAC
++	writel(0x0000, reg_ephy_top_wrap + 4);
++	mutex_unlock(&phydev->mdio.bus->mdio_lock);
++
++	iounmap(reg_ephy_base);
++err_ephy_mem_2:
++	iounmap(reg_ephy_top_wrap);
++err_ephy_mem_1:
++	return ret;
++}
++
++static struct phy_driver cv182xa_phy_driver[] = {
++{
++	.phy_id		= 0x00435649,
++	.phy_id_mask	= 0xffffffff,
++	.name		= "Sophgo SG2002 internal PHY",
++	.config_init	= cv182xa_phy_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.aneg_done	= genphy_aneg_done,
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
++	.set_loopback   = genphy_loopback,
++} };
++
++module_phy_driver(cv182xa_phy_driver);
++
++MODULE_DESCRIPTION("SG2002 internal Ethernet PHY calibration");
++MODULE_AUTHOR("Ethan Chen");
++MODULE_LICENSE("GPL");
++
++static struct mdio_device_id __maybe_unused cv182xa_tbl[] = {
++	{ 0x00435649, 0xffffffff },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(mdio, cv182xa_tbl);
+diff --git a/drivers/pinctrl/sophgo/pinctrl-cv18xx.c b/drivers/pinctrl/sophgo/pinctrl-cv18xx.c
+index 36e3c4f..8d09d9e 100644
+--- a/drivers/pinctrl/sophgo/pinctrl-cv18xx.c
++++ b/drivers/pinctrl/sophgo/pinctrl-cv18xx.c
+@@ -134,10 +134,10 @@ static int cv1800_verify_pinmux_config(const struct sophgo_pin_mux_config *confi
+ 	if (mux > pin->mux.max)
+ 		return -EINVAL;
+ 
+-	if (pin->pin.flags & CV1800_PIN_HAVE_MUX2) {
+-		if (mux != pin->mux2.pfunc)
+-			return -EINVAL;
+-
++	/* A second mux is used only by its selected primary function. Direct
++	 * functions such as MIPI must not be rejected on dual-mux pads.
++	 */
++	if ((pin->pin.flags & CV1800_PIN_HAVE_MUX2) && mux == pin->mux2.pfunc) {
+ 		if (mux2 > pin->mux2.max)
+ 			return -EINVAL;
+ 	} else {
+@@ -263,6 +263,10 @@ static int cv1800_pconf_get(struct pinctrl_dev *pctldev,
+ 	value = readl(cv1800_pinctrl_get_component_addr(priv, &pin->conf));
+ 
+ 	switch (param) {
++	case PIN_CONFIG_BIAS_DISABLE:
++		enabled = !(value & (PIN_IO_PULLUP | PIN_IO_PULLDOWN));
++		arg = 0;
++		break;
+ 	case PIN_CONFIG_BIAS_PULL_DOWN:
+ 		enabled = FIELD_GET(PIN_IO_PULLDOWN, value);
+ 		arg = sophgo_pinctrl_typical_pull_down(pctrl, sp, priv->power_cfg);
+@@ -333,6 +337,10 @@ static int cv1800_pinconf_compute_config(struct sophgo_pinctrl *pctrl,
+ 		u32 arg = pinconf_to_config_argument(configs[i]);
+ 
+ 		switch (param) {
++		case PIN_CONFIG_BIAS_DISABLE:
++			v &= ~(PIN_IO_PULLUP | PIN_IO_PULLDOWN);
++			m |= PIN_IO_PULLUP | PIN_IO_PULLDOWN;
++			break;
+ 		case PIN_CONFIG_BIAS_PULL_DOWN:
+ 			FIELD_MODIFY(PIN_IO_PULLDOWN, &v, arg);
+ 			m |= PIN_IO_PULLDOWN;
+diff --git a/drivers/soc/sophgo/Kconfig b/drivers/soc/sophgo/Kconfig
+index 45f78b2..6c3e65d 100644
+--- a/drivers/soc/sophgo/Kconfig
++++ b/drivers/soc/sophgo/Kconfig
+@@ -9,6 +9,7 @@ menu "Sophgo SoC drivers"
+ config SOPHGO_CV1800_RTCSYS
+ 	tristate "Sophgo CV1800 RTC MFD"
+ 	select MFD_CORE
++	select MFD_SYSCON
+ 	help
+ 	  If you say yes here you get support the RTC MFD driver for Sophgo
+ 	  CV1800 series SoC. The RTC module comprises a 32kHz oscillator,
+diff --git a/drivers/soc/sophgo/cv1800-rtcsys.c b/drivers/soc/sophgo/cv1800-rtcsys.c
+index fdae2e2..a320d28 100644
+--- a/drivers/soc/sophgo/cv1800-rtcsys.c
++++ b/drivers/soc/sophgo/cv1800-rtcsys.c
+@@ -11,10 +11,52 @@
+  */
+ 
+ #include <linux/mfd/core.h>
++#include <linux/mfd/syscon.h>
++#include <linux/reboot.h>
++#include <linux/regmap.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/property.h>
+ 
++/* Warm-reset sequence from the Sophgo CV181x BSP cvi-reboot driver. */
++#define RTC_CTRL0_UNLOCKKEY	0x0004
++#define RTC_CTRL0		0x0008
++#define RTC_32K_READ_SELECT	0x103c
++#define RTC_EN_WARM_RST_REQ	0x10cc
++#define RTC_RSM_STATE		0x10d4
++#define RTC_STATE_ON		0x3
++
++static int cv1800_rtcsys_restart(struct sys_off_data *data)
++{
++	struct regmap *map = data->cb_data;
++	unsigned int val;
++	int ret;
++
++	ret = regmap_write(map, RTC_32K_READ_SELECT, 1);
++	if (ret)
++		goto failed;
++	ret = regmap_write(map, RTC_CTRL0_UNLOCKKEY, 0xab18);
++	if (ret)
++		goto failed;
++	ret = regmap_write(map, RTC_EN_WARM_RST_REQ, 1);
++	if (ret)
++		goto failed;
++	ret = regmap_read_poll_timeout_atomic(map, RTC_EN_WARM_RST_REQ,
++					     val, val == 1, 10, 100000);
++	if (ret)
++		goto failed;
++	ret = regmap_read_poll_timeout_atomic(map, RTC_RSM_STATE,
++					     val, val == RTC_STATE_ON, 10, 100000);
++	if (ret)
++		goto failed;
++	ret = regmap_write(map, RTC_CTRL0, 0xffff0810);
++	if (!ret)
++		return NOTIFY_DONE;
++failed:
++	dev_err(data->dev, "warm reset failed: %d\n", ret);
++	return notifier_from_errno(ret);
++}
++
+ static struct resource cv1800_rtcsys_irq_resources[] = {
+ 	DEFINE_RES_IRQ_NAMED(0, "alarm"),
+ };
+@@ -29,7 +71,15 @@ static const struct mfd_cell cv1800_rtcsys_subdev[] = {
+ 
+ static int cv1800_rtcsys_probe(struct platform_device *pdev)
+ {
+-	int irq;
++	struct regmap *map;
++	int irq, ret;
++
++	map = syscon_node_to_regmap(pdev->dev.of_node);
++	if (IS_ERR(map))
++		return dev_err_probe(&pdev->dev, PTR_ERR(map), "missing RTC syscon\n");
++	ret = devm_register_restart_handler(&pdev->dev, cv1800_rtcsys_restart, map);
++	if (ret)
++		return dev_err_probe(&pdev->dev, ret, "restart registration failed\n");
+ 
+ 	irq = platform_get_irq_byname(pdev, "alarm");
+ 	if (irq < 0)
+diff --git a/drivers/staging/Kconfig b/drivers/staging/Kconfig
+index 2f92cd6..6ecc740 100644
+--- a/drivers/staging/Kconfig
++++ b/drivers/staging/Kconfig
+@@ -48,4 +48,6 @@ source "drivers/staging/axis-fifo/Kconfig"
+ 
+ source "drivers/staging/vme_user/Kconfig"
+ 
++source "drivers/staging/android/ion/Kconfig"
++
+ endif # STAGING
+diff --git a/drivers/staging/Makefile b/drivers/staging/Makefile
+index f5b8876..affc70d 100644
+--- a/drivers/staging/Makefile
++++ b/drivers/staging/Makefile
+@@ -13,3 +13,5 @@ obj-$(CONFIG_MOST)		+= most/
+ obj-$(CONFIG_GREYBUS)		+= greybus/
+ obj-$(CONFIG_BCM2835_VCHIQ)	+= vc04_services/
+ obj-$(CONFIG_XIL_AXIS_FIFO)	+= axis-fifo/
++
++obj-$(CONFIG_ION) += android/ion/
+diff --git a/drivers/staging/android/ion/Kconfig b/drivers/staging/android/ion/Kconfig
+new file mode 100644
+index 0000000..8eba2f8
+--- /dev/null
++++ b/drivers/staging/android/ion/Kconfig
+@@ -0,0 +1,51 @@
++# SPDX-License-Identifier: GPL-2.0
++menuconfig ION
++	bool "Ion Memory Manager"
++	depends on HAS_DMA && MMU
++	select GENERIC_ALLOCATOR
++	select DMA_SHARED_BUFFER
++	help
++	  Choose this option to enable the ION Memory Manager,
++	  used by Android to efficiently allocate buffers
++	  from userspace that can be shared between drivers.
++	  If you're not using Android its probably safe to
++	  say N here.
++
++config ION_SYSTEM_HEAP
++	bool "Ion system heap"
++	depends on ION
++	help
++	  Choose this option to enable the Ion system heap. The system heap
++	  is backed by pages from the buddy allocator. If in doubt, say Y.
++
++config ION_CARVEOUT_HEAP
++	bool "Ion carveout heap support"
++	depends on ION
++	help
++	  Choose this option to enable carveout heaps with Ion. Carveout heaps
++	  are backed by memory reserved from the system. Allocation times are
++	  typically faster at the cost of memory not being used. Unless you
++	  know your system has these regions, you should say N here.
++
++config ION_CHUNK_HEAP
++	bool "Ion chunk heap support"
++	depends on ION
++	help
++          Choose this option to enable chunk heaps with Ion. This heap is
++	  similar in function the carveout heap but memory is broken down
++	  into smaller chunk sizes, typically corresponding to a TLB size.
++	  Unless you know your system has these regions, you should say N here.
++
++config ION_CMA_HEAP
++	bool "Ion CMA heap support"
++	depends on ION && DMA_CMA
++	help
++	  Choose this option to enable CMA heaps with Ion. This heap is backed
++	  by the Contiguous Memory Allocator (CMA). If your system has these
++	  regions, you should say Y here.
++
++config ION_CVITEK
++    tristate "Ion for Cvitek"
++	depends on ARCH_SOPHGO && ION
++	help
++	  Choose this option if you wish to use ion on Cvitek Platform
+diff --git a/drivers/staging/android/ion/Makefile b/drivers/staging/android/ion/Makefile
+new file mode 100644
+index 0000000..20df784
+--- /dev/null
++++ b/drivers/staging/android/ion/Makefile
+@@ -0,0 +1,11 @@
++# SPDX-License-Identifier: GPL-2.0
++obj-$(CONFIG_ION) += ion.o ion_heap.o
++obj-$(CONFIG_ION_SYSTEM_HEAP) += ion_system_heap.o ion_page_pool.o
++obj-$(CONFIG_ION_CARVEOUT_HEAP) += ion_carveout_heap.o
++obj-$(CONFIG_ION_CHUNK_HEAP) += ion_chunk_heap.o
++obj-$(CONFIG_ION_CMA_HEAP) += ion_cma_heap.o
++obj-$(CONFIG_ION_CVITEK) += cvitek/
++
++ifdef CONFIG_COMPAT
++obj-$(CONFIG_ION) += compat_ion.o
++endif
+diff --git a/drivers/staging/android/ion/compat_ion.c b/drivers/staging/android/ion/compat_ion.c
+new file mode 100644
+index 0000000..4087f11
+--- /dev/null
++++ b/drivers/staging/android/ion/compat_ion.c
+@@ -0,0 +1,52 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * drivers/staging/android/ion/compat_ion.c
++ *
++ * Copyright (C) 2013 Google, Inc.
++ *
++ * This software is licensed under the terms of the GNU General Public
++ * License version 2, as published by the Free Software Foundation, and
++ * may be copied, distributed, and modified under those terms.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
++
++#include <linux/compat.h>
++#include <linux/fs.h>
++#include <linux/uaccess.h>
++
++#include "ion.h"
++#include "compat_ion.h"
++
++/* See drivers/staging/android/uapi/ion.h for the definition of these structs */
++
++struct compat_ion_custom_data {
++	compat_uint_t cmd;
++	compat_ulong_t arg;
++};
++
++#define COMPAT_ION_IOC_CUSTOM	_IOWR(ION_IOC_MAGIC, 6, \
++				      struct compat_ion_custom_data)
++
++long compat_ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
++{
++	if (!filp->f_op->unlocked_ioctl)
++		return -ENOIOCTLCMD;
++
++	switch (cmd) {
++	case COMPAT_ION_IOC_CUSTOM: {
++		struct compat_ion_custom_data data;
++
++		if (copy_from_user(&data, compat_ptr(arg), sizeof(data)))
++			return -EFAULT;
++		return ion_custom_ioctl(data.cmd, (unsigned long)compat_ptr(data.arg));
++	}
++	default:
++		return filp->f_op->unlocked_ioctl(filp, cmd,
++						(unsigned long)compat_ptr(arg));
++	}
++}
+diff --git a/drivers/staging/android/ion/compat_ion.h b/drivers/staging/android/ion/compat_ion.h
+new file mode 100644
+index 0000000..b98797c
+--- /dev/null
++++ b/drivers/staging/android/ion/compat_ion.h
+@@ -0,0 +1,30 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * drivers/staging/android/ion/compat_ion.h
++ *
++ * Copyright (C) 2013 Google, Inc.
++ *
++ * This software is licensed under the terms of the GNU General Public
++ * License version 2, as published by the Free Software Foundation, and
++ * may be copied, distributed, and modified under those terms.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
++
++#ifndef _LINUX_COMPAT_ION_H
++#define _LINUX_COMPAT_ION_H
++
++#if IS_ENABLED(CONFIG_COMPAT)
++
++long compat_ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
++
++#else
++
++#define compat_ion_ioctl  NULL
++
++#endif /* CONFIG_COMPAT */
++#endif /* _LINUX_COMPAT_ION_H */
+diff --git a/drivers/staging/android/ion/cvitek/Makefile b/drivers/staging/android/ion/cvitek/Makefile
+new file mode 100644
+index 0000000..91db421
+--- /dev/null
++++ b/drivers/staging/android/ion/cvitek/Makefile
+@@ -0,0 +1 @@
++obj-$(CONFIG_ION_CVITEK) += cvitek_ion.o cvitek_ion_alloc.o cvitek_ion_debugfs.o
+diff --git a/drivers/staging/android/ion/cvitek/cvitek_ion.c b/drivers/staging/android/ion/cvitek/cvitek_ion.c
+new file mode 100644
+index 0000000..92391c7
+--- /dev/null
++++ b/drivers/staging/android/ion/cvitek/cvitek_ion.c
+@@ -0,0 +1,568 @@
++/*
++ * Copyright (C) Cvitek Co., Ltd. 2019-2020. All rights reserved.
++ *
++ * File Name: cvitek_ion.c
++ * Description:
++ */
++
++#define pr_fmt(fmt) "Ion: " fmt
++
++#include <linux/err.h>
++#include <linux/init.h>
++#include <linux/platform_device.h>
++#include <linux/of.h>
++#include <linux/of_platform.h>
++#include <linux/of_address.h>
++#include <linux/of_reserved_mem.h>
++#include <linux/slab.h>
++#include <linux/cma.h>
++#include <linux/uaccess.h>
++#include <asm/cacheflush.h>
++#include <asm/pgtable.h>
++#include <linux/mm.h>
++#include <linux/swap.h>
++#include <linux/version.h>
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
++#include <linux/dma-map-ops.h>
++#endif
++
++#include "../ion.h"
++#include "../../uapi/ion_cvitek.h"
++
++struct ion_of_heap {
++	const char *compat;
++	int heap_id;
++	int type;
++	const char *name;
++	int align;
++};
++
++#define PLATFORM_HEAP(_compat, _id, _type, _name) \
++{ \
++	.compat = _compat, \
++	.heap_id = _id, \
++	.type = _type, \
++	.name = _name, \
++	.align = PAGE_SIZE, \
++}
++
++struct ion_platform_data {
++	int nr;
++	struct ion_platform_heap *heaps;
++};
++
++struct cvi_ion_dev {
++	struct ion_heap	**heaps;
++	struct ion_device *idev;
++	struct ion_platform_data *plat_data;
++};
++
++// heap id in ion_platform_heap is not used, id in ion_heap is assigned in ion_device_add_heap
++static struct ion_of_heap cvi_ion_heap_list[] = {
++	PLATFORM_HEAP("cvitek,carveout_vpp", 0,
++		      ION_HEAP_TYPE_CARVEOUT, "vpp"),
++	PLATFORM_HEAP("cvitek,cma_vpp", 0,
++		      ION_HEAP_TYPE_DMA, "vpp"),
++	PLATFORM_HEAP("cvitek,carveout_npu", 0,
++		      ION_HEAP_TYPE_CARVEOUT, "npu"),
++	PLATFORM_HEAP("cvitek,carveout", 0,
++		      ION_HEAP_TYPE_CARVEOUT, "carveout"),
++	PLATFORM_HEAP("civtek,cma", 0,
++		      ION_HEAP_TYPE_DMA, "cma"),
++	PLATFORM_HEAP("cvitek,sys_contig", 0,
++		      ION_HEAP_TYPE_SYSTEM_CONTIG, "sys_contig"),
++	{}
++};
++
++static int ion_parse_dt_heap_common(struct device_node *heap_node,
++				    struct ion_platform_heap *heap,
++				    struct ion_of_heap *compatible)
++{
++	int i;
++
++	for (i = 0; compatible[i].name; i++) {
++		if (of_device_is_compatible(heap_node, compatible[i].compat))
++			break;
++	}
++
++	if (!compatible[i].name)
++		return -ENODEV;
++
++	heap->id = compatible[i].heap_id;
++	heap->type = compatible[i].type;
++	heap->name = compatible[i].name;
++	heap->align = compatible[i].align;
++
++	/* Some kind of callback function pointer? */
++
++	pr_info("%s: id %d type %d name %s align %llx\n", __func__,
++		heap->id, heap->type, heap->name, heap->align);
++	return 0;
++}
++
++static int ion_setup_heap_common(struct platform_device *parent,
++				 struct device_node *heap_node,
++				 struct ion_platform_heap *heap)
++{
++	int ret = 0;
++
++	switch (heap->type) {
++	case ION_HEAP_TYPE_CARVEOUT:
++	case ION_HEAP_TYPE_CHUNK:
++		if (heap->base && heap->size)
++			return 0;
++	fallthrough;
++	case ION_HEAP_TYPE_DMA:
++		ret = of_reserved_mem_device_init(heap->priv);
++		break;
++	default:
++		break;
++	}
++
++	if (!ret && of_property_read_bool(heap_node, "nanokvm,cma-backend")) {
++#ifdef CONFIG_DMA_CMA
++		struct device *dev = heap->priv;
++		if (!dev->cma_area)
++			return -ENODEV;
++		heap->base = cma_get_base(dev->cma_area);
++		heap->size = cma_get_size(dev->cma_area);
++#else
++		return -EOPNOTSUPP;
++#endif
++	}
++	return ret;
++}
++
++static struct ion_platform_data *ion_parse_dt(struct platform_device *pdev,
++				       struct ion_of_heap *compatible)
++{
++	int num_heaps, ret;
++	const struct device_node *dt_node = pdev->dev.of_node;
++	struct device_node *node;
++	struct ion_platform_heap *heaps;
++	struct ion_platform_data *data;
++	int i = 0;
++
++	num_heaps = of_get_available_child_count(dt_node);
++
++	if (!num_heaps)
++		return ERR_PTR(-EINVAL);
++
++	heaps = devm_kzalloc(&pdev->dev,
++			     sizeof(struct ion_platform_heap) * num_heaps,
++			     GFP_KERNEL);
++	if (!heaps)
++		return ERR_PTR(-ENOMEM);
++
++	data = devm_kzalloc(&pdev->dev, sizeof(struct ion_platform_data),
++			    GFP_KERNEL);
++	if (!data)
++		return ERR_PTR(-ENOMEM);
++
++	for_each_available_child_of_node(dt_node, node) {
++		struct platform_device *heap_pdev;
++
++		ret = ion_parse_dt_heap_common(node, &heaps[i], compatible);
++		if (ret)
++			continue;
++
++		heap_pdev = of_platform_device_create(node, heaps[i].name,
++						      &pdev->dev);
++		if (!heap_pdev)
++			continue;
++		heap_pdev->dev.platform_data = &heaps[i];
++
++		heaps[i].priv = &heap_pdev->dev;
++
++		ret = ion_setup_heap_common(pdev, node, &heaps[i]);
++		if (ret) {
++			of_device_unregister(to_platform_device(heaps[i].priv));
++			continue;
++		}
++		i++;
++	}
++
++	data->heaps = heaps;
++	/* Failed reserved-memory setup must never become a zero-sized heap. */
++	data->nr = i;
++	if (!i)
++		return ERR_PTR(-ENODEV);
++	return data;
++}
++
++static void ion_destroy_platform_data(struct ion_platform_data *data)
++{
++	int i;
++
++	for (i = 0; i < data->nr; i++)
++		if (data->heaps[i].priv)
++			of_device_unregister(to_platform_device(
++				data->heaps[i].priv));
++}
++
++static int cvitek_get_heap_info(struct ion_device *dev, struct cvitek_heap_info *info)
++{
++	struct ion_heap *heap;
++
++	if (info->id >= dev->heap_cnt)
++		return -EFAULT;
++
++	info->total_size = 0;
++	info->avail_size = 0;
++
++	plist_for_each_entry(heap, &dev->heaps, node) {
++		if (heap->id == info->id) {
++			switch (heap->type) {
++			case ION_HEAP_TYPE_DMA:
++			case ION_HEAP_TYPE_CARVEOUT:
++			case ION_HEAP_TYPE_CHUNK:
++			{
++				info->total_size = heap->total_size;
++				info->avail_size =
++					heap->total_size - heap->num_of_alloc_bytes;
++				break;
++			}
++			case ION_HEAP_TYPE_SYSTEM:
++			case ION_HEAP_TYPE_SYSTEM_CONTIG:
++			{
++				info->total_size =
++					get_num_physpages() << PAGE_SHIFT;
++				info->avail_size =
++					nr_free_pages() << PAGE_SHIFT;
++				break;
++			}
++			default:
++				break;
++			}
++			return 0;
++		}
++	}
++
++	return -1;
++}
++#if defined(CONFIG_ARM) || defined(__arm__) || defined(__aarch64__)
++u64 get_user_pa(u64 user_addr)
++{
++	pgd_t *pgd; //= (pgd_t*)per_cpu(current_pgd, smp_processor_id());
++	p4d_t *p4d;
++	pud_t *pud;
++	pmd_t *pmd;
++	pte_t *pte;
++	struct mm_struct *mm;
++	u64 pa;
++
++	if (!find_vma(current->mm, user_addr)) {
++		pr_err("no va %llx\n", user_addr);
++		goto exit;
++	}
++
++	mm = current->mm;
++	if (!mm) {
++		pr_err("no vm_mm\n");
++		goto exit;
++	}
++
++	pgd = pgd_offset(mm, user_addr);
++	pr_debug("[%08llx] *pgd=%016llx", user_addr, pgd_val(*pgd));
++	if (pgd_none(*pgd) || pgd_bad(*pgd))
++		goto exit;
++
++	p4d = p4d_offset(pgd, user_addr);
++	pud = pud_offset(p4d, user_addr);
++	pr_debug(", *pud=%016llx", pud_val(*pud));
++	if (pud_none(*pud) || pud_bad(*pud))
++		goto exit;
++
++	pmd = pmd_offset(pud, user_addr);
++	pr_debug(", *pmd=%016llx", pmd_val(*pmd));
++	if (pmd_none(*pmd) || pmd_bad(*pmd))
++		goto exit;
++
++	pte = pte_offset_map(pmd, user_addr);
++	pr_debug(", *pte=%016llx", pte_val(*pte));
++	if (!pte_present(*pte))
++		goto exit;
++
++	pa = ((pte_val(*pte) & PHYS_MASK) & PAGE_MASK) |
++						(user_addr & ~PAGE_MASK);
++
++	return pa;
++
++exit:
++	pr_err("failed to get pa\n");
++	return 0;
++}
++#endif
++
++static long cvitek_ion_ioctl(struct ion_device *dev, unsigned int cmd, unsigned long arg)
++{
++	long ret = 0;
++
++	switch (cmd) {
++#ifndef __riscv
++	/* we do not support this now in riscv */
++	case ION_IOC_CVITEK_FLUSH_RANGE:
++	{
++		struct cvitek_cache_range data;
++
++		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
++			return -EFAULT;
++
++		if (IS_ERR(data.start)) {
++			pr_err("flush fault addr %p, size %zu!\n", data.start, data.size);
++			return -EFAULT;
++		}
++
++		pr_debug("flush addr %p, size %zu\n", data.start, data.size);
++#ifdef CONFIG_ARM
++		__cpuc_flush_user_range((u32)data.start, ((u32)data.start) + data.size, 0);
++#else
++		__flush_cache_user_range((u64)data.start, ((u64)data.start) + data.size);
++#endif
++		break;
++	}
++	case ION_IOC_CVITEK_INVALIDATE_RANGE:
++	{
++		struct cvitek_cache_range data;
++		unsigned long va, pa;
++
++		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
++			return -EFAULT;
++
++		if (IS_ERR(data.start)) {
++			pr_err(" addr %p, size %zu!\n", data.start, data.size);
++			return -EFAULT;
++		}
++
++		pr_debug("ion invalidate:%p, %zu\n", data.start, data.size);
++#ifdef CONFIG_ARM
++		pa = get_user_pa((u32)data.start);
++#else
++		pa = get_user_pa((u64)data.start);
++#endif
++		if (!pa) {
++			pr_err("pa is 0\n");
++			break;
++		}
++
++		va = (unsigned long)phys_to_virt(pa);
++		pr_debug("IonInv  va:%lx, pa:%lx\n", va, pa);
++#ifdef CONFIG_ARM
++		invalidate_kernel_vmap_range((void*)va, data.size);
++#else
++		__inval_dcache_area(va, data.size);
++#endif
++		break;
++	}
++#endif
++	case ION_IOC_CVITEK_GET_HEAP_INFO:
++	{
++		struct cvitek_heap_info data;
++
++		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
++			return -EFAULT;
++
++		if (cvitek_get_heap_info(dev, &data) == 0) {
++			if (copy_to_user((void __user *)arg, &data, sizeof(data)))
++				return -EFAULT;
++		} else {
++			return -EINVAL;
++		}
++		break;
++	}
++	case ION_IOC_CVITEK_FLUSH_PHY_RANGE:
++	{
++		struct cvitek_cache_range data;
++
++		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
++			return -EFAULT;
++
++		pr_debug("flush addr %#llx, size %u\n", data.paddr, data.size);
++
++#if defined(__arm__) || defined(__aarch64__)
++		/* compatible with previous version */
++		/* it could be removed and replaced by arch_sync_dma_for_device later */
++		__dma_map_area(phys_to_virt(data.paddr), data.size, DMA_TO_DEVICE);
++#else
++		arch_sync_dma_for_device(data.paddr, data.size, DMA_TO_DEVICE);
++#endif
++		break;
++	}
++	case ION_IOC_CVITEK_INVALIDATE_PHY_RANGE:
++	{
++		struct cvitek_cache_range data;
++
++		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
++			return -EFAULT;
++
++		pr_debug("invalidate addr %#llx, size %u\n", data.paddr, data.size);
++
++
++#if defined(__arm__) || defined(__aarch64__)
++		/* compatible with previous version */
++		/* it could be removed and replaced by arch_sync_dma_for_device later */
++		__dma_map_area(phys_to_virt(data.paddr), data.size, DMA_FROM_DEVICE);
++#else
++		arch_sync_dma_for_cpu(data.paddr, data.size, DMA_FROM_DEVICE);
++#endif
++		break;
++	}
++	default:
++		pr_debug("cvitek_ion_ioctl fail cmd=%x\n", cmd);
++		return -ENOTTY;
++	}
++
++	return ret;
++}
++
++static int cvitek_ion_probe(struct platform_device *pdev)
++{
++	struct cvi_ion_dev *ipdev;
++	int i, er_count = 0;
++	int ret = 0;
++
++	ipdev = devm_kzalloc(&pdev->dev, sizeof(*ipdev), GFP_KERNEL);
++	if (!ipdev) {
++		ret = -ENOMEM;
++		goto out;
++	}
++	platform_set_drvdata(pdev, ipdev);
++
++	ipdev->plat_data = ion_parse_dt(pdev, cvi_ion_heap_list);
++	if (IS_ERR(ipdev->plat_data)) {
++		ret = PTR_ERR(ipdev->plat_data);
++		goto ipdev_free;
++	}
++	ipdev->heaps = devm_kzalloc(&pdev->dev,
++				sizeof(struct ion_heap *) * ipdev->plat_data->nr,
++				GFP_KERNEL);
++	if (!ipdev->heaps) {
++		ion_destroy_platform_data(ipdev->plat_data);
++		ret = -ENOMEM;
++		goto ipdev_free;
++	}
++
++	for (i = 0, er_count = 0; i < ipdev->plat_data->nr; i++) {
++		/* Here we use local variable
++		 * to shorten name of parmater
++		 * pass to other functions
++		 */
++		struct device *dev = ipdev->plat_data->heaps[i].priv;
++		struct ion_platform_heap *pl_heap = &ipdev->plat_data->heaps[i];
++		u32 chunk_size;
++
++		switch (pl_heap->type) {
++		case ION_HEAP_TYPE_CARVEOUT:
++			ipdev->heaps[i] = ion_carveout_heap_create(pl_heap);
++			goto show_heap;
++		case ION_HEAP_TYPE_CHUNK:
++			ret = of_property_read_u32(dev->of_node,
++						   "chunk-size", &chunk_size);
++			if (ret) {
++				WARN(1, "missing dts property \"chunk-size\"\n");
++				ipdev->heaps[i] = ERR_PTR(-EINVAL);
++			} else {
++				ipdev->heaps[i] =
++					ion_chunk_heap_create(pl_heap, chunk_size);
++			}
++			goto show_heap;
++		default:
++			continue;
++		}
++show_heap:
++		if (IS_ERR(ipdev->heaps[i])) {
++			er_count++;
++			dev_err(dev, "ion %s create fail\n", pl_heap->name);
++			continue;
++		}
++
++		ion_device_add_heap(ipdev->heaps[i]);
++		if (!ipdev->idev) {
++			ipdev->idev = ipdev->heaps[i]->dev;
++			ipdev->idev->custom_ioctl = cvitek_ion_ioctl;
++		}
++		dev_info(dev, "[ion] add heap id %d, type %d, base 0x%llx, size 0x%lx\n",
++			 ipdev->heaps[i]->id, ipdev->heaps[i]->type,
++			 pl_heap->base,
++			 pl_heap->size);
++	}
++
++	/* all heaps are created fail */
++	if (ipdev->plat_data->nr == er_count) {
++		ret = -ENODEV;
++		goto ipdev_heaps_free;
++	} else {
++		/* any heap is created */
++		goto out;
++	}
++ipdev_heaps_free:
++	ion_destroy_platform_data(ipdev->plat_data);
++	devm_kfree(&pdev->dev, ipdev->heaps);
++
++ipdev_free:
++	devm_kfree(&pdev->dev, ipdev);
++
++out:
++	return ret;
++}
++
++static const struct of_device_id cvitek_ion_match_table[] = {
++	{.compatible = "cvitek,cvitek-ion"},
++	{},
++};
++
++static struct platform_driver cvitek_ion_driver = {
++	.probe = cvitek_ion_probe,
++	.driver = {
++		.name = "ion-cvitek",
++		/* Heaps live for the lifetime of this built-in allocator. */
++		.suppress_bind_attrs = true,
++		.of_match_table = cvitek_ion_match_table,
++	},
++};
++
++static int __init cvitek_ion_init(void)
++{
++	return platform_driver_register(&cvitek_ion_driver);
++}
++
++subsys_initcall(cvitek_ion_init);
++
++#ifdef CONFIG_OF_RESERVED_MEM
++#include <linux/of.h>
++#include <linux/of_fdt.h>
++#include <linux/of_reserved_mem.h>
++
++static int rmem_ion_device_init(struct reserved_mem *rmem, struct device *dev)
++{
++	struct platform_device *pdev = to_platform_device(dev);
++	struct ion_platform_heap *heap = pdev->dev.platform_data;
++
++	heap->base = rmem->base;
++	heap->size = rmem->size;
++	pr_info("%s: heap %s base %pa size %pa dev %p\n", __func__,
++		heap->name, &rmem->base, &rmem->size, dev);
++	return 0;
++}
++
++static void rmem_ion_device_release(struct reserved_mem *rmem,
++				    struct device *dev)
++{
++}
++
++/* The OF core requires node_init before attaching device operations. */
++static int __init rmem_ion_node_init(unsigned long node, struct reserved_mem *rmem)
++{
++	return 0;
++}
++
++static const struct reserved_mem_ops rmem_dma_ops = {
++	.node_init = rmem_ion_node_init,
++	.device_init = rmem_ion_device_init,
++	.device_release = rmem_ion_device_release,
++};
++
++RESERVEDMEM_OF_DECLARE(vpp, "vpp-region", &rmem_dma_ops);
++RESERVEDMEM_OF_DECLARE(npu, "npu-region", &rmem_dma_ops);
++RESERVEDMEM_OF_DECLARE(ion, "ion-region", &rmem_dma_ops);
++#endif
+diff --git a/drivers/staging/android/ion/cvitek/cvitek_ion_alloc.c b/drivers/staging/android/ion/cvitek/cvitek_ion_alloc.c
+new file mode 100644
+index 0000000..c24586d
+--- /dev/null
++++ b/drivers/staging/android/ion/cvitek/cvitek_ion_alloc.c
+@@ -0,0 +1,178 @@
++/*
++ * Copyright (C) Cvitek Co., Ltd. 2019-2020. All rights reserved.
++ *
++ * File Name: cvitek_ion.c
++ * Description:
++ */
++
++#include <linux/vmalloc.h>
++#include <linux/mm.h>
++#include <linux/uaccess.h>
++#include <linux/dma-map-ops.h>
++
++#include "../ion.h"
++#include "cvitek_ion_alloc.h"
++
++struct cvi_ion_alloc_info {
++	size_t len;
++	unsigned int heap_id_mask;
++	unsigned int flags;
++	struct ion_buffer *buf;
++};
++
++static int _cvi_ion_alloc(enum ion_heap_type type, size_t len, bool mmap_cache, struct cvi_ion_alloc_info *ion_alloc_info)
++{
++	struct ion_heap_query query;
++	int ret = 0, index;
++	unsigned int heap_id;
++	struct ion_heap_data *heap_data;
++	memset(&query, 0, sizeof(struct ion_heap_query));
++	query.cnt = HEAP_QUERY_CNT;
++	heap_data = vzalloc(sizeof(*heap_data) * HEAP_QUERY_CNT);
++	query.heaps = (unsigned long)heap_data;
++	if (!query.heaps)
++		return -ENOMEM;
++
++	pr_debug("%s: len %zu looking for type %d and mmap it as %s\n",
++		 __func__, len, type,
++		 (mmap_cache) ? "cacheable" : "un-cacheable");
++
++/* Kernel heap query already copies directly; no uaccess override is needed. */
++	ret = ion_query_heaps(&query, true);
++
++	if (ret != 0) {
++		vfree(heap_data);
++		return ret;
++	}
++
++	heap_id = ION_NUM_HEAP_IDS;
++	/* here only return the 1st match
++	 * heap id that user requests for
++	 */
++	for (index = 0; index < query.cnt; index++) {
++		if (heap_data[index].type == type) {
++			heap_id = heap_data[index].heap_id;
++			break;
++		}
++	}
++	vfree(heap_data);
++	if (heap_id >= ION_NUM_HEAP_IDS)
++		return -ENODEV;
++
++	ion_alloc_info->len = len;
++	ion_alloc_info->heap_id_mask = 1U << heap_id;
++	ion_alloc_info->flags = ((mmap_cache) ? 1 : 0);
++
++	return 0;
++}
++
++struct ion_buffer *
++cvi_ion_alloc_nofd(enum ion_heap_type type, size_t len, bool mmap_cache)
++{
++	int ret;
++	struct cvi_ion_alloc_info ion_alloc_info;
++
++	ret = _cvi_ion_alloc(type, len, mmap_cache, &ion_alloc_info);
++	if (ret)
++		return ERR_PTR(ret);
++
++	return ion_alloc_nofd(ion_alloc_info.len, ion_alloc_info.heap_id_mask,
++			      ion_alloc_info.flags);
++}
++EXPORT_SYMBOL(cvi_ion_alloc_nofd);
++
++int cvi_ion_alloc(enum ion_heap_type type, size_t len, bool mmap_cache)
++{
++	int ret;
++	struct cvi_ion_alloc_info ion_alloc_info;
++
++	ret = _cvi_ion_alloc(type, len, mmap_cache, &ion_alloc_info);
++	if (ret)
++		return ret;
++
++	return ion_alloc(ion_alloc_info.len, ion_alloc_info.heap_id_mask,
++			 ion_alloc_info.flags, &ion_alloc_info.buf);
++}
++EXPORT_SYMBOL(cvi_ion_alloc);
++
++void cvi_ion_free(pid_t fd_pid, int fd)
++{
++	ion_free(fd_pid, fd);
++}
++EXPORT_SYMBOL(cvi_ion_free);
++
++void cvi_ion_free_nofd(struct ion_buffer *buffer)
++{
++	ion_free_nofd(buffer);
++}
++EXPORT_SYMBOL(cvi_ion_free_nofd);
++
++int cvi_ion_get_memory_state(uint64_t *total_size,
++	uint64_t *free_size, uint64_t *max_avail_size)
++{
++	return ion_get_memory_state(total_size, free_size, max_avail_size);
++}
++EXPORT_SYMBOL(cvi_ion_get_memory_state);
++
++void cvi_ion_dump(struct ion_heap *heap)
++{
++	struct ion_device *dev = heap->dev;
++	struct ion_buffer *pos, *n;
++	size_t total_size = heap->total_size;
++	size_t alloc_size;
++	u64 alloc_bytes_wm;
++	int usage_rate = 0;
++	int rem;
++	u64 tmp;
++
++	spin_lock(&heap->stat_lock);
++	alloc_size = heap->num_of_alloc_bytes;
++	alloc_bytes_wm = heap->alloc_bytes_wm;
++	spin_unlock(&heap->stat_lock);
++
++	pr_err("Summary:\n");
++
++	tmp = (uint64_t)alloc_size * 100;
++	rem = do_div(tmp, total_size);
++	usage_rate = tmp;
++	if (rem)
++		usage_rate += 1;
++
++	pr_err("[%d] %s heap size:%zu bytes, used:%zu bytes\n",
++	       heap->id, heap->name, total_size, alloc_size);
++
++	pr_err("usage rate:%d%%, memory usage peak %llu bytes\n",
++	       usage_rate, alloc_bytes_wm);
++
++	pr_err("\nDetails:\n%16s %16s %16s %16s %16s\n", "heap_id",
++	       "alloc_buf_size", "phy_addr", "kmap_cnt", "buffer name");
++	mutex_lock(&dev->buffer_lock);
++	rbtree_postorder_for_each_entry_safe(pos, n, &dev->buffers, node) {
++		/* only heap id matches will show buffer info */
++		if (heap->id == pos->heap->id)
++			pr_err("%16d %16zu %16llx %16d %16s\n",
++			       pos->heap->id, pos->size, pos->paddr,
++			       pos->kmap_cnt, pos->name);
++	}
++	mutex_unlock(&dev->buffer_lock);
++	pr_err("\n");
++}
++
++
++/* Legacy media ABI uses physical ION addresses without a dma_map mapping.
++ * Keep this compatibility bridge inside ION instead of exporting arch internals.
++ * Callers must hold a live buffer covering the range until synchronization ends.
++ */
++void cvi_ion_sync_for_device(phys_addr_t paddr, size_t size,
++			   enum dma_data_direction direction)
++{
++	arch_sync_dma_for_device(paddr, size, direction);
++}
++EXPORT_SYMBOL_GPL(cvi_ion_sync_for_device);
++
++void cvi_ion_sync_for_cpu(phys_addr_t paddr, size_t size,
++			enum dma_data_direction direction)
++{
++	arch_sync_dma_for_cpu(paddr, size, direction);
++}
++EXPORT_SYMBOL_GPL(cvi_ion_sync_for_cpu);
+diff --git a/drivers/staging/android/ion/cvitek/cvitek_ion_alloc.h b/drivers/staging/android/ion/cvitek/cvitek_ion_alloc.h
+new file mode 100644
+index 0000000..103b1f7
+--- /dev/null
++++ b/drivers/staging/android/ion/cvitek/cvitek_ion_alloc.h
+@@ -0,0 +1,25 @@
++/*
++ * Copyright (C) Cvitek Co., Ltd. 2019-2020. All rights reserved.
++ *
++ * File Name: cvitek_ion_alloc.h
++ * Description:
++ */
++
++#ifndef __CVITEK_ION_ALLOC_H__
++#define __CVITEK_ION_ALLOC_H__
++
++#include "../../uapi/ion.h"
++
++#define HEAP_QUERY_CNT	5
++
++int cvi_ion_alloc(enum ion_heap_type type, size_t len, bool mmap_cache);
++void cvi_ion_free(pid_t fd_pid, int fd);
++
++struct ion_buffer *
++cvi_ion_alloc_nofd(enum ion_heap_type type, size_t len, bool mmap_cache);
++void cvi_ion_free_nofd(struct ion_buffer *buffer);
++int cvi_ion_get_memory_state(uint64_t *total_size, uint64_t *free_size, uint64_t *max_avail_size);
++
++void cvi_ion_dump(struct ion_heap *heap);
++
++#endif /* __CVITEK_ION_ALLOC_H__ */
+diff --git a/drivers/staging/android/ion/cvitek/cvitek_ion_debugfs.c b/drivers/staging/android/ion/cvitek/cvitek_ion_debugfs.c
+new file mode 100644
+index 0000000..91336a2
+--- /dev/null
++++ b/drivers/staging/android/ion/cvitek/cvitek_ion_debugfs.c
+@@ -0,0 +1,258 @@
++/*
++ * Copyright (C) Cvitek Co., Ltd. 2019-2020. All rights reserved.
++ *
++ * File Name: cvitek_ion_debugfs.c
++ * Description:
++ */
++
++#define pr_fmt(fmt) "Ion: " fmt
++
++#include <linux/err.h>
++#include <linux/platform_device.h>
++#include <linux/seq_file.h>
++#include <linux/debugfs.h>
++#include "../ion.h"
++
++#include "../../uapi/ion_cvitek.h"
++#include <linux/genalloc.h>
++#include <linux/types.h>
++
++static inline size_t chunk_size(const struct gen_pool_chunk *chunk)
++{
++	return chunk->end_addr - chunk->start_addr + 1;
++}
++
++static void show_bitmap_mem_usage(struct seq_file *s, u32 heap_id, struct gen_pool_chunk *chunk, u32 size_in_bit, int order)
++{
++	unsigned long *map = chunk->bits;
++	phys_addr_t region_start_addr;
++	phys_addr_t region_end_addr;
++	u64 region_len;
++	u32 free_index_start;
++	u32 free_index_end = 0;
++	phys_addr_t chunk_start_addr = chunk->start_addr;
++
++	seq_printf(s, "\n\nminimum ion allocate unit = %u\n", (u32)(2 << (order - 1)));
++
++	seq_puts(s, "free memory regions:\n");
++
++	seq_printf(s, "%16s %16s %16s %16s\n", "heap_id", "start", "end", "length");
++
++	while (free_index_end < size_in_bit) {
++		free_index_start = find_next_zero_bit(map, size_in_bit, free_index_end);
++		if (free_index_start >= size_in_bit) {
++			break;
++		}
++
++		free_index_end = find_next_bit(map, size_in_bit, free_index_start);
++
++		region_start_addr = chunk_start_addr + (free_index_start << order);
++		region_end_addr = chunk_start_addr + (free_index_end << order);
++		region_len = (free_index_end - free_index_start) << order;
++
++		seq_printf(s, "%16d %16llx %16llx %16llu\n", heap_id, region_start_addr, region_end_addr, region_len);
++	}
++
++}
++
++static void show_carveout_heap_usage(struct seq_file *s, struct ion_heap *heap)
++{
++	int end_bit;
++	struct gen_pool *pool;
++	struct gen_pool_chunk *chunk;
++	int order;
++
++	if (heap->type != ION_HEAP_TYPE_CARVEOUT)
++		return;
++
++	{
++		u64 total = 0, free = 0, largest = 0;
++		if (ion_carveout_cma_state(heap, &total, &free, &largest)) {
++			seq_printf(s, "\nCMA reclaimable capacity: %llu bytes; largest ION-free run: %llu bytes\n",
++				   free, largest);
++			seq_puts(s, "Migration is required for borrowed pages; allocation success/latency is not guaranteed.\n");
++			return;
++		}
++	}
++	pool = ion_carveout_get_pool(heap);
++	order = pool->min_alloc_order;
++
++	#ifndef CONFIG_ARCH_HAVE_NMI_SAFE_CMPXCHG
++	if (in_nmi())
++		return;
++	#endif
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(chunk, &pool->chunks, next_chunk) {
++		end_bit = chunk_size(chunk) >> order;
++		show_bitmap_mem_usage(s, heap->id, chunk, end_bit, order);
++	}
++	rcu_read_unlock();
++}
++
++static int cvi_ion_debug_heap_show(struct seq_file *s, void *unused)
++{
++	struct ion_heap *heap = s->private;
++	struct ion_device *dev = heap->dev;
++	struct ion_buffer *pos, *n;
++	size_t total_size = heap->total_size;
++	size_t alloc_size;
++	u64 alloc_bytes_wm;
++	int usage_rate = 0;
++	int rem;
++	u64 tmp;
++
++	spin_lock(&heap->stat_lock);
++	alloc_size = heap->num_of_alloc_bytes;
++	alloc_bytes_wm = heap->alloc_bytes_wm;
++	spin_unlock(&heap->stat_lock);
++
++	seq_puts(s, "Summary:\n");
++	if (heap->debug_show)
++		heap->debug_show(heap, s, unused);
++
++	tmp = (uint64_t)alloc_size * 100;
++	rem = do_div(tmp, total_size);
++	usage_rate = tmp;
++	if (rem)
++		usage_rate += 1;
++
++	seq_printf(s, "[%d] %s heap size:%zu bytes, used:%zu bytes\n",
++		   heap->id, heap->name, total_size, alloc_size);
++
++	seq_printf(s, "usage rate:%d%%, memory usage peak %llu bytes\n",
++		   usage_rate, alloc_bytes_wm);
++
++	seq_printf(s, "\nDetails:\n%16s %16s %16s %16s %16s\n", "heap_id",
++		   "alloc_buf_size", "phy_addr", "kmap_cnt", "buffer name");
++	mutex_lock(&dev->buffer_lock);
++	rbtree_postorder_for_each_entry_safe(pos, n, &dev->buffers, node) {
++		/* only heap id matches will show buffer info */
++		if (heap->id == pos->heap->id)
++			seq_printf(s, "%16d %16zu %16llx %16d %16s\n",
++				   pos->heap->id, pos->size, pos->paddr,
++				   pos->kmap_cnt, pos->name);
++	}
++	mutex_unlock(&dev->buffer_lock);
++	show_carveout_heap_usage(s, heap);
++	seq_puts(s, "\n");
++
++	return 0;
++}
++
++static int cvi_ion_debug_heap_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, cvi_ion_debug_heap_show, inode->i_private);
++}
++
++static const struct file_operations debug_heap_fops = {
++	.open = cvi_ion_debug_heap_open,
++	.read = seq_read,
++	.llseek = seq_lseek,
++	.release = single_release,
++};
++
++static int cvi_debugfs_get_alloc_mem(void *data, u64 *val)
++{
++	struct ion_heap *heap = data;
++
++	spin_lock(&heap->stat_lock);
++	*val = heap->num_of_alloc_bytes;
++	spin_unlock(&heap->stat_lock);
++
++	return 0;
++}
++DEFINE_SIMPLE_ATTRIBUTE(cvi_get_alloc_mem, cvi_debugfs_get_alloc_mem, NULL, "%llu\n");
++
++static int cvi_debugfs_get_total_size(void *data, u64 *val)
++{
++	struct ion_heap *heap = data;
++
++	*val = heap->total_size;
++
++	return 0;
++}
++DEFINE_SIMPLE_ATTRIBUTE(cvi_get_total_size, cvi_debugfs_get_total_size, NULL, "%llu\n");
++
++static int cvi_get_peak(void *data, u64 *val)
++{
++	struct ion_heap *heap = data;
++
++	spin_lock(&heap->stat_lock);
++	*val = heap->alloc_bytes_wm;
++	spin_unlock(&heap->stat_lock);
++
++	return 0;
++}
++
++static int cvi_clear_peak(void *data, u64 val)
++{
++	struct ion_heap *heap = data;
++
++	spin_lock(&heap->stat_lock);
++	heap->alloc_bytes_wm = 0;
++	spin_unlock(&heap->stat_lock);
++
++	return 0;
++}
++DEFINE_SIMPLE_ATTRIBUTE(heap_peak, cvi_get_peak, cvi_clear_peak, "%llu\n");
++
++void cvi_ion_create_debug_info(struct ion_heap *heap)
++{
++	struct dentry *debug_file;
++	struct ion_device *dev = heap->dev;
++	char debug_heap_name[64];
++
++	snprintf(debug_heap_name, 64, "cvi_%s_heap_dump", heap->name);
++
++	heap->heap_dfs_root =
++		debugfs_create_dir(debug_heap_name, dev->debug_root);
++	if (!heap->heap_dfs_root) {
++		pr_err("%s: failed to create debugfs root directory.\n",
++			   debug_heap_name);
++		return;
++	}
++	debug_file = debugfs_create_file(
++		"summary", 0644, heap->heap_dfs_root, heap,
++		&debug_heap_fops);
++	if (!debug_file) {
++		char buf[256], *path;
++
++		path = dentry_path(dev->debug_root, buf, 256);
++		pr_err("Failed to create heap debugfs at %s/%s\n",
++			   path, debug_heap_name);
++	}
++	debug_file = debugfs_create_file("peak", 0755,
++					 heap->heap_dfs_root, heap,
++					 &heap_peak);
++	if (!debug_file) {
++		char buf[256], *path;
++
++		path = dentry_path(heap->heap_dfs_root, buf, 256);
++		pr_err("Failed to create clear_peak heap debugfs at %s/%s\n",
++			   path, debug_heap_name);
++	}
++
++	debug_file = debugfs_create_file("alloc_mem", 0644,
++					 heap->heap_dfs_root,
++					 heap,
++					 &cvi_get_alloc_mem);
++	if (!debug_file) {
++		char buf[256], *path;
++
++		path = dentry_path(heap->heap_dfs_root, buf, 256);
++		pr_err("Failed to create ava_mem heap debugfs at %s/%s\n",
++			   path, debug_heap_name);
++	}
++
++	debug_file = debugfs_create_file("total_mem", 0644,
++					 heap->heap_dfs_root, heap,
++					 &cvi_get_total_size);
++	if (!debug_file) {
++		char buf[256], *path;
++
++		path = dentry_path(heap->heap_dfs_root, buf, 256);
++		pr_err("Failed to create all_mem heap debugfs at %s/%s\n",
++			   path, debug_heap_name);
++	}
++}
+diff --git a/drivers/staging/android/ion/ion.c b/drivers/staging/android/ion/ion.c
+new file mode 100644
+index 0000000..423ecce
+--- /dev/null
++++ b/drivers/staging/android/ion/ion.c
+@@ -0,0 +1,1026 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * ION Memory Allocator
++ *
++ * Copyright (C) 2011 Google, Inc.
++ */
++
++#include <linux/debugfs.h>
++#include <linux/device.h>
++#include <linux/dma-buf.h>
++#include <linux/err.h>
++#include <linux/export.h>
++#include <linux/file.h>
++#include <linux/freezer.h>
++#include <linux/fs.h>
++#include <linux/kthread.h>
++#include <linux/list.h>
++#include <linux/miscdevice.h>
++#include <linux/mm.h>
++#include <linux/mm_types.h>
++#include <linux/rbtree.h>
++#include <linux/sched/task.h>
++#include <linux/slab.h>
++#include <linux/uaccess.h>
++#include <linux/vmalloc.h>
++#include <linux/genalloc.h>
++#include <linux/iosys-map.h>
++#define CREATE_TRACE_POINTS
++#include <trace/events/ion.h>
++#ifdef CONFIG_COMPAT
++#include "compat_ion.h"
++#endif
++
++#include "ion.h"
++#ifdef CONFIG_ION_CVITEK
++extern void cvi_ion_create_debug_info(struct ion_heap *heap);
++#endif
++static struct ion_device *internal_dev;
++static int heap_id;
++
++/* this function should only be called while dev->lock is held */
++static void ion_buffer_add(struct ion_device *dev, struct ion_buffer *buffer)
++{
++	struct rb_node **p = &dev->buffers.rb_node;
++	struct rb_node *parent = NULL;
++	struct ion_buffer *entry;
++
++	while (*p) {
++		parent = *p;
++		entry = rb_entry(parent, struct ion_buffer, node);
++
++		if (buffer < entry) {
++			p = &(*p)->rb_left;
++		} else if (buffer > entry) {
++			p = &(*p)->rb_right;
++		} else {
++			pr_err("%s: buffer already found.", __func__);
++			BUG();
++		}
++	}
++
++	rb_link_node(&buffer->node, parent, p);
++	rb_insert_color(&buffer->node, &dev->buffers);
++}
++
++extern void cvi_ion_dump(struct ion_heap *heap);
++/* this function should only be called while dev->lock is held */
++static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
++					    struct ion_device *dev,
++					    unsigned long len,
++					    unsigned long flags)
++{
++	struct ion_buffer *buffer;
++	u64 pre_num_of_alloc_bytes;
++	int ret;
++
++	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
++	if (!buffer)
++		return ERR_PTR(-ENOMEM);
++
++	buffer->heap = heap;
++	buffer->flags = flags;
++	buffer->dev = dev;
++	buffer->size = len;
++
++	ret = heap->ops->allocate(heap, buffer, len, flags);
++
++	if (ret) {
++		if (!(heap->flags & ION_HEAP_FLAG_DEFER_FREE))
++			goto err2;
++
++		ion_heap_freelist_drain(heap, 0);
++		ret = heap->ops->allocate(heap, buffer, len, flags);
++		if (ret)
++			goto err2;
++	}
++
++	if (!buffer->sg_table) {
++		WARN_ONCE(1, "This heap needs to set the sgtable");
++		ret = -EINVAL;
++		goto err1;
++	}
++
++	spin_lock(&heap->stat_lock);
++	pre_num_of_alloc_bytes = heap->num_of_alloc_bytes;
++	spin_unlock(&heap->stat_lock);
++	trace_ion_heap_grow(heap->name, len, pre_num_of_alloc_bytes);
++
++	spin_lock(&heap->stat_lock);
++	heap->num_of_buffers++;
++	heap->num_of_alloc_bytes += len;
++	if (heap->num_of_alloc_bytes > heap->alloc_bytes_wm)
++		heap->alloc_bytes_wm = heap->num_of_alloc_bytes;
++	spin_unlock(&heap->stat_lock);
++
++	INIT_LIST_HEAD(&buffer->attachments);
++	mutex_init(&buffer->lock);
++	mutex_lock(&dev->buffer_lock);
++	ion_buffer_add(dev, buffer);
++	mutex_unlock(&dev->buffer_lock);
++	return buffer;
++
++err1:
++	heap->ops->free(buffer);
++err2:
++	cvi_ion_dump(heap);
++	kfree(buffer);
++	return ERR_PTR(ret);
++}
++
++void ion_buffer_destroy(struct ion_buffer *buffer)
++{
++	u64 pre_num_of_alloc_bytes;
++
++	if (buffer->kmap_cnt > 0) {
++		pr_warn_once("%s: buffer still mapped in the kernel\n",
++			     __func__);
++		buffer->heap->ops->unmap_kernel(buffer->heap, buffer);
++	}
++	buffer->heap->ops->free(buffer);
++
++	spin_lock(&buffer->heap->stat_lock);
++	pre_num_of_alloc_bytes = buffer->heap->num_of_alloc_bytes;
++	spin_unlock(&buffer->heap->stat_lock);
++	trace_ion_heap_shrink(buffer->heap->name, buffer->size,
++			      pre_num_of_alloc_bytes);
++
++	spin_lock(&buffer->heap->stat_lock);
++	buffer->heap->num_of_buffers--;
++	buffer->heap->num_of_alloc_bytes -= buffer->size;
++	spin_unlock(&buffer->heap->stat_lock);
++
++	kfree(buffer);
++}
++
++static void _ion_buffer_destroy(struct ion_buffer *buffer)
++{
++	struct ion_heap *heap = buffer->heap;
++	struct ion_device *dev = buffer->dev;
++
++	mutex_lock(&dev->buffer_lock);
++	rb_erase(&buffer->node, &dev->buffers);
++	mutex_unlock(&dev->buffer_lock);
++
++	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
++		ion_heap_freelist_add(heap, buffer);
++	else
++		ion_buffer_destroy(buffer);
++}
++
++static void *ion_buffer_kmap_get(struct ion_buffer *buffer)
++{
++	void *vaddr;
++
++	if (buffer->kmap_cnt) {
++		buffer->kmap_cnt++;
++		return buffer->vaddr;
++	}
++	vaddr = buffer->heap->ops->map_kernel(buffer->heap, buffer);
++	if (WARN_ONCE(!vaddr,
++		      "heap->ops->map_kernel should return ERR_PTR on error"))
++		return ERR_PTR(-EINVAL);
++	if (IS_ERR(vaddr))
++		return vaddr;
++	buffer->vaddr = vaddr;
++	buffer->kmap_cnt++;
++	return vaddr;
++}
++
++static void ion_buffer_kmap_put(struct ion_buffer *buffer)
++{
++	buffer->kmap_cnt--;
++	if (!buffer->kmap_cnt) {
++		buffer->heap->ops->unmap_kernel(buffer->heap, buffer);
++		buffer->vaddr = NULL;
++	}
++}
++
++static struct sg_table *dup_sg_table(struct sg_table *table)
++{
++	struct sg_table *new_table;
++	int ret, i;
++	struct scatterlist *sg, *new_sg;
++
++	new_table = kzalloc(sizeof(*new_table), GFP_KERNEL);
++	if (!new_table)
++		return ERR_PTR(-ENOMEM);
++
++	ret = sg_alloc_table(new_table, table->orig_nents, GFP_KERNEL);
++	if (ret) {
++		kfree(new_table);
++		return ERR_PTR(-ENOMEM);
++	}
++
++	new_sg = new_table->sgl;
++	for_each_sgtable_sg(table, sg, i) {
++		memcpy(new_sg, sg, sizeof(*sg));
++		new_sg->dma_address = 0;
++		new_sg = sg_next(new_sg);
++	}
++
++	return new_table;
++}
++
++static void free_duped_table(struct sg_table *table)
++{
++	sg_free_table(table);
++	kfree(table);
++}
++
++struct ion_dma_buf_attachment {
++	struct device *dev;
++	struct sg_table *table;
++	struct list_head list;
++};
++
++static int ion_dma_buf_attach(struct dma_buf *dmabuf,
++			      struct dma_buf_attachment *attachment)
++{
++	struct ion_dma_buf_attachment *a;
++	struct sg_table *table;
++	struct ion_buffer *buffer = dmabuf->priv;
++
++	a = kzalloc(sizeof(*a), GFP_KERNEL);
++	if (!a)
++		return -ENOMEM;
++
++	table = dup_sg_table(buffer->sg_table);
++	if (IS_ERR(table)) {
++		kfree(a);
++		return -ENOMEM;
++	}
++
++	a->table = table;
++	a->dev = attachment->dev;
++	INIT_LIST_HEAD(&a->list);
++
++	attachment->priv = a;
++
++	mutex_lock(&buffer->lock);
++	list_add(&a->list, &buffer->attachments);
++	mutex_unlock(&buffer->lock);
++
++	return 0;
++}
++
++static void ion_dma_buf_detach(struct dma_buf *dmabuf,
++			       struct dma_buf_attachment *attachment)
++{
++	struct ion_dma_buf_attachment *a = attachment->priv;
++	struct ion_buffer *buffer = dmabuf->priv;
++
++	mutex_lock(&buffer->lock);
++	list_del(&a->list);
++	mutex_unlock(&buffer->lock);
++	free_duped_table(a->table);
++
++	kfree(a);
++}
++
++static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
++					enum dma_data_direction direction)
++{
++	struct ion_dma_buf_attachment *a = attachment->priv;
++	struct sg_table *table;
++	int ret;
++
++	table = a->table;
++
++	ret = dma_map_sgtable(attachment->dev, table, direction, 0);
++	if (ret)
++		return ERR_PTR(ret);
++
++	return table;
++}
++
++static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
++			      struct sg_table *table,
++			      enum dma_data_direction direction)
++{
++	dma_unmap_sgtable(attachment->dev, table, direction, 0);
++}
++
++static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
++{
++	struct ion_buffer *buffer = dmabuf->priv;
++	int ret = 0;
++
++	if (!buffer->heap->ops->map_user) {
++		pr_err("%s: this heap does not define a method for mapping to userspace\n",
++		       __func__);
++		return -EINVAL;
++	}
++
++	if (!(buffer->flags & ION_FLAG_CACHED))
++		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
++
++	mutex_lock(&buffer->lock);
++	/* now map it to userspace */
++	ret = buffer->heap->ops->map_user(buffer->heap, buffer, vma);
++	mutex_unlock(&buffer->lock);
++
++	if (ret)
++		pr_err("%s: failure mapping buffer to userspace\n",
++		       __func__);
++
++	return ret;
++}
++
++static void ion_dma_buf_release(struct dma_buf *dmabuf)
++{
++	struct ion_buffer *buffer = dmabuf->priv;
++
++	_ion_buffer_destroy(buffer);
++}
++
++static int ion_dma_buf_vmap(struct dma_buf *dmabuf, struct iosys_map *map)
++{
++	struct ion_buffer *buffer = dmabuf->priv;
++
++	void *vaddr;
++
++	mutex_lock(&buffer->lock);
++	vaddr = ion_buffer_kmap_get(buffer);
++	mutex_unlock(&buffer->lock);
++	if (IS_ERR(vaddr))
++		return PTR_ERR(vaddr);
++	iosys_map_set_vaddr(map, vaddr);
++	return 0;
++}
++
++static void ion_dma_buf_vunmap(struct dma_buf *dmabuf, struct iosys_map *map)
++{
++	struct ion_buffer *buffer = dmabuf->priv;
++
++	mutex_lock(&buffer->lock);
++	ion_buffer_kmap_put(buffer);
++	mutex_unlock(&buffer->lock);
++	iosys_map_clear(map);
++}
++
++static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
++					enum dma_data_direction direction)
++{
++	struct ion_buffer *buffer = dmabuf->priv;
++	void *vaddr;
++	struct ion_dma_buf_attachment *a;
++	int ret = 0;
++
++	/*
++	 * TODO: Move this elsewhere because we don't always need a vaddr
++	 */
++	if (buffer->heap->ops->map_kernel) {
++		mutex_lock(&buffer->lock);
++		vaddr = ion_buffer_kmap_get(buffer);
++		if (IS_ERR(vaddr)) {
++			ret = PTR_ERR(vaddr);
++			goto unlock;
++		}
++		mutex_unlock(&buffer->lock);
++	}
++
++	mutex_lock(&buffer->lock);
++	list_for_each_entry(a, &buffer->attachments, list)
++		dma_sync_sgtable_for_cpu(a->dev, a->table, direction);
++
++unlock:
++	mutex_unlock(&buffer->lock);
++	return ret;
++}
++
++static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
++				      enum dma_data_direction direction)
++{
++	struct ion_buffer *buffer = dmabuf->priv;
++	struct ion_dma_buf_attachment *a;
++
++	if (buffer->heap->ops->map_kernel) {
++		mutex_lock(&buffer->lock);
++		ion_buffer_kmap_put(buffer);
++		mutex_unlock(&buffer->lock);
++	}
++
++	mutex_lock(&buffer->lock);
++	list_for_each_entry(a, &buffer->attachments, list)
++		dma_sync_sgtable_for_device(a->dev, a->table, direction);
++	mutex_unlock(&buffer->lock);
++
++	return 0;
++}
++
++#ifdef CONFIG_ION_CVITEK
++int ion_buf_begin_cpu_access(struct ion_buffer *buffer)
++{
++	void *vaddr;
++	int ret = 0;
++
++	if (!buffer) {
++		pr_err("%s, buffer is NULL\n", __func__);
++		return -EINVAL;
++	}
++
++	/*
++	 * TODO: Move this elsewhere because we don't always need a vaddr
++	 */
++	if (buffer->heap->ops->map_kernel) {
++		mutex_lock(&buffer->lock);
++		vaddr = ion_buffer_kmap_get(buffer);
++		if (IS_ERR(vaddr)) {
++			ret = PTR_ERR(vaddr);
++			goto unlock;
++		}
++		mutex_unlock(&buffer->lock);
++	}
++
++	mutex_lock(&buffer->lock);
++
++unlock:
++	mutex_unlock(&buffer->lock);
++	return ret;
++}
++EXPORT_SYMBOL(ion_buf_begin_cpu_access);
++
++int ion_buf_end_cpu_access(struct ion_buffer *buffer)
++{
++	if (!buffer) {
++		pr_err("%s, buffer is NULL\n", __func__);
++		return -EINVAL;
++	}
++
++	if (buffer->heap->ops->map_kernel) {
++		mutex_lock(&buffer->lock);
++		ion_buffer_kmap_put(buffer);
++		mutex_unlock(&buffer->lock);
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL(ion_buf_end_cpu_access);
++#endif
++
++static const struct dma_buf_ops dma_buf_ops = {
++	.map_dma_buf = ion_map_dma_buf,
++	.unmap_dma_buf = ion_unmap_dma_buf,
++	.mmap = ion_mmap,
++	.release = ion_dma_buf_release,
++	.attach = ion_dma_buf_attach,
++	.detach = ion_dma_buf_detach,
++	.begin_cpu_access = ion_dma_buf_begin_cpu_access,
++	.end_cpu_access = ion_dma_buf_end_cpu_access,
++	.vmap = ion_dma_buf_vmap,
++	.vunmap = ion_dma_buf_vunmap,
++};
++
++#ifdef CONFIG_ION_CVITEK
++static void *_ion_alloc(size_t len, unsigned int heap_id_mask, unsigned int flags)
++{
++	struct ion_device *dev = internal_dev;
++	struct ion_buffer *buffer = NULL;
++	struct ion_heap *heap;
++
++	pr_debug("%s: len %zu heap_id_mask %u flags %x\n", __func__,
++		 len, heap_id_mask, flags);
++	/*
++	 * traverse the list of heaps available in this system in priority
++	 * order.  If the heap type is supported by the client, and matches the
++	 * request of the caller allocate from it.  Repeat until allocate has
++	 * succeeded or all heaps have been tried
++	 */
++	len = PAGE_ALIGN(len);
++
++	if (!len)
++		return ERR_PTR(-EINVAL);
++
++	down_read(&dev->lock);
++	plist_for_each_entry(heap, &dev->heaps, node) {
++		/* if the caller didn't specify this heap id */
++		if (!((1 << heap->id) & heap_id_mask))
++			continue;
++		buffer = ion_buffer_create(heap, dev, len, flags);
++		if (!IS_ERR(buffer))
++			break;
++	}
++	up_read(&dev->lock);
++
++	if (!buffer)
++		return ERR_PTR(-ENODEV);
++
++	return buffer;
++}
++
++struct ion_buffer *
++ion_alloc_nofd(size_t len, unsigned int heap_id_mask, unsigned int flags)
++{
++	return _ion_alloc(len, heap_id_mask, flags);
++}
++
++void ion_free_nofd(struct ion_buffer *buffer)
++{
++	if (buffer)
++		_ion_buffer_destroy(buffer);
++}
++
++int ion_alloc(size_t len, unsigned int heap_id_mask, unsigned int flags, struct ion_buffer **buf)
++{
++	struct ion_buffer *buffer = NULL;
++	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
++	int fd;
++	struct dma_buf *dmabuf;
++
++	buffer = _ion_alloc(len, heap_id_mask, flags);
++	if (IS_ERR(buffer))
++		return PTR_ERR(buffer);
++
++	exp_info.ops = &dma_buf_ops;
++	exp_info.size = buffer->size;
++	exp_info.flags = O_RDWR;
++	exp_info.priv = buffer;
++
++	dmabuf = dma_buf_export(&exp_info);
++	if (IS_ERR(dmabuf)) {
++		_ion_buffer_destroy(buffer);
++		return PTR_ERR(dmabuf);
++	}
++
++	fd = dma_buf_fd(dmabuf, O_CLOEXEC);
++	if (fd < 0)
++		dma_buf_put(dmabuf);
++
++	if (fd >= 0 && buf)
++		*buf = buffer;
++
++	return fd;
++}
++
++static int __update_max_avail_size(struct gen_pool_chunk *chunk,
++	u32 size_in_bit, int order, uint64_t *max_avail_size)
++{
++	unsigned long *map = chunk->bits;
++	uint64_t region_len;
++	u32 free_index_start;
++	u32 free_index_end = 0;
++
++	while (free_index_end < size_in_bit) {
++		free_index_start = find_next_zero_bit(map, size_in_bit, free_index_end);
++		if (free_index_start >= size_in_bit) {
++			break;
++		}
++		free_index_end = find_next_bit(map, size_in_bit, free_index_start);
++
++		region_len = (free_index_end - free_index_start) << order;
++		if (region_len > *max_avail_size) {
++			*max_avail_size = region_len;
++		}
++	}
++	return 0;
++}
++
++static int _ion_update_memory_state(struct ion_heap *heap,
++	uint64_t *total_size, uint64_t *free_size, uint64_t *max_avail_size)
++{
++	int end_bit;
++	struct gen_pool *pool;
++	struct gen_pool_chunk *chunk;
++	int order;
++	unsigned long chunk_size;
++	int ret = 0;
++
++	if (heap->type != ION_HEAP_TYPE_CARVEOUT)
++		return -1;
++
++	if (ion_carveout_cma_state(heap, total_size, free_size, max_avail_size))
++		return 0;
++	pool = ion_carveout_get_pool(heap);
++	order = pool->min_alloc_order;
++
++	#ifndef CONFIG_ARCH_HAVE_NMI_SAFE_CMPXCHG
++	if (in_nmi())
++		return -1;
++	#endif
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(chunk, &pool->chunks, next_chunk) {
++		chunk_size = chunk->end_addr - chunk->start_addr + 1;
++		*total_size += chunk_size;
++		*free_size += atomic_long_read(&chunk->avail);
++		end_bit = chunk_size >> order;
++		ret = __update_max_avail_size(chunk, end_bit, order, max_avail_size);
++		if (ret) {
++			pr_err("%s: update max avail size fail, chunk addr:%lu ret:%d.\n",
++				__func__, chunk->start_addr, ret);
++		}
++	}
++	rcu_read_unlock();
++
++	return 0;
++}
++
++int ion_get_memory_state(uint64_t *total_size, uint64_t *free_size, uint64_t *max_avail_size)
++{
++	struct ion_device *dev = internal_dev;
++	struct ion_heap *heap;
++
++	*total_size = 0;
++	*free_size = 0;
++	*max_avail_size = 0;
++
++	down_read(&dev->lock);
++	plist_for_each_entry(heap, &dev->heaps, node) {
++		_ion_update_memory_state(heap, total_size, free_size, max_avail_size);
++	}
++	up_read(&dev->lock);
++
++	return 0;
++}
++#else
++int ion_alloc(size_t len, unsigned int heap_id_mask, unsigned int flags)
++{
++	struct ion_device *dev = internal_dev;
++	struct ion_buffer *buffer = NULL;
++	struct ion_heap *heap;
++	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
++	int fd;
++	struct dma_buf *dmabuf;
++
++	pr_debug("%s: len %zu heap_id_mask %u flags %x\n", __func__,
++		 len, heap_id_mask, flags);
++	/*
++	 * traverse the list of heaps available in this system in priority
++	 * order.  If the heap type is supported by the client, and matches the
++	 * request of the caller allocate from it.  Repeat until allocate has
++	 * succeeded or all heaps have been tried
++	 */
++	len = PAGE_ALIGN(len);
++
++	if (!len)
++		return -EINVAL;
++
++	down_read(&dev->lock);
++	plist_for_each_entry(heap, &dev->heaps, node) {
++		/* if the caller didn't specify this heap id */
++		if (!((1 << heap->id) & heap_id_mask))
++			continue;
++		buffer = ion_buffer_create(heap, dev, len, flags);
++		if (!IS_ERR(buffer))
++			break;
++	}
++	up_read(&dev->lock);
++
++	if (!buffer)
++		return -ENODEV;
++
++	if (IS_ERR(buffer))
++		return PTR_ERR(buffer);
++
++	exp_info.ops = &dma_buf_ops;
++	exp_info.size = buffer->size;
++	exp_info.flags = O_RDWR;
++	exp_info.priv = buffer;
++
++	dmabuf = dma_buf_export(&exp_info);
++	if (IS_ERR(dmabuf)) {
++		_ion_buffer_destroy(buffer);
++		return PTR_ERR(dmabuf);
++	}
++
++	fd = dma_buf_fd(dmabuf, O_CLOEXEC);
++	if (fd < 0)
++		dma_buf_put(dmabuf);
++
++	return fd;
++}
++#endif
++
++int ion_query_heaps(struct ion_heap_query *query, int is_kernel)
++{
++	struct ion_device *dev = internal_dev;
++	struct ion_heap_data __user *buffer = u64_to_user_ptr(query->heaps);
++	int ret = -EINVAL, cnt = 0, max_cnt;
++	struct ion_heap *heap;
++	struct ion_heap_data hdata;
++
++	memset(&hdata, 0, sizeof(hdata));
++
++	down_read(&dev->lock);
++	if (!buffer) {
++		query->cnt = dev->heap_cnt;
++		ret = 0;
++		goto out;
++	}
++
++	if (query->cnt <= 0)
++		goto out;
++
++	max_cnt = query->cnt;
++
++	plist_for_each_entry(heap, &dev->heaps, node) {
++		if(heap->name)
++			strscpy_pad(hdata.name, heap->name, sizeof(hdata.name));
++		hdata.name[sizeof(hdata.name) - 1] = '\0';
++		hdata.type = heap->type;
++		hdata.heap_id = heap->id;
++
++		if (is_kernel) {
++			buffer[cnt] = hdata;
++		} else {
++			if (copy_to_user(&buffer[cnt], &hdata, sizeof(hdata))) {
++				ret = -EFAULT;
++				goto out;
++			}
++		}
++
++		cnt++;
++		if (cnt >= max_cnt)
++			break;
++	}
++
++	query->cnt = cnt;
++	ret = 0;
++out:
++	up_read(&dev->lock);
++	return ret;
++}
++
++long ion_custom_ioctl(unsigned int cmd, unsigned long arg)
++{
++	struct ion_device *dev = internal_dev;
++
++	if (!dev || !dev->custom_ioctl)
++		return -ENOTTY;
++	return dev->custom_ioctl(dev, cmd, arg);
++}
++
++union ion_ioctl_arg {
++	struct ion_allocation_data allocation;
++	struct ion_heap_query query;
++	struct ion_custom_data custom;
++};
++
++static int validate_ioctl_arg(unsigned int cmd, union ion_ioctl_arg *arg)
++{
++	switch (cmd) {
++	case ION_IOC_HEAP_QUERY:
++		if (arg->query.reserved0 ||
++		    arg->query.reserved1 ||
++		    arg->query.reserved2)
++			return -EINVAL;
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
++{
++	int ret = 0;
++	union ion_ioctl_arg data;
++	struct ion_device *dev = container_of(filp->private_data, struct ion_device, dev);
++#ifdef CONFIG_ION_CVITEK
++	struct ion_buffer *buffer;
++#endif
++
++	if (_IOC_SIZE(cmd) > sizeof(data))
++		return -EINVAL;
++
++	/*
++	 * The copy_from_user is unconditional here for both read and write
++	 * to do the validate. If there is no write for the ioctl, the
++	 * buffer is cleared
++	 */
++	if (copy_from_user(&data, (void __user *)arg, _IOC_SIZE(cmd)))
++		return -EFAULT;
++
++	ret = validate_ioctl_arg(cmd, &data);
++	if (ret) {
++		pr_warn_once("%s: ioctl validate failed\n", __func__);
++		return ret;
++	}
++
++	if (!(_IOC_DIR(cmd) & _IOC_WRITE))
++		memset(&data, 0, sizeof(data));
++
++	switch (cmd) {
++	case ION_IOC_ALLOC:
++	{
++		int fd;
++#ifdef CONFIG_ION_CVITEK
++		char *name = vmalloc(MAX_ION_BUFFER_NAME);
++
++		if (!name)
++			return -ENOMEM;
++
++		fd = ion_alloc(data.allocation.len,
++			       data.allocation.heap_id_mask,
++			       data.allocation.flags, &buffer);
++#else
++		fd = ion_alloc(data.allocation.len,
++			       data.allocation.heap_id_mask,
++			       data.allocation.flags);
++#endif
++		if (fd < 0) {
++#ifdef CONFIG_ION_CVITEK
++			vfree(name);
++#endif
++			return fd;
++		}
++
++		data.allocation.fd = fd;
++#ifdef CONFIG_ION_CVITEK
++		data.allocation.paddr = buffer->paddr;
++		strscpy_pad(name, data.allocation.name, MAX_ION_BUFFER_NAME);
++		buffer->name = name;
++#endif
++		break;
++	}
++	case ION_IOC_ALLOC_LEGACY:
++	{
++		int fd;
++#ifdef CONFIG_ION_CVITEK
++		fd = ion_alloc(data.allocation.len,
++			       data.allocation.heap_id_mask,
++			       data.allocation.flags, &buffer);
++#else
++		fd = ion_alloc(data.allocation.len,
++			       data.allocation.heap_id_mask,
++			       data.allocation.flags);
++#endif
++		if (fd < 0)
++			return fd;
++
++		data.allocation.fd = fd;
++		data.allocation.paddr = buffer->paddr;
++		break;
++	}
++	case ION_IOC_HEAP_QUERY:
++		ret = ion_query_heaps(&data.query, false);
++		break;
++	case ION_IOC_CUSTOM:
++		if (!dev->custom_ioctl)
++			return -ENOTTY;
++		ret = dev->custom_ioctl(dev, data.custom.cmd,
++					data.custom.arg);
++		break;
++	default:
++		return -ENOTTY;
++	}
++
++	if (_IOC_DIR(cmd) & _IOC_READ) {
++		if (copy_to_user((void __user *)arg, &data, _IOC_SIZE(cmd)))
++			return -EFAULT;
++	}
++	return ret;
++}
++
++static const struct file_operations ion_fops = {
++	.owner          = THIS_MODULE,
++	.unlocked_ioctl = ion_ioctl,
++#ifdef CONFIG_COMPAT
++	.compat_ioctl = compat_ion_ioctl,
++#endif
++};
++
++static int debug_shrink_set(void *data, u64 val)
++{
++	struct ion_heap *heap = data;
++	struct shrink_control sc = {};
++	int objs;
++
++	sc.gfp_mask = GFP_HIGHUSER;
++	sc.nr_to_scan = val;
++
++	if (!val) {
++		objs = heap->shrinker->count_objects(heap->shrinker, &sc);
++		sc.nr_to_scan = objs;
++	}
++
++	heap->shrinker->scan_objects(heap->shrinker, &sc);
++	return 0;
++}
++
++static int debug_shrink_get(void *data, u64 *val)
++{
++	struct ion_heap *heap = data;
++	struct shrink_control sc = {};
++	int objs;
++
++	sc.gfp_mask = GFP_HIGHUSER;
++	sc.nr_to_scan = 0;
++
++	objs = heap->shrinker->count_objects(heap->shrinker, &sc);
++	*val = objs;
++	return 0;
++}
++
++DEFINE_SIMPLE_ATTRIBUTE(debug_shrink_fops, debug_shrink_get,
++			debug_shrink_set, "%llu\n");
++
++void ion_device_add_heap(struct ion_heap *heap)
++{
++	struct ion_device *dev = internal_dev;
++	int ret;
++	struct dentry *heap_root;
++	char debug_name[64];
++
++	if (!heap->ops->allocate || !heap->ops->free)
++		pr_err("%s: can not add heap with invalid ops struct.\n",
++		       __func__);
++
++	spin_lock_init(&heap->free_lock);
++	spin_lock_init(&heap->stat_lock);
++	heap->free_list_size = 0;
++
++	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
++		ion_heap_init_deferred_free(heap);
++
++	if ((heap->flags & ION_HEAP_FLAG_DEFER_FREE) || heap->ops->shrink) {
++		ret = ion_heap_init_shrinker(heap);
++		if (ret)
++			pr_err("%s: Failed to register shrinker\n", __func__);
++	}
++
++	heap->dev = dev;
++	heap->num_of_buffers = 0;
++	heap->num_of_alloc_bytes = 0;
++	heap->alloc_bytes_wm = 0;
++
++	heap_root = debugfs_create_dir(heap->name, dev->debug_root);
++	debugfs_create_u64("num_of_buffers",
++			   0444, heap_root,
++			   &heap->num_of_buffers);
++	debugfs_create_u64("num_of_alloc_bytes",
++			   0444,
++			   heap_root,
++			   &heap->num_of_alloc_bytes);
++	debugfs_create_u64("alloc_bytes_wm",
++			   0444,
++			   heap_root,
++			   &heap->alloc_bytes_wm);
++
++	if (heap->shrinker && heap->shrinker->count_objects &&
++	    heap->shrinker->scan_objects) {
++		snprintf(debug_name, 64, "%s_shrink", heap->name);
++		debugfs_create_file(debug_name,
++				    0644,
++				    heap_root,
++				    heap,
++				    &debug_shrink_fops);
++	}
++
++	down_write(&dev->lock);
++	heap->id = heap_id++;
++	/*
++	 * use negative heap->id to reverse the priority -- when traversing
++	 * the list later attempt higher id numbers first
++	 */
++	plist_node_init(&heap->node, -heap->id);
++	plist_add(&heap->node, &dev->heaps);
++#ifdef CONFIG_ION_CVITEK
++	cvi_ion_create_debug_info(heap);
++#endif
++
++	dev->heap_cnt++;
++	up_write(&dev->lock);
++}
++EXPORT_SYMBOL(ion_device_add_heap);
++
++static int ion_device_create(void)
++{
++	struct ion_device *idev;
++	int ret;
++
++	idev = kzalloc(sizeof(*idev), GFP_KERNEL);
++	if (!idev)
++		return -ENOMEM;
++
++	idev->dev.minor = MISC_DYNAMIC_MINOR;
++	idev->dev.name = "ion";
++	idev->dev.fops = &ion_fops;
++	idev->dev.parent = NULL;
++	ret = misc_register(&idev->dev);
++	if (ret) {
++		pr_err("ion: failed to register misc device.\n");
++		kfree(idev);
++		return ret;
++	}
++
++	idev->debug_root = debugfs_create_dir("ion", NULL);
++	idev->buffers = RB_ROOT;
++	mutex_init(&idev->buffer_lock);
++	init_rwsem(&idev->lock);
++	plist_head_init(&idev->heaps);
++	internal_dev = idev;
++	return 0;
++}
++subsys_initcall(ion_device_create);
++#ifdef CONFIG_ION_CVITEK
++#include <linux/fdtable.h>
++void ion_free(pid_t pid, int fd)
++{
++	/* The legacy API closes a descriptor in the calling task. */
++	close_fd(fd);
++}
++EXPORT_SYMBOL(ion_free);
++#endif
+diff --git a/drivers/staging/android/ion/ion.h b/drivers/staging/android/ion/ion.h
+new file mode 100644
+index 0000000..19ef848
+--- /dev/null
++++ b/drivers/staging/android/ion/ion.h
+@@ -0,0 +1,403 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * ION Memory Allocator kernel interface header
++ *
++ * Copyright (C) 2011 Google, Inc.
++ */
++
++#ifndef _ION_H
++#define _ION_H
++
++#include <linux/device.h>
++#include <linux/dma-direction.h>
++#include <linux/kref.h>
++#include <linux/mm_types.h>
++#include <linux/mutex.h>
++#include <linux/rbtree.h>
++#include <linux/sched.h>
++#include <linux/shrinker.h>
++#include <linux/types.h>
++#include <linux/miscdevice.h>
++#include <linux/plist.h>
++
++#include "../uapi/ion.h"
++
++/**
++ * struct ion_platform_heap - defines a heap in the given platform
++ * @type:	type of the heap from ion_heap_type enum
++ * @id:		unique identifier for heap.  When allocating higher numb ers
++ *		will be allocated from first.  At allocation these are passed
++ *		as a bit mask and therefore can not exceed ION_NUM_HEAP_IDS.
++ * @name:	used for debug purposes
++ * @base:	base address of heap in physical memory if applicable
++ * @size:	size of the heap in bytes if applicable
++ * @priv:	private info passed from the board file
++ *
++ * Provided by the board file.
++ */
++struct ion_platform_heap {
++	enum ion_heap_type type;
++	unsigned int id;
++	const char *name;
++	phys_addr_t base;
++	size_t size;
++	phys_addr_t align;
++	void *priv;
++};
++
++/**
++ * struct ion_buffer - metadata for a particular buffer
++ * @list:		element in list of deferred freeable buffers
++ * @dev:		back pointer to the ion_device
++ * @heap:		back pointer to the heap the buffer came from
++ * @flags:		buffer specific flags
++ * @private_flags:	internal buffer specific flags
++ * @size:		size of the buffer
++ * @priv_virt:		private data to the buffer representable as
++ *			a void *
++ * @lock:		protects the buffers cnt fields
++ * @kmap_cnt:		number of times the buffer is mapped to the kernel
++ * @vaddr:		the kernel mapping if kmap_cnt is not zero
++ * @sg_table:		the sg table for the buffer
++ * @attachments:	list of devices attached to this buffer
++ */
++struct ion_buffer {
++	union {
++		struct rb_node node;
++		struct list_head list;
++	};
++	struct ion_device *dev;
++	struct ion_heap *heap;
++	unsigned long flags;
++	unsigned long private_flags;
++	size_t size;
++	void *priv_virt;
++	struct mutex lock;
++	int kmap_cnt;
++	void *vaddr;
++	struct sg_table *sg_table;
++	struct list_head attachments;
++#ifdef CONFIG_ION_CVITEK
++	phys_addr_t paddr;
++	const char *name;
++#endif
++};
++
++void ion_buffer_destroy(struct ion_buffer *buffer);
++long ion_custom_ioctl(unsigned int cmd, unsigned long arg);
++void cvi_ion_create_debug_info(struct ion_heap *heap);
++
++/**
++ * struct ion_device - the metadata of the ion device node
++ * @dev:		the actual misc device
++ * @buffers:		an rb tree of all the existing buffers
++ * @buffer_lock:	lock protecting the tree of buffers
++ * @lock:		rwsem protecting the tree of heaps and clients
++ */
++struct ion_device {
++	struct miscdevice dev;
++	struct rb_root buffers;
++	struct mutex buffer_lock;
++	struct rw_semaphore lock;
++	struct plist_head heaps;
++	struct dentry *debug_root;
++	int heap_cnt;
++	long (*custom_ioctl)(struct ion_device *dev, unsigned int cmd,
++			     unsigned long arg);
++};
++
++/**
++ * struct ion_heap_ops - ops to operate on a given heap
++ * @allocate:		allocate memory
++ * @free:		free memory
++ * @map_kernel		map memory to the kernel
++ * @unmap_kernel	unmap memory to the kernel
++ * @map_user		map memory to userspace
++ *
++ * allocate, phys, and map_user return 0 on success, -errno on error.
++ * map_dma and map_kernel return pointer on success, ERR_PTR on
++ * error. @free will be called with ION_PRIV_FLAG_SHRINKER_FREE set in
++ * the buffer's private_flags when called from a shrinker. In that
++ * case, the pages being free'd must be truly free'd back to the
++ * system, not put in a page pool or otherwise cached.
++ */
++struct ion_heap_ops {
++	int (*allocate)(struct ion_heap *heap,
++			struct ion_buffer *buffer, unsigned long len,
++			unsigned long flags);
++	void (*free)(struct ion_buffer *buffer);
++	void * (*map_kernel)(struct ion_heap *heap, struct ion_buffer *buffer);
++	void (*unmap_kernel)(struct ion_heap *heap, struct ion_buffer *buffer);
++	int (*map_user)(struct ion_heap *mapper, struct ion_buffer *buffer,
++			struct vm_area_struct *vma);
++	int (*shrink)(struct ion_heap *heap, gfp_t gfp_mask, int nr_to_scan);
++};
++
++/**
++ * heap flags - flags between the heaps and core ion code
++ */
++#define ION_HEAP_FLAG_DEFER_FREE BIT(0)
++
++/**
++ * private flags - flags internal to ion
++ */
++/*
++ * Buffer is being freed from a shrinker function. Skip any possible
++ * heap-specific caching mechanism (e.g. page pools). Guarantees that
++ * any buffer storage that came from the system allocator will be
++ * returned to the system allocator.
++ */
++#define ION_PRIV_FLAG_SHRINKER_FREE BIT(0)
++
++/**
++ * struct ion_heap - represents a heap in the system
++ * @node:		rb node to put the heap on the device's tree of heaps
++ * @dev:		back pointer to the ion_device
++ * @type:		type of heap
++ * @ops:		ops struct as above
++ * @flags:		flags
++ * @id:			id of heap, also indicates priority of this heap when
++ *			allocating.  These are specified by platform data and
++ *			MUST be unique
++ * @name:		used for debugging
++ * @shrinker:		a shrinker for the heap
++ * @free_list:		free list head if deferred free is used
++ * @free_list_size	size of the deferred free list in bytes
++ * @lock:		protects the free list
++ * @waitqueue:		queue to wait on from deferred free thread
++ * @task:		task struct of deferred free thread
++ * @num_of_buffers	the number of currently allocated buffers
++ * @num_of_alloc_bytes	the number of allocated bytes
++ * @alloc_bytes_wm	the number of allocated bytes watermark
++ *
++ * Represents a pool of memory from which buffers can be made.  In some
++ * systems the only heap is regular system memory allocated via vmalloc.
++ * On others, some blocks might require large physically contiguous buffers
++ * that are allocated from a specially reserved heap.
++ */
++struct ion_heap {
++	struct plist_node node;
++	struct ion_device *dev;
++	enum ion_heap_type type;
++	struct ion_heap_ops *ops;
++	unsigned long flags;
++	unsigned int id;
++	const char *name;
++
++	/* deferred free support */
++	struct shrinker *shrinker;
++	struct list_head free_list;
++	size_t free_list_size;
++	spinlock_t free_lock;
++	wait_queue_head_t waitqueue;
++	struct task_struct *task;
++	struct dentry *heap_dfs_root;
++	u64 total_size;
++	/* heap statistics */
++	u64 num_of_buffers;
++	u64 num_of_alloc_bytes;
++	u64 alloc_bytes_wm;
++
++	int (*debug_show)(struct ion_heap *heap, struct seq_file *s,
++			  void *unused);
++
++	/* protect heap statistics */
++	spinlock_t stat_lock;
++};
++
++/**
++ * ion_device_add_heap - adds a heap to the ion device
++ * @heap:		the heap to add
++ */
++void ion_device_add_heap(struct ion_heap *heap);
++
++/**
++ * some helpers for common operations on buffers using the sg_table
++ * and vaddr fields
++ */
++void *ion_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer);
++void ion_heap_unmap_kernel(struct ion_heap *heap, struct ion_buffer *buffer);
++int ion_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
++		      struct vm_area_struct *vma);
++int ion_heap_buffer_zero(struct ion_buffer *buffer);
++int ion_heap_pages_zero(struct page *page, size_t size, pgprot_t pgprot);
++
++#ifdef CONFIG_ION_CVITEK
++int ion_alloc(size_t len,
++	      unsigned int heap_id_mask,
++	      unsigned int flags, struct ion_buffer **buf);
++#else
++int ion_alloc(size_t len,
++	      unsigned int heap_id_mask,
++	      unsigned int flags);
++#endif
++/**
++ * ion_heap_init_shrinker
++ * @heap:		the heap
++ *
++ * If a heap sets the ION_HEAP_FLAG_DEFER_FREE flag or defines the shrink op
++ * this function will be called to setup a shrinker to shrink the freelists
++ * and call the heap's shrink op.
++ */
++int ion_heap_init_shrinker(struct ion_heap *heap);
++
++/**
++ * ion_heap_init_deferred_free -- initialize deferred free functionality
++ * @heap:		the heap
++ *
++ * If a heap sets the ION_HEAP_FLAG_DEFER_FREE flag this function will
++ * be called to setup deferred frees. Calls to free the buffer will
++ * return immediately and the actual free will occur some time later
++ */
++int ion_heap_init_deferred_free(struct ion_heap *heap);
++
++/**
++ * ion_heap_freelist_add - add a buffer to the deferred free list
++ * @heap:		the heap
++ * @buffer:		the buffer
++ *
++ * Adds an item to the deferred freelist.
++ */
++void ion_heap_freelist_add(struct ion_heap *heap, struct ion_buffer *buffer);
++
++/**
++ * ion_heap_freelist_drain - drain the deferred free list
++ * @heap:		the heap
++ * @size:		amount of memory to drain in bytes
++ *
++ * Drains the indicated amount of memory from the deferred freelist immediately.
++ * Returns the total amount freed.  The total freed may be higher depending
++ * on the size of the items in the list, or lower if there is insufficient
++ * total memory on the freelist.
++ */
++size_t ion_heap_freelist_drain(struct ion_heap *heap, size_t size);
++
++/**
++ * ion_heap_freelist_shrink - drain the deferred free
++ *				list, skipping any heap-specific
++ *				pooling or caching mechanisms
++ *
++ * @heap:		the heap
++ * @size:		amount of memory to drain in bytes
++ *
++ * Drains the indicated amount of memory from the deferred freelist immediately.
++ * Returns the total amount freed.  The total freed may be higher depending
++ * on the size of the items in the list, or lower if there is insufficient
++ * total memory on the freelist.
++ *
++ * Unlike with @ion_heap_freelist_drain, don't put any pages back into
++ * page pools or otherwise cache the pages. Everything must be
++ * genuinely free'd back to the system. If you're free'ing from a
++ * shrinker you probably want to use this. Note that this relies on
++ * the heap.ops.free callback honoring the ION_PRIV_FLAG_SHRINKER_FREE
++ * flag.
++ */
++size_t ion_heap_freelist_shrink(struct ion_heap *heap,
++				size_t size);
++
++/**
++ * ion_heap_freelist_size - returns the size of the freelist in bytes
++ * @heap:		the heap
++ */
++size_t ion_heap_freelist_size(struct ion_heap *heap);
++
++/**
++ * functions for creating and destroying a heap pool -- allows you
++ * to keep a pool of pre allocated memory to use from your heap.  Keeping
++ * a pool of memory that is ready for dma, ie any cached mapping have been
++ * invalidated from the cache, provides a significant performance benefit on
++ * many systems
++ */
++
++/**
++ * struct ion_page_pool - pagepool struct
++ * @high_count:		number of highmem items in the pool
++ * @low_count:		number of lowmem items in the pool
++ * @high_items:		list of highmem items
++ * @low_items:		list of lowmem items
++ * @mutex:		lock protecting this struct and especially the count
++ *			item list
++ * @gfp_mask:		gfp_mask to use from alloc
++ * @order:		order of pages in the pool
++ * @list:		plist node for list of pools
++ *
++ * Allows you to keep a pool of pre allocated pages to use from your heap.
++ * Keeping a pool of pages that is ready for dma, ie any cached mapping have
++ * been invalidated from the cache, provides a significant performance benefit
++ * on many systems
++ */
++struct ion_page_pool {
++	int high_count;
++	int low_count;
++	struct list_head high_items;
++	struct list_head low_items;
++	struct mutex mutex;
++	gfp_t gfp_mask;
++	unsigned int order;
++	struct plist_node list;
++};
++
++struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order);
++void ion_page_pool_destroy(struct ion_page_pool *pool);
++struct page *ion_page_pool_alloc(struct ion_page_pool *pool);
++void ion_page_pool_free(struct ion_page_pool *pool, struct page *page);
++
++#ifdef CONFIG_ION_CARVEOUT_HEAP
++struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data);
++#else
++static inline struct ion_heap
++*ion_carveout_heap_create(struct ion_platform_heap *heap_data)
++{
++	return ERR_PTR(-EINVAL);
++}
++#endif
++struct gen_pool *ion_carveout_get_pool(struct ion_heap *heap);
++bool ion_carveout_cma_state(struct ion_heap *heap, u64 *total, u64 *free,
++			   u64 *largest);
++/** ion_page_pool_shrink - shrinks the size of the memory cached in the pool
++ * @pool:		the pool
++ * @gfp_mask:		the memory type to reclaim
++ * @nr_to_scan:		number of items to shrink in pages
++ *
++ * returns the number of items freed in pages
++ */
++int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
++			 int nr_to_scan);
++
++int ion_query_heaps(struct ion_heap_query *query, int is_kernel);
++
++#ifdef CONFIG_ION_CVITEK
++struct ion_buffer *
++ion_alloc_nofd(size_t len, unsigned int heap_id_mask, unsigned int flags);
++void ion_free(pid_t fd_pid, int fd);
++void ion_free_nofd(struct ion_buffer *buffer);
++int ion_buf_begin_cpu_access(struct ion_buffer *buffer);
++int ion_buf_end_cpu_access(struct ion_buffer *buffer);
++int ion_get_memory_state(uint64_t *total_size, uint64_t *free_size, uint64_t *max_avail_size);
++
++#ifdef CONFIG_ION_CARVEOUT_HEAP
++struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data);
++#else
++static inline struct ion_heap
++*ion_carveout_heap_create(struct ion_platform_heap *heap_data)
++{
++	return ERR_PTR(-EINVAL);
++}
++#endif
++#endif
++#ifdef CONFIG_ION_CHUNK_HEAP
++struct ion_heap
++*ion_chunk_heap_create(struct ion_platform_heap *data, u32 chunk_size);
++#else
++static inline struct ion_heap
++*ion_chunk_heap_create(struct ion_platform_heap *data, u32 chunk_size)
++{
++	return ERR_PTR(-EINVAL);
++}
++#endif
++void cvi_ion_sync_for_device(phys_addr_t paddr, size_t size,
++			   enum dma_data_direction direction);
++void cvi_ion_sync_for_cpu(phys_addr_t paddr, size_t size,
++			enum dma_data_direction direction);
++
++#endif /* _ION_H */
+diff --git a/drivers/staging/android/ion/ion_carveout_heap.c b/drivers/staging/android/ion/ion_carveout_heap.c
+new file mode 100644
+index 0000000..cf97fbe
+--- /dev/null
++++ b/drivers/staging/android/ion/ion_carveout_heap.c
+@@ -0,0 +1,322 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * drivers/staging/android/ion/ion_carveout_heap.c
++ *
++ * Copyright (C) 2011 Google, Inc.
++ */
++#include <linux/spinlock.h>
++#include <linux/dma-mapping.h>
++#include <linux/err.h>
++#include <linux/genalloc.h>
++#include <linux/io.h>
++#include <linux/mm.h>
++#include <linux/scatterlist.h>
++#include <linux/slab.h>
++#include <linux/vmalloc.h>
++#include <linux/of.h>
++#include <linux/cma.h>
++#include <linux/bitmap.h>
++#include <linux/dma-map-ops.h>
++#include "ion.h"
++
++#define ION_CARVEOUT_ALLOCATE_FAIL	-1
++
++struct ion_carveout_heap {
++	struct ion_heap heap;
++	struct gen_pool *pool;
++	phys_addr_t base;
++#ifdef CONFIG_DMA_CMA
++	struct cma *cma;
++	unsigned long *allocated;
++	unsigned long nr_pages;
++	spinlock_t bitmap_lock;
++#endif
++};
++
++/* Keep the CVITEK carveout ABI, but lend unused pages to Linux through CMA.
++ * The bitmap tracks ION ownership only. Free runs are reclaimable upper
++ * bounds: migration can fail or take time, so they are not reservations. */
++bool ion_carveout_cma_state(struct ion_heap *heap, u64 *total, u64 *free,
++			   u64 *largest)
++{
++#ifdef CONFIG_DMA_CMA
++	struct ion_carveout_heap *h = container_of(heap, struct ion_carveout_heap, heap);
++	unsigned long start = 0, end, available = 0, maximum = 0;
++	unsigned long flags;
++
++	if (!h->cma)
++		return false;
++	spin_lock_irqsave(&h->bitmap_lock, flags);
++	while (start < h->nr_pages) {
++		start = find_next_zero_bit(h->allocated, h->nr_pages, start);
++		if (start == h->nr_pages)
++			break;
++		end = find_next_bit(h->allocated, h->nr_pages, start);
++		available += end - start;
++		maximum = max(maximum, end - start);
++		start = end;
++	}
++	spin_unlock_irqrestore(&h->bitmap_lock, flags);
++	*total += (u64)h->nr_pages << PAGE_SHIFT;
++	*free += (u64)available << PAGE_SHIFT;
++	*largest = max(*largest, (u64)maximum << PAGE_SHIFT);
++	return true;
++#else
++	return false;
++#endif
++}
++
++static phys_addr_t ion_carveout_allocate(struct ion_heap *heap,
++					 unsigned long size)
++{
++	struct ion_carveout_heap *carveout_heap =
++		container_of(heap, struct ion_carveout_heap, heap);
++	unsigned long offset;
++#ifdef CONFIG_DMA_CMA
++	if (carveout_heap->cma) {
++		unsigned long count = PAGE_ALIGN(size) >> PAGE_SHIFT;
++		unsigned long flags, index;
++		struct page *pages;
++
++		/* Page alignment matches the existing CVITEK heap contract and
++		 * avoids wasting large alignment gaps in this small CMA area. */
++		pages = cma_alloc(carveout_heap->cma, count, 0, false);
++		if (!pages)
++			return ION_CARVEOUT_ALLOCATE_FAIL;
++		offset = page_to_phys(pages);
++		index = (offset - carveout_heap->base) >> PAGE_SHIFT;
++		memset(page_address(pages), 0, count << PAGE_SHIFT);
++		/* CMA pages had a cacheable Linux linear mapping. Clean and
++		 * invalidate before exposing the existing uncached DMA aliases. */
++		arch_dma_prep_coherent(pages, count << PAGE_SHIFT);
++		spin_lock_irqsave(&carveout_heap->bitmap_lock, flags);
++		bitmap_set(carveout_heap->allocated, index, count);
++		spin_unlock_irqrestore(&carveout_heap->bitmap_lock, flags);
++		return offset;
++	}
++#endif
++	offset = gen_pool_alloc(carveout_heap->pool, size);
++
++	if (!offset)
++		return ION_CARVEOUT_ALLOCATE_FAIL;
++
++	return offset;
++}
++
++static void ion_carveout_free(struct ion_heap *heap, phys_addr_t addr,
++			      unsigned long size)
++{
++	struct ion_carveout_heap *carveout_heap =
++		container_of(heap, struct ion_carveout_heap, heap);
++
++	if (addr == ION_CARVEOUT_ALLOCATE_FAIL)
++		return;
++#ifdef CONFIG_DMA_CMA
++	if (carveout_heap->cma) {
++		unsigned long count = PAGE_ALIGN(size) >> PAGE_SHIFT;
++		unsigned long index = (addr - carveout_heap->base) >> PAGE_SHIFT;
++		unsigned long flags;
++		struct page *pages = pfn_to_page(PFN_DOWN(addr));
++
++		/* The buffer owner must already have stopped DMA and mappings.
++		 * Flush aliases before returning pages to the Linux allocator. */
++		arch_dma_prep_coherent(pages, count << PAGE_SHIFT);
++		spin_lock_irqsave(&carveout_heap->bitmap_lock, flags);
++		bitmap_clear(carveout_heap->allocated, index, count);
++		spin_unlock_irqrestore(&carveout_heap->bitmap_lock, flags);
++		WARN_ON_ONCE(!cma_release(carveout_heap->cma, pages, count));
++		return;
++	}
++#endif
++	gen_pool_free(carveout_heap->pool, addr, size);
++}
++
++static int ion_carveout_heap_allocate(struct ion_heap *heap,
++				      struct ion_buffer *buffer,
++				      unsigned long size,
++				      unsigned long flags)
++{
++	struct sg_table *table;
++	phys_addr_t paddr;
++	int ret;
++
++	table = kmalloc(sizeof(*table), GFP_KERNEL);
++	if (!table)
++		return -ENOMEM;
++	ret = sg_alloc_table(table, 1, GFP_KERNEL);
++	if (ret)
++		goto err_free;
++
++	paddr = ion_carveout_allocate(heap, size);
++	if (paddr == ION_CARVEOUT_ALLOCATE_FAIL) {
++		ret = -ENOMEM;
++		goto err_free_table;
++	}
++
++	sg_set_page(table->sgl, pfn_to_page(PFN_DOWN(paddr)), size, 0);
++	buffer->sg_table = table;
++#ifdef CONFIG_ION_CVITEK
++	buffer->paddr = paddr;
++#endif
++	return 0;
++
++err_free_table:
++	sg_free_table(table);
++err_free:
++	kfree(table);
++	return ret;
++}
++
++static void ion_carveout_heap_free(struct ion_buffer *buffer)
++{
++	struct ion_heap *heap = buffer->heap;
++	struct sg_table *table = buffer->sg_table;
++	struct page *page = sg_page(table->sgl);
++	phys_addr_t paddr = PFN_PHYS(page_to_pfn(page));
++
++	//remove it for saving cpu usage and vmap/unvmap frequency
++#ifdef ENABLE_DATA_ZERO
++	ion_heap_buffer_zero(buffer);
++#endif
++
++#ifdef CONFIG_ION_CVITEK
++	if (buffer->name)
++		vfree(buffer->name);
++#endif
++	ion_carveout_free(heap, paddr, buffer->size);
++	sg_free_table(table);
++	kfree(table);
++}
++
++static struct ion_heap_ops carveout_heap_ops = {
++	.allocate = ion_carveout_heap_allocate,
++	.free = ion_carveout_heap_free,
++	.map_user = ion_heap_map_user,
++	.map_kernel = ion_heap_map_kernel,
++	.unmap_kernel = ion_heap_unmap_kernel,
++};
++
++#ifdef CONFIG_ION_CVITEK
++static void cvi_get_rtos_ion_size(size_t *psize)
++{
++	struct device_node * np;
++	u32 rtos_ion_size = 0;
++	int ret;
++
++	np = of_find_compatible_node(NULL, NULL, "cvitek,rtos_image");
++	if (!np) {
++		*psize = 0;
++		return;
++	}
++
++	ret = of_property_read_u32(np, "ion-size", &rtos_ion_size);
++	*psize = rtos_ion_size;
++	if(ret)
++		*psize = 0;
++
++	of_node_put(np);
++
++	pr_info("%s, rtos ion_size get:0x%lx\n", __func__, *psize);
++}
++#endif
++
++struct gen_pool *ion_carveout_get_pool(struct ion_heap *heap)
++{
++	struct ion_carveout_heap *carveout_heap =
++		container_of(heap, struct ion_carveout_heap, heap);
++
++	return carveout_heap->pool;
++}
++
++struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
++{
++	struct ion_carveout_heap *carveout_heap;
++
++	struct page *page;
++	size_t size;
++#ifdef CONFIG_ION_CVITEK
++	size_t rtos_ion_size;
++	struct page *rtos_end_page;
++	phys_addr_t heap_end_addr;
++#endif
++
++#ifdef CONFIG_DMA_CMA
++	if (of_property_read_bool(((struct device *)heap_data->priv)->of_node,
++				 "nanokvm,cma-backend")) {
++		struct device *dev = heap_data->priv;
++		struct cma *area = dev->cma_area;
++
++		/* Never fall back to the default CMA pool: this heap owns only
++		 * the explicit memory-region attached by the OF reserved API. */
++		if (!area || cma_get_size(area) != heap_data->size ||
++		    cma_get_base(area) != heap_data->base)
++			return ERR_PTR(-EINVAL);
++		carveout_heap = kzalloc(sizeof(*carveout_heap), GFP_KERNEL);
++		if (!carveout_heap)
++			return ERR_PTR(-ENOMEM);
++		carveout_heap->cma = area;
++		carveout_heap->base = heap_data->base;
++		carveout_heap->nr_pages = heap_data->size >> PAGE_SHIFT;
++		carveout_heap->allocated = bitmap_zalloc(carveout_heap->nr_pages, GFP_KERNEL);
++		if (!carveout_heap->allocated) {
++			kfree(carveout_heap);
++			return ERR_PTR(-ENOMEM);
++		}
++		spin_lock_init(&carveout_heap->bitmap_lock);
++		carveout_heap->heap.ops = &carveout_heap_ops;
++		carveout_heap->heap.type = ION_HEAP_TYPE_CARVEOUT;
++		carveout_heap->heap.name = heap_data->name;
++		carveout_heap->heap.total_size = heap_data->size;
++		pr_info("ION: CMA backend base=%pa size=%zu, carveout ABI retained\n",
++			&heap_data->base, heap_data->size);
++		return &carveout_heap->heap;
++	}
++#endif
++	page = pfn_to_page(PFN_DOWN(heap_data->base));
++	size = heap_data->size;
++
++	pr_info("%s, size=0x%lx\n", __func__, size);
++
++#ifdef CONFIG_ION_CVITEK
++	/* cvitek: freertos will use this space before linux boot up, we shouldn't modify it. */
++	cvi_get_rtos_ion_size(&rtos_ion_size);
++	if(rtos_ion_size){
++		heap_end_addr = heap_data->base + size;
++		rtos_end_page = pfn_to_page(PFN_UP(heap_data->base + rtos_ion_size));
++		size = heap_end_addr - page_to_phys(rtos_end_page);
++		page = rtos_end_page;
++		pr_info("%s, size(exclusion of rtos_ion_size)=0x%lx\n", __func__, size);
++	}
++#endif
++
++#ifdef ENABLE_DATA_ZERO
++	ret = ion_heap_pages_zero(page, size, pgprot_writecombine(PAGE_KERNEL));
++	if (ret)
++		return ERR_PTR(ret);
++#endif
++
++	carveout_heap = kzalloc(sizeof(*carveout_heap), GFP_KERNEL);
++	if (!carveout_heap)
++		return ERR_PTR(-ENOMEM);
++
++	carveout_heap->pool = gen_pool_create(PAGE_SHIFT, -1);
++	if (!carveout_heap->pool) {
++		kfree(carveout_heap);
++		return ERR_PTR(-ENOMEM);
++	}
++
++	gen_pool_set_algo(carveout_heap->pool, gen_pool_best_fit, NULL);
++	carveout_heap->base = heap_data->base;
++	gen_pool_add(carveout_heap->pool, carveout_heap->base, heap_data->size,
++		     -1);
++	carveout_heap->heap.ops = &carveout_heap_ops;
++	carveout_heap->heap.type = ION_HEAP_TYPE_CARVEOUT;
++#ifndef CONFIG_ION_CVITEK
++	carveout_heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
++#endif
++    carveout_heap->heap.name = heap_data->name;
++#ifdef CONFIG_ION_CVITEK
++	carveout_heap->heap.total_size = heap_data->size;
++#endif
++	return &carveout_heap->heap;
++}
+diff --git a/drivers/staging/android/ion/ion_chunk_heap.c b/drivers/staging/android/ion/ion_chunk_heap.c
+new file mode 100644
+index 0000000..50c1be1
+--- /dev/null
++++ b/drivers/staging/android/ion/ion_chunk_heap.c
+@@ -0,0 +1,152 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * drivers/staging/android/ion/ion_chunk_heap.c
++ *
++ * Copyright (C) 2012 Google, Inc.
++ */
++#include <linux/dma-mapping.h>
++#include <linux/err.h>
++#include <linux/genalloc.h>
++#include <linux/io.h>
++#include <linux/mm.h>
++#include <linux/scatterlist.h>
++#include <linux/slab.h>
++#include <linux/vmalloc.h>
++#include "ion.h"
++
++struct ion_chunk_heap {
++	struct ion_heap heap;
++	struct gen_pool *pool;
++	phys_addr_t base;
++	unsigned long chunk_size;
++	unsigned long size;
++	unsigned long allocated;
++};
++
++static int ion_chunk_heap_allocate(struct ion_heap *heap,
++				   struct ion_buffer *buffer,
++				   unsigned long size,
++				   unsigned long flags)
++{
++	struct ion_chunk_heap *chunk_heap =
++		container_of(heap, struct ion_chunk_heap, heap);
++	struct sg_table *table;
++	struct scatterlist *sg;
++	int ret, i;
++	unsigned long num_chunks;
++	unsigned long allocated_size;
++
++	allocated_size = ALIGN(size, chunk_heap->chunk_size);
++	num_chunks = allocated_size / chunk_heap->chunk_size;
++
++	if (allocated_size > chunk_heap->size - chunk_heap->allocated)
++		return -ENOMEM;
++
++	table = kmalloc(sizeof(*table), GFP_KERNEL);
++	if (!table)
++		return -ENOMEM;
++	ret = sg_alloc_table(table, num_chunks, GFP_KERNEL);
++	if (ret) {
++		kfree(table);
++		return ret;
++	}
++
++	sg = table->sgl;
++	for (i = 0; i < num_chunks; i++) {
++		unsigned long paddr = gen_pool_alloc(chunk_heap->pool,
++						     chunk_heap->chunk_size);
++		if (!paddr)
++			goto err;
++		sg_set_page(sg, pfn_to_page(PFN_DOWN(paddr)),
++			    chunk_heap->chunk_size, 0);
++		sg = sg_next(sg);
++	}
++
++	buffer->sg_table = table;
++	chunk_heap->allocated += allocated_size;
++	return 0;
++err:
++	sg = table->sgl;
++	for (i -= 1; i >= 0; i--) {
++		gen_pool_free(chunk_heap->pool, page_to_phys(sg_page(sg)),
++			      sg->length);
++		sg = sg_next(sg);
++	}
++	sg_free_table(table);
++	kfree(table);
++	return -ENOMEM;
++}
++
++static void ion_chunk_heap_free(struct ion_buffer *buffer)
++{
++	struct ion_heap *heap = buffer->heap;
++	struct ion_chunk_heap *chunk_heap =
++		container_of(heap, struct ion_chunk_heap, heap);
++	struct sg_table *table = buffer->sg_table;
++	struct scatterlist *sg;
++	int i;
++	unsigned long allocated_size;
++
++	allocated_size = ALIGN(buffer->size, chunk_heap->chunk_size);
++
++	ion_heap_buffer_zero(buffer);
++
++	for_each_sg(table->sgl, sg, table->nents, i) {
++		gen_pool_free(chunk_heap->pool, page_to_phys(sg_page(sg)),
++			      sg->length);
++	}
++	chunk_heap->allocated -= allocated_size;
++	sg_free_table(table);
++	kfree(table);
++}
++
++static struct ion_heap_ops chunk_heap_ops = {
++	.allocate = ion_chunk_heap_allocate,
++	.free = ion_chunk_heap_free,
++	.map_user = ion_heap_map_user,
++	.map_kernel = ion_heap_map_kernel,
++	.unmap_kernel = ion_heap_unmap_kernel,
++};
++
++struct ion_heap *ion_chunk_heap_create(struct ion_platform_heap *heap_data)
++{
++	struct ion_chunk_heap *chunk_heap;
++	int ret;
++	struct page *page;
++	size_t size;
++
++	page = pfn_to_page(PFN_DOWN(heap_data->base));
++	size = heap_data->size;
++
++	ret = ion_heap_pages_zero(page, size, pgprot_writecombine(PAGE_KERNEL));
++	if (ret)
++		return ERR_PTR(ret);
++
++	chunk_heap = kzalloc(sizeof(*chunk_heap), GFP_KERNEL);
++	if (!chunk_heap)
++		return ERR_PTR(-ENOMEM);
++
++	chunk_heap->chunk_size = (unsigned long)heap_data->priv;
++	chunk_heap->pool = gen_pool_create(get_order(chunk_heap->chunk_size) +
++					   PAGE_SHIFT, -1);
++	if (!chunk_heap->pool) {
++		ret = -ENOMEM;
++		goto error_gen_pool_create;
++	}
++	chunk_heap->base = heap_data->base;
++	chunk_heap->size = heap_data->size;
++	chunk_heap->allocated = 0;
++
++	gen_pool_add(chunk_heap->pool, chunk_heap->base, heap_data->size, -1);
++	chunk_heap->heap.ops = &chunk_heap_ops;
++	chunk_heap->heap.type = ION_HEAP_TYPE_CHUNK;
++	chunk_heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
++	pr_debug("%s: base %pa size %zu\n", __func__,
++		 &chunk_heap->base, heap_data->size);
++
++	return &chunk_heap->heap;
++
++error_gen_pool_create:
++	kfree(chunk_heap);
++	return ERR_PTR(ret);
++}
+diff --git a/drivers/staging/android/ion/ion_cma_heap.c b/drivers/staging/android/ion/ion_cma_heap.c
+new file mode 100644
+index 0000000..bf65e67
+--- /dev/null
++++ b/drivers/staging/android/ion/ion_cma_heap.c
+@@ -0,0 +1,138 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * ION Memory Allocator CMA heap exporter
++ *
++ * Copyright (C) Linaro 2012
++ * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.
++ */
++
++#include <linux/device.h>
++#include <linux/slab.h>
++#include <linux/errno.h>
++#include <linux/err.h>
++#include <linux/cma.h>
++#include <linux/scatterlist.h>
++#include <linux/highmem.h>
++
++#include "ion.h"
++
++struct ion_cma_heap {
++	struct ion_heap heap;
++	struct cma *cma;
++};
++
++#define to_cma_heap(x) container_of(x, struct ion_cma_heap, heap)
++
++/* ION CMA heap operations functions */
++static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
++			    unsigned long len,
++			    unsigned long flags)
++{
++	struct ion_cma_heap *cma_heap = to_cma_heap(heap);
++	struct sg_table *table;
++	struct page *pages;
++	unsigned long size = PAGE_ALIGN(len);
++	unsigned long nr_pages = size >> PAGE_SHIFT;
++	unsigned long align = get_order(size);
++	int ret;
++
++	if (align > CONFIG_CMA_ALIGNMENT)
++		align = CONFIG_CMA_ALIGNMENT;
++
++	pages = cma_alloc(cma_heap->cma, nr_pages, align, false);
++	if (!pages)
++		return -ENOMEM;
++
++	if (PageHighMem(pages)) {
++		unsigned long nr_clear_pages = nr_pages;
++		struct page *page = pages;
++
++		while (nr_clear_pages > 0) {
++			void *vaddr = kmap_atomic(page);
++
++			memset(vaddr, 0, PAGE_SIZE);
++			kunmap_atomic(vaddr);
++			page++;
++			nr_clear_pages--;
++		}
++	} else {
++		memset(page_address(pages), 0, size);
++	}
++
++	table = kmalloc(sizeof(*table), GFP_KERNEL);
++	if (!table)
++		goto err;
++
++	ret = sg_alloc_table(table, 1, GFP_KERNEL);
++	if (ret)
++		goto free_mem;
++
++	sg_set_page(table->sgl, pages, size, 0);
++
++	buffer->priv_virt = pages;
++	buffer->sg_table = table;
++	return 0;
++
++free_mem:
++	kfree(table);
++err:
++	cma_release(cma_heap->cma, pages, nr_pages);
++	return -ENOMEM;
++}
++
++static void ion_cma_free(struct ion_buffer *buffer)
++{
++	struct ion_cma_heap *cma_heap = to_cma_heap(buffer->heap);
++	struct page *pages = buffer->priv_virt;
++	unsigned long nr_pages = PAGE_ALIGN(buffer->size) >> PAGE_SHIFT;
++
++	/* release memory */
++	cma_release(cma_heap->cma, pages, nr_pages);
++	/* release sg table */
++	sg_free_table(buffer->sg_table);
++	kfree(buffer->sg_table);
++}
++
++static struct ion_heap_ops ion_cma_ops = {
++	.allocate = ion_cma_allocate,
++	.free = ion_cma_free,
++	.map_user = ion_heap_map_user,
++	.map_kernel = ion_heap_map_kernel,
++	.unmap_kernel = ion_heap_unmap_kernel,
++};
++
++static struct ion_heap *__ion_cma_heap_create(struct cma *cma)
++{
++	struct ion_cma_heap *cma_heap;
++
++	cma_heap = kzalloc(sizeof(*cma_heap), GFP_KERNEL);
++
++	if (!cma_heap)
++		return ERR_PTR(-ENOMEM);
++
++	cma_heap->heap.ops = &ion_cma_ops;
++	cma_heap->cma = cma;
++	cma_heap->heap.type = ION_HEAP_TYPE_DMA;
++	return &cma_heap->heap;
++}
++
++static int __ion_add_cma_heaps(struct cma *cma, void *data)
++{
++	struct ion_heap *heap;
++
++	heap = __ion_cma_heap_create(cma);
++	if (IS_ERR(heap))
++		return PTR_ERR(heap);
++
++	heap->name = cma_get_name(cma);
++
++	ion_device_add_heap(heap);
++	return 0;
++}
++
++static int ion_add_cma_heaps(void)
++{
++	cma_for_each_area(__ion_add_cma_heaps, NULL);
++	return 0;
++}
++device_initcall(ion_add_cma_heaps);
+diff --git a/drivers/staging/android/ion/ion_heap.c b/drivers/staging/android/ion/ion_heap.c
+new file mode 100644
+index 0000000..3375eea
+--- /dev/null
++++ b/drivers/staging/android/ion/ion_heap.c
+@@ -0,0 +1,330 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * ION Memory Allocator generic heap helpers
++ *
++ * Copyright (C) 2011 Google, Inc.
++ */
++#include <linux/err.h>
++#include <linux/freezer.h>
++#include <linux/kthread.h>
++#include <linux/mm.h>
++#include <linux/rtmutex.h>
++#include <linux/sched.h>
++#include <uapi/linux/sched/types.h>
++#include <linux/scatterlist.h>
++#include <linux/vmalloc.h>
++#include "ion.h"
++#include <linux/io.h>
++
++void *ion_heap_map_kernel(struct ion_heap *heap,
++			  struct ion_buffer *buffer)
++{
++	void *vaddr;
++
++#if defined(CONFIG_ARM) || defined(__arm__) || defined(__aarch64__)
++	pr_debug("%s addr=0x%llx, size=%lu\n", __func__, buffer->paddr, PAGE_ALIGN(buffer->size));
++
++	struct sg_page_iter piter;
++	pgprot_t pgprot;
++	struct sg_table *table = buffer->sg_table;
++	int npages = PAGE_ALIGN(buffer->size) / PAGE_SIZE;
++	struct page **pages = vmalloc(array_size(npages,
++						 sizeof(struct page *)));
++	struct page **tmp = pages;
++
++	if (!pages)
++		return ERR_PTR(-ENOMEM);
++
++	if (buffer->flags & ION_FLAG_CACHED)
++		pgprot = PAGE_KERNEL;
++	else
++		pgprot = pgprot_writecombine(PAGE_KERNEL);
++
++	for_each_sgtable_page(table, &piter, 0) {
++		WARN_ON(tmp - pages >= npages);
++		*tmp++ = sg_page_iter_page(&piter);
++	}
++
++	vaddr = vmap(pages, npages, VM_MAP, pgprot);
++	vfree(pages);
++
++	if (!vaddr)
++		return ERR_PTR(-ENOMEM);
++
++#else
++
++	pr_debug("%s addr=0x%llx, size=%lu\n", __func__, buffer->paddr, PAGE_ALIGN(buffer->size));
++
++	if (buffer->flags & ION_FLAG_CACHED)
++		vaddr = memremap(buffer->paddr, PAGE_ALIGN(buffer->size), MEMREMAP_WB);
++	else
++		vaddr = ioremap(buffer->paddr, PAGE_ALIGN(buffer->size));
++
++	if (!vaddr) {
++		pr_err("%s map failed\n", __func__);
++		return ERR_PTR(-ENOMEM);
++	}
++
++#endif
++	return vaddr;
++}
++
++void ion_heap_unmap_kernel(struct ion_heap *heap,
++			   struct ion_buffer *buffer)
++{
++#if defined(CONFIG_ARM) || defined(__arm__) || defined(__aarch64__)
++	vunmap(buffer->vaddr);
++#else
++	if (buffer->flags & ION_FLAG_CACHED)
++		memunmap(buffer->vaddr);
++	else
++		iounmap(buffer->vaddr);
++
++#endif
++}
++
++int ion_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
++		      struct vm_area_struct *vma)
++{
++	struct sg_page_iter piter;
++	struct sg_table *table = buffer->sg_table;
++	unsigned long addr = vma->vm_start;
++	int ret;
++
++	for_each_sgtable_page(table, &piter, vma->vm_pgoff) {
++		struct page *page = sg_page_iter_page(&piter);
++
++		ret = remap_pfn_range(vma, addr, page_to_pfn(page), PAGE_SIZE,
++				      vma->vm_page_prot);
++		if (ret)
++			return ret;
++		addr += PAGE_SIZE;
++		if (addr >= vma->vm_end)
++			return 0;
++	}
++
++	return 0;
++}
++
++static int ion_heap_clear_pages(struct page **pages, int num, pgprot_t pgprot)
++{
++	void *addr = vmap(pages, num, VM_MAP, pgprot);
++
++	if (!addr)
++		return -ENOMEM;
++	memset(addr, 0, PAGE_SIZE * num);
++	vunmap(addr);
++
++	return 0;
++}
++
++static int ion_heap_sglist_zero(struct sg_table *sgt, pgprot_t pgprot)
++{
++	int p = 0;
++	int ret = 0;
++	struct sg_page_iter piter;
++	struct page *pages[32];
++
++	for_each_sgtable_page(sgt, &piter, 0) {
++		pages[p++] = sg_page_iter_page(&piter);
++		if (p == ARRAY_SIZE(pages)) {
++			ret = ion_heap_clear_pages(pages, p, pgprot);
++			if (ret)
++				return ret;
++			p = 0;
++		}
++	}
++	if (p)
++		ret = ion_heap_clear_pages(pages, p, pgprot);
++
++	return ret;
++}
++
++int ion_heap_buffer_zero(struct ion_buffer *buffer)
++{
++	struct sg_table *table = buffer->sg_table;
++	pgprot_t pgprot;
++
++	if (buffer->flags & ION_FLAG_CACHED)
++		pgprot = PAGE_KERNEL;
++	else
++		pgprot = pgprot_writecombine(PAGE_KERNEL);
++
++	return ion_heap_sglist_zero(table, pgprot);
++}
++
++int ion_heap_pages_zero(struct page *page, size_t size, pgprot_t pgprot)
++{
++	struct scatterlist sg;
++	struct sg_table sgt;
++
++	sg_init_table(&sg, 1);
++	sg_set_page(&sg, page, size, 0);
++
++	sgt.sgl = &sg;
++	sgt.nents = 1;
++	sgt.orig_nents = 1;
++
++	return ion_heap_sglist_zero(&sgt, pgprot);
++}
++
++void ion_heap_freelist_add(struct ion_heap *heap, struct ion_buffer *buffer)
++{
++	spin_lock(&heap->free_lock);
++	list_add(&buffer->list, &heap->free_list);
++	heap->free_list_size += buffer->size;
++	spin_unlock(&heap->free_lock);
++	wake_up(&heap->waitqueue);
++}
++
++size_t ion_heap_freelist_size(struct ion_heap *heap)
++{
++	size_t size;
++
++	spin_lock(&heap->free_lock);
++	size = heap->free_list_size;
++	spin_unlock(&heap->free_lock);
++
++	return size;
++}
++
++static size_t _ion_heap_freelist_drain(struct ion_heap *heap, size_t size,
++				       bool skip_pools)
++{
++	struct ion_buffer *buffer;
++	size_t total_drained = 0;
++
++	if (ion_heap_freelist_size(heap) == 0)
++		return 0;
++
++	spin_lock(&heap->free_lock);
++	if (size == 0)
++		size = heap->free_list_size;
++
++	while (!list_empty(&heap->free_list)) {
++		if (total_drained >= size)
++			break;
++		buffer = list_first_entry(&heap->free_list, struct ion_buffer,
++					  list);
++		list_del(&buffer->list);
++		heap->free_list_size -= buffer->size;
++		if (skip_pools)
++			buffer->private_flags |= ION_PRIV_FLAG_SHRINKER_FREE;
++		total_drained += buffer->size;
++		spin_unlock(&heap->free_lock);
++		ion_buffer_destroy(buffer);
++		spin_lock(&heap->free_lock);
++	}
++	spin_unlock(&heap->free_lock);
++
++	return total_drained;
++}
++
++size_t ion_heap_freelist_drain(struct ion_heap *heap, size_t size)
++{
++	return _ion_heap_freelist_drain(heap, size, false);
++}
++
++size_t ion_heap_freelist_shrink(struct ion_heap *heap, size_t size)
++{
++	return _ion_heap_freelist_drain(heap, size, true);
++}
++
++static int ion_heap_deferred_free(void *data)
++{
++	struct ion_heap *heap = data;
++
++	while (true) {
++		struct ion_buffer *buffer;
++
++		wait_event_freezable(heap->waitqueue,
++				     ion_heap_freelist_size(heap) > 0);
++
++		spin_lock(&heap->free_lock);
++		if (list_empty(&heap->free_list)) {
++			spin_unlock(&heap->free_lock);
++			continue;
++		}
++		buffer = list_first_entry(&heap->free_list, struct ion_buffer,
++					  list);
++		list_del(&buffer->list);
++		heap->free_list_size -= buffer->size;
++		spin_unlock(&heap->free_lock);
++		ion_buffer_destroy(buffer);
++	}
++
++	return 0;
++}
++
++int ion_heap_init_deferred_free(struct ion_heap *heap)
++{
++	INIT_LIST_HEAD(&heap->free_list);
++	init_waitqueue_head(&heap->waitqueue);
++	heap->task = kthread_run(ion_heap_deferred_free, heap,
++				 "%s", heap->name);
++	if (IS_ERR(heap->task)) {
++		pr_err("%s: creating thread for deferred free failed\n",
++		       __func__);
++		return PTR_ERR_OR_ZERO(heap->task);
++	}
++	sched_set_normal(heap->task, 19);
++
++	return 0;
++}
++
++static unsigned long ion_heap_shrink_count(struct shrinker *shrinker,
++					   struct shrink_control *sc)
++{
++	struct ion_heap *heap = shrinker->private_data;
++	int total = 0;
++
++	total = ion_heap_freelist_size(heap) / PAGE_SIZE;
++
++	if (heap->ops->shrink)
++		total += heap->ops->shrink(heap, sc->gfp_mask, 0);
++
++	return total;
++}
++
++static unsigned long ion_heap_shrink_scan(struct shrinker *shrinker,
++					  struct shrink_control *sc)
++{
++	struct ion_heap *heap = shrinker->private_data;
++	int freed = 0;
++	int to_scan = sc->nr_to_scan;
++
++	if (to_scan == 0)
++		return 0;
++
++	/*
++	 * shrink the free list first, no point in zeroing the memory if we're
++	 * just going to reclaim it. Also, skip any possible page pooling.
++	 */
++	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
++		freed = ion_heap_freelist_shrink(heap, to_scan * PAGE_SIZE) /
++				PAGE_SIZE;
++
++	to_scan -= freed;
++	if (to_scan <= 0)
++		return freed;
++
++	if (heap->ops->shrink)
++		freed += heap->ops->shrink(heap, sc->gfp_mask, to_scan);
++
++	return freed;
++}
++
++int ion_heap_init_shrinker(struct ion_heap *heap)
++{
++	heap->shrinker = shrinker_alloc(0, "ion-%s", heap->name);
++	if (!heap->shrinker)
++		return -ENOMEM;
++	heap->shrinker->private_data = heap;
++	heap->shrinker->count_objects = ion_heap_shrink_count;
++	heap->shrinker->scan_objects = ion_heap_shrink_scan;
++	heap->shrinker->seeks = DEFAULT_SEEKS;
++	heap->shrinker->batch = 0;
++
++	shrinker_register(heap->shrinker);
++	return 0;
++}
+diff --git a/drivers/staging/android/ion/ion_page_pool.c b/drivers/staging/android/ion/ion_page_pool.c
+new file mode 100644
+index 0000000..0198b88
+--- /dev/null
++++ b/drivers/staging/android/ion/ion_page_pool.c
+@@ -0,0 +1,155 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * ION Memory Allocator page pool helpers
++ *
++ * Copyright (C) 2011 Google, Inc.
++ */
++
++#include <linux/list.h>
++#include <linux/slab.h>
++#include <linux/swap.h>
++#include <linux/sched/signal.h>
++
++#include "ion.h"
++
++static inline struct page *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
++{
++	if (fatal_signal_pending(current))
++		return NULL;
++	return alloc_pages(pool->gfp_mask, pool->order);
++}
++
++static void ion_page_pool_free_pages(struct ion_page_pool *pool,
++				     struct page *page)
++{
++	__free_pages(page, pool->order);
++}
++
++static void ion_page_pool_add(struct ion_page_pool *pool, struct page *page)
++{
++	mutex_lock(&pool->mutex);
++	if (PageHighMem(page)) {
++		list_add_tail(&page->lru, &pool->high_items);
++		pool->high_count++;
++	} else {
++		list_add_tail(&page->lru, &pool->low_items);
++		pool->low_count++;
++	}
++
++	mod_node_page_state(page_pgdat(page), NR_KERNEL_MISC_RECLAIMABLE,
++			    1 << pool->order);
++	mutex_unlock(&pool->mutex);
++}
++
++static struct page *ion_page_pool_remove(struct ion_page_pool *pool, bool high)
++{
++	struct page *page;
++
++	if (high) {
++		BUG_ON(!pool->high_count);
++		page = list_first_entry(&pool->high_items, struct page, lru);
++		pool->high_count--;
++	} else {
++		BUG_ON(!pool->low_count);
++		page = list_first_entry(&pool->low_items, struct page, lru);
++		pool->low_count--;
++	}
++
++	list_del(&page->lru);
++	mod_node_page_state(page_pgdat(page), NR_KERNEL_MISC_RECLAIMABLE,
++			    -(1 << pool->order));
++	return page;
++}
++
++struct page *ion_page_pool_alloc(struct ion_page_pool *pool)
++{
++	struct page *page = NULL;
++
++	BUG_ON(!pool);
++
++	mutex_lock(&pool->mutex);
++	if (pool->high_count)
++		page = ion_page_pool_remove(pool, true);
++	else if (pool->low_count)
++		page = ion_page_pool_remove(pool, false);
++	mutex_unlock(&pool->mutex);
++
++	if (!page)
++		page = ion_page_pool_alloc_pages(pool);
++
++	return page;
++}
++
++void ion_page_pool_free(struct ion_page_pool *pool, struct page *page)
++{
++	BUG_ON(pool->order != compound_order(page));
++
++	ion_page_pool_add(pool, page);
++}
++
++static int ion_page_pool_total(struct ion_page_pool *pool, bool high)
++{
++	int count = pool->low_count;
++
++	if (high)
++		count += pool->high_count;
++
++	return count << pool->order;
++}
++
++int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
++			 int nr_to_scan)
++{
++	int freed = 0;
++	bool high;
++
++	if (current_is_kswapd())
++		high = true;
++	else
++		high = !!(gfp_mask & __GFP_HIGHMEM);
++
++	if (nr_to_scan == 0)
++		return ion_page_pool_total(pool, high);
++
++	while (freed < nr_to_scan) {
++		struct page *page;
++
++		mutex_lock(&pool->mutex);
++		if (pool->low_count) {
++			page = ion_page_pool_remove(pool, false);
++		} else if (high && pool->high_count) {
++			page = ion_page_pool_remove(pool, true);
++		} else {
++			mutex_unlock(&pool->mutex);
++			break;
++		}
++		mutex_unlock(&pool->mutex);
++		ion_page_pool_free_pages(pool, page);
++		freed += (1 << pool->order);
++	}
++
++	return freed;
++}
++
++struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order)
++{
++	struct ion_page_pool *pool = kmalloc(sizeof(*pool), GFP_KERNEL);
++
++	if (!pool)
++		return NULL;
++	pool->high_count = 0;
++	pool->low_count = 0;
++	INIT_LIST_HEAD(&pool->low_items);
++	INIT_LIST_HEAD(&pool->high_items);
++	pool->gfp_mask = gfp_mask | __GFP_COMP;
++	pool->order = order;
++	mutex_init(&pool->mutex);
++	plist_node_init(&pool->list, order);
++
++	return pool;
++}
++
++void ion_page_pool_destroy(struct ion_page_pool *pool)
++{
++	kfree(pool);
++}
+diff --git a/drivers/staging/android/ion/ion_system_heap.c b/drivers/staging/android/ion/ion_system_heap.c
+new file mode 100644
+index 0000000..07e32b9
+--- /dev/null
++++ b/drivers/staging/android/ion/ion_system_heap.c
+@@ -0,0 +1,402 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * ION Memory Allocator system heap exporter
++ *
++ * Copyright (C) 2011 Google, Inc.
++ */
++
++#include <asm/page.h>
++#include <linux/dma-mapping.h>
++#include <linux/err.h>
++#include <linux/highmem.h>
++#include <linux/mm.h>
++#include <linux/scatterlist.h>
++#include <linux/seq_file.h>
++#include <linux/slab.h>
++#include <linux/vmalloc.h>
++
++#include "ion.h"
++
++#define NUM_ORDERS ARRAY_SIZE(orders)
++
++static gfp_t high_order_gfp_flags = (GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN |
++				     __GFP_NORETRY) & ~__GFP_RECLAIM;
++static gfp_t low_order_gfp_flags  = GFP_HIGHUSER | __GFP_ZERO;
++static const unsigned int orders[] = {8, 4, 0};
++
++static int order_to_index(unsigned int order)
++{
++	int i;
++
++	for (i = 0; i < NUM_ORDERS; i++)
++		if (order == orders[i])
++			return i;
++	BUG();
++	return -1;
++}
++
++static inline unsigned int order_to_size(int order)
++{
++	return PAGE_SIZE << order;
++}
++
++struct ion_system_heap {
++	struct ion_heap heap;
++	struct ion_page_pool *pools[NUM_ORDERS];
++};
++
++static struct page *alloc_buffer_page(struct ion_system_heap *heap,
++				      struct ion_buffer *buffer,
++				      unsigned long order)
++{
++	struct ion_page_pool *pool = heap->pools[order_to_index(order)];
++
++	return ion_page_pool_alloc(pool);
++}
++
++static void free_buffer_page(struct ion_system_heap *heap,
++			     struct ion_buffer *buffer, struct page *page)
++{
++	struct ion_page_pool *pool;
++	unsigned int order = compound_order(page);
++
++	/* go to system */
++	if (buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE) {
++		__free_pages(page, order);
++		return;
++	}
++
++	pool = heap->pools[order_to_index(order)];
++
++	ion_page_pool_free(pool, page);
++}
++
++static struct page *alloc_largest_available(struct ion_system_heap *heap,
++					    struct ion_buffer *buffer,
++					    unsigned long size,
++					    unsigned int max_order)
++{
++	struct page *page;
++	int i;
++
++	for (i = 0; i < NUM_ORDERS; i++) {
++		if (size < order_to_size(orders[i]))
++			continue;
++		if (max_order < orders[i])
++			continue;
++
++		page = alloc_buffer_page(heap, buffer, orders[i]);
++		if (!page)
++			continue;
++
++		return page;
++	}
++
++	return NULL;
++}
++
++static int ion_system_heap_allocate(struct ion_heap *heap,
++				    struct ion_buffer *buffer,
++				    unsigned long size,
++				    unsigned long flags)
++{
++	struct ion_system_heap *sys_heap = container_of(heap,
++							struct ion_system_heap,
++							heap);
++	struct sg_table *table;
++	struct scatterlist *sg;
++	struct list_head pages;
++	struct page *page, *tmp_page;
++	int i = 0;
++	unsigned long size_remaining = PAGE_ALIGN(size);
++	unsigned int max_order = orders[0];
++
++	if (size / PAGE_SIZE > totalram_pages() / 2)
++		return -ENOMEM;
++
++	INIT_LIST_HEAD(&pages);
++	while (size_remaining > 0) {
++		page = alloc_largest_available(sys_heap, buffer, size_remaining,
++					       max_order);
++		if (!page)
++			goto free_pages;
++		list_add_tail(&page->lru, &pages);
++		size_remaining -= page_size(page);
++		max_order = compound_order(page);
++		i++;
++	}
++	table = kmalloc(sizeof(*table), GFP_KERNEL);
++	if (!table)
++		goto free_pages;
++
++	if (sg_alloc_table(table, i, GFP_KERNEL))
++		goto free_table;
++
++	sg = table->sgl;
++	list_for_each_entry_safe(page, tmp_page, &pages, lru) {
++		sg_set_page(sg, page, page_size(page), 0);
++		sg = sg_next(sg);
++		list_del(&page->lru);
++	}
++
++	buffer->sg_table = table;
++	return 0;
++
++free_table:
++	kfree(table);
++free_pages:
++	list_for_each_entry_safe(page, tmp_page, &pages, lru)
++		free_buffer_page(sys_heap, buffer, page);
++	return -ENOMEM;
++}
++
++static void ion_system_heap_free(struct ion_buffer *buffer)
++{
++	struct ion_system_heap *sys_heap = container_of(buffer->heap,
++							struct ion_system_heap,
++							heap);
++	struct sg_table *table = buffer->sg_table;
++	struct scatterlist *sg;
++	int i;
++
++	/* zero the buffer before goto page pool */
++	if (!(buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE))
++		ion_heap_buffer_zero(buffer);
++
++	for_each_sgtable_sg(table, sg, i)
++		free_buffer_page(sys_heap, buffer, sg_page(sg));
++	sg_free_table(table);
++	kfree(table);
++}
++
++static int ion_system_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
++				  int nr_to_scan)
++{
++	struct ion_page_pool *pool;
++	struct ion_system_heap *sys_heap;
++	int nr_total = 0;
++	int i, nr_freed;
++	int only_scan = 0;
++
++	sys_heap = container_of(heap, struct ion_system_heap, heap);
++
++	if (!nr_to_scan)
++		only_scan = 1;
++
++	for (i = 0; i < NUM_ORDERS; i++) {
++		pool = sys_heap->pools[i];
++
++		if (only_scan) {
++			nr_total += ion_page_pool_shrink(pool,
++							 gfp_mask,
++							 nr_to_scan);
++
++		} else {
++			nr_freed = ion_page_pool_shrink(pool,
++							gfp_mask,
++							nr_to_scan);
++			nr_to_scan -= nr_freed;
++			nr_total += nr_freed;
++			if (nr_to_scan <= 0)
++				break;
++		}
++	}
++	return nr_total;
++}
++
++static struct ion_heap_ops system_heap_ops = {
++	.allocate = ion_system_heap_allocate,
++	.free = ion_system_heap_free,
++	.map_kernel = ion_heap_map_kernel,
++	.unmap_kernel = ion_heap_unmap_kernel,
++	.map_user = ion_heap_map_user,
++	.shrink = ion_system_heap_shrink,
++};
++
++static int ion_system_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
++				      void *unused)
++{
++	struct ion_system_heap *sys_heap = container_of(heap,
++							struct ion_system_heap,
++							heap);
++	int i;
++	struct ion_page_pool *pool;
++
++	for (i = 0; i < NUM_ORDERS; i++) {
++		pool = sys_heap->pools[i];
++
++		seq_printf(s, "%d order %u highmem pages %lu total\n",
++			   pool->high_count, pool->order,
++			   (PAGE_SIZE << pool->order) * pool->high_count);
++		seq_printf(s, "%d order %u lowmem pages %lu total\n",
++			   pool->low_count, pool->order,
++			   (PAGE_SIZE << pool->order) * pool->low_count);
++	}
++
++	return 0;
++}
++
++static void ion_system_heap_destroy_pools(struct ion_page_pool **pools)
++{
++	int i;
++
++	for (i = 0; i < NUM_ORDERS; i++)
++		if (pools[i])
++			ion_page_pool_destroy(pools[i]);
++}
++
++static int ion_system_heap_create_pools(struct ion_page_pool **pools)
++{
++	int i;
++
++	for (i = 0; i < NUM_ORDERS; i++) {
++		struct ion_page_pool *pool;
++		gfp_t gfp_flags = low_order_gfp_flags;
++
++		if (orders[i] > 4)
++			gfp_flags = high_order_gfp_flags;
++
++		pool = ion_page_pool_create(gfp_flags, orders[i]);
++		if (!pool)
++			goto err_create_pool;
++		pools[i] = pool;
++	}
++
++	return 0;
++
++err_create_pool:
++	ion_system_heap_destroy_pools(pools);
++	return -ENOMEM;
++}
++
++static struct ion_heap *__ion_system_heap_create(void)
++{
++	struct ion_system_heap *heap;
++
++	heap = kzalloc(sizeof(*heap), GFP_KERNEL);
++	if (!heap)
++		return ERR_PTR(-ENOMEM);
++	heap->heap.ops = &system_heap_ops;
++	heap->heap.type = ION_HEAP_TYPE_SYSTEM;
++	heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
++
++	if (ion_system_heap_create_pools(heap->pools))
++		goto free_heap;
++
++	heap->heap.debug_show = ion_system_heap_debug_show;
++	return &heap->heap;
++
++free_heap:
++	kfree(heap);
++	return ERR_PTR(-ENOMEM);
++}
++
++static int ion_system_heap_create(void)
++{
++	struct ion_heap *heap;
++
++	heap = __ion_system_heap_create();
++	if (IS_ERR(heap))
++		return PTR_ERR(heap);
++	heap->name = "ion_system_heap";
++
++	ion_device_add_heap(heap);
++
++	return 0;
++}
++device_initcall(ion_system_heap_create);
++
++static int ion_system_contig_heap_allocate(struct ion_heap *heap,
++					   struct ion_buffer *buffer,
++					   unsigned long len,
++					   unsigned long flags)
++{
++	int order = get_order(len);
++	struct page *page;
++	struct sg_table *table;
++	unsigned long i;
++	int ret;
++
++	page = alloc_pages(low_order_gfp_flags | __GFP_NOWARN, order);
++	if (!page)
++		return -ENOMEM;
++
++	split_page(page, order);
++
++	len = PAGE_ALIGN(len);
++	for (i = len >> PAGE_SHIFT; i < (1 << order); i++)
++		__free_page(page + i);
++
++	table = kmalloc(sizeof(*table), GFP_KERNEL);
++	if (!table) {
++		ret = -ENOMEM;
++		goto free_pages;
++	}
++
++	ret = sg_alloc_table(table, 1, GFP_KERNEL);
++	if (ret)
++		goto free_table;
++
++	sg_set_page(table->sgl, page, len, 0);
++
++	buffer->sg_table = table;
++
++	return 0;
++
++free_table:
++	kfree(table);
++free_pages:
++	for (i = 0; i < len >> PAGE_SHIFT; i++)
++		__free_page(page + i);
++
++	return ret;
++}
++
++static void ion_system_contig_heap_free(struct ion_buffer *buffer)
++{
++	struct sg_table *table = buffer->sg_table;
++	struct page *page = sg_page(table->sgl);
++	unsigned long pages = PAGE_ALIGN(buffer->size) >> PAGE_SHIFT;
++	unsigned long i;
++
++	for (i = 0; i < pages; i++)
++		__free_page(page + i);
++	sg_free_table(table);
++	kfree(table);
++}
++
++static struct ion_heap_ops kmalloc_ops = {
++	.allocate = ion_system_contig_heap_allocate,
++	.free = ion_system_contig_heap_free,
++	.map_kernel = ion_heap_map_kernel,
++	.unmap_kernel = ion_heap_unmap_kernel,
++	.map_user = ion_heap_map_user,
++};
++
++static struct ion_heap *__ion_system_contig_heap_create(void)
++{
++	struct ion_heap *heap;
++
++	heap = kzalloc(sizeof(*heap), GFP_KERNEL);
++	if (!heap)
++		return ERR_PTR(-ENOMEM);
++	heap->ops = &kmalloc_ops;
++	heap->type = ION_HEAP_TYPE_SYSTEM_CONTIG;
++	heap->name = "ion_system_contig_heap";
++
++	return heap;
++}
++
++static int ion_system_contig_heap_create(void)
++{
++	struct ion_heap *heap;
++
++	heap = __ion_system_contig_heap_create();
++	if (IS_ERR(heap))
++		return PTR_ERR(heap);
++
++	ion_device_add_heap(heap);
++
++	return 0;
++}
++device_initcall(ion_system_contig_heap_create);
+diff --git a/drivers/staging/android/uapi/ion.h b/drivers/staging/android/uapi/ion.h
+new file mode 100644
+index 0000000..130f211
+--- /dev/null
++++ b/drivers/staging/android/uapi/ion.h
+@@ -0,0 +1,164 @@
++/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
++/*
++ * drivers/staging/android/uapi/ion.h
++ *
++ * Copyright (C) 2011 Google, Inc.
++ */
++
++#ifndef _UAPI_LINUX_ION_H
++#define _UAPI_LINUX_ION_H
++
++#include <linux/ioctl.h>
++#include <linux/types.h>
++
++/**
++ * enum ion_heap_types - list of all possible types of heaps
++ * @ION_HEAP_TYPE_SYSTEM:	 memory allocated via vmalloc
++ * @ION_HEAP_TYPE_SYSTEM_CONTIG: memory allocated via kmalloc
++ * @ION_HEAP_TYPE_CARVEOUT:	 memory allocated from a prereserved
++ *				 carveout heap, allocations are physically
++ *				 contiguous
++ * @ION_HEAP_TYPE_DMA:		 memory allocated via DMA API
++ * @ION_NUM_HEAPS:		 helper for iterating over heaps, a bit mask
++ *				 is used to identify the heaps, so only 32
++ *				 total heap types are supported
++ */
++enum ion_heap_type {
++	ION_HEAP_TYPE_SYSTEM,
++	ION_HEAP_TYPE_SYSTEM_CONTIG,
++	ION_HEAP_TYPE_CARVEOUT,
++	ION_HEAP_TYPE_CHUNK,
++	ION_HEAP_TYPE_DMA,
++	ION_HEAP_TYPE_CUSTOM, /*
++			       * must be last so device specific heaps always
++			       * are at the end of this enum
++			       */
++};
++
++#define ION_NUM_HEAP_IDS		(sizeof(unsigned int) * 8)
++
++/**
++ * allocation flags - the lower 16 bits are used by core ion, the upper 16
++ * bits are reserved for use by the heaps themselves.
++ */
++
++/*
++ * mappings of this buffer should be cached, ion will do cache maintenance
++ * when the buffer is mapped for dma
++ */
++#define ION_FLAG_CACHED 1
++
++/**
++ * DOC: Ion Userspace API
++ *
++ * create a client by opening /dev/ion
++ * most operations handled via following ioctls
++ *
++ */
++
++#define MAX_ION_BUFFER_NAME 32
++
++/**
++ * struct ion_allocation_data - metadata passed from userspace for allocations
++ * @len:		size of the allocation
++ * @heap_id_mask:	mask of heap ids to allocate from
++ * @flags:		flags passed to heap
++ * @handle:		pointer that will be populated with a cookie to use to
++ *			refer to this allocation
++ *
++ * Provided by userspace as an argument to the ioctl
++ */
++struct ion_allocation_data {
++	__u64 len;
++	__u32 heap_id_mask;
++	__u32 flags;
++	__u32 fd;
++	__u32 unused;
++	__u64 paddr;
++	char name[MAX_ION_BUFFER_NAME];
++};
++
++struct ion_allocation_data_legacy {
++	__u64 len;
++	__u32 heap_id_mask;
++	__u32 flags;
++	__u32 fd;
++	__u32 unused;
++	__u64 paddr;
++};
++
++#define MAX_HEAP_NAME			32
++
++/**
++ * struct ion_heap_data - data about a heap
++ * @name - first 32 characters of the heap name
++ * @type - heap type
++ * @heap_id - heap id for the heap
++ */
++struct ion_heap_data {
++	char name[MAX_HEAP_NAME];
++	__u32 type;
++	__u32 heap_id;
++	__u32 reserved0;
++	__u32 reserved1;
++	__u32 reserved2;
++};
++
++/**
++ * struct ion_heap_query - collection of data about all heaps
++ * @cnt - total number of heaps to be copied
++ * @heaps - buffer to copy heap data
++ */
++struct ion_heap_query {
++	__u32 cnt; /* Total number of heaps to be copied */
++	__u32 reserved0; /* align to 64bits */
++	__u64 heaps; /* buffer to be populated */
++	__u32 reserved1;
++	__u32 reserved2;
++};
++
++/**
++ * struct ion_custom_data - metadata passed to/from userspace for a custom ioctl
++ * @cmd:	the custom ioctl function to call
++ * @arg:	additional data to pass to the custom ioctl, typically a user
++ *		pointer to a predefined structure
++ *
++ * This works just like the regular cmd and arg fields of an ioctl.
++ */
++struct ion_custom_data {
++	unsigned int cmd;
++	unsigned long arg;
++};
++
++#define ION_IOC_MAGIC		'I'
++
++/**
++ * DOC: ION_IOC_ALLOC - allocate memory
++ *
++ * Takes an ion_allocation_data struct and returns it with the handle field
++ * populated with the opaque handle for the allocation.
++ */
++#define ION_IOC_ALLOC		_IOWR(ION_IOC_MAGIC, 0, \
++				      struct ion_allocation_data)
++
++#define ION_IOC_ALLOC_LEGACY		_IOWR(ION_IOC_MAGIC, 0, \
++				      struct ion_allocation_data_legacy)
++
++/**
++ * DOC: ION_IOC_CUSTOM - call architecture specific ion ioctl
++ *
++ * Takes the argument of the architecture specific ioctl to call and
++ * passes appropriate userdata for that ioctl
++ */
++#define ION_IOC_CUSTOM		_IOWR(ION_IOC_MAGIC, 6, struct ion_custom_data)
++
++/**
++ * DOC: ION_IOC_HEAP_QUERY - information about available heaps
++ *
++ * Takes an ion_heap_query structure and populates information about
++ * available Ion heaps.
++ */
++#define ION_IOC_HEAP_QUERY     _IOWR(ION_IOC_MAGIC, 8, \
++					struct ion_heap_query)
++
++#endif /* _UAPI_LINUX_ION_H */
+diff --git a/drivers/staging/android/uapi/ion_cvitek.h b/drivers/staging/android/uapi/ion_cvitek.h
+new file mode 100644
+index 0000000..8e2820c
+--- /dev/null
++++ b/drivers/staging/android/uapi/ion_cvitek.h
+@@ -0,0 +1,34 @@
++/*
++ * Copyright (C) Cvitek Co., Ltd. 2019-2020. All rights reserved.
++ *
++ * File Name: ion_cvitek.h
++ * Description:
++ */
++
++#ifndef __ION_CVITEK_H__
++#define __ION_CVITEK_H__
++
++#include "ion.h"
++
++struct cvitek_cache_range {
++	void *start;
++#ifdef __arm__
++	__u32 padding;
++#endif
++	__u32 size;
++	__u64 paddr;
++};
++
++struct cvitek_heap_info {
++	unsigned int id;
++	unsigned long total_size;
++	unsigned long avail_size;
++};
++
++#define ION_IOC_CVITEK_FLUSH_RANGE		1
++#define ION_IOC_CVITEK_GET_HEAP_INFO		2
++#define ION_IOC_CVITEK_INVALIDATE_RANGE		3
++#define ION_IOC_CVITEK_FLUSH_PHY_RANGE		4
++#define ION_IOC_CVITEK_INVALIDATE_PHY_RANGE	5
++
++#endif /* __ION_CVITEK_H__ */
+diff --git a/drivers/usb/dwc2/gadget.c b/drivers/usb/dwc2/gadget.c
+index 102169b..9623a9a 100644
+--- a/drivers/usb/dwc2/gadget.c
++++ b/drivers/usb/dwc2/gadget.c
+@@ -561,8 +561,9 @@ static int dwc2_hsotg_write_fifo(struct dwc2_hsotg *hsotg,
+ 			return -ENOSPC;
+ 		}
+ 	} else if (hsotg->dedicated_fifos && hs_ep->index != 0) {
++		/* DTXFSTS is indexed by endpoint, regardless of its assigned FIFO. */
+ 		can_write = dwc2_readl(hsotg,
+-				       DTXFSTS(hs_ep->fifo_index));
++				       DTXFSTS(hs_ep->index));
+ 
+ 		can_write &= 0xffff;
+ 		can_write *= 4;
+@@ -3299,7 +3300,7 @@ static void kill_all_requests(struct dwc2_hsotg *hsotg,
+ 
+ 	if (!hsotg->dedicated_fifos)
+ 		return;
+-	size = (dwc2_readl(hsotg, DTXFSTS(ep->fifo_index)) & 0xffff) * 4;
++	size = (dwc2_readl(hsotg, DTXFSTS(ep->index)) & 0xffff) * 4;
+ 	if (size < ep->fifo_size)
+ 		dwc2_hsotg_txfifo_flush(hsotg, ep->fifo_index);
+ }
+@@ -4793,7 +4794,52 @@ static void dwc2_gadget_set_speed(struct usb_gadget *g, enum usb_device_speed sp
+ 	spin_unlock_irqrestore(&hsotg->lock, flags);
+ }
+ 
++/* Remote wakeup for the non-power-down mode used by CV18xx/SG2002. */
++static int dwc2_hsotg_wakeup(struct usb_gadget *gadget)
++{
++	struct dwc2_hsotg *hsotg = to_hsotg(gadget);
++	unsigned long flags;
++	u32 pcgctl;
++	int ret = -EAGAIN;
++
++	spin_lock_irqsave(&hsotg->lock, flags);
++	if (!hsotg->remote_wakeup_allowed) {
++		ret = -EACCES;
++		goto out;
++	}
++	/* Other power modes require their complete register restore sequence. */
++	if (hsotg->params.power_down != DWC2_POWER_DOWN_PARAM_NONE) {
++		ret = -EOPNOTSUPP;
++		goto out;
++	}
++	if (hsotg->lx_state != DWC2_L2 || !dwc2_is_device_mode(hsotg))
++		goto out;
++
++	if (hsotg->bus_suspended) {
++		pcgctl = dwc2_readl(hsotg, PCGCTL);
++		pcgctl &= ~PCGCTL_GATEHCLK;
++		dwc2_writel(hsotg, pcgctl, PCGCTL);
++		udelay(5);
++		pcgctl &= ~PCGCTL_STOPPCLK;
++		dwc2_writel(hsotg, pcgctl, PCGCTL);
++		udelay(5);
++		hsotg->bus_suspended = false;
++	}
++
++	/* USB 2.0 resume signaling must last between 1 and 15 ms. */
++	dwc2_set_bit(hsotg, DCTL, DCTL_RMTWKUPSIG);
++	mdelay(10);
++	dwc2_clear_bit(hsotg, DCTL, DCTL_RMTWKUPSIG);
++	call_gadget(hsotg, resume);
++	hsotg->lx_state = DWC2_L0;
++	ret = 0;
++out:
++	spin_unlock_irqrestore(&hsotg->lock, flags);
++	return ret;
++}
++
+ static const struct usb_gadget_ops dwc2_hsotg_gadget_ops = {
++	.wakeup			= dwc2_hsotg_wakeup,
+ 	.get_frame	= dwc2_hsotg_gadget_getframe,
+ 	.set_selfpowered	= dwc2_hsotg_set_selfpowered,
+ 	.udc_start		= dwc2_hsotg_udc_start,
+diff --git a/drivers/usb/gadget/function/f_hid.c b/drivers/usb/gadget/function/f_hid.c
+index 3c6b43d..f5cf5c1 100644
+--- a/drivers/usb/gadget/function/f_hid.c
++++ b/drivers/usb/gadget/function/f_hid.c
+@@ -74,6 +74,7 @@ struct f_hidg {
+ 	 *              will be used to receive reports.
+ 	 */
+ 	bool				use_out_ep;
++	bool				wakeup_on_write;
+ 
+ 	/* recv report */
+ 	spinlock_t			read_spinlock;
+@@ -448,6 +449,26 @@ static void f_hidg_req_complete(struct usb_ep *ep, struct usb_request *req)
+ 	wake_up(&hidg->write_queue);
+ }
+ 
++/* The UDC checks whether the host enabled USB remote wakeup. */
++static void hidg_wakeup_host(struct f_hidg *hidg)
++{
++	struct usb_gadget *gadget = NULL;
++	unsigned long flags;
++
++	/* An open HID file may outlive disconnect. Pin the gadget while active. */
++	spin_lock_irqsave(&hidg->write_spinlock, flags);
++	if (hidg->req && hidg->func.config->cdev->suspended) {
++		gadget = hidg->func.config->cdev->gadget;
++		get_device(&gadget->dev);
++	}
++	spin_unlock_irqrestore(&hidg->write_spinlock, flags);
++
++	if (gadget) {
++		usb_gadget_wakeup(gadget);
++		put_device(&gadget->dev);
++	}
++}
++
+ static ssize_t f_hidg_write(struct file *file, const char __user *buffer,
+ 			    size_t count, loff_t *offp)
+ {
+@@ -456,6 +477,10 @@ static ssize_t f_hidg_write(struct file *file, const char __user *buffer,
+ 	unsigned long flags;
+ 	ssize_t status = -ENOMEM;
+ 
++	/* Wake before waiting for a pending report on a suspended endpoint. */
++	if (count && hidg->wakeup_on_write)
++		hidg_wakeup_host(hidg);
++
+ 	spin_lock_irqsave(&hidg->write_spinlock, flags);
+ 
+ 	if (!hidg->req) {
+@@ -1381,6 +1406,7 @@ CONFIGFS_ATTR(f_hid_opts_, name)
+ F_HID_OPT(subclass, 8, 255);
+ F_HID_OPT(protocol, 8, 255);
+ F_HID_OPT(no_out_endpoint, 8, 1);
++F_HID_OPT(wakeup_on_write, 8, 1);
+ F_HID_OPT(report_length, 16, 65535);
+ 
+ static ssize_t f_hid_opts_report_desc_show(struct config_item *item, char *page)
+@@ -1488,6 +1514,7 @@ static struct configfs_attribute *hid_attrs[] = {
+ 	&f_hid_opts_attr_subclass,
+ 	&f_hid_opts_attr_protocol,
+ 	&f_hid_opts_attr_no_out_endpoint,
++	&f_hid_opts_attr_wakeup_on_write,
+ 	&f_hid_opts_attr_report_length,
+ 	&f_hid_opts_attr_interval,
+ 	&f_hid_opts_attr_report_desc,
+@@ -1627,6 +1654,7 @@ static struct usb_function *hidg_alloc(struct usb_function_instance *fi)
+ 	hidg->bInterfaceSubClass = opts->subclass;
+ 	hidg->bInterfaceProtocol = opts->protocol;
+ 	hidg->report_length = opts->report_length;
++	hidg->wakeup_on_write = opts->wakeup_on_write;
+ 	hidg->report_desc_length = opts->report_desc_length;
+ 	hidg->interval = opts->interval;
+ 	hidg->interval_user_set = opts->interval_user_set;
+diff --git a/drivers/usb/gadget/function/u_hid.h b/drivers/usb/gadget/function/u_hid.h
+index a9ed972..54350e4 100644
+--- a/drivers/usb/gadget/function/u_hid.h
++++ b/drivers/usb/gadget/function/u_hid.h
+@@ -21,6 +21,7 @@ struct f_hid_opts {
+ 	unsigned char			subclass;
+ 	unsigned char			protocol;
+ 	unsigned char			no_out_endpoint;
++	unsigned char			wakeup_on_write;
+ 	unsigned short			report_length;
+ 	unsigned short			report_desc_length;
+ 	unsigned char			*report_desc;
+diff --git a/include/linux/cv180x_efuse.h b/include/linux/cv180x_efuse.h
+new file mode 100644
+index 0000000..e9c46fb
+--- /dev/null
++++ b/include/linux/cv180x_efuse.h
+@@ -0,0 +1,11 @@
++#ifndef __CVI_EFUSE_H__
++#define __CVI_EFUSE_H__
++
++#include <linux/types.h>
++
++int64_t cvi_efuse_read_from_shadow(uint32_t addr);
++int cvi_efuse_write(uint32_t addr, uint32_t value);
++
++int cvi_efuse_read_buf(u32 addr, void *buf, size_t buf_size);
++
++#endif /* __CVI_EFUSE_H__ */
+diff --git a/include/trace/events/ion.h b/include/trace/events/ion.h
+new file mode 100644
+index 0000000..131959a
+--- /dev/null
++++ b/include/trace/events/ion.h
+@@ -0,0 +1,30 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM ion
++#if !defined(_TRACE_ION_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_ION_H
++#include <linux/tracepoint.h>
++DECLARE_EVENT_CLASS(ion_heap_change,
++	TP_PROTO(const char *heap_name, size_t len, long total_allocated),
++	TP_ARGS(heap_name, len, total_allocated),
++	TP_STRUCT__entry(
++		__string(heap_name, heap_name)
++		__field(size_t, len)
++		__field(long, total_allocated)
++	),
++	TP_fast_assign(
++		__assign_str(heap_name);
++		__entry->len = len;
++		__entry->total_allocated = total_allocated;
++	),
++	TP_printk("heap_name=%s, len=%zu, total_allocated=%ld",
++		__get_str(heap_name), __entry->len, __entry->total_allocated)
++);
++DEFINE_EVENT(ion_heap_change, ion_heap_grow,
++	TP_PROTO(const char *heap_name, size_t len, long total_allocated),
++	TP_ARGS(heap_name, len, total_allocated));
++DEFINE_EVENT(ion_heap_change, ion_heap_shrink,
++	TP_PROTO(const char *heap_name, size_t len, long total_allocated),
++	TP_ARGS(heap_name, len, total_allocated));
++#endif
++#include <trace/define_trace.h>
+diff --git a/kernel/sched/features.h b/kernel/sched/features.h
+index 8f0dee8..9d102a0 100644
+--- a/kernel/sched/features.h
++++ b/kernel/sched/features.h
+@@ -66,7 +66,8 @@ SCHED_FEAT(PARANOID_AVG, false)
+ SCHED_FEAT(WAKEUP_PREEMPTION, true)
+ 
+ #ifdef CONFIG_HRTIMER_REARM_DEFERRED
+-SCHED_FEAT(HRTICK, true)
++/* NanoKVM: avoid fair-class hrtick overhead on the single C906 CPU. */
++SCHED_FEAT(HRTICK, false)
+ SCHED_FEAT(HRTICK_DL, true)
+ #else
+ SCHED_FEAT(HRTICK, false)

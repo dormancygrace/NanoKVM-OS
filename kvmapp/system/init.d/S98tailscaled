@@ -1,0 +1,99 @@
+#!/bin/sh
+
+DAEMON="tailscaled"
+PIDFILE="/var/run/$DAEMON.pid"
+
+# Set the port to listen on for incoming VPN packets.
+# Remote nodes will automatically be informed about the new port number,
+# but you might want to configure this in order to set external firewall
+# settings.
+PORT="41641"
+
+# Extra flags you might want to pass to tailscaled.
+FLAGS=""
+
+# You need tailscaled at /usr/sbin to server, and tailscale at /usr/bin to operate
+# STATIC version needed. Download page at https://pkgs.tailscale.com/stable/#static
+PKG_URL_LATEST="https://pkgs.tailscale.com/stable/tailscale_latest_riscv64.tgz"
+[ ! -x /usr/sbin/$DAEMON ] &&
+    echo "/usr/sbin/$DAEMON not found, please download it from $PKG_URL_LATEST" &&
+    echo "Then unpack it, copy $DAEMON to /usr/sbin and copy tailscale to /usr/bin" &&
+    exit 1
+VERSION=$(/usr/sbin/$DAEMON --version|sed -n '1p'|xargs echo -n)
+
+[ -x /usr/bin/tailscale ] ||
+    (echo "/usr/bin/tailscale not found, your installation of tailscale may be broken" && exit 1)
+
+# Clean up old forwarding configuration if it exists
+if [ -f /etc/sysctl.d/99-tailscale.conf ]; then
+    echo "Found old forwarding configuration, cleaning up..."
+    rm -f /etc/sysctl.d/99-tailscale.conf
+    sysctl -w net.ipv4.ip_forward=0 >/dev/null 2>&1
+    sysctl -w net.ipv6.conf.all.forwarding=0 >/dev/null 2>&1
+    echo "Cleanup completed. IPv4/IPv6 forwarding disabled."
+
+    # Trigger IPv6 address renewal on all interfaces
+    for iface in $(ls /sys/class/net/ | grep -v lo); do
+        echo 0 > /proc/sys/net/ipv6/conf/$iface/forwarding 2>/dev/null
+        sysctl -w net.ipv6.conf.$iface.accept_ra=2 >/dev/null 2>&1
+    done
+
+    echo "If you need exit node features, please configure manually."
+fi
+
+case "$1" in
+        start)
+                if [ -f /etc/kvm/GOMEMLIMIT ]; then
+                     # Keep legacy small values consistent with the server's
+                     # 50 MiB minimum. Invalid/overflowing settings must not
+                     # prevent the Go daemon from starting.
+                     value=$(awk '
+                         { value = value $0 "\n" }
+                         END {
+                             gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+                             if (value ~ /^[+]?[0-9]+$/ && value + 0 <= 8796093022207)
+                                 printf "%.0f", value + 0 < 50 ? 50 : value + 0
+                             else print 512
+                         }' /etc/kvm/GOMEMLIMIT) || value=512
+                     export GOMEMLIMIT="${value}MiB"
+                else
+                     export GOMEMLIMIT=512MiB
+                fi
+
+                echo "GOMEMLIMIT set to ${GOMEMLIMIT}"
+
+                # Ensure directories exist
+                mkdir -p /var/lib/tailscale /var/run/tailscale
+
+                printf "Starting $DAEMON[$VERSION]: "
+                start-stop-daemon -S -bmq -p "$PIDFILE" -x "/usr/sbin/$DAEMON" -- \
+                    --state=/var/lib/tailscale/tailscaled.state \
+                    --socket=/var/run/tailscale/tailscaled.sock \
+                    --port=${PORT} \
+                    $FLAGS
+                if [ $? = 0 ]; then
+                    sleep 5
+                    echo "OK"
+                    tailscale set --accept-dns=false
+                else
+                    echo "FAIL"
+                fi
+                ;;
+        stop)
+                printf "Stopping $DAEMON: "
+                start-stop-daemon -K -p "$PIDFILE"
+                [ $? = 0 ]  && (echo "OK"; rm -f "$PIDFILE") || echo "FAIL"
+                printf "cleaning tailscaled: "
+                /usr/sbin/$DAEMON --cleanup >/dev/null 2>&1
+                [ $? = 0 ] && echo "OK" || echo "FAIL"
+                ;;
+        restart|reload)
+                $0 stop
+                $0 start
+                ;;
+        *)
+                echo "Usage: $0 {start|stop|restart}"
+                exit 1
+esac
+
+exit 0

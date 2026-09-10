@@ -1,0 +1,69 @@
+From 86ddbaa8531af0d8e123268e6a083c6c33b6a9f8 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 02:20:02 +0300
+Subject: [PATCH] Preserve DMA handoff barriers on UP and report cache ioctl
+ copy faults
+
+---
+ interdrv/sys/common/sys.c | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/interdrv/sys/common/sys.c b/interdrv/sys/common/sys.c
+index 4ae008c..723e17e 100644
+--- a/interdrv/sys/common/sys.c
++++ b/interdrv/sys/common/sys.c
+@@ -5,6 +5,7 @@
+ #include <linux/uaccess.h>
+ #include <linux/version.h>
+ #include <asm/cacheflush.h>
++#include <asm/barrier.h>
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+ #include <linux/dma-map-ops.h>
+ #endif
+@@ -393,8 +394,8 @@ CVI_S32 sys_cache_invalidate(CVI_U64 addr_p, void *addr_v, CVI_U32 u32Len)
+ {
+ 	cvi_ion_sync_for_cpu(addr_p, u32Len, DMA_FROM_DEVICE);
+ 
+-	/*	*/
+-	smp_mb();
++	/* Order the DMA handoff against memory and MMIO even on UP builds. */
++	mb();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(sys_cache_invalidate);
+@@ -403,8 +404,8 @@ CVI_S32 sys_cache_flush(CVI_U64 addr_p, void *addr_v, CVI_U32 u32Len)
+ {
+ 	cvi_ion_sync_for_device(addr_p, u32Len, DMA_TO_DEVICE);
+ 
+-	/*  */
+-	smp_mb();
++	/* Order the DMA handoff against memory and MMIO even on UP builds. */
++	mb();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(sys_cache_flush);
+@@ -416,8 +417,8 @@ static CVI_S32 sys_cache_op_userv(unsigned long arg, enum enum_cache_op op_code)
+ 
+ 	ret = copy_from_user(&ioctl_arg, (struct sys_cache_op __user *)arg, sizeof(struct sys_cache_op));
+ 	if (ret) {
+-		pr_err("copy_from_user faile, sys_cache_op_userv\n");
+-		return ret;
++		pr_err("copy_from_user failed, sys_cache_op_userv\n");
++		return -EFAULT;
+ 	}
+ 
+ 	if (op_code == enum_cache_op_invalid)
+@@ -425,8 +426,8 @@ static CVI_S32 sys_cache_op_userv(unsigned long arg, enum enum_cache_op op_code)
+ 	else if (op_code == enum_cache_op_flush)
+ 		cvi_ion_sync_for_device(ioctl_arg.addr_p, ioctl_arg.size, DMA_TO_DEVICE);
+ 
+-	/*	*/
+-	smp_mb();
++	/* Order the DMA handoff against memory and MMIO even on UP builds. */
++	mb();
+ 	return 0;
+ }
+ 
+-- 
+2.43.0
+

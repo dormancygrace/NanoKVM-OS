@@ -1,0 +1,409 @@
+From 802cddb3d97b4611b5b9effb490928a9cfe87276 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 21:43:53 +0300
+Subject: [PATCH] Serialize VI sensor queue ownership and lifecycle
+
+---
+ interdrv/vi/chip/cv181x/vi.c | 170 ++++++++++++++++++++---------------
+ interdrv/vi/chip/cv181x/vi.h |   1 -
+ 2 files changed, 98 insertions(+), 73 deletions(-)
+
+diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
+index 6f55ebb..9431661 100644
+--- a/interdrv/vi/chip/cv181x/vi.c
++++ b/interdrv/vi/chip/cv181x/vi.c
+@@ -56,7 +56,6 @@
+ u32 vi_log_lv = VI_ERR | VI_WARN | VI_NOTICE | VI_INFO | VI_DBG;
+ module_param(vi_log_lv, int, 0644);
+ 
+-
+ #ifdef PORTING_TEST //test only
+ int stop_stream_en;
+ module_param(stop_stream_en, int, 0644);
+@@ -208,49 +207,90 @@ static void _vi_release_ext_buf(uint64_t u64PhyAddr)
+ 	}
+ }
+ 
+-static void _isp_snr_cfg_enq(struct cvi_isp_snr_update *snr_node, const enum cvi_isp_raw raw_num)
++/* All sensor queue users run in process context. Hold this lock through
++ * snapshot use and I2C fire: no producer/consumer/reset may free those nodes,
++ * and separate VI consumers cannot interleave their queued I2C transactions. */
++static DEFINE_MUTEX(snr_cfg_lock);
++static DEFINE_MUTEX(vi_file_lock);
++static bool snr_cfg_initialized;
++static bool snr_cfg_ready;
++
++static void _isp_snr_cfg_reset(bool ready)
+ {
+-	unsigned long flags;
+-	struct _isp_snr_i2c_node *n, *q;
+-	struct _isp_crop_node  *c_n;
++	unsigned int i;
++	struct _isp_snr_i2c_node *n;
++	struct _isp_crop_node *c;
+ 
+-	if (snr_node == NULL)
+-		return;
++	mutex_lock(&snr_cfg_lock);
++	for (i = 0; i < ISP_PRERAW_VIRT_MAX; i++) {
++		if (snr_cfg_initialized) {
++			while (!list_empty(&isp_snr_i2c_queue[i].list)) {
++				n = list_first_entry(&isp_snr_i2c_queue[i].list, struct _isp_snr_i2c_node, list);
++				list_del_init(&n->list);
++				kfree(n);
++			}
++			while (!list_empty(&isp_crop_queue[i].list)) {
++				c = list_first_entry(&isp_crop_queue[i].list, struct _isp_crop_node, list);
++				list_del_init(&c->list);
++				kfree(c);
++			}
++		}
++		INIT_LIST_HEAD(&isp_snr_i2c_queue[i].list);
++		isp_snr_i2c_queue[i].num_rdy = 0;
++		INIT_LIST_HEAD(&isp_crop_queue[i].list);
++		isp_crop_queue[i].num_rdy = 0;
++	}
++	snr_cfg_initialized = true;
++	snr_cfg_ready = ready;
++	mutex_unlock(&snr_cfg_lock);
++}
+ 
+-	spin_lock_irqsave(&snr_node_lock[raw_num], flags);
++static int _isp_snr_cfg_enq(struct cvi_isp_snr_update *snr_node, const enum cvi_isp_raw raw_num)
++{
++	struct _isp_snr_i2c_node *n = NULL;
++	struct _isp_crop_node *c = NULL;
++	int ret = 0;
+ 
++	if (!snr_node || raw_num < 0 || raw_num >= ISP_PRERAW_VIRT_MAX ||
++	    snr_node->snr_cfg_node.snsr.regs_num > ISP_MAX_SNS_REGS)
++		return -EINVAL;
++	/* Prepare both allocations before changing either queue. */
+ 	if (snr_node->snr_cfg_node.isp.need_update) {
+-		c_n = kmalloc(sizeof(*c_n), GFP_ATOMIC);
+-		if (c_n == NULL) {
+-			vi_pr(VI_ERR, "SNR cfg node alloc size(%zu) fail\n", sizeof(*n));
+-			spin_unlock_irqrestore(&snr_node_lock[raw_num], flags);
+-			return;
+-		}
+-		memcpy(&c_n->n, &snr_node->snr_cfg_node.isp, sizeof(struct snsr_isp_s));
+-		list_add_tail(&c_n->list, &isp_crop_queue[raw_num].list);
++		c = kmalloc(sizeof(*c), GFP_KERNEL);
++		if (!c) return -ENOMEM;
++		c->n = snr_node->snr_cfg_node.isp;
+ 	}
+-
+ 	if (snr_node->snr_cfg_node.snsr.need_update) {
+-		n = kmalloc(sizeof(*n), GFP_ATOMIC);
+-		if (n == NULL) {
+-			vi_pr(VI_ERR, "SNR cfg node alloc size(%zu) fail\n", sizeof(*n));
+-			spin_unlock_irqrestore(&snr_node_lock[raw_num], flags);
+-			return;
+-		}
+-		memcpy(&n->n, &snr_node->snr_cfg_node.snsr, sizeof(struct snsr_regs_s));
+-
+-		while (!list_empty(&isp_snr_i2c_queue[raw_num].list)
+-			&& (isp_snr_i2c_queue[raw_num].num_rdy >= (VI_MAX_SNS_CFG_NUM - 1))) {
+-			q = list_first_entry(&isp_snr_i2c_queue[raw_num].list, struct _isp_snr_i2c_node, list);
+-			list_del_init(&q->list);
+-			--isp_snr_i2c_queue[raw_num].num_rdy;
+-			kfree(q);
+-		}
++		n = kmalloc(sizeof(*n), GFP_KERNEL);
++		if (!n) { kfree(c); return -ENOMEM; }
++		n->n = snr_node->snr_cfg_node.snsr;
++	}
++	mutex_lock(&snr_cfg_lock);
++	if (!snr_cfg_ready) {
++		ret = -ESHUTDOWN;
++		goto out;
++	}
++	/* Backpressure instead of silently freeing an unapplied sensor update. */
++	if ((n && isp_snr_i2c_queue[raw_num].num_rdy >= VI_MAX_SNS_CFG_NUM) ||
++	    (c && isp_crop_queue[raw_num].num_rdy >= VI_MAX_SNS_CFG_NUM)) {
++		ret = -ENOSPC;
++		goto out;
++	}
++	if (c) {
++		list_add_tail(&c->list, &isp_crop_queue[raw_num].list);
++		isp_crop_queue[raw_num].num_rdy++;
++		c = NULL;
++	}
++	if (n) {
+ 		list_add_tail(&n->list, &isp_snr_i2c_queue[raw_num].list);
+-		++isp_snr_i2c_queue[raw_num].num_rdy;
++		isp_snr_i2c_queue[raw_num].num_rdy++;
++		n = NULL;
+ 	}
+-
+-	spin_unlock_irqrestore(&snr_node_lock[raw_num], flags);
++out:
++	mutex_unlock(&snr_cfg_lock);
++	kfree(c);
++	kfree(n);
++	return ret;
+ }
+ 
+ static void pre_raw_num_enq(struct _isp_sof_raw_num_q *q, struct _isp_raw_num_n *n)
+@@ -1797,7 +1837,6 @@ static void _isp_crop_update_chk(
+ 	struct _isp_crop_node *node)
+ {
+ 	u16 i = 0, del_node = true;
+-	unsigned long flags;
+ 
+ 	if (node->n.dly_frm_num == 0) {
+ 
+@@ -1834,10 +1873,9 @@ static void _isp_crop_update_chk(
+ 
+ 	if (del_node) {
+ 		vi_pr(VI_DBG, "crop del node and free\n");
+-		spin_lock_irqsave(&snr_node_lock[raw_num], flags);
+ 		list_del_init(&node->list);
++		--isp_crop_queue[raw_num].num_rdy;
+ 		kfree(node);
+-		spin_unlock_irqrestore(&snr_node_lock[raw_num], flags);
+ 	}
+ }
+ 
+@@ -1872,7 +1910,6 @@ static void _snr_i2c_update(
+ 	struct _isp_snr_i2c_node *next_node;
+ 	struct isp_i2c_data *i2c_data;
+ 	struct isp_i2c_data *next_i2c_data;
+-	unsigned long flags;
+ 	u16 i = 0, j = 0;
+ 	int ret;
+ 	// 0: Delete Node, 1: Postpone Node, 2: Do nothing
+@@ -1984,11 +2021,9 @@ static void _snr_i2c_update(
+ 
+ 		if (del_node == 0 && no_update) {
+ 			vi_pr(VI_DBG, "i2c node %d del node and free\n", j);
+-			spin_lock_irqsave(&snr_node_lock[raw_num], flags);
+ 			list_del_init(&node->list);
+ 			--isp_snr_i2c_queue[raw_num].num_rdy;
+ 			kfree(node);
+-			spin_unlock_irqrestore(&snr_node_lock[raw_num], flags);
+ 		} else if (del_node == 1) {
+ 			if (is_vblank_update)
+ 				node->n.magic_num_vblank++;
+@@ -2020,11 +2055,14 @@ static void _isp_snr_cfg_deq_and_fire(
+ 	struct list_head *pos, *temp;
+ 	struct _isp_snr_i2c_node *i2c_n[VI_MAX_SNS_CFG_NUM], *i2c_n_temp;
+ 	struct _isp_crop_node *crop_n[VI_MAX_SNS_CFG_NUM];
+-	unsigned long flags;
+ 	u16 i2c_num = 0, crop_num = 0;
+-	int i;
++	unsigned int i;
+ 
+-	spin_lock_irqsave(&snr_node_lock[raw_num], flags);
++	if (raw_num < 0 || raw_num >= ISP_PRERAW_VIRT_MAX)
++		return;
++	mutex_lock(&snr_cfg_lock);
++	if (!snr_cfg_ready || atomic_read(&vdev->isp_streamoff))
++		goto out;
+ 	if (needvblank == 0) {
+ 		list_for_each_safe(pos, temp, &isp_snr_i2c_queue[raw_num].list) {
+ 			if (i2c_num == ARRAY_SIZE(i2c_n))
+@@ -2034,7 +2072,7 @@ static void _isp_snr_cfg_deq_and_fire(
+ 		}
+ 
+ 		list_for_each_safe(pos, temp, &isp_crop_queue[raw_num].list) {
+-			if (crop_num < i2c_num) {
++			if (crop_num < ARRAY_SIZE(crop_n)) {
+ 				crop_n[crop_num] = list_entry(pos, struct _isp_crop_node, list);
+ 				crop_num++;
+ 			}
+@@ -2055,12 +2093,12 @@ static void _isp_snr_cfg_deq_and_fire(
+ 		}
+ 	}
+ 
+-	spin_unlock_irqrestore(&snr_node_lock[raw_num], flags);
+-
+ 	if (i2c_num > 0)
+ 		_snr_i2c_update(vdev, raw_num, i2c_n, i2c_num, needvblank);
+ 	if (crop_num > 0)
+ 		_isp_crop_update(vdev, raw_num, crop_n, crop_num);
++out:
++	mutex_unlock(&snr_cfg_lock);
+ }
+ 
+ static inline void _vi_clear_mmap_fbc_ring_base(struct cvi_vi_dev *vdev, const enum cvi_isp_raw raw_num)
+@@ -2156,7 +2194,6 @@ static void _usr_pic_timer_handler(long unsigned int flag)
+ 		return;
+ 	}
+ 
+-
+ #if (KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE)
+ 	mod_timer(&usr_pic_timer.t, jiffies + msecs_to_jiffies(vdev->usr_pic_delay));
+ #else
+@@ -3118,6 +3155,8 @@ int vi_start_streaming(struct cvi_vi_dev *vdev)
+ 	vi_ip_test_cases_init(ctx);
+ #endif
+ 
++	atomic_set(&vdev->isp_streamoff, 0);
++
+ 	for (raw_num = ISP_PRERAW_A; raw_num < ISP_PRERAW_MAX; raw_num++) {
+ 		if (!ctx->isp_pipe_enable[raw_num])
+ 			continue;
+@@ -3137,7 +3176,6 @@ int vi_stop_streaming(struct cvi_vi_dev *vdev)
+ 	struct vi_event_k   *ev_k = NULL;
+ 	unsigned long flags;
+ 	struct isp_buffer *isp_b;
+-	struct _isp_snr_i2c_node *i2c_n;
+ 	struct _isp_raw_num_n    *raw_n;
+ 	enum cvi_isp_raw raw_num = ISP_PRERAW_A;
+ 	u8 i = 0, j = 0, count = 10;
+@@ -3146,6 +3184,7 @@ int vi_stop_streaming(struct cvi_vi_dev *vdev)
+ 	vi_pr(VI_INFO, "+\n");
+ 
+ 	atomic_set(&vdev->isp_streamoff, 1);
++	_isp_snr_cfg_reset(true);
+ 
+ 	if (vdev->ctx.isp_pipe_cfg[raw_num].is_ai_isp)
+ 		vi_destory_thread(vdev, E_VI_TH_RUN_TPU);
+@@ -3248,14 +3287,6 @@ int vi_stop_streaming(struct cvi_vi_dev *vdev)
+ 		while ((isp_b = isp_buf_remove(&raw_dump_b_se_q[i])) != NULL)
+ 			vfree(isp_b);
+ 
+-		spin_lock_irqsave(&snr_node_lock[i], flags);
+-		while (!list_empty(&isp_snr_i2c_queue[i].list)) {
+-			i2c_n = list_first_entry(&isp_snr_i2c_queue[i].list, struct _isp_snr_i2c_node, list);
+-			list_del_init(&i2c_n->list);
+-			kfree(i2c_n);
+-		}
+-		isp_snr_i2c_queue[i].num_rdy = 0;
+-		spin_unlock_irqrestore(&snr_node_lock[i], flags);
+ 
+ 		while ((isp_b = isp_buf_remove(&pre_be_in_se_q[i])) != NULL)
+ 			vfree(isp_b);
+@@ -4662,7 +4693,6 @@ int vi_create_thread(struct cvi_vi_dev *vdev, enum E_VI_TH th_id)
+ 		return -1;
+ 	}
+ 
+-
+ 	if (vdev->vi_th[th_id].w_thread == NULL) {
+ 		switch (th_id) {
+ 		case E_VI_TH_PRERAW:
+@@ -4791,8 +4821,6 @@ static void _vi_sw_init(struct cvi_vi_dev *vdev)
+ 			atomic_set(&vdev->pre_fe_state[i][j], ISP_PRERAW_IDLE);
+ 		}
+ 
+-		spin_lock_init(&snr_node_lock[i]);
+-
+ 		atomic_set(&vdev->isp_raw_dump_en[i], 0);
+ 		atomic_set(&vdev->isp_smooth_raw_dump_en[i], 0);
+ 	}
+@@ -4821,11 +4849,6 @@ static void _vi_sw_init(struct cvi_vi_dev *vdev)
+ 		raw_dump_b_se_q[i].num_rdy       = 0;
+ 		raw_dump_b_se_q[i].raw_num       = i;
+ 
+-		INIT_LIST_HEAD(&isp_snr_i2c_queue[i].list);
+-		isp_snr_i2c_queue[i].num_rdy     = 0;
+-		INIT_LIST_HEAD(&isp_crop_queue[i].list);
+-		isp_crop_queue[i].num_rdy     = 0;
+-
+ 		//for ai isp
+ 		for (j = 0; j < ISP_FE_CHN_MAX; j++) {
+ 			INIT_LIST_HEAD(&bnr_ai_isp_in_q[i][j].rdy_queue);
+@@ -4875,6 +4898,7 @@ static void _vi_sw_init(struct cvi_vi_dev *vdev)
+ 	init_waitqueue_head(&vdev->isp_dbg_wait_q);
+ 
+ 	vi_tuning_sw_init();
++	_isp_snr_cfg_reset(true);
+ }
+ 
+ static void _vi_init_param(struct cvi_vi_dev *vdev)
+@@ -4916,9 +4940,6 @@ static void _vi_init_param(struct cvi_vi_dev *vdev)
+ 		raw_dump_b_se_q[i].num_rdy       = 0;
+ 		raw_dump_b_se_q[i].raw_num       = i;
+ 
+-		INIT_LIST_HEAD(&isp_snr_i2c_queue[i].list);
+-		isp_snr_i2c_queue[i].num_rdy     = 0;
+-
+ 		INIT_LIST_HEAD(&pre_be_in_se_q[i].rdy_queue);
+ 		pre_be_in_se_q[i].num_rdy        = 0;
+ 	}
+@@ -4944,6 +4965,7 @@ static void _vi_init_param(struct cvi_vi_dev *vdev)
+ 	tasklet_init(&vdev->job_work, isp_post_tasklet, (unsigned long)vdev);
+ 
+ 	atomic_set(&vdev->isp_streamon, 0);
++	_isp_snr_cfg_reset(true);
+ }
+ 
+ static int _vi_mempool_setup(void)
+@@ -5493,11 +5515,9 @@ static long _vi_s_ctrl(struct cvi_vi_dev *vdev, struct vi_ext_control *p)
+ 			snr_update->snr_cfg_node.snsr.need_update,
+ 			snr_update->snr_cfg_node.isp.need_update);
+ 
+-		_isp_snr_cfg_enq(snr_update, raw_num);
++		rc = _isp_snr_cfg_enq(snr_update, raw_num);
+ 
+ 		vfree(snr_update);
+-
+-		rc = 0;
+ 		break;
+ 	}
+ 
+@@ -6205,6 +6225,7 @@ int vi_open(struct inode *inode, struct file *file)
+ 	vdev = container_of(inode->i_cdev, struct cvi_vi_dev, cdev);
+ 	file->private_data = vdev;
+ 
++	mutex_lock(&vi_file_lock);
+ 	if (!atomic_read(&dev_open_cnt)) {
+ #ifndef FPGA_PORTING
+ 		_vi_clk_ctrl(vdev, true);
+@@ -6217,6 +6238,7 @@ int vi_open(struct inode *inode, struct file *file)
+ 	}
+ 
+ 	atomic_inc(&dev_open_cnt);
++	mutex_unlock(&vi_file_lock);
+ 
+ 	return ret;
+ }
+@@ -6225,6 +6247,7 @@ int vi_release(struct inode *inode, struct file *file)
+ {
+ 	int ret = 0;
+ 
++	mutex_lock(&vi_file_lock);
+ 	atomic_dec(&dev_open_cnt);
+ 
+ 	if (!atomic_read(&dev_open_cnt)) {
+@@ -6232,13 +6255,15 @@ int vi_release(struct inode *inode, struct file *file)
+ 
+ 		vdev = container_of(inode->i_cdev, struct cvi_vi_dev, cdev);
+ 
++		_isp_snr_cfg_reset(false);
+ 		_vi_sdk_release(vdev);
+-
+ 		_vi_release_op(vdev);
+ 
+ 		vi_pr(VI_INFO, "-\n");
+ 	}
+ 
++	mutex_unlock(&vi_file_lock);
++
+ 	return ret;
+ }
+ 
+@@ -8772,6 +8797,7 @@ int vi_destroy_instance(struct platform_device *pdev)
+ 
+ 	for (i = 0; i < E_VI_TH_MAX; i++)
+ 		vi_destory_thread(vdev, i);
++	_isp_snr_cfg_reset(false);
+ 
+ 	for (i = 0; i < ISP_PRERAW_VIRT_MAX; i++) {
+ 		sync_task_exit(i);
+diff --git a/interdrv/vi/chip/cv181x/vi.h b/interdrv/vi/chip/cv181x/vi.h
+index d8ad70d..0217d28 100644
+--- a/interdrv/vi/chip/cv181x/vi.h
++++ b/interdrv/vi/chip/cv181x/vi.h
+@@ -169,7 +169,6 @@ static u8 RGBMAP_BUF_IDX	= 2;
+ 
+ static spinlock_t raw_num_lock;
+ static spinlock_t dq_lock;
+-static spinlock_t snr_node_lock[ISP_PRERAW_VIRT_MAX];
+ 
+ static spinlock_t event_lock;
+ 
+-- 
+2.43.0
+

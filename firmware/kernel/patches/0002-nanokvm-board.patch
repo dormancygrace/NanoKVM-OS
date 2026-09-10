@@ -1,0 +1,249 @@
+From 057b2786829d4e5e53b12d1bcf58af925e27c939 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 16:17:32 +0300
+Subject: [PATCH] Add provisional NanoKVM Enhanced SG2002 board description
+
+---
+ arch/riscv/boot/dts/sophgo/Makefile           |   1 +
+ .../dts/sophgo/sg2002-nanokvm-enhanced.dts    | 220 ++++++++++++++++++
+ 2 files changed, 221 insertions(+)
+ create mode 100644 arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+
+diff --git a/arch/riscv/boot/dts/sophgo/Makefile b/arch/riscv/boot/dts/sophgo/Makefile
+index 6f65526d4..3dc4f002d 100644
+--- a/arch/riscv/boot/dts/sophgo/Makefile
++++ b/arch/riscv/boot/dts/sophgo/Makefile
+@@ -6,3 +6,4 @@ dtb-$(CONFIG_ARCH_SOPHGO) += sg2042-milkv-pioneer.dtb
+ dtb-$(CONFIG_ARCH_SOPHGO) += sg2042-evb-v1.dtb
+ dtb-$(CONFIG_ARCH_SOPHGO) += sg2042-evb-v2.dtb
+ dtb-$(CONFIG_ARCH_SOPHGO) += sg2044-sophgo-srd3-10.dtb
++dtb-$(CONFIG_ARCH_SOPHGO) += sg2002-nanokvm-enhanced.dtb
+diff --git a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+new file mode 100644
+index 000000000..4f95312be
+--- /dev/null
++++ b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+@@ -0,0 +1,220 @@
++// SPDX-License-Identifier: (GPL-2.0 OR MIT)
++// NanoKVM Enhanced port: board qualification is still pending.
++/dts-v1/;
++#include "sg2002-licheerv-nano-b.dts"
++
++/ {
++	model = "Sipeed NanoKVM Enhanced";
++	compatible = "sipeed,nanokvm", "sophgo,sg2002";
++	aliases {
++		mmc0 = &sdhci0;
++		mmc1 = &sdhci1;
++		gpio4 = &gpio4;
++		ethernet0 = &gmac0;
++	};
++	chosen {
++		bootargs = "root=/dev/mmcblk0p2 rootwait rw console=ttyS0,115200 earlycon=sbi";
++	};
++	reserved-memory {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		ranges;
++		// Match working firmware's M-mode reservation. Recheck with new OpenSBI.
++		mmode@80000000 { reg = <0x80000000 0x80000>; no-map; };
++		ion_region: ion {
++			compatible = "ion-region";
++			size = <0x03000000>;
++			alignment = <0x1000>;
++		};
++	};
++	cvitek-ion {
++		compatible = "cvitek,cvitek-ion";
++		heap-carveout {
++			compatible = "cvitek,carveout";
++			memory-region = <&ion_region>;
++		};
++	};
++	wifi_pwrseq: wifi-pwrseq {
++		compatible = "mmc-pwrseq-simple";
++		reset-gpios = <&porte 2 GPIO_ACTIVE_LOW>;
++		post-power-on-delay-ms = <200>;
++	};
++	sys {
++		compatible = "cvitek,sys";
++	};
++
++	base@a0c8000 {
++		compatible = "cvitek,base";
++		reg = <0xa0c8000 0x20 >;
++		reg-names = "vip_sys";
++	};
++
++	cif@a0c2000 {
++		compatible = "cvitek,cif";
++		reg = <0xa0c2000 0x2000 0xa0d0000 0x1000 0xa0c4000 0x2000 0xa0c6000 0x2000 0x3001c30 0x30 >;
++		reg-names = "csi_mac0", "csi_wrap0", "csi_mac1", "csi_mac2", "pad_ctrl";
++		snsr-reset-gpios = <&porte 1 GPIO_ACTIVE_LOW>;
++		resets = <&rst 0x46 &rst 0x48 &rst 0x47 &rst 0x49>;
++		reset-names = "phy0", "phy1", "phy-apb0", "phy-apb1";
++		clocks = <&clk CLK_CAM0>, <&clk CLK_CAM1>, <&clk CLK_SRC_VIP_SYS_2>, <&clk CLK_MIPIMPLL>, <&clk CLK_DISPPLL>, <&clk CLK_FPLL>;
++		clock-names = "clk_cam0", "clk_cam1", "clk_sys_2", "clk_mipimpll", "clk_disppll", "clk_fpll";
++		interrupts = <0x1a 0x04 0x1b 0x04>;
++		interrupt-names = "csi0", "csi1";
++		interrupt-parent = <&plic>;
++	};
++
++	vi@a000000 {
++		compatible = "cvitek,vi";
++		reg = <0xa000000 0x80000 >;
++		clocks = <&clk CLK_SRC_VIP_SYS_0>, <&clk CLK_SRC_VIP_SYS_1>, <&clk CLK_SRC_VIP_SYS_2>, <&clk CLK_SRC_VIP_SYS_3>, <&clk CLK_AXI_VIP>, <&clk CLK_CSI_BE_VIP>, <&clk CLK_RAW_VIP>, <&clk CLK_ISP_TOP_VIP>, <&clk CLK_CSI_MAC0_VIP>, <&clk CLK_CSI_MAC1_VIP>, <&clk CLK_CSI_MAC2_VIP>;
++		clock-names = "clk_sys_0", "clk_sys_1", "clk_sys_2", "clk_sys_3", "clk_axi", "clk_csi_be", "clk_raw", "clk_isp_top", "clk_csi_mac0", "clk_csi_mac1", "clk_csi_mac2";
++		clock-freq-vip-sys1 = <0x11e1a300>;
++		interrupts = <0x18 0x04>;
++		interrupt-parent = <&plic>;
++		interrupt-names = "isp";
++	};
++
++	vpss@a080000 {
++		compatible = "cvitek,vpss";
++		reg = <0xa080000 0x10000 0xa0d1000 0x100 >;
++		reg-names = "sc";
++		clocks = <&clk CLK_SRC_VIP_SYS_0>, <&clk CLK_SRC_VIP_SYS_1>, <&clk CLK_SRC_VIP_SYS_2>, <&clk CLK_IMG_D_VIP>, <&clk CLK_IMG_V_VIP>, <&clk CLK_SC_TOP_VIP>, <&clk CLK_SC_D_VIP>, <&clk CLK_SC_V1_VIP>, <&clk CLK_SC_V2_VIP>, <&clk CLK_SC_V3_VIP>;
++		clock-names = "clk_sys_0", "clk_sys_1", "clk_sys_2", "clk_img_d", "clk_img_v", "clk_sc_top", "clk_sc_d", "clk_sc_v1", "clk_sc_v2", "clk_sc_v3";
++		clock-freq-vip-sys1 = <0x11e1a300>;
++		interrupts = <0x19 0x04>;
++		interrupt-names = "sc";
++		interrupt-parent = <&plic>;
++	};
++
++	rgn {
++		compatible = "cvitek,rgn";
++	};
++
++	vcodec@b020000 {
++		compatible = "cvitek,asic-vcodec";
++		reg = <0xb020000 0x10000 0xb010000 0x10000 0xb030000 0x100 0xb058000 0x100 0xb050000 0x400 >;
++		reg-names = "h265", "h264", "vc_ctrl", "vc_sbm", "vc_addr_remap";
++		clocks = <&clk CLK_AXI_VIDEO_CODEC>, <&clk CLK_H264C>, <&clk CLK_APB_H264C>, <&clk CLK_H265C>, <&clk CLK_APB_H265C>, <&clk CLK_VC_SRC0>, <&clk CLK_VC_SRC1>, <&clk CLK_VC_SRC2>, <&clk CLK_CFG_REG_VC>;
++		clock-names = "clk_axi_video_codec", "clk_h264c", "clk_apb_h264c", "clk_h265c", "clk_apb_h265c", "clk_vc_src0", "clk_vc_src1", "clk_vc_src2", "clk_cfg_reg_vc";
++		interrupts = <0x16 0x04 0x15 0x04 0x17 0x04>;
++		interrupt-names = "h265", "h264", "sbm";
++		interrupt-parent = <&plic>;
++	};
++
++	jpu@b000000 {
++		compatible = "cvitek,asic-jpeg";
++		reg = <0xb000000 0x300 0xb030000 0x100 0xb058000 0x100 >;
++		reg-names = "jpeg", "vc_ctrl", "vc_sbm";
++		clocks = <&clk CLK_AXI_VIDEO_CODEC>, <&clk CLK_JPEG>, <&clk CLK_APB_JPEG>, <&clk CLK_VC_SRC0>, <&clk CLK_VC_SRC1>, <&clk CLK_VC_SRC2>, <&clk CLK_CFG_REG_VC>;
++		clock-names = "clk_axi_video_codec", "clk_jpeg", "clk_apb_jpeg", "clk_vc_src0", "clk_vc_src1", "clk_vc_src2", "clk_cfg_reg_vc";
++		resets = <&rst 0x04>;
++		reset-names = "jpeg";
++		interrupts = <0x14 0x04>;
++		interrupt-names = "jpeg";
++		interrupt-parent = <&plic>;
++	};
++
++	cvi-vc-drv@b030000 {
++		compatible = "cvitek,cvi_vc_drv";
++		reg = <0xb030000 0x100 0xb058000 0x100 0xb050000 0x400 >;
++		reg-names = "vc_ctrl", "vc_sbm", "vc_addr_remap";
++	};
++
++	ive@a0a0000 {
++		compatible = "cvitek,ive";
++		reg = <0xa0a0000 0x3100 >;
++		reg-names = "ive_base";
++		interrupt-names = "ive_irq";
++		interrupt-parent = <&plic>;
++		interrupts = <0x61 0x04>;
++	};
++
++	dwa@a0c0000 {
++		compatible = "cvitek,dwa";
++		reg = <0xa0c0000 0x1000 >;
++		reg-names = "dwa";
++		clocks = <&clk CLK_SRC_VIP_SYS_0>, <&clk CLK_SRC_VIP_SYS_1>, <&clk CLK_SRC_VIP_SYS_2>, <&clk CLK_SRC_VIP_SYS_3>, <&clk CLK_SRC_VIP_SYS_4>, <&clk CLK_DWA_VIP>;
++		clock-names = "clk_sys_0", "clk_sys_1", "clk_sys_2", "clk_sys_3", "clk_sys_4", "clk_dwa";
++		clock-freq-vip-sys1 = <0x11e1a300>;
++		interrupts = <0x1c 0x04>;
++		interrupt-names = "dwa";
++		interrupt-parent = <&plic>;
++	};
++
++	vo@a080000 {
++		compatible = "cvitek,vo";
++		reg = <0xa080000 0x10000 0xa0c8000 0xa0 0xa0d1000 0x100 >;
++		reg-names = "sc", "vip_sys", "dphy";
++		clocks = <&clk CLK_DISP_VIP>, <&clk CLK_DSI_MAC_VIP>, <&clk CLK_BT_VIP>;
++		clock-names = "clk_disp", "clk_dsi", "clk_bt";
++	};
++
++	fast-image {
++		compatible = "cvitek,rtos_image";
++		ion-size = <0x1600000>;
++	};
++};
++
++&cpu0 {
++	// C906 has the pre-ratification T-Head vector ISA, not standard RVV 1.0.
++	riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicntr", "zicsr",
++			       "zifencei", "zihpm", "xtheadvector";
++};
++&{/soc} {
++	gpio4: gpio@5021000 {
++		compatible = "snps,dw-apb-gpio";
++		reg = <0x05021000 0x1000>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		porte: gpio-controller@0 {
++			compatible = "snps,dw-apb-gpio-port";
++			reg = <0>;
++			gpio-controller;
++			#gpio-cells = <2>;
++			snps,nr-gpios = <32>;
++			interrupt-controller;
++			#interrupt-cells = <2>;
++			interrupts = <70 IRQ_TYPE_LEVEL_HIGH>;
++		};
++	};
++	efuse@3050000 {
++		compatible = "sophgo,sg2002-efuse";
++		reg = <0x03050000 0x1000>;
++		clocks = <&clk CLK_EFUSE>;
++	};
++};
++&pinctrl {
++	sdhci1_cfg: sdhci1-cfg {
++		sdio-pins {
++			pinmux = <PINMUX(PIN_SD1_CLK, 0)>, <PINMUX(PIN_SD1_CMD, 0)>,
++				 <PINMUX(PIN_SD1_D0, 0)>, <PINMUX(PIN_SD1_D1, 0)>,
++				 <PINMUX(PIN_SD1_D2, 0)>, <PINMUX(PIN_SD1_D3, 0)>;
++		};
++	};
++};
++&sdhci1 {
++	pinctrl-0 = <&sdhci1_cfg>;
++	pinctrl-names = "default";
++	bus-width = <4>;
++	max-frequency = <25000000>;
++	non-removable;
++	no-mmc;
++	no-sd;
++	keep-power-in-suspend;
++	mmc-pwrseq = <&wifi_pwrseq>;
++	status = "okay";
++};
++&mdio { status = "okay"; };
++&gmac0 { status = "okay"; };
++&i2c0 { status = "okay"; };
++&i2c1 { status = "okay"; };
++&i2c2 { status = "okay"; };
++&i2c3 { status = "okay"; };
++&usb {
++	dr_mode = "peripheral";
++	// Working device's FIFO partition, required for composite gadgets.
++	g-rx-fifo-size = <536>;
++	g-np-tx-fifo-size = <32>;
++	g-tx-fifo-size = <768 512 512 384 128 128>;
++	status = "okay";
++};
+-- 
+2.43.0
+

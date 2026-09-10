@@ -1,0 +1,723 @@
+From 58cf632eff08a12bc0382785f7c430dd0b3f6435 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 17:09:00 +0300
+Subject: [PATCH] Forward-port VPSS APIs and fix region layer type and worker
+ failure handling
+
+---
+ interdrv/vpss/chip/cv181x/dsi_phy.c      |   2 +-
+ interdrv/vpss/chip/cv181x/scaler.c       |  36 +++----
+ interdrv/vpss/chip/cv181x/scaler.h       |   8 ++
+ interdrv/vpss/chip/cv181x/vip_sc.c       |   8 +-
+ interdrv/vpss/chip/cv181x/vpss_core.c    |  20 ++--
+ interdrv/vpss/common/cvi_vip_vpss_proc.c | 114 ++++++++++++-----------
+ interdrv/vpss/common/vpss.c              |  27 +++---
+ interdrv/vpss/common/vpss_common.h       |   3 +-
+ interdrv/vpss/common/vpss_rgn_ctrl.c     |   1 +
+ interdrv/vpss/common/vpss_rgn_ctrl.h     |   2 +-
+ 10 files changed, 115 insertions(+), 106 deletions(-)
+
+diff --git a/interdrv/vpss/chip/cv181x/dsi_phy.c b/interdrv/vpss/chip/cv181x/dsi_phy.c
+index de00150..4e7df0b 100644
+--- a/interdrv/vpss/chip/cv181x/dsi_phy.c
++++ b/interdrv/vpss/chip/cv181x/dsi_phy.c
+@@ -234,7 +234,7 @@ void dphy_init(enum sclr_vo_intf intf)
+ 				(intf == SCLR_VO_INTF_LVDS) ? 0xFFFFF : 0);
+ }
+ 
+-void _cal_pll_reg(u32 clkkHz, u32 VCORx10000, u32 *reg_txpll, u32 *reg_set, u32 factor)
++static void _cal_pll_reg(u32 clkkHz, u32 VCORx10000, u32 *reg_txpll, u32 *reg_set, u32 factor)
+ {
+ 	u8 gain = 1 << ilog2(MAX(1, 25000000UL / VCORx10000));
+ 	u32 VCOCx1000 = VCORx10000 * gain / 10;
+diff --git a/interdrv/vpss/chip/cv181x/scaler.c b/interdrv/vpss/chip/cv181x/scaler.c
+index c1a220a..0ff3f9a 100644
+--- a/interdrv/vpss/chip/cv181x/scaler.c
++++ b/interdrv/vpss/chip/cv181x/scaler.c
+@@ -1315,7 +1315,7 @@ void sclr_get_2tap_scale(struct sclr_scale_2tap_cfg *cfg)
+ 	cfg->v_ph = v_ph;
+ }
+ 
+-void sclr_set_scale_2tap(u8 inst)
++static void sclr_set_scale_2tap(u8 inst)
+ {
+ 	u32 tmp;
+ 	bool isFacOver4 = false;
+@@ -1742,7 +1742,7 @@ void sclr_img_get_checksum_status(u8 inst, struct sclr_img_checksum_status *stat
+ 
+ }
+ 
+-int sclr_img_validate_sb_cfg(struct sclr_img_in_sb_cfg *cfg)
++static int sclr_img_validate_sb_cfg(struct sclr_img_in_sb_cfg *cfg)
+ {
+ 	/* 0 : disable, 1 : free-run mode, 2 : frame base mode */
+ 	if (cfg->sb_mode > 2)
+@@ -2057,7 +2057,7 @@ void sclr_set_out_mode(u8 inst, enum sclr_out_mode mode)
+  * @param inst: (0~3), the instance of scaler which want to be configured.
+  * @param cfg: The settings for CSC
+  */
+-void sclr_set_csc_ctrl(u8 inst, struct sclr_csc_cfg *cfg)
++static void sclr_set_csc_ctrl(u8 inst, struct sclr_csc_cfg *cfg)
+ {
+ 	u32 tmp = 0;
+ 
+@@ -2311,7 +2311,7 @@ bool sclr_disp_reg_shadow_mask(bool mask)
+  *
+  * @param shadow_mask: true(mask); false(unmask)
+  */
+-void sclr_disp_reg_set_shadow_mask(bool shadow_mask)
++static void sclr_disp_reg_set_shadow_mask(bool shadow_mask)
+ {
+ 	if (shadow_mask)
+ 		spin_lock(&disp_mask_spinlock);
+@@ -3890,7 +3890,7 @@ int sclr_dsi_chk_mode_done(enum sclr_dsi_mode mode)
+ }
+ EXPORT_SYMBOL_GPL(sclr_dsi_chk_mode_done);
+ 
+-int _dsi_chk_and_clean_mode(enum sclr_dsi_mode mode)
++static int _dsi_chk_and_clean_mode(enum sclr_dsi_mode mode)
+ {
+ 	int i, ret;
+ 
+@@ -4239,29 +4239,29 @@ int sclr_dsi_config(u8 lane_num, enum sclr_dsi_fmt fmt, u16 width)
+ EXPORT_SYMBOL_GPL(sclr_dsi_config);
+ 
+ #ifdef __CV181X__
+-void i80_set_cmd0(u32 cmd)
++static void i80_set_cmd0(u32 cmd)
+ {
+ 	_reg_write(reg_base + REG_SCL_DISP_MCU_HW_CMD0, cmd);
+ }
+ 
+-void i80_set_cmd1(u32 cmd)
++static void i80_set_cmd1(u32 cmd)
+ {
+ 	cmd = (_reg_read(reg_base + REG_SCL_DISP_MCU_HW_CMD0) | cmd << 16);
+ 	_reg_write(reg_base + REG_SCL_DISP_MCU_HW_CMD0, cmd);
+ }
+ 
+-void i80_set_cmd2(u32 cmd)
++static void i80_set_cmd2(u32 cmd)
+ {
+ 	_reg_write(reg_base + REG_SCL_DISP_MCU_HW_CMD1, cmd);
+ }
+ 
+-void i80_set_cmd3(u32 cmd)
++static void i80_set_cmd3(u32 cmd)
+ {
+ 	cmd = (_reg_read(reg_base + REG_SCL_DISP_MCU_HW_CMD1) | cmd << 16);
+ 	_reg_write(reg_base + REG_SCL_DISP_MCU_HW_CMD1, cmd);
+ }
+ 
+-void i80_set_cmd_cnt(u32 cmdcnt)
++static void i80_set_cmd_cnt(u32 cmdcnt)
+ {
+ 	if (cmdcnt == 1) {
+ 		_reg_write_mask(reg_base + REG_SCL_DISP_MCU_HW_CMD, BIT(4), 0);//sw_tx_num=0
+@@ -4281,7 +4281,7 @@ void i80_set_cmd_cnt(u32 cmdcnt)
+ 	}
+ }
+ 
+-void i80_trig(void)
++static void i80_trig(void)
+ {
+ 	int cnt = 0;
+ 	_reg_write_mask(reg_base + REG_SCL_DISP_MCU_HW_CMD, BIT(0), 0);//rising edge to trig
+@@ -4367,7 +4367,7 @@ void sclr_i80_packet(u32 cmd)
+ }
+ EXPORT_SYMBOL_GPL(sclr_i80_packet);
+ 
+-bool sclr_i80_chk_idle(void)
++static bool sclr_i80_chk_idle(void)
+ {
+ #define I80_BUSY_WAITING_TIMES 50
+ #define I80_CLEAR_TRAIL 3
+@@ -4407,7 +4407,7 @@ EXPORT_SYMBOL_GPL(sclr_i80_run);
+  * sclr_prepare - setup all img & sc instances.
+  *
+  */
+-void sclr_prepare(void)
++static void sclr_prepare(void)
+ {
+ 	int i = 0;
+ 
+@@ -6193,7 +6193,7 @@ void sclr_dump_top_register(void)
+ 	CVI_TRACE_VPSS(CVI_DBG_DEBUG, "SC_TOP_PRI_M_REG_8=0x%08x\n", _reg_read(top_base + SC_TOP_PRI_M_REG_8));
+ }
+ 
+-void sclr_show_top_status(void)
++static void sclr_show_top_status(void)
+ {
+ 	u32 val, rdy;
+ 	uintptr_t top_base = reg_base + REG_SCL_TOP_BASE;
+@@ -6378,7 +6378,7 @@ void sclr_dump_img_in_register(int img_inst)
+ 	CVI_TRACE_VPSS(CVI_DBG_DEBUG, "IMG_IN_SB_REG_Y_STAT=0x%08x\n", _reg_read(img_base + IMG_IN_SB_REG_Y_STAT));
+ }
+ 
+-void sclr_show_img_in_status(int img_inst)
++static void sclr_show_img_in_status(int img_inst)
+ {
+ 	uintptr_t img_base = reg_base + REG_SCL_IMG_BASE(img_inst);
+ 	u32 val;
+@@ -6627,7 +6627,7 @@ void sclr_dump_core_register(int inst)
+ 	CVI_TRACE_VPSS(CVI_DBG_DEBUG, "SC_CORE_PRI_M_REG_7=0x%08x\n", _reg_read(core_base + SC_CORE_PRI_M_REG_7));
+ }
+ 
+-void sclr_show_core_status(int inst)
++static void sclr_show_core_status(int inst)
+ {
+ 	u32 val;
+ 	uintptr_t core_base = reg_base + REG_SCL_CORE_BASE(inst);
+@@ -6878,7 +6878,7 @@ void sclr_dump_odma_register(int inst)
+ 		(val & SC_ODMA_REG_SC_CSC_R2Y_FRAC_2_MASK) >> SC_ODMA_REG_SC_CSC_R2Y_FRAC_2_OFFSET);
+ }
+ 
+-void sclr_show_odma_status(u8 inst)
++static void sclr_show_odma_status(u8 inst)
+ {
+ 	u32 val, latched_line_cnt = 0;
+ 	uintptr_t odma_base = reg_base + REG_SCL_ODMA_BASE(inst);
+@@ -7243,7 +7243,7 @@ void sclr_dump_gop_register(int inst)
+ 	}
+ }
+ 
+-void sclr_show_gop_status(int inst)
++static void sclr_show_gop_status(int inst)
+ {
+ 	u32 val, i;
+ 	uintptr_t gop_base = reg_base + REG_SCL_GOP0_BASE(inst);
+diff --git a/interdrv/vpss/chip/cv181x/scaler.h b/interdrv/vpss/chip/cv181x/scaler.h
+index 222e7bd..c9814ff 100644
+--- a/interdrv/vpss/chip/cv181x/scaler.h
++++ b/interdrv/vpss/chip/cv181x/scaler.h
+@@ -1275,4 +1275,12 @@ void sclr_check_overflow_reg(struct cvi_vpss_info *vpss_info);
+ 
+ void sclr_gop_ow_get_addr(u8 inst, u8 layer, u8 ow_inst, u64 *addr);
+ 
++/* Register-control entry points retained from the vendor scaler API. */
++void sclr_gop_odec_set_cfg_from_oenc(u8 inst, u8 layer, struct sclr_gop_odec_cfg *odec_cfg);
++bool sclr_disp_reg_shadow_mask(bool mask);
++struct sclr_csc_cfg *sclr_get_csc_ctrl(u8 inst);
++bool sclr_img_reg_shadow_mask(u8 inst, bool mask);
++void sclr_top_set_vo_data_mux(u8 vodata_selID, u8 value);
++void sclr_top_set_vo_type_sel(enum sclr_vo_sel vo_sel);
++
+ #endif  //_CVI_SCL_H_
+diff --git a/interdrv/vpss/chip/cv181x/vip_sc.c b/interdrv/vpss/chip/cv181x/vip_sc.c
+index c0d69c9..387791a 100644
+--- a/interdrv/vpss/chip/cv181x/vip_sc.c
++++ b/interdrv/vpss/chip/cv181x/vip_sc.c
+@@ -20,7 +20,7 @@
+ 
+ static const char *const CLK_SC_NAME[] = {"clk_sc_d", "clk_sc_v1", "clk_sc_v2", "clk_sc_v3"};
+ 
+-int cvi_sc_buf_queue(struct cvi_sc_vdev *vdev, struct vpss_sc_buffer *list_buf)
++static int cvi_sc_buf_queue(struct cvi_sc_vdev *vdev, struct vpss_sc_buffer *list_buf)
+ {
+ 	unsigned long flags;
+ 	struct vpss_sc_buffer *b = NULL;
+@@ -43,7 +43,7 @@ int cvi_sc_buf_queue(struct cvi_sc_vdev *vdev, struct vpss_sc_buffer *list_buf)
+ 	return 0;
+ }
+ 
+-struct vpss_sc_buffer *cvi_sc_next_buf(struct cvi_sc_vdev *vdev, const u8 grp_id)
++static struct vpss_sc_buffer *cvi_sc_next_buf(struct cvi_sc_vdev *vdev, const u8 grp_id)
+ {
+ 	unsigned long flags;
+ 	struct vpss_sc_buffer *b = NULL;
+@@ -56,7 +56,7 @@ struct vpss_sc_buffer *cvi_sc_next_buf(struct cvi_sc_vdev *vdev, const u8 grp_id
+ 	return b;
+ }
+ 
+-int cvi_sc_buf_num(struct cvi_sc_vdev *vdev, const u8 grp_id)
++static int cvi_sc_buf_num(struct cvi_sc_vdev *vdev, const u8 grp_id)
+ {
+ 	unsigned long flags;
+ 	int num;
+@@ -68,7 +68,7 @@ int cvi_sc_buf_num(struct cvi_sc_vdev *vdev, const u8 grp_id)
+ 	return num;
+ }
+ 
+-int cvi_sc_buf_remove(struct cvi_sc_vdev *vdev, const u8 grp_id)
++static int cvi_sc_buf_remove(struct cvi_sc_vdev *vdev, const u8 grp_id)
+ {
+ 	unsigned long flags;
+ 	struct vpss_sc_buffer *b = NULL;
+diff --git a/interdrv/vpss/chip/cv181x/vpss_core.c b/interdrv/vpss/chip/cv181x/vpss_core.c
+index 91cf0c7..d0a05bb 100644
+--- a/interdrv/vpss/chip/cv181x/vpss_core.c
++++ b/interdrv/vpss/chip/cv181x/vpss_core.c
+@@ -488,7 +488,7 @@ static void cvi_img_device_run(struct cvi_img_vdev *idev, bool sc_need_check[])
+ 		idev->dev_idx, idev->job_grp);
+ }
+ 
+-u8 _gop_get_bpp(enum sclr_gop_format fmt)
++static u8 _gop_get_bpp(enum sclr_gop_format fmt)
+ {
+ 	return (fmt == SCL_GOP_FMT_ARGB8888) ? 4 :
+ 		(fmt == SCL_GOP_FMT_256LUT) ? 1 : 2;
+@@ -615,7 +615,7 @@ int cvi_vip_set_rgn_cfg(const u8 inst, u8 layer, const struct cvi_rgn_cfg *rgn_c
+ 	return 0;
+ }
+ 
+-bool cvi_vip_online_check_sc_rdy(struct cvi_img_vdev *idev, u8 grp_id)
++static bool cvi_vip_online_check_sc_rdy(struct cvi_img_vdev *idev, u8 grp_id)
+ {
+ 	struct cvi_vip_dev *bdev = NULL;
+ 	unsigned long flags_out[4], flags_job;
+@@ -991,7 +991,7 @@ void close_clk(struct cvi_vip_dev *pdev)
+ 		clk_disable_unprepare(pdev->sc_vdev[i].clk);
+ }
+ 
+-u32 cvi_sc_cfg_cb(struct sc_cfg_cb *post_para, struct cvi_vip_dev *dev)
++static u32 cvi_sc_cfg_cb(struct sc_cfg_cb *post_para, struct cvi_vip_dev *dev)
+ {
+ 	u32 ret = -1;
+ 	int i;
+@@ -1043,7 +1043,7 @@ u32 cvi_sc_cfg_cb(struct sc_cfg_cb *post_para, struct cvi_vip_dev *dev)
+ 	return ret;
+ }
+ 
+-void cvi_sc_vi_err_cb(struct sc_err_handle_cb *err_cb_para, struct cvi_vip_dev *dev)
++static void cvi_sc_vi_err_cb(struct sc_err_handle_cb *err_cb_para, struct cvi_vip_dev *dev)
+ {
+ 	int i;
+ 	u8 grp_id = err_cb_para->snr_num;
+@@ -1084,7 +1084,7 @@ void cvi_sc_frm_done_cb(struct cvi_vip_dev *dev)
+ 		return;
+ }
+ 
+-int vpss_core_cb(void *dev, enum ENUM_MODULES_ID caller, u32 cmd, void *arg)
++static int vpss_core_cb(void *dev, enum ENUM_MODULES_ID caller, u32 cmd, void *arg)
+ {
+ 	struct cvi_vip_dev *vdev = (struct cvi_vip_dev *)dev;
+ 	int rc = -1;
+@@ -1709,15 +1709,10 @@ err_irq:
+  * bmd_remove - device remove method.
+  * @pdev: Pointer of platform device.
+  */
+-static int cvi_vpss_remove(struct platform_device *pdev)
++static void cvi_vpss_remove(struct platform_device *pdev)
+ {
+ 	struct cvi_vip_dev *dev;
+ 
+-	if (!pdev) {
+-		dev_err(&pdev->dev, "invalid param");
+-		return -EINVAL;
+-	}
+-
+ 	/* scaler rm cb */
+ 	if (vpss_core_rm_cb()) {
+ 		dev_err(&pdev->dev, "Failed to rm vpss cb\n");
+@@ -1726,7 +1721,7 @@ static int cvi_vpss_remove(struct platform_device *pdev)
+ 	dev = dev_get_drvdata(&pdev->dev);
+ 	if (!dev) {
+ 		dev_err(&pdev->dev, "Can not get cvi_vpss drvdata");
+-		return -EINVAL;
++		return;
+ 	}
+ 
+ #if defined(CONFIG_SCLR_TEST)
+@@ -1740,7 +1735,6 @@ static int cvi_vpss_remove(struct platform_device *pdev)
+ 	misc_deregister(&dev->miscdev);
+ 	dev_set_drvdata(&pdev->dev, NULL);
+ 
+-	return 0;
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
+diff --git a/interdrv/vpss/common/cvi_vip_vpss_proc.c b/interdrv/vpss/common/cvi_vip_vpss_proc.c
+index b4d9946..093c64a 100644
+--- a/interdrv/vpss/common/cvi_vip_vpss_proc.c
++++ b/interdrv/vpss/common/cvi_vip_vpss_proc.c
+@@ -1,4 +1,6 @@
+ #include <linux/slab.h>
++#include <linux/string.h>
++#include <linux/utsname.h>
+ #include <linux/proc_fs.h>
+ #include <linux/uaccess.h>
+ 
+@@ -30,138 +32,138 @@ static void _pixFmt_to_String(enum _PIXEL_FORMAT_E PixFmt, char *str, int len)
+ {
+ 	switch (PixFmt) {
+ 	case PIXEL_FORMAT_RGB_888:
+-		strncpy(str, "RGB_888", len);
++		strscpy_pad(str, "RGB_888", len);
+ 		break;
+ 	case PIXEL_FORMAT_BGR_888:
+-		strncpy(str, "BGR_888", len);
++		strscpy_pad(str, "BGR_888", len);
+ 		break;
+ 	case PIXEL_FORMAT_RGB_888_PLANAR:
+-		strncpy(str, "RGB_888_PLANAR", len);
++		strscpy_pad(str, "RGB_888_PLANAR", len);
+ 		break;
+ 	case PIXEL_FORMAT_BGR_888_PLANAR:
+-		strncpy(str, "BGR_888_PLANAR", len);
++		strscpy_pad(str, "BGR_888_PLANAR", len);
+ 		break;
+ 	case PIXEL_FORMAT_ARGB_1555:
+-		strncpy(str, "ARGB_1555", len);
++		strscpy_pad(str, "ARGB_1555", len);
+ 		break;
+ 	case PIXEL_FORMAT_ARGB_4444:
+-		strncpy(str, "ARGB_4444", len);
++		strscpy_pad(str, "ARGB_4444", len);
+ 		break;
+ 	case PIXEL_FORMAT_ARGB_8888:
+-		strncpy(str, "ARGB_8888", len);
++		strscpy_pad(str, "ARGB_8888", len);
+ 		break;
+ 	case PIXEL_FORMAT_RGB_BAYER_8BPP:
+-		strncpy(str, "RGB_BAYER_8BPP", len);
++		strscpy_pad(str, "RGB_BAYER_8BPP", len);
+ 		break;
+ 	case PIXEL_FORMAT_RGB_BAYER_10BPP:
+-		strncpy(str, "RGB_BAYER_10BPP", len);
++		strscpy_pad(str, "RGB_BAYER_10BPP", len);
+ 		break;
+ 	case PIXEL_FORMAT_RGB_BAYER_12BPP:
+-		strncpy(str, "RGB_BAYER_12BPP", len);
++		strscpy_pad(str, "RGB_BAYER_12BPP", len);
+ 		break;
+ 	case PIXEL_FORMAT_RGB_BAYER_14BPP:
+-		strncpy(str, "RGB_BAYER_14BPP", len);
++		strscpy_pad(str, "RGB_BAYER_14BPP", len);
+ 		break;
+ 	case PIXEL_FORMAT_RGB_BAYER_16BPP:
+-		strncpy(str, "RGB_BAYER_16BPP", len);
++		strscpy_pad(str, "RGB_BAYER_16BPP", len);
+ 		break;
+ 	case PIXEL_FORMAT_YUV_PLANAR_422:
+-		strncpy(str, "YUV_PLANAR_422", len);
++		strscpy_pad(str, "YUV_PLANAR_422", len);
+ 		break;
+ 	case PIXEL_FORMAT_YUV_PLANAR_420:
+-		strncpy(str, "YUV_PLANAR_420", len);
++		strscpy_pad(str, "YUV_PLANAR_420", len);
+ 		break;
+ 	case PIXEL_FORMAT_YUV_PLANAR_444:
+-		strncpy(str, "YUV_PLANAR_444", len);
++		strscpy_pad(str, "YUV_PLANAR_444", len);
+ 		break;
+ 	case PIXEL_FORMAT_YUV_400:
+-		strncpy(str, "YUV_400", len);
++		strscpy_pad(str, "YUV_400", len);
+ 		break;
+ 	case PIXEL_FORMAT_HSV_888:
+-		strncpy(str, "HSV_888", len);
++		strscpy_pad(str, "HSV_888", len);
+ 		break;
+ 	case PIXEL_FORMAT_HSV_888_PLANAR:
+-		strncpy(str, "HSV_888_PLANAR", len);
++		strscpy_pad(str, "HSV_888_PLANAR", len);
+ 		break;
+ 	case PIXEL_FORMAT_NV12:
+-		strncpy(str, "NV12", len);
++		strscpy_pad(str, "NV12", len);
+ 		break;
+ 	case PIXEL_FORMAT_NV21:
+-		strncpy(str, "NV21", len);
++		strscpy_pad(str, "NV21", len);
+ 		break;
+ 	case PIXEL_FORMAT_NV16:
+-		strncpy(str, "NV16", len);
++		strscpy_pad(str, "NV16", len);
+ 		break;
+ 	case PIXEL_FORMAT_NV61:
+-		strncpy(str, "NV61", len);
++		strscpy_pad(str, "NV61", len);
+ 		break;
+ 	case PIXEL_FORMAT_YUYV:
+-		strncpy(str, "YUYV", len);
++		strscpy_pad(str, "YUYV", len);
+ 		break;
+ 	case PIXEL_FORMAT_UYVY:
+-		strncpy(str, "UYVY", len);
++		strscpy_pad(str, "UYVY", len);
+ 		break;
+ 	case PIXEL_FORMAT_YVYU:
+-		strncpy(str, "YVYU", len);
++		strscpy_pad(str, "YVYU", len);
+ 		break;
+ 	case PIXEL_FORMAT_VYUY:
+-		strncpy(str, "VYUY", len);
++		strscpy_pad(str, "VYUY", len);
+ 		break;
+ 	case PIXEL_FORMAT_FP32_C1:
+-		strncpy(str, "FP32_C1", len);
++		strscpy_pad(str, "FP32_C1", len);
+ 		break;
+ 	case PIXEL_FORMAT_FP32_C3_PLANAR:
+-		strncpy(str, "FP32_C3_PLANAR", len);
++		strscpy_pad(str, "FP32_C3_PLANAR", len);
+ 		break;
+ 	case PIXEL_FORMAT_INT32_C1:
+-		strncpy(str, "INT32_C1", len);
++		strscpy_pad(str, "INT32_C1", len);
+ 		break;
+ 	case PIXEL_FORMAT_INT32_C3_PLANAR:
+-		strncpy(str, "INT32_C3_PLANAR", len);
++		strscpy_pad(str, "INT32_C3_PLANAR", len);
+ 		break;
+ 	case PIXEL_FORMAT_UINT32_C1:
+-		strncpy(str, "UINT32_C1", len);
++		strscpy_pad(str, "UINT32_C1", len);
+ 		break;
+ 	case PIXEL_FORMAT_UINT32_C3_PLANAR:
+-		strncpy(str, "UINT32_C3_PLANAR", len);
++		strscpy_pad(str, "UINT32_C3_PLANAR", len);
+ 		break;
+ 	case PIXEL_FORMAT_BF16_C1:
+-		strncpy(str, "BF16_C1", len);
++		strscpy_pad(str, "BF16_C1", len);
+ 		break;
+ 	case PIXEL_FORMAT_BF16_C3_PLANAR:
+-		strncpy(str, "BF16_C3_PLANAR", len);
++		strscpy_pad(str, "BF16_C3_PLANAR", len);
+ 		break;
+ 	case PIXEL_FORMAT_INT16_C1:
+-		strncpy(str, "INT16_C1", len);
++		strscpy_pad(str, "INT16_C1", len);
+ 		break;
+ 	case PIXEL_FORMAT_INT16_C3_PLANAR:
+-		strncpy(str, "INT16_C3_PLANAR", len);
++		strscpy_pad(str, "INT16_C3_PLANAR", len);
+ 		break;
+ 	case PIXEL_FORMAT_UINT16_C1:
+-		strncpy(str, "UINT16_C1", len);
++		strscpy_pad(str, "UINT16_C1", len);
+ 		break;
+ 	case PIXEL_FORMAT_UINT16_C3_PLANAR:
+-		strncpy(str, "UINT16_C3_PLANAR", len);
++		strscpy_pad(str, "UINT16_C3_PLANAR", len);
+ 		break;
+ 	case PIXEL_FORMAT_INT8_C1:
+-		strncpy(str, "INT8_C1", len);
++		strscpy_pad(str, "INT8_C1", len);
+ 		break;
+ 	case PIXEL_FORMAT_INT8_C3_PLANAR:
+-		strncpy(str, "INT8_C3_PLANAR", len);
++		strscpy_pad(str, "INT8_C3_PLANAR", len);
+ 		break;
+ 	case PIXEL_FORMAT_UINT8_C1:
+-		strncpy(str, "UINT8_C1", len);
++		strscpy_pad(str, "UINT8_C1", len);
+ 		break;
+ 	case PIXEL_FORMAT_UINT8_C3_PLANAR:
+-		strncpy(str, "UINT8_C3_PLANAR", len);
++		strscpy_pad(str, "UINT8_C3_PLANAR", len);
+ 		break;
+ 	default:
+-		strncpy(str, "Unknown Fmt", len);
++		strscpy_pad(str, "Unknown Fmt", len);
+ 		break;
+ 	}
+ }
+ 
+-int vpss_ctx_proc_show(struct seq_file *m, void *v)
++static int vpss_ctx_proc_show(struct seq_file *m, void *v)
+ {
+ 	int i, j;
+ 	char c[32];
+@@ -171,7 +173,7 @@ int vpss_ctx_proc_show(struct seq_file *m, void *v)
+ 	struct cvi_vpss_ctx **pVpssCtx = vpss_get_shdw_ctx();
+ 
+ 	// Module Param
+-	seq_printf(m, "\nModule: [VPSS], Build Time[%s]\n", UTS_VERSION);
++	seq_printf(m, "\nModule: [VPSS], Build Time[%s]\n", utsname()->version);
+ 	seq_puts(m, "\n-------------------------------MODULE PARAM-------------------------------\n");
+ 	seq_printf(m, "%25s%25s\n", "vpss_vb_source", "vpss_split_node_num");
+ 	seq_printf(m, "%18d%25d\n", 0, 1);
+@@ -216,14 +218,14 @@ int vpss_ctx_proc_show(struct seq_file *m, void *v)
+ 
+ 				memset(c, 0, sizeof(c));
+ 				if (pVpssCtx[i]->stChnCfgs[j].stChnAttr.stAspectRatio.enMode == ASPECT_RATIO_NONE)
+-					strncpy(c, "NONE", sizeof(c));
++					strscpy_pad(c, "NONE", sizeof(c));
+ 				else if (pVpssCtx[i]->stChnCfgs[j].stChnAttr.stAspectRatio.enMode == ASPECT_RATIO_AUTO)
+-					strncpy(c, "AUTO", sizeof(c));
++					strscpy_pad(c, "AUTO", sizeof(c));
+ 				else if (pVpssCtx[i]->stChnCfgs[j].stChnAttr.stAspectRatio.enMode
+ 						== ASPECT_RATIO_MANUAL)
+-					strncpy(c, "MANUAL", sizeof(c));
++					strscpy_pad(c, "MANUAL", sizeof(c));
+ 				else
+-					strncpy(c, "Invalid", sizeof(c));
++					strscpy_pad(c, "Invalid", sizeof(c));
+ 
+ 				if (pVpssCtx[i]->stChnCfgs[j].stChnAttr.stAspectRatio.enMode == ASPECT_RATIO_MANUAL) {
+ 					X = pVpssCtx[i]->stChnCfgs[j].stChnAttr.stAspectRatio.stVideoRect.s32X;
+@@ -356,17 +358,17 @@ int vpss_ctx_proc_show(struct seq_file *m, void *v)
+ 			for (j = 0; j < pVpssCtx[i]->chnNum; ++j) {
+ 				memset(c, 0, sizeof(c));
+ 				if (pVpssCtx[i]->stChnCfgs[j].enRotation == ROTATION_0)
+-					strncpy(c, "0", sizeof(c));
++					strscpy_pad(c, "0", sizeof(c));
+ 				else if (pVpssCtx[i]->stChnCfgs[j].enRotation == ROTATION_90)
+-					strncpy(c, "90", sizeof(c));
++					strscpy_pad(c, "90", sizeof(c));
+ 				else if (pVpssCtx[i]->stChnCfgs[j].enRotation == ROTATION_180)
+-					strncpy(c, "180", sizeof(c));
++					strscpy_pad(c, "180", sizeof(c));
+ 				else if (pVpssCtx[i]->stChnCfgs[j].enRotation == ROTATION_270)
+-					strncpy(c, "270", sizeof(c));
++					strscpy_pad(c, "270", sizeof(c));
+ 				else if (pVpssCtx[i]->stChnCfgs[j].enRotation == ROTATION_XY_FLIP)
+-					strncpy(c, "xy_flip", sizeof(c));
++					strscpy_pad(c, "xy_flip", sizeof(c));
+ 				else
+-					strncpy(c, "Invalid", sizeof(c));
++					strscpy_pad(c, "Invalid", sizeof(c));
+ 
+ 				seq_printf(m, "%8s%2d%8s%2d%10s\n", "#", i, "#", j, c);
+ 			}
+@@ -532,7 +534,7 @@ static ssize_t vpss_proc_write(struct file *file, const char __user *user_buf, s
+ 
+ static int vpss_proc_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, vpss_proc_show, PDE_DATA(inode));
++	return single_open(file, vpss_proc_show, pde_data(inode));
+ }
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+diff --git a/interdrv/vpss/common/vpss.c b/interdrv/vpss/common/vpss.c
+index bfdf73b..e05d1f0 100644
+--- a/interdrv/vpss/common/vpss.c
++++ b/interdrv/vpss/common/vpss.c
+@@ -291,7 +291,7 @@ CVI_VOID vpss_notify_vi_err_evt(CVI_U8 img_idx)
+ 
+ }
+ 
+-CVI_U8 sc_index_to_chn_id(CVI_U8 sc_idx)
++static CVI_U8 sc_index_to_chn_id(CVI_U8 sc_idx)
+ {
+ 	if ((vpss_get_mode() != VPSS_MODE_SINGLE) && sc_idx)
+ 		return sc_idx - 1;
+@@ -1391,7 +1391,7 @@ static void _vpss_over_crop_resize
+  * @param ctx: VPSS ctx which records settings of this grp
+  * @param pstGrpHwCfg: cfg to be updated
+  */
+-void _vpss_chn_hw_cfg_update(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, struct cvi_vpss_ctx *ctx,
++static void _vpss_chn_hw_cfg_update(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, struct cvi_vpss_ctx *ctx,
+ 	struct VPSS_GRP_HW_CFG *pstGrpHwCfg, bool online_from_isp)
+ {
+ 	struct VPSS_CHN_CFG *stChnCfg = &ctx->stChnCfgs[VpssChn];
+@@ -1761,7 +1761,7 @@ void _vpss_chn_hw_cfg_update(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, struct cvi_vpss
+  * @param ctx: VPSS ctx which records settings of this grp
+  * @param pstGrpHwCfg: cfg to be updated
+  */
+-void _vpss_grp_hw_cfg_update(VPSS_GRP VpssGrp, struct cvi_vpss_ctx *ctx, struct VPSS_GRP_HW_CFG *pstGrpHwCfg)
++static void _vpss_grp_hw_cfg_update(VPSS_GRP VpssGrp, struct cvi_vpss_ctx *ctx, struct VPSS_GRP_HW_CFG *pstGrpHwCfg)
+ {
+ 	VB_CAL_CONFIG_S stVbCalConfig;
+ 	//struct sclr_csc_matrix *mtrx;
+@@ -2301,7 +2301,7 @@ static CVI_S32 IS_VENC_BIND_VPSS(MMF_CHN_S *pchn)
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_BOOL is_online_hw_run(CVI_U8 img_idx)
++static CVI_BOOL is_online_hw_run(CVI_U8 img_idx)
+ {
+ 	CVI_U8 i;
+ 	bool sc_need_check[CVI_VIP_SC_MAX] = { [0 ... CVI_VIP_SC_MAX - 1] = false };
+@@ -3186,7 +3186,7 @@ static int vpss_event_handler(void *arg)
+ }
+ 
+ 
+-void _vpss_GrpParamInit(VPSS_GRP VpssGrp)
++static void _vpss_GrpParamInit(VPSS_GRP VpssGrp)
+ {
+ 	CVI_U8 i, j, k;
+ 	PROC_AMP_CTRL_S ctrl;
+@@ -3245,7 +3245,7 @@ static CVI_S32 _vpss_update_rotation_mesh(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, RO
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_S32 _vpss_update_ldc_mesh(VPSS_GRP VpssGrp, VPSS_CHN VpssChn,
++static CVI_S32 _vpss_update_ldc_mesh(VPSS_GRP VpssGrp, VPSS_CHN VpssChn,
+ 	const VPSS_LDC_ATTR_S *pstLDCAttr, ROTATION_E enRotation, CVI_U64 paddr)
+ {
+ 	CVI_U64 paddr_old;
+@@ -3279,7 +3279,7 @@ CVI_S32 _vpss_update_ldc_mesh(VPSS_GRP VpssGrp, VPSS_CHN VpssChn,
+ 	return CVI_SUCCESS;
+ }
+ 
+-CVI_VOID _clean_chn_vb_jobs(VPSS_GRP VpssGrp, VPSS_CHN VpssChn,
++static CVI_VOID _clean_chn_vb_jobs(VPSS_GRP VpssGrp, VPSS_CHN VpssChn,
+ 			const VPSS_CHN_ATTR_S *pstChnAttrOld, const VPSS_CHN_ATTR_S *pstChnAttrNew)
+ {
+ 	MMF_CHN_S chn = {.enModId = CVI_ID_VPSS, .s32DevId = VpssGrp, .s32ChnId = VpssChn};
+@@ -5142,11 +5142,14 @@ static void vpss_start_handler(void)
+ {
+ 	int ret;
+ 	u8 u8VpssDev;
+-	struct sched_param tsk;
++	struct sched_attr attr = {
++		.size = sizeof(attr),
++		.sched_policy = SCHED_FIFO,
++		.sched_priority = MAX_RT_PRIO - 10,
++	};
+ 	char thread_name[32];
+ 
+-	// Same as sched_set_fifo in linux 5.x
+-	tsk.sched_priority = MAX_USER_RT_PRIO - 10;
++	/* Preserve the existing FIFO priority for kernel-owned capture workers. */
+ 
+ 	for (u8VpssDev = 0; u8VpssDev < VPSS_IP_NUM; u8VpssDev++) {
+ 		handler_ctx[u8VpssDev].u8VpssDev = u8VpssDev;
+@@ -5167,9 +5170,11 @@ static void vpss_start_handler(void)
+ 			&handler_ctx[u8VpssDev], thread_name);
+ 		if (IS_ERR(handler_ctx[u8VpssDev].thread)) {
+ 			pr_err("failed to create vpss kthread, u8VpssDev=%d\n", u8VpssDev);
++			handler_ctx[u8VpssDev].thread = NULL;
++			continue;
+ 		}
+ 
+-		ret = sched_setscheduler(handler_ctx[u8VpssDev].thread, SCHED_FIFO, &tsk);
++		ret = sched_setattr_nocheck(handler_ctx[u8VpssDev].thread, &attr);
+ 		if (ret)
+ 			pr_warn("vpss thread priority update failed: %d\n", ret);
+ 		CVI_TRACE_VPSS(CVI_DBG_WARN, "handler for dev(%d) started", u8VpssDev);
+diff --git a/interdrv/vpss/common/vpss_common.h b/interdrv/vpss/common/vpss_common.h
+index e1bb210..cc3da9c 100644
+--- a/interdrv/vpss/common/vpss_common.h
++++ b/interdrv/vpss/common/vpss_common.h
+@@ -4,8 +4,7 @@
+ #define VIP_ALIGNMENT 0x40
+ #define GOP_ALIGNMENT 0x10
+ 
+-#define MIN(a, b) (((a) < (b))?(a):(b))
+-#define MAX(a, b) (((a) > (b))?(a):(b))
++#include <linux/minmax.h>
+ #define UPPER(x, y) (((x) + ((1 << (y)) - 1)) >> (y))   // for alignment
+ 
+ #define VIP_64_ALIGN(x) (((x) + 0x3F) & ~0x3F)   // for 64byte alignment
+diff --git a/interdrv/vpss/common/vpss_rgn_ctrl.c b/interdrv/vpss/common/vpss_rgn_ctrl.c
+index 0fe3a84..08f7569 100644
+--- a/interdrv/vpss/common/vpss_rgn_ctrl.c
++++ b/interdrv/vpss/common/vpss_rgn_ctrl.c
+@@ -11,6 +11,7 @@
+ #include <vpss_ctx.h>
+ #include "vpss_debug.h"
+ #include "vpss.h"
++#include "vpss_rgn_ctrl.h"
+ #include "vpss_core.h"
+ #include "vpss_grp_hw_cfg.h"
+ #include "scaler.h"
+diff --git a/interdrv/vpss/common/vpss_rgn_ctrl.h b/interdrv/vpss/common/vpss_rgn_ctrl.h
+index 08688da..32b26c2 100644
+--- a/interdrv/vpss/common/vpss_rgn_ctrl.h
++++ b/interdrv/vpss/common/vpss_rgn_ctrl.h
+@@ -1,7 +1,7 @@
+ #ifndef _VPSS_RGN_CTRL_H_
+ #define _VPSS_RGN_CTRL_H_
+ 
+-CVI_S32 vpss_get_rgn_hdls(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, CVI_U8 layer,
++CVI_S32 vpss_get_rgn_hdls(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, CVI_U32 layer,
+ 	RGN_TYPE_E enType, RGN_HANDLE hdls[]);
+ CVI_S32 vpss_set_rgn_hdls(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, CVI_U32 layer,
+ 		RGN_TYPE_E enType, RGN_HANDLE hdls[]);
+-- 
+2.43.0
+

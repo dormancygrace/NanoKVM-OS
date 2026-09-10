@@ -1,0 +1,44 @@
+*.log
+pnpm-debug.log*
+
+web/node_modules
+web/dist
+web/web
+
+# pnpm keeps its content-addressable store next to the project when the
+# home directory is on a different filesystem (e.g. inside the dev container)
+.pnpm-store/
+
+.DS_Store
+*.local
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+.idea
+.vscode
+
+NanoKVM-Server
+
+support/sg2002/kvm_system/build
+support/sg2002/kvm_system/dist
+support/sg2002/kvm_system/CMakeLists.txt
+
+support/sg2002/kvm_vision_test/build
+support/sg2002/kvm_vision_test/dist
+support/sg2002/kvm_vision_test/CMakeLists.txt
+
+support/sg2002/additional/original
+kvmapp/server/dl_lib
+kvmapp/kvm_system/kvm_system
+
+# Release packages assembled by scripts/package.sh
+/build/
+# Generated serial terminal and corresponding source/license bundle.
+/kvmapp/system/bin/picocom
+/kvmapp/system/share/picocom/
+
+# Generated isolated networking tools, source and license bundle.
+/kvmapp/system/modern/

@@ -1,0 +1,59 @@
+#!/bin/sh
+# Hardware hang protection. Requires the qualified DW watchdog DT node.
+daemon=/usr/sbin/watchdog
+pidfile=/var/run/watchdog.pid
+
+owned_pid() {
+    watchdog_pid=
+    [ -r "$pidfile" ] || return 1
+    read -r watchdog_pid < "$pidfile"
+    case "$watchdog_pid" in ''|*[!0-9]*) return 1;; esac
+    [ "$watchdog_pid" -gt 1 ] || return 1
+    [ -r "/proc/$watchdog_pid/cmdline" ] || return 1
+    watchdog_cmd=$(tr '\000' ' ' < "/proc/$watchdog_pid/cmdline")
+    [ "$watchdog_cmd" = "$daemon -T 30 -t 5 /dev/watchdog0 " ]
+}
+
+start_watchdog() {
+    [ ! -e /etc/kvm/disable_watchdog ] || return 0
+    [ -c /dev/watchdog0 ] || return 0
+    [ -x "$daemon" ] || return 1
+    if owned_pid; then return 0; fi
+    # Do not replace a live owner's PID file, even with different settings.
+    if [ -n "$watchdog_pid" ] && [ -d "/proc/$watchdog_pid" ]; then
+        echo 'Watchdog PID file belongs to a different live process' >&2
+        return 1
+    fi
+    rm -f "$pidfile"
+    "$daemon" -T 30 -t 5 /dev/watchdog0 || return 1
+    watchdog_wait=0
+    while [ "$watchdog_wait" -lt 3 ]; do
+        if owned_pid; then return 0; fi
+        sleep 1
+        watchdog_wait=$((watchdog_wait + 1))
+    done
+    echo 'NanoKVM watchdog did not start' >&2
+    return 1
+}
+
+stop_watchdog() {
+    if ! owned_pid; then return 0; fi
+    # BusyBox's TERM handler writes magic close and closes the descriptor.
+    kill -TERM "$watchdog_pid" || return 1
+    watchdog_wait=0
+    while [ "$watchdog_wait" -lt 3 ]; do
+        if ! owned_pid; then return 0; fi
+        sleep 1
+        watchdog_wait=$((watchdog_wait + 1))
+    done
+    echo 'NanoKVM watchdog has not stopped; refusing to start another' >&2
+    return 1
+}
+
+case "$1" in
+    start) start_watchdog;;
+    stop) stop_watchdog;;
+    restart) stop_watchdog && start_watchdog;;
+    status) if owned_pid; then echo "NanoKVM watchdog PID $watchdog_pid"; else exit 1; fi;;
+    *) echo "Usage: $0 {start|stop|restart|status}" >&2; exit 1;;
+esac

@@ -1,0 +1,68 @@
+--- a/src/crypto/internal/fips140/aes/gcm/ghash.go
++++ b/src/crypto/internal/fips140/aes/gcm/ghash.go
+@@ -22,52 +22,19 @@
+ // ghashMul does constant-time carry-less multiplication of two 32-bit integers,
+ // returning the 64-bit product.
+ func ghashMul(x, y uint32) uint64 {
+-	// This function implements carryless multiplication using a technique first
+-	// described by Thomas Pornin in the BearSSL documentation [0]. This
+-	// technique uses generic integer multiplication, but ignores the carrys by
+-	// masking all but 8 bits of the inputs, creating three bit holes between
+-	// each unmasked bit. If the multiplications of any of the unmasked bits
+-	// then cause a carry, the resulting carry bit spills into one of the three
+-	// bit holes.
+-	//
+-	// Each 32-bit input is split into four 32-bit masked values, each
+-	// containing 8 unmasked bits. The mask is shifted by one bit for each of
+-	// the four values, such that the four values cover the full 32 bits of the
+-	// input.
+-	//
+-	// In order to compute the bits at position z_k, z_k+4, z_k+8, ..., z_k+60
+-	// for k = 0, 1, 2, 3, we compute the sum of the products x_i*y_j for all i,
+-	// j such that i+j = k mod 4.
+-	//
+-	// We then mask the sum of each of the four products with the same mask used
+-	// for the input values, which zeros out any spilled carry bits, and OR the
+-	// masked values to get the final product.
+-	//
+-	// [0] https://www.bearssl.org/constanttime.html#ghash-for-gcm
+-
+-	var xm, ym [4]uint32
+-	var z [4]uint64
+-
+-	for i := range 4 {
+-		// Mask off the three bit holes in each input, creating four masked
+-		// values for each input.
+-		xm[i] = x & (0x11111111 << i)
+-		ym[i] = y & (0x11111111 << i)
+-	}
+-
+-	for i := range 4 {
+-		// Compute the multiplication of x by the circulant matrix of y, using
+-		// XOR to get carryless addition of the products:
+-		//
+-		//  | z[0] |   | ym[0] ym[3] ym[2] ym[1] |   | xm[0] |
+-		//  | z[1] | = | ym[1] ym[0] ym[3] ym[2] | x | xm[1] |
+-		//  | z[2] |   | ym[2] ym[1] ym[0] ym[3] |   | xm[2] |
+-		//  | z[3] |   | ym[3] ym[2] ym[1] ym[0] |   | xm[3] |
+-		z[i] = (uint64(xm[0]) * uint64(ym[i])) ^ (uint64(xm[1]) * uint64(ym[(i+3)%4])) ^ (uint64(xm[2]) * uint64(ym[(i+2)%4])) ^ (uint64(xm[3]) * uint64(ym[(i+1)%4]))
+-		z[i] &= 0x1111111111111111 << i
+-	}
+-
+-	return z[0] | z[1] | z[2] | z[3]
++	x0 := uint64(x & 0x11111111)
++	y0 := uint64(y & 0x11111111)
++	x1 := uint64(x & 0x22222222)
++	y1 := uint64(y & 0x22222222)
++	x2 := uint64(x & 0x44444444)
++	y2 := uint64(y & 0x44444444)
++	x3 := uint64(x & 0x88888888)
++	y3 := uint64(y & 0x88888888)
++	z0 := ((x0 * y0) ^ (x1 * y3) ^ (x2 * y2) ^ (x3 * y1)) & 0x1111111111111111
++	z1 := ((x0 * y1) ^ (x1 * y0) ^ (x2 * y3) ^ (x3 * y2)) & 0x2222222222222222
++	z2 := ((x0 * y2) ^ (x1 * y1) ^ (x2 * y0) ^ (x3 * y3)) & 0x4444444444444444
++	z3 := ((x0 * y3) ^ (x1 * y2) ^ (x2 * y1) ^ (x3 * y0)) & 0x8888888888888888
++	return z0 | z1 | z2 | z3
+ }
+ 
+ func ghash(out, H *[gcmBlockSize]byte, inputs ...[]byte) {

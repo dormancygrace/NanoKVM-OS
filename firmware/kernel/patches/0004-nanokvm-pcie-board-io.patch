@@ -1,0 +1,220 @@
+From a03135a29c10ec7c0e44d06235ae1a92f6b4a987 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 00:15:32 +0300
+Subject: [PATCH] riscv: describe NanoKVM PCIe board IO and support disabled
+ pin bias
+
+---
+ .../pinctrl/sophgo,cv1800-pinctrl.yaml        |   2 +
+ .../dts/sophgo/sg2002-nanokvm-enhanced.dts    | 122 +++++++++++++++++-
+ drivers/pinctrl/sophgo/pinctrl-cv18xx.c       |   8 ++
+ 3 files changed, 129 insertions(+), 3 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/pinctrl/sophgo,cv1800-pinctrl.yaml b/Documentation/devicetree/bindings/pinctrl/sophgo,cv1800-pinctrl.yaml
+index feb4785a3..74a9a09d7 100644
+--- a/Documentation/devicetree/bindings/pinctrl/sophgo,cv1800-pinctrl.yaml
++++ b/Documentation/devicetree/bindings/pinctrl/sophgo,cv1800-pinctrl.yaml
+@@ -61,6 +61,8 @@ patternProperties:
+               node apply to. This should be set using the PINMUX or PINMUX2
+               macro.
+ 
++          bias-disable: true
++
+           bias-pull-up:
+             type: boolean
+ 
+diff --git a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+index 97d63f919..dd994586b 100644
+--- a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
++++ b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+@@ -6,13 +6,20 @@
+ #include <dt-bindings/gpio/gpio.h>
+ 
+ / {
+-	model = "Sipeed NanoKVM Enhanced";
++	model = "Sipeed NanoKVM Enhanced PCIe";
++	sipeed,board-revision = "pcie";
+ 	compatible = "sipeed,nanokvm", "sophgo,sg2002";
+ 	aliases {
+ 		mmc0 = &sdhci0;
+ 		mmc1 = &sdhci1;
+ 		gpio4 = &gpio4;
+ 		ethernet0 = &gmac0;
++		i2c0 = &i2c0;
++		i2c1 = &i2c1;
++		i2c2 = &i2c2;
++		i2c3 = &i2c3;
++		i2c4 = &i2c4;
++		i2c5 = &oled_i2c;
+ 	};
+ 	chosen {
+ 		bootargs = "root=/dev/mmcblk0p2 rootwait rw console=ttyS0,115200 earlycon=sbi";
+@@ -57,9 +64,21 @@ heap-carveout {
+ 			memory-region = <&ion_region>;
+ 		};
+ 	};
++	oled_i2c: i2c-oled {
++		compatible = "i2c-gpio";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&nanokvm_oled_i2c_cfg>;
++		scl-gpios = <&porta 15 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		sda-gpios = <&porta 27 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		i2c-gpio,delay-us = <5>;
++	};
+ 	wifi_pwrseq: wifi-pwrseq {
+ 		compatible = "mmc-pwrseq-simple";
+-		reset-gpios = <&porte 2 GPIO_ACTIVE_LOW>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&nanokvm_wifi_enable_cfg>;
++		reset-gpios = <&porta 26 GPIO_ACTIVE_LOW>;
+ 		post-power-on-delay-ms = <200>;
+ 	};
+ 	sys {
+@@ -76,7 +95,8 @@ cif@a0c2000 {
+ 		compatible = "cvitek,cif";
+ 		reg = <0xa0c2000 0x2000 0xa0d0000 0x1000 0xa0c4000 0x2000 0xa0c6000 0x2000 0x3001c30 0x30 >;
+ 		reg-names = "csi_mac0", "csi_wrap0", "csi_mac1", "csi_mac2", "pad_ctrl";
+-		snsr-reset-gpios = <&porte 1 GPIO_ACTIVE_LOW>;
++		// PCIe HDMI reset is GPIOB3, held deasserted below. No CSI sensor
++		// reset is wired to GPIOE1; do not claim the legacy LT interrupt pin.
+ 		resets = <&rst 0x46 &rst 0x48 &rst 0x47 &rst 0x49>;
+ 		reset-names = "phy0", "phy1", "phy-apb0", "phy-apb1";
+ 		clocks = <&clk CLK_CAM0>, <&clk CLK_CAM1>, <&clk CLK_SRC_VIP_SYS_2>, <&clk CLK_MIPIMPLL>, <&clk CLK_DISPPLL>, <&clk CLK_FPLL>;
+@@ -209,6 +229,7 @@ efuse@3050000 {
+ &pinctrl {
+ 	sdhci1_cfg: sdhci1-cfg {
+ 		sdio-pins {
++			power-source = <3300>;
+ 			pinmux = <PINMUX(PIN_SD1_CLK, 0)>, <PINMUX(PIN_SD1_CMD, 0)>,
+ 				 <PINMUX(PIN_SD1_D0, 0)>, <PINMUX(PIN_SD1_D1, 0)>,
+ 				 <PINMUX(PIN_SD1_D2, 0)>, <PINMUX(PIN_SD1_D3, 0)>;
+@@ -259,3 +280,98 @@ user-led-pins {
+ 		};
+ 	};
+ };
++
++// GPIO hogs hold only board enable/reset lines. ATX lines remain available
++// to the server's exclusive GPIO-v2 requests; these are not ATX buttons.
++&gpio0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&nanokvm_board_outputs_cfg &nanokvm_atx_cfg>;
++};
++&porta {
++	oled-reset-hog {
++		gpio-hog;
++		gpios = <22 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "nanokvm-oled-reset";
++	};
++};
++&gpio1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&nanokvm_hdmi_reset_cfg>;
++};
++&portb {
++	hdmi-reset-hog {
++		gpio-hog;
++		gpios = <3 GPIO_ACTIVE_HIGH>;
++		output-high;
++		line-name = "nanokvm-hdmi-reset";
++	};
++};
++&i2c4 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&nanokvm_hdmi_i2c_cfg>;
++	clock-frequency = <400000>;
++	status = "okay";
++};
++&uart1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&nanokvm_uart1_cfg>;
++	status = "okay";
++};
++&uart2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&nanokvm_uart2_cfg>;
++	status = "okay";
++};
++&pinctrl {
++	nanokvm_oled_i2c_cfg: nanokvm-oled-i2c-cfg {
++		oled-pins {
++			pinmux = <PINMUX(PIN_SPK_EN, 3)>, <PINMUX(PIN_EMMC_DAT3, 3)>;
++			power-source = <3300>;
++		};
++	};
++	nanokvm_board_outputs_cfg: nanokvm-board-outputs-cfg {
++		board-pins {
++			pinmux = <PINMUX(PIN_EMMC_CLK, 3)>;
++			power-source = <3300>;
++		};
++	};
++	nanokvm_wifi_enable_cfg: nanokvm-wifi-enable-cfg {
++		wifi-enable-pins {
++			pinmux = <PINMUX(PIN_EMMC_DAT2, 3)>;
++			power-source = <3300>;
++		};
++	};
++	nanokvm_atx_cfg: nanokvm-atx-cfg {
++		atx-pins {
++			pinmux = <PINMUX(PIN_EMMC_CMD, 3)>, <PINMUX(PIN_EMMC_DAT0, 3)>,
++				 <PINMUX(PIN_EMMC_DAT1, 3)>;
++			power-source = <3300>;
++		};
++	};
++	nanokvm_hdmi_reset_cfg: nanokvm-hdmi-reset-cfg {
++		hdmi-reset-pins {
++			pinmux = <PINMUX(PIN_ADC1, 3)>;
++			power-source = <1800>;
++		};
++	};
++	nanokvm_hdmi_i2c_cfg: nanokvm-hdmi-i2c-cfg {
++		hdmi-i2c-pins {
++			// Actual PCIe CAM_SCL/CAM_SDA, not legacy ADC3/ADC2 recovery pads.
++			pinmux = <PINMUX(PIN_PWR_WAKEUP0, 5)>, <PINMUX(PIN_PWR_BUTTON1, 5)>;
++			power-source = <1800>;
++		};
++	};
++	nanokvm_uart1_cfg: nanokvm-uart1-cfg {
++		uart1-pins {
++			pinmux = <PINMUX(PIN_JTAG_CPU_TMS, 6)>, <PINMUX(PIN_JTAG_CPU_TCK, 6)>;
++			power-source = <3300>;
++		};
++	};
++	nanokvm_uart2_cfg: nanokvm-uart2-cfg {
++		uart2-pins {
++			pinmux = <PINMUX(PIN_IIC0_SCL, 2)>, <PINMUX(PIN_IIC0_SDA, 2)>;
++			power-source = <3300>;
++		};
++	};
++};
+diff --git a/drivers/pinctrl/sophgo/pinctrl-cv18xx.c b/drivers/pinctrl/sophgo/pinctrl-cv18xx.c
+index 36e3c4f9e..022e8cd8d 100644
+--- a/drivers/pinctrl/sophgo/pinctrl-cv18xx.c
++++ b/drivers/pinctrl/sophgo/pinctrl-cv18xx.c
+@@ -263,6 +263,10 @@ static int cv1800_pconf_get(struct pinctrl_dev *pctldev,
+ 	value = readl(cv1800_pinctrl_get_component_addr(priv, &pin->conf));
+ 
+ 	switch (param) {
++	case PIN_CONFIG_BIAS_DISABLE:
++		enabled = !(value & (PIN_IO_PULLUP | PIN_IO_PULLDOWN));
++		arg = 0;
++		break;
+ 	case PIN_CONFIG_BIAS_PULL_DOWN:
+ 		enabled = FIELD_GET(PIN_IO_PULLDOWN, value);
+ 		arg = sophgo_pinctrl_typical_pull_down(pctrl, sp, priv->power_cfg);
+@@ -333,6 +337,10 @@ static int cv1800_pinconf_compute_config(struct sophgo_pinctrl *pctrl,
+ 		u32 arg = pinconf_to_config_argument(configs[i]);
+ 
+ 		switch (param) {
++		case PIN_CONFIG_BIAS_DISABLE:
++			v &= ~(PIN_IO_PULLUP | PIN_IO_PULLDOWN);
++			m |= PIN_IO_PULLUP | PIN_IO_PULLDOWN;
++			break;
+ 		case PIN_CONFIG_BIAS_PULL_DOWN:
+ 			FIELD_MODIFY(PIN_IO_PULLDOWN, &v, arg);
+ 			m |= PIN_IO_PULLDOWN;
+-- 
+2.43.0
+

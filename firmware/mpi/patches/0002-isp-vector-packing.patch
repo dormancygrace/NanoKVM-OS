@@ -1,0 +1,68 @@
+From 863fb607b7b4e57a4e470682bbb799bade8a7f81 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 18:12:04 +0300
+Subject: [PATCH] Fix odd-grid ISP vector read and port packing intrinsics to
+ GCC16
+
+---
+ modules/isp/cv181x/isp/src/isp_mlsc_ctrl.c | 32 ++++++++++++----------
+ 1 file changed, 17 insertions(+), 15 deletions(-)
+
+diff --git a/modules/isp/cv181x/isp/src/isp_mlsc_ctrl.c b/modules/isp/cv181x/isp/src/isp_mlsc_ctrl.c
+index 59050be..fd66a4e 100644
+--- a/modules/isp/cv181x/isp/src/isp_mlsc_ctrl.c
++++ b/modules/isp/cv181x/isp/src/isp_mlsc_ctrl.c
+@@ -475,7 +475,7 @@ static CVI_S32 isp_mlsc_ctrl_packing_tbl(CVI_U8 *lsctable, CVI_U16 *r, CVI_U16 *
+ 			for (i = 0; i < CVI_ISP_LSC_GRID_ROW; i += LSC_GAIN_UNIT) {
+ 				p[0] = (channel[k][j * CVI_ISP_LSC_GRID_ROW + i] & 0xFF0) >> 4;
+ 				p[1] = (channel[k][j * CVI_ISP_LSC_GRID_ROW + i] & 0xF) << 4;
+-				if (i + 1 < CVI_ISP_LSC_GRID_COL) {
++				if (i + 1 < CVI_ISP_LSC_GRID_ROW) {
+ 					p[1] |= (channel[k][j * CVI_ISP_LSC_GRID_ROW + i + 1] & 0xF00) >> 8;
+ 					p[2] = (channel[k][j * CVI_ISP_LSC_GRID_ROW + i + 1] & 0x0FF);
+ 				}
+@@ -496,25 +496,27 @@ static CVI_S32 isp_mlsc_ctrl_packing_tbl(CVI_U8 *lsctable, CVI_U16 *r, CVI_U16 *
+ 		for (k = 0; k < LSC_COLOR_CHANNEL_MAX; k++) {
+ 			p = &lsctable[col + k * LSC_GAIN_ROW_SIZE];
+ 			for (j = 0; j < CVI_ISP_LSC_GRID_COL; j += vl) {
+-				vl = vsetvl_e16m8(CVI_ISP_LSC_GRID_COL - j);
+-				vu16C0 = vlse16_v_u16m8(&channel[k][j * CVI_ISP_LSC_GRID_ROW + i], src_offset, vl);
+-				vu16C1 = vlse16_v_u16m8(&channel[k][j * CVI_ISP_LSC_GRID_ROW + i + 1], src_offset, vl);
++				vl = __riscv_vsetvl_e16m8(CVI_ISP_LSC_GRID_COL - j);
++				vu16C0 = __riscv_vlse16_v_u16m8(&channel[k][j * CVI_ISP_LSC_GRID_ROW + i], src_offset, vl);
++				/* The odd-width grid has no second sample in its last pair. */
++				if (i + 1 < CVI_ISP_LSC_GRID_ROW)
++					vu16C1 = __riscv_vlse16_v_u16m8(&channel[k][j * CVI_ISP_LSC_GRID_ROW + i + 1], src_offset, vl);
+ 
+ 				// p[0]
+-				vu8Val = vnsrl_wx_u8m4(vu16C0, 4, vl);
+-				vsse8_v_u8m4(p, tbl_offset, vu8Val, vl);
++				vu8Val = __riscv_vnsrl_wx_u8m4(vu16C0, 4, vl);
++				__riscv_vsse8_v_u8m4(p, tbl_offset, vu8Val, vl);
+ 				// p[1]
+-				vu16C0 = vsll_vx_u16m8(vand_vx_u16m8(vu16C0, 0x0F, vl), 4, vl);
+-				vu8Val = vncvt_x_x_w_u8m4(vu16C0, vl);
+-				if (i + 1 < CVI_ISP_LSC_GRID_COL) {
+-					vu16Val = vand_vx_u16m8(vu16C1, 0x0F00, vl);
+-					vu8Val = vor_vv_u8m4(vu8Val, vnsrl_wx_u8m4(vu16Val, (uint8_t)8, vl), vl);
++				vu16C0 = __riscv_vsll_vx_u16m8(__riscv_vand_vx_u16m8(vu16C0, 0x0F, vl), 4, vl);
++				vu8Val = __riscv_vncvt_x_x_w_u8m4(vu16C0, vl);
++				if (i + 1 < CVI_ISP_LSC_GRID_ROW) {
++					vu16Val = __riscv_vand_vx_u16m8(vu16C1, 0x0F00, vl);
++					vu8Val = __riscv_vor_vv_u8m4(vu8Val, __riscv_vnsrl_wx_u8m4(vu16Val, (uint8_t)8, vl), vl);
+ 				}
+-				vsse8_v_u8m4(p+1, tbl_offset, vu8Val, vl);
++				__riscv_vsse8_v_u8m4(p+1, tbl_offset, vu8Val, vl);
+ 				// p[2]
+-				if (i + 1 < CVI_ISP_LSC_GRID_COL) {
+-					vu8Val = vncvt_x_x_w_u8m4(vu16C1, vl);
+-					vsse8_v_u8m4(p+2, tbl_offset, vu8Val, vl);
++				if (i + 1 < CVI_ISP_LSC_GRID_ROW) {
++					vu8Val = __riscv_vncvt_x_x_w_u8m4(vu16C1, vl);
++					__riscv_vsse8_v_u8m4(p+2, tbl_offset, vu8Val, vl);
+ 				}
+ 				p += LSC_COLOR_CHANNEL_MAX * LSC_GAIN_ROW_SIZE * vl;
+ 			}
+-- 
+2.43.0
+

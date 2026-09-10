@@ -1,0 +1,62 @@
+#!/bin/sh
+# Manage the AIC8800 TX option for the next module load, including offline images.
+set -eu
+
+usage() {
+    echo 'Usage: nanokvm-wifi-tx-policy status|normal|driver-default|live-status|live-normal|live-restore' >&2
+    echo 'NANOKVM_SYSROOT may name an absolute offline image root.' >&2
+    exit 2
+}
+[ "$#" -eq 1 ] || usage
+case "$1" in
+    live-status|live-normal|live-restore)
+        [ "${NANOKVM_SYSROOT:-/}" = / ] || { echo 'Live scheduling cannot target an offline image' >&2; exit 1; }
+        exec "$(dirname "$0")/nanokvm-wifi-tx-live" "${1#live-}"
+        ;;
+    status|normal|driver-default) ;;
+    *) usage ;;
+esac
+root=${NANOKVM_SYSROOT:-/}
+case "$root" in /*) ;; *) usage ;; esac
+root=${root%/}
+[ -n "$root" ] || root=/
+[ -d "$root" ] || { echo "Image root does not exist: $root" >&2; exit 1; }
+directory=$root/etc/modprobe.d
+config=$directory/nanokvm-wifi-tx.conf
+owner='# Managed by nanokvm-wifi-tx-policy.'
+option='options aic8800_fdrv bustx_thread_prio=0'
+
+if [ "$1" = status ]; then
+    if [ ! -e "$config" ]; then
+        echo 'Managed startup profile: driver-default'
+    elif grep -qxF "$owner" "$config" && grep -qxF "$option" "$config"; then
+        echo 'Managed startup profile: normal (bustx_thread_prio=0)'
+    else
+        echo 'Managed startup profile: unrecognized file; inspect nanokvm-wifi-tx.conf'
+    fi
+    if [ "$root" = / ] && [ -r /sys/module/aic8800_fdrv/parameters/bustx_thread_prio ]; then
+        printf 'Loaded module parameter (not live thread scheduling): '
+        cat /sys/module/aic8800_fdrv/parameters/bustx_thread_prio
+    fi
+    exit 0
+fi
+
+if [ -e "$config" ] && ! grep -qxF "$owner" "$config"; then
+    echo "Refusing to replace a file not managed by this tool: $config" >&2
+    exit 1
+fi
+if [ "$1" = driver-default ]; then
+    rm -f "$config"
+    echo 'Removed managed startup option for the next module load.'
+    exit 0
+fi
+
+mkdir -p "$directory"
+temporary=$(mktemp "$directory/.nanokvm-wifi-tx.XXXXXX")
+trap 'rm -f "$temporary"' EXIT
+trap 'exit 1' HUP INT TERM
+printf '%s\n' "$owner" '# Applies on the next module load; does not reschedule running threads.' "$option" > "$temporary"
+chmod 644 "$temporary"
+mv -f "$temporary" "$config"
+trap - EXIT HUP INT TERM
+echo 'Next module load: normal TX scheduling (bustx_thread_prio=0).'

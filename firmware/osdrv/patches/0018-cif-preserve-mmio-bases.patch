@@ -1,0 +1,75 @@
+From eb7b9e2e9a4089920270e4f6247121fd223cf516 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 20:39:00 +0300
+Subject: [PATCH] cif: preserve mapped block bases across repeated table
+ getters
+
+---
+ interdrv/cif/chip/cv181x/drv/cif_drv.c | 31 +++++++++-----------------
+ 1 file changed, 10 insertions(+), 21 deletions(-)
+
+diff --git a/interdrv/cif/chip/cv181x/drv/cif_drv.c b/interdrv/cif/chip/cv181x/drv/cif_drv.c
+index 69d2503..5c9fc03 100644
+--- a/interdrv/cif/chip/cv181x/drv/cif_drv.c
++++ b/interdrv/cif/chip/cv181x/drv/cif_drv.c
+@@ -53,21 +53,10 @@ static uintptr_t wrap_reg_base[MAX_LINK_NUM];
+  ****************************************************************************/
+ void cif_set_base_addr(uint32_t link, void *mac_base, void *wrap_base)
+ {
+-	uintptr_t *addr = cif_get_mac_phys_reg_bases(link);
+-	int i = 0;
+-
+-	for (i = 0; i < CIF_MAC_BLK_ID_MAX; ++i) {
+-		addr[i] -= mac_reg_base[link];
+-		addr[i] += (uintptr_t)mac_base;
+-	}
++	/* Getters may run repeatedly while binding the misc device and setting
++	 * receiver attributes. Store the mapping independently of their tables.
++	 */
+ 	mac_reg_base[link] = (uintptr_t)mac_base;
+-
+-	addr = cif_get_wrap_phys_reg_bases(link);
+-
+-	for (i = 0; i < CIF_WRAP_BLK_ID_MAX; ++i) {
+-		addr[i] -= wrap_reg_base[link];
+-		addr[i] += (uintptr_t)wrap_base;
+-	}
+ 	wrap_reg_base[link] = (uintptr_t)wrap_base;
+ }
+ 
+@@ -1684,13 +1673,13 @@ uintptr_t *cif_get_mac_phys_reg_bases(uint32_t link)
+ 		[CIF_MAC_BLK_ID_MAX];
+ 
+ 	m_cif_mac_phys_base_list[link][CIF_MAC_BLK_ID_TOP] =
+-					(CIF_MAC_BLK_BA_TOP);
++					mac_reg_base[link] + (CIF_MAC_BLK_BA_TOP);
+ 	m_cif_mac_phys_base_list[link][CIF_MAC_BLK_ID_SLVDS] =
+-					(CIF_MAC_BLK_BA_SLVDS);
++					mac_reg_base[link] + (CIF_MAC_BLK_BA_SLVDS);
+ 	m_cif_mac_phys_base_list[link][CIF_MAC_BLK_ID_CSI] =
+-					(CIF_MAC_BLK_BA_CSI);
++					mac_reg_base[link] + (CIF_MAC_BLK_BA_CSI);
+ 	m_cif_mac_phys_base_list[link][CIF_MAC_BLK_ID_MAC] =
+-					(CIF_MAC_BLK_BA_MAC);
++					mac_reg_base[link] + (CIF_MAC_BLK_BA_MAC);
+ 
+ 	return m_cif_mac_phys_base_list[link];
+ }
+@@ -1701,11 +1690,11 @@ uintptr_t *cif_get_wrap_phys_reg_bases(uint32_t link)
+ 		[CIF_WRAP_BLK_ID_MAX];
+ 
+ 	m_cif_wrap_phys_base_list[link][CIF_WRAP_BLK_ID_TOP] =
+-					(CIF_WRAP_BLK_BA_TOP);
++					wrap_reg_base[link] + (CIF_WRAP_BLK_BA_TOP);
+ 	m_cif_wrap_phys_base_list[link][CIF_WRAP_BLK_ID_4L] =
+-					(CIF_WRAP_BLK_BA_4L);
++					wrap_reg_base[link] + (CIF_WRAP_BLK_BA_4L);
+ 	m_cif_wrap_phys_base_list[link][CIF_WRAP_BLK_ID_2L] =
+-					(CIF_WRAP_BLK_BA_2L);
++					wrap_reg_base[link] + (CIF_WRAP_BLK_BA_2L);
+ 
+ 	return m_cif_wrap_phys_base_list[link];
+ }
+-- 
+2.43.0
+

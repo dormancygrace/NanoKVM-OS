@@ -1,0 +1,307 @@
+From 4913b70edcf08d7d203ad3bc8d65d7fcfaa6adeb Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 17:09:00 +0300
+Subject: [PATCH] Port VPU and JPEG hardware modules to Linux 7.2
+
+---
+ interdrv/jpeg/cvi_jpeg.c     | 42 ++++++------------------------------
+ interdrv/jpeg/cvi_jpeg.h     | 12 +++++++++++
+ interdrv/jpeg/jmm.h          |  2 +-
+ interdrv/vcodec/cvi_vcodec.c | 22 ++++++++-----------
+ interdrv/vcodec/cvi_vcodec.h | 26 ++++++++++++++++++++++
+ 5 files changed, 54 insertions(+), 50 deletions(-)
+
+diff --git a/interdrv/jpeg/cvi_jpeg.c b/interdrv/jpeg/cvi_jpeg.c
+index 5d275ff..e4e98e1 100644
+--- a/interdrv/jpeg/cvi_jpeg.c
++++ b/interdrv/jpeg/cvi_jpeg.c
+@@ -18,6 +18,7 @@
+ #include <linux/uaccess.h>
+ #include <linux/cdev.h>
+ #include <linux/slab.h>
++#include <linux/vmalloc.h>
+ #include <linux/sched.h>
+ #include <linux/of.h>
+ #include <linux/of_address.h>
+@@ -25,7 +26,6 @@
+ #include <linux/of_device.h>
+ #include <linux/reset.h>
+ #include <linux/of_reserved_mem.h>
+-#include <linux/streamline_annotate.h>
+ #include <linux/version.h>
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+ #include <linux/sched/signal.h>
+@@ -58,7 +58,7 @@
+ #define MJPEG_PIC_STATUS_REG 0x4
+ #define MJPEG_INTR_MASK_REG  0x0C0
+ 
+-static DEFINE_SEMAPHORE(s_jpu_sem);
++static DEFINE_SEMAPHORE(s_jpu_sem, 1);
+ 
+ int jpu_mask = JPU_MASK_ERR;
+ module_param(jpu_mask, int, 0644);
+@@ -90,27 +90,6 @@ static void set_clock_enable(struct cvi_jpu_device *jdev, int enable)
+ 	}
+ }
+ 
+-irqreturn_t jpu_irq_handler(int irq, void *data)
+-{
+-	struct cvi_jpu_device *jdev = data;
+-	jpudrv_buffer_t *pReg = &jdev->jpu_register;
+-
+-	if (jpu_chn_idx == -1)
+-		return IRQ_HANDLED;
+-
+-	writel(0xFF, pReg->virt_addr + MJPEG_INTR_MASK_REG);//disable_irq_nosync(jdev->jpu_irq);
+-
+-	if (jdev->async_queue)
+-		kill_fasync(&jdev->async_queue, SIGIO,
+-			    POLL_IN); // notify the interrupt to userspace
+-
+-	jdev->interrupt_flag = 1;
+-	wake_up(&tWaitQueue[jpu_chn_idx]);
+-	wake_up(&jdev->interrupt_wait_q);
+-
+-	return IRQ_HANDLED;
+-}
+-
+ // JDI_IOCTL_WAIT_INTERRUPT
+ int jpu_wait_interrupt(int timeout)
+ {
+@@ -450,13 +429,7 @@ static int jpu_probe(struct platform_device *pdev)
+ 	} else {
+ 		JPU_DBG_ERR("jpu irq number irq = %d\n", jdev->jpu_irq);
+ 	}
+-#if 0
+-	err = request_irq(jdev->jpu_irq, jpu_irq_handler, 0, "JPU_CODEC_IRQ", jdev);
+-	if (err) {
+-		pr_err("[JPUDRV] :  fail to register interrupt handler\n");
+-		goto ERROR_PROBE_DEVICE;
+-	}
+-#endif
++/* This SDK uses JDI status polling; no JPEG IRQ is requested here. */
+ #ifndef USE_VMALLOC_FOR_INSTANCE_POOL_MEMORY
+ 	if (jpu_allocate_memory(jdev, pdev) < 0) {
+ 		pr_err("[JPUDRV] :  fail to remap jpu memory\n");
+@@ -509,7 +482,7 @@ static int cvi_jpu_register_cdev(struct cvi_jpu_device *jdev)
+ {
+ 	int err = 0;
+ 
+-	jdev->jpu_class = class_create(THIS_MODULE, JPU_CLASS_NAME);
++	jdev->jpu_class = class_create(JPU_CLASS_NAME);
+ 	if (IS_ERR(jdev->jpu_class)) {
+ 		pr_err("create class failed\n");
+ 		return PTR_ERR(jdev->jpu_class);
+@@ -578,7 +551,7 @@ static int jpu_allocate_memory(struct cvi_jpu_device *jdev, struct platform_devi
+ }
+ #endif // #ifndef USE_VMALLOC_FOR_INSTANCE_POOL_MEMORY
+ 
+-static int jpu_remove(struct platform_device *pdev)
++static void jpu_remove(struct platform_device *pdev)
+ {
+ 	struct cvi_jpu_device *jdev = platform_get_drvdata(pdev);
+ 
+@@ -601,9 +574,6 @@ static int jpu_remove(struct platform_device *pdev)
+ 
+ 	cvi_jpu_unregister_cdev(pdev);
+ 
+-	if (jdev->jpu_irq)
+-		free_irq(jdev->jpu_irq, jdev);
+-
+ 	if (jdev->jpu_register.virt_addr) {
+ 		iounmap((void *)jdev->jpu_register.virt_addr);
+ 		jdev->jpu_register.virt_addr = 0x00;
+@@ -614,7 +584,7 @@ static int jpu_remove(struct platform_device *pdev)
+ 		jdev->jpu_control_register.virt_addr = 0x00;
+ 	}
+ 
+-	return 0;
++	return;
+ }
+ 
+ static void cvi_jpu_unregister_cdev(struct platform_device *pdev)
+diff --git a/interdrv/jpeg/cvi_jpeg.h b/interdrv/jpeg/cvi_jpeg.h
+index 28a73f4..51bcfb6 100644
+--- a/interdrv/jpeg/cvi_jpeg.h
++++ b/interdrv/jpeg/cvi_jpeg.h
+@@ -121,6 +121,18 @@ struct jpu_intr_info_t {
+ 
+ extern bool __clk_is_enabled(struct clk *clk);
+ 
++/* In-kernel JPEG hardware API. */
++int jpu_wait_interrupt(int timeout);
++int jpu_set_clock_gate(int *pEnable);
++int jpu_get_instance_pool(jpudrv_buffer_t *p_jdb);
++int jpu_open_instance(unsigned long *pInstIdx);
++int jpu_close_instance(unsigned long *pInstIdx);
++int jpu_get_instance_num(int *pInstNum);
++int jpu_get_register_info(jpudrv_buffer_t *p_jdb_register);
++int jpu_reset(int InstIdx);
++unsigned long jpu_get_interrupt_flag(int chnIdx);
++void jpu_set_channel_num(int chnIdx);
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/interdrv/jpeg/jmm.h b/interdrv/jpeg/jmm.h
+index 5ac1375..559a6c0 100644
+--- a/interdrv/jpeg/jmm.h
++++ b/interdrv/jpeg/jmm.h
+@@ -140,7 +140,7 @@ struct jpu_mm_struct {
+ 			JPU_DBG_MEM("VMEM_ASSERT at %s:%d\n", __FILE__, __LINE__);	\
+ 	} while (0)
+ #define VMEM_HEIGHT(_tree) (_tree == NULL ? -1 : _tree->height)
+-#define MAX(_a, _b) (_a >= _b ? _a : _b)
++#include <linux/minmax.h>
+ 
+ struct avl_node_data_struct {
+ 	int key;
+diff --git a/interdrv/vcodec/cvi_vcodec.c b/interdrv/vcodec/cvi_vcodec.c
+index 3389bcc..8ea081e 100644
+--- a/interdrv/vcodec/cvi_vcodec.c
++++ b/interdrv/vcodec/cvi_vcodec.c
+@@ -28,7 +28,6 @@
+ #include <linux/uaccess.h>
+ #include <linux/version.h>
+ #include <linux/wait.h>
+-#include <linux/streamline_annotate.h>
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+ #include <linux/sched/signal.h>
+ #endif
+@@ -126,7 +125,7 @@ static spinlock_t s_vpu_lock = __SPIN_LOCK_UNLOCKED(s_vpu_lock);
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 36)
+ static DECLARE_MUTEX(s_vpu_sem);
+ #else
+-static DEFINE_SEMAPHORE(s_vpu_sem);
++static DEFINE_SEMAPHORE(s_vpu_sem, 1);
+ #endif
+ static struct list_head s_vbp_head = LIST_HEAD_INIT(s_vbp_head);
+ static struct list_head s_inst_list_head = LIST_HEAD_INIT(s_inst_list_head);
+@@ -546,7 +545,6 @@ int vpu_wait_interrupt(vpudrv_intr_info_t *p_intr_info)
+ 		return ret;
+ 	}
+ 
+-	ANNOTATE_CHANNEL_COLOR(1, ANNOTATE_GREEN, "vcodec end");
+ 	if (signal_pending(current)) {
+ 		ret = -ERESTARTSYS;
+ 		return ret;
+@@ -569,8 +567,6 @@ int vpu_wait_interrupt(vpudrv_intr_info_t *p_intr_info)
+ 	enable_irq(pvctx->s_vcodec_irq);
+ #endif
+ 
+-	ANNOTATE_CHANNEL_END(1);
+-	ANNOTATE_NAME_CHANNEL(1, 1, "vcodec end");
+ 
+ 	return ret;
+ }
+@@ -1402,7 +1398,7 @@ static int cvi_vcodec_register_cdev(struct cvi_vpu_device *vdev)
+ {
+ 	int err = 0;
+ 
+-	vdev->vpu_class = class_create(THIS_MODULE, VPU_CLASS_NAME);
++	vdev->vpu_class = class_create(VPU_CLASS_NAME);
+ 	if (IS_ERR(vdev->vpu_class)) {
+ 		VCODEC_DBG_ERR("create class failed\n");
+ 		return PTR_ERR(vdev->vpu_class);
+@@ -1568,7 +1564,7 @@ static int cvi_vcodec_allocate_memory(struct platform_device *pdev)
+ }
+ #endif
+ 
+-static int vpu_remove(struct platform_device *pdev)
++static void vpu_remove(struct platform_device *pdev)
+ {
+ 	struct cvi_vpu_device *vdev = platform_get_drvdata(pdev);
+ 
+@@ -1608,14 +1604,14 @@ static int vpu_remove(struct platform_device *pdev)
+ 
+ 	cviReleaseRegResource(vdev);
+ 
+-	return 0;
+ }
+ 
+ struct mutex vcodec_mutex;
+ 
+ void vcodec_lock(void)
+ {
+-	mutex_lock_interruptible(&vcodec_mutex);
++	/* The void API promises the caller owns this mutex on return. */
++	mutex_lock(&vcodec_mutex);
+ }
+ EXPORT_SYMBOL(vcodec_lock);
+ 
+@@ -1652,7 +1648,7 @@ int ctrl_reg40;
+ #define W5_CMD_SLEEP_VPU (0x0004)
+ #define W5_CMD_WAKEUP_VPU (0x0002)
+ 
+-void dump_sbm_reg(void)
++static void dump_sbm_reg(void)
+ {
+       int i = 0;
+ 
+@@ -1663,7 +1659,7 @@ void dump_sbm_reg(void)
+       }
+ }
+ 
+-void write_sbm_reg(void)
++static void write_sbm_reg(void)
+ {
+       int i = 0;
+ 
+@@ -1674,7 +1670,7 @@ void write_sbm_reg(void)
+       }
+ }
+ 
+-void dump_ctrl_reg(void)
++static void dump_ctrl_reg(void)
+ {
+ 	ctrl_reg10 = ReadCtrlRegister(0x10);
+ #if defined(__CV180X__)
+@@ -1683,7 +1679,7 @@ void dump_ctrl_reg(void)
+ 	ctrl_reg40 = ReadCtrlRegister(0x40);
+ }
+ 
+-void write_ctrl_reg(void)
++static void write_ctrl_reg(void)
+ {
+ 	WritCtrlRegister(0x10, ctrl_reg10);
+ #if defined(__CV180X__)
+diff --git a/interdrv/vcodec/cvi_vcodec.h b/interdrv/vcodec/cvi_vcodec.h
+index 212b07d..008d1c8 100644
+--- a/interdrv/vcodec/cvi_vcodec.h
++++ b/interdrv/vcodec/cvi_vcodec.h
+@@ -217,6 +217,32 @@ extern int vcodec_mask;
+ 
+ extern bool __clk_is_enabled(struct clk *clk);
+ 
++/* In-kernel codec hardware API. */
++struct clk_ctrl_info;
++void cvi_VENC_SBM_IrqEnable(void);
++void cvi_VENC_SBM_IrqDisable(void);
++void wake_sbm_waitinng(void);
++int sbm_wait_interrupt(int timeout);
++int vpu_wait_interrupt(vpudrv_intr_info_t *p_intr_info);
++int vpu_set_clock_gate_ext(struct clk_ctrl_info *p_info);
++int vpu_get_instance_pool(vpudrv_buffer_t *p_vdb);
++void vpu_set_common_memory(unsigned long core, vpudrv_buffer_t *p_vdb);
++int vpu_open_instance(vpudrv_inst_info_t *p_inst_info);
++int vpu_close_instance(vpudrv_inst_info_t *p_inst_info);
++int vpu_reset(void);
++int vpu_get_register_info(vpudrv_buffer_t *p_vdb_register);
++int vpu_get_chip_version(unsigned int *p_chip_version);
++int vpu_get_chip_cabability(unsigned int *p_chip_capability);
++int vpu_get_clock_frequency(unsigned long *p_clk_rate);
++int vpu_get_single_core_config(int *pSingleCoreConfig);
++int vpu_op_write(vpu_bit_firmware_info_t *p_bit_firmware_info, size_t len);
++void vpu_set_channel_core_mapping(int chnIdx, int coreIdx);
++unsigned long vpu_get_interrupt_reason(int chnIdx);
++void vcodec_lock(void);
++void vcodec_unlock(void);
++int vcodec_trylock(void);
++int vcodec_is_locked(void);
++
+ #ifdef __cplusplus
+ }
+ #endif
+-- 
+2.43.0
+

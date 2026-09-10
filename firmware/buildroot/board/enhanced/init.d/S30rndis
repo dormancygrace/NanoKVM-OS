@@ -1,0 +1,116 @@
+#!/bin/sh
+# USB network service for the active RNDIS or NCM gadget composition.
+# Keep the legacy name because existing callers use /etc/init.d/S30rndis.
+set -eu
+
+: "${NANOKVM_USB_NET_BOOT:=/boot}"
+: "${NANOKVM_USB_NET_RUN:=/run/nanokvm-usbnet}"
+: "${NANOKVM_USB_NET_CONFIG:=/sys/kernel/config/usb_gadget/g0/configs/c.1}"
+: "${NANOKVM_USB_NET_UID:=/sys/class/cvi-base/base_uid}"
+: "${NANOKVM_USB_NET_PID:=/run/udhcpd.usb0.pid}"
+
+conf=$NANOKVM_USB_NET_RUN/udhcpd.conf
+
+owns_daemon() {
+    [ -r "$NANOKVM_USB_NET_PID" ] || return 1
+    pid=$(cat "$NANOKVM_USB_NET_PID" 2>/dev/null) || return 1
+    case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+    [ "$pid" -gt 1 ] || return 1
+    [ -r "/proc/$pid/comm" ] || return 1
+    [ "$(cat "/proc/$pid/comm")" = udhcpd ] || return 1
+    # Accept the old path during an upgrade, but never another interface's daemon.
+    tr '\000' '\n' < "/proc/$pid/cmdline" | grep -Fqx -e "$conf" -e /etc/udhcpd.usb0.conf
+}
+
+stop() {
+    if owns_daemon; then
+        kill "$pid" || return 1
+        attempts=0
+        while owns_daemon; do
+            attempts=$((attempts + 1))
+            [ "$attempts" -lt 30 ] || { echo 'USB DHCP server did not stop' >&2; return 1; }
+            sleep 0.1
+        done
+    fi
+    rm -f "$NANOKVM_USB_NET_PID"
+    if [ -r "$NANOKVM_USB_NET_RUN/address" ]; then
+        ip address del "$(cat "$NANOKVM_USB_NET_RUN/address")" dev usb0 2>/dev/null || true
+        rm -f "$NANOKVM_USB_NET_RUN/address"
+    fi
+}
+
+prefix() {
+    if [ -e "$NANOKVM_USB_NET_BOOT/rndis.ipv4_prefix" ]; then
+        value=$(sed 's/\r$//' "$NANOKVM_USB_NET_BOOT/rndis.ipv4_prefix")
+        # A prefix is data, not shell syntax. Require three decimal IPv4 octets.
+        printf '%s\n' "$value" | awk -F. '
+            NR != 1 || NF != 3 { exit 1 }
+            { for (i=1; i<=3; i++) if ($i !~ /^[0-9]+$/ || length($i)>3 || $i>255 || (length($i)>1 && substr($i,1,1)=="0")) exit 1 }
+            $1 == 0 || $1 == 127 || $1 >= 224 { exit 1 }
+        ' || { echo 'Invalid USB IPv4 prefix' >&2; return 1; }
+        printf '%s\n' "$value"
+    else
+        uid=$(sha512sum "$NANOKVM_USB_NET_UID") || return 1
+        uid=${uid%% *}
+        id2=$(printf '%d' "0x$(printf '%s' "$uid" | cut -c1-2)")
+        id3=$(printf '%d' "0x$(printf '%s' "$uid" | cut -c3-4)")
+        [ "$id2" -ne "$id3" ] || id2=$((id2 + 1))
+        [ "$id2" -lt 255 ] || id2=253
+        [ "$id3" -lt 255 ] || id3=254
+        printf '10.%s.%s\n' "$id2" "$id3"
+    fi
+}
+
+start() {
+    # Boot flags alone can remain set in HID-only mode. Check actual links.
+    if [ ! -L "$NANOKVM_USB_NET_CONFIG/rndis.usb0" ] && [ ! -L "$NANOKVM_USB_NET_CONFIG/ncm.usb0" ]; then
+        stop
+        return
+    fi
+    ip link set dev usb0 up || return 1
+    if [ -e "$NANOKVM_USB_NET_BOOT/rndis.nodhcpd" ]; then
+        stop
+        return
+    fi
+    ipv4_prefix=$(prefix) || return 1
+    umask 077
+    cat > "$conf.next" <<EOF
+start $ipv4_prefix.100
+end $ipv4_prefix.200
+interface usb0
+pidfile $NANOKVM_USB_NET_PID
+lease_file $NANOKVM_USB_NET_RUN/udhcpd.leases
+option subnet 255.255.255.0
+option lease 864000
+EOF
+    if ! cmp -s "$conf.next" "$conf"; then
+        stop || return 1
+    fi
+    mv "$conf.next" "$conf"
+    # A repeated start also restores the address after a gadget rebind.
+    ip address replace "$ipv4_prefix.1/24" dev usb0 || return 1
+    printf '%s.1/24\n' "$ipv4_prefix" > "$NANOKVM_USB_NET_RUN/address"
+    owns_daemon && return 0
+    # Do not let the daemon inherit the init-script serialization lock.
+    # Own the foreground process PID, including on older BusyBox builds that
+    # ignore the pidfile option. Do not retain the caller's pipes or lock.
+    udhcpd -f -S "$conf" </dev/null >/dev/null 2>&1 9>&- &
+    printf '%s\n' "$!" > "$NANOKVM_USB_NET_PID"
+    attempts=0
+    until owns_daemon; do
+        attempts=$((attempts + 1))
+        [ "$attempts" -lt 30 ] || { echo 'USB DHCP server did not start' >&2; return 1; }
+        sleep 0.1
+    done
+}
+
+mkdir -p "$NANOKVM_USB_NET_RUN"
+chmod 700 "$NANOKVM_USB_NET_RUN"
+exec 9> "$NANOKVM_USB_NET_RUN/lock"
+flock -x 9
+case "${1:-}" in
+    start) start ;;
+    stop) stop ;;
+    restart|reload) stop; start ;;
+    *) echo "Usage: $0 {start|stop|restart|reload}" >&2; exit 1 ;;
+esac

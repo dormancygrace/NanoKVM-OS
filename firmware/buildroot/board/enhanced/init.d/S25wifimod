@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+[ "${1:-}" = start ] || exit 0
+SDIO_DEVICES_DIR=${NANOKVM_SDIO_DEVICES_DIR:-/sys/bus/sdio/devices}
+MODPROBE=${NANOKVM_MODPROBE:-modprobe}
+loaded_aic=0
+loaded_rtl=0
+for alias in "$SDIO_DEVICES_DIR"/*/modalias; do
+    [ -r "$alias" ] || continue
+    case "$(cat "$alias")" in
+        sdio:c*v5449d0145*)
+            if [ "$loaded_aic" = 0 ]; then
+                "$MODPROBE" aic8800_fdrv
+                loaded_aic=1
+            fi
+            ;;
+        sdio:c07v024CdB733*|sdio:c07v024CdB73A*)
+            if [ "$loaded_rtl" = 0 ]; then
+                "$MODPROBE" 8733bs
+                loaded_rtl=1
+            fi
+            ;;
+    esac
+done
+if [ "$loaded_aic" = 0 ] && [ "$loaded_rtl" = 0 ]; then
+    echo 'NanoKVM OS: supported SDIO Wi-Fi device not present' >&2
+fi

@@ -1,0 +1,31 @@
+diff --git a/cryptlib.c b/cryptlib.c
+index 0e59d4c..d4bb97f 100644
+--- a/cryptlib.c
++++ b/cryptlib.c
+@@ -236,7 +236,7 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
+ 		}
+
+ 		cryptodev_blkcipher_request_set_callback(out->async.request,
+-					CRYPTO_TFM_REQ_MAY_BACKLOG,
++					CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
+ 					cryptodev_complete, &out->async.result);
+ 	} else {
+ 		out->async.arequest = aead_request_alloc(out->async.as, GFP_KERNEL);
+@@ -247,7 +247,7 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
+ 		}
+
+ 		aead_request_set_callback(out->async.arequest,
+-					CRYPTO_TFM_REQ_MAY_BACKLOG,
++					CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
+ 					cryptodev_complete, &out->async.result);
+ 	}
+
+@@ -397,7 +397,7 @@ int cryptodev_hash_init(struct hash_data *hdata, const char *alg_name,
+ 	}
+
+ 	ahash_request_set_callback(hdata->async.request,
+-			CRYPTO_TFM_REQ_MAY_BACKLOG,
++			CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
+ 			cryptodev_complete, &hdata->async.result);
+ 	hdata->init = 1;
+ 	return 0;

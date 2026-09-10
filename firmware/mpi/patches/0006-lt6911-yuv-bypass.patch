@@ -1,0 +1,24 @@
+From f63beddbffc2e5a8329ce932cdaaba0e7a0e2f8f Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 21:06:27 +0300
+Subject: [PATCH] sample: classify LT6911 input as YUV bypass
+
+---
+ sample/common/sample_common_sensor.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/sample/common/sample_common_sensor.c b/sample/common/sample_common_sensor.c
+index ae08e36..aba98c4 100644
+--- a/sample/common/sample_common_sensor.c
++++ b/sample/common/sample_common_sensor.c
+@@ -870,6 +870,7 @@ CVI_S32 SAMPLE_COMM_SNS_GetYuvBypassSts(SAMPLE_SNS_TYPE_E enSnsType)
+ 	CVI_S32 s32Ret = 0;
+ 	//Set YUV sensor need bypass isp
+ 	switch (enSnsType) {
++	case LONTIUM_LT6911_2M_60FPS_8BIT:
+ 	case CHIPUP_XS9922B_MODE_720P_1CH_8BIT:
+ 	case CHIPUP_XS9922B_MODE_720P_2CH_8BIT:
+ 	case CHIPUP_XS9922B_MODE_720P_3CH_8BIT:
+-- 
+2.43.0
+

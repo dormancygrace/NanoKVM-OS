@@ -1,0 +1,75 @@
+From db2b99f0227cbd3985942763677e2723cde3107b Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 23:14:34 +0300
+Subject: [PATCH] vpss: initialize workers before enabling scaler interrupts
+
+---
+ interdrv/vpss/chip/cv181x/vpss_core.c | 31 +++++++++++++++++++++------
+ 1 file changed, 24 insertions(+), 7 deletions(-)
+
+diff --git a/interdrv/vpss/chip/cv181x/vpss_core.c b/interdrv/vpss/chip/cv181x/vpss_core.c
+index d0a05bb..5e43923 100644
+--- a/interdrv/vpss/chip/cv181x/vpss_core.c
++++ b/interdrv/vpss/chip/cv181x/vpss_core.c
+@@ -1595,6 +1595,8 @@ static int cvi_vpss_probe(struct platform_device *pdev)
+ {
+ 	int rc = 0;
+ 	struct cvi_vip_dev *dev;
++	union sclr_intr intr_mask, pending;
++	union sclr_intr disabled = { .raw = 0 };
+ 
+ 	/* allocate main structure */
+ 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
+@@ -1648,6 +1650,15 @@ static int cvi_vpss_probe(struct platform_device *pdev)
+ 	//	clk_set_rate(dev->clk_sys[1], dev->clk_sys1_freq);
+ 
+ 	sclr_ctrl_init(false);
++	/* U-Boot may leave scaler/display completion events pending. Keep
++	 * delivery masked until the ISR's worker state and callbacks exist.
++	 */
++	intr_mask = sclr_get_intr_mask();
++	sclr_set_intr_mask(disabled);
++	pending = sclr_intr_status();
++	sclr_intr_clr(pending);
++	dev_info(&pdev->dev, "scaler handoff: pending IRQ status %#x\n", pending.raw);
++
+ #if 0
+ 	if (smooth) {
+ 		sclr_disp_cfg_setup_from_reg();
+@@ -1669,13 +1680,6 @@ static int cvi_vpss_probe(struct platform_device *pdev)
+ 
+ 	CVI_TRACE_VPSS(CVI_DBG_INFO, "hw init done\n");
+ 
+-	if (devm_request_irq(&pdev->dev, dev->irq_num_scl, scl_isr, IRQF_SHARED,
+-		 "CVI_VIP_SCL", dev)) {
+-		dev_err(&pdev->dev, "Unable to request scl IRQ(%d)\n",
+-				dev->irq_num_scl);
+-		return -EINVAL;
+-	}
+-
+ #if defined(CONFIG_SCLR_TEST)
+ 	/* scaler self test */
+ 	sclr_test_proc_init(dev);
+@@ -1689,6 +1693,19 @@ static int cvi_vpss_probe(struct platform_device *pdev)
+ 
+ 	vpss_init(dev);
+ 
++	rc = devm_request_irq(&pdev->dev, dev->irq_num_scl, scl_isr,
++			      IRQF_SHARED, "CVI_VIP_SCL", dev);
++	if (rc) {
++		dev_err(&pdev->dev, "Unable to request scl IRQ(%d): %d\n",
++			dev->irq_num_scl, rc);
++		vpss_deinit();
++		vpss_core_rm_cb();
++		goto err_sc_reg;
++	}
++	/* Drop firmware events instead of delivering them as Linux jobs. */
++	sclr_intr_clr(sclr_intr_status());
++	sclr_set_intr_mask(intr_mask);
++
+ 	CVI_TRACE_VPSS(CVI_DBG_INFO, "done with rc(%d).\n", rc);
+ 	return rc;
+ 
+-- 
+2.43.0
+

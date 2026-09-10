@@ -1,0 +1,408 @@
+From 13780ecf9a7cf28c5b395af1bb92eff656bb469f Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sat, 5 Sep 2026 16:01:01 +0300
+Subject: [PATCH] Forward-port Sophgo sys and base modules to Linux 7.2 APIs
+
+---
+ interdrv/base/base.c                   | 40 ++++++++++++--------------
+ interdrv/base/base.h                   |  2 ++
+ interdrv/base/chip/cv181x/vip_common.h |  3 ++
+ interdrv/base/cvi_sys_proc.c           |  3 +-
+ interdrv/base/cvi_vb_proc.c            |  3 +-
+ interdrv/base/vb.c                     |  6 ++--
+ interdrv/include/common/kapi/vb.h      |  2 ++
+ interdrv/sys/common/sys.c              | 39 +++++++++++++++----------
+ interdrv/sys/common/uapi/sys.h         |  2 ++
+ 9 files changed, 58 insertions(+), 42 deletions(-)
+
+diff --git a/interdrv/base/base.c b/interdrv/base/base.c
+index bb0ed08..58a8e84 100644
+--- a/interdrv/base/base.c
++++ b/interdrv/base/base.c
+@@ -21,7 +21,6 @@
+ #endif
+ #include <linux/security.h>
+ #include <linux/cred.h>
+-#include "tee_cv_private.h"
+ #include "base.h"
+ #include "vb.h"
+ #include "cvi_vb_proc.h"
+@@ -74,7 +73,6 @@ struct base_state {
+ 	struct pid *state_pid;
+ 	const struct cred *cred;
+ 	void __user *state_context;
+-	u32 secid;
+ };
+ 
+ static void __iomem *top_base;
+@@ -96,8 +94,8 @@ CVI_U32 base_log_lv = CVI_BASE_DBG_ERR;
+ module_param(base_log_lv, int, 0644);
+ 
+ 
+-static ssize_t base_efuse_shadow_show(struct class *class,
+-				      struct class_attribute *attr, char *buf)
++static ssize_t base_efuse_shadow_show(const struct class *class,
++				      const struct class_attribute *attr, char *buf)
+ {
+ 	int ret = 0;
+ 	UNUSED(class);
+@@ -108,8 +106,8 @@ static ssize_t base_efuse_shadow_show(struct class *class,
+ 	return ret;
+ }
+ 
+-static ssize_t base_efuse_shadow_store(struct class *class,
+-				       struct class_attribute *attr,
++static ssize_t base_efuse_shadow_store(const struct class *class,
++				       const struct class_attribute *attr,
+ 				       const char *buf, size_t count)
+ {
+ 	unsigned long addr;
+@@ -130,8 +128,8 @@ static ssize_t base_efuse_shadow_store(struct class *class,
+ 	return count;
+ }
+ 
+-static ssize_t base_efuse_prog_show(struct class *class,
+-				    struct class_attribute *attr, char *buf)
++static ssize_t base_efuse_prog_show(const struct class *class,
++				    const struct class_attribute *attr, char *buf)
+ {
+ 	UNUSED(class);
+ 	UNUSED(attr);
+@@ -139,8 +137,8 @@ static ssize_t base_efuse_prog_show(struct class *class,
+ 	return scnprintf(buf, PAGE_SIZE, "%s\n", "PROG_SHOW");
+ }
+ 
+-static ssize_t base_efuse_prog_store(struct class *class,
+-				     struct class_attribute *attr,
++static ssize_t base_efuse_prog_store(const struct class *class,
++				     const struct class_attribute *attr,
+ 				     const char *buf, size_t count)
+ {
+ 	int err;
+@@ -159,8 +157,8 @@ static ssize_t base_efuse_prog_store(struct class *class,
+ 	return count;
+ }
+ 
+-static ssize_t base_uid_show(struct class *class,
+-			     struct class_attribute *attr, char *buf)
++static ssize_t base_uid_show(const struct class *class,
++			     const struct class_attribute *attr, char *buf)
+ {
+ 	CVI_U32 uid_3 = 0xDEAFBEEF;
+ 	CVI_U32 uid_4 = 0xDEAFBEEF;
+@@ -173,8 +171,8 @@ static ssize_t base_uid_show(struct class *class,
+ 	return scnprintf(buf, PAGE_SIZE, "UID: %08x_%08x\n", uid_3, uid_4);
+ }
+ 
+-static ssize_t base_rosc_show(struct class *class,
+-			      struct class_attribute *attr, char *buf)
++static ssize_t base_rosc_show(const struct class *class,
++			      const struct class_attribute *attr, char *buf)
+ {
+ 	int count = 0;
+ 	void __iomem *rosc_base;
+@@ -201,8 +199,8 @@ static ssize_t base_rosc_show(struct class *class,
+ 	return count;
+ }
+ 
+-static ssize_t base_rosc_store(struct class *class,
+-			       struct class_attribute *attr,
++static ssize_t base_rosc_store(const struct class *class,
++			       const struct class_attribute *attr,
+ 			       const char *buf, size_t count)
+ {
+ 	CVI_U32 chip_id;
+@@ -422,7 +420,6 @@ static int base_open(struct inode *inode, struct file *filp)
+ 	INIT_LIST_HEAD(&ps->list);
+ 	ps->state_pid = get_pid(task_pid(current));
+ 	ps->cred = get_current_cred();
+-	security_task_getsecid(current, &ps->secid);
+ 	/* memory barrier in smp case. */
+ 	smp_wmb();
+ 	/* replace the private data with base state */
+@@ -695,7 +692,7 @@ static int set_power_hdler(struct base_device *ndev, char const *input)
+ 
+ static ssize_t power_proc_write(struct file *file, const char __user *user_buf, size_t count, loff_t *ppos)
+ {
+-	struct base_device *ndev = PDE_DATA(file_inode(file));
++	struct base_device *ndev = pde_data(file_inode(file));
+ 	UNUSED(ppos);
+ 
+ 	set_power_hdler(ndev, user_buf);
+@@ -705,7 +702,7 @@ static ssize_t power_proc_write(struct file *file, const char __user *user_buf,
+ 
+ static int proc_power_open(struct inode *inode, struct file *file)
+ {
+-	struct base_device *ndev = PDE_DATA(inode);
++	struct base_device *ndev = pde_data(inode);
+ 
+ 	return single_open(file, proc_power_show, ndev);
+ }
+@@ -886,7 +883,7 @@ static int base_probe(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-static int base_remove(struct platform_device *pdev)
++static void base_remove(struct platform_device *pdev)
+ {
+ 	struct base_device *ndev = platform_get_drvdata(pdev);
+ 
+@@ -904,7 +901,6 @@ static int base_remove(struct platform_device *pdev)
+ 	platform_set_drvdata(pdev, NULL);
+ 	CVI_TRACE_BASE(CVI_BASE_DBG_DEBUG, "%s DONE\n", __func__);
+ 
+-	return 0;
+ }
+ 
+ static const struct of_device_id cvi_base_dt_match[] = { { .compatible = "cvitek,base" }, {} };
+@@ -935,7 +931,7 @@ static int __init base_init(void)
+ 
+ 	top_base = ioremap(TOP_BASE, TOP_REG_BANK_SIZE);
+ 
+-	pbase_class = class_create(THIS_MODULE, BASE_CLASS_NAME);
++	pbase_class = class_create(BASE_CLASS_NAME);
+ 	if (IS_ERR(pbase_class)) {
+ 		CVI_TRACE_BASE(CVI_BASE_DBG_ERR, "create class failed\n");
+ 		rc = PTR_ERR(pbase_class);
+diff --git a/interdrv/base/base.h b/interdrv/base/base.h
+index d5a838f..ebcb75b 100644
+--- a/interdrv/base/base.h
++++ b/interdrv/base/base.h
+@@ -5,6 +5,8 @@
+ #include "base_debug.h"
+ 
+ unsigned int cvi_base_read_chip_id(void);
++unsigned int cvi_base_read_chip_version(void);
++unsigned int cvi_base_read_chip_pwr_on_reason(void);
+ void vip_set_base_addr(void *base);
+ 
+ #endif
+diff --git a/interdrv/base/chip/cv181x/vip_common.h b/interdrv/base/chip/cv181x/vip_common.h
+index 42a3bea..a7d684a 100644
+--- a/interdrv/base/chip/cv181x/vip_common.h
++++ b/interdrv/base/chip/cv181x/vip_common.h
+@@ -163,4 +163,7 @@ int vip_sys_cmm_cb_ssp(unsigned int cmd, void *arg);
+ }
+ #endif
+ 
++union vip_sys_clk_ctrl0 vip_get_clk_ctrl0(void);
++void vip_set_clk_ctrl0(union vip_sys_clk_ctrl0 cfg);
++
+ #endif //__COMMON_VIP_H__
+diff --git a/interdrv/base/cvi_sys_proc.c b/interdrv/base/cvi_sys_proc.c
+index d1479df..ddac296 100644
+--- a/interdrv/base/cvi_sys_proc.c
++++ b/interdrv/base/cvi_sys_proc.c
+@@ -1,3 +1,4 @@
++#include <linux/utsname.h>
+ #include "cvi_sys_proc.h"
+ 
+ #define SYS_PROC_NAME			"sys"
+@@ -61,7 +62,7 @@ static void _show_sys_status(struct seq_file *m)
+ 	mmfVersion = (MMF_VERSION_S *)(shared_mem + BASE_VERSION_INFO_OFFSET);
+ 	bindNodes = bind_nodes;
+ 
+-	seq_printf(m, "\nModule: [SYS], Version[%s], Build Time[%s]\n", mmfVersion->version, UTS_VERSION);
++	seq_printf(m, "\nModule: [SYS], Version[%s], Build Time[%s]\n", mmfVersion->version, init_utsname()->version);
+ 	seq_puts(m, "-----BIND RELATION TABLE-----------------------------------------------------------------------------------------------------------\n");
+ 	seq_printf(m, "%-10s%-10s%-10s%-10s%-10s%-10s%-10s%-10s%-10s\n",
+ 		"1stMod", "1stDev", "1stChn", "2ndMod", "2ndDev", "2ndChn", "3rdMod", "3rdDev", "3rdChn");
+diff --git a/interdrv/base/cvi_vb_proc.c b/interdrv/base/cvi_vb_proc.c
+index a1964ed..4fa1798 100644
+--- a/interdrv/base/cvi_vb_proc.c
++++ b/interdrv/base/cvi_vb_proc.c
+@@ -1,3 +1,4 @@
++#include <linux/utsname.h>
+ #include "cvi_vb_proc.h"
+ #include "sys.h"
+ 
+@@ -34,7 +35,7 @@ static void _show_vb_status(struct seq_file *m)
+ 
+ 	show_cnt = sizeof(show_mod_ids) / sizeof(show_mod_ids[0]);
+ 
+-	seq_printf(m, "\nModule: [VB], Build Time[%s]\n", UTS_VERSION);
++	seq_printf(m, "\nModule: [VB], Build Time[%s]\n", init_utsname()->version);
+ 	seq_puts(m, "-----VB PUB CONFIG-----------------------------------------------------------------------------------------------------------------\n");
+ 	seq_printf(m, "%10s(%3d), %10s(%3d)\n", "MaxPoolCnt", vb_max_pools, "MaxBlkCnt", vb_pool_max_blk);
+ 	ret = vb_get_pool_info(&pstVbPool);
+diff --git a/interdrv/base/vb.c b/interdrv/base/vb.c
+index 7509b56..35f04e5 100644
+--- a/interdrv/base/vb.c
++++ b/interdrv/base/vb.c
+@@ -239,10 +239,10 @@ static CVI_S32 _vb_create_pool(struct cvi_vb_pool_cfg *config, bool isComm)
+ 	vbPool[poolId].u32FreeBlkCnt = config->blk_cnt;
+ 	vbPool[poolId].u32MinFreeBlkCnt = vbPool[poolId].u32FreeBlkCnt;
+ 	if (strlen(config->pool_name) != 0)
+-		strncpy(vbPool[poolId].acPoolName, config->pool_name,
++		strscpy_pad(vbPool[poolId].acPoolName, config->pool_name,
+ 			sizeof(vbPool[poolId].acPoolName));
+ 	else
+-		strncpy(vbPool[poolId].acPoolName, "vbpool", sizeof(vbPool[poolId].acPoolName));
++		strscpy_pad(vbPool[poolId].acPoolName, "vbpool", sizeof(vbPool[poolId].acPoolName));
+ 	vbPool[poolId].acPoolName[VB_POOL_NAME_LEN - 1] = '\0';
+ 
+ 	FIFO_INIT(&vbPool[poolId].freeList, vbPool[poolId].blk_cnt);
+@@ -284,7 +284,7 @@ static CVI_S32 _vb_create_ex_pool(struct cvi_vb_pool_ex_cfg *config)
+ 	vbPool[poolId].bIsExternal = CVI_TRUE;
+ 	vbPool[poolId].u32FreeBlkCnt = config->blk_cnt;
+ 	vbPool[poolId].u32MinFreeBlkCnt = vbPool[poolId].u32FreeBlkCnt;
+-	strncpy(vbPool[poolId].acPoolName, "vbpoolex", sizeof(vbPool[poolId].acPoolName));
++	strscpy_pad(vbPool[poolId].acPoolName, "vbpoolex", sizeof(vbPool[poolId].acPoolName));
+ 	vbPool[poolId].acPoolName[VB_POOL_NAME_LEN - 1] = '\0';
+ 
+ 	FIFO_INIT(&vbPool[poolId].freeList, vbPool[poolId].blk_cnt);
+diff --git a/interdrv/include/common/kapi/vb.h b/interdrv/include/common/kapi/vb.h
+index ddd3a79..54335a6 100644
+--- a/interdrv/include/common/kapi/vb.h
++++ b/interdrv/include/common/kapi/vb.h
+@@ -59,4 +59,6 @@ extern uint32_t vb_pool_max_blk;
+ #endif
+ #endif /* __cplusplus */
+ 
++CVI_S32 vb_create_ex_pool(struct cvi_vb_pool_ex_cfg *config);
++
+ #endif /* __VB_H__ */
+diff --git a/interdrv/sys/common/sys.c b/interdrv/sys/common/sys.c
+index 0850172..4ae008c 100644
+--- a/interdrv/sys/common/sys.c
++++ b/interdrv/sys/common/sys.c
+@@ -61,10 +61,14 @@ static CVI_S32 _sys_ion_alloc_nofd(CVI_U64 *addr_p, void **addr_v, CVI_U32 u32Le
+ 	}
+ 
+ 	owner_name = vmalloc(MAX_ION_BUFFER_NAME);
++	if (!owner_name) {
++		cvi_ion_free_nofd(ionbuf);
++		return -ENOMEM;
++	}
+ 	if (name)
+-		strncpy(owner_name, name, MAX_ION_BUFFER_NAME);
++		strscpy_pad(owner_name, name, MAX_ION_BUFFER_NAME);
+ 	else
+-		strncpy(owner_name, "anonymous", MAX_ION_BUFFER_NAME);
++		strscpy_pad(owner_name, "anonymous", MAX_ION_BUFFER_NAME);
+ 
+ 	ionbuf->name = owner_name;
+ 
+@@ -130,7 +134,7 @@ static CVI_S32 _sys_ion_alloc(CVI_S32 *p_fd, CVI_U64 *addr_p, void **addr_v, CVI
+ 	}
+ 
+ 	dmabuf = dma_buf_get(dmabuf_fd);
+-	if (!dmabuf) {
++	if (IS_ERR(dmabuf)) {
+ 		pr_err("allocated get dmabuf failed\n");
+ 		cvi_ion_free(current->pid, dmabuf_fd);
+ 		return -ENOMEM;
+@@ -138,10 +142,15 @@ static CVI_S32 _sys_ion_alloc(CVI_S32 *p_fd, CVI_U64 *addr_p, void **addr_v, CVI
+ 
+ 	ionbuf = (struct ion_buffer *)dmabuf->priv;
+ 	owner_name = vmalloc(MAX_ION_BUFFER_NAME);
++	if (!owner_name) {
++		dma_buf_put(dmabuf);
++		cvi_ion_free(current->pid, dmabuf_fd);
++		return -ENOMEM;
++	}
+ 	if (name)
+-		strncpy(owner_name, name, MAX_ION_BUFFER_NAME);
++		strscpy_pad(owner_name, name, MAX_ION_BUFFER_NAME);
+ 	else
+-		strncpy(owner_name, "anonymous", MAX_ION_BUFFER_NAME);
++		strscpy_pad(owner_name, "anonymous", MAX_ION_BUFFER_NAME);
+ 
+ 	ionbuf->name = owner_name;
+ 
+@@ -382,7 +391,7 @@ EXPORT_SYMBOL_GPL(sys_ion_get_memory_state);
+ 
+ CVI_S32 sys_cache_invalidate(CVI_U64 addr_p, void *addr_v, CVI_U32 u32Len)
+ {
+-	arch_sync_dma_for_device(addr_p, u32Len, DMA_FROM_DEVICE);
++	cvi_ion_sync_for_cpu(addr_p, u32Len, DMA_FROM_DEVICE);
+ 
+ 	/*	*/
+ 	smp_mb();
+@@ -392,7 +401,7 @@ EXPORT_SYMBOL_GPL(sys_cache_invalidate);
+ 
+ CVI_S32 sys_cache_flush(CVI_U64 addr_p, void *addr_v, CVI_U32 u32Len)
+ {
+-	arch_sync_dma_for_device(addr_p, u32Len, DMA_TO_DEVICE);
++	cvi_ion_sync_for_device(addr_p, u32Len, DMA_TO_DEVICE);
+ 
+ 	/*  */
+ 	smp_mb();
+@@ -412,9 +421,9 @@ static CVI_S32 sys_cache_op_userv(unsigned long arg, enum enum_cache_op op_code)
+ 	}
+ 
+ 	if (op_code == enum_cache_op_invalid)
+-		arch_sync_dma_for_device(ioctl_arg.addr_p, ioctl_arg.size, DMA_FROM_DEVICE);
++		cvi_ion_sync_for_cpu(ioctl_arg.addr_p, ioctl_arg.size, DMA_FROM_DEVICE);
+ 	else if (op_code == enum_cache_op_flush)
+-		arch_sync_dma_for_device(ioctl_arg.addr_p, ioctl_arg.size, DMA_TO_DEVICE);
++		cvi_ion_sync_for_device(ioctl_arg.addr_p, ioctl_arg.size, DMA_TO_DEVICE);
+ 
+ 	/*	*/
+ 	smp_mb();
+@@ -534,7 +543,7 @@ EXPORT_SYMBOL_GPL(sys_get_bindbysrc);
+ 
+ CVI_S32 sys_get_bindbydst(MMF_CHN_S *pstDestChn, MMF_CHN_S *pstSrcChn)
+ {
+-	return sys_ctx_get_bindbydst(pstSrcChn, pstSrcChn);
++	return sys_ctx_get_bindbydst(pstDestChn, pstSrcChn);
+ }
+ EXPORT_SYMBOL_GPL(sys_get_bindbydst);
+ 
+@@ -552,7 +561,7 @@ void sys_save_modules_cb(void *base_m_cb)
+ }
+ EXPORT_SYMBOL_GPL(sys_save_modules_cb);
+ 
+-int _sys_exe_module_cb(struct base_exe_m_cb *exe_cb)
++static int _sys_exe_module_cb(struct base_exe_m_cb *exe_cb)
+ {
+ 	struct base_m_cb_info *cb_info;
+ 
+@@ -861,7 +870,7 @@ static const struct file_operations cvi_sys_fops = {
+ #endif
+ };
+ 
+-int cvi_sys_register_misc(struct cvi_sys_device *ndev)
++static int cvi_sys_register_misc(struct cvi_sys_device *ndev)
+ {
+ 	int rc;
+ 
+@@ -908,7 +917,7 @@ static int cvi_sys_probe(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-static int cvi_sys_remove(struct platform_device *pdev)
++static void cvi_sys_remove(struct platform_device *pdev)
+ {
+ 	struct cvi_sys_device *ndev = platform_get_drvdata(pdev);
+ 
+@@ -916,8 +925,6 @@ static int cvi_sys_remove(struct platform_device *pdev)
+ 
+ 	misc_deregister(&ndev->miscdev);
+ 	platform_set_drvdata(pdev, NULL);
+-
+-	return 0;
+ }
+ 
+ static const struct of_device_id cvitek_sys_match[] = {
+@@ -941,3 +948,5 @@ MODULE_AUTHOR("Wellken Chen<wellken.chen@cvitek.com.tw>");
+ MODULE_DESCRIPTION("Cvitek SoC SYS driver");
+ MODULE_LICENSE("GPL");
+ 
++
++MODULE_IMPORT_NS("DMA_BUF");
+diff --git a/interdrv/sys/common/uapi/sys.h b/interdrv/sys/common/uapi/sys.h
+index 5e813f6..b9080cf 100644
+--- a/interdrv/sys/common/uapi/sys.h
++++ b/interdrv/sys/common/uapi/sys.h
+@@ -49,5 +49,7 @@ VPSS_MODE_E sys_get_vpssmode(void);
+ #define SYS_SET_BINDCFG	_IOW(SYS_IOCTL_BASE, 0x09, unsigned long long)
+ #endif
+ 
++void sys_save_modules_cb(void *base_m_cb);
++
+ #endif  /* __SYS_H__ */
+ 
+-- 
+2.43.0
+

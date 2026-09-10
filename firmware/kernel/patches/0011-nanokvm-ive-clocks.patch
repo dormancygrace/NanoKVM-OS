@@ -1,0 +1,26 @@
+From 0936de305f4fc23d71d0910de03ced69252f0954 Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Sun, 6 Sep 2026 19:51:24 +0300
+Subject: [PATCH] riscv: dts: sophgo: declare NanoKVM IVE clock dependencies
+
+---
+ arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+index e8dd2d5dd..bbdf25449 100644
+--- a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
++++ b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+@@ -176,6 +176,9 @@ ive@a0a0000 {
+ 		compatible = "cvitek,ive";
+ 		reg = <0xa0a0000 0x3100 >;
+ 		reg-names = "ive_base";
++		clocks = <&clk CLK_CFG_REG_VIP>, <&clk CLK_IVE_VIP>,
++			 <&clk CLK_SRC_VIP_SYS_1>;
++		clock-names = "cfg_reg", "ive", "core";
+ 		interrupt-names = "ive_irq";
+ 		interrupt-parent = <&plic>;
+ 		interrupts = <0x61 0x04>;
+-- 
+2.43.0
+

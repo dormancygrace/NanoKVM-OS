@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+[ "${1:-}" = start ] || exit 0
+# Use depmod metadata so crypto/BT/media dependencies load in the right order.
+for module in cv181x_sys cv181x_base cvi_mipi_rx snsr_i2c cv181x_vi cv181x_vpss cv181x_dwa cv181x_rgn cv181x_vcodec cv181x_jpeg cv181x_ive; do
+    printf "Loading media module: %s\n" "$module"
+    modprobe "$module"
+done
+echo "Loading media module: cvi_vc_driver"
+modprobe cvi_vc_driver MaxVencChnNum=9 MaxVdecChnNum=9

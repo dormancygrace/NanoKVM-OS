@@ -1,0 +1,175 @@
+From 415831a89c5018c4264c379e24a2ae7fc2e609fe Mon Sep 17 00:00:00 2001
+From: dgrace <g.pesin@globalte.ru>
+Date: Mon, 7 Sep 2026 00:59:23 +0300
+Subject: [PATCH] usb: restore optional HID remote wakeup for SG2002
+
+---
+ .../ABI/testing/configfs-usb-gadget-hid       |  9 ++++
+ drivers/usb/dwc2/gadget.c                     | 45 +++++++++++++++++++
+ drivers/usb/gadget/function/f_hid.c           | 28 ++++++++++++
+ drivers/usb/gadget/function/u_hid.h           |  1 +
+ 4 files changed, 83 insertions(+)
+
+diff --git a/Documentation/ABI/testing/configfs-usb-gadget-hid b/Documentation/ABI/testing/configfs-usb-gadget-hid
+index 748705c4c..f5f39d5dc 100644
+--- a/Documentation/ABI/testing/configfs-usb-gadget-hid
++++ b/Documentation/ABI/testing/configfs-usb-gadget-hid
+@@ -11,3 +11,12 @@ Description:
+ 		report_length	HID report length
+ 		subclass	HID device subclass to use
+ 		=============	============================================
++
++What:		/config/usb-gadget/gadget/functions/hid.name/wakeup_on_write
++Date:		September 2026
++Contact:	NanoKVM Enhanced maintainers
++Description:
++		Boolean, default 0. When enabled, a nonempty HID report write
++		requests USB remote wakeup if the gadget is suspended. The UDC
++		still requires the host to authorize remote wakeup. Configure
++		before linking the function; linked changes return EBUSY.
+diff --git a/drivers/usb/dwc2/gadget.c b/drivers/usb/dwc2/gadget.c
+index 3d6cca0fd..b56960aca 100644
+--- a/drivers/usb/dwc2/gadget.c
++++ b/drivers/usb/dwc2/gadget.c
+@@ -4785,7 +4785,52 @@ static void dwc2_gadget_set_speed(struct usb_gadget *g, enum usb_device_speed sp
+ 	spin_unlock_irqrestore(&hsotg->lock, flags);
+ }
+ 
++/* Remote wakeup for the non-power-down mode used by CV18xx/SG2002. */
++static int dwc2_hsotg_wakeup(struct usb_gadget *gadget)
++{
++	struct dwc2_hsotg *hsotg = to_hsotg(gadget);
++	unsigned long flags;
++	u32 pcgctl;
++	int ret = -EAGAIN;
++
++	spin_lock_irqsave(&hsotg->lock, flags);
++	if (!hsotg->remote_wakeup_allowed) {
++		ret = -EACCES;
++		goto out;
++	}
++	/* Other power modes require their complete register restore sequence. */
++	if (hsotg->params.power_down != DWC2_POWER_DOWN_PARAM_NONE) {
++		ret = -EOPNOTSUPP;
++		goto out;
++	}
++	if (hsotg->lx_state != DWC2_L2 || !dwc2_is_device_mode(hsotg))
++		goto out;
++
++	if (hsotg->bus_suspended) {
++		pcgctl = dwc2_readl(hsotg, PCGCTL);
++		pcgctl &= ~PCGCTL_GATEHCLK;
++		dwc2_writel(hsotg, pcgctl, PCGCTL);
++		udelay(5);
++		pcgctl &= ~PCGCTL_STOPPCLK;
++		dwc2_writel(hsotg, pcgctl, PCGCTL);
++		udelay(5);
++		hsotg->bus_suspended = false;
++	}
++
++	/* USB 2.0 resume signaling must last between 1 and 15 ms. */
++	dwc2_set_bit(hsotg, DCTL, DCTL_RMTWKUPSIG);
++	mdelay(10);
++	dwc2_clear_bit(hsotg, DCTL, DCTL_RMTWKUPSIG);
++	call_gadget(hsotg, resume);
++	hsotg->lx_state = DWC2_L0;
++	ret = 0;
++out:
++	spin_unlock_irqrestore(&hsotg->lock, flags);
++	return ret;
++}
++
+ static const struct usb_gadget_ops dwc2_hsotg_gadget_ops = {
++	.wakeup			= dwc2_hsotg_wakeup,
+ 	.get_frame	= dwc2_hsotg_gadget_getframe,
+ 	.set_selfpowered	= dwc2_hsotg_set_selfpowered,
+ 	.udc_start		= dwc2_hsotg_udc_start,
+diff --git a/drivers/usb/gadget/function/f_hid.c b/drivers/usb/gadget/function/f_hid.c
+index 3c6b43d06..f5cf5c1a9 100644
+--- a/drivers/usb/gadget/function/f_hid.c
++++ b/drivers/usb/gadget/function/f_hid.c
+@@ -74,6 +74,7 @@ struct f_hidg {
+ 	 *              will be used to receive reports.
+ 	 */
+ 	bool				use_out_ep;
++	bool				wakeup_on_write;
+ 
+ 	/* recv report */
+ 	spinlock_t			read_spinlock;
+@@ -448,6 +449,26 @@ static void f_hidg_req_complete(struct usb_ep *ep, struct usb_request *req)
+ 	wake_up(&hidg->write_queue);
+ }
+ 
++/* The UDC checks whether the host enabled USB remote wakeup. */
++static void hidg_wakeup_host(struct f_hidg *hidg)
++{
++	struct usb_gadget *gadget = NULL;
++	unsigned long flags;
++
++	/* An open HID file may outlive disconnect. Pin the gadget while active. */
++	spin_lock_irqsave(&hidg->write_spinlock, flags);
++	if (hidg->req && hidg->func.config->cdev->suspended) {
++		gadget = hidg->func.config->cdev->gadget;
++		get_device(&gadget->dev);
++	}
++	spin_unlock_irqrestore(&hidg->write_spinlock, flags);
++
++	if (gadget) {
++		usb_gadget_wakeup(gadget);
++		put_device(&gadget->dev);
++	}
++}
++
+ static ssize_t f_hidg_write(struct file *file, const char __user *buffer,
+ 			    size_t count, loff_t *offp)
+ {
+@@ -456,6 +477,10 @@ static ssize_t f_hidg_write(struct file *file, const char __user *buffer,
+ 	unsigned long flags;
+ 	ssize_t status = -ENOMEM;
+ 
++	/* Wake before waiting for a pending report on a suspended endpoint. */
++	if (count && hidg->wakeup_on_write)
++		hidg_wakeup_host(hidg);
++
+ 	spin_lock_irqsave(&hidg->write_spinlock, flags);
+ 
+ 	if (!hidg->req) {
+@@ -1381,6 +1406,7 @@ CONFIGFS_ATTR(f_hid_opts_, name)
+ F_HID_OPT(subclass, 8, 255);
+ F_HID_OPT(protocol, 8, 255);
+ F_HID_OPT(no_out_endpoint, 8, 1);
++F_HID_OPT(wakeup_on_write, 8, 1);
+ F_HID_OPT(report_length, 16, 65535);
+ 
+ static ssize_t f_hid_opts_report_desc_show(struct config_item *item, char *page)
+@@ -1488,6 +1514,7 @@ static struct configfs_attribute *hid_attrs[] = {
+ 	&f_hid_opts_attr_subclass,
+ 	&f_hid_opts_attr_protocol,
+ 	&f_hid_opts_attr_no_out_endpoint,
++	&f_hid_opts_attr_wakeup_on_write,
+ 	&f_hid_opts_attr_report_length,
+ 	&f_hid_opts_attr_interval,
+ 	&f_hid_opts_attr_report_desc,
+@@ -1627,6 +1654,7 @@ static struct usb_function *hidg_alloc(struct usb_function_instance *fi)
+ 	hidg->bInterfaceSubClass = opts->subclass;
+ 	hidg->bInterfaceProtocol = opts->protocol;
+ 	hidg->report_length = opts->report_length;
++	hidg->wakeup_on_write = opts->wakeup_on_write;
+ 	hidg->report_desc_length = opts->report_desc_length;
+ 	hidg->interval = opts->interval;
+ 	hidg->interval_user_set = opts->interval_user_set;
+diff --git a/drivers/usb/gadget/function/u_hid.h b/drivers/usb/gadget/function/u_hid.h
+index a9ed9720c..54350e4ec 100644
+--- a/drivers/usb/gadget/function/u_hid.h
++++ b/drivers/usb/gadget/function/u_hid.h
+@@ -21,6 +21,7 @@ struct f_hid_opts {
+ 	unsigned char			subclass;
+ 	unsigned char			protocol;
+ 	unsigned char			no_out_endpoint;
++	unsigned char			wakeup_on_write;
+ 	unsigned short			report_length;
+ 	unsigned short			report_desc_length;
+ 	unsigned char			*report_desc;
+-- 
+2.43.0
+

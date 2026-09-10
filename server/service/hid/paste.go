@@ -1,0 +1,452 @@
+package hid
+
+import (
+	"context"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
+
+	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/inputcontrol"
+)
+
+type Char struct {
+	Modifiers int
+	Code      int
+}
+
+type PasteReq struct {
+	Content string `form:"content" validate:"required"`
+	Langue  string `form:"langue"`
+}
+
+const (
+	defaultPasteDelay    = 30 * time.Millisecond
+	maxPasteDuration     = 25 * time.Second
+	maxPasteContentRunes = int(maxPasteDuration / defaultPasteDelay)
+)
+
+func LangueSwitch(base map[rune]Char, lang string) map[rune]Char {
+	// if no language is specified → return base map
+	if lang == "" {
+		return base
+	}
+
+	// always create a copy of the base map
+	m := copyMap(base)
+
+	switch lang {
+	case "de":
+		// swap Y
+		m['y'] = Char{0, 29}
+		m['Y'] = Char{2, 29}
+
+		// swap Z
+		m['z'] = Char{0, 28}
+		m['Z'] = Char{2, 28}
+
+		// add German special characters or remap them
+		m['\u00E4'] = Char{0, 52} // ä
+		m['\u00C4'] = Char{2, 52} // Ä
+		m['\u00F6'] = Char{0, 51} // ö
+		m['\u00D6'] = Char{2, 51} // Ö
+		m['\u00FC'] = Char{0, 47} // ü
+		m['\u00DC'] = Char{2, 47} // Ü
+		m['\u00DF'] = Char{0, 45} // ß
+
+		// swap special characters
+		m['^'] = Char{0, 53}     // must be double
+		m['/'] = Char{2, 36}     // Shift + 7
+		m['('] = Char{2, 37}     // Shift + 8
+		m['&'] = Char{2, 35}     // Shift + 6
+		m[')'] = Char{2, 38}     // Shift + 9
+		m['`'] = Char{2, 46}     // Grave Accent / Backtick
+		m['"'] = Char{2, 31}     // Shift + 2
+		m['?'] = Char{2, 45}     // Shift + ß
+		m['{'] = Char{0x40, 36}  // ALt Gr + 7
+		m['['] = Char{0x40, 37}  // ALt Gr + 8
+		m[']'] = Char{0x40, 38}  // ALt Gr + 6
+		m['}'] = Char{0x40, 39}  // ALt Gr + 0
+		m['\\'] = Char{0x40, 45} // ALt Gr + ß
+		m['@'] = Char{0x40, 20}  // ALt Gr + q
+		m['+'] = Char{0, 48}     // Shift + +
+		m['*'] = Char{2, 48}     // Shift + +
+		m['~'] = Char{0x40, 48}  // Shift + +
+		m['#'] = Char{0, 49}     // Shift + #
+		m['\''] = Char{2, 49}    // Shift + #
+		m['<'] = Char{0, 100}    // Shift + <
+		m['>'] = Char{2, 100}    // Shift + <
+		m['|'] = Char{0x40, 100} // ALt Gr + <
+		m[';'] = Char{2, 54}     // Shift + ,
+		m[':'] = Char{2, 55}     // Shift + .
+		m['-'] = Char{0, 56}     // Shift + -
+		m['_'] = Char{2, 56}     // Shift + -
+
+		// new special characters
+		m['\u00B4'] = Char{0, 46}    // ´
+		m['\u00B0'] = Char{2, 53}    // °
+		m['\u00A7'] = Char{2, 32}    // §
+		m['\u20AC'] = Char{0x40, 8}  // €
+		m['\u00B2'] = Char{0x40, 31} // ²
+		m['\u00B3'] = Char{0x40, 32} // ³
+
+	case "fr":
+		// French AZERTY layout
+		// Letters: a↔q swap, z↔w swap, m moved to physical ; position
+		m['a'] = Char{0, 20} // a is at physical Q key (HID 20)
+		m['A'] = Char{2, 20}
+		m['q'] = Char{0, 4} // q is at physical A key (HID 4)
+		m['Q'] = Char{2, 4}
+		m['z'] = Char{0, 26} // z is at physical W key (HID 26)
+		m['Z'] = Char{2, 26}
+		m['w'] = Char{0, 29} // w is at physical Z key (HID 29)
+		m['W'] = Char{2, 29}
+		m['m'] = Char{0, 51} // m is at physical ; key (HID 51)
+		m['M'] = Char{2, 51}
+
+		// Numbers require Shift on AZERTY
+		m['1'] = Char{2, 30}
+		m['2'] = Char{2, 31}
+		m['3'] = Char{2, 32}
+		m['4'] = Char{2, 33}
+		m['5'] = Char{2, 34}
+		m['6'] = Char{2, 35}
+		m['7'] = Char{2, 36}
+		m['8'] = Char{2, 37}
+		m['9'] = Char{2, 38}
+		m['0'] = Char{2, 39}
+
+		// Unshifted number row → French/special characters
+		m['&'] = Char{0, 30}      // & at physical key 1
+		m['\u00E9'] = Char{0, 31} // é at physical key 2
+		m['"'] = Char{0, 32}      // " at physical key 3
+		m['\''] = Char{0, 33}     // ' at physical key 4
+		m['('] = Char{0, 34}      // ( at physical key 5
+		m['-'] = Char{0, 35}      // - at physical key 6
+		m['\u00E8'] = Char{0, 36} // è at physical key 7
+		m['_'] = Char{0, 37}      // _ at physical key 8
+		m['\u00E7'] = Char{0, 38} // ç at physical key 9
+		m['\u00E0'] = Char{0, 39} // à at physical key 0
+
+		// Physical - key (HID 45) → ) on AZERTY
+		m[')'] = Char{0, 45}      // ) at physical - key
+		m['\u00B0'] = Char{2, 45} // ° at shift+physical - key
+
+		// Letter-row bracket/special keys
+		m['^'] = Char{0, 47}      // ^ (dead) at physical [ key (HID 47)
+		m['\u00A8'] = Char{2, 47} // ¨ at shift+[
+		m['$'] = Char{0, 48}      // $ at physical ] key (HID 48)
+		m['\u00A3'] = Char{2, 48} // £ at shift+]
+		m['*'] = Char{0, 49}      // * at physical \ key (HID 49)
+		m['\u00B5'] = Char{2, 49} // µ at shift+\
+		m['\u00F9'] = Char{0, 52} // ù at physical ' key (HID 52)
+		m['%'] = Char{2, 52}      // % at shift+'
+
+		// Bottom row remappings
+		m[','] = Char{0, 16}      // , at physical M key (HID 16)
+		m['?'] = Char{2, 16}      // ? at shift+physical M
+		m[';'] = Char{0, 54}      // ; at physical , key (HID 54)
+		m['.'] = Char{2, 54}      // . at shift+physical ,
+		m[':'] = Char{0, 55}      // : at physical . key (HID 55)
+		m['/'] = Char{2, 55}      // / at shift+physical .
+		m['!'] = Char{0, 56}      // ! at physical / key (HID 56)
+		m['\u00A7'] = Char{2, 56} // § at shift+physical /
+
+		// AltGr combinations
+		m['~'] = Char{0x40, 31}     // AltGr+2
+		m['#'] = Char{0x40, 32}     // AltGr+3
+		m['{'] = Char{0x40, 33}     // AltGr+4
+		m['['] = Char{0x40, 34}     // AltGr+5
+		m['|'] = Char{0x40, 35}     // AltGr+6
+		m['`'] = Char{0x40, 36}     // AltGr+7
+		m['\\'] = Char{0x40, 37}    // AltGr+8
+		m[']'] = Char{0x40, 45}     // AltGr+physical -
+		m['}'] = Char{0x40, 46}     // AltGr+=
+		m['@'] = Char{0x40, 39}     // AltGr+0
+		m['\u20AC'] = Char{0x40, 8} // € AltGr+E
+
+	case "es":
+		applySpanishLayout(m)
+	}
+	return m
+}
+
+func (s *Service) Paste(c *gin.Context) {
+	var req PasteReq
+	var rsp proto.Response
+
+	if err := proto.ParseFormRequest(c, &req); err != nil {
+		rsp.ErrRsp(c, -1, "invalid arguments")
+		return
+	}
+
+	contentRunes := []rune(req.Content)
+	if len(contentRunes) > maxPasteContentRunes {
+		rsp.ErrRsp(c, -2, "content too long")
+		return
+	}
+
+	charMapLocal := LangueSwitch(charMap, req.Langue)
+	var followMap map[rune]Char
+	if req.Langue == "es" {
+		followMap = spanishDeadKeyContinuationMap
+	}
+
+	typeableKeys := 0
+	for _, char := range contentRunes {
+		if _, ok := charMapLocal[char]; ok {
+			typeableKeys++
+			if _, ok := followMap[char]; ok {
+				typeableKeys++
+			}
+		}
+	}
+	if time.Duration(typeableKeys)*defaultPasteDelay > maxPasteDuration {
+		rsp.ErrRsp(c, -2, "paste duration exceeds 25s")
+		return
+	}
+
+	keyUp := []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+	manual := s.newManualSession()
+	defer manual.Close()
+	reservation, err := manual.Reserve(c.Request.Context(), inputcontrol.ManualKeyboard, false, nil)
+	if err != nil {
+		log.Errorf("manual paste failed to acquire HID control: %v", err)
+		rsp.ErrRsp(c, -3, "HID control is busy")
+		return
+	}
+
+	writeKeyboardReport := func(report []byte) error {
+		return manual.Execute(func() error {
+			return s.hid.WriteKeyboardReport(report)
+		})
+	}
+
+	for _, char := range contentRunes {
+		if err := context.Cause(c.Request.Context()); err != nil {
+			break
+		}
+		key, ok := charMapLocal[char]
+		if !ok {
+			log.Debugf("unknown key '%c' (rune: %d)", char, char)
+			continue
+		}
+
+		keyDown := []byte{byte(key.Modifiers), 0x00, byte(key.Code), 0x00, 0x00, 0x00, 0x00, 0x00}
+		if err = writeKeyboardReport(keyDown); err != nil {
+			break
+		}
+		if err = writeKeyboardReport(keyUp); err != nil {
+			break
+		}
+		if err = sleepPasteContext(c.Request.Context(), defaultPasteDelay); err != nil {
+			break
+		}
+		if followKey, ok := followMap[char]; ok {
+			followKeyDown := []byte{byte(followKey.Modifiers), 0x00, byte(followKey.Code), 0x00, 0x00, 0x00, 0x00, 0x00}
+			if err = writeKeyboardReport(followKeyDown); err != nil {
+				break
+			}
+			if err = writeKeyboardReport(keyUp); err != nil {
+				break
+			}
+			if err = sleepPasteContext(c.Request.Context(), defaultPasteDelay); err != nil {
+				break
+			}
+		}
+	}
+	if err == nil {
+		err = context.Cause(c.Request.Context())
+	}
+	_ = writeKeyboardReport(keyUp)
+	reservation.Complete(err == nil)
+	if err != nil {
+		log.Errorf("hid paste failed: %v", err)
+		rsp.ErrRsp(c, -3, "HID paste failed")
+		return
+	}
+
+	rsp.OkRsp(c)
+	log.Debugf("hid paste success, total %d characters processed", len(contentRunes))
+}
+
+func sleepPasteContext(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return context.Cause(ctx)
+	case <-timer.C:
+		return nil
+	}
+}
+
+func copyMap(src map[rune]Char) map[rune]Char {
+	dst := make(map[rune]Char, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+var spanishDeadKeyContinuationMap = map[rune]Char{
+	'á': {0, 4},
+	'é': {0, 8},
+	'í': {0, 12},
+	'ó': {0, 18},
+	'ú': {0, 24},
+	'Á': {2, 4},
+	'É': {2, 8},
+	'Í': {2, 12},
+	'Ó': {2, 18},
+	'Ú': {2, 24},
+	'ü': {0, 24},
+	'Ü': {2, 24},
+	'´': {0, 44},
+	'¨': {0, 44},
+	'`': {0, 44},
+	'^': {0, 44},
+}
+
+func applySpanishLayout(m map[rune]Char) {
+	// Spanish (Spain) ISO layout
+	m['\u00F1'] = Char{0, 51} // ñ
+	m['\u00D1'] = Char{2, 51} // Ñ
+	m['\u00E7'] = Char{0, 49} // ç
+	m['\u00C7'] = Char{2, 49} // Ç
+
+	// Dead keys
+	m['`'] = Char{0, 47}      // `
+	m['^'] = Char{2, 47}      // ^
+	m['\u00B4'] = Char{0, 52} // ´
+	m['\u00A8'] = Char{2, 52} // ¨
+
+	// Accented vowels
+	m['\u00E1'] = Char{0, 52} // á
+	m['\u00E9'] = Char{0, 52} // é
+	m['\u00ED'] = Char{0, 52} // í
+	m['\u00F3'] = Char{0, 52} // ó
+	m['\u00FA'] = Char{0, 52} // ú
+	m['\u00C1'] = Char{0, 52} // Á
+	m['\u00C9'] = Char{0, 52} // É
+	m['\u00CD'] = Char{0, 52} // Í
+	m['\u00D3'] = Char{0, 52} // Ó
+	m['\u00DA'] = Char{0, 52} // Ú
+	m['\u00FC'] = Char{2, 52} // ü
+	m['\u00DC'] = Char{2, 52} // Ü
+
+	// Top left key (º ª \)
+	m['\u00BA'] = Char{0, 53}
+	m['\u00AA'] = Char{2, 53}
+	m['\\'] = Char{0x40, 53}
+
+	// Number row symbols
+	m['!'] = Char{2, 30}
+	m['|'] = Char{0x40, 30}
+	m['"'] = Char{2, 31}
+	m['@'] = Char{0x40, 31}
+	m['\u00B7'] = Char{2, 32}
+	m['#'] = Char{0x40, 32}
+	m['$'] = Char{2, 33}
+	m['~'] = Char{0x40, 33}
+	m['%'] = Char{2, 34}
+	m['&'] = Char{2, 35}
+	m['\u00AC'] = Char{0x40, 35}
+	m['/'] = Char{2, 36}
+	m['('] = Char{2, 37}
+	m[')'] = Char{2, 38}
+	m['='] = Char{2, 39}
+
+	// Punctuation & brackets
+	m['\''] = Char{0, 45}
+	m['?'] = Char{2, 45}
+	m['\u00A1'] = Char{0, 46}
+	m['\u00BF'] = Char{2, 46}
+	m['['] = Char{0x40, 47}
+	m['+'] = Char{0, 48}
+	m['*'] = Char{2, 48}
+	m[']'] = Char{0x40, 48}
+	m['{'] = Char{0x40, 52}
+	m['}'] = Char{0x40, 49}
+
+	// Bottom row & currency
+	m['<'] = Char{0, 100}
+	m['>'] = Char{2, 100}
+	m[','] = Char{0, 54}
+	m[';'] = Char{2, 54}
+	m['.'] = Char{0, 55}
+	m[':'] = Char{2, 55}
+	m['-'] = Char{0, 56}
+	m['_'] = Char{2, 56}
+	m['\u20AC'] = Char{0x40, 8} // €
+}
+
+func GetCharMap(lang string) map[rune]Char {
+	return LangueSwitch(charMap, lang)
+}
+
+var charMap = map[rune]Char{
+	// Lowercase letters
+	'a': {0, 4}, 'b': {0, 5}, 'c': {0, 6}, 'd': {0, 7}, 'e': {0, 8},
+	'f': {0, 9}, 'g': {0, 10}, 'h': {0, 11}, 'i': {0, 12}, 'j': {0, 13},
+	'k': {0, 14}, 'l': {0, 15}, 'm': {0, 16}, 'n': {0, 17}, 'o': {0, 18},
+	'p': {0, 19}, 'q': {0, 20}, 'r': {0, 21}, 's': {0, 22}, 't': {0, 23},
+	'u': {0, 24}, 'v': {0, 25}, 'w': {0, 26}, 'x': {0, 27}, 'y': {0, 28},
+	'z': {0, 29},
+
+	// Uppercase letters (Modifier 2 typically means Left Shift)
+	'A': {2, 4}, 'B': {2, 5}, 'C': {2, 6}, 'D': {2, 7}, 'E': {2, 8},
+	'F': {2, 9}, 'G': {2, 10}, 'H': {2, 11}, 'I': {2, 12}, 'J': {2, 13},
+	'K': {2, 14}, 'L': {2, 15}, 'M': {2, 16}, 'N': {2, 17}, 'O': {2, 18},
+	'P': {2, 19}, 'Q': {2, 20}, 'R': {2, 21}, 'S': {2, 22}, 'T': {2, 23},
+	'U': {2, 24}, 'V': {2, 25}, 'W': {2, 26}, 'X': {2, 27}, 'Y': {2, 28},
+	'Z': {2, 29},
+
+	// Numbers
+	'1': {0, 30}, '2': {0, 31}, '3': {0, 32}, '4': {0, 33}, '5': {0, 34},
+	'6': {0, 35}, '7': {0, 36}, '8': {0, 37}, '9': {0, 38}, '0': {0, 39},
+
+	// Shifted numbers / Symbols
+	'!': {2, 30}, // Shift + 1
+	'@': {2, 31}, // Shift + 2
+	'#': {2, 32}, // Shift + 3
+	'$': {2, 33}, // Shift + 4
+	'%': {2, 34}, // Shift + 5
+	'^': {2, 35}, // Shift + 6
+	'&': {2, 36}, // Shift + 7
+	'*': {2, 37}, // Shift + 8
+	'(': {2, 38}, // Shift + 9
+	')': {2, 39}, // Shift + 0
+
+	// Other common characters
+	'\n': {0, 40}, // Enter (Return)
+	'\t': {0, 43}, // Tab
+	' ':  {0, 44}, // Space
+	'-':  {0, 45}, // Hyphen / Minus
+	'=':  {0, 46}, // Equals
+	'[':  {0, 47}, // Left Square Bracket
+	']':  {0, 48}, // Right Square Bracket
+	'\\': {0, 49}, // Backslash
+
+	';':  {0, 51}, // Semicolon
+	'\'': {0, 52}, // Apostrophe / Single Quote
+	'`':  {0, 53}, // Grave Accent / Backtick
+	',':  {0, 54}, // Comma
+	'.':  {0, 55}, // Period / Dot
+	'/':  {0, 56}, // Slash
+
+	// Shifted symbols
+	'_': {2, 45}, // Underscore (Shift + Hyphen)
+	'+': {2, 46}, // Plus (Shift + Equals)
+	'{': {2, 47}, // Left Curly Brace (Shift + Left Square Bracket)
+	'}': {2, 48}, // Right Curly Brace (Shift + Right Square Bracket)
+	'|': {2, 49}, // Pipe (Shift + Backslash)
+
+	':': {2, 51}, // Colon (Shift + Semicolon)
+	'"': {2, 52}, // Double Quote (Shift + Apostrophe)
+	'~': {2, 53}, // Tilde (Shift + Grave Accent)
+	'<': {2, 54}, // Less Than (Shift + Comma)
+	'>': {2, 55}, // Greater Than (Shift + Period)
+	'?': {2, 56}, // Question Mark (Shift + Slash)
+}

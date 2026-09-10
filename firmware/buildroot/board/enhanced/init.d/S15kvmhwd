@@ -1,0 +1,61 @@
+#!/bin/sh
+# Enhanced counterpart of the stock S15kvmhwd. Pinmux and board reset/enable
+# ownership are in DT; do not export global GPIOs or reload i2c-gpio here.
+set -eu
+
+die() { echo "S15kvmhwd: $*" >&2; exit 1; }
+check_board() {
+    revision=/sys/firmware/devicetree/base/sipeed,board-revision
+    [ -r "$revision" ] || die "board revision is missing from Device Tree"
+    board=$(tr -d '\000' < "$revision")
+    [ "$board" = pcie ] || die "unsupported Enhanced board revision: $board"
+    [ -w /sys/bus/platform/devices/hdmi-reset/pulse ] || die "HDMI reset controller is unavailable"
+    [ -c /dev/i2c-4 ] || die "HDMI I2C4 is unavailable"
+    [ -c /dev/i2c-5 ] || die "OLED I2C5 is unavailable"
+}
+
+# Preserve the stock targeted SMBus-read probes. A failed bus must not be
+# silently classified as LT6911UE, as the old catch-all branch did.
+responds() {
+    result=$(i2cdetect -ry 4 "$1" "$1") || die "HDMI I2C probe failed"
+    printf '%s\n' "$result" | grep -qw "${1#0x}"
+}
+detect_hdmi() {
+    if responds 0x2c; then
+        hdmi=c
+    elif responds 0x2b; then
+        if responds 0x44; then hdmi=ux; else hdmi=d; fi
+    else
+        die "HDMI receiver not identified; keeping previous configuration"
+    fi
+}
+publish() {
+    mkdir -p /etc/kvm
+    temporary=$(mktemp "/etc/kvm/.$1.XXXXXX")
+    trap 'rm -f "$temporary"' EXIT
+    printf '%s\n' "$2" > "$temporary"
+    chmod 644 "$temporary"
+    mv -f "$temporary" "/etc/kvm/$1"
+    trap - EXIT
+}
+
+case "${1:-}" in
+    stop) exit 0 ;;
+    check)
+        check_board
+        echo "NanoKVM Enhanced PCIe: board declaration and I2C device nodes present"
+        ;;
+    start|re-init|re-detect)
+        check_board
+        detect_hdmi
+        publish hw "$board"
+        publish hdmi_version "$hdmi"
+        echo "NanoKVM Enhanced: board=$board HDMI=$hdmi"
+        ;;
+    get_hdmi_version)
+        check_board
+        detect_hdmi
+        publish hdmi_version "$hdmi"
+        ;;
+    *) echo "Usage: $0 {start|stop|check|re-init|re-detect|get_hdmi_version}" >&2; exit 2 ;;
+esac

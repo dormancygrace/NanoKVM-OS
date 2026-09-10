@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/sipeed/LicheeRV-Nano-Build.git",
+  "commit": "f63af718e40be2edefe441fc0d6a798e8e0cc21e",
+  "subdirectory": "osdrv/extdrv/wireless/rtl8733bs",
+  "driver_version": "v5.14.1-46-gc99202c57.20220113_COEX20211210-2706",
+  "target_kernel": "7.2.4-nanokvm-enhanced",
+  "status": "port candidate; Realtek hardware qualification pending"
+}

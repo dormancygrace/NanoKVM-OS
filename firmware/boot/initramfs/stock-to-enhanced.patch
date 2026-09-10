@@ -1,0 +1,55 @@
+--- stock-init
++++ init
+@@ -1,10 +1,9 @@
+ #!/busybox sh
+ 
+ export PATH=/
++# Preserve the stock boot/recovery flow; Linux DT sets USB peripheral mode.
+ 
+ msc() {
+-	umount /dev/mmcblk0p1
+-	umount /dev/mmcblk0p2
+ 	echo mmc0 > /sys/devices/platform/leds/leds/led-user/trigger
+ 	cd /sys/kernel/config/usb_gadget
+ 	mkdir g0
+@@ -44,13 +43,20 @@
+ 	mkdir functions/mass_storage.disk0
+ 	ln -s functions/mass_storage.disk0 configs/c.1/
+ 	echo 1 > functions/mass_storage.disk0/lun.0/removable
++	# Release local mounts before exporting the entire card to the USB host.
++	# Abort this path if a mounted partition could not be released.
++	if grep -q ' /boot ' /proc/mounts; then
++		umount /boot || return 1
++	fi
++	if grep -q ' /realroot ' /proc/mounts; then
++		umount /realroot || return 1
++	fi
+ 	echo /dev/mmcblk0 > functions/mass_storage.disk0/lun.0/file
+ 	ls /sys/class/udc/ | cat > UDC
+-	echo device > /proc/cviusb/otg_role
++	# Mainline DWC2 uses dr_mode = "peripheral" from the board DT.
+ 	while true
+ 	do
+ 		sleep 1
+-		busybox iostat
+ 		busybox uptime
+ 		busybox uname
+ 		sync
+@@ -77,8 +83,6 @@
+ 	msc
+ fi
+ 
+-umount /dev/mmcblk0p1
+-
+ flashkey0=$(cat /sys/kernel/debug/gpio | grep 'User Key' | grep lo | wc -l)
+ sleep 0.5
+ flashkey1=$(cat /sys/kernel/debug/gpio | grep 'User Key' | grep lo | wc -l)
+@@ -89,6 +93,8 @@
+ 		msc
+ 	fi
+ fi
++
++umount /boot
+ 
+ mkdir /realroot
+ # parted -s /dev/mmcblk0 "resizepart 2 -0"

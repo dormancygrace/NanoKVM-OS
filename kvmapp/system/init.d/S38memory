@@ -1,0 +1,137 @@
+#!/bin/sh
+# Manage only NanoKVM's own swap devices. Settings apply now and at boot.
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+CONFIG=/etc/kvm/memory.conf
+mkdir -p /run
+exec 9>/run/nanokvm-memory.lock
+if ! flock -n 9; then
+    [ "${1:-}" = recompress ] && exit 0
+    echo 'Another memory operation is in progress.' >&2; exit 1
+fi
+ZRAM_ENABLED=0 ZRAM_SIZE=64 ZRAM_RECOMPRESS=0 SD_ENABLED=0 SD_SIZE=256
+active() { awk -v path="$1" 'NR > 1 && $1 == path { found=1 } END { exit !found }' /proc/swaps; }
+fail() { echo "$*" >&2; exit 1; }
+if [ -f "$CONFIG" ]; then
+    while IFS='=' read -r key value; do
+        case "$key:$value" in
+            ZRAM_ENABLED:0|ZRAM_ENABLED:1) ZRAM_ENABLED=$value ;;
+            ZRAM_RECOMPRESS:0|ZRAM_RECOMPRESS:1) ZRAM_RECOMPRESS=$value ;;
+            SD_ENABLED:0|SD_ENABLED:1) SD_ENABLED=$value ;;
+            ZRAM_SIZE:32|ZRAM_SIZE:64|ZRAM_SIZE:128|ZRAM_SIZE:162) ZRAM_SIZE=$value ;;
+            SD_SIZE:128|SD_SIZE:256|SD_SIZE:512) SD_SIZE=$value ;;
+        esac
+    done < "$CONFIG"
+elif active /swapfile; then
+    # Retain an already-enabled legacy SD swap until explicitly changed.
+    SD_ENABLED=1
+    SD_SIZE=$(awk '$1 == "/swapfile" {print int(($3+1023)/1024)}' /proc/swaps)
+fi
+
+disable_device() {
+    if active "$1"; then
+        # Do not start a large swap-in when RAM is already exhausted.
+        used=$(awk -v path="$1" '$1 == path {print $4}' /proc/swaps)
+        available=$(awk '$1 == "MemAvailable:" {print $2}' /proc/meminfo)
+        [ "$used" -le "$available" ] || fail 'Not enough available RAM to disable this swap. Stop memory-heavy applications and retry.'
+        swapoff "$1" || fail "Could not disable $1; it has been left enabled."
+    fi
+}
+
+apply_zram() {
+    if [ "$ZRAM_ENABLED" = 0 ]; then
+        disable_device /dev/zram0
+        if [ -e /sys/block/zram0/reset ]; then echo 1 > /sys/block/zram0/reset; fi
+        return
+    fi
+    modprobe zram num_devices=1 || fail 'ZRAM is unavailable in this kernel.'
+    target=$((ZRAM_SIZE * 1024 * 1024))
+    secondary=$(cat /sys/block/zram0/recomp_algorithm 2>/dev/null || true)
+    if [ "$ZRAM_RECOMPRESS" = 1 ]; then
+        [ -w /sys/block/zram0/recomp_algorithm ] && [ -w /sys/block/zram0/recompress ] && [ -w /sys/block/zram0/idle ] || fail 'This kernel does not support ZRAM recompression.'
+    fi
+    if active /dev/zram0 && [ "$(cat /sys/block/zram0/disksize)" = "$target" ]; then
+        if [ "$ZRAM_RECOMPRESS" = 0 ] && [ -z "$secondary" ]; then return; fi
+        if [ "$ZRAM_RECOMPRESS" = 1 ] && printf '%s\n' "$secondary" | grep -q '^#1:.*\[zstd\]'; then return; fi
+    fi
+    disable_device /dev/zram0
+    echo 1 > /sys/block/zram0/reset
+    echo lz4 > /sys/block/zram0/comp_algorithm
+    if [ "$ZRAM_RECOMPRESS" = 1 ]; then
+        echo 'algo=zstd priority=1' > /sys/block/zram0/recomp_algorithm
+    fi
+    echo "$target" > /sys/block/zram0/disksize
+    mkswap /dev/zram0 >/dev/null
+    swapon -p 100 /dev/zram0 || fail 'Could not activate ZRAM.'
+}
+
+apply_sd() {
+    [ ! -L /swapfile ] || fail '/swapfile must not be a symbolic link.'
+    if [ "$SD_ENABLED" = 0 ]; then
+        disable_device /swapfile
+        rm -f /swapfile
+        return
+    fi
+    if active /swapfile; then
+        current=$(awk '$1 == "/swapfile" {print int(($3+1023)/1024)}' /proc/swaps)
+        [ "$current" = "$SD_SIZE" ] && return
+    fi
+    disable_device /swapfile
+    [ ! -e /swapfile ] || [ -f /swapfile ] || fail '/swapfile is not a regular file.'
+    rm -f /swapfile
+    umask 077
+    fallocate -l "${SD_SIZE}M" /swapfile || { rm -f /swapfile; fail 'Could not allocate SD swap. Check free disk space.'; }
+    chmod 600 /swapfile
+    mkswap /swapfile >/dev/null || { rm -f /swapfile; fail 'Could not format SD swap.'; }
+    swapon -p 10 /swapfile || { rm -f /swapfile; fail 'Could not activate SD swap.'; }
+}
+
+save_settings() {
+    mkdir -p /etc/kvm
+    umask 077
+    printf 'ZRAM_ENABLED=%s\nZRAM_SIZE=%s\nZRAM_RECOMPRESS=%s\nSD_ENABLED=%s\nSD_SIZE=%s\n' "$ZRAM_ENABLED" "$ZRAM_SIZE" "$ZRAM_RECOMPRESS" "$SD_ENABLED" "$SD_SIZE" > "$CONFIG.tmp"
+    mv "$CONFIG.tmp" "$CONFIG"
+    # Replace legacy inittab startup with this service, without touching other swap.
+    if grep -q '^si11::sysinit:/sbin/swapon /swapfile$' /etc/inittab; then
+        sed '\|^si11::sysinit:/sbin/swapon /swapfile$|d' /etc/inittab > /etc/.inittab.memory.tmp
+        chmod 644 /etc/.inittab.memory.tmp
+        mv /etc/.inittab.memory.tmp /etc/inittab
+    fi
+}
+
+recompress_once() {
+    [ "$ZRAM_RECOMPRESS" = 1 ] && active /dev/zram0 || return 0
+    [ -w /sys/block/zram0/recompress ] && [ -w /sys/block/zram0/idle ] || fail 'ZRAM recompression is unavailable.'
+    # Avoid work on tiny swaps or when reclaim is already short of workspace.
+    available=$(awk '$1 == "MemAvailable:" {print $2}' /proc/meminfo)
+    original=$(awk '{print $1}' /sys/block/zram0/mm_stat)
+    uptime=$(awk '{print int($1)}' /proc/uptime)
+    [ "$available" -ge 32768 ] && [ "$original" -ge 8388608 ] && [ "$uptime" -gt 60 ] || return 0
+    # max_pages bounds compression attempts, not the kernel's preceding scan.
+    echo 60 > /sys/block/zram0/idle
+    echo 'type=idle priority=1 max_pages=256' > /sys/block/zram0/recompress
+}
+
+case "${1:-}" in
+    recompress) recompress_once ;;
+    start) apply_zram; apply_sd ;;
+    stop) disable_device /swapfile; disable_device /dev/zram0 ;;
+    configure)
+        [ "$#" = 4 ] || [ "$#" = 5 ] || fail 'Expected: configure zram|sd 0|1 SIZE_MIB [RECOMPRESS_0_OR_1]'
+        if [ "$#" = 5 ]; then
+            case "$2:$5" in
+                zram:0|zram:1) ZRAM_RECOMPRESS=$5 ;;
+                *) fail 'Recompression is a ZRAM-only boolean setting.' ;;
+            esac
+        fi
+        case "$2:$3:$4" in
+            zram:0:32|zram:0:64|zram:0:128|zram:0:162|zram:1:32|zram:1:64|zram:1:128|zram:1:162)
+                ZRAM_ENABLED=$3 ZRAM_SIZE=$4; apply_zram ;;
+            sd:0:128|sd:0:256|sd:0:512|sd:1:128|sd:1:256|sd:1:512)
+                SD_ENABLED=$3 SD_SIZE=$4; apply_sd ;;
+            *) fail 'Invalid swap type, state or size.' ;;
+        esac
+        save_settings
+        ;;
+    *) fail 'Usage: S38memory start|stop|recompress|configure zram|sd 0|1 SIZE_MIB [RECOMPRESS_0_OR_1]' ;;
+esac

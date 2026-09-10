@@ -1,0 +1,103 @@
+--- a/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/rwnx_msg_tx.c
++++ b/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/rwnx_msg_tx.c
+@@ -178,7 +178,7 @@
+ 
+ 	if(cmd_array_index >= RWNX_CMD_HIGH_WATER_SIZE){
+ 		AICWFDBG(LOGERROR, "%s cmd(%d) was pending...\r\n", __func__, cmd_array_index);
+-		mdelay(100);
++		/* Do not stall for 100 ms while IRQs are disabled. */
+ 	}
+ 
+ 	if(!cmd){
+@@ -328,7 +328,7 @@
+ 		rwnx_msg_free(rwnx_hw, msg_params);
+ 		sdio_err("bus is down\n");
+ 		rwnx_wakeup_unlock(rwnx_hw->ws_tx);
+-		return 0;
++		return -ENETDOWN;
+ 	}
+ #endif
+ 
+@@ -360,6 +360,11 @@
+ 	//nonblock = is_non_blocking_msg(msg->id);
+ 	nonblock = 0;
+ 	cmd = rwnx_cmd_malloc();//kzalloc(sizeof(struct rwnx_cmd), nonblock ? GFP_ATOMIC : GFP_KERNEL);
++	if (!cmd) {
++		rwnx_msg_free(rwnx_hw, msg_params);
++		rwnx_wakeup_unlock(rwnx_hw->ws_tx);
++		return -ENOMEM;
++	}
+ 	cmd->result  = -EINTR;
+ 	cmd->id      = msg->id;
+ 	cmd->reqid   = reqid;
+@@ -402,11 +407,16 @@
+ #endif
+ 	}
+ 
+-	if (!reqcfm || ret)
+-		rwnx_cmd_free(cmd);//kfree(cmd);
++	if (!reqcfm || ret) {
++		/* The queue rejects before ownership transfer; the no-CFM sender
++		 * copies into the bus buffer synchronously and keeps no message.
++		 */
++		rwnx_msg_free(rwnx_hw, msg_params);
++		rwnx_cmd_free(cmd);
++	}
+ 
+ 	rwnx_wakeup_unlock(rwnx_hw->ws_tx);
+-	return 0;
++	return ret;
+ }
+ 
+ #if 0
+--- a/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/rwnx_main.c
++++ b/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/rwnx_main.c
+@@ -3871,41 +3871,15 @@
+     return res;
+ }
+ 
+-/**
+- * @set_power_mgmt: set the power save to one of those two modes:
+- *  Power-save off
+- *  Power-save on - Dynamic mode
++/* Runtime power-save switching is not implemented by this firmware path.
++ * Do not update cfg80211's cached state as though the radio accepted a change.
++ * ME_CONFIG still applies the startup ps_on/dpsm module parameters.
+  */
+ static int rwnx_cfg80211_set_power_mgmt(struct wiphy *wiphy,
+-										struct net_device *dev,
+-										bool enabled, int timeout)
+-{
+-#if 0
+-	struct rwnx_hw *rwnx_hw = wiphy_priv(wiphy);
+-	u8 ps_mode;
+-
+-	RWNX_DBG(RWNX_FN_ENTRY_STR);
+-	if (timeout >= 0)
+-		netdev_info(dev, "Ignore timeout value %d", timeout);
+-
+-	if (!(rwnx_hw->version_cfm.features & BIT(MM_FEAT_PS_BIT)))
+-		enabled = false;
+-
+-	if (enabled) {
+-		/* Switch to Dynamic Power Save */
+-		ps_mode = MM_PS_MODE_ON_DYN;
+-	} else {
+-		/* Exit Power Save */
+-		ps_mode = MM_PS_MODE_OFF;
+-	}
+-
+-	return rwnx_send_me_set_ps_mode(rwnx_hw, ps_mode);
+-#else
+-	/* TODO
+-	 * Add handle in the feature!
+-	 */
+-	return 0;
+-#endif
++                                     struct net_device *dev,
++                                     bool enabled, int timeout)
++{
++    return -EOPNOTSUPP;
+ }
+ 
+ static int rwnx_cfg80211_set_txq_params(struct wiphy *wiphy, struct net_device *dev,

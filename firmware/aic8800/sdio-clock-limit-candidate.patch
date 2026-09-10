@@ -1,0 +1,44 @@
+--- a/src/SDIO/driver_fw/driver/aic8800/aic8800_bsp/aicsdio.c
++++ b/src/SDIO/driver_fw/driver/aic8800/aic8800_bsp/aicsdio.c
+@@ -1827,7 +1827,8 @@
+     udelay(100);
+ #if 1//SDIO CLOCK SETTING
+ 	if (feature.sdio_clock > 0) {
+-		host->ios.clock = feature.sdio_clock;
++		/* Respect the MMC host limit, including DT max-frequency. */
++		host->ios.clock = min_t(unsigned int, feature.sdio_clock, host->f_max);
+ 		host->ops->set_ios(host, &host->ios);
+ 		sdio_dbg("Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
+ 	}
+@@ -1947,7 +1948,8 @@
+     msleep(1);
+ #if 1//SDIO CLOCK SETTING
+ 	if ((feature.sdio_clock > 0) && (host->ios.timing != MMC_TIMING_UHS_DDR50)) {
+-		host->ios.clock = feature.sdio_clock;
++		/* Respect the MMC host limit, including DT max-frequency. */
++		host->ios.clock = min_t(unsigned int, feature.sdio_clock, host->f_max);
+ 		host->ops->set_ios(host, &host->ios);
+ 		sdio_dbg("Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
+ 	}
+--- a/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/aicwf_sdio.c
++++ b/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/aicwf_sdio.c
+@@ -3150,7 +3150,8 @@
+ 
+ #if 1//SDIO CLOCK SETTING
+ 	if (feature.sdio_clock > 0) {
+-		host->ios.clock = feature.sdio_clock;
++		/* Respect the MMC host limit, including DT max-frequency. */
++		host->ios.clock = min_t(unsigned int, feature.sdio_clock, host->f_max);
+ 		host->ops->set_ios(host, &host->ios);
+ 		AICWFDBG(LOGINFO, "Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
+ 	}
+@@ -3295,7 +3296,8 @@
+     msleep(1);
+ #if 1//SDIO CLOCK SETTING
+ 	if ((feature.sdio_clock > 0) && (host->ios.timing != MMC_TIMING_UHS_DDR50)) {
+-		host->ios.clock = feature.sdio_clock;
++		/* Respect the MMC host limit, including DT max-frequency. */
++		host->ios.clock = min_t(unsigned int, feature.sdio_clock, host->f_max);
+ 		host->ops->set_ios(host, &host->ios);
+ 		AICWFDBG(LOGINFO, "Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
+ 	}

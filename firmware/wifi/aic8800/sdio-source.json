@@ -1,0 +1,6 @@
+{
+  "base_aicsdio_sha256": "45954e76879224cae5fda1a499c8e2e57750d681f28b0c949f9fe3056a00020b",
+  "patched_aicsdio_sha256": "ef3fa09c3cb8f6c05ad361ffa8b6b749f2e707e483ecbfd29eb2a30a189d2420",
+  "header_sha256": "416f8e16039aaa68ed83ed90f4dd2f1674986035f7b480bc9db8771eef32ff3a",
+  "scope": "Exact SDIO ownership for BSP normal and temporary notification drivers; no DMA, firmware sequence or clock changes"
+}

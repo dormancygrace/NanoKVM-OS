@@ -1,0 +1,180 @@
+#!/bin/sh
+# nanokvm Rev3.1
+
+wait_for_exit() {
+    process="$1"
+    timeout="$2"
+    elapsed=0
+
+    while pidof "$process" >/dev/null 2>&1; do
+        if [ "$elapsed" -ge "$timeout" ]; then
+            return 1
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    return 0
+}
+
+stop_process() {
+    process="$1"
+
+    if ! pidof "$process" >/dev/null 2>&1; then
+        return
+    fi
+
+    # Non-interactive shells start asynchronous jobs with SIGINT ignored.
+    # SIGTERM is handled by NanoKVM-Server and reaches detached services.
+    killall -TERM "$process" 2>/dev/null || true
+    if wait_for_exit "$process" 10; then
+        return
+    fi
+
+    killall -KILL "$process" 2>/dev/null || true
+    if wait_for_exit "$process" 2; then
+        return 0
+    fi
+
+    echo "Cannot stop $process; refusing to restart NanoKVM services" >&2
+    return 1
+}
+
+stop_services() {
+    # The server owns VI/VPSS. Let it release MMF before stopping kvm_system.
+    stop_process NanoKVM-Server || return 1
+    stop_process kvm_system || return 1
+    rm -rf /tmp/kvm_system /tmp/server
+}
+
+start_background() {
+    executable="$1"
+    if [ "$executable" = /tmp/server/NanoKVM-Server ] &&
+       grep -q 'flavour=enhanced' /etc/nanokvm-buildroot 2>/dev/null; then
+        # Preserve the currently tested Go sysmon policy; 0 explicitly disables it.
+        : "${NANOKVM_SYSMON_TIMER_SLACK_NS:=250000}"
+        export NANOKVM_SYSMON_TIMER_SLACK_NS
+    fi
+    nohup "$executable" </dev/null >/dev/null 2>&1 &
+}
+
+prepare_runtime_directory() {
+    directory="$1"
+    rm -rf "/tmp/$directory"
+    if grep -q 'flavour=enhanced' /etc/nanokvm-buildroot 2>/dev/null; then
+        # Executables and libraries use reclaimable file-backed page cache.
+        # Keep the established /tmp paths without duplicating the app in tmpfs.
+        ln -s "/kvmapp/$directory" "/tmp/$directory"
+    else
+        # Compatibility path for older root filesystems.
+        cp -r "/kvmapp/$directory" /tmp/
+    fi
+}
+
+prepare_hdmi_receiver() {
+    # A stopped/idle capture leaves the driver-owned receiver reset asserted.
+    # Release it before kvm_system probes I2C and the server initializes VI/MMF.
+    # The server reapplies the persisted capture-disabled policy before serving
+    # clients; this does not enable streaming or change the user's preference.
+    reset_state=/sys/bus/platform/devices/hdmi-reset/asserted
+    [ -e "$reset_state" ] || return 0
+    if ! receiver_reset=$(cat "$reset_state"); then
+        echo 'Cannot read HDMI receiver reset state' >&2
+        return 1
+    fi
+    case "$receiver_reset" in
+        0) return 0 ;;
+        1)
+            if ! printf '0' > "$reset_state"; then
+                echo 'Cannot release HDMI receiver reset' >&2
+                return 1
+            fi
+            # Match the existing one-second HDMI warmup before capture reads.
+            sleep 1
+            ;;
+        *) echo 'Invalid HDMI receiver reset state' >&2; return 1 ;;
+    esac
+}
+
+start_services() {
+    if [ -e /run/nkos-update-recovery-failed ]; then
+        echo 'Application update recovery failed; refusing an incomplete application' >&2
+        return 1
+    fi
+    # Runtime telemetry is regenerated on every boot. Keep the high-frequency
+    # state off the persistent application filesystem and recreate its tmpfs
+    # directory on every normal start.
+    mkdir -p /run/nanokvm
+    chmod 755 /run/nanokvm
+    printf '0' > /run/nanokvm/now_fps
+    printf '0' > /run/nanokvm/state
+    printf '0' > /run/nanokvm/wifi_state
+    # MMF needs a valid provisional capture size before the HDMI receiver has
+    # published its first measurement. These are the vendor defaults.
+    printf '1920' > /run/nanokvm/width
+    printf '1080' > /run/nanokvm/height
+
+    if ! pidof NanoKVM-Server >/dev/null 2>&1; then
+        prepare_hdmi_receiver || return 1
+    fi
+
+    prepare_runtime_directory kvm_system || return 1
+    start_background /tmp/kvm_system/kvm_system
+
+    if ! pidof NanoKVM-Server >/dev/null 2>&1; then
+        prepare_runtime_directory server || return 1
+        start_background /tmp/server/NanoKVM-Server
+    fi
+}
+
+case "$1" in
+  start)
+    echo -n kvm > /boot/hostname.prefix
+    [ -e /root/.profile ] || printf '%s\n' 'export PS1="\u@\h:\w# "' > /root/.profile
+
+    # Copy sensor config if the file exists
+    [ -f /mnt/data/sensor_cfg.ini.LT ] && cp /mnt/data/sensor_cfg.ini.LT /mnt/data/sensor_cfg.ini
+
+    # Generate unique device key
+    if [ -f /sys/class/cvi-base/base_uid ]; then
+        str_value=$(awk '{print $2}' /sys/class/cvi-base/base_uid)
+        first_uint=$(echo "$str_value" | cut -d'_' -f1)
+        second_uint=$(echo "$str_value" | cut -d'_' -f2)
+        echo "$first_uint$second_uint" > /device_key
+    fi
+
+    # Firewall policy is configured separately; app startup adds no rules.
+
+    # Logo selection
+    if [ -f /boot/logo.ico ]; then
+        if [ ! -f /kvmapp/server/web/original.ico ]; then
+            mv /kvmapp/server/web/sipeed.ico /kvmapp/server/web/original.ico
+            cp /boot/logo.ico /kvmapp/server/web/sipeed.ico
+        fi
+    else
+        if [ -f /kvmapp/server/web/original.ico ]; then
+            mv /kvmapp/server/web/original.ico /kvmapp/server/web/sipeed.ico
+        fi
+    fi
+
+    # Start services
+    start_services
+   ;;
+
+  stop)
+    stop_services || exit 1
+    echo "OK"
+   ;;
+
+  restart)
+    stop_services || exit 1
+    start_services
+
+    sync
+    echo "OK"
+   ;;
+    
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+  ;;
+esac

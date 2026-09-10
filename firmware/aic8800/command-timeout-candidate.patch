@@ -1,0 +1,131 @@
+--- a/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/rwnx_cmds.c
++++ b/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/rwnx_cmds.c
+@@ -123,6 +123,31 @@
+ }
+ #endif
+ 
++/* Detach a synchronous waiter's response buffer before its caller can
++ * return. The RX path uses the same lock; a late confirmation cannot copy
++ * into a caller's expired stack. Resolve a confirmation at the deadline
++ * under the lock rather than treating it as a firmware timeout.
++ */
++static int cmd_detach_waiter(struct rwnx_cmd_mgr *mgr, struct rwnx_cmd *cmd,
++			     bool timed_out)
++{
++	int result;
++
++	spin_lock_bh(&mgr->lock);
++	if (timed_out && !(cmd->flags & RWNX_CMD_FLAG_DONE)) {
++		mgr->state = RWNX_CMD_MGR_STATE_CRASHED;
++		cmd->result = -ETIMEDOUT;
++	}
++	result = (int)cmd->result;
++	cmd->e2a_msg = NULL;
++	if (!list_empty(&cmd->list)) {
++		list_del_init(&cmd->list);
++		mgr->queue_sz--;
++	}
++	spin_unlock_bh(&mgr->lock);
++	return result;
++}
++
+ static int cmd_mgr_queue(struct rwnx_cmd_mgr *cmd_mgr, struct rwnx_cmd *cmd)
+ {
+ #ifdef AICWF_SDIO_SUPPORT
+@@ -132,6 +157,7 @@
+ #ifdef AICWF_USB_SUPPORT
+ 	struct aic_usb_dev *usbdev = container_of(cmd_mgr, struct aic_usb_dev, cmd_mgr);
+ #endif
++	int result = 0;
+ 	bool defer_push = false;
+ 	u8_l empty = 0;
+ 
+@@ -234,6 +260,7 @@
+ 		//rwnx_ipc_msg_push(rwnx_hw, cmd, RWNX_CMD_A2EMSG_LEN(cmd->a2e_msg));
+ 
+ 		kfree(cmd->a2e_msg);
++		cmd->a2e_msg = NULL;
+ 	} else {
+         if(cmd_mgr->queue_sz <= 1) {
+ 			spin_unlock_bh(&cmd_mgr->lock);
+@@ -255,40 +282,31 @@
+ 		}
+ 		#else
+ 		unsigned long tout = msecs_to_jiffies(RWNX_80211_CMD_TIMEOUT_MS * cmd_mgr->queue_sz);
+-		if (!wait_for_completion_timeout(&cmd->complete, tout)) {
+-			printk(KERN_CRIT"cmd timed-out\n");
+-			#ifdef AICWF_SDIO_SUPPORT
++		bool timed_out = !wait_for_completion_timeout(&cmd->complete, tout);
++
++		result = cmd_detach_waiter(cmd_mgr, cmd, timed_out);
++		if (result == -ETIMEDOUT) {
++			printk(KERN_CRIT "cmd timed-out\n");
++#ifdef AICWF_SDIO_SUPPORT
+ 			ret = aicwf_sdio_writeb(sdiodev, sdiodev->sdio_reg.wakeup_reg, 2);
+-			if (ret < 0) {
++			if (ret < 0)
+ 				sdio_err("reg:%d write failed!\n", sdiodev->sdio_reg.wakeup_reg);
+-			}
+-		#endif
+-
++#endif
+ 			aic8800_start_system_reset_flow(sdiodev);
+-
+ 			cmd_dump(cmd);
+-			spin_lock_bh(&cmd_mgr->lock);
+-			cmd_mgr->state = RWNX_CMD_MGR_STATE_CRASHED;
+-			if (!(cmd->flags & RWNX_CMD_FLAG_DONE)) {
+-				cmd->result = -ETIMEDOUT;
+-				cmd_complete(cmd_mgr, cmd);
+-			}
+-			spin_unlock_bh(&cmd_mgr->lock);
+-		} else {
+-			spin_lock_bh(&cmd_mgr->lock);
+-			list_del(&cmd->list);
+-			cmd_mgr->queue_sz--;
+-			spin_unlock_bh(&cmd_mgr->lock);
+-			rwnx_cmd_free(cmd);//kfree(cmd);
++			/* The sender releases this detached slot on error. */
++		} else if (!result) {
++			rwnx_cmd_free(cmd);
+ 			if (!list_empty(&cmd_mgr->cmds))
+ 				WAKE_CMD_WORK(cmd_mgr);
+ 		}
++
+ 		#endif
+ 	} else {
+ 		cmd->result = 0;
+ 	}
+ 
+-	return 0;
++	return result;
+ }
+ 
+ /**
+@@ -506,7 +524,8 @@
+ 
+ 	spin_lock_bh(&cmd_mgr->lock);
+ 	list_for_each_entry_safe(cur, nxt, &cmd_mgr->cmds, list) {
+-		list_del(&cur->list);
++		list_del_init(&cur->list);
++		cur->e2a_msg = NULL;
+ 		cmd_mgr->queue_sz--;
+ 		if (!(cur->flags & RWNX_CMD_FLAG_NONBLOCK))
+ 			complete(&cur->complete);
+--- a/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/rwnx_msg_tx.c
++++ b/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/rwnx_msg_tx.c
+@@ -408,10 +408,11 @@
+ 	}
+ 
+ 	if (!reqcfm || ret) {
+-		/* The queue rejects before ownership transfer; the no-CFM sender
+-		 * copies into the bus buffer synchronously and keeps no message.
++		/* A rejected request still owns its message. A completed/failed
++		 * synchronous send has already freed it and cleared a2e_msg.
+ 		 */
+-		rwnx_msg_free(rwnx_hw, msg_params);
++		if (cmd->a2e_msg)
++			rwnx_msg_free(rwnx_hw, msg_params);
+ 		rwnx_cmd_free(cmd);
+ 	}
+ 

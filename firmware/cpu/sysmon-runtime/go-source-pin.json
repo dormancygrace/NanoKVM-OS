@@ -1,0 +1,11 @@
+{
+  "go_version": "go1.27.1",
+  "proc_go_sha256": "40d15ce858cf058cff92606001a29ee1689db88c121a2f0c283163a0d64a7375",
+  "target": "linux/riscv64",
+  "activation": "NANOKVM_SYSMON_TIMER_SLACK_NS=250000; unset or 0 leaves the original runtime policy",
+  "official_source": {
+    "url": "https://go.dev/dl/go1.27.1.src.tar.gz",
+    "sha256": "4e408abae126d916b6164627193f2c54f0e3ca1312d693b86db45f862ab238b1",
+    "bytes": 35109201
+  }
+}

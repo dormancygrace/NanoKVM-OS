@@ -1,0 +1,17 @@
+procan: record compiler basename instead of build-host path
+
+The target diagnostic does not need the private cross-toolchain directory.
+
+Upstream: Not submitted (NanoKVM OS build metadata policy)
+
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -112,7 +112,7 @@
+ 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ socat.o libxio.a $(CLIBS)
+ 
+ procan.o: $(srcdir)/procan.c
+-	$(CC) $(CFLAGS) -c -D CC="\"$(CC)\"" -o $@ $(srcdir)/procan.c
++	$(CC) $(CFLAGS) -c -D CC="\"$(notdir $(CC))\"" -o $@ $(srcdir)/procan.c
+ 
+ PROCAN_OBJS=procan_main.o procan.o procan-cdefs.o hostan.o error.o sycls.o sysutils.o utils.o vsnprintf_r.o snprinterr.o
+ procan: $(PROCAN_OBJS)

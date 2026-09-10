@@ -1,0 +1,13 @@
+{
+  "arch": "rv64imac_zicsr_zifencei_zacas_zabha_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync",
+  "kcflags": "-march=rv64imac_zicsr_zifencei_zacas_zabha_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync -mtune=thead-c906 -mno-fence-tso -fno-tree-vectorize -fno-tree-slp-vectorize",
+  "status": "selected-beta-1-kernel-build",
+  "assembler_only_alternatives": [
+    "zacas",
+    "zabha"
+  ],
+  "kernel": "7.2.4",
+  "compiler": "GCC 16.2.0",
+  "config": "kernel.config",
+  "timestamp": "Thu Sep 10 00:00:00 UTC 2026"
+}

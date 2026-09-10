@@ -1,0 +1,6 @@
+arping: GPL-2.0-or-later
+clockdiff: BSD-3-Clause
+ping: BSD-3-Clause
+tracepath: GPL-2.0-or-later
+
+Files containing license texts are available in Documentation directory.

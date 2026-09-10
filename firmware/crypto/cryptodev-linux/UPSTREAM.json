@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/cryptodev-linux/cryptodev-linux",
+  "commit": "08644db02d43478f802755903212f5ee506af73b",
+  "version": "1.14",
+  "modification": "Three request callbacks allow MAY_SLEEP. Operations already run in sleepable ioctl/workqueue context and wait_for_completion. SG2002 can complete inline, avoiding an unnecessary worker switch; atomic kernel callers remain asynchronous.",
+  "patch_already_applied": "nanokvm-may-sleep.patch",
+  "source_subset": "Module source, public ABI and license; upstream test/example files omitted."
+}

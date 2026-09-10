@@ -1,0 +1,63 @@
+diff --git a/interdrv/vpss/common/vpss_debug.h b/interdrv/vpss/common/vpss_debug.h
+--- a/interdrv/vpss/common/vpss_debug.h
++++ b/interdrv/vpss/common/vpss_debug.h
+@@ -2,6 +2,7 @@
+ #define _VPSS_DEBUG_H_
+ 
+ #include <linux/debugfs.h>
++#include <linux/ratelimit.h>
+ 
+ extern u32 vpss_log_lv;
+ 
+@@ -27,7 +28,16 @@
+ 				printk(KERN_DEBUG "%s:%d(): " fmt, __func__, __LINE__, ##__VA_ARGS__); \
+ 		} \
+ 	} while (0)
++/* Pool backpressure can recur for every input frame while no client drains it.
++ * Keep initial errors and periodic diagnostics without flooding the console.
++ */
++#define CVI_TRACE_VPSS_ERR_RATELIMITED(fmt, ...) \
++	do { \
++		if (CVI_DBG_ERR <= vpss_log_lv) \
++			pr_err_ratelimited("%s:%d(): " fmt, __func__, __LINE__, ##__VA_ARGS__); \
++	} while (0)
+ #else
++#define CVI_TRACE_VPSS_ERR_RATELIMITED(fmt, ...)
+ #define CVI_TRACE_VPSS(level, fmt, ...)
+ #endif
+ 
+diff --git a/interdrv/vpss/common/vpss.c b/interdrv/vpss/common/vpss.c
+--- a/interdrv/vpss/common/vpss.c
++++ b/interdrv/vpss/common/vpss.c
+@@ -916,7 +916,7 @@
+ 				CVI_TRACE_VPSS(CVI_DBG_INFO, "Grp(%d) Chn(%d) acquire VB BLK later\n"
+ 					, VpssGrp, VpssChn);
+ 			} else {
+-				CVI_TRACE_VPSS(CVI_DBG_ERR, "Grp(%d) Chn(%d) Can't acquire VB BLK for VPSS\n"
++				CVI_TRACE_VPSS_ERR_RATELIMITED("Grp(%d) Chn(%d) Can't acquire VB BLK for VPSS\n"
+ 					, VpssGrp, VpssChn);
+ 				ret = CVI_ERR_VPSS_NOBUF;
+ 				break;
+@@ -2840,6 +2840,7 @@
+  */
+ static CVI_S32 vpss_try_schedule_offline(struct vpss_handler_ctx *ctx)
+ {
++	CVI_S32 fill_ret;
+ 	VPSS_GRP workingGrp = ctx->workingGrp;
+ 	VPSS_CHN VpssChn;
+ 	CVI_U8 workingMask = 0;
+@@ -2886,8 +2887,12 @@
+ 		goto vpss_next_job;
+ 	}
+ 
+-	if (fill_buffers(workingGrp, vpss_ctx, ctx->online_from_isp) != CVI_SUCCESS) {
+-		CVI_TRACE_VPSS(CVI_DBG_ERR, "grp(%d) fill buffer NG.\n", workingGrp);
++	fill_ret = fill_buffers(workingGrp, vpss_ctx, ctx->online_from_isp);
++	if (fill_ret != CVI_SUCCESS) {
++		if (fill_ret == CVI_ERR_VPSS_NOBUF)
++			CVI_TRACE_VPSS_ERR_RATELIMITED("grp(%d) fill buffer NG.\n", workingGrp);
++		else
++			CVI_TRACE_VPSS(CVI_DBG_ERR, "grp(%d) fill buffer NG.\n", workingGrp);
+ 		vpssCtx[workingGrp]->stGrpWorkStatus.u32StartFailCnt++;
+ 		goto vpss_next_job;
+ 	}

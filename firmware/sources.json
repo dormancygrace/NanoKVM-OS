@@ -1,0 +1,67 @@
+{
+  "product": "NanoKVM OS",
+  "status": "beta-1-component-pins-not-a-self-contained-build",
+  "verified_on": "2026-09-10",
+  "buildroot": {
+    "version": "2026.08",
+    "url": "https://buildroot.org/downloads/buildroot-2026.08.tar.xz",
+    "sha256": "87aaca4164ea9d5c8085854953018263f7963f07c22e73a2a2185cc98c581c34"
+  },
+  "linux": {
+    "version": "7.2.4",
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.4.tar.xz",
+    "sha256": "01710ee01737dac492f1bae52becd057e08d20d11589089aa06accff415c28dd"
+  },
+  "gcc": {
+    "version": "16.2.0",
+    "source": "Buildroot pinned package"
+  },
+  "sophgo_osdrv": {
+    "url": "https://github.com/sophgo/osdrv.git",
+    "commit": "1b3a49649d18488ecf54fb4fcb6c27599e433fdc",
+    "branch": "sg200x-dev"
+  },
+  "sophgo_cvi_mpi": {
+    "url": "https://github.com/sophgo/cvi_mpi.git",
+    "commit": "693a72a1d52f2e08ea767e0a72905e81f10572a5",
+    "branch": "sg200x-dev"
+  },
+  "sophgo_kernel_port_reference": {
+    "url": "https://github.com/sophgo/linux_5.10.git",
+    "commit": "ae7d7584767ff77fc62b095e9cdc66720f3a6aaa",
+    "purpose": "pinned vendor driver/ION source reference, not the target kernel"
+  },
+  "json_c": {
+    "version": "0.19",
+    "url": "https://github.com/json-c/json-c.git",
+    "tag": "json-c-0.19-20260627",
+    "commit": "aa716cd8d663c976b99b0f30f102ee1d8ef63146",
+    "scope": "MPI BIN/ISP_BIN source build; Buildroot aligned by source patch 0001"
+  },
+  "miniz": {
+    "version": "3.1.2",
+    "url": "https://github.com/richgel999/miniz.git",
+    "tag": "3.1.2",
+    "commit": "77d0dce8627735138c51770d1799a1ef48f2117d",
+    "scope": "MPI BIN/ISP_BIN source build"
+  },
+  "inih": {
+    "version": "r62",
+    "url": "https://github.com/benhoyt/inih.git",
+    "commit": "26254ee9de7681f8825433415443e7116ff24b98"
+  },
+  "sophgo_sensors": {
+    "url": "https://github.com/sophgo/SensorSupportList.git",
+    "branch": "sg200x-dev",
+    "commit": "e2824e1d07f516c41238e123fefbab71a34843bc",
+    "qualification": "LT6911UXC capture exercised on NanoKVM PCIe; other receivers and boards require separate qualification"
+  },
+  "maixcdk": {
+    "version": "4.11.3",
+    "url": "https://github.com/sipeed/MaixCDK.git",
+    "tag": "v4.11.3",
+    "commit": "b29c951647df74e4efa55fd4454efb37e4554be0",
+    "scope": "required basic/peripheral source subset in kvm_system; firmware/maixcdk/patches applied",
+    "qualification": "Included in selected native build; board and long-run qualification limits are documented in docs/VALIDATION.md"
+  }
+}

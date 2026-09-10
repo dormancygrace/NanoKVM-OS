@@ -1,0 +1,81 @@
+#!/bin/sh
+# Preserve established device identity while validating user overrides.
+set -eu
+
+: "${NANOKVM_ID_BOOT:=/boot}"
+: "${NANOKVM_ID_ETC:=/etc}"
+: "${NANOKVM_ID_UID:=/sys/class/cvi-base/base_uid}"
+: "${NANOKVM_ID_HOSTNAME:=hostname}"
+: "${NANOKVM_ID_IP:=ip}"
+
+die() { echo "S10uuid: $*" >&2; exit 1; }
+read_value() { sed 's/\r$//' "$1"; }
+valid_hostname() {
+    # Linux limits the whole hostname to 64 bytes. Accept DNS labels/FQDNs.
+    printf '%s\n' "$1" | awk '
+        NR != 1 {exit 1}
+        length($0)<1 || length($0)>64 {exit 1}
+        {n=split($0,a,"."); for(i=1;i<=n;i++)
+            if(length(a[i])<1 || length(a[i])>63 || a[i] !~ /^[a-zA-Z0-9-]+$/ || a[i] ~ /^-/ || a[i] ~ /-$/) exit 1}
+    '
+}
+valid_mac() {
+    printf '%s\n' "$1" | awk -F: '
+        NR != 1 {exit 1}
+        NF!=6 {exit 1}
+        {for(i=1;i<=6;i++) if($i !~ /^[0-9a-fA-F][0-9a-fA-F]$/) exit 1}
+        substr($1,2,1) !~ /[02468aAcCeE]/ {exit 1}
+        tolower($0)=="00:00:00:00:00:00" {exit 1}
+    '
+}
+
+case "${1:-}" in
+    stop) exit 0 ;;
+    start) ;;
+    *) echo "Usage: $0 {start|stop}" >&2; exit 2 ;;
+esac
+
+# Calculate once, check read failure instead of silently deriving an empty ID.
+test -s "$NANOKVM_ID_UID" || die 'chip UID is unavailable'
+test -n "$(cat "$NANOKVM_ID_UID")" || die 'chip UID is empty'
+uid=$(sha512sum "$NANOKVM_ID_UID") || die 'could not hash chip UID'
+uid=${uid%% *}
+suffix=$(printf '%s' "$uid" | cut -c1-4)
+prefix=kvm
+if [ -f "$NANOKVM_ID_BOOT/hostname.prefix" ]; then prefix=$(read_value "$NANOKVM_ID_BOOT/hostname.prefix"); fi
+new_hostname=$prefix-$suffix
+if [ -f "$NANOKVM_ID_BOOT/hostname" ]; then new_hostname=$(read_value "$NANOKVM_ID_BOOT/hostname"); fi
+valid_hostname "$new_hostname" || die 'invalid hostname'
+
+if [ -f "$NANOKVM_ID_BOOT/eth.mac" ]; then
+    ethmac=$(read_value "$NANOKVM_ID_BOOT/eth.mac")
+else
+    # Keep the stock derivation so existing DHCP reservations remain usable.
+    ethmac="48:da:35:6f:${suffix%??}:${suffix#??}"
+fi
+valid_mac "$ethmac" || die 'invalid Ethernet MAC address'
+ethmac=$(printf '%s' "$ethmac" | tr 'A-F' 'a-f')
+
+# Validate all inputs before changing identity or taking the link down.
+old_hostname=$(cat "$NANOKVM_ID_ETC/hostname")
+if [ "$old_hostname" != "$new_hostname" ]; then
+    hosts_tmp=$(mktemp "$NANOKVM_ID_ETC/.hosts.XXXXXX")
+    trap 'rm -f "$hosts_tmp"' EXIT
+    # Replace whole hostname fields only; never use a hostname as a sed regex.
+    awk -v old="$old_hostname" -v new="$new_hostname" '
+        /^[[:space:]]*#/ {print; next}
+        {for(i=2;i<=NF;i++) {if(substr($i,1,1)=="#") break; if($i==old) $i=new} print}
+    ' "$NANOKVM_ID_ETC/hosts" > "$hosts_tmp"
+    chmod 644 "$hosts_tmp"
+    "$NANOKVM_ID_HOSTNAME" "$new_hostname"
+    printf '%s\n' "$new_hostname" > "$NANOKVM_ID_ETC/hostname"
+    mv -f "$hosts_tmp" "$NANOKVM_ID_ETC/hosts"
+    trap - EXIT
+fi
+"$NANOKVM_ID_IP" link set dev eth0 down
+"$NANOKVM_ID_IP" link set dev eth0 address "$ethmac"
+"$NANOKVM_ID_IP" link set dev eth0 up
+echo "hostname: $new_hostname"
+echo "ethernet mac address: $ethmac"
+# USB MACs are assigned by the gadget template before bind, for both RNDIS
+# and NCM. Do not bounce an already started USB network here.

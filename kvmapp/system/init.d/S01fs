@@ -1,0 +1,137 @@
+#!/bin/sh
+
+: "${NANOKVM_DISK:=/dev/mmcblk0}"
+: "${NANOKVM_BOOT_PART:=/dev/mmcblk0p1}"
+: "${NANOKVM_DATA_PART:=/dev/mmcblk0p3}"
+: "${NANOKVM_ROOT_START_FILE:=/sys/class/block/mmcblk0p2/start}"
+: "${NANOKVM_ROOT_SIZE_FILE:=/sys/class/block/mmcblk0p2/size}"
+: "${NANOKVM_DATA_ALIGNMENT_SECTORS:=2048}"
+: "${NANOKVM_BOOT_DIR:=/boot}"
+: "${NANOKVM_DATA_DIR:=/data}"
+: "${NANOKVM_DISK0_MARKER:=/etc/kvm.disk0}"
+: "${NANOKVM_DATA_FORMAT_PENDING:=/etc/kvm.disk0.formatting}"
+: "${NANOKVM_PROFILE:=/etc/profile}"
+: "${NANOKVM_PARTED:=parted}"
+
+read_uint_file() {
+        value=$(cat "$1" 2>/dev/null) || return 1
+        case "$value" in
+                ''|*[!0-9]*) return 1 ;;
+        esac
+        printf '%s\n' "$value"
+}
+
+data_partition_start_sector() {
+        start=$(read_uint_file "$NANOKVM_ROOT_START_FILE") || return 1
+        size=$(read_uint_file "$NANOKVM_ROOT_SIZE_FILE") || return 1
+        [ "$size" -gt 0 ] || return 1
+        [ "$NANOKVM_DATA_ALIGNMENT_SECTORS" -gt 0 ] || return 1
+
+        # Keep the shipped root filesystem unchanged and align p3 to the next
+        # 1 MiB boundary. This supports both compact and legacy-expanded roots.
+        next=$((start + size))
+        alignment=$NANOKVM_DATA_ALIGNMENT_SECTORS
+        printf '%s\n' "$((((next + alignment - 1) / alignment) * alignment))"
+}
+
+create_default_data_partition() {
+        data_start=$(data_partition_start_sector) || {
+                echo "Could not read root partition geometry; data partition not created" >&2
+                return 1
+        }
+
+        # The ntfs hint gives an MBR data partition ID of 0x07, which is also
+        # the conventional type for exFAT/Microsoft basic data partitions.
+        "$NANOKVM_PARTED" -s "$NANOKVM_DISK" unit s \
+                mkpart primary ntfs "${data_start}s" 100%
+}
+
+is_empty_partition() (
+        tmp=$(mktemp "${TMPDIR:-/tmp}/s01fs-data-head.XXXXXX") || return 1
+        trap 'rm -f "$tmp"' EXIT
+
+        # Recover only zero-filled partitions stranded by the legacy script.
+        # Unknown non-empty partitions may contain user data and are preserved.
+        dd if="$1" of="$tmp" bs=1M count=4 2>/dev/null || return 1
+        [ "$(wc -c < "$tmp")" != "0" ] || return 0
+        ! od -An -tx1 "$tmp" | grep -q '[1-9a-fA-F]'
+)
+
+mount_data_partition() {
+        mkdir -p "$NANOKVM_DATA_DIR"
+        if mount "$NANOKVM_DATA_PART" "$NANOKVM_DATA_DIR"
+        then
+                touch "$NANOKVM_DISK0_MARKER"
+                return 0
+        fi
+
+        rm -f "$NANOKVM_DISK0_MARKER"
+        return 1
+}
+
+format_and_mount_data_partition() {
+        if ! mkfs.exfat -L data "$NANOKVM_DATA_PART"
+        then
+                rm -f "$NANOKVM_DISK0_MARKER"
+                return 1
+        fi
+
+        rm -f "$NANOKVM_DATA_FORMAT_PENDING"
+        mount_data_partition
+}
+
+if [ "${1:-}" = "start" ]
+then
+        if [ -r "$NANOKVM_PROFILE" ]
+        then
+                # shellcheck disable=SC1090
+                . "$NANOKVM_PROFILE"
+        fi
+
+        printf "mounting filesystem : "
+        mkdir -p "$NANOKVM_BOOT_DIR"
+        mount -t vfat "$NANOKVM_BOOT_PART" "$NANOKVM_BOOT_DIR"
+        mount -t configfs configfs /sys/kernel/config
+        mount -t debugfs debugfs /sys/kernel/debug
+
+        # The shipped marker requests creation of the local data partition.
+        # It no longer causes p3 to be exported as writable USB mass storage.
+        if [ -e "$NANOKVM_BOOT_DIR/usb.disk0" ] && [ ! -e "$NANOKVM_DATA_PART" ]
+        then
+                if create_default_data_partition
+                then
+                        touch "$NANOKVM_DATA_FORMAT_PENDING"
+                        sleep 1
+                else
+                        echo "data partition creation deferred" >&2
+                fi
+        fi
+
+        if [ -e "$NANOKVM_DATA_PART" ]
+        then
+                if [ -e "$NANOKVM_DATA_FORMAT_PENDING" ]
+                then
+                        format_and_mount_data_partition
+                elif [ -n "$(blkid "$NANOKVM_DATA_PART" 2>/dev/null)" ]
+                then
+                        mount_data_partition
+                elif [ -e "$NANOKVM_DISK0_MARKER" ] && is_empty_partition "$NANOKVM_DATA_PART"
+                then
+                        # A legacy boot could create the ready marker before its
+                        # asynchronous formatter completed. Repair only when the
+                        # beginning of the partition is still entirely empty.
+                        touch "$NANOKVM_DATA_FORMAT_PENDING"
+                        format_and_mount_data_partition
+                else
+                        rm -f "$NANOKVM_DISK0_MARKER"
+                        echo "unknown data partition left untouched" >&2
+                fi
+        elif [ -e "$NANOKVM_DATA_FORMAT_PENDING" ]
+        then
+                # Keep the retry marker: the kernel may expose a newly-created
+                # partition only on the next boot.
+                rm -f "$NANOKVM_DISK0_MARKER"
+        fi
+
+        echo "OK"
+fi

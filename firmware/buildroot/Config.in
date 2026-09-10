@@ -1,0 +1,19 @@
+config BR2_PACKAGE_NANOKVM_VENDOR_LIBC
+    bool "NanoKVM vendor process loaders"
+    depends on BR2_RISCV_64
+    help
+      Preserve named T-Head loaders for the binary media SDK, while leaving
+      the standard system musl loader supplied by Buildroot intact.
+
+config BR2_PACKAGE_AIC8800_SDIO_FIRMWARE
+    bool "AIC8800 SDIO firmware"
+
+config BR2_PACKAGE_SG2002_CODEC_FIRMWARE
+    bool "SG2002 codec firmware"
+
+config BR2_PACKAGE_NANOKVM_BOARD_TOOLS
+    bool "NanoKVM board maintenance tools"
+    depends on BR2_RISCV_64
+    help
+      Build the EDID maintenance and validation tool with the target toolchain.
+      It is only run on explicit invocation; no startup service is installed.

@@ -1,0 +1,127 @@
+package webrtc
+
+import (
+	"NanoKVM-Server/service/stream"
+	"encoding/json"
+
+	"github.com/gorilla/websocket"
+	"github.com/pion/webrtc/v4"
+	log "github.com/sirupsen/logrus"
+
+	"sync"
+)
+
+// kvmv's CV1812H encoder emits Main Profile with constraint_set1 at Level 4.2
+// (SPS bytes 4d 40 2a). Advertising a different profile can make strict WebRTC
+// receivers reject an otherwise valid stream.
+const h264SDPFmtpLine = "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=4d402a"
+
+func NewClient(ws *websocket.Conn, videoConn *webrtc.PeerConnection, config stream.EncoderConfig) *Client {
+	return &Client{
+		pathMTU:    newPeerPathMTU(),
+		packetizer: newAdaptiveVideoPacketizer(config.Codec),
+		ws:         ws,
+		video:      videoConn,
+		config:     config,
+		mutex:      sync.Mutex{},
+	}
+}
+
+func (c *Client) Close() {
+	if c.video != nil {
+		if err := c.video.Close(); err != nil {
+			log.Debugf("failed to close video peer connection: %s", err)
+		}
+	}
+
+	if c.ws != nil {
+		if err := c.ws.Close(); err != nil {
+			log.Debugf("failed to close websocket: %s", err)
+		}
+	}
+}
+
+func (c *Client) WriteMessage(event string, data string) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	message := &Message{
+		Event: event,
+		Data:  data,
+	}
+
+	if err := c.ws.WriteJSON(message); err != nil {
+		log.Errorf("failed to send message %s: %v", event, err)
+		return err
+	}
+
+	log.Debugf("sent message %s", event)
+	return nil
+}
+
+func (c *Client) ReadMessage() (*Message, error) {
+	_, raw, err := c.ws.ReadMessage()
+	if err != nil {
+		log.Errorf("failed to read message: %v", err)
+		return nil, err
+	}
+
+	var message Message
+	if err := json.Unmarshal(raw, &message); err != nil {
+		log.Errorf("failed to unmarshal message: %v", err)
+		return nil, nil
+	}
+
+	return &message, nil
+}
+
+func (c *Client) AddTrack() error {
+	mimeType := webrtc.MimeTypeH264
+	sdpFmtpLine := h264SDPFmtpLine
+	if c.config.Codec == stream.VideoCodecH265 {
+		mimeType = webrtc.MimeTypeH265
+		sdpFmtpLine = ""
+	}
+
+	// video track
+	videoTrack, err := webrtc.NewTrackLocalStaticRTP(
+		webrtc.RTPCodecCapability{
+			MimeType:    mimeType,
+			ClockRate:   90000,
+			SDPFmtpLine: sdpFmtpLine,
+		},
+		"video",
+		"pion-video",
+	)
+	if err != nil {
+		log.Errorf("failed to create video track: %s", err)
+		return err
+	}
+
+	videoSender, err := c.video.AddTrack(videoTrack)
+	if err != nil {
+		log.Errorf("failed to add video track: %s", err)
+		return err
+	}
+	go startRTCPReader(videoSender)
+
+	track := &Track{
+		video: videoTrack,
+	}
+
+	c.mutex.Lock()
+	c.track = track
+	c.mutex.Unlock()
+
+	return nil
+}
+
+func startRTCPReader(sender *webrtc.RTPSender) {
+	rtcpBuf := make([]byte, 1500)
+	for {
+		if _, _, err := sender.Read(rtcpBuf); err != nil {
+			log.Debugf("RTCP reader error: %v", err)
+			return
+		}
+	}
+}

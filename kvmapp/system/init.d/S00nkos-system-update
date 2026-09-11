@@ -1,0 +1,12 @@
+#!/bin/sh
+# Fixed dispatcher: packages cannot replace this script. Run before services.
+[ "$1" = start ] || exit 0
+helper=/usr/sbin/nkos-update
+if [ -f /kvmapp/.os-update/system.json ]; then
+    helper=/kvmapp/.os-update/system-recovery
+fi
+# Do not start services on partially recovered system files.
+while ! "$helper" system-boot; do
+    echo "NanoKVM OS: system recovery failed; startup paused" >/dev/console
+    sleep 30
+done

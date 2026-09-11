@@ -1,5 +1,16 @@
 const zh = {
   translation: {
+    recorder: {
+      title: '视频录制',
+      start: '开始录制',
+      stop: '停止录制',
+      saving: '正在保存…',
+      saved: '录制已保存',
+      unsupported: '录制需要 HTTPS 及支持文件保存的浏览器，例如 Chrome 或 Edge',
+      captureDisabled: '请启用视频采集',
+      noVideo: '请等待视频后再录制',
+      failed: '无法保存录制。请检查磁盘空间及浏览器支持。'
+    },
     head: {
       desktop: '远程桌面',
       login: '登录',
@@ -198,6 +209,24 @@ const zh = {
       fast: '快',
       slow: '慢',
       requestPointer: '正在使用鼠标相对模式，请点击桌面获取鼠标指针。',
+      inputAdapter: {
+        title: '输入适配器',
+        auto: '自动',
+        'pointer-lock': '指针锁定',
+        touchpad: '触控板'
+      },
+      touchpadGuide: {
+        title: '触控板指南',
+        scope: '适用于输入适配器为触控板，且鼠标模式为相对模式时。',
+        swipeTitle: '滑动移动',
+        swipeDesc: '在有效画面区域内滑动，远端鼠标指针会跟随移动。',
+        tapTitle: '点按单击',
+        tapDesc: '短促点按一次，对应远端鼠标左键单击。',
+        holdTitle: '按住触发左键按下',
+        holdDesc: '手指按下并保持不动约 1 秒，会进入鼠标左键按住状态。',
+        dragTitle: '按住后移动进行拖动',
+        dragDesc: '左键按住状态生效后继续移动手指，会变成按住鼠标左键的拖动。'
+      },
       resetHid: '重置 HID',
       hidOnly: {
         title: 'HID-Only 模式',
@@ -310,6 +339,8 @@ const zh = {
     },
     settings: {
       title: '设置',
+      back: '返回',
+      close: '关闭',
       mcp: {
         title: 'MCP 服务',
         service: '远程控制 MCP',
@@ -466,26 +497,26 @@ const zh = {
           tip: '注意：使用 HTTPS 可能导致延迟增加，特别是在 MJPEG 视频模式下。'
         },
         ethernet: {
-          title: "以太网 IPv4",
-          description: "选择 DHCP 或配置重启后仍会保留的静态 IPv4 地址",
-          dhcp: "DHCP",
-          static: "静态",
-          ipv4: "IPv4 配置",
-          dhcpDescription: "IP 地址和网关将通过 DHCP 自动获取",
-          staticDescription: "设置会立即应用，并在重启后保留",
-          ipAddress: "IP 地址",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "子网掩码",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "网关",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "请输入有效的 IPv4 地址、子网掩码和网关",
-          save: "保存",
-          unsaved: "未保存的更改",
-          savedStatic: "静态地址已保存。请通过 {{address}} 重新连接。",
-          savedDhcp: "已启用 DHCP。请使用路由器分配的地址重新连接。",
-          saveFailed: "保存以太网设置失败",
-          loadFailed: "加载以太网设置失败"
+          title: '以太网 IPv4',
+          description: '选择 DHCP 或配置重启后仍会保留的静态 IPv4 地址',
+          dhcp: 'DHCP',
+          static: '静态',
+          ipv4: 'IPv4 配置',
+          dhcpDescription: 'IP 地址和网关将通过 DHCP 自动获取',
+          staticDescription: '设置会立即应用，并在重启后保留',
+          ipAddress: 'IP 地址',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: '子网掩码',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: '网关',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: '请输入有效的 IPv4 地址、子网掩码和网关',
+          save: '保存',
+          unsaved: '未保存的更改',
+          savedStatic: '静态地址已保存。请通过 {{address}} 重新连接。',
+          savedDhcp: '已启用 DHCP。请使用路由器分配的地址重新连接。',
+          saveFailed: '保存以太网设置失败',
+          loadFailed: '加载以太网设置失败'
         },
         dns: {
           title: 'DNS',

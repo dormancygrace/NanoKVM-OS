@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Popover, Tag, Tooltip } from 'antd';
+import { Tag, Tooltip } from 'antd';
 import { useAtomValue } from 'jotai';
 import { CheckIcon, TvMinimalPlayIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { getEncoderCodec } from '@/lib/encoder';
 import { setVideoMode as setCookie } from '@/lib/localstorage.ts';
 import { videoModeAtom } from '@/jotai/screen.ts';
+import { MenuSubmenu } from '@/components/menu-item.tsx';
 
 const videoModes = [
   { key: 'direct', name: 'Direct' },
@@ -78,11 +79,15 @@ export const VideoMode = () => {
   );
 
   return (
-    <Popover content={content} placement="rightTop" arrow={false} align={{ offset: [14, 0] }}>
+    <MenuSubmenu
+      title={t('screen.video')}
+      content={content}
+      popoverProps={{ placement: 'rightTop', arrow: false, align: { offset: [14, 0] } }}
+    >
       <div className="flex h-[30px] cursor-pointer items-center space-x-2 rounded px-3 text-neutral-300 hover:bg-neutral-700/70">
         <TvMinimalPlayIcon size={18} />
         <span className="select-none text-sm">{t('screen.video')}</span>
       </div>
-    </Popover>
+    </MenuSubmenu>
   );
 };

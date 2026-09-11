@@ -203,6 +203,24 @@ const vi = {
       slow: 'Chậm',
       requestPointer:
         'Đang sử dụng chế độ tương đối. Vui lòng nhấp vào màn hình để lấy con trỏ chuột.',
+      inputAdapter: {
+        title: 'Bộ chuyển đổi đầu vào',
+        auto: 'Tự động',
+        'pointer-lock': 'Khóa con trỏ',
+        touchpad: 'Bàn di chuột'
+      },
+      touchpadGuide: {
+        title: 'Hướng dẫn bàn di chuột',
+        scope: 'Áp dụng khi Bộ điều hợp nhập là Bàn di chuột và Chế độ chuột là Tương đối.',
+        swipeTitle: 'Vuốt để di chuyển',
+        swipeDesc: 'Vuốt trong vùng màn hình hoạt động để di chuyển con trỏ từ xa.',
+        tapTitle: 'Chạm để nhấp',
+        tapDesc: 'Một lần chạm ngắn sẽ gửi một cú nhấp trái.',
+        holdTitle: 'Giữ để nhấn nút trái',
+        holdDesc: 'Chạm và giữ yên khoảng 1 giây để giữ nút trái chuột ở trạng thái nhấn.',
+        dragTitle: 'Di chuyển sau khi giữ để kéo',
+        dragDesc: 'Sau khi giữ có hiệu lực, di chuyển ngón tay để kéo với nút trái đang được giữ.'
+      },
       resetHid: 'Đặt lại HID',
       hidOnly: {
         title: 'Chế độ chỉ HID',
@@ -316,6 +334,8 @@ const vi = {
     },
     settings: {
       title: 'Cài đặt',
+      back: 'Quay lại',
+      close: 'Đóng',
       mcp: {
         title: 'Dịch vụ MCP',
         service: 'Điều khiển từ xa MCP',
@@ -475,26 +495,26 @@ const vi = {
           tip: 'Lưu ý: Sử dụng HTTPS có thể tăng độ trễ, đặc biệt trong chế độ video MJPEG.'
         },
         ethernet: {
-          title: "Ethernet IPv4",
-          description: "Chọn DHCP hoặc cấu hình địa chỉ IPv4 tĩnh cố định",
-          dhcp: "DHCP",
-          static: "Tĩnh",
-          ipv4: "Cấu hình IPv4",
-          dhcpDescription: "Địa chỉ IP và cổng kết nối được tự động nhận từ DHCP",
-          staticDescription: "Các cài đặt được áp dụng ngay và được giữ lại sau khi khởi động lại",
-          ipAddress: "Địa chỉ IP",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "Mặt nạ mạng con",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "Cổng kết nối",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "Nhập địa chỉ IPv4, mặt nạ mạng con và cổng kết nối hợp lệ",
-          save: "Lưu",
-          unsaved: "Thay đổi chưa lưu",
-          savedStatic: "Đã lưu địa chỉ tĩnh. Kết nối lại tại {{address}}.",
-          savedDhcp: "Đã bật DHCP. Kết nối lại bằng địa chỉ do bộ định tuyến của bạn cấp.",
-          saveFailed: "Không thể lưu cài đặt Ethernet",
-          loadFailed: "Không thể tải cài đặt Ethernet"
+          title: 'Ethernet IPv4',
+          description: 'Chọn DHCP hoặc cấu hình địa chỉ IPv4 tĩnh cố định',
+          dhcp: 'DHCP',
+          static: 'Tĩnh',
+          ipv4: 'Cấu hình IPv4',
+          dhcpDescription: 'Địa chỉ IP và cổng kết nối được tự động nhận từ DHCP',
+          staticDescription: 'Các cài đặt được áp dụng ngay và được giữ lại sau khi khởi động lại',
+          ipAddress: 'Địa chỉ IP',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: 'Mặt nạ mạng con',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: 'Cổng kết nối',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: 'Nhập địa chỉ IPv4, mặt nạ mạng con và cổng kết nối hợp lệ',
+          save: 'Lưu',
+          unsaved: 'Thay đổi chưa lưu',
+          savedStatic: 'Đã lưu địa chỉ tĩnh. Kết nối lại tại {{address}}.',
+          savedDhcp: 'Đã bật DHCP. Kết nối lại bằng địa chỉ do bộ định tuyến của bạn cấp.',
+          saveFailed: 'Không thể lưu cài đặt Ethernet',
+          loadFailed: 'Không thể tải cài đặt Ethernet'
         },
         dns: {
           title: 'DNS',

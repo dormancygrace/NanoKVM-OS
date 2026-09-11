@@ -24,15 +24,20 @@ export const Capture = () => {
         className="!flex !h-[30px] !w-[30px] !min-w-0 !items-center !justify-center !rounded !p-0 hover:!bg-neutral-700/80 disabled:!opacity-40"
         style={{
           color: enabled ? '#34d399' : '#fbbf24',
-          backgroundColor: enabled ? 'rgba(16,185,129,0.16)' : 'rgba(245,158,11,0.12)',
-          boxShadow: `inset 0 0 0 1px ${enabled ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.25)'}`
+          backgroundColor: 'transparent',
+          border: 0,
+          boxShadow: 'none'
         }}
         onClick={() => {
           setError(false);
           void changeCapture(!enabled).catch(() => setError(true));
         }}
       >
-        {enabled ? <VideoIcon size={18} /> : <VideoOffIcon size={18} />}
+        {enabled ? (
+          <VideoIcon size={22} strokeWidth={1.8} className="block shrink-0" />
+        ) : (
+          <VideoOffIcon size={22} strokeWidth={1.8} className="block shrink-0" />
+        )}
       </Button>
     </Tooltip>
   );

@@ -17,6 +17,10 @@ func vmRouter(r *gin.Engine) {
 		middleware.RequireRole(authn.RoleAdmin),
 	)
 
+	api.GET("/vm/date-time", service.GetDateTime)
+	admin.POST("/vm/date-time", service.SetDateTime)
+
+	api.GET("/vm/dashboard", service.GetDashboard)
 	api.GET("/vm/info", service.GetInfo)         // get device information
 	api.GET("/vm/hardware", service.GetHardware) // get hardware version
 

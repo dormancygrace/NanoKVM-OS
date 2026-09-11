@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Popover, Tag } from 'antd';
+import { Tag } from 'antd';
 import { useAtomValue } from 'jotai';
 import { CheckIcon, ClapperboardIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import {
   type EncoderTransport
 } from '@/lib/encoder.ts';
 import { videoModeAtom } from '@/jotai/screen.ts';
+import { MenuSubmenu } from '@/components/menu-item.tsx';
 
 const codecs: Array<{ key: EncoderCodec; name: string }> = [
   { key: 'h265', name: 'H.265 / HEVC' },
@@ -34,10 +35,7 @@ export const Codec = () => {
       setH265Supported(supported);
       setCapabilityReady(true);
 
-      if (!supported && getEncoderCodec() === 'h265') {
-        setEncoderCodec('h264');
-        setCodec('h264');
-      }
+      setCodec(getEncoderCodec());
     });
 
     return () => {
@@ -46,9 +44,10 @@ export const Codec = () => {
   }, [videoMode]);
 
   function update(nextCodec: EncoderCodec) {
-    if (nextCodec === codec || (nextCodec === 'h265' && !h265Supported)) return;
+    if (nextCodec === 'h265' && !h265Supported) return;
 
     setEncoderCodec(nextCodec);
+    if (nextCodec === codec) return;
     setCodec(nextCodec);
     window.setTimeout(() => window.location.reload(), 250);
   }
@@ -86,11 +85,15 @@ export const Codec = () => {
   );
 
   return (
-    <Popover content={content} placement="rightTop" arrow={false} align={{ offset: [14, 0] }}>
+    <MenuSubmenu
+      title={t('screen.codec')}
+      content={content}
+      popoverProps={{ placement: 'rightTop', arrow: false, align: { offset: [14, 0] } }}
+    >
       <div className="flex h-[30px] cursor-pointer items-center space-x-2 rounded px-3 text-neutral-300 hover:bg-neutral-700/70">
         <ClapperboardIcon size={18} />
         <span className="select-none text-sm">{t('screen.codec')}</span>
       </div>
-    </Popover>
+    </MenuSubmenu>
   );
 };

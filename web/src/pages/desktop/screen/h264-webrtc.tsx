@@ -29,7 +29,7 @@ const parseSignalingData = <T,>(data?: string): T | null => {
   return JSON.parse(data) as T;
 };
 
-export const H264Webrtc = () => {
+export const H264Webrtc = ({ onEncoderConflict }: { onEncoderConflict: () => boolean }) => {
   const { t } = useTranslation();
   const mouseStyle = useAtomValue(mouseStyleAtom);
   const [isLoading, setIsLoading] = useState(true);
@@ -268,23 +268,26 @@ export const H264Webrtc = () => {
             }
             break;
           }
-          case 'video-error':
+          case 'video-error': {
             terminalFailure = true;
             cancelReconnect();
             setIsLoading(false);
             if (msg.data) console.error('WebRTC video stream rejected:', msg.data);
-            notificationApi.error({
-              key: WEBRTC_CONNECTION_FAILED_NOTIFICATION_KEY,
-              message: translationRef.current('screen.encoderError'),
-              description: translationRef.current('screen.encoderConflict'),
-              placement: 'topRight',
-              duration: null
-            });
+            const retryingJoin = onEncoderConflict();
+            if (!retryingJoin)
+              notificationApi.error({
+                key: WEBRTC_CONNECTION_FAILED_NOTIFICATION_KEY,
+                message: translationRef.current('screen.encoderError'),
+                description: translationRef.current('screen.encoderConflict'),
+                placement: 'topRight',
+                duration: null
+              });
             stopDiagnostics?.();
             video?.close();
             video = null;
             ws.close();
             break;
+          }
           case 'heartbeat':
             break;
           default:
@@ -334,7 +337,7 @@ export const H264Webrtc = () => {
       clearTimeout(loadingTimer);
       clearTimeout(connectionTimeoutTimer);
     };
-  }, [connectionAttempt, notificationApi, diagnostics]);
+  }, [connectionAttempt, notificationApi, diagnostics, onEncoderConflict]);
 
   useEffect(() => {
     return () => {

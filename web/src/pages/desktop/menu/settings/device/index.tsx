@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next';
 
 import { Advanced } from './advanced';
 import { Hdmi } from './hdmi.tsx';
-import { Mdns } from './mdns.tsx';
 import { MouseJiggler } from './mouse-jiggler.tsx';
 import { Oled } from './oled.tsx';
 import { Reboot } from './reboot.tsx';
 import { Ssh } from './ssh.tsx';
+import { SystemInformation } from './system-information';
 
 export const Device = () => {
   const { t } = useTranslation();
@@ -19,7 +19,6 @@ export const Device = () => {
 
       <div className="flex flex-col space-y-8">
         <Ssh />
-        <Mdns />
         <Hdmi />
         <Divider className="opacity-50" />
 
@@ -28,6 +27,7 @@ export const Device = () => {
         <Divider className="opacity-50" />
 
         <Advanced />
+        <SystemInformation />
       </div>
 
       <Divider className="opacity-50" />

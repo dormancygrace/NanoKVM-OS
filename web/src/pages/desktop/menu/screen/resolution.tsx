@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, message, Popover } from 'antd';
+import { Button, message } from 'antd';
 import { useAtom } from 'jotai';
 import { CheckIcon, RatioIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { updateScreen } from '@/api/vm';
 import { setResolution } from '@/lib/localstorage';
 import { resolutionAtom } from '@/jotai/screen';
+import { MenuSubmenu } from '@/components/menu-item.tsx';
 
 export const Resolution = () => {
   const { t } = useTranslation();
@@ -56,7 +57,11 @@ export const Resolution = () => {
     </div>
   );
   return (
-    <Popover content={content} trigger="click" placement="rightTop" arrow={false}>
+    <MenuSubmenu
+      title={t('videoSettings.streamResolution')}
+      content={content}
+      popoverProps={{ trigger: 'click', placement: 'rightTop', arrow: false }}
+    >
       <Button
         type="text"
         className="!flex min-h-9 w-full items-center gap-2 rounded px-3 text-left text-sm text-neutral-300 hover:bg-neutral-700/70"
@@ -65,6 +70,6 @@ export const Resolution = () => {
         <span>{t('videoSettings.streamResolution')}</span>
         <span className="ml-auto text-xs text-neutral-400">{label(resolution?.height ?? 0)}</span>
       </Button>
-    </Popover>
+    </MenuSubmenu>
   );
 };

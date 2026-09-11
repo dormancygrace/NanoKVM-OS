@@ -65,9 +65,13 @@ func (s *Service) DisableHdmi(c *gin.Context) {
 func (s *Service) GetHdmiState(c *gin.Context) {
 	var rsp proto.Response
 	enabled := !isHdmiDisabled()
+	hdmiMutex.Lock()
+	viewerCount := hdmiDemand.ViewerCount()
+	hdmiMutex.Unlock()
 
 	rsp.OkRspWithData(c, &proto.GetGetHdmiStateRsp{
 		Enabled:     enabled,
+		ViewerCount: viewerCount,
 		Signal:      enabled && getHdmiSignal(),
 		IdleTimeout: getHdmiIdleTimeout(),
 	})

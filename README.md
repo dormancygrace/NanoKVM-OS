@@ -6,7 +6,7 @@
 
 **Community firmware compatible with NanoKVM Cube and NanoKVM PCIe.**
 
-![Version: 1.0.0 beta-2](https://img.shields.io/badge/version-1.0.0--beta.2-orange)
+![Version: 1.0.0 beta-3](https://img.shields.io/badge/version-1.0.0--beta.3-orange)
 ![Hardware: Cube and PCIe](https://img.shields.io/badge/hardware-Cube%20%7C%20PCIe-blue)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
@@ -19,12 +19,12 @@
 
 ## ✨ What is NanoKVM OS?
 
-**NanoKVM OS v1.0.0 beta-2** brings QHD video, a USB console for headless Linux, a newer Linux system and signed application updates to the SG2002-based NanoKVM you already own. Control a desktop through HDMI, or reach a Linux server's console through USB — from your browser.
+**NanoKVM OS v1.0.0 beta-3** brings QHD video, a USB console for headless Linux, a newer Linux system and signed system-package updates to the SG2002-based NanoKVM you already own. Control a desktop through HDMI, or reach a Linux server's console through USB — from your browser.
 
 The aim is a responsive IP-KVM with maintained system components, explicit recovery behavior and measurable resource use. This is an independent community project built on Sipeed NanoKVM and SOPHGO/CVITEK software, with credit to the original authors.
 
 > [!NOTE]
-> **Beta-2 full image — 2026-09-11 build:** HTTPS on by default, H.265 Direct as the initial video mode. **QHD H.265 WebRTC is unstable and can freeze or restart the device.** Use Direct for QHD. Fresh-card first boot and sustained qualification of this exact image remain pending; see [current limitations](#limitations).
+> **Beta-3 full image — 2026-09-11 build:** HTTPS on by default, H.265 Direct when supported by the browser, with H.264 fallback. **QHD H.265 WebRTC is unstable and can freeze or restart the device.** Use Direct for QHD. Fresh-card first boot and sustained qualification of this exact image remain pending; see [current limitations](#limitations).
 
 ## 🚀 At a glance
 
@@ -34,7 +34,13 @@ The aim is a responsive IP-KVM with maintained system components, explicit recov
 - **🔒 HTTPS from first boot:** a unique device certificate, HTTP redirect and secure browser access.
 - **🧠 More control over memory:** a reusable CMA/ION pool and configurable memory settings.
 - **🌐 VPN menu:** WireGuard, OpenVPN 3 Core with upstream DCO and Tailscale, with profile controls and component versions.
-- **📦 Project-owned updates:** signed application packages, GitHub discovery, manual upload and startup rollback.
+- **📦 Project-owned updates:** signed application/system packages, GitHub discovery, manual upload and startup rollback.
+
+## ✨ New in beta-3
+
+Dashboard opens by default with live system, storage, network, VPN and video status. Mobile controls and the virtual keyboard fit touch screens; supported browsers can record the displayed video to a local file. Video settings use Apply/Discard, and new viewers adopt the active encoder settings.
+
+Date & Time provides configurable NTP servers, time zones and time format using chrony and tzdata. WireGuard profiles can be renamed without reconnecting. The system includes nano, Midnight Commander and superfile. See the [release notes](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v1.0.0-beta.3) for details and community PR credits.
 
 <a id="compatibility"></a>
 
@@ -57,7 +63,7 @@ Compatibility and completed testing are separate: the firmware targets both Cube
 
 This comparison uses the documented SG2002 Cube/PCIe features in the [Sipeed NanoKVM repository](https://github.com/sipeed/NanoKVM), not NanoKVM Pro. Upstream evolves, and some fixes contributed upstream may already be shared by both projects.
 
-| Area | Original SG2002 NanoKVM | NanoKVM OS beta-2 |
+| Area | Original SG2002 NanoKVM | NanoKVM OS beta-3 |
 |---|---|---|
 | 🖼️ Video resolution | Up to 1920×1080 documented | Adds 2560×1440 at 30 Hz; validated mode transitions on the PCIe/UXC test board |
 | 🎞️ Video formats | MJPEG and H.264 documented | MJPEG, H.264 and H.265; Direct and WebRTC paths for H.264/H.265 |
@@ -67,7 +73,7 @@ This comparison uses the documented SG2002 Cube/PCIe features in the [Sipeed Nan
 | 🧠 Memory | Vendor allocation policy | Reusable 64 MiB CMA/ION region and memory controls; allocations can still fail under pressure |
 | 🔐 Crypto | Standard application encryption | SG2002 CryptoDMA SRTP adapter with software fallback; sustained stability remains under evaluation |
 | 🌐 VPN | Tailscale and system networking | Browser-managed WireGuard and OpenVPN 3 Core with upstream `ovpn` DCO, alongside Tailscale; per-profile routing control |
-| 📦 Updates | Original NanoKVM update ecosystem | Signed NanoKVM OS application packages, daily GitHub discovery and manual upload; original archives are rejected |
+| 📦 Updates | Original NanoKVM update ecosystem | Signed application and supported system-component packages, daily GitHub discovery and manual upload; original archives are rejected |
 | 🔌 Headless Linux console | Serial terminal documented | Adds USB Serial (CDC ACM): access the managed Linux host through the browser terminal without HDMI, after configuring a host-side serial login service |
 | ⌨️ Core KVM functions | Browser video, keyboard/mouse, virtual media, ATX, WoL and terminals | Retained, with USB composition and local access controls; device-level coverage is still being completed |
 
@@ -79,14 +85,14 @@ H.265 needs a browser/platform that actually supports decoding it. Pion packetiz
 
 ## 🚀 Installing NanoKVM OS
 
-**First installation from stock firmware needs the full SD image.** Beta-2 also requires the full image because it adds kernel modules and system packages; an application-only package cannot install them.
+**First installation from stock firmware needs the full SD image.** Beta-3 also requires the full image when upgrading from beta-1/beta-2: it establishes the system updater used by subsequent packages.
 
-| First installation / system replacement | Later application updates |
+| First installation / system replacement | Later package updates |
 |---|---|
 | 📀 Download `.img.zip`, decompress and flash the whole SD card | 📦 Upload a signed `.nkos` package under Settings → Updates |
-| Includes Linux, native libraries, application and updater | Replaces the server and web interface on a compatible OS base |
+| Includes Linux, native libraries, application and updater | Updates the application and supported system components on a compatible OS base |
 
-The full image is the only installation payload for **beta-2**, with fresh-card first-boot testing still pending. See [installation and recovery](docs/INSTALL.md).
+The full image is the only installation payload for **beta-3**, with fresh-card first-boot testing still pending. See [installation and recovery](docs/INSTALL.md).
 
 ## 🌐 VPN profiles
 
@@ -98,9 +104,9 @@ Open **Settings → VPN** and choose WireGuard, OpenVPN or Tailscale. WireGuard 
 
 Open **Settings → Updates** to check GitHub or upload a `.nkos` package. The device checks this repository after startup and then daily; it never installs an update automatically. The page shows validation and installation status.
 
-Application updates replace **only the server and web interface**. Kernel, root filesystem, native media libraries and device settings are not replaced. Packages must match the system's native-library fingerprint, carry the project's Ed25519 signature and have a newer release sequence. Renaming an original NanoKVM archive does not make it compatible.
+Signed system packages can update the application and supported system programs, libraries and data while preserving settings. Kernel, kernel modules, bootloader and native media libraries are outside the current package format. Packages require a compatible system foundation, matching native libraries and a newer release sequence. See [package updates](docs/UPDATES.md).
 
-Beta-2 is distributed as a full SD image, including when upgrading from beta-1. Application update packages will be provided for compatible application-only releases.
+Beta-3 is distributed as a full SD image, including when upgrading from beta-1 or beta-2. Subsequent releases can use compatible signed system packages.
 
 Full system images use the hardware **Boot flashing procedure**. They are not accepted by the application updater. See [update format and recovery](docs/UPDATES.md).
 
@@ -113,7 +119,7 @@ Full system images use the hardware **Boot flashing procedure**. They are not ac
 - Forced application termination can leave native media buffers in an unusable state; application rollback is not a hardware reset.
 - A watchdog cannot be assumed to recover every bus/SoC lockup. Physical power cycling may still be necessary.
 - OpenVPN supports routed TUN profiles; TAP, scripts and interactive SSO/MFA are not supported. Local DCO traffic and DNS restoration were checked; broad provider interoperability remains unqualified.
-- Simultaneous video viewers must use the same codec. A browser without H.265 support needs H.264 selected on all viewers.
+- Simultaneous viewers share encoder settings. New viewers adopt the active settings; all browsers must support the selected codec.
 - Full firmware source/notice consolidation and fresh-card recovery validation remain incomplete; see [distribution status](docs/DISTRIBUTION.md) and [validation](docs/VALIDATION.md).
 
 ## 💻 Source and builds

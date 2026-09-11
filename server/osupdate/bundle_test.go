@@ -16,7 +16,16 @@ import (
 )
 
 func digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
-func fixture(t *testing.T, change func(*Manifest), archiveChange func(*tar.Header)) (string, ed25519.PublicKey) {
+
+type testPackageFile struct {
+	name     string
+	data     []byte
+	mode     uint32
+	link     string
+	preserve bool
+}
+
+func fixture(t *testing.T, change func(*Manifest), archiveChange func(*tar.Header), systemFiles ...testPackageFile) (string, ed25519.PublicKey) {
 	t.Helper()
 	pub, key, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -25,17 +34,19 @@ func fixture(t *testing.T, change func(*Manifest), archiveChange func(*tar.Heade
 	elf := make([]byte, 20)
 	copy(elf, []byte{0x7f, 'E', 'L', 'F', 2, 1})
 	binary.LittleEndian.PutUint16(elf[18:], 243)
-	files := []struct {
-		name string
-		data []byte
-		mode uint32
-	}{{"NanoKVM-Server", elf, 0755}, {"web/index.html", []byte("test page"), 0644}}
+	files := []testPackageFile{{"NanoKVM-Server", elf, 0755, "", false}, {"web/index.html", []byte("test page"), 0644, "", false}}
+	files = append(files, systemFiles...)
 	var payload bytes.Buffer
 	gz := gzip.NewWriter(&payload)
 	tw := tar.NewWriter(gz)
 	m := Manifest{Format: 1, Product: "NanoKVM OS", Kind: "application", Arch: "riscv64", Version: "1.0.0-beta.1", Sequence: 1, NativeABI: digest([]byte("abi"))}
+	if len(systemFiles) > 0 {
+		m.Format = 2
+		m.Kind = "system"
+		m.SystemBase = digest([]byte("test system foundation"))
+	}
 	for _, f := range files {
-		m.Files = append(m.Files, Entry{Path: f.name, Size: int64(len(f.data)), SHA256: digest(f.data), Mode: f.mode})
+		m.Files = append(m.Files, Entry{Path: f.name, Size: int64(len(f.data)), SHA256: digest(f.data), Mode: f.mode, Link: f.link, Preserve: f.preserve})
 		hdr := &tar.Header{Name: f.name, Mode: int64(f.mode), Size: int64(len(f.data)), Typeflag: tar.TypeReg}
 		if archiveChange != nil {
 			archiveChange(hdr)
@@ -152,5 +163,32 @@ func TestGitHubSourceBoundary(t *testing.T) {
 		if ValidAssetURL(url) {
 			t.Fatal("untrusted source accepted")
 		}
+	}
+}
+
+func TestStreamingContentsChecksMatchExtraction(t *testing.T) {
+	file, key := fixture(t, nil, nil)
+	b, err := verifyWithKey(file, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = VerifyContents(file, b); err != nil {
+		t.Fatal(err)
+	}
+	file, key = fixture(t, nil, func(h *tar.Header) { h.Typeflag = tar.TypeSymlink; h.Size = 0; h.Linkname = "/etc/passwd" })
+	b, err = verifyWithKey(file, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = VerifyContents(file, b); err == nil {
+		t.Fatal("archive symlink accepted in streaming validation")
+	}
+	file, key = fixture(t, func(m *Manifest) { m.Files[1].SHA256 = digest([]byte("wrong content")) }, nil)
+	b, err = verifyWithKey(file, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = VerifyContents(file, b); err == nil {
+		t.Fatal("wrong file hash accepted in streaming validation")
 	}
 }

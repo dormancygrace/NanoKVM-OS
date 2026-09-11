@@ -12,3 +12,6 @@ Apply every numbered patch in filename order, as scripts/build-enhanced.sh does.
 Its archive hash comes from the official GitHub v2.7.7 release asset digest;
 the fetched Buildroot-mirror archive matches it. COPYRIGHT.GPL is unchanged.
 The rebuilt target retains ENABLE_DCO=1. No running VPN profile is installed.
+
+0004-chrony-4.9.patch selects the chrony release used by the Date & Time service.
+0005-nano-9.2.patch selects nano 9.2. Apply all numbered patches in filename order.

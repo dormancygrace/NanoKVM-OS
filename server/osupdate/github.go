@@ -60,7 +60,7 @@ func Check(ctx context.Context) {
 		return
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "NanoKVM-OS-Updater/1")
+	req.Header.Set("User-Agent", "NanoKVM-OS-Updater/2")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	resp, err := githubClient(20 * time.Second).Do(req)
 	if err != nil {
@@ -98,7 +98,7 @@ func Check(ctx context.Context) {
 			continue
 		}
 		for _, a := range r.Assets {
-			if a.Name != "NanoKVM-OS-application.nkos" || a.Size < 1 || a.Size > MaxBundle {
+			if (a.Name != "NanoKVM-OS-update.nkos" && a.Name != "NanoKVM-OS-application.nkos") || a.Size < 1 || a.Size > MaxBundle {
 				continue
 			}
 			if !ValidAssetURL(a.URL) {
@@ -111,7 +111,7 @@ func Check(ctx context.Context) {
 }
 func ValidAssetURL(raw string) bool {
 	u, err := url.Parse(raw)
-	return err == nil && u.Scheme == "https" && u.Host == "github.com" && u.User == nil && u.RawQuery == "" && u.Fragment == "" && strings.HasPrefix(u.Path, "/"+Repository+"/releases/download/") && strings.HasSuffix(u.Path, "/NanoKVM-OS-application.nkos")
+	return err == nil && u.Scheme == "https" && u.Host == "github.com" && u.User == nil && u.RawQuery == "" && u.Fragment == "" && strings.HasPrefix(u.Path, "/"+Repository+"/releases/download/") && (strings.HasSuffix(u.Path, "/NanoKVM-OS-application.nkos") || strings.HasSuffix(u.Path, "/NanoKVM-OS-update.nkos"))
 }
 func Download(ctx context.Context, r Release, out io.Writer) error {
 	if !ValidAssetURL(r.AssetURL) {

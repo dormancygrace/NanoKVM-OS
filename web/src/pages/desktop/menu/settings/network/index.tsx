@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next';
 
 import { DNS } from './dns.tsx';
 import { Ethernet } from './ethernet.tsx';
+import { NetworkInformation } from './information';
 import { IPv6 } from './ipv6.tsx';
+import { Mdns } from './mdns';
 import { Tls } from './tls.tsx';
 import { Wifi } from './wifi.tsx';
 
@@ -16,10 +18,12 @@ export const Network = () => {
       <Divider className="opacity-50" />
 
       <div className="flex flex-col space-y-8">
-        <Tls />
+        <NetworkInformation />
         <Wifi />
         <Ethernet />
         <IPv6 />
+        <Mdns />
+        <Tls />
       </div>
 
       <Divider className="opacity-50" style={{ margin: '32px 0' }} />

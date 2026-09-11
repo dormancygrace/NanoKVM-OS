@@ -7,7 +7,7 @@ connect. Avoid overlapping routes when using multiple VPN clients.
 
 ## WireGuard
 
-Upload one or more `.conf` files, then enable the profile you need.
+Upload one or more `.conf` files, then enable the profile you need. Existing profiles can be renamed without reconnecting.
 **Route Allowed IPs** is off by default, independently of a supplied Table field.
 AllowedIPs remains WireGuard peer selection/source validation; only connected
 routes from Address are created. For example, Address `10.20.0.2/24` creates

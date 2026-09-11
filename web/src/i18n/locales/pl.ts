@@ -205,6 +205,26 @@ const pl = {
       fast: 'Szybko',
       slow: 'Powoli',
       requestPointer: 'Korzystanie z trybu względnego. Kliknij pulpit, aby uzyskać wskaźnik myszy.',
+      inputAdapter: {
+        title: 'Adapter wejścia',
+        auto: 'Automatycznie',
+        'pointer-lock': 'Blokada wskaźnika',
+        touchpad: 'Touchpad'
+      },
+      touchpadGuide: {
+        title: 'Przewodnik po touchpadzie',
+        scope: 'Dotyczy sytuacji, gdy adapter wejścia to Touchpad, a tryb myszy to Względny.',
+        swipeTitle: 'Przesuń, aby poruszyć',
+        swipeDesc: 'Przesuń palcem w aktywnym obszarze ekranu, aby poruszyć zdalnym wskaźnikiem.',
+        tapTitle: 'Stuknij, aby kliknąć',
+        tapDesc: 'Krótkie stuknięcie wysyła jedno kliknięcie lewym przyciskiem.',
+        holdTitle: 'Przytrzymaj, aby nacisnąć lewy przycisk',
+        holdDesc:
+          'Dotknij i trzymaj palec nieruchomo przez około 1 sekundę, aby przytrzymać lewy przycisk myszy.',
+        dragTitle: 'Po przytrzymaniu przesuń, aby przeciągnąć',
+        dragDesc:
+          'Gdy przytrzymanie jest aktywne, przesuń palec, aby przeciągać z wciśniętym lewym przyciskiem.'
+      },
       resetHid: 'Zresetuj HID',
       hidOnly: {
         title: 'Tryb tylko HID',
@@ -319,6 +339,8 @@ const pl = {
     },
     settings: {
       title: 'Ustawienia',
+      back: 'Wstecz',
+      close: 'Zamknij',
       mcp: {
         title: 'Usługa MCP',
         service: 'Zdalne sterowanie MCP',
@@ -480,26 +502,27 @@ const pl = {
           tip: 'Uwaga: użycie HTTPS może zwiększyć opóźnienie, szczególnie w trybie wideo MJPEG.'
         },
         ethernet: {
-          title: "Ethernet IPv4",
-          description: "Wybierz DHCP albo skonfiguruj trwały statyczny adres IPv4",
-          dhcp: "DHCP",
-          static: "Statyczny",
-          ipv4: "Konfiguracja IPv4",
-          dhcpDescription: "Adres IP i brama są automatycznie pobierane z DHCP",
-          staticDescription: "Ustawienia są stosowane natychmiast i zachowywane po ponownym uruchomieniu",
-          ipAddress: "Adres IP",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "Maska podsieci",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "Brama",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "Wprowadź poprawny adres IPv4, maskę podsieci i bramę",
-          save: "Zapisz",
-          unsaved: "Niezapisane zmiany",
-          savedStatic: "Statyczny adres zapisano. Połącz ponownie, używając {{address}}.",
-          savedDhcp: "Włączono DHCP. Połącz ponownie, używając adresu przydzielonego przez router.",
-          saveFailed: "Nie udało się zapisać ustawień Ethernet",
-          loadFailed: "Nie udało się wczytać ustawień Ethernet"
+          title: 'Ethernet IPv4',
+          description: 'Wybierz DHCP albo skonfiguruj trwały statyczny adres IPv4',
+          dhcp: 'DHCP',
+          static: 'Statyczny',
+          ipv4: 'Konfiguracja IPv4',
+          dhcpDescription: 'Adres IP i brama są automatycznie pobierane z DHCP',
+          staticDescription:
+            'Ustawienia są stosowane natychmiast i zachowywane po ponownym uruchomieniu',
+          ipAddress: 'Adres IP',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: 'Maska podsieci',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: 'Brama',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: 'Wprowadź poprawny adres IPv4, maskę podsieci i bramę',
+          save: 'Zapisz',
+          unsaved: 'Niezapisane zmiany',
+          savedStatic: 'Statyczny adres zapisano. Połącz ponownie, używając {{address}}.',
+          savedDhcp: 'Włączono DHCP. Połącz ponownie, używając adresu przydzielonego przez router.',
+          saveFailed: 'Nie udało się zapisać ustawień Ethernet',
+          loadFailed: 'Nie udało się wczytać ustawień Ethernet'
         },
         dns: {
           title: 'DNS',

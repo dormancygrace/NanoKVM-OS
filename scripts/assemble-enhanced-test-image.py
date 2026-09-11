@@ -102,7 +102,7 @@ def main():
         assert installed.get('version') == a.version and isinstance(installed.get('sequence'), int) and installed['sequence'] > 0, 'Missing installed application release sequence'
         for mode in (600, 720, 1080, 1440):
             assert len(extract_required(f'/usr/share/nanokvm/edid/NanoKVM-monitor-{mode}.bin')) == 256
-        for path in ['/usr/sbin/nkos-update', '/etc/init.d/S94nanokvm-update', '/usr/sbin/openvpn', '/etc/init.d/S13nanokvm-watchdog', '/etc/init.d/S94sg2002aes',
+        for path in ['/usr/sbin/nkos-update', '/etc/init.d/S00nkos-system-update', '/etc/init.d/S99nkos-system-confirm', '/etc/nkos-system-base', '/etc/init.d/S94nanokvm-update', '/usr/sbin/openvpn', '/etc/init.d/S13nanokvm-watchdog', '/etc/init.d/S94sg2002aes',
                      '/usr/share/nanokvm/edid/NanoKVM-QHD30.bin', '/usr/share/nanokvm/edid/NanoKVM-stock.bin']:
             assert extract_required(path), 'Empty beta rootfs file: '+path
         assert any(name.endswith('/extra/sg2002_aes_probe.ko') for name in actual)

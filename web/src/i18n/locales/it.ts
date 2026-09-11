@@ -206,6 +206,26 @@ const it = {
       slow: 'Lento',
       requestPointer:
         'Usando la modalità relativa. Clicca sul desktop per ottenere il puntatore del mouse.',
+      inputAdapter: {
+        title: 'Adattatore input',
+        auto: 'Automatico',
+        'pointer-lock': 'Blocco puntatore',
+        touchpad: 'Touchpad'
+      },
+      touchpadGuide: {
+        title: 'Guida touchpad',
+        scope: 'Si applica quando l’adattatore di input è Touchpad e la modalità mouse è Relativa.',
+        swipeTitle: 'Scorri per spostare',
+        swipeDesc: 'Scorri nell’area attiva dello schermo per spostare il puntatore remoto.',
+        tapTitle: 'Tocca per fare clic',
+        tapDesc: 'Un tocco breve invia un clic sinistro.',
+        holdTitle: 'Tieni premuto il pulsante sinistro',
+        holdDesc:
+          'Tocca e mantieni il dito fermo per circa 1 secondo per tenere premuto il pulsante sinistro del mouse.',
+        dragTitle: 'Muovi dopo la pressione per trascinare',
+        dragDesc:
+          'Quando la pressione è attiva, muovi il dito per trascinare con il pulsante sinistro premuto.'
+      },
       resetHid: 'Reimposta HID',
       hidOnly: {
         title: 'Modalità solo HID',
@@ -320,6 +340,8 @@ const it = {
     },
     settings: {
       title: 'Impostazioni',
+      back: 'Indietro',
+      close: 'Chiudi',
       mcp: {
         title: 'Servizio MCP',
         service: 'Controllo remoto MCP',
@@ -482,26 +504,26 @@ const it = {
           tip: "Attenzione: l'uso di HTTPS può aumentare la latenza, soprattutto in modalità video MJPEG."
         },
         ethernet: {
-          title: "IPv4 Ethernet",
-          description: "Configura la connessione IPv4 Ethernet.",
-          dhcp: "DHCP",
-          static: "Statico",
-          ipv4: "IPv4",
-          dhcpDescription: "Ottieni automaticamente un indirizzo IP tramite DHCP.",
+          title: 'IPv4 Ethernet',
+          description: 'Configura la connessione IPv4 Ethernet.',
+          dhcp: 'DHCP',
+          static: 'Statico',
+          ipv4: 'IPv4',
+          dhcpDescription: 'Ottieni automaticamente un indirizzo IP tramite DHCP.',
           staticDescription: "Configura manualmente l'indirizzo IP.",
-          ipAddress: "Indirizzo IP",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "Maschera di sottorete",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "Gateway",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "Indirizzo IP non valido",
-          save: "Salva",
-          unsaved: "Modifiche non salvate",
+          ipAddress: 'Indirizzo IP',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: 'Maschera di sottorete',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: 'Gateway',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: 'Indirizzo IP non valido',
+          save: 'Salva',
+          unsaved: 'Modifiche non salvate',
           savedStatic: "L'indirizzo IP statico {{address}} è stato salvato.",
-          savedDhcp: "La configurazione DHCP è stata salvata.",
-          saveFailed: "Impossibile salvare la configurazione.",
-          loadFailed: "Impossibile caricare la configurazione."
+          savedDhcp: 'La configurazione DHCP è stata salvata.',
+          saveFailed: 'Impossibile salvare la configurazione.',
+          loadFailed: 'Impossibile caricare la configurazione.'
         },
         dns: {
           title: 'DNS',

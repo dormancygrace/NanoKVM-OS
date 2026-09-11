@@ -1,0 +1,4 @@
+#!/bin/sh
+[ "$1" = start ] || exit 0
+[ -f /kvmapp/.os-update/system.json ] || exit 0
+/kvmapp/.os-update/system-recovery system-confirm >/var/log/nkos-system-update.log 2>&1 &

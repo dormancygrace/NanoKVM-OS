@@ -1,0 +1,31 @@
+#!/bin/sh
+# Client-only chrony. Do not run two clock-discipline daemons at once.
+set -eu
+pidfile=/var/run/chrony/chronyd.pid
+start() {
+    if pidof ntpd >/dev/null 2>&1; then
+        echo 'ntpd is still running; refusing to start chronyd' >&2
+        return 1
+    fi
+    mkdir -p /run/chrony /var/lib/chrony
+    chown chrony:chrony /run/chrony /var/lib/chrony
+    chmod 750 /run/chrony
+    start-stop-daemon -S -q -p "$pidfile" -x /usr/sbin/chronyd
+}
+stop() {
+    if ! pidof chronyd >/dev/null 2>&1; then rm -f "$pidfile"; return 0; fi
+    start-stop-daemon -K -q -p "$pidfile" -x /usr/sbin/chronyd || return 1
+    count=0
+    while pidof chronyd >/dev/null 2>&1; do
+        count=$((count + 1))
+        [ "$count" -lt 50 ] || { echo 'chronyd did not stop' >&2; return 1; }
+        sleep 0.1
+    done
+    rm -f "$pidfile"
+}
+case "${1:-}" in
+    start) start ;;
+    stop) stop ;;
+    restart) stop && start ;;
+    *) echo "Usage: $0 {start|stop|restart}" >&2; exit 1 ;;
+esac

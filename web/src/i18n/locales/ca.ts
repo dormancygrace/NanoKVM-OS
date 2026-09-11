@@ -203,6 +203,27 @@ const ca = {
       fast: 'Ràpida',
       slow: 'Lenta',
       requestPointer: "Estàs usant el mode relatiu. Fes clic a l'escriptori per obtenir el punter.",
+      inputAdapter: {
+        title: "Adaptador d'entrada",
+        auto: 'Automàtic',
+        'pointer-lock': 'Bloqueig del punter',
+        touchpad: 'Ratolí tàctil'
+      },
+      touchpadGuide: {
+        title: 'Guia del ratolí tàctil',
+        scope:
+          "S'aplica quan l'adaptador d'entrada és el ratolí tàctil i el mode del ratolí és relatiu.",
+        swipeTitle: 'Llisca per moure',
+        swipeDesc: "Llisca dins de l'àrea activa de la pantalla per moure el punter remot.",
+        tapTitle: 'Toca per fer clic',
+        tapDesc: 'Un toc breu envia un clic esquerre.',
+        holdTitle: 'Mantén premut per prémer el botó esquerre',
+        holdDesc:
+          'Toca i mantén el dit quiet durant aproximadament 1 segon per mantenir premut el botó esquerre del ratolí.',
+        dragTitle: 'Mou després de mantenir premut per arrossegar',
+        dragDesc:
+          'Un cop activada la pulsació mantinguda, mou el dit per arrossegar mantenint premut el botó esquerre.'
+      },
       resetHid: 'Restablir HID',
       hidOnly: {
         title: 'Mode només HID',
@@ -316,6 +337,8 @@ const ca = {
     },
     settings: {
       title: 'Configuració',
+      back: 'Enrere',
+      close: 'Tanca',
       mcp: {
         title: 'Servei MCP',
         service: 'Control remot MCP',
@@ -476,22 +499,22 @@ const ca = {
           tip: 'Atenció: Usar HTTPS pot augmentar la latència, sobretot amb vídeo MJPEG.'
         },
         ethernet: {
-          title: "IPv4 Ethernet",
+          title: 'IPv4 Ethernet',
           description: "Configureu la connexió IPv4 d'Ethernet.",
-          dhcp: "DHCP",
-          static: "Estàtica",
-          ipv4: "IPv4",
-          dhcpDescription: "Obteniu automàticament una adreça IP mitjançant DHCP.",
+          dhcp: 'DHCP',
+          static: 'Estàtica',
+          ipv4: 'IPv4',
+          dhcpDescription: 'Obteniu automàticament una adreça IP mitjançant DHCP.',
           staticDescription: "Configureu manualment l'adreça IP.",
-          ipAddress: "Adreça IP",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "Màscara de subxarxa",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "Passarel·la",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "Adreça IP no vàlida",
-          save: "Desa",
-          unsaved: "Canvis no desats",
+          ipAddress: 'Adreça IP',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: 'Màscara de subxarxa',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: 'Passarel·la',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: 'Adreça IP no vàlida',
+          save: 'Desa',
+          unsaved: 'Canvis no desats',
           savedStatic: "S'ha desat l'adreça IP estàtica {{address}}.",
           savedDhcp: "S'ha desat la configuració DHCP.",
           saveFailed: "No s'ha pogut desar la configuració.",

@@ -1,0 +1,22 @@
+--- a/lib/tty/key.c
++++ b/lib/tty/key.c
+@@ -2107,8 +2107,17 @@
+         gboolean extended = c == MCKEY_EXTENDED_MOUSE;
+ 
+ #ifdef KEY_MOUSE
+-        extended = extended || (c == KEY_MOUSE && xmouse_seq == NULL
+-                                && xmouse_extended_seq != NULL);
++        if (c == KEY_MOUSE)
++        {
++            /* ncurses recognizes the original kmous capability. tty.c normalizes
++             * xmouse_seq to the legacy prefix, so it cannot identify this event.
++             * Parsing an SGR event as three legacy bytes leaks its coordinates
++             * into the command line instead of dispatching a mouse event. */
++            const char *mouse_cap = tty_tgetstr ("kmous");
++            if (mouse_cap == NULL)
++                mouse_cap = tty_tgetstr ("Km");
++            extended = mouse_cap != NULL && strcmp (mouse_cap, ESC_STR "[<") == 0;
++        }
+ #endif /* KEY_MOUSE */
+ 
+         xmouse_get_event (event, extended);

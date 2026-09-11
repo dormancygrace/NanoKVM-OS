@@ -1,0 +1,4 @@
+# Buildroot go-post-process archive, including go.sum-verified dependencies.
+sha256  0b0793bbccd5f9b33e03967c988e7df28d3230307f3b71a4e043a1425a38dae5  nkos-superfile-1.6.0-go2.tar.gz
+sha256  68ba355de311f5ae3aa1e453cfecfba236591025f7838bf652183b5a9d29d178  LICENSE
+sha256  0f40f807f4bdfd7083d50ce9813bc5056502b783d89c3c70550154636246450b  NOTICE.md

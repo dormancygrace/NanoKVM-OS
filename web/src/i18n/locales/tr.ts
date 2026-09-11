@@ -203,6 +203,28 @@ const tr = {
       fast: 'Hızlı',
       slow: 'Yavaş',
       requestPointer: 'Bağıl fare modu kullanılıyor. Masaüstüne tıklayarak imleç elde edinin.',
+      inputAdapter: {
+        title: 'Giriş Adaptörü',
+        auto: 'Otomatik',
+        'pointer-lock': 'İşaretçi Kilidi',
+        touchpad: 'Dokunmatik Yüzey'
+      },
+      touchpadGuide: {
+        title: 'Dokunmatik yüzey kılavuzu',
+        scope:
+          'Giriş Adaptörü Dokunmatik Yüzey ve Fare Modu Bağıl olarak ayarlandığında geçerlidir.',
+        swipeTitle: 'Hareket ettirmek için kaydırın',
+        swipeDesc:
+          'Uzak işaretçiyi hareket ettirmek için etkin ekran alanının içinde parmağınızı kaydırın.',
+        tapTitle: 'Tıklamak için dokunun',
+        tapDesc: 'Kısa bir dokunuş bir sol tıklama gönderir.',
+        holdTitle: 'Sol düğmeyi basılı tutmak için dokunup bekleyin',
+        holdDesc:
+          'Sol fare düğmesini basılı tutmak için dokunun ve yaklaşık 1 saniye boyunca hareketsiz kalın.',
+        dragTitle: 'Sürüklemek için basılı tuttuktan sonra hareket ettirin',
+        dragDesc:
+          'Basılı tutma etkinleştikten sonra, sol düğme basılıyken sürüklemek için parmağınızı hareket ettirin.'
+      },
       resetHid: 'HID’yi sıfırla',
       hidOnly: {
         title: 'Yalnızca HID modu',
@@ -317,6 +339,8 @@ const tr = {
     },
     settings: {
       title: 'Ayarlar',
+      back: 'Geri',
+      close: 'Kapat',
       mcp: {
         title: 'MCP Hizmeti',
         service: 'MCP uzaktan kumanda',
@@ -479,26 +503,27 @@ const tr = {
           tip: 'HTTPS protokolü bağlantıda gecikmeye sebep olabilir, özellikle MJPEG görüntü modu ile.'
         },
         ethernet: {
-          title: "Ethernet IPv4",
-          description: "DHCP’yi seçin veya kalıcı bir statik IPv4 adresi yapılandırın",
-          dhcp: "DHCP",
-          static: "Statik",
-          ipv4: "IPv4 Yapılandırması",
-          dhcpDescription: "IP adresi ve ağ geçidi DHCP’den otomatik olarak alınır",
-          staticDescription: "Ayarlar hemen uygulanır ve yeniden başlatmadan sonra korunur",
-          ipAddress: "IP Adresi",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "Alt Ağ Maskesi",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "Ağ Geçidi",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "Geçerli bir IPv4 adresi, alt ağ maskesi ve ağ geçidi girin",
-          save: "Kaydet",
-          unsaved: "Kaydedilmemiş değişiklikler",
-          savedStatic: "Statik adres kaydedildi. {{address}} adresinden yeniden bağlanın.",
-          savedDhcp: "DHCP etkinleştirildi. Yönlendiricinizin atadığı adresi kullanarak yeniden bağlanın.",
-          saveFailed: "Ethernet ayarları kaydedilemedi",
-          loadFailed: "Ethernet ayarları yüklenemedi"
+          title: 'Ethernet IPv4',
+          description: 'DHCP’yi seçin veya kalıcı bir statik IPv4 adresi yapılandırın',
+          dhcp: 'DHCP',
+          static: 'Statik',
+          ipv4: 'IPv4 Yapılandırması',
+          dhcpDescription: 'IP adresi ve ağ geçidi DHCP’den otomatik olarak alınır',
+          staticDescription: 'Ayarlar hemen uygulanır ve yeniden başlatmadan sonra korunur',
+          ipAddress: 'IP Adresi',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: 'Alt Ağ Maskesi',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: 'Ağ Geçidi',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: 'Geçerli bir IPv4 adresi, alt ağ maskesi ve ağ geçidi girin',
+          save: 'Kaydet',
+          unsaved: 'Kaydedilmemiş değişiklikler',
+          savedStatic: 'Statik adres kaydedildi. {{address}} adresinden yeniden bağlanın.',
+          savedDhcp:
+            'DHCP etkinleştirildi. Yönlendiricinizin atadığı adresi kullanarak yeniden bağlanın.',
+          saveFailed: 'Ethernet ayarları kaydedilemedi',
+          loadFailed: 'Ethernet ayarları yüklenemedi'
         },
         dns: {
           title: 'DNS',

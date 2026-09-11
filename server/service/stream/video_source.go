@@ -62,6 +62,21 @@ func newVideoSource(captureFrame func(EncoderConfig) ([]byte, []byte, int)) *Vid
 	}
 }
 
+// ActiveEncoderConfig reports only a session with live transport subscriptions.
+// A draining native read must not force a new viewer to adopt a stale codec.
+func ActiveEncoderConfig() (EncoderConfig, bool) {
+	return defaultVideoSource.activeConfig()
+}
+
+func (s *VideoSource) activeConfig() (EncoderConfig, bool) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.session == nil || len(s.subscribers) == 0 {
+		return EncoderConfig{}, false
+	}
+	return s.session.config, true
+}
+
 func SubscribeVideo(config EncoderConfig) (*VideoSubscription, error) {
 	return defaultVideoSource.subscribe(config)
 }

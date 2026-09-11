@@ -86,9 +86,6 @@ export const SerialPort = () => {
             <Radio value="/dev/ttyS2">
               <code>/dev/ttyS2</code>
             </Radio>
-            <Radio value="/dev/ttyGS0">
-              <code>/dev/ttyGS0</code>
-            </Radio>
           </Radio.Group>
         </div>
 

@@ -19,11 +19,12 @@ const (
 // KeyboardLedStatus is the lock-key LED state last reported by the remote host
 // through the keyboard HID output report.
 type KeyboardLedStatus struct {
-	NumLock    bool      `json:"numLock"`
-	CapsLock   bool      `json:"capsLock"`
-	ScrollLock bool      `json:"scrollLock"`
-	Known      bool      `json:"known"`
-	UpdatedAt  time.Time `json:"updatedAt"`
+	KeyboardEnabled bool      `json:"keyboardEnabled"`
+	NumLock         bool      `json:"numLock"`
+	CapsLock        bool      `json:"capsLock"`
+	ScrollLock      bool      `json:"scrollLock"`
+	Known           bool      `json:"known"`
+	UpdatedAt       time.Time `json:"updatedAt"`
 }
 
 type keyboardLedStatusStore struct {
@@ -46,7 +47,12 @@ func newKeyboardLedStatusStore(now func() time.Time) *keyboardLedStatusStore {
 // GetKeyboardLedStatus returns a snapshot. Known is false until the host has
 // sent at least one keyboard HID output report.
 func GetKeyboardLedStatus() KeyboardLedStatus {
-	return keyboardLeds.Get()
+	status := keyboardLeds.Get()
+	status.KeyboardEnabled = KeyboardUSBEnabled()
+	if !status.KeyboardEnabled {
+		status.Known = false
+	}
+	return status
 }
 
 // SubscribeKeyboardLedStatus subscribes to state changes and returns a
@@ -276,4 +282,10 @@ func drainKeyboardLedReaderNotifier(notifierFD int) {
 			return
 		}
 	}
+}
+
+// KeyboardUSBEnabled reports the bound gadget function, not a saved preference.
+func KeyboardUSBEnabled() bool {
+	_, err := os.Stat("/sys/kernel/config/usb_gadget/g0/configs/c.1/hid.GS0")
+	return err == nil
 }

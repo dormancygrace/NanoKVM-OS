@@ -1,12 +1,18 @@
-# Beta-1 validation and known issues
+# Beta-2 validation and known issues
 
 This summary covers checks on the SG2002 NanoKVM PCIe with an LT6911UXC HDMI receiver. Cube and other board revisions are intended targets, not independently qualified hardware. Short checks, synthetic receivers and browser playback measure different things.
+
+## Beta-2 changes
+
+WireGuard profile import, saved routing choice, route creation/removal and browser controls were tested on the device. OpenVPN 3 Core connected through `ovpn` DCO to a local test server, exchanged traffic and restored DNS/routes on disconnect. kTLS and AF_ALG are disabled; OpenSSL retains `/dev/crypto`. These tests do not establish arbitrary provider compatibility or fresh-card first boot.
+
+The final beta-2 kernel #5 and OpenSSL without kTLS were installed and booted on the existing device. WireGuard reconnected automatically and the capture counter returned to 30 FPS in QHD. This is component deployment verification; the complete image has not been flashed onto a fresh SD card.
 
 ## What has been checked
 
 | Area | Evidence and practical limit |
 |---|---|
-| Release assembly | FAT/ext4 structure, kernel/module correspondence, ZIP CRC, unpacked SHA-256, all 46 staged server/native/web files and four EDID profiles checked. The complete image has not been booted from a fresh card. |
+| Release assembly | FAT/ext4 structure, kernel/module correspondence, ZIP CRC, unpacked SHA-256, staged server/native/web files and four EDID profiles checked. The complete image has not been booted from a fresh card. |
 | Application update | Signed sequence-3 application installed on the device; browser access and unique HTTPS certificate creation/reuse/0600 permissions checked. This does not test full-image flashing or power-loss recovery. |
 | Video | H.264/H.265 Direct and WebRTC exercised in Chrome. FHD comparisons request **60 FPS**; QHD is capped at **30 FPS**. Encoder output and network frames are not browser presentation FPS or end-to-end latency. |
 | HDMI recovery | Three capture-OFF/restart/enable cycles and one active-video restart passed with H.264 QHD in Chrome after the receiver-reset startup fix. This does not establish recovery from a whole-SoC hang. |
@@ -15,7 +21,7 @@ This summary covers checks on the SG2002 NanoKVM PCIe with an LT6911UXC HDMI rec
 | T-Head instructions | Shipped ELF disassembly and isolated execution probes verified supported instructions. Flags alone are not proof of emitted instructions. Legacy XTheadVector is distinct from RVV 1.0; closed ISP objects were relinked, not rebuilt. |
 | WebRTC PMTU | Chrome IPv4 LAN probing, silent-loss fallback and different budgets for two viewers checked. IPv6, TURN first-leg handling and ICE migration also have isolated transport tests; equivalent browser/tunnel/endurance coverage is incomplete. See [design and limits](webrtc-pmtu-design.md). |
 | Wi-Fi | Exact SDIO alias selection and AIC8801 module reload/reconnect with Chrome recovery checked. RTL8733BS builds and is included, but association/reconnect on physical Realtek hardware remains untested. |
-| OpenVPN DCO | Isolated on-device tunnel, traffic and restart checked. External VPN interoperability and concurrent KVM load remain separate checks. |
+| OpenVPN DCO | OpenVPN 3 Core: isolated on-device tunnel, browser start/stop, traffic and DNS/route cleanup checked. External VPN interoperability and concurrent KVM load remain separate checks. |
 
 ## Known issues and remaining qualification
 

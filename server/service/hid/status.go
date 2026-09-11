@@ -60,11 +60,12 @@ func (s *Service) GetKeyboardLedStatus(c *gin.Context) {
 	}
 
 	rsp.OkRspWithData(c, &proto.GetKeyboardLedStatusRsp{
-		NumLock:    status.NumLock,
-		CapsLock:   status.CapsLock,
-		ScrollLock: status.ScrollLock,
-		Known:      status.Known,
-		UpdatedAt:  updatedAt,
+		KeyboardEnabled: status.KeyboardEnabled,
+		NumLock:         status.NumLock,
+		CapsLock:        status.CapsLock,
+		ScrollLock:      status.ScrollLock,
+		Known:           status.Known,
+		UpdatedAt:       updatedAt,
 	})
 }
 

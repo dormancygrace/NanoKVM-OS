@@ -6,11 +6,13 @@ import { useAtom, useSetAtom } from 'jotai';
 import {
   BadgeInfoIcon,
   BotIcon,
+  ChevronRightIcon,
   DownloadIcon,
   MemoryStickIcon,
   NetworkIcon,
   PaletteIcon,
   SettingsIcon,
+  ShieldIcon,
   SmartphoneIcon,
   UsbIcon,
   UserRoundIcon,
@@ -20,8 +22,12 @@ import { useTranslation } from 'react-i18next';
 
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
+import { WireGuardIcon } from '@/components/icons/wireguard';
+import { OpenVPNIcon } from '@/components/icons/openvpn';
 import { Tailscale as TailscaleIcon } from '@/components/icons/tailscale';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+import styles from './sidebar.module.css';
 
 import { About } from './about';
 import { Account } from './account';
@@ -34,6 +40,8 @@ import { Tailscale } from './tailscale';
 import { Updates } from './updates';
 import { Usb } from './usb';
 import { VideoSettings } from './video';
+import { WireGuard } from './vpn';
+import { OpenVPN } from './vpn/openvpn';
 
 export const Settings = () => {
   const { t } = useTranslation();
@@ -44,6 +52,7 @@ export const Settings = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [currentTab, setCurrentTab] = useState('about');
+  const [vpnExpanded, setVpnExpanded] = useState(false);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
 
   const setKeyboardLock = useSetAtom(keyboardLockAtom);
@@ -62,9 +71,24 @@ export const Settings = () => {
           { id: 'network', icon: <NetworkIcon size={16} />, component: <Network /> },
           { id: 'mcp', icon: <BotIcon size={16} />, component: <MCP /> },
           {
-            id: 'tailscale',
+            id: 'vpn',
+            icon: <ShieldIcon size={16} />,
+            component: <Tailscale setIsLocked={setIsLocked} />
+          },
+          {
+            id: 'vpn-tailscale',
             icon: <TailscaleIcon />,
             component: <Tailscale setIsLocked={setIsLocked} />
+          },
+          {
+            id: 'vpn-wireguard',
+            icon: <WireGuardIcon />,
+            component: <WireGuard setIsLocked={setIsLocked} />
+          },
+          {
+            id: 'vpn-openvpn',
+            icon: <OpenVPNIcon />,
+            component: <OpenVPN setIsLocked={setIsLocked} />
           }
         ]
       : []),
@@ -77,7 +101,9 @@ export const Settings = () => {
 
   useEffect(() => {
     if (!request || isLocked) return;
-    setCurrentTab(request);
+    const requested = request === 'tailscale' || request === 'vpn' ? 'vpn-tailscale' : request;
+    if (requested.startsWith('vpn-')) setVpnExpanded(true);
+    setCurrentTab(requested);
     if (!isModalOpen) {
       setIsModalOpen(true);
       setKeyboardLock({ source: 'settings-modal', locked: true });
@@ -91,6 +117,11 @@ export const Settings = () => {
       return;
     }
 
+    if (tab === 'vpn') {
+      setVpnExpanded((expanded) => !expanded);
+      if (!currentTab.startsWith('vpn-')) setCurrentTab('vpn-tailscale');
+      return;
+    }
     setCurrentTab(tab);
   }
 
@@ -108,6 +139,7 @@ export const Settings = () => {
     setKeyboardLock({ source: 'settings-modal', locked: false });
     setIsModalOpen(false);
     setCurrentTab('about');
+    setVpnExpanded(false);
     setSubmenuOpenCount((count) => Math.max(0, count - 1));
   }
 
@@ -135,25 +167,54 @@ export const Settings = () => {
         styles={{ content: { padding: 0 } }}
       >
         <div className="flex h-[80vh] max-h-[700px] rounded-lg outline outline-1 outline-neutral-700">
-          <div className="flex h-full max-w-[260px] flex-col space-y-0.5 rounded-l-lg bg-neutral-800/90 px-1 sm:w-1/5 md:w-1/4 md:px-2">
+          <div className="flex h-full max-w-[260px] flex-col space-y-0.5 overflow-y-auto rounded-l-lg bg-neutral-800/90 px-1 sm:w-1/5 md:w-1/4 md:px-2">
             <div className="hidden px-3 pt-10 text-xl sm:block">{t('settings.title')}</div>
             <div className="h-10 sm:h-5" />
-            {tabs.map((tab) => (
-              <div
-                key={tab.id}
-                className={clsx(
-                  'flex cursor-pointer select-none items-center space-x-2 rounded-lg p-2 sm:px-3',
-                  currentTab === tab.id ? 'bg-neutral-700/50' : 'hover:bg-neutral-700/50'
-                )}
-                onClick={() => changeTab(tab.id)}
-              >
-                <div className="h-[16px] w-[16px]">{tab.icon}</div>
-
-                <span className="hidden truncate text-sm sm:block">
-                  {tab.id === 'video' ? t('videoSettings.title') : t(`settings.${tab.id}.title`)}
-                </span>
-              </div>
-            ))}
+            {tabs
+              .filter((tab) => !tab.id.startsWith('vpn-') || vpnExpanded)
+              .map((tab) => {
+                const child = tab.id.startsWith('vpn-');
+                const label =
+                  tab.id === 'video'
+                    ? t('videoSettings.title')
+                    : tab.id === 'vpn'
+                      ? 'VPN'
+                      : tab.id === 'vpn-tailscale'
+                        ? 'Tailscale'
+                        : tab.id === 'vpn-wireguard'
+                          ? 'WireGuard'
+                          : tab.id === 'vpn-openvpn'
+                            ? 'OpenVPN'
+                            : t(`settings.${tab.id}.title`);
+                return (
+                  <button
+                    type="button"
+                    key={tab.id}
+                    aria-label={label}
+                    aria-current={currentTab === tab.id ? "page" : undefined}
+                    data-child={child || undefined}
+                    aria-expanded={tab.id === 'vpn' ? vpnExpanded : undefined}
+                    className={clsx(
+                      styles.item,
+                      'flex w-full select-none items-center gap-2 rounded-lg p-2 text-left sm:px-3',
+                      child && 'sm:ml-4 sm:w-[calc(100%-1rem)]'
+                    )}
+                    onClick={() => changeTab(tab.id)}
+                  >
+                    <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">{tab.icon}</div>
+                    <span className="hidden truncate text-sm sm:block">{label}</span>
+                    {tab.id === 'vpn' && (
+                      <ChevronRightIcon
+                        size={12}
+                        className={clsx(
+                          'ml-auto hidden shrink-0 transition-transform sm:block',
+                          vpnExpanded && 'rotate-90'
+                        )}
+                      />
+                    )}
+                  </button>
+                );
+              })}
           </div>
 
           <ScrollArea

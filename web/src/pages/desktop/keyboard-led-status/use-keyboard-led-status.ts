@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { getKeyboardLedStatus } from '@/api/hid.ts';
+import { usbCompositionChangedEvent } from '@/api/virtual-device.ts';
 import { client } from '@/lib/websocket.ts';
 
 import {
@@ -20,6 +21,11 @@ export function useKeyboardLedStatus() {
 
     function update(next: KeyboardLedStatus) {
       if (!shouldAcceptKeyboardLedStatus(latestStatusRef.current, next)) {
+        if (latestStatusRef.current && next.keyboardEnabled !== undefined) {
+          const merged = { ...latestStatusRef.current, keyboardEnabled: next.keyboardEnabled };
+          latestStatusRef.current = merged;
+          setStatus(merged);
+        }
         return;
       }
 
@@ -34,21 +40,28 @@ export function useKeyboardLedStatus() {
       }
     });
 
-    getKeyboardLedStatus()
-      .then((rsp) => {
-        if (rsp.code !== 0) {
-          return;
-        }
+    function refresh() {
+      getKeyboardLedStatus()
+        .then((rsp) => {
+          if (rsp.code !== 0) {
+            return;
+          }
 
-        const next = parseKeyboardLedStatus(rsp.data);
-        if (!disposed && next) {
-          update(next);
-        }
-      })
-      .catch(() => undefined);
+          const next = parseKeyboardLedStatus(rsp.data);
+          if (!disposed && next) {
+            update(next);
+          }
+        })
+        .catch(() => undefined);
+    }
+    refresh();
+    const interval = window.setInterval(refresh, 10000);
+    window.addEventListener(usbCompositionChangedEvent, refresh);
 
     return () => {
       disposed = true;
+      window.clearInterval(interval);
+      window.removeEventListener(usbCompositionChangedEvent, refresh);
       unsubscribe();
     };
   }, []);

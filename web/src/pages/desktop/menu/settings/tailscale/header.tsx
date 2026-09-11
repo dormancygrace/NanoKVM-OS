@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/extensions/tailscale.ts';
 
+import { VPNVersion } from '../vpn/version';
 import type { State } from './types.ts';
 import { Uninstall } from './uninstall.tsx';
 
@@ -42,7 +43,10 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
 
   return (
     <div className="flex items-center justify-between">
-      <span className="text-base">{t('settings.tailscale.title')}</span>
+      <span className="text-base">
+        {t('settings.tailscale.title')}
+        <VPNVersion name="tailscale" />
+      </span>
 
       <div className="flex items-center space-x-2">
         {state && ['notLogin', 'stopped', 'running'].includes(state) && (

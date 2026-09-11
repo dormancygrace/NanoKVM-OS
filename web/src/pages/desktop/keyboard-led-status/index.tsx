@@ -1,5 +1,6 @@
 import { Tooltip } from 'antd';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 import { useKeyboardLedStatus } from './use-keyboard-led-status';
 
@@ -13,19 +14,17 @@ type LockIndicatorProps = {
   labelKey: 'numLock' | 'capsLock' | 'scrollLock';
   active: boolean;
   known: boolean;
+  disabled: boolean;
 };
 
-function LockIndicator({ labelKey, active, known }: LockIndicatorProps) {
+function LockIndicator({ labelKey, active, known, disabled }: LockIndicatorProps) {
   const { label, shortLabel } = LOCK_INDICATORS[labelKey];
-  const state = known ? (active ? 'On' : 'Off') : 'Unknown';
+  const { t } = useTranslation();
+  const state = disabled ? t('vpn.keyboardDisabled') : known ? (active ? 'On' : 'Off') : 'Unknown';
   const indicatorLabel = `${label}: ${state}`;
 
   return (
-    <Tooltip
-      title={indicatorLabel}
-      placement="bottom"
-      mouseEnterDelay={0.6}
-    >
+    <Tooltip title={indicatorLabel} placement="bottom" mouseEnterDelay={0.6}>
       <div
         className="flex h-[8px] items-center gap-1 px-1 text-[8px] font-medium leading-[8px] text-neutral-400"
         aria-label={indicatorLabel}
@@ -42,7 +41,7 @@ function LockIndicator({ labelKey, active, known }: LockIndicatorProps) {
               : 'border border-dashed border-neutral-500 text-neutral-300'
           )}
         >
-          {!known && '?'}
+          {!known && (disabled ? '–' : '?')}
         </span>
         <span className="hidden sm:inline">{shortLabel}</span>
       </div>
@@ -52,7 +51,8 @@ function LockIndicator({ labelKey, active, known }: LockIndicatorProps) {
 
 export function KeyboardLedStatus() {
   const status = useKeyboardLedStatus();
-  const known = status?.known ?? false;
+  const disabled = status?.keyboardEnabled === false;
+  const known = !disabled && (status?.known ?? false);
 
   return (
     <div
@@ -60,9 +60,24 @@ export function KeyboardLedStatus() {
       aria-label="Keyboard lock status"
       role="group"
     >
-      <LockIndicator labelKey="numLock" active={status?.numLock ?? false} known={known} />
-      <LockIndicator labelKey="capsLock" active={status?.capsLock ?? false} known={known} />
-      <LockIndicator labelKey="scrollLock" active={status?.scrollLock ?? false} known={known} />
+      <LockIndicator
+        labelKey="numLock"
+        active={status?.numLock ?? false}
+        known={known}
+        disabled={disabled}
+      />
+      <LockIndicator
+        labelKey="capsLock"
+        active={status?.capsLock ?? false}
+        known={known}
+        disabled={disabled}
+      />
+      <LockIndicator
+        labelKey="scrollLock"
+        active={status?.scrollLock ?? false}
+        known={known}
+        disabled={disabled}
+      />
     </div>
   );
 }

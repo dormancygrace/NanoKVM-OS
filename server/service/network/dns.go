@@ -2,6 +2,7 @@ package network
 
 import (
 	"bufio"
+	"context"
 	_ "embed"
 	"fmt"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"NanoKVM-Server/proto"
 
@@ -524,6 +526,20 @@ func renderResolvConfig(path string, config resolvConfig) error {
 		return fmt.Errorf("failed to create dns file directory: %w", err)
 	}
 
+	// Keep the base resolver separate from VPN DNS. Removing the tunnel then
+	// restores the latest network settings, including DHCP renewals.
+	if path == etcResolvFile {
+		if tool, err := exec.LookPath("resolvconf"); err == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, tool, "-a", "nkos.base")
+			cmd.Stdin = strings.NewReader(builder.String())
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("failed to update resolver: %w", err)
+			}
+			return nil
+		}
+	}
 	if err := os.WriteFile(path, []byte(builder.String()), 0o644); err != nil {
 		return fmt.Errorf("failed to write %s: %w", path, err)
 	}

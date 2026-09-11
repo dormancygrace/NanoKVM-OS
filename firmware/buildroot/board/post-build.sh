@@ -32,6 +32,8 @@ rm -f "$target/kvmapp/kvm_new_app" "$target/kvmapp/kvm_new_img"
 rsync -a "$NANOKVM_BOARD_ASSETS/mnt/system/" "$target/mnt/system/"
 if [ "$flavour" = enhanced ]; then
     rsync -a "$NANOKVM_BOARD_ASSETS/usr/" "$target/usr/"
+    # Remove modules disabled since the previous incremental build.
+    rsync -a --delete "$NANOKVM_BOARD_ASSETS/usr/lib/modules/" "$target/usr/lib/modules/"
 fi
 if [ "$flavour" != enhanced ]; then install -m644 "$NANOKVM_APP_STAGE/system/ko/soph_mipi_rx.ko" "$target/mnt/system/ko/soph_mipi_rx.ko"; fi
 cp -a "$NANOKVM_SENSOR_DATA/." "$target/mnt/data/"

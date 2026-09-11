@@ -2,7 +2,7 @@ include $(sort $(wildcard $(BR2_EXTERNAL_NANOKVM_PATH)/package/*/*.mk))
 
 # Kernel hwprobe distinguishes XTheadVector from standard V. OpenSSL 3.6.4
 # reports RV64GC on the tested C906: scalar assembly is enabled, RVV 1.0 is not.
-LIBOPENSSL_TARGET_ARCH = linux64-riscv64 enable-devcryptoeng
+LIBOPENSSL_TARGET_ARCH = linux64-riscv64 enable-devcryptoeng no-ktls
 # The kernel is built separately. Install the pinned public cryptodev ABI header
 # without enabling Buildroot's in-tree Linux-kernel package dependency.
 define NANOKVM_INSTALL_CRYPTODEV_HEADER

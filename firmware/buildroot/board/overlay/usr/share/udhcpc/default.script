@@ -7,7 +7,7 @@
 ACTION="$1"
 
 RESOLV_CONF="/etc/resolv.conf"
-if [ -e /boot/resolv.conf ]
+if [ -e /boot/resolv.conf ] || command -v resolvconf >/dev/null 2>&1
 then
 	RESOLV_CONF="/etc/resolv.conf.dhcp"
 fi

@@ -49,7 +49,11 @@ write_search_domain() {
 cat "$TMPFILE" > "$CACHE"
 MODE_VALUE="$(cat "$MODE" 2>/dev/null)"
 if [ "$MODE_VALUE" = "dhcp" ] || { [ -z "$MODE_VALUE" ] && [ ! -f "$BOOT" ]; }; then
-	cat "$TMPFILE" > "$ACTIVE"
+	if command -v resolvconf >/dev/null 2>&1; then
+		resolvconf -a nkos.base < "$TMPFILE"
+	else
+		cat "$TMPFILE" > "$ACTIVE"
+	fi
 fi
 rm -f "$TMPFILE"
 

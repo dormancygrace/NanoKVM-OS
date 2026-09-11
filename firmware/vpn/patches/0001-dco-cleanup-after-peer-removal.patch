@@ -1,0 +1,28 @@
+--- a/openvpn/dco/ovpndcocli.hpp
++++ b/openvpn/dco/ovpndcocli.hpp
+@@ -250,10 +250,22 @@
+     {
+         if (!halt)
+         {
+-            /* update stats before deleting peer in kernelspace */
+-            update_peer_stats(peer_id, true);
+-
++            // A peer may already be gone when shutdown starts. Failure to
++            // obtain final counters must not prevent route/device teardown.
+             halt = true;
++            try
++            {
++                update_peer_stats(peer_id, true);
++            }
++            catch (const std::exception &)
++            {
++                OPENVPN_LOG("DCO final statistics unavailable during shutdown");
++            }
++            if (remove_cmds)
++            {
++                remove_cmds->execute_log();
++                remove_cmds.reset();
++            }
+ 
+             if (config->builder)
+             {

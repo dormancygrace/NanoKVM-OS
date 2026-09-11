@@ -3,7 +3,10 @@ package router
 import (
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/middleware"
+	"NanoKVM-Server/service/extensions/openvpn"
 	"NanoKVM-Server/service/extensions/tailscale"
+	"NanoKVM-Server/service/extensions/vpn"
+	"NanoKVM-Server/service/extensions/wireguard"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,6 +16,16 @@ func extensionsRouter(r *gin.Engine) {
 		middleware.CheckToken(),
 		middleware.RequireRole(authn.RoleAdmin),
 	)
+
+	api.GET("/vpn/versions", vpn.Versions)
+	ovpn := openvpn.NewService()
+	api.GET("/openvpn/status", ovpn.GetStatus)
+	api.POST("/openvpn/import", ovpn.Import)
+	api.POST("/openvpn/profile", ovpn.Change)
+	wg := wireguard.NewService()
+	api.GET("/wireguard/status", wg.GetStatus)
+	api.POST("/wireguard/import", wg.Import)
+	api.POST("/wireguard/profile", wg.Change)
 
 	ts := tailscale.NewService()
 

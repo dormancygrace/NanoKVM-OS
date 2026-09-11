@@ -1,6 +1,7 @@
 export const KEYBOARD_LED_STATUS_EVENT = 'hid-led-status';
 
 export type KeyboardLedStatus = {
+  keyboardEnabled?: boolean;
   numLock: boolean;
   capsLock: boolean;
   scrollLock: boolean;
@@ -24,6 +25,9 @@ export function parseKeyboardLedStatus(value: unknown): KeyboardLedStatus | null
   }
 
   return {
+    ...(typeof status.keyboardEnabled === 'boolean'
+      ? { keyboardEnabled: status.keyboardEnabled }
+      : {}),
     numLock: status.numLock,
     capsLock: status.capsLock,
     scrollLock: status.scrollLock,

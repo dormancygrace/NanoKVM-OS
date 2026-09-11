@@ -5,11 +5,12 @@ type GetHidModeRsp struct {
 }
 
 type GetKeyboardLedStatusRsp struct {
-	NumLock    bool   `json:"numLock"`
-	CapsLock   bool   `json:"capsLock"`
-	ScrollLock bool   `json:"scrollLock"`
-	Known      bool   `json:"known"`
-	UpdatedAt  string `json:"updatedAt"`
+	KeyboardEnabled bool   `json:"keyboardEnabled"`
+	NumLock         bool   `json:"numLock"`
+	CapsLock        bool   `json:"capsLock"`
+	ScrollLock      bool   `json:"scrollLock"`
+	Known           bool   `json:"known"`
+	UpdatedAt       string `json:"updatedAt"`
 }
 
 type SetHidModeReq struct {

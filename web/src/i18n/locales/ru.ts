@@ -1,5 +1,54 @@
 const ru = {
   translation: {
+    vpn: {
+      openvpnDescription:
+        'Импортируйте .ovpn. Если сертификаты и ключи находятся в отдельных файлах, выберите их вместе с профилем.',
+      openvpnImport: 'Импорт файлов OpenVPN',
+      openvpnEmpty: 'Нет профилей OpenVPN',
+      openvpnLimit: 'Не более 16 профилей; до 256 КиБ на файл и профиль с сертификатами.',
+      openvpnRequired: 'В системном образе не установлен OpenVPN.',
+      openvpnNote:
+        'Одновременно можно включить один профиль OpenVPN. После перезапуска он подключится снова. Поддерживаются TUN-профили; TAP, скрипты и интерактивные SSO/MFA недоступны. DNS сервера применяется ко всему устройству на время подключения.',
+      credentials: 'Учётные данные',
+      credentialsRequired: 'Нужны учётные данные',
+      username: 'Имя пользователя',
+      password: 'Пароль',
+      passphrase: 'Пароль приватного ключа',
+      save: 'Сохранить',
+
+      keyboardDisabled: 'USB-клавиатура отключена в композиции USB',
+      description:
+        'Импортируйте профили WireGuard и включите нужный. Включённый профиль подключается снова после перезапуска.',
+      import: 'Импорт .conf файлов',
+      empty: 'Нет профилей WireGuard',
+      enable: 'Включить',
+      delete: 'Удалить',
+      deleteConfirm: 'Удалить этот профиль?',
+      handshake: 'Рукопожатие',
+      loadFailed: 'Не удалось получить статус VPN.',
+      requestFailed:
+        'Соединение прервалось. Подключитесь к NanoKVM и проверьте статус туннеля перед повторной попыткой.',
+      uploadLimit: 'Не более 16 профилей, до 64 КиБ на файл.',
+      systemRequired:
+        'Системные инструменты WireGuard отсутствуют. Установите системный образ с поддержкой WireGuard.',
+      routingNote: 'По умолчанию создаётся только маршрут подсети интерфейса. Route Allowed IPs добавляет маршруты из AllowedIPs.',
+      routeAllowedIPs: 'Route Allowed IPs',
+      routingHelp: 'Добавлять маршруты из AllowedIPs, включая маршрут по умолчанию для 0.0.0.0/0 или ::/0.',
+      routingDisableFirst: 'Выключите профиль перед изменением маршрутизации.',
+      note: 'Одновременно включается один профиль WireGuard. Импорт не запускает подключение. DNS принимает IP-адреса; команды Pre/PostUp/Down и SaveConfig не поддерживаются. «Простой» означает отсутствие недавнего рукопожатия, а не обязательно обрыв связи.',
+      states: {
+        connecting: 'Подключение',
+        reconnecting: 'Переподключение',
+        authenticating: 'Авторизация',
+
+        off: 'Выключен',
+        waiting: 'Ожидание узла',
+        connected: 'Подключён',
+        idle: 'Простой',
+        error: 'Ошибка'
+      }
+    },
+
     videoSettings: {
       unstableTitle: 'QHD H.265 WebRTC нестабилен',
       unstableDescription:

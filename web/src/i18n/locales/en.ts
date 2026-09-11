@@ -1,5 +1,54 @@
 const en = {
   translation: {
+    vpn: {
+      openvpnDescription:
+        'Import .ovpn profiles. Select any referenced certificate and key files in the same upload.',
+      openvpnImport: 'Import OpenVPN files',
+      openvpnEmpty: 'No OpenVPN profiles',
+      openvpnLimit: 'Maximum 16 profiles; 256 KiB per file and combined profile.',
+      openvpnRequired: 'OpenVPN is not installed in this system image.',
+      openvpnNote:
+        'One OpenVPN profile can be enabled at a time. Enabled profiles reconnect after a restart. Routed TUN profiles are supported; TAP, scripts and interactive SSO/MFA are not. Server DNS applies to the whole device while connected.',
+      credentials: 'Credentials',
+      credentialsRequired: 'Credentials required',
+      username: 'Username',
+      password: 'Password',
+      passphrase: 'Private-key passphrase',
+      save: 'Save',
+
+      keyboardDisabled: 'USB keyboard is disabled in USB Composition',
+      description:
+        'Import WireGuard profiles and enable the one you need. The enabled profile reconnects after a restart.',
+      import: 'Import .conf files',
+      empty: 'No WireGuard profiles',
+      enable: 'Enable',
+      delete: 'Delete',
+      deleteConfirm: 'Delete this profile?',
+      handshake: 'Handshake',
+      loadFailed: 'Could not read VPN status.',
+      requestFailed:
+        'Connection interrupted. Reconnect to NanoKVM and check the tunnel status before trying again.',
+      uploadLimit: 'Maximum 16 profiles, 64 KiB per file.',
+      systemRequired:
+        'WireGuard system tools are missing. Install a system image with WireGuard support.',
+      routingNote: 'Only the interface subnet is routed by default. Enable Route Allowed IPs to add the peer routes.',
+      routeAllowedIPs: 'Route Allowed IPs',
+      routingHelp: 'Add routes from AllowedIPs, including a default route for 0.0.0.0/0 or ::/0.',
+      routingDisableFirst: 'Disable this profile before changing routing.',
+      note: 'One WireGuard profile can be enabled at a time. Import does not connect automatically. DNS accepts IP addresses; executable hooks and SaveConfig are not supported. Idle means the tunnel has no recent handshake, not necessarily a connection failure.',
+      states: {
+        connecting: 'Connecting',
+        reconnecting: 'Reconnecting',
+        authenticating: 'Authenticating',
+
+        off: 'Off',
+        waiting: 'Waiting for peer',
+        connected: 'Connected',
+        idle: 'Idle',
+        error: 'Error'
+      }
+    },
+
     videoSettings: {
       unstableTitle: 'QHD H.265 WebRTC is unstable',
       unstableDescription: 'This mode can freeze or restart the device. Use H.265 Direct for QHD.',

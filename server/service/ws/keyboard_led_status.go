@@ -85,6 +85,10 @@ func broadcastKeyboardLedStatus(status hid.KeyboardLedStatus) {
 }
 
 func sendKeyboardLedStatus(client *Client, status hid.KeyboardLedStatus) error {
+	status.KeyboardEnabled = hid.KeyboardUSBEnabled()
+	if !status.KeyboardEnabled {
+		status.Known = false
+	}
 	payload, err := json.Marshal(status)
 	if err != nil {
 		return err

@@ -4,8 +4,10 @@ import { useSetAtom } from 'jotai';
 import { MouseIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { normalizeInputAdapterMode } from '@/lib/input-adapter.ts';
 import * as ls from '@/lib/localstorage';
 import {
+  inputAdapterAtom,
   mouseModeAtom,
   mouseStyleAtom,
   scrollDirectionAtom,
@@ -17,15 +19,18 @@ import { OriginalResolution } from '../screen/original-resolution.tsx';
 import { Cursor } from './cursor.tsx';
 import { Direction } from './direction.tsx';
 import { HidMode } from './hid-mode.tsx';
+import { InputAdapter } from './input-adapter.tsx';
 import { MouseMode } from './mouse-mode.tsx';
 import { ResetHid } from './reset-hid.tsx';
 import { Speed } from './speed.tsx';
+import { TouchpadGuide } from './touchpad-guide.tsx';
 
 export const Mouse = () => {
   const { t } = useTranslation();
 
   const setMouseStyle = useSetAtom(mouseStyleAtom);
   const setMouseMode = useSetAtom(mouseModeAtom);
+  const setInputAdapter = useSetAtom(inputAdapterAtom);
   const setScrollDirection = useSetAtom(scrollDirectionAtom);
   const setScrollInterval = useSetAtom(scrollIntervalAtom);
 
@@ -39,6 +44,8 @@ export const Mouse = () => {
     if (mouseMode) {
       setMouseMode(mouseMode);
     }
+
+    setInputAdapter(normalizeInputAdapterMode(ls.getInputAdapter()));
 
     const direction = ls.getMouseScrollDirection();
     if (direction) {
@@ -55,6 +62,7 @@ export const Mouse = () => {
     <div className="flex flex-col space-y-1">
       <Cursor />
       <MouseMode />
+      <InputAdapter />
       <Direction />
       <Speed />
       <Divider style={{ margin: '10px 0' }} />
@@ -62,6 +70,7 @@ export const Mouse = () => {
       <OriginalResolution />
       <HidMode />
       <ResetHid />
+      <TouchpadGuide />
     </div>
   );
 

@@ -204,6 +204,25 @@ const nb = {
       fast: 'Rask',
       slow: 'Sakte',
       requestPointer: 'Bruker relativ modus. Vennligsk klikk på skrivebordet for vise musepeker.',
+      inputAdapter: {
+        title: 'Inndataadapter',
+        auto: 'Automatisk',
+        'pointer-lock': 'Pekerlås',
+        touchpad: 'Pekeplate'
+      },
+      touchpadGuide: {
+        title: 'Touchpad-veiledning',
+        scope: 'Gjelder når inndataadapteren er Touchpad og musemodus er Relativ.',
+        swipeTitle: 'Sveip for å flytte',
+        swipeDesc: 'Sveip i det aktive skjermområdet for å flytte fjernpekeren.',
+        tapTitle: 'Trykk for å klikke',
+        tapDesc: 'Et kort trykk sender ett venstreklikk.',
+        holdTitle: 'Hold for å holde venstre knapp nede',
+        holdDesc:
+          'Trykk og hold fingeren rolig i omtrent 1 sekund for å holde venstre museknapp nede.',
+        dragTitle: 'Flytt etter hold for å dra',
+        dragDesc: 'Når hold er aktivt, flytter du fingeren for å dra med venstre knapp nede.'
+      },
       resetHid: 'Gjenopprett HID',
       hidOnly: {
         title: 'Kun HID-modus',
@@ -318,6 +337,8 @@ const nb = {
     },
     settings: {
       title: 'Innstillinger',
+      back: 'Tilbake',
+      close: 'Lukk',
       mcp: {
         title: 'MCP-tjeneste',
         service: 'MCP-fjernstyring',
@@ -476,26 +497,26 @@ const nb = {
           tip: 'Merk: Bruk av HTTPS kan øke forsinkelsen, spesielt i MJPEG-videomodus.'
         },
         ethernet: {
-          title: "Ethernet IPv4",
-          description: "Velg DHCP eller konfigurer en vedvarende statisk IPv4-adresse",
-          dhcp: "DHCP",
-          static: "Statisk",
-          ipv4: "IPv4-konfigurasjon",
-          dhcpDescription: "IP-adresse og gateway hentes automatisk fra DHCP",
-          staticDescription: "Innstillingene brukes umiddelbart og beholdes etter omstart",
-          ipAddress: "IP-adresse",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "Nettverksmaske",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "Gateway",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "Angi en gyldig IPv4-adresse, nettverksmaske og gateway",
-          save: "Lagre",
-          unsaved: "Ulagrede endringer",
-          savedStatic: "Statisk adresse lagret. Koble til igjen på {{address}}.",
-          savedDhcp: "DHCP aktivert. Koble til igjen med adressen ruteren har tildelt.",
-          saveFailed: "Kunne ikke lagre Ethernet-innstillinger",
-          loadFailed: "Kunne ikke laste inn Ethernet-innstillinger"
+          title: 'Ethernet IPv4',
+          description: 'Velg DHCP eller konfigurer en vedvarende statisk IPv4-adresse',
+          dhcp: 'DHCP',
+          static: 'Statisk',
+          ipv4: 'IPv4-konfigurasjon',
+          dhcpDescription: 'IP-adresse og gateway hentes automatisk fra DHCP',
+          staticDescription: 'Innstillingene brukes umiddelbart og beholdes etter omstart',
+          ipAddress: 'IP-adresse',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: 'Nettverksmaske',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: 'Gateway',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: 'Angi en gyldig IPv4-adresse, nettverksmaske og gateway',
+          save: 'Lagre',
+          unsaved: 'Ulagrede endringer',
+          savedStatic: 'Statisk adresse lagret. Koble til igjen på {{address}}.',
+          savedDhcp: 'DHCP aktivert. Koble til igjen med adressen ruteren har tildelt.',
+          saveFailed: 'Kunne ikke lagre Ethernet-innstillinger',
+          loadFailed: 'Kunne ikke laste inn Ethernet-innstillinger'
         },
         dns: {
           title: 'DNS',

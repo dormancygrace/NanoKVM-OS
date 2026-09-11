@@ -41,6 +41,12 @@ cp "$target/mnt/data/sensor_cfg.ini.LT" "$target/mnt/data/sensor_cfg.ini"
 for name in S00kmod S01fs S03usbdev S15kvmhwd S25wifimod S30eth S30wifi S50avahi-daemon S50sshd S80dnsmasq S95nanokvm S96picoclaw; do
     install -m755 "$NANOKVM_APP_STAGE/system/init.d/$name" "$target/etc/init.d/$name"
 done
+# Incremental Buildroot trees retain files from deselected packages.
+# chrony is the sole system clock daemon in new images.
+if [ -x "$target/usr/sbin/chronyd" ]; then
+    rm -f "$target/etc/init.d/S49ntp" "$target/etc/init.d/S49ntpd" \
+        "$target/usr/sbin/ntpd" "$target/usr/bin/ntpdate" "$target/usr/bin/ntpq" "$target/etc/ntp.conf"
+fi
 # HID-only is a selectable template, not a second boot service.
 rm -f "$target/etc/init.d/S03usbhid"
 # This image is already integrated; first-boot migration would reset settings,
@@ -69,9 +75,10 @@ if [ "$flavour" = enhanced ]; then
     install -m755 "$(dirname "$0")/enhanced/tools/nanokvm-wifi-tx-policy" "$target/usr/sbin/nanokvm-wifi-tx-policy"
     install -m755 "$(dirname "$0")/enhanced/tools/nanokvm-wifi-tx-live" "$target/usr/sbin/nanokvm-wifi-tx-live"
     install -m755 "$NANOKVM_APP_STAGE/system/bin/nkos-update" "$target/usr/sbin/nkos-update"
-    for name in S13nanokvm-watchdog S38memory S94sg2002aes S94nanokvm-update; do
+    for name in S00nkos-system-update S99nkos-system-confirm S13nanokvm-watchdog S38memory S94sg2002aes S94nanokvm-update; do
         install -m755 "$NANOKVM_APP_STAGE/system/init.d/$name" "$target/etc/init.d/$name"
     done
+    python3 "$(dirname "$0")/system-update-base.py" "$target" "$NANOKVM_BOARD_ASSETS"
     release_version=$(cat "$NANOKVM_APP_STAGE/version")
     printf '%s\n' "$release_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
     display_version=$(printf '%s' "$release_version" | sed 's/-beta\./ beta-/')

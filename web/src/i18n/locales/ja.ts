@@ -204,6 +204,24 @@ const ja = {
       slow: '遅い',
       requestPointer:
         '相対モードを使用中です。マウスポインターを取得するには、デスクトップをクリックしてください。',
+      inputAdapter: {
+        title: '入力アダプター',
+        auto: '自動',
+        'pointer-lock': 'ポインターロック',
+        touchpad: 'タッチパッド'
+      },
+      touchpadGuide: {
+        title: 'タッチパッドガイド',
+        scope: '入力アダプターがタッチパッドで、マウスモードが相対モードの場合に適用されます。',
+        swipeTitle: 'スワイプして移動',
+        swipeDesc: 'アクティブな画面領域内でスワイプすると、リモートポインターが移動します。',
+        tapTitle: 'タップしてクリック',
+        tapDesc: '短くタップすると左クリックを 1 回送信します。',
+        holdTitle: '長押しで左ボタンを押下',
+        holdDesc: '約 1 秒間触れたまま動かさないと、マウスの左ボタンを押した状態になります。',
+        dragTitle: '長押し後に動かしてドラッグ',
+        dragDesc: '長押しが有効になった後、指を動かすと左ボタンを押したままドラッグします。'
+      },
       resetHid: 'HID をリセット',
       hidOnly: {
         title: 'HID-Only モード',
@@ -319,6 +337,8 @@ const ja = {
     },
     settings: {
       title: '設定',
+      back: '戻る',
+      close: '閉じる',
       mcp: {
         title: 'MCP サービス',
         service: 'MCP リモート制御',
@@ -480,26 +500,26 @@ const ja = {
           tip: '注意：HTTPS を使用すると、特に MJPEG ビデオモードで遅延が増加する可能性があります。'
         },
         ethernet: {
-          title: "Ethernet IPv4",
-          description: "Ethernet IPv4 接続を設定します。",
-          dhcp: "DHCP",
-          static: "固定",
-          ipv4: "IPv4",
-          dhcpDescription: "DHCP を使用して IP アドレスを自動的に取得します。",
-          staticDescription: "IP アドレスを手動で設定します。",
-          ipAddress: "IP アドレス",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "サブネットマスク",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "ゲートウェイ",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "無効な IP アドレスです",
-          save: "保存",
-          unsaved: "未保存の変更",
-          savedStatic: "固定 IP アドレス {{address}} を保存しました。",
-          savedDhcp: "DHCP 設定を保存しました。",
-          saveFailed: "設定を保存できませんでした。",
-          loadFailed: "設定を読み込めませんでした。"
+          title: 'Ethernet IPv4',
+          description: 'Ethernet IPv4 接続を設定します。',
+          dhcp: 'DHCP',
+          static: '固定',
+          ipv4: 'IPv4',
+          dhcpDescription: 'DHCP を使用して IP アドレスを自動的に取得します。',
+          staticDescription: 'IP アドレスを手動で設定します。',
+          ipAddress: 'IP アドレス',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: 'サブネットマスク',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: 'ゲートウェイ',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: '無効な IP アドレスです',
+          save: '保存',
+          unsaved: '未保存の変更',
+          savedStatic: '固定 IP アドレス {{address}} を保存しました。',
+          savedDhcp: 'DHCP 設定を保存しました。',
+          saveFailed: '設定を保存できませんでした。',
+          loadFailed: '設定を読み込めませんでした。'
         },
         dns: {
           title: 'DNS',

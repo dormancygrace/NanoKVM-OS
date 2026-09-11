@@ -54,6 +54,13 @@ case "${1:-}" in
         ;;
     get_hdmi_version)
         check_board
+        # The receiver model is fixed hardware. Native initialization calls this
+        # more than once, including while the detector may be using the I2C bus.
+        # A transient NACK at 0x44 must not downgrade an already identified UXC.
+        # Explicit re-detect remains available when hardware identification is needed.
+        case "$(cat /etc/kvm/hdmi_version 2>/dev/null || true)" in
+            c|ux|d|ue) exit 0 ;;
+        esac
         detect_hdmi
         publish hdmi_version "$hdmi"
         ;;

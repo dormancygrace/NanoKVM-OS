@@ -207,6 +207,26 @@ const nl = {
       slow: 'Langzaam',
       requestPointer:
         'Relatieve modus wordt gebruikt. Klik op het bureaublad om de muisaanwijzer te krijgen.',
+      inputAdapter: {
+        title: 'Invoeradapter',
+        auto: 'Automatisch',
+        'pointer-lock': 'Aanwijzervergrendeling',
+        touchpad: 'Touchpad'
+      },
+      touchpadGuide: {
+        title: 'Touchpadgids',
+        scope: 'Geldt wanneer de invoeradapter Touchpad is en de muismodus Relatief is.',
+        swipeTitle: 'Veeg om te bewegen',
+        swipeDesc: 'Veeg binnen het actieve schermgebied om de externe aanwijzer te verplaatsen.',
+        tapTitle: 'Tik om te klikken',
+        tapDesc: 'Een korte tik stuurt één linkermuisklik.',
+        holdTitle: 'Houd vast voor linkermuisknop ingedrukt',
+        holdDesc:
+          'Raak aan en houd uw vinger ongeveer 1 seconde stil om de linkermuisknop ingedrukt te houden.',
+        dragTitle: 'Beweeg na vasthouden om te slepen',
+        dragDesc:
+          'Wanneer vasthouden actief is, beweeg uw vinger om te slepen met de linkermuisknop ingedrukt.'
+      },
       resetHid: 'HID resetten',
       hidOnly: {
         title: 'Alleen HID-modus',
@@ -321,6 +341,8 @@ const nl = {
     },
     settings: {
       title: 'Instellingen',
+      back: 'Terug',
+      close: 'Sluiten',
       mcp: {
         title: 'MCP-service',
         service: 'MCP-afstandsbediening',
@@ -483,26 +505,28 @@ const nl = {
           tip: 'Let op: HTTPS gebruiken kan de latentie verhogen, vooral in MJPEG-videomodus.'
         },
         ethernet: {
-          title: "Ethernet IPv4",
-          description: "Kies DHCP of configureer een permanent statisch IPv4-adres",
-          dhcp: "DHCP",
-          static: "Statisch",
-          ipv4: "IPv4-configuratie",
-          dhcpDescription: "IP-adres en gateway worden automatisch via DHCP verkregen",
-          staticDescription: "Instellingen worden onmiddellijk toegepast en blijven behouden na opnieuw opstarten",
-          ipAddress: "IP-adres",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "Subnetmasker",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "Gateway",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "Voer een geldig IPv4-adres, subnetmasker en gateway in",
-          save: "Opslaan",
-          unsaved: "Niet-opgeslagen wijzigingen",
-          savedStatic: "Statisch adres opgeslagen. Maak opnieuw verbinding met {{address}}.",
-          savedDhcp: "DHCP ingeschakeld. Maak opnieuw verbinding met het adres dat door uw router is toegewezen.",
-          saveFailed: "Ethernetinstellingen opslaan mislukt",
-          loadFailed: "Ethernetinstellingen laden mislukt"
+          title: 'Ethernet IPv4',
+          description: 'Kies DHCP of configureer een permanent statisch IPv4-adres',
+          dhcp: 'DHCP',
+          static: 'Statisch',
+          ipv4: 'IPv4-configuratie',
+          dhcpDescription: 'IP-adres en gateway worden automatisch via DHCP verkregen',
+          staticDescription:
+            'Instellingen worden onmiddellijk toegepast en blijven behouden na opnieuw opstarten',
+          ipAddress: 'IP-adres',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: 'Subnetmasker',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: 'Gateway',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: 'Voer een geldig IPv4-adres, subnetmasker en gateway in',
+          save: 'Opslaan',
+          unsaved: 'Niet-opgeslagen wijzigingen',
+          savedStatic: 'Statisch adres opgeslagen. Maak opnieuw verbinding met {{address}}.',
+          savedDhcp:
+            'DHCP ingeschakeld. Maak opnieuw verbinding met het adres dat door uw router is toegewezen.',
+          saveFailed: 'Ethernetinstellingen opslaan mislukt',
+          loadFailed: 'Ethernetinstellingen laden mislukt'
         },
         dns: {
           title: 'DNS',

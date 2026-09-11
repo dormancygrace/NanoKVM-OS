@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 func main() {
@@ -29,6 +30,9 @@ func main() {
 }
 func run() error {
 	app := flag.String("app", "", "staged server directory with web/ and dl_lib/")
+	removeList := flag.String("remove-list", "", "optional newline-separated rootfs/... paths to remove in a system package")
+	basePath := flag.String("system-base", "", "system foundation fingerprint from the release image /etc/nkos-system-base")
+	system := flag.String("system", "", "optional curated rootfs directory; requires the beta-3 system updater")
 	keyPath := flag.String("key", "", "private Ed25519 PKCS8 PEM (host only)")
 	version := flag.String("version", "", "application version")
 	sequence := flag.Uint64("sequence", 0, "strictly increasing release sequence")
@@ -92,6 +96,25 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	if *system != "" {
+		err = filepath.WalkDir(*system, func(p string, d os.DirEntry, e error) error {
+			if e != nil {
+				return e
+			}
+			if d.IsDir() {
+				return nil
+			}
+			rel, e := filepath.Rel(*system, p)
+			if e != nil {
+				return e
+			}
+			names = append(names, "rootfs/"+filepath.ToSlash(rel))
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
 	sort.Strings(names)
 	payload, err := os.CreateTemp(filepath.Dir(*output), ".payload-")
 	if err != nil {
@@ -102,13 +125,47 @@ func run() error {
 	gz := gzip.NewWriter(payload)
 	tw := tar.NewWriter(gz)
 	m := osupdate.Manifest{Format: 1, Product: "NanoKVM OS", Kind: "application", Arch: "riscv64", Version: *version, Sequence: *sequence, NativeABI: abi}
+	if *system != "" {
+		m.Format = 2
+		m.Kind = "system"
+		base, e := os.ReadFile(*basePath)
+		if e != nil {
+			return e
+		}
+		m.SystemBase = strings.TrimSpace(string(base))
+	}
+	if *removeList != "" {
+		raw, e := os.ReadFile(*removeList)
+		if e != nil {
+			return e
+		}
+		for _, line := range strings.Split(string(raw), "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				m.Remove = append(m.Remove, line)
+			}
+		}
+	}
 	for _, name := range names {
 		p := filepath.Join(*app, filepath.FromSlash(name))
-		info, err := os.Stat(p)
+		if strings.HasPrefix(name, "rootfs/") {
+			p = filepath.Join(*system, strings.TrimPrefix(name, "rootfs/"))
+		}
+		info, err := os.Lstat(p)
 		if err != nil {
 			return err
 		}
-		sum, err := osupdate.HashFile(p)
+		link := ""
+		var sum string
+		if info.Mode()&os.ModeSymlink != 0 {
+			link, err = os.Readlink(p)
+			h := sha256.Sum256([]byte(link))
+			sum = hex.EncodeToString(h[:])
+		} else if info.Mode().IsRegular() {
+			sum, err = osupdate.HashFile(p)
+		} else {
+			return fmt.Errorf("non-regular source")
+		}
 		if err != nil {
 			return err
 		}
@@ -116,10 +173,24 @@ func run() error {
 		if name == "NanoKVM-Server" {
 			mode = 0755
 		}
-		entry := osupdate.Entry{Path: name, Size: info.Size(), SHA256: sum, Mode: mode}
+		if strings.HasPrefix(name, "rootfs/") && info.Mode()&0111 != 0 && link == "" {
+			mode = 0755
+		}
+		size := info.Size()
+		if link != "" {
+			size = int64(len(link))
+		}
+		preserve := strings.HasPrefix(name, "rootfs/etc/") && !strings.HasPrefix(name, "rootfs/etc/init.d/")
+		entry := osupdate.Entry{Path: name, Size: size, SHA256: sum, Mode: mode, Link: link, Preserve: preserve}
 		m.Files = append(m.Files, entry)
-		if err = tw.WriteHeader(&tar.Header{Name: name, Mode: int64(mode), Size: info.Size(), Typeflag: tar.TypeReg, Format: tar.FormatUSTAR}); err != nil {
+		if err = tw.WriteHeader(&tar.Header{Name: name, Mode: int64(mode), Size: size, Typeflag: tar.TypeReg, Format: tar.FormatUSTAR}); err != nil {
 			return err
+		}
+		if link != "" {
+			if _, err = tw.Write([]byte(link)); err != nil {
+				return err
+			}
+			continue
 		}
 		f, err := os.Open(p)
 		if err != nil {

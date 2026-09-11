@@ -200,6 +200,26 @@ const se = {
       fast: 'Snabb',
       slow: 'Långsam',
       requestPointer: 'Använder relativt läge. Klicka på skrivbordet för att få muspekaren.',
+      inputAdapter: {
+        title: 'Indatningsadapter',
+        auto: 'Automatisk',
+        'pointer-lock': 'Pekarlås',
+        touchpad: 'Styrplatta'
+      },
+      touchpadGuide: {
+        title: 'Guide för styrplatta',
+        scope: 'Gäller när Indatningsadapter är Styrplatta och Musläge är inställt på Relativt.',
+        swipeTitle: 'Svep för att flytta',
+        swipeDesc: 'Svep inom det aktiva skärmområdet för att flytta fjärrpekaren.',
+        tapTitle: 'Tryck för att klicka',
+        tapDesc: 'En kort tryckning skickar ett vänsterklick.',
+        holdTitle: 'Håll kvar för att hålla vänsterknappen nedtryckt',
+        holdDesc:
+          'Rör vid skärmen och håll fingret stilla i cirka 1 sekund för att hålla vänster musknapp nedtryckt.',
+        dragTitle: 'Flytta efter att ha hållit kvar för att dra',
+        dragDesc:
+          'När långtryckningen är aktiv flyttar du fingret för att dra med vänsterknappen nedtryckt.'
+      },
       resetHid: 'Återställ HID',
       hidOnly: {
         title: 'Endast HID-läge',
@@ -314,6 +334,8 @@ const se = {
     },
     settings: {
       title: 'Inställningar',
+      back: 'Tillbaka',
+      close: 'Stäng',
       mcp: {
         title: 'MCP-tjänst',
         service: 'MCP-fjärrstyrning',
@@ -474,26 +496,26 @@ const se = {
           tip: 'Observera: Användning av HTTPS kan öka fördröjningen, särskilt med MJPEG-läge.'
         },
         ethernet: {
-          title: "Ethernet IPv4",
-          description: "Välj DHCP eller konfigurera en permanent statisk IPv4-adress",
-          dhcp: "DHCP",
-          static: "Statisk",
-          ipv4: "IPv4-konfiguration",
-          dhcpDescription: "IP-adress och gateway hämtas automatiskt via DHCP",
-          staticDescription: "Inställningarna tillämpas omedelbart och behålls efter omstart",
-          ipAddress: "IP-adress",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "Nätmask",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "Gateway",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "Ange en giltig IPv4-adress, nätmask och gateway",
-          save: "Spara",
-          unsaved: "Osparade ändringar",
-          savedStatic: "Statisk adress sparad. Anslut igen på {{address}}.",
-          savedDhcp: "DHCP aktiverat. Anslut igen med adressen som routern har tilldelat.",
-          saveFailed: "Det gick inte att spara Ethernet-inställningarna",
-          loadFailed: "Det gick inte att läsa in Ethernet-inställningarna"
+          title: 'Ethernet IPv4',
+          description: 'Välj DHCP eller konfigurera en permanent statisk IPv4-adress',
+          dhcp: 'DHCP',
+          static: 'Statisk',
+          ipv4: 'IPv4-konfiguration',
+          dhcpDescription: 'IP-adress och gateway hämtas automatiskt via DHCP',
+          staticDescription: 'Inställningarna tillämpas omedelbart och behålls efter omstart',
+          ipAddress: 'IP-adress',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: 'Nätmask',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: 'Gateway',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: 'Ange en giltig IPv4-adress, nätmask och gateway',
+          save: 'Spara',
+          unsaved: 'Osparade ändringar',
+          savedStatic: 'Statisk adress sparad. Anslut igen på {{address}}.',
+          savedDhcp: 'DHCP aktiverat. Anslut igen med adressen som routern har tilldelat.',
+          saveFailed: 'Det gick inte att spara Ethernet-inställningarna',
+          loadFailed: 'Det gick inte att läsa in Ethernet-inställningarna'
         },
         dns: {
           title: 'DNS',

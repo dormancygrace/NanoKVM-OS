@@ -1,0 +1,37 @@
+--- a/src/superfile_config/config.toml
++++ b/src/superfile_config/config.toml
+@@ -13,14 +13,14 @@
+ 
+ #-- File Editor
+ # Default: $EDITOR
+-editor = ""
++editor = "nano"
+ 
+ #-- Directory Editor
+ # 
+ dir_editor = ""
+ 
+ #-- Auto check for update
+-auto_check_update = true
++auto_check_update = false
+ 
+ #-- cd on quit
+ # Should we cd the shell to the last directory open in superfile when the
+@@ -35,7 +35,7 @@
+ #-- Image Preview
+ # Should we open an image preview by default whenever selection-hovering over an
+ # image?
+-show_image_preview = true
++show_image_preview = false
+ 
+ #-- File Info Footer
+ # Should we display a footer in the file panel that provides more file information?
+@@ -104,7 +104,7 @@
+ #-- Nerd Fonts Support
+ # Whether to enable support for Nerd Fonts symbols.
+ # Requires:  Font patched with the Nerd Fonts patch.
+-nerdfont = true
++nerdfont = false
+ 
+ #-- Show checkbox icons in select mode
+ # Requires: nerdfont = true

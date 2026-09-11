@@ -207,6 +207,27 @@ const fr = {
       slow: 'Lent',
       requestPointer:
         'Pour utiliser le mode relatif, cliquez sur le bureau pour capturer le pointeur de la souris.',
+      inputAdapter: {
+        title: "Adaptateur d'entrée",
+        auto: 'Automatique',
+        'pointer-lock': 'Verrouillage du pointeur',
+        touchpad: 'Pavé tactile'
+      },
+      touchpadGuide: {
+        title: 'Guide du pavé tactile',
+        scope:
+          'S’applique lorsque l’adaptateur d’entrée est Pavé tactile et que le mode souris est Relatif.',
+        swipeTitle: 'Balayer pour déplacer',
+        swipeDesc: 'Balayez dans la zone active de l’écran pour déplacer le pointeur distant.',
+        tapTitle: 'Toucher pour cliquer',
+        tapDesc: 'Un appui bref envoie un clic gauche.',
+        holdTitle: 'Maintenir pour garder le bouton gauche enfoncé',
+        holdDesc:
+          'Touchez et gardez le doigt immobile pendant environ 1 seconde pour maintenir le bouton gauche de la souris enfoncé.',
+        dragTitle: 'Déplacer après maintien pour faire glisser',
+        dragDesc:
+          'Une fois le maintien actif, déplacez le doigt pour faire glisser avec le bouton gauche enfoncé.'
+      },
       resetHid: 'Réinitialiser le périphérique HID',
       hidOnly: {
         title: 'Mode HID uniquement',
@@ -321,6 +342,8 @@ const fr = {
     },
     settings: {
       title: 'Paramètres',
+      back: 'Retour',
+      close: 'Fermer',
       mcp: {
         title: 'Service MCP',
         service: 'Contrôle à distance MCP',
@@ -482,26 +505,26 @@ const fr = {
           tip: "Attention : l'utilisation de HTTPS peut augmenter la latence, surtout en mode vidéo MJPEG."
         },
         ethernet: {
-          title: "IPv4 Ethernet",
-          description: "Configurez la connexion IPv4 Ethernet.",
-          dhcp: "DHCP",
-          static: "Statique",
-          ipv4: "IPv4",
-          dhcpDescription: "Obtenez automatiquement une adresse IP via DHCP.",
+          title: 'IPv4 Ethernet',
+          description: 'Configurez la connexion IPv4 Ethernet.',
+          dhcp: 'DHCP',
+          static: 'Statique',
+          ipv4: 'IPv4',
+          dhcpDescription: 'Obtenez automatiquement une adresse IP via DHCP.',
           staticDescription: "Configurez manuellement l'adresse IP.",
-          ipAddress: "Adresse IP",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "Masque de sous-réseau",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "Passerelle",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "Adresse IP non valide",
-          save: "Enregistrer",
-          unsaved: "Modifications non enregistrées",
+          ipAddress: 'Adresse IP',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: 'Masque de sous-réseau',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: 'Passerelle',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: 'Adresse IP non valide',
+          save: 'Enregistrer',
+          unsaved: 'Modifications non enregistrées',
           savedStatic: "L'adresse IP statique {{address}} a été enregistrée.",
-          savedDhcp: "La configuration DHCP a été enregistrée.",
+          savedDhcp: 'La configuration DHCP a été enregistrée.',
           saveFailed: "Impossible d'enregistrer la configuration.",
-          loadFailed: "Impossible de charger la configuration."
+          loadFailed: 'Impossible de charger la configuration.'
         },
         dns: {
           title: 'DNS',

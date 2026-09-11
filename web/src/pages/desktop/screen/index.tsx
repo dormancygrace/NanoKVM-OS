@@ -6,7 +6,7 @@ import { H264Direct } from './h264-direct.tsx';
 import { H264Webrtc } from './h264-webrtc.tsx';
 import { Mjpeg } from './mjpeg.tsx';
 
-export const Screen = () => {
+export const Screen = ({ onEncoderConflict }: { onEncoderConflict: () => boolean }) => {
   const videoMode = useAtomValue(videoModeAtom);
 
   if (videoMode === 'mjpeg') {
@@ -14,11 +14,11 @@ export const Screen = () => {
   }
 
   if (videoMode === 'direct') {
-    return <H264Direct />;
+    return <H264Direct onEncoderConflict={onEncoderConflict} />;
   }
 
   if (videoMode === 'h264') {
-    return <H264Webrtc />;
+    return <H264Webrtc onEncoderConflict={onEncoderConflict} />;
   }
 
   return null;

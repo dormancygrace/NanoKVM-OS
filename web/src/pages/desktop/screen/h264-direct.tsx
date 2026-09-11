@@ -11,7 +11,7 @@ import { mouseStyleAtom } from '@/jotai/mouse';
 import DirectWorker from './direct.worker.ts?worker';
 import { ScreenViewport } from './viewport.tsx';
 
-export const H264Direct = () => {
+export const H264Direct = ({ onEncoderConflict }: { onEncoderConflict: () => boolean }) => {
   const { t } = useTranslation();
   const mouseStyle = useAtomValue(mouseStyleAtom);
   const [fatalError, setFatalError] = useState<string | null>(null);
@@ -84,6 +84,7 @@ export const H264Direct = () => {
           return;
         }
         if (type === 'stream-error') {
+          if (code === 'encoder-conflict' && onEncoderConflict()) return;
           if (detail) console.error('Direct video stream rejected:', detail);
           setFatalError(
             translationRef.current(
@@ -122,7 +123,7 @@ export const H264Direct = () => {
         worker.terminate();
       }
     };
-  }, []);
+  }, [onEncoderConflict]);
 
   return (
     <div className="relative h-full min-h-0 w-full min-w-0 overflow-hidden">

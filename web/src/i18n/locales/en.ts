@@ -1,6 +1,41 @@
 const en = {
   translation: {
+    dateTime: {
+      title: 'Date & Time',
+      deviceTime: 'Device time',
+      timezone: 'Time zone',
+      format: 'Time format',
+      hour24: '24 hours (14:30)',
+      hour12: '12 hours (2:30 PM)',
+      preview: 'Preview',
+      servers: 'NTP servers',
+      serversHelp:
+        'Choose or enter 1–6 hostnames or IP addresses. Changing servers restarts time synchronization.',
+      scope:
+        'Time zone applies to the device. The time format is shared across the interface, including VPN handshake times.',
+      synchronized: 'Synchronized',
+      waiting: 'Synchronization not confirmed',
+      save: 'Save',
+      saved: 'Date and time settings saved',
+      loadFailed: 'Cannot read device time. Check the connection.',
+      saveFailed: 'Could not apply settings. Check server addresses and the device connection.'
+    },
+    recorder: {
+      title: 'Video recording',
+      start: 'Start recording',
+      stop: 'Stop recording',
+      saving: 'Saving recording…',
+      saved: 'Recording saved',
+      unsupported:
+        'Recording requires HTTPS and a browser with file saving support, such as Chrome or Edge',
+      captureDisabled: 'Enable capture to record video',
+      noVideo: 'Wait for video before recording',
+      failed: 'Recording could not be saved. Check free disk space and browser support.'
+    },
     vpn: {
+      rename: 'Rename',
+      profileName: 'Profile name',
+      cancelRename: 'Cancel renaming',
       openvpnDescription:
         'Import .ovpn profiles. Select any referenced certificate and key files in the same upload.',
       openvpnImport: 'Import OpenVPN files',
@@ -31,7 +66,8 @@ const en = {
       uploadLimit: 'Maximum 16 profiles, 64 KiB per file.',
       systemRequired:
         'WireGuard system tools are missing. Install a system image with WireGuard support.',
-      routingNote: 'Only the interface subnet is routed by default. Enable Route Allowed IPs to add the peer routes.',
+      routingNote:
+        'Only the interface subnet is routed by default. Enable Route Allowed IPs to add the peer routes.',
       routeAllowedIPs: 'Route Allowed IPs',
       routingHelp: 'Add routes from AllowedIPs, including a default route for 0.0.0.0/0 or ::/0.',
       routingDisableFirst: 'Disable this profile before changing routing.',
@@ -49,7 +85,67 @@ const en = {
       }
     },
 
+    dashboard: {
+      coreCount_one: '{{count}} core',
+      coreCount_other: '{{count}} cores',
+      live: 'Updates while this page is open',
+      stale: 'Some information could not be refreshed. Showing the last available values.',
+      duration: '{{days}}d {{hours}}h {{minutes}}m',
+      open: 'Open {{name}} settings',
+      of: 'of {{total}}',
+      freeStorage: 'Free space',
+      uptime: 'Uptime',
+      device: 'Device',
+      application: 'NanoKVM OS',
+      kernel: 'Kernel',
+      processor: 'Processor',
+      cores: 'cores',
+      load: 'Load average · 1 / 5 / 15 min',
+      capture: 'Capture',
+      fps: 'Output / requested',
+      sessions: 'Video sessions',
+      memory: 'Memory',
+      available: 'Available RAM',
+      cache: 'Cache',
+      compression: 'Compression',
+      storage: 'Storage',
+      systemStorage: 'System',
+      dataStorage: 'Data',
+      bootStorage: 'Boot',
+      readOnly: 'Read-only',
+      diskSpace: '{{free}} free of {{total}}',
+      unavailable: 'Not mounted or unavailable',
+      connected: 'Connected',
+      disconnected: 'No connection',
+      deviceTime: 'Device time',
+      timezone: 'Time zone',
+      synchronization: 'Synchronization',
+      synchronized: 'Synchronized',
+      notSynchronized: 'Synchronization not confirmed',
+      timeService: 'Time service',
+      ntpServers: 'NTP servers',
+      handshake: 'Last handshake',
+      noProfiles: 'No profiles',
+      states: {
+        off: 'Off',
+        waiting: 'Waiting',
+        connected: 'Connected',
+        idle: 'Idle',
+        error: 'Error',
+        running: 'Connected',
+        stopped: 'Stopped',
+        notInstall: 'Not installed',
+        notRunning: 'Stopped',
+        notLogin: 'Not signed in',
+        connecting: 'Connecting',
+        auth: 'Authentication required'
+      }
+    },
     videoSettings: {
+      apply: 'Apply',
+      discard: 'Discard changes',
+      pending: 'Changes have not been applied',
+      applied: 'Video settings applied',
       unstableTitle: 'QHD H.265 WebRTC is unstable',
       unstableDescription: 'This mode can freeze or restart the device. Use H.265 Direct for QHD.',
       unstableTag: 'QHD unstable',
@@ -78,10 +174,10 @@ const en = {
       monitorHint:
         'Advertises a preferred mode and fallback timings. BIOS and the operating system may choose different resolutions; capture follows the actual signal automatically. Changing this profile briefly reconnects HDMI.',
       monitorUnavailable:
-        'Monitor profile changes are currently available on NanoKVM PCIe with LT6911UXC. Input detection remains automatic.',
+        'Changing the virtual monitor profile is unavailable on this device. Input detection remains automatic.',
       stream: 'Video stream',
       streamHint:
-        'Resolution, FPS and bitrate affect all viewers. Changing stream resolution does not change the computer’s desktop. Transport and codec are selected for this browser.',
+        'Resolution, FPS and bitrate affect all viewers. Changing stream resolution does not change the computer’s desktop. New viewers automatically use the active encoder codec; transport and display scale remain individual.',
       advanced: 'Advanced and recovery',
       gopHint:
         'GOP is the interval between keyframes. HDMI recovery restarts capture if the source stops responding.',
@@ -217,6 +313,11 @@ const en = {
       resetHdmi: 'Recover HDMI',
       encoderError: 'Video encoder error',
       encoderUnsupported: 'The selected codec is not supported by this browser in this mode.',
+      activeEncoderUnsupported:
+        'Another viewer is using {{codec}}, which this browser cannot play in the selected mode. Try another video mode or a compatible browser.',
+      encoderStateFailed: 'Could not read the active stream settings. Retry to connect.',
+      retryJoin: 'Retry',
+      sessions: 'Active video sessions: {{count}}',
       encoderConflict:
         'Another viewer is using different encoder settings. Close it or select the same settings.',
       mixedH264: {
@@ -313,6 +414,24 @@ const en = {
       fast: 'Fast',
       slow: 'Slow',
       requestPointer: 'Using relative mode. Please click desktop to get mouse pointer.',
+      inputAdapter: {
+        title: 'Input Adapter',
+        auto: 'Auto',
+        'pointer-lock': 'Pointer Lock',
+        touchpad: 'Touchpad'
+      },
+      touchpadGuide: {
+        title: 'Touchpad guide',
+        scope: 'Applies when Input Adapter is Touchpad and Mouse Mode is Relative.',
+        swipeTitle: 'Swipe to move',
+        swipeDesc: 'Swipe inside the active screen area to move the remote pointer.',
+        tapTitle: 'Tap to click',
+        tapDesc: 'A short tap sends one left click.',
+        holdTitle: 'Hold for left button down',
+        holdDesc: 'Touch and keep still for about 1 second to hold the left mouse button down.',
+        dragTitle: 'Move after hold to drag',
+        dragDesc: 'After the hold is active, move your finger to drag with the left button held.'
+      },
       resetHid: 'Reset HID',
       hidOnly: {
         title: 'HID-Only mode',
@@ -430,21 +549,24 @@ const en = {
       updates: {
         title: 'Updates',
         description:
-          'Update the NanoKVM OS application and web interface. Video and control disconnect briefly during installation.',
+          'Update NanoKVM OS using signed packages. System updates restart the device; application updates briefly disconnect video and control.',
         installed: 'Installed',
         latest: 'Latest release',
         automatic:
           'The device checks this GitHub repository automatically once a day. Installation always requires your action.',
         check: 'Check for updates',
         download: 'Download and verify',
-        file: 'Signed application package (.nkos)',
+        file: 'Signed update package (.nkos)',
+        uploading: 'Uploading…',
+        verifying: 'Verifying package…',
         verify: 'Upload and verify',
         install: 'Install',
+        installRestart: 'Install and restart',
         compatibility:
-          'Only signed NanoKVM OS application packages compatible with this system are accepted. Original NanoKVM archives are rejected. Full system images use the Boot flashing procedure.',
+          'Compatible signed NanoKVM OS packages can update the application and system components. Settings are preserved. Kernel updates are not supported by this package format. Original NanoKVM archives are rejected.',
         requestFailed: 'The update request failed. Check device connectivity and retry.',
-        tooLarge: 'The package exceeds 96 MiB.',
-        reconnecting: 'Waiting for the application to reconnect…',
+        tooLarge: 'The package exceeds 192 MiB.',
+        reconnecting: 'Waiting for the device to reconnect…',
         reload: 'Reload interface'
       },
       memory: {
@@ -481,6 +603,8 @@ const en = {
         changeError: 'Could not change swap settings'
       },
       title: 'Settings',
+      back: 'Back',
+      close: 'Close',
       mcp: {
         title: 'MCP Service',
         service: 'Remote control MCP',
@@ -500,7 +624,13 @@ const en = {
         cancelBtn: 'Cancel'
       },
       about: {
-        title: 'About NanoKVM',
+        title: 'About',
+        description: 'Community firmware for NanoKVM.',
+        documentation: 'Documentation',
+        reportIssue: 'Report an issue',
+        upstreamCredit:
+          'Built on the original Sipeed NanoKVM project. Thank you to its authors and contributors.',
+        systemInformation: 'System information',
         information: 'Information',
         ip: 'IP',
         mdns: 'mDNS',

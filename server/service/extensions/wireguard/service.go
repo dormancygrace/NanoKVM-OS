@@ -18,6 +18,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"NanoKVM-Server/proto"
 	"github.com/gin-gonic/gin"
@@ -364,9 +366,10 @@ func (s *Service) Change(c *gin.Context) {
 	defer s.mu.Unlock()
 	var rsp proto.Response
 	var req struct {
-		ID              string `json:"id"`
-		Action          string `json:"action"`
-		RouteAllowedIPs *bool  `json:"routeAllowedIPs"`
+		ID              string  `json:"id"`
+		Action          string  `json:"action"`
+		Name            *string `json:"name"`
+		RouteAllowedIPs *bool   `json:"routeAllowedIPs"`
 	}
 	if c.ShouldBindJSON(&req) != nil || !validID.MatchString(req.ID) {
 		rsp.ErrRsp(c, -1, "invalid profile")
@@ -389,6 +392,25 @@ func (s *Service) Change(c *gin.Context) {
 	}
 	id := req.ID
 	switch req.Action {
+	case "rename":
+		if req.Name == nil {
+			rsp.ErrRsp(c, -1, "profile name is required")
+			return
+		}
+		name := strings.TrimSpace(*req.Name)
+		if name == "" || utf8.RuneCountInString(name) > 128 || strings.IndexFunc(name, unicode.IsControl) >= 0 {
+			rsp.ErrRsp(c, -1, "use a profile name of 1–128 characters without control characters")
+			return
+		}
+		// A display name is metadata only. Keep the interface ID, config file,
+		// boot restore marker and current tunnel/error state unchanged.
+		profiles[idx].Name = name
+		if err := s.save(profiles); err != nil {
+			rsp.ErrRsp(c, -1, "cannot rename WireGuard profile")
+			return
+		}
+		rsp.OkRsp(c)
+		return
 	case "routing":
 		if req.RouteAllowedIPs == nil {
 			rsp.ErrRsp(c, -1, "routeAllowedIPs is required")

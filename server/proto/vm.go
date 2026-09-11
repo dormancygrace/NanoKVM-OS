@@ -131,6 +131,7 @@ type GetOLEDRsp struct {
 }
 
 type GetGetHdmiStateRsp struct {
+	ViewerCount int  `json:"viewerCount"`
 	Enabled     bool `json:"enabled"`
 	Signal      bool `json:"signal"`
 	IdleTimeout int  `json:"idleTimeout"`

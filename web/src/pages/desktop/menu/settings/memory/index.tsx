@@ -5,8 +5,6 @@ import { useTranslation } from 'react-i18next';
 import * as api from '@/api/vm.ts';
 import type { MemoryStatus, MemorySwap } from '@/api/vm.ts';
 
-import { ApplicationMemory } from './application.tsx';
-
 const mib = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MiB`;
 
 export const Memory = () => {
@@ -185,9 +183,6 @@ export const Memory = () => {
           {swapCard('zram', data.zram)}
           {swapCard('sd', data.sd)}
           <p className="text-xs text-neutral-400">{t('settings.memory.priorityNote')}</p>
-          <div className="rounded-lg border border-neutral-700/70 p-2">
-            <ApplicationMemory />
-          </div>
         </>
       )}
     </div>

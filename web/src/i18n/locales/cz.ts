@@ -204,6 +204,26 @@ const cz = {
       slow: 'Pomalu',
       requestPointer:
         'Používá se relativní režim. Klikněte prosím na plochu pro získání kurzoru myši.',
+      inputAdapter: {
+        title: 'Adaptér vstupu',
+        auto: 'Automaticky',
+        'pointer-lock': 'Zámek ukazatele',
+        touchpad: 'Dotyková plocha'
+      },
+      touchpadGuide: {
+        title: 'Průvodce touchpadem',
+        scope: 'Platí, když je vstupní adaptér Touchpad a režim myši je relativní.',
+        swipeTitle: 'Přejetím posunete',
+        swipeDesc: 'Přejeďte v aktivní oblasti obrazovky, aby se vzdálený ukazatel myši posunul.',
+        tapTitle: 'Klepnutím kliknete',
+        tapDesc: 'Krátké klepnutí odešle jedno kliknutí levým tlačítkem.',
+        holdTitle: 'Podržením stisknete levé tlačítko',
+        holdDesc:
+          'Dotkněte se a držte prst v klidu asi 1 sekundu, aby levé tlačítko myši zůstalo stisknuté.',
+        dragTitle: 'Po podržení pohybem přetáhnete',
+        dragDesc:
+          'Jakmile je podržení aktivní, pohybem prstu přetáhnete se stisknutým levým tlačítkem.'
+      },
       resetHid: 'Resetovat HID',
       hidOnly: {
         title: 'Režim pouze HID',
@@ -318,6 +338,8 @@ const cz = {
     },
     settings: {
       title: 'Nastavení',
+      back: 'Zpět',
+      close: 'Zavřít',
       mcp: {
         title: 'Služba MCP',
         service: 'Vzdálené ovládání MCP',
@@ -477,26 +499,26 @@ const cz = {
           tip: 'Upozornění: Použití HTTPS může zvýšit latenci, zejména v režimu videa MJPEG.'
         },
         ethernet: {
-          title: "Ethernet IPv4",
-          description: "Nakonfigurujte připojení Ethernet IPv4.",
-          dhcp: "DHCP",
-          static: "Statická",
-          ipv4: "IPv4",
-          dhcpDescription: "Automaticky získat IP adresu pomocí DHCP.",
-          staticDescription: "Nakonfigurujte IP adresu ručně.",
-          ipAddress: "IP adresa",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "Maska podsítě",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "Brána",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "Neplatná IP adresa",
-          save: "Uložit",
-          unsaved: "Neuložené změny",
-          savedStatic: "Statická IP adresa {{address}} byla uložena.",
-          savedDhcp: "Konfigurace DHCP byla uložena.",
-          saveFailed: "Konfiguraci se nepodařilo uložit.",
-          loadFailed: "Konfiguraci se nepodařilo načíst."
+          title: 'Ethernet IPv4',
+          description: 'Nakonfigurujte připojení Ethernet IPv4.',
+          dhcp: 'DHCP',
+          static: 'Statická',
+          ipv4: 'IPv4',
+          dhcpDescription: 'Automaticky získat IP adresu pomocí DHCP.',
+          staticDescription: 'Nakonfigurujte IP adresu ručně.',
+          ipAddress: 'IP adresa',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: 'Maska podsítě',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: 'Brána',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: 'Neplatná IP adresa',
+          save: 'Uložit',
+          unsaved: 'Neuložené změny',
+          savedStatic: 'Statická IP adresa {{address}} byla uložena.',
+          savedDhcp: 'Konfigurace DHCP byla uložena.',
+          saveFailed: 'Konfiguraci se nepodařilo uložit.',
+          loadFailed: 'Konfiguraci se nepodařilo načíst.'
         },
         dns: {
           title: 'DNS',

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Divider, Popconfirm, Switch, Tag, Tooltip } from 'antd';
-import { FileUpIcon, Trash2Icon } from 'lucide-react';
+import { Alert, Button, Divider, Input, Popconfirm, Switch, Tag, Tooltip } from 'antd';
+import { CheckIcon, FileUpIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { formatDeviceTime } from '@/lib/date-time.ts';
 import { http } from '@/lib/http.ts';
+import { useDeviceTime } from '@/hooks/useDeviceTime.ts';
 
 import { VPNVersion } from './version';
 
@@ -21,11 +23,14 @@ type Profile = {
 };
 
 export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const timePreferences = useDeviceTime();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [available, setAvailable] = useState<boolean>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState('');
   const operation = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const mounted = useRef(true);
@@ -87,6 +92,19 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
     Array.from(files).forEach((f) => data.append('files', f));
     void run(() => http.post('/api/extensions/wireguard/import', data));
   }
+  function rename(profile: Profile) {
+    const name = nameDraft.trim();
+    if (!name || Array.from(name).length > 128) return;
+    void run(async () => {
+      const rsp = await http.post('/api/extensions/wireguard/profile', {
+        id: profile.id,
+        action: 'rename',
+        name
+      });
+      if (rsp.code === 0) setRenameId(null);
+      return rsp;
+    });
+  }
   const formatBytes = (n: number) => `${(n / 1048576).toFixed(1)} MiB`;
 
   return (
@@ -136,8 +154,24 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
             className="space-y-2 rounded-lg border border-neutral-700/70 bg-neutral-800/40 p-4"
           >
             <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 truncate font-medium" title={p.name}>
-                {p.name}
+              <div className="flex min-w-0 items-center gap-1">
+                <div className="min-w-0 truncate font-medium" title={p.name}>
+                  {p.name}
+                </div>
+                <Tooltip title={t('vpn.rename')}>
+                  <Button
+                    type="text"
+                    size="small"
+                    className="shrink-0"
+                    aria-label={`${t('vpn.rename')} ${p.name}`}
+                    icon={<PencilIcon size={14} />}
+                    disabled={busy}
+                    onClick={() => {
+                      setRenameId(p.id);
+                      setNameDraft(p.name);
+                    }}
+                  />
+                </Tooltip>
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 <Tag
@@ -169,6 +203,39 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
                 </Popconfirm>
               </div>
             </div>
+            {renameId === p.id && (
+              <div className="flex items-center gap-1">
+                <Input
+                  autoFocus
+                  aria-label={t('vpn.profileName')}
+                  value={nameDraft}
+                  maxLength={128}
+                  disabled={busy}
+                  onChange={(event) => setNameDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      event.stopPropagation();
+                      if (!busy) setRenameId(null);
+                    }
+                  }}
+                  onPressEnter={() => rename(p)}
+                />
+                <Button
+                  type="text"
+                  aria-label={t('vpn.save')}
+                  icon={<CheckIcon size={16} />}
+                  disabled={busy || !nameDraft.trim()}
+                  onClick={() => rename(p)}
+                />
+                <Button
+                  type="text"
+                  aria-label={t('vpn.cancelRename')}
+                  icon={<XIcon size={16} />}
+                  disabled={busy}
+                  onClick={() => setRenameId(null)}
+                />
+              </div>
+            )}
             <div className="break-all text-xs text-neutral-400">{p.address}</div>
             <div className="flex items-center justify-between gap-3 text-sm text-neutral-300">
               <span>{t('vpn.routeAllowedIPs')}</span>
@@ -198,7 +265,8 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
                 {p.lastHandshake > 0 && (
                   <>
                     {' '}
-                    · {t('vpn.handshake')} {new Date(p.lastHandshake * 1000).toLocaleTimeString()}
+                    · {t('vpn.handshake')}{' '}
+                    {formatDeviceTime(p.lastHandshake * 1000, timePreferences, i18n.language)}
                   </>
                 )}
               </div>

@@ -21,33 +21,38 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 )
 
 const Magic = "NKOSAPP1"
-const MaxBundle int64 = 96 << 20
-const MaxExpanded int64 = 192 << 20
+const MaxBundle int64 = 192 << 20
+const MaxExpanded int64 = 512 << 20
 const signatureContext = "NanoKVM OS application update v1\n"
 
 //go:embed release-ed25519.pub.pem
 var publicPEM []byte
 
 type Entry struct {
-	Path   string `json:"path"`
-	Size   int64  `json:"size"`
-	SHA256 string `json:"sha256"`
-	Mode   uint32 `json:"mode"`
+	Path     string `json:"path"`
+	Size     int64  `json:"size"`
+	SHA256   string `json:"sha256"`
+	Mode     uint32 `json:"mode"`
+	Link     string `json:"link,omitempty"`
+	Preserve bool   `json:"preserve,omitempty"`
 }
 type Manifest struct {
-	Format        int     `json:"format"`
-	Product       string  `json:"product"`
-	Kind          string  `json:"kind"`
-	Arch          string  `json:"arch"`
-	Version       string  `json:"version"`
-	Sequence      uint64  `json:"sequence"`
-	NativeABI     string  `json:"native_abi"`
-	PayloadBytes  int64   `json:"payload_bytes"`
-	PayloadSHA256 string  `json:"payload_sha256"`
-	Files         []Entry `json:"files"`
+	Remove        []string `json:"remove,omitempty"`
+	SystemBase    string   `json:"system_base,omitempty"`
+	Format        int      `json:"format"`
+	Product       string   `json:"product"`
+	Kind          string   `json:"kind"`
+	Arch          string   `json:"arch"`
+	Version       string   `json:"version"`
+	Sequence      uint64   `json:"sequence"`
+	NativeABI     string   `json:"native_abi"`
+	PayloadBytes  int64    `json:"payload_bytes"`
+	PayloadSHA256 string   `json:"payload_sha256"`
+	Files         []Entry  `json:"files"`
 }
 type Bundle struct {
 	Manifest Manifest
@@ -124,30 +129,57 @@ func validPath(name string) bool {
 	return name != "" && path.Clean(name) == name && !bytes.ContainsAny([]byte(name), "\\\x00") && (name == "NanoKVM-Server" || (len(name) > 4 && name[:4] == "web/"))
 }
 func validateManifest(m Manifest) error {
-	if m.Format != 1 || m.Product != "NanoKVM OS" || m.Kind != "application" || m.Arch != "riscv64" {
+	if !((m.Format == 1 && m.Kind == "application") || (m.Format == 2 && m.Kind == "system")) || m.Product != "NanoKVM OS" || m.Arch != "riscv64" {
 		return errors.New("not a NanoKVM OS application package")
 	}
 	if !versionRE.MatchString(m.Version) || m.Sequence == 0 || !digestRE.MatchString(m.NativeABI) || !digestRE.MatchString(m.PayloadSHA256) || m.PayloadBytes < 1 || m.PayloadBytes > MaxBundle {
 		return errors.New("invalid update manifest")
 	}
-	if len(m.Files) < 2 || len(m.Files) > 4096 {
+	if len(m.Files) < 2 || len(m.Files) > 8192 {
 		return errors.New("invalid file count")
+	}
+	if (m.Format == 2 && !digestRE.MatchString(m.SystemBase)) || (m.Format == 1 && m.SystemBase != "") {
+		return errors.New("invalid system base")
 	}
 	seen := map[string]bool{}
 	var total int64
 	for _, e := range m.Files {
-		if !validPath(e.Path) || seen[e.Path] || e.Size < 0 || e.Size > 64<<20 || !digestRE.MatchString(e.SHA256) {
+		if !(validPath(e.Path) || (m.Format == 2 && validSystemEntry(e))) || seen[e.Path] || e.Size < 0 || e.Size > 64<<20 || !digestRE.MatchString(e.SHA256) {
 			return errors.New("invalid or duplicate package path")
 		}
 		expected := uint32(0644)
 		if e.Path == "NanoKVM-Server" {
 			expected = 0755
 		}
+		if strings.HasPrefix(e.Path, "rootfs/") {
+			expected = e.Mode
+		} else if e.Link != "" || e.Preserve {
+			return errors.New("system attributes on application file")
+		}
 		if e.Mode != expected {
 			return errors.New("invalid file permissions")
 		}
 		seen[e.Path] = true
 		total += e.Size
+	}
+	if m.Format == 1 && len(m.Remove) > 0 {
+		return errors.New("application package cannot remove system files")
+	}
+	if len(m.Remove) > 4096 {
+		return errors.New("too many removals")
+	}
+	for _, name := range m.Remove {
+		if !validSystemRemoval(name) || seen[name] {
+			return errors.New("invalid or conflicting system removal")
+		}
+		seen[name] = true
+	}
+	for name := range seen {
+		for parent := path.Dir(name); parent != "."; parent = path.Dir(parent) {
+			if seen[parent] {
+				return errors.New("file used as parent directory")
+			}
+		}
 	}
 	if total > MaxExpanded || !seen["NanoKVM-Server"] || !seen["web/index.html"] {
 		return errors.New("incomplete or oversized application")
@@ -182,7 +214,7 @@ func verifyWithKey(file string, key ed25519.PublicKey) (*Bundle, error) {
 		return nil, errors.New("original NanoKVM and unsigned archives are not supported")
 	}
 	length := binary.BigEndian.Uint32(prefix[8:])
-	if length == 0 || length > 1<<20 {
+	if length == 0 || length > 4<<20 {
 		return nil, errors.New("invalid manifest length")
 	}
 	raw := make([]byte, length)
@@ -224,13 +256,20 @@ func verifyWithKey(file string, key ed25519.PublicKey) (*Bundle, error) {
 }
 
 // Extract accepts only manifest-listed regular files; it never executes content.
-func Extract(file string, b *Bundle, dest string) error {
-	if err := os.Mkdir(dest, 0700); err != nil {
-		return err
+func Extract(file string, b *Bundle, dest string) error { return processArchive(file, b, dest) }
+
+// VerifyContents streams all archive checks without writing temporary files.
+// Uploaded bytes are already durable; staging is needed only on installation.
+func VerifyContents(file string, b *Bundle) error { return processArchive(file, b, "") }
+func processArchive(file string, b *Bundle, dest string) error {
+	if dest != "" {
+		if err := os.Mkdir(dest, 0700); err != nil {
+			return err
+		}
 	}
 	ok := false
 	defer func() {
-		if !ok {
+		if !ok && dest != "" {
 			os.RemoveAll(dest)
 		}
 	}()
@@ -266,25 +305,44 @@ func Extract(file string, b *Bundle, dest string) error {
 			return errors.New("unexpected archive entry")
 		}
 		seen[hdr.Name] = true
-		target := filepath.Join(dest, filepath.FromSlash(e.Path))
-		if err = os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-			return err
-		}
-		out, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, os.FileMode(e.Mode))
-		if err != nil {
-			return err
-		}
 		h := sha256.New()
-		_, err = io.Copy(io.MultiWriter(out, h), tr)
-		if err == nil {
-			err = out.Sync()
+		var out *os.File
+		var writer io.Writer = h
+		if dest != "" {
+			target := filepath.Join(dest, filepath.FromSlash(e.Path))
+			if err = os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return err
+			}
+			out, err = os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, os.FileMode(e.Mode))
+			if err != nil {
+				return err
+			}
+			writer = io.MultiWriter(out, h)
 		}
-		closeErr := out.Close()
+		if e.Path == "NanoKVM-Server" {
+			var header [20]byte
+			_, err = io.ReadFull(tr, header[:])
+			if err == nil && (!bytes.Equal(header[:6], []byte{0x7f, 'E', 'L', 'F', 2, 1}) || binary.LittleEndian.Uint16(header[18:]) != 243) {
+				err = errors.New("server is not RISC-V ELF64")
+			}
+			if err == nil {
+				_, err = writer.Write(header[:])
+			}
+		}
+		if err == nil {
+			_, err = io.Copy(writer, tr)
+		}
+		if out != nil {
+			if err == nil {
+				err = out.Sync()
+			}
+			closeErr := out.Close()
+			if err == nil {
+				err = closeErr
+			}
+		}
 		if err != nil {
 			return err
-		}
-		if closeErr != nil {
-			return closeErr
 		}
 		if hex.EncodeToString(h.Sum(nil)) != e.SHA256 {
 			return fmt.Errorf("file checksum mismatch: %s", e.Path)
@@ -297,9 +355,6 @@ func Extract(file string, b *Bundle, dest string) error {
 	extra, err := io.CopyN(io.Discard, gz, 1)
 	if extra != 0 || err != io.EOF {
 		return errors.New("unexpected data after archive")
-	}
-	if err = CheckExecutable(filepath.Join(dest, "NanoKVM-Server")); err != nil {
-		return err
 	}
 	ok = true
 	return nil

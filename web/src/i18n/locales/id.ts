@@ -204,6 +204,25 @@ const id = {
       slow: 'Lambat',
       requestPointer:
         'Menggunakan mode relatf. Silakan klik desktop untuk mendapatkan penunjuk tetikus.',
+      inputAdapter: {
+        title: 'Adaptor input',
+        auto: 'Otomatis',
+        'pointer-lock': 'Kunci pointer',
+        touchpad: 'Touchpad'
+      },
+      touchpadGuide: {
+        title: 'Panduan touchpad',
+        scope: 'Berlaku saat Adapter Input adalah Touchpad dan Mode Mouse adalah Relatif.',
+        swipeTitle: 'Usap untuk menggerakkan',
+        swipeDesc: 'Usap di dalam area layar aktif untuk menggerakkan penunjuk jarak jauh.',
+        tapTitle: 'Ketuk untuk mengeklik',
+        tapDesc: 'Ketukan singkat mengirim satu klik kiri.',
+        holdTitle: 'Tahan untuk menekan tombol kiri',
+        holdDesc: 'Sentuh dan tahan tetap diam sekitar 1 detik untuk menahan tombol kiri mouse.',
+        dragTitle: 'Gerakkan setelah tahan untuk menyeret',
+        dragDesc:
+          'Setelah tahan aktif, gerakkan jari untuk menyeret dengan tombol kiri tetap ditekan.'
+      },
       resetHid: 'Setel ulang HID',
       hidOnly: {
         title: 'Mode hanya HID',
@@ -318,6 +337,8 @@ const id = {
     },
     settings: {
       title: 'Pengaturan',
+      back: 'Kembali',
+      close: 'Tutup',
       mcp: {
         title: 'Layanan MCP',
         service: 'Kontrol jarak jauh MCP',
@@ -477,26 +498,26 @@ const id = {
           tip: 'Perhatian: Menggunakan HTTPS dapat meningkatkan latensi, terutama pada mode video MJPEG.'
         },
         ethernet: {
-          title: "Ethernet IPv4",
-          description: "Konfigurasikan koneksi Ethernet IPv4.",
-          dhcp: "DHCP",
-          static: "Statis",
-          ipv4: "IPv4",
-          dhcpDescription: "Dapatkan alamat IP secara otomatis melalui DHCP.",
-          staticDescription: "Konfigurasikan alamat IP secara manual.",
-          ipAddress: "Alamat IP",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "Masker subnet",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "Gateway",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "Alamat IP tidak valid",
-          save: "Simpan",
-          unsaved: "Perubahan belum disimpan",
-          savedStatic: "Alamat IP statis {{address}} telah disimpan.",
-          savedDhcp: "Konfigurasi DHCP telah disimpan.",
-          saveFailed: "Gagal menyimpan konfigurasi.",
-          loadFailed: "Gagal memuat konfigurasi."
+          title: 'Ethernet IPv4',
+          description: 'Konfigurasikan koneksi Ethernet IPv4.',
+          dhcp: 'DHCP',
+          static: 'Statis',
+          ipv4: 'IPv4',
+          dhcpDescription: 'Dapatkan alamat IP secara otomatis melalui DHCP.',
+          staticDescription: 'Konfigurasikan alamat IP secara manual.',
+          ipAddress: 'Alamat IP',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: 'Masker subnet',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: 'Gateway',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: 'Alamat IP tidak valid',
+          save: 'Simpan',
+          unsaved: 'Perubahan belum disimpan',
+          savedStatic: 'Alamat IP statis {{address}} telah disimpan.',
+          savedDhcp: 'Konfigurasi DHCP telah disimpan.',
+          saveFailed: 'Gagal menyimpan konfigurasi.',
+          loadFailed: 'Gagal memuat konfigurasi.'
         },
         dns: {
           title: 'DNS',

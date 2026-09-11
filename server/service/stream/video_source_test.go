@@ -196,3 +196,43 @@ func TestVideoSubscriptionStartsAtKeyframeAndPreservesErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestActiveEncoderConfigExcludesDrainingCapture(t *testing.T) {
+	started, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) {
+		once.Do(func() { close(started) })
+		<-release
+		return nil, nil, 0
+	})
+	defer close(release)
+	if _, active := source.activeConfig(); active {
+		t.Fatal("idle source is active")
+	}
+	first, err := source.subscribe(LegacyEncoderConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer first.Close()
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("capture did not start")
+	}
+	if config, active := source.activeConfig(); !active || config != LegacyEncoderConfig() {
+		t.Fatalf("active config = %+v, active=%t", config, active)
+	}
+	second, err := source.subscribe(LegacyEncoderConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer second.Close()
+	first.Close()
+	if _, active := source.activeConfig(); !active {
+		t.Fatal("lost remaining subscriber")
+	}
+	second.Close()
+	if _, active := source.activeConfig(); active {
+		t.Fatal("draining session advertised as active")
+	}
+}

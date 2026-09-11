@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
-import { Button, InputNumber, Popover } from 'antd';
+import { Button, InputNumber } from 'antd';
 import { CheckIcon, ScanBarcodeIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { updateScreen } from '@/api/vm';
 import { setFps as setCookie } from '@/lib/localstorage';
+import { MenuSubmenu } from '@/components/menu-item.tsx';
 
 const fpsList = [
   { key: 60, label: '60 FPS' },
@@ -115,12 +116,17 @@ export const Fps = ({ fps, setFps, maxFps = 60 }: FpsProps) => {
   );
 
   return (
-    <Popover content={content} placement="rightTop" arrow={false} align={{ offset: [14, 0] }}>
+    <MenuSubmenu
+      title={t('screen.fps')}
+      content={content}
+      popoverProps={{ placement: 'rightTop', arrow: false, align: { offset: [14, 0] } }}
+      onBeforeLeave={() => !isCustomize}
+    >
       <div className="flex h-[30px] cursor-pointer items-center space-x-2 rounded px-3 text-neutral-300 hover:bg-neutral-700/70">
         <ScanBarcodeIcon size={18} />
         <span className="select-none text-sm">{t('screen.fps')}</span>
         <span className="ml-auto text-xs text-neutral-400">{fps} FPS</span>
       </div>
-    </Popover>
+    </MenuSubmenu>
   );
 };

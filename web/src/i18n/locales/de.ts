@@ -208,6 +208,27 @@ const de = {
       slow: 'Langsam',
       requestPointer:
         'Relativer Modus aktiv. Klicken Sie auf den Desktop um den Mauszeiger zu sehen.',
+      inputAdapter: {
+        title: 'Eingabeadapter',
+        auto: 'Automatisch',
+        'pointer-lock': 'Zeigersperre',
+        touchpad: 'Touchpad'
+      },
+      touchpadGuide: {
+        title: 'Touchpad-Anleitung',
+        scope: 'Gilt, wenn der Eingabeadapter Touchpad ist und der Mausmodus relativ ist.',
+        swipeTitle: 'Wischen zum Bewegen',
+        swipeDesc:
+          'Wischen Sie innerhalb des aktiven Bildschirmbereichs, um den Remote-Zeiger zu bewegen.',
+        tapTitle: 'Tippen zum Klicken',
+        tapDesc: 'Ein kurzes Tippen sendet einen Linksklick.',
+        holdTitle: 'Halten für gedrückte linke Taste',
+        holdDesc:
+          'Berühren und halten Sie den Finger etwa 1 Sekunde still, um die linke Maustaste gedrückt zu halten.',
+        dragTitle: 'Nach dem Halten bewegen zum Ziehen',
+        dragDesc:
+          'Sobald das Halten aktiv ist, bewegen Sie den Finger, um mit gedrückter linker Taste zu ziehen.'
+      },
       resetHid: 'HID zurücksetzen',
       hidOnly: {
         title: 'HID-Only-Modus',
@@ -323,6 +344,8 @@ const de = {
     },
     settings: {
       title: 'Einstellungen',
+      back: 'Zurück',
+      close: 'Schliessen',
       mcp: {
         title: 'MCP-Dienst',
         service: 'MCP-Fernsteuerung',
@@ -484,26 +507,26 @@ const de = {
           tip: 'Hinweis: Die Verwendung von HTTPS kann die Latenz erhöhen, besonders im MJPEG-Videomodus.'
         },
         ethernet: {
-          title: "Ethernet IPv4",
-          description: "Ethernet-IPv4-Verbindung konfigurieren.",
-          dhcp: "DHCP",
-          static: "Statisch",
-          ipv4: "IPv4",
-          dhcpDescription: "IP-Adresse automatisch über DHCP beziehen.",
-          staticDescription: "IP-Adresse manuell konfigurieren.",
-          ipAddress: "IP-Adresse",
-          addressPlaceholder: "192.168.10.32",
-          subnetMask: "Subnetzmaske",
-          subnetMaskPlaceholder: "255.255.255.0",
-          gateway: "Gateway",
-          gatewayPlaceholder: "192.168.10.1",
-          invalid: "Ungültige IP-Adresse",
-          save: "Speichern",
-          unsaved: "Ungespeicherte Änderungen",
-          savedStatic: "Statische IP-Adresse {{address}} gespeichert.",
-          savedDhcp: "DHCP-Konfiguration gespeichert.",
-          saveFailed: "Konfiguration konnte nicht gespeichert werden.",
-          loadFailed: "Konfiguration konnte nicht geladen werden."
+          title: 'Ethernet IPv4',
+          description: 'Ethernet-IPv4-Verbindung konfigurieren.',
+          dhcp: 'DHCP',
+          static: 'Statisch',
+          ipv4: 'IPv4',
+          dhcpDescription: 'IP-Adresse automatisch über DHCP beziehen.',
+          staticDescription: 'IP-Adresse manuell konfigurieren.',
+          ipAddress: 'IP-Adresse',
+          addressPlaceholder: '192.168.10.32',
+          subnetMask: 'Subnetzmaske',
+          subnetMaskPlaceholder: '255.255.255.0',
+          gateway: 'Gateway',
+          gatewayPlaceholder: '192.168.10.1',
+          invalid: 'Ungültige IP-Adresse',
+          save: 'Speichern',
+          unsaved: 'Ungespeicherte Änderungen',
+          savedStatic: 'Statische IP-Adresse {{address}} gespeichert.',
+          savedDhcp: 'DHCP-Konfiguration gespeichert.',
+          saveFailed: 'Konfiguration konnte nicht gespeichert werden.',
+          loadFailed: 'Konfiguration konnte nicht geladen werden.'
         },
         dns: {
           title: 'DNS',

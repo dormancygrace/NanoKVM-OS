@@ -3,7 +3,8 @@ import { AppleOutlined, WindowsOutlined } from '@ant-design/icons';
 import clsx from 'clsx';
 import { useAtom } from 'jotai';
 import { XIcon } from 'lucide-react';
-import Keyboard, { KeyboardButtonTheme } from 'react-simple-keyboard';
+import type { KeyboardButtonTheme } from 'react-simple-keyboard';
+import Keyboard from 'react-simple-keyboard/build/index.modern.esm.js';
 import { Drawer } from 'vaul';
 
 import 'react-simple-keyboard/build/css/index.css';
@@ -228,17 +229,17 @@ export const VirtualKeyboard = () => {
         <Drawer.Content
           className={clsx(
             'fixed bottom-0 left-0 right-0 z-[999] mx-auto overflow-hidden rounded bg-white outline-none',
-            isBigScreen ? 'w-[820px]' : 'w-[650px]'
+            isBigScreen ? 'w-[820px]' : 'w-full max-w-[650px]'
           )}
         >
           {/* header */}
-          <div className="flex items-center justify-between px-3 py-1">
+          <div className="keyboard-drawer-header flex items-center justify-between gap-2 px-2 py-1 sm:px-3">
             <ConfigProvider
               theme={{
                 algorithm: theme.defaultAlgorithm
               }}
             >
-              <div className="flex items-center space-x-5">
+              <div className="keyboard-drawer-controls flex min-w-0 items-center space-x-5 overflow-x-auto">
                 <Select
                   size="small"
                   style={{ minWidth: 90 }}
@@ -258,7 +259,7 @@ export const VirtualKeyboard = () => {
               </div>
             </ConfigProvider>
 
-            <div className="flex w-[100px] items-center justify-end">
+            <div className="flex flex-none items-center justify-end">
               <div
                 className="flex h-[20px] w-[20px] cursor-pointer items-center justify-center rounded text-neutral-600 hover:bg-neutral-300 hover:text-white"
                 onClick={() => setIsKeyboardOpen(false)}

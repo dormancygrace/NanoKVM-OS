@@ -35,3 +35,14 @@ config BR2_PACKAGE_NKOS_OPENVPN3
     help
       OpenVPN 3 Core with native Linux TUN/DCO, resolver integration and
       the NanoKVM status adapter. No D-Bus or systemd is required.
+
+config BR2_PACKAGE_NKOS_SUPERFILE
+    bool "superfile terminal file manager"
+    depends on BR2_PACKAGE_HOST_GO_TARGET_ARCH_SUPPORTS
+    select BR2_PACKAGE_HOST_GO
+    help
+      Modern terminal file manager, available as spf and superfile.
+      Defaults use plain terminal icons and nano, without background
+      update checks or image previews.
+
+      https://github.com/yorukot/superfile

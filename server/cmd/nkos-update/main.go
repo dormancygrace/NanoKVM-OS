@@ -4,6 +4,7 @@ import (
 	"NanoKVM-Server/osupdate"
 	"fmt"
 	"os"
+	"os/exec"
 	"syscall"
 )
 
@@ -30,12 +31,20 @@ func main() {
 		os.Exit(1)
 	}
 	defer lock.Close()
-	if len(os.Args) == 2 && os.Args[1] == "recover" {
+	if len(os.Args) == 2 && os.Args[1] == "system-boot" {
+		err = osupdate.SystemBoot()
+	} else if len(os.Args) == 2 && os.Args[1] == "system-confirm" {
+		err = osupdate.ConfirmSystem()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			_ = exec.Command("/sbin/reboot").Run()
+		}
+	} else if len(os.Args) == 2 && os.Args[1] == "recover" {
 		err = osupdate.Recover()
 	} else if len(os.Args) == 3 && (os.Args[1] == "install" || os.Args[1] == "install-inherited") {
 		err = osupdate.Install(os.Args[2])
 	} else {
-		err = fmt.Errorf("usage: nkos-update recover | install PACKAGE_ID")
+		err = fmt.Errorf("usage: nkos-update recover | system-boot | system-confirm | install PACKAGE_ID")
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

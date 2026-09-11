@@ -1,51 +1,47 @@
-import { DiscordOutlined, GithubOutlined, XOutlined } from '@ant-design/icons';
-import { BookOpenIcon, MessageCircleQuestionIcon } from 'lucide-react';
+import { BookOpenIcon, BugIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export const Community = () => {
   const { t } = useTranslation();
-
-  const communities = [
-    { name: 'Document', icon: <BookOpenIcon size={24} />, url: 'https://wiki.sipeed.com/nanokvm' },
+  const links = [
     {
-      name: 'GitHub',
-      icon: <GithubOutlined style={{ fontSize: '20px' }} width={24} height={24} />,
-      url: 'https://github.com/sipeed/NanoKVM'
+      label: t('settings.about.documentation'),
+      icon: <BookOpenIcon size={17} />,
+      href: 'https://github.com/dormancygrace/NanoKVM-OS/tree/main/docs'
     },
     {
-      name: 'X',
-      icon: <XOutlined style={{ fontSize: '20px' }} width={24} height={24} />,
-      url: 'https://twitter.com/SipeedIO'
-    },
-    {
-      name: 'Discord',
-      icon: <DiscordOutlined style={{ fontSize: '20px' }} width={24} height={24} />,
-      url: 'https://discord.gg/V4sAZ9XWpN'
-    },
-    {
-      name: 'FAQ',
-      icon: <MessageCircleQuestionIcon size={24} />,
-      url: 'https://wiki.sipeed.com/hardware/en/kvm/NanoKVM/faq.html'
+      label: t('settings.about.reportIssue'),
+      icon: <BugIcon size={17} />,
+      href: 'https://github.com/dormancygrace/NanoKVM-OS/issues'
     }
   ];
-
   return (
-    <>
-      <div className="text-neutral-400">{t('settings.about.community')}</div>
-
-      <div className="mt-5 flex flex-wrap gap-3">
-        {communities.map((community) => (
+    <div className="space-y-8">
+      <div className="flex flex-wrap gap-x-6 gap-y-3">
+        {links.map((link) => (
           <a
-            key={community.name}
-            className="flex h-[64px] w-[80px] flex-col items-center justify-center space-y-2 rounded-lg text-neutral-300 outline outline-1 outline-neutral-800 hover:bg-neutral-800 hover:text-white focus:bg-neutral-800 md:h-[72px] md:w-[100px]"
-            href={community.url}
+            key={link.href}
+            href={link.href}
             target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm !text-blue-400 hover:!text-blue-300"
           >
-            {community.icon}
-            <span className="text-xs">{community.name}</span>
+            {link.icon}
+            {link.label}
           </a>
         ))}
       </div>
-    </>
+      <div className="space-y-2 border-t border-neutral-800 pt-5 text-sm leading-relaxed text-neutral-400">
+        <p>{t('settings.about.upstreamCredit')}</p>
+        <a
+          href="https://github.com/sipeed/NanoKVM"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block !text-neutral-300 underline decoration-neutral-600 underline-offset-4 hover:!text-white"
+        >
+          Sipeed NanoKVM
+        </a>
+      </div>
+    </div>
   );
 };

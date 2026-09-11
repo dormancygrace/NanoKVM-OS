@@ -1,6 +1,12 @@
-# Beta-2 validation and known issues
+# Beta-3 validation and known issues
 
 This summary covers checks on the SG2002 NanoKVM PCIe with an LT6911UXC HDMI receiver. Cube and other board revisions are intended targets, not independently qualified hardware. Short checks, synthetic receivers and browser playback measure different things.
+
+## Beta-3 changes
+
+A user-installed signed system package upgraded an existing beta-2 device with the new updater installed for the test. The device rebooted, confirmed the transaction and retained settings. This does not mean the stock beta-2 updater accepts system packages; the public upgrade path is the full beta-3 image.
+
+Current application/backend and browser checks cover Dashboard statistics, WireGuard profile naming, video Apply/Discard controls, automatic codec selection, session counts, Date & Time, recording and navigation. The receiver cache fix restored QHD Direct output after incorrect repeated HDMI detection. Updater/telemetry unit tests and production builds pass. Final full-image structure, file hashes and matched kernel/modules are checked during assembly; fresh-card boot and power-loss recovery have not been physically tested.
 
 ## Beta-2 changes
 

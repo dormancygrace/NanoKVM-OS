@@ -72,7 +72,7 @@ func osUpdateRouter(r *gin.Engine) {
 			updateReply(c, nil, err)
 			return
 		}
-		osupdate.SetResult(osupdate.Result{State: "downloading", Message: "Downloading signed application update"})
+		osupdate.SetResult(osupdate.Result{State: "downloading", Message: "Downloading signed NanoKVM OS update"})
 		go func() {
 			defer lock.Close()
 			f, err := os.CreateTemp(osupdate.Base, "download-")

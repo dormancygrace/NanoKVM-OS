@@ -27,6 +27,7 @@ type Result struct {
 	Message string `json:"message"`
 	Version string `json:"version,omitempty"`
 	ID      string `json:"id,omitempty"`
+	Reboot  bool   `json:"reboot,omitempty"`
 }
 type transaction struct {
 	OldVersion   string
@@ -124,6 +125,15 @@ func Lock() (*os.File, error) {
 	return f, nil
 }
 func compatible(b *Bundle) error {
+	if b.Manifest.Format == 2 {
+		base, e := os.ReadFile("/etc/nkos-system-base")
+		if e != nil || strings.TrimSpace(string(base)) != b.Manifest.SystemBase {
+			return errors.New("this package requires a different system foundation; use the full image")
+		}
+	}
+	if b.Manifest.Format == 2 && !exists("/etc/init.d/S00nkos-system-update") {
+		return errors.New("install the beta-3 full system image before using system packages")
+	}
 	marker, err := os.ReadFile("/etc/nanokvm-buildroot")
 	if err != nil || !strings.Contains(string(marker), "flavour=enhanced") {
 		return errors.New("NanoKVM OS system image required")
@@ -156,17 +166,23 @@ func PackagePath(id string) (string, error) {
 	}
 	return filepath.Join(Base, id+".nkos"), nil
 }
-func Prepare(file string) (*Bundle, error) {
+func Prepare(file string) (bundle *Bundle, err error) {
+	defer func() {
+		if err != nil {
+			_ = SetResult(Result{State: "failed", Message: err.Error()})
+		}
+	}()
+	if exists(Base + "/system.json") {
+		return nil, errors.New("system update awaiting reboot or recovery")
+	}
+	if err = SetResult(Result{State: "verifying", Message: "Verifying package signature and contents"}); err != nil {
+		return nil, err
+	}
 	b, err := ValidateForDevice(file)
 	if err != nil {
 		return nil, err
 	}
-	dest := Base + "/validation"
-	os.RemoveAll(dest)
-	if err = Extract(file, b, dest); err != nil {
-		return nil, err
-	}
-	if err = os.RemoveAll(dest); err != nil {
+	if err = VerifyContents(file, b); err != nil {
 		return nil, err
 	}
 	target, _ := PackagePath(b.ID)
@@ -186,7 +202,7 @@ func Prepare(file string) (*Bundle, error) {
 			os.Remove(filepath.Join(Base, name))
 		}
 	}
-	if err = SetResult(Result{State: "prepared", ID: b.ID, Version: b.Manifest.Version, Message: "Signature, compatibility and file checks passed"}); err != nil {
+	if err = SetResult(Result{State: "prepared", ID: b.ID, Version: b.Manifest.Version, Reboot: b.Manifest.Format == 2, Message: "Signature, compatibility and file checks passed"}); err != nil {
 		return nil, err
 	}
 	return b, nil
@@ -304,6 +320,25 @@ func Install(id string) (err error) {
 	}
 	if b.ID != id {
 		return errors.New("package changed after validation")
+	}
+	if exists(Base + "/system.json") {
+		return errors.New("system update awaiting reboot or recovery")
+	}
+	if b.Manifest.Format == 2 {
+		if err = SetResult(Result{State: "installing", Version: b.Manifest.Version, ID: id, Reboot: true, Message: "Preparing system files and recovery data"}); err != nil {
+			return err
+		}
+		if err = newSystemUpdater().stage(file, b); err != nil {
+			return err
+		}
+		if err = SetResult(Result{State: "installing", Version: b.Manifest.Version, ID: id, Reboot: true, Message: "System update prepared; restarting device"}); err != nil {
+			return err
+		}
+		if e := exec.Command("/sbin/reboot").Run(); e != nil {
+			_ = newSystemUpdater().finish()
+			return fmt.Errorf("could not restart device: %w", e)
+		}
+		return nil
 	}
 	if exists(Base + "/transaction.json") {
 		return errors.New("previous update needs recovery")

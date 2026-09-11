@@ -14,3 +14,9 @@ LIBOPENSSL_PRE_CONFIGURE_HOOKS += NANOKVM_INSTALL_CRYPTODEV_HEADER
 # there too; otherwise those runtime libraries still contain fence.tso.
 GCC_COMMON_TARGET_CFLAGS += $(call qstrip,$(BR2_TARGET_OPTIMIZATION))
 GCC_COMMON_TARGET_CXXFLAGS += $(call qstrip,$(BR2_TARGET_OPTIMIZATION))
+
+# Do not expose host toolchain paths through mc --configure-options.
+MC_CONF_OPTS += --disable-configure-args
+
+# Configure runs on the host; helper shebangs must name the target interpreter.
+MC_CONF_ENV += ac_cv_path_PYTHON=/usr/bin/python3

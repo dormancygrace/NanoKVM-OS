@@ -17,7 +17,9 @@
 }
 
 .simple-keyboard-main.simple-keyboard .hg-button {
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1),
+    0 1px 2px -1px rgb(0 0 0 / 0.1);
 }
 
 .simple-keyboard-main.simple-keyboard .hg-row:first-child {
@@ -51,7 +53,9 @@
   justify-content: center;
   display: flex;
   align-items: center;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1),
+    0 1px 2px -1px rgb(0 0 0 / 0.1);
 }
 
 .controlArrows {
@@ -76,7 +80,9 @@
   display: flex;
   align-items: center;
   font-size: 14px;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1),
+    0 1px 2px -1px rgb(0 0 0 / 0.1);
 }
 
 .hg-button.hg-functionBtn.hg-button-space {
@@ -90,20 +96,86 @@
 .simple-keyboard .hg-highlight {
   background: rgb(37 99 235);
   border-bottom: 1px solid #2563eb;
-  box-shadow: 0 1px 3px 0 rgb(37 99 235 / 0.1), 0 1px 2px -1px rgb(37 99 235 / 0.1);
+  box-shadow:
+    0 1px 3px 0 rgb(37 99 235 / 0.1),
+    0 1px 2px -1px rgb(37 99 235 / 0.1);
   color: white;
 }
 
-.simple-keyboard .hg-button.hg-double{
+.simple-keyboard .hg-button.hg-double {
   text-align: center;
   font-size: 14px;
   line-height: 16px;
 }
 
 .keyboard-header {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
+    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
 .hg-candidate-box {
   display: none !important;
+}
+
+.keyboard-drawer-controls {
+  scrollbar-width: none;
+}
+
+.keyboard-drawer-controls::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 849px) {
+  .keyboardContainer {
+    overflow-x: hidden;
+  }
+
+  .simple-keyboard-main.simple-keyboard {
+    width: 100%;
+    min-width: 0;
+    padding: 3px;
+    font-size: clamp(7px, 2.3vw, 11px);
+  }
+
+  .simple-keyboard-main.simple-keyboard .hg-button {
+    min-width: 0;
+    height: 32px;
+    padding: 1px;
+  }
+
+  .simple-keyboard-main.simple-keyboard .hg-row:first-child,
+  .simple-keyboard-main.simple-keyboard .hg-row:not(:last-child) {
+    margin-bottom: 3px;
+  }
+
+  .simple-keyboard-main.simple-keyboard .hg-row .hg-button:not(:last-child) {
+    margin-right: 3px;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .keyboard-drawer-header {
+    min-height: 28px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .simple-keyboard-main.simple-keyboard {
+    padding: 2px;
+    font-size: 8px;
+  }
+
+  .simple-keyboard-main.simple-keyboard .hg-button {
+    height: 25px;
+  }
+
+  .simple-keyboard-main.simple-keyboard .hg-row:first-child,
+  .simple-keyboard-main.simple-keyboard .hg-row:not(:last-child) {
+    margin-bottom: 2px;
+  }
+
+  .simple-keyboard-main.simple-keyboard .hg-row .hg-button:not(:last-child) {
+    margin-right: 2px;
+  }
 }

@@ -37,6 +37,7 @@ wait_for_ipv6_default_route() {
 
 case "$ACTION" in
 	deconfig)
+		[ -n "$ipv6" ] || ip -4 route flush dev "$interface" proto dhcp
 		/sbin/ifconfig $interface up
 		/sbin/ifconfig $interface 0.0.0.0
 
@@ -54,7 +55,12 @@ case "$ACTION" in
 
 	leasefail|nak)
 		if [ -x /usr/sbin/avahi-autoipd ]; then
-			/usr/sbin/avahi-autoipd -c $interface || /usr/sbin/avahi-autoipd -wD $interface --no-chroot
+			# Do not assign an IPv4LL address to a disconnected port.
+			if [ "$(cat "/sys/class/net/$interface/carrier" 2>/dev/null)" = "1" ]; then
+				/usr/sbin/avahi-autoipd -c "$interface" || /usr/sbin/avahi-autoipd -wD "$interface" --no-chroot
+			else
+				/usr/sbin/avahi-autoipd -c "$interface" && /usr/sbin/avahi-autoipd -k "$interface"
+			fi
 		fi
 		;;
 
@@ -67,31 +73,28 @@ case "$ACTION" in
 			wait_for_ipv6_default_route
 		fi
 
-		# RFC3442: If the DHCP server returns both a Classless
-		# Static Routes option and a Router option, the DHCP
-		# client MUST ignore the Router option.
-		if [ -n "$staticroutes" ]; then
-			echo "deleting routers"
-			route -n | while read dest gw mask flags metric ref use iface; do
-				[ "$iface" != "$interface" -o "$gw" = "0.0.0.0" ] || \
-					route del -net "$dest" netmask "$mask" gw "$gw" dev "$interface"
-			done
-
-			# format: dest1/mask gw1 ... destn/mask gwn
-			set -- $staticroutes
-			while [ -n "$1" -a -n "$2" ]; do
-				route add -net "$1" gw "$2" dev "$interface"
-				shift 2
-			done
-		elif [ -n "$router" ] ; then
-			echo "deleting routers"
-			while route del default gw 0.0.0.0 dev $interface 2> /dev/null; do
-				:
-			done
-
-			for i in $router ; do
-				route add default gw $i dev $interface
-			done
+		if [ -z "$ipv6" ]; then
+			# Own only DHCP routes, never static/VPN/connected routes. Remove
+			# withdrawn routes on every lease, including a lease with no router.
+			ip -4 route flush dev "$interface" proto dhcp
+			# RFC3442: option 121 takes precedence over the Router option.
+			if [ -n "$staticroutes" ]; then
+				set -- $staticroutes
+				while [ "$#" -ge 2 ]; do
+					if [ "$2" = "0.0.0.0" ]; then
+						ip -4 route add "$1" dev "$interface" proto dhcp metric 100
+					else
+						ip -4 route add "$1" via "$2" dev "$interface" proto dhcp metric 100
+					fi
+					shift 2
+				done
+			else
+				metric=100
+				for gateway in $router; do
+					ip -4 route add default via "$gateway" dev "$interface" proto dhcp metric "$metric"
+					metric=$((metric + 1))
+				done
+			fi
 		fi
 
 		# drop info from this interface

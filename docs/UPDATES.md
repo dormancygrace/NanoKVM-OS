@@ -1,8 +1,9 @@
 # NanoKVM OS updates
 
-Beta-3 is distributed as a complete SD image. It establishes the system updater
-used by subsequent signed `.nkos` releases. Install that image before using a
-system package; the beta-1/beta-2 application updater cannot install system files.
+Beta-4 is distributed as a complete SD image and establishes the kernel-capable
+updater for subsequent compatible signed `.nkos` releases. Older installations
+need this image or an explicitly compatible updater bootstrap before format-3
+kernel packages can be accepted.
 See [installation instructions](INSTALL.md) for the full-image procedure.
 
 ## What packages update
@@ -13,15 +14,13 @@ Existing supported `/etc` configuration files are preserved. Explicit signed
 removals retire obsolete program files and service scripts. Nothing is downloaded
 or executed as an unsigned post-install script.
 
-The kernel, kernel modules, boot partition, libc/loader, account databases,
-network credentials, and the fixed recovery dispatcher are excluded. Updating the
-kernel in a package is technically possible, but requires a separate boot-slot
-and recovery design. The current SD layout has one FAT boot partition and one
-`boot.sd`; this updater does not claim recovery from an unbootable kernel.
+Format-2 packages exclude the kernel and boot partition. Format 3 adds kernel
+and matching module replacement as described below. The libc/loader, account
+databases, credentials and bootloader remain excluded.
 
 Legacy format-1 application packages remain supported when their native-library
 fingerprint matches. They update only the application and web interface, without
-a system reboot. System packages require the beta-3 foundation identifier and
+a system reboot. System packages require the matching source foundation identifier and
 matching native libraries; incompatible packages are rejected before installation.
 
 ## Installation and recovery
@@ -31,7 +30,7 @@ automatic; installation requires an administrator action. System packages use th
 asset name `NanoKVM-OS-update.nkos`; legacy `NanoKVM-OS-application.nkos` assets are
 also recognized. Manual file upload uses the same verification path.
 
-The independent, statically linked updater stages files on the SD root filesystem
+For format 2, the independent, statically linked updater stages files on the SD root filesystem
 under `/kvmapp/.os-update`. It checks free space and file hashes, snapshots files
 that will be replaced, retains the old application and a recovery copy of itself,
 and writes a durable transaction journal before requesting a reboot.
@@ -93,3 +92,47 @@ The system foundation is derived during image assembly from musl, the kernel
 release and the matched kernel modules. The builder checks the signing key,
 verifies its output and extracts the package before reporting success. Release
 qualification must additionally check installation on the device.
+
+
+## Kernel packages (format 3, beta-4 updater)
+
+The beta-4 updater adds signed kernel replacement on the existing single boot
+partition. **No A/B or automatic kernel rollback is provided.** A power failure
+while FAT metadata is written, a broken kernel or an interrupted system update
+may require reflashing the SD card. Format-1/2 behavior remains unchanged.
+
+Upgrade the updater before uploading a format-3 package. Beta-3's original
+updater rejects format 3; the beta-4 full image includes support. A compatible
+format-2 bootstrap package can update the application and `/usr/sbin/nkos-update`
+first, followed by a format-3 package. Installing only an application package does
+not update the separate helper.
+
+A kernel package has `format: 3`, `kind: system`, and `kernel` metadata with
+`release` (a new, unique uname release) and `system_base` (the target foundation).
+It must include `rootfs/boot/boot.sd` and the complete matching module tree under
+`rootfs/usr/lib/modules/RELEASE/`, including `modules.dep` and `modules.builtin`.
+Build/source symlinks are excluded. The bootloader, partition table, `uEnv.txt`,
+libc/loader and credentials remain protected.
+
+Installation validates the signature, source foundation/native ABI, paths,
+space on rootfs and the mounted writable FAT partition, and all file hashes.
+The updater prepares the complete new module directory alongside the old one
+before publishing the FIT: existing images run S00kmod before the system update
+dispatcher. It copies `boot.sd` to a temporary file on the boot partition, fsyncs
+it, verifies its read-back hash, then renames it over the existing boot file.
+The running kernel remains unchanged until reboot. At boot the updater mounts the FAT boot partition itself (S01fs has not run
+yet), then checks the expected uname release and boot-file hash before applying other system files.
+Confirmation commits the application version, sequence and target foundation.
+An interrupted/unconfirmed kernel transaction is stopped for recovery instead of
+restoring old userspace/modules underneath the new kernel.
+
+For the packager command above add:
+
+```sh
+--kernel-release 7.2.5-nanokvm-os \
+--target-system-base /absolute/new-image/etc/nkos-system-base
+```
+
+`--system-base` is the source foundation, while `--target-system-base` comes from
+the new image with its newly built kernel and complete vendor module set. Never
+reuse modules from another uname release or omit the video/Wi-Fi drivers.

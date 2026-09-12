@@ -1,0 +1,8 @@
+#!/bin/sh
+# Optional telemetry must not prevent the KVM from starting.
+case "${1:-start}" in
+  start|restart) modprobe sg2002-temp || echo "SG2002 temperature sensor unavailable" >&2 ;;
+  stop) ;;
+  *) echo "Usage: $0 {start|stop|restart}" >&2; exit 1 ;;
+esac
+exit 0

@@ -18,11 +18,12 @@ const imageUpdatedEvent = 'nanokvm:image-updated';
 
 type ImagesProps = {
   isOpen: boolean;
+  disabled?: boolean;
   cdrom: boolean;
   setIsMounted: (isMounted: boolean) => void;
 };
 
-export const Images = ({ isOpen, cdrom, setIsMounted }: ImagesProps) => {
+export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) => {
   const { t } = useTranslation();
   const [notify, contextHolder] = notification.useNotification();
 
@@ -54,6 +55,7 @@ export const Images = ({ isOpen, cdrom, setIsMounted }: ImagesProps) => {
     if (isLoading) return;
     setIsLoading(true);
 
+    getMountedImage();
     api
       .getImages()
       .then((rsp) => {
@@ -65,7 +67,6 @@ export const Images = ({ isOpen, cdrom, setIsMounted }: ImagesProps) => {
 
         if (files?.length > 0) {
           setImages(files);
-          getMountedImage();
         } else {
           setImages([]);
         }
@@ -88,7 +89,7 @@ export const Images = ({ isOpen, cdrom, setIsMounted }: ImagesProps) => {
 
   // mount/unmount image
   function mountImage(image: string) {
-    if (mountingImage) return;
+    if (mountingImage || disabled) return;
     setMountingImage(image);
 
     client.close();
@@ -193,7 +194,8 @@ export const Images = ({ isOpen, cdrom, setIsMounted }: ImagesProps) => {
             key={image}
             className={clsx(
               'group flex cursor-pointer select-none items-center space-x-1 rounded px-1 py-2 hover:bg-neutral-700/70',
-              mountedImage === image && 'text-blue-500'
+              mountedImage === image && 'text-blue-500',
+              disabled && 'cursor-not-allowed opacity-50'
             )}
             onClick={() => mountImage(image)}
           >

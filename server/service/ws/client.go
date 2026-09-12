@@ -84,6 +84,9 @@ func (c *Client) Read() error {
 
 		switch data[0] {
 		case Heartbeat:
+			if err := c.Write("heartbeat", ""); err != nil {
+				return err
+			}
 		case KeyboardEvent:
 			report := data[1:]
 			if len(report) != 8 {
@@ -92,13 +95,13 @@ func (c *Client) Read() error {
 			}
 			c.queueManualReport(c.keyboard, inputcontrol.ManualKeyboard, report, keyboardReportHeld(report), true)
 		case MouseEvent:
-			report := data[1:]
-			if len(report) != 4 && len(report) != 6 {
+			report := hid.NormalizeMouseReport(data[1:])
+			if len(report) != 5 && len(report) != 7 {
 				log.Debugf("invalid manual mouse report: %v", report)
 				continue
 			}
 			kind := inputcontrol.ManualRelativeMouse
-			if len(report) == 6 {
+			if len(report) == 7 {
 				kind = inputcontrol.ManualAbsoluteMouse
 			}
 			c.queueManualReport(c.mouse, kind, report, report[0] != 0, mouseReportStartsCooldown(report))
@@ -152,13 +155,14 @@ func keyboardReportHeld(report []byte) bool {
 }
 
 func mouseReportStartsCooldown(report []byte) bool {
-	if len(report) != 4 && len(report) != 6 {
+	report = hid.NormalizeMouseReport(report)
+	if len(report) != 5 && len(report) != 7 {
 		return true
 	}
 	if report[0] != 0 {
 		return true
 	}
-	return report[len(report)-1] != 0
+	return report[len(report)-2] != 0 || report[len(report)-1] != 0
 }
 
 func (c *Client) Write(event string, data string) error {

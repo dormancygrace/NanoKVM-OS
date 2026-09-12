@@ -25,7 +25,7 @@ import { ResetHid } from './reset-hid.tsx';
 import { Speed } from './speed.tsx';
 import { TouchpadGuide } from './touchpad-guide.tsx';
 
-export const Mouse = () => {
+export const Mouse = ({ hidden = false }: { hidden?: boolean }) => {
   const { t } = useTranslation();
 
   const setMouseStyle = useSetAtom(mouseStyleAtom);
@@ -57,6 +57,9 @@ export const Mouse = () => {
       setScrollInterval(interval);
     }
   }, []);
+
+  // Initialize saved pointer preferences even when the toolbar button is hidden.
+  if (hidden) return null;
 
   const content = (
     <div className="flex flex-col space-y-1">

@@ -24,6 +24,7 @@ import {
   videoModeAtom,
   videoSessionCountAtom
 } from '@/jotai/screen';
+import { HandshakeAge } from '@/components/handshake-age';
 import { OpenVPNIcon } from '@/components/icons/openvpn';
 import { Tailscale as TailscaleIcon } from '@/components/icons/tailscale';
 import { WireGuardIcon } from '@/components/icons/wireguard';
@@ -60,6 +61,7 @@ type Snapshot = {
     cpu: CPU | null;
     load: string[] | null;
     temperature: number | null;
+    cpuFrequency: number | null;
     storage: Disk[];
     interfaces: Interface[];
   };
@@ -86,11 +88,14 @@ type Profile = {
   address: string;
   enabled: boolean;
   lastHandshake?: number;
+  mtu?: number;
+  received?: number;
+  sent?: number;
 };
 type Extras = {
   time?: { config: DateTimeConfig; synchronized: boolean; daemon: string };
   wifi?: { connected: boolean; ssid: string };
-  wireguard?: { profiles: Profile[] };
+  wireguard?: { profiles: Profile[]; now?: number };
   openvpn?: { profiles: Profile[] };
   tailscale?: { state: string; ip: string; name: string };
 };
@@ -288,34 +293,48 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           {name}
         </button>
         {profiles?.length ? (
-          profiles.map((profile) => (
-            <div key={profile.id} className="mt-2 text-xs">
-              <div className="flex justify-between gap-2">
-                <span className="break-all">{profile.name}</span>
-                <span
-                  className={
-                    profile.state === 'connected' ? 'text-emerald-400' : 'text-neutral-400'
-                  }
-                >
-                  {state(profile.state)}
-                </span>
-              </div>
-              {profile.address && (
-                <div className="mt-1 break-all text-neutral-400">{profile.address}</div>
-              )}
-              {!!profile.lastHandshake && extra.time && (
-                <div className="mt-1 text-neutral-500">
-                  {t('dashboard.handshake')}:{' '}
-                  {formatDeviceTime(
-                    profile.lastHandshake * 1000,
-                    extra.time.config,
-                    i18n.language,
-                    true
-                  )}
+          profiles.map((profile) => {
+            const iface = sys?.interfaces.find(
+              (item) =>
+                item.name === profile.id ||
+                ((item.kind === 'tun' || item.kind === 'tap') &&
+                  item.addresses.some((addr) => profile.address.split(/[,\s]+/).includes(addr)))
+            );
+            return (
+              <div key={profile.id} className="mt-2 text-xs">
+                <div className="flex justify-between gap-2">
+                  <span className="break-all">{profile.name}</span>
+                  <span
+                    className={
+                      profile.state === 'connected' ? 'text-emerald-400' : 'text-neutral-400'
+                    }
+                  >
+                    {state(profile.state)}
+                  </span>
                 </div>
-              )}
-            </div>
-          ))
+                {profile.address && (
+                  <div className="mt-1 break-all text-neutral-400">{profile.address}</div>
+                )}
+                {!!(profile.mtu || iface?.mtu) && (
+                  <div className="mt-1 text-neutral-500">MTU {profile.mtu || iface?.mtu}</div>
+                )}
+                {kind === 'wireguard' && profile.state !== 'off' && (
+                  <div className="mt-1 text-neutral-500">
+                    RX {bytes(profile.received)} · TX {bytes(profile.sent)}
+                  </div>
+                )}
+                {!!profile.lastHandshake && (
+                  <div className="mt-1 text-neutral-500">
+                    {t('dashboard.handshake')}:{' '}
+                    <HandshakeAge
+                      timestamp={profile.lastHandshake!}
+                      serverNow={extra.wireguard?.now}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })
         ) : (
           <div className="mt-1 text-xs text-neutral-500">
             {profiles ? t('dashboard.noProfiles') : '—'}
@@ -329,10 +348,6 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 className="text-xl font-medium">Dashboard</h2>
-          <p className="mt-1 text-sm text-neutral-400">
-            {sys?.hostname || 'NanoKVM OS'}
-            {data?.application ? ` · ${formatVersion(data.application)}` : ''}
-          </p>
         </div>
         <span className="text-xs text-neutral-500">{t('dashboard.live')}</span>
       </div>
@@ -344,7 +359,12 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           'CPU',
           cpu === null ? '—' : `${cpu.toFixed(0)}%`,
           <CpuIcon size={16} />,
-          sys?.temperature == null ? undefined : `${sys.temperature.toFixed(1)} °C`,
+          [
+            sys?.cpuFrequency == null ? undefined : `${sys.cpuFrequency} MHz`,
+            sys?.temperature == null ? undefined : `SoC ${sys.temperature.toFixed(1)} °C`
+          ]
+            .filter(Boolean)
+            .join(' · ') || undefined,
           cpu ?? undefined
         )}
         {metric(
@@ -499,53 +519,59 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
       {section(
         t('settings.network.title'),
         <div className="grid gap-4 sm:grid-cols-2">
-          {sys?.interfaces.map((iface) => (
-            <div key={iface.name} className="min-w-0 text-sm">
-              <div className="mb-2 flex items-center gap-2">
-                {iface.kind === 'wireguard' ? (
-                  <WireGuardIcon />
-                ) : iface.wireless ? (
-                  <WifiIcon size={16} />
-                ) : (
-                  <EthernetPortIcon size={16} />
-                )}
-                <span className="min-w-0 break-words" title={iface.name}>
-                  {iface.kind === 'wireguard'
-                    ? wireguardNames.get(iface.name) || 'WireGuard'
-                    : iface.name}
-                </span>
-                <span
-                  className={`ml-auto text-xs ${iface.up && iface.connected ? 'text-emerald-400' : 'text-neutral-500'}`}
-                >
-                  {t(
-                    iface.up && iface.connected ? 'dashboard.connected' : 'dashboard.disconnected'
+          {sys?.interfaces
+            .filter(
+              (iface) =>
+                !admin ||
+                !(iface.kind === 'wireguard' || iface.name === 'tailscale0' || iface.kind === 'tun')
+            )
+            .map((iface) => (
+              <div key={iface.name} className="min-w-0 text-sm">
+                <div className="mb-2 flex items-center gap-2">
+                  {iface.kind === 'wireguard' ? (
+                    <WireGuardIcon />
+                  ) : iface.wireless ? (
+                    <WifiIcon size={16} />
+                  ) : (
+                    <EthernetPortIcon size={16} />
                   )}
-                </span>
-              </div>
-              {iface.kind === 'wireguard' && (
-                <div className="mb-1 text-xs text-neutral-500">
-                  {wireguardNames.get(iface.name) ? 'WireGuard' : iface.name}
+                  <span className="min-w-0 break-words" title={iface.name}>
+                    {iface.kind === 'wireguard'
+                      ? wireguardNames.get(iface.name) || 'WireGuard'
+                      : iface.name}
+                  </span>
+                  <span
+                    className={`ml-auto text-xs ${iface.up && iface.connected ? 'text-emerald-400' : 'text-neutral-500'}`}
+                  >
+                    {t(
+                      iface.up && iface.connected ? 'dashboard.connected' : 'dashboard.disconnected'
+                    )}
+                  </span>
                 </div>
-              )}
-              {iface.wireless && iface.connected && extra.wifi?.connected && (
-                <p className="mb-1 break-all text-neutral-300">{extra.wifi.ssid}</p>
-              )}
-              <div className={iface.connected ? 'text-neutral-300' : 'text-neutral-500'}>
-                {iface.addresses.map((addr) => (
-                  <div key={addr} className="break-all">
-                    {addr}
+                {iface.kind === 'wireguard' && (
+                  <div className="mb-1 text-xs text-neutral-500">
+                    {wireguardNames.get(iface.name) ? 'WireGuard' : iface.name}
                   </div>
-                ))}
+                )}
+                {iface.wireless && iface.connected && extra.wifi?.connected && (
+                  <p className="mb-1 break-all text-neutral-300">{extra.wifi.ssid}</p>
+                )}
+                <div className={iface.connected ? 'text-neutral-300' : 'text-neutral-500'}>
+                  {iface.addresses.map((addr) => (
+                    <div key={addr} className="break-all">
+                      {addr}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 text-xs text-neutral-500">
+                  MTU {iface.mtu}
+                  {iface.mac ? ` · ${iface.mac}` : ''}
+                </div>
+                <div className="mt-1 text-xs text-neutral-500">
+                  RX {bytes(iface.received)} · TX {bytes(iface.sent)}
+                </div>
               </div>
-              <div className="mt-2 text-xs text-neutral-500">
-                MTU {iface.mtu}
-                {iface.mac ? ` · ${iface.mac}` : ''}
-              </div>
-              <div className="mt-1 text-xs text-neutral-500">
-                RX {bytes(iface.received)} · TX {bytes(iface.sent)}
-              </div>
-            </div>
-          )) ?? '—'}
+            )) ?? '—'}
         </div>,
         admin ? 'network' : undefined
       )}

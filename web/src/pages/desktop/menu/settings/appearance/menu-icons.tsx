@@ -5,7 +5,9 @@ import {
   DiscIcon,
   DownloadIcon,
   FileJsonIcon,
+  KeyboardIcon,
   MaximizeIcon,
+  MouseIcon,
   NetworkIcon,
   PowerIcon,
   TerminalSquareIcon,
@@ -25,6 +27,8 @@ export const MenuIcons = () => {
   const [menuDisabledItems, setMenuDisabledItems] = useAtom(menuDisabledItemsAtom);
 
   const items = [
+    { key: 'keyboard', icon: <KeyboardIcon size={16} /> },
+    { key: 'mouse', icon: <MouseIcon size={16} /> },
     { key: 'image', icon: <DiscIcon size={16} /> },
     { key: 'download', icon: <DownloadIcon size={16} /> },
     { key: 'terminal', icon: <TerminalSquareIcon size={16} /> },
@@ -72,6 +76,7 @@ export const MenuIcons = () => {
             </div>
 
             <Switch
+              aria-label={item.label ? t(item.label) : t(`${item.key}.title`)}
               value={!menuDisabledItems.includes(item.key)}
               onChange={() => updateItems(item.key)}
             />

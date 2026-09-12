@@ -1,7 +1,7 @@
 {
-  "product": "NanoKVM OS",
-  "status": "beta-1-component-pins-not-a-self-contained-build",
-  "verified_on": "2026-09-10",
+  "product": "NanoKVM Enhanced",
+  "status": "in-development-not-a-qualified-image",
+  "verified_on": "2026-09-05",
   "buildroot": {
     "version": "2026.08",
     "url": "https://buildroot.org/downloads/buildroot-2026.08.tar.xz",
@@ -10,11 +10,25 @@
   "linux": {
     "version": "7.2.4",
     "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.4.tar.xz",
-    "sha256": "01710ee01737dac492f1bae52becd057e08d20d11589089aa06accff415c28dd"
+    "sha256": "01710ee01737dac492f1bae52becd057e08d20d11589089aa06accff415c28dd",
+    "result_version": "7.2.5",
+    "incremental_update": {
+      "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/incr/patch-7.2.4-5.xz",
+      "sha256": "8863d06d6599aa99f3b8becbc5f497fed4b8ef0d755edd04f8d7279d9687ac35"
+    },
+    "note": "The cumulative source-components patch already includes this upstream update; do not apply it twice."
   },
   "gcc": {
     "version": "16.2.0",
     "source": "Buildroot pinned package"
+  },
+  "xuantie": {
+    "latest_documented_toolchain": "3.4.1",
+    "gcc_base": "14.3",
+    "availability": "release documented; exact downloadable build/source not yet established",
+    "public_github_toolchain": "3.0.1",
+    "public_github_gcc_commit": "c2e0bcc86d1f6eb59051cba8efdcca165fa3e858",
+    "public_github_gcc_base": "14.1.1"
   },
   "sophgo_osdrv": {
     "url": "https://github.com/sophgo/osdrv.git",
@@ -29,14 +43,14 @@
   "sophgo_kernel_port_reference": {
     "url": "https://github.com/sophgo/linux_5.10.git",
     "commit": "ae7d7584767ff77fc62b095e9cdc66720f3a6aaa",
-    "purpose": "pinned vendor driver/ION source reference, not the target kernel"
+    "purpose": "latest vendor driver/ION source reference, not the target kernel"
   },
   "json_c": {
     "version": "0.19",
     "url": "https://github.com/json-c/json-c.git",
     "tag": "json-c-0.19-20260627",
     "commit": "aa716cd8d663c976b99b0f30f102ee1d8ef63146",
-    "scope": "MPI BIN/ISP_BIN source build; Buildroot aligned by source patch 0001"
+    "scope": "MPI BIN/ISP_BIN source build; Buildroot package also requires alignment"
   },
   "miniz": {
     "version": "3.1.2",
@@ -54,7 +68,7 @@
     "url": "https://github.com/sophgo/SensorSupportList.git",
     "branch": "sg200x-dev",
     "commit": "e2824e1d07f516c41238e123fefbab71a34843bc",
-    "qualification": "LT6911UXC capture exercised on NanoKVM PCIe; other receivers and boards require separate qualification"
+    "qualification": "LT6911 callbacks tested; UXC hardware probe integration pending"
   },
   "maixcdk": {
     "version": "4.11.3",
@@ -62,6 +76,12 @@
     "tag": "v4.11.3",
     "commit": "b29c951647df74e4efa55fd4454efb37e4554be0",
     "scope": "required basic/peripheral source subset in kvm_system; firmware/maixcdk/patches applied",
-    "qualification": "Included in selected native build; board and long-run qualification limits are documented in docs/VALIDATION.md"
+    "qualification": "C906 service self-test and wrapped-I2C contracts passed; physical board-service qualification pending"
+  },
+  "sophgo_sdk42_candidate": {
+    "version": "4.2.2",
+    "lock": "firmware/sdk42/sources.lock.json",
+    "status": "source reference for selective porting; Dual OS/AliOS client builder preserved on alios branch; current Linux media drivers not migrated",
+    "qualification": "firmware/sdk42/README.md"
   }
 }

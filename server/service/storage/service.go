@@ -1,7 +1,10 @@
 package storage
 
-type Service struct{}
+import "sync"
 
-func NewService() *Service {
-	return &Service{}
+type Service struct {
+	mu     sync.Mutex
+	remote *remoteSession
 }
+
+func NewService() *Service { return &Service{} }

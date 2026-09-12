@@ -1,0 +1,40 @@
+--- a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
++++ b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+@@ -217,6 +217,7 @@
+ };
+ 
+ &cpu0 {
++	#cooling-cells = <2>;
+ 	// C906 has the pre-ratification T-Head vector ISA, not standard RVV 1.0.
+ 	riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicntr", "zicsr",
+ 			       "zifencei", "zihpm", "xtheadvector";
+@@ -416,3 +417,29 @@
+         status = "okay";
+     };
+ };
++
++/* The cooling state 6 is the 850 MHz entry in sg2002-cpufreq.
++ * The user-selected frequency remains the userspace governor's target.
++ */
++/ {
++	thermal-zones {
++		sg2002-cpu {
++			polling-delay = <1000>;
++			polling-delay-passive = <1000>;
++			thermal-sensors = <&soc_temp>;
++			trips {
++				cpu_hot: cpu-hot {
++					temperature = <75000>;
++					hysteresis = <5000>;
++					type = "passive";
++				};
++			};
++			cooling-maps {
++				cpu-cooling {
++					trip = <&cpu_hot>;
++					cooling-device = <&cpu0 6 6>;
++				};
++			};
++		};
++	};
++};

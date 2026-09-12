@@ -26,13 +26,14 @@ function getMouseButtonBit(button: number): number {
 }
 
 /**
- * Relative Mouse Report (4 bytes)
+ * Relative Mouse Report (5 bytes)
  * Used with /dev/hidg1 (relative mouse)
  *
  * Byte 0: Buttons
  * Byte 1: X movement (-127 to 127)
  * Byte 2: Y movement (-127 to 127)
  * Byte 3: Wheel (-127 to 127)
+ * Byte 4: Horizontal AC Pan (-127 to 127)
  */
 export class MouseReportRelative {
   private buttons: number = 0;
@@ -51,12 +52,13 @@ export class MouseReportRelative {
    * @param deltaY Y movement (-127 to 127)
    * @param wheel Scroll wheel (-127 to 127, negative = down)
    */
-  buildReport(deltaX: number, deltaY: number, wheel: number = 0): Uint8Array {
-    const report = new Uint8Array(4);
+  buildReport(deltaX: number, deltaY: number, wheel: number = 0, pan: number = 0): Uint8Array {
+    const report = new Uint8Array(5);
     report[0] = this.buttons;
     report[1] = this.clamp(Math.round(deltaX), -127, 127) & 0xff;
     report[2] = this.clamp(Math.round(deltaY), -127, 127) & 0xff;
     report[3] = this.clamp(Math.round(wheel), -127, 127) & 0xff;
+    report[4] = this.clamp(Math.round(pan), -127, 127) & 0xff;
     return report;
   }
 
@@ -78,13 +80,14 @@ export class MouseReportRelative {
 }
 
 /**
- * Absolute Mouse Report (6 bytes)
+ * Absolute Mouse Report (7 bytes)
  * Used with /dev/hidg2 (absolute mouse/tablet)
  *
  * Byte 0: Buttons
  * Byte 1-2: X position (0 to 32767, Little Endian)
  * Byte 3-4: Y position (0 to 32767, Little Endian)
  * Byte 5: Wheel
+ * Byte 6: Horizontal AC Pan
  */
 export class MouseReportAbsolute {
   private buttons: number = 0;
@@ -103,8 +106,8 @@ export class MouseReportAbsolute {
    * @param y Y position (0.0 to 1.0, normalized)
    * @param wheel Scroll wheel (-127 to 127)
    */
-  buildReport(x: number, y: number, wheel: number = 0): Uint8Array {
-    const report = new Uint8Array(6);
+  buildReport(x: number, y: number, wheel: number = 0, pan: number = 0): Uint8Array {
+    const report = new Uint8Array(7);
 
     report[0] = this.buttons;
     report[1] = x & 0xff;
@@ -113,6 +116,7 @@ export class MouseReportAbsolute {
     report[4] = (y >> 8) & 0xff;
     report[5] = this.clamp(Math.round(wheel), -127, 127) & 0xff;
 
+    report[6] = this.clamp(Math.round(pan), -127, 127) & 0xff;
     return report;
   }
 

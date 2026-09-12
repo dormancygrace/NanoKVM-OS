@@ -1,0 +1,123 @@
+--- a/drivers/clk/sophgo/clk-cv18xx-ip.c
++++ b/drivers/clk/sophgo/clk-cv18xx-ip.c
+@@ -758,32 +758,37 @@
+ 	struct cv1800_clk_regfield *mux;
+ 	unsigned long flags;
+ 	u32 reg;
+-	s8 clk_sel = mmux->parent2sel[index];
+-
+-	if (index == 0 || clk_sel == -1) {
+-		cv1800_clk_setbit(&mmux->common, &mmux->bypass);
+-		goto release;
+-	}
+-
+-	cv1800_clk_clearbit(&mmux->common, &mmux->bypass);
+-
++	s8 clk_sel;
++	u8 selector;
++
++	if (index >= clk_hw_get_num_parents(hw))
++		return -EINVAL;
++	clk_sel = mmux->parent2sel[index];
++	if (index == 0 || clk_sel == -1)
++		return cv1800_clk_setbit(&mmux->common, &mmux->bypass);
++
++	mux = &mmux->mux[clk_sel];
++	/* The flattened CCF parent index is not the hardware mux selector.
++	 * In particular C906 MPLL is parent 4, but hardware selector 3.
++	 */
++	for (selector = 0; selector < BIT(mux->width); selector++)
++		if (mmux->sel2parent[clk_sel][selector] == index)
++			break;
++	if (selector == BIT(mux->width))
++		return -EINVAL;
++
++	spin_lock_irqsave(mmux->common.lock, flags);
++	reg = readl(mmux->common.base + mux->reg);
++	reg = cv1800_clk_regfield_set(reg, selector, mux);
++	writel(reg, mmux->common.base + mux->reg);
++	spin_unlock_irqrestore(mmux->common.lock, flags);
++
++	/* Prepare the destination before switching paths or leaving bypass. */
+ 	if (clk_sel)
+ 		cv1800_clk_clearbit(&mmux->common, &mmux->clk_sel);
+ 	else
+ 		cv1800_clk_setbit(&mmux->common, &mmux->clk_sel);
+-
+-	spin_lock_irqsave(mmux->common.lock, flags);
+-
+-	mux = &mmux->mux[clk_sel];
+-	reg = readl(mmux->common.base + mux->reg);
+-	reg = cv1800_clk_regfield_set(reg, index, mux);
+-
+-	writel(reg, mmux->common.base + mux->reg);
+-
+-	spin_unlock_irqrestore(mmux->common.lock, flags);
+-
+-release:
+-	return 0;
++	return cv1800_clk_clearbit(&mmux->common, &mmux->bypass);
+ }
+ 
+ const struct clk_ops cv1800_clk_mmux_ops = {
+--- a/drivers/clk/sophgo/clk-cv18xx-common.h
++++ b/drivers/clk/sophgo/clk-cv18xx-common.h
+@@ -75,7 +75,7 @@
+ int cv1800_clk_checkbit(struct cv1800_clk_common *common,
+ 			struct cv1800_clk_regbit *field);
+ 
+-void cv1800_clk_wait_for_lock(struct cv1800_clk_common *common,
++int cv1800_clk_wait_for_lock(struct cv1800_clk_common *common,
+ 			      u32 reg, u32 lock);
+ 
+ #endif // _CLK_SOPHGO_CV18XX_IP_H_
+--- a/drivers/clk/sophgo/clk-cv18xx-common.c
++++ b/drivers/clk/sophgo/clk-cv18xx-common.c
+@@ -52,15 +52,17 @@
+ 
+ #define PLL_LOCK_TIMEOUT_US	(200 * 1000)
+ 
+-void cv1800_clk_wait_for_lock(struct cv1800_clk_common *common,
++int cv1800_clk_wait_for_lock(struct cv1800_clk_common *common,
+ 			      u32 reg, u32 lock)
+ {
+ 	void __iomem *addr = common->base + reg;
+ 	u32 regval;
+ 
+ 	if (!lock)
+-		return;
++		return 0;
+ 
+-	WARN_ON(readl_relaxed_poll_timeout(addr, regval, regval & lock,
+-					   100, PLL_LOCK_TIMEOUT_US));
++	/* Status bits 0..n are updating, lock bits are 16..16+n. */
++	return readl_relaxed_poll_timeout(addr, regval,
++				 !(regval & lock) && (regval & (lock << 16)),
++				 100, PLL_LOCK_TIMEOUT_US);
+ }
+--- a/drivers/clk/sophgo/clk-cv18xx-pll.c
++++ b/drivers/clk/sophgo/clk-cv18xx-pll.c
+@@ -148,10 +148,8 @@
+ 
+ 	spin_unlock_irqrestore(pll->common.lock, flags);
+ 
+-	cv1800_clk_wait_for_lock(&pll->common, pll->pll_status.reg,
++	return cv1800_clk_wait_for_lock(&pll->common, pll->pll_status.reg,
+ 			      BIT(pll->pll_status.shift));
+-
+-	return 0;
+ }
+ 
+ static int pll_enable(struct clk_hw *hw)
+@@ -377,10 +375,8 @@
+ 
+ 	spin_unlock_irqrestore(pll->common.lock, flags);
+ 
+-	cv1800_clk_wait_for_lock(&pll->common, pll->pll_status.reg,
++	return cv1800_clk_wait_for_lock(&pll->common, pll->pll_status.reg,
+ 			      BIT(pll->pll_status.shift));
+-
+-	return 0;
+ }
+ 
+ static u8 fpll_get_parent(struct clk_hw *hw)

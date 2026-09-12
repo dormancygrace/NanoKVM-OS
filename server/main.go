@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
-	"time"
 
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/config"
@@ -42,6 +41,7 @@ func initialize(stopMemory context.CancelFunc) {
 	}
 
 	logger.Init()
+	vm.ApplySavedCPUFrequency()
 	if err := network.InitializeIPv6(); err != nil {
 		log.Printf("failed to initialize IPv6 policy: %v", err)
 	}
@@ -50,9 +50,9 @@ func initialize(stopMemory context.CancelFunc) {
 	_ = common.GetScreen()
 
 	// init HDMI
-	vm.DisableHdmiCapture()
-	time.Sleep(10 * time.Millisecond)
-	if !utils.IsHdmiDisabled() {
+	if utils.IsHdmiDisabled() {
+		vm.DisableHdmiCapture()
+	} else {
 		vm.EnableHdmiCapture()
 	}
 	vm.SetHdmiViewerCount(0)
@@ -95,7 +95,8 @@ func run() {
 		httpsPortStr := strconv.Itoa(conf.Port.Https)
 
 		go func() {
-			err := r.RunTLS(utils.ListenAddr(conf.Host, httpsPortStr), conf.Cert.Crt, conf.Cert.Key)
+			server := utils.NewHTTPServer(utils.ListenAddr(conf.Host, httpsPortStr), r, os.Getenv("NANOKVM_HTTP2") != "off")
+			err := server.ListenAndServeTLS(conf.Cert.Crt, conf.Cert.Key)
 			if err != nil {
 				panic("start https server failed")
 			}
@@ -125,13 +126,13 @@ func run() {
 	} else {
 		if needsLoopbackHTTP {
 			go func() {
-				if err := r.Run(loopbackHTTPAddr); err != nil {
+				if err := utils.NewHTTPServer(loopbackHTTPAddr, r, true).ListenAndServe(); err != nil {
 					panic("start loopback http server failed")
 				}
 			}()
 		}
 
-		if err := r.Run(httpAddr); err != nil {
+		if err := utils.NewHTTPServer(httpAddr, r, true).ListenAndServe(); err != nil {
 			panic("start http server failed")
 		}
 	}

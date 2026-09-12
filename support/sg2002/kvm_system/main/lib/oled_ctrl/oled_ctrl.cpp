@@ -98,9 +98,21 @@ void OLED_Set_Pos(uint8_t x, uint8_t y)
 	oled_write_register(OLED_CMD, (x&0x0f));
 }
 
+// Persisted display-off also applies to startup and button/wifi wakeups.
+bool OLED_IsDisabled(void)
+{
+    FILE *fp = fopen("/etc/kvm/oled_sleep", "r");
+    if (!fp) return false;
+    char text[16] = {};
+    bool disabled = fgets(text, sizeof(text), fp) && strtol(text, nullptr, 10) == -1;
+    fclose(fp);
+    return disabled;
+}
+
 //开启OLED显示    
 void OLED_Display_On()
 {
+    if (OLED_IsDisabled()) return;
 	oled_write_register(OLED_CMD, 0X8D);
 	oled_write_register(OLED_CMD, 0X14);
 	oled_write_register(OLED_CMD, 0XAF);
@@ -313,7 +325,8 @@ void OLED_Init(void)
 	oled_write_register(OLED_CMD, 0xA4);// Disable Entire Display On (0xa4/0xa5)
 	oled_write_register(OLED_CMD, 0xA6);// Disable Inverse Display On (0xa6/a7) 
 	OLED_Clear();
-	oled_write_register(OLED_CMD, 0xAF); /*display ON*/ 
+	if (OLED_IsDisabled()) OLED_Display_Off();
+    else OLED_Display_On(); // respects persistent display-off before first frame
 }
 
 void OLED_ShowStringtoend(uint8_t x, uint8_t y, char *chr, uint8_t sizey, uint8_t end)

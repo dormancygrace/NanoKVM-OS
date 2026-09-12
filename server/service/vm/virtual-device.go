@@ -21,6 +21,7 @@ const (
 	virtualNCM     = "/boot/usb.ncm"
 	virtualDisk    = "/boot/usb.disk0"
 	virtualSerial  = "/boot/usb.acm"
+	virtualAudio   = "/boot/usb.audio"
 	disableHID     = "/boot/disable_hid"
 	inittabPath    = "/etc/inittab"
 
@@ -36,6 +37,7 @@ var usbEndpointCosts = map[string]proto.USBEndpointCost{
 	"network":  {In: 2, Out: 1},
 	"disk":     {In: 1, Out: 1},
 	"serial":   {In: 2, Out: 1},
+	"audio":    {In: 0, Out: 1}, // UAC1 adaptive speaker, no feature-unit interrupt endpoint.
 }
 
 type usbComposition struct {
@@ -46,6 +48,7 @@ type usbComposition struct {
 	network  bool
 	disk     bool
 	serial   bool
+	audio    bool
 }
 
 func (s *Service) GetVirtualDevice(c *gin.Context) {
@@ -60,7 +63,7 @@ func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 	inUsed, outUsed := s.endpointUsage()
 	return &proto.GetVirtualDeviceRsp{
 		Keyboard: s.keyboard, Relative: s.relative, Absolute: s.absolute,
-		Network: s.network, Disk: s.disk, Serial: s.serial,
+		Network: s.network, Disk: s.disk, Serial: s.serial, Audio: s.audio,
 		HID: s.keyboard || s.relative || s.absolute, Mode: s.mode,
 		Revision: s.revision(),
 		Budget:   proto.USBEndpointBudget{InUsed: inUsed, OutUsed: outUsed, InLimit: usbInEndpointLimit, OutLimit: usbOutEndpointLimit},
@@ -69,7 +72,7 @@ func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 }
 
 func (s usbComposition) revision() string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%t:%t:%t:%t:%t:%t", s.mode, s.keyboard, s.relative, s.absolute, s.network, s.disk, s.serial))))
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%t:%t:%t:%t:%t:%t:%t", s.mode, s.keyboard, s.relative, s.absolute, s.network, s.disk, s.serial, s.audio))))
 }
 
 func (s *Service) SetUSBComposition(c *gin.Context) {
@@ -79,7 +82,7 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid composition")
 		return
 	}
-	candidate := usbComposition{mode: req.Mode, keyboard: *req.Keyboard, relative: *req.Relative, absolute: *req.Absolute, network: *req.Network, disk: *req.Disk, serial: *req.Serial}
+	candidate := usbComposition{mode: req.Mode, keyboard: *req.Keyboard, relative: *req.Relative, absolute: *req.Absolute, network: *req.Network, disk: *req.Disk, serial: *req.Serial, audio: *req.Audio}
 	if err := candidate.validate(); err != nil {
 		rsp.ErrRsp(c, -4, err.Error())
 		return
@@ -109,7 +112,7 @@ func (s *Service) UpdateVirtualDevice(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid argument")
 		return
 	}
-	if req.Device != "network" && req.Device != "disk" && req.Device != "serial" {
+	if req.Device != "network" && req.Device != "disk" && req.Device != "serial" && req.Device != "audio" {
 		rsp.ErrRsp(c, -2, "invalid arguments")
 		return
 	}
@@ -214,6 +217,7 @@ func getUSBComposition() usbComposition {
 		network:  networkEnabled,
 		disk:     diskEnabled,
 		serial:   deviceExists(virtualSerial),
+		audio:    mode != hid.ModeHidOnly && deviceExists(virtualAudio),
 	}
 }
 
@@ -221,7 +225,7 @@ func (s usbComposition) endpointUsage() (int, int) {
 	inUsed, outUsed := 0, 0
 	for device, enabled := range map[string]bool{
 		"keyboard": s.keyboard, "relative": s.relative, "absolute": s.absolute,
-		"network": s.network, "disk": s.disk, "serial": s.serial,
+		"network": s.network, "disk": s.disk, "serial": s.serial, "audio": s.audio,
 	} {
 		if enabled {
 			cost := usbEndpointCosts[device]
@@ -243,6 +247,8 @@ func (s usbComposition) enabled(device string) bool {
 		return s.network
 	case "disk":
 		return s.disk
+	case "audio":
+		return s.audio
 	case "serial":
 		return s.serial
 	default:
@@ -256,6 +262,11 @@ func (s usbComposition) with(device string, enabled bool) usbComposition {
 		s.network = enabled
 	case "disk":
 		s.disk = enabled
+	case "audio":
+		s.audio = enabled
+		if enabled {
+			s.mode = hid.ModeNormal
+		}
 	case "serial":
 		s.serial = enabled
 	}

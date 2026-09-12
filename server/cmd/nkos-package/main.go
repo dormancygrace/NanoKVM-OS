@@ -29,6 +29,8 @@ func main() {
 	}
 }
 func run() error {
+	kernelRelease := flag.String("kernel-release", "", "unique target uname release; enables format 3, requires boot.sd and modules in --system")
+	targetBase := flag.String("target-system-base", "", "foundation fingerprint for the new kernel")
 	app := flag.String("app", "", "staged server directory with web/ and dl_lib/")
 	removeList := flag.String("remove-list", "", "optional newline-separated rootfs/... paths to remove in a system package")
 	basePath := flag.String("system-base", "", "system foundation fingerprint from the release image /etc/nkos-system-base")
@@ -133,6 +135,17 @@ func run() error {
 			return e
 		}
 		m.SystemBase = strings.TrimSpace(string(base))
+	}
+	if *kernelRelease != "" {
+		if *system == "" {
+			return fmt.Errorf("kernel package requires --system")
+		}
+		base, e := os.ReadFile(*targetBase)
+		if e != nil {
+			return e
+		}
+		m.Format = 3
+		m.Kernel = &osupdate.KernelUpdate{Release: *kernelRelease, SystemBase: strings.TrimSpace(string(base))}
 	}
 	if *removeList != "" {
 		raw, e := os.ReadFile(*removeList)

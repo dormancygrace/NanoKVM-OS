@@ -27,3 +27,15 @@ func TestGetClientsForRejectsPreviousEncoderSession(t *testing.T) {
 		t.Fatalf("active session clients = %v, want the current viewer", clients)
 	}
 }
+
+func TestStaleWriterCannotRemoveReconnectedPeer(t *testing.T) {
+ manager:=NewWebRTCManager()
+ ws:=&websocket.Conn{}
+ client:=&Client{}
+ oldWriter:=&peerVideoWriter{}
+ currentWriter:=&peerVideoWriter{}
+ manager.clients[ws]=client
+ manager.writers[client]=currentWriter
+ if manager.removeClient(ws,oldWriter) {t.Fatal("stale writer removed new connection")}
+ if manager.clients[ws]!=client || manager.writers[client]!=currentWriter {t.Fatal("reconnected peer changed")}
+}

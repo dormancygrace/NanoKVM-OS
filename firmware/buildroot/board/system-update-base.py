@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Identify the immutable kernel/module and musl foundation of system packages."""
+"""Identify the kernel/module and musl foundation required by signed system packages."""
 from pathlib import Path
 import hashlib, sys
 root, board = map(Path, sys.argv[1:])

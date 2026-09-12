@@ -1,5 +1,12 @@
 #!/bin/sh
 
+# Vendor kernels expose a role procfs control; mainline uses the DT device role.
+set_usb_role() {
+    if [ -w /proc/cviusb/otg_role ]; then
+        echo "$1" > /proc/cviusb/otg_role || return 1
+    fi
+}
+
 set_hid_wakeup(){
     # The extension is optional on upstream kernels; never create configfs files.
     [ -w "$1/wakeup_on_write" ] || return 0
@@ -112,8 +119,8 @@ start_usb_dev(){
     echo 1 > functions/hid.GS1/subclass
     set_hid_wakeup functions/hid.GS1 || return 1
     echo 2 > functions/hid.GS1/protocol
-    echo 4 > functions/hid.GS1/report_length
-    echo -ne \\x5\\x1\\x9\\x2\\xa1\\x1\\x9\\x1\\xa1\\x0\\x5\\x9\\x19\\x1\\x29\\x3\\x15\\x0\\x25\\x1\\x95\\x3\\x75\\x1\\x81\\x2\\x95\\x1\\x75\\x5\\x81\\x3\\x5\\x1\\x9\\x30\\x9\\x31\\x9\\x38\\x15\\x81\\x25\\x7f\\x75\\x8\\x95\\x3\\x81\\x6\\xc0\\xc0 > functions/hid.GS1/report_desc
+    echo 5 > functions/hid.GS1/report_length
+    echo -ne \\x5\\x1\\x9\\x2\\xa1\\x1\\x9\\x1\\xa1\\x0\\x5\\x9\\x19\\x1\\x29\\x3\\x15\\x0\\x25\\x1\\x95\\x3\\x75\\x1\\x81\\x2\\x95\\x1\\x75\\x5\\x81\\x3\\x5\\x1\\x9\\x30\\x9\\x31\\x9\\x38\\x15\\x81\\x25\\x7f\\x75\\x8\\x95\\x3\\x81\\x6\\x05\\x0c\\x0a\\x38\\x02\\x15\\x81\\x25\\x7f\\x75\\x08\\x95\\x01\\x81\\x06\\xc0\\xc0 > functions/hid.GS1/report_desc
     if [ ! -e /boot/disable_hid ] && [ ! -e /boot/usb.disable_relative ]; then
         ln -s functions/hid.GS1 configs/c.1
     fi
@@ -123,8 +130,8 @@ start_usb_dev(){
     echo 0 > functions/hid.GS2/subclass
     set_hid_wakeup functions/hid.GS2 || return 1
     echo 2 > functions/hid.GS2/protocol
-    echo 6 > functions/hid.GS2/report_length
-    echo -ne \\x05\\x01\\x09\\x02\\xa1\\x01\\x09\\x01\\xa1\\x00\\x05\\x09\\x19\\x01\\x29\\x03\\x15\\x00\\x25\\x01\\x95\\x03\\x75\\x01\\x81\\x02\\x95\\x01\\x75\\x05\\x81\\x01\\x05\\x01\\x09\\x30\\x09\\x31\\x15\\x00\\x26\\xff\\x7f\\x35\\x00\\x46\\xff\\x7f\\x75\\x10\\x95\\x02\\x81\\x02\\x05\\x01\\x09\\x38\\x15\\x81\\x25\\x7f\\x35\\x00\\x45\\x00\\x75\\x08\\x95\\x01\\x81\\x06\\xc0\\xc0 > functions/hid.GS2/report_desc
+    echo 7 > functions/hid.GS2/report_length
+    echo -ne \\x05\\x01\\x09\\x02\\xa1\\x01\\x09\\x01\\xa1\\x00\\x05\\x09\\x19\\x01\\x29\\x03\\x15\\x00\\x25\\x01\\x95\\x03\\x75\\x01\\x81\\x02\\x95\\x01\\x75\\x05\\x81\\x01\\x05\\x01\\x09\\x30\\x09\\x31\\x15\\x00\\x26\\xff\\x7f\\x35\\x00\\x46\\xff\\x7f\\x75\\x10\\x95\\x02\\x81\\x02\\x05\\x01\\x09\\x38\\x15\\x81\\x25\\x7f\\x35\\x00\\x45\\x00\\x75\\x08\\x95\\x01\\x81\\x06\\x05\\x0c\\x0a\\x38\\x02\\x15\\x81\\x25\\x7f\\x75\\x08\\x95\\x01\\x81\\x06\\xc0\\xc0 > functions/hid.GS2/report_desc
     if [ ! -e /boot/disable_hid ] && [ ! -e /boot/usb.disable_absolute ]; then
         ln -s functions/hid.GS2 configs/c.1
     fi
@@ -138,18 +145,35 @@ start_usb_dev(){
         ln -s functions/acm.GS0 configs/c.1
     fi
 
+    # An empty composition means USB disconnected, not an empty enumerated device.
+    _has_function=0
+    for _link in configs/c.1/*; do
+        if [ -L "$_link" ]; then _has_function=1; break; fi
+    done
+    if [ "$_has_function" = 0 ]; then
+        echo "USB functions disabled"
+        return 0
+    fi
     ls /sys/class/udc/ | cat > UDC
-    echo device > /proc/cviusb/otg_role
+    set_usb_role device
 }
 
-start_usb_host(){
+stop_usb_dev(){
     if [ -n "$(cat /sys/kernel/config/usb_gadget/g0/UDC)" ]; then
         echo '' > /sys/kernel/config/usb_gadget/g0/UDC || return 1
     fi
-    echo host > /proc/cviusb/otg_role
 }
 
 restart_usb_dev(){
+    # Preserve a deliberately empty composition across the USB reset action.
+    _has_function=0
+    for _link in /sys/kernel/config/usb_gadget/g0/configs/c.1/*; do
+        if [ -L "$_link" ]; then _has_function=1; break; fi
+    done
+    if [ "$_has_function" = 0 ]; then
+        stop_usb_dev
+        return $?
+    fi
     echo > /sys/kernel/config/usb_gadget/g0/UDC
     sleep 1
     ls /sys/class/udc/ | cat > /sys/kernel/config/usb_gadget/g0/UDC
@@ -164,10 +188,10 @@ case "$1" in
     restart_usb_dev
   ;;
   stop)
-    start_usb_host
+    stop_usb_dev
   ;;
   stop_start)
-    start_usb_host
+    stop_usb_dev
     start_usb_dev
   ;;
    restart_phy)

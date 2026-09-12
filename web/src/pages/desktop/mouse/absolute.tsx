@@ -100,7 +100,12 @@ export const Absolute = () => {
           report = mouse.buildButtonReport(lastPosRef.current.x, lastPosRef.current.y);
           break;
         case 'wheel':
-          report = mouse.buildReport(lastPosRef.current.x, lastPosRef.current.y, event.deltaY);
+          report = mouse.buildReport(
+            lastPosRef.current.x,
+            lastPosRef.current.y,
+            event.deltaY,
+            event.deltaX
+          );
           break;
         case 'move':
           report = mouse.buildReport(event.x, event.y);
@@ -159,7 +164,7 @@ export const Absolute = () => {
     function handleWheel(e: WheelEvent) {
       disableEvent(e);
 
-      if (Math.floor(e.deltaY) === 0 || !getCorrectedCoords(e.clientX, e.clientY)) {
+      if ((e.deltaY === 0 && e.deltaX === 0) || !getCorrectedCoords(e.clientX, e.clientY)) {
         return;
       }
 
@@ -169,8 +174,10 @@ export const Absolute = () => {
       }
 
       flushMouseMove();
-      const deltaY = (e.deltaY > 0 ? 1 : -1) * scrollDirection;
-      handleMouseEvent({ type: 'wheel', deltaY });
+      const deltaY = Math.sign(e.deltaY) * scrollDirection;
+      // HID Wheel positive is up; AC Pan positive is right.
+      const deltaX = -Math.sign(e.deltaX) * scrollDirection;
+      handleMouseEvent({ type: 'wheel', deltaX, deltaY });
       lastScrollTimeRef.current = currentTime;
     }
 

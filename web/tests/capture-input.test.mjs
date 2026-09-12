@@ -41,3 +41,12 @@ test('capture input gate releases held controls, blocks all input representation
   assert.deepEqual(sent.at(-1), [2,0,0,0,0]);
   c.close();
 });
+
+test('capture gate releases both AC Pan mouse report formats', () => {
+ const c = new exports.WsClient(); c.connect(); c.setInputEnabled(true);
+ c.send(new Uint8Array([2,1,3,4,5,6])); c.setInputEnabled(false);
+ assert.deepEqual(sent.at(-1),[2,0,0,0,0,0]);
+ c.setInputEnabled(true); c.send(new Uint8Array([2,1,10,0,20,0,5,6]));
+ c.setInputEnabled(false); assert.deepEqual(sent.at(-1),[2,0,10,0,20,0,0,0]);
+ c.close();
+});

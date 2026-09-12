@@ -21,7 +21,7 @@ if a.beta and (not a.aes_module or not a.cryptodev_module or not a.wifi_modules 
 kernel=a.kernel_source.resolve() if a.kernel_source else base/'enhanced/sources/linux-7.2.4';ko=a.kernel_output.resolve() if a.kernel_output else base/'enhanced/kernel-board-build'
 aic=base/'enhanced/sources/aic8800-radxa-sdio'
 release=(ko/'include/config/kernel.release').read_text().strip()
-assert release=='7.2.4-nanokvm-enhanced'
+assert release=='7.2.5-nanokvm-os'
 out.mkdir(parents=True)
 env=dict(os.environ,PATH='/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin')
 subprocess.run(['make','-C',str(kernel),'O='+str(ko),'ARCH=riscv',

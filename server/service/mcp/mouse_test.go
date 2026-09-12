@@ -20,9 +20,9 @@ func TestAbsoluteCoordinateUsesNanoKVMRange(t *testing.T) {
 	}
 }
 
-func TestAbsoluteReportIsSixBytes(t *testing.T) {
+func TestAbsoluteReportIncludesNeutralPan(t *testing.T) {
 	report := buildAbsolutePointerReport(0x1234, 0x5678, 1, -2)
-	want := []byte{1, 0x34, 0x12, 0x78, 0x56, 0xfe}
+	want := []byte{1, 0x34, 0x12, 0x78, 0x56, 0xfe, 0}
 	if string(report) != string(want) {
 		t.Fatalf("report = %v, want %v", report, want)
 	}

@@ -1,0 +1,221 @@
+--- a/drivers/hwmon/sg2002-temp.c
++++ b/drivers/hwmon/sg2002-temp.c
+@@ -0,0 +1,179 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * SG2002 temperature telemetry.
++ * Register setup/conversion adapted from CVITEK's cv181x_thermal.c,
++ * Copyright 2021 CVITEK Inc., Sophgo linux_5.10 sg200x-dev.
++ * This driver intentionally leaves DDR refresh and shutdown policy alone.
++ */
++#include <linux/bitfield.h>
++#include <linux/clk.h>
++#include <linux/hwmon.h>
++#include <linux/io.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/thermal.h>
++
++#define TS_CTRL         0x04
++#define TS_SET          0x0c
++#define TS_RESULT0      0x20
++#define TS_CYCLE        0x64
++#define TS_ENABLE       BIT(0)
++#define TS_CHANNELS     GENMASK(7, 4)
++#define TS_CHOP         GENMASK(5, 4)
++#define TS_ACC          GENMASK(7, 6)
++#define TS_DIV          GENMASK(15, 8)
++#define TS_RAW          GENMASK(12, 0)
++
++struct sg2002_temp {
++	void __iomem *base;
++	u32 saved_ctrl, saved_set, saved_cycle;
++};
++
++static umode_t sg2002_temp_visible(const void *data,
++				 enum hwmon_sensor_types type, u32 attr, int channel)
++{
++	return type == hwmon_temp &&
++		(attr == hwmon_temp_input || attr == hwmon_temp_label) ? 0444 : 0;
++}
++
++static int sg2002_temp_value(struct sg2002_temp *sensor, long *value)
++{
++	u32 raw;
++	long temp;
++
++	raw = readl(sensor->base + TS_RESULT0) & TS_RAW;
++	/* Zero before the first completed conversion is not a temperature. */
++	if (!raw)
++		return -EAGAIN;
++	temp = (long)raw * 716000 / 2048 - 273000;
++	if (temp < -40000 || temp > 150000)
++		return -ENODATA;
++	*value = temp;
++	return 0;
++}
++
++
++static int sg2002_temp_read(struct device *dev, enum hwmon_sensor_types type,
++                           u32 attr, int channel, long *value)
++{
++	if (type != hwmon_temp || attr != hwmon_temp_input || channel)
++		return -EOPNOTSUPP;
++	return sg2002_temp_value(dev_get_drvdata(dev), value);
++}
++
++static int sg2002_thermal_get_temp(struct thermal_zone_device *zone, int *value)
++{
++	long temp;
++	int ret = sg2002_temp_value(thermal_zone_device_priv(zone), &temp);
++
++	if (!ret)
++		*value = temp;
++	return ret;
++}
++
++static const struct thermal_zone_device_ops sg2002_thermal_ops = {
++	.get_temp = sg2002_thermal_get_temp,
++};
++
++static int sg2002_temp_label(struct device *dev, enum hwmon_sensor_types type,
++			    u32 attr, int channel, const char **value)
++{
++	if (type != hwmon_temp || attr != hwmon_temp_label || channel)
++		return -EOPNOTSUPP;
++	*value = "SoC";
++	return 0;
++}
++
++static const struct hwmon_ops sg2002_temp_ops = {
++	.is_visible = sg2002_temp_visible,
++	.read = sg2002_temp_read,
++	.read_string = sg2002_temp_label,
++};
++
++static const struct hwmon_channel_info * const sg2002_temp_info[] = {
++	HWMON_CHANNEL_INFO(temp, HWMON_T_INPUT | HWMON_T_LABEL),
++	NULL,
++};
++
++static const struct hwmon_chip_info sg2002_temp_chip = {
++	.ops = &sg2002_temp_ops,
++	.info = sg2002_temp_info,
++};
++
++static void sg2002_temp_restore(void *data)
++{
++	struct sg2002_temp *sensor = data;
++
++	writel(sensor->saved_ctrl & ~TS_ENABLE, sensor->base + TS_CTRL);
++	writel(sensor->saved_set, sensor->base + TS_SET);
++	writel(sensor->saved_cycle, sensor->base + TS_CYCLE);
++	writel(sensor->saved_ctrl, sensor->base + TS_CTRL);
++}
++
++static int sg2002_temp_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct sg2002_temp *sensor;
++	struct device *hwmon;
++	struct thermal_zone_device *zone;
++	struct clk *clk;
++	u32 value;
++	int ret;
++
++	sensor = devm_kzalloc(dev, sizeof(*sensor), GFP_KERNEL);
++	if (!sensor)
++		return -ENOMEM;
++	sensor->base = devm_platform_ioremap_resource(pdev, 0);
++	if (IS_ERR(sensor->base))
++		return PTR_ERR(sensor->base);
++	clk = devm_clk_get_enabled(dev, NULL);
++	if (IS_ERR(clk))
++		return dev_err_probe(dev, PTR_ERR(clk), "temperature clock unavailable\n");
++	if (clk_get_rate(clk) != 25000000)
++		return dev_err_probe(dev, -EINVAL, "expected 25 MHz temperature clock\n");
++	sensor->saved_ctrl = readl(sensor->base + TS_CTRL);
++	sensor->saved_set = readl(sensor->base + TS_SET);
++	sensor->saved_cycle = readl(sensor->base + TS_CYCLE);
++	/* Do not take over a controller already owned by firmware. */
++	if (sensor->saved_ctrl & TS_ENABLE)
++		return dev_err_probe(dev, -EBUSY, "temperature controller already enabled\n");
++	ret = devm_add_action_or_reset(dev, sg2002_temp_restore, sensor);
++	if (ret)
++		return ret;
++	value = sensor->saved_set & ~(TS_CHOP | TS_ACC | TS_DIV);
++	value |= FIELD_PREP(TS_CHOP, 3) | FIELD_PREP(TS_ACC, 2) |
++		 FIELD_PREP(TS_DIV, 49);
++	writel(value, sensor->base + TS_SET);
++	/* 25 MHz / (24 + 1), one automatic conversion every second. */
++	writel((24U << 24) | 1000000, sensor->base + TS_CYCLE);
++	value = sensor->saved_ctrl & ~TS_CHANNELS;
++	/* Vendor CV181x driver exposes channel 0 only. */
++	writel(value | FIELD_PREP(TS_CHANNELS, 1) | TS_ENABLE,
++	       sensor->base + TS_CTRL);
++	hwmon = devm_hwmon_device_register_with_info(dev, "sg2002", sensor,
++						   &sg2002_temp_chip, NULL);
++	if (IS_ERR(hwmon))
++		return PTR_ERR(hwmon);
++	zone = devm_thermal_of_zone_register(dev, 0, sensor, &sg2002_thermal_ops);
++	/* Older board descriptions provide telemetry without a thermal zone. */
++	if (IS_ERR(zone) && PTR_ERR(zone) != -ENODEV)
++		return dev_err_probe(dev, PTR_ERR(zone), "thermal zone unavailable\n");
++	return 0;
++}
++
++static const struct of_device_id sg2002_temp_match[] = {
++	{ .compatible = "sophgo,sg2002-tempsen" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sg2002_temp_match);
++
++static struct platform_driver sg2002_temp_driver = {
++	.probe = sg2002_temp_probe,
++	.driver = {
++		.name = "sg2002-tempsen",
++		.of_match_table = sg2002_temp_match,
++	},
++};
++module_platform_driver(sg2002_temp_driver);
++MODULE_DESCRIPTION("SG2002 SoC temperature telemetry");
++MODULE_LICENSE("GPL");
+--- a/drivers/hwmon/Kconfig
++++ b/drivers/hwmon/Kconfig
+@@ -24,6 +24,13 @@
+ 	  will be called hwmon.
+ 
+ if HWMON
++
++config SENSORS_SG2002
++	tristate "Sophgo SG2002 temperature sensor"
++	depends on OF && COMMON_CLK && THERMAL_OF && (ARCH_SOPHGO || COMPILE_TEST)
++	help
++	  Read the SG2002 on-chip temperature sensor and expose a thermal
++	  zone when described by DT. DDR refresh policy is left unchanged.
+ 
+ config HWMON_VID
+ 	tristate
+--- a/drivers/hwmon/Makefile
++++ b/drivers/hwmon/Makefile
+@@ -256,3 +256,5 @@
+ obj-$(CONFIG_PMBUS)		+= pmbus/
+ 
+ ccflags-$(CONFIG_HWMON_DEBUG_CHIP) := -DDEBUG
++
++obj-$(CONFIG_SENSORS_SG2002) += sg2002-temp.o
+--- a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
++++ b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+@@ -222,6 +222,12 @@
+ 			       "zifencei", "zihpm", "xtheadvector";
+ };
+ &{/soc} {
++	soc_temp: temperature-sensor@30e0000 {
++		compatible = "sophgo,sg2002-tempsen";
++		reg = <0x030e0000 0x1000>;
++		clocks = <&clk CLK_TEMPSEN>;
++		#thermal-sensor-cells = <0>;
++	};
+ 	gpio4: gpio@5021000 {
+ 		compatible = "snps,dw-apb-gpio";
+ 		reg = <0x05021000 0x1000>;

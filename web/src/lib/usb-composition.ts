@@ -4,7 +4,8 @@ export const usbDevices = [
   'absolute',
   'network',
   'disk',
-  'serial'
+  'serial',
+  'audio'
 ] as const;
 export type UsbDevice = (typeof usbDevices)[number];
 export type UsbComposition = Record<UsbDevice, boolean> & { mode: 'normal' | 'hid-only' };
@@ -20,11 +21,11 @@ const hid = { keyboard: true, relative: true, absolute: true };
 export const usbPresets: { id: string; composition: UsbComposition }[] = [
   {
     id: 'standard',
-    composition: { ...hid, network: true, disk: true, serial: false, mode: 'normal' }
+    composition: { ...hid, network: true, disk: true, serial: false, audio: false, mode: 'normal' }
   },
   {
     id: 'console',
-    composition: { ...hid, network: false, disk: true, serial: true, mode: 'normal' }
+    composition: { ...hid, network: false, disk: true, serial: true, audio: false, mode: 'normal' }
   },
   {
     id: 'headless',
@@ -35,16 +36,31 @@ export const usbPresets: { id: string; composition: UsbComposition }[] = [
       network: true,
       disk: true,
       serial: true,
+      audio: false,
       mode: 'normal'
     }
   },
   {
     id: 'control',
-    composition: { ...hid, network: false, disk: false, serial: false, mode: 'normal' }
+    composition: {
+      ...hid,
+      network: false,
+      disk: false,
+      serial: false,
+      audio: false,
+      mode: 'normal'
+    }
   },
   {
     id: 'compatibility',
-    composition: { ...hid, network: false, disk: false, serial: false, mode: 'hid-only' }
+    composition: {
+      ...hid,
+      network: false,
+      disk: false,
+      serial: false,
+      audio: false,
+      mode: 'hid-only'
+    }
   }
 ];
 
@@ -77,7 +93,10 @@ export function fitsBudget(composition: UsbComposition, status: UsbStatus) {
 export function toggleDevice(composition: UsbComposition, name: UsbDevice): UsbComposition {
   const enabled = !composition[name];
   // Network/storage additions select the normal profile without a separate mode switch.
-  const mode = enabled && (name === 'network' || name === 'disk') ? 'normal' : composition.mode;
+  const mode =
+    enabled && (name === 'network' || name === 'disk' || name === 'audio')
+      ? 'normal'
+      : composition.mode;
   return { ...composition, mode, [name]: enabled };
 }
 
@@ -89,11 +108,13 @@ export function normalizeUsbStatus(status: UsbStatus): UsbStatus {
   // Display older servers, but require a revision before applying a whole composition.
   return {
     ...status,
+    audio: status.audio ?? false,
     keyboard: status.keyboard ?? status.hid,
     relative: status.relative ?? status.hid,
     absolute: status.absolute ?? status.hid,
     costs: {
       ...status.costs,
+      audio: status.costs.audio ?? { in: 0, out: 1 },
       keyboard: status.costs.keyboard ?? { in: 1, out: 1 },
       relative: status.costs.relative ?? { in: 1, out: 1 },
       absolute: status.costs.absolute ?? { in: 1, out: 1 }

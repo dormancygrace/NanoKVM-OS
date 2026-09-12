@@ -1,0 +1,5 @@
+tinyalsa: https://github.com/tinyalsa/tinyalsa
+Commit: 9fab97ca07184371ecad81154d1dadb09d0fa7cf
+Opus: https://downloads.xiph.org/releases/opus/opus-1.5.2.tar.gz
+SHA256: 65c1d2f78b9f2fb20082c38cbe47c951ad5839345876e46941612ee87f9a7ce1
+Floating point, scalar rv64gc, 192000 bit/s, complexity 3, stereo 48 kHz, 20 ms, constrained VBR.

@@ -3,6 +3,7 @@ package router
 import (
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/service/stream"
+	"NanoKVM-Server/service/stream/audio"
 	"NanoKVM-Server/service/stream/direct"
 	"NanoKVM-Server/service/stream/mjpeg"
 	"NanoKVM-Server/service/stream/webrtc"
@@ -18,6 +19,8 @@ func streamRouter(r *gin.Engine) {
 	api.POST("/stream/mjpeg/detect/stop", mjpeg.StopFrameDetect) // temporary stop frame detect
 
 	api.GET("/stream/state", stream.GetEncoderState)
+	api.GET("/stream/audio", audio.Connect)
+	api.GET("/stream/audio/status", audio.Status)
 
 	api.GET("/stream/video", webrtc.Connect)             // configurable video stream (webrtc)
 	api.GET("/stream/video/direct", direct.Connect)      // configurable video stream (direct)

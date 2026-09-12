@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -39,6 +40,7 @@ type Status struct {
 	State         string `json:"state"`
 	Enabled       bool   `json:"enabled"`
 	Address       string `json:"address"`
+	MTU           int    `json:"mtu,omitempty"`
 	LastHandshake int64  `json:"lastHandshake"`
 	Received      uint64 `json:"received"`
 	Sent          uint64 `json:"sent"`
@@ -246,6 +248,9 @@ func (s *Service) GetStatus(c *gin.Context) {
 		}
 		if existsInterface(p.ID) {
 			st.State = "waiting"
+			if iface, err := net.InterfaceByName(p.ID); err == nil {
+				st.MTU = iface.MTU
+			}
 			b, err := command(2*time.Second, "wg", "show", p.ID, "latest-handshakes")
 			if err != nil {
 				st.State = "error"
@@ -282,7 +287,7 @@ func (s *Service) GetStatus(c *gin.Context) {
 		}
 		statuses = append(statuses, st)
 	}
-	rsp.OkRspWithData(c, gin.H{"available": wgErr == nil && quickErr == nil, "profiles": statuses})
+	rsp.OkRspWithData(c, gin.H{"available": wgErr == nil && quickErr == nil, "profiles": statuses, "now": time.Now().UnixMilli()})
 }
 func (s *Service) Import(c *gin.Context) {
 	s.mu.Lock()

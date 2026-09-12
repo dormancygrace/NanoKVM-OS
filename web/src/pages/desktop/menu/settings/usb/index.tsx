@@ -79,8 +79,7 @@ export const Usb = () => {
       !status?.revision ||
       !draft ||
       busy.current ||
-      !fitsBudget(draft, status) ||
-      !usbDevices.some((name) => draft[name])
+      !fitsBudget(draft, status)
     )
       return;
     busy.current = true;
@@ -212,7 +211,7 @@ export const Usb = () => {
           }
         ]}
       />
-      {empty && <div className="mt-3 text-sm text-amber-400">{t('settings.usb.empty')}</div>}
+      {empty && <div className="mt-3 text-sm text-neutral-400">{t('settings.usb.empty')}</div>}
       {status && !status.revision && (
         <div className="mt-3 text-sm text-amber-400">{t('settings.usb.serverUpdateRequired')}</div>
       )}
@@ -225,7 +224,7 @@ export const Usb = () => {
         <Button
           type="primary"
           loading={loading}
-          disabled={!dirty || empty || !withinBudget || !status?.revision}
+          disabled={!dirty || !withinBudget || !status?.revision}
           onClick={apply}
         >
           {t('settings.usb.apply')}

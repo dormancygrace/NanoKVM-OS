@@ -188,4 +188,4 @@ To change the signed-in user's own password, post both encrypted fields to
 
 Use the matched toolchain, custom Go runtime and native libraries in [BUILD.md](../docs/BUILD.md). The legacy upstream toolchain command is not a release-equivalent NanoKVM OS build.
 
-Install compatible signed `.nkos` packages through **Settings → Updates**; see [UPDATES.md](../docs/UPDATES.md). Do not install original NanoKVM application archives over NanoKVM OS. Kernel or native-library changes require a matching full image.
+Install compatible signed `.nkos` packages through **Settings → Updates**; see [UPDATES.md](../docs/UPDATES.md). Do not install original NanoKVM application archives over NanoKVM OS. Kernel changes require a compatible format-3 package and the kernel-capable updater, or a matching full image. Native-library compatibility remains mandatory.

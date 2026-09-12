@@ -334,14 +334,16 @@ func (h *Hid) WriteKeyboardReport(data []byte) error {
 }
 
 func (h *Hid) WriteRelativeMouseReport(data []byte) error {
-	if len(data) != 4 {
+	data = NormalizeMouseReport(data)
+	if len(data) != 5 {
 		return fmt.Errorf("invalid relative mouse report length: %d", len(data))
 	}
 	return h.writeHID(h.relativeMouseDevice(HID1), data)
 }
 
 func (h *Hid) WriteAbsoluteMouseReport(data []byte) error {
-	if len(data) != 6 {
+	data = NormalizeMouseReport(data)
+	if len(data) != 7 {
 		return fmt.Errorf("invalid absolute mouse report length: %d", len(data))
 	}
 	return h.writeHID(h.absoluteMouseDevice(HID2), data)

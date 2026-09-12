@@ -1,0 +1,19 @@
+{
+  "kernel": "7.2.5-nanokvm-os",
+  "image_sha256": "3fee1f6b16aa330e26ca3a22452fc4ab7c560cbedbc8431d2f0be0f85b6f7563",
+  "zip_sha256": "55bd5d99e6f9e5dbc0c25470be774c4f72d3f6038ca5bb4a89a5a80b68a2459a",
+  "zip_bytes": 69000240,
+  "embedded_files": {
+    "updater": "02e606498fc04145fcba5e4d166d03c997a10914bf5ca0f454fbdbcba8bdea5d",
+    "audio": "de87be4181b1ce3efdb5e1b5dc913bc3698980c174bf798ade6025d95735c0e7"
+  },
+  "fresh_sd_boot_qualified": false,
+  "sequence": 9,
+  "rootfs_device_write_readback": true,
+  "release_fit_booted": true,
+  "automatic_reboot_passed": true,
+  "dhcp_dns_automatic": true,
+  "ntp_synchronized_after_boot": true,
+  "partition_creation_tested": false,
+  "rootfs_sha256": "0714b50c94fed1d5be1c0cf2ebcbbafedfa6ecffd9183bb7145cd0dbe302a3f0"
+}

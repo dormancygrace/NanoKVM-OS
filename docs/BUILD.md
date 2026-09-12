@@ -38,12 +38,16 @@ See [UPDATES.md](UPDATES.md) for signed package creation. Development builds nee
 
 ## Kernel, drivers and full images
 
-`firmware/sources.json` records external source pins. `firmware/buildroot/` contains the external tree and source patches, including the pinned OpenVPN 3 Core adapter in `firmware/vpn/` and WireGuard tools. OpenVPN 2 remains a system CLI; the GUI selects OpenVPN 3 Core. Kernel configuration and port patches are in `firmware/kernel/`; media-driver changes are in `firmware/osdrv/` and MPI changes in `firmware/mpi/`. The cumulative kernel patch/config in `firmware/release/source-components/kernel/` captures the selected Linux 7.2.4 kernel source state; its recipe records the compiler, ISA flags and build timestamp; do not apply both cumulative and incremental patches on top of each other.
+`firmware/sources.json` records external source pins. `firmware/buildroot/` contains the external tree and source patches, including the pinned OpenVPN 3 Core adapter in `firmware/vpn/` and WireGuard tools. OpenVPN 2 remains a system CLI; the GUI selects OpenVPN 3 Core. Kernel configuration and port patches are in `firmware/kernel/`; media-driver changes are in `firmware/osdrv/` and MPI changes in `firmware/mpi/`. The cumulative kernel patch/config in `firmware/release/source-components/kernel/` captures the selected Linux 7.2.5 kernel source state (the cumulative patch applies to the verified Linux 7.2.4 archive and includes upstream 7.2.5 changes); its recipe records the compiler, ISA flags and build timestamp; do not apply both cumulative and incremental patches on top of each other.
 
 `build-enhanced-kernel.sh`, `build-enhanced-release-modules.py`, board staging and image assembly tools require explicit external paths and matched artifacts. CryptoDMA source under `firmware/crypto/experimental/sg2002-aes-probe` remains the selected beta module prerequisite despite its historical directory name. Small-core FreeRTOS/AliOS experiments are excluded.
 
 Several image staging tools still expect retained stock board assets under `build/release/nanokvm_2.6.0`. Those assets, proprietary vendor objects, full vendor source trees, compiler/sysroot and release archives are not embedded in this Git repository. A self-contained downloadable build-input bundle and final corresponding-source notices remain to be consolidated before a public binary release. The current application/web can be built against an existing matched native/toolchain set; a turnkey clean-machine full-image build is not claimed.
 
-When staging a fresh OS image, pass `--version 1.0.0-beta.3 --update-sequence 8` to `stage-enhanced-app.py` for the current application. Use the actual signed release sequence for future versions. Beta image assembly now requires this metadata, the independent updater/recovery scripts and all four monitor EDID profiles.
+When staging a fresh OS image, pass `--version 1.0.0-beta.4 --update-sequence 9` to `stage-enhanced-app.py` for the current application. Use the actual signed release sequence for future versions. Beta image assembly now requires this metadata, the independent updater/recovery scripts and all four monitor EDID profiles.
 
 The previous upstream Docker/dev-container recipe used an older native toolchain and SDK and has been removed. It must not be treated as a reproducible NanoKVM OS build.
+
+## USB audio helper
+
+Build `native/usb-audio/capture.c` with `scripts/build-usb-audio.py`, using its pinned tinyalsa and Opus sources. Stage the helper as `system/bin/usb-audio-capture` with the license/source notices under `system/share/usb-audio`. The full-image hook installs these paths explicitly.

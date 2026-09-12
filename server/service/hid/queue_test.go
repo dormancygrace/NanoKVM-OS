@@ -67,18 +67,18 @@ func TestMouseModeSwitchReleasesPreviousDevice(t *testing.T) {
 		t.Fatal("absolute state was not reset during mode switch")
 	}
 
-	absoluteData := make([]byte, 12)
+	absoluteData := make([]byte, 14)
 	if _, err := io.ReadFull(absoluteReader, absoluteData); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(absoluteData[:6], absoluteDown) {
-		t.Fatalf("absolute down report = %v", absoluteData[:6])
+	if !bytes.Equal(absoluteData[:7], NormalizeMouseReport(absoluteDown)) {
+		t.Fatalf("absolute down report = %v", absoluteData[:7])
 	}
 	wantRelease := absoluteMouseReleaseReport(absoluteDown)
-	if !bytes.Equal(absoluteData[6:], wantRelease) {
-		t.Fatalf("absolute release report = %v, want %v", absoluteData[6:], wantRelease)
+	if !bytes.Equal(absoluteData[7:], wantRelease) {
+		t.Fatalf("absolute release report = %v, want %v", absoluteData[7:], wantRelease)
 	}
-	relativeData := make([]byte, 4)
+	relativeData := make([]byte, 5)
 	if _, err := io.ReadFull(relativeReader, relativeData); err != nil {
 		t.Fatal(err)
 	}

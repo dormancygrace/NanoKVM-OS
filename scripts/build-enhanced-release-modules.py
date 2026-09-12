@@ -11,6 +11,7 @@ import subprocess
 p = argparse.ArgumentParser(description=__doc__)
 for name in ('kernel-source', 'kernel-output', 'osdrv-source', 'wifi-source', 'rtl8733bs-sdk', 'buildroot-output', 'output'):
     p.add_argument('--'+name, type=Path, required=True)
+p.add_argument('--kernel-release', default='7.2.5-nanokvm-os')
 p.add_argument('--jobs', type=int, default=8)
 a = p.parse_args()
 repo = Path(__file__).resolve().parents[1]
@@ -19,11 +20,11 @@ if out.exists() or not 1 <= a.jobs <= 32:
     p.error('Use a fresh output directory and 1..32 jobs')
 kernel, ko = a.kernel_source.resolve(), a.kernel_output.resolve()
 release = (ko/'include/config/kernel.release').read_text().strip()
-if release != '7.2.4-nanokvm-enhanced':
+if release != a.kernel_release or not release.startswith('7.2.5-nanokvm-os'):
     p.error('Expected the ordinary Enhanced kernel')
 cross = str(a.buildroot_output.resolve()/'host/bin/riscv64-buildroot-linux-musl-')
 env = dict(os.environ, PATH='/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin')
-subprocess.run(['python3', str(repo/'scripts/validate-enhanced-kernel-config.py'), str(ko/'.config')], check=True)
+subprocess.run(['python3', str(repo/'scripts/validate-enhanced-kernel-config.py'), str(ko/'.config'), '--localversion='+release[len('7.2.5'):]], check=True)
 out.mkdir(parents=True)
 sources = out/'sources'
 sources.mkdir()
@@ -33,13 +34,14 @@ for name, source in [('osdrv', a.osdrv_source), ('wifi', a.wifi_source)]:
 subprocess.run(['python3', str(repo/'scripts/apply-aic-sdio-ownership.py'), '--source', str(sources/'wifi')], check=True)
 shutil.copytree(repo/'firmware/crypto/cryptodev-linux', sources/'cryptodev', ignore=ignore)
 subprocess.run(['make', '-C', str(sources/'cryptodev'), 'version.h'], check=True)
-patch = repo/'firmware/osdrv/patches/0021-vpss-backpressure-log-ratelimit.patch'
-patch_args = ['patch', '-d', str(sources/'osdrv'), '-p1']
-with patch.open('rb') as f:
-    applied = subprocess.run(patch_args+['--reverse', '--dry-run'], stdin=f, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
-if not applied:
+for patch_name in ('0021-vpss-backpressure-log-ratelimit.patch', '0022-vi-monotonic-sleeping-fps.patch'):
+    patch = repo/'firmware/osdrv/patches'/patch_name
+    patch_args = ['patch', '-d', str(sources/'osdrv'), '-p1']
     with patch.open('rb') as f:
-        subprocess.run(patch_args+['--forward'], stdin=f, check=True)
+        applied = subprocess.run(patch_args+['--reverse', '--dry-run'], stdin=f, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    if not applied:
+        with patch.open('rb') as f:
+            subprocess.run(patch_args+['--forward'], stdin=f, check=True)
 # Pin the same cached-descriptor implementation used in the current experiment.
 # Its presence in a candidate bundle is not a stability qualification.
 subprocess.run(['python3', str(repo/'firmware/crypto/experimental/sg2002-crypto-all/prepare.py'), '--repo', str(repo), '--output', str(sources/'aes')], check=True)
@@ -71,7 +73,7 @@ rtl_out = out/'rtl8733bs'
 subprocess.run(['python3', str(repo/'scripts/build-rtl8733bs.py'),
                 '--sdk', str(a.rtl8733bs_sdk), '--kernel-source', str(kernel),
                 '--kernel-output', str(ko), '--buildroot-output', str(a.buildroot_output),
-                '--output', str(rtl_out), '--jobs', str(a.jobs)], check=True)
+                '--output', str(rtl_out), '--kernel-release', release, '--jobs', str(a.jobs)], check=True)
 extra.append(rtl_out/'osdrv/extdrv/wireless/rtl8733bs/8733bs.ko')
 run(['M='+str(sources/'aes'), '-j'+str(a.jobs), 'modules'])
 extra.extend((sources/'aes').glob('*.ko'))

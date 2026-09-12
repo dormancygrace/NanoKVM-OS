@@ -12,6 +12,7 @@ import tarfile
 p = argparse.ArgumentParser(description=__doc__)
 for name in ('sdk', 'kernel-source', 'kernel-output', 'buildroot-output', 'output'):
     p.add_argument('--' + name, type=Path, required=True)
+p.add_argument('--kernel-release', default='7.2.5-nanokvm-os')
 p.add_argument('--jobs', type=int, default=8)
 a = p.parse_args()
 repo = Path(__file__).resolve().parents[1]
@@ -21,8 +22,8 @@ out = a.output.resolve()
 if out.exists() or not 1 <= a.jobs <= 32:
     p.error('Use a fresh output directory and 1..32 jobs')
 kernel, ko = a.kernel_source.resolve(), a.kernel_output.resolve()
-if (ko / 'include/config/kernel.release').read_text().strip() != pin['target_kernel']:
-    p.error('RTL8733BS port requires the matching Linux 7.2.4 kernel output')
+if (ko / 'include/config/kernel.release').read_text().strip() != a.kernel_release:
+    p.error('RTL8733BS port requires the explicitly selected matching kernel output')
 cross = str(a.buildroot_output.resolve() / 'host/bin/riscv64-buildroot-linux-musl-')
 if subprocess.check_output([cross + 'gcc', '-dumpfullversion'], text=True).strip() != '16.2.0':
     p.error('Expected GCC 16.2.0')
@@ -58,7 +59,7 @@ subprocess.run([cross + 'strip', '--strip-debug', str(module)], check=True)
 sha = lambda f: hashlib.sha256(f.read_bytes()).hexdigest()
 fields = {field: subprocess.check_output(['modinfo', '-F', field, str(module)], text=True).strip()
           for field in ('vermagic', 'alias', 'depends', 'version', 'firmware')}
-if not fields['vermagic'].startswith(pin['target_kernel'] + ' '):
+if not fields['vermagic'].startswith(a.kernel_release + ' '):
     raise RuntimeError('Module vermagic mismatch')
 for alias in ('sdio:c07v024CdB733*', 'sdio:c07v024CdB73A*'):
     if alias not in fields['alias'].splitlines():

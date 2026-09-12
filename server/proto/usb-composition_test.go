@@ -6,7 +6,7 @@ import (
 )
 
 func TestUSBCompositionRequiresExplicitBooleans(t *testing.T) {
-	complete := `{"keyboard":false,"relative":false,"absolute":false,"network":true,"disk":false,"serial":true,"mode":"normal","revision":"current"}`
+	complete := `{"keyboard":false,"relative":false,"absolute":false,"network":true,"disk":false,"serial":true,"audio":false,"mode":"normal","revision":"current"}`
 	var req SetUSBCompositionReq
 	if err := json.Unmarshal([]byte(complete), &req); err != nil {
 		t.Fatal(err)

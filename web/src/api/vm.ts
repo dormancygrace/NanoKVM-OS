@@ -284,3 +284,10 @@ export function setMemorySwap(
 ) {
   return http.post('/api/vm/memory/swap', { kind, enabled, sizeMiB, recompress });
 }
+
+export function getCPUFrequency() {
+  return http.get('/api/vm/cpu-frequency');
+}
+export function setCPUFrequency(target: number) {
+  return http.post('/api/vm/cpu-frequency', { target });
+}

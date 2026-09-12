@@ -50,6 +50,9 @@ func vmRouter(r *gin.Engine) {
 	admin.GET("/vm/memory/limit", service.GetMemoryLimit)  // get memory limit
 	admin.POST("/vm/memory/limit", service.SetMemoryLimit) // set memory limit
 
+	admin.GET("/vm/cpu-frequency", service.GetCPUFrequency)
+	admin.POST("/vm/cpu-frequency", service.SetCPUFrequency)
+
 	admin.GET("/vm/oled", service.GetOLED)  // get OLED configuration
 	admin.POST("/vm/oled", service.SetOLED) // set OLED configuration
 

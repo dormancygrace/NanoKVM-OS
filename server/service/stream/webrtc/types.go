@@ -11,6 +11,7 @@ import (
 
 type WebRTCManager struct {
 	clients        map[*websocket.Conn]*Client
+	writers        map[*Client]*peerVideoWriter
 	clientSnapshot atomic.Pointer[[]*Client]
 	config         stream.EncoderConfig
 	subscription   *stream.VideoSubscription
@@ -20,14 +21,15 @@ type WebRTCManager struct {
 }
 
 type Client struct {
-	pathMTU    *peerPathMTU
-	packetizer *adaptiveVideoPacketizer
-	videoStart videoStartGate
-	ws         *websocket.Conn
-	video      *webrtc.PeerConnection
-	track      *Track
-	config     stream.EncoderConfig
-	mutex      sync.Mutex
+	videoWriteMutex sync.Mutex
+	pathMTU         *peerPathMTU
+	packetizer      *adaptiveVideoPacketizer
+	videoStart      videoStartGate
+	ws              *websocket.Conn
+	video           *webrtc.PeerConnection
+	track           *Track
+	config          stream.EncoderConfig
+	mutex           sync.Mutex
 }
 
 func (c *Client) WsConn() *websocket.Conn {

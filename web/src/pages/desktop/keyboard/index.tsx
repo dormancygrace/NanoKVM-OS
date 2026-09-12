@@ -45,6 +45,7 @@ export const Keyboard = () => {
       return;
     }
 
+    isComposing.current = false;
     pressedKeys.current.clear();
     leaderKeyRef.current.reset();
     altGrRef.current.reset();
@@ -84,13 +85,14 @@ export const Keyboard = () => {
 
     function handleKeyUp(event: KeyboardEvent) {
       if (!isKeyboardEnabled) return;
-      if (isComposing.current || event.isComposing) return;
+      const code = normalizeKeyCode(event, os);
+      if (!code) return;
+      // IME must not swallow the release of a key sent before composition.
+      // Ignore composition-only keys while retaining leader and AltGr handling.
+      if ((isComposing.current || event.isComposing) && !pressedKeys.current.has(code)) return;
 
       event.preventDefault();
       event.stopPropagation();
-
-      const code = normalizeKeyCode(event, os);
-      if (!code) return;
 
       // Handle leader key release
       const leaderHandled = leaderKeyRef.current.handleKeyUp(code);
@@ -140,6 +142,7 @@ export const Keyboard = () => {
     }
 
     function releaseKeys() {
+      isComposing.current = false;
       pressedKeys.current.forEach((code) => {
         sendKeyEvent('keyup', code);
       });

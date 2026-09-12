@@ -1,0 +1,199 @@
+--- a/drivers/cpufreq/sg2002-cpufreq.c
++++ b/drivers/cpufreq/sg2002-cpufreq.c
+@@ -0,0 +1,175 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* NanoKVM SG2002 runtime clock control. Requires the matching CV18xx mux/PLL fixes. */
++#include <linux/clk.h>
++#include <linux/cpufreq.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_address.h>
++#include <linux/io.h>
++#include <dt-bindings/clock/sophgo,cv1800.h>
++
++static struct clk *cpu_clk, *mpll, *osc, *other_cpu, *a53, *fpll;
++static void __iomem *clock_regs;
++static struct cpufreq_frequency_table frequencies[] = {
++    { .frequency = 600000 },
++    { .frequency = 850000 },
++    { .frequency = 1000000 },
++    { .frequency = 1050000 },
++    { .frequency = 1075000 },
++    { .frequency = 1100000 },
++    { .frequency = 1125000 },
++    { .frequency = 1150000 },
++    { .frequency = CPUFREQ_TABLE_END },
++};
++
++static bool mpll_shared(void)
++{
++    return clk_is_match(clk_get_parent(other_cpu), mpll) ||
++           clk_is_match(clk_get_parent(a53), mpll);
++}
++
++/* TRM 8.5.1 selects SRC1 while CPU's SRC0 PLL is changed. Validate
++ * the existing inactive divider without changing any shared PLL registers.
++ * C906 SRC1 divider defaults to 2 when the programmable-factor bit is clear.
++ */
++static unsigned long safe_src1_rate(void)
++{
++    u32 reg = readl(clock_regs + 0x134);
++    u32 divisor = (reg & BIT(3)) ? ((reg >> 16) & 15) : 2;
++    unsigned long rate = divisor ? DIV_ROUND_UP(clk_get_rate(fpll), divisor) : 0;
++    return rate >= 100000000 && rate <= 850000000 ? rate : 0;
++}
++
++static int sg2002_target(struct cpufreq_policy *policy, unsigned int index)
++{
++    unsigned long target = frequencies[index].frequency * 1000UL;
++    unsigned long before = clk_get_rate(mpll);
++    unsigned long bridge = safe_src1_rate();
++    int ret, restore;
++
++    if (!bridge || mpll_shared() || !clk_is_match(clk_get_parent(cpu_clk), mpll))
++        return -EBUSY;
++    if (clk_get_rate(cpu_clk) == target)
++        return 0;
++    if (clk_round_rate(mpll, target) != target)
++        return -EINVAL;
++
++    /* Keep all other PLLs untouched, including the TPU's TPLL. The CPU
++     * executes from stable SRC1 (FPLL/divider) while its own PLL relocks.
++     * CCF owns the transition and updates its clock tree, not /dev/mem.
++     */
++    ret = clk_set_parent(cpu_clk, fpll);
++    if (ret)
++        return ret;
++    if (clk_get_rate(cpu_clk) != bridge) {
++        clk_set_parent(cpu_clk, mpll);
++        return -EIO;
++    }
++    ret = clk_set_rate(mpll, target);
++    if (!ret && clk_get_rate(mpll) != target)
++        ret = -EIO;
++    if (ret) {
++        restore = clk_set_rate(mpll, before);
++        if (restore || clk_get_rate(mpll) != before) {
++            pr_err("sg2002-cpufreq: PLL recovery failed, CPU remains on stable SRC1\n");
++            return ret;
++        }
++    }
++    restore = clk_set_parent(cpu_clk, mpll);
++    if (restore)
++        return restore;
++    if (!ret && clk_get_rate(cpu_clk) != target)
++        ret = -EIO;
++    return ret;
++}
++
++static int sg2002_policy_init(struct cpufreq_policy *policy)
++{
++    unsigned long rate = clk_get_rate(cpu_clk);
++    if (policy->cpu != 0 || num_possible_cpus() != 1 ||
++        (rate != 600000000 && rate != 850000000 && rate != 1000000000))
++        return -ENODEV;
++    policy->clk = cpu_clk;
++    cpufreq_generic_init(policy, frequencies, 200000000);
++    /* Loading the module never raises the current frequency. The API first
++     * raises scaling_max_freq explicitly when the user chooses a higher frequency.
++     */
++    policy->min = 600000;
++    policy->max = rate / 1000;
++    return 0;
++}
++
++static struct cpufreq_driver sg2002_driver = {
++    .name = "sg2002-cpufreq",
++    .flags = CPUFREQ_IS_COOLING_DEV,
++    .verify = cpufreq_generic_frequency_table_verify,
++    .target_index = sg2002_target,
++    .get = cpufreq_generic_get,
++    .init = sg2002_policy_init,
++};
++
++static struct clk *provider_clock(struct device_node *node, unsigned int id)
++{
++    struct of_phandle_args args = { .np = node, .args_count = 1, .args = { id } };
++    return of_clk_get_from_provider(&args);
++}
++
++static void put_clocks(void)
++{
++    if (clock_regs) iounmap(clock_regs);
++    clk_put(fpll); clk_put(a53); clk_put(other_cpu); clk_put(osc); clk_put(mpll); clk_put(cpu_clk);
++}
++
++static int __init sg2002_cpufreq_init(void)
++{
++    struct device_node *node;
++    int ret;
++    if (!of_machine_is_compatible("sipeed,nanokvm") ||
++        !of_machine_is_compatible("sophgo,sg2002"))
++        return -ENODEV;
++    node = of_find_compatible_node(NULL, NULL, "sophgo,sg2000-clk");
++    if (!node)
++        return -ENODEV;
++    clock_regs = of_iomap(node, 0);
++    fpll = provider_clock(node, CLK_FPLL);
++    cpu_clk = provider_clock(node, CLK_C906_0);
++    mpll = provider_clock(node, CLK_MPLL);
++    other_cpu = provider_clock(node, CLK_C906_1);
++    a53 = provider_clock(node, CLK_A53);
++    /* Clock input 0 is the external 25 MHz crystal. */
++    osc = of_clk_get(node, 0);
++    of_node_put(node);
++    if (!clock_regs || IS_ERR(fpll) || IS_ERR(cpu_clk) || IS_ERR(mpll) || IS_ERR(other_cpu) || IS_ERR(a53) || IS_ERR(osc)) {
++        ret = -ENODEV;
++        goto fail;
++    }
++    if (!safe_src1_rate() || mpll_shared() || clk_get_rate(osc) != 25000000 ||
++        !clk_is_match(clk_get_parent(cpu_clk), mpll) ||
++        clk_get_rate(cpu_clk) != clk_get_rate(mpll)) {
++        ret = -EBUSY;
++        goto fail;
++    }
++    ret = clk_rate_exclusive_get(mpll);
++    if (ret)
++        goto fail;
++    ret = cpufreq_register_driver(&sg2002_driver);
++    if (ret) {
++        clk_rate_exclusive_put(mpll);
++        goto fail;
++    }
++    return 0;
++fail:
++    put_clocks();
++    return ret;
++}
++
++static void __exit sg2002_cpufreq_exit(void)
++{
++    cpufreq_unregister_driver(&sg2002_driver);
++    clk_rate_exclusive_put(mpll);
++    put_clocks();
++}
++module_init(sg2002_cpufreq_init);
++module_exit(sg2002_cpufreq_exit);
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("NanoKVM SG2002 CPU frequency control via CCF");
+--- a/drivers/cpufreq/Makefile
++++ b/drivers/cpufreq/Makefile
+@@ -104,3 +104,5 @@
+ obj-$(CONFIG_SH_CPU_FREQ)		+= sh-cpufreq.o
+ obj-$(CONFIG_SPARC_US2E_CPUFREQ)	+= sparc-us2e-cpufreq.o
+ obj-$(CONFIG_SPARC_US3_CPUFREQ)		+= sparc-us3-cpufreq.o
++
++obj-$(CONFIG_SG2002_CPUFREQ) += sg2002-cpufreq.o
+--- a/drivers/cpufreq/Kconfig
++++ b/drivers/cpufreq/Kconfig
+@@ -367,3 +367,10 @@
+ endif # CPU_FREQ
+ 
+ endmenu
++
++config SG2002_CPUFREQ
++    tristate "NanoKVM SG2002 CPU frequency control"
++    depends on CPU_FREQ && RISCV && COMMON_CLK && OF
++    help
++      Runtime 600-1150 MHz CPU control for the NanoKVM SG2002
++      clock tree. Requires the CV18xx parent selector and PLL lock fixes.

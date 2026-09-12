@@ -1,6 +1,15 @@
-# Beta-3 validation and known issues
+# Beta-4 validation and known issues
 
 This summary covers checks on the SG2002 NanoKVM PCIe with an LT6911UXC HDMI receiver. Cube and other board revisions are intended targets, not independently qualified hardware. Short checks, synthetic receivers and browser playback measure different things.
+
+## Beta-4 device check, 2026-09-12
+
+The actual release ext4 rootfs was written to the device from a RAM installer and the complete 1.5 GiB partition hash matched before restoring access settings. The release FIT booted Linux 7.2.5-nanokvm-os and all matched modules. Application sequence 9, the corrected updater, Wi-Fi, WireGuard, storage, CPU/temperature telemetry and USB UAC1 were verified. The existing partition layout and user data partition were retained; this is not a fresh-card partition-creation test.
+
+Chrome displayed QHD H.265 Direct and H.264 WebRTC. Two simultaneous audio receivers each received 860 Opus packets without gaps or timestamp errors; decoding confirmed both channels of a generated stereo tone. Host race tests passed for updater, Dashboard, remote media and audio. The image has an empty root home and no tested private configuration markers. Fresh-rootfs testing found a missing DHCP-to-openresolv hook; this was fixed and the image rebuilt. The corrected release rootfs was installed a second time; its entire partition hash matched, the RAM installer completed and rebooted automatically. DNS and NTP synchronization then worked without manual intervention. QHD H.265 Direct reconnected at 30 FPS, CPU maximum was 1000 MHz and SoC temperature was about 44 C.
+
+The temporary RAM installation fixture encountered a busy data mount after successful write/readback; a retry unmounted it and booted normally. This fixture is not shipped in the release image. Kernel-package boot recovery was also corrected to mount /boot before verification, independently of the later filesystem init script.
+
 
 ## Beta-3 changes
 

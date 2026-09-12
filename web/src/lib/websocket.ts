@@ -3,6 +3,13 @@ import { ICloseEvent, IMessageEvent, w3cwebsocket as W3cWebSocket } from 'websoc
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 
+export type InputConnectionStatus =
+  | 'idle'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'disconnected';
+
 type MessageHandler = (message: IMessageEvent) => void;
 type SendData = number[] | ArrayBuffer | Uint8Array;
 
@@ -34,6 +41,24 @@ export class WsClient {
   private reconnectAttempts = 0;
   private shouldReconnect = true;
   private inputEnabled = false;
+  private connectionStatus: InputConnectionStatus = 'idle';
+  private readonly statusListeners = new Set<() => void>();
+  private lastResponseAt = 0;
+  private heartbeatAcknowledged = false;
+
+  public readonly getConnectionStatus = (): InputConnectionStatus => this.connectionStatus;
+  public readonly subscribeConnectionStatus = (listener: () => void): (() => void) => {
+    this.statusListeners.add(listener);
+    return () => {
+      this.statusListeners.delete(listener);
+    };
+  };
+
+  private updateConnectionStatus(status: InputConnectionStatus): void {
+    if (this.connectionStatus === status) return;
+    this.connectionStatus = status;
+    this.statusListeners.forEach((listener) => listener());
+  }
   private readonly inputReports = new Map<number, Uint8Array>();
 
   private readonly eventHandlers = new Map<string, Set<MessageHandler>>();
@@ -45,6 +70,7 @@ export class WsClient {
   public connect(): void {
     this.shouldReconnect = true;
     this.reconnectAttempts = 0;
+    this.updateConnectionStatus('connecting');
     this.createConnection();
   }
 
@@ -52,11 +78,11 @@ export class WsClient {
     this.shouldReconnect = false;
     this.cleanup();
 
-    if (this.instance && this.instance.readyState === W3cWebSocket.OPEN) {
-      this.instance.close();
-    }
-
+    const previous = this.instance;
     this.instance = null;
+    previous?.close();
+    this.inputReports.clear();
+    this.updateConnectionStatus('idle');
   }
 
   public on(type: string, handler: MessageHandler): () => void {
@@ -99,8 +125,8 @@ export class WsClient {
         else {
           release[1] = 0;
           // Relative movement must be zero; absolute coordinates stay put.
-          if (release.length === 5) release.fill(0, 2);
-          else release[release.length - 1] = 0;
+          if (release.length === 5 || release.length === 6) release.fill(0, 2);
+          else release.fill(0, 6);
         }
         this.send(release);
       }
@@ -136,26 +162,44 @@ export class WsClient {
   private createConnection(): void {
     this.cleanup();
 
-    this.instance = new W3cWebSocket(this.options.url);
-    this.instance.binaryType = 'arraybuffer';
+    const previous = this.instance;
+    this.instance = null;
+    previous?.close();
+    const socket = new W3cWebSocket(this.options.url);
+    this.instance = socket;
+    socket.binaryType = 'arraybuffer';
 
-    this.instance.onopen = this.handleOpen.bind(this);
-    this.instance.onclose = this.handleClose.bind(this);
-    this.instance.onerror = this.handleError.bind(this);
-    this.instance.onmessage = this.handleMessage.bind(this);
+    // A late callback from a replaced connection must not affect the new one.
+    socket.onopen = () => {
+      if (this.instance === socket) this.handleOpen();
+    };
+    socket.onclose = (event) => {
+      if (this.instance === socket) this.handleClose(event);
+    };
+    socket.onerror = (event) => {
+      if (this.instance === socket) this.handleError(event);
+    };
+    socket.onmessage = (event) => {
+      if (this.instance === socket) this.handleMessage(event);
+    };
   }
 
   private handleOpen(): void {
     this.reconnectAttempts = 0;
+    this.lastResponseAt = Date.now();
+    this.heartbeatAcknowledged = false;
+    this.updateConnectionStatus('connected');
     this.startHeartbeat();
   }
 
   private handleClose(event: ICloseEvent): void {
     this.stopHeartbeat();
+    this.inputReports.clear();
 
     if (event.code === 4401) {
       this.shouldReconnect = false;
       this.cleanup();
+      this.updateConnectionStatus('disconnected');
       notifyAuthExpired();
       return;
     }
@@ -170,6 +214,8 @@ export class WsClient {
   private handleMessage(message: IMessageEvent): void {
     try {
       const data = JSON.parse(message.data as string);
+      this.lastResponseAt = Date.now();
+      if (data.type === 'heartbeat') this.heartbeatAcknowledged = true;
       const handlers = this.eventHandlers.get(data.type);
 
       if (handlers) {
@@ -182,7 +228,23 @@ export class WsClient {
 
   private startHeartbeat(): void {
     this.stopHeartbeat();
+    this.send(new Uint8Array([MessageEvent.Heartbeat]));
     this.heartbeatTimer = setInterval(() => {
+      // Older servers do not acknowledge heartbeats. Enable timeout recovery
+      // only after the server has demonstrated support for the reply.
+      if (
+        this.heartbeatAcknowledged &&
+        Date.now() - this.lastResponseAt >= 3 * this.options.heartbeatInterval
+      ) {
+        this.updateConnectionStatus('reconnecting');
+        const previous = this.instance;
+        this.instance = null;
+        previous?.close();
+        this.stopHeartbeat();
+        this.inputReports.clear();
+        this.scheduleReconnect();
+        return;
+      }
       this.send(new Uint8Array([MessageEvent.Heartbeat]));
     }, this.options.heartbeatInterval);
   }
@@ -200,11 +262,13 @@ export class WsClient {
     }
 
     if (this.reconnectAttempts >= this.options.maxReconnectAttempts) {
+      this.updateConnectionStatus('disconnected');
       console.error('[WebSocket] Max reconnect attempts reached');
       return;
     }
 
     this.reconnectAttempts++;
+    this.updateConnectionStatus(this.reconnectAttempts >= 3 ? 'disconnected' : 'reconnecting');
     console.log(`[WebSocket] Reconnecting... (attempt ${this.reconnectAttempts})`);
 
     this.reconnectTimer = setTimeout(() => {

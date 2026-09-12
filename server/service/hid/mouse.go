@@ -48,6 +48,7 @@ func (h *Hid) mouseReports(queue <-chan QueuedReport, relativePath string, absol
 	}()
 
 	for event := range queue {
+		event.Data = NormalizeMouseReport(event.Data)
 		execute = event.Execute
 		resetRelativeMouse = event.ResetRelativeMouse
 		resetAbsoluteMouse = event.ResetAbsoluteMouse
@@ -58,15 +59,15 @@ func (h *Hid) mouseReports(queue <-chan QueuedReport, relativePath string, absol
 				log.Debugf("dropped %d stale mouse HID reports after write failure", dropped)
 			}
 
-			if len(event.Data) == 4 && event.Data[0] != 0 {
+			if len(event.Data) == 5 && event.Data[0] != 0 {
 				relativeButtonsActive = true
 			}
-			if len(event.Data) == 6 && event.Data[0] != 0 {
+			if len(event.Data) == 7 && event.Data[0] != 0 {
 				absoluteButtonsActive = true
 				absoluteReleaseReport = absoluteMouseReleaseReport(event.Data)
 			}
 
-			if relativeButtonsActive || len(event.Data) == 4 {
+			if relativeButtonsActive || len(event.Data) == 5 {
 				if err := runCleanup(execute, func() error {
 					return h.writeHID(h.relativeMouseDevice(relativePath), relativeMouseReleaseReport())
 				}); err != nil {
@@ -79,9 +80,9 @@ func (h *Hid) mouseReports(queue <-chan QueuedReport, relativePath string, absol
 				}
 			}
 
-			if absoluteButtonsActive || len(event.Data) == 6 {
+			if absoluteButtonsActive || len(event.Data) == 7 {
 				releaseReport := absoluteReleaseReport
-				if len(event.Data) == 6 {
+				if len(event.Data) == 7 {
 					releaseReport = absoluteMouseReleaseReport(event.Data)
 				}
 				if err := runCleanup(execute, func() error {
@@ -100,7 +101,7 @@ func (h *Hid) mouseReports(queue <-chan QueuedReport, relativePath string, absol
 		}
 
 		switch len(event.Data) {
-		case 4:
+		case 5:
 			if absoluteButtonsActive {
 				if err := runCleanup(execute, func() error {
 					return h.writeHID(h.absoluteMouseDevice(absolutePath), absoluteReleaseReport)
@@ -122,7 +123,7 @@ func (h *Hid) mouseReports(queue <-chan QueuedReport, relativePath string, absol
 			}
 			relativeButtonsActive = event.Data[0] != 0
 			event.complete(true)
-		case 6:
+		case 7:
 			if relativeButtonsActive {
 				if err := runCleanup(execute, func() error {
 					return h.writeHID(h.relativeMouseDevice(relativePath), relativeMouseReleaseReport())
@@ -153,13 +154,24 @@ func (h *Hid) mouseReports(queue <-chan QueuedReport, relativePath string, absol
 }
 
 func relativeMouseReleaseReport() []byte {
-	return []byte{0x00, 0x00, 0x00, 0x00}
+	return make([]byte, 5)
 }
 
 func absoluteMouseReleaseReport(positionReport []byte) []byte {
-	report := []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+	report := make([]byte, 7)
 	if len(positionReport) >= 5 {
 		copy(report[1:5], positionReport[1:5])
+	}
+	return report
+}
+
+// NormalizeMouseReport accepts cached pre-AC-Pan clients as well as new reports.
+// Lengths remain unambiguous: relative 4/5, absolute 6/7.
+func NormalizeMouseReport(report []byte) []byte {
+	if len(report) == 4 || len(report) == 6 {
+		data := make([]byte, len(report)+1)
+		copy(data, report)
+		return data
 	}
 	return report
 }

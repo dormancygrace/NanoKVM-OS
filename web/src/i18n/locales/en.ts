@@ -1,5 +1,31 @@
 const en = {
   translation: {
+    audio: {
+      receiving: 'Audio packets received',
+      waiting: 'Waiting for audio',
+      errors: {
+        connection: 'Audio connection lost. Enable Listen to reconnect.',
+        timeout: 'Audio connection timed out. Check the network and retry.',
+        playback: 'Browser could not start audio playback. Tap Listen to retry.',
+        signaling: 'Could not negotiate the audio connection. Reload the page and retry.',
+        capture: 'USB audio capture stopped. Enable Listen to retry.',
+        session: 'Your session expired. Sign in again.',
+        closed: 'Audio connection closed. Enable Listen to reconnect.'
+      },
+      title: 'USB audio',
+      listen: 'Listen',
+      volume: 'Volume',
+      failed: 'Audio unavailable. Check the USB connection and try again.'
+    },
+
+    inputConnection: {
+      idle: 'Control channel idle',
+      connecting: 'Connecting to control channel',
+      connected: 'Control channel connected',
+      reconnecting: 'Control connection lost. Reconnecting…',
+      disconnected: 'Control unavailable. Reconnecting… Video may still work.'
+    },
+
     dateTime: {
       title: 'Date & Time',
       deviceTime: 'Device time',
@@ -444,6 +470,20 @@ const en = {
       }
     },
     image: {
+      remote: {
+        device: 'From SD',
+        browser: 'From this computer',
+        hint: 'Mount an ISO from this computer as a read-only CD/DVD. Only requested blocks are transferred. Keep this tab open while using the image.',
+        select: 'Select ISO file',
+        connect: 'Connect ISO',
+        connecting: 'Connecting…',
+        mounted: 'Connected · Read-only',
+        read: 'read',
+        disconnect: 'Disconnect ISO',
+        readFailed: 'Could not read the selected ISO. Reconnect the file to try again.',
+        connectFailed: 'Could not connect the ISO. Check the device connection and try again.',
+        disconnectFailed: 'Could not disconnect the ISO. Try again.'
+      },
       title: 'Images',
       loading: 'Loading...',
       empty: 'Nothing Found',
@@ -563,7 +603,7 @@ const en = {
         install: 'Install',
         installRestart: 'Install and restart',
         compatibility:
-          'Compatible signed NanoKVM OS packages can update the application and system components. Settings are preserved. Kernel updates are not supported by this package format. Original NanoKVM archives are rejected.',
+          'Compatible signed NanoKVM OS packages can update the application and system components. Settings are preserved. Kernel packages replace the kernel and matching modules after a restart. There is no automatic kernel rollback; failed boot requires reflashing the SD card. Original NanoKVM archives are rejected.',
         requestFailed: 'The update request failed. Check device connectivity and retry.',
         tooLarge: 'The package exceeds 192 MiB.',
         reconnecting: 'Waiting for the device to reconnect…',
@@ -683,7 +723,24 @@ const en = {
       },
       device: {
         title: 'Device',
+        cpuFrequency: {
+          eco: 'Power saving',
+          stock: 'Standard',
+          moderate: 'Moderate overclock',
+          sampleDependent: 'Depends on the individual chip',
+          warning:
+            'Overclocking can cause freezes, restarts, data loss or hardware damage. Stability is not guaranteed at any overclocked frequency. All overclocking is applied at runtime only. After a reboot, the CPU returns to 1000 MHz. Thermal protection limits it to 850 MHz at 75°C.',
+          throttled: 'Temperature limit active. Your selected frequency will resume after cooling.',
+          title: 'CPU frequency & overclocking',
+          running: 'Running: {{mhz}} MHz',
+          unavailable: 'Frequency control is unavailable on this kernel',
+          description:
+            'Applied immediately. Standard and power-saving settings are saved; overclocking lasts until the next device reboot. Check SoC temperature in Dashboard.',
+          failed: 'Could not update CPU frequency'
+        },
         oled: {
+          failed: 'Could not update OLED settings',
+          '-1': 'Display off',
           title: 'OLED',
           description: 'Turn off OLED screen after',
           0: 'Never',
@@ -759,7 +816,7 @@ const en = {
         apply: 'Apply',
         cancel: 'Discard changes',
         reload: 'Refresh status',
-        empty: 'Select at least one USB function.',
+        empty: 'All USB functions will be disconnected from the connected computer.',
         loadFailed: 'Could not load the USB composition.',
         changed: 'The composition changed in another session. Current settings have been reloaded.',
         reconnectFailed: 'Connection interrupted. Reconnect to NanoKVM and refresh its status.',
@@ -803,11 +860,15 @@ const en = {
           },
           network: {
             title: 'Virtual Network',
-            description: 'RNDIS or NCM network adapter on the remote host'
+            description: 'NCM network adapter on the remote host'
           },
           disk: {
             title: 'Virtual Disk',
             description: 'Present a mounted image as a USB drive'
+          },
+          audio: {
+            title: 'USB Audio',
+            description: 'Stereo audio output for the connected computer (48 kHz, 16-bit)'
           },
           serial: {
             title: 'USB Serial Console',

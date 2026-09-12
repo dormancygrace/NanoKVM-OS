@@ -83,6 +83,7 @@ type savedSystemFile struct {
 	Skip    bool   `json:"skip,omitempty"`
 }
 type systemTransaction struct {
+	Kernel       *KernelUpdate     `json:"kernel,omitempty"`
 	PackageFiles []Entry           `json:"package_files"`
 	Phase        string            `json:"phase"`
 	ID           string            `json:"id"`
@@ -96,12 +97,13 @@ type systemTransaction struct {
 
 // Root is injectable for crash/recovery tests. Production always uses /.
 type systemUpdater struct {
-	root   string
-	bootID func() string
+	root      string
+	bootID    func() string
+	mountBoot func() error
 }
 
 func newSystemUpdater() *systemUpdater {
-	return &systemUpdater{root: "/", bootID: func() string {
+	return &systemUpdater{root: "/", mountBoot: mountBootPartition, bootID: func() string {
 		b, _ := os.ReadFile("/proc/sys/kernel/random/boot_id")
 		return strings.TrimSpace(string(b))
 	}}
@@ -247,7 +249,7 @@ func (u *systemUpdater) stage(file string, b *Bundle) error {
 			return err
 		}
 	}
-	tx := systemTransaction{Phase: "ready", ID: b.ID, Version: b.Manifest.Version, Sequence: b.Manifest.Sequence, PackageFiles: b.Manifest.Files}
+	tx := systemTransaction{Kernel: b.Manifest.Kernel, Phase: "ready", ID: b.ID, Version: b.Manifest.Version, Sequence: b.Manifest.Sequence, PackageFiles: b.Manifest.Files}
 	_ = readJSON(u.file("installed.json"), &tx.OldInstalled)
 	old, err := os.ReadFile(u.at("/kvmapp/version"))
 	if err != nil {
@@ -264,8 +266,11 @@ func (u *systemUpdater) stage(file string, b *Bundle) error {
 		if !strings.HasPrefix(e.Path, "rootfs/") {
 			continue
 		}
-		if !validSystemEntry(e) {
+		if !validSystemEntry(e) && !validKernelEntry(b.Manifest, e) {
 			return errors.New("invalid system entry")
+		}
+		if e.Path == kernelBootPath {
+			continue
 		}
 		dest := u.at(strings.TrimPrefix(e.Path, "rootfs"))
 		if err = u.parent(dest, false); err != nil {
@@ -336,9 +341,18 @@ func (u *systemUpdater) stage(file string, b *Bundle) error {
 	if err = syncDir(u.file("")); err != nil {
 		return err
 	}
-	return u.save(tx)
+	if err = u.save(tx); err != nil {
+		return err
+	}
+	if tx.Kernel != nil {
+		return u.publishKernel(tx)
+	}
+	return nil
 }
 func (u *systemUpdater) restore(tx systemTransaction) error {
+	if tx.Kernel != nil {
+		return errors.New("kernel update interrupted; automatic rollback is unavailable; recover with a full SD image")
+	}
 	for i := len(tx.Files) - 1; i >= 0; i-- {
 		f := tx.Files[i]
 		if f.Skip {
@@ -417,6 +431,11 @@ func (u *systemUpdater) boot() (err error) {
 	}
 	if tx.Phase == "committed" || tx.Phase == "rolled-back" {
 		return u.finish()
+	}
+	if tx.Kernel != nil {
+		if err = u.checkBootedKernel(tx); err != nil {
+			return err
+		}
 	}
 	if tx.Phase != "ready" {
 		return u.restore(tx)
@@ -515,6 +534,11 @@ func (u *systemUpdater) confirm(check func() bool) error {
 	}
 	if !check() {
 		return errors.New("new system/application did not become healthy; reboot to restore previous files")
+	}
+	if tx.Kernel != nil {
+		if err = writeAtomic(u.at("/etc/nkos-system-base"), []byte(tx.Kernel.SystemBase+"\n"), 0644); err != nil {
+			return err
+		}
 	}
 	if err = writeAtomic(u.at("/kvmapp/version"), []byte(tx.Version+"\n"), 0644); err != nil {
 		return err

@@ -10,6 +10,7 @@ import { submenuOpenCountAtom } from '@/jotai/settings.ts';
 import { useDismissMobileMenu } from '@/components/mobile-menu-context.ts';
 
 import { Images } from './images.tsx';
+import { RemoteImage } from './remote.tsx';
 import { Tips } from './tips.tsx';
 
 type ImageProps = {
@@ -23,7 +24,9 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [mode, setMode] = useState('mass-storage');
+  const [source, setSource] = useState('device');
+  const [remoteConnected, setRemoteConnected] = useState(false);
+  const [mode, setMode] = useState('cd-rom');
 
   const modes = [
     {
@@ -40,25 +43,41 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
       label: (
         <div className="flex items-center space-x-1">
           <DiscIcon size={16} />
-          <span>CD ROM</span>
+          <span>CD/DVD</span>
         </div>
       )
     }
   ];
 
   useEffect(() => {
-    api.getMountedImage().then((rsp) => {
-      if (rsp.code === 0) {
-        setIsMounted(!!rsp.data?.file);
-      }
-    });
-
-    api.getCdRom().then((rsp) => {
-      if (rsp.code === 0) {
-        setMode(rsp.data?.cdrom === 1 ? 'cd-rom' : 'mass-storage');
-      }
-    });
+    let disposed = false;
+    Promise.all([api.getMountedImage(), api.getCdRom()])
+      .then(([mounted, cdrom]) => {
+        if (disposed) return;
+        if (mounted.code === 0) {
+          const active = !!mounted.data?.file;
+          setIsMounted(active);
+          // Preserve a connected image's real mode; new mounts default to CD/DVD.
+          if (active && cdrom.code === 0) {
+            setMode(cdrom.data?.cdrom === 1 ? 'cd-rom' : 'mass-storage');
+          }
+        }
+      })
+      .catch(() => {});
+    return () => {
+      disposed = true;
+    };
   }, []);
+
+  useEffect(() => {
+    if (remoteConnected) return;
+    api
+      .getMountedImage()
+      .then((rsp) => {
+        if (rsp.code === 0) setIsMounted(!!rsp.data?.file);
+      })
+      .catch(() => {});
+  }, [remoteConnected]);
 
   function toggleModal(open: boolean) {
     setIsModalOpen(open);
@@ -71,7 +90,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
         <div
           className={clsx(
             'flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded hover:bg-neutral-700',
-            isMounted ? 'text-blue-500' : 'text-neutral-300 hover:text-white'
+            isMounted || remoteConnected ? 'text-blue-500' : 'text-neutral-300 hover:text-white'
           )}
           onClick={() => {
             dismissMobileMenu();
@@ -91,14 +110,45 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
         <Divider style={{ margin: '24px 0' }} />
 
         <div className="flex flex-col space-y-6">
-          <div className="flex items-center justify-between">
+          <Segmented
+            className="[&_.ant-segmented-group]:gap-2"
+            block
+            value={source}
+            onChange={setSource}
+            options={[
+              { value: 'device', label: t('image.remote.device') },
+              { value: 'browser', label: t('image.remote.browser') }
+            ]}
+          />
+          <div
+            className="flex items-center justify-between"
+            style={{ display: source === 'device' ? undefined : 'none' }}
+          >
             <span>{t('image.mountMode')}</span>
-            <Segmented value={mode} options={modes} disabled={isMounted} onChange={setMode} />
+            <Segmented
+              className="[&_.ant-segmented-group]:gap-2"
+              value={mode}
+              options={modes}
+              disabled={isMounted || remoteConnected}
+              onChange={setMode}
+            />
           </div>
+          <div style={{ display: source === 'browser' ? undefined : 'none' }}>
+            <RemoteImage isOpen={isModalOpen} onConnected={setRemoteConnected} />
+          </div>
+          <div
+            style={{ display: source === 'device' ? undefined : 'none' }}
+            className="flex flex-col gap-6"
+          >
+            <Divider style={{ margin: '24px 0 0 0' }} />
 
-          <Divider style={{ margin: '24px 0 0 0' }} />
-
-          <Images isOpen={isModalOpen} cdrom={mode === 'cd-rom'} setIsMounted={setIsMounted} />
+            <Images
+              disabled={remoteConnected}
+              isOpen={isModalOpen}
+              cdrom={mode === 'cd-rom'}
+              setIsMounted={setIsMounted}
+            />
+          </div>
         </div>
       </Modal>
     </>

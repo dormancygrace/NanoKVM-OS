@@ -263,7 +263,7 @@ export const Relative = () => {
     function handleMouseWheel(e: WheelEvent) {
       disableEvent(e);
 
-      if (Math.floor(e.deltaY) === 0) {
+      if (e.deltaY === 0 && e.deltaX === 0) {
         return;
       }
 
@@ -272,8 +272,10 @@ export const Relative = () => {
         return;
       }
 
-      const deltaY = (e.deltaY > 0 ? 1 : -1) * scrollDirection;
-      handleMouseEvent({ type: 'wheel', deltaY });
+      const deltaY = Math.sign(e.deltaY) * scrollDirection;
+      // HID Wheel positive is up; AC Pan positive is right.
+      const deltaX = -Math.sign(e.deltaX) * scrollDirection;
+      handleMouseEvent({ type: 'wheel', deltaX, deltaY });
       lastScrollTimeRef.current = currentTime;
     }
 
@@ -327,7 +329,7 @@ export const Relative = () => {
         report = mouse.buildButtonReport();
         break;
       case 'wheel':
-        report = mouse.buildReport(0, 0, event.deltaY);
+        report = mouse.buildReport(0, 0, event.deltaY, event.deltaX);
         break;
       case 'move':
         report = mouse.buildReport(event.deltaX, event.deltaY);

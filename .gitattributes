@@ -4,6 +4,3 @@
 
 # Preserve the verbatim upstream INI redistribution notice.
 firmware/release/source-components/board-service/LICENSES/inifile2.txt whitespace=-blank-at-eol
-
-# Upstream license texts are retained byte-for-byte.
-firmware/release/licenses/target/** -whitespace

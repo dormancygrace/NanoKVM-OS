@@ -125,13 +125,13 @@ func Lock() (*os.File, error) {
 	return f, nil
 }
 func compatible(b *Bundle) error {
-	if b.Manifest.Format == 2 {
+	if b.Manifest.Format >= 2 {
 		base, e := os.ReadFile("/etc/nkos-system-base")
 		if e != nil || strings.TrimSpace(string(base)) != b.Manifest.SystemBase {
 			return errors.New("this package requires a different system foundation; use the full image")
 		}
 	}
-	if b.Manifest.Format == 2 && !exists("/etc/init.d/S00nkos-system-update") {
+	if b.Manifest.Format >= 2 && !exists("/etc/init.d/S00nkos-system-update") {
 		return errors.New("install the beta-3 full system image before using system packages")
 	}
 	marker, err := os.ReadFile("/etc/nanokvm-buildroot")
@@ -144,6 +144,11 @@ func compatible(b *Bundle) error {
 	}
 	if abi != b.Manifest.NativeABI {
 		return errors.New("this application requires a different system image; use a compatible NanoKVM OS image")
+	}
+	if b.Manifest.Kernel != nil {
+		if err := newSystemUpdater().checkKernelTarget(b.Manifest); err != nil {
+			return err
+		}
 	}
 	if b.Manifest.Sequence <= GetInstalled().Sequence {
 		return errors.New("this update is already installed or older than the installed release")
@@ -202,7 +207,7 @@ func Prepare(file string) (bundle *Bundle, err error) {
 			os.Remove(filepath.Join(Base, name))
 		}
 	}
-	if err = SetResult(Result{State: "prepared", ID: b.ID, Version: b.Manifest.Version, Reboot: b.Manifest.Format == 2, Message: "Signature, compatibility and file checks passed"}); err != nil {
+	if err = SetResult(Result{State: "prepared", ID: b.ID, Version: b.Manifest.Version, Reboot: b.Manifest.Format >= 2, Message: "Signature, compatibility and file checks passed"}); err != nil {
 		return nil, err
 	}
 	return b, nil
@@ -324,7 +329,7 @@ func Install(id string) (err error) {
 	if exists(Base + "/system.json") {
 		return errors.New("system update awaiting reboot or recovery")
 	}
-	if b.Manifest.Format == 2 {
+	if b.Manifest.Format >= 2 {
 		if err = SetResult(Result{State: "installing", Version: b.Manifest.Version, ID: id, Reboot: true, Message: "Preparing system files and recovery data"}); err != nil {
 			return err
 		}
@@ -335,7 +340,9 @@ func Install(id string) (err error) {
 			return err
 		}
 		if e := exec.Command("/sbin/reboot").Run(); e != nil {
-			_ = newSystemUpdater().finish()
+			if b.Manifest.Kernel == nil {
+				_ = newSystemUpdater().finish()
+			}
 			return fmt.Errorf("could not restart device: %w", e)
 		}
 		return nil

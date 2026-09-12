@@ -1,5 +1,5 @@
 #!/bin/sh
-# USB network service for the active RNDIS or NCM gadget composition.
+# USB network service for the active NCM gadget composition.
 # Keep the legacy name because existing callers use /etc/init.d/S30rndis.
 set -eu
 

@@ -20,6 +20,7 @@
 #include <cstdarg>
 #include "vi_state_shared.hpp"
 #include "internal/vi_state_writer.hpp"
+#include "internal/small_file.hpp"
 
 #include <errno.h>
 #include <sys/stat.h>
@@ -374,21 +375,14 @@ uint8_t check_res(uint16_t _width, uint16_t _height)
 
 void write_res_to_file(uint16_t _width, uint16_t _height)
 {
-	char Cmd[100]={0};
-    sprintf(Cmd, "echo %d > %s", _width, vi_width_path);
-    system(Cmd);
-    sprintf(Cmd, "echo %d > %s", _height, vi_height_path);
-    system(Cmd);
-    system("sync");
+    nanokvm::write_small_uint(vi_width_path, _width);
+    nanokvm::write_small_uint(vi_height_path, _height);
 }
 
 int set_hdmi_mode(uint8_t _hdmi_mode)
 {
     if(_hdmi_mode <= 2){
-        char Cmd[100]={0};
-        sprintf(Cmd, "echo %d > %s", _hdmi_mode, hdmi_mode_path);
-        system(Cmd);
-        return 1;
+        return nanokvm::write_small_uint(hdmi_mode_path, _hdmi_mode, true) ? 1 : 0;
     } else {
         debug("[kvmv] Incorrect HDMI mode.\n");
         return 0;
@@ -413,9 +407,7 @@ int get_hdmi_mode(void)
         tmp8 = atoi((char*)RW_Data);
         if(tmp8 > 2) {
             tmp8 = 0;
-	        char Cmd[100]={0};
-            sprintf(Cmd, "echo 0 > %s", hdmi_mode_path);
-            system(Cmd);
+            nanokvm::write_small_uint(hdmi_mode_path, 0, true);
         }
         if(tmp8 != kvmv_cfg.hdmi_mode){
             kvmv_cfg.hdmi_mode = tmp8;
@@ -487,28 +479,20 @@ int get_manual_resolution(void)
     // res min limit
     if(tmp_width < vi_min_width){
         tmp_width = vi_min_width;
-	    char Cmd[100]={0};
-        sprintf(Cmd, "echo %d > %s", vi_min_width, vi_width_path);
-	    system(Cmd);
+        nanokvm::write_small_uint(vi_width_path, vi_min_width);
     }
     if(tmp_height < vi_min_height){
         tmp_height = vi_min_height;
-	    char Cmd[100]={0};
-        sprintf(Cmd, "echo %d > %s", vi_min_height, vi_height_path);
-	    system(Cmd);
+        nanokvm::write_small_uint(vi_height_path, vi_min_height);
     }
     // res max limit
     if(tmp_width > vi_max_width){
         tmp_width = vi_max_width;
-	    char Cmd[100]={0};
-        sprintf(Cmd, "echo %d > %s", vi_max_width, vi_width_path);
-	    system(Cmd);
+        nanokvm::write_small_uint(vi_width_path, vi_max_width);
     }
     if(tmp_height > vi_max_height){
         tmp_height = vi_max_height;
-	    char Cmd[100]={0};
-        sprintf(Cmd, "echo %d > %s", vi_max_height, vi_height_path);
-	    system(Cmd);
+        nanokvm::write_small_uint(vi_height_path, vi_max_height);
     }
 
     // res change ?
@@ -527,7 +511,6 @@ int get_manual_resolution(void)
 
 uint8_t auto_try_res()
 {
-    char Cmd[100]={0};
     uint8_t err_code;
     uint8_t auto_trying_times = 0;
 
@@ -556,10 +539,8 @@ uint8_t auto_try_res()
             // CSI abnormal due to resolution error
             // The test list is short; sequential testing can be performed
             printf("[kvmv] Trying %d * %d res ..\n", hdmi_res_list[auto_trying_times][0], hdmi_res_list[auto_trying_times][1]);
-            sprintf(Cmd, "echo %d > %s", hdmi_res_list[auto_trying_times][0], vi_width_path);
-            system(Cmd);
-            sprintf(Cmd, "echo %d > %s", hdmi_res_list[auto_trying_times][1], vi_height_path);
-            system(Cmd);
+            nanokvm::write_small_uint(vi_width_path, hdmi_res_list[auto_trying_times][0]);
+            nanokvm::write_small_uint(vi_height_path, hdmi_res_list[auto_trying_times][1]);
 
             kvmv_cfg.vi_width = hdmi_res_list[auto_trying_times][0];
             kvmv_cfg.vi_height = hdmi_res_list[auto_trying_times][1];
@@ -1305,9 +1286,7 @@ void* vi_subsystem_detection(void *)
             if(get_new_hdmi_mode == 1){
                 kvmv_cfg.vi_detect_state = 0;
                 // reset hdmi_state
-                char Cmd[100]={0};
-                sprintf(Cmd, "echo 0 > %s", hdmi_state_path);
-                system(Cmd);
+                nanokvm::write_small_uint(hdmi_state_path, 0);
                 // reset hdmi
                 kvmv_hdmi_control(0);
                 nanokvm::sleep_ms(10);
@@ -2334,8 +2313,8 @@ int kvmv_hdmi_control(uint8_t _en)
     }
 #ifndef NANOKVM_ENHANCED
     if(access("/sys/class/gpio/gpio451/value", F_OK) != 0){
-        system("echo 451 > /sys/class/gpio/export");
-        system("echo out > /sys/class/gpio/gpio451/direction");
+        nanokvm::write_small_file("/sys/class/gpio/export", "451\n");
+        nanokvm::write_small_file("/sys/class/gpio/gpio451/direction", "out\n");
     }
 #endif
     if(_en == 0){
@@ -2344,14 +2323,14 @@ int kvmv_hdmi_control(uint8_t _en)
 #ifdef NANOKVM_ENHANCED
         if (set_owned_hdmi_reset(true) != 0) return -1;
 #else
-        system("echo 0 > /sys/class/gpio/gpio451/value");
+        nanokvm::write_small_file("/sys/class/gpio/gpio451/value", "0\n");
 #endif
         return 0;
     } else {
 #ifdef NANOKVM_ENHANCED
         if (set_owned_hdmi_reset(false) != 0) return -1;
 #else
-        system("echo 1 > /sys/class/gpio/gpio451/value");
+        nanokvm::write_small_file("/sys/class/gpio/gpio451/value", "1\n");
 #endif
         kvmv_cfg.hdmi_stop_flag = 0;
 

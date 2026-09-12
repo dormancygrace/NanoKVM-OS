@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/proto"
+	"NanoKVM-Server/remotemedia"
 	"NanoKVM-Server/service/hid"
 )
 
@@ -54,6 +55,13 @@ func (s *Service) GetImages(c *gin.Context) {
 }
 
 func (s *Service) MountImage(c *gin.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.remote != nil {
+		c.JSON(409, gin.H{"code": -2, "msg": "Disconnect browser media before mounting another image"})
+		return
+	}
+
 	var req proto.MountImageReq
 	var rsp proto.Response
 
@@ -62,35 +70,47 @@ func (s *Service) MountImage(c *gin.Context) {
 		return
 	}
 
+	if req.File != "" && req.Cdrom {
+		info, statErr := os.Stat(req.File)
+		if statErr != nil || !info.Mode().IsRegular() {
+			rsp.ErrRsp(c, -2, "Cannot read the selected optical image")
+			return
+		}
+		_, dvdErr := os.Stat(filepath.Join(filepath.Dir(mountDevice), "dvd"))
+		if err := remotemedia.ValidateOptical(uint64(info.Size()), dvdErr == nil); err != nil {
+			rsp.ErrRsp(c, -2, err.Error())
+			return
+		}
+	}
+
 	// cdrom and ro flag
 	// set to 0 when unmount image
 	// set to 1 when mount image and the CD-ROM is enabled
-	if req.File == "" || req.Cdrom {
-		flag := "0"
-		if req.File != "" && req.Cdrom {
-			flag = "1"
-		}
+	// Always apply the selected mode, including after a remote DVD disconnect.
+	flag := "0"
+	if req.File != "" && req.Cdrom {
+		flag = "1"
+	}
 
-		// unmount
-		if err := os.WriteFile(mountDevice, []byte("\n"), 0o666); err != nil {
-			log.Errorf("unmount file failed: %s", err)
-			rsp.ErrRsp(c, -2, "unmount image failed")
-			return
-		}
+	// unmount
+	if err := os.WriteFile(mountDevice, []byte("\n"), 0o666); err != nil {
+		log.Errorf("unmount file failed: %s", err)
+		rsp.ErrRsp(c, -2, "unmount image failed")
+		return
+	}
 
-		// ro flag
-		if err := os.WriteFile(roFlag, []byte(flag), 0o666); err != nil {
-			log.Errorf("set ro flag failed: %s", err)
-			rsp.ErrRsp(c, -2, "set ro flag failed")
-			return
-		}
+	// ro flag
+	if err := os.WriteFile(roFlag, []byte(flag), 0o666); err != nil {
+		log.Errorf("set ro flag failed: %s", err)
+		rsp.ErrRsp(c, -2, "set ro flag failed")
+		return
+	}
 
-		// cdrom flag
-		if err := os.WriteFile(cdromFlag, []byte(flag), 0o666); err != nil {
-			log.Errorf("set cdrom flag failed: %s", err)
-			rsp.ErrRsp(c, -2, "set cdrom flag failed")
-			return
-		}
+	// cdrom flag
+	if err := os.WriteFile(cdromFlag, []byte(flag), 0o666); err != nil {
+		log.Errorf("set cdrom flag failed: %s", err)
+		rsp.ErrRsp(c, -2, "set cdrom flag failed")
+		return
 	}
 
 	inquiryVen := "NanoKVM"

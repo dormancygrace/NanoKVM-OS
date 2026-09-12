@@ -30,3 +30,10 @@ export function deleteImage(file: string) {
   };
   return http.post('/api/storage/image/delete', data);
 }
+
+export function getRemoteMedia() {
+  return http.get('/api/storage/remote');
+}
+export function disconnectRemoteMedia() {
+  return http.post('/api/storage/remote/disconnect');
+}

@@ -13,7 +13,7 @@ import (
 
 func TestCompositionTransaction(t *testing.T) {
 	current := usbComposition{mode: hid.ModeNormal, keyboard: true, relative: true, absolute: true, network: true, disk: true}
-	candidate := usbComposition{mode: hid.ModeNormal, network: true, disk: true, serial: true}
+	candidate := usbComposition{mode: hid.ModeNormal, network: true, disk: true, serial: true, audio: true}
 	for _, failure := range []string{"", "install", "stop", "start", "verify", "rollback"} {
 		t.Run(failure, func(t *testing.T) {
 			dir := t.TempDir()
@@ -78,7 +78,7 @@ func TestCompositionTransaction(t *testing.T) {
 						t.Fatalf("lost contents or permissions: %s", name)
 					}
 				}
-				for _, name := range []string{"usb.acm", "disable_hid", "usb.disable_keyboard", "usb.disable_relative", "usb.disable_absolute"} {
+				for _, name := range []string{"usb.acm", "usb.audio", "disable_hid", "usb.disable_keyboard", "usb.disable_relative", "usb.disable_absolute"} {
 					if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
 						t.Fatalf("missing %s: %v", name, err)
 					}
@@ -116,7 +116,7 @@ func TestCompositionNoOpAndInvalidDraftHaveNoSideEffects(t *testing.T) {
 	}
 	tooLarge := current
 	tooLarge.serial = true
-	for _, candidate := range []usbComposition{tooLarge, {mode: hid.ModeNormal}, {mode: "invalid", keyboard: true}, {mode: hid.ModeHidOnly, network: true}} {
+	for _, candidate := range []usbComposition{tooLarge, {mode: "invalid", keyboard: true}, {mode: hid.ModeHidOnly, network: true}} {
 		if err := store.apply(current, candidate); err == nil {
 			t.Fatalf("accepted invalid draft: %+v", candidate)
 		}
@@ -130,7 +130,7 @@ func TestNetworkProtocolSelection(t *testing.T) {
 	}{
 		{"new network prefers NCM", false, false, true},
 		{"preserve selected NCM", false, true, true},
-		{"preserve selected RNDIS", true, false, false},
+		{"migrate selected RNDIS to NCM", true, false, true},
 		{"both markers select only NCM", true, true, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -159,4 +159,30 @@ func TestNetworkProtocolSelection(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAudioBudgetAndRevision(t *testing.T) {
+	base := usbComposition{mode: hid.ModeNormal, disk: true, serial: true}
+	with := base.with("audio", true)
+	in, out := with.endpointUsage()
+	if in != 3 || out != 3 || with.validate() != nil {
+		t.Fatalf("USB audio budget: %d/%d", in, out)
+	}
+	if with.revision() == base.revision() {
+		t.Fatal("audio absent from revision")
+	}
+	with.mode = hid.ModeHidOnly
+	if with.validate() == nil {
+		t.Fatal("audio allowed in compatibility mode")
+	}
+}
+
+func TestEmptyCompositionRequiresUnboundController(t *testing.T) {
+    root:=t.TempDir()
+    empty:=usbComposition{mode:hid.ModeNormal}
+    if err:=empty.validate();err!=nil {t.Fatal(err)}
+    if err:=os.WriteFile(filepath.Join(root,"UDC"),[]byte("\n"),0644);err!=nil{t.Fatal(err)}
+    if err:=verifyUSBCompositionAt(root,empty);err!=nil{t.Fatal(err)}
+    if err:=os.WriteFile(filepath.Join(root,"UDC"),[]byte("4340000.usb"),0644);err!=nil{t.Fatal(err)}
+    if err:=verifyUSBCompositionAt(root,empty);err==nil{t.Fatal("empty gadget remained attached")}
 }

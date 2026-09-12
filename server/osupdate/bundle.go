@@ -41,18 +41,19 @@ type Entry struct {
 	Preserve bool   `json:"preserve,omitempty"`
 }
 type Manifest struct {
-	Remove        []string `json:"remove,omitempty"`
-	SystemBase    string   `json:"system_base,omitempty"`
-	Format        int      `json:"format"`
-	Product       string   `json:"product"`
-	Kind          string   `json:"kind"`
-	Arch          string   `json:"arch"`
-	Version       string   `json:"version"`
-	Sequence      uint64   `json:"sequence"`
-	NativeABI     string   `json:"native_abi"`
-	PayloadBytes  int64    `json:"payload_bytes"`
-	PayloadSHA256 string   `json:"payload_sha256"`
-	Files         []Entry  `json:"files"`
+	Kernel        *KernelUpdate `json:"kernel,omitempty"`
+	Remove        []string      `json:"remove,omitempty"`
+	SystemBase    string        `json:"system_base,omitempty"`
+	Format        int           `json:"format"`
+	Product       string        `json:"product"`
+	Kind          string        `json:"kind"`
+	Arch          string        `json:"arch"`
+	Version       string        `json:"version"`
+	Sequence      uint64        `json:"sequence"`
+	NativeABI     string        `json:"native_abi"`
+	PayloadBytes  int64         `json:"payload_bytes"`
+	PayloadSHA256 string        `json:"payload_sha256"`
+	Files         []Entry       `json:"files"`
 }
 type Bundle struct {
 	Manifest Manifest
@@ -129,7 +130,7 @@ func validPath(name string) bool {
 	return name != "" && path.Clean(name) == name && !bytes.ContainsAny([]byte(name), "\\\x00") && (name == "NanoKVM-Server" || (len(name) > 4 && name[:4] == "web/"))
 }
 func validateManifest(m Manifest) error {
-	if !((m.Format == 1 && m.Kind == "application") || (m.Format == 2 && m.Kind == "system")) || m.Product != "NanoKVM OS" || m.Arch != "riscv64" {
+	if !((m.Format == 1 && m.Kind == "application") || ((m.Format == 2 || m.Format == 3) && m.Kind == "system")) || m.Product != "NanoKVM OS" || m.Arch != "riscv64" {
 		return errors.New("not a NanoKVM OS application package")
 	}
 	if !versionRE.MatchString(m.Version) || m.Sequence == 0 || !digestRE.MatchString(m.NativeABI) || !digestRE.MatchString(m.PayloadSHA256) || m.PayloadBytes < 1 || m.PayloadBytes > MaxBundle {
@@ -138,13 +139,16 @@ func validateManifest(m Manifest) error {
 	if len(m.Files) < 2 || len(m.Files) > 8192 {
 		return errors.New("invalid file count")
 	}
-	if (m.Format == 2 && !digestRE.MatchString(m.SystemBase)) || (m.Format == 1 && m.SystemBase != "") {
+	if (m.Format >= 2 && !digestRE.MatchString(m.SystemBase)) || (m.Format == 1 && m.SystemBase != "") {
 		return errors.New("invalid system base")
+	}
+	if err := validateKernelManifest(m); err != nil {
+		return err
 	}
 	seen := map[string]bool{}
 	var total int64
 	for _, e := range m.Files {
-		if !(validPath(e.Path) || (m.Format == 2 && validSystemEntry(e))) || seen[e.Path] || e.Size < 0 || e.Size > 64<<20 || !digestRE.MatchString(e.SHA256) {
+		if !(validPath(e.Path) || (m.Format >= 2 && (validSystemEntry(e) || validKernelEntry(m, e)))) || seen[e.Path] || e.Size < 0 || e.Size > 64<<20 || !digestRE.MatchString(e.SHA256) {
 			return errors.New("invalid or duplicate package path")
 		}
 		expected := uint32(0644)

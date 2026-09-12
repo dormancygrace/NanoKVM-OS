@@ -1,4 +1,11 @@
 #include "oled_ui.h"
+#include <time.h>
+
+static uint64_t oled_monotonic_ms() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return uint64_t(ts.tv_sec) * 1000 + ts.tv_nsec / 1000000;
+}
 
 using namespace maix;
 using namespace maix::sys;
@@ -360,34 +367,45 @@ void kvm_oled_clear(uint8_t subpage_changed)
 	}
 }
 
+// Compact roaming status, inspired by IronKVM / yuzi-co (Vadim), 3eb019f5
+// and 5c248538. Draw within RAM bounds instead of controller offsets, which
+// wrap. Both existing panel layouts retain their configured orientation.
+static void oled_roaming_status(bool force)
+{
+    static uint64_t moved = 0;
+    static unsigned step = 0;
+    static char shown[3][32] = {};
+    const bool narrow = kvm_hw_ver == 2;
+    const unsigned width = narrow ? 64 : 128;
+    const unsigned pages = narrow ? 4 : 8;
+    const unsigned font = narrow ? 4 : 8;
+    const unsigned block_width = narrow ? 60 : 120;
+    const unsigned block_pages = narrow ? 3 : 4;
+    uint64_t now = oled_monotonic_ms();
+    if (!moved || now - moved >= 60000) { moved = now; ++step; force = true; }
+    unsigned x = (step * 13) % (width - block_width + 1);
+    unsigned page = step % (pages - block_pages + 1);
+    char lines[3][32] = {};
+    const char *addr = "--";
+    if (kvm_sys_state.eth_state >= 1 && kvm_sys_state.eth_addr[0]) addr = (char *)kvm_sys_state.eth_addr;
+    else if (kvm_sys_state.wifi_state == 1 && kvm_sys_state.wifi_addr[0]) addr = (char *)kvm_sys_state.wifi_addr;
+    snprintf(lines[0], sizeof(lines[0]), "%-15.15s", addr);
+    snprintf(lines[1], sizeof(lines[1]), "%-4s %4dX%-4d", kvm_sys_state.type == KVM_TYPE_MJPG ? "MJPG" : kvm_sys_state.type == KVM_TYPE_H264 ? "H264" : "VID", kvm_sys_state.hdmi_width > 0 ? kvm_sys_state.hdmi_width : 0, kvm_sys_state.hdmi_height > 0 ? kvm_sys_state.hdmi_height : 0);
+    snprintf(lines[2], sizeof(lines[2]), "%3d FPS E%c W%c  ", kvm_sys_state.now_fps > 0 ? kvm_sys_state.now_fps : 0, kvm_sys_state.eth_state >= 1 ? '+' : '-', kvm_sys_state.wifi_state == 1 ? '+' : '-');
+    if (force) OLED_Clear();
+    for (unsigned i = 0; i < 3; ++i) {
+        lines[i][15] = 0;
+        if (force || strcmp(lines[i], shown[i])) {
+            OLED_ShowString(x, page + (narrow || i == 0 ? i : i + 1), lines[i], !narrow && i == 0 ? 16 : font);
+            strcpy(shown[i], lines[i]);
+        }
+    }
+}
+
 void kvm_main_ui_disp(uint8_t first_disp, uint8_t subpage_changed)
 {
-	ip_addr_t now_ip_type;
-	// if(kvm_oled_state.sub_page == 0)
-	// if(kvm_oled_state.oled_sleep_state == 1){
-
-	// Any operation will update the OLED sleep time
-	if (kvm_state_is_changed())
-		oled_auto_sleep_time_update();
-
-	if(kvm_oled_state.sub_page == 1){
-		// main page (oled sleep)
-		kvm_oled_clear(first_disp || subpage_changed);
-		kvm_oled_state.oled_sleep_state = 1;
-	} else {
-		// main page
-		kvm_oled_state.oled_sleep_state = 0;
-		now_ip_type = show_which_ip();
-		kvm_main_disp(first_disp || subpage_changed);
-		kvm_eth_state_disp(now_ip_type, first_disp || subpage_changed);
-		kvm_wifi_state_disp(now_ip_type, first_disp || subpage_changed);
-		kvm_usb_state_disp(first_disp || subpage_changed);
-		kvm_hdmi_state_disp(first_disp || subpage_changed);
-		kvm_fps_disp(first_disp || subpage_changed);
-		kvm_res_disp(first_disp || subpage_changed);
-		kvm_type_disp(first_disp || subpage_changed);
-		kvm_qlty_disp(first_disp || subpage_changed);
-	}
+    if (kvm_oled_state.oled_sleep_state || OLED_IsDisabled()) return;
+    oled_roaming_status(first_disp || subpage_changed);
 }
 
 uint8_t show_which_page()
@@ -490,7 +508,7 @@ void kvm_wifi_config_ui_disp(uint8_t first_disp, uint8_t subpage_changed)
 
 void oled_auto_sleep_time_update(void)
 {
-	kvm_oled_state.oled_sleep_start = time::time_ms();
+	kvm_oled_state.oled_sleep_start = oled_monotonic_ms();
 }
 
 static void oled_set_sleep_state(uint8_t sleeping)
@@ -510,60 +528,24 @@ static void oled_set_sleep_state(uint8_t sleeping)
 
 void oled_auto_sleep(void)
 {
-	uint16_t tmp16;
-	uint8_t sleep_close_signal = 0;
-	FILE *fp;
-	int file_size;
-	char RW_Data[10] = {0};
-	if(access("/etc/kvm/oled_sleep", F_OK) == 0){
-        fp = fopen("/etc/kvm/oled_sleep", "r");
-		fseek(fp, 0, SEEK_END);
-		file_size = ftell(fp); 
-		fseek(fp, 0, SEEK_SET);
-		if(file_size >= (int)sizeof(RW_Data)){
-			file_size = sizeof(RW_Data) - 1;
-		}
-        fread(RW_Data, sizeof(char), file_size, fp);
-		RW_Data[file_size] = '\0';
+    static int previous = -2;
+    int duration = 0;
+    FILE *fp = fopen("/etc/kvm/oled_sleep", "r");
+    if (fp) {
+        char text[16] = {};
+        if (fgets(text, sizeof(text), fp)) duration = atoi(text);
         fclose(fp);
-		if(file_size != 0){
-			tmp16 = atoi(RW_Data);
-		} else {
-			tmp16 = OLED_SLEEP_DELAY_DEFAULT;
-		}
-		if(tmp16 != kvm_oled_state.oled_sleep_param){
-			// printf("/etc/kvm/oled_sleep = %d\n", tmp16);
-			kvm_oled_state.oled_sleep_param = tmp16;
-			if(kvm_oled_state.oled_sleep_param < OLED_SLEEP_DELAY_MIN){
-				sleep_close_signal = 1;
-			} else {
-				// printf("oled_auto_sleep_time_update\n");
-				oled_auto_sleep_time_update();
-			}
-		}
-    } else {
-		if(kvm_oled_state.oled_sleep_param != 0){
-        	kvm_oled_state.oled_sleep_param = 0;
-			sleep_close_signal = 1;
-		}	
     }
-	
-	if(kvm_oled_state.page == 0){
-		if(kvm_oled_state.oled_sleep_param < OLED_SLEEP_DELAY_MIN){
-			if(sleep_close_signal == 1){
-				oled_set_sleep_state(0);
-				kvm_sys_state.sub_page = 0;
-			}
-		} else {
-			if((time::time_ms() - kvm_oled_state.oled_sleep_start)/1000 >= kvm_oled_state.oled_sleep_param){
-				oled_set_sleep_state(1);
-				kvm_sys_state.sub_page = 1;
-			} else {
-				oled_set_sleep_state(0);
-				kvm_sys_state.sub_page = 0;
-			}
-		}
-	}
+    if (duration != previous) {
+        previous = duration;
+        oled_auto_sleep_time_update();
+    }
+    bool sleeping = duration == -1;
+    if (!sleeping && kvm_sys_state.page == 0 && duration >= OLED_SLEEP_DELAY_MIN) {
+        sleeping = oled_monotonic_ms() - kvm_oled_state.oled_sleep_start >= uint64_t(duration) * 1000;
+    }
+    oled_set_sleep_state(sleeping);
+    if (kvm_sys_state.page == 0) kvm_sys_state.sub_page = sleeping ? 1 : 0;
 }
 
 void kvm_show_UE(void)

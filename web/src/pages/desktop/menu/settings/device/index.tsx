@@ -7,7 +7,6 @@ import { MouseJiggler } from './mouse-jiggler.tsx';
 import { Oled } from './oled.tsx';
 import { Reboot } from './reboot.tsx';
 import { Ssh } from './ssh.tsx';
-import { SystemInformation } from './system-information';
 
 export const Device = () => {
   const { t } = useTranslation();
@@ -27,7 +26,6 @@ export const Device = () => {
         <Divider className="opacity-50" />
 
         <Advanced />
-        <SystemInformation />
       </div>
 
       <Divider className="opacity-50" />

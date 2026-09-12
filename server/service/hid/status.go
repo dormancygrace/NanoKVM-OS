@@ -274,7 +274,7 @@ func getMode(gadgetPath string) (string, error) {
 				return "", fmt.Errorf("read USB function: %w", err)
 			}
 			function := filepath.Base(target)
-			if strings.HasPrefix(function, "rndis.") || strings.HasPrefix(function, "ncm.") || strings.HasPrefix(function, "mass_storage.") {
+			if strings.HasPrefix(function, "rndis.") || strings.HasPrefix(function, "ncm.") || strings.HasPrefix(function, "mass_storage.") || strings.HasPrefix(function, "uac1.") {
 				return ModeNormal, nil
 			}
 		}

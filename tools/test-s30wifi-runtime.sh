@@ -121,7 +121,7 @@ assert_not_contains '#psk=' "$RUN_DIR/wpa_supplicant.conf"
 assert_not_contains 'secret123' "$RUN_DIR/wpa_supplicant.conf"
 assert_contains 'wpa_passphrase args=Office WiFi stdin=secret123' "$CALL_LOG"
 assert_contains "wpa_supplicant args=-B -i wlan0 -c $RUN_DIR/wpa_supplicant.conf" "$CALL_LOG"
-assert_contains "udhcpc args=-i wlan0 -t 10 -T 1 -A 5 -b -p $DHCP_PID" "$CALL_LOG"
+assert_contains "udhcpc args=-B -O 121 -i wlan0 -t 10 -T 1 -A 5 -b -p $DHCP_PID" "$CALL_LOG"
 
 # A static Wi-Fi configuration suppresses the DHCP client only.
 new_case nodhcp
@@ -162,8 +162,7 @@ assert_contains 'ip args=addr flush dev wlan0' "$CALL_LOG"
 assert_not_contains 'ip args=add flush' "$CALL_LOG"
 assert_file "$AP_FLAG"
 
-# Stop uses direct process names rather than three process pipelines and removes
-# every ephemeral state file.
+# Stop must preserve the USB network DHCP server and remove ephemeral Wi-Fi state.
 new_case stop
 mkdir -p "$RUN_DIR"
 for file in udhcpd.pid udhcpd.leases wpa_supplicant.conf hostapd.conf udhcpd.conf
@@ -174,7 +173,7 @@ printf 'not-a-pid\n' > "$DHCP_PID"
 touch "$AP_FLAG"
 run_action stop
 assert_contains 'killall args=hostapd' "$CALL_LOG"
-assert_contains 'killall args=udhcpd' "$CALL_LOG"
+assert_not_contains 'killall args=udhcpd' "$CALL_LOG"
 assert_contains 'killall args=wpa_supplicant' "$CALL_LOG"
 for file in udhcpc.wlan0.pid udhcpd.pid udhcpd.leases wpa_supplicant.conf hostapd.conf udhcpd.conf
 do

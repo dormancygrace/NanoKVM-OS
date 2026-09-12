@@ -21,6 +21,7 @@ import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
 import { MobileMenuItemProvider } from '@/components/menu-item.tsx';
 
 import { KeyboardLedStatus } from '../keyboard-led-status';
+import { AudioMenu, useUsbAudio } from './audio';
 import { Capture } from './capture';
 import { DownloadImage } from './download.tsx';
 import { Fullscreen } from './fullscreen';
@@ -46,6 +47,7 @@ const mobileMenuPopoverClassName = 'nanokvm-mobile-menu-popover';
 type MenuVariant = 'desktop' | 'mobile';
 
 export const Menu = () => {
+  const audio = useUsbAudio();
   const { t } = useTranslation();
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const { account } = useAuth();
@@ -99,6 +101,10 @@ export const Menu = () => {
     setDismissMenuKey((key) => key + 1);
   }, []);
 
+  useEffect(() => {
+    if (!isMenuExpanded || isMenuHidden) dismissMenus();
+  }, [isMenuExpanded, isMenuHidden, dismissMenus]);
+
   function onMenuDragStart() {
     dismissMenus();
   }
@@ -136,10 +142,11 @@ export const Menu = () => {
       variant === 'mobile' ? (placement.edge === 'right' ? 'left' : 'right') : 'bottom';
 
     items.push(<Screen key="screen" />);
+    items.push(<AudioMenu key="audio" audio={audio} />);
     if (isAdmin) items.push(<Capture key="capture" />);
     if (captureEnabled) {
-      items.push(<Keyboard key="keyboard" />);
-      items.push(<Mouse key="mouse" />);
+      if (isEnabled('keyboard')) items.push(<Keyboard key="keyboard" />);
+      items.push(<Mouse key="mouse" hidden={!isEnabled('mouse')} />);
     }
     if (isAdmin) items.push(<UsbMenu key="usb" />);
     items.push(renderDivider(variant, 'divider-input'));

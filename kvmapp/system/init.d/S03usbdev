@@ -1,5 +1,12 @@
 #!/bin/sh
 
+# Vendor kernels expose a role procfs control; mainline uses the DT device role.
+set_usb_role() {
+    if [ -w /proc/cviusb/otg_role ]; then
+        echo "$1" > /proc/cviusb/otg_role || return 1
+    fi
+}
+
 set_hid_wakeup(){
     # The extension is optional on upstream kernels; never create configfs files.
     [ -w "$1/wakeup_on_write" ] || return 0
@@ -32,16 +39,16 @@ reset_usb_config_links(){
 start_usb_dev(){
     . /etc/profile
     reset_usb_config_links /sys/kernel/config/usb_gadget/g0 || return 1
-    # An unlinked network function can retain usb0 until its instance is freed.
-    # Release the unused protocol so the selected one gets the stable name.
-    if [ -e /boot/usb.ncm ]; then
-        unused=rndis.usb0
-    else
-        unused=ncm.usb0
-    fi
-    if [ -d "/sys/kernel/config/usb_gadget/g0/functions/$unused" ]; then
-        rmdir "/sys/kernel/config/usb_gadget/g0/functions/$unused" || return 1
-    fi
+    # Retire RNDIS and release NCM too when USB networking is disabled.
+    # An unlinked function otherwise retains usb0 and its endpoint resources.
+    for unused in rndis.usb0 ncm.usb0; do
+        if [ "$unused" = ncm.usb0 ] && { [ -e /boot/usb.ncm ] || [ -e /boot/usb.rndis0 ]; }; then
+            continue
+        fi
+        if [ -d "/sys/kernel/config/usb_gadget/g0/functions/$unused" ]; then
+            rmdir "/sys/kernel/config/usb_gadget/g0/functions/$unused" || return 1
+        fi
+    done
     echo "usb mode: device"
     cd /sys/kernel/config/usb_gadget
 
@@ -97,7 +104,7 @@ start_usb_dev(){
     mkdir -p configs/c.1/strings/0x409
     echo "NanoKVM" >  configs/c.1/strings/0x409/configuration
 
-    # Deterministic gadget MACs from the chip UID so the host-side RNDIS/NCM
+    # Deterministic gadget MACs from the chip UID so the host-side NCM
     # interface keeps a STABLE MAC across re-enumeration/reboot. Without this
     # the kernel assigns a random dev_addr/host_addr on every bind, so the
     # attached PC sees a brand-new network adapter (and MAC) each time.
@@ -108,26 +115,14 @@ start_usb_dev(){
         usb_host_mac="48:da:35:6d:${usb_uid%??}:${usb_uid#??}"
     fi
 
-    if [ -e /boot/usb.ncm ]
+    # Accept the old boot marker as NCM for upgrades from previous images.
+    if [ -e /boot/usb.ncm ] || [ -e /boot/usb.rndis0 ]
     then
         mkdir -p functions/ncm.usb0
         [ -n "$usb_dev_mac" ]  && echo "$usb_dev_mac"  > functions/ncm.usb0/dev_addr
         [ -n "$usb_host_mac" ] && echo "$usb_host_mac" > functions/ncm.usb0/host_addr
         echo WINNCM > functions/ncm.usb0/os_desc/interface.ncm/compatible_id
         ln -s functions/ncm.usb0 configs/c.1/
-    else
-        if [ -e /boot/usb.rndis0 ]
-        then
-                mkdir -p functions/rndis.usb0
-                [ -n "$usb_dev_mac" ]  && echo "$usb_dev_mac"  > functions/rndis.usb0/dev_addr
-                [ -n "$usb_host_mac" ] && echo "$usb_host_mac" > functions/rndis.usb0/host_addr
-                echo e0 > functions/rndis.usb0/class
-                echo 01 > functions/rndis.usb0/subclass
-                echo 03 > functions/rndis.usb0/protocol
-                echo RNDIS > functions/rndis.usb0/os_desc/interface.rndis/compatible_id
-                echo 5162001 > functions/rndis.usb0/os_desc/interface.rndis/sub_compatible_id
-                ln -s functions/rndis.usb0 configs/c.1/
-        fi
     fi
 
     if [ -e /boot/usb.ncm ] || [ -e /boot/usb.rndis0 ]
@@ -156,8 +151,8 @@ start_usb_dev(){
     echo 1 > functions/hid.GS1/subclass
     set_hid_wakeup functions/hid.GS1 || return 1
     echo 2 > functions/hid.GS1/protocol
-    echo 4 > functions/hid.GS1/report_length
-    echo -ne \\x5\\x1\\x9\\x2\\xa1\\x1\\x9\\x1\\xa1\\x0\\x5\\x9\\x19\\x1\\x29\\x3\\x15\\x0\\x25\\x1\\x95\\x3\\x75\\x1\\x81\\x2\\x95\\x1\\x75\\x5\\x81\\x3\\x5\\x1\\x9\\x30\\x9\\x31\\x9\\x38\\x15\\x81\\x25\\x7f\\x75\\x8\\x95\\x3\\x81\\x6\\xc0\\xc0 > functions/hid.GS1/report_desc
+    echo 5 > functions/hid.GS1/report_length
+    echo -ne \\x5\\x1\\x9\\x2\\xa1\\x1\\x9\\x1\\xa1\\x0\\x5\\x9\\x19\\x1\\x29\\x3\\x15\\x0\\x25\\x1\\x95\\x3\\x75\\x1\\x81\\x2\\x95\\x1\\x75\\x5\\x81\\x3\\x5\\x1\\x9\\x30\\x9\\x31\\x9\\x38\\x15\\x81\\x25\\x7f\\x75\\x8\\x95\\x3\\x81\\x6\\x05\\x0c\\x0a\\x38\\x02\\x15\\x81\\x25\\x7f\\x75\\x08\\x95\\x01\\x81\\x06\\xc0\\xc0 > functions/hid.GS1/report_desc
     if [ ! -e /boot/disable_hid ] && [ ! -e /boot/usb.disable_relative ]; then
         ln -s functions/hid.GS1 configs/c.1
     fi
@@ -167,8 +162,8 @@ start_usb_dev(){
     echo 0 > functions/hid.GS2/subclass
     set_hid_wakeup functions/hid.GS2 || return 1
     echo 2 > functions/hid.GS2/protocol
-    echo 6 > functions/hid.GS2/report_length
-    echo -ne \\x05\\x01\\x09\\x02\\xa1\\x01\\x09\\x01\\xa1\\x00\\x05\\x09\\x19\\x01\\x29\\x05\\x15\\x00\\x25\\x01\\x95\\x05\\x75\\x01\\x81\\x02\\x95\\x01\\x75\\x03\\x81\\x01\\x05\\x01\\x09\\x30\\x09\\x31\\x15\\x00\\x26\\xff\\x7f\\x35\\x00\\x46\\xff\\x7f\\x75\\x10\\x95\\x02\\x81\\x02\\x05\\x01\\x09\\x38\\x15\\x81\\x25\\x7f\\x35\\x00\\x45\\x00\\x75\\x08\\x95\\x01\\x81\\x06\\xc0\\xc0 > functions/hid.GS2/report_desc
+    echo 7 > functions/hid.GS2/report_length
+    echo -ne \\x05\\x01\\x09\\x02\\xa1\\x01\\x09\\x01\\xa1\\x00\\x05\\x09\\x19\\x01\\x29\\x05\\x15\\x00\\x25\\x01\\x95\\x05\\x75\\x01\\x81\\x02\\x95\\x01\\x75\\x03\\x81\\x01\\x05\\x01\\x09\\x30\\x09\\x31\\x15\\x00\\x26\\xff\\x7f\\x35\\x00\\x46\\xff\\x7f\\x75\\x10\\x95\\x02\\x81\\x02\\x05\\x01\\x09\\x38\\x15\\x81\\x25\\x7f\\x35\\x00\\x45\\x00\\x75\\x08\\x95\\x01\\x81\\x06\\x05\\x0c\\x0a\\x38\\x02\\x15\\x81\\x25\\x7f\\x75\\x08\\x95\\x01\\x81\\x06\\xc0\\xc0 > functions/hid.GS2/report_desc
     if [ ! -e /boot/disable_hid ] && [ ! -e /boot/usb.disable_absolute ]; then
         ln -s functions/hid.GS2 configs/c.1
     fi
@@ -202,18 +197,51 @@ start_usb_dev(){
             # See: https://github.com/sipeed/NanoKVM/issues/633
     fi
 
+    # UAC1 host speaker -> local ALSA capture. No microphone or interrupt FU.
+    # Link last to preserve existing interface numbering.
+    if [ -e /boot/usb.audio ]; then
+        mkdir -p functions/uac1.audio0 || return 1
+        echo 0 > functions/uac1.audio0/p_chmask || return 1
+        echo 3 > functions/uac1.audio0/c_chmask || return 1
+        echo 48000 > functions/uac1.audio0/c_srate || return 1
+        echo 8 > functions/uac1.audio0/req_number || return 1
+        echo 2 > functions/uac1.audio0/c_ssize || return 1
+        echo 0 > functions/uac1.audio0/c_mute_present || return 1
+        echo 0 > functions/uac1.audio0/c_volume_present || return 1
+        echo 0 > functions/uac1.audio0/p_mute_present || return 1
+        echo 0 > functions/uac1.audio0/p_volume_present || return 1
+        ln -s functions/uac1.audio0 configs/c.1/ || return 1
+    fi
+
+    # An empty composition means USB disconnected, not an empty enumerated device.
+    _has_function=0
+    for _link in configs/c.1/*; do
+        if [ -L "$_link" ]; then _has_function=1; break; fi
+    done
+    if [ "$_has_function" = 0 ]; then
+        echo "USB functions disabled"
+        return 0
+    fi
     ls /sys/class/udc/ | cat > UDC
-    echo device > /proc/cviusb/otg_role
+    set_usb_role device
 }
 
-start_usb_host(){
+stop_usb_dev(){
     if [ -n "$(cat /sys/kernel/config/usb_gadget/g0/UDC)" ]; then
         echo '' > /sys/kernel/config/usb_gadget/g0/UDC || return 1
     fi
-    echo host > /proc/cviusb/otg_role
 }
 
 restart_usb_dev(){
+    # Preserve a deliberately empty composition across the USB reset action.
+    _has_function=0
+    for _link in /sys/kernel/config/usb_gadget/g0/configs/c.1/*; do
+        if [ -L "$_link" ]; then _has_function=1; break; fi
+    done
+    if [ "$_has_function" = 0 ]; then
+        stop_usb_dev
+        return $?
+    fi
     echo > /sys/kernel/config/usb_gadget/g0/UDC
     sleep 1
     ls /sys/class/udc/ | cat > /sys/kernel/config/usb_gadget/g0/UDC
@@ -228,10 +256,10 @@ case "$1" in
     restart_usb_dev
   ;;
   stop)
-    start_usb_host
+    stop_usb_dev
   ;;
   stop_start)
-    start_usb_host
+    stop_usb_dev
     start_usb_dev
   ;;
    restart_phy)

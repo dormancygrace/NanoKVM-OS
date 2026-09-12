@@ -73,6 +73,7 @@ type GetVirtualDeviceRsp struct {
 	Media    bool                       `json:"media"`
 	Disk     bool                       `json:"disk"`
 	Serial   bool                       `json:"serial"`
+	Audio    bool                       `json:"audio"`
 	HID      bool                       `json:"hid"`
 	Mode     string                     `json:"mode"`
 	Budget   USBEndpointBudget          `json:"budget"`
@@ -103,6 +104,7 @@ type SetUSBCompositionReq struct {
 	Network  *bool  `json:"network" validate:"required"`
 	Disk     *bool  `json:"disk" validate:"required"`
 	Serial   *bool  `json:"serial" validate:"required"`
+	Audio    *bool  `json:"audio" validate:"required"`
 	Mode     string `json:"mode" validate:"required,oneof=normal hid-only"`
 	Revision string `json:"revision" validate:"required"`
 }

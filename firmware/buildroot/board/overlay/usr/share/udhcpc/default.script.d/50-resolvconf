@@ -1,0 +1,16 @@
+#!/bin/sh
+# Publish each DHCP lease separately so VPN and other interfaces keep their DNS.
+command -v resolvconf >/dev/null 2>&1 || exit 0
+# A boot-provided resolver configuration is an explicit static override.
+[ ! -e /boot/resolv.conf ] || exit 0
+[ -n "$interface" ] || exit 1
+case "$1" in
+    bound|renew)
+        {
+            if [ -n "$search" ]; then printf 'search %s\n' "$search"
+            elif [ -n "$domain" ]; then printf 'search %s\n' "$domain"; fi
+            for server in $dns; do printf 'nameserver %s\n' "$server"; done
+        } | resolvconf -a "$interface.udhcpc"
+        ;;
+    deconfig) resolvconf -d "$interface.udhcpc" ;;
+esac

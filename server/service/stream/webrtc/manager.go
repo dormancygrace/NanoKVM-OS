@@ -18,6 +18,7 @@ const videoRTPMTU = 1216
 func NewWebRTCManager() *WebRTCManager {
 	m := &WebRTCManager{
 		clients:      make(map[*websocket.Conn]*Client),
+		writers:      make(map[*Client]*peerVideoWriter),
 		videoSending: false,
 	}
 	m.updateClientSnapshotLocked()
@@ -47,6 +48,27 @@ func (m *WebRTCManager) AddClient(ws *websocket.Conn, client *Client) error {
 		m.subscription = subscription
 	}
 
+	var w *peerVideoWriter
+	w = newPeerVideoWriter(func(sample stream.VideoFrame) error {
+		// A reconnect may outlive an old blocked track write. Serialize only this
+		// peer's packetizer; neither the manager nor another peer waits here.
+		client.videoWriteMutex.Lock()
+		defer client.videoWriteMutex.Unlock()
+		if w.isClosed() {
+			return nil
+		}
+		packets := client.packetizer.packetize(sample.Data, sample.Timestamp, client.pathMTU.size())
+		if len(packets) == 0 {
+			return errVideoBudget
+		}
+		return client.track.writeVideoPackets(packets)
+	}, func(err error) {
+		log.Errorf("failed to write video to client: %s", err)
+		if m.removeClient(ws, w) {
+			client.Close()
+		}
+	})
+	m.writers[client] = w
 	m.clients[ws] = client
 	count := m.updateClientSnapshotLocked()
 	m.viewerVersion++
@@ -59,10 +81,19 @@ func (m *WebRTCManager) AddClient(ws *websocket.Conn, client *Client) error {
 }
 
 func (m *WebRTCManager) RemoveClient(ws *websocket.Conn) {
+	m.removeClient(ws, nil)
+}
+
+func (m *WebRTCManager) removeClient(ws *websocket.Conn, expected *peerVideoWriter) bool {
 	m.mutex.Lock()
-	if _, exists := m.clients[ws]; !exists {
+	if client, exists := m.clients[ws]; !exists || (expected != nil && m.writers[client] != expected) {
 		m.mutex.Unlock()
-		return
+		return false
+	}
+	client := m.clients[ws]
+	if writer := m.writers[client]; writer != nil {
+		writer.close()
+		delete(m.writers, client)
 	}
 	delete(m.clients, ws)
 	count := m.updateClientSnapshotLocked()
@@ -82,6 +113,7 @@ func (m *WebRTCManager) RemoveClient(ws *websocket.Conn) {
 	vm.UpdateHdmiViewerSnapshot("webrtc", count, version)
 
 	log.Debugf("removed client %s, total clients: %d", ws.RemoteAddr(), count)
+	return true
 }
 
 func (m *WebRTCManager) GetClientCount() int {
@@ -137,28 +169,26 @@ func (m *WebRTCManager) StartVideoStream() {
 }
 
 func (m *WebRTCManager) sendVideoStream(subscription *stream.VideoSubscription) {
-	samples, writerDone := m.startVideoWriter(subscription)
-
 	for {
 		frame, ok := subscription.Next()
 		if !ok {
-			close(samples)
-			<-writerDone
 			return
 		}
-		clients := m.getClientsFor(subscription)
-		if len(clients) == 0 {
-			close(samples)
-			<-writerDone
-			return
-		}
-
 		stream.UpdateCaptureStatus(stream.CaptureModeH264, frame.Result)
 		if frame.Result < 0 || len(frame.Data) == 0 {
 			continue
 		}
-
-		samples <- frame
+		// VideoSource owns immutable Go frame storage. Each writer creates its
+		// own RTP packets under its current PMTU, sequence and timestamp state.
+		m.mutex.Lock()
+		if m.subscription != subscription {
+			m.mutex.Unlock()
+			return
+		}
+		for _, writer := range m.writers {
+			writer.offer(frame)
+		}
+		m.mutex.Unlock()
 	}
 }
 
@@ -175,29 +205,4 @@ func newVideoPacketizer(codec stream.VideoCodec) rtp.Packetizer {
 		rtp.NewRandomSequencer(),
 		90000,
 	)
-}
-
-func (m *WebRTCManager) startVideoWriter(subscription *stream.VideoSubscription) (chan stream.VideoFrame, <-chan struct{}) {
-	samples := make(chan stream.VideoFrame, 1)
-	done := make(chan struct{})
-
-	go func() {
-		defer close(done)
-		for sample := range samples {
-			for _, client := range m.getClientsFor(subscription) {
-				packets := client.packetizer.packetize(sample.Data, sample.Timestamp, client.pathMTU.size())
-				sent, err := client.videoStart.write(sample.IsKeyframe(), packets, client.track.writeVideoPackets)
-				if !sent {
-					continue
-				}
-				if err != nil {
-					log.Errorf("failed to write video to client: %s", err)
-					m.RemoveClient(client.WsConn())
-					client.Close()
-				}
-			}
-		}
-	}()
-
-	return samples, done
 }

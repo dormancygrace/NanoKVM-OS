@@ -11,20 +11,18 @@ import (
 	"time"
 
 	"NanoKVM-Server/service/hid"
+	"NanoKVM-Server/service/stream/audio"
 )
 
 func (s usbComposition) validate() error {
 	if s.mode != hid.ModeNormal && s.mode != hid.ModeHidOnly {
 		return errors.New("invalid USB mode")
 	}
-	if s.mode == hid.ModeHidOnly && (s.network || s.disk) {
-		return errors.New("USB network and disk are unavailable in HID-only mode")
+	if s.mode == hid.ModeHidOnly && (s.network || s.disk || s.audio) {
+		return errors.New("USB network, disk and audio are unavailable in HID-only mode")
 	}
 	if !s.fitsEndpointBudget() {
 		return errors.New("USB endpoint budget exceeded")
-	}
-	if !s.keyboard && !s.relative && !s.absolute && !s.network && !s.disk && !s.serial {
-		return errors.New("select at least one USB function")
 	}
 	return nil
 }
@@ -32,6 +30,9 @@ func (s usbComposition) validate() error {
 func applyLiveUSBComposition(h *hid.Hid, current, candidate usbComposition) error {
 	if current == candidate {
 		return nil
+	}
+	if err := audio.Stop(); err != nil {
+		return err
 	}
 	if candidate.serial && !current.serial {
 		if err := retireLegacyACMGetty(inittabPath); err != nil {
@@ -57,26 +58,31 @@ func applyLiveUSBComposition(h *hid.Hid, current, candidate usbComposition) erro
 	return store.apply(current, candidate)
 }
 
+func (s usbComposition) empty() bool {
+    return !s.keyboard && !s.relative && !s.absolute && !s.network && !s.disk && !s.serial && !s.audio
+}
 func verifyLiveUSBComposition(s usbComposition) error {
-	root := "/sys/kernel/config/usb_gadget/g0"
+    return verifyUSBCompositionAt("/sys/kernel/config/usb_gadget/g0", s)
+}
+func verifyUSBCompositionAt(root string, s usbComposition) error {
 	udc, err := os.ReadFile(filepath.Join(root, "UDC"))
-	if err != nil || strings.TrimSpace(string(udc)) == "" {
-		return errors.New("USB gadget did not bind")
-	}
+	if err != nil { return err }
+    bound := strings.TrimSpace(string(udc)) != ""
+    if bound == s.empty() { return errors.New("USB controller binding does not match the composition") }
 	linked := func(name string) bool {
 		info, err := os.Lstat(filepath.Join(root, "configs/c.1", name))
 		return err == nil && info.Mode()&os.ModeSymlink != 0
 	}
 	if linked("hid.GS0") != s.keyboard || linked("hid.GS1") != s.relative ||
 		linked("hid.GS2") != s.absolute || linked("mass_storage.disk0") != s.disk ||
-		linked("acm.GS0") != s.serial || (linked("rndis.usb0") || linked("ncm.usb0")) != s.network {
+		linked("acm.GS0") != s.serial || linked("uac1.audio0") != s.audio || (linked("rndis.usb0") || linked("ncm.usb0")) != s.network {
 		return errors.New("USB functions do not match the requested composition")
 	}
 	return nil
 }
 
 var usbCompositionFlags = []string{
-	"usb.rndis0", "usb.ncm", "usb.disk0", "usb.acm", "disable_hid",
+	"usb.rndis0", "usb.ncm", "usb.disk0", "usb.acm", "usb.audio", "disable_hid",
 	"usb.disable_keyboard", "usb.disable_relative", "usb.disable_absolute",
 }
 
@@ -189,13 +195,10 @@ func (store usbCompositionStore) apply(current, candidate usbComposition) error 
 		return rollback(err)
 	}
 
-	// Prefer NCM when enabling a previously disabled network function. Retain
-	// an explicitly selected RNDIS profile until it is disabled or switched.
-	useNCM := candidate.network && (before[filepath.Join(store.bootDir, "usb.ncm")].exists ||
-		!before[filepath.Join(store.bootDir, "usb.rndis0")].exists)
+	// USB networking uses NCM; remove any legacy RNDIS preference on apply.
 	flags := map[string]bool{
-		"usb.rndis0": candidate.network && !useNCM, "usb.ncm": useNCM,
-		"usb.disk0": candidate.disk, "usb.acm": candidate.serial,
+		"usb.rndis0": false, "usb.ncm": candidate.network,
+		"usb.disk0": candidate.disk, "usb.acm": candidate.serial, "usb.audio": candidate.audio,
 		"disable_hid":          !candidate.keyboard && !candidate.relative && !candidate.absolute,
 		"usb.disable_keyboard": !candidate.keyboard,
 		"usb.disable_relative": !candidate.relative,

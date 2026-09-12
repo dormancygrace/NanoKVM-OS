@@ -4,6 +4,7 @@ import (
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/vm"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -20,6 +21,60 @@ import (
 var crlf = []byte("\r\n")
 
 const clientWriteTimeout = 5 * time.Second
+const duplicateRefreshInterval = 5 * time.Second
+
+// Inspired by IronKVM 14386101 (yuzi-co): suppress identical encoded JPEGs.
+// Client generation is independent, so a new or lagging viewer still gets
+// the current image even when every other viewer has already seen it.
+type frameDelivery struct {
+	last       []byte
+	generation uint64
+}
+
+// SG2002 JPEG output starts with SOI and a two-byte APP9 sequence counter.
+// The counter changes even when every decoded pixel and all coding tables are
+// identical. Ignore only that exact leading marker's payload, preserving every
+// other byte (including quantization/Huffman tables and compressed image data).
+// Captured device frames and pixel comparison are documented in development notes.
+func sameMjpegImage(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	prefix := []byte{0xff, 0xd8, 0xff, 0xe9, 0x00, 0x04}
+	if len(a) > 8 && bytes.HasPrefix(a, prefix) && bytes.HasPrefix(b, prefix) {
+		return bytes.Equal(a[8:], b[8:])
+	}
+	return bytes.Equal(a, b)
+}
+
+func (d *frameDelivery) offer(clients []*mjpegClient, data []byte, now time.Time) bool {
+	if !sameMjpegImage(d.last, data) {
+		d.last = data // ReadMjpeg returns an owned Go buffer, never mutated.
+		d.generation++
+	}
+	sent := false
+	for _, c := range clients {
+		if c.ctx.Err() != nil {
+			continue
+		}
+		if c.generation != d.generation || c.lastOffer.IsZero() || now.Sub(c.lastOffer) >= duplicateRefreshInterval {
+			c.offer(data)
+			c.generation = d.generation
+			c.lastOffer = now
+			sent = true
+		}
+	}
+	return sent
+}
+
+func viewersReady(clients []*mjpegClient) bool {
+	for _, c := range clients {
+		if c.ctx.Err() == nil && len(c.frames) == 0 {
+			return true
+		}
+	}
+	return false
+}
 
 type Streamer struct {
 	mutex          sync.Mutex
@@ -44,6 +99,9 @@ func NewStreamer() *Streamer {
 type mjpegClient struct {
 	ctx    context.Context
 	frames chan []byte
+	// Owned exclusively by the stream's capture loop.
+	generation uint64
+	lastOffer  time.Time
 }
 
 func newMjpegClient(ctx context.Context) *mjpegClient {
@@ -149,11 +207,15 @@ func (s *Streamer) run() {
 	common.CheckScreen()
 	screen := common.GetCaptureScreen()
 	fps := screen.FPS
+	if fps == 0 {
+		fps = 1
+	}
 
 	vision := common.GetKvmVision()
 
 	ticker := time.NewTicker(time.Second / time.Duration(fps))
 	defer ticker.Stop()
+	delivery := frameDelivery{}
 
 	for range ticker.C {
 		screen = common.GetCaptureScreen()
@@ -166,9 +228,22 @@ func (s *Streamer) run() {
 			continue
 		}
 
+		if screen.FPS != fps && screen.FPS != 0 {
+			fps = screen.FPS
+			ticker.Reset(time.Second / time.Duration(fps))
+		}
+		// Snapshot consumers still need fresh captures even when browser
+		// writers are backed up. Otherwise avoid captures nobody can use.
+		if !s.frameCacheEnabled() && !viewersReady(clients) {
+			continue
+		}
+
 		data, result := vision.ReadMjpeg(screen.Width, screen.Height, screen.Quality)
 		stream.UpdateCaptureStatus(stream.CaptureModeMJPEG, result)
 		if result < 0 || result == 5 || len(data) == 0 {
+			// Signal loss/recovery must force a fresh delivery, even when
+			// the returning JPEG happens to match the last good one.
+			delivery.last = nil
 			continue
 		}
 
@@ -176,16 +251,9 @@ func (s *Streamer) run() {
 			s.setLatestFrame(data, screen.Width, screen.Height)
 		}
 
-		for _, client := range clients {
-			client.offer(data)
+		if delivery.offer(clients, data, time.Now()) {
+			stream.GetFrameRateCounter().Update()
 		}
-
-		if screen.FPS != fps && screen.FPS != 0 {
-			fps = screen.FPS
-			ticker.Reset(time.Second / time.Duration(fps))
-		}
-
-		stream.GetFrameRateCounter().Update()
 	}
 }
 

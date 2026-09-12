@@ -21,6 +21,7 @@ func buildAbsolutePointerReport(x uint16, y uint16, buttons byte, wheel int) []b
 		byte(x), byte(x >> 8),
 		byte(y), byte(y >> 8),
 		byte(int8(clampInt(wheel, -127, 127))),
+		0, // AC Pan
 	}
 }
 
@@ -30,6 +31,7 @@ func buildRelativeMouseReport(deltaX int, deltaY int, buttons byte, wheel int) [
 		byte(int8(clampInt(deltaX, -127, 127))),
 		byte(int8(clampInt(deltaY, -127, 127))),
 		byte(int8(clampInt(wheel, -127, 127))),
+		0, // AC Pan
 	}
 }
 

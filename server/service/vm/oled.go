@@ -25,6 +25,10 @@ func (s *Service) SetOLED(c *gin.Context) {
 		return
 	}
 
+	if req.Sleep != -1 && req.Sleep != 0 && req.Sleep != 15 && req.Sleep != 30 && req.Sleep != 60 && req.Sleep != 180 && req.Sleep != 300 && req.Sleep != 600 && req.Sleep != 1800 && req.Sleep != 3600 {
+		rsp.ErrRsp(c, -1, "invalid OLED sleep duration")
+		return
+	}
 	data := []byte(fmt.Sprintf("%d", req.Sleep))
 	err := os.WriteFile(OLEDSleepFile, data, 0o644)
 	if err != nil {

@@ -24,11 +24,15 @@ void* thread_oled_handle(void * arg)
 {
 	OLED_Init();
 	OLED_ColorTurn(0);		//0正常显示 1 反色显示
-	OLED_DisplayTurn(0);	//0正常显示 1 屏幕翻转显示
+	// The PCIe panel needs A0/C0; the roaming renderer no longer calls
+	// kvm_init_pcie_ui(), which previously selected this orientation.
+	if (kvm_hw_ver == 2) OLED_Revolve();
+	else OLED_DisplayTurn(0);	//0正常显示 1 屏幕翻转显示
 	OLED_Clear();
 	if(kvm_oled_state.ue_patch_state == 1){
 		kvm_show_UE();
 		while(kvm_sys_state.oled_thread_running){
+            oled_auto_sleep();
 			time::sleep_ms(100);
 		}
 		OLED_Clear();
@@ -37,6 +41,7 @@ void* thread_oled_handle(void * arg)
     while(kvm_sys_state.oled_thread_running)
     {
 		oled_auto_sleep();
+        if (OLED_IsDisabled()) { time::sleep_ms(OLED_DELAY); continue; }
 		// printf("[kvmd]thread_oled_handle - while\n");
 		uint8_t page_changed = (kvm_oled_state.page == kvm_sys_state.page)? 0:1;
 		uint8_t subpage_changed = (kvm_oled_state.sub_page == kvm_sys_state.sub_page)? 0:1;
@@ -207,13 +212,13 @@ int main(int argc, char* argv[])
 
 #endif
     // Catch SIGINT signal(e.g. Ctrl + C), and set exit flag to true.
-    signal(SIGINT, [](int sig){ 
+    signal(SIGINT, [](int sig){
 	kvm_sys_state.oled_thread_running = 0;
 	kvm_sys_state.key_thread_running = 0;
 	kvm_sys_state.sys_thread_running = 0;
-	app::set_exit_flag(true); 
+	app::set_exit_flag(true);
 	log::info("[kvms]Prepare to exit\n");
-	});	
+	});
 
 	pthread_t sys_state_thread;
 	pthread_t display_thread;

@@ -11,10 +11,10 @@ for file in server/NanoKVM-Server server/dl_lib/libkvm.so kvm_system/kvm_system 
 done
 flavour=${2:-compatibility}
 if [ "$flavour" = enhanced ]; then
-    test "$(cat "$NANOKVM_BOARD_ASSETS/kernel.release")" = 7.2.4-nanokvm-enhanced
+    test "$(cat "$NANOKVM_BOARD_ASSETS/kernel.release")" = 7.2.5-nanokvm-os
     # A new version label must never silently package the old 5.10 modules.
-    test -f "$NANOKVM_BOARD_ASSETS/usr/lib/modules/7.2.4-nanokvm-enhanced/extra/cvi_mipi_rx.ko"
-    test -f "$NANOKVM_BOARD_ASSETS/usr/lib/modules/7.2.4-nanokvm-enhanced/modules.dep"
+    test -f "$NANOKVM_BOARD_ASSETS/usr/lib/modules/7.2.5-nanokvm-os/extra/cvi_mipi_rx.ko"
+    test -f "$NANOKVM_BOARD_ASSETS/usr/lib/modules/7.2.5-nanokvm-os/modules.dep"
     python3 "$(dirname "$0")/verify-board-assets.py" "$NANOKVM_BOARD_ASSETS"
     for executable in server/NanoKVM-Server kvm_system/kvm_system; do
         readelf -l "$NANOKVM_APP_STAGE/$executable" | grep -q '/lib/ld-musl-riscv64.so.1'
@@ -38,7 +38,7 @@ fi
 if [ "$flavour" != enhanced ]; then install -m644 "$NANOKVM_APP_STAGE/system/ko/soph_mipi_rx.ko" "$target/mnt/system/ko/soph_mipi_rx.ko"; fi
 cp -a "$NANOKVM_SENSOR_DATA/." "$target/mnt/data/"
 cp "$target/mnt/data/sensor_cfg.ini.LT" "$target/mnt/data/sensor_cfg.ini"
-for name in S00kmod S01fs S03usbdev S15kvmhwd S25wifimod S30eth S30wifi S50avahi-daemon S50sshd S80dnsmasq S95nanokvm S96picoclaw; do
+for name in S00kmod S01fs S03usbdev S12temperature S13cpufreq S15kvmhwd S25wifimod S30eth S30wifi S50avahi-daemon S50sshd S80dnsmasq S95nanokvm S96picoclaw; do
     install -m755 "$NANOKVM_APP_STAGE/system/init.d/$name" "$target/etc/init.d/$name"
 done
 # Incremental Buildroot trees retain files from deselected packages.
@@ -75,6 +75,11 @@ if [ "$flavour" = enhanced ]; then
     install -m755 "$(dirname "$0")/enhanced/tools/nanokvm-wifi-tx-policy" "$target/usr/sbin/nanokvm-wifi-tx-policy"
     install -m755 "$(dirname "$0")/enhanced/tools/nanokvm-wifi-tx-live" "$target/usr/sbin/nanokvm-wifi-tx-live"
     install -m755 "$NANOKVM_APP_STAGE/system/bin/nkos-update" "$target/usr/sbin/nkos-update"
+    # Audio playback invokes this helper from the application tree.
+    mkdir -p "$target/kvmapp/system/bin" "$target/kvmapp/system/share/usb-audio"
+    install -m755 "$NANOKVM_APP_STAGE/system/bin/usb-audio-capture" "$target/kvmapp/system/bin/usb-audio-capture"
+    cp -a "$NANOKVM_APP_STAGE/system/share/usb-audio/." "$target/kvmapp/system/share/usb-audio/"
+
     for name in S00nkos-system-update S99nkos-system-confirm S13nanokvm-watchdog S38memory S94sg2002aes S94nanokvm-update; do
         install -m755 "$NANOKVM_APP_STAGE/system/init.d/$name" "$target/etc/init.d/$name"
     done

@@ -11,7 +11,7 @@ for name in ('S03usbdev', 'S03usbhid'):
         continue
     replacements = {
         '\nstart_usb_dev(){\n': '\nstart_usb_dev(){\n    # Enhanced USB network lifecycle\n    /etc/init.d/S30rndis stop || return 1\n',
-        '\nstart_usb_host(){\n': '\nstart_usb_host(){\n    /etc/init.d/S30rndis stop || return 1\n',
+        '\nstop_usb_dev(){\n': '\nstop_usb_dev(){\n    /etc/init.d/S30rndis stop || return 1\n',
         '    ls /sys/class/udc/ | cat > UDC\n': '    ls /sys/class/udc/ | cat > UDC || return 1\n    /etc/init.d/S30rndis start || return 1\n',
         '\nrestart_usb_dev(){\n': '\nrestart_usb_dev(){\n    /etc/init.d/S30rndis stop || return 1\n',
         '    ls /sys/class/udc/ | cat > /sys/kernel/config/usb_gadget/g0/UDC\n': '    ls /sys/class/udc/ | cat > /sys/kernel/config/usb_gadget/g0/UDC || return 1\n    /etc/init.d/S30rndis start || return 1\n',

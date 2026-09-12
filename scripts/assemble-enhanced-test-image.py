@@ -61,7 +61,7 @@ def main():
     run(a.dumpimage, '-T', 'flat_dt', '-p', '0', '-o', kernel_zst, a.fit)
     image = subprocess.check_output(['zstd', '-dc', str(kernel_zst)])
     assert image == (a.kernel_output / 'arch/riscv/boot/Image').read_bytes(), 'FIT/kernel build mismatch'
-    assert b'Linux version 7.2.4-nanokvm-enhanced' in image
+    assert b'Linux version 7.2.5-nanokvm-os' in image
     # Verify actual ext4 modules against the selected board and kernel build.
     extracted = out / 'rootfs-modules'
     extracted.mkdir()

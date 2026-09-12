@@ -47,6 +47,7 @@ type Status struct {
 	Uptime       *float64    `json:"uptime"`
 	CPU          *CPU        `json:"cpu"`
 	Load         []string    `json:"load"`
+	CPUFrequency *int        `json:"cpuFrequency"`
 	Temperature  *float64    `json:"temperature"`
 	Storage      []Storage   `json:"storage"`
 	Interfaces   []Interface `json:"interfaces"`
@@ -116,14 +117,8 @@ func Read() Status {
 	if fields := strings.Fields(read("/proc/loadavg")); len(fields) >= 3 {
 		result.Load = fields[:3]
 	}
-	paths, _ := filepath.Glob("/sys/class/thermal/thermal_zone*/temp")
-	for _, path := range paths {
-		if n, err := strconv.ParseFloat(read(path), 64); err == nil && n >= -40000 && n <= 150000 {
-			n /= 1000
-			result.Temperature = &n
-			break
-		}
-	}
+	result.Temperature = readTemperature("/sys")
+	result.CPUFrequency = readCPUFrequency("/sys")
 	mounts := mountedPaths(read("/proc/mounts"))
 	for _, path := range []string{"/", "/boot", "/data"} {
 		result.Storage = append(result.Storage, storage(path, mounts[path]))

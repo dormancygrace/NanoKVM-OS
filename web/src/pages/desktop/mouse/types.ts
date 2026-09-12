@@ -17,6 +17,7 @@ interface MouseButtonEvent {
 
 interface MouseWheelEvent {
   type: 'wheel';
+  deltaX?: number;
   deltaY: number;
 }
 

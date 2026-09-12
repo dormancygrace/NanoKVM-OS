@@ -3,9 +3,8 @@ import { Alert, Button, Divider, Input, Popconfirm, Switch, Tag, Tooltip } from 
 import { CheckIcon, FileUpIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { formatDeviceTime } from '@/lib/date-time.ts';
 import { http } from '@/lib/http.ts';
-import { useDeviceTime } from '@/hooks/useDeviceTime.ts';
+import { HandshakeAge } from '@/components/handshake-age';
 
 import { VPNVersion } from './version';
 
@@ -17,14 +16,15 @@ type Profile = {
   routeAllowedIPs: boolean;
   address: string;
   lastHandshake: number;
+  mtu?: number;
   received: number;
   sent: number;
   error?: string;
 };
 
 export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => void }) {
-  const { t, i18n } = useTranslation();
-  const timePreferences = useDeviceTime();
+  const { t } = useTranslation();
+  const [serverNow, setServerNow] = useState<number>();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [available, setAvailable] = useState<boolean>();
   const [error, setError] = useState('');
@@ -40,6 +40,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
     if (rsp.code !== 0) throw new Error(rsp.msg);
     if (mounted.current) {
       setProfiles(rsp.data.profiles);
+      setServerNow(rsp.data.now);
       setAvailable(rsp.data.available);
     }
   }, []);
@@ -237,6 +238,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
               </div>
             )}
             <div className="break-all text-xs text-neutral-400">{p.address}</div>
+            {!!p.mtu && <div className="text-xs text-neutral-500">MTU {p.mtu}</div>}
             <div className="flex items-center justify-between gap-3 text-sm text-neutral-300">
               <span>{t('vpn.routeAllowedIPs')}</span>
               <Tooltip title={on ? t('vpn.routingDisableFirst') : t('vpn.routingHelp')}>
@@ -266,7 +268,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
                   <>
                     {' '}
                     · {t('vpn.handshake')}{' '}
-                    {formatDeviceTime(p.lastHandshake * 1000, timePreferences, i18n.language)}
+                    <HandshakeAge timestamp={p.lastHandshake} serverNow={serverNow} />
                   </>
                 )}
               </div>

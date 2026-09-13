@@ -2,7 +2,7 @@
   "version": "1.0.0-beta.9",
   "sequence": 22,
   "platform": "sg2002-sd-v2",
-  "integration_commit": "b63cceae8fbdba9f4f040ae7cb945240f73a64fe",
+  "integration_commit": "59167a99b4f47dc89f1aff5cc34b1826eefd1775",
   "boot_bytes": 67108864,
   "rootfs_bytes": 1560281088,
   "data_start_sector": 3180544,
@@ -13,5 +13,20 @@
   "artifacts": [
     "NanoKVM-OS-1.0.0-beta.9.img.zip",
     "SHA256SUMS"
-  ]
+  ],
+  "hardware_acceptance": {
+    "device": "192.168.4.128",
+    "version": "1.0.0-beta.9",
+    "sequence": 22,
+    "boot": "PASS",
+    "boot_free_kib": 56474,
+    "data_start_sector": 3180544,
+    "data_preserved": true,
+    "wifi": "PASS",
+    "ssh_user_enabled": "PASS",
+    "authenticated_api_checks": 9,
+    "usb_configuration": "restored; all optional functions disabled as before flash",
+    "capture_testing": "not performed per user instruction",
+    "fresh_card_data_creation": "not exercised; existing p3 retained during controlled RAM flash"
+  }
 }

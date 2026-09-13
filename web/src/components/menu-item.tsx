@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type HTMLAttributes,
   type ReactElement,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -153,7 +154,7 @@ const MobileMenuPanel = ({
 type MenuSubmenuProps = {
   title: string;
   content: ReactNode;
-  children: ReactElement;
+  children: ReactElement<HTMLAttributes<HTMLElement>>;
   popoverProps?: Omit<PopoverProps, 'children' | 'content'>;
   onBeforeLeave?: () => boolean;
 };
@@ -321,7 +322,7 @@ export const MenuItem = ({
       title={title}
       mouseEnterDelay={0.6}
       placement={tooltipPlacement}
-      overlayClassName={overlay}
+      classNames={{ root: overlay }}
       open={disabled ? undefined : isTooltipOpen}
       onOpenChange={disabled ? undefined : (next) => !isOpen && setIsTooltipOpen(next)}
     >
@@ -359,7 +360,7 @@ export const MenuItem = ({
       trigger="click"
       zIndex={placement ? 1100 : desktopMenuPopoverZIndex}
       placement={popoverPlacement}
-      overlayClassName={overlay}
+      classNames={{ root: overlay }}
       open={isOpen}
       onOpenChange={toggle}
       fresh={!!fresh}

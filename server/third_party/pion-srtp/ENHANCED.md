@@ -1,6 +1,6 @@
 # NanoKVM Enhanced packet AES hook
 
-Base: github.com/pion/srtp/v3 v3.0.14, upstream commit ba42f10 (release tag).
+Base: github.com/pion/srtp/v3 v3.0.15, upstream commit 6179a53 (release tag).
 Upstream files and MIT license are retained. UPSTREAM-SHA256.json records the
 pristine module contents; this is a local Go module replacement, not upstream
 support for SG2002 hardware.

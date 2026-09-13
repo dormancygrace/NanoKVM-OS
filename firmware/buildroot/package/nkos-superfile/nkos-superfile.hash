@@ -2,3 +2,6 @@
 sha256  0b0793bbccd5f9b33e03967c988e7df28d3230307f3b71a4e043a1425a38dae5  nkos-superfile-1.6.0-go2.tar.gz
 sha256  68ba355de311f5ae3aa1e453cfecfba236591025f7838bf652183b5a9d29d178  LICENSE
 sha256  0f40f807f4bdfd7083d50ce9813bc5056502b783d89c3c70550154636246450b  NOTICE.md
+
+# Updated dependencies: vendor/dependencies.patch, Go 1.27.1 post-process.
+sha256  0afdb367961ce7a2dd194b61c6fb0d38c0881d82197e341a55bb62a7eb12aa45  nkos-superfile-1.6.0-nkos.1-go2.tar.gz

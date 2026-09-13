@@ -1,0 +1,27 @@
+{
+  "format": 1,
+  "base_abi": "<image release version>",
+  "server_api": 1,
+  "features": [
+    "nkos-feature-private-libs-riscv64=1",
+    "nkos-feature-shell=1",
+    "nkos-feature-static-riscv64=1"
+  ],
+  "trust": {
+    "keys": [
+      {
+        "id": "nanokvm-os-packages-rsa4096",
+        "filename": "nanokvm-os-packages-rsa4096.pem",
+        "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAmuOBCpqo3wIGmRzFjeyc\nWOtgI9Bcp90Bnw8bfdvGh9Y1MG/GLSRr1ts2eyQn/vILXnlBKyUHxYNLiMr94rdI\n+6Z4eBG01LqwqMYNwnXlym1jy/OjvOJbCB2cPqTOnAfU0Yc5Wrg/Z1yaODJrqMAR\nDiE4GJl80COWbi/UUmTUSyBc+Rj57VPqnV3GpHrFbzn3TytRpPkkr82fj//DZ3jv\nLNsH0xhxKsZ20N7kd7d5jVdLBG0VCIugtNp12FHtH8G4f5h9KnIgmD01mOxMDHSx\nAaLXqb0kjmJgJa09l5VoAqMXPEdstNInzzVPm/0Xjf+SjVfBCTeRdEea25PwO40f\n2IaSKLkPvlXrMPtSjWE4RMnWTiBB+by48SRdv+nVmsgQUaYucZDZAGBKQPw9Mrl6\nu4m+lALXSGze6/GsYS7HLhZO4kwE3Wf6mfqy7+Iy7x7vCz+VdyYjv8qgezpJasKQ\nss/lWYkq002EMVm/rxcrvzxnmNDYRkhCw2Hru/Gx0gwvS3iPhAG+D7BqRfJfsbc3\nrRyKv4nauEHvtfsv5MrVl4eYF+WZG8OLtP6X5eHvCzVruW++j65BOAnE23Lsu51n\nABYboIQuWCWhYrPSNyYbAgyz7jj6x2IJqyBBYWVz7EJj3g7f5j7LYqx+fZr7dRKV\nFNcbpWzTD3ZvZGe92ScGm0ECAwEAAQ==\n-----END PUBLIC KEY-----\n"
+      }
+    ]
+  },
+  "repositories": [
+    {
+      "url": "https://dormancygrace.github.io/NanoKVM-OS-packages/repository",
+      "key_ids": [
+        "nanokvm-os-packages-rsa4096"
+      ]
+    }
+  ]
+}

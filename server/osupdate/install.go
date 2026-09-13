@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -29,6 +30,28 @@ type Result struct {
 	ID      string `json:"id,omitempty"`
 	Reboot  bool   `json:"reboot,omitempty"`
 }
+
+// PreparedReceipt is the stable server/helper boundary. Package-specific
+// metadata stays private to the independently replaceable helper parser.
+type PreparedReceipt struct {
+	ID       string `json:"id"`
+	Version  string `json:"version"`
+	Sequence uint64 `json:"sequence"`
+	Reboot   bool   `json:"reboot"`
+}
+
+func DecodePreparedReceipt(r io.Reader) (*PreparedReceipt, error) {
+	var receipt PreparedReceipt
+	decoder := json.NewDecoder(r)
+	if err := decoder.Decode(&receipt); err != nil || decoder.Decode(&struct{}{}) != io.EOF || receipt.Version == "" {
+		return nil, errors.New("invalid receipt")
+	}
+	if _, err := PackagePath(receipt.ID); err != nil {
+		return nil, err
+	}
+	return &receipt, nil
+}
+
 type transaction struct {
 	OldVersion   string
 	OldInstalled Installed
@@ -114,9 +137,19 @@ func Lock() (*os.File, error) {
 	if err := os.MkdirAll(Base, 0700); err != nil {
 		return nil, err
 	}
-	f, err := os.OpenFile(Base+"/lock", os.O_CREATE|os.O_RDWR, 0600)
+	baseInfo, err := os.Lstat(Base)
+	if err != nil || !baseInfo.IsDir() || baseInfo.Mode()&os.ModeSymlink != 0 {
+		return nil, errors.New("unsafe update state directory")
+	}
+	fd, err := syscall.Open(Base+"/lock", syscall.O_CREAT|syscall.O_RDWR|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0600)
 	if err != nil {
 		return nil, err
+	}
+	f := os.NewFile(uintptr(fd), "update-lock")
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		f.Close()
+		return nil, errors.New("unsafe update lock")
 	}
 	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		f.Close()
@@ -125,6 +158,15 @@ func Lock() (*os.File, error) {
 	return f, nil
 }
 func compatible(b *Bundle) error {
+	if b.Manifest.Format == 4 {
+		if b.Manifest.Sequence <= GetInstalled().Sequence {
+			return errors.New("this update is already installed or older than the installed release")
+		}
+		return newFullUpdater().check(b.Manifest)
+	}
+	if b.Manifest.Format == 5 {
+		return checkUpdaterUpdate(b.Manifest)
+	}
 	if b.Manifest.Format >= 2 {
 		base, e := os.ReadFile("/etc/nkos-system-base")
 		if e != nil || strings.TrimSpace(string(base)) != b.Manifest.SystemBase {
@@ -211,6 +253,9 @@ func Prepare(file string) (bundle *Bundle, err error) {
 		return nil, err
 	}
 	return b, nil
+}
+func Receipt(b *Bundle) PreparedReceipt {
+	return PreparedReceipt{ID: b.ID, Version: b.Manifest.Version, Sequence: b.Manifest.Sequence, Reboot: b.Manifest.Format >= 2 && b.Manifest.Format != 5}
 }
 func service(action string) error {
 	cmd := exec.Command("/etc/init.d/S95nanokvm", action)
@@ -305,7 +350,7 @@ func healthy() bool {
 }
 
 // Install is called only by the independent helper while holding the update lock.
-func Install(id string) (err error) {
+func Install(id string, heldLock ...*os.File) (err error) {
 	// Report failures before a transaction exists as well as rollback failures.
 	defer func() {
 		if err != nil {
@@ -328,6 +373,12 @@ func Install(id string) (err error) {
 	}
 	if exists(Base + "/system.json") {
 		return errors.New("system update awaiting reboot or recovery")
+	}
+	if b.Manifest.Format == 5 {
+		return installUpdater(file, b)
+	}
+	if b.Manifest.Format == 4 {
+		return newFullUpdater(heldLock...).install(file, b)
 	}
 	if b.Manifest.Format >= 2 {
 		if err = SetResult(Result{State: "installing", Version: b.Manifest.Version, ID: id, Reboot: true, Message: "Preparing system files and recovery data"}); err != nil {

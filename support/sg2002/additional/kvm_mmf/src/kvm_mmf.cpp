@@ -32,6 +32,21 @@
 
 #define MMF_VB_VI_ID			0
 
+/* Resolution-bounded opt-ins expose the accepted high-rate profiles while
+ * retaining the normal 60-FPS channel rate for every other geometry. */
+#define native120_opt_in_env    "NANOKVM_NATIVE120_EXPERIMENT"
+#define native120_max_width     1280
+#define native120_max_height    720
+#define native120_vpss_fps      120
+#define qhd60_opt_in_env        "NANOKVM_QHD60_MAX_EXPERIMENT"
+#define qhd60_width             2560
+#define qhd60_height            1440
+#define qhd60_vpss_fps          60
+#define fhd75_opt_in_env        "NANOKVM_FHD75_EXPERIMENT"
+#define fhd75_width             1920
+#define fhd75_height            1080
+#define fhd75_vpss_fps          75
+
 #if VPSS_MAX_PHY_CHN_NUM < MMF_VI_MAX_CHN
 #error "VPSS_MAX_PHY_CHN_NUM < MMF_VI_MAX_CHN"
 #endif
@@ -157,6 +172,31 @@ static priv_t priv;
 static g_priv_t g_priv;
 static VENC_PACK_S *venc_pack_storage[MMF_VENC_MAX_CHN];
 static CVI_U32 venc_pack_capacity[MMF_VENC_MAX_CHN];
+
+static bool native120_experiment_enabled()
+{
+    const char *value = getenv(native120_opt_in_env);
+    return value != NULL && strcmp(value, "1") == 0;
+}
+
+static int native120_vpss_rate(int width, int height)
+{
+    if (native120_experiment_enabled() && width > 0 && height > 0
+        && width <= native120_max_width && height <= native120_max_height) {
+        return native120_vpss_fps;
+    }
+	const char *qhd60 = getenv(qhd60_opt_in_env);
+	if (qhd60 != NULL && strcmp(qhd60, "1") == 0
+		&& width == qhd60_width && height == qhd60_height) {
+		return qhd60_vpss_fps;
+	}
+	const char *fhd75 = getenv(fhd75_opt_in_env);
+	if (fhd75 != NULL && strcmp(fhd75, "1") == 0
+		&& width == fhd75_width && height == fhd75_height) {
+		return fhd75_vpss_fps;
+	}
+    return 60;
+}
 
 #define MODULE_NAME "soph_vi"
 
@@ -1184,10 +1224,10 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format) {
 	}
 
 	CVI_S32 s32Ret = CVI_SUCCESS;
-	int fps = 60;
+	const int width_out = ALIGN(width, DEFAULT_ALIGN);
+	const int height_out = height;
+	const int fps = native120_vpss_rate(width_out, height_out);
 	int depth = 2;
-	int width_out = ALIGN(width, DEFAULT_ALIGN);
-	int height_out = height;
 	PIXEL_FORMAT_E format_out = (PIXEL_FORMAT_E)format;
 	bool mirror = !g_priv.vi_hmirror[ch];
 	bool flip = !g_priv.vi_vflip[ch];
@@ -1201,6 +1241,13 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format) {
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("_mmf_vpss_chn_init failed with %#x!\n", s32Ret);
 		return CVI_FAILURE;
+	}
+	if (fps != 60) {
+		fprintf(stderr,
+			"[kvm_mmf] TEMP experimental VPSS ch=%d size=%dx%d src_fps=%d dst_fps=%d "
+			"group_src_dst=-1 (passthrough); wall pacing unmeasured\n",
+			ch, width_out, height_out, fps, fps);
+		fflush(stderr);
 	}
 
  // Channel initialization succeeded: retain ownership even if binding,
@@ -2079,8 +2126,10 @@ int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 	// when a caller actually needs that path; idle reserves can be trimmed
 	// on a codec change, and teardown releases any remaining allocation.
 	fprintf(stderr,
-		"[kvm_mmf] VENC channel %d initialized: codec=%d rc=cbr size=%ux%u bitrate=%u gop=%u\n",
-		ch, cfg->type, cfg->w, cfg->h, cfg->bitrate, cfg->gop);
+		"[kvm_mmf] VENC channel %d initialized: codec=%d rc=cbr size=%ux%u "
+		"bitrate=%u gop=%u src_fps=%d dst_fps=%d (rate metadata; wall pacing unmeasured)\n",
+		ch, cfg->type, cfg->w, cfg->h, cfg->bitrate, cfg->gop,
+		cfg->intput_fps, cfg->output_fps);
 	fflush(stderr);
 
 	return 0;

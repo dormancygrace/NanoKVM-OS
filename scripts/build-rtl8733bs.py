@@ -12,7 +12,7 @@ import tarfile
 p = argparse.ArgumentParser(description=__doc__)
 for name in ('sdk', 'kernel-source', 'kernel-output', 'buildroot-output', 'output'):
     p.add_argument('--' + name, type=Path, required=True)
-p.add_argument('--kernel-release', default='7.2.5-nanokvm-os')
+p.add_argument('--kernel-release', default='7.2.5-nanokvm-os-r2')
 p.add_argument('--jobs', type=int, default=8)
 a = p.parse_args()
 repo = Path(__file__).resolve().parents[1]

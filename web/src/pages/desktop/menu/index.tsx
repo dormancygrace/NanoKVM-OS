@@ -1,4 +1,4 @@
-import { isValidElement, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@/contexts/auth.ts';
 import { Button, Divider } from 'antd';
 import clsx from 'clsx';
@@ -40,7 +40,7 @@ import { UsbMenu } from './usb';
 import { Wol } from './wol';
 
 const mobileRailToggleButtonClass =
-  '!flex !size-[30px] !min-w-[30px] touch-manipulation !items-center !justify-center !p-0 text-neutral-300 transition-colors hover:!bg-neutral-700/80 hover:!text-white active:!bg-neutral-600/70';
+  'flex! size-[30px]! min-w-[30px]! touch-manipulation items-center! justify-center! !p-0 text-neutral-300 transition-colors hover:!bg-neutral-700/80 hover:!text-white active:!bg-neutral-600/70';
 
 const mobileMenuPopoverClassName = 'nanokvm-mobile-menu-popover';
 
@@ -141,50 +141,51 @@ export const Menu = () => {
     const tooltipPlacement =
       variant === 'mobile' ? (placement.edge === 'right' ? 'left' : 'right') : 'bottom';
 
-    items.push(<Screen key="screen" />);
-    items.push(<AudioMenu key="audio" audio={audio} />);
-    if (isAdmin) items.push(<Capture key="capture" />);
-    if (captureEnabled) {
-      if (isEnabled('keyboard')) items.push(<Keyboard key="keyboard" />);
-      items.push(<Mouse key="mouse" hidden={!isEnabled('mouse')} />);
-    }
-    if (isAdmin) items.push(<UsbMenu key="usb" />);
-    items.push(renderDivider(variant, 'divider-input'));
+    // Only join non-empty groups, including when appearance settings hide tools.
+    const groups: ReactNode[][] = [
+      [
+        <Screen key="screen" />,
+        ...(isAdmin ? [<Capture key="capture" />] : []),
+        ...(isEnabled('recorder') ? [<Recorder key="recorder" />] : [])
+      ],
+      audio.available ? [<AudioMenu key="audio" audio={audio} />] : [],
+      [
+        ...(captureEnabled && isEnabled('keyboard') ? [<Keyboard key="keyboard" />] : []),
+        ...(captureEnabled && isEnabled('mouse') ? [<Mouse key="mouse" />] : [])
+      ],
+      isAdmin
+        ? [
+            <UsbMenu key="usb" />,
+            ...(isEnabled('image')
+              ? [<Image key="image" tooltipPlacement={tooltipPlacement} />]
+              : []),
+            ...(isEnabled('download') ? [<DownloadImage key="download" />] : [])
+          ]
+        : [],
+      isAdmin
+        ? [
+            ...(isEnabled('terminal') ? [<Terminal key="terminal" />] : []),
+            ...(isEnabled('script') ? [<Script key="script" />] : []),
+            ...(isEnabled('picoclaw')
+              ? [<Picoclaw key="picoclaw" tooltipPlacement={tooltipPlacement} />]
+              : [])
+          ]
+        : [],
+      [
+        ...(isEnabled('wol') ? [<Wol key="wol" />] : []),
+        ...(isEnabled('power') ? [<Power key="power" />] : [])
+      ],
+      variant === 'mobile' ? [<Settings key="settings" tooltipPlacement={tooltipPlacement} />] : []
+    ];
 
-    if (isAdmin && isEnabled('image')) {
-      items.push(<Image key="image" tooltipPlacement={tooltipPlacement} />);
-    }
-    if (isAdmin && isEnabled('download')) items.push(<DownloadImage key="download" />);
-    if (isAdmin && isEnabled('terminal')) items.push(<Terminal key="terminal" />);
-    if (isAdmin && isEnabled('script')) items.push(<Script key="script" />);
-    if (isEnabled('recorder')) items.push(<Recorder key="recorder" />);
-    if (isEnabled('wol')) items.push(<Wol key="wol" />);
-
-    if (
-      isEnabled('wol') ||
-      (isAdmin && ['image', 'download', 'script', 'terminal'].some(isEnabled))
-    ) {
-      items.push(renderDivider(variant, 'divider-tools'));
-    }
-
-    if (isAdmin && isEnabled('picoclaw')) {
-      items.push(<Picoclaw key="picoclaw" tooltipPlacement={tooltipPlacement} />);
-      items.push(renderDivider(variant, 'divider-picoclaw'));
-    }
-
-    if (isEnabled('power')) {
-      items.push(<Power key="power" />);
-      items.push(renderDivider(variant, 'divider-power'));
-    }
-
-    if (variant === 'mobile') {
-      items.push(<Settings key="settings" tooltipPlacement={tooltipPlacement} />);
-    }
-
-    const last = items[items.length - 1];
-    if (variant === 'desktop' && isValidElement(last) && String(last.key).startsWith('divider-')) {
-      items.pop();
-    }
+    groups
+      .filter((group) => group.length > 0)
+      .forEach((group, index) => {
+        if (index > 0) items.push(renderDivider(variant, `divider-group-${index}`));
+        items.push(...group);
+      });
+    // Pointer preferences must still initialize when its toolbar button is hidden.
+    if (captureEnabled && !isEnabled('mouse')) items.push(<Mouse key="mouse" hidden />);
     return items;
   }
 
@@ -204,7 +205,7 @@ export const Menu = () => {
         <div
           ref={mobileRailRef}
           className={clsx(
-            'fixed z-[1000] transition-opacity duration-300',
+            'fixed z-1000 transition-opacity duration-300',
             sideClass,
             isInitialized ? 'opacity-100' : 'opacity-0'
           )}
@@ -219,7 +220,7 @@ export const Menu = () => {
             {isMobileRailCollapsed ? (
               <div className="flex flex-col items-center rounded-full bg-neutral-800/90 p-1 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur">
                 <strong>
-                  <div className="flex size-[28px] cursor-move select-none items-center justify-center rounded-full text-neutral-500">
+                  <div className="flex size-[28px] cursor-move items-center justify-center rounded-full text-neutral-500 select-none">
                     <GripVerticalIcon size={18} />
                   </div>
                 </strong>
@@ -232,9 +233,9 @@ export const Menu = () => {
                 />
               </div>
             ) : (
-              <div className="flex max-h-[calc(100dvh-96px)] flex-col items-center overflow-y-auto rounded bg-neutral-800/90 px-1 py-1 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur transition-all duration-200 [&>*]:shrink-0">
+              <div className="flex max-h-[calc(100dvh-96px)] flex-col items-center overflow-y-auto rounded bg-neutral-800/90 px-1 py-1 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur transition-all duration-200 *:shrink-0">
                 <strong>
-                  <div className="flex size-[30px] cursor-move select-none items-center justify-center rounded text-neutral-500">
+                  <div className="flex size-[30px] cursor-move items-center justify-center rounded text-neutral-500 select-none">
                     <GripVerticalIcon size={18} />
                   </div>
                 </strong>
@@ -273,7 +274,7 @@ export const Menu = () => {
       <div
         ref={nodeRef}
         className={clsx(
-          'pointer-events-none fixed left-1/2 top-[10px] z-[1000] w-max transition-opacity duration-300',
+          'pointer-events-none fixed top-[10px] left-1/2 z-1000 w-max transition-opacity duration-300',
           isInitialized ? 'opacity-100' : 'opacity-0'
         )}
       >
@@ -291,8 +292,8 @@ export const Menu = () => {
               className={clsx(
                 'absolute z-10 !p-0 transition-all duration-300',
                 isTouchLandscapeMenu
-                  ? 'left-1/2 top-0 !flex !h-6 !w-16 !min-w-16 -translate-x-1/2 !items-center !justify-center !rounded-b !bg-neutral-800/80 text-neutral-300 shadow-lg shadow-black/30 backdrop-blur'
-                  : '-top-[10px] left-0 !h-[46px] !w-full !bg-transparent',
+                  ? 'top-0 left-1/2 flex! !h-6 !w-16 !min-w-16 -translate-x-1/2 items-center! justify-center! !rounded-b !bg-neutral-800/80 text-neutral-300 shadow-lg shadow-black/30 backdrop-blur'
+                  : 'top-[-10px] left-0 h-[46px]! w-full! bg-transparent!',
                 isMenuHidden ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
               )}
               onPointerDown={(event) => {
@@ -319,9 +320,9 @@ export const Menu = () => {
           <div className="sticky top-[10px] flex w-full justify-center">
             <div
               className={clsx(
-                'pointer-events-auto h-[36px] max-w-[calc(100vw-16px)] items-center rounded bg-neutral-800/80 pl-1 pr-2 transition-all duration-300',
+                'pointer-events-auto h-[36px] max-w-[calc(100vw-16px)] items-center rounded bg-neutral-800/80 pr-2 pl-1 transition-all duration-300',
                 isMenuExpanded ? 'flex' : 'hidden',
-                isMenuHidden ? '-translate-y-[110%] opacity-80' : 'translate-y-0 opacity-100'
+                isMenuHidden ? 'translate-y-[-110%] opacity-80' : 'translate-y-0 opacity-100'
               )}
             >
               {isMenuExpanded && isKeyboardLedStatusVisible && !isTouchLandscapeMenu && (
@@ -335,14 +336,14 @@ export const Menu = () => {
                 </div>
               )}
               <strong className="shrink-0">
-                <div className="flex h-[30px] cursor-move select-none items-center justify-center pl-1 text-neutral-500">
+                <div className="flex h-[30px] cursor-move items-center justify-center pl-1 text-neutral-500 select-none">
                   <GripVerticalIcon size={18} />
                 </div>
               </strong>
               <Divider type="vertical" className="shrink-0" />
 
               <MobileMenuItemProvider dismissMenuKey={dismissMenuKey}>
-                <div className="nanokvm-mobile-menu-rail flex min-w-0 items-center overflow-x-auto [&>*]:shrink-0">
+                <div className="nanokvm-mobile-menu-rail flex min-w-0 items-center overflow-x-auto *:shrink-0">
                   {renderMenuItems('desktop')}
                 </div>
                 <Divider type="vertical" className="shrink-0" />

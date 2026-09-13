@@ -270,13 +270,14 @@ func (s *Streamer) stopIfIdle() bool {
 }
 
 func (s *Streamer) setLatestFrame(data []byte, width uint16, height uint16) {
-	frameCopy := append([]byte(nil), data...)
+	// Capture owns an immutable Go buffer shared with delivery queues. Retain
+	// it here; exported snapshots still get their own copy in getLatestFrame.
 
 	s.frameMutex.Lock()
 	defer s.frameMutex.Unlock()
 
 	s.latestFrame = LatestFrame{
-		Data:       frameCopy,
+		Data:       data,
 		Width:      width,
 		Height:     height,
 		CapturedAt: time.Now(),

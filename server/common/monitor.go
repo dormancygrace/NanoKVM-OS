@@ -31,7 +31,7 @@ func ApplyMonitorResolution(height uint16) error {
 	if height == 0 {
 		profile = "NanoKVM-stock.bin"
 		if SupportsQHD() {
-			profile = "NanoKVM-QHD30.bin"
+			profile = "NanoKVM-final-video-profiles.bin"
 		}
 	}
 	path := filepath.Join("/usr/share/nanokvm/edid", profile)

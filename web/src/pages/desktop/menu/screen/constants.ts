@@ -6,6 +6,8 @@ export const QualityMap = new Map([
 ]);
 
 export const BitRateMap = new Map([
+  [6, 20000],
+  [5, 15000],
   [1, 10000],
   [2, 3000],
   [3, 2000],

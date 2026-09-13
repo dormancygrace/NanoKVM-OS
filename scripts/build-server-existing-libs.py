@@ -31,7 +31,7 @@ for name, source in sources.items():
 cross = str(a.buildroot_output.resolve()/'host/bin/riscv64-buildroot-linux-musl-')
 env = dict(os.environ, GOOS='linux', GOARCH='riscv64', GORISCV64='rva20u64', CGO_ENABLED='1',
            GOEXPERIMENT='boringcrypto', CC=cross+'gcc',
-           CGO_CFLAGS='-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso -mabi=lp64d',
+           CGO_CFLAGS='-O2 -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso -mabi=lp64d',
            CGO_LDFLAGS=f'-L{lib} -Wl,-rpath-link,{lib} -Wl,--enable-new-dtags -Wl,-rpath,$ORIGIN/dl_lib')
 # Resolve the GOROOT directory, not bin/go: prepared runtimes symlink bin/ to
 # the official toolchain. Resolving the executable alone silently loses the

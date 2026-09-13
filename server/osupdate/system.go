@@ -557,6 +557,9 @@ func (u *systemUpdater) confirm(check func() bool) error {
 }
 func SystemBoot() error { return newSystemUpdater().boot() }
 func ConfirmSystem() error {
+	if HasFullUpdate() {
+		return ConfirmFullSystem()
+	}
 	u := newSystemUpdater()
 	err := u.confirm(func() bool {
 		consecutive := 0

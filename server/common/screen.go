@@ -47,6 +47,8 @@ var QualityMap = map[uint16]bool{
 }
 
 var BitRateMap = map[uint16]bool{
+	20000: true,
+	15000: true,
 	10000: true,
 	5000:  true,
 	3000:  true,
@@ -164,8 +166,8 @@ func loadScreen(readFile func(string) ([]byte, error)) *Screen {
 }
 
 func validateFPS(fps int) int {
-	if fps > 60 {
-		return 60
+	if fps > 120 {
+		return 120
 	}
 	if fps < 10 {
 		return 10

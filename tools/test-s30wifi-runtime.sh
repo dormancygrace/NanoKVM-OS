@@ -97,7 +97,9 @@ run_action() (
 # persistent/runtime configuration.
 new_case no_credentials
 run_action start
-[ ! -s "$CALL_LOG" ] || fail "commands ran without credentials: $(cat "$CALL_LOG")"
+assert_contains 'ip args=link set dev wlan0 up' "$CALL_LOG"
+assert_not_contains 'wpa_supplicant args=' "$CALL_LOG"
+assert_not_contains 'udhcpc args=' "$CALL_LOG"
 assert_absent "$RUN_DIR"
 
 # Boot credentials are imported once, tightened to mode 0600, and used to build
@@ -117,6 +119,9 @@ assert_file "$ETC_DIR/wifi.pass"
 [ "$(stat -c '%a' "$RUN_DIR/wpa_supplicant.conf")" = 600 ] || fail 'WPA config mode is not 0600'
 assert_contains 'ctrl_interface=/var/run/wpa_supplicant' "$RUN_DIR/wpa_supplicant.conf"
 assert_contains 'psk=0123456789abcdef' "$RUN_DIR/wpa_supplicant.conf"
+assert_contains 'key_mgmt=WPA-PSK SAE' "$RUN_DIR/wpa_supplicant.conf"
+assert_contains 'ieee80211w=1' "$RUN_DIR/wpa_supplicant.conf"
+assert_contains 'sae_password=736563726574313233' "$RUN_DIR/wpa_supplicant.conf"
 assert_not_contains '#psk=' "$RUN_DIR/wpa_supplicant.conf"
 assert_not_contains 'secret123' "$RUN_DIR/wpa_supplicant.conf"
 assert_contains 'wpa_passphrase args=Office WiFi stdin=secret123' "$CALL_LOG"
@@ -181,4 +186,67 @@ do
 done
 assert_absent "$AP_FLAG"
 
+# Disabled state survives restart without deleting the saved connection.
+new_case disabled
+printf 'Office' > "$ETC_DIR/wifi.ssid"
+printf 'secret123' > "$ETC_DIR/wifi.pass"
+touch "$ETC_DIR/wifi.disabled"
+run_action restart
+assert_contains 'ip args=link set dev wlan0 down' "$CALL_LOG"
+assert_not_contains 'wpa_supplicant args=' "$CALL_LOG"
+assert_contains 'secret123' "$ETC_DIR/wifi.pass"
+rm "$ETC_DIR/wifi.disabled"
+run_action restart
+assert_contains 'wpa_supplicant args=' "$CALL_LOG"
+
+# Hidden open networks and restricted bands generate an explicit safe profile.
+new_case hidden_open
+printf 'Hidden "network"' > "$ETC_DIR/wifi.ssid"
+: > "$ETC_DIR/wifi.pass"
+printf open > "$ETC_DIR/wifi.security"
+printf true > "$ETC_DIR/wifi.hidden"
+printf '5180 5200' > "$ETC_DIR/wifi.freq_list"
+run_action start
+assert_contains 'ssid=48696464656e20226e6574776f726b22' "$RUN_DIR/wpa_supplicant.conf"
+assert_contains 'key_mgmt=NONE' "$RUN_DIR/wpa_supplicant.conf"
+assert_contains 'scan_ssid=1' "$RUN_DIR/wpa_supplicant.conf"
+assert_contains 'freq_list=5180 5200' "$RUN_DIR/wpa_supplicant.conf"
+assert_not_contains 'wpa_passphrase args=' "$CALL_LOG"
+assert_not_contains 'psk=' "$RUN_DIR/wpa_supplicant.conf"
+
+new_case invalid_frequencies
+printf 'Office' > "$ETC_DIR/wifi.ssid"
+printf 'secret123' > "$ETC_DIR/wifi.pass"
+printf '5180\nkey_mgmt=NONE' > "$ETC_DIR/wifi.freq_list"
+if run_action start; then fail 'invalid frequency config accepted'; fi
+assert_not_contains 'wpa_supplicant args=' "$CALL_LOG"
+
+
+# Advertised protection maps to an explicit protocol, never legacy WPA+SAE.
+for security in wpa wpa2 wpa3 wpa2-wpa3
+do
+    new_case "security_$security"
+    printf Office > "$ETC_DIR/wifi.ssid"
+    printf secret123 > "$ETC_DIR/wifi.pass"
+    printf %s "$security" > "$ETC_DIR/wifi.security"
+    run_action start
+    case "$security" in
+        wpa)
+            assert_contains 'proto=WPA' "$RUN_DIR/wpa_supplicant.conf"
+            assert_not_contains 'SAE' "$RUN_DIR/wpa_supplicant.conf"
+            assert_not_contains 'sae_password=' "$RUN_DIR/wpa_supplicant.conf" ;;
+        wpa2)
+            assert_contains 'proto=RSN' "$RUN_DIR/wpa_supplicant.conf"
+            assert_contains 'key_mgmt=WPA-PSK' "$RUN_DIR/wpa_supplicant.conf"
+            assert_not_contains 'SAE' "$RUN_DIR/wpa_supplicant.conf" ;;
+        wpa3)
+            assert_contains 'proto=RSN' "$RUN_DIR/wpa_supplicant.conf"
+            assert_contains 'key_mgmt=SAE' "$RUN_DIR/wpa_supplicant.conf"
+            assert_contains 'ieee80211w=2' "$RUN_DIR/wpa_supplicant.conf"
+            assert_not_contains 'psk=' "$RUN_DIR/wpa_supplicant.conf" ;;
+        wpa2-wpa3)
+            assert_contains 'proto=RSN' "$RUN_DIR/wpa_supplicant.conf"
+            assert_contains 'key_mgmt=WPA-PSK SAE' "$RUN_DIR/wpa_supplicant.conf" ;;
+    esac
+done
 echo 'S30wifi runtime-state tests passed'

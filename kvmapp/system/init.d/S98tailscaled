@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Use the native nftables backend; iptables compatibility tools are not shipped.
+export TS_DEBUG_FIREWALL_MODE=nftables
+
 DAEMON="tailscaled"
 PIDFILE="/var/run/$DAEMON.pid"
 

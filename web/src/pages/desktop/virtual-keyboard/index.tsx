@@ -228,7 +228,7 @@ export const VirtualKeyboard = () => {
       <Drawer.Portal>
         <Drawer.Content
           className={clsx(
-            'fixed bottom-0 left-0 right-0 z-[999] mx-auto overflow-hidden rounded bg-white outline-none',
+            'fixed bottom-0 left-0 right-0 z-999 mx-auto overflow-hidden rounded bg-white outline-none',
             isBigScreen ? 'w-[820px]' : 'w-full max-w-[650px]'
           )}
         >
@@ -269,7 +269,7 @@ export const VirtualKeyboard = () => {
             </div>
           </div>
 
-          <div className="h-px flex-shrink-0 border-b bg-neutral-300" />
+          <div className="h-px shrink-0 border-b bg-neutral-300" />
 
           <div data-vaul-no-drag className="keyboardContainer w-full">
             {/* main keyboard */}

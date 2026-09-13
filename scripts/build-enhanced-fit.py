@@ -26,6 +26,11 @@ version = run(str(mkimage), '-V').strip()
 if version != 'mkimage version 2026.07':
     raise SystemExit('Expected current pinned host mkimage 2026.07')
 data = (kernel / 'arch/riscv/boot/Image').read_bytes()
+release = (kernel / 'include/config/kernel.release').read_text().strip()
+if release != '7.2.5-nanokvm-os-r2':
+    raise SystemExit('Expected exact normal kernel release 7.2.5-nanokvm-os-r2')
+if b'Linux version ' + release.encode() + b' ' not in data:
+    raise SystemExit('Kernel Image release does not match kernel.release')
 if data[48:56] != b'RISCV\0\0\0':
     raise SystemExit('Not a RISC-V Image')
 text_offset, footprint = struct.unpack_from('<QQ', data, 8)
@@ -119,6 +124,7 @@ if decoded_kernel != data:
     raise SystemExit('Kernel decompression mismatch')
 manifest = {
     'status': 'candidate-not-boot-qualified', 'mkimage': version, 'epoch': int(epoch),
+    'kernel_release': release,
     'kernel_compression': compression,
     'fit_bytes': size, 'fit_sha256': sha(fit),
     'payloads': {name: {'bytes': (out/name).stat().st_size, 'sha256': sha(out/name)} for name in payloads},

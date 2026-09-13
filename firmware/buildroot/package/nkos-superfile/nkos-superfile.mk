@@ -1,12 +1,12 @@
 ################################################################################
 # superfile
 ################################################################################
-NKOS_SUPERFILE_VERSION = 1.6.0
-NKOS_SUPERFILE_SITE = $(call github,yorukot,superfile,v$(NKOS_SUPERFILE_VERSION))
+NKOS_SUPERFILE_VERSION = 1.6.0-nkos.1
+NKOS_SUPERFILE_SITE = $(call github,yorukot,superfile,v1.6.0)
 NKOS_SUPERFILE_LICENSE = MIT
 NKOS_SUPERFILE_LICENSE_FILES = LICENSE NOTICE.md
 NKOS_SUPERFILE_GOMOD = github.com/yorukot/superfile
-NKOS_SUPERFILE_GO_ENV = CGO_ENABLED=0
+NKOS_SUPERFILE_GO_ENV = CGO_ENABLED=0 NANOKVM_GO_VENDOR_PATCH=$(BR2_EXTERNAL_NANOKVM_PATH)/package/nkos-superfile/vendor/dependencies.patch
 NKOS_SUPERFILE_BIN_NAME = spf
 NKOS_SUPERFILE_LDFLAGS = -s -w
 

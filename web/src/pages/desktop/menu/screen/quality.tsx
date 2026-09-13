@@ -18,12 +18,15 @@ export const Quality = ({ quality, setQuality }: QualityProps) => {
   const { t } = useTranslation();
   const videoMode = useAtomValue(videoModeAtom);
 
-  const qualityList = [
-    { key: 1, label: t('screen.qualityLossless') },
-    { key: 2, label: t('screen.qualityHigh') },
-    { key: 3, label: t('screen.qualityMedium') },
-    { key: 4, label: t('screen.qualityLow') }
-  ];
+  const qualityList =
+    videoMode === 'mjpeg'
+      ? [
+          { key: 1, label: t('screen.qualityLossless') },
+          { key: 2, label: t('screen.qualityHigh') },
+          { key: 3, label: t('screen.qualityMedium') },
+          { key: 4, label: t('screen.qualityLow') }
+        ]
+      : Array.from(getQualityMap(videoMode)?.keys() ?? []).map((key) => ({ key, label: '' }));
 
   async function update(key: number) {
     const qualityMap = getQualityMap(videoMode);
@@ -46,7 +49,7 @@ export const Quality = ({ quality, setQuality }: QualityProps) => {
       {qualityList.map((item) => (
         <div
           key={item.key}
-          className="flex h-[30px] cursor-pointer select-none items-center rounded pl-1 pr-5 hover:bg-neutral-700/70"
+          className="flex h-[30px] cursor-pointer items-center rounded pr-5 pl-1 select-none hover:bg-neutral-700/70"
           onClick={() => update(item.key)}
         >
           <div className="flex h-[14px] w-[20px] items-end text-blue-500">
@@ -70,7 +73,7 @@ export const Quality = ({ quality, setQuality }: QualityProps) => {
     >
       <div className="flex h-[30px] cursor-pointer items-center space-x-2 rounded px-3 text-neutral-300 hover:bg-neutral-700/70">
         <SquareActivityIcon size={18} />
-        <span className="select-none text-sm">
+        <span className="text-sm select-none">
           {t(videoMode === 'mjpeg' ? 'screen.quality' : 'videoSettings.bitrate')}
         </span>
         <span className="ml-auto text-xs text-neutral-400">

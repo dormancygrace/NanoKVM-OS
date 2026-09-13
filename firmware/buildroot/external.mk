@@ -1,8 +1,8 @@
 include $(sort $(wildcard $(BR2_EXTERNAL_NANOKVM_PATH)/package/*/*.mk))
 
-# Kernel hwprobe distinguishes XTheadVector from standard V. OpenSSL 3.6.4
-# reports RV64GC on the tested C906: scalar assembly is enabled, RVV 1.0 is not.
-LIBOPENSSL_TARGET_ARCH = linux64-riscv64 enable-devcryptoeng no-ktls
+# Kernel hwprobe distinguishes XTheadVector from standard V. Keep OpenSSL on scalar
+# assembly for the tested C906; standard RVV 1.0 is not enabled.
+LIBOPENSSL_TARGET_ARCH = linux64-riscv64 no-ktls
 # The kernel is built separately. Install the pinned public cryptodev ABI header
 # without enabling Buildroot's in-tree Linux-kernel package dependency.
 define NANOKVM_INSTALL_CRYPTODEV_HEADER
@@ -20,3 +20,12 @@ MC_CONF_OPTS += --disable-configure-args
 
 # Configure runs on the host; helper shebangs must name the target interpreter.
 MC_CONF_ENV += ac_cv_path_PYTHON=/usr/bin/python3
+
+# Optional tools are built independently from the base rootfs. MC embeds its
+# resource/helper paths, so compile those paths for the final APK namespace.
+ifeq ($(BR2_PACKAGE_NANOKVM_OPTIONAL_TOOLS_LAYOUT),y)
+MC_CONF_OPTS += --prefix=/opt/nkos/addons/mc/usr \
+    --sysconfdir=/opt/nkos/addons/mc/etc \
+    --libexecdir=/opt/nkos/addons/mc/usr/libexec \
+    --localstatedir=/etc/kvm/mc
+endif

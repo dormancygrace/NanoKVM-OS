@@ -195,8 +195,9 @@ const en = {
       monitor: 'HDMI monitor',
       monitorProfile: 'Virtual monitor profile',
       automatic: 'Automatic (recommended)',
-      preferFhd: 'Prefer 1920 × 1080 · 60 Hz',
-      preferQhd: 'Prefer 2560 × 1440 · 30 Hz',
+      preferFhd: 'Prefer 1920 × 1080 · 75 Hz',
+      preferQhd: 'Prefer 2560 × 1440 · 40 Hz',
+      preferHd: 'Prefer 1280 × 720 · 120 Hz',
       monitorHint:
         'Advertises a preferred mode and fallback timings. BIOS and the operating system may choose different resolutions; capture follows the actual signal automatically. Changing this profile briefly reconnects HDMI.',
       monitorUnavailable:
@@ -532,6 +533,8 @@ const en = {
       title: 'Terminal',
       nanokvm: 'NanoKVM Terminal',
       usbSerial: 'USB serial console',
+      usbSpeed: 'Virtual USB serial — baud rate does not limit transfer speed.',
+      invalidParameters: 'Invalid serial parameters.',
       serial: 'Serial Port Terminal',
       serialPort: 'Serial Port',
       serialPortPlaceholder: 'Please enter the serial port',
@@ -723,6 +726,8 @@ const en = {
       },
       device: {
         title: 'Device',
+        general: 'General settings',
+        sections: { device: 'Device', network: 'Common network settings', access: 'Device access' },
         cpuFrequency: {
           eco: 'Power saving',
           stock: 'Standard',
@@ -805,6 +810,7 @@ const en = {
       },
       usb: {
         title: 'USB Composition',
+        enabled: 'USB devices',
         budgetTitle: 'Endpoint budget',
         budgetDescription:
           'The controller has six configured IN FIFOs and seven OUT endpoint numbers.',
@@ -879,6 +885,29 @@ const en = {
       network: {
         title: 'Network',
         wifi: {
+          loading: 'Loading…',
+          noAdapter: 'Wi-Fi adapter not detected',
+          disabled: 'Off',
+          band: 'Frequency band',
+          band24: '2.4 GHz',
+          band5: '5 GHz',
+          scan: 'Scan networks',
+          scanFailed: 'Could not scan networks. Try again.',
+          bandsUnavailable: 'Could not read the adapter frequency bands.',
+          noNetworks: 'No networks found in this band.',
+          manual: 'Connect manually',
+          hidden: 'Hidden network',
+          security: 'Security',
+          open: 'Open network',
+          unsupported: 'Unsupported security',
+          reconnect: 'Reconnect',
+          applying: 'Applying… The connection to this device may briefly be interrupted.',
+          operationFailed: 'Could not apply Wi-Fi settings. Try again.',
+          statusFailed: 'Could not read Wi-Fi status.',
+          connectionTimeout:
+            'Connection could not be confirmed. Check the network and reconnect to the device if its address changed.',
+          passwordHint: '8–63 bytes (at least 8 characters for an ASCII password).',
+
           title: 'Wi-Fi',
           description: 'Configure Wi-Fi',
           apMode: 'AP mode is enabled, connect to Wi-Fi by scanning QR code',

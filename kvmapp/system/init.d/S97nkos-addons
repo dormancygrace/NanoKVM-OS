@@ -1,0 +1,20 @@
+#!/bin/sh
+# The manager starts only services with persisted enablement markers.
+# Run after /data, networking and the base application are available.
+case "$1" in
+    start|stop) action=$1 ;;
+    restart) "$0" stop && "$0" start; exit $? ;;
+    *) echo "Usage: $0 {start|stop|restart}" >&2; exit 1 ;;
+esac
+[ -x /usr/sbin/nkos-addons ] || exit 0
+result=0
+for directory in /opt/nkos/addons/*; do
+    [ -d "$directory" ] && [ ! -L "$directory" ] || continue
+    [ -f "$directory/addon.json" ] || continue
+    id=${directory##*/}
+    if ! /usr/sbin/nkos-addons "$action" "$id"; then
+        echo "NanoKVM addon $id failed to $action" >&2
+        result=1
+    fi
+done
+exit "$result"

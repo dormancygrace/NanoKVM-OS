@@ -1,0 +1,1990 @@
+diff --git a/package/automake/automake.hash b/package/automake/automake.hash
+index b2e70641..8f4a9190 100644
+--- a/package/automake/automake.hash
++++ b/package/automake/automake.hash
+@@ -2,3 +2,6 @@
+ sha256  f01d58cd6d9d77fbdca9eb4bbd5ead1988228fdb73d6f7a201f5f8d6b118b469  automake-1.16.5.tar.xz
+ # License files, locally calculated
+ sha256  ab15fd526bd8dd18a9e77ebc139656bf4d33e97fc7238cd11bf60e2b9b8666c6  COPYING
++
++# SHA256 calculated from official HTTPS source: https://ftp.gnu.org/gnu/automake/automake-1.19.tar.xz
++sha256  e3e2c2e3abf37898138db5b6c1d1dc35c9160c5978be7947d2c741705251d445  automake-1.19.tar.xz
+diff --git a/package/automake/automake.mk b/package/automake/automake.mk
+index fd7933dd..324c2979 100644
+--- a/package/automake/automake.mk
++++ b/package/automake/automake.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-AUTOMAKE_VERSION = 1.16.5
++AUTOMAKE_VERSION = 1.19
+ AUTOMAKE_SOURCE = automake-$(AUTOMAKE_VERSION).tar.xz
+ AUTOMAKE_SITE = $(BR2_GNU_MIRROR)/automake
+ AUTOMAKE_LICENSE = GPL-2.0+
+diff --git a/package/bash/0001-input.h-add-missing-include-on-stdio.h.patch b/package/bash/0001-input.h-add-missing-include-on-stdio.h.patch
+index fd008e94..478daa4b 100644
+--- a/package/bash/0001-input.h-add-missing-include-on-stdio.h.patch
++++ b/package/bash/0001-input.h-add-missing-include-on-stdio.h.patch
+@@ -32,7 +32,7 @@ index 6aef1269..08b0fdea 100644
+ +
+  #include "stdc.h"
+  
+- /* Function pointers can be declared as (Function *)foo. */
++ typedef int sh_cget_func_t (void);	/* sh_ivoidfunc_t */
+ -- 
+ 2.24.1
+ 
+diff --git a/package/bash/0002-parse.y-fix-compilation-for-non-multibyte-builds.patch b/package/bash/0002-parse.y-fix-compilation-for-non-multibyte-builds.patch
+deleted file mode 100644
+index 378ff0df..00000000
+--- a/package/bash/0002-parse.y-fix-compilation-for-non-multibyte-builds.patch
++++ /dev/null
+@@ -1,63 +0,0 @@
+-From 0217fc2816e47ee296472df71d1011f0eb2937e6 Mon Sep 17 00:00:00 2001
+-From: Vincent Fazio <vfazio@gmail.com>
+-Date: Fri, 27 Jan 2023 14:37:26 -0600
+-Subject: [PATCH] parse.y: fix compilation for non-multibyte builds
+-
+-Builds configured with --disable-multibyte or when the toolchain does
+-not have WCHAR support would encounter a compile error due to an
+-undeclared reference to shell_input_line_property in shell_getc.
+-
+-Add a HANDLE_MULTIBYTE guard to conditionally compile the block that
+-references shell_input_line_property in shell_getc as it's only declared
+-when HANDLE_MULTIBYTE is defined.
+-
+-Signed-off-by: Vincent Fazio <vfazio@gmail.com>
+-[Upstream status: https://savannah.gnu.org/patch/index.php?10309]
+----
+- parse.y | 2 ++
+- y.tab.c | 2 ++
+- 2 files changed, 4 insertions(+)
+-
+-diff --git a/parse.y b/parse.y
+-index 1d12e639..8f1355c6 100644
+---- a/parse.y
+-+++ b/parse.y
+-@@ -2640,6 +2640,7 @@ next_alias_char:
+-       parser_state |= PST_ENDALIAS;
+-       /* We need to do this to make sure last_shell_getc_is_singlebyte returns
+- 	 true, since we are returning a single-byte space. */
+-+#if defined (HANDLE_MULTIBYTE)
+-       if (shell_input_line_index == shell_input_line_len && last_shell_getc_is_singlebyte == 0)
+- 	{
+- #if 0
+-@@ -2653,6 +2654,7 @@ next_alias_char:
+- 	  shell_input_line_property[shell_input_line_index - 1] = 1;
+- #endif
+- 	}
+-+#endif /* HANDLE_MULTIBYTE */
+-       return ' ';	/* END_ALIAS */
+-     }
+- #endif
+-diff --git a/y.tab.c b/y.tab.c
+-index 50c5845b..799f730f 100644
+---- a/y.tab.c
+-+++ b/y.tab.c
+-@@ -4955,6 +4955,7 @@ next_alias_char:
+-       parser_state |= PST_ENDALIAS;
+-       /* We need to do this to make sure last_shell_getc_is_singlebyte returns
+- 	 true, since we are returning a single-byte space. */
+-+#if defined (HANDLE_MULTIBYTE)
+-       if (shell_input_line_index == shell_input_line_len && last_shell_getc_is_singlebyte == 0)
+- 	{
+- #if 0
+-@@ -4968,6 +4969,7 @@ next_alias_char:
+- 	  shell_input_line_property[shell_input_line_index - 1] = 1;
+- #endif
+- 	}
+-+#endif /* HANDLE_MULTIBYTE */
+-       return ' ';	/* END_ALIAS */
+-     }
+- #endif
+--- 
+-2.25.1
+-
+diff --git a/package/bash/bash.hash b/package/bash/bash.hash
+index c2fb1d38..af3ba260 100644
+--- a/package/bash/bash.hash
++++ b/package/bash/bash.hash
+@@ -2,3 +2,6 @@
+ # https://ftp.gnu.org/gnu/bash/bash-5.2.37.tar.gz.sig
+ sha256  9599b22ecd1d5787ad7d3b7bf0c59f312b3396d1e281175dd1f8a4014da621ff  bash-5.2.37.tar.gz
+ sha256  8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903  COPYING
++
++# SHA256 calculated from official HTTPS source: https://ftp.gnu.org/gnu/bash/bash-5.3.tar.gz
++sha256  0d5cd86965f869a26cf64f4b71be7b96f90a3ba8b3d74e27e8e9d9d5550f31ba  bash-5.3.tar.gz
+diff --git a/package/bash/bash.mk b/package/bash/bash.mk
+index 7fb43c52..187dac67 100644
+--- a/package/bash/bash.mk
++++ b/package/bash/bash.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-BASH_VERSION = 5.2.37
++BASH_VERSION = 5.3
+ BASH_SITE = $(BR2_GNU_MIRROR)/bash
+ BASH_DEPENDENCIES = ncurses readline host-bison
+ BASH_LICENSE = GPL-3.0+
+diff --git a/package/binutils/Config.in.host b/package/binutils/Config.in.host
+index 251dbf96..aabf976f 100644
+--- a/package/binutils/Config.in.host
++++ b/package/binutils/Config.in.host
+@@ -20,10 +20,14 @@ config BR2_BINUTILS_VERSION_2_45_X
+ config BR2_BINUTILS_VERSION_2_46_X
+ 	bool "binutils 2.46.1"
+ 
++config BR2_BINUTILS_VERSION_2_47_X
++	bool "binutils 2.47"
++
+ endchoice
+ 
+ config BR2_BINUTILS_VERSION
+ 	string
++	default "2.47"	if BR2_BINUTILS_VERSION_2_47_X
+ 	default "2.44"		if BR2_BINUTILS_VERSION_2_44_X
+ 	default "2.45.1"	if BR2_BINUTILS_VERSION_2_45_X
+ 	default "2.46.1"	if BR2_BINUTILS_VERSION_2_46_X
+diff --git a/package/binutils/binutils.hash b/package/binutils/binutils.hash
+index 37d14af0..ff78e930 100644
+--- a/package/binutils/binutils.hash
++++ b/package/binutils/binutils.hash
+@@ -7,3 +7,6 @@ sha512  a5c65e56e400ed3fb8906a995dbb93eb5bea54b16344244653d7f44ef29ceb60270da263
+ sha256  231f7edcc7352d7734a96eef0b8030f77982678c516876fcb81e25b32d68564c  COPYING
+ sha256  8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903  COPYING3
+ sha256  56bdea73b6145ef6ac5259b3da390b981d840c24cb03b8e1cbc678de7ecfa18d  COPYING.LIB
++
++# SHA256 calculated from official HTTPS source: https://ftp.gnu.org/gnu/binutils/binutils-2.47.tar.xz
++sha256  154ab23b60070e8f27013c22977f1129425d67d1e8acd6e13010e617811e4cff  binutils-2.47.tar.xz
+diff --git a/package/blake3/blake3.hash b/package/blake3/blake3.hash
+index 6e7d02db..9116b768 100644
+--- a/package/blake3/blake3.hash
++++ b/package/blake3/blake3.hash
+@@ -3,3 +3,6 @@ sha256  5a11e3f834719b6c1cae7aced1e848a37013f6f10f97272e7849aa0da769f295  blake3
+ sha256  00fcc7a934ddbc9ece2a7cc063ac788e284b703b1d705ccbba72d462aa97921e  LICENSE_A2
+ sha256  a5695f57ea0c221e0e8b7d784ff774c35e88c3d3270353646a925880bb3492cc  LICENSE_A2LLVM
+ sha256  a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499  LICENSE_CC0
++
++# SHA256 calculated from official HTTPS source: https://github.com/BLAKE3-team/BLAKE3/archive/1.8.7.tar.gz
++sha256  c6782a28842b1c0478524ac06a4f2ede784038ee298d6e2162c0b089c4306a3c  blake3-1.8.7.tar.gz
+diff --git a/package/blake3/blake3.mk b/package/blake3/blake3.mk
+index 9218e5bb..a06f7ccf 100644
+--- a/package/blake3/blake3.mk
++++ b/package/blake3/blake3.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-BLAKE3_VERSION = 1.8.3
++BLAKE3_VERSION = 1.8.7
+ BLAKE3_SITE = $(call github,BLAKE3-team,BLAKE3,$(BLAKE3_VERSION))
+ BLAKE3_SUBDIR = c
+ BLAKE3_LICENSE = Apache-2.0 or Apache-2.0 with exceptions or CC0-1.0
+diff --git a/package/bluez5_utils/bluez5_utils.hash b/package/bluez5_utils/bluez5_utils.hash
+index fdfb7edb..a425c4ff 100644
+--- a/package/bluez5_utils/bluez5_utils.hash
++++ b/package/bluez5_utils/bluez5_utils.hash
+@@ -3,3 +3,6 @@ sha256  99f144540c6070591e4c53bcb977eb42664c62b7b36cb35a29cf72ded339621d  bluez-
+ # Locally computed
+ sha256  b499eddebda05a8859e32b820a64577d91f1de2b52efa2a1575a2cb4000bc259  COPYING
+ sha256  ec60b993835e2c6b79e6d9226345f4e614e686eb57dc13b6420c15a33a8996e5  COPYING.LIB
++
++# SHA256 calculated from official HTTPS source: https://cdn.kernel.org/pub/linux/bluetooth/bluez-5.87.tar.xz
++sha256  26bdcf2cebd7310c6f598850606b037ef0c515fe6608ebc54d22c50c4c32b35f  bluez-5.87.tar.xz
+diff --git a/package/bluez5_utils/bluez5_utils.mk b/package/bluez5_utils/bluez5_utils.mk
+index 38fe9a52..0d86fd1d 100644
+--- a/package/bluez5_utils/bluez5_utils.mk
++++ b/package/bluez5_utils/bluez5_utils.mk
+@@ -5,7 +5,7 @@
+ ################################################################################
+ 
+ # Keep the version and patches in sync with bluez5_utils-headers
+-BLUEZ5_UTILS_VERSION = 5.86
++BLUEZ5_UTILS_VERSION = 5.87
+ BLUEZ5_UTILS_SOURCE = bluez-$(BLUEZ5_UTILS_VERSION).tar.xz
+ BLUEZ5_UTILS_SITE = $(BR2_KERNEL_MIRROR)/linux/bluetooth
+ BLUEZ5_UTILS_INSTALL_STAGING = YES
+diff --git a/package/ca-certificates/ca-certificates.hash b/package/ca-certificates/ca-certificates.hash
+index d2347050..73d664c1 100644
+--- a/package/ca-certificates/ca-certificates.hash
++++ b/package/ca-certificates/ca-certificates.hash
+@@ -1,4 +1,7 @@
+ # hashes from: $(CA_CERTIFICATES_SITE)/ca-certificates_$(CA_CERTIFICATES_VERSION).dsc :
+ sha256  2fa2b00d4360f0d14ec51640ae8aea9e563956b95ea786e3c3c01c4eead42b56  ca-certificates_20260223.tar.xz
+ # Locally computed
+-sha256  e85e1bcad3a915dc7e6f41412bc5bdeba275cadd817896ea0451f2140a93967c  debian/copyright
++sha256  1ae033c4679e4440848d2fcf6bc8e57d4da2644662775f401e2fede57862674c  debian/copyright
++
++# SHA256 calculated from official HTTPS source: https://deb.debian.org/debian/pool/main/c/ca-certificates/ca-certificates_20260816.tar.xz
++sha256  d939bcdd0cb058712cf4175bac76997676eb8b68fe9473765e1b40fb3d5b186a  ca-certificates_20260816.tar.xz
+diff --git a/package/ca-certificates/ca-certificates.mk b/package/ca-certificates/ca-certificates.mk
+index f5675b75..ea934092 100644
+--- a/package/ca-certificates/ca-certificates.mk
++++ b/package/ca-certificates/ca-certificates.mk
+@@ -4,9 +4,9 @@
+ #
+ ################################################################################
+ 
+-CA_CERTIFICATES_VERSION = 20260223
++CA_CERTIFICATES_VERSION = 20260816
+ CA_CERTIFICATES_SOURCE = ca-certificates_$(CA_CERTIFICATES_VERSION).tar.xz
+-CA_CERTIFICATES_SITE = https://snapshot.debian.org/archive/debian/20260223T202245Z/pool/main/c/ca-certificates
++CA_CERTIFICATES_SITE = https://deb.debian.org/debian/pool/main/c/ca-certificates
+ CA_CERTIFICATES_DEPENDENCIES = host-openssl host-python3
+ HOST_CA_CERTIFICATES_DEPENDENCIES = host-openssl host-python3
+ CA_CERTIFICATES_LICENSE = GPL-2.0+ (script), MPL-2.0 (data)
+diff --git a/package/ccache/ccache.hash b/package/ccache/ccache.hash
+index 46ec78bf..231b21e4 100644
+--- a/package/ccache/ccache.hash
++++ b/package/ccache/ccache.hash
+@@ -3,3 +3,6 @@ sha256  a7de667ca08cf67c3c8af9f213f6aa701a1188a2b3163fb74483858ce5e79fbb  ccache
+ # sha256 computed locally
+ sha256  80b5112739a423dfac7bed1ca8a1df3cccda3d794425441997d4462b83db4dd5  GPL-3.0.txt
+ sha256  072c40891d4ec8e1bcc93420031ebbbeb90b8f2c49fcd7c872d1bb05564c345c  LICENSE.adoc
++
++# SHA256 calculated from official HTTPS source: https://github.com/ccache/ccache/releases/download/v4.14/ccache-4.14.tar.xz
++sha256  b093ac5d38204cb4d9f29b0bbd570675aa5a592a78e6675b2c506dbe045234e7  ccache-4.14.tar.xz
+diff --git a/package/ccache/ccache.mk b/package/ccache/ccache.mk
+index a7302d63..0d88545b 100644
+--- a/package/ccache/ccache.mk
++++ b/package/ccache/ccache.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-CCACHE_VERSION = 4.13.6
++CCACHE_VERSION = 4.14
+ CCACHE_SITE = https://github.com/ccache/ccache/releases/download/v$(CCACHE_VERSION)
+ CCACHE_SOURCE = ccache-$(CCACHE_VERSION).tar.xz
+ CCACHE_LICENSE = GPL-3.0+, others
+diff --git a/package/exfatprogs/exfatprogs.hash b/package/exfatprogs/exfatprogs.hash
+index e73d9d88..76eb2204 100644
+--- a/package/exfatprogs/exfatprogs.hash
++++ b/package/exfatprogs/exfatprogs.hash
+@@ -3,3 +3,6 @@ sha256  d9a42197c6ff9e6a8e923789413008e317415cf7a4ab85c486c5ffcaf49ca175  exfatp
+ 
+ # Hash for license file
+ sha256  8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643  COPYING
++
++# SHA256 calculated from official HTTPS source: https://github.com/exfatprogs/exfatprogs/releases/download/1.4.3/exfatprogs-1.4.3.tar.xz
++sha256  57226a8ec1bfbce06d68a42cde8cd980414a9457882e691fbce4a4f86c8d5f08  exfatprogs-1.4.3.tar.xz
+diff --git a/package/exfatprogs/exfatprogs.mk b/package/exfatprogs/exfatprogs.mk
+index 638cb9ca..aa039a6a 100644
+--- a/package/exfatprogs/exfatprogs.mk
++++ b/package/exfatprogs/exfatprogs.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-EXFATPROGS_VERSION = 1.2.9
++EXFATPROGS_VERSION = 1.4.3
+ EXFATPROGS_SOURCE = exfatprogs-$(EXFATPROGS_VERSION).tar.xz
+ EXFATPROGS_SITE = https://github.com/exfatprogs/exfatprogs/releases/download/$(EXFATPROGS_VERSION)
+ EXFATPROGS_LICENSE = GPL-2.0+
+diff --git a/package/file/file.hash b/package/file/file.hash
+index bb367893..e4b3252a 100644
+--- a/package/file/file.hash
++++ b/package/file/file.hash
+@@ -4,3 +4,6 @@
+ sha256  45672fec165cb4cc1358a2d76b5d57d22876dcb97ab169427ac385cbe1d5597a  file-5.47.tar.gz
+ sha256  0bfa856a9930bddadbef95d1be1cf4e163c0be618e76ea3275caaf255283e274  COPYING
+ sha256  2e14b6fa9a74f952ebfde3c96527158df281c953cfaf35609eb854d4da30131c  src/vasprintf.c
++
++# SHA256 calculated from official HTTPS source: https://astron.com/pub/file/file-5.48.tar.gz
++sha256  ed14656883b23a364b4057c05595d93252da9bc473d30106519519d0da141283  file-5.48.tar.gz
+diff --git a/package/file/file.mk b/package/file/file.mk
+index b70b3c52..ceebbe3f 100644
+--- a/package/file/file.mk
++++ b/package/file/file.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-FILE_VERSION = 5.47
++FILE_VERSION = 5.48
+ FILE_SITE = https://astron.com/pub/file
+ FILE_LICENSE = BSD-2-Clause, BSD-3-Clause (vasprintf.c)
+ FILE_LICENSE_FILES = COPYING src/vasprintf.c
+diff --git a/package/go/go.hash b/package/go/go.hash
+index 1c43cabf..db9114cf 100644
+--- a/package/go/go.hash
++++ b/package/go/go.hash
+@@ -7,3 +7,6 @@ sha256  e1379a2fe77bd30fa29833074388247e7c65416e09279f746f20de2d5cf4dfea  go1.26
+ sha256  232b65543a42eda95df6a63f76235c1795bb535eba5c74e509faec71bc648388  go1.26.6.linux-ppc64le.tar.gz
+ sha256  958757933d38172dd544085d253c8738cf09793d24c8bc0422e5e1e1fffa4fde  go1.26.6.linux-s390x.tar.gz
+ sha256  911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad  LICENSE
++
++# SHA256 calculated from official HTTPS source: https://go.dev/dl/go1.27.1.src.tar.gz
++sha256  4e408abae126d916b6164627193f2c54f0e3ca1312d693b86db45f862ab238b1  go1.27.1.src.tar.gz
+diff --git a/package/go/go.mk b/package/go/go.mk
+index df1023c1..64b4de1b 100644
+--- a/package/go/go.mk
++++ b/package/go/go.mk
+@@ -4,10 +4,7 @@
+ #
+ ################################################################################
+ 
+-# When bumping this to 1.27 (or beyond), remove the workaround for
+-# upstream issue https://github.com/golang/go/issues/77436, below
+-# (i.e. revert the commit adding these lines).
+-GO_VERSION = 1.26.6
++GO_VERSION = 1.27.1
+ 
+ HOST_GO_GOPATH = $(HOST_DIR)/share/go-path
+ HOST_GO_HOST_CACHE = $(HOST_DIR)/share/host-go-cache
+@@ -81,10 +78,6 @@ HOST_GO_TARGET_ENV = \
+ 	CGO_LDFLAGS="$(TARGET_LDFLAGS)" \
+ 	GOTOOLDIR="$(HOST_GO_TOOLDIR)"
+ 
+-# Workaround for https://github.com/golang/go/issues/77436
+-HOST_GO_TARGET_ENV += \
+-	CGO_CFLAGS="$(subst -g3,-g2,$(TARGET_CFLAGS))" \
+-	CGO_CXXFLAGS="$(subst -g3,-g2,$(TARGET_CXXFLAGS))"
+ 
+ # Allow packages to use cgo support if it is available for the target. They
+ # will need the toolchain for cgo support; for convenence, include that
+diff --git a/package/hiredis/hiredis.hash b/package/hiredis/hiredis.hash
+index b9b4fe55..7263bd43 100644
+--- a/package/hiredis/hiredis.hash
++++ b/package/hiredis/hiredis.hash
+@@ -1,3 +1,6 @@
+ # Locally computed:
+ sha256  25cee4500f359cf5cad3b51ed62059aadfc0939b05150c1f19c7e2829123631c  hiredis-1.3.0.tar.gz
+ sha256  dca05ce8fc87a8261783b4aed0deef8becc9350b6aa770bc714d0c1833b896eb  COPYING
++
++# SHA256 calculated from official HTTPS source: https://github.com/redis/hiredis/archive/v1.4.1.tar.gz
++sha256  ca3180359a8b1275838a45415851f8cd5c411e27bdbf18f4823012e45507d2e4  hiredis-1.4.1.tar.gz
+diff --git a/package/hiredis/hiredis.mk b/package/hiredis/hiredis.mk
+index 33a87e77..8f4ef507 100644
+--- a/package/hiredis/hiredis.mk
++++ b/package/hiredis/hiredis.mk
+@@ -5,7 +5,7 @@
+ ################################################################################
+ 
+ HIREDIS_VERSION_MAJOR = 1.3
+-HIREDIS_VERSION = $(HIREDIS_VERSION_MAJOR).0
++HIREDIS_VERSION = 1.4.1
+ HIREDIS_SITE = $(call github,redis,hiredis,v$(HIREDIS_VERSION))
+ HIREDIS_LICENSE = BSD-3-Clause
+ HIREDIS_LICENSE_FILES = COPYING
+diff --git a/package/htop/htop.hash b/package/htop/htop.hash
+index 3d015c6a..1b4563e1 100644
+--- a/package/htop/htop.hash
++++ b/package/htop/htop.hash
+@@ -3,3 +3,6 @@ sha256  526cecd62870aa8d14d2a79a35ea197e4e2b5317d275b567cee0574b2ddb2e9a  htop-3
+ 
+ # Locally calculated
+ sha256  8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643  COPYING
++
++# SHA256 calculated from official HTTPS source: https://github.com/htop-dev/htop/releases/download/3.5.3/htop-3.5.3.tar.xz
++sha256  a8b164386494cb85bb255a415a3f5f80afe7a0c4491da5d113b3a0f951087e65  htop-3.5.3.tar.xz
+diff --git a/package/htop/htop.mk b/package/htop/htop.mk
+index f42d7bee..3bcc0945 100644
+--- a/package/htop/htop.mk
++++ b/package/htop/htop.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-HTOP_VERSION = 3.5.1
++HTOP_VERSION = 3.5.3
+ HTOP_SOURCE = htop-$(HTOP_VERSION).tar.xz
+ HTOP_SITE = https://github.com/htop-dev/htop/releases/download/$(HTOP_VERSION)
+ HTOP_DEPENDENCIES = ncurses
+diff --git a/package/iproute2/iproute2.hash b/package/iproute2/iproute2.hash
+index 691e87bb..cbfa5580 100644
+--- a/package/iproute2/iproute2.hash
++++ b/package/iproute2/iproute2.hash
+@@ -1,3 +1,6 @@
+ # From https://kernel.org/pub/linux/utils/net/iproute2/sha256sums.asc
+ sha256  fd9fa1b95809417157ca83dd72957e3261bdbce896353cb936f80af0b33a4b5c  iproute2-7.1.0.tar.xz
+ sha256  e6d6a009505e345fe949e1310334fcb0747f28dae2856759de102ab66b722cb4  COPYING
++
++# SHA256 calculated from official HTTPS source: https://cdn.kernel.org/pub/linux/utils/net/iproute2/iproute2-7.2.0.tar.xz
++sha256  4c2fa124c2cf0afd7ca34d1eeacba6ba048a56f6374e2aab93dafbdbd4eea9c0  iproute2-7.2.0.tar.xz
+diff --git a/package/iproute2/iproute2.mk b/package/iproute2/iproute2.mk
+index fe7a6fc3..5416bd24 100644
+--- a/package/iproute2/iproute2.mk
++++ b/package/iproute2/iproute2.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-IPROUTE2_VERSION = 7.1.0
++IPROUTE2_VERSION = 7.2.0
+ IPROUTE2_SOURCE = iproute2-$(IPROUTE2_VERSION).tar.xz
+ IPROUTE2_SITE = $(BR2_KERNEL_MIRROR)/linux/utils/net/iproute2
+ IPROUTE2_DEPENDENCIES = host-bison host-flex host-pkgconf \
+diff --git a/package/libcap-ng/libcap-ng.hash b/package/libcap-ng/libcap-ng.hash
+index d79ef54d..8ce7ff96 100644
+--- a/package/libcap-ng/libcap-ng.hash
++++ b/package/libcap-ng/libcap-ng.hash
+@@ -2,3 +2,6 @@
+ sha256  fe11ebbb55904763b3532f19069f13ec319042634620180a03bd4653d301563e  libcap-ng-0.9.3.tar.gz
+ sha256  32b1062f7da84967e7019d01ab805935caa7ab7321a7ced0e30ebe75e5df1670  COPYING
+ sha256  f18a0811fa0e220ccbc42f661545e77f0388631e209585ed582a1c693029c6aa  COPYING.LIB
++
++# SHA256 calculated from official HTTPS source: https://github.com/stevegrubb/libcap-ng/archive/v0.9.6.tar.gz
++sha256  399040138e0ca62fa2bcabd63da9af4431a246ef7a654561a0ca3cb00010a539  libcap-ng-0.9.6.tar.gz
+diff --git a/package/libcap-ng/libcap-ng.mk b/package/libcap-ng/libcap-ng.mk
+index 31e0ff8d..419ebc8b 100644
+--- a/package/libcap-ng/libcap-ng.mk
++++ b/package/libcap-ng/libcap-ng.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-LIBCAP_NG_VERSION = 0.9.3
++LIBCAP_NG_VERSION = 0.9.6
+ LIBCAP_NG_SITE = $(call github,stevegrubb,libcap-ng,v$(LIBCAP_NG_VERSION))
+ LIBCAP_NG_LICENSE = GPL-2.0+ (programs), LGPL-2.1+ (library)
+ LIBCAP_NG_LICENSE_FILES = COPYING COPYING.LIB
+diff --git a/package/libglib2/libglib2.hash b/package/libglib2/libglib2.hash
+index 8970ef74..32f8e801 100644
+--- a/package/libglib2/libglib2.hash
++++ b/package/libglib2/libglib2.hash
+@@ -2,3 +2,6 @@
+ sha256  ab24d24e698dfa1e408b7bcdb508f4aafc906185a8b8ce72fdf79bbbdc9b383b  glib-2.88.3.tar.xz
+ # License files, locally calculated
+ sha256  fa6f36630bb1e0c571d34b2bbdf188d08495c9dbf58f28cac112f303fc1f58fb  COPYING
++
++# SHA256 calculated from official HTTPS source: https://download.gnome.org/sources/glib/2.90/glib-2.90.0.tar.xz
++sha256  17d15cac2af80a33271127408e0abc2748eb297c595c2a26409e81e14e7d1b8f  glib-2.90.0.tar.xz
+diff --git a/package/libglib2/libglib2.mk b/package/libglib2/libglib2.mk
+index bfe49202..8e7a1cb4 100644
+--- a/package/libglib2/libglib2.mk
++++ b/package/libglib2/libglib2.mk
+@@ -4,8 +4,8 @@
+ #
+ ################################################################################
+ 
+-LIBGLIB2_VERSION_MAJOR = 2.88
+-LIBGLIB2_VERSION = $(LIBGLIB2_VERSION_MAJOR).3
++LIBGLIB2_VERSION_MAJOR = 2.90
++LIBGLIB2_VERSION = 2.90.0
+ LIBGLIB2_SOURCE = glib-$(LIBGLIB2_VERSION).tar.xz
+ LIBGLIB2_SITE = https://download.gnome.org/sources/glib/$(LIBGLIB2_VERSION_MAJOR)
+ LIBGLIB2_LICENSE = LGPL-2.1+
+diff --git a/package/libpcap/libpcap.hash b/package/libpcap/libpcap.hash
+index 098b059f..4406e3bc 100644
+--- a/package/libpcap/libpcap.hash
++++ b/package/libpcap/libpcap.hash
+@@ -4,3 +4,6 @@ sha256  872dd11337fe1ab02ad9d4fee047c9da244d695c6ddf34e2ebb733efd4ed8aa9  libpca
+ 
+ # Hash for license file:
+ sha256  8a54594d257e14a5260ac770f1633516cb51e3fc28c40136ce2697014eda7afd  LICENSE
++
++# SHA256 calculated from official HTTPS source: https://www.tcpdump.org/release/libpcap-1.10.7.tar.gz
++sha256  0b394ac90dbc0a9838ff97468e05c9c9a3e873dec2514cd58db65d859d296e31  libpcap-1.10.7.tar.gz
+diff --git a/package/libpcap/libpcap.mk b/package/libpcap/libpcap.mk
+index c4feee57..a501ce29 100644
+--- a/package/libpcap/libpcap.mk
++++ b/package/libpcap/libpcap.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-LIBPCAP_VERSION = 1.10.6
++LIBPCAP_VERSION = 1.10.7
+ LIBPCAP_SITE = https://www.tcpdump.org/release
+ LIBPCAP_LICENSE = BSD-3-Clause
+ LIBPCAP_LICENSE_FILES = LICENSE
+diff --git a/package/libtool/libtool.hash b/package/libtool/libtool.hash
+index 72281eb4..89af05c1 100644
+--- a/package/libtool/libtool.hash
++++ b/package/libtool/libtool.hash
+@@ -3,3 +3,6 @@ sha256  f81f5860666b0bc7d84baddefa60d1cb9fa6fceb2398cc3baca6afaa60266675  libtoo
+ # License files, locally calculated
+ sha256  edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6  COPYING
+ sha256  20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95  libltdl/COPYING.LIB
++
++# SHA256 calculated from official HTTPS source: https://ftp.gnu.org/gnu/libtool/libtool-2.6.2.tar.xz
++sha256  2ef1067c16c97db930fd740cc9bc3d3ba9a583804ae5ac42cc3e8719e49e191e  libtool-2.6.2.tar.xz
+diff --git a/package/libtool/libtool.mk b/package/libtool/libtool.mk
+index ecadc3e6..78eb9dd1 100644
+--- a/package/libtool/libtool.mk
++++ b/package/libtool/libtool.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-LIBTOOL_VERSION = 2.5.4
++LIBTOOL_VERSION = 2.6.2
+ LIBTOOL_SOURCE = libtool-$(LIBTOOL_VERSION).tar.xz
+ LIBTOOL_SITE = $(BR2_GNU_MIRROR)/libtool
+ LIBTOOL_CPE_ID_VENDOR = gnu
+diff --git a/package/meson/meson.hash b/package/meson/meson.hash
+index b2fff897..89b2dfb3 100644
+--- a/package/meson/meson.hash
++++ b/package/meson/meson.hash
+@@ -2,3 +2,6 @@
+ sha256  6788ae299979643f8d841bcaf64352558436cae45a0355148a3aeeccf7913866  meson-1.11.1.tar.gz
+ # Locally computed
+ sha256  cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30  COPYING
++
++# SHA256 calculated from official HTTPS source: https://github.com/mesonbuild/meson/releases/download/1.12.0/meson-1.12.0.tar.gz
++sha256  88afe0c20e52030218924ac37d0c81c59b4b5f3ae3752c8c6d7470c7d365886c  meson-1.12.0.tar.gz
+diff --git a/package/meson/meson.mk b/package/meson/meson.mk
+index 0a61cc9c..cafbff45 100644
+--- a/package/meson/meson.mk
++++ b/package/meson/meson.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-MESON_VERSION = 1.11.1
++MESON_VERSION = 1.12.0
+ MESON_SITE = https://github.com/mesonbuild/meson/releases/download/$(MESON_VERSION)
+ MESON_LICENSE = Apache-2.0
+ MESON_LICENSE_FILES = COPYING
+diff --git a/package/parted/0001-bug-74444-PATCH-parted-fix-do_version-declaration.patch b/package/parted/0001-bug-74444-PATCH-parted-fix-do_version-declaration.patch
+deleted file mode 100644
+index 78709e07..00000000
+--- a/package/parted/0001-bug-74444-PATCH-parted-fix-do_version-declaration.patch
++++ /dev/null
+@@ -1,44 +0,0 @@
+-From 16343bda6ce0d41edf43f8dac368db3bbb63d271 Mon Sep 17 00:00:00 2001
+-From: Rudi Heitbaum <rudi@heitbaum.com>
+-Date: Wed, 20 Nov 2024 12:22:22 +0000
+-Subject: [PATCH] bug#74444: [PATCH] parted: fix do_version declaration
+-
+-With gcc 15-20241117 compile fails with the below error, update the
+-do_version declaration to match the header in command.h
+-
+-../../parted/parted.c: In function '_init_commands':
+-../../parted/parted.c:2469:9: error: passing argument 2 of 'command_create' from incompatible pointer type [-Wincompatible-pointer-types]
+- 2469 |         do_version,
+-      |         ^~~~~~~~~~
+-      |         |
+-      |         int (*)(void)
+-In file included from ../../parted/parted.c:28:
+-../../parted/command.h:35:39: note: expected 'int (*)(PedDevice **, PedDisk **)' {aka 'int (*)(struct _PedDevice **, struct _PedDisk **)'} but argument is of type 'int (*)(void)'
+-   35 |                                 int (*method) (PedDevice** dev, PedDisk** diskp),
+-      |                                 ~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-
+-Upstream: https://cgit.git.savannah.gnu.org/cgit/parted.git/commit/?id=16343bda6ce0d41edf43f8dac368db3bbb63d271
+-
+-Signed-off-by: Rudi Heitbaum <rudi@heitbaum.com>
+-Signed-off-by: Brian C. Lane <bcl@redhat.com>
+-Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+----
+- parted/parted.c | 2 +-
+- 1 file changed, 1 insertion(+), 1 deletion(-)
+-
+-diff --git a/parted/parted.c b/parted/parted.c
+-index 3abb52f..fc2aeba 100644
+---- a/parted/parted.c
+-+++ b/parted/parted.c
+-@@ -2172,7 +2172,7 @@ do_unit (PedDevice** dev, PedDisk** diskp)
+- }
+- 
+- static int
+--do_version ()
+-+do_version (PedDevice** dev, PedDisk** diskp)
+- {
+-     printf ("\n%s\n%s",
+-             prog_name,
+--- 
+-2.34.1
+-
+diff --git a/package/parted/parted.hash b/package/parted/parted.hash
+index 6643ba9f..fc64af3f 100644
+--- a/package/parted/parted.hash
++++ b/package/parted/parted.hash
+@@ -3,3 +3,6 @@ sha256  3b43dbe33cca0f9a18601ebab56b7852b128ec1a3df3a9b30ccde5e73359e612  parted
+ 
+ # Locally calculated
+ sha256  0abbff814cd00e2b0b6d08395af2b419c1a92026c4b4adacbb65ccda45fa58cf  COPYING
++
++# SHA256 calculated from official HTTPS source: https://ftp.gnu.org/gnu/parted/parted-3.7.tar.xz
++sha256  008de57561a4f3c25a0648e66ed11e7b30be493889b64334a6d70f2c1951ef7b  parted-3.7.tar.xz
+diff --git a/package/parted/parted.mk b/package/parted/parted.mk
+index 5b55a9f2..8452c68b 100644
+--- a/package/parted/parted.mk
++++ b/package/parted/parted.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-PARTED_VERSION = 3.6
++PARTED_VERSION = 3.7
+ PARTED_SOURCE = parted-$(PARTED_VERSION).tar.xz
+ PARTED_SITE = $(BR2_GNU_MIRROR)/parted
+ PARTED_DEPENDENCIES = host-pkgconf util-linux
+diff --git a/package/patchelf/0001-Add-option-to-make-the-rpath-relative-under-a-specif.patch b/package/patchelf/0001-Add-option-to-make-the-rpath-relative-under-a-specif.patch
+index c29fac7d..958d6f57 100644
+--- a/package/patchelf/0001-Add-option-to-make-the-rpath-relative-under-a-specif.patch
++++ b/package/patchelf/0001-Add-option-to-make-the-rpath-relative-under-a-specif.patch
+@@ -1,61 +1,16 @@
+-From 6e8915572db65cf63b7a82f9b24af6f9cad92ba7 Mon Sep 17 00:00:00 2001
+-From: Wolfgang Grandegger <wg@grandegger.com>
+-Date: Mon, 20 Feb 2017 16:29:24 +0100
+-Subject: [PATCH] Add option to make the rpath relative under a specified root
+- directory
++From: NanoKVM OS maintainers <maintainers@nanokvm.local>
++Subject: [PATCH] Port Buildroot relative RPATH support to patchelf 0.19.1
+ 
+-Running "patchelf" with the option "--make-rpath-relative ROOTDIR" will
+-modify or delete the RPATHDIRs according the following rules
+-similar to Martin's patches [1] making the Buildroot toolchaing/SDK
+-relocatable.
++Preserve the distribution SDK relocation options with the new RPATH switch
++and split ElfFile declaration. Existing resolution-cache handling stays intact.
+ 
+-RPATHDIR starts with "$ORIGIN":
+-    The original build-system already took care of setting a relative
+-    RPATH, resolve it and test if it's valid (does exist)
++Upstream: Not applicable [Buildroot SDK relocation]
+ 
+-RPATHDIR starts with ROOTDIR:
+-    The original build-system added some absolute RPATH (absolute on
+-    the build machine). Test if it's valid (does exist).
+-
+-ROOTDIR/RPATHDIR exists:
+-    The original build-system already took care of setting an absolute
+-    RPATH (absolute in the final rootfs), resolve it and test if it's
+-    valid (does exist).
+-
+-RPATHDIR points somewhere else:
+-    (can be anywhere: build trees, staging tree, host location,
+-    non-existing location, etc.). Just discard such a path.
+-
+-The option "--no-standard-libs" will discard RPATHDIRs ROOTDIR/lib and
+-ROOTDIR/usr/lib. Like "--shrink-rpath", RPATHDIRs are also discarded
+-if the directories do not contain a library referenced by the
+-DT_NEEDED fields.
+-If the option "--relative-to-file" is given, the rpath will start
+-with "$ORIGIN" making it relative to the ELF file, otherwise an
+-absolute path relative to ROOTDIR will be used.
+-
+-A pull request for a similar patch [2] for mainline inclusion is
+-pending.
+-
+-[1] http://lists.busybox.net/pipermail/buildroot/2016-April/159422.html
+-[2] https://github.com/NixOS/patchelf/pull/118
+-
+-Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+-[Fabrice: update for 0.13]
+-Signed-off-by: Fabrice Fontaine <fontaine.fabrice@gmail.com>
+-[Dario: make the patch to be applied with fuzz factor 0]
+-Signed-off-by: Dario Binacchi <dario.binacchi@amarulasolutions.com>
+----
+- src/patchelf.cc | 199 +++++++++++++++++++++++++++++++++++++++++-------
+- 1 file changed, 171 insertions(+), 28 deletions(-)
+-
+-diff --git a/src/patchelf.cc b/src/patchelf.cc
+-index fd1e7b7b61c3..f3b7ba8867bf 100644
+ --- a/src/patchelf.cc
+ +++ b/src/patchelf.cc
+-@@ -45,6 +45,10 @@ static bool debugMode = false;
+- 
+- static bool forceRPath = false;
++@@ -65,6 +65,10 @@
++    rather than padding the file by gigabytes. */
++ static constexpr unsigned maxSegmentAlignment = 0x1000000; /* 16 MiB */
+  
+ +static bool noStandardLibDirs = false;
+ +
+@@ -64,10 +19,12 @@ index fd1e7b7b61c3..f3b7ba8867bf 100644
+  static std::vector<std::string> fileNames;
+  static std::string outputFileName;
+  static bool alwaysWrite = false;
+-@@ -81,6 +85,49 @@ static bool hasAllowedPrefix(const std::string & s, const std::vector<std::strin
++@@ -99,6 +103,50 @@
++ static bool hasAllowedPrefix(const std::string & s, const std::vector<std::string> & allowedPrefixes)
++ {
+      return std::any_of(allowedPrefixes.begin(), allowedPrefixes.end(), [&](const std::string & i) { return !s.compare(0, i.size(), i); });
+- }
+- 
+++}
+++
+ +static bool absolutePathExists(const std::string & path, std::string & canonicalPath)
+ +{
+ +    char *cpath = realpath(path.c_str(), NULL);
+@@ -110,101 +67,34 @@ index fd1e7b7b61c3..f3b7ba8867bf 100644
+ +    }
+ +
+ +    return relPath;
+-+}
+- 
+- template<ElfFileParams>
+- class ElfFile
+-@@ -197,9 +244,13 @@ public:
+- 
+-     void setInterpreter(const std::string & newInterpreter);
+- 
+--    typedef enum { rpPrint, rpShrink, rpSet, rpAdd, rpRemove } RPathOp;
+-+    typedef enum { rpPrint, rpShrink, rpMakeRelative, rpSet, rpAdd, rpRemove} RPathOp;
+- 
+--    void modifyRPath(RPathOp op, const std::vector<std::string> & allowedRpathPrefixes, std::string newRPath);
+-+    bool libFoundInRPath(const std::string & dirName,
+-+                         const std::vector<std::string> neededLibs,
+-+                         std::vector<bool> & neededLibFound);
+-+
+-+    void modifyRPath(RPathOp op, std::string rootDir, const std::vector<std::string> & allowedRpathPrefixes, std::string newRPath, const std::string & fileName);
+- 
+-     void addNeeded(const std::set<std::string> & libs);
+- 
+-@@ -1267,8 +1318,28 @@ static void concatToRPath(std::string & rpath, const std::string & path)
++ }
+  
++ static std::string trim(std::string s)
++@@ -1752,9 +1800,10 @@
++     this->rewriteSections();
++ }
+  
+- template<ElfFileParams>
++-template<ElfFileParams>
+ -void ElfFile<ElfFileParamNames>::modifyRPath(RPathOp op,
+ -    const std::vector<std::string> & allowedRpathPrefixes, std::string newRPath)
+-+bool ElfFile<ElfFileParamNames>::libFoundInRPath(const std::string & dirName,
+-+    const std::vector<std::string> neededLibs, std::vector<bool> & neededLibFound)
+-+{
+-+    /* For each library that we haven't found yet, see if it
+-+       exists in this directory. */
+-+    bool libFound = false;
+-+    for (unsigned int j = 0; j < neededLibs.size(); ++j)
+-+        if (!neededLibFound[j]) {
+-+            std::string libName = dirName + "/" + neededLibs[j];
+-+            struct stat st;
+-+            if (stat(libName.c_str(), &st) == 0) {
+-+                neededLibFound[j] = true;
+-+                libFound = true;
+-+            }
+-+        }
+-+    return libFound;
+-+}
+-+
+ +
+ +template<ElfFileParams>
+ +void ElfFile<ElfFileParamNames>::modifyRPath(RPathOp op, std::string rootDir,
+ +    const std::vector<std::string> & allowedRpathPrefixes, std::string newRPath, const std::string & fileName)
+  {
+-     auto shdrDynamic = findSection(".dynamic");
+- 
+-@@ -1314,6 +1385,11 @@ void ElfFile<ElfFileParamNames>::modifyRPath(RPathOp op,
+-         return;
+-     }
++     auto shdrDynamic = findSectionHeader(".dynamic");
+  
+-+    if (op == rpMakeRelative && !rpath) {
+-+        debug("no RPATH to make relative\n");
+-+        return;
+-+    }
+-+
+-     if (op == rpShrink && !rpath) {
+-         debug("no RPATH to shrink\n");
+-         return;
+-@@ -1343,31 +1419,80 @@ void ElfFile<ElfFileParamNames>::modifyRPath(RPathOp op,
+-                 continue;
++@@ -1813,6 +1862,77 @@
+              }
+- 
+--            /* For each library that we haven't found yet, see if it
+--               exists in this directory. */
+--            bool libFound = false;
+--            for (unsigned int j = 0; j < neededLibs.size(); ++j)
+--                if (!neededLibFound[j]) {
+--                    std::string libName = dirName + "/" + neededLibs[j];
+--                    try {
+--                        Elf32_Half library_e_machine = getElfType(readFile(libName, sizeof(Elf32_Ehdr))).machine;
+--                        if (rdi(library_e_machine) == rdi(hdr->e_machine)) {
+--                            neededLibFound[j] = true;
+--                            libFound = true;
+--                        } else
+--                            debug("ignoring library '%s' because its machine type differs\n", libName.c_str());
+--                    } catch (SysError & e) {
+--                        if (e.errNo != ENOENT) throw;
+--                    }
+--                }
+--
+--            if (!libFound)
+-+            if (!libFoundInRPath(dirName, neededLibs, neededLibFound))
+-                 debug("removing directory '%s' from RPATH\n", dirName.c_str());
+-             else
+-                 concatToRPath(newRPath, dirName);
+-         }
+-     }
+- 
+-+    /* Make the the RPATH relative to the specified path */
+-+    if (op == rpMakeRelative) {
++             removeRPath(shdrDynamic);
++             return;
+++        }
+++        case rpMakeRelative: {
+++            if (!rpath) {
+++                debug("no RPATH to make relative\n");
+++                return;
+++            }
+++
+ +        std::vector<bool> neededLibFound(neededLibs.size(), false);
+ +        std::string fileDir = fileName.substr(0, fileName.find_last_of("/"));
+ +
+@@ -263,19 +153,18 @@ index fd1e7b7b61c3..f3b7ba8867bf 100644
+ +
+ +            /* Finally make "canonicalPath" relative to "filedir" in "rootDir" */
+ +            if (relativeToFile)
+-+                concatToRPath(newRPath, makePathRelative(canonicalPath, fileDir));
+++                appendRPath(newRPath, makePathRelative(canonicalPath, fileDir));
+ +            else
+-+                concatToRPath(newRPath, canonicalPath.substr(rootDir.length()));
+++                appendRPath(newRPath, canonicalPath.substr(rootDir.length()));
+ +            debug("keeping relative path of %s\n", canonicalPath.c_str());
+ +        }
+-+    }
+-+
+-     if (op == rpRemove) {
+-         if (!rpath) {
+-             debug("no RPATH to delete\n");
+-@@ -1736,7 +1861,9 @@ static bool removeRPath = false;
+- static bool setRPath = false;
+- static bool addRPath = false;
+++            break;
++         }
++         case rpShrink: {
++             if (!rpath) {
++@@ -2912,7 +3032,9 @@
++ static bool buildResolutionCache = false;
++ static bool renameDynamicSymbols = false;
+  static bool printRPath = false;
+ +static bool makeRPathRelative = false;
+  static std::string newRPath;
+@@ -283,13 +172,18 @@ index fd1e7b7b61c3..f3b7ba8867bf 100644
+  static std::set<std::string> neededLibsToRemove;
+  static std::map<std::string, std::string> neededLibsToReplace;
+  static std::set<std::string> neededLibsToAdd;
+-@@ -1760,16 +1887,18 @@ static void patchElf2(ElfFile && elfFile, const FileContents & fileContents, con
++@@ -2947,7 +3069,7 @@
+          elfFile.setInterpreter(newInterpreter);
+  
+      if (printRPath)
+ -        elfFile.modifyRPath(elfFile.rpPrint, {}, "");
+ +        elfFile.modifyRPath(elfFile.rpPrint, "", {}, "", fileName);
+  
++     if (printExecstack)
++         elfFile.modifyExecstack(ElfFile::ExecstackMode::print);
++@@ -2957,13 +3079,15 @@
++         elfFile.modifyExecstack(ElfFile::ExecstackMode::set);
++ 
+      if (shrinkRPath)
+ -        elfFile.modifyRPath(elfFile.rpShrink, allowedRpathPrefixes, "");
+ +        elfFile.modifyRPath(elfFile.rpShrink, "", allowedRpathPrefixes, "", fileName);
+@@ -307,7 +201,7 @@ index fd1e7b7b61c3..f3b7ba8867bf 100644
+  
+      if (printNeeded) elfFile.printNeededLibs();
+  
+-@@ -1821,6 +1950,9 @@ void showHelp(const std::string & progName)
++@@ -3034,6 +3158,9 @@
+    [--remove-rpath]\n\
+    [--shrink-rpath]\n\
+    [--allowed-rpath-prefixes PREFIXES]\t\tWith '--shrink-rpath', reject rpath entries not starting with the allowed prefix\n\
+@@ -317,9 +211,9 @@ index fd1e7b7b61c3..f3b7ba8867bf 100644
+    [--print-rpath]\n\
+    [--force-rpath]\n\
+    [--add-needed LIBRARY]\n\
+-@@ -1889,6 +2021,17 @@ int mainWrapped(int argc, char * * argv)
++@@ -3118,6 +3245,17 @@
+              addRPath = true;
+-             newRPath = argv[i];
++             newRPath = resolveArgument(argv[i]);
+          }
+ +        else if (arg == "--make-rpath-relative") {
+ +            if (++i == argc) error("missing argument to --make-rpath-relative");
+@@ -335,6 +229,18 @@ index fd1e7b7b61c3..f3b7ba8867bf 100644
+          else if (arg == "--print-rpath") {
+              printRPath = true;
+          }
+--- 
+-2.43.0
+-
++--- a/src/patchelf.h
+++++ b/src/patchelf.h
++@@ -153,9 +153,9 @@
++ 
++     void setInterpreter(const std::string & newInterpreter);
++ 
++-    typedef enum { rpPrint, rpShrink, rpSet, rpAdd, rpRemove } RPathOp;
++-
++-    void modifyRPath(RPathOp op, const std::vector<std::string> & allowedRpathPrefixes, std::string newRPath);
+++    typedef enum { rpPrint, rpShrink, rpMakeRelative, rpSet, rpAdd, rpRemove } RPathOp;
+++
+++    void modifyRPath(RPathOp op, std::string rootDir, const std::vector<std::string> & allowedRpathPrefixes, std::string newRPath, const std::string & fileName);
++     std::string shrinkRPath(char* rpath, std::vector<std::string> &neededLibs, const std::vector<std::string> & allowedRpathPrefixes);
++     void removeRPath(Elf_Shdr & shdrDynamic);
++ 
+diff --git a/package/patchelf/patchelf.hash b/package/patchelf/patchelf.hash
+index d4064fb9..5bbefe45 100644
+--- a/package/patchelf/patchelf.hash
++++ b/package/patchelf/patchelf.hash
+@@ -1,4 +1,7 @@
+ # Locally calculated
+ sha256  4c7ed4bcfc1a114d6286e4a0d3c1a90db147a4c3adda1814ee0eee0f9ee917ed  patchelf-0.13.tar.bz2
+ # License files, locally calculated
+-sha256  8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903  COPYING
++sha256  e79e9c8a0c85d735ff98185918ec94ed7d175efc377012787aebcf3b80f0d90b  COPYING
++
++# SHA256 calculated from official HTTPS source: https://github.com/NixOS/patchelf/releases/download/0.19.1/patchelf-0.19.1.tar.bz2
++sha256  2cce01de93653829f6ab68a20c2ec275e1c00a946110704a27e928d2e6e88716  patchelf-0.19.1.tar.bz2
+diff --git a/package/patchelf/patchelf.mk b/package/patchelf/patchelf.mk
+index c583b228..bd002562 100644
+--- a/package/patchelf/patchelf.mk
++++ b/package/patchelf/patchelf.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-PATCHELF_VERSION = 0.13
++PATCHELF_VERSION = 0.19.1
+ PATCHELF_SITE = \
+ 	https://github.com/NixOS/patchelf/releases/download/$(PATCHELF_VERSION)
+ PATCHELF_SOURCE = patchelf-$(PATCHELF_VERSION).tar.bz2
+diff --git a/package/pcre2/pcre2.hash b/package/pcre2/pcre2.hash
+index 17f15c0f..3915e6ab 100644
+--- a/package/pcre2/pcre2.hash
++++ b/package/pcre2/pcre2.hash
+@@ -4,3 +4,6 @@ sha256  47fe8c99461250d42f89e6e8fdaeba9da057855d06eb7fc08d9ca03fd08d7bc7  pcre2-
+ # Locally computed
+ sha256  197d8a73ffee0d6b09adba2f9c677b5f5aede24edf89258a68e48248d010d811  LICENCE.md
+ sha256  5f216505c0f6ea3273caec89e766eef93cdeb7bbb0c429f9360116d7c938feeb  deps/sljit/LICENSE
++
++# SHA256 calculated from official HTTPS source: https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.48/pcre2-10.48.tar.bz2
++sha256  b6c68fdf6f3ac31388b50aa89ff0fc49c00c987c16e7b5146491d12003f2c8ed  pcre2-10.48.tar.bz2
+diff --git a/package/pcre2/pcre2.mk b/package/pcre2/pcre2.mk
+index f2b56081..ea841f48 100644
+--- a/package/pcre2/pcre2.mk
++++ b/package/pcre2/pcre2.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-PCRE2_VERSION = 10.47
++PCRE2_VERSION = 10.48
+ PCRE2_SITE = https://github.com/PCRE2Project/pcre2/releases/download/pcre2-$(PCRE2_VERSION)
+ PCRE2_SOURCE = pcre2-$(PCRE2_VERSION).tar.bz2
+ PCRE2_LICENSE = BSD-3-Clause
+diff --git a/package/pkg-autotools.mk b/package/pkg-autotools.mk
+index 16b21acb..98e65c42 100644
+--- a/package/pkg-autotools.mk
++++ b/package/pkg-autotools.mk
+@@ -74,6 +74,8 @@ define LIBTOOL_PATCH_HOOK
+ 			else \
+ 				patch -i support/libtool/buildroot-libtool-v2.4.patch $${i}; \
+ 			fi \
++		elif test $${ltmain_version} = "2.6"; then\
++			patch -i support/libtool/buildroot-libtool-v2.6.patch $${i}; \
+ 		elif test $${ltmain_version} = "2.5"; then\
+ 			patch -i support/libtool/buildroot-libtool-v2.4.4.patch $${i}; \
+ 		fi \
+diff --git a/package/pkgconf/0001-Only-prefix-with-the-sysroot-a-subset-of-variables.patch b/package/pkgconf/0001-Only-prefix-with-the-sysroot-a-subset-of-variables.patch
+index 986058d4..530502d5 100644
+--- a/package/pkgconf/0001-Only-prefix-with-the-sysroot-a-subset-of-variables.patch
++++ b/package/pkgconf/0001-Only-prefix-with-the-sysroot-a-subset-of-variables.patch
+@@ -1,150 +1,36 @@
+-From c912e9bb8d5be414fda74b2019deb2a6d2d041a0 Mon Sep 17 00:00:00 2001
+-From: Thomas Petazzoni <thomas.petazzoni@bootlin.com>
+-Date: Sun, 16 Dec 2018 11:52:18 +0100
+-Subject: [PATCH] Only prefix with the sysroot a subset of variables
++From: NanoKVM OS maintainers <maintainers@nanokvm.local>
++Subject: [PATCH] Preserve Buildroot variable sysroot policy with pkgconf 3
+ 
+-The standard logic of pkg-config is to prefix all absolute paths by
+-the sysroot defined in PKG_CONFIG_SYSROOT_DIR. However, while some
+-paths (like includedir, libdir, and paths used in -L and -I options)
+-indeed need to be prefixed by the sysroot, it is not necessarily the
+-case for paths that are used on the target. If they get prefixed by
+-the sysroot, the runtime path on the target is incorrect.
++Pkgconf 3 moved variable evaluation from tuple parsing to variable_eval_name.
++Keep runtime paths unprefixed while retaining sysroot for the same build-time
++variables as Buildroot's previous patch. Cflags/Libs fragment handling remains
++upstream code. Explicit pc_sysrootdir expansion is also unchanged.
+ 
+-Unfortunately, pkg-config doesn't have a sense of which path needs to
+-be prefixed by the sysroot, and which path should not be prefixed by
+-the sysroot.
++Upstream: Not applicable [Buildroot-specific policy]
+ 
+-So, let's simply have a whitelist of paths that should be prefixed:
+-g_ir_scanner, g_ir_compiler, g_ir_generate, includedir, libdir, mapdir,
+-pkgdatadir and sdkdir. This list of variables was collected over years of
+-Buildroot development. All other paths are not prefixed by the sysroot.
+-
+-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@bootlin.com>
+-[Updated to include gobject-introspection paths]
+-Signed-off-by: Adam Duskett <aduskett@gmail.com>
+-[Dropped the pkgdatadir path]
+-Signed-off-by: Thomas Devoogdt <thomas@devoogdt.com>
+----
+- libpkgconf/tuple.c | 64 ++++++++++++++++++++++++++++++++--------------
+- 1 file changed, 45 insertions(+), 19 deletions(-)
+-
+-diff --git a/libpkgconf/tuple.c b/libpkgconf/tuple.c
+-index 83f6a47..d56fcec 100644
+---- a/libpkgconf/tuple.c
+-+++ b/libpkgconf/tuple.c
+-@@ -178,6 +178,20 @@ dequote(const char *value)
+- 	return buf;
+- }
+- 
+-+static char *
+-+pkgconf_tuple_parse_sysroot(const pkgconf_client_t *client, pkgconf_list_t *vars, const char *value, unsigned int flags, bool add_sysroot);
+-+
+-+const char *sysrooted_keys[] = {
+-+	"g_ir_scanner",
+-+	"g_ir_compiler",
+-+	"g_ir_generate",
+-+	"includedir",
+-+	"libdir",
+-+	"mapdir",
+-+	"sdkdir",
+-+	NULL,
+-+};
+-+
+- static const char *
+- find_sysroot(const pkgconf_client_t *client, pkgconf_list_t *vars)
+- {
+-@@ -237,14 +251,20 @@ pkgconf_tuple_add(const pkgconf_client_t *client, pkgconf_list_t *list, const ch
+- {
+- 	char *dequote_value;
+- 	pkgconf_tuple_t *tuple = calloc(1, sizeof(pkgconf_tuple_t));
++--- a/libpkgconf/variable.c
+++++ b/libpkgconf/variable.c
++@@ -166,6 +166,14 @@
++ 	pkgconf_buffer_t varbuf = PKGCONF_BUFFER_INITIALIZER;
++ 	const pkgconf_buffer_t *sysroot_dir = PKGCONF_BUFFER_FROM_STR(client->sysroot_dir);
++ 	bool saw_sysroot = false;
+ +	bool add_sysroot = false;
+-+	int i;
+- 
+- 	pkgconf_tuple_find_delete(list, key);
+- 
+- 	dequote_value = dequote(value);
+- 
+-+	for (i = 0; sysrooted_keys[i] != NULL; i++)
+-+		if (!strcmp(key, sysrooted_keys[i]))
+++	static const char *const sysrooted_keys[] = {
+++		"g_ir_scanner", "g_ir_compiler", "g_ir_generate",
+++		"includedir", "libdir", "mapdir", "sdkdir", NULL,
+++	};
+++	for (size_t i = 0; sysrooted_keys[i] != NULL; i++)
+++		if (strcmp(varname, sysrooted_keys[i]) == 0)
+ +			add_sysroot = true;
+-+
+- 	tuple->key = strdup(key);
+- 	if (parse)
+--		tuple->value = pkgconf_tuple_parse(client, list, dequote_value, flags);
+-+		tuple->value = pkgconf_tuple_parse_sysroot(client, list, dequote_value, flags, add_sysroot);
+- 	else
+- 		tuple->value = strdup(dequote_value);
++ 	pkgconf_variable_t *v;
+  
+-@@ -294,22 +314,8 @@ pkgconf_tuple_find(const pkgconf_client_t *client, pkgconf_list_t *list, const c
+- 	return NULL;
+- }
++ 	pkgconf_bytecode_eval_ctx_t ctx = {
++@@ -176,7 +184,7 @@
++ 	v = pkgconf_bytecode_eval_lookup_var(&ctx, varname, strlen(varname));
++ 	(void) pkgconf_variable_eval(client, vars, v, &varbuf, &saw_sysroot);
+  
+--/*
+-- * !doc
+-- *
+-- * .. c:function:: char *pkgconf_tuple_parse(const pkgconf_client_t *client, pkgconf_list_t *vars, const char *value, unsigned int flags)
+-- *
+-- *    Parse an expression for variable substitution.
+-- *
+-- *    :param pkgconf_client_t* client: The pkgconf client object to access.
+-- *    :param pkgconf_list_t* list: The variable list to search for variables (along side the global variable list).
+-- *    :param char* value: The ``key=value`` string to parse.
+-- *    :param uint flags: Any flags to consider while parsing.
+-- *    :return: the variable data with any variables substituted
+-- *    :rtype: char *
+-- */
+--char *
+--pkgconf_tuple_parse(const pkgconf_client_t *client, pkgconf_list_t *vars, const char *value, unsigned int flags)
+-+static char *
+-+pkgconf_tuple_parse_sysroot(const pkgconf_client_t *client, pkgconf_list_t *vars, const char *value, unsigned int flags, bool add_sysroot)
+- {
+- 	char buf[PKGCONF_BUFSIZE];
+- 	const char *ptr;
+-@@ -318,7 +324,7 @@ pkgconf_tuple_parse(const pkgconf_client_t *client, pkgconf_list_t *vars, const
+- 	if (!(client->flags & PKGCONF_PKG_PKGF_FDO_SYSROOT_RULES) &&
+- 		(!(flags & PKGCONF_PKG_PROPF_UNINSTALLED) || (client->flags & PKGCONF_PKG_PKGF_PKGCONF1_SYSROOT_RULES)))
++-	if (!(client->flags & PKGCONF_PKG_PKGF_FDO_SYSROOT_RULES) &&
+++	if (add_sysroot && !(client->flags & PKGCONF_PKG_PKGF_FDO_SYSROOT_RULES) &&
++ 		!saw_sysroot && pkgconf_path_is_plausible(&varbuf))
+  	{
+--		if (*value == '/' && client->sysroot_dir != NULL && strncmp(value, client->sysroot_dir, strlen(client->sysroot_dir)))
+-+		if (add_sysroot && *value == '/' && client->sysroot_dir != NULL && strncmp(value, client->sysroot_dir, strlen(client->sysroot_dir)))
+- 			bptr += pkgconf_strlcpy(buf, client->sysroot_dir, sizeof buf);
+- 	}
+- 
+-@@ -381,7 +387,7 @@ pkgconf_tuple_parse(const pkgconf_client_t *client, pkgconf_list_t *vars, const
+- 				{
+- 					size_t nlen;
+- 
+--					parsekv = pkgconf_tuple_parse(client, vars, kv, flags);
+-+					parsekv = pkgconf_tuple_parse_sysroot(client, vars, kv, flags, add_sysroot);
+- 					nlen = pkgconf_strlcpy(bptr, parsekv, remain);
+- 					free(parsekv);
+- 
+-@@ -432,6 +438,26 @@ pkgconf_tuple_parse(const pkgconf_client_t *client, pkgconf_list_t *vars, const
+- 	return strdup(buf);
+- }
+- 
+-+/*
+-+ * !doc
+-+ *
+-+ * .. c:function:: char *pkgconf_tuple_parse(const pkgconf_client_t *client, pkgconf_list_t *vars, const char *value, unsigned int flags)
+-+ *
+-+ *    Parse an expression for variable substitution.
+-+ *
+-+ *    :param pkgconf_client_t* client: The pkgconf client object to access.
+-+ *    :param pkgconf_list_t* list: The variable list to search for variables (along side the global variable list).
+-+ *    :param char* value: The ``key=value`` string to parse.
+-+ *    :param uint flags: Any flags to consider while parsing.
+-+ *    :return: the variable data with any variables substituted
+-+ *    :rtype: char *
+-+ */
+-+char *
+-+pkgconf_tuple_parse(const pkgconf_client_t *client, pkgconf_list_t *vars, const char *value, unsigned int flags)
+-+{
+-+	return pkgconf_tuple_parse_sysroot(client, vars, value, flags, true);
+-+}
+-+
+- /*
+-  * !doc
+-  *
+--- 
+-2.43.0
+-
++ 		/* if sysroot is set, and value does not already begin with sysroot */
+diff --git a/package/pkgconf/pkgconf.hash b/package/pkgconf/pkgconf.hash
+index 6d4b7972..0fb61420 100644
+--- a/package/pkgconf/pkgconf.hash
++++ b/package/pkgconf/pkgconf.hash
+@@ -1,3 +1,6 @@
+ # Locally calculated
+ sha256  3a9080ac51d03615e7c1910a0a2a8df08424892b5f13b0628a204d3fcce0ea8b  pkgconf-2.3.0.tar.xz
+-sha256  07ee94b50a41ee3fc4e13a9b9c60b26fc28488494c465639f7e5f07a3952ec04  COPYING
++sha256  055a265b839672a62f590869b0a1f8e4f5147e8f073c9ba77b17b8d7ad653966  COPYING
++
++# SHA256 calculated from official HTTPS source: https://distfiles.ariadne.space/pkgconf/pkgconf-3.0.7.tar.xz
++sha256  c926ff491cbd9a331a589160811bd97ab1749b4d5198a519338f2cdfabe6940a  pkgconf-3.0.7.tar.xz
+diff --git a/package/pkgconf/pkgconf.mk b/package/pkgconf/pkgconf.mk
+index 057f43bb..f78cf672 100644
+--- a/package/pkgconf/pkgconf.mk
++++ b/package/pkgconf/pkgconf.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-PKGCONF_VERSION = 2.3.0
++PKGCONF_VERSION = 3.0.7
+ PKGCONF_SITE = https://distfiles.ariadne.space/pkgconf
+ PKGCONF_SOURCE = pkgconf-$(PKGCONF_VERSION).tar.xz
+ PKGCONF_LICENSE = pkgconf license
+diff --git a/package/python-flit-core/python-flit-core.hash b/package/python-flit-core/python-flit-core.hash
+index 580a99ed..e9d8f3e5 100644
+--- a/package/python-flit-core/python-flit-core.hash
++++ b/package/python-flit-core/python-flit-core.hash
+@@ -3,3 +3,6 @@ md5  c538415c1f27bd69cbbbf3cdd5135d39  flit_core-3.12.0.tar.gz
+ sha256  18f63100d6f94385c6ed57a72073443e1a71a4acb4339491615d0f16d6ff01b2  flit_core-3.12.0.tar.gz
+ # Locally computed sha256 checksums
+ sha256  35b4f1dec512e617077fd6980dbb43ef8c2887adc5d0185edb4c04da175dd816  LICENSE
++
++# SHA256 calculated from official HTTPS source: https://files.pythonhosted.org/packages/46/ef/34533186e76c526d9ec17a1ad9a10c7354cbfb20f51583cc36dfe4bdccd0/flit_core-4.0.2.tar.gz
++sha256  b6929defd93884b584d7c87829e0e7b5c26ed6be17b0b873979019314aa841c8  flit_core-4.0.2.tar.gz
+diff --git a/package/python-flit-core/python-flit-core.mk b/package/python-flit-core/python-flit-core.mk
+index ee958cec..30afc909 100644
+--- a/package/python-flit-core/python-flit-core.mk
++++ b/package/python-flit-core/python-flit-core.mk
+@@ -4,9 +4,9 @@
+ #
+ ################################################################################
+ 
+-PYTHON_FLIT_CORE_VERSION = 3.12.0
+-PYTHON_FLIT_CORE_SOURCE = flit_core-$(PYTHON_FLIT_CORE_VERSION).tar.gz
+-PYTHON_FLIT_CORE_SITE = https://files.pythonhosted.org/packages/69/59/b6fc2188dfc7ea4f936cd12b49d707f66a1cb7a1d2c16172963534db741b
++PYTHON_FLIT_CORE_VERSION = 4.0.2
++PYTHON_FLIT_CORE_SOURCE = flit_core-4.0.2.tar.gz
++PYTHON_FLIT_CORE_SITE = https://files.pythonhosted.org/packages/46/ef/34533186e76c526d9ec17a1ad9a10c7354cbfb20f51583cc36dfe4bdccd0
+ PYTHON_FLIT_CORE_LICENSE = BSD-3-Clause
+ PYTHON_FLIT_CORE_LICENSE_FILES = LICENSE
+ PYTHON_FLIT_CORE_SETUP_TYPE = flit-bootstrap
+diff --git a/package/python-installer/python-installer.hash b/package/python-installer/python-installer.hash
+index dbea0673..d1158270 100644
+--- a/package/python-installer/python-installer.hash
++++ b/package/python-installer/python-installer.hash
+@@ -3,3 +3,6 @@ md5  fdf6be7db2ab6fdfbfacfdb208abc33a  installer-1.0.0.tar.gz
+ sha256  c6d691331621cf3fec4822f5c6f83cab3705f79b316225dc454127411677c71f  installer-1.0.0.tar.gz
+ # Locally computed sha256 checksums
+ sha256  37b8b9f2569892fa54406383d431169dbb2115980d78b7efba6eeae5664c484f  LICENSE
++
++# SHA256 calculated from official HTTPS source: https://files.pythonhosted.org/packages/06/fe/b9f481cf0cc867958a21338baa900357b7b7d86cac9b025948049d77923c/installer-1.0.1.tar.gz
++sha256  052c7fc3721d54c696e2dea019be67539d7b144e924f559f54beb3121831c364  installer-1.0.1.tar.gz
+diff --git a/package/python-installer/python-installer.mk b/package/python-installer/python-installer.mk
+index 22b79ec4..0d5f31b8 100644
+--- a/package/python-installer/python-installer.mk
++++ b/package/python-installer/python-installer.mk
+@@ -4,9 +4,9 @@
+ #
+ ################################################################################
+ 
+-PYTHON_INSTALLER_VERSION = 1.0.0
+-PYTHON_INSTALLER_SOURCE = installer-$(PYTHON_INSTALLER_VERSION).tar.gz
+-PYTHON_INSTALLER_SITE = https://files.pythonhosted.org/packages/5f/ef/230b70e66db6ab01d5cbb93329688ed1f06b2b0618a74925e36384ff0fba
++PYTHON_INSTALLER_VERSION = 1.0.1
++PYTHON_INSTALLER_SOURCE = installer-1.0.1.tar.gz
++PYTHON_INSTALLER_SITE = https://files.pythonhosted.org/packages/06/fe/b9f481cf0cc867958a21338baa900357b7b7d86cac9b025948049d77923c
+ PYTHON_INSTALLER_LICENSE = MIT
+ PYTHON_INSTALLER_LICENSE_FILES = LICENSE
+ PYTHON_INSTALLER_SETUP_TYPE = flit-bootstrap
+diff --git a/package/python-packaging/python-packaging.hash b/package/python-packaging/python-packaging.hash
+index a5183b14..3561fa6a 100644
+--- a/package/python-packaging/python-packaging.hash
++++ b/package/python-packaging/python-packaging.hash
+@@ -5,3 +5,6 @@ sha256  ff452ff5a3e828ce110190feff1178bb1f2ea2281fa2075aadb987c2fb221661  packag
+ sha256  cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48  LICENSE
+ sha256  0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594  LICENSE.APACHE
+ sha256  b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5  LICENSE.BSD
++
++# SHA256 calculated from official HTTPS source: https://files.pythonhosted.org/packages/7d/fa/3944b40b07da9ce895c0e6303a5ab7d53da063554f534556b134a54d6093/packaging-26.3.tar.gz
++sha256  94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79  packaging-26.3.tar.gz
+diff --git a/package/python-packaging/python-packaging.mk b/package/python-packaging/python-packaging.mk
+index 41f8fef6..0df4d942 100644
+--- a/package/python-packaging/python-packaging.mk
++++ b/package/python-packaging/python-packaging.mk
+@@ -4,9 +4,9 @@
+ #
+ ################################################################################
+ 
+-PYTHON_PACKAGING_VERSION = 26.2
+-PYTHON_PACKAGING_SOURCE = packaging-$(PYTHON_PACKAGING_VERSION).tar.gz
+-PYTHON_PACKAGING_SITE = https://files.pythonhosted.org/packages/d7/f1/e7a6dd94a8d4a5626c03e4e99c87f241ba9e350cd9e6d75123f992427270
++PYTHON_PACKAGING_VERSION = 26.3
++PYTHON_PACKAGING_SOURCE = packaging-26.3.tar.gz
++PYTHON_PACKAGING_SITE = https://files.pythonhosted.org/packages/7d/fa/3944b40b07da9ce895c0e6303a5ab7d53da063554f534556b134a54d6093
+ PYTHON_PACKAGING_SETUP_TYPE = flit
+ PYTHON_PACKAGING_LICENSE = Apache-2.0 or BSD-2-Clause
+ PYTHON_PACKAGING_LICENSE_FILES = LICENSE LICENSE.APACHE LICENSE.BSD
+diff --git a/package/python-pypa-build/python-pypa-build.hash b/package/python-pypa-build/python-pypa-build.hash
+index a259fd2d..1a016604 100644
+--- a/package/python-pypa-build/python-pypa-build.hash
++++ b/package/python-pypa-build/python-pypa-build.hash
+@@ -3,3 +3,6 @@ md5  48f7fbc11051430eab3c1abe216bed7a  build-1.3.0.tar.gz
+ sha256  698edd0ea270bde950f53aed21f3a0135672206f3911e0176261a31e0e07b397  build-1.3.0.tar.gz
+ # Locally computed sha256 checksums
+ sha256  aaf9a29ca5907971ccf07de025375db34539a8d5eeebce20b46099805722106f  LICENSE
++
++# SHA256 calculated from official HTTPS source: https://files.pythonhosted.org/packages/bd/67/4898a44ea4f3f8e213b0954ec0aa0a16971d62a6212d6ea3931e97115b99/build-1.6.1.tar.gz
++sha256  51cc11666391ab6f092070437ac747002ff46f3e4113a3622177ee6b488bfc53  build-1.6.1.tar.gz
+diff --git a/package/python-pypa-build/python-pypa-build.mk b/package/python-pypa-build/python-pypa-build.mk
+index 45ae7818..025158b8 100644
+--- a/package/python-pypa-build/python-pypa-build.mk
++++ b/package/python-pypa-build/python-pypa-build.mk
+@@ -4,9 +4,9 @@
+ #
+ ################################################################################
+ 
+-PYTHON_PYPA_BUILD_VERSION = 1.3.0
+-PYTHON_PYPA_BUILD_SOURCE = build-$(PYTHON_PYPA_BUILD_VERSION).tar.gz
+-PYTHON_PYPA_BUILD_SITE = https://files.pythonhosted.org/packages/25/1c/23e33405a7c9eac261dff640926b8b5adaed6a6eb3e1767d441ed611d0c0
++PYTHON_PYPA_BUILD_VERSION = 1.6.1
++PYTHON_PYPA_BUILD_SOURCE = build-1.6.1.tar.gz
++PYTHON_PYPA_BUILD_SITE = https://files.pythonhosted.org/packages/bd/67/4898a44ea4f3f8e213b0954ec0aa0a16971d62a6212d6ea3931e97115b99
+ PYTHON_PYPA_BUILD_LICENSE = MIT
+ PYTHON_PYPA_BUILD_LICENSE_FILES = LICENSE
+ PYTHON_PYPA_BUILD_SETUP_TYPE = flit-bootstrap
+diff --git a/package/python-setuptools/python-setuptools.hash b/package/python-setuptools/python-setuptools.hash
+index d0ed270e..70ffc637 100644
+--- a/package/python-setuptools/python-setuptools.hash
++++ b/package/python-setuptools/python-setuptools.hash
+@@ -3,3 +3,6 @@ md5  82e1d67883b713f9493659b50d13b436  setuptools-80.9.0.tar.gz
+ sha256  f36b47402ecde768dbfafc46e8e4207b4360c654f1f3bb84475f0a28628fb19c  setuptools-80.9.0.tar.gz
+ # Locally computed sha256 checksums
+ sha256  86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741  LICENSE
++
++# SHA256 calculated from official HTTPS source: https://files.pythonhosted.org/packages/6d/44/f5da03a8ef95d369145c5bb53050e7877c9f3d312e128605fd9504829143/setuptools-84.0.0.tar.gz
++sha256  f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73  setuptools-84.0.0.tar.gz
+diff --git a/package/python-setuptools/python-setuptools.mk b/package/python-setuptools/python-setuptools.mk
+index e013000c..56dd30a3 100644
+--- a/package/python-setuptools/python-setuptools.mk
++++ b/package/python-setuptools/python-setuptools.mk
+@@ -4,9 +4,9 @@
+ #
+ ################################################################################
+ 
+-PYTHON_SETUPTOOLS_VERSION = 80.9.0
+-PYTHON_SETUPTOOLS_SOURCE = setuptools-$(PYTHON_SETUPTOOLS_VERSION).tar.gz
+-PYTHON_SETUPTOOLS_SITE = https://files.pythonhosted.org/packages/18/5d/3bf57dcd21979b887f014ea83c24ae194cfcd12b9e0fda66b957c69d1fca
++PYTHON_SETUPTOOLS_VERSION = 84.0.0
++PYTHON_SETUPTOOLS_SOURCE = setuptools-84.0.0.tar.gz
++PYTHON_SETUPTOOLS_SITE = https://files.pythonhosted.org/packages/6d/44/f5da03a8ef95d369145c5bb53050e7877c9f3d312e128605fd9504829143
+ PYTHON_SETUPTOOLS_LICENSE = MIT
+ PYTHON_SETUPTOOLS_LICENSE_FILES = LICENSE
+ PYTHON_SETUPTOOLS_CPE_ID_VENDOR = python
+diff --git a/package/python-wheel/python-wheel.hash b/package/python-wheel/python-wheel.hash
+index 4f0640bc..ec92dba8 100644
+--- a/package/python-wheel/python-wheel.hash
++++ b/package/python-wheel/python-wheel.hash
+@@ -3,3 +3,6 @@ md5  3e73dfac6b3b47a7d1cd52e81885618f  wheel-0.47.0.tar.gz
+ sha256  cc72bd1009ba0cf63922e28f94d9d83b920aa2bb28f798a31d0691b02fa3c9b3  wheel-0.47.0.tar.gz
+ # Locally computed sha256 checksums
+ sha256  30c23618679108f3e8ea1d2a658c7ca417bdfc891c98ef1a89fa4ff0c9828654  LICENSE.txt
++
++# SHA256 calculated from official HTTPS source: https://files.pythonhosted.org/packages/d0/20/50ed6bdf27dec98b568a8ae25dc599f35baa3d9709f9e83fd1edb56b9a90/wheel-0.48.0.tar.gz
++sha256  94800765601e9171bf5d58d066e640662842bcedcbab982b2c90787a2c987322  wheel-0.48.0.tar.gz
+diff --git a/package/python-wheel/python-wheel.mk b/package/python-wheel/python-wheel.mk
+index ae379b7e..de4c3980 100644
+--- a/package/python-wheel/python-wheel.mk
++++ b/package/python-wheel/python-wheel.mk
+@@ -4,9 +4,9 @@
+ #
+ ################################################################################
+ 
+-PYTHON_WHEEL_VERSION = 0.47.0
+-PYTHON_WHEEL_SOURCE = wheel-$(PYTHON_WHEEL_VERSION).tar.gz
+-PYTHON_WHEEL_SITE = https://files.pythonhosted.org/packages/39/62/75f18a0f03b4219c456652c7780e4d749b929eb605c098ce3a5b6b6bc081
++PYTHON_WHEEL_VERSION = 0.48.0
++PYTHON_WHEEL_SOURCE = wheel-0.48.0.tar.gz
++PYTHON_WHEEL_SITE = https://files.pythonhosted.org/packages/d0/20/50ed6bdf27dec98b568a8ae25dc599f35baa3d9709f9e83fd1edb56b9a90
+ PYTHON_WHEEL_SETUP_TYPE = flit
+ PYTHON_WHEEL_LICENSE = MIT
+ PYTHON_WHEEL_LICENSE_FILES = LICENSE.txt
+diff --git a/package/strace/strace.hash b/package/strace/strace.hash
+index 8df107c9..2ce965fe 100644
+--- a/package/strace/strace.hash
++++ b/package/strace/strace.hash
+@@ -3,3 +3,6 @@ sha256  81743ecf2a5b44186b2f5038afdc8beda7e5c70aed15b4fbfbcc6e9ece24490f  strace
+ # Locally computed
+ sha256  b897cf6bb865cdd72f49fba6ca7b66ad075b9bc51d3cf372923220ce18b5350f  COPYING
+ sha256  7c379436436a562834aa7d2f5dcae1f80a25230fa74201046ca1fba4367d39aa  LGPL-2.1-or-later
++
++# SHA256 calculated from official HTTPS source: https://github.com/strace/strace/releases/download/v7.2/strace-7.2.tar.xz
++sha256  4bde6246926890dcee824f6e6ac42a06752f47d77e5097d86e3c0d6d4b709fe5  strace-7.2.tar.xz
+diff --git a/package/strace/strace.mk b/package/strace/strace.mk
+index a0688939..9634a6d0 100644
+--- a/package/strace/strace.mk
++++ b/package/strace/strace.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-STRACE_VERSION = 7.1
++STRACE_VERSION = 7.2
+ STRACE_SOURCE = strace-$(STRACE_VERSION).tar.xz
+ STRACE_SITE = https://github.com/strace/strace/releases/download/v$(STRACE_VERSION)
+ STRACE_LICENSE = LGPL-2.1+
+diff --git a/package/sysvinit/sysvinit.hash b/package/sysvinit/sysvinit.hash
+index 8de1efed..5472dc3e 100644
+--- a/package/sysvinit/sysvinit.hash
++++ b/package/sysvinit/sysvinit.hash
+@@ -3,3 +3,6 @@ sha256  c90874b8c054a35991fb8c4d30c443ed1e9b1815ff6165c7b483f558be4e4b53  sysvin
+ 
+ # Hash for license files:
+ sha256  ab15fd526bd8dd18a9e77ebc139656bf4d33e97fc7238cd11bf60e2b9b8666c6  COPYING
++
++# Calculated from https://github.com/slicer69/sysvinit/archive/3.15.tar.gz
++sha256  4c1a28d6e97fa656ec70aa736185d72c9b31a6a4fa414f2fddacd61c7d9f47cf  sysvinit-3.15.tar.gz
+diff --git a/package/sysvinit/sysvinit.mk b/package/sysvinit/sysvinit.mk
+index 7e73432e..d8eeaf94 100644
+--- a/package/sysvinit/sysvinit.mk
++++ b/package/sysvinit/sysvinit.mk
+@@ -4,9 +4,9 @@
+ #
+ ################################################################################
+ 
+-SYSVINIT_VERSION = 3.14
+-SYSVINIT_SOURCE = sysvinit-$(SYSVINIT_VERSION).tar.xz
+-SYSVINIT_SITE = https://github.com/slicer69/sysvinit/releases/download/$(SYSVINIT_VERSION)
++SYSVINIT_VERSION = 3.15
++SYSVINIT_SOURCE = sysvinit-$(SYSVINIT_VERSION).tar.gz
++SYSVINIT_SITE = $(call github,slicer69,sysvinit,$(SYSVINIT_VERSION))
+ SYSVINIT_LICENSE = GPL-2.0+
+ SYSVINIT_LICENSE_FILES = COPYING
+ SYSVINIT_CPE_ID_VALID = YES
+diff --git a/package/tmux/tmux.hash b/package/tmux/tmux.hash
+index 34419940..a4940cef 100644
+--- a/package/tmux/tmux.hash
++++ b/package/tmux/tmux.hash
+@@ -1,4 +1,7 @@
+ # From https://github.com/tmux/tmux/releases/tag/3.6b
+ sha256  390759d25fdba016887ec982b808927e637070fd7d03a8021f8ef3102b9ae3c7  tmux-3.6b.tar.gz
+ # Locally computed:
+-sha256  c031bd37f464c534277814f6aa38686fa023d094261d57fd2545ad592bb53ccd  COPYING
++sha256  2116115d46eeb1e736acfa562eed14fe6c34760794bc5b484642fe694adde0fd  COPYING
++
++# SHA256 calculated from official HTTPS source: https://github.com/tmux/tmux/releases/download/3.7c/tmux-3.7c.tar.gz
++sha256  7c60cae9a0e25288e2e24750aafc9e8800fc7fd4555e447e1b29ee4201cfb3bf  tmux-3.7c.tar.gz
+diff --git a/package/tmux/tmux.mk b/package/tmux/tmux.mk
+index b435c62a..73ea5329 100644
+--- a/package/tmux/tmux.mk
++++ b/package/tmux/tmux.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-TMUX_VERSION = 3.6b
++TMUX_VERSION = 3.7c
+ TMUX_SITE = https://github.com/tmux/tmux/releases/download/$(TMUX_VERSION)
+ TMUX_LICENSE = ISC
+ TMUX_LICENSE_FILES = COPYING
+diff --git a/package/tzdata/tzdata.hash b/package/tzdata/tzdata.hash
+index 4d4d410c..f77ef10a 100644
+--- a/package/tzdata/tzdata.hash
++++ b/package/tzdata/tzdata.hash
+@@ -2,3 +2,6 @@
+ sha512  a44882258c0a7fbe587e8b73d6bb3cd5be7d4788976ea742adbbf176eb3b33e5bd7d1714b2fffe2972b1a42e7335eac39ed0bd63e819bb421550f8cae1df4f2f  tzdata2026b.tar.gz
+ # Locally computed:
+ sha256  0613408568889f5739e5ae252b722a2659c02002839ad970a63dc5e9174b27cf  LICENSE
++
++# SHA256 calculated from official HTTPS source: https://www.iana.org/time-zones/repository/releases/tzdata2026d.tar.gz
++sha256  0cb2aa8e333c3dc049badc42a0c61f21987b8cd44e107fa900bad764aacc7767  tzdata2026d.tar.gz
+diff --git a/package/tzdata/tzdata.mk b/package/tzdata/tzdata.mk
+index 71f8fc3a..fc3183cc 100644
+--- a/package/tzdata/tzdata.mk
++++ b/package/tzdata/tzdata.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-TZDATA_VERSION = 2026b
++TZDATA_VERSION = 2026d
+ TZDATA_SOURCE = tzdata$(TZDATA_VERSION).tar.gz
+ TZDATA_SITE = https://www.iana.org/time-zones/repository/releases
+ TZDATA_SELINUX_MODULES = tzdata
+diff --git a/package/util-linux/0001-include-mount-api-utils.h-fix-LSMT_ROOT-definition.patch b/package/util-linux/0001-include-mount-api-utils.h-fix-LSMT_ROOT-definition.patch
+deleted file mode 100644
+index d98c2255..00000000
+--- a/package/util-linux/0001-include-mount-api-utils.h-fix-LSMT_ROOT-definition.patch
++++ /dev/null
+@@ -1,44 +0,0 @@
+-From 72ff3b8998a675900fcb7c18c0e03f1552b13a8b Mon Sep 17 00:00:00 2001
+-From: Shubham Chakraborty <chakrabortyshubham66@gmail.com>
+-Date: Tue, 14 Apr 2026 11:04:08 +0530
+-Subject: [PATCH] include/mount-api-utils.h: fix LSMT_ROOT definition
+-
+-Commit
+-ded434a63f3eee7fd7805b18d6c9bb912016c3c8 ("include/mount-api-utils:
+-add statmount and listmount") introduce a fallback definition for the
+-LSMT_ROOT defined, but a small typo makes this fallback definition
+-ineffective:
+-
+- #ifdef LSMT_ROOT
+- # define LSMT_ROOT ...
+- #endif
+-
+-Should obviously have been:
+-
+- #ifndef LSMT_ROOT
+- # define LSMT_ROOT ...
+- #endif
+-
+-Signed-off-by: Shubham Chakraborty <chakrabortyshubham66@gmail.com>
+-Upstream: https://lore.kernel.org/util-linux/20260530094932.2351791-1-thomas.petazzoni@bootlin.com/T/#u
+-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@bootlin.com>
+----
+- include/mount-api-utils.h | 2 +-
+- 1 file changed, 1 insertion(+), 1 deletion(-)
+-
+-diff --git a/include/mount-api-utils.h b/include/mount-api-utils.h
+-index a916f99..87e173e 100644
+---- a/include/mount-api-utils.h
+-+++ b/include/mount-api-utils.h
+-@@ -339,7 +339,7 @@ struct ul_statmount {
+- /*
+-  * Special @mnt_id values that can be passed to listmount
+-  */
+--#ifdef LSMT_ROOT
+-+#ifndef LSMT_ROOT
+- # define LSMT_ROOT              0xffffffffffffffff    /* root mount */
+- #endif
+- 
+--- 
+-2.53.0
+-
+diff --git a/package/util-linux/0001-libmount-resolve-flags-header.patch b/package/util-linux/0001-libmount-resolve-flags-header.patch
+new file mode 100644
+index 00000000..41964285
+--- /dev/null
++++ b/package/util-linux/0001-libmount-resolve-flags-header.patch
+@@ -0,0 +1,30 @@
++From: NanoKVM OS maintainers <maintainers@nanokvm.local>
++Subject: [PATCH] libmount: include resolve flags and correct symlink fallback
++
++The idmap hook references RESOLVE_NO_SYMLINKS without including its header.
++Linux UAPI defines this flag as 0x04; 0x02 is RESOLVE_NO_MAGICLINKS. Keep
++the fallback identical to the kernel ABI so restricted mounts reject symlinks.
++
++Upstream: Not submitted
++
++--- a/libmount/src/hook_idmap.c
+++++ b/libmount/src/hook_idmap.c
++@@ -22,6 +22,7 @@
++ #include <sys/mount.h>
++ 
++ #include "strutils.h"
+++#include "fileutils.h"
++ #include "all-io.h"
++ #include "namespace.h"
++ 
++--- a/include/fileutils.h
+++++ b/include/fileutils.h
++@@ -66,7 +66,7 @@
++ 			     mode_t mode, unsigned long long resolve);
++ 
++ #ifndef RESOLVE_NO_SYMLINKS
++-# define RESOLVE_NO_SYMLINKS	0x02
+++# define RESOLVE_NO_SYMLINKS	0x04
++ #endif
++ #ifndef RESOLVE_BENEATH
++ # define RESOLVE_BENEATH	0x08
+diff --git a/package/util-linux/0002-autotools-optionally-add-libpthread-to-uuid.pc.patch b/package/util-linux/0002-autotools-optionally-add-libpthread-to-uuid.pc.patch
+deleted file mode 100644
+index ef59e458..00000000
+--- a/package/util-linux/0002-autotools-optionally-add-libpthread-to-uuid.pc.patch
++++ /dev/null
+@@ -1,42 +0,0 @@
+-From a06adacd1009174b7ca35f529a2db165f6c1f3aa Mon Sep 17 00:00:00 2001
+-From: Bernd Kuhls <bernd@kuhls.net>
+-Date: Fri, 16 Jan 2026 23:33:34 +0100
+-Subject: [PATCH] autotools: optionally add libpthread to uuid.pc
+-
+-Fixes https://github.com/util-linux/util-linux/issues/3210#issuecomment-3477915953
+-
+-Upstream: https://github.com/util-linux/util-linux/commit/d88a62e4cd385e07b3cb8fb309bbb03981ea2970
+-
+-[Bernd: backported to 2.41.3]
+-Signed-off-by: Bernd Kuhls <bernd@kuhls.net>
+----
+- Makefile.am        | 1 +
+- libuuid/uuid.pc.in | 2 +-
+- 2 files changed, 2 insertions(+), 1 deletion(-)
+-
+-diff --git a/Makefile.am b/Makefile.am
+-index 01e99701d..cd1d157ce 100644
+---- a/Makefile.am
+-+++ b/Makefile.am
+-@@ -189,6 +189,7 @@ edit_cmd = sed \
+- 	 -e 's|@usrbin_execdir[@]|$(usrbin_execdir)|g' \
+- 	 -e 's|@usrsbin_execdir[@]|$(usrsbin_execdir)|g' \
+- 	 -e 's|@SOCKET_LIBS[@]|$(SOCKET_LIBS)|g' \
+-+	 -e 's|@PTHREAD_LIBS[@]|$(PTHREAD_LIBS)|g' \
+- 	 -e 's|@VERSION[@]|$(VERSION)|g' \
+- 	 -e 's|@ADJTIME_PATH[@]|$(ADJTIME_PATH)|g' \
+- 	 -e 's|@LIBUUID_VERSION[@]|$(LIBUUID_VERSION)|g' \
+-diff --git a/libuuid/uuid.pc.in b/libuuid/uuid.pc.in
+-index 51929fe80..a40dc6644 100644
+---- a/libuuid/uuid.pc.in
+-+++ b/libuuid/uuid.pc.in
+-@@ -7,5 +7,5 @@ Name: uuid
+- Description: Universally unique id library
+- Version: @LIBUUID_VERSION@
+- Cflags: -I${includedir}/uuid
+--Libs.private: @SOCKET_LIBS@ -lpthread
+-+Libs.private: @SOCKET_LIBS@ @PTHREAD_LIBS@
+- Libs: -L${libdir} -luuid
+--- 
+-2.47.3
+-
+diff --git a/package/util-linux/0003-loopdev-use-openat2-RESOLVE_NO_SYMLINKS-for-backing-.patch b/package/util-linux/0003-loopdev-use-openat2-RESOLVE_NO_SYMLINKS-for-backing-.patch
+deleted file mode 100644
+index 7195c223..00000000
+--- a/package/util-linux/0003-loopdev-use-openat2-RESOLVE_NO_SYMLINKS-for-backing-.patch
++++ /dev/null
+@@ -1,59 +0,0 @@
+-From 2dacaf3eea391e3bbf48e7d3ecce02cafe045b6d Mon Sep 17 00:00:00 2001
+-From: Karel Zak <kzak@redhat.com>
+-Date: Wed, 27 May 2026 15:15:22 +0200
+-Subject: [PATCH] loopdev: use openat2(RESOLVE_NO_SYMLINKS) for backing file
+-
+-Use ul_open_no_symlinks() instead of open(O_NOFOLLOW) when
+-LOOPDEV_FL_NOFOLLOW is set.  O_NOFOLLOW only rejects symlinks at the
+-last path component, but TOCTOU attacks swap intermediate components.
+-openat2(RESOLVE_NO_SYMLINKS) rejects symlinks at any component.
+-
+-Upstream: https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git/commit/?h=stable/v2.41&id=2dacaf3eea391e3bbf48e7d3ecce02cafe045b6d
+-CVE: CVE-2026-27456
+-Signed-off-by: Karel Zak <kzak@redhat.com>
+-(cherry picked from commit 119d23f1e3f55cf10e3c66dab80fc308c9f26456)
+-Signed-off-by: Giulio Benetti <giulio.benetti@benettiengineering.com>
+-[Fiona: add CVE trailer]
+-Signed-off-by: Fiona Klute <fiona.klute@gmx.de>
+----
+- lib/loopdev.c | 23 ++++++++++++++---------
+- 1 file changed, 14 insertions(+), 9 deletions(-)
+-
+-diff --git a/lib/loopdev.c b/lib/loopdev.c
+-index 76685be70..31377fc9a 100644
+---- a/lib/loopdev.c
+-+++ b/lib/loopdev.c
+-@@ -1412,16 +1412,21 @@ int loopcxt_setup_device(struct loopdev_cxt *lc)
+- 	if (lc->config.info.lo_flags & LO_FLAGS_DIRECT_IO)
+- 		flags |= O_DIRECT;
+- 	if (lc->flags & LOOPDEV_FL_NOFOLLOW)
+--		flags |= O_NOFOLLOW;
+--
+--	if ((file_fd = open(lc->filename, mode | flags)) < 0) {
+--		if (mode != O_RDONLY && (errno == EROFS || errno == EACCES))
+--			file_fd = open(lc->filename, (mode = O_RDONLY) | flags);
+-+		file_fd = ul_open_no_symlinks(lc->filename, mode | flags, 0);
+-+	else
+-+		file_fd = open(lc->filename, mode | flags);
+- 
+--		if (file_fd < 0) {
+--			DBG(SETUP, ul_debugobj(lc, "open backing file failed: %m"));
+--			return -errno;
+--		}
+-+	if (file_fd < 0 && mode != O_RDONLY
+-+	    && (errno == EROFS || errno == EACCES)) {
+-+		mode = O_RDONLY;
+-+		if (lc->flags & LOOPDEV_FL_NOFOLLOW)
+-+			file_fd = ul_open_no_symlinks(lc->filename, mode | flags, 0);
+-+		else
+-+			file_fd = open(lc->filename, mode | flags);
+-+	}
+-+	if (file_fd < 0) {
+-+		DBG(SETUP, ul_debugobj(lc, "open backing file failed: %m"));
+-+		return -errno;
+- 	}
+- 	DBG(SETUP, ul_debugobj(lc, "backing file open: OK"));
+- 
+--- 
+-2.47.3
+-
+diff --git a/package/util-linux/util-linux-libs/0001-include-mount-api-utils.h-fix-LSMT_ROOT-definition.patch b/package/util-linux/util-linux-libs/0001-include-mount-api-utils.h-fix-LSMT_ROOT-definition.patch
+deleted file mode 100644
+index d98c2255..00000000
+--- a/package/util-linux/util-linux-libs/0001-include-mount-api-utils.h-fix-LSMT_ROOT-definition.patch
++++ /dev/null
+@@ -1,44 +0,0 @@
+-From 72ff3b8998a675900fcb7c18c0e03f1552b13a8b Mon Sep 17 00:00:00 2001
+-From: Shubham Chakraborty <chakrabortyshubham66@gmail.com>
+-Date: Tue, 14 Apr 2026 11:04:08 +0530
+-Subject: [PATCH] include/mount-api-utils.h: fix LSMT_ROOT definition
+-
+-Commit
+-ded434a63f3eee7fd7805b18d6c9bb912016c3c8 ("include/mount-api-utils:
+-add statmount and listmount") introduce a fallback definition for the
+-LSMT_ROOT defined, but a small typo makes this fallback definition
+-ineffective:
+-
+- #ifdef LSMT_ROOT
+- # define LSMT_ROOT ...
+- #endif
+-
+-Should obviously have been:
+-
+- #ifndef LSMT_ROOT
+- # define LSMT_ROOT ...
+- #endif
+-
+-Signed-off-by: Shubham Chakraborty <chakrabortyshubham66@gmail.com>
+-Upstream: https://lore.kernel.org/util-linux/20260530094932.2351791-1-thomas.petazzoni@bootlin.com/T/#u
+-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@bootlin.com>
+----
+- include/mount-api-utils.h | 2 +-
+- 1 file changed, 1 insertion(+), 1 deletion(-)
+-
+-diff --git a/include/mount-api-utils.h b/include/mount-api-utils.h
+-index a916f99..87e173e 100644
+---- a/include/mount-api-utils.h
+-+++ b/include/mount-api-utils.h
+-@@ -339,7 +339,7 @@ struct ul_statmount {
+- /*
+-  * Special @mnt_id values that can be passed to listmount
+-  */
+--#ifdef LSMT_ROOT
+-+#ifndef LSMT_ROOT
+- # define LSMT_ROOT              0xffffffffffffffff    /* root mount */
+- #endif
+- 
+--- 
+-2.53.0
+-
+diff --git a/package/util-linux/util-linux-libs/0001-libmount-resolve-flags-header.patch b/package/util-linux/util-linux-libs/0001-libmount-resolve-flags-header.patch
+new file mode 100644
+index 00000000..41964285
+--- /dev/null
++++ b/package/util-linux/util-linux-libs/0001-libmount-resolve-flags-header.patch
+@@ -0,0 +1,30 @@
++From: NanoKVM OS maintainers <maintainers@nanokvm.local>
++Subject: [PATCH] libmount: include resolve flags and correct symlink fallback
++
++The idmap hook references RESOLVE_NO_SYMLINKS without including its header.
++Linux UAPI defines this flag as 0x04; 0x02 is RESOLVE_NO_MAGICLINKS. Keep
++the fallback identical to the kernel ABI so restricted mounts reject symlinks.
++
++Upstream: Not submitted
++
++--- a/libmount/src/hook_idmap.c
+++++ b/libmount/src/hook_idmap.c
++@@ -22,6 +22,7 @@
++ #include <sys/mount.h>
++ 
++ #include "strutils.h"
+++#include "fileutils.h"
++ #include "all-io.h"
++ #include "namespace.h"
++ 
++--- a/include/fileutils.h
+++++ b/include/fileutils.h
++@@ -66,7 +66,7 @@
++ 			     mode_t mode, unsigned long long resolve);
++ 
++ #ifndef RESOLVE_NO_SYMLINKS
++-# define RESOLVE_NO_SYMLINKS	0x02
+++# define RESOLVE_NO_SYMLINKS	0x04
++ #endif
++ #ifndef RESOLVE_BENEATH
++ # define RESOLVE_BENEATH	0x08
+diff --git a/package/util-linux/util-linux-libs/0002-autotools-optionally-add-libpthread-to-uuid.pc.patch b/package/util-linux/util-linux-libs/0002-autotools-optionally-add-libpthread-to-uuid.pc.patch
+deleted file mode 100644
+index ef59e458..00000000
+--- a/package/util-linux/util-linux-libs/0002-autotools-optionally-add-libpthread-to-uuid.pc.patch
++++ /dev/null
+@@ -1,42 +0,0 @@
+-From a06adacd1009174b7ca35f529a2db165f6c1f3aa Mon Sep 17 00:00:00 2001
+-From: Bernd Kuhls <bernd@kuhls.net>
+-Date: Fri, 16 Jan 2026 23:33:34 +0100
+-Subject: [PATCH] autotools: optionally add libpthread to uuid.pc
+-
+-Fixes https://github.com/util-linux/util-linux/issues/3210#issuecomment-3477915953
+-
+-Upstream: https://github.com/util-linux/util-linux/commit/d88a62e4cd385e07b3cb8fb309bbb03981ea2970
+-
+-[Bernd: backported to 2.41.3]
+-Signed-off-by: Bernd Kuhls <bernd@kuhls.net>
+----
+- Makefile.am        | 1 +
+- libuuid/uuid.pc.in | 2 +-
+- 2 files changed, 2 insertions(+), 1 deletion(-)
+-
+-diff --git a/Makefile.am b/Makefile.am
+-index 01e99701d..cd1d157ce 100644
+---- a/Makefile.am
+-+++ b/Makefile.am
+-@@ -189,6 +189,7 @@ edit_cmd = sed \
+- 	 -e 's|@usrbin_execdir[@]|$(usrbin_execdir)|g' \
+- 	 -e 's|@usrsbin_execdir[@]|$(usrsbin_execdir)|g' \
+- 	 -e 's|@SOCKET_LIBS[@]|$(SOCKET_LIBS)|g' \
+-+	 -e 's|@PTHREAD_LIBS[@]|$(PTHREAD_LIBS)|g' \
+- 	 -e 's|@VERSION[@]|$(VERSION)|g' \
+- 	 -e 's|@ADJTIME_PATH[@]|$(ADJTIME_PATH)|g' \
+- 	 -e 's|@LIBUUID_VERSION[@]|$(LIBUUID_VERSION)|g' \
+-diff --git a/libuuid/uuid.pc.in b/libuuid/uuid.pc.in
+-index 51929fe80..a40dc6644 100644
+---- a/libuuid/uuid.pc.in
+-+++ b/libuuid/uuid.pc.in
+-@@ -7,5 +7,5 @@ Name: uuid
+- Description: Universally unique id library
+- Version: @LIBUUID_VERSION@
+- Cflags: -I${includedir}/uuid
+--Libs.private: @SOCKET_LIBS@ -lpthread
+-+Libs.private: @SOCKET_LIBS@ @PTHREAD_LIBS@
+- Libs: -L${libdir} -luuid
+--- 
+-2.47.3
+-
+diff --git a/package/util-linux/util-linux.hash b/package/util-linux/util-linux.hash
+index b6393d6e..20279fbd 100644
+--- a/package/util-linux/util-linux.hash
++++ b/package/util-linux/util-linux.hash
+@@ -12,3 +12,6 @@ sha256  3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986  Docume
+ sha256  e53348ce276358e9997014071c5294b36a18c4b34f32f00ee57b9acce0aafd63  Documentation/licenses/COPYING.ISC
+ sha256  dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551  Documentation/licenses/COPYING.LGPL-2.1-or-later
+ sha256  8555341619542abb48c102afd954e42d4478e5be16ad3d5af7b0ff71009e7348  Documentation/licenses/COPYING.MIT
++
++# SHA256 calculated from official HTTPS source: https://cdn.kernel.org/pub/linux/utils/util-linux/v2.42/util-linux-2.42.3.tar.xz
++sha256  66ac7c0e725278eb2b039e3104f2c91119341d941b41bac7a285c695f940bd57  util-linux-2.42.3.tar.xz
+diff --git a/package/util-linux/util-linux.mk b/package/util-linux/util-linux.mk
+index cfcd738b..74eb13d5 100644
+--- a/package/util-linux/util-linux.mk
++++ b/package/util-linux/util-linux.mk
+@@ -7,8 +7,8 @@
+ # When making changes to this file, please check if
+ # util-linux-libs/util-linux-libs.mk needs to be updated accordingly as well.
+ 
+-UTIL_LINUX_VERSION_MAJOR = 2.41
+-UTIL_LINUX_VERSION = $(UTIL_LINUX_VERSION_MAJOR).5
++UTIL_LINUX_VERSION_MAJOR = 2.42
++UTIL_LINUX_VERSION = 2.42.3
+ UTIL_LINUX_SOURCE = util-linux-$(UTIL_LINUX_VERSION).tar.xz
+ UTIL_LINUX_SITE = $(BR2_KERNEL_MIRROR)/linux/utils/util-linux/v$(UTIL_LINUX_VERSION_MAJOR)
+ 
+diff --git a/package/wireless-regdb/wireless-regdb.hash b/package/wireless-regdb/wireless-regdb.hash
+index 4c6b3bec..db48d97f 100644
+--- a/package/wireless-regdb/wireless-regdb.hash
++++ b/package/wireless-regdb/wireless-regdb.hash
+@@ -2,3 +2,6 @@
+ sha256  8a27bfc081bafed8c24dd70fab0d96f098e5a0bfcd08d3da672595f225ab8993  wireless-regdb-2026.05.30.tar.xz
+ # Locally computed
+ sha256  678b0df753c86198fc496d1f1033429bbd57f101472132ee7eaaf9f5e0a7fae1  LICENSE
++
++# SHA256 calculated from official HTTPS source: https://cdn.kernel.org/pub/software/network/wireless-regdb/wireless-regdb-2026.09.03.tar.xz
++sha256  b22e0901227b820cd1c280abe681a15b773a5103a5e10dc442e94ebb34cbf58d  wireless-regdb-2026.09.03.tar.xz
+diff --git a/package/wireless-regdb/wireless-regdb.mk b/package/wireless-regdb/wireless-regdb.mk
+index 9761afc2..469de2ac 100644
+--- a/package/wireless-regdb/wireless-regdb.mk
++++ b/package/wireless-regdb/wireless-regdb.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-WIRELESS_REGDB_VERSION = 2026.05.30
++WIRELESS_REGDB_VERSION = 2026.09.03
+ WIRELESS_REGDB_SOURCE = wireless-regdb-$(WIRELESS_REGDB_VERSION).tar.xz
+ WIRELESS_REGDB_SITE = $(BR2_KERNEL_MIRROR)/software/network/wireless-regdb
+ WIRELESS_REGDB_LICENSE = ISC
+diff --git a/package/wireless_tools/wireless_tools.hash b/package/wireless_tools/wireless_tools.hash
+index 8ca73ef2..ebdb8d43 100644
+--- a/package/wireless_tools/wireless_tools.hash
++++ b/package/wireless_tools/wireless_tools.hash
+@@ -1,3 +1,6 @@
+ # locally computed hash
+ sha256  abd9c5c98abf1fdd11892ac2f8a56737544fe101e1be27c6241a564948f34c63  wireless_tools.30.pre9.tar.gz
+ sha256  32b1062f7da84967e7019d01ab805935caa7ab7321a7ced0e30ebe75e5df1670  COPYING
++
++# SHA256 calculated from official HTTPS source: https://hewlettpackard.github.io/wireless-tools/wireless_tools.29.tar.gz
++sha256  6fb80935fe208538131ce2c4178221bab1078a1656306bce8909c19887e2e5a1  wireless_tools.29.tar.gz
+diff --git a/package/wireless_tools/wireless_tools.mk b/package/wireless_tools/wireless_tools.mk
+index 90c92866..2ffe8ce2 100644
+--- a/package/wireless_tools/wireless_tools.mk
++++ b/package/wireless_tools/wireless_tools.mk
+@@ -4,14 +4,13 @@
+ #
+ ################################################################################
+ 
+-WIRELESS_TOOLS_VERSION_MAJOR = 30
+-WIRELESS_TOOLS_VERSION = $(WIRELESS_TOOLS_VERSION_MAJOR).pre9
++WIRELESS_TOOLS_VERSION_MAJOR = 29
++WIRELESS_TOOLS_VERSION = $(WIRELESS_TOOLS_VERSION_MAJOR)
+ WIRELESS_TOOLS_SITE = https://hewlettpackard.github.io/wireless-tools
+ WIRELESS_TOOLS_SOURCE = wireless_tools.$(WIRELESS_TOOLS_VERSION).tar.gz
+ WIRELESS_TOOLS_LICENSE = GPL-2.0
+ WIRELESS_TOOLS_LICENSE_FILES = COPYING
+ WIRELESS_TOOLS_CPE_ID_VERSION = $(WIRELESS_TOOLS_VERSION_MAJOR)
+-WIRELESS_TOOLS_CPE_ID_UPDATE = pre9
+ WIRELESS_TOOLS_INSTALL_STAGING = YES
+ 
+ ifeq ($(BR2_PACKAGE_WIRELESS_TOOLS_IWCONFIG),y)
+diff --git a/support/download/go-post-process b/support/download/go-post-process
+index edc23ec5..2990bd42 100755
+--- a/support/download/go-post-process
++++ b/support/download/go-post-process
+@@ -30,6 +30,11 @@ if [ ! -f go.mod ]; then
+     exit 1
+ fi
+ 
++# Distribution module selection is applied before sum-verified vendoring.
++if [ -n "${NANOKVM_GO_VENDOR_PATCH:-}" ]; then
++    patch -p1 < "${NANOKVM_GO_VENDOR_PATCH}"
++fi
++
+ go mod vendor -v -modcacherw
+ popd > /dev/null
+ 
+diff --git a/support/libtool/buildroot-libtool-v2.6.patch b/support/libtool/buildroot-libtool-v2.6.patch
+new file mode 100644
+index 00000000..55667c3c
+--- /dev/null
++++ b/support/libtool/buildroot-libtool-v2.6.patch
+@@ -0,0 +1,96 @@
++Libtool cross-compilation fixes rebased onto 2.6.2.
++
++Preserve Buildroot staging, dependency and static-link behavior.
++The new --static and -Bstatic spellings retain upstream behavior.
++
++--- a/ltmain.sh
+++++ b/ltmain.sh
++@@ -3015,9 +3015,8 @@
++ 	# was found and let the user know that the "--tag" command
++ 	# line option must be used.
++ 	if test -z "$tagname"; then
++-	  func_echo "unable to infer tagged configuration with compiler."
++-	  func_echo "Possible use of unsupported compiler."
++-	  func_fatal_error "specify a tag with '--tag'. For more information, try '$progname --help'."
+++	  func_echo "defaulting to \`CC'"
+++	  func_echo "if this is not correct, specify a tag with '--tag'"
++ #	else
++ #	  func_verbose "using $tagname tagged configuration"
++ 	fi
++@@ -4753,8 +4752,12 @@
++ 	  # At present, this check doesn't affect windows .dll's that
++ 	  # are installed into $libdir/../bin (currently, that works fine)
++ 	  # but it's something to keep an eye on.
++-	  test "$inst_prefix_dir" = "$destdir" && \
++-	    func_fatal_error "error: cannot install '$file' to a directory not ending in $libdir"
+++
+++	  #
+++	  # This breaks install into our staging area.  -PB
+++	  #
+++	  #test "$inst_prefix_dir" = "$destdir" && \
+++	  #  func_fatal_error "error: cannot install '$file' to a directory not ending in $libdir"
++ 
++ 	  if test -n "$inst_prefix_dir"; then
++ 	    # Stick the inst_prefix_dir data into the link command.
++@@ -7070,7 +7073,8 @@
++ 	;;
++       -all-static | -static | -static-libtool-libs | --static | -Bstatic)
++ 	case $arg in
++-	-all-static)
+++	# Make -static behave like -all-static -GZ
+++	-all-static | -static)
++ 	  if test yes = "$build_libtool_libs" && test -z "$link_static_flag"; then
++ 	    func_warning "complete static linking is impossible in this configuration"
++ 	  fi
++@@ -7078,12 +7082,6 @@
++ 	    dlopen_self=$dlopen_self_static
++ 	  fi
++ 	  prefer_static_libs=yes
++-	  ;;
++-	-static)
++-	  if test -z "$pic_flag" && test -n "$link_static_flag"; then
++-	    dlopen_self=$dlopen_self_static
++-	  fi
++-	  prefer_static_libs=built
++ 	  ;;
++ 	-static-libtool-libs | --static | -Bstatic)
++ 	  if test -z "$pic_flag" && test -n "$link_static_flag"; then
++@@ -7400,7 +7398,8 @@
++       prevarg=$arg
++ 
++       case $arg in
++-      -all-static)
+++      # Make -static behave like -all-static -GZ
+++      -all-static | -static)
++ 	if test -n "$link_static_flag"; then
++ 	  # See comment for -static flag below, for more details.
++ 	  func_append compile_command " $link_static_flag"
++@@ -7702,7 +7701,7 @@
++ 	continue
++ 	;;
++ 
++-      -static | -static-libtool-libs)
+++      -static-libtool-libs)
++ 	# The effects of -static are defined in a previous loop.
++ 	# We used to do the same as -all-static on platforms that
++ 	# didn't have a PIC flag, but the assumption that the effects
++@@ -8759,7 +8758,7 @@
++ 	  *)
++ 	    if test no = "$installed"; then
++ 	      func_append notinst_deplibs " $lib"
++-	      need_relink=yes
+++	      need_relink=no
++ 	    fi
++ 	    ;;
++ 	  esac
++@@ -11297,6 +11296,10 @@
++ 	    # Replace all uninstalled libtool libraries with the installed ones
++ 	    newdependency_libs=
++ 	    for deplib in $dependency_libs; do
+++	      # Replacing uninstalled with installed can easily break crosscompilation,
+++	      # since the installed path is generally the wrong architecture.  -CL
+++	      newdependency_libs="$newdependency_libs $deplib"
+++	      continue
++ 	      case $deplib in
++ 	      *.la)
++ 		func_basename "$deplib"

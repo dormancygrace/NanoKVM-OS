@@ -25,7 +25,8 @@ func MonitorProfileSupported() bool {
 var sourceTiming struct {
 	sync.Mutex
 	expires time.Time
-	wide    bool
+	width   int
+	height  int
 }
 
 // Cache reads away from the frame hot path. Native code independently enforces
@@ -34,13 +35,25 @@ func GetCaptureScreen() *Screen {
 	next := *GetScreen()
 	sourceTiming.Lock()
 	if time.Now().After(sourceTiming.expires) {
-		sourceTiming.wide = ReadVideoValue("/run/nanokvm/width") > 1920 || ReadVideoValue("/run/nanokvm/height") > 1080
+		sourceTiming.width = ReadVideoValue("/run/nanokvm/width")
+		sourceTiming.height = ReadVideoValue("/run/nanokvm/height")
 		sourceTiming.expires = time.Now().Add(time.Second)
 	}
-	wide := sourceTiming.wide
+	sourceWidth := sourceTiming.width
+	sourceHeight := sourceTiming.height
 	sourceTiming.Unlock()
+	wide := sourceWidth > 1920 || sourceHeight > 1080
+	qhdOutput := next.Width == 2560 && next.Height == 1440
+	qhdAuto := next.Width == 0 && next.Height == 0 &&
+		sourceWidth == 2560 && sourceHeight == 1440
+	qhd60 := os.Getenv("NANOKVM_QHD60_MAX_EXPERIMENT") == "1" &&
+		(qhdOutput || qhdAuto)
 	if wide && next.FPS > 30 {
-		next.FPS = 30
+		if qhd60 && next.FPS > 60 {
+			next.FPS = 60
+		} else if !qhd60 {
+			next.FPS = 30
+		}
 	}
 	return &next
 }

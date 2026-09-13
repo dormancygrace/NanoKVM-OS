@@ -45,6 +45,13 @@ def main():
     assert digest(a.fip) == a.fip_sha256, 'Wrong selected FIP'
     with a.layout_image.open('rb') as stream:
         mbr = bytearray(stream.read(512))
+    built_release_path = a.kernel_output / 'include/config/kernel.release'
+    board_release_path = a.board_stage / 'kernel.release'
+    assert built_release_path.is_file() and board_release_path.is_file()
+    built_release = built_release_path.read_text().strip()
+    board_release = board_release_path.read_text().strip()
+    assert built_release and built_release == board_release, \
+        f'Kernel release mismatch: build={built_release!r} board={board_release!r}'
     assert len(mbr) == 512 and mbr[510:] == b'\x55\xaa'
     boot_start, boot_sectors = struct.unpack_from('<II', mbr, 454)
     root_start, _ = struct.unpack_from('<II', mbr, 470)
@@ -61,7 +68,8 @@ def main():
     run(a.dumpimage, '-T', 'flat_dt', '-p', '0', '-o', kernel_zst, a.fit)
     image = subprocess.check_output(['zstd', '-dc', str(kernel_zst)])
     assert image == (a.kernel_output / 'arch/riscv/boot/Image').read_bytes(), 'FIT/kernel build mismatch'
-    assert b'Linux version 7.2.5-nanokvm-os' in image
+    assert b'Linux version ' + built_release.encode() + b' ' in image, \
+        'Embedded FIT kernel release mismatch: ' + built_release
     # Verify actual ext4 modules against the selected board and kernel build.
     extracted = out / 'rootfs-modules'
     extracted.mkdir()
@@ -77,6 +85,9 @@ def main():
         relative = Path(name).parts
         if relative[1] == 'kernel':
             assert source.read_bytes() == a.kernel_output.joinpath(*relative[2:]).read_bytes(), 'Kernel build mismatch: ' + name
+        vermagic = run('modinfo', '-F', 'vermagic', str(actual[name])).strip()
+        assert vermagic and vermagic.split(maxsplit=1)[0] == built_release, \
+            f'Module vermagic mismatch: {name}: {vermagic!r}'
     zram = next(x for name, x in actual.items() if name.endswith('/zram/zram.ko'))
     assert ' recompress_store' in run('readelf', '-sW', zram), 'Missing ZRAM recompression'
     if a.version:
@@ -102,7 +113,9 @@ def main():
         assert installed.get('version') == a.version and isinstance(installed.get('sequence'), int) and installed['sequence'] > 0, 'Missing installed application release sequence'
         for mode in (600, 720, 1080, 1440):
             assert len(extract_required(f'/usr/share/nanokvm/edid/NanoKVM-monitor-{mode}.bin')) == 256
-        for path in ['/usr/sbin/nkos-update', '/etc/init.d/S00nkos-system-update', '/etc/init.d/S99nkos-system-confirm', '/etc/nkos-system-base', '/etc/init.d/S94nanokvm-update', '/usr/sbin/openvpn', '/etc/init.d/S13nanokvm-watchdog', '/etc/init.d/S94sg2002aes',
+        extract_required('/etc/kvm/ssh_stop')
+        assert len(extract_required('/usr/share/nanokvm/edid/NanoKVM-final-video-profiles.bin')) == 256
+        for path in ['/usr/sbin/nkos-update', '/etc/init.d/S00nkos-system-update', '/etc/init.d/S99nkos-system-confirm', '/etc/nkos-system-base', '/etc/init.d/S94nanokvm-update', '/usr/sbin/openvpn3', '/etc/init.d/S13nanokvm-watchdog', '/etc/init.d/S94sg2002aes',
                      '/usr/share/nanokvm/edid/NanoKVM-QHD30.bin', '/usr/share/nanokvm/edid/NanoKVM-stock.bin']:
             assert extract_required(path), 'Empty beta rootfs file: '+path
         assert any(name.endswith('/extra/sg2002_aes_probe.ko') for name in actual)

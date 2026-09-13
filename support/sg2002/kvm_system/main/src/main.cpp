@@ -212,13 +212,13 @@ int main(int argc, char* argv[])
 
 #endif
     // Catch SIGINT signal(e.g. Ctrl + C), and set exit flag to true.
-    signal(SIGINT, [](int sig){
+    signal(SIGINT, [](int sig){ 
 	kvm_sys_state.oled_thread_running = 0;
 	kvm_sys_state.key_thread_running = 0;
 	kvm_sys_state.sys_thread_running = 0;
-	app::set_exit_flag(true);
+	app::set_exit_flag(true); 
 	log::info("[kvms]Prepare to exit\n");
-	});
+	});	
 
 	pthread_t sys_state_thread;
 	pthread_t display_thread;

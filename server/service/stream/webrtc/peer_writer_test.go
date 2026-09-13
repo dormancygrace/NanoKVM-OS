@@ -33,8 +33,10 @@ func TestPeerWriterSlowPeerAndRecovery(t *testing.T) {
 	}
 	slow.offer(key)
 	receiveFrame(t, entered)
-	if !slow.offer(delta) {
-		t.Fatal("pending slot unavailable")
+	for i := 0; i < peerVideoQueueCapacity; i++ {
+		if !slow.offer(delta) {
+			t.Fatal("pending queue unavailable")
+		}
 	}
 	if slow.offer(delta) {
 		t.Fatal("overflow accepted")
@@ -71,7 +73,9 @@ func TestPeerWriterCloseDiscardsPending(t *testing.T) {
 	w := newPeerVideoWriter(func(f stream.VideoFrame) error { entered <- f; <-unblock; return nil }, func(error) {})
 	w.offer(stream.VideoFrame{Result: 3})
 	receiveFrame(t, entered)
-	w.offer(stream.VideoFrame{Result: 4})
+	for i := 0; i < peerVideoQueueCapacity; i++ {
+		w.offer(stream.VideoFrame{Result: 4})
+	}
 	w.close()
 	close(unblock)
 	select {
@@ -81,5 +85,79 @@ func TestPeerWriterCloseDiscardsPending(t *testing.T) {
 	}
 	if len(entered) != 0 {
 		t.Fatal("closed writer sent pending data")
+	}
+}
+
+// A large IDR can hold the sender while several ordinary frames arrive.
+// They must survive in order instead of forcing another one-second IDR wait.
+func TestPeerWriterPreservesIDRBurst(t *testing.T) {
+	entered := make(chan stream.VideoFrame, 16)
+	unblock := make(chan struct{})
+	w := newPeerVideoWriter(func(f stream.VideoFrame) error {
+		entered <- f
+		if f.IsKeyframe() {
+			<-unblock
+		}
+		return nil
+	}, func(error) { t.Error("unexpected write failure") })
+	defer w.close()
+	defer close(unblock)
+	if !w.offer(stream.VideoFrame{Result: 3, Timestamp: 1}) {
+		t.Fatal("key rejected")
+	}
+	receiveFrame(t, entered)
+	for i := int64(2); i <= 6; i++ {
+		if !w.offer(stream.VideoFrame{Result: 4, Timestamp: i}) {
+			t.Fatal("ordinary IDR burst discarded")
+		}
+	}
+	unblock <- struct{}{}
+	for i := int64(2); i <= 6; i++ {
+		if f := receiveFrame(t, entered); f.Timestamp != i {
+			t.Fatalf("frame order: got %d want %d", f.Timestamp, i)
+		}
+	}
+}
+
+func TestPeerWriterBudgetFailureDiscardsBurst(t *testing.T) {
+	entered := make(chan stream.VideoFrame, 16)
+	unblock := make(chan struct{})
+	w := newPeerVideoWriter(func(f stream.VideoFrame) error {
+		entered <- f
+		if f.Timestamp == 1 {
+			<-unblock
+			return errVideoBudget
+		}
+		return nil
+	}, func(error) { t.Error("recoverable budget failure terminated writer") })
+	defer w.close()
+	defer close(unblock)
+	w.offer(stream.VideoFrame{Result: 3, Timestamp: 1})
+	receiveFrame(t, entered)
+	for i := 0; i < peerVideoQueueCapacity; i++ {
+		w.offer(stream.VideoFrame{Result: 4, Timestamp: 2})
+	}
+	unblock <- struct{}{}
+	deadline := time.Now().Add(time.Second)
+	for {
+		w.mu.Lock()
+		repairing := w.repairing
+		w.mu.Unlock()
+		if repairing {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("budget failure did not recover")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if w.offer(stream.VideoFrame{Result: 4}) {
+		t.Fatal("accepted damaged delta chain")
+	}
+	if !w.offer(stream.VideoFrame{Result: 3, Timestamp: 3}) {
+		t.Fatal("recovery key rejected")
+	}
+	if f := receiveFrame(t, entered); f.Timestamp != 3 {
+		t.Fatal("stale pending frame sent after budget failure")
 	}
 }

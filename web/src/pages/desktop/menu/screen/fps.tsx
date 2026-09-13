@@ -9,7 +9,10 @@ import { setFps as setCookie } from '@/lib/localstorage';
 import { MenuSubmenu } from '@/components/menu-item.tsx';
 
 const fpsList = [
+  { key: 120, label: '120 FPS' },
+  { key: 70, label: '70 FPS' },
   { key: 60, label: '60 FPS' },
+  { key: 40, label: '40 FPS' },
   { key: 30, label: '30 FPS' },
   { key: 15, label: '15 FPS' },
   { key: 10, label: '10 FPS' }
@@ -23,7 +26,7 @@ type FpsProps = {
   maxFps?: number;
 };
 
-export const Fps = ({ fps, setFps, maxFps = 60 }: FpsProps) => {
+export const Fps = ({ fps, setFps, maxFps = 120 }: FpsProps) => {
   const { t } = useTranslation();
   const [isCustomize, setIsCustomize] = useState(false);
   const [customFps, setCustomFps] = useState<number | null>(fps);

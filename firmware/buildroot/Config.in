@@ -18,10 +18,33 @@ config BR2_PACKAGE_NANOKVM_BOARD_TOOLS
       Build the EDID maintenance and validation tool with the target toolchain.
       It is only run on explicit invocation; no startup service is installed.
 
+config BR2_PACKAGE_NKOS_APK_TOOLS
+    bool "NanoKVM apk-tools package manager"
+    depends on BR2_RISCV_64
+    depends on BR2_TOOLCHAIN_HAS_THREADS
+    select BR2_PACKAGE_OPENSSL
+    select BR2_PACKAGE_ZLIB
+    select BR2_PACKAGE_ZSTD
+    help
+      Build the pinned apk-tools v3 client for the NanoKVM riscv64/musl ABI.
+      The target uses the dedicated /opt/nkos database and only the signed
+      NanoKVM-OS-packages repository; it does not consume Alpine packages.
+      Addon package scripts are disabled by the central manager.
+
+config BR2_PACKAGE_NKOS_ADDONS
+    bool "NanoKVM addon manager"
+    depends on BR2_PACKAGE_HOST_GO_TARGET_ARCH_SUPPORTS
+    depends on BR2_TOOLCHAIN_HAS_THREADS
+    select BR2_PACKAGE_HOST_GO
+    help
+      Build the static, standard-library-only nkos-addons runtime. It owns
+      addon lifecycle and signed APK closure handoff without requiring a
+      target Python runtime or shell package hooks.
+
 config BR2_PACKAGE_NKOS_ASIO
     bool
 
-config BR2_PACKAGE_NKOS_OPENVPN3
+config BR2_PACKAGE_OPENVPN3
     bool "NanoKVM OpenVPN 3 client"
     depends on BR2_INSTALL_LIBSTDCPP
     depends on BR2_TOOLCHAIN_GCC_AT_LEAST_10
@@ -46,3 +69,10 @@ config BR2_PACKAGE_NKOS_SUPERFILE
       update checks or image previews.
 
       https://github.com/yorukot/superfile
+
+config BR2_PACKAGE_NANOKVM_OPTIONAL_TOOLS_LAYOUT
+    bool "Install optional utility resources in their APK namespace"
+    depends on BR2_PACKAGE_MC
+    help
+      Used by nanokvm_optional_tools_defconfig for APK payload export.
+      Compile mc's resource paths below /opt/nkos/addons/mc.

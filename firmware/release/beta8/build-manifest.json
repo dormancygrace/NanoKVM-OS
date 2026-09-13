@@ -1,0 +1,57 @@
+{
+  "version": "1.0.0-beta.8",
+  "sequence": 21,
+  "supersedes_sequence": 20,
+  "source_commit": "a0f5baccae5fddc588c71898d7db46115209a42c",
+  "included_usb_fixes": [
+    "30cc2e86 (upstream b267d402)",
+    "cbec8749 (upstream 98d0f7a6)"
+  ],
+  "new_commits": [
+    "479fa966 (upstream a52a6e40): Auto QHD40, monitor labels and Auto capture guard",
+    "b856a719 (upstream dd00aa7b): immediate USB Composition master switch",
+    "888bdb7e (upstream 3fb062a8): 15/20 Mbit CBR options and native limits",
+    "a0f5bacc (upstream 1c47df9c): preserve requested FPS in native Auto wrapper"
+  ],
+  "automatic_edid_sha256": "5df67ffcdd37688b8d35b520130cd43076603f8da8009f8866d026827f1a57da",
+  "kernel_release": "7.2.5-nanokvm-os-r2",
+  "kernel_rebuilt": false,
+  "normal_fit_sha256": "1036ae67feb5c22c36fe5b74d108fb6e60d588f19e7ffae1f6121720a653d2fd",
+  "openssl": "4.0.2; unchanged, no rebuild or additional OpenSSL tests",
+  "native_library_sha256": {
+    "dl_lib/libkvm_mmf.so": "c59fe5ff2a8e8279c224c0cbe43efbe346fa4fd56564c271681608d3e12afb6e",
+    "dl_lib/libsys.so": "53d431ae71e2917b06af4db40abe4471c056e4284abdcecfbd3fe35f4759ae89",
+    "dl_lib/libvi.so": "90a96f51b736208e0c2e01c2177d2ae313a0b25be2b217e6646e85f880571f6f",
+    "dl_lib/libvpss.so": "3e7d97edf40b5174753460f86e96d01a6ae57c8ec18782aa27d4a57fa7a33bc2",
+    "dl_lib/libvo.so": "d68357b78003feaf7ca78d150138b04c35e9b3e31c67ede5c17335c279c000de",
+    "dl_lib/librgn.so": "bf2ad3c104bc629f36e4342f858f1224329471fe7a732bb5a15c089399c99538",
+    "dl_lib/libgdc.so": "db1d6e406126dd14ada4ab046969643a68eff2d27d112b7d108b77cc5522808c",
+    "dl_lib/libvenc.so": "d5fc64bc8fb57c19614ae3dd998faa84f2d48ef79f58c4db95681a9f4c432506",
+    "dl_lib/libvdec.so": "ce455c59c8ff05c152a45b2fc7074a7db78800b714375087bd57af893d9757ba",
+    "dl_lib/libmisc.so": "3e11a4c7511e45c858991f47fd2593b05a53d62b72050bef21f9be4448ea9986",
+    "dl_lib/libcvi_ive.so": "291e59e3a60e9834afcef89ecfb261677040cef407c1f9859ddb08e9b619b0d7",
+    "dl_lib/libisp.so": "870fa50cb17c6a95dd844dea3f82064c36e7c3a81216506240cae8974ffcd5f5",
+    "dl_lib/libisp_algo.so": "7d57cc7d9f5acee2e7cb87e69474b233c57ee2bbb2418810126d1860d7899a3e",
+    "dl_lib/libae.so": "53e3a0ac3f636bb4571a881e1300466b27a550a8f92dda16a1c949206f1b4a8e",
+    "dl_lib/libawb.so": "e7b485ea28f93e202ad46d2af7036cb78b1212e9e63c50288041255d48b107a7",
+    "dl_lib/libaf.so": "d88814bbb68d4eadd324459166ff208f06b2a535362cf0871aca8a837deaee94",
+    "dl_lib/libcvi_bin.so": "db1fc2be736ba3ac8ad1bcd2f212611275662cb920e7855a886cee639059c955",
+    "dl_lib/libcvi_bin_isp.so": "87bccd2e9a5ef7f964cb1f18f49d3abcc4e3ee13d09ff5b9ad117180951dae55"
+  },
+  "rebuilt_capture": {
+    "libkvm.so": "c1eb5493cae1ee07446b81641a3004f18855672775e91b582da90bc6636fcbdd"
+  },
+  "target_c_cxx_optimization": "-O2 (selected build settings retained)",
+  "rootfs_sha256": "2a19158cbed80aec036f8845dee67bb9ccebecee868a5224bf7f3df8692985a8",
+  "installed_server_sha256": "371f1da76095aee781f825c8cc52653d085db21c8bdaefc29a97791295ef006e",
+  "validation": [
+    "Go terminal and common tests PASS",
+    "10 frontend terminal and USB tests PASS",
+    "TypeScript check PASS",
+    "Vite production build PASS",
+    "Auto EDID identical to accepted QHD40 profile",
+    "Rootfs and SD packaging checks PASS",
+    "Signed complete package built with production Ed25519 key"
+  ],
+  "source_layout": "Public code snapshot from integration commit; public documentation and release metadata maintained separately."
+}

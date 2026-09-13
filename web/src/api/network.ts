@@ -116,3 +116,41 @@ export function getIPv6() {
 export function setIPv6(enabled: boolean) {
   return http.post('/api/network/ipv6', { enabled });
 }
+
+export type WifiBand = '2.4' | '5';
+export type WifiStatus = {
+  supported: boolean;
+  enabled: boolean;
+  apMode: boolean;
+  connected: boolean;
+  ssid: string;
+  model: string;
+  bands: WifiBand[];
+  band: WifiBand | '';
+  busy: boolean;
+  error: string;
+};
+export type WifiSecurity = 'wpa' | 'wpa-wpa2' | 'wpa2' | 'wpa3' | 'wpa2-wpa3' | 'open';
+export type WifiNetwork = {
+  bssid: string;
+  ssid: string;
+  band: WifiBand;
+  signal: number;
+  security: WifiSecurity | 'unsupported';
+};
+export type WifiProfile = {
+  ssid: string;
+  password: string;
+  band: WifiBand;
+  hidden: boolean;
+  security: WifiSecurity;
+};
+export function setWifiEnabled(enabled: boolean) {
+  return http.post('/api/network/wifi/enabled', { enabled });
+}
+export function scanWifi(band: WifiBand) {
+  return http.get('/api/network/wifi/scan', { band });
+}
+export function configureWifi(profile: WifiProfile) {
+  return http.post('/api/network/wifi/configure', profile);
+}

@@ -10,7 +10,8 @@ import { notifyAuthExpired } from '@/lib/auth-events.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { Head } from '@/components/head.tsx';
 
-import { buildPicocomCommand } from './validater.ts';
+import { readSerialSession } from './launch.ts';
+import { buildSerialQuery } from './validater.ts';
 
 export const Terminal = () => {
   const { t } = useTranslation();
@@ -28,9 +29,27 @@ export const Terminal = () => {
     terminal.open(terminalEle);
     fitAddon.fit();
 
-    const url = `${getBaseUrl('ws')}/api/vm/terminal`;
+    const searchParams = readSerialSession();
+    let query = '';
+    if (searchParams.has('port')) {
+      const serialQuery = buildSerialQuery({
+        port: searchParams.get('port'),
+        baud: searchParams.get('baud'),
+        parity: searchParams.get('parity'),
+        flowControl: searchParams.get('flowControl'),
+        dataBits: searchParams.get('dataBits'),
+        stopBits: searchParams.get('stopBits')
+      });
+      if (serialQuery === null) {
+        terminal.writeln(
+          t('terminal.invalidParameters', { defaultValue: 'Invalid serial parameters.' })
+        );
+        return () => terminal.dispose();
+      }
+      query = `?${serialQuery}`;
+    }
+    const url = `${getBaseUrl('ws')}/api/vm/terminal${query}`;
     const ws = new WebSocket(url);
-    let isPicocomRunning = false;
     let disposed = false;
 
     ws.addEventListener('close', (event) => {
@@ -48,7 +67,6 @@ export const Terminal = () => {
       terminal.loadAddon(attachAddon);
 
       sendSize();
-      runPicocom();
     };
 
     const sendSize = () => {
@@ -58,33 +76,6 @@ export const Terminal = () => {
       ws.send(blob);
     };
 
-    const runPicocom = () => {
-      const urls = window.location.href.split('?');
-      if (urls.length < 2) return;
-
-      const searchParams = new URLSearchParams(urls[1]);
-      const port = searchParams.get('port');
-      const baud = searchParams.get('baud');
-      const parity = searchParams.get('parity');
-      const flowControl = searchParams.get('flowControl');
-      const dataBits = searchParams.get('dataBits');
-      const stopBits = searchParams.get('stopBits');
-      if (!port || !baud) return;
-
-      const command = buildPicocomCommand({ port, baud, parity, flowControl, dataBits, stopBits });
-      if (!command || disposed || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(command);
-
-      isPicocomRunning = true;
-    };
-
-    const exitPicocom = () => {
-      if (ws.readyState === WebSocket.OPEN && isPicocomRunning) {
-        ws.send('\x01\x18');
-        isPicocomRunning = false;
-      }
-    };
-
     const resizeScreen = () => {
       fitAddon.fit();
       sendSize();
@@ -92,8 +83,7 @@ export const Terminal = () => {
 
     const cleanupConnection = () => {
       disposed = true;
-      exitPicocom();
-      // WebSocket close follows already queued data, including picocom exit.
+      // The server owns and terminates the direct serial process on close.
       if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
         ws.close();
       }

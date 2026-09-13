@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { StyleProvider } from '@ant-design/cssinjs';
 import { ConfigProvider, theme } from 'antd';
 import ReactDOM from 'react-dom/client';
 
@@ -15,17 +16,19 @@ function Fixture() {
     setKey((k) => k + 1);
   };
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }}>
-      <header>
-        Local update UI fixture — no device operations
-        <button onClick={() => configure('prepare')}>Prepare test update</button>
-        <button onClick={() => configure('failed')}>Simulate failure</button>
-        <button onClick={() => setKey((k) => k + 1)}>Reopen settings</button>
-      </header>
-      <main style={{ maxWidth: 750, margin: '24px auto' }}>
-        <Updates key={key} />
-      </main>
-    </ConfigProvider>
+    <StyleProvider layer>
+      <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }}>
+        <header>
+          Local update UI fixture — no device operations
+          <button onClick={() => configure('prepare')}>Prepare test update</button>
+          <button onClick={() => configure('failed')}>Simulate failure</button>
+          <button onClick={() => setKey((k) => k + 1)}>Reopen settings</button>
+        </header>
+        <main style={{ maxWidth: 750, margin: '24px auto' }}>
+          <Updates key={key} />
+        </main>
+      </ConfigProvider>
+    </StyleProvider>
   );
 }
 ReactDOM.createRoot(document.getElementById('root')!).render(<Fixture />);

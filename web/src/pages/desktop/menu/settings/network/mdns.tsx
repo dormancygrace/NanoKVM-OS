@@ -9,36 +9,44 @@ export const Mdns = () => {
   const { t } = useTranslation();
 
   const [isEnabled, setIsEnabled] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [address, setAddress] = useState('');
 
   useEffect(() => {
-    setIsLoading(true);
-
-    api
-      .getMdnsState()
-      .then((rsp) => {
-        if (rsp.data?.enabled) {
-          setIsEnabled(true);
-        }
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
+    let active = true;
+    Promise.allSettled([api.getMdnsState(), api.getInfo()]).then(([state, info]) => {
+      if (!active) return;
+      if (state.status === 'fulfilled' && state.value.code === 0) {
+        setIsEnabled(!!state.value.data?.enabled);
+      }
+      if (info.status === 'fulfilled' && info.value.code === 0) {
+        setAddress(info.value.data?.mdns || '');
+      }
+      setIsLoading(false);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function update() {
     if (isLoading) return;
     setIsLoading(true);
-
-    const rsp = isEnabled ? await api.disableMdns() : await api.enableMdns();
-    setIsLoading(false);
-
-    if (rsp.code !== 0) {
-      console.log(rsp.msg);
-      return;
+    try {
+      const next = !isEnabled;
+      const rsp = next ? await api.enableMdns() : await api.disableMdns();
+      if (rsp.code !== 0) return;
+      setIsEnabled(next);
+      setAddress('');
+      if (next) {
+        const info = await api.getInfo();
+        if (info.code === 0) setAddress(info.data?.mdns || '');
+      }
+    } catch {
+      // Keep the last confirmed state if the request fails.
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsEnabled(!isEnabled);
   }
 
   return (
@@ -57,10 +65,12 @@ export const Mdns = () => {
           </Tooltip>
         </div>
 
-        <span className="text-xs text-neutral-500">{t('settings.device.mdns.description')}</span>
+        <span className="text-xs text-neutral-500">
+          {isEnabled && address ? address : t('settings.device.mdns.description')}
+        </span>
       </div>
 
-      <Switch checked={isEnabled} loading={isLoading} onChange={update} />
+      <Switch aria-label="mDNS" checked={isEnabled} loading={isLoading} onChange={update} />
     </div>
   );
 };

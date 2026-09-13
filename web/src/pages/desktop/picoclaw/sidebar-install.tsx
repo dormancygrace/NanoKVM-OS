@@ -46,7 +46,7 @@ export const SidebarInstall = ({
               percent={installProgress || 0}
               showInfo={false}
               strokeColor="#38bdf8"
-              trailColor="rgba(255,255,255,0.07)"
+              railColor="rgba(255,255,255,0.07)"
               status="active"
             />
           </div>

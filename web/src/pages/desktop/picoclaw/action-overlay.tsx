@@ -54,7 +54,7 @@ export const ActionOverlay = () => {
 
   return (
     <div
-      className="fixed z-[950]"
+      className="fixed z-950"
       style={{
         left: rect.left + 12,
         top: rect.top + 12

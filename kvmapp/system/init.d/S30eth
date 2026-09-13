@@ -23,6 +23,9 @@ EOF
 }
 
 start() {
+    if [ -x /etc/init.d/S29qdisc ]; then
+        /etc/init.d/S29qdisc eth0 || echo "Could not apply fq_codel to eth0" >&2
+    fi
     ip addr flush dev eth0
     if [ -e /boot/eth.nodhcp ]; then
         while IFS= read -r line || [ -n "$line" ]; do

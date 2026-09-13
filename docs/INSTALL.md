@@ -1,32 +1,34 @@
-# 🚀 First installation and application updates
+# 🚀 Installing NanoKVM OS beta-8
 
-**NanoKVM OS v1.0.0 beta-4 — full image, 2026-09-12 build (update sequence 9).** Includes Linux 7.2.5, current native/video components, QHD, CryptoDMA, WireGuard and OpenVPN 3 Core/DCO. HTTPS is enabled on first installation and Direct mode selects H.265 when the browser supports it, otherwise H.264.
-
-> **QHD H.265 WebRTC is unstable:** it can freeze or restart the device. Use H.265 Direct for QHD. The exact assembled image has passed content/filesystem checks; fresh-card first boot and hardware Boot flashing of this exact ZIP remain untested.
+Beta-8 is a complete system image, release sequence 21, with Linux 7.2.5-nanokvm-os-r2, OpenSSL 4.0.2 and the APK application layer.
 
 ## Choose the right file
 
-This release contains **`NanoKVM-OS-1.0.0-beta.4.img.zip`**, the full SD image. Use it for original NanoKVM firmware, a blank card or an incompatible OS base. A separate `.nkos` package is not distributed for beta-4; upgrading from beta-1 or beta-2 also requires this full image to establish the system updater. Original NanoKVM application archives are not NanoKVM OS updates.
+- **NanoKVM-OS-1.0.0-beta.8.img.zip** — the complete SD image for a blank card, original NanoKVM firmware or an incompatible OS base.
+- **NanoKVM-OS-1.0.0-beta.8.nkos** — the signed complete system update for an installation with a compatible full-system updater (capability 2).
+- **SHA256SUMS** — checksums of both downloads.
 
-Get the files and `SHA256SUMS` from [this project's releases](https://github.com/dormancygrace/NanoKVM-OS/releases).
+Get these files from [the beta-8 release](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v1.0.0-beta.8). Original NanoKVM application archives are not NanoKVM OS updates.
 
 ## Full-image installation
 
-1. Verify the complete SHA256 digest against the release's `SHA256SUMS`. Extract the `.img.zip` archive. On Windows, right-click it and choose **Extract All…**; on Linux/macOS, use an archive manager or `unzip NanoKVM-OS-1.0.0-beta.4.img.zip`. Verify the unpacked `.img` digest too.
-2. Make the NanoKVM SD card available as a **whole disk**. For a blank/unbootable card, power off and use a card reader. For a card with working firmware, its hardware USB update mode can expose the card without removing it: power off, hold the board's update key while connecting USB/power, and wait for the card to appear. On the PCIe test device this is the BOOT control; consult the Cube hardware illustration for its control location.
-3. Use an image-writing tool to write the unpacked `.img` to that SD card, including the partition table. This replaces the target card's existing layout/data. Select the card by identity and capacity; copying the image into a normal mounted data volume is not flashing it. Decline Windows prompts to format Linux partitions.
-4. Wait for writing and verification to finish, safely eject, and power up NanoKVM with the update key released. Use wired Ethernet/DHCP for the initial setup where available; then open **https://DEVICE-IP/** and configure access/network settings. HTTP redirects to HTTPS. A unique self-signed certificate is created on the device at first launch; confirm the local-certificate warning in your browser, or install your own trusted certificate later.
+1. Check the downloaded ZIP against SHA256SUMS, then extract its `.img` file.
+2. Power off the device and make its SD card available as a whole disk, normally with a card reader. Select the correct card by identity and capacity.
+3. Write the `.img` with an image-writing tool, including its partition table. This replaces the target card's layout and data; copying the image into a mounted data volume is not flashing. Decline Windows prompts to format Linux partitions.
+4. Safely eject the card, install it and power on. Use wired Ethernet/DHCP for initial setup where available, then open **https://DEVICE-IP/**. A unique self-signed certificate is created on first launch; confirm its local trust or install your own certificate.
 
-The raw image is 1,627,390,464 bytes; the compressed ZIP size is listed with the release asset. The first-boot script creates the remaining data partition. Its behavior on a fresh card, this exact image's hardware USB recovery, and Cube-specific operation still need physical qualification.
-
-The distinction between card-reader flashing and USB updating of an already bootable card follows [Sipeed's flashing guide](https://wiki.sipeed.com/hardware/en/kvm/NanoKVM/system/flashing.html). That guide describes the original firmware. NanoKVM OS preserves an initramfs recovery path that exports the whole card with local partitions unmounted; the new full-image recovery path is not claimed tested merely because its source is present.
+The raw image is 1,627,390,464 bytes. The first-boot script creates the remaining data partition when required. Fresh-card partition creation and hardware USB recovery of this exact sequence 21 image have not been physically qualified during its assembly.
 
 ## First login
 
-Sign in with the factory web account `admin` / `admin` and change its password when prompted. Changing the owner password also updates the Linux root password. Enable SSH only when needed and use the updated owner password. A self-signed HTTPS certificate encrypts the connection but requires local trust confirmation.
+Use the factory Web account `admin` / `admin` and change its password when prompted. **SSH is disabled on a fresh image.** Enable it in the Web settings when needed. Changing the owner password also updates the Linux root password.
 
-## After the first OS installation
+Wi-Fi settings support scanning, band selection and connecting to 5 GHz networks with a compatible adapter. Automatic monitor preference advertises QHD40; the connected host selects its output timing.
 
-Beta-4 initializes release sequence 9 and includes the kernel-capable updater. Use **Settings → Updates** for subsequent compatible signed `.nkos` packages. Application packages replace the server/web interface; system packages can also replace supported system files and matched kernel/modules while preserving configuration.
+## Updating an existing installation
 
-Existing beta-3 installations need the full beta-4 image or an explicitly compatible updater bootstrap before kernel packages can be used. There is no A/B layout or automatic boot fallback. Do not interrupt installation power. Updates are never installed automatically. See [package validation and recovery](UPDATES.md).
+With a compatible full-system updater, install the signed `.nkos` through **Settings → Updates**. The package contains the complete system filesystem and matching kernel/modules. The device restarts into a RAM installer and then into the new system. Supported configuration, including the existing SSH preference and video settings, is preserved; installed APK applications are migrated through the package manager and data-partition files are retained.
+
+If the installed updater does not support this package format, use the full SD image. Do not assume that an older beta's application-only or kernel-capable updater supports capability 2. There is no A/B rollback; interruption can require reflashing. Updates are not installed automatically.
+
+See [the release notes](RELEASE-beta-8.md) for included changes. QHD H.265 over WebRTC remains unstable; use H.265 Direct for QHD.

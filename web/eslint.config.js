@@ -19,7 +19,8 @@ export default tseslint.config(
             'react-refresh': reactRefresh,
         },
         rules: {
-            ...reactHooks.configs.recommended.rules,
+            // Preserve the existing hook checks; React Compiler is not enabled.
+            'react-hooks/rules-of-hooks': 'error',
             '@typescript-eslint/no-explicit-any': 'off',
             'react-hooks/exhaustive-deps': 'warn',
             'react-refresh/only-export-components': [

@@ -24,7 +24,7 @@ maix_sources=[basic/'src'/('maix_'+n+'.cpp') for n in ['time','err','log','fs','
 maix_sources += [peripheral/'port/maixcam/maix_i2c.cpp',third/'ini/inifile2/src/inifile.cpp']
 sources=maix_sources+sorted(p for p in main.rglob('*.c') if p.name != 'qrcmd.c')+sorted(main.rglob('*.cpp'))
 sources += [repo/'support/sg2002/additional/kvm/src/vi_state_shared.cpp']
-flags=['-Os','-g','-Wall','-Wextra','-ffunction-sections','-fdata-sections',
+flags=['-O2','-g','-Wall','-Wextra','-ffunction-sections','-fdata-sections',
        '-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector','-mtune=thead-c906','-mno-fence-tso','-mabi=lp64d',
        '-DPLATFORM_MAIXCAM','-DNANOKVM_ENHANCED','-Werror=return-type','-Werror=uninitialized','-Werror=maybe-uninitialized']
 output.mkdir(parents=True,exist_ok=True)

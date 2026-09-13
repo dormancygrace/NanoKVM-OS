@@ -69,7 +69,7 @@ export const H264Webrtc = ({ onEncoderConflict }: { onEncoderConflict: () => boo
         description: translationRef.current('screen.webrtcConnectionFailed.description'),
         placement: 'topRight',
         closable: false,
-        duration: null
+        duration: 0
       });
     };
 
@@ -280,7 +280,7 @@ export const H264Webrtc = ({ onEncoderConflict }: { onEncoderConflict: () => boo
                 message: translationRef.current('screen.encoderError'),
                 description: translationRef.current('screen.encoderConflict'),
                 placement: 'topRight',
-                duration: null
+                duration: 0
               });
             stopDiagnostics?.();
             video?.close();

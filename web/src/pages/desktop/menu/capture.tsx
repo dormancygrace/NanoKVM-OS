@@ -21,7 +21,7 @@ export const Capture = () => {
         aria-label={title}
         aria-pressed={enabled}
         disabled={!ready || busy}
-        className="!flex !h-[30px] !w-[30px] !min-w-0 !items-center !justify-center !rounded !p-0 hover:!bg-neutral-700/80 disabled:!opacity-40"
+        className="flex! h-[30px]! w-[30px]! !min-w-0 items-center! justify-center! !rounded !p-0 hover:!bg-neutral-700/80 disabled:opacity-40!"
         style={{
           color: enabled ? '#34d399' : '#fbbf24',
           backgroundColor: 'transparent',

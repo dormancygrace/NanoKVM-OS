@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Slider, Switch } from 'antd';
-import { MenuItem } from '@/components/menu-item.tsx';
+import { Button, Slider, Switch } from 'antd';
 import { Volume2Icon, VolumeXIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { usbCompositionChangedEvent } from '@/api/virtual-device.ts';
 import { stereoOffer } from '@/lib/audio-sdp.ts';
 import { http } from '@/lib/http.ts';
+import { MenuItem } from '@/components/menu-item.tsx';
 
 type Playback = {
   context: AudioContext;
@@ -19,17 +19,43 @@ type Playback = {
   timer?: number;
 };
 
+const preferenceKey = 'nanokvm.usb-audio';
+function readPreference(): { enabled: boolean; volume: number } {
+  try {
+    const value = JSON.parse(localStorage.getItem(preferenceKey) ?? '{}');
+    return {
+      enabled: value.enabled === true,
+      volume:
+        typeof value.volume === 'number' && Number.isFinite(value.volume)
+          ? Math.max(0, Math.min(100, value.volume))
+          : 80
+    };
+  } catch {
+    return { enabled: false, volume: 80 };
+  }
+}
+
 export const useUsbAudio = () => {
   const [available, setAvailable] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [receiving, setReceiving] = useState(false);
-  const [volume, setVolume] = useState(80);
-  const playback = useRef<Playback>();
+  const [wanted, setWanted] = useState(() => readPreference().enabled);
+  const [volume, setVolume] = useState(() => readPreference().volume);
+  const [blocked, setBlocked] = useState(false);
+  const startRef = useRef<((automatic?: boolean) => Promise<void>) | undefined>(undefined);
+  useEffect(() => {
+    try {
+      localStorage.setItem(preferenceKey, JSON.stringify({ enabled: wanted, volume }));
+    } catch {
+      /* Storage may be unavailable. */
+    }
+  }, [wanted, volume]);
+  const playback = useRef<Playback | undefined>(undefined);
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
-  const stop = useCallback(() => {
+  const disconnect = useCallback(() => {
     const old = playback.current;
     playback.current = undefined;
     window.clearTimeout(old?.timer);
@@ -56,7 +82,7 @@ export const useUsbAudio = () => {
         if (!alive || rsp.code !== 0) return;
         const enabled = Boolean(rsp.data.audio);
         setAvailable(enabled);
-        if (!enabled) stop();
+        if (!enabled) disconnect();
       } catch {
         /* Preserve the last known composition during a transient disconnect. */
       }
@@ -70,17 +96,41 @@ export const useUsbAudio = () => {
       window.clearInterval(timer);
       window.removeEventListener(usbCompositionChangedEvent, refresh);
       window.removeEventListener('nanokvm:usb-updated', refresh);
-      stop();
+      disconnect();
     };
-  }, [stop]);
+  }, [disconnect]);
 
-  async function start() {
-    if (playback.current) return;
+  const stop = useCallback(() => {
+    setWanted(false);
+    setBlocked(false);
+    setError('');
+    disconnect();
+  }, [disconnect]);
+
+  useEffect(() => {
+    if (!wanted || !available || blocked || error === 'session') return;
+    const attempt = () => {
+      if (!playback.current) void startRef.current?.(true);
+    };
+    attempt();
+    const retry = window.setInterval(attempt, 2000);
+    return () => window.clearInterval(retry);
+  }, [wanted, available, blocked, error]);
+
+  async function start(automatic = false) {
+    if (!automatic) {
+      setWanted(true);
+      setBlocked(false);
+    }
+    if (playback.current) {
+      if (!automatic) void playback.current.context.resume();
+      return;
+    }
     setBusy(true);
     setError('');
     let current: Playback | undefined;
     try {
-      // Resume synchronously from the user gesture; no autoplay or microphone permission.
+      // Restore listening when autoplay permits; otherwise require an explicit resume gesture.
       const context = new AudioContext({ latencyHint: 'interactive' });
       const gain = context.createGain();
       gain.gain.value = volumeRef.current / 100;
@@ -91,11 +141,17 @@ export const useUsbAudio = () => {
       const fail = (reason = 'connection') => {
         if (playback.current === active) {
           setError(reason);
-          stop();
+          disconnect();
         }
       };
       active.timer = window.setTimeout(() => fail('timeout'), 30000);
-      await context.resume();
+      const resumed = context.resume();
+      if (automatic && context.state !== 'running') {
+        setBlocked(true);
+        setBusy(false);
+      }
+      await resumed;
+      setBlocked(false);
       if (playback.current !== active) return;
       const url = new URL('/api/stream/audio', window.location.href);
       url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -132,16 +188,25 @@ export const useUsbAudio = () => {
                 } else if (peer.connectionState === 'failed' || peer.connectionState === 'closed')
                   fail('connection');
               };
+              let lastPackets = 0;
               active.statsTimer = window.setInterval(() => {
-                void peer.getStats().then((reports) => {
-                  if (playback.current !== active) return;
-                  let received = false;
-                  reports.forEach((report) => {
-                    if (report.type === 'inbound-rtp' && report.kind === 'audio' && report.packetsReceived > 0)
-                      received = true;
-                  });
-                  setReceiving(received);
-                }).catch(() => {});
+                void peer
+                  .getStats()
+                  .then((reports) => {
+                    if (playback.current !== active) return;
+                    let packets = 0;
+                    reports.forEach((report) => {
+                      if (
+                        report.type === 'inbound-rtp' &&
+                        report.kind === 'audio' &&
+                        report.packetsReceived > 0
+                      )
+                        packets += report.packetsReceived;
+                    });
+                    setReceiving(packets > lastPackets);
+                    lastPackets = packets;
+                  })
+                  .catch(() => {});
               }, 1000);
               peer.ontrack = ({ track, streams }) => {
                 if (playback.current !== active || track.kind !== 'audio') return;
@@ -183,33 +248,71 @@ export const useUsbAudio = () => {
     } catch {
       if (!current || playback.current === current) {
         setError('playback');
-        stop();
+        disconnect();
       }
     }
   }
 
-  return { available, playing, busy, error, receiving, volume, setVolume, playback, start, stop };
+  startRef.current = start;
+  return {
+    available,
+    playing,
+    wanted,
+    blocked,
+    busy,
+    error,
+    receiving,
+    volume,
+    setVolume,
+    playback,
+    start,
+    stop
+  };
 };
 
 export const AudioMenu = ({ audio }: { audio: ReturnType<typeof useUsbAudio> }) => {
   const { t } = useTranslation();
-  const { available, playing, busy, error, receiving, volume, setVolume, playback, start, stop } = audio;
+  const {
+    available,
+    playing,
+    wanted,
+    blocked,
+    busy,
+    error,
+    receiving,
+    volume,
+    setVolume,
+    playback,
+    start,
+    stop
+  } = audio;
   if (!available) return null;
   return (
     <MenuItem
       title={t('audio.title')}
-      icon={playing && volume > 0 ? <Volume2Icon size={22} className="text-emerald-400" /> : <VolumeXIcon size={22} />}
+      icon={
+        playing && volume > 0 ? (
+          <Volume2Icon size={22} className="text-emerald-400" />
+        ) : (
+          <VolumeXIcon size={22} />
+        )
+      }
       content={
         <div className="w-56">
           <div className="flex items-center justify-between gap-4">
             <span>{t('audio.listen')}</span>
             <Switch
-              checked={playing}
+              checked={wanted}
               loading={busy}
               onChange={(on) => (on ? void start() : stop())}
               aria-label={t('audio.listen')}
             />
           </div>
+          {blocked && (
+            <Button className="mt-2" onClick={() => void start()}>
+              {t('audio.resume', { defaultValue: 'Resume audio' })}
+            </Button>
+          )}
           <div className="mt-3">
             {t('audio.volume')}: {volume}%
           </div>

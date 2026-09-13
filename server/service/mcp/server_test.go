@@ -115,7 +115,7 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 		t.Fatalf("initialize content type=%q, want application/json", contentType)
 	}
 	sessionID := initialize.Header().Get("Mcp-Session-Id")
-	if sessionID == "" || !strings.Contains(initialize.Body.String(), "nanokvm-cube-remote-control") {
+	if sessionID != "" || !strings.Contains(initialize.Body.String(), "nanokvm-cube-remote-control") {
 		t.Fatalf("session=%q body=%s", sessionID, initialize.Body.String())
 	}
 
@@ -189,7 +189,8 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 	}
 
 	closed := request(http.MethodDelete, "", sessionID)
-	if closed.Code != http.StatusNoContent {
+	// Stateless transport has no session to delete.
+	if closed.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("delete status=%d body=%s", closed.Code, closed.Body.String())
 	}
 }
@@ -227,10 +228,7 @@ func TestMCPHandlerRejectsOversizedRequestBody(t *testing.T) {
 	req.Header.Set("Accept", "application/json, text/event-stream")
 
 	handler.ServeHTTP(recorder, req)
-	if recorder.Code == http.StatusOK {
-		t.Fatalf("oversized request was accepted: status=%d", recorder.Code)
-	}
-	if !strings.Contains(recorder.Body.String(), "failed to read body") {
+	if recorder.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("unexpected oversized response: status=%d body=%q", recorder.Code, recorder.Body.String())
 	}
 }

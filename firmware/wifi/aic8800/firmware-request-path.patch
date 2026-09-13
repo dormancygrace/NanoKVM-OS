@@ -1,0 +1,161 @@
+--- a/aic8800_bsp/aic_bsp_driver.c
++++ b/aic8800_bsp/aic_bsp_driver.c
+@@ -30,6 +30,7 @@
+ #include "aic8800d80n_compat.h"
+ #include "aic8800d80x2_compat.h"
+ #include "aicwf_firmware_array.h"
++#include "aicbsp_firmware_path.h"
+ #define FW_PATH_MAX 200
+ 
+ extern int adap_test;
+@@ -487,6 +488,24 @@ void rwnx_rx_handle_msg(struct aic_sdio_dev *sdiodev, struct ipc_e2a_msg *msg)
+ #define MD5(x) x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7],x[8],x[9],x[10],x[11],x[12],x[13],x[14],x[15]
+ #define MD5PINRT "file md5:%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\r\n"
+ 
++int aicbsp_request_firmware(const struct firmware **fw, const char *name,
++			    struct device *device)
++{
++	char path[FW_PATH_MAX];
++	int ret;
++
++	if (!aicbsp_sdiodev)
++		return -ENODEV;
++
++	ret = aicbsp_firmware_request_name(aicbsp_sdiodev->chipid, name,
++					    path, sizeof(path));
++	if (ret)
++		return ret;
++
++	return request_firmware(fw, path, device);
++}
++EXPORT_SYMBOL(aicbsp_request_firmware);
++
+ int rwnx_load_firmware(u32 **fw_buf, const char *name, struct device *device)
+ {
+ 
+@@ -503,7 +522,7 @@ int rwnx_load_firmware(u32 **fw_buf, const char *name, struct device *device)
+ 
+ 
+ 	*fw_buf = NULL;
+-	ret = request_firmware(&fw, name, device);
++	ret = aicbsp_request_firmware(&fw, name, device);
+ 
+ 	if (ret < 0) {
+ 		printk("Load %s fail\n", name);
+--- a/aic8800_bsp/aic_bsp_export.h
++++ b/aic8800_bsp/aic_bsp_export.h
+@@ -1,6 +1,9 @@
+ #ifndef __AIC_BSP_EXPORT_H
+ #define __AIC_BSP_EXPORT_H
+ 
++struct device;
++struct firmware;
++
+ enum aicbsp_subsys {
+ 	AIC_BLUETOOTH,
+ 	AIC_WIFI,
+@@ -65,6 +68,8 @@ extern rf_misc_ram_lite_t loft_res_local;
+ 
+ int aicbsp_set_subsys(int, int);
+ int aicbsp_get_feature(struct aicbsp_feature_t *feature, char *fw_path);
++int aicbsp_request_firmware(const struct firmware **fw, const char *name,
++			    struct device *device);
+ struct sk_buff *aicbsp_resv_mem_alloc_skb(unsigned int length, uint32_t id);
+ void aicbsp_resv_mem_kfree_skb(struct sk_buff *skb, uint32_t id);
+ 
+--- a/aic8800_fdrv/aic_bsp_export.h
++++ b/aic8800_fdrv/aic_bsp_export.h
+@@ -1,6 +1,9 @@
+ #ifndef __AIC_BSP_EXPORT_H
+ #define __AIC_BSP_EXPORT_H
+ 
++struct device;
++struct firmware;
++
+ enum aicbsp_subsys {
+ 	AIC_BLUETOOTH,
+ 	AIC_WIFI,
+@@ -57,6 +60,8 @@ extern rf_misc_ram_lite_t loft_res_local;
+ 
+ int aicbsp_set_subsys(int, int);
+ int aicbsp_get_feature(struct aicbsp_feature_t *feature, char *fw_path);
++int aicbsp_request_firmware(const struct firmware **fw, const char *name,
++			    struct device *device);
+ bool aicbsp_get_load_fw_in_fdrv(void);
+ struct sk_buff *aicbsp_resv_mem_alloc_skb(unsigned int length, uint32_t id);
+ void aicbsp_resv_mem_kfree_skb(struct sk_buff *skb, uint32_t id);
+
+--- a/aic8800_fdrv/rwnx_cfgfile.c
++++ b/aic8800_fdrv/rwnx_cfgfile.c
+@@ -12,6 +12,7 @@
+ 
+ #include "rwnx_defs.h"
+ #include "rwnx_cfgfile.h"
++#include "aic_bsp_export.h"
+ 
+ /**
+  *
+@@ -59,7 +60,7 @@ int rwnx_parse_configfile(struct rwnx_hw *rwnx_hw, const char *filename,
+ 
+ 	RWNX_DBG(RWNX_FN_ENTRY_STR);
+ 
+-	ret = request_firmware(&config_fw, filename, rwnx_hw->dev);
++	ret = aicbsp_request_firmware(&config_fw, filename, rwnx_hw->dev);
+ 	if (ret) {
+ 		printk(KERN_CRIT "%s: Failed to get %s (%d)\n", __func__, filename, ret);
+ 		return ret;
+@@ -98,7 +99,7 @@ int rwnx_parse_phy_configfile(struct rwnx_hw *rwnx_hw, const char *filename,
+ 
+ 	RWNX_DBG(RWNX_FN_ENTRY_STR);
+ 
+-	ret = request_firmware(&config_fw, filename, rwnx_hw->dev);
++	ret = aicbsp_request_firmware(&config_fw, filename, rwnx_hw->dev);
+ 	if (ret) {
+ 		printk(KERN_CRIT "%s: Failed to get %s (%d)\n", __func__, filename, ret);
+ 		return ret;
+--- a/aic8800_fdrv/rwnx_platform.c
++++ b/aic8800_fdrv/rwnx_platform.c
+@@ -33,6 +33,7 @@
+ #include "md5.h"
+ #include "aicwf_compat_8800dc.h"
+ #include "aicwf_compat_8800d80.h"
++#include "aic_bsp_export.h"
+ 
+ #ifdef CONFIG_USE_FW_REQUEST
+ #include <linux/firmware.h>
+@@ -491,7 +492,7 @@ static int rwnx_plat_tl4_fw_upload(struct rwnx_plat *rwnx_plat, u8 *fw_addr,
+ 	u32 dat0, dat1;
+ 	int remain;
+ 
+-	err = request_firmware(&fw, filename, dev);
++	err = aicbsp_request_firmware(&fw, filename, dev);
+ 	if (err) {
+ 		return err;
+ 	}
+@@ -570,7 +571,7 @@ static int rwnx_plat_bin_fw_upload(struct rwnx_plat *rwnx_plat, u8 *fw_addr,
+ 	unsigned int i, size;
+ 	u32 *src, *dst;
+ 
+-	err = request_firmware(&fw, filename, dev);
++	err = aicbsp_request_firmware(&fw, filename, dev);
+ 	if (err) {
+ 		return err;
+ 	}
+@@ -614,7 +615,7 @@ static int rwnx_load_firmware(u32 **fw_buf, const char *name, struct device *dev
+ 	printk("%s: request firmware = %s \n", __func__ ,name);
+ 
+ 	*fw_buf = NULL;
+-	ret = request_firmware(&fw, name, device);
++	ret = aicbsp_request_firmware(&fw, name, device);
+ 
+ 	if (ret < 0) {
+ 		printk("Load %s fail\n", name);
+@@ -2185,7 +2186,7 @@ static int aic_load_firmware(u32 ** fw_buf, char *fw_path,const char *name, stru
+ 	AICWFDBG(LOGINFO, "%s: request firmware = %s \n", __func__ ,name);
+ 	
+ 	*fw_buf = NULL;
+-	ret = request_firmware(&fw, name, device);
++	ret = aicbsp_request_firmware(&fw, name, device);
+ 		
+ 	if (ret < 0) {
+ 		AICWFDBG(LOGERROR, "Load %s fail\n", name);

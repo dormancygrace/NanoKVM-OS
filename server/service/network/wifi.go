@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -28,29 +29,7 @@ const (
 func (s *Service) GetWifi(c *gin.Context) {
 	var rsp proto.Response
 
-	data := &proto.GetWifiRsp{}
-
-	data.Supported = isSupported()
-	if !data.Supported {
-		rsp.OkRspWithData(c, data)
-		return
-	}
-
-	data.ApMode = isAPMode()
-
-	data.Connected = isConnected()
-	if !data.Connected {
-		rsp.OkRspWithData(c, data)
-		return
-	}
-
-	data.Ssid = getWiFiSsid()
-	if data.Ssid == "" {
-		data.Ssid = "Wi-Fi"
-	}
-
-	rsp.OkRspWithData(c, data)
-	log.Debugf("get wifi state: %+v", data)
+	rsp.OkRspWithData(c, wifiControl.status())
 }
 
 func (s *Service) ConnectWifiNoAuth(c *gin.Context) {
@@ -79,6 +58,11 @@ func (s *Service) ConnectWifiNoAuth(c *gin.Context) {
 		return
 	}
 
+	if !reserveWifi() {
+		rsp.ErrRsp(c, -2, "Wi-Fi busy")
+		return
+	}
+	defer finishWifi(nil)
 	if err := connect(req.Ssid, req.Password); err != nil {
 		rsp.ErrRsp(c, -3, "failed to connect wifi")
 		return
@@ -119,6 +103,11 @@ func (s *Service) ConnectWifi(c *gin.Context) {
 		return
 	}
 
+	if !reserveWifi() {
+		rsp.ErrRsp(c, -2, "Wi-Fi busy")
+		return
+	}
+	defer finishWifi(nil)
 	if err := connect(req.Ssid, req.Password); err != nil {
 		rsp.ErrRsp(c, -2, "failed to connect wifi")
 		return
@@ -146,6 +135,11 @@ func (s *Service) ConnectWifi(c *gin.Context) {
 
 func (s *Service) DisconnectWifi(c *gin.Context) {
 	var rsp proto.Response
+	if !reserveWifi() {
+		rsp.ErrRsp(c, -2, "Wi-Fi busy")
+		return
+	}
+	defer finishWifi(nil)
 
 	command := fmt.Sprintf("%s stop", WiFiScript)
 	cmd := exec.Command("sh", "-c", command)
@@ -166,6 +160,13 @@ func (s *Service) DisconnectWifi(c *gin.Context) {
 }
 
 func connect(ssid string, password string) error {
+	// Legacy/AP provisioning selects automatic bands and personal security.
+	for _, name := range []string{"wifi.disabled", "wifi.security", "wifi.hidden", "wifi.freq_list"} {
+		if err := os.Remove(filepath.Join("/etc/kvm", name)); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+
 	if err := writePrivateFile(WiFiSSID, []byte(ssid)); err != nil {
 		log.Errorf("failed to save wifi ssid: %s", err)
 		return err
@@ -195,7 +196,7 @@ func writePrivateFile(path string, data []byte) error {
 }
 
 func isSupported() bool {
-	_, err := os.Stat(WiFiExistFile)
+	_, err := os.Stat("/sys/class/net/wlan0")
 	return err == nil
 }
 

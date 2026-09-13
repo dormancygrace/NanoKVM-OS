@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Divider, Modal, Segmented, Tooltip } from 'antd';
 import clsx from 'clsx';
 import { useSetAtom } from 'jotai';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/storage.ts';
 import { submenuOpenCountAtom } from '@/jotai/settings.ts';
+import { useVirtualDisk } from '@/hooks/useVirtualDisk.ts';
 import { useDismissMobileMenu } from '@/components/mobile-menu-context.ts';
 
 import { Images } from './images.tsx';
@@ -22,6 +23,9 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
   const setSubmenuOpenCount = useSetAtom(submenuOpenCountAtom);
   const dismissMobileMenu = useDismissMobileMenu();
 
+  const diskEnabled = useVirtualDisk();
+  const disabled = diskEnabled !== true;
+  const openRef = useRef(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [source, setSource] = useState('device');
@@ -79,29 +83,65 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
       .catch(() => {});
   }, [remoteConnected]);
 
-  function toggleModal(open: boolean) {
-    setIsModalOpen(open);
-    setSubmenuOpenCount((count) => (open ? count + 1 : Math.max(0, count - 1)));
+  const toggleModal = useCallback(
+    (open: boolean) => {
+      if (open === openRef.current) return;
+      openRef.current = open;
+      setIsModalOpen(open);
+      setSubmenuOpenCount((count) => (open ? count + 1 : Math.max(0, count - 1)));
+    },
+    [setSubmenuOpenCount]
+  );
+
+  useEffect(() => {
+    if (disabled) toggleModal(false);
+  }, [disabled, toggleModal]);
+  useEffect(
+    () => () => {
+      if (openRef.current) setSubmenuOpenCount((count) => Math.max(0, count - 1));
+    },
+    [setSubmenuOpenCount]
+  );
+
+  function openModal() {
+    if (disabled) return;
+    dismissMobileMenu();
+    toggleModal(true);
   }
+  if (disabled) return null;
 
   return (
     <>
       <Tooltip title={t('image.title')} placement={tooltipPlacement} mouseEnterDelay={0.6}>
         <div
+          role="button"
+          aria-label={t('image.title')}
+          aria-disabled={disabled}
+          tabIndex={disabled ? -1 : 0}
           className={clsx(
-            'flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded hover:bg-neutral-700',
-            isMounted || remoteConnected ? 'text-blue-500' : 'text-neutral-300 hover:text-white'
+            'flex h-[30px] w-[30px] items-center justify-center rounded',
+            disabled
+              ? 'cursor-not-allowed text-neutral-600 opacity-45'
+              : [
+                  'cursor-pointer hover:bg-neutral-700',
+                  isMounted || remoteConnected
+                    ? 'text-blue-500'
+                    : 'text-neutral-300 hover:text-white'
+                ]
           )}
-          onClick={() => {
-            dismissMobileMenu();
-            toggleModal(true);
+          onClick={openModal}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              openModal();
+            }
           }}
         >
           <DiscIcon size={18} />
         </div>
       </Tooltip>
 
-      <Modal open={isModalOpen} footer={null} onCancel={() => toggleModal(false)}>
+      <Modal open={isModalOpen && !disabled} footer={null} onCancel={() => toggleModal(false)}>
         <div className="flex items-center space-x-1">
           <span className="text-xl font-bold">{t('image.title')}</span>
           <Tips />

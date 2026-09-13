@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { getVirtualDevice, usbCompositionChangedEvent } from '@/api/virtual-device.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
+import { openSerialTerminal } from '@/pages/terminal/launch.ts';
 
 import { Nanokvm } from './nanokvm';
 import { SerialPort } from './serial-port';
@@ -46,15 +47,16 @@ export const Terminal = () => {
 
       <Nanokvm />
       {serialEnabled && (
-        <a
-          className="flex h-[28px] select-none items-center space-x-1 rounded px-2 py-1 text-inherit hover:bg-neutral-700/70 hover:text-inherit"
-          href="/#terminal?port=%2Fdev%2FttyGS0&baud=115200&parity=none&flowControl=none&dataBits=8&stopBits=1"
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
+          className="flex h-[28px] items-center space-x-1 rounded border-0 bg-transparent px-2 py-1 text-inherit select-none hover:bg-neutral-700/70 hover:text-inherit"
+          onClick={() =>
+            openSerialTerminal(new URLSearchParams({ port: '/dev/ttyGS0' }).toString())
+          }
         >
           <SquareTerminalIcon size={14} />
           <span>{t('terminal.usbSerial')}</span>
-        </a>
+        </button>
       )}
       <SerialPort />
     </div>

@@ -211,7 +211,7 @@ export const Sidebar = () => {
 
   const controlStatusBar =
     runtimeStatus && shouldShowControlStatusBar ? (
-      <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-white/[0.06] px-3 py-2.5">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.06] px-3 py-2.5">
         <div className="min-w-0 text-xs">
           <div className="flex min-w-0 items-center gap-2 text-neutral-300">
             {controlView.isTransitioning ? (
@@ -347,7 +347,7 @@ export const Sidebar = () => {
                       <p className="mt-2 text-xs text-neutral-400">{connectionLabel}</p>
                     )}
                     {(runtimeError || runtimeStatus?.runtime_intent?.last_error) && (
-                      <p className="mt-2 max-w-[280px] break-words text-xs leading-5 text-red-400">
+                      <p className="mt-2 max-w-[280px] wrap-break-word text-xs leading-5 text-red-400">
                         {runtimeError || runtimeStatus?.runtime_intent?.last_error}
                       </p>
                     )}

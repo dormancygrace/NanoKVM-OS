@@ -7,11 +7,16 @@ import (
 	"NanoKVM-Server/service/stream"
 )
 
+// Buffer brief IDR transmission bursts without losing dependent frames.
+// Eight pending frames cover ~267 ms at 30 FPS; sustained overload still
+// discards the damaged chain and recovers at the next IDR.
+const peerVideoQueueCapacity = 8
+
 var errVideoBudget = errors.New("video PMTU cannot carry a frame")
 
 // Independently implemented from the bounded-slot/recovery design in IronKVM
 // (yuzi-co / Vadim), e324cdae and 488712da. Packetization stays per peer so PMTU
-// changes never constrain another viewer. One pending frame plus one in flight.
+// changes never constrain another viewer. Pending frames remain in capture order.
 type peerVideoWriter struct {
 	mu        sync.Mutex
 	frames    chan stream.VideoFrame
@@ -21,7 +26,7 @@ type peerVideoWriter struct {
 }
 
 func newPeerVideoWriter(write func(stream.VideoFrame) error, failed func(error)) *peerVideoWriter {
-	w := &peerVideoWriter{frames: make(chan stream.VideoFrame, 1), done: make(chan struct{}), repairing: true}
+	w := &peerVideoWriter{frames: make(chan stream.VideoFrame, peerVideoQueueCapacity), done: make(chan struct{}), repairing: true}
 	go func() {
 		defer close(w.done)
 		for frame := range w.frames {
@@ -72,9 +77,15 @@ func (w *peerVideoWriter) offer(frame stream.VideoFrame) bool {
 }
 
 func (w *peerVideoWriter) drainLocked() {
-	select {
-	case <-w.frames:
-	default:
+	for {
+		select {
+		case _, ok := <-w.frames:
+			if !ok {
+				return
+			}
+		default:
+			return
+		}
 	}
 }
 

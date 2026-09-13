@@ -2,5 +2,38 @@
   "base_aicsdio_sha256": "45954e76879224cae5fda1a499c8e2e57750d681f28b0c949f9fe3056a00020b",
   "patched_aicsdio_sha256": "ef3fa09c3cb8f6c05ad361ffa8b6b749f2e707e483ecbfd29eb2a30a189d2420",
   "header_sha256": "416f8e16039aaa68ed83ed90f4dd2f1674986035f7b480bc9db8771eef32ff3a",
-  "scope": "Exact SDIO ownership for BSP normal and temporary notification drivers; no DMA, firmware sequence or clock changes"
+  "firmware_path_header_sha256": "b76ddc983ea7bba18a9989e937bb11c221c03d99cb4ef9fc39eb669fb0fc100e",
+  "firmware_path_files": {
+    "aic8800_bsp/aic_bsp_driver.c": {
+      "base_sha256": "e8395aee8991655dc884861dad2b0c11b62de16fc27761a393a7ec00bb25d9e0",
+      "patched_sha256": "66912e04ce8a9623b1078ba9da3f4d2cd6e6a5d64af2d29dd67e58bcc9c0641b"
+    },
+    "aic8800_bsp/aic_bsp_export.h": {
+      "base_sha256": "d4dceabf549915c08d83fe6041ffe843acc63594cddf1a4a36ed0c5a26324555",
+      "patched_sha256": "ce3952769628546561733ff1553395343e39837d6c418053f5f94546d408c7fb"
+    },
+    "aic8800_fdrv/aic_bsp_export.h": {
+      "base_sha256": "000bf897aec17c9a68615feab722e62b15d6b57efc05d6f96d82e3b88c49a28f",
+      "patched_sha256": "359b5cc43d5529d437edcc0dd624775eff11bcafd71914eaa56df4224d4c98f5"
+    },
+    "aic8800_fdrv/rwnx_cfgfile.c": {
+      "base_sha256": "d327c0e155e23fec097637a2992167dafcf6ebb38456c7807790e2197adae7f2",
+      "patched_sha256": "d9a19dc9e3d27bec61eabaa64f6da32b28aeaee26412e92f3ca85342f90c5629"
+    },
+    "aic8800_fdrv/rwnx_platform.c": {
+      "base_sha256": "31e7f086e77ff315ae864db20d0cfcfc9f9daa45ef070b276213c8fb2e6c4a99",
+      "patched_sha256": "5f207ea8a17e0bec7af46e6c31e00fd5261c151339c4a68f20585ad8a98237b6"
+    }
+  },
+  "clock_limit_files": {
+    "aic8800_bsp/aicsdio.c": {
+      "base_sha256": "ef3fa09c3cb8f6c05ad361ffa8b6b749f2e707e483ecbfd29eb2a30a189d2420",
+      "patched_sha256": "647fdeb6e4916aba77e3ee085219bfedbfc4e875b6574eec0982290c7dce154c"
+    },
+    "aic8800_fdrv/aicwf_sdio.c": {
+      "base_sha256": "cc1b58403280264e8ff7a8e765e87c8b2b512e2e5b0322e585d7e0083661977c",
+      "patched_sha256": "0eae77d5d50cb33b408fb71978e2a470efe85f0999054901e3db39f077c64cd6"
+    }
+  },
+  "scope": "Exact SDIO ownership, chip-scoped firmware_class names, and driver clock requests capped to the DT host limit; no DMA or firmware-sequence changes"
 }

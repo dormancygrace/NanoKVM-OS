@@ -1,0 +1,47 @@
+From: NanoKVM OS maintainers <maintainers@nanokvm.local>
+Subject: [PATCH] Exclude idle VI event waiters from load accounting
+
+Use TASK_IDLE for the four event waits. Wake conditions, timeout, and
+kthread_should_stop handling remain unchanged. Qualified with two driver
+unload/reload/video restart cycles on beta4 Linux 7.2.5.
+
+Upstream: Not submitted
+
+--- a/interdrv/vi/chip/cv181x/vi.c
++++ b/interdrv/vi/chip/cv181x/vi.c
+@@ -6620,7 +6620,7 @@
+ 		_vi_update_chnRealFrameRate(&gViCtx->chnStatus[chn.s32ChnId]);
+ 		time[0] = ktime_to_timespec64(ktime_get());
+ #endif
+-		ret = wait_event_timeout(vdev->vi_th[th_id].wq,
++		ret = wait_event_idle_timeout(vdev->vi_th[th_id].wq,
+ 					vdev->vi_th[th_id].flag != 0 || kthread_should_stop(),
+ 					msecs_to_jiffies(timeout) - 1);
+ 		flag = vdev->vi_th[th_id].flag;
+@@ -7225,7 +7225,7 @@
+ 	enum E_VI_TH th_id = E_VI_TH_ERR_HANDLER;
+ 
+ 	while (1) {
+-		wait_event(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0 || kthread_should_stop());
++		wait_event_idle(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0 || kthread_should_stop());
+ 
+ 		if (vdev->vi_th[th_id].flag == 1)
+ 			err_raw_num = ISP_PRERAW_A;
+@@ -7556,7 +7556,7 @@
+ 	enum E_VI_TH th_id = E_VI_TH_PRERAW;
+ 
+ 	while (1) {
+-		wait_event(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0 || kthread_should_stop());
++		wait_event_idle(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0 || kthread_should_stop());
+ 		vdev->vi_th[th_id].flag = 0;
+ 
+ 		if (kthread_should_stop()) {
+@@ -7653,7 +7653,7 @@
+ 	raw_num = (vdev->vi_th[th_id].flag = 1) ? ISP_PRERAW_A : ISP_PRERAW_B;
+ 
+ 	while (1) {
+-		wait_event(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0 || kthread_should_stop());
++		wait_event_idle(vdev->vi_th[th_id].wq, vdev->vi_th[th_id].flag != 0 || kthread_should_stop());
+ 		vdev->vi_th[th_id].flag = 0;
+ 
+ 		if (kthread_should_stop()) {

@@ -12,8 +12,8 @@ import (
 )
 
 const FullUpdaterVersion = 2
-const FullPlatform = "sg2002-sd-v1"
-const FullRootFSBytes int64 = 1610612736
+const FullPlatform = "sg2002-sd-v2"
+const FullRootFSBytes int64 = 1560281088
 const fullStage = "/data/.nkos-full-update"
 
 // Format 4 carries a complete rootfs and a signed RAM installer. Compatibility
@@ -141,7 +141,8 @@ func (u *fullUpdater) check(m Manifest) error {
 		return errors.New("NanoKVM OS image required")
 	}
 	for path, want := range map[string]string{
-		"/sys/class/block/mmcblk0p2/start": "32769", "/sys/class/block/mmcblk0p2/size": "3145728",
+		"/sys/class/block/mmcblk0p1/start": "1", "/sys/class/block/mmcblk0p1/size": "131072",
+		"/sys/class/block/mmcblk0p2/start": "131073", "/sys/class/block/mmcblk0p2/size": "3047424",
 		"/sys/class/block/mmcblk0p3/start": "3180544",
 	} {
 		got, e := os.ReadFile(u.at(path))

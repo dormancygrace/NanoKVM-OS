@@ -71,7 +71,7 @@ BR2_PACKAGE_SOCAT=y
 BR2_TARGET_ROOTFS_TAR=y
 BR2_TARGET_ROOTFS_EXT2=y
 BR2_TARGET_ROOTFS_EXT2_4=y
-BR2_TARGET_ROOTFS_EXT2_SIZE="1536M"
+BR2_TARGET_ROOTFS_EXT2_SIZE="1488M"
 # Stable filesystem identity and directory hash seed for image reproduction.
 BR2_TARGET_ROOTFS_EXT2_MKFS_OPTIONS="-O ^64bit -U 3fc20e1e-d1ff-5d50-ace2-ce36b50beefe -E hash_seed=ade93120-ef25-5b31-af06-85f9c5a00cfc"
 BR2_PRIMARY_SITE="https://sources.buildroot.net"

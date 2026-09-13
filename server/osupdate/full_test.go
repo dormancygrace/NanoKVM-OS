@@ -61,6 +61,19 @@ func TestFullManifestDoesNotBindSourceABI(t *testing.T) {
 		t.Fatal("source dependency binding")
 	}
 }
+
+func TestFullManifestRejectsLegacySDLayout(t *testing.T) {
+	for _, change := range []func(*Manifest){
+		func(m *Manifest) { m.Full.Platform = "sg2002-sd-v1" },
+		func(m *Manifest) { m.Full.RootFSBytes = 1536 << 20 },
+	} {
+		m := fullFixture()
+		change(&m)
+		if err := validateFullManifest(m); err == nil {
+			t.Fatal("legacy SD layout must require the full image")
+		}
+	}
+}
 func TestFullManifestRejectsInvalidImages(t *testing.T) {
 	cases := map[string]func(*Manifest){
 		"traversal":     func(m *Manifest) { m.Files[0].Path = "../boot.sd" },

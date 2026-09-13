@@ -19,7 +19,7 @@
 
 ## ✨ What is NanoKVM OS?
 
-**NanoKVM OS v1.0.0 beta-9** brings QHD video, a USB console for headless Linux, a newer Linux system and signed system-package updates to the SG2002-based NanoKVM you already own. Control a desktop through HDMI, or reach a Linux server's console through USB — from your browser.
+**NanoKVM OS** brings QHD video, 5 GHz Wi-Fi support, a USB console for headless Linux, a refreshed Linux system and signed system-package updates to the SG2002-based NanoKVM you already own. Control a desktop through HDMI, or reach a Linux server's console through USB — from your browser.
 
 The aim is a responsive IP-KVM with maintained system components, explicit recovery behavior and measurable resource use. This is an independent community project built on Sipeed NanoKVM and SOPHGO/CVITEK software, with credit to the original authors.
 
@@ -34,13 +34,14 @@ The aim is a responsive IP-KVM with maintained system components, explicit recov
 - **🔒 HTTPS from first boot:** a unique device certificate, HTTP redirect and secure browser access.
 - **🧠 More control over memory:** a reusable CMA/ION pool and configurable memory settings.
 - **🌐 VPN menu:** WireGuard, OpenVPN 3 Core with upstream DCO and Tailscale, with profile controls and component versions.
-- **📦 Project-owned updates:** signed application/system packages, GitHub discovery, manual upload and startup rollback.
+- **📶 5 GHz Wi-Fi:** connect to 2.4 GHz and 5 GHz networks with a compatible adapter; scan networks, select a band and configure hidden networks in the browser.
+- **📦 System updates and optional tools:** signed system packages for compatible layouts, plus an APK-managed add-on layer with dependency resolution.
 
-## ✨ New in beta-4
+## ✨ More project improvements
 
 USB audio reaches the browser with one shared Opus encoder. Mount an ISO directly from your computer without copying it to SD; CD/DVD emulation now supports images up to 31.625 GiB. Dashboard shows SoC temperature and CPU frequency, with independent thermal protection and optional runtime overclocking.
 
-OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. Linux is updated to **7.2.5-nanokvm-os**. The full image includes the new kernel-capable signed updater. See [release notes and community credits](docs/RELEASE-beta-9.md).
+OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Linux 7.2.5-nanokvm-os-r2**, **OpenSSL 4.0.2** and consistent **`-O2`** target C/C++ builds. Optional tools are installed through APK, while signed system updates keep the kernel and modules together. See [release notes and community credits](docs/RELEASE-beta-9.md).
 
 <a id="compatibility"></a>
 
@@ -63,19 +64,22 @@ Compatibility and completed testing are separate: the firmware targets both Cube
 
 This comparison uses the documented SG2002 Cube/PCIe features in the [Sipeed NanoKVM repository](https://github.com/sipeed/NanoKVM), not NanoKVM Pro. Upstream evolves, and some fixes contributed upstream may already be shared by both projects.
 
-| Area | Original SG2002 NanoKVM | NanoKVM OS beta-4 |
+| Area | Original SG2002 NanoKVM | NanoKVM OS |
 |---|---|---|
-| 🖼️ Video resolution | Up to 1920×1080 documented | Adds 2560×1440 at 30 Hz; validated mode transitions on the PCIe/UXC test board |
-| 🎞️ Video formats | MJPEG and H.264 documented | MJPEG, H.264 and H.265; Direct and WebRTC paths for H.264/H.265 |
-| 🖥️ Virtual HDMI monitor | Stock EDID and resolution controls | Separate automatic HDMI input/monitor profile and stream resolution; downscale while preserving aspect ratio. FHD prefers 60 Hz, QHD 30 Hz; BIOS fallback timings retained |
-| ⏱️ Stream frame-rate control | Existing FPS control | 60/30/15/10 presets, integer custom 10–60; QHD capped at 30. This is a stream target, not a guarantee of captured/displayed FPS |
-| 🐧 System | Vendor firmware baseline | Linux 7.2.5, Buildroot 2026.08 integration, updated userspace and matched drivers |
-| 🧠 Memory | Vendor allocation policy | Reusable 64 MiB CMA/ION region and memory controls; allocations can still fail under pressure |
+| 🖼️ Video resolution | Up to 1920×1080 documented | Adds 2560×1440 at 40 Hz, with QHD monitor switching exercised on the PCIe/UXC test board |
+| 🎞️ Video formats | MJPEG and H.264 documented | MJPEG, H.264 and H.265; Direct and WebRTC paths for H.264/H.265. Use Direct for QHD H.265; its WebRTC path remains unstable |
+| 🖥️ Virtual HDMI monitor | Stock EDID and resolution controls | Separate monitor preference and stream resolution; aspect-ratio-preserving downscaling. Automatic prefers QHD 40 Hz; explicit QHD 40 Hz, FHD 75 Hz and HD 120 Hz monitor profiles retain BIOS fallback timings |
+| ⏱️ Stream frame-rate control | Existing FPS control | Adds 720p / 120 FPS, 1080p / 70 FPS and 1440p / 40 FPS profiles. Targets depend on source timing, codec and load; they do not guarantee delivered FPS |
+| 🎚️ Video bitrate | Existing video quality controls | Adds 15 and 20 Mbit/s CBR targets for H.264/H.265 in Video settings and the toolbar; MJPEG keeps its quality controls |
+| 📶 Wi-Fi | Optional Wi-Fi hardware | Adds connection to 5 GHz Wi-Fi networks alongside 2.4 GHz on compatible adapters, with network scanning, band selection, hidden-network setup and adapter information |
+| 🐧 System | Vendor firmware baseline | Linux 7.2.5 with matching drivers/modules, Buildroot 2026.08, OpenSSL 4.0.2, refreshed system and Web dependencies, and consistent `-O2` target C/C++ builds |
+| 🧠 Memory | Vendor allocation policy | Reusable 64 MiB CMA/ION region and configurable memory controls; allocations can still fail under pressure |
 | 🔐 Crypto | Standard application encryption | SG2002 CryptoDMA SRTP adapter with software fallback; sustained stability remains under evaluation |
 | 🌐 VPN | Tailscale and system networking | Browser-managed WireGuard and OpenVPN 3 Core with upstream `ovpn` DCO, alongside Tailscale; per-profile routing control |
-| 📦 Updates | Original NanoKVM update ecosystem | Signed application and supported system-component packages, daily GitHub discovery and manual upload; original archives are rejected |
-| 🔌 Headless Linux console | Serial terminal documented | Adds USB Serial (CDC ACM): access the managed Linux host through the browser terminal without HDMI, after configuring a host-side serial login service |
-| ⌨️ Core KVM functions | Browser video, keyboard/mouse, virtual media, ATX, WoL and terminals | Retained, with USB composition and local access controls; device-level coverage is still being completed |
+| 🧩 Optional applications | Software supplied with stock firmware | Separate APK-managed add-on layer with dependency resolution and package revisions; install mc, Superfile, nano, htop, tcpdump, ethtool and BlueZ utilities as needed |
+| 📦 Updates | Original NanoKVM update ecosystem | Signed full-system packages for compatible layouts, with GitHub discovery and manual upload; kernel and matching modules update together. Initial installation and partition-layout changes use a complete SD image |
+| 🔌 Headless Linux console | Serial terminal documented | Adds USB Serial (CDC ACM): access the managed Linux host through the browser terminal without HDMI, after configuring a host-side serial login service; sessions keep independent settings and close their processes when finished |
+| ⌨️ Core KVM functions | Browser video, keyboard/mouse, virtual media, ATX, WoL and terminals | Retained, with configurable USB composition, immediate USB on/off control and local access controls; device-level coverage is still being completed |
 
 ### 🔌 USB Serial: headless Linux, from your browser
 
@@ -85,14 +89,14 @@ H.265 needs a browser/platform that actually supports decoding it. Pion packetiz
 
 ## 🚀 Installing NanoKVM OS
 
-**First installation from stock firmware needs the full SD image.** Beta-4 also requires the full image when upgrading from beta-1/beta-2: it establishes the system updater used by subsequent packages.
+**First installation from stock firmware needs the full SD image.** A partition-layout change also requires a full image; subsequent system packages must match the installed layout.
 
 | First installation / system replacement | Later package updates |
 |---|---|
 | 📀 Download `.img.zip`, decompress and flash the whole SD card | 📦 Upload a signed `.nkos` package under Settings → Updates |
 | Includes Linux, native libraries, application and updater | Updates the application and supported system components on a compatible OS base |
 
-The full image is the only installation payload for **beta-4**, with fresh-card first-boot testing still pending. See [installation and recovery](docs/INSTALL.md).
+The current release is distributed as a complete SD image only. Fresh-card first-boot testing remains pending. See [installation and recovery](docs/INSTALL.md).
 
 ## 🌐 VPN profiles
 
@@ -106,7 +110,7 @@ Open **Settings → Updates** to check GitHub or upload a `.nkos` package. The d
 
 Signed system packages can update the application and supported system programs, libraries and data while preserving settings. The new package format can replace the kernel and matched modules on a compatible foundation. Bootloader updates and A/B boot rollback are not supported. Packages require a compatible system foundation, matching native libraries and a newer release sequence. See [package updates](docs/UPDATES.md).
 
-Beta-4 is distributed as a full SD image, including when upgrading from beta-1 or beta-2. Subsequent releases can use compatible signed system packages.
+Optional applications use a separate APK repository with dependency resolution. System packages and APK add-ons serve different purposes; see [installation](docs/INSTALL.md) for the current release’s supported update path.
 
 Full system images use the hardware **Boot flashing procedure**. They are not accepted by the application updater. See [update format and recovery](docs/UPDATES.md).
 

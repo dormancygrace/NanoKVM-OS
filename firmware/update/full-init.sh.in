@@ -1,0 +1,160 @@
+#!/busybox sh
+exec </dev/console >/dev/console 2>&1
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/
+/busybox mkdir -p /bin
+/busybox --install -s /bin
+progress_pid=
+rescue() {
+ [ -z "$progress_pid" ] || kill "$progress_pid" 2>/dev/null || true
+ echo FULL_ROOTFS_FAILED_RAM_SHELL
+ sync
+ trap - EXIT
+ while :; do /bin/sh; sleep 1; done
+}
+trap rescue EXIT
+set -eu
+set -o pipefail
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+if [ -c /dev/watchdog0 ]; then watchdog -T 30 -t 5 /dev/watchdog0; fi
+[ "$(uname -r)" = '@RAM_KERNEL@' ]
+[ "$(cat /sys/class/block/mmcblk0p1/start)" = 1 ]
+[ "$(cat /sys/class/block/mmcblk0p1/size)" = 131072 ]
+[ "$(cat /sys/class/block/mmcblk0p2/start)" = 131073 ]
+[ "$(cat /sys/class/block/mmcblk0p2/size)" = 3047424 ]
+[ "$(cat /sys/class/block/mmcblk0p3/start)" = 3180544 ]
+! grep -q '/dev/mmcblk0p2 ' /proc/mounts
+mkdir -p /stage /target /boot
+mount -t exfat /dev/mmcblk0p3 /stage
+cd /stage/.nkos-full-update/@STAGE@
+update_stage="$PWD"
+[ ! -e STARTED ]
+printf '%s\n' '@PACKED@  rootfs.ext4.gz' '@FIT@  normal-boot.sd' | sha256sum -c -
+# Verify exact decompressed bounds and digest before any root partition write.
+[ "$(gzip -dc rootfs.ext4.gz | wc -c)" -eq 1560281088 ]
+gzip -dc rootfs.ext4.gz | sha256sum | grep -q '^@ROOT@ '
+rootdev="$(cat /sys/class/block/mmcblk0p2/dev)"
+! grep -q " $rootdev " /proc/self/mountinfo
+mount -t ext4 /dev/mmcblk0p2 /target
+mount -t vfat /dev/mmcblk0p1 /boot
+printf '%s\n' '@FIP@  /boot/fip.bin' | sha256sum -c -
+grep -q "flavour=enhanced" /target/etc/nanokvm-buildroot
+# Revalidate the transient checkpoint after reboot and before the first
+# destructive write. Nonempty closures use the source image's addon manager;
+# the fixed empty legacy representation is validated directly below.
+if [ -s "$update_stage/addon-restore/packages.sha256" ]; then
+ test -x /target/usr/sbin/nkos-addons
+ mkdir -p /target/run/nkos-upgrade-verify
+ mount -o bind "$update_stage" /target/run/nkos-upgrade-verify
+ chroot /target /usr/sbin/nkos-addons verify-upgrade /run/nkos-upgrade-verify/addons-contract.json /run/nkos-upgrade-verify/addon-restore
+ umount /target/run/nkos-upgrade-verify
+ rmdir /target/run/nkos-upgrade-verify
+else
+ # Legacy sources have no addon manager. Their only accepted checkpoint is
+ # the exact empty checkpoint written by the server preflight. Validate it
+ # directly so the RAM FIT need not carry a second multi-megabyte Go binary.
+ test -f "$update_stage/addons-contract.json"
+ test ! -L "$update_stage/addons-contract.json"
+ printf '%s\n' '@ADDON_CONTRACT@  '$update_stage'/addons-contract.json' | sha256sum -c -
+ test -f "$update_stage/addon-restore/checkpoint.json"
+ test ! -L "$update_stage/addon-restore/checkpoint.json"
+ test -f "$update_stage/addon-restore/packages.sha256"
+ test ! -L "$update_stage/addon-restore/packages.sha256"
+ test ! -s "$update_stage/addon-restore/packages.sha256"
+ printf '%s' '{"format":1,"contract_sha256":"@ADDON_CONTRACT@","world":[],"packages":[]}' > /empty-addon-checkpoint.json
+ /busybox cmp -s /empty-addon-checkpoint.json "$update_stage/addon-restore/checkpoint.json"
+ # Intent must still be empty at the destructive boundary.  Image-provider
+ # roots are not addon intent and may exist in a newer source image.
+ source_world=/target/opt/nkos/etc/apk/world
+ if [ -e "$source_world" ] || [ -L "$source_world" ]; then
+  test -f "$source_world"
+  test ! -L "$source_world"
+  test "$(wc -c <"$source_world")" -le 65536
+  while IFS= read -r line || [ -n "$line" ]; do
+   line="${line%%#*}"
+   set -- $line
+   [ "$#" -eq 0 ] && continue
+   [ "$#" -eq 1 ]
+   printf '%s\n' "$1" | /busybox grep -Eq '^(nkos-base-abi|nkos-server-api|nkos-feature-[a-z0-9][a-z0-9-]{0,63})(=[0-9A-Za-z][0-9A-Za-z.+_~-]{0,95})?$'
+  done < "$source_world"
+ fi
+fi
+echo FULL_ROOTFS_ADDON_CHECKPOINT_VERIFIED
+cd /target
+# Record absence as well as presence: fresh images disable SSH by default.
+ssh_was_disabled=0
+[ ! -e etc/kvm/ssh_stop ] || ssh_was_disabled=1
+set --
+for p in etc/kvm root/.ssh root/.config etc/hosts etc/wireguard etc/resolvconf.conf etc/shadow etc/hostname etc/machine-id etc/TZ etc/localtime etc/wpa_supplicant.conf etc/network/interfaces etc/ssh/sshd_config etc/ssh/ssh_config etc/ssh/ssh_host_* etc/openvpn var/lib/tailscale kvmapp/kvm; do
+ if [ -e "$p" ] || [ -L "$p" ]; then set -- "$@" "$p"; fi
+done
+# Settings stay only in RAM, never in the public image or the data partition.
+tar -cf /preserved.tar "$@"
+[ "$(wc -c </preserved.tar)" -lt 16777216 ]
+find "$@" -type f -exec sha256sum '{}' ';' > /preserved.sha256
+test -s /preserved.sha256
+cd /
+umount /target
+! grep -q " $rootdev " /proc/self/mountinfo
+cd /stage/.nkos-full-update/@STAGE@
+touch STARTED
+sync
+echo FULL_ROOTFS_WRITE_BEGIN
+(cd /; while :; do sleep 15; echo FULL_ROOTFS_IO_ALIVE; done) &
+progress_pid=$!
+gzip -dc rootfs.ext4.gz | dd of=/dev/mmcblk0p2 bs=1048576
+sync
+echo FULL_ROOTFS_READBACK_BEGIN
+sha256sum /dev/mmcblk0p2 > rootfs-readback.sha256
+grep -q '^@ROOT@ ' rootfs-readback.sha256
+echo FULL_ROOTFS_EXACT_IMAGE_MATCH
+kill "$progress_pid"; wait "$progress_pid" 2>/dev/null || true
+progress_pid=
+/e2fsck -fn /dev/mmcblk0p2 > rootfs-fsck.txt 2>&1
+mount -t ext4 /dev/mmcblk0p2 /target
+tar -xf /preserved.tar -C /target
+if [ "$ssh_was_disabled" -eq 0 ]; then rm -f /target/etc/kvm/ssh_stop; fi
+cd /target
+sha256sum -c /preserved.sha256 >/dev/null
+echo FULL_ROOTFS_SETTINGS_RESTORED
+[ "$(cat /target/kvmapp/version)" = '@VERSION@' ]
+test -x usr/sbin/openvpn3
+test -f usr/lib/modules/@KERNEL@/extra/cryptodev.ko
+test -f usr/lib/modules/@KERNEL@/extra/aic8800_bsp.ko
+printf '%s\n' '@ADDON_CONTRACT@  /target/usr/share/nkos/addons-contract.json' | sha256sum -c -
+cd /stage/.nkos-full-update/@STAGE@/addon-restore
+[ ! -s packages.sha256 ] || sha256sum -c packages.sha256
+mkdir -p /target/run/nkos-addon-restore
+mount -o bind /stage/.nkos-full-update/@STAGE@/addon-restore /target/run/nkos-addon-restore
+chroot /target /usr/sbin/nkos-addons restore-upgrade /run/nkos-addon-restore
+umount /target/run/nkos-addon-restore
+rmdir /target/run/nkos-addon-restore
+echo FULL_ROOTFS_ADDONS_RESTORED
+# The 16 MiB boot partition cannot hold two current ~8.3 MiB FITs.
+# Keep atomic replacement when space permits; otherwise replace the existing
+# file in place after the input was verified and the root installation finished.
+fit_kib=$(( ($(wc -c < "$update_stage/normal-boot.sd") + 1023) / 1024 ))
+free_kib=$(df -Pk /boot | awk 'NR==2 {print $4}')
+case "$free_kib" in ''|*[!0-9]*) exit 1;; esac
+if [ "$free_kib" -ge "$((fit_kib + 64))" ]; then
+ cp "$update_stage/normal-boot.sd" /boot/boot.sd.full-next
+ sync
+ printf '%s\n' '@FIT@  /boot/boot.sd.full-next' | sha256sum -c -
+ mv /boot/boot.sd.full-next /boot/boot.sd
+else
+ cp "$update_stage/normal-boot.sd" /boot/boot.sd
+fi
+sync
+printf '%s\n' '@FIP@  /boot/fip.bin' | sha256sum -c -
+printf '%s\n' 'NanoKVM OS @DISPLAY@' > /boot/ver
+sync
+touch /stage/.nkos-full-update/@STAGE@/COMPLETE
+cd /
+umount /target
+umount /boot
+sync
+umount /stage
+echo FULL_ROOTFS_UPDATE_COMPLETE
+trap - EXIT
+reboot -f

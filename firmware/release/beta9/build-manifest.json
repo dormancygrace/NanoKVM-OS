@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0-beta.9",
+  "sequence": 22,
+  "platform": "sg2002-sd-v2",
+  "integration_commit": "b63cceae8fbdba9f4f040ae7cb945240f73a64fe",
+  "boot_bytes": 67108864,
+  "rootfs_bytes": 1560281088,
+  "data_start_sector": 3180544,
+  "kernel_release": "7.2.5-nanokvm-os-r2",
+  "kernel_rebuilt": false,
+  "openssl": "4.0.2",
+  "optimization": "-O2",
+  "artifacts": [
+    "NanoKVM-OS-1.0.0-beta.9.img.zip",
+    "SHA256SUMS"
+  ]
+}

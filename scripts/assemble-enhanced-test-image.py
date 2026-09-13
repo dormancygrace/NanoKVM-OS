@@ -55,9 +55,14 @@ def main():
     assert len(mbr) == 512 and mbr[510:] == b'\x55\xaa'
     boot_start, boot_sectors = struct.unpack_from('<II', mbr, 454)
     root_start, _ = struct.unpack_from('<II', mbr, 470)
-    assert (boot_start, boot_sectors, root_start) == (1, 32768, 32769)
+    assert (boot_start, boot_sectors, root_start) in [(1, 32768, 32769), (1, 131072, 131073)]
     assert mbr[450] == 0x0c and mbr[466] == 0x83
+    # v2 keeps the end of p2/data boundary unchanged: 64 MiB boot + 1488 MiB root.
+    boot_sectors, root_start = 131072, 131073
+    struct.pack_into('<II', mbr, 454, boot_start, boot_sectors)
+    struct.pack_into('<I', mbr, 470, root_start)
     root_bytes = a.rootfs.stat().st_size
+    assert root_bytes == 1488 * 1024 * 1024, 'v2 requires a 1488 MiB rootfs'
     assert root_bytes % 512 == 0 and 0 < root_bytes // 512 < 2**32 - root_start
     struct.pack_into('<I', mbr, 474, root_bytes // 512)
     mbr[478:510] = bytes(32)  # No data partition beyond the portable image.

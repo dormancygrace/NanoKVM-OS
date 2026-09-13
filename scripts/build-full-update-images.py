@@ -19,7 +19,7 @@ if not re.fullmatch(r'[0-9][0-9A-Za-z._+-]{0,95}',a.kernel_release):p.error('inv
 if not re.fullmatch(r'[0-9][0-9A-Za-z._+-]{0,95}',a.ram_kernel_release):p.error('invalid RAM kernel release')
 if a.minimum_updater < 1 or a.updater_capability < 2 or a.minimum_updater > a.updater_capability:p.error('invalid updater capability transition')
 if a.output.exists():p.error('use a fresh output directory')
-if a.rootfs.stat().st_size!=1610612736:p.error('unsupported root partition size')
+if a.rootfs.stat().st_size!=1560281088:p.error('v2 requires a 1488 MiB root partition')
 def read_image(path):
     return subprocess.check_output(['debugfs','-R','cat '+path,str(a.rootfs)],stderr=subprocess.DEVNULL,text=True).strip()
 if read_image('/kvmapp/version')!=a.version:p.error('rootfs version mismatch')
@@ -131,10 +131,12 @@ its=(a.ram_fit_directory/'boot.its').read_text()
 (out/'boot.its').write_text(its)
 with (out/'mkimage.log').open('w') as log:
     subprocess.run([str(a.mkimage),'-f','boot.its','ram-update.sd'],cwd=out,env=dict(os.environ,SOURCE_DATE_EPOCH=str(a.epoch)),stdout=log,stderr=subprocess.STDOUT,check=True)
-if (out/'ram-update.sd').stat().st_size>7900000:p.error('RAM installer exceeds qualified boot budget')
+def allocated(size): return (size+4095)//4096*4096
+boot_required=allocated(a.fit.stat().st_size)+allocated(a.fip.stat().st_size)+allocated((out/'ram-update.sd').stat().st_size)+(256<<10)
+if boot_required>(64<<20):p.error('current boot and RAM installer must coexist on the 64 MiB boot partition')
 subprocess.run([str(a.mkimage.with_name('dumpimage')),'-T','flat_dt','-p','1','-o',str(out/'readback.cpio.gz'),str(out/'ram-update.sd')],stdout=subprocess.DEVNULL,check=True)
 if (out/'readback.cpio.gz').read_bytes()!=(out/'initramfs.cpio.gz').read_bytes():raise RuntimeError('RAM disk FIT roundtrip mismatch')
-meta={'platform':'sg2002-sd-v1','minimum_updater':a.minimum_updater,'target_updater':a.updater_capability,'target_updater_sequence':updater_sequence,'target_updater_sha256':target_updater_sha256,'addon_contract_sha256':addon_contract,'rootfs_bytes':a.rootfs.stat().st_size,'rootfs_sha256':root,'bootloader_sha256':fip,'kernel_release':a.kernel_release}
+meta={'platform':'sg2002-sd-v2','minimum_updater':a.minimum_updater,'target_updater':a.updater_capability,'target_updater_sequence':updater_sequence,'target_updater_sha256':target_updater_sha256,'addon_contract_sha256':addon_contract,'rootfs_bytes':a.rootfs.stat().st_size,'rootfs_sha256':root,'bootloader_sha256':fip,'kernel_release':a.kernel_release}
 (out/'full-system.json').write_text(json.dumps(meta,indent=2)+'\n')
 (out/'image-checks.json').write_text(json.dumps({'version':a.version,'sequence':a.sequence,'files':{n:sha(out/n) for n in ['rootfs.ext4.gz','normal-boot.sd','ram-update.sd','addons-contract.json','nkos-addons','nkos-update']},'ramdisk_roundtrip':True,'hardware_install_tested':False},indent=2)+'\n')
 print(out/'full-system.json')

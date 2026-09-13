@@ -6,12 +6,12 @@
 
 **Community firmware compatible with NanoKVM Cube and NanoKVM PCIe.**
 
-![Version: 1.0.0 beta-8](https://img.shields.io/badge/version-1.0.0--beta.8-orange)
+![Version: 1.0.0 beta-9](https://img.shields.io/badge/version-1.0.0--beta.9-orange)
 ![Hardware: Cube and PCIe](https://img.shields.io/badge/hardware-Cube%20%7C%20PCIe-blue)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
-[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](docs/BUILD-beta-8.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
+[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](docs/BUILD-beta-9.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
 
 </div>
 
@@ -19,12 +19,12 @@
 
 ## ✨ What is NanoKVM OS?
 
-**NanoKVM OS v1.0.0 beta-8** brings QHD video, a USB console for headless Linux, a newer Linux system and signed system-package updates to the SG2002-based NanoKVM you already own. Control a desktop through HDMI, or reach a Linux server's console through USB — from your browser.
+**NanoKVM OS v1.0.0 beta-9** brings QHD video, a USB console for headless Linux, a newer Linux system and signed system-package updates to the SG2002-based NanoKVM you already own. Control a desktop through HDMI, or reach a Linux server's console through USB — from your browser.
 
 The aim is a responsive IP-KVM with maintained system components, explicit recovery behavior and measurable resource use. This is an independent community project built on Sipeed NanoKVM and SOPHGO/CVITEK software, with credit to the original authors.
 
 > [!NOTE]
-> **Beta-8 full image — sequence 21:** HTTPS on by default, H.265 Direct when supported by the browser, with H.264 fallback. **QHD H.265 WebRTC is unstable and can freeze or restart the device.** Use Direct for QHD. Fresh-card partition creation and broad hardware/endurance qualification remain pending; see [validation](docs/VALIDATION.md).
+> **Beta-9 full image — sequence 22:** HTTPS on by default, H.265 Direct when supported by the browser, with H.264 fallback. **QHD H.265 WebRTC is unstable and can freeze or restart the device.** Use Direct for QHD. Fresh-card partition creation and broad hardware/endurance qualification remain pending; see [validation](docs/VALIDATION.md).
 
 ## 🚀 At a glance
 
@@ -40,7 +40,7 @@ The aim is a responsive IP-KVM with maintained system components, explicit recov
 
 USB audio reaches the browser with one shared Opus encoder. Mount an ISO directly from your computer without copying it to SD; CD/DVD emulation now supports images up to 31.625 GiB. Dashboard shows SoC temperature and CPU frequency, with independent thermal protection and optional runtime overclocking.
 
-OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. Linux is updated to **7.2.5-nanokvm-os**. The full image includes the new kernel-capable signed updater. See [release notes and community credits](docs/RELEASE-beta-8.md).
+OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. Linux is updated to **7.2.5-nanokvm-os**. The full image includes the new kernel-capable signed updater. See [release notes and community credits](docs/RELEASE-beta-9.md).
 
 <a id="compatibility"></a>
 
@@ -131,7 +131,7 @@ Full system images use the hardware **Boot flashing procedure**. They are not ac
 - `scripts/`: component build/staging tools; external SDK and toolchain inputs are required.
 - `tools/` and `kvmapp/system/init.d/`: EDID tools and device startup services.
 
-See [BUILD.md](docs/BUILD-beta-8.md) for build instructions.
+See [BUILD.md](docs/BUILD-beta-9.md) for build instructions.
 
 ## ❤️ Credits and licenses
 
@@ -139,6 +139,8 @@ NanoKVM application changes retain the upstream [GPL-3.0 license](LICENSE). Indi
 
 Thanks to [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), the Linux/Buildroot/Go communities and [Pion](https://github.com/pion). Please include board revision, browser, codec/transport, resolution, FPS target and reproduction steps when reporting an issue. Remove credentials and private screen contents from logs.
 
-## Beta-8
+## Beta-9
 
-See [beta-8 release notes](docs/RELEASE-beta-8.md) and [beta-8 build inputs](docs/BUILD-beta-8.md). Fresh images disable SSH; enable it in the Web settings if needed.
+See [beta-9 release notes](docs/RELEASE-beta-9.md) and [beta-9 build inputs](docs/BUILD-beta-9.md). Fresh images disable SSH; enable it in the Web settings if needed.
+
+Beta-9 uses a 64 MiB boot partition and requires a full SD image for the layout transition. See [SD layout v2](docs/SD-LAYOUT-v2.md). No `.nkos` package is distributed for beta-9.

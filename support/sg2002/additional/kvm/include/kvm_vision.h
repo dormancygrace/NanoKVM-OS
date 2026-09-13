@@ -46,7 +46,7 @@ void set_venc_auto_recyc(uint8_t _enable);
  * @param	_width				@input: 	Output image width
  * @param	_height				@input: 	Output image height
  * @param	_type				@input: 	Encode type: 0 MJPEG, 1 H264, 2 H265
- * @param	_qlty				@input: 	MJPEG: (50-100) | H264/H265: (500-10000 Kbit/s)
+ * @param	_qlty				@input: 	MJPEG: (50-100) | H264/H265: (500-20000 Kbit/s)
  * @param	_pp_kvm_data		@output: 	Encode data
  * @param	_p_kvmv_data_size	@output: 	Encode data size
  * @return
@@ -67,7 +67,7 @@ void set_venc_auto_recyc(uint8_t _enable);
 int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _qlty, uint8_t** _pp_kvm_data, uint32_t* _p_kvmv_data_size);
 /*
  * Read one CBR Annex-B H264/H265 access unit. codec: 1 H264, 2 H265;
- * bitrate: 500..10000 Kbit/s; gop: 1..100.
+ * bitrate: 500..20000 Kbit/s; gop: 1..100.
  * Return values are the same as kvmv_read_img; successful video frames use
  * IMG_VIDEO_TYPE_KEY or IMG_VIDEO_TYPE_DELTA.
  */

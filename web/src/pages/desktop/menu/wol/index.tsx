@@ -157,7 +157,7 @@ export const Wol = () => {
         {status && (
           <div
             className={clsx(
-              'max-w-[300px] break-words text-sm',
+              'max-w-[300px] wrap-break-word text-sm',
               status === 'failed' ? 'text-red-500' : 'text-green-500'
             )}
           >

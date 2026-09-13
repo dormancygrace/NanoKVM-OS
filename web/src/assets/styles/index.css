@@ -1,6 +1,13 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@layer theme, base, antd, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* Keep the established no-preflight policy for Ant Design and remote video. */
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
 
 @layer components {
   .nanokvm-button-base {
@@ -22,7 +29,7 @@
   max-width: calc(100vw - 76px);
 }
 
-.nanokvm-mobile-menu-popover .ant-popover-inner-content {
+.nanokvm-mobile-menu-popover .ant-popover-content {
   max-height: calc(100dvh - 96px);
   overflow: hidden;
   box-shadow: none;
@@ -51,13 +58,13 @@
   overscroll-behavior: contain;
 }
 
-.nanokvm-mobile-menu-popover .ant-popover-inner,
-.nanokvm-mobile-menu-popover .ant-tooltip-inner {
+.nanokvm-mobile-menu-popover .ant-popover-container,
+.nanokvm-mobile-menu-popover .ant-tooltip-container {
   background: rgba(38, 38, 38, 0.96);
   color: #e5e5e5;
 }
 
-.nanokvm-mobile-menu-popover .ant-popover-inner {
+.nanokvm-mobile-menu-popover .ant-popover-container {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
 }
 

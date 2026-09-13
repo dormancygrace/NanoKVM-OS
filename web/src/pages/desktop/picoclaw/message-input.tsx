@@ -99,7 +99,7 @@ export const MessageInput = ({
         icon={<PlusIcon size={14} />}
         onClick={() => void onNewConversation()}
         disabled={disabled || disableNewConversation}
-        className="absolute bottom-2.5 right-11 !flex !h-7 !w-7 !items-center !justify-center !rounded-lg !border !border-white/[0.08]"
+        className="absolute bottom-2.5 right-11 flex! !h-7 !w-7 items-center! justify-center! !rounded-lg border! !border-white/[0.08]"
         title={t('picoclaw.newConversation')}
       />
       <Button
@@ -107,7 +107,7 @@ export const MessageInput = ({
         icon={<SendIcon size={14} />}
         onClick={() => void submit()}
         disabled={!canSubmit || !value.trim()}
-        className="absolute bottom-2.5 right-2.5 !flex !h-7 !w-7 !items-center !justify-center !rounded-lg"
+        className="absolute bottom-2.5 right-2.5 flex! !h-7 !w-7 items-center! justify-center! !rounded-lg"
         title={t('picoclaw.send')}
       />
     </div>

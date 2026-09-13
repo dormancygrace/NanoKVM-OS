@@ -65,6 +65,7 @@ export const VideoForm = ({
   });
   const [draft, setDraft] = useState<Draft>(initial);
   const [saved, setSaved] = useState<Draft>(initial);
+  const [customFps, setCustomFps] = useState(![120, 70, 60, 40, 30].includes(status.fps));
   const [busy, setBusy] = useState(false);
   const applying = useRef(false);
   const [h265Supported, setH265Supported] = useState<boolean | null>(null);
@@ -99,7 +100,7 @@ export const VideoForm = ({
   const valid =
     Number.isInteger(draft.fps) &&
     draft.fps >= 10 &&
-    draft.fps <= 60 &&
+    draft.fps <= 120 &&
     Number.isInteger(draft.gop) &&
     draft.gop >= 1 &&
     draft.gop <= 100 &&
@@ -214,8 +215,11 @@ export const VideoForm = ({
             t('videoSettings.monitorProfile'),
             [
               { value: 0, label: t('videoSettings.automatic') },
+              ...(status.qhdSupported
+                ? [{ value: 1440, label: t('videoSettings.preferQhd') }]
+                : []),
               { value: 1080, label: t('videoSettings.preferFhd') },
-              ...(status.qhdSupported ? [{ value: 1440, label: t('videoSettings.preferQhd') }] : [])
+              { value: 720, label: t('videoSettings.preferHd') }
             ],
             !admin || !status.monitorSupported
           )
@@ -271,16 +275,38 @@ export const VideoForm = ({
         )}
         {row(
           t('screen.fps'),
-          <InputNumber
-            className="!w-full"
-            aria-label={t('screen.fps')}
-            value={draft.fps}
-            min={10}
-            max={60}
-            precision={0}
-            disabled={busy || !admin}
-            onChange={(value) => change('fps', value ?? 0)}
-          />
+          <div className="flex flex-col gap-2">
+            <Select
+              className="w-full"
+              aria-label={t('screen.fps')}
+              value={customFps ? 'custom' : draft.fps}
+              options={[
+                { value: 120, label: '120' },
+                { value: 70, label: '70' },
+                { value: 60, label: '60' },
+                { value: 40, label: '40' },
+                { value: 30, label: '30' },
+                { value: 'custom', label: t('keyboard.shortcut.custom') }
+              ]}
+              disabled={busy || !admin}
+              onChange={(value) => {
+                setCustomFps(value === 'custom');
+                if (value !== 'custom') change('fps', Number(value));
+              }}
+            />
+            {customFps && (
+              <InputNumber
+                className="w-full!"
+                aria-label={`${t('screen.fps')} — ${t('keyboard.shortcut.custom')}`}
+                value={draft.fps || null}
+                min={10}
+                max={120}
+                precision={0}
+                disabled={busy || !admin}
+                onChange={(value) => change('fps', value ?? 0)}
+              />
+            )}
+          </div>
         )}
         {row(
           t(draft.mode === 'mjpeg' ? 'screen.quality' : 'videoSettings.bitrate'),
@@ -289,7 +315,7 @@ export const VideoForm = ({
             t(draft.mode === 'mjpeg' ? 'screen.quality' : 'videoSettings.bitrate'),
             draft.mode === 'mjpeg'
               ? [100, 80, 60, 50].map((value) => ({ value, label: `${value}%` }))
-              : [10000, 5000, 3000, 2000, 1000].map((value) => ({
+              : [20000, 15000, 10000, 5000, 3000, 2000, 1000].map((value) => ({
                   value,
                   label: `${value / 1000} Mbit/s`
                 })),
@@ -319,7 +345,7 @@ export const VideoForm = ({
                   : row(
                       'GOP',
                       <InputNumber
-                        className="!w-full"
+                        className="w-full!"
                         aria-label="GOP"
                         value={draft.gop}
                         min={1}
@@ -349,7 +375,13 @@ export const VideoForm = ({
         >
           {t('videoSettings.apply')}
         </Button>
-        <Button disabled={!dirty || busy} onClick={() => setDraft({ ...saved })}>
+        <Button
+          disabled={!dirty || busy}
+          onClick={() => {
+            setDraft({ ...saved });
+            setCustomFps(![120, 70, 60, 40, 30].includes(saved.fps));
+          }}
+        >
           {t('videoSettings.discard')}
         </Button>
         <span className="text-xs text-neutral-400" role="status">

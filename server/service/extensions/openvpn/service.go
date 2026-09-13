@@ -142,7 +142,7 @@ func (s *Service) pid(id string) int {
 		return 0
 	}
 	args := strings.Split(string(cmd), "\x00")
-	if len(args) < 2 || filepath.Base(args[0]) != "nkos-openvpn3" {
+	if len(args) < 2 || filepath.Base(args[0]) != "openvpn3" {
 		return 0
 	}
 	for i, a := range args {
@@ -199,7 +199,7 @@ func (s *Service) start(p Profile) error {
 	}
 	_ = os.Remove(s.runtime(p.ID, ".json"))
 	_ = os.Remove(s.runtime(p.ID, ".pid"))
-	cmd := exec.Command("nkos-openvpn3", args...)
+	cmd := exec.Command("openvpn3", args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if e = cmd.Start(); e != nil {
 		return fmt.Errorf("OpenVPN 3 could not start")
@@ -254,7 +254,7 @@ func (s *Service) GetStatus(c *gin.Context) {
 	}
 	states := make([]Status, 0, len(ps))
 	wanted := s.desired()
-	_, toolErr := exec.LookPath("nkos-openvpn3")
+	_, toolErr := exec.LookPath("openvpn3")
 	for _, p := range ps {
 		st := Status{Profile: p, State: "off", Enabled: wanted == p.ID, CredentialsSaved: s.credentials(p)}
 		var current struct {

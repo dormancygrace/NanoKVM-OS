@@ -1,0 +1,12 @@
+# The complete OS image owns these paths.  Addon packages are restricted to
+# /opt/nkos/addons/<id> by the package repository validator.
+!bin
+!sbin
+!lib
+!usr
+!etc
+!boot
+!var
+!etc/apk
+!etc/nkos
+!lib/apk

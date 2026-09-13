@@ -18,10 +18,16 @@ type SetMacNameReq struct {
 }
 
 type GetWifiRsp struct {
-	Supported bool   `json:"supported"`
-	ApMode    bool   `json:"apMode"`
-	Connected bool   `json:"connected"`
-	Ssid      string `json:"ssid"`
+	Enabled   bool     `json:"enabled"`
+	Model     string   `json:"model"`
+	Bands     []string `json:"bands"`
+	Band      string   `json:"band"`
+	Busy      bool     `json:"busy"`
+	Error     string   `json:"error"`
+	Supported bool     `json:"supported"`
+	ApMode    bool     `json:"apMode"`
+	Connected bool     `json:"connected"`
+	Ssid      string   `json:"ssid"`
 }
 
 type ConnectWifiReq struct {

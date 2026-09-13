@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	messageWait    = 10 * time.Second
-	maxMessageSize = 1024
+	messageWait      = 10 * time.Second
+	maxMessageSize   = 1024
+	terminalPongWait = 30 * time.Second
 )
 
 type WinSize struct {
@@ -37,6 +38,26 @@ func runTerminalSession(ws *websocket.Conn, cmd *exec.Cmd) error {
 	if err := syscall.SetNonblock(int(ptmx.Fd()), true); err != nil {
 		return err
 	}
+	// Detect a vanished browser/network even when no terminal data is flowing.
+	_ = ws.SetReadDeadline(time.Now().Add(terminalPongWait))
+	ws.SetPongHandler(func(string) error { return ws.SetReadDeadline(time.Now().Add(terminalPongWait)) })
+	stopPing := make(chan struct{})
+	defer close(stopPing)
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stopPing:
+				return
+			case <-ticker.C:
+				if ws.WriteControl(websocket.PingMessage, nil, time.Now().Add(messageWait)) != nil {
+					_ = ws.Close()
+					return
+				}
+			}
+		}
+	}()
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -68,7 +89,6 @@ func wsWrite(ws *websocket.Conn, ptmx *os.File) {
 }
 
 func wsRead(ws *websocket.Conn, ptmx *os.File) {
-	_ = ws.SetReadDeadline(time.Time{})
 	for {
 		kind, data, err := ws.ReadMessage()
 		if err != nil {

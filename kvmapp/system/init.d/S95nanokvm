@@ -53,6 +53,16 @@ start_background() {
         # Preserve the currently tested Go sysmon policy; 0 explicitly disables it.
         : "${NANOKVM_SYSMON_TIMER_SLACK_NS:=250000}"
         export NANOKVM_SYSMON_TIMER_SLACK_NS
+        # Enable the accepted resolution-bounded high-rate native paths. The
+        # saved FPS setting still selects the active request.
+        : "${NANOKVM_NATIVE120_EXPERIMENT:=1}"
+        : "${NANOKVM_QHD60_MAX_EXPERIMENT:=1}"
+        : "${NANOKVM_FHD75_EXPERIMENT:=1}"
+        : "${LD_LIBRARY_PATH:=/kvmapp/server/dl_lib}"
+        export NANOKVM_NATIVE120_EXPERIMENT
+        export NANOKVM_QHD60_MAX_EXPERIMENT
+        export NANOKVM_FHD75_EXPERIMENT
+        export LD_LIBRARY_PATH
     fi
     nohup "$executable" </dev/null >/dev/null 2>&1 &
 }

@@ -6,7 +6,7 @@ import (
 )
 
 func TestCheckScreenAcceptsKnownVideoBitRates(t *testing.T) {
-	for _, bitRate := range []uint16{1000, 2000, 3000, 5000, 10000} {
+	for _, bitRate := range []uint16{1000, 2000, 3000, 5000, 10000, 15000, 20000} {
 		screen := &Screen{Height: 1080, Quality: 80, BitRate: bitRate}
 		checkScreen(screen)
 		if screen.BitRate != bitRate {
@@ -16,7 +16,7 @@ func TestCheckScreenAcceptsKnownVideoBitRates(t *testing.T) {
 }
 
 func TestCheckScreenRejectsUnknownVideoBitRate(t *testing.T) {
-	for _, bitRate := range []uint16{0, 500, 7500, 10001} {
+	for _, bitRate := range []uint16{0, 500, 7500, 10001, 20001} {
 		screen := &Screen{Height: 1080, Quality: 80, BitRate: bitRate}
 		checkScreen(screen)
 		if screen.BitRate != 3000 {
@@ -109,5 +109,24 @@ func TestLoadQHDPersistedAt60FPS(t *testing.T) {
 	got := loadScreen(func(path string) ([]byte, error) { return files[path], nil })
 	if got.Width != 2560 || got.Height != 1440 || got.FPS != 60 {
 		t.Fatalf("resolution ceiling must preserve the saved FPS request: %+v", got)
+	}
+}
+
+func TestCustomFPSRange(t *testing.T) {
+	for _, tc := range []struct{ input, want int }{{0, 10}, {9, 10}, {10, 10}, {30, 30}, {60, 60}, {90, 90}, {120, 120}, {121, 120}} {
+		target := &Screen{}
+		setScreenValue(target, "fps", tc.input)
+		if target.FPS != tc.want {
+			t.Errorf("FPS %d = %d, want %d", tc.input, target.FPS, tc.want)
+		}
+	}
+	loaded := loadScreen(func(path string) ([]byte, error) {
+		if path == "/kvmapp/kvm/fps" {
+			return []byte("120"), nil
+		}
+		return nil, nil
+	})
+	if loaded.FPS != 120 {
+		t.Fatalf("saved custom FPS lost: %d", loaded.FPS)
 	}
 }

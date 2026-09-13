@@ -30,7 +30,7 @@ export const Resolution = () => {
           type="text"
           key={item.height}
           disabled={busy}
-          className="!flex w-full items-center gap-2 rounded px-2 py-2 text-left hover:bg-neutral-700/70 disabled:opacity-50"
+          className="flex! w-full items-center gap-2 rounded px-2 py-2 text-left hover:bg-neutral-700/70 disabled:opacity-50"
           onClick={async () => {
             setBusy(true);
             try {
@@ -64,7 +64,7 @@ export const Resolution = () => {
     >
       <Button
         type="text"
-        className="!flex min-h-9 w-full items-center gap-2 rounded px-3 text-left text-sm text-neutral-300 hover:bg-neutral-700/70"
+        className="flex! min-h-9 w-full items-center gap-2 rounded px-3 text-left text-sm text-neutral-300 hover:bg-neutral-700/70"
       >
         <RatioIcon size={18} />
         <span>{t('videoSettings.streamResolution')}</span>

@@ -2,21 +2,30 @@
 set -eu
 [ "${1:-}" = start ] || exit 0
 SDIO_DEVICES_DIR=${NANOKVM_SDIO_DEVICES_DIR:-/sys/bus/sdio/devices}
+MODULES_DIR=${NANOKVM_MODULES_DIR:-/sys/module}
 MODPROBE=${NANOKVM_MODPROBE:-modprobe}
 loaded_aic=0
 loaded_rtl=0
+
+load_module() {
+    module=$1
+    [ ! -d "$MODULES_DIR/$module" ] || return 0
+    "$MODPROBE" "$module"
+}
+
 for alias in "$SDIO_DEVICES_DIR"/*/modalias; do
     [ -r "$alias" ] || continue
     case "$(cat "$alias")" in
-        sdio:c*v5449d0145*)
+        sdio:c*v5449d0145*|sdio:c*v544Ad0146*|\
+        sdio:c*vC8A1d0082*|sdio:c*vC8A1d0182*)
             if [ "$loaded_aic" = 0 ]; then
-                "$MODPROBE" aic8800_fdrv
+                load_module aic8800_fdrv
                 loaded_aic=1
             fi
             ;;
         sdio:c07v024CdB733*|sdio:c07v024CdB73A*)
             if [ "$loaded_rtl" = 0 ]; then
-                "$MODPROBE" 8733bs
+                load_module 8733bs
                 loaded_rtl=1
             fi
             ;;

@@ -29,7 +29,7 @@ if subprocess.check_output(['git', '-C', str(inih), 'status', '--porcelain', '--
 includes = [mpi / 'include', mpi / 'include/isp/cv181x', mpi / 'sample/common',
             mpi / 'component/panel/cv181x', sensor / 'common', inih,
             repo / 'support/sg2002/additional/kvm_mmf/include', repo / 'firmware/mpi']
-flags = ['-Os', '-Wall', '-Wextra', '-Werror', '-fPIC', '-ffunction-sections', '-fdata-sections',
+flags = ['-O2', '-Wall', '-Wextra', '-Werror', '-fPIC', '-ffunction-sections', '-fdata-sections',
          '-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector', '-mtune=thead-c906', '-mno-fence-tso', '-mabi=lp64d',
          '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_ENHANCED', '-DSENSOR_LONTIUM_LT6911']
 flags += [f'-ffile-prefix-map={src}={name}' for src, name in [

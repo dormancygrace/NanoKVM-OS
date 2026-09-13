@@ -1,29 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildPicocomCommand, validatePicocomParameters } from '../src/pages/terminal/validater.ts';
-
-const defaults = { port: '/dev/ttyGS0', baud: '115200', parity: null, flowControl: null, dataBits: null, stopBits: null };
-test('partial serial URL supplies real 8N1 defaults instead of null arguments', () => {
-  const command = buildPicocomCommand(defaults);
-  assert.match(command, /--parity none --flow none --databits 8 --stopbits 1 /);
-  assert.ok(command.endsWith('\r'));
-  assert.ok(!command.includes('null'));
+import { buildSerialQuery } from '../src/pages/terminal/validater.ts';
+const defaults = { port: '/dev/ttyS1', baud: null, parity: null, flowControl: null, dataBits: null, stopBits: null };
+test('physical UART keeps normalized line settings', () => {
+ const q = new URLSearchParams(buildSerialQuery({ ...defaults, baud: ' 9600 ', parity: ' EVEN ' }));
+ assert.equal(q.get('baud'), '9600'); assert.equal(q.get('parity'), 'even'); assert.equal(q.get('dataBits'),'8');
 });
-test('validated normalized values are the values sent to picocom', () => {
-  const command = buildPicocomCommand({ ...defaults, baud: ' 9600 ', parity: ' EVEN ', flowControl: ' HARD ' });
-  assert.match(command, /--baud 9600 --parity even --flow hard/);
+test('USB serial has no fictional baud settings', () => {
+ const q = new URLSearchParams(buildSerialQuery({ ...defaults, port:'/dev/ttyGS0', baud:'9600' }));
+ assert.deepEqual([...q], [['port','/dev/ttyGS0']]);
 });
-test('invalid baud and unexpected device path characters are rejected', () => {
-  assert.equal(buildPicocomCommand({ ...defaults, baud: '12345' }), null);
-  for (const port of ['/dev/a/b','/dev/a@b','/dev/a[b]','/dev/a;id','/dev/../root','/dev/a$(id)']) {
-    assert.equal(validatePicocomParameters({ ...defaults, port }), false, port);
-    assert.equal(buildPicocomCommand({ ...defaults, port }), null, port);
-  }
-  assert.ok(buildPicocomCommand({ ...defaults, port: '/dev/ttyUSB0' }));
-});
-
-test('parity choices unsupported by the selected picocom are rejected', () => {
-  for (const parity of ['m','s','mark','space']) {
-    assert.equal(buildPicocomCommand({ ...defaults, parity }), null);
-  }
+test('invalid devices and physical parameters are rejected', () => {
+ for (const port of ['/dev/a/b','/dev/a;id','/dev/../root','/dev/null','/etc/passwd']) assert.equal(buildSerialQuery({...defaults,port}),null);
+ for (const baud of ['12345','9600;id']) assert.equal(buildSerialQuery({...defaults,baud}),null);
 });

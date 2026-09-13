@@ -8,15 +8,9 @@
     "sha256": "87aaca4164ea9d5c8085854953018263f7963f07c22e73a2a2185cc98c581c34"
   },
   "linux": {
-    "version": "7.2.4",
-    "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.4.tar.xz",
-    "sha256": "01710ee01737dac492f1bae52becd057e08d20d11589089aa06accff415c28dd",
-    "result_version": "7.2.5",
-    "incremental_update": {
-      "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/incr/patch-7.2.4-5.xz",
-      "sha256": "8863d06d6599aa99f3b8becbc5f497fed4b8ef0d755edd04f8d7279d9687ac35"
-    },
-    "note": "The cumulative source-components patch already includes this upstream update; do not apply it twice."
+    "version": "7.2.5",
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.5.tar.xz",
+    "sha256": "55ddf0df8325d9dad96fcff7bd93977d22e3f50af06527572af59b77c7632b78"
   },
   "gcc": {
     "version": "16.2.0",

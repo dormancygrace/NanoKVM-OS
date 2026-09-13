@@ -20,7 +20,7 @@ output = Path(os.environ['NANOKVM_CAPTURE_OUTPUT']).resolve()
 cross = str(Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve() / 'host/bin/riscv64-buildroot-linux-musl-')
 if subprocess.check_output([cross+'gcc', '-dumpfullversion'], text=True).strip() != '16.2.0':
     raise SystemExit('Expected Enhanced GCC 16.2')
-flags = ['-std=gnu++17', '-Os', '-Wall', '-Wextra', '-Werror', '-fPIC',
+flags = ['-std=gnu++17', '-O2', '-Wall', '-Wextra', '-Werror', '-fPIC',
          '-ffunction-sections', '-fdata-sections', '-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector',
          '-mtune=thead-c906', '-mno-fence-tso', '-mabi=lp64d', '-D__CV181X__', '-DNANOKVM_ENHANCED']
 flags += ['-I'+str(p) for p in [base/'include', repo/'support/sg2002/additional/kvm_mmf/include', mpi/'include']]

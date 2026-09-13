@@ -9,17 +9,18 @@ import {
   ChevronRightIcon,
   ClockIcon,
   DownloadIcon,
+  EthernetPortIcon,
   InfoIcon,
   LayoutDashboardIcon,
   MemoryStickIcon,
-  NetworkIcon,
   PaletteIcon,
   SettingsIcon,
   ShieldIcon,
   SmartphoneIcon,
   UsbIcon,
   UserRoundIcon,
-  VideoIcon
+  VideoIcon,
+  WifiIcon
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -40,7 +41,7 @@ import { DateTimeSettings } from './date-time';
 import { Device } from './device';
 import { MCP } from './mcp';
 import { Memory } from './memory';
-import { Network } from './network';
+import { EthernetSettings, WifiSettings } from './network';
 import styles from './sidebar.module.css';
 import { Tailscale } from './tailscale';
 import { Updates } from './updates';
@@ -67,6 +68,7 @@ export const Settings = ({
   const [isLocked, setIsLocked] = useState(false);
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [vpnExpanded, setVpnExpanded] = useState(false);
+  const [deviceExpanded, setDeviceExpanded] = useState(false);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
 
   const setKeyboardLock = useSetAtom(keyboardLockAtom);
@@ -86,7 +88,14 @@ export const Settings = ({
     ...(isAdmin
       ? [
           { id: 'usb', icon: <UsbIcon size={16} />, component: <Usb /> },
-          { id: 'network', icon: <NetworkIcon size={16} />, component: <Network /> },
+          { id: 'device', icon: <SmartphoneIcon size={16} />, component: null },
+          { id: 'device-wifi', icon: <WifiIcon size={16} />, component: <WifiSettings /> },
+          {
+            id: 'device-ethernet',
+            icon: <EthernetPortIcon size={16} />,
+            component: <EthernetSettings />
+          },
+          { id: 'device-general', icon: <SettingsIcon size={16} />, component: <Device /> },
           {
             id: 'vpn',
             icon: <ShieldIcon size={16} />,
@@ -107,7 +116,6 @@ export const Settings = ({
             icon: <WireGuardIcon />,
             component: <WireGuard setIsLocked={setIsLocked} />
           },
-          { id: 'device', icon: <SmartphoneIcon size={16} />, component: <Device /> },
           { id: 'memory', icon: <MemoryStickIcon size={16} />, component: <Memory /> },
           { id: 'date-time', icon: <ClockIcon size={16} />, component: <DateTimeSettings /> }
         ]
@@ -139,8 +147,14 @@ export const Settings = ({
 
   useEffect(() => {
     if (!request || isLocked) return;
-    const requested = request === 'tailscale' || request === 'vpn' ? 'vpn-tailscale' : request;
+    const requested =
+      request === 'tailscale' || request === 'vpn'
+        ? 'vpn-tailscale'
+        : request === 'device' || request === 'network'
+          ? 'device-general'
+          : request;
     if (requested.startsWith('vpn-')) setVpnExpanded(true);
+    if (requested.startsWith('device-')) setDeviceExpanded(true);
     setCurrentTab(requested);
     setDetailOpen(true);
     if (!modalOpenRef.current) {
@@ -161,8 +175,14 @@ export const Settings = ({
       setVpnExpanded((expanded) => !expanded);
       return;
     }
-    if (tab.startsWith('vpn-')) setVpnExpanded(true);
-    setCurrentTab(tab);
+    if (tab === 'device') {
+      setDeviceExpanded((expanded) => !expanded);
+      return;
+    }
+    const target = tab === 'network' ? 'device-general' : tab;
+    if (target.startsWith('vpn-')) setVpnExpanded(true);
+    if (target.startsWith('device-')) setDeviceExpanded(true);
+    setCurrentTab(target);
     setDetailOpen(true);
   }
 
@@ -188,6 +208,7 @@ export const Settings = ({
     setIsModalOpen(false);
     setCurrentTab('dashboard');
     setVpnExpanded(false);
+    setDeviceExpanded(false);
     setSubmenuOpenCount((count) => Math.max(0, count - 1));
   }
 
@@ -195,6 +216,9 @@ export const Settings = ({
     if (id === 'dashboard') return 'Dashboard';
     if (id === 'date-time') return t('dateTime.title');
     if (id === 'video') return t('videoSettings.title');
+    if (id === 'device-wifi') return t('settings.network.wifi.title');
+    if (id === 'device-ethernet') return 'Ethernet';
+    if (id === 'device-general') return t('settings.device.general');
     if (id === 'vpn') return 'VPN';
     if (id === 'vpn-tailscale') return 'Tailscale';
     if (id === 'vpn-wireguard') return 'WireGuard';
@@ -232,7 +256,7 @@ export const Settings = ({
         destroyOnHidden={true}
         onCancel={closeModal}
         style={{ maxWidth: '1080px' }}
-        styles={{ content: { padding: 0 } }}
+        styles={{ container: { padding: 0 } }}
       >
         <div
           className={clsx(
@@ -270,9 +294,16 @@ export const Settings = ({
             </div>
             <div className={mobile ? 'hidden' : 'h-10 sm:h-5'} />
             {tabs
-              .filter((tab) => tab.id !== 'about' && (!tab.id.startsWith('vpn-') || vpnExpanded))
+              .filter(
+                (tab) =>
+                  tab.id !== 'about' &&
+                  (!tab.id.startsWith('vpn-') || vpnExpanded) &&
+                  (!tab.id.startsWith('device-') || deviceExpanded)
+              )
               .map((tab) => {
-                const child = tab.id.startsWith('vpn-');
+                const child = tab.id.startsWith('vpn-') || tab.id.startsWith('device-');
+                const expanded =
+                  tab.id === 'vpn' ? vpnExpanded : tab.id === 'device' ? deviceExpanded : undefined;
                 const label = tabTitle(tab.id);
                 return (
                   <button
@@ -282,7 +313,7 @@ export const Settings = ({
                     aria-label={label}
                     aria-current={currentTab === tab.id ? 'page' : undefined}
                     data-child={child || undefined}
-                    aria-expanded={tab.id === 'vpn' ? vpnExpanded : undefined}
+                    aria-expanded={expanded}
                     className={clsx(
                       styles.item,
                       'flex w-full select-none items-center gap-2 rounded-lg p-2 text-left sm:px-3',
@@ -299,20 +330,20 @@ export const Settings = ({
                     >
                       {label}
                     </span>
-                    {tab.id === 'vpn' && (
+                    {expanded !== undefined && (
                       <ChevronRightIcon
                         size={12}
                         className={clsx(
                           'ml-auto shrink-0 transition-transform',
                           !mobile && 'hidden sm:block',
-                          vpnExpanded && 'rotate-90'
+                          expanded && 'rotate-90'
                         )}
                       />
                     )}
                   </button>
                 );
               })}
-            <div className={clsx('px-3 pb-4 pt-6', !mobile && '!mt-auto')}>
+            <div className={clsx('px-3 pb-4 pt-6', !mobile && 'mt-auto!')}>
               <button
                 type="button"
                 disabled={isLocked}

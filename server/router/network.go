@@ -26,6 +26,9 @@ func networkRouter(r *gin.Engine) {
 	admin.DELETE("/network/wol/mac", service.DeleteMac)     // delete mac
 	admin.POST("/network/wol/mac/name", service.SetMacName) // set mac name
 
+	admin.GET("/network/wifi/scan", service.ScanWifi)
+	admin.POST("/network/wifi/enabled", service.SetWifiEnabled)
+	admin.POST("/network/wifi/configure", service.ConfigureWifi)
 	admin.GET("/network/wifi", service.GetWifi)                    // get Wi-Fi information
 	admin.POST("/network/wifi/connect", service.ConnectWifi)       // connect Wi-Fi
 	admin.POST("/network/wifi/disconnect", service.DisconnectWifi) // disconnect Wi-Fi

@@ -104,7 +104,7 @@ export const SidebarHeader = ({
 
   return (
     <>
-      <div className="flex h-12 flex-shrink-0 items-center justify-between gap-3 pl-2 pr-4">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-3 pl-2 pr-4">
         {/* Left: Title */}
         <div className="flex min-w-0 items-center gap-1.5">
           <Button
@@ -112,7 +112,7 @@ export const SidebarHeader = ({
             size="small"
             onClick={onClose}
             title={t('menu.collapse')}
-            className="!flex !items-center !justify-center !text-neutral-400 hover:!bg-white/[0.08] hover:!text-neutral-200"
+            className="flex! items-center! justify-center! !text-neutral-400 hover:!bg-white/[0.08] hover:!text-neutral-200"
             icon={<LayoutSidebarRightCollapse size={18} />}
           />
           {/* <span className="truncate text-[13px] font-medium text-neutral-200">{t('picoclaw.title')}</span> */}
@@ -162,7 +162,7 @@ export const SidebarHeader = ({
                     onClick={onOpenHistory}
                     title={t('picoclaw.history.title')}
                     className={[
-                      '!flex !items-center !justify-center',
+                      'flex! items-center! justify-center!',
                       isHistoryOpen
                         ? '!bg-white/[0.08] !text-neutral-200'
                         : '!text-neutral-400 hover:!bg-white/[0.08] hover:!text-neutral-200'
@@ -177,7 +177,7 @@ export const SidebarHeader = ({
                     icon={!isTogglingRuntime ? <PowerIcon size={14} /> : undefined}
                     type="text"
                     size="small"
-                    className="!flex !items-center !justify-center !text-red-400 hover:!bg-white/[0.08] hover:!text-red-500"
+                    className="flex! items-center! justify-center! !text-red-400 hover:!bg-white/[0.08] hover:!text-red-500"
                   />
                 </>
               ) : isModelConfigured ? (
@@ -189,7 +189,7 @@ export const SidebarHeader = ({
                   icon={!isTogglingRuntime ? <PlayIcon size={14} /> : undefined}
                   type="text"
                   size="small"
-                  className="!flex !items-center !justify-center !text-neutral-400 hover:!bg-white/[0.08] hover:!text-sky-400"
+                  className="flex! items-center! justify-center! !text-neutral-400 hover:!bg-white/[0.08] hover:!text-sky-400"
                 />
               ) : null}
 
@@ -207,7 +207,7 @@ export const SidebarHeader = ({
                   icon={!isUninstallingRuntime ? <EllipsisIcon size={16} /> : undefined}
                   type="text"
                   size="small"
-                  className="!flex !items-center !justify-center !text-neutral-400 hover:!bg-white/[0.08] hover:!text-neutral-200"
+                  className="flex! items-center! justify-center! !text-neutral-400 hover:!bg-white/[0.08] hover:!text-neutral-200"
                 />
               </Dropdown>
             </>

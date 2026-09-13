@@ -100,7 +100,7 @@ export const Message = ({ message }: MessageProps) => {
     }
     return (
       <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-        <MarkdownContent content={message.text} className="break-words text-red-200/90" />
+        <MarkdownContent content={message.text} className="wrap-break-word text-red-200/90" />
       </div>
     );
   }
@@ -121,7 +121,7 @@ export const Message = ({ message }: MessageProps) => {
           <SparklesIcon size={14} />
           <span>{t('picoclaw.message.toolAction')}</span>
         </div>
-        <MarkdownContent content={toolText} className="break-words" />
+        <MarkdownContent content={toolText} className="wrap-break-word" />
       </div>
     );
   }
@@ -139,7 +139,7 @@ export const Message = ({ message }: MessageProps) => {
           <span>{t('picoclaw.message.observation')}</span>
         </div>
         {observationText && (
-          <MarkdownContent content={observationText} className="mb-2 break-words" />
+          <MarkdownContent content={observationText} className="mb-2 wrap-break-word" />
         )}
         {message.imageBase64 && (
           <img
@@ -160,7 +160,7 @@ export const Message = ({ message }: MessageProps) => {
 
     return (
       <div className="border-white/5 rounded-xl border bg-white/[0.02] px-3 py-2 text-xs text-neutral-400">
-        <MarkdownContent content={thoughtText} className="break-words" />
+        <MarkdownContent content={thoughtText} className="wrap-break-word" />
       </div>
     );
   }
@@ -180,7 +180,7 @@ export const Message = ({ message }: MessageProps) => {
           isUser ? 'bg-sky-500 text-white' : 'bg-neutral-800 text-neutral-100'
         )}
       >
-        <MarkdownContent content={messageText} className="break-words" />
+        <MarkdownContent content={messageText} className="wrap-break-word" />
       </div>
     </div>
   );

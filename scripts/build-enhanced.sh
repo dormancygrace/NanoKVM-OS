@@ -37,6 +37,11 @@ done
 # Do not silently use a different Buildroot release with the same output path.
 grep -q '^export BR2_VERSION := 2026.08$' "$BR/Makefile"
 if [ "$TARGET" = all ]; then
+    : "${NANOKVM_RELEASE_SEQUENCE:?Set NANOKVM_RELEASE_SEQUENCE to the positive signed release sequence}"
+    if ! printf '%s\n' "$NANOKVM_RELEASE_SEQUENCE" | grep -Eq '^[1-9][0-9]*$'; then
+        echo "NANOKVM_RELEASE_SEQUENCE must be a positive decimal integer" >&2
+        exit 2
+    fi
     : "${NANOKVM_APP_STAGE:?Set this to the application rebuilt against the Enhanced toolchain}"
     : "${NANOKVM_BOARD_ASSETS:?Set this to the kernel 7.2.4 boot/modules staging directory}"
     export NANOKVM_APP_STAGE NANOKVM_BOARD_ASSETS

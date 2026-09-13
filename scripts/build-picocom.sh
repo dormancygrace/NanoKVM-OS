@@ -14,7 +14,7 @@ printf '%s  %s\n' "$sha256" "$stage/$archive" | sha256sum -c -
 tar -xzf "$stage/$archive" -C "$stage"
 # Static musl avoids depending on base-image shared libraries. Bound pasted
 # input to 64 KiB instead of picocom's default unbounded output queue.
-make -C "$stage/picocom-$version" CC="$cc" CFLAGS='-Os' \
+make -C "$stage/picocom-$version" CC="$cc" CFLAGS='-O2' \
     LDFLAGS='-static -s' TTY_Q_SZ=65536
 install -D -m 0755 "$stage/picocom-$version/picocom" "$root/kvmapp/system/bin/picocom"
 # Ship the exact corresponding source and its license with the executable.

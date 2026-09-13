@@ -12,6 +12,7 @@ import (
 
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
+	"golang.org/x/sys/unix"
 )
 
 func terminalTestSession(t *testing.T, script string) (*websocket.Conn, <-chan error) {
@@ -132,14 +133,27 @@ func TestTerminalPicocomANSIAndInput(t *testing.T) {
 	if err := syscall.SetNonblock(int(remote.Fd()), true); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(picocom, serial.Name(), "--baud", "115200", "--parity", "none", "--flow", "none", "--databits", "8", "--stopbits", "1", "--imap", "lfcrlf", "--noreset")
+	cmd := exec.Command(picocom, serial.Name(), "--quiet", "--baud", "115200", "--parity", "none", "--flow", "none", "--databits", "8", "--stopbits", "1", "--imap", "lfcrlf", "--noreset")
 	ws, done := terminalTestCommand(t, cmd)
-	terminalReadUntil(t, ws, "Terminal ready")
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		attr, err := unix.IoctlGetTermios(int(serial.Fd()), unix.TCGETS)
+		if err == nil && attr.Lflag&unix.ICANON == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("picocom did not initialize port")
+		}
+		time.Sleep(time.Millisecond)
+	}
 	const ansi = "\x1b[32mПривет COLOR\x1b[0m"
 	if _, err := remote.Write([]byte(ansi)); err != nil {
 		t.Fatal(err)
 	}
-	terminalReadUntil(t, ws, ansi)
+	output := terminalReadUntil(t, ws, ansi)
+	if strings.Contains(output, "picocom v") || strings.Contains(output, "baudrate is") || strings.Contains(output, "Terminal ready") {
+		t.Fatalf("serial startup banner: %q", output)
+	}
 	if err := ws.WriteMessage(websocket.TextMessage, []byte("serial-input\r")); err != nil {
 		t.Fatal(err)
 	}
@@ -153,8 +167,16 @@ func TestTerminalPicocomANSIAndInput(t *testing.T) {
 	if string(got) != "serial-input\r" {
 		t.Fatalf("serial input=%q", got)
 	}
-	if err := ws.WriteMessage(websocket.TextMessage, []byte{1, 24}); err != nil {
-		t.Fatal(err)
+	// A competing opener must fail, not steal the live serial stream.
+	rival := exec.Command(picocom, serial.Name(), "--quiet", "--noreset")
+	rivalOutput, rivalErr := rival.CombinedOutput()
+	if rivalErr == nil || !strings.Contains(string(rivalOutput), "cannot lock") {
+		t.Fatalf("lock not respected: %v %s", rivalErr, rivalOutput)
 	}
+	ws.Close()
 	terminalWaitDone(t, done)
+	if err := syscall.Flock(int(serial.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		t.Fatalf("port stayed locked after tab close: %v", err)
+	}
+	defer syscall.Flock(int(serial.Fd()), syscall.LOCK_UN)
 }

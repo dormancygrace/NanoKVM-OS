@@ -31,7 +31,7 @@ export const Screen = () => {
     if (type !== null && account.role === 'admin') void updateScreen('type', type);
   }, [mode, account.role]);
   const content = (
-    <div className="!flex min-w-64 flex-col gap-1">
+    <div className="flex! min-w-64 flex-col gap-1">
       <div className="flex items-center justify-between gap-4 px-3 py-2 text-sm">
         <span className="flex items-center gap-2 text-neutral-400">
           <ClapperboardIcon size={18} />
@@ -44,7 +44,7 @@ export const Screen = () => {
       <div className="my-1 border-t border-neutral-700" />
       <Button
         type="text"
-        className="!flex h-9 items-center gap-2 rounded px-3 text-sm text-neutral-300 hover:bg-neutral-700/70"
+        className="flex! h-9 items-center gap-2 rounded px-3 text-sm text-neutral-300 hover:bg-neutral-700/70"
         onClick={() => {
           closeMenu((n) => n + 1);
           openSettings('video');
@@ -71,7 +71,7 @@ export const Screen = () => {
             <span
               aria-hidden="true"
               style={sessions > 0 ? { backgroundColor: '#38bdf8' } : undefined}
-              className={`pointer-events-none absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full font-mono text-[11px] font-bold leading-none ring-2 ring-neutral-800 ${sessions > 99 ? '!text-[7px]' : sessions > 9 ? '!text-[9px]' : ''} ${sessions > 0 ? 'text-neutral-950' : 'bg-neutral-600 text-neutral-200'}`}
+              className={`pointer-events-none absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full font-mono text-[11px] font-bold leading-none ring-2 ring-neutral-800 ${sessions > 99 ? 'text-[7px]!' : sessions > 9 ? 'text-[9px]!' : ''} ${sessions > 0 ? 'text-neutral-950' : 'bg-neutral-600 text-neutral-200'}`}
             >
               {sessions > 99 ? '99+' : sessions}
             </span>

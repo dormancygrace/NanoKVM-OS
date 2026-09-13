@@ -357,7 +357,7 @@ export const Desktop = () => {
       )}
 
       {!isBigScreen && isPicoclawChatOpen ? (
-        <div className="fixed inset-x-0 bottom-0 top-14 z-[980] overflow-hidden bg-[#0d0d0f] shadow-2xl">
+        <div className="fixed inset-x-0 bottom-0 top-14 z-980 overflow-hidden bg-[#0d0d0f] shadow-2xl">
           <PicoclawSidebar />
         </div>
       ) : null}

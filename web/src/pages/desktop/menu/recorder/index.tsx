@@ -138,7 +138,7 @@ export const Recorder = () => {
           aria-label={title}
           aria-pressed={state === 'recording'}
           disabled={!supported || !captureEnabled || state === 'choosing' || state === 'saving'}
-          className={`!flex !h-[30px] !min-w-[30px] !items-center !justify-center !px-1 [&_.ant-btn-icon]:!flex [&_.ant-btn-icon]:!items-center [&_svg]:block ${!supported || !captureEnabled ? '!text-neutral-500' : '!text-red-400 hover:!text-red-300'}`}
+          className={`flex! h-[30px]! min-w-[30px]! items-center! justify-center! !px-1 [&_.ant-btn-icon]:flex! [&_.ant-btn-icon]:items-center! [&_svg]:block ${!supported || !captureEnabled ? '!text-neutral-500' : '!text-red-400 hover:!text-red-300'}`}
           onClick={state === 'recording' ? stop : () => void start()}
           icon={
             state === 'recording' ? (

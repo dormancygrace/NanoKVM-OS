@@ -77,6 +77,8 @@ import_boot_credentials() {
     mv "$BOOT_PASS_FILE" "$WIFI_PASS_FILE" || return 1
     "$NANOKVM_CHOWN" root:root "$WIFI_SSID_FILE" "$WIFI_PASS_FILE" || return 1
     chmod 600 "$WIFI_SSID_FILE" "$WIFI_PASS_FILE" || return 1
+    # Boot provisioning uses the original personal/automatic profile.
+    rm -f "$NANOKVM_WIFI_ETC_DIR/wifi.security" "$NANOKVM_WIFI_ETC_DIR/wifi.hidden" "$NANOKVM_WIFI_ETC_DIR/wifi.freq_list"
 }
 
 write_wpa_config() {
@@ -84,14 +86,65 @@ write_wpa_config() {
     pass=$2
     config_tmp=$WPA_CONFIG.tmp.$$
 
-    # Supplying the password over stdin keeps it out of the process list.
-    # wpa_passphrase includes a plaintext #psk comment; do not retain it.
-    psk_config=$(printf '%s\n' "$pass" | "$NANOKVM_WPA_PASSPHRASE" "$ssid") || return 1
+    security=personal
+    [ ! -f "$NANOKVM_WIFI_ETC_DIR/wifi.security" ] || security=$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.security")
+    case "$security" in
+        personal|wpa|wpa-wpa2|wpa2|wpa3|wpa2-wpa3)
+            # Password stays off argv; discard the plaintext comment.
+            psk_config=$(printf '%s\n' "$pass" | "$NANOKVM_WPA_PASSPHRASE" "$ssid") || return 1
+            sae_password=$(printf '%s' "$pass" | od -An -tx1 | tr -d ' \n') || return 1
+            ;;
+        open) ;;
+        *) return 1 ;;
+    esac
+    frequencies=
+    [ ! -f "$NANOKVM_WIFI_ETC_DIR/wifi.freq_list" ] || frequencies=$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.freq_list")
+    case "$frequencies" in *[!0-9\ ]*) return 1 ;; esac
 
     umask 077
     {
         echo "ctrl_interface=/var/run/wpa_supplicant"
-        printf '%s\n' "$psk_config" | sed '/^[[:space:]]*#psk=/d'
+        if [ "$security" = open ]; then
+            echo 'network={'
+            # Hex encoding prevents quotes/backslashes in SSIDs becoming config.
+            printf '    ssid=%s\n' "$(printf '%s' "$ssid" | od -An -tx1 | tr -d ' \n')"
+            echo '    key_mgmt=NONE'
+        else
+            printf '%s\n' "$psk_config" | sed '/^[[:space:]]*#psk=/d; /^[[:space:]]*psk=/d; /^[[:space:]]*ssid=/d; /^[[:space:]]*}$/d'
+            if [ "$security" != wpa3 ]; then
+                printf '%s\n' "$psk_config" | sed -n '/^[[:space:]]*psk=/p'
+            fi
+            printf '    ssid=%s\n' "$(printf '%s' "$ssid" | od -An -tx1 | tr -d ' \n')"
+            case "$security" in
+                wpa)
+                    echo '    proto=WPA'
+                    echo '    key_mgmt=WPA-PSK'
+                    echo '    ieee80211w=0'
+                    ;;
+                wpa-wpa2|wpa2)
+                    if [ "$security" = wpa2 ]; then echo '    proto=RSN'; else echo '    proto=WPA RSN'; fi
+                    echo '    key_mgmt=WPA-PSK'
+                    echo '    ieee80211w=1'
+                    ;;
+                wpa3)
+                    echo '    proto=RSN'
+                    echo '    key_mgmt=SAE'
+                    echo '    ieee80211w=2'
+                    echo "    sae_password=$sae_password"
+                    ;;
+                personal|wpa2-wpa3)
+                    echo '    proto=RSN'
+                    echo '    key_mgmt=WPA-PSK SAE'
+                    echo '    ieee80211w=1'
+                    echo "    sae_password=$sae_password"
+                    ;;
+            esac
+        fi
+        if [ "$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.hidden" 2>/dev/null)" = true ]; then
+            echo '    scan_ssid=1'
+        fi
+        [ -z "$frequencies" ] || echo "    freq_list=$frequencies"
+        echo '}'
     } > "$config_tmp" || {
         rm -f "$config_tmp"
         return 1
@@ -100,10 +153,18 @@ write_wpa_config() {
 }
 
 start() {
+    if [ -x /etc/init.d/S29qdisc ]; then
+        /etc/init.d/S29qdisc wlan0 || echo "Could not apply fq_codel to wlan0" >&2
+    fi
     echo "wifi mode: sta"
+    if [ -e "$NANOKVM_WIFI_ETC_DIR/wifi.disabled" ]; then
+        "$NANOKVM_IP" link set dev wlan0 down || return 1
+        return 0
+    fi
     import_boot_credentials || return 1
+    "$NANOKVM_IP" link set dev wlan0 up || return 1
 
-    if [ ! -s "$WIFI_SSID_FILE" ] || [ ! -s "$WIFI_PASS_FILE" ]; then
+    if [ ! -s "$WIFI_SSID_FILE" ] || { [ ! -s "$WIFI_PASS_FILE" ] && [ "$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.security" 2>/dev/null)" != open ]; }; then
         echo "WiFi credentials are not configured; leaving wlan0 idle"
         return 0
     fi
@@ -123,11 +184,14 @@ start() {
 
     "$NANOKVM_WPA_SUPPLICANT" -B -i wlan0 -c "$WPA_CONFIG" || return 1
     if [ ! -e "$NANOKVM_WIFI_BOOT_DIR/wifi.nodhcp" ]; then
-        "$NANOKVM_UDHCPC" -B -O 121 -i wlan0 -t 10 -T 1 -A 5 -b -p "$WLAN_DHCP_PID" &
+        "$NANOKVM_UDHCPC" -B -O 121 -i wlan0 -t 10 -T 1 -A 5 -b -p "$WLAN_DHCP_PID" >/dev/null 2>&1 &
     fi
 }
 
 ap_start() {
+    if [ -x /etc/init.d/S29qdisc ]; then
+        /etc/init.d/S29qdisc wlan0 || echo "Could not apply fq_codel to wlan0" >&2
+    fi
     echo "wifi mode: ap"
     prepare_run_dir || return 1
 
@@ -189,7 +253,7 @@ stop() {
         pid=$(cat "$WLAN_DHCP_PID")
         case "$pid" in
             ''|*[!0-9]*) ;;
-            *) kill "$pid" 2>/dev/null || true ;;
+            *) [ "$pid" -le 1 ] || kill "$pid" 2>/dev/null || true ;;
         esac
         rm -f "$WLAN_DHCP_PID"
     fi
@@ -210,6 +274,11 @@ restart() {
 case "${1:-}" in
     start) start ;;
     stop) stop ;;
+    disable)
+        stop
+        "$NANOKVM_IP" addr flush dev wlan0 || exit 1
+        "$NANOKVM_IP" link set dev wlan0 down
+        ;;
     ap)
         stop
         ap_start

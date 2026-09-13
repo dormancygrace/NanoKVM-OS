@@ -235,7 +235,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   const line = (label: string, value: ReactNode) => (
     <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-1">
       <dt className="text-neutral-400">{label}</dt>
-      <dd className="min-w-0 break-words text-right text-neutral-200">{value ?? '—'}</dd>
+      <dd className="min-w-0 wrap-break-word text-right text-neutral-200">{value ?? '—'}</dd>
     </div>
   );
   const section = (title: string, children: ReactNode, tab?: string) => (
@@ -267,7 +267,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
         {icon}
         {title}
       </div>
-      <div className="break-words text-lg font-medium tabular-nums">{value}</div>
+      <div className="wrap-break-word text-lg font-medium tabular-nums">{value}</div>
       {detail && <div className="mt-1 text-xs text-neutral-500">{detail}</div>}
       {fill !== undefined && (
         <Progress
@@ -275,7 +275,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           showInfo={false}
           size="small"
           strokeColor="#38bdf8"
-          trailColor="#404040"
+          railColor="#404040"
         />
       )}
     </div>
@@ -286,7 +286,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
       <div>
         <button
           type="button"
-          className="inline-flex items-center gap-2 !border-0 !bg-transparent !p-0 text-sm font-medium text-neutral-200 hover:text-blue-400"
+          className="inline-flex items-center gap-2 border-0! bg-transparent! !p-0 text-sm font-medium text-neutral-200 hover:text-blue-400"
           onClick={() => navigate(`vpn-${kind}`)}
         >
           {kind === 'openvpn' ? <OpenVPNIcon /> : <WireGuardIcon />}
@@ -396,7 +396,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             {line(t('dashboard.kernel'), sys?.kernel)}
             {line(t('dashboard.load'), sys?.load?.join(' / '))}
           </dl>,
-          admin ? 'device' : undefined
+          admin ? 'device-general' : undefined
         )}
         {section(
           t('videoSettings.title'),
@@ -499,7 +499,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                       percent={percent(item.used, item.total)}
                       showInfo={false}
                       strokeColor="#38bdf8"
-                      trailColor="#404040"
+                      railColor="#404040"
                     />
                     <div className="text-xs text-neutral-400">
                       {t('dashboard.diskSpace', {
@@ -535,7 +535,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                   ) : (
                     <EthernetPortIcon size={16} />
                   )}
-                  <span className="min-w-0 break-words" title={iface.name}>
+                  <span className="min-w-0 wrap-break-word" title={iface.name}>
                     {iface.kind === 'wireguard'
                       ? wireguardNames.get(iface.name) || 'WireGuard'
                       : iface.name}
@@ -584,7 +584,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
               <div>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 !border-0 !bg-transparent !p-0 text-sm font-medium text-neutral-200 hover:text-blue-400"
+                  className="inline-flex items-center gap-2 border-0! bg-transparent! !p-0 text-sm font-medium text-neutral-200 hover:text-blue-400"
                   onClick={() => navigate('vpn-tailscale')}
                 >
                   <TailscaleIcon />

@@ -1,0 +1,92 @@
+--- a/server/router/os_update.go
++++ b/server/router/os_update.go
+@@ -1,12 +1,15 @@
+ package router
+ 
+ import (
++	"bytes"
+ 	"context"
++	"encoding/json"
+ 	"fmt"
+ 	"io"
+ 	"net/http"
+ 	"os"
+ 	"os/exec"
++	"strings"
+ 	"time"
+ 
+ 	"NanoKVM-Server/authn"
+@@ -24,6 +27,35 @@
+ 		rsp.OkRspWithData(c, data)
+ 	}
+ }
++
++type preparedReceipt struct {
++	ID       string `json:"id"`
++	Version  string `json:"version"`
++	Sequence uint64 `json:"sequence"`
++	Reboot   bool   `json:"reboot"`
++}
++
++func prepareWithHelper(lock *os.File, name string) (*preparedReceipt, error) {
++	cmd := exec.Command(osupdate.Helper, "prepare-inherited", name)
++	cmd.ExtraFiles = []*os.File{lock}
++	var stdout, stderr bytes.Buffer
++	cmd.Stdout, cmd.Stderr = &stdout, &stderr
++	if err := cmd.Run(); err != nil {
++		message := strings.TrimSpace(stderr.String())
++		if message == "" {
++			message = err.Error()
++		}
++		return nil, fmt.Errorf("updater prepare failed: %s", message)
++	}
++	var receipt preparedReceipt
++	if err := json.NewDecoder(&stdout).Decode(&receipt); err != nil || receipt.ID == "" || receipt.Version == "" {
++		return nil, fmt.Errorf("invalid updater response")
++	}
++	if _, err := osupdate.PackagePath(receipt.ID); err != nil {
++		return nil, fmt.Errorf("invalid updater response")
++	}
++	return &receipt, nil
++}
+ func osUpdateRouter(r *gin.Engine) {
+ 	r.GET("/api/os/update/health", func(c *gin.Context) { c.Status(http.StatusOK) })
+ 	api := r.Group("/api/os/update").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
+@@ -58,7 +90,7 @@
+ 			updateReply(c, nil, err)
+ 			return
+ 		}
+-		b, err := osupdate.Prepare(name)
++		b, err := prepareWithHelper(lock, name)
+ 		updateReply(c, b, err)
+ 	})
+ 	api.POST("/download", func(c *gin.Context) {
+@@ -93,7 +125,7 @@
+ 				err = ce
+ 			}
+ 			if err == nil {
+-				_, err = osupdate.Prepare(name)
++				_, err = prepareWithHelper(lock, name)
+ 			}
+ 			if err != nil {
+ 				osupdate.SetResult(osupdate.Result{State: "failed", Message: err.Error()})
+@@ -117,9 +149,16 @@
+ 		defer lock.Close()
+ 		name, err := osupdate.PackagePath(req.ID)
+ 		if err == nil {
+-			var b *osupdate.Bundle
+-			b, err = osupdate.ValidateForDevice(name)
+-			if err == nil && b.ID != req.ID {
++			var info os.FileInfo
++			info, err = os.Lstat(name)
++			if err == nil && (!info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0) {
++				err = fmt.Errorf("invalid prepared package")
++			}
++			var got string
++			if err == nil {
++				got, err = osupdate.HashFile(name)
++			}
++			if err == nil && got != req.ID {
+ 				err = fmt.Errorf("package changed")
+ 			}
+ 		}

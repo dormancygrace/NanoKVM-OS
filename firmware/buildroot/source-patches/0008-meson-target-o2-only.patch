@@ -1,0 +1,12 @@
+diff --git a/package/pkg-meson.mk b/package/pkg-meson.mk
+--- a/package/pkg-meson.mk
++++ b/package/pkg-meson.mk
+@@ -161,7 +161,7 @@ define $(2)_CONFIGURE_CMDS
+ 		--prefix=/usr \
+ 		--libdir=lib \
+ 		--default-library=$(PKG_MESON_DEFAULT_LIBRARY) \
+-		--buildtype=$(if $(BR2_ENABLE_RUNTIME_DEBUG),debug,release) \
++		$(if $(BR2_ENABLE_RUNTIME_DEBUG),--buildtype=debug,--buildtype=custom -Ddebug=false -Doptimization=2 -Db_ndebug=false) \
+ 		--cross-file=$$($$(PKG)_SRCDIR)/buildroot-build/cross-compilation.conf \
+ 		-Db_pie=false \
+ 		-Db_staticpic=$(if $(BR2_m68k_cf),false,true) \

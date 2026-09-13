@@ -113,8 +113,8 @@ export const SidebarHistory = ({
                       disabled={isDeleting || isSwitching}
                       icon={<Trash2Icon size={14} />}
                       className={[
-                        '!mt-0.5 !hidden !items-center !justify-center !text-neutral-500 hover:!bg-red-500/10 hover:!text-red-300',
-                        isActive ? '' : 'group-hover:!inline-flex'
+                        '!mt-0.5 hidden! items-center! justify-center! !text-neutral-500 hover:!bg-red-500/10 hover:!text-red-300',
+                        isActive ? '' : 'group-hover:inline-flex!'
                       ].join(' ')}
                       onClick={(event) => {
                         event.preventDefault();

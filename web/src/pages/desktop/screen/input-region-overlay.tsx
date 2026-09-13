@@ -620,7 +620,7 @@ export const InputRegionOverlay = () => {
 
   return (
     <div
-      className="fixed inset-0 z-[1100] touch-none select-none"
+      className="fixed inset-0 z-1100 touch-none select-none"
       style={{ background: token.colorBgMask }}
       onContextMenu={(event) => event.preventDefault()}
       onPointerDown={handlePointerDown}
@@ -678,7 +678,7 @@ export const InputRegionOverlay = () => {
       {cursorPoint && (
         <Card
           size="small"
-          className="pointer-events-none fixed z-[1110]"
+          className="pointer-events-none fixed z-1110"
           style={{
             ...magnifierStyle,
             width: 180,
@@ -717,7 +717,7 @@ export const InputRegionOverlay = () => {
       >
         <div
           ref={promptRef}
-          className="fixed left-1/2 top-5 z-[1120] max-w-[calc(100%-1rem)]"
+          className="fixed left-1/2 top-5 z-1120 max-w-[calc(100%-1rem)]"
           onPointerDown={(event) => event.stopPropagation()}
         >
           <Card

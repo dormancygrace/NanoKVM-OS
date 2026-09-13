@@ -7,6 +7,7 @@ import { getScreen } from '@/api/vm';
 import { getEncoderCodec } from '@/lib/encoder';
 import { isHdmiEnabledAtom, videoModeAtom } from '@/jotai/screen';
 
+import { Hdmi } from '../device/hdmi';
 import { VideoForm } from './form';
 
 type Status = {
@@ -57,6 +58,7 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
         <h2 className="mb-2 text-xl font-medium">{t('videoSettings.title')}</h2>
         <p className="text-sm text-neutral-400">{t('videoSettings.description')}</p>
       </div>
+      <Hdmi />
       {failed && (
         <Alert
           type="warning"

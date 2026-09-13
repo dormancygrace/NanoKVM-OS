@@ -168,7 +168,7 @@ export const Memory = () => {
               percent={Math.round((data.usedBytes / data.totalBytes) * 100)}
               showInfo={false}
               strokeColor="#60a5fa"
-              trailColor="#404040"
+              railColor="#404040"
             />
             <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <span className="text-neutral-400">{t('settings.memory.available')}</span>

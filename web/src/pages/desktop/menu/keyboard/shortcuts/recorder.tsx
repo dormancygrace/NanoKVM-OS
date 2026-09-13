@@ -232,7 +232,7 @@ export const Recorder = ({
           <>
             <Divider />
 
-            <ScrollArea className="[&>[data-radix-scroll-area-viewport]]:max-h-[300px]">
+            <ScrollArea className="*:data-radix-scroll-area-viewport:max-h-[300px]">
               {shortcuts.map((shortcut) => (
                 <div
                   key={shortcut.id}

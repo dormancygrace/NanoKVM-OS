@@ -1,0 +1,6 @@
+{
+  "source": "/home/dgrace/nanokvm-astra/enhanced/sources/osdrv/interdrv/sys/common/sys.c",
+  "function_sha256": "9f127e230788d1dcff04482be061a854dccb89825b299a411f58b57a2b81ce0b",
+  "uapi_struct_sha256": "3d0eb0d94e0657919ffeb76115d23b3fd497f5c177cad17f871cf2318c051226",
+  "scope": "Extracted cache entry points and actual UAPI struct; mocked cache/copy primitives; actual userspace C906 fence. No real DMA/cache qualification."
+}

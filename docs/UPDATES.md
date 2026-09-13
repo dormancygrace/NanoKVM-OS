@@ -1,3 +1,9 @@
+# Beta-8 full-system updates
+
+For beta-8 sequence 21, use the capability-2 full-system `.nkos` package described in [the current installation guide](INSTALL.md). It updates the complete system using a RAM installer, preserves supported settings and migrates APK applications. An older updater may require the full SD image first.
+
+## Earlier updater formats (historical reference)
+
 # NanoKVM OS updates
 
 Beta-4 is distributed as a complete SD image and establishes the kernel-capable

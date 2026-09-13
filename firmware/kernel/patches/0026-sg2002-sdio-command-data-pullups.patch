@@ -1,0 +1,75 @@
+From: NanoKVM OS maintainers
+Subject: [PATCH] riscv: pull up SG2002 SDIO command and data pads
+
+The NanoKVM PCIe AIC8800D80 does not answer CMD5 when CMD/DAT0-DAT3
+retain the reset pull-down configuration.  Keep SD1_CLK unchanged and ask
+the pin controller to select pull-up, while preserving the configured drive
+strength and all other pad bits.
+
+Set the board limit to 50 MHz.  The matching AIC driver policy caps its
+vendor clock request to this host limit, so D80's 150 MHz feature constant
+cannot bypass the board description.
+
+The CV18xx pad has independent pull-up and pull-down bits.  Make the generic
+bias operations mutually exclusive so bias-pull-up produces the observed
+working 0x44 value from the 0x48 reset value instead of enabling both pulls.
+
+---
+ arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts | 11 ++++++++---
+ drivers/pinctrl/sophgo/pinctrl-cv18xx.c                |  8 ++++++++
+ 2 files changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+--- a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
++++ b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+@@ -251,9 +251,14 @@
+ };
+ &pinctrl {
+ 	sdhci1_cfg: sdhci1-cfg {
+-		sdio-pins {
++		sdio-clock-pins {
+ 			power-source = <3300>;
+-			pinmux = <PINMUX(PIN_SD1_CLK, 0)>, <PINMUX(PIN_SD1_CMD, 0)>,
++			pinmux = <PINMUX(PIN_SD1_CLK, 0)>;
++		};
++		sdio-command-data-pins {
++			power-source = <3300>;
++			bias-pull-up;
++			pinmux = <PINMUX(PIN_SD1_CMD, 0)>,
+ 				 <PINMUX(PIN_SD1_D0, 0)>, <PINMUX(PIN_SD1_D1, 0)>,
+ 				 <PINMUX(PIN_SD1_D2, 0)>, <PINMUX(PIN_SD1_D3, 0)>;
+		};
+@@ -270,7 +275,7 @@
+ 	pinctrl-0 = <&sdhci1_cfg>;
+ 	pinctrl-names = "default";
+ 	bus-width = <4>;
+-	max-frequency = <25000000>;
++	max-frequency = <50000000>;
+ 	non-removable;
+ 	no-mmc;
+ 	no-sd;
+diff --git a/drivers/pinctrl/sophgo/pinctrl-cv18xx.c b/drivers/pinctrl/sophgo/pinctrl-cv18xx.c
+--- a/drivers/pinctrl/sophgo/pinctrl-cv18xx.c
++++ b/drivers/pinctrl/sophgo/pinctrl-cv18xx.c
+@@ -344,11 +344,19 @@ static int cv1800_pinconf_compute_config(struct sophgo_pinctrl *pctrl,
+ 		case PIN_CONFIG_BIAS_PULL_DOWN:
+ 			FIELD_MODIFY(PIN_IO_PULLDOWN, &v, arg);
+ 			m |= PIN_IO_PULLDOWN;
++			if (arg) {
++				v &= ~PIN_IO_PULLUP;
++				m |= PIN_IO_PULLUP;
++			}
+ 			break;
+ 		case PIN_CONFIG_BIAS_PULL_UP:
+ 			FIELD_MODIFY(PIN_IO_PULLUP, &v, arg);
+ 			m |= PIN_IO_PULLUP;
++			if (arg) {
++				v &= ~PIN_IO_PULLDOWN;
++				m |= PIN_IO_PULLDOWN;
++			}
+ 			break;
+ 		case PIN_CONFIG_DRIVE_STRENGTH_UA:
+ 			ret = sophgo_pinctrl_oc2reg(pctrl, sp,
+ 						    priv->power_cfg, arg);
+-- 
+2.43.0

@@ -21,7 +21,7 @@ stage = out / 'stage'
 cross = str(Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve() / 'host/bin/riscv64-buildroot-linux-musl-')
 cmake = os.environ.get('NANOKVM_CMAKE', 'cmake')
 jobs = os.environ.get('JOBS', '8')
-flags = '-Os -fPIC -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso -mabi=lp64d'
+flags = '-O2 -fPIC -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso -mabi=lp64d'
 path_flags = ' '.join(f'-ffile-prefix-map={Path(src).resolve()}={name}' for src, name in [
     (mpi, './cvi_mpi'), (out, './build/mpi-bin'), (repo, './nanokvm-os'),
     (os.environ['NANOKVM_OSDRV_SOURCE'], './osdrv'),
@@ -49,7 +49,8 @@ for name, variable, options in sources:
         '-DCMAKE_SYSTEM_NAME=Linux', '-DCMAKE_SYSTEM_PROCESSOR=riscv64',
         '-DCMAKE_C_COMPILER=' + cross + 'gcc', '-DCMAKE_AR=' + cross + 'ar',
         '-DCMAKE_RANLIB=' + cross + 'ranlib', '-DCMAKE_C_FLAGS=' + flags,
-        '-DCMAKE_BUILD_TYPE=MinSizeRel', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
+        '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_C_FLAGS_RELEASE=-O2 -DNDEBUG',
+        '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
         '-DBUILD_SHARED_LIBS=OFF', '-DCMAKE_INSTALL_LIBDIR=lib',
         '-DCMAKE_INSTALL_PREFIX=' + str(stage), *options], check=True)
     subprocess.run([cmake, '--build', str(build), '-j' + jobs], check=True)

@@ -21,7 +21,7 @@ if a.beta and (not a.aes_module or not a.cryptodev_module or not a.wifi_modules 
 kernel=a.kernel_source.resolve() if a.kernel_source else base/'enhanced/sources/linux-7.2.4';ko=a.kernel_output.resolve() if a.kernel_output else base/'enhanced/kernel-board-build'
 aic=base/'enhanced/sources/aic8800-radxa-sdio'
 release=(ko/'include/config/kernel.release').read_text().strip()
-assert release=='7.2.5-nanokvm-os'
+assert release=='7.2.5-nanokvm-os-r2'
 out.mkdir(parents=True)
 env=dict(os.environ,PATH='/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin')
 subprocess.run(['make','-C',str(kernel),'O='+str(ko),'ARCH=riscv',
@@ -48,8 +48,12 @@ if a.beta:
     bsp_aliases = subprocess.check_output(['modinfo','-F','alias',str(extra/'aic8800_bsp.ko')],text=True).splitlines()
     if 'sdio:c07v*d*' in bsp_aliases or 'sdio:c*v*d*' in bsp_aliases:
         raise SystemExit('AIC BSP still claims the whole SDIO Wi-Fi class; apply the ownership patch')
-    if not {'sdio:c07v5449d0145*', 'sdio:c07v544Ad0146*'}.issubset(bsp_aliases):
-        raise SystemExit('AIC BSP lacks a NanoKVM AIC8801 primary/secondary function alias')
+    required_aic_aliases = {
+        'sdio:c07v5449d0145*', 'sdio:c07v544Ad0146*',
+        'sdio:c07vC8A1d0082*', 'sdio:c07vC8A1d0182*',
+    }
+    if not required_aic_aliases.issubset(bsp_aliases):
+        raise SystemExit('AIC BSP lacks a NanoKVM AIC8801/AIC8800D80 function alias')
 if a.rtl8733bs_module:
     shutil.copy2(a.rtl8733bs_module.resolve(),extra/'8733bs.ko')
 if a.aes_module:
@@ -64,11 +68,9 @@ for mod in sorted(modules.rglob('*.ko')):
 result=subprocess.run(['depmod','-b',str(out),'-e','-F',str(ko/'System.map'),release],capture_output=True,text=True,env=env)
 (out/'depmod.log').write_text(result.stdout+result.stderr)
 assert result.returncode==0 and 'unknown symbol' not in result.stderr, result.stderr
-firmware=out/'usr/lib/firmware';firmware.mkdir(parents=True)
-for source in sorted((aic/'src/SDIO/driver_fw/fw/aic8800').iterdir()):
-    if source.is_file():
-        shutil.copy2(source,firmware/source.name)
-        manifest.append({'path':str((firmware/source.name).relative_to(out)),'sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'bytes':source.stat().st_size})
+# The Buildroot aic8800-sdio-firmware package owns the complete, chip-scoped
+# firmware tree. Do not flatten generic vendor basenames into /usr/lib/firmware:
+# several AIC variants reuse those names with different contents.
 # Merge module layout to match Buildroot's merged /usr rootfs.
 shutil.move(str(out/'lib/modules'),str(out/'usr/lib/modules'))
 (out/'lib').rmdir()
@@ -77,4 +79,4 @@ for item in manifest:
 (out/'mnt/system').mkdir(parents=True)
 (out/'kernel.release').write_text(release+'\n')
 (out/'manifest.json').write_text(json.dumps({'kernel':release,'beta_candidate':a.beta,'qualification':'packaging and dependency validation only','files':manifest},indent=2)+'\n')
-print('Staged',len(manifest),'module/firmware files at',out)
+print('Staged',len(manifest),'module files at',out)

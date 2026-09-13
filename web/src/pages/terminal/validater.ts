@@ -119,9 +119,12 @@ export function validatePicocomParameters(params: PicocomParameters) {
   return true;
 }
 
-export function buildPicocomCommand(params: PicocomParameters): string | null {
+export function buildSerialQuery(params: PicocomParameters): string | null {
+  const port = params.port?.trim() ?? '';
+  if (!/^\/dev\/(tty(S|USB|ACM|GS)[0-9]+|serial[0-9]+)$/.test(port)) return null;
+  if (/^\/dev\/ttyGS[0-9]+$/.test(port)) return new URLSearchParams({ port }).toString();
   const normalized = {
-    port: params.port?.trim() ?? '',
+    port,
     baud: params.baud?.trim() || '115200',
     parity: params.parity?.trim().toLowerCase() || 'none',
     flowControl: params.flowControl?.trim().toLowerCase() || 'none',
@@ -129,6 +132,5 @@ export function buildPicocomCommand(params: PicocomParameters): string | null {
     stopBits: params.stopBits?.trim() || '1'
   };
   if (!validatePicocomParameters(normalized)) return null;
-  const { port, baud, parity, flowControl, dataBits, stopBits } = normalized;
-  return `p=/kvmapp/system/bin/picocom; [ -x "$p" ] || p=picocom; "$p" ${port} --baud ${baud} --parity ${parity} --flow ${flowControl} --databits ${dataBits} --stopbits ${stopBits} --imap lfcrlf --noreset\r`;
+  return new URLSearchParams(normalized).toString();
 }

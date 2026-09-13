@@ -13,6 +13,23 @@ define NANOKVM_BOARD_TOOLS_BUILD_CMDS
 		--input $(@D)/E21_NanoKVM.bin --output $(@D)/NanoKVM-QHD30.bin
 	$(HOST_DIR)/bin/python3 $(BR2_EXTERNAL_NANOKVM_PATH)/../../scripts/build-monitor-edids.py \
 		--input $(@D)/E21_NanoKVM.bin --output $(@D)/monitor-profiles
+	$(HOST_DIR)/bin/python3 \
+		$(BR2_EXTERNAL_NANOKVM_PATH)/../../firmware/probes/edid120/build_experimental_edid.py \
+		--input $(@D)/NanoKVM-QHD30.bin --output $(@D)/NanoKVM-720p120.bin --force
+	$(HOST_DIR)/bin/python3 \
+		$(BR2_EXTERNAL_NANOKVM_PATH)/../../firmware/probes/edid120/build_experimental_qhd40.py \
+		--input $(@D)/NanoKVM-720p120.bin --output $(@D)/NanoKVM-QHD40.bin --force
+	$(HOST_DIR)/bin/python3 \
+		$(BR2_EXTERNAL_NANOKVM_PATH)/../../firmware/probes/edid120/build_experimental_fhd_high.py \
+		--rate 75 --input $(@D)/NanoKVM-QHD40.bin \
+		--output $(@D)/NanoKVM-final-video-profiles.bin --force
+	$(HOST_DIR)/bin/python3 \
+		$(BR2_EXTERNAL_NANOKVM_PATH)/../../firmware/probes/edid120/build_final_monitor_profiles.py \
+		--input $(@D)/NanoKVM-final-video-profiles.bin \
+		--output $(@D)/monitor-profiles
+	# Never reuse the historical checked-in executable: its malformed ELF
+	# program headers cannot be repaired by target stripping.
+	rm -f $(@D)/nanokvm_update_edid
 	$(TARGET_MAKE_ENV) $(MAKE) -C $(@D) CC="$(TARGET_CC)" \
 		CFLAGS="$(TARGET_CFLAGS) -Wall -Wextra -Werror" RISCV_FLAGS= \
 		LDFLAGS="$(TARGET_LDFLAGS)"
@@ -24,6 +41,9 @@ define NANOKVM_BOARD_TOOLS_INSTALL_TARGET_CMDS
 		$(TARGET_DIR)/usr/sbin/nanokvm_update_edid
 	$(INSTALL) -D -m 0644 $(@D)/NanoKVM-QHD30.bin \
 		$(TARGET_DIR)/usr/share/nanokvm/edid/NanoKVM-QHD30.bin
+	$(INSTALL) -D -m 0644 \
+		$(@D)/monitor-profiles/NanoKVM-monitor-auto.bin \
+		$(TARGET_DIR)/usr/share/nanokvm/edid/NanoKVM-final-video-profiles.bin
 	$(INSTALL) -m 0644 $(@D)/monitor-profiles/NanoKVM-monitor-*.bin $(TARGET_DIR)/usr/share/nanokvm/edid/
 	$(INSTALL) -D -m 0644 $(@D)/E21_NanoKVM.bin \
 		$(TARGET_DIR)/usr/share/nanokvm/edid/NanoKVM-stock.bin

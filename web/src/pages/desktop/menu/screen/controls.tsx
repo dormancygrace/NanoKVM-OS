@@ -44,7 +44,7 @@ export const StreamControls = ({ advanced = false }: { advanced?: boolean }) => 
   ) : (
     <>
       <Resolution />
-      <Fps fps={fps} setFps={setFps} maxFps={60} />
+      <Fps fps={fps} setFps={setFps} maxFps={120} />
       <Quality quality={quality} setQuality={setQuality} />
     </>
   );

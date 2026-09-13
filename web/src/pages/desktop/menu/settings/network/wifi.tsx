@@ -1,209 +1,369 @@
-import { useEffect, useState } from 'react';
-import { LockOutlined, WifiOutlined } from '@ant-design/icons';
-import { Button, Input, Modal, Switch } from 'antd';
-import { WifiIcon, WifiPenIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Button, Checkbox, Divider, Input, Modal, Segmented, Select, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
 
+type Pending = { until: number; enabled?: boolean; ssid?: string; band?: api.WifiBand };
+
 export const Wifi = () => {
   const { t } = useTranslation();
-
-  const [isSupported, setIsSupported] = useState(false);
-  const [isAPMode, setIsAPMode] = useState(false);
-  const [connectedWiFi, setConnectedWifi] = useState('');
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [ssid, setSsid] = useState('');
-  const [password, setPassword] = useState('');
-  const [status, setStatus] = useState<'' | 'connecting' | 'disconnecting'>('');
+  const tr = (key: string) => t(`settings.network.wifi.${key}`);
+  function securityLabel(security: api.WifiNetwork['security']) {
+    const labels = {
+      wpa: 'WPA',
+      'wpa-wpa2': 'WPA/WPA2',
+      wpa2: 'WPA2',
+      wpa3: 'WPA3',
+      'wpa2-wpa3': 'WPA2/WPA3'
+    };
+    return security === 'open' || security === 'unsupported' ? tr(security) : labels[security];
+  }
+  const [state, setState] = useState<api.WifiStatus>();
+  const [band, setBand] = useState<api.WifiBand>('2.4');
+  const selectedBand = useRef<api.WifiBand | null>(null);
+  const [networks, setNetworks] = useState<api.WifiNetwork[]>([]);
+  const [scanned, setScanned] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<Pending>();
+  const pendingRef = useRef<Pending | undefined>(undefined);
   const [message, setMessage] = useState('');
+  const [modal, setModal] = useState(false);
+  const [profile, setProfile] = useState<api.WifiProfile>({
+    ssid: '',
+    password: '',
+    band: '2.4',
+    hidden: false,
+    security: 'wpa2-wpa3'
+  });
 
   useEffect(() => {
-    getWiFi();
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    async function refresh() {
+      try {
+        const rsp = await api.getWiFi();
+        if (rsp.code !== 0) throw new Error();
+        if (!alive) return;
+        const next = rsp.data as api.WifiStatus;
+        setState(next);
+        setMessage((old) => (old === 'statusFailed' ? '' : old));
+        if (!selectedBand.current || !next.bands?.includes(selectedBand.current)) {
+          const initial = next.band || next.bands?.[0] || '2.4';
+          selectedBand.current = initial;
+          setBand(initial);
+        }
+        const operation = pendingRef.current;
+        if (operation && !next.busy) {
+          const done =
+            operation.ssid !== undefined
+              ? next.connected && next.ssid === operation.ssid && next.band === operation.band
+              : next.enabled === operation.enabled;
+          if (next.error || done) {
+            pendingRef.current = undefined;
+            setPending(undefined);
+            setMessage(next.error ? 'operationFailed' : '');
+          }
+        }
+      } catch {
+        if (alive && !pendingRef.current) setMessage('statusFailed');
+      } finally {
+        if (alive) {
+          if (pendingRef.current && Date.now() > pendingRef.current.until) {
+            pendingRef.current = undefined;
+            setPending(undefined);
+            setMessage('connectionTimeout');
+          }
+          timer = setTimeout(refresh, 3000);
+        }
+      }
+    }
+    void refresh();
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
   }, []);
 
-  async function getWiFi() {
+  const locked = busy || !!pending || !!state?.busy;
+  const enabled = pending?.enabled ?? state?.enabled ?? true;
+  const canConfigure = !!state?.supported && !state.apMode && enabled;
+
+  function track(operation: Omit<Pending, 'until'>) {
+    const next = { ...operation, until: Date.now() + 60000 };
+    pendingRef.current = next;
+    setPending(next);
+  }
+
+  async function toggle(value: boolean) {
+    if (locked) return;
+    setBusy(true);
+    setMessage('');
     try {
-      const rsp = await api.getWiFi();
-      if (rsp.code !== 0) {
-        console.log(rsp.msg);
-        return;
-      }
-
-      setIsSupported(!!rsp.data?.supported);
-      setIsAPMode(!!rsp.data?.apMode);
-
-      if (rsp.data?.connected && rsp.data?.ssid) {
-        setConnectedWifi(rsp.data.ssid);
-      } else {
-        setConnectedWifi('');
-      }
+      const rsp = await api.setWifiEnabled(value);
+      if (rsp.code !== 0) throw new Error();
+      track({ enabled: value });
+      setNetworks([]);
+      setScanned(false);
     } catch {
-      /* empty */
+      setMessage('operationFailed');
+    } finally {
+      setBusy(false);
     }
   }
+
+  async function scan() {
+    if (locked) return;
+    setBusy(true);
+    setScanning(true);
+    setMessage('');
+    setScanned(false);
+    setNetworks([]);
+    try {
+      const rsp = await api.scanWifi(band);
+      if (rsp.code !== 0) throw new Error();
+      setNetworks(rsp.data);
+      setScanned(true);
+    } catch {
+      setMessage('scanFailed');
+    } finally {
+      setBusy(false);
+      setScanning(false);
+    }
+  }
+
+  function open(network?: api.WifiNetwork) {
+    setProfile({
+      ssid: network?.ssid || '',
+      password: '',
+      band,
+      hidden: false,
+      security: network && network.security !== 'unsupported' ? network.security : 'wpa2-wpa3'
+    });
+    setMessage('');
+    setModal(true);
+  }
+
+  const valid =
+    new TextEncoder().encode(profile.ssid).length > 0 &&
+    new TextEncoder().encode(profile.ssid).length <= 32 &&
+    !/[\r\n\0]/.test(profile.ssid) &&
+    (profile.security === 'open' ||
+      (new TextEncoder().encode(profile.password).length >= 8 &&
+        new TextEncoder().encode(profile.password).length <= 63 &&
+        !/[\r\n\0]/.test(profile.password)));
 
   async function connect() {
+    if (locked || !valid) return;
+    setBusy(true);
     setMessage('');
-
-    if (!ssid || !password) return;
-
-    if (status !== '') return;
-    setStatus('connecting');
-
     try {
-      const rsp = await api.connectWifi(ssid, password);
-      if (rsp.code !== 0) {
-        console.log(rsp.msg);
-        setMessage(t('settings.network.wifi.failed'));
-        getWiFi();
-        return;
-      }
-
-      setConnectedWifi(ssid);
-      setIsModalOpen(false);
-    } catch (err) {
-      console.log(err);
+      const rsp = await api.configureWifi(profile);
+      if (rsp.code !== 0) throw new Error();
+      track({ ssid: profile.ssid, band: profile.band });
+      setProfile((old) => ({ ...old, password: '' }));
+      setModal(false);
+    } catch {
+      setMessage('operationFailed');
     } finally {
-      setStatus('');
+      setBusy(false);
     }
-  }
-
-  async function disconnect(enable: boolean) {
-    if (enable || status !== '') return;
-
-    setStatus('disconnecting');
-
-    try {
-      const rsp = await api.disconnectWifi();
-      if (rsp.code !== 0) {
-        console.log(rsp.msg);
-        return;
-      }
-
-      setConnectedWifi('');
-    } catch (err) {
-      console.log(err);
-    } finally {
-      setStatus('');
-    }
-  }
-
-  function openModal() {
-    setSsid('');
-    setPassword('');
-    setMessage('');
-    setIsModalOpen(true);
-  }
-
-  function closeModal() {
-    if (status !== '') return;
-    setIsModalOpen(false);
-  }
-
-  if (!isSupported) {
-    return <></>;
-  }
-
-  if (isAPMode) {
-    return (
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col space-y-1">
-          <span>{t('settings.network.wifi.title')}</span>
-          <span className="text-xs text-neutral-500">{t('settings.network.wifi.apMode')}</span>
-        </div>
-
-        <Button shape="round" size="small" disabled>
-          <div className="flex items-center justify-center px-1.5">
-            <WifiIcon size={16} />
-          </div>
-        </Button>
-      </div>
-    );
   }
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col space-y-1">
-          <span>{t('settings.network.wifi.title')}</span>
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-base">
+        <span>{tr('title')}</span>
+        {state && (!state.supported || state.model) && (
           <span className="text-xs text-neutral-500">
-            {connectedWiFi ? connectedWiFi : t('settings.network.wifi.description')}
+            · {state.supported ? state.model : 'not detected'}
           </span>
-        </div>
-
-        <Button
-          type={connectedWiFi ? 'primary' : 'default'}
-          shape="round"
-          size="small"
-          onClick={openModal}
-        >
-          <div className="flex items-center justify-center px-1.5">
-            <WifiIcon size={16} />
-          </div>
-        </Button>
+        )}
       </div>
-
-      <Modal
-        closable={false}
-        open={isModalOpen}
-        centered={true}
-        onOk={connect}
-        onCancel={closeModal}
-        okText={t('settings.network.wifi.joinBtn')}
-        cancelText={t('settings.network.wifi.cancelBtn')}
-        confirmLoading={status === 'connecting'}
-      >
-        {/* title */}
-        <div className="flex items-center space-x-5">
-          <div className="h-[64px] w-[64px]">
-            <WifiPenIcon size={64} className="text-blue-400" />
+      <Divider className="opacity-50" />
+      <div className="flex flex-col space-y-5">
+        <div className="flex items-center justify-between space-x-3">
+          <div className="flex min-w-0 flex-col space-y-1">
+            <span>{tr('title')}</span>
+            <span className="text-xs break-words text-neutral-500">
+              {!state
+                ? tr('loading')
+                : !state.supported
+                  ? ''
+                  : state.apMode
+                    ? tr('apMode')
+                    : state.connected && enabled
+                      ? state.ssid
+                      : enabled
+                        ? tr('description')
+                        : tr('disabled')}
+            </span>
           </div>
+          <Switch
+            aria-label={tr('title')}
+            checked={enabled}
+            loading={(busy && !scanning && !modal) || !!pending}
+            disabled={!state?.supported || state.apMode || locked}
+            onChange={toggle}
+          />
+        </div>
 
-          {!connectedWiFi ? (
-            <div className="flex flex-col">
-              <span className="text-lg font-bold">{t('settings.network.wifi.connect')}</span>
-              <span className="text-xs text-neutral-400">
-                {t('settings.network.wifi.connectDesc1')}
-              </span>
+        {canConfigure && (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Segmented
+                value={band}
+                disabled={locked}
+                aria-label={tr('band')}
+                options={(['2.4', '5'] as const).map((value) => ({
+                  value,
+                  label: value === '2.4' ? tr('band24') : tr('band5'),
+                  disabled: !state.bands?.includes(value)
+                }))}
+                onChange={(value) => {
+                  setBand(value as api.WifiBand);
+                  selectedBand.current = value as api.WifiBand;
+                  setNetworks([]);
+                  setScanned(false);
+                  setMessage('');
+                }}
+              />
+              <Button
+                size="small"
+                onClick={scan}
+                loading={scanning}
+                disabled={locked || !state.bands?.includes(band)}
+              >
+                {tr('scan')}
+              </Button>
             </div>
-          ) : (
-            <div className="flex justify-center">
-              <div className="flex w-[300px] justify-between rounded-lg bg-neutral-800">
-                <div className="flex w-full justify-between p-3">
-                  <span>{connectedWiFi}</span>
-                  <Switch
-                    value={!!connectedWiFi}
-                    loading={status === 'disconnecting'}
-                    onChange={disconnect}
-                  />
+            {!state.bands?.length && (
+              <span className="text-xs text-neutral-500">{tr('bandsUnavailable')}</span>
+            )}
+            <div className="flex flex-col space-y-3">
+              {networks.map((network) => (
+                <div
+                  key={`${network.ssid}-${network.security}`}
+                  className="flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm break-words">{network.ssid}</div>
+                    <div className="text-xs text-neutral-500">
+                      {securityLabel(network.security)}
+                      {' · '}
+                      {Math.round(network.signal)} dBm
+                    </div>
+                  </div>
+                  <Button
+                    size="small"
+                    disabled={locked || network.security === 'unsupported'}
+                    onClick={() => open(network)}
+                  >
+                    {state.connected && state.ssid === network.ssid && state.band === band
+                      ? tr('reconnect')
+                      : tr('joinBtn')}
+                  </Button>
                 </div>
-              </div>
+              ))}
+              {scanned && networks.length === 0 && (
+                <span className="text-xs text-neutral-500">{tr('noNetworks')}</span>
+              )}
             </div>
-          )}
-        </div>
+            <Button
+              size="small"
+              className="self-start"
+              disabled={locked || !state.bands?.includes(band)}
+              onClick={() => open()}
+            >
+              {tr('manual')}
+            </Button>
+          </>
+        )}
+        {!!pending && (
+          <span role="status" className="text-xs text-neutral-500">
+            {tr('applying')}
+          </span>
+        )}
+        {message && (
+          <span role="alert" className="text-xs text-red-500">
+            {tr(message)}
+          </span>
+        )}
 
-        {/* form */}
-        <div className="flex flex-col items-center space-y-3 py-6">
-          <Input
-            value={ssid}
-            style={{ width: '300px' }}
-            prefix={<WifiOutlined />}
-            placeholder={t('settings.network.wifi.ssid')}
-            onChange={(e) => setSsid(e.target.value)}
-          />
-          <Input.Password
-            value={password}
-            style={{ width: '300px' }}
-            prefix={<LockOutlined />}
-            placeholder={t('settings.network.wifi.password')}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-
-          {!!message && <span className="text-sm text-red-500">{message}</span>}
-        </div>
-      </Modal>
+        <Modal
+          title={tr('connect')}
+          open={modal}
+          centered
+          onOk={connect}
+          onCancel={() => {
+            if (!busy) {
+              setModal(false);
+              setProfile((old) => ({ ...old, password: '' }));
+            }
+          }}
+          okText={tr('joinBtn')}
+          cancelText={tr('cancelBtn')}
+          confirmLoading={busy}
+          okButtonProps={{ disabled: locked || !valid }}
+          cancelButtonProps={{ disabled: busy }}
+          closable={!busy}
+        >
+          <div className="flex flex-col space-y-3 py-4">
+            <label className="flex flex-col gap-1 text-sm">
+              {tr('ssid')}
+              <Input
+                value={profile.ssid}
+                disabled={busy}
+                autoComplete="off"
+                onChange={(e) => setProfile({ ...profile, ssid: e.target.value })}
+              />
+            </label>
+            <Checkbox
+              checked={profile.hidden}
+              disabled={busy}
+              onChange={(e) => setProfile({ ...profile, hidden: e.target.checked })}
+            >
+              {tr('hidden')}
+            </Checkbox>
+            <label className="flex flex-col gap-1 text-sm">
+              {tr('security')}
+              <Select
+                value={profile.security}
+                disabled={busy}
+                options={[
+                  ...(['wpa2-wpa3', 'wpa3', 'wpa2', 'wpa-wpa2', 'wpa'] as const).map((value) => ({
+                    value,
+                    label: `${securityLabel(value)} Personal`
+                  })),
+                  { value: 'open', label: tr('open') }
+                ]}
+                onChange={(security) => setProfile({ ...profile, security, password: '' })}
+              />
+            </label>
+            {profile.security !== 'open' && (
+              <label className="flex flex-col gap-1 text-sm">
+                {tr('password')}
+                <Input.Password
+                  value={profile.password}
+                  disabled={busy}
+                  autoComplete="new-password"
+                  onChange={(e) => setProfile({ ...profile, password: e.target.value })}
+                />
+                <span className="text-xs text-neutral-500">{tr('passwordHint')}</span>
+              </label>
+            )}
+            <span className="text-xs text-neutral-500">
+              {profile.band === '2.4' ? tr('band24') : tr('band5')}
+            </span>
+            {message && (
+              <span role="alert" className="text-xs text-red-500">
+                {tr(message)}
+              </span>
+            )}
+          </div>
+        </Modal>
+      </div>
     </>
   );
 };

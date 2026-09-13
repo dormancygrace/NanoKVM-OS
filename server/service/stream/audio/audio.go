@@ -74,25 +74,9 @@ func (h *hub) add() (*listener, error) {
 		if h.run != nil {
 			return nil, errors.New("USB audio is restarting")
 		}
-		card, err := captureCard("/sys/class/sound")
-		if err != nil {
-			return nil, err
-		}
 		ctx, cancel := context.WithCancel(context.Background())
-		cmd := exec.CommandContext(ctx, "/kvmapp/system/bin/usb-audio-capture", card)
-		cmd.Stderr = os.Stderr
-		pipe, err := cmd.StdoutPipe()
-		if err != nil {
-			cancel()
-			return nil, err
-		}
-		if err := cmd.Start(); err != nil {
-			cancel()
-			_ = pipe.Close()
-			return nil, err
-		}
 		h.run = &captureRun{cancel: cancel, done: make(chan struct{})}
-		go h.capture(ctx, h.run, cmd, pipe)
+		go h.capture(ctx, h.run)
 	} else if h.run == nil {
 		return nil, errors.New("USB audio capture stopped")
 	}
@@ -125,38 +109,75 @@ func (h *hub) publish(frame packet) {
 		}
 	}
 }
-func (h *hub) capture(ctx context.Context, run *captureRun, cmd *exec.Cmd, pipe io.ReadCloser) {
-	defer pipe.Close()
-	var index uint64
-	for {
-		frame, err := readPacket(pipe)
-		if err != nil {
-			break
-		}
+
+// Keep listeners attached across capture failures. Resolve the card again on
+// each attempt because USB re-enumeration may change its ALSA card number.
+func (h *hub) capture(ctx context.Context, run *captureRun) {
+	defer func() {
 		h.mu.Lock()
-		if ctx.Err() != nil {
-			h.mu.Unlock()
-			break
+		defer h.mu.Unlock()
+		for client := range h.clients {
+			client.close()
 		}
-		h.publish(packet{data: frame, index: index})
-		index++
-		h.mu.Unlock()
+		run.cancel()
+		h.run = nil
+		close(run.done)
+	}()
+	var index uint64
+	backoff := 100 * time.Millisecond
+	for ctx.Err() == nil && enabled() {
+		card, err := captureCard("/sys/class/sound")
+		if err == nil {
+			cmd := exec.CommandContext(ctx, "/kvmapp/system/bin/usb-audio-capture", card)
+			cmd.Stderr = os.Stderr
+			var pipe io.ReadCloser
+			pipe, err = cmd.StdoutPipe()
+			if err == nil {
+				err = cmd.Start()
+				if err == nil {
+					for ctx.Err() == nil {
+						var frame []byte
+						frame, err = readPacket(pipe)
+						if err != nil {
+							break
+						}
+						h.mu.Lock()
+						if ctx.Err() == nil {
+							h.publish(packet{data: frame, index: index})
+							index++
+						}
+						h.mu.Unlock()
+						backoff = 100 * time.Millisecond
+					}
+					_ = cmd.Process.Kill()
+					_ = cmd.Wait()
+				}
+				_ = pipe.Close()
+			}
+		}
+		if ctx.Err() != nil || !enabled() {
+			return
+		}
+		log.Warnf("USB audio capture interrupted, retrying in %s: %v", backoff, err)
+		if !waitRetry(ctx, backoff) {
+			return
+		}
+		backoff *= 2
+		if backoff > 2*time.Second {
+			backoff = 2 * time.Second
+		}
 	}
-	if cmd.Process != nil {
-		_ = cmd.Process.Kill()
+}
+
+func waitRetry(ctx context.Context, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
 	}
-	err := cmd.Wait()
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if ctx.Err() == nil && err != nil {
-		log.Warnf("USB audio capture stopped: %v", err)
-	}
-	for client := range h.clients {
-		client.close()
-	}
-	run.cancel()
-	h.run = nil
-	close(run.done)
 }
 
 // Stop releases ALSA before a USB rebind, including changes to other functions.

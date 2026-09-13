@@ -1,0 +1,32 @@
+diff --git a/package/libopenssl/libopenssl.mk b/package/libopenssl/libopenssl.mk
+--- a/package/libopenssl/libopenssl.mk
++++ b/package/libopenssl/libopenssl.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-LIBOPENSSL_VERSION = 3.6.4
++LIBOPENSSL_VERSION = 4.0.2
+ LIBOPENSSL_SITE = https://github.com/openssl/openssl/releases/download/openssl-$(LIBOPENSSL_VERSION)
+ LIBOPENSSL_SOURCE = openssl-$(LIBOPENSSL_VERSION).tar.gz
+ LIBOPENSSL_LICENSE = Apache-2.0
+@@ -150,6 +150,8 @@
+ 
+ define HOST_LIBOPENSSL_INSTALL_CMDS
+ 	$(HOST_MAKE_ENV) $(MAKE) -C $(@D) install
++	# OpenSSL 4 removed c_rehash; Buildroot CA finalization still invokes it.
++	if [ ! -e $(HOST_DIR)/bin/c_rehash ]; then printf '%s\n' '#!/bin/sh' 'exec "$(HOST_DIR)/bin/openssl" rehash "$$@"' >$(HOST_DIR)/bin/c_rehash; chmod 0755 $(HOST_DIR)/bin/c_rehash; fi
+ endef
+ 
+ define LIBOPENSSL_INSTALL_TARGET_CMDS
+diff --git a/package/libopenssl/libopenssl.hash b/package/libopenssl/libopenssl.hash
+--- a/package/libopenssl/libopenssl.hash
++++ b/package/libopenssl/libopenssl.hash
+@@ -1,5 +1,5 @@
+-# From https://github.com/openssl/openssl/releases/download/openssl-3.6.4/openssl-3.6.4.tar.gz.sha256
+-sha256  9bffaa1ad1e07b354c21bd3324ec02fa15579f45a7d0494b3e74bc449b7333ef  openssl-3.6.4.tar.gz
++# From https://github.com/openssl/openssl/releases/download/openssl-4.0.2/openssl-4.0.2.tar.gz.sha256
++sha256  736b467530f916737b7031310ccb21d8218c6229e61e8e160cd1d3458cd543a8  openssl-4.0.2.tar.gz
+ 
+ # License files
+ sha256  7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a  LICENSE.txt

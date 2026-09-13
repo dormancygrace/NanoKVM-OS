@@ -17,7 +17,7 @@ export const MarkdownContent = ({ content, className }: MarkdownContentProps) =>
         remarkPlugins={[remarkGfm]}
         components={{
           p: ({ children }) => (
-            <p className="my-2 whitespace-pre-wrap break-words leading-6 first:mt-0 last:mb-0">
+            <p className="my-2 whitespace-pre-wrap wrap-break-word leading-6 first:mt-0 last:mb-0">
               {children}
             </p>
           ),
@@ -33,7 +33,7 @@ export const MarkdownContent = ({ content, className }: MarkdownContentProps) =>
           ),
           ul: ({ children }) => <ul className="my-2 list-disc pl-5">{children}</ul>,
           ol: ({ children }) => <ol className="my-2 list-decimal pl-5">{children}</ol>,
-          li: ({ children }) => <li className="my-1 break-words leading-6">{children}</li>,
+          li: ({ children }) => <li className="my-1 wrap-break-word leading-6">{children}</li>,
           h1: ({ children }) => (
             <h1 className="mt-3 text-base font-semibold first:mt-0">{children}</h1>
           ),

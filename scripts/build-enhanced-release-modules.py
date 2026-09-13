@@ -11,7 +11,9 @@ import subprocess
 p = argparse.ArgumentParser(description=__doc__)
 for name in ('kernel-source', 'kernel-output', 'osdrv-source', 'wifi-source', 'rtl8733bs-sdk', 'buildroot-output', 'output'):
     p.add_argument('--'+name, type=Path, required=True)
-p.add_argument('--kernel-release', default='7.2.5-nanokvm-os')
+p.add_argument('--kernel-release', default='7.2.5-nanokvm-os-r2')
+p.add_argument('--include-sg2002-aes-probe', action='store_true',
+               help='Include the experimental SG2002 CryptoDMA probe (excluded from production by default)')
 p.add_argument('--jobs', type=int, default=8)
 a = p.parse_args()
 repo = Path(__file__).resolve().parents[1]
@@ -20,7 +22,7 @@ if out.exists() or not 1 <= a.jobs <= 32:
     p.error('Use a fresh output directory and 1..32 jobs')
 kernel, ko = a.kernel_source.resolve(), a.kernel_output.resolve()
 release = (ko/'include/config/kernel.release').read_text().strip()
-if release != a.kernel_release or not release.startswith('7.2.5-nanokvm-os'):
+if release != a.kernel_release or not release.startswith('7.2.5-nanokvm-os-r'):
     p.error('Expected the ordinary Enhanced kernel')
 cross = str(a.buildroot_output.resolve()/'host/bin/riscv64-buildroot-linux-musl-')
 env = dict(os.environ, PATH='/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin')
@@ -34,7 +36,7 @@ for name, source in [('osdrv', a.osdrv_source), ('wifi', a.wifi_source)]:
 subprocess.run(['python3', str(repo/'scripts/apply-aic-sdio-ownership.py'), '--source', str(sources/'wifi')], check=True)
 shutil.copytree(repo/'firmware/crypto/cryptodev-linux', sources/'cryptodev', ignore=ignore)
 subprocess.run(['make', '-C', str(sources/'cryptodev'), 'version.h'], check=True)
-for patch_name in ('0021-vpss-backpressure-log-ratelimit.patch', '0022-vi-monotonic-sleeping-fps.patch'):
+for patch_name in ('0021-vpss-backpressure-log-ratelimit.patch', '0022-vi-monotonic-sleeping-fps.patch', '0023-vi-idle-wait-accounting.patch'):
     patch = repo/'firmware/osdrv/patches'/patch_name
     patch_args = ['patch', '-d', str(sources/'osdrv'), '-p1']
     with patch.open('rb') as f:
@@ -42,9 +44,10 @@ for patch_name in ('0021-vpss-backpressure-log-ratelimit.patch', '0022-vi-monoto
     if not applied:
         with patch.open('rb') as f:
             subprocess.run(patch_args+['--forward'], stdin=f, check=True)
-# Pin the same cached-descriptor implementation used in the current experiment.
-# Its presence in a candidate bundle is not a stability qualification.
-subprocess.run(['python3', str(repo/'firmware/crypto/experimental/sg2002-crypto-all/prepare.py'), '--repo', str(repo), '--output', str(sources/'aes')], check=True)
+if a.include_sg2002_aes_probe:
+    # Experimental only: production images omit this unless explicitly requested.
+    subprocess.run(['python3', str(repo/'firmware/crypto/experimental/sg2002-crypto-all/prepare.py'),
+                    '--repo', str(repo), '--output', str(sources/'aes')], check=True)
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 source_hashes = {str(x.relative_to(sources)): sha(x) for x in sorted(sources.rglob('*'))
                  if x.is_file() and (x.suffix in ('.c', '.h', '.S', '.inc') or x.name in ('Makefile', 'Kbuild', 'Kconfig'))}
@@ -69,14 +72,25 @@ for name in ['sys', 'base', 'cif', 'vi', 'vpss', 'vcodec', 'jpeg', 'cvi_vc_drv',
     extra.extend(module.rglob('*.ko'))
 run(['M='+str(sources/'wifi'), 'CONFIG_PLATFORM_UBUNTU=n', 'CONFIG_SDIO_BT=y', 'CONFIG_AIC8800_BTLPM_SUPPORT=n', 'CONFIG_USE_FW_REQUEST=y', '-j'+str(a.jobs), 'modules'])
 extra.extend((sources/'wifi').rglob('*.ko'))
+bsp_module = sources/'wifi/aic8800_bsp/aic8800_bsp.ko'
+bsp_aliases = set(subprocess.check_output(['modinfo', '-F', 'alias', str(bsp_module)], text=True).splitlines())
+if {'sdio:c07v*d*', 'sdio:c*v*d*'} & bsp_aliases:
+    raise RuntimeError('AIC BSP still claims the whole SDIO Wi-Fi class')
+required_aic_aliases = {
+    'sdio:c07v5449d0145*', 'sdio:c07v544Ad0146*',
+    'sdio:c07vC8A1d0082*', 'sdio:c07vC8A1d0182*',
+}
+if not required_aic_aliases.issubset(bsp_aliases):
+    raise RuntimeError('AIC BSP lacks a NanoKVM AIC8801/AIC8800D80 function alias')
 rtl_out = out/'rtl8733bs'
 subprocess.run(['python3', str(repo/'scripts/build-rtl8733bs.py'),
                 '--sdk', str(a.rtl8733bs_sdk), '--kernel-source', str(kernel),
                 '--kernel-output', str(ko), '--buildroot-output', str(a.buildroot_output),
                 '--output', str(rtl_out), '--kernel-release', release, '--jobs', str(a.jobs)], check=True)
 extra.append(rtl_out/'osdrv/extdrv/wireless/rtl8733bs/8733bs.ko')
-run(['M='+str(sources/'aes'), '-j'+str(a.jobs), 'modules'])
-extra.extend((sources/'aes').glob('*.ko'))
+if a.include_sg2002_aes_probe:
+    run(['M='+str(sources/'aes'), '-j'+str(a.jobs), 'modules'])
+    extra.extend((sources/'aes').glob('*.ko'))
 run(['M='+str(sources/'cryptodev'), '-j'+str(a.jobs), 'modules'])
 extra.extend((sources/'cryptodev').glob('*.ko'))
 stage = out/'stage'
@@ -105,15 +119,21 @@ for path in sorted(modules.rglob('*.ko')):
     if magic.split()[0] != release:
         raise RuntimeError('Wrong kernel for '+str(path))
     manifest[str(path.relative_to(stage))] = dict(sha256=sha(path), bytes=path.stat().st_size, vermagic=magic)
-for name in ('ovpn', 'sg2002_aes_probe', 'cryptodev', 'aic8800_fdrv', '8733bs', 'cvi_vc_driver', 'cv181x_vpss'):
+required_modules = ['ovpn', 'cryptodev', 'aic8800_fdrv', '8733bs', 'cvi_vc_driver', 'cv181x_vpss']
+if a.include_sg2002_aes_probe:
+    required_modules.append('sg2002_aes_probe')
+for name in required_modules:
     deps = subprocess.check_output(['modprobe', '--show-depends', '-d', str(stage), '-S', release, name], text=True)
     if '.ko' not in deps:
         raise RuntimeError('Missing '+name)
     (out/(name+'-dependencies.txt')).write_text(deps)
 report = dict(status='built-not-installed', kcflags=isa_flags+' '+path_flags, kernel=release, kernel_config_sha256=sha(ko/'.config'),
               kernel_image_sha256=sha(ko/'arch/riscv/boot/Image'), source_hashes=source_hashes, modules=manifest,
-              aes_candidate=json.loads((sources/'aes/prepare-manifest.json').read_text()),
-              crypto_extension=json.loads((sources/'aes/crypto-prepare.json').read_text()),
+              aes_candidate=(json.loads((sources/'aes/prepare-manifest.json').read_text())
+                             if a.include_sg2002_aes_probe else None),
+              crypto_extension=(json.loads((sources/'aes/crypto-prepare.json').read_text())
+                                if a.include_sg2002_aes_probe else None),
+              sg2002_aes_probe_included=a.include_sg2002_aes_probe,
               rtl8733bs=json.loads((rtl_out/'manifest.json').read_text()),
               small_core_module_included=False, hardware_qualification=False)
 (out/'manifest.json').write_text(json.dumps(report, indent=2)+'\n')

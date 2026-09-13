@@ -44,7 +44,7 @@ for module, objects in groups.items():
 path_flags = ' '.join(f'-ffile-prefix-map={src}={name}' for src, name in [
     (mpi, './cvi_mpi'), (osdrv, './osdrv'), (kernel, './linux'),
     (Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve(), './toolchain')])
-opt_flags = '-Os -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso -mcmodel=medany -mabi=lp64d ' + path_flags
+opt_flags = '-O2 -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso -mcmodel=medany -mabi=lp64d ' + path_flags
 common = ['OPT_LEVEL=' + opt_flags, 'CROSS_COMPILE=' + cross, 'CHIP_ARCH=CV181X', 'ISP_SRC_RELEASE=0', '-B',
           'OSDRV_PATH=' + osdrv, 'KERNEL_PATH=' + kernel, '-j' + os.environ.get('JOBS', '8')]
 (mpi / 'lib/3rd').mkdir(parents=True, exist_ok=True)

@@ -71,8 +71,8 @@ func (s *Service) SetScreen(c *gin.Context) {
 		}
 		err = writeScreen(req.Type, strconv.Itoa(req.Value))
 	case "fps":
-		if req.Value < 10 || req.Value > 60 {
-			rsp.ErrRsp(c, -1, "FPS must be between 10 and 60")
+		if req.Value < 10 || req.Value > 120 {
+			rsp.ErrRsp(c, -1, "FPS must be between 10 and 120")
 			return
 		}
 		err = writeScreen(req.Type, strconv.Itoa(req.Value))

@@ -41,19 +41,21 @@ type Entry struct {
 	Preserve bool   `json:"preserve,omitempty"`
 }
 type Manifest struct {
-	Kernel        *KernelUpdate `json:"kernel,omitempty"`
-	Remove        []string      `json:"remove,omitempty"`
-	SystemBase    string        `json:"system_base,omitempty"`
-	Format        int           `json:"format"`
-	Product       string        `json:"product"`
-	Kind          string        `json:"kind"`
-	Arch          string        `json:"arch"`
-	Version       string        `json:"version"`
-	Sequence      uint64        `json:"sequence"`
-	NativeABI     string        `json:"native_abi"`
-	PayloadBytes  int64         `json:"payload_bytes"`
-	PayloadSHA256 string        `json:"payload_sha256"`
-	Files         []Entry       `json:"files"`
+	Full          *FullSystemUpdate `json:"full_system,omitempty"`
+	Updater       *UpdaterUpdate    `json:"updater,omitempty"`
+	Kernel        *KernelUpdate     `json:"kernel,omitempty"`
+	Remove        []string          `json:"remove,omitempty"`
+	SystemBase    string            `json:"system_base,omitempty"`
+	Format        int               `json:"format"`
+	Product       string            `json:"product"`
+	Kind          string            `json:"kind"`
+	Arch          string            `json:"arch"`
+	Version       string            `json:"version"`
+	Sequence      uint64            `json:"sequence"`
+	NativeABI     string            `json:"native_abi"`
+	PayloadBytes  int64             `json:"payload_bytes"`
+	PayloadSHA256 string            `json:"payload_sha256"`
+	Files         []Entry           `json:"files"`
 }
 type Bundle struct {
 	Manifest Manifest
@@ -130,6 +132,15 @@ func validPath(name string) bool {
 	return name != "" && path.Clean(name) == name && !bytes.ContainsAny([]byte(name), "\\\x00") && (name == "NanoKVM-Server" || (len(name) > 4 && name[:4] == "web/"))
 }
 func validateManifest(m Manifest) error {
+	if m.Format == 4 {
+		return validateFullManifest(m)
+	}
+	if m.Format == 5 {
+		return validateUpdaterManifest(m)
+	}
+	if m.Full != nil || m.Updater != nil {
+		return errors.New("special update metadata requires its matching format")
+	}
 	if !((m.Format == 1 && m.Kind == "application") || ((m.Format == 2 || m.Format == 3) && m.Kind == "system")) || m.Product != "NanoKVM OS" || m.Arch != "riscv64" {
 		return errors.New("not a NanoKVM OS application package")
 	}

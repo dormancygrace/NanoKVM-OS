@@ -1,0 +1,39 @@
+#!/bin/sh
+# Scope queue policy to Ethernet, Wi-Fi and USB NCM; VPN interfaces stay unchanged.
+apply_device() {
+    dev=$1
+    [ -d "/sys/class/net/$dev" ] || return 0
+    current=$(tc qdisc show dev "$dev") || return 1
+    # Keep existing queues and counters when the policy already applies.
+    if printf '%s\n' "$current" | awk '
+        $2 == "fq_codel" { good++ }
+        $4 == "parent" && $2 != "fq_codel" { bad++ }
+        END { exit !(good && !bad) }'; then
+        return 0
+    fi
+    count=$(ls -d /sys/class/net/"$dev"/queues/tx-* 2>/dev/null | wc -l)
+    if [ "$count" -gt 1 ]; then
+        # An explicit handle makes the mq leaves addressable by tc.
+        tc qdisc replace dev "$dev" root handle 1: mq || return 1
+        parents=$(tc qdisc show dev "$dev" | awk '$4 == "parent" {print $5}')
+        [ -n "$parents" ] || return 1
+        for parent in $parents; do
+            tc qdisc replace dev "$dev" parent "$parent" fq_codel || return 1
+        done
+    else
+        tc qdisc replace dev "$dev" root fq_codel || return 1
+    fi
+}
+
+case "${1:-}" in
+    start|restart|reload) devices="eth0 wlan0 usb0" ;;
+    eth0|wlan0|usb0) devices=$1 ;;
+    stop) exit 0 ;;
+    *) exit 1 ;;
+esac
+modprobe sch_fq_codel || exit 1
+result=0
+for device in $devices; do
+    apply_device "$device" || result=1
+done
+exit "$result"

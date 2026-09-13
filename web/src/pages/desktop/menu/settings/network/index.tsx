@@ -1,34 +1,25 @@
 import { Divider } from 'antd';
-import { useTranslation } from 'react-i18next';
 
 import { DNS } from './dns.tsx';
 import { Ethernet } from './ethernet.tsx';
-import { NetworkInformation } from './information';
 import { IPv6 } from './ipv6.tsx';
 import { Mdns } from './mdns';
-import { Tls } from './tls.tsx';
 import { Wifi } from './wifi.tsx';
 
-export const Network = () => {
-  const { t } = useTranslation();
+export const Network = () => (
+  <div className="flex flex-col space-y-6">
+    <DNS />
+    <IPv6 />
+    <Mdns />
+  </div>
+);
 
-  return (
-    <>
-      <div className="text-base">{t('settings.network.title')}</div>
-      <Divider className="opacity-50" />
+export const WifiSettings = () => <Wifi />;
 
-      <div className="flex flex-col space-y-8">
-        <NetworkInformation />
-        <Wifi />
-        <Ethernet />
-        <IPv6 />
-        <Mdns />
-        <Tls />
-      </div>
-
-      <Divider className="opacity-50" style={{ margin: '32px 0' }} />
-
-      <DNS />
-    </>
-  );
-};
+export const EthernetSettings = () => (
+  <>
+    <div className="text-base">Ethernet</div>
+    <Divider className="opacity-50" />
+    <Ethernet />
+  </>
+);

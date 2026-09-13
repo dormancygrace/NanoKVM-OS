@@ -2,10 +2,12 @@ package audio
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestPacketFraming(t *testing.T) {
@@ -67,4 +69,16 @@ func TestSlowListenerKeepsFreshTailAndDoesNotBlockOthers(t *testing.T) {
 	}
 	slow.close()
 	slow.close() // USB stop and process exit can both close a listener.
+}
+
+func TestRetryCancelledImmediately(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	started := time.Now()
+	if waitRetry(ctx, time.Hour) {
+		t.Fatal("retry despite cancellation")
+	}
+	if time.Since(started) > time.Second {
+		t.Fatal("cancellation blocked")
+	}
 }

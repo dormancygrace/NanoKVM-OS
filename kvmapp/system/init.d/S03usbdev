@@ -224,6 +224,10 @@ start_usb_dev(){
     fi
     ls /sys/class/udc/ | cat > UDC
     set_usb_role device
+    # NCM netdev can be recreated when the USB composition changes.
+    if [ -x /etc/init.d/S29qdisc ]; then
+        /etc/init.d/S29qdisc usb0 || echo "Could not apply fq_codel to USB NCM" >&2
+    fi
 }
 
 stop_usb_dev(){

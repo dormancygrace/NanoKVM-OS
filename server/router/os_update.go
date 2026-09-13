@@ -1,12 +1,14 @@
 package router
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"NanoKVM-Server/authn"
@@ -23,6 +25,25 @@ func updateReply(c *gin.Context, data any, err error) {
 	} else {
 		rsp.OkRspWithData(c, data)
 	}
+}
+
+func prepareWithHelper(lock *os.File, name string) (*osupdate.PreparedReceipt, error) {
+	cmd := exec.Command(osupdate.Helper, "prepare-inherited", name)
+	cmd.ExtraFiles = []*os.File{lock}
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	if err := cmd.Run(); err != nil {
+		message := strings.TrimSpace(stderr.String())
+		if message == "" {
+			message = err.Error()
+		}
+		return nil, fmt.Errorf("updater prepare failed: %s", message)
+	}
+	receipt, err := osupdate.DecodePreparedReceipt(&stdout)
+	if err != nil {
+		return nil, fmt.Errorf("invalid updater response")
+	}
+	return receipt, nil
 }
 func osUpdateRouter(r *gin.Engine) {
 	r.GET("/api/os/update/health", func(c *gin.Context) { c.Status(http.StatusOK) })
@@ -58,7 +79,7 @@ func osUpdateRouter(r *gin.Engine) {
 			updateReply(c, nil, err)
 			return
 		}
-		b, err := osupdate.Prepare(name)
+		b, err := prepareWithHelper(lock, name)
 		updateReply(c, b, err)
 	})
 	api.POST("/download", func(c *gin.Context) {
@@ -93,7 +114,7 @@ func osUpdateRouter(r *gin.Engine) {
 				err = ce
 			}
 			if err == nil {
-				_, err = osupdate.Prepare(name)
+				_, err = prepareWithHelper(lock, name)
 			}
 			if err != nil {
 				osupdate.SetResult(osupdate.Result{State: "failed", Message: err.Error()})
@@ -117,9 +138,16 @@ func osUpdateRouter(r *gin.Engine) {
 		defer lock.Close()
 		name, err := osupdate.PackagePath(req.ID)
 		if err == nil {
-			var b *osupdate.Bundle
-			b, err = osupdate.ValidateForDevice(name)
-			if err == nil && b.ID != req.ID {
+			var info os.FileInfo
+			info, err = os.Lstat(name)
+			if err == nil && (!info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0) {
+				err = fmt.Errorf("invalid prepared package")
+			}
+			var got string
+			if err == nil {
+				got, err = osupdate.HashFile(name)
+			}
+			if err == nil && got != req.ID {
 				err = fmt.Errorf("package changed")
 			}
 		}

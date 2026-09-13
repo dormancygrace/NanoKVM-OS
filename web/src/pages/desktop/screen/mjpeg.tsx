@@ -21,7 +21,7 @@ export const Mjpeg = () => {
   const [streamNonce, setStreamNonce] = useState(0);
   const image = useRef<HTMLImageElement>(null);
   const retryDelay = useRef(INITIAL_RETRY_DELAY);
-  const retryTimer = useRef<number>();
+  const retryTimer = useRef<number | undefined>(undefined);
   const streamURL = `${getBaseUrl('http')}/api/stream/mjpeg`;
   const streamSrc = hasError ? undefined : `${streamURL}?v=${streamNonce}`;
 

@@ -1,0 +1,37 @@
+diff --git a/arch/riscv/kernel/pi/Makefile b/arch/riscv/kernel/pi/Makefile
+index bc098ed..c295ca8 100644
+--- a/arch/riscv/kernel/pi/Makefile
++++ b/arch/riscv/kernel/pi/Makefile
+@@ -2,7 +2,7 @@
+ # This file was copied from arm64/kernel/pi/Makefile.
+ 
+ KBUILD_CFLAGS	:= $(subst $(CC_FLAGS_FTRACE),,$(KBUILD_CFLAGS)) -fpie \
+-		   -Os -DDISABLE_BRANCH_PROFILING $(DISABLE_KSTACK_ERASE) \
++		   -O2 -DDISABLE_BRANCH_PROFILING $(DISABLE_KSTACK_ERASE) \
+ 		   $(call cc-option,-mbranch-protection=none) \
+ 		   -I$(srctree)/scripts/dtc/libfdt -fno-stack-protector \
+ 		   -include $(srctree)/include/linux/hidden.h \
+diff --git a/drivers/firmware/efi/libstub/Makefile b/drivers/firmware/efi/libstub/Makefile
+index 77a2b2d..1b084bc 100644
+--- a/drivers/firmware/efi/libstub/Makefile
++++ b/drivers/firmware/efi/libstub/Makefile
+@@ -35,7 +35,7 @@ cflags-$(CONFIG_LOONGARCH)	+= -fpie $(DISABLE_KSTACK_ERASE)
+ cflags-$(CONFIG_EFI_PARAMS_FROM_FDT)	+= -I$(srctree)/scripts/dtc/libfdt
+ 
+ KBUILD_CFLAGS			:= $(subst $(CC_FLAGS_FTRACE),,$(cflags-y)) \
+-				   -Os -DDISABLE_BRANCH_PROFILING \
++				   -O2 -DDISABLE_BRANCH_PROFILING \
+ 				   -include $(srctree)/include/linux/hidden.h \
+ 				   -D__NO_FORTIFY \
+ 				   -ffreestanding \
+diff --git a/lib/lz4/Makefile b/lib/lz4/Makefile
+index 5b42242..b5db444 100644
+--- a/lib/lz4/Makefile
++++ b/lib/lz4/Makefile
+@@ -1,5 +1,5 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+-ccflags-y += -O3
++ccflags-y += -O2
+ 
+ obj-$(CONFIG_LZ4_COMPRESS) += lz4_compress.o
+ obj-$(CONFIG_LZ4HC_COMPRESS) += lz4hc_compress.o

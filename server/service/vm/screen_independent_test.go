@@ -37,7 +37,7 @@ func TestStreamLimitDoesNotRequireMonitorHardware(t *testing.T) {
 	}
 }
 func TestRejectsInvalidVideoPreferences(t *testing.T) {
-	for _, body := range []string{`{"type":"monitor","value":720}`, `{"type":"resolution","value":65536}`, `{"type":"resolution","value":-1}`, `{"type":"fps","value":61}`} {
+	for _, body := range []string{`{"type":"monitor","value":719}`, `{"type":"resolution","value":65536}`, `{"type":"resolution","value":-1}`, `{"type":"fps","value":61}`} {
 		recorder := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(recorder)
 		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(body))
@@ -49,5 +49,19 @@ func TestRejectsInvalidVideoPreferences(t *testing.T) {
 		if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code == 0 {
 			t.Fatalf("accepted %s: %s", body, recorder.Body.String())
 		}
+	}
+}
+
+func TestHDMonitorProfileReachesHardwareValidation(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"type":"monitor","value":720}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+	(&Service{}).SetScreen(c)
+	var result struct {
+		Code int `json:"code"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code != -4 {
+		t.Fatalf("HD must pass profile validation and reach absent test hardware: %s", recorder.Body.String())
 	}
 }

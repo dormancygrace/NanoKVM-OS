@@ -8,6 +8,11 @@ import (
 	"time"
 )
 
+const (
+	fhdClassLongSide  = 1920
+	fhdClassShortSide = 1080
+)
+
 func ReadVideoValue(path string) int {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -22,6 +27,23 @@ func MonitorProfileSupported() bool {
 	return strings.TrimSpace(string(board)) == "pcie" && strings.TrimSpace(string(chip)) == "ux"
 }
 
+// IsFHDClassDimensions classifies a signal after normalizing its orientation.
+// The native portrait path explicitly accepts 1088x1920 (8160 16x16
+// macroblocks). Other normalized dimensions follow the native FHD limit of a
+// 1920-pixel long side and 1080-pixel short side.
+func IsFHDClassDimensions(width, height int) bool {
+	if width <= 0 || height <= 0 {
+		return false
+	}
+	if width == 1088 && height == 1920 {
+		return true
+	}
+	if width < height {
+		width, height = height, width
+	}
+	return width <= fhdClassLongSide && height <= fhdClassShortSide
+}
+
 var sourceTiming struct {
 	sync.Mutex
 	expires time.Time
@@ -33,6 +55,7 @@ var sourceTiming struct {
 // the same QHD cap immediately under its capture mutex.
 func GetCaptureScreen() *Screen {
 	next := *GetScreen()
+	requestedFPS := next.FPS
 	sourceTiming.Lock()
 	if time.Now().After(sourceTiming.expires) {
 		sourceTiming.width = ReadVideoValue("/run/nanokvm/width")
@@ -42,7 +65,8 @@ func GetCaptureScreen() *Screen {
 	sourceWidth := sourceTiming.width
 	sourceHeight := sourceTiming.height
 	sourceTiming.Unlock()
-	wide := sourceWidth > 1920 || sourceHeight > 1080
+	wide := sourceWidth > 0 && sourceHeight > 0 &&
+		!IsFHDClassDimensions(sourceWidth, sourceHeight)
 	qhdOutput := next.Width == 2560 && next.Height == 1440
 	qhdAuto := next.Width == 0 && next.Height == 0 &&
 		sourceWidth == 2560 && sourceHeight == 1440
@@ -53,6 +77,25 @@ func GetCaptureScreen() *Screen {
 			next.FPS = 60
 		} else if !qhd60 {
 			next.FPS = 30
+		}
+	}
+	portraitLimit := 0
+	switch {
+	case sourceWidth == 720 && sourceHeight == 1280:
+		portraitLimit = 120
+	case sourceWidth == 1080 && sourceHeight == 1920:
+		portraitLimit = 70
+	case sourceWidth == 1088 && sourceHeight == 1920:
+		portraitLimit = 60
+	case sourceWidth == 1296 && sourceHeight == 2304:
+		portraitLimit = 50
+	case sourceWidth == 1440 && sourceHeight == 2560:
+		portraitLimit = 40
+	}
+	if portraitLimit != 0 {
+		next.FPS = requestedFPS
+		if next.FPS > portraitLimit {
+			next.FPS = portraitLimit
 		}
 	}
 	return &next

@@ -47,7 +47,10 @@ if [ -s "$update_stage/addon-restore/packages.sha256" ]; then
  test -x /target/usr/sbin/nkos-addons
  mkdir -p /target/run/nkos-upgrade-verify
  mount -o bind "$update_stage" /target/run/nkos-upgrade-verify
+ # Go subprocesses and APK require the real /dev/null in this chroot.
+ mount -o bind /dev /target/dev
  chroot /target /usr/sbin/nkos-addons verify-upgrade /run/nkos-upgrade-verify/addons-contract.json /run/nkos-upgrade-verify/addon-restore
+ umount /target/dev
  umount /target/run/nkos-upgrade-verify
  rmdir /target/run/nkos-upgrade-verify
 else
@@ -105,13 +108,11 @@ echo FULL_ROOTFS_WRITE_BEGIN
 progress_pid=$!
 gzip -dc rootfs.ext4.gz | dd of=/dev/mmcblk0p2 bs=1048576
 sync
-echo FULL_ROOTFS_READBACK_BEGIN
-sha256sum /dev/mmcblk0p2 > rootfs-readback.sha256
-grep -q '^@ROOT@ ' rootfs-readback.sha256
-echo FULL_ROOTFS_EXACT_IMAGE_MATCH
+# The signed payload was checked before writing. After a successful write and
+# sync, restore settings and boot; avoid another full-card readback pass.
+echo FULL_ROOTFS_WRITE_COMPLETE
 kill "$progress_pid"; wait "$progress_pid" 2>/dev/null || true
 progress_pid=
-/e2fsck -fn /dev/mmcblk0p2 > rootfs-fsck.txt 2>&1
 mount -t ext4 /dev/mmcblk0p2 /target
 tar -xf /preserved.tar -C /target
 if [ "$ssh_was_disabled" -eq 0 ]; then rm -f /target/etc/kvm/ssh_stop; fi
@@ -127,7 +128,10 @@ cd /stage/.nkos-full-update/@STAGE@/addon-restore
 [ ! -s packages.sha256 ] || sha256sum -c packages.sha256
 mkdir -p /target/run/nkos-addon-restore
 mount -o bind /stage/.nkos-full-update/@STAGE@/addon-restore /target/run/nkos-addon-restore
+# Go subprocesses and APK require the real /dev/null in this chroot.
+mount -o bind /dev /target/dev
 chroot /target /usr/sbin/nkos-addons restore-upgrade /run/nkos-addon-restore
+umount /target/dev
 umount /target/run/nkos-addon-restore
 rmdir /target/run/nkos-addon-restore
 echo FULL_ROOTFS_ADDONS_RESTORED

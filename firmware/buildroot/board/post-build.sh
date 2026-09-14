@@ -44,7 +44,7 @@ fi
 if [ "$flavour" != enhanced ]; then install -m644 "$NANOKVM_APP_STAGE/system/ko/soph_mipi_rx.ko" "$target/mnt/system/ko/soph_mipi_rx.ko"; fi
 cp -a "$NANOKVM_SENSOR_DATA/." "$target/mnt/data/"
 cp "$target/mnt/data/sensor_cfg.ini.LT" "$target/mnt/data/sensor_cfg.ini"
-for name in S00kmod S01fs S03usbdev S12temperature S13cpufreq S15kvmhwd S25wifimod S30eth S30wifi S50avahi-daemon S50sshd S80dnsmasq S95nanokvm S96picoclaw S97nkos-addons; do
+for name in S00kmod S01fs S03usbdev S12temperature S13cpufreq S15kvmhwd S25wifimod S29qdisc S30eth S30wifi S50avahi-daemon S50sshd S80dnsmasq S95nanokvm S96picoclaw S97nkos-addons; do
     install -m755 "$NANOKVM_APP_STAGE/system/init.d/$name" "$target/etc/init.d/$name"
 done
 # Incremental Buildroot trees retain files from deselected packages.

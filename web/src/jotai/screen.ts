@@ -1,10 +1,12 @@
 import { atom } from 'jotai';
 
 import { ControlRegionMode, InputRegion, Resolution } from '@/types';
+import type { ScreenshotSource } from '@/lib/screenshot.ts';
 
 export const isHdmiEnabledAtom = atom(false);
 export const captureReadyAtom = atom(false);
 export const captureBusyAtom = atom(false);
+export const screenshotSourceAtom = atom<ScreenshotSource | null>(null);
 
 // Active video subscriptions, not browser control sockets or screenshot leases.
 export const videoSessionCountAtom = atom<number | null>(null);

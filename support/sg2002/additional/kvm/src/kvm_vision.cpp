@@ -400,6 +400,11 @@ uint16_t hdmi_res_list[][2] = {
     {1920, 1080},
 #ifdef NANOKVM_ENHANCED
     {2560, 1440},
+    {720, 1280},
+    {1080, 1920},
+    {1088, 1920},
+    {1296, 2304},
+    {1440, 2560},
 #endif
     {1600, 900},
     {1440, 1080},
@@ -432,14 +437,15 @@ uint8_t check_res(uint16_t _width, uint16_t _height)
 {
 #ifdef NANOKVM_ENHANCED
     if (_width > 1920 || _height > 1080) {
-        // QHD capture needs the larger carveout, including in Auto mode.
+        // Extended capture profiles require the qualified carveout, including Auto.
         uint8_t ion_size[4] = {};
         FILE *ion = fopen("/proc/device-tree/reserved-memory/ion/size", "rb");
         size_t count = ion ? fread(ion_size, 1, sizeof(ion_size), ion) : 0;
         if (ion) fclose(ion);
         uint32_t bytes = ((uint32_t)ion_size[0] << 24) | ((uint32_t)ion_size[1] << 16)
             | ((uint32_t)ion_size[2] << 8) | ion_size[3];
-        if (count != sizeof(ion_size) || bytes < 62U * 1024U * 1024U) return UNSUPPORT_RES;
+        const uint32_t required_mib = (_width == 1440 && _height == 2560) ? 64U : 62U;
+        if (count != sizeof(ion_size) || bytes < required_mib * 1024U * 1024U) return UNSUPPORT_RES;
     }
 #endif
     uint8_t i;
@@ -569,7 +575,15 @@ int get_manual_resolution(void)
         tmp_width = vi_max_width;
         nanokvm::write_small_uint(vi_width_path, vi_max_width);
     }
-    if(tmp_height > vi_max_height){
+    bool portrait = false;
+#ifdef NANOKVM_ENHANCED
+    portrait = (tmp_width == 720 && tmp_height == 1280)
+        || (tmp_width == 1296 && tmp_height == 2304)
+        || (tmp_width == 1080 && tmp_height == 1920)
+        || (tmp_width == 1088 && tmp_height == 1920)
+        || (tmp_width == 1440 && tmp_height == 2560);
+#endif
+    if(tmp_height > vi_max_height && !portrait){
         tmp_height = vi_max_height;
         nanokvm::write_small_uint(vi_height_path, vi_max_height);
     }
@@ -1857,26 +1871,31 @@ int8_t frame_to_video(uint8_t *data, int width, int height, int format, int vi_c
 	kvmv_data_t *ret_stream, uint16_t bitrate, uint8_t codec, uint8_t gop, uint8_t fps)
 {
 #ifdef NANOKVM_ENHANCED
-	/* Keep the high-rate experiment bounded even for callers that bypass the
-	 * public kvmv_read_video() wrapper. */
-	if (fps > native120_max_fps) {
-		fps = native120_max_fps;
+	const unsigned portrait_limit = nanokvm::portrait_fps_limit(kvmv_cfg.vi_width, kvmv_cfg.vi_height);
+	if (portrait_limit) {
+		if (fps > portrait_limit) fps = portrait_limit;
+	} else {
+		/* Keep the high-rate experiment bounded even for callers that bypass the
+		 * public kvmv_read_video() wrapper. */
+		if (fps > native120_max_fps) {
+			fps = native120_max_fps;
+		}
+		if (qhd60_request_allowed(width, height) && fps > qhd60_max_fps) {
+			fps = qhd60_max_fps;
+		}
+		if (fhd75_request_allowed(width, height) && fps > fhd75_max_fps) {
+			fps = fhd75_max_fps;
+		}
+		if (fps > default_h264_fps && !native120_request_allowed(width, height)
+			&& !fhd75_request_allowed(width, height)) {
+			fps = default_h264_fps;
+		}
+		// Apply before the configuration comparison as well as initialization;
+		// otherwise an Auto request for 60 FPS would recreate a 30 FPS encoder
+		// on every frame. This also covers callers bypassing the HTTP settings.
+		if ((nanokvm::above_fhd(width, height) || nanokvm::above_fhd(kvmv_cfg.vi_width, kvmv_cfg.vi_height))
+			&& fps > 30 && !qhd60_request_allowed(width, height)) fps = 30;
 	}
-	if (qhd60_request_allowed(width, height) && fps > qhd60_max_fps) {
-		fps = qhd60_max_fps;
-	}
-	if (fhd75_request_allowed(width, height) && fps > fhd75_max_fps) {
-		fps = fhd75_max_fps;
-	}
-	if (fps > default_h264_fps && !native120_request_allowed(width, height)
-		&& !fhd75_request_allowed(width, height)) {
-		fps = default_h264_fps;
-	}
-	// Apply before the configuration comparison as well as initialization;
-	// otherwise an Auto request for 60 FPS would recreate a 30 FPS encoder
-	// on every frame. This also covers callers bypassing the HTTP settings.
-	if ((width > 1920 || height > 1080 || kvmv_cfg.vi_width > 1920 || kvmv_cfg.vi_height > 1080)
-		&& fps > 30 && !qhd60_request_allowed(width, height)) fps = 30;
 #endif
 	int8_t ret = 0;
 	uint8_t mmf_type = codec == VENC_H265 ? 1 : 2;
@@ -2069,6 +2088,13 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
     uint8_t try_num = 0;
     do {
         const auto output = nanokvm::stream_size(kvmv_cfg.vi_width, kvmv_cfg.vi_height, _width, _height);
+        // The H.264 hardware rejects the tall maximum portrait. Do not
+        // repeatedly initialize a channel the device cannot encode.
+        if (kvmv_cfg.vi_width == 1440 && kvmv_cfg.vi_height == 2560
+                && _type == VENC_H264 && output.height > 2304) {
+            pthread_mutex_unlock(&vi_mutex);
+            return IMG_VENC_ERROR;
+        }
         if (!output.width || !output.height) {
             pthread_mutex_unlock(&vi_mutex);
             return IMG_VENC_ERROR;
@@ -2296,6 +2322,7 @@ int kvmv_read_video(uint16_t _width, uint16_t _height, uint8_t _codec,
 		: (fhd75_request_allowed(_width, _height) ? fhd75_max_fps
 		: (qhd60_request_allowed(_width, _height) ? qhd60_max_fps : default_h264_fps));
 #ifdef NANOKVM_ENHANCED
+	if (const auto portrait_limit = nanokvm::portrait_fps_limit(_width, _height)) fps_limit = portrait_limit;
 	if (_width == 0 && _height == 0) {
 		// Auto has no output dimensions yet. Preserve the requested rate up to
 		// the global bound; frame_to_video applies the profile/opt-in limits

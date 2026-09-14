@@ -163,8 +163,8 @@ Nv21Frame *Capture::read() {
         else mmf_vi_frame_free(channel_); // Make the lease available to VENC.
         return frame;
     }
-    // The MMF channel pads output width to DEFAULT_ALIGN. Retain the requested
-    // visible width for the copied fallback, including every chroma row.
+    // VB rows may have padding independently of active image width. Pack
+    // visible pixels for the copied fallback, including every chroma row.
     auto *copy = static_cast<uint8_t *>(malloc(packed_size));
     if (copy) {
         for (int row = 0; row < height_; ++row)

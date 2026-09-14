@@ -1,0 +1,644 @@
+{
+  "version": "1.0.0-beta.10",
+  "sequence": 23,
+  "title": "NanoKVM-OS-v1.0.0-beta-10",
+  "status": "approved for publication; installed system boot-qualified",
+  "application_source_commit": "74594de8d9c65aa4dd762b57ed6367fa4268d98f",
+  "accepted_server_native_edid_commit": "2de06a2a399523bd72cf062f55135ab33a695fcd",
+  "base_image": {
+    "release": "v1.0.0-beta.9",
+    "sequence": 22,
+    "zip_sha256": "d5ad567bd5893a11b88989d248f2d31c7ff2d7ff01f504a3f7624357d252b6d9"
+  },
+  "kernel": "7.2.5-nanokvm-os-r3",
+  "kernel_config_sha256": "0975b7d1af895583e28fb5bc49a0994bdee3f22fe43ad237e1da6e596b59d7da",
+  "kernel_image_sha256": "a76e074361572297d3c8b7e35ad8413aefe2b437df5f68a10cb45de5ae4a21ba",
+  "modules": [
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/8733bs.ko",
+      "sha256": "34630eb0f66e32408bd03a6e11a636dc81061cfe978e261d1f45d1cd416de4bf",
+      "bytes": 3467496,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/aic8800_bsp.ko",
+      "sha256": "87c6dd0ec4d80afa7bd69c6a3b47f8c00bcabd05cc2a7970dc4670d2ffdcf19a",
+      "bytes": 217984,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/aic8800_fdrv.ko",
+      "sha256": "7b470b4011abc05ecfaef2fc5ea53c7e06261f5fe1162fc1b0885f8ab903b171",
+      "bytes": 1059576,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/cryptodev.ko",
+      "sha256": "c1c3989934e043fb419d3dfa282d53e45b6be0691b56b9f75634ea5254c51484",
+      "bytes": 109120,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/cv181x_base.ko",
+      "sha256": "278a435c19d7ccc29ca2ea7baae0f793cdcc13416e1fe10f4afbd00f476e748e",
+      "bytes": 186680,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/cv181x_dwa.ko",
+      "sha256": "2eaeda393edf31ca2373368948ac637115578f534ef86d464de5af2a187c9137",
+      "bytes": 83744,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/cv181x_ive.ko",
+      "sha256": "ef3428abca5f1260288ce35cbcc5a922d23d8a392c474cf1d782b3d6c6daf0cc",
+      "bytes": 411856,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/cv181x_jpeg.ko",
+      "sha256": "4a6cc72cdca58f37e2f5bb1c85d75d88bc0ebc3ca740a18e806e49fbb29c6294",
+      "bytes": 29000,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/cv181x_rgn.ko",
+      "sha256": "744f47b2fed93ed3a059db24f55deddd38c64a6e7a948f844f17fcc92fe44ef9",
+      "bytes": 111552,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/cv181x_sys.ko",
+      "sha256": "e4a0cfc82775a0b27382241ee7b8174b24a3f35aa33994e3e5bd621f75dbfae6",
+      "bytes": 45400,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/cv181x_vcodec.ko",
+      "sha256": "26962bb359ee3a99443c11e1d0e0ba1294962fead53bb48fc1ee67123d04723d",
+      "bytes": 75384,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/cv181x_vi.ko",
+      "sha256": "fa6cc88add42bb1a526f5ae8d812b99dfde2038fc1bbc54070b2a3b6441ed7f5",
+      "bytes": 505264,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/cv181x_vpss.ko",
+      "sha256": "98c1bce3f96df6348ebef7bd34a3065b147025a2bf0058844d01387b1484cc66",
+      "bytes": 727400,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/cvi_mipi_rx.ko",
+      "sha256": "51f890695725631ca8b881915cb483fecfb3196eff5ab86d62d96eb09521b430",
+      "bytes": 93720,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/cvi_vc_driver.ko",
+      "sha256": "1cc19f2a041ce0dd4530ac63796d44c4bf234af2a29dc53e0edc518676c453c1",
+      "bytes": 1468776,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/sg2002_aes_probe.ko",
+      "sha256": "66d852e5ef036461c52665db67334a1db9b36020f917e6858956b05d49da3665",
+      "bytes": 47480,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/extra/snsr_i2c.ko",
+      "sha256": "8d333de8b1b963249cd0b838aee5d0b2c70e107e4d647944510402f973a2ebd1",
+      "bytes": 10488,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/crypto/aead.ko",
+      "sha256": "d59808072828880977b6d48155608c33a1ce0e53a03e282eb96d7a79961008ff",
+      "bytes": 13680,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/crypto/aes.ko",
+      "sha256": "9c22e3a087fe60fa3d49c48f8e1b87995fc21d92063fba99ebf5e277a5e46f90",
+      "bytes": 6392,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/crypto/bpf_crypto_skcipher.ko",
+      "sha256": "a1032c866eef0fa5c45849ceea98e0a88591df5707309580e385cc7a00aa79ad",
+      "bytes": 7200,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/crypto/chacha.ko",
+      "sha256": "f051486eaaa8316fc6c90e4b2d395339c498e920c8c54eb86f363f504f992efa",
+      "bytes": 10304,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/crypto/chacha20poly1305.ko",
+      "sha256": "e955dc7397288ec9bd96ecc7884163ad866bbce87840686f37fa011ba4a6261f",
+      "bytes": 14192,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/crypto/crypto_skcipher.ko",
+      "sha256": "b4fcf8c6737087ce8995918560152f3dd38476a072bc8dc371908ad28cbcd2b3",
+      "bytes": 37904,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/crypto/ctr.ko",
+      "sha256": "6b5d699d74ae29c2cfdce1469d123979e32ba8c1a13aa506920f21ee54dcf98d",
+      "bytes": 10648,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/crypto/ecb.ko",
+      "sha256": "2d158269c38c8f289bc1738ee6991a45669262c6ab3be6ad4bae1dda3f1b0c23",
+      "bytes": 8560,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/crypto/ecc.ko",
+      "sha256": "e57cc3deddb32da15f523ee8bf6ea8b4daf9fdf855fa411b9982d9b8c04112c4",
+      "bytes": 45328,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/crypto/ecdh_generic.ko",
+      "sha256": "a0609ab38b34bbfe987295fb62b5e13ea65c6eaf77ef2f16f823694a548a6952",
+      "bytes": 12128,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/crypto/gcm.ko",
+      "sha256": "7cff711013cec2e6c22e90ea95261adabe1598801071a66acd1e1eccbad5e05e",
+      "bytes": 25592,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/crypto/kpp.ko",
+      "sha256": "bcd9df17704080c2590fbb4fb3f1b02018a0ff2e766ee021515b7ff6cf3320b1",
+      "bytes": 8464,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/crypto/sha256.ko",
+      "sha256": "1c18aaf0cf1e501785bdc9e10ef738696ff513520a16e7c4e367c51869e8f888",
+      "bytes": 15248,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/drivers/block/nbd.ko",
+      "sha256": "a84500d1787041b888b1a1dbc7117db007e8f3af4f5791a7463ae52cb79f9446",
+      "bytes": 98232,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/drivers/block/zram/zram.ko",
+      "sha256": "bebc220e61f657f6f602b497ad69e5b53a8c9b2d8c464a39501a6c2833257f5f",
+      "bytes": 54168,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/drivers/cpufreq/cpufreq_conservative.ko",
+      "sha256": "5a0a74be291c73f399ffad4bff04a147e207e49e0b91df9d4574ee4f844091b3",
+      "bytes": 11648,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/drivers/cpufreq/cpufreq_powersave.ko",
+      "sha256": "f4516ca685a4bf7357a5b0506cf929854abf2c29a66c1b50107ad6b66659da55",
+      "bytes": 5680,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/drivers/cpufreq/sg2002-cpufreq.ko",
+      "sha256": "bc5931824c998bb963d301742ae105c38906cb6a1465a00f05e759db93d3950f",
+      "bytes": 12976,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/drivers/hwmon/sg2002-temp.ko",
+      "sha256": "f2cf6d219b22e3e9034d3dae39bdedc5ab04381a7efa4339eb253c7a7e6a27bc",
+      "bytes": 10392,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/drivers/net/dummy.ko",
+      "sha256": "c692a2e4b38d1aabdc84a63e8bee7265a7b1ae01c58325a94d76cfff12593e5c",
+      "bytes": 10856,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/drivers/net/ovpn/ovpn.ko",
+      "sha256": "91a1e1c042f86d31c4b9e8fc62ea5a7f44a6de91d99056bed5afa9c7290305d7",
+      "bytes": 124760,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/drivers/net/veth.ko",
+      "sha256": "c7f1e69ed30a33bd2da5765a6be005997b127ca20bc8cfee48406987ac7d23b3",
+      "bytes": 46872,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/drivers/net/wireguard/wireguard.ko",
+      "sha256": "ca2abb049863458ad56b758c11fb03d01a1b37a9e1b760fb6b6f6cb535b487c6",
+      "bytes": 117736,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/fs/overlayfs/overlay.ko",
+      "sha256": "dde6008b70d84f6f23c185ca6aa2434344eea03c2be28db45c80fbc0e186de43",
+      "bytes": 243592,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/lib/crypto/libaes.ko",
+      "sha256": "830d54d33a7884729618389e06e65038a866afbf6164a9637afe8a801602eca9",
+      "bytes": 22408,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/lib/crypto/libchacha.ko",
+      "sha256": "ce2fdecd55235ec310c227c61e48d6ef2d4597dbcd816b65fcbd81ffed68f825",
+      "bytes": 5128,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/lib/crypto/libchacha20poly1305.ko",
+      "sha256": "81475e94476513547fee8034ef93bfd0e3a34f8ec76a951b5cf4aa4b564ad685",
+      "bytes": 15152,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/lib/crypto/libcurve25519.ko",
+      "sha256": "82c2b75708f3a4c99c7a0b8b413e4886742c4997a8b468c366d5d35ff798f169",
+      "bytes": 39120,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/lib/crypto/libgf128hash.ko",
+      "sha256": "c95375c7d8181677d49824c45d1972f4aa271d7d6beef8308a5cfb8187992e8b",
+      "bytes": 11776,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/lib/crypto/libpoly1305.ko",
+      "sha256": "7e788b76bdfc78b80795f3309858e2dfeff3e5df0daa72b21407656ec472730f",
+      "bytes": 6752,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/lib/lz4/lz4_compress.ko",
+      "sha256": "0227876579aecf11d9aa743322d0611cafa1fda5e397d3b023b64126ea973630",
+      "bytes": 34808,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/lib/zstd/zstd_compress.ko",
+      "sha256": "502829e80fee987cfc60eaebbcb88937a6649cd4e295bf4e7e80d51008da06bf",
+      "bytes": 510872,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/mm/zsmalloc.ko",
+      "sha256": "78f40a95d8d32a4ca5684b4e225ec64713c8111660ca5b01cba9995702abd0f7",
+      "bytes": 30184,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/802/psnap.ko",
+      "sha256": "ccd5f11d198b5a0593c48180c1952dc2a2c24c65387aaee9ecc23611daf894b6",
+      "bytes": 9224,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/802/stp.ko",
+      "sha256": "5a05db471b2a68038bd5687d279d2f84a415df8b231fc18e90cd95f59269c80d",
+      "bytes": 7552,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/8021q/8021q.ko",
+      "sha256": "8f713556620d9d849ba0d2c25a8888a8633497242c115b3f2cf889eaa87fe7e5",
+      "bytes": 52456,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/bluetooth/bluetooth.ko",
+      "sha256": "00e186dea57dcbfeb42393981668184b0497cf33f14a46bb336345f2706d2f8c",
+      "bytes": 931040,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/bluetooth/bnep/bnep.ko",
+      "sha256": "413d23a1d994fc293c5b6282e6df4d3e791f0ac9a2074a86b8a601ab8f9d9830",
+      "bytes": 34168,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/bluetooth/hidp/hidp.ko",
+      "sha256": "2a8df2bd1699a21fd0df88fd933f412faef8796682cb7452fe59a923caa84b2f",
+      "bytes": 42656,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/bluetooth/rfcomm/rfcomm.ko",
+      "sha256": "fb587ecfdf43f342db3094dc4179ae65cc6fef0994bfa1b68616181f439230e3",
+      "bytes": 82528,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/bridge/br_netfilter.ko",
+      "sha256": "d170d7eebd65979b61410eed0e9515664ef3091449af9ffe89e279cea831d162",
+      "bytes": 37672,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/bridge/bridge.ko",
+      "sha256": "e260d4ffed95d204a99b63a3969c446946dd5f84bb3789b429c16f6f5eb02ccd",
+      "bytes": 429360,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/ipv4/ip_tunnel.ko",
+      "sha256": "7c81065fcfad5b7713279cc7187d72ee8f626f2bb63fcb5740474a7f83a1102e",
+      "bytes": 41328,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/ipv4/netfilter/nf_defrag_ipv4.ko",
+      "sha256": "026100c3388e1df121950f2361defcdca991e77610276c2549164fecf1b7e610",
+      "bytes": 9016,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/ipv4/netfilter/nft_fib_ipv4.ko",
+      "sha256": "763d4e033311b64336c23d853d747f2167a1518918812ee7ae971aa9640569ae",
+      "bytes": 10872,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/ipv4/udp_tunnel.ko",
+      "sha256": "adf2f15bca553ac78b64544cc601fe7b4b94afa93001f71626cf1279c8fc591d",
+      "bytes": 36448,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/ipv6/ip6_udp_tunnel.ko",
+      "sha256": "561649f27ecc27d53ac887e5276cd6a4e3459e9b628fa77ddb99892b8849baf6",
+      "bytes": 11936,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/ipv6/netfilter/ip6t_ipv6header.ko",
+      "sha256": "f5a63ecd5892f7bba41469fcec2336113f807ee5d498f050e7121938ffdeb62d",
+      "bytes": 6248,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/ipv6/netfilter/nf_defrag_ipv6.ko",
+      "sha256": "797065fc9903d858a3ce123fe17acc5e564779a81e3f3c2c5c4b98e9c133f434",
+      "bytes": 23216,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/ipv6/netfilter/nft_fib_ipv6.ko",
+      "sha256": "7d28bf20747c25b1e1b3aac6b707073e6d113c95bbcfb8ace230728c904c639a",
+      "bytes": 12040,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/llc/llc.ko",
+      "sha256": "6fc9d05a8c5a9c4beced660a0fa7e8c5aea2559c193d3829ac72ce5ff0ab40a9",
+      "bytes": 15024,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nf_conntrack.ko",
+      "sha256": "95b9e99a3f83174009742bab87f0991e02e3540db0c765d2abf39a242c8495bb",
+      "bytes": 173344,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nf_log_syslog.ko",
+      "sha256": "d5f31221beb802576b02deb4e9f730e90bbf9565e4ce53e08cfeed2298c42ae5",
+      "bytes": 54688,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nf_nat.ko",
+      "sha256": "a8aa7d4a90fae120fb32860047e92dfb54068de192a1ae31bedfd899e4063938",
+      "bytes": 64800,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nf_tables.ko",
+      "sha256": "c4fde765917f15057875f3a291d2f3f4d3a674502c9d4bdd85a414e1819bf8d1",
+      "bytes": 440344,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nft_chain_nat.ko",
+      "sha256": "eb7e084e75fec4d427e5c56c1433a8222b6805f51b1af96b4d1dae3a2e0588e1",
+      "bytes": 9056,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nft_compat.ko",
+      "sha256": "ed6ab960a33d6fda013ec564280fa65718412cb502298b6b0f3c3301871f54cb",
+      "bytes": 25416,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nft_ct.ko",
+      "sha256": "057783dcf304eb65d8758bf39a330bd40d7ed98c04d7cf6a01be1b57f622ac31",
+      "bytes": 25992,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nft_fib.ko",
+      "sha256": "f5baf0f2e0014b56bfa69d43974d2bef03318d3a9ef2c414a0ff9b7b1361e2e9",
+      "bytes": 9280,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nft_fib_inet.ko",
+      "sha256": "9b5a3f966d9b973022d5c4f6217c0cd204e9a9400200da1ea46cad75334c49b8",
+      "bytes": 6696,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nft_limit.ko",
+      "sha256": "2970a115f773b033910047579fbb8d941315bf1c728d0e2cae9f4b9ddb1cd80b",
+      "bytes": 17608,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nft_log.ko",
+      "sha256": "e242199de09d90eea3bdeeca47e3ce8141ab430409ef350742641585a3114837",
+      "bytes": 14120,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nft_masq.ko",
+      "sha256": "57d06bce4c62024d05b4c9c900bd2cdeb44313aa1a133d88df1dfe9c91627dfc",
+      "bytes": 11720,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nft_nat.ko",
+      "sha256": "50abbe9b1b001beec38875fb23ba7b515f8cf3a9db2ca10071552e8b2e75f666",
+      "bytes": 12432,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/nft_redir.ko",
+      "sha256": "6f71d65060889eac01366af9278039a094f2864e4572e47f8ab8851685a91c54",
+      "bytes": 11304,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/x_tables.ko",
+      "sha256": "e1b4b12f14ece110e0da99eb51fdd161b7045c6febf1e1c7c2844784e8908947",
+      "bytes": 56152,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/xt_addrtype.ko",
+      "sha256": "f490a7e611041e92d1a588073fbae98b3d9ea5cca1a5bac8c386c18606da804c",
+      "bytes": 9960,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/xt_conntrack.ko",
+      "sha256": "b46f71d650319a3a1fd9bebacbda114f7e2e7f30f3a1915a1cd6f51df983d017",
+      "bytes": 11400,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/xt_mark.ko",
+      "sha256": "34d28cabbb26322da157dae18a0243a1ea821a4f745ad0027d98e1b8489ef0bc",
+      "bytes": 6656,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/xt_state.ko",
+      "sha256": "cc817370ffdee6f8893a42e181fbc8b0f7e051cab026963868d3b67cc3d28caf",
+      "bytes": 6800,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/netfilter/xt_tcpudp.ko",
+      "sha256": "d1e3806c7ee2494c614e5dba8de606c9c86bca7ebd62fb19fda4634e1b5bc137",
+      "bytes": 11328,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/sched/cls_cgroup.ko",
+      "sha256": "ca1b5ce416fb6d39ea7c6bfcc46878588e1f952919fb8d3202f74c7ff49703a4",
+      "bytes": 8968,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/sched/sch_fq.ko",
+      "sha256": "4a88a0f130200fcb5985043203ab557d0e94499fc8e20ccb8031998e638fbe55",
+      "bytes": 28800,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/sched/sch_fq_codel.ko",
+      "sha256": "7adbad77992069e370c47a7ff3db5a60f36bc83047ebe2f44ccc818757f78c1c",
+      "bytes": 22064,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    },
+    {
+      "path": "usr/lib/modules/7.2.5-nanokvm-os-r3/kernel/net/wireless/cfg80211.ko",
+      "sha256": "0ff59aa37fa7c9e6f4ce28c25669f85d4917184a10544f52fc73e2826bcb50d2",
+      "bytes": 1786704,
+      "vermagic": "7.2.5-nanokvm-os-r3 preempt mod_unload riscv"
+    }
+  ],
+  "rootfs_delta": {
+    "version": "1.0.0-beta.10",
+    "sequence": 23,
+    "kernel": "7.2.5-nanokvm-os-r3",
+    "native_changed": [
+      "kvmapp/server/dl_lib/libkvm_mmf.so",
+      "kvmapp/server/dl_lib/libkvm.so"
+    ],
+    "application_manifest_sha256": "4def0ba606282b050162e863f46200e1f37cc18930005f1eca9db406ccf79490",
+    "board_manifest_sha256": "8ff51fb401b1319cc81710203200d6502830d521a7a8f46532e39666aed75a5b",
+    "d80_firmware_sha256": "f7fa0a1a296589568fbea1de89ab8feeb13ef2e6db6c7fafa682a34fb583a1bd",
+    "server_sha256": "8b2d4792e86296917c29f0b5a96afded8069dd07250615f8cf87ec3fb18d9584",
+    "updater_reused_from_beta9": true
+  },
+  "normal_fit_sha256": "9784f593598eb66d08d52d7b574278c57ec1385faaa20b472ee65ce551fc1080",
+  "full_system": {
+    "platform": "sg2002-sd-v2",
+    "minimum_updater": 2,
+    "target_updater": 2,
+    "target_updater_sequence": 0,
+    "target_updater_sha256": "3e5179d3f2b97050ab28994545abee594f5b8e0f9583b7810dbf3bb62c0dbcaf",
+    "addon_contract_sha256": "7cd0fa98443598e779cfb8379ec3c80832411c4adc8e1ec69c26412d3601438f",
+    "rootfs_bytes": 1560281088,
+    "rootfs_sha256": "6e70f4f3505e8d9385396bfed547db90d1af915e4864a73adcfe5cfbd6651a74",
+    "bootloader_sha256": "8254d38124e66877ab6c4a894f656d8ee6dc299d813dd06f31037ddaa2e51b9d",
+    "kernel_release": "7.2.5-nanokvm-os-r3"
+  },
+  "package_checks": {
+    "version": "1.0.0-beta.10",
+    "sequence": 23,
+    "files": {
+      "rootfs.ext4.gz": "32c7ae066ff0c51d3d2f3027a725421e64682013ed8c192a1a230b71114034a6",
+      "normal-boot.sd": "9784f593598eb66d08d52d7b574278c57ec1385faaa20b472ee65ce551fc1080",
+      "ram-update.sd": "3c65173f56724537f8b9e2235e29593e2baa40fc1313e3b062a019b663892b92",
+      "addons-contract.json": "7cd0fa98443598e779cfb8379ec3c80832411c4adc8e1ec69c26412d3601438f",
+      "nkos-addons": "181aafde7a35c0fad1778eccc64beba9dcbc4d0d8830d5b2a954f568431bdba9",
+      "nkos-update": "3e5179d3f2b97050ab28994545abee594f5b8e0f9583b7810dbf3bb62c0dbcaf"
+    },
+    "ramdisk_roundtrip": true,
+    "hardware_install_tested": false
+  },
+  "artifact_sha256": {
+    "NanoKVM-OS-1.0.0-beta.10.img.zip": "4cda344590d9513eb881b0c3a9fc1b945c146c3d00454abb1ed381320f4e599f",
+    "NanoKVM-OS-update.nkos": "147955396582ddf11459a3ed8905fb62e0af27268a621539c633dbcff277b5ba"
+  },
+  "validation": {
+    "web_tests": "85/85 passed against freshly built production bundles",
+    "osupdate_tests": "passed",
+    "module_dependencies": "depmod -e with System.map; no errors",
+    "image": "FIT payload, rootfs inventory, module vermagic, FAT/ext4 and image layout checks passed",
+    "hardware_install": "Installed system and final application accepted; see hardware_acceptance for preflight rescue and final archive qualification limits."
+  },
+  "openssl": "4.0.2",
+  "target_c_cxx_optimization": "-O2",
+  "server_sha256": "8b2d4792e86296917c29f0b5a96afded8069dd07250615f8cf87ec3fb18d9584",
+  "hardware_acceptance": {
+    "version": "1.0.0-beta.10",
+    "sequence": 23,
+    "kernel": "7.2.5-nanokvm-os-r3",
+    "boot": "passed on existing PCIe/UXC device",
+    "wifi": "connected at 5180 MHz",
+    "qdisc": "FQ-CoDel active on WLAN queues",
+    "settings": "owner SSH and USB preferences preserved",
+    "apk": "hello 1.0.0-r0 restored; database/world/provider contract ready",
+    "authenticated_api": "nine endpoint checks passed; three status endpoints passed after final server replacement",
+    "video": "confirmed by owner",
+    "installation": "initial signed package entered RAM installer; missing chroot /dev stopped add-on preflight before rootfs writing. Binding /dev allowed verification and controlled installation to finish. Source now binds /dev in both verification and restoration chroots; final package regenerated.",
+    "final_server": "versioned-discovery server installed and restarted successfully after system installation",
+    "limitations": "The regenerated final archive was not installed in a second end-to-end run. Fresh-card data creation and physical Realtek hardware were not exercised."
+  },
+  "naming": "Beta-10 retains legacy asset names for beta-9 discovery; canonical versioned names start with beta-11.",
+  "updater": "Exact beta-9 helper retained at capability 2, sequence 0; GitHub discovery lives in NanoKVM-Server.",
+  "integration_commit": "cd0d9a2759e0f7a5babcb19bf5cd17ede5c1d59c",
+  "source_layout": "Curated public source snapshot; public history and documentation are maintained separately."
+}

@@ -33,6 +33,7 @@ import { Picoclaw } from './picoclaw';
 import { Power } from './power';
 import { Recorder } from './recorder';
 import { Screen } from './screen';
+import { Screenshot } from './screenshot';
 import { Script } from './script';
 import { Settings } from './settings';
 import { Terminal } from './terminal';
@@ -146,6 +147,7 @@ export const Menu = () => {
       [
         <Screen key="screen" />,
         ...(isAdmin ? [<Capture key="capture" />] : []),
+        <Screenshot key="screenshot" />,
         ...(isEnabled('recorder') ? [<Recorder key="recorder" />] : [])
       ],
       audio.available ? [<AudioMenu key="audio" audio={audio} />] : [],

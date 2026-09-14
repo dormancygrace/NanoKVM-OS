@@ -1,6 +1,15 @@
-# Beta-8 full-system updates
+# Beta-10 full-system updates
 
-For beta-8 sequence 21, use the capability-2 full-system `.nkos` package described in [the current installation guide](INSTALL.md). It updates the complete system using a RAM installer, preserves supported settings and migrates APK applications. An older updater may require the full SD image first.
+Beta-10 sequence 23 uses the capability-2 signed full-system package on the
+`sg2002-sd-v2` layout introduced in beta-9. It boots a RAM installer, validates the
+payload, writes the complete system, restores supported settings and APK add-ons,
+and reboots into the new kernel with matching modules. See [installation](INSTALL.md).
+The bootloader is retained; there is no A/B system rollback.
+
+Beta-10 keeps `NanoKVM-OS-update.nkos` so beta-9 can discover it. Its server adds
+versioned asset discovery; beta-11 and later use `NanoKVM-OS-vVERSION.nkos`, with
+hyphenated prerelease numbers. See [exact names](RELEASE-NAMING.md). The device
+checks for releases automatically; installation still requires an administrator.
 
 ## Earlier updater formats (historical reference)
 

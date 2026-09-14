@@ -48,6 +48,7 @@ type Service struct {
 	downloadStatus     downloadStatus
 	downloadFile       string
 	downloadPercentage string
+	downloadProgress   transferProgress
 }
 
 func NewService() *Service {
@@ -110,6 +111,7 @@ func (s *Service) beginDownload(file string, cancel context.CancelFunc) (chan st
 	s.downloadStatus = downloadStatusInProgress
 	s.downloadFile = file
 	s.downloadPercentage = ""
+	s.downloadProgress = transferProgress{}
 
 	return done, nil
 }
@@ -123,12 +125,13 @@ func (s *Service) setDownloadFile(done chan struct{}, file string) {
 	}
 }
 
-func (s *Service) setDownloadProgress(done chan struct{}, percentage string) {
+func (s *Service) setDownloadProgress(done chan struct{}, progress transferProgress) {
 	s.downloadMutex.Lock()
 	defer s.downloadMutex.Unlock()
 
 	if s.downloadDone == done {
-		s.downloadPercentage = percentage
+		s.downloadPercentage = progress.percentage()
+		s.downloadProgress = progress
 	}
 }
 
@@ -144,6 +147,7 @@ func (s *Service) finishDownload(done chan struct{}, status downloadStatus) {
 	s.downloadStatus = status
 	s.downloadFile = ""
 	s.downloadPercentage = ""
+	s.downloadProgress = transferProgress{}
 	_ = os.Remove(transferSentinelPath)
 	s.downloadMutex.Unlock()
 
@@ -192,12 +196,14 @@ func (s *Service) StatusImage(c *gin.Context) {
 	status := s.downloadStatus
 	file := s.downloadFile
 	percentage := s.downloadPercentage
+	progress := s.downloadProgress
 	s.downloadMutex.Unlock()
 
 	rsp.OkRspWithData(c, &proto.StatusImageRsp{
-		Status:     string(status),
-		File:       file,
-		Percentage: percentage,
+		Status:          string(status),
+		File:            file,
+		Percentage:      percentage,
+		DownloadedBytes: progress.Bytes, TotalBytes: progress.Total, BytesPerSecond: progress.BytesPerSecond,
 	})
 }
 
@@ -261,8 +267,8 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 		tempPath := out.Name()
 		defer os.Remove(tempPath)
 
-		lw := newLoggingWriter(out, c.Request.ContentLength, func(percentage string) {
-			s.setDownloadProgress(done, percentage)
+		lw := newLoggingWriter(out, c.Request.ContentLength, func(progress transferProgress) {
+			s.setDownloadProgress(done, progress)
 		})
 		_, copyErr := copyImage(lw, part, expectedSHA256)
 		lw.stopTicker()
@@ -358,8 +364,8 @@ func (s *Service) DownloadImage(c *gin.Context) {
 	go func() {
 		defer cancel()
 
-		if err := s.downloadRemoteImage(ctx, req.File, expectedSHA256, filename, func(percentage string) {
-			s.setDownloadProgress(done, percentage)
+		if err := s.downloadRemoteImage(ctx, req.File, expectedSHA256, filename, func(progress transferProgress) {
+			s.setDownloadProgress(done, progress)
 		}); err != nil {
 			if errors.Is(err, context.Canceled) {
 				log.Debug("Image download canceled")
@@ -404,7 +410,7 @@ func (s *Service) downloadRemoteImage(
 	rawURL string,
 	expectedSHA256 []byte,
 	filename string,
-	onProgress func(string),
+	onProgress func(transferProgress),
 ) error {
 	tempFile, err := os.CreateTemp("/data", ".nanokvm-download-*")
 	if err != nil {
@@ -447,7 +453,7 @@ func (s *Service) downloadRemoteImage(
 
 // Keep host development and bases without curl functional. Release firmware
 // ships curl/OpenSSL and takes the native TLS path above.
-func downloadGoImage(ctx context.Context, rawURL string, dst io.Writer, expected []byte, progress func(string)) error {
+func downloadGoImage(ctx context.Context, rawURL string, dst io.Writer, expected []byte, progress func(transferProgress)) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return err
@@ -489,25 +495,30 @@ type loggingWriter struct {
 	total      atomic.Int64
 	totalSize  int64
 	ticker     *time.Ticker
+	meter      *transferMeter
+	stopped    chan struct{}
 	done       chan struct{}
 	stopOnce   sync.Once
-	onProgress func(string)
+	onProgress func(transferProgress)
 }
 
-func newLoggingWriter(writer io.Writer, totalSize int64, onProgress func(string)) *loggingWriter {
+func newLoggingWriter(writer io.Writer, totalSize int64, onProgress func(transferProgress)) *loggingWriter {
 	lw := &loggingWriter{
 		writer:     writer,
 		totalSize:  totalSize,
 		onProgress: onProgress,
+		meter:      newTransferMeter(0),
 	}
 	lw.startTicker()
 	return lw
 }
 
 func (lw *loggingWriter) startTicker() {
-	lw.ticker = time.NewTicker(2500 * time.Millisecond)
+	lw.ticker = time.NewTicker(time.Second)
 	lw.done = make(chan struct{})
+	lw.stopped = make(chan struct{})
 	go func() {
+		defer close(lw.stopped)
 		for {
 			select {
 			case <-lw.done:
@@ -526,16 +537,14 @@ func (lw *loggingWriter) stopTicker() {
 	lw.stopOnce.Do(func() {
 		lw.ticker.Stop()
 		close(lw.done)
+		<-lw.stopped
 	})
 }
 
 func (lw *loggingWriter) updateProgress() {
-	if lw.totalSize <= 0 || lw.onProgress == nil {
-		return
+	if lw.onProgress != nil {
+		lw.onProgress(lw.meter.sample(lw.total.Load(), lw.totalSize, time.Now()))
 	}
-
-	percentage := float64(lw.total.Load()) / float64(lw.totalSize) * 100
-	lw.onProgress(fmt.Sprintf("%.2f%%", percentage))
 }
 
 func (lw *loggingWriter) Write(p []byte) (int, error) {

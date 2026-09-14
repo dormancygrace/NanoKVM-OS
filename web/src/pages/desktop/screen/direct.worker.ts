@@ -29,7 +29,7 @@ let paintSerial = 0;
 let observedPaintSerial = 0;
 let lastDisplayedTimestamp: number | null = null;
 let paintedTimestamp: number | null = null;
-let playoutDelayMs = 35;
+let playoutDelayMs: number | 'adaptive' = 'adaptive';
 let flowControl = true;
 let decoderPreference: 'prefer-hardware' | 'prefer-software' | 'no-preference' = 'prefer-hardware';
 
@@ -47,7 +47,8 @@ const frameQueue = new Queue<VideoFrame>();
 const frameChannel = new MessageChannel();
 
 type WorkerMessage = {
-  type: 'video' | 'stop';
+  type: 'video' | 'stop' | 'screenshot';
+  requestId?: number;
   codec?: 'h264' | 'h265';
   canvas?: OffscreenCanvas;
   url?: string;
@@ -79,9 +80,9 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
       reportedFrameWidth = 0;
       reportedFrameHeight = 0;
       renderMode = event.data.renderMode ?? 'paced';
-      playoutDelayMs = [20, 35, 50].includes(event.data.playoutDelayMs ?? 35)
-        ? (event.data.playoutDelayMs ?? 35)
-        : 35;
+      playoutDelayMs = [20, 35, 50].includes(event.data.playoutDelayMs ?? -1)
+        ? event.data.playoutDelayMs!
+        : 'adaptive';
       playout = new DirectPlayout<VideoFrame>(renderMode === 'paced' ? playoutDelayMs : 0);
       metrics = event.data.diagnostics ? new DirectMetrics() : null;
       const override = event.data.diagnostics ? event.data.decoderPreference : undefined;
@@ -112,7 +113,8 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
             stats: metrics!.snapshot({
               renderMode,
               decoderPreference,
-              playoutDelayMs,
+              playoutDelayMs: playout.delayMs,
+              adaptivePlayout: Number(playout.adaptive),
               flowControl: Number(flowControl),
               decodeQueue: decoder?.decodeQueueSize ?? 0,
               renderQueue: playout.size,
@@ -133,8 +135,25 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
       if (reportTimer !== null) clearInterval(reportTimer);
       reportTimer = null;
       break;
+    case 'screenshot':
+      void captureScreenshot(event.data.requestId);
+      break;
   }
 };
+
+async function captureScreenshot(requestId?: number) {
+  if (!requestId) return;
+  if (!canvas || !ctx || paintSerial === 0) {
+    self.postMessage({ type: 'screenshot-result', requestId, code: 'no-frame' });
+    return;
+  }
+  try {
+    const blob = await canvas.convertToBlob({ type: 'image/png' });
+    self.postMessage({ type: 'screenshot-result', requestId, blob });
+  } catch {
+    self.postMessage({ type: 'screenshot-result', requestId, code: 'encode-failed' });
+  }
+}
 
 function connect() {
   if (stopped || !streamUrl || socket) {

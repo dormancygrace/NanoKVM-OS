@@ -51,7 +51,7 @@ args=(-C "$KERNEL" O="$OUT" ARCH=riscv CROSS_COMPILE="$CROSS" LOCALVERSION= KCFL
 make "${args[@]}" olddefconfig
 python3 "$ROOT/scripts/validate-enhanced-kernel-config.py" "$OUT/.config"
 make "${args[@]}" -j"$JOBS" Image modules sophgo/sg2002-nanokvm-enhanced.dtb
-grep -qx '7.2.5-nanokvm-os-r2' "$OUT/include/config/kernel.release"
+grep -qx '7.2.5-nanokvm-os-r3' "$OUT/include/config/kernel.release"
 symbols=
 for module in sys base cif vi vpss vcodec jpeg cvi_vc_drv ive dwa rgn snsr_i2c; do
     (cd "$OSDRV/interdrv/$module" &&

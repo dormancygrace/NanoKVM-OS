@@ -27,8 +27,8 @@ if version != 'mkimage version 2026.07':
     raise SystemExit('Expected current pinned host mkimage 2026.07')
 data = (kernel / 'arch/riscv/boot/Image').read_bytes()
 release = (kernel / 'include/config/kernel.release').read_text().strip()
-if release != '7.2.5-nanokvm-os-r2':
-    raise SystemExit('Expected exact normal kernel release 7.2.5-nanokvm-os-r2')
+if release != '7.2.5-nanokvm-os-r3':
+    raise SystemExit('Expected exact normal kernel release 7.2.5-nanokvm-os-r3')
 if b'Linux version ' + release.encode() + b' ' not in data:
     raise SystemExit('Kernel Image release does not match kernel.release')
 if data[48:56] != b'RISCV\0\0\0':

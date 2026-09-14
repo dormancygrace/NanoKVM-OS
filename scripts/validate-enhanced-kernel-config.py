@@ -7,7 +7,7 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("config")
-parser.add_argument("--localversion", default="-nanokvm-os-r2")
+parser.add_argument("--localversion", default="-nanokvm-os-r3")
 args = parser.parse_args()
 config={}
 for line in Path(args.config).read_text().splitlines():

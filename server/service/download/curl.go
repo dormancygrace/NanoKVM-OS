@@ -34,11 +34,11 @@ func curlImageArgs(rawURL, headers string, preferChaCha bool) []string {
 	return append(args, "--url", rawURL)
 }
 
-func downloadCurlImage(ctx context.Context, rawURL string, dst *os.File, expected []byte, progress func(string)) error {
+func downloadCurlImage(ctx context.Context, rawURL string, dst *os.File, expected []byte, progress func(transferProgress)) error {
 	return downloadCurlTransfer(ctx, rawURL, dst, expected, progress, nil)
 }
 
-func downloadCurlTransfer(ctx context.Context, rawURL string, dst *os.File, expected []byte, progress func(string), resume *imageResume) error {
+func downloadCurlTransfer(ctx context.Context, rawURL string, dst *os.File, expected []byte, progress func(transferProgress), resume *imageResume) error {
 	offset, err := dst.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
@@ -71,7 +71,8 @@ func downloadCurlTransfer(ctx context.Context, rawURL string, dst *os.File, expe
 	stop, stopped := make(chan struct{}), make(chan struct{})
 	go func() {
 		defer close(stopped)
-		ticker := time.NewTicker(2500 * time.Millisecond)
+		meter := newTransferMeter(offset)
+		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -87,8 +88,8 @@ func downloadCurlTransfer(ctx context.Context, rawURL string, dst *os.File, expe
 					_ = saveImageResume(imageResumePath, resume)
 				}
 				info, err := dst.Stat()
-				if err == nil && total > 0 && progress != nil {
-					progress(fmt.Sprintf("%.2f%%", float64(info.Size())/float64(total)*100))
+				if err == nil && progress != nil {
+					progress(meter.sample(info.Size(), total, time.Now()))
 				}
 			}
 		}

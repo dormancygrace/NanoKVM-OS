@@ -78,6 +78,11 @@ func (s *VideoSource) activeConfig() (EncoderConfig, bool) {
 }
 
 func SubscribeVideo(config EncoderConfig) (*VideoSubscription, error) {
+	screen := common.GetScreen()
+	if portraitCodecBlocked(config.Codec, screen.Height,
+		common.ReadVideoValue("/run/nanokvm/width"), common.ReadVideoValue("/run/nanokvm/height")) {
+		return nil, fmt.Errorf("maximum portrait output requires H.265 Direct or a smaller stream resolution")
+	}
 	return defaultVideoSource.subscribe(config)
 }
 
@@ -276,4 +281,11 @@ func (s *VideoSubscription) send(frame VideoFrame) bool {
 			}
 		}
 	}
+}
+
+// Smaller stream presets fit the maximum portrait inside the H.264 height
+// limit. Auto and the QHD preset retain a height the hardware rejects.
+func portraitCodecBlocked(codec VideoCodec, streamHeight uint16, width, height int) bool {
+	return codec == VideoCodecH264 && width == 1440 && height == 2560 &&
+		(streamHeight == 0 || streamHeight >= 1440)
 }

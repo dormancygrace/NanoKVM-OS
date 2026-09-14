@@ -17,8 +17,8 @@ func TestMarkDiscontinuityWaitsForNextKeyframe(t *testing.T) {
 	if got := queue.popForWrite(); got != firstKey {
 		t.Fatalf("popped frame = %p, want %p", got, firstKey)
 	}
-	if queue.canAdvanceStream() {
-		t.Fatal("full flow-control window unexpectedly accepted another frame")
+	if !queue.canAdvanceStream() {
+		t.Fatal("full ACK window must leave room for bounded pending capture")
 	}
 
 	queue.markDiscontinuity()
@@ -98,5 +98,56 @@ func TestNewOutboundFrameFallsBackForUnrelatedStorage(t *testing.T) {
 	}
 	if !bytes.Equal(frame.payload[9:], data) {
 		t.Fatalf("frame data = %v, want %v", frame.payload[9:], data)
+	}
+}
+
+func TestAckStallPreservesQueuedPredictionChain(t *testing.T) {
+	q := newFrameQueue(2, 64)
+	q.enableFlowControl(1)
+	key := newOutboundFrame(true, 10, nil, []byte("key"))
+	delta := newOutboundFrame(false, 20, nil, []byte("delta"))
+	q.offer(key)
+	q.popForWrite()
+	if !q.offer(delta) {
+		t.Fatal("brief ACK stall discarded delta")
+	}
+	if got := q.popForWrite(); got != nil {
+		t.Fatal("writer exceeded ACK window")
+	}
+	select {
+	case <-q.wake:
+	default:
+	}
+	q.acknowledge(10)
+	select {
+	case <-q.wake:
+	default:
+		t.Fatal("ACK did not wake writer")
+	}
+	if got := q.popForWrite(); got != delta {
+		t.Fatal("prediction chain not preserved")
+	}
+}
+
+func TestAckStallStillBoundsPendingFramesAndBytes(t *testing.T) {
+	for _, limits := range []struct{ frames, bytes int }{{1, 1024}, {8, 16}} {
+		q := newFrameQueue(limits.frames, limits.bytes)
+		q.enableFlowControl(1)
+		q.offer(newOutboundFrame(true, 10, nil, []byte("k")))
+		q.popForWrite()
+		if !q.offer(newOutboundFrame(false, 20, nil, []byte("d"))) {
+			t.Fatal("first delta rejected")
+		}
+		if q.offer(newOutboundFrame(false, 30, nil, []byte("d"))) {
+			t.Fatal("queue limit exceeded")
+		}
+		q.acknowledge(10)
+		if q.offer(newOutboundFrame(false, 40, nil, []byte("d"))) {
+			t.Fatal("broken chain accepted")
+		}
+		key := newOutboundFrame(true, 50, nil, []byte("k"))
+		if !q.offer(key) || q.popForWrite() != key {
+			t.Fatal("keyframe recovery failed")
+		}
 	}
 }

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 
 import { stopFrameDetect } from '@/api/stream.ts';
 import { getFrameDetect } from '@/lib/localstorage.ts';
+import { captureMediaElement } from '@/lib/screenshot.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { mouseStyleAtom } from '@/jotai/mouse.ts';
-import { resolutionAtom } from '@/jotai/screen.ts';
+import { resolutionAtom, screenshotSourceAtom } from '@/jotai/screen.ts';
 
 import { ScreenViewport } from './viewport.tsx';
 
@@ -17,6 +18,7 @@ const STREAM_HEALTH_INTERVAL = 1000;
 export const Mjpeg = () => {
   const resolution = useAtomValue(resolutionAtom);
   const mouseStyle = useAtomValue(mouseStyleAtom);
+  const setScreenshotSource = useSetAtom(screenshotSourceAtom);
   const [hasError, setHasError] = useState(false);
   const [streamNonce, setStreamNonce] = useState(0);
   const image = useRef<HTMLImageElement>(null);
@@ -44,6 +46,19 @@ export const Mjpeg = () => {
     retryDelay.current = INITIAL_RETRY_DELAY;
   }, []);
 
+  const markFrameReady = useCallback(() => {
+    resetRetryDelay();
+    const element = image.current;
+    if (!element?.naturalWidth || !element.naturalHeight) return;
+    setScreenshotSource({
+      width: element.naturalWidth,
+      height: element.naturalHeight,
+      capture: () => captureMediaElement(element)
+    });
+  }, [resetRetryDelay, setScreenshotSource]);
+
+  useEffect(() => () => setScreenshotSource(null), [setScreenshotSource]);
+
   useEffect(() => {
     // stop frame detect for a while
     const enabled = getFrameDetect();
@@ -53,11 +68,12 @@ export const Mjpeg = () => {
     window.clearTimeout(retryTimer.current);
     retryTimer.current = undefined;
     retryDelay.current = INITIAL_RETRY_DELAY;
+    setScreenshotSource(null);
     setHasError(false);
     setStreamNonce((current) => current + 1);
 
     return () => window.clearTimeout(retryTimer.current);
-  }, [resolution]);
+  }, [resolution, setScreenshotSource]);
 
   useEffect(() => {
     const healthTimer = window.setInterval(() => {
@@ -79,8 +95,11 @@ export const Mjpeg = () => {
           visibility: hasError ? 'hidden' : 'visible'
         }}
         src={streamSrc}
-        onLoad={resetRetryDelay}
-        onError={reconnect}
+        onLoad={markFrameReady}
+        onError={() => {
+          setScreenshotSource(null);
+          reconnect();
+        }}
         alt="screen"
       />
     </ScreenViewport>

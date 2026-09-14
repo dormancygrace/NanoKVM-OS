@@ -73,4 +73,8 @@ for relative, hashes in clock_files.items():
     if sha(src / relative) != hashes['patched_sha256']:
         raise SystemExit('AIC SDIO-clock patched hash mismatch: ' + relative)
 
-print('AIC BSP exact ownership, firmware-path and SDIO-clock policy applied')
+# Apply the transport-independent monitor RX fix to the SDIO driver too.
+subprocess.run(['python3', str(repo / 'scripts/apply-aic-monitor-rx.py'),
+                '--source', str(src)], check=True)
+
+print('AIC BSP ownership, firmware-path, SDIO-clock and monitor RX policy applied')

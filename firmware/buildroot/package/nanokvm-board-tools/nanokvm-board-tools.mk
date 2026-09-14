@@ -27,6 +27,14 @@ define NANOKVM_BOARD_TOOLS_BUILD_CMDS
 		$(BR2_EXTERNAL_NANOKVM_PATH)/../../firmware/probes/edid120/build_final_monitor_profiles.py \
 		--input $(@D)/NanoKVM-final-video-profiles.bin \
 		--output $(@D)/monitor-profiles
+	$(HOST_DIR)/bin/python3 $(BR2_EXTERNAL_NANOKVM_PATH)/../../scripts/build-portrait-edid.py \
+		--input $(@D)/E21_NanoKVM.bin --output $(@D)/NanoKVM-portrait-1080x1920.bin
+	$(HOST_DIR)/bin/python3 $(BR2_EXTERNAL_NANOKVM_PATH)/../../scripts/build-portrait-edid.py \
+		--profile hd --input $(@D)/E21_NanoKVM.bin --output $(@D)/NanoKVM-portrait-720x1280.bin
+	$(HOST_DIR)/bin/python3 $(BR2_EXTERNAL_NANOKVM_PATH)/../../scripts/build-portrait-edid.py \
+		--profile h264 --input $(@D)/E21_NanoKVM.bin --output $(@D)/NanoKVM-portrait-1296x2304.bin
+	$(HOST_DIR)/bin/python3 $(BR2_EXTERNAL_NANOKVM_PATH)/../../scripts/build-portrait-edid.py \
+		--profile max --input $(@D)/E21_NanoKVM.bin --output $(@D)/NanoKVM-portrait-1440x2560.bin
 	# Never reuse the historical checked-in executable: its malformed ELF
 	# program headers cannot be repaired by target stripping.
 	rm -f $(@D)/nanokvm_update_edid
@@ -45,6 +53,14 @@ define NANOKVM_BOARD_TOOLS_INSTALL_TARGET_CMDS
 		$(@D)/monitor-profiles/NanoKVM-monitor-auto.bin \
 		$(TARGET_DIR)/usr/share/nanokvm/edid/NanoKVM-final-video-profiles.bin
 	$(INSTALL) -m 0644 $(@D)/monitor-profiles/NanoKVM-monitor-*.bin $(TARGET_DIR)/usr/share/nanokvm/edid/
+	$(INSTALL) -D -m 0644 $(@D)/NanoKVM-portrait-1080x1920.bin \
+		$(TARGET_DIR)/usr/share/nanokvm/edid/NanoKVM-portrait-1080x1920.bin
+	$(INSTALL) -D -m 0644 $(@D)/NanoKVM-portrait-720x1280.bin \
+		$(TARGET_DIR)/usr/share/nanokvm/edid/NanoKVM-portrait-720x1280.bin
+	$(INSTALL) -D -m 0644 $(@D)/NanoKVM-portrait-1296x2304.bin \
+		$(TARGET_DIR)/usr/share/nanokvm/edid/NanoKVM-portrait-1296x2304.bin
+	$(INSTALL) -D -m 0644 $(@D)/NanoKVM-portrait-1440x2560.bin \
+		$(TARGET_DIR)/usr/share/nanokvm/edid/NanoKVM-portrait-1440x2560.bin
 	$(INSTALL) -D -m 0644 $(@D)/E21_NanoKVM.bin \
 		$(TARGET_DIR)/usr/share/nanokvm/edid/NanoKVM-stock.bin
 endef

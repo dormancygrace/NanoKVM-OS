@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Tag } from 'antd';
+import { message, Tag } from 'antd';
 import { useAtomValue } from 'jotai';
 import { CheckIcon, ClapperboardIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +11,8 @@ import {
   type EncoderCodec,
   type EncoderTransport
 } from '@/lib/encoder.ts';
-import { videoModeAtom } from '@/jotai/screen.ts';
+import { isMaximumPortraitBlocked, isQhdWebRTCBlocked } from '@/lib/video-policy';
+import { resolutionAtom, videoModeAtom } from '@/jotai/screen.ts';
 import { MenuSubmenu } from '@/components/menu-item.tsx';
 
 const codecs: Array<{ key: EncoderCodec; name: string }> = [
@@ -22,6 +23,8 @@ const codecs: Array<{ key: EncoderCodec; name: string }> = [
 export const Codec = () => {
   const { t } = useTranslation();
   const videoMode = useAtomValue(videoModeAtom);
+  const resolution = useAtomValue(resolutionAtom);
+  const blocked = videoMode === 'h264' && (resolution?.height ?? 0) > 1080;
   const [codec, setCodec] = useState(getEncoderCodec);
   const [h265Supported, setH265Supported] = useState(false);
   const [capabilityReady, setCapabilityReady] = useState(false);
@@ -43,9 +46,22 @@ export const Codec = () => {
     };
   }, [videoMode]);
 
-  function update(nextCodec: EncoderCodec) {
+  async function update(nextCodec: EncoderCodec) {
     if (nextCodec === 'h265' && !h265Supported) return;
 
+    try {
+      if (await isMaximumPortraitBlocked(videoMode, nextCodec)) {
+        message.warning(t('videoSettings.portraitMaximumHint'));
+        return;
+      }
+      if (await isQhdWebRTCBlocked(videoMode, nextCodec)) {
+        message.warning(t('videoSettings.unstableDescription'));
+        return;
+      }
+    } catch {
+      message.error(t('videoSettings.failed'));
+      return;
+    }
     setEncoderCodec(nextCodec);
     if (nextCodec === codec) return;
     setCodec(nextCodec);
@@ -55,11 +71,11 @@ export const Codec = () => {
   const content = (
     <>
       {codecs.map((item) => {
-        const disabled = item.key === 'h265' && (!capabilityReady || !h265Supported);
+        const disabled = item.key === 'h265' && (!capabilityReady || !h265Supported || blocked);
         return (
           <div
             key={item.key}
-            className={`flex select-none items-center rounded py-1.5 pl-1 pr-5 ${
+            className={`flex items-center rounded py-1.5 pr-5 pl-1 select-none ${
               disabled
                 ? 'cursor-not-allowed text-neutral-500'
                 : 'cursor-pointer hover:bg-neutral-700/70'
@@ -71,7 +87,7 @@ export const Codec = () => {
             </div>
             <span>
               {item.name}
-              {item.key === 'h265' && videoMode === 'h264' && (
+              {item.key === 'h265' && blocked && (
                 <Tag color="gold" className="ml-2">
                   {t('videoSettings.unstableTag')}
                 </Tag>
@@ -92,7 +108,7 @@ export const Codec = () => {
     >
       <div className="flex h-[30px] cursor-pointer items-center space-x-2 rounded px-3 text-neutral-300 hover:bg-neutral-700/70">
         <ClapperboardIcon size={18} />
-        <span className="select-none text-sm">{t('screen.codec')}</span>
+        <span className="text-sm select-none">{t('screen.codec')}</span>
       </div>
     </MenuSubmenu>
   );

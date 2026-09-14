@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { notification, Spin } from 'antd';
 import clsx from 'clsx';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { w3cwebsocket as W3cWebSocket } from 'websocket';
 
 import { encoderCodecQuery, getEncoderCodec, supportsWebRTCH265 } from '@/lib/encoder.ts';
+import { captureMediaElement } from '@/lib/screenshot.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { mouseStyleAtom } from '@/jotai/mouse.ts';
+import { screenshotSourceAtom } from '@/jotai/screen.ts';
 
 import { ScreenViewport } from './viewport.tsx';
 import { startWebrtcDiagnostics } from './webrtc-diagnostics.ts';
@@ -32,6 +34,7 @@ const parseSignalingData = <T,>(data?: string): T | null => {
 export const H264Webrtc = ({ onEncoderConflict }: { onEncoderConflict: () => boolean }) => {
   const { t } = useTranslation();
   const mouseStyle = useAtomValue(mouseStyleAtom);
+  const setScreenshotSource = useSetAtom(screenshotSourceAtom);
   const [isLoading, setIsLoading] = useState(true);
   const [connectionAttempt, setConnectionAttempt] = useState(0);
   const [notificationApi, contextHolder] = notification.useNotification();
@@ -43,11 +46,20 @@ export const H264Webrtc = ({ onEncoderConflict }: { onEncoderConflict: () => boo
   const videoIceCandidates = useRef<RTCIceCandidate[]>([]);
   const translationRef = useRef(t);
 
+  const updateScreenshotSource = () => {
+    const element = videoRef.current;
+    if (!element || element.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+    const { videoWidth: width, videoHeight: height } = element;
+    if (!width || !height) return;
+    setScreenshotSource({ width, height, capture: () => captureMediaElement(element) });
+  };
+
   useEffect(() => {
     translationRef.current = t;
   }, [t]);
 
   useEffect(() => {
+    setScreenshotSource(null);
     const requestedCodec = getEncoderCodec();
     const codec = requestedCodec === 'h265' && !supportsWebRTCH265() ? 'h264' : requestedCodec;
     const query = encoderCodecQuery(codec);
@@ -273,12 +285,15 @@ export const H264Webrtc = ({ onEncoderConflict }: { onEncoderConflict: () => boo
             cancelReconnect();
             setIsLoading(false);
             if (msg.data) console.error('WebRTC video stream rejected:', msg.data);
-            const retryingJoin = onEncoderConflict();
+            const qhdBlocked = msg.data === 'qhd-h265-webrtc-disabled';
+            const retryingJoin = !qhdBlocked && onEncoderConflict();
             if (!retryingJoin)
               notificationApi.error({
                 key: WEBRTC_CONNECTION_FAILED_NOTIFICATION_KEY,
                 message: translationRef.current('screen.encoderError'),
-                description: translationRef.current('screen.encoderConflict'),
+                description: translationRef.current(
+                  qhdBlocked ? 'videoSettings.unstableDescription' : 'screen.encoderConflict'
+                ),
                 placement: 'topRight',
                 duration: 0
               });
@@ -316,6 +331,7 @@ export const H264Webrtc = ({ onEncoderConflict }: { onEncoderConflict: () => boo
 
     return () => {
       disposed = true;
+      setScreenshotSource(null);
       stopDiagnostics?.();
       cancelReconnect();
 
@@ -337,7 +353,7 @@ export const H264Webrtc = ({ onEncoderConflict }: { onEncoderConflict: () => boo
       clearTimeout(loadingTimer);
       clearTimeout(connectionTimeoutTimer);
     };
-  }, [connectionAttempt, notificationApi, diagnostics, onEncoderConflict]);
+  }, [connectionAttempt, notificationApi, diagnostics, onEncoderConflict, setScreenshotSource]);
 
   useEffect(() => {
     return () => {
@@ -364,7 +380,10 @@ export const H264Webrtc = ({ onEncoderConflict }: { onEncoderConflict: () => boo
           }}
           onPlaying={() => {
             setIsLoading(false);
+            updateScreenshotSource();
           }}
+          onLoadedData={updateScreenshotSource}
+          onResize={updateScreenshotSource}
         />
       </ScreenViewport>
 

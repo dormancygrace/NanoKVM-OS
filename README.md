@@ -6,12 +6,12 @@
 
 **Community firmware compatible with NanoKVM Cube and NanoKVM PCIe.**
 
-![Version: 1.0.0 beta-9](https://img.shields.io/badge/version-1.0.0--beta.9-orange)
+![Version: 1.0.0 beta-10](https://img.shields.io/badge/version-1.0.0--beta.10-orange)
 ![Hardware: Cube and PCIe](https://img.shields.io/badge/hardware-Cube%20%7C%20PCIe-blue)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
-[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](docs/BUILD-beta-9.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
+[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](docs/BUILD-beta-10.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
 
 </div>
 
@@ -24,13 +24,15 @@
 The aim is a responsive IP-KVM with maintained system components, explicit recovery behavior and measurable resource use. This is an independent community project built on Sipeed NanoKVM and SOPHGO/CVITEK software, with credit to the original authors.
 
 > [!NOTE]
-> **Beta-9 full image — sequence 22:** HTTPS on by default, H.265 Direct when supported by the browser, with H.264 fallback. **QHD H.265 WebRTC is unstable and can freeze or restart the device.** Use Direct for QHD. Fresh-card partition creation and broad hardware/endurance qualification remain pending; see [validation](docs/VALIDATION.md).
+> **Beta-10 — sequence 23:** HTTPS on by default, H.265 Direct when supported by the browser, with H.264 fallback. **QHD H.265 WebRTC is disabled.** Use H.265 Direct for QHD. Fresh-card partition creation and broad hardware/endurance qualification remain pending; see [validation](docs/VALIDATION.md).
 
 ## 🚀 At a glance
 
 - **🖼️ More desktop space:** QHD 2560×1440 at 40 Hz, alongside FHD and lower resolutions.
+- **📐 Portrait video:** four portrait monitor profiles with matching codec-aware capture controls.
+- **📸 Screenshots:** save the current frame as a native-resolution PNG from Direct, WebRTC or MJPEG.
 - **🔌 A console without HDMI:** USB Serial (CDC ACM) for headless Linux, with access through the browser terminal.
-- **🎞️ More video choices:** H.265 Direct by default; H.264, H.265 and MJPEG available. QHD H.265 WebRTC is marked unstable.
+- **🎞️ More video choices:** H.265 Direct by default; H.264, H.265 and MJPEG available. QHD H.265 WebRTC is disabled.
 - **🔒 HTTPS from first boot:** a unique device certificate, HTTP redirect and secure browser access.
 - **🧠 More control over memory:** a reusable CMA/ION pool and configurable memory settings.
 - **🌐 VPN menu:** WireGuard, OpenVPN 3 Core with upstream DCO and Tailscale, with profile controls and component versions.
@@ -41,7 +43,7 @@ The aim is a responsive IP-KVM with maintained system components, explicit recov
 
 USB audio reaches the browser with one shared Opus encoder. Mount an ISO directly from your computer without copying it to SD; CD/DVD emulation now supports images up to 31.625 GiB. Dashboard shows SoC temperature and CPU frequency, with independent thermal protection and optional runtime overclocking.
 
-OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Linux 7.2.5-nanokvm-os-r2**, **OpenSSL 4.0.2** and consistent **`-O2`** target C/C++ builds. Optional tools are installed through APK, while signed system updates keep the kernel and modules together. See [release notes and community credits](docs/RELEASE-beta-9.md).
+OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Linux 7.2.5-nanokvm-os-r3**, **OpenSSL 4.0.2** and consistent **`-O2`** target C/C++ builds. Optional tools are installed through APK, while signed system updates keep the kernel and modules together. See [release notes and community credits](docs/RELEASE-beta-10.md).
 
 <a id="compatibility"></a>
 
@@ -67,7 +69,7 @@ This comparison uses the documented SG2002 Cube/PCIe features in the [Sipeed Nan
 | Area | Original SG2002 NanoKVM | NanoKVM OS |
 |---|---|---|
 | 🖼️ Video resolution | Up to 1920×1080 documented | Adds 2560×1440 at 40 Hz, with QHD monitor switching exercised on the PCIe/UXC test board |
-| 🎞️ Video formats | MJPEG and H.264 documented | MJPEG, H.264 and H.265; Direct and WebRTC paths for H.264/H.265. Use Direct for QHD H.265; its WebRTC path remains unstable |
+| 🎞️ Video formats | MJPEG and H.264 documented | MJPEG, H.264 and H.265; Direct and WebRTC paths for H.264/H.265. Use Direct for QHD H.265; its WebRTC path is disabled |
 | 🖥️ Virtual HDMI monitor | Stock EDID and resolution controls | Separate monitor preference and stream resolution; aspect-ratio-preserving downscaling. Automatic prefers QHD 40 Hz; explicit QHD 40 Hz, FHD 75 Hz and HD 120 Hz monitor profiles retain BIOS fallback timings |
 | ⏱️ Stream frame-rate control | Existing FPS control | Adds 720p / 120 FPS, 1080p / 70 FPS and 1440p / 40 FPS profiles. Targets depend on source timing, codec and load; they do not guarantee delivered FPS |
 | 🎚️ Video bitrate | Existing video quality controls | Adds 15 and 20 Mbit/s CBR targets for H.264/H.265 in Video settings and the toolbar; MJPEG keeps its quality controls |
@@ -96,7 +98,7 @@ H.265 needs a browser/platform that actually supports decoding it. Pion packetiz
 | 📀 Download `.img.zip`, decompress and flash the whole SD card | 📦 Upload a signed `.nkos` package under Settings → Updates |
 | Includes Linux, native libraries, application and updater | Updates the application and supported system components on a compatible OS base |
 
-The current release is distributed as a complete SD image only. Fresh-card first-boot testing remains pending. See [installation and recovery](docs/INSTALL.md).
+The current release includes a full SD image and a signed full-system package for beta-9’s compatible layout. Fresh-card first-boot testing remains pending. See [installation and recovery](docs/INSTALL.md).
 
 ## 🌐 VPN profiles
 
@@ -118,8 +120,8 @@ Full system images use the hardware **Boot flashing procedure**. They are not ac
 
 ## 🧪 Current limitations
 
-- **QHD H.265 WebRTC is unstable and can freeze or restart the device.** The underlying fault remains unresolved; use H.265 Direct for QHD.
-- QHD monitor switching has been exercised on the test board, but the final full image and all browser/client combinations remain to be qualified.
+- **QHD H.265 WebRTC is disabled.** The underlying fault remains unresolved; use H.265 Direct for QHD.
+- Portrait and landscape video were exercised on the PCIe/UXC test board. Fresh-card creation and all browser/client combinations remain to be qualified; see [beta-10 acceptance](docs/BETA10-ACCEPTANCE.md).
 - Forced application termination can leave native media buffers in an unusable state; application rollback is not a hardware reset.
 - A watchdog cannot be assumed to recover every bus/SoC lockup. Physical power cycling may still be necessary.
 - OpenVPN supports routed TUN profiles; TAP, scripts and interactive SSO/MFA are not supported. Local DCO traffic and DNS restoration were checked; broad provider interoperability remains unqualified.
@@ -135,7 +137,7 @@ Full system images use the hardware **Boot flashing procedure**. They are not ac
 - `scripts/`: component build/staging tools; external SDK and toolchain inputs are required.
 - `tools/` and `kvmapp/system/init.d/`: EDID tools and device startup services.
 
-See [BUILD.md](docs/BUILD-beta-9.md) for build instructions.
+See [BUILD.md](docs/BUILD-beta-10.md) for build instructions.
 
 ## ❤️ Credits and licenses
 
@@ -143,8 +145,8 @@ NanoKVM application changes retain the upstream [GPL-3.0 license](LICENSE). Indi
 
 Thanks to [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), the Linux/Buildroot/Go communities and [Pion](https://github.com/pion). Please include board revision, browser, codec/transport, resolution, FPS target and reproduction steps when reporting an issue. Remove credentials and private screen contents from logs.
 
-## Beta-9
+## Beta-10
 
-See [beta-9 release notes](docs/RELEASE-beta-9.md) and [beta-9 build inputs](docs/BUILD-beta-9.md). Fresh images disable SSH; enable it in the Web settings if needed.
+See [beta-10 release notes](docs/RELEASE-beta-10.md) and [beta-10 build inputs](docs/BUILD-beta-10.md). Fresh images disable SSH; enable it in the Web settings if needed.
 
-Beta-9 uses a 64 MiB boot partition and requires a full SD image for the layout transition. See [SD layout v2](docs/SD-LAYOUT-v2.md). No `.nkos` package is distributed for beta-9.
+Beta-10 retains the 64 MiB boot layout introduced in beta-9. Beta-9 users can install `NanoKVM-OS-update.nkos`; stock firmware and beta-8 or earlier require the full image. Beta-10 is the last release with legacy asset names; see [release naming](docs/RELEASE-NAMING.md).

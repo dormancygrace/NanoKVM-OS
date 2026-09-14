@@ -236,3 +236,24 @@ func TestActiveEncoderConfigExcludesDrainingCapture(t *testing.T) {
 		t.Fatal("draining session advertised as active")
 	}
 }
+
+func TestMaximumPortraitCodecPolicy(t *testing.T) {
+	for _, c := range []struct {
+		codec              VideoCodec
+		height             uint16
+		width, inputHeight int
+		blocked            bool
+	}{
+		{VideoCodecH264, 0, 1440, 2560, true},
+		{VideoCodecH264, 1440, 1440, 2560, true},
+		{VideoCodecH264, 1080, 1440, 2560, false},
+		{VideoCodecH265, 0, 1440, 2560, false},
+		{VideoCodecH264, 0, 1088, 1920, false},
+		{VideoCodecH264, 0, 1296, 2304, false},
+		{VideoCodecH264, 0, 2560, 1440, false},
+	} {
+		if got := portraitCodecBlocked(c.codec, c.height, c.width, c.inputHeight); got != c.blocked {
+			t.Fatalf("portrait codec policy %+v = %v", c, got)
+		}
+	}
+}

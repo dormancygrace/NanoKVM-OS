@@ -68,6 +68,10 @@ func connect(c *gin.Context, encoderConfig stream.EncoderConfig) {
 	var zeroTime time.Time
 	_ = wsConn.SetReadDeadline(zeroTime)
 
+	if qhdH265Blocked(encoderConfig.Codec) {
+		_ = wsConn.WriteJSON(&Message{Event: "video-error", Data: qhdH265Error})
+		return
+	}
 	// create video connection
 	iceServers := createICEServers()
 

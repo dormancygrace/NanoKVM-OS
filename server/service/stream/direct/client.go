@@ -80,11 +80,9 @@ func (q *frameQueue) canAdvanceStream() bool {
 		return true
 	}
 
-	if q.waitingForKeyframe {
-		return len(q.inFlight) < q.window
-	}
-
-	return len(q.frames)+len(q.inFlight) < q.window
+	// ACK credits bound socket writes, not the pending capture queue. Brief
+	// network jitter must not discard a valid inter-frame prediction chain.
+	return q.waitingForKeyframe || (len(q.frames) < q.maxFrames && q.queuedBytes < q.maxBytes)
 }
 
 func (q *frameQueue) captureState() (active bool, flowControlled bool, canAdvance bool) {
@@ -97,11 +95,7 @@ func (q *frameQueue) captureState() (active bool, flowControlled bool, canAdvanc
 	if !q.flowControlled {
 		return true, false, true
 	}
-	if q.waitingForKeyframe {
-		return true, true, len(q.inFlight) < q.window
-	}
-
-	return true, true, len(q.frames)+len(q.inFlight) < q.window
+	return true, true, q.waitingForKeyframe || (len(q.frames) < q.maxFrames && q.queuedBytes < q.maxBytes)
 }
 
 func (q *frameQueue) offer(frame *outboundFrame) bool {
@@ -114,7 +108,7 @@ func (q *frameQueue) offer(frame *outboundFrame) bool {
 
 	if frame.key {
 		q.clearFramesLocked()
-		if q.flowControlled && len(q.inFlight) >= q.window {
+		if len(frame.payload) > q.maxBytes {
 			q.waitingForKeyframe = true
 			return false
 		}
@@ -128,13 +122,7 @@ func (q *frameQueue) offer(frame *outboundFrame) bool {
 		return false
 	}
 
-	if q.flowControlled {
-		if len(q.frames)+len(q.inFlight) >= q.window {
-			q.clearFramesLocked()
-			q.waitingForKeyframe = true
-			return false
-		}
-	} else if len(q.frames) >= q.maxFrames || q.queuedBytes+len(frame.payload) > q.maxBytes {
+	if len(q.frames) >= q.maxFrames || q.queuedBytes+len(frame.payload) > q.maxBytes {
 		q.clearFramesLocked()
 		q.waitingForKeyframe = true
 		return false
@@ -149,7 +137,7 @@ func (q *frameQueue) popForWrite() *outboundFrame {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
-	if q.closed || len(q.frames) == 0 {
+	if q.closed || len(q.frames) == 0 || (q.flowControlled && len(q.inFlight) >= q.window) {
 		return nil
 	}
 
@@ -178,6 +166,7 @@ func (q *frameQueue) acknowledge(timestamp int64) {
 
 	clear(q.inFlight[:acknowledged])
 	q.inFlight = q.inFlight[acknowledged:]
+	q.signalLocked() // The writer may be sleeping with queued frames but no ACK credits.
 }
 
 func (q *frameQueue) requestResync() {

@@ -1,0 +1,67 @@
+--- a/interdrv/vi/chip/cv181x/vip/vi_drv.c
++++ b/interdrv/vi/chip/cv181x/vip/vi_drv.c
+@@ -865,6 +865,27 @@
+ 	sys_ctrl.bits.STRIDE_SEL	= is_sw_mode;
+ 	sys_ctrl.bits.SEGLEN_SEL	= is_sw_mode;
+ 	sys_ctrl.bits.SEGNUM_SEL	= is_sw_mode;
++#if defined(__CV181X__)
++	/* FE automatic pitch is width * 2, while packed-YUV VB metadata is
++	 * DEFAULT_ALIGN bytes. Initialization must retain the padded pitch. */
++	{
++		int raw = -1;
++
++		switch (dmaid) {
++		case ISP_BLK_ID_DMA_CTL6: case ISP_BLK_ID_DMA_CTL7:
++		case ISP_BLK_ID_DMA_CTL8: case ISP_BLK_ID_DMA_CTL9:
++			raw = ISP_PRERAW_A; break;
++		case ISP_BLK_ID_DMA_CTL12: case ISP_BLK_ID_DMA_CTL13:
++			raw = ISP_PRERAW_B; break;
++		case ISP_BLK_ID_DMA_CTL18: case ISP_BLK_ID_DMA_CTL19:
++			raw = ISP_PRERAW_C; break;
++		default: break;
++		}
++		if (raw >= 0 && ctx->isp_pipe_cfg[raw].is_yuv_bypass_path
++			&& !ctx->isp_pipe_cfg[raw].is_422_to_420)
++			sys_ctrl.bits.STRIDE_SEL = 1;
++	}
++#endif
+ 	ISP_WR_REG(dmab, REG_ISP_DMA_CTL_T, SYS_CONTROL, sys_ctrl.raw);
+ }
+ 
+@@ -2034,6 +2055,11 @@
+ /****************************************************************************
+  *	YUV Bypass Control Flow Config
+  ****************************************************************************/
++/* Read-only capability for applications advertising exact portrait timings. */
++static bool yuv_bypass_aligned_stride = true;
++module_param(yuv_bypass_aligned_stride, bool, 0444);
++MODULE_PARM_DESC(yuv_bypass_aligned_stride, "Packed YUV DMA pitch matches VI frame metadata");
++
+ u32 ispblk_dma_yuv_bypass_config(struct isp_ctx *ctx, uint32_t dmaid, uint64_t buf_addr,
+ 					const enum cvi_isp_raw raw_num)
+ {
+@@ -2072,15 +2098,23 @@
+ 	}
+ 
+ 	len = VI_ALIGN(len);
++	/* VI buffers advertise DEFAULT_ALIGN byte pitches to VPSS. Keep the
++	 * payload length separate, but write rows at that same pitch. */
++	if (!ctx->isp_pipe_cfg[raw_num].is_422_to_420)
++		stride = ALIGN(stride, DEFAULT_ALIGN);
+ 
+ 	ISP_WR_REG(dmab, REG_ISP_DMA_CTL_T, DMA_SEGLEN, len);
+ 	ISP_WR_REG(dmab, REG_ISP_DMA_CTL_T, DMA_STRIDE, stride);
+ 	ISP_WR_REG(dmab, REG_ISP_DMA_CTL_T, DMA_SEGNUM, num);
++	/* Automatic stride is tightly packed and ignores DMA_STRIDE. Override
++	 * only pitch; payload length and line count keep their existing modes. */
++	if (!ctx->isp_pipe_cfg[raw_num].is_422_to_420)
++		ISP_WR_BITS(dmab, REG_ISP_DMA_CTL_T, SYS_CONTROL, STRIDE_SEL, 1);
+ 
+ 	if (buf_addr)
+ 		ispblk_dma_setaddr(ctx, dmaid, buf_addr);
+ 
+-	return len * num;
++	return (ctx->isp_pipe_cfg[raw_num].is_422_to_420 ? len : stride) * num;
+ }
+ 
+ /****************************************************************************

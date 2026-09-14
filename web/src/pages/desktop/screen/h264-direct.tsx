@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert } from 'antd';
 import clsx from 'clsx';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import { encoderCodecQuery, getEncoderCodec, isEncoderCodecSupported } from '@/lib/encoder.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { mouseStyleAtom } from '@/jotai/mouse';
+import { screenshotSourceAtom } from '@/jotai/screen.ts';
 
 import DirectWorker from './direct.worker.ts?worker';
 import { ScreenViewport } from './viewport.tsx';
@@ -14,10 +15,22 @@ import { ScreenViewport } from './viewport.tsx';
 export const H264Direct = ({ onEncoderConflict }: { onEncoderConflict: () => boolean }) => {
   const { t } = useTranslation();
   const mouseStyle = useAtomValue(mouseStyleAtom);
+  const setScreenshotSource = useSetAtom(screenshotSourceAtom);
   const [fatalError, setFatalError] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const workerRef = useRef<Worker | null>(null);
+  const screenshotRequests = useRef(
+    new Map<
+      number,
+      {
+        resolve: (blob: Blob) => void;
+        reject: (error: Error) => void;
+        timer: ReturnType<typeof setTimeout>;
+      }
+    >()
+  );
+  const nextScreenshotRequest = useRef(1);
   const translationRef = useRef(t);
 
   useEffect(() => {
@@ -26,6 +39,7 @@ export const H264Direct = ({ onEncoderConflict }: { onEncoderConflict: () => boo
 
   useEffect(() => {
     let disposed = false;
+    const pendingScreenshots = screenshotRequests.current;
     const requestedCodec = getEncoderCodec();
     setFatalError(null);
 
@@ -58,7 +72,9 @@ export const H264Direct = ({ onEncoderConflict }: { onEncoderConflict: () => boo
       const requestedRender = diagnosticParams.get('directRender');
       const renderMode =
         requestedRender === 'immediate' || requestedRender === 'vsync' ? requestedRender : 'paced';
-      const playoutDelayMs = Number(diagnosticParams.get('directBufferMs') || 35);
+      const playoutDelayMs = diagnosticParams.has('directBufferMs')
+        ? Number(diagnosticParams.get('directBufferMs'))
+        : undefined;
       const flowControl = !diagnostics || diagnosticParams.get('directFlow') !== 'off';
       worker.onmessage = (
         event: MessageEvent<{
@@ -67,6 +83,8 @@ export const H264Direct = ({ onEncoderConflict }: { onEncoderConflict: () => boo
           height?: number;
           code?: string;
           detail?: string;
+          requestId?: number;
+          blob?: Blob;
           stats?: {
             seconds: number;
             counts: Record<string, number>;
@@ -76,6 +94,18 @@ export const H264Direct = ({ onEncoderConflict }: { onEncoderConflict: () => boo
         }>
       ) => {
         const { type, width, height, code, detail } = event.data;
+        if (type === 'screenshot-result' && event.data.requestId) {
+          const pending = pendingScreenshots.get(event.data.requestId);
+          if (!pending) return;
+          pendingScreenshots.delete(event.data.requestId);
+          clearTimeout(pending.timer);
+          if (event.data.blob) pending.resolve(event.data.blob);
+          else
+            pending.reject(
+              new Error(code === 'no-frame' ? 'screenshot-no-video' : 'screenshot-encode-failed')
+            );
+          return;
+        }
         if (type === 'direct-stats' && diagnostics && event.data.stats && canvasRef.current) {
           canvasRef.current.dataset.directStats = JSON.stringify(event.data.stats);
           const output = document.getElementById('direct-diagnostics');
@@ -97,6 +127,25 @@ export const H264Direct = ({ onEncoderConflict }: { onEncoderConflict: () => boo
 
         canvasRef.current.dataset.mediaWidth = String(width);
         canvasRef.current.dataset.mediaHeight = String(height);
+        setScreenshotSource({
+          width,
+          height,
+          capture: () =>
+            new Promise<Blob>((resolve, reject) => {
+              const activeWorker = workerRef.current;
+              if (!activeWorker) {
+                reject(new Error('screenshot-no-video'));
+                return;
+              }
+              const requestId = nextScreenshotRequest.current++;
+              const timer = setTimeout(() => {
+                pendingScreenshots.delete(requestId);
+                reject(new Error('screenshot-encode-failed'));
+              }, 5000);
+              pendingScreenshots.set(requestId, { resolve, reject, timer });
+              activeWorker.postMessage({ type: 'screenshot', requestId });
+            })
+        });
       };
       worker.postMessage(
         {
@@ -122,8 +171,14 @@ export const H264Direct = ({ onEncoderConflict }: { onEncoderConflict: () => boo
         worker.postMessage({ type: 'stop' });
         worker.terminate();
       }
+      setScreenshotSource(null);
+      pendingScreenshots.forEach(({ reject, timer }) => {
+        clearTimeout(timer);
+        reject(new Error('screenshot-no-video'));
+      });
+      pendingScreenshots.clear();
     };
-  }, [onEncoderConflict]);
+  }, [onEncoderConflict, setScreenshotSource]);
 
   return (
     <div className="relative h-full min-h-0 w-full min-w-0 overflow-hidden">
@@ -142,7 +197,7 @@ export const H264Direct = ({ onEncoderConflict }: { onEncoderConflict: () => boo
       )}
       {fatalError && (
         <Alert
-          className="absolute left-1/2 top-6 z-50 max-w-[min(90%,560px)] -translate-x-1/2"
+          className="absolute top-6 left-1/2 z-50 max-w-[min(90%,560px)] -translate-x-1/2"
           type="error"
           showIcon
           message={t('screen.encoderError')}

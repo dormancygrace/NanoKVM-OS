@@ -1224,7 +1224,8 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format) {
 	}
 
 	CVI_S32 s32Ret = CVI_SUCCESS;
-	const int width_out = ALIGN(width, DEFAULT_ALIGN);
+	// Keep active geometry exact; VB allocation and VIDEO_FRAME strides own padding.
+	const int width_out = width;
 	const int height_out = height;
 	const int fps = native120_vpss_rate(width_out, height_out);
 	int depth = 2;

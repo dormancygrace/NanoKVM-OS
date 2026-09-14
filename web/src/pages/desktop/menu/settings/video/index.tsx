@@ -17,8 +17,12 @@ type Status = {
   bitRate: number;
   gop: number;
   monitor: number;
+  portrait: boolean;
+  portraitResolution: number;
   monitorSupported: boolean;
   qhdSupported: boolean;
+  portraitSupported: boolean;
+  portraitMaxSupported: boolean;
   inputWidth: number;
   inputHeight: number;
   outputWidth: number;
@@ -50,6 +54,14 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
     return () => clearInterval(timer);
   }, [refresh]);
   const size = (w?: number, h?: number) => (w && h ? `${w} × ${h}` : '—');
+  const portraitProfile = (value?: number) =>
+    value === 2560
+      ? t('videoSettings.portraitMaximumProfile')
+      : value === 2304
+        ? t('videoSettings.portraitAVCProfile')
+        : value === 1280
+          ? t('videoSettings.portraitHDProfile')
+          : t('videoSettings.portraitDefaultProfile');
   const transport = mode === 'h264' ? 'WebRTC' : mode === 'direct' ? 'Direct' : 'MJPEG';
   const encoding = mode === 'mjpeg' ? '' : getEncoderCodec() === 'h265' ? 'H.265' : 'H.264';
   return (
@@ -81,6 +93,12 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
           <span className="text-neutral-400">{t('videoSettings.input')}</span>
           <span>{enabled ? size(status?.inputWidth, status?.inputHeight) : '—'}</span>
         </div>
+        {enabled && status?.portrait && (
+          <div className="flex justify-between gap-3 py-1">
+            <span className="text-neutral-400">{t('videoSettings.monitorProfile')}</span>
+            <span>{portraitProfile(status.portraitResolution)}</span>
+          </div>
+        )}
         <div className="flex justify-between gap-3 py-1">
           <span className="text-neutral-400">{t('videoSettings.output')}</span>
           <span>

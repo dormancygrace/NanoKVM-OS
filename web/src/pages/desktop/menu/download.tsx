@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Button, Divider, Input } from 'antd';
 import type { InputRef } from 'antd';
 import clsx from 'clsx';
@@ -7,8 +7,11 @@ import { DownloadIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { cancelDownloadImage, downloadImage, imageEnabled, statusImage } from '@/api/download.ts';
+import { readTransferProgress, transferBytes } from '@/lib/download-progress';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
+
+import './download-progress.css';
 
 const imageUpdatedEvent = 'nanokvm:image-updated';
 
@@ -20,6 +23,8 @@ export const DownloadImage = () => {
   const [sha256sum, setSha256sum] = useState('');
   const [status, setStatus] = useState('');
   const [log, setLog] = useState('');
+  const [progress, setProgress] = useState(() => readTransferProgress());
+  const [transferName, setTransferName] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
   const [isRemoteDownloading, setIsRemoteDownloading] = useState(false);
   const [diskEnabled, setDiskEnabled] = useState<boolean | null>(null);
@@ -36,11 +41,19 @@ export const DownloadImage = () => {
   const fileUploadActive = useRef(false);
   const downloadRequestGeneration = useRef(0);
 
+  const startInitialPolling = useEffectEvent(() => startStatusPolling());
+
   useEffect(() => {
     checkDiskEnabled();
+    startInitialPolling();
     window.addEventListener('nanokvm:usb-updated', checkDiskEnabled);
-    return () => window.removeEventListener('nanokvm:usb-updated', checkDiskEnabled);
-  }, []);
+    return () => {
+      window.removeEventListener('nanokvm:usb-updated', checkDiskEnabled);
+      stopStatusPolling();
+      downloadRequestGeneration.current += 1;
+      setKeyboardLock({ source: 'download-popover', locked: false });
+    };
+  }, [setKeyboardLock]);
 
   function checkDiskEnabled() {
     imageEnabled()
@@ -102,7 +115,7 @@ export const DownloadImage = () => {
     stopStatusPolling();
     const generation = pollingGeneration.current;
     getDownloadStatus(generation);
-    intervalId.current = setInterval(() => getDownloadStatus(generation), 2500);
+    intervalId.current = setInterval(() => getDownloadStatus(generation), 1000);
   }
 
   function stopStatusPolling() {
@@ -131,19 +144,18 @@ export const DownloadImage = () => {
         // a download is started while the initial status request is still pending.
         if (generation !== pollingGeneration.current) return;
 
+        if (rsp.code !== 0) throw new Error('status unavailable');
+        if (rsp.data.status === 'idle' && fileUploadActive.current) return;
         if (rsp.data.status) {
           setStatus(rsp.data.status);
           if (rsp.data.status === 'in_progress') {
             const isRemoteDownload = /^https?:\/\//.test(rsp.data.file);
             remoteDownloadActive.current = isRemoteDownload;
             setIsRemoteDownloading(isRemoteDownload);
-            // Check if rsp has a percentage value
-            if (rsp.data.percentage) {
-              setLog('Downloading (' + rsp.data.percentage + ')' + ': ' + rsp.data.file);
-            } else {
-              setLog('Downloading' + ': ' + rsp.data.file);
-            }
-            setInput(rsp.data.file);
+            setProgress(readTransferProgress(rsp.data));
+            setTransferName(rsp.data.file || '');
+            setLog('');
+            if (isRemoteDownload) setInput(rsp.data.file);
           }
           if (rsp.data.status === 'checksum_failed') {
             remoteDownloadActive.current = false;
@@ -191,7 +203,9 @@ export const DownloadImage = () => {
     remoteDownloadActive.current = true;
     setIsRemoteDownloading(true);
     setStatus('in_progress');
-    setLog('Downloading: ' + url);
+    setLog('');
+    setProgress(readTransferProgress());
+    setTransferName(url);
 
     downloadImage(url, checksum)
       .then((rsp) => {
@@ -279,7 +293,9 @@ export const DownloadImage = () => {
     remoteDownloadActive.current = false;
     fileUploadActive.current = true;
     setIsRemoteDownloading(false);
-    setLog('Downloading: ' + file.name);
+    setLog('');
+    setProgress(readTransferProgress());
+    setTransferName(file.name);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -309,6 +325,20 @@ export const DownloadImage = () => {
       });
 
     startStatusPolling();
+  }
+
+  const transferring = status === 'in_progress';
+  const percentLabel = progress.percent === null ? '—' : `${progress.percent.toFixed(1)}%`;
+  const progressStyle = progress.percent === null ? undefined : { width: `${progress.percent}%` };
+  let filename = transferName;
+  if (/^https?:\/\//.test(transferName)) {
+    try {
+      filename = decodeURIComponent(
+        new URL(transferName).pathname.split('/').pop() || transferName
+      );
+    } catch {
+      /* Keep the supplied filename. */
+    }
   }
 
   const content = (
@@ -354,7 +384,7 @@ export const DownloadImage = () => {
               />
               <Button
                 type="primary"
-                className="h-10 w-16 shrink-0 px-0"
+                className="w-16 shrink-0 px-0"
                 danger={isRemoteDownloading && status === 'in_progress'}
                 onClick={() =>
                   isRemoteDownloading && status === 'in_progress'
@@ -443,27 +473,90 @@ export const DownloadImage = () => {
           </div>
         </div>
       )}
-      <div className={clsx('min-h-8 pt-2')}>
-        {status && (
-          <div
-            className={clsx(
-              'max-w-[300px] wrap-break-word text-sm',
-              status === 'failed' || status === 'checksum_failed'
-                ? 'text-red-500'
-                : 'text-green-500'
-            )}
-          >
-            {log}
+      {transferring && (
+        <div className="mt-4 space-y-2">
+          <div className="flex items-center justify-between gap-4 text-sm text-neutral-300">
+            <span>
+              {t(
+                progress.percent !== null && progress.percent >= 100
+                  ? 'download.finishing'
+                  : isRemoteDownloading
+                    ? 'download.downloading'
+                    : 'download.uploading'
+              )}
+            </span>
+            <span className="tabular-nums">{percentLabel}</span>
           </div>
-        )}
-      </div>
+          <div
+            role="progressbar"
+            aria-label={t('download.progress')}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress.percent ?? undefined}
+            className="h-2 overflow-hidden rounded-full bg-neutral-700"
+          >
+            <div
+              className={clsx(
+                'download-progress-fill',
+                progress.percent === null && 'download-indeterminate'
+              )}
+              style={progressStyle}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4 text-xs text-neutral-400 tabular-nums">
+            <span>
+              {progress.bytes === null ? '—' : transferBytes(progress.bytes)}
+              {progress.total ? ` / ${transferBytes(progress.total)}` : ''}
+            </span>
+            <span>{progress.speed === null ? '—' : `${transferBytes(progress.speed)}/s`}</span>
+          </div>
+          {filename && (
+            <div className="max-w-[360px] truncate text-xs text-neutral-500" title={filename}>
+              {filename}
+            </div>
+          )}
+        </div>
+      )}
+      {log && (
+        <div
+          role={
+            status === 'failed' || status === 'checksum_failed' || transferring ? 'alert' : 'status'
+          }
+          className={clsx(
+            'max-w-[360px] pt-2 text-sm wrap-break-word',
+            status === 'failed' || status === 'checksum_failed' || transferring
+              ? 'text-red-400'
+              : 'text-neutral-300'
+          )}
+        >
+          {log}
+        </div>
+      )}
     </div>
   );
 
   return (
     <MenuItem
       title={t('download.title')}
-      icon={<DownloadIcon size={18} />}
+      icon={
+        <span className="download-toolbar-icon" aria-hidden="true">
+          <DownloadIcon size={18} />
+          {transferring && (
+            <>
+              <DownloadIcon size={18} className="download-arrow-wave" />
+              <span className="download-mini-track">
+                <span
+                  className={clsx(
+                    'download-mini-fill block',
+                    progress.percent === null && 'download-indeterminate'
+                  )}
+                  style={progressStyle}
+                />
+              </span>
+            </>
+          )}
+        </span>
+      }
       content={content}
       onOpenChange={handleOpenChange}
     />

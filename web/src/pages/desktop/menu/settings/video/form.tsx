@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/auth';
-import { Alert, Button, Collapse, InputNumber, message, Select, Switch } from 'antd';
+import { Alert, Button, Checkbox, Collapse, InputNumber, message, Select, Switch } from 'antd';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
@@ -13,6 +13,7 @@ import {
   type EncoderCodec
 } from '@/lib/encoder';
 import * as storage from '@/lib/localstorage';
+import { isQhdStream } from '@/lib/video-policy';
 import {
   resolutionAtom,
   streamFpsAtom,
@@ -26,6 +27,8 @@ import { Reset } from '../../screen/reset';
 
 type ScreenValues = {
   monitor: number;
+  portrait: boolean;
+  portraitResolution: number;
   height: number;
   fps: number;
   quality: number;
@@ -42,6 +45,8 @@ export const VideoForm = ({
   status: ScreenValues & {
     monitorSupported: boolean;
     qhdSupported: boolean;
+    portraitSupported: boolean;
+    portraitMaxSupported: boolean;
     inputWidth: number;
     inputHeight: number;
   };
@@ -54,6 +59,10 @@ export const VideoForm = ({
   const mode = useAtomValue(videoModeAtom);
   const initial = (): Draft => ({
     monitor: status.monitor,
+    portrait: status.portrait === true,
+    portraitResolution: [1280, 1920, 2304, 2560].includes(status.portraitResolution)
+      ? status.portraitResolution
+      : 1920,
     height: status.height,
     fps: status.fps,
     quality: status.quality,
@@ -65,20 +74,30 @@ export const VideoForm = ({
   });
   const [draft, setDraft] = useState<Draft>(initial);
   const [saved, setSaved] = useState<Draft>(initial);
-  const [customFps, setCustomFps] = useState(![120, 70, 60, 40, 30].includes(status.fps));
+  const [customFps, setCustomFps] = useState(![120, 70, 60, 50, 40, 30].includes(status.fps));
   const [busy, setBusy] = useState(false);
   const applying = useRef(false);
   const [h265Supported, setH265Supported] = useState<boolean | null>(null);
+  const [directH265Supported, setDirectH265Supported] = useState<boolean | null>(null);
   const setResolution = useSetAtom(resolutionAtom);
   const setFps = useSetAtom(streamFpsAtom);
   const setGop = useSetAtom(streamGopAtom);
   const setQuality = useSetAtom(streamQualityAtom);
   const dirty = (Object.keys(draft) as (keyof Draft)[]).some((key) => draft[key] !== saved[key]);
-  const qhdSelected =
-    draft.height === 1440 ||
-    (draft.height === 0 && (status.inputWidth > 1920 || status.inputHeight > 1080));
+  const qhdSelected = isQhdStream(draft.height, status.inputWidth, status.inputHeight);
   const unstableSelected = draft.mode === 'h264' && draft.codec === 'h265' && qhdSelected;
   const directSupported = window.isSecureContext && !!window.VideoDecoder;
+  const maximumPortrait = draft.portrait && draft.portraitResolution === 2560;
+
+  useEffect(() => {
+    let active = true;
+    void isEncoderCodecSupported('direct', 'h265').then((supported) => {
+      if (active) setDirectH265Supported(supported);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -94,17 +113,42 @@ export const VideoForm = ({
   }, [draft.mode]);
 
   function change<K extends keyof Draft>(key: K, value: Draft[K]) {
-    setDraft((current) => ({ ...current, [key]: value }));
+    setDraft((current) => {
+      const next = { ...current, [key]: value };
+      if (
+        (key === 'portraitResolution' || key === 'portrait') &&
+        next.portrait &&
+        next.portraitResolution === 2560
+      ) {
+        next.mode = 'direct';
+        next.codec = 'h265';
+        next.fps = Math.min(next.fps, 40);
+      }
+      if ((key === 'portraitResolution' || key === 'portrait') && next.portrait) {
+        const cap = ({ 1280: 120, 1920: 70, 2304: 50, 2560: 40 } as Record<number, number>)[
+          next.portraitResolution
+        ];
+        next.fps = Math.min(next.fps, cap);
+        if (next.portraitResolution === 2304) {
+          next.codec = 'h264';
+          if (next.mode === 'mjpeg') next.mode = 'direct';
+        }
+      }
+      return next;
+    });
   }
   const codecValid = draft.mode === 'mjpeg' || draft.codec === 'h264' || h265Supported === true;
   const valid =
     Number.isInteger(draft.fps) &&
     draft.fps >= 10 &&
-    draft.fps <= 120 &&
+    draft.fps <= (maximumPortrait ? 40 : 120) &&
     Number.isInteger(draft.gop) &&
     draft.gop >= 1 &&
     draft.gop <= 100 &&
-    codecValid;
+    codecValid &&
+    (!maximumPortrait ||
+      (draft.mode === 'direct' && draft.codec === 'h265' && directH265Supported === true)) &&
+    !unstableSelected;
 
   async function apply() {
     if (!dirty || !valid || applying.current) return;
@@ -120,7 +164,9 @@ export const VideoForm = ({
     try {
       // Persist shared settings first. A mode/codec change reloads only after
       // every request succeeds; failed requests leave the draft available to retry.
-      const fields: Array<[keyof ScreenValues, string]> = [
+      const fields: Array<
+        [Exclude<keyof ScreenValues, 'portrait' | 'portraitResolution'>, string]
+      > = [
         ['height', 'resolution'],
         ['fps', 'fps'],
         [next.mode === 'mjpeg' ? 'bitRate' : 'quality', 'quality'],
@@ -160,6 +206,16 @@ export const VideoForm = ({
             storage.setQuality(quality);
           }
         }
+      }
+      if (next.portraitResolution !== completed.portraitResolution) {
+        const rsp = await updateScreen('portrait_resolution', next.portraitResolution);
+        if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
+        commit('portraitResolution');
+      }
+      if (next.portrait !== completed.portrait) {
+        const rsp = await updateScreen('portrait', next.portrait ? 1 : 0);
+        if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
+        commit('portrait');
       }
       if (next.frameDetect !== completed.frameDetect) {
         const rsp = await updateFrameDetect(next.frameDetect);
@@ -201,7 +257,7 @@ export const VideoForm = ({
       value={draft[key] as string | number}
       options={options}
       disabled={busy || disabled}
-      onChange={(value) => setDraft((current) => ({ ...current, [key]: value }))}
+      onChange={(value) => change(key, value)}
     />
   );
   return (
@@ -221,12 +277,59 @@ export const VideoForm = ({
               { value: 1080, label: t('videoSettings.preferFhd') },
               { value: 720, label: t('videoSettings.preferHd') }
             ],
-            !admin || !status.monitorSupported
+            !admin || !status.monitorSupported || draft.portrait
           )
         )}
+        <div className="flex items-center">
+          <Checkbox
+            aria-label={t('videoSettings.portrait')}
+            checked={draft.portrait}
+            disabled={busy || !admin || !status.portraitSupported}
+            onChange={(event) => change('portrait', event.target.checked)}
+          >
+            {t('videoSettings.portrait')}
+          </Checkbox>
+        </div>
+        {draft.portrait &&
+          row(
+            t('videoSettings.portraitProfile'),
+            select(
+              'portraitResolution',
+              t('videoSettings.portraitProfile'),
+              [
+                { value: 1280, label: t('videoSettings.portraitHDProfile') },
+                {
+                  value: 1920,
+                  label: t('videoSettings.portraitDefaultProfile')
+                },
+                { value: 2304, label: t('videoSettings.portraitAVCProfile') },
+                ...(status.portraitMaxSupported
+                  ? [
+                      {
+                        value: 2560,
+                        label: t('videoSettings.portraitMaximumProfile'),
+                        disabled: !directSupported || directH265Supported !== true
+                      }
+                    ]
+                  : [])
+              ],
+              !admin || !status.portraitSupported
+            )
+          )}
         <p className="text-xs leading-relaxed text-neutral-400">{t('videoSettings.monitorHint')}</p>
+        <p className="text-xs leading-relaxed text-neutral-400">
+          {t('videoSettings.portraitHint')}
+        </p>
+        {maximumPortrait && (
+          <p className="text-xs leading-relaxed text-amber-300">
+            {t('videoSettings.portraitMaximumHint')}
+          </p>
+        )}
         {!status.monitorSupported && (
           <p className="text-xs text-amber-300">{t('videoSettings.monitorUnavailable')}</p>
+        )}
+        {!status.portraitSupported && (
+          <p className="text-xs text-amber-300">{t('videoSettings.portraitUnavailable')}</p>
         )}
       </section>
       <section className="space-y-3">
@@ -243,8 +346,15 @@ export const VideoForm = ({
           t('screen.video'),
           select('mode', t('screen.video'), [
             { value: 'direct', label: 'Direct', disabled: !directSupported },
-            { value: 'h264', label: 'WebRTC', disabled: !window.RTCPeerConnection },
-            { value: 'mjpeg', label: 'MJPEG' }
+            {
+              value: 'h264',
+              label: 'WebRTC',
+              disabled:
+                maximumPortrait ||
+                !window.RTCPeerConnection ||
+                (draft.codec === 'h265' && qhdSelected)
+            },
+            { value: 'mjpeg', label: 'MJPEG', disabled: maximumPortrait }
           ])
         )}
         {draft.mode !== 'mjpeg' &&
@@ -254,9 +364,9 @@ export const VideoForm = ({
               {
                 value: 'h265',
                 label: `H.265 / HEVC${h265Supported === false ? ` (${t('screen.unsupported')})` : ''}`,
-                disabled: h265Supported !== true
+                disabled: h265Supported !== true || (draft.mode === 'h264' && qhdSelected)
               },
-              { value: 'h264', label: 'H.264 / AVC' }
+              { value: 'h264', label: 'H.264 / AVC', disabled: maximumPortrait }
             ])
           )}
         {row(
@@ -266,6 +376,10 @@ export const VideoForm = ({
             t('videoSettings.streamResolution'),
             [0, ...(status.qhdSupported ? [1440] : []), 1080, 720, 600].map((value) => ({
               value,
+              disabled:
+                draft.mode === 'h264' &&
+                draft.codec === 'h265' &&
+                isQhdStream(value, status.inputWidth, status.inputHeight),
               label: value
                 ? t('videoSettings.atMost', { value: `${value}p` })
                 : t('videoSettings.sameAsInput')
@@ -281,10 +395,10 @@ export const VideoForm = ({
               aria-label={t('screen.fps')}
               value={customFps ? 'custom' : draft.fps}
               options={[
-                { value: 120, label: '120' },
-                { value: 70, label: '70' },
-                { value: 60, label: '60' },
-                { value: 40, label: '40' },
+                { value: 120, label: '120', disabled: maximumPortrait },
+                { value: 70, label: '70', disabled: maximumPortrait },
+                { value: 60, label: '60', disabled: maximumPortrait },
+                { value: 40, label: '40', disabled: maximumPortrait },
                 { value: 30, label: '30' },
                 { value: 'custom', label: t('keyboard.shortcut.custom') }
               ]}
@@ -300,7 +414,7 @@ export const VideoForm = ({
                 aria-label={`${t('screen.fps')} — ${t('keyboard.shortcut.custom')}`}
                 value={draft.fps || null}
                 min={10}
-                max={120}
+                max={maximumPortrait ? 40 : 120}
                 precision={0}
                 disabled={busy || !admin}
                 onChange={(value) => change('fps', value ?? 0)}
@@ -379,7 +493,7 @@ export const VideoForm = ({
           disabled={!dirty || busy}
           onClick={() => {
             setDraft({ ...saved });
-            setCustomFps(![120, 70, 60, 40, 30].includes(saved.fps));
+            setCustomFps(![120, 70, 60, 50, 40, 30].includes(saved.fps));
           }}
         >
           {t('videoSettings.discard')}

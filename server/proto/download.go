@@ -10,7 +10,10 @@ type ImageEnabledRsp struct {
 }
 
 type StatusImageRsp struct {
-	Status     string `json:"status"`
-	File       string `json:"file"`
-	Percentage string `json:"percentage"`
+	DownloadedBytes int64   `json:"downloadedBytes"`
+	TotalBytes      int64   `json:"totalBytes"`
+	BytesPerSecond  float64 `json:"bytesPerSecond"`
+	Status          string  `json:"status"`
+	File            string  `json:"file"`
+	Percentage      string  `json:"percentage"`
 }

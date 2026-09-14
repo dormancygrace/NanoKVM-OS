@@ -20,6 +20,7 @@ function harness(options = {}) {
     timers = new Map();
   let nextTimer = 1,
     animation;
+  const screenshotConversions = [];
   class Socket {
     static OPEN = 1;
     static CLOSED = 3;
@@ -84,6 +85,7 @@ function harness(options = {}) {
     ArrayBuffer,
     Uint8Array,
     DataView,
+    Blob,
     performance: { now: () => now },
     MessageChannel: class {
       port1 = {};
@@ -114,17 +116,22 @@ function harness(options = {}) {
   };
   context.self = context;
   vm.runInNewContext(bundle, context);
+  const offscreen = {
+    width: 1920,
+    height: 1080,
+    getContext: () => ({ drawImage: (f) => paints.push(f.timestamp) }),
+    async convertToBlob(options) {
+      screenshotConversions.push({ ...options, width: this.width, height: this.height });
+      return new Blob(['png'], { type: options.type });
+    }
+  };
   context.onmessage({
     data: {
       ...options,
       type: 'video',
       codec: options.codec ?? 'h265',
       url: 'wss://device.test/video',
-      canvas: {
-        width: 1920,
-        height: 1080,
-        getContext: () => ({ drawImage: (f) => paints.push(f.timestamp) })
-      }
+      canvas: offscreen
     }
   });
   const socket = sockets[0];
@@ -153,7 +160,9 @@ function harness(options = {}) {
     now: (time) => {
       now = time;
     },
-    stop: () => context.onmessage({ data: { type: 'stop' } })
+    stop: () => context.onmessage({ data: { type: 'stop' } }),
+    screenshot: (requestId) => context.onmessage({ data: { type: 'screenshot', requestId } }),
+    screenshotConversions
   };
 }
 
@@ -161,9 +170,9 @@ test('production worker preserves flow control, paces the first frame and releas
   const h = harness();
   assert.equal(new URL(h.sockets[0].url).searchParams.get('flow'), '8');
   h.send(0, true);
-  h.advance(134);
+  h.advance(119);
   assert.deepEqual(h.paints, []);
-  h.advance(135);
+  h.advance(120);
   assert.deepEqual(h.paints, [0]);
   assert.equal(h.frames[0].closed, 1);
   assert.equal(new Uint8Array(h.sockets[0].sent[0])[0], 2, 'Decode ACK remains enabled');
@@ -231,6 +240,8 @@ test('receiver-to-decoder and receiver-to-paint measure different pipeline stage
   h.advance(135);
   for (const tick of h.timers.values()) tick();
   const sample = h.reports.find((x) => x.type === 'direct-stats').stats;
+  assert.equal(sample.adaptivePlayout, 1);
+  assert.equal(sample.playoutDelayMs, 20);
   assert.equal(sample.receiveToDecodeMs.count, 1);
   assert.equal(sample.receiveToDecodeMs.p50, 0);
   assert.equal(sample.receiveToPaintMs.p50, 35);
@@ -291,4 +302,24 @@ test('explicit software diagnostic preference does not silently fall back', () =
   assert.ok(h.decoders.every((d) => d.config.hardwareAcceleration === 'prefer-software'));
   h.stop();
   assert.equal(h.timers.size, 0);
+});
+
+test('captures the already painted Direct canvas without restarting playback', async () => {
+  const h = harness();
+  h.screenshot(1);
+  assert.equal(h.reports.at(-1).code, 'no-frame');
+  h.send(0, true);
+  h.advance(120);
+  h.screenshot(2);
+  await new Promise((resolve) => setImmediate(resolve));
+  const result = h.reports.find((report) => report.requestId === 2);
+  assert.equal(result.type, 'screenshot-result');
+  assert.equal(result.blob.type, 'image/png');
+  assert.deepEqual(h.screenshotConversions, [{ type: 'image/png', width: 1920, height: 1080 }]);
+  assert.equal(h.sockets.length, 1, 'the existing stream remains connected');
+  assert.equal(h.sockets[0].readyState, 1);
+  h.send(17000);
+  h.advance(200);
+  assert.deepEqual(h.paints, [0, 17000]);
+  h.stop();
 });

@@ -10,6 +10,7 @@ import shutil
 import stat
 import struct
 import subprocess
+from release_names import release_names
 
 
 def run(*args):
@@ -153,7 +154,7 @@ def main():
     for source in files.iterdir():
         run('mcopy', '-i', boot, '::/' + source.name, roundtrip / source.name)
         assert source.read_bytes() == (roundtrip / source.name).read_bytes()
-    image_path = out / ('NanoKVM-OS-'+(a.version or 'development')+'.img')
+    image_path = out / (release_names(a.version)['image'] if a.version else 'NanoKVM-OS-development.img')
     with image_path.open('xb') as stream:
         stream.write(mbr)
         for source in [boot, a.rootfs]:

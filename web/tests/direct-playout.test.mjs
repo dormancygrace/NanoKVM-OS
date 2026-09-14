@@ -70,3 +70,49 @@ test('sender timestamp restart releases old frames and starts a new epoch', () =
   assert.equal(q.take(154), undefined);
   assert.equal(q.take(155), fresh);
 });
+
+test('adaptive playout stays at 20 ms on a steady stream', () => {
+  const q = new DirectPlayout('adaptive');
+  for (let i = 0; i < 200; i++) {
+    q.push(frame(i * 25), 100 + i * 25);
+    q.take(120 + i * 25)?.close();
+  }
+  assert.equal(q.delayMs, 20);
+  assert.equal(q.dropped, 0);
+});
+
+test('adaptive playout grows for sustained jitter and recovers slowly', () => {
+  const q = new DirectPlayout('adaptive');
+  for (let i = 0; i < 160; i++) {
+    // Ordered arrivals: every fourth frame arrives 50 ms late with the next two.
+    const arrival = 100 + i * 25 + (i % 4 === 1 ? 50 : i % 4 === 2 ? 25 : 0);
+    q.push(frame(i * 25), arrival);
+    q.take(arrival)?.close();
+    assert.ok(q.delayMs >= 20 && q.delayMs <= 60);
+    assert.ok(q.size <= 6);
+  }
+  assert.ok(q.delayMs >= 50);
+  const raised = q.delayMs;
+  for (let i = 160; i < 200; i++) {
+    q.push(frame(i * 25), 100 + i * 25);
+    q.take(100 + i * 25)?.close();
+  }
+  assert.equal(q.delayMs, raised, 'must not oscillate immediately after jitter');
+  for (let i = 200; i < 1600; i++) {
+    q.push(frame(i * 25), 100 + i * 25);
+    q.take(100 + i * 25)?.close();
+  }
+  assert.ok(q.delayMs <= 22);
+  q.reset();
+  assert.equal(q.size, 0);
+  assert.equal(q.delayMs, 20);
+});
+
+test('adaptive playout does not chase one long network outage', () => {
+  const q = new DirectPlayout('adaptive');
+  for (let i = 0; i < 80; i++) q.push(frame(i * 25), 100 + i * 25);
+  q.push(frame(2000), 3100);
+  assert.ok(q.delayMs <= 30);
+  assert.ok(q.size <= 6);
+  q.reset();
+});

@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { Button, message } from 'antd';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { CheckIcon, RatioIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { updateScreen } from '@/api/vm';
+import { getEncoderCodec } from '@/lib/encoder';
 import { setResolution } from '@/lib/localstorage';
-import { resolutionAtom } from '@/jotai/screen';
+import { isQhdWebRTCBlocked } from '@/lib/video-policy';
+import { resolutionAtom, videoModeAtom } from '@/jotai/screen';
 import { MenuSubmenu } from '@/components/menu-item.tsx';
 
 export const Resolution = () => {
   const { t } = useTranslation();
   const [resolution, setCurrent] = useAtom(resolutionAtom);
+  const mode = useAtomValue(videoModeAtom);
   const [busy, setBusy] = useState(false);
   const choices = [
     { width: 0, height: 0 },
@@ -29,11 +32,15 @@ export const Resolution = () => {
         <Button
           type="text"
           key={item.height}
-          disabled={busy}
+          disabled={busy || (mode === 'h264' && getEncoderCodec() === 'h265' && item.height > 1080)}
           className="flex! w-full items-center gap-2 rounded px-2 py-2 text-left hover:bg-neutral-700/70 disabled:opacity-50"
           onClick={async () => {
             setBusy(true);
             try {
+              if (await isQhdWebRTCBlocked(mode, getEncoderCodec(), item.height)) {
+                message.warning(t('videoSettings.unstableDescription'));
+                return;
+              }
               const rsp = await updateScreen('resolution', item.height);
               if (rsp.code !== 0) {
                 message.error(rsp.msg);

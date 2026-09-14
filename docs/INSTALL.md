@@ -1,14 +1,28 @@
-# 🚀 Installing NanoKVM OS beta-9
+# 🚀 Installing NanoKVM OS beta-10
 
-**Beta-9 requires a complete SD image. No `.nkos` package is distributed for this release.** The boot partition grows from 16 MiB to 64 MiB; older layouts cannot receive this change through the ordinary full-system package.
+On **beta-9 with its 64 MiB boot layout**, open **Settings → Updates** and select
+the beta-10 release, or upload the signed `NanoKVM-OS-update.nkos` package. This
+updates the system, kernel, matching modules, native libraries, application and
+Web interface together. Supported settings and APK add-ons are preserved.
 
-1. Download `NanoKVM-OS-1.0.0-beta.9.img.zip` and `SHA256SUMS` from [the release](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v1.0.0-beta.9).
+For **stock firmware, beta-8 or earlier, or a fresh installation**:
+
+1. Download `NanoKVM-OS-1.0.0-beta.10.img.zip` and `SHA256SUMS` from
+   [the release](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v1.0.0-beta.10).
 2. Verify the ZIP checksum and extract the `.img`.
-3. Power off NanoKVM, connect its SD card to a card reader and write the image to the whole card with an image-writing tool. Select the correct card. This replaces its existing layout and data; copying a file to a mounted card is not flashing.
-4. Safely eject, install the card and power on. Use Ethernet/DHCP for initial setup, then open `https://DEVICE-IP/`. Confirm the device's locally generated HTTPS certificate or install a trusted certificate.
+3. Power off NanoKVM, connect its SD card to a reader and write the image to the
+   whole card. This replaces the existing layout and data.
+4. Safely eject, install the card and power on. Use Ethernet/DHCP initially and
+   open `https://DEVICE-IP/`. Confirm the device certificate or install a trusted one.
 
-Use the factory Web account `admin` / `admin` and change its password when prompted. SSH is disabled on fresh installations; enable it through Web settings if needed. Wi-Fi settings support 5 GHz networks with a compatible adapter.
+The factory Web account is `admin` / `admin`; change its password when prompted.
+SSH is disabled on fresh installations and can be enabled in Web settings.
+Compatible adapters support both 2.4 GHz and 5 GHz Wi-Fi.
 
-The layout is 64 MiB FAT boot, 1488 MiB ext4 system, and the remaining card space for exFAT data. S01fs creates the data partition on a fresh card when required. Its start sector is unchanged from beta-8, but preserving existing data during a controlled RAM migration is a separate process; normal image-writing tools do not do it automatically.
+The layout remains 64 MiB FAT boot, 1488 MiB ext4 system and remaining space for
+exFAT data. S01fs creates the absent data partition when USB disk support is
+enabled. Fresh-card creation was not exercised in this release's hardware check.
+There is no A/B rollback. See [acceptance](BETA10-ACCEPTANCE.md),
+[layout](SD-LAYOUT-v2.md) and [release notes](RELEASE-beta-10.md).
 
-Future compatible updates use `sg2002-sd-v2`. There is no A/B rollback. See [the release notes](RELEASE-beta-9.md) and [exact geometry](SD-LAYOUT-v2.md). QHD H.265 over WebRTC remains unstable; use Direct for QHD.
+Use H.265 Direct for QHD; QHD H.265 WebRTC is disabled.

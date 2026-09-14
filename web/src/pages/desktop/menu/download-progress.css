@@ -1,0 +1,72 @@
+.download-toolbar-icon {
+  position: relative;
+  display: flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+}
+.download-arrow-wave {
+  position: absolute;
+  color: #34d399;
+  animation: download-arrow-wave 1.6s linear infinite;
+}
+.download-mini-track {
+  position: absolute;
+  height: 2px;
+  bottom: 0;
+  left: 2px;
+  right: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #525252;
+}
+.download-mini-fill,
+.download-progress-fill {
+  height: 100%;
+  background: #34d399;
+  transition: width 0.35s ease;
+}
+.download-indeterminate {
+  width: 35%;
+  animation: download-indeterminate 1.4s ease-in-out infinite;
+}
+@keyframes download-arrow-wave {
+  0% {
+    clip-path: inset(0 0 100% 0);
+  }
+  20% {
+    clip-path: inset(0 0 65% 0);
+  }
+  80% {
+    clip-path: inset(65% 0 0 0);
+  }
+  100% {
+    clip-path: inset(100% 0 0 0);
+  }
+}
+@keyframes download-indeterminate {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(390%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .download-arrow-wave,
+  .download-indeterminate {
+    animation: none;
+  }
+  .download-arrow-wave {
+    clip-path: none;
+  }
+  .download-indeterminate {
+    width: 100%;
+    opacity: 0.45;
+  }
+  .download-mini-fill,
+  .download-progress-fill {
+    transition: none;
+  }
+}

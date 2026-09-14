@@ -174,14 +174,14 @@ func (s *Service) resumeImageDownload() {
 		f.Close()
 		return
 	}
-	s.setDownloadProgress(done, fmt.Sprintf("%.2f%%", float64(info.Size())/float64(job.Total)*100))
+	s.setDownloadProgress(done, transferProgress{Bytes: info.Size(), Total: job.Total})
 	go func() {
 		defer cancel()
 		expected, _ := hex.DecodeString(job.SHA256)
 		if job.SHA256 == "" {
 			expected = nil
 		}
-		err := downloadCurlTransfer(ctx, job.URL, f, expected, func(p string) { s.setDownloadProgress(done, p) }, job)
+		err := downloadCurlTransfer(ctx, job.URL, f, expected, func(p transferProgress) { s.setDownloadProgress(done, p) }, job)
 		closeErr := f.Close()
 		if err == nil {
 			err = closeErr

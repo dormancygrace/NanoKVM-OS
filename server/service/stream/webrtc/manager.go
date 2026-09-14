@@ -3,6 +3,7 @@ package webrtc
 import (
 	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/vm"
+	"errors"
 
 	"github.com/gorilla/websocket"
 	"github.com/pion/rtp"
@@ -27,6 +28,9 @@ func NewWebRTCManager() *WebRTCManager {
 }
 
 func (m *WebRTCManager) AddClient(ws *websocket.Conn, client *Client) error {
+	if qhdH265Blocked(client.config.Codec) {
+		return errors.New(qhdH265Error)
+	}
 	m.mutex.Lock()
 	if _, exists := m.clients[ws]; exists {
 		m.mutex.Unlock()
@@ -56,6 +60,10 @@ func (m *WebRTCManager) AddClient(ws *websocket.Conn, client *Client) error {
 		defer client.videoWriteMutex.Unlock()
 		if w.isClosed() {
 			return nil
+		}
+		if qhdH265Blocked(client.config.Codec) {
+			_ = client.WriteMessage("video-error", qhdH265Error)
+			return errors.New(qhdH265Error)
 		}
 		packets := client.packetizer.packetize(sample.Data, sample.Timestamp, client.pathMTU.size())
 		if len(packets) == 0 {

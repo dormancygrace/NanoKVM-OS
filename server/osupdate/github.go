@@ -98,10 +98,10 @@ func Check(ctx context.Context) {
 			continue
 		}
 		for _, a := range r.Assets {
-			if (a.Name != "NanoKVM-OS-update.nkos" && a.Name != "NanoKVM-OS-application.nkos") || a.Size < 1 || a.Size > MaxBundle {
+			if !releaseAssetMatches(r.Tag, a.Name) || a.Size < 1 || a.Size > MaxBundle {
 				continue
 			}
-			if !ValidAssetURL(a.URL) {
+			if !ValidAssetURL(a.URL) || !strings.HasSuffix(a.URL, "/"+r.Tag+"/"+a.Name) {
 				continue
 			}
 			result.Release = &Release{Version: version, URL: "https://github.com/" + Repository + "/releases/tag/" + r.Tag, AssetURL: a.URL, Bytes: a.Size}
@@ -111,8 +111,17 @@ func Check(ctx context.Context) {
 }
 func ValidAssetURL(raw string) bool {
 	u, err := url.Parse(raw)
-	return err == nil && u.Scheme == "https" && u.Host == "github.com" && u.User == nil && u.RawQuery == "" && u.Fragment == "" && strings.HasPrefix(u.Path, "/"+Repository+"/releases/download/") && (strings.HasSuffix(u.Path, "/NanoKVM-OS-application.nkos") || strings.HasSuffix(u.Path, "/NanoKVM-OS-update.nkos"))
+	if err != nil || u.Scheme != "https" || u.Host != "github.com" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return false
+	}
+	prefix := "/" + Repository + "/releases/download/"
+	if !strings.HasPrefix(u.Path, prefix) {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(u.Path, prefix), "/")
+	return len(parts) == 2 && parts[0] != "" && parts[0] != "." && parts[0] != ".." && releaseAssetMatches(parts[0], parts[1])
 }
+
 func Download(ctx context.Context, r Release, out io.Writer) error {
 	if !ValidAssetURL(r.AssetURL) {
 		return errors.New("unsupported release source")

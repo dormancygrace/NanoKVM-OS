@@ -58,6 +58,14 @@ const en = {
       noVideo: 'Wait for video before recording',
       failed: 'Recording could not be saved. Check free disk space and browser support.'
     },
+    screenshot: {
+      take: 'Take screenshot',
+      saving: 'Saving screenshot…',
+      saved: 'Screenshot saved ({{width}}×{{height}})',
+      captureDisabled: 'Enable capture to take a screenshot',
+      noVideo: 'Wait for a video frame before taking a screenshot',
+      failed: 'Screenshot could not be saved'
+    },
     vpn: {
       rename: 'Rename',
       profileName: 'Profile name',
@@ -172,9 +180,9 @@ const en = {
       discard: 'Discard changes',
       pending: 'Changes have not been applied',
       applied: 'Video settings applied',
-      unstableTitle: 'QHD H.265 WebRTC is unstable',
-      unstableDescription: 'This mode can freeze or restart the device. Use H.265 Direct for QHD.',
-      unstableTag: 'QHD unstable',
+      unstableTitle: 'QHD H.265 WebRTC is disabled',
+      unstableDescription: 'Use Direct for QHD H.265, or limit the WebRTC stream to 1080p.',
+      unstableTag: 'QHD disabled',
       title: 'Video',
       open: 'Video settings…',
       description: 'Configure the HDMI monitor independently from the video sent to your browser.',
@@ -194,6 +202,17 @@ const en = {
       measured: 'Server output rate',
       monitor: 'HDMI monitor',
       monitorProfile: 'Virtual monitor profile',
+      portrait: 'Portrait monitor',
+      portraitProfile: 'Portrait profile',
+      portraitHDProfile: '720 × 1280 · 120 Hz',
+      portraitDefaultProfile: '1080 × 1920 · 75 Hz',
+      portraitAVCProfile: '1296 × 2304 · 50 Hz (H.264)',
+      portraitMaximumProfile: '1440 × 2560 · 40 Hz (H.265)',
+      portraitMaximumHint:
+        'The maximum profile requires H.265 Direct, up to 40 FPS. Selecting it sets this video mode automatically.',
+      portraitHint:
+        'Uses the selected portrait monitor profile. The maximum 1440 × 2560 profile is about 3.7 MP at 40 FPS. Your selected landscape profile is kept and restored when portrait is turned off.',
+      portraitUnavailable: 'Portrait monitor profile is unavailable on this device.',
       automatic: 'Automatic (recommended)',
       preferFhd: 'Prefer 1920 × 1080 · 75 Hz',
       preferQhd: 'Prefer 2560 × 1440 · 40 Hz',
@@ -559,6 +578,10 @@ const en = {
       ok: 'Ok'
     },
     download: {
+      progress: 'Transfer progress',
+      downloading: 'Downloading',
+      uploading: 'Uploading',
+      finishing: 'Finishing…',
       title: 'Image Downloader',
       input: 'Please enter a remote image URL',
       ok: 'Ok',
@@ -809,6 +832,7 @@ const en = {
         cancelBtn: 'No'
       },
       usb: {
+        off: 'Off',
         title: 'USB Composition',
         enabled: 'USB devices',
         budgetTitle: 'Endpoint budget',

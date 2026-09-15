@@ -78,3 +78,37 @@ func TestEthernetConfigPersistence(t *testing.T) {
 		t.Fatalf("unexpected dhcp config: %#v", got)
 	}
 }
+
+func TestReadEthernetConfigIgnoresCommentsAndCRLF(t *testing.T) {
+	tempDir := t.TempDir()
+	originalFile := ethernetConfigFile
+	ethernetConfigFile = filepath.Join(tempDir, "eth.nodhcp")
+	t.Cleanup(func() { ethernetConfigFile = originalFile })
+
+	contents := "# NanoKVM static network\r\n\r\n  10.20.30.40/24 10.20.30.1  # gateway\r\n"
+	if err := os.WriteFile(ethernetConfigFile, []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := readEthernetConfig()
+	if err != nil {
+		t.Fatalf("read commented config: %v", err)
+	}
+	if got.Mode != ethernetModeStatic || got.Address != "10.20.30.40" || got.SubnetMask != "255.255.255.0" || got.Gateway != "10.20.30.1" {
+		t.Fatalf("unexpected commented config: %#v", got)
+	}
+}
+
+func TestReadEthernetConfigRejectsExtraFieldsAfterCommentRemoval(t *testing.T) {
+	tempDir := t.TempDir()
+	originalFile := ethernetConfigFile
+	ethernetConfigFile = filepath.Join(tempDir, "eth.nodhcp")
+	t.Cleanup(func() { ethernetConfigFile = originalFile })
+
+	if err := os.WriteFile(ethernetConfigFile, []byte("10.20.30.40/24 10.20.30.1 unexpected # comment\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readEthernetConfig(); err == nil {
+		t.Fatal("expected extra field to be rejected")
+	}
+}

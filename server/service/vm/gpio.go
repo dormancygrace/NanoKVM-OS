@@ -2,9 +2,7 @@ package vm
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,7 +14,6 @@ import (
 )
 
 var atxPulse gpioio.Controller
-var atxRead sync.Mutex
 
 func (s *Service) SetGpio(c *gin.Context) {
 	var req proto.SetGpioReq
@@ -63,26 +60,15 @@ func (s *Service) SetGpio(c *gin.Context) {
 func (s *Service) GetGpio(c *gin.Context) {
 	var rsp proto.Response
 
-	conf := config.GetInstance().Hardware
-
-	pwr, err := readGpio(conf.GPIOPowerLED)
+	status, err := monitoredGPIOInputs.Current(c.Request.Context())
 	if err != nil {
-		rsp.ErrRsp(c, -2, fmt.Sprintf("failed to read power led: %s", err))
+		rsp.ErrRsp(c, -2, fmt.Sprintf("failed to read ATX LEDs: %s", err))
 		return
 	}
 
-	hdd := false
-	if conf.Version == config.HWVersionAlpha {
-		hdd, err = readGpio(conf.GPIOHDDLed)
-		if err != nil {
-			rsp.ErrRsp(c, -2, fmt.Sprintf("failed to read hdd led: %s", err))
-			return
-		}
-	}
-
 	data := &proto.GetGpioRsp{
-		PWR: pwr,
-		HDD: hdd,
+		PWR: status.Power,
+		HDD: status.HDD,
 	}
 	rsp.OkRspWithData(c, data)
 }
@@ -91,17 +77,4 @@ func writeGpio(ctx context.Context, device string, duration time.Duration) error
 	return atxPulse.Pulse(ctx, duration, func() (gpioio.Line, error) {
 		return gpioio.Open(device, true)
 	})
-}
-
-func readGpio(device string) (bool, error) {
-	atxRead.Lock()
-	defer atxRead.Unlock()
-	line, err := gpioio.Open(device, false)
-	if err != nil {
-		return false, err
-	}
-	high, err := line.Get()
-	err = errors.Join(err, line.Close())
-	// The ATX input reports an illuminated host power/HDD LED at logic low.
-	return !high, err
 }

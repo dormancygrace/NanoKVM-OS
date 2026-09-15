@@ -1,3 +1,7 @@
+# Current release
+
+See [beta-11 acceptance](BETA11-ACCEPTANCE.md). The records below are historical.
+
 # Beta-4 validation and known issues
 
 This summary covers checks on the SG2002 NanoKVM PCIe with an LT6911UXC HDMI receiver. Cube and other board revisions are intended targets, not independently qualified hardware. Short checks, synthetic receivers and browser playback measure different things.

@@ -1,28 +1,23 @@
-# 🚀 Installing NanoKVM OS beta-10
+# Installing NanoKVM OS beta-11
 
-On **beta-9 with its 64 MiB boot layout**, open **Settings → Updates** and select
-the beta-10 release, or upload the signed `NanoKVM-OS-update.nkos` package. This
-updates the system, kernel, matching modules, native libraries, application and
-Web interface together. Supported settings and APK add-ons are preserved.
+Beta-11 is distributed as a complete SD image only. There is no `.nkos`
+package for this release, including for devices already running beta-9 or beta-10.
 
-For **stock firmware, beta-8 or earlier, or a fresh installation**:
-
-1. Download `NanoKVM-OS-1.0.0-beta.10.img.zip` and `SHA256SUMS` from
-   [the release](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v1.0.0-beta.10).
+1. Download `NanoKVM-OS-v1.0.0-beta-11.img.zip` and `SHA256SUMS` from the
+   [release](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v1.0.0-beta.11).
 2. Verify the ZIP checksum and extract the `.img`.
-3. Power off NanoKVM, connect its SD card to a reader and write the image to the
-   whole card. This replaces the existing layout and data.
-4. Safely eject, install the card and power on. Use Ethernet/DHCP initially and
-   open `https://DEVICE-IP/`. Confirm the device certificate or install a trusted one.
+3. Power off NanoKVM, connect its SD card to a reader and flash the whole card.
+   This replaces the existing installation, settings and data; export anything
+   you want to retain before flashing.
+4. Safely eject the card, install it and power on. Use Ethernet/DHCP initially
+   and open `https://DEVICE-IP/`.
 
 The factory Web account is `admin` / `admin`; change its password when prompted.
-SSH is disabled on fresh installations and can be enabled in Web settings.
-Compatible adapters support both 2.4 GHz and 5 GHz Wi-Fi.
+SSH is disabled by default and can be enabled in Web settings. Compatible Wi-Fi
+adapters support 2.4 GHz and 5 GHz.
 
-The layout remains 64 MiB FAT boot, 1488 MiB ext4 system and remaining space for
-exFAT data. S01fs creates the absent data partition when USB disk support is
-enabled. Fresh-card creation was not exercised in this release's hardware check.
-There is no A/B rollback. See [acceptance](BETA10-ACCEPTANCE.md),
-[layout](SD-LAYOUT-v2.md) and [release notes](RELEASE-beta-10.md).
-
-Use H.265 Direct for QHD; QHD H.265 WebRTC is disabled.
+The layout is 64 MiB FAT boot, 1488 MiB ext4 system and remaining card space
+for exFAT data. S01fs creates the absent data partition when USB disk support
+is enabled. Fresh-card creation remains outside hardware qualification.
+There is no A/B rollback. See [release notes](RELEASE-beta-11.md),
+[acceptance](BETA11-ACCEPTANCE.md) and [layout](SD-LAYOUT-v2.md).

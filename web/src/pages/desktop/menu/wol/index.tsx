@@ -1,12 +1,12 @@
 import { ChangeEvent, useRef, useState } from 'react';
-import { Button, Divider, Input, List } from 'antd';
+import { Button, Divider, Input, List, Select } from 'antd';
 import type { InputRef } from 'antd';
 import clsx from 'clsx';
 import { useSetAtom } from 'jotai';
 import { Eye, EyeClosed, NetworkIcon, Pencil, SendIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { deleteWolMac, getWolMacs, setWolMacName, wol } from '@/api/network.ts';
+import { deleteWolMac, getWolInterfaces, getWolMacs, setWolMacName, wol } from '@/api/network.ts';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
 
@@ -26,6 +26,8 @@ export const Wol = () => {
   const [input, setInput] = useState('');
   const [status, setStatus] = useState('');
   const [log, setLog] = useState('');
+  const [networkInterface, setNetworkInterface] = useState('');
+  const [interfaces, setInterfaces] = useState<string[]>([]);
 
   const [macList, setMacList] = useState<MacItem[]>([]);
 
@@ -34,6 +36,7 @@ export const Wol = () => {
   function handleOpenChange(open: boolean) {
     if (open) {
       getMacs();
+      getInterfaces();
       setKeyboardLock({ source: 'wol-popover', locked: true });
     } else {
       setInput('');
@@ -42,6 +45,24 @@ export const Wol = () => {
       setKeyboardLock({ source: 'wol-popover', locked: false });
       setKeyboardLock({ source: 'wol-edit-input', locked: false });
     }
+  }
+
+  function getInterfaces() {
+    getWolInterfaces().then((rsp) => {
+      if (rsp.code !== 0) {
+        setInterfaces([]);
+        setNetworkInterface('');
+        return;
+      }
+
+      const available = rsp.data.interfaces as string[];
+      setInterfaces(available);
+      setNetworkInterface((current) => {
+        if (available.includes(current)) return current;
+        if (available.includes('eth0')) return 'eth0';
+        return available[0] || '';
+      });
+    });
   }
 
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
@@ -105,7 +126,7 @@ export const Wol = () => {
   }
 
   function wake(mac?: string) {
-    if (status === 'loading') return;
+    if (status === 'loading' || !networkInterface) return;
 
     const value = (mac ? mac : input).trim();
     if (!value) return;
@@ -113,7 +134,7 @@ export const Wol = () => {
     setStatus('loading');
     setLog(t('wol.sending'));
 
-    wol(value)
+    wol(value, networkInterface)
       .then((rsp) => {
         if (rsp.code !== 0) {
           setStatus('failed');
@@ -142,6 +163,14 @@ export const Wol = () => {
 
       <div className="w-full space-y-1 py-3">
         <div className="flex items-center space-x-1">
+          <Select
+            className="min-w-[100px]"
+            value={networkInterface || undefined}
+            placeholder={t('wol.interface')}
+            aria-label={t('wol.interface')}
+            options={interfaces.map((name) => ({ label: name, value: name }))}
+            onChange={setNetworkInterface}
+          />
           <Input
             ref={inputRef}
             value={input}
@@ -149,7 +178,7 @@ export const Wol = () => {
             onChange={handleChange}
             onPressEnter={() => wake()}
           />
-          <Button type="primary" onClick={() => wake()}>
+          <Button type="primary" disabled={!networkInterface} onClick={() => wake()}>
             {t('wol.ok')}
           </Button>
         </div>
@@ -157,7 +186,7 @@ export const Wol = () => {
         {status && (
           <div
             className={clsx(
-              'max-w-[300px] wrap-break-word text-sm',
+              'max-w-[300px] text-sm wrap-break-word',
               status === 'failed' ? 'text-red-500' : 'text-green-500'
             )}
           >

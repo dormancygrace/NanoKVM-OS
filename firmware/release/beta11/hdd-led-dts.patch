@@ -1,0 +1,31 @@
+--- a/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
++++ b/arch/riscv/boot/dts/sophgo/sg2002-nanokvm-enhanced.dts
+@@ -319,6 +319,13 @@
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&nanokvm_board_outputs_cfg &nanokvm_atx_cfg>;
+ };
++&gpio4 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&nanokvm_hdd_led_cfg>;
++};
++&porte {
++	gpio-line-names = "", "", "", "nanokvm-hdd-led";
++};
+ &porta {
+ 	oled-reset-hog {
+ 		gpio-hog;
+@@ -367,6 +374,14 @@
+ 			pinmux = <PINMUX(PIN_EMMC_CMD, 3)>, <PINMUX(PIN_EMMC_DAT0, 3)>,
+ 				 <PINMUX(PIN_EMMC_DAT1, 3)>;
+ 			power-source = <3300>;
++		};
++	};
++	nanokvm_hdd_led_cfg: nanokvm-hdd-led-cfg {
++		hdd-led-pins {
++			// PWR_SEQ1 is wired through U46 to the host HDD LED, active low.
++			pinmux = <PINMUX(PIN_PWR_SEQ1, 3)>;
++			power-source = <1800>;
++			bias-disable;
+ 		};
+ 	};
+ 	nanokvm_hdmi_reset_cfg: nanokvm-hdmi-reset-cfg {

@@ -514,6 +514,9 @@ const en = {
       unmountFailed: 'Unmount failed',
       unmountDesc:
         'On some systems, you need to manually eject from the remote host before unmounting the image.',
+      forceEject: 'Force eject',
+      forceEjectDesc:
+        'The remote host is still using this image. Force eject may interrupt pending reads or writes. Continue?',
       refresh: 'Refresh the image list',
       attention: 'Attention',
       deleteConfirm: 'Are you sure you want to delete this image?',
@@ -575,6 +578,7 @@ const en = {
       sending: 'Sending command...',
       sent: 'Command sent',
       input: 'Please enter the MAC',
+      interface: 'Interface',
       ok: 'Ok'
     },
     download: {

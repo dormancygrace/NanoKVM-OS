@@ -1,0 +1,51 @@
+#!/bin/sh
+# Keep BusyBox crontabs on the persistent /etc/kvm filesystem even though
+# /var/spool is backed by the reboot-cleared /tmp filesystem.
+set -eu
+
+: "${NANOKVM_CRON_DIR:=/etc/kvm/cron/crontabs}"
+: "${NANOKVM_CRON_SPOOL:=/var/spool/cron/crontabs}"
+NANOKVM_CRON_OWNER=${NANOKVM_CRON_OWNER-root:root}
+
+start() {
+    umask 077
+    mkdir -p "$NANOKVM_CRON_DIR" "$(dirname "$NANOKVM_CRON_SPOOL")"
+    [ -z "$NANOKVM_CRON_OWNER" ] || chown "$NANOKVM_CRON_OWNER" "$NANOKVM_CRON_DIR"
+    chmod 700 "$NANOKVM_CRON_DIR"
+
+    if [ -L "$NANOKVM_CRON_SPOOL" ]; then
+        if [ "$(readlink "$NANOKVM_CRON_SPOOL")" = "$NANOKVM_CRON_DIR" ]; then
+            return 0
+        fi
+        rm -f "$NANOKVM_CRON_SPOOL"
+    elif [ -d "$NANOKVM_CRON_SPOOL" ]; then
+        # Preserve any volatile crontabs created before this service was added.
+        for source in "$NANOKVM_CRON_SPOOL"/*; do
+            [ -e "$source" ] || continue
+            [ -f "$source" ] && [ ! -L "$source" ] || {
+                echo "Refusing unexpected cron spool entry: $source" >&2
+                return 1
+            }
+            name=${source##*/}
+            case "$name" in ''|*[!A-Za-z0-9_-]*) echo "Invalid cron owner: $name" >&2; return 1 ;; esac
+            if [ ! -e "$NANOKVM_CRON_DIR/$name" ]; then
+                cp "$source" "$NANOKVM_CRON_DIR/$name"
+                [ -z "$NANOKVM_CRON_OWNER" ] || chown "$NANOKVM_CRON_OWNER" "$NANOKVM_CRON_DIR/$name"
+                chmod 600 "$NANOKVM_CRON_DIR/$name"
+            fi
+            rm -f "$source"
+        done
+        rmdir "$NANOKVM_CRON_SPOOL"
+    elif [ -e "$NANOKVM_CRON_SPOOL" ]; then
+        echo "Refusing non-directory cron spool: $NANOKVM_CRON_SPOOL" >&2
+        return 1
+    fi
+
+    ln -s "$NANOKVM_CRON_DIR" "$NANOKVM_CRON_SPOOL"
+}
+
+case "${1:-}" in
+    start|restart|reload) start ;;
+    stop) ;;
+    *) echo "Usage: $0 {start|stop|restart|reload}" >&2; exit 1 ;;
+esac

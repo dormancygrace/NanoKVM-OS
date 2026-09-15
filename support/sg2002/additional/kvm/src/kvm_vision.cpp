@@ -230,7 +230,7 @@ static void high_rate_log_request(uint16_t width, uint16_t height, uint8_t reque
     fflush(stderr);
 }
 
-void debug(const char *format, ...);
+void debug(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 kvm_venc_t kvm_venc;
 
@@ -326,7 +326,10 @@ static void set_hdmi_detection_state(uint8_t active)
 void debug(const char *format, ...)
 {
     if(debug_en){
-        printf(format);
+        va_list args;
+        va_start(args, format);
+        vprintf(format, args);
+        va_end(args);
     }
 }
 

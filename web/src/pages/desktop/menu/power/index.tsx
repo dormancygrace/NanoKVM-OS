@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Divider, Switch, Tooltip } from 'antd';
 import clsx from 'clsx';
-import { LoaderCircleIcon, PowerIcon } from 'lucide-react';
+import { HardDriveIcon, LoaderCircleIcon, PowerIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm';
@@ -16,28 +16,38 @@ export const Power = () => {
   const { t } = useTranslation();
 
   const [isPowerOn, setIsPowerOn] = useState(false);
+  const [isHddActive, setIsHddActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(localstorage.getPowerConfirm);
 
   useEffect(() => {
-    getLed();
-    const interval = setInterval(getLed, 5000);
+    let disposed = false;
+    let inFlight = false;
+
+    async function refreshLeds() {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const rsp = await api.getGpio();
+        if (!disposed && rsp.code === 0) {
+          setIsPowerOn(rsp.data.pwr);
+          setIsHddActive(rsp.data.hdd);
+        }
+      } catch (err) {
+        console.log(err);
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    void refreshLeds();
+    const interval = window.setInterval(refreshLeds, 200);
 
     return () => {
-      clearInterval(interval);
+      disposed = true;
+      window.clearInterval(interval);
     };
   }, []);
-
-  async function getLed() {
-    try {
-      const rsp = await api.getGpio();
-      if (rsp.code === 0) {
-        setIsPowerOn(rsp.data.pwr);
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  }
 
   function updateShowConfirm(value: boolean) {
     setShowConfirm(value);
@@ -48,7 +58,9 @@ export const Power = () => {
     <div
       className={clsx(
         'h-[18px] w-[18px]',
-        isPowerOn ? 'text-green-600' : 'text-neutral-300 hover:text-white'
+        isPowerOn
+          ? 'text-green-500 drop-shadow-[0_0_4px_currentColor]'
+          : 'text-neutral-300 hover:text-white'
       )}
     >
       {isLoading ? (
@@ -85,5 +97,23 @@ export const Power = () => {
     </div>
   );
 
-  return <MenuItem title={t('power.title')} icon={icon} content={content} />;
+  return (
+    <div className="flex shrink-0 items-center">
+      <MenuItem title={t('power.title')} icon={icon} content={content} />
+      <Tooltip title="HDD LED" placement="bottom" mouseEnterDelay={0.6}>
+        <div
+          role="img"
+          aria-label="HDD LED"
+          className={clsx(
+            'flex h-[30px] w-[24px] cursor-default items-center justify-center transition-colors',
+            isHddActive
+              ? 'animate-pulse text-amber-400 drop-shadow-[0_0_4px_currentColor]'
+              : 'text-neutral-600'
+          )}
+        >
+          <HardDriveIcon size={17} />
+        </div>
+      </Tooltip>
+    </div>
+  );
 };

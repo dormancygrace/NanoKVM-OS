@@ -44,7 +44,7 @@ See [UPDATES.md](UPDATES.md) for signed package creation. Development builds nee
 
 Several image staging tools still expect retained stock board assets under `build/release/nanokvm_2.6.0`. Those assets, proprietary vendor objects, full vendor source trees, compiler/sysroot and release archives are not embedded in this Git repository. A self-contained downloadable build-input bundle and final corresponding-source notices remain to be consolidated before a public binary release. The current application/web can be built against an existing matched native/toolchain set; a turnkey clean-machine full-image build is not claimed.
 
-When staging a fresh OS image, pass `--version 1.0.0-beta.4 --update-sequence 9` to `stage-enhanced-app.py` for the current application. Use the actual signed release sequence for future versions. Beta image assembly now requires this metadata, the independent updater/recovery scripts and all four monitor EDID profiles.
+When staging a fresh OS image, pass `--version 1.0.0-beta.11 --update-sequence 27` to `stage-enhanced-app.py` for the current application. Use the actual signed release sequence for future versions. Beta image assembly now requires this metadata, the independent updater/recovery scripts and all four monitor EDID profiles.
 
 The previous upstream Docker/dev-container recipe used an older native toolchain and SDK and has been removed. It must not be treated as a reproducible NanoKVM OS build.
 

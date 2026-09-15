@@ -20,3 +20,10 @@ and retains support for the two historical fixed package names.
 Beta-10 is the final compatibility exception: retain the old image name and fixed
 `NanoKVM-OS-update.nkos` name so beta-9 discovers it. Beta-10 adds versioned
 package discovery, allowing beta-11 and later to use the canonical names above.
+
+## Beta-11 publication
+
+By explicit release instruction, beta-11 uses GitHub tag `v1.0.0-beta.11` and the
+Latest release designation. Version/sequence remain `1.0.0-beta.11` / 27.
+Only `NanoKVM-OS-v1.0.0-beta-11.img.zip` and `SHA256SUMS` are published;
+there is no beta-11 `.nkos` asset.

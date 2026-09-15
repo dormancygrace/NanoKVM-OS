@@ -1,4 +1,5 @@
 #!/bin/sh
+# USB network service; legacy marker names are retained for compatibility.
 
 . /etc/profile
 

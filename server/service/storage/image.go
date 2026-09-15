@@ -17,12 +17,16 @@ import (
 	"NanoKVM-Server/service/hid"
 )
 
-const (
-	imageDirectory = "/data"
-	cdromFlag      = "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/cdrom"
-	mountDevice    = "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/file"
-	inquiryString  = "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/inquiry_string"
-	roFlag         = "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/ro"
+const imageDirectory = "/data"
+
+var (
+	usbGadgetUDC      = "/sys/kernel/config/usb_gadget/g0/UDC"
+	usbStorageLink    = "/sys/kernel/config/usb_gadget/g0/configs/c.1/mass_storage.disk0"
+	cdromFlag         = "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/cdrom"
+	mountDevice       = "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/file"
+	forcedEjectDevice = "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/forced_eject"
+	inquiryString     = "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/inquiry_string"
+	roFlag            = "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/ro"
 )
 
 func (s *Service) GetImages(c *gin.Context) {
@@ -69,6 +73,15 @@ func (s *Service) MountImage(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
+	if req.Force && req.File != "" {
+		rsp.ErrRsp(c, -1, "force is only valid when ejecting an image")
+		return
+	}
+	if err := requireActiveUSBStorage(); err != nil {
+		log.Warnf("USB storage is unavailable: %s", err)
+		rsp.ErrRsp(c, -3, "Enable USB storage before mounting an image")
+		return
+	}
 
 	if req.File != "" && req.Cdrom {
 		info, statErr := os.Stat(req.File)
@@ -93,9 +106,9 @@ func (s *Service) MountImage(c *gin.Context) {
 	}
 
 	// unmount
-	if err := os.WriteFile(mountDevice, []byte("\n"), 0o666); err != nil {
+	if err := ejectLocalImage(req.Force, os.WriteFile); err != nil {
 		log.Errorf("unmount file failed: %s", err)
-		rsp.ErrRsp(c, -2, "unmount image failed")
+		rsp.ErrRsp(c, -4, "unmount image failed")
 		return
 	}
 
@@ -165,6 +178,40 @@ func (s *Service) MountImage(c *gin.Context) {
 
 	rsp.OkRsp(c)
 	log.Debugf("mount image %s success", req.File)
+}
+
+func requireActiveUSBStorage() error {
+	udc, err := os.ReadFile(usbGadgetUDC)
+	if err != nil {
+		return fmt.Errorf("read USB controller binding: %w", err)
+	}
+	if strings.TrimSpace(string(udc)) == "" {
+		return fmt.Errorf("USB gadget is not bound")
+	}
+	info, err := os.Lstat(usbStorageLink)
+	if err != nil {
+		return fmt.Errorf("read USB storage link: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return fmt.Errorf("USB storage function is not linked")
+	}
+	for _, path := range []string{mountDevice, forcedEjectDevice, roFlag, cdromFlag, inquiryString} {
+		if _, err := os.Stat(path); err != nil {
+			return fmt.Errorf("read USB storage attribute %s: %w", filepath.Base(path), err)
+		}
+	}
+	return nil
+}
+
+func ejectLocalImage(force bool, writeFile func(string, []byte, os.FileMode) error) error {
+	err := writeFile(mountDevice, []byte("\n"), 0o666)
+	if err == nil || !force {
+		return err
+	}
+	if forceErr := writeFile(forcedEjectDevice, []byte("1\n"), 0o666); forceErr != nil {
+		return fmt.Errorf("normal eject failed: %v; forced eject failed: %w", err, forceErr)
+	}
+	return nil
 }
 
 func (s *Service) GetMountedImage(c *gin.Context) {

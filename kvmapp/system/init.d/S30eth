@@ -1,9 +1,31 @@
 #!/bin/sh
 
 RESERVE_INET="192.168.90.1/22"
+: "${NANOKVM_HOSTNAME_FILE:=/etc/hostname}"
+: "${NANOKVM_ETH_CONFIG:=/boot/eth.nodhcp}"
+: "${NANOKVM_ETH_DHCP_PID:=/run/udhcpc.eth0.pid}"
+: "${NANOKVM_IP:=ip}"
+: "${NANOKVM_UDHCPC:=udhcpc}"
+: "${NANOKVM_ARPING:=arping}"
 
 clean_line() {
     echo "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/\r//g'
+}
+
+dhcp_hostname() {
+    [ -r "$NANOKVM_HOSTNAME_FILE" ] || return 1
+    value=$(sed -n '1{s/\r$//;p;}' "$NANOKVM_HOSTNAME_FILE") || return 1
+    printf '%s\n' "$value" | awk '
+        length($0) < 1 || length($0) > 253 { exit 1 }
+        $0 !~ /^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$/ && $0 !~ /^[A-Za-z0-9]$/ { exit 1 }
+        {
+            count = split($0, labels, ".")
+            for (i = 1; i <= count; i++)
+                if (length(labels[i]) < 1 || length(labels[i]) > 63 || labels[i] ~ /^-/ || labels[i] ~ /-$/)
+                    exit 1
+        }
+    ' || return 1
+    printf '%s\n' "$value"
 }
 
 calc_gw() {
@@ -26,12 +48,14 @@ start() {
     if [ -x /etc/init.d/S29qdisc ]; then
         /etc/init.d/S29qdisc eth0 || echo "Could not apply fq_codel to eth0" >&2
     fi
-    ip addr flush dev eth0
-    if [ -e /boot/eth.nodhcp ]; then
+    "$NANOKVM_IP" addr flush dev eth0
+    if [ -e "$NANOKVM_ETH_CONFIG" ]; then
         while IFS= read -r line || [ -n "$line" ]; do
+            line=${line%%#*}
             line=$(clean_line "$line")
             [ -z "$line" ] && continue
             set -- $line
+            [ "$#" -gt 2 ] && continue
             inet="$1"
             gw="$2"
             [ -z "$inet" ] && continue
@@ -52,32 +76,40 @@ start() {
             addr=${inet%/*}
             netid=${inet#*/}
             [ -z "$gw" ] && gw=$(calc_gw "$addr" "$netid")
-            arping -Dqc2 -Ieth0 "$addr" || continue
-            ip a add "$inet" brd + dev eth0
-            ip r add default via "$gw" dev eth0
+            "$NANOKVM_ARPING" -Dqc2 -Ieth0 "$addr" || continue
+            "$NANOKVM_IP" a add "$inet" brd + dev eth0
+            "$NANOKVM_IP" r add default via "$gw" dev eth0
             if [ "$(cat /etc/kvm/network/dns.mode 2>/dev/null)" != "manual" ]; then
                 echo -e "nameserver $gw" >> /etc/resolv.conf
             fi
             break
-        done < /boot/eth.nodhcp
+        done < "$NANOKVM_ETH_CONFIG"
 
-        ip a show dev eth0 | grep inet > /dev/null || {
-            udhcpc -B -i eth0 -t 3 -T 1 -A 5 -b -O 121 -p /run/udhcpc.eth0.pid &>/dev/null
-            ip a show dev eth0 | grep inet > /dev/null
+        "$NANOKVM_IP" a show dev eth0 | grep inet > /dev/null || {
+            set -- -B -i eth0 -t 3 -T 1 -A 5 -b -O 121 -p "$NANOKVM_ETH_DHCP_PID"
+            if value=$(dhcp_hostname); then
+                set -- "$@" -x "hostname:$value" -F "$value"
+            fi
+            "$NANOKVM_UDHCPC" "$@" &>/dev/null
+            "$NANOKVM_IP" a show dev eth0 | grep inet > /dev/null
         } || {
             inet=$RESERVE_INET
             addr=${inet%/*}
-            ip a add "$inet" brd + dev eth0
+            "$NANOKVM_IP" a add "$inet" brd + dev eth0
         } || exit 1
     else
-        udhcpc -B -i eth0 -t 10 -T 1 -A 5 -b -O 121 -p /run/udhcpc.eth0.pid &
+        set -- -B -i eth0 -t 10 -T 1 -A 5 -b -O 121 -p "$NANOKVM_ETH_DHCP_PID"
+        if value=$(dhcp_hostname); then
+            set -- "$@" -x "hostname:$value" -F "$value"
+        fi
+        "$NANOKVM_UDHCPC" "$@" &
     fi
 }
 
 stop() {
-    [ -f "/run/udhcpc.eth0.pid" ] || return 0
-    kill "$(cat /run/udhcpc.eth0.pid)" 2>/dev/null || true
-    rm -f /run/udhcpc.eth0.pid
+    [ -f "$NANOKVM_ETH_DHCP_PID" ] || return 0
+    kill "$(cat "$NANOKVM_ETH_DHCP_PID")" 2>/dev/null || true
+    rm -f "$NANOKVM_ETH_DHCP_PID"
 }
 
 case "$1" in

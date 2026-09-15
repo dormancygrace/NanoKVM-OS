@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the actual S30rndis prefix function without invoking network actions."""
+"""Exercise the actual S30usbnet prefix function without invoking network actions."""
 import argparse, shlex, subprocess
 from pathlib import Path
 p=argparse.ArgumentParser(description=__doc__)

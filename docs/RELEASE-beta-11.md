@@ -38,6 +38,8 @@ Both **`python` / `python3`** and **`pip` / `pip3`** work. Python remains option
 
 **Beta-11 is distributed as a complete SD image. No `.nkos` update package is published for this release.**
 
+**Hardware scope: NanoKVM Enhanced PCIe/UXC only.** The shipped kernel Device Tree and boot hardware service declare `pcie`; this is not a Cube Full image. Do not flash it to a Cube Full.
+
 Download **`NanoKVM-OS-v1.0.0-beta-11.img.zip`** and **`SHA256SUMS`**, verify the checksum, extract the `.img` and flash the SD card.
 
 **Writing the full image replaces the existing installation, including settings and data.** Export anything you want to retain before flashing. This download does not perform the settings-preserving Web updater migration.

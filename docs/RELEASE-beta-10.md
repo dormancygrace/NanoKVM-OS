@@ -44,7 +44,8 @@ These changes reduce avoidable playback interruptions. Network stalls can still 
 
 ## 📦 Installing or updating
 
-- **Already on beta-9's 64 MiB boot layout:** use the signed `NanoKVM-OS-update.nkos` package through **Settings → Updates**.
+- **Hardware scope:** this release image and its signed full-system updater were built and qualified for the **NanoKVM Enhanced PCIe/UXC** board only. They are not a Cube Full firmware release. Do not install the `.nkos` package on a Cube Full.
+- **Already on beta-9's 64 MiB boot layout on the supported Enhanced PCIe/UXC board:** use the signed `NanoKVM-OS-update.nkos` package through **Settings → Updates**.
 - **Fresh installation, stock firmware, or beta-8 and earlier:** download `NanoKVM-OS-1.0.0-beta.10.img.zip`, verify it against `SHA256SUMS`, extract the image and flash the complete SD card. A normal full-image installation replaces the existing card layout and data.
 
 The layout remains **64 MiB boot + 1488 MiB system + the remaining card space for data**. Compatible full-system updates keep the kernel, modules, native libraries, application and Web interface together. APK add-ons remain a separate application layer.

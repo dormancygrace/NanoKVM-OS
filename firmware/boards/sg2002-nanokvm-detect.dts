@@ -1,0 +1,28 @@
+/dts-v1/;
+#include "sg2002-nanokvm-common.dtsi"
+/ { model = "NanoKVM automatic board selection"; sipeed,board-revision = "detect"; nanokvm,profile-version = <1>; };
+
+&sdhci1 { status = "disabled"; };
+&wifi_pwrseq { status = "disabled"; };
+&oled_i2c { status = "disabled"; };
+&porta { /delete-node/ oled-reset-hog; };
+&i2c1 { pinctrl-names = "default"; pinctrl-0 = <&nanokvm_alpha_i2c_cfg>; clock-frequency = <100000>; status = "okay"; };
+&gpio4 { pinctrl-names = "default"; pinctrl-0 = <&nanokvm_alpha_reset_cfg>; };
+&porte { alpha-oled-reset { gpio-hog; gpios = <19 GPIO_ACTIVE_HIGH>; output-high; line-name = "nanokvm-alpha-oled-reset"; }; };
+&pinctrl {
+    nanokvm_alpha_i2c_cfg: nanokvm-alpha-i2c-cfg {
+        pins { pinmux = <PINMUX(PIN_SD1_D3, 2)>, <PINMUX(PIN_SD1_D0, 2)>; power-source = <3300>; bias-pull-up; };
+    };
+    nanokvm_alpha_reset_cfg: nanokvm-alpha-reset-cfg {
+        pins { pinmux = <PINMUX(PIN_SD1_D2, 3)>; power-source = <3300>; bias-pull-up; };
+    };
+    nanokvm_alpha_atx_cfg: nanokvm-alpha-atx-cfg {
+        pins { pinmux = <PINMUX(PIN_EMMC_CMD, 3)>, <PINMUX(PIN_EMMC_DAT0, 3)>, <PINMUX(PIN_EMMC_DAT1, 3)>, <PINMUX(PIN_EMMC_DAT3, 3)>; power-source = <3300>; bias-pull-up; };
+    };
+};
+
+// Do not touch A27: on Alpha this is the host ATX reset output.
+&gpio0 { pinctrl-0 = <&nanokvm_wifi_enable_cfg>; };
+&porta { wifi-held-off { gpio-hog; gpios = <26 GPIO_ACTIVE_HIGH>; output-low; line-name = "nanokvm-detection-wifi-off"; }; };
+&{/hdmi-reset} { status = "disabled"; };
+&i2c4 { status = "disabled"; };

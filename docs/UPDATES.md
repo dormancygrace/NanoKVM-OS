@@ -1,13 +1,13 @@
-# Current release: beta-12 full image only
+# Current release: beta-13 full image only
 
-No `.nkos` asset is distributed for beta-12. Install the complete SD image as
+No `.nkos` asset is distributed for beta-13. Install the complete SD image as
 described in [installation](INSTALL.md). Flashing replaces settings and data;
 the preserved-settings guarantees of earlier package updates do not apply.
 
 The software still contains the signed package updater and optional APK manager.
 This release does not introduce general package-based system updates. Older
 package formats below are retained as implementation history, not an offered
-beta-12 download. GitHub tag `v1.0.0-beta.12` is the version tag for this image.
+beta-13 download. GitHub tag `v1.0.0-beta.13` is the version tag for this image.
 
 ## Earlier updater formats (historical reference)
 

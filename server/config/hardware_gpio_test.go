@@ -3,7 +3,7 @@ package config
 import "testing"
 
 func TestEnhancedATXRequiresKnownBoard(t *testing.T) {
-	for _, name := range []string{"", "unknown", "Alpha"} {
+	for _, name := range []string{"", "unknown", "Alpha", "lite"} {
 		h := gpioV2Hardware(HWAlpha, name)
 		if h.GPIOPower != "" || h.GPIOReset != "" || h.GPIOPowerLED != "" || h.GPIOHDDLed != "" {
 			t.Fatalf("unknown board retained GPIO access: %+v", h)

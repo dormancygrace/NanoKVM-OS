@@ -1,0 +1,3 @@
+/dts-v1/;
+#include "sg2002-nanokvm-common.dtsi"
+/ { model = "Sipeed NanoKVM base / Lite"; sipeed,board-revision = "lite"; nanokvm,profile-version = <1>; };

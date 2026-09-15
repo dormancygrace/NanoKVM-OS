@@ -75,6 +75,11 @@ mount -t configfs configfs /sys/kernel/config
 mount -t debugfs debugfs /sys/kernel/debug
 
 mkdir -p /boot
+# Probe-only DTs can expose MMC a little later than the normal board DT.
+for attempt in 1 2 3 4 5 6 7 8 9 10; do
+	[ -b /dev/mmcblk0p2 ] && break
+	sleep 1
+done
 mount -o ro /dev/mmcblk0p1 /boot
 
 msc=0
@@ -120,4 +125,11 @@ fi
 mount -t proc proc /realroot/proc
 mount -t sysfs sysfs /realroot/sys
 mount -t devtmpfs devtmpfs /realroot/dev
+if [ "$(busybox tr -d '\000' < /sys/firmware/devicetree/base/sipeed,board-revision)" = detect ]; then
+	# Hardware discovery runs before networking, video, GPIO buttons or Wi-Fi.
+	# A successful selection replaces boot.sd and reboots with the selected DT.
+	busybox chroot /realroot /usr/sbin/nkos-board-select
+	echo 'NanoKVM board selection failed; normal services were not started'
+	exec busybox sh </dev/console >/dev/console 2>&1
+fi
 exec switch_root /realroot /sbin/init

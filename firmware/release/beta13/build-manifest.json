@@ -1,0 +1,84 @@
+{
+  "version": "1.0.0-beta.13",
+  "sequence": 29,
+  "kernel": "7.2.5-nanokvm-os-r3",
+  "distribution": "full-sd-image-only",
+  "source_date_epoch": 1789504856,
+  "source_commit": "b9b37a8c9b3d3d0cfec4d0edc5593f93a7716abf",
+  "complete_image_device_tested": true,
+  "files": {
+    "NanoKVM-OS-v1.0.0-beta-13.img.zip": {
+      "sha256": "6eccca5bb63020a4c063e8932b89f8ea9b923b20f429e8ff7b4e0cae6573da95",
+      "bytes": 130566882
+    }
+  },
+  "rootfs_delta": {
+    "version": "1.0.0-beta.13",
+    "sequence": 29,
+    "kernel": "7.2.5-nanokvm-os-r3",
+    "hardware_service_sha256": "3913cd12e600e7ed5692018e98febe57b197724ced0f6010273107747c530b5f",
+    "server_sha256": "b61483658dc75ed5e36683d646166af5608e60d0f3cbf26d4a06e4d1db5ba57b",
+    "web_index_sha256": "1c270344e3f4db20c7f6841b1506284e6d4fbb77b787deb16361a08f099d5408",
+    "capture_sha256": "3fecf95c740beaa5396046d7b8217969b857966959b0ba5998670c6d4fb498ee",
+    "native_changed": [
+      "libkvm.so"
+    ],
+    "usb_templates": [
+      "etc/init.d/S03usbdev",
+      "kvmapp/system/init.d/S03usbdev",
+      "kvmapp/system/init.d/S03usbhid"
+    ],
+    "system_base": "91845969c2489c8456ae064a3af24fa9d97017b2a24f6aeaa3258d3f1b8916e4",
+    "application_manifest_sha256": "9025beac663969624191545c1a3ee93407157d0fcdafd47ab69fbc41ac5ce670",
+    "boot_profiles": {
+      "kernel": "7.2.5-nanokvm-os-r3",
+      "kernel_payload_sha256": "1669f0fe1a403b21807a1a150eaf5397a6afd837ab6a779b6e2490930acc73c0",
+      "epoch": 1789504800,
+      "profiles": {
+        "detect": {
+          "fit_sha256": "1b74553bca83d21eca18a6609bb0001639c52fc679d425cbcacca9b3c5bb7f63",
+          "dtb_sha256": "2ef1a3946e45b017e9cfc64956c869bb5a614d96cd6131bbe257a15057373e2a",
+          "bytes": 7642080
+        },
+        "alpha": {
+          "fit_sha256": "99801daf41482577033c32de8e1be00a28a5eeb240f5bf92a2152f57e331ace4",
+          "dtb_sha256": "b18079ea2097daa6673348ca6bd34a122fcaedc1380bf75f8090f834745e7378",
+          "bytes": 7641900
+        },
+        "beta": {
+          "fit_sha256": "449df390ee8c8478bbc6296240ef0139bf79a8be2b82b18234e0ba2b53025f29",
+          "dtb_sha256": "2c75cc54ff3035bbd5e87b1e0d9a7c07baceec9dde1a40353fff192f7da2a037",
+          "bytes": 7641480
+        },
+        "pcie": {
+          "fit_sha256": "89d886749aa9f5ebdbb4da97ffba82a29669f9f13a81e2b6cb13419f862008ff",
+          "dtb_sha256": "f83942cd91b74d569e3a1eca05882c475a59a02897bd13773ff29d06a33d1ce2",
+          "bytes": 7641572
+        },
+        "lite": {
+          "fit_sha256": "6b2cef5f4de43e9bf815a4ac835069c10b02095080989d0b8935c954fc7abeb6",
+          "dtb_sha256": "2b8242d0884fe184858194a1d7b2667c5f68dd20d6c3b460e3e295cd85e06934",
+          "bytes": 7641480
+        }
+      },
+      "probe_sha256": "18d329c2bfdb49b276ffa35d5e244735b2e132230add36cc1aa7614be57c137c"
+    },
+    "ssh_default": "disabled",
+    "python_in_base": false
+  },
+  "release_tag": "v1.0.0-beta.13",
+  "hardware_scope": {
+    "physical_acceptance": "PCIe/UXC",
+    "profiles_included": [
+      "alpha",
+      "beta",
+      "pcie",
+      "lite"
+    ],
+    "physical_acceptance_pending": [
+      "alpha",
+      "beta/Cube Full",
+      "lite"
+    ]
+  }
+}

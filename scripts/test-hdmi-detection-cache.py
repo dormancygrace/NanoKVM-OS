@@ -110,4 +110,17 @@ publish() {{ printf '%s\\n' "$2" > "{profiles}/$1"; }}
         script.write_text(source[:position] + mocks + source[position:])
         subprocess.run(["sh", str(script), "start"], check=True)
         assert (profiles / "hw").read_text().strip() == expected
+    # Selected DTs are authoritative even when an optional OLED disappears.
+    for profile, legacy in (("alpha", "alpha"), ("beta", "beta"), ("pcie", "pcie"), ("lite", "beta")):
+        profiles = root / ("selected-" + profile)
+        profiles.mkdir()
+        mocks = f'''check_board() {{ declared_board={profile}; profiled=1; }}
+responds_on() {{ return 7; }}
+detect_hdmi() {{ hdmi=ux; }}
+publish() {{ printf '%s\\n' "$2" > "{profiles}/$1"; }}
+'''
+        script.write_text(source[:position] + mocks + source[position:])
+        subprocess.run(["sh", str(script), "start"], check=True)
+        assert (profiles / "hw").read_text().strip() == legacy
+        assert (profiles / "board-profile").read_text().strip() == profile
 print("HDMI cached-model and explicit detection checks passed")

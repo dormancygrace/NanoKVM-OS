@@ -1,0 +1,22 @@
+#!/bin/sh
+# Invoked by initramfs before the regular system starts, never by the UI.
+set -eu
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+test "$(tr -d '\000' < /sys/firmware/devicetree/base/sipeed,board-revision)" = detect
+profile=$(/usr/sbin/nkos-board-probe)
+case "$profile" in alpha|beta|pcie|lite) ;; *) echo 'Unknown board profile' >&2; exit 1;; esac
+cd /usr/lib/nkos/boot
+sha256sum -c "$profile.sha256"
+mount -t vfat /dev/mmcblk0p1 /boot
+trap 'umount /boot' EXIT
+test ! -e /boot/rec
+# Write once, sync, then replace. No post-write image readback or backup.
+cp "$profile.sd" /boot/boot.sd.new
+sync
+mv -f /boot/boot.sd.new /boot/boot.sd
+sync
+echo "NanoKVM selected $profile; rebooting with its Device Tree"
+umount /boot
+trap - EXIT
+reboot -f
+exit 1

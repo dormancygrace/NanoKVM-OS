@@ -7,7 +7,7 @@ and preserve paths co-owned by a selected package. This runs only on host stagin
 import argparse,json,os,re,subprocess
 from pathlib import Path
 
-OPTIONAL = {'openvpn','wireless_tools','mc','nkos-superfile','nano','htop','tcpdump','ethtool','bluez5_utils','bluez5_utils-headers','dbus','libcap-ng','libffi','libglib2','libpcap','pcre2'}
+OPTIONAL = {'openvpn','wireless_tools','mc','nkos-superfile','nano','htop','tcpdump','ethtool','bluez5_utils','bluez5_utils-headers','dbus','libcap-ng','libffi','libglib2','libpcap','pcre2','python3','python-pip','expat'}
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('target',type=Path);p.add_argument('--build-dir',type=Path,required=True);p.add_argument('--config',type=Path,required=True);p.add_argument('--report',type=Path)
  a=p.parse_args();target=a.target.resolve()

@@ -12,11 +12,16 @@ export type EthernetConfig = {
 };
 
 // wake on lan
-export function wol(mac: string) {
+export function wol(mac: string, networkInterface: string) {
   const data = {
-    mac
+    mac,
+    interface: networkInterface
   };
   return http.post('/api/network/wol', data);
+}
+
+export function getWolInterfaces() {
+  return http.get('/api/network/wol/interfaces');
 }
 
 // get wake-on-lan macs history

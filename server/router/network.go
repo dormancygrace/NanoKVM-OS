@@ -18,6 +18,7 @@ func networkRouter(r *gin.Engine) {
 
 	api.POST("/network/wol", service.WakeOnLAN) // wake on lan
 	api.GET("/network/wol/mac", service.GetMac) // get mac list
+	api.GET("/network/wol/interfaces", service.GetWolInterfaces)
 
 	admin := r.Group("/api").Use(
 		middleware.CheckToken(),

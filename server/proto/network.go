@@ -1,7 +1,12 @@
 package proto
 
 type WakeOnLANReq struct {
-	Mac string `form:"mac" validate:"required"`
+	Mac       string `form:"mac" validate:"required"`
+	Interface string `form:"interface"`
+}
+
+type GetWolInterfacesRsp struct {
+	Interfaces []string `json:"interfaces"`
 }
 
 type GetMacRsp struct {

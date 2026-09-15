@@ -1,0 +1,108 @@
+{
+  "single Linux hart": [
+    "SMP"
+  ],
+  "other board hardware": [
+    "ERRATA_ANDES",
+    "ERRATA_SIFIVE",
+    "SERIAL_SIFIVE",
+    "SERIAL_SIFIVE_CONSOLE",
+    "GOLDFISH",
+    "RTC_DRV_GOLDFISH",
+    "EEPROM_93CX6",
+    "NET_FAILOVER",
+    "CAN",
+    "MTD",
+    "NOP_USB_XCEIV"
+  ],
+  "unused storage and network services": [
+    "NET_9P",
+    "9P_FS",
+    "BTRFS_FS",
+    "NFS_FS",
+    "ROOT_NFS",
+    "SUNRPC",
+    "LOCKD",
+    "IP_PNP",
+    "IP_VS",
+    "NETFILTER_XT_MATCH_IPVS",
+    "MD",
+    "BLK_DEV_DM",
+    "DAX",
+    "DEV_DAX",
+    "FS_DAX"
+  ],
+  "unused memory and checkpoint facilities": [
+    "HUGETLBFS",
+    "HUGETLB_PAGE",
+    "CGROUP_HUGETLB",
+    "CHECKPOINT_RESTORE",
+    "PAGE_REPORTING",
+    "MEMTEST",
+    "PROFILING"
+  ],
+  "LSMs with no policy or userspace in this image": [
+    "SECURITY_SELINUX",
+    "SECURITY_APPARMOR"
+  ],
+  "USB networking uses NCM instead of RNDIS": [
+    "USB_CONFIGFS_RNDIS",
+    "USB_F_RNDIS",
+    "USB_ETH_RNDIS",
+    "USB_G_MULTI_RNDIS",
+    "USB_NET_RNDIS_HOST"
+  ],
+  "unused USB gadget functions; supported composition uses HID, ACM, NCM, mass storage and UAC1": [
+    "USB_CONFIGFS_SERIAL",
+    "USB_CONFIGFS_OBEX",
+    "USB_CONFIGFS_ECM",
+    "USB_CONFIGFS_ECM_SUBSET",
+    "USB_CONFIGFS_EEM",
+    "USB_CONFIGFS_F_FS",
+    "USB_F_SERIAL",
+    "USB_F_OBEX",
+    "USB_F_ECM",
+    "USB_F_SUBSET",
+    "USB_F_EEM",
+    "USB_F_FS"
+  ],
+  "no Kerberos consumers": [
+    "CRYPTO_KRB5",
+    "CRYPTO_KRB5ENC"
+  ],
+  "no UEFI variable filesystem": [
+    "EFIVAR_FS"
+  ],
+  "USB audio and OLED do not use I2S SPDIF simple-card or backlight": [
+    "SND_DESIGNWARE_I2S",
+    "SND_SOC_SPDIF",
+    "SND_SOC_SPDIF_RX",
+    "SND_SOC_SPDIF_TX",
+    "SND_SIMPLE_CARD",
+    "SND_SIMPLE_CARD_UTILS",
+    "BACKLIGHT_CLASS_DEVICE"
+  ],
+  "no FTP or TFTP NAT helpers": [
+    "NF_CONNTRACK_FTP",
+    "NF_CONNTRACK_TFTP",
+    "NF_NAT_FTP",
+    "NF_NAT_TFTP"
+  ],
+  "no VXLAN IPVLAN MACVLAN SIT or IPsec features": [
+    "VXLAN",
+    "IPVLAN",
+    "MACVLAN",
+    "MACVTAP",
+    "IPV6_SIT",
+    "XFRM",
+    "XFRM_USER",
+    "XFRM_INTERFACE",
+    "XFRM_ALGO",
+    "INET_ESP",
+    "INET6_ESP",
+    "INET_AH",
+    "INET6_AH",
+    "INET_IPCOMP",
+    "INET6_IPCOMP"
+  ]
+}

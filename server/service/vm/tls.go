@@ -40,23 +40,27 @@ func (s *Service) SetTls(c *gin.Context) {
 }
 
 func enableTls() error {
-	if err := utils.GenerateCert(); err != nil {
-		return err
-	}
-
 	conf, err := config.Read()
 	if err != nil {
 		return err
 	}
+	return enableTlsConfig(conf, config.Write, utils.EnsureServerCertificate)
+}
 
-	conf.Proto = "https"
-	conf.Cert.Crt = "/etc/kvm/server.crt"
-	conf.Cert.Key = "/etc/kvm/server.key"
-
-	if err := config.Write(conf); err != nil {
+func enableTlsConfig(conf *config.Config, writeConfig func(*config.Config) error, ensureCertificate func(string, string) error) error {
+	if conf.Cert.Crt == "" {
+		conf.Cert.Crt = "/etc/kvm/server.crt"
+	}
+	if conf.Cert.Key == "" {
+		conf.Cert.Key = "/etc/kvm/server.key"
+	}
+	if err := ensureCertificate(conf.Cert.Crt, conf.Cert.Key); err != nil {
 		return err
 	}
-
+	conf.Proto = "https"
+	if err := writeConfig(conf); err != nil {
+		return err
+	}
 	return nil
 }
 

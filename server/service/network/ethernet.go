@@ -88,7 +88,11 @@ func readEthernetConfig() (proto.EthernetConfig, error) {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
+		line := strings.TrimSpace(strings.TrimSuffix(scanner.Text(), "\r"))
+		if comment := strings.IndexByte(line, '#'); comment >= 0 {
+			line = strings.TrimSpace(line[:comment])
+		}
+		fields := strings.Fields(line)
 		if len(fields) == 0 {
 			continue
 		}

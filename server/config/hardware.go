@@ -119,6 +119,7 @@ func gpioV2Hardware(h Hardware, declared string) Hardware {
 	case "pcie":
 		h.Version = HWVersionPcie
 		h.GPIOReset = gpioio.Path("3020000.gpio", 25)
+		h.GPIOHDDLed = gpioio.Path("5021000.gpio", 3)
 	default:
 		log.Error("Enhanced ATX disabled: no recognized board revision")
 		return h

@@ -34,6 +34,7 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState('');
   const [deletingImage, setDeletingImage] = useState('');
+  const [forceEjectImage, setForceEjectImage] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -88,7 +89,7 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
   }
 
   // mount/unmount image
-  function mountImage(image: string) {
+  function mountImage(image: string, force = false) {
     if (mountingImage || disabled) return;
     setMountingImage(image);
 
@@ -98,11 +99,15 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
     const filename = isMounted ? '' : image;
 
     api
-      .mountImage(filename, cdrom)
+      .mountImage(filename, cdrom, force)
       .then((rsp) => {
         if (rsp.code !== 0) {
           console.log(rsp.msg);
-          openNotification(isMounted);
+          if (rsp.code === -4 && isMounted && !force) {
+            setForceEjectImage(image);
+          } else {
+            openNotification(isMounted);
+          }
           return;
         }
 
@@ -193,7 +198,7 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
           <div
             key={image}
             className={clsx(
-              'group flex cursor-pointer select-none items-center space-x-1 rounded px-1 py-2 hover:bg-neutral-700/70',
+              'group flex cursor-pointer items-center space-x-1 rounded px-1 py-2 select-none hover:bg-neutral-700/70',
               mountedImage === image && 'text-blue-500',
               disabled && 'cursor-not-allowed opacity-50'
             )}
@@ -254,6 +259,22 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
           </Button>
           <Button onClick={() => setIsModalOpen(false)}>{t('image.cancelBtn')}</Button>
         </div>
+      </Modal>
+
+      <Modal
+        title={t('image.forceEject')}
+        open={!!forceEjectImage}
+        okText={t('image.forceEject')}
+        cancelText={t('image.cancelBtn')}
+        okButtonProps={{ danger: true }}
+        onOk={() => {
+          const image = forceEjectImage;
+          setForceEjectImage('');
+          mountImage(image, true);
+        }}
+        onCancel={() => setForceEjectImage('')}
+      >
+        <p>{t('image.forceEjectDesc')}</p>
       </Modal>
 
       {contextHolder}

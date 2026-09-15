@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, Input, Segmented } from 'antd';
-import { CheckIcon, PlusIcon, XIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon, PlusIcon, XIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
@@ -89,7 +89,7 @@ const Panel = ({
 }) => {
   return (
     <div className="overflow-hidden rounded-xl bg-neutral-800/50">
-      <div className="px-4 pb-1.5 pt-3">
+      <div className="px-4 pt-3 pb-1.5">
         <div className="font-semibold text-neutral-100">{title}</div>
         {description && (
           <div className="mt-0.5 text-xs leading-snug text-neutral-500">{description}</div>
@@ -117,7 +117,7 @@ const InfoRow = ({
         }`}
       >
         <span className="text-sm text-neutral-300">{label}</span>
-        <span className="max-w-[330px] break-all text-right text-sm text-neutral-500">
+        <span className="max-w-[330px] text-right text-sm break-all text-neutral-500">
           {value || '-'}
         </span>
       </div>
@@ -348,13 +348,6 @@ export const DNS = () => {
       </div>
 
       <div className="space-y-5">
-        <Panel title={t('settings.network.dns.networkDetails')}>
-          <InfoRow label={t('settings.network.dns.interface')} value={formatInterface(info)} />
-          <InfoRow label={t('settings.network.dns.ipAddress')} value={info.address} />
-          <InfoRow label={t('settings.network.dns.subnetMask')} value={info.subnetMask} />
-          <InfoRow label={t('settings.network.dns.router')} value={info.gateway} isLast />
-        </Panel>
-
         <Panel title={t('settings.network.dns.dnsServers')} description={serversDescription}>
           {mode === 'manual' ? (
             <div>
@@ -434,6 +427,17 @@ export const DNS = () => {
           </Button>
         </div>
       )}
+
+      <details className="group overflow-hidden rounded-xl bg-neutral-800/50">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm text-neutral-400 hover:text-neutral-200 [&::-webkit-details-marker]:hidden">
+          <span>{t('settings.network.dns.networkDetails')}</span>
+          <ChevronDownIcon size={16} className="transition-transform group-open:rotate-180" />
+        </summary>
+        <InfoRow label={t('settings.network.dns.interface')} value={formatInterface(info)} />
+        <InfoRow label={t('settings.network.dns.ipAddress')} value={info.address} />
+        <InfoRow label={t('settings.network.dns.subnetMask')} value={info.subnetMask} />
+        <InfoRow label={t('settings.network.dns.router')} value={info.gateway} isLast />
+      </details>
     </div>
   );
 };

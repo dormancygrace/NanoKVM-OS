@@ -8,7 +8,7 @@ grep -q 'flavour=enhanced' /etc/nanokvm-buildroot || fail 'Enhanced rootfs requi
 test ! -e /kvmapp/kvm_new_app || fail 'Legacy migration is pending'
 test -x "$stage/NanoKVM-Server" || fail 'Missing executable server'
 test -s "$stage/web/index.html" || fail 'Missing web index'
-for name in S13nanokvm-watchdog S38memory S94sg2002aes S95nanokvm S98tailscaled; do
+for name in S13nanokvm-watchdog S38memory S49persistent-cron S94sg2002aes S95nanokvm S98tailscaled; do
     test -x "$stage/init.d/$name" || fail "Missing script: $name"
     sh -n "$stage/init.d/$name"
 done

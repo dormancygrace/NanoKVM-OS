@@ -4,6 +4,7 @@ import { ScreenShareOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+import { LatestValueQueue } from '@/lib/latest-value-queue.ts';
 
 export const Oled = () => {
   const { t } = useTranslation();
@@ -12,6 +13,18 @@ export const Oled = () => {
   const [sleep, setSleep] = useState(-1);
   const [error, setError] = useState(false);
   const lastTimeout = useRef(60);
+  const updateQueue = useRef<LatestValueQueue<number> | null>(null);
+
+  if (!updateQueue.current) {
+    updateQueue.current = new LatestValueQueue(async (value) => {
+      try {
+        const rsp = await api.setOLED(value);
+        if (rsp.code !== 0) setError(true);
+      } catch {
+        setError(true);
+      }
+    });
+  }
 
   useEffect(() => {
     let disposed = false;
@@ -43,23 +56,12 @@ export const Oled = () => {
     label: t(`settings.device.oled.${duration}`)
   }));
 
-  async function update(value: number) {
+  function update(value: number) {
     if (isLoading) return;
-    setIsLoading(true);
     setError(false);
-    try {
-      const rsp = await api.setOLED(value);
-      if (rsp.code !== 0) {
-        setError(true);
-        return;
-      }
-      setSleep(value);
-      if (value >= 0) lastTimeout.current = value;
-    } catch {
-      setError(true);
-    } finally {
-      setIsLoading(false);
-    }
+    setSleep(value);
+    if (value >= 0) lastTimeout.current = value;
+    void updateQueue.current?.enqueue(value);
   }
 
   return (

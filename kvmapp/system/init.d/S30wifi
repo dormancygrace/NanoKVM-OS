@@ -18,6 +18,7 @@
 : "${NANOKVM_KILLALL:=killall}"
 : "${NANOKVM_CHOWN:=chown}"
 : "${NANOKVM_WIFI_DHCP_PID:=/run/udhcpc.wlan0.pid}"
+: "${NANOKVM_HOSTNAME_FILE:=/etc/hostname}"
 
 WIFI_SSID_FILE=$NANOKVM_WIFI_ETC_DIR/wifi.ssid
 WIFI_PASS_FILE=$NANOKVM_WIFI_ETC_DIR/wifi.pass
@@ -33,6 +34,22 @@ WLAN_DHCP_PID=$NANOKVM_WIFI_DHCP_PID
 prepare_run_dir() {
     mkdir -p "$NANOKVM_WIFI_RUN_DIR" || return 1
     chmod 700 "$NANOKVM_WIFI_RUN_DIR" || return 1
+}
+
+dhcp_hostname() {
+    [ -r "$NANOKVM_HOSTNAME_FILE" ] || return 1
+    value=$(sed -n '1{s/\r$//;p;}' "$NANOKVM_HOSTNAME_FILE") || return 1
+    printf '%s\n' "$value" | awk '
+        length($0) < 1 || length($0) > 253 { exit 1 }
+        $0 !~ /^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$/ && $0 !~ /^[A-Za-z0-9]$/ { exit 1 }
+        {
+            count = split($0, labels, ".")
+            for (i = 1; i <= count; i++)
+                if (length(labels[i]) < 1 || length(labels[i]) > 63 || labels[i] ~ /^-/ || labels[i] ~ /-$/)
+                    exit 1
+        }
+    ' || return 1
+    printf '%s\n' "$value"
 }
 
 gen_hostapd_conf() {
@@ -184,7 +201,11 @@ start() {
 
     "$NANOKVM_WPA_SUPPLICANT" -B -i wlan0 -c "$WPA_CONFIG" || return 1
     if [ ! -e "$NANOKVM_WIFI_BOOT_DIR/wifi.nodhcp" ]; then
-        "$NANOKVM_UDHCPC" -B -O 121 -i wlan0 -t 10 -T 1 -A 5 -b -p "$WLAN_DHCP_PID" >/dev/null 2>&1 &
+        set -- -B -O 121 -i wlan0 -t 10 -T 1 -A 5 -b -p "$WLAN_DHCP_PID"
+        if value=$(dhcp_hostname); then
+            set -- "$@" -x "hostname:$value" -F "$value"
+        fi
+        "$NANOKVM_UDHCPC" "$@" >/dev/null 2>&1 &
     fi
 }
 

@@ -31,7 +31,7 @@ shutil.copyfile(target/'usr/lib/libc.so',root/'usr/lib/ld-musl-riscv64.so.1')
 (root/'usr/lib/ld-musl-riscv64.so.1').chmod(0o755)
 (root/'etc/profile').write_text('export PATH=/usr/sbin:/usr/bin:/sbin:/bin\n')
 for source,name in [(app/'firmware/network-startup/runtime.sh','runtime.sh'),
-                    (app/'firmware/buildroot/board/enhanced/init.d/S30rndis','S30rndis'),
+                    (app/'firmware/buildroot/board/enhanced/init.d/S30usbnet','S30usbnet'),
                     (app/'kvmapp/system/init.d/S30wifi','S30wifi')]:
     shutil.copy2(source,root/'tmp/nettest'/name)
     (root/'tmp/nettest'/name).chmod(0o755)

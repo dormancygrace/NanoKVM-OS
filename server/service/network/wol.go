@@ -3,10 +3,12 @@ package network
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +20,27 @@ import (
 const (
 	WolMacFile = "/etc/kvm/cache/wol"
 )
+
+var systemNetworkInterfaces = net.Interfaces
+var wolSysClassNet = "/sys/class/net"
+
+func wolInterfaceIsHardware(name string) bool {
+	base := filepath.Join(wolSysClassNet, name)
+	if _, err := os.Stat(filepath.Join(base, "device")); err != nil {
+		return false
+	}
+
+	uevent, err := os.ReadFile(filepath.Join(base, "uevent"))
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(uevent), "\n") {
+		if line == "DEVTYPE=gadget" {
+			return false
+		}
+	}
+	return true
+}
 
 func (s *Service) WakeOnLAN(c *gin.Context) {
 	var req proto.WakeOnLANReq
@@ -34,7 +57,13 @@ func (s *Service) WakeOnLAN(c *gin.Context) {
 		return
 	}
 
-	cmd := exec.Command("ether-wake", "-b", mac)
+	interfaceName, err := selectWolInterface(req.Interface)
+	if err != nil {
+		rsp.ErrRsp(c, -2, "invalid network interface")
+		return
+	}
+
+	cmd := wolCommand(interfaceName, mac)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -46,7 +75,68 @@ func (s *Service) WakeOnLAN(c *gin.Context) {
 	saveMac(mac)
 
 	rsp.OkRsp(c)
-	log.Debugf("wake on lan: %s", mac)
+	log.Debugf("wake on lan: %s via %s", mac, interfaceName)
+}
+
+func (s *Service) GetWolInterfaces(c *gin.Context) {
+	var rsp proto.Response
+
+	interfaces, err := wolInterfaces()
+	if err != nil {
+		log.Errorf("failed to list wake-on-lan interfaces: %s", err)
+		rsp.ErrRsp(c, -2, "list interfaces failed")
+		return
+	}
+
+	rsp.OkRspWithData(c, &proto.GetWolInterfacesRsp{Interfaces: interfaces})
+}
+
+func wolInterfaces() ([]string, error) {
+	interfaces, err := systemNetworkInterfaces()
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0, len(interfaces))
+	for _, item := range interfaces {
+		if item.Flags&net.FlagUp == 0 || item.Flags&net.FlagLoopback != 0 ||
+			item.Flags&net.FlagBroadcast == 0 || len(item.HardwareAddr) != 6 ||
+			!wolInterfaceIsHardware(item.Name) {
+			continue
+		}
+		names = append(names, item.Name)
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+func selectWolInterface(requested string) (string, error) {
+	interfaces, err := wolInterfaces()
+	if err != nil {
+		return "", err
+	}
+	requested = strings.TrimSpace(requested)
+	if requested == "" {
+		for _, name := range interfaces {
+			if name == "eth0" {
+				return name, nil
+			}
+		}
+		if len(interfaces) > 0 {
+			return interfaces[0], nil
+		}
+		return "", errors.New("no wake-on-lan interface is available")
+	}
+	for _, name := range interfaces {
+		if requested == name {
+			return name, nil
+		}
+	}
+	return "", fmt.Errorf("network interface %q is not available for wake-on-lan", requested)
+}
+
+func wolCommand(interfaceName, mac string) *exec.Cmd {
+	return exec.Command("ether-wake", "-i", interfaceName, "-b", mac)
 }
 
 func (s *Service) GetMac(c *gin.Context) {

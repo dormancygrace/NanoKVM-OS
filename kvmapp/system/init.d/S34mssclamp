@@ -1,0 +1,28 @@
+#!/bin/sh
+# Clamp only oversized TCP MSS to the actual forward/reverse route PMTU.
+# Postrouting covers local VPN endpoints and forwarded SYN/SYN-ACK packets.
+# No interface-name list: renamed/new tunnels and cached PMTU work immediately.
+
+case "${1:-}" in
+    start|restart|reload)
+        # One transaction replaces only our table, leaving VPN/filter rules alone.
+        nft -f - <<'EOF'
+add table inet nkos_mss
+delete table inet nkos_mss
+table inet nkos_mss {
+    chain postrouting {
+        type filter hook postrouting priority mangle; policy accept;
+        oifname != "lo" meta l4proto tcp tcp flags & (syn | rst) == syn counter tcp option maxseg size set rt mtu comment "PMTU MSS ceiling; SYN checks, not changed-packet count"
+    }
+}
+EOF
+        ;;
+    stop)
+        nft -f - <<'EOF'
+add table inet nkos_mss
+delete table inet nkos_mss
+EOF
+        ;;
+    status) nft list table inet nkos_mss ;;
+    *) echo "Usage: $0 {start|stop|restart|reload|status}" >&2; exit 1 ;;
+esac

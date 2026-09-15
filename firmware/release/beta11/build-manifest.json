@@ -1,0 +1,37 @@
+{
+  "version": "1.0.0-beta.11",
+  "sequence": 27,
+  "kernel": "7.2.5-nanokvm-os-r3",
+  "distribution": "full-sd-image-only",
+  "source_date_epoch": 1789488959,
+  "source_commit": "23d1fa5044566320ef1e6934030ba7ec81b8b87b",
+  "complete_image_device_tested": false,
+  "files": {
+    "NanoKVM-OS-v1.0.0-beta-11.img.zip": {
+      "sha256": "b4ceab6ecd70c325fc91e6b0b36b9cdf0f289a73505ad3de79ea74082ecebdd4",
+      "bytes": 90405960
+    }
+  },
+  "rootfs_delta": {
+    "version": "1.0.0-beta.11",
+    "sequence": 27,
+    "kernel": "7.2.5-nanokvm-os-r3",
+    "server_sha256": "1fa6cf7ce6e8aa13c0bf4b77595101627a914903b37322cad8e8dfba86e30cfa",
+    "web_index_sha256": "1c270344e3f4db20c7f6841b1506284e6d4fbb77b787deb16361a08f099d5408",
+    "capture_sha256": "3fecf95c740beaa5396046d7b8217969b857966959b0ba5998670c6d4fb498ee",
+    "native_changed": [
+      "libkvm.so"
+    ],
+    "usb_templates": [
+      "etc/init.d/S03usbdev",
+      "kvmapp/system/init.d/S03usbdev",
+      "kvmapp/system/init.d/S03usbhid"
+    ],
+    "system_base": "91845969c2489c8456ae064a3af24fa9d97017b2a24f6aeaa3258d3f1b8916e4",
+    "application_manifest_sha256": "1738473c28046f0a7a7b9c6b95aa9bf91738347a946ce8b14d870ef03bc9b84f",
+    "ssh_default": "disabled",
+    "python_in_base": false
+  },
+  "source_layout": "Curated public source snapshot; release assembly source and artifact hashes are recorded separately.",
+  "release_tag": "v1.0.0-beta.11"
+}

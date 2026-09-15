@@ -6,12 +6,12 @@
 
 **Community firmware compatible with NanoKVM Cube and NanoKVM PCIe.**
 
-![Version: 1.0.0 beta-10](https://img.shields.io/badge/version-1.0.0--beta.10-orange)
+![Version: 1.0.0 beta-11](https://img.shields.io/badge/version-1.0.0--beta.11-orange)
 ![Hardware: Cube and PCIe](https://img.shields.io/badge/hardware-Cube%20%7C%20PCIe-blue)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
-[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](docs/BUILD-beta-10.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
+[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](docs/BUILD-beta-11.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
 
 </div>
 
@@ -24,7 +24,7 @@
 The aim is a responsive IP-KVM with maintained system components, explicit recovery behavior and measurable resource use. This is an independent community project built on Sipeed NanoKVM and SOPHGO/CVITEK software, with credit to the original authors.
 
 > [!NOTE]
-> **Beta-10 — sequence 23:** HTTPS on by default, H.265 Direct when supported by the browser, with H.264 fallback. **QHD H.265 WebRTC is disabled.** Use H.265 Direct for QHD. Fresh-card partition creation and broad hardware/endurance qualification remain pending; see [validation](docs/VALIDATION.md).
+> **Beta-11 — sequence 27:** HTTPS on by default, H.265 Direct when supported by the browser, with H.264 fallback. **QHD H.265 WebRTC is disabled.** Use H.265 Direct for QHD. Fresh-card partition creation and broad hardware/endurance qualification remain pending; see [validation](docs/VALIDATION.md).
 
 ## 🚀 At a glance
 
@@ -43,7 +43,7 @@ The aim is a responsive IP-KVM with maintained system components, explicit recov
 
 USB audio reaches the browser with one shared Opus encoder. Mount an ISO directly from your computer without copying it to SD; CD/DVD emulation now supports images up to 31.625 GiB. Dashboard shows SoC temperature and CPU frequency, with independent thermal protection and optional runtime overclocking.
 
-OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Linux 7.2.5-nanokvm-os-r3**, **OpenSSL 4.0.2** and consistent **`-O2`** target C/C++ builds. Optional tools are installed through APK, while signed system updates keep the kernel and modules together. See [release notes and community credits](docs/RELEASE-beta-10.md).
+OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Linux 7.2.5-nanokvm-os-r3**, **OpenSSL 4.0.2** and consistent **`-O2`** target C/C++ builds. Optional tools are installed through APK, while signed system updates keep the kernel and modules together. See [release notes and community credits](docs/RELEASE-beta-11.md).
 
 <a id="compatibility"></a>
 
@@ -95,10 +95,10 @@ H.265 needs a browser/platform that actually supports decoding it. Pion packetiz
 
 | First installation / system replacement | Later package updates |
 |---|---|
-| 📀 Download `.img.zip`, decompress and flash the whole SD card | 📦 Upload a signed `.nkos` package under Settings → Updates |
+| 📀 Download `.img.zip`, decompress and flash the whole SD card | 📀 Beta-11 also requires the full image; no `.nkos` is published |
 | Includes Linux, native libraries, application and updater | Updates the application and supported system components on a compatible OS base |
 
-The current release includes a full SD image and a signed full-system package for beta-9’s compatible layout. Fresh-card first-boot testing remains pending. See [installation and recovery](docs/INSTALL.md).
+The current beta-11 release is a full SD image only; no `.nkos` package is published. Fresh-card first-boot testing remains pending. See [installation and recovery](docs/INSTALL.md).
 
 ## 🌐 VPN profiles
 
@@ -108,7 +108,7 @@ Open **Settings → VPN** and choose WireGuard, OpenVPN or Tailscale. WireGuard 
 
 ## 📦 Updates
 
-Open **Settings → Updates** to check GitHub or upload a `.nkos` package. The device checks this repository after startup and then daily; it never installs an update automatically. The page shows validation and installation status.
+Beta-11 is available as a **full SD image only**. Follow [installation](docs/INSTALL.md); flashing replaces settings and data. The existing package updater remains available for compatible packages from other releases, but beta-11 has no `.nkos` asset.
 
 Signed system packages can update the application and supported system programs, libraries and data while preserving settings. The new package format can replace the kernel and matched modules on a compatible foundation. Bootloader updates and A/B boot rollback are not supported. Packages require a compatible system foundation, matching native libraries and a newer release sequence. See [package updates](docs/UPDATES.md).
 
@@ -121,7 +121,7 @@ Full system images use the hardware **Boot flashing procedure**. They are not ac
 ## 🧪 Current limitations
 
 - **QHD H.265 WebRTC is disabled.** The underlying fault remains unresolved; use H.265 Direct for QHD.
-- Portrait and landscape video were exercised on the PCIe/UXC test board. Fresh-card creation and all browser/client combinations remain to be qualified; see [beta-10 acceptance](docs/BETA10-ACCEPTANCE.md).
+- Portrait and landscape video were exercised on the PCIe/UXC test board. Fresh-card creation and all browser/client combinations remain to be qualified; see [beta-11 acceptance](docs/BETA11-ACCEPTANCE.md).
 - Forced application termination can leave native media buffers in an unusable state; application rollback is not a hardware reset.
 - A watchdog cannot be assumed to recover every bus/SoC lockup. Physical power cycling may still be necessary.
 - OpenVPN supports routed TUN profiles; TAP, scripts and interactive SSO/MFA are not supported. Local DCO traffic and DNS restoration were checked; broad provider interoperability remains unqualified.
@@ -137,7 +137,7 @@ Full system images use the hardware **Boot flashing procedure**. They are not ac
 - `scripts/`: component build/staging tools; external SDK and toolchain inputs are required.
 - `tools/` and `kvmapp/system/init.d/`: EDID tools and device startup services.
 
-See [BUILD.md](docs/BUILD-beta-10.md) for build instructions.
+See [BUILD.md](docs/BUILD-beta-11.md) for build instructions.
 
 ## ❤️ Credits and licenses
 
@@ -145,8 +145,8 @@ NanoKVM application changes retain the upstream [GPL-3.0 license](LICENSE). Indi
 
 Thanks to [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), the Linux/Buildroot/Go communities and [Pion](https://github.com/pion). Please include board revision, browser, codec/transport, resolution, FPS target and reproduction steps when reporting an issue. Remove credentials and private screen contents from logs.
 
-## Beta-10
+## Beta-11
 
-See [beta-10 release notes](docs/RELEASE-beta-10.md) and [beta-10 build inputs](docs/BUILD-beta-10.md). Fresh images disable SSH; enable it in the Web settings if needed.
+See [beta-11 release notes](docs/RELEASE-beta-11.md) and [beta-11 build inputs](docs/BUILD-beta-11.md). Fresh images disable SSH; enable it in the Web settings if needed.
 
-Beta-10 retains the 64 MiB boot layout introduced in beta-9. Beta-9 users can install `NanoKVM-OS-update.nkos`; stock firmware and beta-8 or earlier require the full image. Beta-10 is the last release with legacy asset names; see [release naming](docs/RELEASE-NAMING.md).
+Beta-11 retains the 64 MiB boot layout introduced in beta-9 and is distributed only as `NanoKVM-OS-v1.0.0-beta-11.img.zip`, under the GitHub tag `v1.0.0-beta.11`. See [release naming](docs/RELEASE-NAMING.md).

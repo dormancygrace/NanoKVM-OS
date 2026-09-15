@@ -27,7 +27,7 @@ with a.server.open('rb') as f:
     header = f.read(20)
 if len(header) < 20 or header[:6] != b'\x7fELF\x02\x01' or struct.unpack_from('<H', header, 18)[0] != 243:
     p.error('Expected a little-endian ELF64 RISC-V server')
-scripts = ['S13nanokvm-watchdog', 'S38memory', 'S94sg2002aes', 'S95nanokvm', 'S98tailscaled']
+scripts = ['S13nanokvm-watchdog', 'S38memory', 'S49persistent-cron', 'S94sg2002aes', 'S95nanokvm', 'S98tailscaled']
 for name in scripts:
     subprocess.run(['sh', '-n', str(repo/'kvmapp/system/init.d'/name)], check=True)
 html = (a.web/'index.html').read_text()

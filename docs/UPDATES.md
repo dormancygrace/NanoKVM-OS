@@ -1,15 +1,13 @@
-# Beta-10 full-system updates
+# Current release: beta-11 full image only
 
-Beta-10 sequence 23 uses the capability-2 signed full-system package on the
-`sg2002-sd-v2` layout introduced in beta-9. It boots a RAM installer, validates the
-payload, writes the complete system, restores supported settings and APK add-ons,
-and reboots into the new kernel with matching modules. See [installation](INSTALL.md).
-The bootloader is retained; there is no A/B system rollback.
+No `.nkos` asset is distributed for beta-11. Install the complete SD image as
+described in [installation](INSTALL.md). Flashing replaces settings and data;
+the preserved-settings guarantees of earlier package updates do not apply.
 
-Beta-10 keeps `NanoKVM-OS-update.nkos` so beta-9 can discover it. Its server adds
-versioned asset discovery; beta-11 and later use `NanoKVM-OS-vVERSION.nkos`, with
-hyphenated prerelease numbers. See [exact names](RELEASE-NAMING.md). The device
-checks for releases automatically; installation still requires an administrator.
+The software still contains the signed package updater and optional APK manager.
+This release does not introduce general package-based system updates. Older
+package formats below are retained as implementation history, not an offered
+beta-11 download. GitHub tag `v1.0.0-beta.11` is the version tag for this image.
 
 ## Earlier updater formats (historical reference)
 

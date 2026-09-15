@@ -51,6 +51,14 @@ export const Terminal = () => {
     const url = `${getBaseUrl('ws')}/api/vm/terminal${query}`;
     const ws = new WebSocket(url);
     let disposed = false;
+    let resizeNonce = '';
+    const resizeProtocol = terminal.parser.registerOscHandler(777, (data) => {
+      const match = /^nkos-resize;1;([a-f0-9]{32})$/.exec(data);
+      if (!searchParams.has('port') || !match) return false;
+      resizeNonce = match[1];
+      sendSize();
+      return true;
+    });
 
     ws.addEventListener('close', (event) => {
       if (event.code === 4401) {
@@ -67,6 +75,8 @@ export const Terminal = () => {
       terminal.loadAddon(attachAddon);
 
       sendSize();
+      // Wake the USB host's login prompt once per connection.
+      if (searchParams.get('port') === '/dev/ttyGS0') ws.send('\r');
     };
 
     const sendSize = () => {
@@ -74,6 +84,9 @@ export const Terminal = () => {
       const windowSize = { rows: terminal.rows, cols: terminal.cols };
       const blob = new Blob([JSON.stringify(windowSize)], { type: 'application/json' });
       ws.send(blob);
+      if (resizeNonce) {
+        ws.send(`\x1b]777;nkos-size;1;${resizeNonce};${terminal.rows};${terminal.cols}\x07`);
+      }
     };
 
     const resizeScreen = () => {
@@ -93,11 +106,15 @@ export const Terminal = () => {
       cleanupConnection();
     };
 
+    const observer = new ResizeObserver(resizeScreen);
+    observer.observe(terminalEle);
     window.addEventListener('resize', resizeScreen, false);
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       cleanupConnection();
+      observer.disconnect();
+      resizeProtocol.dispose();
       terminal.dispose();
 
       window.removeEventListener('resize', resizeScreen, false);

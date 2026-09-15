@@ -6,9 +6,9 @@ Subject: [PATCH] riscv: describe NanoKVM PCIe board IO and support disabled
 
 ---
  .../pinctrl/sophgo,cv1800-pinctrl.yaml        |   2 +
- .../dts/sophgo/sg2002-nanokvm-enhanced.dts    | 122 +++++++++++++++++-
+ .../dts/sophgo/sg2002-nanokvm-enhanced.dts    | 137 +++++++++++++++++-
  drivers/pinctrl/sophgo/pinctrl-cv18xx.c       |   8 ++
- 3 files changed, 129 insertions(+), 3 deletions(-)
+ 3 files changed, 144 insertions(+), 3 deletions(-)
 
 diff --git a/Documentation/devicetree/bindings/pinctrl/sophgo,cv1800-pinctrl.yaml b/Documentation/devicetree/bindings/pinctrl/sophgo,cv1800-pinctrl.yaml
 index feb4785a3..74a9a09d7 100644
@@ -90,7 +90,7 @@ index 97d63f919..dd994586b 100644
  			pinmux = <PINMUX(PIN_SD1_CLK, 0)>, <PINMUX(PIN_SD1_CMD, 0)>,
  				 <PINMUX(PIN_SD1_D0, 0)>, <PINMUX(PIN_SD1_D1, 0)>,
  				 <PINMUX(PIN_SD1_D2, 0)>, <PINMUX(PIN_SD1_D3, 0)>;
-@@ -259,3 +280,98 @@ user-led-pins {
+@@ -259,3 +280,113 @@ user-led-pins {
  		};
  	};
  };
@@ -112,6 +112,13 @@ index 97d63f919..dd994586b 100644
 +&gpio1 {
 +	pinctrl-names = "default";
 +	pinctrl-0 = <&nanokvm_hdmi_reset_cfg>;
++};
++&gpio4 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&nanokvm_hdd_led_cfg>;
++};
++&porte {
++	gpio-line-names = "", "", "", "nanokvm-hdd-led";
 +};
 +&portb {
 +	hdmi-reset-hog {
@@ -161,6 +168,14 @@ index 97d63f919..dd994586b 100644
 +			pinmux = <PINMUX(PIN_EMMC_CMD, 3)>, <PINMUX(PIN_EMMC_DAT0, 3)>,
 +				 <PINMUX(PIN_EMMC_DAT1, 3)>;
 +			power-source = <3300>;
++		};
++	};
++	nanokvm_hdd_led_cfg: nanokvm-hdd-led-cfg {
++		hdd-led-pins {
++			// PWR_SEQ1 is wired through U46 to the host HDD LED, active low.
++			pinmux = <PINMUX(PIN_PWR_SEQ1, 3)>;
++			power-source = <1800>;
++			bias-disable;
 +		};
 +	};
 +	nanokvm_hdmi_reset_cfg: nanokvm-hdmi-reset-cfg {
@@ -217,4 +232,3 @@ index 36e3c4f9e..022e8cd8d 100644
  			m |= PIN_IO_PULLDOWN;
 -- 
 2.43.0
-

@@ -1,24 +1,56 @@
 #!/bin/sh
 # Enhanced counterpart of the stock S15kvmhwd. Pinmux and board reset/enable
 # ownership are in DT; do not export global GPIOs or reload i2c-gpio here.
+#
+# A previously published Enhanced image declared `pcie` in its DT even when it
+# had been installed on a Cube.  The OLED address is the authoritative runtime
+# discriminator: alpha is 0x3d on I2C1, beta/Cube is 0x3d on I2C5, and PCIe is
+# 0x3c on I2C5.  Do not let a copied PCIe DT make the native OLED service probe
+# the wrong address on an otherwise running Cube.
 set -eu
 
 die() { echo "S15kvmhwd: $*" >&2; exit 1; }
+i2c_available() { [ -c "/dev/i2c-$1" ]; }
 check_board() {
     revision=/sys/firmware/devicetree/base/sipeed,board-revision
     [ -r "$revision" ] || die "board revision is missing from Device Tree"
-    board=$(tr -d '\000' < "$revision")
-    [ "$board" = pcie ] || die "unsupported Enhanced board revision: $board"
+    declared_board=$(tr -d '\000' < "$revision")
     [ -w /sys/bus/platform/devices/hdmi-reset/pulse ] || die "HDMI reset controller is unavailable"
-    [ -c /dev/i2c-4 ] || die "HDMI I2C4 is unavailable"
-    [ -c /dev/i2c-5 ] || die "OLED I2C5 is unavailable"
+    i2c_available 4 || die "HDMI I2C4 is unavailable"
+    { i2c_available 1 || i2c_available 5; } || die "OLED I2C bus is unavailable"
 }
 
-# Preserve the stock targeted SMBus-read probes. A failed bus must not be
-# silently classified as LT6911UE, as the old catch-all branch did.
+# Preserve the stock targeted SMBus-read probes.  A successful probe with no
+# response is a normal negative result and must let HDMI detection try its
+# next address; a failed `i2cdetect` invocation is an I2C error and must stop.
+probe_address() {
+    result=$(i2cdetect -ry "$1" "$2" "$2") || return 2
+    address=${2#0x}
+    printf '%s\n' "$result" | grep -qw "$address"
+}
+# HDMI identification cannot proceed after a bus error. OLED detection is
+# advisory: a failed optional I2C1 probe must still permit I2C5 and the
+# established PCIe DT fallback to run.
 responds() {
-    result=$(i2cdetect -ry 4 "$1" "$1") || die "HDMI I2C probe failed"
-    printf '%s\n' "$result" | grep -qw "${1#0x}"
+    probe_address 4 "$1"
+    status=$?
+    [ "$status" -ne 2 ] || die "I2C4 probe failed at $1"
+    return "$status"
+}
+responds_on() { probe_address "$1" "$2"; }
+detect_board() {
+    if i2c_available 1 && responds_on 1 0x3d; then
+        board=alpha
+    elif i2c_available 5 && responds_on 5 0x3d; then
+        board=beta
+    elif [ "$declared_board" = pcie ]; then
+        # Keep the former supported PCIe behavior when no OLED answers. This
+        # is a fallback for an explicitly PCIe-declared image, not evidence
+        # that an unknown board is a Cube.
+        board=pcie
+    else
+        die "OLED board type not identified; refusing to publish a guessed profile"
+    fi
 }
 detect_hdmi() {
     if responds 0x2c; then
@@ -43,10 +75,12 @@ case "${1:-}" in
     stop) exit 0 ;;
     check)
         check_board
-        echo "NanoKVM Enhanced PCIe: board declaration and I2C device nodes present"
+        detect_board
+        echo "NanoKVM Enhanced: detected board=$board"
         ;;
     start|re-init|re-detect)
         check_board
+        detect_board
         detect_hdmi
         publish hw "$board"
         publish hdmi_version "$hdmi"

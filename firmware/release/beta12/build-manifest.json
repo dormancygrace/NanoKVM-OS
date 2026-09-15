@@ -1,0 +1,38 @@
+{
+  "version": "1.0.0-beta.12",
+  "sequence": 28,
+  "kernel": "7.2.5-nanokvm-os-r3",
+  "distribution": "full-sd-image-only",
+  "source_date_epoch": 1789500723,
+  "source_commit": "28372c411af019fbc44d9a3bd1541e6098504a33",
+  "complete_image_device_tested": false,
+  "files": {
+    "NanoKVM-OS-v1.0.0-beta-12.img.zip": {
+      "sha256": "e67e1aa41bdb47ec795a0d46554579da7934fd9b48ff62f56625ea8b67ac5993",
+      "bytes": 90408007
+    }
+  },
+  "hardware_scope": "Existing Enhanced PCIe/UXC boot assets with runtime Cube OLED-profile correction; full Cube qualification pending",
+  "rootfs_delta": {
+    "version": "1.0.0-beta.12",
+    "sequence": 28,
+    "kernel": "7.2.5-nanokvm-os-r3",
+    "hardware_service_sha256": "9f10bcb7bbfafa4c84f4bf92c79898e183a0d302ff47c009064a2bd8e0c2421e",
+    "server_sha256": "1fa6cf7ce6e8aa13c0bf4b77595101627a914903b37322cad8e8dfba86e30cfa",
+    "web_index_sha256": "1c270344e3f4db20c7f6841b1506284e6d4fbb77b787deb16361a08f099d5408",
+    "capture_sha256": "3fecf95c740beaa5396046d7b8217969b857966959b0ba5998670c6d4fb498ee",
+    "native_changed": [
+      "libkvm.so"
+    ],
+    "usb_templates": [
+      "etc/init.d/S03usbdev",
+      "kvmapp/system/init.d/S03usbdev",
+      "kvmapp/system/init.d/S03usbhid"
+    ],
+    "system_base": "91845969c2489c8456ae064a3af24fa9d97017b2a24f6aeaa3258d3f1b8916e4",
+    "application_manifest_sha256": "2c97daf8ad98ed8ce7e7989d9d5f920b92334bf8cc8508c7bb6f3256326ed18e",
+    "ssh_default": "disabled",
+    "python_in_base": false
+  },
+  "release_tag": "v1.0.0-beta.12"
+}

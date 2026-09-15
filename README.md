@@ -23,9 +23,6 @@
 
 The aim is a responsive IP-KVM with maintained system components, explicit recovery behavior and measurable resource use. This is an independent community project built on Sipeed NanoKVM and SOPHGO/CVITEK software, with credit to the original authors.
 
-> [!NOTE]
-> **Beta-11 — sequence 27:** HTTPS on by default, H.265 Direct when supported by the browser, with H.264 fallback. **QHD H.265 WebRTC is disabled.** Use H.265 Direct for QHD. Fresh-card partition creation and broad hardware/endurance qualification remain pending; see [validation](docs/VALIDATION.md).
-
 ## 🚀 At a glance
 
 - **🖼️ More desktop space:** QHD 2560×1440 at 40 Hz, alongside FHD and lower resolutions.

@@ -8,6 +8,7 @@
 # 0x3c on I2C5.  Do not let a copied PCIe DT make the native OLED service probe
 # the wrong address on an otherwise running Cube.
 set -eu
+profiled=0
 
 die() { echo "S15kvmhwd: $*" >&2; exit 1; }
 i2c_available() { [ -c "/dev/i2c-$1" ]; }
@@ -15,6 +16,7 @@ check_board() {
     revision=/sys/firmware/devicetree/base/sipeed,board-revision
     [ -r "$revision" ] || die "board revision is missing from Device Tree"
     declared_board=$(tr -d '\000' < "$revision")
+    if [ -r /sys/firmware/devicetree/base/nanokvm,profile-version ]; then profiled=1; fi
     [ -w /sys/bus/platform/devices/hdmi-reset/pulse ] || die "HDMI reset controller is unavailable"
     i2c_available 4 || die "HDMI I2C4 is unavailable"
     { i2c_available 1 || i2c_available 5; } || die "OLED I2C bus is unavailable"
@@ -39,6 +41,15 @@ responds() {
 }
 responds_on() { probe_address "$1" "$2"; }
 detect_board() {
+    if [ "$profiled" = 1 ]; then
+        # First boot selected this electrical profile before regular services.
+        # Keep the legacy beta name for native OLED code on base/Lite hardware.
+        case "$declared_board" in
+            alpha|beta|pcie) board=$declared_board; return ;;
+            lite) board=beta; return ;;
+            *) die "unselected or unknown boot profile: $declared_board" ;;
+        esac
+    fi
     if i2c_available 1 && responds_on 1 0x3d; then
         board=alpha
     elif i2c_available 5 && responds_on 5 0x3d; then
@@ -83,6 +94,7 @@ case "${1:-}" in
         detect_board
         detect_hdmi
         publish hw "$board"
+        if [ "$profiled" = 1 ]; then publish board-profile "$declared_board"; fi
         publish hdmi_version "$hdmi"
         echo "NanoKVM Enhanced: board=$board HDMI=$hdmi"
         ;;

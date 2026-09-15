@@ -1,17 +1,18 @@
-# Installing NanoKVM OS beta-12
+# Installing NanoKVM OS beta-13
 
-Beta-12 is distributed as a complete SD image only. There is no `.nkos`
+Beta-13 is distributed as a complete SD image only. There is no `.nkos`
 package for this release, including for devices already running beta-9 or beta-10.
 
-**Hardware scope:** Enhanced PCIe/UXC boot assets with a runtime Cube OLED correction; full Cube acceptance remains pending. See [release notes](RELEASE-beta-12.md).
+**Hardware scope:** automatic Alpha, serial Full, PCIe and Lite/base profiles. The final image was tested on PCIe/UXC; other models still need physical acceptance. See [release notes](RELEASE-beta-13.md).
 
-1. Download `NanoKVM-OS-v1.0.0-beta-12.img.zip` and `SHA256SUMS` from the
-   [release](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v1.0.0-beta.12).
+1. Download `NanoKVM-OS-v1.0.0-beta-13.img.zip` and `SHA256SUMS` from the
+   [release](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v1.0.0-beta.13).
 2. Verify the ZIP checksum and extract the `.img`.
 3. Power off NanoKVM, connect its SD card to a reader and flash the whole card.
    This replaces the existing installation, settings and data; export anything
    you want to retain before flashing.
-4. Safely eject the card, install it and power on. Use Ethernet/DHCP initially
+4. Safely eject the card, install it and power on. Allow automatic board
+   selection and its restart to finish. Use Ethernet/DHCP initially
    and open `https://DEVICE-IP/`.
 
 The factory Web account is `admin` / `admin`; change its password when prompted.
@@ -21,5 +22,8 @@ adapters support 2.4 GHz and 5 GHz.
 The layout is 64 MiB FAT boot, 1488 MiB ext4 system and remaining card space
 for exFAT data. S01fs creates the absent data partition when USB disk support
 is enabled. Fresh-card creation remains outside hardware qualification.
-There is no A/B rollback. See [release notes](RELEASE-beta-12.md),
-[acceptance](BETA12-ACCEPTANCE.md) and [layout](SD-LAYOUT-v2.md).
+There is no A/B rollback. See [release notes](RELEASE-beta-13.md),
+[acceptance](BETA13-ACCEPTANCE.md) and [layout](SD-LAYOUT-v2.md).
+
+Moving a configured card between different board revisions requires reflashing
+to repeat board selection. See [detection limits](../firmware/boards/README.md).

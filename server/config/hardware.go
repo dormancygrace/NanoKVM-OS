@@ -100,6 +100,9 @@ func getHardware() (h Hardware) {
 		if err != nil {
 			log.Errorf("Enhanced ATX requires board revision: %s", err)
 		}
+		if profile, profileErr := os.ReadFile("/etc/kvm/board-profile"); profileErr == nil {
+			declared = profile
+		}
 		h = gpioV2Hardware(h, string(declared))
 	}
 	return
@@ -109,6 +112,11 @@ func getHardware() (h Hardware) {
 func gpioV2Hardware(h Hardware, declared string) Hardware {
 	h.GPIOPower, h.GPIOReset, h.GPIOPowerLED, h.GPIOHDDLed = "", "", "", ""
 	switch strings.TrimSpace(declared) {
+	case "lite":
+		// Base/Lite has no positively identified ATX daughterboard. Native
+		// application compatibility remains Beta, but no GPIO is exposed.
+		h.Version = HWVersionBeta
+		return h
 	case "alpha":
 		h.Version = HWVersionAlpha
 		h.GPIOReset = gpioio.Path("3020000.gpio", 27)

@@ -1,6 +1,6 @@
 # Current release
 
-See [beta-12 acceptance](BETA12-ACCEPTANCE.md). The records below are historical.
+See [beta-13 acceptance](BETA13-ACCEPTANCE.md). The records below are historical.
 
 # Beta-4 validation and known issues
 

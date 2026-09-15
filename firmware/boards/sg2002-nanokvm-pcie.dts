@@ -1,0 +1,5 @@
+/dts-v1/;
+#include "sg2002-nanokvm-common.dtsi"
+/ { model = "Sipeed NanoKVM PCIe"; sipeed,board-revision = "pcie"; nanokvm,profile-version = <1>; };
+&gpio4 { pinctrl-names = "default"; pinctrl-0 = <&nanokvm_hdd_led_cfg>; };
+&porte { gpio-line-names = "", "", "", "nanokvm-hdd-led"; };

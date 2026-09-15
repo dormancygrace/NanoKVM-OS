@@ -1,0 +1,3 @@
+/dts-v1/;
+#include "sg2002-nanokvm-common.dtsi"
+/ { model = "Sipeed NanoKVM Cube Full"; sipeed,board-revision = "beta"; nanokvm,profile-version = <1>; };

@@ -6,12 +6,12 @@
 
 **Community firmware for SG2002 NanoKVM. PCIe/UXC is the current test platform; full Cube validation is pending.**
 
-![Version: 1.0.0 beta-12](https://img.shields.io/badge/version-1.0.0--beta.12-orange)
-![Hardware: Cube and PCIe](https://img.shields.io/badge/hardware-Cube%20%7C%20PCIe-blue)
+![Version: 1.0.0 beta-13](https://img.shields.io/badge/version-1.0.0--beta.13-orange)
+![Hardware: Cube, Lite and PCIe](https://img.shields.io/badge/hardware-Cube%20%7C%20Lite%20%7C%20PCIe-blue)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
-[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](docs/BUILD-beta-12.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
+[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](docs/BUILD-beta-13.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
 
 </div>
 
@@ -40,22 +40,23 @@ The aim is a responsive IP-KVM with maintained system components, explicit recov
 
 USB audio reaches the browser with one shared Opus encoder. Mount an ISO directly from your computer without copying it to SD; CD/DVD emulation now supports images up to 31.625 GiB. Dashboard shows SoC temperature and CPU frequency, with independent thermal protection and optional runtime overclocking.
 
-OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Linux 7.2.5-nanokvm-os-r3**, **OpenSSL 4.0.2** and consistent **`-O2`** target C/C++ builds. Optional tools are installed through APK, while signed system updates keep the kernel and modules together. See [release notes and community credits](docs/RELEASE-beta-12.md).
+OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Linux 7.2.5-nanokvm-os-r3**, **OpenSSL 4.0.2** and consistent **`-O2`** target C/C++ builds. Optional tools are installed through APK, while signed system updates keep the kernel and modules together. See [release notes and community credits](docs/RELEASE-beta-13.md).
 
 <a id="compatibility"></a>
 
 ## 🔌 Compatible devices
 
-**Current images retain Enhanced PCIe/UXC boot assets. Beta-12 includes a Cube OLED-profile correction; full Cube compatibility is still being validated.**
+**The full image automatically selects a board-specific boot profile for the SG2002 NanoKVM family. PCIe/UXC has passed local image acceptance; Cube Full and Lite physical validation is pending.**
 
 | Device | Firmware compatibility | Current physical validation |
 |---|:---:|---|
-| 🧊 **NanoKVM Cube** | OLED-profile correction included | Complete boot, OLED, HDMI and ATX acceptance pending |
+| 🧊 **NanoKVM Cube Full** | Alpha and serial-production profiles included | Physical acceptance pending |
+| **NanoKVM Lite** | Base profile; ATX disabled | Physical acceptance pending |
 | 🧩 **NanoKVM PCIe** | ✅ Compatible | Active test platform; current checks use the UXC HDMI receiver |
 | **NanoKVM Pro** | ❌ Not supported | Different hardware platform |
 | **NanoKVM USB** | ❌ Not supported | Different product; not an SG2002 IP-KVM target |
 
-Recorded device tests currently come from PCIe/UXC. The Cube profile correction is not a claim that every Cube feature has been qualified. Features tied to the HDMI receiver, including QHD monitor switching, still need verification on other board revisions.
+Recorded device tests currently come from PCIe/UXC. Included Cube Full and Lite profiles do not establish physical qualification of those models. Features tied to the HDMI receiver, including QHD monitor switching, still need verification on other board revisions.
 
 <a id="comparison"></a>
 
@@ -92,10 +93,10 @@ H.265 needs a browser/platform that actually supports decoding it. Pion packetiz
 
 | First installation / system replacement | Later package updates |
 |---|---|
-| 📀 Download `.img.zip`, decompress and flash the whole SD card | 📀 Beta-12 also requires the full image; no `.nkos` is published |
+| 📀 Download `.img.zip`, decompress and flash the whole SD card | 📀 Beta-13 also requires the full image; no `.nkos` is published |
 | Includes Linux, native libraries, application and updater | Updates the application and supported system components on a compatible OS base |
 
-The current beta-12 release is a full SD image only; no `.nkos` package is published. Fresh-card first-boot testing remains pending. See [installation and recovery](docs/INSTALL.md).
+The current beta-13 release is a full SD image only; no `.nkos` package is published. Fresh-card first-boot testing remains pending. See [installation and recovery](docs/INSTALL.md).
 
 ## 🌐 VPN profiles
 
@@ -105,7 +106,7 @@ Open **Settings → VPN** and choose WireGuard, OpenVPN or Tailscale. WireGuard 
 
 ## 📦 Updates
 
-Beta-12 is available as a **full SD image only**. Follow [installation](docs/INSTALL.md); flashing replaces settings and data. The existing package updater remains available for compatible packages from other releases, but beta-12 has no `.nkos` asset.
+Beta-13 is available as a **full SD image only**. Follow [installation](docs/INSTALL.md); flashing replaces settings and data. The package updater remains in the software, but beta-13 has no `.nkos` asset. Uploaded artifacts from earlier releases have been withdrawn; their changelogs remain available.
 
 Signed system packages can update the application and supported system programs, libraries and data while preserving settings. The new package format can replace the kernel and matched modules on a compatible foundation. Bootloader updates and A/B boot rollback are not supported. Packages require a compatible system foundation, matching native libraries and a newer release sequence. See [package updates](docs/UPDATES.md).
 
@@ -118,7 +119,7 @@ Full system images use the hardware **Boot flashing procedure**. They are not ac
 ## 🧪 Current limitations
 
 - **QHD H.265 WebRTC is disabled.** The underlying fault remains unresolved; use H.265 Direct for QHD.
-- Portrait and landscape video were exercised on the PCIe/UXC test board. Fresh-card creation and all browser/client combinations remain to be qualified; see [beta-12 acceptance](docs/BETA12-ACCEPTANCE.md).
+- Portrait and landscape video were exercised on the PCIe/UXC test board. Fresh-card creation and all browser/client combinations remain to be qualified; see [beta-13 acceptance](docs/BETA13-ACCEPTANCE.md).
 - Forced application termination can leave native media buffers in an unusable state; application rollback is not a hardware reset.
 - A watchdog cannot be assumed to recover every bus/SoC lockup. Physical power cycling may still be necessary.
 - OpenVPN supports routed TUN profiles; TAP, scripts and interactive SSO/MFA are not supported. Local DCO traffic and DNS restoration were checked; broad provider interoperability remains unqualified.
@@ -134,7 +135,7 @@ Full system images use the hardware **Boot flashing procedure**. They are not ac
 - `scripts/`: component build/staging tools; external SDK and toolchain inputs are required.
 - `tools/` and `kvmapp/system/init.d/`: EDID tools and device startup services.
 
-See [BUILD.md](docs/BUILD-beta-12.md) for build instructions.
+See [BUILD.md](docs/BUILD-beta-13.md) for build instructions.
 
 ## ❤️ Credits and licenses
 
@@ -142,8 +143,8 @@ NanoKVM application changes retain the upstream [GPL-3.0 license](LICENSE). Indi
 
 Thanks to [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), the Linux/Buildroot/Go communities and [Pion](https://github.com/pion). Please include board revision, browser, codec/transport, resolution, FPS target and reproduction steps when reporting an issue. Remove credentials and private screen contents from logs.
 
-## Beta-12
+## Beta-13
 
-See [beta-12 release notes](docs/RELEASE-beta-12.md) and [beta-12 build inputs](docs/BUILD-beta-12.md). Fresh images disable SSH; enable it in the Web settings if needed.
+See [beta-13 release notes](docs/RELEASE-beta-13.md) and [beta-13 build inputs](docs/BUILD-beta-13.md). Fresh images disable SSH; enable it in the Web settings if needed.
 
-Beta-12 retains the 64 MiB boot layout introduced in beta-9 and is distributed only as `NanoKVM-OS-v1.0.0-beta-12.img.zip`, under the GitHub tag `v1.0.0-beta.12`. See [release naming](docs/RELEASE-NAMING.md).
+Beta-13 retains the 64 MiB boot layout introduced in beta-9 and is distributed only as `NanoKVM-OS-v1.0.0-beta-13.img.zip`, under the GitHub tag `v1.0.0-beta.13`. See [release naming](docs/RELEASE-NAMING.md).

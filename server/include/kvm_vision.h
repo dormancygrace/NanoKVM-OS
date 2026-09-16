@@ -32,6 +32,14 @@ extern "C" {
 #define UNKNOWN_RES                     3
 #define ERROR_RES                       4
 
+// Synchronous borrowed-pack callback. The callback must copy before returning;
+// neither side retains the other's memory. Nonzero callback result aborts the frame.
+typedef int (*kvmv_video_sink)(uintptr_t context, const uint8_t *data,
+    uint32_t size, uint32_t offset, uint32_t total);
+int kvmv_read_video_sink(uint16_t width, uint16_t height, uint8_t codec,
+    uint16_t bitrate, uint8_t gop, uint8_t fps,
+    kvmv_video_sink sink, uintptr_t context);
+
 void kvmv_init(uint8_t _debug_info_en);
 void set_venc_auto_recyc(uint8_t _enable);
 /**********************************************************************************
@@ -68,6 +76,7 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
  * Return values are the same as kvmv_read_img; successful video frames use
  * IMG_VIDEO_TYPE_KEY or IMG_VIDEO_TYPE_DELTA.
  */
+void kvmv_request_keyframe(void);
 int kvmv_read_video(uint16_t _width, uint16_t _height, uint8_t _codec, uint16_t _bitrate, uint8_t _gop, uint8_t _fps, uint8_t** _pp_kvm_data, uint32_t* _p_kvmv_data_size);
 int free_kvmv_data(uint8_t ** _pp_kvm_data);
 void free_all_kvmv_data();
@@ -75,6 +84,7 @@ void set_h264_gop(uint8_t _gop);
 void set_frame_detact(uint8_t _frame_detact);
 void kvmv_deinit();
 int kvmv_hdmi_control(uint8_t _en);
+int kvmv_edid_maintenance(uint8_t pause);
 uint8_t kvmv_hdmi_signal_active(void);
 
 #ifdef __cplusplus

@@ -24,12 +24,12 @@ export function getQualityMap(videoMode: string) {
   return null;
 }
 
-export function getScreenType(videoMode: string) {
+export function getScreenType(videoMode: string, codec: string) {
   if (videoMode === 'mjpeg') {
     return 0;
   }
   if (videoMode === 'direct' || videoMode === 'h264') {
-    return 1;
+    return codec === 'h265' ? 2 : 1;
   }
   return null;
 }

@@ -5,6 +5,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import { encoderCodecQuery, getEncoderCodec, isEncoderCodecSupported } from '@/lib/encoder.ts';
+import { getDirectPlayback } from '@/lib/localstorage';
 import { getBaseUrl } from '@/lib/service.ts';
 import { mouseStyleAtom } from '@/jotai/mouse';
 import { screenshotSourceAtom } from '@/jotai/screen.ts';
@@ -71,7 +72,9 @@ export const H264Direct = ({ onEncoderConflict }: { onEncoderConflict: () => boo
               : undefined;
       const requestedRender = diagnosticParams.get('directRender');
       const renderMode =
-        requestedRender === 'immediate' || requestedRender === 'vsync' ? requestedRender : 'paced';
+        requestedRender === 'immediate' || requestedRender === 'vsync'
+          ? requestedRender
+          : getDirectPlayback();
       const playoutDelayMs = diagnosticParams.has('directBufferMs')
         ? Number(diagnosticParams.get('directBufferMs'))
         : undefined;

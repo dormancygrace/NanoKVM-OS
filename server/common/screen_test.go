@@ -65,8 +65,8 @@ func TestLoadScreenKeepsDefaultsForMissingOrInvalidSettings(t *testing.T) {
 		return data, nil
 	})
 
-	if got.FPS != 30 {
-		t.Fatalf("FPS = %d, want default 30", got.FPS)
+	if got.FPS != 50 {
+		t.Fatalf("FPS = %d, want default 50", got.FPS)
 	}
 	if got.Quality != 80 || got.BitRate != 3000 {
 		t.Fatalf("quality = %d, bitrate = %d; want 80 and 3000", got.Quality, got.BitRate)

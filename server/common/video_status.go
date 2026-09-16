@@ -21,10 +21,42 @@ func ReadVideoValue(path string) int {
 	v, _ := strconv.Atoi(strings.TrimSpace(string(b)))
 	return v
 }
+
+// MonitorProfileSupported describes EDID programming, not capture timings.
 func MonitorProfileSupported() bool {
 	board, _ := os.ReadFile("/etc/kvm/hw")
 	chip, _ := os.ReadFile("/etc/kvm/hdmi_version")
-	return strings.TrimSpace(string(board)) == "pcie" && strings.TrimSpace(string(chip)) == "ux"
+	return monitorHardwareSupported(strings.TrimSpace(string(board)), strings.TrimSpace(string(chip)))
+}
+func monitorHardwareSupported(board, chip string) bool {
+	if board == "pcie" {
+		return chip == "ux"
+	}
+	return (board == "alpha" || board == "beta") && (chip == "c" || chip == "ux" || chip == "d")
+}
+func MonitorRequiresPowerCycle() bool {
+	board, _ := os.ReadFile("/etc/kvm/hw")
+	value := strings.TrimSpace(string(board))
+	return value == "alpha" || value == "beta"
+}
+func MonitorHighRefreshSupported() bool {
+	return MonitorProfileSupported() && !MonitorRequiresPowerCycle()
+}
+
+// Persist across software reboots: a reboot cannot prove a Cube power cycle.
+// The user can dismiss the reminder after physically disconnecting power.
+const monitorPowerCyclePendingFile = "/etc/kvm/monitor_power_cycle_pending"
+
+func MonitorPowerCyclePending() bool {
+	_, err := os.Stat(monitorPowerCyclePendingFile)
+	return err == nil && MonitorRequiresPowerCycle()
+}
+func ClearMonitorPowerCyclePending() error {
+	err := os.Remove(monitorPowerCyclePendingFile)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
 }
 
 // IsFHDClassDimensions classifies a signal after normalizing its orientation.

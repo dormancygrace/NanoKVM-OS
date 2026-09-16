@@ -4,6 +4,8 @@ import importlib.util
 from pathlib import Path
 import sys
 import unittest
+import subprocess
+import tempfile
 
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
@@ -51,6 +53,17 @@ class MonitorEdids(unittest.TestCase):
                 self.assertEqual(data[end:255], bytes(255-end))
                 if height == 1080:
                     self.assertEqual(d, ORIGINAL[54:72])
+
+    def test_cube_profiles_are_packaged_separately_at_60_hz(self):
+        with tempfile.TemporaryDirectory() as directory:
+            subprocess.run([sys.executable, str(HERE/'build-monitor-edids.py'),
+                            '--input', str(HERE.parent/'tools/nanokvm_update_edid/E21_NanoKVM.bin'),
+                            '--output', directory], check=True)
+            for height in (720, 1080):
+                data = (Path(directory)/f'NanoKVM-cube-monitor-{height}.bin').read_bytes()
+                mode = next(m for m in generator.MODES if m[1] == height)
+                self.assertEqual(data, generator.profile(ORIGINAL, mode))
+                self.assertAlmostEqual(mode[2]*1000/((mode[0]+mode[3])*(mode[1]+mode[6])),60)
 
     def test_refuses_corrupt_input(self):
         damaged = bytearray(ORIGINAL)

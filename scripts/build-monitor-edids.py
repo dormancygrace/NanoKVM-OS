@@ -98,6 +98,8 @@ def main():
         data = profile(original, mode)
         target = a.output / ('NanoKVM-monitor-' + str(mode[1]) + '.bin')
         target.write_bytes(data)
+        if mode[1] in (720, 1080):
+            (a.output / f'NanoKVM-cube-monitor-{mode[1]}.bin').write_bytes(data)
         result.append(dict(file=target.name, width=mode[0], height=mode[1],
                            refresh_hz=(mode[2]//10)*10000/((mode[0]+mode[3])*(mode[1]+mode[6])),
                            sha256=hashlib.sha256(data).hexdigest()))

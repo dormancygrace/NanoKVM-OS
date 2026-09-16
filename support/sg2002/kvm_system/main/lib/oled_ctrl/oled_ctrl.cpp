@@ -1,5 +1,9 @@
 #include "oled_ctrl.h"
 
+// oled_ctrl deliberately knows only whether the preference is persistent.
+// oled_ui owns the short-lived network-address override and its synchronization.
+bool OLED_IPWindowActive(void);
+
 using namespace maix;
 using namespace maix::sys;
 using namespace maix::peripheral;
@@ -112,7 +116,7 @@ bool OLED_IsDisabled(void)
 //开启OLED显示    
 void OLED_Display_On()
 {
-    if (OLED_IsDisabled()) return;
+    if (OLED_IsDisabled() && !OLED_IPWindowActive()) return;
 	oled_write_register(OLED_CMD, 0X8D);
 	oled_write_register(OLED_CMD, 0X14);
 	oled_write_register(OLED_CMD, 0XAF);
@@ -325,7 +329,7 @@ void OLED_Init(void)
 	oled_write_register(OLED_CMD, 0xA4);// Disable Entire Display On (0xa4/0xa5)
 	oled_write_register(OLED_CMD, 0xA6);// Disable Inverse Display On (0xa6/a7) 
 	OLED_Clear();
-	if (OLED_IsDisabled()) OLED_Display_Off();
+	if (OLED_IsDisabled() && !OLED_IPWindowActive()) OLED_Display_Off();
     else OLED_Display_On(); // respects persistent display-off before first frame
 }
 
@@ -593,6 +597,9 @@ void OLED_ShowKVMStreamState(uint8_t kvm_state_s, void* pdata)
 				break;
 				case KVM_TYPE_H264:
 					OLED_ShowString_AlignRight(AlignRightEND, 5, "H264", 8);
+				break;
+				case KVM_TYPE_H265:
+					OLED_ShowString_AlignRight(AlignRightEND, 5, "H265", 8);
 				break;
 				
 				default:

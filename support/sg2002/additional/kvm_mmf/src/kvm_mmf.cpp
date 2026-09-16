@@ -309,7 +309,7 @@ static void *_mmf_map_vi_frame(int ch)
 		SAMPLE_PRT("CVI_SYS_MmapCache failed for VI frame\n");
 		return NULL;
 	}
-	CVI_SYS_IonInvalidateCache(frame->stVFrame.u64PhyAddr[0], vir_addr, image_size);
+	// CVI_SYS_MmapCache already invalidates this newly mapped range.
 	frame->stVFrame.pu8VirAddr[0] = (CVI_U8 *)vir_addr;
 	priv.vi_frame_mapped[ch] = true;
 	return vir_addr;
@@ -1272,7 +1272,15 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format) {
 	char name[20];
 	snprintf(name, 20, "vi_vpss%.1d", ch);
 	pool_size_out = COMMON_GetPicBufferSize(width_out, height_out, format_out, DATA_BITWIDTH_8, COMPRESS_MODE_NONE, DEFAULT_ALIGN);
-	pool_id = _create_vb_pool(name, MMF_MOD_VI, pool_size_out, 2);
+	// Four surfaces cover two queued outputs, the encoder lease and the producer.
+	pool_id = _create_vb_pool(name, MMF_MOD_VI, pool_size_out, 4);
+	if (pool_id < 0) {
+		pool_id = _create_vb_pool(name, MMF_MOD_VI, pool_size_out, 3);
+	}
+	if (pool_id < 0) {
+		// Keep capture usable on profiles with a smaller reserved video heap.
+		pool_id = _create_vb_pool(name, MMF_MOD_VI, pool_size_out, 2);
+	}
 	if (pool_id < 0) {
 		printf("[%s][%d]_create_vb_pool failed, id %d\n", __func__, __LINE__, pool_id);
 		goto _need_deinit_vpss_chn;
@@ -2354,6 +2362,11 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
         frame->stVFrame.u32Height, frame->stVFrame.enPixelFormat, frame);
     if (copied == CVI_SUCCESS) priv.venc_input_vi_ch[ch] = vi_ch;
     return copied;
+}
+
+int mmf_venc_request_idr(int ch) {
+ if (ch < 0 || ch >= MMF_VENC_MAX_CHN || !priv.venc[ch].is_inited) return -1;
+ return CVI_VENC_RequestIDR(ch, CVI_TRUE);
 }
 
 int mmf_venc_pop(int ch, mmf_stream_t *stream) {

@@ -6,7 +6,9 @@ export class DirectPlayout<T extends TimedFrame> {
   private frames: T[] = [];
   private origin: number | null = null;
   private lastTimestamp: number | null = null;
-  private adaptiveDelayMs = 20;
+  private adaptiveDelayMs = 10;
+  private targetDelayMs = 10;
+  private lastSlew: number | null = null;
   private arrivals: { at: number; late: number }[] = [];
   private lastAdjustment: number | null = null;
   private lastIncrease = 0;
@@ -40,18 +42,24 @@ export class DirectPlayout<T extends TimedFrame> {
     if (elapsed < 250 || this.arrivals.length < 8) return;
     this.lastAdjustment = now;
     const sorted = this.arrivals.map((sample) => sample.late).sort((a, b) => a - b);
-    const p90 = sorted[Math.floor((sorted.length - 1) * 0.9)];
-    const target = Math.max(20, Math.min(60, p90 + 5));
-    if (target > this.adaptiveDelayMs + 2) {
-      // Raise in small steps rather than pausing playback for one large jump.
-      this.adaptiveDelayMs = Math.min(target, this.adaptiveDelayMs + 10);
+    // Cover recurring tail jitter, not just the easiest 90% of arrivals.
+    // The floor index excludes one isolated worst sample in a mature window.
+    const p99 = sorted[Math.floor((sorted.length - 1) * 0.99)];
+    const target = Math.max(10, Math.min(60, p99 + 5));
+    if (Math.abs(target - this.targetDelayMs) > 2) this.targetDelayMs = target;
+  }
+
+  private slewDelay(now: number) {
+    if (!this.adaptive) return;
+    const elapsed = this.lastSlew === null ? 0 : Math.max(0, Math.min(50, now - this.lastSlew));
+    this.lastSlew = now;
+    if (this.targetDelayMs > this.adaptiveDelayMs) {
+      // Spread increases over arrivals instead of shifting every deadline by
+      // 10 ms at once. Clamp elapsed so a network outage cannot cause a jump.
+      this.adaptiveDelayMs = Math.min(this.targetDelayMs, this.adaptiveDelayMs + elapsed * 0.04);
       this.lastIncrease = now;
-    } else if (target < this.adaptiveDelayMs - 2 && now - this.lastIncrease >= 3000) {
-      // Hysteresis: fall slowly, at most 2 ms/s, after the burst has passed.
-      this.adaptiveDelayMs = Math.max(
-        target,
-        this.adaptiveDelayMs - Math.min(elapsed, 1000) * 0.002
-      );
+    } else if (now - this.lastIncrease >= 3000) {
+      this.adaptiveDelayMs = Math.max(this.targetDelayMs, this.adaptiveDelayMs - elapsed * 0.002);
     }
   }
 
@@ -68,6 +76,7 @@ export class DirectPlayout<T extends TimedFrame> {
     // Correct clock drift and early arrivals without accumulating latency.
     this.origin = Math.min(this.origin, now - pts);
     this.observeArrival(now, now - pts - this.origin);
+    this.slewDelay(now);
     this.frames.push(frame);
     while (this.frames.length > this.capacity) {
       this.frames.shift()!.close();
@@ -101,6 +110,8 @@ export class DirectPlayout<T extends TimedFrame> {
     this.arrivals = [];
     this.lastAdjustment = null;
     this.lastIncrease = 0;
-    this.adaptiveDelayMs = 20;
+    this.adaptiveDelayMs = 10;
+    this.targetDelayMs = 10;
+    this.lastSlew = null;
   }
 }

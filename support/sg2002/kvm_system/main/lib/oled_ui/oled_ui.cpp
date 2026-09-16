@@ -1,5 +1,114 @@
 #include "oled_ui.h"
 #include <time.h>
+#include <algorithm>
+
+static uint64_t oled_monotonic_ms();
+
+namespace {
+
+constexpr uint64_t OLED_IP_WINDOW_MS = 10U * 60U * 1000U;
+
+struct oled_ip_window_t {
+    pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+    char eth_addr[16] = {};
+    char wifi_addr[16] = {};
+    uint64_t deadline_ms = 0;
+    bool settings_stamp_known = false;
+    struct stat settings_stamp = {};
+};
+
+oled_ip_window_t oled_ip_window;
+
+bool same_settings_stamp(const struct stat& left, const struct stat& right)
+{
+    return left.st_dev == right.st_dev && left.st_ino == right.st_ino &&
+        left.st_size == right.st_size && left.st_mtim.tv_sec == right.st_mtim.tv_sec &&
+        left.st_mtim.tv_nsec == right.st_mtim.tv_nsec;
+}
+
+// A later settings write is explicit user authority, even when it writes -1
+// again. The first observation merely establishes a baseline at boot.
+bool oled_settings_changed()
+{
+    struct stat current = {};
+    const bool present = stat("/etc/kvm/oled_sleep", &current) == 0;
+    pthread_mutex_lock(&oled_ip_window.mutex);
+    const bool changed = oled_ip_window.settings_stamp_known &&
+        (!present || !same_settings_stamp(oled_ip_window.settings_stamp, current));
+    if (present) oled_ip_window.settings_stamp = current;
+    oled_ip_window.settings_stamp_known = true;
+    pthread_mutex_unlock(&oled_ip_window.mutex);
+    return changed;
+}
+
+bool copy_ip_window_snapshot(char *eth_addr, char *wifi_addr, size_t size)
+{
+    if (eth_addr == NULL || wifi_addr == NULL || size < 16U) return false;
+    const uint64_t now = oled_monotonic_ms();
+    pthread_mutex_lock(&oled_ip_window.mutex);
+    const bool active = oled_ip_window.deadline_ms > now;
+    if (active) {
+        memcpy(eth_addr, oled_ip_window.eth_addr, sizeof(oled_ip_window.eth_addr));
+        memcpy(wifi_addr, oled_ip_window.wifi_addr, sizeof(oled_ip_window.wifi_addr));
+    }
+    pthread_mutex_unlock(&oled_ip_window.mutex);
+    return active;
+}
+
+void format_window_line(char *output, size_t size, char prefix, const char *address, bool narrow)
+{
+    const char *shown = address != NULL && address[0] != 0 ? address : "--";
+    if (narrow) {
+        // Sixteen 4-pixel characters fit in the PCIe panel. A maximal IPv4
+        // address therefore omits only the separator, never an address digit.
+        if (strlen(shown) >= 15U) snprintf(output, size, "%c%.15s", prefix, shown);
+        else snprintf(output, size, "%c:%.14s", prefix, shown);
+    } else {
+        snprintf(output, size, "%s: %.15s", prefix == 'E' ? "ETH" : "WiFi", shown);
+    }
+}
+
+bool ip_window_rendered = false;
+
+void oled_ip_window_status(bool force)
+{
+    char eth_addr[16] = {};
+    char wifi_addr[16] = {};
+    if (!copy_ip_window_snapshot(eth_addr, wifi_addr, sizeof(eth_addr))) return;
+
+    static uint64_t moved = 0;
+    static unsigned step = 0;
+    static char shown[2][24] = {};
+    const bool narrow = kvm_hw_ver == 2;
+    const unsigned width = narrow ? 64U : 128U;
+    const unsigned pages = narrow ? 4U : 8U;
+    const unsigned font = narrow ? 4U : 8U;
+    char lines[2][24] = {};
+    format_window_line(lines[0], sizeof(lines[0]), 'E', eth_addr, narrow);
+    format_window_line(lines[1], sizeof(lines[1]), 'W', wifi_addr, narrow);
+
+    const unsigned line_width = std::max(strlen(lines[0]), strlen(lines[1])) * (narrow ? 4U : 6U);
+    const unsigned block_width = std::min(width, line_width);
+    const uint64_t now = oled_monotonic_ms();
+    if (!moved || now - moved >= 60000U) {
+        moved = now;
+        ++step;
+        force = true;
+    }
+    const unsigned x = (step * 13U) % (width - block_width + 1U);
+    const unsigned page = step % (pages - 2U + 1U);
+    force = force || strcmp(lines[0], shown[0]) != 0 || strcmp(lines[1], shown[1]) != 0;
+    if (force) OLED_Clear();
+    for (unsigned i = 0; i < 2U; ++i) {
+        if (force || strcmp(lines[i], shown[i]) != 0) {
+            OLED_ShowString(x, page + i, lines[i], font);
+            strcpy(shown[i], lines[i]);
+        }
+    }
+    ip_window_rendered = true;
+}
+
+} // namespace
 
 static uint64_t oled_monotonic_ms() {
     struct timespec ts;
@@ -14,6 +123,39 @@ extern kvm_sys_state_t kvm_sys_state;
 extern kvm_oled_state_t kvm_oled_state;
 void OLED_Display_On(void);
 void OLED_Display_Off(void);
+
+bool OLED_IPWindowActive(void)
+{
+    const uint64_t now = oled_monotonic_ms();
+    pthread_mutex_lock(&oled_ip_window.mutex);
+    const bool active = oled_ip_window.deadline_ms > now;
+    pthread_mutex_unlock(&oled_ip_window.mutex);
+    return active;
+}
+
+void oled_ip_window_observe(const char *eth_addr, const char *wifi_addr)
+{
+    const bool settings_changed = oled_settings_changed();
+    const bool persistently_disabled = OLED_IsDisabled();
+    const uint64_t now = oled_monotonic_ms();
+    pthread_mutex_lock(&oled_ip_window.mutex);
+
+    const char *next_eth = eth_addr == NULL ? "" : eth_addr;
+    const char *next_wifi = wifi_addr == NULL ? "" : wifi_addr;
+    const bool eth_event = next_eth[0] != 0 && strcmp(next_eth, oled_ip_window.eth_addr) != 0;
+    const bool wifi_event = next_wifi[0] != 0 && strcmp(next_wifi, oled_ip_window.wifi_addr) != 0;
+    snprintf(oled_ip_window.eth_addr, sizeof(oled_ip_window.eth_addr), "%s", next_eth);
+    snprintf(oled_ip_window.wifi_addr, sizeof(oled_ip_window.wifi_addr), "%s", next_wifi);
+
+    if (settings_changed || !persistently_disabled) {
+        oled_ip_window.deadline_ms = 0;
+    } else if ((eth_event || wifi_event) && oled_ip_window.deadline_ms <= now) {
+        // Do not extend an existing window. This bounds active time under
+        // DHCP renewals, address churn, or repeated carrier flaps.
+        oled_ip_window.deadline_ms = now + OLED_IP_WINDOW_MS;
+    }
+    pthread_mutex_unlock(&oled_ip_window.mutex);
+}
 
 void kvm_init_cube_ui(void)
 {
@@ -390,8 +532,10 @@ static void oled_roaming_status(bool force)
     if (kvm_sys_state.eth_state >= 1 && kvm_sys_state.eth_addr[0]) addr = (char *)kvm_sys_state.eth_addr;
     else if (kvm_sys_state.wifi_state == 1 && kvm_sys_state.wifi_addr[0]) addr = (char *)kvm_sys_state.wifi_addr;
     snprintf(lines[0], sizeof(lines[0]), "%-15.15s", addr);
-    snprintf(lines[1], sizeof(lines[1]), "%-4s %4dX%-4d", kvm_sys_state.type == KVM_TYPE_MJPG ? "MJPG" : kvm_sys_state.type == KVM_TYPE_H264 ? "H264" : "VID", kvm_sys_state.hdmi_width > 0 ? kvm_sys_state.hdmi_width : 0, kvm_sys_state.hdmi_height > 0 ? kvm_sys_state.hdmi_height : 0);
+    const char *stream_type = kvm_sys_state.type == KVM_TYPE_MJPG ? "MJPG" : kvm_sys_state.type == KVM_TYPE_H264 ? "H264" : kvm_sys_state.type == KVM_TYPE_H265 ? "H265" : "VID";
+    snprintf(lines[1], sizeof(lines[1]), "%-4s %4dX%-4d", stream_type, kvm_sys_state.hdmi_width > 0 ? kvm_sys_state.hdmi_width : 0, kvm_sys_state.hdmi_height > 0 ? kvm_sys_state.hdmi_height : 0);
     snprintf(lines[2], sizeof(lines[2]), "%3d FPS E%c W%c  ", kvm_sys_state.now_fps > 0 ? kvm_sys_state.now_fps : 0, kvm_sys_state.eth_state >= 1 ? '+' : '-', kvm_sys_state.wifi_state == 1 ? '+' : '-');
+    force = force || strcmp(lines[0], shown[0]) != 0 || strcmp(lines[1], shown[1]) != 0;
     if (force) OLED_Clear();
     for (unsigned i = 0; i < 3; ++i) {
         lines[i][15] = 0;
@@ -404,8 +548,14 @@ static void oled_roaming_status(bool force)
 
 void kvm_main_ui_disp(uint8_t first_disp, uint8_t subpage_changed)
 {
+    if (OLED_IPWindowActive()) {
+        oled_ip_window_status(first_disp || subpage_changed || !ip_window_rendered);
+        return;
+    }
+    const bool force = first_disp || subpage_changed || ip_window_rendered;
+    ip_window_rendered = false;
     if (kvm_oled_state.oled_sleep_state || OLED_IsDisabled()) return;
-    oled_roaming_status(first_disp || subpage_changed);
+    oled_roaming_status(force);
 }
 
 uint8_t show_which_page()
@@ -540,7 +690,8 @@ void oled_auto_sleep(void)
         previous = duration;
         oled_auto_sleep_time_update();
     }
-    bool sleeping = duration == -1;
+    const bool ip_window_active = OLED_IPWindowActive();
+    bool sleeping = duration == -1 && !ip_window_active;
     if (!sleeping && kvm_sys_state.page == 0 && duration >= OLED_SLEEP_DELAY_MIN) {
         sleeping = oled_monotonic_ms() - kvm_oled_state.oled_sleep_start >= uint64_t(duration) * 1000;
     }

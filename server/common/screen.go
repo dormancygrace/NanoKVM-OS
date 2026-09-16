@@ -142,7 +142,7 @@ func loadScreen(readFile func(string) ([]byte, error)) *Screen {
 		Width:   0,
 		Height:  0,
 		Quality: 80,
-		FPS:     30,
+		FPS:     50,
 		BitRate: 3000,
 		GOP:     30,
 	}

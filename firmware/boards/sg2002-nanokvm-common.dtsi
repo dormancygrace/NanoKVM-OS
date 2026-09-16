@@ -455,3 +455,10 @@
 		};
 	};
 };
+
+/* Match the production kernel codec clock policy on every board profile. */
+&clk {
+	assigned-clocks = <&clk CLK_VC_SRC0>, <&clk CLK_AXI_VIDEO_CODEC>;
+	assigned-clock-parents = <&clk CLK_FPLL>, <&clk CLK_CAM1PLL>;
+	assigned-clock-rates = <500000000>, <360000000>;
+};

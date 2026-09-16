@@ -27,8 +27,11 @@ func (s *Service) GetScreen(c *gin.Context) {
 	var rsp proto.Response
 	rsp.OkRspWithData(c, gin.H{"width": current.Width, "height": current.Height, "fps": current.FPS,
 		"quality": current.Quality, "bitRate": current.BitRate, "gop": current.GOP,
-		"monitor":          common.ReadVideoValue("/etc/kvm/monitor_resolution"),
-		"monitorSupported": common.MonitorProfileSupported(), "qhdSupported": common.SupportsQHD(),
+		"monitor":                     common.ReadVideoValue("/etc/kvm/monitor_resolution"),
+		"monitorRequiresPowerCycle":   common.MonitorRequiresPowerCycle(),
+		"monitorPowerCyclePending":    common.MonitorPowerCyclePending(),
+		"monitorHighRefreshSupported": common.MonitorHighRefreshSupported(),
+		"monitorSupported":            common.MonitorProfileSupported(), "qhdSupported": common.SupportsQHD(),
 		"portrait": portrait, "portraitSupported": portraitSupported,
 		"portraitResolution": portraitResolution, "portraitMaxSupported": portraitMaxSupported,
 		"inputWidth":   common.ReadVideoValue("/run/nanokvm/width"),
@@ -50,6 +53,17 @@ func (s *Service) SetScreen(c *gin.Context) {
 	}
 
 	switch req.Type {
+	case "monitor_power_cycle_ack":
+		if !req.ConfirmPowerCycle {
+			rsp.ErrRsp(c, -1, "power cycle confirmation required")
+			return
+		}
+		if err = common.ClearMonitorPowerCyclePending(); err != nil {
+			rsp.ErrRsp(c, -4, err.Error())
+			return
+		}
+		rsp.OkRsp(c)
+		return
 	case "portrait":
 		if req.Value != 0 && req.Value != 1 {
 			rsp.ErrRsp(c, -1, "portrait must be 0 or 1")
@@ -81,6 +95,10 @@ func (s *Service) SetScreen(c *gin.Context) {
 		rsp.OkRsp(c)
 		return
 	case "monitor":
+		if common.MonitorRequiresPowerCycle() && !req.ConfirmPowerCycle {
+			rsp.ErrRsp(c, -5, "Physical power cycle required after EDID programming; confirm before writing")
+			return
+		}
 		if req.Value != 0 && req.Value != 720 && req.Value != 1080 && req.Value != 1440 {
 			rsp.ErrRsp(c, -1, "unsupported monitor profile")
 			return
@@ -113,9 +131,17 @@ func (s *Service) SetScreen(c *gin.Context) {
 		err = writeScreen(req.Type, strconv.Itoa(req.Value))
 
 	case "type":
-		data := "h264"
-		if req.Value == 0 {
+		data := ""
+		switch req.Value {
+		case 0:
 			data = "mjpeg"
+		case 1:
+			data = "h264"
+		case 2:
+			data = "h265"
+		default:
+			rsp.ErrRsp(c, -1, "stream type must be MJPEG, H.264, or H.265")
+			return
 		}
 		err = writeScreen("type", data)
 

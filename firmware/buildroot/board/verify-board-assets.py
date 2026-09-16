@@ -15,8 +15,8 @@ print('Board asset hashes verified:',len(manifest['files']))
 # The release string stayed constant across kernel configurations. Reject the
 # old single-compressor module even if its own manifest hashes are consistent.
 zram=root/'usr/lib/modules'/release/'kernel/drivers/block/zram/zram.ko'
-symbols=subprocess.check_output(['readelf','-sW',str(zram)],text=True)
-assert ' recompress_store' in symbols and ' recomp_algorithm_store' in symbols, 'Enhanced requires the multi-compressor ZRAM module'
+symbols=(subprocess.check_output(['readelf','-sW',str(zram)],text=True) if zram.is_file() else (root/'zram-builtin-symbols.txt').read_text())
+assert ' recompress_store' in symbols and ' recomp_algorithm_store' in symbols, 'Enhanced requires the multi-compressor ZRAM implementation'
 
 # DCO is part of the release contract, not an optional developer extra.
 ovpn=root/'usr/lib/modules'/release/'kernel/drivers/net/ovpn/ovpn.ko'

@@ -1,4 +1,5 @@
 #include <utility>
+#include <atomic>
 #include <initializer_list>
 #include "stream_size.hpp"
 /**
@@ -135,7 +136,12 @@ struct kvmv_cfg_t {
     uint8_t hdmi_res_err = 0;
     uint8_t hdmi_try_rounds = 0;
     uint8_t vi_detect_state = 0;
+#ifdef NANOKVM_ENHANCED
+    // The reserved video heap cannot retain both QHD JPEG and AVC/HEVC pools.
+    uint8_t venc_auto_recyc = 1;
+#else
     uint8_t venc_auto_recyc = 0;
+#endif
     uint8_t fresh_frame_count = 0;
 };
 
@@ -1812,6 +1818,10 @@ static bool annexb_contains_keyframe(const uint8_t *data, int size, uint8_t code
 	return false;
 }
 
+// Per-calling-thread intent; actual encoder access remains serialized by vi_mutex.
+static thread_local kvmv_video_sink video_sink = nullptr;
+static thread_local uintptr_t video_sink_context = 0;
+
 int video_stream_dump(kvmv_data_t *dump_to, mmf_stream_t *dump_from, uint8_t codec)
 {
 	if (dump_from->count < 1 || dump_from->count > 8) {
@@ -1840,14 +1850,22 @@ int video_stream_dump(kvmv_data_t *dump_to, mmf_stream_t *dump_from, uint8_t cod
 	keyframe = keyframe || (codec == VENC_H264 && dump_from->count >= 3) ||
 		(codec == VENC_H265 && dump_from->count >= 4);
 
-	if (!reserve_save_buffer(dump_to, total_size)) {
+	if (video_sink == nullptr && !reserve_save_buffer(dump_to, total_size)) {
 		dump_to->img_data_size = 0;
 		return IMG_BUFFER_FULL;
 	}
 
 	uint32_t offset = 0;
 	for (int i = 0; i < dump_from->count; i++) {
-		memcpy(dump_to->p_img_data + offset, dump_from->data[i], dump_from->data_size[i]);
+		if (video_sink != nullptr) {
+            if (video_sink(video_sink_context, dump_from->data[i],
+                           dump_from->data_size[i], offset, total_size) != 0) {
+                dump_to->img_data_size = 0;
+                return IMG_BUFFER_FULL;
+            }
+        } else {
+            memcpy(dump_to->p_img_data + offset, dump_from->data[i], dump_from->data_size[i]);
+        }
 		offset += dump_from->data_size[i];
 	}
 	dump_to->img_data_size = total_size;
@@ -1868,6 +1886,12 @@ void set_frame_detact(uint8_t _frame_detact)
     kvmv_cfg.frame_detact = frame_detact;
     debug("[kvmv] set_frame_detact = %d\n", kvmv_cfg.frame_detact);
     kvmv_cfg.stream_stop = 0;
+}
+
+// Cross-thread callers only enqueue intent; VENC is touched under vi_mutex.
+static std::atomic<bool> requested_keyframe{false};
+void kvmv_request_keyframe(void) {
+ requested_keyframe.store(true, std::memory_order_relaxed);
 }
 
 int8_t frame_to_video(uint8_t *data, int width, int height, int format, int vi_ch,
@@ -1913,6 +1937,11 @@ int8_t frame_to_video(uint8_t *data, int width, int height, int format, int vi_c
 			return -1;
 		}
 	}
+
+ if (requested_keyframe.exchange(false, std::memory_order_relaxed)) {
+  // A failed request leaves the natural GOP cadence intact.
+  mmf_venc_request_idr(kvm_venc.mmf_venc_chn);
+ }
 
 	int push_ret = vi_ch >= 0
 		? mmf_venc_push_vi(kvm_venc.mmf_venc_chn, vi_ch)
@@ -2212,17 +2241,20 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
             pthread_mutex_unlock(&vi_mutex);
             return IMG_VENC_ERROR;
         }
-        if(kvmv_cfg.venc_type == VENC_MJPEG && kvmv_cfg.venc_type != _type){
-            if(kvmv_cfg.venc_auto_recyc == 1){
-                mmf_enc_jpg_deinit(0);
+        if (kvmv_cfg.venc_type != _type && kvmv_cfg.venc_auto_recyc == 1) {
+            int retired = 0;
+            if (kvmv_cfg.venc_type == VENC_MJPEG) {
+                retired = mmf_enc_jpg_deinit(0);
+            } else if (kvmv_cfg.venc_type == VENC_H264 || kvmv_cfg.venc_type == VENC_H265) {
+                retired = mmf_del_venc_channel(kvm_venc.mmf_venc_chn);
             }
-			kvm_venc.enc_video_init = 0;
-        }
-		if((kvmv_cfg.venc_type == VENC_H264 || kvmv_cfg.venc_type == VENC_H265) && kvmv_cfg.venc_type != _type){
-            if(kvmv_cfg.venc_auto_recyc == 1){
-                mmf_del_venc_channel(kvm_venc.mmf_venc_chn);
+            if (retired != 0) {
+                if (native_vi_ch >= 0) mmf_vi_frame_release(native_vi_ch);
+                else delete img;
+                pthread_mutex_unlock(&vi_mutex);
+                return IMG_VENC_ERROR;
             }
-			kvm_venc.enc_video_init = 0;
+            kvm_venc.enc_video_init = 0;
         }
 
         kvmv_cfg.venc_type = _type;
@@ -2297,8 +2329,9 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
                 pthread_mutex_unlock(&vi_mutex);
                 return ret;
             }
-            *_pp_kvm_data = p_kvmv_data->p_img_data;
+            *_pp_kvm_data = video_sink ? nullptr : p_kvmv_data->p_img_data;
             *_p_kvmv_data_size = p_kvmv_data->img_data_size;
+            if (video_sink) release_save_buffer(p_kvmv_data);
             pthread_mutex_unlock(&vi_mutex);
             return ret;
         }
@@ -2340,6 +2373,21 @@ int kvmv_read_video(uint16_t _width, uint16_t _height, uint8_t _codec,
 	}
 	return kvmv_read_img(_width, _height, _codec,
 		maxmin_data(20000, 500, (int)_bitrate), _pp_kvm_data, _p_kvmv_data_size);
+}
+
+int kvmv_read_video_sink(uint16_t width, uint16_t height, uint8_t codec,
+    uint16_t bitrate, uint8_t gop, uint8_t fps,
+    kvmv_video_sink sink, uintptr_t context)
+{
+    if (sink == nullptr || video_sink != nullptr) return IMG_VENC_ERROR;
+    video_sink = sink;
+    video_sink_context = context;
+    uint8_t *unused = nullptr;
+    uint32_t size = 0;
+    int result = kvmv_read_video(width, height, codec, bitrate, gop, fps, &unused, &size);
+    video_sink = nullptr;
+    video_sink_context = 0;
+    return result;
 }
 
 int free_kvmv_data(uint8_t ** _pp_kvm_data)
@@ -2419,6 +2467,32 @@ static int set_owned_hdmi_reset(bool asserted)
     return 0;
 }
 #endif
+
+// Pause the HDMI detector and capture without touching board-specific GPIO.
+// Called under the server maintenance/capture mutex for Cube EDID writes.
+int kvmv_edid_maintenance(uint8_t pause)
+{
+    static uint8_t previous_capture = 0;
+    if (pause) {
+        previous_capture = __atomic_load_n(&hdmi_capture_enabled, __ATOMIC_ACQUIRE);
+        set_hdmi_capture_enabled(0);
+        kvmv_cfg.hdmi_stop_flag = 1;
+        const uint64_t deadline = vi_state_shared::monotonic_ms() + 2000;
+        while (kvmv_cfg.hdmi_reading_flag == 1) {
+            if (vi_state_shared::monotonic_ms() >= deadline) {
+                kvmv_cfg.hdmi_stop_flag = 0;
+                set_hdmi_capture_enabled(previous_capture);
+                return -1;
+            }
+            nanokvm::sleep_ms(10);
+        }
+    } else {
+        kvmv_cfg.hdmi_stop_flag = 0;
+        kvmv_cfg.fresh_frame_count = fresh_frame_discard_count;
+        set_hdmi_capture_enabled(previous_capture);
+    }
+    return 0;
+}
 
 int kvmv_hdmi_control(uint8_t _en)
 {

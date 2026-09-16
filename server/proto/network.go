@@ -63,16 +63,24 @@ type DNSInfo struct {
 }
 
 type EthernetConfig struct {
-	Mode       string `json:"mode"`
-	Interface  string `json:"interface"`
-	Address    string `json:"address"`
-	SubnetMask string `json:"subnetMask"`
-	Gateway    string `json:"gateway"`
+	Enabled     bool   `json:"enabled"`
+	AdminUp     bool   `json:"adminUp"`
+	LinkUp      bool   `json:"linkUp"`
+	Mode        string `json:"mode"`
+	Interface   string `json:"interface"`
+	Address     string `json:"address"`
+	SubnetMask  string `json:"subnetMask"`
+	Gateway     string `json:"gateway"`
+	VLANEnabled bool   `json:"vlanEnabled"`
+	VLANID      int    `json:"vlanId"`
 }
 
 type SetEthernetReq struct {
-	Mode       string `json:"mode" validate:"required,oneof=dhcp static"`
-	Address    string `json:"address"`
-	SubnetMask string `json:"subnetMask"`
-	Gateway    string `json:"gateway"`
+	Enabled     *bool  `json:"enabled" validate:"required"`
+	Mode        string `json:"mode" validate:"required,oneof=dhcp static"`
+	Address     string `json:"address"`
+	SubnetMask  string `json:"subnetMask"`
+	Gateway     string `json:"gateway"`
+	VLANEnabled *bool  `json:"vlanEnabled"`
+	VLANID      int    `json:"vlanId"`
 }

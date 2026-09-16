@@ -70,6 +70,9 @@ func PortraitMaxSupported() bool {
 // ApplyMonitorResolution changes the virtual HDMI monitor, without forcing the
 // HDMI source to adopt it. BIOS and operating systems may choose other timings.
 func ApplyMonitorResolution(height uint16) error {
+	if MonitorRequiresPowerCycle() && height != 0 && height != 720 && height != 1080 {
+		return fmt.Errorf("Cube EDID profiles are limited to 720p/1080p at 60 Hz")
+	}
 	monitorMutex.Lock()
 	defer monitorMutex.Unlock()
 	_, ok := ResolutionMap[height]
@@ -152,6 +155,12 @@ func ApplyPortraitResolution(resolution uint16) error {
 }
 
 func monitorProfilePath(height uint16) string {
+	if MonitorRequiresPowerCycle() {
+		if height == 0 {
+			height = 1080
+		}
+		return filepath.Join("/usr/share/nanokvm/edid", fmt.Sprintf("NanoKVM-cube-monitor-%d.bin", height))
+	}
 	profile := fmt.Sprintf("NanoKVM-monitor-%d.bin", height)
 	if height == 0 {
 		profile = "NanoKVM-stock.bin"
@@ -176,13 +185,8 @@ func portraitMonitorEDIDPath(resolution uint16) string {
 }
 
 func requireMonitorHardwareLocked() error {
-	product, err := os.ReadFile("/etc/kvm/hw")
-	if err != nil || strings.TrimSpace(string(product)) != "pcie" {
-		return fmt.Errorf("monitor resolution switching requires NanoKVM PCIe")
-	}
-	chip, err := os.ReadFile("/etc/kvm/hdmi_version")
-	if err != nil || strings.TrimSpace(string(chip)) != "ux" {
-		return fmt.Errorf("monitor resolution switching currently requires LT6911UXC")
+	if !MonitorProfileSupported() {
+		return fmt.Errorf("EDID programming is unsupported on this board/HDMI chip")
 	}
 	return nil
 }
@@ -193,6 +197,9 @@ func portraitStrideSupported() bool {
 }
 
 func portraitSupportedLocked() bool {
+	if !MonitorHighRefreshSupported() {
+		return false
+	}
 	if !portraitStrideSupported() {
 		return false
 	}
@@ -207,6 +214,9 @@ func portraitSupportedLocked() bool {
 }
 
 func portraitMaxSupportedLocked() bool {
+	if !MonitorHighRefreshSupported() {
+		return false
+	}
 	if requireMonitorHardwareLocked() != nil {
 		return false
 	}

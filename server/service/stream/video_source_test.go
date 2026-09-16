@@ -118,6 +118,7 @@ func TestVideoSourceWaitsForPreviousCaptureBeforeStartingNewProfile(t *testing.T
 
 func TestVideoSubscriptionRecoversAtKeyframeAfterBackpressure(t *testing.T) {
 	subscription := &VideoSubscription{
+		source: &VideoSource{},
 		frames: make(chan VideoFrame, 4),
 		done:   make(chan struct{}),
 	}
@@ -129,6 +130,9 @@ func TestVideoSubscriptionRecoversAtKeyframeAfterBackpressure(t *testing.T) {
 	}
 	if subscription.send(VideoFrame{Result: 2, Timestamp: 4}) {
 		t.Fatal("overflowing delta frame was unexpectedly accepted")
+	}
+	if !subscription.source.keyframeRequested.Load() {
+		t.Fatal("overflow did not request encoder refresh")
 	}
 	if !subscription.waitingForKeyframe {
 		t.Fatal("subscription did not enter keyframe recovery after overflow")
@@ -255,5 +259,87 @@ func TestMaximumPortraitCodecPolicy(t *testing.T) {
 		if got := portraitCodecBlocked(c.codec, c.height, c.width, c.inputHeight); got != c.blocked {
 			t.Fatalf("portrait codec policy %+v = %v", c, got)
 		}
+	}
+}
+
+func TestVideoSourceSnapshotRemainsImmutableAcrossMembershipChanges(t *testing.T) {
+	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
+	first, err := source.subscribe(DefaultEncoderConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer first.Close()
+	old := source.snapshot(first.session)
+	second, err := source.subscribe(DefaultEncoderConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer second.Close()
+	if len(old) != 1 || old[0] != first {
+		t.Fatal("joining changed an in-flight snapshot")
+	}
+	joined := source.snapshot(first.session)
+	if len(joined) != 2 {
+		t.Fatal("new subscriber absent")
+	}
+	first.Close()
+	current := source.snapshot(second.session)
+	if len(current) != 1 || current[0] != second {
+		t.Fatal("closed subscriber retained")
+	}
+	if len(joined) != 2 || joined[0] == joined[1] {
+		t.Fatal("removal changed an in-flight snapshot")
+	}
+	if old[0].send(VideoFrame{Result: keyFrameResult}) {
+		t.Fatal("closed subscriber accepted a stale snapshot frame")
+	}
+	if allocations := testing.AllocsPerRun(100, func() { source.snapshot(second.session) }); allocations != 0 {
+		t.Fatalf("per-frame subscriber snapshot allocates: %v", allocations)
+	}
+}
+
+func TestCaptureDeadlinePreservesCadenceAndBoundsCatchup(t *testing.T) {
+	start := time.Unix(0, 0)
+	period := time.Second / 75
+	for _, tc := range []struct {
+		name      string
+		now, want time.Duration
+	}{
+		{"on time", 0, period},
+		{"small delay retains phase", 2 * time.Millisecond, period},
+		{"one missed period catches up", period + time.Millisecond, period},
+		{"long stall drops stale work", 10 * period, 10 * period},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := advanceCaptureDeadline(start, start.Add(tc.now), period)
+			if !got.Equal(start.Add(tc.want)) {
+				t.Fatalf("deadline=%v want=%v", got, start.Add(tc.want))
+			}
+		})
+	}
+}
+
+func TestKeyframeRequestsCoalesceWithoutLosingDeferredIntent(t *testing.T) {
+	s := &VideoSource{}
+	now := time.Unix(1000, 0)
+	var last time.Time
+	if s.takeKeyframeRequest(now, &last) {
+		t.Fatal("unsolicited refresh")
+	}
+	for i := 0; i < 100; i++ {
+		s.keyframeRequested.Store(true)
+	}
+	if !s.takeKeyframeRequest(now, &last) {
+		t.Fatal("first request lost")
+	}
+	if s.takeKeyframeRequest(now.Add(time.Second), &last) {
+		t.Fatal("coalesced request repeated")
+	}
+	s.keyframeRequested.Store(true)
+	if s.takeKeyframeRequest(now.Add(499*time.Millisecond), &last) {
+		t.Fatal("rate limit ignored")
+	}
+	if !s.takeKeyframeRequest(now.Add(500*time.Millisecond), &last) {
+		t.Fatal("deferred request lost")
 	}
 }

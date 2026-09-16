@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build first-boot selector and matched profile FITs, keeping the accepted kernel."""
+"""Build first-boot selector and matched profile FITs, using an explicitly selected kernel."""
 from pathlib import Path
 import argparse, gzip, hashlib, json, os, re, shutil, subprocess
 
@@ -7,6 +7,7 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--output',type=Path,required=True)
 p.add_argument('--build-base',type=Path,required=True)
 p.add_argument('--kernel-source',type=Path,required=True)
+p.add_argument('--kernel-output',type=Path,required=True)
 p.add_argument('--epoch',type=int,required=True)
 a=p.parse_args()
 r=Path(__file__).resolve().parents[1]
@@ -26,12 +27,12 @@ listing=re.sub(r'^file /init .*$',f'file /init {r}/firmware/boot/initramfs/init 
 (out/'initramfs.list').write_text(listing)
 cpio=subprocess.check_output([str(old/'kernel-output/usr/gen_init_cpio'),'-t',str(a.epoch),str(out/'initramfs.list')])
 (out/'initramfs.cpio.gz').write_bytes(gzip.compress(cpio,mtime=a.epoch))
-accepted=base/'hdd-led-3c37fa82/fit/boot.sd.candidate'
-assert sha(accepted)=='7e728da0f0636693d6bb8852eb1f6811c69e1c3b1a57ae36654b684dc75acb82'
-run(tools/'dumpimage','-T','flat_dt','-p','0','-o',out/'Image.zst',accepted,stdout=subprocess.DEVNULL)
+kernel_release=(a.kernel_output/'include/config/kernel.release').read_text().strip()
+assert re.fullmatch(r'7\.2\.5-nanokvm-os-r[0-9]+',kernel_release), kernel_release
+run('zstd','-19','-T0',a.kernel_output/'arch/riscv/boot/Image','-o',out/'Image.zst')
 template=(r/'scripts/build-enhanced-fit.py').read_text().split("its = '''",1)[1].split("'''",1)[0]
 template=template.replace('Image.gz','Image.zst').replace('compression = "gzip"','compression = "zstd"')
-manifest={'kernel':'7.2.5-nanokvm-os-r3','kernel_payload_sha256':sha(out/'Image.zst'),'epoch':a.epoch,'profiles':{}}
+manifest={'kernel':kernel_release,'kernel_payload_sha256':sha(out/'Image.zst'),'epoch':a.epoch,'profiles':{}}
 for profile in ('detect','alpha','beta','pcie','lite'):
     dst=out/profile;dst.mkdir()
     for name in ('Image.zst','initramfs.cpio.gz'):os.link(out/name,dst/name)

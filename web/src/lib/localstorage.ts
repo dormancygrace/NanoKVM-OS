@@ -254,3 +254,14 @@ export function getPowerConfirm() {
 export function setPowerConfirm(enabled: boolean) {
   localStorage.setItem(POWER_CONFIRM_KEY, String(enabled));
 }
+
+
+export type DirectPlayback = 'paced' | 'immediate';
+
+export function getDirectPlayback(): DirectPlayback {
+  return localStorage.getItem('direct-playback') === 'immediate' ? 'immediate' : 'paced';
+}
+
+export function setDirectPlayback(mode: DirectPlayback) {
+  localStorage.setItem('direct-playback', mode);
+}

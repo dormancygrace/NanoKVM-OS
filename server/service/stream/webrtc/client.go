@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/gorilla/websocket"
+	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 	log "github.com/sirupsen/logrus"
 
@@ -119,9 +120,27 @@ func (c *Client) AddTrack() error {
 func startRTCPReader(sender *webrtc.RTPSender) {
 	rtcpBuf := make([]byte, 1500)
 	for {
-		if _, _, err := sender.Read(rtcpBuf); err != nil {
+		n, _, err := sender.Read(rtcpBuf)
+		if err != nil {
 			log.Debugf("RTCP reader error: %v", err)
 			return
 		}
+		if requestsVideoRefresh(rtcpBuf[:n]) {
+			stream.RequestKeyframe()
+		}
 	}
+}
+
+func requestsVideoRefresh(data []byte) bool {
+	packets, err := rtcp.Unmarshal(data)
+	if err != nil {
+		return false
+	}
+	for _, packet := range packets {
+		switch packet.(type) {
+		case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
+			return true
+		}
+	}
+	return false
 }

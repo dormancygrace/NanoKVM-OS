@@ -94,7 +94,7 @@ def main():
         vermagic = run('modinfo', '-F', 'vermagic', str(actual[name])).strip()
         assert vermagic and vermagic.split(maxsplit=1)[0] == built_release, \
             f'Module vermagic mismatch: {name}: {vermagic!r}'
-    zram = next(x for name, x in actual.items() if name.endswith('/zram/zram.ko'))
+    zram = next((x for name, x in actual.items() if name.endswith('/zram/zram.ko')), a.kernel_output / 'vmlinux')
     assert ' recompress_store' in run('readelf', '-sW', zram), 'Missing ZRAM recompression'
     if a.version:
         board_manifest = json.loads((a.board_stage/'manifest.json').read_text())
@@ -119,6 +119,8 @@ def main():
         assert installed.get('version') == a.version and isinstance(installed.get('sequence'), int) and installed['sequence'] > 0, 'Missing installed application release sequence'
         for mode in (600, 720, 1080, 1440):
             assert len(extract_required(f'/usr/share/nanokvm/edid/NanoKVM-monitor-{mode}.bin')) == 256
+        for mode in (720, 1080):
+            assert len(extract_required(f'/usr/share/nanokvm/edid/NanoKVM-cube-monitor-{mode}.bin')) == 256
         extract_required('/etc/kvm/ssh_stop')
         assert len(extract_required('/usr/share/nanokvm/edid/NanoKVM-final-video-profiles.bin')) == 256
         for path in ['/usr/sbin/nkos-update', '/etc/init.d/S00nkos-system-update', '/etc/init.d/S99nkos-system-confirm', '/etc/nkos-system-base', '/etc/init.d/S94nanokvm-update', '/usr/sbin/openvpn3', '/etc/init.d/S13nanokvm-watchdog', '/etc/init.d/S94sg2002aes',

@@ -3,10 +3,16 @@
 RESERVE_INET="192.168.90.1/22"
 : "${NANOKVM_HOSTNAME_FILE:=/etc/hostname}"
 : "${NANOKVM_ETH_CONFIG:=/boot/eth.nodhcp}"
+: "${NANOKVM_ETH_DISABLED:=/boot/eth.disabled}"
 : "${NANOKVM_ETH_DHCP_PID:=/run/udhcpc.eth0.pid}"
+: "${NANOKVM_ETH_VLAN:=/boot/eth.vlan}"
+: "${NANOKVM_ETH_VLAN_STATE:=/run/nanokvm-eth-vlan}"
 : "${NANOKVM_IP:=ip}"
+: "${NANOKVM_MODPROBE:=modprobe}"
 : "${NANOKVM_UDHCPC:=udhcpc}"
 : "${NANOKVM_ARPING:=arping}"
+: "${NANOKVM_DNS_MODE_FILE:=/etc/kvm/network/dns.mode}"
+: "${NANOKVM_RESOLV_CONF:=/etc/resolv.conf}"
 
 clean_line() {
     echo "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/\r//g'
@@ -44,11 +50,45 @@ EOF
     echo "$(( (gwnum>>24)&255 )).$(( (gwnum>>16)&255 )).$(( (gwnum>>8)&255 )).$(( gwnum&255 ))"
 }
 
+valid_vlan_id() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ "$1" -ge 1 ] 2>/dev/null && [ "$1" -le 4094 ] 2>/dev/null
+}
+
+ethernet_interface() {
+    eth_iface=eth0
+    [ -f "$NANOKVM_ETH_VLAN" ] || return 0
+    id=$(sed -n '1{s/\r$//;p;}' "$NANOKVM_ETH_VLAN")
+    if ! valid_vlan_id "$id"; then
+        echo "Invalid Ethernet VLAN ID" >&2
+        return 1
+    fi
+    eth_iface="eth0.$id"
+    if ! "$NANOKVM_MODPROBE" 8021q; then
+        echo "Could not load 8021Q kernel module" >&2
+        return 1
+    fi
+    if ! "$NANOKVM_IP" link add link eth0 name "$eth_iface" type vlan id "$id"; then
+        echo "Could not create Ethernet VLAN $id" >&2
+        return 1
+    fi
+    printf '%s\n' "$eth_iface" > "$NANOKVM_ETH_VLAN_STATE"
+    "$NANOKVM_IP" link set dev "$eth_iface" up
+}
+
 start() {
+    if [ -e "$NANOKVM_ETH_DISABLED" ]; then
+        stop
+        return 0
+    fi
+    "$NANOKVM_IP" link set dev eth0 up
+    ethernet_interface || return 1
     if [ -x /etc/init.d/S29qdisc ]; then
         /etc/init.d/S29qdisc eth0 || echo "Could not apply fq_codel to eth0" >&2
     fi
-    "$NANOKVM_IP" addr flush dev eth0
+    "$NANOKVM_IP" addr flush dev "$eth_iface"
     if [ -e "$NANOKVM_ETH_CONFIG" ]; then
         while IFS= read -r line || [ -n "$line" ]; do
             line=${line%%#*}
@@ -76,29 +116,29 @@ start() {
             addr=${inet%/*}
             netid=${inet#*/}
             [ -z "$gw" ] && gw=$(calc_gw "$addr" "$netid")
-            "$NANOKVM_ARPING" -Dqc2 -Ieth0 "$addr" || continue
-            "$NANOKVM_IP" a add "$inet" brd + dev eth0
-            "$NANOKVM_IP" r add default via "$gw" dev eth0
-            if [ "$(cat /etc/kvm/network/dns.mode 2>/dev/null)" != "manual" ]; then
-                echo -e "nameserver $gw" >> /etc/resolv.conf
+            "$NANOKVM_ARPING" -Dqc2 "-I$eth_iface" "$addr" || continue
+            "$NANOKVM_IP" a add "$inet" brd + dev "$eth_iface"
+            "$NANOKVM_IP" r add default via "$gw" dev "$eth_iface"
+            if [ "$(cat "$NANOKVM_DNS_MODE_FILE" 2>/dev/null)" != "manual" ]; then
+                echo -e "nameserver $gw" >> "$NANOKVM_RESOLV_CONF"
             fi
             break
         done < "$NANOKVM_ETH_CONFIG"
 
-        "$NANOKVM_IP" a show dev eth0 | grep inet > /dev/null || {
-            set -- -B -i eth0 -t 3 -T 1 -A 5 -b -O 121 -p "$NANOKVM_ETH_DHCP_PID"
+        "$NANOKVM_IP" a show dev "$eth_iface" | grep inet > /dev/null || {
+            set -- -B -i "$eth_iface" -t 3 -T 1 -A 5 -b -O 121 -p "$NANOKVM_ETH_DHCP_PID"
             if value=$(dhcp_hostname); then
                 set -- "$@" -x "hostname:$value" -F "$value"
             fi
             "$NANOKVM_UDHCPC" "$@" &>/dev/null
-            "$NANOKVM_IP" a show dev eth0 | grep inet > /dev/null
+            "$NANOKVM_IP" a show dev "$eth_iface" | grep inet > /dev/null
         } || {
             inet=$RESERVE_INET
             addr=${inet%/*}
-            "$NANOKVM_IP" a add "$inet" brd + dev eth0
+            "$NANOKVM_IP" a add "$inet" brd + dev "$eth_iface"
         } || exit 1
     else
-        set -- -B -i eth0 -t 10 -T 1 -A 5 -b -O 121 -p "$NANOKVM_ETH_DHCP_PID"
+        set -- -B -i "$eth_iface" -t 10 -T 1 -A 5 -b -O 121 -p "$NANOKVM_ETH_DHCP_PID"
         if value=$(dhcp_hostname); then
             set -- "$@" -x "hostname:$value" -F "$value"
         fi
@@ -107,9 +147,24 @@ start() {
 }
 
 stop() {
-    [ -f "$NANOKVM_ETH_DHCP_PID" ] || return 0
-    kill "$(cat "$NANOKVM_ETH_DHCP_PID")" 2>/dev/null || true
-    rm -f "$NANOKVM_ETH_DHCP_PID"
+    if [ -f "$NANOKVM_ETH_DHCP_PID" ]; then
+        kill "$(cat "$NANOKVM_ETH_DHCP_PID")" 2>/dev/null || true
+        rm -f "$NANOKVM_ETH_DHCP_PID"
+    fi
+    if [ -f "$NANOKVM_ETH_VLAN_STATE" ]; then
+        vlan_iface=$(cat "$NANOKVM_ETH_VLAN_STATE")
+        case "$vlan_iface" in
+            eth0.*)
+                id=${vlan_iface#eth0.}
+                if valid_vlan_id "$id"; then
+                    "$NANOKVM_IP" link delete dev "$vlan_iface" || true
+                fi
+                ;;
+        esac
+        rm -f "$NANOKVM_ETH_VLAN_STATE"
+    fi
+    "$NANOKVM_IP" addr flush dev eth0 || true
+    "$NANOKVM_IP" link set dev eth0 down
 }
 
 case "$1" in

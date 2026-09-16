@@ -83,5 +83,6 @@ int mmf_venc_push_vi(int ch, int vi_ch);
 int mmf_trim_idle_copy_buffers(void);
 int mmf_venc_pop(int ch, mmf_stream_t *stream);
 int mmf_venc_free(int ch);
+int mmf_venc_request_idr(int ch);
 
 #endif // __KVM_MMF_HPP__

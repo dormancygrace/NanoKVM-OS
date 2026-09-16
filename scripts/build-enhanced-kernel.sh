@@ -37,7 +37,9 @@ for policy in "$ROOT/firmware/kernel/patches/0016-nanokvm-fair-hrtick-default.pa
               "$ROOT/firmware/kernel/patches/0023-sg2002-thermal-cooling.patch" \
               "$ROOT/firmware/kernel/patches/0024-uac1-composite-iad.patch" \
               "$ROOT/firmware/kernel/patches/0025-kernel-o2-consistency.patch" \
-              "$ROOT/firmware/kernel/patches/0026-sg2002-sdio-command-data-pullups.patch"; do
+              "$ROOT/firmware/kernel/patches/0026-sg2002-sdio-command-data-pullups.patch" \
+              "$ROOT/firmware/kernel/patches/0027-sophgo-bypass-mux-parent.patch" \
+              "$ROOT/firmware/kernel/patches/0028-nanokvm-vpu-500mhz.patch"; do
     if patch -d "$KERNEL" -p1 --forward --dry-run < "$policy" >/dev/null 2>&1; then
         patch -d "$KERNEL" -p1 --forward < "$policy"
     elif ! patch -d "$KERNEL" -p1 --reverse --dry-run < "$policy" >/dev/null 2>&1; then
@@ -51,7 +53,7 @@ args=(-C "$KERNEL" O="$OUT" ARCH=riscv CROSS_COMPILE="$CROSS" LOCALVERSION= KCFL
 make "${args[@]}" olddefconfig
 python3 "$ROOT/scripts/validate-enhanced-kernel-config.py" "$OUT/.config"
 make "${args[@]}" -j"$JOBS" Image modules sophgo/sg2002-nanokvm-enhanced.dtb
-grep -qx '7.2.5-nanokvm-os-r3' "$OUT/include/config/kernel.release"
+grep -qx '7.2.5-nanokvm-os-r4' "$OUT/include/config/kernel.release"
 symbols=
 for module in sys base cif vi vpss vcodec jpeg cvi_vc_drv ive dwa rgn snsr_i2c; do
     (cd "$OSDRV/interdrv/$module" &&

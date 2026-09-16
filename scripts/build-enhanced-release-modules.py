@@ -11,7 +11,7 @@ import subprocess
 p = argparse.ArgumentParser(description=__doc__)
 for name in ('kernel-source', 'kernel-output', 'osdrv-source', 'wifi-source', 'rtl8733bs-sdk', 'buildroot-output', 'output'):
     p.add_argument('--'+name, type=Path, required=True)
-p.add_argument('--kernel-release', default='7.2.5-nanokvm-os-r3')
+p.add_argument('--kernel-release', default='7.2.5-nanokvm-os-r4')
 p.add_argument('--include-sg2002-aes-probe', action='store_true',
                help='Include the experimental SG2002 CryptoDMA probe (excluded from production by default)')
 p.add_argument('--jobs', type=int, default=8)
@@ -36,7 +36,7 @@ for name, source in [('osdrv', a.osdrv_source), ('wifi', a.wifi_source)]:
 subprocess.run(['python3', str(repo/'scripts/apply-aic-sdio-ownership.py'), '--source', str(sources/'wifi')], check=True)
 shutil.copytree(repo/'firmware/crypto/cryptodev-linux', sources/'cryptodev', ignore=ignore)
 subprocess.run(['make', '-C', str(sources/'cryptodev'), 'version.h'], check=True)
-for patch_name in ('0021-vpss-backpressure-log-ratelimit.patch', '0022-vi-monotonic-sleeping-fps.patch', '0023-vi-idle-wait-accounting.patch', '0024-vi-yuv-bypass-buffer-stride.patch'):
+for patch_name in ('0021-vpss-backpressure-log-ratelimit.patch', '0022-vi-monotonic-sleeping-fps.patch', '0023-vi-idle-wait-accounting.patch', '0024-vi-yuv-bypass-buffer-stride.patch', '0025-vi-diagnostic-idle-sleep.patch', '0026-venc-pre-submit-pending-cleanup.patch', '0027-vpu-bounded-clock-references.patch', '0028-jpu-bounded-clock-references.patch'):
     patch = repo/'firmware/osdrv/patches'/patch_name
     patch_args = ['patch', '-d', str(sources/'osdrv'), '-p1']
     with patch.open('rb') as f:

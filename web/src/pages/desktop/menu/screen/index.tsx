@@ -20,16 +20,17 @@ export const Screen = () => {
   const { account } = useAuth();
   const mode = useAtomValue(videoModeAtom);
   const sessions = useAtomValue(videoSessionCountAtom);
+  const codec = getEncoderCodec();
   const streamLabel =
     mode === 'mjpeg'
       ? 'MJPEG'
-      : `${mode === 'direct' ? 'Direct' : 'WebRTC'} · ${getEncoderCodec() === 'h265' ? 'H.265' : 'H.264'}`;
+      : `${mode === 'direct' ? 'Direct' : 'WebRTC'} · ${codec === 'h265' ? 'H.265' : 'H.264'}`;
   const openSettings = useSetAtom(settingsRequestAtom);
   const closeMenu = useSetAtom(menuCloseSignalAtom);
   useEffect(() => {
-    const type = getScreenType(mode);
+    const type = getScreenType(mode, codec);
     if (type !== null && account.role === 'admin') void updateScreen('type', type);
-  }, [mode, account.role]);
+  }, [mode, codec, account.role]);
   const content = (
     <div className="flex! min-w-64 flex-col gap-1">
       <div className="flex items-center justify-between gap-4 px-3 py-2 text-sm">

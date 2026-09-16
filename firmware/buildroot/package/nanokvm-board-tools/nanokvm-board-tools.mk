@@ -53,6 +53,7 @@ define NANOKVM_BOARD_TOOLS_INSTALL_TARGET_CMDS
 		$(@D)/monitor-profiles/NanoKVM-monitor-auto.bin \
 		$(TARGET_DIR)/usr/share/nanokvm/edid/NanoKVM-final-video-profiles.bin
 	$(INSTALL) -m 0644 $(@D)/monitor-profiles/NanoKVM-monitor-*.bin $(TARGET_DIR)/usr/share/nanokvm/edid/
+	$(INSTALL) -m 0644 $(@D)/monitor-profiles/NanoKVM-cube-monitor-*.bin $(TARGET_DIR)/usr/share/nanokvm/edid/
 	$(INSTALL) -D -m 0644 $(@D)/NanoKVM-portrait-1080x1920.bin \
 		$(TARGET_DIR)/usr/share/nanokvm/edid/NanoKVM-portrait-1080x1920.bin
 	$(INSTALL) -D -m 0644 $(@D)/NanoKVM-portrait-720x1280.bin \

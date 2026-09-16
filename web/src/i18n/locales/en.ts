@@ -176,6 +176,33 @@ const en = {
       }
     },
     videoSettings: {
+      preferFhd60: 'Prefer 1920 × 1080 · 60 Hz',
+      preferHd60: 'Prefer 1280 × 720 · 60 Hz',
+      cubeMonitorHint:
+        'Cube/Lite: writes and verifies the EDID. Physically disconnect all power sources and reconnect to apply it. A software reboot is not sufficient. Automatic uses the conservative 1080p/60 profile.',
+      powerCycleTitle: 'Physical power cycle required',
+      powerCycleConfirm:
+        'Only continue if you can physically disconnect all power sources from the NanoKVM after writing. Video may be interrupted until then. Rebooting through software does not apply this change.',
+      powerCycleWrite: 'Write EDID',
+      powerCycleCancel: 'Cancel',
+      powerCycleWritten:
+        'EDID written and verified. Disconnect and reconnect NanoKVM power to apply.',
+      powerCyclePending: 'EDID maintenance: power cycle required',
+      powerCyclePendingHint:
+        'An EDID write was attempted. Disconnect all power sources and reconnect the NanoKVM. This reminder survives software reboots; dismiss it only after the physical power cycle.',
+      powerCycleAck: 'I have power-cycled the device',
+      powerCycleAckConfirm:
+        'Confirm that you physically disconnected all power sources and reconnected the NanoKVM. This only dismisses the reminder; it does not restart the device.',
+
+      directPlayback: 'Direct playback',
+      directSmooth: 'Smooth picture',
+      directImmediate: 'Lowest latency',
+      directSmoothHint:
+        'Adaptively buffers frames to smooth uneven delivery, adding a small delay.',
+      directImmediateHint:
+        'Displays frames as soon as they are decoded. Uneven delivery can cause visible stutter.',
+      directPlaybackLocal: 'Saved in this browser. Applies to H.264 and H.265 Direct.',
+
       apply: 'Apply',
       discard: 'Discard changes',
       pending: 'Changes have not been applied',
@@ -215,7 +242,7 @@ const en = {
       portraitUnavailable: 'Portrait monitor profile is unavailable on this device.',
       automatic: 'Automatic (recommended)',
       preferFhd: 'Prefer 1920 × 1080 · 75 Hz',
-      preferQhd: 'Prefer 2560 × 1440 · 40 Hz',
+      preferQhd: 'Prefer 2560 × 1440 · 50 Hz',
       preferHd: 'Prefer 1280 × 720 · 120 Hz',
       monitorHint:
         'Advertises a preferred mode and fallback timings. BIOS and the operating system may choose different resolutions; capture follows the actual signal automatically. Changing this profile briefly reconnects HDMI.',
@@ -970,6 +997,13 @@ const en = {
         ethernet: {
           title: 'Ethernet IPv4',
           description: 'Choose DHCP or configure a persistent static IPv4 address',
+          enable: 'Ethernet',
+          disabled: 'Disabled by administrator',
+          interfaceDown: 'Enabled in settings · interface is currently down',
+          linkUp: 'Enabled · cable connected',
+          noCable: 'Enabled · cable disconnected',
+          disconnectWarning:
+            'Saving will immediately end connections using Ethernet. Make sure another management connection is available.',
           dhcp: 'DHCP',
           static: 'Static',
           ipv4: 'IPv4 Configuration',
@@ -982,10 +1016,19 @@ const en = {
           gateway: 'Gateway',
           gatewayPlaceholder: '192.168.10.1',
           invalid: 'Enter a valid IPv4 address, subnet mask, and gateway',
+          vlan: 'VLAN',
+          vlanDescription: 'Use the selected DHCP or static IPv4 configuration on eth0.<ID>',
+          vlanWarning:
+            'Changing VLAN may disconnect this Ethernet session. Make sure the switch port allows the selected tagged VLAN.',
+          vlanId: 'VLAN ID',
+          invalidVlan: 'VLAN ID must be between 1 and 4094',
+          saved: 'Ethernet settings saved. Network interfaces are restarting.',
           save: 'Save',
           unsaved: 'Unsaved changes',
           savedStatic: 'Static address saved. Reconnect at {{address}}.',
           savedDhcp: 'DHCP enabled. Reconnect using the address assigned by your router.',
+          savedDisabled:
+            'Ethernet disabled. The IPv4 configuration is retained for the next enable.',
           saveFailed: 'Failed to save Ethernet settings',
           loadFailed: 'Failed to load Ethernet settings'
         },

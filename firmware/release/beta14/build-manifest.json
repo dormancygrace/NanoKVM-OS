@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0-beta.14",
+  "sequence": 30,
+  "kernel": "7.2.5-nanokvm-os-r4",
+  "distribution": "full-sd-image-only",
+  "source_date_epoch": 1789571700,
+  "source_commit": "8a72b747931965a4279ce0b00c142b0d9460f5bf",
+  "complete_image_device_tested": false,
+  "files": {
+    "NanoKVM-OS-v1.0.0-beta-14.img.zip": {
+      "sha256": "3d9da6def6fce101c34f05b4a3e312f335c9edaa26dc2109e82c927621af3302",
+      "bytes": 130290543
+    }
+  },
+  "release_tag": "v1.0.0-beta.14"
+}

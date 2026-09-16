@@ -38,10 +38,12 @@ type videoSession struct {
 }
 
 type VideoSource struct {
-	mutex        sync.Mutex
-	subscribers  map[*VideoSubscription]struct{}
-	session      *videoSession
-	captureFrame func(EncoderConfig) ([]byte, []byte, int)
+	mutex              sync.Mutex
+	subscribers        map[*VideoSubscription]struct{}
+	subscriberSnapshot []*VideoSubscription
+	session            *videoSession
+	captureFrame       func(EncoderConfig) ([]byte, []byte, int)
+	keyframeRequested  atomic.Bool
 }
 
 type EncoderConfigConflictError struct {
@@ -54,6 +56,9 @@ func (e *EncoderConfigConflictError) Error() string {
 }
 
 var defaultVideoSource = newVideoSource(captureVideoFrame)
+
+// Feedback from all viewers is coalesced by the single capture owner.
+func RequestKeyframe() { defaultVideoSource.keyframeRequested.Store(true) }
 
 func newVideoSource(captureFrame func(EncoderConfig) ([]byte, []byte, int)) *VideoSource {
 	return &VideoSource{
@@ -122,6 +127,8 @@ func (s *VideoSource) subscribe(config EncoderConfig) (*VideoSubscription, error
 			waitingForKeyframe: true,
 		}
 		s.subscribers[subscription] = struct{}{}
+		s.keyframeRequested.Store(true)
+		s.refreshSnapshotLocked()
 		s.mutex.Unlock()
 
 		if start {
@@ -152,6 +159,7 @@ func (s *VideoSubscription) Close() {
 func (s *VideoSource) remove(subscription *VideoSubscription) {
 	s.mutex.Lock()
 	delete(s.subscribers, subscription)
+	s.refreshSnapshotLocked()
 	if len(s.subscribers) == 0 && s.session == subscription.session {
 		close(subscription.session.stop)
 	}
@@ -171,23 +179,42 @@ func (s *VideoSource) run(session *videoSession) {
 	common.CheckScreen()
 	screen := common.GetCaptureScreen()
 	fps := normalizedFPS(screen.FPS)
-	ticker := time.NewTicker(time.Second / time.Duration(fps))
-	defer ticker.Stop()
+	period := time.Second / time.Duration(fps)
+	timer := time.NewTimer(period)
+	defer timer.Stop()
+	nextCapture := time.Now().Add(period)
 
 	startTime := time.Now()
+	var lastKeyframeRequest time.Time
 	for {
-		select {
-		case <-session.stop:
-			return
-		case <-ticker.C:
+		// Preserve the absolute cadence across a slow read. Bound recovery to
+		// one period so a stall never creates an unbounded burst of old work.
+		if wait := time.Until(nextCapture); wait > 0 {
+			timer.Reset(wait)
+			select {
+			case <-session.stop:
+				return
+			case <-timer.C:
+			}
+		} else {
+			select {
+			case <-session.stop:
+				return
+			default:
+			}
 		}
+		nextCapture = advanceCaptureDeadline(nextCapture, time.Now(), period)
 
 		screen = common.GetCaptureScreen()
 		if nextFPS := normalizedFPS(screen.FPS); nextFPS != fps {
 			fps = nextFPS
-			ticker.Reset(time.Second / time.Duration(fps))
+			period = time.Second / time.Duration(fps)
+			nextCapture = time.Now().Add(period)
 		}
 
+		if s.takeKeyframeRequest(time.Now(), &lastKeyframeRequest) {
+			common.GetKvmVision().RequestKeyframe()
+		}
 		storage, data, result := s.captureFrame(session.config)
 		frame := VideoFrame{Result: result}
 		if result >= 0 {
@@ -233,13 +260,21 @@ func (s *VideoSource) snapshot(session *videoSession) []*VideoSubscription {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	if s.session != session {
+		return nil
+	}
+	return s.subscriberSnapshot
+}
+
+// Publish a new immutable slice only when membership changes. The capture
+// goroutine may still be iterating the previous slice after unlocking; never
+// reuse its backing array. Closed subscriptions reject frames in send().
+func (s *VideoSource) refreshSnapshotLocked() {
 	subscribers := make([]*VideoSubscription, 0, len(s.subscribers))
 	for subscription := range s.subscribers {
-		if subscription.session == session {
-			subscribers = append(subscribers, subscription)
-		}
+		subscribers = append(subscribers, subscription)
 	}
-	return subscribers
+	s.subscriberSnapshot = subscribers
 }
 
 func (s *VideoSubscription) send(frame VideoFrame) bool {
@@ -268,6 +303,7 @@ func (s *VideoSubscription) send(frame VideoFrame) bool {
 		case <-s.done:
 			return false
 		default:
+			s.source.keyframeRequested.Store(true)
 			s.waitingForKeyframe = true
 			if frame.Result != keyFrameResult {
 				return false
@@ -288,4 +324,22 @@ func (s *VideoSubscription) send(frame VideoFrame) bool {
 func portraitCodecBlocked(codec VideoCodec, streamHeight uint16, width, height int) bool {
 	return codec == VideoCodecH264 && width == 1440 && height == 2560 &&
 		(streamHeight == 0 || streamHeight >= 1440)
+}
+
+// Retain phase after a short delay, but discard stale cadence after a stall.
+func advanceCaptureDeadline(previous, now time.Time, period time.Duration) time.Time {
+	next := previous.Add(period)
+	if next.Before(now.Add(-period)) {
+		return now
+	}
+	return next
+}
+
+// Capture-owner-only timestamp, with an atomic intent shared by all viewers.
+func (s *VideoSource) takeKeyframeRequest(now time.Time, last *time.Time) bool {
+	if now.Sub(*last) < 500*time.Millisecond || !s.keyframeRequested.Swap(false) {
+		return false
+	}
+	*last = now
+	return true
 }

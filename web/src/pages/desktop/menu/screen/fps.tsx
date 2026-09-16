@@ -10,8 +10,10 @@ import { MenuSubmenu } from '@/components/menu-item.tsx';
 
 const fpsList = [
   { key: 120, label: '120 FPS' },
+  { key: 75, label: '75 FPS' },
   { key: 70, label: '70 FPS' },
   { key: 60, label: '60 FPS' },
+  { key: 50, label: '50 FPS' },
   { key: 40, label: '40 FPS' },
   { key: 30, label: '30 FPS' },
   { key: 15, label: '15 FPS' },

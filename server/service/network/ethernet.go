@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +27,9 @@ const (
 )
 
 var ethernetConfigFile = "/boot/eth.nodhcp"
+var ethernetDisabledFile = "/boot/eth.disabled"
+var ethernetCarrierFile = "/sys/class/net/eth0/carrier"
+var ethernetFlagsFile = "/sys/class/net/eth0/flags"
 
 func (s *Service) GetEthernet(c *gin.Context) {
 	var rsp proto.Response
@@ -49,7 +53,7 @@ func (s *Service) SetEthernet(c *gin.Context) {
 		return
 	}
 
-	config := proto.EthernetConfig{Mode: req.Mode, Interface: ethernetInterface}
+	config := proto.EthernetConfig{Enabled: *req.Enabled, Mode: req.Mode, Interface: ethernetInterface}
 	if req.Mode == ethernetModeStatic {
 		address, gateway, err := validateStaticEthernet(req.Address, req.SubnetMask, req.Gateway)
 		if err != nil {
@@ -60,9 +64,29 @@ func (s *Service) SetEthernet(c *gin.Context) {
 		config.SubnetMask = prefixToSubnetMask(address.Bits())
 		config.Gateway = gateway.String()
 	}
+	if req.VLANEnabled != nil {
+		config.VLANEnabled = *req.VLANEnabled
+		config.VLANID = req.VLANID
+		if config.VLANEnabled && (config.VLANID < 1 || config.VLANID > 4094) {
+			rsp.ErrRsp(c, -1, "VLAN ID must be between 1 and 4094")
+			return
+		}
+	}
 
 	if err := writeEthernetConfig(config); err != nil {
 		log.Errorf("failed to write ethernet config: %s", err)
+		rsp.ErrRsp(c, -2, err.Error())
+		return
+	}
+	if req.VLANEnabled != nil {
+		if err := writeEthernetVLAN(config.VLANEnabled, config.VLANID); err != nil {
+			log.Errorf("failed to write ethernet VLAN: %s", err)
+			rsp.ErrRsp(c, -2, err.Error())
+			return
+		}
+	}
+	if err := writeEthernetEnabled(config.Enabled); err != nil {
+		log.Errorf("failed to write ethernet enabled state: %s", err)
 		rsp.ErrRsp(c, -2, err.Error())
 		return
 	}
@@ -72,11 +96,25 @@ func (s *Service) SetEthernet(c *gin.Context) {
 	_ = exec.Command("sync").Run()
 
 	rsp.OkRsp(c)
-	log.Infof("set ethernet config: mode=%s address=%s gateway=%s", config.Mode, config.Address, config.Gateway)
+	log.Infof("set ethernet config: enabled=%t mode=%s address=%s gateway=%s", config.Enabled, config.Mode, config.Address, config.Gateway)
 }
 
 func readEthernetConfig() (proto.EthernetConfig, error) {
-	config := proto.EthernetConfig{Mode: ethernetModeDHCP, Interface: ethernetInterface}
+	enabled, err := readEthernetEnabled()
+	if err != nil {
+		return proto.EthernetConfig{}, err
+	}
+	config := proto.EthernetConfig{
+		Enabled:   enabled,
+		AdminUp:   readEthernetAdminUp(),
+		LinkUp:    readEthernetCarrier(),
+		Mode:      ethernetModeDHCP,
+		Interface: ethernetInterface,
+	}
+	config.VLANEnabled, config.VLANID, err = readEthernetVLAN()
+	if err != nil {
+		return config, err
+	}
 	file, err := os.Open(ethernetConfigFile)
 	if os.IsNotExist(err) {
 		return config, nil
@@ -127,6 +165,52 @@ func readEthernetConfig() (proto.EthernetConfig, error) {
 		return config, err
 	}
 	return config, nil
+}
+
+func readEthernetEnabled() (bool, error) {
+	_, err := os.Stat(ethernetDisabledFile)
+	if err == nil {
+		return false, nil
+	}
+	if os.IsNotExist(err) {
+		return true, nil
+	}
+	return false, fmt.Errorf("failed to read ethernet enabled state: %w", err)
+}
+
+func readEthernetCarrier() bool {
+	contents, err := os.ReadFile(ethernetCarrierFile)
+	return err == nil && strings.TrimSpace(string(contents)) == "1"
+}
+
+func readEthernetAdminUp() bool {
+	contents, err := os.ReadFile(ethernetFlagsFile)
+	if err != nil {
+		return false
+	}
+	flags, err := strconv.ParseUint(strings.TrimSpace(string(contents)), 0, 32)
+	return err == nil && flags&1 != 0 // IFF_UP
+}
+
+func writeEthernetEnabled(enabled bool) error {
+	if enabled {
+		if err := os.Remove(ethernetDisabledFile); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to enable ethernet: %w", err)
+		}
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(ethernetDisabledFile), 0o755); err != nil {
+		return fmt.Errorf("failed to create ethernet configuration directory: %w", err)
+	}
+	tmpFile := ethernetDisabledFile + ".tmp"
+	if err := os.WriteFile(tmpFile, nil, 0o600); err != nil {
+		return fmt.Errorf("failed to write ethernet enabled state: %w", err)
+	}
+	if err := os.Rename(tmpFile, ethernetDisabledFile); err != nil {
+		return fmt.Errorf("failed to save ethernet enabled state: %w", err)
+	}
+	return nil
 }
 
 func writeEthernetConfig(config proto.EthernetConfig) error {

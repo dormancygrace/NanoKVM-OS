@@ -74,7 +74,9 @@ if [ "$old_hostname" != "$new_hostname" ]; then
 fi
 "$NANOKVM_ID_IP" link set dev eth0 down
 "$NANOKVM_ID_IP" link set dev eth0 address "$ethmac"
-"$NANOKVM_ID_IP" link set dev eth0 up
+if [ ! -e "$NANOKVM_ID_BOOT/eth.disabled" ]; then
+    "$NANOKVM_ID_IP" link set dev eth0 up
+fi
 echo "hostname: $new_hostname"
 echo "ethernet mac address: $ethmac"
 # USB MACs are assigned by the gadget template before bind, for both RNDIS

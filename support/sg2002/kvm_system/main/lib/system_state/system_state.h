@@ -31,6 +31,7 @@ void kvm_update_stream_qlty(void);
 void kvm_update_hdmi_res(void);
 void kvm_update_eth_state(void);
 void kvm_update_wifi_state(void);
+void kvm_observe_oled_ip_window(void);
 void kvm_update_rndis_state(void);
 void kvm_update_tailscale_state(void);
 uint8_t ion_free_space(void);

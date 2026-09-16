@@ -30,10 +30,11 @@ export function getScreen() {
   return http.get('/api/vm/screen');
 }
 
-export function updateScreen(type: string, value: number) {
+export function updateScreen(type: string, value: number, confirmPowerCycle = false) {
   const data = {
     type,
-    value
+    value,
+    confirmPowerCycle
   };
   return http.post('/api/vm/screen', data);
 }

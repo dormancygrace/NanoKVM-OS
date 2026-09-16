@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create final-mode EDIDs with 720p120, FHD75, or QHD40 preferred."""
+"""Create final-mode EDIDs with 720p120, FHD75, or QHD50 preferred."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ EXPECTED_SOURCE_SHA256 = (
 PREFERRED = {
     720: (1280, 720, 120.0),
     1080: (1920, 1080, 75.0),
-    1440: (2560, 1440, 40.0),
+    1440: (2560, 1440, 50.0),
 }
 
 
@@ -41,6 +41,26 @@ def build_profile(source: bytes, height: int) -> tuple[bytes, object]:
     PRIMARY.check_basic_edid(source, label="final source")
     _, dtd_start = PRIMARY.parse_cta_blocks(source)
     dtds = PRIMARY.parse_cta_dtds(source, dtd_start)
+    # Replace the duplicate FHD60 descriptor, retaining every unique fallback.
+    # The tested QHD50 timing uses the QHD40 blanking at a 201.42 MHz clock.
+    qhd40 = [raw for _, raw, timing in dtds
+             if (timing.width, timing.height) == (2560, 1440)
+             and abs(timing.refresh_hz - 40) < 0.1]
+    fhd60 = [(offset, raw) for offset, raw, timing in dtds
+             if (timing.width, timing.height) == (1920, 1080)
+             and abs(timing.refresh_hz - 60) < 0.1]
+    if len(qhd40) != 1 or len(fhd60) != 2 or fhd60[0][1] != fhd60[1][1]:
+        raise ValueError("expected QHD40 and identical duplicate FHD60 timings")
+    qhd50 = bytearray(qhd40[0])
+    qhd50[:2] = (20142).to_bytes(2, "little")
+    candidate = bytearray(source)
+    offset = fhd60[1][0]
+    candidate[offset:offset + 18] = qhd50
+    candidate[255] = (-sum(candidate[128:255])) & 0xFF
+    original_modes = {raw for _, raw, _ in dtds}
+    dtds = PRIMARY.parse_cta_dtds(candidate, dtd_start)
+    if not original_modes.issubset({bytes(raw) for _, raw, _ in dtds}):
+        raise ValueError("a unique fallback timing was removed")
     width, expected_height, rate = PREFERRED[height]
     matches = [
         (raw, timing)
@@ -52,13 +72,10 @@ def build_profile(source: bytes, height: int) -> tuple[bytes, object]:
     if len(matches) != 1:
         raise ValueError(f"expected one {width}x{height}@{rate:g} DTD")
     raw, timing = matches[0]
-    candidate = bytearray(source)
     candidate[24] = (candidate[24] | 2) & ~1
     candidate[54:72] = raw
     candidate[127] = (-sum(candidate[:127])) & 0xFF
     PRIMARY.check_basic_edid(candidate, label=f"monitor-{height}")
-    if candidate[128:] != source[128:]:
-        raise ValueError("CTA mode set changed")
     preferred = PRIMARY.decode_dtd(candidate[54:72], label="preferred")
     if preferred != timing:
         raise ValueError("preferred DTD differs from accepted CTA timing")
@@ -87,10 +104,11 @@ def main() -> int:
                 "refresh_hz": round(timing.refresh_hz, 6),
                 "source_sha256": sha256(source),
                 "sha256": sha256(data),
-                "cta_mode_set_preserved": True,
+                "unique_cta_modes_preserved": True,
+            "added_cta_mode": "2560x1440@50",
             }
         )
-    # Auto is deliberately the same byte sequence as the explicit QHD40
+    # Auto is deliberately the same byte sequence as the explicit QHD50
     # profile.  The runtime already resolves monitor value 0 to
     # NanoKVM-final-video-profiles.bin; the package install step maps this
     # generated Auto file to that stable runtime name.
@@ -107,7 +125,8 @@ def main() -> int:
             "source_sha256": sha256(source),
             "sha256": sha256(auto_data),
             "identical_to": "NanoKVM-monitor-1440.bin",
-            "cta_mode_set_preserved": True,
+            "unique_cta_modes_preserved": True,
+            "added_cta_mode": "2560x1440@50",
         }
     )
     (args.output / "final-monitor-profiles.json").write_text(

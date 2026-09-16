@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/auth';
-import { Alert, Button, Checkbox, Collapse, InputNumber, message, Select, Switch } from 'antd';
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Collapse,
+  InputNumber,
+  message,
+  Modal,
+  Select,
+  Switch
+} from 'antd';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
@@ -35,7 +45,12 @@ type ScreenValues = {
   bitRate: number;
   gop: number;
 };
-type Draft = ScreenValues & { mode: string; codec: EncoderCodec; frameDetect: boolean };
+type Draft = ScreenValues & {
+  mode: string;
+  codec: EncoderCodec;
+  frameDetect: boolean;
+  directPlayback: storage.DirectPlayback;
+};
 
 export const VideoForm = ({
   status,
@@ -44,6 +59,9 @@ export const VideoForm = ({
 }: {
   status: ScreenValues & {
     monitorSupported: boolean;
+    monitorRequiresPowerCycle: boolean;
+    monitorPowerCyclePending: boolean;
+    monitorHighRefreshSupported: boolean;
     qhdSupported: boolean;
     portraitSupported: boolean;
     portraitMaxSupported: boolean;
@@ -70,11 +88,12 @@ export const VideoForm = ({
     gop: status.gop,
     mode,
     codec: getEncoderCodec(),
-    frameDetect: storage.getFrameDetect()
+    frameDetect: storage.getFrameDetect(),
+    directPlayback: storage.getDirectPlayback()
   });
   const [draft, setDraft] = useState<Draft>(initial);
   const [saved, setSaved] = useState<Draft>(initial);
-  const [customFps, setCustomFps] = useState(![120, 70, 60, 50, 40, 30].includes(status.fps));
+  const [customFps, setCustomFps] = useState(![120, 75, 70, 60, 50, 40, 30].includes(status.fps));
   const [busy, setBusy] = useState(false);
   const applying = useRef(false);
   const [h265Supported, setH265Supported] = useState<boolean | null>(null);
@@ -153,6 +172,27 @@ export const VideoForm = ({
   async function apply() {
     if (!dirty || !valid || applying.current) return;
     applying.current = true;
+    const powerCycleWrite = draft.monitor !== saved.monitor && status.monitorRequiresPowerCycle;
+    if (powerCycleWrite) {
+      const confirmed = await new Promise<boolean>((resolve) =>
+        Modal.confirm({
+          title: t('videoSettings.powerCycleTitle'),
+          content: t('videoSettings.powerCycleConfirm'),
+          okText: t('videoSettings.powerCycleWrite'),
+          cancelText: t('videoSettings.powerCycleCancel'),
+          onOk: () => {
+            resolve(true);
+          },
+          onCancel: () => {
+            resolve(false);
+          }
+        })
+      );
+      if (!confirmed) {
+        applying.current = false;
+        return;
+      }
+    }
     setBusy(true);
     setIsLocked(true);
     const next = { ...draft };
@@ -176,7 +216,7 @@ export const VideoForm = ({
       ];
       for (const [key, type] of fields) {
         if (next[key] === completed[key]) continue;
-        const rsp = await updateScreen(type, next[key]);
+        const rsp = await updateScreen(type, next[key], type === 'monitor' && powerCycleWrite);
         if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
         commit(key);
         if (key === 'height') {
@@ -223,11 +263,25 @@ export const VideoForm = ({
         storage.setFrameDetect(next.frameDetect);
         commit('frameDetect');
       }
-      const reconnect = next.mode !== saved.mode || next.codec !== saved.codec;
+      const playbackChanged = next.directPlayback !== saved.directPlayback;
+      const reconnect =
+        next.mode !== saved.mode ||
+        next.codec !== saved.codec ||
+        (next.mode === 'direct' && playbackChanged);
+      if (playbackChanged) {
+        storage.setDirectPlayback(next.directPlayback);
+        // An explicit UI choice replaces any diagnostic render override.
+        const url = new URL(window.location.href);
+        url.searchParams.delete('directRender');
+        url.searchParams.delete('directBufferMs');
+        window.history.replaceState(window.history.state, '', url);
+      }
       if (next.codec !== saved.codec) setEncoderCodec(next.codec);
       if (next.mode !== saved.mode) storage.setVideoMode(next.mode);
       setSaved(next);
-      message.success(t('videoSettings.applied'));
+      message.success(
+        t(powerCycleWrite ? 'videoSettings.powerCycleWritten' : 'videoSettings.applied')
+      );
       if (reconnect) window.location.reload();
     } catch (error) {
       message.error(error instanceof Error ? error.message : t('videoSettings.failed'));
@@ -262,6 +316,35 @@ export const VideoForm = ({
   );
   return (
     <div className="space-y-6">
+      {status.monitorPowerCyclePending && (
+        <Alert
+          type="warning"
+          showIcon
+          message={t('videoSettings.powerCyclePending')}
+          description={t('videoSettings.powerCyclePendingHint')}
+          action={
+            <Button
+              disabled={busy || !admin}
+              onClick={() =>
+                Modal.confirm({
+                  title: t('videoSettings.powerCycleAck'),
+                  content: t('videoSettings.powerCycleAckConfirm'),
+                  onOk: async () => {
+                    const rsp = await updateScreen('monitor_power_cycle_ack', 1, true);
+                    if (rsp.code !== 0) {
+                      message.error(rsp.msg || t('videoSettings.failed'));
+                      throw new Error(rsp.msg);
+                    }
+                    await refresh();
+                  }
+                })
+              }
+            >
+              {t('videoSettings.powerCycleAck')}
+            </Button>
+          }
+        />
+      )}
       <section className="space-y-3">
         <h3 className="font-medium">{t('videoSettings.monitor')}</h3>
         {row(
@@ -271,11 +354,25 @@ export const VideoForm = ({
             t('videoSettings.monitorProfile'),
             [
               { value: 0, label: t('videoSettings.automatic') },
-              ...(status.qhdSupported
+              ...(status.qhdSupported && status.monitorHighRefreshSupported
                 ? [{ value: 1440, label: t('videoSettings.preferQhd') }]
                 : []),
-              { value: 1080, label: t('videoSettings.preferFhd') },
-              { value: 720, label: t('videoSettings.preferHd') }
+              {
+                value: 1080,
+                label: t(
+                  status.monitorHighRefreshSupported
+                    ? 'videoSettings.preferFhd'
+                    : 'videoSettings.preferFhd60'
+                )
+              },
+              {
+                value: 720,
+                label: t(
+                  status.monitorHighRefreshSupported
+                    ? 'videoSettings.preferHd'
+                    : 'videoSettings.preferHd60'
+                )
+              }
             ],
             !admin || !status.monitorSupported || draft.portrait
           )
@@ -316,7 +413,13 @@ export const VideoForm = ({
               !admin || !status.portraitSupported
             )
           )}
-        <p className="text-xs leading-relaxed text-neutral-400">{t('videoSettings.monitorHint')}</p>
+        <p className="text-xs leading-relaxed text-neutral-400">
+          {t(
+            status.monitorRequiresPowerCycle
+              ? 'videoSettings.cubeMonitorHint'
+              : 'videoSettings.monitorHint'
+          )}
+        </p>
         <p className="text-xs leading-relaxed text-neutral-400">
           {t('videoSettings.portraitHint')}
         </p>
@@ -357,6 +460,25 @@ export const VideoForm = ({
             { value: 'mjpeg', label: 'MJPEG', disabled: maximumPortrait }
           ])
         )}
+        {draft.mode === 'direct' && (
+          <>
+            {row(
+              t('videoSettings.directPlayback'),
+              select('directPlayback', t('videoSettings.directPlayback'), [
+                { value: 'paced', label: t('videoSettings.directSmooth') },
+                { value: 'immediate', label: t('videoSettings.directImmediate') }
+              ])
+            )}
+            <p className="text-xs leading-relaxed text-neutral-400">
+              {t(
+                draft.directPlayback === 'immediate'
+                  ? 'videoSettings.directImmediateHint'
+                  : 'videoSettings.directSmoothHint'
+              )}{' '}
+              {t('videoSettings.directPlaybackLocal')}
+            </p>
+          </>
+        )}
         {draft.mode !== 'mjpeg' &&
           row(
             t('screen.codec'),
@@ -396,8 +518,10 @@ export const VideoForm = ({
               value={customFps ? 'custom' : draft.fps}
               options={[
                 { value: 120, label: '120', disabled: maximumPortrait },
+                { value: 75, label: '75', disabled: maximumPortrait },
                 { value: 70, label: '70', disabled: maximumPortrait },
                 { value: 60, label: '60', disabled: maximumPortrait },
+                { value: 50, label: '50', disabled: maximumPortrait },
                 { value: 40, label: '40', disabled: maximumPortrait },
                 { value: 30, label: '30' },
                 { value: 'custom', label: t('keyboard.shortcut.custom') }
@@ -493,7 +617,7 @@ export const VideoForm = ({
           disabled={!dirty || busy}
           onClick={() => {
             setDraft({ ...saved });
-            setCustomFps(![120, 70, 60, 50, 40, 30].includes(saved.fps));
+            setCustomFps(![120, 75, 70, 60, 50, 40, 30].includes(saved.fps));
           }}
         >
           {t('videoSettings.discard')}

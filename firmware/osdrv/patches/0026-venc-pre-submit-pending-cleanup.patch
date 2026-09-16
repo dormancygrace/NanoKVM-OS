@@ -1,0 +1,23 @@
+--- a/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
++++ b/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
+@@ -3554,13 +3554,19 @@
+ 	}
+ 
+ 	if (pEncInfo->stride == 0) { // This means frame buffers have not been
+-		// registered.
++		// registered. The caller has already published this pending instance,
++		// but no hardware command has been submitted. Do not strand it and
++		// spin forever in VPU_EncClose after a reconstruction allocation fails.
++		if (GetPendingInst(pCodecInst->coreIdx) == pCodecInst)
++			SetPendingInst(pCodecInst->coreIdx, NULL, __func__, __LINE__);
+ 		return RETCODE_WRONG_CALL_SEQUENCE;
+ 	}
+ 
+ 	ret = CheckEncParam(handle, param);
+ 	if (ret != RETCODE_SUCCESS) {
+ 		CVI_VC_ERR("CheckEncParam, ret = %d\n", ret);
++		if (GetPendingInst(pCodecInst->coreIdx) == pCodecInst)
++			SetPendingInst(pCodecInst->coreIdx, NULL, __func__, __LINE__);
+ 		return ret;
+ 	}
+ 

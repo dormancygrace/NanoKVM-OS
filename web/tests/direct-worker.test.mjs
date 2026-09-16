@@ -170,9 +170,9 @@ test('production worker preserves flow control, paces the first frame and releas
   const h = harness();
   assert.equal(new URL(h.sockets[0].url).searchParams.get('flow'), '8');
   h.send(0, true);
-  h.advance(119);
+  h.advance(109);
   assert.deepEqual(h.paints, []);
-  h.advance(120);
+  h.advance(110);
   assert.deepEqual(h.paints, [0]);
   assert.equal(h.frames[0].closed, 1);
   assert.equal(new Uint8Array(h.sockets[0].sent[0])[0], 2, 'Decode ACK remains enabled');
@@ -241,7 +241,7 @@ test('receiver-to-decoder and receiver-to-paint measure different pipeline stage
   for (const tick of h.timers.values()) tick();
   const sample = h.reports.find((x) => x.type === 'direct-stats').stats;
   assert.equal(sample.adaptivePlayout, 1);
-  assert.equal(sample.playoutDelayMs, 20);
+  assert.equal(sample.playoutDelayMs, 10);
   assert.equal(sample.receiveToDecodeMs.count, 1);
   assert.equal(sample.receiveToDecodeMs.p50, 0);
   assert.equal(sample.receiveToPaintMs.p50, 35);
@@ -309,7 +309,7 @@ test('captures the already painted Direct canvas without restarting playback', a
   h.screenshot(1);
   assert.equal(h.reports.at(-1).code, 'no-frame');
   h.send(0, true);
-  h.advance(120);
+  h.advance(110);
   h.screenshot(2);
   await new Promise((resolve) => setImmediate(resolve));
   const result = h.reports.find((report) => report.requestId === 2);

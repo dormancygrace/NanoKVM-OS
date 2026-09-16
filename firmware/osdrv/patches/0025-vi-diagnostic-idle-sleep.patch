@@ -1,0 +1,42 @@
+From: NanoKVM OS maintainers <maintainers@nanokvm.local>
+Subject: [PATCH] Exclude timed VI diagnostic sampling from load average
+
+The one-second sampling delay is not resource contention. Preserve the full
+sampling interval and monotonic FPS calculation, but sleep in TASK_IDLE.
+
+--- a/interdrv/vi/chip/cv180x/proc/vi_dbg_proc.c
++++ b/interdrv/vi/chip/cv180x/proc/vi_dbg_proc.c
+@@ -44,7 +44,14 @@
+ 	 * This does not reprogram CSI or change the capture ownership model.
+ 	 */
+ 	t1 = ktime_get_ns();
+-	msleep(1000);
++	/* Diagnostic delay, not an uninterruptible resource wait. Keep the
++	 * complete interval even if another wakeup arrives early.
++	 */
++	{
++		long remaining = msecs_to_jiffies(1000);
++		while (remaining > 0)
++			remaining = schedule_timeout_idle(remaining);
++	}
+ 	for (raw_num = ISP_PRERAW_A; raw_num < ISP_PRERAW_VIRT_MAX; raw_num++) {
+ 		if (!ctx->isp_pipe_enable[raw_num])
+ 			continue;
+--- a/interdrv/vi/chip/cv181x/proc/vi_dbg_proc.c
++++ b/interdrv/vi/chip/cv181x/proc/vi_dbg_proc.c
+@@ -44,7 +44,14 @@
+ 	 * This does not reprogram CSI or change the capture ownership model.
+ 	 */
+ 	t1 = ktime_get_ns();
+-	msleep(1000);
++	/* Diagnostic delay, not an uninterruptible resource wait. Keep the
++	 * complete interval even if another wakeup arrives early.
++	 */
++	{
++		long remaining = msecs_to_jiffies(1000);
++		while (remaining > 0)
++			remaining = schedule_timeout_idle(remaining);
++	}
+ 	for (raw_num = ISP_PRERAW_A; raw_num < ISP_PRERAW_VIRT_MAX; raw_num++) {
+ 		if (!ctx->isp_pipe_enable[raw_num])
+ 			continue;

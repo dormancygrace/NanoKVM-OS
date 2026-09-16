@@ -43,6 +43,7 @@
 #define KVM_TYPE_none   0x00
 #define KVM_TYPE_MJPG   0x01
 #define KVM_TYPE_H264   0x02
+#define KVM_TYPE_H265   0x03
 
 #define AlignRightEND   127
 #define AlignRightEND_P 63

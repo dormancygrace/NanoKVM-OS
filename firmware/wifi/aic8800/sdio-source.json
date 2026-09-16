@@ -35,5 +35,9 @@
       "patched_sha256": "0eae77d5d50cb33b408fb71978e2a470efe85f0999054901e3db39f077c64cd6"
     }
   },
-  "scope": "Exact SDIO ownership, chip-scoped firmware_class names, and driver clock requests capped to the DT host limit; no DMA or firmware-sequence changes"
+  "survey_frequency_file": {
+    "base_sha256": "fed2b56dbdcf76c3f73844a74c9f0fbdbda4b82018c4144aa2f37ab28f09c449",
+    "patched_sha256": "e4ad8d2f10350cd2312ca3859d8f5364c7eda719d63babf3e1df63dbe629296a"
+  },
+  "scope": "Exact SDIO ownership, chip-scoped firmware_class names, driver clock requests capped to the DT host limit, and survey-frequency bounds; no DMA or firmware-sequence changes"
 }

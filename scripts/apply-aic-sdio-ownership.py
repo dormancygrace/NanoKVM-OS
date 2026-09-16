@@ -76,5 +76,7 @@ for relative, hashes in clock_files.items():
 # Apply the transport-independent monitor RX fix to the SDIO driver too.
 subprocess.run(['python3', str(repo / 'scripts/apply-aic-monitor-rx.py'),
                 '--source', str(src)], check=True)
+subprocess.run(['python3', str(repo / 'scripts/apply-aic-survey-frequency-guard.py'),
+                '--source', str(src)], check=True)
 
-print('AIC BSP ownership, firmware-path, SDIO-clock and monitor RX policy applied')
+print('AIC BSP ownership, firmware-path, SDIO-clock, monitor RX and survey frequency policy applied')

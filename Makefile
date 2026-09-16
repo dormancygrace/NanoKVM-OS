@@ -45,6 +45,7 @@ help:
 	@echo "  vision        - Build video libraries (libkvm.so)"
 	@echo "  test-wifi-modules - Test Wi-Fi module selection"
 	@echo "  test-wifi-runtime - Test Wi-Fi runtime state and credential permissions"
+	@echo "  test-ethernet-runtime - Test persistent Ethernet administrative state"
 	@echo "  web           - Build the frontend into web/dist"
 	@echo "  all           - Build both app and support (default)"
 	@echo "  release-build - Build every riscv64 release artifact in one pass"
@@ -110,7 +111,7 @@ vision: check-root builder-image
 	@echo "Building vision..."
 	@$(DOCKER_RUN_BASE) $(DOCKER_TTY) $(IMAGE_NAME) /bin/bash -c '$(VISION_BUILD_CMD)'
 
-.PHONY: test-wifi-modules test-enhanced-wifi test-wifi-runtime
+.PHONY: test-wifi-modules test-enhanced-wifi test-wifi-runtime test-ethernet-runtime
 test-wifi-modules:
 	@sh tools/test-s25wifimod.sh
 
@@ -120,6 +121,10 @@ test-enhanced-wifi:
 
 test-wifi-runtime:
 	@sh tools/test-s30wifi-runtime.sh
+	@cd server && go test ./service/network
+
+test-ethernet-runtime:
+	@sh tools/test-ethernet-enabled.sh
 	@cd server && go test ./service/network
 
 # Build every riscv64 release artifact in one container pass

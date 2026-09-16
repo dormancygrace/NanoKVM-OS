@@ -43,3 +43,5 @@ func (k *KvmVision) SetFrameDetect(uint8) {}
 func (k *KvmVision) Close() {}
 
 func (k *KvmVision) ApplyMonitorProfile(string) error { return nil }
+
+func (k *KvmVision) RequestKeyframe() {}

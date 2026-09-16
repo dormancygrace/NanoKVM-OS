@@ -7,13 +7,20 @@ package common
 	#cgo LDFLAGS: -L../dl_lib -lkvm
 	#include "kvm_vision.h"
 	#include <string.h>
+    #include <dlfcn.h>
+    static int edid_maintenance(unsigned char pause) {
+        int (*fn)(unsigned char) = (int (*)(unsigned char))dlsym(RTLD_DEFAULT, "kvmv_edid_maintenance");
+        return fn ? fn(pause) : -1;
+    }
 */
 import "C"
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 	"unsafe"
 
 	log "github.com/sirupsen/logrus"
@@ -90,51 +97,7 @@ func (k *KvmVision) ReadVideoWithHeadroom(width uint16, height uint16, codec uin
 		return nil, nil, -1
 	}
 
-	var (
-		kvmData  *C.uint8_t
-		dataSize C.uint32_t
-	)
-
-	if k.captureWorkerEnabled {
-		if k.captureWorker == nil {
-			worker, err := newVideoCaptureWorker()
-			if err != nil {
-				log.Errorf("initialize native capture worker: %v", err)
-				return nil, nil, -1
-			}
-			k.captureWorker = worker
-			log.Info("native video capture worker enabled")
-		}
-		pointer, size, code, err := k.captureWorker.read(width, height, codec, bitRate, gop, fps)
-		if err != nil {
-			log.Errorf("native video capture worker: %v", err)
-			return nil, nil, -1
-		}
-		kvmData, dataSize, result = (*C.uint8_t)(pointer), C.uint32_t(size), code
-	} else {
-		result = int(C.kvmv_read_video(
-			C.uint16_t(width),
-			C.uint16_t(height),
-			C.uint8_t(codec),
-			C.uint16_t(bitRate),
-			C.uint8_t(gop),
-			C.uint8_t(fps),
-			&kvmData,
-			&dataSize,
-		))
-	}
-	if result < 0 {
-		log.Errorf("failed to read kvm image: %v", result)
-		return
-	}
-	defer C.free_kvmv_data(&kvmData)
-
-	storage = make([]byte, headroom+int(dataSize))
-	data = storage[headroom:]
-	if dataSize != 0 {
-		C.memcpy(unsafe.Pointer(&data[0]), unsafe.Pointer(kvmData), C.size_t(dataSize))
-	}
-	return
+	return readVideoIntoOwnedStorage(width, height, codec, bitRate, gop, fps, headroom)
 }
 
 func (k *KvmVision) SetHDMI(enable bool) int {
@@ -215,14 +178,42 @@ func (k *KvmVision) ApplyMonitorProfile(path string) error {
 	if k.closed {
 		return fmt.Errorf("video capture is closed")
 	}
-	defer C.kvmv_hdmi_control(1)
-	if C.kvmv_hdmi_control(0) < 0 {
-		return fmt.Errorf("cannot pause HDMI for monitor change")
+	cube := MonitorRequiresPowerCycle()
+	if cube {
+		if C.edid_maintenance(1) < 0 {
+			return fmt.Errorf("Cube EDID maintenance requires updated native video library")
+		}
+		defer C.edid_maintenance(0)
+	} else {
+		defer C.kvmv_hdmi_control(1)
+		if C.kvmv_hdmi_control(0) < 0 {
+			return fmt.Errorf("cannot pause HDMI for monitor change")
+		}
 	}
-	output, err := exec.Command("/usr/sbin/nanokvm_update_edid", path).CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	args := []string{path}
+	if cube {
+		// Marker is durable before writing: even a timeout or process crash can
+		// leave receiver flash changed. Do not erase it on uncertain failure.
+		if err := atomicWriteMonitorFile(monitorPowerCyclePendingFile, []byte("1\n"), ".monitor_pending-*"); err != nil {
+			return err
+		}
+		args = []string{"--accept-power-cycle", path}
+	}
+	output, err := exec.CommandContext(ctx, "/usr/sbin/nanokvm_update_edid", args...).CombinedOutput()
 	if err != nil {
 		log.Errorf("monitor EDID programming failed: %v: %s", err, output)
 		return fmt.Errorf("monitor EDID programming failed")
 	}
 	return nil
+}
+
+// RequestKeyframe queues native intent; it does not touch VENC from this thread.
+func (k *KvmVision) RequestKeyframe() {
+	k.mutex.RLock()
+	defer k.mutex.RUnlock()
+	if !k.closed {
+		C.kvmv_request_keyframe()
+	}
 }

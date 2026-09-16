@@ -21,7 +21,7 @@ if a.beta and (not a.aes_module or not a.cryptodev_module or not a.wifi_modules 
 kernel=a.kernel_source.resolve() if a.kernel_source else base/'enhanced/sources/linux-7.2.4';ko=a.kernel_output.resolve() if a.kernel_output else base/'enhanced/kernel-board-build'
 aic=base/'enhanced/sources/aic8800-radxa-sdio'
 release=(ko/'include/config/kernel.release').read_text().strip()
-assert release=='7.2.5-nanokvm-os-r3'
+assert release=='7.2.5-nanokvm-os-r4'
 out.mkdir(parents=True)
 env=dict(os.environ,PATH='/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin')
 subprocess.run(['make','-C',str(kernel),'O='+str(ko),'ARCH=riscv',
@@ -78,5 +78,10 @@ for item in manifest:
     if item['path'].startswith('lib/'): item['path']='usr/'+item['path']
 (out/'mnt/system').mkdir(parents=True)
 (out/'kernel.release').write_text(release+'\n')
+if 'CONFIG_ZRAM=y' in (ko/'.config').read_text().splitlines():
+    proof=out/'zram-builtin-symbols.txt'
+    proof.write_text(subprocess.check_output(['readelf','-sW',str(ko/'vmlinux')],text=True))
+    manifest.append({'path':proof.name,'sha256':hashlib.sha256(proof.read_bytes()).hexdigest(),'bytes':proof.stat().st_size})
+
 (out/'manifest.json').write_text(json.dumps({'kernel':release,'beta_candidate':a.beta,'qualification':'packaging and dependency validation only','files':manifest},indent=2)+'\n')
 print('Staged',len(manifest),'module files at',out)

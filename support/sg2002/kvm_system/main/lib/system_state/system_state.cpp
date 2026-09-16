@@ -29,6 +29,26 @@ static bool path_exists(const char *path)
 namespace {
 
 constexpr uint64_t NETWORK_PROBE_INTERVAL_MS = 10000U;
+constexpr const char *WIFI_AP_FLAG = "/tmp/wifiap";
+
+// S30eth records the active L3 interface after creating a VLAN. Use the same
+// interface for addresses, gateway checks and the temporary OLED notification.
+std::string ethernet_interface()
+{
+    FILE *fp = fopen("/run/nanokvm-eth-vlan", "r");
+    if (!fp) return "eth0";
+    char name[IFNAMSIZ] = {};
+    const bool read = fgets(name, sizeof(name), fp) != nullptr;
+    fclose(fp);
+    if (!read) return "eth0";
+    name[strcspn(name, "\r\n")] = 0;
+    if (strncmp(name, "eth0.", 5) != 0 || name[5] == 0) return "eth0";
+    for (const char *p = name + 5; *p; ++p)
+        if (*p < '0' || *p > '9') return "eth0";
+    const long id = strtol(name + 5, nullptr, 10);
+    return id >= 1 && id <= 4094 ? name : "eth0";
+}
+
 
 uint64_t monotonic_ms()
 {
@@ -124,6 +144,30 @@ void publish_wifi_state(uint8_t state)
 	}
 }
 
+// The regular connection status intentionally accepts whatever Maix reports,
+// but the wake-up notification needs a stricter policy. In particular, do
+// not light the display for an APIPA/link-local address that cannot identify
+// a reachable NanoKVM on the intended LAN.
+bool usable_ipv4_for_oled(const char *interface_name, char *output, size_t output_size)
+{
+	if (interface_name == NULL || output == NULL || output_size < 16U) return false;
+	output[0] = 0;
+	const auto addresses = ip_address();
+	const auto found = addresses.find(interface_name);
+	if (found == addresses.end() || found->second.empty() || found->second.size() >= output_size) return false;
+
+	struct in_addr parsed = {};
+	if (inet_pton(AF_INET, found->second.c_str(), &parsed) != 1) return false;
+	const uint32_t host = ntohl(parsed.s_addr);
+	const unsigned first = (host >> 24) & 0xffU;
+	const unsigned second = (host >> 16) & 0xffU;
+	if (host == 0U || first == 127U || (first == 169U && second == 254U) || first >= 224U) return false;
+
+	memcpy(output, found->second.c_str(), found->second.size());
+	output[found->second.size()] = 0;
+	return true;
+}
+
 } // namespace
 
 int get_nic_state(const char* interface_name)
@@ -165,12 +209,13 @@ int get_ping_allow_state(void)
 // net_port
 int get_ip_addr(ip_addr_t ip_type)
 {
+	const std::string eth_interface = ethernet_interface();
 	switch (ip_type){
         case ETH_IP:
         case WiFi_IP:
         case Tailscale_IP:
         case RNDIS_IP: {
-            const char *interface = ip_type == ETH_IP ? "eth0" :
+            const char *interface = ip_type == ETH_IP ? eth_interface.c_str() :
                 ip_type == WiFi_IP ? "wlan0" : ip_type == Tailscale_IP ? "tailscale0" : "usb0";
             uint8_t *destination = ip_type == ETH_IP ? kvm_sys_state.eth_addr :
                 ip_type == WiFi_IP ? kvm_sys_state.wifi_addr :
@@ -185,7 +230,7 @@ int get_ip_addr(ip_addr_t ip_type)
         }
 		case ETH_ROUTE: // eth_route
 			if(access("/etc/kvm/gateway", F_OK) != 0){
-				return read_default_gateway("eth0", kvm_sys_state.eth_route,
+				return read_default_gateway(eth_interface.c_str(), kvm_sys_state.eth_route,
 						sizeof(kvm_sys_state.eth_route));
 			} else {
 				FILE *fp = fopen("/etc/kvm/gateway", "r");
@@ -208,12 +253,27 @@ int get_ip_addr(ip_addr_t ip_type)
 	return 0;
 }
 
+void kvm_observe_oled_ip_window(void)
+{
+	char eth_addr[16] = {};
+	char wifi_addr[16] = {};
+	(void)usable_ipv4_for_oled(ethernet_interface().c_str(), eth_addr, sizeof(eth_addr));
+
+	// AP mode assigns wlan0 its own static address. It is a configuration
+	// endpoint, not a newly acquired Wi-Fi STA address, and must not wake OLED.
+	if (access(WIFI_AP_FLAG, F_OK) != 0) {
+		(void)usable_ipv4_for_oled("wlan0", wifi_addr, sizeof(wifi_addr));
+	}
+	oled_ip_window_observe(eth_addr, wifi_addr);
+}
+
 int chack_net_state(ip_addr_t use_ip_type)
 {
+	const std::string eth_interface = ethernet_interface();
 	const char* interface_name = NULL;
 	const char* gateway = NULL;
 	if (use_ip_type == ETH_ROUTE) {
-		interface_name = "eth0";
+		interface_name = eth_interface.c_str();
 		gateway = (char*)kvm_sys_state.eth_route;
 	} else if (use_ip_type == WiFi_ROUTE) {
 		interface_name = "wlan0";
@@ -388,9 +448,14 @@ void kvm_update_stream_type(void)
     fseek(fp, 0, SEEK_SET);
     fread(RW_Data, sizeof(char), file_size, fp);
 	fclose(fp);
-	if(RW_Data[0] == 'm') 		kvm_sys_state.type = KVM_TYPE_MJPG;
-	else if(RW_Data[0] == 'h') 	kvm_sys_state.type = KVM_TYPE_H264;
-	else 						kvm_sys_state.type = KVM_TYPE_none;
+	if (file_size >= 5 && !memcmp(RW_Data, "mjpeg", 5))
+		kvm_sys_state.type = KVM_TYPE_MJPG;
+	else if (file_size >= 4 && !memcmp(RW_Data, "h264", 4))
+		kvm_sys_state.type = KVM_TYPE_H264;
+	else if (file_size >= 4 && !memcmp(RW_Data, "h265", 4))
+		kvm_sys_state.type = KVM_TYPE_H265;
+	else
+		kvm_sys_state.type = KVM_TYPE_none;
 }
 
 void kvm_update_stream_qlty(void)
@@ -434,11 +499,12 @@ void kvm_update_eth_state(void)
 {	
 	static uint8_t nic_state = 0;
 	static uint64_t last_probe_ms = 0;
-	nic_state = get_nic_state("eth0");
+	const std::string eth_interface = ethernet_interface();
+	nic_state = get_nic_state(eth_interface.c_str());
 
 	if(nic_state == NIC_STATE_RUNNING){
 		// Get IP
-		if(strcmp(ip_address()["eth0"].c_str(), (char*)kvm_sys_state.eth_addr) != 0){
+		if(strcmp(ip_address()[eth_interface].c_str(), (char*)kvm_sys_state.eth_addr) != 0){
 			if(get_ip_addr(ETH_IP)){
 				kvm_sys_state.eth_state = 2;
 			} else {

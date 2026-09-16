@@ -4,6 +4,7 @@ import (
 	"NanoKVM-Server/common"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http/httptest"
 	"os"
@@ -48,6 +49,38 @@ func TestRejectsInvalidVideoPreferences(t *testing.T) {
 		}
 		if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code == 0 {
 			t.Fatalf("accepted %s: %s", body, recorder.Body.String())
+		}
+	}
+}
+
+func TestStreamTypePersistsCodecForOLED(t *testing.T) {
+	old := screenFileMap["type"]
+	screenFileMap["type"] = filepath.Join(t.TempDir(), "type")
+	defer func() { screenFileMap["type"] = old }()
+
+	for _, test := range []struct {
+		value int
+		want  string
+	}{
+		{value: 0, want: "mjpeg"},
+		{value: 1, want: "h264"},
+		{value: 2, want: "h265"},
+	} {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(fmt.Sprintf(`{"type":"type","value":%d}`, test.value)))
+		c.Request.Header.Set("Content-Type", "application/json")
+		(&Service{}).SetScreen(c)
+
+		var result struct {
+			Code int `json:"code"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code != 0 {
+			t.Fatalf("value %d response %s, error %v", test.value, recorder.Body.String(), err)
+		}
+		value, err := os.ReadFile(screenFileMap["type"])
+		if err != nil || string(value) != test.want {
+			t.Fatalf("value %d saved %q, error %v", test.value, value, err)
 		}
 	}
 }

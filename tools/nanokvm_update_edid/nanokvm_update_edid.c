@@ -897,6 +897,9 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    int accept_power_cycle = argc == 3 && strcmp(argv[1], "--accept-power-cycle") == 0;
+    if (accept_power_cycle) { argv[1] = argv[2]; argc = 2; }
+
     // Check version
     chip_version_t chip_version = CHIP_UNKNOWN;
     product_version_t product_version = PRODUCT_UNKNOWN;
@@ -982,7 +985,7 @@ int main(int argc, char *argv[]) {
 
     print_warning(product_version);
     if (product_version == PRODUCT_CUBE_A || product_version == PRODUCT_CUBE_B) {
-        if (get_user_confirmation() == 0) {
+        if (!accept_power_cycle && get_user_confirmation() == 0) {
             return EXIT_FAILURE;
         }
     }

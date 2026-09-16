@@ -41,7 +41,7 @@ void* thread_oled_handle(void * arg)
     while(kvm_sys_state.oled_thread_running)
     {
 		oled_auto_sleep();
-        if (OLED_IsDisabled()) { time::sleep_ms(OLED_DELAY); continue; }
+        if (OLED_IsDisabled() && !OLED_IPWindowActive()) { time::sleep_ms(OLED_DELAY); continue; }
 		// printf("[kvmd]thread_oled_handle - while\n");
 		uint8_t page_changed = (kvm_oled_state.page == kvm_sys_state.page)? 0:1;
 		uint8_t subpage_changed = (kvm_oled_state.sub_page == kvm_sys_state.sub_page)? 0:1;
@@ -159,6 +159,10 @@ void* thread_sys_handle(void * arg)
 	get_ping_allow_state();
     while(kvm_sys_state.sys_thread_running)
     {
+		// Observe direct IPv4 assignments on every page. The existing state
+		// updates are intentionally limited to the main page, but an address
+		// acquired while viewing the Wi-Fi page must still open its time window.
+		kvm_observe_oled_ip_window();
 		// net
 		if(kvm_sys_state.page == 0){
 			kvm_update_eth_state();

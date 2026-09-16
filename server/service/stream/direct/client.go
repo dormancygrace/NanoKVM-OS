@@ -1,6 +1,7 @@
 package direct
 
 import (
+	"NanoKVM-Server/service/stream"
 	"encoding/binary"
 	"sync"
 	"time"
@@ -284,6 +285,7 @@ func (c *client) handleControl(messageType int, data []byte) {
 	case streamResyncMessage:
 		if len(data) == 1 {
 			c.queue.requestResync()
+			stream.RequestKeyframe()
 		}
 	}
 }

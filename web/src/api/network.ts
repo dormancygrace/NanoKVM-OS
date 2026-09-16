@@ -4,11 +4,16 @@ export type DNSMode = 'manual' | 'dhcp';
 export type EthernetMode = 'dhcp' | 'static';
 
 export type EthernetConfig = {
+  enabled: boolean;
+  adminUp: boolean;
+  linkUp: boolean;
   mode: EthernetMode;
   interface: string;
   address: string;
   subnetMask: string;
   gateway: string;
+  vlanEnabled: boolean;
+  vlanId: number;
 };
 
 // wake on lan
@@ -98,7 +103,7 @@ export function getEthernet() {
   return http.get('/api/network/ethernet');
 }
 
-export function setEthernet(config: Omit<EthernetConfig, 'interface'>) {
+export function setEthernet(config: Omit<EthernetConfig, 'interface' | 'adminUp' | 'linkUp'>) {
   return http.post('/api/network/ethernet', config);
 }
 

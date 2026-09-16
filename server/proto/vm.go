@@ -30,8 +30,9 @@ type GetGpioRsp struct {
 }
 
 type SetScreenReq struct {
-	Type  string `validate:"required"` // resolution / fps / quality
-	Value int    `validate:"number"`   // value
+	ConfirmPowerCycle bool   `json:"confirmPowerCycle"`
+	Type              string `validate:"required"` // resolution / fps / quality
+	Value             int    `validate:"number"`   // value
 }
 
 type GetScriptsRsp struct {

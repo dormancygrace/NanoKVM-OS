@@ -20,6 +20,9 @@ type Status = {
   portrait: boolean;
   portraitResolution: number;
   monitorSupported: boolean;
+  monitorRequiresPowerCycle: boolean;
+  monitorPowerCyclePending: boolean;
+  monitorHighRefreshSupported: boolean;
   qhdSupported: boolean;
   portraitSupported: boolean;
   portraitMaxSupported: boolean;

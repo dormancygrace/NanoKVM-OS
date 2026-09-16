@@ -1,0 +1,43 @@
+diff --git a/aic8800_fdrv/rwnx_msg_rx.c b/aic8800_fdrv/rwnx_msg_rx.c
+--- a/aic8800_fdrv/rwnx_msg_rx.c
++++ b/aic8800_fdrv/rwnx_msg_rx.c
+@@ -10,5 +10,7 @@
+  ****************************************************************************************
+  */
++#include <linux/errno.h>
++#include <linux/ratelimit.h>
+ #include <linux/vmalloc.h>
+ #include "rwnx_defs.h"
+ #include "rwnx_prof.h"
+@@ -42,17 +44,15 @@ static int rwnx_freq_to_idx(struct rwnx_hw *rwnx_hw, int freq)
+ 		if (!sband) {
+ 			continue;
+ 		}
+ 
+ 		for (ch = 0; ch < sband->n_channels; ch++, idx++) {
+-			if (sband->channels[ch].center_freq == freq) {
+-				goto exit;
+-			}
++			if (sband->channels[ch].center_freq == freq)
++				return idx;
+ 		}
+ 	}
+ 
+-	BUG_ON(1);
++	pr_warn_ratelimited("aic8800_fdrv: ignoring survey for unknown frequency %d MHz\n",
++			    freq);
++	return -ENOENT;
+ 
+-exit:
+-	// Channel has been found, return the index
+-	return idx;
+ }
+@@ -299,7 +299,7 @@ static inline int rwnx_rx_channel_survey_ind(struct rwnx_hw *rwnx_hw,
+ 	// Get the survey
+ 	struct rwnx_survey_info *rwnx_survey;
+ 
+-	if (idx >  ARRAY_SIZE(rwnx_hw->survey))
++	if (idx < 0 || idx >= (int)ARRAY_SIZE(rwnx_hw->survey))
+ 		return 0;
+ 
+ 	rwnx_survey = &rwnx_hw->survey[idx];

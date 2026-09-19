@@ -1,0 +1,16 @@
+pkgname=openssl4-libs
+pkgver=4.0.2
+pkgrel=0
+pkgdesc="OpenSSL 4 libraries for NanoKVM applications"
+url="https://github.com/dormancygrace/NanoKVM-OS"
+arch="riscv64"
+license="Apache-2.0"
+depends="musl"
+source="$pkgname-$pkgver.tar.gz"
+options="!check !strip"
+build() { :; }
+package() {
+ mkdir -p "$pkgdir"
+ cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
+}
+sha256sums=""

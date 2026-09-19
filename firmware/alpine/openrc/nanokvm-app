@@ -1,0 +1,21 @@
+#!/sbin/openrc-run
+
+description="NanoKVM hardware daemon and web server"
+
+depend() {
+    need nanokvm-board nanokvm-storage nanokvm-policy
+    use net
+    after nanokvm-network nanokvm-usb
+}
+
+start() {
+    ebegin "Starting NanoKVM application"
+    /usr/libexec/nanokvm/legacy/S95nanokvm start
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping NanoKVM application"
+    /usr/libexec/nanokvm/legacy/S95nanokvm stop
+    eend $?
+}

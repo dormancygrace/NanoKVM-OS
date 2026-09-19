@@ -1,0 +1,6 @@
+#!/bin/sh
+# Run once per complete APK transaction, including ordinary Alpine packages.
+set -eu
+[ -f /run/openrc/softlevel ] || exit 0
+[ -x /usr/sbin/nkos-apply-updates ] || exit 0
+exec /usr/sbin/nkos-apply-updates "$@"

@@ -1,0 +1,225 @@
+#!/busybox sh
+# shellcheck shell=dash
+
+# Manual, unconditional, one-shot Alpine recovery.  The two digest literals
+# are filled by scripts/build-alpine-recovery-fit.py at build time.
+export PATH=/
+ROOTFS_SHA256="@ROOTFS_SHA256@"
+BOOT_SHA256="@BOOT_SHA256@"
+
+fail() {
+	echo "Alpine recovery stopped: $*" >&2
+	exec /sh </dev/console >/dev/console 2>&1
+}
+
+mount_initial_filesystems() {
+	mkdir -p /dev /proc /sys
+	mount -t devtmpfs devtmpfs /dev || fail "cannot mount devtmpfs"
+	mount -t proc proc /proc || fail "cannot mount proc"
+	mount -t sysfs sysfs /sys || fail "cannot mount sysfs"
+}
+
+wait_for_partitions() {
+	# MMC enumeration can lag kernel/initramfs startup. A finite wait keeps a
+	# missing card an explicit console failure rather than a silent format.
+	for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+		[ -b /dev/mmcblk0p2 ] && [ -b /dev/mmcblk0p3 ] && return 0
+		sleep 1
+	done
+	return 1
+}
+
+read_sector_field() {
+	value=$(cat "$1" 2>/dev/null) || return 1
+	case "$value" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+	printf '%s\n' "$value"
+}
+
+validate_layout() {
+	[ "$(read_sector_field /sys/class/block/mmcblk0p2/start)" = 131073 ] ||
+		fail "unexpected p2 start"
+	[ "$(read_sector_field /sys/class/block/mmcblk0p2/size)" = 1572864 ] ||
+		fail "unexpected p2 size"
+	case "$(read_sector_field /sys/class/block/mmcblk0p3/start)" in
+		1705984|3180544) ;;
+		*) fail "unexpected p3 start" ;;
+	esac
+}
+
+verify_sha256() {
+	expected=$1
+	path=$2
+	label=$3
+	actual=$(sha256sum "$path" 2>/dev/null) || fail "cannot hash $label"
+	actual=${actual%% *}
+	[ "$actual" = "$expected" ] || fail "$label SHA256 mismatch"
+}
+
+mount_payloads() {
+	mkdir -p /data
+	mount -t exfat -o ro /dev/mmcblk0p3 /data ||
+		fail "cannot mount exFAT data read-only"
+	ROOTFS_TAR=/data/nanokvm-update/alpine-rootfs.tar.gz
+	BOOT_FIT=/data/nanokvm-update/boot-alpine.sd
+	# The update directory is populated before this manual FIT is selected.
+	# Still wait for both files so a slow removable-media mount is harmless.
+	for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+		[ -f "$ROOTFS_TAR" ] && [ -f "$BOOT_FIT" ] && return 0
+		sleep 1
+	done
+	fail "update payload files are missing"
+}
+
+backup_settings() {
+	mkdir -p /oldroot
+	mount -o ro /dev/mmcblk0p2 /oldroot ||
+		fail "cannot mount existing root to preserve settings"
+
+	# Keep only the root shadow entry; Alpine owns its other system accounts.
+	umask 077
+	/busybox awk -F: '$1 == "root" { print; exit }' /oldroot/etc/shadow > /root-shadow.saved ||
+		fail "cannot preserve root password"
+
+	# Keep exFAT as transport only.  tar records ownership and modes from the
+	# old F2FS/ext4 root, then restores them onto the new F2FS filesystem.
+	# Preserve NanoKVM settings, the SSH server identity and operator keys.  Keep
+	# /etc/hosts as well because an internal attended builder may be addressed by
+	# a TLS hostname supplied there.
+	umount /data || fail "cannot remount data for settings backup"
+	mount -t exfat -o rw,nosuid,nodev,noexec /dev/mmcblk0p3 /data ||
+		fail "cannot mount exFAT data read-write for settings backup"
+	SETTINGS_BACKUP=/data/nanokvm-update/etc-kvm-backup.tar
+	/busybox rm -f "$SETTINGS_BACKUP" || fail "cannot remove old settings backup"
+	PRESERVE_PATHS=
+	for path in kvmapp/kvm etc/kvm etc/ssh etc/hosts root/.ssh etc/localtime etc/timezone etc/chrony.conf etc/hostname etc/wireguard var/lib/tailscale root/.picoclaw; do
+		[ ! -e "/oldroot/$path" ] || PRESERVE_PATHS="$PRESERVE_PATHS $path"
+	done
+	if [ -n "$PRESERVE_PATHS" ]; then
+		# The fixed paths above contain no whitespace and are expanded as separate
+		# tar operands intentionally.
+		# shellcheck disable=SC2086
+		/busybox tar --numeric-owner -cf "$SETTINGS_BACKUP" -C /oldroot \
+			$PRESERVE_PATHS || fail "cannot preserve settings and SSH identity"
+	fi
+	if [ -f "$SETTINGS_BACKUP" ]; then
+		echo "Preserved NanoKVM settings, hosts and SSH identity for the new root"
+	fi
+	sync
+	umount /data || fail "cannot finish settings backup"
+	mount -t exfat -o ro /dev/mmcblk0p3 /data ||
+		fail "cannot remount exFAT data read-only"
+	umount /oldroot || fail "cannot release existing root"
+}
+
+restore_settings() {
+	if [ -s /root-shadow.saved ]; then
+		/busybox awk -F: 'NR == FNR { saved=$0; next } $1 == "root" { print saved; next } { print }' \
+			/root-shadow.saved /realroot/etc/shadow > /realroot/etc/shadow.new ||
+			fail "cannot restore root password"
+		/busybox cat /realroot/etc/shadow.new > /realroot/etc/shadow || fail "cannot write root password"
+		/busybox rm -f /realroot/etc/shadow.new /root-shadow.saved
+	fi
+	[ -f "$SETTINGS_BACKUP" ] || return 0
+	RESTORE_KVM=0
+	RESTORE_SSH=0
+	RESTORE_SSHD=0
+	RESTORE_HOSTS=0
+	if /busybox tar -tf "$SETTINGS_BACKUP" | /busybox grep -q '^etc/kvm'; then
+		RESTORE_KVM=1
+		/busybox rm -rf /realroot/etc/kvm || fail "cannot replace image settings directory"
+	fi
+	if /busybox tar -tf "$SETTINGS_BACKUP" | /busybox grep -q '^root/.ssh'; then
+		RESTORE_SSH=1
+		/busybox rm -rf /realroot/root/.ssh || fail "cannot replace image SSH keys"
+	fi
+	if /busybox tar -tf "$SETTINGS_BACKUP" | /busybox grep -q '^etc/ssh'; then
+		RESTORE_SSHD=1
+		/busybox rm -rf /realroot/etc/ssh || fail "cannot replace image SSH server identity"
+	fi
+	if /busybox tar -tf "$SETTINGS_BACKUP" | /busybox grep -q '^etc/hosts$'; then
+		RESTORE_HOSTS=1
+		/busybox rm -f /realroot/etc/hosts || fail "cannot replace image hosts file"
+	fi
+	/busybox tar --numeric-owner -xf "$SETTINGS_BACKUP" -C /realroot ||
+		fail "cannot restore settings and SSH keys"
+	[ "$RESTORE_KVM" -eq 0 ] || [ -d /realroot/etc/kvm ] ||
+		fail "settings archive did not restore /etc/kvm"
+	[ "$RESTORE_SSH" -eq 0 ] || [ -f /realroot/root/.ssh/authorized_keys ] ||
+		fail "settings archive did not restore SSH authorized keys"
+	[ "$RESTORE_SSHD" -eq 0 ] || [ -f /realroot/etc/ssh/ssh_host_ed25519_key ] ||
+		fail "settings archive did not restore SSH server identity"
+	[ "$RESTORE_HOSTS" -eq 0 ] || [ -f /realroot/etc/hosts ] ||
+		fail "settings archive did not restore /etc/hosts"
+}
+
+validate_root() {
+	[ -f /realroot/etc/alpine-release ] || fail "Alpine release marker missing"
+	# Alpine installs /sbin/init as an absolute symlink to /bin/busybox.
+	# A test from initramfs would resolve that link against initramfs itself,
+	# so validate the link and its target inside the extracted root explicitly.
+	if [ -L /realroot/sbin/init ]; then
+		if [ "$(/busybox readlink /realroot/sbin/init)" != /bin/busybox ] ||
+			[ ! -x /realroot/bin/busybox ]; then
+			fail "Alpine init link is invalid"
+		fi
+	else
+		[ -x /realroot/sbin/init ] || fail "Alpine init missing"
+	fi
+	[ -x /realroot/etc/init.d/nanokvm-app ] ||
+		fail "NanoKVM app init script missing"
+}
+
+mount_initial_filesystems
+wait_for_partitions || fail "MMC partitions unavailable"
+validate_layout
+mount_payloads
+verify_sha256 "$ROOTFS_SHA256" "$ROOTFS_TAR" alpine-rootfs.tar.gz
+verify_sha256 "$BOOT_SHA256" "$BOOT_FIT" boot-alpine.sd
+backup_settings
+
+mkdir -p /realroot
+# This is the only block device formatted by recovery. p3 remains exFAT and
+# is read-only while payloads are verified and extracted.
+mkfs.f2fs -f -t 0 /dev/mmcblk0p2 || fail "F2FS format failed"
+mount -t f2fs -o noatime /dev/mmcblk0p2 /realroot ||
+	fail "cannot mount new F2FS root"
+tar --numeric-owner -xzf "$ROOTFS_TAR" -C /realroot ||
+	fail "root filesystem extraction failed"
+restore_settings
+validate_root
+
+mkdir -p /realroot/boot /realroot/data /realroot/proc /realroot/sys /realroot/dev
+mount /dev/mmcblk0p1 /realroot/boot || fail "cannot mount boot partition"
+boot_tmp=/realroot/boot/.boot.sd.tmp.$$
+cp "$BOOT_FIT" "$boot_tmp" || fail "cannot copy boot FIT"
+sync
+mv -f "$boot_tmp" /realroot/boot/boot.sd || fail "cannot install boot FIT"
+# The image label belongs to the newly installed root, not the previous p1.
+if [ -s /realroot/kvmapp/version ]; then
+    image_version=$(/busybox cat /realroot/kvmapp/version)
+    printf 'NanoKVM OS v%s\n' "$image_version" > /realroot/boot/.ver.tmp ||
+        fail "cannot write image version"
+    mv -f /realroot/boot/.ver.tmp /realroot/boot/ver ||
+        fail "cannot install image version"
+fi
+sync
+
+# Move the data mount into the new root only after all source reads complete.
+# The running Alpine system needs writable settings storage; constrain the
+# exFAT mount with the same execution/device restrictions used by the OS.
+umount /data || fail "cannot release initramfs data mount"
+mount -t exfat -o rw,nosuid,nodev,noexec /dev/mmcblk0p3 /realroot/data ||
+	fail "cannot mount new root data read-write"
+mkdir -p /realroot/data/.nanokvm-alpine || fail "cannot create update state directory"
+state_tmp=/realroot/data/.nanokvm-alpine/.state.json.tmp.$$
+printf '%s\n' '{"state":"installed","message":"Alpine image installed; settings restored"}' > "$state_tmp" ||
+	fail "cannot write completed update state"
+mv -f "$state_tmp" /realroot/data/.nanokvm-alpine/state.json ||
+	fail "cannot publish completed update state"
+sync
+mount -t proc proc /realroot/proc || fail "cannot mount new root proc"
+mount -t sysfs sysfs /realroot/sys || fail "cannot mount new root sys"
+mount -t devtmpfs devtmpfs /realroot/dev || fail "cannot mount new root dev"
+exec /switch_root /realroot /sbin/init

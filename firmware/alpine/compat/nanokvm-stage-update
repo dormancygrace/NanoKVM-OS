@@ -1,0 +1,149 @@
+#!/bin/sh
+# Verify and stage one NanoKVM Alpine personal-image bundle.
+set -eu
+
+usage() {
+	cat <<'EOF'
+Usage: nanokvm-stage-update [--activate] BUNDLE_DIRECTORY
+
+The default stages verified files under /data/nanokvm-update. --activate also
+installs the bundle's recovery FIT as /boot/boot.sd; reboot remains explicit.
+EOF
+}
+
+die() {
+	echo "nanokvm-stage-update: $*" >&2
+	exit 2
+}
+
+ACTIVATE=0
+case "${1:-}" in
+	--activate) ACTIVATE=1; shift ;;
+	-h|--help) usage; exit 0 ;;
+esac
+[ "$#" -eq 1 ] || { usage >&2; exit 2; }
+
+SOURCE=$1
+DATA_ROOT=${NANOKVM_DATA_DIR:-/data}
+BOOT_ROOT=${NANOKVM_BOOT_DIR:-/boot}
+DESTINATION=$DATA_ROOT/nanokvm-update
+STAGING=$DATA_ROOT/.nanokvm-update.new.$$
+PREVIOUS=$DATA_ROOT/.nanokvm-update.old.$$
+
+[ -d "$SOURCE" ] || die "bundle directory does not exist: $SOURCE"
+[ -f "$SOURCE/SHA256SUMS" ] || die "bundle has no SHA256SUMS"
+[ -d "$DATA_ROOT" ] || die "data mount does not exist: $DATA_ROOT"
+[ -w "$DATA_ROOT" ] || die "data mount is not writable: $DATA_ROOT"
+if [ "$ACTIVATE" -eq 1 ]; then
+	[ -d "$BOOT_ROOT" ] || die "boot mount does not exist: $BOOT_ROOT"
+	[ -w "$BOOT_ROOT" ] || die "boot mount is not writable: $BOOT_ROOT"
+fi
+
+MOVED_FROM=
+cleanup() {
+	if [ -n "$MOVED_FROM" ] && [ -d "$STAGING" ]; then
+		mv "$STAGING" "$MOVED_FROM" 2>/dev/null || true
+	else
+		rm -rf "$STAGING"
+	fi
+}
+trap cleanup EXIT INT TERM HUP
+
+SOURCE=$(readlink -f "$SOURCE") || die "cannot resolve bundle directory"
+DATA_ROOT=$(readlink -f "$DATA_ROOT") || die "cannot resolve data mount"
+DESTINATION=$DATA_ROOT/nanokvm-update
+STAGING=$DATA_ROOT/.nanokvm-update.new.$$
+PREVIOUS=$DATA_ROOT/.nanokvm-update.old.$$
+SUMS=$SOURCE/SHA256SUMS
+
+expected_hash() {
+	name=$1
+	awk -v wanted="$name" '
+		$2 == wanted { count++; digest=$1 }
+		END { if (count == 1) print digest; else exit 1 }
+	' "$SUMS" || die "SHA256SUMS must contain exactly one entry for $name"
+}
+
+verify_file() {
+	name=$1
+	expected=$(expected_hash "$name")
+	case "$expected" in
+		????????????????????????????????????????????????????????????????) ;;
+		*) die "invalid SHA256 for $name" ;;
+	esac
+	case "$expected" in *[!0-9a-fA-F]*) die "invalid SHA256 for $name" ;; esac
+	[ -f "$SOURCE/$name" ] || die "bundle file is missing: $name"
+	actual=$(sha256sum "$SOURCE/$name") || die "cannot hash $name"
+	actual=${actual%% *}
+	[ "$actual" = "$expected" ] || die "$name SHA256 mismatch"
+}
+
+required_files='alpine-rootfs.tar.gz boot-alpine.sd boot-alpine-recovery.sd'
+optional_files='request-manifest.txt requested-packages.txt installed-packages.txt repositories apk-world.txt trusted-keys.sha256 recovery-manifest.json'
+
+for name in $required_files; do
+	verify_file "$name"
+done
+for name in $optional_files; do
+	[ ! -e "$SOURCE/$name" ] || verify_file "$name"
+done
+
+if [ "$SOURCE" != "$DESTINATION" ]; then
+	case "$SOURCE/" in
+		"$DATA_ROOT"/*)
+			# Builder downloads already live on exFAT. Rename that verified
+			# directory instead of rewriting the large root archive on a slow SD card.
+			mv "$SOURCE" "$STAGING" || die "cannot move verified bundle into staging"
+			MOVED_FROM=$SOURCE
+			;;
+		*)
+			source_kib=$(du -sk "$SOURCE" | awk '{ print $1 }')
+			available_kib=$(df -Pk "$DATA_ROOT" | awk 'NR == 2 { print $4 }')
+			if [ -z "$source_kib" ] || [ -z "$available_kib" ]; then
+				die "cannot determine free space on data volume"
+			fi
+			case "$source_kib:$available_kib" in
+				*[!0-9:]*) die "cannot determine free space on data volume" ;;
+			esac
+			required_kib=$((source_kib + 8192))
+			[ "$available_kib" -ge "$required_kib" ] ||
+				die "data volume needs at least ${required_kib} KiB free to stage this update"
+			mkdir "$STAGING"
+			for name in $required_files $optional_files; do
+				[ ! -f "$SOURCE/$name" ] || cp "$SOURCE/$name" "$STAGING/$name"
+			done
+			cp "$SUMS" "$STAGING/SHA256SUMS"
+			sync
+			# A successful source verification cannot detect a bad SD write.
+			SOURCE=$STAGING
+			SUMS=$STAGING/SHA256SUMS
+			for name in $required_files; do verify_file "$name"; done
+			for name in $optional_files; do
+				[ ! -e "$SOURCE/$name" ] || verify_file "$name"
+			done
+			;;
+	esac
+
+	rm -rf "$PREVIOUS"
+	if [ -e "$DESTINATION" ]; then
+		mv "$DESTINATION" "$PREVIOUS" || die "cannot preserve previous staged update"
+	fi
+	if ! mv "$STAGING" "$DESTINATION"; then
+		[ ! -e "$PREVIOUS" ] || mv "$PREVIOUS" "$DESTINATION" || true
+		die "cannot publish staged update"
+	fi
+	MOVED_FROM=
+	rm -rf "$PREVIOUS"
+fi
+trap - EXIT INT TERM HUP
+
+echo "verified update staged at $DESTINATION"
+if [ "$ACTIVATE" -eq 1 ]; then
+	boot_tmp=$BOOT_ROOT/.boot.sd.tmp.$$
+	cp "$DESTINATION/boot-alpine-recovery.sd" "$boot_tmp" ||
+		die "cannot stage recovery FIT on boot volume"
+	sync
+	mv -f "$boot_tmp" "$BOOT_ROOT/boot.sd" || die "cannot activate recovery FIT"
+	sync
+	echo "recovery FIT installed at $BOOT_ROOT/boot.sd; reboot required"
+fi

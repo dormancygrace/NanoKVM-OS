@@ -120,7 +120,7 @@ start() {
             "$NANOKVM_IP" a add "$inet" brd + dev "$eth_iface"
             "$NANOKVM_IP" r add default via "$gw" dev "$eth_iface"
             if [ "$(cat "$NANOKVM_DNS_MODE_FILE" 2>/dev/null)" != "manual" ]; then
-                echo -e "nameserver $gw" >> "$NANOKVM_RESOLV_CONF"
+                printf 'nameserver %s\n' "$gw" >> "$NANOKVM_RESOLV_CONF"
             fi
             break
         done < "$NANOKVM_ETH_CONFIG"
@@ -130,7 +130,7 @@ start() {
             if value=$(dhcp_hostname); then
                 set -- "$@" -x "hostname:$value" -F "$value"
             fi
-            "$NANOKVM_UDHCPC" "$@" &>/dev/null
+            "$NANOKVM_UDHCPC" "$@" >/dev/null 2>&1
             "$NANOKVM_IP" a show dev "$eth_iface" | grep inet > /dev/null
         } || {
             inet=$RESERVE_INET

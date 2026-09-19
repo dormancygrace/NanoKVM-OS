@@ -644,6 +644,23 @@ const en = {
     },
     settings: {
       updates: {
+        apk: {
+          title: 'Package updates',
+          description:
+            'Update installed packages from the configured repositories. Settings are kept. Services restart automatically; a kernel update requires a reboot.',
+          kernel: 'Running kernel',
+          check: 'Check for updates',
+          install: 'Install updates',
+          confirm: 'Install these package updates? Video and control may briefly disconnect.',
+          installed: 'Package updates installed',
+          current: 'All installed packages are up to date',
+          failed: 'Package update failed',
+          rebootRequired:
+            'Updates are installed. Restart the device to use the new kernel or system components.',
+          reboot: 'Restart device',
+          rebootConfirm: 'Restart the device now?',
+          log: 'Update log'
+        },
         title: 'Updates',
         description:
           'Update NanoKVM OS using signed packages. System updates restart the device; application updates briefly disconnect video and control.',
@@ -651,6 +668,19 @@ const en = {
         latest: 'Latest release',
         automatic:
           'The device checks this GitHub repository automatically once a day. Installation always requires your action.',
+        alpineOptions: 'Image options',
+        alpineTitle: 'Reinstall system',
+        alpineDisclaimer:
+          'Replace the system with a newly built image. Saved settings are restored and selected packages are included. Other files on the system partition are removed. The device will restart.',
+        alpineCurrent: 'Current Alpine profile',
+        alpineProfile: 'Build profile',
+        alpinePackages: 'Packages to include',
+        alpineBuild: 'Build image',
+        alpineStage: 'Download image',
+        alpineInstall: 'Reinstall and restart',
+        alpineConfirm: 'Format the system partition, install this Alpine image, and reboot now?',
+        alpineBuilderMissing:
+          'The attended image builder is not configured. Set alpine.builderURL or use a manually verified recovery bundle.',
         check: 'Check for updates',
         download: 'Download and verify',
         file: 'Signed update package (.nkos)',
@@ -746,6 +776,19 @@ const en = {
         }
       },
       appearance: {
+        branding: {
+          title: 'Branding',
+          description:
+            'Choose the logo used on the login page and browser tab. Changes apply immediately and are saved on this device.',
+          connection: 'Connection (default)',
+          screen: 'Screen',
+          custom: 'Custom',
+          upload: 'Upload logo',
+          remove: 'Remove custom logo',
+          formats:
+            'PNG or JPEG, up to 2 MiB and 1024 × 1024 pixels. A square transparent PNG works best.',
+          failed: 'Could not save branding.'
+        },
         title: 'Appearance',
         display: 'Display',
         language: 'Language',
@@ -948,6 +991,7 @@ const en = {
           band5: '5 GHz',
           scan: 'Scan networks',
           scanFailed: 'Could not scan networks. Try again.',
+          availableNetworks: 'Available networks',
           bandsUnavailable: 'Could not read the adapter frequency bands.',
           noNetworks: 'No networks found in this band.',
           manual: 'Connect manually',
@@ -998,7 +1042,7 @@ const en = {
           title: 'Ethernet IPv4',
           description: 'Choose DHCP or configure a persistent static IPv4 address',
           enable: 'Ethernet',
-          disabled: 'Disabled by administrator',
+          disabled: 'Disabled',
           interfaceDown: 'Enabled in settings · interface is currently down',
           linkUp: 'Enabled · cable connected',
           noCable: 'Enabled · cable disconnected',

@@ -1,0 +1,4 @@
+# Base staging repositories. Personal-image builds prepend the signed C906
+# overlay and signed NanoKVM repository for the selected profile.
+https://dl-cdn.alpinelinux.org/alpine/v3.24/main
+https://dl-cdn.alpinelinux.org/alpine/v3.24/community

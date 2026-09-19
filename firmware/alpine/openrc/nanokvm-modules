@@ -1,0 +1,24 @@
+#!/sbin/openrc-run
+
+description="NanoKVM SG2002 media and telemetry modules"
+
+depend() {
+    need nanokvm-storage
+    before nanokvm-board nanokvm-network nanokvm-app
+}
+
+start() {
+    ebegin "Loading NanoKVM media modules"
+    local module
+    for module in \
+        cv181x_sys cv181x_base cvi_mipi_rx snsr_i2c cv181x_vi \
+        cv181x_vpss cv181x_dwa cv181x_rgn cv181x_vcodec \
+        cv181x_jpeg cv181x_ive
+    do
+        modprobe "$module" || return 1
+    done
+    modprobe cvi_vc_driver MaxVencChnNum=9 MaxVdecChnNum=9 || return 1
+    modprobe sg2002-temp 2>/dev/null || true
+    modprobe sg2002-cpufreq 2>/dev/null || true
+    eend 0
+}

@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+# Alpine's standard loopback service is needed by local applications.
+rc-update add loopback boot
+if [ -e /run/openrc/softlevel ] && ! rc-service loopback status >/dev/null 2>&1; then
+    rc-service loopback start
+fi

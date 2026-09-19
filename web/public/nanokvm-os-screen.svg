@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>NanoKVM OS</title>
+  <rect x="5" y="7" width="49" height="37" rx="10" stroke="#3478f6" stroke-width="7"/>
+  <path d="M32 25 59 44 46 46 40 59Z" fill="#fff" stroke="#172033" stroke-width="3" stroke-linejoin="round"/>
+</svg>

@@ -28,6 +28,10 @@ func (s *Service) GetMdnsState(c *gin.Context) {
 }
 
 func (s *Service) EnableMdns(c *gin.Context) {
+	if _, err := os.Stat("/etc/alpine-release"); err == nil {
+		setAlpineMdns(c, true)
+		return
+	}
 	var rsp proto.Response
 
 	pid := getAvahiDaemonPid()
@@ -54,6 +58,10 @@ func (s *Service) EnableMdns(c *gin.Context) {
 }
 
 func (s *Service) DisableMdns(c *gin.Context) {
+	if _, err := os.Stat("/etc/alpine-release"); err == nil {
+		setAlpineMdns(c, false)
+		return
+	}
 	var rsp proto.Response
 
 	pid := getAvahiDaemonPid()
@@ -89,4 +97,29 @@ func getAvahiDaemonPid() string {
 	}
 
 	return strings.ReplaceAll(string(content), "\n", "")
+}
+
+// Keep persistent policy separate from APK-owned OpenRC service files.
+func setAlpineMdns(c *gin.Context, enabled bool) {
+	var rsp proto.Response
+	action := "stop"
+	marker := "/etc/kvm/mdns_disabled"
+	var err error
+	if enabled {
+		action = "start"
+		err = os.Remove(marker)
+		if os.IsNotExist(err) {
+			err = nil
+		}
+	} else {
+		err = os.WriteFile(marker, []byte("1\n"), 0600)
+	}
+	if err == nil {
+		err = exec.Command("rc-service", "avahi-daemon", action).Run()
+	}
+	if err != nil {
+		rsp.ErrRsp(c, -1, "failed to change mDNS state")
+		return
+	}
+	rsp.OkRsp(c)
 }

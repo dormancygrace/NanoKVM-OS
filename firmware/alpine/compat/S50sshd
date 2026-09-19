@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+case "${1:-}" in
+    permanent_on) rm -f /etc/kvm/ssh_stop; rc-service sshd start ;;
+    permanent_off) mkdir -p /etc/kvm; touch /etc/kvm/ssh_stop; rc-service sshd stop ;;
+    start) rc-service nanokvm-ssh start ;;
+    stop) rc-service sshd stop ;;
+    restart|reload) rc-service sshd stop; rc-service nanokvm-ssh restart ;;
+    *) echo "Usage: $0 start|stop|restart|permanent_on|permanent_off" >&2; exit 1 ;;
+esac

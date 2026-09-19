@@ -4,3 +4,8 @@
 
 # Preserve the verbatim upstream INI redistribution notice.
 firmware/release/source-components/board-service/LICENSES/inifile2.txt whitespace=-blank-at-eol
+
+# Preserve byte-exact device transcripts and generated evidence tables.
+firmware/alpine/evidence/**/*.txt -text whitespace=-blank-at-eol,-blank-at-eof
+firmware/alpine/evidence/**/*.tsv -text whitespace=-blank-at-eol,-blank-at-eof
+firmware/alpine/evidence/**/APKINDEX -text whitespace=-blank-at-eol,-blank-at-eof

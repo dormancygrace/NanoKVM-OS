@@ -64,6 +64,10 @@ subprocess.run([go, 'build', '-trimpath', '-buildvcs=false', '-ldflags=-s -w -bu
                cwd=repo/'server', env=helper_env, check=True)
 files = [out/'NanoKVM-Server', out/'NanoKVM-Server.stripped', *sorted(lib.iterdir())]
 files.append(out/'nkos-update')
+subprocess.run([go, 'build', '-trimpath', '-buildvcs=false', '-ldflags=-s -w -buildid=',
+                '-o', str(out/'nkos-apply-updates'), './cmd/nkos-apply-updates'],
+               cwd=repo/'server', env=helper_env, check=True)
+files.append(out/'nkos-apply-updates')
 manifest = {'qualification': 'cross-build only',
             'custom_runtime_expected': custom_runtime_expected,
             'custom_runtime_present': custom_runtime_present,

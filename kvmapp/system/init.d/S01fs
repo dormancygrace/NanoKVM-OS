@@ -1,8 +1,8 @@
 #!/bin/sh
 
 # S01fs owns first-boot data provisioning.  The portable image intentionally
-# contains only p1 (FAT boot) and p2 (ext4 root); an empty /boot/usb.disk0 file
-# opts a larger physical card into creating p3 as exFAT.
+# contains only p1 (FAT boot) and p2 (ext4 or F2FS root); an empty
+# /boot/usb.disk0 file opts a larger physical card into creating p3 as exFAT.
 set -eu
 
 : "${NANOKVM_DISK:=/dev/mmcblk0}"
@@ -159,8 +159,14 @@ validate_dos_layout() {
                 *) return 1 ;;
         esac
         case "$p2_fs" in
-                ext2|ext3|ext4) ;;
-                *) return 1 ;;
+                ext2|ext3|ext4|f2fs) ;;
+                *)
+                        root_filesystem=$("$NANOKVM_BLKID" "$NANOKVM_ROOT_PART" 2>/dev/null || true)
+                        case "$root_filesystem" in
+                                ext4|*'TYPE="ext4"'*|*'TYPE=ext4'*|f2fs|*'TYPE="f2fs"'*|*'TYPE=f2fs'*) ;;
+                                *) return 1 ;;
+                        esac
+                        ;;
         esac
 
         if [ "$expected_data" = absent ]; then
@@ -190,7 +196,7 @@ validate_dos_layout() {
 
 mount_data_partition() {
         mkdir -p "$NANOKVM_DATA_DIR"
-        if mount "$NANOKVM_DATA_PART" "$NANOKVM_DATA_DIR"
+        if mount -t exfat "$NANOKVM_DATA_PART" "$NANOKVM_DATA_DIR"
         then
                 touch "$NANOKVM_DISK0_MARKER"
                 return 0
@@ -234,24 +240,19 @@ wait_for_created_data_partition() {
 }
 
 handle_existing_data_partition() {
-        filesystem=$("$NANOKVM_BLKID" "$NANOKVM_DATA_PART" 2>/dev/null || true)
-        if [ -n "$filesystem" ]
+        # Some BusyBox blkid builds omit TYPE for exFAT. A typed mount is
+        # decisive and cannot silently mount an unrelated filesystem.
+        if mount_data_partition
         then
-                if mount_data_partition
-                then
-                        # A completed format may have been interrupted before
-                        # its pending marker was removed. Mounting a recognized
-                        # filesystem is safe; it never triggers mkfs.
-                        rm -f "$NANOKVM_DATA_FORMAT_PENDING"
-                        echo "Existing data filesystem mounted"
-                        return 0
-                fi
-                echo "Existing data filesystem could not be mounted; preserved" >&2
-                return 1
+                # A completed format may have been interrupted before its
+                # pending marker was removed. This path never runs mkfs.
+                rm -f "$NANOKVM_DATA_FORMAT_PENDING"
+                echo "Existing exFAT data filesystem mounted"
+                return 0
         fi
 
         rm -f "$NANOKVM_DISK0_MARKER"
-        echo "Unknown data partition preserved; refusing automatic format" >&2
+        echo "Existing data partition is not mountable as exFAT; preserved" >&2
         return 1
 }
 

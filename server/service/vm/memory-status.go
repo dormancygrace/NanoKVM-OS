@@ -155,7 +155,9 @@ func readMemoryStatus() (memoryStatus, error) {
 	release, _ := os.ReadFile("/proc/sys/kernel/osrelease")
 	modules, _ := filepath.Glob("/lib/modules/" + strings.TrimSpace(string(release)) + "/kernel/drivers/block/zram/zram.ko*")
 	_, zramErr := os.Stat("/sys/module/zram")
-	result.Zram.Available = helperErr == nil && (zramErr == nil || len(modules) > 0)
+	// Built-in ZRAM may expose a block device without a /sys/module entry.
+	_, deviceErr := os.Stat("/sys/block/zram0")
+	result.Zram.Available = helperErr == nil && (deviceErr == nil || zramErr == nil || len(modules) > 0)
 	result.Zram.Algorithm = "lz4"
 	if mm, readErr := os.ReadFile("/sys/block/zram0/mm_stat"); readErr == nil {
 		fields := strings.Fields(string(mm))

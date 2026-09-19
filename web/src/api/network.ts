@@ -158,7 +158,7 @@ export type WifiProfile = {
 export function setWifiEnabled(enabled: boolean) {
   return http.post('/api/network/wifi/enabled', { enabled });
 }
-export function scanWifi(band: WifiBand) {
+export function scanWifi(band: WifiBand | 'all' = 'all') {
   return http.get('/api/network/wifi/scan', { band });
 }
 export function configureWifi(profile: WifiProfile) {

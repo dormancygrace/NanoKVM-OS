@@ -1,0 +1,27 @@
+Fix C23 bool and musl lseek64 alias with GCC 16
+
+GCC 16 defaults to C23, where bool is a keyword rather than a macro.
+musl maps lseek64 to lseek without satisfying the configure probe.
+
+--- a/include/f2fs_fs.h
++++ b/include/f2fs_fs.h
+@@ -103,7 +103,7 @@
+ typedef uint8_t		u8;
+ typedef u32		block_t;
+ typedef u32		nid_t;
+-#ifndef bool
++#if !defined(bool) && !defined(__cplusplus) && (!defined(__STDC_VERSION__) || __STDC_VERSION__ < 202311L)
+ typedef u8		bool;
+ #endif
+ typedef unsigned long	pgoff_t;
+--- a/lib/libf2fs_io.c
++++ b/lib/libf2fs_io.c
+@@ -67,7 +67,7 @@
+ 	return -1;
+ }
+ 
+-#ifndef HAVE_LSEEK64
++#if !defined(HAVE_LSEEK64) && !defined(lseek64)
+ typedef off_t	off64_t;
+ 
+ static inline off64_t lseek64(int fd, __u64 offset, int set)

@@ -1,0 +1,21 @@
+pkgname=nanokvm-release
+pkgver=${PKGVER:-0.1.0}
+pkgrel=1
+pkgdesc="Tested NanoKVM Alpine package set"
+url="https://github.com/sipeed/NanoKVM"
+arch="riscv64"
+license="GPL-3.0-only"
+depends="alpine-base busybox-extras tzdata busybox-openrc openvpn3 avahi avahi-openrc bash chrony chrony-openrc curl dbus dbus-openrc dnsmasq iproute2-tc nftables openresolv util-linux wireguard-tools ca-certificates coreutils eudev exfatprogs f2fs-tools hostapd i2c-tools iproute2 iw kmod libgcc libstdc++ lz4 openssh openssl util-linux-misc wpa_supplicant xz zstd nanokvm-base>=$pkgver-r0 nanokvm-kernel-sg2002>=$pkgver-r0 nanokvm-kmod-sg2002>=$pkgver-r0 nanokvm-firmware-sg2002 nanokvm-app>=$pkgver-r0"
+source="$pkgname-$pkgver.tar.gz"
+options="!check !strip"
+
+build() {
+	:
+}
+
+package() {
+	mkdir -p "$pkgdir"
+	cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
+}
+
+sha256sums=""

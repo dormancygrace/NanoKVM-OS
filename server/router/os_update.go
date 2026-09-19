@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"NanoKVM-Server/authn"
+	"NanoKVM-Server/config"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/osupdate"
 	"NanoKVM-Server/proto"
@@ -49,7 +50,106 @@ func osUpdateRouter(r *gin.Engine) {
 	r.GET("/api/os/update/health", func(c *gin.Context) { c.Status(http.StatusOK) })
 	api := r.Group("/api/os/update").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
 	api.GET("", func(c *gin.Context) {
-		updateReply(c, gin.H{"installed": osupdate.GetInstalled(), "check": osupdate.GetCheck(), "operation": osupdate.GetResult(), "repository": osupdate.Repository}, nil)
+		updateReply(c, gin.H{"installed": osupdate.GetInstalled(), "check": osupdate.GetCheck(), "operation": osupdate.GetResult(), "repository": osupdate.Repository, "apk": osupdate.GetAPKStatus(),
+			"alpine": gin.H{"enabled": config.GetInstance().Alpine.BuilderURL != "", "current": osupdate.GetAlpineCurrent(), "operation": osupdate.GetAlpineState()}}, nil)
+	})
+	api.POST("/apk/:action", func(c *gin.Context) {
+		updateReply(c, nil, osupdate.StartAPK(c.Param("action")))
+	})
+	api.GET("/alpine", func(c *gin.Context) {
+		updateReply(c, gin.H{"enabled": config.GetInstance().Alpine.BuilderURL != "", "current": osupdate.GetAlpineCurrent(), "operation": osupdate.GetAlpineState()}, nil)
+	})
+	api.POST("/alpine/build", func(c *gin.Context) {
+		var req osupdate.AlpineBuildRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			updateReply(c, nil, err)
+			return
+		}
+		lock, err := osupdate.Lock()
+		if err != nil {
+			updateReply(c, nil, err)
+			return
+		}
+		if err = osupdate.SetAlpineState(osupdate.AlpineState{State: "building", Profile: req.Profile, Packages: req.Packages, Message: "Building Alpine image"}); err != nil {
+			lock.Close()
+			updateReply(c, nil, err)
+			return
+		}
+		builder := config.GetInstance().Alpine.BuilderURL
+		go func() {
+			defer lock.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			defer cancel()
+			state, buildErr := osupdate.BuildAlpine(ctx, builder, req)
+			if buildErr != nil {
+				_ = osupdate.SetAlpineState(osupdate.AlpineState{State: "failed", Profile: req.Profile, Packages: req.Packages, Message: buildErr.Error()})
+				return
+			}
+			_ = osupdate.SetAlpineState(state)
+		}()
+		updateReply(c, gin.H{"state": "building"}, nil)
+	})
+	api.POST("/alpine/stage", func(c *gin.Context) {
+		lock, err := osupdate.Lock()
+		if err != nil {
+			updateReply(c, nil, err)
+			return
+		}
+		state := osupdate.GetAlpineState()
+		if state.State != "built" || state.BuildID == "" {
+			lock.Close()
+			updateReply(c, nil, fmt.Errorf("build an Alpine image first"))
+			return
+		}
+		state.State, state.Message = "staging", "Downloading and verifying Alpine image"
+		if err = osupdate.SetAlpineState(state); err != nil {
+			lock.Close()
+			updateReply(c, nil, err)
+			return
+		}
+		builder := config.GetInstance().Alpine.BuilderURL
+		go func() {
+			defer lock.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+			defer cancel()
+			if stageErr := osupdate.StageAlpine(ctx, builder, state); stageErr != nil {
+				state.State, state.Message = "failed", stageErr.Error()
+				_ = osupdate.SetAlpineState(state)
+				return
+			}
+			state.State, state.Message = "staged", "Alpine image verified and staged; installation still requires confirmation"
+			_ = osupdate.SetAlpineState(state)
+		}()
+		updateReply(c, gin.H{"state": "staging"}, nil)
+	})
+	api.POST("/alpine/install", func(c *gin.Context) {
+		lock, err := osupdate.Lock()
+		if err != nil {
+			updateReply(c, nil, err)
+			return
+		}
+		state := osupdate.GetAlpineState()
+		if state.State != "staged" {
+			lock.Close()
+			updateReply(c, nil, fmt.Errorf("stage an Alpine image first"))
+			return
+		}
+		state.State, state.Message = "installing", "Activating Alpine recovery image and rebooting"
+		if err = osupdate.SetAlpineState(state); err != nil {
+			lock.Close()
+			updateReply(c, nil, err)
+			return
+		}
+		go func() {
+			defer lock.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			if installErr := osupdate.ActivateAlpine(ctx); installErr != nil {
+				state.State, state.Message = "failed", installErr.Error()
+				_ = osupdate.SetAlpineState(state)
+			}
+		}()
+		updateReply(c, gin.H{"state": "installing", "reboot": true}, nil)
 	})
 	api.POST("/check", func(c *gin.Context) { osupdate.Check(c.Request.Context()); updateReply(c, osupdate.GetCheck(), nil) })
 	api.POST("/upload", func(c *gin.Context) {

@@ -1,0 +1,17 @@
+{
+  "project_root": "/srv/nanokvm-builder",
+  "base_rootfs": "input/alpine-minirootfs-3.24.2-riscv64.tar.gz",
+  "base_sha256": "57132e6e4f3a4ba9ffdf24e485513ce507e45471e7fd565aeed91c055cd63f7b",
+  "boot_fit": "input/boot-alpine.sd",
+  "boot_sha256": "6421359320b60b6b03528f553290f266279f83cdacb03200af378d16254a5c12",
+  "nanokvm_repo": "repos/nanokvm",
+  "tuned_repo": "repos/c906-qualified",
+  "repo_keys": [
+    "keys/dgrace-6aaddbb6.rsa.pub"
+  ],
+  "qemu_static": "qemu/qemu-riscv64-static",
+  "output_root": "output",
+  "alpine_version": "3.24",
+  "alpine_main": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main",
+  "alpine_community": "https://dl-cdn.alpinelinux.org/alpine/v3.24/community"
+}

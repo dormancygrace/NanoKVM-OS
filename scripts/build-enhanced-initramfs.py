@@ -19,10 +19,10 @@ busybox_configs = list((br / 'build').glob('busybox-*/.config'))
 if len(busybox_configs) != 1:
     raise SystemExit('Expected one configured Buildroot BusyBox output')
 busybox_config = busybox_configs[0]
-busybox_required_features = ['CONFIG_TAR=y', 'CONFIG_FEATURE_SEAMLESS_GZ=y']
+busybox_required_features = ['CONFIG_TAR=y', 'CONFIG_FEATURE_SEAMLESS_GZ=y', 'CONFIG_DD=y', 'CONFIG_OD=y', 'CONFIG_TR=y']
 config_lines = set(busybox_config.read_text().splitlines())
 if missing := [feature for feature in busybox_required_features if feature not in config_lines]:
-    raise SystemExit('Recovery BusyBox requires tar -z support: ' + ', '.join(missing))
+    raise SystemExit('Recovery BusyBox is missing required features: ' + ', '.join(missing))
 stage = out / 'root'
 stage.mkdir(parents=True, exist_ok=True)
 readelf = br / 'host/bin/riscv64-buildroot-linux-musl-readelf'
@@ -36,7 +36,18 @@ def sha(p):
 
 files = {}
 sources = {}
-queue = [('busybox', target / 'bin/busybox'), ('e2fsck', target / 'sbin/e2fsck')]
+
+def target_file(label, *relative_paths):
+    for relative in relative_paths:
+        candidate = target / relative
+        if candidate.is_file():
+            return candidate
+    choices = ', '.join(str(target / relative) for relative in relative_paths)
+    raise SystemExit(f'Recovery initramfs requires {label}; checked: {choices}')
+
+e2fsck = target_file('e2fsck', 'sbin/e2fsck', 'usr/sbin/e2fsck')
+f2fsck = target_file('fsck.f2fs', 'sbin/fsck.f2fs', 'usr/sbin/fsck.f2fs')
+queue = [('busybox', target / 'bin/busybox'), ('e2fsck', e2fsck), ('fsck.f2fs', f2fsck)]
 interpreters = set()
 while queue:
     name, source = queue.pop(0)
@@ -77,7 +88,7 @@ init = stage / 'init'
 shutil.copyfile(app / 'firmware/boot/initramfs/init', init)
 init.chmod(0o755)
 files['init'] = init
-applets = ['sh', 'cat', 'mount', 'umount', 'mkdir', 'ln', 'ls', 'sleep', 'sync', 'grep', 'wc', 'switch_root', 'true']
+applets = ['sh', 'cat', 'mount', 'umount', 'mkdir', 'ln', 'ls', 'sleep', 'sync', 'grep', 'wc', 'switch_root', 'true', 'blkid', 'dd', 'od', 'tr']
 symlinks = {name: 'busybox' for name in applets}
 symlinks.update({name: 'libc.so' for name in interpreters})
 directories = ['dev', 'proc', 'sys', 'lib', 'boot']

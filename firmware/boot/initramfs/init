@@ -3,6 +3,42 @@
 export PATH=/
 # Preserve the stock boot/recovery flow; Linux DT sets USB peripheral mode.
 
+root_fs_type() {
+	# Prefer blkid when BusyBox provides it; accept only a recognized
+	# filesystem type from its metadata.
+	if [ -x /blkid ]; then
+		# BusyBox blkid only accepts a device argument; util-linux blkid may
+		# emit TYPE=..., so parse both forms before using the magic fallback.
+		fs_type=$(blkid /dev/mmcblk0p2 2>/dev/null || true)
+		case "$fs_type" in
+			ext4|*'TYPE="ext4"'*) printf '%s\n' ext4; return 0 ;;
+			f2fs|*'TYPE="f2fs"'*) printf '%s\n' f2fs; return 0 ;;
+		esac
+	fi
+
+	# Keep recovery usable with the small BusyBox-only initramfs as well.  These
+	# are the fixed magic offsets from the ext superblock and the F2FS primary
+	# superblock.  A damaged/unknown magic fails closed instead of running the
+	# wrong fsck against the card.
+	if [ -x /dd ] && [ -x /od ] && [ -x /tr ]; then
+		magic=$(dd if=/dev/mmcblk0p2 bs=1 skip=1024 count=4 2>/dev/null |
+			od -An -tx1 2>/dev/null | tr -d ' \t\r\n')
+		[ "$magic" = 1020f5f2 ] && { printf '%s\n' f2fs; return 0; }
+		magic=$(dd if=/dev/mmcblk0p2 bs=1 skip=1080 count=2 2>/dev/null |
+			od -An -tx1 2>/dev/null | tr -d ' \t\r\n')
+		[ "$magic" = 53ef ] && { printf '%s\n' ext4; return 0; }
+	fi
+	return 1
+}
+
+check_root_filesystem() {
+	case "$1" in
+		ext4) e2fsck -fvp /dev/mmcblk0p2 ;;
+		f2fs) fsck.f2fs -f -p /dev/mmcblk0p2 ;;
+		*) return 1 ;;
+	esac
+}
+
 msc() {
 	echo mmc0 > /sys/devices/platform/leds/leds/led-user/trigger
 	cd /sys/kernel/config/usb_gadget
@@ -106,15 +142,24 @@ mkdir /realroot
 # echo "yes
 # 100%
 # " | parted ---pretend-input-tty /dev/mmcblk0 "resizepart 2 100%"
-# #e2fsck -fvp /dev/mmcblk0p2
-# resize2fs /dev/mmcblk0p2
-mount -o rw /dev/mmcblk0p2 /realroot
+# resize2fs is intentionally omitted here: p2 may be ext4 or F2FS.
+rootfs=$(root_fs_type || true)
+if [ -z "$rootfs" ]; then
+	echo 'Unsupported or unreadable root filesystem on /dev/mmcblk0p2' >&2
+	msc
+fi
+
+mount -t "$rootfs" -o rw /dev/mmcblk0p2 /realroot
 mfail="$?"
 
 if [ "${mfail}" -ne 0 ]
 then
-	e2fsck -fvp /dev/mmcblk0p2
-	mount -o rw /dev/mmcblk0p2 /realroot
+	# Keep the stock retry behavior: e2fsck/fsck.f2fs may return a nonzero
+	# status after repairing a filesystem, so the remount is the authority.
+	if ! check_root_filesystem "$rootfs"; then
+		echo "${rootfs} recovery check failed on /dev/mmcblk0p2" >&2
+	fi
+	mount -t "$rootfs" -o rw /dev/mmcblk0p2 /realroot
 	mfail="$?"
 	if [ "${mfail}" -ne 0 ]
 	then

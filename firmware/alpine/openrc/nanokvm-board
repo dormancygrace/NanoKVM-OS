@@ -1,0 +1,22 @@
+#!/sbin/openrc-run
+
+description="NanoKVM board identity and hardware setup"
+
+depend() {
+    need nanokvm-storage nanokvm-modules
+    before nanokvm-network nanokvm-app
+}
+
+run_legacy() {
+    local script="$1"
+    [ ! -x "/usr/libexec/nanokvm/legacy/$script" ] ||
+        "/usr/libexec/nanokvm/legacy/$script" start
+}
+
+start() {
+    ebegin "Configuring NanoKVM board"
+    run_legacy S02config || return 1
+    run_legacy S10uuid || return 1
+    run_legacy S15kvmhwd || return 1
+    eend 0
+}

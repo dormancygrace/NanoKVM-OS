@@ -1,0 +1,5 @@
+#!/bin/sh
+for service in nanokvm-app nanokvm-usb nanokvm-network nanokvm-board                nanokvm-modules nanokvm-storage; do
+    rc-update del "$service" default 2>/dev/null || true
+done
+exit 0

@@ -22,7 +22,7 @@ func main() {
 	}
 	var lock *os.File
 	var err error
-	if len(os.Args) == 3 && (os.Args[1] == "install-inherited" || os.Args[1] == "prepare-inherited") {
+	if len(os.Args) == 3 && (os.Args[1] == "install-inherited" || os.Args[1] == "prepare-inherited" || os.Args[1] == "apk-inherited") {
 		lock = os.NewFile(3, "update-lock")
 		if lock == nil {
 			os.Exit(1)
@@ -44,6 +44,13 @@ func main() {
 		os.Exit(1)
 	}
 	defer lock.Close()
+	if len(os.Args) == 3 && os.Args[1] == "apk-inherited" {
+		if err = osupdate.RunAPK(os.Args[2]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err = osupdate.RecoverUpdater(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

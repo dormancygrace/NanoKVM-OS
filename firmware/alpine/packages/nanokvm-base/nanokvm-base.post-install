@@ -1,0 +1,63 @@
+#!/bin/sh
+set -eu
+
+# Make a clean Alpine minirootfs bootable on NanoKVM. rc-update is idempotent.
+for service in devfs dmesg procfs sysfs; do
+    [ ! -x "/etc/init.d/$service" ] || rc-update add "$service" sysinit
+done
+for service in loopback bootmisc hostname hwdrivers localmount modules sysctl udev udev-trigger; do
+    [ ! -x "/etc/init.d/$service" ] || rc-update add "$service" boot
+done
+for service in nanokvm-storage nanokvm-modules nanokvm-board \
+	       nanokvm-network nanokvm-usb nanokvm-policy nanokvm-ssh nanokvm-app nanokvm-watchdog chronyd crond dbus nanokvm-mdns; do
+	[ ! -x "/etc/init.d/$service" ] || rc-update add "$service" default
+done
+[ ! -x /etc/init.d/mount-ro ] || rc-update add mount-ro shutdown
+
+# Fresh images are closed to SSH until the user enables it. Recovery restores
+# the complete old /etc/kvm directory, including the absence of this marker.
+mkdir -p /etc/kvm
+mkdir -p /etc/conf.d
+printf '%s\n' 'command_args="-f /etc/chrony.conf"' > /etc/conf.d/chronyd
+touch /etc/kvm/ssh_stop
+mkdir -p /etc/kvm/cron/crontabs
+if [ ! -L /etc/crontabs ]; then
+    cp -an /etc/crontabs/. /etc/kvm/cron/crontabs/ 2>/dev/null || true
+    rm -rf /etc/crontabs
+    ln -s /etc/kvm/cron/crontabs /etc/crontabs
+fi
+
+# The package owns the complete tested files. These fallbacks also cover an
+# older payload during an in-place package upgrade.
+if ! grep -qE '^[^#]+[[:space:]]+/boot[[:space:]]' /etc/fstab 2>/dev/null; then
+    printf '%s\n' '/dev/mmcblk0p1 /boot vfat rw,nosuid,nodev,noexec 0 0' >> /etc/fstab
+fi
+if ! grep -qE '^[^#]+[[:space:]]+/data[[:space:]]' /etc/fstab 2>/dev/null; then
+    printf '%s\n' '/dev/mmcblk0p3 /data exfat rw,nosuid,nodev,noexec 0 0' >> /etc/fstab
+fi
+if ! grep -q '^ttyS0::respawn:' /etc/inittab 2>/dev/null; then
+    printf '%s\n' 'ttyS0::respawn:/sbin/getty -L 115200 ttyS0 vt100' >> /etc/inittab
+fi
+[ -s /etc/hostname ] || printf '%s\n' nanokvm-alpine > /etc/hostname
+
+# Replace the upstream setup instructions on fresh NanoKVM installations.
+# Keep a user's customized login greeting.
+if [ ! -s /etc/motd ] || grep -q '^Welcome to Alpine!' /etc/motd; then
+    cat > /etc/motd <<'MOTD'
+Welcome to NanoKVM OS!
+
+Manage your device through its web interface.
+System and package updates are available through apk.
+MOTD
+fi
+
+# A new image has no user password yet. Do not change an existing password.
+if [ ! -e /run/openrc/softlevel ] && awk -F: '$1 == "root" { exit !($2 == "*" || $2 == "!" || $2 == "!!") }' /etc/shadow; then
+    printf 'root:root\n' | chpasswd
+fi
+mkdir -p /etc/ssh/sshd_config.d
+if [ ! -e /etc/ssh/sshd_config.d/00-nanokvm-root.conf ]; then
+    printf 'PermitRootLogin yes\n' > /etc/ssh/sshd_config.d/00-nanokvm-root.conf
+fi
+
+exit 0

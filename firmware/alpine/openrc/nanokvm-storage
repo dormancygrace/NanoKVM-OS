@@ -1,0 +1,28 @@
+#!/sbin/openrc-run
+
+description="NanoKVM boot, data and compatibility mounts"
+
+depend() {
+    need localmount
+    before nanokvm-modules
+}
+
+start() {
+    ebegin "Preparing NanoKVM storage"
+    mkdir -p /boot /data /mnt /sys/kernel/config
+    /usr/libexec/nanokvm/firstboot-storage || return 1
+    mountpoint -q /boot || mount /boot
+    mountpoint -q /data || mount /data
+    mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config
+
+    rm -rf /mnt/data
+    ln -s /data /mnt/data
+    for source in /usr/share/nanokvm/board-defaults/*; do
+        [ -f "$source" ] || continue
+        [ -e "/data/${source##*/}" ] || cp "$source" "/data/${source##*/}"
+    done
+    mkdir -p /mnt/system
+    rm -rf /mnt/system/ko
+    ln -s "/lib/modules/$(uname -r)/extra" /mnt/system/ko
+    eend $?
+}

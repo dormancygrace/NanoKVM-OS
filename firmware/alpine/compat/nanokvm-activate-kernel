@@ -1,0 +1,37 @@
+#!/bin/sh
+# Internal APK trigger: activate the matched boot payload without replacing rootfs.
+set -eu
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+payload=/usr/lib/nanokvm/boot
+profile=${1:-$(tr -d '\000' < /sys/firmware/devicetree/base/sipeed,board-revision)}
+case "$profile" in alpha|beta|pcie|lite) ;; *) echo "Unsupported board profile: $profile" >&2; exit 1;; esac
+release=$(cat "$payload/kernel.release")
+case "$release" in ''|*[!a-zA-Z0-9._+-]*) echo 'Invalid kernel release' >&2; exit 1;; esac
+[ -d "/lib/modules/$release" ] || { echo 'Matching kernel modules are missing' >&2; exit 1; }
+[ -s "$payload/$profile.sd" ] || { echo 'Board boot image is missing' >&2; exit 1; }
+(cd "$payload" && sha256sum -c "$profile.sha256")
+find "/lib/modules/$release" -type f -name '*.ko*' | while IFS= read -r module; do
+    vermagic=$(modinfo -F vermagic "$module")
+    [ "${vermagic%% *}" = "$release" ] || { echo "Module ABI mismatch: $module" >&2; exit 1; }
+done
+# Generate the target module index even while the previous kernel is running.
+depmod "$release"
+mounted=0
+mkdir -p /boot
+if ! mountpoint -q /boot; then
+    mount -t vfat /dev/mmcblk0p1 /boot
+    mounted=1
+fi
+cleanup() { [ "$mounted" = 0 ] || umount /boot; }
+trap cleanup EXIT
+awk '$1 == "/dev/mmcblk0p1" && $2 == "/boot" && $3 == "vfat" { found=1 } END { exit !found }' /proc/mounts
+[ ! -e /boot/rec ] || { echo 'Recovery is active; kernel activation refused' >&2; exit 1; }
+# Deliberately no backup, rollback, whole-root replacement or post-write readback.
+cp "$payload/$profile.sd" /boot/boot.sd
+printf '%s\n' "$release" > /boot/kernel.release
+sync /boot/boot.sd /boot/kernel.release
+mkdir -p /run
+printf '%s\n' 'Kernel updated; reboot to use the installed kernel.' > /run/reboot-required
+printf '%s\n' nanokvm-kernel-sg2002 >> /run/reboot-required.pkgs
+rm -f /var/lib/nanokvm/firmware-activation-required
+echo "NanoKVM kernel $release activated for $profile; reboot required."

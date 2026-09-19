@@ -1,3 +1,21 @@
+# Installing NanoKVM OS v2.0 a2
+
+Download NanoKVM-OS-v2.0-a2.img.zip and SHA256SUMS from the release. Verify the
+ZIP checksum, extract the .img and flash it to an SD card of at least 2 GB.
+Flashing replaces existing installation and data. First boot creates the data
+partition in the remaining space, detects the board and automatically restarts.
+
+The image includes native GUI package updates. SSH is off by default; enable it
+in settings if needed. Factory Linux credentials are root/root; the web account
+is separate. See RELEASE-v2.0-a2.md and UPDATES.md for current release details.
+
+---
+
+## Historical beta installation documentation
+
+The following describes the pre-v2 system; its legacy update commands do not
+apply to Alpine v2.
+
 # Installing NanoKVM OS beta-13
 
 Beta-13 is distributed as a complete SD image only. There is no `.nkos`

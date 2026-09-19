@@ -1,0 +1,20 @@
+#!/sbin/openrc-run
+# shellcheck shell=sh disable=SC2034
+description="NanoKVM SSH preference"
+depend() {
+    need nanokvm-board
+    use net
+    after nanokvm-network
+}
+start() {
+    if [ -e /etc/kvm/ssh_stop ]; then
+        if [ -e /boot/start_ssh_once ]; then
+            rm -f /boot/start_ssh_once
+        else
+            einfo "SSH disabled by NanoKVM settings"
+            return 0
+        fi
+    fi
+    rc-service sshd start
+}
+stop() { rc-service sshd stop; }

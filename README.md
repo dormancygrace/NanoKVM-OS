@@ -6,12 +6,12 @@
 
 **Community firmware for SG2002 NanoKVM. PCIe/UXC is the current test platform; full Cube validation is pending.**
 
-![Version: 1.0.0 beta-14](https://img.shields.io/badge/version-1.0.0--beta.14-orange)
+![Version: 2.0 a2](https://img.shields.io/badge/version-2.0--a2-orange)
 ![Hardware: Cube, Lite and PCIe](https://img.shields.io/badge/hardware-Cube%20%7C%20Lite%20%7C%20PCIe-blue)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
-[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](docs/BUILD-beta-14.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
+[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](docs/BUILD-v2.0-a2.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
 
 </div>
 
@@ -34,19 +34,19 @@ The aim is a responsive IP-KVM with maintained system components, explicit recov
 - **🧠 More control over memory:** a reusable CMA/ION pool and configurable memory settings.
 - **🌐 VPN menu:** WireGuard, OpenVPN 3 Core with upstream DCO and Tailscale, with profile controls and component versions.
 - **📶 5 GHz Wi-Fi:** connect to 2.4 GHz and 5 GHz networks with a compatible adapter; scan networks, select a band and configure hidden networks in the browser.
-- **📦 System updates and optional tools:** signed system packages for compatible layouts, plus an APK-managed add-on layer with dependency resolution.
+- **📦 Native APK updates:** Alpine packages install into the writable root, with dependency resolution and component updates from the GUI.
 
 ## ✨ More project improvements
 
 USB audio reaches the browser with one shared Opus encoder. Mount an ISO directly from your computer without copying it to SD; CD/DVD emulation now supports images up to 31.625 GiB. Dashboard shows SoC temperature and CPU frequency, with independent thermal protection and optional runtime overclocking.
 
-OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Linux 7.2.5-nanokvm-os-r4**, **OpenSSL 4.0.2** and consistent **`-O2`** target C/C++ builds. Optional tools are installed through APK, while signed system updates keep the kernel and modules together. See [release notes and community credits](docs/RELEASE-beta-14.md).
+OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Linux 7.2.6-nanokvm-os-r1**, **OpenSSL 4.0.2** and consistent **`-O2`** target C/C++ builds. Optional tools are installed through APK, while signed system updates keep the kernel and modules together. See [release notes](docs/RELEASE-v2.0-a2.md).
 
 <a id="compatibility"></a>
 
 ## 🔌 Compatible devices
 
-**The full image automatically selects a board-specific boot profile for the SG2002 NanoKVM family. The final beta-14 image has not yet completed device boot acceptance; Cube Full and Lite physical validation is also pending.**
+**The full image automatically selects a board-specific boot profile for the SG2002 NanoKVM family. The v2.0 a2 kernel and native APK upgrade were tested on PCIe/UXC. Fresh full-image installation and Cube/Lite physical validation remain pending.**
 
 | Device | Firmware compatibility | Current physical validation |
 |---|:---:|---|
@@ -106,13 +106,15 @@ Open **Settings → VPN** and choose WireGuard, OpenVPN or Tailscale. WireGuard 
 
 ## 📦 Updates
 
-Beta-14 is available as a **full SD image only**. Follow [installation](docs/INSTALL.md); flashing replaces settings and data. The package updater remains in the software, but beta-14 has no `.nkos` asset. Some earlier releases retain changelogs only; use the assets attached to the chosen release.
+NanoKVM OS v2 uses **Alpine 3.24 and native APK packages**. Open
+**Settings → Updates → Package updates**, or use `apk update` and `apk upgrade`.
+Services restart automatically; a kernel update requires a device reboot.
+Package updates preserve rootfs and settings. See [updates](docs/UPDATES.md).
 
-Signed system packages can update the application and supported system programs, libraries and data while preserving settings. The new package format can replace the kernel and matched modules on a compatible foundation. Bootloader updates and A/B boot rollback are not supported. Packages require a compatible system foundation, matching native libraries and a newer release sequence. See [package updates](docs/UPDATES.md).
+**Beta-14 and older installations require the full v2 SD image**, which replaces
+the existing installation and data. Download the image and SHA256SUMS from the
+[latest release](https://github.com/dormancygrace/NanoKVM-OS/releases/latest).
 
-Optional applications use a separate APK repository with dependency resolution. System packages and APK add-ons serve different purposes; see [installation](docs/INSTALL.md) for the current release’s supported update path.
-
-Full system images use the hardware **Boot flashing procedure**. They are not accepted by the application updater. See [update format and recovery](docs/UPDATES.md).
 
 <a id="limitations"></a>
 
@@ -135,7 +137,7 @@ Full system images use the hardware **Boot flashing procedure**. They are not ac
 - `scripts/`: component build/staging tools; external SDK and toolchain inputs are required.
 - `tools/` and `kvmapp/system/init.d/`: EDID tools and device startup services.
 
-See [BUILD.md](docs/BUILD-beta-14.md) for build instructions.
+See [BUILD.md](docs/BUILD-v2.0-a2.md) for build instructions.
 
 ## ❤️ Credits and licenses
 
@@ -145,6 +147,6 @@ Thanks to [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.c
 
 ## Beta-14
 
-See [beta-14 release notes](docs/RELEASE-beta-14.md) and [beta-14 build inputs](docs/BUILD-beta-14.md). Fresh images disable SSH; enable it in the Web settings if needed.
+See [beta-14 release notes](docs/RELEASE-beta-14.md) and [beta-14 build inputs](docs/BUILD-v2.0-a2.md). Fresh images disable SSH; enable it in the Web settings if needed.
 
 Beta-14 retains the 64 MiB boot layout introduced in beta-9 and is distributed only as `NanoKVM-OS-v1.0.0-beta-14.img.zip`, under the GitHub tag `v1.0.0-beta.14`. See [release naming](docs/RELEASE-NAMING.md).

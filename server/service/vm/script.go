@@ -20,7 +20,7 @@ const ScriptDirectory = "/etc/kvm/scripts"
 var (
 	errInvalidScript        = errors.New("invalid script")
 	errPythonRuntimeMissing = errors.New("Python runtime is not installed")
-	pythonInterpreter       = "/opt/nkos/addons/python/bin/python3"
+	pythonInterpreter       = "/usr/bin/python3"
 )
 
 func scriptRoot(root string) error {

@@ -1,0 +1,22 @@
+pkgname=nanokvm-app
+pkgver=${PKGVER:-0.1.0}
+pkgrel=1
+pkgdesc="NanoKVM server, web UI and native runtime libraries"
+url="https://github.com/sipeed/NanoKVM"
+arch="riscv64"
+license="GPL-3.0-only"
+depends="nanokvm-base>=2.0_alpha2-r0 libgcc libstdc++"
+source="$pkgname-$pkgver.tar.gz"
+options="!check"
+triggers="$pkgname.trigger=/kvmapp/server:/kvmapp/server/*"
+
+build() {
+	:
+}
+
+package() {
+	mkdir -p "$pkgdir"
+	cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
+}
+
+sha256sums=""

@@ -1,0 +1,22 @@
+#!/sbin/openrc-run
+
+description="NanoKVM USB HID and optional NCM gadget"
+
+depend() {
+    need nanokvm-board
+    before nanokvm-app
+}
+
+start() {
+    ebegin "Starting NanoKVM USB gadget"
+    /usr/libexec/nanokvm/legacy/S03usbdev start || return 1
+    /usr/libexec/nanokvm/legacy/S30usbnet start
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping NanoKVM USB gadget"
+    /usr/libexec/nanokvm/legacy/S30usbnet stop || return 1
+    /usr/libexec/nanokvm/legacy/S03usbdev stop
+    eend $?
+}

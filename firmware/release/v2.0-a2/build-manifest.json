@@ -1,0 +1,28 @@
+{
+  "version": "v2.0-a2",
+  "kernel": "7.2.6-nanokvm-os-r1",
+  "rootfs_archive_sha256": "1fdf2b0d82c77c41fd7e669f2931b666f60521d1d2a2a91b528eb69a62da9105",
+  "fip_sha256": "8254d38124e66877ab6c4a894f656d8ee6dc299d813dd06f31037ddaa2e51b9d",
+  "image_bytes": 872415744,
+  "zip_bytes": 101194861,
+  "partitions": [
+    {
+      "number": 1,
+      "start": 1,
+      "sectors": 131072,
+      "filesystem": "FAT16"
+    },
+    {
+      "number": 2,
+      "start": 131073,
+      "sectors": 1572864,
+      "filesystem": "F2FS"
+    },
+    {
+      "number": 3,
+      "start": 1705984,
+      "sectors": "remaining SD capacity; created on first boot",
+      "filesystem": "exFAT"
+    }
+  ]
+}

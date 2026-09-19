@@ -1,0 +1,37 @@
+#!/sbin/openrc-run
+
+description="NanoKVM Ethernet and Wi-Fi setup"
+
+depend() {
+    need nanokvm-board
+    provide net
+    before sshd nanokvm-app
+}
+
+run_legacy() {
+    local script="$1"
+    [ ! -x "/usr/libexec/nanokvm/legacy/$script" ] ||
+        "/usr/libexec/nanokvm/legacy/$script" start
+}
+
+stop_legacy() {
+    local script="$1"
+    [ ! -x "/usr/libexec/nanokvm/legacy/$script" ] ||
+        "/usr/libexec/nanokvm/legacy/$script" stop
+}
+
+start() {
+    ebegin "Starting NanoKVM network"
+    export NANOKVM_WPA_PASSPHRASE=/usr/libexec/nanokvm/wpa-passphrase-compat
+    run_legacy S25wifimod || return 1
+    run_legacy S30eth || ewarn "Ethernet did not start"
+    run_legacy S30wifi || return 1
+    eend 0
+}
+
+stop() {
+    ebegin "Stopping NanoKVM network"
+    stop_legacy S30wifi || true
+    stop_legacy S30eth || true
+    eend 0
+}

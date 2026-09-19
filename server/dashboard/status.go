@@ -32,6 +32,7 @@ type Interface struct {
 	MAC       string   `json:"mac"`
 	MTU       int      `json:"mtu"`
 	Up        bool     `json:"up"`
+	Enabled   bool     `json:"enabled"`
 	Connected bool     `json:"connected"`
 	Wireless  bool     `json:"wireless"`
 	Addresses []string `json:"addresses"`
@@ -45,6 +46,7 @@ type Status struct {
 	Architecture string      `json:"architecture"`
 	Cores        int         `json:"cores"`
 	Uptime       *float64    `json:"uptime"`
+	CPUUsage     *float64    `json:"cpuUsage"`
 	CPU          *CPU        `json:"cpu"`
 	Load         []string    `json:"load"`
 	CPUFrequency *int        `json:"cpuFrequency"`
@@ -107,8 +109,24 @@ func storage(path string, mounted bool) Storage {
 	result.ReadOnly = stat.Flags&unix.ST_RDONLY != 0
 	return result
 }
+
+// Administrative preference is independent of carrier and transient link state.
+func interfaceEnabled(name, bootDir, configDir string) bool {
+	var marker string
+	switch {
+	case name == "eth0" || strings.HasPrefix(name, "eth0."):
+		marker = filepath.Join(bootDir, "eth.disabled")
+	case name == "wlan0":
+		marker = filepath.Join(configDir, "wifi.disabled")
+	default:
+		return true
+	}
+	_, err := os.Stat(marker)
+	return err != nil
+}
+
 func Read() Status {
-	result := Status{Now: time.Now().UnixMilli(), Hostname: read("/proc/sys/kernel/hostname"), Kernel: read("/proc/sys/kernel/osrelease"), Architecture: runtime.GOARCH, Cores: runtime.NumCPU(), CPU: parseCPU(read("/proc/stat")), Interfaces: []Interface{}}
+	result := Status{Now: time.Now().UnixMilli(), Hostname: read("/proc/sys/kernel/hostname"), Kernel: read("/proc/sys/kernel/osrelease"), Architecture: runtime.GOARCH, Cores: runtime.NumCPU(), CPU: parseCPU(read("/proc/stat")), CPUUsage: dashboardCPU.value(time.Now()), Interfaces: []Interface{}}
 	if fields := strings.Fields(read("/proc/uptime")); len(fields) > 0 {
 		if n, err := strconv.ParseFloat(fields[0], 64); err == nil && n >= 0 {
 			result.Uptime = &n
@@ -131,7 +149,7 @@ func Read() Status {
 		}
 		base := filepath.Join("/sys/class/net", iface.Name)
 		_, wirelessErr := os.Stat(filepath.Join(base, "wireless"))
-		item := Interface{Kind: kinds[iface.Index], Name: iface.Name, MAC: iface.HardwareAddr.String(), MTU: iface.MTU, Up: iface.Flags&net.FlagUp != 0, Connected: iface.Flags&net.FlagRunning != 0, Wireless: wirelessErr == nil || strings.HasPrefix(iface.Name, "wl"), Addresses: []string{}, Received: counter(filepath.Join(base, "statistics/rx_bytes")), Sent: counter(filepath.Join(base, "statistics/tx_bytes"))}
+		item := Interface{Kind: kinds[iface.Index], Name: iface.Name, Enabled: interfaceEnabled(iface.Name, "/boot", "/etc/kvm"), MAC: iface.HardwareAddr.String(), MTU: iface.MTU, Up: iface.Flags&net.FlagUp != 0, Connected: iface.Flags&net.FlagRunning != 0, Wireless: wirelessErr == nil || strings.HasPrefix(iface.Name, "wl"), Addresses: []string{}, Received: counter(filepath.Join(base, "statistics/rx_bytes")), Sent: counter(filepath.Join(base, "statistics/tx_bytes"))}
 		if carrier := read(filepath.Join(base, "carrier")); carrier == "0" {
 			item.Connected = false
 		}

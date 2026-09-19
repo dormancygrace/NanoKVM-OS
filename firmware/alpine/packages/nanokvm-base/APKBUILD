@@ -1,0 +1,22 @@
+pkgname=nanokvm-base
+pkgver=${PKGVER:-0.1.0}
+pkgrel=2
+pkgdesc="NanoKVM Alpine integration and OpenRC services"
+url="https://github.com/sipeed/NanoKVM"
+arch="riscv64"
+license="GPL-3.0-only"
+depends="chrony-openrc avahi-openrc dbus-openrc busybox-openrc openssh-server openssh-server-common nftables iproute2-tc util-linux openrc eudev kmod exfatprogs f2fs-tools"
+source="$pkgname-$pkgver.tar.gz"
+options="!check"
+install="$pkgname.post-install $pkgname.post-upgrade $pkgname.pre-deinstall"
+
+build() {
+	:
+}
+
+package() {
+	mkdir -p "$pkgdir"
+	cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
+}
+
+sha256sums=""

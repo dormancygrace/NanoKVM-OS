@@ -42,3 +42,6 @@ kvmapp/kvm_system/kvm_system
 
 # Generated isolated networking tools, source and license bundle.
 /kvmapp/system/modern/
+
+# Local Alpine builders, keys, payloads and device test artifacts.
+/work/

@@ -34,6 +34,7 @@ var defaultConfig = &Config{
 		LoginMaxFailures:     5,
 		TrustedProxies:       []string{"127.0.0.1/32", "::1/128"},
 	},
+	Alpine: Alpine{},
 }
 
 func checkDefaultValue() {

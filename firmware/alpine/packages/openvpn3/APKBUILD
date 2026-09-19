@@ -1,0 +1,16 @@
+pkgname=openvpn3
+pkgver=3.12_pre20260904
+pkgrel=0
+pkgdesc="NanoKVM OpenVPN 3 Core client with ovpn DCO"
+url="https://github.com/dormancygrace/NanoKVM-OS"
+arch="riscv64"
+license="AGPL-3.0-only AND MIT"
+depends="openssl4-libs libstdc++ libgcc lz4-libs libnl3"
+source="$pkgname-$pkgver.tar.gz"
+options="!check !strip"
+build() { :; }
+package() {
+ mkdir -p "$pkgdir"
+ cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
+}
+sha256sums=""

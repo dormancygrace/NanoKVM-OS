@@ -1,0 +1,32 @@
+#!/bin/sh
+# A clean SD image contains p1+p2. Allocate the remainder once for user data.
+set -eu
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+[ -e /etc/nanokvm-firstboot-storage ] || exit 0
+[ "$(cat /sys/class/block/mmcblk0p1/start)" = 1 ]
+[ "$(cat /sys/class/block/mmcblk0p1/size)" = 131072 ]
+[ "$(cat /sys/class/block/mmcblk0p2/start)" = 131073 ]
+[ "$(cat /sys/class/block/mmcblk0p2/size)" = 1572864 ]
+if [ ! -b /dev/mmcblk0p3 ]; then
+    start=1705984
+    total=$(cat /sys/class/block/mmcblk0/size)
+    size=$((total - start))
+    [ "$size" -ge 262144 ] || { echo 'SD card is too small' >&2; exit 1; }
+    printf 'start=%s, size=%s, type=7\n' "$start" "$size" |
+        sfdisk --no-reread --no-tell-kernel -N 3 /dev/mmcblk0
+    sync
+    partx -a -n 3 /dev/mmcblk0 || [ -b /dev/mmcblk0p3 ]
+    for attempt in 1 2 3 4 5; do
+        [ -b /dev/mmcblk0p3 ] && break
+        sleep 1
+    done
+fi
+[ "$(cat /sys/class/block/mmcblk0p3/start)" = 1705984 ]
+# The marker belongs only to a fresh full SD installation. Old signatures on
+# a reused card must not prevent creating its new data filesystem.
+mkfs.exfat -L NANOKVM /dev/mmcblk0p3
+mkdir -p /data
+mountpoint -q /data || mount /data
+rm /etc/nanokvm-firstboot-storage
+sync
+echo 'NanoKVM SD data partition ready'

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '@/contexts/auth';
 import { Alert, Button, Progress } from 'antd';
 import { useAtomValue } from 'jotai';
@@ -44,6 +44,7 @@ type Interface = {
   mac: string;
   mtu: number;
   up: boolean;
+  enabled?: boolean;
   connected: boolean;
   wireless: boolean;
   addresses: string[];
@@ -59,6 +60,7 @@ type Snapshot = {
     cores: number;
     uptime: number | null;
     cpu: CPU | null;
+    cpuUsage: number | null;
     load: string[] | null;
     temperature: number | null;
     cpuFrequency: number | null;
@@ -122,7 +124,6 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   const [cpu, setCpu] = useState<number | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [extraFailed, setExtraFailed] = useState(false);
-  const previous = useRef<CPU | null>(null);
   const enabled = useAtomValue(isHdmiEnabledAtom);
   const ready = useAtomValue(captureReadyAtom);
   const mode = useAtomValue(videoModeAtom);
@@ -145,20 +146,14 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           const snapshot = await read<Snapshot>('/api/vm/dashboard');
           if (disposed) return;
           setData(snapshot);
-          const next = snapshot.system.cpu,
-            last = previous.current;
-          const total = next && last ? next.total - last.total : 0;
-          const idle = next && last ? next.idle - last.idle : 0;
-          setCpu(total > 0 && idle >= 0 && idle <= total ? ((total - idle) / total) * 100 : null);
-          previous.current = next;
+          setCpu(snapshot.system.cpuUsage ?? null);
           report('system', false);
         } catch {
           if (disposed) return;
           setCpu(null);
-          previous.current = null;
           report('system', true);
         }
-      } else previous.current = null;
+      }
       if (!disposed) timers[0] = window.setTimeout(() => void pollSystem(), 3000);
     };
     const pollVideo = async () => {
@@ -235,7 +230,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   const line = (label: string, value: ReactNode) => (
     <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-1">
       <dt className="text-neutral-400">{label}</dt>
-      <dd className="min-w-0 wrap-break-word text-right text-neutral-200">{value ?? '—'}</dd>
+      <dd className="min-w-0 text-right wrap-break-word text-neutral-200">{value ?? '—'}</dd>
     </div>
   );
   const section = (title: string, children: ReactNode, tab?: string) => (
@@ -267,7 +262,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
         {icon}
         {title}
       </div>
-      <div className="wrap-break-word text-lg font-medium tabular-nums">{value}</div>
+      <div className="text-lg font-medium wrap-break-word tabular-nums">{value}</div>
       {detail && <div className="mt-1 text-xs text-neutral-500">{detail}</div>}
       {fill !== undefined && (
         <Progress
@@ -522,8 +517,13 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           {sys?.interfaces
             .filter(
               (iface) =>
-                !admin ||
-                !(iface.kind === 'wireguard' || iface.name === 'tailscale0' || iface.kind === 'tun')
+                iface.enabled !== false &&
+                (!admin ||
+                  !(
+                    iface.kind === 'wireguard' ||
+                    iface.name === 'tailscale0' ||
+                    iface.kind === 'tun'
+                  ))
             )
             .map((iface) => (
               <div key={iface.name} className="min-w-0 text-sm">

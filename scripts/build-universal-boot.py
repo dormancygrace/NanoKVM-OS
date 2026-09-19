@@ -8,6 +8,7 @@ p.add_argument('--output',type=Path,required=True)
 p.add_argument('--build-base',type=Path,required=True)
 p.add_argument('--kernel-source',type=Path,required=True)
 p.add_argument('--kernel-output',type=Path,required=True)
+p.add_argument('--initramfs',type=Path,help='Reuse an accepted F2FS-capable initramfs')
 p.add_argument('--epoch',type=int,required=True)
 a=p.parse_args()
 r=Path(__file__).resolve().parents[1]
@@ -22,13 +23,16 @@ def sha(f):
     return hashlib.sha256(f.read_bytes()).hexdigest()
 run(cross,'-O2','-march=rv64gc','-mabi=lp64d','-mno-fence-tso','-static','-s','-Wall','-Wextra','-Werror',r/'firmware/boards/nkos-board-probe.c','-o',out/'nkos-board-probe')
 # Keep the exact accepted BusyBox and libraries; only init gains the selector hook.
-listing=(old/'initramfs/initramfs.list').read_text()
-listing=re.sub(r'^file /init .*$',f'file /init {r}/firmware/boot/initramfs/init 755 0 0',listing,flags=re.M)
-(out/'initramfs.list').write_text(listing)
-cpio=subprocess.check_output([str(old/'kernel-output/usr/gen_init_cpio'),'-t',str(a.epoch),str(out/'initramfs.list')])
-(out/'initramfs.cpio.gz').write_bytes(gzip.compress(cpio,mtime=a.epoch))
+if a.initramfs:
+    shutil.copy2(a.initramfs,out/'initramfs.cpio.gz')
+else:
+    listing=(old/'initramfs/initramfs.list').read_text()
+    listing=re.sub(r'^file /init .*$',f'file /init {r}/firmware/boot/initramfs/init 755 0 0',listing,flags=re.M)
+    (out/'initramfs.list').write_text(listing)
+    cpio=subprocess.check_output([str(old/'kernel-output/usr/gen_init_cpio'),'-t',str(a.epoch),str(out/'initramfs.list')])
+    (out/'initramfs.cpio.gz').write_bytes(gzip.compress(cpio,mtime=a.epoch))
 kernel_release=(a.kernel_output/'include/config/kernel.release').read_text().strip()
-assert re.fullmatch(r'7\.2\.5-nanokvm-os-r[0-9]+',kernel_release), kernel_release
+assert re.fullmatch(r'7\.2\.6-nanokvm-os-r[0-9]+',kernel_release), kernel_release
 run('zstd','-19','-T0',a.kernel_output/'arch/riscv/boot/Image','-o',out/'Image.zst')
 template=(r/'scripts/build-enhanced-fit.py').read_text().split("its = '''",1)[1].split("'''",1)[0]
 template=template.replace('Image.gz','Image.zst').replace('compression = "gzip"','compression = "zstd"')

@@ -126,7 +126,7 @@ func parseScan(output, band string) []wifiNetwork {
 	var privacy, secured, wpa, psk, sae, unsupported bool
 	var section string
 	flush := func() {
-		if n == nil || n.Band != band || n.Ssid == "" || !utf8.ValidString(n.Ssid) {
+		if n == nil || n.Band == "" || (band != "all" && n.Band != band) || n.Ssid == "" || !utf8.ValidString(n.Ssid) {
 			return
 		}
 		n.Security = "open"
@@ -205,7 +205,7 @@ func parseScan(output, band string) []wifiNetwork {
 	seen := map[string]bool{}
 	unique := []wifiNetwork{}
 	for _, n := range result {
-		key := n.Ssid + "\x00" + n.Security
+		key := n.Ssid + "\x00" + n.Security + "\x00" + n.Band
 		if !seen[key] {
 			seen[key] = true
 			unique = append(unique, n)
@@ -355,7 +355,7 @@ func checkRadio(c *gin.Context, enabled bool) bool {
 func (s *Service) ScanWifi(c *gin.Context) {
 	var rsp proto.Response
 	band := c.Query("band")
-	if band != "2.4" && band != "5" {
+	if band != "2.4" && band != "5" && band != "all" {
 		rsp.ErrRsp(c, -1, "invalid band")
 		return
 	}
@@ -363,7 +363,11 @@ func (s *Service) ScanWifi(c *gin.Context) {
 		return
 	}
 	defer finishWifi(nil)
-	freqs := wifiControl.frequencies()[band]
+	available := wifiControl.frequencies()
+	freqs := available[band]
+	if band == "all" {
+		freqs = append(append([]string{}, available["2.4"]...), available["5"]...)
+	}
 	if len(freqs) == 0 {
 		rsp.ErrRsp(c, -1, "band unavailable")
 		return

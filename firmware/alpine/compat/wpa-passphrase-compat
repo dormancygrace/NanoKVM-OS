@@ -1,0 +1,8 @@
+#!/bin/sh
+# Alpine's wpa_passphrase uses a controlling TTY when the passphrase argument
+# is omitted. Keep the existing NanoKVM script's stdin interface.
+set -eu
+
+ssid=$1
+IFS= read -r passphrase
+exec /sbin/wpa_passphrase "$ssid" "$passphrase"

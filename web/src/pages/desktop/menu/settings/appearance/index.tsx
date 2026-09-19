@@ -2,6 +2,7 @@ import { useAuth } from '@/contexts/auth.ts';
 import { Divider } from 'antd';
 import { useTranslation } from 'react-i18next';
 
+import { Branding } from './branding.tsx';
 import { KeyboardLedStatusSetting } from './keyboard-led-status.tsx';
 import { Language } from './language.tsx';
 import { MenuIcons } from './menu-icons.tsx';
@@ -19,7 +20,12 @@ export const Appearance = () => {
 
       <div className="text-neutral-400">{t('settings.appearance.display')}</div>
       <Language />
-      {account.role === 'admin' && <WebTitle />}
+      {account.role === 'admin' && (
+        <>
+          <WebTitle />
+          <Branding />
+        </>
+      )}
 
       <Divider className="opacity-50" style={{ margin: '32px 0' }} />
 

@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Checkbox, Divider, Input, Modal, Segmented, Select, Switch } from 'antd';
+import { Button, Checkbox, Divider, Input, Modal, Select, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
+
+import { groupWifiNetworks, type WifiGroup } from './wifi-networks';
+import { WifiSignal } from './wifi-signal';
 
 type Pending = { until: number; enabled?: boolean; ssid?: string; band?: api.WifiBand };
 
@@ -20,8 +23,8 @@ export const Wifi = () => {
     return security === 'open' || security === 'unsupported' ? tr(security) : labels[security];
   }
   const [state, setState] = useState<api.WifiStatus>();
-  const [band, setBand] = useState<api.WifiBand>('2.4');
-  const selectedBand = useRef<api.WifiBand | null>(null);
+  const autoScanStarted = useRef(false);
+  const scanInFlight = useRef(false);
   const [networks, setNetworks] = useState<api.WifiNetwork[]>([]);
   const [scanned, setScanned] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -30,6 +33,7 @@ export const Wifi = () => {
   const pendingRef = useRef<Pending | undefined>(undefined);
   const [message, setMessage] = useState('');
   const [modal, setModal] = useState(false);
+  const [profileNetwork, setProfileNetwork] = useState<WifiGroup>();
   const [profile, setProfile] = useState<api.WifiProfile>({
     ssid: '',
     password: '',
@@ -49,11 +53,6 @@ export const Wifi = () => {
         const next = rsp.data as api.WifiStatus;
         setState(next);
         setMessage((old) => (old === 'statusFailed' ? '' : old));
-        if (!selectedBand.current || !next.bands?.includes(selectedBand.current)) {
-          const initial = next.band || next.bands?.[0] || '2.4';
-          selectedBand.current = initial;
-          setBand(initial);
-        }
         const operation = pendingRef.current;
         if (operation && !next.busy) {
           const done =
@@ -114,14 +113,13 @@ export const Wifi = () => {
   }
 
   async function scan() {
-    if (locked) return;
+    if (locked || scanInFlight.current || !canConfigure || !state?.bands?.length) return;
+    scanInFlight.current = true;
     setBusy(true);
     setScanning(true);
     setMessage('');
-    setScanned(false);
-    setNetworks([]);
     try {
-      const rsp = await api.scanWifi(band);
+      const rsp = await api.scanWifi('all');
       if (rsp.code !== 0) throw new Error();
       setNetworks(rsp.data);
       setScanned(true);
@@ -130,16 +128,45 @@ export const Wifi = () => {
     } finally {
       setBusy(false);
       setScanning(false);
+      scanInFlight.current = false;
     }
   }
 
-  function open(network?: api.WifiNetwork) {
+  // Refresh only while this panel is visible; never overlap radio operations.
+  const scanLatest = useRef(scan);
+  scanLatest.current = scan;
+  useEffect(() => {
+    if (!canConfigure) autoScanStarted.current = false;
+    if (canConfigure && state?.bands?.length && !locked && !modal && !autoScanStarted.current) {
+      autoScanStarted.current = true;
+      void scanLatest.current();
+    }
+  }, [canConfigure, state?.bands?.length, locked, modal]);
+  const scanAllowed = useRef(false);
+  scanAllowed.current = canConfigure && !locked && !modal;
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible' && scanAllowed.current) {
+        void scanLatest.current();
+      }
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const groupedNetworks = groupWifiNetworks(networks);
+
+  function open(network?: WifiGroup) {
+    setProfileNetwork(network);
+    const candidate =
+      network?.candidates.find(
+        (item) => state?.connected && state.ssid === item.ssid && state.band === item.band
+      ) || network;
     setProfile({
       ssid: network?.ssid || '',
       password: '',
-      band,
+      band: candidate?.band || state?.band || state?.bands?.[0] || '2.4',
       hidden: false,
-      security: network && network.security !== 'unsupported' ? network.security : 'wpa2-wpa3'
+      security: candidate && candidate.security !== 'unsupported' ? candidate.security : 'wpa2-wpa3'
     });
     setMessage('');
     setModal(true);
@@ -177,7 +204,7 @@ export const Wifi = () => {
         <span>{tr('title')}</span>
         {state && (!state.supported || state.model) && (
           <span className="text-xs text-neutral-500">
-            · {state.supported ? state.model : 'not detected'}
+            {state.supported ? state.model : 'not detected'}
           </span>
         )}
       </div>
@@ -212,28 +239,12 @@ export const Wifi = () => {
         {canConfigure && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <Segmented
-                value={band}
-                disabled={locked}
-                aria-label={tr('band')}
-                options={(['2.4', '5'] as const).map((value) => ({
-                  value,
-                  label: value === '2.4' ? tr('band24') : tr('band5'),
-                  disabled: !state.bands?.includes(value)
-                }))}
-                onChange={(value) => {
-                  setBand(value as api.WifiBand);
-                  selectedBand.current = value as api.WifiBand;
-                  setNetworks([]);
-                  setScanned(false);
-                  setMessage('');
-                }}
-              />
+              <span className="text-sm">{tr('availableNetworks')}</span>
               <Button
                 size="small"
                 onClick={scan}
                 loading={scanning}
-                disabled={locked || !state.bands?.includes(band)}
+                disabled={locked || !state.bands?.length}
               >
                 {tr('scan')}
               </Button>
@@ -242,17 +253,31 @@ export const Wifi = () => {
               <span className="text-xs text-neutral-500">{tr('bandsUnavailable')}</span>
             )}
             <div className="flex flex-col space-y-3">
-              {networks.map((network) => (
+              {groupedNetworks.map((network) => (
                 <div
                   key={`${network.ssid}-${network.security}`}
                   className="flex items-center justify-between gap-3"
                 >
-                  <div className="min-w-0">
-                    <div className="text-sm break-words">{network.ssid}</div>
-                    <div className="text-xs text-neutral-500">
-                      {securityLabel(network.security)}
-                      {' · '}
-                      {Math.round(network.signal)} dBm
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <WifiSignal signal={network.signal} />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="break-all">{network.ssid}</span>
+                        <span className="rounded border border-neutral-600 px-1.5 py-0.5 text-xs text-neutral-400">
+                          {network.bands.join(' / ')} GHz
+                        </span>
+                      </div>
+                      <div className="text-xs text-neutral-500">
+                        {Array.from(
+                          new Set(
+                            network.candidates.flatMap((item) =>
+                              securityLabel(item.security).split('/')
+                            )
+                          )
+                        ).join(' / ')}
+                        {' · '}
+                        {Math.round(network.signal)} dBm
+                      </div>
                     </div>
                   </div>
                   <Button
@@ -260,7 +285,10 @@ export const Wifi = () => {
                     disabled={locked || network.security === 'unsupported'}
                     onClick={() => open(network)}
                   >
-                    {state.connected && state.ssid === network.ssid && state.band === band
+                    {state.connected &&
+                    state.ssid === network.ssid &&
+                    !!state.band &&
+                    network.bands.includes(state.band)
                       ? tr('reconnect')
                       : tr('joinBtn')}
                   </Button>
@@ -273,7 +301,7 @@ export const Wifi = () => {
             <Button
               size="small"
               className="self-start"
-              disabled={locked || !state.bands?.includes(band)}
+              disabled={locked || !state.bands?.length}
               onClick={() => open()}
             >
               {tr('manual')}
@@ -353,9 +381,33 @@ export const Wifi = () => {
                 <span className="text-xs text-neutral-500">{tr('passwordHint')}</span>
               </label>
             )}
-            <span className="text-xs text-neutral-500">
-              {profile.band === '2.4' ? tr('band24') : tr('band5')}
-            </span>
+            <label className="flex flex-col gap-1 text-sm">
+              {tr('band')}
+              <Select
+                value={profile.band}
+                disabled={busy}
+                options={(state?.bands || []).map((value) => ({
+                  value,
+                  label: value === '2.4' ? tr('band24') : tr('band5')
+                }))}
+                onChange={(band: api.WifiBand) => {
+                  const candidate = profileNetwork?.candidates.find(
+                    (item) =>
+                      item.ssid === profile.ssid &&
+                      item.band === band &&
+                      item.security !== 'unsupported'
+                  );
+                  setProfile({
+                    ...profile,
+                    band,
+                    security:
+                      candidate && candidate.security !== 'unsupported'
+                        ? candidate.security
+                        : profile.security
+                  });
+                }}
+              />
+            </label>
             {message && (
               <span role="alert" className="text-xs text-red-500">
                 {tr(message)}

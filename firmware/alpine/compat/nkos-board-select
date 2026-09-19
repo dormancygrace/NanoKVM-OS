@@ -1,0 +1,10 @@
+#!/bin/sh
+# Called from the detection initramfs before normal services start.
+set -eu
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+[ "$(tr -d '\000' < /sys/firmware/devicetree/base/sipeed,board-revision)" = detect ]
+profile=$(/usr/sbin/nkos-board-probe)
+/usr/libexec/nanokvm/activate-kernel "$profile"
+echo "NanoKVM selected $profile; restarting"
+reboot -f
+exit 1

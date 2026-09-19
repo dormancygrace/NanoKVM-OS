@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build isolated, matched beta modules. Never install on a device or submit DMA."""
+"""Build isolated, matched NanoKVM modules. Never install on a device or submit DMA."""
 import argparse
 import hashlib
 import json
@@ -11,7 +11,7 @@ import subprocess
 p = argparse.ArgumentParser(description=__doc__)
 for name in ('kernel-source', 'kernel-output', 'osdrv-source', 'wifi-source', 'rtl8733bs-sdk', 'buildroot-output', 'output'):
     p.add_argument('--'+name, type=Path, required=True)
-p.add_argument('--kernel-release', default='7.2.5-nanokvm-os-r4')
+p.add_argument('--kernel-release', default='7.2.6-nanokvm-os-r1')
 p.add_argument('--include-sg2002-aes-probe', action='store_true',
                help='Include the experimental SG2002 CryptoDMA probe (excluded from production by default)')
 p.add_argument('--jobs', type=int, default=8)
@@ -22,11 +22,11 @@ if out.exists() or not 1 <= a.jobs <= 32:
     p.error('Use a fresh output directory and 1..32 jobs')
 kernel, ko = a.kernel_source.resolve(), a.kernel_output.resolve()
 release = (ko/'include/config/kernel.release').read_text().strip()
-if release != a.kernel_release or not release.startswith('7.2.5-nanokvm-os-r'):
+if release != a.kernel_release or not release.startswith('7.2.6-nanokvm-os-r'):
     p.error('Expected the ordinary Enhanced kernel')
 cross = str(a.buildroot_output.resolve()/'host/bin/riscv64-buildroot-linux-musl-')
 env = dict(os.environ, PATH='/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin')
-subprocess.run(['python3', str(repo/'scripts/validate-enhanced-kernel-config.py'), str(ko/'.config'), '--localversion='+release[len('7.2.5'):]], check=True)
+subprocess.run(['python3', str(repo/'scripts/validate-enhanced-kernel-config.py'), str(ko/'.config'), '--localversion='+release[len('7.2.6'):]], check=True)
 out.mkdir(parents=True)
 sources = out/'sources'
 sources.mkdir()

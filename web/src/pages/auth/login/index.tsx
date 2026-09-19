@@ -1,16 +1,19 @@
 import { ReactElement, useEffect, useState } from 'react';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { Button, Form, Input } from 'antd';
+import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import * as api from '@/api/auth.ts';
 import { encrypt } from '@/lib/encrypt.ts';
+import { brandingAtom, brandingLogo } from '@/jotai/branding';
 import { Head } from '@/components/head.tsx';
 
 import { Tips } from './tips.tsx';
 
 export const Login = (): ReactElement => {
+  const branding = useAtomValue(brandingAtom);
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -78,8 +81,15 @@ export const Login = (): ReactElement => {
           <div className="flex flex-col items-center justify-center pb-4">
             <img
               id="logo"
-              src="/sipeed.ico"
-              alt="Sipeed"
+              src={
+                branding.style === 'custom'
+                  ? brandingLogo(branding)
+                  : `/nanokvm-os-${branding.style}-full.svg?v=2`
+              }
+              width={300}
+              height={branding.style === 'custom' ? 100 : 180}
+              alt={branding.style === 'custom' ? 'Logo' : 'NanoKVM OS'}
+              className="max-w-full object-contain"
               onClick={(evt) => {
                 evt.preventDefault();
                 (evt.target as HTMLImageElement).classList.add('animate-spin');

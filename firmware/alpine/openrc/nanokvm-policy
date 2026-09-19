@@ -1,0 +1,16 @@
+#!/sbin/openrc-run
+# shellcheck shell=sh disable=SC2034
+description="NanoKVM memory, network and CryptoDMA policy"
+depend() {
+    need nanokvm-board
+    after nanokvm-network nanokvm-usb
+    before nanokvm-app
+}
+start() {
+    ebegin "Applying NanoKVM runtime policy"
+    local script
+    for script in S29qdisc S34mssclamp S38memory S49persistent-cron S94sg2002aes; do
+        /usr/libexec/nanokvm/legacy/"$script" start || ewarn "Could not apply $script"
+    done
+    eend 0
+}

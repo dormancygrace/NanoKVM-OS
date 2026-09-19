@@ -47,6 +47,7 @@ func server(r *gin.Engine) {
 	control := controlmode.GetManager()
 	picoclawService := picoclaw.NewService(control)
 
+	brandingRouter(r)
 	authRouter(r)
 	vmRouter(r)
 	streamRouter(r)

@@ -20,6 +20,14 @@
 : "${NANOKVM_WIFI_DHCP_PID:=/run/udhcpc.wlan0.pid}"
 : "${NANOKVM_HOSTNAME_FILE:=/etc/hostname}"
 
+# Alpine's wpa_passphrase reads the password from its controlling TTY when no
+# argument is supplied. Keep the legacy stdin API used by this script when
+# the compatibility helper is installed; custom command overrides remain honored.
+if [ "$NANOKVM_WPA_PASSPHRASE" = wpa_passphrase ] &&
+    [ -x /usr/libexec/nanokvm/wpa-passphrase-compat ]; then
+    NANOKVM_WPA_PASSPHRASE=/usr/libexec/nanokvm/wpa-passphrase-compat
+fi
+
 WIFI_SSID_FILE=$NANOKVM_WIFI_ETC_DIR/wifi.ssid
 WIFI_PASS_FILE=$NANOKVM_WIFI_ETC_DIR/wifi.pass
 BOOT_SSID_FILE=$NANOKVM_WIFI_BOOT_DIR/wifi.ssid

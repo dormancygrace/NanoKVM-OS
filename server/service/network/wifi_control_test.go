@@ -295,3 +295,26 @@ func TestWifiAdvertisedSecurity(t *testing.T) {
 		}
 	}
 }
+
+func TestWifiScanAllBands(t *testing.T) {
+	out := `BSS 00:11:22:33:44:01(on wlan0)
+ freq: 2412
+ signal: -40.00 dBm
+ SSID: Shared
+BSS 00:11:22:33:44:02(on wlan0)
+ freq: 5180
+ signal: -50.00 dBm
+ SSID: Shared
+BSS 00:11:22:33:44:03(on wlan0)
+ freq: 5200
+ signal: -60.00 dBm
+ SSID: Shared
+BSS 00:11:22:33:44:04(on wlan0)
+ freq: 6105
+ SSID: Unsupported band
+`
+	got := parseScan(out, "all")
+	if len(got) != 2 || got[0].Band != "2.4" || got[1].Band != "5" || got[1].Signal != -50 {
+		t.Fatalf("all-band scan lost a band or kept duplicate/unsupported entries: %+v", got)
+	}
+}

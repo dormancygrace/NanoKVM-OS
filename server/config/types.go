@@ -11,8 +11,13 @@ type Config struct {
 	Stun           string   `yaml:"stun"`
 	Turn           Turn     `yaml:"turn"`
 	Security       Security `yaml:"security"`
+	Alpine         Alpine   `yaml:"alpine"`
 
 	Hardware Hardware `yaml:"-"`
+}
+
+type Alpine struct {
+	BuilderURL string `yaml:"builderURL"`
 }
 
 type Logger struct {

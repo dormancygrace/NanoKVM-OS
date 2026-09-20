@@ -15,6 +15,9 @@ import './assets/styles/index.css';
 const renderApp = () => {
   const themeConfig = {
     algorithm: theme.darkAlgorithm,
+    token: {
+      colorSuccess: '#22c55e'
+    },
     components: {
       Collapse: {
         headerPadding: 0,

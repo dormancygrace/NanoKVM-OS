@@ -20,6 +20,7 @@ const (
 	Heartbeat = iota
 	KeyboardEvent
 	MouseEvent
+	ControlEvent
 )
 
 const (
@@ -88,6 +89,9 @@ func (c *Client) Read() error {
 				return err
 			}
 		case KeyboardEvent:
+			if !GetManager().CanControl(c) {
+				continue
+			}
 			report := data[1:]
 			if len(report) != 8 {
 				log.Debugf("invalid manual keyboard report: %v", report)
@@ -95,6 +99,9 @@ func (c *Client) Read() error {
 			}
 			c.queueManualReport(c.keyboard, inputcontrol.ManualKeyboard, report, keyboardReportHeld(report), true)
 		case MouseEvent:
+			if !GetManager().CanControl(c) {
+				continue
+			}
 			report := hid.NormalizeMouseReport(data[1:])
 			if len(report) != 5 && len(report) != 7 {
 				log.Debugf("invalid manual mouse report: %v", report)
@@ -105,6 +112,12 @@ func (c *Client) Read() error {
 				kind = inputcontrol.ManualAbsoluteMouse
 			}
 			c.queueManualReport(c.mouse, kind, report, report[0] != 0, mouseReportStartsCooldown(report))
+		case ControlEvent:
+			if len(data) != 2 || (data[1] != 0 && data[1] != 1) {
+				log.Debugf("invalid manual control request: %v", data)
+				continue
+			}
+			GetManager().SetControl(c, data[1] == 1)
 		}
 	}
 }
@@ -124,10 +137,16 @@ func (c *Client) queueManualReport(queue chan hid.QueuedReport, kind inputcontro
 		}
 		return
 	}
+	// Ownership can move after Read checked this client but before its report
+	// acquired a manual-session reservation. Do not enqueue such a stale report.
+	if !GetManager().CanControl(c) {
+		reservation.Complete(false)
+		return
+	}
 
 	queued := hid.QueuedReport{
 		Data:               append([]byte(nil), report...),
-		Execute:            c.manual.Execute,
+		Execute:            reservation.Execute,
 		Complete:           reservation.Complete,
 		ResetKeyboard:      func() { c.manual.Reset(inputcontrol.ManualKeyboard) },
 		ResetRelativeMouse: func() { c.manual.Reset(inputcontrol.ManualRelativeMouse) },
@@ -217,6 +236,41 @@ func (c *Client) Close() {
 		c.manual.Close()
 	}
 	log.Debug("websocket disconnected")
+}
+
+func (c *Client) setControlEnabled(enabled bool) {
+	c.mutex.Lock()
+	c.controlEnabled = enabled
+	c.mutex.Unlock()
+	c.sendControlStatus()
+}
+
+func (c *Client) sendControlStatus() {
+	c.mutex.Lock()
+	enabled := c.controlEnabled
+	c.mutex.Unlock()
+	if c.ws == nil {
+		return
+	}
+	payload, err := json.Marshal(struct {
+		Enabled bool `json:"enabled"`
+	}{Enabled: enabled})
+	if err != nil {
+		return
+	}
+	if err := c.Write("control", string(payload)); err != nil {
+		log.Debugf("failed to send manual control status: %s", err)
+	}
+}
+
+func (c *Client) revokeInput() {
+	if c.manual == nil {
+		return
+	}
+	c.manual.Revoke()
+	// HID reports may already have been accepted by a worker when ownership
+	// changes. Send an all-released state before another session takes over.
+	_ = hid.ReleaseAllHIDStateBestEffort()
 }
 
 // enqueueKeyboardLedStatus records only the newest status for this client. It

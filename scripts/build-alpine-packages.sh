@@ -109,8 +109,6 @@ archive_payload nanokvm-kmod-sg2002 "$PROFILE_ROOT/kmod-sg2002"
 archive_payload nanokvm-firmware-sg2002 "$PROFILE_ROOT/firmware-sg2002"
 archive_payload nanokvm-app "$PROFILE_ROOT/app"
 archive_payload nanokvm-release "$(make_release_payload)"
-archive_payload openssl4-libs "$PROFILE_ROOT/openssl4-libs" 4.0.2
-archive_payload openvpn3 "$PROFILE_ROOT/openvpn3" 3.12_pre20260904
 
 export CARCH=riscv64
 export REPODEST SRCDEST PKGVER
@@ -134,7 +132,6 @@ prepare_recipe() {
 	# generated archive there so both `abuild checksum` and the actual build read
 	# the same bytes; SRCDEST remains the persistent archive cache/output.
 	version=$PKGVER
-	case "$pkg" in openssl4-libs) version=4.0.2 ;; openvpn3) version=3.12_pre20260904 ;; esac
 	cp "$SRCDEST/$pkg-$version.tar.gz" "$recipe_dir/"
 	(
 		cd "$recipe_dir"
@@ -150,7 +147,7 @@ prepare_recipe() {
 	fi
 }
 
-for pkg in openssl4-libs openvpn3 nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 \
+for pkg in nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 \
 	 nanokvm-app nanokvm-release; do
 	echo "building $pkg ($PROFILE)"
 	prepare_recipe "$pkg"

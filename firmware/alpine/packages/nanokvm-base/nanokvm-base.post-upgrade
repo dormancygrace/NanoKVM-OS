@@ -5,3 +5,13 @@ rc-update add loopback boot
 if [ -e /run/openrc/softlevel ] && ! rc-service loopback status >/dev/null 2>&1; then
     rc-service loopback start
 fi
+
+# Move the legacy package greeting to the interactive profile script. Do not
+# replace a MOTD that differs from the two texts managed by NanoKVM/Alpine.
+if [ ! -s /etc/motd ] || grep -qx 'Welcome to Alpine!' /etc/motd || \
+   [ "$(cat /etc/motd)" = 'Welcome to NanoKVM OS!
+
+Manage your device through its web interface.
+System and package updates are available through apk.' ]; then
+    : > /etc/motd
+fi

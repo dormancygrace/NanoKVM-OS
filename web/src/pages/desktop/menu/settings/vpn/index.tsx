@@ -178,7 +178,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
                 <Tag
                   className="m-0"
                   color={
-                    p.state === 'connected' ? 'green' : p.state === 'error' ? 'red' : undefined
+                    p.state === 'connected' ? 'success' : p.state === 'error' ? 'red' : undefined
                   }
                 >
                   {t(`vpn.states.${p.state}`)}

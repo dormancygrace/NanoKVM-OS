@@ -9,8 +9,11 @@ const profile = "client\ndev tun\nremote vpn.example.test 1194 udp\nauth-user-pa
 
 func TestNormalizeAndRejectExecutableInputs(t *testing.T) {
 	p, e := Normalize(profile, nil)
-	if e != nil || !p.NeedsAuth || !strings.Contains(p.Config, "auth-user-pass") {
-		t.Fatal("login profile", e)
+	if e != nil || !p.NeedsAuth || strings.Contains(p.Config, "auth-user-pass") {
+		t.Fatal("login profile must defer credentials to the service", e)
+	}
+	if strings.Contains(p.Config, "dev tun") {
+		t.Fatal("the service must own the runtime device name")
 	}
 	if _, e = Normalize(p.Config, nil); e != nil {
 		t.Fatal("normalized profile not stable", e)

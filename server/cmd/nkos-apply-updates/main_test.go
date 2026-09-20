@@ -73,7 +73,7 @@ func TestKernelIsDeferredNotRestarted(t *testing.T) {
 }
 func TestOpenVPNRestoresViaRunningAppOnlyOnce(t *testing.T) {
 	d := t.TempDir()
-	p := filepath.Join(d, "libssl.so.4")
+	p := filepath.Join(d, "openvpn")
 	os.WriteFile(p, []byte("old"), 0600)
 	s := snapshot{Targets: []target{fixture(t, "openvpn", "openvpn", []string{p}, nil), fixture(t, "nanokvm-app", "service", nil, nil)}}
 	replace(t, p)

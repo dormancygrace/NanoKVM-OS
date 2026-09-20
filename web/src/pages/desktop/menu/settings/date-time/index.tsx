@@ -98,7 +98,7 @@ export function DateTimeSettings() {
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-neutral-400">
               <span>{status.config.timezone}</span>
-              <Tag bordered={false} color={status.synchronized ? 'green' : 'default'}>
+              <Tag bordered={false} color={status.synchronized ? 'success' : 'default'}>
                 {t(status.synchronized ? 'dateTime.synchronized' : 'dateTime.waiting')}
               </Tag>
             </div>

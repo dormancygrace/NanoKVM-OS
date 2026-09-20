@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Divider, Input, Modal, Popconfirm, Switch, Tag } from 'antd';
-import { FileUpIcon, KeyRoundIcon, Trash2Icon } from 'lucide-react';
+import { Alert, Button, Divider, Input, Modal, Popconfirm, Result, Switch, Tag } from 'antd';
+import { DownloadIcon, FileUpIcon, KeyRoundIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { http } from '@/lib/http.ts';
@@ -101,6 +101,12 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
     Array.from(files).forEach((f) => data.append('files', f));
     void run(() => http.post('/api/extensions/openvpn/import', data));
   }
+  function install() {
+    void run(() => http.post('/api/extensions/openvpn/install'));
+  }
+  function uninstall() {
+    void run(() => http.post('/api/extensions/openvpn/uninstall'));
+  }
   async function saveCredentials() {
     if (!editing) return;
     if (
@@ -124,7 +130,36 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
       </div>
       <Divider className="opacity-50" />
       <p className="text-sm text-neutral-400">{t('vpn.openvpnDescription')}</p>
-      {available === false && <Alert type="warning" showIcon message={t('vpn.openvpnRequired')} />}
+      {available === false && (
+        <Result
+          status="info"
+          icon={<DownloadIcon size={28} />}
+          title={t('vpn.openvpnNotInstalled')}
+          subTitle={t('vpn.openvpnInstallDescription')}
+          extra={
+            <Button type="primary" loading={busy} onClick={install}>
+              {t('vpn.openvpnInstall')}
+            </Button>
+          }
+        />
+      )}
+      {available === true && (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm text-neutral-400">{t('vpn.openvpnInstalled')}</span>
+          <Popconfirm
+            title={t('vpn.openvpnUninstall')}
+            description={t('vpn.openvpnUninstallWarning')}
+            onConfirm={uninstall}
+            okText={t('vpn.confirm')}
+            cancelText={t('vpn.cancel')}
+            disabled={busy}
+          >
+            <Button danger loading={busy} icon={<Trash2Icon size={15} />}>
+              {t('vpn.openvpnUninstall')}
+            </Button>
+          </Popconfirm>
+        </div>
+      )}
       <input
         ref={input}
         type="file"
@@ -139,36 +174,37 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
       <Button
         icon={<FileUpIcon size={16} />}
         loading={busy}
-        disabled={available === undefined}
+        disabled={available !== true}
         onClick={() => input.current?.click()}
       >
         {t('vpn.openvpnImport')}
       </Button>
       {error && <Alert type="error" showIcon message={error} />}
-      {available !== undefined && profiles.length === 0 && (
+      {available === true && profiles.length === 0 && (
         <div className="rounded-lg border border-dashed border-neutral-700 p-6 text-center text-sm text-neutral-500">
           {t('vpn.openvpnEmpty')}
         </div>
       )}
-      {profiles.map((p) => {
-        const on = p.enabled || !['off', 'error'].includes(p.state);
-        const otherOn = profiles.some(
-          (other) => other.id !== p.id && (other.enabled || !['off', 'error'].includes(other.state))
-        );
-        return (
-          <div
-            key={p.id}
-            className="space-y-2 rounded-lg border border-neutral-700/70 bg-neutral-800/40 p-4"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 truncate font-medium" title={p.name}>
-                {p.name}
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
+      {available === true &&
+        profiles.map((p) => {
+          const on = p.enabled || !['off', 'error'].includes(p.state);
+          const otherOn = profiles.some(
+            (other) => other.id !== p.id && (other.enabled || !['off', 'error'].includes(other.state))
+          );
+          return (
+            <div
+              key={p.id}
+              className="space-y-2 rounded-lg border border-neutral-700/70 bg-neutral-800/40 p-4"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 truncate font-medium" title={p.name}>
+                  {p.name}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
                 <Tag
                   className="m-0"
                   color={
-                    p.state === 'connected' ? 'green' : p.state === 'error' ? 'red' : undefined
+                    p.state === 'connected' ? 'success' : p.state === 'error' ? 'red' : undefined
                   }
                 >
                   {t(`vpn.states.${p.state}`)}
@@ -176,7 +212,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
                 <Switch
                   aria-label={`${t('vpn.enable')} ${p.name}`}
                   checked={on}
-                  disabled={busy || !available || (!on && otherOn)}
+                  disabled={busy || available !== true || (!on && otherOn)}
                   onChange={(v) => change(p, v ? 'up' : 'down')}
                 />
                 {(p.needsAuth || p.needsPassphrase) && (
@@ -202,24 +238,24 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
                     aria-label={`${t('vpn.delete')} ${p.name}`}
                   />
                 </Popconfirm>
+                </div>
               </div>
+              {p.address && <div className="break-all text-xs text-neutral-400">{p.address}</div>}
+              {p.state !== 'off' && (
+                <div className="text-xs text-neutral-500">
+                  ↓ {(p.received / 1048576).toFixed(1)} MiB · ↑ {(p.sent / 1048576).toFixed(1)} MiB
+                </div>
+              )}
+              {!p.credentialsSaved && (
+                <div className="text-xs text-amber-400">{t('vpn.credentialsRequired')}</div>
+              )}
+              {p.error && (
+                <div role="alert" className="text-xs text-red-400">
+                  {p.error}
+                </div>
+              )}
             </div>
-            {p.address && <div className="break-all text-xs text-neutral-400">{p.address}</div>}
-            {p.state !== 'off' && (
-              <div className="text-xs text-neutral-500">
-                ↓ {(p.received / 1048576).toFixed(1)} MiB · ↑ {(p.sent / 1048576).toFixed(1)} MiB
-              </div>
-            )}
-            {!p.credentialsSaved && (
-              <div className="text-xs text-amber-400">{t('vpn.credentialsRequired')}</div>
-            )}
-            {p.error && (
-              <div role="alert" className="text-xs text-red-400">
-                {p.error}
-              </div>
-            )}
-          </div>
-        );
+          );
       })}
       <p className="text-xs text-neutral-500">{t('vpn.openvpnNote')}</p>
       <Modal

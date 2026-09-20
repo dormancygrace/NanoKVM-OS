@@ -327,7 +327,8 @@ fi
 # Build transport can stay local; installed repositories must be reachable by the device.
 {
     [ -z "$TUNED_REPO" ] || printf '%s\n' "${RUNTIME_TUNED_REPO:-$TUNED_REPO}"
-    printf '%s\n' "${RUNTIME_NANOKVM_REPO:-$NANOKVM_REPO}" "$ALPINE_MAIN" "$ALPINE_COMMUNITY"
+    printf '%s\n' "${RUNTIME_NANOKVM_REPO:-$NANOKVM_REPO}" "$ALPINE_MAIN" "$ALPINE_COMMUNITY" \
+        "@edgecommunity https://dl-cdn.alpinelinux.org/alpine/edge/community"
 } > "$REPOSITORIES"
 install -m 0644 "$REPOSITORIES" "$STAGE_ROOT/etc/apk/repositories"
 

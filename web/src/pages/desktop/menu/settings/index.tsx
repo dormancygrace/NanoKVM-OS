@@ -13,6 +13,8 @@ import {
   InfoIcon,
   LayoutDashboardIcon,
   MemoryStickIcon,
+  NetworkIcon,
+  PackageIcon,
   PaletteIcon,
   SettingsIcon,
   ShieldIcon,
@@ -27,6 +29,7 @@ import { useTranslation } from 'react-i18next';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
+import { Netbird as NetbirdIcon } from '@/components/icons/netbird';
 import { OpenVPNIcon } from '@/components/icons/openvpn';
 import { Tailscale as TailscaleIcon } from '@/components/icons/tailscale';
 import { WireGuardIcon } from '@/components/icons/wireguard';
@@ -41,14 +44,17 @@ import { DateTimeSettings } from './date-time';
 import { Device } from './device';
 import { MCP } from './mcp';
 import { Memory } from './memory';
-import { EthernetSettings, WifiSettings } from './network';
+import { EthernetSettings, Network, WifiSettings } from './network';
 import styles from './sidebar.module.css';
+import { Netbird } from './netbird';
 import { Tailscale } from './tailscale';
 import { Updates } from './updates';
 import { Usb } from './usb';
 import { VideoSettings } from './video';
 import { WireGuard } from './vpn';
 import { OpenVPN } from './vpn/openvpn';
+import { System } from './system';
+import { Software } from './software';
 
 export const Settings = ({
   tooltipPlacement = 'bottom'
@@ -68,7 +74,8 @@ export const Settings = ({
   const [isLocked, setIsLocked] = useState(false);
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [vpnExpanded, setVpnExpanded] = useState(false);
-  const [deviceExpanded, setDeviceExpanded] = useState(false);
+  const [networkExpanded, setNetworkExpanded] = useState(false);
+  const [systemExpanded, setSystemExpanded] = useState(false);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
 
   const setKeyboardLock = useSetAtom(keyboardLockAtom);
@@ -88,14 +95,23 @@ export const Settings = ({
     ...(isAdmin
       ? [
           { id: 'usb', icon: <UsbIcon size={16} />, component: <Usb /> },
-          { id: 'device', icon: <SmartphoneIcon size={16} />, component: null },
-          { id: 'device-wifi', icon: <WifiIcon size={16} />, component: <WifiSettings /> },
+          { id: 'device', icon: <SmartphoneIcon size={16} />, component: <Device /> },
+          { id: 'network', icon: <NetworkIcon size={16} />, component: null },
+          { id: 'network-general', icon: <SettingsIcon size={16} />, component: <Network /> },
+          { id: 'network-wifi', icon: <WifiIcon size={16} />, component: <WifiSettings /> },
           {
-            id: 'device-ethernet',
+            id: 'network-ethernet',
             icon: <EthernetPortIcon size={16} />,
             component: <EthernetSettings />
           },
-          { id: 'device-general', icon: <SettingsIcon size={16} />, component: <Device /> },
+          { id: 'system', icon: <SettingsIcon size={16} />, component: null },
+          { id: 'system-general', icon: <SettingsIcon size={16} />, component: <System /> },
+          { id: 'system-memory', icon: <MemoryStickIcon size={16} />, component: <Memory /> },
+          { id: 'system-date-time', icon: <ClockIcon size={16} />, component: <DateTimeSettings /> },
+          { id: 'system-users', icon: <UserRoundIcon size={16} />, component: <Account /> },
+          { id: 'system-mcp', icon: <BotIcon size={16} />, component: <MCP /> },
+          { id: 'system-updates', icon: <DownloadIcon size={16} />, component: <Updates /> },
+          { id: 'system-software', icon: <PackageIcon size={16} />, component: <Software /> },
           {
             id: 'vpn',
             icon: <ShieldIcon size={16} />,
@@ -112,22 +128,19 @@ export const Settings = ({
             component: <Tailscale setIsLocked={setIsLocked} />
           },
           {
+            id: 'vpn-netbird',
+            icon: <NetbirdIcon />,
+            component: <Netbird setIsLocked={setIsLocked} />
+          },
+          {
             id: 'vpn-wireguard',
             icon: <WireGuardIcon />,
             component: <WireGuard setIsLocked={setIsLocked} />
           },
-          { id: 'memory', icon: <MemoryStickIcon size={16} />, component: <Memory /> },
-          { id: 'date-time', icon: <ClockIcon size={16} />, component: <DateTimeSettings /> }
         ]
       : []),
     { id: 'appearance', icon: <PaletteIcon size={16} />, component: <Appearance /> },
-    { id: 'account', icon: <UserRoundIcon size={18} />, component: <Account /> },
-    ...(isAdmin
-      ? [
-          { id: 'mcp', icon: <BotIcon size={16} />, component: <MCP /> },
-          { id: 'updates', icon: <DownloadIcon size={16} />, component: <Updates /> }
-        ]
-      : []),
+    ...(!isAdmin ? [{ id: 'account', icon: <UserRoundIcon size={18} />, component: <Account /> }] : []),
     { id: 'about', icon: <InfoIcon size={14} />, component: <About /> }
   ];
 
@@ -150,11 +163,14 @@ export const Settings = ({
     const requested =
       request === 'tailscale' || request === 'vpn'
         ? 'vpn-tailscale'
-        : request === 'device' || request === 'network'
-          ? 'device-general'
+        : request === 'network'
+          ? 'network-general'
+          : request === 'system'
+            ? 'system-general'
           : request;
     if (requested.startsWith('vpn-')) setVpnExpanded(true);
-    if (requested.startsWith('device-')) setDeviceExpanded(true);
+    if (requested.startsWith('network-')) setNetworkExpanded(true);
+    if (requested.startsWith('system-')) setSystemExpanded(true);
     setCurrentTab(requested);
     setDetailOpen(true);
     if (!modalOpenRef.current) {
@@ -175,13 +191,18 @@ export const Settings = ({
       setVpnExpanded((expanded) => !expanded);
       return;
     }
-    if (tab === 'device') {
-      setDeviceExpanded((expanded) => !expanded);
+    if (tab === 'network') {
+      setNetworkExpanded((expanded) => !expanded);
       return;
     }
-    const target = tab === 'network' ? 'device-general' : tab;
+    if (tab === 'system') {
+      setSystemExpanded((expanded) => !expanded);
+      return;
+    }
+    const target = tab;
     if (target.startsWith('vpn-')) setVpnExpanded(true);
-    if (target.startsWith('device-')) setDeviceExpanded(true);
+    if (target.startsWith('network-')) setNetworkExpanded(true);
+    if (target.startsWith('system-')) setSystemExpanded(true);
     setCurrentTab(target);
     setDetailOpen(true);
   }
@@ -191,7 +212,7 @@ export const Settings = ({
     modalOpenRef.current = true;
     onRequestMobileMenuDismiss?.();
     setCurrentTab('dashboard');
-    setDetailOpen(true);
+    setDetailOpen(!mobile);
     setIsModalOpen(true);
     setKeyboardLock({ source: 'settings-modal', locked: true });
     setSubmenuOpenCount((count) => count + 1);
@@ -208,19 +229,30 @@ export const Settings = ({
     setIsModalOpen(false);
     setCurrentTab('dashboard');
     setVpnExpanded(false);
-    setDeviceExpanded(false);
+    setNetworkExpanded(false);
+    setSystemExpanded(false);
     setSubmenuOpenCount((count) => Math.max(0, count - 1));
   }
 
   function tabTitle(id: string) {
     if (id === 'dashboard') return 'Dashboard';
-    if (id === 'date-time') return t('dateTime.title');
+    if (id === 'system-date-time') return t('dateTime.title');
     if (id === 'video') return t('videoSettings.title');
-    if (id === 'device-wifi') return t('settings.network.wifi.title');
-    if (id === 'device-ethernet') return 'Ethernet';
-    if (id === 'device-general') return t('settings.device.general');
+    if (id === 'network') return t('settings.network.title');
+    if (id === 'network-wifi') return t('settings.network.wifi.title');
+    if (id === 'network-ethernet') return 'Ethernet';
+    if (id === 'network-general') return t('settings.network.general');
+    if (id === 'system') return t('settings.system.title');
+    if (id === 'system-general') return t('settings.system.general');
+    if (id === 'system-memory') return t('settings.memory.title');
+    if (id === 'system-users') return t('settings.account.title');
+    if (id === 'system-mcp') return t('settings.mcp.title');
+    if (id === 'system-updates') return t('settings.updates.title');
+    if (id === 'system-software') return t('settings.software.title');
+    if (id === 'account') return t('settings.account.title');
     if (id === 'vpn') return 'VPN';
     if (id === 'vpn-tailscale') return 'Tailscale';
+    if (id === 'vpn-netbird') return 'NetBird';
     if (id === 'vpn-wireguard') return 'WireGuard';
     if (id === 'vpn-openvpn') return 'OpenVPN';
     return t(`settings.${id}.title`);
@@ -228,7 +260,7 @@ export const Settings = ({
 
   return (
     <>
-      <Tooltip title={t('settings.title')} placement={tooltipPlacement} mouseEnterDelay={0.6}>
+      <Tooltip title={t('settings.title')} placement={tooltipPlacement} mouseEnterDelay={0.6} open={mobile ? false : undefined}>
         <div
           role="button"
           aria-label={t('settings.title')}
@@ -260,7 +292,7 @@ export const Settings = ({
       >
         <div
           className={clsx(
-            'flex rounded-lg outline outline-1 outline-neutral-700',
+            'flex min-w-0 rounded-lg outline outline-1 outline-neutral-700',
             mobile ? 'h-[calc(100dvh-32px)] flex-col overflow-hidden' : 'h-[80vh] max-h-[700px]'
           )}
         >
@@ -298,12 +330,22 @@ export const Settings = ({
                 (tab) =>
                   tab.id !== 'about' &&
                   (!tab.id.startsWith('vpn-') || vpnExpanded) &&
-                  (!tab.id.startsWith('device-') || deviceExpanded)
+                  (!tab.id.startsWith('network-') || networkExpanded) &&
+                  (!tab.id.startsWith('system-') || systemExpanded)
               )
               .map((tab) => {
-                const child = tab.id.startsWith('vpn-') || tab.id.startsWith('device-');
+                const child =
+                  tab.id.startsWith('vpn-') ||
+                  tab.id.startsWith('network-') ||
+                  tab.id.startsWith('system-');
                 const expanded =
-                  tab.id === 'vpn' ? vpnExpanded : tab.id === 'device' ? deviceExpanded : undefined;
+                  tab.id === 'vpn'
+                    ? vpnExpanded
+                    : tab.id === 'network'
+                      ? networkExpanded
+                      : tab.id === 'system'
+                        ? systemExpanded
+                        : undefined;
                 const label = tabTitle(tab.id);
                 return (
                   <button
@@ -366,12 +408,17 @@ export const Settings = ({
           {(!mobile || detailOpen) && (
             <ScrollArea
               viewportRef={scrollViewportRef}
-              className="min-h-0 w-full flex-1 rounded-r-lg bg-neutral-900/50 px-3 [&_[data-slot=scroll-area-scrollbar]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:p-0 [&_[data-slot=scroll-area-thumb]]:bg-neutral-500/30"
+              className="box-border min-h-0 min-w-0 flex-1 rounded-r-lg bg-neutral-900/50 px-3 [&_[data-slot=scroll-area-scrollbar]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:p-0 [&_[data-slot=scroll-area-thumb]]:bg-neutral-500/30"
             >
-              <div className="flex h-full w-full justify-center">
+              <div
+                className={clsx(
+                  'flex h-full w-full min-w-0 justify-center',
+                  mobile && 'nanokvm-settings-mobile-content'
+                )}
+              >
                 <div
                   className={clsx(
-                    'w-full pb-10',
+                    'w-full min-w-0 pb-10',
                     currentTab === 'dashboard' ? 'max-w-[820px]' : 'max-w-[600px]',
                     mobile ? 'pt-5' : 'pt-14'
                   )}

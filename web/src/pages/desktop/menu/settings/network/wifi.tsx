@@ -7,7 +7,7 @@ import * as api from '@/api/network.ts';
 import { groupWifiNetworks, type WifiGroup } from './wifi-networks';
 import { WifiSignal } from './wifi-signal';
 
-type Pending = { until: number; enabled?: boolean; ssid?: string; band?: api.WifiBand };
+type Pending = { until: number; enabled?: boolean; ssid?: string };
 
 export const Wifi = () => {
   const { t } = useTranslation();
@@ -33,7 +33,6 @@ export const Wifi = () => {
   const pendingRef = useRef<Pending | undefined>(undefined);
   const [message, setMessage] = useState('');
   const [modal, setModal] = useState(false);
-  const [profileNetwork, setProfileNetwork] = useState<WifiGroup>();
   const [profile, setProfile] = useState<api.WifiProfile>({
     ssid: '',
     password: '',
@@ -57,7 +56,7 @@ export const Wifi = () => {
         if (operation && !next.busy) {
           const done =
             operation.ssid !== undefined
-              ? next.connected && next.ssid === operation.ssid && next.band === operation.band
+              ? next.connected && next.ssid === operation.ssid
               : next.enabled === operation.enabled;
           if (next.error || done) {
             pendingRef.current = undefined;
@@ -112,6 +111,23 @@ export const Wifi = () => {
     }
   }
 
+  async function setPreferredBand(preferredBand: api.WifiBand) {
+    if (locked || !state) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const rsp = await api.setWifiBandPreference(preferredBand);
+      if (rsp.code !== 0) throw new Error();
+      // Changing a preference must not interrupt the connection currently
+      // carrying this request. It is used by the next association/restart.
+      setState((old) => (old ? { ...old, preferredBand } : old));
+    } catch {
+      setMessage('operationFailed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function scan() {
     if (locked || scanInFlight.current || !canConfigure || !state?.bands?.length) return;
     scanInFlight.current = true;
@@ -156,7 +172,6 @@ export const Wifi = () => {
   const groupedNetworks = groupWifiNetworks(networks);
 
   function open(network?: WifiGroup) {
-    setProfileNetwork(network);
     const candidate =
       network?.candidates.find(
         (item) => state?.connected && state.ssid === item.ssid && state.band === item.band
@@ -164,7 +179,7 @@ export const Wifi = () => {
     setProfile({
       ssid: network?.ssid || '',
       password: '',
-      band: candidate?.band || state?.band || state?.bands?.[0] || '2.4',
+      band: state?.preferredBand || candidate?.band || state?.band || state?.bands?.[0] || '5',
       hidden: false,
       security: candidate && candidate.security !== 'unsupported' ? candidate.security : 'wpa2-wpa3'
     });
@@ -186,9 +201,9 @@ export const Wifi = () => {
     setBusy(true);
     setMessage('');
     try {
-      const rsp = await api.configureWifi(profile);
+      const rsp = await api.configureWifi({ ...profile, preferredBand: state?.preferredBand });
       if (rsp.code !== 0) throw new Error();
-      track({ ssid: profile.ssid, band: profile.band });
+      track({ ssid: profile.ssid });
       setProfile((old) => ({ ...old, password: '' }));
       setModal(false);
     } catch {
@@ -238,6 +253,20 @@ export const Wifi = () => {
 
         {canConfigure && (
           <>
+            <label className="flex flex-col gap-1 text-sm">
+              {tr('preferredBand')}
+              <Select
+                value={state.preferredBand}
+                disabled={locked}
+                options={(['2.4', '5'] as const).map((value) => ({
+                  value,
+                  label: value === '2.4' ? tr('band24') : tr('band5'),
+                  disabled: !state.bands.includes(value)
+                }))}
+                onChange={setPreferredBand}
+              />
+              <span className="text-xs text-neutral-500">{tr('preferredBandHint')}</span>
+            </label>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="text-sm">{tr('availableNetworks')}</span>
               <Button
@@ -381,33 +410,6 @@ export const Wifi = () => {
                 <span className="text-xs text-neutral-500">{tr('passwordHint')}</span>
               </label>
             )}
-            <label className="flex flex-col gap-1 text-sm">
-              {tr('band')}
-              <Select
-                value={profile.band}
-                disabled={busy}
-                options={(state?.bands || []).map((value) => ({
-                  value,
-                  label: value === '2.4' ? tr('band24') : tr('band5')
-                }))}
-                onChange={(band: api.WifiBand) => {
-                  const candidate = profileNetwork?.candidates.find(
-                    (item) =>
-                      item.ssid === profile.ssid &&
-                      item.band === band &&
-                      item.security !== 'unsupported'
-                  );
-                  setProfile({
-                    ...profile,
-                    band,
-                    security:
-                      candidate && candidate.security !== 'unsupported'
-                        ? candidate.security
-                        : profile.security
-                  });
-                }}
-              />
-            </label>
             {message && (
               <span role="alert" className="text-xs text-red-500">
                 {tr(message)}

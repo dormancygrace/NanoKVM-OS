@@ -33,6 +33,13 @@ type GetWifiRsp struct {
 	ApMode    bool     `json:"apMode"`
 	Connected bool     `json:"connected"`
 	Ssid      string   `json:"ssid"`
+	// PreferredBand affects subsequent association attempts only. Reading or
+	// changing it never tears down an existing Wi-Fi connection.
+	PreferredBand string `json:"preferredBand"`
+}
+
+type SetWifiBandPreferenceReq struct {
+	PreferredBand string `json:"preferredBand" validate:"required,oneof=2.4 5"`
 }
 
 type ConnectWifiReq struct {
@@ -83,4 +90,19 @@ type SetEthernetReq struct {
 	Gateway     string `json:"gateway"`
 	VLANEnabled *bool  `json:"vlanEnabled"`
 	VLANID      int    `json:"vlanId"`
+}
+
+type GatewayRoute struct {
+	Interface string `json:"interface"`
+	Gateway   string `json:"gateway"`
+	Metric    int    `json:"metric"`
+}
+
+type GatewayPreferenceRsp struct {
+	Preferred string         `json:"preferred"`
+	Routes    []GatewayRoute `json:"routes"`
+}
+
+type SetGatewayPreferenceReq struct {
+	Preferred string `json:"preferred" validate:"required,oneof=auto ethernet wifi"`
 }

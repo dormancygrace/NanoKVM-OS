@@ -22,7 +22,9 @@ func main() {
 	}
 	var lock *os.File
 	var err error
-	if len(os.Args) == 3 && (os.Args[1] == "install-inherited" || os.Args[1] == "prepare-inherited" || os.Args[1] == "apk-inherited") {
+	inherited := (len(os.Args) == 3 && (os.Args[1] == "install-inherited" || os.Args[1] == "prepare-inherited" || os.Args[1] == "apk-inherited")) ||
+		(len(os.Args) == 4 && os.Args[1] == "software-inherited")
+	if inherited {
 		lock = os.NewFile(3, "update-lock")
 		if lock == nil {
 			os.Exit(1)
@@ -46,6 +48,13 @@ func main() {
 	defer lock.Close()
 	if len(os.Args) == 3 && os.Args[1] == "apk-inherited" {
 		if err = osupdate.RunAPK(os.Args[2]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if len(os.Args) == 4 && os.Args[1] == "software-inherited" {
+		if err = osupdate.RunSoftware(os.Args[2], os.Args[3]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -76,7 +85,7 @@ func main() {
 	} else if len(os.Args) == 3 && (os.Args[1] == "install" || os.Args[1] == "install-inherited") {
 		err = osupdate.Install(os.Args[2], lock)
 	} else {
-		err = fmt.Errorf("usage: nkos-update self-test | prepare-inherited FILE | recover | system-boot | system-confirm | install PACKAGE_ID")
+		err = fmt.Errorf("usage: nkos-update self-test | prepare-inherited FILE | software-inherited ACTION PACKAGE | recover | system-boot | system-confirm | install PACKAGE_ID")
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

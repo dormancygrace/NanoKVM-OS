@@ -228,8 +228,8 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   const size = (w?: number, h?: number) => (w && h ? `${w} × ${h}` : '—');
   const state = (key: string) => t(`dashboard.states.${key}`, { defaultValue: key });
   const line = (label: string, value: ReactNode) => (
-    <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-1">
-      <dt className="text-neutral-400">{label}</dt>
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-1 py-1 sm:flex sm:flex-wrap sm:justify-between">
+      <dt className="min-w-0 wrap-break-word text-neutral-400">{label}</dt>
       <dd className="min-w-0 text-right wrap-break-word text-neutral-200">{value ?? '—'}</dd>
     </div>
   );
@@ -301,7 +301,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                   <span className="break-all">{profile.name}</span>
                   <span
                     className={
-                      profile.state === 'connected' ? 'text-emerald-400' : 'text-neutral-400'
+                      profile.state === 'connected' ? 'text-green-500' : 'text-neutral-400'
                     }
                   >
                     {state(profile.state)}
@@ -340,16 +340,16 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   };
   return (
     <div className="space-y-5 pb-6">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-medium">Dashboard</h2>
-        </div>
-        <span className="text-xs text-neutral-500">{t('dashboard.live')}</span>
+      <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
+        <h2 className="text-xl font-medium">Dashboard</h2>
+        <span className="max-w-full text-xs wrap-break-word text-neutral-500">
+          {t('dashboard.live')}
+        </span>
       </div>
       {(errors.length > 0 || extraFailed) && (
         <Alert type="warning" showIcon message={t('dashboard.stale')} />
       )}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {metric(
           'CPU',
           cpu === null ? '—' : `${cpu.toFixed(0)}%`,
@@ -541,7 +541,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                       : iface.name}
                   </span>
                   <span
-                    className={`ml-auto text-xs ${iface.up && iface.connected ? 'text-emerald-400' : 'text-neutral-500'}`}
+                    className={`ml-auto text-xs ${iface.up && iface.connected ? 'text-green-500' : 'text-neutral-500'}`}
                   >
                     {t(
                       iface.up && iface.connected ? 'dashboard.connected' : 'dashboard.disconnected'

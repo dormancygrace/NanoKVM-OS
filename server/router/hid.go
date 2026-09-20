@@ -26,6 +26,7 @@ func hidRouter(r *gin.Engine) {
 
 	api.GET("/hid/mode", service.GetHidMode) // get hid mode
 	api.GET("/hid/leds", service.GetKeyboardLedStatus)
+	api.GET("/hid/input-status", service.GetInputStatus)
 
 	admin := r.Group("/api").Use(
 		middleware.CheckToken(),

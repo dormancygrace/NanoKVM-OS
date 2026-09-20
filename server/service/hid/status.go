@@ -51,6 +51,16 @@ func (s *Service) GetHidMode(c *gin.Context) {
 	log.Debugf("get hid mode: %s", mode)
 }
 
+// GetInputStatus is read-only and available to every authenticated KVM viewer.
+func (s *Service) GetInputStatus(c *gin.Context) {
+	h := GetHid()
+	h.Lock()
+	defer h.Unlock()
+	keyboard, relative, absolute := disabledHIDFunctions("/boot")
+	var rsp proto.Response
+	rsp.OkRspWithData(c, gin.H{"available": !keyboard || !relative || !absolute})
+}
+
 func (s *Service) GetKeyboardLedStatus(c *gin.Context) {
 	var rsp proto.Response
 	status := GetKeyboardLedStatus()
@@ -177,6 +187,20 @@ func ResetUSBPHY() error {
 }
 
 func copyModeFile(srcScript string) error {
+	return copyModeFileTo(srcScript, USBDevScript)
+}
+
+// Preserve Alpine's compatibility symlink: replace its target atomically.
+func copyModeFileTo(srcScript, dstScript string) error {
+	if info, err := os.Lstat(dstScript); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		dstScript, err = filepath.EvalSymlinks(dstScript)
+		if err != nil {
+			return fmt.Errorf("resolve USB init script: %w", err)
+		}
+	} else if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
 	// open the source file
 	srcFile, err := os.Open(srcScript)
 	if err != nil {
@@ -194,7 +218,7 @@ func copyModeFile(srcScript string) error {
 	}
 
 	// create and copy to temporary file
-	tmpFile, err := os.CreateTemp(filepath.Dir(USBDevScript), ".S03usbdev-")
+	tmpFile, err := os.CreateTemp(filepath.Dir(dstScript), ".S03usbdev-")
 	if err != nil {
 		log.Errorf("failed to create temp %s: %s", USBDevScript, err)
 		return err
@@ -229,7 +253,7 @@ func copyModeFile(srcScript string) error {
 	}
 
 	// replace the target file with the temporary file
-	if err := os.Rename(tmpPath, USBDevScript); err != nil {
+	if err := os.Rename(tmpPath, dstScript); err != nil {
 		log.Errorf("failed to rename %s: %s", tmpPath, err)
 		return err
 	}

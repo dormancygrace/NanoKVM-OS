@@ -1,24 +1,18 @@
 package tailscale
 
 import (
-	"NanoKVM-Server/proto"
-	"NanoKVM-Server/utils"
 	"net"
-	"os"
 	"sync"
 
+	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/extensions/apkpkg"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
 
 type Service struct{}
 
-const (
-	TailscalePath  = "/usr/bin/tailscale"
-	TailscaledPath = "/usr/sbin/tailscaled"
-
-	GoMemLimit int64 = 75
-)
+const TailscalePath = "/usr/bin/tailscale"
 
 var operationMutex sync.Mutex
 
@@ -26,24 +20,18 @@ func beginOperation(c *gin.Context, rsp *proto.Response) bool {
 	if operationMutex.TryLock() {
 		return true
 	}
-
-	rsp.ErrRsp(c, -1, "another tailscale operation is in progress")
+	rsp.ErrRsp(c, -1, "another Tailscale operation is in progress")
 	return false
 }
 
 var StateMap = map[string]proto.TailscaleState{
-	"NoState":          proto.TailscaleNotRunning,
-	"Starting":         proto.TailscaleNotRunning,
-	"NeedsLogin":       proto.TailscaleNotLogin,
-	"NeedsMachineAuth": proto.TailscaleNotLogin,
-	"InUseOtherUser":   proto.TailscaleNotLogin,
-	"Running":          proto.TailscaleRunning,
-	"Stopped":          proto.TailscaleStopped,
+	"NoState": proto.TailscaleNotRunning, "Starting": proto.TailscaleNotRunning,
+	"NeedsLogin": proto.TailscaleNotLogin, "NeedsMachineAuth": proto.TailscaleNotLogin,
+	"InUseOtherUser": proto.TailscaleNotLogin, "Running": proto.TailscaleRunning,
+	"Stopped": proto.TailscaleStopped,
 }
 
-func NewService() *Service {
-	return &Service{}
-}
+func NewService() *Service { return &Service{} }
 
 func (s *Service) Install(c *gin.Context) {
 	var rsp proto.Response
@@ -51,18 +39,17 @@ func (s *Service) Install(c *gin.Context) {
 		return
 	}
 	defer operationMutex.Unlock()
-
 	if !isInstalled() {
-		if err := install(); err != nil {
-			rsp.ErrRsp(c, -1, "install failed")
+		if err := apkpkg.InstallTagged("edgecommunity", "https://dl-cdn.alpinelinux.org/alpine/edge/community", "tailscale", "tailscale-openrc"); err != nil {
+			rsp.ErrRsp(c, -1, "Tailscale installation failed: "+err.Error())
 			return
 		}
-
-		_ = NewCli().Start()
 	}
-
+	if err := NewCli().Start(); err != nil {
+		rsp.ErrRsp(c, -1, "Tailscale was installed but could not start: "+err.Error())
+		return
+	}
 	rsp.OkRsp(c)
-	log.Debugf("install tailscale successfully")
 }
 
 func (s *Service) Uninstall(c *gin.Context) {
@@ -71,15 +58,23 @@ func (s *Service) Uninstall(c *gin.Context) {
 		return
 	}
 	defer operationMutex.Unlock()
-
-	_ = NewCli().Stop()
-	_ = utils.DelGoMemLimit()
-
-	_ = os.Remove(TailscalePath)
-	_ = os.Remove(TailscaledPath)
-
+	if !isInstalled() {
+		rsp.OkRsp(c)
+		return
+	}
+	if err := NewCli().Stop(); err != nil {
+		rsp.ErrRsp(c, -1, "Tailscale could not be stopped; package was kept: "+err.Error())
+		return
+	}
+	if err := apkpkg.Run("remove", "tailscale-openrc"); err != nil {
+		rsp.ErrRsp(c, -1, "Tailscale OpenRC removal failed: "+err.Error())
+		return
+	}
+	if err := apkpkg.Run("remove", "tailscale"); err != nil {
+		rsp.ErrRsp(c, -1, "Tailscale removal failed: "+err.Error())
+		return
+	}
 	rsp.OkRsp(c)
-	log.Debugf("uninstall tailscale successfully")
 }
 
 func (s *Service) Start(c *gin.Context) {
@@ -88,20 +83,11 @@ func (s *Service) Start(c *gin.Context) {
 		return
 	}
 	defer operationMutex.Unlock()
-
-	err := NewCli().Start()
-	if err != nil {
-		rsp.ErrRsp(c, -1, "start failed")
-		log.Errorf("failed to run tailscale start: %s", err)
+	if err := NewCli().Start(); err != nil {
+		rsp.ErrRsp(c, -1, "start failed: "+err.Error())
 		return
 	}
-
-	if !utils.IsGoMemLimitExist() {
-		_ = utils.SetGoMemLimit(GoMemLimit)
-	}
-
 	rsp.OkRsp(c)
-	log.Debugf("tailscale start successfully")
 }
 
 func (s *Service) Restart(c *gin.Context) {
@@ -110,16 +96,11 @@ func (s *Service) Restart(c *gin.Context) {
 		return
 	}
 	defer operationMutex.Unlock()
-
-	err := NewCli().Restart()
-	if err != nil {
-		rsp.ErrRsp(c, -1, "restart failed")
-		log.Errorf("failed to run tailscale restart: %s", err)
+	if err := NewCli().Restart(); err != nil {
+		rsp.ErrRsp(c, -1, "restart failed: "+err.Error())
 		return
 	}
-
 	rsp.OkRsp(c)
-	log.Debugf("tailscale restart successfully")
 }
 
 func (s *Service) Stop(c *gin.Context) {
@@ -128,144 +109,87 @@ func (s *Service) Stop(c *gin.Context) {
 		return
 	}
 	defer operationMutex.Unlock()
-
-	err := NewCli().Stop()
-	if err != nil {
-		rsp.ErrRsp(c, -1, "stop failed")
-		log.Errorf("failed to run tailscale stop: %s", err)
+	if err := NewCli().Stop(); err != nil {
+		rsp.ErrRsp(c, -1, "stop failed: "+err.Error())
 		return
 	}
-
-	_ = utils.DelGoMemLimit()
-
 	rsp.OkRsp(c)
-	log.Debugf("tailscale stop successfully")
 }
 
 func (s *Service) Up(c *gin.Context) {
 	var rsp proto.Response
-
-	err := NewCli().Up()
-	if err != nil {
-		rsp.ErrRsp(c, -1, "tailscale up failed")
-		log.Errorf("failed to run tailscale up: %s", err)
+	if err := NewCli().Up(); err != nil {
+		rsp.ErrRsp(c, -1, "Tailscale up failed: "+err.Error())
 		return
 	}
-
 	rsp.OkRsp(c)
-	log.Debugf("run tailscale up successfully")
 }
 
 func (s *Service) Down(c *gin.Context) {
 	var rsp proto.Response
-
-	err := NewCli().Down()
-	if err != nil {
-		rsp.ErrRsp(c, -1, "tailscale down failed")
-		log.Errorf("failed to run tailscale down: %s", err)
+	if err := NewCli().Down(); err != nil {
+		rsp.ErrRsp(c, -1, "Tailscale down failed: "+err.Error())
 		return
 	}
-
 	rsp.OkRsp(c)
-	log.Debugf("run tailscale down successfully")
 }
 
 func (s *Service) Login(c *gin.Context) {
 	var rsp proto.Response
-
-	// check tailscale status
 	cli := NewCli()
 	status, err := cli.Status()
 	if err != nil {
-		_ = cli.Start()
-		status, err = cli.Status()
+		if err = cli.Start(); err == nil {
+			status, err = cli.Status()
+		}
 	}
-
 	if err != nil {
-		log.Errorf("failed to get tailscale status: %s", err)
-		rsp.ErrRsp(c, -1, "unknown status")
+		rsp.ErrRsp(c, -1, "unknown status: "+err.Error())
 		return
 	}
-
 	if status.BackendState == "Running" {
 		rsp.OkRspWithData(c, &proto.LoginTailscaleRsp{})
 		return
 	}
-
-	// get login url
 	url, err := cli.Login()
 	if err != nil {
-		log.Errorf("failed to run tailscale login: %s", err)
-		rsp.ErrRsp(c, -2, "login failed")
+		rsp.ErrRsp(c, -2, "login failed: "+err.Error())
 		return
 	}
-
-	if !utils.IsGoMemLimitExist() {
-		_ = utils.SetGoMemLimit(GoMemLimit)
-	}
-
-	rsp.OkRspWithData(c, &proto.LoginTailscaleRsp{
-		Url: url,
-	})
-
-	log.Debugf("tailscale login url: %s", url)
+	rsp.OkRspWithData(c, &proto.LoginTailscaleRsp{Url: url})
+	log.Debugf("Tailscale login URL issued: %t", url != "")
 }
 
 func (s *Service) Logout(c *gin.Context) {
 	var rsp proto.Response
-
-	err := NewCli().Logout()
-	if err != nil {
-		rsp.ErrRsp(c, -1, "logout failed")
-		log.Errorf("failed to run tailscale logout: %s", err)
+	if err := NewCli().Logout(); err != nil {
+		rsp.ErrRsp(c, -1, "logout failed: "+err.Error())
 		return
 	}
-
 	rsp.OkRsp(c)
-	log.Debugf("tailscale logout successfully")
 }
 
 func (s *Service) GetStatus(c *gin.Context) {
 	var rsp proto.Response
-
 	if !isInstalled() {
-		rsp.OkRspWithData(c, &proto.GetTailscaleStatusRsp{
-			State: proto.TailscaleNotInstall,
-		})
+		rsp.OkRspWithData(c, &proto.GetTailscaleStatusRsp{State: proto.TailscaleNotInstall})
 		return
 	}
-
 	status, err := NewCli().Status()
 	if err != nil {
-		log.Debugf("failed to get tailscale status: %s", err)
-		rsp.OkRspWithData(c, &proto.GetTailscaleStatusRsp{
-			State: proto.TailscaleNotRunning,
-		})
+		rsp.OkRspWithData(c, &proto.GetTailscaleStatusRsp{State: proto.TailscaleNotRunning})
 		return
 	}
-
 	state, ok := StateMap[status.BackendState]
 	if !ok {
-		log.Errorf("unknown tailscale state: %s", status.BackendState)
 		rsp.ErrRsp(c, -1, "unknown state")
 		return
 	}
-
 	ipv4 := ""
-	for _, tailscaleIp := range status.Self.TailscaleIPs {
-		ip := net.ParseIP(tailscaleIp)
-		if ip != nil && ip.To4() != nil {
+	for _, value := range status.Self.TailscaleIPs {
+		if ip := net.ParseIP(value); ip != nil && ip.To4() != nil {
 			ipv4 = ip.String()
 		}
 	}
-
-	data := proto.GetTailscaleStatusRsp{
-		State:   state,
-		IP:      ipv4,
-		Name:    status.Self.HostName,
-		Account: status.CurrentTailnet.Name,
-	}
-
-	rsp.OkRspWithData(c, &data)
-	log.Debugf("get tailscale status successfully")
+	rsp.OkRspWithData(c, &proto.GetTailscaleStatusRsp{State: state, IP: ipv4, Name: status.Self.HostName, Account: status.CurrentTailnet.Name})
 }

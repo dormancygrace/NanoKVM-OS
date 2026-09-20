@@ -29,6 +29,25 @@ body {
   max-width: calc(100vw - 76px);
 }
 
+@media (max-width: 639px) {
+  .nanokvm-settings-mobile-content .flex.items-center.justify-between {
+    flex-wrap: wrap;
+  }
+
+  .nanokvm-settings-mobile-content .flex.items-center.justify-between > :first-child {
+    min-width: 0;
+  }
+
+  .nanokvm-settings-mobile-content .flex.items-center.justify-between > :last-child {
+    max-width: 100%;
+    margin-left: auto;
+  }
+
+  .nanokvm-settings-mobile-content :is(.ant-select, .ant-input, .ant-input-number) {
+    max-width: 100%;
+  }
+}
+
 .nanokvm-mobile-menu-popover .ant-popover-content {
   max-height: calc(100dvh - 96px);
   overflow: hidden;

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/extensions/apkpkg"
 	"github.com/gin-gonic/gin"
 )
 
@@ -131,6 +132,9 @@ func (s *Service) desired() string {
 	}
 	return ""
 }
+func deviceName(id string) string {
+	return "nv" + strings.TrimPrefix(id, "ov")
+}
 func (s *Service) pid(id string) int {
 	b, _ := os.ReadFile(s.runtime(id, ".pid"))
 	pid, e := strconv.Atoi(strings.TrimSpace(string(b)))
@@ -142,7 +146,7 @@ func (s *Service) pid(id string) int {
 		return 0
 	}
 	args := strings.Split(string(cmd), "\x00")
-	if len(args) < 2 || filepath.Base(args[0]) != "openvpn3" {
+	if len(args) < 2 || filepath.Base(args[0]) != "openvpn" {
 		return 0
 	}
 	for i, a := range args {
@@ -169,13 +173,21 @@ func (s *Service) start(p Profile) error {
 	if e := os.MkdirAll(s.run, 0700); e != nil {
 		return e
 	}
-	// Validate persisted profiles again before handing them to a root daemon.
-	b, e := os.ReadFile(s.path(p.ID, ".ovpn"))
+	// Validate and canonicalize persisted profiles again before handing them to
+	// a root daemon. The service owns the runtime TUN device name.
+	profilePath := s.path(p.ID, ".ovpn")
+	b, e := os.ReadFile(profilePath)
 	if e != nil {
 		return e
 	}
-	if _, e = Normalize(string(b), nil); e != nil {
+	normalized, e := Normalize(string(b), nil)
+	if e != nil {
 		return e
+	}
+	if normalized.Config != string(b) {
+		if e = writePrivate(profilePath, []byte(normalized.Config)); e != nil {
+			return e
+		}
 	}
 	if _, e = os.Stat("/run/resolvconf/interfaces/nkos.base"); os.IsNotExist(e) {
 		base, err := os.ReadFile("/etc/resolv.conf")
@@ -190,19 +202,30 @@ func (s *Service) start(p Profile) error {
 			return e
 		}
 	}
-	args := []string{"--config", s.path(p.ID, ".ovpn"), "--status", s.runtime(p.ID, ".json")}
+	args := []string{
+		"--config", profilePath,
+		"--dev", deviceName(p.ID),
+		"--dev-type", "tun",
+		"--log", s.runtime(p.ID, ".log"),
+		"--script-security", "2",
+		"--up", "/etc/openvpn/up.sh",
+		"--down", "/etc/openvpn/down.sh",
+		"--down-pre",
+		"--setenv", "PEER_DNS", "yes",
+		"--auth-nocache",
+	}
 	if p.NeedsAuth {
-		args = append(args, "--auth", s.path(p.ID, ".auth"))
+		args = append(args, "--auth-user-pass", s.path(p.ID, ".auth"))
 	}
 	if p.NeedsPassphrase {
-		args = append(args, "--passphrase", s.path(p.ID, ".pass"))
+		args = append(args, "--askpass", s.path(p.ID, ".pass"))
 	}
-	_ = os.Remove(s.runtime(p.ID, ".json"))
+	_ = os.Remove(s.runtime(p.ID, ".log"))
 	_ = os.Remove(s.runtime(p.ID, ".pid"))
-	cmd := exec.Command("openvpn3", args...)
+	cmd := exec.Command("openvpn", args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if e = cmd.Start(); e != nil {
-		return fmt.Errorf("OpenVPN 3 could not start")
+		return fmt.Errorf("OpenVPN could not start")
 	}
 	go func() { _ = cmd.Wait() }()
 	if e = writePrivate(s.runtime(p.ID, ".pid"), []byte(strconv.Itoa(cmd.Process.Pid)+"\n")); e != nil {
@@ -212,7 +235,8 @@ func (s *Service) start(p Profile) error {
 	return nil
 }
 
-func (s *Service) stop(id string) error {
+func (s *Service) stop(id string) (result error) {
+	defer func() { result = errors.Join(result, s.clearDNS(id)) }()
 	pid := s.pid(id)
 	if pid == 0 {
 		return nil
@@ -222,7 +246,7 @@ func (s *Service) stop(id string) error {
 	}
 	for n := 0; n < 50; n++ {
 		if s.pid(id) == 0 {
-			return s.clearDNS()
+			return nil
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -232,17 +256,105 @@ func (s *Service) stop(id string) error {
 	}
 	for n := 0; n < 10; n++ {
 		if s.pid(id) == 0 {
-			return s.clearDNS()
+			return nil
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 	return fmt.Errorf("OpenVPN has not stopped")
 }
-func (s *Service) clearDNS() error {
+func (s *Service) clearDNS(id string) error {
+	name := deviceName(id)
+	if _, e := os.Stat(filepath.Join("/run/resolvconf/interfaces", name)); errors.Is(e, os.ErrNotExist) {
+		return nil
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	return exec.CommandContext(ctx, "resolvconf", "-d", "nkos.openvpn", "-f").Run()
+	return exec.CommandContext(ctx, "resolvconf", "-d", name, "-f").Run()
 }
+
+func readCounter(path string) uint64 {
+	b, e := os.ReadFile(path)
+	if e != nil {
+		return 0
+	}
+	n, _ := strconv.ParseUint(strings.TrimSpace(string(b)), 10, 64)
+	return n
+}
+
+func interfaceAddress(name string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	b, e := exec.CommandContext(ctx, "ip", "-o", "-4", "addr", "show", "dev", name).Output()
+	if e != nil {
+		return ""
+	}
+	fields := strings.Fields(string(b))
+	for i, field := range fields {
+		if field == "inet" && i+1 < len(fields) {
+			return strings.SplitN(fields[i+1], "/", 2)[0]
+		}
+	}
+	return ""
+}
+
+func runtimeLog(path string) string {
+	b, _ := os.ReadFile(path)
+	const limit = 256 * 1024
+	if len(b) > limit {
+		b = b[len(b)-limit:]
+	}
+	return string(b)
+}
+
+func lastIndexAny(value string, patterns ...string) int {
+	last := -1
+	for _, pattern := range patterns {
+		if index := strings.LastIndex(value, pattern); index > last {
+			last = index
+		}
+	}
+	return last
+}
+
+func (s *Service) liveStatus(id string) (state, address string, received, sent uint64, dco bool) {
+	name := deviceName(id)
+	log := runtimeLog(s.runtime(id, ".log"))
+	initialized := strings.LastIndex(log, "Initialization Sequence Completed")
+	disconnected := lastIndexAny(log, "SIGUSR1", "Restart pause", "TCP/UDP: Closing socket", "AUTH_FAILED")
+	if _, e := os.Stat(filepath.Join("/sys/class/net", name)); e == nil && initialized >= 0 && initialized > disconnected {
+		state = "connected"
+	} else if initialized >= 0 {
+		state = "reconnecting"
+	} else {
+		state = "connecting"
+	}
+	address = interfaceAddress(name)
+	base := filepath.Join("/sys/class/net", name, "statistics")
+	received = readCounter(filepath.Join(base, "rx_bytes"))
+	sent = readCounter(filepath.Join(base, "tx_bytes"))
+	dco = dcoInterface(name)
+	return
+}
+
+func dcoInterface(name string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	detail, e := exec.CommandContext(ctx, "ip", "-j", "-d", "link", "show", "dev", name).Output()
+	return e == nil && dcoLinkJSON(detail)
+}
+
+func dcoLinkJSON(data []byte) bool {
+	var links []struct {
+		LinkInfo struct {
+			Kind string `json:"info_kind"`
+		} `json:"linkinfo"`
+	}
+	if json.Unmarshal(data, &links) != nil || len(links) != 1 {
+		return false
+	}
+	return links[0].LinkInfo.Kind == "ovpn" || links[0].LinkInfo.Kind == "ovpn-dco"
+}
+
 func (s *Service) GetStatus(c *gin.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -254,42 +366,64 @@ func (s *Service) GetStatus(c *gin.Context) {
 	}
 	states := make([]Status, 0, len(ps))
 	wanted := s.desired()
-	_, toolErr := exec.LookPath("openvpn3")
+	_, toolErr := exec.LookPath("openvpn")
 	for _, p := range ps {
 		st := Status{Profile: p, State: "off", Enabled: wanted == p.ID, CredentialsSaved: s.credentials(p)}
-		var current struct {
-			State    string `json:"state"`
-			Error    string `json:"error"`
-			Address  string `json:"address"`
-			Received uint64 `json:"received"`
-			Sent     uint64 `json:"sent"`
-			DCO      bool   `json:"dco"`
-		}
-		b, _ := os.ReadFile(s.runtime(p.ID, ".json"))
-		_ = json.Unmarshal(b, &current)
 		if s.pid(p.ID) > 0 {
-			st.State = "connecting"
-			switch current.State {
-			case "connected", "connecting", "reconnecting", "authenticating", "error":
-				st.State = current.State
-			}
-			st.Address = current.Address
-			st.Received = current.Received
-			st.Sent = current.Sent
-			st.DCO = current.DCO
-			st.Error = current.Error
+			st.State, st.Address, st.Received, st.Sent, st.DCO = s.liveStatus(p.ID)
 		} else if st.Enabled {
 			st.State = "error"
 			st.Error = "OpenVPN stopped; check the profile and credentials"
-			if current.Error != "" {
-				st.Error = current.Error
-			}
 		}
-
 		states = append(states, st)
 	}
 	rsp.OkRspWithData(c, gin.H{"available": toolErr == nil, "profiles": states})
 }
+
+func (s *Service) Install(c *gin.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var rsp proto.Response
+	if _, err := exec.LookPath("openvpn"); err == nil {
+		rsp.OkRsp(c)
+		return
+	}
+	if err := apkpkg.Run("install", "openvpn"); err != nil {
+		rsp.ErrRsp(c, -1, "OpenVPN installation failed: "+err.Error())
+		return
+	}
+	rsp.OkRsp(c)
+}
+
+func (s *Service) Uninstall(c *gin.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var rsp proto.Response
+
+	profiles, err := s.profiles()
+	if err != nil {
+		rsp.ErrRsp(c, -1, "cannot read OpenVPN profiles")
+		return
+	}
+	for _, profile := range profiles {
+		if err = s.stop(profile.ID); err != nil {
+			rsp.ErrRsp(c, -1, "OpenVPN could not be stopped: "+err.Error())
+			return
+		}
+	}
+	if err = os.Remove(filepath.Join(s.dir, "active")); err != nil && !errors.Is(err, os.ErrNotExist) {
+		rsp.ErrRsp(c, -1, "cannot disable OpenVPN autostart")
+		return
+	}
+	if _, err = exec.LookPath("openvpn"); err == nil {
+		if err = apkpkg.Run("remove", "openvpn"); err != nil {
+			rsp.ErrRsp(c, -1, "OpenVPN removal failed: "+err.Error())
+			return
+		}
+	}
+	rsp.OkRsp(c)
+}
+
 func (s *Service) Import(c *gin.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -460,9 +594,6 @@ func (s *Service) Change(c *gin.Context) {
 		}
 		if e == nil {
 			e = s.stop(p.ID)
-		}
-		if e == nil && wasDesired {
-			e = s.clearDNS()
 		}
 		if e == nil && req.Action == "delete" {
 			e = s.save(append(ps[:idx:idx], ps[idx+1:]...))

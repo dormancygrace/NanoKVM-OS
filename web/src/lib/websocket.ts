@@ -16,7 +16,8 @@ type SendData = number[] | ArrayBuffer | Uint8Array;
 export enum MessageEvent {
   Heartbeat = 0,
   Keyboard = 1,
-  Mouse = 2
+  Mouse = 2,
+  Control = 3
 }
 
 interface WsClientOptions {
@@ -40,9 +41,12 @@ export class WsClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   private shouldReconnect = true;
-  private inputEnabled = false;
+  private captureInputEnabled = false;
+  private controlEnabled = false;
+  private effectiveInputEnabled = false;
   private connectionStatus: InputConnectionStatus = 'idle';
   private readonly statusListeners = new Set<() => void>();
+  private readonly controlListeners = new Set<() => void>();
   private lastResponseAt = 0;
   private heartbeatAcknowledged = false;
 
@@ -52,6 +56,11 @@ export class WsClient {
     return () => {
       this.statusListeners.delete(listener);
     };
+  };
+  public readonly getControlEnabled = (): boolean => this.controlEnabled;
+  public readonly subscribeControlStatus = (listener: () => void): (() => void) => {
+    this.controlListeners.add(listener);
+    return () => this.controlListeners.delete(listener);
   };
 
   private updateConnectionStatus(status: InputConnectionStatus): void {
@@ -118,7 +127,26 @@ export class WsClient {
   }
 
   public setInputEnabled(enabled: boolean): void {
-    if (!enabled && this.inputEnabled) {
+    this.captureInputEnabled = enabled;
+    this.updateInputGate();
+  }
+
+  public requestControl(enabled: boolean): boolean {
+    if (!this.instance || !this.isConnected) return false;
+    this.instance.send(new Uint8Array([MessageEvent.Control, enabled ? 1 : 0]));
+    return true;
+  }
+
+  private setControlEnabled(enabled: boolean): void {
+    if (this.controlEnabled === enabled) return;
+    this.controlEnabled = enabled;
+    this.updateInputGate();
+    this.controlListeners.forEach((listener) => listener());
+  }
+
+  private updateInputGate(): void {
+    const enabled = this.captureInputEnabled && this.controlEnabled;
+    if (!enabled && this.effectiveInputEnabled) {
       for (const [type, last] of this.inputReports) {
         const release = new Uint8Array(last);
         if (type === MessageEvent.Keyboard) release.fill(0, 1);
@@ -132,14 +160,14 @@ export class WsClient {
       }
       this.inputReports.clear();
     }
-    this.inputEnabled = enabled;
+    this.effectiveInputEnabled = enabled;
   }
 
   public send(data: SendData): boolean {
     const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
     const type = bytes[0];
     if (type === MessageEvent.Keyboard || type === MessageEvent.Mouse) {
-      if (!this.inputEnabled) return false;
+      if (!this.effectiveInputEnabled) return false;
       this.inputReports.set(type, new Uint8Array(bytes));
     }
     if (!this.instance || !this.isConnected) {
@@ -216,6 +244,10 @@ export class WsClient {
       const data = JSON.parse(message.data as string);
       this.lastResponseAt = Date.now();
       if (data.type === 'heartbeat') this.heartbeatAcknowledged = true;
+      if (data.type === 'control') {
+        const status = JSON.parse(data.data as string) as { enabled?: unknown };
+        this.setControlEnabled(status.enabled === true);
+      }
       const handlers = this.eventHandlers.get(data.type);
 
       if (handlers) {

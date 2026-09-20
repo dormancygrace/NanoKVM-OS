@@ -63,10 +63,6 @@ release=out/'release/etc'; release.mkdir(parents=True,exist_ok=True)
 (release/'nanokvm-build-profile').write_text('c906-scalar\n')
 for name,target in [('usr/sbin/watchdog','/sbin/watchdog')]:
     link(target,base/name)
-for name in ('usr/lib/libssl.so.4','usr/lib/libcrypto.so.4'):
-    copy(old/name,out/'openssl4-libs'/name)
-for name in ('usr/sbin/openvpn3','usr/lib/libfmt.so.12'):
-    copy(old/name,out/'openvpn3'/name)
 for src in (old/'mnt/data').glob('sensor_cfg.ini*'):
     copy(src,fw/'usr/share/nanokvm/board-defaults'/src.name)
 required=['base/usr/sbin/nanokvm_update_edid','base/etc/init.d/S50sshd','base/etc/init.d/S38memory','base/etc/init.d/nanokvm-policy','app/kvmapp/server/NanoKVM-Server']

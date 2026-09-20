@@ -40,6 +40,7 @@ func (s *Service) Connect(c *gin.Context) {
 	sendCaptureStatusSnapshot(client)
 	sendH264ModeStatusSnapshot(client)
 	sendKeyboardLedStatusSnapshot(client)
+	client.sendControlStatus()
 
 	client.Start()
 }

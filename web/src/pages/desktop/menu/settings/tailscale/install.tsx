@@ -47,24 +47,9 @@ export const Install = ({ setIsLocked, onSuccess }: InstallProps) => {
         subTitle={t('settings.tailscale.retry')}
         icon={<InfoCircleOutlined />}
         extra={
-          <Card key="tips" styles={{ body: { padding: 0 } }}>
-            <ul className="list-decimal text-left font-mono text-sm text-neutral-300">
-              <li>
-                {t('settings.tailscale.download')}
-                <a
-                  className="px-1"
-                  href="https://pkgs.tailscale.com/stable/tailscale_latest_riscv64.tgz"
-                  target="_blank"
-                >
-                  {t('settings.tailscale.package')}
-                </a>
-                {t('settings.tailscale.unzip')}
-              </li>
-              <li>{t('settings.tailscale.upTailscale')}</li>
-              <li>{t('settings.tailscale.upTailscaled')}</li>
-              <li>{t('settings.tailscale.refresh')}</li>
-            </ul>
-          </Card>
+          <Button type="primary" onClick={install}>
+            {t('settings.tailscale.install')}
+          </Button>
         }
       />
     );

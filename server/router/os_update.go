@@ -56,6 +56,42 @@ func osUpdateRouter(r *gin.Engine) {
 	api.POST("/apk/:action", func(c *gin.Context) {
 		updateReply(c, nil, osupdate.StartAPK(c.Param("action")))
 	})
+	api.GET("/software", func(c *gin.Context) {
+		installed, err := osupdate.ListInstalledSoftware()
+		updateReply(c, gin.H{"installed": installed, "operation": osupdate.GetSoftwareStatus(), "indexes": osupdate.GetSoftwareIndexStatus()}, err)
+	})
+	api.GET("/software/status", func(c *gin.Context) {
+		updateReply(c, gin.H{"operation": osupdate.GetSoftwareStatus(), "indexes": osupdate.GetSoftwareIndexStatus()}, nil)
+	})
+	api.GET("/software/search", func(c *gin.Context) {
+		packages, err := osupdate.SearchSoftware(c.Query("query"))
+		updateReply(c, gin.H{"packages": packages}, err)
+	})
+	api.GET("/software/updates", func(c *gin.Context) {
+		updates, err := osupdate.ListSoftwareUpdates()
+		updateReply(c, gin.H{"updates": updates}, err)
+	})
+	api.POST("/software/remove/preview", func(c *gin.Context) {
+		var req struct {
+			Name string `json:"name"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			updateReply(c, nil, err)
+			return
+		}
+		preview, err := osupdate.PreviewSoftwareRemoval(req.Name)
+		updateReply(c, gin.H{"preview": preview}, err)
+	})
+	api.POST("/software/:action", func(c *gin.Context) {
+		var req struct {
+			Name string `json:"name"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			updateReply(c, nil, err)
+			return
+		}
+		updateReply(c, nil, osupdate.StartSoftware(c.Param("action"), req.Name))
+	})
 	api.GET("/alpine", func(c *gin.Context) {
 		updateReply(c, gin.H{"enabled": config.GetInstance().Alpine.BuilderURL != "", "current": osupdate.GetAlpineCurrent(), "operation": osupdate.GetAlpineState()}, nil)
 	})

@@ -47,9 +47,15 @@ working tree while retaining normal APKBUILD checksum verification. The final
 repository check requires a valid `APKINDEX.tar.gz` and one APK per recipe;
 package and index signing are performed by the configured abuild key.
 
-The kernel APK deliberately does not replace `/boot/boot.sd` from an ordinary
-package transaction. It stages the matched FIT and metadata below
-`/usr/lib/nanokvm/boot`; the coordinated firmware/update bundle installs the
-normal FIT together with the matching root, modules and firmware. This keeps
-application APK upgrades ordinary while making a kernel transition one
-hash-bound firmware operation.
+The kernel APK stages all board FITs and their hashes below
+`/usr/lib/nanokvm/boot` and has an exact dependency on the matching module APK.
+On a running OpenRC system its trigger validates the detected board profile,
+payload hash and module `vermagic`, runs `depmod`, and writes the selected FIT to
+`/boot/boot.sd`. It then creates `/run/reboot-required`; the running kernel is
+unchanged until the operator reboots. The trigger skips image assembly, where no
+OpenRC softlevel exists and the image builder selects the detection FIT directly.
+
+This makes kernel and module revisions normal signed repository updates while
+keeping them in one APK transaction. It does not update the partition table,
+filesystem, FIP or bootloader. Those changes continue to use a complete image or
+the recovery installer.

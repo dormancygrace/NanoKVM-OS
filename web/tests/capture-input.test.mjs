@@ -26,6 +26,7 @@ test('capture input gate releases held controls, blocks all input representation
   assert.equal(c.send(new Uint8Array([1,0,0,4,0,0,0,0,0])), false);
   assert.equal(c.send(new Uint8Array([0])), true);
   c.setInputEnabled(true);
+  c.setControlEnabled(true);
   assert.equal(c.send(new Uint8Array([1,2,0,4,0,0,0,0,0])), true);
   assert.equal(c.send(new Uint8Array([2,1,10,0,20,0,0])), true);
   c.setInputEnabled(false);
@@ -36,6 +37,7 @@ test('capture input gate releases held controls, blocks all input representation
   assert.equal(sent.length, count);
   assert.equal(c.send(new Uint8Array([0])), true);
   c.setInputEnabled(true);
+  c.setControlEnabled(true);
   c.send(new Uint8Array([2,1,100,100,1]));
   c.setInputEnabled(false);
   assert.deepEqual(sent.at(-1), [2,0,0,0,0]);
@@ -43,7 +45,7 @@ test('capture input gate releases held controls, blocks all input representation
 });
 
 test('capture gate releases both AC Pan mouse report formats', () => {
- const c = new exports.WsClient(); c.connect(); c.setInputEnabled(true);
+ const c = new exports.WsClient(); c.connect(); c.setInputEnabled(true); c.setControlEnabled(true);
  c.send(new Uint8Array([2,1,3,4,5,6])); c.setInputEnabled(false);
  assert.deepEqual(sent.at(-1),[2,0,0,0,0,0]);
  c.setInputEnabled(true); c.send(new Uint8Array([2,1,10,0,20,0,5,6]));

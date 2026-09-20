@@ -40,15 +40,16 @@ if ! grep -q '^ttyS0::respawn:' /etc/inittab 2>/dev/null; then
 fi
 [ -s /etc/hostname ] || printf '%s\n' nanokvm-alpine > /etc/hostname
 
-# Replace the upstream setup instructions on fresh NanoKVM installations.
-# Keep a user's customized login greeting.
-if [ ! -s /etc/motd ] || grep -q '^Welcome to Alpine!' /etc/motd; then
-    cat > /etc/motd <<'MOTD'
-Welcome to NanoKVM OS!
+# The SSH greeting is owned by /etc/profile.d/nanokvm-banner.sh so it runs
+# only for an interactive shell. Clear solely the two known package/upstream
+# MOTDs: sshd could otherwise emit them before remote commands. Any other
+# user-authored MOTD is left untouched.
+if [ ! -s /etc/motd ] || grep -qx 'Welcome to Alpine!' /etc/motd || \
+   [ "$(cat /etc/motd)" = 'Welcome to NanoKVM OS!
 
 Manage your device through its web interface.
-System and package updates are available through apk.
-MOTD
+System and package updates are available through apk.' ]; then
+    : > /etc/motd
 fi
 
 # A new image has no user password yet. Do not change an existing password.

@@ -2,6 +2,7 @@ package vm
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -178,11 +179,63 @@ func TestAudioBudgetAndRevision(t *testing.T) {
 }
 
 func TestEmptyCompositionRequiresUnboundController(t *testing.T) {
-    root:=t.TempDir()
-    empty:=usbComposition{mode:hid.ModeNormal}
-    if err:=empty.validate();err!=nil {t.Fatal(err)}
-    if err:=os.WriteFile(filepath.Join(root,"UDC"),[]byte("\n"),0644);err!=nil{t.Fatal(err)}
-    if err:=verifyUSBCompositionAt(root,empty);err!=nil{t.Fatal(err)}
-    if err:=os.WriteFile(filepath.Join(root,"UDC"),[]byte("4340000.usb"),0644);err!=nil{t.Fatal(err)}
-    if err:=verifyUSBCompositionAt(root,empty);err==nil{t.Fatal("empty gadget remained attached")}
+	root := t.TempDir()
+	empty := usbComposition{mode: hid.ModeNormal}
+	if err := empty.validate(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "UDC"), []byte("\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyUSBCompositionAt(root, empty); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "UDC"), []byte("4340000.usb"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyUSBCompositionAt(root, empty); err == nil {
+		t.Fatal("empty gadget remained attached")
+	}
+}
+
+func TestCompositionPreservesAlpineScriptLink(t *testing.T) {
+	for _, rollback := range []bool{false, true} {
+		t.Run(fmt.Sprint(rollback), func(t *testing.T) {
+			d := t.TempDir()
+			target := filepath.Join(d, "legacy")
+			link := filepath.Join(d, "S03usbdev")
+			if err := os.WriteFile(target, []byte("original"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink("legacy", link); err != nil {
+				t.Fatal(err)
+			}
+			current := usbComposition{mode: hid.ModeNormal, keyboard: true}
+			candidate := usbComposition{mode: hid.ModeNormal}
+			store := usbCompositionStore{bootDir: d, scriptPath: link,
+				install: func(string) error { return os.WriteFile(target, []byte("new"), 0755) },
+				run:     func(string) error { return nil },
+				verify: func(s usbComposition) error {
+					if rollback && s == candidate {
+						return errors.New("injected verify failure")
+					}
+					return nil
+				},
+			}
+			err := store.apply(current, candidate)
+			if (err != nil) != rollback {
+				t.Fatalf("unexpected result: %v", err)
+			}
+			if got, err := os.Readlink(link); err != nil || got != "legacy" {
+				t.Fatalf("link changed: %q %v", got, err)
+			}
+			want := "new"
+			if rollback {
+				want = "original"
+			}
+			if got, err := os.ReadFile(target); err != nil || string(got) != want {
+				t.Fatalf("wrong script: %q %v", got, err)
+			}
+		})
+	}
 }

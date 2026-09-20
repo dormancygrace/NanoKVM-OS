@@ -6,12 +6,12 @@
 
 **Community firmware for SG2002 NanoKVM. PCIe/UXC is the current test platform; full Cube validation is pending.**
 
-![Version: 2.0 a2](https://img.shields.io/badge/version-2.0--a2-orange)
+![Version: 2.0 b1](https://img.shields.io/badge/version-2.0--b1-orange)
 ![Hardware: Cube, Lite and PCIe](https://img.shields.io/badge/hardware-Cube%20%7C%20Lite%20%7C%20PCIe-blue)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
-[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](docs/BUILD-v2.0-a2.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
+[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](docs/BUILD-v2.0-b1.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
 
 </div>
 
@@ -40,7 +40,7 @@ The aim is a responsive IP-KVM with maintained system components, explicit recov
 
 USB audio reaches the browser with one shared Opus encoder. Mount an ISO directly from your computer without copying it to SD; CD/DVD emulation now supports images up to 31.625 GiB. Dashboard shows SoC temperature and CPU frequency, with independent thermal protection and optional runtime overclocking.
 
-OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Linux 7.2.6-nanokvm-os-r1**, **OpenSSL 4.0.2** and consistent **`-O2`** target C/C++ builds. Optional tools are installed through APK, while signed system updates keep the kernel and modules together. See [release notes](docs/RELEASE-v2.0-a2.md).
+OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Linux 7.2.6-nanokvm-os-r1**, **OpenSSL 4.0.2** and consistent **`-O2`** target C/C++ builds. Optional tools are installed through APK, while signed system updates keep the kernel and modules together. See [release notes](docs/RELEASE-v2.0-b1.md).
 
 <a id="compatibility"></a>
 
@@ -137,7 +137,7 @@ the existing installation and data. Download the image and SHA256SUMS from the
 - `scripts/`: component build/staging tools; external SDK and toolchain inputs are required.
 - `tools/` and `kvmapp/system/init.d/`: EDID tools and device startup services.
 
-See [BUILD.md](docs/BUILD-v2.0-a2.md) for build instructions.
+See [BUILD.md](docs/BUILD-v2.0-b1.md) for build instructions.
 
 ## ❤️ Credits and licenses
 
@@ -147,6 +147,6 @@ Thanks to [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.c
 
 ## Beta-14
 
-See [beta-14 release notes](docs/RELEASE-beta-14.md) and [beta-14 build inputs](docs/BUILD-v2.0-a2.md). Fresh images disable SSH; enable it in the Web settings if needed.
+See [beta-14 release notes](docs/RELEASE-beta-14.md) and [beta-14 build inputs](docs/BUILD-v2.0-b1.md). Fresh images disable SSH; enable it in the Web settings if needed.
 
 Beta-14 retains the 64 MiB boot layout introduced in beta-9 and is distributed only as `NanoKVM-OS-v1.0.0-beta-14.img.zip`, under the GitHub tag `v1.0.0-beta.14`. See [release naming](docs/RELEASE-NAMING.md).

@@ -22,7 +22,7 @@ func Versions(c *gin.Context) {
 	defer mu.Unlock()
 	if time.Now().After(expires) {
 		cached = make(map[string]string)
-		for name, tool := range map[string]string{"tailscale": "tailscale", "wireguard": "wg", "openvpn": "openvpn3"} {
+		for name, tool := range map[string]string{"tailscale": "tailscale", "wireguard": "wg", "openvpn": "openvpn", "netbird": "netbird"} {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			b, err := exec.CommandContext(ctx, tool, "--version").Output()
 			cancel()

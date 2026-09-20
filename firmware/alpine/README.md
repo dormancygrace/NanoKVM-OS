@@ -77,12 +77,39 @@ The target repository list is:
 1. the signed C906 repository for selected same-name optimized packages;
 2. the signed NanoKVM repository for packages named `nanokvm-*`;
 3. Alpine v3.24 `main`;
-4. Alpine v3.24 `community`.
+4. Alpine v3.24 `community`;
+5. Alpine `edge/community`, tagged as `@edgecommunity`.
+
+The deployed repository URLs are:
+
+- `https://nkos.pesin.pro/repos/c906-qualified`;
+- `https://nkos.pesin.pro/repos/nanokvm`;
+- the Alpine v3.24 `main` and `community` mirrors.
 
 Repository line order alone is not the package selection policy. NanoKVM packages
 use unique names. An optimized Alpine replacement keeps the original package name,
 uses a higher controlled `pkgrel`, and is pinned by the tested release profile.
 Packages not rebuilt locally continue to resolve from Alpine unchanged.
+
+The edge repository is never used as an untagged upgrade source. The VPN UI
+requests `tailscale@edgecommunity`, `tailscale-openrc@edgecommunity`,
+`netbird@edgecommunity` and `netbird-openrc@edgecommunity` explicitly. This
+keeps the rest of the operating system on Alpine 3.24. OpenVPN comes from the
+stable Alpine repository. OpenVPN, Tailscale and NetBird are optional and are
+absent from the default `nanokvm-release` dependency set.
+
+The two NanoKVM repositories are rolling package channels within the selected
+stable Alpine branch. New signed revisions become available through ordinary
+`apk update` and `apk upgrade`; the same indexes are inputs to attended image
+builds. First-party entries in `/etc/apk/world` normally use unversioned package
+names so a newer signed revision can be selected. Exact version constraints are
+reserved for an explicit operator hold or a reproducibility test.
+
+Kernel, matching modules and board FITs use the same APK update path. The kernel
+trigger activates the board-specific FIT and records that a reboot is required.
+Full recovery images remain necessary for partition layout, filesystem, FIP or
+bootloader changes. Moving to another Alpine stable branch is an explicit system
+upgrade rather than an incidental package update.
 
 The physically qualified default overlay contains the BusyBox, coreutils, LZ4,
 zstd and OpenSSL package families. XZ remains stock because its tuned encoder

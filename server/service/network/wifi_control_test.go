@@ -133,7 +133,7 @@ func TestWifiHardwareAndStatus(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(net, "device/modalias"), []byte("sdio:c00v5449d0145"), 0600)
 	_ = os.WriteFile(filepath.Join(etc, "wifi.ssid"), []byte("Stale configured network"), 0600)
 	d := w.status()
-	if !d.Supported || !d.Connected || d.Ssid != "Actual Network" || d.Model != "AIC8801" || d.Band != "5" || len(d.Bands) != 2 {
+	if !d.Supported || !d.Connected || d.Ssid != "Actual Network" || d.Model != "AIC8801" || d.Band != "5" || d.PreferredBand != "5" || len(d.Bands) != 2 {
 		t.Fatalf("%+v", d)
 	}
 	_ = os.WriteFile(filepath.Join(etc, "wifi.disabled"), nil, 0600)
@@ -152,10 +152,10 @@ func TestWifiHardwareAndStatus(t *testing.T) {
 func TestWifiProfileStorage(t *testing.T) {
 	w := radioControl{etc: t.TempDir()}
 	p := wifiProfile{Ssid: "Private", Password: "valid123", Hidden: true, Security: "personal", Band: "5"}
-	if err := w.saveProfile(p, []string{"5180", "5200"}); err != nil {
+	if err := w.saveProfile(p, map[string][]string{"2.4": {"2412"}, "5": {"5180", "5200"}}, "5"); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"wifi.ssid", "wifi.pass", "wifi.hidden", "wifi.security", "wifi.freq_list"} {
+	for _, name := range []string{"wifi.ssid", "wifi.pass", "wifi.hidden", "wifi.security", "wifi.freq_list", "wifi.freq_list_2.4", "wifi.freq_list_5", wifiBandPreferenceFile} {
 		info, err := os.Stat(filepath.Join(w.etc, name))
 		if err != nil || info.Mode().Perm() != 0600 {
 			t.Fatalf("%s: %v", name, err)
@@ -163,7 +163,7 @@ func TestWifiProfileStorage(t *testing.T) {
 	}
 	p.Security = "open"
 	p.Password = ""
-	if err := w.saveProfile(p, []string{"2412"}); err != nil {
+	if err := w.saveProfile(p, map[string][]string{"2.4": {"2412"}}, "2.4"); err != nil {
 		t.Fatal(err)
 	}
 	password, _ := os.ReadFile(filepath.Join(w.etc, "wifi.pass"))
@@ -178,6 +178,7 @@ func TestWifiControlAPI(t *testing.T) {
 	defer func() { wifiControl = previous; wifiMu.Lock(); wifiBusy = false; wifiError = ""; wifiMu.Unlock() }()
 	root := t.TempDir()
 	net := filepath.Join(root, "wlan0")
+	restarts := 0
 	_ = os.Mkdir(net, 0700)
 	phy := filepath.Join(root, "phy0")
 	_ = os.Mkdir(phy, 0700)
@@ -186,11 +187,15 @@ func TestWifiControlAPI(t *testing.T) {
 		if name == "iw" {
 			return "* 2412 MHz [1]\n* 5180 MHz [36]", nil
 		}
+		if name == WiFiScript {
+			restarts++
+		}
 		return "", nil
 	}}
 	router := gin.New()
 	s := NewService()
 	router.POST("/enabled", s.SetWifiEnabled)
+	router.POST("/band-preference", s.SetWifiBandPreference)
 	router.POST("/configure", s.ConfigureWifi)
 	router.GET("/scan", s.ScanWifi)
 	request := func(method, path, body string) int {
@@ -252,13 +257,24 @@ func TestWifiControlAPI(t *testing.T) {
 	if !wifiControl.enabled() {
 		t.Fatal("enable not persisted")
 	}
+	beforePreference := restarts
+	if request("POST", "/band-preference", `{"preferredBand":"2.4"}`) != 0 {
+		t.Fatal("preference rejected")
+	}
+	if restarts != beforePreference {
+		t.Fatal("preference change restarted Wi-Fi")
+	}
+	preference, _ := os.ReadFile(filepath.Join(root, wifiBandPreferenceFile))
+	if string(preference) != "2.4" {
+		t.Fatal("preference not persisted")
+	}
 	if request("POST", "/configure", `{"ssid":"Hidden","password":"secret123","band":"5","hidden":true,"security":"personal"}`) != 0 {
 		t.Fatal("valid configure rejected")
 	}
 	wait()
 	hidden, _ := os.ReadFile(filepath.Join(root, "wifi.hidden"))
 	freq, _ := os.ReadFile(filepath.Join(root, "wifi.freq_list"))
-	if string(hidden) != "true" || string(freq) != "5180" {
+	if string(hidden) != "true" || string(freq) != "2412 5180" {
 		t.Fatal("profile options not persisted")
 	}
 	wifiControl.run = func(string, ...string) (string, error) { return "", errors.New("command failed") }

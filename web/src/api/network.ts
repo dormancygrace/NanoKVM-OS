@@ -107,6 +107,25 @@ export function setEthernet(config: Omit<EthernetConfig, 'interface' | 'adminUp'
   return http.post('/api/network/ethernet', config);
 }
 
+export type GatewayPreference = 'auto' | 'ethernet' | 'wifi';
+export type GatewayRoute = {
+  interface: string;
+  gateway: string;
+  metric: number;
+};
+export type GatewayStatus = {
+  preferred: GatewayPreference;
+  routes: GatewayRoute[];
+};
+
+export function getGatewayPreference() {
+  return http.get('/api/network/gateway');
+}
+
+export function setGatewayPreference(preferred: GatewayPreference) {
+  return http.post('/api/network/gateway', { preferred });
+}
+
 export type IPv6Status = {
   enabled: boolean;
   active: boolean;
@@ -137,6 +156,7 @@ export type WifiStatus = {
   model: string;
   bands: WifiBand[];
   band: WifiBand | '';
+  preferredBand: WifiBand;
   busy: boolean;
   error: string;
 };
@@ -152,11 +172,15 @@ export type WifiProfile = {
   ssid: string;
   password: string;
   band: WifiBand;
+  preferredBand?: WifiBand;
   hidden: boolean;
   security: WifiSecurity;
 };
 export function setWifiEnabled(enabled: boolean) {
   return http.post('/api/network/wifi/enabled', { enabled });
+}
+export function setWifiBandPreference(preferredBand: WifiBand) {
+  return http.post('/api/network/wifi/band-preference', { preferredBand });
 }
 export function scanWifi(band: WifiBand | 'all' = 'all') {
   return http.get('/api/network/wifi/scan', { band });

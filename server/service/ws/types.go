@@ -11,8 +11,9 @@ import (
 )
 
 type Manager struct {
-	clients map[*websocket.Conn]*Client
-	mutex   sync.RWMutex
+	clients    map[*websocket.Conn]*Client
+	controller *Client
+	mutex      sync.RWMutex
 }
 
 type Client struct {
@@ -33,6 +34,7 @@ type Client struct {
 	keyboardLedWorkers sync.WaitGroup
 	closeOnce          sync.Once
 	workers            sync.WaitGroup
+	controlEnabled     bool
 }
 
 type Message struct {

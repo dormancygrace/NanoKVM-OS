@@ -97,6 +97,26 @@ func (w radioControl) frequencies() map[string][]string {
 	return parseFrequencies(out)
 }
 
+const wifiBandPreferenceFile = "wifi.band_preference"
+
+// Older installations do not have a preference file. Keep their connection
+// intact and treat the absent value as the new default rather than writing to
+// persistent storage while merely reporting status.
+func (w radioControl) preferredBand() string {
+	value, err := os.ReadFile(filepath.Join(w.etc, wifiBandPreferenceFile))
+	if err == nil && (string(value) == "2.4" || string(value) == "5") {
+		return string(value)
+	}
+	return "5"
+}
+
+func (w radioControl) savePreferredBand(band string) error {
+	if band != "2.4" && band != "5" {
+		return errors.New("invalid preferred band")
+	}
+	return writePrivateFile(filepath.Join(w.etc, wifiBandPreferenceFile), []byte(band))
+}
+
 type wifiNetwork struct {
 	Bssid    string  `json:"bssid"`
 	Ssid     string  `json:"ssid"`
@@ -215,7 +235,7 @@ func parseScan(output, band string) []wifiNetwork {
 }
 
 func (w radioControl) status() *proto.GetWifiRsp {
-	d := &proto.GetWifiRsp{Supported: w.present(), Enabled: w.enabled(), Bands: []string{}, ApMode: isAPMode()}
+	d := &proto.GetWifiRsp{Supported: w.present(), Enabled: w.enabled(), Bands: []string{}, ApMode: isAPMode(), PreferredBand: w.preferredBand()}
 	wifiMu.Lock()
 	d.Busy = wifiBusy
 	d.Error = wifiError
@@ -262,9 +282,12 @@ func (w radioControl) status() *proto.GetWifiRsp {
 type wifiProfile struct {
 	Ssid     string `json:"ssid"`
 	Password string `json:"password"`
-	Band     string `json:"band"`
-	Hidden   bool   `json:"hidden"`
-	Security string `json:"security"`
+	// Band is retained for clients from before the preference setting. For
+	// those clients it becomes the initial preference instead of an exclusion.
+	Band          string `json:"band"`
+	PreferredBand string `json:"preferredBand"`
+	Hidden        bool   `json:"hidden"`
+	Security      string `json:"security"`
 }
 
 func (p wifiProfile) validate() error {
@@ -272,8 +295,11 @@ func (p wifiProfile) validate() error {
 	if len(p.Ssid) < 1 || len(p.Ssid) > 32 || !validText(p.Ssid) {
 		return errors.New("invalid SSID")
 	}
-	if p.Band != "2.4" && p.Band != "5" {
+	if p.Band != "" && p.Band != "2.4" && p.Band != "5" {
 		return errors.New("invalid band")
+	}
+	if p.PreferredBand != "" && p.PreferredBand != "2.4" && p.PreferredBand != "5" {
+		return errors.New("invalid preferred band")
 	}
 	switch p.Security {
 	case "open":
@@ -291,8 +317,18 @@ func (p wifiProfile) validate() error {
 }
 
 // Restore the previous profile if any persistent write fails.
-func (w radioControl) saveProfile(p wifiProfile, frequencies []string) error {
-	values := map[string]string{"wifi.ssid": p.Ssid, "wifi.pass": p.Password, "wifi.security": p.Security, "wifi.hidden": strconv.FormatBool(p.Hidden), "wifi.freq_list": strings.Join(frequencies, " ")}
+func (w radioControl) saveProfile(p wifiProfile, frequencies map[string][]string, preferredBand string) error {
+	all := append(append([]string{}, frequencies["2.4"]...), frequencies["5"]...)
+	values := map[string]string{
+		"wifi.ssid": p.Ssid, "wifi.pass": p.Password, "wifi.security": p.Security,
+		"wifi.hidden": strconv.FormatBool(p.Hidden), wifiBandPreferenceFile: preferredBand,
+		// The legacy aggregate list remains useful to previous startup scripts;
+		// new startup code uses the per-band lists to create a preferred and a
+		// fallback network block.
+		"wifi.freq_list":     strings.Join(all, " "),
+		"wifi.freq_list_2.4": strings.Join(frequencies["2.4"], " "),
+		"wifi.freq_list_5":   strings.Join(frequencies["5"], " "),
+	}
 	type previous struct {
 		data   []byte
 		exists bool
@@ -428,6 +464,28 @@ func (s *Service) SetWifiEnabled(c *gin.Context) {
 	}()
 }
 
+func (s *Service) SetWifiBandPreference(c *gin.Context) {
+	var req proto.SetWifiBandPreferenceReq
+	var rsp proto.Response
+	if c.ShouldBindJSON(&req) != nil || (req.PreferredBand != "2.4" && req.PreferredBand != "5") {
+		rsp.ErrRsp(c, -1, "invalid parameters")
+		return
+	}
+	if !checkRadio(c, false) {
+		return
+	}
+	// Do not restart wpa_supplicant here. The setting is intentionally safe to
+	// change while managing the device over Wi-Fi and takes effect on the next
+	// connect or ordinary service restart.
+	if err := wifiControl.savePreferredBand(req.PreferredBand); err != nil {
+		finishWifi(err)
+		rsp.ErrRsp(c, -1, "failed to save Wi-Fi preference")
+		return
+	}
+	finishWifi(nil)
+	rsp.OkRsp(c)
+}
+
 func (s *Service) ConfigureWifi(c *gin.Context) {
 	var req wifiProfile
 	var rsp proto.Response
@@ -438,13 +496,20 @@ func (s *Service) ConfigureWifi(c *gin.Context) {
 	if !checkRadio(c, true) {
 		return
 	}
-	freqs := wifiControl.frequencies()[req.Band]
-	if len(freqs) == 0 {
+	freqs := wifiControl.frequencies()
+	if len(freqs["2.4"]) == 0 && len(freqs["5"]) == 0 {
 		finishWifi(nil)
-		rsp.ErrRsp(c, -1, "band unavailable")
+		rsp.ErrRsp(c, -1, "no supported bands")
 		return
 	}
-	if err := wifiControl.saveProfile(req, freqs); err != nil {
+	preferredBand := req.PreferredBand
+	if preferredBand == "" {
+		preferredBand = req.Band // compatibility with the former hard band selector
+	}
+	if preferredBand == "" {
+		preferredBand = wifiControl.preferredBand()
+	}
+	if err := wifiControl.saveProfile(req, freqs, preferredBand); err != nil {
 		finishWifi(err)
 		rsp.ErrRsp(c, -1, "failed to save Wi-Fi")
 		return

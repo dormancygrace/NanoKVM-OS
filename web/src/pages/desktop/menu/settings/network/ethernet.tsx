@@ -221,7 +221,7 @@ export const Ethernet = () => {
       {(hasChanges || message || error) && (
         <div className="flex items-center justify-between gap-4">
           <span
-            className={`text-xs ${error ? 'text-red-400' : message ? 'text-green-400' : 'text-yellow-400/80'}`}
+            className={`text-xs ${error ? 'text-red-400' : message ? 'text-green-500' : 'text-yellow-400/80'}`}
           >
             {error || message || t('settings.network.ethernet.unsaved')}
           </span>

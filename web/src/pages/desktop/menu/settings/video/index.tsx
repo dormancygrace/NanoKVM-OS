@@ -88,7 +88,7 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
       >
         <div className="mb-3 flex items-center justify-between">
           <span className="font-medium">{t('videoSettings.current')}</span>
-          <Tag color={enabled ? 'green' : 'gold'}>
+          <Tag color={enabled ? 'success' : 'gold'}>
             {t(enabled ? 'videoSettings.captureOn' : 'videoSettings.captureOff')}
           </Tag>
         </div>

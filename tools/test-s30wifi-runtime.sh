@@ -34,6 +34,14 @@ assert_not_contains() {
     fi
 }
 
+assert_count() {
+    pattern=$1
+    expected=$2
+    file=$3
+    actual=$(grep -Fc -- "$pattern" "$file" || true)
+    [ "$actual" = "$expected" ] || fail "$file has $actual occurrences of $pattern; expected $expected"
+}
+
 new_case() {
     name=$1
     CASE_DIR=$TMP_ROOT/$name
@@ -43,10 +51,13 @@ new_case() {
     RUN_DIR=$CASE_DIR/run
     AP_FLAG=$CASE_DIR/wifiap
     UID_FILE=$CASE_DIR/base_uid
+    PHY_LINK=$CASE_DIR/phy80211
     DHCP_PID=$RUN_DIR/udhcpc.wlan0.pid
     CALL_LOG=$CASE_DIR/calls.log
     BIN_DIR=$CASE_DIR/bin
     mkdir -p "$BOOT_DIR" "$ETC_DIR" "$KVM_DIR" "$BIN_DIR"
+    mkdir -p "$CASE_DIR/phy0"
+    ln -s "$CASE_DIR/phy0" "$PHY_LINK"
     printf 'test-device-uid\n' > "$UID_FILE"
     : > "$CALL_LOG"
 
@@ -69,6 +80,12 @@ EOF
         chmod +x "$BIN_DIR/$command"
     done
     chmod +x "$BIN_DIR/wpa_passphrase"
+    cat > "$BIN_DIR/iw" <<'EOF'
+#!/bin/sh
+printf 'iw args=%s\n' "$*" >> "$CALL_LOG"
+printf '%s\n' '* 2412 MHz [1] (20.0 dBm)' '* 5180 MHz [36] (20.0 dBm)'
+EOF
+    chmod +x "$BIN_DIR/iw"
 }
 
 run_action() (
@@ -90,6 +107,8 @@ run_action() (
     export NANOKVM_IP="$BIN_DIR/ip"
     export NANOKVM_KILLALL="$BIN_DIR/killall"
     export NANOKVM_CHOWN="$BIN_DIR/chown"
+    export NANOKVM_IW="$BIN_DIR/iw"
+    export NANOKVM_WIFI_PHY_LINK="$PHY_LINK"
     "$SCRIPT" "$action"
 )
 
@@ -213,6 +232,44 @@ assert_contains 'scan_ssid=1' "$RUN_DIR/wpa_supplicant.conf"
 assert_contains 'freq_list=5180 5200' "$RUN_DIR/wpa_supplicant.conf"
 assert_not_contains 'wpa_passphrase args=' "$CALL_LOG"
 assert_not_contains 'psk=' "$RUN_DIR/wpa_supplicant.conf"
+
+# A preferred band is a wpa_supplicant priority, not a scan restriction: the
+# preferred network block has exact 5 GHz frequencies and the lower-priority
+# fallback still accepts the same SSID on 2.4 GHz.
+new_case preferred_band
+printf Office > "$ETC_DIR/wifi.ssid"
+printf secret123 > "$ETC_DIR/wifi.pass"
+printf 5 > "$ETC_DIR/wifi.band_preference"
+printf 2412 > "$ETC_DIR/wifi.freq_list_2.4"
+printf '5180 5200' > "$ETC_DIR/wifi.freq_list_5"
+run_action start
+assert_count 'network={' 2 "$RUN_DIR/wpa_supplicant.conf"
+assert_contains 'freq_list=5180 5200' "$RUN_DIR/wpa_supplicant.conf"
+assert_contains 'priority=2' "$RUN_DIR/wpa_supplicant.conf"
+assert_contains 'priority=1' "$RUN_DIR/wpa_supplicant.conf"
+
+# Existing profiles have no preference field. Capability discovery makes their
+# default preference 5 GHz without persisting or reconnecting during a read.
+new_case legacy_default_5ghz
+printf Office > "$ETC_DIR/wifi.ssid"
+printf secret123 > "$ETC_DIR/wifi.pass"
+run_action start
+assert_count 'network={' 2 "$RUN_DIR/wpa_supplicant.conf"
+assert_contains 'freq_list=5180' "$RUN_DIR/wpa_supplicant.conf"
+assert_contains 'priority=2' "$RUN_DIR/wpa_supplicant.conf"
+
+# A radio without 5 GHz has no preferred block, but the fallback remains
+# usable even though the persisted/default preference is still 5 GHz.
+new_case only_24ghz
+printf Office > "$ETC_DIR/wifi.ssid"
+printf secret123 > "$ETC_DIR/wifi.pass"
+printf 5 > "$ETC_DIR/wifi.band_preference"
+printf 2412 > "$ETC_DIR/wifi.freq_list_2.4"
+: > "$ETC_DIR/wifi.freq_list_5"
+run_action start
+assert_count 'network={' 1 "$RUN_DIR/wpa_supplicant.conf"
+assert_not_contains 'freq_list=' "$RUN_DIR/wpa_supplicant.conf"
+assert_contains 'priority=1' "$RUN_DIR/wpa_supplicant.conf"
 
 new_case invalid_frequencies
 printf 'Office' > "$ETC_DIR/wifi.ssid"

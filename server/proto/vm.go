@@ -148,6 +148,10 @@ type GetSSHStateRsp struct {
 	Enabled bool `json:"enabled"`
 }
 
+type EnableSSHReq struct {
+	Password string `json:"password" validate:"required"`
+}
+
 type GetSwapRsp struct {
 	Size int64 `json:"size"` // unit: MB
 }

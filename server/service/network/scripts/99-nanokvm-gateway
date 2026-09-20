@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# Keep DHCP-installed default routes consistent with the management-uplink
+# preference. The main udhcpc script invokes this after every bound/renew.
+ACTION="$1"
+PREFERENCE_FILE=/etc/kvm/network/gateway.preferred
+
+[ "$ACTION" = bound ] || [ "$ACTION" = renew ] || exit 0
+[ -n "$router" ] || exit 0
+
+preference=$(cat "$PREFERENCE_FILE" 2>/dev/null)
+case "$preference:$interface" in
+    ethernet:eth*) metric=10 ;;
+    wifi:wlan*) metric=10 ;;
+    ethernet:wlan*|wifi:eth*) metric=200 ;;
+    *) exit 0 ;;
+esac
+
+for gateway in $router; do
+    ip -4 route replace default via "$gateway" dev "$interface" proto dhcp metric "$metric"
+    metric=$((metric + 1))
+done

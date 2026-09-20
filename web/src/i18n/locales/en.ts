@@ -26,6 +26,13 @@ const en = {
       disconnected: 'Control unavailable. Reconnecting… Video may still work.'
     },
 
+    sessionControl: {
+      active: 'This browser session controls keyboard and mouse',
+      locked: 'View-only: keyboard and mouse are controlled by another session',
+      take: 'Take control',
+      release: 'Lock this session'
+    },
+
     dateTime: {
       title: 'Date & Time',
       deviceTime: 'Device time',
@@ -76,6 +83,15 @@ const en = {
       openvpnEmpty: 'No OpenVPN profiles',
       openvpnLimit: 'Maximum 16 profiles; 256 KiB per file and combined profile.',
       openvpnRequired: 'OpenVPN is not installed in this system image.',
+      openvpnNotInstalled: 'OpenVPN is not installed.',
+      openvpnInstallDescription: 'Install OpenVPN on demand. Existing profiles are preserved.',
+      openvpnInstall: 'Install OpenVPN',
+      openvpnInstalled: 'OpenVPN is installed',
+      openvpnUninstall: 'Uninstall OpenVPN',
+      openvpnUninstallWarning:
+        'OpenVPN will be stopped and removed. Existing profiles and settings remain on the device.',
+      confirm: 'Yes',
+      cancel: 'No',
       openvpnNote:
         'One OpenVPN profile can be enabled at a time. Enabled profiles reconnect after a restart. Routed TUN profiles are supported; TAP, scripts and interactive SSO/MFA are not. Server DNS applies to the whole device while connected.',
       credentials: 'Credentials',
@@ -603,10 +619,15 @@ const en = {
     wol: {
       title: 'Wake-on-LAN',
       sending: 'Sending command...',
-      sent: 'Command sent',
+      sent: 'Magic packet sent. The target may still be off or unavailable.',
       input: 'Please enter the MAC',
       interface: 'Interface',
-      ok: 'Ok'
+      ok: 'Ok',
+      name: 'Device name',
+      save: 'Save name',
+      cancel: 'Cancel',
+      send: 'Send Wake-on-LAN',
+      remove: 'Remove from history'
     },
     download: {
       progress: 'Transfer progress',
@@ -643,6 +664,33 @@ const en = {
       cancelBtn: 'No'
     },
     settings: {
+      software: {
+        title: "Software",
+        description: "Manage packages from the configured Alpine repositories. Package changes use the same APK database and services as SSH.",
+        refresh: "Refresh indexes",
+        upgrade: "Upgrade all",
+        upgradeConfirm: "Upgrade all installed packages? Video and control may briefly disconnect.",
+        available: "Available packages",
+        updatesTab: "Updates",
+        updateAvailable: "Packages with available updates",
+        upToDate: "All installed packages are up to date.",
+        searchPlaceholder: "Search package name",
+        searchHint: "Search starts automatically after you pause typing.",
+        noResults: "No matching packages",
+        indexMissing: "No package indexes are available. Refresh indexes before searching or installing.",
+        indexStale: "Package indexes may be outdated (last refreshed {{updated}}). Refresh before installing.",
+        indexUnknown: "unknown time",
+        install: "Install",
+        installed: "Installed packages",
+        remove: "Remove",
+        removeTitle: "Remove {{package}}?",
+        removeDescription: "APK will perform this removal and its dependency changes exactly as shown below. This cannot be undone automatically.",
+        started: "APK operation started",
+        running: "APK is {{action}} {{package}}",
+        succeeded: "APK operation completed",
+        failed: "APK operation failed",
+        requestFailed: "The software request failed. Check device connectivity and retry."
+      },
       updates: {
         apk: {
           title: 'Package updates',
@@ -728,6 +776,24 @@ const en = {
         unavailable: 'Requires an Enhanced firmware build with this feature.',
         loadError: 'Could not read memory status',
         changeError: 'Could not change swap settings'
+      },
+      system: {
+        title: 'System',
+        general: 'General',
+        services: 'Services',
+        performance: 'Performance',
+        ssh: {
+          description: 'Enable SSH remote access',
+          tip: 'SSH is enabled only after you set a new password for the Linux root account.',
+          passwordTitle: 'Set SSH root password',
+          passwordDescription:
+            'Set a strong password for the Linux root account before enabling SSH. It is used to sign in over SSH.',
+          password: 'New root password',
+          confirmation: 'Confirm root password',
+          rootForbidden: 'The password cannot be “root”.',
+          enable: 'Set password and enable SSH',
+          failed: 'Could not set the root password or enable SSH.'
+        }
       },
       title: 'Settings',
       back: 'Back',
@@ -982,6 +1048,17 @@ const en = {
       },
       network: {
         title: 'Network',
+        general: 'General',
+        gateway: {
+          title: 'Preferred gateway',
+          description:
+            'When both Ethernet and Wi-Fi have an Internet gateway, choose which connection NanoKVM uses by default.',
+          auto: 'Automatic',
+          none: 'Connect Ethernet or Wi-Fi to choose a preferred gateway.',
+          metric: 'route priority {{value}}',
+          loadFailed: 'Could not read gateway routes.',
+          saveFailed: 'Could not save the preferred gateway.'
+        },
         wifi: {
           loading: 'Loading…',
           noAdapter: 'Wi-Fi adapter not detected',
@@ -989,6 +1066,8 @@ const en = {
           band: 'Frequency band',
           band24: '2.4 GHz',
           band5: '5 GHz',
+          preferredBand: 'Preferred frequency band',
+          preferredBandHint: 'Used for the next Wi-Fi connection. The other band remains available as a fallback.',
           scan: 'Scan networks',
           scanFailed: 'Could not scan networks. Try again.',
           availableNetworks: 'Available networks',
@@ -1119,13 +1198,7 @@ const en = {
         install: 'Install',
         installing: 'Installing',
         failed: 'Install failed',
-        retry: 'Please refresh and try again. Or try to install manually',
-        download: 'Download the',
-        package: 'installation package',
-        unzip: 'and unzip it',
-        upTailscale: 'Upload tailscale to NanoKVM directory /usr/bin/',
-        upTailscaled: 'Upload tailscaled to NanoKVM directory /usr/sbin/',
-        refresh: 'Refresh current page',
+        retry: 'Please retry the installation.',
         notRunning: 'Tailscale is not running. Please start it to continue.',
         run: 'Start',
         notLogin:
@@ -1144,8 +1217,51 @@ const en = {
         okBtn: 'Yes',
         cancelBtn: 'No'
       },
+      netbird: {
+        title: 'NetBird',
+        restart: 'Restart NetBird?',
+        stop: 'Stop NetBird?',
+        stopDesc: 'Stop the NetBird service.',
+        loading: 'Loading...',
+        statusUnknown: 'NetBird status is unknown',
+        statusStale: 'Showing the last confirmed NetBird status',
+        notInstall: 'NetBird is not installed.',
+        install: 'Install',
+        installing: 'Installing',
+        notRunning: 'NetBird service is not running.',
+        run: 'Start',
+        notLogin:
+          'The device has not been bound yet. Please login and bind this device to your account.',
+        urlPeriod: 'This url is valid for 10 minutes',
+        login: 'Login',
+        loginSuccess: 'I have logged in',
+        enable: 'Enable NetBird',
+        deviceName: 'Device Name',
+        deviceIP: 'Device IP',
+        uninstall: 'Uninstall NetBird',
+        uninstallDesc: 'Are you sure you want to uninstall NetBird?',
+        uninstallWarning:
+          'If you are connected through NetBird, this ends that connection. Existing device settings remain.',
+        version: 'Version',
+        disconnect: 'Disconnect',
+        disconnectConfirm: 'Are you sure you want to disconnect?',
+        okBtn: 'Yes',
+        cancelBtn: 'No',
+        error: {
+          title: 'NetBird operation failed',
+          intro: 'Error details:',
+          stepWait: '1. Wait 10-15 seconds and retry the action.',
+          stepRestartUI: '2. Click "Restart Service" below.',
+          stepRestartSSH: '3. If needed, run: /etc/init.d/S99netbird restart',
+          stepReboot: '4. Reboot NanoKVM only if the steps above do not help.',
+          restartButton: 'Restart Service',
+          refreshButton: 'Refresh Status',
+          restartFailed: 'Restart failed',
+          stopFailed: 'Stop failed'
+        }
+      },
       account: {
-        title: 'Account',
+        title: 'Users',
         webAccount: 'Web Account Name',
         role: 'Role',
         roles: {

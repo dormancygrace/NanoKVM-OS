@@ -353,6 +353,22 @@ func (r *ManualReservation) Complete(success bool) {
 	})
 }
 
+// Execute writes a report only while its reservation still belongs to the
+// current manual-control generation. A session can be revoked while reports
+// are waiting in a HID queue; those old reports must not reacquire input.
+func (r *ManualReservation) Execute(write func() error) error {
+	if r == nil || r.session == nil {
+		return ErrManualInputBlocked
+	}
+	r.session.mu.Lock()
+	valid := r.session.active && !r.session.closed && r.generation == r.session.generation
+	r.session.mu.Unlock()
+	if !valid {
+		return ErrManualInputBlocked
+	}
+	return r.session.Execute(write)
+}
+
 func (s *ManualSession) Execute(write func() error) error {
 	if s == nil || s.coordinator == nil {
 		return fmt.Errorf("manual input coordinator is unavailable")
@@ -381,6 +397,33 @@ func (s *ManualSession) Reset(kind ManualReportKind) {
 	releaseControl, end, _ := s.finishIfIdleLocked()
 	s.mu.Unlock()
 	s.finish(releaseControl, end, true)
+}
+
+// Revoke invalidates queued reports and releases this session's manual-control
+// lease without permanently closing the session. It is used when browser
+// control moves to another session.
+func (s *ManualSession) Revoke() {
+	if s == nil {
+		return
+	}
+
+	s.mu.Lock()
+	if !s.active {
+		s.generation++
+		s.mu.Unlock()
+		return
+	}
+	s.pending = 0
+	s.keyboardHeld = false
+	s.relativeMouseHeld = false
+	s.absoluteMouseHeld = false
+	s.cooldownOnIdle = false
+	releaseControl := s.releaseControl
+	s.active = false
+	s.releaseControl = nil
+	s.generation++
+	s.mu.Unlock()
+	s.finish(releaseControl, true, false)
 }
 
 func (s *ManualSession) Close() {

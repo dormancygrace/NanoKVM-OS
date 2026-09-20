@@ -250,9 +250,9 @@ func gather() snapshot {
 			s.Targets = append(s.Targets, t)
 		}
 	}
-	vpn := target{Name: "openvpn", Kind: "openvpn", Paths: []string{"/usr/sbin/openvpn3"}}
+	vpn := target{Name: "openvpn", Kind: "openvpn", Paths: []string{"/usr/sbin/openvpn"}}
 	for _, p := range all {
-		if p.Name == "openvpn3" && managedVPN(p.PID) {
+		if p.Name == "openvpn" && managedVPN(p.PID) {
 			addProcess(&vpn, p)
 		}
 	}

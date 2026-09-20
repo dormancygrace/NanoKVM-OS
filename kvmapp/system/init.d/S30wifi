@@ -17,6 +17,8 @@
 : "${NANOKVM_IP:=ip}"
 : "${NANOKVM_KILLALL:=killall}"
 : "${NANOKVM_CHOWN:=chown}"
+: "${NANOKVM_IW:=iw}"
+: "${NANOKVM_WIFI_PHY_LINK:=/sys/class/net/wlan0/phy80211}"
 : "${NANOKVM_WIFI_DHCP_PID:=/run/udhcpc.wlan0.pid}"
 : "${NANOKVM_HOSTNAME_FILE:=/etc/hostname}"
 
@@ -103,7 +105,102 @@ import_boot_credentials() {
     "$NANOKVM_CHOWN" root:root "$WIFI_SSID_FILE" "$WIFI_PASS_FILE" || return 1
     chmod 600 "$WIFI_SSID_FILE" "$WIFI_PASS_FILE" || return 1
     # Boot provisioning uses the original personal/automatic profile.
-    rm -f "$NANOKVM_WIFI_ETC_DIR/wifi.security" "$NANOKVM_WIFI_ETC_DIR/wifi.hidden" "$NANOKVM_WIFI_ETC_DIR/wifi.freq_list"
+    rm -f "$NANOKVM_WIFI_ETC_DIR/wifi.security" "$NANOKVM_WIFI_ETC_DIR/wifi.hidden" \
+        "$NANOKVM_WIFI_ETC_DIR/wifi.freq_list" "$NANOKVM_WIFI_ETC_DIR/wifi.freq_list_2.4" \
+        "$NANOKVM_WIFI_ETC_DIR/wifi.freq_list_5" "$NANOKVM_WIFI_ETC_DIR/wifi.band_preference"
+}
+
+valid_frequencies() {
+    case "$1" in *[!0-9\ ]*) return 1 ;; esac
+    return 0
+}
+
+# New profiles store the exact frequencies advertised by the adapter. For an
+# installation upgrading from a profile without those files, discover them at
+# boot so that the missing preference still defaults to 5 GHz. If discovery is
+# unavailable, the unrestricted fallback keeps the legacy profile usable.
+adapter_frequencies() {
+    requested_band=$1
+    phy=$(basename "$(readlink -f "$NANOKVM_WIFI_PHY_LINK" 2>/dev/null)")
+    [ -n "$phy" ] || return 0
+    "$NANOKVM_IW" phy "$phy" info 2>/dev/null | awk -v requested_band="$requested_band" '
+        /\*[[:space:]]+[0-9]+(\.0+)?[[:space:]]+MHz/ {
+            frequency = $2
+            sub(/\.0+$/, "", frequency)
+            if ((requested_band == "2.4" && frequency >= 2400 && frequency < 2500) ||
+                (requested_band == "5" && frequency >= 4900 && frequency < 5925))
+                printf "%s ", frequency
+        }
+    ' | sed 's/[[:space:]]*$//'
+}
+
+band_frequencies() {
+    requested_band=$1
+    frequency_file="$NANOKVM_WIFI_ETC_DIR/wifi.freq_list_$requested_band"
+    if [ -r "$frequency_file" ]; then
+        value=$(cat "$frequency_file")
+        valid_frequencies "$value" || return 1
+        printf '%s\n' "$value"
+        return 0
+    fi
+
+    # A former single-band profile can still seed its matching preferred band.
+    legacy=$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.freq_list" 2>/dev/null || true)
+    valid_frequencies "$legacy" || return 1
+    for frequency in $legacy; do
+        case "$requested_band:$frequency" in
+            2.4:24[0-9][0-9]|5:49[0-9][0-9]|5:5[0-8][0-9][0-9])
+                printf '%s\n' "$legacy"
+                return 0
+                ;;
+        esac
+    done
+    adapter_frequencies "$requested_band"
+}
+
+emit_network() {
+    frequencies=$1
+    priority=$2
+    echo 'network={'
+    # Hex encoding prevents quotes/backslashes in SSIDs becoming config.
+    printf '    ssid=%s\n' "$(printf '%s' "$ssid" | od -An -tx1 | tr -d ' \n')"
+    if [ "$security" = open ]; then
+        echo '    key_mgmt=NONE'
+    else
+        if [ "$security" != wpa3 ]; then
+            printf '%s\n' "$psk_config" | sed -n '/^[[:space:]]*psk=/p'
+        fi
+        case "$security" in
+            wpa)
+                echo '    proto=WPA'
+                echo '    key_mgmt=WPA-PSK'
+                echo '    ieee80211w=0'
+                ;;
+            wpa-wpa2|wpa2)
+                if [ "$security" = wpa2 ]; then echo '    proto=RSN'; else echo '    proto=WPA RSN'; fi
+                echo '    key_mgmt=WPA-PSK'
+                echo '    ieee80211w=1'
+                ;;
+            wpa3)
+                echo '    proto=RSN'
+                echo '    key_mgmt=SAE'
+                echo '    ieee80211w=2'
+                echo "    sae_password=$sae_password"
+                ;;
+            personal|wpa2-wpa3)
+                echo '    proto=RSN'
+                echo '    key_mgmt=WPA-PSK SAE'
+                echo '    ieee80211w=1'
+                echo "    sae_password=$sae_password"
+                ;;
+        esac
+    fi
+    if [ "$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.hidden" 2>/dev/null)" = true ]; then
+        echo '    scan_ssid=1'
+    fi
+    [ -z "$frequencies" ] || echo "    freq_list=$frequencies"
+    echo "    priority=$priority"
+    echo '}'
 }
 
 write_wpa_config() {
@@ -122,54 +219,18 @@ write_wpa_config() {
         open) ;;
         *) return 1 ;;
     esac
-    frequencies=
-    [ ! -f "$NANOKVM_WIFI_ETC_DIR/wifi.freq_list" ] || frequencies=$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.freq_list")
-    case "$frequencies" in *[!0-9\ ]*) return 1 ;; esac
+    preferred_band=$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.band_preference" 2>/dev/null || printf 5)
+    case "$preferred_band" in 2.4|5) ;; *) preferred_band=5 ;; esac
+    preferred_frequencies=$(band_frequencies "$preferred_band") || return 1
 
     umask 077
     {
         echo "ctrl_interface=/var/run/wpa_supplicant"
-        if [ "$security" = open ]; then
-            echo 'network={'
-            # Hex encoding prevents quotes/backslashes in SSIDs becoming config.
-            printf '    ssid=%s\n' "$(printf '%s' "$ssid" | od -An -tx1 | tr -d ' \n')"
-            echo '    key_mgmt=NONE'
-        else
-            printf '%s\n' "$psk_config" | sed '/^[[:space:]]*#psk=/d; /^[[:space:]]*psk=/d; /^[[:space:]]*ssid=/d; /^[[:space:]]*}$/d'
-            if [ "$security" != wpa3 ]; then
-                printf '%s\n' "$psk_config" | sed -n '/^[[:space:]]*psk=/p'
-            fi
-            printf '    ssid=%s\n' "$(printf '%s' "$ssid" | od -An -tx1 | tr -d ' \n')"
-            case "$security" in
-                wpa)
-                    echo '    proto=WPA'
-                    echo '    key_mgmt=WPA-PSK'
-                    echo '    ieee80211w=0'
-                    ;;
-                wpa-wpa2|wpa2)
-                    if [ "$security" = wpa2 ]; then echo '    proto=RSN'; else echo '    proto=WPA RSN'; fi
-                    echo '    key_mgmt=WPA-PSK'
-                    echo '    ieee80211w=1'
-                    ;;
-                wpa3)
-                    echo '    proto=RSN'
-                    echo '    key_mgmt=SAE'
-                    echo '    ieee80211w=2'
-                    echo "    sae_password=$sae_password"
-                    ;;
-                personal|wpa2-wpa3)
-                    echo '    proto=RSN'
-                    echo '    key_mgmt=WPA-PSK SAE'
-                    echo '    ieee80211w=1'
-                    echo "    sae_password=$sae_password"
-                    ;;
-            esac
-        fi
-        if [ "$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.hidden" 2>/dev/null)" = true ]; then
-            echo '    scan_ssid=1'
-        fi
-        [ -z "$frequencies" ] || echo "    freq_list=$frequencies"
-        echo '}'
+        # wpa_supplicant selects the higher-priority block when both match.
+        # The unrestricted lower-priority block preserves a usable fallback on
+        # another band (and on a 2.4 GHz-only adapter).
+        [ -z "$preferred_frequencies" ] || emit_network "$preferred_frequencies" 2
+        emit_network "" 1
     } > "$config_tmp" || {
         rm -f "$config_tmp"
         return 1

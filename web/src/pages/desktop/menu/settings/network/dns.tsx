@@ -315,7 +315,7 @@ export const DNS = () => {
     normalizedServers.join(',') !== normalizeServers(originalServers).join(',');
 
   const statusText = error || message || (hasChanges ? t('settings.network.dns.unsaved') : '');
-  const statusColor = error ? 'text-red-400' : message ? 'text-green-400' : 'text-yellow-400/80';
+  const statusColor = error ? 'text-red-400' : message ? 'text-green-500' : 'text-yellow-400/80';
   const serversDescription =
     mode === 'dhcp'
       ? t('settings.network.dns.dhcpServersDescription')

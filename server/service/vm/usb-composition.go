@@ -59,16 +59,20 @@ func applyLiveUSBComposition(h *hid.Hid, current, candidate usbComposition) erro
 }
 
 func (s usbComposition) empty() bool {
-    return !s.keyboard && !s.relative && !s.absolute && !s.network && !s.disk && !s.serial && !s.audio
+	return !s.keyboard && !s.relative && !s.absolute && !s.network && !s.disk && !s.serial && !s.audio
 }
 func verifyLiveUSBComposition(s usbComposition) error {
-    return verifyUSBCompositionAt("/sys/kernel/config/usb_gadget/g0", s)
+	return verifyUSBCompositionAt("/sys/kernel/config/usb_gadget/g0", s)
 }
 func verifyUSBCompositionAt(root string, s usbComposition) error {
 	udc, err := os.ReadFile(filepath.Join(root, "UDC"))
-	if err != nil { return err }
-    bound := strings.TrimSpace(string(udc)) != ""
-    if bound == s.empty() { return errors.New("USB controller binding does not match the composition") }
+	if err != nil {
+		return err
+	}
+	bound := strings.TrimSpace(string(udc)) != ""
+	if bound == s.empty() {
+		return errors.New("USB controller binding does not match the composition")
+	}
 	linked := func(name string) bool {
 		info, err := os.Lstat(filepath.Join(root, "configs/c.1", name))
 		return err == nil && info.Mode()&os.ModeSymlink != 0
@@ -151,6 +155,17 @@ func (store usbCompositionStore) apply(current, candidate usbComposition) error 
 	}
 	if current == candidate {
 		return nil
+	}
+
+	// Alpine exposes the legacy script through a compatibility symlink. Snapshot
+	// and restore the actual file, leaving the packaged link intact.
+	if info, err := os.Lstat(store.scriptPath); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		store.scriptPath, err = filepath.EvalSymlinks(store.scriptPath)
+		if err != nil {
+			return fmt.Errorf("resolve USB init script: %w", err)
+		}
+	} else if err != nil && !os.IsNotExist(err) {
+		return err
 	}
 
 	paths := make([]string, 0, len(usbCompositionFlags)+1)

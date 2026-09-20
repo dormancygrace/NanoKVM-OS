@@ -3,6 +3,7 @@ package router
 import (
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/middleware"
+	"NanoKVM-Server/service/extensions/netbird"
 	"NanoKVM-Server/service/extensions/openvpn"
 	"NanoKVM-Server/service/extensions/tailscale"
 	"NanoKVM-Server/service/extensions/vpn"
@@ -19,6 +20,8 @@ func extensionsRouter(r *gin.Engine) {
 
 	api.GET("/vpn/versions", vpn.Versions)
 	ovpn := openvpn.NewService()
+	api.POST("/openvpn/install", ovpn.Install)
+	api.POST("/openvpn/uninstall", ovpn.Uninstall)
 	api.GET("/openvpn/status", ovpn.GetStatus)
 	api.POST("/openvpn/import", ovpn.Import)
 	api.POST("/openvpn/profile", ovpn.Change)
@@ -39,4 +42,14 @@ func extensionsRouter(r *gin.Engine) {
 	api.POST("/tailscale/start", ts.Start)         // tailscale start
 	api.POST("/tailscale/stop", ts.Stop)           // tailscale stop
 	api.POST("/tailscale/restart", ts.Restart)     // tailscale restart
+
+	nb := netbird.NewService()
+	api.POST("/netbird/install", nb.Install)
+	api.POST("/netbird/uninstall", nb.Uninstall)
+	api.GET("/netbird/status", nb.GetStatus)
+	api.POST("/netbird/login", nb.Login)
+	api.POST("/netbird/down", nb.Down)
+	api.POST("/netbird/start", nb.Start)
+	api.POST("/netbird/stop", nb.Stop)
+	api.POST("/netbird/restart", nb.Restart)
 }

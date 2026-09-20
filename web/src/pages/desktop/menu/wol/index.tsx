@@ -1,9 +1,19 @@
 import { ChangeEvent, useRef, useState } from 'react';
+import { useAuth } from '@/contexts/auth.ts';
 import { Button, Divider, Input, List, Select } from 'antd';
 import type { InputRef } from 'antd';
 import clsx from 'clsx';
 import { useSetAtom } from 'jotai';
-import { Eye, EyeClosed, NetworkIcon, Pencil, SendIcon, Trash2Icon } from 'lucide-react';
+import {
+  CheckIcon,
+  Eye,
+  EyeClosed,
+  NetworkIcon,
+  Pencil,
+  SendIcon,
+  Trash2Icon,
+  XIcon
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { deleteWolMac, getWolInterfaces, getWolMacs, setWolMacName, wol } from '@/api/network.ts';
@@ -20,6 +30,8 @@ interface MacItem {
 
 export const Wol = () => {
   const { t } = useTranslation();
+  const { account } = useAuth();
+  const isAdmin = account.role === 'admin';
 
   const setKeyboardLock = useSetAtom(keyboardLockAtom);
 
@@ -105,13 +117,14 @@ export const Wol = () => {
     );
   }
 
-  async function setMacName(e: React.KeyboardEvent<HTMLInputElement>, mac: string) {
-    const value = e.currentTarget.value.trim();
+  async function saveMacName(mac: string, value: string) {
+    value = value.trim();
     if (!value) return;
 
     const rsp = await setWolMacName(mac, value);
     if (rsp.code !== 0) {
-      console.log(rsp.msg);
+      setStatus('failed');
+      setLog(rsp.msg || t('auth.error'));
       return;
     }
     getMacs();
@@ -200,15 +213,17 @@ export const Wol = () => {
           itemLayout="horizontal"
           dataSource={macList}
           renderItem={(item) => (
-            <List.Item className="flex w-full items-center justify-between">
-              <div className="h-[24px] max-w-[200px]">
+            <List.Item className="flex w-full items-center justify-between gap-2 py-2">
+              <div className="min-h-[32px] min-w-0 flex-1">
                 {item.isEdit ? (
                   <Input
-                    placeholder={item.mac}
+                    autoFocus
+                    aria-label={t('wol.name')}
+                    placeholder={t('wol.name')}
                     onFocus={() => setKeyboardLock({ source: 'wol-edit-input', locked: true })}
                     onBlur={() => setKeyboardLock({ source: 'wol-edit-input', locked: false })}
                     defaultValue={item.name}
-                    onPressEnter={(e) => setMacName(e, item.mac)}
+                    onPressEnter={(e) => saveMacName(item.mac, e.currentTarget.value)}
                   />
                 ) : item.isShow ? (
                   item.mac
@@ -217,33 +232,71 @@ export const Wol = () => {
                 )}
               </div>
 
-              <div className="flex items-center space-x-1">
+              <div className="flex shrink-0 items-center space-x-1">
                 {item.isName && (
-                  <div
-                    className="text-500 flex h-[24px] w-[24px] cursor-pointer items-center justify-center rounded hover:bg-neutral-700/80"
+                  <Button
+                    type="text"
+                    aria-label={item.isShow ? item.name : item.mac}
+                    className="!flex !h-8 !w-8 !min-w-8 !items-center !justify-center !p-0 text-neutral-400 hover:!bg-neutral-700/80"
                     onClick={() => toggleShow(item.mac)}
                   >
                     {item.isShow ? <EyeClosed size={16} /> : <Eye size={16} />}
-                  </div>
+                  </Button>
                 )}
-                <div
-                  className="text-500 flex h-[24px] w-[24px] cursor-pointer items-center justify-center rounded hover:bg-neutral-700"
-                  onClick={() => editMac(item.mac, item.isEdit)}
-                >
-                  <Pencil size={16} />
-                </div>
-                <div
-                  className="flex h-[24px] w-[24px] cursor-pointer items-center justify-center rounded text-green-500 hover:bg-neutral-700/80"
+                {isAdmin &&
+                  (item.isEdit ? (
+                    <>
+                      <Button
+                        type="text"
+                        aria-label={t('wol.save')}
+                        className="!flex !h-8 !w-8 !min-w-8 !items-center !justify-center !p-0 text-green-500 hover:!bg-neutral-700/80"
+                        onClick={(event) => {
+                          const input =
+                            event.currentTarget.parentElement?.parentElement?.querySelector(
+                              'input'
+                            );
+                          if (input) void saveMacName(item.mac, input.value);
+                        }}
+                      >
+                        <CheckIcon size={17} />
+                      </Button>
+                      <Button
+                        type="text"
+                        aria-label={t('wol.cancel')}
+                        className="!flex !h-8 !w-8 !min-w-8 !items-center !justify-center !p-0 text-neutral-400 hover:!bg-neutral-700/80"
+                        onClick={() => editMac(item.mac, item.isEdit)}
+                      >
+                        <XIcon size={17} />
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      type="text"
+                      aria-label={t('wol.name')}
+                      className="!flex !h-8 !w-8 !min-w-8 !items-center !justify-center !p-0 text-neutral-400 hover:!bg-neutral-700"
+                      onClick={() => editMac(item.mac, item.isEdit)}
+                    >
+                      <Pencil size={16} />
+                    </Button>
+                  ))}
+                <Button
+                  type="text"
+                  aria-label={t('wol.send')}
+                  className="!flex !h-8 !w-8 !min-w-8 !items-center !justify-center !p-0 text-green-500 hover:!bg-neutral-700/80"
                   onClick={() => wake(item.mac)}
                 >
                   <SendIcon size={16} />
-                </div>
-                <div
-                  className="flex h-[24px] w-[24px] cursor-pointer items-center justify-center rounded text-red-500 hover:bg-neutral-700"
-                  onClick={() => deleteMac(item.mac)}
-                >
-                  <Trash2Icon size={16} />
-                </div>
+                </Button>
+                {isAdmin && (
+                  <Button
+                    type="text"
+                    aria-label={t('wol.remove')}
+                    className="!flex !h-8 !w-8 !min-w-8 !items-center !justify-center !p-0 text-red-500 hover:!bg-neutral-700"
+                    onClick={() => deleteMac(item.mac)}
+                  >
+                    <Trash2Icon size={16} />
+                  </Button>
+                )}
               </div>
             </List.Item>
           )}

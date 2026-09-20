@@ -29,6 +29,7 @@ func networkRouter(r *gin.Engine) {
 
 	admin.GET("/network/wifi/scan", service.ScanWifi)
 	admin.POST("/network/wifi/enabled", service.SetWifiEnabled)
+	admin.POST("/network/wifi/band-preference", service.SetWifiBandPreference)
 	admin.POST("/network/wifi/configure", service.ConfigureWifi)
 	admin.GET("/network/wifi", service.GetWifi)                    // get Wi-Fi information
 	admin.POST("/network/wifi/connect", service.ConnectWifi)       // connect Wi-Fi
@@ -39,4 +40,6 @@ func networkRouter(r *gin.Engine) {
 	admin.POST("/network/dns", service.SetDNS)           // set DNS configuration
 	admin.GET("/network/ethernet", service.GetEthernet)  // get Ethernet IPv4 configuration
 	admin.POST("/network/ethernet", service.SetEthernet) // set Ethernet IPv4 configuration
+	admin.GET("/network/gateway", service.GetGatewayPreference)
+	admin.POST("/network/gateway", service.SetGatewayPreference)
 }

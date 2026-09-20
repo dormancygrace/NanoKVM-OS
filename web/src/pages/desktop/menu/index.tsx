@@ -18,8 +18,10 @@ import { useMenuBounds } from '@/hooks/useMenuBounds.ts';
 import { useMenuVisibility } from '@/hooks/useMenuVisibility.ts';
 import { useMobileMenuPlacement } from '@/hooks/useMobileMenuPlacement.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
+import { useUsbInput } from '@/hooks/useUsbInput.ts';
 import { MobileMenuItemProvider } from '@/components/menu-item.tsx';
 
+import { Control } from '../control.tsx';
 import { KeyboardLedStatus } from '../keyboard-led-status';
 import { AudioMenu, useUsbAudio } from './audio';
 import { Capture } from './capture';
@@ -49,6 +51,7 @@ type MenuVariant = 'desktop' | 'mobile';
 
 export const Menu = () => {
   const audio = useUsbAudio();
+  const usbInputAvailable = useUsbInput();
   const { t } = useTranslation();
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const { account } = useAuth();
@@ -152,6 +155,7 @@ export const Menu = () => {
       ],
       audio.available ? [<AudioMenu key="audio" audio={audio} />] : [],
       [
+        ...(usbInputAvailable ? [<Control key="control" />] : []),
         ...(captureEnabled && isEnabled('keyboard') ? [<Keyboard key="keyboard" />] : []),
         ...(captureEnabled && isEnabled('mouse') ? [<Mouse key="mouse" />] : [])
       ],

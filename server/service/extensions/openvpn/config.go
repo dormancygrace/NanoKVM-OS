@@ -138,6 +138,7 @@ func Normalize(data string, assets map[string]string) (Parsed, error) {
 				return lineError(number+1, "enter the VPN username and password in the interface")
 			}
 			result.NeedsAuth = true
+			continue // The service supplies the protected credentials file.
 		case "remote":
 			if len(args) < 1 || len(args) > 3 {
 				return lineError(number+1, "invalid remote endpoint")
@@ -174,7 +175,8 @@ func Normalize(data string, assets map[string]string) (Parsed, error) {
 	if !serverCheck {
 		output = append(output, "remote-cert-tls server")
 	}
-	result.Config = "client\ndev tun\n" + strings.Join(output, "\n") + "\n"
+	// The service supplies a unique TUN device name for status and DNS cleanup.
+	result.Config = "client\n" + strings.Join(output, "\n") + "\n"
 	if len(result.Config) > 256*1024 {
 		return Parsed{}, fmt.Errorf("combined profile and certificates exceed 256 KiB")
 	}

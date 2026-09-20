@@ -25,7 +25,7 @@ The aim is a responsive IP-KVM with maintained system components, package update
 
 ## 🚀 At a glance
 
-- **🖼️ More desktop space:** QHD 2560×1440, alongside FHD and lower resolutions; delivered frame rate depends on source timing, codec and load.
+- **🖼️ More desktop space:** **QHD@50** (2560×1440), **FHD@75** (1920×1080) and **HD@120** (1280×720); delivered frame rate depends on source timing, codec and load.
 - **📐 Portrait video:** four portrait monitor profiles with matching codec-aware capture controls.
 - **📸 Screenshots:** save the current frame as a native-resolution PNG from Direct, WebRTC or MJPEG.
 - **🔌 A console without HDMI:** USB Serial (CDC ACM) for headless Linux, with access through the browser terminal.
@@ -68,10 +68,10 @@ This comparison uses the documented SG2002 Cube/PCIe features in the [Sipeed Nan
 
 | Area | Original SG2002 NanoKVM | NanoKVM OS |
 |---|---|---|
-| 🖼️ Video resolution | Up to 1920×1080 documented | Adds 2560×1440, with QHD monitor switching exercised on the PCIe/UXC test board |
+| 🖼️ Video resolution | Up to 1920×1080 documented | QHD@50 (2560×1440), FHD@75 (1920×1080) and HD@120 (1280×720), with QHD monitor switching exercised on the PCIe/UXC test board |
 | 🎞️ Video formats | MJPEG and H.264 documented | MJPEG, H.264 and H.265; Direct and WebRTC paths for H.264/H.265. Use Direct for QHD H.265; its WebRTC path is disabled |
-| 🖥️ Virtual HDMI monitor | Stock EDID and resolution controls | Separate monitor preference and stream resolution; aspect-ratio-preserving downscaling. Automatic prefers QHD 40 Hz; explicit QHD 40 Hz, FHD 75 Hz and HD 120 Hz monitor profiles retain BIOS fallback timings |
-| ⏱️ Stream frame-rate control | Existing FPS control | Adds 720p / 120 FPS, 1080p / 70 FPS and 1440p / 40 FPS profiles. Targets depend on source timing, codec and load; they do not guarantee delivered FPS |
+| 🖥️ Virtual HDMI monitor | Stock EDID and resolution controls | Separate monitor preference and stream resolution; aspect-ratio-preserving downscaling. QHD@50, FHD@75 and HD@120 monitor profiles retain BIOS fallback timings |
+| ⏱️ Stream frame-rate control | Existing FPS control | QHD / 50 FPS, FHD / 75 FPS and HD / 120 FPS targets. Targets depend on source timing, codec and load; they do not guarantee delivered FPS |
 | 🎚️ Video bitrate | Existing video quality controls | Adds 15 and 20 Mbit/s CBR targets for H.264/H.265 in Video settings and the toolbar; MJPEG keeps its quality controls |
 | 📶 Wi-Fi | Optional Wi-Fi hardware | Adds 5 GHz alongside 2.4 GHz on compatible adapters, automatic scanning across both bands, signal icons, hidden-network setup and a preferred band with fallback |
 | 🐧 System | Vendor firmware baseline | Alpine 3.24 on writable F2FS, Linux 7.2.6 with matching modules, Alpine OpenSSL libraries and selected C906-optimized packages |

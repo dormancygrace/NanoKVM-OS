@@ -268,6 +268,12 @@ const en = {
       streamHint:
         'Resolution, FPS and bitrate affect all viewers. Changing stream resolution does not change the computer’s desktop. New viewers automatically use the active encoder codec; transport and display scale remain individual.',
       advanced: 'Advanced and recovery',
+      gopMode: 'H.265 GOP mode',
+      gopModeHint:
+        'NormalP uses less video memory. SmartP can reduce traffic on static scenes but keeps an additional background-reference frame. The saved selection takes effect after a device reboot.',
+      gopModeRebootRequired: 'GOP mode saved. Reboot the device to apply it.',
+      gopModePendingReboot: 'A saved H.265 GOP mode change is waiting for a device reboot.',
+      gopModePendingRebootHint: 'Active: {{active}}. Selected: {{selected}}.',
       gopHint:
         'GOP is the interval between keyframes. HDMI recovery restarts capture if the source stops responding.',
       fpsLimited:
@@ -665,31 +671,35 @@ const en = {
     },
     settings: {
       software: {
-        title: "Software",
-        description: "Manage packages from the configured Alpine repositories. Package changes use the same APK database and services as SSH.",
-        refresh: "Refresh indexes",
-        upgrade: "Upgrade all",
-        upgradeConfirm: "Upgrade all installed packages? Video and control may briefly disconnect.",
-        available: "Available packages",
-        updatesTab: "Updates",
-        updateAvailable: "Packages with available updates",
-        upToDate: "All installed packages are up to date.",
-        searchPlaceholder: "Search package name",
-        searchHint: "Search starts automatically after you pause typing.",
-        noResults: "No matching packages",
-        indexMissing: "No package indexes are available. Refresh indexes before searching or installing.",
-        indexStale: "Package indexes may be outdated (last refreshed {{updated}}). Refresh before installing.",
-        indexUnknown: "unknown time",
-        install: "Install",
-        installed: "Installed packages",
-        remove: "Remove",
-        removeTitle: "Remove {{package}}?",
-        removeDescription: "APK will perform this removal and its dependency changes exactly as shown below. This cannot be undone automatically.",
-        started: "APK operation started",
-        running: "APK is {{action}} {{package}}",
-        succeeded: "APK operation completed",
-        failed: "APK operation failed",
-        requestFailed: "The software request failed. Check device connectivity and retry."
+        title: 'Software',
+        description:
+          'Manage packages from the configured Alpine repositories. Package changes use the same APK database and services as SSH.',
+        refresh: 'Refresh indexes',
+        upgrade: 'Upgrade all',
+        upgradeConfirm: 'Upgrade all installed packages? Video and control may briefly disconnect.',
+        available: 'Available packages',
+        updatesTab: 'Updates',
+        updateAvailable: 'Packages with available updates',
+        upToDate: 'All installed packages are up to date.',
+        searchPlaceholder: 'Search package name',
+        searchHint: 'Search starts automatically after you pause typing.',
+        noResults: 'No matching packages',
+        indexMissing:
+          'No package indexes are available. Refresh indexes before searching or installing.',
+        indexStale:
+          'Package indexes may be outdated (last refreshed {{updated}}). Refresh before installing.',
+        indexUnknown: 'unknown time',
+        install: 'Install',
+        installed: 'Installed packages',
+        remove: 'Remove',
+        removeTitle: 'Remove {{package}}?',
+        removeDescription:
+          'APK will perform this removal and its dependency changes exactly as shown below. This cannot be undone automatically.',
+        started: 'APK operation started',
+        running: 'APK is {{action}} {{package}}',
+        succeeded: 'APK operation completed',
+        failed: 'APK operation failed',
+        requestFailed: 'The software request failed. Check device connectivity and retry.'
       },
       updates: {
         apk: {
@@ -745,6 +755,16 @@ const en = {
         reload: 'Reload interface'
       },
       memory: {
+        videoMode: "Video memory allocation",
+        videoModeDescription: "Both modes provide 64 MiB for video. CMA lets Linux use unused pages; Fixed reserves the entire region exclusively for video. Changes apply after reboot.",
+        videoCma: "CMA — 64 MiB (default)",
+        videoFixed: "Fixed — 64 MiB",
+        videoFixedShort: "Fixed",
+        videoActive: "Currently active",
+        videoUnknown: "Unknown",
+        videoModeUnavailable: "Update the kernel package to enable switching.",
+        videoReboot: "Restart the device to apply the selected video memory mode.",
+
         recompressTitle: 'Recompress cold pages with ZSTD',
         recompressDescription:
           'Keep fast LZ4 for new pages. Every 15 seconds, try up to 1 MiB of pages untouched for a minute. Uses extra CPU and compressor memory; reading these pages may be slower. Changing this mode recreates ZRAM and requires enough free RAM.',
@@ -780,6 +800,60 @@ const en = {
       system: {
         title: 'System',
         general: 'General',
+        diagnostics: {
+          title: 'Diagnostics',
+          description:
+            'Read-only support status. Collection is cached and never changes the device.',
+          refresh: 'Refresh',
+          download: 'Download report',
+          loadError: 'Could not collect diagnostics',
+          downloadError: 'Could not download the diagnostic report',
+          collected: 'Collected: {{time}}',
+          versions: 'Versions and compatibility',
+          application: 'Application',
+          image: 'Image',
+          alpine: 'Alpine',
+          kernel: 'Running kernel',
+          systemBase: 'System base',
+          modules: 'Kernel modules',
+          boot: 'Boot components',
+          video: 'HDMI and video capture',
+          capture: 'Capture',
+          edid: 'EDID programming',
+          operationFailed:
+            'The latest operation failed; the report intentionally omits its raw log.',
+          profile: 'EDID profile',
+          input: 'Input',
+          output: 'Output',
+          fps: 'Measured FPS',
+          usb: 'USB gadget',
+          binding: 'Controller binding',
+          selected: 'Selected functions',
+          firewall: 'nftables',
+          services: 'OpenRC services',
+          optional: 'optional',
+          apk: 'APK',
+          systemUpdate: 'System update',
+          states: {
+            ok: 'OK',
+            running: 'running',
+            stopped: 'stopped',
+            absent: 'not installed',
+            unavailable: 'unavailable',
+            error: 'error',
+            disabled: 'disabled',
+            'no-signal': 'no signal',
+            checking: 'checking',
+            installing: 'installing',
+            ready: 'ready',
+            'up-to-date': 'up to date',
+            installed: 'installed',
+            configured: 'configured',
+            'saved-profile': 'saved profile',
+            'power-cycle-pending': 'physical power cycle pending',
+            'pending-reboot': 'reboot pending'
+          }
+        },
         services: 'Services',
         performance: 'Performance',
         ssh: {
@@ -819,6 +893,56 @@ const en = {
       about: {
         title: 'About',
         description: 'Community firmware for NanoKVM.',
+        specialThanksTitle: 'Special thanks',
+        specialThanksWife:
+          'To my wife — for her patience, support, and for enduring my absence during the most intensive phase of development.',
+        credits: {
+          button: 'Credits',
+          title: 'Credits',
+          pause: 'Pause',
+          resume: 'Resume',
+          close: 'Close',
+          madePossibleBy: 'Made possible by',
+          projectLead:
+            'Concept, architecture, NanoKVM OS development, system integration, device validation, and release engineering.',
+          wenjie:
+            'Original NanoKVM application stewardship; Direct H.264, Tailscale startup and networking fixes; and UI and localization integration.',
+          z2zGuGu:
+            'Native KVM, MMF and vision components; build tooling, watchdog, EDID and USB PID/VID tools; and device customization foundations.',
+          alexanderGerReich:
+            'Application, update and download flows; HID, paste and virtual keyboard improvements; and German and English UI maintenance.',
+          andrewMoryakov:
+            'NetBird client and settings integration, hardened VPN lifecycle and recovery handling, artifact verification, and regression CI.',
+          watermeko:
+            'Verified and cancellable downloads and OTA, low-latency and zero-copy H.264 work, configurable input regions, and mouse fixes.',
+          scpcom:
+            'Virtual-media, download and storage reliability; HID locking; hostname and network fixes; and native MMF cleanup.',
+          lingkongSky:
+            'Mouse Jiggler, hostname and web-title editing, named Wake-on-LAN entries, power confirmations, and swap controls.',
+          polyzium:
+            'Russian localization, the generic 104-key virtual keyboard, fit-to-window behavior, and UI translation fixes.',
+          yuryPekishev:
+            'Russian virtual-keyboard layout and Russian-to-English conversion for pasted keyboard input.',
+          thomasPressnell:
+            'Persistent HDMI enable and disable support, and separation of USB gadget, data attachment, and virtual-media controls.',
+          s33g: 'Login branding and text, toolbar tooltips, localizable errors, and device-free development mocks.',
+          gxcreator:
+            'Detailed issue reports and persistent feedback that exposed regressions and directly shaped fixes.',
+          yuziCo:
+            'MJPEG duplicate suppression and capture backpressure, plus broadcast acquisition and DHCP option 121 designs adapted from IronKVM.',
+          sipeed: 'The original NanoKVM hardware platform and upstream application foundation.',
+          silicon: 'The SG2002 media platform, SDK foundations, and low-level hardware support.',
+          systemStack:
+            'The operating system, build infrastructure, package management, and countless upstream fixes.',
+          appStack:
+            'The application, browser interface, secure transport, and real-time media building blocks.',
+          projects:
+            'Ideas, prior art, interoperability work, and inspiration across the open KVM community.',
+          contributorsTitle: 'Open-source contributors',
+          contributors:
+            'Code, translations, testing, issue reports, reviews, documentation, and patient feedback.',
+          closing: 'Thank you for making NanoKVM OS possible.'
+        },
         documentation: 'Documentation',
         reportIssue: 'Report an issue',
         upstreamCredit:
@@ -845,18 +969,45 @@ const en = {
         branding: {
           title: 'Branding',
           description:
-            'Choose the logo used on the login page and browser tab. Changes apply immediately and are saved on this device.',
-          connection: 'Connection (default)',
-          screen: 'Screen',
-          custom: 'Custom',
-          upload: 'Upload logo',
-          remove: 'Remove custom logo',
+            'Customize the login logo and browser favicon independently. Built-in images remain available as defaults.',
+          logoTitle: 'Login logo',
+          logoDescription: 'The main logo shown above the sign-in form.',
+          logoPreview: 'Login logo preview',
+          logoUpload: 'Upload login logo',
+          faviconTitle: 'Favicon',
+          faviconDescription: 'The small icon shown in the browser tab.',
+          faviconPreview: 'Favicon preview',
+          faviconUpload: 'Upload favicon',
+          defaultActive: 'Built-in default',
+          customActive: 'Custom image',
+          restoreDefault: 'Restore default',
           formats:
             'PNG or JPEG, up to 2 MiB and 1024 × 1024 pixels. A square transparent PNG works best.',
           failed: 'Could not save branding.'
         },
+        buttonColor: {
+          title: 'Button color',
+          description: 'Choose the accent color used by primary buttons throughout the interface.',
+          accentTitle: 'Primary buttons',
+          accentDescription: 'Hover and pressed states are generated automatically.',
+          preview: 'Preview button',
+          inputLabel: 'Button color in hexadecimal format',
+          defaultActive: 'Built-in logo green (#45E9A0)',
+          customActive: 'Custom color',
+          save: 'Apply',
+          restoreDefault: 'Restore default',
+          failed: 'Could not save the button color.'
+        },
+        bannerStyle: {
+          title: 'SSH banner',
+          description: 'Choose the banner shown when a new interactive SSH session starts.',
+          default: 'Default',
+          rainbow: 'Rainbow',
+          failed: 'Could not save the SSH banner style.'
+        },
         title: 'Appearance',
         display: 'Display',
+        customize: 'Customize',
         language: 'Language',
         languageDesc: 'Select the language for the interface',
         webTitle: 'Web Title',
@@ -1067,7 +1218,8 @@ const en = {
           band24: '2.4 GHz',
           band5: '5 GHz',
           preferredBand: 'Preferred frequency band',
-          preferredBandHint: 'Used for the next Wi-Fi connection. The other band remains available as a fallback.',
+          preferredBandHint:
+            'Used for the next Wi-Fi connection. The other band remains available as a fallback.',
           scan: 'Scan networks',
           scanFailed: 'Could not scan networks. Try again.',
           availableNetworks: 'Available networks',
@@ -1194,9 +1346,10 @@ const en = {
         stop: 'Stop Tailscale?',
         stopDesc: 'Log out Tailscale and disable automatic startup on boot.',
         loading: 'Loading...',
-        notInstall: 'Tailscale not found! Please install.',
-        install: 'Install',
-        installing: 'Installing',
+        notInstall: 'Tailscale is not installed.',
+        installDescription: 'Install Tailscale on demand. Existing settings are preserved.',
+        install: 'Install Tailscale',
+        installing: 'Installing Tailscale',
         failed: 'Install failed',
         retry: 'Please retry the installation.',
         notRunning: 'Tailscale is not running. Please start it to continue.',
@@ -1226,8 +1379,9 @@ const en = {
         statusUnknown: 'NetBird status is unknown',
         statusStale: 'Showing the last confirmed NetBird status',
         notInstall: 'NetBird is not installed.',
-        install: 'Install',
-        installing: 'Installing',
+        installDescription: 'Install NetBird on demand. Existing settings are preserved.',
+        install: 'Install NetBird',
+        installing: 'Installing NetBird',
         notRunning: 'NetBird service is not running.',
         run: 'Start',
         notLogin:

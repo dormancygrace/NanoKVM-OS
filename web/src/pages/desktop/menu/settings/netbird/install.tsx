@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { DownloadOutlined } from "@ant-design/icons";
-import { Button, Card, Result } from "antd";
 import { useTranslation } from "react-i18next";
 
 import * as api from "@/api/extensions/netbird.ts";
 
+import { ExtensionInstallResult } from "../vpn/extension-install-result.tsx";
 import { ErrorHelp } from "./error-help.tsx";
 
 type InstallProps = {
@@ -43,25 +42,16 @@ export const Install = ({ setIsLocked, onSuccess }: InstallProps) => {
   }
 
   return (
-    <Card>
-      <Result
-        icon={<DownloadOutlined />}
-        subTitle={t("settings.netbird.notInstall")}
-        extra={
-          <Button
-            key="install"
-            type="primary"
-            loading={isLoading}
-            onClick={install}
-          >
-            {isLoading
-              ? t("settings.netbird.installing")
-              : t("settings.netbird.install")}
-          </Button>
-        }
+    <>
+      <ExtensionInstallResult
+        title={t("settings.netbird.notInstall")}
+        description={t("settings.netbird.installDescription")}
+        actionLabel={isLoading ? t("settings.netbird.installing") : t("settings.netbird.install")}
+        loading={isLoading}
+        onInstall={install}
       />
 
       {errMsg && <ErrorHelp error={errMsg} onRefresh={onSuccess} />}
-    </Card>
+    </>
   );
 };

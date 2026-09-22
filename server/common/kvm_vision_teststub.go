@@ -12,6 +12,8 @@ func GetKvmVision() *KvmVision {
 	return testKvmVision
 }
 
+func GetActiveGOPMode() uint8 { return GOPModeSmartP }
+
 func (k *KvmVision) ReadMjpeg(uint16, uint16, uint16) ([]byte, int) {
 	return nil, -1
 }

@@ -465,7 +465,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                 : '—'
             )}
           </dl>,
-          admin ? 'memory' : undefined
+          admin ? 'system-memory' : undefined
         )}
         {section(
           t('dashboard.storage'),

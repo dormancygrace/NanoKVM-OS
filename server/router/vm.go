@@ -21,6 +21,8 @@ func vmRouter(r *gin.Engine) {
 	admin.POST("/vm/date-time", service.SetDateTime)
 
 	api.GET("/vm/dashboard", service.GetDashboard)
+	admin.GET("/vm/diagnostics", service.GetDiagnostics)
+	admin.GET("/vm/diagnostics/report", service.DownloadDiagnosticsReport)
 	api.GET("/vm/info", service.GetInfo)         // get device information
 	api.GET("/vm/hardware", service.GetHardware) // get hardware version
 
@@ -46,6 +48,7 @@ func vmRouter(r *gin.Engine) {
 
 	admin.GET("/vm/memory/status", service.GetMemoryStatus)
 	admin.POST("/vm/memory/swap", service.SetMemorySwap)
+	admin.POST("/vm/memory/video", service.SetVideoMemory)
 
 	admin.GET("/vm/memory/limit", service.GetMemoryLimit)  // get memory limit
 	admin.POST("/vm/memory/limit", service.SetMemoryLimit) // set memory limit

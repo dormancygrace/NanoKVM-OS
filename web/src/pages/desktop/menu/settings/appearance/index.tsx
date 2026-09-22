@@ -2,7 +2,9 @@ import { useAuth } from '@/contexts/auth.ts';
 import { Divider } from 'antd';
 import { useTranslation } from 'react-i18next';
 
+import { BannerStyleSetting } from './banner-style.tsx';
 import { Branding } from './branding.tsx';
+import { ButtonColor } from './button-color.tsx';
 import { KeyboardLedStatusSetting } from './keyboard-led-status.tsx';
 import { Language } from './language.tsx';
 import { MenuIcons } from './menu-icons.tsx';
@@ -22,8 +24,12 @@ export const Appearance = () => {
       <Language />
       {account.role === 'admin' && (
         <>
+          <Divider className="opacity-50" style={{ margin: '32px 0' }} />
+          <div className="text-neutral-400">{t('settings.appearance.customize')}</div>
           <WebTitle />
           <Branding />
+          <ButtonColor />
+          <BannerStyleSetting />
         </>
       )}
 

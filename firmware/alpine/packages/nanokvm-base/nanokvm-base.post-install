@@ -35,6 +35,11 @@ fi
 if ! grep -qE '^[^#]+[[:space:]]+/data[[:space:]]' /etc/fstab 2>/dev/null; then
     printf '%s\n' '/dev/mmcblk0p3 /data exfat rw,nosuid,nodev,noexec 0 0' >> /etc/fstab
 fi
+tmpfs_entry='tmpfs /tmp tmpfs rw,nosuid,nodev,mode=1777,size=64M 0 0'
+if ! grep -qE '^[^#]+[[:space:]]+/tmp[[:space:]]' /etc/fstab 2>/dev/null; then
+    printf '%s\n' "$tmpfs_entry" >> /etc/fstab
+fi
+unset tmpfs_entry
 if ! grep -q '^ttyS0::respawn:' /etc/inittab 2>/dev/null; then
     printf '%s\n' 'ttyS0::respawn:/sbin/getty -L 115200 ttyS0 vt100' >> /etc/inittab
 fi
@@ -51,6 +56,16 @@ Manage your device through its web interface.
 System and package updates are available through apk.' ]; then
     : > /etc/motd
 fi
+
+# The legacy application init script created this exact root profile. On ash it
+# is read after /etc/profile.d and therefore overwrites the coloured NanoKVM
+# prompt. Remove only the package-generated one-line file; preserve every
+# user-authored profile.
+legacy_root_profile='export PS1="\u@\h:\w# "'
+if [ -f /root/.profile ] && [ "$(cat /root/.profile)" = "$legacy_root_profile" ]; then
+    rm -f /root/.profile
+fi
+unset legacy_root_profile
 
 # A new image has no user password yet. Do not change an existing password.
 if [ ! -e /run/openrc/softlevel ] && awk -F: '$1 == "root" { exit !($2 == "*" || $2 == "!" || $2 == "!!") }' /etc/shadow; then

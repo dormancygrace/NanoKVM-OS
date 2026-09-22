@@ -1,0 +1,110 @@
+// SPDX-FileCopyrightText: 2026 The Pion community <https://pion.ly>
+// SPDX-License-Identifier: MIT
+
+package handshake
+
+import (
+	"testing"
+
+	"github.com/pion/dtls/v3/internal/ciphersuite/types"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestHandshakeMessageClientKeyExchange(t *testing.T) {
+	rawClientKeyExchange := []byte{
+		0x20, 0x26, 0x78, 0x4a, 0x78, 0x70, 0xc1, 0xf9, 0x71, 0xea, 0x50, 0x4a, 0xb5, 0xbb, 0x00, 0x76,
+		0x02, 0x05, 0xda, 0xf7, 0xd0, 0x3f, 0xe3, 0xf7, 0x4e, 0x8a, 0x14, 0x6f, 0xb7, 0xe0, 0xc0, 0xff,
+		0x54,
+	}
+	parsedClientKeyExchange := &MessageClientKeyExchange{
+		PublicKey:            rawClientKeyExchange[1:],
+		KeyExchangeAlgorithm: types.KeyExchangeAlgorithmEcdhe,
+	}
+
+	c := &MessageClientKeyExchange{
+		KeyExchangeAlgorithm: types.KeyExchangeAlgorithmEcdhe,
+	}
+	assert.NoError(t, c.Unmarshal(rawClientKeyExchange))
+	assert.Equal(t, parsedClientKeyExchange, c)
+
+	raw, err := c.Marshal()
+	assert.NoError(t, err)
+	assert.Equal(t, rawClientKeyExchange, raw)
+}
+
+func TestHandshakeMessageClientKeyExchange_PublicKeyTooLong(t *testing.T) {
+	c := &MessageClientKeyExchange{
+		PublicKey:            make([]byte, 256),
+		KeyExchangeAlgorithm: types.KeyExchangeAlgorithmEcdhe,
+	}
+
+	_, err := c.Marshal()
+	assert.ErrorIs(t, err, errPublicKeyTooLong)
+}
+
+func TestHandshakeMessageClientKeyExchangeECDHEPSK(t *testing.T) {
+	raw := []byte{
+		0x00, 0x04, 0x69, 0x64, 0x65, 0x6e, // identity hint: "iden"
+		0x03, 0xaa, 0xbb, 0xcc, // public key: 3 bytes
+	}
+	c := &MessageClientKeyExchange{
+		KeyExchangeAlgorithm: types.KeyExchangeAlgorithmPsk | types.KeyExchangeAlgorithmEcdhe,
+	}
+	assert.NoError(t, c.Unmarshal(raw))
+	assert.Equal(t, []byte("iden"), c.IdentityHint)
+	assert.Equal(t, []byte{0xaa, 0xbb, 0xcc}, c.PublicKey)
+
+	marshaled, err := c.Marshal()
+	assert.NoError(t, err)
+	assert.Equal(t, raw, marshaled)
+}
+
+func TestHandshakeMessageClientKeyExchangeUnmarshalErrors(t *testing.T) {
+	for _, test := range []struct {
+		name                 string
+		keyExchangeAlgorithm types.KeyExchangeAlgorithm
+		data                 []byte
+		expectedErr          error
+	}{
+		{
+			name:                 "BufferTooSmall",
+			keyExchangeAlgorithm: types.KeyExchangeAlgorithmEcdhe,
+			data:                 []byte{0x00},
+			expectedErr:          errBufferTooSmall,
+		},
+		{
+			name:                 "CipherSuiteUnset",
+			keyExchangeAlgorithm: types.KeyExchangeAlgorithmNone,
+			data:                 []byte{0x00, 0x00},
+			expectedErr:          errCipherSuiteUnset,
+		},
+		{
+			// ECDHE_PSK where the (empty) identity hint consumes the whole body,
+			// leaving nothing for the ECDHE public key. Previously panicked.
+			name:                 "EcdhePskEmptyHintConsumesBody",
+			keyExchangeAlgorithm: types.KeyExchangeAlgorithmPsk | types.KeyExchangeAlgorithmEcdhe,
+			data:                 []byte{0x00, 0x00},
+			expectedErr:          errBufferTooSmall,
+		},
+		{
+			// ECDHE_PSK where a non-empty identity hint consumes the whole body,
+			// leaving nothing for the ECDHE public key. Previously panicked.
+			name:                 "EcdhePskIdentityConsumesBody",
+			keyExchangeAlgorithm: types.KeyExchangeAlgorithmPsk | types.KeyExchangeAlgorithmEcdhe,
+			data:                 []byte{0x00, 0x04, 0x69, 0x64, 0x65, 0x6e},
+			expectedErr:          errBufferTooSmall,
+		},
+		{
+			// ECDHE with a public key length exceeding the remaining body.
+			name:                 "PublicKeyBufferTooSmall",
+			keyExchangeAlgorithm: types.KeyExchangeAlgorithmEcdhe,
+			data:                 []byte{0x05, 0x01},
+			expectedErr:          errBufferTooSmall,
+		},
+	} {
+		c := &MessageClientKeyExchange{
+			KeyExchangeAlgorithm: test.keyExchangeAlgorithm,
+		}
+		assert.ErrorIs(t, c.Unmarshal(test.data), test.expectedErr, test.name)
+	}
+}

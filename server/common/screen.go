@@ -16,7 +16,13 @@ type Screen struct {
 	Quality uint16
 	BitRate uint16
 	GOP     uint8
+	GOPMode uint8
 }
+
+const (
+	GOPModeNormalP uint8 = iota
+	GOPModeSmartP
+)
 
 var (
 	screen      atomic.Pointer[Screen]
@@ -26,6 +32,7 @@ var (
 
 var screenFileMap = map[string]string{
 	"fps":        "/kvmapp/kvm/fps",
+	"gop_mode":   "/kvmapp/kvm/gop_mode",
 	"quality":    "/kvmapp/kvm/qlty",
 	"resolution": "/kvmapp/kvm/res",
 }
@@ -99,6 +106,11 @@ func setScreenValue(target *Screen, key string, value int) {
 
 	case "gop":
 		target.GOP = uint8(value)
+
+	case "gop_mode":
+		if value == int(GOPModeNormalP) || value == int(GOPModeSmartP) {
+			target.GOPMode = uint8(value)
+		}
 	}
 }
 
@@ -135,6 +147,10 @@ func checkScreen(target *Screen) {
 	if _, ok := BitRateMap[target.BitRate]; !ok {
 		target.BitRate = 3000
 	}
+
+	if target.GOPMode != GOPModeNormalP && target.GOPMode != GOPModeSmartP {
+		target.GOPMode = GOPModeSmartP
+	}
 }
 
 func loadScreen(readFile func(string) ([]byte, error)) *Screen {
@@ -145,6 +161,7 @@ func loadScreen(readFile func(string) ([]byte, error)) *Screen {
 		FPS:     50,
 		BitRate: 3000,
 		GOP:     30,
+		GOPMode: GOPModeSmartP,
 	}
 
 	for key, path := range screenFileMap {

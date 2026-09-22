@@ -24,11 +24,32 @@ sources = {f'lib{name}.so': a.libraries.resolve()/f'lib{name}.so' for name in na
 for source in sources.values():
     if not source.is_file():
         p.error('Missing native library: '+str(source))
+cross = str(a.buildroot_output.resolve()/'host/bin/riscv64-buildroot-linux-musl-')
+required_native_symbols = {
+    'libkvm.so': {'set_h265_gop_mode', 'get_h265_gop_mode'},
+    'libkvm_mmf.so': {'mmf_set_venc_gop_mode', 'mmf_get_venc_gop_mode'},
+}
+required_native_dependencies = {
+    'libkvm.so': {'mmf_set_venc_gop_mode', 'mmf_get_venc_gop_mode'},
+}
+for library, required in required_native_symbols.items():
+    output = subprocess.check_output(
+        [cross+'nm', '-D', '--defined-only', str(sources[library])], text=True)
+    defined = {line.split()[-1] for line in output.splitlines() if line.split()}
+    missing = sorted(required - defined)
+    if missing:
+        p.error(f'Native bundle mismatch: {library} is missing {", ".join(missing)}')
+for library, required in required_native_dependencies.items():
+    output = subprocess.check_output(
+        [cross+'nm', '-D', '--undefined-only', str(sources[library])], text=True)
+    dependencies = {line.split()[-1] for line in output.splitlines() if line.split()}
+    missing = sorted(required - dependencies)
+    if missing:
+        p.error(f'Native bundle mismatch: {library} does not require {", ".join(missing)}')
 lib = out/'dl_lib'
 lib.mkdir(parents=True)
 for name, source in sources.items():
     shutil.copyfile(source, lib/name)
-cross = str(a.buildroot_output.resolve()/'host/bin/riscv64-buildroot-linux-musl-')
 env = dict(os.environ, GOOS='linux', GOARCH='riscv64', GORISCV64='rva20u64', CGO_ENABLED='1',
            GOEXPERIMENT='boringcrypto', CC=cross+'gcc',
            CGO_CFLAGS='-O2 -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso -mabi=lp64d',
@@ -71,6 +92,14 @@ files.append(out/'nkos-apply-updates')
 manifest = {'qualification': 'cross-build only',
             'custom_runtime_expected': custom_runtime_expected,
             'custom_runtime_present': custom_runtime_present,
+            'native_bundle_contract': {
+                'id': 'h265-gop-mode-v1',
+                'activation': 'stage server, libkvm.so, and libkvm_mmf.so together; activate only by tested device reboot',
+                'required_symbols': {name: sorted(symbols)
+                                     for name, symbols in required_native_symbols.items()},
+                'required_dependencies': {name: sorted(symbols)
+                                          for name, symbols in required_native_dependencies.items()},
+            },
             'files': {str(f.relative_to(out)): hashlib.sha256(f.read_bytes()).hexdigest() for f in files}}
 (out/'manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
 print('Built server:', out)

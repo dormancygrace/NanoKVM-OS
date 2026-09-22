@@ -21,6 +21,9 @@ typedef struct {
 	int bitrate;			// h264/h265
 } mmf_venc_cfg_t;
 
+static constexpr uint8_t MMF_VENC_GOP_NORMALP = 0;
+static constexpr uint8_t MMF_VENC_GOP_SMARTP = 1;
+
 // init sys
 int mmf_init(void);
 int mmf_deinit(void);
@@ -67,6 +70,16 @@ int mmf_invert_format_to_maix(int mmf_format);
 int mmf_invert_format_to_mmf(int maix_format);
 
 // venc
+// The GOP selector is an additive ABI so the public mmf_venc_cfg_t layout
+// remains compatible with existing native probes and callers.
+#ifdef __cplusplus
+extern "C" {
+#endif
+int mmf_set_venc_gop_mode(uint8_t mode);
+uint8_t mmf_get_venc_gop_mode(void);
+#ifdef __cplusplus
+}
+#endif
 int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality);
 int mmf_enc_jpg_deinit(int ch);
 int mmf_enc_jpg_push(int ch, uint8_t *data, int w, int h, int format);

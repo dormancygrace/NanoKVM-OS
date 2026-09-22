@@ -5,7 +5,7 @@ import { Helmet, HelmetData } from 'react-helmet-async';
 
 import { getWebTitle } from '@/api/vm.ts';
 import { http } from '@/lib/http';
-import { brandingAtom, brandingLogo } from '@/jotai/branding';
+import { brandingAtom, brandingFavicon } from '@/jotai/branding';
 import { webTitleAtom } from '@/jotai/settings.ts';
 
 type HeadProps = {
@@ -50,8 +50,8 @@ export const Head = ({ title = '', description = '' }: HeadProps = {}) => {
       <meta name="description" content={description} />
       <link
         rel="icon"
-        type={branding.style === 'custom' ? 'image/png' : 'image/svg+xml'}
-        href={brandingLogo(branding)}
+        type={branding.customFaviconAvailable ? 'image/png' : 'image/svg+xml'}
+        href={brandingFavicon(branding)}
       />
     </Helmet>
   );

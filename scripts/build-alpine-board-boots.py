@@ -23,16 +23,30 @@ if b'Linux version ' + a.kernel_release.encode() + b' ' not in image:
 (a.output/'kernel.release').write_text(a.kernel_release+'\n')
 manifest = {'kernel': a.kernel_release, 'source_fit_sha256': sha(a.base_fit), 'profiles': {}}
 for profile in ('detect', 'alpha', 'beta', 'pcie', 'lite'):
-    work = a.output/('build-'+profile)
-    work.mkdir()
-    shutil.copy2(a.output/'Image.zst', work/'Image.zst')
-    shutil.copy2(a.output/'initramfs.cpio.gz', work/'initramfs.cpio.gz')
-    shutil.copy2(a.board_inputs/profile/'board.dtb', work/'board.dtb')
-    shutil.copy2(a.board_inputs/profile/'boot.its', work/'boot.its')
-    run(a.tools/'mkimage', '-f', 'boot.its', 'boot.sd', cwd=work)
-    target = a.output/(profile+'.sd')
-    shutil.copy2(work/'boot.sd', target)
-    (a.output/(profile+'.sha256')).write_text(sha(target)+'  '+target.name+'\n')
-    manifest['profiles'][profile] = {'sha256': sha(target), 'bytes': target.stat().st_size}
-    shutil.rmtree(work)
+    for mode in ('cma', 'fixed'):
+        name = profile if mode == 'cma' else profile + '-fixed'
+        work = a.output/('build-'+name)
+        work.mkdir()
+        shutil.copy2(a.output/'Image.zst', work/'Image.zst')
+        shutil.copy2(a.output/'initramfs.cpio.gz', work/'initramfs.cpio.gz')
+        dtb = work/'board.dtb'
+        shutil.copy2(a.board_inputs/profile/'board.dtb', dtb)
+        # Same kernel and module ABI; only the dedicated 64 MiB ION backend differs.
+        region = '/reserved-memory/ion'
+        heap = '/cvitek-ion/heap-carveout'
+        size = subprocess.check_output(['fdtget', '-t', 'x', str(dtb), region, 'size'], text=True).strip()
+        if int(size, 16) != 0x04000000:
+            raise SystemExit('Expected a 64 MiB video pool')
+        if mode == 'fixed':
+            run('fdtput', '-t', 's', dtb, region, 'compatible', 'ion-region')
+            run('fdtput', '-d', dtb, region, 'reusable')
+            run('fdtput', '-d', dtb, heap, 'nanokvm,cma-backend')
+        run('fdtput', '-t', 's', dtb, '/', 'nanokvm,video-memory-mode', mode)
+        shutil.copy2(a.board_inputs/profile/'boot.its', work/'boot.its')
+        run(a.tools/'mkimage', '-f', 'boot.its', 'boot.sd', cwd=work)
+        target = a.output/(name+'.sd')
+        shutil.copy2(work/'boot.sd', target)
+        (a.output/(name+'.sha256')).write_text(sha(target)+'  '+target.name+'\n')
+        manifest['profiles'][name] = {'mode': mode, 'sha256': sha(target), 'bytes': target.stat().st_size}
+        shutil.rmtree(work)
 (a.output/'manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')

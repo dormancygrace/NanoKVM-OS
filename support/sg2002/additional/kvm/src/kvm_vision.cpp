@@ -1,3 +1,4 @@
+#include "internal/capture_rate.hpp"
 #include <utility>
 #include <atomic>
 #include <initializer_list>
@@ -1746,6 +1747,7 @@ static int8_t frame_to_jpeg(int vi_ch, kvmv_data_t* dump_to, uint16_t quality)
 
 uint8_t kvmvenc_gop = default_h264_gop;
 uint8_t kvmvenc_fps = default_h264_fps;
+uint8_t kvmvenc_gop_mode = MMF_VENC_GOP_SMARTP;
 mmf_venc_cfg_t cfg;
 
 int init_venc_video(uint16_t width, uint16_t height, uint16_t bitrate, uint8_t codec,
@@ -1880,6 +1882,30 @@ void set_h264_gop(uint8_t _gop)
     debug("[kvmv] set_h264_gop = %d\n", kvmvenc_gop);
 }
 
+int8_t set_h265_gop_mode(uint8_t _mode)
+{
+	if (_mode != MMF_VENC_GOP_NORMALP && _mode != MMF_VENC_GOP_SMARTP) {
+		return -1;
+	}
+	if (_mode != kvmvenc_gop_mode && kvm_venc.enc_video_init != 0) {
+		debug("[kvmv] H.265 GOP mode change requires a process restart\n");
+		return -1;
+	}
+	if (mmf_set_venc_gop_mode(_mode) != 0) {
+		debug("[kvmv] MMF refused H.265 GOP mode change\n");
+		return -1;
+	}
+	kvmvenc_gop_mode = _mode;
+	debug("[kvmv] set_h265_gop_mode = %s\n",
+		_mode == MMF_VENC_GOP_SMARTP ? "SmartP" : "NormalP");
+	return 0;
+}
+
+uint8_t get_h265_gop_mode(void)
+{
+	return mmf_get_venc_gop_mode();
+}
+
 void set_frame_detact(uint8_t _frame_detact)
 {
     uint8_t frame_detact = maxmin_data(100, 0, (int)_frame_detact);
@@ -1898,31 +1924,9 @@ int8_t frame_to_video(uint8_t *data, int width, int height, int format, int vi_c
 	kvmv_data_t *ret_stream, uint16_t bitrate, uint8_t codec, uint8_t gop, uint8_t fps)
 {
 #ifdef NANOKVM_ENHANCED
-	const unsigned portrait_limit = nanokvm::portrait_fps_limit(kvmv_cfg.vi_width, kvmv_cfg.vi_height);
-	if (portrait_limit) {
-		if (fps > portrait_limit) fps = portrait_limit;
-	} else {
-		/* Keep the high-rate experiment bounded even for callers that bypass the
-		 * public kvmv_read_video() wrapper. */
-		if (fps > native120_max_fps) {
-			fps = native120_max_fps;
-		}
-		if (qhd60_request_allowed(width, height) && fps > qhd60_max_fps) {
-			fps = qhd60_max_fps;
-		}
-		if (fhd75_request_allowed(width, height) && fps > fhd75_max_fps) {
-			fps = fhd75_max_fps;
-		}
-		if (fps > default_h264_fps && !native120_request_allowed(width, height)
-			&& !fhd75_request_allowed(width, height)) {
-			fps = default_h264_fps;
-		}
-		// Apply before the configuration comparison as well as initialization;
-		// otherwise an Auto request for 60 FPS would recreate a 30 FPS encoder
-		// on every frame. This also covers callers bypassing the HTTP settings.
-		if ((nanokvm::above_fhd(width, height) || nanokvm::above_fhd(kvmv_cfg.vi_width, kvmv_cfg.vi_height))
-			&& fps > 30 && !qhd60_request_allowed(width, height)) fps = 30;
-	}
+    const int limit = nanokvm::capture_stream_rate_limit(
+        kvmv_cfg.vi_width, kvmv_cfg.vi_height, width, height);
+    if (fps > limit) fps = limit;
 #endif
 	int8_t ret = 0;
 	uint8_t mmf_type = codec == VENC_H265 ? 1 : 2;
@@ -1931,8 +1935,10 @@ int8_t frame_to_video(uint8_t *data, int width, int height, int format, int vi_c
 		height != kvm_venc.kvm_venc_cfg.h || bitrate != kvm_venc.kvm_venc_cfg.bitrate ||
 		mmf_type != kvm_venc.kvm_venc_cfg.type || gop != kvm_venc.kvm_venc_cfg.gop ||
 		fps != kvm_venc.kvm_venc_cfg.output_fps) {
-		debug("[kvmv]init video codec=%d %dx%d bitrate=%d gop=%d fps=%d\n",
-			codec, width, height, bitrate, gop, fps);
+		debug("[kvmv]init video codec=%d %dx%d bitrate=%d gop=%d fps=%d gop_mode=%s\n",
+			codec, width, height, bitrate, gop, fps,
+			codec == VENC_H265 && kvmvenc_gop_mode == MMF_VENC_GOP_SMARTP
+				? "SmartP" : "NormalP");
 		if (init_venc_video(width, height, bitrate, codec, gop, fps) != 0) {
 			return -1;
 		}
@@ -2353,20 +2359,8 @@ int kvmv_read_video(uint16_t _width, uint16_t _height, uint8_t _codec,
 	}
 
 	kvmvenc_gop = maxmin_data(100, 1, (int)_gop);
-	int fps_limit = native120_request_allowed(_width, _height)
-		? native120_max_fps
-		: (fhd75_request_allowed(_width, _height) ? fhd75_max_fps
-		: (qhd60_request_allowed(_width, _height) ? qhd60_max_fps : default_h264_fps));
-#ifdef NANOKVM_ENHANCED
-	if (const auto portrait_limit = nanokvm::portrait_fps_limit(_width, _height)) fps_limit = portrait_limit;
-	if (_width == 0 && _height == 0) {
-		// Auto has no output dimensions yet. Preserve the requested rate up to
-		// the global bound; frame_to_video applies the profile/opt-in limits
-		// using the actual frame dimensions under vi_mutex, before VENC init.
-		// In particular, an FHD75 input with a 70-FPS request keeps 70 FPS.
-		fps_limit = native120_max_fps;
-	}
-#endif
+    // Source geometry is checked under vi_mutex in frame_to_video.
+    const int fps_limit = nanokvm::capture_rate_limit(_width, _height);
 	kvmvenc_fps = maxmin_data(fps_limit, 10, (int)_fps);
 	if (_width != 0 && _height != 0) {
 		high_rate_log_request(_width, _height, _fps, kvmvenc_fps);

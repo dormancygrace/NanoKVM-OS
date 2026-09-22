@@ -42,12 +42,26 @@ func GetKvmVision() *KvmVision {
 	kvmVisionOnce.Do(func() {
 		kvmVision = &KvmVision{captureWorkerEnabled: os.Getenv("NANOKVM_NATIVE_CAPTURE_WORKER") == "1"}
 
+		// initialize() loads Screen before it enables or disables HDMI, and both
+		// HDMI paths call GetKvmVision. Select the saved H.265 GOP mode before
+		// kvmv_init can start capture threads or create an encoder channel.
+		selectedGOPMode := C.uint8_t(GetScreen().GOPMode)
+		if C.set_h265_gop_mode(selectedGOPMode) != 0 {
+			log.Errorf("failed to select saved H.265 GOP mode %d", selectedGOPMode)
+		}
 		logLevel := C.uint8_t(0)
 		C.kvmv_init(logLevel)
 		log.Debugf("kvm vision initialized")
 	})
 
 	return kvmVision
+}
+
+// GetActiveGOPMode reports the mode accepted by the native capture stack.
+// It intentionally does not return the saved Screen preference: their
+// difference is what tells the UI that a restart is still required.
+func GetActiveGOPMode() uint8 {
+	return uint8(C.get_h265_gop_mode())
 }
 
 func (k *KvmVision) ReadMjpeg(width uint16, height uint16, quality uint16) (data []byte, result int) {

@@ -1,11 +1,12 @@
 import React, { Suspense } from 'react';
 import { StyleProvider } from '@ant-design/cssinjs';
-import { ConfigProvider, Spin, theme } from 'antd';
+import { Spin } from 'antd';
 import ReactDOM from 'react-dom/client';
 import { ErrorBoundary } from 'react-error-boundary';
 import { HelmetProvider } from 'react-helmet-async';
 import { RouterProvider } from 'react-router-dom';
 
+import { AppTheme } from './components/app-theme.tsx';
 import { MainError } from './components/main-error.tsx';
 import { router } from './router';
 
@@ -13,19 +14,6 @@ import './i18n';
 import './assets/styles/index.css';
 
 const renderApp = () => {
-  const themeConfig = {
-    algorithm: theme.darkAlgorithm,
-    token: {
-      colorSuccess: '#22c55e'
-    },
-    components: {
-      Collapse: {
-        headerPadding: 0,
-        contentPadding: 0
-      }
-    }
-  };
-
   return ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <Suspense
@@ -38,9 +26,9 @@ const renderApp = () => {
         <ErrorBoundary FallbackComponent={MainError}>
           <HelmetProvider>
             <StyleProvider layer>
-            <ConfigProvider theme={themeConfig}>
-              <RouterProvider router={router} />
-            </ConfigProvider>
+              <AppTheme>
+                <RouterProvider router={router} />
+              </AppTheme>
             </StyleProvider>
           </HelmetProvider>
         </ErrorBoundary>

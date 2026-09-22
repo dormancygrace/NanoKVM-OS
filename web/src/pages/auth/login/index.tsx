@@ -81,14 +81,10 @@ export const Login = (): ReactElement => {
           <div className="flex flex-col items-center justify-center pb-4">
             <img
               id="logo"
-              src={
-                branding.style === 'custom'
-                  ? brandingLogo(branding)
-                  : `/nanokvm-os-${branding.style}-full.svg?v=2`
-              }
+              src={brandingLogo(branding)}
               width={300}
-              height={branding.style === 'custom' ? 100 : 180}
-              alt={branding.style === 'custom' ? 'Logo' : 'NanoKVM OS'}
+              height={branding.customLogoAvailable ? 100 : 180}
+              alt={branding.customLogoAvailable ? 'Logo' : 'NanoKVM OS'}
               className="max-w-full object-contain"
               onClick={(evt) => {
                 evt.preventDefault();

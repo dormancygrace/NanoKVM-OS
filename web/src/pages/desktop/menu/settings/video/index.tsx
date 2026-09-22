@@ -16,6 +16,9 @@ type Status = {
   quality: number;
   bitRate: number;
   gop: number;
+  gopMode: number;
+  gopModeActive: number;
+  gopModeRestartRequired: boolean;
   monitor: number;
   portrait: boolean;
   portraitResolution: number;
@@ -80,6 +83,17 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
           showIcon
           message={t('videoSettings.statusFailed')}
           action={<Button onClick={() => void refresh()}>{t('videoSettings.retry')}</Button>}
+        />
+      )}
+      {status?.gopModeRestartRequired && (
+        <Alert
+          type="warning"
+          showIcon
+          message={t('videoSettings.gopModePendingReboot')}
+          description={t('videoSettings.gopModePendingRebootHint', {
+            active: status.gopModeActive === 1 ? 'SmartP' : 'NormalP',
+            selected: status.gopMode === 1 ? 'SmartP' : 'NormalP'
+          })}
         />
       )}
       <div

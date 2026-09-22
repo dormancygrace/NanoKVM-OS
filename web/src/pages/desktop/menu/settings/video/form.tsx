@@ -44,6 +44,7 @@ type ScreenValues = {
   quality: number;
   bitRate: number;
   gop: number;
+  gopMode: number;
 };
 type Draft = ScreenValues & {
   mode: string;
@@ -58,6 +59,8 @@ export const VideoForm = ({
   setIsLocked
 }: {
   status: ScreenValues & {
+    gopModeActive: number;
+    gopModeRestartRequired: boolean;
     monitorSupported: boolean;
     monitorRequiresPowerCycle: boolean;
     monitorPowerCyclePending: boolean;
@@ -86,6 +89,7 @@ export const VideoForm = ({
     quality: status.quality,
     bitRate: status.bitRate,
     gop: status.gop,
+    gopMode: status.gopMode,
     mode,
     codec: getEncoderCodec(),
     frameDetect: storage.getFrameDetect(),
@@ -197,6 +201,7 @@ export const VideoForm = ({
     setIsLocked(true);
     const next = { ...draft };
     let completed = { ...saved };
+    let gopModeRestartRequired = status.gopModeRestartRequired;
     const commit = <K extends keyof Draft>(key: K) => {
       completed = { ...completed, [key]: next[key] };
       setSaved(completed);
@@ -212,12 +217,16 @@ export const VideoForm = ({
         [next.mode === 'mjpeg' ? 'bitRate' : 'quality', 'quality'],
         [next.mode === 'mjpeg' ? 'quality' : 'bitRate', 'quality'],
         ['gop', 'gop'],
+        ['gopMode', 'gop_mode'],
         ['monitor', 'monitor']
       ];
       for (const [key, type] of fields) {
         if (next[key] === completed[key]) continue;
         const rsp = await updateScreen(type, next[key], type === 'monitor' && powerCycleWrite);
         if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
+        if (key === 'gopMode') {
+          gopModeRestartRequired = rsp.data?.gopModeRestartRequired === true;
+        }
         commit(key);
         if (key === 'height') {
           const resolution = {
@@ -264,6 +273,7 @@ export const VideoForm = ({
         commit('frameDetect');
       }
       const playbackChanged = next.directPlayback !== saved.directPlayback;
+      const gopModeChanged = next.gopMode !== saved.gopMode;
       const reconnect =
         next.mode !== saved.mode ||
         next.codec !== saved.codec ||
@@ -280,7 +290,13 @@ export const VideoForm = ({
       if (next.mode !== saved.mode) storage.setVideoMode(next.mode);
       setSaved(next);
       message.success(
-        t(powerCycleWrite ? 'videoSettings.powerCycleWritten' : 'videoSettings.applied')
+        t(
+          gopModeChanged && gopModeRestartRequired
+            ? 'videoSettings.gopModeRebootRequired'
+            : powerCycleWrite
+              ? 'videoSettings.powerCycleWritten'
+              : 'videoSettings.applied'
+        )
       );
       if (reconnect) window.location.reload();
     } catch (error) {
@@ -491,6 +507,25 @@ export const VideoForm = ({
               { value: 'h264', label: 'H.264 / AVC', disabled: maximumPortrait }
             ])
           )}
+        {draft.mode !== 'mjpeg' &&
+          draft.codec === 'h265' &&
+          row(
+            t('videoSettings.gopMode'),
+            select(
+              'gopMode',
+              t('videoSettings.gopMode'),
+              [
+                { value: 0, label: 'NormalP' },
+                { value: 1, label: 'SmartP' }
+              ],
+              !admin
+            )
+          )}
+        {draft.mode !== 'mjpeg' && draft.codec === 'h265' && (
+          <p className="text-xs leading-relaxed text-neutral-400">
+            {t('videoSettings.gopModeHint')}
+          </p>
+        )}
         {row(
           t('videoSettings.streamResolution'),
           select(

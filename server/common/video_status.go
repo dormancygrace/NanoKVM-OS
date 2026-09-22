@@ -87,7 +87,6 @@ var sourceTiming struct {
 // the same QHD cap immediately under its capture mutex.
 func GetCaptureScreen() *Screen {
 	next := *GetScreen()
-	requestedFPS := next.FPS
 	sourceTiming.Lock()
 	if time.Now().After(sourceTiming.expires) {
 		sourceTiming.width = ReadVideoValue("/run/nanokvm/width")
@@ -97,38 +96,38 @@ func GetCaptureScreen() *Screen {
 	sourceWidth := sourceTiming.width
 	sourceHeight := sourceTiming.height
 	sourceTiming.Unlock()
-	wide := sourceWidth > 0 && sourceHeight > 0 &&
-		!IsFHDClassDimensions(sourceWidth, sourceHeight)
-	qhdOutput := next.Width == 2560 && next.Height == 1440
-	qhdAuto := next.Width == 0 && next.Height == 0 &&
-		sourceWidth == 2560 && sourceHeight == 1440
-	qhd60 := os.Getenv("NANOKVM_QHD60_MAX_EXPERIMENT") == "1" &&
-		(qhdOutput || qhdAuto)
-	if wide && next.FPS > 30 {
-		if qhd60 && next.FPS > 60 {
-			next.FPS = 60
-		} else if !qhd60 {
-			next.FPS = 30
-		}
+	limit := CaptureRateLimit(sourceWidth, sourceHeight)
+	if outputLimit := CaptureRateLimit(int(next.Width), int(next.Height)); outputLimit < limit {
+		limit = outputLimit
 	}
-	portraitLimit := 0
-	switch {
-	case sourceWidth == 720 && sourceHeight == 1280:
-		portraitLimit = 120
-	case sourceWidth == 1080 && sourceHeight == 1920:
-		portraitLimit = 70
-	case sourceWidth == 1088 && sourceHeight == 1920:
-		portraitLimit = 60
-	case sourceWidth == 1296 && sourceHeight == 2304:
-		portraitLimit = 50
-	case sourceWidth == 1440 && sourceHeight == 2560:
-		portraitLimit = 40
-	}
-	if portraitLimit != 0 {
-		next.FPS = requestedFPS
-		if next.FPS > portraitLimit {
-			next.FPS = portraitLimit
-		}
+	if next.FPS > limit {
+		next.FPS = limit
 	}
 	return &next
+}
+
+// CaptureRateLimit matches the native capture_rate.hpp policy. Input limits
+// still apply when the output is downscaled; Auto retains the saved request.
+func CaptureRateLimit(width, height int) int {
+	if width <= 0 || height <= 0 {
+		return 120
+	}
+	switch {
+	case width == 720 && height == 1280:
+		return 120
+	case width == 1080 && height == 1920:
+		return 70
+	case width == 1088 && height == 1920:
+		return 60
+	case width == 1296 && height == 2304:
+		return 50
+	case width == 1440 && height == 2560:
+		return 40
+	case width <= 1280 && height <= 720:
+		return 120
+	case width <= 1920 && height <= 1080:
+		return 75
+	default:
+		return 50
+	}
 }

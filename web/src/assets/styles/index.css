@@ -95,21 +95,62 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #000000;
+  background: transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #555;
+  background: rgb(115 115 115 / 45%);
   border-radius: 5px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #444;
+  background: rgb(163 163 163 / 65%);
 }
 
 .spin {
   animation: spin 1s linear;
+}
+
+.nanokvm-credits-viewport {
+  height: min(58vh, 520px);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, transparent 0, black 8%, black 90%, transparent 100%);
+}
+
+.nanokvm-credits-roll {
+  padding: min(48vh, 420px) 2rem 10rem;
+  animation: nanokvm-credits-roll 90s linear forwards;
+}
+
+.nanokvm-credits-roll:hover,
+.nanokvm-credits-roll.is-paused {
+  animation-play-state: paused;
+}
+
+@keyframes nanokvm-credits-roll {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(-100% + 5rem));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nanokvm-credits-viewport {
+    overflow-y: auto;
+    mask-image: none;
+  }
+
+  .nanokvm-credits-roll {
+    padding: 1.5rem 1rem 4rem;
+    animation: none;
+  }
 }
 
 @keyframes spin {

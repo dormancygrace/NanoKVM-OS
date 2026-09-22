@@ -7,6 +7,7 @@ import (
 	"NanoKVM-Server/config"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/service/stream"
+	"NanoKVM-Server/service/stream/webrtcdtls"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -220,6 +221,9 @@ func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.Med
 		dtls.SRTP_AES128_CM_HMAC_SHA1_80,
 		dtls.SRTP_AEAD_AES_128_GCM,
 	)
+	if err := webrtcdtls.Configure(&settingEngine); err != nil {
+		return nil, err
+	}
 
 	apiOptions := []func(api *webrtc.API){
 		webrtc.WithSettingEngine(settingEngine),

@@ -31,9 +31,9 @@ This release adds a choice of video-memory allocation, consistent capture-rate l
 - Fixed the Dashboard shortcut to Memory settings.
 - Fixed horizontal overflow in the settings sidebar. Scrollbars are thinner, with a transparent track and corner instead of a black strip and white square.
 
-## ⬆️ Updating from v2.0 b1
+## ⬆️ Updating from v2.0 a2 or b1
 
-**No SD-card reflash is required.** After publication, open **Settings → System → Updates → Package updates**, refresh the package list and install the available updates. Alternatively:
+**Update directly from v2.0 a2 or b1 — no intermediate release or SD-card reflash is required.** In a2, open **Settings → Updates → Package updates**; in b1, open **Settings → System → Updates → Package updates**. Refresh the package list and install the available updates. Alternatively:
 
 ```sh
 apk update
@@ -42,7 +42,7 @@ apk upgrade
 
 Settings, user data and independently installed packages are retained. The application restarts after its package update. **Reboot after this update** to activate the new boot payload and video-memory selection support.
 
-Linux remains **`7.2.6-nanokvm-os-r1`**. The kernel package adds the CMA/fixed boot variants; the kernel binary and matching modules are unchanged. Packages use the signing key already trusted by b1.
+Linux remains **`7.2.6-nanokvm-os-r1`**. The kernel package adds the CMA/fixed boot variants; the kernel binary and matching modules are unchanged. Packages use the signing key already trusted by a2 and b1.
 
 ## 💾 Fresh installation
 

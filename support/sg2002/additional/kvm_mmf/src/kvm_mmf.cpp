@@ -1,3 +1,4 @@
+#include "internal/capture_rate.hpp"
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
@@ -172,30 +173,11 @@ static priv_t priv;
 static g_priv_t g_priv;
 static VENC_PACK_S *venc_pack_storage[MMF_VENC_MAX_CHN];
 static CVI_U32 venc_pack_capacity[MMF_VENC_MAX_CHN];
-
-static bool native120_experiment_enabled()
-{
-    const char *value = getenv(native120_opt_in_env);
-    return value != NULL && strcmp(value, "1") == 0;
-}
+static uint8_t venc_gop_mode = MMF_VENC_GOP_SMARTP;
 
 static int native120_vpss_rate(int width, int height)
 {
-    if (native120_experiment_enabled() && width > 0 && height > 0
-        && width <= native120_max_width && height <= native120_max_height) {
-        return native120_vpss_fps;
-    }
-	const char *qhd60 = getenv(qhd60_opt_in_env);
-	if (qhd60 != NULL && strcmp(qhd60, "1") == 0
-		&& width == qhd60_width && height == qhd60_height) {
-		return qhd60_vpss_fps;
-	}
-	const char *fhd75 = getenv(fhd75_opt_in_env);
-	if (fhd75 != NULL && strcmp(fhd75, "1") == 0
-		&& width == fhd75_width && height == fhd75_height) {
-		return fhd75_vpss_fps;
-	}
-    return 60;
+    return nanokvm::capture_rate_limit(width, height);
 }
 
 #define MODULE_NAME "soph_vi"
@@ -889,6 +871,18 @@ int mmf_init(void)
         return 0;
     }
 
+	/*
+	 * Best-effort cleanup must visit stale VENC consumers before their
+	 * SYS/VI producers. Runtime qualification determines whether this is
+	 * sufficient for a service restart.
+	 */
+	if (_try_release_venc_all() != CVI_SUCCESS) {
+		printf("try release stale venc failed\n");
+		return -1;
+	} else {
+		printf("try release stale venc ok\n");
+	}
+
 	if (_try_release_sys() != CVI_SUCCESS) {
 		printf("try release sys failed\n");
 		return -1;
@@ -911,13 +905,6 @@ int mmf_init(void)
 		return -1;
 	} else {
 		printf("try release vio ok\n");
-	}
-
-	if (_try_release_venc_all() != CVI_SUCCESS) {
-		printf("try release venc failed\n");
-		return -1;
-	} else {
-		printf("try release venc ok\n");
 	}
 
     return 0;
@@ -2037,6 +2024,28 @@ static int _venc_init_failed(int ch, const char *stage, CVI_S32 error)
 	return error == CVI_SUCCESS ? CVI_FAILURE : error;
 }
 
+int mmf_set_venc_gop_mode(uint8_t mode)
+{
+	if (mode != MMF_VENC_GOP_NORMALP && mode != MMF_VENC_GOP_SMARTP) {
+		return -1;
+	}
+	if (mode == venc_gop_mode) {
+		return 0;
+	}
+	for (int ch = 0; ch < MMF_VENC_MAX_CHN; ++ch) {
+		if (priv.venc[ch].is_used) {
+			return -1;
+		}
+	}
+	venc_gop_mode = mode;
+	return 0;
+}
+
+uint8_t mmf_get_venc_gop_mode(void)
+{
+	return venc_gop_mode;
+}
+
 int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 	CVI_S32 s32Ret = CVI_SUCCESS;
 	if (ch < 0 || ch >= MMF_VENC_MAX_CHN || priv.venc[ch].is_used) {
@@ -2049,8 +2058,6 @@ int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 		fflush(stderr);
 		return -1;
 	}
-
-
 	VENC_CHN_ATTR_S stVencChnAttr;
 	memset(&stVencChnAttr, 0, sizeof(VENC_CHN_ATTR_S));
 	stVencChnAttr.stVencAttr.enType = cfg->type == 1 ? PT_H265 : PT_H264;
@@ -2062,8 +2069,16 @@ int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 	stVencChnAttr.stVencAttr.u32PicHeight = cfg->h;
 	stVencChnAttr.stVencAttr.bEsBufQueueEn = CVI_TRUE;
 	stVencChnAttr.stVencAttr.bIsoSendFrmEn = CVI_TRUE;
-	stVencChnAttr.stGopAttr.enGopMode = VENC_GOPMODE_NORMALP;
-	stVencChnAttr.stGopAttr.stNormalP.s32IPQpDelta = 2;
+	const bool smartp = cfg->type == 1 && venc_gop_mode == MMF_VENC_GOP_SMARTP;
+	if (smartp) {
+		stVencChnAttr.stGopAttr.enGopMode = VENC_GOPMODE_SMARTP;
+		stVencChnAttr.stGopAttr.stSmartP.u32BgInterval = cfg->gop * 5;
+		stVencChnAttr.stGopAttr.stSmartP.s32BgQpDelta = 4;
+		stVencChnAttr.stGopAttr.stSmartP.s32ViQpDelta = 0;
+	} else {
+		stVencChnAttr.stGopAttr.enGopMode = VENC_GOPMODE_NORMALP;
+		stVencChnAttr.stGopAttr.stNormalP.s32IPQpDelta = 2;
+	}
 	_set_h26x_rc_attr(&stVencChnAttr, cfg);
 	s32Ret = CVI_VENC_CreateChn(ch, &stVencChnAttr);
 	if (s32Ret != CVI_SUCCESS) {
@@ -2136,8 +2151,10 @@ int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 	// on a codec change, and teardown releases any remaining allocation.
 	fprintf(stderr,
 		"[kvm_mmf] VENC channel %d initialized: codec=%d rc=cbr size=%ux%u "
-		"bitrate=%u gop=%u src_fps=%d dst_fps=%d (rate metadata; wall pacing unmeasured)\n",
+		"bitrate=%u gop=%u gop_mode=%s src_fps=%d dst_fps=%d "
+		"(rate metadata; wall pacing unmeasured)\n",
 		ch, cfg->type, cfg->w, cfg->h, cfg->bitrate, cfg->gop,
+		smartp ? "SmartP" : "NormalP",
 		cfg->intput_fps, cfg->output_fps);
 	fflush(stderr);
 

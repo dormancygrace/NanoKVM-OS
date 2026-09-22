@@ -33,15 +33,16 @@ type memorySwap struct {
 	RecompressReady     bool   `json:"recompressReady"`
 }
 type memoryStatus struct {
-	TotalBytes     uint64     `json:"totalBytes"`
-	AvailableBytes uint64     `json:"availableBytes"`
-	UsedBytes      uint64     `json:"usedBytes"`
-	CachedBytes    uint64     `json:"cachedBytes"`
-	SwapTotalBytes uint64     `json:"swapTotalBytes"`
-	SwapUsedBytes  uint64     `json:"swapUsedBytes"`
-	VideoBytes     uint64     `json:"videoBytes"`
-	Zram           memorySwap `json:"zram"`
-	SD             memorySwap `json:"sd"`
+	VideoMemory    videoMemoryStatus `json:"videoMemory"`
+	TotalBytes     uint64            `json:"totalBytes"`
+	AvailableBytes uint64            `json:"availableBytes"`
+	UsedBytes      uint64            `json:"usedBytes"`
+	CachedBytes    uint64            `json:"cachedBytes"`
+	SwapTotalBytes uint64            `json:"swapTotalBytes"`
+	SwapUsedBytes  uint64            `json:"swapUsedBytes"`
+	VideoBytes     uint64            `json:"videoBytes"`
+	Zram           memorySwap        `json:"zram"`
+	SD             memorySwap        `json:"sd"`
 }
 type memorySwapRequest struct {
 	Kind       string `json:"kind"`
@@ -101,6 +102,7 @@ func validSwapRequest(req memorySwapRequest) bool {
 
 func readMemoryStatus() (memoryStatus, error) {
 	var result memoryStatus
+	result.VideoMemory = readVideoMemoryStatus("/")
 	raw, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
 		return result, err

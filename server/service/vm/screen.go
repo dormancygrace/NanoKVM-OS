@@ -15,18 +15,24 @@ import (
 var screenFileMap = map[string]string{
 	"type":       "/kvmapp/kvm/type",
 	"fps":        "/kvmapp/kvm/fps",
+	"gop_mode":   "/kvmapp/kvm/gop_mode",
 	"quality":    "/kvmapp/kvm/qlty",
 	"resolution": "/kvmapp/kvm/res",
 }
 
+var readActiveGOPMode = common.GetActiveGOPMode
+
 func (s *Service) GetScreen(c *gin.Context) {
 	current := common.GetScreen()
+	activeGOPMode := readActiveGOPMode()
 	portrait, portraitSupported := common.MonitorPortraitStatus()
 	portraitResolution := common.PortraitResolution()
 	portraitMaxSupported := common.PortraitMaxSupported()
 	var rsp proto.Response
 	rsp.OkRspWithData(c, gin.H{"width": current.Width, "height": current.Height, "fps": current.FPS,
 		"quality": current.Quality, "bitRate": current.BitRate, "gop": current.GOP,
+		"gopMode": current.GOPMode, "gopModeActive": activeGOPMode,
+		"gopModeRestartRequired":      current.GOPMode != activeGOPMode,
 		"monitor":                     common.ReadVideoValue("/etc/kvm/monitor_resolution"),
 		"monitorRequiresPowerCycle":   common.MonitorRequiresPowerCycle(),
 		"monitorPowerCyclePending":    common.MonitorPowerCyclePending(),
@@ -152,6 +158,13 @@ func (s *Service) SetScreen(c *gin.Context) {
 		}
 		common.GetKvmVision().SetGop(uint8(gop))
 
+	case "gop_mode":
+		if req.Value != int(common.GOPModeNormalP) && req.Value != int(common.GOPModeSmartP) {
+			rsp.ErrRsp(c, -1, "GOP mode must be NormalP or SmartP")
+			return
+		}
+		err = writeScreen(req.Type, strconv.Itoa(req.Value))
+
 	default:
 		data := strconv.Itoa(req.Value)
 		err = writeScreen(req.Type, data)
@@ -167,6 +180,15 @@ func (s *Service) SetScreen(c *gin.Context) {
 	log.Debugf("update screen: %+v", req)
 	if req.Type == "fps" {
 		rsp.OkRspWithData(c, gin.H{"fps": common.GetScreen().FPS})
+		return
+	}
+	if req.Type == "gop_mode" {
+		selected := common.GetScreen().GOPMode
+		active := readActiveGOPMode()
+		rsp.OkRspWithData(c, gin.H{
+			"gopMode": selected, "gopModeActive": active,
+			"gopModeRestartRequired": selected != active,
+		})
 		return
 	}
 	rsp.OkRsp(c)

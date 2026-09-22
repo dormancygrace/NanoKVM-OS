@@ -29,6 +29,7 @@ import { DownloadImage } from './download.tsx';
 import { Fullscreen } from './fullscreen';
 import { Image } from './image';
 import { Keyboard } from './keyboard';
+import { Logout } from './logout';
 import { Mouse } from './mouse';
 import { Collapse, Expand } from './operations';
 import { Picoclaw } from './picoclaw';
@@ -181,7 +182,14 @@ export const Menu = () => {
         ...(isEnabled('wol') ? [<Wol key="wol" />] : []),
         ...(isEnabled('power') ? [<Power key="power" />] : [])
       ],
-      variant === 'mobile' ? [<Settings key="settings" tooltipPlacement={tooltipPlacement} />] : []
+      variant === 'mobile'
+        ? [
+            <Settings key="settings" tooltipPlacement={tooltipPlacement} />,
+            ...(isEnabled('logout')
+              ? [<Logout key="logout" tooltipPlacement={tooltipPlacement} />]
+              : [])
+          ]
+        : []
     ];
 
     groups
@@ -354,6 +362,7 @@ export const Menu = () => {
                 </div>
                 <Divider type="vertical" className="shrink-0" />
                 <Settings />
+                {isEnabled('logout') && <Logout />}
                 {isEnabled('fullscreen') && <Fullscreen />}
                 {isEnabled('collapse') && <Collapse toggleMenu={setIsMenuExpanded} />}
               </MobileMenuItemProvider>

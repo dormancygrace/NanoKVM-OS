@@ -87,3 +87,6 @@ require (
 replace github.com/pion/srtp/v3 => ./third_party/pion-srtp
 
 replace github.com/pion/ice/v4 => ./third_party/pion-ice
+
+// Server-side cipher negotiation follows NanoKVM's configured preference order.
+replace github.com/pion/dtls/v3 => ./third_party/pion-dtls

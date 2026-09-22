@@ -10,7 +10,7 @@ const mib = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MiB`;
 export const Memory = () => {
   const { t } = useTranslation();
   const [data, setData] = useState<MemoryStatus>();
-  const [busy, setBusy] = useState<'zram' | 'sd' | ''>('');
+  const [busy, setBusy] = useState<'zram' | 'sd' | 'video' | ''>('');
   const [loadError, setLoadError] = useState('');
   const [changeError, setChangeError] = useState('');
   const error = changeError || loadError;
@@ -79,6 +79,23 @@ export const Memory = () => {
         setBusy('');
         void refresh();
       }
+    }
+  }
+
+  async function changeVideo(mode: 'cma' | 'fixed') {
+    if (mutating.current) return;
+    mutating.current = true;
+    generation.current++;
+    setBusy('video'); setChangeError('');
+    try {
+      const response = await api.setVideoMemory(mode);
+      if (response.code !== 0) throw new Error(response.msg || t('settings.memory.changeError'));
+      if (mounted.current) setData(response.data);
+    } catch (err) {
+      if (mounted.current) setChangeError(err instanceof Error ? err.message : t('settings.memory.changeError'));
+    } finally {
+      mutating.current = false;
+      if (mounted.current) { setBusy(''); void refresh(); }
     }
   }
 
@@ -180,6 +197,19 @@ export const Memory = () => {
             </div>
             <p className="mt-3 text-xs text-neutral-500">{t('settings.memory.ramNote')}</p>
           </div>
+          {data.videoMemory && (
+            <div className="space-y-3 rounded-lg border border-neutral-700/70 p-4">
+              <label htmlFor="video-memory-mode" className="font-medium">{t('settings.memory.videoMode')}</label>
+              <p className="text-sm text-neutral-400">{t('settings.memory.videoModeDescription')}</p>
+              <Select id="video-memory-mode" className="w-full" value={data.videoMemory.selected}
+                loading={busy === 'video'} disabled={!!busy || !data.videoMemory.available}
+                options={[{ value: 'cma', label: t('settings.memory.videoCma') }, { value: 'fixed', label: t('settings.memory.videoFixed') }]}
+                onChange={(mode) => void changeVideo(mode)} />
+              <p className="text-sm">{t('settings.memory.videoActive')}: {data.videoMemory.active === 'cma' ? 'CMA' : data.videoMemory.active === 'fixed' ? t('settings.memory.videoFixedShort') : t('settings.memory.videoUnknown')}</p>
+              {!data.videoMemory.available && <p className="text-sm text-amber-400">{t('settings.memory.videoModeUnavailable')}</p>}
+              {data.videoMemory.rebootRequired && <Alert type="info" showIcon message={t('settings.memory.videoReboot')} />}
+            </div>
+          )}
           {swapCard('zram', data.zram)}
           {swapCard('sd', data.sd)}
           <p className="text-xs text-neutral-400">{t('settings.memory.priorityNote')}</p>

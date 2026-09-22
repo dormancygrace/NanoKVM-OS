@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { DownloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { Button, Card, Result } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Button, Result } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/extensions/tailscale.ts';
+
+import { ExtensionInstallResult } from '../vpn/extension-install-result.tsx';
 
 type InstallProps = {
   setIsLocked: (setIsLocked: boolean) => void;
@@ -56,18 +58,16 @@ export const Install = ({ setIsLocked, onSuccess }: InstallProps) => {
   }
 
   return (
-    <Card>
-      <Result
-        icon={<DownloadOutlined />}
-        subTitle={t('settings.tailscale.notInstall')}
-        extra={
-          <Button key="install" type="primary" loading={state === 'installing'} onClick={install}>
-            {state === 'installing'
-              ? t('settings.tailscale.installing')
-              : t('settings.tailscale.install')}
-          </Button>
-        }
-      />
-    </Card>
+    <ExtensionInstallResult
+      title={t('settings.tailscale.notInstall')}
+      description={t('settings.tailscale.installDescription')}
+      actionLabel={
+        state === 'installing'
+          ? t('settings.tailscale.installing')
+          : t('settings.tailscale.install')
+      }
+      loading={state === 'installing'}
+      onInstall={install}
+    />
   );
 };

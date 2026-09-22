@@ -65,6 +65,10 @@ subprocess.run(['rsync', '-a', str(app / 'kvmapp/system/init.d') + '/',
 # The generic application release does not contain e.g. S12temperature.
 subprocess.run(['rsync', '-a', '--exclude=S01fs', str(board_scripts) + '/',
                 str(out / 'system/init.d') + '/'], check=True)
+staged_s15 = out / 'system/init.d/S15kvmhwd'
+selected_s15 = board_scripts / 'S15kvmhwd'
+if not selected_s15.is_file() or staged_s15.read_bytes() != selected_s15.read_bytes():
+    p.error('Selected Enhanced S15kvmhwd was not staged')
 # S01fs is application-owned.  Never let a retained board stage silently
 # replace its first-boot partition policy.
 shutil.copy2(authoritative_s01fs, out / 'system/init.d/S01fs')

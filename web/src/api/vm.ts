@@ -11,6 +11,14 @@ export function getHardware() {
   return http.get('/api/vm/hardware');
 }
 
+export function getDiagnostics() {
+  return http.get('/api/vm/diagnostics');
+}
+
+export function downloadDiagnosticsReport() {
+  return http.request({ method: 'get', url: '/api/vm/diagnostics/report', responseType: 'blob' });
+}
+
 // set gpio value
 export function setGpio(type: string, duration: number) {
   const data = {
@@ -262,6 +270,7 @@ export type MemorySwap = {
 };
 
 export type MemoryStatus = {
+ videoMemory: { active: string; selected: 'cma' | 'fixed'; sizeMiB: number; available: boolean; rebootRequired: boolean };
   totalBytes: number;
   availableBytes: number;
   usedBytes: number;
@@ -292,3 +301,5 @@ export function getCPUFrequency() {
 export function setCPUFrequency(target: number) {
   return http.post('/api/vm/cpu-frequency', { target });
 }
+
+export function setVideoMemory(mode: 'cma' | 'fixed') { return http.post('/api/vm/memory/video', { mode }); }

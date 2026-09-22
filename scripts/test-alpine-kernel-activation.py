@@ -12,7 +12,7 @@ class ActivationTests(unittest.TestCase):
         self.payload = self.root/'payload'
         self.boot = self.root/'fat'
         self.modules = self.root/'modules'/'7.2.5-nanokvm-os-r4'
-        for path in (self.payload,self.boot,self.modules,self.root/'bin',self.root/'run',self.root/'state'):
+        for path in (self.payload,self.boot,self.modules,self.root/'bin',self.root/'run',self.root/'state',self.root/'etc/kvm'):
             path.mkdir(parents=True,exist_ok=True)
         (self.payload/'kernel.release').write_text('7.2.5-nanokvm-os-r4\n')
         data=b'matched board FIT'
@@ -28,6 +28,7 @@ class ActivationTests(unittest.TestCase):
         source=source.replace('/lib/modules',str(self.root/'modules'))
         source=re.sub(r'/boot(?=/|\s|;|"|$)',str(self.boot),source)
         source=source.replace('/sys/firmware/devicetree/base/sipeed,board-revision',str(self.root/'board'))
+        source=source.replace('/etc/kvm',str(self.root/'etc/kvm'))
         source=source.replace('/proc/mounts',str(self.root/'mounts')).replace('/var/lib/nanokvm',str(self.root/'state')).replace('/run',str(self.root/'run'))
         source=source.replace('export PATH=/usr/sbin:/usr/bin:/sbin:/bin','export PATH='+str(self.root/'bin')+':/usr/bin:/bin')
         self.script=self.root/'activate';self.script.write_text(source)
@@ -44,6 +45,23 @@ class ActivationTests(unittest.TestCase):
         self.assertEqual((self.boot/'boot.sd').read_bytes(),b'old FIT')
     def test_wrong_module_abi_leaves_boot_untouched(self):
         (self.root/'bin/modinfo').write_text('#!/bin/sh\necho incompatible\n')
+        self.assertNotEqual(self.run_activation().returncode,0)
+        self.assertEqual((self.boot/'boot.sd').read_bytes(),b'old FIT')
+    def test_fixed_selection_survives_kernel_update(self):
+        data=b'fixed 64 MiB FIT'
+        (self.payload/'pcie-fixed.sd').write_bytes(data)
+        (self.payload/'pcie-fixed.sha256').write_text(hashlib.sha256(data).hexdigest()+'  pcie-fixed.sd\n')
+        (self.root/'etc/kvm/video-memory-mode').write_text('fixed\n')
+        result=self.run_activation()
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual((self.boot/'boot.sd').read_bytes(),data)
+        self.assertEqual((self.root/'etc/kvm/video-memory-mode').read_text(),'fixed\n')
+    def test_missing_fixed_payload_does_not_silently_switch_to_cma(self):
+        (self.root/'etc/kvm/video-memory-mode').write_text('fixed\n')
+        self.assertNotEqual(self.run_activation().returncode,0)
+        self.assertEqual((self.boot/'boot.sd').read_bytes(),b'old FIT')
+    def test_invalid_selection_leaves_boot_untouched(self):
+        (self.root/'etc/kvm/video-memory-mode').write_text('../bad\n')
         self.assertNotEqual(self.run_activation().returncode,0)
         self.assertEqual((self.boot/'boot.sd').read_bytes(),b'old FIT')
     def test_unknown_board_is_rejected(self):

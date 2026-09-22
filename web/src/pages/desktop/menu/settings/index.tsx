@@ -19,6 +19,7 @@ import {
   SettingsIcon,
   ShieldIcon,
   SmartphoneIcon,
+  StethoscopeIcon,
   UsbIcon,
   UserRoundIcon,
   VideoIcon,
@@ -54,6 +55,7 @@ import { VideoSettings } from './video';
 import { WireGuard } from './vpn';
 import { OpenVPN } from './vpn/openvpn';
 import { System } from './system';
+import { Diagnostics } from './system/diagnostics';
 import { Software } from './software';
 
 export const Settings = ({
@@ -106,6 +108,7 @@ export const Settings = ({
           },
           { id: 'system', icon: <SettingsIcon size={16} />, component: null },
           { id: 'system-general', icon: <SettingsIcon size={16} />, component: <System /> },
+          { id: 'system-diagnostics', icon: <StethoscopeIcon size={16} />, component: <Diagnostics /> },
           { id: 'system-memory', icon: <MemoryStickIcon size={16} />, component: <Memory /> },
           { id: 'system-date-time', icon: <ClockIcon size={16} />, component: <DateTimeSettings /> },
           { id: 'system-users', icon: <UserRoundIcon size={16} />, component: <Account /> },
@@ -244,6 +247,7 @@ export const Settings = ({
     if (id === 'network-general') return t('settings.network.general');
     if (id === 'system') return t('settings.system.title');
     if (id === 'system-general') return t('settings.system.general');
+    if (id === 'system-diagnostics') return t('settings.system.diagnostics.title');
     if (id === 'system-memory') return t('settings.memory.title');
     if (id === 'system-users') return t('settings.account.title');
     if (id === 'system-mcp') return t('settings.mcp.title');
@@ -292,7 +296,7 @@ export const Settings = ({
       >
         <div
           className={clsx(
-            'flex min-w-0 rounded-lg outline outline-1 outline-neutral-700',
+            'flex min-w-0 overflow-hidden rounded-lg outline outline-1 outline-neutral-700',
             mobile ? 'h-[calc(100dvh-32px)] flex-col overflow-hidden' : 'h-[80vh] max-h-[700px]'
           )}
         >
@@ -317,8 +321,8 @@ export const Settings = ({
               mobile
                 ? detailOpen
                   ? 'hidden'
-                  : 'min-h-0 flex-1 overflow-y-auto p-2'
-                : 'flex h-full max-w-[260px] flex-col space-y-0.5 overflow-y-auto rounded-l-lg bg-neutral-800/90 px-1 sm:w-1/5 md:w-1/4 md:px-2'
+                  : 'min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2'
+                : 'flex h-full min-w-0 max-w-[260px] shrink-0 flex-col space-y-0.5 overflow-x-hidden overflow-y-auto rounded-l-lg bg-neutral-800/90 px-1 sm:w-1/5 md:w-1/4 md:px-2'
             )}
           >
             <div className={mobile ? 'hidden' : 'hidden px-3 pt-10 text-xl sm:block'}>
@@ -358,9 +362,9 @@ export const Settings = ({
                     aria-expanded={expanded}
                     className={clsx(
                       styles.item,
-                      'flex w-full select-none items-center gap-2 rounded-lg p-2 text-left sm:px-3',
+                      'flex select-none items-center gap-2 rounded-lg p-2 text-left sm:px-3',
                       mobile && 'min-h-12',
-                      child && 'ml-4 w-[calc(100%-1rem)]'
+                      child ? 'ml-4 w-[calc(100%_-_1rem)]' : 'w-full'
                     )}
                     onClick={() => changeTab(tab.id)}
                   >

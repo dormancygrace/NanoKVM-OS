@@ -9,6 +9,7 @@ p.add_argument('--accepted-root',type=Path,required=True)
 p.add_argument('--server',type=Path,required=True)
 p.add_argument('--web',type=Path,required=True)
 p.add_argument('--output',type=Path,required=True)
+p.add_argument('--boot-payloads',type=Path,help='Matched board FIT images, checksums and kernel.release')
 args=p.parse_args()
 r=Path(__file__).resolve().parents[1]
 release_values=dict(line.split('=', 1) for line in (r/'firmware/alpine/release.env').read_text().splitlines() if line and not line.startswith('#'))
@@ -26,6 +27,7 @@ def link(target,dst):
     if dst.is_symlink() or dst.is_file(): dst.unlink()
     dst.symlink_to(target)
 base=out/'base'; app=out/'app'; fw=out/'firmware-sg2002'
+enhanced_s15=r/'firmware/buildroot/board/enhanced/init.d/S15kvmhwd'
 copy(r/'firmware/alpine/compat/nanokvm-firstboot-storage',base/'usr/libexec/nanokvm/firstboot-storage')
 copy(r/'firmware/alpine/compat/nanokvm-activate-kernel',base/'usr/libexec/nanokvm/activate-kernel')
 copy(r/'firmware/alpine/compat/nkos-board-select',base/'usr/sbin/nkos-board-select')
@@ -34,7 +36,11 @@ copy(args.server/'nkos-update',base/'usr/sbin/nkos-update')
 copy(args.server/'nkos-apply-updates',base/'usr/sbin/nkos-apply-updates')
 copy(r/'firmware/alpine/compat/50-nanokvm-apply',base/'etc/apk/commit_hooks.d/50-nanokvm-apply')
 for src in (r/'firmware/alpine/openrc').iterdir(): copy(src,base/'etc/init.d'/src.name)
-names='S29qdisc S34mssclamp S38memory S49persistent-cron S94sg2002aes S96picoclaw S98tailscaled S80dnsmasq S13nanokvm-watchdog'.split()
+copy(enhanced_s15,base/'usr/libexec/nanokvm/legacy/S15kvmhwd')
+link('/usr/libexec/nanokvm/legacy/S15kvmhwd',base/'etc/init.d/S15kvmhwd')
+copy(enhanced_s15,app/'kvmapp/system/init.d/S15kvmhwd')
+copy(r/'kvmapp/system/init.d/S95nanokvm',app/'kvmapp/system/init.d/S95nanokvm')
+names='S95nanokvm S29qdisc S34mssclamp S38memory S49persistent-cron S94sg2002aes S96picoclaw S98tailscaled S80dnsmasq S13nanokvm-watchdog'.split()
 for name in names:
     copy(r/'kvmapp/system/init.d'/name,base/'usr/libexec/nanokvm/legacy'/name)
     link('/usr/libexec/nanokvm/legacy/'+name,base/'etc/init.d'/name)
@@ -51,6 +57,15 @@ for name in ('nanokvm-buildroot','chrony.conf','console_handler.sh'):
 for name in ('ttyGS0_handler.sh',):
     if (old/'etc'/name).exists(): copy(old/'etc'/name,base/'etc'/name)
 copy(args.server/'NanoKVM-Server.stripped',app/'kvmapp/server/NanoKVM-Server')
+# Native libraries and server must come from the same build (including the GOP ABI).
+shutil.copytree(args.server/'dl_lib',app/'kvmapp/server/dl_lib',dirs_exist_ok=True)
+if args.boot_payloads:
+    boots=out/'kernel-sg2002/usr/lib/nanokvm/boot'
+    shutil.rmtree(boots)
+    boots.mkdir(parents=True)
+    for src in args.boot_payloads.iterdir():
+        if src.suffix in ('.sd','.sha256') or src.name == 'kernel.release':
+            copy(src,boots/src.name)
 web=app/'kvmapp/server/web'
 assert web.is_relative_to(out)
 shutil.rmtree(web)
@@ -65,10 +80,12 @@ for name,target in [('usr/sbin/watchdog','/sbin/watchdog')]:
     link(target,base/name)
 for src in (old/'mnt/data').glob('sensor_cfg.ini*'):
     copy(src,fw/'usr/share/nanokvm/board-defaults'/src.name)
-required=['base/usr/sbin/nanokvm_update_edid','base/etc/init.d/S50sshd','base/etc/init.d/S38memory','base/etc/init.d/nanokvm-policy','app/kvmapp/server/NanoKVM-Server']
+required=['base/usr/sbin/nanokvm_update_edid','base/etc/init.d/S50sshd','base/etc/init.d/S38memory','base/etc/init.d/nanokvm-policy','base/usr/libexec/nanokvm/legacy/S15kvmhwd','app/kvmapp/system/init.d/S15kvmhwd','app/kvmapp/server/NanoKVM-Server']
 for name in required:
     path=out/name
     if not (path.is_file() or path.is_symlink()): p.error('Missing payload: '+name)
+for path in (base/'usr/libexec/nanokvm/legacy/S15kvmhwd',app/'kvmapp/system/init.d/S15kvmhwd'):
+    if path.read_bytes() != enhanced_s15.read_bytes(): p.error('Enhanced S15kvmhwd was replaced: '+str(path))
 protected=base/'etc/apk/protected_paths.d/nanokvm.list'
 protected.parent.mkdir(parents=True,exist_ok=True)
 protected.write_text('+kvmapp/kvm\n')

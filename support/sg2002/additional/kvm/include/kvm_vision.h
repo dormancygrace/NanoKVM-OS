@@ -84,6 +84,8 @@ int kvmv_read_video(uint16_t _width, uint16_t _height, uint8_t _codec, uint16_t 
 int free_kvmv_data(uint8_t ** _pp_kvm_data);
 void free_all_kvmv_data();
 void set_h264_gop(uint8_t _gop);
+int8_t set_h265_gop_mode(uint8_t _mode);
+uint8_t get_h265_gop_mode(void);
 void set_frame_detact(uint8_t _frame_detact);
 void kvmv_deinit();
 int kvmv_hdmi_control(uint8_t _en);

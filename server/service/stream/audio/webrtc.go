@@ -3,6 +3,7 @@ package audio
 import (
 	"NanoKVM-Server/config"
 	"NanoKVM-Server/middleware"
+	"NanoKVM-Server/service/stream/webrtcdtls"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -34,6 +35,15 @@ func iceServers() []webrtc.ICEServer {
 	}
 	return servers
 }
+
+func createPeerConnection(servers []webrtc.ICEServer) (*webrtc.PeerConnection, error) {
+	settings := webrtc.SettingEngine{}
+	if err := webrtcdtls.Configure(&settings); err != nil {
+		return nil, err
+	}
+	return webrtc.NewAPI(webrtc.WithSettingEngine(settings)).NewPeerConnection(webrtc.Configuration{ICEServers: servers})
+}
+
 func Connect(c *gin.Context) {
 	if !enabled() {
 		c.String(http.StatusConflict, "USB audio is disabled")
@@ -54,7 +64,7 @@ func Connect(c *gin.Context) {
 	stopWatcher := middleware.WatchWebSocket(c.Request.Context(), ws)
 	defer stopWatcher()
 	servers := iceServers()
-	peer, err := webrtc.NewPeerConnection(webrtc.Configuration{ICEServers: servers})
+	peer, err := createPeerConnection(servers)
 	if err != nil {
 		return
 	}

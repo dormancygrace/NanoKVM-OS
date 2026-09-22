@@ -1,8 +1,14 @@
 # H.264 and H.265 video
 
-H.265 Direct is the fresh-browser default. **Settings → Video** contains transport and codec selection; the quick menu retains resolution, FPS, quality and browser scale. GOP is under **Advanced and recovery**. See [Video settings](VIDEO.md) for HDMI input versus stream scaling and capability fallbacks.
+The existing on-screen video menu contains a single **Codec** selector for the
+Direct and WebRTC modes. H.265/HEVC is the default; H.264/AVC remains available
+as a compatibility fallback. MJPEG does not use this selector.
 
-Only CBR is exposed. Bitrate and GOP are device-wide settings shared by viewers. **QHD H.265 WebRTC is unstable and can freeze or restart the device; use Direct for QHD.**
+NanoKVM intentionally exposes only CBR. The existing **Quality** item controls
+the device-wide bitrate (1000, 2000, 3000 or 10000 Kbit/s), and the existing
+**GOP** item controls the keyframe interval. This keeps codec selection in the
+same place as the other frequently used video controls without duplicating
+bitrate and GOP in Settings.
 
 ## Capability handling
 
@@ -38,10 +44,21 @@ using the same codec share it. Bitrate and GOP remain device-wide Screen state,
 so changes made through the established menu are applied to the shared encoder
 without creating per-browser profiles.
 
+For H.265, the Video menu also exposes NormalP and SmartP. SmartP is the product
+default when no saved preference exists. H.264 always uses NormalP. A changed
+H.265 GOP preference is persisted but is not hot-switched on an active encoder;
+the UI compares the saved value with the native active value and requires a
+device restart only while those values differ.
+
 The native API returns one complete Annex-B access unit per call. It joins all
 CVITEK VENC packs, recognizes H.264 IDR and H.265 IRAP NAL units, and marks the
 result as a key or delta frame. Direct passes those access units to WebCodecs.
-WebRTC uses Pion's H.264 or H.265 RTP payloader. The conservative fallback is a 1216-byte RTP packet including its base header. Reserving the largest negotiated SRTP tag (16 bytes), UDP (8) and IPv6 (40) gives 1280 bytes. Confirmed path discovery can change each viewer's budget, with smaller limits for known routes or relays; see [PMTU design](webrtc-pmtu-design.md). DTLS negotiates keys separately and does not add a DTLS header to each media packet.
+WebRTC uses Pion's H.264 or H.265 RTP payloader with a 1216-byte RTP MTU,
+including the base RTP header. Adding the largest negotiated SRTP tag (16),
+UDP (8) and IPv6 (40) gives 1280 bytes. DTLS negotiates the keys separately;
+media packets do not carry a DTLS record header. No RTP extensions are enabled.
+TURN framing and unknown path overhead need separate qualification before
+increasing this budget. Route-specific packetization is not implemented yet.
 
 The VENC pack array is allocated from the count returned by
 `CVI_VENC_QueryStatus()` before `CVI_VENC_GetStream()` writes it. The public
@@ -51,10 +68,14 @@ vendor buffer from being overrun before its returned count could be checked.
 
 ## Building and testing
 
-`libkvm.so` and `libkvm_mmf.so` must be rebuilt together with the Go server
-because `mmf_venc_cfg_t` and the public video-read ABI changed. The release
-builder refreshes MaixCDK components before compiling and links the server
-against the newly staged libraries.
+`libkvm.so` and `libkvm_mmf.so` must be rebuilt and deployed together with the
+Go server when the H.265 GOP selector is included. The `mmf_venc_cfg_t` layout
+remains unchanged; the MMF and capture libraries use additive mode-selection
+symbols. The existing-libraries server builder rejects a native set that lacks
+any required symbol and records the matched bundle contract and file hashes in
+its manifest. Installation must stage the server and both native libraries as
+one set, verify the hashes, and perform a tested device reboot only after all
+three files are present. A service-only hot restart is not qualified here.
 
 The transport/session tests do not require SG2002 hardware:
 
@@ -63,5 +84,5 @@ cd server
 CGO_ENABLED=1 go test -tags teststub -race ./service/stream/... ./common
 ```
 
-Use the matched RISC-V component build described in [BUILD.md](BUILD.md); the
+The production RISC-V build must additionally pass `make release-build`; the
 frontend is checked with `pnpm lint` and `pnpm build` in `web/`.

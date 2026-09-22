@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Divider, Input, Modal, Popconfirm, Result, Switch, Tag } from 'antd';
-import { DownloadIcon, FileUpIcon, KeyRoundIcon, Trash2Icon } from 'lucide-react';
+import { Alert, Button, Divider, Input, Modal, Popconfirm, Switch, Tag } from 'antd';
+import { FileUpIcon, KeyRoundIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { http } from '@/lib/http.ts';
 
+import { ExtensionInstallResult } from './extension-install-result.tsx';
 import { VPNVersion } from './version';
 
 type Profile = {
@@ -131,16 +132,12 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
       <Divider className="opacity-50" />
       <p className="text-sm text-neutral-400">{t('vpn.openvpnDescription')}</p>
       {available === false && (
-        <Result
-          status="info"
-          icon={<DownloadIcon size={28} />}
+        <ExtensionInstallResult
           title={t('vpn.openvpnNotInstalled')}
-          subTitle={t('vpn.openvpnInstallDescription')}
-          extra={
-            <Button type="primary" loading={busy} onClick={install}>
-              {t('vpn.openvpnInstall')}
-            </Button>
-          }
+          description={t('vpn.openvpnInstallDescription')}
+          actionLabel={t('vpn.openvpnInstall')}
+          loading={busy}
+          onInstall={install}
         />
       )}
       {available === true && (

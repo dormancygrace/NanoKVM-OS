@@ -27,9 +27,10 @@ func TestCheckScreenRejectsUnknownVideoBitRate(t *testing.T) {
 
 func TestLoadScreenReadsPersistedSettings(t *testing.T) {
 	files := map[string][]byte{
-		"/kvmapp/kvm/fps":  []byte("60\n"),
-		"/kvmapp/kvm/qlty": []byte("5000"),
-		"/kvmapp/kvm/res":  []byte("720"),
+		"/kvmapp/kvm/fps":      []byte("60\n"),
+		"/kvmapp/kvm/gop_mode": []byte("0\n"),
+		"/kvmapp/kvm/qlty":     []byte("5000"),
+		"/kvmapp/kvm/res":      []byte("720"),
 	}
 
 	got := loadScreen(func(path string) ([]byte, error) {
@@ -48,6 +49,9 @@ func TestLoadScreenReadsPersistedSettings(t *testing.T) {
 	}
 	if got.Width != 1280 || got.Height != 720 {
 		t.Fatalf("resolution = %dx%d, want 1280x720", got.Width, got.Height)
+	}
+	if got.GOPMode != GOPModeNormalP {
+		t.Fatalf("GOPMode = %d, want NormalP", got.GOPMode)
 	}
 }
 
@@ -73,6 +77,21 @@ func TestLoadScreenKeepsDefaultsForMissingOrInvalidSettings(t *testing.T) {
 	}
 	if got.Width != 0 || got.Height != 0 {
 		t.Fatalf("resolution = %dx%d, want default 0x0", got.Width, got.Height)
+	}
+	if got.GOPMode != GOPModeSmartP {
+		t.Fatalf("GOPMode = %d, want default SmartP", got.GOPMode)
+	}
+}
+
+func TestLoadScreenRejectsInvalidGOPMode(t *testing.T) {
+	got := loadScreen(func(path string) ([]byte, error) {
+		if path == "/kvmapp/kvm/gop_mode" {
+			return []byte("2"), nil
+		}
+		return nil, errors.New("not found")
+	})
+	if got.GOPMode != GOPModeSmartP {
+		t.Fatalf("GOPMode = %d, want default SmartP", got.GOPMode)
 	}
 }
 

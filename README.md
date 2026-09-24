@@ -6,7 +6,7 @@
 
 **Community firmware for SG2002 NanoKVM. PCIe/UXC is the current test platform; physical validation of Cube and Lite is pending.**
 
-![Version: 2.0 b2](https://img.shields.io/badge/version-2.0--b2-orange)
+![Version: 2.0 b3](https://img.shields.io/badge/version-2.0--b3-orange)
 ![Hardware: Cube, Lite and PCIe](https://img.shields.io/badge/hardware-Cube%20%7C%20Lite%20%7C%20PCIe-blue)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
@@ -42,7 +42,7 @@ The aim is a responsive IP-KVM with maintained system components, package update
 
 USB audio reaches the browser with one shared Opus encoder. Mount an ISO directly from your computer without copying it to SD; CD/DVD emulation now supports images up to 31.625 GiB. Dashboard shows SoC temperature and CPU frequency, with independent thermal protection and optional runtime overclocking.
 
-OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Alpine Linux 3.24**, **Linux 7.2.6-nanokvm-os-r1** and Alpine's standard OpenSSL libraries. The custom kernel retains its **`-O2`** build policy and selected userspace packages are optimized for C906. Packages install directly into the writable **F2FS root**, with dependency resolution and service handling through OpenRC. The interface also includes mobile settings improvements, custom branding and named Wake-on-LAN history entries. See [release notes](docs/RELEASE-v2.0-b2.md).
+OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Alpine Linux 3.24**, **Linux 7.2.6-nanokvm-os-r1** and Alpine's standard OpenSSL libraries. The custom kernel retains its **`-O2`** build policy and selected userspace packages are optimized for C906. Packages install directly into the writable **F2FS root**, with dependency resolution and service handling through OpenRC. The interface also includes mobile settings improvements, custom branding and named Wake-on-LAN history entries. See [release notes](docs/RELEASE-v2.0-b3.md).
 
 <a id="compatibility"></a>
 
@@ -106,7 +106,7 @@ Open **Settings → VPN** and choose WireGuard, OpenVPN, Tailscale or NetBird. O
 
 **Upgrading from a2:** b1 removes the bundled OpenVPN 3 client and its private OpenSSL 4 dependency. Install the optional **OpenVPN 2** client before reconnecting; existing profile files are retained. The OS base stays on Alpine 3.24; tagged edge/community packages are used only where required for optional clients.
 
-**Route Allowed IPs** is off by default for each WireGuard profile: only the subnet from the interface Address is routed. Enable it while the profile is stopped to install routes from AllowedIPs, including default routes. Uploaded AllowedIPs values are preserved. See the [b1 release notes](docs/RELEASE-v2.0-b2.md) for the current VPN transition.
+**Route Allowed IPs** is off by default for each WireGuard profile: only the subnet from the interface Address is routed. Enable it while the profile is stopped to install routes from AllowedIPs, including default routes. Uploaded AllowedIPs values are preserved. See the [b1 release notes](docs/RELEASE-v2.0-b3.md) for the current VPN transition.
 
 ## 📦 Updates
 

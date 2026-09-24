@@ -111,13 +111,16 @@ vision: check-root builder-image
 	@echo "Building vision..."
 	@$(DOCKER_RUN_BASE) $(DOCKER_TTY) $(IMAGE_NAME) /bin/bash -c '$(VISION_BUILD_CMD)'
 
-.PHONY: test-wifi-modules test-enhanced-wifi test-wifi-runtime test-ethernet-runtime
+.PHONY: test-wifi-modules test-enhanced-wifi test-wifi-runtime test-ethernet-runtime test-alpine-network
 test-wifi-modules:
 	@sh tools/test-s25wifimod.sh
 
 test-enhanced-wifi:
 	@python3 scripts/test-wifi-selector.py
 	@python3 scripts/test-aic-firmware-path.py
+
+test-alpine-network:
+	@python3 scripts/test-alpine-network.py
 
 test-wifi-runtime:
 	@sh tools/test-s30wifi-runtime.sh

@@ -1,6 +1,6 @@
 pkgname=nanokvm-release
 pkgver=${PKGVER:-0.1.0}
-pkgrel=1
+pkgrel=0
 pkgdesc="Tested NanoKVM Alpine package set"
 url="https://github.com/sipeed/NanoKVM"
 arch="riscv64"

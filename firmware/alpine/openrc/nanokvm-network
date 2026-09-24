@@ -2,6 +2,12 @@
 
 description="NanoKVM Ethernet and Wi-Fi setup"
 
+: "${NANOKVM_NETWORK_NET_CLASS_DIR:=/sys/class/net}"
+: "${NANOKVM_NETWORK_SDIO_DEVICES_DIR:=/sys/bus/sdio/devices}"
+: "${NANOKVM_NETWORK_LEGACY_DIR:=/usr/libexec/nanokvm/legacy}"
+: "${NANOKVM_ETH_DISABLED:=/boot/eth.disabled}"
+: "${NANOKVM_WIFI_ETC_DIR:=/etc/kvm}"
+
 depend() {
     need nanokvm-board
     provide net
@@ -10,22 +16,63 @@ depend() {
 
 run_legacy() {
     local script="$1"
-    [ ! -x "/usr/libexec/nanokvm/legacy/$script" ] ||
-        "/usr/libexec/nanokvm/legacy/$script" start
+    if [ ! -x "$NANOKVM_NETWORK_LEGACY_DIR/$script" ]; then
+        ewarn "NanoKVM network script is missing: $script"
+        return 1
+    fi
+    "$NANOKVM_NETWORK_LEGACY_DIR/$script" start
 }
 
 stop_legacy() {
     local script="$1"
-    [ ! -x "/usr/libexec/nanokvm/legacy/$script" ] ||
-        "/usr/libexec/nanokvm/legacy/$script" stop
+    [ ! -x "$NANOKVM_NETWORK_LEGACY_DIR/$script" ] ||
+        "$NANOKVM_NETWORK_LEGACY_DIR/$script" stop
+}
+
+sdio_device_present() {
+    local alias
+    for alias in "$NANOKVM_NETWORK_SDIO_DEVICES_DIR"/*/modalias; do
+        [ ! -r "$alias" ] || return 0
+    done
+    return 1
 }
 
 start() {
+    local started=0
     ebegin "Starting NanoKVM network"
     export NANOKVM_WPA_PASSPHRASE=/usr/libexec/nanokvm/wpa-passphrase-compat
-    run_legacy S25wifimod || return 1
-    run_legacy S30eth || ewarn "Ethernet did not start"
-    run_legacy S30wifi || return 1
+
+    # Ethernet and Wi-Fi are independent. A failed optional interface must not
+    # keep the OpenRC net provider (and chronyd) down when the other starts.
+    if [ -d "$NANOKVM_NETWORK_NET_CLASS_DIR/eth0" ]; then
+        if run_legacy S30eth; then
+            [ -e "$NANOKVM_ETH_DISABLED" ] || started=1
+        else
+            ewarn "Ethernet did not start"
+        fi
+    fi
+
+    # udev may have already created wlan0. Only ask the legacy loader to run
+    # when an SDIO device exists but wlan0 is still missing. On Ethernet-only
+    # boards there is no Wi-Fi hardware to initialize.
+    if [ ! -d "$NANOKVM_NETWORK_NET_CLASS_DIR/wlan0" ] &&
+        [ ! -e "$NANOKVM_WIFI_ETC_DIR/wifi.disabled" ] &&
+        sdio_device_present; then
+        run_legacy S25wifimod || ewarn "Wi-Fi module initialization failed"
+    fi
+
+    if [ -d "$NANOKVM_NETWORK_NET_CLASS_DIR/wlan0" ]; then
+        if run_legacy S30wifi; then
+            [ -e "$NANOKVM_WIFI_ETC_DIR/wifi.disabled" ] || started=1
+        else
+            ewarn "Wi-Fi did not start"
+        fi
+    fi
+
+    if [ "$started" -eq 0 ]; then
+        eend 1 "No NanoKVM network interface started"
+        return 1
+    fi
     eend 0
 }
 

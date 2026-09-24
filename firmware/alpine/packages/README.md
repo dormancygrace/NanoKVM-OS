@@ -26,6 +26,29 @@ The helper also accepts `PAYLOAD_ROOT/<profile>/...` (for example
 repositories can be generated from the same checkout. Files containing device
 identity, keys, `/data`, or user settings must not be put in these payloads.
 
+## Sophgo `devmem` dependency
+
+Sophgo `libsys.so` invokes `devmem ADDRESS 32 VALUE` during `CVI_SYS_Init`.
+Alpine's BusyBox and busybox-extras do not supply this applet, so build the
+single-applet BusyBox executable before preparing release payloads:
+
+```sh
+NANOKVM_BUILDROOT_OUTPUT=/path/to/buildroot-output \
+  ./scripts/build-busybox-devmem.sh /path/to/devmem-output
+python3 scripts/prepare-alpine-release-payloads.py \
+  --port-payloads /path/to/port-payloads \
+  --accepted-root /path/to/accepted-root \
+  --server /path/to/server-final --web /path/to/web \
+  --devmem /path/to/devmem-output/devmem \
+  --output /path/to/release-payloads
+```
+
+The build pins upstream BusyBox 1.36.1 and its source checksum, enables only
+the `devmem` applet, and compiles it with `-O2` for RV64GC/musl. The base APK
+owns `/usr/sbin/devmem` and carries the BusyBox GPL-2.0 license. It does not
+replace Alpine's `/bin/busybox`. The missing command is a confirmed dependency;
+restoring it alone does not establish the cause of a particular VI failure.
+
 ## Local build
 
 On an Alpine riscv64 or x86_64 builder with `abuild` configured:
@@ -59,3 +82,5 @@ This makes kernel and module revisions normal signed repository updates while
 keeping them in one APK transaction. It does not update the partition table,
 filesystem, FIP or bootloader. Those changes continue to use a complete image or
 the recovery installer.
+
+The exact BusyBox source archive for the shipped devmem executable is available at `firmware/sources/busybox-1.36.1.tar.bz2`; use `scripts/build-busybox-devmem.sh` to reproduce it.

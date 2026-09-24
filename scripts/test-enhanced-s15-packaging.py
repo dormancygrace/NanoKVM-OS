@@ -36,7 +36,12 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
 
     for name in ('nkos-update', 'nkos-apply-updates', 'NanoKVM-Server.stripped'):
         write(server / name)
+    write(server / 'dl_lib/libsys.so')
     write(web / 'index.html', b'<!doctype html>\n')
+    devmem = work / 'devmem' / 'devmem'
+    write(devmem, b'devmem applet\n')
+    devmem.chmod(0o755)
+    write(devmem.parent / 'busybox-LICENSE', b'BusyBox GPL-2.0-only\n')
 
     subprocess.run([
         str(root / 'scripts/prepare-alpine-release-payloads.py'),
@@ -44,6 +49,7 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
         '--accepted-root', str(accepted),
         '--server', str(server),
         '--web', str(web),
+        '--devmem', str(devmem),
         '--output', str(output),
     ], check=True)
 
@@ -54,5 +60,8 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
     assert app_s15.read_bytes() == expected
     assert (output / 'base/etc/init.d/S15kvmhwd').readlink() == Path(
         '/usr/libexec/nanokvm/legacy/S15kvmhwd')
+    assert (output / 'base/usr/sbin/devmem').read_bytes() == devmem.read_bytes()
+    assert (output / 'base/usr/sbin/devmem').stat().st_mode & 0o111
+    assert (output / 'base/usr/share/licenses/nanokvm-base/busybox-LICENSE').is_file()
 
 print('Enhanced S15 packaging test passed')

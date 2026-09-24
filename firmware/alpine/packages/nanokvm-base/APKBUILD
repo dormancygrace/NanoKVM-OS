@@ -4,7 +4,7 @@ pkgrel=0
 pkgdesc="NanoKVM Alpine integration and OpenRC services"
 url="https://github.com/sipeed/NanoKVM"
 arch="riscv64"
-license="GPL-3.0-only"
+license="GPL-3.0-only AND GPL-2.0-only"
 depends="bash chrony-openrc avahi-openrc dbus-openrc busybox-openrc openssh-server openssh-server-common nftables iproute2-tc util-linux openrc eudev kmod exfatprogs f2fs-tools"
 source="$pkgname-$pkgver.tar.gz
 	nanokvm-banner.sh"

@@ -8,6 +8,7 @@ p.add_argument('--port-payloads',type=Path,required=True)
 p.add_argument('--accepted-root',type=Path,required=True)
 p.add_argument('--server',type=Path,required=True)
 p.add_argument('--web',type=Path,required=True)
+p.add_argument('--devmem',type=Path,required=True,help='BusyBox devmem-only riscv64 executable')
 p.add_argument('--output',type=Path,required=True)
 p.add_argument('--boot-payloads',type=Path,help='Matched board FIT images, checksums and kernel.release')
 args=p.parse_args()
@@ -34,6 +35,8 @@ copy(r/'firmware/alpine/compat/nkos-board-select',base/'usr/sbin/nkos-board-sele
 copy(old/'usr/sbin/nkos-board-probe',base/'usr/sbin/nkos-board-probe')
 copy(args.server/'nkos-update',base/'usr/sbin/nkos-update')
 copy(args.server/'nkos-apply-updates',base/'usr/sbin/nkos-apply-updates')
+copy(args.devmem,base/'usr/sbin/devmem')
+copy(args.devmem.parent/'busybox-LICENSE',base/'usr/share/licenses/nanokvm-base/busybox-LICENSE')
 copy(r/'firmware/alpine/compat/50-nanokvm-apply',base/'etc/apk/commit_hooks.d/50-nanokvm-apply')
 for src in (r/'firmware/alpine/openrc').iterdir(): copy(src,base/'etc/init.d'/src.name)
 copy(enhanced_s15,base/'usr/libexec/nanokvm/legacy/S15kvmhwd')
@@ -80,7 +83,7 @@ for name,target in [('usr/sbin/watchdog','/sbin/watchdog')]:
     link(target,base/name)
 for src in (old/'mnt/data').glob('sensor_cfg.ini*'):
     copy(src,fw/'usr/share/nanokvm/board-defaults'/src.name)
-required=['base/usr/sbin/nanokvm_update_edid','base/etc/init.d/S50sshd','base/etc/init.d/S38memory','base/etc/init.d/nanokvm-policy','base/usr/libexec/nanokvm/legacy/S15kvmhwd','app/kvmapp/system/init.d/S15kvmhwd','app/kvmapp/server/NanoKVM-Server']
+required=['base/usr/sbin/devmem','base/usr/share/licenses/nanokvm-base/busybox-LICENSE','base/usr/sbin/nanokvm_update_edid','base/etc/init.d/S50sshd','base/etc/init.d/S38memory','base/etc/init.d/nanokvm-policy','base/usr/libexec/nanokvm/legacy/S15kvmhwd','app/kvmapp/system/init.d/S15kvmhwd','app/kvmapp/server/NanoKVM-Server']
 for name in required:
     path=out/name
     if not (path.is_file() or path.is_symlink()): p.error('Missing payload: '+name)

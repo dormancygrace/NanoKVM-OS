@@ -1,0 +1,77 @@
+diff --git a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c b/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
+--- a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
++++ b/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
+@@ -1,4 +1,5 @@
+ #include <stdio.h>
++#include <stdlib.h>
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <sys/ioctl.h>
+@@ -188,11 +189,67 @@
+ 	return low < 0 ? CVI_FAILURE : (high << 8) | low;
+ }
+ 
++static int lt6911_is_d_board(void)
++{
++	FILE *version = fopen("/etc/kvm/hdmi_version", "r");
++	if (version == NULL)
++		return 0;
++	int variant = fgetc(version);
++	fclose(version);
++	return variant == 'd';
++}
++
++static int lt6911_d_pinmux(void)
++{
++	/* Match the SG200x NanoKVM LT6911 setup, only on boards identified as D. */
++	for (unsigned int addr = 0x0300116c; addr <= 0x03001190; addr += 4) {
++		char command[64];
++		snprintf(command, sizeof(command), "/usr/sbin/devmem 0x%08x 32 0x3", addr);
++		if (system(command) != 0) {
++			CVI_TRACE_SNS(CVI_DBG_ERR, "LT6911D pinmux write failed at 0x%08x\n", addr);
++			return CVI_FAILURE;
++		}
++	}
++	return CVI_SUCCESS;
++}
++
++static int lt6911_d_read_pair(VI_PIPE ViPipe, unsigned char reg, unsigned char values[2])
++{
++	if (lt6911_write_register(ViPipe, LT6911_I2C_BANK_ADDR, 0xe0) != CVI_SUCCESS)
++		return CVI_FAILURE;
++	if (write(g_fd[ViPipe], &reg, 1) != 1 || read(g_fd[ViPipe], values, 2) != 2)
++		return CVI_FAILURE;
++	return CVI_SUCCESS;
++}
++
++static int lt6911_probe_d(VI_PIPE ViPipe)
++{
++	/* Sipeed reads D's active dimensions as pairs from bank E0. */
++	unsigned char horizontal[2], vertical[2];
++	if (lt6911_d_read_pair(ViPipe, 0x8c, horizontal) != CVI_SUCCESS ||
++	    lt6911_d_read_pair(ViPipe, 0x8e, vertical) != CVI_SUCCESS) {
++		CVI_TRACE_SNS(CVI_DBG_ERR, "LT6911D bank E0 probe failed.\n");
++		return CVI_FAILURE;
++	}
++	printf("LT6911D bank E0 active: %02x%02x %02x%02x\n",
++	       horizontal[0], horizontal[1], vertical[0], vertical[1]);
++	return CVI_SUCCESS;
++}
++
+ int lt6911_probe(VI_PIPE ViPipe)
+ {
++	int is_d = lt6911_is_d_board();
++	if (is_d && lt6911_d_pinmux() != CVI_SUCCESS)
++		return CVI_FAILURE;
+ 	usleep(50);
+ 	if (lt6911_i2c_init(ViPipe) != CVI_SUCCESS)
+ 		return CVI_FAILURE;
++	if (is_d) {
++		int status = lt6911_probe_d(ViPipe);
++		if (status != CVI_SUCCESS)
++			lt6911_i2c_exit(ViPipe);
++		return status;
++	}
+ 
+ 	/* The legacy LT6911 and the NanoKVM UXC use different ID banks. */
+ 	int legacy_id = lt6911_read_id(ViPipe, 0xa000);

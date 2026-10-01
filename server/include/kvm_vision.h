@@ -42,6 +42,18 @@ int kvmv_read_video_sink(uint16_t width, uint16_t height, uint8_t codec,
 
 void kvmv_init(uint8_t _debug_info_en);
 void set_venc_auto_recyc(uint8_t _enable);
+// Runtime JPEG chroma intent (0 NV21/4:2:0, 1 NV16/4:2:2), serialized with capture.
+int set_mjpeg_chroma(uint8_t enable_422);
+#define MJPEG_CHROMA_ACTIVE_422 1
+#define MJPEG_CHROMA_SHARED_VIDEO 2
+#define MJPEG_CHROMA_FRAME_DETECT 4
+#define MJPEG_CHROMA_FORCE_COPY 8
+#define MJPEG_CHROMA_FALLBACK_ERROR 16
+#define MJPEG_CHROMA_LIMIT_WIDTH 32
+uint8_t get_mjpeg_chroma_status(void);
+// JPEG callback runs before ReleaseStream/VI release; it must copy synchronously.
+int kvmv_read_mjpeg_sink(uint16_t width, uint16_t height, uint16_t quality,
+    kvmv_video_sink sink, uintptr_t context);
 /**********************************************************************************
  * @name    kvmv_read_img
  * @author  Sipeed BuGu

@@ -38,7 +38,7 @@ func TestStreamLimitDoesNotRequireMonitorHardware(t *testing.T) {
 	}
 }
 func TestRejectsInvalidVideoPreferences(t *testing.T) {
-	for _, body := range []string{`{"type":"monitor","value":719}`, `{"type":"resolution","value":65536}`, `{"type":"resolution","value":-1}`, `{"type":"fps","value":61}`} {
+	for _, body := range []string{`{"type":"monitor","value":719}`, `{"type":"resolution","value":65536}`, `{"type":"resolution","value":-1}`, `{"type":"fps","value":121}`} {
 		recorder := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(recorder)
 		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(body))

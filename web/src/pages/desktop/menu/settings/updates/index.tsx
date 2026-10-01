@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Collapse, message, Popconfirm, Select } from 'antd';
 import { LoaderCircle } from 'lucide-react';
@@ -91,8 +92,8 @@ export const Updates = () => {
   }
   useEffect(() => {
     void refresh();
-    const timer = setInterval(refresh, 3000);
-    return () => clearInterval(timer);
+    const stopPolling = pollWhileVisible(refresh, 3000);
+    return () => stopPolling();
   }, []);
 
   async function action(name: string, data?: unknown) {

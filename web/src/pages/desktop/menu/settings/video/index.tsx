@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Tag } from 'antd';
+import { useAuth } from '@/contexts/auth';
+import { Alert, Button, message, Tag } from 'antd';
 import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
-import { getScreen } from '@/api/vm';
+import { getScreen, updateScreen } from '@/api/vm';
 import { getEncoderCodec } from '@/lib/encoder';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { isHdmiEnabledAtom, videoModeAtom } from '@/jotai/screen';
 
 import { Hdmi } from '../device/hdmi';
@@ -19,6 +21,9 @@ type Status = {
   gopMode: number;
   gopModeActive: number;
   gopModeRestartRequired: boolean;
+  mjpegChroma: number;
+  mjpegChromaActive: number;
+  mjpegChromaFallback: string;
   monitor: number;
   portrait: boolean;
   portraitResolution: number;
@@ -33,6 +38,10 @@ type Status = {
   inputHeight: number;
   outputWidth: number;
   outputHeight: number;
+  mjpegOutputWidth: number;
+  mjpegOutputHeight: number;
+  videoOutputWidth: number;
+  videoOutputHeight: number;
   fps: number;
   effectiveFps: number;
   measuredFps: number;
@@ -40,6 +49,8 @@ type Status = {
 
 export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) => void }) => {
   const { t } = useTranslation();
+  const { account } = useAuth();
+  const [retryingChroma, setRetryingChroma] = useState(false);
   const mode = useAtomValue(videoModeAtom);
   const enabled = useAtomValue(isHdmiEnabledAtom);
   const [status, setStatus] = useState<Status>();
@@ -56,8 +67,8 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
   }, []);
   useEffect(() => {
     void refresh();
-    const timer = setInterval(() => void refresh(), 3000);
-    return () => clearInterval(timer);
+    const stopPolling = pollWhileVisible(() => void refresh(), 3000);
+    return () => stopPolling();
   }, [refresh]);
   const size = (w?: number, h?: number) => (w && h ? `${w} × ${h}` : '—');
   const portraitProfile = (value?: number) =>
@@ -69,6 +80,8 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
           ? t('videoSettings.portraitHDProfile')
           : t('videoSettings.portraitDefaultProfile');
   const transport = mode === 'h264' ? 'WebRTC' : mode === 'direct' ? 'Direct' : 'MJPEG';
+  const outputWidth = mode === 'mjpeg' ? status?.mjpegOutputWidth : status?.videoOutputWidth;
+  const outputHeight = mode === 'mjpeg' ? status?.mjpegOutputHeight : status?.videoOutputHeight;
   const encoding = mode === 'mjpeg' ? '' : getEncoderCodec() === 'h265' ? 'H.265' : 'H.264';
   return (
     <div className="space-y-6 pb-6">
@@ -96,6 +109,41 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
           })}
         />
       )}
+      {mode === 'mjpeg' &&
+        status?.mjpegChroma === 422 &&
+        (status.mjpegChromaActive !== 422 || status.mjpegChromaFallback === 'resolution') && (
+          <Alert
+            type={status.mjpegChromaFallback === 'hardware' ? 'warning' : 'info'}
+            showIcon
+            message={t(
+              `videoSettings.mjpegChromaFallback_${status.mjpegChromaFallback || 'pending'}`
+            )}
+            action={
+              status.mjpegChromaFallback === 'hardware' && account.role === 'admin' ? (
+                <Button
+                  loading={retryingChroma}
+                  onClick={async () => {
+                    if (retryingChroma) return;
+                    setRetryingChroma(true);
+                    try {
+                      const rsp = await updateScreen('mjpeg_chroma', 422);
+                      if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
+                      await refresh();
+                    } catch (error) {
+                      message.error(
+                        error instanceof Error ? error.message : t('videoSettings.failed')
+                      );
+                    } finally {
+                      setRetryingChroma(false);
+                    }
+                  }}
+                >
+                  {t('videoSettings.retry')}
+                </Button>
+              ) : undefined
+            }
+          />
+        )}
       <div
         className="rounded-xl border border-neutral-700 bg-neutral-800/50 p-4 text-sm"
         aria-live="polite"
@@ -119,10 +167,26 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
         <div className="flex justify-between gap-3 py-1">
           <span className="text-neutral-400">{t('videoSettings.output')}</span>
           <span>
-            {enabled ? size(status?.outputWidth, status?.outputHeight) : '—'} · {encoding}{' '}
-            {transport}
+            {enabled
+              ? size(outputWidth || status?.outputWidth, outputHeight || status?.outputHeight)
+              : '—'}{' '}
+            · {encoding} {transport}
           </span>
         </div>
+        {mode === 'mjpeg' && (
+          <div className="flex justify-between gap-3 py-1">
+            <span className="text-neutral-400">{t('videoSettings.mjpegChromaActive')}</span>
+            <span>
+              {enabled
+                ? status
+                  ? status.mjpegChromaActive === 422
+                    ? '4:2:2'
+                    : '4:2:0'
+                  : '—'
+                : '—'}
+            </span>
+          </div>
+        )}
         <div className="flex justify-between gap-3 py-1">
           <span className="text-neutral-400">{t('videoSettings.requested')}</span>
           <span>{status?.fps ?? '—'} FPS</span>

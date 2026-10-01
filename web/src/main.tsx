@@ -8,9 +8,9 @@ import { RouterProvider } from 'react-router-dom';
 
 import { AppTheme } from './components/app-theme.tsx';
 import { MainError } from './components/main-error.tsx';
+import { i18nReady } from './i18n';
 import { router } from './router';
 
-import './i18n';
 import './assets/styles/index.css';
 
 const renderApp = () => {
@@ -39,9 +39,8 @@ const renderApp = () => {
 
 if (import.meta.env.MODE === 'mocked') {
   const { worker } = await import('./mocks/browser');
-  worker.start().then(() => {
-    return renderApp();
-  });
+  await worker.start();
 }
 
+await i18nReady;
 renderApp();

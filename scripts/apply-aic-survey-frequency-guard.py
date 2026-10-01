@@ -15,15 +15,17 @@ hashes = json.loads((policy / 'sdio-source.json').read_text())['survey_frequency
 source = a.source.resolve()
 target = source / 'aic8800_fdrv/rwnx_msg_rx.c'
 data = patch.read_bytes()
-args = ['git', '-C', str(source), 'apply']
+args = ['patch', '--batch', '--fuzz=0', '--forward', '-d', str(source), '-p1']
 digest = lambda: hashlib.sha256(target.read_bytes()).hexdigest()
-if digest() == hashes['patched_sha256']:
+compat = json.loads((policy / 'linux-7.3-source.json').read_text())['files']
+compat_hash = compat['aic8800_fdrv/rwnx_msg_rx.c']['patched_sha256']
+if digest() in (hashes['patched_sha256'], compat_hash):
     print('AIC survey frequency guard already applied')
 else:
     if digest() != hashes['base_sha256']:
         raise SystemExit('AIC survey source differs from the reviewed baseline')
-    subprocess.run(args + ['--check', '-'], input=data, check=True)
-    subprocess.run(args + ['-'], input=data, check=True)
+    subprocess.run(args + ['--dry-run'], input=data, check=True)
+    subprocess.run(args, input=data, check=True)
     if digest() != hashes['patched_sha256']:
         raise SystemExit('AIC survey patched source hash mismatch')
     print('AIC survey frequency guard applied')

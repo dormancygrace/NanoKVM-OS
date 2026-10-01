@@ -1,10 +1,14 @@
 package mjpeg
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -101,7 +105,7 @@ func TestWriteFrameUsesUnderlyingDeadlineAndFlushError(t *testing.T) {
 	context, _ := gin.CreateTestContext(underlying)
 	context.Request = httptest.NewRequest(http.MethodGet, "/api/stream/mjpeg", nil)
 
-	err := writeFrame(context, newResponseController(context.Writer), []byte("frame"))
+	err := writeFrame(context, newResponseController(context.Writer), []byte("frame"), true)
 	if !errors.Is(err, flushErr) {
 		t.Fatalf("writeFrame error = %v, want %v", err, flushErr)
 	}
@@ -110,5 +114,43 @@ func TestWriteFrameUsesUnderlyingDeadlineAndFlushError(t *testing.T) {
 	}
 	if underlying.writeSize == 0 {
 		t.Fatal("frame was not written before flush")
+	}
+}
+
+func TestWriteFrameAdvancesHeadersBeforeNextImage(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/stream/mjpeg", nil)
+	controller := newResponseController(c.Writer)
+	frames := [][]byte{{0xff, 0xd8, 1, 0xff, 0xd9}, {0xff, 0xd8, 2, 0xff, 0xd9}, {0xff, 0xd8, 3, 0xff, 0xd9}}
+	for i, frame := range frames {
+		before := recorder.Body.Len()
+		if err := writeFrame(c, controller, frame, i == 0); err != nil {
+			t.Fatal(err)
+		}
+		flushed := recorder.Body.Bytes()[before:]
+		if !recorder.Flushed || !bytes.HasSuffix(flushed, mjpegNextPart) {
+			t.Fatal("a flushed JPEG must include the complete following headers")
+		}
+		if bytes.Contains(flushed, []byte("Content-Length:")) {
+			t.Fatal("advance headers cannot advertise an unknown next JPEG length")
+		}
+	}
+	reader := multipart.NewReader(strings.NewReader(recorder.Body.String()), "frame")
+	for _, want := range frames {
+		part, err := reader.NextPart()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if part.Header.Get("Content-Type") != "image/jpeg" {
+			t.Fatal(part.Header)
+		}
+		got, err := io.ReadAll(part)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("parsed JPEG %x, want %x", got, want)
+		}
 	}
 }

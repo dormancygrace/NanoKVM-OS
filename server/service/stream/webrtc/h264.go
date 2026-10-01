@@ -22,9 +22,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// maxSignalingSize bounds one complete SDP or ICE signaling message.
+const maxSignalingSize = 256 * 1024
+
 var (
+	// Signaling carries JSON; the write buffer only holds a frame fragment.
 	upgrader = websocket.Upgrader{
-		WriteBufferSize: 256 * 1024,
+		WriteBufferSize: 16 * 1024,
 		CheckOrigin:     middleware.CheckWebSocketOrigin,
 	}
 	globalManager *WebRTCManager
@@ -68,6 +72,7 @@ func connect(c *gin.Context, encoderConfig stream.EncoderConfig) {
 
 	var zeroTime time.Time
 	_ = wsConn.SetReadDeadline(zeroTime)
+	wsConn.SetReadLimit(maxSignalingSize)
 
 	if qhdH265Blocked(encoderConfig.Codec) {
 		_ = wsConn.WriteJSON(&Message{Event: "video-error", Data: qhdH265Error})

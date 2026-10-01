@@ -23,6 +23,8 @@
 #include "vi_state_shared.hpp"
 #include "internal/vi_state_writer.hpp"
 #include "internal/small_file.hpp"
+#include "internal/file_stamp.hpp"
+#include "internal/ion_summary.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -72,6 +74,8 @@
 #define vi_state_publish_interval_ms 10000U
 #define vi_detection_active_poll_ms 10U
 #define vi_detection_idle_poll_ms 100U
+#define hdmi_mode_max_age_ms 1000U
+#define ion_summary_path "/sys/kernel/debug/ion/cvi_carveout_heap_dump/summary"
 
 /* Resolution-bounded opt-ins expose the accepted high-rate profiles while
  * retaining the normal 60-FPS ceiling for every other geometry. */
@@ -138,8 +142,9 @@ struct kvmv_cfg_t {
     uint8_t hdmi_try_rounds = 0;
     uint8_t vi_detect_state = 0;
 #ifdef NANOKVM_ENHANCED
-    // The reserved video heap cannot retain both QHD JPEG and AVC/HEVC pools.
-    uint8_t venc_auto_recyc = 1;
+    // Separate bounded VPSS outputs retain JPEG and video encoders between
+    // reads. Inactive outputs are retired before allocating their replacement.
+    uint8_t venc_auto_recyc = 0;
 #else
     uint8_t venc_auto_recyc = 0;
 #endif
@@ -474,35 +479,55 @@ void write_res_to_file(uint16_t _width, uint16_t _height)
     nanokvm::write_small_uint(vi_height_path, _height);
 }
 
+// Only the detection thread reads/writes the mode and owns this stamp.
+static nanokvm::FileStamp hdmi_mode_stamp;
+
 int set_hdmi_mode(uint8_t _hdmi_mode)
 {
     if(_hdmi_mode <= 2){
-        return nanokvm::write_small_uint(hdmi_mode_path, _hdmi_mode, true) ? 1 : 0;
+        const bool written = nanokvm::write_small_uint(hdmi_mode_path, _hdmi_mode, true);
+        // Even a failed write may have truncated the file. Own writes must be
+        // visible on the next pass despite coarse filesystem timestamps.
+        hdmi_mode_stamp.valid = false;
+        return written ? 1 : 0;
     } else {
         debug("[kvmv] Incorrect HDMI mode.\n");
         return 0;
     }
 }
 
+// Preserve the changed-mode return value used by the capture state machine.
 int get_hdmi_mode(void)
 {
-    if(access(hdmi_mode_path, F_OK) == 0){
-        // exist
-        FILE *fp;
-        uint8_t tmp8;
-        uint8_t RW_Data[3] = {0};
-
-        fp = fopen(hdmi_mode_path, "r");
+    struct stat st;
+    if(stat(hdmi_mode_path, &st) == 0){
+        const uint32_t now_ms = vi_state_shared::monotonic_ms();
+        if (!nanokvm::file_stamp_due(hdmi_mode_stamp, st, now_ms, hdmi_mode_max_age_ms)) {
+            return 0;
+        }
+        // A one-second refresh also sees same-size rewrites with an unchanged
+        // timestamp; polling otherwise only stats the small configuration file.
+        FILE *fp = fopen(hdmi_mode_path, "r");
         if (fp == NULL) {
+            hdmi_mode_stamp.valid = false;
             kvmv_cfg.hdmi_mode = 0;
             return 0;
         }
-        fread(RW_Data, sizeof(char), sizeof(RW_Data) - 1, fp);
-        fclose(fp);
-        tmp8 = atoi((char*)RW_Data);
+        uint8_t RW_Data[3] = {0};
+        const size_t read_size = fread(RW_Data, sizeof(char), sizeof(RW_Data) - 1, fp);
+        RW_Data[read_size] = 0;
+        const bool read_failed = ferror(fp) != 0;
+        const int close_result = fclose(fp);
+        if (read_failed || close_result != 0) {
+            hdmi_mode_stamp.valid = false;
+            kvmv_cfg.hdmi_mode = 0;
+            return 0;
+        }
+        nanokvm::file_stamp_record(hdmi_mode_stamp, st, now_ms);
+        uint8_t tmp8 = atoi((char*)RW_Data);
         if(tmp8 > 2) {
             tmp8 = 0;
-            nanokvm::write_small_uint(hdmi_mode_path, 0, true);
+            set_hdmi_mode(0);
         }
         if(tmp8 != kvmv_cfg.hdmi_mode){
             kvmv_cfg.hdmi_mode = tmp8;
@@ -512,6 +537,7 @@ int get_hdmi_mode(void)
             return 0;
         }
     }
+    hdmi_mode_stamp.valid = false;
     kvmv_cfg.hdmi_mode = 0;
     return 0;
 }
@@ -668,31 +694,11 @@ uint8_t auto_try_res()
 */
 uint8_t chack_ion()
 {
-    // cat /sys/kernel/debug/ion/cvi_carveout_heap_dump/summary | grep "usage rate:" | awk -F '[:%]' '{print $2}'
-	uint8_t RW_Data[10];
-    uint8_t ATOI_Data[3] = {0};
-    uint8_t ion_usage_rate;
-    char Cmd[150]={0};
-    // sprintf( Cmd, "cat /sys/kernel/debug/ion/cvi_carveout_heap_dump/summary | grep \"usage rate:\" | awk -F '[:%]' '{print $2}'");
-    sprintf( Cmd, "cat /sys/kernel/debug/ion/cvi_carveout_heap_dump/summary | grep \"usage rate:\" | awk '{print $2}'");
-    FILE* fp = popen( Cmd, "r" );
-    if ( NULL == fp )
-    {
-        pclose(fp);
-        return 0;
-    }
-    fgets((char*)RW_Data, 8, fp);
-    pclose(fp);
-    RW_Data[8] = 0;
-    if (RW_Data[6] == '&') return 1;
-    else {
-        ATOI_Data[0] = RW_Data[5];
-        ATOI_Data[1] = RW_Data[6];
-    }
-    ion_usage_rate = atoi((char*)ATOI_Data);
-
-    if(ion_usage_rate >= 95) return 1;
-    else return 2;
+    const int rate = nanokvm::ion_usage_rate_from_file(ion_summary_path);
+    // Unavailable, malformed or failed reads retain the watchdog's error
+    // result; only a valid percentage at the existing threshold may reboot.
+    if (rate < 0) return 0;
+    return rate >= 95 ? 1 : 2;
 }
 
 void lt6911_enable()
@@ -1684,20 +1690,119 @@ uint8_t frame_changed(nanokvm::Nv21Frame *raw)
     return raw == nullptr || sampler.changed(raw->data(), raw->data_size(), raw->width(), raw->height());
 }
 
+// Per-calling-thread intent; actual encoder access remains serialized by vi_mutex.
+static thread_local kvmv_video_sink video_sink = nullptr;
+static thread_local uintptr_t video_sink_context = 0;
+
 bool jpg_dump(kvmv_data_t* dump_to, nanokvm::JpegBuffer *raw)
 {
     if(dump_to == NULL || raw == NULL || raw->data() == NULL || raw->data_size() == 0){
         return false;
     }
-    if(raw->data_size() > UINT32_MAX || !reserve_save_buffer(dump_to, (uint32_t)raw->data_size())){
+    if(raw->data_size() > UINT32_MAX || (video_sink == nullptr
+            && !reserve_save_buffer(dump_to, (uint32_t)raw->data_size()))){
         dump_to->img_data_size = 0;
         dump_to->img_data_type = 0;
         return false;
     }
     dump_to->img_data_size = raw->data_size();
     dump_to->img_data_type = VENC_MJPEG;
-    memcpy(dump_to->p_img_data, (uint8_t *)raw->data(), raw->data_size());
+    if (video_sink != nullptr) {
+        if (video_sink(video_sink_context, raw->data(), dump_to->img_data_size,
+                       0, dump_to->img_data_size) != 0) return false;
+    } else {
+        memcpy(dump_to->p_img_data, raw->data(), raw->data_size());
+    }
     return true;
+}
+
+// Protected by vi_mutex; GUI intent is applied by the next capture, never by
+// the HTTP thread. Wide video keeps channel 1; native MJPEG fits channel 0.
+static bool mjpeg_422_disabled = false;
+static unsigned mjpeg_422_frame_failures = 0;
+static int mjpeg_chroma_choice = -1; // Legacy environment default until explicitly selected.
+static uint64_t mjpeg_last_video_ms = 0, mjpeg_last_jpeg_ms = 0;
+static unsigned mjpeg_last_video_width = 0, mjpeg_last_jpeg_width = 0;
+static bool mjpeg_resolution_limited = false;
+static uint64_t mjpeg_monotonic_ms()
+{
+    timespec time{};
+    clock_gettime(CLOCK_MONOTONIC, &time);
+    return static_cast<uint64_t>(time.tv_sec) * 1000 + time.tv_nsec / 1000000;
+}
+static bool mjpeg_422_requested()
+{
+    if (mjpeg_chroma_choice >= 0) return mjpeg_chroma_choice == 1;
+    const char *requested = getenv("NANOKVM_MJPEG_422");
+    return !requested || strcmp(requested, "0") != 0;
+}
+static bool mjpeg_video_reader_active(uint64_t now_ms)
+{
+    return mjpeg_last_video_ms && now_ms >= mjpeg_last_video_ms
+        && now_ms - mjpeg_last_video_ms < 2000;
+}
+static bool mjpeg_force_copy()
+{
+    const char *copy = getenv("NANOKVM_DIAGNOSTIC_FORCE_COPY");
+    return copy && strcmp(copy, "1") == 0;
+}
+static void disable_mjpeg_422(const char *reason)
+{
+    if (!mjpeg_422_disabled) {
+        fprintf(stderr, "[kvmv] MJPEG 4:2:2 fallback until explicit retry or restart: %s\n", reason);
+        mjpeg_422_disabled = true;
+    }
+}
+static nanokvm::StreamSize mjpeg_parallel_size(nanokvm::StreamSize size, uint8_t codec,
+                                              bool frame_detect, uint64_t now_ms)
+{
+    if (codec != VENC_MJPEG) return size;
+    mjpeg_resolution_limited = mjpeg_422_requested() && !mjpeg_422_disabled
+        && !frame_detect && !mjpeg_force_copy() && size.width > 1920
+        && mjpeg_last_video_width > 1920 && mjpeg_video_reader_active(now_ms);
+    return mjpeg_resolution_limited ? nanokvm::limit_stream_width(size, 1920) : size;
+}
+
+static int mjpeg_capture_format(uint8_t codec, bool frame_detect, uint64_t now_ms, unsigned width)
+{
+    if (codec == VENC_H264 || codec == VENC_H265) {
+        mjpeg_last_video_ms = now_ms;
+        mjpeg_last_video_width = width;
+    } else if (codec == VENC_MJPEG) {
+        mjpeg_last_jpeg_ms = now_ms;
+        mjpeg_last_jpeg_width = width;
+    }
+    if (!mjpeg_422_requested() || mjpeg_422_disabled || codec != VENC_MJPEG
+        || frame_detect || mjpeg_force_copy()
+        || (width > 1920 && mjpeg_last_video_width > 1920 && mjpeg_video_reader_active(now_ms)))
+        return nanokvm::nv21_format();
+    return nanokvm::nv16_format();
+}
+int set_mjpeg_chroma(uint8_t enable_422)
+{
+    if (enable_422 > 1) return -1;
+    pthread_mutex_lock(&vi_mutex);
+    mjpeg_chroma_choice = enable_422;
+    mjpeg_422_disabled = false; // An explicit GUI retry can recover without a reboot.
+    mjpeg_422_frame_failures = 0;
+    pthread_mutex_unlock(&vi_mutex);
+    return 0;
+}
+uint8_t get_mjpeg_chroma_status()
+{
+    pthread_mutex_lock(&vi_mutex);
+    uint8_t state = 0;
+    if (cam->has_format(nanokvm::nv16_format()) && mjpeg_422_requested()
+        && !mjpeg_422_disabled && kvmv_cfg.frame_detact == 0) state |= MJPEG_CHROMA_ACTIVE_422;
+    if (mjpeg_422_disabled) state |= MJPEG_CHROMA_FALLBACK_ERROR;
+    if (mjpeg_resolution_limited && mjpeg_video_reader_active(mjpeg_monotonic_ms()))
+        state |= MJPEG_CHROMA_LIMIT_WIDTH;
+    if (mjpeg_last_jpeg_width > 1920 && mjpeg_last_video_width > 1920
+        && mjpeg_video_reader_active(mjpeg_monotonic_ms())) state |= MJPEG_CHROMA_SHARED_VIDEO;
+    if (kvmv_cfg.frame_detact != 0) state |= MJPEG_CHROMA_FRAME_DETECT;
+    if (mjpeg_force_copy()) state |= MJPEG_CHROMA_FORCE_COPY;
+    pthread_mutex_unlock(&vi_mutex);
+    return state;
 }
 
 static int8_t frame_to_jpeg(int vi_ch, kvmv_data_t* dump_to, uint16_t quality)
@@ -1719,7 +1824,7 @@ static int8_t frame_to_jpeg(int vi_ch, kvmv_data_t* dump_to, uint16_t quality)
         return IMG_VENC_ERROR;
     }
 
-    if (!reserve_save_buffer(dump_to, static_cast<uint32_t>(data_size))) {
+    if (video_sink == nullptr && !reserve_save_buffer(dump_to, static_cast<uint32_t>(data_size))) {
         dump_to->img_data_size = 0;
         dump_to->img_data_type = 0;
         if (mmf_enc_jpg_free(0) != 0) {
@@ -1730,7 +1835,12 @@ static int8_t frame_to_jpeg(int vi_ch, kvmv_data_t* dump_to, uint16_t quality)
         return IMG_BUFFER_FULL;
     }
 
-    memcpy(dump_to->p_img_data, data, data_size);
+    int copied = 0;
+    if (video_sink != nullptr) {
+        copied = video_sink(video_sink_context, data, data_size, 0, data_size);
+    } else {
+        memcpy(dump_to->p_img_data, data, data_size);
+    }
     dump_to->img_data_size = data_size;
     dump_to->img_data_type = VENC_MJPEG;
     if (mmf_enc_jpg_free(0) != 0) {
@@ -1742,6 +1852,10 @@ static int8_t frame_to_jpeg(int vi_ch, kvmv_data_t* dump_to, uint16_t quality)
         return IMG_VENC_ERROR;
     }
     mmf_vi_frame_release(vi_ch);
+    if (copied != 0) {
+        release_save_buffer(dump_to);
+        return IMG_BUFFER_FULL;
+    }
     return IMG_MJPEG_TYPE;
 }
 
@@ -1819,10 +1933,6 @@ static bool annexb_contains_keyframe(const uint8_t *data, int size, uint8_t code
 	}
 	return false;
 }
-
-// Per-calling-thread intent; actual encoder access remains serialized by vi_mutex.
-static thread_local kvmv_video_sink video_sink = nullptr;
-static thread_local uintptr_t video_sink_context = 0;
 
 int video_stream_dump(kvmv_data_t *dump_to, mmf_stream_t *dump_from, uint8_t codec)
 {
@@ -2125,7 +2235,9 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
     }
     uint8_t try_num = 0;
     do {
-        const auto output = nanokvm::stream_size(kvmv_cfg.vi_width, kvmv_cfg.vi_height, _width, _height);
+        const uint64_t capture_now = mjpeg_monotonic_ms();
+        const auto requested_output = nanokvm::stream_size(kvmv_cfg.vi_width, kvmv_cfg.vi_height, _width, _height);
+        const auto output = mjpeg_parallel_size(requested_output, _type, kvmv_cfg.frame_detact != 0, capture_now);
         // The H.264 hardware rejects the tall maximum portrait. Do not
         // repeatedly initialize a channel the device cannot encode.
         if (kvmv_cfg.vi_width == 1440 && kvmv_cfg.vi_height == 2560
@@ -2138,9 +2250,47 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
             return IMG_VENC_ERROR;
         }
         kvmv_cfg.Auto_res = (_width == 0 || _height == 0);
+        const int capture_format = mjpeg_capture_format(_type, kvmv_cfg.frame_detact != 0,
+                                                         capture_now, output.width);
+        int retired = 0;
+        if (capture_format == nanokvm::nv16_format() && !mjpeg_video_reader_active(capture_now)) {
+            // Release the provisional or expired NV21 output before a wide JPEG.
+            retired = kvm_venc.enc_video_init ? mmf_del_venc_channel(kvm_venc.mmf_venc_chn) : 0;
+            if (!retired) { kvm_venc.enc_video_init = 0; retired = cam->close_format(nanokvm::nv21_format()); }
+        }
+        const bool jpeg_active = mjpeg_last_jpeg_ms && capture_now >= mjpeg_last_jpeg_ms
+            && capture_now - mjpeg_last_jpeg_ms < 2000;
+        const bool remove_nv16 = !mjpeg_422_requested() || mjpeg_422_disabled
+            || kvmv_cfg.frame_detact != 0 || mjpeg_force_copy()
+            || (_type == VENC_MJPEG && capture_format == nanokvm::nv21_format())
+            || ((_type == VENC_H264 || _type == VENC_H265)
+                && (!jpeg_active || (output.width > 1920 && cam->format_width(nanokvm::nv16_format()) > 1920)));
+        if (!retired && remove_nv16 && cam->has_format(nanokvm::nv16_format())) {
+            retired = mmf_enc_jpg_deinit(0);
+            if (!retired) retired = cam->close_format(nanokvm::nv16_format());
+        }
+        if (retired) {
+            pthread_mutex_unlock(&vi_mutex);
+            return IMG_VENC_ERROR;
+        }
+        if (!cam->matches_output(capture_format, output.width, output.height)) {
+            // Allocate producer surfaces before encoder reference pools. This
+            // avoids fragmentation on a live resolution/format change.
+            retired = mmf_enc_jpg_deinit(0);
+            if (!retired && kvm_venc.enc_video_init) retired = mmf_del_venc_channel(kvm_venc.mmf_venc_chn);
+            if (!retired) { kvm_venc.enc_video_init = 0; retired = mmf_trim_idle_copy_buffers(); }
+            if (retired) {
+                pthread_mutex_unlock(&vi_mutex);
+                return IMG_VENC_ERROR;
+            }
+        }
         if (cam->get_channel() < 0 || kvmv_cfg.vpss_width != output.width ||
-                kvmv_cfg.vpss_height != output.height) {
-            if (cam->set_resolution(output.width, output.height) != 0) {
+                kvmv_cfg.vpss_height != output.height || cam->get_format() != capture_format) {
+            if (cam->set_resolution(output.width, output.height, capture_format) != 0) {
+                if (capture_format == nanokvm::nv16_format()) {
+                    disable_mjpeg_422("VPSS configuration failed");
+                    continue; // Preserve a working video output and retry JPEG as NV21.
+                }
                 kvmv_cfg.reopen_cam_flag = 1;
                 pthread_mutex_unlock(&vi_mutex);
                 return IMG_VENC_ERROR;
@@ -2161,6 +2311,18 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
             reported_height = output.height;
         }
 
+        static nanokvm::StreamSize reported_jpeg{}, reported_video{};
+        auto &reported_codec = _type == VENC_MJPEG ? reported_jpeg : reported_video;
+        if (reported_codec.width != output.width || reported_codec.height != output.height) {
+            const char *paths[] = {_type == VENC_MJPEG ? "/run/nanokvm/mjpeg_width" : "/run/nanokvm/video_width",
+                                  _type == VENC_MJPEG ? "/run/nanokvm/mjpeg_height" : "/run/nanokvm/video_height"};
+            const unsigned values[] = {output.width, output.height};
+            for (int index=0; index<2; ++index) {
+                FILE *status = fopen(paths[index], "w");
+                if (status) { fprintf(status, "%u", values[index]); fclose(status); }
+            }
+            reported_codec = output;
+        }
         //
         if (kvmv_cfg.reinit_flag == 1) {
             if (cam->hmirror(1) != 0 || cam->vflip(1) != 0) {
@@ -2171,6 +2333,11 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
             kvmv_cfg.reinit_flag = 0;
         }
         // debug("[kvmv]befor read img: %d \r\n", (int)(time::time_ms() - start_time));
+        // A paused consumer must not fill its queue and stall the shared input.
+        if (cam->discard_other_pending() != 0) {
+            pthread_mutex_unlock(&vi_mutex);
+            return IMG_VENC_ERROR;
+        }
         nanokvm::Nv21Frame *img = NULL;
         int native_vi_ch = -1;
         int native_len = 0;
@@ -2183,14 +2350,23 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
             const int native_result = mmf_vi_frame_pop_native(native_vi_ch, &native_len, &native_width,
                     &native_height, &native_format);
             if (native_result != 0 || native_width != kvmv_cfg.vpss_width
-                    || native_height != kvmv_cfg.vpss_height || native_format != nanokvm::nv21_format()) {
+                    || native_height != kvmv_cfg.vpss_height || native_format != capture_format) {
                 if (native_result == 0) mmf_vi_frame_release(native_vi_ch);
                 native_vi_ch = -1;
+                if (capture_format == nanokvm::nv16_format()) {
+                    // First frames may time out while the HDMI receiver warms.
+                    // Retry before treating missing frames as a format failure.
+                    if (native_result != 0 && ++mjpeg_422_frame_failures < 3) continue;
+                    fprintf(stderr,"[kvmv] NV16 frame rejected: ch=%d result=%#x got=%dx%d fmt=%d expected=%ux%u fmt=%d\n", cam->get_channel(), native_result,native_width,native_height,native_format,output.width,output.height,capture_format);
+                    disable_mjpeg_422("native VPSS frame unavailable or invalid");
+                    continue; // Reconfigure to NV21 before attempting its copied path.
+                }
                 img = cam->read();
             }
         } else {
             img = cam->read();
         }
+        if (native_vi_ch >= 0 && native_format == nanokvm::nv16_format()) mjpeg_422_frame_failures = 0;
         // debug("[kvmv]read img: %d \r\n", (int)(time::time_ms() - start_time));
 
         if(img != NULL || native_vi_ch >= 0){
@@ -2282,11 +2458,14 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
                 int ret = frame_to_jpeg(native_vi_ch, p_kvmv_data,
                     maxmin_data(99, 51, (int)_qlty));
                 if (ret < 0) {
+                    if (native_format == nanokvm::nv16_format() && ret == IMG_VENC_ERROR)
+                        disable_mjpeg_422("native JPEG encoding failed");
                     pthread_mutex_unlock(&vi_mutex);
                     return ret;
                 }
-                *_pp_kvm_data = p_kvmv_data->p_img_data;
+                *_pp_kvm_data = video_sink ? nullptr : p_kvmv_data->p_img_data;
                 *_p_kvmv_data_size = p_kvmv_data->img_data_size;
+                if (video_sink) release_save_buffer(p_kvmv_data);
                 pthread_mutex_unlock(&vi_mutex);
                 return ret;
             }
@@ -2301,8 +2480,9 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
             }
             delete jpg;
 			delete img;
-            *_pp_kvm_data = p_kvmv_data->p_img_data;
+            *_pp_kvm_data = video_sink ? nullptr : p_kvmv_data->p_img_data;
             *_p_kvmv_data_size = p_kvmv_data->img_data_size;
+            if (video_sink) release_save_buffer(p_kvmv_data);
             pthread_mutex_unlock(&vi_mutex);
             return IMG_MJPEG_TYPE;
 		} else if (kvmv_cfg.venc_type == VENC_H264 || kvmv_cfg.venc_type == VENC_H265){
@@ -2329,6 +2509,13 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
 			// debug("[kvmv]venc frame_to_video: %d \r\n", (int)(time::time_ms() - start_time));
 			delete img;
             if(ret < 0){
+                if (native_vi_ch >= 0) mmf_vi_frame_release(native_vi_ch);
+                if (cam->has_format(nanokvm::nv16_format()) && !mjpeg_422_disabled) {
+                    disable_mjpeg_422("video encoder failed with separate outputs");
+                    // Retry through the existing NV21 output on the next read.
+                    // Never close a producer until its JPEG lease is retired.
+                    if (mmf_enc_jpg_deinit(0) == 0) cam->close_format(nanokvm::nv16_format());
+                }
                 release_save_buffer(p_kvmv_data);
                 *_pp_kvm_data = NULL;
                 *_p_kvmv_data_size = 0;
@@ -2379,6 +2566,20 @@ int kvmv_read_video_sink(uint16_t width, uint16_t height, uint8_t codec,
     uint8_t *unused = nullptr;
     uint32_t size = 0;
     int result = kvmv_read_video(width, height, codec, bitrate, gop, fps, &unused, &size);
+    video_sink = nullptr;
+    video_sink_context = 0;
+    return result;
+}
+
+int kvmv_read_mjpeg_sink(uint16_t width, uint16_t height, uint16_t quality,
+    kvmv_video_sink sink, uintptr_t context)
+{
+    if (sink == nullptr || video_sink != nullptr) return IMG_VENC_ERROR;
+    video_sink = sink;
+    video_sink_context = context;
+    uint8_t *unused = nullptr;
+    uint32_t size = 0;
+    int result = kvmv_read_img(width, height, VENC_MJPEG, quality, &unused, &size);
     video_sink = nullptr;
     video_sink_context = 0;
     return result;

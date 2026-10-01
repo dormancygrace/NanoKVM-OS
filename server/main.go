@@ -12,6 +12,7 @@ import (
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/config"
 	"NanoKVM-Server/logger"
+	"NanoKVM-Server/logs"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/osupdate"
 	"NanoKVM-Server/router"
@@ -29,6 +30,7 @@ func main() {
 	defer stopMemory()
 	initialize(stopMemory)
 	go vm.RunMemoryMaintenance(ctx)
+	go logs.RunArchive(ctx)
 	go osupdate.RunChecks(ctx)
 	defer func() { stopMemory(); dispose() }()
 
@@ -140,4 +142,5 @@ func run() {
 
 func dispose() {
 	common.GetKvmVision().Close()
+	_ = logs.FlushArchives()
 }

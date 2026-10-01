@@ -1,0 +1,15 @@
+{
+  "base_commit": "b29c951647df74e4efa55fd4454efb37e4554be0",
+  "files": {
+    "components/peripheral/port/maixcam/maix_i2c.cpp": {
+      "patch": "0001-i2c-ownership.patch",
+      "base_sha256": "69a3d833a92efa04fe2ebbe7f8e0fffc298d6cf7cc7535eb6fb9b1b61072e650",
+      "patched_sha256": "505353bc445dc6dced7fdc914a681ab8fc8c6f8aa158e5a1f549514a24753847"
+    },
+    "components/basic/src/maix_sys.cpp": {
+      "patch": "0002-system-file-lifetime.patch",
+      "base_sha256": "7e1876587881ea2a8d4a8c867ae9b06660089e769c3a29f2368582df3ce26009",
+      "patched_sha256": "19d15573c4b5c86dd9c32e48c2852fcd0837d3260e4133c1d5800b95b77d3af7"
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { ChangeEvent, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Button, Divider, Input } from 'antd';
 import type { InputRef } from 'antd';
@@ -35,7 +36,7 @@ export const DownloadImage = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const intervalId = useRef<NodeJS.Timeout | undefined>(undefined);
+  const stopPolling = useRef<(() => void) | undefined>(undefined);
   const pollingGeneration = useRef(0);
   const remoteDownloadActive = useRef(false);
   const fileUploadActive = useRef(false);
@@ -115,13 +116,13 @@ export const DownloadImage = () => {
     stopStatusPolling();
     const generation = pollingGeneration.current;
     getDownloadStatus(generation);
-    intervalId.current = setInterval(() => getDownloadStatus(generation), 1000);
+    stopPolling.current = pollWhileVisible(() => getDownloadStatus(generation), 1000);
   }
 
   function stopStatusPolling() {
     pollingGeneration.current += 1;
-    clearInterval(intervalId.current);
-    intervalId.current = undefined;
+    stopPolling.current?.();
+    stopPolling.current = undefined;
   }
 
   function finishImageTransfer(refreshImages: boolean) {

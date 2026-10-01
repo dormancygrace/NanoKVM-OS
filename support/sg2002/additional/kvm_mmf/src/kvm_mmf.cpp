@@ -27,7 +27,7 @@
 #include "kvm_mmf.hpp"
 #include "internal/frame_buffer.hpp"
 
-#define MMF_VI_MAX_CHN 			2		// manually limit the max channel number of vi
+#define MMF_VI_MAX_CHN            2       // Qualified VPSS outputs; VI still has one source.
 #define MMF_RGN_MAX_NUM			16
 #define MMF_VENC_MAX_CHN		4
 
@@ -105,6 +105,7 @@ typedef struct {
 	bool vi_chn_disabled[MMF_VI_MAX_CHN];
 	bool vi_source_bound[MMF_VI_MAX_CHN];
 	int vi_chn_pool_id[MMF_VI_MAX_CHN];
+    int vi_buffers[MMF_VI_MAX_CHN], vi_queue_depth[MMF_VI_MAX_CHN];
 	SIZE_S vi_size;
 	VIDEO_FRAME_INFO_S vi_frame[MMF_VI_MAX_CHN];
 	VB_CONFIG_S vb_conf;
@@ -570,7 +571,13 @@ static CVI_S32 _mmf_sys_init(SIZE_S stSize)
 		DATA_BITWIDTH_8, enCompressMode, DEFAULT_ALIGN);
 	u32BlkSize = MAX(u32BlkSize, u32BlkRotSize);
 	stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkSize	= u32BlkSize;
-	stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt	= 3;
+	// The enhanced pipeline serializes encoder leases. Two source surfaces
+    // retain producer/VPSS overlap and leave room for SmartP reference frames.
+#ifdef NANOKVM_ENHANCED
+    stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt = 2;
+#else
+    stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt = 3;
+#endif
 	stVbConf.astCommPool[MMF_VB_VI_ID].enRemapMode	= VB_REMAP_MODE_CACHED;
 	stVbConf.u32MaxPoolCnt = 1;
 
@@ -1163,7 +1170,8 @@ int mmf_vi_deinit(void)
 	return s32Ret;
 }
 
-static int _mmf_add_vi_channel(int ch, int width, int height, int format) {
+static int _mmf_add_vi_channel(int ch, int width, int height, int format, int buffers = 4, int queue_depth = 2) {
+ if (buffers < 2 || buffers > 4 || queue_depth < 1 || queue_depth >= buffers) return CVI_FAILURE;
  if (ch < 0 || ch >= MMF_VI_MAX_CHN) return CVI_FAILURE;
  // Do not add a producer while a previous channel still owns cleanup stages.
  for (int i = 0; i < MMF_VI_MAX_CHN; ++i)
@@ -1193,7 +1201,7 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format) {
 		return -1;
 	}
 
-	if (format != PIXEL_FORMAT_NV21
+	if (format != PIXEL_FORMAT_NV21 && format != PIXEL_FORMAT_NV16
 		&& format != PIXEL_FORMAT_RGB_888) {
 		printf("invalid format\n");
 		return -1;
@@ -1215,7 +1223,7 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format) {
 	const int width_out = width;
 	const int height_out = height;
 	const int fps = native120_vpss_rate(width_out, height_out);
-	int depth = 2;
+	int depth = queue_depth;
 	PIXEL_FORMAT_E format_out = (PIXEL_FORMAT_E)format;
 	bool mirror = !g_priv.vi_hmirror[ch];
 	bool flip = !g_priv.vi_vflip[ch];
@@ -1260,11 +1268,11 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format) {
 	snprintf(name, 20, "vi_vpss%.1d", ch);
 	pool_size_out = COMMON_GetPicBufferSize(width_out, height_out, format_out, DATA_BITWIDTH_8, COMPRESS_MODE_NONE, DEFAULT_ALIGN);
 	// Four surfaces cover two queued outputs, the encoder lease and the producer.
-	pool_id = _create_vb_pool(name, MMF_MOD_VI, pool_size_out, 4);
-	if (pool_id < 0) {
+	pool_id = _create_vb_pool(name, MMF_MOD_VI, pool_size_out, buffers);
+	if (pool_id < 0 && buffers > 3) {
 		pool_id = _create_vb_pool(name, MMF_MOD_VI, pool_size_out, 3);
 	}
-	if (pool_id < 0) {
+	if (pool_id < 0 && buffers > 2) {
 		// Keep capture usable on profiles with a smaller reserved video heap.
 		pool_id = _create_vb_pool(name, MMF_MOD_VI, pool_size_out, 2);
 	}
@@ -1299,9 +1307,15 @@ _need_deinit_vpss_chn:
  return CVI_FAILURE;
 }
 
+int mmf_add_vi_channel_configured(int ch, int width, int height, int format, int buffers, int queue_depth) {
+    const int result = _mmf_add_vi_channel(ch, width, height, format, buffers, queue_depth);
+    if (!result) { priv.vi_buffers[ch] = buffers; priv.vi_queue_depth[ch] = queue_depth; }
+    return result;
+}
+
 int mmf_add_vi_channel(int ch, int width, int height, int format) {
 	printf("mmf_add_vi_channel..\r\n");
-	return _mmf_add_vi_channel(ch, width, height, format);
+	return mmf_add_vi_channel_configured(ch, width, height, format, 4, 2);
 }
 
 int mmf_del_vi_channel(int ch) {
@@ -1359,9 +1373,11 @@ bool mmf_vi_chn_is_open(int ch) {
 
 int mmf_reset_vi_channel(int ch, int width, int height, int format)
 {
+	if (ch < 0 || ch >= MMF_VI_MAX_CHN) return CVI_FAILURE;
+    const int buffers = priv.vi_buffers[ch], depth = priv.vi_queue_depth[ch];
 	const int result = mmf_del_vi_channel(ch);
 	if (result != CVI_SUCCESS) return result;
-	return mmf_add_vi_channel(ch, width, height, format);
+	return mmf_add_vi_channel_configured(ch, width, height, format, buffers, depth);
 }
 
 int mmf_vi_aligned_width(int ch) {
@@ -1426,6 +1442,20 @@ int mmf_vi_frame_pop_nv21(int ch, mmf_nv21_view_t *view)
     *view = {data, (uint32_t)len, (uint32_t)width, (uint32_t)height,
              frame->u32Stride[0], frame->u32Stride[1], frame->u32Length[0]};
     return 0;
+}
+
+int mmf_vi_drop_pending(int ch) {
+    if (ch < 0 || ch >= MMF_VI_MAX_CHN || !mmf_vi_chn_is_open(ch)) return CVI_FAILURE;
+    // Never replace a DMA lease still referenced by an encoder.
+    if (priv.vi_frame_valid[ch]) return CVI_ERR_VENC_BUSY;
+    VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[ch];
+    const int result = CVI_VPSS_GetChnFrame(0, ch, frame, 0);
+    if (result == CVI_ERR_VPSS_BUF_EMPTY) return CVI_SUCCESS;
+    if (result != CVI_SUCCESS) return result;
+    priv.vi_frame_valid[ch] = true;
+    priv.vi_frame_mapped[ch] = false;
+    priv.vi_frame_deferred[ch] = false;
+    return _mmf_release_vi_frame(ch);
 }
 
 int mmf_vi_frame_pop_native(int ch, int *len, int *width, int *height, int *format) {
@@ -1506,9 +1536,9 @@ int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 		return 0;
 
     if (ch < 0 || ch >= MMF_VENC_MAX_CHN || w <= 0 || h <= 0
-        || w > UINT16_MAX || h > UINT16_MAX || quality <= 50 || quality > 100
-        || (format != PIXEL_FORMAT_NV21 && format != PIXEL_FORMAT_RGB_888)
-        || (format == PIXEL_FORMAT_NV21 && (w % 2 || h % 2))) {
+        || w > UINT16_MAX || h > UINT16_MAX || quality <= 50 || quality > 99
+        || (format != PIXEL_FORMAT_NV21 && format != PIXEL_FORMAT_NV16 && format != PIXEL_FORMAT_RGB_888)
+        || ((format == PIXEL_FORMAT_NV21 || format == PIXEL_FORMAT_NV16) && (w % 2 || h % 2))) {
         printf("Invalid JPEG channel, size, format or quality\n");
 		return -1;
 	}
@@ -1623,8 +1653,9 @@ int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 		}
 		break;
 	case PIXEL_FORMAT_NV21:
+	case PIXEL_FORMAT_NV16:
 		{
-			// Native NV21 frames already own their VPSS buffer.
+			// Native semi-planar frames already own their VPSS buffer.
 			priv.enc_jpg_input_pool_id = VB_INVALID_POOLID;
 		}
 		break;
@@ -1716,6 +1747,7 @@ int mmf_enc_jpg_deinit(int ch)
 		priv.enc_jpg_input_pool_id = -1;
 		break;
 	case PIXEL_FORMAT_NV21:
+	case PIXEL_FORMAT_NV16:
 		_destroy_vb_pool(priv.enc_jpg_input_pool_id);
 		priv.enc_jpg_input_pool_id = -1;
 		break;
@@ -1737,6 +1769,21 @@ int mmf_enc_jpg_deinit(int ch)
 	return s32Ret;
 }
 
+static int _mmf_jpg_update_quality(int ch, int quality)
+{
+    if (!priv.enc_jpg_is_init || priv.enc_jpg_running || ch < 0 || ch >= MMF_VENC_MAX_CHN
+        || quality <= 50 || quality > 99) return CVI_FAILURE;
+    if (priv.enc_jpg_quality == quality) return CVI_SUCCESS;
+    VENC_JPEG_PARAM_S params{};
+    int ret = CVI_VENC_GetJpegParam(ch, &params);
+    if (ret != CVI_SUCCESS) return ret;
+    params.u32Qfactor = quality;
+    ret = CVI_VENC_SetJpegParam(ch, &params);
+    // Keep the previous value after failure, so the next frame retries.
+    if (ret == CVI_SUCCESS) priv.enc_jpg_quality = quality;
+    return ret;
+}
+
 static int _mmf_jpg_push_copy(int ch, uint8_t *data, int w, int h, int format, int quality,
                               const VIDEO_FRAME_INFO_S *source)
 {
@@ -1746,12 +1793,14 @@ static int _mmf_jpg_push_copy(int ch, uint8_t *data, int w, int h, int format, i
     if (priv.enc_jpg_running) return CVI_FAILURE;
     const int encoder_format = format == PIXEL_FORMAT_UINT8_C1 ? PIXEL_FORMAT_NV21 : format;
     if (!priv.enc_jpg_is_init || priv.enc_jpg_frame_w != w || priv.enc_jpg_frame_h != h
-        || priv.enc_jpg_frame_fmt != encoder_format || priv.enc_jpg_quality != quality) {
+        || priv.enc_jpg_frame_fmt != encoder_format) {
         const int stopped = mmf_enc_jpg_deinit(ch);
         if (stopped != CVI_SUCCESS) return stopped;
         const int started = mmf_enc_jpg_init(ch, w, h, encoder_format, quality);
         if (started != CVI_SUCCESS) return started;
     }
+    const int updated = _mmf_jpg_update_quality(ch, quality);
+    if (updated != CVI_SUCCESS) return updated;
     if (!priv.enc_jpg_frame) {
         bool created = false;
         if (priv.enc_jpg_input_pool_id == (int)VB_INVALID_POOLID) {
@@ -1807,14 +1856,13 @@ int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality)
 	int width = frame->stVFrame.u32Width;
 	int height = frame->stVFrame.u32Height;
 	int format = frame->stVFrame.enPixelFormat;
-	if (format != PIXEL_FORMAT_NV21) {
+	if (format != PIXEL_FORMAT_NV21 && format != PIXEL_FORMAT_NV16) {
 		printf("Unsupported native JPEG format:%d\r\n", format);
 		return -1;
 	}
 
 	if (!priv.enc_jpg_is_init || priv.enc_jpg_frame_w != width
-		|| priv.enc_jpg_frame_h != height || priv.enc_jpg_frame_fmt != format
-		|| priv.enc_jpg_quality != quality) {
+		|| priv.enc_jpg_frame_h != height || priv.enc_jpg_frame_fmt != format) {
         const int stopped = mmf_enc_jpg_deinit(ch);
         if (stopped != CVI_SUCCESS) return stopped;
 		int ret = mmf_enc_jpg_init(ch, width, height, format, quality);
@@ -1823,8 +1871,13 @@ int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality)
 		}
 	}
 
+    const int updated = _mmf_jpg_update_quality(ch, quality);
+    if (updated != CVI_SUCCESS) return updated;
 	CVI_S32 s32Ret = diagnostic_force_copy() ? CVI_FAILURE : CVI_VENC_SendFrame(ch, frame, 1000);
 	if (s32Ret != CVI_SUCCESS) {
+        // The stride-aware copied fallback accepts NV21 only. Never treat
+        // full-height NV16 chroma as subsampled VU; the caller reverts to NV21.
+        if (format == PIXEL_FORMAT_NV16) return s32Ret;
 		printf("CVI_VENC_SendFrame native JPEG failed with %#x, fallback to copy\n", s32Ret);
 		uint8_t *data = (uint8_t *)_mmf_map_vi_frame(vi_ch);
 		if (data == NULL) {

@@ -1,6 +1,6 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useContext, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/auth.ts';
-import { Button, Modal, Tooltip, type TooltipProps } from 'antd';
+import { Alert, Button, Modal, Spin, Tooltip, type TooltipProps } from 'antd';
 import clsx from 'clsx';
 import { useAtom, useSetAtom } from 'jotai';
 import {
@@ -25,6 +25,7 @@ import {
   VideoIcon,
   WifiIcon
 } from 'lucide-react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
@@ -37,26 +38,52 @@ import { WireGuardIcon } from '@/components/icons/wireguard';
 import { MobileMenuItemContext } from '@/components/mobile-menu-context.ts';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-import { About } from './about';
-import { Account } from './account';
-import { Appearance } from './appearance';
-import { Dashboard } from './dashboard';
-import { DateTimeSettings } from './date-time';
-import { Device } from './device';
-import { MCP } from './mcp';
-import { Memory } from './memory';
-import { EthernetSettings, Network, WifiSettings } from './network';
 import styles from './sidebar.module.css';
-import { Netbird } from './netbird';
-import { Tailscale } from './tailscale';
-import { Updates } from './updates';
-import { Usb } from './usb';
-import { VideoSettings } from './video';
-import { WireGuard } from './vpn';
-import { OpenVPN } from './vpn/openvpn';
-import { System } from './system';
-import { Diagnostics } from './system/diagnostics';
-import { Software } from './software';
+
+// Keep the navigation light; only the selected settings page is fetched.
+const About = lazy(() => import('./about').then((module) => ({ default: module.About })));
+const Account = lazy(() => import('./account').then((module) => ({ default: module.Account })));
+const Appearance = lazy(() =>
+  import('./appearance').then((module) => ({ default: module.Appearance }))
+);
+const Dashboard = lazy(() =>
+  import('./dashboard').then((module) => ({ default: module.Dashboard }))
+);
+const DateTimeSettings = lazy(() =>
+  import('./date-time').then((module) => ({ default: module.DateTimeSettings }))
+);
+const Device = lazy(() => import('./device').then((module) => ({ default: module.Device })));
+const MCP = lazy(() => import('./mcp').then((module) => ({ default: module.MCP })));
+const Memory = lazy(() => import('./memory').then((module) => ({ default: module.Memory })));
+const Netbird = lazy(() => import('./netbird').then((module) => ({ default: module.Netbird })));
+const Tailscale = lazy(() =>
+  import('./tailscale').then((module) => ({ default: module.Tailscale }))
+);
+const Updates = lazy(() => import('./updates').then((module) => ({ default: module.Updates })));
+const Usb = lazy(() => import('./usb').then((module) => ({ default: module.Usb })));
+const VideoSettings = lazy(() =>
+  import('./video').then((module) => ({ default: module.VideoSettings }))
+);
+const WireGuard = lazy(() => import('./vpn').then((module) => ({ default: module.WireGuard })));
+const OpenVPN = lazy(() => import('./vpn/openvpn').then((module) => ({ default: module.OpenVPN })));
+const System = lazy(() => import('./system').then((module) => ({ default: module.System })));
+const Diagnostics = lazy(() =>
+  import('./system/diagnostics').then((module) => ({ default: module.Diagnostics }))
+);
+const Software = lazy(() => import('./software').then((module) => ({ default: module.Software })));
+const Network = lazy(() => import('./network').then((module) => ({ default: module.Network })));
+const WifiSettings = lazy(() =>
+  import('./network').then((module) => ({ default: module.WifiSettings }))
+);
+const EthernetSettings = lazy(() =>
+  import('./network').then((module) => ({ default: module.EthernetSettings }))
+);
+
+const PageLoading = () => (
+  <div className="flex justify-center pt-10">
+    <Spin size="small" />
+  </div>
+);
 
 export const Settings = ({
   tooltipPlacement = 'bottom'
@@ -108,9 +135,17 @@ export const Settings = ({
           },
           { id: 'system', icon: <SettingsIcon size={16} />, component: null },
           { id: 'system-general', icon: <SettingsIcon size={16} />, component: <System /> },
-          { id: 'system-diagnostics', icon: <StethoscopeIcon size={16} />, component: <Diagnostics /> },
+          {
+            id: 'system-diagnostics',
+            icon: <StethoscopeIcon size={16} />,
+            component: <Diagnostics />
+          },
           { id: 'system-memory', icon: <MemoryStickIcon size={16} />, component: <Memory /> },
-          { id: 'system-date-time', icon: <ClockIcon size={16} />, component: <DateTimeSettings /> },
+          {
+            id: 'system-date-time',
+            icon: <ClockIcon size={16} />,
+            component: <DateTimeSettings />
+          },
           { id: 'system-users', icon: <UserRoundIcon size={16} />, component: <Account /> },
           { id: 'system-mcp', icon: <BotIcon size={16} />, component: <MCP /> },
           { id: 'system-updates', icon: <DownloadIcon size={16} />, component: <Updates /> },
@@ -139,11 +174,13 @@ export const Settings = ({
             id: 'vpn-wireguard',
             icon: <WireGuardIcon />,
             component: <WireGuard setIsLocked={setIsLocked} />
-          },
+          }
         ]
       : []),
     { id: 'appearance', icon: <PaletteIcon size={16} />, component: <Appearance /> },
-    ...(!isAdmin ? [{ id: 'account', icon: <UserRoundIcon size={18} />, component: <Account /> }] : []),
+    ...(!isAdmin
+      ? [{ id: 'account', icon: <UserRoundIcon size={18} />, component: <Account /> }]
+      : []),
     { id: 'about', icon: <InfoIcon size={14} />, component: <About /> }
   ];
 
@@ -170,7 +207,7 @@ export const Settings = ({
           ? 'network-general'
           : request === 'system'
             ? 'system-general'
-          : request;
+            : request;
     if (requested.startsWith('vpn-')) setVpnExpanded(true);
     if (requested.startsWith('network-')) setNetworkExpanded(true);
     if (requested.startsWith('system-')) setSystemExpanded(true);
@@ -264,7 +301,12 @@ export const Settings = ({
 
   return (
     <>
-      <Tooltip title={t('settings.title')} placement={tooltipPlacement} mouseEnterDelay={0.6} open={mobile ? false : undefined}>
+      <Tooltip
+        title={t('settings.title')}
+        placement={tooltipPlacement}
+        mouseEnterDelay={0.6}
+        open={mobile ? false : undefined}
+      >
         <div
           role="button"
           aria-label={t('settings.title')}
@@ -322,7 +364,7 @@ export const Settings = ({
                 ? detailOpen
                   ? 'hidden'
                   : 'min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2'
-                : 'flex h-full min-w-0 max-w-[260px] shrink-0 flex-col space-y-0.5 overflow-x-hidden overflow-y-auto rounded-l-lg bg-neutral-800/90 px-1 sm:w-1/5 md:w-1/4 md:px-2'
+                : 'flex h-full max-w-[260px] min-w-0 shrink-0 flex-col space-y-0.5 overflow-x-hidden overflow-y-auto rounded-l-lg bg-neutral-800/90 px-1 sm:w-1/5 md:w-1/4 md:px-2'
             )}
           >
             <div className={mobile ? 'hidden' : 'hidden px-3 pt-10 text-xl sm:block'}>
@@ -362,7 +404,7 @@ export const Settings = ({
                     aria-expanded={expanded}
                     className={clsx(
                       styles.item,
-                      'flex select-none items-center gap-2 rounded-lg p-2 text-left sm:px-3',
+                      'flex items-center gap-2 rounded-lg p-2 text-left select-none sm:px-3',
                       mobile && 'min-h-12',
                       child ? 'ml-4 w-[calc(100%_-_1rem)]' : 'w-full'
                     )}
@@ -389,7 +431,7 @@ export const Settings = ({
                   </button>
                 );
               })}
-            <div className={clsx('px-3 pb-4 pt-6', !mobile && 'mt-auto!')}>
+            <div className={clsx('px-3 pt-6 pb-4', !mobile && 'mt-auto!')}>
               <button
                 type="button"
                 disabled={isLocked}
@@ -427,7 +469,14 @@ export const Settings = ({
                     mobile ? 'pt-5' : 'pt-14'
                   )}
                 >
-                  <>{tabs.find((tab) => tab.id === currentTab)?.component}</>
+                  <ErrorBoundary
+                    key={currentTab}
+                    fallback={<Alert type="error" showIcon message={t('error.title')} />}
+                  >
+                    <Suspense fallback={<PageLoading />}>
+                      {tabs.find((tab) => tab.id === currentTab)?.component}
+                    </Suspense>
+                  </ErrorBoundary>
                 </div>
               </div>
             </ScrollArea>

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Splitter } from 'antd';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Button, Spin, Splitter } from 'antd';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { useMediaQuery } from 'react-responsive';
@@ -10,7 +10,9 @@ import { ControlRegionConfig, InputRegion } from '@/types';
 import { refreshCapture } from '@/lib/capture-control.ts';
 import { getEncoderCodec, initializeEncoderCodec } from '@/lib/encoder.ts';
 import * as storage from '@/lib/localstorage.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { client } from '@/lib/websocket.ts';
+import { isKeyboardOpenAtom } from '@/jotai/keyboard.ts';
 import { picoclawChatOpenAtom } from '@/jotai/picoclaw.ts';
 import {
   controlRegionModeAtom,
@@ -31,7 +33,6 @@ import { Keyboard } from './keyboard';
 import { Menu } from './menu';
 import { Mouse } from './mouse';
 import { H264ModeNotification, Notification } from './notification.tsx';
-import { Sidebar as PicoclawSidebar } from './picoclaw';
 import { ActionOverlay } from './picoclaw/action-overlay.tsx';
 import { Screen } from './screen';
 import { AutoRegion } from './screen/auto-region.tsx';
@@ -43,7 +44,6 @@ import {
 } from './screen/geometry.ts';
 import { InputRegionOverlay } from './screen/input-region-overlay.tsx';
 import { ManualRegion } from './screen/manual-region.tsx';
-import { VirtualKeyboard } from './virtual-keyboard';
 
 function getVideoMode() {
   const directSupported = window.isSecureContext && !!window.VideoDecoder;
@@ -56,6 +56,34 @@ function getVideoMode() {
 
   return ['direct', 'h264', 'mjpeg'].includes(cookieVideoMode) ? cookieVideoMode : defaultVideoMode;
 }
+
+const PicoclawSidebar = lazy(() =>
+  import('./picoclaw').then((module) => ({ default: module.Sidebar }))
+);
+const VirtualKeyboard = lazy(() =>
+  import('./virtual-keyboard').then((module) => ({ default: module.VirtualKeyboard }))
+);
+
+const PicoclawLoading = () => (
+  <div className="flex h-full w-full items-center justify-center">
+    <Spin size="small" />
+  </div>
+);
+
+// Retain the keyboard after its first open so its layout state and drawer exit
+// animation survive closing.
+const LazyVirtualKeyboard = () => {
+  const isKeyboardOpen = useAtomValue(isKeyboardOpenAtom);
+  const [wanted, setWanted] = useState(isKeyboardOpen);
+  if (isKeyboardOpen && !wanted) setWanted(true);
+
+  if (!wanted) return null;
+  return (
+    <Suspense fallback={null}>
+      <VirtualKeyboard />
+    </Suspense>
+  );
+};
 
 export const Desktop = () => {
   const { t } = useTranslation();
@@ -82,10 +110,10 @@ export const Desktop = () => {
       void refreshCapture().catch(() => undefined);
     };
     refresh();
-    const timer = setInterval(refresh, 3000);
+    const stopPolling = pollWhileVisible(refresh, 3000);
     window.addEventListener('focus', refresh);
     return () => {
-      clearInterval(timer);
+      stopPolling();
       window.removeEventListener('focus', refresh);
     };
   }, []);
@@ -307,7 +335,7 @@ export const Desktop = () => {
                   )}
                   {captureEnabled && encoderError && (
                     <Alert
-                      className="absolute left-1/2 top-6 z-50 w-[min(90%,560px)] -translate-x-1/2"
+                      className="absolute top-6 left-1/2 z-50 w-[min(90%,560px)] -translate-x-1/2"
                       type="warning"
                       showIcon
                       message={t('screen.encoderError')}
@@ -339,7 +367,11 @@ export const Desktop = () => {
                 max="45%"
                 resizable={isBigScreen && isPicoclawChatOpen}
               >
-                {isBigScreen && isPicoclawChatOpen ? <PicoclawSidebar /> : null}
+                {isBigScreen && isPicoclawChatOpen ? (
+                  <Suspense fallback={<PicoclawLoading />}>
+                    <PicoclawSidebar />
+                  </Suspense>
+                ) : null}
               </Splitter.Panel>
             </Splitter>
           </div>
@@ -357,12 +389,14 @@ export const Desktop = () => {
       )}
 
       {!isBigScreen && isPicoclawChatOpen ? (
-        <div className="fixed inset-x-0 bottom-0 top-14 z-980 overflow-hidden bg-[#0d0d0f] shadow-2xl">
-          <PicoclawSidebar />
+        <div className="fixed inset-x-0 top-14 bottom-0 z-980 overflow-hidden bg-[#0d0d0f] shadow-2xl">
+          <Suspense fallback={<PicoclawLoading />}>
+            <PicoclawSidebar />
+          </Suspense>
         </div>
       ) : null}
 
-      {captureEnabled && <VirtualKeyboard />}
+      {captureEnabled && <LazyVirtualKeyboard />}
     </div>
   );
 };

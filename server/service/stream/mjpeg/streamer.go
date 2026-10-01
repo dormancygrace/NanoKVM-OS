@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -18,7 +17,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var crlf = []byte("\r\n")
+const mjpegPartHeader = "--frame\r\nContent-Type: image/jpeg\r\n\r\n"
+
+// Chromium commits the preceding image when the next part headers arrive.
+// Advance them before flushing so dedup cannot delay a stopped screen.
+// The next JPEG length is unknown, so parts are delimited by the boundary.
+var mjpegNextPart = []byte("\r\n" + mjpegPartHeader)
 
 const clientWriteTimeout = 5 * time.Second
 const duplicateRefreshInterval = 5 * time.Second
@@ -335,7 +339,7 @@ func (s *Streamer) getLatestFrame() (LatestFrame, bool) {
 	}, true
 }
 
-func writeFrame(c *gin.Context, controller *http.ResponseController, data []byte) (err error) {
+func writeFrame(c *gin.Context, controller *http.ResponseController, data []byte, first bool) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = c.Request.Context().Err()
@@ -349,16 +353,17 @@ func writeFrame(c *gin.Context, controller *http.ResponseController, data []byte
 		return err
 	}
 
-	header := "--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " + strconv.Itoa(len(data)) + "\r\n\r\n"
-	if _, err = c.Writer.WriteString(header); err != nil {
-		return err
+	if first {
+		if _, err = c.Writer.WriteString(mjpegPartHeader); err != nil {
+			return err
+		}
 	}
 
 	if _, err = c.Writer.Write(data); err != nil {
 		return err
 	}
 
-	if _, err = c.Writer.Write(crlf); err != nil {
+	if _, err = c.Writer.Write(mjpegNextPart); err != nil {
 		return err
 	}
 

@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, Button, Divider, message, Modal, Switch } from 'antd';
@@ -128,8 +129,8 @@ export const MCP = () => {
 
   useEffect(() => {
     getConfig();
-    const timer = window.setInterval(() => getConfig(true), 3000);
-    return () => window.clearInterval(timer);
+    const stopPolling = pollWhileVisible(() => getConfig(true), 3000);
+    return () => stopPolling();
   }, [getConfig]);
 
   function updateEnabled(enabled: boolean) {

@@ -26,11 +26,11 @@ for source in sources.values():
         p.error('Missing native library: '+str(source))
 cross = str(a.buildroot_output.resolve()/'host/bin/riscv64-buildroot-linux-musl-')
 required_native_symbols = {
-    'libkvm.so': {'set_h265_gop_mode', 'get_h265_gop_mode'},
-    'libkvm_mmf.so': {'mmf_set_venc_gop_mode', 'mmf_get_venc_gop_mode'},
+    'libkvm.so': {'set_h265_gop_mode', 'get_h265_gop_mode', 'kvmv_read_mjpeg_sink', 'set_mjpeg_chroma', 'get_mjpeg_chroma_status'},
+    'libkvm_mmf.so': {'mmf_set_venc_gop_mode', 'mmf_get_venc_gop_mode', 'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
 }
 required_native_dependencies = {
-    'libkvm.so': {'mmf_set_venc_gop_mode', 'mmf_get_venc_gop_mode'},
+    'libkvm.so': {'mmf_set_venc_gop_mode', 'mmf_get_venc_gop_mode', 'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
 }
 for library, required in required_native_symbols.items():
     output = subprocess.check_output(
@@ -93,7 +93,7 @@ manifest = {'qualification': 'cross-build only',
             'custom_runtime_expected': custom_runtime_expected,
             'custom_runtime_present': custom_runtime_present,
             'native_bundle_contract': {
-                'id': 'h265-gop-mode-v1',
+                'id': 'dual-vpss-mjpeg-chroma-v4',
                 'activation': 'stage server, libkvm.so, and libkvm_mmf.so together; activate only by tested device reboot',
                 'required_symbols': {name: sorted(symbols)
                                      for name, symbols in required_native_symbols.items()},

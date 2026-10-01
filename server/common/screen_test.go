@@ -149,3 +149,23 @@ func TestCustomFPSRange(t *testing.T) {
 		t.Fatalf("saved custom FPS lost: %d", loaded.FPS)
 	}
 }
+
+func TestMjpegChromaPreference(t *testing.T) {
+	for _, tc := range []struct {
+		env, saved string
+		want       uint16
+	}{
+		{"", "", 422}, {"1", "", 422}, {"1", "420", 420}, {"", "422\n", 422}, {"", "421", 422}, {"0", "", 420}, {"", "420", 420}, {"0", "422", 422}, {"", "invalid", 422},
+	} {
+		t.Setenv("NANOKVM_MJPEG_422", tc.env)
+		got := loadScreen(func(path string) ([]byte, error) {
+			if path == "/kvmapp/kvm/mjpeg_chroma" {
+				return []byte(tc.saved), nil
+			}
+			return nil, errors.New("absent")
+		})
+		if got.MjpegChroma != tc.want {
+			t.Fatalf("env=%q saved=%q: got %d want %d", tc.env, tc.saved, got.MjpegChroma, tc.want)
+		}
+	}
+}

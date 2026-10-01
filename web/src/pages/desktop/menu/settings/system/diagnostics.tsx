@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Spin } from 'antd';
+import { Alert, Button, Spin, Tabs } from 'antd';
 import { DownloadIcon, RefreshCwIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { downloadDiagnosticsReport, getDiagnostics } from '@/api/vm';
+
+import { Logs } from './logs';
 
 type Item = { state: string; detail?: string; optional?: boolean };
 type Service = Item & { name: string };
@@ -46,7 +48,7 @@ type Snapshot = {
 
 const dash = (value?: string | null) => value || '—';
 
-export const Diagnostics = () => {
+const DiagnosticsStatus = () => {
   const { t, i18n } = useTranslation();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [error, setError] = useState<string>();
@@ -123,7 +125,6 @@ export const Diagnostics = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="text-base">{t('settings.system.diagnostics.title')}</div>
           <p className="mb-0 text-sm text-neutral-400">
             {t('settings.system.diagnostics.description')}
           </p>
@@ -297,6 +298,31 @@ export const Diagnostics = () => {
           </>
         )
       )}
+    </div>
+  );
+};
+
+export const Diagnostics = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="min-w-0 space-y-2">
+      <h2 className="mb-0 text-base font-normal">{t('settings.system.diagnostics.title')}</h2>
+      <Tabs
+        defaultActiveKey="status"
+        destroyOnHidden
+        items={[
+          {
+            key: 'status',
+            label: t('settings.system.diagnostics.overview'),
+            children: <DiagnosticsStatus />
+          },
+          {
+            key: 'logs',
+            label: t('settings.system.logs.title'),
+            children: <Logs />
+          }
+        ]}
+      />
     </div>
   );
 };

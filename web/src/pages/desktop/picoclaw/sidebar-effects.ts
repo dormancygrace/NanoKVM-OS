@@ -8,6 +8,7 @@ import {
   setPicoclawRuntimeInstallSnapshot,
   type PicoclawRuntimeInstallSnapshot
 } from '@/lib/picoclaw-storage.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { normalizeAIControlStatus, type AIControlStatus } from '@/jotai/ai-control.ts';
 import type {
   PicoclawChatMessage,
@@ -481,12 +482,12 @@ export function usePicoclawInstallRefresh(
       return;
     }
 
-    const timer = window.setInterval(() => {
+    const stopPolling = pollWhileVisible(() => {
       void refreshStateRef.current();
     }, 1000);
 
     return () => {
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [isRuntimeInstallActive, refreshStateRef]);
 }
@@ -530,12 +531,12 @@ export function usePicoclawStatusRefresh(
       return;
     }
 
-    const timer = window.setInterval(() => {
+    const stopPolling = pollWhileVisible(() => {
       void refreshStateRef.current();
     }, STATUS_REFRESH_INTERVAL_MS);
 
     return () => {
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [disabled, refreshStateRef]);
 }

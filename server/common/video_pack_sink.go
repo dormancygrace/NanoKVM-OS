@@ -12,6 +12,9 @@ static inline int nkosVideoPack(uintptr_t context, const uint8_t *data, uint32_t
 static inline int nkosReadVideo(uint16_t w, uint16_t h, uint8_t codec, uint16_t rate, uint8_t gop, uint8_t fps, uintptr_t context) {
  return kvmv_read_video_sink(w, h, codec, rate, gop, fps, nkosVideoPack, context);
 }
+static inline int nkosReadMjpeg(uint16_t w, uint16_t h, uint16_t quality, uintptr_t context) {
+ return kvmv_read_mjpeg_sink(w, h, quality, nkosVideoPack, context);
+}
 */
 import "C"
 import (
@@ -44,4 +47,20 @@ func readVideoIntoOwnedStorage(width, height uint16, codec uint8, rate uint16, g
 		return nil, nil, -2
 	}
 	return state.storage, state.storage[headroom:], result
+}
+
+// JPEG is one borrowed pack. The returned bytes are owned by Go before the
+// native callback returns, allowing JPU and VI leases to be released promptly.
+func readMjpegIntoOwnedStorage(width, height, quality uint16) ([]byte, int) {
+	state := &videoPackStorage{}
+	handle := cgo.NewHandle(state)
+	defer handle.Delete()
+	result := int(C.nkosReadMjpeg(C.uint16_t(width), C.uint16_t(height), C.uint16_t(quality), C.uintptr_t(handle)))
+	if result != 0 {
+		return nil, result
+	}
+	if !state.complete() {
+		return nil, -2
+	}
+	return state.storage, result
 }

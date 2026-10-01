@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -13,24 +14,30 @@ import (
 )
 
 var screenFileMap = map[string]string{
-	"type":       "/kvmapp/kvm/type",
-	"fps":        "/kvmapp/kvm/fps",
-	"gop_mode":   "/kvmapp/kvm/gop_mode",
-	"quality":    "/kvmapp/kvm/qlty",
-	"resolution": "/kvmapp/kvm/res",
+	"type":         "/kvmapp/kvm/type",
+	"fps":          "/kvmapp/kvm/fps",
+	"gop_mode":     "/kvmapp/kvm/gop_mode",
+	"mjpeg_chroma": "/kvmapp/kvm/mjpeg_chroma",
+	"quality":      "/kvmapp/kvm/qlty",
+	"resolution":   "/kvmapp/kvm/res",
 }
 
 var readActiveGOPMode = common.GetActiveGOPMode
+var mjpegChromaMutex sync.Mutex
+var readMjpegChromaStatus = common.GetMjpegChromaStatus
+var applyMjpegChroma = func(value uint16) int { return common.GetKvmVision().SetMjpegChroma(value) }
 
 func (s *Service) GetScreen(c *gin.Context) {
 	current := common.GetScreen()
 	activeGOPMode := readActiveGOPMode()
+	activeChroma, chromaFallback := readMjpegChromaStatus()
 	portrait, portraitSupported := common.MonitorPortraitStatus()
 	portraitResolution := common.PortraitResolution()
 	portraitMaxSupported := common.PortraitMaxSupported()
 	var rsp proto.Response
 	rsp.OkRspWithData(c, gin.H{"width": current.Width, "height": current.Height, "fps": current.FPS,
 		"quality": current.Quality, "bitRate": current.BitRate, "gop": current.GOP,
+		"mjpegChroma": current.MjpegChroma, "mjpegChromaActive": activeChroma, "mjpegChromaFallback": chromaFallback,
 		"gopMode": current.GOPMode, "gopModeActive": activeGOPMode,
 		"gopModeRestartRequired":      current.GOPMode != activeGOPMode,
 		"monitor":                     common.ReadVideoValue("/etc/kvm/monitor_resolution"),
@@ -40,12 +47,16 @@ func (s *Service) GetScreen(c *gin.Context) {
 		"monitorSupported":            common.MonitorProfileSupported(), "qhdSupported": common.SupportsQHD(),
 		"portrait": portrait, "portraitSupported": portraitSupported,
 		"portraitResolution": portraitResolution, "portraitMaxSupported": portraitMaxSupported,
-		"inputWidth":   common.ReadVideoValue("/run/nanokvm/width"),
-		"inputHeight":  common.ReadVideoValue("/run/nanokvm/height"),
-		"outputWidth":  common.ReadVideoValue("/run/nanokvm/stream_width"),
-		"outputHeight": common.ReadVideoValue("/run/nanokvm/stream_height"),
-		"measuredFps":  common.ReadVideoValue("/run/nanokvm/now_fps"),
-		"effectiveFps": common.GetCaptureScreen().FPS})
+		"inputWidth":        common.ReadVideoValue("/run/nanokvm/width"),
+		"inputHeight":       common.ReadVideoValue("/run/nanokvm/height"),
+		"outputWidth":       common.ReadVideoValue("/run/nanokvm/stream_width"),
+		"outputHeight":      common.ReadVideoValue("/run/nanokvm/stream_height"),
+		"mjpegOutputWidth":  common.ReadVideoValue("/run/nanokvm/mjpeg_width"),
+		"mjpegOutputHeight": common.ReadVideoValue("/run/nanokvm/mjpeg_height"),
+		"videoOutputWidth":  common.ReadVideoValue("/run/nanokvm/video_width"),
+		"videoOutputHeight": common.ReadVideoValue("/run/nanokvm/video_height"),
+		"measuredFps":       common.ReadVideoValue("/run/nanokvm/now_fps"),
+		"effectiveFps":      common.GetCaptureScreen().FPS})
 }
 
 func (s *Service) SetScreen(c *gin.Context) {
@@ -59,6 +70,27 @@ func (s *Service) SetScreen(c *gin.Context) {
 	}
 
 	switch req.Type {
+	case "mjpeg_chroma":
+		mjpegChromaMutex.Lock()
+		defer mjpegChromaMutex.Unlock()
+		if req.Value != 420 && req.Value != 422 {
+			rsp.ErrRsp(c, -1, "MJPEG chroma must be 420 or 422")
+			return
+		}
+		previous := common.GetScreen().MjpegChroma
+		if applyMjpegChroma(uint16(req.Value)) != 0 {
+			rsp.ErrRsp(c, -4, "cannot apply MJPEG chroma")
+			return
+		}
+		if err = writeScreen(req.Type, strconv.Itoa(req.Value)); err != nil {
+			applyMjpegChroma(previous)
+			rsp.ErrRsp(c, -2, "update screen failed")
+			return
+		}
+		common.SetScreen(req.Type, req.Value)
+		active, reason := readMjpegChromaStatus()
+		rsp.OkRspWithData(c, gin.H{"mjpegChroma": req.Value, "mjpegChromaActive": active, "mjpegChromaFallback": reason})
+		return
 	case "monitor_power_cycle_ack":
 		if !req.ConfirmPowerCycle {
 			rsp.ErrRsp(c, -1, "power cycle confirmation required")

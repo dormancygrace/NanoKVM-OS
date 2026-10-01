@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { modelProviderAllowsEmptyApiKey } from '@/lib/picoclaw-model.ts';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 
 import { PICOCLAW_MODEL_CONFIG_KEYBOARD_LOCK_SOURCE } from './keyboard-lock.ts';
@@ -46,6 +47,7 @@ export const SidebarModelConfig = ({
 }: SidebarModelConfigProps) => {
   const { t } = useTranslation();
   const setKeyboardLock = useSetAtom(keyboardLockAtom);
+  const keyOptional = modelProviderAllowsEmptyApiKey(modelIdentifier);
 
   useEffect(() => {
     setKeyboardLock({ source: PICOCLAW_MODEL_CONFIG_KEYBOARD_LOCK_SOURCE, locked: true });
@@ -55,7 +57,7 @@ export const SidebarModelConfig = ({
   }, [setKeyboardLock]);
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-8 pt-10">
+    <div className="flex flex-1 flex-col overflow-y-auto px-5 pt-10 pb-8">
       {/* Title */}
       <div className="mb-1 text-sm font-semibold text-neutral-100">
         {t('picoclaw.model.requiredTitle')}
@@ -110,7 +112,11 @@ export const SidebarModelConfig = ({
           </label>
           <Input.Password
             prefix={<KeyRoundIcon size={13} className="text-neutral-500" />}
-            placeholder={t('picoclaw.model.apiKeyPlaceholder')}
+            placeholder={t(
+              keyOptional
+                ? 'picoclaw.model.apiKeyOptionalPlaceholder'
+                : 'picoclaw.model.apiKeyPlaceholder'
+            )}
             value={apiKey}
             onChange={(e) => onApiKeyChange(e.target.value)}
           />

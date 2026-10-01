@@ -135,7 +135,7 @@ start() {
         done < "$NANOKVM_ETH_CONFIG"
 
         "$NANOKVM_IP" a show dev "$eth_iface" | grep inet > /dev/null || {
-            set -- -B -i "$eth_iface" -t 3 -T 1 -A 5 -b -O 121 -p "$NANOKVM_ETH_DHCP_PID"
+            set -- -S -B -i "$eth_iface" -t 3 -T 1 -A 5 -b -O 121 -p "$NANOKVM_ETH_DHCP_PID"
             if value=$(dhcp_hostname); then
                 set -- "$@" -x "hostname:$value" -F "$value"
             fi
@@ -147,7 +147,7 @@ start() {
             "$NANOKVM_IP" a add "$inet" brd + dev "$eth_iface"
         } || exit 1
     else
-        set -- -B -i "$eth_iface" -t 10 -T 1 -A 5 -b -O 121 -p "$NANOKVM_ETH_DHCP_PID"
+        set -- -S -B -i "$eth_iface" -t 10 -T 1 -A 5 -b -O 121 -p "$NANOKVM_ETH_DHCP_PID"
         if value=$(dhcp_hostname); then
             set -- "$@" -x "hostname:$value" -F "$value"
         fi

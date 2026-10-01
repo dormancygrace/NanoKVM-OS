@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useCallback, useEffect, useState } from 'react';
 import { Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -25,8 +26,8 @@ export const IPv6 = () => {
   useEffect(() => {
     void refresh();
     // SLAAC addresses arrive after enabling; keep status current while open.
-    const timer = window.setInterval(() => void refresh(), 5000);
-    return () => window.clearInterval(timer);
+    const stopPolling = pollWhileVisible(() => void refresh(), 5000);
+    return () => stopPolling();
   }, [refresh]);
 
   async function change(enabled: boolean) {

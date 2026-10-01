@@ -75,6 +75,9 @@ int mmf_invert_format_to_mmf(int maix_format);
 #ifdef __cplusplus
 extern "C" {
 #endif
+// Explicit VB count/depth for independently consumed VPSS outputs.
+int mmf_vi_drop_pending(int ch);
+int mmf_add_vi_channel_configured(int ch, int width, int height, int format, int buffers, int queue_depth);
 int mmf_set_venc_gop_mode(uint8_t mode);
 uint8_t mmf_get_venc_gop_mode(void);
 #ifdef __cplusplus

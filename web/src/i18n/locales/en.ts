@@ -192,6 +192,21 @@ const en = {
       }
     },
     videoSettings: {
+      mjpegChroma: 'JPEG color sampling',
+      mjpegChroma420: '4:2:0 — smaller frames',
+      mjpegChroma422: '4:2:2 — sharper color edges',
+      mjpegChromaHint:
+        '4:2:2 preserves more color detail and can increase frame size. The choice is saved and applies without a restart.',
+      mjpegChromaActive: 'Active JPEG color sampling',
+      mjpegChromaFallback_resolution:
+        'MJPEG is limited to 1920 pixels in width to preserve 4:2:2 while H.264/H.265 uses a wider output. The selected resolution resumes when that video stream ends.',
+      mjpegChromaFallback_video:
+        'Only one capture output supports widths above 1920 pixels. MJPEG uses 4:2:0 while both streams are wider; 4:2:2 resumes when the video stream ends or either stream is reduced.',
+      mjpegChromaFallback_frameDetection: 'Turn off Frame Detect to use 4:2:2.',
+      mjpegChromaFallback_diagnostic: '4:2:2 is unavailable in the current capture mode.',
+      mjpegChromaFallback_hardware:
+        'Capture fell back to 4:2:0 after an error. Retry 4:2:2 when the signal is stable.',
+      mjpegChromaFallback_pending: '4:2:2 will apply to the next captured frame.',
       preferFhd60: 'Prefer 1920 × 1080 · 60 Hz',
       preferHd60: 'Prefer 1280 × 720 · 60 Hz',
       cubeMonitorHint:
@@ -755,15 +770,16 @@ const en = {
         reload: 'Reload interface'
       },
       memory: {
-        videoMode: "Video memory allocation",
-        videoModeDescription: "Both modes provide 64 MiB for video. CMA lets Linux use unused pages; Fixed reserves the entire region exclusively for video. Changes apply after reboot.",
-        videoCma: "CMA — 64 MiB (default)",
-        videoFixed: "Fixed — 64 MiB",
-        videoFixedShort: "Fixed",
-        videoActive: "Currently active",
-        videoUnknown: "Unknown",
-        videoModeUnavailable: "Update the kernel package to enable switching.",
-        videoReboot: "Restart the device to apply the selected video memory mode.",
+        videoMode: 'Video memory allocation',
+        videoModeDescription:
+          'Both modes provide 64 MiB for video. CMA lets Linux use unused pages; Fixed reserves the entire region exclusively for video. Changes apply after reboot.',
+        videoCma: 'CMA — 64 MiB (default)',
+        videoFixed: 'Fixed — 64 MiB',
+        videoFixedShort: 'Fixed',
+        videoActive: 'Currently active',
+        videoUnknown: 'Unknown',
+        videoModeUnavailable: 'Update the kernel package to enable switching.',
+        videoReboot: 'Restart the device to apply the selected video memory mode.',
 
         recompressTitle: 'Recompress cold pages with ZSTD',
         recompressDescription:
@@ -800,7 +816,42 @@ const en = {
       system: {
         title: 'System',
         general: 'General',
+        logs: {
+          title: 'Logs',
+          description:
+            'Up to 1 MiB per source. Archives from the last two device boots are saved once a minute and on normal server shutdown.',
+          source: 'Log source',
+          sources: {
+            system: 'System and services',
+            kernel: 'Kernel',
+            application: 'NanoKVM'
+          },
+          boot: 'Device boot',
+          boots: {
+            current: 'Current boot',
+            previous: 'Previous boot',
+            older: 'Two boots ago'
+          },
+          search: 'Search this log',
+          onlyMatches: 'Only matching lines',
+          previousMatch: 'Previous matching line',
+          nextMatch: 'Next matching line',
+          refresh: 'Refresh',
+          follow: 'Auto-refresh (5 s)',
+          loading: 'Loading logs…',
+          empty: 'No log entries to display.',
+          unavailable: 'This log source is unavailable for the selected boot.',
+          archiveUnavailable:
+            'Persistent log archives are unavailable. Current logs can still be viewed.',
+          noHistory: 'Earlier boots will become available after the next device reboot.',
+          loadError: 'Could not read logs.',
+          collected: 'Read at {{time}} · {{count}} lines',
+          truncated: 'Earlier or oversized entries were omitted.',
+          privacy:
+            'Entries with recognized credentials are hidden. Logs may still contain device and network details.'
+        },
         diagnostics: {
+          overview: 'Status',
           title: 'Diagnostics',
           description:
             'Read-only support status. Collection is cached and never changes the device.',
@@ -1568,10 +1619,12 @@ const en = {
         apiBasePlaceholder: 'https://api.example.com/v1',
         apiKey: 'API Key',
         apiKeyPlaceholder: 'Enter the model API key',
+        apiKeyOptionalPlaceholder: 'Optional for this local provider',
         save: 'Save',
         saving: 'Saving',
         saved: 'Model configuration saved',
         saveFailed: 'Failed to save model configuration',
+        invalidNoKey: 'Model identifier and API base URL are required',
         invalid: 'Model identifier, API base URL, and API key are required'
       },
       uninstall: {

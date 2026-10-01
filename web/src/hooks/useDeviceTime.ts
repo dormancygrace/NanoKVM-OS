@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect } from 'react';
 import { atom, useAtom } from 'jotai';
 
@@ -21,10 +22,10 @@ export function useDeviceTime() {
         });
     };
     refresh();
-    const timer = window.setInterval(refresh, 60000);
+    const stopPolling = pollWhileVisible(refresh, 60000);
     return () => {
       mounted = false;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [setPreferences]);
   return preferences;

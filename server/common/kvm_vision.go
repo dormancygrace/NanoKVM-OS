@@ -21,7 +21,6 @@ import (
 	"os/exec"
 	"sync"
 	"time"
-	"unsafe"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -51,6 +50,10 @@ func GetKvmVision() *KvmVision {
 		}
 		logLevel := C.uint8_t(0)
 		C.kvmv_init(logLevel)
+		// Native VI mutex is ready; apply intent before HDMI readers start.
+		if C.set_mjpeg_chroma(C.uint8_t(boolToInt(GetScreen().MjpegChroma == 422))) != 0 {
+			log.Error("failed to select saved MJPEG chroma")
+		}
 		log.Debugf("kvm vision initialized")
 	})
 
@@ -71,26 +74,10 @@ func (k *KvmVision) ReadMjpeg(width uint16, height uint16, quality uint16) (data
 		return nil, -1
 	}
 
-	var (
-		kvmData  *C.uint8_t
-		dataSize C.uint32_t
-	)
-
-	result = int(C.kvmv_read_img(
-		C.uint16_t(width),
-		C.uint16_t(height),
-		C.uint8_t(0),
-		C.uint16_t(quality),
-		&kvmData,
-		&dataSize,
-	))
+	data, result = readMjpegIntoOwnedStorage(width, height, quality)
 	if result < 0 {
 		log.Errorf("failed to read kvm image: %v", result)
-		return
 	}
-	defer C.free_kvmv_data(&kvmData)
-
-	data = C.GoBytes(unsafe.Pointer(kvmData), C.int(dataSize))
 	return
 }
 
@@ -230,4 +217,43 @@ func (k *KvmVision) RequestKeyframe() {
 	if !k.closed {
 		C.kvmv_request_keyframe()
 	}
+}
+
+func boolToInt(value bool) uint8 {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+// Reports the actual VPSS producer and any temporary or latched fallback.
+func GetMjpegChromaStatus() (uint16, string) {
+	state := uint8(C.get_mjpeg_chroma_status())
+	active := uint16(420)
+	if state&uint8(C.MJPEG_CHROMA_ACTIVE_422) != 0 {
+		active = 422
+	}
+	reason := ""
+	switch {
+	case state&uint8(C.MJPEG_CHROMA_FALLBACK_ERROR) != 0:
+		reason = "hardware"
+	case state&uint8(C.MJPEG_CHROMA_LIMIT_WIDTH) != 0 && active == 422:
+		reason = "resolution"
+	case state&uint8(C.MJPEG_CHROMA_SHARED_VIDEO) != 0:
+		reason = "video"
+	case state&uint8(C.MJPEG_CHROMA_FRAME_DETECT) != 0:
+		reason = "frameDetection"
+	case state&uint8(C.MJPEG_CHROMA_FORCE_COPY) != 0:
+		reason = "diagnostic"
+	}
+	return active, reason
+}
+
+func (k *KvmVision) SetMjpegChroma(chroma uint16) int {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+	if k.closed || (chroma != 420 && chroma != 422) {
+		return -1
+	}
+	return int(C.set_mjpeg_chroma(C.uint8_t(boolToInt(chroma == 422))))
 }

@@ -1,22 +1,32 @@
-import { Select } from 'antd';
+import { useState } from 'react';
+import { message, Select } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import languages from '@/i18n/languages.ts';
+import { changeLoadedLanguage, localeTag } from '@/i18n/locale-loader.ts';
 import { setLanguage } from '@/lib/localstorage.ts';
 
 export const Language = () => {
   const { t, i18n } = useTranslation();
+  const [loading, setLoading] = useState(false);
 
   const options = languages.map((language) => ({
-    value: language.key,
+    value: localeTag(language.key),
     label: language.name
   }));
 
-  function changeLanguage(value: string) {
-    if (i18n.language === value) return;
+  async function changeLanguage(value: string) {
+    if (i18n.language === value || loading) return;
 
-    i18n.changeLanguage(value);
-    setLanguage(value);
+    setLoading(true);
+    try {
+      await changeLoadedLanguage(i18n, value);
+      setLanguage(value);
+    } catch {
+      message.error(t('error.title'));
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -28,7 +38,9 @@ export const Language = () => {
 
       <div>
         <Select
-          defaultValue={i18n.language}
+          value={i18n.language}
+          loading={loading}
+          disabled={loading}
           style={{ width: 180 }}
           options={options}
           onSelect={changeLanguage}

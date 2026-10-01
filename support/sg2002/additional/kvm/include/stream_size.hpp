@@ -17,6 +17,11 @@ inline unsigned portrait_fps_limit(unsigned w, unsigned h) {
     return 0;
 }
 struct StreamSize { uint16_t width; uint16_t height; };
+inline StreamSize limit_stream_width(StreamSize size, uint16_t maximum) {
+    if (!maximum || size.width <= maximum) return size;
+    return {uint16_t(maximum & ~1u),
+            uint16_t((uint32_t(size.height) * (maximum & ~1u) / size.width) & ~1u)};
+}
 inline StreamSize stream_size(uint16_t iw, uint16_t ih, uint16_t mw, uint16_t mh) {
     uint32_t w = iw, h = ih;
     if (!w || !h) return {0, 0};

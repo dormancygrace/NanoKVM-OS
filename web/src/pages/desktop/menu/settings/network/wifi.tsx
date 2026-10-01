@@ -3,6 +3,7 @@ import { Button, Checkbox, Divider, Input, Modal, Select, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 
 import { groupWifiNetworks, type WifiGroup } from './wifi-networks';
 import { WifiSignal } from './wifi-signal';
@@ -43,8 +44,10 @@ export const Wifi = () => {
 
   useEffect(() => {
     let alive = true;
-    let timer: ReturnType<typeof setTimeout>;
+    let inFlight = false;
     async function refresh() {
+      if (!alive || inFlight) return;
+      inFlight = true;
       try {
         const rsp = await api.getWiFi();
         if (rsp.code !== 0) throw new Error();
@@ -67,20 +70,19 @@ export const Wifi = () => {
       } catch {
         if (alive && !pendingRef.current) setMessage('statusFailed');
       } finally {
-        if (alive) {
-          if (pendingRef.current && Date.now() > pendingRef.current.until) {
-            pendingRef.current = undefined;
-            setPending(undefined);
-            setMessage('connectionTimeout');
-          }
-          timer = setTimeout(refresh, 3000);
+        inFlight = false;
+        if (alive && pendingRef.current && Date.now() > pendingRef.current.until) {
+          pendingRef.current = undefined;
+          setPending(undefined);
+          setMessage('connectionTimeout');
         }
       }
     }
     void refresh();
+    const stopPolling = pollWhileVisible(() => void refresh(), 3000);
     return () => {
       alive = false;
-      clearTimeout(timer);
+      stopPolling();
     };
   }, []);
 

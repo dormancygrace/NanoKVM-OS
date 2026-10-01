@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Divider, Input, Modal, Popconfirm, Switch, Tag } from 'antd';
 import { FileUpIcon, KeyRoundIcon, Trash2Icon } from 'lucide-react';
@@ -52,10 +53,10 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
         });
     };
     poll();
-    const timer = window.setInterval(poll, 5000);
+    const stopPolling = pollWhileVisible(poll, 5000);
     return () => {
       mounted.current = false;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [refresh, t]);
   async function run(action: () => Promise<{ code: number; msg: string }>) {

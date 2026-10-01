@@ -24,6 +24,7 @@ export const Credits = () => {
     { name: 'Thomas Pressnell', contribution: tr('thomasPressnell') },
     { name: 'S33G', contribution: tr('s33g') },
     { name: 'gxcreator (Nikita S.)', contribution: tr('gxcreator') },
+    { name: 'rockymtngeek', contribution: tr('rockymtngeek') },
     { name: 'yuzi-co / IronKVM', contribution: tr('yuziCo') },
     { name: 'Sipeed NanoKVM', contribution: tr('sipeed') },
     { name: 'SOPHGO / CVITEK', contribution: tr('silicon') },

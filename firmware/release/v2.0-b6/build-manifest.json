@@ -1,10 +1,10 @@
 {
   "version": "v2.0-b6",
   "kernel": "7.2.6-nanokvm-os-r1",
-  "rootfs_archive_sha256": "9b11cd03f3b22fdef266006495cad6a9bec455243538c3054acbba851383422e",
+  "rootfs_archive_sha256": "be853633a859e9ba62392ade4164052b8026e6b5ba44ef920987798ae6ba93ed",
   "fip_sha256": "8254d38124e66877ab6c4a894f656d8ee6dc299d813dd06f31037ddaa2e51b9d",
   "image_bytes": 872415744,
-  "zip_bytes": 140709544,
+  "zip_bytes": 140709551,
   "partitions": [
     {
       "number": 1,

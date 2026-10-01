@@ -979,6 +979,8 @@ const en = {
           s33g: 'Login branding and text, toolbar tooltips, localizable errors, and device-free development mocks.',
           gxcreator:
             'Detailed issue reports and persistent feedback that exposed regressions and directly shaped fixes.',
+          rockymtngeek:
+            'LT6911D hardware testing, detailed diagnostic logs, and confirmation of the capture fix.',
           yuziCo:
             'MJPEG duplicate suppression and capture backpressure, plus broadcast acquisition and DHCP option 121 designs adapted from IronKVM.',
           sipeed: 'The original NanoKVM hardware platform and upstream application foundation.',

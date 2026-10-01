@@ -1,6 +1,6 @@
 pkgname=nanokvm-app
 pkgver=${PKGVER:-0.1.0}
-pkgrel=0
+pkgrel=1
 pkgdesc="NanoKVM server, web UI and native runtime libraries"
 url="https://github.com/sipeed/NanoKVM"
 arch="riscv64"

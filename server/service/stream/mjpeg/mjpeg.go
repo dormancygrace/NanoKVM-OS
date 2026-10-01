@@ -28,16 +28,18 @@ func Connect(c *gin.Context) {
 	defer streamer.RemoveClient(client)
 	controller := newResponseController(c.Writer)
 
+	first := true
 	for {
 		data, ok := client.next()
 		if !ok {
 			return
 		}
 
-		if err := writeFrame(c, controller, data); err != nil {
+		if err := writeFrame(c, controller, data, first); err != nil {
 			log.Errorf("failed to write mjpeg frame for client %s: %s", c.Request.RemoteAddr, err)
 			return
 		}
+		first = false
 	}
 }
 

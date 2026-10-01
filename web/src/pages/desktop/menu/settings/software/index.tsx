@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Input, Modal, Popconfirm, Spin, Tabs, message } from 'antd';
 import { RefreshCwIcon, SearchIcon, Trash2Icon } from 'lucide-react';
@@ -86,8 +87,8 @@ export const Software = () => {
 
   useEffect(() => {
     void refresh();
-    const timer = window.setInterval(() => void refreshStatus(), 3000);
-    return () => window.clearInterval(timer);
+    const stopPolling = pollWhileVisible(() => void refreshStatus(), 3000);
+    return () => stopPolling();
   }, []);
 
   const run = async (action: string, name = '') => {

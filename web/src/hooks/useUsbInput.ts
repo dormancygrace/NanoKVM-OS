@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 
 import { usbCompositionChangedEvent } from '@/api/virtual-device.ts';
@@ -25,12 +26,12 @@ export function useUsbInput() {
       }
     }
     void refresh();
-    const timer = window.setInterval(refresh, 5000);
+    const stopPolling = pollWhileVisible(refresh, 5000);
     window.addEventListener(usbCompositionChangedEvent, refresh);
     window.addEventListener('focus', refresh);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      stopPolling();
       window.removeEventListener(usbCompositionChangedEvent, refresh);
       window.removeEventListener('focus', refresh);
     };

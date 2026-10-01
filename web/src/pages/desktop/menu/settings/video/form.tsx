@@ -45,6 +45,7 @@ type ScreenValues = {
   bitRate: number;
   gop: number;
   gopMode: number;
+  mjpegChroma: number;
 };
 type Draft = ScreenValues & {
   mode: string;
@@ -90,6 +91,7 @@ export const VideoForm = ({
     bitRate: status.bitRate,
     gop: status.gop,
     gopMode: status.gopMode,
+    mjpegChroma: status.mjpegChroma === 422 ? 422 : 420,
     mode,
     codec: getEncoderCodec(),
     frameDetect: storage.getFrameDetect(),
@@ -218,6 +220,7 @@ export const VideoForm = ({
         [next.mode === 'mjpeg' ? 'quality' : 'bitRate', 'quality'],
         ['gop', 'gop'],
         ['gopMode', 'gop_mode'],
+        ['mjpegChroma', 'mjpeg_chroma'],
         ['monitor', 'monitor']
       ];
       for (const [key, type] of fields) {
@@ -594,6 +597,25 @@ export const VideoForm = ({
                 })),
             !admin
           )
+        )}
+        {draft.mode === 'mjpeg' && (
+          <>
+            {row(
+              t('videoSettings.mjpegChroma'),
+              select(
+                'mjpegChroma',
+                t('videoSettings.mjpegChroma'),
+                [
+                  { value: 420, label: t('videoSettings.mjpegChroma420') },
+                  { value: 422, label: t('videoSettings.mjpegChroma422') }
+                ],
+                !admin
+              )
+            )}
+            <p className="text-xs leading-relaxed text-neutral-400">
+              {t('videoSettings.mjpegChromaHint')}
+            </p>
+          </>
         )}
         <p className="text-xs leading-relaxed text-neutral-400">{t('videoSettings.streamHint')}</p>
       </section>

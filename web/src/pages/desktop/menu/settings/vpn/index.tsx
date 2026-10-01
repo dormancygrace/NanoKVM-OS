@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Divider, Input, Popconfirm, Switch, Tag, Tooltip } from 'antd';
 import { CheckIcon, FileUpIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react';
@@ -54,10 +55,10 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
         });
     };
     poll();
-    const timer = window.setInterval(poll, 5000);
+    const stopPolling = pollWhileVisible(poll, 5000);
     return () => {
       mounted.current = false;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [refresh, t]);
 

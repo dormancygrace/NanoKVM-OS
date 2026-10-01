@@ -10,6 +10,8 @@
 
 namespace nanokvm {
 int nv21_format() { return PIXEL_FORMAT_NV21; }
+int nv16_format() { return PIXEL_FORMAT_NV16; }
+int Capture::get_format() const { return format_ < 0 ? nv21_format() : format_; }
 void sleep_ms(unsigned milliseconds) {
     timespec remaining{static_cast<time_t>(milliseconds / 1000),
                        static_cast<long>(milliseconds % 1000) * 1000000L};
@@ -55,23 +57,61 @@ static bool valid_size(int width, int height) {
 int Capture::get_channel() const {
     return channel_ >= 0 && mmf_vi_chn_is_open(channel_) ? channel_ : -1;
 }
-int Capture::open_channel() {
-#ifdef NANOKVM_ENHANCED
-    // In VPSS single mode channel 1 maps to SC_V1 (2880 pixels). Channel 0
-    // maps to SC_D (1920 pixels) and would require the two-pass tile path.
-    channel_ = width_ > 1920 ? (mmf_vi_chn_is_open(1) ? -1 : 1)
-                             : mmf_get_vi_unused_channel();
-#else
-    channel_ = mmf_get_vi_unused_channel();
-#endif
-    if (channel_ < 0) return -1;
-    mmf_set_vi_hmirror(channel_, mirror_);
-    mmf_set_vi_vflip(channel_, flip_);
-    if (mmf_add_vi_channel(channel_, width_, height_, nv21_format()) != 0) {
-        channel_ = -1;
-        return -1;
+int Capture::output_index(int format) const { return format == nv16_format() ? 1 : 0; }
+bool Capture::has_format(int format) const {
+    const auto &output = outputs_[output_index(format)];
+    return output.channel >= 0 && mmf_vi_chn_is_open(output.channel);
+}
+int Capture::format_width(int format) const {
+    return has_format(format) ? outputs_[output_index(format)].width : 0;
+}
+bool Capture::matches_output(int format, int width, int height) const {
+    const auto &output = outputs_[output_index(format)];
+    return has_format(format) && output.width == width && output.height == height;
+}
+int Capture::close_format(int format) {
+    auto &output = outputs_[output_index(format)];
+    if (output.channel < 0) return 0;
+    const int result = mmf_del_vi_channel(output.channel);
+    if (result) { cleanup_error_ = result; return result; }
+    if (channel_ == output.channel) channel_ = -1;
+    output = Output{};
+    return 0;
+}
+int Capture::discard_other_pending() {
+    for (const auto &output : outputs_) {
+        if (output.channel >= 0 && output.channel != channel_) {
+            const int result = mmf_vi_drop_pending(output.channel);
+            if (result) return result;
+        }
     }
     return 0;
+}
+int Capture::open_output(int index, int width, int height) {
+    // Only physical channel 1 produces real pixels beyond 1920 on this SoC.
+    // Rehome a narrow peer if it occupies the wide-capable scaler.
+    if (width > 1920 && mmf_vi_chn_is_open(1)) {
+        const int peer = 1 - index;
+        auto previous = outputs_[peer];
+        if (previous.channel != 1 || previous.width > 1920) return -1;
+        const int closed = close_format(peer ? nv16_format() : nv21_format());
+        if (closed) return closed;
+        const int moved = open_output(peer, previous.width, previous.height);
+        if (moved) return moved;
+    }
+    const int ch = width > 1920 ? 1 : mmf_get_vi_unused_channel();
+    if (ch < 0 || mmf_vi_chn_is_open(ch)) return -1;
+    mmf_set_vi_hmirror(ch, mirror_);
+    mmf_set_vi_vflip(ch, flip_);
+    if (mmf_add_vi_channel_configured(ch, width, height, index ? nv16_format() : nv21_format(), 2, 1)) return -1;
+    outputs_[index] = {ch, width, height};
+    return 0;
+}
+int Capture::open_channel() {
+    const int index = output_index(get_format());
+    const int result = open_output(index, width_, height_);
+    channel_ = result ? -1 : outputs_[index].channel;
+    return result;
 }
 int Capture::shutdown() {
     if (initialized_) {
@@ -84,6 +124,7 @@ int Capture::shutdown() {
         initialized_ = false;
     }
     channel_ = -1;
+    for (auto &output : outputs_) output = Output{};
     cleanup_error_ = 0;
     return 0;
 }
@@ -107,42 +148,60 @@ int Capture::restart(int width, int height) {
     }
     return 0;
 }
-int Capture::set_resolution(int width, int height) {
+int Capture::set_resolution(int width, int height, int format) {
     if (!valid_size(width, height)) return -1;
-    if (!initialized_ || cleanup_error_ != 0) return restart(width, height);
-    if (get_channel() >= 0 && width == width_ && height == height_) return 0;
-    if (channel_ >= 0) {
-        const int result = mmf_del_vi_channel(channel_);
-        if (result != 0) {
-            cleanup_error_ = result;
-            return result;
-        }
-        channel_ = -1;
+    const int selected = format < 0 ? get_format() : format;
+    if (selected != nv21_format() && selected != nv16_format()) return -1;
+    if (!initialized_ || cleanup_error_ != 0) {
+        // Complete failed teardown before changing the producer's format.
+        const int stopped = shutdown();
+        if (stopped != 0) return stopped;
+        format_ = selected;
+        return restart(width, height);
+    }
+    const int index = output_index(selected);
+    auto &output = outputs_[index];
+    if (output.channel >= 0 && (output.width != width || output.height != height)) {
+        const int result = close_format(selected);
+        if (result) return result;
     }
     width_ = width;
     height_ = height;
-    return open_channel();
+    format_ = selected;
+    if (output.channel < 0 && open_channel() != 0) return -1;
+    channel_ = output.channel;
+    return 0;
 }
 int Capture::hmirror(int enable) {
     if (enable < 0) return mirror_;
     if (cleanup_error_ != 0) return cleanup_error_;
     if (mirror_ == (enable != 0)) return 0;
     mirror_ = enable != 0;
-    if (get_channel() < 0) return 0;
-    mmf_set_vi_hmirror(channel_, mirror_);
-    return mmf_reset_vi_channel(channel_, width_, height_, nv21_format());
+    for (const auto &output : outputs_) {
+        if (output.channel < 0) continue;
+        mmf_set_vi_hmirror(output.channel, mirror_);
+        const int result = mmf_reset_vi_channel(output.channel, output.width, output.height,
+                                               &output == &outputs_[1] ? nv16_format() : nv21_format());
+        if (result) { cleanup_error_ = result; return result; }
+    }
+    return 0;
 }
 int Capture::vflip(int enable) {
     if (enable < 0) return flip_;
     if (cleanup_error_ != 0) return cleanup_error_;
     if (flip_ == (enable != 0)) return 0;
     flip_ = enable != 0;
-    if (get_channel() < 0) return 0;
-    mmf_set_vi_vflip(channel_, flip_);
-    return mmf_reset_vi_channel(channel_, width_, height_, nv21_format());
+    for (const auto &output : outputs_) {
+        if (output.channel < 0) continue;
+        mmf_set_vi_vflip(output.channel, flip_);
+        const int result = mmf_reset_vi_channel(output.channel, output.width, output.height,
+                                               &output == &outputs_[1] ? nv16_format() : nv21_format());
+        if (result) { cleanup_error_ = result; return result; }
+    }
+    return 0;
 }
 Nv21Frame *Capture::read() {
-    if (cleanup_error_ != 0 || get_channel() < 0) return nullptr;
+    if (cleanup_error_ != 0 || get_channel() < 0 || get_format() != nv21_format()) return nullptr;
     mmf_nv21_view_t view{};
     if (mmf_vi_frame_pop_nv21(channel_, &view) != 0) return nullptr;
     const size_t rows = static_cast<size_t>(height_) * 3 / 2;

@@ -15,6 +15,8 @@ if subprocess.check_output([cross+'gcc','-dumpfullversion'],text=True).strip()!=
     raise SystemExit('Expected Enhanced GCC 16.2')
 subprocess.run(['git','merge-base','--is-ancestor',
     'b29c951647df74e4efa55fd4454efb37e4554be0','HEAD'],cwd=maix,check=True)
+subprocess.run(['python3', str(repo/'scripts/apply-maixcdk-fixes.py'),
+    '--source', str(maix), '--check'], check=True)
 main=repo/'support/sg2002/kvm_system/main'
 basic=maix/'components/basic'
 peripheral=maix/'components/peripheral'

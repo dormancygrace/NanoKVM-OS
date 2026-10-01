@@ -1,10 +1,13 @@
 package logger
 
 import (
+	"io"
+	standardlog "log"
 	"os"
 	"path/filepath"
 
 	"NanoKVM-Server/config"
+	"NanoKVM-Server/logs"
 
 	"github.com/sirupsen/logrus"
 )
@@ -47,5 +50,10 @@ func Init() {
 	logrus.SetReportCaller(true)
 	logrus.SetFormatter(&formatter{})
 
+	if err := logs.InitArchives(); err != nil {
+		logrus.Warn("persistent log archive is unavailable")
+	}
+	logrus.SetOutput(io.MultiWriter(logs.Application, logrus.StandardLogger().Out))
+	standardlog.SetOutput(io.MultiWriter(logs.Application, standardlog.Writer()))
 	logrus.Info("logger set success")
 }

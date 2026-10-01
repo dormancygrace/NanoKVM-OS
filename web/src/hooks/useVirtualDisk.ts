@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useState } from 'react';
 
 import { getVirtualDevice, usbCompositionChangedEvent } from '@/api/virtual-device.ts';
@@ -27,13 +28,13 @@ export function useVirtualDisk() {
       void refresh();
     }
     void refresh();
-    const timer = window.setInterval(refresh, 5000);
+    const stopPolling = pollWhileVisible(refresh, 5000);
     window.addEventListener(usbCompositionChangedEvent, compositionChanged);
     window.addEventListener('nanokvm:usb-updated', compositionChanged);
     window.addEventListener('focus', refresh);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      stopPolling();
       window.removeEventListener(usbCompositionChangedEvent, compositionChanged);
       window.removeEventListener('nanokvm:usb-updated', compositionChanged);
       window.removeEventListener('focus', refresh);

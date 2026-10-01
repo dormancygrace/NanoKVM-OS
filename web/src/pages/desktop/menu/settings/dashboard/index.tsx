@@ -76,6 +76,10 @@ type Video = {
   inputHeight: number;
   outputWidth: number;
   outputHeight: number;
+  mjpegOutputWidth: number;
+  mjpegOutputHeight: number;
+  videoOutputWidth: number;
+  videoOutputHeight: number;
   fps: number;
   measuredFps: number;
   effectiveFps: number;
@@ -128,6 +132,8 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   const ready = useAtomValue(captureReadyAtom);
   const mode = useAtomValue(videoModeAtom);
   const sessions = useAtomValue(videoSessionCountAtom);
+  const outputWidth = mode === 'mjpeg' ? video?.mjpegOutputWidth : video?.videoOutputWidth;
+  const outputHeight = mode === 'mjpeg' ? video?.mjpegOutputHeight : video?.videoOutputHeight;
 
   useEffect(() => {
     let disposed = false;
@@ -412,7 +418,9 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             )}
             {line(
               t('videoSettings.output'),
-              enabled ? size(video?.outputWidth, video?.outputHeight) : '—'
+              enabled
+                ? size(outputWidth || video?.outputWidth, outputHeight || video?.outputHeight)
+                : '—'
             )}
             {line(
               t('screen.codec'),

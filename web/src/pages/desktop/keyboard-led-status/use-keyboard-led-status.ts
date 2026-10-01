@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useRef, useState } from 'react';
 
 import { getKeyboardLedStatus } from '@/api/hid.ts';
@@ -55,12 +56,12 @@ export function useKeyboardLedStatus() {
         .catch(() => undefined);
     }
     refresh();
-    const interval = window.setInterval(refresh, 10000);
+    const stopPolling = pollWhileVisible(refresh, 10000);
     window.addEventListener(usbCompositionChangedEvent, refresh);
 
     return () => {
       disposed = true;
-      window.clearInterval(interval);
+      stopPolling();
       window.removeEventListener(usbCompositionChangedEvent, refresh);
       unsubscribe();
     };

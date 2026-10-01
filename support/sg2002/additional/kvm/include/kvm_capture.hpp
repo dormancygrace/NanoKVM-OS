@@ -5,6 +5,7 @@
 
 namespace nanokvm {
 int nv21_format();
+int nv16_format();
 void sleep_ms(unsigned milliseconds);
 
 // Contiguous encoded bytes owned by the caller, independent of the VENC lease.
@@ -49,7 +50,13 @@ public:
     Capture(const Capture &) = delete;
     Capture &operator=(const Capture &) = delete;
     int restart(int width, int height);
-    int set_resolution(int width, int height);
+    int set_resolution(int width, int height, int format = -1);
+    int get_format() const;
+    bool has_format(int format) const;
+    int format_width(int format) const;
+    bool matches_output(int format, int width, int height) const;
+    int close_format(int format);
+    int discard_other_pending();
     // Preserve ownership and report errors until MMF confirms teardown.
     int shutdown();
     int hmirror(int enable);
@@ -57,9 +64,14 @@ public:
     int get_channel() const;
     Nv21Frame *read();
 private:
+    struct Output { int channel = -1, width = 0, height = 0; };
+    Output outputs_[2]{}; // NV21 and NV16 share one MMF owner.
+    int output_index(int format) const;
     int open_channel();
+    int open_output(int index, int width, int height);
     int width_, height_;
     int channel_ = -1;
+    int format_ = -1; // Default NV21; NV16 is native MJPEG only.
     int cleanup_error_ = 0;
     bool initialized_ = false, mirror_ = false, flip_ = false;
 };

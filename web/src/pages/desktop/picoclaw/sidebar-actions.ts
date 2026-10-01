@@ -14,6 +14,7 @@ import {
   stopRuntime,
   uninstallRuntime
 } from '@/api/picoclaw.ts';
+import { modelConfigComplete, modelProviderAllowsEmptyApiKey } from '@/lib/picoclaw-model.ts';
 import {
   clearPicoclawRuntimeInstallSnapshot,
   setPicoclawRuntimeInstallSnapshot,
@@ -772,12 +773,16 @@ export function createPicoclawSidebarActions(options: PicoclawSidebarActionOptio
     const apiBase = modelApiBase.trim();
     const apiKey = modelApiKey.trim();
     const model = modelIdentifier.trim();
-    if (!apiBase || !apiKey || !model) {
+    if (!modelConfigComplete(model, apiBase, apiKey)) {
       setMessages((current) => [
         ...current,
         createErrorMessage({
           code: 'MODEL_CONFIG_INVALID',
-          message: t('picoclaw.model.invalid')
+          message: t(
+            modelProviderAllowsEmptyApiKey(model)
+              ? 'picoclaw.model.invalidNoKey'
+              : 'picoclaw.model.invalid'
+          )
         })
       ]);
       return;

@@ -78,5 +78,7 @@ subprocess.run(['python3', str(repo / 'scripts/apply-aic-monitor-rx.py'),
                 '--source', str(src)], check=True)
 subprocess.run(['python3', str(repo / 'scripts/apply-aic-survey-frequency-guard.py'),
                 '--source', str(src)], check=True)
+subprocess.run(['python3', str(repo / 'scripts/apply-aic-linux73.py'),
+                '--source', str(src)], check=True)
 
-print('AIC BSP ownership, firmware-path, SDIO-clock, monitor RX and survey frequency policy applied')
+print('AIC BSP ownership, firmware-path, SDIO-clock, monitor RX, survey and Linux 7.3 policy applied')

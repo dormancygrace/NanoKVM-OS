@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Slider, Switch } from 'antd';
 import { Volume2Icon, VolumeXIcon } from 'lucide-react';
@@ -88,12 +89,12 @@ export const useUsbAudio = () => {
       }
     };
     void refresh();
-    const timer = window.setInterval(refresh, 5000);
+    const stopPolling = pollWhileVisible(refresh, 5000);
     window.addEventListener(usbCompositionChangedEvent, refresh);
     window.addEventListener('nanokvm:usb-updated', refresh);
     return () => {
       alive = false;
-      window.clearInterval(timer);
+      stopPolling();
       window.removeEventListener(usbCompositionChangedEvent, refresh);
       window.removeEventListener('nanokvm:usb-updated', refresh);
       disconnect();

@@ -42,8 +42,9 @@ for src in (r/'firmware/alpine/openrc').iterdir(): copy(src,base/'etc/init.d'/sr
 copy(enhanced_s15,base/'usr/libexec/nanokvm/legacy/S15kvmhwd')
 link('/usr/libexec/nanokvm/legacy/S15kvmhwd',base/'etc/init.d/S15kvmhwd')
 copy(enhanced_s15,app/'kvmapp/system/init.d/S15kvmhwd')
-copy(r/'kvmapp/system/init.d/S95nanokvm',app/'kvmapp/system/init.d/S95nanokvm')
-names='S95nanokvm S29qdisc S34mssclamp S38memory S49persistent-cron S94sg2002aes S96picoclaw S98tailscaled S80dnsmasq S13nanokvm-watchdog'.split()
+for name in ('S95nanokvm', 'S30eth', 'S30wifi'):
+    copy(r/'kvmapp/system/init.d'/name,app/'kvmapp/system/init.d'/name)
+names='S30eth S30wifi S95nanokvm S29qdisc S34mssclamp S38memory S49persistent-cron S94sg2002aes S96picoclaw S98tailscaled S80dnsmasq S13nanokvm-watchdog'.split()
 for name in names:
     copy(r/'kvmapp/system/init.d'/name,base/'usr/libexec/nanokvm/legacy'/name)
     link('/usr/libexec/nanokvm/legacy/'+name,base/'etc/init.d'/name)

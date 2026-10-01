@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useState } from 'react';
 import { Divider, Switch, Tooltip } from 'antd';
 import clsx from 'clsx';
@@ -41,11 +42,11 @@ export const Power = () => {
     }
 
     void refreshLeds();
-    const interval = window.setInterval(refreshLeds, 200);
+    const stopPolling = pollWhileVisible(refreshLeds, 200);
 
     return () => {
       disposed = true;
-      window.clearInterval(interval);
+      stopPolling();
     };
   }, []);
 

@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -37,10 +38,10 @@ export const RemoteImage = ({ isOpen, onConnected }: Props) => {
         })
         .catch(() => {});
     refresh();
-    const timer = window.setInterval(refresh, 2000);
+    const stopPolling = pollWhileVisible(refresh, 2000);
     return () => {
       disposed = true;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [isOpen, status.connected, connecting]);
   useEffect(() => {

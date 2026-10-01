@@ -53,7 +53,33 @@ var (
 		"xai":               {},
 		"zhipu":             {},
 	}
+	// picoclawKeylessProviders are the local inference servers PicoClaw talks
+	// to without an API key (emptyAPIKeyAllowed in PicoClaw's provider table).
+	// Ollama, LM Studio and vLLM serve an OpenAI-compatible API with no
+	// authentication by default, so the integration must not demand a key.
+	picoclawKeylessProviders = map[string]struct{}{
+		"lmstudio": {},
+		"ollama":   {},
+		"vllm":     {},
+	}
 )
+
+// picoclawModelProvider returns the lower-cased provider prefix of a
+// provider/model identifier, or "" when there is none.
+func picoclawModelProvider(model string) string {
+	provider, _, ok := strings.Cut(strings.TrimSpace(model), "/")
+	if !ok {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(provider))
+}
+
+// picoclawProviderAllowsEmptyAPIKey reports whether the model's provider works
+// without an API key.
+func picoclawProviderAllowsEmptyAPIKey(model string) bool {
+	_, ok := picoclawKeylessProviders[picoclawModelProvider(model)]
+	return ok
+}
 
 func validatePicoclawModelIdentifier(model string) (string, error) {
 	model = strings.TrimSpace(model)
@@ -92,6 +118,9 @@ func isPicoclawModelConfigured(cfg picoclawConfigFile, security picoclawSecurity
 		}
 		if model.APIBase == "" {
 			continue
+		}
+		if picoclawProviderAllowsEmptyAPIKey(model.Model) {
+			return true
 		}
 		if securityHasModelAPIKeys(security, modelName) {
 			return true
@@ -208,9 +237,6 @@ func updatePicoclawModelConfig(apiBase string, apiKey string, model string) (str
 	if apiBase == "" {
 		return "", fmt.Errorf("model api_base is required")
 	}
-	if apiKey == "" {
-		return "", fmt.Errorf("model api_key is required")
-	}
 	if model == "" {
 		return "", fmt.Errorf("model identifier is required")
 	}
@@ -218,6 +244,9 @@ func updatePicoclawModelConfig(apiBase string, apiKey string, model string) (str
 	modelName, err := validatePicoclawModelIdentifier(model)
 	if err != nil {
 		return "", err
+	}
+	if apiKey == "" && !picoclawProviderAllowsEmptyAPIKey(model) {
+		return "", fmt.Errorf("model api_key is required")
 	}
 
 	doc, err := loadOrInitializePicoclawConfigDocument()
@@ -282,8 +311,16 @@ func updatePicoclawModelConfig(apiBase string, apiKey string, model string) (str
 		doc.security.ModelList = map[string]picoclawModelSecurityEntry{}
 	}
 	securityModelName := indexedModelName(modelListValue, updatedModelIndex, modelName)
-	doc.security.ModelList[securityModelName] = picoclawModelSecurityEntry{
-		APIKeys: []string{apiKey},
+	if apiKey == "" {
+		// A keyless provider: drop any key left from an earlier setup so
+		// PicoClaw does not send a stale Authorization header.
+		delete(doc.security.ModelList, securityModelName)
+		// Older configs used an unindexed key as the model's fallback.
+		delete(doc.security.ModelList, modelName)
+	} else {
+		doc.security.ModelList[securityModelName] = picoclawModelSecurityEntry{
+			APIKeys: []string{apiKey},
+		}
 	}
 	if err := doc.saveSecurity(); err != nil {
 		return "", err

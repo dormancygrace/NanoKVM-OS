@@ -10,13 +10,14 @@ import (
 )
 
 type Screen struct {
-	Width   uint16
-	Height  uint16
-	FPS     int
-	Quality uint16
-	BitRate uint16
-	GOP     uint8
-	GOPMode uint8
+	Width       uint16
+	Height      uint16
+	FPS         int
+	Quality     uint16
+	BitRate     uint16
+	GOP         uint8
+	GOPMode     uint8
+	MjpegChroma uint16
 }
 
 const (
@@ -31,10 +32,11 @@ var (
 )
 
 var screenFileMap = map[string]string{
-	"fps":        "/kvmapp/kvm/fps",
-	"gop_mode":   "/kvmapp/kvm/gop_mode",
-	"quality":    "/kvmapp/kvm/qlty",
-	"resolution": "/kvmapp/kvm/res",
+	"fps":          "/kvmapp/kvm/fps",
+	"gop_mode":     "/kvmapp/kvm/gop_mode",
+	"mjpeg_chroma": "/kvmapp/kvm/mjpeg_chroma",
+	"quality":      "/kvmapp/kvm/qlty",
+	"resolution":   "/kvmapp/kvm/res",
 }
 
 // ResolutionMap height to width
@@ -101,6 +103,11 @@ func setScreenValue(target *Screen, key string, value int) {
 			target.Quality = uint16(value)
 		}
 
+	case "mjpeg_chroma":
+		if value == 420 || value == 422 {
+			target.MjpegChroma = uint16(value)
+		}
+
 	case "fps":
 		target.FPS = validateFPS(value)
 
@@ -135,6 +142,9 @@ func CheckScreen() {
 }
 
 func checkScreen(target *Screen) {
+	if target.MjpegChroma != 420 && target.MjpegChroma != 422 {
+		target.MjpegChroma = 422
+	}
 	if _, ok := ResolutionMap[target.Height]; !ok {
 		target.Width = 1920
 		target.Height = 1080
@@ -155,13 +165,18 @@ func checkScreen(target *Screen) {
 
 func loadScreen(readFile func(string) ([]byte, error)) *Screen {
 	target := &Screen{
-		Width:   0,
-		Height:  0,
-		Quality: 80,
-		FPS:     50,
-		BitRate: 3000,
-		GOP:     30,
-		GOPMode: GOPModeSmartP,
+		Width:       0,
+		Height:      0,
+		Quality:     80,
+		FPS:         50,
+		BitRate:     3000,
+		GOP:         30,
+		GOPMode:     GOPModeSmartP,
+		MjpegChroma: 422,
+	}
+
+	if os.Getenv("NANOKVM_MJPEG_422") == "0" {
+		target.MjpegChroma = 420
 	}
 
 	for key, path := range screenFileMap {

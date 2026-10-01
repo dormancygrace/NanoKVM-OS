@@ -47,3 +47,11 @@ func (k *KvmVision) Close() {}
 func (k *KvmVision) ApplyMonitorProfile(string) error { return nil }
 
 func (k *KvmVision) RequestKeyframe() {}
+
+func GetMjpegChromaStatus() (uint16, string) { return 420, "" }
+func (k *KvmVision) SetMjpegChroma(chroma uint16) int {
+	if chroma != 420 && chroma != 422 {
+		return -1
+	}
+	return 0
+}

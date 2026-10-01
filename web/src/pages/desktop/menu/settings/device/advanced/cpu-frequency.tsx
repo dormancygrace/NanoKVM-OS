@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useState } from 'react';
 import { Select } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -24,8 +25,8 @@ export const CPUFrequency = () => {
   useEffect(() => {
     const poll = () => refresh().catch(() => setError(t('settings.device.cpuFrequency.failed')));
     poll();
-    const timer = window.setInterval(poll, 2000);
-    return () => window.clearInterval(timer);
+    const stopPolling = pollWhileVisible(poll, 2000);
+    return () => stopPolling();
   }, []);
   async function update(target: number) {
     setLoading(true);

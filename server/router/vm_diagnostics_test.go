@@ -38,12 +38,20 @@ func TestDiagnosticsEndpointsRequireAdministrator(t *testing.T) {
 	}
 	r := gin.New()
 	vmRouter(r)
-	for _, path := range []string{"/api/vm/diagnostics", "/api/vm/diagnostics/report"} {
+	for _, path := range []string{"/api/vm/diagnostics", "/api/vm/diagnostics/report", "/api/vm/logs", "/api/vm/logs/boots"} {
+		if status := diagnosticsRequest(r, path, ""); status != http.StatusUnauthorized {
+			t.Fatalf("unauthenticated %s = %d, want 401", path, status)
+		}
 		if status := diagnosticsRequest(r, path, viewerToken); status != http.StatusForbidden {
 			t.Fatalf("viewer %s = %d, want 403", path, status)
 		}
 		if status := diagnosticsRequest(r, path, adminToken); status != http.StatusOK {
 			t.Fatalf("admin %s = %d, want 200", path, status)
+		}
+	}
+	for _, path := range []string{"/api/vm/logs?source=../../etc/shadow", "/api/vm/logs?boot=current/../previous", "/api/vm/logs?source=kernel;id"} {
+		if status := diagnosticsRequest(r, path, adminToken); status != http.StatusBadRequest {
+			t.Fatalf("invalid log selector %s returned %d", path, status)
 		}
 	}
 }

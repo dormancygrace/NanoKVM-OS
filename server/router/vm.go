@@ -21,6 +21,8 @@ func vmRouter(r *gin.Engine) {
 	admin.POST("/vm/date-time", service.SetDateTime)
 
 	api.GET("/vm/dashboard", service.GetDashboard)
+	admin.GET("/vm/logs", service.GetLogs)
+	admin.GET("/vm/logs/boots", service.GetLogBoots)
 	admin.GET("/vm/diagnostics", service.GetDiagnostics)
 	admin.GET("/vm/diagnostics/report", service.DownloadDiagnosticsReport)
 	api.GET("/vm/info", service.GetInfo)         // get device information

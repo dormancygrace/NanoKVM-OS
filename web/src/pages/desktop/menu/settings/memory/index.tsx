@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Progress, Select, Spin, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -17,38 +18,63 @@ export const Memory = () => {
   const mounted = useRef(false);
   const generation = useRef(0);
   const mutating = useRef(false);
+  const readInFlight = useRef<Promise<void> | null>(null);
 
-  async function refresh() {
+  async function refresh(afterPending = false): Promise<void> {
+    const pending = readInFlight.current;
+    if (pending) {
+      await pending;
+      // A mutation invalidates an older read. Fetch its resulting state once
+      // that read settles, while keeping every status request sequential.
+      if (afterPending) await refresh();
+      return;
+    }
+    if (!mounted.current || mutating.current) return;
     const current = ++generation.current;
-    try {
-      const response = await api.getMemoryStatus();
-      if (!mounted.current || current !== generation.current) return;
-      if (response.code !== 0) throw new Error(response.msg || t('settings.memory.loadError'));
-      setData(response.data);
-      setLoadError('');
-    } catch (err) {
-      if (mounted.current && current === generation.current) {
-        setLoadError(err instanceof Error ? err.message : t('settings.memory.loadError'));
+    const request = (async () => {
+      try {
+        const response = await api.getMemoryStatus();
+        if (!mounted.current || current !== generation.current) return;
+        if (response.code !== 0) throw new Error(response.msg || t('settings.memory.loadError'));
+        setData(response.data);
+        setLoadError('');
+      } catch (err) {
+        if (mounted.current && current === generation.current) {
+          setLoadError(err instanceof Error ? err.message : t('settings.memory.loadError'));
+        }
       }
+    })();
+    readInFlight.current = request;
+    try {
+      await request;
+    } finally {
+      if (readInFlight.current === request) readInFlight.current = null;
     }
   }
 
   useEffect(() => {
     mounted.current = true;
     let disposed = false;
-    let timer: number | undefined;
+    let inFlight = false;
     async function poll() {
-      if (!mutating.current) await refresh();
-      // Wait for the response before scheduling another poll. Otherwise a
-      // response slower than the interval is always discarded as stale.
-      if (!disposed) timer = window.setTimeout(() => void poll(), 3000);
+      if (disposed || inFlight || mutating.current) return;
+      // Never overlap reads: a slow response must not be discarded as stale
+      // by another poll, including the immediate refresh after visibility returns.
+      inFlight = true;
+      try {
+        await refresh();
+      } finally {
+        inFlight = false;
+      }
     }
-    void poll();
+    // Effect replay may still have an invalidated read pending.
+    void refresh(true);
+    const stopPolling = pollWhileVisible(() => void poll(), 3000);
     return () => {
       disposed = true;
       mounted.current = false;
       generation.current++;
-      window.clearTimeout(timer);
+      stopPolling();
     };
   }, []);
 
@@ -77,7 +103,7 @@ export const Memory = () => {
       mutating.current = false;
       if (mounted.current) {
         setBusy('');
-        void refresh();
+        void refresh(true);
       }
     }
   }
@@ -95,7 +121,7 @@ export const Memory = () => {
       if (mounted.current) setChangeError(err instanceof Error ? err.message : t('settings.memory.changeError'));
     } finally {
       mutating.current = false;
-      if (mounted.current) { setBusy(''); void refresh(); }
+      if (mounted.current) { setBusy(''); void refresh(true); }
     }
   }
 

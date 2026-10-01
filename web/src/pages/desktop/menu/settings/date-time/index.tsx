@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Divider, Select, Spin, Tag } from 'antd';
 import { useSetAtom } from 'jotai';
@@ -42,11 +43,11 @@ export function DateTimeSettings() {
       }
     };
     void refresh();
-    const poll = window.setInterval(() => void refresh(), 30000);
+    const stopPolling = pollWhileVisible(() => void refresh(), 30000);
     const tick = window.setInterval(() => setElapsed(performance.now() - received.current), 1000);
     return () => {
       mounted.current = false;
-      window.clearInterval(poll);
+      stopPolling();
       window.clearInterval(tick);
     };
   }, [setPreferences, t]);

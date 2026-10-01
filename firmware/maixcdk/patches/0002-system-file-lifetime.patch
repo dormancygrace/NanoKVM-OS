@@ -1,0 +1,66 @@
+From: Sipeed MaixCDK
+Subject: Close system helper streams and handle an empty runtime version
+
+Backport of sys-only changes from 04bfdcfe7f92ae428b6c0ab3bacf1a06b958bb8e
+and 6369151b30e3176f4e1eca6644ed46f40a65ec19 onto v4.11.3.
+No filesystem API or MaixCAM2 changes.
+
+diff --git a/components/basic/src/maix_sys.cpp b/components/basic/src/maix_sys.cpp
+--- a/components/basic/src/maix_sys.cpp
++++ b/components/basic/src/maix_sys.cpp
+@@ -47,6 +47,7 @@
+             ver.erase(ver.find_last_not_of(" \t\n") + 1);
+             return ver;
+         }
++        fclose(file);
+         return "Unkonwn";
+     }
+ 
+@@ -123,6 +124,11 @@
+             return "";
+         }
+         std::string *version = file->readline();
++        if (!version)
++        {
++            delete file;
++            return "";
++        }
+         std::string curr_version = *version;
+ 
+         // 去掉头尾的空字符
+@@ -461,6 +467,7 @@
+             key.erase(key.find_last_not_of(" \t\n") + 1);
+             return key;
+         }
++        fclose(file);
+         return "";
+     }
+ 
+@@ -588,11 +595,13 @@
+                 unsigned long freq;
+                 if (sscanf(idx, "clk_c906_0 %*d %*d %*d %lu", &freq) == 1)
+                 {
++                    fclose(file);
+                     res["cpu0"] = freq;
+                     return res;
+                 }
+             }
+         }
++        fclose(file);
+ #else
+         std::ifstream cpuinfo("/proc/cpuinfo");
+         std::string line;
+@@ -691,11 +700,13 @@
+                 unsigned long freq;
+                 if (sscanf(idx, "clk_tpu %*d %*d %*d %lu", &freq) == 1)
+                 {
++                    fclose(file);
+                     res["npu0"] = freq;
+                     return res;
+                 }
+             }
+         }
++        fclose(file);
+ #endif
+         return res;
+     }

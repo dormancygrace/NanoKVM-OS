@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useState } from 'react';
 
 import { http } from '@/lib/http.ts';
@@ -14,10 +15,10 @@ export function VPNVersion({ name }: { name: 'tailscale' | 'wireguard' | 'openvp
         })
         .catch(() => {});
     refresh();
-    const timer = window.setInterval(refresh, 60000);
+    const stopPolling = pollWhileVisible(refresh, 60000);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [name]);
   return version ? (

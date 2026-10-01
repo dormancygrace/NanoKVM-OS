@@ -12,7 +12,10 @@ import (
 )
 
 const (
-	messageWait      = 10 * time.Second
+	messageWait = 10 * time.Second
+	// maxReadSize bounds one complete client message, including fragmented
+	// pastes, before the terminal handler receives it.
+	maxReadSize      = 64 * 1024
 	maxMessageSize   = 1024
 	terminalPongWait = 30 * time.Second
 )
@@ -89,6 +92,8 @@ func wsWrite(ws *websocket.Conn, ptmx *os.File) {
 }
 
 func wsRead(ws *websocket.Conn, ptmx *os.File) {
+	ws.SetReadLimit(maxReadSize)
+
 	for {
 		kind, data, err := ws.ReadMessage()
 		if err != nil {

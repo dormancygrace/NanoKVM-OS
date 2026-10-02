@@ -66,6 +66,5 @@ func server(r *gin.Engine) {
 func LoopbackHTTPAllowedPaths() []string {
 	paths := PicoclawLoopbackHTTPAllowedPaths()
 	paths = append(paths, HIDLoopbackHTTPAllowedPaths()...)
-	paths = append(paths, "/api/os/update/health")
 	return paths
 }

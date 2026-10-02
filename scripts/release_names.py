@@ -8,10 +8,10 @@ def release_names(version):
     core,sep,prerelease=version.partition('-')
     display=core+('-'+prerelease.replace('.','-') if sep else '')
     stem='NanoKVM-OS-v'+display
-    names=dict(version=version,tag='v'+version,title=stem,image=stem+'.img',image_zip=stem+'.img.zip',package=stem+'.nkos',checksums='SHA256SUMS')
-    # Last compatibility release for beta-9's fixed-name update discovery.
+    names=dict(version=version,tag='v'+version,title=stem,image=stem+'.img',image_zip=stem+'.img.zip',checksums='SHA256SUMS')
+    # beta-10 was published under the fixed names beta-9 expected.
     if version == '1.0.0-beta.10':
-        names.update(image='NanoKVM-OS-'+version+'.img', image_zip='NanoKVM-OS-'+version+'.img.zip', package='NanoKVM-OS-update.nkos')
+        names.update(image='NanoKVM-OS-'+version+'.img', image_zip='NanoKVM-OS-'+version+'.img.zip')
     return names
 
 if __name__=='__main__':

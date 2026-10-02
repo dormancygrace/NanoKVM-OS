@@ -1,21 +1,21 @@
-# Linux 7.2.4 source export
+# Linux 7.2.6-nanokvm-os-r1 source export
 
-`linux-nanokvm-os.patch` is a cumulative patch against the unmodified Linux **7.2.4** archive pinned in `firmware/sources.json`. It includes the selected board, ION/CMA, watchdog, USB and T-Head uaccess changes. Do not also apply `firmware/kernel/patches/` to this export.
+This is the corresponding source of the kernel shipped in NanoKVM OS v2.0-a2 through v2.0-b7 (`7.2.6-nanokvm-os-r1`, the `Image` in every `boot.sd` of the `nanokvm-kernel-sg2002` package) and of its 62 in-tree modules.
+
+`linux-nanokvm-os.patch` is a cumulative patch against the unmodified **Linux 7.2.6** archive from kernel.org (`linux-7.2.6.tar.xz`, SHA-256 `039aef84f2b0994aeda3f4fcfc3d02ec9d7a9bbb9020ea264c43f446c860f606`). It contains every NanoKVM change: the board device tree, ION/CMA, eFuse, HDMI reset, SG2002 Ethernet PHY, temperature, CPU frequency, clock, pinctrl, RTC, SD/SDIO, USB gadget (HID, mass storage/DVD, UAC1), scheduler and T-Head uaccess changes. Do not also apply `firmware/kernel/patches/`; they are already included. `kernel.config` is the release build configuration.
 
 ```sh
-tar -xf linux-7.2.4.tar.xz
-cd linux-7.2.4
-patch -p1 < /path/to/NanoKVM-OS/firmware/release/source-components/kernel/linux-nanokvm-os.patch
-cd ..
+tar -xf linux-7.2.6.tar.xz
+(cd linux-7.2.6 && git apply /path/to/NanoKVM-OS/firmware/release/source-components/kernel/linux-nanokvm-os.patch)
 /path/to/NanoKVM-OS/firmware/release/source-components/kernel/build-kernel.sh \
-  "$PWD/linux-7.2.4" "$PWD/kernel-output" \
+  "$PWD/linux-7.2.6" "$PWD/kernel-output" \
   /path/to/buildroot-output/host/bin/riscv64-buildroot-linux-musl- 8
 ```
 
-The output directory must not already exist. The recipe uses the selected config, GCC 16.2.0 and scalar kernel ISA flags in `build-settings.json`, with a fixed build timestamp. Zacas/Zabha remain assembler support for runtime-gated kernel alternatives, not an assertion that C906 implements those extensions. `BUILD-SHA256SUMS` records the produced Image/DTB hashes; identical version labels alone do not guarantee bit-identical toolchains.
+The output directory must not exist yet. The recipe uses the release configuration, the scalar ISA flags in `build-settings.json`, the fixed build user, host and timestamp, and a minimal `PATH` (host tools such as `rustc` would otherwise change `.config`). It then checks the result against `EXPECTED-SHA256SUMS`.
 
-The cumulative patch was applied to the SHA-256-verified upstream archive and every changed file byte-compared with the selected prepared source (45 files). This validates the source export; it is not a new kernel build or device test. Out-of-tree media, Wi-Fi and CryptoDMA modules, firmware blobs and FIT/SD packaging are separate build steps described in [BUILD.md](../../../../docs/BUILD.md).
+## Verification
 
-## Beta-4
+On 2026-10-02 the patch was applied to the SHA-256-verified kernel.org archive. The resulting tree matched the release build tree byte for byte (`diff -r`, symlinks not followed). The only exceptions were four leftover patch backups (`*.orig`, `*.rej`) that the build does not use and that are not part of this export. A rebuild with the Buildroot 2026.08 toolchain (GCC 16.2.0, GNU Binutils 2.47.20260726) reproduced the release `Image`, `Module.symvers` and all 62 in-tree modules bit for bit. The `Image` is the one compressed into every v2.0-b7 `boot.sd`.
 
-The cumulative patch now reconstructs the selected Linux 7.2.5-nanokvm-os tree from the same upstream Linux 7.2.4 archive. It includes the official 7.2.4-to-7.2.5 changes, project drivers and DVD/UAC1/temperature/CPU-frequency changes. Patch application was checked and all 523 modified files compared byte-for-byte with the actual build source. Do not apply the incremental project patches a second time. `kernel.config` is the actual beta-4 build configuration.
+The board device trees in `boot.sd` are built from `firmware/boards/` with this kernel tree by `scripts/build-universal-boot.py`. Out-of-tree modules (media, Wi-Fi, CryptoDMA) are built separately; see [SOURCE.md](../../../../docs/SOURCE.md).

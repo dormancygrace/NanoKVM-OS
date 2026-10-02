@@ -29,8 +29,28 @@ def flags(kind='userspace'):
     return result
 
 
+def validate_flags(actual, kind='userspace'):
+    """Reject conflicting CPU/optimization options before writing metadata."""
+    expected = flags(kind)
+    for prefix in ('-O', '-march=', '-mtune=', '-mabi='):
+        selected = [f for f in actual if f.startswith(prefix)]
+        required = [f for f in expected if f.startswith(prefix)]
+        if not selected or any(f not in required for f in selected):
+            raise ValueError(f'{kind}: conflicting or missing {prefix} option: {selected}')
+    for option in expected:
+        if option not in actual:
+            raise ValueError(f'{kind}: missing {option}')
+    forbidden = {'-mfence-tso'}
+    if kind != 'userspace':
+        forbidden |= {'-ftree-vectorize', '-ftree-loop-vectorize', '-ftree-slp-vectorize'}
+    if forbidden.intersection(actual):
+        raise ValueError(f'{kind}: contradictory compiler options')
+
+
 def record(output, compiler, kind='userspace', effective_flags=None):
     """Record the actual flag list supplied by the caller and compiler identity."""
+    actual = list(effective_flags if effective_flags is not None else flags(kind))
+    validate_flags(actual, kind)
     path = Path(output)
     path.parent.mkdir(parents=True, exist_ok=True)
     data = {
@@ -38,7 +58,7 @@ def record(output, compiler, kind='userspace', effective_flags=None):
         'profile_sha256': hashlib.sha256(PROFILE_FILE.read_bytes()).hexdigest(),
         'compiler_version': subprocess.check_output([str(compiler), '-dumpfullversion'], text=True).strip(),
         'compiler_target': subprocess.check_output([str(compiler), '-dumpmachine'], text=True).strip(),
-        'flags': list(effective_flags if effective_flags is not None else flags(kind)),
+        'flags': actual,
         'scope': 'NanoKVM-built source objects; excludes stock Alpine and prebuilt vendor objects'
     }
     path.write_text(json.dumps(data, indent=2) + '\n')

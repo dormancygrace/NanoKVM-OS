@@ -51,3 +51,17 @@ Component output directories contain `cpu-profile*.json` with the policy hash,
 compiler identity and flags used by the build script. These files describe only
 our compiled objects, not the flags originally used for vendor binary objects.
 The `BUILD-*.md` files next to this one describe how earlier releases were built. Their scripts have been replaced by `platform/build.sh`.
+
+The policy also covers the standalone EDID, board-probe and devmem tools. A
+builder records its compiler and supplied flags in `cpu-profile*.json`; conflicting
+optimization, ISA, tuning or ABI options are rejected. This validates the options
+supplied by the builder, not every option subsequently added by an upstream
+Makefile. A complete build and device qualification remain necessary.
+
+For CPU comparisons, `tools/c906-profile-bench.c` is a small integer/float test,
+not a video benchmark. Compile it with the same compiler, `-O2`, C906 tuning,
+`-mno-fence-tso`, `-mabi=lp64d` and `-ffp-contract=off`, varying only `-march`.
+Interleave repeated runs on the same device and compare checksums as well as
+elapsed time. The `-ffp-contract=off` option is for comparable benchmark arithmetic;
+it is not a production build flag. Inspect compiler vectorization reports before
+attributing any improvement to vector instructions.

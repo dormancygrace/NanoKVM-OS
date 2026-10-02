@@ -40,3 +40,24 @@ func TestReferencedCredentials(t *testing.T) {
 		t.Fatal("combined size limit missing")
 	}
 }
+
+func TestNormalizeRejectsLinesOpenVPNWouldSplit(t *testing.T) {
+	// A closing tag past the 256-byte read chunk would end the block early in
+	// OpenVPN and turn the following lines into directives.
+	smuggled := strings.Replace(profile, "CA-TEST\n", strings.Repeat("A", 251)+"</ca>\nup /bin/sh\n<ca>\nCA-TEST\n", 1)
+	if _, e := Normalize(smuggled, nil); e == nil {
+		t.Fatal("accepted a closing tag inside a credential line")
+	}
+	long := strings.Replace(profile, "remote vpn.example.test 1194 udp", "remote "+strings.Repeat("a", 260)+" 1194 udp", 1)
+	if _, e := Normalize(long, nil); e == nil {
+		t.Fatal("accepted a profile line longer than OpenVPN reads whole")
+	}
+	asset := map[string]string{"root.crt": strings.Repeat("B", 300)}
+	if _, e := Normalize("client\ndev tun\nremote vpn.example.test\nca root.crt\n", asset); e == nil {
+		t.Fatal("accepted a credential file line longer than OpenVPN reads whole")
+	}
+	pem := "-----BEGIN CERTIFICATE-----\n" + strings.Repeat(strings.Repeat("C", 64)+"\n", 4) + "-----END CERTIFICATE-----"
+	if _, e := Normalize("client\ndev tun\nremote vpn.example.test\nca root.crt\n", map[string]string{"root.crt": pem}); e != nil {
+		t.Fatal("rejected an ordinary PEM certificate:", e)
+	}
+}

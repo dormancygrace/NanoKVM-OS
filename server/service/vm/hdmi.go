@@ -33,10 +33,17 @@ var (
 func (s *Service) ResetHdmi(c *gin.Context) {
 	var rsp proto.Response
 
-	utils.PersistHDMIEnabled()
+	// Any user may restart capture, but a reset must never override an
+	// administrator's decision to keep HDMI capture disabled.
+	if isHdmiDisabled() {
+		rsp.ErrRsp(c, -2, "HDMI capture is disabled")
+		return
+	}
 	DisableHdmiCapture()
 	time.Sleep(1 * time.Second)
-	EnableHdmiCapture()
+	if !isHdmiDisabled() {
+		EnableHdmiCapture()
+	}
 
 	rsp.OkRsp(c)
 	log.Debug("reset hdmi")

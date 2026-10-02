@@ -13,6 +13,10 @@ type Parsed struct {
 	NeedsAuth bool
 }
 
+// maxOpenVPNLine is the longest line OpenVPN 2 reads whole (OPTION_LINE_SIZE
+// is 256 including the terminator).
+const maxOpenVPNLine = 255
+
 // Normalize resolves uploaded credential files into a self-contained profile.
 // Only client options are accepted; imported scripts/plugins/management paths
 // must never become root commands or arbitrary local file reads.
@@ -45,7 +49,9 @@ func Normalize(data string, assets map[string]string) (Parsed, error) {
 				block = nil
 				continue
 			}
-			if strings.HasPrefix(line, "<") {
+			// OpenVPN recognises a closing tag at the start of any 256-byte
+			// read chunk, so a tag anywhere in a long line could end the block.
+			if strings.ContainsAny(line, "<>") {
 				return lineError(number+1, "invalid credential block")
 			}
 			block = append(block, line)
@@ -179,6 +185,14 @@ func Normalize(data string, assets map[string]string) (Parsed, error) {
 	result.Config = "client\n" + strings.Join(output, "\n") + "\n"
 	if len(result.Config) > 256*1024 {
 		return Parsed{}, fmt.Errorf("combined profile and certificates exceed 256 KiB")
+	}
+	// OpenVPN 2 reads configuration lines in 256-byte chunks and parses each
+	// chunk as its own line, so a longer line here would smuggle options
+	// past the allowlist above. Check the exact text OpenVPN will read.
+	for number, line := range strings.Split(result.Config, "\n") {
+		if len(line) > maxOpenVPNLine {
+			return Parsed{}, fmt.Errorf("profile line %d exceeds the %d-byte OpenVPN line limit", number+1, maxOpenVPNLine)
+		}
 	}
 	return result, nil
 }

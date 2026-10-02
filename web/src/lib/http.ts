@@ -3,6 +3,9 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 
+// Matches middleware.PasswordChangeRequiredCode on the server.
+const passwordChangeRequiredCode = -10;
+
 type Response = {
   code: number;
   msg: string;
@@ -43,6 +46,8 @@ class Http {
         const code = error.response?.status;
         if (code === 401) {
           notifyAuthExpired();
+        } else if (code === 403 && error.response?.data?.code === passwordChangeRequiredCode) {
+          window.location.hash = '#/auth/password';
         }
         return Promise.reject(error);
       }

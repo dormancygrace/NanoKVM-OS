@@ -38,3 +38,29 @@ func TestManagerOnlyGrantsManualControlToOneClient(t *testing.T) {
 		t.Fatal("disconnecting the owner should disable its input")
 	}
 }
+
+func TestHTTPInputRequiresTheControllingSocketLease(t *testing.T) {
+	manager := newManager()
+	if !manager.AllowsInputLease("") {
+		t.Fatal("HTTP input must work while no browser holds control")
+	}
+	// Two tabs of one login used to share an identity; each socket now has
+	// its own lease.
+	owner := &Client{inputLease: newInputLease()}
+	sameLoginTab := &Client{inputLease: newInputLease()}
+	manager.AddClient(new(websocket.Conn), owner)
+	manager.AddClient(new(websocket.Conn), sameLoginTab)
+	if !manager.AllowsInputLease(owner.inputLease) {
+		t.Fatal("the controlling socket must keep HTTP input")
+	}
+	if manager.AllowsInputLease(sameLoginTab.inputLease) || manager.AllowsInputLease("") || manager.AllowsInputLease("guess") {
+		t.Fatal("other sockets must not inject input over HTTP")
+	}
+	manager.SetControl(sameLoginTab, true)
+	if manager.AllowsInputLease(owner.inputLease) || !manager.AllowsInputLease(sameLoginTab.inputLease) {
+		t.Fatal("HTTP input must follow a control transfer")
+	}
+	if newInputLease() == newInputLease() {
+		t.Fatal("leases must be random")
+	}
+}

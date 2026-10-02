@@ -55,6 +55,14 @@ export const Password = () => {
   }
 
   function cancel() {
+    // The device stays locked to this page until the factory password changes.
+    if (account.mustChangePassword) {
+      void api.logout().finally(() => {
+        notifyAuthExpired();
+        navigate('/auth/login', { replace: true });
+      });
+      return;
+    }
     window.location.replace('/');
   }
 

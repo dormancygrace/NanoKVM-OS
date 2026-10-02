@@ -5,9 +5,11 @@ export type UserRole = 'admin' | 'user';
 export type Account = {
   username: string;
   role: UserRole;
+  // The server only answers password-change routes until this is cleared.
+  mustChangePassword?: boolean;
 };
 
-export type User = Account & {
+export type User = Omit<Account, 'mustChangePassword'> & {
   enabled: boolean;
   systemAccount?: boolean;
 };

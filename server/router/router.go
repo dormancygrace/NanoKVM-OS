@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/service/controlmode"
 	"NanoKVM-Server/service/picoclaw"
 
@@ -13,7 +14,22 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// ownBodyLimitRoutes stream their uploads or set their own MaxBytesReader.
+var ownBodyLimitRoutes = []string{
+	"/api/download/file",
+	"/api/branding/logo",
+	"/api/branding/favicon",
+	"/api/extensions/openvpn/import",
+	"/api/extensions/wireguard/import",
+	"/api/vm/script/upload",
+	"/api/os/update/upload",
+	picoclawBasePath + picoclawActionsPath,
+	picoclawBasePath + picoclawMCPPath,
+	picoclawBasePath + picoclawLoadImagePath,
+}
+
 func Init(r *gin.Engine) {
+	r.Use(middleware.LimitRequestBody(ownBodyLimitRoutes...))
 	web(r)
 	server(r)
 	log.Debugf("router init done")

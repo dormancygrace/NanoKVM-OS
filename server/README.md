@@ -50,7 +50,7 @@ jwt:
    refreshTokenDuration: 2678400    # The token refresh duration threshold in seconds before forcing a re-login. Default is `2678400` (~31 days)
    revokeTokensOnLogout: true       # Whether logout invalidates all sessions belonging to that user. Other users are never logged out. Setting this to false only clears the browser cookie and is not recommended. Default is `true`
 security:
-   loginLockoutDuration: 0          # The duration (in seconds) to ban an IP from attempting to log in again after reaching the failure limit. If set to `0` or left empty, brute-force protection is disabled. Default is `0`
+   loginLockoutDuration: 300        # The duration (in seconds) to ban an IP (an IPv6 /64) from attempting to log in again after reaching the failure limit. `0` disables brute-force protection. Default is `300` for new configurations; existing files keep their value
    loginMaxFailures:     5          # The maximum number of continuous failed login attempts allowed per IP before triggering protection. Default is `5`
    trustedProxies:                  # IP addresses or CIDRs allowed to supply X-Forwarded-Host and X-Forwarded-Proto. Default: loopback only.
      - 127.0.0.1/32

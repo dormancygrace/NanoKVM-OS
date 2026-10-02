@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Build NanoKVM board service using pinned MaixCDK basic/peripheral sources.
 
-Requires NANOKVM_MAIXCDK_SOURCE, NANOKVM_BUILDROOT_OUTPUT and
+Requires NANOKVM_MAIXCDK_SOURCE (MaixCDK with platform/native/maixcdk/*.patch,
+prepared by platform/build.sh), NANOKVM_BUILDROOT_OUTPUT and
 NANOKVM_SYSTEM_OUTPUT. Does not install or start the service.
 """
 from nanokvm_cpu_profile import flags as cpu_flags, record as record_cpu_profile
@@ -14,10 +15,9 @@ output=Path(os.environ['NANOKVM_SYSTEM_OUTPUT']).resolve()
 cross=str(Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve()/'host/bin/riscv64-buildroot-linux-musl-')
 if subprocess.check_output([cross+'gcc','-dumpfullversion'],text=True).strip()!='16.2.0':
     raise SystemExit('Expected Enhanced GCC 16.2')
-subprocess.run(['git','merge-base','--is-ancestor',
-    'b29c951647df74e4efa55fd4454efb37e4554be0','HEAD'],cwd=maix,check=True)
-subprocess.run(['python3', str(repo/'scripts/apply-maixcdk-fixes.py'),
-    '--source', str(maix), '--check'], check=True)
+# The debug data records the compiler's working directory; -ffile-prefix-map
+# turns the repository into ./nanokvm-os, so the output does not depend on it.
+os.chdir(repo)
 main=repo/'support/sg2002/kvm_system/main'
 basic=maix/'components/basic'
 peripheral=maix/'components/peripheral'
@@ -65,7 +65,7 @@ with tempfile.TemporaryDirectory(prefix='system-',dir=output) as directory:
     shutil.copy2(tmp/'kvm_system.debug',output/'kvm_system.debug')
     shutil.copy2(tmp/'system.map',output/'system.map')
     (output/'dependencies.d').write_text(dependencies)
-manifest={'maixcdk_commit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=maix,text=True).strip(),
+manifest={'maixcdk_commit':'b29c951647df74e4efa55fd4454efb37e4554be0',
           'source_sha256':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},
           'kvm_system_sha256':hashlib.sha256((output/'kvm_system').read_bytes()).hexdigest()}
 (output/'licenses').mkdir(exist_ok=True)

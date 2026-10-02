@@ -6,7 +6,7 @@ url="https://github.com/sipeed/NanoKVM"
 arch="riscv64"
 license="custom:NanoKVM-vendor"
 source="$pkgname-$pkgver.tar.gz"
-options="!check"
+options="!check !strip"
 
 build() {
 	:

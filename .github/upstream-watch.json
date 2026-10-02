@@ -58,8 +58,8 @@
     },
     {
       "name": "sophgo_cvi_mpi",
-      "path": "firmware/sources.json",
-      "pattern": "\"sophgo_cvi_mpi\"\\s*:\\s*\\{[^}]*\"commit\"\\s*:\\s*\"([0-9a-f]{40})\"",
+      "path": "platform/sources.lock",
+      "pattern": "^cvi-mpi\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "sophgo/cvi_mpi",
       "branch": "sg200x-dev"
@@ -74,40 +74,40 @@
     },
     {
       "name": "json_c",
-      "path": "firmware/sources.json",
-      "pattern": "\"json_c\"\\s*:\\s*\\{[^}]*\"commit\"\\s*:\\s*\"([0-9a-f]{40})\"",
+      "path": "platform/sources.lock",
+      "pattern": "^json-c\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "json-c/json-c",
       "branch": null
     },
     {
       "name": "miniz",
-      "path": "firmware/sources.json",
-      "pattern": "\"miniz\"\\s*:\\s*\\{[^}]*\"commit\"\\s*:\\s*\"([0-9a-f]{40})\"",
+      "path": "platform/sources.lock",
+      "pattern": "^miniz\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "richgel999/miniz",
       "branch": null
     },
     {
       "name": "inih",
-      "path": "firmware/sources.json",
-      "pattern": "\"inih\"\\s*:\\s*\\{[^}]*\"commit\"\\s*:\\s*\"([0-9a-f]{40})\"",
+      "path": "platform/sources.lock",
+      "pattern": "^inih\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "benhoyt/inih",
       "branch": null
     },
     {
       "name": "sophgo_sensors",
-      "path": "firmware/sources.json",
-      "pattern": "\"sophgo_sensors\"\\s*:\\s*\\{[^}]*\"commit\"\\s*:\\s*\"([0-9a-f]{40})\"",
+      "path": "platform/sources.lock",
+      "pattern": "^sensors\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "sophgo/SensorSupportList",
       "branch": "sg200x-dev"
     },
     {
       "name": "maixcdk",
-      "path": "firmware/sources.json",
-      "pattern": "\"maixcdk\"\\s*:\\s*\\{[^}]*\"commit\"\\s*:\\s*\"([0-9a-f]{40})\"",
+      "path": "platform/sources.lock",
+      "pattern": "^maixcdk\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "sipeed/MaixCDK",
       "branch": null
@@ -147,34 +147,18 @@
     },
     {
       "name": "Opus",
-      "path": "scripts/build-usb-audio.py",
-      "pattern": "archive=out/'opus-([0-9.]+)\\.tar",
+      "path": "platform/sources.lock",
+      "pattern": "opus-([0-9.]+)\\.tar",
       "kind": "github-tags",
       "repo": "xiph/opus",
       "upstream_pattern": "^v([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)$"
     },
     {
       "name": "tinyalsa",
-      "path": "scripts/build-usb-audio.py",
-      "pattern": "revision='([0-9a-f]{40})'",
+      "path": "platform/sources.lock",
+      "pattern": "^tinyalsa\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "tinyalsa/tinyalsa",
-      "branch": null
-    },
-    {
-      "name": "aic8800-sdio-firmware",
-      "path": "firmware/buildroot/package/aic8800-sdio-firmware/aic8800-sdio-firmware.mk",
-      "pattern": "^AIC8800_SDIO_FIRMWARE_VERSION\\s*=\\s*([0-9a-f]{40})",
-      "kind": "github-commit",
-      "repo": "lxowalle/aic8800-sdio-firmware",
-      "branch": null
-    },
-    {
-      "name": "sg2002-codec-firmware",
-      "path": "firmware/buildroot/package/sg2002-codec-firmware/sg2002-codec-firmware.mk",
-      "pattern": "^SG2002_CODEC_FIRMWARE_VERSION\\s*=\\s*([0-9a-f]{40})",
-      "kind": "github-commit",
-      "repo": "0x754C/sg2002_codec_fw",
       "branch": null
     },
     {

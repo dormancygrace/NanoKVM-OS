@@ -1,0 +1,166 @@
+# Contents of the six nanokvm-* APK packages (firmware/alpine/packages).
+#
+#   package  type  path  mode  source
+#
+# package: base, app, release, firmware-sg2002, kernel-sg2002, kmod-sg2002
+# type:    file  one file
+#          tree  every file below a directory, with this mode; directories 0755
+#          dir   a directory with a mode other than 0755
+#          link  a symbolic link to source
+# source:  a path in this repository,
+#          @path an output of build.sh in OUTPUT/images,
+#          %name a file that the payloads step writes (build.sh payloads).
+# Parent directories are created with mode 0755.
+
+# nanokvm-base: OpenRC services, compatibility scripts and board tools
+base  file  /etc/apk/commit_hooks.d/50-nanokvm-apply      0755  firmware/alpine/compat/50-nanokvm-apply
+base  file  /etc/apk/protected_paths.d/nanokvm.list       0644  %protected-paths
+base  file  /etc/chrony.conf                              0644  firmware/buildroot/board/overlay/etc/chrony.conf
+base  file  /etc/console_handler.sh                       0755  firmware/buildroot/board/overlay/etc/console_handler.sh
+base  file  /etc/nanokvm-buildroot                        0644  %nanokvm-buildroot
+# /etc/profile.d/nanokvm-banner.sh is added by the nanokvm-base APKBUILD.
+base  file  /etc/init.d/nanokvm-app                       0755  firmware/alpine/openrc/nanokvm-app
+base  file  /etc/init.d/nanokvm-board                     0755  firmware/alpine/openrc/nanokvm-board
+base  file  /etc/init.d/nanokvm-mdns                      0755  firmware/alpine/openrc/nanokvm-mdns
+base  file  /etc/init.d/nanokvm-modules                   0755  firmware/alpine/openrc/nanokvm-modules
+base  file  /etc/init.d/nanokvm-network                   0755  firmware/alpine/openrc/nanokvm-network
+base  file  /etc/init.d/nanokvm-policy                    0755  firmware/alpine/openrc/nanokvm-policy
+base  file  /etc/init.d/nanokvm-ssh                       0755  firmware/alpine/openrc/nanokvm-ssh
+base  file  /etc/init.d/nanokvm-storage                   0755  firmware/alpine/openrc/nanokvm-storage
+base  file  /etc/init.d/nanokvm-usb                       0755  firmware/alpine/openrc/nanokvm-usb
+base  file  /etc/init.d/nanokvm-watchdog                  0755  firmware/alpine/openrc/nanokvm-watchdog
+base  dir   /usr/libexec/nanokvm                          0700
+base  file  /usr/libexec/nanokvm/activate-kernel          0755  firmware/alpine/compat/nanokvm-activate-kernel
+base  file  /usr/libexec/nanokvm/firstboot-storage        0755  firmware/alpine/compat/nanokvm-firstboot-storage
+base  file  /usr/libexec/nanokvm/wpa-passphrase-compat    0755  firmware/alpine/compat/wpa-passphrase-compat
+# The Buildroot-era init scripts live once below legacy/; /etc/init.d links to them.
+base  dir   /usr/libexec/nanokvm/legacy                   0700
+base  file  /usr/libexec/nanokvm/legacy/S02config         0755  firmware/buildroot/board/enhanced/init.d/S02config
+base  file  /usr/libexec/nanokvm/legacy/S02ipv6           0755  server/service/network/scripts/S02ipv6
+base  file  /usr/libexec/nanokvm/legacy/S03usbdev         0755  kvmapp/system/init.d/S03usbdev
+base  file  /usr/libexec/nanokvm/legacy/S10uuid           0755  firmware/buildroot/board/enhanced/init.d/S10uuid
+base  file  /usr/libexec/nanokvm/legacy/S13nanokvm-watchdog 0755 kvmapp/system/init.d/S13nanokvm-watchdog
+base  file  /usr/libexec/nanokvm/legacy/S15kvmhwd         0755  firmware/buildroot/board/enhanced/init.d/S15kvmhwd
+base  file  /usr/libexec/nanokvm/legacy/S25wifimod        0755  kvmapp/system/init.d/S25wifimod
+base  file  /usr/libexec/nanokvm/legacy/S29qdisc          0755  kvmapp/system/init.d/S29qdisc
+base  file  /usr/libexec/nanokvm/legacy/S30eth            0755  kvmapp/system/init.d/S30eth
+base  file  /usr/libexec/nanokvm/legacy/S30usbnet         0755  firmware/buildroot/board/enhanced/init.d/S30usbnet
+base  file  /usr/libexec/nanokvm/legacy/S30wifi           0755  kvmapp/system/init.d/S30wifi
+base  file  /usr/libexec/nanokvm/legacy/S34mssclamp       0755  kvmapp/system/init.d/S34mssclamp
+base  file  /usr/libexec/nanokvm/legacy/S38memory         0755  kvmapp/system/init.d/S38memory
+base  file  /usr/libexec/nanokvm/legacy/S49chronyd        0755  firmware/alpine/compat/S49chronyd
+base  file  /usr/libexec/nanokvm/legacy/S49persistent-cron 0755 kvmapp/system/init.d/S49persistent-cron
+base  file  /usr/libexec/nanokvm/legacy/S50avahi-daemon   0755  firmware/alpine/compat/S50avahi-daemon
+base  file  /usr/libexec/nanokvm/legacy/S50sshd           0755  firmware/alpine/compat/S50sshd
+base  file  /usr/libexec/nanokvm/legacy/S80dnsmasq        0755  kvmapp/system/init.d/S80dnsmasq
+base  file  /usr/libexec/nanokvm/legacy/S94sg2002aes      0755  kvmapp/system/init.d/S94sg2002aes
+base  file  /usr/libexec/nanokvm/legacy/S95nanokvm        0755  kvmapp/system/init.d/S95nanokvm
+base  file  /usr/libexec/nanokvm/legacy/S96picoclaw       0755  kvmapp/system/init.d/S96picoclaw
+base  file  /usr/libexec/nanokvm/legacy/S98tailscaled     0755  kvmapp/system/init.d/S98tailscaled
+base  link  /etc/init.d/S02config                         -     /usr/libexec/nanokvm/legacy/S02config
+base  link  /etc/init.d/S02ipv6                           -     /usr/libexec/nanokvm/legacy/S02ipv6
+base  link  /etc/init.d/S03usbdev                         -     /usr/libexec/nanokvm/legacy/S03usbdev
+base  link  /etc/init.d/S10uuid                           -     /usr/libexec/nanokvm/legacy/S10uuid
+base  link  /etc/init.d/S13nanokvm-watchdog               -     /usr/libexec/nanokvm/legacy/S13nanokvm-watchdog
+base  link  /etc/init.d/S15kvmhwd                         -     /usr/libexec/nanokvm/legacy/S15kvmhwd
+base  link  /etc/init.d/S25wifimod                        -     /usr/libexec/nanokvm/legacy/S25wifimod
+base  link  /etc/init.d/S29qdisc                          -     /usr/libexec/nanokvm/legacy/S29qdisc
+base  link  /etc/init.d/S30eth                            -     /usr/libexec/nanokvm/legacy/S30eth
+base  link  /etc/init.d/S30usbnet                         -     /usr/libexec/nanokvm/legacy/S30usbnet
+base  link  /etc/init.d/S30wifi                           -     /usr/libexec/nanokvm/legacy/S30wifi
+base  link  /etc/init.d/S34mssclamp                       -     /usr/libexec/nanokvm/legacy/S34mssclamp
+base  link  /etc/init.d/S38memory                         -     /usr/libexec/nanokvm/legacy/S38memory
+base  link  /etc/init.d/S49chronyd                        -     /usr/libexec/nanokvm/legacy/S49chronyd
+base  link  /etc/init.d/S49persistent-cron                -     /usr/libexec/nanokvm/legacy/S49persistent-cron
+base  link  /etc/init.d/S50avahi-daemon                   -     /usr/libexec/nanokvm/legacy/S50avahi-daemon
+base  link  /etc/init.d/S50sshd                           -     /usr/libexec/nanokvm/legacy/S50sshd
+base  link  /etc/init.d/S80dnsmasq                        -     /usr/libexec/nanokvm/legacy/S80dnsmasq
+base  link  /etc/init.d/S94sg2002aes                      -     /usr/libexec/nanokvm/legacy/S94sg2002aes
+base  link  /etc/init.d/S95nanokvm                        -     /usr/libexec/nanokvm/legacy/S95nanokvm
+base  link  /etc/init.d/S96picoclaw                       -     /usr/libexec/nanokvm/legacy/S96picoclaw
+base  link  /etc/init.d/S98tailscaled                     -     /usr/libexec/nanokvm/legacy/S98tailscaled
+base  file  /usr/sbin/devmem                              0755  @tools/devmem
+base  file  /usr/sbin/nanokvm-stage-update                0755  firmware/alpine/compat/nanokvm-stage-update
+base  file  /usr/sbin/nanokvm-wifi-tx-live                0755  firmware/buildroot/board/enhanced/tools/nanokvm-wifi-tx-live
+base  file  /usr/sbin/nanokvm-wifi-tx-policy              0755  firmware/buildroot/board/enhanced/tools/nanokvm-wifi-tx-policy
+base  file  /usr/sbin/nanokvm_update_edid                 0755  @tools/nanokvm_update_edid
+base  file  /usr/sbin/nkos-apply-updates                  0755  @server/nkos-apply-updates
+base  file  /usr/sbin/nkos-board-probe                    0755  @tools/nkos-board-probe
+base  file  /usr/sbin/nkos-board-select                   0755  firmware/alpine/compat/nkos-board-select
+base  file  /usr/sbin/nkos-update                         0755  @server/nkos-update
+base  link  /usr/sbin/watchdog                            -     /sbin/watchdog
+base  file  /usr/share/licenses/nanokvm-base/busybox-LICENSE 0644 @tools/busybox-LICENSE
+
+# nanokvm-app: server, web UI, native libraries and the board service
+app   file  /kvmapp/enhanced-stage-manifest.json          0644  %enhanced-stage-manifest.json
+app   file  /kvmapp/version                               0644  %version
+# Video defaults of a new installation; protected from upgrades by base.
+app   file  /kvmapp/kvm/fps                               0644  %kvm/fps
+app   file  /kvmapp/kvm/qlty                              0644  %kvm/qlty
+app   file  /kvmapp/kvm/res                               0644  %kvm/res
+app   file  /kvmapp/kvm/type                              0644  %kvm/type
+app   link  /kvmapp/kvm/height                            -     /run/nanokvm/height
+app   link  /kvmapp/kvm/now_fps                           -     /run/nanokvm/now_fps
+app   link  /kvmapp/kvm/state                             -     /run/nanokvm/state
+app   link  /kvmapp/kvm/width                             -     /run/nanokvm/width
+app   link  /kvmapp/kvm/wifi_state                        -     /run/nanokvm/wifi_state
+app   file  /kvmapp/kvm_system/kvm_system                 0755  @system/kvm_system
+app   file  /kvmapp/picoclaw/AGENT.md                     0644  kvmapp/picoclaw/AGENT.md
+app   file  /kvmapp/picoclaw/AGENT_KVM.md                 0644  kvmapp/picoclaw/AGENT_KVM.md
+app   file  /kvmapp/picoclaw/skills/kvm-control/SKILL.md  0644  kvmapp/picoclaw/skills/kvm-control/SKILL.md
+app   file  /kvmapp/picoclaw/skills/kvm-control/scripts/nanokvm-bridge.sh 0755 kvmapp/picoclaw/skills/kvm-control/scripts/nanokvm-bridge.sh
+app   file  /kvmapp/server/NanoKVM-Server                 0755  @server/NanoKVM-Server
+app   tree  /kvmapp/server/dl_lib                         0644  @native
+app   tree  /kvmapp/server/web                            0644  @web
+app   file  /kvmapp/system/bin/usb-audio-capture          0755  @tools/usb-audio-capture
+app   file  /kvmapp/system/init.d/S00kmod                 0755  kvmapp/system/init.d/S00kmod
+app   file  /kvmapp/system/init.d/S01fs                   0755  kvmapp/system/init.d/S01fs
+app   file  /kvmapp/system/init.d/S02config               0755  firmware/buildroot/board/enhanced/init.d/S02config
+app   file  /kvmapp/system/init.d/S03usbdev               0755  kvmapp/system/init.d/S03usbdev
+app   file  /kvmapp/system/init.d/S03usbhid               0755  kvmapp/system/init.d/S03usbhid
+app   file  /kvmapp/system/init.d/S10uuid                 0755  firmware/buildroot/board/enhanced/init.d/S10uuid
+app   file  /kvmapp/system/init.d/S12temperature          0755  firmware/buildroot/board/enhanced/init.d/S12temperature
+app   file  /kvmapp/system/init.d/S13cpufreq              0755  firmware/buildroot/board/enhanced/init.d/S13cpufreq
+app   file  /kvmapp/system/init.d/S13nanokvm-watchdog     0755  kvmapp/system/init.d/S13nanokvm-watchdog
+app   file  /kvmapp/system/init.d/S15kvmhwd               0755  firmware/buildroot/board/enhanced/init.d/S15kvmhwd
+app   file  /kvmapp/system/init.d/S25wifimod              0755  kvmapp/system/init.d/S25wifimod
+app   file  /kvmapp/system/init.d/S29qdisc                0755  kvmapp/system/init.d/S29qdisc
+app   file  /kvmapp/system/init.d/S30eth                  0755  kvmapp/system/init.d/S30eth
+app   file  /kvmapp/system/init.d/S30usbnet               0755  firmware/buildroot/board/enhanced/init.d/S30usbnet
+app   file  /kvmapp/system/init.d/S30wifi                 0755  kvmapp/system/init.d/S30wifi
+app   file  /kvmapp/system/init.d/S34mssclamp             0755  kvmapp/system/init.d/S34mssclamp
+app   file  /kvmapp/system/init.d/S38memory               0755  kvmapp/system/init.d/S38memory
+app   file  /kvmapp/system/init.d/S49persistent-cron      0755  kvmapp/system/init.d/S49persistent-cron
+app   file  /kvmapp/system/init.d/S50avahi-daemon         0755  kvmapp/system/init.d/S50avahi-daemon
+app   file  /kvmapp/system/init.d/S50ssdpd                0755  kvmapp/system/init.d/S50ssdpd
+app   file  /kvmapp/system/init.d/S50sshd                 0755  kvmapp/system/init.d/S50sshd
+app   file  /kvmapp/system/init.d/S80dnsmasq              0755  kvmapp/system/init.d/S80dnsmasq
+app   file  /kvmapp/system/init.d/S94sg2002aes            0755  kvmapp/system/init.d/S94sg2002aes
+app   file  /kvmapp/system/init.d/S95nanokvm              0755  kvmapp/system/init.d/S95nanokvm
+app   file  /kvmapp/system/init.d/S96picoclaw             0755  kvmapp/system/init.d/S96picoclaw
+app   file  /kvmapp/system/init.d/S98tailscaled           0755  kvmapp/system/init.d/S98tailscaled
+app   file  /kvmapp/system/share/usb-audio/SOURCE         0644  @tools/usb-audio/SOURCE
+app   file  /kvmapp/system/share/usb-audio/opus-COPYING   0644  @tools/usb-audio/opus-COPYING
+app   file  /kvmapp/system/share/usb-audio/tinyalsa-LICENSE 0644 @tools/usb-audio/tinyalsa-LICENSE
+app   file  /kvmapp/system/tool/E21_NanoKVM.bin           0644  tools/nanokvm_update_edid/E21_NanoKVM.bin
+app   link  /kvmapp/system/tool/nanokvm_update_edid       -     /usr/sbin/nanokvm_update_edid
+
+# nanokvm-release: the release marker that depends on the tested package set
+release file /etc/nanokvm-release                         0644  %nanokvm-release
+release file /etc/nanokvm-build-profile                   0644  %nanokvm-build-profile
+
+# nanokvm-firmware-sg2002: Wi-Fi, video codec and HDMI firmware
+firmware-sg2002 tree /lib/firmware                        0644  @firmware/lib/firmware
+firmware-sg2002 tree /usr/share/fw_vcodec                 0644  @firmware/fw_vcodec
+firmware-sg2002 tree /usr/share/nanokvm/edid              0644  @tools/edid
+firmware-sg2002 tree /usr/share/licenses/nanokvm-firmware-sg2002 0644 @firmware/licenses
+firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini       0644 firmware/buildroot/board/sensor-data/sensor_cfg.ini
+firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.LT    0644 firmware/buildroot/board/sensor-data/sensor_cfg.ini
+firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.OA    0644 firmware/buildroot/board/sensor-data/sensor_cfg.ini.OA
+firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.SC035 0644 firmware/buildroot/board/sensor-data/sensor_cfg.ini.SC035
+firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.alpha 0644 firmware/buildroot/board/overlay/mnt/data/sensor_cfg.ini.alpha
+firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.beta  0644 firmware/buildroot/board/overlay/mnt/data/sensor_cfg.ini.beta
+
+# nanokvm-kernel-sg2002 and nanokvm-kmod-sg2002: the platform outputs
+kernel-sg2002 tree /usr/lib/nanokvm/boot                  0644  @boot
+kmod-sg2002   tree /lib/modules                           0644  @lib/modules

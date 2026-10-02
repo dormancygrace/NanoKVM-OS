@@ -47,6 +47,14 @@ reboot
 
 Keep the NanoKVM repository enabled. The package manager installs the matching server, native libraries and required system components together.
 
+If you installed **b5 from its attached `.apk` files**, those packages are pinned to the files in `/etc/apk/world` and `apk upgrade` keeps them at b5. Release the pin before upgrading:
+
+```sh
+apk add nanokvm-base nanokvm-app nanokvm-release
+apk upgrade
+reboot
+```
+
 
 ### 📝 Notes
 

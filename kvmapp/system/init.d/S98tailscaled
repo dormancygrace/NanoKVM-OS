@@ -68,7 +68,7 @@ case "$1" in
                 # Ensure directories exist
                 mkdir -p /var/lib/tailscale /var/run/tailscale
 
-                printf "Starting $DAEMON[$VERSION]: "
+                printf 'Starting %s[%s]: ' "$DAEMON" "$VERSION"
                 start-stop-daemon -S -bmq -p "$PIDFILE" -x "/usr/sbin/$DAEMON" -- \
                     --state=/var/lib/tailscale/tailscaled.state \
                     --socket=/var/run/tailscale/tailscaled.sock \

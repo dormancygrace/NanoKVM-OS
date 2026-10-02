@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
-from nanokvm_cpu_profile import ROOT, PROFILE, flags, record
+from nanokvm_cpu_profile import ROOT, PROFILE, flags, record, validate_flags
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--compiler')
@@ -37,6 +37,22 @@ for name in ('build-enhanced-capture.py', 'build-enhanced-mmf.py', 'build-enhanc
     assert '-march=rv64' not in text, name
     assert '-Os' not in text and 'MinSizeRel' not in text, name
 assert 'nanokvm_cpu_profile.py" kernel' in (ROOT/'platform/build.sh').read_text()
+for kind in ('userspace', 'kernel', 'bootloader'):
+    validate_flags(flags(kind), kind)
+    for override in ('-Os', '-O3', '-march=rv64gc', '-mtune=generic', '-mabi=ilp32', '-mfence-tso'):
+        try:
+            validate_flags([*flags(kind), override], kind)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError((kind, override))
+for override in ('-ftree-vectorize', '-ftree-loop-vectorize', '-ftree-slp-vectorize'):
+    try:
+        validate_flags([*kernel, override], 'kernel')
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(override)
 if a.compiler:
     for kind in ('userspace', 'kernel', 'bootloader'):
         macros = subprocess.check_output([a.compiler, *flags(kind), '-dM', '-E', '-x', 'c', '-'], input='', text=True)

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,7 +18,9 @@ import (
 	"NanoKVM-Server/service/hid"
 )
 
-const imageDirectory = "/data"
+var imageDirectory = "/data"
+
+var errInvalidImage = errors.New("invalid image")
 
 var (
 	usbGadgetUDC      = "/sys/kernel/config/usb_gadget/g0/UDC"
@@ -76,6 +79,14 @@ func (s *Service) MountImage(c *gin.Context) {
 	if req.Force && req.File != "" {
 		rsp.ErrRsp(c, -1, "force is only valid when ejecting an image")
 		return
+	}
+	if req.File != "" {
+		file, err := imageFile(req.File)
+		if err != nil {
+			rsp.ErrRsp(c, -2, "invalid image")
+			return
+		}
+		req.File = file
 	}
 	if err := requireActiveUSBStorage(); err != nil {
 		log.Warnf("USB storage is unavailable: %s", err)
@@ -281,21 +292,37 @@ func (s *Service) DeleteImage(c *gin.Context) {
 		return
 	}
 
-	filename := strings.ToLower(req.File)
-	validPrefix := strings.HasPrefix(filename, imageDirectory)
-	validSuffix := strings.HasSuffix(filename, ".iso") || strings.HasSuffix(filename, ".img")
-
-	if !validPrefix || !validSuffix {
+	file, err := imageFile(req.File)
+	if err != nil {
 		rsp.ErrRsp(c, -2, "invalid arguments")
 		return
 	}
 
-	if err := os.Remove(req.File); err != nil {
+	if err := os.Remove(file); err != nil {
 		rsp.ErrRsp(c, -3, "remove file failed")
-		log.Errorf("failed to remove file %s: %s", req.File, err)
+		log.Errorf("failed to remove file %s: %s", file, err)
 		return
 	}
 
 	rsp.OkRsp(c)
-	log.Debugf("delete image %s success", req.File)
+	log.Debugf("delete image %s success", file)
+}
+
+// imageFile accepts only what GetImages lists: a regular .iso or .img file
+// below imageDirectory, reached without symbolic links. A prefix check alone
+// let "/data/../" names reach any file, and mounting exposed it to the host.
+func imageFile(name string) (string, error) {
+	path := filepath.Clean(name)
+	lower := strings.ToLower(path)
+	if !strings.HasPrefix(path, imageDirectory+string(filepath.Separator)) ||
+		!(strings.HasSuffix(lower, ".iso") || strings.HasSuffix(lower, ".img")) {
+		return "", errInvalidImage
+	}
+	if resolved, err := filepath.EvalSymlinks(path); err != nil || resolved != path {
+		return "", errInvalidImage
+	}
+	if info, err := os.Stat(path); err != nil || !info.Mode().IsRegular() {
+		return "", errInvalidImage
+	}
+	return path, nil
 }

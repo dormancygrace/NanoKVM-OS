@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"NanoKVM-Server/utils"
 )
 
 const (
@@ -90,6 +92,15 @@ func resolvePicoclawSessionsPath() (string, error) {
 	}
 
 	return filepath.Join(workspacePath, "sessions"), nil
+}
+
+// sessionFile keeps a session name, which can come from the URL, to one entry
+// of the sessions directory.
+func sessionFile(dir, name string) (string, error) {
+	if strings.ContainsAny(name, `/\`) {
+		return "", os.ErrNotExist
+	}
+	return utils.JoinWithin(dir, name)
 }
 
 func sanitizeSessionKey(key string) string {
@@ -306,11 +317,16 @@ func (s *Service) DeleteSession(c *gin.Context) {
 		return
 	}
 
-	var base string
+	name := sanitizeSessionKey(picoSessionPrefix + sessionID)
 	if isOpaqueSessionKey(sessionID) {
-		base = filepath.Join(dir, sessionID)
-	} else {
-		base = filepath.Join(dir, sanitizeSessionKey(picoSessionPrefix+sessionID))
+		name = sessionID
+	}
+	base, err := sessionFile(dir, name)
+	if err != nil {
+		sessionErr := newPicoclawError(CodeRuntimeUnavailable, "session not found")
+		sessionErr.StatusCode = http.StatusNotFound
+		writePicoclawError(c, sessionErr)
+		return
 	}
 	paths := []string{base + ".jsonl", base + ".meta.json", base + ".json"}
 	removed := false
@@ -340,7 +356,11 @@ func (s *Service) DeleteSession(c *gin.Context) {
 }
 
 func readLegacySession(dir, fileName string) (sessionStoredFile, error) {
-	data, err := os.ReadFile(filepath.Join(dir, fileName))
+	path, err := sessionFile(dir, fileName)
+	if err != nil {
+		return sessionStoredFile{}, err
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return sessionStoredFile{}, err
 	}
@@ -411,7 +431,10 @@ func readSessionMessages(path string, skip int) ([]sessionStoredMessage, error) 
 }
 
 func readOpaqueJSONLSession(dir, opaqueKey string) (sessionStoredFile, error) {
-	base := filepath.Join(dir, opaqueKey)
+	base, err := sessionFile(dir, opaqueKey)
+	if err != nil {
+		return sessionStoredFile{}, err
+	}
 	jsonlPath := base + ".jsonl"
 	metaPath := base + ".meta.json"
 
@@ -449,7 +472,10 @@ func readOpaqueJSONLSession(dir, opaqueKey string) (sessionStoredFile, error) {
 
 func readJSONLSession(dir, sessionID string) (sessionStoredFile, error) {
 	sessionKey := picoSessionPrefix + sessionID
-	base := filepath.Join(dir, sanitizeSessionKey(sessionKey))
+	base, err := sessionFile(dir, sanitizeSessionKey(sessionKey))
+	if err != nil {
+		return sessionStoredFile{}, err
+	}
 	jsonlPath := base + ".jsonl"
 	metaPath := base + ".meta.json"
 

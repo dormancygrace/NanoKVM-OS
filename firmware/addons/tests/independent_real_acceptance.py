@@ -89,6 +89,7 @@ class Batch:
         sock.close()
         self.server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Quiet)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(str(self.run / "https-cert.pem"),
                                 str(self.run / "https-key.pem"))
         self.server.socket = context.wrap_socket(self.server.socket, server_side=True)

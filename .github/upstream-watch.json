@@ -1,0 +1,237 @@
+{
+  "sources": [
+    {
+      "name": "Linux",
+      "path": "platform/sources.lock",
+      "pattern": "linux-([0-9.]+)\\.tar",
+      "kind": "index",
+      "url": "https://www.kernel.org/releases.json",
+      "upstream_pattern": "\"version\"\\s*:\\s*\"([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\""
+    },
+    {
+      "name": "Buildroot",
+      "path": "platform/sources.lock",
+      "pattern": "buildroot-([0-9.]+)\\.tar",
+      "kind": "index",
+      "url": "https://buildroot.org/downloads/",
+      "upstream_pattern": "buildroot-([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\\.tar"
+    },
+    {
+      "name": "U-Boot",
+      "path": "platform/sources.lock",
+      "pattern": "u-boot-([0-9.]+)\\.tar",
+      "kind": "index",
+      "url": "https://ftp.denx.de/pub/u-boot/",
+      "upstream_pattern": "u-boot-([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\\.tar"
+    },
+    {
+      "name": "osdrv",
+      "path": "platform/sources.lock",
+      "pattern": "^osdrv\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "sophgo/osdrv",
+      "branch": "sg200x-dev"
+    },
+    {
+      "name": "aic8800",
+      "path": "platform/sources.lock",
+      "pattern": "^aic8800\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "radxa-pkg/aic8800",
+      "branch": null
+    },
+    {
+      "name": "cryptodev",
+      "path": "platform/sources.lock",
+      "pattern": "^cryptodev\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "cryptodev-linux/cryptodev-linux",
+      "branch": null
+    },
+    {
+      "name": "sipeed-sdk",
+      "path": "platform/sources.lock",
+      "pattern": "^sipeed-sdk\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "sipeed/LicheeRV-Nano-Build",
+      "branch": null
+    },
+    {
+      "name": "sophgo_cvi_mpi",
+      "path": "firmware/sources.json",
+      "pattern": "\"sophgo_cvi_mpi\"\\s*:\\s*\\{[^}]*\"commit\"\\s*:\\s*\"([0-9a-f]{40})\"",
+      "kind": "github-commit",
+      "repo": "sophgo/cvi_mpi",
+      "branch": "sg200x-dev"
+    },
+    {
+      "name": "sophgo_kernel_port_reference",
+      "path": "firmware/sources.json",
+      "pattern": "\"sophgo_kernel_port_reference\"\\s*:\\s*\\{[^}]*\"commit\"\\s*:\\s*\"([0-9a-f]{40})\"",
+      "kind": "github-commit",
+      "repo": "sophgo/linux_5.10",
+      "branch": null
+    },
+    {
+      "name": "json_c",
+      "path": "firmware/sources.json",
+      "pattern": "\"json_c\"\\s*:\\s*\\{[^}]*\"commit\"\\s*:\\s*\"([0-9a-f]{40})\"",
+      "kind": "github-commit",
+      "repo": "json-c/json-c",
+      "branch": null
+    },
+    {
+      "name": "miniz",
+      "path": "firmware/sources.json",
+      "pattern": "\"miniz\"\\s*:\\s*\\{[^}]*\"commit\"\\s*:\\s*\"([0-9a-f]{40})\"",
+      "kind": "github-commit",
+      "repo": "richgel999/miniz",
+      "branch": null
+    },
+    {
+      "name": "inih",
+      "path": "firmware/sources.json",
+      "pattern": "\"inih\"\\s*:\\s*\\{[^}]*\"commit\"\\s*:\\s*\"([0-9a-f]{40})\"",
+      "kind": "github-commit",
+      "repo": "benhoyt/inih",
+      "branch": null
+    },
+    {
+      "name": "sophgo_sensors",
+      "path": "firmware/sources.json",
+      "pattern": "\"sophgo_sensors\"\\s*:\\s*\\{[^}]*\"commit\"\\s*:\\s*\"([0-9a-f]{40})\"",
+      "kind": "github-commit",
+      "repo": "sophgo/SensorSupportList",
+      "branch": "sg200x-dev"
+    },
+    {
+      "name": "maixcdk",
+      "path": "firmware/sources.json",
+      "pattern": "\"maixcdk\"\\s*:\\s*\\{[^}]*\"commit\"\\s*:\\s*\"([0-9a-f]{40})\"",
+      "kind": "github-commit",
+      "repo": "sipeed/MaixCDK",
+      "branch": null
+    },
+    {
+      "name": "Go runtime",
+      "path": "firmware/cpu/sysmon-runtime/go-source-pin.json",
+      "pattern": "\"go_version\":\\s*\"go([0-9.]+)\"",
+      "kind": "index",
+      "url": "https://go.dev/dl/?mode=json",
+      "upstream_pattern": "\"version\"\\s*:\\s*\"go([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\""
+    },
+    {
+      "name": "OpenSSL",
+      "path": "firmware/buildroot/source-patches/0007-openssl4-libopenssl-4.0.2.patch",
+      "pattern": "^\\+LIBOPENSSL_VERSION = ([0-9.]+)",
+      "kind": "github-tags",
+      "repo": "openssl/openssl",
+      "upstream_pattern": "^openssl-([0-9]+\\.[0-9]+\\.[0-9]+)$"
+    },
+    {
+      "name": "Alpine stable branch",
+      "path": "scripts/build-alpine-packages.sh",
+      "pattern": "ALPINE_VERSION=\"([0-9.]+)\"",
+      "kind": "index",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/",
+      "upstream_pattern": "href=\"v([0-9]+\\.[0-9]+)/\""
+    },
+    {
+      "name": "Opus",
+      "path": "scripts/build-usb-audio.py",
+      "pattern": "archive=out/'opus-([0-9.]+)\\.tar",
+      "kind": "github-tags",
+      "repo": "xiph/opus",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)$"
+    },
+    {
+      "name": "tinyalsa",
+      "path": "scripts/build-usb-audio.py",
+      "pattern": "revision='([0-9a-f]{40})'",
+      "kind": "github-commit",
+      "repo": "tinyalsa/tinyalsa",
+      "branch": null
+    },
+    {
+      "name": "aic8800-sdio-firmware",
+      "path": "firmware/buildroot/package/aic8800-sdio-firmware/aic8800-sdio-firmware.mk",
+      "pattern": "^AIC8800_SDIO_FIRMWARE_VERSION\\s*=\\s*([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "lxowalle/aic8800-sdio-firmware",
+      "branch": null
+    },
+    {
+      "name": "nanokvm-vendor-libc",
+      "path": "firmware/buildroot/package/nanokvm-vendor-libc/nanokvm-vendor-libc.mk",
+      "pattern": "^NANOKVM_VENDOR_LIBC_VERSION\\s*=\\s*([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "0x754C/cvitek-riscv64-musl-sysroot",
+      "branch": null
+    },
+    {
+      "name": "Asio",
+      "path": "firmware/buildroot/package/nkos-asio/nkos-asio.mk",
+      "pattern": "NKOS_ASIO_VERSION = asio-([0-9-]+)",
+      "kind": "github-tags",
+      "repo": "chriskohlhoff/asio",
+      "upstream_pattern": "^asio-([0-9]+-[0-9]+-[0-9]+)$",
+      "separator": "-"
+    },
+    {
+      "name": "Superfile upstream",
+      "path": "firmware/buildroot/package/nkos-superfile/nkos-superfile.mk",
+      "pattern": "NKOS_SUPERFILE_VERSION = ([0-9.]+)-nkos",
+      "kind": "github-tags",
+      "repo": "yorukot/superfile",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$"
+    },
+    {
+      "name": "openvpn3",
+      "path": "firmware/buildroot/package/openvpn3/openvpn3.mk",
+      "pattern": "^OPENVPN3_VERSION\\s*=\\s*([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "OpenVPN/openvpn3",
+      "branch": null
+    },
+    {
+      "name": "sg2002-codec-firmware",
+      "path": "firmware/buildroot/package/sg2002-codec-firmware/sg2002-codec-firmware.mk",
+      "pattern": "^SG2002_CODEC_FIRMWARE_VERSION\\s*=\\s*([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "0x754C/sg2002_codec_fw",
+      "branch": null
+    },
+    {
+      "name": "Patched Pion dtls/v3",
+      "path": "server/go.mod",
+      "pattern": "github.com/pion/dtls/v3\\s+v([0-9.]+)",
+      "kind": "github-tags",
+      "repo": "pion/dtls",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$"
+    },
+    {
+      "name": "Patched Pion ice/v4",
+      "path": "server/go.mod",
+      "pattern": "github.com/pion/ice/v4\\s+v([0-9.]+)",
+      "kind": "github-tags",
+      "repo": "pion/ice",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$"
+    },
+    {
+      "name": "Patched Pion srtp/v3",
+      "path": "server/go.mod",
+      "pattern": "github.com/pion/srtp/v3\\s+v([0-9.]+)",
+      "kind": "github-tags",
+      "repo": "pion/srtp",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$"
+    },
+    {
+      "name": "apk-tools",
+      "path": "firmware/buildroot/package/nkos-apk-tools/nkos-apk-tools.mk",
+      "pattern": "^NKOS_APK_TOOLS_VERSION = ([0-9.]+)",
+      "kind": "index",
+      "url": "https://gitlab.alpinelinux.org/api/v4/projects/alpine%2Fapk-tools/repository/tags?per_page=100",
+      "upstream_pattern": "\"name\"\\s*:\\s*\"v([0-9]+\\.[0-9]+\\.[0-9]+)\""
+    }
+  ]
+}

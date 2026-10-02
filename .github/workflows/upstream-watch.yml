@@ -1,0 +1,24 @@
+name: Upstream dependency watch
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: upstream-dependency-watch
+  cancel-in-progress: false
+jobs:
+  check:
+    if: github.repository == 'dormancygrace/NanoKVM-OS'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check native and patched upstreams
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/check-upstream.py --publish

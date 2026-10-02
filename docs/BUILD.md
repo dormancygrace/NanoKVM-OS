@@ -51,3 +51,7 @@ The previous upstream Docker/dev-container recipe used an older native toolchain
 ## USB audio helper
 
 Build `native/usb-audio/capture.c` with `scripts/build-usb-audio.py`, using its pinned tinyalsa and Opus sources. Stage the helper as `system/bin/usb-audio-capture` with the license/source notices under `system/share/usb-audio`. The full-image hook installs these paths explicitly.
+
+## Dependency maintenance
+
+See [DEPENDENCY-UPDATES.md](DEPENDENCY-UPDATES.md) for automatic dependency PRs, native upstream monitoring and the boundaries of each.

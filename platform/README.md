@@ -65,10 +65,12 @@ A changed kernel also needs a new release name: update `CONFIG_LOCALVERSION` in 
 
 On 2026-10-02, a full run from an empty output directory, including the toolchain, produced:
 
-- **Identical to NanoKVM OS v2.0-a2 through v2.0-b7** (all entries in `expected.sha256`):
+- **Identical to NanoKVM OS v2.0-a2 through v2.0-b7** (`expected.sha256`):
   - the kernel `Image`;
   - all 79 modules;
   - the 10 device trees of the released `boot.sd` images.
+
+  The one exception is `aic8800_fdrv.ko`: `modules/aic8800/0002` adds the Linux 7.3 cfg80211 fix after the release. The commit that added `platform/` (before `0002`) reproduces all 79 modules, and the source archive of v2.0-b7 is built from that commit.
 - **Built from the same sources as b7, but new binaries:**
   - **U-Boot and `fip.bin`.** b7's U-Boot was built from exactly these patches and defconfig with GNU Binutils 2.45.1; a rebuild reproduced it bit for bit. The platform build now uses the single Buildroot toolchain (Binutils 2.47), which produces a different binary.
   - **initramfs and `boot.sd`.** The initramfs is now built from the Buildroot packages and compressed with the pinned zstd instead of gzip.

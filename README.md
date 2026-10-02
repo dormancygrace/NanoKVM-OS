@@ -6,7 +6,7 @@
 
 **Community firmware for SG2002 NanoKVM. PCIe/UXC is the current test platform; physical validation of Cube and Lite is pending.**
 
-![Version: 2.0 b6](https://img.shields.io/badge/version-2.0--b6-orange)
+![Version: 2.0 b7](https://img.shields.io/badge/version-2.0--b7-orange)
 ![Hardware: Cube, Lite and PCIe](https://img.shields.io/badge/hardware-Cube%20%7C%20Lite%20%7C%20PCIe-blue)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
@@ -42,7 +42,7 @@ The aim is a responsive IP-KVM with maintained system components, package update
 
 USB audio reaches the browser with one shared Opus encoder. Mount an ISO directly from your computer without copying it to SD; CD/DVD emulation now supports images up to 31.625 GiB. Dashboard shows SoC temperature and CPU frequency, with independent thermal protection and optional runtime overclocking.
 
-OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Alpine Linux 3.24**, **Linux 7.2.6-nanokvm-os-r1** and Alpine's standard OpenSSL libraries. The custom kernel retains its **`-O2`** build policy and selected userspace packages are optimized for C906. Packages install directly into the writable **F2FS root**, with dependency resolution and service handling through OpenRC. The interface also includes mobile settings improvements, custom branding and named Wake-on-LAN history entries. See [release notes](docs/RELEASE-v2.0-b6.md).
+OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Alpine Linux 3.24**, **Linux 7.2.6-nanokvm-os-r1** and Alpine's standard OpenSSL libraries. The custom kernel retains its **`-O2`** build policy and selected userspace packages are optimized for C906. Packages install directly into the writable **F2FS root**, with dependency resolution and service handling through OpenRC. The interface also includes mobile settings improvements, custom branding and named Wake-on-LAN history entries. See [release notes](docs/RELEASE-v2.0-b7.md).
 
 <a id="compatibility"></a>
 
@@ -91,14 +91,16 @@ H.265 needs a browser/platform that actually supports decoding it. Pion packetiz
 
 ## 🚀 Installing NanoKVM OS
 
-Download **[NanoKVM-OS-v2.0-b6.img.zip](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.0-b6/NanoKVM-OS-v2.0-b6.img.zip)** and **[SHA256SUMS](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.0-b6/SHA256SUMS)**, verify the ZIP checksum, extract the `.img` and flash the SD card. Use a card of at least **2 GB**.
+Download **[NanoKVM-OS-v2.0-b7.img.zip](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.0-b7/NanoKVM-OS-v2.0-b7.img.zip)** and **[SHA256SUMS](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.0-b7/SHA256SUMS)**, verify the ZIP checksum, extract the `.img` and flash the SD card. Use a card of at least **2 GB**.
 
-| Your current installation | How to install b6 |
+| Your current installation | How to install b7 |
 |---|---|
 | Stock firmware, beta-14 or an older beta, or a blank SD card | Flash the full image; this replaces the existing installation and data |
-| Published **v2.0 a2** or **b1–b5** | Use the existing GUI package updater or `apk update` followed by `apk upgrade`, then reboot; no reflash or new signing key is needed |
+| Published **v2.0-a2 or later** | Use the existing GUI package updater or `apk update` followed by `apk upgrade`, then reboot; no reflash or new signing key is needed |
 
 If you installed **b5 from its attached `.apk` files**, those packages are pinned to the files in `/etc/apk/world` and `apk upgrade` keeps them. Release the pin first with `apk add nanokvm-base nanokvm-app nanokvm-release`, then upgrade.
+
+Since b7 the web interface opens only the password page until the factory **admin** password is changed. For the administrator account this also sets the Linux root password used by SSH.
 
 The full image contains a **64 MiB boot partition** and **768 MiB F2FS system partition**. First boot creates an exFAT data partition from the remaining card space, selects the board profile and restarts automatically. See [installation and recovery](docs/INSTALL.md).
 
@@ -121,7 +123,7 @@ apk upgrade
 
 To add or remove software, use `apk add PACKAGE` and `apk del PACKAGE`, or the Software GUI. APK resolves dependencies and verifies signatures.
 
-Settings, user data and independently installed packages are retained. Linux is **7.2.6-nanokvm-os-r1** from a2 through b6; the kernel binary and its matching modules are unchanged across these updates.
+Settings, user data and independently installed packages are retained. Linux is **7.2.6-nanokvm-os-r1** from a2 through b7; the kernel binary and its matching modules are unchanged across these updates.
 
 Completed transactions apply affected services through **OpenRC**. An application update briefly reconnects video and control; no manual apply command is needed. A future kernel update installs matching modules, selects the board's boot image and requires a reboot. Full system reinstallation remains a separate operation. See [updates](docs/UPDATES.md).
 

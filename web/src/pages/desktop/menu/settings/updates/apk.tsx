@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Alert, Button, Collapse, message, Popconfirm } from 'antd';
 import { useTranslation } from 'react-i18next';
 
@@ -20,7 +20,7 @@ export const APKUpdates = ({
   action: (name: string) => Promise<void>;
 }) => {
   const { t } = useTranslation();
-  const tr = (key: string) => t(`settings.updates.apk.${key}`);
+  const tr = useCallback((key: string) => t(`settings.updates.apk.${key}`), [t]);
   const previous = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (previous.current && previous.current !== state?.state) {
@@ -28,7 +28,7 @@ export const APKUpdates = ({
       if (state?.state === 'up-to-date') message.success(tr('current'));
     }
     previous.current = state?.state;
-  }, [state?.state]);
+  }, [state?.state, tr]);
   const working = busy || ['checking', 'installing', 'rebooting'].includes(state?.state || '');
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-neutral-700 p-4">

@@ -27,6 +27,15 @@ import {
   specialKeyMap
 } from './virtual-keys.ts';
 
+const languages = [
+  { value: 'en', label: 'English' },
+  { value: 'fr', label: 'French' },
+  { value: 'de', label: 'German' },
+  { value: 'ru', label: 'Russian' },
+  { value: 'ko', label: 'Korean' },
+  { value: 'ja', label: 'Japanese' }
+];
+
 export const VirtualKeyboard = () => {
   const isBigScreen = useMediaQuery({ minWidth: 850 });
 
@@ -42,15 +51,6 @@ export const VirtualKeyboard = () => {
   const systems = [
     { value: 'win', icon: <WindowsOutlined /> },
     { value: 'mac', icon: <AppleOutlined /> }
-  ];
-
-  const languages = [
-    { value: 'en', label: 'English' },
-    { value: 'fr', label: 'French' },
-    { value: 'de', label: 'German' },
-    { value: 'ru', label: 'Russian' },
-    { value: 'ko', label: 'Korean' },
-    { value: 'ja', label: 'Japanese' }
   ];
 
   useEffect(() => {

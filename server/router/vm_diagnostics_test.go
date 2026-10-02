@@ -14,9 +14,9 @@ import (
 func TestDiagnosticsEndpointsRequireAdministrator(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := authn.NewStore(filepath.Join(t.TempDir(), "accounts.json"))
-	admin, ok, err := store.Authenticate("admin", "admin")
-	if err != nil || !ok {
-		t.Fatalf("admin account: ok=%v err=%v", ok, err)
+	admin, err := store.SetPassword("admin", "owner-password")
+	if err != nil {
+		t.Fatalf("admin account: %v", err)
 	}
 	if err := store.Create("viewer", "valid-password", authn.RoleUser); err != nil {
 		t.Fatal(err)

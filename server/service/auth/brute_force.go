@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"net/netip"
 	"sync"
 	"time"
 
@@ -54,13 +55,26 @@ func startCleanupRoutine() {
 	}()
 }
 
-// GetClientIP gets a reliable real IP
+// GetClientIP returns the brute-force key for a request: the peer address,
+// with IPv6 peers grouped by their /64 so one host cannot rotate addresses.
 func GetClientIP(c *gin.Context) string {
 	ip := c.RemoteIP()
 	if ip == "" {
 		ip = c.ClientIP()
 	}
-	return ip
+	return loginAttemptKey(ip)
+}
+
+func loginAttemptKey(ip string) string {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil || !addr.Is6() || addr.Is4In6() {
+		return ip
+	}
+	prefix, err := addr.Prefix(64)
+	if err != nil {
+		return ip
+	}
+	return prefix.String()
 }
 
 // CheckLoginAttempt checks if a login attempt is allowed based on brute-force protection rules.
@@ -108,6 +122,7 @@ func RecordLoginFailure(clientIP string) (bool, int, string) {
 	loginMutex.Lock()
 	defer loginMutex.Unlock()
 
+	now := time.Now()
 	attempt, exists := loginAttempts[clientIP]
 	if !exists {
 		// Emptying the table here would hand every locked-out address a clean
@@ -124,7 +139,6 @@ func RecordLoginFailure(clientIP string) (bool, int, string) {
 		loginAttempts[clientIP] = attempt
 	}
 
-	now := time.Now()
 	// Failure time window: if it has been a long time since the last failure
 	// (e.g., beyond the lockoutDuration window), reset the failure count
 	if !attempt.lastFailed.IsZero() && now.Sub(attempt.lastFailed) > time.Duration(conf.Security.LoginLockoutDuration)*time.Second {

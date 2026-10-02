@@ -290,8 +290,17 @@ uboot() {
     mv "$u/u-boot-2026.07" "$u/src"
     apply_patches "$u/src" "$here/uboot"
     cp "$here/uboot/defconfig" "$u/build/.config"
+    local boot_flags boot_isa boot_abi flag
+    boot_flags=$(python3 "$repo/scripts/nanokvm_cpu_profile.py" bootloader)
+    for flag in $boot_flags; do
+        case "$flag" in
+            -march=*) boot_isa=${flag#-march=} ;;
+            -mabi=*) boot_abi=${flag#-mabi=} ;;
+        esac
+    done
+    # Architecture Makefile flags follow KCFLAGS; set its inputs as well.
     local make=(make -C "$u/src" O="$u/build" ARCH=riscv CROSS_COMPILE="$cross" LOCALVERSION=-nanokvm-os
-                "KCFLAGS=$(python3 "$repo/scripts/nanokvm_cpu_profile.py" bootloader)")
+                "RISCV_MARCH=$boot_isa" "ABI=$boot_abi" "KCFLAGS=$boot_flags")
     SOURCE_DATE_EPOCH=$uboot_epoch "${make[@]}" olddefconfig
     SOURCE_DATE_EPOCH=$uboot_epoch "${make[@]}" -j"$jobs"
     cp "$u/build/u-boot.bin" "$img/u-boot.bin"
@@ -462,7 +471,7 @@ web() {
     node=$(lock node | awk '{ print $2 }')
     node=${node##*/}
     rm -rf "$w" "${img:?}/web"
-    mkdir -p "$w/src" "$dl/pnpm-store"
+    mkdir -p "$w/src" "$dl/pnpm-store" "$img"
     tar -xJf "$dl/$node" -C "$w"
     tar -xzf "$dl/exe.linux-x64-12.8.1.tgz" -C "$w"
     (cd "$repo/web" && tar --exclude=./node_modules --exclude=./dist -cf - .) | tar -xf - -C "$w/src"
@@ -629,7 +638,7 @@ in_userns() (
         echo "IDs for $user in /etc/subuid and /etc/subgid; see platform/README.md." >&2
         exit 1
     fi
-    local sync pid= status=0 ready_fd mapped_fd deadline
+    local sync pid="" status=0 ready_fd mapped_fd deadline
     sync=$(mktemp -d)
     cleanup_userns() {
         if [ -n "$pid" ]; then
@@ -741,7 +750,7 @@ signing_key() {
 }
 
 # Build the six packages with abuild in an Alpine riscv64 tree.
-packages() {
+packages() (
     local b=$out/apk-builder
     register_qemu
     signing_key
@@ -751,6 +760,7 @@ packages() {
     cp "$repo/scripts/build-alpine-packages.sh" "$b/build/src/scripts/"
     cp -r "$repo/firmware/alpine/packages" "$repo/firmware/alpine/release.env" "$b/build/src/firmware/alpine/"
     cp -a "$out/payloads" "$b/build/payloads"
+    trap 'rm -f "$b/root/.abuild/$keyname.rsa"' EXIT
     install -m 0600 "$keyfile" "$b/root/.abuild/$keyname.rsa"
     install -m 0644 "$keyfile.pub" "$b/root/.abuild/$keyname.rsa.pub"
     install -m 0644 "$keyfile.pub" "$b/etc/apk/keys/$keyname.rsa.pub"
@@ -766,7 +776,7 @@ packages() {
     mkdir -p "$rel/apk"
     cp -a "$b/build/repo/stock/." "$rel/apk/"
     cp "$keyfile.pub" "$rel/apk/$keyname.rsa.pub"
-}
+)
 
 # Alpine 3.24 root file system: the minirootfs with nanokvm-release from the
 # packages step and its dependencies from the Alpine mirror.

@@ -90,26 +90,23 @@ A changed kernel also needs a new release name: update `CONFIG_LOCALVERSION` in 
 
 ## Verification
 
-`build.sh verify` compares every output in `images/` with `expected.sha256`. The file has these sections:
+`build.sh verify` compares every output in `images/` with `expected.sha256` and rejects missing, changed or unlisted files. The b8 reference uses GCC 16.2 / Binutils 2.47 and the shared C906/T-Head `-O2` profile in `cpu-profile.json`.
 
-1. **Platform, identical to NanoKVM OS v2.0-a2 through v2.0-b7** (99 outputs):
-   - the kernel `Image` and `boot/kernel.release`;
-   - 78 of the 79 modules, and the `modules.*` files that do not depend on module order;
-   - the 10 device trees of the released `boot.sd` images.
-2. **Platform, changed after v2.0-b7:** `aic8800_fdrv.ko`. `modules/aic8800/0002` adds the Linux 7.3 cfg80211 fix after the release.
-3. **Platform, new binaries not yet in a release:**
-   - `u-boot.bin` and `fip.bin`: b7's U-Boot was built from exactly these patches and defconfig with GNU Binutils 2.45.1; a rebuild reproduced it bit for bit. The single Buildroot toolchain (Binutils 2.47) produces a different binary.
-   - the initramfs, the `boot.sd` images and their `.sha256` files: the initramfs is built from the Buildroot packages and compressed with the pinned zstd.
-   - `modules.alias`, `modules.dep`, their `.bin` forms, `modules.symbols.bin` and `modules.weakdep`: the same entries as b7, with the modules in sorted order. `nanokvm-activate-kernel` runs `depmod` again on the device.
-4. **Application and firmware, identical to v2.0-b7:** five of the media libraries (the relinked SOPHGO ISP and 3A objects and `libkvm.so`), `kvm_system`, `nkos-update`, `nkos-apply-updates`, `devmem`, the EDID profiles, the USB audio notices, the web UI files that later commits did not change, the codec firmware, the regulatory database and 49 AIC8800 firmware files.
-5. **Rebuilt from the v2.0-b7 sources with this toolchain:** 14 media libraries, `nanokvm_update_edid`, `nkos-board-probe` and `usb-audio-capture`. The v2.0-b7 binaries came from earlier builds whose toolchain and flags were not recorded.
-6. **Changed after v2.0-b7:** the server and web UI (later commits), and the AIC8800 firmware, which now comes from the Radxa package of the driver (23 files in a newer version, the AIC8800D80N directory new).
+The Linux `Image`, release name and board device trees remain byte-identical to the previously released platform. The RTL8733BS driver now follows `-O2`; the AIC8800 driver includes the cfg80211 compatibility patch. U-Boot, the initramfs, FIT images, native media libraries, system service and native tools were rebuilt with the shared profile. Closed SOPHGO ISP/3A objects remain pinned binary inputs: relinking does not recompile those objects. Go uses its own compiler; the profile applies to its C/C++ interoperability code.
 
-Built from the v2.0-b7 commit (`02e8fd1`), the server, both update helpers, all 176 files of the web UI and `kvm_system` are identical to v2.0-b7.
+Audit the effective compiler commands as well as the supplied flags:
 
-The release steps are not in `expected.sha256`: the APK signatures depend on the key, and the root file system on the current Alpine packages. Compared with the v2.0-b7 image, a build from this repository installs the same 163 packages, with official Alpine builds instead of the C906-tuned busybox, coreutils, openssl, lz4 and zstd, and with the Alpine security updates published since. The six `nanokvm-*` packages contain exactly the files of `images/` named in `packages.list`.
+```sh
+python3 scripts/audit-kbuild-profile.py build/platform/kernel/build
+python3 scripts/audit-kbuild-profile.py build/platform/modules
+python3 scripts/audit-kbuild-profile.py build/platform/uboot/build --kind bootloader
+```
 
-A matching hash shows that the build is repeatable, not that the binaries work. Boot-test new binaries on a device before they are published: U-Boot and the boot images, the rebuilt media libraries (video capture and encoding) and the new AIC8800 firmware (Wi-Fi).
+The audit checks the last effective optimization, ISA and ABI options. Kernel vDSO objects retain Kbuild's explicit portable/CFI ISA choices and are reported separately; they still use `-O2` and C906 tuning. Kernel and bootloader builds do not enable floating-point or automatic vector code generation.
+
+APK signatures depend on the signing key; the root filesystem also depends on the current official Alpine 3.24 package versions. They are listed in `release/installed-packages.txt`. Existing installations with the optional C906 overlay require the documented stock-package migration; installing a NanoKVM application update alone does not replace every Alpine package.
+
+A matching hash verifies the expected build outputs, not hardware operation. Boot-test new U-Boot/FIT images, media capture and encoding, and Wi-Fi on a device before publishing. A passing build does not establish compatibility with hardware variants that were not available for testing.
 
 ## Corresponding source
 

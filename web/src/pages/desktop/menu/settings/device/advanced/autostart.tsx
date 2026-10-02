@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { DeleteOutlined, EditOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
-import { Button, Input, Modal, Popconfirm, Space, Table } from 'antd';
+import { Button, Input, message, Modal, Popconfirm, Space, Table } from 'antd';
 import TextArea from 'antd/es/input/TextArea';
 import type { TableProps } from 'antd/es/table';
 import { useSetAtom } from 'jotai';
@@ -76,9 +76,13 @@ export const Autostart = () => {
   }
 
   function uploadAutostart() {
+    if (!autostartName.trim()) {
+      message.error(t('settings.device.autostart.nameRequired'));
+      return;
+    }
     api.uploadAutostart(autostartName, autostartContent).then((rsp) => {
       if (rsp.code !== 0) {
-        console.log(rsp.msg);
+        message.error(rsp.msg);
         return;
       }
 

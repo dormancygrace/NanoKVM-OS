@@ -94,6 +94,8 @@ export class WsClient {
     this.instance = null;
     previous?.close();
     this.inputReports.clear();
+    // The server drops ownership with the socket; do not keep claiming it.
+    this.setControlEnabled(false);
     this.updateConnectionStatus('idle');
   }
 
@@ -227,6 +229,7 @@ export class WsClient {
   private handleClose(event: ICloseEvent): void {
     this.stopHeartbeat();
     this.inputReports.clear();
+    this.setControlEnabled(false);
 
     if (event.code === 4401) {
       this.shouldReconnect = false;

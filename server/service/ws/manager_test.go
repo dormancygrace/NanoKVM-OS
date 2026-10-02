@@ -38,3 +38,24 @@ func TestManagerOnlyGrantsManualControlToOneClient(t *testing.T) {
 		t.Fatal("disconnecting the owner should disable its input")
 	}
 }
+
+func TestHTTPInputFollowsSessionOwningControl(t *testing.T) {
+	manager := newManager()
+	if !manager.AllowsSession("anyone") {
+		t.Fatal("HTTP input must work while no browser holds control")
+	}
+	owner := &Client{sessionID: "alice/1/1"}
+	viewer := &Client{sessionID: "bob/1/2"}
+	manager.AddClient(new(websocket.Conn), owner)
+	manager.AddClient(new(websocket.Conn), viewer)
+	if !manager.AllowsSession("alice/1/1") {
+		t.Fatal("the controlling session must keep HTTP input")
+	}
+	if manager.AllowsSession("bob/1/2") || manager.AllowsSession("") {
+		t.Fatal("view-only sessions must not inject input over HTTP")
+	}
+	manager.SetControl(viewer, true)
+	if manager.AllowsSession("alice/1/1") || !manager.AllowsSession("bob/1/2") {
+		t.Fatal("HTTP input must follow a control transfer")
+	}
+}

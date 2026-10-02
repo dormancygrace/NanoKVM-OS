@@ -3,6 +3,7 @@ package vm
 import (
 	"errors"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,10 @@ import (
 )
 
 const ScriptDirectory = "/etc/kvm/scripts"
+
+// maxScriptUpload bounds multipart parsing, which otherwise spills
+// arbitrarily large uploads into the 64 MiB /tmp tmpfs.
+const maxScriptUpload = 16 << 20
 
 var (
 	errInvalidScript        = errors.New("invalid script")
@@ -225,6 +230,7 @@ func (s *Service) GetScripts(c *gin.Context) {
 func (s *Service) UploadScript(c *gin.Context) {
 	var rsp proto.Response
 
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxScriptUpload)
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		rsp.ErrRsp(c, -1, "bad request")

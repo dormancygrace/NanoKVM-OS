@@ -103,6 +103,15 @@ func (m *Manager) CanControl(client *Client) bool {
 	return m.controller == client
 }
 
+// AllowsSession reports whether an HTTP input request (paste, ATX) from the
+// given login session may act: either no browser holds input control, or
+// that session's socket does. View-only sessions are refused.
+func (m *Manager) AllowsSession(sessionID string) bool {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.controller == nil || m.controller.sessionID == sessionID
+}
+
 func (m *Manager) GetClients() []*Client {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()

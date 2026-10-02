@@ -682,7 +682,8 @@ const en = {
       resetConfirm: 'Proceed reset operation?',
       powerConfirm: 'Proceed power operation?',
       okBtn: 'Yes',
-      cancelBtn: 'No'
+      cancelBtn: 'No',
+      controlRequired: 'Another session controls the input. Take control first.'
     },
     settings: {
       software: {

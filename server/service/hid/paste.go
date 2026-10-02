@@ -3,6 +3,7 @@ package hid
 import (
 	"context"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -181,6 +182,11 @@ func (s *Service) Paste(c *gin.Context) {
 		return
 	}
 
+	// Reject oversized input before the rune slice multiplies its size.
+	if len(req.Content) > maxPasteContentRunes*utf8.UTFMax {
+		rsp.ErrRsp(c, -2, "content too long")
+		return
+	}
 	contentRunes := []rune(req.Content)
 	if len(contentRunes) > maxPasteContentRunes {
 		rsp.ErrRsp(c, -2, "content too long")
@@ -210,7 +216,7 @@ func (s *Service) Paste(c *gin.Context) {
 	keyUp := []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 	manual := s.newManualSession()
 	defer manual.Close()
-	reservation, err := manual.Reserve(c.Request.Context(), inputcontrol.ManualKeyboard, false, nil)
+	reservation, err := manual.Reserve(c.Request.Context(), inputcontrol.ManualKeyboard, false, s.allowManual)
 	if err != nil {
 		log.Errorf("manual paste failed to acquire HID control: %v", err)
 		rsp.ErrRsp(c, -3, "HID control is busy")

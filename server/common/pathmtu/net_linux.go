@@ -15,8 +15,8 @@ import (
 	"syscall"
 
 	"github.com/pion/ice/v4"
-	"github.com/pion/transport/v4"
-	"github.com/pion/transport/v4/stdnet"
+	"github.com/pion/transport/v5"
+	"github.com/pion/transport/v5/stdnet"
 	"golang.org/x/sys/unix"
 )
 

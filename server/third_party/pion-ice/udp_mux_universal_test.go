@@ -20,14 +20,61 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestUniversalUDPMux_QueuedSTUNDuringInitialization(t *testing.T) {
+	for _, useAddrPort := range []bool{false, true} {
+		conn := &queuedSTUNPacketConn{
+			packet:  stun.MustBuild(stun.BindingRequest, stun.TransactionID).Raw,
+			drained: make(chan struct{}),
+		}
+		var packetConn net.PacketConn = conn
+		if useAddrPort {
+			packetConn = &queuedSTUNAddrPortConn{conn}
+		}
+		mux := NewUniversalUDPMuxDefault(UniversalUDPMuxParams{UDPConn: packetConn})
+		<-conn.drained
+		require.NoError(t, mux.Close())
+	}
+}
+
+type queuedSTUNPacketConn struct {
+	fakenet.MockPacketConn
+	packet  []byte
+	drained chan struct{}
+}
+
+func (c *queuedSTUNPacketConn) ReadFrom(buf []byte) (int, net.Addr, error) {
+	if c.packet == nil {
+		close(c.drained)
+
+		return 0, nil, net.ErrClosed
+	}
+	n := copy(buf, c.packet)
+	c.packet = nil
+
+	return n, c.LocalAddr(), nil
+}
+
+func (*queuedSTUNPacketConn) LocalAddr() net.Addr {
+	return &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 12345}
+}
+
+type queuedSTUNAddrPortConn struct{ *queuedSTUNPacketConn }
+
+func (c *queuedSTUNAddrPortConn) ReadFromAddrPort(buf []byte) (int, netip.AddrPort, error) {
+	n, _, err := c.ReadFrom(buf)
+
+	return n, netip.MustParseAddrPort("127.0.0.1:12345"), err
+}
+
+func (*queuedSTUNAddrPortConn) WriteToAddrPort(buf []byte, _ netip.AddrPort) (int, error) {
+	return len(buf), nil
+}
+
 func TestUniversalUDPMux(t *testing.T) {
 	conn, err := net.ListenUDP(udp, &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
 	require.NoError(t, err)
 
-	udpMux := NewUniversalUDPMuxDefault(UniversalUDPMuxParams{
-		Logger:  nil,
-		UDPConn: conn,
-	})
+	udpMux := NewUniversalUDPMuxDefault(UniversalUDPMuxParams{Logger: nil, UDPConn: conn})
 
 	defer func() {
 		_ = udpMux.Close()
@@ -80,15 +127,8 @@ func testMuxSrflxConnection(t *testing.T, udpMux *UniversalUDPMuxDefault, ufrag 
 	require.NoError(t, req.Decode())
 
 	// Write back to udpMux XOR message with address
-	addr := &stun.XORMappedAddress{
-		IP:   testXORIP,
-		Port: testXORPort,
-	}
-	msg, err := stun.Build(
-		stun.NewTransactionIDSetter(req.TransactionID),
-		stun.BindingSuccess,
-		addr,
-	)
+	addr := &stun.XORMappedAddress{IP: testXORIP, Port: testXORPort}
+	msg, err := stun.Build(stun.NewTransactionIDSetter(req.TransactionID), stun.BindingSuccess, addr)
 	require.NoError(t, err)
 	_, err = remoteConn.Write(msg.Raw)
 	require.NoError(t, err)
@@ -118,10 +158,7 @@ func TestUniversalUDPMux_GetConnForURL_UniquePerURL(t *testing.T) {
 	conn, err := net.ListenUDP(udp, &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
 	require.NoError(t, err)
 
-	udpMux := NewUniversalUDPMuxDefault(UniversalUDPMuxParams{
-		Logger:  nil,
-		UDPConn: conn,
-	})
+	udpMux := NewUniversalUDPMuxDefault(UniversalUDPMuxParams{Logger: nil, UDPConn: conn})
 	defer func() {
 		_ = udpMux.Close()
 		_ = conn.Close()
@@ -262,18 +299,9 @@ func TestUniversalUDPMux_handleXORMappedResponse_RoutesByTransactionAndServer(t 
 	otherServerAddr := canonicalAddrPort(netip.MustParseAddrPort("192.0.2.2:3478"))
 	transaction, err := stunx.NewXORMappedAddrTransaction()
 	require.NoError(t, err)
-	mux := &UniversalUDPMuxDefault{
-		UDPMuxDefault: &UDPMuxDefault{},
-		xorMappedTransactions: map[[stun.TransactionIDSize]byte]xorMappedTransaction{
-			transaction.ID(): {transaction, serverAddr},
-		},
-	}
+	mux := &UniversalUDPMuxDefault{UDPMuxDefault: &UDPMuxDefault{}, xorMappedTransactions: map[[stun.TransactionIDSize]byte]xorMappedTransaction{transaction.ID(): {transaction, serverAddr}}}
 
-	response, err := stun.Build(
-		stun.NewTransactionIDSetter(transaction.ID()),
-		stun.BindingSuccess,
-		&stun.XORMappedAddress{IP: net.IPv4(203, 0, 113, 8), Port: 51235},
-	)
+	response, err := stun.Build(stun.NewTransactionIDSetter(transaction.ID()), stun.BindingSuccess, &stun.XORMappedAddress{IP: net.IPv4(203, 0, 113, 8), Port: 51235})
 	require.NoError(t, err)
 	mux.handleXORMappedResponse(otherServerAddr, response)
 	_, cached := transaction.Cached(time.Minute)
@@ -288,27 +316,15 @@ type wrappedUDPAddr struct {
 }
 
 func TestUniversalUDPMux_GetXORMappedAddr_CustomAddrCacheKey(t *testing.T) {
-	serverAddr := &wrappedUDPAddr{
-		UDPAddr: &net.UDPAddr{IP: net.IPv4(192, 0, 2, 1), Port: 3478},
-	}
+	serverAddr := &wrappedUDPAddr{UDPAddr: &net.UDPAddr{IP: net.IPv4(192, 0, 2, 1), Port: 3478}}
 	serverAddrPort := canonicalAddrPort(serverAddr.UDPAddr.AddrPort())
 	mappedAddr := &stun.XORMappedAddress{IP: net.IPv4(203, 0, 113, 1), Port: 5000}
 	transaction, err := stunx.NewXORMappedAddrTransaction()
 	require.NoError(t, err)
-	response, err := stun.Build(
-		stun.NewTransactionIDSetter(transaction.ID()),
-		stun.BindingSuccess,
-		mappedAddr,
-	)
+	response, err := stun.Build(stun.NewTransactionIDSetter(transaction.ID()), stun.BindingSuccess, mappedAddr)
 	require.NoError(t, err)
 	require.True(t, transaction.HandleResponse(response))
-	mux := &UniversalUDPMuxDefault{
-		UDPMuxDefault: &UDPMuxDefault{},
-		params:        UniversalUDPMuxParams{XORMappedAddrCacheTTL: time.Minute},
-		xorMappedMap: map[netip.AddrPort]*stunx.XORMappedAddrTransaction{
-			serverAddrPort: transaction,
-		},
-	}
+	mux := &UniversalUDPMuxDefault{UDPMuxDefault: &UDPMuxDefault{}, params: UniversalUDPMuxParams{XORMappedAddrCacheTTL: time.Minute}, xorMappedMap: map[netip.AddrPort]*stunx.XORMappedAddrTransaction{serverAddrPort: transaction}}
 
 	got, err := mux.GetXORMappedAddr(serverAddr, 0)
 	require.NoError(t, err)
@@ -365,11 +381,7 @@ func TestUniversalUDPMux_GetXORMappedAddr_ConcurrentTransactions(t *testing.T) {
 			requestCount.Add(1)
 			writes <- struct{}{}
 			<-releaseWrites
-			res, err := stun.Build(
-				stun.NewTransactionIDSetter(req.TransactionID),
-				stun.BindingSuccess,
-				wantAddr,
-			)
+			res, err := stun.Build(stun.NewTransactionIDSetter(req.TransactionID), stun.BindingSuccess, wantAddr)
 			if err != nil {
 				return err
 			}
@@ -378,15 +390,7 @@ func TestUniversalUDPMux_GetXORMappedAddr_ConcurrentTransactions(t *testing.T) {
 			return nil
 		},
 	}
-	mux = &UniversalUDPMuxDefault{
-		UDPMuxDefault: &UDPMuxDefault{},
-		params: UniversalUDPMuxParams{
-			UDPConn:               pc,
-			XORMappedAddrCacheTTL: time.Minute,
-		},
-		xorMappedMap:          make(map[netip.AddrPort]*stunx.XORMappedAddrTransaction),
-		xorMappedTransactions: make(map[[stun.TransactionIDSize]byte]xorMappedTransaction),
-	}
+	mux = &UniversalUDPMuxDefault{UDPMuxDefault: &UDPMuxDefault{}, params: UniversalUDPMuxParams{UDPConn: pc, XORMappedAddrCacheTTL: time.Minute}, xorMappedMap: make(map[netip.AddrPort]*stunx.XORMappedAddrTransaction), xorMappedTransactions: make(map[[stun.TransactionIDSize]byte]xorMappedTransaction)}
 
 	results := make(chan *stun.XORMappedAddress, 2)
 	errs := make(chan error, 2)

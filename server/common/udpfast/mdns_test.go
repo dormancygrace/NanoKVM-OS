@@ -4,7 +4,7 @@ package udpfast
 
 import (
 	"errors"
-	"github.com/pion/transport/v4"
+	"github.com/pion/transport/v5"
 	"golang.org/x/net/ipv4"
 	"net"
 	"os"

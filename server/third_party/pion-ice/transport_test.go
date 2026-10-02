@@ -16,8 +16,8 @@ import (
 
 	"github.com/pion/ice/v4/internal/taskloop"
 	"github.com/pion/stun/v4"
-	"github.com/pion/transport/v4/packetio"
-	"github.com/pion/transport/v4/test"
+	"github.com/pion/transport/v5/packetio"
+	"github.com/pion/transport/v5/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -153,10 +153,7 @@ func TestConnDeadlines(t *testing.T) {
 	candidate := &deadlineCandidate{}
 	candidate.conn = pc
 
-	agent := &Agent{
-		buf:  buf,
-		loop: loop,
-	}
+	agent := &Agent{buf: buf, loop: loop}
 	agent.selectedPair.Store(&CandidatePair{Local: candidate})
 
 	conn := &Conn{agent: agent}
@@ -310,12 +307,7 @@ func pipeWithTimeout(t *testing.T, disconnectTimeout time.Duration, iceKeepalive
 	aNotifier, aConnected := onConnected()
 	bNotifier, bConnected := onConnected()
 
-	cfg := &AgentConfig{
-		Urls:                urls,
-		DisconnectedTimeout: &disconnectTimeout,
-		KeepaliveInterval:   &iceKeepalive,
-		NetworkTypes:        supportedNetworkTypes(),
-	}
+	cfg := &AgentConfig{Urls: urls, DisconnectedTimeout: &disconnectTimeout, KeepaliveInterval: &iceKeepalive, NetworkTypes: supportedNetworkTypes()}
 
 	aAgent, err := NewAgent(cfg)
 	require.NoError(t, err)
@@ -397,9 +389,7 @@ func TestConnStats(t *testing.T) {
 func TestAgent_connect_ErrEarly(t *testing.T) {
 	defer test.CheckRoutines(t)()
 
-	cfg := &AgentConfig{
-		NetworkTypes: supportedNetworkTypes(),
-	}
+	cfg := &AgentConfig{NetworkTypes: supportedNetworkTypes()}
 	agent, err := NewAgent(cfg)
 	require.NoError(t, err)
 
@@ -421,10 +411,7 @@ func TestConn_Write_RejectsSTUN(t *testing.T) {
 	defer test.CheckRoutines(t)()
 	defer test.TimeOut(10 * time.Second).Stop()
 
-	cfg := &AgentConfig{
-		NetworkTypes:     supportedNetworkTypes(),
-		MulticastDNSMode: MulticastDNSModeDisabled,
-	}
+	cfg := &AgentConfig{NetworkTypes: supportedNetworkTypes(), MulticastDNSMode: MulticastDNSModeDisabled}
 	a, err := NewAgent(cfg)
 	require.NoError(t, err)
 	defer func() {
@@ -447,10 +434,7 @@ func TestStartDialConnWriteBeforeConnectReturnsError(t *testing.T) {
 	defer test.CheckRoutines(t)()
 	defer test.TimeOut(10 * time.Second).Stop()
 
-	cfg := &AgentConfig{
-		NetworkTypes:     supportedNetworkTypes(),
-		MulticastDNSMode: MulticastDNSModeDisabled,
-	}
+	cfg := &AgentConfig{NetworkTypes: supportedNetworkTypes(), MulticastDNSMode: MulticastDNSModeDisabled}
 	agent, err := NewAgent(cfg)
 	require.NoError(t, err)
 	defer func() {
@@ -518,10 +502,7 @@ func TestConn_WriteToPair_InvalidID(t *testing.T) {
 	defer test.CheckRoutines(t)()
 	defer test.TimeOut(10 * time.Second).Stop()
 
-	cfg := &AgentConfig{
-		NetworkTypes:     supportedNetworkTypes(),
-		MulticastDNSMode: MulticastDNSModeDisabled,
-	}
+	cfg := &AgentConfig{NetworkTypes: supportedNetworkTypes(), MulticastDNSMode: MulticastDNSModeDisabled}
 	agent, err := NewAgent(cfg)
 	require.NoError(t, err)
 	defer func() {
@@ -540,10 +521,7 @@ func TestConn_WriteToPair_NotSucceeded(t *testing.T) {
 	defer test.CheckRoutines(t)()
 	defer test.TimeOut(10 * time.Second).Stop()
 
-	cfg := &AgentConfig{
-		NetworkTypes:     supportedNetworkTypes(),
-		MulticastDNSMode: MulticastDNSModeDisabled,
-	}
+	cfg := &AgentConfig{NetworkTypes: supportedNetworkTypes(), MulticastDNSMode: MulticastDNSModeDisabled}
 	agent, err := NewAgent(cfg)
 	require.NoError(t, err)
 	defer func() {
@@ -553,20 +531,10 @@ func TestConn_WriteToPair_NotSucceeded(t *testing.T) {
 	conn := &Conn{agent: agent}
 
 	// Create a pair in Waiting state (default) and add to agent's map
-	local, lerr := NewCandidateHost(&CandidateHostConfig{
-		Network:   "udp",
-		Address:   "192.168.1.1",
-		Port:      1234,
-		Component: ComponentRTP,
-	})
+	local, lerr := NewCandidateHost(&CandidateHostConfig{Network: "udp", Address: "192.168.1.1", Port: 1234, Component: ComponentRTP})
 	require.NoError(t, lerr)
 
-	remote, rerr := NewCandidateHost(&CandidateHostConfig{
-		Network:   "udp",
-		Address:   "192.168.1.2",
-		Port:      5678,
-		Component: ComponentRTP,
-	})
+	remote, rerr := NewCandidateHost(&CandidateHostConfig{Network: "udp", Address: "192.168.1.2", Port: 5678, Component: ComponentRTP})
 	require.NoError(t, rerr)
 
 	// Add pair via agent.loop.Run to ensure thread safety
@@ -586,10 +554,7 @@ func TestConn_WriteToPair_RejectsSTUN(t *testing.T) {
 	defer test.CheckRoutines(t)()
 	defer test.TimeOut(10 * time.Second).Stop()
 
-	cfg := &AgentConfig{
-		NetworkTypes:     supportedNetworkTypes(),
-		MulticastDNSMode: MulticastDNSModeDisabled,
-	}
+	cfg := &AgentConfig{NetworkTypes: supportedNetworkTypes(), MulticastDNSMode: MulticastDNSModeDisabled}
 	agent, err := NewAgent(cfg)
 	require.NoError(t, err)
 	defer func() {
@@ -599,20 +564,10 @@ func TestConn_WriteToPair_RejectsSTUN(t *testing.T) {
 	conn := &Conn{agent: agent}
 
 	// Create a pair in Succeeded state and add to agent's map
-	local, lerr := NewCandidateHost(&CandidateHostConfig{
-		Network:   "udp",
-		Address:   "192.168.1.1",
-		Port:      1234,
-		Component: ComponentRTP,
-	})
+	local, lerr := NewCandidateHost(&CandidateHostConfig{Network: "udp", Address: "192.168.1.1", Port: 1234, Component: ComponentRTP})
 	require.NoError(t, lerr)
 
-	remote, rerr := NewCandidateHost(&CandidateHostConfig{
-		Network:   "udp",
-		Address:   "192.168.1.2",
-		Port:      5678,
-		Component: ComponentRTP,
-	})
+	remote, rerr := NewCandidateHost(&CandidateHostConfig{Network: "udp", Address: "192.168.1.2", Port: 5678, Component: ComponentRTP})
 	require.NoError(t, rerr)
 
 	// Add pair via agent.loop.Run to ensure thread safety
@@ -673,7 +628,17 @@ func TestUDPConnReadWriteDoesNotAllocate(t *testing.T) {
 	defer test.CheckRoutines(t)()
 	defer test.TimeOut(30 * time.Second).Stop()
 
-	ca, cb := pipe(t, &AgentConfig{NetworkTypes: []NetworkType{NetworkTypeUDP4}})
+	// AllocsPerRun counts allocations process-wide, so the agents are given
+	// one candidate each and no keepalives: a single pair leaves nothing
+	// checking alongside the data path once it is connected.
+	noKeepalive := time.Duration(0)
+	ca, cb := pipe(t, &AgentConfig{
+		NetworkTypes:      []NetworkType{NetworkTypeUDP4},
+		IncludeLoopback:   true,
+		IPFilter:          net.IP.IsLoopback,
+		MulticastDNSMode:  MulticastDNSModeDisabled,
+		KeepaliveInterval: &noKeepalive,
+	})
 	defer closePipe(t, ca, cb)
 
 	packet := make([]byte, 1200)
@@ -769,12 +734,7 @@ func TestConnWriteDoesNotAllocateOverStandardPacketConn(t *testing.T) {
 	})
 
 	newCandidate := func(port int) *CandidateHost {
-		candidate, err := NewCandidateHost(&CandidateHostConfig{
-			Network:   "udp",
-			Address:   "192.0.2.1",
-			Port:      port,
-			Component: ComponentRTP,
-		})
+		candidate, err := NewCandidateHost(&CandidateHostConfig{Network: "udp", Address: "192.0.2.1", Port: port, Component: ComponentRTP})
 		require.NoError(t, err)
 
 		return candidate
@@ -810,11 +770,7 @@ func TestCustomTCPMuxAddrPortCapability(t *testing.T) {
 	addrPortConn, ok := conn.(AddrPortReaderWriter)
 	require.True(t, ok)
 
-	local := &candidateBase{
-		networkType:  NetworkTypeTCP4,
-		conn:         conn,
-		addrPortConn: addrPortConn,
-	}
+	local := &candidateBase{networkType: NetworkTypeTCP4, conn: conn, addrPortConn: addrPortConn}
 
 	remote := &candidateBase{}
 	remote.setResolvedAddr(&net.TCPAddr{IP: net.IPv4(192, 0, 2, 1), Port: 5000})

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	dtlsnet "github.com/pion/dtls/v3/pkg/net"
-	"github.com/pion/transport/v4/dpipe"
+	"github.com/pion/transport/v5/dpipe"
 )
 
 func TestNanoKVMServerCipherPreferenceAndFallback(t *testing.T) {

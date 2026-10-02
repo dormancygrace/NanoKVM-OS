@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/pion/stun/v4"
-	"github.com/pion/transport/v4/test"
+	"github.com/pion/transport/v5/test"
 	"github.com/pion/turn/v5"
 	"github.com/stretchr/testify/require"
 )
@@ -30,35 +30,13 @@ func TestRelayOnlyConnection(t *testing.T) {
 	require.NoError(t, err)
 	serverPort := portFromAddr(t, serverListener.LocalAddr())
 
-	server, err := turn.NewServer(turn.ServerConfig{
-		Realm:       "pion.ly",
-		AuthHandler: optimisticAuthHandler,
-		PacketConnConfigs: []turn.PacketConnConfig{
-			{
-				PacketConn:            serverListener,
-				RelayAddressGenerator: &turn.RelayAddressGeneratorNone{Address: localhostIPStr + ""},
-			},
-		},
-	})
+	server, err := turn.NewServer(turn.ServerConfig{Realm: "pion.ly", AuthHandler: optimisticAuthHandler, PacketConnConfigs: []turn.PacketConnConfig{{PacketConn: serverListener, RelayAddressGenerator: &turn.RelayAddressGeneratorNone{Address: localhostIPStr + ""}}}})
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, server.Close())
 	}()
 
-	cfg := &AgentConfig{
-		NetworkTypes: supportedNetworkTypes(),
-		Urls: []*stun.URI{
-			{
-				Scheme:   stun.SchemeTypeTURN,
-				Host:     localhostIPStr + "",
-				Username: "username",
-				Password: "password",
-				Port:     serverPort,
-				Proto:    stun.ProtoTypeUDP,
-			},
-		},
-		CandidateTypes: []CandidateType{CandidateTypeRelay},
-	}
+	cfg := &AgentConfig{NetworkTypes: supportedNetworkTypes(), Urls: []*stun.URI{{Scheme: stun.SchemeTypeTURN, Host: localhostIPStr + "", Username: "username", Password: "password", Port: serverPort, Proto: stun.ProtoTypeUDP}}, CandidateTypes: []CandidateType{CandidateTypeRelay}}
 
 	aAgent, err := NewAgent(cfg)
 	require.NoError(t, err)

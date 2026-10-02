@@ -23,9 +23,9 @@ import (
 	"github.com/pion/dtls/v3/pkg/protocol/handshake"
 	"github.com/pion/dtls/v3/pkg/protocol/recordlayer"
 	"github.com/pion/logging"
-	"github.com/pion/transport/v4/deadline"
-	"github.com/pion/transport/v4/netctx"
-	"github.com/pion/transport/v4/replaydetector"
+	"github.com/pion/transport/v5/deadline"
+	"github.com/pion/transport/v5/netctx"
+	"github.com/pion/transport/v5/replaydetector"
 )
 
 const (
@@ -457,26 +457,34 @@ func (c *Conn) Read(buff []byte) (n int, err error) { //nolint:cyclop
 	}
 
 	for {
+		var out any
+		var ok bool
 		select {
 		case <-c.closed.Done():
-			return 0, io.EOF
-		case <-c.readDeadline.Done():
-			return 0, errDeadlineExceeded
-		case out, ok := <-c.decrypted:
-			if !ok {
+			// A close notification can arrive while the final authenticated
+			// record is still buffered. Deliver that record before EOF.
+			select {
+			case out, ok = <-c.decrypted:
+			default:
 				return 0, io.EOF
 			}
-			switch val := out.(type) {
-			case ([]byte):
-				if len(buff) < len(val) {
-					return 0, errBufferTooSmall
-				}
-				copy(buff, val)
-
-				return len(val), nil
-			case (error):
-				return 0, val
+		case <-c.readDeadline.Done():
+			return 0, errDeadlineExceeded
+		case out, ok = <-c.decrypted:
+		}
+		if !ok {
+			return 0, io.EOF
+		}
+		switch val := out.(type) {
+		case []byte:
+			if len(buff) < len(val) {
+				return 0, errBufferTooSmall
 			}
+			copy(buff, val)
+
+			return len(val), nil
+		case error:
+			return 0, val
 		}
 	}
 }
@@ -497,7 +505,7 @@ func (c *Conn) Write(payload []byte) (int, error) {
 		return 0, err
 	}
 
-	ctx, cancel := c.contextWithClose(c.writeDeadline)
+	ctx, cancel := c.contextWithClose(c.writeDeadline.Context())
 	defer cancel()
 
 	return len(payload), c.writePackets(ctx, []*packet{
@@ -664,7 +672,7 @@ func (c *closeContext) Err() error {
 		return err
 	}
 
-	return c.Context.Err()
+	return context.Cause(c.Context)
 }
 
 func (c *closeContext) close(err error) {
@@ -687,7 +695,7 @@ func (c *Conn) contextWithClose(ctx context.Context) (context.Context, context.C
 		case <-c.closed.Done():
 			closeCtx.close(context.Canceled)
 		case <-ctx.Done():
-			err := ctx.Err()
+			err := context.Cause(ctx)
 			if err == nil {
 				err = context.DeadlineExceeded
 			}

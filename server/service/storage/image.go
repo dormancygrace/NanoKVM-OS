@@ -34,22 +34,8 @@ var (
 
 func (s *Service) GetImages(c *gin.Context) {
 	var rsp proto.Response
-	var images []string
 
-	err := filepath.Walk(imageDirectory, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if !info.IsDir() {
-			name := strings.ToLower(info.Name())
-			if strings.HasSuffix(name, ".iso") || strings.HasSuffix(name, ".img") {
-				images = append(images, path)
-			}
-		}
-
-		return nil
-	})
+	images, err := listImages()
 	if err != nil {
 		rsp.ErrRsp(c, -2, "get images failed")
 		return
@@ -59,6 +45,24 @@ func (s *Service) GetImages(c *gin.Context) {
 		Files: images,
 	})
 	log.Debugf("get images success, total %d", len(images))
+}
+
+// listImages offers exactly the files that imageFile lets MountImage and
+// DeleteImage use, so the page never lists an entry it cannot act on.
+func listImages() ([]string, error) {
+	var images []string
+	err := filepath.Walk(imageDirectory, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			if _, err := imageFile(path); err == nil {
+				images = append(images, path)
+			}
+		}
+		return nil
+	})
+	return images, err
 }
 
 func (s *Service) MountImage(c *gin.Context) {

@@ -81,7 +81,8 @@ func loadImageResume(path string) (*imageResume, error) {
 	if filepath.Dir(job.Path) != "/data" || !strings.HasPrefix(filepath.Base(job.Path), ".nanokvm-download-") || filepath.Clean(job.Path) != job.Path {
 		return nil, errors.New("invalid saved partial image path")
 	}
-	if job.Filename == "" || job.Filename == "." || job.Filename == ".." || filepath.Base(job.Filename) != job.Filename {
+	// A job saved by an earlier version follows the policy of a new download.
+	if err := validateRemoteImageFilename(job.Filename); err != nil {
 		return nil, errors.New("invalid saved image filename")
 	}
 	if _, err := parseSHA256(job.SHA256); err != nil {
@@ -187,7 +188,7 @@ func (s *Service) resumeImageDownload() {
 			err = closeErr
 		}
 		if err == nil {
-			err = os.Rename(job.Path, filepath.Join("/data", job.Filename))
+			err = installImage("/data", job.Path, job.Filename)
 		}
 		// On an error retain the hidden partial file; never publish mixed data.
 		if errors.Is(err, context.Canceled) {

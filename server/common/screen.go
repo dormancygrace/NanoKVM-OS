@@ -114,8 +114,11 @@ func setScreenValue(target *Screen, key string, value int) {
 		}
 
 	case "mjpeg_chroma":
-		if value == 420 || value == 422 {
-			target.MjpegChroma = uint16(value)
+		switch value {
+		case 420:
+			target.MjpegChroma = 420
+		case 422:
+			target.MjpegChroma = 422
 		}
 
 	case "fps":
@@ -127,8 +130,11 @@ func setScreenValue(target *Screen, key string, value int) {
 		}
 
 	case "gop_mode":
-		if value == int(GOPModeNormalP) || value == int(GOPModeSmartP) {
-			target.GOPMode = uint8(value)
+		switch value {
+		case int(GOPModeNormalP):
+			target.GOPMode = GOPModeNormalP
+		case int(GOPModeSmartP):
+			target.GOPMode = GOPModeSmartP
 		}
 	}
 }

@@ -457,26 +457,34 @@ func (c *Conn) Read(buff []byte) (n int, err error) { //nolint:cyclop
 	}
 
 	for {
+		var out any
+		var ok bool
 		select {
 		case <-c.closed.Done():
-			return 0, io.EOF
-		case <-c.readDeadline.Done():
-			return 0, errDeadlineExceeded
-		case out, ok := <-c.decrypted:
-			if !ok {
+			// A close notification can arrive while the final authenticated
+			// record is still buffered. Deliver that record before EOF.
+			select {
+			case out, ok = <-c.decrypted:
+			default:
 				return 0, io.EOF
 			}
-			switch val := out.(type) {
-			case ([]byte):
-				if len(buff) < len(val) {
-					return 0, errBufferTooSmall
-				}
-				copy(buff, val)
-
-				return len(val), nil
-			case (error):
-				return 0, val
+		case <-c.readDeadline.Done():
+			return 0, errDeadlineExceeded
+		case out, ok = <-c.decrypted:
+		}
+		if !ok {
+			return 0, io.EOF
+		}
+		switch val := out.(type) {
+		case []byte:
+			if len(buff) < len(val) {
+				return 0, errBufferTooSmall
 			}
+			copy(buff, val)
+
+			return len(val), nil
+		case error:
+			return 0, val
 		}
 	}
 }

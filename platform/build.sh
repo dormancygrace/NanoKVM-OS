@@ -191,7 +191,7 @@ toolchain() {
         for patch in "$repo"/firmware/buildroot/source-patches/*.patch; do patch -s -d "$br" -p1 < "$patch"; done
         echo "$id" > "$br/.platform-patched"
     fi
-    local make=(make -C "$br" O="$bo" BR2_EXTERNAL="$repo/firmware/buildroot")
+    local make=(make -C "$br" O="$bo" BR2_EXTERNAL="$repo/firmware/buildroot" BR2_JLEVEL="$jobs")
     if [ ! -e "$bo/.config" ]; then
         "${make[@]}" nanokvm_platform_defconfig
         "${make[@]}" olddefconfig
@@ -619,33 +619,57 @@ PY
 # riscv64 programs. build.sh runs them as root of a user namespace instead of
 # host root: newuidmap maps the subordinate IDs of /etc/subuid and /etc/subgid,
 # and the namespace's own binfmt_misc (Linux 6.7 or newer) starts qemu.
-in_userns() {
+in_userns() (
     local user sub_u sub_g
     user=$(id -un)
     sub_u=$(awk -F: -v u="$user" '$1 == u { print $2; exit }' /etc/subuid 2>/dev/null)
     sub_g=$(awk -F: -v u="$user" '$1 == u { print $2; exit }' /etc/subgid 2>/dev/null)
-    if [ -z "$sub_u" ] || [ -z "$sub_g" ] || ! command -v newuidmap > /dev/null; then
+    if [ -z "$sub_u" ] || [ -z "$sub_g" ] || ! command -v newuidmap > /dev/null || ! command -v newgidmap > /dev/null; then
         echo "The $1 step needs newuidmap and newgidmap (package uidmap) and subordinate" >&2
         echo "IDs for $user in /etc/subuid and /etc/subgid; see platform/README.md." >&2
         exit 1
     fi
-    # unshare maps one range only: the namespace waits until newuidmap and
-    # newgidmap have mapped this user to root and the subordinate IDs to 1-65535.
-    local sync pid status=0
+    local sync pid= status=0 ready_fd mapped_fd deadline
     sync=$(mktemp -d)
+    cleanup_userns() {
+        if [ -n "$pid" ]; then
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+        fi
+        rm -rf "$sync"
+    }
+    trap cleanup_userns EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
     mkfifo "$sync/ready" "$sync/mapped"
+    # Opening read/write avoids an unbounded FIFO open if unshare fails early.
+    exec {ready_fd}<>"$sync/ready"
+    exec {mapped_fd}<>"$sync/mapped"
     unshare --user --mount --pid --fork --kill-child \
         bash -c 'echo > "$1/ready"; read -r _ < "$1/mapped"; shift; exec "$@"' sh "$sync" \
         env NANOKVM_USERNS=1 bash "$here/build.sh" -o "$out" -j "$jobs" ${key:+-k "$key"} "$1" &
     pid=$!
-    read -r _ < "$sync/ready"
-    newuidmap "$pid" 0 "$(id -u)" 1 1 "$sub_u" 65535
-    newgidmap "$pid" 0 "$(id -g)" 1 1 "$sub_g" 65535
-    echo > "$sync/mapped"
+    deadline=$((SECONDS + 30))
+    until read -r -t 0.1 -u "$ready_fd" _; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            wait "$pid" || status=$?
+            pid=
+            echo "User namespace exited before reporting ready" >&2
+            [ "$status" -ne 0 ] || status=1
+            exit "$status"
+        fi
+        if [ "$SECONDS" -ge "$deadline" ]; then
+            echo "Timed out waiting for user namespace startup" >&2
+            exit 1
+        fi
+    done
+    newuidmap "$pid" 0 "$(id -u)" 1 1 "$sub_u" 65535 || exit $?
+    newgidmap "$pid" 0 "$(id -g)" 1 1 "$sub_g" 65535 || exit $?
+    echo >&"$mapped_fd"
     wait "$pid" || status=$?
-    rm -rf "$sync"
-    return "$status"
-}
+    pid=
+    exit "$status"
+)
 
 qemu=$out/qemu/qemu-riscv64-static
 register_qemu() {

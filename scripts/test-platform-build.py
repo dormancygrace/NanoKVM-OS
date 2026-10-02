@@ -85,3 +85,36 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     (out / "buildroot").mkdir()
     (out / "buildroot/.platform-patched").write_text("previous inputs\n")
     expect(build(tree, out, "toolchain"), False, "interrupted build from other inputs is rejected", "Delete")
+
+# Exercise the real startup/mapping synchronization without creating namespaces.
+source = (REPO / "platform/build.sh").read_text()
+userns = source[source.index("in_userns() ("):source.index("\nqemu=")]
+for mode, code in (("startup-fails", 17), ("uidmap-fails", 23),
+                   ("gidmap-fails", 24), ("child-fails", 29), ("success", 0)):
+    with tempfile.TemporaryDirectory(prefix="nkos-userns-") as directory:
+        root = Path(directory)
+        script = root / "test.sh"
+        script.write_text("""#!/bin/bash
+set -euo pipefail
+mode=$1
+export TMPDIR=$2
+here=$2 out=$2 jobs=1 key=
+awk() { echo 100000; }
+newuidmap() { [ "$mode" != uidmap-fails ] || return 23; }
+newgidmap() { [ "$mode" != gidmap-fails ] || return 24; }
+unshare() {
+    [ "$mode" != startup-fails ] || return 17
+    echo "$BASHPID" > "$TMPDIR/child.pid"
+    echo > "$sync/ready"
+    read -r _ < "$sync/mapped"
+    [ "$mode" != child-fails ] || return 29
+}
+""" + userns + "\nin_userns packages\n")
+        result = subprocess.run(["bash", str(script), mode, directory],
+                                capture_output=True, text=True, timeout=5)
+        assert result.returncode == code, (mode, result.returncode, result.stderr)
+        assert not list(root.glob("tmp.*")), (mode, "synchronization files left behind")
+        child = root / "child.pid"
+        if child.exists():
+            assert not Path("/proc", child.read_text().strip()).exists(), (mode, "child left running")
+        print(f"namespace {mode}: pass")

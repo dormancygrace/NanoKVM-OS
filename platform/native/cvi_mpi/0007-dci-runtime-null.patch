@@ -1,0 +1,23 @@
+--- a/modules/isp/cv181x/isp/src/isp_dci_ctrl.c
++++ b/modules/isp/cv181x/isp/src/isp_dci_ctrl.c
+@@ -45,6 +45,9 @@
+ 	CVI_S32 ret = CVI_SUCCESS;
+ 
+ 	struct isp_dci_ctrl_runtime *runtime = _get_dci_ctrl_runtime(ViPipe);
++	if (runtime == CVI_NULL) {
++		return CVI_FAILURE;
++	}
+ 
+ 	memset(runtime->pre_dci_data, 0, sizeof(CVI_U16) * DCI_BINS_NUM);
+ 	memset(runtime->pre_dci_lut, 0, sizeof(CVI_U32) * DCI_BINS_NUM);
+@@ -382,6 +385,10 @@
+ 
+ 	isp_mgr_buf_get_addr(ViPipe, ISP_IQ_BLOCK_DCI, (CVI_VOID *) &shared_buffer);
+ 
++	if (shared_buffer == CVI_NULL) {
++		return CVI_NULL;
++	}
++
+ 	return &shared_buffer->runtime;
+ }
+ 

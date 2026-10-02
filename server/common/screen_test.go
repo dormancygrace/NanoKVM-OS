@@ -193,3 +193,15 @@ func TestSetScreenValueIgnoresOutOfRangeValues(t *testing.T) {
 		t.Errorf("valid values were not applied: %+v", got)
 	}
 }
+
+func TestSetScreenValueReturnsToSameAsInput(t *testing.T) {
+	got := Screen{Width: 1920, Height: 1080}
+	setScreenValue(&got, "resolution", 0)
+	if got.Width != 0 || got.Height != 0 {
+		t.Fatalf("same-as-input request retained %dx%d", got.Width, got.Height)
+	}
+	setScreenValue(&got, "resolution", 720)
+	if got.Width != 1280 || got.Height != 720 {
+		t.Fatalf("fixed resolution after same-as-input = %dx%d, want 1280x720", got.Width, got.Height)
+	}
+}

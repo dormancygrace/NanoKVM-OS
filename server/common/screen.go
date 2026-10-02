@@ -95,7 +95,8 @@ func SetScreen(key string, value int) {
 func setScreenValue(target *Screen, key string, value int) {
 	switch key {
 	case "resolution":
-		if value < 1 || value > math.MaxUint16 {
+		// 0 is "same as input", which ResolutionMap maps to 0x0.
+		if value < 0 || value > math.MaxUint16 {
 			return
 		}
 		height := uint16(value)

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -141,29 +142,7 @@ func postMountImage(t *testing.T, body string) proto.Response {
 }
 
 func TestImageFileAcceptsOnlyListedImages(t *testing.T) {
-	root := t.TempDir()
-	original := imageDirectory
-	imageDirectory = root
-	t.Cleanup(func() { imageDirectory = original })
-	outside := t.TempDir()
-	for _, name := range []string{"disk.iso", "sub/disk.IMG", "notes.txt"} {
-		path := filepath.Join(root, name)
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.WriteFile(filepath.Join(outside, "secret.img"), []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(filepath.Join(outside, "secret.img"), filepath.Join(root, "link.img")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(root, "dir.iso"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	root, outside := imageFixture(t)
 
 	for _, name := range []string{"disk.iso", "sub/disk.IMG"} {
 		path := filepath.Join(root, name)
@@ -184,4 +163,65 @@ func TestImageFileAcceptsOnlyListedImages(t *testing.T) {
 			t.Errorf("imageFile(%q) = %q; want an error", path, got)
 		}
 	}
+}
+
+func TestGetImagesListsOnlyMountableImages(t *testing.T) {
+	root, _ := imageFixture(t)
+	if err := os.Symlink(filepath.Join(root, "sub"), filepath.Join(root, "linkdir.iso")); err != nil {
+		t.Fatal(err)
+	}
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/api/storage/image", nil)
+	NewService().GetImages(context)
+
+	var rsp struct {
+		Code int                `json:"code"`
+		Data proto.GetImagesRsp `json:"data"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &rsp); err != nil {
+		t.Fatalf("decode response %q: %v", recorder.Body.String(), err)
+	}
+	want := []string{filepath.Join(root, "disk.iso"), filepath.Join(root, "sub", "disk.IMG")}
+	if rsp.Code != 0 || !slices.Equal(rsp.Data.Files, want) {
+		t.Fatalf("listed %v (code %d); want %v", rsp.Data.Files, rsp.Code, want)
+	}
+	for _, path := range rsp.Data.Files {
+		if _, err := imageFile(path); err != nil {
+			t.Errorf("listed %q cannot be mounted or deleted: %v", path, err)
+		}
+	}
+}
+
+// imageFixture points imageDirectory at a new directory with two images and
+// entries that are not mountable images: a text file, a symbolic link to an
+// image outside the directory and a directory with an image suffix.
+func imageFixture(t *testing.T) (root, outside string) {
+	t.Helper()
+	root = t.TempDir()
+	original := imageDirectory
+	imageDirectory = root
+	t.Cleanup(func() { imageDirectory = original })
+	outside = t.TempDir()
+	for _, name := range []string{"disk.iso", "sub/disk.IMG", "notes.txt"} {
+		path := filepath.Join(root, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(outside, "secret.img"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(outside, "secret.img"), filepath.Join(root, "link.img")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "dir.iso"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return root, outside
 }

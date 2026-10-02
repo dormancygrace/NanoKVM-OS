@@ -292,8 +292,7 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 			return
 		}
 
-		outPath := filepath.Join("/data", filename)
-		if err := os.Rename(tempPath, outPath); err != nil {
+		if err := installImage("/data", tempPath, filename); err != nil {
 			rsp.ErrRsp(c, -1, "cannot install uploaded image")
 			return
 		}
@@ -335,6 +334,19 @@ func validateImageFilename(filename string, suffixes ...string) error {
 		return errors.New("invalid filename")
 	}
 	return nil
+}
+
+// installImage publishes a completed temporary file as filename in dir.
+// Uploads, new downloads and resumed downloads all add images through it.
+func installImage(dir, tempPath, filename string) error {
+	if err := validateRemoteImageFilename(filename); err != nil {
+		return err
+	}
+	destPath, err := utils.JoinWithin(dir, filename)
+	if err != nil {
+		return err
+	}
+	return os.Rename(tempPath, destPath)
 }
 
 func (s *Service) DownloadImage(c *gin.Context) {
@@ -456,11 +468,7 @@ func (s *Service) downloadRemoteImage(
 		return ctx.Err()
 	}
 
-	destPath, err := utils.JoinWithin("/data", filename)
-	if err != nil {
-		return fmt.Errorf("invalid image name: %w", err)
-	}
-	if err := os.Rename(tempPath, destPath); err != nil {
+	if err := installImage("/data", tempPath, filename); err != nil {
 		return fmt.Errorf("install downloaded image failed: %w", err)
 	}
 

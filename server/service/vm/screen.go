@@ -3,6 +3,7 @@ package vm
 import (
 	"NanoKVM-Server/common"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"sync"
@@ -10,6 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
+	"NanoKVM-Server/authn"
+	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
 )
 
@@ -26,6 +29,19 @@ var readActiveGOPMode = common.GetActiveGOPMode
 var mjpegChromaMutex sync.Mutex
 var readMjpegChromaStatus = common.GetMjpegChromaStatus
 var applyMjpegChroma = func(value uint16) int { return common.GetKvmVision().SetMjpegChroma(value) }
+
+// monitorScreenTypes reprogram the HDMI receiver's EDID flash or clear its
+// power-cycle marker; they are device configuration, not shared viewing.
+var monitorScreenTypes = map[string]bool{
+	"monitor":                 true,
+	"monitor_power_cycle_ack": true,
+	"portrait":                true,
+	"portrait_resolution":     true,
+}
+
+// maxQualityValue covers MJPEG quality (1-100) and H.26x bitrate in kbit/s.
+// The native readers of /kvmapp/kvm/qlty use small fixed buffers.
+const maxQualityValue = 20000
 
 func (s *Service) GetScreen(c *gin.Context) {
 	current := common.GetScreen()
@@ -67,6 +83,13 @@ func (s *Service) SetScreen(c *gin.Context) {
 	if err != nil {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
+	}
+
+	if monitorScreenTypes[req.Type] {
+		if principal, ok := middleware.CurrentPrincipal(c); !ok || principal.Role != authn.RoleAdmin {
+			c.JSON(http.StatusForbidden, "forbidden")
+			return
+		}
 	}
 
 	switch req.Type {
@@ -189,6 +212,8 @@ func (s *Service) SetScreen(c *gin.Context) {
 			gop = req.Value
 		}
 		common.GetKvmVision().SetGop(uint8(gop))
+		// Store the value the encoder actually uses, not the raw request.
+		req.Value = gop
 
 	case "gop_mode":
 		if req.Value != int(common.GOPModeNormalP) && req.Value != int(common.GOPModeSmartP) {
@@ -197,9 +222,16 @@ func (s *Service) SetScreen(c *gin.Context) {
 		}
 		err = writeScreen(req.Type, strconv.Itoa(req.Value))
 
+	case "quality":
+		if req.Value < 1 || req.Value > maxQualityValue {
+			rsp.ErrRsp(c, -1, "quality must be 1-100, or a bitrate up to 20000 kbit/s")
+			return
+		}
+		err = writeScreen(req.Type, strconv.Itoa(req.Value))
+
 	default:
-		data := strconv.Itoa(req.Value)
-		err = writeScreen(req.Type, data)
+		rsp.ErrRsp(c, -1, "unknown screen setting")
+		return
 	}
 
 	if err != nil {

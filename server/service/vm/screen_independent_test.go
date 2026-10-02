@@ -1,7 +1,9 @@
 package vm
 
 import (
+	"NanoKVM-Server/authn"
 	"NanoKVM-Server/common"
+	"NanoKVM-Server/middleware"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -22,7 +24,7 @@ func TestStreamLimitDoesNotRequireMonitorHardware(t *testing.T) {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"type":"resolution","value":720}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	(&Service{}).SetScreen(c)
+	setScreenAs(c, authn.RoleAdmin)
 	var result struct {
 		Code int `json:"code"`
 	}
@@ -43,7 +45,7 @@ func TestRejectsInvalidVideoPreferences(t *testing.T) {
 		c, _ := gin.CreateTestContext(recorder)
 		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(body))
 		c.Request.Header.Set("Content-Type", "application/json")
-		(&Service{}).SetScreen(c)
+		setScreenAs(c, authn.RoleAdmin)
 		var result struct {
 			Code int `json:"code"`
 		}
@@ -70,7 +72,7 @@ func TestStreamTypePersistsCodecForOLED(t *testing.T) {
 		c, _ := gin.CreateTestContext(recorder)
 		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(fmt.Sprintf(`{"type":"type","value":%d}`, test.value)))
 		c.Request.Header.Set("Content-Type", "application/json")
-		(&Service{}).SetScreen(c)
+		setScreenAs(c, authn.RoleAdmin)
 
 		var result struct {
 			Code int `json:"code"`
@@ -113,7 +115,7 @@ func TestGOPModePendingTracksActiveMode(t *testing.T) {
 		body := fmt.Sprintf(`{"type":"gop_mode","value":%d}`, value)
 		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(body))
 		c.Request.Header.Set("Content-Type", "application/json")
-		(&Service{}).SetScreen(c)
+		setScreenAs(c, authn.RoleAdmin)
 		var result response
 		if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code != 0 {
 			t.Fatalf("response %s, error %v", recorder.Body.String(), err)
@@ -158,7 +160,7 @@ func TestGOPModeRejectsInvalidValue(t *testing.T) {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"type":"gop_mode","value":2}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	(&Service{}).SetScreen(c)
+	setScreenAs(c, authn.RoleAdmin)
 
 	var result struct {
 		Code int `json:"code"`
@@ -173,11 +175,59 @@ func TestHDMonitorProfileReachesHardwareValidation(t *testing.T) {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"type":"monitor","value":720}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	(&Service{}).SetScreen(c)
+	setScreenAs(c, authn.RoleAdmin)
 	var result struct {
 		Code int `json:"code"`
 	}
 	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code != -4 {
 		t.Fatalf("HD must pass profile validation and reach absent test hardware: %s", recorder.Body.String())
+	}
+}
+
+func setScreenAs(c *gin.Context, role authn.Role) {
+	// CheckToken stores the principal under this key in production.
+	c.Set("principal", middleware.Principal{Username: "tester", Role: role})
+	(&Service{}).SetScreen(c)
+}
+
+func TestMonitorProfilesRequireAdministrator(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, body := range []string{
+		`{"type":"monitor","value":720}`,
+		`{"type":"portrait","value":1}`,
+		`{"type":"portrait_resolution","value":1920}`,
+		`{"type":"monitor_power_cycle_ack","value":0,"confirmPowerCycle":true}`,
+	} {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		setScreenAs(c, authn.RoleUser)
+		if recorder.Code != 403 {
+			t.Fatalf("user %s = %d %s, want 403", body, recorder.Code, recorder.Body.String())
+		}
+	}
+}
+
+func TestQualityRejectsValuesNativeReadersCannotHold(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	old := screenFileMap["quality"]
+	screenFileMap["quality"] = filepath.Join(t.TempDir(), "qlty")
+	defer func() { screenFileMap["quality"] = old }()
+	for _, value := range []string{"0", "-1", "20001", "-9223372036854775808"} {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"type":"quality","value":`+value+`}`))
+		c.Request.Header.Set("Content-Type", "application/json")
+		setScreenAs(c, authn.RoleUser)
+		var result struct {
+			Code int `json:"code"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code == 0 {
+			t.Fatalf("accepted quality %s: %s", value, recorder.Body.String())
+		}
+	}
+	if _, err := os.Stat(screenFileMap["quality"]); !os.IsNotExist(err) {
+		t.Fatal("rejected quality values were written")
 	}
 }

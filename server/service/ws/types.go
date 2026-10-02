@@ -35,6 +35,9 @@ type Client struct {
 	closeOnce          sync.Once
 	workers            sync.WaitGroup
 	controlEnabled     bool
+	// sessionID is the login session (middleware.CurrentSessionID) that
+	// opened this socket; HTTP input routes compare against the controller's.
+	sessionID string
 }
 
 type Message struct {

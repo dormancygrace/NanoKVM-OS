@@ -2,7 +2,9 @@
 
 React/TypeScript browser interface derived from Sipeed NanoKVM. Product behavior is documented in [Video](../docs/VIDEO.md), [Updates](../docs/UPDATES.md) and the [main README](../README.md).
 
-Use Node.js 22+ and pnpm 11+ as specified in `package.json`:
+Use Node.js 24 LTS and pnpm 11+ as specified in `package.json` (CI uses pnpm 12).
+The repository root `.nvmrc` selects Node 24; nvm users can run `nvm install`
+and `nvm use` from that directory before entering `web/`:
 
 ```sh
 pnpm install --frozen-lockfile

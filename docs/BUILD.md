@@ -4,7 +4,9 @@ This source snapshot includes project modifications and dependency pins, not a r
 
 ## Web interface
 
-Use Node.js 22 or newer and pnpm 11 or newer:
+Use Node.js 24 LTS and pnpm 11 or newer (CI uses pnpm 12). The root
+`.nvmrc` selects Node 24 for both local development and CI. If using nvm, run
+`nvm install` and `nvm use` from the repository root before building:
 
 ```sh
 cd web

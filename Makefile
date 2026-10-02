@@ -47,6 +47,7 @@ help:
 	@echo "  test-wifi-runtime - Test Wi-Fi runtime state and credential permissions"
 	@echo "  test-ethernet-runtime - Test persistent Ethernet administrative state"
 	@echo "  web           - Build the frontend into web/dist"
+	@echo "  platform      - Build toolchain, kernel, modules, U-Boot and boot images (platform/README.md)"
 	@echo "  all           - Build both app and support (default)"
 	@echo "  release-build - Build every riscv64 release artifact in one pass"
 	@echo "  package       - Assemble nanokvm_<VERSION>.tar.gz + latest.json"
@@ -129,6 +130,11 @@ test-wifi-runtime:
 test-ethernet-runtime:
 	@sh tools/test-ethernet-enabled.sh
 	@cd server && go test ./service/network
+
+.PHONY: platform
+# Toolchain, kernel, modules, U-Boot, FIP and boot images from pinned sources
+platform:
+	@platform/build.sh
 
 # Build every riscv64 release artifact in one container pass
 release-build: check-root builder-image

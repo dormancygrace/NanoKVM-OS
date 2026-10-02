@@ -1,0 +1,293 @@
+diff --git a/AUTHORS b/AUTHORS
+index 6f9408e..c45e85b 100644
+--- a/AUTHORS
++++ b/AUTHORS
+@@ -1,15 +1,15 @@
+-Michal Ludvig: 
++Michal Ludvig:
+   Initial implementation for linux 2.6.8
+ 
+-Nikos Mavrogiannopoulos: 
++Nikos Mavrogiannopoulos:
+   Port to 2.6.27 and later, better compatibility
+   with OpenBSD (and FreeBSD) cryptodev and maintanance.
+ 
+-Michael Weiser: 
++Michael Weiser:
+   Porting to blkcipher async API. Several hardware drivers
+   only implemented this API.
+ 
+-Phil Sutter: 
++Phil Sutter:
+   Implemented a zero copy version of the internal engine.
+ 
+ Dmitry Kasatkin:
+diff --git a/INSTALL b/INSTALL
+index 2754c59..35ce705 100644
+--- a/INSTALL
++++ b/INSTALL
+@@ -29,4 +29,3 @@ $ openssl speed -evp sha1
+ * GnuTLS 3.x:
+ run the following command prior and after installation and compare.
+ $ gnutls-cli --benchmark-ciphers
+-
+diff --git a/Makefile b/Makefile
+index dab8709..e389f33 100644
+--- a/Makefile
++++ b/Makefile
+@@ -82,4 +82,3 @@ dist: clean
+ cscope:
+ 	@find . -name "*.[ch]" > cscope.files
+ 	@cscope -bkq -i cscope.files -f cscope.out
+-
+diff --git a/NEWS b/NEWS
+index dbcb695..6c27111 100644
+--- a/NEWS
++++ b/NEWS
+@@ -142,7 +142,7 @@ Version 1.6 (released 2013-03-20)
+ 
+ * Asynchronous operations will not be scheduled if zero copy is disabled.
+ 
+-* Asynchronous operations are disabled by default, unless -DENABLE_ASYNC 
++* Asynchronous operations are disabled by default, unless -DENABLE_ASYNC
+   is enabled on Makefile.
+ 
+ 
+@@ -152,7 +152,7 @@ Version 1.5 (released 2012-08-04)
+ 
+ * Simplifications in memory locking. Patch by Phil Sutter.
+ 
+-* Allow empty plaintext and authenticated data in AEAD  ciphers. 
++* Allow empty plaintext and authenticated data in AEAD  ciphers.
+   Patch by Jaren Johnston.
+ 
+ 
+@@ -163,7 +163,7 @@ Version 1.4 (released 2012-03-15)
+ 
+ Version 1.3 (released 2012-02-29)
+ 
+-* Return EBADMSG instead of ECANCELED on tag verification failure in 
++* Return EBADMSG instead of ECANCELED on tag verification failure in
+   authenc modes.
+ 
+ * COP_FLAG_RESET can be combined with COP_FLAG_UPDATE for efficiency.
+@@ -175,7 +175,7 @@ Version 1.3 (released 2012-02-29)
+ 
+ Version 1.2 (released 2012-02-24)
+ 
+-* In kernels that do not distinguish between hw accelerated ciphers or 
++* In kernels that do not distinguish between hw accelerated ciphers or
+   not set the SIOP_FLAG_KERNEL_DRIVER_ONLY flag based on driver name.
+ 
+ * camelia was renamed to camellia.
+@@ -191,18 +191,18 @@ Version 1.1 (released 2012-02-20)
+ 
+ * Defined HASH_MAX_LEN in cryptodev.h
+ 
+-* CIOCGSESSINFO ioctl() sets the SIOP_FLAG_KERNEL_DRIVER_ONLY flag if the 
+-  driver is only available through kernel driver (and is not just software 
++* CIOCGSESSINFO ioctl() sets the SIOP_FLAG_KERNEL_DRIVER_ONLY flag if the
++  driver is only available through kernel driver (and is not just software
+   cipher).
+ 
+-* Added new encryption ioctl, CIOCAUTHCRYPT, which combines authentication 
++* Added new encryption ioctl, CIOCAUTHCRYPT, which combines authentication
+   and encryption. Operates in AEAD, TLS and SRTP modes (the API might change
+   in later versions).
+ 
+ 
+ Version 1.0 (released 2011-04-12)
+ 
+-* Several fixes in the included examples. Based on patches by Vladimir 
++* Several fixes in the included examples. Based on patches by Vladimir
+   Zapolskiy.
+ 
+ 
+@@ -235,20 +235,20 @@ Version 0.7 (released 2010-10-08)
+ 
+ * Added COP_FLAG_FINAL to make multi-update more efficient.
+ 
+-* Added CRIOGET_NOT_NEEDED definition to allow users of the API to 
++* Added CRIOGET_NOT_NEEDED definition to allow users of the API to
+   distinguish from the bare OpenBSD API that requires the CRIOGET.
+ 
+ 
+ Version 0.6 (released 2010-09-16)
+ 
+-* multi-update support for hash calculation using the new flag 
++* multi-update support for hash calculation using the new flag
+   COP_FLAG_UPDATE.
+ 
+ * Relicensed under GPLv2.
+ 
+ * Added AES-CTR.
+ 
+-* Corrected fallback to non-zero copy when referenced pages were 
++* Corrected fallback to non-zero copy when referenced pages were
+   not writable.
+ 
+ 
+@@ -261,7 +261,7 @@ Version 0.5 (released 2010-07-06)
+ 
+ Version 0.4 (released 2010-07-03)
+ 
+-* Internal engine supports operations with zero copy from user space. 
++* Internal engine supports operations with zero copy from user space.
+ 
+ 
+ Version 0.3 (released 2010-06-19)
+@@ -275,4 +275,3 @@ Version 0.2 (released 2010-06-18)
+   and kernel is operating in 64bit mode (Phil Sutter)
+ 
+ * Added several sanity checks to input.
+-
+diff --git a/UPSTREAM.json b/UPSTREAM.json
+new file mode 100644
+index 0000000..c88f141
+--- /dev/null
++++ b/UPSTREAM.json
+@@ -0,0 +1,8 @@
++{
++  "repository": "https://github.com/cryptodev-linux/cryptodev-linux",
++  "commit": "08644db02d43478f802755903212f5ee506af73b",
++  "version": "1.14",
++  "modification": "Three request callbacks allow MAY_SLEEP. Operations already run in sleepable ioctl/workqueue context and wait_for_completion. SG2002 can complete inline, avoiding an unnecessary worker switch; atomic kernel callers remain asynchronous.",
++  "patch_already_applied": "nanokvm-may-sleep.patch",
++  "source_subset": "Module source, public ABI and license; upstream test/example files omitted."
++}
+diff --git a/cryptlib.c b/cryptlib.c
+index 0e59d4c..d4bb97f 100644
+--- a/cryptlib.c
++++ b/cryptlib.c
+@@ -236,7 +236,7 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
+ 		}
+ 
+ 		cryptodev_blkcipher_request_set_callback(out->async.request,
+-					CRYPTO_TFM_REQ_MAY_BACKLOG,
++					CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
+ 					cryptodev_complete, &out->async.result);
+ 	} else {
+ 		out->async.arequest = aead_request_alloc(out->async.as, GFP_KERNEL);
+@@ -247,7 +247,7 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
+ 		}
+ 
+ 		aead_request_set_callback(out->async.arequest,
+-					CRYPTO_TFM_REQ_MAY_BACKLOG,
++					CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
+ 					cryptodev_complete, &out->async.result);
+ 	}
+ 
+@@ -397,7 +397,7 @@ int cryptodev_hash_init(struct hash_data *hdata, const char *alg_name,
+ 	}
+ 
+ 	ahash_request_set_callback(hdata->async.request,
+-			CRYPTO_TFM_REQ_MAY_BACKLOG,
++			CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
+ 			cryptodev_complete, &hdata->async.result);
+ 	hdata->init = 1;
+ 	return 0;
+diff --git a/crypto/cryptodev.h b/crypto/cryptodev.h
+index 3672f50..3a447db 100644
+--- a/crypto/cryptodev.h
++++ b/crypto/cryptodev.h
+@@ -149,7 +149,7 @@ struct crypt_auth_op {
+ 	 * encrypted in-place (src==dst). */
+ 	__u8	__user *src;	/* data to be encrypted and authenticated */
+ 	__u8	__user *dst;	/* pointer to output data. Must have
+-	                         * space for tag. For TLS this should be at least 
++	                         * space for tag. For TLS this should be at least
+ 	                         * len + tag_size + block_size for padding */
+ 
+ 	__u8    __user *tag;    /* where the tag will be copied to. TLS mode
+@@ -178,7 +178,7 @@ struct crypt_auth_op {
+  * copies the tag just after data.
+  */
+ 
+-/* In TLS mode (used for CBC ciphers that required padding) 
++/* In TLS mode (used for CBC ciphers that required padding)
+  * the following are required:
+  *  flags   : COP_FLAG_AEAD_TLS_TYPE
+  *  iv      : the initialization vector
+@@ -199,7 +199,7 @@ struct crypt_auth_op {
+  *  iv      : the initialization vector
+  *  auth_len: the length of the data to be authenticated. This must
+  *            include the SRTP header + SRTP payload (data to be encrypted) + rest
+- *            
++ *
+  *  len     : length of data to be encrypted
+  *  auth_src: pointer the data to be authenticated. Should point at the same buffer as src.
+  *  src     : pointer to the data to be encrypted.
+@@ -217,9 +217,9 @@ struct crypt_auth_op {
+ #define COP_FLAG_FINAL		(1 << 1) /* multi-update final hash mode */
+ #define COP_FLAG_WRITE_IV	(1 << 2) /* update the IV during operation */
+ #define COP_FLAG_NO_ZC		(1 << 3) /* do not zero-copy */
+-#define COP_FLAG_AEAD_TLS_TYPE  (1 << 4) /* authenticate and encrypt using the 
++#define COP_FLAG_AEAD_TLS_TYPE  (1 << 4) /* authenticate and encrypt using the
+                                           * TLS protocol rules */
+-#define COP_FLAG_AEAD_SRTP_TYPE  (1 << 5) /* authenticate and encrypt using the 
++#define COP_FLAG_AEAD_SRTP_TYPE  (1 << 5) /* authenticate and encrypt using the
+                                            * SRTP protocol rules */
+ #define COP_FLAG_RESET		(1 << 6) /* multi-update reset the state.
+                                           * should be used in combination
+diff --git a/ioctl.c b/ioctl.c
+index db35200..0b66892 100644
+--- a/ioctl.c
++++ b/ioctl.c
+@@ -1298,4 +1298,3 @@ static void __exit exit_cryptodev(void)
+ 
+ module_init(init_cryptodev);
+ module_exit(exit_cryptodev);
+-
+diff --git a/nanokvm-may-sleep.patch b/nanokvm-may-sleep.patch
+new file mode 100644
+index 0000000..524a8b1
+--- /dev/null
++++ b/nanokvm-may-sleep.patch
+@@ -0,0 +1,31 @@
++diff --git a/cryptlib.c b/cryptlib.c
++index 0e59d4c..d4bb97f 100644
++--- a/cryptlib.c
+++++ b/cryptlib.c
++@@ -236,7 +236,7 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
++ 		}
++
++ 		cryptodev_blkcipher_request_set_callback(out->async.request,
++-					CRYPTO_TFM_REQ_MAY_BACKLOG,
+++					CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
++ 					cryptodev_complete, &out->async.result);
++ 	} else {
++ 		out->async.arequest = aead_request_alloc(out->async.as, GFP_KERNEL);
++@@ -247,7 +247,7 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
++ 		}
++
++ 		aead_request_set_callback(out->async.arequest,
++-					CRYPTO_TFM_REQ_MAY_BACKLOG,
+++					CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
++ 					cryptodev_complete, &out->async.result);
++ 	}
++
++@@ -397,7 +397,7 @@ int cryptodev_hash_init(struct hash_data *hdata, const char *alg_name,
++ 	}
++
++ 	ahash_request_set_callback(hdata->async.request,
++-			CRYPTO_TFM_REQ_MAY_BACKLOG,
+++			CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
++ 			cryptodev_complete, &hdata->async.result);
++ 	hdata->init = 1;
++ 	return 0;
+diff --git a/util.c b/util.c
+index d426781..971a69f 100644
+--- a/util.c
++++ b/util.c
+@@ -82,4 +82,3 @@ int sg_copy(struct scatterlist *sg_from, struct scatterlist *sg_to, int len)
+ 	sg_mark_end(sg_to);
+ 	return 0;
+ }
+-
+diff --git a/version.h b/version.h
+new file mode 100644
+index 0000000..375b50e
+--- /dev/null
++++ b/version.h
+@@ -0,0 +1 @@
++#define VERSION "1.14"

@@ -14,7 +14,11 @@ parser.add_argument('--firmware-tree', type=Path,
                     help='Optional installed aic8800_sdio directory for payload verification')
 args = parser.parse_args()
 repo = Path(__file__).resolve().parents[1]
-policy = repo / 'firmware/wifi/aic8800'
+# The policy header is a new file in the platform AIC8800 patch.
+patch_lines = (repo / 'platform/modules/aic8800/0001-nanokvm-os.patch').read_text().splitlines(keepends=True)
+start = patch_lines.index('+++ b/aic8800_bsp/aicbsp_firmware_path.h\n')
+count = int(re.match(r'@@ -0,0 \+1,(\d+) @@', patch_lines[start + 1]).group(1))
+expected_header = ''.join(line[1:] for line in patch_lines[start + 2:start + 2 + count]).encode()
 
 harness = r'''
 #include <assert.h>
@@ -62,18 +66,18 @@ int main(void)
 '''
 
 with tempfile.TemporaryDirectory(prefix='nkos-aic-firmware-path-') as directory:
+    (Path(directory) / 'aicbsp_firmware_path.h').write_bytes(expected_header)
     source = Path(directory) / 'firmware-path.c'
     binary = Path(directory) / 'firmware-path'
     source.write_text(harness)
     subprocess.run([
         'cc', '-std=c11', '-Wall', '-Wextra', '-Werror',
-        '-I', str(policy), str(source), '-o', str(binary),
+        '-I', directory, str(source), '-o', str(binary),
     ], check=True)
     subprocess.run([str(binary)], check=True)
 
 if args.source:
     driver = args.source.resolve()
-    expected_header = (policy / 'aicbsp_firmware_path.h').read_bytes()
     actual_header = (driver / 'aic8800_bsp/aicbsp_firmware_path.h').read_bytes()
     assert actual_header == expected_header, 'prepared driver has a different firmware-path policy'
     direct = []

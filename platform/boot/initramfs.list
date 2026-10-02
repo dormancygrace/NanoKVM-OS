@@ -1,0 +1,39 @@
+# gen_init_cpio list of the boot.sd initramfs: root mount, fsck and recovery.
+# @TARGET@ is the Buildroot target directory, @BOOT@ this directory.
+nod /dev/console 600 0 0 c 5 1
+nod /dev/null 666 0 0 c 1 3
+dir /boot 755 0 0
+dir /dev 755 0 0
+dir /lib 755 0 0
+dir /proc 755 0 0
+dir /sys 755 0 0
+file /init @BOOT@/init 755 0 0
+file /busybox @TARGET@/bin/busybox 755 0 0
+file /e2fsck @TARGET@/sbin/e2fsck 755 0 0
+file /fsck.f2fs @TARGET@/usr/sbin/fsck.f2fs 755 0 0
+file /lib/libc.so @TARGET@/lib/libc.so 755 0 0
+slink /lib/ld-musl-riscv64.so.1 libc.so 777 0 0
+file /lib/libblkid.so.1 @TARGET@/usr/lib/libblkid.so.1 755 0 0
+file /lib/libcom_err.so.2 @TARGET@/usr/lib/libcom_err.so.2 755 0 0
+file /lib/libe2p.so.2 @TARGET@/usr/lib/libe2p.so.2 755 0 0
+file /lib/libext2fs.so.2 @TARGET@/usr/lib/libext2fs.so.2 755 0 0
+file /lib/libf2fs.so.10 @TARGET@/usr/lib/libf2fs.so.10 755 0 0
+file /lib/liblz4.so.1 @TARGET@/usr/lib/liblz4.so.1 755 0 0
+file /lib/libuuid.so.1 @TARGET@/usr/lib/libuuid.so.1 755 0 0
+slink /blkid busybox 777 0 0
+slink /cat busybox 777 0 0
+slink /dd busybox 777 0 0
+slink /grep busybox 777 0 0
+slink /ln busybox 777 0 0
+slink /ls busybox 777 0 0
+slink /mkdir busybox 777 0 0
+slink /mount busybox 777 0 0
+slink /od busybox 777 0 0
+slink /sh busybox 777 0 0
+slink /sleep busybox 777 0 0
+slink /switch_root busybox 777 0 0
+slink /sync busybox 777 0 0
+slink /tr busybox 777 0 0
+slink /true busybox 777 0 0
+slink /umount busybox 777 0 0
+slink /wc busybox 777 0 0

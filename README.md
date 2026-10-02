@@ -96,7 +96,7 @@ Download **[NanoKVM-OS-v2.0-b7.img.zip](https://github.com/dormancygrace/NanoKVM
 | Your current installation | How to install b7 |
 |---|---|
 | Stock firmware, beta-14 or an older beta, or a blank SD card | Flash the full image; this replaces the existing installation and data |
-| Published **v2.0 a2** or **b1–b6** | Use the existing GUI package updater or `apk update` followed by `apk upgrade`, then reboot; no reflash or new signing key is needed |
+| Published **v2.0-a2 or later** | Use the existing GUI package updater or `apk update` followed by `apk upgrade`, then reboot; no reflash or new signing key is needed |
 
 If you installed **b5 from its attached `.apk` files**, those packages are pinned to the files in `/etc/apk/world` and `apk upgrade` keeps them. Release the pin first with `apk add nanokvm-base nanokvm-app nanokvm-release`, then upgrade.
 

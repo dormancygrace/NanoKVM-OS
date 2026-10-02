@@ -69,7 +69,9 @@ jobs:
           git ls-files -z | while IFS= read -r -d '' f; do
             case "$f" in server/third_party/*|*.patch) continue ;; esac
             [ -f "$f" ] || continue
-            head -n1 "$f" | grep -qE '^#!.*(/|env )(ba|da)?sh( |$)' && printf '%s\0' "$f"
+            if head -n1 "$f" | grep -qE '^#!.*(/|env )(ba|da)?sh( |$)'; then
+              printf '%s\0' "$f"
+            fi
           done > "$RUNNER_TEMP/shell-scripts"
           xargs -0 shellcheck -S error < "$RUNNER_TEMP/shell-scripts"
       - name: Python syntax

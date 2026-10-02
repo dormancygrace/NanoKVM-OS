@@ -10,6 +10,8 @@ import (
 
 type Service struct{}
 
+const maxClientMessageBytes = 4 << 10
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -26,6 +28,8 @@ func (s *Service) Connect(c *gin.Context) {
 		log.Errorf("create websocket failed: %s", err)
 		return
 	}
+	// Input and control frames are a few bytes; never buffer large messages.
+	ws.SetReadLimit(maxClientMessageBytes)
 	stopSessionWatcher := middleware.WatchWebSocket(c.Request.Context(), ws)
 	defer stopSessionWatcher()
 

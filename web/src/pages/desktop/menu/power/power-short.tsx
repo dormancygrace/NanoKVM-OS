@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 
+import { reportGpioResult } from './report';
+
 type PowerShortProps = {
   showConfirm: boolean;
   isLoading: boolean;
@@ -17,9 +19,12 @@ export const PowerShort = ({ showConfirm, isLoading, setIsLoading }: PowerShortP
     if (isLoading) return;
     setIsLoading(true);
 
-    api.setGpio('power', 800).finally(() => {
-      setIsLoading(false);
-    });
+    api
+      .setGpio('power', 800)
+      .then((rsp) => reportGpioResult(rsp, t))
+      .finally(() => {
+        setIsLoading(false);
+      });
   }
 
   return (

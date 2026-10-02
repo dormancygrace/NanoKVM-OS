@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 
 import { setGpio } from '@/api/vm.ts';
 
+import { reportGpioResult } from './report';
+
 type ResetProps = {
   showConfirm: boolean;
   isLoading: boolean;
@@ -17,9 +19,11 @@ export const Reset = ({ showConfirm, isLoading, setIsLoading }: ResetProps) => {
     if (isLoading) return;
     setIsLoading(true);
 
-    setGpio('reset', 800).finally(() => {
-      setIsLoading(false);
-    });
+    setGpio('reset', 800)
+      .then((rsp) => reportGpioResult(rsp, t))
+      .finally(() => {
+        setIsLoading(false);
+      });
   }
 
   return (

@@ -1,5 +1,6 @@
 import { ControlRegionMode, InputRegion, OriginalResolution } from '@/types';
 import { http } from '@/lib/http.ts';
+import { inputLeaseHeaders } from '@/lib/input-lease.ts';
 
 // get NanoKVM information
 export function getInfo() {
@@ -25,7 +26,7 @@ export function setGpio(type: string, duration: number) {
     type,
     duration
   };
-  return http.post('/api/vm/gpio', data);
+  return http.post('/api/vm/gpio', data, { headers: inputLeaseHeaders() });
 }
 
 // get gpio value

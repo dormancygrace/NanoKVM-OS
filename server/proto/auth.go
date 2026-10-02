@@ -13,8 +13,9 @@ type LoginRsp struct {
 }
 
 type GetAccountRsp struct {
-	Username string `json:"username"`
-	Role     string `json:"role"`
+	Username           string `json:"username"`
+	Role               string `json:"role"`
+	MustChangePassword bool   `json:"mustChangePassword"`
 }
 
 type ChangePasswordReq struct {

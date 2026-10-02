@@ -23,8 +23,30 @@ const (
 )
 
 type Principal struct {
-	Username string
-	Role     authn.Role
+	Username           string
+	Role               authn.Role
+	MustChangePassword bool
+}
+
+// PasswordChangeRequiredCode is returned (HTTP 403) while the account still
+// uses its factory password. Only the routes in passwordChangeRoutes work.
+const PasswordChangeRequiredCode = -10
+
+var passwordChangeRoutes = map[string]bool{
+	http.MethodGet + " /api/auth/account":   true,
+	http.MethodGet + " /api/auth/password":  true,
+	http.MethodPost + " /api/auth/password": true,
+	http.MethodPost + " /api/auth/logout":   true,
+	http.MethodGet + " /api/vm/web-title":   true,
+}
+
+func requiresPasswordChange(c *gin.Context, principal Principal) bool {
+	if !principal.MustChangePassword || passwordChangeRoutes[c.Request.Method+" "+c.Request.URL.Path] {
+		return false
+	}
+	c.JSON(http.StatusForbidden, gin.H{"code": PasswordChangeRequiredCode, "msg": "password change required"})
+	c.Abort()
+	return true
 }
 
 type Token struct {
@@ -38,6 +60,9 @@ func CheckToken() gin.HandlerFunc {
 		principal, token, ok := authenticate(c)
 		if !ok {
 			abortUnauthorized(c)
+			return
+		}
+		if requiresPasswordChange(c, principal) {
 			return
 		}
 
@@ -130,6 +155,9 @@ func CheckTokenOrLoopbackInternalToken() gin.HandlerFunc {
 			abortUnauthorized(c)
 			return
 		}
+		if requiresPasswordChange(c, principal) {
+			return
+		}
 		c.Set(principalContextKey, principal)
 		c.Set(tokenContextKey, token)
 		c.Next()
@@ -162,7 +190,7 @@ func authenticate(c *gin.Context) (Principal, *Token, bool) {
 		log.Debugf("validate session for %q: %s", token.Username, err)
 		return Principal{}, nil, false
 	}
-	return Principal{Username: user.Username, Role: user.Role}, token, true
+	return Principal{Username: user.Username, Role: user.Role, MustChangePassword: user.MustChangePassword}, token, true
 }
 
 // bearerToken reports whether the caller supplied an Authorization header.

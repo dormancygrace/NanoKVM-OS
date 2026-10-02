@@ -30,7 +30,7 @@ var defaultConfig = &Config{
 	},
 	Authentication: "enable",
 	Security: Security{
-		LoginLockoutDuration: 0,
+		LoginLockoutDuration: 300,
 		LoginMaxFailures:     5,
 		TrustedProxies:       []string{"127.0.0.1/32", "::1/128"},
 	},
@@ -58,6 +58,12 @@ func checkDefaultValue() {
 
 	if instance.Authentication == "" {
 		instance.Authentication = "enable"
+	}
+
+	// A missing or non-positive limit would lock an address on its first
+	// mistyped password once a lockout duration is configured.
+	if instance.Security.LoginMaxFailures <= 0 {
+		instance.Security.LoginMaxFailures = 5
 	}
 
 	// Preserve loopback reverse-proxy support for configurations written by

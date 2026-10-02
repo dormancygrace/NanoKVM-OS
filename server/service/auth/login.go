@@ -113,8 +113,9 @@ func (s *Service) GetAccount(c *gin.Context) {
 		return
 	}
 	rsp.OkRspWithData(c, &proto.GetAccountRsp{
-		Username: principal.Username,
-		Role:     string(principal.Role),
+		Username:           principal.Username,
+		Role:               string(principal.Role),
+		MustChangePassword: principal.MustChangePassword,
 	})
 }
 

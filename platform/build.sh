@@ -419,6 +419,7 @@ native() {
     unpack_git cvi-mpi . "$n/src/cvi_mpi"
     for lib in sensors json-c miniz inih; do unpack_git "$lib" . "$n/src/$lib"; done
     apply_patches "$n/src/cvi_mpi" "$here/native/cvi_mpi"
+    apply_patches "$n/src/sensors" "$repo/firmware/sensor/patches"
     local env=(NANOKVM_MPI_SOURCE="$n/src/cvi_mpi" NANOKVM_OSDRV_SOURCE="$out/modules/sources/osdrv"
                NANOKVM_KERNEL_SOURCE="$ksrc" NANOKVM_BUILDROOT_OUTPUT="$bo" NANOKVM_CMAKE="$host/cmake"
                JOBS="$jobs")

@@ -156,8 +156,8 @@ toolchain() {
         make -C "$br" O="$bo" olddefconfig
     fi
     mkdir -p "$dl/buildroot"
-    BR2_DL_DIR=$dl/buildroot make -C "$br" O="$bo" toolchain host-dtc host-kmod host-python3 \
-        host-uboot-tools host-zstd busybox e2fsprogs f2fs-tools
+    BR2_DL_DIR=$dl/buildroot make -C "$br" O="$bo" toolchain host-dtc host-kmod host-patchelf \
+        host-python3 host-uboot-tools host-zstd busybox e2fsprogs f2fs-tools
     [ "$("${cross}gcc" -dumpfullversion)" = 16.2.0 ]
     touch "$bo/.platform-toolchain"
 }
@@ -285,9 +285,24 @@ initramfs() {
     local i=$out/initramfs
     rm -rf "$i"
     mkdir -p "$i" "$img"
-    sed -e "s|@TARGET@|$bo/target|g" -e "s|@BOOT@|$here/boot|g" "$here/boot/initramfs.list" > "$i/initramfs.list"
+    # Buildroot strips and removes build-directory RPATHs only in a full
+    # build; do the same for the copies that go into the initramfs.
+    local type name src rest file lib
+    sed -e "s|@TARGET@|$bo/target|g" -e "s|@BOOT@|$here/boot|g" "$here/boot/initramfs.list" |
+    while read -r type name src rest; do
+        case $type in ''|'#'*) continue ;; esac
+        if [ "$type" = file ]; then
+            mkdir -p "$i/root${name%/*}"
+            cp "$src" "$i/root$name"
+            if "${cross}readelf" -h "$i/root$name" > /dev/null 2>&1; then
+                "$host/patchelf" --remove-rpath "$i/root$name"
+                "${cross}strip" --remove-section=.comment --remove-section=.note "$i/root$name"
+            fi
+            src=$i/root$name
+        fi
+        echo "$type $name $src $rest"
+    done > "$i/initramfs.list"
     # Every shared library that the programs need must be in the list.
-    local file lib
     for file in $(awk '$1 == "file" { print $3 }' "$i/initramfs.list"); do
         "${cross}readelf" -h "$file" > /dev/null 2>&1 || continue
         for lib in $("${cross}readelf" -d "$file" | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p'); do

@@ -145,7 +145,7 @@ assert_not_contains '#psk=' "$RUN_DIR/wpa_supplicant.conf"
 assert_not_contains 'secret123' "$RUN_DIR/wpa_supplicant.conf"
 assert_contains 'wpa_passphrase args=Office WiFi stdin=secret123' "$CALL_LOG"
 assert_contains "wpa_supplicant args=-B -i wlan0 -c $RUN_DIR/wpa_supplicant.conf" "$CALL_LOG"
-assert_contains "udhcpc args=-B -O 121 -i wlan0 -t 10 -T 1 -A 5 -b -p $DHCP_PID" "$CALL_LOG"
+assert_contains "udhcpc args=-S -B -O 121 -i wlan0 -t 10 -T 1 -A 5 -b -p $DHCP_PID" "$CALL_LOG"
 
 # A static Wi-Fi configuration suppresses the DHCP client only.
 new_case nodhcp

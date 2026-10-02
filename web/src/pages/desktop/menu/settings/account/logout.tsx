@@ -1,5 +1,5 @@
 import { LogoutOutlined } from '@ant-design/icons';
-import { Button, Popconfirm } from 'antd';
+import { Button, message, Popconfirm } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,15 +11,20 @@ export const Logout = () => {
   const navigate = useNavigate();
 
   function logout() {
-    api.logout().then((rsp) => {
-      if (rsp.code !== 0) {
-        console.log(rsp.msg);
-        return;
-      }
+    api
+      .logout()
+      .then((rsp) => {
+        // If the server could not revoke the session it stays valid; say so
+        // instead of pretending the user has logged out.
+        if (rsp.code !== 0) {
+          message.error(rsp.msg || t('settings.account.logoutFailed'));
+          return;
+        }
 
-      notifyAuthExpired();
-      navigate('/auth/login');
-    });
+        notifyAuthExpired();
+        navigate('/auth/login');
+      })
+      .catch(() => message.error(t('settings.account.logoutFailed')));
   }
 
   return (

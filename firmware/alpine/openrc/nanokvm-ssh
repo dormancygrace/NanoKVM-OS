@@ -2,8 +2,10 @@
 # shellcheck shell=sh disable=SC2034
 description="NanoKVM SSH preference"
 depend() {
-    need nanokvm-board
-    use net
+    # Start after the board imports /boot/sshd_config, but also when the
+    # board setup fails, so SSH stays available for diagnosis.
+    need localmount
+    use nanokvm-board net
     after nanokvm-network
 }
 start() {

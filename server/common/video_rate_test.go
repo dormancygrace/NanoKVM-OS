@@ -34,3 +34,14 @@ func TestCaptureRatesAcrossSourceAndDownscale(t *testing.T) {
 		}
 	}
 }
+
+func TestCaptureRateOrientationParity(t *testing.T) {
+	for _, size := range [][3]int{{1280, 720, 120}, {1920, 1080, 75}, {1920, 1088, 75}, {2560, 1440, 50}, {2304, 1296, 50}} {
+		if got := CaptureRateLimit(size[0], size[1]); got != size[2] {
+			t.Errorf("%v: %d", size, got)
+		}
+		if got := CaptureRateLimit(size[1], size[0]); got != size[2] {
+			t.Errorf("rotated %v: %d", size, got)
+		}
+	}
+}

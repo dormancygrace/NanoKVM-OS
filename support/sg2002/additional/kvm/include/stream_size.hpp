@@ -7,13 +7,13 @@ inline bool above_fhd(uint16_t w, uint16_t h) {
     const auto shorter = w > h ? h : w;
     return longer > 1920 || shorter > 1080;
 }
-// Qualified portrait input rates. Zero means the ordinary landscape policy.
+// Portrait profiles share the ordinary landscape rate for their pixel tier.
 inline unsigned portrait_fps_limit(unsigned w, unsigned h) {
     if (w == 720 && h == 1280) return 120;
-    if (w == 1080 && h == 1920) return 70;
-    if (w == 1088 && h == 1920) return 60;
+    if (w == 1080 && h == 1920) return 75;
+    if (w == 1088 && h == 1920) return 75;
     if (w == 1296 && h == 2304) return 50;
-    if (w == 1440 && h == 2560) return 40;
+    if (w == 1440 && h == 2560) return 50;
     return 0;
 }
 struct StreamSize { uint16_t width; uint16_t height; };

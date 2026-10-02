@@ -24,7 +24,8 @@ class PortraitEdidTests(unittest.TestCase):
         source = (HERE.parent / "tools/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
         data = g.profile(source, g.MAX_MODE)
         self.assertEqual([sum(data[i:i+128]) % 256 for i in (0, 128)], [0, 0])
-        self.assertEqual(data[54:56], (16672).to_bytes(2, "little"))
+        self.assertEqual(data[54:56], (20840).to_bytes(2, "little"))
+        self.assertAlmostEqual(208400000 / (1600 * 2605), 50, places=2)
         d = data[54:72]
         self.assertEqual(d[2] | ((d[4] >> 4) << 8), 1440)
         self.assertEqual(d[5] | ((d[7] >> 4) << 8), 2560)

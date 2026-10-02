@@ -35,9 +35,7 @@ type Snapshot = {
   usb: { selected: string[]; binding: Item };
   apk: {
     state: string;
-    updateState: string;
     errorCategory?: string;
-    updateErrorCategory?: string;
   };
   firewall: {
     state: string;
@@ -273,22 +271,6 @@ const DiagnosticsStatus = () => {
                   })}
                 </div>
                 {snapshot.apk.errorCategory && (
-                  <p className="mb-1 text-xs text-neutral-400">
-                    {t('settings.system.diagnostics.operationFailed')}
-                  </p>
-                )}
-                <div className="text-sm">
-                  {t('settings.system.diagnostics.systemUpdate')}:{' '}
-                  {state({
-                    state:
-                      snapshot.apk.updateState === 'failed'
-                        ? 'error'
-                        : snapshot.apk.updateState === 'idle'
-                          ? 'ok'
-                          : snapshot.apk.updateState
-                  })}
-                </div>
-                {snapshot.apk.updateErrorCategory && (
                   <p className="mb-1 text-xs text-neutral-400">
                     {t('settings.system.diagnostics.operationFailed')}
                   </p>

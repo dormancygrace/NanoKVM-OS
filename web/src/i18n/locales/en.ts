@@ -738,9 +738,6 @@ const en = {
         description:
           'Update NanoKVM OS using signed packages. System updates restart the device; application updates briefly disconnect video and control.',
         installed: 'Installed',
-        latest: 'Latest release',
-        automatic:
-          'The device checks this GitHub repository automatically once a day. Installation always requires your action.',
         alpineOptions: 'Image options',
         alpineTitle: 'Reinstall system',
         alpineDisclaimer:
@@ -754,20 +751,8 @@ const en = {
         alpineConfirm: 'Format the system partition, install this Alpine image, and reboot now?',
         alpineBuilderMissing:
           'The attended image builder is not configured. Set alpine.builderURL or use a manually verified recovery bundle.',
-        check: 'Check for updates',
-        download: 'Download and verify',
-        file: 'Signed update package (.nkos)',
-        uploading: 'Uploading…',
-        verifying: 'Verifying package…',
-        verify: 'Upload and verify',
-        install: 'Install',
-        installRestart: 'Install and restart',
-        compatibility:
-          'Compatible signed NanoKVM OS packages can update the application and system components. Settings are preserved. Kernel packages replace the kernel and matching modules after a restart. There is no automatic kernel rollback; failed boot requires reflashing the SD card. Original NanoKVM archives are rejected.',
         requestFailed: 'The update request failed. Check device connectivity and retry.',
-        tooLarge: 'The package exceeds 192 MiB.',
         reconnecting: 'Waiting for the device to reconnect…',
-        reload: 'Reload interface'
       },
       memory: {
         videoMode: 'Video memory allocation',
@@ -884,7 +869,6 @@ const en = {
           services: 'OpenRC services',
           optional: 'optional',
           apk: 'APK',
-          systemUpdate: 'System update',
           states: {
             ok: 'OK',
             running: 'running',

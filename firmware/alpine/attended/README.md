@@ -30,8 +30,7 @@ on the same origin, enforces per-file size limits, checks every `SHA256SUMS`
 entry, and calls `/usr/sbin/nanokvm-stage-update`. Build and download run in the
 background while the existing three-second UI poll reports state. Activation is
 a separate confirmed action which installs the one-shot recovery FIT and
-reboots. The legacy `.nkos` controls are hidden when an Alpine profile is
-installed because that updater targets the old Buildroot/ext4 layout.
+reboots.
 
 ## Inputs and trust
 

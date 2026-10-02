@@ -14,7 +14,6 @@ import (
 	"NanoKVM-Server/logger"
 	"NanoKVM-Server/logs"
 	"NanoKVM-Server/middleware"
-	"NanoKVM-Server/osupdate"
 	"NanoKVM-Server/router"
 	"NanoKVM-Server/service/network"
 	"NanoKVM-Server/service/vm"
@@ -31,7 +30,6 @@ func main() {
 	initialize(stopMemory)
 	go vm.RunMemoryMaintenance(ctx)
 	go logs.RunArchive(ctx)
-	go osupdate.RunChecks(ctx)
 	defer func() { stopMemory(); dispose() }()
 
 	run()

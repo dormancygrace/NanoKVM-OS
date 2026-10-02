@@ -8,29 +8,9 @@
     "sha256": "87aaca4164ea9d5c8085854953018263f7963f07c22e73a2a2185cc98c581c34"
   },
   "linux": {
-    "version": "7.2.6",
-    "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.6.tar.xz",
-    "sha256": "039aef84f2b0994aeda3f4fcfc3d02ec9d7a9bbb9020ea264c43f446c860f606",
-    "release": "7.2.6-nanokvm-os-r1",
-    "source_export": "firmware/release/source-components/kernel"
-  },
-  "uboot": {
-    "version": "2026.07",
-    "url": "https://ftp.denx.de/pub/u-boot/u-boot-2026.07.tar.bz2",
-    "sha256": "78e8bfc382fe388f9b55aa1daf8c563522a037779b5d4c349d1415e381f1243e",
-    "upstream_commit": "ece349ade2973e220f524ce59e59711cc919263f",
-    "release": "2026.07-00003-ga5149dd2536c",
-    "patches": "firmware/uboot/patches",
-    "defconfig": "firmware/uboot/nanokvm_enhanced_defconfig",
-    "source_export": "firmware/release/source-components/uboot"
-  },
-  "boot_firmware": {
-    "scope": "FIP BL2/FSBL, BLCP, DDR parameters and OpenSBI 0.9, unchanged from the stock Sipeed NanoKVM FIP",
-    "stock_fip_sha256": "4a40ec182cad2606e8d41acae6da0953a89dd47e4e96e5ea95e803f09fd9f4db",
-    "url": "https://github.com/sipeed/LicheeRV-Nano-Build.git",
-    "commit": "1daa602f324be6ffd824ccb425cd147b586debf8",
-    "paths": ["fsbl", "opensbi"],
-    "licenses": "BSD-3-Clause (FSBL), BSD-2-Clause (OpenSBI)"
+    "version": "7.2.5",
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.5.tar.xz",
+    "sha256": "55ddf0df8325d9dad96fcff7bd93977d22e3f50af06527572af59b77c7632b78"
   },
   "gcc": {
     "version": "16.2.0",

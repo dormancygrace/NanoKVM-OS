@@ -118,9 +118,8 @@ checked worker creation and preserved FIFO priority 50. Its runtime and remainin
 probe/remove gates are recorded in `osdrv/dwa-port.md`.
 
 The remaining board/media drivers and complete cvi_mpi integration,
-board clocks/PHY/SDIO and boot firmware remain unfinished. Build the kernel and
-the ten currently ported modules using scripts/build-enhanced-kernel.sh after
-applying the patches as described below.
+board clocks/PHY/SDIO and boot firmware remain unfinished. The kernel, modules
+and boot images are now built by platform/build.sh; see platform/README.md.
 
 System package compilation completed. A stale working .config had retained the
 optional vendor-libc compatibility package; reapplying the Enhanced defconfig
@@ -149,27 +148,11 @@ its working H.265 installation are preserved.
 - https://github.com/sophgo/osdrv/tree/sg200x-dev
 - https://github.com/sophgo/cvi_mpi/tree/sg200x-dev
 
-## Reproducing the current kernel compile milestone
+## Reproducing the kernel and modules
 
-Extract the exact Linux tarball from sources.json into a clean Linux filesystem
-directory and check its SHA-256 before extraction. Apply kernel/patches/*.patch
-in filename order with `patch -p1`. Check out the pinned sophgo_osdrv commit
-from sources.json in a separate clean clone and apply osdrv/patches/*.patch in
-filename order there. Do not apply these to an already patched working tree.
-The current patch series is specific to those source pins.
-
-```sh
-NANOKVM_KERNEL_SOURCE=/path/to/patched/linux-7.2.3 \
-NANOKVM_OSDRV_SOURCE=/path/to/patched/osdrv \
-NANOKVM_BUILDROOT_OUTPUT=/path/to/enhanced/buildroot-output \
-NANOKVM_KERNEL_OUTPUT=/path/to/kernel-output \
-scripts/build-enhanced-kernel.sh
-```
-
-This builds Image, DTB, kernel modules and sys/base/CIF/VI/VPSS/VPU/JPEG/common-codec only. It neither creates
-a complete bootable image nor installs anything on the device. Later modules
-must pass strict MODPOST with their real dependency symbol tables; missing
-symbols must not be downgraded to warnings.
+The historical patch series and kernel build scripts of this workstream were
+replaced by `platform/build.sh`, which builds the released kernel, all modules
+and boot images from pinned sources. See `platform/README.md`.
 
 ## VPSS and codec hardware compile milestone
 

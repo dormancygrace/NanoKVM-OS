@@ -150,6 +150,6 @@ See [BUILD.md](docs/BUILD-v2.0-b1.md) for build instructions.
 
 ## ❤️ Credits and licenses
 
-NanoKVM application changes retain the upstream [GPL-3.0 license](LICENSE). Individual kernel, driver, Go, Pion, SDK and other third-party components retain their respective licenses and notices. See [third-party notices](docs/THIRD-PARTY.md). The source of the kernel, U-Boot and other GPL components in the image is described in [corresponding source](docs/SOURCE.md).
+NanoKVM application changes retain the upstream [GPL-3.0 license](LICENSE). Individual kernel, driver, Go, Pion, SDK and other third-party components retain their respective licenses and notices. See [third-party notices](docs/THIRD-PARTY.md). The kernel, modules, U-Boot and boot images are built from pinned sources by [platform](platform/README.md), which also describes their corresponding source and the written offer.
 
 Thanks to [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), the Alpine/Linux/Buildroot/Go communities and [Pion](https://github.com/pion). Please include board revision, browser, codec/transport, resolution, FPS target and reproduction steps when reporting an issue. Remove credentials and private screen contents from logs.

@@ -80,7 +80,7 @@ jobs:
         run: |
           set -e
           for t in aic-firmware-path alpine-kernel-activation alpine-network \
-                   alpine-recovery-password board-selection enhanced-fs \
+                   alpine-recovery-password alpine-service-deps board-selection enhanced-fs \
                    enhanced-s15-packaging hdmi-detection-cache hdmi-receiver-start \
                    monitor-edids nanokvm-service-stop oled-ip-window \
                    portrait-edid wifi-selector; do

@@ -18,7 +18,7 @@ Coming from beta-14 or an older beta requires the full v2 SD image; legacy
 needs preparatory application/base updates for the native GUI controls. The a2
 image includes these controls from initial installation.
 
-## Updating a2 or b1–b6 to b7
+## Updating v2.0-a2 or later to b7
 
 Use the existing GUI package updater, or `apk update` followed by `apk upgrade`,
 then reboot. No reflash or new signing key is needed. Settings and independently

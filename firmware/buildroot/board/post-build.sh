@@ -86,20 +86,17 @@ if [ "$flavour" = enhanced ]; then
     # Linux scheduling profiles remain opt-in; S95 retains the tested Go timer policy.
     install -m755 "$(dirname "$0")/enhanced/tools/nanokvm-wifi-tx-policy" "$target/usr/sbin/nanokvm-wifi-tx-policy"
     install -m755 "$(dirname "$0")/enhanced/tools/nanokvm-wifi-tx-live" "$target/usr/sbin/nanokvm-wifi-tx-live"
-    install -m755 "$NANOKVM_APP_STAGE/system/bin/nkos-update" "$target/usr/sbin/nkos-update"
     # Audio playback invokes this helper from the application tree.
     mkdir -p "$target/kvmapp/system/bin" "$target/kvmapp/system/share/usb-audio"
     install -m755 "$NANOKVM_APP_STAGE/system/bin/usb-audio-capture" "$target/kvmapp/system/bin/usb-audio-capture"
     cp -a "$NANOKVM_APP_STAGE/system/share/usb-audio/." "$target/kvmapp/system/share/usb-audio/"
 
-    for name in S00nkos-system-update S99nkos-system-confirm S13nanokvm-watchdog S38memory S94sg2002aes S94nanokvm-update; do
+    for name in S13nanokvm-watchdog S38memory S94sg2002aes; do
         install -m755 "$NANOKVM_APP_STAGE/system/init.d/$name" "$target/etc/init.d/$name"
     done
     python3 "$(dirname "$0")/system-update-base.py" "$target" "$NANOKVM_BOARD_ASSETS"
     release_version=$(cat "$NANOKVM_APP_STAGE/version")
     printf '%s\n' "$release_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
-    : "${NANOKVM_RELEASE_SEQUENCE:?Set NANOKVM_RELEASE_SEQUENCE to the positive signed release sequence}"
-    printf '%s\n' "$NANOKVM_RELEASE_SEQUENCE" | grep -Eq '^[1-9][0-9]*$'
     # The addon ABI is an explicit compatibility contract.  It must remain
     # stable when the OS release label changes (for example beta.3 -> beta.4).
     # Keep this input under source control instead of deriving it from a label.
@@ -181,17 +178,6 @@ PY
         "$(dirname "$0")/initialize-nkos-apk-db.sh" "$target" "$base_abi_version" \
             "$target/usr/share/nkos/addons-contract.json"
     fi
-    # The immutable image carries the explicitly selected positive release
-    # sequence in its installed identity.  The updater capability state starts
-    # at sequence 0 because no replaceable updater package is installed yet.
-    mkdir -p "$target/kvmapp/.os-update"
-    cat > "$target/kvmapp/.os-update/installed.json" <<EOF
-{"version":"$release_version","sequence":$NANOKVM_RELEASE_SEQUENCE}
-EOF
-    cat > "$target/kvmapp/.os-update/updater.json" <<'EOF'
-{"capability":2,"sequence":0}
-EOF
-    chmod 600 "$target/kvmapp/.os-update/installed.json" "$target/kvmapp/.os-update/updater.json"
     # Providers are fileless virtual records created by native apk; no
     # installable ABI-provider package is present in the repository.
     test -s "$target/opt/nkos/lib/apk/db/installed"

@@ -19,13 +19,10 @@ p.add_argument('--usb-audio-capture', type=Path,
 p.add_argument('--usb-audio-share', type=Path,
                help='Selected target usb-audio data directory')
 p.add_argument('--version',help='Explicit application version for the image')
-p.add_argument('--update-sequence', type=int, help='Installed signed-release sequence for a fresh OS image')
 p.add_argument('--strip', type=Path, help='Matching cross-strip; strip debug data from the staged server copy')
 a = p.parse_args()
 if a.version and not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?', a.version):
     p.error('Invalid release version')
-if a.update_sequence is not None and (a.update_sequence < 1 or not a.version):
-    p.error('--update-sequence requires a positive sequence and --version')
 base, out = a.workspace.resolve(), a.output.resolve()
 app, server = base / 'app', a.server.resolve()
 board_scripts = a.board_scripts.resolve() if a.board_scripts else app / 'firmware/buildroot/board/enhanced/init.d'
@@ -78,9 +75,6 @@ if a.strip:
     subprocess.run([str(a.strip.resolve()), '--strip-debug',
                     str(out / 'server/NanoKVM-Server')], check=True)
 shutil.copy2(a.system, out / 'kvm_system/kvm_system')
-if (server / 'nkos-update').is_file():
-    (out / 'system/bin').mkdir(parents=True, exist_ok=True)
-    shutil.copy2(server / 'nkos-update', out / 'system/bin/nkos-update')
 if bool(a.usb_audio_capture) != bool(a.usb_audio_share):
     p.error('--usb-audio-capture and --usb-audio-share must be supplied together')
 if a.usb_audio_capture:
@@ -95,12 +89,6 @@ for library in libraries:
     shutil.copy2(library, out / 'server/dl_lib' / library.name)
 if a.version:
     (out/'version').write_text(a.version+'\n')
-if a.update_sequence is not None:
-    state = out / '.os-update'
-    state.mkdir(mode=0o700)
-    installed = state / 'installed.json'
-    installed.write_text(json.dumps({'version': a.version, 'sequence': a.update_sequence})+'\n')
-    installed.chmod(0o600)
 manifest = {'version': (out/'version').read_text().strip(), 'qualification': 'packaging only; full-init runtime test pending',
             # This manifest is shipped in the image: record roles, not private host paths.
             'inputs': {'server': 'selected-server-build', 'system': 'selected-board-service',

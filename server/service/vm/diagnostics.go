@@ -94,10 +94,8 @@ type DiagnosticsSnapshot struct {
 		Binding  DiagnosticItem `json:"binding"`
 	} `json:"usb"`
 	APK struct {
-		State               string `json:"state"`
-		UpdateState         string `json:"updateState"`
-		ErrorCategory       string `json:"errorCategory,omitempty"`
-		UpdateErrorCategory string `json:"updateErrorCategory,omitempty"`
+		State         string `json:"state"`
+		ErrorCategory string `json:"errorCategory,omitempty"`
 	} `json:"apk"`
 	Firewall struct {
 		State      string                `json:"state"`
@@ -184,7 +182,7 @@ func diagnosticsReport(snapshot DiagnosticsSnapshot) any {
 			Selected []string
 			Binding  string
 		}{reportUSBSelected(snapshot.USB.Selected), safeState(snapshot.USB.Binding.State)},
-		APK: struct{ State, UpdateState, ErrorCategory, UpdateErrorCategory string }{safeState(snapshot.APK.State), safeState(snapshot.APK.UpdateState), safeState(snapshot.APK.ErrorCategory), safeState(snapshot.APK.UpdateErrorCategory)},
+		APK: struct{ State, ErrorCategory string }{safeState(snapshot.APK.State), safeState(snapshot.APK.ErrorCategory)},
 		Firewall: struct {
 			State      string
 			HookChains []DiagnosticHookChain
@@ -286,7 +284,7 @@ func collectDiagnostics(ctx context.Context) (DiagnosticsSnapshot, error) {
 	result.Versions.Kernel = safeScalar(diagnosticText("/proc/sys/kernel/osrelease"))
 	result.Versions.SystemBase = safeScalar(diagnosticText("/etc/nkos-system-base"))
 	bootTarget := diagnosticText(filepath.Join(diagnosticBootDir, "kernel.release"))
-	pending := osupdate.GetResult().Reboot || rebootRequired()
+	pending := rebootRequired()
 	result.Versions.Modules = kernelModules(result.Versions.Kernel, bootTarget, pending)
 	result.Versions.Boot = bootStatus(result.Versions.Kernel, pending)
 	result.Versions.Packages = installedPackageVersions()
@@ -317,12 +315,6 @@ func collectDiagnostics(ctx context.Context) (DiagnosticsSnapshot, error) {
 	if apk.State == "failed" {
 		result.APK.State = "error"
 		result.APK.ErrorCategory = "operation-failed"
-	}
-	update := osupdate.GetResult()
-	result.APK.UpdateState = safeState(update.State)
-	if update.State == "failed" {
-		result.APK.UpdateState = "error"
-		result.APK.UpdateErrorCategory = "operation-failed"
 	}
 	result.Firewall.State, result.Firewall.HookChains, result.Firewall.Detail = firewallStatus(ctx)
 	return result, nil

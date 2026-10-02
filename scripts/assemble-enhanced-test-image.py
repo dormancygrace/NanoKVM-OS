@@ -115,15 +115,13 @@ def main():
             probe = out / ('absent-' + path.strip('/').replace('/', '_'))
             run('debugfs', '-R', 'dump '+path+' "'+str(probe)+'"', a.rootfs)
             assert not probe.exists(), 'Obsolete updater in rootfs: '+path
-        installed = json.loads(extract_required('/kvmapp/.os-update/installed.json'))
-        assert installed.get('version') == a.version and isinstance(installed.get('sequence'), int) and installed['sequence'] > 0, 'Missing installed application release sequence'
         for mode in (600, 720, 1080, 1440):
             assert len(extract_required(f'/usr/share/nanokvm/edid/NanoKVM-monitor-{mode}.bin')) == 256
         for mode in (720, 1080):
             assert len(extract_required(f'/usr/share/nanokvm/edid/NanoKVM-cube-monitor-{mode}.bin')) == 256
         extract_required('/etc/kvm/ssh_stop')
         assert len(extract_required('/usr/share/nanokvm/edid/NanoKVM-final-video-profiles.bin')) == 256
-        for path in ['/usr/sbin/nkos-update', '/etc/init.d/S00nkos-system-update', '/etc/init.d/S99nkos-system-confirm', '/etc/nkos-system-base', '/etc/init.d/S94nanokvm-update', '/usr/sbin/openvpn3', '/etc/init.d/S13nanokvm-watchdog', '/etc/init.d/S94sg2002aes',
+        for path in ['/etc/nkos-system-base', '/usr/sbin/openvpn3', '/etc/init.d/S13nanokvm-watchdog', '/etc/init.d/S94sg2002aes',
                      '/usr/share/nanokvm/edid/NanoKVM-QHD30.bin', '/usr/share/nanokvm/edid/NanoKVM-stock.bin']:
             assert extract_required(path), 'Empty beta rootfs file: '+path
         assert any(name.endswith('/extra/sg2002_aes_probe.ko') for name in actual)

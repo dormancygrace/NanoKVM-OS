@@ -29,3 +29,8 @@ MC_CONF_OPTS += --prefix=/opt/nkos/addons/mc/usr \
     --libexecdir=/opt/nkos/addons/mc/usr/libexec \
     --localstatedir=/etc/kvm/mc
 endif
+
+# The boot initramfs carries fsck.f2fs on its own. Link libf2fs statically so
+# the program needs no extra library and no build-directory RPATH, which would
+# make the initramfs depend on where it was built.
+F2FS_TOOLS_CONF_OPTS += --disable-shared --enable-static

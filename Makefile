@@ -121,6 +121,7 @@ test-enhanced-wifi:
 
 test-alpine-network:
 	@python3 scripts/test-alpine-network.py
+	@python3 scripts/test-alpine-service-deps.py
 
 test-wifi-runtime:
 	@sh tools/test-s30wifi-runtime.sh

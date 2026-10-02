@@ -1,7 +1,7 @@
 #!/sbin/openrc-run
 # shellcheck shell=sh disable=SC2034
 description="NanoKVM mDNS preference"
-depend() { need nanokvm-board dbus; use net; }
+depend() { need dbus; use nanokvm-board net; after nanokvm-network; }
 start() {
     [ ! -e /etc/kvm/mdns_disabled ] || return 0
     rc-service avahi-daemon start

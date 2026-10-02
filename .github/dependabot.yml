@@ -1,0 +1,12 @@
+# Security updates for Go and npm dependencies are enabled in the repository
+# settings and need no entry here. Routine version bumps are limited to the
+# workflow actions, grouped into one monthly pull request.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']

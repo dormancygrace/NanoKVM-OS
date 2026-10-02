@@ -5,7 +5,7 @@ toolchain, host utilities and the BusyBox/ext4/F2FS tools used by boot initramfs
 Use `platform/build.sh`; its sole profile is `configs/nanokvm_platform_defconfig`.
 
 The retired Buildroot rootfs profiles, OpenVPN 3/Asio, private apk-tools,
-nkos-addons and Superfile recipes are available in Git history, not supported
+nkos-addons, Superfile and unused named vendor-libc loader recipes are available in Git history, not supported
 build entry points. Old beta build notes and release scripts describe their
 original revisions and must not be run against the current tree.
 

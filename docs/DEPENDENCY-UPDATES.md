@@ -23,7 +23,7 @@ All additional Go module suites are mandatory. DTLS test fixtures were repaired 
 
 `Upstream dependency watch` runs every Monday at 05:23 UTC and supports manual dispatch. `scripts/check-upstream.py` reads current pins directly from the files listed in `.github/upstream-watch.json`, checks public upstream metadata, and maintains one bot-owned GitHub issue named **Upstream dependency update dashboard**. Unchanged reports produce no issue edits or comments. Failed checks remain visible and fail the workflow; they are never reported as current.
 
-The initial catalog covers 25 entries: Linux, Buildroot, U-Boot, platform drivers/SDK sources, CVI MPI, sensors, MaixCDK, json-c, miniz, inih, Go runtime, Alpine OpenSSL/C906 baseline, Alpine stable branch, Opus, tinyalsa, AIC firmware, vendor libc, codec firmware, and the three patched Pion modules. The selected platform pins come from `platform/sources.lock`; older duplicate Linux/Buildroot entries in `firmware/sources.json` are not treated as the current platform.
+The initial catalog covers 24 entries: Linux, Buildroot, U-Boot, platform drivers/SDK sources, CVI MPI, sensors, MaixCDK, json-c, miniz, inih, Go runtime, Alpine OpenSSL/C906 baseline, Alpine stable branch, Opus, tinyalsa, AIC firmware, codec firmware, and the three patched Pion modules. The selected platform pins come from `platform/sources.lock`; older duplicate Linux/Buildroot entries in `firmware/sources.json` are not treated as the current platform.
 
 Version checks use stable numeric releases; commit checks compare the selected vendor branch (or explicitly reported repository default branch) against the pinned revision. New vendor commits can concern other boards. A dashboard entry is a candidate for review, not proof that an update is compatible. Tag-based checks examine the first 100 tags returned by the upstream API; errors, divergent history and a pin ahead of the queried upstream need maintainer review.
 
@@ -39,7 +39,7 @@ The report distinguishes the Alpine recipe baseline, the C906 version derived by
 
 ## Coverage limits
 
-Historical Buildroot OpenVPN 3/Asio, Superfile, private apk-tools and nkos-addons recipes were removed together with the old rootfs profiles. The Alpine release explicitly conflicts with `openvpn3` and uses stock Alpine OpenVPN when installed. Buildroot now has a dedicated platform-only profile; Alpine recipes define installed system and optional package versions.
+Historical Buildroot OpenVPN 3/Asio, Superfile, private apk-tools, nkos-addons and the unused named vendor-libc loader recipes were removed together with the old rootfs profiles. The Alpine release explicitly conflicts with `openvpn3` and uses stock Alpine OpenVPN when installed. Buildroot now has a dedicated platform-only profile; Alpine recipes define installed system and optional package versions.
 
 - Dependabot supports specific manifest formats, not arbitrary shell variables or patches. The first frontend updater produced PR #26 with a version-9 lockfile that passed frozen installation, build, lint and tests under our pnpm 12 CI. Future updater and lockfile failures still require review.
 - Buildroot updates cover its upstream recipe collection; the dashboard does not independently audit every transitive C library or locally overridden Buildroot package for new versions/CVEs.

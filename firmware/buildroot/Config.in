@@ -1,10 +1,3 @@
-config BR2_PACKAGE_NANOKVM_VENDOR_LIBC
-    bool "NanoKVM vendor process loaders"
-    depends on BR2_RISCV_64
-    help
-      Preserve named T-Head loaders for the binary media SDK, while leaving
-      the standard system musl loader supplied by Buildroot intact.
-
 config BR2_PACKAGE_AIC8800_SDIO_FIRMWARE
     bool "AIC8800 SDIO firmware"
 

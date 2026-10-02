@@ -38,7 +38,7 @@ The first run downloads about 1 GB and needs about 20 GB of disk space. Building
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi and cryptodev; `sg2002-aes/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.07 |
 | `fip/base-fip.bin` | First-stage boot firmware; the build replaces only U-Boot in it |
-| `boot/` | FIT template, initramfs file list and `init` |
+| `boot/` | FIT template, initramfs file list and `init`; `stock-init` is the stock Sipeed initramfs init, and `stock-init.diff` turns it into `init` |
 
 Two directories outside `platform/` are used as they are:
 - `firmware/buildroot/`: Buildroot source patches and the defconfig for the toolchain, the host tools and the initramfs userland;

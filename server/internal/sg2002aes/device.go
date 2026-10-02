@@ -16,7 +16,7 @@ const MinPayload = 512
 var ErrUnavailable = errors.New("SG2002 AES device unavailable on this platform")
 var errCompletion = errors.New("SG2002 AES returned an invalid completion status")
 
-// Keep this ABI in sync with firmware/crypto/experimental/sg2002-aes-probe.
+// Keep this ABI in sync with platform/modules/sg2002-aes.
 type request struct {
 	Length, Reserved uint32
 	Key, IV          [16]byte

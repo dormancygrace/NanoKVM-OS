@@ -54,7 +54,7 @@ for name, source in sources.items():
     shutil.copyfile(source, lib/name)
 env = dict(os.environ, GOOS='linux', GOARCH='riscv64', GORISCV64='rva20u64', CGO_ENABLED='1',
            GOEXPERIMENT='boringcrypto', CC=cross+'gcc',
-           CGO_CFLAGS=' '.join(cpu_flags()),
+           CGO_CFLAGS=' '.join(cpu_flags()), CGO_CXXFLAGS=' '.join(cpu_flags()),
            CGO_LDFLAGS=f'-L{lib} -Wl,-rpath-link,{lib} -Wl,--enable-new-dtags -Wl,-rpath,$ORIGIN/dl_lib')
 # Resolve the GOROOT directory, not bin/go: prepared runtimes symlink bin/ to
 # the official toolchain. Resolving the executable alone silently loses the

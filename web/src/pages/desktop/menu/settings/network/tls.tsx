@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Switch, Tooltip } from 'antd';
+import { message, Switch, Tooltip } from 'antd';
 import { CircleAlertIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -21,25 +21,35 @@ export const Tls = () => {
 
     const enable = !isEnabled;
 
+    try {
+      const rsp = await api.setTLS(enable);
+      if (rsp.code !== 0) {
+        message.error(rsp.msg || t('settings.network.tls.failed'));
+        setIsLoading(false);
+        return;
+      }
+      setIsEnabled(enable);
+    } catch (err) {
+      console.log(err);
+      message.error(t('settings.network.tls.failed'));
+      setIsLoading(false);
+      return;
+    }
+
+    // The server restarts after confirming the change; reload only then.
     const seconds = enable ? 30 : 10;
     setTimeout(() => {
       reload(enable);
     }, seconds * 1000);
-
-    try {
-      const rsp = await api.setTLS(enable);
-      if (rsp.code === 0) {
-        setIsEnabled(enable);
-      }
-    } catch (err) {
-      console.log(err);
-    }
   }
 
   function reload(enable: boolean) {
     if (!enable) {
-      const target = window.location.href.replace(/^https:/, 'http:');
-      window.open(target, '_blank');
+      // Plain HTTP listens on its own port; do not reuse the HTTPS one.
+      const target = new URL(window.location.href);
+      target.protocol = 'http:';
+      target.port = '';
+      window.open(target.toString(), '_blank');
     }
 
     window.location.reload();

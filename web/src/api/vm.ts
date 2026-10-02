@@ -206,7 +206,8 @@ export function getMouseJiggler() {
 
 // set mouse jiggler
 export function setMouseJiggler(enabled: boolean, mode: string) {
-  return http.post('/api/vm/mouse-jiggler', { enabled, mode });
+  // Matches the server route exactly; the slash-less form relied on a redirect.
+  return http.post('/api/vm/mouse-jiggler/', { enabled, mode });
 }
 
 // get Hostname

@@ -48,15 +48,16 @@ export function setPicoclawAgentProfile(data: AgentProfileRequest) {
 }
 
 export function listPicoclawSessions(params?: { offset?: number; limit?: number }) {
-  return http.get('/api/picoclaw/sessions', { params });
+  // http.get already wraps its argument as axios `params`.
+  return http.get('/api/picoclaw/sessions', params);
 }
 
 export function getPicoclawSession(id: string) {
-  return http.get(`/api/picoclaw/sessions/${id}`);
+  return http.get(`/api/picoclaw/sessions/${encodeURIComponent(id)}`);
 }
 
 export function deletePicoclawSession(id: string) {
-  return http.delete(`/api/picoclaw/sessions/${id}`);
+  return http.delete(`/api/picoclaw/sessions/${encodeURIComponent(id)}`);
 }
 
 export function getRuntimeStatus() {

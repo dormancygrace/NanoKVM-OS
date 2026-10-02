@@ -5,6 +5,7 @@
 - Build the complete SD image from the public repository: kernel, drivers, boot images, native media libraries, application, web interface and signed APK packages.
 - Pin upstream sources, record build settings and verify the generated files against reference checksums. Include the corresponding platform sources with the release.
 - Use a shared **C906 / T-Head + `-O2`** profile for NanoKVM-built native components, with the appropriate integer-only settings for the kernel and bootloader.
+- Remove the Realtek SDIO driver’s local `-O1` override so it also follows `-O2`.
 - Fix an ISP initialization error exposed by `-O2`, without disabling compiler warnings.
 
 ### 📦 Standard Alpine packages

@@ -36,6 +36,7 @@ for name in ('build-enhanced-capture.py', 'build-enhanced-mmf.py', 'build-enhanc
     assert 'from nanokvm_cpu_profile import' in text, name
     assert '-march=rv64' not in text, name
     assert '-Os' not in text and 'MinSizeRel' not in text, name
+assert '+EXTRA_CFLAGS += -O2' in (ROOT/'platform/modules/rtl8733bs/0002-o2-build-policy.patch').read_text()
 assert 'nanokvm_cpu_profile.py" kernel' in (ROOT/'platform/build.sh').read_text()
 for kind in ('userspace', 'kernel', 'bootloader'):
     validate_flags(flags(kind), kind)

@@ -44,7 +44,7 @@ class WatchTests(unittest.TestCase):
 
     def test_retired_buildroot_packages_are_not_current_candidates(self):
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
-        retired = {'openvpn3', 'Asio', 'Superfile upstream', 'apk-tools'}
+        retired = {'openvpn3', 'Asio', 'Superfile upstream', 'apk-tools', 'nanokvm-vendor-libc'}
         self.assertFalse(retired.intersection(s['name'] for s in sources))
 
     def test_alpine_baseline_revision_not_local_increment(self):

@@ -1,4 +1,10 @@
-# NanoKVM Enhanced
+# NanoKVM firmware sources
+
+Current build instructions are in [docs/BUILD.md](../docs/BUILD.md),
+[platform/README.md](../platform/README.md) and [alpine/README.md](alpine/README.md).
+The port findings below describe historical experiments, not the current release state.
+
+## Historical Enhanced port notes
 
 This is an active port, not a release image. The target is the latest available
 stable system with all NanoKVM hardware functions retained and qualified. The
@@ -42,23 +48,17 @@ required; shared-library dependencies alone cannot detect static linkage.
 
 ## Building the toolchain
 
-Use a Linux filesystem, including WSL ext4 (not /mnt/c), and run:
+Use the current platform entry point on a Linux filesystem (including WSL ext4):
 
 ```sh
-JOBS=12 scripts/build-enhanced.sh toolchain
+platform/build.sh fetch toolchain
 ```
 
-The default scratch directory is `build/enhanced` (ignored by Git). Override
-`NANOKVM_BUILD_DIR`, `NANOKVM_BUILDROOT_DIR`, or `NANOKVM_BUILDROOT_OUTPUT` for
-existing source/cache/output directories. `all` additionally requires
-`NANOKVM_APP_STAGE` and `NANOKVM_BOARD_ASSETS`; these must hold the application
-rebuilt for the new toolchain and the new kernel/modules. The post-build hook
-rejects a 5.10 module set for Enhanced. The source lists and dependency versions
-can be obtained with the `show-info` and `legal-info` targets.
-
-`buildroot/configs/nanokvm_sg2002_defconfig` is the earlier compatibility
-experiment using GCC 15.3 and the existing kernel ABI. Its output is not the
-Enhanced target and must not be presented as completion of this port.
+See [platform/README.md](../platform/README.md) for output directories, source
+pins and validation. Buildroot supplies only the compiler, host tools and
+initramfs utilities. The installed rootfs uses Alpine APKs. The previous
+Enhanced/SG2002 rootfs profiles and `scripts/build-enhanced.sh` were retired;
+old release-specific instructions require their original Git revision.
 
 ## T-Head requirements and measured findings
 

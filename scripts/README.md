@@ -1,13 +1,13 @@
 # NanoKVM OS image builds
 
-The active beta is **NanoKVM OS v1.0.0 beta-1** (`1.0.0-beta.1`).
-Signed NanoKVM OS application/web updates are now implemented. See
-[update format and recovery](../firmware/release/public/UPDATES.md) and
-[physical checks](../firmware/release/evidence/2026-09-09-os-updates/README.md).
-Kernel/rootfs updates use complete images. The Alpine development path also
-emits a hash-bound one-shot recovery bundle described below.
-The older package/manifest workflow below is historical tooling for stock
-NanoKVM applications; it is not a NanoKVM OS update or publication channel.
+The current OS uses Alpine and native APK updates, including kernel packages.
+Start with [component builds](../docs/BUILD.md), [platform builds](../platform/README.md)
+and [the current update flow](../docs/UPDATES.md).
+
+Buildroot is limited to the platform compiler, host tools and boot initramfs.
+The previous Buildroot OS and private addon-manager build paths were removed.
+Release-specific beta scripts and the stock application packaging notes below
+are historical; use their matching Git revision to study or reproduce them.
 
 ## Alpine port tooling
 

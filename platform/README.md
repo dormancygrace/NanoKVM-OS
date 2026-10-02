@@ -41,7 +41,7 @@ The first run downloads about 1 GB and needs about 20 GB of disk space. Building
 | `boot/` | FIT template, initramfs file list and `init`; `stock-init` is the stock Sipeed initramfs init, and `stock-init.diff` turns it into `init` |
 
 Two directories outside `platform/` are used as they are:
-- `firmware/buildroot/`: Buildroot source patches and the defconfig for the toolchain, the host tools and the initramfs userland;
+- `firmware/buildroot/`: platform-only source patches and `configs/nanokvm_platform_defconfig` for the toolchain, host tools and initramfs userland;
 - `firmware/boards/`: the board device trees.
 
 ## Changing a component
@@ -111,3 +111,16 @@ Other components of the image:
 *Draft: the maintainer has not approved this wording yet.*
 
 For three years after we last distribute a NanoKVM OS v2 release, we will give anyone, on request, a complete machine-readable copy of the corresponding source of the GPL-licensed components in that release, for no more than the cost of physically performing the distribution. To request it, open an issue in this repository and name the release.
+
+## Buildroot scope
+
+The platform profile builds no installed OS rootfs and includes no private addon
+manager. Alpine owns system packages and optional software. BusyBox has a broad
+conditional dependency list: selecting unrelated packages here can rebuild them
+even when only the `busybox` target is requested. Keep this profile limited to
+the actual platform dependency graph.
+
+Recipe cleanup changes the toolchain input fingerprint. Existing output must not
+be reused under a new fingerprint; the next full platform build must still pass
+`verify` against `expected.sha256`. A dependency/configuration check alone does
+not qualify newly built boot images.

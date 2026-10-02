@@ -20,13 +20,9 @@ sensor = Path(os.environ['NANOKVM_SENSOR_SOURCE']).resolve()
 inih = Path(os.environ['NANOKVM_INIH_SOURCE']).resolve()
 output = Path(os.environ['NANOKVM_MMF_OUTPUT']).resolve()
 cross = str(Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve() / 'host/bin/riscv64-buildroot-linux-musl-')
-pins = json.loads((repo / 'firmware/sources.json').read_text())
+# platform/build.sh checks the source trees against platform/sources.lock.
 if subprocess.check_output([cross + 'gcc', '-dumpfullversion'], text=True).strip() != '16.2.0':
     raise SystemExit('Expected Enhanced GCC16.2')
-if subprocess.check_output(['git', '-C', str(inih), 'rev-parse', 'HEAD'], text=True).strip() != pins['inih']['commit']:
-    raise SystemExit('Wrong inih pin')
-if subprocess.check_output(['git', '-C', str(inih), 'status', '--porcelain', '--untracked-files=no'], text=True):
-    raise SystemExit('Tracked source changes in inih')
 includes = [mpi / 'include', mpi / 'include/isp/cv181x', mpi / 'sample/common',
             mpi / 'component/panel/cv181x', sensor / 'common', inih,
             repo / 'support/sg2002/additional/kvm_mmf/include', repo / 'firmware/mpi']

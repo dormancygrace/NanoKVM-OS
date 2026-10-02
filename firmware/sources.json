@@ -69,7 +69,7 @@
     "url": "https://github.com/sipeed/MaixCDK.git",
     "tag": "v4.11.3",
     "commit": "b29c951647df74e4efa55fd4454efb37e4554be0",
-    "scope": "required basic/peripheral source subset in kvm_system; firmware/maixcdk/patches applied",
+    "scope": "required basic/peripheral source subset in kvm_system; platform/native/maixcdk patches applied",
     "qualification": "C906 service self-test and wrapped-I2C contracts passed; physical board-service qualification pending"
   },
   "sophgo_sdk42_candidate": {

@@ -4,7 +4,7 @@ set -euo pipefail
 export PATH=${NANOKVM_HOST_PATH:-/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin}
 : "${NANOKVM_MPI_SOURCE:?Set the patched pinned cvi_mpi source directory}"
 : "${NANOKVM_OSDRV_SOURCE:?Set the patched pinned osdrv source directory}"
-: "${NANOKVM_KERNEL_SOURCE:?Set the patched Linux 7.2.4 source directory}"
+: "${NANOKVM_KERNEL_SOURCE:?Set the patched Linux source directory}"
 : "${NANOKVM_BUILDROOT_OUTPUT:?Set the Enhanced Buildroot output}"
 MPI=$(realpath "$NANOKVM_MPI_SOURCE")
 CROSS=$(realpath "$NANOKVM_BUILDROOT_OUTPUT")/host/bin/riscv64-buildroot-linux-musl-

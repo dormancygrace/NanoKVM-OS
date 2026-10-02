@@ -124,7 +124,9 @@ subpackages), after excluding the known tuned repository. APK may also update de
 simulation first. It preserves APK world constraints, settings and installed
 optional packages, and does not request a NanoKVM kernel/app upgrade.
 Custom C906 repository URLs must be removed explicitly before running it.
-The profile is changed to `stock` only after APK succeeds. No partition changes,
+Packages whose versions are unchanged are reinstalled from the selected
+repositories as well: matching `pkgrel` values alone do not prove identical
+binaries. The profile is changed to `stock` only after APK succeeds. No partition changes,
 rootfs replacement, backup copies or permanent update wrapper are involved.
 Subsequent updates use ordinary `apk update` / `apk upgrade`. Do not run an
 unrestricted `apk upgrade --available` against a partial set of repositories.

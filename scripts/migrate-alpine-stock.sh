@@ -27,14 +27,16 @@ fi
 # Select installed subpackages by source origin: this includes libcrypto3,
 # libssl3, busybox-extras/openrc, coreutils-env, liblz4 and libzstd as needed.
 # XZ/zlib cover older experimental images, although the qualified set omitted them.
-packages=$(awk '
+before=$(awk '
     BEGIN { RS=""; FS="\n" }
-    { name=""; origin=""; for (i=1; i<=NF; i++) {
+    { name=""; version=""; origin=""; for (i=1; i<=NF; i++) {
         if ($i ~ /^P:/) name=substr($i,3)
         if ($i ~ /^o:/) origin=substr($i,3)
+        if ($i ~ /^V:/) version=substr($i,3)
       }
-      if (origin ~ /^(busybox|coreutils|lz4|zstd|openssl|xz|zlib)$/) print name
+      if (origin ~ /^(busybox|coreutils|lz4|zstd|openssl|xz|zlib)$/) print name "=" version
     }' /lib/apk/db/installed)
+packages=$(printf '%s\n' "$before" | cut -d= -f1)
 [ -n "$packages" ] || { echo "No Alpine base packages found" >&2; exit 1; }
 # Only installed APK names enter this intentional shell word splitting.
 # shellcheck disable=SC2086
@@ -43,12 +45,27 @@ printf 'Aligning installed packages with configured Alpine repositories: %s\n' "
 apk --repositories-file "$repos" update
 if [ "$mode" = --simulate ]; then
     apk --repositories-file "$repos" upgrade --available --simulate "$@"
+    echo "Apply also reinstalls any selected package whose version is unchanged, to replace same-version custom binaries."
     exit
 fi
 # APK resolves constraints, verifies signatures, preserves protected config and
 # runs the ordinary maintainer scripts and transaction hooks. Failure leaves
 # the active repository list/profile unchanged; do not override world holds.
 apk --repositories-file "$repos" upgrade --available "$@"
+# Official Alpine may have caught up to our former pkgrel. Equal version strings
+# do not prove equal binaries; reinstall only the packages not replaced above.
+unchanged=$(awk -v before="$before" '
+    BEGIN { RS=""; FS="\n"; split(before, old, "\n"); for (i in old) seen[old[i]]=1 }
+    { name=""; version=""; for (i=1; i<=NF; i++) {
+        if ($i ~ /^P:/) name=substr($i,3)
+        if ($i ~ /^V:/) version=substr($i,3)
+      }
+      if (seen[name "=" version]) print name
+    }' /lib/apk/db/installed)
+if [ -n "$unchanged" ]; then
+    # shellcheck disable=SC2086
+    apk --repositories-file "$repos" fix --reinstall $unchanged
+fi
 chmod 0644 "$repos"
 mv "$repos" /etc/apk/repositories
 printf 'stock\n' > /etc/nanokvm-build-profile

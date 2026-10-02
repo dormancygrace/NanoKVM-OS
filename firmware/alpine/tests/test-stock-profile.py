@@ -87,7 +87,7 @@ class StockProfileTests(unittest.TestCase):
         handler.server = types.SimpleNamespace(config=config, local_url="http://127.0.0.1:8080")
         self.assertIn("--tuned-repo", handler.build_command("c906-scalar", [], self.root / "output"))
 
-    def migration(self, mode, fail=False, custom=False):
+    def migration(self, mode, fail=False, custom=False, fix_fail=False):
         for name, content in {
             "etc/alpine-release": "3.24.2\n",
             "etc/nanokvm-build-profile": "c906-scalar\n",
@@ -103,7 +103,7 @@ class StockProfileTests(unittest.TestCase):
         bindir.mkdir(exist_ok=True)
         for name, content in {
             "id": "#!/bin/sh\necho 0\n",
-            "apk": '#!/bin/sh\nprintf "%s\\n" "$*" >> "$TEST_LOG"\ncase "$*" in *upgrade*) exit "$TEST_FAIL" ;; esac\n',
+            "apk": '#!/bin/sh\nprintf "%s\\n" "$*" >> "$TEST_LOG"\ncase "$*" in *upgrade*) exit "$TEST_FAIL" ;; *fix*) exit "$TEST_FIX_FAIL" ;; esac\n',
         }.items():
             p = bindir / name
             p.write_text(content)
@@ -112,7 +112,7 @@ class StockProfileTests(unittest.TestCase):
         source = (ROOT / "scripts/migrate-alpine-stock.sh").read_text()
         source = source.replace("/etc/", str(self.root) + "/etc/").replace("/lib/apk/", str(self.root) + "/lib/apk/")
         env = dict(os.environ, PATH=str(bindir) + ":" + os.environ["PATH"],
-                   TEST_LOG=str(self.root / "apk.log"), TEST_FAIL="1" if fail else "0")
+                   TEST_LOG=str(self.root / "apk.log"), TEST_FAIL="1" if fail else "0", TEST_FIX_FAIL="1" if fix_fail else "0")
         return subprocess.run(["sh", "-s", "--", mode], input=source, text=True, capture_output=True, env=env)
 
     def test_migration_targets_subpackages_and_preserves_world(self):
@@ -120,6 +120,7 @@ class StockProfileTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         log = (self.root / "apk.log").read_text()
         self.assertIn("upgrade --available busybox libcrypto3", log)
+        self.assertIn("fix --reinstall busybox libcrypto3", log)
         self.assertNotIn("htop", log)
         self.assertNotIn("kernel", log)
         self.assertEqual((self.root / "etc/nanokvm-build-profile").read_text(), "stock\n")
@@ -138,6 +139,12 @@ class StockProfileTests(unittest.TestCase):
 
     def test_apk_failure_does_not_claim_stock(self):
         result = self.migration("--apply", fail=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual((self.root / "etc/nanokvm-build-profile").read_text(), "c906-scalar\n")
+        self.assertIn("c906-qualified", (self.root / "etc/apk/repositories").read_text())
+
+    def test_reinstall_failure_does_not_claim_stock(self):
+        result = self.migration("--apply", fix_fail=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual((self.root / "etc/nanokvm-build-profile").read_text(), "c906-scalar\n")
         self.assertIn("c906-qualified", (self.root / "etc/apk/repositories").read_text())

@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Offline contracts for upstream monitoring; no real remote writes."""
 import importlib.util
+import io
+import json
+import tarfile
 from pathlib import Path
 import tempfile
 import unittest
@@ -20,6 +23,52 @@ class WatchTests(unittest.TestCase):
         for source in sources:
             with self.subTest(source=source['name']):
                 self.assertTrue(u.current_pin(ROOT, source))
+
+    @staticmethod
+    def alpine_index(value, missing=None):
+        data = ''.join('P:' + name + '\nV:' + value + '\nA:riscv64\n\n'
+                       for name in ('openssl', 'libssl3', 'libcrypto3') if name != missing).encode()
+        output = io.BytesIO()
+        with tarfile.open(fileobj=output, mode='w:gz') as archive:
+            item = tarfile.TarInfo('APKINDEX')
+            item.size = len(data)
+            archive.addfile(item, io.BytesIO(data))
+        return output.getvalue()
+
+    def test_openssl_uses_alpine_not_historical_buildroot(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        selected = [s for s in sources if 'openssl' in s['name'].lower()]
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0]['kind'], 'alpine-package')
+        self.assertNotIn('buildroot', selected[0]['path'])
+
+    def test_alpine_baseline_revision_not_local_increment(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        source = next(s for s in sources if s['kind'] == 'alpine-package')
+        for upstream, expected in [('3.5.8-r0', 'current'), ('3.5.8-r1', 'C906 rebuild required'),
+                                   ('3.5.8-r10', 'C906 rebuild required'), ('3.5.9-r0', 'C906 rebuild required'),
+                                   ('3.5.7-r10', 'pinned recipe ahead')]:
+            with self.subTest(upstream=upstream), patch.object(u, 'request', return_value='pkgver=3.5.8\npkgrel=0\n') as recipe, patch.object(u, 'request_bytes', return_value=self.alpine_index(upstream)) as index:
+                result = u.check(source)
+                self.assertEqual(result['status'], expected)
+                self.assertIn('C906 build: 3.5.8-r1', result['current'])
+                self.assertIn('/v3.24/main/riscv64/APKINDEX.tar.gz', index.call_args.args[0])
+                self.assertIn('ref=' + u.current_pin(ROOT, source), recipe.call_args.args[0])
+        self.assertGreater(u.alpine_version('3.5.8-r10'), u.alpine_version('3.5.8-r2'))
+
+    def test_alpine_missing_subpackage_and_recipe_failure_are_visible(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        source = next(s for s in sources if s['kind'] == 'alpine-package')
+        with patch.object(u, 'request', return_value='pkgver=3.5.8\npkgrel=0\n'), patch.object(u, 'request_bytes', return_value=self.alpine_index('3.5.9-r0', missing='libssl3')):
+            result = u.check(source)
+            self.assertEqual(result['status'], 'error')
+            self.assertIn('Missing Alpine packages: libssl3', result['detail'])
+        with patch.object(u, 'request', return_value='pkgver=$(false)\npkgrel=0\n'):
+            self.assertEqual(u.check(source)['status'], 'error')
+        with patch.object(u, 'request', side_effect=OSError('unavailable')):
+            self.assertEqual(u.check(source)['status'], 'error')
+        with self.assertRaises(ValueError):
+            u.alpine_version('3.6.0_rc1-r0')
 
     def test_versions_numeric_and_no_downgrade(self):
         self.assertGreater(u.version('7.2.10'), u.version('7.2.9'))

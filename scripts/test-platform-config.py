@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -45,6 +46,22 @@ def main():
         buildroot, = source.iterdir()
         for patch in sorted((REPO / "firmware/buildroot/source-patches").glob("*.patch")):
             run(["patch", "--batch", "--forward", "-p1", "-i", str(patch)], cwd=buildroot)
+        # Applying the outer patch is insufficient: pkg-autotools loads these
+        # nested libtool patches only when configuring a host/target package.
+        autotools = (buildroot / "package/pkg-autotools.mk").read_text()
+        for relative in set(re.findall(r"support/libtool/[\w.+-]+\.patch", autotools)):
+            assert (buildroot / relative).is_file(), f"Missing referenced libtool patch: {relative}"
+        fragment = REPO / "firmware/buildroot/board/busybox-initramfs.config"
+        settings = {}
+        for line in fragment.read_text().splitlines():
+            match = re.fullmatch(r"(CONFIG_[A-Z0-9_]+)=(.*)", line)
+            if not match:
+                match = re.fullmatch(r"# (CONFIG_[A-Z0-9_]+) is (not set)", line)
+            if match:
+                key, value = match.groups()
+                assert key not in settings, f"Duplicate BusyBox fragment setting: {key}"
+                settings[key] = value
+        assert settings["CONFIG_DEFAULT_MODULES_DIR"] == '"/lib/modules"'
         output = work / "output"
         env = dict(os.environ, PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin")
         make = ["make", "-s", "-C", str(buildroot), f"O={output}",

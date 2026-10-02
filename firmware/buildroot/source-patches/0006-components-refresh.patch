@@ -1175,3 +1175,105 @@ index cfcd738b..74eb13d5 100644
  UTIL_LINUX_SOURCE = util-linux-$(UTIL_LINUX_VERSION).tar.xz
  UTIL_LINUX_SITE = $(BR2_KERNEL_MIRROR)/linux/utils/util-linux/v$(UTIL_LINUX_VERSION_MAJOR)
  
+diff --git a/support/libtool/buildroot-libtool-v2.6.patch b/support/libtool/buildroot-libtool-v2.6.patch
+new file mode 100644
+index 00000000..55667c3c
+--- /dev/null
++++ b/support/libtool/buildroot-libtool-v2.6.patch
+@@ -0,0 +1,96 @@
++Libtool cross-compilation fixes rebased onto 2.6.2.
++
++Preserve Buildroot staging, dependency and static-link behavior.
++The new --static and -Bstatic spellings retain upstream behavior.
++
++--- a/ltmain.sh
+++++ b/ltmain.sh
++@@ -3015,9 +3015,8 @@
++ 	# was found and let the user know that the "--tag" command
++ 	# line option must be used.
++ 	if test -z "$tagname"; then
++-	  func_echo "unable to infer tagged configuration with compiler."
++-	  func_echo "Possible use of unsupported compiler."
++-	  func_fatal_error "specify a tag with '--tag'. For more information, try '$progname --help'."
+++	  func_echo "defaulting to \`CC'"
+++	  func_echo "if this is not correct, specify a tag with '--tag'"
++ #	else
++ #	  func_verbose "using $tagname tagged configuration"
++ 	fi
++@@ -4753,8 +4752,12 @@
++ 	  # At present, this check doesn't affect windows .dll's that
++ 	  # are installed into $libdir/../bin (currently, that works fine)
++ 	  # but it's something to keep an eye on.
++-	  test "$inst_prefix_dir" = "$destdir" && \
++-	    func_fatal_error "error: cannot install '$file' to a directory not ending in $libdir"
+++
+++	  #
+++	  # This breaks install into our staging area.  -PB
+++	  #
+++	  #test "$inst_prefix_dir" = "$destdir" && \
+++	  #  func_fatal_error "error: cannot install '$file' to a directory not ending in $libdir"
++ 
++ 	  if test -n "$inst_prefix_dir"; then
++ 	    # Stick the inst_prefix_dir data into the link command.
++@@ -7070,7 +7073,8 @@
++ 	;;
++       -all-static | -static | -static-libtool-libs | --static | -Bstatic)
++ 	case $arg in
++-	-all-static)
+++	# Make -static behave like -all-static -GZ
+++	-all-static | -static)
++ 	  if test yes = "$build_libtool_libs" && test -z "$link_static_flag"; then
++ 	    func_warning "complete static linking is impossible in this configuration"
++ 	  fi
++@@ -7078,12 +7082,6 @@
++ 	    dlopen_self=$dlopen_self_static
++ 	  fi
++ 	  prefer_static_libs=yes
++-	  ;;
++-	-static)
++-	  if test -z "$pic_flag" && test -n "$link_static_flag"; then
++-	    dlopen_self=$dlopen_self_static
++-	  fi
++-	  prefer_static_libs=built
++ 	  ;;
++ 	-static-libtool-libs | --static | -Bstatic)
++ 	  if test -z "$pic_flag" && test -n "$link_static_flag"; then
++@@ -7400,7 +7398,8 @@
++       prevarg=$arg
++ 
++       case $arg in
++-      -all-static)
+++      # Make -static behave like -all-static -GZ
+++      -all-static | -static)
++ 	if test -n "$link_static_flag"; then
++ 	  # See comment for -static flag below, for more details.
++ 	  func_append compile_command " $link_static_flag"
++@@ -7702,7 +7701,7 @@
++ 	continue
++ 	;;
++ 
++-      -static | -static-libtool-libs)
+++      -static-libtool-libs)
++ 	# The effects of -static are defined in a previous loop.
++ 	# We used to do the same as -all-static on platforms that
++ 	# didn't have a PIC flag, but the assumption that the effects
++@@ -8759,7 +8758,7 @@
++ 	  *)
++ 	    if test no = "$installed"; then
++ 	      func_append notinst_deplibs " $lib"
++-	      need_relink=yes
+++	      need_relink=no
++ 	    fi
++ 	    ;;
++ 	  esac
++@@ -11297,6 +11296,10 @@
++ 	    # Replace all uninstalled libtool libraries with the installed ones
++ 	    newdependency_libs=
++ 	    for deplib in $dependency_libs; do
+++	      # Replacing uninstalled with installed can easily break crosscompilation,
+++	      # since the installed path is generally the wrong architecture.  -CL
+++	      newdependency_libs="$newdependency_libs $deplib"
+++	      continue
++ 	      case $deplib in
++ 	      *.la)
++ 		func_basename "$deplib"

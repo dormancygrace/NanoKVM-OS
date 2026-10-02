@@ -190,6 +190,7 @@ def render(results):
               '- Buildroot package recipes inherit upstream changes when Buildroot is refreshed; this is not an individual version/CVE audit of every transitive native package.',
               '- Alpine OpenSSL is checked against the published stable riscv64 package index, using the pinned aports recipe as the C906 baseline. The local pkgrel +1 does not count as an upstream fix. Old Buildroot OpenSSL 4 is not the system OpenSSL.',
               '- C906 build versions are derived from the pinned recipe, not observed on a device or in the published overlay. Rebuild and publish the overlay after Alpine updates; this watcher does not run apk upgrade or change devices.',
+              '- Retired Buildroot OpenVPN 3/Asio, Superfile and apk-tools recipes are excluded; they do not describe the current Alpine package set.',
               '- Alpine branch monitoring does not update installed APKs. APK package revisions and firmware release approval remain separate.',
               '- Opaque boot firmware (including the existing base FIP/OpenSBI), local patches and historical experiments have no general automatic updater.',
               '- GitHub tag checks inspect the latest 100 returned tags. Pinned-ahead and divergent results require review; they never trigger a downgrade.',

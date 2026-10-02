@@ -17,6 +17,8 @@ The three locally replaced Pion modules are deliberately excluded from manifest-
 
 Existing server/web CI remains in place. Additional Go modules now have their own build/test matrix; the native watcher has offline contract tests in the script CI job.
 
+The first full DTLS run on unchanged fork sources exposed `TestHandshaker` verification/timeouts and `TestHandshakeMessageCertificate` expecting a pre-Go-1.27 certificate layout (`RawSignatureAlgorithm` is now populated). DTLS compilation is mandatory, but its full test suite is temporarily advisory with an explicit warning and job summary; it must not be represented as passing. Other additional module tests remain mandatory. Review DTLS logs when accepting dependency changes and remove this exception after the baseline is repaired. Evidence: [initial full-suite run](https://github.com/dormancygrace/NanoKVM-OS/actions/runs/37044123822/job/110961182604).
+
 ## Native sources and patched forks
 
 `Upstream dependency watch` runs every Monday at 05:23 UTC and supports manual dispatch. `scripts/check-upstream.py` reads current pins directly from the files listed in `.github/upstream-watch.json`, checks public upstream metadata, and maintains one bot-owned GitHub issue named **Upstream dependency update dashboard**. Unchanged reports produce no issue edits or comments. Failed checks remain visible and fail the workflow; they are never reported as current.

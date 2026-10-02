@@ -72,24 +72,20 @@ bundle described above is a separate full-system reinstallation path.
 
 ## Repository policy
 
+The default profile is `stock`. Ordinary userspace packages, including BusyBox,
+coreutils, LZ4, zstd and OpenSSL, come from official Alpine repositories.
+NanoKVM still supplies its SG2002 kernel, drivers, board firmware and application.
+
 The target repository list is:
 
-1. the signed C906 repository for selected same-name optimized packages;
-2. the signed NanoKVM repository for packages named `nanokvm-*`;
-3. Alpine v3.24 `main`;
-4. Alpine v3.24 `community`;
-5. Alpine `edge/community`, tagged as `@edgecommunity`.
+1. the signed NanoKVM repository (`https://nkos.pesin.pro/repos/nanokvm`);
+2. Alpine v3.24 `main`;
+3. Alpine v3.24 `community`;
+4. Alpine `edge/community`, tagged as `@edgecommunity`.
 
-The deployed repository URLs are:
-
-- `https://nkos.pesin.pro/repos/c906-qualified`;
-- `https://nkos.pesin.pro/repos/nanokvm`;
-- the Alpine v3.24 `main` and `community` mirrors.
-
-Repository line order alone is not the package selection policy. NanoKVM packages
-use unique names. An optimized Alpine replacement keeps the original package name,
-uses a higher controlled `pkgrel`, and is pinned by the tested release profile.
-Packages not rebuilt locally continue to resolve from Alpine unchanged.
+The experimental `c906-scalar` profile and its recipes, qualification tools and
+benchmark evidence are retained under `tuning/`. Its repository is only used
+when explicitly requested; it is not required to build or run a stock image.
 
 The edge repository is never used as an untagged upgrade source. The VPN UI
 requests `tailscale@edgecommunity`, `tailscale-openrc@edgecommunity`,
@@ -98,7 +94,7 @@ keeps the rest of the operating system on Alpine 3.24. OpenVPN comes from the
 stable Alpine repository. OpenVPN, Tailscale and NetBird are optional and are
 absent from the default `nanokvm-release` dependency set.
 
-The two NanoKVM repositories are rolling package channels within the selected
+The NanoKVM repository is a rolling package channel within the selected
 stable Alpine branch. New signed revisions become available through ordinary
 `apk update` and `apk upgrade`; the same indexes are inputs to attended image
 builds. First-party entries in `/etc/apk/world` normally use unversioned package
@@ -111,10 +107,33 @@ Full recovery images remain necessary for partition layout, filesystem, FIP or
 bootloader changes. Moving to another Alpine stable branch is an explicit system
 upgrade rather than an incidental package update.
 
-The physically qualified default overlay contains the BusyBox, coreutils, LZ4,
-zstd and OpenSSL package families. XZ remains stock because its tuned encoder
-regressed, and zlib remains stock because the comparison did not isolate libz.
-The full result table is in `docs/development/alpine-port.md`.
+## Existing C906 installations
+
+Removing the tuned repository alone does not replace its higher `pkgrel`
+packages. Run the one-time maintenance script from the matching source checkout
+on the device, first with `--simulate`, then with `--apply`:
+
+```sh
+sh scripts/migrate-alpine-stock.sh --simulate
+sh scripts/migrate-alpine-stock.sh --apply
+```
+
+It uses native `apk upgrade --available` for installed packages from the seven
+historical overlay origins only (including their library and utility
+subpackages), after excluding the known tuned repository. APK may also update dependencies while solving this transaction; review the
+simulation first. It preserves APK world constraints, settings and installed
+optional packages, and does not request a NanoKVM kernel/app upgrade.
+Custom C906 repository URLs must be removed explicitly before running it.
+Checksum holds (`package><checksum`) also require explicit operator handling:
+APK `--available` clears those holds globally, so the helper refuses to proceed
+until they have been released. Reapply any required holds after the transition.
+Version constraints remain under the native APK solver.
+Packages whose versions are unchanged are reinstalled from the selected
+repositories as well: matching `pkgrel` values alone do not prove identical
+binaries. The profile is changed to `stock` only after APK succeeds. No partition changes,
+rootfs replacement, backup copies or permanent update wrapper are involved.
+Subsequent updates use ordinary `apk update` / `apk upgrade`. Do not run an
+unrestricted `apk upgrade --available` against a partial set of repositories.
 
 ## Request-driven images
 
@@ -130,7 +149,7 @@ build interface.
 The stock image uses official Alpine package binaries plus the same NanoKVM
 kernel, DTB, modules, firmware and application payload as the tuned image.
 
-The production tuning target is scalar C906 code with the existing `lp64d`
+The retained experimental tuning target is scalar C906 code with the existing `lp64d`
 ABI:
 
 ```

@@ -64,7 +64,8 @@ export const Updates = () => {
                   'nanokvm-firmware-sg2002'
                 ].includes(item)
             );
-          setAlpineProfile(current.profile === 'c906-scalar' ? 'c906-scalar' : 'stock');
+          // New images use official Alpine packages, including on older tuned devices.
+          setAlpineProfile('stock');
           setAlpinePackages(packages.join(' '));
           alpineDefaultsLoaded.current = true;
         }

@@ -101,7 +101,7 @@ class BuilderConfig:
         self.base_rootfs = resolve(self.project_root, data["base_rootfs"])
         self.boot_fit = resolve(self.project_root, data["boot_fit"])
         self.nanokvm_repo = resolve(self.project_root, data["nanokvm_repo"])
-        self.tuned_repo = resolve(self.project_root, data["tuned_repo"])
+        self.tuned_repo = resolve(self.project_root, data["tuned_repo"]) if data.get("tuned_repo") else None
         self.repo_keys = [resolve(self.project_root, item) for item in data["repo_keys"]]
         self.qemu_static = resolve(self.project_root, data["qemu_static"])
         self.output_root = resolve(self.project_root, data.get("output_root", "output"))
@@ -133,7 +133,7 @@ class BuilderConfig:
             ("nanokvm_repo", self.nanokvm_repo),
             ("tuned_repo", self.tuned_repo),
         ):
-            if not (path / "riscv64/APKINDEX.tar.gz").is_file():
+            if path is not None and not (path / "riscv64/APKINDEX.tar.gz").is_file():
                 raise SystemExit(f"missing {label} APKINDEX: {path}")
         if not self.repo_keys:
             raise SystemExit("repo_keys must contain at least one public key")
@@ -150,6 +150,8 @@ class BuilderConfig:
         self.output_root.mkdir(parents=True, exist_ok=True)
 
     def build_id(self, profile: str, packages: list[str]) -> str:
+        if profile == "c906-scalar" and self.tuned_repo is None:
+            raise ValueError("c906-scalar is not enabled on this builder")
         # Re-read every index for each request. This makes a repeated attended
         # request pick up newly published Alpine and NanoKVM APKs instead of
         # returning an image cached against only repository URLs.
@@ -231,7 +233,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             ("/repos/nanokvm/", self.server.config.nanokvm_repo),
             ("/repos/c906-qualified/", self.server.config.tuned_repo),
         ):
-            if path.startswith(prefix):
+            if root is not None and path.startswith(prefix):
                 self.serve_file(root, path.removeprefix(prefix))
                 return
         if path.startswith("/artifacts/"):
@@ -269,10 +271,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         if not isinstance(request, dict) or set(request) - {"profile", "packages"}:
             self.json_response(HTTPStatus.BAD_REQUEST, {"error": "unknown request field"})
             return
-        profile = request.get("profile")
+        profile = request.get("profile", "stock")
         packages = request.get("packages", [])
         if profile not in {"stock", "c906-scalar"}:
             self.json_response(HTTPStatus.BAD_REQUEST, {"error": "invalid profile"})
+            return
+        if profile == "c906-scalar" and self.server.config.tuned_repo is None:
+            self.json_response(HTTPStatus.BAD_REQUEST, {"error": "c906-scalar is not enabled on this builder"})
             return
         if not isinstance(packages, list) or len(packages) > MAX_PACKAGES:
             self.json_response(HTTPStatus.BAD_REQUEST, {"error": "invalid package list"})

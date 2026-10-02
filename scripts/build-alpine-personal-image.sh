@@ -12,7 +12,7 @@ Usage:
   build-alpine-personal-image.sh [options]
 
 Required inputs:
-  --profile stock|c906-scalar
+  --profile stock|c906-scalar  Optional; defaults to stock
   --base-rootfs FILE          Clean Alpine riscv64 minirootfs/root tarball
   --base-sha256 SHA256        Expected hash of --base-rootfs
   --boot-fit FILE             Normal NanoKVM Alpine boot.sd
@@ -74,7 +74,7 @@ valid_repo() {
 	case "$repo" in *[[:space:]]*) return 1 ;; esac
 }
 
-PROFILE=
+PROFILE=stock
 BASE_ROOTFS=
 BASE_SHA256=
 BOOT_FIT=
@@ -151,7 +151,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$PROFILE" in
-	stock) [ -z "$TUNED_REPO" ] || die "--tuned-repo is only valid with c906-scalar" ;;
+	stock) [ -z "$TUNED_REPO$RUNTIME_TUNED_REPO" ] || die "--tuned-repo is only valid with c906-scalar" ;;
 	c906-scalar) [ -n "$TUNED_REPO" ] || die "c906-scalar requires --tuned-repo" ;;
 	*) die "--profile must be stock or c906-scalar" ;;
 esac
@@ -323,6 +323,11 @@ if [ "$PROFILE" = c906-scalar ]; then
 		run_target /sbin/apk --no-cache upgrade --available
 	fi
 fi
+
+# The requested profile is authoritative even when the shared NanoKVM release
+# APK came from an earlier tuned build. Future release APKs default to stock.
+printf '%s\n' "$PROFILE" > "$STAGE_ROOT/etc/nanokvm-build-profile"
+sed -i "s/^BUILD_PROFILE=.*/BUILD_PROFILE=\"$PROFILE\"/" "$STAGE_ROOT/etc/nanokvm-release"
 
 # Build transport can stay local; installed repositories must be reachable by the device.
 {

@@ -65,3 +65,10 @@ Interleave repeated runs on the same device and compare checksums as well as
 elapsed time. The `-ffp-contract=off` option is for comparable benchmark arithmetic;
 it is not a production build flag. Inspect compiler vectorization reports before
 attributing any improvement to vector instructions.
+
+To inspect the effective compiler commands after a kernel or module build, run
+`scripts/audit-kbuild-profile.py OUTPUT/kernel/build` (or `OUTPUT/modules`).
+For U-Boot, use `--kind bootloader OUTPUT/uboot/build`. The audit reads Kbuild's
+saved commands and checks the final optimization, ISA, ABI and tuning options.
+The vDSO and CFI-vDSO retain Kbuild's explicit userspace ABI instruction sets;
+these are reported separately, while still requiring `-O2` and C906 tuning.

@@ -1,8 +1,7 @@
 From 5ded7b8dd5c232f83d42b328be9a07077301cb84 Mon Sep 17 00:00:00 2001
 From: dgrace <g.pesin@globalte.ru>
 Date: Sun, 6 Sep 2026 20:39:00 +0300
-Subject: [PATCH] mpi: use baseline C906 ISA with modern Linux Ghostwrite
- mitigation
+Subject: [PATCH] mpi: use the NanoKVM C906 -O2 userspace profile
 
 ---
  mpi_param.mk | 4 ++--
@@ -18,8 +17,8 @@ index b4d137e..b3726c3 100644
  else ifeq ($(TARGET_MACHINE), riscv64-buildroot-linux-musl)
 -  # Upstream GCC spelling for C906 vendor-vector instructions; not RVV 1.0.
 -  OPT_LEVEL := -Os -march=rv64gc_xtheadvector -mtune=thead-c906 -mno-fence-tso -mcmodel=medany -mabi=lp64d
-+  # Baseline ISA: modern Linux disables xtheadvector for Ghostwrite mitigation.
-+  OPT_LEVEL := -Os -march=rv64gc -mtune=thead-c906 -mno-fence-tso -mcmodel=medany -mabi=lp64d
++  # Default matches platform/cpu-profile.json; NanoKVM builders pass OPT_LEVEL explicitly.
++  OPT_LEVEL := -O2 -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mabi=lp64d -mno-fence-tso -mcmodel=medany
  else ifeq ($(TARGET_MACHINE), riscv64-unknown-linux-gnu)
    OPT_LEVEL := -Os
    OPT_LEVEL += -mno-ldd -mcpu=c906fdv -march=rv64imafdcv0p7xthead -mcmodel=medany -mabi=lp64d

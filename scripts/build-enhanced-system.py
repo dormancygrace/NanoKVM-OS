@@ -4,6 +4,7 @@
 Requires NANOKVM_MAIXCDK_SOURCE, NANOKVM_BUILDROOT_OUTPUT and
 NANOKVM_SYSTEM_OUTPUT. Does not install or start the service.
 """
+from nanokvm_cpu_profile import flags as cpu_flags, record as record_cpu_profile
 from pathlib import Path
 import hashlib, json, os, shutil, subprocess, tempfile
 os.environ['PATH']='/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
@@ -26,10 +27,11 @@ maix_sources=[basic/'src'/('maix_'+n+'.cpp') for n in ['time','err','log','fs','
 maix_sources += [peripheral/'port/maixcam/maix_i2c.cpp',third/'ini/inifile2/src/inifile.cpp']
 sources=maix_sources+sorted(p for p in main.rglob('*.c') if p.name != 'qrcmd.c')+sorted(main.rglob('*.cpp'))
 sources += [repo/'support/sg2002/additional/kvm/src/vi_state_shared.cpp']
-flags=['-O2','-g','-Wall','-Wextra','-ffunction-sections','-fdata-sections',
-       '-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector','-mtune=thead-c906','-mno-fence-tso','-mabi=lp64d',
+flags=['-g','-Wall','-Wextra','-ffunction-sections','-fdata-sections',
+       *cpu_flags(),
        '-DPLATFORM_MAIXCAM','-DNANOKVM_ENHANCED','-Werror=return-type','-Werror=uninitialized','-Werror=maybe-uninitialized']
 output.mkdir(parents=True,exist_ok=True)
+record_cpu_profile(output/'cpu-profile.json', cross+'gcc', effective_flags=flags)
 with tempfile.TemporaryDirectory(prefix='system-',dir=output) as directory:
     tmp=Path(directory)
     (tmp/'global_config.h').write_text('#pragma once\n#define PROJECT_ID "nanokvm-enhanced"\n')

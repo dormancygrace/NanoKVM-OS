@@ -81,7 +81,7 @@ jobs:
       - name: Script tests
         run: |
           set -e
-          for t in aic-firmware-path alpine-kernel-activation alpine-network \
+          for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-network \
                    alpine-recovery-password alpine-service-deps board-selection enhanced-fs \
                    enhanced-s15-packaging hdmi-detection-cache hdmi-receiver-start \
                    monitor-edids nanokvm-service-stop oled-ip-window platform-build \

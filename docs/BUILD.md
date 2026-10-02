@@ -59,3 +59,28 @@ Build `native/usb-audio/capture.c` with `scripts/build-usb-audio.py`, using its 
 ## Dependency maintenance
 
 See [DEPENDENCY-UPDATES.md](DEPENDENCY-UPDATES.md) for automatic dependency PRs, native upstream monitoring and the boundaries of each.
+
+
+## NanoKVM CPU build policy
+
+`platform/cpu-profile.json` defines the CPU policy for our own C/C++ components.
+`scripts/nanokvm_cpu_profile.py` supplies the flags to the native library, board
+service, USB audio, CGO and platform builders. Production optimization is `-O2`,
+with C906 scheduling and `-mno-fence-tso`. Official Alpine packages and prebuilt
+SOPHGO algorithm objects are not recompiled by this policy; Go retains its own
+compiler and `GORISCV64` baseline.
+
+Userspace enables the C906 T-Head extensions and XTheadVector. This permits
+supported instructions; it does not promise automatic vectorization or a frame
+rate increase. Kernel/modules retain their qualified integer ISA and `lp64`,
+without compiler-generated floating-point or vector operations. U-Boot uses a
+separate integer-only C906 profile with `CONFIG_CC_OPTIMIZE_FOR_SPEED=y`. Kbuild's
+architecture-specific optimized routines retain their own context handling.
+
+Buildroot's target defaults and the MPI Makefile patch mirror the profile so
+standalone builds do not fall back to a different optimization level. Update
+those generated values alongside the JSON; `scripts/test-cpu-profile.py` rejects
+drift. It can also exercise the real cross-compiler with `--compiler PATH`.
+Component output directories contain `cpu-profile*.json` with the policy hash,
+compiler identity and flags used by the build script. These files describe only
+our compiled objects, not the flags originally used for vendor binary objects.

@@ -43,7 +43,7 @@ release=7.2.6-nanokvm-os-r1
 kernel_timestamp='Sat Sep 19 13:51:57 UTC 2026'
 uboot_epoch=1788737047
 rtl8733bs_epoch=1788607804
-isa='-march=rv64imac_zicsr_zifencei_zacas_zabha_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync -mtune=thead-c906 -mno-fence-tso -fno-tree-vectorize -fno-tree-slp-vectorize'
+isa=$(python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel)
 boards=(detect alpha beta pcie lite)
 
 dl=$out/downloads
@@ -142,7 +142,7 @@ apply_patches() {
 # Buildroot archive, firmware/buildroot (source patches, defconfig, external
 # recipes, package patches, BusyBox configuration) and this step's recipe.
 toolchain_id() {
-    { lock buildroot; object_id "$repo/firmware/buildroot"; declare -f toolchain; } | sha256sum | cut -d' ' -f1
+    { lock buildroot; object_id "$repo/firmware/buildroot"; cat "$here/cpu-profile.json"; declare -f toolchain; } | sha256sum | cut -d' ' -f1
 }
 
 toolchain_stale() {
@@ -180,6 +180,7 @@ toolchain() {
     BR2_DL_DIR=$dl/buildroot "${make[@]}" toolchain host-dtc host-kmod host-patchelf \
         host-python3 host-uboot-tools host-zstd busybox e2fsprogs f2fs-tools
     [ "$("${cross}gcc" -dumpfullversion)" = 16.2.0 ]
+    python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace --record "$bo/cpu-profile.json" --compiler "${cross}gcc"
     echo "$id" > "$bo/.platform-toolchain"
 }
 
@@ -189,6 +190,7 @@ kernel() {
     tar -xf "$dl/linux-7.2.6.tar.xz" -C "$out/kernel"
     mv "$out/kernel/linux-7.2.6" "$ksrc"
     apply_patches "$ksrc" "$here/kernel"
+    python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel --record "$out/kernel/cpu-profile.json" --compiler "${cross}gcc"
     cp "$here/kernel/config" "$kbuild/.config"
     # Host pahole, rustc and bindgen would be recorded in .config; ignore them.
     local make=(make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" LOCALVERSION= "KCFLAGS=$isa"
@@ -265,10 +267,12 @@ uboot() {
     mv "$u/u-boot-2026.07" "$u/src"
     apply_patches "$u/src" "$here/uboot"
     cp "$here/uboot/defconfig" "$u/build/.config"
-    local make=(make -C "$u/src" O="$u/build" ARCH=riscv CROSS_COMPILE="$cross" LOCALVERSION=-nanokvm-os)
+    local make=(make -C "$u/src" O="$u/build" ARCH=riscv CROSS_COMPILE="$cross" LOCALVERSION=-nanokvm-os
+                "KCFLAGS=$(python3 "$repo/scripts/nanokvm_cpu_profile.py" bootloader)")
     SOURCE_DATE_EPOCH=$uboot_epoch "${make[@]}" olddefconfig
     SOURCE_DATE_EPOCH=$uboot_epoch "${make[@]}" -j"$jobs"
     cp "$u/build/u-boot.bin" "$img/u-boot.bin"
+    python3 "$repo/scripts/nanokvm_cpu_profile.py" bootloader --record "$u/cpu-profile.json" --compiler "${cross}gcc"
 }
 
 fip() {

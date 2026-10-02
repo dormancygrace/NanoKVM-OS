@@ -13,7 +13,9 @@ KERNEL=$(realpath "$NANOKVM_KERNEL_SOURCE")
 JOBS=${JOBS:-8}
 # Macro/debug source locations must not expose the build workstation.
 path_flags="-ffile-prefix-map=$MPI=./cvi_mpi -ffile-prefix-map=$OSDRV=./osdrv -ffile-prefix-map=$KERNEL=./linux -ffile-prefix-map=$(realpath "$NANOKVM_BUILDROOT_OUTPUT")=./toolchain"
-opt_flags="-O2 -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso -mcmodel=medany -mabi=lp64d $path_flags"
+profile_tool="$(dirname "$0")/nanokvm_cpu_profile.py"
+opt_flags="$(python3 "$profile_tool" userspace) -mcmodel=medany $path_flags"
+python3 "$profile_tool" userspace --record "$MPI/cpu-profile-core.json" --compiler "${CROSS}gcc"
 [[ $("${CROSS}gcc" -dumpfullversion) == 16.2.0 ]]
 macros=$("${CROSS}gcc" -dM -E -D__CV181X__ -I"$MPI/include" -include linux/cvi_defines.h -x c /dev/null)
 grep -q '^#define __CV181X__' <<< "$macros"

@@ -30,6 +30,8 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     tree = root / "repo"
     shutil.copytree(REPO / "platform", tree / "platform",
                     ignore=shutil.ignore_patterns("*.patch", "*.bin", "sg2002-aes"))
+    (tree / "scripts").mkdir()
+    shutil.copy(REPO / "scripts/nanokvm_cpu_profile.py", tree / "scripts/")
     (tree / "firmware/alpine").mkdir(parents=True)
     shutil.copy(REPO / "firmware/alpine/release.env", tree / "firmware/alpine/release.env")
     defconfig = tree / "firmware/buildroot/configs/nanokvm_platform_defconfig"

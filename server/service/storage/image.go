@@ -84,13 +84,14 @@ func (s *Service) MountImage(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "force is only valid when ejecting an image")
 		return
 	}
+	// Use only the validated path below, never req.File.
+	file := ""
 	if req.File != "" {
-		file, err := imageFile(req.File)
-		if err != nil {
+		var err error
+		if file, err = imageFile(req.File); err != nil {
 			rsp.ErrRsp(c, -2, "invalid image")
 			return
 		}
-		req.File = file
 	}
 	if err := requireActiveUSBStorage(); err != nil {
 		log.Warnf("USB storage is unavailable: %s", err)
@@ -98,8 +99,8 @@ func (s *Service) MountImage(c *gin.Context) {
 		return
 	}
 
-	if req.File != "" && req.Cdrom {
-		info, statErr := os.Stat(req.File)
+	if file != "" && req.Cdrom {
+		info, statErr := os.Stat(file)
 		if statErr != nil || !info.Mode().IsRegular() {
 			rsp.ErrRsp(c, -2, "Cannot read the selected optical image")
 			return
@@ -116,7 +117,7 @@ func (s *Service) MountImage(c *gin.Context) {
 	// set to 1 when mount image and the CD-ROM is enabled
 	// Always apply the selected mode, including after a remote DVD disconnect.
 	flag := "0"
-	if req.File != "" && req.Cdrom {
+	if file != "" && req.Cdrom {
 		flag = "1"
 	}
 
@@ -156,14 +157,14 @@ func (s *Service) MountImage(c *gin.Context) {
 	}
 
 	// mount
-	if req.File != "" {
-		if err := os.WriteFile(mountDevice, []byte(req.File), 0o666); err != nil {
-			log.Errorf("mount file %s failed: %s", req.File, err)
+	if file != "" {
+		if err := os.WriteFile(mountDevice, []byte(file), 0o666); err != nil {
+			log.Errorf("mount file %s failed: %s", file, err)
 			rsp.ErrRsp(c, -2, "mount image failed")
 			return
 		}
 	}
-	// When req.File is empty the device stays unmounted (no media).
+	// Without a file the device stays unmounted (no media).
 	// Previously this wrote /dev/mmcblk0p3, exposing the NanoKVM's raw
 	// eMMC partition as a USB disk — causing Legacy BIOS boot hangs.
 	// See: https://github.com/sipeed/NanoKVM/issues/633
@@ -192,7 +193,7 @@ func (s *Service) MountImage(c *gin.Context) {
 	}
 
 	rsp.OkRsp(c)
-	log.Debugf("mount image %s success", req.File)
+	log.Debugf("mount image %s success", file)
 }
 
 func requireActiveUSBStorage() error {

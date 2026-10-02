@@ -54,6 +54,18 @@ for override in ('-ftree-vectorize', '-ftree-loop-vectorize', '-ftree-slp-vector
         pass
     else:
         raise AssertionError(override)
+# Kbuild may put generic flags before our override, or a driver override after
+# it. Check the order using actual saved-command syntax.
+with tempfile.TemporaryDirectory(prefix='nkos-kbuild-flags-') as tmp:
+    root = Path(tmp)
+    command = root/'.probe.o.cmd'
+    for extra, success in (('', True), ('-O1', False), ('-march=rv64gc', False),
+                           ('-ftree-loop-vectorize', False)):
+        command.write_text('savedcmd_probe.o := riscv64-buildroot-linux-musl-gcc -Os '
+                           + ' '.join(kernel) + ' ' + extra + ' -c probe.c -o probe.o\n')
+        result = subprocess.run(['python3', str(ROOT/'scripts/audit-kbuild-profile.py'), str(root)],
+                                capture_output=True, text=True)
+        assert (result.returncode == 0) == success, (extra, result.stdout, result.stderr)
 if a.compiler:
     for kind in ('userspace', 'kernel', 'bootloader'):
         macros = subprocess.check_output([a.compiler, *flags(kind), '-dM', '-E', '-x', 'c', '-'], input='', text=True)

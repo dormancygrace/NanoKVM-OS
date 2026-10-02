@@ -138,28 +138,52 @@ apply_patches() {
         commit -q -m "${tree##*/}: upstream with ${2#"$here"/}/*.patch"
 }
 
+# Fingerprint of everything the toolchain step builds from: the pinned
+# Buildroot archive, firmware/buildroot (source patches, defconfig, external
+# recipes, package patches, BusyBox configuration) and this step's recipe.
+toolchain_id() {
+    { lock buildroot; object_id "$repo/firmware/buildroot"; declare -f toolchain; } | sha256sum | cut -d' ' -f1
+}
+
+toolchain_stale() {
+    echo "$1 was built from different toolchain inputs" >&2
+    echo "  recorded: $(cat "$1")" >&2
+    echo "  current:  $2" >&2
+    echo "Delete $br and $bo, or use a new output directory (-o)." >&2
+    exit 1
+}
+
 toolchain() {
-    if [ -e "$bo/.platform-toolchain" ]; then echo "already built in $bo"; return; fi
-    # An interrupted run continues incrementally; delete OUTPUT/buildroot* to start over.
-    if [ ! -e "$br/.platform-patched" ]; then
+    local id
+    id=$(toolchain_id)
+    if [ -e "$bo/.platform-toolchain" ]; then
+        [ "$(cat "$bo/.platform-toolchain")" = "$id" ] || toolchain_stale "$bo/.platform-toolchain" "$id"
+        echo "already built in $bo"
+        return
+    fi
+    # An interrupted run of the same inputs continues incrementally.
+    if [ -e "$br/.platform-patched" ]; then
+        [ "$(cat "$br/.platform-patched")" = "$id" ] || toolchain_stale "$br/.platform-patched" "$id"
+    else
         rm -rf "$br" "$bo"
         mkdir -p "$br"
         tar -xf "$dl/buildroot-2026.08.tar.xz" -C "$br" --strip-components=1
         for patch in "$repo"/firmware/buildroot/source-patches/*.patch; do patch -s -d "$br" -p1 < "$patch"; done
-        touch "$br/.platform-patched"
+        echo "$id" > "$br/.platform-patched"
     fi
+    local make=(make -C "$br" O="$bo" BR2_EXTERNAL="$repo/firmware/buildroot")
     if [ ! -e "$bo/.config" ]; then
-        make -C "$br" O="$bo" BR2_EXTERNAL="$repo/firmware/buildroot" nanokvm_enhanced_defconfig
+        "${make[@]}" nanokvm_enhanced_defconfig
         # No compiler cache; host Python with lzma for fiptool.
         "$br/utils/config" --file "$bo/.config" --disable CCACHE \
             --enable PACKAGE_HOST_PYTHON3 --enable PACKAGE_HOST_PYTHON3_XZ
-        make -C "$br" O="$bo" olddefconfig
+        "${make[@]}" olddefconfig
     fi
     mkdir -p "$dl/buildroot"
-    BR2_DL_DIR=$dl/buildroot make -C "$br" O="$bo" toolchain host-dtc host-kmod host-patchelf \
+    BR2_DL_DIR=$dl/buildroot "${make[@]}" toolchain host-dtc host-kmod host-patchelf \
         host-python3 host-uboot-tools host-zstd busybox e2fsprogs f2fs-tools
     [ "$("${cross}gcc" -dumpfullversion)" = 16.2.0 ]
-    touch "$bo/.platform-toolchain"
+    echo "$id" > "$bo/.platform-toolchain"
 }
 
 kernel() {
@@ -229,7 +253,11 @@ modules() {
         cp "$module" "$target"
         "${cross}strip" --strip-debug "$target"
     done < <(find "$src/osdrv/interdrv" "$src/wifi" "$src/aes" "$src/cryptodev" "$m/rtl8733bs" -name '*.ko' -print0)
-    "$bo/host/sbin/depmod" -b "$img" -e -F "$kbuild/System.map" "$release"
+    # Name every module in sorted order; a directory scan would make the
+    # order of the modules.* indexes depend on the file system.
+    local mods=$img/lib/modules/$release list
+    mapfile -t list < <(cd "$mods" && find kernel extra -name '*.ko' | LC_ALL=C sort | sed "s|^|$mods/|")
+    "$bo/host/sbin/depmod" -b "$img" -e -F "$kbuild/System.map" "$release" "${list[@]}"
 }
 
 uboot() {
@@ -350,8 +378,17 @@ boot() {
 }
 
 verify() {
-    (cd "$img" && sha256sum --quiet -c "$here/expected.sha256")
-    echo "All outputs in expected.sha256 match."
+    local unlisted
+    # Every listed output must exist and match, and every output must be listed.
+    (cd "$img" && sha256sum --quiet --strict -c "$here/expected.sha256") || {
+        echo "Outputs are missing or differ from expected.sha256" >&2; exit 1; }
+    unlisted=$(cd "$img" && find . -type f ! -name SHA256SUMS | sed 's|^\./||' | LC_ALL=C sort |
+        LC_ALL=C comm -23 - <(awk '$1 !~ /^#/ && NF { print $2 }' "$here/expected.sha256" | LC_ALL=C sort))
+    if [ -n "$unlisted" ]; then
+        printf 'Outputs not in expected.sha256:\n%s\n' "$unlisted" >&2
+        exit 1
+    fi
+    echo "All $(awk '$1 !~ /^#/ && NF' "$here/expected.sha256" | wc -l) outputs match expected.sha256."
     (cd "$img" && find . -type f ! -name SHA256SUMS -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > SHA256SUMS)
     echo "Checksums of every output: $img/SHA256SUMS"
 }

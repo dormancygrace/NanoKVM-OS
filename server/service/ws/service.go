@@ -36,7 +36,6 @@ func (s *Service) Connect(c *gin.Context) {
 	log.Debug("websocket connected")
 
 	client := NewClient(ws)
-	client.sessionID = middleware.CurrentSessionID(c)
 
 	manager := GetManager()
 	manager.AddClient(ws, client)

@@ -1,8 +1,9 @@
 import { http } from '@/lib/http.ts';
+import { inputLeaseHeaders } from '@/lib/input-lease.ts';
 
 // paste
 export function paste(content: string, langue: string) {
-  return http.post('/api/hid/paste', { content, langue });
+  return http.post('/api/hid/paste', { content, langue }, { headers: inputLeaseHeaders() });
 }
 
 // reset hid

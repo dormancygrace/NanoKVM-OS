@@ -2,8 +2,11 @@ package ws
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"NanoKVM-Server/service/controlmode"
@@ -39,11 +42,22 @@ func NewClient(ws *websocket.Conn) *Client {
 		keyboardLedNotify: make(chan struct{}, 1),
 		keyboardLedDone:   make(chan struct{}),
 		lastHeartbeat:     time.Time{},
+		inputLease:        newInputLease(),
 	}
 
 	client.hid.Open()
 
 	return client
+}
+
+// newInputLease returns 128 random bits; a per-socket secret, unlike a login
+// session, distinguishes browser tabs and logins issued in the same second.
+func newInputLease() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		panic(fmt.Sprintf("generate input lease: %v", err))
+	}
+	return hex.EncodeToString(b[:])
 }
 
 func (c *Client) Start() {
@@ -252,9 +266,14 @@ func (c *Client) sendControlStatus() {
 	if c.ws == nil {
 		return
 	}
-	payload, err := json.Marshal(struct {
-		Enabled bool `json:"enabled"`
-	}{Enabled: enabled})
+	status := struct {
+		Enabled bool   `json:"enabled"`
+		Lease   string `json:"lease,omitempty"`
+	}{Enabled: enabled}
+	if enabled {
+		status.Lease = c.inputLease
+	}
+	payload, err := json.Marshal(status)
 	if err != nil {
 		return
 	}

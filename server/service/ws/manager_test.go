@@ -39,23 +39,28 @@ func TestManagerOnlyGrantsManualControlToOneClient(t *testing.T) {
 	}
 }
 
-func TestHTTPInputFollowsSessionOwningControl(t *testing.T) {
+func TestHTTPInputRequiresTheControllingSocketLease(t *testing.T) {
 	manager := newManager()
-	if !manager.AllowsSession("anyone") {
+	if !manager.AllowsInputLease("") {
 		t.Fatal("HTTP input must work while no browser holds control")
 	}
-	owner := &Client{sessionID: "alice/1/1"}
-	viewer := &Client{sessionID: "bob/1/2"}
+	// Two tabs of one login used to share an identity; each socket now has
+	// its own lease.
+	owner := &Client{inputLease: newInputLease()}
+	sameLoginTab := &Client{inputLease: newInputLease()}
 	manager.AddClient(new(websocket.Conn), owner)
-	manager.AddClient(new(websocket.Conn), viewer)
-	if !manager.AllowsSession("alice/1/1") {
-		t.Fatal("the controlling session must keep HTTP input")
+	manager.AddClient(new(websocket.Conn), sameLoginTab)
+	if !manager.AllowsInputLease(owner.inputLease) {
+		t.Fatal("the controlling socket must keep HTTP input")
 	}
-	if manager.AllowsSession("bob/1/2") || manager.AllowsSession("") {
-		t.Fatal("view-only sessions must not inject input over HTTP")
+	if manager.AllowsInputLease(sameLoginTab.inputLease) || manager.AllowsInputLease("") || manager.AllowsInputLease("guess") {
+		t.Fatal("other sockets must not inject input over HTTP")
 	}
-	manager.SetControl(viewer, true)
-	if manager.AllowsSession("alice/1/1") || !manager.AllowsSession("bob/1/2") {
+	manager.SetControl(sameLoginTab, true)
+	if manager.AllowsInputLease(owner.inputLease) || !manager.AllowsInputLease(sameLoginTab.inputLease) {
 		t.Fatal("HTTP input must follow a control transfer")
+	}
+	if newInputLease() == newInputLease() {
+		t.Fatal("leases must be random")
 	}
 }

@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"crypto/subtle"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -103,13 +104,18 @@ func (m *Manager) CanControl(client *Client) bool {
 	return m.controller == client
 }
 
-// AllowsSession reports whether an HTTP input request (paste, ATX) from the
-// given login session may act: either no browser holds input control, or
-// that session's socket does. View-only sessions are refused.
-func (m *Manager) AllowsSession(sessionID string) bool {
+// AllowsInputLease reports whether an HTTP input request (paste, ATX) may act:
+// either no browser holds input control, or the request carries the lease of
+// the socket that does. Other tabs, other logins and view-only sessions never
+// receive that lease.
+func (m *Manager) AllowsInputLease(lease string) bool {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	return m.controller == nil || m.controller.sessionID == sessionID
+	if m.controller == nil {
+		return true
+	}
+	owner := m.controller.inputLease
+	return lease != "" && owner != "" && subtle.ConstantTimeCompare([]byte(lease), []byte(owner)) == 1
 }
 
 func (m *Manager) GetClients() []*Client {

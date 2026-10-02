@@ -28,4 +28,23 @@
 
 For a fresh installation, extract **NanoKVM-OS-v2.0-b8.img.zip** and write the `.img` to an SD card of at least **2 GB**.
 
-The final upgrade instructions and hardware validation results will be filled in after the candidate packages have been tested on the device.
+From **v2.0-a2 or later**, use **Settings → System → Updates** (on a2: **Settings → Updates → Package updates**), or run as root:
+
+```sh
+apk update
+apk upgrade
+reboot
+```
+
+If NanoKVM packages were installed from local `.apk` files, release their package pins first:
+
+```sh
+apk update
+apk add nanokvm-base nanokvm-app nanokvm-release nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002
+apk upgrade
+reboot
+```
+
+Settings, user data and independently installed packages are retained. Linux remains **7.2.6-nanokvm-os-r1**. The full image also includes the rebuilt U-Boot; APK updates preserve the installed bootloader.
+
+Fresh images use official Alpine packages. Existing installations using the experimental C906 overlay can follow the [stock migration instructions](https://github.com/dormancygrace/NanoKVM-OS/blob/main/firmware/alpine/README.md#existing-c906-installations); a NanoKVM application update alone does not replace that overlay.

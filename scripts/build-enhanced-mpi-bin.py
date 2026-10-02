@@ -5,6 +5,7 @@ Requires NANOKVM_{MPI,OSDRV,KERNEL,JSON_C,MINIZ}_SOURCE,
 NANOKVM_BUILDROOT_OUTPUT, and a dedicated NANOKVM_MPI_THIRDPARTY_OUTPUT.
 Run after core MPI and ISP builds. This does not install a firmware image.
 """
+from nanokvm_cpu_profile import flags as cpu_flags, record as record_cpu_profile
 from pathlib import Path
 import json
 import os
@@ -21,7 +22,7 @@ stage = out / 'stage'
 cross = str(Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve() / 'host/bin/riscv64-buildroot-linux-musl-')
 cmake = os.environ.get('NANOKVM_CMAKE', 'cmake')
 jobs = os.environ.get('JOBS', '8')
-flags = '-O2 -fPIC -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso -mabi=lp64d'
+flags = ' '.join(cpu_flags()) + ' -fPIC'
 path_flags = ' '.join(f'-ffile-prefix-map={Path(src).resolve()}={name}' for src, name in [
     (mpi, './cvi_mpi'), (out, './build/mpi-bin'), (repo, './nanokvm-os'),
     (os.environ['NANOKVM_OSDRV_SOURCE'], './osdrv'),
@@ -37,6 +38,7 @@ sources = [
 if subprocess.check_output([cross + 'gcc', '-dumpfullversion'], text=True).strip() != '16.2.0':
     raise SystemExit('Expected the qualified GCC16.2 toolchain')
 out.mkdir(parents=True, exist_ok=True)
+record_cpu_profile(out/'cpu-profile.json', cross+'gcc', effective_flags=flags.split())
 for name, variable, options in sources:
     source = Path(os.environ[variable]).resolve()
     commit = subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()

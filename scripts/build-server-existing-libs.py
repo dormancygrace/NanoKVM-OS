@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Build the Enhanced server against an explicitly selected existing native set."""
+from nanokvm_cpu_profile import flags as cpu_flags, record as record_cpu_profile
 import argparse
 import hashlib
 import json
@@ -48,11 +49,12 @@ for library, required in required_native_dependencies.items():
         p.error(f'Native bundle mismatch: {library} does not require {", ".join(missing)}')
 lib = out/'dl_lib'
 lib.mkdir(parents=True)
+record_cpu_profile(out/'cpu-profile-cgo.json', cross+'gcc')
 for name, source in sources.items():
     shutil.copyfile(source, lib/name)
 env = dict(os.environ, GOOS='linux', GOARCH='riscv64', GORISCV64='rva20u64', CGO_ENABLED='1',
            GOEXPERIMENT='boringcrypto', CC=cross+'gcc',
-           CGO_CFLAGS='-O2 -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso -mabi=lp64d',
+           CGO_CFLAGS=' '.join(cpu_flags()),
            CGO_LDFLAGS=f'-L{lib} -Wl,-rpath-link,{lib} -Wl,--enable-new-dtags -Wl,-rpath,$ORIGIN/dl_lib')
 # Resolve the GOROOT directory, not bin/go: prepared runtimes symlink bin/ to
 # the official toolchain. Resolving the executable alone silently loses the

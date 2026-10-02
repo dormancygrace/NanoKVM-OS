@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Build the USB audio helper and modules without rebuilding or installing the kernel."""
+from nanokvm_cpu_profile import flags as cpu_flags, record as record_cpu_profile
 import argparse,hashlib,json,os,shutil,subprocess,tarfile,urllib.request
 from pathlib import Path
 a=argparse.ArgumentParser(description=__doc__)
@@ -24,8 +25,9 @@ if not opus.exists():
     with tarfile.open(archive) as tar:tar.extractall(out,filter='data')
 opus_build=out/'opus-build';opus_build.mkdir(exist_ok=True)
 with (out/'opus-build.log').open('w') as log:
-    subprocess.run([str(opus/'configure'),'--host=riscv64-buildroot-linux-musl','--disable-shared','--enable-static','--disable-doc','--disable-extra-programs','CC='+cross+'gcc','CFLAGS=-O2 -march=rv64gc -mtune=thead-c906 -mno-fence-tso'],cwd=opus_build,stdout=log,stderr=subprocess.STDOUT,check=True)
+    subprocess.run([str(opus/'configure'),'--host=riscv64-buildroot-linux-musl','--disable-shared','--enable-static','--disable-doc','--disable-extra-programs','CC='+cross+'gcc','CFLAGS='+' '.join(cpu_flags())],cwd=opus_build,stdout=log,stderr=subprocess.STDOUT,check=True)
     subprocess.run(['make','-j4'],cwd=opus_build,stdout=log,stderr=subprocess.STDOUT,check=True)
+record_cpu_profile(out/'cpu-profile.json', cross+'gcc')
 kernel_config=(args.kernel_output/'.config').read_text()
 audio_builtin='CONFIG_USB_U_AUDIO=y\n' in kernel_config and 'CONFIG_USB_F_UAC1=y\n' in kernel_config
 module_artifacts=[]
@@ -37,12 +39,12 @@ if not audio_builtin:
     if 'audio_iad_desc' not in (module/'f_uac1.c').read_text():
         raise SystemExit('Use the kernel source prepared by platform/build.sh')
     (module/'Makefile').write_text('obj-m += u_audio.o usb_f_uac1.o\nusb_f_uac1-y := f_uac1.o\n')
-    flags='-march=rv64imac_zicsr_zifencei_zacas_zabha_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync -mtune=thead-c906 -mno-fence-tso -fno-tree-vectorize -fno-tree-slp-vectorize'
+    flags=' '.join(cpu_flags('kernel'))
     with (out/'module-build.log').open('w') as log:
         subprocess.run(['make','-C',str(args.kernel_source),'O='+str(args.kernel_output),'ARCH=riscv','CROSS_COMPILE='+cross,'KCFLAGS='+flags,'M='+str(module),'modules','-j4'],stdout=log,stderr=subprocess.STDOUT,check=True)
     module_artifacts=[module/'u_audio.ko',module/'usb_f_uac1.ko']
 helper=repo/'kvmapp/system/bin/usb-audio-capture';helper.parent.mkdir(parents=True,exist_ok=True)
-cmd=[cross+'gcc','-O2','-Wall','-Wextra','-Werror','-static','-march=rv64gc','-mtune=thead-c906','-mno-fence-tso','-I'+str(tiny/'include'),'-I'+str(tiny/'src'),'-I'+str(opus/'include'),str(repo/'native/usb-audio/capture.c')]+[str(tiny/'src'/f) for f in ('pcm.c','pcm_hw.c','limits.c','snd_card_plugin.c')]+[str(opus_build/'.libs/libopus.a'),'-lm','-o',str(helper)]
+cmd=[cross+'gcc',*cpu_flags(),'-Wall','-Wextra','-Werror','-static','-I'+str(tiny/'include'),'-I'+str(tiny/'src'),'-I'+str(opus/'include'),str(repo/'native/usb-audio/capture.c')]+[str(tiny/'src'/f) for f in ('pcm.c','pcm_hw.c','limits.c','snd_card_plugin.c')]+[str(opus_build/'.libs/libopus.a'),'-lm','-o',str(helper)]
 with (out/'helper-build.log').open('w') as log:subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,check=True)
 subprocess.run([cross+'strip',str(helper)],check=True)
 license_dir=repo/'kvmapp/system/share/usb-audio';license_dir.mkdir(parents=True,exist_ok=True)

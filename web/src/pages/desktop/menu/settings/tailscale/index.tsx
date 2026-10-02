@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Divider } from 'antd';
 import { LoaderCircleIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -23,12 +23,10 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
   const [status, setStatus] = useState<Status>();
   const [errMsg, setErrMsg] = useState('');
 
-  useEffect(() => {
-    getStatus();
-  }, []);
-
-  function getStatus() {
-    if (isLoading) return;
+  const statusInFlight = useRef(false);
+  const getStatus = useCallback(() => {
+    if (statusInFlight.current) return;
+    statusInFlight.current = true;
     setIsLoading(true);
 
     api
@@ -45,9 +43,14 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
         setErrMsg(err?.message || 'Failed to get status');
       })
       .finally(() => {
+        statusInFlight.current = false;
         setIsLoading(false);
       });
-  }
+  }, []);
+
+  useEffect(() => {
+    getStatus();
+  }, [getStatus]);
 
   return (
     <>

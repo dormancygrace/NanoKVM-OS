@@ -79,7 +79,7 @@ export function useMenuVisibility(): MenuVisibilityState {
     return () => {
       stopCountdown();
     };
-  }, []);
+  }, [setMenuDisplayMode, setMenuDisabledItems, setKeyboardLedStatusVisible, stopCountdown]);
 
   // Handle display mode changes
   useEffect(() => {

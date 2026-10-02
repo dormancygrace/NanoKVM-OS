@@ -27,7 +27,7 @@ export const CPUFrequency = () => {
     poll();
     const stopPolling = pollWhileVisible(poll, 2000);
     return () => stopPolling();
-  }, []);
+  }, [t]);
   async function update(target: number) {
     setLoading(true);
     setError('');

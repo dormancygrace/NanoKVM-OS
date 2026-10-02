@@ -32,7 +32,7 @@ export const Terminal = () => {
     };
     window.addEventListener(usbCompositionChangedEvent, changed);
     return () => {
-      ++requestGeneration.current;
+      requestGeneration.current += 1;
       window.removeEventListener(usbCompositionChangedEvent, changed);
     };
   }, [refresh]);

@@ -5,7 +5,6 @@
   "boot_fit": "input/boot-alpine.sd",
   "boot_sha256": "6421359320b60b6b03528f553290f266279f83cdacb03200af378d16254a5c12",
   "nanokvm_repo": "repos/nanokvm",
-  "tuned_repo": "repos/c906-qualified",
   "repo_keys": [
     "keys/dgrace-6aaddbb6.rsa.pub"
   ],

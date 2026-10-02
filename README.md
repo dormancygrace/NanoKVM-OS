@@ -42,7 +42,7 @@ The aim is a responsive IP-KVM with maintained system components, package update
 
 USB audio reaches the browser with one shared Opus encoder. Mount an ISO directly from your computer without copying it to SD; CD/DVD emulation now supports images up to 31.625 GiB. Dashboard shows SoC temperature and CPU frequency, with independent thermal protection and optional runtime overclocking.
 
-OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Alpine Linux 3.24**, **Linux 7.2.6-nanokvm-os-r1** and Alpine's standard OpenSSL libraries. The custom kernel retains its **`-O2`** build policy and selected userspace packages are optimized for C906. Packages install directly into the writable **F2FS root**, with dependency resolution and service handling through OpenRC. The interface also includes mobile settings improvements, custom branding and named Wake-on-LAN history entries. See [release notes](docs/RELEASE-v2.0-b7.md).
+OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Alpine Linux 3.24**, **Linux 7.2.6-nanokvm-os-r1** and Alpine's standard OpenSSL libraries. The custom kernel retains its **`-O2`** build policy and ordinary userspace packages come from official Alpine repositories. The optional C906 tuning profile is retained for experiments. Packages install directly into the writable **F2FS root**, with dependency resolution and service handling through OpenRC. The interface also includes mobile settings improvements, custom branding and named Wake-on-LAN history entries. See [release notes](docs/RELEASE-v2.0-b7.md).
 
 <a id="compatibility"></a>
 
@@ -74,7 +74,7 @@ This comparison uses the documented SG2002 Cube/PCIe features in the [Sipeed Nan
 | ⏱️ Stream frame-rate control | Existing FPS control | QHD / 50 FPS, FHD / 75 FPS and HD / 120 FPS targets. Targets depend on source timing, codec and load; they do not guarantee delivered FPS |
 | 🎚️ Video bitrate | Existing video quality controls | Adds 15 and 20 Mbit/s CBR targets for H.264/H.265 in Video settings and the toolbar; MJPEG keeps its quality controls |
 | 📶 Wi-Fi | Optional Wi-Fi hardware | Adds 5 GHz alongside 2.4 GHz on compatible adapters, automatic scanning across both bands, signal icons, hidden-network setup and a preferred band with fallback |
-| 🐧 System | Vendor firmware baseline | Alpine 3.24 on writable F2FS, Linux 7.2.6 with matching modules, Alpine OpenSSL libraries and selected C906-optimized packages |
+| 🐧 System | Vendor firmware baseline | Alpine 3.24 on writable F2FS, Linux 7.2.6 with matching modules, official Alpine userspace and OpenSSL libraries |
 | 🧠 Memory | Vendor allocation policy | Reusable 64 MiB CMA/ION region and configurable memory controls; allocations can still fail under pressure |
 | 🔐 Crypto | Standard application encryption | SG2002 CryptoDMA SRTP adapter with software fallback; sustained stability remains under evaluation |
 | 🌐 VPN | Tailscale and system networking | Browser-managed WireGuard and optional OpenVPN 2, Tailscale and NetBird; native APK installation and profile/status controls |

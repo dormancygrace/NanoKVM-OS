@@ -11,6 +11,7 @@ p.add_argument('--web',type=Path,required=True)
 p.add_argument('--devmem',type=Path,required=True,help='BusyBox devmem-only riscv64 executable')
 p.add_argument('--output',type=Path,required=True)
 p.add_argument('--boot-payloads',type=Path,help='Matched board FIT images, checksums and kernel.release')
+p.add_argument('--profile', choices=('stock', 'c906-scalar'), default='stock', help='Alpine userspace profile (default: stock)')
 args=p.parse_args()
 r=Path(__file__).resolve().parents[1]
 release_values=dict(line.split('=', 1) for line in (r/'firmware/alpine/release.env').read_text().splitlines() if line and not line.startswith('#'))
@@ -78,8 +79,8 @@ shutil.copytree(args.web,web)
 # Alpine marks keep the accepted native high-rate and file-backed runtime paths.
 (base/'etc/nanokvm-buildroot').write_text('Alpine 3.24; SG2002/C906; flavour=enhanced\n')
 release=out/'release/etc'; release.mkdir(parents=True,exist_ok=True)
-(release/'nanokvm-release').write_text(f'NAME="NanoKVM OS"\nVERSION="{version}"\nALPINE_VERSION="3.24"\nBUILD_PROFILE="c906-scalar"\n')
-(release/'nanokvm-build-profile').write_text('c906-scalar\n')
+(release/'nanokvm-release').write_text(f'NAME="NanoKVM OS"\nVERSION="{version}"\nALPINE_VERSION="3.24"\nBUILD_PROFILE="{args.profile}"\n')
+(release/'nanokvm-build-profile').write_text(args.profile+'\n')
 for name,target in [('usr/sbin/watchdog','/sbin/watchdog')]:
     link(target,base/name)
 for src in (old/'mnt/data').glob('sensor_cfg.ini*'):

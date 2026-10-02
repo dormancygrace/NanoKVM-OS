@@ -76,6 +76,11 @@ mkdir -p "$SRCDEST" "$REPODEST"
 make_release_payload() {
 	release_dir=$PROFILE_ROOT/release
 	if [ -d "$release_dir" ]; then
+		if [ "$(cat "$release_dir/etc/nanokvm-build-profile")" != "$PROFILE" ] ||
+		   ! grep -qxF "BUILD_PROFILE=\"$PROFILE\"" "$release_dir/etc/nanokvm-release"; then
+			echo "build-alpine-packages: release metadata does not match $PROFILE; prepare payloads with --profile $PROFILE" >&2
+			exit 1
+		fi
 		echo "$release_dir"
 		return
 	fi
@@ -108,7 +113,8 @@ archive_payload nanokvm-kernel-sg2002 "$PROFILE_ROOT/kernel-sg2002"
 archive_payload nanokvm-kmod-sg2002 "$PROFILE_ROOT/kmod-sg2002"
 archive_payload nanokvm-firmware-sg2002 "$PROFILE_ROOT/firmware-sg2002"
 archive_payload nanokvm-app "$PROFILE_ROOT/app"
-archive_payload nanokvm-release "$(make_release_payload)"
+release_payload=$(make_release_payload)
+archive_payload nanokvm-release "$release_payload"
 
 export CARCH=riscv64
 export REPODEST SRCDEST PKGVER

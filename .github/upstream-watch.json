@@ -178,31 +178,6 @@
       "branch": null
     },
     {
-      "name": "Asio",
-      "path": "firmware/buildroot/package/nkos-asio/nkos-asio.mk",
-      "pattern": "NKOS_ASIO_VERSION = asio-([0-9-]+)",
-      "kind": "github-tags",
-      "repo": "chriskohlhoff/asio",
-      "upstream_pattern": "^asio-([0-9]+-[0-9]+-[0-9]+)$",
-      "separator": "-"
-    },
-    {
-      "name": "Superfile upstream",
-      "path": "firmware/buildroot/package/nkos-superfile/nkos-superfile.mk",
-      "pattern": "NKOS_SUPERFILE_VERSION = ([0-9.]+)-nkos",
-      "kind": "github-tags",
-      "repo": "yorukot/superfile",
-      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$"
-    },
-    {
-      "name": "openvpn3",
-      "path": "firmware/buildroot/package/openvpn3/openvpn3.mk",
-      "pattern": "^OPENVPN3_VERSION\\s*=\\s*([0-9a-f]{40})",
-      "kind": "github-commit",
-      "repo": "OpenVPN/openvpn3",
-      "branch": null
-    },
-    {
       "name": "sg2002-codec-firmware",
       "path": "firmware/buildroot/package/sg2002-codec-firmware/sg2002-codec-firmware.mk",
       "pattern": "^SG2002_CODEC_FIRMWARE_VERSION\\s*=\\s*([0-9a-f]{40})",
@@ -233,14 +208,6 @@
       "kind": "github-tags",
       "repo": "pion/srtp",
       "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$"
-    },
-    {
-      "name": "apk-tools",
-      "path": "firmware/buildroot/package/nkos-apk-tools/nkos-apk-tools.mk",
-      "pattern": "^NKOS_APK_TOOLS_VERSION = ([0-9.]+)",
-      "kind": "index",
-      "url": "https://gitlab.alpinelinux.org/api/v4/projects/alpine%2Fapk-tools/repository/tags?per_page=100",
-      "upstream_pattern": "\"name\"\\s*:\\s*\"v([0-9]+\\.[0-9]+\\.[0-9]+)\""
     }
   ]
 }

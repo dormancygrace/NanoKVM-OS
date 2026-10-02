@@ -83,7 +83,7 @@ jobs:
                    alpine-recovery-password alpine-service-deps board-selection enhanced-fs \
                    enhanced-s15-packaging hdmi-detection-cache hdmi-receiver-start \
                    monitor-edids nanokvm-service-stop oled-ip-window platform-build \
-                   portrait-edid wifi-selector; do
+                   portrait-edid wifi-selector upstream-watch; do
             echo "::group::scripts/test-$t.py"; python3 "scripts/test-$t.py"; echo "::endgroup::"
           done
           for t in firmware/alpine/tests/*.py firmware/services/test_serial_bridge.py \
@@ -95,3 +95,27 @@ jobs:
           for t in firmware/alpine/tests/*.sh tools/test-*.sh; do
             echo "::group::$t"; sh "$t"; echo "::endgroup::"
           done
+
+  additional-go-modules:
+    name: Additional Go modules (${{ matrix.directory }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        directory:
+          - server/third_party/pion-dtls
+          - server/third_party/pion-ice
+          - server/third_party/pion-srtp
+          - firmware/addons/nkos-addons
+          - firmware/crypto/experimental/sg2002-crypto-all/ghash-go
+    defaults:
+      run:
+        working-directory: ${{ matrix.directory }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.x'
+          cache-dependency-path: '**/go.sum'
+      - run: go build ./...
+      - run: go test -timeout 5m ./...

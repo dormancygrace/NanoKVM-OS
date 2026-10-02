@@ -1,12 +1,69 @@
-# Security updates for Go and npm dependencies are enabled in the repository
-# settings and need no entry here. Routine version bumps are limited to the
-# workflow actions, grouped into one monthly pull request.
+# Version updates complement the separately enabled security updates.
+# Native source pins and locally patched forks are covered by upstream-watch.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
     groups:
       actions:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    allow:
+      - dependency-type: all
+    groups:
+      web-compatible:
+        patterns: ['*']
+        update-types: [minor, patch]
+      web-security:
+        applies-to: security-updates
+        patterns: ['*']
+
+  - package-ecosystem: gomod
+    directories:
+      - /server
+      - /server/third_party/pion-dtls
+      - /server/third_party/pion-ice
+      - /server/third_party/pion-srtp
+      - /firmware/addons/nkos-addons
+      - /firmware/crypto/experimental/sg2002-crypto-all/ghash-go
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    allow:
+      - dependency-type: all
+    groups:
+      go-compatible:
+        patterns: ['*']
+        update-types: [minor, patch]
+      go-security:
+        applies-to: security-updates
+        patterns: ['*']
+    # Updating require versions cannot replace our patched local source trees.
+    # Their upstream releases are reported by upstream-watch for a real rebase.
+    ignore:
+      - dependency-name: github.com/pion/dtls/v3
+      - dependency-name: github.com/pion/ice/v4
+      - dependency-name: github.com/pion/srtp/v3
+
+  - package-ecosystem: docker
+    directories:
+      - /server/third_party/pion-dtls/e2e
+      - /server/third_party/pion-ice/examples/nat-rules
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      test-images:
         patterns: ['*']

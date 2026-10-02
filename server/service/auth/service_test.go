@@ -42,7 +42,8 @@ func TestLoginCookieAndUserAuthorizationLifecycle(t *testing.T) {
 	admin.POST("/users", service.CreateUser)
 	admin.PUT("/users/:username", service.UpdateUser)
 
-	adminCookie := loginCookie(t, router, "admin", "admin")
+	changeFactoryPassword(t, store)
+	adminCookie := loginCookie(t, router, "admin", ownerPassword)
 	if !adminCookie.HttpOnly || adminCookie.SameSite != http.SameSiteStrictMode || adminCookie.Path != "/" {
 		t.Fatalf("unsafe session cookie: %+v", adminCookie)
 	}
@@ -83,7 +84,8 @@ func TestRenameUserRevokesOldSession(t *testing.T) {
 	admin := router.Group("/").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
 	admin.PUT("/users/:username", service.UpdateUser)
 
-	adminCookie := loginCookie(t, router, "admin", "admin")
+	changeFactoryPassword(t, store)
+	adminCookie := loginCookie(t, router, "admin", ownerPassword)
 	renameResponse := requestJSONRecorder(router, http.MethodPut, "/users/admin", map[string]any{"username": "owner"}, adminCookie)
 	if renameResponse.Code != http.StatusOK {
 		t.Fatalf("rename status = %d", renameResponse.Code)
@@ -98,7 +100,7 @@ func TestRenameUserRevokesOldSession(t *testing.T) {
 	if code := requestJSON(router, http.MethodGet, "/account", nil, adminCookie); code != http.StatusUnauthorized {
 		t.Fatalf("old session status = %d, want 401", code)
 	}
-	if _, ok, err := store.Authenticate("owner", "admin"); err != nil || !ok {
+	if _, ok, err := store.Authenticate("owner", ownerPassword); err != nil || !ok {
 		t.Fatalf("renamed account login: ok=%v err=%v", ok, err)
 	}
 }
@@ -108,9 +110,7 @@ func TestUpdateUserOnlyRevokesActiveSessionsAfterActualChange(t *testing.T) {
 	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
 	restore := useTestStore(store)
 	defer restore()
-	if _, ok, err := store.Authenticate("admin", "admin"); err != nil || !ok {
-		t.Fatalf("default login: ok=%v err=%v", ok, err)
-	}
+	changeFactoryPassword(t, store)
 	for _, test := range []struct {
 		name      string
 		username  string
@@ -131,7 +131,7 @@ func TestUpdateUserOnlyRevokesActiveSessionsAfterActualChange(t *testing.T) {
 			authenticated := router.Group("/").Use(middleware.CheckToken())
 			admin := router.Group("/").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
 			admin.PUT("/users/:username", service.UpdateUser)
-			adminCookie := loginCookie(t, router, "admin", "admin")
+			adminCookie := loginCookie(t, router, "admin", ownerPassword)
 			userCookie := loginCookie(t, router, test.username, "valid-password")
 			started := make(chan struct{})
 			done := make(chan struct{})
@@ -318,7 +318,8 @@ func TestCreateUserAcceptsFormEncodedPassword(t *testing.T) {
 	router.POST("/login", service.Login)
 	admin := router.Group("/").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
 	admin.POST("/users", service.CreateUser)
-	adminCookie := loginCookie(t, router, "admin", "admin")
+	changeFactoryPassword(t, store)
+	adminCookie := loginCookie(t, router, "admin", ownerPassword)
 	const ciphertext = formOpenSSLCiphertext
 	form := url.Values{
 		"username": {"form-user"},
@@ -592,5 +593,85 @@ func useTestStore(store *authn.Store) func() {
 		conf.JWT.SecretKey = originalSecret
 		conf.JWT.RefreshTokenDuration = originalDuration
 		conf.JWT.RevokeTokensOnLogout = originalRevokeOnLogout
+	}
+}
+
+const ownerPassword = "owner-password"
+
+// changeFactoryPassword leaves the factory-password state the way a real
+// owner does before using the device.
+func changeFactoryPassword(t *testing.T, store *authn.Store) {
+	t.Helper()
+	if _, err := store.SetPassword("admin", ownerPassword); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFactoryPasswordOnlyAllowsPasswordChangeRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
+	restore := useTestStore(store)
+	defer restore()
+
+	service := NewService()
+	router := gin.New()
+	router.POST("/api/auth/login", service.Login)
+	router.POST("/login", service.Login) // used by loginCookie
+	api := router.Group("/api").Use(middleware.CheckToken())
+	api.GET("/auth/account", service.GetAccount)
+	api.GET("/auth/password", service.IsPasswordUpdated)
+	admin := router.Group("/api").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
+	admin.GET("/auth/users", service.ListUsers)
+
+	body := map[string]any{"username": "admin", "password": encryptForRequest("admin")}
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, jsonRequest(http.MethodPost, "/api/auth/login", body))
+	var cookie *http.Cookie
+	for _, c := range recorder.Result().Cookies() {
+		if c.Name == middleware.CookieName {
+			cookie = c
+		}
+	}
+	if recorder.Code != http.StatusOK || cookie == nil {
+		t.Fatalf("factory login status = %d", recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/auth/users", nil)
+	request.AddCookie(cookie)
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":-10`) {
+		t.Fatalf("factory-password admin route = %d %s, want 403 code -10", recorder.Code, recorder.Body.String())
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/api/auth/account", nil)
+	request.AddCookie(cookie)
+	router.ServeHTTP(recorder, request)
+	var account struct {
+		Data proto.GetAccountRsp `json:"data"`
+	}
+	if recorder.Code != http.StatusOK || json.Unmarshal(recorder.Body.Bytes(), &account) != nil || !account.Data.MustChangePassword {
+		t.Fatalf("account during factory password = %d %s", recorder.Code, recorder.Body.String())
+	}
+
+	changeFactoryPassword(t, store)
+	ownerCookie := loginCookie(t, router, "admin", ownerPassword)
+	if code := requestJSON(router, http.MethodGet, "/api/auth/users", nil, ownerCookie); code != http.StatusOK {
+		t.Fatalf("admin route after password change = %d", code)
+	}
+}
+
+func TestLoginAttemptKeyGroupsIPv6Prefix(t *testing.T) {
+	for _, test := range []struct{ ip, want string }{
+		{"192.0.2.7", "192.0.2.7"},
+		{"2001:db8:1:2:aaaa::1", "2001:db8:1:2::/64"},
+		{"2001:db8:1:2:bbbb::9", "2001:db8:1:2::/64"},
+		{"::ffff:192.0.2.7", "::ffff:192.0.2.7"},
+		{"not-an-ip", "not-an-ip"},
+	} {
+		if got := loginAttemptKey(test.ip); got != test.want {
+			t.Errorf("loginAttemptKey(%q) = %q, want %q", test.ip, got, test.want)
+		}
 	}
 }

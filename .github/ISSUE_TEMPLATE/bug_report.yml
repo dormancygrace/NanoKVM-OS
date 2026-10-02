@@ -1,0 +1,51 @@
+name: Bug report
+description: Something does not work as expected on NanoKVM OS
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For security problems, use **Security → Report a vulnerability** instead of a public issue.
+        Remove passwords, tokens and private screen contents from logs and screenshots.
+  - type: input
+    id: version
+    attributes:
+      label: NanoKVM OS version
+      description: Settings → About, for example 2.0-b7
+    validations:
+      required: true
+  - type: dropdown
+    id: board
+    attributes:
+      label: Board
+      options:
+        - NanoKVM PCIe
+        - NanoKVM Cube (Full)
+        - NanoKVM Cube (Alpha)
+        - NanoKVM Lite
+        - Other / unsure
+    validations:
+      required: true
+  - type: input
+    id: video
+    attributes:
+      label: Video path
+      description: Codec and transport (MJPEG, H.264/H.265 Direct or WebRTC), resolution and FPS target
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS
+      description: For example Chrome 140 on Windows 11
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What you did, what you expected and what happened instead
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant lines from Settings → System → Diagnostics → Logs
+      render: text

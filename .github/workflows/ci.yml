@@ -1,0 +1,95 @@
+name: CI
+
+# Hardware-independent checks only: the real server build links the native
+# SG2002 libraries, so Go is built and tested with the teststub tag.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: Go server
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          # Releases use a patched go1.27.1 (firmware/cpu/sysmon-runtime).
+          go-version: '1.27.x'
+          cache-dependency-path: server/go.sum
+      - name: Build
+        run: go build -tags teststub ./...
+      - name: Vet
+        run: go vet -tags teststub $(go list -tags teststub ./... | grep -v /third_party/)
+      - name: Test
+        run: go test -tags teststub -count=1 $(go list -tags teststub ./... | grep -v /third_party/)
+
+  web:
+    name: Web UI
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Type-check and build
+        run: pnpm build
+      - name: Lint
+        run: pnpm lint
+      - name: Test
+        run: node --import tsx --test tests/*.test.mjs
+
+  scripts:
+    name: Init scripts and tooling
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Shellcheck (errors only; parses each script per its shebang)
+        run: |
+          git ls-files -z | while IFS= read -r -d '' f; do
+            case "$f" in server/third_party/*|*.patch) continue ;; esac
+            [ -f "$f" ] || continue
+            head -n1 "$f" | grep -qE '^#!.*(/|env )(ba|da)?sh( |$)' && printf '%s\0' "$f"
+          done > "$RUNNER_TEMP/shell-scripts"
+          xargs -0 shellcheck -S error < "$RUNNER_TEMP/shell-scripts"
+      - name: Python syntax
+        run: git ls-files -z '*.py' | xargs -0 python3 -m py_compile
+      - name: Script tests
+        run: |
+          set -e
+          for t in aic-firmware-path alpine-kernel-activation alpine-network \
+                   alpine-recovery-password board-selection enhanced-fs \
+                   enhanced-s15-packaging hdmi-detection-cache hdmi-receiver-start \
+                   monitor-edids nanokvm-service-stop oled-ip-window \
+                   portrait-edid wifi-selector; do
+            echo "::group::scripts/test-$t.py"; python3 "scripts/test-$t.py"; echo "::endgroup::"
+          done
+          for t in firmware/alpine/tests/*.py firmware/services/test_serial_bridge.py \
+                   tools/test-dhcp-dns.py tools/test-dhcp-options.py; do
+            echo "::group::$t"; python3 "$t"; echo "::endgroup::"
+          done
+          python3 firmware/network/test-usb-prefix.py \
+            --script firmware/buildroot/board/enhanced/init.d/S30usbnet
+          for t in firmware/alpine/tests/*.sh tools/test-*.sh; do
+            echo "::group::$t"; sh "$t"; echo "::endgroup::"
+          done

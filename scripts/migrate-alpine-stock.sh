@@ -8,6 +8,13 @@ case "$mode" in --simulate|--apply) ;; *) echo "usage: $0 [--simulate|--apply]" 
 case "$(cat /etc/alpine-release)" in 3.24|3.24.*) ;; *) echo "Expected Alpine 3.24" >&2; exit 1 ;; esac
 case "$(cat /etc/nanokvm-build-profile)" in stock|c906-scalar) ;; *) echo "Unknown installed profile" >&2; exit 1 ;; esac
 
+# APK --available unconditionally removes checksum holds from world, including
+# unrelated packages. Refuse instead of silently releasing a local kernel hold.
+if grep -q '><' /etc/apk/world; then
+    echo "APK --available removes checksum holds. Explicitly release checksum-pinned packages before migrating, and reapply the holds afterwards." >&2
+    exit 1
+fi
+
 # Stage the intended repository configuration, not a rollback copy. Keep the
 # NanoKVM board/application channel, Alpine mirrors and explicit edge tags.
 repos=$(mktemp /etc/apk/.stock-repositories.XXXXXX)

@@ -87,13 +87,13 @@ class StockProfileTests(unittest.TestCase):
         handler.server = types.SimpleNamespace(config=config, local_url="http://127.0.0.1:8080")
         self.assertIn("--tuned-repo", handler.build_command("c906-scalar", [], self.root / "output"))
 
-    def migration(self, mode, fail=False, custom=False, fix_fail=False):
+    def migration(self, mode, fail=False, custom=False, fix_fail=False, checksum_hold=False):
         for name, content in {
             "etc/alpine-release": "3.24.2\n",
             "etc/nanokvm-build-profile": "c906-scalar\n",
             "etc/nanokvm-release": 'VERSION="2.0-b12"\nBUILD_PROFILE="c906-scalar"\n',
             "etc/apk/repositories": "https://nkos.pesin.pro/repos/c906-qualified\nhttps://nkos.pesin.pro/repos/nanokvm\nhttps://dl-cdn.alpinelinux.org/alpine/v3.24/main\n@edgecommunity https://dl-cdn.alpinelinux.org/alpine/edge/community\n" + ("https://custom.test/c906-scalar\n" if custom else ""),
-            "etc/apk/world": "busybox\nnanokvm-kernel-sg2002=held-version\nhtop\n",
+            "etc/apk/world": "busybox\nnanokvm-kernel-sg2002" + ("><Q1test=\n" if checksum_hold else "=held-version\n") + "htop\n",
             "lib/apk/db/installed": "P:busybox\nV:1-r1\no:busybox\n\nP:libcrypto3\nV:3-r1\no:openssl\n\nP:htop\nV:3-r0\no:htop\n\nP:nanokvm-kernel-sg2002\nV:2-r0\no:nanokvm-kernel-sg2002\n\n",
         }.items():
             p = self.root / name
@@ -148,6 +148,13 @@ class StockProfileTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual((self.root / "etc/nanokvm-build-profile").read_text(), "c906-scalar\n")
         self.assertIn("c906-qualified", (self.root / "etc/apk/repositories").read_text())
+
+    def test_checksum_hold_refuses_before_apk_can_remove_it(self):
+        result = self.migration("--apply", checksum_hold=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("checksum holds", result.stderr)
+        self.assertFalse((self.root / "apk.log").exists())
+        self.assertIn("><Q1test=", (self.root / "etc/apk/world").read_text())
 
     def test_custom_tuned_repository_requires_explicit_removal(self):
         result = self.migration("--apply", custom=True)

@@ -124,6 +124,10 @@ subpackages), after excluding the known tuned repository. APK may also update de
 simulation first. It preserves APK world constraints, settings and installed
 optional packages, and does not request a NanoKVM kernel/app upgrade.
 Custom C906 repository URLs must be removed explicitly before running it.
+Checksum holds (`package><checksum`) also require explicit operator handling:
+APK `--available` clears those holds globally, so the helper refuses to proceed
+until they have been released. Reapply any required holds after the transition.
+Version constraints remain under the native APK solver.
 Packages whose versions are unchanged are reinstalled from the selected
 repositories as well: matching `pkgrel` values alone do not prove identical
 binaries. The profile is changed to `stock` only after APK succeeds. No partition changes,

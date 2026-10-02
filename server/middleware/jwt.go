@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -123,26 +122,6 @@ func RequireRole(roles ...authn.Role) gin.HandlerFunc {
 		}
 		c.Next()
 	}
-}
-
-// CurrentSessionID identifies the login session behind a request, so HTTP
-// input requests can be matched with the WebSocket that owns input control.
-// Requests sharing one login (tabs of one browser) share an ID. It is empty
-// when authentication is disabled.
-func CurrentSessionID(c *gin.Context) string {
-	value, exists := c.Get(tokenContextKey)
-	if !exists {
-		return ""
-	}
-	token, ok := value.(*Token)
-	if !ok || token == nil {
-		return ""
-	}
-	var issued int64
-	if token.IssuedAt != nil {
-		issued = token.IssuedAt.UnixNano()
-	}
-	return fmt.Sprintf("%s/%d/%d", token.Username, token.TokenVersion, issued)
 }
 
 func CurrentPrincipal(c *gin.Context) (Principal, bool) {

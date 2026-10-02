@@ -43,6 +43,7 @@ export class WsClient {
   private shouldReconnect = true;
   private captureInputEnabled = false;
   private controlEnabled = false;
+  private inputLease = '';
   private effectiveInputEnabled = false;
   private connectionStatus: InputConnectionStatus = 'idle';
   private readonly statusListeners = new Set<() => void>();
@@ -58,6 +59,8 @@ export class WsClient {
     };
   };
   public readonly getControlEnabled = (): boolean => this.controlEnabled;
+  // Proves to HTTP input routes (paste, ATX) that this tab owns input control.
+  public readonly getInputLease = (): string => this.inputLease;
   public readonly subscribeControlStatus = (listener: () => void): (() => void) => {
     this.controlListeners.add(listener);
     return () => this.controlListeners.delete(listener);
@@ -138,6 +141,7 @@ export class WsClient {
   }
 
   private setControlEnabled(enabled: boolean): void {
+    if (!enabled) this.inputLease = '';
     if (this.controlEnabled === enabled) return;
     this.controlEnabled = enabled;
     this.updateInputGate();
@@ -245,8 +249,11 @@ export class WsClient {
       this.lastResponseAt = Date.now();
       if (data.type === 'heartbeat') this.heartbeatAcknowledged = true;
       if (data.type === 'control') {
-        const status = JSON.parse(data.data as string) as { enabled?: unknown };
-        this.setControlEnabled(status.enabled === true);
+        const status = JSON.parse(data.data as string) as { enabled?: unknown; lease?: unknown };
+        const enabled = status.enabled === true;
+        // The server sends this socket's lease only while it owns input.
+        this.inputLease = enabled && typeof status.lease === 'string' ? status.lease : '';
+        this.setControlEnabled(enabled);
       }
       const handlers = this.eventHandlers.get(data.type);
 

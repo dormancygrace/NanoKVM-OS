@@ -35,9 +35,10 @@ type Client struct {
 	closeOnce          sync.Once
 	workers            sync.WaitGroup
 	controlEnabled     bool
-	// sessionID is the login session (middleware.CurrentSessionID) that
-	// opened this socket; HTTP input routes compare against the controller's.
-	sessionID string
+	// inputLease is a random secret of this socket. While the socket owns
+	// input control it is sent only to this browser tab, which presents it
+	// on HTTP input routes (paste, ATX) to prove it is the controller.
+	inputLease string
 }
 
 type Message struct {

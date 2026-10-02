@@ -76,6 +76,8 @@ jobs:
           xargs -0 shellcheck -S error < "$RUNNER_TEMP/shell-scripts"
       - name: Python syntax
         run: git ls-files -z '*.py' | xargs -0 python3 -m py_compile
+      - name: Platform Buildroot configuration
+        run: python3 scripts/test-platform-config.py
       - name: Script tests
         run: |
           set -e
@@ -106,7 +108,6 @@ jobs:
           - server/third_party/pion-dtls
           - server/third_party/pion-ice
           - server/third_party/pion-srtp
-          - firmware/addons/nkos-addons
           - firmware/crypto/experimental/sg2002-crypto-all/ghash-go
     defaults:
       run:

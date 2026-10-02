@@ -173,10 +173,7 @@ toolchain() {
     fi
     local make=(make -C "$br" O="$bo" BR2_EXTERNAL="$repo/firmware/buildroot")
     if [ ! -e "$bo/.config" ]; then
-        "${make[@]}" nanokvm_enhanced_defconfig
-        # No compiler cache; host Python with lzma for fiptool.
-        "$br/utils/config" --file "$bo/.config" --disable CCACHE \
-            --enable PACKAGE_HOST_PYTHON3 --enable PACKAGE_HOST_PYTHON3_XZ
+        "${make[@]}" nanokvm_platform_defconfig
         "${make[@]}" olddefconfig
     fi
     mkdir -p "$dl/buildroot"

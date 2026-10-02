@@ -170,14 +170,6 @@
       "branch": null
     },
     {
-      "name": "nanokvm-vendor-libc",
-      "path": "firmware/buildroot/package/nanokvm-vendor-libc/nanokvm-vendor-libc.mk",
-      "pattern": "^NANOKVM_VENDOR_LIBC_VERSION\\s*=\\s*([0-9a-f]{40})",
-      "kind": "github-commit",
-      "repo": "0x754C/cvitek-riscv64-musl-sysroot",
-      "branch": null
-    },
-    {
       "name": "sg2002-codec-firmware",
       "path": "firmware/buildroot/package/sg2002-codec-firmware/sg2002-codec-firmware.mk",
       "pattern": "^SG2002_CODEC_FIRMWARE_VERSION\\s*=\\s*([0-9a-f]{40})",

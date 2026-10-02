@@ -1,2 +1,0 @@
-# NanoKVM OS packages are signed for the Buildroot riscv64/musl ABI.
-v3 https://dormancygrace.github.io/NanoKVM-OS-packages/repository

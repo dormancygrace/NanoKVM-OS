@@ -39,7 +39,6 @@ updates:
       - /server/third_party/pion-dtls
       - /server/third_party/pion-ice
       - /server/third_party/pion-srtp
-      - /firmware/addons/nkos-addons
       - /firmware/crypto/experimental/sg2002-crypto-all/ghash-go
     schedule:
       interval: weekly

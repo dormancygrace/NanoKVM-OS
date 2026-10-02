@@ -1,0 +1,42 @@
+# Build inputs for platform/build.sh only; the installed OS is Alpine.
+BR2_riscv=y
+BR2_riscv_g=y
+BR2_RISCV_64=y
+BR2_RISCV_ISA_RVC=y
+BR2_TOOLCHAIN_BUILDROOT_MUSL=y
+BR2_KERNEL_HEADERS_VERSION=y
+BR2_DEFAULT_KERNEL_VERSION="7.2.5"
+BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_7_1=y
+BR2_GCC_VERSION_16_X=y
+BR2_BINUTILS_VERSION_2_47_X=y
+BR2_TOOLCHAIN_BUILDROOT_CXX=y
+BR2_GCC_ENABLE_OPENMP=y
+BR2_OPTIMIZE_2=y
+BR2_REPRODUCIBLE=y
+# BR2_CCACHE is not set
+BR2_TARGET_OPTIMIZATION="-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso"
+BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_NANOKVM_PATH)/patches"
+BR2_PRIMARY_SITE="https://sources.buildroot.net"
+BR2_WGET="wget --passive-ftp -nd -t 2 --timeout=20"
+# platform/boot/init supplies PID 1; no Buildroot OS or login database is shipped.
+BR2_INIT_NONE=y
+BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_DEVTMPFS=y
+BR2_ROOTFS_MERGED_USR=y
+# BR2_TARGET_ENABLE_ROOT_LOGIN is not set
+# BR2_TARGET_ROOTFS_TAR is not set
+BR2_PACKAGE_BUSYBOX=y
+# BR2_PACKAGE_IFUPDOWN_SCRIPTS is not set
+BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_NANOKVM_PATH)/board/busybox-initramfs.config"
+BR2_PACKAGE_E2FSPROGS=y
+BR2_PACKAGE_E2FSPROGS_RESIZE2FS=y
+BR2_PACKAGE_F2FS_TOOLS=y
+# fsck.f2fs in the qualified initramfs supports LZ4-compressed filesystems.
+BR2_PACKAGE_LZ4=y
+BR2_PACKAGE_HOST_DTC=y
+BR2_PACKAGE_HOST_KMOD=y
+BR2_PACKAGE_HOST_PATCHELF=y
+BR2_PACKAGE_HOST_PYTHON3=y
+BR2_PACKAGE_HOST_PYTHON3_XZ=y
+BR2_PACKAGE_HOST_UBOOT_TOOLS=y
+BR2_PACKAGE_HOST_UBOOT_TOOLS_FIT_SUPPORT=y
+BR2_PACKAGE_HOST_ZSTD=y

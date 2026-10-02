@@ -38,7 +38,9 @@ See [UPDATES.md](UPDATES.md) for the native APK update flow. Development builds 
 
 ## Kernel, modules and boot images
 
-`platform/build.sh` builds the toolchain, Linux kernel, all kernel modules, U-Boot, `fip.bin`, initramfs and `boot.sd` images from the pinned inputs in `platform/sources.lock` and checks the result; see [platform/README.md](../platform/README.md). `firmware/buildroot/` contains the Buildroot external tree and source patches it uses, including the pinned OpenVPN 3 Core adapter in `firmware/vpn/` and WireGuard tools. OpenVPN 2 remains a system CLI; the GUI selects OpenVPN 3 Core. `firmware/sources.json` records the source pins of the native media libraries; MPI changes are in `firmware/mpi/`.
+`platform/build.sh` builds the toolchain, Linux kernel, all kernel modules, U-Boot, `fip.bin`, initramfs and `boot.sd` images from the pinned inputs in `platform/sources.lock`; see [platform/README.md](../platform/README.md). Its dedicated `firmware/buildroot/configs/nanokvm_platform_defconfig` selects the cross toolchain, host tools and initramfs utilities only. It does not build the installed root filesystem.
+
+The installed OS and optional software use Alpine APKs. The GUI uses the optional Alpine OpenVPN 2 client; the retired OpenVPN 3 adapter, private `/opt/nkos` package manager and Buildroot OS/optional-utility recipes have been removed. `firmware/sources.json` records native media source pins; MPI changes are in `firmware/mpi/`.
 
 ## Full images
 

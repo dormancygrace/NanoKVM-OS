@@ -2,21 +2,34 @@
 
 description="NanoKVM board identity and hardware setup"
 
+: "${NANOKVM_BOARD_LEGACY_DIR:=/usr/libexec/nanokvm/legacy}"
+
 depend() {
-    need nanokvm-storage nanokvm-modules
+    need nanokvm-storage
+    # The chip UID for the hostname and Ethernet MAC comes from cv181x_base.
+    # Apply the identity even if a later media module fails; nanokvm-app
+    # requires the complete module set itself.
+    use nanokvm-modules
     before nanokvm-network nanokvm-app
 }
 
 run_legacy() {
     local script="$1"
-    [ ! -x "/usr/libexec/nanokvm/legacy/$script" ] ||
-        "/usr/libexec/nanokvm/legacy/$script" start
+    [ ! -x "$NANOKVM_BOARD_LEGACY_DIR/$script" ] ||
+        "$NANOKVM_BOARD_LEGACY_DIR/$script" start
 }
 
 start() {
+    local script failed=
     ebegin "Configuring NanoKVM board"
-    run_legacy S02config || return 1
-    run_legacy S10uuid || return 1
-    run_legacy S15kvmhwd || return 1
+    # Run every step. A missing sensor configuration or an unidentified HDMI
+    # receiver must not skip the device identity used by the network.
+    for script in S02config S10uuid S15kvmhwd; do
+        run_legacy "$script" || failed="$failed $script"
+    done
+    if [ -n "$failed" ]; then
+        eend 1 "NanoKVM board setup failed:$failed"
+        return 1
+    fi
     eend 0
 }

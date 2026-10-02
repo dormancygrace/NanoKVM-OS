@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/pion/stun/v4"
-	"github.com/pion/transport/v4/test"
-	"github.com/pion/transport/v4/vnet"
+	"github.com/pion/transport/v5/test"
+	"github.com/pion/transport/v5/vnet"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,12 +33,7 @@ func TestRemoteLocalAddr(t *testing.T) {
 	require.NoError(t, errVnet, "should succeed")
 	defer builtVnet.close()
 
-	stunServerURL := &stun.URI{
-		Scheme: stun.SchemeTypeSTUN,
-		Host:   vnetSTUNServerIP,
-		Port:   vnetSTUNServerPort,
-		Proto:  stun.ProtoTypeUDP,
-	}
+	stunServerURL := &stun.URI{Scheme: stun.SchemeTypeSTUN, Host: vnetSTUNServerIP, Port: vnetSTUNServerPort, Proto: stun.ProtoTypeUDP}
 
 	t.Run("Disconnected Returns nil", func(t *testing.T) {
 		disconnectedAgent, err := NewAgent(&AgentConfig{})
@@ -52,14 +47,7 @@ func TestRemoteLocalAddr(t *testing.T) {
 	})
 
 	t.Run("Remote/Local Pair Match between Agents", func(t *testing.T) {
-		ca, cb := pipeWithVNet(t, builtVnet,
-			&agentTestConfig{
-				urls: []*stun.URI{stunServerURL},
-			},
-			&agentTestConfig{
-				urls: []*stun.URI{stunServerURL},
-			},
-		)
+		ca, cb := pipeWithVNet(t, builtVnet, &agentTestConfig{urls: []*stun.URI{stunServerURL}}, &agentTestConfig{urls: []*stun.URI{stunServerURL}})
 		defer closePipe(t, ca, cb)
 
 		aRAddr := ca.RemoteAddr()

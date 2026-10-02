@@ -43,6 +43,8 @@ func (failingReader) Read(p []byte) (int, error) {
 }
 
 func TestGenerateKeypair_RandFailure(t *testing.T) {
+	// Go 1.26+ ignores custom readers unless this test-only compatibility knob is set.
+	t.Setenv("GODEBUG", "cryptocustomrand=1")
 	// replace crypto/rand.Reader to force ecdh.GenerateKey to fail.
 	orig := crand.Reader
 	crand.Reader = failingReader{}

@@ -17,7 +17,7 @@ The three locally replaced Pion modules are deliberately excluded from manifest-
 
 Existing server/web CI remains in place. Additional Go modules now have their own build/test matrix; the native watcher has offline contract tests in the script CI job.
 
-The first full DTLS run on unchanged fork sources exposed `TestHandshaker` verification/timeouts and `TestHandshakeMessageCertificate` expecting a pre-Go-1.27 certificate layout (`RawSignatureAlgorithm` is now populated). DTLS compilation is mandatory, but its full test suite is temporarily advisory with an explicit warning and job summary; it must not be represented as passing. Other additional module tests remain mandatory. Review DTLS logs when accepting dependency changes and remove this exception after the baseline is repaired. Evidence: [initial full-suite run](https://github.com/dormancygrace/NanoKVM-OS/actions/runs/37044123822/job/110961182604).
+All additional Go module suites are mandatory. DTLS test fixtures were repaired for Go 1.27: the handshake harness now creates separate mutable cipher-suite instances for each endpoint, the certificate fixture includes the new DER signature-algorithm field when available, and the entropy-failure test explicitly opts into the custom-reader test path. ICE port-exhaustion tests retain and close every socket so GC cannot free ports before the assertion. No production cryptographic checks are bypassed.
 
 ## Native sources and patched forks
 
@@ -41,7 +41,7 @@ The report distinguishes the Alpine recipe baseline, the C906 version derived by
 
 Historical Buildroot OpenVPN 3 (and its Asio dependency), Superfile and apk-tools recipes are excluded: they do not define the current Alpine application/package versions. The Alpine release explicitly conflicts with `openvpn3` and uses stock Alpine OpenVPN when installed. Merely retaining an old recipe in the source tree does not make it a firmware update candidate.
 
-- Dependabot supports specific manifest formats, not arbitrary shell variables or patches. Its documented pnpm support currently lists versions through 10, while our build uses newer pnpm and a version-9 lockfile. Check the first updater job and any lockfile changes; a parsing/resolution failure must be addressed rather than assuming frontend updates work.
+- Dependabot supports specific manifest formats, not arbitrary shell variables or patches. The first frontend updater produced PR #26 with a version-9 lockfile that passed frozen installation, build, lint and tests under our pnpm 12 CI. Future updater and lockfile failures still require review.
 - Buildroot updates cover its upstream recipe collection; the dashboard does not independently audit every transitive C library or locally overridden Buildroot package for new versions/CVEs.
 - Alpine branch updates are reported. Installed APKs still update through APK, and our package rebuilds/releases are a separate process. A new branch is not automatically substituted into device repositories.
 - Base FIP/OpenSBI blobs and local hardware patches have no generic version updater. They require provenance and hardware qualification.

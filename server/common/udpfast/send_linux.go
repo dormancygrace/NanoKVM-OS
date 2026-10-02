@@ -4,7 +4,7 @@ package udpfast
 
 import (
 	"encoding/binary"
-	"github.com/pion/transport/v4"
+	"github.com/pion/transport/v5"
 	"net"
 	"os"
 	"runtime"

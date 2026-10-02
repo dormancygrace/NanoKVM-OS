@@ -18,7 +18,7 @@ import (
 	"github.com/pion/dtls/v3/pkg/protocol/handshake"
 	"github.com/pion/dtls/v3/pkg/protocol/recordlayer"
 	"github.com/pion/logging"
-	"github.com/pion/transport/v4/test"
+	"github.com/pion/transport/v5/test"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -51,8 +51,6 @@ func TestHandshaker(t *testing.T) { //nolint:gocyclo,cyclop,maintidx
 	loggerFactory := logging.NewDefaultLoggerFactory()
 	logger := loggerFactory.NewLogger("dtls")
 
-	cipherSuites, err := parseCipherSuites(nil, nil, true, false)
-	assert.NoError(t, err)
 	clientCert, err := selfsign.GenerateSelfSigned()
 	assert.NoError(t, err)
 
@@ -269,6 +267,11 @@ func TestHandshaker(t *testing.T) { //nolint:gocyclo,cyclop,maintidx
 			ctxSrvFinished, cancelSrv := context.WithCancel(ctx)
 			go func() {
 				defer wg.Done()
+				// Cipher suites hold mutable session keys; never share them between endpoints.
+				cipherSuites, err := parseCipherSuites(nil, nil, true, false)
+				if !assert.NoError(t, err) {
+					return
+				}
 				cfg := &handshakeConfig{
 					localCipherSuites:     cipherSuites,
 					localCertificates:     []tls.Certificate{clientCert},
@@ -290,7 +293,7 @@ func TestHandshaker(t *testing.T) { //nolint:gocyclo,cyclop,maintidx
 				}
 
 				fsm := newHandshakeFSM(&ca.state, ca.handshakeCache, cfg, flight1)
-				err := fsm.Run(ctx, ca, handshakePreparing)
+				err = fsm.Run(ctx, ca, handshakePreparing)
 				switch {
 				case errors.Is(err, context.Canceled):
 				case errors.Is(err, context.DeadlineExceeded):
@@ -302,6 +305,11 @@ func TestHandshaker(t *testing.T) { //nolint:gocyclo,cyclop,maintidx
 
 			go func() {
 				defer wg.Done()
+				// Cipher suites hold mutable session keys; never share them between endpoints.
+				cipherSuites, err := parseCipherSuites(nil, nil, true, false)
+				if !assert.NoError(t, err) {
+					return
+				}
 				cfg := &handshakeConfig{
 					localCipherSuites:     cipherSuites,
 					localCertificates:     []tls.Certificate{clientCert},
@@ -323,7 +331,7 @@ func TestHandshaker(t *testing.T) { //nolint:gocyclo,cyclop,maintidx
 				}
 
 				fsm := newHandshakeFSM(&cb.state, cb.handshakeCache, cfg, flight0)
-				err := fsm.Run(ctx, cb, handshakePreparing)
+				err = fsm.Run(ctx, cb, handshakePreparing)
 				switch {
 				case errors.Is(err, context.Canceled):
 				case errors.Is(err, context.DeadlineExceeded):
@@ -363,24 +371,24 @@ func flightTestPipe(
 	chB := make(chan recvHandshakeState)
 
 	return &flightTestConn{
-			handshakeCache: ca,
-			otherEndCache:  cb,
-			recv:           chA,
-			otherEndRecv:   chB,
-			done:           ctx.Done(),
-			filter:         clientEndpoint.Filter,
-			retransmit:     clientEndpoint.Retransmit,
-			delay:          clientEndpoint.Delay,
-		}, &flightTestConn{
-			handshakeCache: cb,
-			otherEndCache:  ca,
-			recv:           chB,
-			otherEndRecv:   chA,
-			done:           ctx.Done(),
-			filter:         serverEndpoint.Filter,
-			retransmit:     serverEndpoint.Retransmit,
-			delay:          serverEndpoint.Delay,
-		}
+		handshakeCache: ca,
+		otherEndCache:  cb,
+		recv:           chA,
+		otherEndRecv:   chB,
+		done:           ctx.Done(),
+		filter:         clientEndpoint.Filter,
+		retransmit:     clientEndpoint.Retransmit,
+		delay:          clientEndpoint.Delay,
+	}, &flightTestConn{
+		handshakeCache: cb,
+		otherEndCache:  ca,
+		recv:           chB,
+		otherEndRecv:   chA,
+		done:           ctx.Done(),
+		filter:         serverEndpoint.Filter,
+		retransmit:     serverEndpoint.Retransmit,
+		delay:          serverEndpoint.Delay,
+	}
 }
 
 type flightTestConn struct {

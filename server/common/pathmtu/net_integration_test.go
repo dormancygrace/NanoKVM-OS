@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/pion/ice/v4"
-	"github.com/pion/transport/v4"
+	"github.com/pion/transport/v5"
 )
 
 // Drop after the actual UDP socket is configured, without generating ICMP or a

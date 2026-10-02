@@ -3,7 +3,7 @@ package ice
 import (
 	"github.com/pion/logging"
 	"github.com/pion/stun/v4"
-	"github.com/pion/transport/v4"
+	"github.com/pion/transport/v5"
 	"net/netip"
 	"testing"
 	"time"

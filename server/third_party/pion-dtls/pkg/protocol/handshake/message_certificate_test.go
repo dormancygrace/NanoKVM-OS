@@ -5,6 +5,7 @@ package handshake
 
 import (
 	"crypto/x509"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -67,6 +68,10 @@ func TestHandshakeMessageCertificate(t *testing.T) {
 	certificate, err := x509.ParseCertificate(certMessage.Certificate[0])
 	assert.NoError(t, err)
 
+	// Go 1.27 exposes this DER field; preserve compatibility with Go 1.26.
+	if field := reflect.ValueOf(parsedCertificate).Elem().FieldByName("RawSignatureAlgorithm"); field.IsValid() {
+		field.SetBytes(rawCertificate[313:325])
+	}
 	copyCertificatePrivateMembers(certificate, parsedCertificate)
 	assert.Equal(t, parsedCertificate, certificate)
 

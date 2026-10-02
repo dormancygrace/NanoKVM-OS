@@ -16,8 +16,8 @@ import (
 
 	"github.com/pion/logging"
 	"github.com/pion/stun/v4"
-	"github.com/pion/transport/v4/test"
-	"github.com/pion/transport/v4/vnet"
+	"github.com/pion/transport/v5/test"
+	"github.com/pion/transport/v5/vnet"
 	"github.com/pion/turn/v5"
 	"github.com/stretchr/testify/require"
 )
@@ -49,10 +49,7 @@ func buildVNet(natType0, natType1 *vnet.NATType) (*virtualNet, error) { //nolint
 	loggerFactory := logging.NewDefaultLoggerFactory()
 
 	// WAN
-	wan, err := vnet.NewRouter(&vnet.RouterConfig{
-		CIDR:          "0.0.0.0/0",
-		LoggerFactory: loggerFactory,
-	})
+	wan, err := vnet.NewRouter(&vnet.RouterConfig{CIDR: "0.0.0.0/0", LoggerFactory: loggerFactory})
 	if err != nil {
 		return nil, err
 	}
@@ -73,14 +70,10 @@ func buildVNet(natType0, natType1 *vnet.NATType) (*virtualNet, error) { //nolint
 	lan0, err := vnet.NewRouter(&vnet.RouterConfig{
 		StaticIPs: func() []string {
 			if natType0.Mode == vnet.NATModeNAT1To1 {
-				return []string{
-					vnetGlobalIPA + "/" + vnetLocalIPA,
-				}
+				return []string{vnetGlobalIPA + "/" + vnetLocalIPA}
 			}
 
-			return []string{
-				vnetGlobalIPA,
-			}
+			return []string{vnetGlobalIPA}
 		}(),
 		CIDR:          vnetLocalIPA + "/" + vnetLocalSubnetMaskA,
 		NATType:       natType0,
@@ -90,9 +83,7 @@ func buildVNet(natType0, natType1 *vnet.NATType) (*virtualNet, error) { //nolint
 		return nil, err
 	}
 
-	net0, err := vnet.NewNet(&vnet.NetConfig{
-		StaticIPs: []string{vnetLocalIPA},
-	})
+	net0, err := vnet.NewNet(&vnet.NetConfig{StaticIPs: []string{vnetLocalIPA}})
 	if err != nil {
 		return nil, err
 	}
@@ -111,14 +102,10 @@ func buildVNet(natType0, natType1 *vnet.NATType) (*virtualNet, error) { //nolint
 	lan1, err := vnet.NewRouter(&vnet.RouterConfig{
 		StaticIPs: func() []string {
 			if natType1.Mode == vnet.NATModeNAT1To1 {
-				return []string{
-					vnetGlobalIPB + "/" + vnetLocalIPB,
-				}
+				return []string{vnetGlobalIPB + "/" + vnetLocalIPB}
 			}
 
-			return []string{
-				vnetGlobalIPB,
-			}
+			return []string{vnetGlobalIPB}
 		}(),
 		CIDR:          vnetLocalIPB + "/" + vnetLocalSubnetMaskB,
 		NATType:       natType1,
@@ -128,9 +115,7 @@ func buildVNet(natType0, natType1 *vnet.NATType) (*virtualNet, error) { //nolint
 		return nil, err
 	}
 
-	net1, err := vnet.NewNet(&vnet.NetConfig{
-		StaticIPs: []string{vnetLocalIPB},
-	})
+	net1, err := vnet.NewNet(&vnet.NetConfig{StaticIPs: []string{vnetLocalIPB}})
 	if err != nil {
 		return nil, err
 	}
@@ -156,12 +141,7 @@ func buildVNet(natType0, natType1 *vnet.NATType) (*virtualNet, error) { //nolint
 		return nil, err
 	}
 
-	return &virtualNet{
-		wan:    wan,
-		net0:   net0,
-		net1:   net1,
-		server: server,
-	}, nil
+	return &virtualNet{wan: wan, net0: net0, net1: net1, server: server}, nil
 }
 
 func addVNetSTUN(wanNet *vnet.Net, loggerFactory logging.LoggerFactory) (*turn.Server, error) {
@@ -180,18 +160,9 @@ func addVNetSTUN(wanNet *vnet.Net, loggerFactory logging.LoggerFactory) (*turn.S
 
 			return "", nil, false
 		},
-		PacketConnConfigs: []turn.PacketConnConfig{
-			{
-				PacketConn: wanNetPacketConn,
-				RelayAddressGenerator: &turn.RelayAddressGeneratorStatic{
-					RelayAddress: net.ParseIP(vnetSTUNServerIP),
-					Address:      "0.0.0.0",
-					Net:          wanNet,
-				},
-			},
-		},
-		Realm:         "pion.ly",
-		LoggerFactory: loggerFactory,
+		PacketConnConfigs: []turn.PacketConnConfig{{PacketConn: wanNetPacketConn, RelayAddressGenerator: &turn.RelayAddressGeneratorStatic{RelayAddress: net.ParseIP(vnetSTUNServerIP), Address: "0.0.0.0", Net: wanNet}}},
+		Realm:             "pion.ly",
+		LoggerFactory:     loggerFactory,
 	})
 	if err != nil {
 		return nil, err
@@ -242,40 +213,24 @@ func pipeWithVNet(t *testing.T, vnet *virtualNet, a0TestConfig, a1TestConfig *ag
 
 	var nat1To1IPs []string
 	if a0TestConfig.nat1To1IPCandidateType != CandidateTypeUnspecified {
-		nat1To1IPs = []string{
-			vnetGlobalIPA,
-		}
+		nat1To1IPs = []string{vnetGlobalIPA}
 	}
 
-	cfg0 := &AgentConfig{
-		Urls:                   a0TestConfig.urls,
-		NetworkTypes:           supportedNetworkTypes(),
-		MulticastDNSMode:       MulticastDNSModeDisabled,
-		NAT1To1IPs:             nat1To1IPs,
-		NAT1To1IPCandidateType: a0TestConfig.nat1To1IPCandidateType,
-		Net:                    vnet.net0,
-	}
+	cfg0 := &AgentConfig{Urls: a0TestConfig.urls, NetworkTypes: supportedNetworkTypes(), MulticastDNSMode: MulticastDNSModeDisabled, NAT1To1IPs: nat1To1IPs, NAT1To1IPCandidateType: a0TestConfig.nat1To1IPCandidateType, Net: vnet.net0}
 
 	aAgent, err := NewAgent(cfg0)
 	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, aAgent.Close()) })
 	require.NoError(t, aAgent.OnConnectionStateChange(aNotifier))
 
 	if a1TestConfig.nat1To1IPCandidateType != CandidateTypeUnspecified {
-		nat1To1IPs = []string{
-			vnetGlobalIPB,
-		}
+		nat1To1IPs = []string{vnetGlobalIPB}
 	}
-	cfg1 := &AgentConfig{
-		Urls:                   a1TestConfig.urls,
-		NetworkTypes:           supportedNetworkTypes(),
-		MulticastDNSMode:       MulticastDNSModeDisabled,
-		NAT1To1IPs:             nat1To1IPs,
-		NAT1To1IPCandidateType: a1TestConfig.nat1To1IPCandidateType,
-		Net:                    vnet.net1,
-	}
+	cfg1 := &AgentConfig{Urls: a1TestConfig.urls, NetworkTypes: supportedNetworkTypes(), MulticastDNSMode: MulticastDNSModeDisabled, NAT1To1IPs: nat1To1IPs, NAT1To1IPCandidateType: a1TestConfig.nat1To1IPCandidateType, Net: vnet.net1}
 
 	bAgent, err := NewAgent(cfg1)
 	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, bAgent.Close()) })
 	require.NoError(t, bAgent.OnConnectionStateChange(bNotifier))
 
 	aConn, bConn := connectWithVNet(t, aAgent, bAgent)
@@ -329,53 +284,28 @@ func closePipe(tb testing.TB, ca *Conn, cb *Conn) {
 func TestConnectivityVNet(t *testing.T) {
 	defer test.CheckRoutines(t)()
 
-	stunServerURL := &stun.URI{
-		Scheme: stun.SchemeTypeSTUN,
-		Host:   vnetSTUNServerIP,
-		Port:   vnetSTUNServerPort,
-		Proto:  stun.ProtoTypeUDP,
-	}
+	stunServerURL := &stun.URI{Scheme: stun.SchemeTypeSTUN, Host: vnetSTUNServerIP, Port: vnetSTUNServerPort, Proto: stun.ProtoTypeUDP}
 
-	turnServerURL := &stun.URI{
-		Scheme:   stun.SchemeTypeTURN,
-		Host:     vnetSTUNServerIP,
-		Port:     vnetSTUNServerPort,
-		Username: "user",
-		Password: "pass",
-		Proto:    stun.ProtoTypeUDP,
-	}
+	turnServerURL := &stun.URI{Scheme: stun.SchemeTypeTURN, Host: vnetSTUNServerIP, Port: vnetSTUNServerPort, Username: "user", Password: "pass", Proto: stun.ProtoTypeUDP}
 
 	t.Run("Full-cone NATs on both ends", func(t *testing.T) {
 		loggerFactory := logging.NewDefaultLoggerFactory()
 		log := loggerFactory.NewLogger("test")
 
 		// buildVNet with a Full-cone NATs both LANs
-		natType := &vnet.NATType{
-			MappingBehavior:   vnet.EndpointIndependent,
-			FilteringBehavior: vnet.EndpointIndependent,
-		}
+		natType := &vnet.NATType{MappingBehavior: vnet.EndpointIndependent, FilteringBehavior: vnet.EndpointIndependent}
 		vnet, err := buildVNet(natType, natType)
 
 		require.NoError(t, err, "should succeed")
 		defer vnet.close()
 
 		log.Debug("Connecting...")
-		a0TestConfig := &agentTestConfig{
-			urls: []*stun.URI{
-				stunServerURL,
-			},
-		}
-		a1TestConfig := &agentTestConfig{
-			urls: []*stun.URI{
-				stunServerURL,
-			},
-		}
+		a0TestConfig := &agentTestConfig{urls: []*stun.URI{stunServerURL}}
+		a1TestConfig := &agentTestConfig{urls: []*stun.URI{stunServerURL}}
 		ca, cb := pipeWithVNet(t, vnet, a0TestConfig, a1TestConfig)
+		defer closePipe(t, ca, cb)
 
 		time.Sleep(1 * time.Second)
-
-		log.Debug("Closing...")
-		closePipe(t, ca, cb)
 	})
 
 	t.Run("Symmetric NATs on both ends", func(t *testing.T) {
@@ -383,31 +313,17 @@ func TestConnectivityVNet(t *testing.T) {
 		log := loggerFactory.NewLogger("test")
 
 		// buildVNet with a Symmetric NATs for both LANs
-		natType := &vnet.NATType{
-			MappingBehavior:   vnet.EndpointAddrPortDependent,
-			FilteringBehavior: vnet.EndpointAddrPortDependent,
-		}
+		natType := &vnet.NATType{MappingBehavior: vnet.EndpointAddrPortDependent, FilteringBehavior: vnet.EndpointAddrPortDependent}
 		vnet, err := buildVNet(natType, natType)
 
 		require.NoError(t, err, "should succeed")
 		defer vnet.close()
 
 		log.Debug("Connecting...")
-		a0TestConfig := &agentTestConfig{
-			urls: []*stun.URI{
-				stunServerURL,
-				turnServerURL,
-			},
-		}
-		a1TestConfig := &agentTestConfig{
-			urls: []*stun.URI{
-				stunServerURL,
-			},
-		}
+		a0TestConfig := &agentTestConfig{urls: []*stun.URI{stunServerURL, turnServerURL}}
+		a1TestConfig := &agentTestConfig{urls: []*stun.URI{stunServerURL}}
 		ca, cb := pipeWithVNet(t, vnet, a0TestConfig, a1TestConfig)
-
-		log.Debug("Closing...")
-		closePipe(t, ca, cb)
+		defer closePipe(t, ca, cb)
 	})
 
 	t.Run("1:1 NAT with host candidate vs Symmetric NATs", func(t *testing.T) {
@@ -415,14 +331,9 @@ func TestConnectivityVNet(t *testing.T) {
 		log := loggerFactory.NewLogger("test")
 
 		// Agent0 is behind 1:1 NAT
-		natType0 := &vnet.NATType{
-			Mode: vnet.NATModeNAT1To1,
-		}
+		natType0 := &vnet.NATType{Mode: vnet.NATModeNAT1To1}
 		// Agent1 is behind a symmetric NAT
-		natType1 := &vnet.NATType{
-			MappingBehavior:   vnet.EndpointAddrPortDependent,
-			FilteringBehavior: vnet.EndpointAddrPortDependent,
-		}
+		natType1 := &vnet.NATType{MappingBehavior: vnet.EndpointAddrPortDependent, FilteringBehavior: vnet.EndpointAddrPortDependent}
 		vnet, err := buildVNet(natType0, natType1)
 
 		require.NoError(t, err, "should succeed")
@@ -433,13 +344,9 @@ func TestConnectivityVNet(t *testing.T) {
 			urls:                   []*stun.URI{},
 			nat1To1IPCandidateType: CandidateTypeHost, // Use 1:1 NAT IP as a host candidate
 		}
-		a1TestConfig := &agentTestConfig{
-			urls: []*stun.URI{},
-		}
+		a1TestConfig := &agentTestConfig{urls: []*stun.URI{}}
 		ca, cb := pipeWithVNet(t, vnet, a0TestConfig, a1TestConfig)
-
-		log.Debug("Closing...")
-		closePipe(t, ca, cb)
+		defer closePipe(t, ca, cb)
 	})
 
 	t.Run("1:1 NAT with srflx candidate vs Symmetric NATs", func(t *testing.T) {
@@ -447,14 +354,9 @@ func TestConnectivityVNet(t *testing.T) {
 		log := loggerFactory.NewLogger("test")
 
 		// Agent0 is behind 1:1 NAT
-		natType0 := &vnet.NATType{
-			Mode: vnet.NATModeNAT1To1,
-		}
+		natType0 := &vnet.NATType{Mode: vnet.NATModeNAT1To1}
 		// Agent1 is behind a symmetric NAT
-		natType1 := &vnet.NATType{
-			MappingBehavior:   vnet.EndpointAddrPortDependent,
-			FilteringBehavior: vnet.EndpointAddrPortDependent,
-		}
+		natType1 := &vnet.NATType{MappingBehavior: vnet.EndpointAddrPortDependent, FilteringBehavior: vnet.EndpointAddrPortDependent}
 		vnet, err := buildVNet(natType0, natType1)
 
 		require.NoError(t, err, "should succeed")
@@ -465,77 +367,260 @@ func TestConnectivityVNet(t *testing.T) {
 			urls:                   []*stun.URI{},
 			nat1To1IPCandidateType: CandidateTypeServerReflexive, // Use 1:1 NAT IP as a srflx candidate
 		}
-		a1TestConfig := &agentTestConfig{
-			urls: []*stun.URI{},
-		}
+		a1TestConfig := &agentTestConfig{urls: []*stun.URI{}}
 		ca, cb := pipeWithVNet(t, vnet, a0TestConfig, a1TestConfig)
-
-		log.Debug("Closing...")
-		closePipe(t, ca, cb)
+		defer closePipe(t, ca, cb)
 	})
 }
 
 func TestConnectivityVNetWithAddressRewriteRuleOptions(t *testing.T) {
 	defer test.CheckRoutines(t)()
 
-	t.Run("host candidate mapping with options", func(t *testing.T) {
-		natType0 := &vnet.NATType{Mode: vnet.NATModeNAT1To1}
-		natType1 := &vnet.NATType{
-			MappingBehavior:   vnet.EndpointAddrPortDependent,
-			FilteringBehavior: vnet.EndpointAddrPortDependent,
-		}
+	for _, candidateType := range []CandidateType{CandidateTypeHost, CandidateTypeServerReflexive} {
+		t.Run(candidateType.String(), func(t *testing.T) {
+			natType0 := &vnet.NATType{Mode: vnet.NATModeNAT1To1}
+			natType1 := &vnet.NATType{MappingBehavior: vnet.EndpointAddrPortDependent, FilteringBehavior: vnet.EndpointAddrPortDependent}
+			virtualNet, err := buildVNet(natType0, natType1)
+			require.NoError(t, err)
+			defer virtualNet.close()
 
-		vnet, err := buildVNet(natType0, natType1)
-		require.NoError(t, err)
-		defer vnet.close()
+			agent0Opts := []AgentOption{
+				WithNet(virtualNet.net0), WithNetworkTypes(supportedNetworkTypes()), WithMulticastDNSMode(MulticastDNSModeDisabled),
+				WithAddressRewriteRules(AddressRewriteRule{External: []string{vnetGlobalIPA}, AsCandidateType: candidateType}),
+			}
+			agent1Opts := []AgentOption{WithNet(virtualNet.net1), WithNetworkTypes(supportedNetworkTypes()), WithMulticastDNSMode(MulticastDNSModeDisabled)}
+			ca, cb := pipeWithVNetUsingOptions(t, agent0Opts, agent1Opts)
+			closePipe(t, ca, cb)
+		})
+	}
+}
 
-		agent0Opts := []AgentOption{
-			WithNet(vnet.net0),
-			WithNetworkTypes(supportedNetworkTypes()),
+func TestAddressRewriteSystem(t *testing.T) { //nolint:cyclop,maintidx
+	defer test.CheckRoutines(t)()
+
+	natType := &vnet.NATType{Mode: vnet.NATModeNAT1To1}
+	virtualNet, err := buildVNet(natType, &vnet.NATType{})
+	require.NoError(t, err)
+	defer virtualNet.close()
+
+	gather := func(t *testing.T, candidateTypes []CandidateType, rules []AddressRewriteRule, urls []*stun.URI, extra ...AgentOption) []Candidate {
+		t.Helper()
+
+		options := []AgentOption{
+			WithNet(virtualNet.net0),
+			WithNetworkTypes([]NetworkType{NetworkTypeUDP4}),
+			WithCandidateTypes(candidateTypes),
 			WithMulticastDNSMode(MulticastDNSModeDisabled),
-			WithAddressRewriteRules(AddressRewriteRule{
-				External:        []string{vnetGlobalIPA},
-				AsCandidateType: CandidateTypeHost,
-			}),
+			WithAddressRewriteRules(rules...),
+			WithUrls(urls),
 		}
-		agent1Opts := []AgentOption{
-			WithNet(vnet.net1),
-			WithNetworkTypes(supportedNetworkTypes()),
-			WithMulticastDNSMode(MulticastDNSModeDisabled),
+		agent, agentErr := NewAgentWithOptions(append(options, extra...)...)
+		require.NoError(t, agentErr)
+		defer func() { require.NoError(t, agent.Close()) }()
+
+		return gatherForRewriteTest(t, agent)
+	}
+
+	addresses := func(candidates []Candidate, candidateType CandidateType) []string {
+		result := make([]string, 0, len(candidates))
+		for _, candidate := range candidates {
+			if candidate.Type() == candidateType {
+				result = append(result, candidate.Address())
+			}
 		}
 
-		ca, cb := pipeWithVNetUsingOptions(t, agent0Opts, agent1Opts)
-		closePipe(t, ca, cb)
+		return result
+	}
+	type rewriteCase struct {
+		name     string
+		rule     AddressRewriteRule
+		expected []string
+	}
+	rewriteCases := func(candidateType CandidateType, original, replacement, addition, filtered string) []rewriteCase {
+		return []rewriteCase{
+			{name: "replace", rule: AddressRewriteRule{External: []string{replacement}, AsCandidateType: candidateType, Mode: AddressRewriteReplace}, expected: []string{replacement}},
+			{name: "append", rule: AddressRewriteRule{External: []string{addition}, AsCandidateType: candidateType, Mode: AddressRewriteAppend}, expected: []string{original, addition}},
+			{name: "replace with filtered external", rule: AddressRewriteRule{External: []string{filtered}, AsCandidateType: candidateType, Mode: AddressRewriteReplace, Networks: []NetworkType{NetworkTypeUDP4}}},
+			{name: "append with filtered external", rule: AddressRewriteRule{External: []string{filtered}, AsCandidateType: candidateType, Mode: AddressRewriteAppend, Networks: []NetworkType{NetworkTypeUDP4}}, expected: []string{original}},
+			{name: "unmatched", rule: AddressRewriteRule{External: []string{replacement}, Local: "192.0.2.1", AsCandidateType: candidateType}, expected: []string{original}},
+		}
+	}
+
+	t.Run("host gathering", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			rules    []AddressRewriteRule
+			expected []string
+		}{
+			{name: "append", rules: []AddressRewriteRule{{External: []string{"203.0.113.1"}, Local: vnetLocalIPA, AsCandidateType: CandidateTypeHost, Mode: AddressRewriteAppend}}, expected: []string{vnetLocalIPA, "203.0.113.1"}},
+			{name: "replace with filtered external drops", rules: []AddressRewriteRule{{External: []string{"2001:db8::1"}, AsCandidateType: CandidateTypeHost, Mode: AddressRewriteReplace, Networks: []NetworkType{NetworkTypeUDP4}}}},
+			{name: "append with filtered external keeps", rules: []AddressRewriteRule{{External: []string{"2001:db8::2"}, AsCandidateType: CandidateTypeHost, Mode: AddressRewriteAppend, Networks: []NetworkType{NetworkTypeUDP4}}}, expected: []string{vnetLocalIPA}},
+			{name: "interface and CIDR scoped", rules: []AddressRewriteRule{{External: []string{"203.0.113.2"}, Iface: "eth0", CIDR: vnetLocalIPA + "/" + vnetLocalSubnetMaskA, AsCandidateType: CandidateTypeHost, Mode: AddressRewriteReplace, Networks: []NetworkType{NetworkTypeUDP4}}}, expected: []string{"203.0.113.2"}},
+			{name: "nonmatching interface", rules: []AddressRewriteRule{{External: []string{"203.0.113.3"}, Iface: "missing", AsCandidateType: CandidateTypeHost}}, expected: []string{vnetLocalIPA}},
+			{name: "nonmatching CIDR", rules: []AddressRewriteRule{{External: []string{"203.0.113.4"}, CIDR: "10.0.0.0/8", AsCandidateType: CandidateTypeHost}}, expected: []string{vnetLocalIPA}},
+			{name: "filtered network family", rules: []AddressRewriteRule{{External: []string{"203.0.113.5"}, AsCandidateType: CandidateTypeHost, Networks: []NetworkType{NetworkTypeUDP6}}}, expected: []string{vnetLocalIPA}},
+		}
+
+		for _, testCase := range tests {
+			t.Run(testCase.name, func(t *testing.T) {
+				candidates := gather(t, []CandidateType{CandidateTypeHost}, testCase.rules, nil)
+				require.ElementsMatch(t, testCase.expected, addresses(candidates, CandidateTypeHost))
+			})
+		}
 	})
 
-	t.Run("srflx candidate mapping with options", func(t *testing.T) {
-		natType0 := &vnet.NATType{Mode: vnet.NATModeNAT1To1}
-		natType1 := &vnet.NATType{
-			MappingBehavior:   vnet.EndpointAddrPortDependent,
-			FilteringBehavior: vnet.EndpointAddrPortDependent,
+	t.Run("mapped srflx gathering", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			rule     AddressRewriteRule
+			expected []string
+		}{
+			{name: "multiple replacements", rule: AddressRewriteRule{External: []string{"203.0.113.10", "203.0.113.11"}, AsCandidateType: CandidateTypeServerReflexive, Mode: AddressRewriteReplace}, expected: []string{"203.0.113.10", "203.0.113.11"}},
+			{name: "replace with filtered external", rule: AddressRewriteRule{External: []string{"2001:db8::10"}, AsCandidateType: CandidateTypeServerReflexive, Mode: AddressRewriteReplace, Networks: []NetworkType{NetworkTypeUDP4}}},
+			{name: "append with filtered external", rule: AddressRewriteRule{External: []string{"2001:db8::11"}, AsCandidateType: CandidateTypeServerReflexive, Mode: AddressRewriteAppend, Networks: []NetworkType{NetworkTypeUDP4}}, expected: []string{"0.0.0.0"}},
+			{name: "unmatched rule", rule: AddressRewriteRule{External: []string{"203.0.113.12"}, Local: "192.0.2.1", AsCandidateType: CandidateTypeServerReflexive}, expected: []string{"0.0.0.0"}},
 		}
 
-		vnet, err := buildVNet(natType0, natType1)
-		require.NoError(t, err)
-		defer vnet.close()
-
-		agent0Opts := []AgentOption{
-			WithNet(vnet.net0),
-			WithNetworkTypes(supportedNetworkTypes()),
-			WithMulticastDNSMode(MulticastDNSModeDisabled),
-			WithAddressRewriteRules(AddressRewriteRule{
-				External:        []string{vnetGlobalIPA},
-				AsCandidateType: CandidateTypeServerReflexive,
-			}),
+		for _, testCase := range tests {
+			t.Run(testCase.name, func(t *testing.T) {
+				candidates := gather(t, []CandidateType{CandidateTypeServerReflexive}, []AddressRewriteRule{testCase.rule}, nil)
+				require.ElementsMatch(t, testCase.expected, addresses(candidates, CandidateTypeServerReflexive))
+				for _, candidate := range candidates {
+					require.Equal(t, CandidateTypeServerReflexive, candidate.Type())
+					related := candidate.RelatedAddress()
+					require.NotNil(t, related)
+					require.NotEmpty(t, related.Address)
+					require.Positive(t, candidate.Port())
+					require.Equal(t, candidate.Port(), related.Port)
+				}
+			})
 		}
-		agent1Opts := []AgentOption{
-			WithNet(vnet.net1),
-			WithNetworkTypes(supportedNetworkTypes()),
-			WithMulticastDNSMode(MulticastDNSModeDisabled),
+	})
+
+	t.Run("relay gathering", func(t *testing.T) {
+		turnURL := &stun.URI{Scheme: stun.SchemeTypeTURN, Host: vnetSTUNServerIP, Port: vnetSTUNServerPort, Username: "user", Password: "pass", Proto: stun.ProtoTypeUDP}
+		tests := rewriteCases(CandidateTypeRelay, vnetSTUNServerIP, "203.0.113.20", "203.0.113.21", "2001:db8::20")
+
+		for _, testCase := range tests {
+			t.Run(testCase.name, func(t *testing.T) {
+				candidates := gather(t, []CandidateType{CandidateTypeRelay}, []AddressRewriteRule{testCase.rule}, []*stun.URI{turnURL})
+				require.ElementsMatch(t, testCase.expected, addresses(candidates, CandidateTypeRelay))
+			})
+		}
+	})
+
+	t.Run("host gathering through UDP mux", func(t *testing.T) {
+		packetConn, listenErr := virtualNet.net0.ListenPacket("udp4", net.JoinHostPort(vnetLocalIPA, "0"))
+		require.NoError(t, listenErr)
+		mux := NewUDPMuxDefault(UDPMuxParams{UDPConn: packetConn, Net: virtualNet.net0})
+		t.Cleanup(func() { require.NoError(t, mux.Close()) })
+
+		tests := rewriteCases(CandidateTypeHost, vnetLocalIPA, "203.0.113.23", "203.0.113.24", "2001:db8::23")
+
+		for _, testCase := range tests {
+			t.Run(testCase.name, func(t *testing.T) {
+				candidates := gather(t, []CandidateType{CandidateTypeHost}, []AddressRewriteRule{testCase.rule}, nil, WithUDPMux(mux))
+				require.ElementsMatch(t, testCase.expected, addresses(candidates, CandidateTypeHost))
+			})
+		}
+	})
+
+	t.Run("configuration validation", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			rule  AddressRewriteRule
+			extra []AgentOption
+			err   error
+		}{
+			{name: "invalid external", rule: AddressRewriteRule{External: []string{"invalid"}}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "invalid external after valid entry", rule: AddressRewriteRule{External: []string{"203.0.113.1", "invalid"}}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "empty external", rule: AddressRewriteRule{}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "blank external", rule: AddressRewriteRule{External: []string{" "}}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "legacy slash syntax", rule: AddressRewriteRule{External: []string{"203.0.113.1/192.0.2.1"}}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "invalid local", rule: AddressRewriteRule{External: []string{"203.0.113.1"}, Local: "invalid"}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "invalid CIDR", rule: AddressRewriteRule{External: []string{"203.0.113.1"}, CIDR: "invalid"}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "local outside CIDR", rule: AddressRewriteRule{External: []string{"203.0.113.1"}, Local: vnetLocalIPA, CIDR: "10.0.0.0/8"}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "invalid mode", rule: AddressRewriteRule{External: []string{"203.0.113.1"}, Mode: AddressRewriteMode(99)}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "peer reflexive", rule: AddressRewriteRule{External: []string{"203.0.113.1"}, AsCandidateType: CandidateTypePeerReflexive}, err: ErrUnsupportedNAT1To1IPCandidateType},
+			{name: "host candidates disabled", rule: AddressRewriteRule{External: []string{"203.0.113.1"}, AsCandidateType: CandidateTypeHost}, extra: []AgentOption{WithCandidateTypes([]CandidateType{CandidateTypeRelay})}, err: ErrIneffectiveNAT1To1IPMappingHost},
+			{name: "srflx candidates disabled", rule: AddressRewriteRule{External: []string{"203.0.113.1"}, AsCandidateType: CandidateTypeServerReflexive}, extra: []AgentOption{WithCandidateTypes([]CandidateType{CandidateTypeHost})}, err: ErrIneffectiveNAT1To1IPMappingSrflx},
 		}
 
-		ca, cb := pipeWithVNetUsingOptions(t, agent0Opts, agent1Opts)
-		closePipe(t, ca, cb)
+		for _, testCase := range tests {
+			t.Run(testCase.name, func(t *testing.T) {
+				options := []AgentOption{
+					WithNet(virtualNet.net0),
+					WithMulticastDNSMode(MulticastDNSModeDisabled),
+					WithAddressRewriteRules(testCase.rule),
+				}
+				options = append(options, testCase.extra...)
+				agent, agentErr := NewAgentWithOptions(options...)
+				if agent != nil {
+					require.NoError(t, agent.Close())
+				}
+				require.ErrorIs(t, agentErr, testCase.err)
+				require.Nil(t, agent)
+			})
+		}
+	})
+
+	t.Run("mDNS incompatibility", func(t *testing.T) {
+		// Check after initialization, which disables mDNS if multicast is unavailable.
+		agent := &Agent{candidateTypes: []CandidateType{CandidateTypeHost}, mDNSMode: MulticastDNSModeQueryAndGather, addressRewriteRules: []AddressRewriteRule{{External: []string{"203.0.113.1"}, AsCandidateType: CandidateTypeHost}}}
+		require.ErrorIs(t, applyAddressRewriteMapping(agent), ErrMulticastDNSWithNAT1To1IPMapping)
+	})
+
+	t.Run("legacy configuration", func(t *testing.T) {
+		tests := []struct {
+			name      string
+			addresses []string
+			typ       CandidateType
+			err       error
+		}{
+			{name: "default"},
+			{name: "empty", addresses: []string{}},
+			{name: "duplicate IPv4", addresses: []string{"203.0.113.40", "203.0.113.41"}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "duplicate IPv6", addresses: []string{"2001:db8::40", "2001:db8::41"}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "too many slashes", addresses: []string{"203.0.113.40/192.168.0.1/10.0.0.1"}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "invalid external", addresses: []string{"invalid/192.168.0.1"}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "invalid local", addresses: []string{"203.0.113.40/invalid"}, err: ErrInvalidNAT1To1IPMapping},
+			{name: "peer reflexive", addresses: []string{"203.0.113.40"}, typ: CandidateTypePeerReflexive, err: ErrUnsupportedNAT1To1IPCandidateType},
+		}
+
+		for _, testCase := range tests {
+			t.Run(testCase.name, func(t *testing.T) {
+				agent, agentErr := NewAgent(&AgentConfig{Net: virtualNet.net0, MulticastDNSMode: MulticastDNSModeDisabled, NAT1To1IPs: testCase.addresses, NAT1To1IPCandidateType: testCase.typ})
+				if agent != nil {
+					t.Cleanup(func() { require.NoError(t, agent.Close()) })
+				}
+				require.ErrorIs(t, agentErr, testCase.err)
+				if testCase.err == nil {
+					require.NotNil(t, agent)
+				}
+				if agent != nil {
+					if len(testCase.addresses) == 0 {
+						require.Nil(t, agent.addressRewriteMapper)
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("IPv6 and family selection", func(t *testing.T) {
+		tests := []AddressRewriteRule{
+			{External: []string{"2001:db8::50"}, Local: "2001:db8::1", CIDR: "2001:db8::/64", Networks: []NetworkType{NetworkTypeUDP6}},
+			{External: []string{" 203.0.113.50 ", "203.0.113.50"}, Networks: []NetworkType{NetworkType(99)}},
+		}
+
+		for _, rule := range tests {
+			agent, agentErr := NewAgentWithOptions(WithNet(virtualNet.net0), WithMulticastDNSMode(MulticastDNSModeDisabled), WithAddressRewriteRules(rule))
+			require.NoError(t, agentErr)
+			require.NoError(t, agent.Close())
+		}
+
+		agent, agentErr := NewAgentWithOptions(WithNet(virtualNet.net0), WithMulticastDNSMode(MulticastDNSModeDisabled), WithAddressRewriteRules())
+		require.NoError(t, agentErr)
+		require.NoError(t, agent.Close())
 	})
 }
 
@@ -553,16 +638,7 @@ func TestConnectivityVNetNAT1To1SharedFoundation(t *testing.T) {
 		WithNet(vnet.net0),
 		WithNetworkTypes([]NetworkType{NetworkTypeUDP4}),
 		WithMulticastDNSMode(MulticastDNSModeDisabled),
-		WithAddressRewriteRules(
-			AddressRewriteRule{
-				External:        []string{vnetGlobalIPA},
-				AsCandidateType: CandidateTypeHost,
-			},
-			AddressRewriteRule{
-				External:        []string{vnetGlobalIPA},
-				AsCandidateType: CandidateTypeServerReflexive,
-			},
-		),
+		WithAddressRewriteRules(AddressRewriteRule{External: []string{vnetGlobalIPA}, AsCandidateType: CandidateTypeHost}, AddressRewriteRule{External: []string{vnetGlobalIPA}, AsCandidateType: CandidateTypeServerReflexive}),
 	)
 	require.NoError(t, err)
 	defer func() {
@@ -601,13 +677,7 @@ func TestConnectivityVNetNAT1To1SharedFoundation(t *testing.T) {
 	}
 
 	require.Equal(t, 1, typeCount[CandidateTypeHost], "expected exactly one host candidate for %s", vnetGlobalIPA)
-	require.Equal(
-		t,
-		1,
-		typeCount[CandidateTypeServerReflexive],
-		"expected exactly one srflx candidate for %s",
-		vnetGlobalIPA,
-	)
+	require.Equal(t, 1, typeCount[CandidateTypeServerReflexive], "expected exactly one srflx candidate for %s", vnetGlobalIPA)
 }
 
 // TestDisconnectedToConnected requires that an agent can go to disconnected,
@@ -620,10 +690,7 @@ func TestDisconnectedToConnected(t *testing.T) {
 	loggerFactory := logging.NewDefaultLoggerFactory()
 
 	// Create a network with two interfaces
-	wan, err := vnet.NewRouter(&vnet.RouterConfig{
-		CIDR:          "0.0.0.0/0",
-		LoggerFactory: loggerFactory,
-	})
+	wan, err := vnet.NewRouter(&vnet.RouterConfig{CIDR: "0.0.0.0/0", LoggerFactory: loggerFactory})
 	require.NoError(t, err)
 
 	var dropAllData uint64
@@ -631,15 +698,11 @@ func TestDisconnectedToConnected(t *testing.T) {
 		return atomic.LoadUint64(&dropAllData) != 1
 	})
 
-	net0, err := vnet.NewNet(&vnet.NetConfig{
-		StaticIPs: []string{"192.168.0.1"},
-	})
+	net0, err := vnet.NewNet(&vnet.NetConfig{StaticIPs: []string{"192.168.0.1"}})
 	require.NoError(t, err)
 	require.NoError(t, wan.AddNet(net0))
 
-	net1, err := vnet.NewNet(&vnet.NetConfig{
-		StaticIPs: []string{"192.168.0.2"},
-	})
+	net1, err := vnet.NewNet(&vnet.NetConfig{StaticIPs: []string{"192.168.0.2"}})
 	require.NoError(t, err)
 	require.NoError(t, wan.AddNet(net1))
 
@@ -649,27 +712,13 @@ func TestDisconnectedToConnected(t *testing.T) {
 	keepaliveInterval := time.Millisecond * 20
 
 	// Create two agents and connect them
-	controllingAgent, err := NewAgent(&AgentConfig{
-		NetworkTypes:        supportedNetworkTypes(),
-		MulticastDNSMode:    MulticastDNSModeDisabled,
-		Net:                 net0,
-		DisconnectedTimeout: &disconnectTimeout,
-		KeepaliveInterval:   &keepaliveInterval,
-		CheckInterval:       &keepaliveInterval,
-	})
+	controllingAgent, err := NewAgent(&AgentConfig{NetworkTypes: supportedNetworkTypes(), MulticastDNSMode: MulticastDNSModeDisabled, Net: net0, DisconnectedTimeout: &disconnectTimeout, KeepaliveInterval: &keepaliveInterval, CheckInterval: &keepaliveInterval})
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, controllingAgent.Close())
 	}()
 
-	controlledAgent, err := NewAgent(&AgentConfig{
-		NetworkTypes:        supportedNetworkTypes(),
-		MulticastDNSMode:    MulticastDNSModeDisabled,
-		Net:                 net1,
-		DisconnectedTimeout: &disconnectTimeout,
-		KeepaliveInterval:   &keepaliveInterval,
-		CheckInterval:       &keepaliveInterval,
-	})
+	controlledAgent, err := NewAgent(&AgentConfig{NetworkTypes: supportedNetworkTypes(), MulticastDNSMode: MulticastDNSModeDisabled, Net: net1, DisconnectedTimeout: &disconnectTimeout, KeepaliveInterval: &keepaliveInterval, CheckInterval: &keepaliveInterval})
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, controlledAgent.Close())
@@ -720,17 +769,12 @@ func TestWriteUseValidPair(t *testing.T) {
 	loggerFactory := logging.NewDefaultLoggerFactory()
 
 	// Create a network with two interfaces
-	wan, err := vnet.NewRouter(&vnet.RouterConfig{
-		CIDR:          "0.0.0.0/0",
-		LoggerFactory: loggerFactory,
-	})
+	wan, err := vnet.NewRouter(&vnet.RouterConfig{CIDR: "0.0.0.0/0", LoggerFactory: loggerFactory})
 	require.NoError(t, err)
 
 	wan.AddChunkFilter(func(c vnet.Chunk) bool {
 		if stun.IsMessage(c.UserData()) {
-			m := &stun.Message{
-				Raw: c.UserData(),
-			}
+			m := &stun.Message{Raw: c.UserData()}
 			if decErr := m.Decode(); decErr != nil {
 				return false
 			} else if m.Contains(stun.AttrUseCandidate) {
@@ -741,36 +785,24 @@ func TestWriteUseValidPair(t *testing.T) {
 		return true
 	})
 
-	net0, err := vnet.NewNet(&vnet.NetConfig{
-		StaticIPs: []string{"192.168.0.1"},
-	})
+	net0, err := vnet.NewNet(&vnet.NetConfig{StaticIPs: []string{"192.168.0.1"}})
 	require.NoError(t, err)
 	require.NoError(t, wan.AddNet(net0))
 
-	net1, err := vnet.NewNet(&vnet.NetConfig{
-		StaticIPs: []string{"192.168.0.2"},
-	})
+	net1, err := vnet.NewNet(&vnet.NetConfig{StaticIPs: []string{"192.168.0.2"}})
 	require.NoError(t, err)
 	require.NoError(t, wan.AddNet(net1))
 
 	require.NoError(t, wan.Start())
 
 	// Create two agents and connect them
-	controllingAgent, err := NewAgent(&AgentConfig{
-		NetworkTypes:     supportedNetworkTypes(),
-		MulticastDNSMode: MulticastDNSModeDisabled,
-		Net:              net0,
-	})
+	controllingAgent, err := NewAgent(&AgentConfig{NetworkTypes: supportedNetworkTypes(), MulticastDNSMode: MulticastDNSModeDisabled, Net: net0})
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, controllingAgent.Close())
 	}()
 
-	controlledAgent, err := NewAgent(&AgentConfig{
-		NetworkTypes:     supportedNetworkTypes(),
-		MulticastDNSMode: MulticastDNSModeDisabled,
-		Net:              net1,
-	})
+	controlledAgent, err := NewAgent(&AgentConfig{NetworkTypes: supportedNetworkTypes(), MulticastDNSMode: MulticastDNSModeDisabled, Net: net1})
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, controlledAgent.Close())

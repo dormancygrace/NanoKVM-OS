@@ -15,6 +15,8 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+
+	"NanoKVM-Server/internal/atomicfile"
 )
 
 // EnsureServerCertificate creates a device-specific certificate on first boot.
@@ -33,6 +35,8 @@ func ensureGeneratedCertificate(certFile, keyFile string) error {
 	if _, err := tls.LoadX509KeyPair(certFile, keyFile); err == nil {
 		return nil
 	}
+	// Only a complete pair counts as existing: generation publishes the key
+	// first, so a lone key is an interrupted first boot and is regenerated.
 	_, certErr := os.Stat(certFile)
 	_, keyErr := os.Stat(keyFile)
 	if !os.IsNotExist(certErr) && !os.IsNotExist(keyErr) {
@@ -90,43 +94,28 @@ func generateCertFiles(certFile, keyFile string) error {
 		return err
 	}
 
-	// generate certificate
-	certOut, err := os.Create(certFile)
-	if err != nil {
-		log.Errorf("failed to create %s: %v", certFile, err)
-		return err
-	}
-
-	if err := pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
-		log.Errorf("failed to encode %s: %v", certFile, err)
-		return err
-	}
-
-	_ = certOut.Sync()
-	_ = certOut.Close()
-	log.Debugf("%s generated", certFile)
-
-	// generate private key
-	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600) // 权限 0600
-	if err != nil {
-		log.Errorf("failed to create %s: %v", keyFile, err)
-		return err
-	}
-
 	privateBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
 	if err != nil {
 		log.Errorf("failed to marshal private key: %v", err)
 		return err
 	}
 
-	if err := pem.Encode(keyOut, &pem.Block{Type: "PRIVATE KEY", Bytes: privateBytes}); err != nil {
-		log.Errorf("failed to encode %s: %v", keyFile, err)
+	// Publish the key before the certificate, each atomically. A power cut
+	// can then leave the pair incomplete (regenerated on the next start) but
+	// never torn; a torn pair is kept as "existing" and stops HTTPS start-up.
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privateBytes})
+	if err := atomicfile.Write(keyFile, keyPEM, 0600); err != nil {
+		log.Errorf("failed to write %s: %v", keyFile, err)
 		return err
 	}
-
-	_ = keyOut.Sync()
-	_ = keyOut.Close()
 	log.Debugf("%s generated", keyFile)
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	if err := atomicfile.Write(certFile, certPEM, 0644); err != nil {
+		log.Errorf("failed to write %s: %v", certFile, err)
+		return err
+	}
+	log.Debugf("%s generated", certFile)
 
 	return nil
 }

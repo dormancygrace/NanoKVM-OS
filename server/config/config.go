@@ -5,10 +5,13 @@ import (
 	"errors"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
+
+	"NanoKVM-Server/internal/atomicfile"
 )
 
 var (
@@ -72,39 +75,20 @@ func readByDefault() error {
 
 // Create configuration file.
 func create() {
-	var (
-		file *os.File
-		data []byte
-		err  error
-	)
+	_ = os.MkdirAll(filepath.Dir(configurationFile), 0o755)
 
-	_ = os.MkdirAll("/etc/kvm", 0o755)
-
-	file, err = os.OpenFile("/etc/kvm/server.yaml", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	data, err := yaml.Marshal(defaultConfig)
 	if err != nil {
-		log.Printf("open config failed: %s", err)
-		return
-	}
-	defer func() {
-		_ = file.Close()
-	}()
-
-	if data, err = yaml.Marshal(defaultConfig); err != nil {
 		log.Printf("failed to marshal default config: %s", err)
 		return
 	}
 
-	if _, err = file.Write(data); err != nil {
+	if err = atomicfile.Write(configurationFile, data, 0o600); err != nil {
 		log.Printf("failed to save config: %s", err)
 		return
 	}
 
-	if err = file.Sync(); err != nil {
-		log.Printf("failed to sync config: %s", err)
-		return
-	}
-
-	log.Println("create file /etc/kvm/server.yaml with default configuration")
+	log.Printf("create file %s with default configuration", configurationFile)
 }
 
 // Validate the configuration. This is to ensure compatibility with earlier versions.
@@ -113,8 +97,16 @@ func validate() error {
 		return nil
 	}
 
-	_ = os.Remove("/etc/kvm/server.yaml")
-	log.Println("delete empty configuration file")
+	// Keep the unusable file for inspection instead of silently discarding
+	// the owner's settings (authentication, ports, proxies, STUN/TURN).
+	if _, err := os.Stat(configurationFile); err == nil {
+		bad := configurationFile + ".bad"
+		if err = os.Rename(configurationFile, bad); err != nil {
+			log.Printf("failed to set aside invalid configuration: %s", err)
+		} else {
+			log.Printf("invalid configuration moved to %s; using defaults", bad)
+		}
+	}
 
 	create()
 

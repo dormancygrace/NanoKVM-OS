@@ -1,0 +1,143 @@
+--- stock-init
++++ init
+@@ -1,10 +1,45 @@
+ #!/busybox sh
+ 
+ export PATH=/
++# Preserve the stock boot/recovery flow; Linux DT sets USB peripheral mode.
++
++root_fs_type() {
++	# Prefer blkid when BusyBox provides it; accept only a recognized
++	# filesystem type from its metadata.
++	if [ -x /blkid ]; then
++		# BusyBox blkid only accepts a device argument; util-linux blkid may
++		# emit TYPE=..., so parse both forms before using the magic fallback.
++		fs_type=$(blkid /dev/mmcblk0p2 2>/dev/null || true)
++		case "$fs_type" in
++			ext4|*'TYPE="ext4"'*) printf '%s\n' ext4; return 0 ;;
++			f2fs|*'TYPE="f2fs"'*) printf '%s\n' f2fs; return 0 ;;
++		esac
++	fi
++
++	# Keep recovery usable with the small BusyBox-only initramfs as well.  These
++	# are the fixed magic offsets from the ext superblock and the F2FS primary
++	# superblock.  A damaged/unknown magic fails closed instead of running the
++	# wrong fsck against the card.
++	if [ -x /dd ] && [ -x /od ] && [ -x /tr ]; then
++		magic=$(dd if=/dev/mmcblk0p2 bs=1 skip=1024 count=4 2>/dev/null |
++			od -An -tx1 2>/dev/null | tr -d ' \t\r\n')
++		[ "$magic" = 1020f5f2 ] && { printf '%s\n' f2fs; return 0; }
++		magic=$(dd if=/dev/mmcblk0p2 bs=1 skip=1080 count=2 2>/dev/null |
++			od -An -tx1 2>/dev/null | tr -d ' \t\r\n')
++		[ "$magic" = 53ef ] && { printf '%s\n' ext4; return 0; }
++	fi
++	return 1
++}
++
++check_root_filesystem() {
++	case "$1" in
++		ext4) e2fsck -fvp /dev/mmcblk0p2 ;;
++		f2fs) fsck.f2fs -f -p /dev/mmcblk0p2 ;;
++		*) return 1 ;;
++	esac
++}
+ 
+ msc() {
+-	umount /dev/mmcblk0p1
+-	umount /dev/mmcblk0p2
+ 	echo mmc0 > /sys/devices/platform/leds/leds/led-user/trigger
+ 	cd /sys/kernel/config/usb_gadget
+ 	mkdir g0
+@@ -44,13 +79,20 @@
+ 	mkdir functions/mass_storage.disk0
+ 	ln -s functions/mass_storage.disk0 configs/c.1/
+ 	echo 1 > functions/mass_storage.disk0/lun.0/removable
++	# Release local mounts before exporting the entire card to the USB host.
++	# Abort this path if a mounted partition could not be released.
++	if grep -q ' /boot ' /proc/mounts; then
++		umount /boot || return 1
++	fi
++	if grep -q ' /realroot ' /proc/mounts; then
++		umount /realroot || return 1
++	fi
+ 	echo /dev/mmcblk0 > functions/mass_storage.disk0/lun.0/file
+ 	ls /sys/class/udc/ | cat > UDC
+-	echo device > /proc/cviusb/otg_role
++	# Mainline DWC2 uses dr_mode = "peripheral" from the board DT.
+ 	while true
+ 	do
+ 		sleep 1
+-		busybox iostat
+ 		busybox uptime
+ 		busybox uname
+ 		sync
+@@ -69,6 +111,11 @@
+ mount -t debugfs debugfs /sys/kernel/debug
+ 
+ mkdir -p /boot
++# Probe-only DTs can expose MMC a little later than the normal board DT.
++for attempt in 1 2 3 4 5 6 7 8 9 10; do
++	[ -b /dev/mmcblk0p2 ] && break
++	sleep 1
++done
+ mount -o ro /dev/mmcblk0p1 /boot
+ 
+ msc=0
+@@ -77,8 +124,6 @@
+ 	msc
+ fi
+ 
+-umount /dev/mmcblk0p1
+-
+ flashkey0=$(cat /sys/kernel/debug/gpio | grep 'User Key' | grep lo | wc -l)
+ sleep 0.5
+ flashkey1=$(cat /sys/kernel/debug/gpio | grep 'User Key' | grep lo | wc -l)
+@@ -90,20 +135,31 @@
+ 	fi
+ fi
+ 
++umount /boot
++
+ mkdir /realroot
+ # parted -s /dev/mmcblk0 "resizepart 2 -0"
+ # echo "yes
+ # 100%
+ # " | parted ---pretend-input-tty /dev/mmcblk0 "resizepart 2 100%"
+-# #e2fsck -fvp /dev/mmcblk0p2
+-# resize2fs /dev/mmcblk0p2
+-mount -o rw /dev/mmcblk0p2 /realroot
++# resize2fs is intentionally omitted here: p2 may be ext4 or F2FS.
++rootfs=$(root_fs_type || true)
++if [ -z "$rootfs" ]; then
++	echo 'Unsupported or unreadable root filesystem on /dev/mmcblk0p2' >&2
++	msc
++fi
++
++mount -t "$rootfs" -o rw /dev/mmcblk0p2 /realroot
+ mfail="$?"
+ 
+ if [ "${mfail}" -ne 0 ]
+ then
+-	e2fsck -fvp /dev/mmcblk0p2
+-	mount -o rw /dev/mmcblk0p2 /realroot
++	# Keep the stock retry behavior: e2fsck/fsck.f2fs may return a nonzero
++	# status after repairing a filesystem, so the remount is the authority.
++	if ! check_root_filesystem "$rootfs"; then
++		echo "${rootfs} recovery check failed on /dev/mmcblk0p2" >&2
++	fi
++	mount -t "$rootfs" -o rw /dev/mmcblk0p2 /realroot
+ 	mfail="$?"
+ 	if [ "${mfail}" -ne 0 ]
+ 	then
+@@ -114,4 +170,11 @@
+ mount -t proc proc /realroot/proc
+ mount -t sysfs sysfs /realroot/sys
+ mount -t devtmpfs devtmpfs /realroot/dev
++if [ "$(busybox tr -d '\000' < /sys/firmware/devicetree/base/sipeed,board-revision)" = detect ]; then
++	# Hardware discovery runs before networking, video, GPIO buttons or Wi-Fi.
++	# A successful selection replaces boot.sd and reboots with the selected DT.
++	busybox chroot /realroot /usr/sbin/nkos-board-select
++	echo 'NanoKVM board selection failed; normal services were not started'
++	exec busybox sh </dev/console >/dev/console 2>&1
++fi
+ exec switch_root /realroot /sbin/init

@@ -91,12 +91,14 @@ H.265 needs a browser/platform that actually supports decoding it. Pion packetiz
 
 ## 🚀 Installing NanoKVM OS
 
-Download **[NanoKVM-OS-v2.0-b1.img.zip](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.0-b1/NanoKVM-OS-v2.0-b1.img.zip)** and **[SHA256SUMS](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.0-b1/SHA256SUMS)**, verify the ZIP checksum, extract the `.img` and flash the SD card. Use a card of at least **2 GB**.
+Download **[NanoKVM-OS-v2.0-b6.img.zip](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.0-b6/NanoKVM-OS-v2.0-b6.img.zip)** and **[SHA256SUMS](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.0-b6/SHA256SUMS)**, verify the ZIP checksum, extract the `.img` and flash the SD card. Use a card of at least **2 GB**.
 
-| Your current installation | How to install b1 |
+| Your current installation | How to install b6 |
 |---|---|
 | Stock firmware, beta-14 or an older beta, or a blank SD card | Flash the full image; this replaces the existing installation and data |
-| Published **v2.0 a2** | Use the existing GUI package updater or `apk update` followed by `apk upgrade`; no reflash or new signing key is needed |
+| Published **v2.0 a2** or **b1–b5** | Use the existing GUI package updater or `apk update` followed by `apk upgrade`, then reboot; no reflash or new signing key is needed |
+
+If you installed **b5 from its attached `.apk` files**, those packages are pinned to the files in `/etc/apk/world` and `apk upgrade` keeps them. Release the pin first with `apk add nanokvm-base nanokvm-app nanokvm-release`, then upgrade.
 
 The full image contains a **64 MiB boot partition** and **768 MiB F2FS system partition**. First boot creates an exFAT data partition from the remaining card space, selects the board profile and restarts automatically. See [installation and recovery](docs/INSTALL.md).
 
@@ -110,7 +112,7 @@ Open **Settings → VPN** and choose WireGuard, OpenVPN, Tailscale or NetBird. O
 
 ## 📦 Updates
 
-NanoKVM OS v2 uses **native APK packages in the writable system root**. In b1, open **Settings → System → Software → Updates**. On a2, use **Settings → Updates → Package updates**. The same operations are available from the terminal:
+NanoKVM OS v2 uses **native APK packages in the writable system root**. From b1 onward, open **Settings → System → Updates**; on a2, use **Settings → Updates → Package updates**. The same operations are available from the terminal:
 
 ```sh
 apk update
@@ -119,7 +121,7 @@ apk upgrade
 
 To add or remove software, use `apk add PACKAGE` and `apk del PACKAGE`, or the Software GUI. APK resolves dependencies and verifies signatures.
 
-**The a2 → b1 component download is about 27.2 MB**, excluding repository metadata and updates to additional software. Settings, user data and independently installed packages are retained. Linux remains **7.2.6-nanokvm-os-r1**, so this transition does not rewrite the kernel or modules.
+Settings, user data and independently installed packages are retained. Linux is **7.2.6-nanokvm-os-r1** from a2 through b6; the kernel binary and its matching modules are unchanged across these updates.
 
 Completed transactions apply affected services through **OpenRC**. An application update briefly reconnects video and control; no manual apply command is needed. A future kernel update installs matching modules, selects the board's boot image and requires a reboot. Full system reinstallation remains a separate operation. See [updates](docs/UPDATES.md).
 

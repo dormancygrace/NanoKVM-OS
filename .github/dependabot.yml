@@ -20,6 +20,11 @@ updates:
     open-pull-requests-limit: 10
     allow:
       - dependency-type: all
+    # Keep Node types aligned with the oldest supported runtime and CI.
+    # Revisit this together with a deliberate Node major upgrade.
+    ignore:
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     groups:
       web-compatible:
         patterns: ['*']

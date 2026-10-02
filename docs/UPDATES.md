@@ -18,13 +18,13 @@ Coming from beta-14 or an older beta requires the full v2 SD image; legacy
 needs preparatory application/base updates for the native GUI controls. The a2
 image includes these controls from initial installation.
 
-## Updating a2 or b1–b5 to b6
+## Updating v2.0-a2 or later to b7
 
 Use the existing GUI package updater, or `apk update` followed by `apk upgrade`,
 then reboot. No reflash or new signing key is needed. Settings and independently
 installed packages are retained; Linux remains 7.2.6-nanokvm-os-r1. Coming from
 a2, see RELEASE-v2.0-b1.md for the optional OpenVPN 2 migration and the Software
-settings; see RELEASE-v2.0-b6.md for the current release.
+settings; see RELEASE-v2.0-b7.md for the current release.
 
 b5 was also distributed as separate APK files. Installing local `.apk` files
 pins those packages in `/etc/apk/world` to the exact files, so `apk upgrade`

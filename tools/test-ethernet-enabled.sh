@@ -44,6 +44,7 @@ run_eth() {
     NANOKVM_ARPING=$work/bin/arping \
     NANOKVM_DNS_MODE_FILE=$work/etc/dns.mode \
     NANOKVM_RESOLV_CONF=$work/etc/resolv.conf \
+    NANOKVM_GATEWAY_PREFERENCE_FILE=$work/etc/gateway.preferred \
     NANOKVM_TEST_IP_SHOW_INET=${NANOKVM_TEST_IP_SHOW_INET:-0} \
     NANOKVM_TEST_IP_CALLS=$work/ip.calls \
     NANOKVM_TEST_MODPROBE_CALLS=$work/modprobe.calls \
@@ -103,7 +104,8 @@ printf '%s\n' '10.20.0.2/24 10.20.0.1' > "$work/boot/eth.nodhcp"
 dhcp_calls_before=$(wc -l < "$work/udhcpc.call")
 NANOKVM_TEST_IP_SHOW_INET=1 run_eth start
 grep -Fqx 'a add 10.20.0.2/24 brd + dev eth0.100' "$work/ip.calls"
-grep -Fqx 'r add default via 10.20.0.1 dev eth0.100' "$work/ip.calls"
+# No gateway preference is saved, so S30eth uses its automatic metric.
+grep -Fqx 'r add default via 10.20.0.1 dev eth0.100 metric 100' "$work/ip.calls"
 test "$(wc -l < "$work/udhcpc.call")" -eq "$dhcp_calls_before"
 run_eth stop
 rm "$work/boot/eth.nodhcp"

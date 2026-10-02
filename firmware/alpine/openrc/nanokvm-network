@@ -9,7 +9,11 @@ description="NanoKVM Ethernet and Wi-Fi setup"
 : "${NANOKVM_WIFI_ETC_DIR:=/etc/kvm}"
 
 depend() {
-    need nanokvm-board
+    # /boot holds the interface settings. The board service only applies the
+    # hostname and MAC first; a video, HDMI or module failure there must not
+    # leave the device without a network.
+    need localmount
+    use nanokvm-board
     provide net
     before sshd nanokvm-app
 }

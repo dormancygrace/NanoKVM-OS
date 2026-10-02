@@ -95,6 +95,9 @@ static int hw_op(struct test_case *t, int encrypt, const unsigned char *src, siz
  }
  return (int)out;
 }
+/* Test-only software reference for the hardware DES/TDES ABI.
+ * Uses synthetic benchmark data, never application secrets. Retain these
+ * legacy cases for differential coverage, not production encryption. */
 static int sw_des(struct test_case *t,int encrypt,const unsigned char *src,size_t len,unsigned char *dst)
 {
  DES_key_schedule k1,k2,k3;DES_cblock vector;

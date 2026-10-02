@@ -1,8 +1,10 @@
-# SG2002 CryptoDMA algorithm extension
+# SG2002 CryptoDMA diagnostic tools and experiments
+
+These are opt-in developer diagnostics for the current driver in `platform/modules/sg2002-aes`, plus historical measurements and a standalone Go experiment. Restoring this directory does not install the tools, enable algorithms in applications, apply the Go patch, or change firmware outputs.
 
 This extends the existing serialized `sg2002_aes_probe` owner with AES-128/192/256, DES, two-key and three-key Triple DES, SM4 (ECB/CBC/CTR), SHA-1, SHA-256 and Base64 encode/decode. All 24 algorithm/mode variants passed short physical-device differential checks. AES-GCM is demonstrated by a userspace hybrid: hardware AES + software GHASH.
 
-The existing AES-128-CTR ioctl remains unchanged and has a compatibility check. The new module is installed on the development device and selected by the module build script. The module now also registers Linux Crypto API algorithms, exposed to userspace through standard cryptodev-linux `/dev/crypto`. The private diagnostic ioctl remains root-only. OpenSSL is built with an opt-in `devcrypto` engine; Go/Pion do not automatically use it. The extension is included in the 2026-09-10 beta full image; application-only packages do not replace the kernel modules.
+The existing AES-128-CTR ioctl remains unchanged and has a compatibility check. The driver also registers Linux Crypto API algorithms, exposed to userspace through standard cryptodev-linux `/dev/crypto`. The private diagnostic ioctl remains root-only. OpenSSL is built with an opt-in `devcrypto` engine; Go/Pion do not automatically use it. Build the current driver through `platform/build.sh`; these diagnostics are built separately.
 
 ## ABI and ownership
 
@@ -23,11 +25,13 @@ H=-Iplatform/modules/sg2002-aes
 "${CROSS_COMPILE}gcc" -O2 -Wall -Wextra -Werror $H -o sg2002-crypto-info firmware/crypto/experimental/sg2002-crypto-all/crypto-info.c
 ```
 
-After installing on the matching device, `crypto-bench --kat` checks boundaries, encryption/decryption, SHA padding/chaining, Base64 and invalid requests. `crypto-bench --bench 32` also measures 64/256/1200/4096/65536-byte inputs. `gcm-bench --kat` checks the AES-GCM hybrid; without arguments it measures hybrid versus software AES-GCM and software ChaCha20-Poly1305. These programs use synthetic keys/nonces and are measurement tools, not application encryption APIs. Invalid GCM tags must be rejected; decrypted output must not be consumed before authentication succeeds.
+After installing on the matching device, `crypto-bench --kat` checks boundaries, encryption/decryption, SHA padding/chaining, Base64 and invalid requests. `crypto-bench --bench 32` also measures 64/256/1200/4096/65536-byte inputs. `gcm-bench --kat` checks the AES-GCM hybrid; without arguments it measures hybrid versus software AES-GCM and software ChaCha20-Poly1305. These programs use synthetic keys/nonces and are measurement tools, not application encryption APIs. DES/TDES and SHA-1 are included to test the hardware ABI against a software reference; their presence is not a recommendation to use them for application security. Invalid GCM tags must be rejected; decrypted output must not be consumed before authentication succeeds.
 
 `python3 summarize.py RESULT_DIRECTORY` produces medians and tables from the saved CSV outputs. The Go experiment and a narrowly scoped runtime patch are in `ghash-go/`.
 
 ## Measurements and limits
+
+The results below describe the September 2026 experiments and their original software environment, including OpenSSL 3.6.4. They are retained for reproducibility, not presented as measurements of the current OpenSSL 4 firmware. `summarize.py` expects the original named CSV inputs; it is not a general-purpose report generator.
 
 The [public qualification summary](../../../../docs/VALIDATION.md) separates short functional checks, matched kernel batches and endurance limitations. CPU time is distinct from wall throughput.
 
@@ -45,7 +49,7 @@ These are physical-device functional checks and bounded microbenchmarks with cap
 
 `crypto_linux_api.inc` supplies 12 skciphers and two asynchronous hashes. Sleepable callers execute inline; atomic callers use an ordered workqueue. Each operation releases shared DMA ownership between 4 KiB chunks. Hash requests own their streaming state, final padding and export/import data. No caller can supply a DMA address.
 
-`/dev/crypto` uses unmodified public cryptodev IDs and has the upstream access mode 0666. Sessions copy keys and hold algorithm references. `CIOCGSESSINFO` reports the selected driver. `sg2002-crypto-info` reads native completion/poison counters without submitting DMA. The utility is installed on the development device. Build it separately with the firmware cross compiler from `crypto-info.c`; diagnostic utility availability depends on image staging.
+`/dev/crypto` uses unmodified public cryptodev IDs and has the upstream access mode 0666. Sessions copy keys and hold algorithm references. `CIOCGSESSINFO` reports the selected driver. `sg2002-crypto-info` reads native completion/poison counters without submitting DMA. Build the utility separately with the firmware cross compiler from `crypto-info.c`; its presence on a device depends on explicit installation or image staging.
 
 ```sh
 openssl engine -t -c devcrypto

@@ -336,7 +336,7 @@ boot() {
 
 verify() {
     (cd "$img" && sha256sum --quiet -c "$here/expected.sha256")
-    echo "Kernel, all modules and device trees match NanoKVM OS v2.0."
+    echo "All outputs in expected.sha256 match."
     (cd "$img" && find . -type f ! -name SHA256SUMS -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > SHA256SUMS)
     echo "Checksums of every output: $img/SHA256SUMS"
 }

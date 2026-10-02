@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
                     ignore=shutil.ignore_patterns("*.patch", "*.bin", "sg2002-aes"))
     (tree / "firmware/alpine").mkdir(parents=True)
     shutil.copy(REPO / "firmware/alpine/release.env", tree / "firmware/alpine/release.env")
-    defconfig = tree / "firmware/buildroot/configs/nanokvm_enhanced_defconfig"
+    defconfig = tree / "firmware/buildroot/configs/nanokvm_platform_defconfig"
     defconfig.parent.mkdir(parents=True)
     defconfig.write_text("BR2_riscv=y\n")
     out = root / "out"

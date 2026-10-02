@@ -8,7 +8,7 @@ The public repository uses Dependabot for supported manifests and a weekly upstr
 
 - GitHub Actions used by the repository workflows;
 - `web/package.json` and `web/pnpm-lock.yaml`, including development and indirect dependencies;
-- all six Go module directories, including dependencies of the three patched Pion trees;
+- all five Go module directories, including dependencies of the three patched Pion trees;
 - the two Dockerfiles used by Pion examples/tests.
 
 Minor and patch updates are grouped by ecosystem; major Go/npm upgrades remain separate PRs. Security updates have their own groups and are not tied to the weekly version-update schedule. Limits cap the number of open version PRs, not the set of eligible versions. Nothing enables automatic merging or device deployment.
@@ -39,7 +39,7 @@ The report distinguishes the Alpine recipe baseline, the C906 version derived by
 
 ## Coverage limits
 
-Historical Buildroot OpenVPN 3 (and its Asio dependency), Superfile and apk-tools recipes are excluded: they do not define the current Alpine application/package versions. The Alpine release explicitly conflicts with `openvpn3` and uses stock Alpine OpenVPN when installed. Merely retaining an old recipe in the source tree does not make it a firmware update candidate.
+Historical Buildroot OpenVPN 3/Asio, Superfile, private apk-tools and nkos-addons recipes were removed together with the old rootfs profiles. The Alpine release explicitly conflicts with `openvpn3` and uses stock Alpine OpenVPN when installed. Buildroot now has a dedicated platform-only profile; Alpine recipes define installed system and optional package versions.
 
 - Dependabot supports specific manifest formats, not arbitrary shell variables or patches. The first frontend updater produced PR #26 with a version-9 lockfile that passed frozen installation, build, lint and tests under our pnpm 12 CI. Future updater and lockfile failures still require review.
 - Buildroot updates cover its upstream recipe collection; the dashboard does not independently audit every transitive C library or locally overridden Buildroot package for new versions/CVEs.

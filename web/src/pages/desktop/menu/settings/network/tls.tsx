@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
+import axios from 'axios';
 import { message, Switch, Tooltip } from 'antd';
 import { CircleAlertIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+
+function restartInterruptedRequest(err: unknown): boolean {
+  if (!axios.isAxiosError(err)) return false;
+  const status = err.response?.status;
+  return status === undefined || (status >= 502 && status <= 504);
+}
 
 export const Tls = () => {
   const { t } = useTranslation();
@@ -28,15 +35,20 @@ export const Tls = () => {
         setIsLoading(false);
         return;
       }
-      setIsEnabled(enable);
     } catch (err) {
-      console.log(err);
-      message.error(t('settings.network.tls.failed'));
-      setIsLoading(false);
-      return;
+      // The server restarts itself to apply the change and may drop the
+      // connection before its reply arrives (or a proxy may answer 502-504
+      // meanwhile). Only a definite HTTP refusal means it was not applied.
+      if (!restartInterruptedRequest(err)) {
+        console.log(err);
+        message.error(t('settings.network.tls.failed'));
+        setIsLoading(false);
+        return;
+      }
     }
+    setIsEnabled(enable);
 
-    // The server restarts after confirming the change; reload only then.
+    // The server restarts after accepting the change; reload once it is back.
     const seconds = enable ? 30 : 10;
     setTimeout(() => {
       reload(enable);

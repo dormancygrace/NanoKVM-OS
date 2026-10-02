@@ -3,6 +3,7 @@ package vm
 import (
 	"fmt"
 	"os/exec"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -36,8 +37,17 @@ func (s *Service) SetTls(c *gin.Context) {
 
 	rsp.OkRsp(c)
 
-	_ = exec.Command("sh", "-c", "/etc/init.d/S95nanokvm restart").Run()
+	// The restart stops this process. Deliver the confirmation first and
+	// restart only after the handler has returned, so the browser learns the
+	// change was accepted instead of seeing a dropped connection.
+	c.Writer.Flush()
+	go func() {
+		time.Sleep(tlsRestartDelay)
+		_ = exec.Command("sh", "-c", "/etc/init.d/S95nanokvm restart").Run()
+	}()
 }
+
+const tlsRestartDelay = time.Second
 
 func enableTls() error {
 	conf, err := config.Read()

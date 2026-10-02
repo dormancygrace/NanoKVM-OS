@@ -2,6 +2,7 @@ package vm
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"NanoKVM-Server/config"
@@ -55,5 +56,27 @@ func TestEnableTlsUsesDefaultPathsWhenUnset(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestValidHostnameMatchesDHCPRule(t *testing.T) {
+	for _, ok := range []string{"nanokvm", "kvm-01", "kvm.lab.example", "a"} {
+		if err := validHostname(ok); err != nil {
+			t.Errorf("rejected %q: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"", "-kvm", "kvm-", "kvm lab", "kvm/1", "kvm&x", "a..b", ".kvm", "kvm.", strings.Repeat("a", 64)} {
+		if err := validHostname(bad); err == nil {
+			t.Errorf("accepted %q", bad)
+		}
+	}
+}
+
+func TestReplaceHostEntryOnlyRenamesWholeNames(t *testing.T) {
+	hosts := "127.0.0.1\tlocalhost local\n# local comment\n127.0.1.1 local local.lan\n"
+	got := replaceHostEntry(hosts, "local", "kvm")
+	want := "127.0.0.1\tlocalhost\tkvm\n# local comment\n127.0.1.1\tkvm\tlocal.lan\n"
+	if got != want {
+		t.Fatalf("hosts =\n%q\nwant\n%q", got, want)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 
+	"NanoKVM-Server/internal/atomicfile"
 	"NanoKVM-Server/proto"
 
 	"github.com/gin-gonic/gin"
@@ -94,7 +95,10 @@ func loadShortcuts() (*ShortcutStore, error) {
 
 	var store ShortcutStore
 	if err := json.Unmarshal(data, &store); err != nil {
-		return nil, err
+		// A file torn by an older non-atomic write must not disable the
+		// shortcut API for good; start from an empty set instead.
+		log.Warnf("ignoring unreadable %s: %v", shortcutFile, err)
+		return &ShortcutStore{Shortcuts: []proto.Shortcut{}}, nil
 	}
 
 	return &store, nil
@@ -106,7 +110,7 @@ func saveShortcuts(store *ShortcutStore) error {
 		return err
 	}
 
-	return os.WriteFile(shortcutFile, data, 0644)
+	return atomicfile.Write(shortcutFile, data, 0644)
 }
 
 func listShortcuts() ([]proto.Shortcut, error) {

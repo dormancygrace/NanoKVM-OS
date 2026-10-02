@@ -15,7 +15,7 @@ function keyboardHarness() {
  class Report { keyDown(k){sent.push(['down',k]);return []} keyUp(k){sent.push(['up',k]);return []} reset(){sent.push(['reset']);return []} }
  const control={handleKeyDown:()=>false,handleKeyUp:k=>{releaseCalls.push(k);return false},reset(){}};
  new Function('exports','require','document','window',js)(exports,name=>{
-  if(name==='react')return {useRef:v=>{const ref={current:v};refs.push(ref);return ref},useEffect:f=>effects.push(f)};
+  if(name==='react')return {useCallback:f=>f,useRef:v=>{const ref={current:v};refs.push(ref);return ref},useEffect:f=>effects.push(f)};
   if(name==='react/jsx-runtime')return {jsx(){},jsxs(){},Fragment(){}};
   if(name==='jotai')return {useAtomValue:atom=>atom==='enabled'?true:state};
   if(name.includes('browser'))return {getOperatingSystem:()=> 'Windows'};

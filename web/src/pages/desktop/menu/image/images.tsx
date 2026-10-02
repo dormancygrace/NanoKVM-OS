@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Modal, notification, Typography } from 'antd';
 import clsx from 'clsx';
 import {
@@ -36,24 +36,22 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
   const [deletingImage, setDeletingImage] = useState('');
   const [forceEjectImage, setForceEjectImage] = useState('');
 
-  useEffect(() => {
-    if (!isOpen) return;
+  // get mounted image
+  const getMountedImage = useCallback(() => {
+    api.getMountedImage().then((rsp) => {
+      if (rsp.code !== 0) return;
 
-    getImages();
+      const file = rsp.data?.file;
+      setMountedImage(file);
+      setIsMounted(!!file);
+    });
+  }, [setIsMounted]);
 
-    const handleImageUpdated = () => {
-      getImages();
-    };
-    window.addEventListener(imageUpdatedEvent, handleImageUpdated);
-
-    return () => {
-      window.removeEventListener(imageUpdatedEvent, handleImageUpdated);
-    };
-  }, [isOpen]);
-
+  const imageReadInFlight = useRef(false);
   // get image list
-  function getImages() {
-    if (isLoading) return;
+  const getImages = useCallback(() => {
+    if (imageReadInFlight.current) return;
+    imageReadInFlight.current = true;
     setIsLoading(true);
 
     getMountedImage();
@@ -73,20 +71,25 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
         }
       })
       .finally(() => {
+        imageReadInFlight.current = false;
         setIsLoading(false);
       });
-  }
+  }, [getMountedImage]);
 
-  // get mounted image
-  function getMountedImage() {
-    api.getMountedImage().then((rsp) => {
-      if (rsp.code !== 0) return;
+  useEffect(() => {
+    if (!isOpen) return;
 
-      const file = rsp.data?.file;
-      setMountedImage(file);
-      setIsMounted(!!file);
-    });
-  }
+    getImages();
+
+    const handleImageUpdated = () => {
+      getImages();
+    };
+    window.addEventListener(imageUpdatedEvent, handleImageUpdated);
+
+    return () => {
+      window.removeEventListener(imageUpdatedEvent, handleImageUpdated);
+    };
+  }, [isOpen, getImages]);
 
   // mount/unmount image
   function mountImage(image: string, force = false) {

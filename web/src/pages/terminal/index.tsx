@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 import { AttachAddon } from '@xterm/addon-attach';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal as XtermTerminal } from '@xterm/xterm';
@@ -15,6 +15,9 @@ import { buildSerialQuery } from './validater.ts';
 
 export const Terminal = () => {
   const { t } = useTranslation();
+  const invalidParameters = useEffectEvent(() =>
+    t('terminal.invalidParameters', { defaultValue: 'Invalid serial parameters.' })
+  );
 
   useEffect(() => {
     const terminalEle = document.getElementById('terminal');
@@ -41,9 +44,7 @@ export const Terminal = () => {
         stopBits: searchParams.get('stopBits')
       });
       if (serialQuery === null) {
-        terminal.writeln(
-          t('terminal.invalidParameters', { defaultValue: 'Invalid serial parameters.' })
-        );
+        terminal.writeln(invalidParameters());
         return () => terminal.dispose();
       }
       query = `?${serialQuery}`;

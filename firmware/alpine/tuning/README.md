@@ -1,5 +1,9 @@
 # Alpine C906 scalar package overlay
 
+This is an optional experimental profile retained for future work. Production
+images default to official Alpine packages (`stock`); no tuned repository or
+C906 package rebuild is required. See `../README.md` for existing-device migration.
+
 `scripts/build-alpine-tuned-packages.sh` builds a small signed repository of
 Alpine v3.24 packages rebuilt for the scalar T-Head C906 extensions. It uses
 the aports commit

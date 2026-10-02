@@ -104,7 +104,6 @@ signing key:
   --base-rootfs work/alpine/alpine-minirootfs-3.24.2-riscv64.tar.gz \
   --boot-fit work/alpine/final-vm-good/boot-alpine.sd \
   --nanokvm-repo work/alpine/repo-r4/stock/recipes \
-  --tuned-repo work/alpine/repo-c906-qualified \
   --repo-key work/alpine/signing/dgrace-6aaddbb6.rsa.pub \
   --qemu-static work/alpine/tuned-builder-full/rootfs/usr/bin/qemu-riscv64-static
 ```
@@ -130,12 +129,11 @@ public key.
 
 ```sh
 sudo ./scripts/build-alpine-personal-image.sh \
-  --profile c906-scalar \
+  --profile stock \
   --base-rootfs /srv/nanokvm/input/alpine-minirootfs-3.24.2-riscv64.tar.gz \
   --base-sha256 <verified-base-sha256> \
   --boot-fit /srv/nanokvm/input/boot-alpine.sd \
   --boot-sha256 <verified-boot-sha256> \
-  --tuned-repo https://builder.example/nanokvm/c906-scalar \
   --nanokvm-repo https://builder.example/nanokvm/stock/recipes \
   --repo-key /srv/nanokvm/keys/nanokvm-packages.rsa.pub \
   --packages-file request.packages \
@@ -250,3 +248,11 @@ final artifacts were:
 
 The VM response, device snapshot and UART evidence are under
 `firmware/alpine/evidence/2026-09-19-attended-vm-final`.
+
+## Optional C906 experiments
+
+Stock is the default request profile, even for a device previously using C906.
+The stock builder config does not need a tuned repository. To re-enable
+experiments, supply `--tuned-repo` when creating the deployment bundle (or set
+`tuned_repo` in the server config) and request `c906-scalar` explicitly. Without
+that opt-in the server rejects tuned requests with a clear error.

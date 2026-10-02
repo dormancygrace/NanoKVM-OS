@@ -95,7 +95,7 @@ def main() -> None:
     parser.add_argument("--base-rootfs", type=Path, required=True)
     parser.add_argument("--boot-fit", type=Path, required=True)
     parser.add_argument("--nanokvm-repo", type=Path, required=True)
-    parser.add_argument("--tuned-repo", type=Path, required=True)
+    parser.add_argument("--tuned-repo", type=Path, help="Optional experimental C906 repository")
     parser.add_argument("--repo-key", type=Path, required=True)
     parser.add_argument("--qemu-static", type=Path, required=True)
     parser.add_argument("--f2fs-build", type=Path, default=Path("build/f2fs"))
@@ -115,7 +115,7 @@ def main() -> None:
         "qemu": require_file(resolve(repo, args.qemu_static), "qemu-riscv64-static"),
     }
     nanokvm_repo = require_directory(resolve(repo, args.nanokvm_repo), "NanoKVM repository")
-    tuned_repo = require_directory(resolve(repo, args.tuned_repo), "qualified C906 repository")
+    tuned_repo = require_directory(resolve(repo, args.tuned_repo), "qualified C906 repository") if args.tuned_repo else None
     f2fs_build = require_directory(resolve(repo, args.f2fs_build), "F2FS recovery build")
     output = resolve(repo, args.output)
     if output.exists() and not args.force:
@@ -147,7 +147,8 @@ def main() -> None:
         copy_file(inputs["repo_key"], bundle / "keys" / inputs["repo_key"].name)
         copy_file(inputs["qemu"], bundle / "qemu/qemu-riscv64-static")
         shutil.copytree(nanokvm_repo, bundle / "repos/nanokvm")
-        shutil.copytree(tuned_repo, bundle / "repos/c906-qualified")
+        if tuned_repo is not None:
+            shutil.copytree(tuned_repo, bundle / "repos/c906-qualified")
         (bundle / "requests").mkdir()
         (bundle / "requests/sample.packages").write_text(
             args.sample_package + "\n", encoding="utf-8"
@@ -163,7 +164,7 @@ def main() -> None:
             "boot_fit": "input/boot-alpine.sd",
             "boot_sha256": boot_hash,
             "nanokvm_repo": "repos/nanokvm",
-            "tuned_repo": "repos/c906-qualified",
+            "tuned_repo": "repos/c906-qualified" if tuned_repo is not None else None,
             "repo_keys": [f"keys/{key_name}"],
             "qemu_static": "qemu/qemu-riscv64-static",
             "output_root": "output",
@@ -187,12 +188,11 @@ def main() -> None:
             "In another shell, run the sample build:\n\n"
             "```sh\n"
             "sudo ./scripts/build-alpine-personal-image.sh \\\n"
-            "  --profile c906-scalar \\\n"
+            "  --profile stock \\\n"
             f"  --base-rootfs input/{inputs['base_rootfs'].name} \\\n"
             f"  --base-sha256 {base_hash} \\\n"
             "  --boot-fit input/boot-alpine.sd \\\n"
             f"  --boot-sha256 {boot_hash} \\\n"
-            "  --tuned-repo http://127.0.0.1:18080/c906-qualified \\\n"
             "  --nanokvm-repo http://127.0.0.1:18080/nanokvm \\\n"
             f"  --repo-key keys/{key_name} \\\n"
             "  --packages-file requests/sample.packages \\\n"
@@ -206,7 +206,7 @@ def main() -> None:
             "  --config builder-config.json --listen 127.0.0.1 --port 8080\n"
             "curl -sS -X POST http://127.0.0.1:8080/v1/builds \\\n"
             "  -H 'Content-Type: application/json' \\\n"
-            "  -d '{\"profile\":\"c906-scalar\",\"packages\":[\"nano\"]}'\n"
+            "  -d '{\"profile\":\"stock\",\"packages\":[\"nano\"]}'\n"
             "```\n\nPrivate signing keys are intentionally absent.\n",
             encoding="utf-8",
         )

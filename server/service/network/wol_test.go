@@ -1,6 +1,7 @@
 package network
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -68,5 +69,34 @@ func TestWolCommandUsesSeparateArguments(t *testing.T) {
 	want := []string{"ether-wake", "-i", "wlan0", "-b", "AA:BB:CC:DD:EE:FF"}
 	if !reflect.DeepEqual(cmd.Args, want) {
 		t.Fatalf("command argv = %#v", cmd.Args)
+	}
+}
+
+func TestWolHistoryIsBoundedAndKeepsNamedEntries(t *testing.T) {
+	original := WolMacFile
+	WolMacFile = filepath.Join(t.TempDir(), "cache", "wol")
+	defer func() { WolMacFile = original }()
+
+	saveMac("AA:BB:CC:00:00:01")
+	macs, err := readWolMacs()
+	if err != nil || len(macs) != 1 {
+		t.Fatalf("history = %v, %v", macs, err)
+	}
+	if err = writeWolMacs([]string{formatWolMacLine("AA:BB:CC:00:00:01", "office")}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 2; i <= maxWolHistory+20; i++ {
+		saveMac(fmt.Sprintf("AA:BB:CC:00:%02X:%02X", i/256, i%256))
+	}
+	macs, err = readWolMacs()
+	if err != nil || len(macs) != maxWolHistory {
+		t.Fatalf("history length = %d, %v", len(macs), err)
+	}
+	if macs[0] != formatWolMacLine("AA:BB:CC:00:00:01", "office") {
+		t.Fatalf("named entry evicted: %q", macs[0])
+	}
+	saveMac("AA:BB:CC:00:00:01")
+	if again, _ := readWolMacs(); len(again) != maxWolHistory {
+		t.Fatal("an existing address was added twice")
 	}
 }

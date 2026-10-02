@@ -44,7 +44,13 @@ func enableTls() error {
 	if err != nil {
 		return err
 	}
-	return enableTlsConfig(conf, config.Write, utils.EnsureServerCertificate)
+	return enableTlsConfig(conf, writeTLSConfig, utils.EnsureServerCertificate)
+}
+
+// writeTLSConfig persists only the TLS keys, leaving the rest of server.yaml
+// untouched.
+func writeTLSConfig(conf *config.Config) error {
+	return config.UpdateTLS(conf.Proto, conf.Cert)
 }
 
 func enableTlsConfig(conf *config.Config, writeConfig func(*config.Config) error, ensureCertificate func(string, string) error) error {
@@ -72,9 +78,5 @@ func disableTls() error {
 
 	conf.Proto = "http"
 
-	if err := config.Write(conf); err != nil {
-		return err
-	}
-
-	return nil
+	return writeTLSConfig(conf)
 }

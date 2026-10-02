@@ -10,16 +10,24 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
+	"NanoKVM-Server/internal/atomicfile"
 	"NanoKVM-Server/proto"
 )
 
-const (
-	WolMacFile = "/etc/kvm/cache/wol"
-)
+// WolMacFile stores the Wake-on-LAN history (a variable so tests can redirect it).
+var WolMacFile = "/etc/kvm/cache/wol"
+
+// maxWolHistory bounds the remembered MAC addresses.
+const maxWolHistory = 100
+
+// wolMacMutex serialises every read-modify-write of WolMacFile; concurrent
+// wakes, renames and deletes used to overwrite each other's changes.
+var wolMacMutex sync.Mutex
 
 var systemNetworkInterfaces = net.Interfaces
 var wolSysClassNet = "/sys/class/net"
@@ -181,6 +189,8 @@ func (s *Service) SetMacName(c *gin.Context) {
 		return
 	}
 
+	wolMacMutex.Lock()
+	defer wolMacMutex.Unlock()
 	macs, err := readWolMacs()
 	if err != nil {
 		log.Errorf("failed to open %s: %s", WolMacFile, err)
@@ -241,6 +251,8 @@ func (s *Service) DeleteMac(c *gin.Context) {
 		return
 	}
 
+	wolMacMutex.Lock()
+	defer wolMacMutex.Unlock()
 	macs, err := readWolMacs()
 	if err != nil {
 		log.Errorf("failed to open %s: %s", WolMacFile, err)
@@ -302,6 +314,9 @@ func parseMAC(mac string) (string, error) {
 }
 
 func saveMac(mac string) {
+	wolMacMutex.Lock()
+	defer wolMacMutex.Unlock()
+
 	if isMacExist(mac) {
 		return
 	}
@@ -312,20 +327,26 @@ func saveMac(mac string) {
 		return
 	}
 
-	file, err := os.OpenFile(WolMacFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		log.Errorf("failed to open %s: %s", WolMacFile, err)
+	macs, err := readWolMacs()
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.Errorf("failed to read %s: %s", WolMacFile, err)
 		return
 	}
-	defer func() {
-		_ = file.Close()
-	}()
-
-	content := fmt.Sprintf("%s\n", mac)
-	_, err = file.WriteString(content)
-	if err != nil {
+	macs = append(macs, mac)
+	// Any user can trigger a wake; bound the history by dropping the oldest
+	// unnamed entry (or the oldest entry when all of them are named).
+	for len(macs) > maxWolHistory {
+		drop := 0
+		for i, line := range macs {
+			if _, name, ok := splitWolMacLine(line); ok && name == "" {
+				drop = i
+				break
+			}
+		}
+		macs = append(macs[:drop], macs[drop+1:]...)
+	}
+	if err = writeWolMacs(macs); err != nil {
 		log.Errorf("failed to write %s: %s", WolMacFile, err)
-		return
 	}
 }
 
@@ -378,7 +399,7 @@ func writeWolMacs(macs []string) error {
 		data = strings.Join(macs, "\n") + "\n"
 	}
 
-	return os.WriteFile(WolMacFile, []byte(data), 0o644)
+	return atomicfile.Write(WolMacFile, []byte(data), 0o644)
 }
 
 func splitWolMacLine(line string) (string, string, bool) {

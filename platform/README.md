@@ -66,6 +66,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`). Re
 The build also uses these parts of the repository:
 - `firmware/buildroot/`: platform-only source patches and `configs/nanokvm_platform_defconfig` for the toolchain, host tools and initramfs userland;
 - `firmware/boards/`: the board device trees and the board probe;
+- `firmware/sensor/patches/`: NanoKVM I2C/MIPI wiring and LT6911UXC/LT6911D identification; applied before compiling MMF;
 - `firmware/mpi/`: the MMF capture-size helper, compatibility headers and the hashes of the SOPHGO ISP objects (`vendor-isp-objects.json`);
 - `firmware/alpine/`: the APK recipes, OpenRC services and compatibility scripts, `release.env` with the version;
 - `server/`, `web/`, `support/sg2002/`, `native/usb-audio/`, `tools/nanokvm_update_edid/`, `kvmapp/`: the application;

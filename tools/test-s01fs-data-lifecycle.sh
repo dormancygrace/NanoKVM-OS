@@ -36,8 +36,19 @@ mkdir -p "$BIN_DIR"
 cat > "$BIN_DIR/mount" <<'EOF'
 #!/bin/sh
 printf 'mount %s\n' "$*" >> "$NANOKVM_TEST_LOG"
-if [ "${NANOKVM_MOUNT_FAIL:-0}" = 1 ] && [ "${1:-}" = "$NANOKVM_DATA_PART" ]; then
-        exit 1
+# S01fs mounts the data partition as "mount -t exfat PART DIR", so look for
+# the partition in any position rather than only as the first argument.
+targets_data=0
+for arg in "$@"; do
+        [ "$arg" = "$NANOKVM_DATA_PART" ] && targets_data=1
+done
+if [ "$targets_data" = 1 ]; then
+        [ "${NANOKVM_MOUNT_FAIL:-0}" = 1 ] && exit 1
+        # The typed exFAT mount fails on an unrecognized filesystem that was
+        # not formatted during this run.
+        if [ "${NANOKVM_BLKID_KIND:-}" = unknown ] && [ ! -e "$NANOKVM_FORMATTED_FILE" ]; then
+                exit 1
+        fi
 fi
 exit 0
 EOF
@@ -340,7 +351,7 @@ expect_status 1
 assert_file "$NANOKVM_DATA_PART"
 assert_file "$NANOKVM_DATA_FORMAT_PENDING"
 assert_absent "$NANOKVM_DISK0_MARKER"
-assert_contains 'Unknown data partition preserved' "$CASE_STDERR"
+assert_contains 'Existing data partition is not mountable as exFAT; preserved' "$CASE_STDERR"
 assert_no_call 'parted '
 assert_no_call 'mkfs.exfat'
 

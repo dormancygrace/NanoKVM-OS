@@ -1162,7 +1162,8 @@ const en = {
           no: 'No',
           scriptName: 'Autostart Script Name',
           scriptContent: 'Autostart Script Content',
-          settings: 'Settings'
+          settings: 'Settings',
+          nameRequired: 'Enter a script name'
         },
         hidOnly: 'HID-Only Mode',
         hidOnlyDesc: 'Stop emulating virtual devices, retaining only basic HID control',
@@ -1307,7 +1308,8 @@ const en = {
         },
         tls: {
           description: 'Enable HTTPS protocol',
-          tip: 'Be aware: Using HTTPS can increase latency, especially with MJPEG video mode.'
+          tip: 'Be aware: Using HTTPS can increase latency, especially with MJPEG video mode.',
+          failed: 'Failed to change HTTPS. The current setting is unchanged.'
         },
         ipv6: {
           description: 'Disabled by default. Changes are saved across reboots.',
@@ -1479,6 +1481,7 @@ const en = {
         updateBtn: 'Change',
         logoutBtn: 'Logout',
         logoutDesc: 'Are you sure you want to logout?',
+        logoutFailed: 'Logout failed; this session is still signed in.',
         okBtn: 'Yes',
         cancelBtn: 'No',
         users: {

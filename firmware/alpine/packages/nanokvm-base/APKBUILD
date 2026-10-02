@@ -8,7 +8,7 @@ license="GPL-3.0-only AND GPL-2.0-only"
 depends="bash chrony-openrc avahi-openrc dbus-openrc busybox-openrc openssh-server openssh-server-common nftables iproute2-tc util-linux openrc eudev kmod exfatprogs f2fs-tools"
 source="$pkgname-$pkgver.tar.gz
 	nanokvm-banner.sh"
-options="!check"
+options="!check !strip"
 install="$pkgname.post-install $pkgname.post-upgrade $pkgname.pre-deinstall"
 
 build() {

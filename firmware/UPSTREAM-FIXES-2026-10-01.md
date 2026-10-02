@@ -14,10 +14,8 @@ OS-version/device-key readers close it after a failed read; an empty runtime
 version returns an empty string after destroying the file object. Filesystem
 API changes and MaixCAM2 changes from the surrounding commits are excluded.
 
-`apply-maixcdk-fixes.py` checks both affected source files before writing,
-preflights patches without fuzz, verifies resulting hashes and accepts repeated
-application. The board-service builder requires the reviewed I2C and system
-fixes before compilation. Host tests link the actual MaixCDK system, filesystem,
+`platform/build.sh system` checks the MaixCDK source tree against its pin and
+applies both fixes from `platform/native/maixcdk` before compilation. Host tests link the actual MaixCDK system, filesystem,
 logging and error sources. These helpers are mostly discarded by the current
 board-service linker; this fixes the pinned source subset and future users of it.
 

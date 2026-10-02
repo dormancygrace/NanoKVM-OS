@@ -1,0 +1,272 @@
+{
+  "source_commit": "693a72a1d52f2e08ea767e0a72905e81f10572a5",
+  "objects": [
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/dpcm_api.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "72e9d2b94d610bc785626620aaf4c4ddb8005b09e3d43d7791ce627a747163d1",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_blc.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "8da2f60cf588111e96867c1b0cf447f3f7720a674668a5382fc3ce7b261178b7",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_bnr.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "5c9d52f3cea461427a70ecc4741ddf79f242dcd19197234b0c42aaae3537596c",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_ca.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "ed7f3160406dc44019e0ff3a443a070dd3376094d55f6cd7e481b09b808da084",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_ca2.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "fd7cf30bb2230eb841957b582f7a6f14fd9483fcd8066fe20e5903ac65335d6f",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_cac.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "390dc769a60d1acd27480e0a15380ae604450272fd87b97f68a94a6f5f340085",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_ccm.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "74879353b7648316adb8fd9f17c759543c7ac65f70c40586ac526510ac1996f7",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_clut.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "32b93bdd0c79115a86beffc5c6a502df7d964d2bc08a2e35c961e070df425e60",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_cnr.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "90a4fe1a72f498d910f49ecc24f5504b0411ef4301ad5cd75b576245c3729963",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_crosstalk.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "df692c7e8b7d03c842efdb6f48ae49de65fcf0470583a0cabf794cf13741729f",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_csc.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "a7f838d30ab722a5440994e5d06d48cefda115fc1601fd7e067a13c2c86382c6",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_dci.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "b295d7a427f81e0734e969dbba3b6775ed1be3292fca6ad0ea50c2717fbe44b8",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_debug.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "35e323eb4f89de59e0028f1bab2ac89cd81f57ebc6854f77d04a25e776625fac",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_dehaze.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "984752e14365a28e5133fb82ed90858b50c2b71a56033d3e75e585e4ab55c578",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_demosaic.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "1d25a23651bb14fbb9d21663e10a2d639ffb3d06c4d0619e5c8c22118048b650",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_dis.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "adb29acc60d1e7a45aac682978b2703c0dc8d5f6febd8a61ab06f8f79a4d7eed",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_dpc.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "8d1621ec3aac28072795b5e289dec782d828815af6943abc23e899c79b5cf834",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_drc.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "ce986225fd8a3dccfd9db89904a6e9b6179971c35b6f4fce7fbca773249c7975",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_fswdr.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "80445e9fbc6d8e7fc8a9f19f8dfec2fe8ac3e7d4712b491159d6f4d8365b6b9a",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_gamma.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "7de82e0b557867ca79e2e28b5e37bf637766a6b56a95e17a9dbeefd29cf6a324",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_lblc.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "f7225db0dead2caaf59ec9676074a33070ea8af81472d5359a5a12d1a7b2e293",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_lcac.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "f9ab8e64cc00a0bbdf6e02489f2df5b1f1e216fd5eb3e6abd963b5bf80f05053",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_ldci.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "f6a20a21418d16d1b1aa32d5676f2431a584767322f207986f456636ad538c2e",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_mlsc.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "0b26afe1e002c5bda514e9db9f88832c1d4ce23ff9496f4e2f21a937f4284e26",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_mono.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "859f1857e539e5d097ec6ac369fb178207ac1fa1ed77f7db01cee9dbb86d8f64",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_motion.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "f988d8b0685ddd9cf9078f738e383969fb76db870af9f43dd32764df469a3438",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_presharpen.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "15b624e184d06b4dd00c77af6a49d878d3c7ae4ef6f303e62e70f023124e9a86",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_rgbcac.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "8e7c7b97266db0ac6cbc085c790922b98eb8cf252dcfbe683a08582759dc427f",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_sharpen.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "c08ea5019fb1da2456a1ff8506d93145d40afcb561275bfa32bfc16d86fda8a9",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_teaisp_bnr.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "736c75a70889733ad76d299bddf46fe09b950cdf122b4059d5e3480087cde814",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_teaisp_pq.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "2de4a14c45dcadcd795707ce076f3d83552785bb53036e37517e287ad0a5d99f",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_tnr.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "4921a261f4df9a06b6255351f69ddbfa863b645724d9bd3db8e521cfce6ff3ad",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_utility.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "99330cb0e6c6cb09dbc327498b7333b340259c00f45a5833f8825b045c4fd173",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_wb.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "798a5b50a585aa859e4f001eceb4ce4e5184e6b993f2f0a57aa30af0eb1bf4f6",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_ycontrast.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "ee0ef30a737252c7212c1394fc86212a3187345c223f38418a506f7130775099",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_algo_ynr.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "ae4e7fee23a760a32ff69342fd4611ce01b68807f5583b7aefd229c2cddbd092",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_iir_api.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "514e389ed3f8aa005a97dcb529f9f6e6e0e28a967fe5d7fc3f9bd6147d02f091",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/isp_rvv_utility.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "8295172f185187530821de7510504407eb550d8e636000708c28c52af1a56fee",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/cv181x/isp_algo/obj/pchip.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "9b13af34c1976f6c46dd2b7b3277e4f8996aa2dbe970d4813199e42c20fb7c8b",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/ae/obj/ae_buf.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "e7d70b5c49e528e5b4480bcb79d987b8de5ef4967963f5f463cbbe92fb9f872d",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/ae/obj/ae_debug.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "ee1fb3c16a7273e6b85d5cf87cae85f1fac3eb0fd13625b9ed25367d4ca6176c",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/ae/obj/ae_detect_flicker.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "a0a6819b39c0d7e85b30d587feb5b1d8364701302531e39dcdce0d46fc2f4a9d",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/ae/obj/ae_iris.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "7410f0ecf3344eee5dd4cb3568492f7e3371c1ad061d50024ca730ce0a77cc2b",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/ae/obj/aealgo.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "d08a60758e91151e692e9c1710f69aa8b59b75f000225f1b4270048fc59df52b",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/ae/obj/cvi_ae.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "1d694340907ed2c60bbb723a86ca8ce9261be62ed8e991e0edae1b75e2607edd",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/awb/obj/awb_buf.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "0258426ecaf1d9424b3b70d08099da49aca6cc8251af957055d29fc4030aa54f",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/awb/obj/awb_debug.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "881c8e3f91843bc8fce84051b6382eb9b20a2c21b4d4282d2e6f775f7fdda919",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/awb/obj/awbalgo.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "b91c2510f1ad2a4b9c08f1f8c1e04d06704ce80fc668e3f2c22f59a8f0f126c9",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/awb/obj/cvi_awb.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "7deb829e83ac90c8eb8b800d62e7d663f0ba5f975cd6defa3a17244656720958",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/af/obj/af_buf.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "39050eda23f191e198a33154d672950b1780b8903dafc7cdb37145da8504db86",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/af/obj/af_calib.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "ac08a2914815a3f51080fb88e543e3701d4955743a1855e82cb13ebfd0dcdf91",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/af/obj/afalgo.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "544348f06b85dff2893975131679d63269c7ad1e9890115b172e76f8aa34a1a7",
+      "origin": "vendor object, not recompiled with GCC16"
+    },
+    {
+      "path": "modules/isp/algo/af/obj/cvi_af.riscv64-unknown-linux-musl.cv181x.o",
+      "sha256": "880d86b417c320e9650680860722a814e92c1e1b61498b17b13ce900269db90e",
+      "origin": "vendor object, not recompiled with GCC16"
+    }
+  ],
+  "compiler_origin": "Xuantie-900 linux-5.10.4 musl gcc Toolchain V2.6.1 B-20220906, GCC 10.2.0",
+  "qualification": "Object hashes checked; relinked with Enhanced binutils, retaining ISA/ABI attributes. Full ISP runtime qualification pending."
+}

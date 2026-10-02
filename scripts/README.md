@@ -1,13 +1,25 @@
-# NanoKVM OS image builds
+# NanoKVM OS build scripts
 
-The current OS uses Alpine and native APK updates, including kernel packages.
-Start with [component builds](../docs/BUILD.md), [platform builds](../platform/README.md)
-and [the current update flow](../docs/UPDATES.md).
+The complete SD card image is built by [platform/build.sh](../platform/README.md).
+It calls these component builders:
 
-Buildroot is limited to the platform compiler, host tools and boot initramfs.
-The previous Buildroot OS and private addon-manager build paths were removed.
-Release-specific beta scripts and the stock application packaging notes below
-are historical; use their matching Git revision to study or reproduce them.
+| Script | Builds |
+|---|---|
+| build-enhanced-mpi.sh, build-enhanced-isp-vendor.py, build-enhanced-mpi-bin.py | the SOPHGO media libraries |
+| build-enhanced-mmf.py, build-enhanced-capture.py | `libkvm_mmf.so` and `libkvm.so` |
+| build-enhanced-system.py | `kvm_system` |
+| build-server-existing-libs.py | `NanoKVM-Server`, `nkos-update` and `nkos-apply-updates` |
+| build-busybox-devmem.sh, build-usb-audio.py | `devmem` and `usb-audio-capture` |
+| build-qhd-edid.py, build-monitor-edids.py, build-portrait-edid.py | the EDID profiles |
+| build-alpine-packages.sh | the six APK packages, inside the Alpine builder tree |
+| build-alpine-sd-image.py | the SD card image |
+
+Run them through `platform/build.sh`: it prepares their pinned sources and toolchain.
+The update format is described in [docs/UPDATES.md](../docs/UPDATES.md). The older
+package/manifest workflow at the end of this file is historical tooling for stock
+NanoKVM applications; it is not a NanoKVM OS update or publication channel.
+Buildroot is limited to the platform compiler, host tools and boot initramfs;
+the previous Buildroot OS and private addon-manager build paths were removed.
 
 ## Alpine port tooling
 

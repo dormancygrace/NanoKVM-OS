@@ -10,7 +10,6 @@ import tempfile
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--maix-source', type=Path, required=True, help='Unpatched v4.11.3 checkout')
-p.add_argument('--aic-source', type=Path, required=True, help='Unpatched pinned SDIO directory')
 a = p.parse_args()
 repo = Path(__file__).resolve().parents[1]
 work = repo / 'work'
@@ -51,25 +50,4 @@ with tempfile.TemporaryDirectory(prefix='source-patches-', dir=work) as director
     run('apply-maixcdk-fixes.py', maix, '--check')
     assert snapshot(maix, policy) == before
 
-    wifi = root / 'wifi'
-    shutil.copytree(a.aic_source, wifi)
-    # This directory is inside ignored work/: patching must still take effect.
-    run('apply-aic-sdio-ownership.py', wifi)
-    policy = json.loads((repo / 'firmware/wifi/aic8800/linux-7.3-source.json').read_text())['files']
-    paths = [str(path.relative_to(wifi)) for path in wifi.rglob('*') if path.is_file()]
-    before = snapshot(wifi, paths)
-    run('apply-aic-sdio-ownership.py', wifi)
-    assert snapshot(wifi, paths) == before
-    for path, hashes in policy.items():
-        assert sha(wifi / path) == hashes['patched_sha256']
-    # Restore only one compatibility input: reject this partial application.
-    relative = 'aic8800_fdrv/rwnx_defs.h'
-    shutil.copyfile(a.aic_source / relative, wifi / relative)
-    before = snapshot(wifi, paths)
-    run('apply-aic-linux73.py', wifi, ok=False)
-    assert snapshot(wifi, paths) == before
-    (wifi / relative).write_bytes(b'/* unknown input */\n')
-    before = snapshot(wifi, paths)
-    run('apply-aic-linux73.py', wifi, ok=False)
-    assert snapshot(wifi, paths) == before
-print('PASS: preparation in ignored work/, repeat application, required fixes and invalid/partial input rejection')
+print('PASS: MaixCDK preparation in ignored work/, repeat application, required fixes and invalid input rejection')

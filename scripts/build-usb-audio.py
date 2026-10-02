@@ -33,8 +33,9 @@ if not audio_builtin:
     module=out/'module';module.mkdir(exist_ok=True)
     for name in ('u_audio.c','u_audio.h','f_uac1.c','u_uac1.h','uac_common.h'):
         shutil.copyfile(args.kernel_source/'drivers/usb/gadget/function'/name,module/name)
+    # The platform kernel source already contains the composite IAD change.
     if 'audio_iad_desc' not in (module/'f_uac1.c').read_text():
-        subprocess.run(['patch','-p5','-i',str(repo/'firmware/kernel/patches/0024-uac1-composite-iad.patch')],cwd=module,check=True)
+        raise SystemExit('Use the kernel source prepared by platform/build.sh')
     (module/'Makefile').write_text('obj-m += u_audio.o usb_f_uac1.o\nusb_f_uac1-y := f_uac1.o\n')
     flags='-march=rv64imac_zicsr_zifencei_zacas_zabha_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync -mtune=thead-c906 -mno-fence-tso -fno-tree-vectorize -fno-tree-slp-vectorize'
     with (out/'module-build.log').open('w') as log:

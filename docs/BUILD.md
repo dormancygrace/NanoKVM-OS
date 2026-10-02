@@ -36,11 +36,11 @@ CGO_ENABLED=0 go test -tags teststub ./osupdate ./cmd/nkos-update
 
 See [UPDATES.md](UPDATES.md) for the native APK update flow. Development builds need their own APK signing key if the maintainer key is unavailable; a different public key produces a different trust domain.
 
-## Kernel, drivers and full images
+## Kernel, modules and boot images
 
-`firmware/sources.json` records external source pins. `firmware/buildroot/` contains the external tree and source patches, including the pinned OpenVPN 3 Core adapter in `firmware/vpn/` and WireGuard tools. OpenVPN 2 remains a system CLI; the GUI selects OpenVPN 3 Core. Kernel configuration and port patches are in `firmware/kernel/`; media-driver changes are in `firmware/osdrv/` and MPI changes in `firmware/mpi/`. The cumulative kernel patch/config in `firmware/release/source-components/kernel/` captures the selected Linux 7.2.5 kernel source state (the cumulative patch applies to the verified Linux 7.2.4 archive and includes upstream 7.2.5 changes); its recipe records the compiler, ISA flags and build timestamp; do not apply both cumulative and incremental patches on top of each other.
+`platform/build.sh` builds the toolchain, Linux kernel, all kernel modules, U-Boot, `fip.bin`, initramfs and `boot.sd` images from the pinned inputs in `platform/sources.lock` and checks the result; see [platform/README.md](../platform/README.md). `firmware/buildroot/` contains the Buildroot external tree and source patches it uses, including the pinned OpenVPN 3 Core adapter in `firmware/vpn/` and WireGuard tools. OpenVPN 2 remains a system CLI; the GUI selects OpenVPN 3 Core. `firmware/sources.json` records the source pins of the native media libraries; MPI changes are in `firmware/mpi/`.
 
-`build-enhanced-kernel.sh`, `build-enhanced-release-modules.py`, board staging and image assembly tools require explicit external paths and matched artifacts. CryptoDMA source under `firmware/crypto/experimental/sg2002-aes-probe` remains the selected beta module prerequisite despite its historical directory name. Small-core FreeRTOS/AliOS experiments are excluded.
+## Full images
 
 Several image staging tools still expect retained stock board assets under `build/release/nanokvm_2.6.0`. Those assets, proprietary vendor objects, full vendor source trees, compiler/sysroot and release archives are not embedded in this Git repository. A self-contained downloadable build-input bundle and final corresponding-source notices remain to be consolidated before a public binary release. The current application/web can be built against an existing matched native/toolchain set; a turnkey clean-machine full-image build is not claimed.
 

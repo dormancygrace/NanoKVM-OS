@@ -1,0 +1,16 @@
+# Every upstream input of the platform build. build.sh fetches nothing else
+# except the packages Buildroot downloads and checks against its own hashes.
+#
+# Archives:  name  url  sha256
+# Git trees: name  url  commit  path=git-object-id...
+#   Only the listed paths are fetched; each is checked by its Git tree or
+#   blob id, so the content is verified however it is transported.
+
+buildroot  https://buildroot.org/downloads/buildroot-2026.08.tar.xz        87aaca4164ea9d5c8085854953018263f7963f07c22e73a2a2185cc98c581c34
+linux      https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.6.tar.xz  039aef84f2b0994aeda3f4fcfc3d02ec9d7a9bbb9020ea264c43f446c860f606
+u-boot     https://ftp.denx.de/pub/u-boot/u-boot-2026.07.tar.bz2            78e8bfc382fe388f9b55aa1daf8c563522a037779b5d4c349d1415e381f1243e
+
+osdrv      https://github.com/sophgo/osdrv.git               1b3a49649d18488ecf54fb4fcb6c27599e433fdc  .=2e17c3f6cec2205e0089e6341326333c12fdf1f2
+aic8800    https://github.com/radxa-pkg/aic8800.git          516e3b087763d80c44f5e3b6d2dd63e0d925c91d  src/SDIO/driver_fw/driver/aic8800=69d01d7f6b245608c6f55f24e921a48517798411
+cryptodev  https://github.com/cryptodev-linux/cryptodev-linux.git  08644db02d43478f802755903212f5ee506af73b  .=6babcb49f610d502f554cbc990d89b22223c3208
+sipeed-sdk https://github.com/sipeed/LicheeRV-Nano-Build.git 608df819e8761e630b089381dcc39c0b27762677  osdrv/extdrv/wireless/rtl8733bs=f4282244c91fd7852a7b24c6bda24075e8cbfe47 fsbl/plat/cv181x/fiptool.py=8e470afb8049830524f1bf5a325f27f342d8ee4b

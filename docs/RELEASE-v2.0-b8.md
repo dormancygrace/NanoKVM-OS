@@ -15,6 +15,10 @@
 - Retain the optional C906 package profile for experiments; it is no longer the default system package source.
 - Continue to install software directly into the writable root filesystem through native APK and OpenRC.
 
+### 🖥️ Portrait video
+
+- Match portrait and landscape frame-rate targets: **QHD up to 50 FPS, FHD up to 75 FPS and HD up to 120 FPS**. Update the maximum 1440×2560 H.265 Direct EDID to 50 Hz.
+
 ### 🔧 Reliability and interface fixes
 
 - Keep networking and SSH independent of video and board initialization failures.

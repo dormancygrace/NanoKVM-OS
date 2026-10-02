@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"NanoKVM-Server/utils"
 )
 
 type Config struct {
@@ -44,7 +46,11 @@ func zoneData(name string) ([]byte, error) {
 	if name == "" || strings.Contains(name, "\\") || filepath.IsAbs(name) || filepath.Clean(name) != name || name == ".." || strings.HasPrefix(name, "../") {
 		return nil, errors.New("unknown time zone")
 	}
-	data, err := os.ReadFile(filepath.Join("/usr/share/zoneinfo", name))
+	path, err := utils.JoinWithin("/usr/share/zoneinfo", name)
+	if err != nil {
+		return nil, errors.New("unknown time zone")
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, errors.New("unknown time zone; install tzdata")
 	}

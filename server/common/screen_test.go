@@ -169,3 +169,39 @@ func TestMjpegChromaPreference(t *testing.T) {
 		}
 	}
 }
+
+func TestSetScreenValueIgnoresOutOfRangeValues(t *testing.T) {
+	base := Screen{Width: 1920, Height: 1080, Quality: 80, BitRate: 3000, GOP: 30}
+	for _, tc := range []struct {
+		key   string
+		value int
+	}{
+		{"resolution", 1080 + 65536}, {"resolution", -1}, {"quality", 0},
+		{"quality", MaxQualityValue + 1}, {"quality", 65536 + 50}, {"gop", 0}, {"gop", 300},
+	} {
+		got := base
+		setScreenValue(&got, tc.key, tc.value)
+		if got != base {
+			t.Errorf("%s=%d changed the screen to %+v", tc.key, tc.value, got)
+		}
+	}
+	got := base
+	setScreenValue(&got, "quality", 50)
+	setScreenValue(&got, "quality", 5000)
+	setScreenValue(&got, "gop", 100)
+	if got.Quality != 50 || got.BitRate != 5000 || got.GOP != 100 {
+		t.Errorf("valid values were not applied: %+v", got)
+	}
+}
+
+func TestSetScreenValueReturnsToSameAsInput(t *testing.T) {
+	got := Screen{Width: 1920, Height: 1080}
+	setScreenValue(&got, "resolution", 0)
+	if got.Width != 0 || got.Height != 0 {
+		t.Fatalf("same-as-input request retained %dx%d", got.Width, got.Height)
+	}
+	setScreenValue(&got, "resolution", 720)
+	if got.Width != 1280 || got.Height != 720 {
+		t.Fatalf("fixed resolution after same-as-input = %dx%d, want 1280x720", got.Width, got.Height)
+	}
+}

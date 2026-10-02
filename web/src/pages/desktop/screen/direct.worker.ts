@@ -211,7 +211,7 @@ function connect() {
       scheduleReconnect();
     };
   } catch (error) {
-    console.error(`Failed to create Direct ${codec.toUpperCase()} WebSocket:`, error);
+    console.error('Failed to create Direct %s WebSocket:', codec.toUpperCase(), error);
     scheduleReconnect();
   }
 }
@@ -333,7 +333,7 @@ function createDecoder(): VideoDecoder | null {
       instance.close();
     }
     if (fallbackToHardware()) return createDecoder();
-    console.error(`Failed to configure the Direct ${codec.toUpperCase()} decoder:`, err);
+    console.error('Failed to configure the Direct %s decoder:', codec.toUpperCase(), err);
     reportFatalError('unsupported-codec');
     stopped = true;
     disconnect();
@@ -415,7 +415,7 @@ function processFrameQueue() {
     try {
       renderFrame(frame);
     } catch (error) {
-      console.error(`Failed to render Direct ${codec.toUpperCase()} frame:`, error);
+      console.error('Failed to render Direct %s frame:', codec.toUpperCase(), error);
       requestStreamResync();
       resetDecoder();
       return;

@@ -41,7 +41,7 @@ var monitorScreenTypes = map[string]bool{
 
 // maxQualityValue covers MJPEG quality (1-100) and H.26x bitrate in kbit/s.
 // The native readers of /kvmapp/kvm/qlty use small fixed buffers.
-const maxQualityValue = 20000
+const maxQualityValue = common.MaxQualityValue
 
 func (s *Service) GetScreen(c *gin.Context) {
 	current := common.GetScreen()

@@ -139,3 +139,49 @@ func postMountImage(t *testing.T, body string) proto.Response {
 	}
 	return rsp
 }
+
+func TestImageFileAcceptsOnlyListedImages(t *testing.T) {
+	root := t.TempDir()
+	original := imageDirectory
+	imageDirectory = root
+	t.Cleanup(func() { imageDirectory = original })
+	outside := t.TempDir()
+	for _, name := range []string{"disk.iso", "sub/disk.IMG", "notes.txt"} {
+		path := filepath.Join(root, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(outside, "secret.img"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(outside, "secret.img"), filepath.Join(root, "link.img")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "dir.iso"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"disk.iso", "sub/disk.IMG"} {
+		path := filepath.Join(root, name)
+		if got, err := imageFile(path); err != nil || got != path {
+			t.Errorf("imageFile(%q) = %q, %v; want the file", path, got, err)
+		}
+	}
+	for _, path := range []string{
+		filepath.Join(root, "notes.txt"),
+		filepath.Join(root, "link.img"),
+		filepath.Join(root, "dir.iso"),
+		filepath.Join(root, "missing.iso"),
+		root + "/../" + filepath.Base(outside) + "/secret.img",
+		"/dev/mmcblk0",
+		"",
+	} {
+		if got, err := imageFile(path); err == nil {
+			t.Errorf("imageFile(%q) = %q; want an error", path, got)
+		}
+	}
+}

@@ -186,13 +186,18 @@ func applyMemorySwap(req memorySwapRequest) error {
 	if !validSwapRequest(req) {
 		return fmt.Errorf("invalid swap type or size")
 	}
+	// Pass only constants and the validated size to the memory service.
+	kind := "sd"
+	if req.Kind == "zram" {
+		kind = "zram"
+	}
 	memoryMutation.Lock()
 	defer memoryMutation.Unlock()
 	enabled := "0"
 	if req.Enabled {
 		enabled = "1"
 	}
-	args := []string{memoryService, "configure", req.Kind, enabled, strconv.FormatInt(req.SizeMiB, 10)}
+	args := []string{memoryService, "configure", kind, enabled, strconv.FormatInt(req.SizeMiB, 10)}
 	if req.Recompress != nil {
 		flag := "0"
 		if *req.Recompress {

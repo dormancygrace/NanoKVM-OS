@@ -2,7 +2,7 @@ package vm
 
 import (
 	"NanoKVM-Server/proto"
-	"fmt"
+	"NanoKVM-Server/utils"
 	"os"
 	"path/filepath"
 
@@ -11,6 +11,16 @@ import (
 )
 
 const autostartDirectory = "/etc/kvm/autostart"
+
+// autostartFile keeps a name from the URL to one file in autostartDirectory.
+func autostartFile(name string) (string, error) {
+	for _, value := range name {
+		if value < 0x20 || value == 0x7f || value == '/' || value == '\\' {
+			return "", errInvalidScript
+		}
+	}
+	return utils.JoinWithin(autostartDirectory, name)
+}
 
 func (s *Service) GetAutostart(c *gin.Context) {
 	var rsp proto.Response
@@ -53,7 +63,11 @@ func (s *Service) UploadAutostart(c *gin.Context) {
 		_ = os.MkdirAll(autostartDirectory, 0o755)
 	}
 
-	target := fmt.Sprintf("%s/%s", autostartDirectory, fileName)
+	target, err := autostartFile(fileName)
+	if err != nil {
+		rsp.ErrRsp(c, -1, "invalid file name")
+		return
+	}
 
 	f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755)
 	if err != nil {
@@ -78,7 +92,11 @@ func (s *Service) DeleteAutostart(c *gin.Context) {
 
 	fileName := c.Param("name")
 
-	file := fmt.Sprintf("%s/%s", autostartDirectory, fileName)
+	file, err := autostartFile(fileName)
+	if err != nil {
+		rsp.ErrRsp(c, -3, "invalid file name")
+		return
+	}
 	if err := os.Remove(file); err != nil {
 		log.Errorf("delete autostart file %s fail", fileName)
 		rsp.ErrRsp(c, -3, "remove file fail")
@@ -92,7 +110,11 @@ func (s *Service) DeleteAutostart(c *gin.Context) {
 func (s *Service) GetAutostartContent(c *gin.Context) {
 	var rsp proto.Response
 	fileName := c.Param("name")
-	file := fmt.Sprintf("%s/%s", autostartDirectory, fileName)
+	file, err := autostartFile(fileName)
+	if err != nil {
+		rsp.ErrRsp(c, -1, "invalid file name")
+		return
+	}
 	content, err := os.ReadFile(file)
 	if err != nil {
 		rsp.ErrRsp(c, -1, "read file fail")

@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -291,8 +292,7 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 			return
 		}
 
-		outPath := filepath.Join("/data", filename)
-		if err := os.Rename(tempPath, outPath); err != nil {
+		if err := installImage("/data", tempPath, filename); err != nil {
 			rsp.ErrRsp(c, -1, "cannot install uploaded image")
 			return
 		}
@@ -310,19 +310,43 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 }
 
 func validateISOFilename(filename string) error {
+	return validateImageFilename(filename, ".iso")
+}
+
+// validateRemoteImageFilename also accepts .img disk images, which the
+// storage page lists and mounts as well.
+func validateRemoteImageFilename(filename string) error {
+	return validateImageFilename(filename, ".iso", ".img")
+}
+
+func validateImageFilename(filename string, suffixes ...string) error {
 	if filename == "" {
 		return errors.New("no filename")
 	}
 	if filepath.Base(filename) != filename || strings.Contains(filename, "..") {
 		return errors.New("invalid filename")
 	}
-	if !strings.HasSuffix(strings.ToLower(filename), ".iso") {
-		return errors.New("only .iso files allowed")
+	lower := strings.ToLower(filename)
+	if !slices.ContainsFunc(suffixes, func(suffix string) bool { return strings.HasSuffix(lower, suffix) }) {
+		return fmt.Errorf("only %s files allowed", strings.Join(suffixes, " or "))
 	}
 	if !validISOFilename.MatchString(filename) {
 		return errors.New("invalid filename")
 	}
 	return nil
+}
+
+// installImage publishes a completed temporary file as filename in dir.
+// Uploads, new downloads and resumed downloads all add images through it.
+func installImage(dir, tempPath, filename string) error {
+	if err := validateRemoteImageFilename(filename); err != nil {
+		return err
+	}
+	destPath, err := utils.JoinWithin(dir, filename)
+	if err != nil {
+		return err
+	}
+	return os.Rename(tempPath, destPath)
 }
 
 func (s *Service) DownloadImage(c *gin.Context) {
@@ -347,9 +371,10 @@ func (s *Service) DownloadImage(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid url")
 		return
 	}
+	// The name lands in /data; accept only the images the storage page lists.
 	filename := filepath.Base(u.Path)
-	if filename == "." || filename == "/" || filename == "" {
-		rsp.ErrRsp(c, -1, "invalid url")
+	if err := validateRemoteImageFilename(filename); err != nil {
+		rsp.ErrRsp(c, -1, "invalid url: "+err.Error())
 		return
 	}
 
@@ -443,8 +468,7 @@ func (s *Service) downloadRemoteImage(
 		return ctx.Err()
 	}
 
-	destPath := filepath.Join("/data", filename)
-	if err := os.Rename(tempPath, destPath); err != nil {
+	if err := installImage("/data", tempPath, filename); err != nil {
 		return fmt.Errorf("install downloaded image failed: %w", err)
 	}
 

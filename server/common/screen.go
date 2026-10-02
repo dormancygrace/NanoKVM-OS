@@ -2,12 +2,17 @@ package common
 
 import (
 	"encoding/binary"
+	"math"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 )
+
+// MaxQualityValue is the largest accepted quality value: MJPEG quality is
+// 1-100, larger values are H.26x bitrates in kbit/s.
+const MaxQualityValue = 20000
 
 type Screen struct {
 	Width       uint16
@@ -90,6 +95,10 @@ func SetScreen(key string, value int) {
 func setScreenValue(target *Screen, key string, value int) {
 	switch key {
 	case "resolution":
+		// 0 is "same as input", which ResolutionMap maps to 0x0.
+		if value < 0 || value > math.MaxUint16 {
+			return
+		}
 		height := uint16(value)
 		if width, ok := ResolutionMap[height]; ok {
 			target.Width = width
@@ -97,10 +106,11 @@ func setScreenValue(target *Screen, key string, value int) {
 		}
 
 	case "quality":
-		if value > 100 {
-			target.BitRate = uint16(value)
-		} else {
+		// 1-100 is MJPEG quality, larger values are H.26x bitrates in kbit/s.
+		if value >= 1 && value <= 100 {
 			target.Quality = uint16(value)
+		} else if value > 100 && value <= MaxQualityValue {
+			target.BitRate = uint16(value)
 		}
 
 	case "mjpeg_chroma":
@@ -112,7 +122,9 @@ func setScreenValue(target *Screen, key string, value int) {
 		target.FPS = validateFPS(value)
 
 	case "gop":
-		target.GOP = uint8(value)
+		if value >= 1 && value <= 100 {
+			target.GOP = uint8(value)
+		}
 
 	case "gop_mode":
 		if value == int(GOPModeNormalP) || value == int(GOPModeSmartP) {

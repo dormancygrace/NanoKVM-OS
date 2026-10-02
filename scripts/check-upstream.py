@@ -3,10 +3,12 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import html
+import io
 import json
 import os
 from pathlib import Path
 import re
+import tarfile
 import urllib.parse
 import urllib.request
 
@@ -21,7 +23,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def request(url, payload=None, method=None):
+def request_bytes(url, payload=None, method=None):
     if urllib.parse.urlparse(url).scheme != 'https':
         raise ValueError('Only HTTPS sources are supported')
     headers = {'User-Agent': 'NanoKVM-OS-upstream-watch'}
@@ -35,7 +37,11 @@ def request(url, payload=None, method=None):
         raw = response.read(4 * 1024 * 1024 + 1)
     if len(raw) > 4 * 1024 * 1024:
         raise ValueError('Source response exceeds 4 MiB')
-    return raw.decode('utf-8')
+    return raw
+
+
+def request(url, payload=None, method=None):
+    return request_bytes(url, payload, method).decode('utf-8')
 
 
 def github(path, payload=None, method=None):
@@ -60,13 +66,73 @@ def current_pin(root, source):
     return matches[0]
 
 
+def alpine_version(value):
+    # OpenSSL stable APK versions. Fail visibly for a new syntax, never guess
+    # APK ordering or compare revision strings lexicographically.
+    match = re.fullmatch(r'(\d+(?:\.\d+)*)-r(\d+)', value)
+    if not match:
+        raise ValueError('Unsupported stable Alpine version: ' + value)
+    return version(match[1]), int(match[2])
+
+
+def alpine_packages(raw, names, arch):
+    # Read metadata in memory only; never extract files or execute APKBUILD.
+    with tarfile.open(fileobj=io.BytesIO(raw), mode='r:gz') as archive:
+        members = [m for m in archive.getmembers() if m.name == 'APKINDEX']
+        if len(members) != 1 or not members[0].isfile() or members[0].size > 16 * 1024 * 1024:
+            raise ValueError('Invalid or oversized APKINDEX')
+        text = archive.extractfile(members[0]).read().decode('utf-8')
+    found = {}
+    for record in text.strip().split('\n\n'):
+        fields = dict(line.split(':', 1) for line in record.splitlines() if ':' in line)
+        name = fields.get('P')
+        if name not in names:
+            continue
+        if name in found or fields.get('A') != arch:
+            raise ValueError('Duplicate package or unexpected architecture: ' + name)
+        found[name] = fields['V']
+    if set(found) != set(names):
+        raise ValueError('Missing Alpine packages: ' + ', '.join(sorted(set(names) - set(found))))
+    if len(set(found.values())) != 1:
+        raise ValueError('Alpine OpenSSL subpackage versions disagree')
+    return next(iter(found.values()))
+
+
+def check_alpine(source, root, commit, result):
+    branch = current_pin(root, source['branch_pin'])
+    if not re.fullmatch(r'\d+\.\d+', branch):
+        raise ValueError('Invalid Alpine stable branch')
+    recipe_url = ('https://gitlab.alpinelinux.org/api/v4/projects/alpine%2Faports/repository/files/'
+                  + urllib.parse.quote(source['aport'] + '/APKBUILD', safe='') + '/raw?ref=' + commit)
+    recipe = request(recipe_url)
+    versions = re.findall(r'^pkgver=(\d+(?:\.\d+)*)$', recipe, re.MULTILINE)
+    revisions = re.findall(r'^pkgrel=(\d+)$', recipe, re.MULTILINE)
+    if len(versions) != 1 or len(revisions) != 1:
+        raise ValueError('Expected literal stable pkgver/pkgrel in pinned Alpine recipe')
+    baseline = versions[0] + '-r' + revisions[0]
+    # Compare the original Alpine recipe revision, not the local +1. Otherwise
+    # an upstream r1 security fix would be hidden by our independently built r1.
+    expected = versions[0] + '-r' + str(int(revisions[0]) + 1)
+    url = ('https://dl-cdn.alpinelinux.org/alpine/v' + branch + '/'
+           + source['aport'].split('/')[0] + '/' + source['arch'] + '/APKINDEX.tar.gz')
+    latest = alpine_packages(request_bytes(url), source['packages'], source['arch'])
+    a, b = alpine_version(baseline), alpine_version(latest)
+    status = 'C906 rebuild required' if b > a else ('current' if a == b else 'pinned recipe ahead')
+    result.update(current=baseline + ' (Alpine recipe; C906 build: ' + expected + ')',
+                  latest=latest, link=url, status=status,
+                  detail='Alpine v' + branch + ' ' + source['arch'] + ': ' + ', '.join(source['packages'])
+                         + '; recipe pin ' + commit[:12] + '; installed/published C906 APKs are not inspected')
+
+
 def check(source, root=ROOT):
     result = dict(name=source['name'], path=source['path'], current='?', latest='?', status='error', link='')
     try:
         current = current_pin(root, source)
         result['current'] = current
         kind = source['kind']
-        if kind == 'github-commit':
+        if kind == 'alpine-package':
+            check_alpine(source, root, current, result)
+        elif kind == 'github-commit':
             repo = source['repo']
             branch = source.get('branch') or github('repos/' + repo)['default_branch']
             endpoint = 'repos/' + repo + '/compare/' + current + '...' + urllib.parse.quote(branch, safe='')
@@ -105,7 +171,7 @@ def render(results):
     def cell(value):
         return html.escape(str(value)).replace('|', '&#124;').replace('\n', ' ')
     lines = [MARKER, '# Upstream dependency updates', '',
-             'Dependabot handles dependency PRs. This report covers native source pins and patched forks that need maintainer integration.', '',
+             'Dependabot handles dependency PRs. This report covers native source pins, patched forks and the Alpine baseline used by the C906 OpenSSL rebuild.', '',
              '| Component | Pinned | Upstream | Result | Pin file |',
              '|---|---|---|---|---|']
     for item in results:
@@ -122,6 +188,8 @@ def render(results):
               '- Update related source/archive hashes, Go runtime patches, module ABI and platform output manifest together after rebuilding and testing.',
               '- Do not overwrite patched Pion sources by only bumping go.mod versions.',
               '- Buildroot package recipes inherit upstream changes when Buildroot is refreshed; this is not an individual version/CVE audit of every transitive native package.',
+              '- Alpine OpenSSL is checked against the published stable riscv64 package index, using the pinned aports recipe as the C906 baseline. The local pkgrel +1 does not count as an upstream fix. Old Buildroot OpenSSL 4 is not the system OpenSSL.',
+              '- C906 build versions are derived from the pinned recipe, not observed on a device or in the published overlay. Rebuild and publish the overlay after Alpine updates; this watcher does not run apk upgrade or change devices.',
               '- Alpine branch monitoring does not update installed APKs. APK package revisions and firmware release approval remain separate.',
               '- Opaque boot firmware (including the existing base FIP/OpenSBI), local patches and historical experiments have no general automatic updater.',
               '- GitHub tag checks inspect the latest 100 returned tags. Pinned-ahead and divergent results require review; they never trigger a downgrade.',

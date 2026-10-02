@@ -23,11 +23,19 @@ The first full DTLS run on unchanged fork sources exposed `TestHandshaker` verif
 
 `Upstream dependency watch` runs every Monday at 05:23 UTC and supports manual dispatch. `scripts/check-upstream.py` reads current pins directly from the files listed in `.github/upstream-watch.json`, checks public upstream metadata, and maintains one bot-owned GitHub issue named **Upstream dependency update dashboard**. Unchanged reports produce no issue edits or comments. Failed checks remain visible and fail the workflow; they are never reported as current.
 
-The initial catalog covers 29 entries: Linux, Buildroot, U-Boot, platform drivers/SDK sources, CVI MPI, sensors, MaixCDK, json-c, miniz, inih, Go runtime, OpenSSL, Alpine stable branch, Opus, tinyalsa, AIC firmware, vendor libc, Asio, Superfile, OpenVPN 3, codec firmware, apk-tools, and the three patched Pion modules. The selected platform pins come from `platform/sources.lock`; older duplicate Linux/Buildroot entries in `firmware/sources.json` are not treated as the current platform.
+The initial catalog covers 29 entries: Linux, Buildroot, U-Boot, platform drivers/SDK sources, CVI MPI, sensors, MaixCDK, json-c, miniz, inih, Go runtime, Alpine OpenSSL/C906 baseline, Alpine stable branch, Opus, tinyalsa, AIC firmware, vendor libc, Asio, Superfile, OpenVPN 3, codec firmware, apk-tools, and the three patched Pion modules. The selected platform pins come from `platform/sources.lock`; older duplicate Linux/Buildroot entries in `firmware/sources.json` are not treated as the current platform.
 
 Version checks use stable numeric releases; commit checks compare the selected vendor branch (or explicitly reported repository default branch) against the pinned revision. New vendor commits can concern other boards. A dashboard entry is a candidate for review, not proof that an update is compatible. Tag-based checks examine the first 100 tags returned by the upstream API; errors, divergent history and a pin ahead of the queried upstream need maintainer review.
 
 Native changes require updating related hashes, preserving local patches, rebuilding and validating platform outputs, and testing affected hardware paths. The watcher deliberately does not rewrite lock files, archive hashes, firmware binaries or `platform/expected.sha256`.
+
+## Alpine OpenSSL and the C906 rebuild
+
+The system uses Alpine `openssl`, `libssl3` and `libcrypto3`, with a C906 rebuild of the Alpine recipe in the default overlay. The historical Buildroot OpenSSL 4 patch is not the current system baseline and is excluded from this check.
+
+The OpenSSL watcher reads `APORTS_COMMIT` from `scripts/build-alpine-tuned-packages.sh`, fetches the pinned `main/openssl/APKBUILD` as text (never executes it), and compares its original `pkgver`/`pkgrel` with all three packages in the official stable `riscv64` APK index. The Alpine branch comes from `scripts/build-alpine-packages.sh`. A newer Alpine version or revision is reported as **C906 rebuild required**. The local revision increment does not hide upstream fixes: Alpine `3.5.8-r1` requires a rebuild even if our old `3.5.8-r0` recipe produced a locally named `3.5.8-r1`.
+
+The report distinguishes the Alpine recipe baseline, the C906 version derived by the build script, and the published Alpine version. It does not claim to inspect installed packages or the published C906 overlay. Updating the aports pin, rebuilding, choosing an appropriate package revision, testing and publishing the overlay remain separate actions. This check supports stable numeric OpenSSL versions and numeric APK revisions; unfamiliar version syntax, missing subpackages and fetch failures are explicit errors. APK index signatures are not verified by this metadata-only HTTPS monitor; actual installation remains subject to APK signature verification.
 
 ## Coverage limits
 

@@ -121,12 +121,21 @@
       "upstream_pattern": "\"version\"\\s*:\\s*\"go([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\""
     },
     {
-      "name": "OpenSSL",
-      "path": "firmware/buildroot/source-patches/0007-openssl4-libopenssl-4.0.2.patch",
-      "pattern": "^\\+LIBOPENSSL_VERSION = ([0-9.]+)",
-      "kind": "github-tags",
-      "repo": "openssl/openssl",
-      "upstream_pattern": "^openssl-([0-9]+\\.[0-9]+\\.[0-9]+)$"
+      "name": "OpenSSL (Alpine / C906)",
+      "path": "scripts/build-alpine-tuned-packages.sh",
+      "pattern": "^APORTS_COMMIT=\\$\\{APORTS_COMMIT:-([0-9a-f]{40})\\}",
+      "kind": "alpine-package",
+      "aport": "main/openssl",
+      "packages": [
+        "openssl",
+        "libssl3",
+        "libcrypto3"
+      ],
+      "branch_pin": {
+        "path": "scripts/build-alpine-packages.sh",
+        "pattern": "ALPINE_VERSION=\"([0-9.]+)\""
+      },
+      "arch": "riscv64"
     },
     {
       "name": "Alpine stable branch",

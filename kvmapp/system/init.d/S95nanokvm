@@ -106,10 +106,6 @@ prepare_hdmi_receiver() {
 }
 
 start_services() {
-    if [ -e /run/nkos-update-recovery-failed ]; then
-        echo 'Application update recovery failed; refusing an incomplete application' >&2
-        return 1
-    fi
     # Runtime telemetry is regenerated on every boot. Keep the high-frequency
     # state off the persistent application filesystem and recreate its tmpfs
     # directory on every normal start.

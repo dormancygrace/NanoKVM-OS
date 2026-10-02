@@ -36,12 +36,7 @@ info = subprocess.check_output([go,'version','-m',str(out/'NanoKVM-Server')],env
 # Require a positive metadata report as well as a successful command exit.
 if not info.startswith(str(out/'NanoKVM-Server')+': go'):
     raise SystemExit(info)
-updater_env = dict(env, CGO_ENABLED='0')
-subprocess.run([go,'build','-buildvcs=false','-trimpath','-ldflags=-s -w',
-                '-o',str(out/'nkos-update'),'./cmd/nkos-update'],
-               cwd=repo/'server',env=updater_env,check=True)
-artifacts = {'NanoKVM-Server': out/'NanoKVM-Server',
-             'nkos-update': out/'nkos-update'}
+artifacts = {'NanoKVM-Server': out/'NanoKVM-Server'}
 artifacts.update({'dl_lib/'+name: lib/name for name in inputs})
 manifest = dict(go=version,gcc=compiler,artifacts={name:hashlib.sha256(p.read_bytes()).hexdigest() for name,p in artifacts.items()})
 (out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')

@@ -1,8 +1,7 @@
 package osupdate
 
-// The Alpine attended path is deliberately independent from the signed .nkos
-// updater. It accepts only the builder's fixed output set and hands the
-// verified directory to nanokvm-stage-update.
+// The Alpine attended path accepts only the builder's fixed output set and
+// hands the verified directory to nanokvm-stage-update.
 import (
 	"context"
 	"crypto/sha256"

@@ -25,7 +25,7 @@ On a Linux x86-64 host with the [Buildroot requirements](https://buildroot.org/d
 platform/build.sh
 ```
 
-The first run downloads about 1 GB and needs about 30 GB of disk space. Building the toolchain takes most of the first hour. Later runs reuse the toolchain. Steps can be run on their own, for example `platform/build.sh kernel modules verify`. The step order is in `build.sh --help`. Use `-o DIR` for another output directory and `-j N` for the number of jobs.
+The first run downloads about 1 GB and needs about 20 GB of disk space. Building the toolchain takes most of the first run (30 minutes on 16 threads). Later runs reuse the toolchain. Steps can be run on their own, for example `platform/build.sh kernel modules verify`. The step order is in `build.sh --help`. Use `-o DIR` for another output directory and `-j N` for the number of jobs.
 
 ## What is here
 
@@ -63,7 +63,7 @@ A changed kernel also needs a new release name: update `CONFIG_LOCALVERSION` in 
 
 ## Verification
 
-On 2026-10-02, a full run from an empty output directory, including the toolchain, produced:
+On 2026-10-02, `platform/build.sh` in a fresh clone and an empty output directory built everything, including the toolchain, in 30 minutes on 16 threads. The result:
 
 - **Identical to NanoKVM OS v2.0-a2 through v2.0-b7** (`expected.sha256`):
   - the kernel `Image`;
@@ -76,8 +76,8 @@ On 2026-10-02, a full run from an empty output directory, including the toolchai
   - **initramfs and `boot.sd`.** The initramfs is now built from the Buildroot packages and compressed with the pinned zstd instead of gzip.
 
   Boot-test these on a device before they are released.
-- **Repeatable:** a second run of `uboot fip initramfs boot` gave the same bytes for every output.
-- **Same entries, different order:** the `modules.*` indexes contain the same entries as b7. Their order follows the directory scan, and `nanokvm-activate-kernel` runs `depmod` again on the device.
+- **Repeatable:** two builds in different directories gave the same bytes for every output, apart from the order of lines in the `modules.*` indexes.
+- **`modules.*` indexes:** they contain the same entries as b7. Their order follows the directory scan, and `nanokvm-activate-kernel` runs `depmod` again on the device.
 
 ## Corresponding source
 
@@ -92,7 +92,7 @@ The binaries above contain GPL-2.0 code:
 - this directory, `firmware/buildroot` and `firmware/boards`;
 - the source commit and `SHA256SUMS`.
 
-Attach it to the GitHub release next to the image.
+Attach it to the GitHub release next to the image. The v2.0-b7 archive also contains util-linux 2.41.5 and `B7-INITRAMFS.txt`, because that initramfs was assembled before this build existed.
 
 The first-stage firmware in `fip/base-fip.bin` is unchanged from the stock Sipeed NanoKVM firmware: FSBL/BL2 (BSD-3-Clause), OpenSBI 0.9 (BSD-2-Clause), and the SOPHGO DDR parameters and small-core loader. Its source is in [sipeed/LicheeRV-Nano-Build](https://github.com/sipeed/LicheeRV-Nano-Build) at the `sipeed-sdk` commit in `sources.lock` (`fsbl/`, `opensbi/`).
 

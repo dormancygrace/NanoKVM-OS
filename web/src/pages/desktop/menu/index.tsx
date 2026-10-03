@@ -8,6 +8,7 @@ import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
 import { useTranslation } from 'react-i18next';
 
 import { clampMobileMenuTop, MobileMenuEdge } from '@/lib/mobile-layout.ts';
+import { picoclawChatOpenAtom } from '@/jotai/picoclaw.ts';
 import { isHdmiEnabledAtom } from '@/jotai/screen.ts';
 import {
   keyboardLedStatusVisibleAtom,
@@ -53,6 +54,7 @@ type MenuVariant = 'desktop' | 'mobile';
 
 export const Menu = () => {
   const audio = useUsbAudio();
+  const picoclawOpen = useAtomValue(picoclawChatOpenAtom);
   const usbInput = useUsbInput();
   const { t } = useTranslation();
   const nodeRef = useRef<HTMLDivElement | null>(null);
@@ -208,6 +210,10 @@ export const Menu = () => {
       items.push(<Mouse key="mouse" hidden />);
     return items;
   }
+
+  // PicoClaw occupies the phone screen and has its own close control.
+  // The KVM rail otherwise covers the profile and uninstall menus.
+  if (isMobileRailActive && picoclawOpen) return null;
 
   if (isMobileRailActive) {
     const sideClass = placement.edge === 'left' ? 'left-2' : 'right-2';

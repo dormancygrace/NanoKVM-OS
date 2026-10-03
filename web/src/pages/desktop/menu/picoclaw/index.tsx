@@ -17,7 +17,9 @@ export const Picoclaw = ({ tooltipPlacement = 'bottom' }: PicoclawProps) => {
 
   return (
     <Tooltip title={t('picoclaw.title')} mouseEnterDelay={0.6} placement={tooltipPlacement}>
-      <div
+      <button
+        type="button"
+        aria-label={t('picoclaw.title')}
         className="flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 hover:text-white"
         onClick={() => {
           dismissMobileMenu();
@@ -25,7 +27,7 @@ export const Picoclaw = ({ tooltipPlacement = 'bottom' }: PicoclawProps) => {
         }}
       >
         <Robot size={18} />
-      </div>
+      </button>
     </Tooltip>
   );
 };

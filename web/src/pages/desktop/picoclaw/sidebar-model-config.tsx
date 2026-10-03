@@ -72,7 +72,7 @@ export const SidebarModelConfig = ({
         href="https://docs.picoclaw.io/docs/configuration/model-list/#supported-vendors-and-protocols"
         target="_blank"
         rel="noreferrer"
-        className="group mb-5 flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 transition-colors hover:border-white/[0.1] hover:bg-white/[0.04]"
+        className="group mb-5 flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 no-underline! decoration-transparent! transition-colors hover:border-white/[0.1] hover:bg-white/[0.04]"
       >
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.04]">
@@ -82,7 +82,7 @@ export const SidebarModelConfig = ({
             <div className="text-xs font-medium text-neutral-300">
               {t('picoclaw.model.docsTitle', 'Configuration Guide')}
             </div>
-            <div className="mt-0.5 text-[11px] text-neutral-500">
+            <div className="mt-0.5 text-xs text-neutral-400">
               {t('picoclaw.model.docsDesc', 'Supported models and protocols')}
             </div>
           </div>

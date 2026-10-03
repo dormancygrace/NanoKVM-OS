@@ -16,7 +16,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/pion/dtls/v3"
 	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v4"
 	log "github.com/sirupsen/logrus"
@@ -215,6 +214,10 @@ func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.Med
 			return nil, err
 		}
 		settingEngine.SetNet(network)
+		if os.Getenv("NANOKVM_WEBRTC_UDP_BATCH") == "1" {
+			network.EnableFrameBatching()
+			budgets[0].setBatcher(network)
+		}
 	} else if os.Getenv("NANOKVM_WEBRTC_UDP_FAST") == "1" {
 		network, err := udpfast.NewNet()
 		if err != nil {
@@ -222,10 +225,7 @@ func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.Med
 		}
 		settingEngine.SetNet(network)
 	}
-	settingEngine.SetSRTPProtectionProfiles(
-		dtls.SRTP_AES128_CM_HMAC_SHA1_80,
-		dtls.SRTP_AEAD_AES_128_GCM,
-	)
+	settingEngine.SetSRTPProtectionProfiles(srtpProtectionProfiles()...)
 	if err := webrtcdtls.Configure(&settingEngine); err != nil {
 		return nil, err
 	}

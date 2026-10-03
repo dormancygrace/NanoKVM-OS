@@ -2,6 +2,7 @@ import { http } from '@/lib/http';
 
 export type RustDeskConfig = {
   service_enabled: boolean;
+  webrtc_enabled?: boolean;
   use_official_id_server: boolean;
   rendezvous_server: string;
   relay_server: string;
@@ -13,6 +14,7 @@ export type RustDeskConfig = {
 };
 export type RustDeskStatus = {
   installed: boolean;
+  supports_transport_settings?: boolean;
   version?: string;
   rustdesk_version?: string;
   source_url?: string;

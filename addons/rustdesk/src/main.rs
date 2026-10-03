@@ -1,5 +1,7 @@
 // NanoKVM OS adaptation, 2026-10-03. SPDX-License-Identifier: AGPL-3.0-only
+mod auth;
 mod config;
+mod direct;
 mod framing;
 mod identity;
 mod input;
@@ -7,9 +9,11 @@ mod onekvm;
 mod protocol;
 mod rendezvous;
 mod server;
+mod signaling;
 mod status;
 mod temporary_password;
 mod upstream;
+mod webrtc;
 
 use std::{env, path::PathBuf, process::ExitCode};
 

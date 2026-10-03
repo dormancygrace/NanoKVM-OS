@@ -25,25 +25,29 @@ pub fn generate() -> io::Result<String> {
 pub struct Guard(PathBuf);
 impl Guard {
     pub fn publish(path: &Path, password: &str) -> io::Result<Self> {
-        let temporary = path.with_extension("tmp");
-        let result = (|| {
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .mode(0o600)
-                .open(&temporary)?;
-            file.set_permissions(fs::Permissions::from_mode(0o600))?;
-            file.write_all(password.as_bytes())?;
-            file.sync_all()?;
-            fs::rename(&temporary, path)
-        })();
-        if result.is_err() {
-            let _ = fs::remove_file(&temporary);
-        }
-        result?;
+        replace(path, password)?;
         Ok(Self(path.to_owned()))
     }
+}
+
+pub fn replace(path: &Path, password: &str) -> io::Result<()> {
+    let temporary = path.with_extension("tmp");
+    let result = (|| {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&temporary)?;
+        file.set_permissions(fs::Permissions::from_mode(0o600))?;
+        file.write_all(password.as_bytes())?;
+        file.sync_all()?;
+        fs::rename(&temporary, path)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
 }
 impl Drop for Guard {
     fn drop(&mut self) {

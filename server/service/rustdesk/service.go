@@ -21,31 +21,37 @@ var ConfigDir = "/etc/nanokvm-rustdesk"
 var ConfigFile = ConfigDir + "/config.json"
 
 type Config struct {
-	Enabled    bool   `json:"service_enabled"`
-	Official   bool   `json:"use_official_id_server"`
-	Rendezvous string `json:"rendezvous_server"`
-	Relay      string `json:"relay_server"`
-	Key        string `json:"server_key"`
-	Password   string `json:"password,omitempty"`
-	Codec      string `json:"codec"`
-	MaxClients int    `json:"max_clients"`
+	Enabled      bool   `json:"service_enabled"`
+	Official     bool   `json:"use_official_id_server"`
+	Rendezvous   string `json:"rendezvous_server"`
+	Relay        string `json:"relay_server"`
+	Key          string `json:"server_key"`
+	Password     string `json:"password,omitempty"`
+	PasswordMode string `json:"password_mode"`
+	Codec        string `json:"codec"`
+	MaxClients   int    `json:"max_clients"`
 }
 type Status struct {
-	Installed   bool            `json:"installed"`
-	Available   bool            `json:"available"`
-	Running     bool            `json:"running"`
-	Config      Config          `json:"config"`
-	HasPassword bool            `json:"has_password"`
-	ID          string          `json:"id"`
-	Runtime     json.RawMessage `json:"runtime,omitempty"`
+	Installed         bool            `json:"installed"`
+	Version           string          `json:"version,omitempty"`
+	Available         bool            `json:"available"`
+	Running           bool            `json:"running"`
+	Config            Config          `json:"config"`
+	HasPassword       bool            `json:"has_password"`
+	TemporaryPassword string          `json:"temporary_password,omitempty"`
+	ID                string          `json:"id"`
+	Runtime           json.RawMessage `json:"runtime,omitempty"`
 }
 type Service struct {
-	mu     sync.Mutex
-	bridge *Bridge
-	run    func(context.Context, string, ...string) ([]byte, error)
+	mu           sync.Mutex
+	bridge       *Bridge
+	run          func(context.Context, string, ...string) ([]byte, error)
+	passwordFile string
 }
 
-func NewService(b *Bridge) *Service { return &Service{bridge: b, run: runCommand} }
+func NewService(b *Bridge) *Service {
+	return &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password"}
+}
 func runCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	data, err := cmd.CombinedOutput()
@@ -64,7 +70,9 @@ func (s *Service) statusCommand(name string, args ...string) ([]byte, error) {
 	defer cancel()
 	return s.run(ctx, name, args...)
 }
-func defaultConfig() Config { return Config{Official: true, Codec: "h265", MaxClients: 1} }
+func defaultConfig() Config {
+	return Config{Official: true, Codec: "h265", MaxClients: 1, PasswordMode: "temporary"}
+}
 func readConfig() (Config, error) {
 	c := defaultConfig()
 	data, err := os.ReadFile(ConfigFile)
@@ -74,7 +82,18 @@ func readConfig() (Config, error) {
 	if err != nil {
 		return c, err
 	}
-	return c, json.Unmarshal(data, &c)
+	if err = json.Unmarshal(data, &c); err != nil {
+		return c, err
+	}
+	var fields map[string]json.RawMessage
+	if err = json.Unmarshal(data, &fields); err != nil {
+		return c, err
+	}
+	// Existing installs retain their permanent password until the user changes mode.
+	if _, exists := fields["password_mode"]; !exists && c.Password != "" {
+		c.PasswordMode = "permanent"
+	}
+	return c, nil
 }
 func (s *Service) Status() (Status, error) {
 	c, err := readConfig()
@@ -88,6 +107,12 @@ func (s *Service) Status() (Status, error) {
 	data, err := s.statusCommand("apk", "search", "-x", Package)
 	status.Available = err == nil && strings.HasPrefix(strings.TrimSpace(string(data)), Package+"-")
 	if status.Installed {
+		if version, versionErr := s.statusCommand("apk", "info", "-v", Package); versionErr == nil {
+			value := strings.TrimSpace(string(version))
+			if strings.HasPrefix(value, Package+"-") {
+				status.Version = strings.TrimPrefix(value, Package+"-")
+			}
+		}
 		_, err = s.statusCommand("rc-service", Package, "status")
 		status.Running = err == nil
 	}
@@ -98,6 +123,12 @@ func (s *Service) Status() (Status, error) {
 		}
 	}
 	if status.Running {
+		if c.PasswordMode == "temporary" {
+			if password, readErr := os.ReadFile(s.passwordFile); readErr == nil &&
+				regexp.MustCompile("^[A-HJ-NP-Z2-9]{10}$").Match(password) {
+				status.TemporaryPassword = string(password)
+			}
+		}
 		if data, err = os.ReadFile(RuntimeDir + "/status.json"); err == nil && json.Valid(data) {
 			status.Runtime = data
 		}
@@ -139,7 +170,11 @@ func validateConfig(c *Config) error {
 	if c.MaxClients < 1 || c.MaxClients > 8 {
 		return errors.New("client limit must be between 1 and 8")
 	}
-	if len(c.Password) < 8 || len(c.Password) > 64 {
+	if c.PasswordMode != "temporary" && c.PasswordMode != "permanent" {
+		return errors.New("password mode must be temporary or permanent")
+	}
+	if (c.PasswordMode == "permanent" || c.Password != "") &&
+		(len(c.Password) < 8 || len(c.Password) > 64) {
 		return errors.New("password must contain 8 to 64 bytes")
 	}
 	var err error
@@ -204,7 +239,10 @@ func (s *Service) Configure(candidate Config) error {
 	if err != nil {
 		return err
 	}
-	if candidate.Password == "" {
+	if candidate.PasswordMode == "" {
+		candidate.PasswordMode = current.PasswordMode
+	}
+	if candidate.PasswordMode == "temporary" || candidate.Password == "" {
 		candidate.Password = current.Password
 	}
 	if err = validateConfig(&candidate); err != nil {
@@ -248,6 +286,19 @@ func (s *Service) Action(action string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	switch action {
+	case "regenerate-password":
+		c, err := readConfig()
+		if err != nil {
+			return err
+		}
+		if c.PasswordMode != "temporary" || !c.Enabled {
+			return errors.New("enable temporary password mode first")
+		}
+		if _, err = s.command("rc-service", Package, "status"); err != nil {
+			return errors.New("start RustDesk before generating a new password")
+		}
+		_, err = s.command("rc-service", Package, "restart")
+		return err
 	case "install":
 		_, err := s.command("apk", "add", Package)
 		return err

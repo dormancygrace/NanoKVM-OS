@@ -134,3 +134,111 @@ func TestPackageActionsUseFixedArgv(t *testing.T) {
 		t.Fatal("unknown action accepted")
 	}
 }
+
+func TestPasswordModeDefaultsAndLegacyMigration(t *testing.T) {
+	temporaryConfig(t)
+	fresh, err := readConfig()
+	if err != nil || fresh.PasswordMode != "temporary" || fresh.Password != "" {
+		t.Fatalf("fresh config: %+v %v", fresh, err)
+	}
+	// A password saved by the previous add-on must keep working after upgrade.
+	legacy := []byte("{\"password\":\"legacy-secret\",\"codec\":\"h265\",\"max_clients\":1}")
+	if err := os.WriteFile(ConfigFile, legacy, 0600); err != nil {
+		t.Fatal(err)
+	}
+	migrated, err := readConfig()
+	if err != nil || migrated.PasswordMode != "permanent" || migrated.Password != "legacy-secret" {
+		t.Fatalf("legacy config: %+v %v", migrated, err)
+	}
+	fresh.PasswordMode = "permanent"
+	if validateConfig(&fresh) == nil {
+		t.Fatal("permanent mode accepted an empty password")
+	}
+	fresh.PasswordMode = "invalid"
+	if validateConfig(&fresh) == nil {
+		t.Fatal("unknown mode accepted")
+	}
+}
+
+func TestTemporaryPasswordExposedOnlyWhenSelectedAndRunning(t *testing.T) {
+	temporaryConfig(t)
+	c := defaultConfig()
+	c.Password = "never-reveal-permanent"
+	if err := writeConfig(c); err != nil {
+		t.Fatal(err)
+	}
+	s := NewService(NewBridge())
+	s.passwordFile = filepath.Join(t.TempDir(), "temporary-password")
+	if err := os.WriteFile(s.passwordFile, []byte("ABCDEFGH23"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	running := true
+	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if name == "rc-service" && !running {
+			return nil, errors.New("stopped")
+		}
+		return nil, nil
+	}
+	status, err := s.Status()
+	if err != nil || status.TemporaryPassword != "ABCDEFGH23" || status.Config.Password != "" {
+		t.Fatalf("temporary status: %+v %v", status, err)
+	}
+	running = false
+	status, err = s.Status()
+	if err != nil || status.TemporaryPassword != "" {
+		t.Fatal("stale stopped password exposed")
+	}
+	running = true
+	c.PasswordMode = "permanent"
+	if err := writeConfig(c); err != nil {
+		t.Fatal(err)
+	}
+	status, err = s.Status()
+	encoded, _ := json.Marshal(status)
+	if err != nil || status.TemporaryPassword != "" || strings.Contains(string(encoded), c.Password) {
+		t.Fatalf("permanent credential exposed: %s %v", encoded, err)
+	}
+}
+
+func TestRegenerationRequiresRunningTemporaryModeAndPreservesConfig(t *testing.T) {
+	temporaryConfig(t)
+	c := defaultConfig()
+	c.Enabled = true
+	c.Password = "retained-permanent"
+	if err := writeConfig(c); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(ConfigFile)
+	s := NewService(NewBridge())
+	running := true
+	var commands []string
+	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		commands = append(commands, name+" "+strings.Join(args, " "))
+		if !running {
+			return nil, errors.New("stopped")
+		}
+		return nil, nil
+	}
+	if err := s.Action("regenerate-password"); err != nil {
+		t.Fatal(err)
+	}
+	if len(commands) != 2 || commands[1] != "rc-service nanokvm-rustdesk restart" {
+		t.Fatal(commands)
+	}
+	after, _ := os.ReadFile(ConfigFile)
+	if string(before) != string(after) {
+		t.Fatal("regeneration changed persistent credentials or config")
+	}
+	running = false
+	if s.Action("regenerate-password") == nil {
+		t.Fatal("stopped service regenerated a password")
+	}
+	c.PasswordMode = "permanent"
+	if err := writeConfig(c); err != nil {
+		t.Fatal(err)
+	}
+	commands = nil
+	if s.Action("regenerate-password") == nil || len(commands) != 0 {
+		t.Fatal("permanent mode was restarted")
+	}
+}

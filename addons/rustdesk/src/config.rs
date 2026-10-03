@@ -44,6 +44,14 @@ fn rustdesk_id() -> String {
     "Direct IP only (not registered)".to_owned()
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PasswordMode {
+    #[default]
+    Permanent,
+    Temporary,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
@@ -55,6 +63,7 @@ pub struct Config {
     pub port: u16,
     pub access_control_enabled: bool,
     pub password: String,
+    pub password_mode: PasswordMode,
     #[serde(default = "maximum_clients")]
     pub max_clients: usize,
     #[serde(default = "frame_rate")]
@@ -81,6 +90,7 @@ impl Default for Config {
             port: port(),
             access_control_enabled: true,
             password: String::new(),
+            password_mode: PasswordMode::Permanent,
             max_clients: maximum_clients(),
             fps: frame_rate(),
             codec: codec(),
@@ -147,7 +157,9 @@ impl Config {
         {
             return Err("server_key must be a base64-encoded 32-byte public key".to_owned());
         }
-        if !(8..=64).contains(&self.password.len()) {
+        if (self.password_mode == PasswordMode::Permanent || !self.password.is_empty())
+            && !(8..=64).contains(&self.password.len())
+        {
             return Err(
                 "password must contain 8 to 64 bytes when access control is enabled".to_owned(),
             );
@@ -172,12 +184,24 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
-    use super::{Config, OFFICIAL_RENDEZVOUS_SERVER, OFFICIAL_SERVER_KEY};
+    use super::{Config, PasswordMode, OFFICIAL_RENDEZVOUS_SERVER, OFFICIAL_SERVER_KEY};
 
     #[test]
     fn defaults_require_a_password() {
         let error = Config::default().validate().unwrap_err();
         assert!(error.contains("password"));
+    }
+
+    #[test]
+    fn temporary_mode_allows_generation_without_stored_password() {
+        let config = Config {
+            password_mode: PasswordMode::Temporary,
+            ..Config::default()
+        };
+        config.validate().unwrap();
+        let legacy: Config = serde_json::from_str(r#"{"password":"stored-pass"}"#).unwrap();
+        assert_eq!(legacy.password_mode, PasswordMode::Permanent);
+        assert!(serde_json::from_str::<Config>(r#"{"password_mode":"unknown"}"#).is_err());
     }
 
     #[test]

@@ -29,5 +29,5 @@ start_pre() {
     done
 }
 stop_post() {
-    rm -f /run/nanokvm-rustdesk/status.json
+    rm -f /run/nanokvm-rustdesk/status.json /run/nanokvm-rustdesk/temporary-password /run/nanokvm-rustdesk/temporary-password.tmp
 }

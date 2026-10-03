@@ -8,9 +8,16 @@ import { getRuntimeStatus, installRuntime, uninstallRuntime } from '@/api/picocl
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { Robot } from '@/components/icons/robot.tsx';
+
 import { RustDeskAddon } from './rustdesk';
 
-export const Addons = ({ onOpen }: { onOpen: () => void }) => {
+export const Addons = ({
+  onOpen,
+  onOpenRustDesk
+}: {
+  onOpen: () => void;
+  onOpenRustDesk: () => void;
+}) => {
   const { t } = useTranslation();
   const [status, setStatus] = useAtom(picoclawRuntimeStatusAtom);
   const [busy, setBusy] = useState(false);
@@ -128,7 +135,7 @@ export const Addons = ({ onOpen }: { onOpen: () => void }) => {
           </Button>
         )}
       </div>
-      <RustDeskAddon />
+      <RustDeskAddon onOpen={onOpenRustDesk} />
     </div>
   );
 };

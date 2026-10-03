@@ -21,7 +21,8 @@ rendezvous implementation falls back to relay instead of completing direct NAT
 traversal. The direct TCP listener defaults to loopback: inherited direct
 sessions lack transport encryption. The GUI offers ID/relay access only.
 Do not expose port 21118 remotely. Configure the same custom ID server and
-public key in the client. Public registration and encrypted relay video were confirmed on the test device;\nsee docs/rustdesk-device-test.md for limits.
+public key in the client. Public registration and encrypted relay video were confirmed on the test device;
+see docs/rustdesk-device-test.md for limits.
 
 Only one session owns input. An existing browser controller blocks external
 input. Browser joins stay view-only while RustDesk owns control; explicit
@@ -37,26 +38,35 @@ It depends on nanokvm-rustdesk-bridge=1 supplied by the updated nanokvm-app and
 on OpenRC. Installation alone leaves it stopped. Upgrade restarts only a service
 that was running; removal stops it and removes its runlevel entry.
 
-The standalone RustDeskAddon web component has English and Russian labels.
-After integrating these commits, apply docs/rustdesk-addons-integration.patch
-to the owner's Software Add-ons page. The card uses standard APK operations,
-saves configuration and controls the OpenRC service.
+Software > Add-ons contains package installation, upgrade and removal, plus a
+link to management. Settings > Extensions lists installed RustDesk and PicoClaw,
+including stopped services. RustDesk has one management screen with its ID,
+temporary password, service switch and password mode. Server, codec and viewer
+settings are under Advanced settings. PicoClaw opens its existing control panel.
+English and Russian labels are provided. The old two-line UI patch is historical;
+do not apply it again to the integrated branch.
 
 The private /etc/nanokvm-rustdesk directory contains config.json, the stable ID,
 UUID and signing key. User state survives package removal and reinstallation.
-Configuration writes are atomic with mode 0600; status omits the password.
-An empty GUI password preserves the stored password; passwords need 8-64 UTF-8
-bytes. The daemon publishes settings-output.json for the ID and a runtime status
+Configuration writes are atomic with mode 0600; the status API always omits the permanent password.
+Fresh installs default to temporary passwords. The daemon generates ten easy-to-read
+characters from OS randomness on each start. Only the admin status API exposes
+this password while the service runs; its runtime file has mode 0600 and is removed
+on stop. The "New password" action restarts RustDesk and disconnects its sessions.
+Existing configurations retain permanent mode on upgrade. Switching to temporary
+mode preserves the permanent credential, but accepts only the temporary password.
+An empty GUI field in permanent mode preserves the stored password; permanent
+passwords need 8-64 UTF-8 bytes. The daemon publishes settings-output.json for the ID and a runtime status
 file showing sessions and recent registration acknowledgements.
 
-Example config.json (replace the example password before use):
+Example config.json (automatic temporary password):
 {
   "service_enabled": true,
   "use_official_id_server": true,
   "rendezvous_server": "",
   "relay_server": "",
   "server_key": "",
-  "password": "replace-this-example",
+  "password_mode": "temporary",
   "codec": "h265",
   "max_clients": 1
 }

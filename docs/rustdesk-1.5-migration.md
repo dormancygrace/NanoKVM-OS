@@ -1,8 +1,8 @@
-# RustDesk 1.5 migration: NanoKVM add-on 0.3.0-r0
+# RustDesk 1.5 migration: NanoKVM add-on 0.3.0-r1
 
 The endpoint uses RustDesk 1.5.0 fada664df7a294d1d1a9ca3e7cd3637069122f17
 and hbb_common 229b904508364c8997aad0fb5af57effac859f60 as protocol reference.
-Its own version is 0.3.0-r0; it remains a partial HDMI/HID endpoint.
+Its own version is 0.3.0-r1; it remains a partial HDMI/HID endpoint.
 
 Implemented:
 - KX v1 independent transmit/receive BLAKE2b keys, exact transcript and legacy v0.
@@ -26,7 +26,7 @@ relay. Legacy direct TCP defaults to loopback. New daemon dependencies require t
 updated app to provide nanokvm-rustdesk-webrtc=1 in addition to bridge=1.
 
 Host evidence, 2026-10-03:
-- Rust: 36 passed, 2 device-only ignored. Independent crypto vectors, encrypted
+- Rust: 39 passed, 2 device-only ignored. Independent crypto vectors, encrypted
   v0/v1 loopback, signed signaling roundtrips, DTLS identity/framing and view-only HID test.
 - Go: service/rustdesk and router pass with race detection/hardware stubs.
   Real Pion peer tests bidirectional fragmented payloads, bursts and setup teardown.
@@ -59,3 +59,7 @@ the remaining header and payload must arrive within three seconds. Session
 cancellation closes the IPC connection to interrupt idle and partial reads.
 Tests cover partial header/body timeout, cancellation, duplicate attach, session
 and connection caps, oversized frames and actual Unix peer credentials.
+
+Revision r1 additionally honors client view-only at login and live option changes.
+Tests verify no HID/lease calls before enable, held-button release after disable,
+and continued heartbeat/video with server-side permissions still enforced.

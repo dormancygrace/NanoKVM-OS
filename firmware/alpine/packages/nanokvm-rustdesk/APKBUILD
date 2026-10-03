@@ -1,7 +1,7 @@
 # Optional package; deliberately absent from platform/packages.list.
 pkgname=nanokvm-rustdesk
 pkgver=0.3.0
-pkgrel=0
+pkgrel=1
 pkgdesc="RustDesk endpoint for NanoKVM HDMI capture and USB HID"
 url="https://github.com/onekvm/onekvm-extension-rustdesk"
 arch="riscv64"

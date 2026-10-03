@@ -56,6 +56,7 @@ fn is_peer_disconnect(error: &io::Error) -> bool {
 }
 
 enum InputEvent {
+    Enabled(bool),
     Mouse(MouseEvent),
     Key(KeyEvent),
 }
@@ -558,11 +559,19 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     // flush starts per 16 ms window, absolute moves keep the newest position,
     // and relative moves accumulate without losing displacement. Keyboard,
     // button, and wheel events flush pending movement before being handled.
-    let input_allowed = limits.input_allowed;
+    let can_control = limits.input_allowed;
+    let input_allowed = can_control
+        && login
+            .option
+            .as_ref()
+            .map(|o| matches!(o.disable_keyboard, 0 | 1))
+            .unwrap_or(true);
     let (input_sender, mut input_receiver) = mpsc::channel(64);
     let (input_result_sender, mut input_result_receiver) = mpsc::channel(1);
     let (input_shutdown_sender, mut input_shutdown) = watch::channel(false);
     let input_task = tokio::spawn(async move {
+        let mut enabled = input_allowed;
+        let mut active = false;
         let mut pending_move: Option<PendingPointerMove> = None;
         // A fixed cadence mirrors requestAnimationFrame more closely than
         // sleeping 16 ms after the first event: movement waits only until the
@@ -578,11 +587,12 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             let event = tokio::select! {
                 event = input_receiver.recv() => event,
                 _ = heartbeat.tick() => {
-                    if input_allowed { if let Err(error) = input.heartbeat().await { break Err(error); } }
+                    if enabled { active=true; if let Err(error) = input.heartbeat().await { break Err(error); } }
                     continue;
                 },
                 _ = flush_tick.tick() => {
                     if let Some(movement) = pending_move.take() {
+                        active=true;
                         if let Err(error) = movement.flush(&mut input).await {
                             break Err(error);
                         }
@@ -597,6 +607,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
 
             let Some(event) = event else {
                 if let Some(movement) = pending_move.take() {
+                    active = true;
                     if let Err(error) = movement.flush(&mut input).await {
                         break Err(error);
                     }
@@ -605,6 +616,17 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             };
 
             match event {
+                InputEvent::Enabled(next) => {
+                    if !next {
+                        pending_move = None;
+                        if active {
+                            input.release_all().await;
+                            active = false;
+                        }
+                    }
+                    enabled = next;
+                }
+                InputEvent::Mouse(_) | InputEvent::Key(_) if !enabled => {}
                 InputEvent::Mouse(event) => match PendingPointerMove::new(event) {
                     Ok(movement) => {
                         if let Some(pending) = pending_move.as_mut() {
@@ -614,6 +636,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                             };
                             if let Err(event) = pending.merge(event) {
                                 if let Some(movement) = pending_move.take() {
+                                    active = true;
                                     if let Err(error) = movement.flush(&mut input).await {
                                         break Err(error);
                                     }
@@ -629,10 +652,12 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                     }
                     Err(event) => {
                         if let Some(movement) = pending_move.take() {
+                            active = true;
                             if let Err(error) = movement.flush(&mut input).await {
                                 break Err(error);
                             }
                         }
+                        active = true;
                         if let Err(error) = input.handle_mouse(event).await {
                             break Err(error);
                         }
@@ -640,17 +665,19 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 },
                 InputEvent::Key(event) => {
                     if let Some(movement) = pending_move.take() {
+                        active = true;
                         if let Err(error) = movement.flush(&mut input).await {
                             break Err(error);
                         }
                     }
+                    active = true;
                     if let Err(error) = input.handle_key(event).await {
                         break Err(error);
                     }
                 }
             }
         };
-        if input_allowed {
+        if active {
             input.release_all().await;
         }
         let _ = input_result_sender.send(result).await;
@@ -676,6 +703,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let incoming_limits = limits.clone();
     let incoming_login = login.clone();
     let incoming_task = tokio::spawn(async move {
+        let mut enabled = input_allowed;
         loop {
             // A stalled/half-open peer releases HID and its viewer slot. The
             // whole stream ends on timeout, so partial reads are never reused.
@@ -696,16 +724,39 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             }
             match message {
                 Ok(Message {
+                    union:
+                        Some(message::Union::Misc(crate::protocol::Misc {
+                            union: Some(crate::protocol::misc::Union::Option(option)),
+                        })),
+                }) => {
+                    if matches!(option.disable_keyboard, 1 | 2) {
+                        enabled = can_control && option.disable_keyboard == 1;
+                        if input_sender
+                            .send(InputEvent::Enabled(enabled))
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+                }
+                Ok(Message {
+                    union:
+                        Some(message::Union::Misc(crate::protocol::Misc {
+                            union: Some(crate::protocol::misc::Union::CloseReason(_)),
+                        })),
+                }) => break,
+                Ok(Message {
                     union: Some(message::Union::MouseEvent(event)),
                 }) => {
-                    if input_allowed && input_sender.send(InputEvent::Mouse(event)).await.is_err() {
+                    if enabled && input_sender.send(InputEvent::Mouse(event)).await.is_err() {
                         break;
                     }
                 }
                 Ok(Message {
                     union: Some(message::Union::KeyEvent(event)),
                 }) => {
-                    if input_allowed && input_sender.send(InputEvent::Key(event)).await.is_err() {
+                    if enabled && input_sender.send(InputEvent::Key(event)).await.is_err() {
                         break;
                     }
                 }
@@ -1389,6 +1440,18 @@ mod tests {
         bridge_mock(false).await;
     }
     async fn bridge_mock(input_allowed: bool) {
+        bridge_mock_with_options(input_allowed, false, false).await;
+    }
+    #[tokio::test]
+    async fn client_view_only_at_login_never_claims_hid() {
+        bridge_mock_with_options(true, true, false).await;
+    }
+    #[tokio::test]
+    async fn client_can_enable_input_then_release_it_without_ending_video() {
+        bridge_mock_with_options(true, true, true).await;
+    }
+    async fn bridge_mock_with_options(can_control: bool, initially_disabled: bool, toggle: bool) {
+        let input_allowed = can_control && (!initially_disabled || toggle);
         let directory = temporary_directory();
         std::fs::create_dir_all(&directory).unwrap();
         let media_path = directory.join("media.sock");
@@ -1456,7 +1519,7 @@ mod tests {
         });
         let (_shutdown_sender, shutdown_receiver) = watch::channel(false);
         let mut limits = ClientLimits::new(1);
-        limits.input_allowed = input_allowed;
+        limits.input_allowed = can_control;
         let pending_permit = limits.try_pending().unwrap();
         let rustdesk_identity =
             Arc::new(RustDeskIdentity::load_from(&directory.join("rustdesk-state")).unwrap());
@@ -1524,6 +1587,10 @@ mod tests {
         ));
 
         let login = LoginRequest {
+            option: Some(OptionMessage {
+                disable_keyboard: if initially_disabled { 2 } else { 0 },
+                ..Default::default()
+            }),
             password: password_hash("onekvm-test", &hash),
             my_id: "test-client".to_owned(),
             my_name: "NanoKVM test".to_owned(),
@@ -1602,6 +1669,41 @@ mod tests {
             }))
         ));
 
+        if !can_control {
+            write_message(
+                &mut client,
+                &Message {
+                    union: Some(message::Union::Misc(crate::protocol::Misc {
+                        union: Some(crate::protocol::misc::Union::Option(OptionMessage {
+                            disable_keyboard: 1,
+                            ..Default::default()
+                        })),
+                    })),
+                },
+            )
+            .await
+            .unwrap();
+        }
+        if toggle {
+            assert!(
+                time::timeout(Duration::from_millis(80), hid_receiver.recv())
+                    .await
+                    .is_err()
+            );
+            write_message(
+                &mut client,
+                &Message {
+                    union: Some(message::Union::Misc(crate::protocol::Misc {
+                        union: Some(crate::protocol::misc::Union::Option(OptionMessage {
+                            disable_keyboard: 1,
+                            ..Default::default()
+                        })),
+                    })),
+                },
+            )
+            .await
+            .unwrap();
+        }
         write_message(
             &mut client,
             &Message {
@@ -1685,6 +1787,39 @@ mod tests {
             assert_eq!(body["x"], (300_u32 * 32767) / 1919);
             assert_eq!(body["y"], (150_u32 * 32767) / 1079);
             assert_eq!(body["buttons"], 1);
+        }
+        if toggle {
+            write_message(
+                &mut client,
+                &Message {
+                    union: Some(message::Union::Misc(crate::protocol::Misc {
+                        union: Some(crate::protocol::misc::Union::Option(OptionMessage {
+                            disable_keyboard: 2,
+                            ..Default::default()
+                        })),
+                    })),
+                },
+            )
+            .await
+            .unwrap();
+            // A disabled-input session still responds to its heartbeat.
+            write_message(
+                &mut client,
+                &Message {
+                    union: Some(message::Union::TestDelay(TestDelay {
+                        time: 789,
+                        from_client: true,
+                        ..Default::default()
+                    })),
+                },
+            )
+            .await
+            .unwrap();
+            let response: Message = read_message(&mut client).await.unwrap();
+            assert!(matches!(
+                response.union,
+                Some(message::Union::TestDelay(TestDelay { time: 789, .. }))
+            ));
         }
         drop(client);
         server_task.await.unwrap().unwrap();

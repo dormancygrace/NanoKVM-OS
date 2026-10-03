@@ -32,8 +32,8 @@ static DEFINE_MUTEX(lock);
 static bool poisoned;
 static u32 initial_mask;
 
-/* Keep the public fixed-size ioctl ABI, but allocate only the submitted data.
- * This object is CPU scratch storage; DMA mappings and completion are unchanged.
+/* Keep the public fixed-size ioctl ABI. The header is stack scratch and the
+ * submitted payload is copied directly into the existing locked DMA buffer.
  */
 struct aes_scratch {
  u32 length, reserved;
@@ -51,31 +51,31 @@ static_assert(offsetof(struct aes_scratch, status) == offsetof(struct sg2002_aes
 
 static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
- struct aes_scratch header = {}, *r;
- u32 status, size;
+ struct aes_scratch header = {};
+ u32 status = 0, size = 0;
  int err;
  if (cmd != SG2002_AES_CTR) return crypto_ioctl(cmd, arg);
- /* Snapshot once: allocation and payload copy must use the same length even
-  * if userspace changes its header concurrently. Never reread that header. */
+ /* Snapshot the fixed header once. The payload copy below uses this length and
+  * never rereads userspace metadata, even if the caller races with the ioctl. */
  if (copy_from_user(&header, (void __user *)arg, sizeof(header))) {
   err = -EFAULT; goto clear_header;
  }
  if (!header.length || header.length > SG2002_AES_MAX || header.reserved) {
   err = -EINVAL; goto clear_header;
  }
- r = kmalloc(sizeof(*r) + header.length, GFP_KERNEL);
- if (!r) { err = -ENOMEM; goto clear_header; }
- memcpy(r, &header, sizeof(header));
- memzero_explicit(&header, sizeof(header));
- if (copy_from_user(r->data, (u8 __user *)arg + offsetof(struct sg2002_aes_request, data), r->length)) {
-  err = -EFAULT; goto free_request;
- }
  err = mutex_lock_interruptible(&lock);
- if (err) goto free_request;
+ if (err) goto clear_header;
  if (poisoned) { err = -EIO; goto unlock; }
- size = ALIGN(r->length, 16);
- memcpy(buffer, r->data, r->length);
- memset(buffer + r->length, 0, size - r->length);
+ size = ALIGN(header.length, 16);
+ /* The shared DMA buffer is protected by lock. Keeping the user copy inside
+  * the lock removes the per-request allocation and the two intermediate copies. */
+ if (copy_from_user(buffer,
+      (u8 __user *)arg + offsetof(struct sg2002_aes_request, data),
+      header.length)) {
+  err = -EFAULT;
+  goto clear_input;
+ }
+ memset(buffer + header.length, 0, size - header.length);
  memset(desc, 0, DESC_BYTES);
  desc[0] = BIT(23) | BIT(19) | BIT(9) | 0xf;
  desc[1] = BIT(5) | BIT(2) | BIT(0); /* AES128,CTR,encrypt */
@@ -84,8 +84,8 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  desc[6] = lower_32_bits(buffer_dma);
  desc[7] = upper_32_bits(buffer_dma);
  desc[8] = size;
- memcpy(&desc[10], r->key, 16);
- memcpy(&desc[18], r->iv, 16);
+ memcpy(&desc[10], header.key, 16);
+ memcpy(&desc[18], header.iv, 16);
  dma_sync_single_for_device(&pdev->dev, buffer_dma, size, DMA_BIDIRECTIONAL);
  dma_sync_single_for_device(&pdev->dev, desc_dma, DESC_BYTES, DMA_BIDIRECTIONAL);
  dma_wmb();
@@ -97,7 +97,6 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  writel(upper_32_bits(desc_dma), regs + DESC_HI);
  writel((6 << 24) | (16 << 16) | 3, regs + CTRL);
  err = readl_poll_timeout(regs + STATUS, status, status != 0, 1, 20000);
- r->status = status;
  if (err || status != 1) {
   /* Completion/error bits beyond bit0 are not assumed to prove DMA idle.
    * Retain mappings, buffers and module code until reset on any uncertainty. */
@@ -110,16 +109,30 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  dma_rmb();
  dma_sync_single_for_cpu(&pdev->dev, desc_dma, DESC_BYTES, DMA_BIDIRECTIONAL);
  dma_sync_single_for_cpu(&pdev->dev, buffer_dma, size, DMA_BIDIRECTIONAL);
- memcpy(r->data, buffer, r->length);
+ header.status = status;
+ /* Preserve the old contiguous copy_to_user ordering: return the header first,
+  * then the ciphertext. A failed copy still runs the normal scratch cleanup. */
+ if (copy_to_user((void __user *)arg, &header, sizeof(header))) {
+  err = -EFAULT;
+  goto clear_scratch;
+ }
+ if (copy_to_user((u8 __user *)arg + offsetof(struct sg2002_aes_request, data),
+      buffer, header.length)) {
+  err = -EFAULT;
+  goto clear_scratch;
+ }
+ err = 0;
+clear_scratch:
  memzero_explicit(buffer, size);
  memzero_explicit(desc, DESC_BYTES);
  writel(7, regs + STATUS);
  writel(initial_mask, regs + MASK);
- if (copy_to_user((void __user *)arg, r, offsetof(struct sg2002_aes_request, data) + r->length)) err = -EFAULT;
+ goto unlock;
+clear_input:
+ memzero_explicit(buffer, size);
+ memzero_explicit(desc, DESC_BYTES);
 unlock:
  mutex_unlock(&lock);
-free_request:
- kfree_sensitive(r);
 clear_header:
  memzero_explicit(&header, sizeof(header));
  return err;

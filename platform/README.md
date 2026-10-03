@@ -10,8 +10,8 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 
 | Output | Shipped in |
 |---|---|
-| `images/Image` (Linux `7.2.6-nanokvm-os-r1`) | every `boot.sd` |
-| `images/lib/modules/7.2.6-nanokvm-os-r1/` (62 in-tree and 17 out-of-tree modules, `modules.*`) | `nanokvm-kmod-sg2002` |
+| `images/Image` (Linux `7.2.9-nanokvm-os-r1`) | every `boot.sd` |
+| `images/lib/modules/7.2.9-nanokvm-os-r1/` (65 in-tree and 17 out-of-tree modules, `modules.*`) | `nanokvm-kmod-sg2002` |
 | `images/boot/*.sd`, `*.sha256`, `kernel.release` (5 boards × CMA/fixed video memory) | `nanokvm-kernel-sg2002`, `/usr/lib/nanokvm/boot` |
 | `images/dtb/*.dtb`, `images/initramfs.cpio.zst` | inside the `boot.sd` images |
 | `images/u-boot.bin`, `images/fip.bin` | boot partition of the SD image |
@@ -55,7 +55,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`). Re
 | `build.sh` | All build steps |
 | `expected.sha256` | Hash of every output in `images/`; `build.sh verify` fails if an output is missing, differs or is not listed |
 | `packages.list` | The contents of the six APK packages: each file, its mode and where it comes from |
-| `kernel/` | `config` and patches for kernel.org Linux 7.2.6 |
+| `kernel/` | `config` and patches for kernel.org Linux 7.2.9 |
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi and cryptodev; `sg2002-aes/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.07 |
 | `fip/base-fip.bin` | First-stage boot firmware; the build replaces only U-Boot in it |

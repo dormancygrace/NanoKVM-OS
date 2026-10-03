@@ -130,7 +130,16 @@ def check(source, root=ROOT):
         current = current_pin(root, source)
         result['current'] = current
         kind = source['kind']
-        if kind == 'alpine-package':
+        if kind == 'alpine-stock':
+            if not re.fullmatch(r'\d+\.\d+', current):
+                raise ValueError('Invalid Alpine stable branch')
+            url = ('https://dl-cdn.alpinelinux.org/alpine/v' + current + '/'
+                   + source['aport'].split('/')[0] + '/' + source['arch'] + '/APKINDEX.tar.gz')
+            latest = alpine_packages(request_bytes(url), source['packages'], source['arch'])
+            result.update(current='Alpine v' + current + ' package channel', latest=latest,
+                          link=url, status='repository-managed',
+                          detail='Stock signed APKs; installed device versions are not inspected. Use apk update and apk upgrade; no C906 rebuild is required')
+        elif kind == 'alpine-package':
             check_alpine(source, root, current, result)
         elif kind == 'github-commit':
             repo = source['repo']
@@ -171,7 +180,7 @@ def render(results):
     def cell(value):
         return html.escape(str(value)).replace('|', '&#124;').replace('\n', ' ')
     lines = [MARKER, '# Upstream dependency updates', '',
-             'Dependabot handles dependency PRs. This report covers native source pins, patched forks and the Alpine baseline used by the C906 OpenSSL rebuild.', '',
+             'Dependabot handles dependency PRs. This report covers native source pins, patched forks and production Alpine package availability.', '',
              '| Component | Pinned | Upstream | Result | Pin file |',
              '|---|---|---|---|---|']
     for item in results:
@@ -188,8 +197,8 @@ def render(results):
               '- Update related source/archive hashes, Go runtime patches, module ABI and platform output manifest together after rebuilding and testing.',
               '- Do not overwrite patched Pion sources by only bumping go.mod versions.',
               '- Buildroot package recipes inherit upstream changes when Buildroot is refreshed; this is not an individual version/CVE audit of every transitive native package.',
-              '- Alpine OpenSSL is checked against the published stable riscv64 package index, using the pinned aports recipe as the C906 baseline. The local pkgrel +1 does not count as an upstream fix. Old Buildroot OpenSSL 4 is not the system OpenSSL.',
-              '- C906 build versions are derived from the pinned recipe, not observed on a device or in the published overlay. Rebuild and publish the overlay after Alpine updates; this watcher does not run apk upgrade or change devices.',
+              '- Production OpenSSL uses the stock signed Alpine riscv64 repository. Repository-managed rows show availability, not the installed device version.',
+              '- The optional C906 rebuild recipe is retained for research and is not a production update requirement. This watcher does not run apk upgrade or change devices.',
               '- Retired Buildroot OpenVPN 3/Asio, Superfile, private apk-tools and vendor-libc loader recipes are excluded; they do not describe the current Alpine package set.',
               '- Alpine branch monitoring does not update installed APKs. APK package revisions and firmware release approval remain separate.',
               '- Opaque boot firmware (including the existing base FIP/OpenSBI), local patches and historical experiments have no general automatic updater.',
@@ -249,7 +258,7 @@ def main():
     print(body)
     if args.publish:
         publish(os.environ['GITHUB_REPOSITORY'], body,
-                any(x['status'] != 'current' for x in results))
+                any(x['status'] not in ('current', 'repository-managed') for x in results))
     if any(x['status'] == 'error' for x in results):
         raise SystemExit('One or more upstream checks failed; see the report')
 

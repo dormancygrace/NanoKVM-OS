@@ -26,6 +26,8 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
     write(port / 'base/usr/libexec/nanokvm/legacy/S15kvmhwd', b'vendor base\n')
     write(port / 'app/kvmapp/system/init.d/S15kvmhwd', b'vendor app\n')
     write(port / 'app/kvmapp/server/web/old.html')
+    write(port / 'base/usr/libexec/nanokvm/legacy/S95nanokvm', b'stale base startup\n')
+    write(port / 'app/kvmapp/system/init.d/S95nanokvm', b'stale app startup\n')
 
     for name in ('nkos-board-probe', 'nanokvm_update_edid',
                  'nanokvm-wifi-tx-live', 'nanokvm-wifi-tx-policy'):
@@ -63,5 +65,17 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
     assert (output / 'base/usr/sbin/devmem').read_bytes() == devmem.read_bytes()
     assert (output / 'base/usr/sbin/devmem').stat().st_mode & 0o111
     assert (output / 'base/usr/share/licenses/nanokvm-base/busybox-LICENSE').is_file()
+    # A subsequent app-only update must change the startup policy seen through
+    # the base compatibility entry point; retaining a copied S95 fails this.
+    base_s95 = output / 'base/usr/libexec/nanokvm/legacy/S95nanokvm'
+    app_s95 = output / 'app/kvmapp/system/init.d/S95nanokvm'
+    assert base_s95.is_symlink(), 'base retains a stale independent S95'
+    target = base_s95.readlink()
+    resolved = output / 'app' / str(target).lstrip('/')
+    assert resolved == app_s95
+    assert resolved.read_bytes() == (root / 'kvmapp/system/init.d/S95nanokvm').read_bytes()
+    app_s95.write_bytes(b'updated application startup policy\n')
+    assert resolved.read_bytes() == b'updated application startup policy\n'
+
 
 print('Enhanced S15 packaging test passed')

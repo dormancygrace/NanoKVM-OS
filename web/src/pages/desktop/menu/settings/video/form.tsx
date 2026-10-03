@@ -163,22 +163,24 @@ export const VideoForm = ({
     });
   }
   const codecValid = draft.mode === 'mjpeg' || draft.codec === 'h264' || h265Supported === true;
-  const valid =
-    Number.isInteger(draft.fps) &&
-    draft.fps >= 10 &&
-    draft.fps <= (maximumPortrait ? 50 : 120) &&
-    Number.isInteger(draft.gop) &&
-    draft.gop >= 1 &&
-    draft.gop <= 100 &&
-    codecValid &&
-    (!maximumPortrait ||
-      (draft.mode === 'direct' && draft.codec === 'h265' && directH265Supported === true)) &&
-    !unstableSelected;
+  const valid = admin
+    ? Number.isInteger(draft.fps) &&
+      draft.fps >= 10 &&
+      draft.fps <= (maximumPortrait ? 50 : 120) &&
+      Number.isInteger(draft.gop) &&
+      draft.gop >= 1 &&
+      draft.gop <= 100 &&
+      codecValid &&
+      (!maximumPortrait ||
+        (draft.mode === 'direct' && draft.codec === 'h265' && directH265Supported === true)) &&
+      !unstableSelected
+    : true;
 
   async function apply() {
     if (!dirty || !valid || applying.current) return;
     applying.current = true;
-    const powerCycleWrite = draft.monitor !== saved.monitor && status.monitorRequiresPowerCycle;
+    const powerCycleWrite =
+      admin && draft.monitor !== saved.monitor && status.monitorRequiresPowerCycle;
     if (powerCycleWrite) {
       const confirmed = await new Promise<boolean>((resolve) =>
         Modal.confirm({
@@ -209,78 +211,79 @@ export const VideoForm = ({
       setSaved(completed);
     };
     try {
-      // Persist shared settings first. A mode/codec change reloads only after
-      // every request succeeds; failed requests leave the draft available to retry.
-      const fields: Array<
-        [Exclude<keyof ScreenValues, 'portrait' | 'portraitResolution'>, string]
-      > = [
-        ['height', 'resolution'],
-        ['fps', 'fps'],
-        [next.mode === 'mjpeg' ? 'bitRate' : 'quality', 'quality'],
-        [next.mode === 'mjpeg' ? 'quality' : 'bitRate', 'quality'],
-        ['gop', 'gop'],
-        ['gopMode', 'gop_mode'],
-        ['mjpegChroma', 'mjpeg_chroma'],
-        ['monitor', 'monitor']
-      ];
-      for (const [key, type] of fields) {
-        if (next[key] === completed[key]) continue;
-        const rsp = await updateScreen(type, next[key], type === 'monitor' && powerCycleWrite);
-        if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
-        if (key === 'gopMode') {
-          gopModeRestartRequired = rsp.data?.gopModeRestartRequired === true;
-        }
-        commit(key);
-        if (key === 'height') {
-          const resolution = {
-            height: next.height,
-            width: (
-              { 0: 0, 600: 800, 720: 1280, 1080: 1920, 1440: 2560 } as Record<number, number>
-            )[next.height]
-          };
-          setResolution(resolution);
-          storage.setResolution(resolution);
-        }
-        if (key === 'fps') {
-          setFps(next.fps);
-          storage.setFps(next.fps);
-        }
-        if (key === 'gop') {
-          setGop(next.gop);
-          storage.setGop(next.gop);
-        }
-        if (key === 'quality' || key === 'bitRate') {
-          const quality = [...(getQualityMap(next.mode) ?? [])].find(
-            ([, value]) => value === next[key]
-          )?.[0];
-          if (quality !== undefined) {
-            setQuality(quality);
-            storage.setQuality(quality);
+      if (admin) {
+        // Persist shared settings first. A mode/codec change reloads only after
+        // every request succeeds; failed requests leave the draft available to retry.
+        const fields: Array<
+          [Exclude<keyof ScreenValues, 'portrait' | 'portraitResolution'>, string]
+        > = [
+          ['height', 'resolution'],
+          ['fps', 'fps'],
+          [next.mode === 'mjpeg' ? 'bitRate' : 'quality', 'quality'],
+          [next.mode === 'mjpeg' ? 'quality' : 'bitRate', 'quality'],
+          ['gop', 'gop'],
+          ['gopMode', 'gop_mode'],
+          ['mjpegChroma', 'mjpeg_chroma'],
+          ['monitor', 'monitor']
+        ];
+        for (const [key, type] of fields) {
+          if (next[key] === completed[key]) continue;
+          const rsp = await updateScreen(type, next[key], type === 'monitor' && powerCycleWrite);
+          if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
+          if (key === 'gopMode') {
+            gopModeRestartRequired = rsp.data?.gopModeRestartRequired === true;
+          }
+          commit(key);
+          if (key === 'height') {
+            const resolution = {
+              height: next.height,
+              width: (
+                { 0: 0, 600: 800, 720: 1280, 1080: 1920, 1440: 2560 } as Record<number, number>
+              )[next.height]
+            };
+            setResolution(resolution);
+            storage.setResolution(resolution);
+          }
+          if (key === 'fps') {
+            setFps(next.fps);
+            storage.setFps(next.fps);
+          }
+          if (key === 'gop') {
+            setGop(next.gop);
+            storage.setGop(next.gop);
+          }
+          if (key === 'quality' || key === 'bitRate') {
+            const quality = [...(getQualityMap(next.mode) ?? [])].find(
+              ([, value]) => value === next[key]
+            )?.[0];
+            if (quality !== undefined) {
+              setQuality(quality);
+              storage.setQuality(quality);
+            }
           }
         }
-      }
-      if (next.portraitResolution !== completed.portraitResolution) {
-        const rsp = await updateScreen('portrait_resolution', next.portraitResolution);
-        if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
-        commit('portraitResolution');
-      }
-      if (next.portrait !== completed.portrait) {
-        const rsp = await updateScreen('portrait', next.portrait ? 1 : 0);
-        if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
-        commit('portrait');
-      }
-      if (next.frameDetect !== completed.frameDetect) {
-        const rsp = await updateFrameDetect(next.frameDetect);
-        if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
-        storage.setFrameDetect(next.frameDetect);
-        commit('frameDetect');
+        if (next.portraitResolution !== completed.portraitResolution) {
+          const rsp = await updateScreen('portrait_resolution', next.portraitResolution);
+          if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
+          commit('portraitResolution');
+        }
+        if (next.portrait !== completed.portrait) {
+          const rsp = await updateScreen('portrait', next.portrait ? 1 : 0);
+          if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
+          commit('portrait');
+        }
+        if (next.frameDetect !== completed.frameDetect) {
+          const rsp = await updateFrameDetect(next.frameDetect);
+          if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
+          storage.setFrameDetect(next.frameDetect);
+          commit('frameDetect');
+        }
       }
       const playbackChanged = next.directPlayback !== saved.directPlayback;
-      const gopModeChanged = next.gopMode !== saved.gopMode;
-      const reconnect =
-        next.mode !== saved.mode ||
-        next.codec !== saved.codec ||
-        (next.mode === 'direct' && playbackChanged);
+      const modeChanged = next.mode !== saved.mode;
+      const codecChanged = admin && next.codec !== saved.codec;
+      const gopModeChanged = admin && next.gopMode !== saved.gopMode;
+      const reconnect = modeChanged || codecChanged || (next.mode === 'direct' && playbackChanged);
       if (playbackChanged) {
         storage.setDirectPlayback(next.directPlayback);
         // An explicit UI choice replaces any diagnostic render override.
@@ -289,13 +292,21 @@ export const VideoForm = ({
         url.searchParams.delete('directBufferMs');
         window.history.replaceState(window.history.state, '', url);
       }
-      if (next.mode !== 'mjpeg' && (next.codec !== saved.codec || next.mode !== saved.mode)) {
+      if (admin && next.mode !== 'mjpeg' && (codecChanged || modeChanged)) {
         const rsp = await selectEncoderCodec(next.codec);
         if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
       }
-      if (next.codec !== saved.codec) setEncoderCodec(next.codec);
-      if (next.mode !== saved.mode) storage.setVideoMode(next.mode);
-      setSaved(next);
+      if (codecChanged) setEncoderCodec(next.codec);
+      if (modeChanged) storage.setVideoMode(next.mode);
+      setSaved(
+        admin
+          ? next
+          : {
+              ...saved,
+              mode: next.mode,
+              directPlayback: next.directPlayback
+            }
+      );
       message.success(
         t(
           gopModeChanged && gopModeRestartRequired
@@ -505,14 +516,19 @@ export const VideoForm = ({
         {draft.mode !== 'mjpeg' &&
           row(
             t('screen.codec'),
-            select('codec', t('screen.codec'), [
-              {
-                value: 'h265',
-                label: `H.265 / HEVC${h265Supported === false ? ` (${t('screen.unsupported')})` : ''}`,
-                disabled: h265Supported !== true || (draft.mode === 'h264' && qhdSelected)
-              },
-              { value: 'h264', label: 'H.264 / AVC', disabled: maximumPortrait }
-            ])
+            select(
+              'codec',
+              t('screen.codec'),
+              [
+                {
+                  value: 'h265',
+                  label: `H.265 / HEVC${h265Supported === false ? ` (${t('screen.unsupported')})` : ''}`,
+                  disabled: h265Supported !== true || (draft.mode === 'h264' && qhdSelected)
+                },
+                { value: 'h264', label: 'H.264 / AVC', disabled: maximumPortrait }
+              ],
+              !admin
+            )
           )}
         {draft.mode !== 'mjpeg' &&
           draft.codec === 'h265' &&

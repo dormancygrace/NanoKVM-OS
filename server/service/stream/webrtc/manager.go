@@ -69,7 +69,13 @@ func (m *WebRTCManager) AddClient(ws *websocket.Conn, client *Client) error {
 		if len(packets) == 0 {
 			return errVideoBudget
 		}
-		return client.track.writeVideoPackets(packets)
+		client.pathMTU.beginFrame()
+		writeErr := client.track.writeVideoPackets(packets)
+		batchErr := client.pathMTU.endFrame()
+		if writeErr != nil {
+			return writeErr
+		}
+		return batchErr
 	}, func(err error) {
 		log.Errorf("failed to write video to client: %s", err)
 		if m.removeClient(ws, w) {
@@ -208,7 +214,7 @@ func (m *WebRTCManager) sendVideoStream(subscription *stream.VideoSubscription) 
 func newVideoPacketizer(codec stream.VideoCodec) rtp.Packetizer {
 	payloader := rtp.Payloader(&codecs.H264Payloader{})
 	if codec == stream.VideoCodecH265 {
-		payloader = &codecs.H265Payloader{}
+		payloader = &h265Payloader{}
 	}
 	return rtp.NewPacketizer(
 		videoRTPMTU,

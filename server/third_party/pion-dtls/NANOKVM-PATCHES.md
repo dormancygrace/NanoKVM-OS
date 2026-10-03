@@ -1,6 +1,6 @@
 # NanoKVM DTLS changes
 
-Base: `github.com/pion/dtls/v3 v3.1.9`. The upstream MIT license and tests are
+Base: `github.com/pion/dtls/v3 v3.1.10`. The upstream MIT license and tests are
 retained. The original module is available through the Go module proxy for comparison.
 
 NanoKVM changes the DTLS 1.2 server's cipher-suite intersection order in

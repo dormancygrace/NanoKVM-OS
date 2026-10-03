@@ -16,7 +16,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/pion/dtls/v3"
 	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v4"
 	log "github.com/sirupsen/logrus"
@@ -208,6 +207,7 @@ func createMediaEngine(config stream.EncoderConfig) (*webrtc.MediaEngine, error)
 func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.MediaEngine, budgets ...*peerPathMTU) (*webrtc.PeerConnection, error) {
 	initializeHardwareAES()
 	settingEngine := webrtc.SettingEngine{}
+	configureDiagnosticICEInterface(&settingEngine)
 	// Keep a fixed-budget override for controlled comparisons and recovery.
 	if len(budgets) > 0 && budgets[0] != nil && os.Getenv("NANOKVM_WEBRTC_PMTU") != "0" {
 		network, err := pathmtu.NewNet(budgets[0].receive, os.Getenv("NANOKVM_WEBRTC_UDP_FAST") == "1")
@@ -215,6 +215,10 @@ func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.Med
 			return nil, err
 		}
 		settingEngine.SetNet(network)
+		if os.Getenv("NANOKVM_WEBRTC_UDP_BATCH") != "0" {
+			network.EnableFrameBatching()
+			budgets[0].setBatcher(network)
+		}
 	} else if os.Getenv("NANOKVM_WEBRTC_UDP_FAST") == "1" {
 		network, err := udpfast.NewNet()
 		if err != nil {
@@ -222,10 +226,7 @@ func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.Med
 		}
 		settingEngine.SetNet(network)
 	}
-	settingEngine.SetSRTPProtectionProfiles(
-		dtls.SRTP_AES128_CM_HMAC_SHA1_80,
-		dtls.SRTP_AEAD_AES_128_GCM,
-	)
+	settingEngine.SetSRTPProtectionProfiles(srtpProtectionProfiles()...)
 	if err := webrtcdtls.Configure(&settingEngine); err != nil {
 		return nil, err
 	}

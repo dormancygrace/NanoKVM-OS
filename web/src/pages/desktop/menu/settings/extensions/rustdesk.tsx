@@ -87,7 +87,7 @@ export const RustDeskControls = () => {
         return;
       }
       if (action !== 'regenerate-password') dirty.current = false;
-      message.success(action === 'save' ? l.saved : l.done);
+      message.success(action === 'save' ? l.saved : l.passwordUpdated);
       setError('');
     } catch {
       setError(l.failed);
@@ -148,6 +148,7 @@ export const RustDeskControls = () => {
         {status?.installed && (
           <Form
             form={form}
+            initialValues={{ ...status.config, password: '' }}
             layout="vertical"
             disabled={busy}
             onValuesChange={() => {
@@ -198,7 +199,6 @@ export const RustDeskControls = () => {
                   forceRender: true,
                   children: (
                     <>
-                      {' '}
                       <Form.Item
                         name="use_official_id_server"
                         label={l.server}

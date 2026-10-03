@@ -10,16 +10,17 @@ import (
 )
 
 var hardwareAESOnce sync.Once
+var openHardwareAES = sg2002aes.Open
 
 func initializeHardwareAES() {
 	hardwareAESOnce.Do(func() {
 		// Process-wide selection: the descriptor is retained for the server's
 		// lifetime. It is closed automatically on exit or the first ioctl error.
-		if os.Getenv("NANOKVM_SRTP_AES") == "software" {
+		if os.Getenv("NANOKVM_SRTP_AES") != "hardware" {
 			log.Info("SRTP AES-CTR: software selected")
 			return
 		}
-		device, err := sg2002aes.Open(func(err error) {
+		device, err := openHardwareAES(func(err error) {
 			log.WithError(err).Warn("SRTP AES-CTR: hardware disabled; using software")
 		})
 		if err != nil {

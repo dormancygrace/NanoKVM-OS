@@ -3,6 +3,7 @@ package rustdesk
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 	"net/http/httptest"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	"NanoKVM-Server/service/controlmode"
-	"NanoKVM-Server/service/hid"
 	"NanoKVM-Server/service/inputcontrol"
 	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/ws"
@@ -57,21 +57,17 @@ func TestUSBPreparationUsesDedicatedCallbackWithoutInputLease(t *testing.T) {
 func TestAbsoluteWheelHeartbeatAndExpiry(t *testing.T) {
 	b := NewBridge()
 	id := strings.Repeat("a", 32)
-	s := &hidSession{id: id, touched: time.Now(), keyboard: make(chan hid.QueuedReport, 2), mouse: make(chan hid.QueuedReport, 2), manual: inputcontrol.NewManualSession(controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff), nil)}
+	s := &hidSession{id: id, touched: time.Now(), manual: inputcontrol.NewManualSession(controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff), nil)}
 	if !ws.GetManager().AcquireExternalInput(id, s.close) {
 		t.Fatal("input unexpectedly occupied")
 	}
 	b.sessions[id] = s
 	t.Cleanup(b.Stop)
 	reports := make(chan []byte, 2)
-	s.workers.Add(1)
-	go func() {
-		defer s.workers.Done()
-		for e := range s.mouse {
-			err := e.Execute(func() error { reports <- append([]byte(nil), e.Data...); return nil })
-			e.Complete(err == nil)
-		}
-	}()
+	s.writeHID = func(_ inputcontrol.ManualReportKind, report []byte) error {
+		reports <- append([]byte(nil), report...)
+		return nil
+	}
 	req := httptest.NewRequest("POST", "/api/hid/mouse/absolute", strings.NewReader("{\"buttons\":1,\"x\":12345,\"y\":23456,\"wheel\":-1}"))
 	req.Header.Set("X-NanoKVM-Session", id)
 	response := httptest.NewRecorder()
@@ -88,6 +84,10 @@ func TestAbsoluteWheelHeartbeatAndExpiry(t *testing.T) {
 	s.touched = time.Now().Add(-11 * time.Second)
 	s.mu.Unlock()
 	b.expire()
+	released := <-reports
+	if len(released) != 7 || released[0] != 0 || released[5] != 0 || binary.LittleEndian.Uint16(released[1:3]) != 12345 {
+		t.Fatal("expiry left mouse held or moved pointer", released)
+	}
 	if !s.closed.Load() || len(b.sessions) != 0 {
 		t.Fatal("expired input was not released")
 	}
@@ -101,43 +101,43 @@ func TestAbsoluteWheelHeartbeatAndExpiry(t *testing.T) {
 	}
 }
 
-func TestCanceledHIDRequestCannotWriteQueuedReportLater(t *testing.T) {
+func TestCanceledHIDRequestCannotWriteAfterWaitingForInputLock(t *testing.T) {
 	b := NewBridge()
 	id := strings.Repeat("c", 32)
-	s := &hidSession{id: id, touched: time.Now(), keyboard: make(chan hid.QueuedReport, 1), mouse: make(chan hid.QueuedReport, 1), manual: inputcontrol.NewManualSession(controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff), nil)}
+	s := &hidSession{id: id, touched: time.Now(), manual: inputcontrol.NewManualSession(controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff), nil)}
 	if !ws.GetManager().AcquireExternalInput(id, s.close) {
 		t.Fatal("input unexpectedly occupied")
 	}
 	b.sessions[id] = s
 	t.Cleanup(b.Stop)
+	writes := 0
+	s.writeHID = func(_ inputcontrol.ManualReportKind, _ []byte) error { writes++; return nil }
+	locked := make(chan struct{})
+	unlock := make(chan struct{})
+	blockerDone := make(chan struct{})
+	go func() {
+		defer close(blockerDone)
+		s.manual.Execute(func() error { close(locked); <-unlock; return nil })
+	}()
+	<-locked
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	req := httptest.NewRequest("POST", "/api/hid/mouse/absolute", strings.NewReader(`{"buttons":1,"x":123,"y":456}`)).WithContext(ctx)
 	req.Header.Set("X-NanoKVM-Session", id)
 	response := httptest.NewRecorder()
 	done := make(chan struct{})
 	go func() { defer close(done); b.serveHID(response, req) }()
-	var event hid.QueuedReport
-	select {
-	case event = <-s.mouse:
-	case <-time.After(time.Second):
-		t.Fatal("report was not queued")
-	}
 	cancel()
+	close(unlock)
+	<-blockerDone
 	select {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("canceled request did not return")
 	}
-	if response.Code != 504 {
-		t.Fatal(response.Code, response.Body.String())
+	if response.Code != 504 || writes != 0 {
+		t.Fatalf("canceled report wrote after lock wait: code=%d writes=%d body=%s", response.Code, writes, response.Body.String())
 	}
-	writes := 0
-	err := event.Execute(func() error { writes++; return nil })
-	event.Complete(err == nil)
-	if err != context.Canceled || writes != 0 {
-		t.Fatalf("canceled report wrote later: writes=%d err=%v", writes, err)
-	}
+
 }
 
 func TestInitialMediaWaitsForEncoderStartupAndBoundsFailure(t *testing.T) {
@@ -163,21 +163,17 @@ func TestInitialMediaWaitsForEncoderStartupAndBoundsFailure(t *testing.T) {
 func TestAndroidPositionsUseRelativeUSBWhenAbsoluteIsDisabled(t *testing.T) {
 	b := NewBridge()
 	id := strings.Repeat("d", 32)
-	s := &hidSession{id: id, touched: time.Now(), keyboard: make(chan hid.QueuedReport, 1), mouse: make(chan hid.QueuedReport, 1), manual: inputcontrol.NewManualSession(controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff), nil), relativeOnly: true, relativePointer: relativePointer{known: true, width: 1920, height: 1080}}
+	s := &hidSession{id: id, touched: time.Now(), manual: inputcontrol.NewManualSession(controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff), nil), relativeOnly: true, relativePointer: relativePointer{known: true, width: 1920, height: 1080}}
 	if !ws.GetManager().AcquireExternalInput(id, s.close) {
 		t.Fatal("input unexpectedly occupied")
 	}
 	b.sessions[id] = s
 	t.Cleanup(b.Stop)
-	reports := make(chan []byte, 1)
-	s.workers.Add(1)
-	go func() {
-		defer s.workers.Done()
-		for e := range s.mouse {
-			err := e.Execute(func() error { reports <- append([]byte(nil), e.Data...); return nil })
-			e.Complete(err == nil)
-		}
-	}()
+	reports := make(chan []byte, 2)
+	s.writeHID = func(_ inputcontrol.ManualReportKind, report []byte) error {
+		reports <- append([]byte(nil), report...)
+		return nil
+	}
 	req := httptest.NewRequest("POST", "/api/hid/mouse/absolute", strings.NewReader(`{"buttons":1,"x":100,"y":200,"wheel":-1}`))
 	req.Header.Set("X-NanoKVM-Session", id)
 	response := httptest.NewRecorder()
@@ -188,5 +184,48 @@ func TestAndroidPositionsUseRelativeUSBWhenAbsoluteIsDisabled(t *testing.T) {
 	report := <-reports
 	if len(report) != 5 || report[0] != 1 || report[1] != 5 || report[2] != 6 || report[3] != 255 {
 		t.Fatal("Android report did not reach relative USB", report)
+	}
+}
+
+func TestFailedUSBWriteReleasesKeyboardAndMouse(t *testing.T) {
+	b := NewBridge()
+	id := strings.Repeat("e", 32)
+	s := &hidSession{id: id, touched: time.Now(), manual: inputcontrol.NewManualSession(controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff), nil)}
+	if !ws.GetManager().AcquireExternalInput(id, s.close) {
+		t.Fatal("input unexpectedly occupied")
+	}
+	b.sessions[id] = s
+	t.Cleanup(b.Stop)
+	var reports [][]byte
+	s.writeHID = func(_ inputcontrol.ManualReportKind, report []byte) error {
+		reports = append(reports, append([]byte(nil), report...))
+		if len(reports) == 2 {
+			return errors.New("USB unavailable")
+		}
+		return nil
+	}
+	send := func(path, body string) int {
+		req := httptest.NewRequest("POST", path, strings.NewReader(body))
+		req.Header.Set("X-NanoKVM-Session", id)
+		response := httptest.NewRecorder()
+		b.serveHID(response, req)
+		return response.Code
+	}
+	if code := send("/api/hid/keyboard", `{"modifiers":1,"keys":[4]}`); code != 204 {
+		t.Fatal(code)
+	}
+	if code := send("/api/hid/mouse/absolute", `{"buttons":1,"x":123,"y":456}`); code != 503 {
+		t.Fatal(code)
+	}
+	if len(reports) != 4 || len(s.held) != 0 {
+		t.Fatalf("failed USB write left held input: reports=%v held=%v", reports, s.held)
+	}
+	for _, value := range reports[2] {
+		if value != 0 {
+			t.Fatal("keyboard was not released", reports[2])
+		}
+	}
+	if reports[3][0] != 0 || binary.LittleEndian.Uint16(reports[3][1:3]) != 123 || binary.LittleEndian.Uint16(reports[3][3:5]) != 456 {
+		t.Fatal("mouse release changed coordinates", reports[3])
 	}
 }

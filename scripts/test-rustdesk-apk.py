@@ -67,7 +67,7 @@ empty.mkdir()
 provider = test / "provider.apk"
 run([apk, "mkpkg", "--files", str(empty), "--output", str(provider),
     "--info", "name:nanokvm-test-runtime", "--info", "version:1-r0",
-    "--info", "arch:riscv64", "--info", "provides:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 openrc=1"])
+    "--info", "arch:riscv64", "--info", "provides:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 openrc=1"])
 # A v1 legacy bridge provider must not satisfy the new WebRTC daemon.
 legacy_provider = test / "legacy-provider.apk"
 run([apk, "mkpkg", "--files", str(empty), "--output", str(legacy_provider),
@@ -76,6 +76,14 @@ run([apk, "mkpkg", "--files", str(empty), "--output", str(legacy_provider),
 run(base + ["--initdb", "add", str(legacy_provider)])
 missing_webrtc = run(base + ["--no-scripts", "add", str(package)], ok=False)
 assert missing_webrtc.returncode and "nanokvm-rustdesk-webrtc" in missing_webrtc.stderr
+# The previous WebRTC-capable app has no audio socket and cannot satisfy 0.4.
+video_provider = test / "video-provider.apk"
+run([apk, "mkpkg", "--files", str(empty), "--output", str(video_provider),
+    "--info", "name:nanokvm-test-runtime", "--info", "version:0-r1",
+    "--info", "arch:riscv64", "--info", "provides:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 openrc=1"])
+run(base + ["add", "--upgrade", str(video_provider)])
+missing_audio = run(base + ["--no-scripts", "add", str(package)], ok=False)
+assert missing_audio.returncode and "nanokvm-rustdesk-audio" in missing_audio.stderr
 run(base + ["add", "--upgrade", str(provider), str(a.previous_package.absolute())])
 assert (root / "usr/bin/nanokvm-rustdesk").is_file()
 assert (root / "usr/share/nanokvm-rustdesk/source.tar.gz").is_file()
@@ -108,7 +116,7 @@ run([apk, "extract", "--allow-untrusted", "--destination", str(payload), str(pac
 assert not list(payload.rglob("*.tar.gz")), "source must remain external"
 command = [apk, "mkpkg", "--files", str(payload), "--output", str(upgraded)]
 for field in ["name:nanokvm-rustdesk", "version:" + upgrade_version, "arch:riscv64",
-              "depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 openrc"]:
+              "depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 openrc"]:
     command += ["--info", field]
 for action in ["pre-upgrade", "post-upgrade", "pre-deinstall"]:
     script = repo / ("firmware/alpine/packages/nanokvm-rustdesk/nanokvm-rustdesk." + action)

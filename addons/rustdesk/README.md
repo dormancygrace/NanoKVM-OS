@@ -9,14 +9,14 @@ NanoKVM app. The original OneKVM firmware is not used.
 
 ## Architecture and limits
 
-The daemon uses three root-only Unix sockets under /run/nanokvm-rustdesk.
+The daemon uses four root-only Unix sockets under /run/nanokvm-rustdesk.
 A JSON version-1 subscription is followed by 40-byte OKVF headers and Annex B
 H.264/H.265 frames; codec zero carries a bounded error message. The app shares
 its existing encoder. Codec conflicts fail visibly, and device bitrate, GOP and
 frame rate remain in the existing Screen settings. No additional codec runs on
 the SoC. Maximum 1440x2560 portrait output uses H.265 and requires client support.
 
-Audio, files, clipboard, chat and ATX are not implemented. RustDesk 1.5
+Files, clipboard, chat and ATX are not implemented. RustDesk 1.5
 sessions attempt encrypted direct TCP by ID using LAN address exchange and NAT
 punching, then fall back to encrypted relay. IPv6-only direct-by-ID currently
 uses relay. The explicit IP listener remains loopback by default.
@@ -40,7 +40,7 @@ Windows pointer translation. The bridge never changes USB composition.
 ## Package and settings
 
 nanokvm-rustdesk is an optional riscv64 package, absent from the base image list.
-It depends on nanokvm-rustdesk-bridge=1 and nanokvm-rustdesk-webrtc=1 supplied by
+It depends on nanokvm-rustdesk-bridge=1, nanokvm-rustdesk-webrtc=1 and nanokvm-rustdesk-audio=1 supplied by
 the updated nanokvm-app, plus OpenRC. Upgrade the application before this package. Installation alone leaves it stopped. Upgrade restarts only a service
 that was running; removal stops it and removes its runlevel entry.
 
@@ -93,7 +93,7 @@ vendor/ and .cargo/config.toml and support --locked --offline builds and tests.
 
 For an unsigned local test package from the repository root, with cargo,
 fakeroot, a riscv64 musl GCC and apk-tools 3 mkpkg available:
-fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/nanokvm-rustdesk-0.3.0-r2/nanokvm-rustdesk-0.3.0-source.tar.gz
+fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/nanokvm-rustdesk-0.4.0-r0/nanokvm-rustdesk-0.4.0-source.tar.gz
 
 The exported source can also cross-build directly without repository scripts:
 CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=/path/to/riscv64-linux-gcc RUSTFLAGS='-C target-feature=+crt-static' cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl
@@ -161,3 +161,25 @@ The official 1.5 client does not try TCP in a round that contains a WebRTC offer
 For TCP connections by ID, disable WebRTC in that client too. Requests forcing
 relay, or declaring symmetric NAT, retain relay fallback. Unsupported KCP/UDP
 requests can use the client's TCP leg when no WebRTC offer is present.
+
+## Optional USB audio (0.4.0)
+
+Sound from the connected computer uses the existing optional USB speaker
+function. Enable USB audio in the device USB settings and choose the NanoKVM
+USB audio output on that computer. No keyboard/mouse function is required for
+sound. The add-on does not enable USB functions automatically.
+
+The app shares one existing Opus capture/encoder with browser listeners:
+48 kHz, stereo, 20 ms packets. RustDesk forwards the encoded packets unchanged
+inside the same authenticated encrypted TCP, relay or optional WebRTC session.
+The normal RustDesk mute option detaches its audio subscription; video continues.
+Unmute and USB rebind reconnect to the current capture. There is no microphone
+or bidirectional voice-call support. No extra codec process runs per viewer.
+A slow connection keeps only recent sound instead of accumulating a backlog.
+
+The fourth root-only socket, audio.sock, uses bounded OKAF v1 headers. Requests
+for info query the USB function without starting ALSA capture. The bridge and
+Rust daemon bound packet sizes to 1275 bytes and release subscriptions on
+mute, disconnect or shutdown. Rendezvous audio permission uses the canonical
+1.5 two-bit permission slot and cannot be overridden by a client option.
+See docs/rustdesk-usb-audio.md for qualification evidence and limits.

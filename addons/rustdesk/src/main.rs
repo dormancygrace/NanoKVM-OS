@@ -1,4 +1,5 @@
 // NanoKVM OS adaptation, 2026-10-03. SPDX-License-Identifier: AGPL-3.0-only
+mod audio;
 mod auth;
 mod config;
 mod direct;

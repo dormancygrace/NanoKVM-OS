@@ -86,7 +86,14 @@ go_transport.mkdir(exist_ok=True)
 for name in ["webrtc.go","webrtc_test.go"]:
     shutil.copyfile(root/"server/service/rustdesk"/name,go_transport/name)
 shutil.copyfile(root/"server/service/rustdesk/bridge.go",go_transport/"bridge.go.integration")
-(go_transport/"go.mod").write_text((root/"server/go.mod").read_text().replace("module NanoKVM-Server","module nanokvm-rustdesk-webrtc-source",1))
+for name in ["audio.go","audio_test.go"]:
+    shutil.copyfile(root/"server/service/rustdesk"/name,go_transport/(name+".integration"))
+# Keep the app module name so the unchanged shared-audio import resolves offline.
+(go_transport/"go.mod").write_text((root/"server/go.mod").read_text())
+shared_audio=go_transport/"service/stream/audio"
+shared_audio.mkdir(parents=True)
+for name in ["audio.go","audio_test.go"]:
+    shutil.copyfile(root/"server/service/stream/audio"/name,shared_audio/name)
 shutil.copyfile(root/"server/go.sum",go_transport/"go.sum")
 # Preserve all local Pion replacements: these are production C906 changes.
 for line in (root/"server/go.mod").read_text().splitlines():
@@ -95,22 +102,36 @@ for line in (root/"server/go.mod").read_text().splitlines():
         shutil.copytree(root/"server"/component,go_transport/component,dirs_exist_ok=True)
 subprocess.run(["go","mod","tidy"],cwd=go_transport,check=True)
 subprocess.run(["go","mod","vendor"],cwd=go_transport,check=True)
-(go_transport/"README.md").write_text("""# Pion IPC component
+(go_transport/"README.md").write_text("""# Pion and shared USB audio IPC components
 
-The application runs webrtc.go in service/rustdesk. The standalone source here
-includes locked, vendored dependencies and real data-channel tests:
+The application runs webrtc.go and audio.go in service/rustdesk. The standalone source here
+includes locked, vendored dependencies, shared-hub and real data-channel tests:
 go test -mod=vendor -race ./...
-bridge.go.integration records the application start/stop and root-only socket
-integration; its common/authn/media dependencies belong to the NanoKVM app source.
+bridge.go.integration and audio*.integration record application start/stop,
+root-only sockets and integration tests; run those in the full app module. its common/authn/media dependencies belong to the NanoKVM app source.
 The Unix listener must use SO_PEERCRED to allow uid 0 only, directory 0700 and
 socket 0600. Offer/answer/candidate/attach JSON has a u32 little-endian length
 (maximum 64 KiB). A one-time attach token switches the socket after ready to
 RustDesk's 1-4 byte little-endian length framing. Data-channel fragment byte 1
 means continuation, byte 0 means final. No source is installed on the device.
+
+audio.go.integration attaches to the existing service/stream/audio hub, also exported here.
+The audio socket accepts a bounded newline JSON request, version=1 and
+ audio=info or opus. OKAF v1 uses a 16-byte header: magic, version, codec
+(0 unavailable / 1 Opus), channels, zero reserved byte, sample rate u32be,
+payload size u16be, two zero reserved bytes. Format headers have no payload.
+Opus packets are 48 kHz stereo, 20 ms, at most 1275 bytes; all subscribers use
+one capture helper. Client EOF releases only that subscription. The existing
+native/usb-audio capture source and build script are included as integration
+references; their dependencies remain pinned by the script. The native helper
+belongs to the NanoKVM application package and is not duplicated by the add-on.
 """)
+shutil.copytree(root/"native/usb-audio",go_transport/"native/usb-audio")
+shutil.copyfile(root/"scripts/build-usb-audio.py",go_transport/"build-usb-audio.py.integration")
+shutil.copyfile(root/"scripts/nanokvm_cpu_profile.py",go_transport/"nanokvm_cpu_profile.py.integration")
 
 (stage/"docs").mkdir(exist_ok=True)
-for name in ["rustdesk-1.5-review.md","rustdesk-1.5-migration.md"]:
+for name in ["rustdesk-1.5-review.md","rustdesk-1.5-migration.md","rustdesk-usb-audio.md"]:
     shutil.copyfile(root/"docs"/name,stage/"docs"/name)
 # Raw diagnostic reports contain private device/controller IDs; publish only
 # the generic plan and summarized qualification evidence.
@@ -123,7 +144,7 @@ candidate's host/device qualification evidence and transport limits.
 """)
 (stage/"docs/rustdesk-handoff.md").write_text("""# Device test plan
 
-Use a coordinated test slot. Upgrade the NanoKVM app with bridge=1 and webrtc=1
+Use a coordinated test slot. Upgrade the NanoKVM app with bridge=1, webrtc=1 and audio=1
 before installing the add-on. Verify the installed add-on and protocol versions,
 public source URL/digest, identity/config preservation, registration, temporary
 password rotation and reconnect, actual 1.5-client encrypted relay/WebRTC video,
@@ -154,7 +175,7 @@ install(source_record,"usr/share/nanokvm-rustdesk/source.json")
 install(source/"upstream.json","usr/share/nanokvm-rustdesk/upstream.json")
 apkfile=output/f"nanokvm-rustdesk-{package_version}.apk"
 command=[str(args.apk.resolve()),"mkpkg","--files",str(payload),"--output",str(apkfile)]
-for value in ["name:nanokvm-rustdesk",f"version:{package_version}","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
+for value in ["name:nanokvm-rustdesk",f"version:{package_version}","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
     command+=["--info",value]
 for action in ["pre-upgrade","post-upgrade","pre-deinstall"]:
     command+=["--script",action+":"+str(pkg/("nanokvm-rustdesk."+action))]

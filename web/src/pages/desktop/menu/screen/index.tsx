@@ -10,6 +10,8 @@ import { getEncoderCodec } from '@/lib/encoder';
 import { videoModeAtom, videoSessionCountAtom } from '@/jotai/screen';
 import { menuCloseSignalAtom, settingsRequestAtom } from '@/jotai/settings';
 import { MenuItem } from '@/components/menu-item';
+import { useDismissMobileMenu } from '@/components/mobile-menu-context';
+import { useResponsiveDevice } from '@/hooks/useResponsiveDevice';
 
 import { getScreenType } from './constants';
 import { StreamControls } from './controls';
@@ -27,6 +29,8 @@ export const Screen = () => {
       : `${mode === 'direct' ? 'Direct' : 'WebRTC'} · ${codec === 'h265' ? 'H.265' : 'H.264'}`;
   const openSettings = useSetAtom(settingsRequestAtom);
   const closeMenu = useSetAtom(menuCloseSignalAtom);
+  const dismissMobileMenu = useDismissMobileMenu();
+  const { isMobilePortrait } = useResponsiveDevice();
   useEffect(() => {
     const type = getScreenType(mode, codec);
     if (type !== null && account.role === 'admin') void updateScreen('type', type);
@@ -47,7 +51,10 @@ export const Screen = () => {
         type="text"
         className="flex! h-9 items-center gap-2 rounded px-3 text-sm text-neutral-300 hover:bg-neutral-700/70"
         onClick={() => {
-          closeMenu((n) => n + 1);
+          // Collapsing the mobile rail unmounts Settings and discards its open dialog.
+          // Close only the popover while the settings request is being handled.
+          if (isMobilePortrait) dismissMobileMenu();
+          else closeMenu((n) => n + 1);
           openSettings('video');
         }}
       >

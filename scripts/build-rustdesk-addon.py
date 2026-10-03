@@ -20,7 +20,7 @@ build=root/"work/rustdesk-dist"
 build.mkdir(parents=True, exist_ok=True)
 output=args.output.resolve()
 output.mkdir(parents=True,exist_ok=True)
-stage=build/"nanokvm-rustdesk-0.1.0"
+stage=build/"nanokvm-rustdesk-0.2.0"
 stage.mkdir(exist_ok=True)
 for name in ["src","Cargo.toml","Cargo.lock","LICENSE","NOTICE","README.md"]:
     p=source/name
@@ -33,7 +33,7 @@ vendor=subprocess.check_output(["cargo","vendor","--locked","--versioned-dirs",s
 env=dict(os.environ,CARGO_TARGET_DIR=str(root/"work/rust-target"),CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=str(args.linker.absolute()),RUSTFLAGS="-C target-feature=+crt-static")
 subprocess.run(["cargo","build","--locked","--release","--target","riscv64gc-unknown-linux-musl"],cwd=source,env=env,check=True)
 binary=root/"work/rust-target/riscv64gc-unknown-linux-musl/release/nanokvm-rustdesk"
-archive=output/"nanokvm-rustdesk-0.1.0-source.tar.gz"
+archive=output/"nanokvm-rustdesk-0.2.0-source.tar.gz"
 with tarfile.open(archive,"w:gz") as tar:tar.add(stage,arcname=stage.name)
 payload=build/"payload"
 def install(src,dest,mode=0o644):
@@ -47,9 +47,9 @@ install(pkg/"nanokvm-rustdesk.initd","etc/init.d/nanokvm-rustdesk",0o755)
 install(source/"LICENSE","usr/share/licenses/nanokvm-rustdesk/LICENSE")
 install(source/"NOTICE","usr/share/licenses/nanokvm-rustdesk/NOTICE")
 install(archive,"usr/share/nanokvm-rustdesk/source.tar.gz")
-apkfile=output/"nanokvm-rustdesk-0.1.0-r0.apk"
+apkfile=output/"nanokvm-rustdesk-0.2.0-r0.apk"
 command=[str(args.apk.resolve()),"mkpkg","--files",str(payload),"--output",str(apkfile)]
-for value in ["name:nanokvm-rustdesk","version:0.1.0-r0","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
+for value in ["name:nanokvm-rustdesk","version:0.2.0-r0","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
     command+=["--info",value]
 for action in ["pre-upgrade","post-upgrade","pre-deinstall"]:
     command+=["--script",action+":"+str(pkg/("nanokvm-rustdesk."+action))]

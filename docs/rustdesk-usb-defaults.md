@@ -1,5 +1,10 @@
 # RustDesk USB defaults and input failure isolation
 
+The behavior introduced in 0.5.0 is retained in accepted package **0.5.3-r0**.
+Later HTTP/HID fixes, 57 passing Rust tests and actual user control acceptance
+are recorded in [finalization](rustdesk-0.5.3-finalization.md). The original
+0.5.0 host qualification below is historical.
+
 Add-on 0.5.0-r0 remains based on RustDesk protocol 1.5.0. When installed and remote access enabled, configuration applies USB keyboard, relative mouse and absolute mouse through vm.EnsureRemoteAccessUSB. The daemon also posts to the root-only control bridge /api/hid/prepare once before accepting connections, covering cold boot, upgrades and service restarts. Disabled remote access cannot prepare USB. Composition updates retain existing unrelated functions and pointer profile, use the existing HID mutex and transactional apply/rebind, and reject endpoint-budget overflow without silently removing another function.
 
 The management screen includes Transmit sound (audio_enabled, defaults true for new/legacy configuration). Turning it on while remote access is enabled prepares USB audio. Turning it off suppresses RustDesk capture and Audio permission, even if a client requests unmute; it leaves shared USB audio for browser viewers. Disabling RustDesk leaves shared keyboard/mouse/audio available. USB flags persist normally on /boot. Older add-ons do not receive the new audio field from a hidden control; package dependency nanokvm-rustdesk-usb-defaults=1 protects the preparation endpoint contract.

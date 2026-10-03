@@ -1,5 +1,12 @@
 # Published RustDesk source instead of a device archive
 
+Current finalized source: [0.5.3-r0](https://github.com/dormancygrace/NanoKVM-OS-packages/releases/tag/nanokvm-rustdesk-0.5.3-r0),
+with RustDesk protocol reference 1.5.0. Its immutable archive digest and acceptance
+are recorded in [finalization](rustdesk-0.5.3-finalization.md). No source archive
+is installed on the device.
+
+## Historical 0.2.1-r1 packaging change
+
 nanokvm-rustdesk 0.2.1-r1 is a packaging revision of 0.2.1-r0. The daemon
 binary and RustDesk protocol base (1.4.9) remain the same. The APK no longer
 owns /usr/share/nanokvm-rustdesk/source.tar.gz, so a normal APK upgrade removes

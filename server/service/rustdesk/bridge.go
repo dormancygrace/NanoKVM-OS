@@ -297,28 +297,32 @@ func (b *Bridge) serveMedia(c net.Conn) {
 			}
 		}
 	}()
+	startup, cancelStartup := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancelStartup()
+	ready := false
 	for seq := uint64(1); ; seq++ {
-		frame, ok := subscription.Next()
+		var frame stream.VideoFrame
+		var ok bool
+		if ready {
+			frame, ok = subscription.Next()
+		} else {
+			frame, ok = waitInitialMediaFrame(startup, subscription.NextContext)
+		}
 		if !ok || frame.Result < 0 || len(frame.Data) > 8<<20 {
 			writeMediaError(c, "HDMI encoder is unavailable")
 			return
 		}
-		screen := common.GetCaptureScreen()
-		width, height := screen.Width, screen.Height
-		if w := common.ReadVideoValue("/run/nanokvm/stream_width"); w > 0 {
-			width = uint16(w)
-		}
-		if h := common.ReadVideoValue("/run/nanokvm/stream_height"); h > 0 {
-			height = uint16(h)
-		}
+		width, height := mediaDimensions()
 		if width == 0 || height == 0 {
-			width = uint16(common.ReadVideoValue("/run/nanokvm/width"))
-			height = uint16(common.ReadVideoValue("/run/nanokvm/height"))
-		}
-		if width == 0 || height == 0 {
+			if !ready && startup.Err() == nil {
+				stream.RequestKeyframe()
+				continue
+			}
 			writeMediaError(c, "HDMI dimensions are unavailable")
 			return
 		}
+		ready = true
+		cancelStartup()
 		data := frame.Data
 		if req.Video == "info" {
 			frame.Data = nil
@@ -342,14 +346,16 @@ func (b *Bridge) serveMedia(c net.Conn) {
 }
 
 type hidSession struct {
-	id       string
-	mu       sync.Mutex
-	closed   atomic.Bool
-	touched  time.Time
-	keyboard chan hid.QueuedReport
-	mouse    chan hid.QueuedReport
-	workers  sync.WaitGroup
-	manual   *inputcontrol.ManualSession
+	id              string
+	mu              sync.Mutex
+	closed          atomic.Bool
+	touched         time.Time
+	keyboard        chan hid.QueuedReport
+	mouse           chan hid.QueuedReport
+	workers         sync.WaitGroup
+	manual          *inputcontrol.ManualSession
+	relativeOnly    bool
+	relativePointer relativePointer
 }
 
 func (s *hidSession) close() {
@@ -394,6 +400,11 @@ func (b *Bridge) session(id string, create bool) (*hidSession, error) {
 	s.workers.Add(2)
 	device := hid.GetHid()
 	device.Open()
+	s.relativeOnly = device.RelativeMouseOnly()
+	if s.relativeOnly {
+		width, height := mediaDimensions()
+		s.relativePointer.width, s.relativePointer.height = int32(width), int32(height)
+	}
 	go func() { defer s.workers.Done(); device.KeyboardReports(s.keyboard) }()
 	go func() { defer s.workers.Done(); device.MouseReports(s.mouse) }()
 	b.sessions[id] = s
@@ -492,6 +503,7 @@ func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var report []byte
+	var extraReports [][]byte
 	queue := s.mouse
 	kind := inputcontrol.ManualRelativeMouse
 	if path == "/api/hid/keyboard" {
@@ -515,6 +527,11 @@ func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
 		binary.LittleEndian.PutUint16(report[3:5], uint16(body.Y))
 		report[5] = byte(body.Wheel)
 		kind = inputcontrol.ManualAbsoluteMouse
+		if s.relativeOnly {
+			reports := s.relativePointer.reports(body.Buttons, body.X, body.Y, body.Wheel)
+			report, extraReports = reports[0], reports[1:]
+			kind = inputcontrol.ManualRelativeMouse
+		}
 	} else {
 		if body.X < -127 || body.X > 127 || body.Y < -127 || body.Y > 127 {
 			http.Error(w, "invalid movement", 400)
@@ -553,9 +570,24 @@ func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
 				if err := ctx.Err(); err != nil {
 					return err
 				}
-				err := write()
+				if err := write(); err != nil {
+					written.Store(true)
+					return err
+				}
+				for _, report := range extraReports {
+					if err := ctx.Err(); err != nil {
+						return err
+					}
+					if s.closed.Load() || !ws.GetManager().AllowsInputLease(id) {
+						return inputcontrol.ErrManualInputBlocked
+					}
+					if err := hid.GetHid().WriteRelativeMouseReport(report); err != nil {
+						written.Store(true)
+						return err
+					}
+				}
 				written.Store(true)
-				return err
+				return nil
 			})
 		},
 		Complete:           func(ok bool) { reservation.Complete(ok); completed <- ok },
@@ -584,4 +616,32 @@ func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(204)
+}
+
+func mediaDimensions() (uint16, uint16) {
+	screen := common.GetCaptureScreen()
+	width, height := screen.Width, screen.Height
+	if w := common.ReadVideoValue("/run/nanokvm/stream_width"); w > 0 {
+		width = uint16(w)
+	}
+	if h := common.ReadVideoValue("/run/nanokvm/stream_height"); h > 0 {
+		height = uint16(h)
+	}
+	if width == 0 || height == 0 {
+		width = uint16(common.ReadVideoValue("/run/nanokvm/width"))
+		height = uint16(common.ReadVideoValue("/run/nanokvm/height"))
+	}
+	return width, height
+}
+
+// Cold encoder startup can produce temporary errors before its first frame.
+// A persistent capture failure still expires within the login metadata budget.
+func waitInitialMediaFrame(ctx context.Context, next func(context.Context) (stream.VideoFrame, bool)) (stream.VideoFrame, bool) {
+	for ctx.Err() == nil {
+		frame, ok := next(ctx)
+		if !ok || frame.Result >= 0 {
+			return frame, ok
+		}
+	}
+	return stream.VideoFrame{}, false
 }

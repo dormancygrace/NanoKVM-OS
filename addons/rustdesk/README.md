@@ -202,3 +202,12 @@ available to other viewers. Enabling it prepares USB audio automatically. The
 source computer must select the NanoKVM speaker output. Keyboard/mouse errors
 disable that session's input without ending video/audio; reconnect after restoring
 USB input. Individual HID requests time out after three seconds.
+
+When the USB profile exposes only the relative mouse, the application bridge
+converts Android absolute positions into screen pixel deltas, preserves small
+movements and sends large deltas as multiple USB reports. Its first position
+anchors the session. The normal two-mouse profile still uses absolute input.
+Gadget writes use bounded nonblocking syscalls; a missing readiness event must
+not hold input indefinitely. Login announces the negotiated keyboard permission
+on every connection. The application waits up to two seconds for the first
+usable encoder frame without changing HDMI power intent.

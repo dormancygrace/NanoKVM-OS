@@ -98,8 +98,12 @@ shutil.copyfile(root/"server/service/rustdesk/service.go",vm_integration/"rustde
 for name in ["encoder_config.go","video_source.go","video_source_test.go","state.go","state_test.go"]:
     shutil.copyfile(root/"server/service/stream"/name,stream_integration/(name+".integration"))
 
-for name in ["audio.go","audio_test.go"]:
+for name in ["audio.go","audio_test.go","bridge_test.go","pointer.go","pointer_test.go"]:
     shutil.copyfile(root/"server/service/rustdesk"/name,go_transport/(name+".integration"))
+hid_integration=stage/"app-hid-integration"
+hid_integration.mkdir()
+for path in sorted((root/"server/service/hid").glob("*.go")):
+    shutil.copyfile(path,hid_integration/(path.name+".integration"))
 # Keep the app module name so the unchanged shared-audio import resolves offline.
 (go_transport/"go.mod").write_text((root/"server/go.mod").read_text())
 shared_audio=go_transport/"service/stream/audio"

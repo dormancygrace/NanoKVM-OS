@@ -8,10 +8,20 @@ import (
 	"github.com/pion/rtp"
 	"github.com/pion/rtp/codecs"
 	log "github.com/sirupsen/logrus"
+	"sync"
 	"sync/atomic"
 )
 
-type peerPathMTU struct{ rtpMTU atomic.Int32 }
+type frameBatcher interface {
+	BeginFrame()
+	EndFrame() error
+}
+
+type peerPathMTU struct {
+	rtpMTU  atomic.Int32
+	batchMu sync.RWMutex
+	batch   frameBatcher
+}
 
 func newPeerPathMTU() *peerPathMTU {
 	p := &peerPathMTU{}
@@ -36,6 +46,40 @@ func (p *peerPathMTU) size() uint16 {
 	return uint16(p.rtpMTU.Load())
 }
 
+func (p *peerPathMTU) setBatcher(batch frameBatcher) {
+	if p == nil {
+		return
+	}
+	p.batchMu.Lock()
+	p.batch = batch
+	p.batchMu.Unlock()
+}
+
+func (p *peerPathMTU) beginFrame() {
+	if p == nil {
+		return
+	}
+	p.batchMu.RLock()
+	batch := p.batch
+	p.batchMu.RUnlock()
+	if batch != nil {
+		batch.BeginFrame()
+	}
+}
+
+func (p *peerPathMTU) endFrame() error {
+	if p == nil {
+		return nil
+	}
+	p.batchMu.RLock()
+	batch := p.batch
+	p.batchMu.RUnlock()
+	if batch == nil {
+		return nil
+	}
+	return batch.EndFrame()
+}
+
 // Owned by one video writer. Sequence state and timestamp origin survive MTU
 // changes; replacing a Pion packetizer alone would reset its random clock.
 type adaptiveVideoPacketizer struct {
@@ -57,7 +101,7 @@ func (p *adaptiveVideoPacketizer) packetize(data []byte, timestamp int64, mtu ui
 		return nil
 	}
 	if p.payloader == nil || p.mtu != mtu {
-		var payloader rtp.Payloader = &codecs.H264Payloader{}
+		var payloader rtp.Payloader = &ownedH264Payloader{}
 		if p.codec == stream.VideoCodecH265 {
 			payloader = &codecs.H265Payloader{}
 		}

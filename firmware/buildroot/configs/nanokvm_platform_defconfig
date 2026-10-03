@@ -14,7 +14,7 @@ BR2_GCC_ENABLE_OPENMP=y
 BR2_OPTIMIZE_2=y
 BR2_REPRODUCIBLE=y
 # BR2_CCACHE is not set
-BR2_TARGET_OPTIMIZATION="-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso"
+BR2_TARGET_OPTIMIZATION="-O2 -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mabi=lp64d -mno-fence-tso"
 BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_NANOKVM_PATH)/patches"
 BR2_PRIMARY_SITE="https://sources.buildroot.net"
 BR2_WGET="wget --passive-ftp -nd -t 2 --timeout=20"

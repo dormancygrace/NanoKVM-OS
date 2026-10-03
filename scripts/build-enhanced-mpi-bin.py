@@ -6,6 +6,7 @@ NANOKVM_BUILDROOT_OUTPUT, and a dedicated NANOKVM_MPI_THIRDPARTY_OUTPUT.
 Run after core MPI and ISP builds by platform/build.sh, which checks every
 source tree against platform/sources.lock.
 """
+from nanokvm_cpu_profile import flags as cpu_flags, record as record_cpu_profile
 from pathlib import Path
 import json
 import os
@@ -22,7 +23,7 @@ stage = out / 'stage'
 cross = str(Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve() / 'host/bin/riscv64-buildroot-linux-musl-')
 cmake = os.environ.get('NANOKVM_CMAKE', 'cmake')
 jobs = os.environ.get('JOBS', '8')
-flags = '-Os -fPIC -march=rv64gc -mtune=thead-c906 -mno-fence-tso -mabi=lp64d'
+flags = ' '.join(cpu_flags()) + ' -fPIC'
 path_flags = ' '.join(f'-ffile-prefix-map={Path(src).resolve()}={name}' for src, name in [
     (mpi, './cvi_mpi'), (out, './build/mpi-bin'), (repo, './nanokvm-os'),
     (os.environ['NANOKVM_OSDRV_SOURCE'], './osdrv'),
@@ -38,6 +39,7 @@ sources = [
 if subprocess.check_output([cross + 'gcc', '-dumpfullversion'], text=True).strip() != '16.2.0':
     raise SystemExit('Expected the qualified GCC16.2 toolchain')
 out.mkdir(parents=True, exist_ok=True)
+record_cpu_profile(out/'cpu-profile.json', cross+'gcc', effective_flags=flags.split())
 for name, variable, options in sources:
     source = Path(os.environ[variable]).resolve()
     build = out / (name + '-' + pins[name]['version'])
@@ -45,7 +47,7 @@ for name, variable, options in sources:
         '-DCMAKE_SYSTEM_NAME=Linux', '-DCMAKE_SYSTEM_PROCESSOR=riscv64',
         '-DCMAKE_C_COMPILER=' + cross + 'gcc', '-DCMAKE_AR=' + cross + 'ar',
         '-DCMAKE_RANLIB=' + cross + 'ranlib', '-DCMAKE_C_FLAGS=' + flags,
-        '-DCMAKE_BUILD_TYPE=MinSizeRel', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
+        '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_C_FLAGS_RELEASE=-O2 -DNDEBUG', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
         '-DBUILD_SHARED_LIBS=OFF', '-DCMAKE_INSTALL_LIBDIR=lib',
         '-DCMAKE_INSTALL_PREFIX=' + str(stage), *options], check=True)
     subprocess.run([cmake, '--build', str(build), '-j' + jobs], check=True)

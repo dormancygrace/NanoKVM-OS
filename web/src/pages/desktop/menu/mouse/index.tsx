@@ -56,7 +56,7 @@ export const Mouse = ({ hidden = false }: { hidden?: boolean }) => {
     if (interval) {
       setScrollInterval(interval);
     }
-  }, []);
+  }, [setMouseStyle, setMouseMode, setInputAdapter, setScrollDirection, setScrollInterval]);
 
   // Initialize saved pointer preferences even when the toolbar button is hidden.
   if (hidden) return null;

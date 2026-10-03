@@ -1,5 +1,5 @@
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Progress, Select, Spin, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
@@ -20,37 +20,40 @@ export const Memory = () => {
   const mutating = useRef(false);
   const readInFlight = useRef<Promise<void> | null>(null);
 
-  async function refresh(afterPending = false): Promise<void> {
-    const pending = readInFlight.current;
-    if (pending) {
-      await pending;
-      // A mutation invalidates an older read. Fetch its resulting state once
-      // that read settles, while keeping every status request sequential.
-      if (afterPending) await refresh();
-      return;
-    }
-    if (!mounted.current || mutating.current) return;
-    const current = ++generation.current;
-    const request = (async () => {
-      try {
-        const response = await api.getMemoryStatus();
-        if (!mounted.current || current !== generation.current) return;
-        if (response.code !== 0) throw new Error(response.msg || t('settings.memory.loadError'));
-        setData(response.data);
-        setLoadError('');
-      } catch (err) {
-        if (mounted.current && current === generation.current) {
-          setLoadError(err instanceof Error ? err.message : t('settings.memory.loadError'));
-        }
+  const refresh = useCallback(
+    async function refresh(afterPending = false): Promise<void> {
+      const pending = readInFlight.current;
+      if (pending) {
+        await pending;
+        // A mutation invalidates an older read. Fetch its resulting state once
+        // that read settles, while keeping every status request sequential.
+        if (afterPending) await refresh();
+        return;
       }
-    })();
-    readInFlight.current = request;
-    try {
-      await request;
-    } finally {
-      if (readInFlight.current === request) readInFlight.current = null;
-    }
-  }
+      if (!mounted.current || mutating.current) return;
+      const current = ++generation.current;
+      const request = (async () => {
+        try {
+          const response = await api.getMemoryStatus();
+          if (!mounted.current || current !== generation.current) return;
+          if (response.code !== 0) throw new Error(response.msg || t('settings.memory.loadError'));
+          setData(response.data);
+          setLoadError('');
+        } catch (err) {
+          if (mounted.current && current === generation.current) {
+            setLoadError(err instanceof Error ? err.message : t('settings.memory.loadError'));
+          }
+        }
+      })();
+      readInFlight.current = request;
+      try {
+        await request;
+      } finally {
+        if (readInFlight.current === request) readInFlight.current = null;
+      }
+    },
+    [t]
+  );
 
   useEffect(() => {
     mounted.current = true;
@@ -73,10 +76,10 @@ export const Memory = () => {
     return () => {
       disposed = true;
       mounted.current = false;
-      generation.current++;
+      generation.current += 1;
       stopPolling();
     };
-  }, []);
+  }, [refresh]);
 
   async function change(
     kind: 'zram' | 'sd',

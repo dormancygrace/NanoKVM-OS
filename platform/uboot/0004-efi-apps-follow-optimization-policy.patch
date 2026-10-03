@@ -1,0 +1,11 @@
+--- a/lib/efi_loader/Makefile
++++ b/lib/efi_loader/Makefile
+@@ -96,7 +96,7 @@
+ 
+ # Set the C flags to add and remove for each app
+ $(foreach f,$(apps-y),\
+-	$(eval CFLAGS_$(f).o := $(CFLAGS_EFI) -Os -ffreestanding)\
++	$(eval CFLAGS_$(f).o := $(CFLAGS_EFI) $(if $(CONFIG_CC_OPTIMIZE_FOR_SPEED),-O2,-Os) -ffreestanding)\
+ 	$(eval CFLAGS_REMOVE_$(f).o := $(CFLAGS_NON_EFI)))
+ 
+ always-y += $(foreach f,$(apps-y),$(f).efi)

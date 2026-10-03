@@ -265,11 +265,11 @@ const en = {
       portraitHDProfile: '720 × 1280 · 120 Hz',
       portraitDefaultProfile: '1080 × 1920 · 75 Hz',
       portraitAVCProfile: '1296 × 2304 · 50 Hz (H.264)',
-      portraitMaximumProfile: '1440 × 2560 · 40 Hz (H.265)',
+      portraitMaximumProfile: '1440 × 2560 · 50 Hz (H.265)',
       portraitMaximumHint:
-        'The maximum profile requires H.265 Direct, up to 40 FPS. Selecting it sets this video mode automatically.',
+        'The maximum profile requires H.265 Direct, up to 50 FPS. Selecting it sets this video mode automatically.',
       portraitHint:
-        'Uses the selected portrait monitor profile. The maximum 1440 × 2560 profile is about 3.7 MP at 40 FPS. Your selected landscape profile is kept and restored when portrait is turned off.',
+        'Uses the selected portrait monitor profile. The maximum 1440 × 2560 profile is about 3.7 MP at 50 FPS. Your selected landscape profile is kept and restored when portrait is turned off.',
       portraitUnavailable: 'Portrait monitor profile is unavailable on this device.',
       automatic: 'Automatic (recommended)',
       preferFhd: 'Prefer 1920 × 1080 · 75 Hz',

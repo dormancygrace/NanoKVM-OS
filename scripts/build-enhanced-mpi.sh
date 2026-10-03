@@ -13,8 +13,9 @@ KERNEL=$(realpath "$NANOKVM_KERNEL_SOURCE")
 JOBS=${JOBS:-8}
 # Macro/debug source locations must not expose the build workstation.
 path_flags="-ffile-prefix-map=$MPI=./cvi_mpi -ffile-prefix-map=$OSDRV=./osdrv -ffile-prefix-map=$KERNEL=./linux -ffile-prefix-map=$(realpath "$NANOKVM_BUILDROOT_OUTPUT")=./toolchain"
-# Baseline ISA, as in the released libraries (cvi_mpi/0005-baseline-isa.patch).
-opt_flags="-Os -march=rv64gc -mtune=thead-c906 -mno-fence-tso -mcmodel=medany -mabi=lp64d $path_flags"
+profile_tool="$(dirname "$0")/nanokvm_cpu_profile.py"
+opt_flags="$(python3 "$profile_tool" userspace) -mcmodel=medany $path_flags"
+python3 "$profile_tool" userspace --record "$MPI/cpu-profile-core.json" --compiler "${CROSS}gcc"
 [[ $("${CROSS}gcc" -dumpfullversion) == 16.2.0 ]]
 macros=$("${CROSS}gcc" -dM -E -D__CV181X__ -I"$MPI/include" -include linux/cvi_defines.h -x c /dev/null)
 grep -q '^#define __CV181X__' <<< "$macros"
@@ -25,7 +26,7 @@ fi
 mkdir -p "$MPI/lib/3rd"
 # Do not invoke vendor prepare: it rewrites the chip header by line number.
 for module in sys vi vpss vo rgn gdc venc vdec misc ive; do
-    make -C "$MPI/modules/$module" CROSS_COMPILE="$CROSS" CHIP_ARCH=CV181X \
+    make -C "$MPI/modules/$module" PWD="$MPI/modules/$module" CROSS_COMPILE="$CROSS" CHIP_ARCH=CV181X \
         OSDRV_PATH="$OSDRV" KERNEL_PATH="$KERNEL" ISP_SRC_RELEASE=0 OPT_LEVEL="$opt_flags" -B -j"$JOBS"
 done
 printf '%s\n' 'Core MPI compile passed; ISP closure and hardware qualification remain pending.'

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
 import { Button, Card, Modal, Spin } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -15,12 +15,22 @@ export const Run = ({ script, setIsRunning }: RunProps) => {
   const [state, setState] = useState('');
   const [log, setLog] = useState('');
 
-  useEffect(() => {
-    setState('running');
+  const execution = useRef<{ script: string; result: ReturnType<typeof api.runScript> } | null>(
+    null
+  );
+  const failureMessage = useEffectEvent(() => t('script.runFailed'));
 
-    api
-      .runScript(script, 'foreground')
+  useEffect(() => {
+    let disposed = false;
+    setState('running');
+    setLog('');
+    // Effect replay must observe the same execution, not run the command twice.
+    if (execution.current?.script !== script) {
+      execution.current = { script, result: api.runScript(script, 'foreground') };
+    }
+    execution.current.result
       .then((rsp) => {
+        if (disposed) return;
         if (rsp.code !== 0) {
           setLog(rsp.msg);
           setState('failed');
@@ -31,10 +41,14 @@ export const Run = ({ script, setIsRunning }: RunProps) => {
         setLog(rsp.data.log);
       })
       .catch(() => {
-        setLog(t('script.runFailed'));
+        if (disposed) return;
+        setLog(failureMessage());
         setState('failed');
       });
-  }, []);
+    return () => {
+      disposed = true;
+    };
+  }, [script]);
 
   return (
     <Modal

@@ -62,7 +62,7 @@ release=7.2.6-nanokvm-os-r1
 kernel_timestamp='Sat Sep 19 13:51:57 UTC 2026'
 uboot_epoch=1788737047
 rtl8733bs_epoch=1788607804
-isa='-march=rv64imac_zicsr_zifencei_zacas_zabha_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync -mtune=thead-c906 -mno-fence-tso -fno-tree-vectorize -fno-tree-slp-vectorize'
+isa=$(python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel)
 boards=(detect alpha beta pcie lite)
 
 dl=$out/downloads
@@ -162,7 +162,7 @@ apply_patches() {
 # Buildroot archive, firmware/buildroot (source patches, defconfig, external
 # recipes, package patches, BusyBox configuration) and this step's recipe.
 toolchain_id() {
-    { lock buildroot; object_id "$repo/firmware/buildroot"; declare -f toolchain; } | sha256sum | cut -d' ' -f1
+    { lock buildroot; object_id "$repo/firmware/buildroot"; cat "$here/cpu-profile.json"; declare -f toolchain; } | sha256sum | cut -d' ' -f1
 }
 
 toolchain_stale() {
@@ -191,7 +191,7 @@ toolchain() {
         for patch in "$repo"/firmware/buildroot/source-patches/*.patch; do patch -s -d "$br" -p1 < "$patch"; done
         echo "$id" > "$br/.platform-patched"
     fi
-    local make=(make -C "$br" O="$bo" BR2_EXTERNAL="$repo/firmware/buildroot")
+    local make=(make -C "$br" O="$bo" BR2_EXTERNAL="$repo/firmware/buildroot" BR2_JLEVEL="$jobs")
     if [ ! -e "$bo/.config" ]; then
         "${make[@]}" nanokvm_platform_defconfig
         "${make[@]}" olddefconfig
@@ -203,6 +203,7 @@ toolchain() {
         host-python3 host-uboot-tools host-zstd host-cmake host-f2fs-tools host-mtools \
         host-dosfstools busybox e2fsprogs f2fs-tools
     [ "$("${cross}gcc" -dumpfullversion)" = 16.2.0 ]
+    python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace --record "$bo/cpu-profile.json" --compiler "${cross}gcc"
     echo "$id" > "$bo/.platform-toolchain"
 }
 
@@ -212,6 +213,7 @@ kernel() {
     tar -xf "$dl/linux-7.2.6.tar.xz" -C "$out/kernel"
     mv "$out/kernel/linux-7.2.6" "$ksrc"
     apply_patches "$ksrc" "$here/kernel"
+    python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel --record "$out/kernel/cpu-profile.json" --compiler "${cross}gcc"
     cp "$here/kernel/config" "$kbuild/.config"
     # Host pahole, rustc and bindgen would be recorded in .config; ignore them.
     local make=(make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" LOCALVERSION= "KCFLAGS=$isa"
@@ -288,10 +290,21 @@ uboot() {
     mv "$u/u-boot-2026.07" "$u/src"
     apply_patches "$u/src" "$here/uboot"
     cp "$here/uboot/defconfig" "$u/build/.config"
-    local make=(make -C "$u/src" O="$u/build" ARCH=riscv CROSS_COMPILE="$cross" LOCALVERSION=-nanokvm-os)
+    local boot_flags boot_isa boot_abi flag
+    boot_flags=$(python3 "$repo/scripts/nanokvm_cpu_profile.py" bootloader)
+    for flag in $boot_flags; do
+        case "$flag" in
+            -march=*) boot_isa=${flag#-march=} ;;
+            -mabi=*) boot_abi=${flag#-mabi=} ;;
+        esac
+    done
+    # Architecture Makefile flags follow KCFLAGS; set its inputs as well.
+    local make=(make -C "$u/src" O="$u/build" ARCH=riscv CROSS_COMPILE="$cross" LOCALVERSION=-nanokvm-os
+                "RISCV_MARCH=$boot_isa" "ABI=$boot_abi" "KCFLAGS=$boot_flags")
     SOURCE_DATE_EPOCH=$uboot_epoch "${make[@]}" olddefconfig
     SOURCE_DATE_EPOCH=$uboot_epoch "${make[@]}" -j"$jobs"
     cp "$u/build/u-boot.bin" "$img/u-boot.bin"
+    python3 "$repo/scripts/nanokvm_cpu_profile.py" bootloader --record "$u/cpu-profile.json" --compiler "${cross}gcc"
 }
 
 fip() {
@@ -406,6 +419,7 @@ native() {
     unpack_git cvi-mpi . "$n/src/cvi_mpi"
     for lib in sensors json-c miniz inih; do unpack_git "$lib" . "$n/src/$lib"; done
     apply_patches "$n/src/cvi_mpi" "$here/native/cvi_mpi"
+    apply_patches "$n/src/sensors" "$repo/firmware/sensor/patches"
     local env=(NANOKVM_MPI_SOURCE="$n/src/cvi_mpi" NANOKVM_OSDRV_SOURCE="$out/modules/sources/osdrv"
                NANOKVM_KERNEL_SOURCE="$ksrc" NANOKVM_BUILDROOT_OUTPUT="$bo" NANOKVM_CMAKE="$host/cmake"
                JOBS="$jobs")
@@ -458,7 +472,7 @@ web() {
     node=$(lock node | awk '{ print $2 }')
     node=${node##*/}
     rm -rf "$w" "${img:?}/web"
-    mkdir -p "$w/src" "$dl/pnpm-store"
+    mkdir -p "$w/src" "$dl/pnpm-store" "$img"
     tar -xJf "$dl/$node" -C "$w"
     tar -xzf "$dl/exe.linux-x64-12.8.1.tgz" -C "$w"
     (cd "$repo/web" && tar --exclude=./node_modules --exclude=./dist -cf - .) | tar -xf - -C "$w/src"
@@ -485,7 +499,7 @@ tools() {
     e=$t/edid
     cp -r "$repo/tools/nanokvm_update_edid" "$e"
     make -C "$e" CC="${cross}gcc" RISCV_FLAGS= LDFLAGS=-ztext \
-        CFLAGS='-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -O2 -g0 -Wall -Wextra -Werror'
+        CFLAGS="$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace) -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -g0 -Wall -Wextra -Werror"
     "${cross}strip" --remove-section=.comment --remove-section=.note \
         -o "$img/tools/nanokvm_update_edid" "$e/nanokvm_update_edid"
     "$py" "$repo/scripts/build-qhd-edid.py" --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-QHD30.bin"
@@ -507,7 +521,10 @@ tools() {
     cp "$e/monitor-profiles/NanoKVM-monitor-auto.bin" "$img/tools/edid/NanoKVM-final-video-profiles.bin"
     cp "$e/E21_NanoKVM.bin" "$img/tools/edid/NanoKVM-stock.bin"
 
-    "${cross}gcc" -O2 -static -Wall -Wextra -Werror "$repo/firmware/boards/nkos-board-probe.c" -o "$t/nkos-board-probe"
+    local cpu_flags
+    read -r -a cpu_flags <<< "$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace)"
+    python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace --record "$t/cpu-profile.json" --compiler "${cross}gcc"
+    "${cross}gcc" "${cpu_flags[@]}" -static -Wall -Wextra -Werror "$repo/firmware/boards/nkos-board-probe.c" -o "$t/nkos-board-probe"
     "${cross}strip" -o "$img/tools/nkos-board-probe" "$t/nkos-board-probe"
 
     unpack_git tinyalsa . "$t/tinyalsa"
@@ -612,33 +629,57 @@ PY
 # riscv64 programs. build.sh runs them as root of a user namespace instead of
 # host root: newuidmap maps the subordinate IDs of /etc/subuid and /etc/subgid,
 # and the namespace's own binfmt_misc (Linux 6.7 or newer) starts qemu.
-in_userns() {
+in_userns() (
     local user sub_u sub_g
     user=$(id -un)
     sub_u=$(awk -F: -v u="$user" '$1 == u { print $2; exit }' /etc/subuid 2>/dev/null)
     sub_g=$(awk -F: -v u="$user" '$1 == u { print $2; exit }' /etc/subgid 2>/dev/null)
-    if [ -z "$sub_u" ] || [ -z "$sub_g" ] || ! command -v newuidmap > /dev/null; then
+    if [ -z "$sub_u" ] || [ -z "$sub_g" ] || ! command -v newuidmap > /dev/null || ! command -v newgidmap > /dev/null; then
         echo "The $1 step needs newuidmap and newgidmap (package uidmap) and subordinate" >&2
         echo "IDs for $user in /etc/subuid and /etc/subgid; see platform/README.md." >&2
         exit 1
     fi
-    # unshare maps one range only: the namespace waits until newuidmap and
-    # newgidmap have mapped this user to root and the subordinate IDs to 1-65535.
-    local sync pid status=0
+    local sync pid="" status=0 ready_fd mapped_fd deadline
     sync=$(mktemp -d)
+    cleanup_userns() {
+        if [ -n "$pid" ]; then
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+        fi
+        rm -rf "$sync"
+    }
+    trap cleanup_userns EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
     mkfifo "$sync/ready" "$sync/mapped"
+    # Opening read/write avoids an unbounded FIFO open if unshare fails early.
+    exec {ready_fd}<>"$sync/ready"
+    exec {mapped_fd}<>"$sync/mapped"
     unshare --user --mount --pid --fork --kill-child \
         bash -c 'echo > "$1/ready"; read -r _ < "$1/mapped"; shift; exec "$@"' sh "$sync" \
         env NANOKVM_USERNS=1 bash "$here/build.sh" -o "$out" -j "$jobs" ${key:+-k "$key"} "$1" &
     pid=$!
-    read -r _ < "$sync/ready"
-    newuidmap "$pid" 0 "$(id -u)" 1 1 "$sub_u" 65535
-    newgidmap "$pid" 0 "$(id -g)" 1 1 "$sub_g" 65535
-    echo > "$sync/mapped"
+    deadline=$((SECONDS + 30))
+    until read -r -t 0.1 -u "$ready_fd" _; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            wait "$pid" || status=$?
+            pid=
+            echo "User namespace exited before reporting ready" >&2
+            [ "$status" -ne 0 ] || status=1
+            exit "$status"
+        fi
+        if [ "$SECONDS" -ge "$deadline" ]; then
+            echo "Timed out waiting for user namespace startup" >&2
+            exit 1
+        fi
+    done
+    newuidmap "$pid" 0 "$(id -u)" 1 1 "$sub_u" 65535 || exit $?
+    newgidmap "$pid" 0 "$(id -g)" 1 1 "$sub_g" 65535 || exit $?
+    echo >&"$mapped_fd"
     wait "$pid" || status=$?
-    rm -rf "$sync"
-    return "$status"
-}
+    pid=
+    exit "$status"
+)
 
 qemu=$out/qemu/qemu-riscv64-static
 register_qemu() {
@@ -710,7 +751,7 @@ signing_key() {
 }
 
 # Build the six packages with abuild in an Alpine riscv64 tree.
-packages() {
+packages() (
     local b=$out/apk-builder
     register_qemu
     signing_key
@@ -720,6 +761,7 @@ packages() {
     cp "$repo/scripts/build-alpine-packages.sh" "$b/build/src/scripts/"
     cp -r "$repo/firmware/alpine/packages" "$repo/firmware/alpine/release.env" "$b/build/src/firmware/alpine/"
     cp -a "$out/payloads" "$b/build/payloads"
+    trap 'rm -f "$b/root/.abuild/$keyname.rsa"' EXIT
     install -m 0600 "$keyfile" "$b/root/.abuild/$keyname.rsa"
     install -m 0644 "$keyfile.pub" "$b/root/.abuild/$keyname.rsa.pub"
     install -m 0644 "$keyfile.pub" "$b/etc/apk/keys/$keyname.rsa.pub"
@@ -735,7 +777,7 @@ packages() {
     mkdir -p "$rel/apk"
     cp -a "$b/build/repo/stock/." "$rel/apk/"
     cp "$keyfile.pub" "$rel/apk/$keyname.rsa.pub"
-}
+)
 
 # Alpine 3.24 root file system: the minirootfs with nanokvm-release from the
 # packages step and its dependencies from the Alpine mirror.

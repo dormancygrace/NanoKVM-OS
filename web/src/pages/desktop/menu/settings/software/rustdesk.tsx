@@ -7,6 +7,7 @@ import { getRustDeskStatus, rustDeskPackageAction, type RustDeskStatus } from '@
 import { getBaseUrl } from '@/lib/service';
 import { pollWhileVisible } from '@/lib/visible-poll';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk';
+import { RustDeskIcon } from '@/components/icons/rustdesk';
 
 import { rustDeskLabels } from './rustdesk-labels';
 
@@ -60,7 +61,16 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
     }
   };
   return (
-    <Card title="RustDesk" loading={!status && !error} className="min-w-0">
+    <Card
+      title={
+        <span className="flex items-center gap-2">
+          <RustDeskIcon size={20} />
+          RustDesk
+        </span>
+      }
+      loading={!status && !error}
+      className="min-w-0"
+    >
       <Space direction="vertical" size="middle" className="w-full">
         {error && <Alert type="error" title={error} showIcon />}
         <Tag>

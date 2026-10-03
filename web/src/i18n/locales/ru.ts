@@ -1496,6 +1496,7 @@ const ru = {
       }
     },
     picoclaw: {
+      moreActions: 'Другие действия',
       title: 'PicoClaw Ассистент',
       empty: 'Откройте панель и запустите задачу для начала.',
       inputPlaceholder: 'Опишите, что вы хотите от PicoClaw.',

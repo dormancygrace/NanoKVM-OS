@@ -1494,6 +1494,7 @@ const en = {
       }
     },
     picoclaw: {
+      moreActions: 'More actions',
       title: 'PicoClaw Assistant',
       empty: 'Open the panel and start a task to begin.',
       inputPlaceholder: 'Describe what you want the PicoClaw to do',

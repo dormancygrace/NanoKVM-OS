@@ -104,7 +104,7 @@ export const SidebarHeader = ({
 
   return (
     <>
-      <div className="flex h-12 shrink-0 items-center justify-between gap-3 pl-2 pr-4">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-3 pr-4 pl-2">
         {/* Left: Title */}
         <div className="flex min-w-0 items-center gap-1.5">
           <Button
@@ -129,11 +129,15 @@ export const SidebarHeader = ({
                 value={agentProfile || 'kvm'}
                 onChange={(value) => void onAgentProfileChange?.(value)}
                 disabled={
-                  areActionsDisabled || isUninstallingRuntime || isTogglingRuntime || isSwitchingAgent
+                  areActionsDisabled ||
+                  isUninstallingRuntime ||
+                  isTogglingRuntime ||
+                  isSwitchingAgent
                 }
                 loading={isSwitchingAgent}
                 popupMatchSelectWidth={false}
-                className="min-w-[120px] text-xs [&_.ant-select-selection-item]:text-xs [&_.ant-select-selection-item]:text-neutral-300"
+                className="min-w-[120px] text-xs"
+                styles={{ content: { color: '#e5e5e5' }, suffix: { color: '#d4d4d4' } }}
                 options={agentOptions.map((option) => ({
                   value: option.value,
                   label: option.title
@@ -143,8 +147,10 @@ export const SidebarHeader = ({
                   if (!current) return option.label;
                   return (
                     <div className="py-1">
-                      <div className="text-xs font-medium text-neutral-200">{current.title}</div>
-                      <div className="mt-0.5 text-[10px] leading-snug text-neutral-500">
+                      <div className="text-[13px] font-medium text-neutral-100">
+                        {current.title}
+                      </div>
+                      <div className="mt-0.5 text-xs leading-snug text-neutral-200">
                         {current.description}
                       </div>
                     </div>
@@ -204,6 +210,8 @@ export const SidebarHeader = ({
                 <Button
                   disabled={areActionsDisabled || isUninstallingRuntime}
                   loading={isUninstallingRuntime}
+                  aria-label={t('picoclaw.moreActions')}
+                  title={t('picoclaw.moreActions')}
                   icon={!isUninstallingRuntime ? <EllipsisIcon size={16} /> : undefined}
                   type="text"
                   size="small"

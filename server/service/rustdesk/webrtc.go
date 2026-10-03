@@ -231,6 +231,7 @@ func (b *rtcBridge) answer(endpoint string) (*rtcSession, string, string, string
 	}
 	setting := webrtc.SettingEngine{}
 	setting.SetSCTPMaxMessageSize(65536)
+	setting.SetSCTPMaxReceiveBufferSize(256 << 10)
 	api := webrtc.NewAPI(webrtc.WithSettingEngine(setting))
 	s.pc, err = api.NewPeerConnection(webrtc.Configuration{ICEServers: b.iceServers})
 	close(s.pcReady)
@@ -331,7 +332,7 @@ func (b *rtcBridge) attach(c net.Conn, token string) {
 	go func() {
 		defer s.close()
 		for {
-			payload, err := readRustDeskPayload(c)
+			payload, err := readRustDeskPayloadBounded(c, 3*time.Second)
 			if err != nil {
 				return
 			}
@@ -452,11 +453,30 @@ func writeRTCJSON(w io.Writer, v any) error {
 	}
 	return writeRTCAll(w, data)
 }
-func readRustDeskPayload(r io.Reader) ([]byte, error) {
-	var head [4]byte
-	if _, err := io.ReadFull(r, head[:1]); err != nil {
+
+// Idle is allowed. Once a frame starts its remaining header/body has a deadline.
+// A canceled session closes the owning IPC connection and interrupts either read.
+func readRustDeskPayloadBounded(c net.Conn, timeout time.Duration) ([]byte, error) {
+	var first [1]byte
+	if _, err := io.ReadFull(c, first[:]); err != nil {
 		return nil, err
 	}
+	if err := c.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		return nil, err
+	}
+	defer c.SetReadDeadline(time.Time{})
+	return readRustDeskPayloadAfterHead(c, first[0])
+}
+func readRustDeskPayload(r io.Reader) ([]byte, error) {
+	var first [1]byte
+	if _, err := io.ReadFull(r, first[:]); err != nil {
+		return nil, err
+	}
+	return readRustDeskPayloadAfterHead(r, first[0])
+}
+func readRustDeskPayloadAfterHead(r io.Reader, first byte) ([]byte, error) {
+	var head [4]byte
+	head[0] = first
 	width := int(head[0]&3) + 1
 	if _, err := io.ReadFull(r, head[1:width]); err != nil {
 		return nil, err

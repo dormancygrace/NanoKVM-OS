@@ -4,7 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
-	"crypto/sha512"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -23,6 +23,8 @@ func (s *Service) installRuntime() (string, *PicoclawError) {
 		return "", newPicoclawError(CodeRuntimeUnavailable, "picoclaw service is unavailable")
 	}
 	s.ensureDependencies()
+	unlock := s.lockRuntimeLifecycle()
+	defer unlock()
 	log.Debugf("picoclaw install: start, binary=%s, cache=%s", picoclawBinaryPath, picoclawCacheDir)
 
 	currentStatus := s.runtime.Get()
@@ -85,8 +87,13 @@ func (s *Service) runInstallRuntime(ctx context.Context, cancel context.CancelFu
 	}()
 
 	s.setInstallProgress("downloading", 5, "")
-	log.Debugf("picoclaw install: downloading checksum from %s", picoclawChecksumURL)
-	expectedDigest, err := downloadPicoclawChecksum(ctx)
+	release, err := latestPicoclawRelease(ctx)
+	if err != nil {
+		s.finishInstallFailure(installFailureStatus(err), err.Error())
+		return
+	}
+	log.Infof("picoclaw install: selected official release %s", release.Tag)
+	expectedDigest, err := downloadPicoclawChecksum(ctx, release.ChecksumURL)
 	if err != nil {
 		log.Errorf("picoclaw install: checksum download failed: %v", err)
 		s.finishInstallFailure(installFailureStatus(err), err.Error())
@@ -95,8 +102,8 @@ func (s *Service) runInstallRuntime(ctx context.Context, cancel context.CancelFu
 	log.Debug("picoclaw install: checksum file downloaded")
 
 	archivePath := filepath.Join(picoclawCacheDir, "picoclaw.tar.gz")
-	log.Debugf("picoclaw install: downloading archive from %s to %s", picoclawDownloadURL, archivePath)
-	if err := downloadPicoclawArchive(ctx, archivePath, func(downloaded int64, total int64) {
+	log.Debugf("picoclaw install: downloading archive from %s to %s", release.ArchiveURL, archivePath)
+	if err := downloadPicoclawArchive(ctx, release.ArchiveURL, archivePath, func(downloaded int64, total int64) {
 		progress := 10
 		if total > 0 {
 			progress = 10 + int(float64(downloaded)*70/float64(total))
@@ -114,7 +121,7 @@ func (s *Service) runInstallRuntime(ctx context.Context, cancel context.CancelFu
 
 	s.setInstallProgress("verifying", 82, "")
 
-	if err := verifyFileSHA512(archivePath, expectedDigest); err != nil {
+	if err := verifyFileSHA256(archivePath, expectedDigest); err != nil {
 		log.Errorf("picoclaw install: checksum verification failed: %v", err)
 		s.finishInstallFailure(installFailureStatus(err), err.Error())
 		return
@@ -152,8 +159,8 @@ func (s *Service) runInstallRuntime(ctx context.Context, cancel context.CancelFu
 	})
 }
 
-func downloadPicoclawArchive(ctx context.Context, destination string, onProgress func(downloaded int64, total int64)) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, picoclawDownloadURL, nil)
+func downloadPicoclawArchive(ctx context.Context, sourceURL, destination string, onProgress func(downloaded int64, total int64)) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create download request: %w", err)
 	}
@@ -183,8 +190,8 @@ func downloadPicoclawArchive(ctx context.Context, destination string, onProgress
 	return nil
 }
 
-func downloadPicoclawChecksum(ctx context.Context) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, picoclawChecksumURL, nil)
+func downloadPicoclawChecksum(ctx context.Context, checksumURL string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, checksumURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create checksum request: %w", err)
 	}
@@ -202,12 +209,12 @@ func downloadPicoclawChecksum(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("failed to download picoclaw checksum: unexpected status %s", resp.Status)
 	}
 
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 128*1024))
 	if err != nil {
 		return "", fmt.Errorf("failed to read checksum file: %w", err)
 	}
 
-	digest, err := parseSHA512Digest(string(data), filepath.Base(picoclawDownloadURL))
+	digest, err := parseSHA256Digest(string(data), picoclawArchiveName)
 	if err != nil {
 		return "", err
 	}
@@ -231,6 +238,9 @@ func copyWithProgress(ctx context.Context, dst io.Writer, src io.Reader, total i
 				return writeErr
 			}
 			downloaded += int64(n)
+			if downloaded > 128*1024*1024 {
+				return fmt.Errorf("PicoClaw archive exceeds size limit")
+			}
 			if onProgress != nil {
 				onProgress(downloaded, total)
 			}
@@ -293,9 +303,8 @@ func installFailureStatus(err error) string {
 	return "install_failed"
 }
 
-func parseSHA512Digest(raw string, expectedName string) (string, error) {
+func parseSHA256Digest(raw string, expectedName string) (string, error) {
 	lines := strings.Split(raw, "\n")
-	var fallback string
 
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -309,32 +318,25 @@ func parseSHA512Digest(raw string, expectedName string) (string, error) {
 		}
 
 		digest := fields[0]
-		if !isValidSHA512Digest(digest) {
+		if !isValidSHA256Digest(digest) {
 			continue
 		}
 
-		if len(fields) == 1 {
-			if fallback == "" {
-				fallback = strings.ToLower(digest)
-			}
+		if len(fields) < 2 {
 			continue
 		}
 
 		name := strings.TrimPrefix(fields[len(fields)-1], "*")
-		if expectedName == "" || name == expectedName {
+		if name == expectedName {
 			return strings.ToLower(digest), nil
 		}
 	}
 
-	if fallback != "" {
-		return fallback, nil
-	}
-
-	return "", fmt.Errorf("failed to parse sha512 digest from checksum file")
+	return "", fmt.Errorf("failed to parse sha256 digest from checksum file")
 }
 
-func isValidSHA512Digest(value string) bool {
-	if len(value) != sha512.Size*2 {
+func isValidSHA256Digest(value string) bool {
+	if len(value) != sha256.Size*2 {
 		return false
 	}
 
@@ -342,26 +344,26 @@ func isValidSHA512Digest(value string) bool {
 	return err == nil
 }
 
-func verifyFileSHA512(filePath string, expectedDigest string) error {
+func verifyFileSHA256(filePath string, expectedDigest string) error {
 	expectedDigest = strings.ToLower(strings.TrimSpace(expectedDigest))
-	if !isValidSHA512Digest(expectedDigest) {
-		return fmt.Errorf("invalid expected sha512 digest")
+	if !isValidSHA256Digest(expectedDigest) {
+		return fmt.Errorf("invalid expected sha256 digest")
 	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to open file for sha512 verification: %w", err)
+		return fmt.Errorf("failed to open file for sha256 verification: %w", err)
 	}
 	defer file.Close()
 
-	hasher := sha512.New()
+	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {
-		return fmt.Errorf("failed to hash file for sha512 verification: %w", err)
+		return fmt.Errorf("failed to hash file for sha256 verification: %w", err)
 	}
 
 	actualDigest := hex.EncodeToString(hasher.Sum(nil))
 	if actualDigest != expectedDigest {
-		return fmt.Errorf("sha512 mismatch: got %s", actualDigest)
+		return fmt.Errorf("sha256 mismatch: got %s", actualDigest)
 	}
 
 	return nil
@@ -396,6 +398,9 @@ func extractPicoclawBinary(archivePath string, destinationDir string) (string, e
 			continue
 		}
 
+		if header.Size <= 0 || header.Size > 256*1024*1024 {
+			return "", fmt.Errorf("invalid PicoClaw binary size")
+		}
 		extractedPath := filepath.Join(destinationDir, "picoclaw")
 		outFile, err := os.OpenFile(extractedPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
 		if err != nil {

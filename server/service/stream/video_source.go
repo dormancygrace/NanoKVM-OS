@@ -2,6 +2,7 @@ package stream
 
 import (
 	"NanoKVM-Server/common"
+	"context"
 	"fmt"
 	"runtime"
 	"sync"
@@ -204,10 +205,16 @@ func (s *VideoSource) subscribeValidated(requested EncoderConfig, validate func(
 func (s *VideoSubscription) Config() EncoderConfig { return s.session.config }
 
 func (s *VideoSubscription) Next() (VideoFrame, bool) {
+	return s.NextContext(context.Background())
+}
+
+func (s *VideoSubscription) NextContext(ctx context.Context) (VideoFrame, bool) {
 	select {
 	case frame := <-s.frames:
 		return frame, true
 	case <-s.done:
+		return VideoFrame{}, false
+	case <-ctx.Done():
 		return VideoFrame{}, false
 	}
 }

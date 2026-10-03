@@ -116,3 +116,17 @@ build uses a fresh temporary host tree and refuses to overwrite an existing
 artifact. The source archive contains APKBUILD.in as a recipe template because
 an archive cannot embed its own digest; the external production APKBUILD includes
 SHA-512 checksums for the immutable archive and init script.
+
+## Common application deployment
+
+The runtime owner integrated migration and hardening into common commit 2cbc2ac,
+added performance changes through c33d6c3, and installed nanokvm-app
+2.0_beta8-r15. Its APK SHA-256 is
+ac7711dc4899dac032be49f7aa36114d4e7c3943ab9ac4739a43c697bab18c4a;
+the server SHA-256 is
+7e3e4f2e183c9f11228e80b8e7e39951608a4a46ac0f542ad2498a62a5e867c1.
+The owner verified Chrome Main shows add-on 0.3.0-r2, protocol 1.5.0,
+Running/Registered, and the capability-gated Allow WebRTC connections switch
+visible and off. No settings were saved; the verification tab was closed.
+This UI qualification was performed by the runtime owner, separately from
+this worktree's headless direct TCP measurement.

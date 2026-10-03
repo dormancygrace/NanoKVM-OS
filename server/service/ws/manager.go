@@ -24,6 +24,8 @@ func newManager() *Manager {
 }
 
 func (m *Manager) AddClient(ws *websocket.Conn, client *Client) {
+	m.controlMutex.Lock()
+	defer m.controlMutex.Unlock()
 	m.mutex.Lock()
 	m.clients[ws] = client
 	if m.controller == nil {
@@ -35,6 +37,8 @@ func (m *Manager) AddClient(ws *websocket.Conn, client *Client) {
 }
 
 func (m *Manager) RemoveClient(ws *websocket.Conn) {
+	m.controlMutex.Lock()
+	defer m.controlMutex.Unlock()
 	m.mutex.Lock()
 	client := m.clients[ws]
 	delete(m.clients, ws)
@@ -45,15 +49,29 @@ func (m *Manager) RemoveClient(ws *websocket.Conn) {
 		// pass the post-reservation ownership check in Client.queueManualReport.
 		client.revokeInput()
 	}
+	var next *Client
+	if client != nil && m.controller == nil && len(m.clients) == 1 {
+		for _, remaining := range m.clients {
+			if !remaining.manualViewOnly {
+				next = remaining
+				m.controller = next
+			}
+		}
+	}
 	m.mutex.Unlock()
 	if client != nil {
 		client.setControlEnabled(false)
+	}
+	if next != nil {
+		next.setControlEnabled(true)
 	}
 }
 
 // SetControl changes the single browser session allowed to send manual HID
 // input. Other sessions continue receiving video and status messages.
 func (m *Manager) SetControl(client *Client, enabled bool) {
+	m.controlMutex.Lock()
+	defer m.controlMutex.Unlock()
 	m.mutex.Lock()
 	registered := false
 	for _, connected := range m.clients {
@@ -67,6 +85,7 @@ func (m *Manager) SetControl(client *Client, enabled bool) {
 		client.setControlEnabled(false)
 		return
 	}
+	client.manualViewOnly = !enabled
 	if !enabled {
 		if m.controller != client {
 			m.mutex.Unlock()

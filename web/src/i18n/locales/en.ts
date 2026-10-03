@@ -28,7 +28,8 @@ const en = {
 
     sessionControl: {
       active: 'This browser session controls keyboard and mouse',
-      locked: 'View-only: keyboard and mouse are controlled by another session',
+      locked: 'Input is disabled in this session. Select Take control to enable it.',
+      viewOnly: 'View only',
       take: 'Take control',
       release: 'Lock this session'
     },

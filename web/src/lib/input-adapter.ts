@@ -34,6 +34,10 @@ export function resolveInputAdapter(
   mouseMode: MouseModeValue,
   capabilities: PointerCapabilities = getPointerCapabilities()
 ): Exclude<InputAdapterMode, 'auto'> {
+  if (mouseMode === 'absolute' && (capabilities.hasTouch || capabilities.coarsePointer)) {
+    return 'touchpad';
+  }
+  if (configuredMode === 'pointer-lock' && !capabilities.canPointerLock) return 'touchpad';
   if (configuredMode !== 'auto') return configuredMode;
 
   if (

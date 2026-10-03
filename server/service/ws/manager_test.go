@@ -32,7 +32,7 @@ func TestManagerOnlyGrantsManualControlToOneClient(t *testing.T) {
 
 	manager.RemoveClient(secondConnection)
 	if manager.CanControl(second) {
-		t.Fatal("disconnecting the owner should leave control unowned")
+		t.Fatal("disconnecting the owner must revoke its control")
 	}
 	if second.controlEnabled {
 		t.Fatal("disconnecting the owner should disable its input")
@@ -62,5 +62,54 @@ func TestHTTPInputRequiresTheControllingSocketLease(t *testing.T) {
 	}
 	if newInputLease() == newInputLease() {
 		t.Fatal("leases must be random")
+	}
+}
+
+func TestRemainingViewerReceivesControl(t *testing.T) {
+	m := newManager()
+	a, b := &Client{inputLease: newInputLease()}, &Client{inputLease: newInputLease()}
+	ca, cb := new(websocket.Conn), new(websocket.Conn)
+	m.AddClient(ca, a)
+	m.AddClient(cb, b)
+	m.RemoveClient(ca)
+	if !m.CanControl(b) || !b.controlEnabled || !m.AllowsInputLease(b.inputLease) || m.AllowsInputLease(a.inputLease) {
+		t.Fatal("sole viewer must receive ownership, notification state and HTTP lease")
+	}
+}
+func TestAutomaticControlWaitsForOneRemainingViewer(t *testing.T) {
+	m := newManager()
+	a, b, c := &Client{}, &Client{}, &Client{}
+	ca, cb, cc := new(websocket.Conn), new(websocket.Conn), new(websocket.Conn)
+	m.AddClient(ca, a)
+	m.AddClient(cb, b)
+	m.AddClient(cc, c)
+	m.RemoveClient(ca)
+	if m.CanControl(b) || m.CanControl(c) {
+		t.Fatal("must not choose between multiple viewers")
+	}
+	m.RemoveClient(cb)
+	if !m.CanControl(c) || !c.controlEnabled {
+		t.Fatal("last remaining viewer must receive control")
+	}
+}
+func TestExplicitViewOnlySurvivesOtherDisconnect(t *testing.T) {
+	m := newManager()
+	a, b := &Client{}, &Client{}
+	ca, cb := new(websocket.Conn), new(websocket.Conn)
+	m.AddClient(ca, a)
+	m.AddClient(cb, b)
+	m.SetControl(b, false)
+	m.RemoveClient(ca)
+	if m.CanControl(b) || b.controlEnabled {
+		t.Fatal("manual view-only must be retained")
+	}
+	m.SetControl(b, true)
+	if !m.CanControl(b) || !b.controlEnabled {
+		t.Fatal("explicit take must still work")
+	}
+	m.SetControl(b, false)
+	m.RemoveClient(ca)
+	if m.CanControl(b) {
+		t.Fatal("repeated disconnect must not undo manual lock")
 	}
 }

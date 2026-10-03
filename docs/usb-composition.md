@@ -216,3 +216,7 @@ Both Default and Windows profiles accept the same browser gestures:
 Releasing the first finger after a two-finger gesture does not send a left click.
 A cancelled touch or leaving the page releases held buttons. The gestures apply
 to the touch input adapter, selected automatically for touch devices.
+
+Toolbar and input handlers follow the applied per-function USB status. A disabled keyboard has no toolbar button, virtual keyboard or key interception. The active mouse mode falls back to an enabled USB function without overwriting the browser preference. The mode chooser appears only when both mice are enabled. Pointer Lock and the relative touchpad guide appear only where applicable; Windows pointer mode does not offer legacy coordinate calibration. USB composition is the place to change gadget functions; the old HID-only toggle is no longer duplicated in the mouse menu.
+
+When the controlling browser disconnects and exactly one viewer remains, that viewer automatically receives control unless it explicitly selected view-only. With several remaining viewers, none is chosen automatically; the same rule is applied as viewers leave. A visible View only / Take control action supplements the lock icon on touch screens.

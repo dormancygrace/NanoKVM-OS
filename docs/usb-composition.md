@@ -168,3 +168,34 @@ editing, cancellation, conflict and error recovery.
 `bcdDevice` is a profile hint. If it says HID-only while configured RNDIS, NCM or
 mass-storage links exist, the server treats the profile as normal so those
 functions remain visible to composition and endpoint-budget checks.
+
+
+## Absolute pointer profiles
+
+The absolute pointer has two profiles. **Default** retains the USB absolute mouse
+for firmware, installers and other operating systems. **Windows** exposes a pen
+and an auxiliary mouse collection, using a shared USB/EDID ContainerID to bind
+coordinates to the captured display on Windows 10 1903 and newer. Relative mouse
+and keyboard remain separate USB functions. Middle/back/forward buttons and
+vertical/horizontal wheels use the auxiliary collection; left/right use pen
+contact/barrel reports.
+
+This is opt-in. Applying a profile reprograms the selected EDID and reconnects
+USB and HDMI. The UI offers Windows only with the matching kernel ContainerID
+support and live EDID programming support; receivers requiring a physical power
+cycle are currently excluded. The chosen monitor resolution/orientation and all
+advertised detailed timings are retained. A dense CTA extension reuses the
+redundant textual serial descriptor slot and removes a duplicated preferred DTD
+instead of discarding timings. The numeric EDID serial, monitor name, range
+limits and preferred timing remain unchanged.
+
+The per-device UUID is generated on first use in `/etc/kvm/usb_container_id`.
+`/boot/usb.pointer_windows` selects the profile. The kernel configfs attribute
+`os_desc/container_id` exposes Microsoft OS 1.0 ContainerID; its value is writable
+only while unbound. Zero disables this optional descriptor. Windows device
+revisions differ from Default to avoid cached descriptor reuse.
+
+References:
+- https://learn.microsoft.com/en-us/windows-hardware/design/component-guidelines/digitizer-display-mapping
+- https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/usb-containerids-in-windows
+- https://learn.microsoft.com/en-us/windows-hardware/drivers/display/specialized-monitors-edid-extension

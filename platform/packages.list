@@ -55,7 +55,7 @@ base  file  /usr/libexec/nanokvm/legacy/S50avahi-daemon   0755  firmware/alpine/
 base  file  /usr/libexec/nanokvm/legacy/S50sshd           0755  firmware/alpine/compat/S50sshd
 base  file  /usr/libexec/nanokvm/legacy/S80dnsmasq        0755  kvmapp/system/init.d/S80dnsmasq
 base  file  /usr/libexec/nanokvm/legacy/S94sg2002aes      0755  kvmapp/system/init.d/S94sg2002aes
-base  file  /usr/libexec/nanokvm/legacy/S95nanokvm        0755  kvmapp/system/init.d/S95nanokvm
+base  link  /usr/libexec/nanokvm/legacy/S95nanokvm        -     /kvmapp/system/init.d/S95nanokvm
 base  file  /usr/libexec/nanokvm/legacy/S96picoclaw       0755  kvmapp/system/init.d/S96picoclaw
 base  file  /usr/libexec/nanokvm/legacy/S98tailscaled     0755  kvmapp/system/init.d/S98tailscaled
 base  link  /etc/init.d/S02config                         -     /usr/libexec/nanokvm/legacy/S02config

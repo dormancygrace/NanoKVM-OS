@@ -26,4 +26,49 @@ A release-equivalent server needs the NanoKVM Go runtime (`firmware/cpu/sysmon-r
 
 See [DEPENDENCY-UPDATES.md](DEPENDENCY-UPDATES.md) for automatic dependency PRs, native upstream monitoring and the boundaries of each.
 
+
+## NanoKVM CPU build policy
+
+`platform/cpu-profile.json` defines the CPU policy for our own C/C++ components.
+`scripts/nanokvm_cpu_profile.py` supplies the flags to the native library, board
+service, USB audio, CGO and platform builders. Production optimization is `-O2`,
+with C906 scheduling and `-mno-fence-tso`. Official Alpine packages and prebuilt
+SOPHGO algorithm objects are not recompiled by this policy; Go retains its own
+compiler and `GORISCV64` baseline.
+
+Userspace enables the C906 T-Head extensions and XTheadVector. This permits
+supported instructions; it does not promise automatic vectorization or a frame
+rate increase. Kernel/modules retain their qualified integer ISA and `lp64`,
+without compiler-generated floating-point or vector operations. U-Boot uses a
+separate integer-only C906 profile with `CONFIG_CC_OPTIMIZE_FOR_SPEED=y`. Kbuild's
+architecture-specific optimized routines retain their own context handling.
+
+Buildroot's target defaults and the MPI Makefile patch mirror the profile so
+standalone builds do not fall back to a different optimization level. Update
+those generated values alongside the JSON; `scripts/test-cpu-profile.py` rejects
+drift. It can also exercise the real cross-compiler with `--compiler PATH`.
+Component output directories contain `cpu-profile*.json` with the policy hash,
+compiler identity and flags used by the build script. These files describe only
+our compiled objects, not the flags originally used for vendor binary objects.
 The `BUILD-*.md` files next to this one describe how earlier releases were built. Their scripts have been replaced by `platform/build.sh`.
+
+The policy also covers the standalone EDID, board-probe and devmem tools. A
+builder records its compiler and supplied flags in `cpu-profile*.json`; conflicting
+optimization, ISA, tuning or ABI options are rejected. This validates the options
+supplied by the builder, not every option subsequently added by an upstream
+Makefile. A complete build and device qualification remain necessary.
+
+For CPU comparisons, `tools/c906-profile-bench.c` is a small integer/float test,
+not a video benchmark. Compile it with the same compiler, `-O2`, C906 tuning,
+`-mno-fence-tso`, `-mabi=lp64d` and `-ffp-contract=off`, varying only `-march`.
+Interleave repeated runs on the same device and compare checksums as well as
+elapsed time. The `-ffp-contract=off` option is for comparable benchmark arithmetic;
+it is not a production build flag. Inspect compiler vectorization reports before
+attributing any improvement to vector instructions.
+
+To inspect the effective compiler commands after a kernel or module build, run
+`scripts/audit-kbuild-profile.py OUTPUT/kernel/build` (or `OUTPUT/modules`).
+For U-Boot, use `--kind bootloader OUTPUT/uboot/build`. The audit reads Kbuild's
+saved commands and checks the final optimization, ISA, ABI and tuning options.
+The vDSO and CFI-vDSO retain Kbuild's explicit userspace ABI instruction sets;
+these are reported separately, while still requiring `-O2` and C906 tuning.

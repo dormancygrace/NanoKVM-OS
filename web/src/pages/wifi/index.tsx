@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckOutlined, KeyOutlined, LockOutlined, WifiOutlined } from '@ant-design/icons';
 import { Button, Form, Input } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -20,15 +20,11 @@ export const Wifi = () => {
   const [verifying, setVerifying] = useState<boolean>(false);
   const [verifyState, setVerifyState] = useState<VerifyState>('');
 
-  useEffect(() => {
-    const pass = searchParams.get('p') || searchParams.get('P');
-    if (pass) {
-      verifyPassword(pass);
-    }
-  }, []);
-
-  async function verifyPassword(password: string) {
-    if (verifying) return;
+  const [initialPassword] = useState(() => searchParams.get('p') || searchParams.get('P'));
+  const verifyInFlight = useRef(false);
+  const verifyPassword = useCallback(async (password: string) => {
+    if (verifyInFlight.current) return;
+    verifyInFlight.current = true;
     setVerifying(true);
     setVerifyState('');
 
@@ -44,8 +40,13 @@ export const Wifi = () => {
       console.error(err);
       setVerifyState('failed');
     }
+    verifyInFlight.current = false;
     setVerifying(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    if (initialPassword) void verifyPassword(initialPassword);
+  }, [initialPassword, verifyPassword]);
 
   async function onVerifyFinish(values: any) {
     if (!values.apPassword) return;

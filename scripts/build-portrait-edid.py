@@ -14,7 +14,7 @@ builder.MODES = builder.MODES[:1]
 MODE = (1080, 1920, 183680, 160, 48, 32, 55, 3, 10, 0x1a)
 HD_MODE = (720, 1280, 139080, 160, 48, 32, 37, 3, 10, 0x1a)
 AVC_MODE = (1296, 2304, 171000, 160, 48, 32, 45, 3, 10, 0x1a)
-MAX_MODE = (1440, 2560, 166720, 160, 48, 32, 45, 3, 10, 0x1a)
+MAX_MODE = (1440, 2560, 208400, 160, 48, 32, 45, 3, 10, 0x1a)
 
 def profile(source, mode=MODE):
     data = bytearray(builder.profile(source, mode))

@@ -13,7 +13,7 @@
     "build": "tsc && vite build",
     "test:usb": "node --experimental-strip-types --test tests/usb-composition.test.mjs",
     "test:direct": "node --import tsx --test tests/direct-playout.test.mjs tests/direct-worker.test.mjs",
-    "lint": "eslint . --report-unused-disable-directives",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "preview": "vite preview"
   },

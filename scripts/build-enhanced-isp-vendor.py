@@ -4,6 +4,7 @@
 The vendor algorithms remain Xuantie GCC10 binaries, not GCC16 source builds.
 Requires the same NANOKVM_* environment variables as build-enhanced-mpi.sh.
 """
+from nanokvm_cpu_profile import flags as cpu_flags, record as record_cpu_profile
 from pathlib import Path
 import hashlib
 import json
@@ -44,7 +45,8 @@ for module, objects in groups.items():
 path_flags = ' '.join(f'-ffile-prefix-map={src}={name}' for src, name in [
     (mpi, './cvi_mpi'), (osdrv, './osdrv'), (kernel, './linux'),
     (Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve(), './toolchain')])
-opt_flags = '-Os -march=rv64gc -mtune=thead-c906 -mno-fence-tso -mcmodel=medany -mabi=lp64d ' + path_flags
+opt_flags = ' '.join(cpu_flags()) + ' -mcmodel=medany ' + path_flags
+record_cpu_profile(mpi / 'cpu-profile-isp.json', cross + 'gcc', effective_flags=opt_flags.split())
 common = ['OPT_LEVEL=' + opt_flags, 'CROSS_COMPILE=' + cross, 'CHIP_ARCH=CV181X', 'ISP_SRC_RELEASE=0', '-B',
           'OSDRV_PATH=' + osdrv, 'KERNEL_PATH=' + kernel, '-j' + os.environ.get('JOBS', '8')]
 (mpi / 'lib/3rd').mkdir(parents=True, exist_ok=True)

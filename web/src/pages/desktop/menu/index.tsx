@@ -23,7 +23,8 @@ import { MobileMenuItemProvider } from '@/components/menu-item.tsx';
 
 import { Control } from '../control.tsx';
 import { KeyboardLedStatus } from '../keyboard-led-status';
-import { AudioMenu, useUsbAudio } from './audio';
+import { useUsbAudio } from '@/hooks/useUsbAudio.ts';
+import { AudioMenu } from './audio';
 import { Capture } from './capture';
 import { DownloadImage } from './download.tsx';
 import { Fullscreen } from './fullscreen';

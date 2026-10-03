@@ -124,6 +124,8 @@ class StockProfileTests(unittest.TestCase):
         self.assertNotIn("htop", log)
         self.assertNotIn("kernel", log)
         self.assertEqual((self.root / "etc/nanokvm-build-profile").read_text(), "stock\n")
+        self.assertEqual((self.root / "etc/nanokvm-release").read_text(),
+                         'VERSION="2.0-b12"\nBUILD_PROFILE="c906-scalar"\n')
         self.assertIn("kernel-sg2002=held-version", (self.root / "etc/apk/world").read_text())
         repos = (self.root / "etc/apk/repositories").read_text()
         self.assertNotIn("c906", repos)

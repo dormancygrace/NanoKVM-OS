@@ -1,5 +1,5 @@
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Input, Modal, Popconfirm, Spin, Tabs, message } from 'antd';
 import { RefreshCwIcon, SearchIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -54,42 +54,48 @@ export const Software = () => {
 
   const working = busy || state?.operation.state === 'running';
   const showOperation = state?.operation.state === 'running' || (actionStarted && (state?.operation.state === 'succeeded' || state?.operation.state === 'failed'));
-  const refresh = async () => {
-    if (refreshInFlight.current) return;
-    refreshInFlight.current = true;
-    try {
-      const rsp = await http.get('/api/os/update/software');
-      if (rsp.code === 0) {
-        operationState.current = rsp.data.operation?.state || '';
-        setState(rsp.data);
-        setLoadError('');
-      } else setLoadError(rsp.msg);
-    } catch {
-      setLoadError(t('settings.software.requestFailed'));
-    } finally {
-      refreshInFlight.current = false;
-    }
-  };
+  const refresh = useCallback(
+    async () => {
+      if (refreshInFlight.current) return;
+      refreshInFlight.current = true;
+      try {
+        const rsp = await http.get('/api/os/update/software');
+        if (rsp.code === 0) {
+          operationState.current = rsp.data.operation?.state || '';
+          setState(rsp.data);
+          setLoadError('');
+        } else setLoadError(rsp.msg);
+      } catch {
+        setLoadError(t('settings.software.requestFailed'));
+      } finally {
+        refreshInFlight.current = false;
+      }
+    },
+    [t]
+  );
 
-  const refreshStatus = async () => {
-    try {
-      const rsp = await http.get('/api/os/update/software/status');
-      if (rsp.code !== 0) return;
-      const nextOperation = rsp.data.operation as Operation;
-      const previousState = operationState.current;
-      operationState.current = nextOperation.state;
-      setState((current) => current ? { ...current, operation: nextOperation, indexes: rsp.data.indexes } : current);
-      if (previousState === 'running' && nextOperation.state !== 'running') void refresh();
-    } catch {
-      // Status polling is passive. It must never interrupt the user with a toast.
-    }
-  };
+  const refreshStatus = useCallback(
+    async () => {
+      try {
+        const rsp = await http.get('/api/os/update/software/status');
+        if (rsp.code !== 0) return;
+        const nextOperation = rsp.data.operation as Operation;
+        const previousState = operationState.current;
+        operationState.current = nextOperation.state;
+        setState((current) => current ? { ...current, operation: nextOperation, indexes: rsp.data.indexes } : current);
+        if (previousState === 'running' && nextOperation.state !== 'running') void refresh();
+      } catch {
+        // Status polling is passive. It must never interrupt the user with a toast.
+      }
+    },
+    [refresh]
+  );
 
   useEffect(() => {
     void refresh();
     const stopPolling = pollWhileVisible(() => void refreshStatus(), 3000);
     return () => stopPolling();
-  }, []);
+  }, [refresh, refreshStatus]);
 
   const run = async (action: string, name = '') => {
     setActionStarted(true);
@@ -106,23 +112,26 @@ export const Software = () => {
     }
   };
 
-  const search = async (term: string, generation: number) => {
-    if (generation !== searchGeneration.current) return;
-    setSearching(true);
-    try {
-      const rsp = await http.get('/api/os/update/software/search', { query: term });
+  const search = useCallback(
+    async (term: string, generation: number) => {
       if (generation !== searchGeneration.current) return;
-      if (rsp.code === 0) {
-        setResults(rsp.data.packages || []);
-        setSearchedQuery(term);
-        setSearchError('');
-      } else setSearchError(rsp.msg);
-    } catch {
-      if (generation === searchGeneration.current) setSearchError(t('settings.software.requestFailed'));
-    } finally {
-      if (generation === searchGeneration.current) setSearching(false);
-    }
-  };
+      setSearching(true);
+      try {
+        const rsp = await http.get('/api/os/update/software/search', { query: term });
+        if (generation !== searchGeneration.current) return;
+        if (rsp.code === 0) {
+          setResults(rsp.data.packages || []);
+          setSearchedQuery(term);
+          setSearchError('');
+        } else setSearchError(rsp.msg);
+      } catch {
+        if (generation === searchGeneration.current) setSearchError(t('settings.software.requestFailed'));
+      } finally {
+        if (generation === searchGeneration.current) setSearching(false);
+      }
+    },
+    [t]
+  );
 
   const searchNow = () => {
     const term = query.trim();
@@ -149,7 +158,7 @@ export const Software = () => {
     }
     const timer = window.setTimeout(() => void search(term, generation), 700);
     return () => window.clearTimeout(timer);
-  }, [query]);
+  }, [query, search]);
 
   const previewRemoval = async (name: string) => {
     try {
@@ -161,27 +170,30 @@ export const Software = () => {
     }
   };
 
-  const loadUpdates = async () => {
-    if (updatesInFlight.current) return;
-    updatesInFlight.current = true;
-    setUpdatesLoading(true);
-    try {
-      const rsp = await http.get('/api/os/update/software/updates');
-      if (rsp.code === 0) {
-        setUpdates(rsp.data.updates || []);
-        setUpdatesError('');
-      } else setUpdatesError(rsp.msg);
-    } catch {
-      setUpdatesError(t('settings.software.requestFailed'));
-    } finally {
-      updatesInFlight.current = false;
-      setUpdatesLoading(false);
-    }
-  };
+  const loadUpdates = useCallback(
+    async () => {
+      if (updatesInFlight.current) return;
+      updatesInFlight.current = true;
+      setUpdatesLoading(true);
+      try {
+        const rsp = await http.get('/api/os/update/software/updates');
+        if (rsp.code === 0) {
+          setUpdates(rsp.data.updates || []);
+          setUpdatesError('');
+        } else setUpdatesError(rsp.msg);
+      } catch {
+        setUpdatesError(t('settings.software.requestFailed'));
+      } finally {
+        updatesInFlight.current = false;
+        setUpdatesLoading(false);
+      }
+    },
+    [t]
+  );
 
   useEffect(() => {
     if (activeTab === 'updates') void loadUpdates();
-  }, [activeTab]);
+  }, [activeTab, loadUpdates]);
 
   const indexWarning = state?.indexes?.state === 'missing'
     ? <Alert type="warning" showIcon message={t('settings.software.indexMissing')} />

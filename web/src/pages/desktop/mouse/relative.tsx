@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import { message } from 'antd';
 import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
@@ -38,11 +38,62 @@ export const Relative = () => {
   const TAP_THRESHOLD = 8;
   const LONG_PRESS_DELAY = 800;
 
+  // show message
+  const showMessage = useEffectEvent(() => {
+    messageApi.open({
+      key: 'requestPointer',
+      type: 'info',
+      content: t('mouse.requestPointer'),
+      duration: 3,
+      style: {
+        marginTop: '40vh'
+      }
+    });
+  });
+
   useEffect(() => {
     const screen = document.getElementById('screen');
     if (!screen) return;
     const target = screen;
     const mouse = mouseRef.current;
+    // Mouse handler
+    function handleMouseEvent(event: MouseRelativeEvent) {
+      let report: Uint8Array;
+      const mouse = mouseRef.current;
+
+      switch (event.type) {
+        case 'mousedown':
+          mouse.buttonDown(event.button);
+          report = mouse.buildButtonReport();
+          break;
+        case 'mouseup':
+          mouse.buttonUp(event.button);
+          report = mouse.buildButtonReport();
+          break;
+        case 'wheel':
+          report = mouse.buildReport(0, 0, event.deltaY, event.deltaX);
+          break;
+        case 'move':
+          report = mouse.buildReport(event.deltaX, event.deltaY);
+          break;
+        default:
+          report = mouse.buildReport(0, 0);
+          break;
+      }
+
+      const data = new Uint8Array([MessageEvent.Mouse, ...report]);
+      client.send(data);
+    }
+
+    function releasePressedTouchButton() {
+      if (pressedTouchButtonRef.current === null) {
+        return;
+      }
+
+      handleMouseEvent({ type: 'mouseup', button: pressedTouchButtonRef.current });
+      pressedTouchButtonRef.current = null;
+      isTouchLongPressRef.current = false;
+    }
     const useTouchpad = effectiveAdapter === 'touchpad';
     const previousTouchAction = target.style.touchAction;
 
@@ -314,48 +365,6 @@ export const Relative = () => {
     };
   }, [effectiveAdapter, resolution, scrollDirection, scrollInterval]);
 
-  // Mouse handler
-  function handleMouseEvent(event: MouseRelativeEvent) {
-    let report: Uint8Array;
-    const mouse = mouseRef.current;
-
-    switch (event.type) {
-      case 'mousedown':
-        mouse.buttonDown(event.button);
-        report = mouse.buildButtonReport();
-        break;
-      case 'mouseup':
-        mouse.buttonUp(event.button);
-        report = mouse.buildButtonReport();
-        break;
-      case 'wheel':
-        report = mouse.buildReport(0, 0, event.deltaY, event.deltaX);
-        break;
-      case 'move':
-        report = mouse.buildReport(event.deltaX, event.deltaY);
-        break;
-      default:
-        report = mouse.buildReport(0, 0);
-        break;
-    }
-
-    const data = new Uint8Array([MessageEvent.Mouse, ...report]);
-    client.send(data);
-  }
-
-  // show message
-  function showMessage() {
-    messageApi.open({
-      key: 'requestPointer',
-      type: 'info',
-      content: t('mouse.requestPointer'),
-      duration: 3,
-      style: {
-        marginTop: '40vh'
-      }
-    });
-  }
-
   // disable default events
   function disableEvent(event: Event) {
     event.preventDefault();
@@ -382,15 +391,6 @@ export const Relative = () => {
     pressedTouchButtonRef.current = null;
   }
 
-  function releasePressedTouchButton() {
-    if (pressedTouchButtonRef.current === null) {
-      return;
-    }
-
-    handleMouseEvent({ type: 'mouseup', button: pressedTouchButtonRef.current });
-    pressedTouchButtonRef.current = null;
-    isTouchLongPressRef.current = false;
-  }
 
   return <>{contextHolder}</>;
 };

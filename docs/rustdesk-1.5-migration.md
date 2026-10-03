@@ -107,7 +107,17 @@ outbound attempts and relay fallback. No permanent LAN port is enabled. The
 on the client is necessary to request TCP by ID. Host tests verify listener reuse,
 retention of a successful crossing, canonical LocalAddr/permissions tags and
 compatibility of missing configuration. Device qualification above describes r1;
-r2 direct throughput remains pending an explicitly coordinated slot.
+r2 direct throughput was qualified in a separate explicitly coordinated slot.
+
+A headless view-only controller reached the device by ID through the official
+hbbs, verified the signed identity and negotiated encrypted KX v1. It received
+1198 H.264 encoded frames (14,025,983 bytes) in 20 seconds: 59.9 received frames/s.
+This measures frame reception; it does not decode or display video and cannot
+be compared directly with the official-client display FPS above. After closing,
+sessions returned to zero, registration remained active and USB was unbound.
+Config, identity and native library hashes remained unchanged across installation.
+Only the add-on lifecycle restarted its daemon; no app, kernel, route or encoder
+changes were made in this qualification. The uploaded test APK was removed.
 
 Every WebRTC setup connect/write and signaling step now has a deadline and a
 shutdown interrupt. Active serving receives a stop signal and is awaited for

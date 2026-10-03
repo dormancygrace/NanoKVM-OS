@@ -23,6 +23,7 @@ import (
 	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/stream/audio"
 	"NanoKVM-Server/service/ws"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -538,12 +539,24 @@ func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	completed := make(chan bool, 1)
+	var started, written atomic.Bool
 	event := hid.QueuedReport{Data: report, Cleanup: s.manual.Execute,
 		Execute: func(write func() error) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			if s.closed.Load() || !ws.GetManager().AllowsInputLease(id) {
 				return inputcontrol.ErrManualInputBlocked
 			}
-			return reservation.Execute(write)
+			started.Store(true)
+			return reservation.Execute(func() error {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				err := write()
+				written.Store(true)
+				return err
+			})
 		},
 		Complete:           func(ok bool) { reservation.Complete(ok); completed <- ok },
 		ResetKeyboard:      func() { s.manual.Reset(inputcontrol.ManualKeyboard) },
@@ -554,6 +567,7 @@ func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
 	case queue <- event:
 	case <-ctx.Done():
 		reservation.Complete(false)
+		log.Errorf("RustDesk HID queue timed out: path=%s", path)
 		http.Error(w, "input timed out", 504)
 		return
 	}
@@ -564,6 +578,8 @@ func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case <-ctx.Done():
+		reservation.Complete(false)
+		log.Errorf("RustDesk HID completion timed out: path=%s started=%t written=%t", path, started.Load(), written.Load())
 		http.Error(w, "HID write timed out", 504)
 		return
 	}

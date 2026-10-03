@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"NanoKVM-Server/service/vm"
 )
 
 const Package = "nanokvm-rustdesk"
@@ -22,6 +24,7 @@ var ConfigDir = "/etc/nanokvm-rustdesk"
 var ConfigFile = ConfigDir + "/config.json"
 
 type Config struct {
+	AudioEnabled *bool  `json:"audio_enabled,omitempty"`
 	WebRTC       bool   `json:"webrtc_enabled,omitempty"`
 	Enabled      bool   `json:"service_enabled"`
 	Official     bool   `json:"use_official_id_server"`
@@ -36,6 +39,7 @@ type Config struct {
 type Status struct {
 	SupportsTransportSettings bool            `json:"supports_transport_settings"`
 	SupportsAudio             bool            `json:"supports_audio"`
+	SupportsAudioSettings     bool            `json:"supports_audio_settings"`
 	USBAudioEnabled           bool            `json:"usb_audio_enabled"`
 	Installed                 bool            `json:"installed"`
 	Version                   string          `json:"version,omitempty"`
@@ -57,10 +61,33 @@ type Service struct {
 	passwordFile string
 	upstreamFile string
 	sourceFile   string
+	ensureUSB    func(bool) error
 }
 
 func NewService(b *Bridge) *Service {
-	return &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password", upstreamFile: "/usr/share/nanokvm-rustdesk/upstream.json", sourceFile: "/usr/share/nanokvm-rustdesk/source.json"}
+	s := &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password", upstreamFile: "/usr/share/nanokvm-rustdesk/upstream.json", sourceFile: "/usr/share/nanokvm-rustdesk/source.json", ensureUSB: vm.EnsureRemoteAccessUSB}
+	b.mu.Lock()
+	b.prepareUSB = s.PrepareUSB
+	b.mu.Unlock()
+	return s
+}
+
+func audioRequested(c Config) bool { return c.AudioEnabled == nil || *c.AudioEnabled }
+
+// Called once by the enabled daemon before it accepts remote connections.
+// This covers cold boot, package upgrade and terminal service restarts too.
+func (s *Service) PrepareUSB() error {
+	c, err := readConfig()
+	if err != nil {
+		return err
+	}
+	if !c.Enabled {
+		return errors.New("RustDesk remote access is disabled")
+	}
+	if _, err := os.Stat(Binary); err != nil {
+		return err
+	}
+	return s.ensureUSB(audioRequested(c))
 }
 func runCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
@@ -129,12 +156,14 @@ func (s *Service) Status() (Status, error) {
 				Features struct {
 					TransportSettings bool `json:"transport_settings"`
 					Audio             bool `json:"audio"`
+					AudioSettings     bool `json:"audio_settings"`
 				} `json:"features"`
 			}
 			if json.Unmarshal(data, &upstream) == nil && regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(upstream.Version) {
 				status.RustDeskVersion = upstream.Version
 				status.SupportsTransportSettings = upstream.Features.TransportSettings
 				status.SupportsAudio = upstream.Features.Audio
+				status.SupportsAudioSettings = upstream.Features.AudioSettings
 				status.USBAudioEnabled = status.SupportsAudio && s.bridge.audioEnabled()
 			}
 		}
@@ -330,6 +359,18 @@ func (s *Service) supportsTransportSettings() bool {
 	}
 	return json.Unmarshal(data, &metadata) == nil && metadata.Features.TransportSettings
 }
+func (s *Service) supportsAudioSettings() bool {
+	data, err := os.ReadFile(s.upstreamFile)
+	if err != nil {
+		return false
+	}
+	var metadata struct {
+		Features struct {
+			AudioSettings bool `json:"audio_settings"`
+		} `json:"features"`
+	}
+	return json.Unmarshal(data, &metadata) == nil && metadata.Features.AudioSettings
+}
 func (s *Service) Configure(candidate Config) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -339,6 +380,9 @@ func (s *Service) Configure(candidate Config) error {
 	}
 	if candidate.PasswordMode == "" {
 		candidate.PasswordMode = current.PasswordMode
+	}
+	if candidate.AudioEnabled == nil {
+		candidate.AudioEnabled = current.AudioEnabled
 	}
 	if candidate.PasswordMode == "temporary" || candidate.Password == "" {
 		candidate.Password = current.Password
@@ -351,6 +395,14 @@ func (s *Service) Configure(candidate Config) error {
 	}
 	if candidate.WebRTC && !s.supportsTransportSettings() {
 		return errors.New("update the RustDesk add-on before enabling WebRTC")
+	}
+	if candidate.AudioEnabled != nil && !s.supportsAudioSettings() {
+		return errors.New("update the RustDesk add-on before configuring sound transmission")
+	}
+	if candidate.Enabled {
+		if err = s.ensureUSB(audioRequested(candidate)); err != nil {
+			return fmt.Errorf("prepare USB for RustDesk: %w", err)
+		}
 	}
 	if _, err = s.command("rc-service", Package, "status"); err == nil {
 		if _, err = s.command("rc-service", Package, "stop"); err != nil {

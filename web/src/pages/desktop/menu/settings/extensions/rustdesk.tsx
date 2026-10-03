@@ -47,6 +47,7 @@ export const RustDeskControls = () => {
   const statusRequest = useRef<AbortController | null>(null);
   const official = Form.useWatch('use_official_id_server', form);
   const passwordMode = Form.useWatch('password_mode', form);
+  const audioEnabled = Form.useWatch('audio_enabled', form);
   const [protocolMajor, protocolMinor] = (status?.rustdesk_version || '0.0').split('.').map(Number);
   const rotatesOnLogin = protocolMajor > 1 || (protocolMajor === 1 && protocolMinor >= 5);
   const refresh = useCallback(async () => {
@@ -64,7 +65,8 @@ export const RustDeskControls = () => {
       }
       const next = response.data as RustDeskStatus;
       setStatus(next);
-      if (!dirty.current) form.setFieldsValue({ ...next.config, password: '' });
+      if (!dirty.current)
+        form.setFieldsValue({ audio_enabled: true, ...next.config, password: '' });
       setError('');
     } catch {
       if (started === generation.current && !controller.signal.aborted) setError(l.failed);
@@ -191,20 +193,43 @@ export const RustDeskControls = () => {
           >
             <Form
               form={form}
-              initialValues={{ ...status.config, password: '' }}
+              initialValues={{ audio_enabled: true, ...status.config, password: '' }}
               layout="vertical"
               disabled={busy}
               onValuesChange={() => {
                 dirty.current = true;
               }}
             >
-              <Form.Item name="service_enabled" label={l.enabled} valuePropName="checked">
+              <Form.Item
+                name="service_enabled"
+                label={l.enabled}
+                valuePropName="checked"
+                extra={l.inputDefaults}
+              >
                 <Switch />
               </Form.Item>
+              {status.supports_audio_settings && (
+                <Form.Item
+                  name="audio_enabled"
+                  label={l.transmitAudio}
+                  valuePropName="checked"
+                  extra={l.audioHint}
+                >
+                  <Switch />
+                </Form.Item>
+              )}
               {status.supports_audio && (
                 <Alert
                   type="info"
-                  title={status.usb_audio_enabled ? l.audioEnabled : l.audioDisabled}
+                  title={
+                    status.supports_audio_settings && audioEnabled === false
+                      ? l.audioMuted
+                      : status.usb_audio_enabled
+                        ? l.audioEnabled
+                        : status.supports_audio_settings
+                          ? l.audioHint
+                          : l.audioDisabled
+                  }
                   className="mb-4"
                 />
               )}

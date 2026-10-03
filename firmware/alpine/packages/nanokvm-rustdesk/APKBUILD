@@ -1,12 +1,12 @@
 # Optional package; deliberately absent from platform/packages.list.
 pkgname=nanokvm-rustdesk
-pkgver=0.4.1
+pkgver=0.5.0
 pkgrel=0
 pkgdesc="RustDesk endpoint for NanoKVM HDMI capture and USB HID"
 url="https://github.com/onekvm/onekvm-extension-rustdesk"
 arch="riscv64"
 license="AGPL-3.0-only"
-depends="nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 openrc"
+depends="nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 nanokvm-rustdesk-usb-defaults=1 openrc"
 makedepends="cargo rust"
 install="$pkgname.pre-upgrade $pkgname.post-upgrade $pkgname.pre-deinstall"
 sourceurl="https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/$pkgname-$pkgver-r$pkgrel/$pkgname-$pkgver-source.tar.gz"

@@ -44,6 +44,12 @@ export const rustDeskLabels = {
     open: 'Open management',
     settings: 'RustDesk',
     keepPassword: 'Leave empty to keep the current password',
+    inputDefaults:
+      'Enabling remote access automatically enables USB keyboard and absolute/relative mouse.',
+    transmitAudio: 'Transmit sound',
+    audioHint:
+      'Enables USB audio automatically. Select NanoKVM as the sound output on the connected computer.',
+    audioMuted: 'Sound transmission through RustDesk is disabled.',
     codec: 'Video codec',
     clients: 'Maximum viewers',
     unavailable:
@@ -108,6 +114,12 @@ export const rustDeskLabels = {
     open: 'Открыть управление',
     settings: 'RustDesk',
     keepPassword: 'Оставьте пустым, чтобы сохранить пароль',
+    inputDefaults:
+      'Включение удалённого доступа автоматически включает USB-клавиатуру и абсолютную/относительную мышь.',
+    transmitAudio: 'Передавать звук',
+    audioHint:
+      'Автоматически включает USB audio. Выберите NanoKVM как устройство вывода звука на подключённом компьютере.',
+    audioMuted: 'Передача звука через RustDesk отключена.',
     codec: 'Видеокодек',
     clients: 'Максимум зрителей',
     unavailable:

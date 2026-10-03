@@ -350,12 +350,97 @@ type hidSession struct {
 	mu              sync.Mutex
 	closed          atomic.Bool
 	touched         time.Time
-	keyboard        chan hid.QueuedReport
-	mouse           chan hid.QueuedReport
-	workers         sync.WaitGroup
 	manual          *inputcontrol.ManualSession
 	relativeOnly    bool
 	relativePointer relativePointer
+	writeHID        func(inputcontrol.ManualReportKind, []byte) error
+	held            map[inputcontrol.ManualReportKind][]byte
+}
+
+func writeUSBReport(kind inputcontrol.ManualReportKind, report []byte) error {
+	device := hid.GetHid()
+	switch kind {
+	case inputcontrol.ManualKeyboard:
+		return device.WriteKeyboardReport(report)
+	case inputcontrol.ManualRelativeMouse:
+		return device.WriteRelativeMouseReport(report)
+	case inputcontrol.ManualAbsoluteMouse:
+		return device.WriteAbsoluteMouseReport(report)
+	default:
+		return errors.New("invalid HID report kind")
+	}
+}
+
+func releaseReport(kind inputcontrol.ManualReportKind, previous []byte) []byte {
+	report := make([]byte, len(previous))
+	if kind == inputcontrol.ManualAbsoluteMouse && len(previous) >= 5 {
+		copy(report[1:5], previous[1:5])
+	}
+	return report
+}
+
+func reportHeld(kind inputcontrol.ManualReportKind, report []byte) bool {
+	if report[0] != 0 {
+		return true
+	}
+	if kind == inputcontrol.ManualKeyboard {
+		for _, key := range report[2:] {
+			if key != 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Caller holds both the session mutex and the manual input write lock.
+func (s *hidSession) releaseKind(kind inputcontrol.ManualReportKind) error {
+	previous := s.held[kind]
+	if previous == nil {
+		return nil
+	}
+	if err := s.writeHID(kind, releaseReport(kind, previous)); err != nil {
+		return err
+	}
+	delete(s.held, kind)
+	s.manual.Reset(kind)
+	return nil
+}
+
+func (s *hidSession) releaseHeld() error {
+	var errs []error
+	for _, kind := range []inputcontrol.ManualReportKind{inputcontrol.ManualKeyboard, inputcontrol.ManualRelativeMouse, inputcontrol.ManualAbsoluteMouse} {
+		if err := s.releaseKind(kind); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func (s *hidSession) writeReport(kind inputcontrol.ManualReportKind, report []byte) error {
+	if kind == inputcontrol.ManualRelativeMouse {
+		if err := s.releaseKind(inputcontrol.ManualAbsoluteMouse); err != nil {
+			return err
+		}
+	} else if kind == inputcontrol.ManualAbsoluteMouse {
+		if err := s.releaseKind(inputcontrol.ManualRelativeMouse); err != nil {
+			return err
+		}
+	}
+	if reportHeld(kind, report) {
+		if s.held == nil {
+			s.held = make(map[inputcontrol.ManualReportKind][]byte)
+		}
+		// A failed write may have partially reached USB. Retain its release report.
+		s.held[kind] = append([]byte(nil), report...)
+	}
+	if err := s.writeHID(kind, report); err != nil {
+		return err
+	}
+	if !reportHeld(kind, report) {
+		delete(s.held, kind)
+	}
+	return nil
 }
 
 func (s *hidSession) close() {
@@ -365,10 +450,10 @@ func (s *hidSession) close() {
 		return
 	}
 	s.closed.Store(true)
-	close(s.keyboard)
-	close(s.mouse)
+	if err := s.manual.Execute(s.releaseHeld); err != nil {
+		log.Errorf("RustDesk HID release failed: %s", err)
+	}
 	s.mu.Unlock()
-	s.workers.Wait()
 	s.manual.Close()
 	ws.GetManager().ReleaseExternalInput(s.id)
 }
@@ -393,11 +478,10 @@ func (b *Bridge) session(id string, create bool) (*hidSession, error) {
 	if len(b.sessions) >= 8 {
 		return nil, errors.New("too many HID sessions")
 	}
-	s := &hidSession{id: id, touched: time.Now(), keyboard: make(chan hid.QueuedReport, 8), mouse: make(chan hid.QueuedReport, 8), manual: inputcontrol.NewManualSession(nil, nil)}
+	s := &hidSession{id: id, touched: time.Now(), writeHID: writeUSBReport, manual: inputcontrol.NewManualSession(nil, nil)}
 	if !ws.GetManager().AcquireExternalInput(id, s.close) {
 		return nil, errors.New("another session holds input control")
 	}
-	s.workers.Add(2)
 	device := hid.GetHid()
 	device.Open()
 	s.relativeOnly = device.RelativeMouseOnly()
@@ -405,8 +489,6 @@ func (b *Bridge) session(id string, create bool) (*hidSession, error) {
 		width, height := mediaDimensions()
 		s.relativePointer.width, s.relativePointer.height = int32(width), int32(height)
 	}
-	go func() { defer s.workers.Done(); device.KeyboardReports(s.keyboard) }()
-	go func() { defer s.workers.Done(); device.MouseReports(s.mouse) }()
 	b.sessions[id] = s
 	return s, nil
 }
@@ -504,7 +586,6 @@ func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
 	}
 	var report []byte
 	var extraReports [][]byte
-	queue := s.mouse
 	kind := inputcontrol.ManualRelativeMouse
 	if path == "/api/hid/keyboard" {
 		if len(body.Keys) > 6 {
@@ -514,7 +595,6 @@ func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
 		report = make([]byte, 8)
 		report[0] = body.Modifiers
 		copy(report[2:], body.Keys)
-		queue = s.keyboard
 		kind = inputcontrol.ManualKeyboard
 	} else if path == "/api/hid/mouse/absolute" {
 		if body.X < 0 || body.X > 32767 || body.Y < 0 || body.Y > 32767 {
@@ -539,12 +619,7 @@ func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
 		}
 		report = []byte{body.Buttons, byte(int8(body.X)), byte(int8(body.Y)), byte(body.Wheel), 0}
 	}
-	held := report[0] != 0
-	if kind == inputcontrol.ManualKeyboard {
-		for _, v := range report[2:] {
-			held = held || v != 0
-		}
-	}
+	held := reportHeld(kind, report)
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 	allow := func(mode controlmode.Mode) bool {
@@ -555,66 +630,40 @@ func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 409)
 		return
 	}
-	completed := make(chan bool, 1)
-	var started, written atomic.Bool
-	event := hid.QueuedReport{Data: report, Cleanup: s.manual.Execute,
-		Execute: func(write func() error) error {
+	// The RustDesk input task already serializes events. Execute USB writes in
+	// this request instead of adding another scheduling hop through HID workers.
+	started := false
+	err = reservation.Execute(func() error {
+		for _, next := range append([][]byte{report}, extraReports...) {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
 			if s.closed.Load() || !ws.GetManager().AllowsInputLease(id) {
 				return inputcontrol.ErrManualInputBlocked
 			}
-			started.Store(true)
-			return reservation.Execute(func() error {
-				if err := ctx.Err(); err != nil {
-					return err
+			started = true
+			if err := s.writeReport(kind, next); err != nil {
+				if cleanupErr := s.releaseHeld(); cleanupErr != nil {
+					log.Errorf("RustDesk HID write cleanup failed: %s", cleanupErr)
 				}
-				if err := write(); err != nil {
-					written.Store(true)
-					return err
-				}
-				for _, report := range extraReports {
-					if err := ctx.Err(); err != nil {
-						return err
-					}
-					if s.closed.Load() || !ws.GetManager().AllowsInputLease(id) {
-						return inputcontrol.ErrManualInputBlocked
-					}
-					if err := hid.GetHid().WriteRelativeMouseReport(report); err != nil {
-						written.Store(true)
-						return err
-					}
-				}
-				written.Store(true)
-				return nil
-			})
-		},
-		Complete:           func(ok bool) { reservation.Complete(ok); completed <- ok },
-		ResetKeyboard:      func() { s.manual.Reset(inputcontrol.ManualKeyboard) },
-		ResetRelativeMouse: func() { s.manual.Reset(inputcontrol.ManualRelativeMouse) },
-		ResetAbsoluteMouse: func() { s.manual.Reset(inputcontrol.ManualAbsoluteMouse) },
-	}
-	select {
-	case queue <- event:
-	case <-ctx.Done():
-		reservation.Complete(false)
-		log.Errorf("RustDesk HID queue timed out: path=%s", path)
-		http.Error(w, "input timed out", 504)
-		return
-	}
-	select {
-	case ok := <-completed:
-		if !ok {
-			http.Error(w, "HID report rejected", 409)
-			return
+				return err
+			}
 		}
-	case <-ctx.Done():
-		reservation.Complete(false)
-		log.Errorf("RustDesk HID completion timed out: path=%s started=%t written=%t", path, started.Load(), written.Load())
-		http.Error(w, "HID write timed out", 504)
+		return nil
+	})
+	reservation.Complete(err == nil)
+	if err != nil {
+		log.Errorf("RustDesk HID request failed: path=%s started=%t error=%s", path, started, err)
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "HID request timed out", 504)
+		} else if errors.Is(err, inputcontrol.ErrManualInputBlocked) {
+			http.Error(w, "input control was revoked", 409)
+		} else {
+			http.Error(w, "USB HID write failed", 503)
+		}
 		return
 	}
+
 	w.WriteHeader(204)
 }
 

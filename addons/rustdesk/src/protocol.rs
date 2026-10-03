@@ -233,6 +233,8 @@ pub struct OptionMessage {
     pub supported_decoding: Option<SupportedDecoding>,
     #[prost(int32, tag = "11")]
     pub custom_fps: i32,
+    #[prost(int32, tag = "12")]
+    pub disable_keyboard: i32,
 }
 
 #[derive(Clone, PartialEq, ProstMessage)]
@@ -376,14 +378,30 @@ pub enum ControlKey {
 }
 
 #[derive(Clone, PartialEq, ProstMessage)]
+pub struct Misc {
+    #[prost(oneof = "misc::Union", tags = "7,9")]
+    pub union: Option<misc::Union>,
+}
+pub mod misc {
+    use super::{Oneof, OptionMessage};
+    #[derive(Clone, PartialEq, Oneof)]
+    pub enum Union {
+        #[prost(message, tag = "7")]
+        Option(OptionMessage),
+        #[prost(string, tag = "9")]
+        CloseReason(String),
+    }
+}
+
+#[derive(Clone, PartialEq, ProstMessage)]
 pub struct Message {
-    #[prost(oneof = "message::Union", tags = "3, 4, 5, 6, 7, 8, 9, 10, 15")]
+    #[prost(oneof = "message::Union", tags = "3, 4, 5, 6, 7, 8, 9, 10, 15,19")]
     pub union: Option<message::Union>,
 }
 
 pub mod message {
     use super::{
-        Hash, KeyEvent, LoginRequest, LoginResponse, MouseEvent, Oneof, PublicKey, SignedId,
+        Hash, KeyEvent, LoginRequest, LoginResponse, Misc, MouseEvent, Oneof, PublicKey, SignedId,
         TestDelay, VideoFrame,
     };
 
@@ -407,6 +425,8 @@ pub mod message {
         MouseEvent(MouseEvent),
         #[prost(message, tag = "15")]
         KeyEvent(KeyEvent),
+        #[prost(message, tag = "19")]
+        Misc(Misc),
     }
 }
 
@@ -798,5 +818,22 @@ mod webrtc_wire_tests {
         }
         .encode_to_vec();
         assert_eq!(&wire[..3], &[0xea, 1, 12]); // canonical oneof tag 29
+    }
+}
+
+#[cfg(test)]
+mod client_option_wire_tests {
+    use super::*;
+    #[test]
+    fn view_only_option_matches_canonical_150_misc_and_bool_tags() {
+        let wire = [0x9a, 0x01, 0x04, 0x3a, 0x02, 0x60, 0x02];
+        let message = Message::decode(wire.as_slice()).unwrap();
+        let Some(message::Union::Misc(Misc {
+            union: Some(misc::Union::Option(option)),
+        })) = message.union
+        else {
+            panic!("not a client option")
+        };
+        assert_eq!(option.disable_keyboard, 2);
     }
 }

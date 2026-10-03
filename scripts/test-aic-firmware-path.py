@@ -89,12 +89,10 @@ if args.source:
     assert len(direct) == 1, f'unscoped request_firmware call sites remain: {direct}'
     assert direct[0][0] == Path('aic8800_bsp/aic_bsp_driver.c'), direct
 
-# Verify the vendored, qualified D80 payload even without a full target tree.
+# The qualified D80 SDIO+BT image, from the Radxa package (platform/build.sh firmware).
 import hashlib
 expected_d80 = 'f7fa0a1a296589568fbea1de89ab8feeb13ef2e6db6c7fafa682a34fb583a1bd'
 d80_name = 'fmacfwbt_8800d80_h_u02.bin'
-d80_source = repo / 'firmware/buildroot/package/aic8800-sdio-firmware/files' / d80_name
-assert hashlib.sha256(d80_source.read_bytes()).hexdigest() == expected_d80
 
 if args.firmware_tree:
     firmware = args.firmware_tree.resolve()

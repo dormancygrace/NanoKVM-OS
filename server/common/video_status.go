@@ -112,20 +112,12 @@ func CaptureRateLimit(width, height int) int {
 	if width <= 0 || height <= 0 {
 		return 120
 	}
+	longer, shorter := max(width, height), min(width, height)
 	switch {
-	case width == 720 && height == 1280:
+	case longer <= 1280 && shorter <= 720:
 		return 120
-	case width == 1080 && height == 1920:
-		return 70
-	case width == 1088 && height == 1920:
-		return 60
-	case width == 1296 && height == 2304:
-		return 50
-	case width == 1440 && height == 2560:
-		return 40
-	case width <= 1280 && height <= 720:
-		return 120
-	case width <= 1920 && height <= 1080:
+	case longer <= 1920 && shorter <= 1088:
+		// Include the legacy aligned 1088x1920 FHD profile.
 		return 75
 	default:
 		return 50

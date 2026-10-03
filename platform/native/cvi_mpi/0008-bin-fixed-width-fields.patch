@@ -1,0 +1,32 @@
+--- a/modules/bin/src/cvi_bin.c
++++ b/modules/bin/src/cvi_bin.c
+@@ -174,10 +174,9 @@
+ 	CVI_U32 u32BinSize = 0, u32JsonSize = 0;
+ 	CVI_U32 u32SensorNum = 0;
+ 	CVI_BOOL bBlkSizeValid = CVI_TRUE;
+-	CVI_CHAR achSensorNum[SENSORNUM_SIZE];
++	CVI_CHAR achSensorNum[SENSORNUM_SIZE + 1] = { 0 };
+ 
+ 	/*get sensor number,version and mode from buffer.*/
+-	memset(achSensorNum, 0, SENSORNUM_SIZE);
+ 	memset(pstBufInfo->achBinVersion, 0, sizeof(pstBufInfo->achBinVersion));
+ 	memset(pstBufInfo->achBinMode, 0, sizeof(pstBufInfo->achBinMode));
+ 	memset(pstBufInfo->achBinMD5Code, 0, sizeof(pstBufInfo->achBinMD5Code));
+@@ -187,7 +186,7 @@
+ 	pchDesc += PQBIN_RESERVE_SIZE;
+ 	pchDesc += TOOLVERSION_SIZE;
+ 	pchDesc += BIN_COMMIT_SIZE;
+-	strncpy(achSensorNum, pchDesc, SENSORNUM_SIZE);
++	memcpy(achSensorNum, pchDesc, SENSORNUM_SIZE);
+ 	pstBufInfo->u32SensorNumber = (CVI_U32)atoi(achSensorNum);
+ 	pchDesc += SENSORNUM_SIZE;
+ 	pchDesc += SENSORNAME_SIZE * SUPPORT_VI_MAX_PIPE_NUM;
+@@ -233,7 +232,7 @@
+ 	pstBufInfo->u32JsonParaSize = u32JsonSize;
+ 	pstBufInfo->u32ParaTotalSize = u32BinSize + u32JsonSize;
+ 	if (strncmp(pstBufInfo->achBinVersion, PQBIN_VERSION_V11, PQBINVERSION_SIZE) >= 0) {
+-		strncpy(pstBufInfo->achTotalParaMD5Value,
++		memcpy(pstBufInfo->achTotalParaMD5Value,
+ 					(CVI_CHAR *)buf + pstBufInfo->u32ParaTotalSize, MD5_STRING_LEN);
+ 		pstBufInfo->u32ParaTotalSize += MD5_STRING_LEN;
+ 	}

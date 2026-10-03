@@ -7,7 +7,7 @@ arch="riscv64"
 license="GPL-2.0-only"
 depends="kmod"
 source="$pkgname-$pkgver.tar.gz"
-options="!check"
+options="!check !strip"
 
 build() {
 	:

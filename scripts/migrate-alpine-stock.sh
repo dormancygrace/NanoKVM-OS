@@ -76,5 +76,5 @@ fi
 chmod 0644 "$repos"
 mv "$repos" /etc/apk/repositories
 printf 'stock\n' > /etc/nanokvm-build-profile
-sed -i 's/^BUILD_PROFILE=.*/BUILD_PROFILE="stock"/' /etc/nanokvm-release
+# Keep package-owned release metadata intact so future APK upgrades replace it.
 echo 'Stock Alpine migration complete. Use apk update and apk upgrade normally.'

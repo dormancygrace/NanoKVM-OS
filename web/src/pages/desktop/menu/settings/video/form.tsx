@@ -147,10 +147,10 @@ export const VideoForm = ({
       ) {
         next.mode = 'direct';
         next.codec = 'h265';
-        next.fps = Math.min(next.fps, 40);
+        next.fps = Math.min(next.fps, 50);
       }
       if ((key === 'portraitResolution' || key === 'portrait') && next.portrait) {
-        const cap = ({ 1280: 120, 1920: 70, 2304: 50, 2560: 40 } as Record<number, number>)[
+        const cap = ({ 1280: 120, 1920: 75, 2304: 50, 2560: 50 } as Record<number, number>)[
           next.portraitResolution
         ];
         next.fps = Math.min(next.fps, cap);
@@ -166,7 +166,7 @@ export const VideoForm = ({
   const valid =
     Number.isInteger(draft.fps) &&
     draft.fps >= 10 &&
-    draft.fps <= (maximumPortrait ? 40 : 120) &&
+    draft.fps <= (maximumPortrait ? 50 : 120) &&
     Number.isInteger(draft.gop) &&
     draft.gop >= 1 &&
     draft.gop <= 100 &&
@@ -559,8 +559,8 @@ export const VideoForm = ({
                 { value: 75, label: '75', disabled: maximumPortrait },
                 { value: 70, label: '70', disabled: maximumPortrait },
                 { value: 60, label: '60', disabled: maximumPortrait },
-                { value: 50, label: '50', disabled: maximumPortrait },
-                { value: 40, label: '40', disabled: maximumPortrait },
+                { value: 50, label: '50' },
+                { value: 40, label: '40' },
                 { value: 30, label: '30' },
                 { value: 'custom', label: t('keyboard.shortcut.custom') }
               ]}
@@ -576,7 +576,7 @@ export const VideoForm = ({
                 aria-label={`${t('screen.fps')} — ${t('keyboard.shortcut.custom')}`}
                 value={draft.fps || null}
                 min={10}
-                max={maximumPortrait ? 40 : 120}
+                max={maximumPortrait ? 50 : 120}
                 precision={0}
                 disabled={busy || !admin}
                 onChange={(value) => change('fps', value ?? 0)}

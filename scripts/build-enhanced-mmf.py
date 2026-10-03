@@ -4,6 +4,7 @@
 Requires NANOKVM_MPI_SOURCE, NANOKVM_SENSOR_SOURCE, NANOKVM_INIH_SOURCE,
 NANOKVM_BUILDROOT_OUTPUT and a dedicated NANOKVM_MMF_OUTPUT. No device install.
 """
+from nanokvm_cpu_profile import flags as cpu_flags, record as record_cpu_profile
 from pathlib import Path
 import hashlib
 import json
@@ -19,18 +20,14 @@ sensor = Path(os.environ['NANOKVM_SENSOR_SOURCE']).resolve()
 inih = Path(os.environ['NANOKVM_INIH_SOURCE']).resolve()
 output = Path(os.environ['NANOKVM_MMF_OUTPUT']).resolve()
 cross = str(Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve() / 'host/bin/riscv64-buildroot-linux-musl-')
-pins = json.loads((repo / 'firmware/sources.json').read_text())
+# platform/build.sh checks the source trees against platform/sources.lock.
 if subprocess.check_output([cross + 'gcc', '-dumpfullversion'], text=True).strip() != '16.2.0':
     raise SystemExit('Expected Enhanced GCC16.2')
-if subprocess.check_output(['git', '-C', str(inih), 'rev-parse', 'HEAD'], text=True).strip() != pins['inih']['commit']:
-    raise SystemExit('Wrong inih pin')
-if subprocess.check_output(['git', '-C', str(inih), 'status', '--porcelain', '--untracked-files=no'], text=True):
-    raise SystemExit('Tracked source changes in inih')
 includes = [mpi / 'include', mpi / 'include/isp/cv181x', mpi / 'sample/common',
             mpi / 'component/panel/cv181x', sensor / 'common', inih,
             repo / 'support/sg2002/additional/kvm_mmf/include', repo / 'firmware/mpi']
-flags = ['-O2', '-Wall', '-Wextra', '-Werror', '-fPIC', '-ffunction-sections', '-fdata-sections',
-         '-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector', '-mtune=thead-c906', '-mno-fence-tso', '-mabi=lp64d',
+flags = ['-Wall', '-Wextra', '-Werror', '-fPIC', '-ffunction-sections', '-fdata-sections',
+         *cpu_flags(),
          '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_ENHANCED', '-DSENSOR_LONTIUM_LT6911']
 flags += [f'-ffile-prefix-map={src}={name}' for src, name in [
     (mpi, './cvi_mpi'), (sensor, './sensor-support'), (inih, './inih'),
@@ -48,6 +45,7 @@ if len(sources) != 20 or len({path.stem for path in sources}) != len(sources):
 names = ['sys', 'vi', 'vpss', 'vo', 'rgn', 'gdc', 'venc', 'vdec', 'misc', 'cvi_ive',
          'isp', 'isp_algo', 'ae', 'awb', 'af', 'cvi_bin', 'cvi_bin_isp']
 output.mkdir(parents=True, exist_ok=True)
+record_cpu_profile(output/'cpu-profile.json', cross+'gcc', effective_flags=flags)
 with tempfile.TemporaryDirectory(prefix='mmf-objects-', dir=output) as temp:
     temp = Path(temp)
     objects = []

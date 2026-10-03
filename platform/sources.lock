@@ -1,5 +1,9 @@
-# Every upstream input of the platform build. build.sh fetches nothing else
-# except the packages Buildroot downloads and checks against its own hashes.
+# Every upstream input of the build. build.sh downloads nothing else except
+# packages that their own tools check:
+#   - Buildroot packages, against Buildroot's hashes;
+#   - Go modules, against server/go.sum;
+#   - npm packages, against web/pnpm-lock.yaml;
+#   - Alpine packages, against the signed Alpine 3.24 indexes.
 #
 # Archives:  name  url  sha256
 # Git trees: name  url  commit  path=git-object-id...
@@ -11,6 +15,26 @@ linux      https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.6.tar.xz  039a
 u-boot     https://ftp.denx.de/pub/u-boot/u-boot-2026.07.tar.bz2            78e8bfc382fe388f9b55aa1daf8c563522a037779b5d4c349d1415e381f1243e
 
 osdrv      https://github.com/sophgo/osdrv.git               1b3a49649d18488ecf54fb4fcb6c27599e433fdc  .=2e17c3f6cec2205e0089e6341326333c12fdf1f2
-aic8800    https://github.com/radxa-pkg/aic8800.git          516e3b087763d80c44f5e3b6d2dd63e0d925c91d  src/SDIO/driver_fw/driver/aic8800=69d01d7f6b245608c6f55f24e921a48517798411
+aic8800    https://github.com/radxa-pkg/aic8800.git          516e3b087763d80c44f5e3b6d2dd63e0d925c91d  src/SDIO/driver_fw/driver/aic8800=69d01d7f6b245608c6f55f24e921a48517798411 src/SDIO/driver_fw/fw/aic8800=171d691f1538b996baad40fb2e639030aa0a53aa src/SDIO/driver_fw/fw/aic8800D80=bd537de207ce0b0ec4871a03094ba2033f162cc0 src/SDIO/driver_fw/fw/aic8800D80N=26ec1457136a206d7d2e103b617a96e91757a4c5 src/SDIO/driver_fw/fw/aic8800D80X2=c4954c202771cd9ec6b526d4fd4b88eb91b46f2f src/SDIO/driver_fw/fw/aic8800DC=60a63ad1a85c839904676689e1c3151c2e8b4cee debian/copyright=8dfc445409656856b3e265741692e42f19da8220
 cryptodev  https://github.com/cryptodev-linux/cryptodev-linux.git  08644db02d43478f802755903212f5ee506af73b  .=6babcb49f610d502f554cbc990d89b22223c3208
-sipeed-sdk https://github.com/sipeed/LicheeRV-Nano-Build.git 608df819e8761e630b089381dcc39c0b27762677  osdrv/extdrv/wireless/rtl8733bs=f4282244c91fd7852a7b24c6bda24075e8cbfe47 fsbl/plat/cv181x/fiptool.py=8e470afb8049830524f1bf5a325f27f342d8ee4b
+sipeed-sdk https://github.com/sipeed/LicheeRV-Nano-Build.git 608df819e8761e630b089381dcc39c0b27762677  osdrv/extdrv/wireless/rtl8733bs=f4282244c91fd7852a7b24c6bda24075e8cbfe47 fsbl/plat/cv181x/fiptool.py=8e470afb8049830524f1bf5a325f27f342d8ee4b ramdisk/rootfs/common_musl_riscv64/usr/share/fw_vcodec=60cc76a9d6afbe4d38a623ff81ae55bd1cd08362
+
+# Application and native media libraries
+cvi-mpi    https://github.com/sophgo/cvi_mpi.git             693a72a1d52f2e08ea767e0a72905e81f10572a5  .=839006d556c5d57bed19aa2974a57470a5f7a900
+sensors    https://github.com/sophgo/SensorSupportList.git   e2824e1d07f516c41238e123fefbab71a34843bc  .=d64a3a80534b362db4811565e866652d709974c0
+json-c     https://github.com/json-c/json-c.git              aa716cd8d663c976b99b0f30f102ee1d8ef63146  .=00e916a56cc3170c16771cc1f97d6eaef92fc578
+miniz      https://github.com/richgel999/miniz.git           77d0dce8627735138c51770d1799a1ef48f2117d  .=8bd3db5041bf24fe6591c4752ecbb46a6919e414
+inih       https://github.com/benhoyt/inih.git               26254ee9de7681f8825433415443e7116ff24b98  .=33787047c04375515565b09f2bbf7f9116e96291
+maixcdk    https://github.com/sipeed/MaixCDK.git             b29c951647df74e4efa55fd4454efb37e4554be0  components/basic=ea13ebd864acebcc2cd501a383e1a5359972bcbb components/peripheral=8936aa06f1cfa487f4340c868fe2d0de7e8064e1 components/3rd_party/yaml/yaml-cpp/include=cfefff42ba655cca6373e660e771b28a50405d36 components/3rd_party/ntp_client/ntp_client=6df721fc088f2607e6a4db5ea7f595292cf8fd9a components/3rd_party/ini/inifile2=7e55b8a92fffcd96a3fa58d02a1ed78cd272e7fc LICENSE=39395f16b674a1d81cb61d23f81985af554cb64e
+tinyalsa   https://github.com/tinyalsa/tinyalsa.git          9fab97ca07184371ecad81154d1dadb09d0fa7cf  .=eecf32dacbd058ca1f291fc95d61107bbadb356c
+opus       https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz          6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1
+busybox    https://busybox.net/downloads/busybox-1.36.1.tar.bz2                b8cc24c9574d809e7279c3be349795c5d5ceb6fdf19ca709f80cde50e47de314
+regdb      https://mirrors.edge.kernel.org/pub/software/network/wireless-regdb/wireless-regdb-2026.09.03.tar.xz  b22e0901227b820cd1c280abe681a15b773a5103a5e10dc442e94ebb34cbf58d
+go         https://go.dev/dl/go1.27.1.linux-amd64.tar.gz                       63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445
+node       https://nodejs.org/dist/v24.21.0/node-v24.21.0-linux-x64.tar.xz     fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6
+pnpm       https://registry.npmjs.org/@pnpm/exe.linux-x64/-/exe.linux-x64-12.8.1.tgz  8178a5581db169d9913fd6f918933b141cd6a760aab75a3c1f25e36a3ff1b5d8
+
+# Alpine packages and the root file system. qemu runs the riscv64 package
+# scripts on the build host.
+alpine     https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/riscv64/alpine-minirootfs-3.24.2-riscv64.tar.gz  57132e6e4f3a4ba9ffdf24e485513ce507e45471e7fd565aeed91c055cd63f7b
+qemu       https://launchpad.net/ubuntu/+archive/primary/+files/qemu-user-static_8.2.2+ds-0ubuntu1.18_amd64.deb  5bb397f66063efa349f6fd5cb3b68cd96f29edd0994e4ba5115cf0859a716bf0

@@ -62,10 +62,8 @@ func parsePointerContainerID(text string) ([]byte, error) {
 	if err != nil || len(id) != 16 || bytes.Equal(id, make([]byte, 16)) {
 		return nil, errors.New("invalid USB ContainerID")
 	}
-	// GUID wire order used by both Microsoft OS descriptors and EDID VSDB.
-	id[0], id[1], id[2], id[3] = id[3], id[2], id[1], id[0]
-	id[4], id[5] = id[5], id[4]
-	id[6], id[7] = id[7], id[6]
+	// The EDID VSDB uses UUID/network byte order. The kernel independently
+	// parses the text as GUID little-endian fields for the USB OS descriptor.
 	return id, nil
 }
 

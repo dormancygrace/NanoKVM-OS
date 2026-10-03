@@ -25,7 +25,8 @@ export type RustDeskStatus = {
   id: string;
   runtime?: { registered: boolean; sessions: number };
 };
-export const getRustDeskStatus = () => http.get('/api/addons/rustdesk/status');
+export const getRustDeskStatus = (signal?: AbortSignal) =>
+  http.request({ method: 'get', url: '/api/addons/rustdesk/status', signal });
 export const configureRustDesk = (data: RustDeskConfig) =>
   http.request({ method: 'put', url: '/api/addons/rustdesk/config', data, timeout: 190000 });
 export const rustDeskPackageAction = (

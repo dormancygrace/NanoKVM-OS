@@ -21,7 +21,7 @@ rendezvous implementation falls back to relay instead of completing direct NAT
 traversal. The direct TCP listener defaults to loopback: inherited direct
 sessions lack transport encryption. The GUI offers ID/relay access only.
 Do not expose port 21118 remotely. Configure the same custom ID server and
-public key in the client. Public-server registration remains unverified here.
+public key in the client. Public registration and encrypted relay video were confirmed on the test device;\nsee docs/rustdesk-device-test.md for limits.
 
 Only one session owns input. An existing browser controller blocks external
 input. Browser joins stay view-only while RustDesk owns control; explicit

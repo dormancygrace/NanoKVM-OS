@@ -18,11 +18,9 @@ nanokvm-rustdesk-bridge=1; release a newly versioned app package with that
 capability before making the optional package available. The add-on is absent
 from platform/packages.list, so existing images do not install it by default.
 
-The web component is intentionally not mounted in this base worktree, because
-the owner is changing Software into Add-ons / Packages concurrently. Apply
-rustdesk-addons-integration.patch to the owner's current addons.tsx after
-integration, or add its import and JSX manually if that page has moved.
-The patch is based on the current owner tree and changes only those two lines.
+The test branch now includes owner UI changes through 110d0d6 and mounts the
+RustDeskAddon in Software Add-ons. The earlier two-line patch remains an
+integration reference; do not apply it again to this tested branch.
 
 The GUI install/upgrade/remove actions invoke fixed APK arguments. Config and
 status routes require an admin session. Configuration can enable public ID
@@ -48,13 +46,11 @@ package installation, device access, signing, publication or app deployment.
   stopped installation, restart of a previously running service on upgrade,
   removal and preserved synthetic configuration. No real service runs in it.
 
-A production CGO build of the main app could not link against the selected
-existing native library set. That set lacks kvmv_read_video_sink and
-kvmv_read_mjpeg_sink expected by this base and has unresolved OpenMP dependencies.
-This is a native-bundle mismatch, not a successful production app build.
-The integration owner must build against its current qualified native bundle.
-The inherited build-server-existing-libs.py also expects older per-component
-SDK libraries, unlike the available set using libvpu.so; it was not modified.
+The production CGO server build now succeeds against the owner's current
+qualified native bundle and its prepared NanoKVM Go 1.27.1 runtime.
+Earlier failures came from selecting an outdated native bundle.
+The device qualification results and outstanding checks are recorded in
+rustdesk-device-test.md.
 
 ## Artifacts and build
 

@@ -499,12 +499,9 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         }
     };
 
-    let video_profile = onekvm::VideoProfile {
-        codec: onekvm::parse_codec(&config.codec)?,
-    };
     let video_info = time::timeout(
         MEDIA_TIMEOUT,
-        onekvm::query_video_info(&config.media_socket, &identity, &video_profile),
+        onekvm::query_video_info(&config.media_socket, &identity),
     )
     .await
     .unwrap_or_else(|_| {
@@ -536,6 +533,11 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         return Ok(());
     }
     video_info.fps = video_info.fps.min(config.fps);
+    // Pin the negotiated codec for this session. A shared setting change must
+    // reconnect instead of sending H.265 frames to an H.264-only decoder.
+    let video_profile = onekvm::VideoProfile {
+        codec: video_info.codec,
+    };
 
     write_union(
         &mut writer,
@@ -1831,6 +1833,7 @@ mod tests {
         let mut client = client_connection.await.unwrap().unwrap();
         let config = Arc::new(Config {
             service_enabled: true,
+            codec: "h265".to_owned(), // A stale preference must not override H.264 metadata.
             password: "onekvm-test".to_owned(),
             media_socket: media_path.to_string_lossy().into_owned(),
             audio_socket: directory
@@ -2284,7 +2287,19 @@ mod tests {
     async fn read_subscription(stream: &mut tokio::net::UnixStream) {
         let mut line = String::new();
         BufReader::new(stream).read_line(&mut line).await.unwrap();
-        assert!(line.contains("\"version\":1"));
+        let request: serde_json::Value = serde_json::from_str(&line).unwrap();
+        assert_eq!(request["version"], 1);
+        if request["video"] == "info" {
+            assert!(
+                request["codec"].is_null(),
+                "metadata must follow the device codec"
+            );
+        } else {
+            assert_eq!(
+                request["codec"], "h264",
+                "stream must pin the codec returned by metadata"
+            );
+        }
     }
 
     async fn write_media_frame(

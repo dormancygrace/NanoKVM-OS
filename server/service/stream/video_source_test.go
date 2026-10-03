@@ -38,6 +38,105 @@ func TestVideoSourceSharesOnlyExactConfiguration(t *testing.T) {
 	}
 }
 
+func TestAutomaticVideoSubscriptionUsesSharedSelection(t *testing.T) {
+	for _, config := range []EncoderConfig{LegacyEncoderConfig(), DefaultEncoderConfig()} {
+		source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
+		source.selectConfig(config)
+		first, err := source.subscribe(EncoderConfig{})
+		if err != nil || first.Config() != config {
+			t.Fatalf("idle selection: %v %v", first, err)
+		}
+		second, err := source.subscribe(EncoderConfig{})
+		if err != nil || second.session != first.session || second.Config() != config {
+			t.Fatalf("active selection: %v %v", second, err)
+		}
+		second.Close()
+		first.Close()
+	}
+}
+
+func TestAutomaticVideoSubscriptionAdoptsActiveCodecOrDefault(t *testing.T) {
+	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
+	first, err := source.subscribe(LegacyEncoderConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := source.subscribe(EncoderConfig{})
+	if err != nil || second.Config() != LegacyEncoderConfig() || first.session != second.session {
+		t.Fatalf("active codec was not shared: %v %v", second, err)
+	}
+	second.Close()
+	first.Close()
+	third, err := source.subscribe(EncoderConfig{})
+	if err != nil || third.Config() != DefaultEncoderConfig() {
+		t.Fatalf("drained session overrode default: %v %v", third, err)
+	}
+	third.Close()
+}
+
+func TestAutomaticVideoSubscriptionResolvesAgainAfterDrain(t *testing.T) {
+	started, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) {
+		once.Do(func() { close(started) })
+		<-release
+		return nil, nil, 0
+	})
+	old, err := source.subscribe(DefaultEncoderConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("capture did not start")
+	}
+	old.Close()
+	result := make(chan *VideoSubscription, 1)
+	go func() {
+		sub, err := source.subscribe(EncoderConfig{})
+		if err != nil {
+			result <- nil
+		} else {
+			result <- sub
+		}
+	}()
+	select {
+	case <-result:
+		t.Fatal("automatic join did not wait for draining native capture")
+	case <-time.After(30 * time.Millisecond):
+	}
+	source.selectConfig(LegacyEncoderConfig())
+	close(release)
+	select {
+	case sub := <-result:
+		if sub == nil || sub.Config() != LegacyEncoderConfig() {
+			t.Fatalf("automatic join used stale selection: %v", sub)
+		}
+		sub.Close()
+	case <-time.After(time.Second):
+		t.Fatal("automatic join failed after drain")
+	}
+}
+
+func TestAutomaticVideoSubscriptionValidatesResolvedCodecBeforeCapture(t *testing.T) {
+	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) {
+		t.Error("rejected subscription started capture")
+		return nil, nil, 0
+	})
+	source.selectConfig(LegacyEncoderConfig())
+	rejected := errors.New("unsupported resolution")
+	_, err := source.subscribeValidated(EncoderConfig{}, func(config EncoderConfig) error {
+		if config != LegacyEncoderConfig() {
+			t.Errorf("validation saw unresolved codec: %+v", config)
+		}
+		return rejected
+	})
+	if err != rejected || source.session != nil || len(source.subscribers) != 0 {
+		t.Fatalf("invalid automatic subscription was activated: %v", err)
+	}
+}
+
 func TestVideoSourceDoesNotLeakFramesAcrossSessions(t *testing.T) {
 	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
 	h265 := DefaultEncoderConfig()

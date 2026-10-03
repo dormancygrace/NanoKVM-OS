@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-func TestPointerContainerGUIDByteOrder(t *testing.T) {
+func TestPointerContainerEDIDByteOrder(t *testing.T) {
 	id, err := parsePointerContainerID("2ca7b40c-7bd1-4f25-b573-a13a975ddc07\n")
-	if err != nil || !bytes.Equal(id, []byte{0x0c, 0xb4, 0xa7, 0x2c, 0xd1, 0x7b, 0x25, 0x4f, 0xb5, 0x73, 0xa1, 0x3a, 0x97, 0x5d, 0xdc, 7}) {
+	if err != nil || !bytes.Equal(id, []byte{0x2c, 0xa7, 0xb4, 0x0c, 0x7b, 0xd1, 0x4f, 0x25, 0xb5, 0x73, 0xa1, 0x3a, 0x97, 0x5d, 0xdc, 7}) {
 		t.Fatalf("GUID %x %v", id, err)
 	}
 	for _, bad := range []string{"", "00000000-0000-0000-0000-000000000000", "2ca7b40c7bd14f25b573a13a975ddc07"} {

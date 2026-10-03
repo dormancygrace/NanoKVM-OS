@@ -1,4 +1,3 @@
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useState } from 'react';
 import { Divider, Switch, Tooltip } from 'antd';
 import clsx from 'clsx';
@@ -7,13 +6,14 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm';
 import * as localstorage from '@/lib/localstorage.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
 
 import { PowerLong } from './power-long.tsx';
 import { PowerShort } from './power-short.tsx';
 import { Reset } from './reset.tsx';
 
-export const Power = () => {
+export const Power = ({ vertical = false }: { vertical?: boolean }) => {
   const { t } = useTranslation();
 
   const [isPowerOn, setIsPowerOn] = useState(false);
@@ -99,14 +99,15 @@ export const Power = () => {
   );
 
   return (
-    <div className="flex shrink-0 items-center">
+    <div className={clsx('flex shrink-0 items-center', vertical && 'flex-col')}>
       <MenuItem title={t('power.title')} icon={icon} content={content} />
       <Tooltip title="HDD LED" placement="bottom" mouseEnterDelay={0.6}>
         <div
           role="img"
           aria-label="HDD LED"
           className={clsx(
-            'flex h-[30px] w-[24px] cursor-default items-center justify-center transition-colors',
+            'flex h-[30px] cursor-default items-center justify-center transition-colors',
+            vertical ? 'w-[30px]' : 'w-[24px]',
             isHddActive
               ? 'animate-pulse text-amber-400 drop-shadow-[0_0_4px_currentColor]'
               : 'text-neutral-600'

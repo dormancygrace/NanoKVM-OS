@@ -153,8 +153,7 @@ async fn run_once(
                         }
                     }
                     Some(rendezvous_message::Union::RequestRelay(request)) => {
-                        let mut limits = limits.clone();
-                        limits.input_allowed = request.control_permissions.as_ref().map(|p|p.permissions & 1 != 0).unwrap_or(true);
+                        let limits=limits.with_permissions(request.control_permissions.as_ref());
                         spawn_requested_relay(
                             request,
                             Arc::clone(&config),
@@ -168,8 +167,7 @@ async fn run_once(
                         webrtc.candidate(candidate);
                     }
                     Some(rendezvous_message::Union::PunchHole(request)) => {
-                        let mut limits = limits.clone();
-                        limits.input_allowed = request.control_permissions.as_ref().map(|p|p.permissions & 1 != 0).unwrap_or(true);
+                        let limits=limits.with_permissions(request.control_permissions.as_ref());
                         if request.webrtc_sdp_offer.is_empty() || !config.webrtc_enabled {
                             if !request.force_relay                                 && request.nat_type != crate::protocol::NatType::Symmetric as i32
                                 && request.webrtc_sdp_offer.is_empty()
@@ -199,8 +197,7 @@ async fn run_once(
                         }
                     }
                     Some(rendezvous_message::Union::FetchLocalAddr(request)) => {
-                        let mut limits=limits.clone();
-                        limits.input_allowed=request.control_permissions.as_ref().map(|p|p.permissions&1!=0).unwrap_or(true);
+                        let limits=limits.with_permissions(request.control_permissions.as_ref());
                         crate::direct::spawn(crate::direct::Request{peer:request.socket_addr,peer_v6:request.socket_addr_v6,relay:request.relay_server,lan:true},Arc::clone(&config),Arc::clone(&onekvm_identity),Arc::clone(&rustdesk_identity),shutdown.clone(),limits);
                     }
                     _ => {}

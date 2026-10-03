@@ -35,6 +35,8 @@ type Config struct {
 }
 type Status struct {
 	SupportsTransportSettings bool            `json:"supports_transport_settings"`
+	SupportsAudio             bool            `json:"supports_audio"`
+	USBAudioEnabled           bool            `json:"usb_audio_enabled"`
 	Installed                 bool            `json:"installed"`
 	Version                   string          `json:"version,omitempty"`
 	RustDeskVersion           string          `json:"rustdesk_version,omitempty"`
@@ -124,11 +126,14 @@ func (s *Service) Status() (Status, error) {
 				Version  string `json:"rustdesk_version"`
 				Features struct {
 					TransportSettings bool `json:"transport_settings"`
+					Audio             bool `json:"audio"`
 				} `json:"features"`
 			}
 			if json.Unmarshal(data, &upstream) == nil && regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(upstream.Version) {
 				status.RustDeskVersion = upstream.Version
 				status.SupportsTransportSettings = upstream.Features.TransportSettings
+				status.SupportsAudio = upstream.Features.Audio
+				status.USBAudioEnabled = status.SupportsAudio && s.bridge.audioEnabled()
 			}
 		}
 		if version, versionErr := s.statusCommand("apk", "info", "-e", "-v", Package); versionErr == nil {

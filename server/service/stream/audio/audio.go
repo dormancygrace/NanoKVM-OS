@@ -46,6 +46,66 @@ func enabled() bool {
 	info, err := os.Lstat("/sys/kernel/config/usb_gadget/g0/configs/c.1/uac1.audio0")
 	return err == nil && info.Mode()&os.ModeSymlink != 0
 }
+
+// Enabled reports the existing optional USB speaker function. Subscribing never
+// changes USB composition, binds the gadget or enables keyboard/mouse input.
+func Enabled() bool { return enabled() }
+
+const SampleRate = 48000
+const Channels = 2
+
+// Packet is an immutable, already encoded 20 ms stereo Opus packet. All browser
+// and add-on subscribers share the same capture and encoder.
+type Packet struct {
+	Data  []byte
+	Index uint64
+}
+type Subscription struct {
+	hub    *hub
+	client *listener
+	once   sync.Once
+}
+
+func Subscribe() (*Subscription, error) {
+	if !enabled() {
+		return nil, errors.New("USB audio is disabled")
+	}
+	client, err := shared.add()
+	if err != nil {
+		return nil, err
+	}
+	return &Subscription{hub: &shared, client: client}, nil
+}
+func (s *Subscription) Read(ctx context.Context) (Packet, error) {
+	if err := ctx.Err(); err != nil {
+		return Packet{}, err
+	}
+	select {
+	case <-s.client.done:
+		return Packet{}, io.EOF
+	default:
+	}
+	select {
+	case <-ctx.Done():
+		return Packet{}, ctx.Err()
+	case <-s.client.done:
+		return Packet{}, io.EOF
+	case p := <-s.client.frames:
+		if err := ctx.Err(); err != nil {
+			return Packet{}, err
+		}
+		// A USB rebind must not drain old queued sound after capture stops.
+		select {
+		case <-s.client.done:
+			return Packet{}, io.EOF
+		default:
+		}
+		return Packet{Data: p.data, Index: p.index}, nil
+	}
+}
+func (s *Subscription) Close() {
+	s.once.Do(func() { s.client.close(); s.hub.remove(s.client) })
+}
 func captureCard(root string) (string, error) {
 	paths, err := filepath.Glob(filepath.Join(root, "card*", "id"))
 	if err != nil {

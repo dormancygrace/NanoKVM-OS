@@ -64,6 +64,7 @@ enum InputEvent {
 #[derive(Clone)]
 pub(crate) struct ClientLimits {
     pub(crate) input_allowed: bool,
+    pub(crate) audio_allowed: bool,
     sessions: Arc<Mutex<SessionRegistry>>,
     pending: Arc<Semaphore>,
     credentials: Arc<Mutex<Option<crate::auth::Credentials>>>,
@@ -98,6 +99,7 @@ impl ClientLimits {
     fn new(max_clients: usize) -> Self {
         Self {
             input_allowed: true,
+            audio_allowed: true,
             sessions: Arc::new(Mutex::new(SessionRegistry {
                 max_clients,
                 clients: HashMap::new(),
@@ -113,6 +115,15 @@ impl ClientLimits {
 
     pub(crate) fn try_pending(&self) -> Option<OwnedSemaphorePermit> {
         Arc::clone(&self.pending).try_acquire_owned().ok()
+    }
+    pub(crate) fn with_permissions(
+        &self,
+        permissions: Option<&crate::protocol::ControlPermissions>,
+    ) -> Self {
+        let mut limits = self.clone();
+        limits.input_allowed = self.input_allowed && permissions.map_or(true, |p| p.allows(0));
+        limits.audio_allowed = self.audio_allowed && permissions.map_or(true, |p| p.allows(4));
+        limits
     }
 
     fn try_session(&self, client: String) -> Option<SessionPermit> {
@@ -700,6 +711,12 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     // cancellation constraint. Keep it alive across media sends so a partial
     // RustDesk packet cannot be mistaken for the next packet.
     let (incoming_sender, mut incoming_receiver) = mpsc::channel(16);
+    let can_audio = limits.audio_allowed;
+    let (audio_desired, audio_setting) =
+        watch::channel(can_audio && login.option.as_ref().map_or(true, |o| o.disable_audio != 2));
+    let audio_current = audio_setting.clone();
+    let (audio_task, mut audio_state) =
+        crate::audio::start(config.audio_socket.clone(), can_audio, audio_setting);
     let incoming_limits = limits.clone();
     let incoming_login = login.clone();
     let incoming_task = tokio::spawn(async move {
@@ -729,6 +746,17 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                             union: Some(crate::protocol::misc::Union::Option(option)),
                         })),
                 }) => {
+                    if matches!(option.disable_audio, 1 | 2) {
+                        let next = can_audio && option.disable_audio == 1;
+                        audio_desired.send_if_modified(|value| {
+                            if *value == next {
+                                false
+                            } else {
+                                *value = next;
+                                true
+                            }
+                        });
+                    }
                     if matches!(option.disable_keyboard, 1 | 2) {
                         enabled = can_control && option.disable_keyboard == 1;
                         if input_sender
@@ -780,8 +808,34 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let mut first_video_frame = true;
     let mut peer_tick = time::interval(Duration::from_secs(10));
     peer_tick.tick().await;
+    let mut audio_updates_open = true;
+    let mut audio_permission = None;
+    let mut audio_generation = 0;
     let result = loop {
         tokio::select! {
+            changed=audio_state.changed(), if audio_updates_open => {
+                if changed.is_err(){audio_updates_open=false;continue;}
+                let state=audio_state.borrow_and_update().clone();
+                if let Some(available)=state.available {
+                    if audio_permission!=Some(available) {
+                        let permission=crate::protocol::PermissionInfo{permission:3,enabled:available};
+                        if let Err(error)=write_union(&mut writer,message::Union::Misc(crate::protocol::Misc{union:Some(crate::protocol::misc::Union::PermissionInfo(permission))})).await{break Err(error);}
+                        audio_permission=Some(available);
+                    }
+                }
+                if state.available==Some(true) && *audio_current.borrow() && state.generation!=0 {
+                    if audio_generation!=state.generation {
+                        let format=crate::protocol::AudioFormat{sample_rate:crate::audio::SAMPLE_RATE,channels:crate::audio::CHANNELS};
+                        if let Err(error)=write_union(&mut writer,message::Union::Misc(crate::protocol::Misc{union:Some(crate::protocol::misc::Union::AudioFormat(format))})).await{break Err(error);}
+                        audio_generation=state.generation;
+                    }
+                    if let Some((received,data))=state.packet {
+                        if received.elapsed()<=crate::audio::MAX_AGE {
+                            if let Err(error)=write_union(&mut writer,message::Union::AudioFrame(crate::protocol::AudioFrame{data})).await{break Err(error);}
+                        }
+                    }
+                }
+            }
             _ = peer_tick.tick() => {
                 let delay = crate::protocol::TestDelay { time: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as i64,
@@ -846,6 +900,8 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let _ = incoming_task.await;
     media_task.abort();
     let _ = media_task.await;
+    audio_task.abort();
+    let _ = audio_task.await;
     let _ = input_shutdown_sender.send(true);
     let _ = input_task.await;
     result
@@ -1352,6 +1408,22 @@ mod tests {
     }
 
     #[test]
+    fn rendezvous_permissions_cannot_override_local_denials() {
+        let mut limits = ClientLimits::new(1);
+        limits.input_allowed = false;
+        limits.audio_allowed = false;
+        for permissions in [
+            None,
+            Some(crate::protocol::ControlPermissions {
+                permissions: 2 | (2 << 8),
+            }),
+        ] {
+            let resolved = limits.with_permissions(permissions.as_ref());
+            assert!(!resolved.input_allowed && !resolved.audio_allowed);
+        }
+    }
+
+    #[test]
     fn verifies_rustdesk_password_hash() {
         let hash = Hash {
             salt: "salt".to_owned(),
@@ -1450,6 +1522,257 @@ mod tests {
     async fn client_can_enable_input_then_release_it_without_ending_video() {
         bridge_mock_with_options(true, true, true).await;
     }
+    #[tokio::test]
+    async fn authenticated_audio_mutes_resumes_and_never_overrides_server_denial() {
+        for allowed in [true, false] {
+            let directory = temporary_directory();
+            std::fs::create_dir_all(&directory).unwrap();
+            let media_path = directory.join("media.sock");
+            let audio_path = directory.join("audio.sock");
+            let media_listener = UnixListener::bind(&media_path).unwrap();
+            let audio_listener = UnixListener::bind(&audio_path).unwrap();
+            let media_task = tokio::spawn(async move {
+                let (mut info, _) = media_listener.accept().await.unwrap();
+                read_subscription(&mut info).await;
+                write_media_frame(&mut info, &[], true).await;
+                let (mut encoded, _) = media_listener.accept().await.unwrap();
+                read_subscription(&mut encoded).await;
+                loop {
+                    write_media_frame(&mut encoded, &[0, 0, 0, 1, 0x65, 0x88], true).await;
+                    time::sleep(Duration::from_millis(20)).await;
+                }
+            });
+            let (captures, mut capture_events) = mpsc::channel(8);
+            let audio_task = tokio::spawn(async move {
+                loop {
+                    let (mut stream, _) = audio_listener.accept().await.unwrap();
+                    let mut line = String::new();
+                    BufReader::new(&mut stream)
+                        .read_line(&mut line)
+                        .await
+                        .unwrap();
+                    let command: serde_json::Value = serde_json::from_str(&line).unwrap();
+                    let mut header = [0; 16];
+                    header[..4].copy_from_slice(b"OKAF");
+                    header[4] = 1;
+                    header[5] = 1;
+                    header[6] = 2;
+                    header[8..12].copy_from_slice(&48000u32.to_be_bytes());
+                    stream.write_all(&header).await.unwrap();
+                    if command["audio"] == "opus" {
+                        captures.send(true).await.unwrap();
+                        let captures = captures.clone();
+                        tokio::spawn(async move {
+                            header[12..14].copy_from_slice(&3u16.to_be_bytes());
+                            loop {
+                                tokio::select! {
+                                    _ = stream.read_u8() => break,
+                                    _ = time::sleep(Duration::from_millis(20)) => {
+                                        if stream.write_all(&header).await.is_err() || stream.write_all(&[0xfc, 0xff, 0xfe]).await.is_err() { break; }
+                                    }
+                                }
+                            }
+                            let _ = captures.send(false).await;
+                        });
+                    }
+                }
+            });
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let mut client = TcpStream::connect(listener.local_addr().unwrap())
+                .await
+                .unwrap();
+            let (stream, peer) = listener.accept().await.unwrap();
+            let config = Arc::new(Config {
+                password: "audio-fixture-password".into(),
+                media_socket: media_path.to_string_lossy().into_owned(),
+                audio_socket: audio_path.to_string_lossy().into_owned(),
+                ..Config::default()
+            });
+            let identity = Arc::new(Identity {
+                extension_id: "rustdesk".into(),
+                token: "a".repeat(64),
+            });
+            let rustdesk_identity =
+                Arc::new(RustDeskIdentity::load_from(&directory.join("identity")).unwrap());
+            let (_shutdown, shutdown) = watch::channel(false);
+            let mut limits = ClientLimits::new(1);
+            limits.audio_allowed = allowed;
+            let permit = limits.try_pending().unwrap();
+            let server = tokio::spawn(serve(
+                stream,
+                peer,
+                config,
+                identity,
+                rustdesk_identity,
+                false,
+                shutdown,
+                limits,
+                permit,
+            ));
+            let Some(message::Union::Hash(hash)) =
+                read_message::<_, Message>(&mut client).await.unwrap().union
+            else {
+                panic!("missing challenge");
+            };
+            write_message(
+                &mut client,
+                &Message {
+                    union: Some(message::Union::LoginRequest(LoginRequest {
+                        my_id: "audio-test-controller".into(),
+                        my_name: "Audio qualification".into(),
+                        password: password_hash("audio-fixture-password", &hash),
+                        option: Some(OptionMessage {
+                            disable_keyboard: 2,
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    })),
+                },
+            )
+            .await
+            .unwrap();
+            let mut format_seen = false;
+            time::timeout(Duration::from_secs(2), async {
+                loop {
+                    match read_message::<_, Message>(&mut client).await.unwrap().union {
+                        Some(message::Union::Misc(crate::protocol::Misc {
+                            union: Some(crate::protocol::misc::Union::AudioFormat(f)),
+                        })) => {
+                            assert_eq!((f.sample_rate, f.channels), (48000, 2));
+                            format_seen = true;
+                        }
+                        Some(message::Union::AudioFrame(f)) => {
+                            assert!(allowed && format_seen);
+                            assert_eq!(&f.data[..], &[0xfc, 0xff, 0xfe]);
+                            break;
+                        }
+                        Some(message::Union::Misc(crate::protocol::Misc {
+                            union: Some(crate::protocol::misc::Union::PermissionInfo(p)),
+                        })) if !allowed => {
+                            assert_eq!((p.permission, p.enabled), (3, false));
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+            })
+            .await
+            .unwrap();
+            if allowed {
+                assert_eq!(capture_events.recv().await, Some(true));
+            }
+            // Both mute and a denied client's explicit unmute use the normal options.
+            write_message(
+                &mut client,
+                &Message {
+                    union: Some(message::Union::Misc(crate::protocol::Misc {
+                        union: Some(crate::protocol::misc::Union::Option(OptionMessage {
+                            disable_audio: if allowed { 2 } else { 1 },
+                            ..Default::default()
+                        })),
+                    })),
+                },
+            )
+            .await
+            .unwrap();
+            if allowed {
+                assert_eq!(
+                    time::timeout(Duration::from_secs(1), capture_events.recv())
+                        .await
+                        .unwrap(),
+                    Some(false)
+                );
+            }
+            write_message(
+                &mut client,
+                &Message {
+                    union: Some(message::Union::TestDelay(crate::protocol::TestDelay {
+                        time: 42,
+                        from_client: true,
+                        ..Default::default()
+                    })),
+                },
+            )
+            .await
+            .unwrap();
+            time::timeout(Duration::from_secs(1), async {
+                loop { if matches!(read_message::<_, Message>(&mut client).await.unwrap().union, Some(message::Union::TestDelay(d)) if d.time == 42 && !d.from_client) { break; } }
+            }).await.unwrap();
+            let mut video = 0;
+            while video < 3 {
+                match read_message::<_, Message>(&mut client).await.unwrap().union {
+                    Some(message::Union::VideoFrame(_)) => video += 1,
+                    Some(message::Union::AudioFrame(_)) => {
+                        panic!("audio sent while muted or denied")
+                    }
+                    _ => {}
+                }
+            }
+            if allowed {
+                write_message(
+                    &mut client,
+                    &Message {
+                        union: Some(message::Union::Misc(crate::protocol::Misc {
+                            union: Some(crate::protocol::misc::Union::Option(OptionMessage {
+                                disable_audio: 1,
+                                ..Default::default()
+                            })),
+                        })),
+                    },
+                )
+                .await
+                .unwrap();
+                assert_eq!(
+                    time::timeout(Duration::from_secs(2), capture_events.recv())
+                        .await
+                        .unwrap(),
+                    Some(true)
+                );
+                format_seen = false;
+                time::timeout(Duration::from_secs(1), async {
+                    loop {
+                        match read_message::<_, Message>(&mut client).await.unwrap().union {
+                            Some(message::Union::Misc(crate::protocol::Misc {
+                                union: Some(crate::protocol::misc::Union::AudioFormat(_)),
+                            })) => format_seen = true,
+                            Some(message::Union::AudioFrame(_)) => {
+                                assert!(format_seen);
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                })
+                .await
+                .unwrap();
+            } else {
+                assert!(
+                    time::timeout(Duration::from_millis(100), capture_events.recv())
+                        .await
+                        .is_err()
+                );
+            }
+            drop(client);
+            time::timeout(Duration::from_secs(1), server)
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            if allowed {
+                assert_eq!(
+                    time::timeout(Duration::from_secs(1), capture_events.recv())
+                        .await
+                        .unwrap(),
+                    Some(false)
+                );
+            }
+            media_task.abort();
+            let _ = media_task.await;
+            audio_task.abort();
+            let _ = audio_task.await;
+            std::fs::remove_dir_all(directory).unwrap();
+        }
+    }
     async fn bridge_mock_with_options(can_control: bool, initially_disabled: bool, toggle: bool) {
         let input_allowed = can_control && (!initially_disabled || toggle);
         let directory = temporary_directory();
@@ -1510,6 +1833,10 @@ mod tests {
             service_enabled: true,
             password: "onekvm-test".to_owned(),
             media_socket: media_path.to_string_lossy().into_owned(),
+            audio_socket: directory
+                .join("absent-audio.sock")
+                .to_string_lossy()
+                .into_owned(),
             admin_socket: hid_path.to_string_lossy().into_owned(),
             ..Config::default()
         });
@@ -1615,6 +1942,18 @@ mod tests {
         };
         assert_eq!(peer_info.platform, "NanoKVM");
         assert!(!peer_info.displays[0].cursor_embedded);
+        let permission: Message = read_message(&mut client).await.unwrap();
+        assert!(matches!(
+            permission.union,
+            Some(message::Union::Misc(crate::protocol::Misc {
+                union: Some(crate::protocol::misc::Union::PermissionInfo(
+                    crate::protocol::PermissionInfo {
+                        permission: 3,
+                        enabled: false
+                    }
+                ))
+            }))
+        ));
         partial_header_receiver.await.unwrap();
         time::sleep(Duration::from_millis(10)).await;
         write_message(

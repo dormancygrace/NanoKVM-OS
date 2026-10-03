@@ -1,5 +1,3 @@
-# Every output of build.sh, relative to OUTPUT/images.
-# C906/T-Head -O2; explicit shared encoder switching.
 7c52322cbd01506e4d4f7338c6418e00f6d7a68e538250fdc18f4b54dd9e421a  Image
 31006c25ec99d6d32977c189cb324c5027d49e30ff83ed6a0a282fe2a87d161b  boot/alpha-fixed.sd
 99bf2f9779537c64a89ac365a7d5b4c9fe28394c37e4fa3764fb3a9e8a3bdf71  boot/alpha-fixed.sha256
@@ -310,7 +308,7 @@ b9fd31522ee519fc5092a24e536e84ae421d0f155b99f16fe07569d55288689f  web/assets/cre
 ce99242a7fddbbb3db57c7db5a199836828c0e9d7a6df790a73fff85f3fb9f65  web/assets/date-time-C-u5DRxf.js
 94554068d4e9877ade548fbff98b146f6fed7bed2f0e3d463328237e6cce0f01  web/assets/de-DkWCDSG5.js
 29700468bc285c34fa797411dc75ca57a63f5881b3ab418b8f9c766474c61cb2  web/assets/desktop-BCb6RBBA.css
-e8aab0310bd38a11561da6ae12ed7722ed1ea23d085a5ca31e7bf7338203646a  web/assets/desktop-D-VhPsBv.js
+5ab1c94bf400328a1b90cec6d6c8b62f4e8952c0d442fc95bde075bb6bd4a5a5  web/assets/desktop-D_pS_opy.js
 c1f5c92614ab9ef11495ddc839fc76f39deba76bca20774a4c9e29d84920f21b  web/assets/device-vloLmtwo.js
 b6dd25250e6c1e88c35b182130983797057f7889e9331d917001d1beda138968  web/assets/diagnostics-I8A8sfDW.js
 b872871b2454af4126da0e718780c1011c62cc526513389644bf277bccb89265  web/assets/direct.worker-OEgV2J-Z.js
@@ -334,8 +332,8 @@ b6746b80a0fb56453bf988fb540db7e0b500ab321e99c343940cb5f537bab829  web/assets/fr-
 7cf54bab06a745da333970c1ca87711fb03967347ee2b318b7792a0a6691c9fb  web/assets/hu-DlOzFSoH.js
 b4bbe88afc18679ceccccd03664410aa8d668787a5e69ee83cb602c3ca13bf93  web/assets/icon-base-D0MfDhA0.js
 53063ff8ed42bec8c03b3fbe273beebadac299c82c5cda7c0e9fa6d0fa84349b  web/assets/id-CZjhHYgA.js
-d876ca8f2d1be4bd1bf0949be97ec9f35f876ae3556230e90e0ea334eda06bb7  web/assets/index-0Ef8IDbz.js
-450ec0c06f624f86c8629c9c4e89556dc2473b6d6cf78ae2deccffab44c8555e  web/assets/index-Dn9djHF4.css
+b96cf76c8c7ad2873aab2ddc73bf3715666ec33454e1a81206b1a8861a4b3a38  web/assets/index-Ch5qFvQB.css
+060dedc540d4cd2783abe3f7ad859021fb50c440c81123f9a3e465d79d634be0  web/assets/index-ZpwNLbcE.js
 96204d9eb3091810ea32dc4796a5b3b714e91a0cc0574bf9d066aa9c2bff7307  web/assets/index.esm-DvsKJRK-.js
 0331365157c00bdf6682eae6333d825de24767e802b86b0ff6413aec10b6d657  web/assets/input-BS_sHr3S.js
 cbbe12ef27386d9e7ec47e7d73c8003f2e81475df5afde6413a7272845e62eaf  web/assets/input-number-BGITyM0f.js
@@ -434,7 +432,7 @@ aa4f0a2453eabc5f13ff9e4f83ddeb2a62fb52fcfb6a8c542d1ba914d05133ba  web/assets/x-B
 7e9afaaf25d603628d678c916e9170fcc1858d3760872f702a17ced1de528890  web/assets/zh-Beex-suj.js
 a84593ebc9c3d54b84459bf70cd96429c62ebdea5bdf5dc5d25b46cd23cc3b7d  web/assets/zh_tw-DaCJA7oe.js
 7c148d1e86bc0dcd5c6aee65253cd4bc250d74aeea1988c4ed099c1722ca0442  web/assets/zoom-qVLFOr-a.js
-653cd3e2869432d68b2aac6d4e70c54442755526716bc06ceaaa2e5c5016ba01  web/index.html
+313e0497e2746b9412287d8ece0877a2f30ec53355f88547d0509082c7f86f2c  web/index.html
 da5f34398fcdec8c6b9098981cf41f398775cd997753ce95a994019190c11f8f  web/mockServiceWorker.js
 5d9c5529060f34690d7955b850e80b9d6acd507a67aff3c58731b3abb8f84476  web/nanokvm-os-connection-full.svg
 cb73ed110f43200464b7525a4471b9b9cb0a0c5fdb2b09acf24abab5d66638dc  web/nanokvm-os-connection.svg

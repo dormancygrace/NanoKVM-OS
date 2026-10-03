@@ -17,8 +17,16 @@ export const Picoclaw = ({ tooltipPlacement = 'bottom' }: PicoclawProps) => {
 
   return (
     <Tooltip title={t('picoclaw.title')} mouseEnterDelay={0.6} placement={tooltipPlacement}>
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            dismissMobileMenu();
+            setIsChatOpen((open) => !open);
+          }
+        }}
         aria-label={t('picoclaw.title')}
         className="flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 hover:text-white"
         onClick={() => {
@@ -27,7 +35,7 @@ export const Picoclaw = ({ tooltipPlacement = 'bottom' }: PicoclawProps) => {
         }}
       >
         <Robot size={18} />
-      </button>
+      </div>
     </Tooltip>
   );
 };

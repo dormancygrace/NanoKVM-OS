@@ -2,13 +2,15 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '@/contexts/auth.ts';
 import { Button, Divider } from 'antd';
 import clsx from 'clsx';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { ChevronDownIcon, ChevronUpIcon, GripVerticalIcon } from 'lucide-react';
 import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
 import { useTranslation } from 'react-i18next';
 
+import { getRuntimeStatus } from '@/api/picoclaw.ts';
 import { clampMobileMenuTop, MobileMenuEdge } from '@/lib/mobile-layout.ts';
-import { picoclawChatOpenAtom } from '@/jotai/picoclaw.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { isHdmiEnabledAtom } from '@/jotai/screen.ts';
 import {
   keyboardLedStatusVisibleAtom,
@@ -54,12 +56,40 @@ type MenuVariant = 'desktop' | 'mobile';
 
 export const Menu = () => {
   const audio = useUsbAudio();
-  const picoclawOpen = useAtomValue(picoclawChatOpenAtom);
   const usbInput = useUsbInput();
   const { t } = useTranslation();
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const { account } = useAuth();
   const isAdmin = account.role === 'admin';
+  const picoclawStatus = useAtomValue(picoclawRuntimeStatusAtom);
+  const setPicoclawStatus = useSetAtom(picoclawRuntimeStatusAtom);
+  const setPicoclawOpen = useSetAtom(picoclawChatOpenAtom);
+  useEffect(() => {
+    if (!isAdmin) return;
+    let active = true;
+    let pending = false;
+    const refresh = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const response = await getRuntimeStatus();
+        if (active && response.code === 0) setPicoclawStatus(response.data);
+      } catch {
+        /* Keep the last known state through brief disconnects. */
+      } finally {
+        pending = false;
+      }
+    };
+    void refresh();
+    const stop = pollWhileVisible(() => void refresh(), 30000);
+    return () => {
+      active = false;
+      stop();
+    };
+  }, [isAdmin, setPicoclawStatus]);
+  useEffect(() => {
+    if (picoclawStatus?.installed === false) setPicoclawOpen(false);
+  }, [picoclawStatus?.installed, setPicoclawOpen]);
   const captureEnabled = useAtomValue(isHdmiEnabledAtom);
   const mobileRailRef = useRef<HTMLDivElement | null>(null);
 
@@ -180,14 +210,14 @@ export const Menu = () => {
         ? [
             ...(isEnabled('terminal') ? [<Terminal key="terminal" />] : []),
             ...(isEnabled('script') ? [<Script key="script" />] : []),
-            ...(isEnabled('picoclaw')
+            ...(picoclawStatus?.installed === true && isEnabled('picoclaw')
               ? [<Picoclaw key="picoclaw" tooltipPlacement={tooltipPlacement} />]
               : [])
           ]
         : [],
       [
         ...(isEnabled('wol') ? [<Wol key="wol" />] : []),
-        ...(isEnabled('power') ? [<Power key="power" />] : [])
+        ...(isEnabled('power') ? [<Power key="power" vertical={variant === 'mobile'} />] : [])
       ],
       variant === 'mobile'
         ? [
@@ -210,10 +240,6 @@ export const Menu = () => {
       items.push(<Mouse key="mouse" hidden />);
     return items;
   }
-
-  // PicoClaw occupies the phone screen and has its own close control.
-  // The KVM rail otherwise covers the profile and uninstall menus.
-  if (isMobileRailActive && picoclawOpen) return null;
 
   if (isMobileRailActive) {
     const sideClass = placement.edge === 'left' ? 'left-2' : 'right-2';
@@ -243,46 +269,48 @@ export const Menu = () => {
             dismissMenuKey={dismissMenuKey}
             onRequestMobileMenuDismiss={dismissMenus}
           >
-            {isMobileRailCollapsed ? (
-              <div className="flex flex-col items-center rounded-full bg-neutral-800/90 p-1 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur">
-                <strong>
-                  <div className="flex size-[28px] cursor-move items-center justify-center rounded-full text-neutral-500 select-none">
-                    <GripVerticalIcon size={18} />
-                  </div>
-                </strong>
-                <Button
-                  type="text"
-                  className={clsx(mobileRailToggleButtonClass, 'rounded-full')}
-                  onClick={() => setIsMobileRailCollapsed(false)}
-                  aria-label={t('menu.expand')}
-                  icon={<ChevronDownIcon size={18} aria-hidden="true" />}
-                />
-              </div>
-            ) : (
-              <div className="flex max-h-[calc(100dvh-96px)] flex-col items-center overflow-y-auto rounded bg-neutral-800/90 px-1 py-1 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur transition-all duration-200 *:shrink-0">
-                <strong>
-                  <div className="flex size-[30px] cursor-move items-center justify-center rounded text-neutral-500 select-none">
-                    <GripVerticalIcon size={18} />
-                  </div>
-                </strong>
+            <div className="w-[38px] overflow-hidden rounded-[19px] bg-neutral-800/90 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur">
+              {isMobileRailCollapsed ? (
+                <div className="flex flex-col items-center p-1">
+                  <strong>
+                    <div className="flex size-[28px] cursor-move items-center justify-center rounded-full text-neutral-500 select-none">
+                      <GripVerticalIcon size={18} />
+                    </div>
+                  </strong>
+                  <Button
+                    type="text"
+                    className={clsx(mobileRailToggleButtonClass, 'rounded-full')}
+                    onClick={() => setIsMobileRailCollapsed(false)}
+                    aria-label={t('menu.expand')}
+                    icon={<ChevronDownIcon size={18} aria-hidden="true" />}
+                  />
+                </div>
+              ) : (
+                <div className="flex max-h-[calc(100dvh-96px)] [scrollbar-width:none] flex-col items-center overflow-x-hidden overflow-y-auto p-1 *:shrink-0 [&::-webkit-scrollbar]:hidden">
+                  <strong>
+                    <div className="flex size-[30px] cursor-move items-center justify-center rounded text-neutral-500 select-none">
+                      <GripVerticalIcon size={18} />
+                    </div>
+                  </strong>
 
-                {renderDivider('mobile', 'divider-handle')}
-                {renderMenuItems('mobile')}
+                  {renderDivider('mobile', 'divider-handle')}
+                  {renderMenuItems('mobile')}
 
-                {isEnabled('collapse') && (
-                  <>
-                    {renderDivider('mobile', 'divider-collapse')}
-                    <Button
-                      type="text"
-                      className={clsx(mobileRailToggleButtonClass, 'shrink-0 rounded')}
-                      onClick={() => setIsMobileRailCollapsed(true)}
-                      aria-label={t('menu.collapse')}
-                      icon={<ChevronUpIcon size={18} aria-hidden="true" />}
-                    />
-                  </>
-                )}
-              </div>
-            )}
+                  {isEnabled('collapse') && (
+                    <>
+                      {renderDivider('mobile', 'divider-collapse')}
+                      <Button
+                        type="text"
+                        className={clsx(mobileRailToggleButtonClass, 'shrink-0 rounded')}
+                        onClick={() => setIsMobileRailCollapsed(true)}
+                        aria-label={t('menu.collapse')}
+                        icon={<ChevronUpIcon size={18} aria-hidden="true" />}
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </MobileMenuItemProvider>
         </div>
       </Draggable>

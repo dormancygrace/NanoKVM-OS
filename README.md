@@ -11,7 +11,7 @@
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
-[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](docs/BUILD-v2.0-b1.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
+[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](platform/README.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
 
 </div>
 
@@ -145,10 +145,10 @@ Completed transactions apply affected services through **OpenRC**. An applicatio
 - `web/`: React/TypeScript browser interface.
 - `support/`: SG2002 native capture and board-service source.
 - `firmware/`: Alpine packaging and OpenRC services, kernel/driver patches, retained SDK/Buildroot inputs and source pins.
-- `scripts/`: component build/staging tools; external SDK and toolchain inputs are required.
+- `platform/`: the build of the complete image, with every upstream input pinned; `scripts/`: the component build tools it calls.
 - `tools/` and `kvmapp/system/init.d/`: EDID tools and device startup services.
 
-See [BUILD.md](docs/BUILD-v2.0-b1.md) for build instructions.
+`platform/build.sh` builds the complete SD card image from this repository; see [platform/README.md](platform/README.md).
 
 ## ❤️ Credits and licenses
 

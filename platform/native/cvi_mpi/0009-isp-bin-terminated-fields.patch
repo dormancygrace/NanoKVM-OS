@@ -1,0 +1,93 @@
+--- a/modules/isp/cv181x/isp_bin/src/isp_bin.c
++++ b/modules/isp/cv181x/isp_bin/src/isp_bin.c
+@@ -193,9 +193,9 @@
+ 	//Supplement isp branch and isp commitId to pqbin
+ 	CVI_S32 ret = CVI_SUCCESS;
+ 	SENSOR_INFO sensorInfo;
+-	CVI_CHAR binCommitId[BIN_COMMIT_SIZE] = { 0 };
+-	CVI_CHAR binGerrit[BIN_GERRIT_SIZE] = { 0 };
+-	CVI_CHAR binMd5[BIN_MD5_SIZE] = { 0 };
++	CVI_CHAR binCommitId[BIN_COMMIT_SIZE + 1] = { 0 };
++	CVI_CHAR binGerrit[BIN_GERRIT_SIZE + 1] = { 0 };
++	CVI_CHAR binMd5[BIN_MD5_SIZE + 1] = { 0 };
+ 
+ 	isp_bin_getSensorInfo(&sensorInfo);
+ 	bin_get_repo_info(binGerrit, binCommitId, binMd5);
+@@ -483,14 +483,14 @@
+ {
+ 	CVI_S32 ret = CVI_SUCCESS;
+ 	CVI_U32 size = 0;
+-	CVI_CHAR binCommitId[BIN_COMMIT_SIZE];
+-	CVI_CHAR binGerrit[BIN_GERRIT_SIZE];
++	CVI_CHAR binCommitId[BIN_COMMIT_SIZE + 1] = { 0 };
++	CVI_CHAR binGerrit[BIN_GERRIT_SIZE + 1] = { 0 };
+ 	CVI_CHAR curMd5[BIN_MD5_SIZE] = { 0 };
+-	CVI_CHAR binMd5[BIN_MD5_SIZE] = { 0 };
++	CVI_CHAR binMd5[BIN_MD5_SIZE + 1] = { 0 };
+ 	CVI_BIN_HEADER *header = (CVI_BIN_HEADER *)addr;
+ 	CVI_BIN_EXTRA_S *pExtraInfo = &(header->extraInfo);
+ 
+-	strncpy(binMd5, (CVI_CHAR *)(pExtraInfo->Desc + DESC_SIZE), BIN_MD5_SIZE);
++	memcpy(binMd5, (CVI_CHAR *)(pExtraInfo->Desc + DESC_SIZE), BIN_MD5_SIZE);
+ 	bin_get_repo_info(binGerrit, binCommitId, curMd5);
+ 
+ 	if (strcmp(binMd5, curMd5)) {
+@@ -527,21 +527,16 @@
+ 	//get sensor info
+ 	SENSOR_INFO sensorInfo;
+ 	//show pqbin isp branch & commit & sensor
+-	CVI_CHAR toolVersion[TOOLVERSION_SIZE];
+-	CVI_CHAR sensorNum[SENSORNUM_SIZE];
+-	CVI_CHAR sensorName[SUPPORT_VI_MAX_PIPE_NUM][SENSORNAME_SIZE];
+-	CVI_CHAR binCommitId[BIN_COMMIT_SIZE] = {0};
+-	CVI_CHAR binGerrit[BIN_GERRIT_SIZE] = {0};
+-	CVI_CHAR binMd5[BIN_MD5_SIZE] = { 0 };
++	CVI_CHAR toolVersion[TOOLVERSION_SIZE + 1] = { 0 };
++	CVI_CHAR sensorNum[SENSORNUM_SIZE + 1] = { 0 };
++	CVI_CHAR sensorName[SUPPORT_VI_MAX_PIPE_NUM][SENSORNAME_SIZE + 1] = { { 0 } };
++	CVI_CHAR binCommitId[BIN_COMMIT_SIZE + 1] = { 0 };
++	CVI_CHAR binGerrit[BIN_GERRIT_SIZE + 1] = { 0 };
++	CVI_CHAR binMd5[BIN_MD5_SIZE + 1] = { 0 };
+ 	CVI_CHAR pqbinVersion[PQBINVERSION_SIZE + 1] = { 0 };
+ 	CVI_CHAR pqbinMode[PQBINCREATE_MODE_SIZE + 1] = { 0 };
+ 	CVI_CHAR *pDesc = (CVI_CHAR *)pExtraInfo->Desc;
+ 
+-	memset(toolVersion, 0, TOOLVERSION_SIZE);
+-	memset(sensorNum, 0, SENSORNUM_SIZE);
+-	memset(sensorName, 0, SENSORNAME_SIZE * SUPPORT_VI_MAX_PIPE_NUM);
+-	memset(binCommitId, 0, BIN_COMMIT_SIZE);
+-	memset(binGerrit, 0, BIN_GERRIT_SIZE);
+ 
+ 	//show curSw isp_bin branch & commit
+ 	printf("cvi_bin_isp message\n");
+@@ -559,20 +554,23 @@
+ 
+ 	//show pqbin isp branch & commit & sensor
+ 	pDesc += DESC_SIZE;
+-	strncpy(binMd5, pDesc, BIN_MD5_SIZE);
++	memcpy(binMd5, pDesc, BIN_MD5_SIZE);
+ 	pDesc += BIN_MD5_SIZE;
+ 	pDesc += PQBIN_RESERVE_SIZE;
+-	strncpy(toolVersion, pDesc, TOOLVERSION_SIZE);
++	memcpy(toolVersion, pDesc, TOOLVERSION_SIZE);
+ 	pDesc += TOOLVERSION_SIZE;
+-	strncpy(binCommitId, pDesc, BIN_COMMIT_SIZE);
++	memcpy(binCommitId, pDesc, BIN_COMMIT_SIZE);
+ 	pDesc += BIN_COMMIT_SIZE;
+-	strncpy(sensorNum, pDesc, SENSORNUM_SIZE);
++	memcpy(sensorNum, pDesc, SENSORNUM_SIZE);
+ 	pDesc += SENSORNUM_SIZE;
+-	for (CVI_U8 i = 0; i < atoi(sensorNum); ++i) {
+-		strncpy(sensorName[i], pDesc + i * SENSORNAME_SIZE, SENSORNAME_SIZE);
++	const int binSensorNum = atoi(sensorNum);
++	if (binSensorNum < 0 || binSensorNum > SUPPORT_VI_MAX_PIPE_NUM)
++		return CVI_FAILURE;
++	for (CVI_U8 i = 0; i < binSensorNum; ++i) {
++		memcpy(sensorName[i], pDesc + i * SENSORNAME_SIZE, SENSORNAME_SIZE);
+ 	}
+ 	pDesc += SENSORNAME_SIZE * SUPPORT_VI_MAX_PIPE_NUM;
+-	strncpy(binGerrit, pDesc, BIN_GERRIT_SIZE);
++	memcpy(binGerrit, pDesc, BIN_GERRIT_SIZE);
+ 	pDesc += BIN_GERRIT_SIZE;
+ 	strncpy(pqbinVersion, pDesc, PQBINVERSION_SIZE);
+ 	pDesc += PQBINVERSION_SIZE;

@@ -1,8 +1,8 @@
 #!/bin/bash
-# NanoKVM OS platform build: toolchain, Linux kernel and modules, U-Boot, FIP,
-# initramfs and the boot.sd images, from the inputs pinned in sources.lock.
+# NanoKVM OS build: everything in the SD card image, from the inputs pinned in
+# sources.lock.
 #
-#   platform/build.sh [-o OUTPUT] [-j JOBS] [STEP...]
+#   platform/build.sh [-o OUTPUT] [-j JOBS] [-k KEY] [STEP...]
 #
 # Steps, in order (default: all of them):
 #   fetch      download and verify every input in sources.lock
@@ -13,11 +13,26 @@
 #   fip        fip.bin: fip/base-fip.bin with the new U-Boot
 #   initramfs  initramfs from boot/initramfs.list and the Buildroot userland
 #   boot       board device trees and boot.sd images like nanokvm-kernel-sg2002
+#   native     SOPHGO media libraries, libkvm_mmf and libkvm
+#   system     kvm_system board service
+#   server     NanoKVM-Server, nkos-update and nkos-apply-updates
+#   web        web UI
+#   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio
+#   firmware   Wi-Fi, regulatory and video codec firmware
 #   verify     compare the outputs with expected.sha256
+#   payloads   contents of the six nanokvm-* packages, from packages.list
+#   packages   signed APK repository of the six packages
+#   rootfs     Alpine 3.24 root file system with nanokvm-release
+#   image      SD card image
 # Not in the default list:
 #   source     write the corresponding-source archive of the outputs
+#   clean      delete OUTPUT/apk-builder and OUTPUT/rootfs, whose files belong
+#              to subordinate IDs (see packages)
 #
-# Results are in OUTPUT/images (default: build/platform/images).
+# Checked outputs are in OUTPUT/images (default: build/platform/images), the
+# APK repository and the SD card image in OUTPUT/release. -k names the APK
+# signing key (an abuild .rsa private key with its .rsa.pub next to it); without
+# it, the first run creates one in OUTPUT/keys.
 set -euo pipefail
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin LC_ALL=C TZ=UTC
 umask 022
@@ -25,25 +40,29 @@ here=$(cd "$(dirname "$0")" && pwd)
 repo=$(dirname "$here")
 out=${NANOKVM_PLATFORM_OUT:-$repo/build/platform}
 jobs=$(nproc)
-usage() { sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
-while getopts o:j:h opt; do
-    case $opt in o) out=$OPTARG ;; j) jobs=$OPTARG ;; *) usage ;; esac
+key=
+usage() { sed -n '2,35p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+while getopts o:j:k:h opt; do
+    case $opt in o) out=$OPTARG ;; j) jobs=$OPTARG ;; k) key=$(realpath "$OPTARG") ;; *) usage ;; esac
 done
 shift $((OPTIND - 1))
 out=$(realpath -m "$out")
 steps=("$@")
-[ "${#steps[@]}" -gt 0 ] || steps=(fetch toolchain kernel modules uboot fip initramfs boot verify)
+[ "${#steps[@]}" -gt 0 ] || steps=(fetch toolchain kernel modules uboot fip initramfs boot
+    native system server web tools firmware verify payloads packages rootfs image)
 # Keep builds inside OUTPUT from finding an enclosing Git checkout.
 export GIT_CEILING_DIRECTORIES=$out
 
 version=$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")
+# Official Alpine packages; the c906-scalar overlay is not built here.
+profile=stock
 release=7.2.6-nanokvm-os-r1
 # Build times recorded in the binaries. The kernel keeps the v2.0 value so
 # that it stays identical to the released kernel.
 kernel_timestamp='Sat Sep 19 13:51:57 UTC 2026'
 uboot_epoch=1788737047
 rtl8733bs_epoch=1788607804
-isa='-march=rv64imac_zicsr_zifencei_zacas_zabha_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync -mtune=thead-c906 -mno-fence-tso -fno-tree-vectorize -fno-tree-slp-vectorize'
+isa=$(python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel)
 boards=(detect alpha beta pcie lite)
 
 dl=$out/downloads
@@ -52,6 +71,7 @@ bo=$out/buildroot-output
 host=$bo/host/bin
 cross=$host/riscv64-buildroot-linux-musl-
 img=$out/images
+rel=$out/release
 ksrc=$out/kernel/src
 kbuild=$out/kernel/build
 
@@ -89,8 +109,8 @@ fetch() {
         case $name in ''|'#'*) continue ;; esac
         if [[ $url != *.git ]]; then
             file=$dl/${url##*/}
-            if ! echo "$pin  $file" | sha256sum -c --quiet 2>/dev/null; then
-                curl -fL --retry 3 -o "$file.part" "$url"
+            if ! { [ -f "$file" ] && echo "$pin  $file" | sha256sum -c --quiet > /dev/null 2>&1; }; then
+                curl -fsSL --retry 3 -o "$file.part" "$url"
                 echo "$pin  $file.part" | sha256sum -c --quiet
                 mv "$file.part" "$file"
             fi
@@ -142,7 +162,7 @@ apply_patches() {
 # Buildroot archive, firmware/buildroot (source patches, defconfig, external
 # recipes, package patches, BusyBox configuration) and this step's recipe.
 toolchain_id() {
-    { lock buildroot; object_id "$repo/firmware/buildroot"; declare -f toolchain; } | sha256sum | cut -d' ' -f1
+    { lock buildroot; object_id "$repo/firmware/buildroot"; cat "$here/cpu-profile.json"; declare -f toolchain; } | sha256sum | cut -d' ' -f1
 }
 
 toolchain_stale() {
@@ -171,15 +191,19 @@ toolchain() {
         for patch in "$repo"/firmware/buildroot/source-patches/*.patch; do patch -s -d "$br" -p1 < "$patch"; done
         echo "$id" > "$br/.platform-patched"
     fi
-    local make=(make -C "$br" O="$bo" BR2_EXTERNAL="$repo/firmware/buildroot")
+    local make=(make -C "$br" O="$bo" BR2_EXTERNAL="$repo/firmware/buildroot" BR2_JLEVEL="$jobs")
     if [ ! -e "$bo/.config" ]; then
         "${make[@]}" nanokvm_platform_defconfig
         "${make[@]}" olddefconfig
     fi
     mkdir -p "$dl/buildroot"
+    # host-cmake builds json-c and miniz; host f2fs-tools, mtools and
+    # dosfstools write the SD image.
     BR2_DL_DIR=$dl/buildroot "${make[@]}" toolchain host-dtc host-kmod host-patchelf \
-        host-python3 host-uboot-tools host-zstd busybox e2fsprogs f2fs-tools
+        host-python3 host-uboot-tools host-zstd host-cmake host-f2fs-tools host-mtools \
+        host-dosfstools busybox e2fsprogs f2fs-tools
     [ "$("${cross}gcc" -dumpfullversion)" = 16.2.0 ]
+    python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace --record "$bo/cpu-profile.json" --compiler "${cross}gcc"
     echo "$id" > "$bo/.platform-toolchain"
 }
 
@@ -189,6 +213,7 @@ kernel() {
     tar -xf "$dl/linux-7.2.6.tar.xz" -C "$out/kernel"
     mv "$out/kernel/linux-7.2.6" "$ksrc"
     apply_patches "$ksrc" "$here/kernel"
+    python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel --record "$out/kernel/cpu-profile.json" --compiler "${cross}gcc"
     cp "$here/kernel/config" "$kbuild/.config"
     # Host pahole, rustc and bindgen would be recorded in .config; ignore them.
     local make=(make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" LOCALVERSION= "KCFLAGS=$isa"
@@ -265,10 +290,21 @@ uboot() {
     mv "$u/u-boot-2026.07" "$u/src"
     apply_patches "$u/src" "$here/uboot"
     cp "$here/uboot/defconfig" "$u/build/.config"
-    local make=(make -C "$u/src" O="$u/build" ARCH=riscv CROSS_COMPILE="$cross" LOCALVERSION=-nanokvm-os)
+    local boot_flags boot_isa boot_abi flag
+    boot_flags=$(python3 "$repo/scripts/nanokvm_cpu_profile.py" bootloader)
+    for flag in $boot_flags; do
+        case "$flag" in
+            -march=*) boot_isa=${flag#-march=} ;;
+            -mabi=*) boot_abi=${flag#-mabi=} ;;
+        esac
+    done
+    # Architecture Makefile flags follow KCFLAGS; set its inputs as well.
+    local make=(make -C "$u/src" O="$u/build" ARCH=riscv CROSS_COMPILE="$cross" LOCALVERSION=-nanokvm-os
+                "RISCV_MARCH=$boot_isa" "ABI=$boot_abi" "KCFLAGS=$boot_flags")
     SOURCE_DATE_EPOCH=$uboot_epoch "${make[@]}" olddefconfig
     SOURCE_DATE_EPOCH=$uboot_epoch "${make[@]}" -j"$jobs"
     cp "$u/build/u-boot.bin" "$img/u-boot.bin"
+    python3 "$repo/scripts/nanokvm_cpu_profile.py" bootloader --record "$u/cpu-profile.json" --compiler "${cross}gcc"
 }
 
 fip() {
@@ -374,6 +410,426 @@ boot() {
     echo "$release" > "$img/boot/kernel.release"
 }
 
+# SOPHGO media libraries (cvi_mpi with native/cvi_mpi/*.patch), the MMF
+# wrapper and the capture library: the 19 libraries of /kvmapp/server/dl_lib.
+native() {
+    local n=$out/native lib
+    rm -rf "$n" "${img:?}/native"
+    mkdir -p "$n/src" "$img/native"
+    unpack_git cvi-mpi . "$n/src/cvi_mpi"
+    for lib in sensors json-c miniz inih; do unpack_git "$lib" . "$n/src/$lib"; done
+    apply_patches "$n/src/cvi_mpi" "$here/native/cvi_mpi"
+    apply_patches "$n/src/sensors" "$repo/firmware/sensor/patches"
+    local env=(NANOKVM_MPI_SOURCE="$n/src/cvi_mpi" NANOKVM_OSDRV_SOURCE="$out/modules/sources/osdrv"
+               NANOKVM_KERNEL_SOURCE="$ksrc" NANOKVM_BUILDROOT_OUTPUT="$bo" NANOKVM_CMAKE="$host/cmake"
+               JOBS="$jobs")
+    env "${env[@]}" bash "$repo/scripts/build-enhanced-mpi.sh"
+    env "${env[@]}" "$host/python3" "$repo/scripts/build-enhanced-isp-vendor.py"
+    env "${env[@]}" NANOKVM_JSON_C_SOURCE="$n/src/json-c" NANOKVM_MINIZ_SOURCE="$n/src/miniz" \
+        NANOKVM_MPI_THIRDPARTY_OUTPUT="$n/bin" "$host/python3" "$repo/scripts/build-enhanced-mpi-bin.py"
+    env "${env[@]}" NANOKVM_SENSOR_SOURCE="$n/src/sensors" NANOKVM_INIH_SOURCE="$n/src/inih" \
+        NANOKVM_MMF_OUTPUT="$n/mmf" "$host/python3" "$repo/scripts/build-enhanced-mmf.py"
+    env "${env[@]}" NANOKVM_MMF_OUTPUT="$n/mmf" NANOKVM_CAPTURE_OUTPUT="$n/capture" \
+        "$host/python3" "$repo/scripts/build-enhanced-capture.py"
+    # The vendor makefiles always compile with -g; ship the libraries without it.
+    for lib in "$n"/src/cvi_mpi/lib/*.so; do
+        "${cross}strip" --strip-debug -o "$img/native/${lib##*/}" "$lib"
+    done
+    cp "$n/mmf/libkvm_mmf.so" "$n/capture/libkvm.so" "$img/native/"
+    [ "$(find "$img/native" -name '*.so' | wc -l)" = 19 ]
+}
+
+# kvm_system board service from MaixCDK with native/maixcdk/*.patch.
+system() {
+    local s=$out/system
+    rm -rf "$s" "${img:?}/system"
+    mkdir -p "$s" "$img/system"
+    unpack_git maixcdk . "$s/maixcdk"
+    apply_patches "$s/maixcdk" "$here/native/maixcdk"
+    NANOKVM_MAIXCDK_SOURCE=$s/maixcdk NANOKVM_BUILDROOT_OUTPUT=$bo NANOKVM_SYSTEM_OUTPUT=$s/out \
+        "$host/python3" "$repo/scripts/build-enhanced-system.py"
+    cp "$s/out/kvm_system" "$img/system/"
+}
+
+# NanoKVM-Server with the NanoKVM Go runtime (firmware/cpu/sysmon-runtime),
+# and the static update helpers. Go modules are checked against go.sum.
+server() {
+    local s=$out/server
+    rm -rf "$s" "${img:?}/server"
+    mkdir -p "$s" "$img/server" "$dl/go-mod"
+    tar -xzf "$dl/go1.27.1.linux-amd64.tar.gz" -C "$s"
+    "$host/python3" "$repo/firmware/cpu/sysmon-runtime/prepare.py" --base "$s/go" --output "$s/goroot" > /dev/null
+    GOMODCACHE=$dl/go-mod GOPATH=$s/gopath GOCACHE=$s/gocache GOFLAGS=-mod=readonly GOTOOLCHAIN=local \
+        "$host/python3" "$repo/scripts/build-server-existing-libs.py" --libraries "$img/native" \
+        --buildroot-output "$bo" --go "$s/goroot/bin/go" --output "$s/out"
+    cp "$s/out/NanoKVM-Server.stripped" "$img/server/NanoKVM-Server"
+    cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$img/server/"
+}
+
+# Web UI. npm packages are checked against pnpm-lock.yaml.
+web() {
+    local w=$out/web node
+    node=$(lock node | awk '{ print $2 }')
+    node=${node##*/}
+    rm -rf "$w" "${img:?}/web"
+    mkdir -p "$w/src" "$dl/pnpm-store" "$img"
+    tar -xJf "$dl/$node" -C "$w"
+    tar -xzf "$dl/exe.linux-x64-12.8.1.tgz" -C "$w"
+    (cd "$repo/web" && tar --exclude=./node_modules --exclude=./dist -cf - .) | tar -xf - -C "$w/src"
+    (
+        export PATH=$w/${node%.tar.xz}/bin:$PATH
+        cd "$w/src"
+        "$w/package/pnpm" install --frozen-lockfile --store-dir "$dl/pnpm-store"
+        "$w/package/pnpm" build
+    )
+    cp -r "$w/src/dist" "$img/web"
+}
+
+# Board tools: BusyBox devmem, nanokvm_update_edid and the EDID profiles,
+# nkos-board-probe and usb-audio-capture.
+tools() {
+    local t=$out/tools e py=$host/python3
+    rm -rf "$t" "${img:?}/tools"
+    mkdir -p "$t" "$img/tools/edid" "$img/tools/usb-audio"
+    NANOKVM_BUILDROOT_OUTPUT=$bo BUSYBOX_SOURCE_ARCHIVE=$dl/busybox-1.36.1.tar.bz2 JOBS=$jobs \
+        sh "$repo/scripts/build-busybox-devmem.sh" "$t/devmem"
+    cp "$t/devmem/devmem" "$t/devmem/busybox-LICENSE" "$img/tools/"
+
+    # As Buildroot builds a target package: TARGET_CFLAGS, then its strip.
+    e=$t/edid
+    cp -r "$repo/tools/nanokvm_update_edid" "$e"
+    make -C "$e" CC="${cross}gcc" RISCV_FLAGS= LDFLAGS=-ztext \
+        CFLAGS="$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace) -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -g0 -Wall -Wextra -Werror"
+    "${cross}strip" --remove-section=.comment --remove-section=.note \
+        -o "$img/tools/nanokvm_update_edid" "$e/nanokvm_update_edid"
+    "$py" "$repo/scripts/build-qhd-edid.py" --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-QHD30.bin"
+    "$py" "$repo/scripts/build-monitor-edids.py" --input "$e/E21_NanoKVM.bin" --output "$e/monitor-profiles"
+    "$py" "$repo/firmware/probes/edid120/build_experimental_edid.py" \
+        --input "$e/NanoKVM-QHD30.bin" --output "$e/NanoKVM-720p120.bin" --force
+    "$py" "$repo/firmware/probes/edid120/build_experimental_qhd40.py" \
+        --input "$e/NanoKVM-720p120.bin" --output "$e/NanoKVM-QHD40.bin" --force
+    "$py" "$repo/firmware/probes/edid120/build_experimental_fhd_high.py" --rate 75 \
+        --input "$e/NanoKVM-QHD40.bin" --output "$e/NanoKVM-final-video-profiles.bin" --force
+    "$py" "$repo/firmware/probes/edid120/build_final_monitor_profiles.py" \
+        --input "$e/NanoKVM-final-video-profiles.bin" --output "$e/monitor-profiles"
+    "$py" "$repo/scripts/build-portrait-edid.py" --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-portrait-1080x1920.bin"
+    "$py" "$repo/scripts/build-portrait-edid.py" --profile hd --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-portrait-720x1280.bin"
+    "$py" "$repo/scripts/build-portrait-edid.py" --profile h264 --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-portrait-1296x2304.bin"
+    "$py" "$repo/scripts/build-portrait-edid.py" --profile max --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-portrait-1440x2560.bin"
+    cp "$e/NanoKVM-QHD30.bin" "$e"/NanoKVM-portrait-*.bin "$e"/monitor-profiles/NanoKVM-monitor-*.bin \
+        "$e"/monitor-profiles/NanoKVM-cube-monitor-*.bin "$img/tools/edid/"
+    cp "$e/monitor-profiles/NanoKVM-monitor-auto.bin" "$img/tools/edid/NanoKVM-final-video-profiles.bin"
+    cp "$e/E21_NanoKVM.bin" "$img/tools/edid/NanoKVM-stock.bin"
+
+    local cpu_flags
+    read -r -a cpu_flags <<< "$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace)"
+    python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace --record "$t/cpu-profile.json" --compiler "${cross}gcc"
+    "${cross}gcc" "${cpu_flags[@]}" -static -Wall -Wextra -Werror "$repo/firmware/boards/nkos-board-probe.c" -o "$t/nkos-board-probe"
+    "${cross}strip" -o "$img/tools/nkos-board-probe" "$t/nkos-board-probe"
+
+    unpack_git tinyalsa . "$t/tinyalsa"
+    "$py" "$repo/scripts/build-usb-audio.py" --output "$t/usb-audio" --buildroot-output "$bo" \
+        --kernel-source "$ksrc" --kernel-output "$kbuild" --tinyalsa "$t/tinyalsa" \
+        --opus-archive "$dl/opus-1.6.1.tar.gz" --jobs "$jobs"
+    cp "$t/usb-audio/usb-audio-capture" "$img/tools/"
+    cp "$t/usb-audio/share/usb-audio/"* "$img/tools/usb-audio/"
+}
+
+# Firmware files: AIC8800 Wi-Fi firmware from the Radxa package that the
+# driver comes from, the wireless regulatory database and the video codec.
+firmware() {
+    local f=$img/firmware name dir
+    rm -rf "$f"
+    mkdir -p "$f/lib/firmware/aic8800_sdio" "$f/fw_vcodec" "$out/firmware"
+    # The driver looks in aic8800_sdio/<chip>; AIC8801 and D80 share one directory.
+    for dir in aic8800 aic8800D80 aic8800D80N aic8800D80X2 aic8800DC; do
+        rm -rf "$out/firmware/$dir"
+        unpack_git aic8800 "src/SDIO/driver_fw/fw/$dir" "$out/firmware/$dir"
+    done
+    rm -f "$out/firmware/aic8800D80/aic8800D80.7z"
+    cp -r "$out/firmware/aic8800" "$f/lib/firmware/aic8800_sdio/aic8800_and_aic8800D80"
+    for name in "$out"/firmware/aic8800D80/*; do
+        [ ! -e "$f/lib/firmware/aic8800_sdio/aic8800_and_aic8800D80/${name##*/}" ] || {
+            echo "AIC firmware name in both aic8800 and aic8800D80: ${name##*/}" >&2; exit 1; }
+        cp "$name" "$f/lib/firmware/aic8800_sdio/aic8800_and_aic8800D80/"
+    done
+    for dir in aic8800D80N aic8800D80X2 aic8800DC; do
+        cp -r "$out/firmware/$dir" "$f/lib/firmware/aic8800_sdio/$dir"
+    done
+    # The stock driver path, kept as in earlier releases.
+    cp "$out"/firmware/aic8800/* "$f/lib/firmware/"
+    tar -xJf "$dl/wireless-regdb-2026.09.03.tar.xz" -C "$out/firmware"
+    cp "$out"/firmware/wireless-regdb-2026.09.03/regulatory.db{,.p7s} "$f/lib/firmware/"
+    unpack_git sipeed-sdk ramdisk/rootfs/common_musl_riscv64/usr/share/fw_vcodec "$f/fw_vcodec"
+    mkdir -p "$f/licenses"
+    tar -xf "$dl/aic8800.tar" -O debian/copyright > "$f/licenses/aic8800-copyright"
+    cp "$out/firmware/wireless-regdb-2026.09.03/LICENSE" "$f/licenses/wireless-regdb-LICENSE"
+}
+
+# Assemble the six package payloads from packages.list.
+payloads() {
+    local p=$out/payloads gen pkg type path mode src dest file
+    rm -rf "$p"
+    gen=$out/payloads-gen
+    rm -rf "$gen"
+    mkdir -p "$gen/kvm"
+    # Written below once the application payload is complete.
+    : > "$gen/enhanced-stage-manifest.json"
+    printf '+kvmapp/kvm\n' > "$gen/protected-paths"
+    printf 'Alpine 3.24; SG2002/C906; flavour=%s\n' enhanced > "$gen/nanokvm-buildroot"
+    printf '%s\n' "${version#v}" > "$gen/version"
+    printf '%s' 50 > "$gen/kvm/fps"
+    printf '%s' 15000 > "$gen/kvm/qlty"
+    printf '%s' 0 > "$gen/kvm/res"
+    printf '%s' h265 > "$gen/kvm/type"
+    printf 'NAME="NanoKVM OS"\nVERSION="%s"\nALPINE_VERSION="3.24"\nBUILD_PROFILE="%s"\n' "$version" "$profile" > "$gen/nanokvm-release"
+    printf '%s\n' "$profile" > "$gen/nanokvm-build-profile"
+    resolve() {
+        case $1 in
+            @*) echo "$img/${1#@}" ;;
+            %*) echo "$gen/${1#%}" ;;
+            *) echo "$repo/$1" ;;
+        esac
+    }
+    while read -r pkg type path mode src; do
+        case $pkg in ''|'#'*) continue ;; esac
+        dest=$p/$pkg$path
+        case $type in
+            file)
+                file=$(resolve "$src")
+                [ -f "$file" ] || { echo "packages.list: missing $src" >&2; exit 1; }
+                install -D -m "$mode" "$file" "$dest" ;;
+            tree)
+                file=$(resolve "$src")
+                [ -d "$file" ] || { echo "packages.list: missing $src" >&2; exit 1; }
+                [ -z "$(find "$file" -type l)" ] || { echo "packages.list: links below $src" >&2; exit 1; }
+                mkdir -p "$dest"
+                (cd "$file" && find . -type d) | while read -r dir; do mkdir -p "$dest/$dir"; done
+                (cd "$file" && find . -type f) | while read -r name; do install -m "$mode" "$file/$name" "$dest/$name"; done ;;
+            dir) mkdir -p "$dest"; chmod "$mode" "$dest" ;;
+            link) mkdir -p "$(dirname "$dest")"; ln -sfn "$src" "$dest" ;;
+            *) echo "packages.list: unknown type $type" >&2; exit 1 ;;
+        esac
+    done < "$here/packages.list"
+    # What the application payload was built from, for support requests.
+    "$host/python3" - "$p/app/kvmapp" "$version" "$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo unknown)" \
+        "$([ -z "$(git -C "$repo" status --porcelain 2>/dev/null)" ] && echo false || echo true)" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+root, version, commit, dirty = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4] == 'true'
+manifest = root / 'enhanced-stage-manifest.json'
+files = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+         for p in sorted(root.rglob('*')) if p.is_file() and not p.is_symlink() and p != manifest}
+manifest.write_text(json.dumps({'version': version, 'source_dirty': dirty, 'source_base_commit': commit,
+                                'files': files}, indent=2) + '\n')
+PY
+}
+
+# The packages, rootfs and image steps create files of several owners and run
+# riscv64 programs. build.sh runs them as root of a user namespace instead of
+# host root: newuidmap maps the subordinate IDs of /etc/subuid and /etc/subgid,
+# and the namespace's own binfmt_misc (Linux 6.7 or newer) starts qemu.
+in_userns() (
+    local user sub_u sub_g
+    user=$(id -un)
+    sub_u=$(awk -F: -v u="$user" '$1 == u { print $2; exit }' /etc/subuid 2>/dev/null)
+    sub_g=$(awk -F: -v u="$user" '$1 == u { print $2; exit }' /etc/subgid 2>/dev/null)
+    if [ -z "$sub_u" ] || [ -z "$sub_g" ] || ! command -v newuidmap > /dev/null || ! command -v newgidmap > /dev/null; then
+        echo "The $1 step needs newuidmap and newgidmap (package uidmap) and subordinate" >&2
+        echo "IDs for $user in /etc/subuid and /etc/subgid; see platform/README.md." >&2
+        exit 1
+    fi
+    local sync pid="" status=0 ready_fd mapped_fd deadline
+    sync=$(mktemp -d)
+    cleanup_userns() {
+        if [ -n "$pid" ]; then
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+        fi
+        rm -rf "$sync"
+    }
+    trap cleanup_userns EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    mkfifo "$sync/ready" "$sync/mapped"
+    # Opening read/write avoids an unbounded FIFO open if unshare fails early.
+    exec {ready_fd}<>"$sync/ready"
+    exec {mapped_fd}<>"$sync/mapped"
+    unshare --user --mount --pid --fork --kill-child \
+        bash -c 'echo > "$1/ready"; read -r _ < "$1/mapped"; shift; exec "$@"' sh "$sync" \
+        env NANOKVM_USERNS=1 bash "$here/build.sh" -o "$out" -j "$jobs" ${key:+-k "$key"} "$1" &
+    pid=$!
+    deadline=$((SECONDS + 30))
+    until read -r -t 0.1 -u "$ready_fd" _; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            wait "$pid" || status=$?
+            pid=
+            echo "User namespace exited before reporting ready" >&2
+            [ "$status" -ne 0 ] || status=1
+            exit "$status"
+        fi
+        if [ "$SECONDS" -ge "$deadline" ]; then
+            echo "Timed out waiting for user namespace startup" >&2
+            exit 1
+        fi
+    done
+    newuidmap "$pid" 0 "$(id -u)" 1 1 "$sub_u" 65535 || exit $?
+    newgidmap "$pid" 0 "$(id -g)" 1 1 "$sub_g" 65535 || exit $?
+    echo >&"$mapped_fd"
+    wait "$pid" || status=$?
+    pid=
+    exit "$status"
+)
+
+qemu=$out/qemu/qemu-riscv64-static
+register_qemu() {
+    local bfm
+    if [ ! -x "$qemu" ]; then
+        rm -rf "$out/qemu"
+        mkdir -p "$out/qemu"
+        (cd "$out/qemu" && "${cross}ar" x "$dl/qemu-user-static_8.2.2+ds-0ubuntu1.18_amd64.deb" &&
+            "$host/zstd" -q -d -c data.tar.zst | tar -x ./usr/bin/qemu-riscv64-static)
+        mv "$out/qemu/usr/bin/qemu-riscv64-static" "$qemu"
+    fi
+    # The mounts of the chroot steps stay in this namespace.
+    mount --make-rprivate /
+    bfm=$(mktemp -d)
+    mount -t binfmt_misc binfmt_misc "$bfm"
+    # F: the kernel opens qemu now, so it need not exist inside the chroot.
+    printf '%s%s:F' ':nkos-riscv64:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xf3\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:' \
+        "$qemu" > "$bfm/register"
+}
+
+# A fresh Alpine 3.24 minirootfs in $1.
+alpine_tree() {
+    rm -rf "$1"
+    mkdir -p "$1"
+    tar --numeric-owner -xzf "$dl/alpine-minirootfs-3.24.2-riscv64.tar.gz" -C "$1"
+}
+
+# Run a command in the Alpine tree $1 with /dev, /proc, /sys, the host DNS
+# configuration and, in $BIND (SOURCE:TARGET), one more directory.
+in_chroot() (
+    local root=$1
+    shift
+    mkdir -p "$root/dev" "$root/proc" "$root/sys"
+    mount --rbind /dev "$root/dev"
+    mount -t proc proc "$root/proc"
+    mount --rbind /sys "$root/sys"
+    if [ -n "${BIND:-}" ]; then
+        mkdir -p "$root${BIND#*:}"
+        mount --bind "${BIND%%:*}" "$root${BIND#*:}"
+    fi
+    # A lazy unmount also detaches the submounts of /dev and /sys.
+    trap 'rc=$?; umount -l "$root/dev"; umount -l "$root/proc"; umount -l "$root/sys"
+          [ -z "${BIND:-}" ] || umount -l "$root${BIND#*:}"; exit $rc' EXIT
+    cp -L /etc/resolv.conf "$root/etc/resolv.conf"
+    chroot "$root" "$@"
+)
+
+# The APK signing key: -k KEY, or one created on the first run.
+signing_key() {
+    local tmp
+    if [ -n "$key" ]; then
+        keyfile=$key
+    else
+        keyfile=
+        [ ! -d "$out/keys" ] || keyfile=$(find "$out/keys" -name '*.rsa' | head -n 1)
+        if [ -z "$keyfile" ]; then
+            mkdir -p "$out/keys"
+            tmp=$out/keys/new.rsa
+            openssl genrsa -out "$tmp" 4096 2> /dev/null
+            openssl rsa -in "$tmp" -pubout -out "$tmp.pub" 2> /dev/null
+            keyfile=$out/keys/nanokvm-build-$(sha256sum < "$tmp.pub" | cut -c1-8).rsa
+            mv "$tmp" "$keyfile"
+            mv "$tmp.pub" "$keyfile.pub"
+            echo "Created APK signing key $keyfile"
+        fi
+    fi
+    [ -f "$keyfile.pub" ] || { echo "APK signing key: $keyfile.pub is missing" >&2; exit 1; }
+    keyname=$(basename "$keyfile" .rsa)
+}
+
+# Build the six packages with abuild in an Alpine riscv64 tree.
+packages() (
+    local b=$out/apk-builder
+    register_qemu
+    signing_key
+    alpine_tree "$b"
+    in_chroot "$b" /sbin/apk --no-cache add alpine-sdk coreutils musl-utils
+    mkdir -p "$b/build/src/scripts" "$b/build/src/firmware/alpine" "$b/root/.abuild"
+    cp "$repo/scripts/build-alpine-packages.sh" "$b/build/src/scripts/"
+    cp -r "$repo/firmware/alpine/packages" "$repo/firmware/alpine/release.env" "$b/build/src/firmware/alpine/"
+    cp -a "$out/payloads" "$b/build/payloads"
+    trap 'rm -f "$b/root/.abuild/$keyname.rsa"' EXIT
+    install -m 0600 "$keyfile" "$b/root/.abuild/$keyname.rsa"
+    install -m 0644 "$keyfile.pub" "$b/root/.abuild/$keyname.rsa.pub"
+    install -m 0644 "$keyfile.pub" "$b/etc/apk/keys/$keyname.rsa.pub"
+    printf 'PACKAGER="NanoKVM OS"\nPACKAGER_PRIVKEY="/root/.abuild/%s.rsa"\n' "$keyname" > "$b/root/.abuild/abuild.conf"
+    # -F: abuild runs as root of the namespace. -d: the packages compile
+    # nothing, so their dependencies are not installed in the builder.
+    in_chroot "$b" /usr/bin/env -i HOME=/root PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+        SOURCE_DATE_EPOCH="$(git -C "$repo" log -1 --format=%ct)" PAYLOAD_ROOT=/build/payloads \
+        REPODEST=/build/repo SRCDEST=/build/distfiles ABUILD_FLAGS='-F -d' \
+        /bin/sh /build/src/scripts/build-alpine-packages.sh stock
+    rm -f "$b/root/.abuild/$keyname.rsa"
+    rm -rf "${rel:?}/apk"
+    mkdir -p "$rel/apk"
+    cp -a "$b/build/repo/stock/." "$rel/apk/"
+    cp "$keyfile.pub" "$rel/apk/$keyname.rsa.pub"
+)
+
+# Alpine 3.24 root file system: the minirootfs with nanokvm-release from the
+# packages step and its dependencies from the Alpine mirror.
+rootfs() {
+    local r=$out/rootfs/root pub path
+    register_qemu
+    signing_key
+    rm -rf "$out/rootfs"
+    alpine_tree "$r"
+    install -m 0644 "$keyfile.pub" "$r/etc/apk/keys/$keyname.rsa.pub"
+    for pub in "$repo"/firmware/alpine/keys/*.rsa.pub; do install -m 0644 "$pub" "$r/etc/apk/keys/"; done
+    printf '%s\n' /mnt/nanokvm-apk/recipes https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
+        https://dl-cdn.alpinelinux.org/alpine/v3.24/community > "$r/etc/apk/repositories"
+    BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache add nanokvm-release
+    rmdir "$r/mnt/nanokvm-apk"
+    # The repositories of the device: NanoKVM OS releases and Alpine.
+    printf '%s\n' https://nkos.pesin.pro/repos/nanokvm https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
+        https://dl-cdn.alpinelinux.org/alpine/v3.24/community \
+        '@edgecommunity https://dl-cdn.alpinelinux.org/alpine/edge/community' > "$r/etc/apk/repositories"
+    rm -f "$r/etc/resolv.conf"
+    # The settings APIs call these; refuse an incomplete root.
+    for path in usr/sbin/iw usr/sbin/nanokvm_update_edid etc/init.d/nanokvm-policy \
+                usr/libexec/nanokvm/legacy/S50sshd usr/libexec/nanokvm/legacy/S38memory \
+                usr/libexec/nanokvm/legacy/S34mssclamp kvmapp/system/bin/usb-audio-capture \
+                usr/sbin/nkos-board-probe usr/sbin/nkos-board-select; do
+        [ -x "$r/$path" ] || { echo "rootfs: missing $path" >&2; exit 1; }
+    done
+    [ -d "$r/lib/modules/$(cat "$r/usr/lib/nanokvm/boot/kernel.release")" ] || {
+        echo "rootfs: boot.sd and modules differ" >&2; exit 1; }
+    for path in dev proc sys mnt/nanokvm-apk; do
+        ! mountpoint -q "$r/$path" || { echo "rootfs: $path is still mounted" >&2; exit 1; }
+    done
+    awk -F: '/^P:/ { p = substr($0, 3) } /^V:/ { print p "=" substr($0, 3) }' "$r/lib/apk/db/installed" |
+        LC_ALL=C sort > "$rel/installed-packages.txt"
+    tar --numeric-owner -czf "$rel/alpine-rootfs.tar.gz" --exclude='./boot/*' --exclude='./data/*' \
+        --exclude='./dev/*' --exclude='./proc/*' --exclude='./sys/*' --exclude='./run/*' --exclude='./tmp/*' \
+        -C "$r" .
+}
+
+clean() {
+    rm -rf "${out:?}/apk-builder" "$out/rootfs"
+}
+
+# The SD card image: boot partition with fip.bin and the detect boot.sd,
+# F2FS root partition from the rootfs step.
+image() {
+    rm -rf "${rel:?}/image"
+    PATH=$bo/host/sbin:$host:$PATH "$host/python3" "$repo/scripts/build-alpine-sd-image.py" \
+        --rootfs-archive "$rel/alpine-rootfs.tar.gz" --fip "$img/fip.bin" --f2fs-tools "$bo/host/sbin" \
+        --output "$rel/image" --version "$version"
+}
+
 verify() {
     local unlisted
     # Every listed output must exist and match, and every output must be listed.
@@ -391,21 +847,23 @@ verify() {
 }
 
 source_archive() {
-    local name=NanoKVM-OS-$version-platform-source stage pkg
+    local name=NanoKVM-OS-$version-source stage pkg url
     [ -z "$(git -C "$repo" status --porcelain)" ] || { echo 'Commit local changes first' >&2; exit 2; }
     stage=$(mktemp -d "$out/.source.XXXXXX")
     mkdir -p "$stage/$name/upstream/buildroot-packages" "$stage/$name/NanoKVM-OS"
-    while read -r pkg url _; do
-        case $pkg in ''|'#'*) continue ;; esac
+    # The GPL-licensed inputs of the image. The rest of sources.lock is
+    # fetched from its upstream by build.sh and is not redistributed here.
+    for pkg in buildroot linux u-boot osdrv aic8800 cryptodev sipeed-sdk busybox; do
+        url=$(lock "$pkg" | awk '{ print $2 }')
         if [[ $url == *.git ]]; then cp "$dl/$pkg.tar" "$stage/$name/upstream/"
         else cp "$dl/${url##*/}" "$stage/$name/upstream/"; fi
-    done < "$here/sources.lock"
+    done
     # GPL userland of the initramfs, as downloaded and checked by Buildroot.
     for pkg in busybox e2fsprogs util-linux f2fs-tools; do
         cp -r "$dl/buildroot/$pkg" "$stage/$name/upstream/buildroot-packages/"
     done
-    git -C "$repo" archive HEAD LICENSE platform firmware/boards firmware/buildroot firmware/alpine/release.env |
-        tar -x -C "$stage/$name/NanoKVM-OS"
+    # This repository: the application (GPL-3.0) and every build recipe.
+    git -C "$repo" archive HEAD | tar -x -C "$stage/$name/NanoKVM-OS"
     git -C "$repo" rev-parse HEAD > "$stage/$name/SOURCE-COMMIT"
     cp "$here/README.md" "$stage/$name/README.md"
     (cd "$stage/$name" && find . -type f ! -name SHA256SUMS -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > SHA256SUMS)
@@ -417,7 +875,10 @@ source_archive() {
 
 for step in "${steps[@]}"; do
     case $step in
-        fetch|toolchain|kernel|modules|uboot|fip|initramfs|boot|verify) log "$step"; "$step" ;;
+        fetch|toolchain|kernel|modules|uboot|fip|initramfs|boot|native|system|server|web|tools|firmware|verify|payloads)
+            log "$step"; "$step" ;;
+        packages|rootfs|image|clean)
+            if [ "${NANOKVM_USERNS:-0}" = 1 ]; then log "$step"; "$step"; else in_userns "$step"; fi ;;
         source) log source; source_archive ;;
         *) usage ;;
     esac

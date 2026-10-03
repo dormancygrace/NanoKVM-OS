@@ -1,31 +1,51 @@
-# NanoKVM OS platform
+# Building NanoKVM OS
 
-This directory builds the board platform of NanoKVM OS v2 from source with one command:
-- the toolchain;
-- the Linux kernel and all kernel modules;
-- U-Boot and `fip.bin`;
-- the initramfs and the `boot.sd` images.
+`platform/build.sh` builds the complete NanoKVM OS SD card image from this repository with one command:
+- the toolchain, the Linux kernel and all kernel modules, U-Boot, `fip.bin`, the initramfs and the `boot.sd` images;
+- the SOPHGO media libraries, the board service `kvm_system`, the server, the update helpers and the web UI;
+- the board tools, the EDID profiles and the firmware files;
+- the six `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
-Everything the build uses is pinned here, and the result is checked against known hashes. The application, web UI and Alpine root filesystem are built separately (see [docs/BUILD.md](../docs/BUILD.md)).
+Every upstream input is pinned in `sources.lock` and checked when it is downloaded. The outputs of the build steps are checked against `expected.sha256`.
 
-| Output in `build/platform/images` | Shipped in |
+| Output | Shipped in |
 |---|---|
-| `Image` (Linux `7.2.6-nanokvm-os-r1`) | every `boot.sd` |
-| `lib/modules/7.2.6-nanokvm-os-r1/` (62 in-tree and 17 out-of-tree modules, `modules.*`) | `nanokvm-kmod-sg2002` |
-| `boot/*.sd`, `boot/*.sha256`, `boot/kernel.release` (5 boards × CMA/fixed video memory) | `nanokvm-kernel-sg2002`, `/usr/lib/nanokvm/boot` |
-| `dtb/*.dtb` | inside the matching `boot.sd` |
-| `initramfs.cpio.zst` | inside every `boot.sd` |
-| `u-boot.bin`, `fip.bin` | boot partition of the SD image |
+| `images/Image` (Linux `7.2.6-nanokvm-os-r1`) | every `boot.sd` |
+| `images/lib/modules/7.2.6-nanokvm-os-r1/` (62 in-tree and 17 out-of-tree modules, `modules.*`) | `nanokvm-kmod-sg2002` |
+| `images/boot/*.sd`, `*.sha256`, `kernel.release` (5 boards × CMA/fixed video memory) | `nanokvm-kernel-sg2002`, `/usr/lib/nanokvm/boot` |
+| `images/dtb/*.dtb`, `images/initramfs.cpio.zst` | inside the `boot.sd` images |
+| `images/u-boot.bin`, `images/fip.bin` | boot partition of the SD image |
+| `images/native/*.so` (19 libraries) | `nanokvm-app`, `/kvmapp/server/dl_lib` |
+| `images/system/kvm_system` | `nanokvm-app`, `/kvmapp/kvm_system` |
+| `images/server/NanoKVM-Server`, `nkos-update`, `nkos-apply-updates` | `nanokvm-app`, `nanokvm-base` |
+| `images/web/` | `nanokvm-app`, `/kvmapp/server/web` |
+| `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm-app`, `nanokvm-firmware-sg2002` |
+| `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware-sg2002` |
+| `release/apk/` | the signed APK repository of the six packages |
+| `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt` | the root file system and its package versions |
+| `release/image/NanoKVM-OS-<version>.img.zip`, `SHA256SUMS` | the SD card image |
 
 ## Build
 
-On a Linux x86-64 host with the [Buildroot requirements](https://buildroot.org/downloads/manual/manual.html#requirement), plus `git` 2.27 or newer, `curl`, `libssl-dev`, `flex` and `bison` (tested on Ubuntu 24.04):
+On a Linux x86-64 host (tested on Ubuntu 24.04) with:
+- the [Buildroot requirements](https://buildroot.org/downloads/manual/manual.html#requirement), plus `git` 2.27 or newer, `curl`, `openssl`, `libssl-dev`, `flex` and `bison`;
+- for the packages, rootfs and image steps: Linux 6.7 or newer, `newuidmap` and `newgidmap` (package `uidmap`), and subordinate IDs for the build user in `/etc/subuid` and `/etc/subgid` (Ubuntu adds them for every user).
 
 ```sh
 platform/build.sh
 ```
 
-The first run downloads about 1 GB and needs about 20 GB of disk space. Building the toolchain takes most of the first run (30 minutes on 16 threads). Later runs reuse the toolchain while its inputs are unchanged: the Buildroot pin, `firmware/buildroot` and the toolchain recipe in `build.sh`. If one of them changes, `build.sh` refuses the old toolchain and names the directories to delete. Steps can be run on their own, for example `platform/build.sh kernel modules verify`. The step order is in `build.sh --help`. Use `-o DIR` for another output directory and `-j N` for the number of jobs.
+The build needs no root. The packages, rootfs and image steps run as root of a user namespace: it maps the subordinate IDs, so that the root file system gets its real owners, and starts riscv64 programs through qemu in the namespace's own `binfmt_misc`. Files in `OUTPUT/apk-builder` and `OUTPUT/rootfs` then belong to subordinate IDs; `build.sh clean` deletes them.
+
+The first run downloads about 2 GB and needs about 25 GB of disk space. Building the toolchain takes most of the first run (20 minutes on 16 threads); the other steps take about 10 minutes. Later runs reuse the toolchain while its inputs are unchanged: the Buildroot pin, `firmware/buildroot` and the toolchain recipe in `build.sh`. If one of them changes, `build.sh` refuses the old toolchain and names the directories to delete. Steps can be run on their own, for example `platform/build.sh kernel modules verify`. The step order is in `build.sh --help`. Use `-o DIR` for another output directory and `-j N` for the number of jobs.
+
+Go modules, npm packages and Alpine packages are downloaded during the build and checked against `server/go.sum`, `web/pnpm-lock.yaml` and the signed Alpine indexes. Alpine updates its 3.24 packages with security fixes, so a later build installs their newer versions; `release/installed-packages.txt` lists the versions in the image.
+
+### Signing key
+
+The APK packages are signed. Without `-k`, the first run creates a key in `OUTPUT/keys` and the image trusts it. Release builds pass the maintainer key: `-k path/to/dgrace-6aaddbb6.rsa`, with its `.rsa.pub` next to it. Every image also trusts the public key of NanoKVM OS releases in `firmware/alpine/keys` and uses the release repository `https://nkos.pesin.pro/repos/nanokvm`, so an image built from this repository updates to later releases.
+
+The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`). Releases up to v2.0-b7 replaced busybox, coreutils, openssl, lz4 and zstd with C906-tuned builds (`c906-scalar`); that overlay is not built here.
 
 ## What is here
 
@@ -33,16 +53,24 @@ The first run downloads about 1 GB and needs about 20 GB of disk space. Building
 |---|---|
 | `sources.lock` | Every upstream input: archives by SHA-256, Git trees by commit and tree id |
 | `build.sh` | All build steps |
-| `expected.sha256` | Hash of every output; `build.sh verify` fails if an output is missing, differs or is not listed |
+| `expected.sha256` | Hash of every output in `images/`; `build.sh verify` fails if an output is missing, differs or is not listed |
+| `packages.list` | The contents of the six APK packages: each file, its mode and where it comes from |
 | `kernel/` | `config` and patches for kernel.org Linux 7.2.6 |
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi and cryptodev; `sg2002-aes/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.07 |
 | `fip/base-fip.bin` | First-stage boot firmware; the build replaces only U-Boot in it |
 | `boot/` | FIT template, initramfs file list and `init`; `stock-init` is the stock Sipeed initramfs init, and `stock-init.diff` turns it into `init` |
+| `native/cvi_mpi/` | Patches for the SOPHGO media libraries (`cvi_mpi`) |
+| `native/maixcdk/` | Patches for the MaixCDK sources of `kvm_system` |
 
-Two directories outside `platform/` are used as they are:
+The build also uses these parts of the repository:
 - `firmware/buildroot/`: platform-only source patches and `configs/nanokvm_platform_defconfig` for the toolchain, host tools and initramfs userland;
-- `firmware/boards/`: the board device trees.
+- `firmware/boards/`: the board device trees and the board probe;
+- `firmware/sensor/patches/`: NanoKVM I2C/MIPI wiring and LT6911UXC/LT6911D identification; applied before compiling MMF;
+- `firmware/mpi/`: the MMF capture-size helper, compatibility headers and the hashes of the SOPHGO ISP objects (`vendor-isp-objects.json`);
+- `firmware/alpine/`: the APK recipes, OpenRC services and compatibility scripts, `release.env` with the version;
+- `server/`, `web/`, `support/sg2002/`, `native/usb-audio/`, `tools/nanokvm_update_edid/`, `kvmapp/`: the application;
+- `scripts/`: the component builders that `build.sh` calls.
 
 ## Changing a component
 
@@ -63,48 +91,42 @@ A changed kernel also needs a new release name: update `CONFIG_LOCALVERSION` in 
 
 ## Verification
 
-`build.sh verify` compares every output with `expected.sha256`. The file has three sections:
+`build.sh verify` compares every output in `images/` with `expected.sha256` and rejects missing, changed or unlisted files. The b8 reference uses GCC 16.2 / Binutils 2.47 and the shared C906/T-Head `-O2` profile in `cpu-profile.json`.
 
-1. **Identical to NanoKVM OS v2.0-a2 through v2.0-b7** (99 outputs):
-   - the kernel `Image` and `boot/kernel.release`;
-   - 78 of the 79 modules, and the `modules.*` files that do not depend on module order;
-   - the 10 device trees of the released `boot.sd` images.
-2. **Changed after v2.0-b7:** `aic8800_fdrv.ko`. `modules/aic8800/0002` adds the Linux 7.3 cfg80211 fix after the release. The commit that added `platform/` (before `0002`) reproduces all 79 modules, and the source archive of v2.0-b7 is built from that commit.
-3. **New binaries, not yet in a release** (28 outputs):
-   - `u-boot.bin` and `fip.bin`;
-   - the initramfs;
-   - the `boot.sd` images and their `.sha256` files;
-   - `modules.alias`, `modules.dep`, their `.bin` forms, and `modules.symbols.bin`.
+The Linux `Image`, release name and board device trees remain byte-identical to the previously released platform. The RTL8733BS driver now follows `-O2`; the AIC8800 driver includes the cfg80211 compatibility patch. U-Boot, the initramfs, FIT images, native media libraries, system service and native tools were rebuilt with the shared profile. Closed SOPHGO ISP/3A objects remain pinned binary inputs: relinking does not recompile those objects. Go uses its own compiler; the profile applies to its C/C++ interoperability code.
 
-   Why they differ from b7:
-   - **U-Boot and `fip.bin`.** b7's U-Boot was built from exactly these patches and defconfig with GNU Binutils 2.45.1; a rebuild reproduced it bit for bit. The platform build uses the single Buildroot toolchain (Binutils 2.47), which produces a different binary.
-   - **initramfs and `boot.sd`.** The initramfs is built from the Buildroot packages and compressed with the pinned zstd instead of gzip.
-   - **`depmod` indexes.** They contain the same entries as b7, but the modules are now listed in sorted order instead of directory order. `nanokvm-activate-kernel` runs `depmod` again on the device.
+Audit the effective compiler commands as well as the supplied flags:
 
-   A matching hash shows that the build is repeatable, not that these binaries boot. Boot-test them on a device before they are published.
+```sh
+python3 scripts/audit-kbuild-profile.py build/platform/kernel/build
+python3 scripts/audit-kbuild-profile.py build/platform/modules
+python3 scripts/audit-kbuild-profile.py build/platform/uboot/build --kind bootloader
+```
 
-On 2026-10-02, two clean builds ran at the same time. Each started from a fresh clone and an empty output directory, and the two directories had different paths. Each built the toolchain and every output: the toolchains took about 50 minutes with both builds running, the remaining steps 7 minutes. The two builds produced the same bytes for all 128 outputs, and `verify` matched every entry in both.
+The audit checks the last effective optimization, ISA and ABI options. Kernel vDSO objects retain Kbuild's explicit portable/CFI ISA choices and are reported separately; they still use `-O2` and C906 tuning. Kernel and bootloader builds do not enable floating-point or automatic vector code generation.
+
+APK signatures depend on the signing key; the root filesystem also depends on the current official Alpine 3.24 package versions. They are listed in `release/installed-packages.txt`. Existing installations with the optional C906 overlay require the documented stock-package migration; installing a NanoKVM application update alone does not replace every Alpine package.
+
+A matching hash verifies the expected build outputs, not hardware operation. Boot-test new U-Boot/FIT images, media capture and encoding, and Wi-Fi on a device before publishing. A passing build does not establish compatibility with hardware variants that were not available for testing.
 
 ## Corresponding source
 
-The binaries above contain GPL-2.0 code:
-- Linux and its modules;
-- U-Boot;
-- BusyBox, e2fsprogs, util-linux and f2fs-tools in the initramfs.
+The image contains GPL-licensed code:
+- Linux and its modules, U-Boot;
+- BusyBox, e2fsprogs, util-linux and f2fs-tools in the initramfs, and the BusyBox `devmem` applet;
+- the NanoKVM application (GPL-3.0);
+- Alpine packages.
 
-`platform/build.sh source` writes `build/platform/NanoKVM-OS-<version>-platform-source.tar.xz` after a build. Run it on a clean checkout. The archive contains:
-- every input from `sources.lock`;
+`platform/build.sh source` writes `build/platform/NanoKVM-OS-<version>-source.tar.xz` after a build. Run it on a clean checkout. The archive contains:
+- the GPL-licensed inputs from `sources.lock`: Buildroot, Linux, U-Boot, `osdrv`, the AIC8800 package, cryptodev, the Sipeed SDK paths and BusyBox;
 - the Buildroot downloads of the initramfs packages;
-- this directory, `firmware/buildroot` and `firmware/boards`;
-- the source commit and `SHA256SUMS`.
+- this repository at the release commit, the source commit and `SHA256SUMS`.
 
-Attach it to the GitHub release next to the image. The v2.0-b7 archive also contains util-linux 2.41.5 and `B7-INITRAMFS.txt`, because that initramfs was assembled before this build existed.
+The other inputs of `sources.lock` are not redistributed; see [docs/DISTRIBUTION.md](../docs/DISTRIBUTION.md). Attach the archive to the GitHub release next to the image. The v2.0-b7 archive (`NanoKVM-OS-v2.0-b7-platform-source.tar.xz`) covers the kernel, modules and boot images only; it also contains util-linux 2.41.5 and `B7-INITRAMFS.txt`, because that initramfs was assembled before this build existed.
 
 The first-stage firmware in `fip/base-fip.bin` is unchanged from the stock Sipeed NanoKVM firmware: FSBL/BL2 (BSD-3-Clause), OpenSBI 0.9 (BSD-2-Clause), and the SOPHGO DDR parameters and small-core loader. Its source is in [sipeed/LicheeRV-Nano-Build](https://github.com/sipeed/LicheeRV-Nano-Build) at the `sipeed-sdk` commit in `sources.lock` (`fsbl/`, `opensbi/`).
 
-Other components of the image:
-- **Alpine Linux 3.24 packages**: Alpine publishes their build recipes ([aports](https://gitlab.alpinelinux.org/alpine/aports)) and source archives. The installed versions are listed in `/lib/apk/db/installed` of each image.
-- **The NanoKVM application, web UI and packages** (GPL-3.0): this repository.
+Alpine publishes the build recipes ([aports](https://gitlab.alpinelinux.org/alpine/aports)) and source archives of its packages. The installed versions are listed in `/lib/apk/db/installed` of each image and in `release/installed-packages.txt`.
 
 ### Written offer
 

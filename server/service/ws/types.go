@@ -11,10 +11,13 @@ import (
 )
 
 type Manager struct {
-	controlMutex sync.Mutex // Serialize ownership changes and their notifications.
-	clients      map[*websocket.Conn]*Client
-	controller   *Client
-	mutex        sync.RWMutex
+	controlMutex    sync.Mutex // Serialize ownership changes and their notifications.
+	clients         map[*websocket.Conn]*Client
+	controller      *Client
+	externalLease   string
+	externalRelease func()
+	externalCleanup bool
+	mutex           sync.RWMutex
 }
 
 type Client struct {

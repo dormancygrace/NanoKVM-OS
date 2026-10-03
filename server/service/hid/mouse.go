@@ -50,6 +50,9 @@ func (h *Hid) mouseReports(queue <-chan QueuedReport, relativePath string, absol
 	for event := range queue {
 		event.Data = NormalizeMouseReport(event.Data)
 		execute = event.Execute
+		if event.Cleanup != nil {
+			execute = event.Cleanup
+		}
 		resetRelativeMouse = event.ResetRelativeMouse
 		resetAbsoluteMouse = event.ResetAbsoluteMouse
 

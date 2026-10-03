@@ -1,0 +1,84 @@
+package rustdesk
+
+import (
+	"encoding/binary"
+	"io"
+	"net"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"NanoKVM-Server/service/controlmode"
+	"NanoKVM-Server/service/hid"
+	"NanoKVM-Server/service/inputcontrol"
+	"NanoKVM-Server/service/stream"
+	"NanoKVM-Server/service/ws"
+)
+
+func TestMediaHeaderAndDiagnosticFrame(t *testing.T) {
+	frame := stream.VideoFrame{Data: []byte{1, 2, 3}, Result: 3, Timestamp: 100_000, Duration: 20 * time.Millisecond}
+	h := frameHeader(stream.VideoCodecH265, 1440, 2560, 7, frame)
+	if len(h) != 40 || string(h[:4]) != "OKVF" || h[4] != 1 || h[5] != 2 || h[6] != 1 ||
+		binary.BigEndian.Uint64(h[8:16]) != 7 || binary.BigEndian.Uint64(h[16:24]) != 100_000 ||
+		binary.BigEndian.Uint32(h[24:28]) != 20_000 || binary.BigEndian.Uint16(h[28:30]) != 1440 ||
+		binary.BigEndian.Uint16(h[30:32]) != 2560 || binary.BigEndian.Uint32(h[32:36]) != 3 {
+		t.Fatal(h)
+	}
+	a, b := net.Pipe()
+	defer b.Close()
+	go func() { defer a.Close(); writeMediaError(a, "codec conflicts with H.265") }()
+	packet, err := io.ReadAll(b)
+	if err != nil || packet[5] != 0 || string(packet[40:]) != "codec conflicts with H.265" ||
+		binary.BigEndian.Uint32(packet[32:36]) != uint32(len(packet)-40) {
+		t.Fatalf("%v %v", packet, err)
+	}
+}
+
+func TestAbsoluteWheelHeartbeatAndExpiry(t *testing.T) {
+	b := NewBridge()
+	id := strings.Repeat("a", 32)
+	s := &hidSession{id: id, touched: time.Now(), keyboard: make(chan hid.QueuedReport, 2), mouse: make(chan hid.QueuedReport, 2), manual: inputcontrol.NewManualSession(controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff), nil)}
+	if !ws.GetManager().AcquireExternalInput(id, s.close) {
+		t.Fatal("input unexpectedly occupied")
+	}
+	b.sessions[id] = s
+	t.Cleanup(b.Stop)
+	reports := make(chan []byte, 2)
+	s.workers.Add(1)
+	go func() {
+		defer s.workers.Done()
+		for e := range s.mouse {
+			err := e.Execute(func() error { reports <- append([]byte(nil), e.Data...); return nil })
+			e.Complete(err == nil)
+		}
+	}()
+	req := httptest.NewRequest("POST", "/api/hid/mouse/absolute", strings.NewReader("{\"buttons\":1,\"x\":12345,\"y\":23456,\"wheel\":-1}"))
+	req.Header.Set("X-NanoKVM-Session", id)
+	response := httptest.NewRecorder()
+	b.serveHID(response, req)
+	if response.Code != 204 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	report := <-reports
+	if len(report) != 7 || report[0] != 1 || report[5] != 255 || binary.LittleEndian.Uint16(report[1:3]) != 12345 ||
+		binary.LittleEndian.Uint16(report[3:5]) != 23456 {
+		t.Fatal(report)
+	}
+	s.mu.Lock()
+	s.touched = time.Now().Add(-11 * time.Second)
+	s.mu.Unlock()
+	b.expire()
+	if !s.closed.Load() || len(b.sessions) != 0 {
+		t.Fatal("expired input was not released")
+	}
+	// A viewing-only heartbeat must not acquire input or open HID devices.
+	req = httptest.NewRequest("POST", "/api/hid/heartbeat", strings.NewReader("{}"))
+	req.Header.Set("X-NanoKVM-Session", strings.Repeat("b", 32))
+	response = httptest.NewRecorder()
+	b.serveHID(response, req)
+	if response.Code != 204 || len(b.sessions) != 0 {
+		t.Fatal("heartbeat claimed input")
+	}
+}

@@ -1,0 +1,33 @@
+#!/sbin/openrc-run
+description="RustDesk remote HDMI and USB HID endpoint"
+command="/usr/bin/nanokvm-rustdesk"
+command_args="--config /etc/nanokvm-rustdesk/config.json"
+supervisor="supervise-daemon"
+respawn_delay=5
+respawn_max=5
+respawn_period=60
+output_log="/var/log/nanokvm-rustdesk.log"
+error_log="/var/log/nanokvm-rustdesk.log"
+
+depend() {
+    need net nanokvm-app
+    after nanokvm-usb
+}
+
+start_pre() {
+    checkpath --directory --mode 0700 --owner root:root /run/nanokvm-rustdesk /etc/nanokvm-rustdesk
+    [ -r /etc/nanokvm-rustdesk/config.json ] || {
+        eerror "Configure RustDesk in Software > Add-ons before starting"
+        return 1
+    }
+    "$command" --check $command_args || return 1
+    count=0
+    while [ ! -S /run/nanokvm-rustdesk/media.sock ] || [ ! -S /run/nanokvm-rustdesk/control.sock ]; do
+        count=$((count+1))
+        [ "$count" -lt 10 ] || { eerror "NanoKVM RustDesk bridge is unavailable; update nanokvm-app"; return 1; }
+        sleep 1
+    done
+}
+stop_post() {
+    rm -f /run/nanokvm-rustdesk/status.json
+}

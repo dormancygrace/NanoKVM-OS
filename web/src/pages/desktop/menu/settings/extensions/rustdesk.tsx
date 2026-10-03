@@ -25,7 +25,6 @@ import {
   type RustDeskConfig,
   type RustDeskStatus
 } from '@/api/rustdesk';
-import { getBaseUrl } from '@/lib/service';
 import { pollWhileVisible } from '@/lib/visible-poll';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk';
 import { RustDeskIcon } from '@/components/icons/rustdesk';
@@ -272,8 +271,10 @@ export const RustDeskControls = () => {
             </Form>
           </ConfigProvider>
         )}
-        {status?.installed && (
-          <a href={getBaseUrl('http') + '/api/addons/rustdesk/source'}>{l.source} · AGPL-3.0</a>
+        {status?.installed && status.source_url && (
+          <a href={status.source_url} target="_blank" rel="noopener noreferrer">
+            {l.source} · AGPL-3.0
+          </a>
         )}
       </Space>
     </div>

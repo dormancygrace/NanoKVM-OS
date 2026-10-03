@@ -13,6 +13,8 @@
   "features": {
     "transport_settings": true,
     "direct_tcp_by_id": true,
-    "audio": true
+    "audio": true,
+    "audio_settings": true,
+    "usb_defaults": true
   }
 }

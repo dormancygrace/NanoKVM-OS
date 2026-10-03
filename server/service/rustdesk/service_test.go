@@ -117,6 +117,42 @@ func TestDisablePreservesPasswordWithoutAbsentRunlevelFailure(t *testing.T) {
 	}
 }
 
+func TestRemoteAccessPreparationFailurePreservesSettingsAndRunningService(t *testing.T) {
+	temporaryConfig(t)
+	current := defaultConfig()
+	current.Password = "stored-pass"
+	if err := writeConfig(current); err != nil {
+		t.Fatal(err)
+	}
+	s := NewService(NewBridge())
+	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if name != "apk" {
+			t.Fatal("service changed before USB preparation succeeded")
+		}
+		return nil, nil
+	}
+	called := false
+	s.ensureUSB = func(audio bool) error {
+		called = true
+		if !audio {
+			t.Error("sound must default to enabled")
+		}
+		return errors.New("endpoint budget exceeded")
+	}
+	candidate := current
+	candidate.Enabled = true
+	if err := s.Configure(candidate); err == nil || !strings.Contains(err.Error(), "USB") {
+		t.Fatalf("error: %v", err)
+	}
+	if !called {
+		t.Fatal("enabled remote access did not prepare USB")
+	}
+	got, err := readConfig()
+	if err != nil || got.Enabled {
+		t.Fatal("failed preparation changed configuration")
+	}
+}
+
 func TestPackageActionsUseFixedArgv(t *testing.T) {
 	s := NewService(NewBridge())
 	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {

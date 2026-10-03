@@ -36,6 +36,23 @@ func TestMediaHeaderAndDiagnosticFrame(t *testing.T) {
 	}
 }
 
+func TestUSBPreparationUsesDedicatedCallbackWithoutInputLease(t *testing.T) {
+	b := NewBridge()
+	calls := 0
+	b.prepareUSB = func() error { calls++; return nil }
+	w := httptest.NewRecorder()
+	b.serveHID(w, httptest.NewRequest("POST", "/api/hid/prepare", nil))
+	if w.Code != 204 || calls != 1 || len(b.sessions) != 0 {
+		t.Fatalf("prepare: %d %d %d", w.Code, calls, len(b.sessions))
+	}
+	b.prepareUSB = nil
+	w = httptest.NewRecorder()
+	b.serveHID(w, httptest.NewRequest("POST", "/api/hid/prepare", nil))
+	if w.Code != 503 {
+		t.Fatal("missing preparation callback accepted")
+	}
+}
+
 func TestAbsoluteWheelHeartbeatAndExpiry(t *testing.T) {
 	b := NewBridge()
 	id := strings.Repeat("a", 32)

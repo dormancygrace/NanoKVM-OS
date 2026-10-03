@@ -57,6 +57,9 @@ start_usb_dev(){
 
     echo 0x0200 > bcdUSB
     echo 0 > os_desc/use
+    if [ -w os_desc/container_id ]; then
+        echo 00000000-0000-0000-0000-000000000000 > os_desc/container_id || return 1
+    fi
 
     if [ -e /boot/usb.acm ]
     then
@@ -157,6 +160,19 @@ start_usb_dev(){
         ln -s functions/hid.GS1 configs/c.1
     fi
 
+    # Windows associates this digitizer with the HDMI display using ContainerID.
+    # Default keeps the ordinary absolute mouse descriptor for other hosts/BIOS.
+    if [ -e /boot/usb.pointer_windows ]; then
+        [ -w os_desc/container_id ] && [ -s /etc/kvm/usb_container_id ] || return 1
+        cat /etc/kvm/usb_container_id > os_desc/container_id || return 1
+        echo 1 > os_desc/use
+        echo 0xCD > os_desc/b_vendor_code
+        echo MSFT100 > os_desc/qw_sign
+        echo 0x0200 > bcdUSB
+        if [ -e /boot/usb.acm ]; then echo 0x0711 > bcdDevice;
+        else echo 0x0710 > bcdDevice; fi
+    fi
+
     # touchpad
     mkdir -p functions/hid.GS2
     echo 0 > functions/hid.GS2/subclass
@@ -164,6 +180,11 @@ start_usb_dev(){
     echo 2 > functions/hid.GS2/protocol
     echo 7 > functions/hid.GS2/report_length
     echo -ne \\x05\\x01\\x09\\x02\\xa1\\x01\\x09\\x01\\xa1\\x00\\x05\\x09\\x19\\x01\\x29\\x05\\x15\\x00\\x25\\x01\\x95\\x05\\x75\\x01\\x81\\x02\\x95\\x01\\x75\\x03\\x81\\x01\\x05\\x01\\x09\\x30\\x09\\x31\\x15\\x00\\x26\\xff\\x7f\\x35\\x00\\x46\\xff\\x7f\\x75\\x10\\x95\\x02\\x81\\x02\\x05\\x01\\x09\\x38\\x15\\x81\\x25\\x7f\\x35\\x00\\x45\\x00\\x75\\x08\\x95\\x01\\x81\\x06\\x05\\x0c\\x0a\\x38\\x02\\x15\\x81\\x25\\x7f\\x75\\x08\\x95\\x01\\x81\\x06\\xc0\\xc0 > functions/hid.GS2/report_desc
+    if [ -e /boot/usb.pointer_windows ]; then
+        echo 0 > functions/hid.GS2/protocol
+        echo 8 > functions/hid.GS2/report_length
+        printf '\005\015\011\002\241\001\205\001\011\040\241\000\011\102\011\104\011\062\025\000\045\001\165\001\225\003\201\002\165\005\225\001\201\003\005\001\011\060\011\061\025\000\046\377\177\065\000\106\020\047\125\015\145\023\165\020\225\002\201\002\005\015\011\060\025\000\046\000\004\065\000\105\000\125\000\145\000\165\020\225\001\201\002\300\300\005\001\011\002\241\001\205\002\011\001\241\000\005\011\031\001\051\005\025\000\045\001\165\001\225\005\201\002\165\003\225\001\201\003\005\001\011\060\011\061\011\070\025\201\045\177\165\010\225\003\201\006\005\014\012\070\002\025\201\045\177\165\010\225\001\201\006\300\300' > functions/hid.GS2/report_desc || return 1
+    fi
     if [ ! -e /boot/disable_hid ] && [ ! -e /boot/usb.disable_absolute ]; then
         ln -s functions/hid.GS2 configs/c.1
     fi

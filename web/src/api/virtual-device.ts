@@ -9,11 +9,23 @@ export function getVirtualDevice() {
 }
 
 export async function setUsbComposition(composition: UsbComposition, revision: string) {
-  const { keyboard, relative, absolute, network, disk, serial, audio, mode } = composition;
+  const { keyboard, relative, absolute, network, disk, serial, audio, mode, pointerProfile } =
+    composition;
   const response = await http.request({
     method: 'put',
     url: '/api/vm/device/virtual',
-    data: { keyboard, relative, absolute, network, disk, serial, audio, mode, revision }
+    data: {
+      keyboard,
+      relative,
+      absolute,
+      network,
+      disk,
+      serial,
+      audio,
+      mode,
+      pointerProfile,
+      revision
+    }
   });
   if (response.code === 0) window.dispatchEvent(new Event(usbCompositionChangedEvent));
   return response;

@@ -8,10 +8,14 @@ export const usbDevices = [
   'audio'
 ] as const;
 export type UsbDevice = (typeof usbDevices)[number];
-export type UsbComposition = Record<UsbDevice, boolean> & { mode: 'normal' | 'hid-only' };
+export type UsbComposition = Record<UsbDevice, boolean> & {
+  mode: 'normal' | 'hid-only';
+  pointerProfile?: 'default' | 'windows';
+};
 export type EndpointCost = { in: number; out: number };
 export type UsbStatus = UsbComposition & {
   hid: boolean;
+  windowsPointerSupported?: boolean;
   revision?: string;
   budget: { inUsed: number; outUsed: number; inLimit: number; outLimit: number };
   costs: Record<UsbDevice, EndpointCost>;
@@ -65,12 +69,21 @@ export const usbPresets: { id: string; composition: UsbComposition }[] = [
 ];
 
 export function sameComposition(a: UsbComposition, b: UsbComposition) {
-  return a.mode === b.mode && usbDevices.every((name) => a[name] === b[name]);
+  return (
+    a.mode === b.mode &&
+    (a.pointerProfile ?? 'default') === (b.pointerProfile ?? 'default') &&
+    usbDevices.every((name) => a[name] === b[name])
+  );
 }
 
 export function matchingPreset(composition: UsbComposition) {
   return (
-    usbPresets.find((preset) => sameComposition(preset.composition, composition))?.id ?? 'custom'
+    usbPresets.find((preset) =>
+      sameComposition(
+        { ...preset.composition, pointerProfile: composition.pointerProfile },
+        composition
+      )
+    )?.id ?? 'custom'
   );
 }
 

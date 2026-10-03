@@ -66,19 +66,21 @@ type UploadAutostartReq struct {
 }
 
 type GetVirtualDeviceRsp struct {
-	Keyboard bool                       `json:"keyboard"`
-	Relative bool                       `json:"relative"`
-	Absolute bool                       `json:"absolute"`
-	Revision string                     `json:"revision"`
-	Network  bool                       `json:"network"`
-	Media    bool                       `json:"media"`
-	Disk     bool                       `json:"disk"`
-	Serial   bool                       `json:"serial"`
-	Audio    bool                       `json:"audio"`
-	HID      bool                       `json:"hid"`
-	Mode     string                     `json:"mode"`
-	Budget   USBEndpointBudget          `json:"budget"`
-	Costs    map[string]USBEndpointCost `json:"costs"`
+	PointerProfile          string                     `json:"pointerProfile"`
+	WindowsPointerSupported bool                       `json:"windowsPointerSupported"`
+	Keyboard                bool                       `json:"keyboard"`
+	Relative                bool                       `json:"relative"`
+	Absolute                bool                       `json:"absolute"`
+	Revision                string                     `json:"revision"`
+	Network                 bool                       `json:"network"`
+	Media                   bool                       `json:"media"`
+	Disk                    bool                       `json:"disk"`
+	Serial                  bool                       `json:"serial"`
+	Audio                   bool                       `json:"audio"`
+	HID                     bool                       `json:"hid"`
+	Mode                    string                     `json:"mode"`
+	Budget                  USBEndpointBudget          `json:"budget"`
+	Costs                   map[string]USBEndpointCost `json:"costs"`
 }
 
 type USBEndpointBudget struct {
@@ -99,15 +101,16 @@ type UpdateVirtualDeviceReq struct {
 
 // Pointers distinguish an explicit false from an accidentally omitted field.
 type SetUSBCompositionReq struct {
-	Keyboard *bool  `json:"keyboard" validate:"required"`
-	Relative *bool  `json:"relative" validate:"required"`
-	Absolute *bool  `json:"absolute" validate:"required"`
-	Network  *bool  `json:"network" validate:"required"`
-	Disk     *bool  `json:"disk" validate:"required"`
-	Serial   *bool  `json:"serial" validate:"required"`
-	Audio    *bool  `json:"audio" validate:"required"`
-	Mode     string `json:"mode" validate:"required,oneof=normal hid-only"`
-	Revision string `json:"revision" validate:"required"`
+	PointerProfile string `json:"pointerProfile" validate:"omitempty,oneof=default windows"`
+	Keyboard       *bool  `json:"keyboard" validate:"required"`
+	Relative       *bool  `json:"relative" validate:"required"`
+	Absolute       *bool  `json:"absolute" validate:"required"`
+	Network        *bool  `json:"network" validate:"required"`
+	Disk           *bool  `json:"disk" validate:"required"`
+	Serial         *bool  `json:"serial" validate:"required"`
+	Audio          *bool  `json:"audio" validate:"required"`
+	Mode           string `json:"mode" validate:"required,oneof=normal hid-only"`
+	Revision       string `json:"revision" validate:"required"`
 }
 
 type UpdateVirtualDeviceRsp struct {

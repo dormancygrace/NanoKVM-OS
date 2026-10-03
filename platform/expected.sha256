@@ -1,14 +1,6 @@
 # Every output of build.sh, relative to OUTPUT/images.
-# Verify rejects missing or unlisted files as well as hash differences.
-# C906/T-Head -O2; portrait and landscape use the same rate policy.
-
-# Platform binaries
+# C906/T-Head -O2; explicit shared encoder switching.
 7c52322cbd01506e4d4f7338c6418e00f6d7a68e538250fdc18f4b54dd9e421a  Image
-c5958e0849741bc6ae9bb4053c3bc96f2ffb40fbdf477bd3fe8c41173e5e5f2a  fip.bin
-5c761fcfa9b5fa0b6a01eb21cc144c82b00c04efb32f86e5965c2d6b61925c21  initramfs.cpio.zst
-bff4144429aea728fc2ac1fa19df73b8f95f231d5842f5a841005222530cd883  u-boot.bin
-
-# boot
 31006c25ec99d6d32977c189cb324c5027d49e30ff83ed6a0a282fe2a87d161b  boot/alpha-fixed.sd
 99bf2f9779537c64a89ac365a7d5b4c9fe28394c37e4fa3764fb3a9e8a3bdf71  boot/alpha-fixed.sha256
 e44eb66ba7c75b9a8bab9e2575a29c2fba193bbf2bc21ed949aa707e1f14ee29  boot/alpha.sd
@@ -30,8 +22,6 @@ f9b06ed632484cf864ed0c9e09a20d65cec314e692e3a8fe1adca12553c2a6d0  boot/pcie-fixe
 76377728783bcf86cf06f8796e8ee2ccb53b631b27b3e4a001d3a214f22de8f7  boot/pcie-fixed.sha256
 d4b25d26da7c89db81b7bd15da9766008c192c714449f25703a81f568c056904  boot/pcie.sd
 d2cda68ba26b3abefc15a0a11f0739d77126798f65a27a698573b3f7f063a946  boot/pcie.sha256
-
-# dtb
 db3ea46e7a8c8d6bcfec7f3bff854b6a5cf85db274765afe4d3898b0e190bd99  dtb/alpha-fixed.dtb
 c3942c24a81ebf4452ef6ce9df1853dabeb1b847dc433f4f87c0ac13e48aba4f  dtb/alpha.dtb
 2d4dc1a7184ae68a1673bc11fe442c60adb7005bd39281621b323e02bfabe943  dtb/beta-fixed.dtb
@@ -42,8 +32,7 @@ a1a288655491987e62297efd3d79958e18ca496bfb3709a228f01d7b4f1fef10  dtb/detect.dtb
 ad06fa5843fa889fbe869773ad87883b3baa8702d3eacfa7a3c2677b962fa6f0  dtb/lite.dtb
 9617e40e0a49a0e0217f6c7c01ff90c461deae8f6e843a554d946bd81e058569  dtb/pcie-fixed.dtb
 499fa386da2bfbab26a26ea7d6f8f1d368e309a3d3420b6504222388edd918b5  dtb/pcie.dtb
-
-# firmware
+c5958e0849741bc6ae9bb4053c3bc96f2ffb40fbdf477bd3fe8c41173e5e5f2a  fip.bin
 24070680a4ce6c9541bf8dcf4bc72534d596e0493743bba62066cc371be7ce2d  firmware/fw_vcodec/coda980.bin
 90b5f8f7925369255af6349c3bb89cb1c28219b879186257460693dc66ab3457  firmware/fw_vcodec/monet.bin
 00c6e0a326ba67d7dc2fb28079e5f8e53aa2e4abe59603e5fb2b43db503e2324  firmware/lib/firmware/aic8800_sdio/aic8800D80N/aic_powerlimit_8800d80n.txt
@@ -136,8 +125,7 @@ d9e164c90fd76f767bb7f5d5041a1e0f7b69096d7a408ff605920f909207ee14  firmware/lib/f
 50332f0db09b8bcc719235ec4985c27377f2cc2f42abb7b5dcf951866c5a888a  firmware/lib/firmware/regulatory.db.p7s
 0dcfccac870fea3b920ec3b67f63f86869bda2f68d2263bdcb9e6b45b1a2f229  firmware/licenses/aic8800-copyright
 678b0df753c86198fc496d1f1033429bbd57f101472132ee7eaaf9f5e0a7fae1  firmware/licenses/wireless-regdb-LICENSE
-
-# lib
+5c761fcfa9b5fa0b6a01eb21cc144c82b00c04efb32f86e5965c2d6b61925c21  initramfs.cpio.zst
 a123cdbbd6b4b18ff437a1c46122e0080202dc2ec199b809e1269965045408ec  lib/modules/7.2.6-nanokvm-os-r1/extra/8733bs.ko
 20bfa691a3b46bc7141115c27ddcd3d9f522611e7e7d6b79bb979d076c353f09  lib/modules/7.2.6-nanokvm-os-r1/extra/aic8800_bsp.ko
 fa21245d2e776a1738bda27b9c558f2517e1234484fd9cc0ab8129bcc8da5644  lib/modules/7.2.6-nanokvm-os-r1/extra/aic8800_fdrv.ko
@@ -231,8 +219,6 @@ ac2de753255c506934be29e69261f1485f51ee9cf9c2bf467bcc0c4cf95f8713  lib/modules/7.
 f1d15e1685156b8cbc88dcf99721a5aeafc424d21715637880f1d5437a0b03ff  lib/modules/7.2.6-nanokvm-os-r1/modules.symbols
 aa312b60409d5c5f3868dde9d9327ba3c8dd4db9b2de93db817f8b554937ea7e  lib/modules/7.2.6-nanokvm-os-r1/modules.symbols.bin
 a1fffe1059d8150b5d402b3f284f507025a8d4b5881810cb17b3fda8b8ab9304  lib/modules/7.2.6-nanokvm-os-r1/modules.weakdep
-
-# native
 53e3a0ac3f636bb4571a881e1300466b27a550a8f92dda16a1c949206f1b4a8e  native/libae.so
 d88814bbb68d4eadd324459166ff208f06b2a535362cf0871aca8a837deaee94  native/libaf.so
 e7b485ea28f93e202ad46d2af7036cb78b1212e9e63c50288041255d48b107a7  native/libawb.so
@@ -252,16 +238,10 @@ e45834fea2b1d2a7a4b46af3b010c915b769b87b6f32a7816d32b8f88a9d8e1a  native/libvdec
 19118af86ffae7ce33bd0e0e4005812f9f16606eb241aa56cee9a3006767a858  native/libvi.so
 369682a86b6b4548f8cdb987342a022f79038eedd7f47a7b9cbc67429a358eb2  native/libvo.so
 a13df92024a7de3320f1fb109dd3ced4f7b54b09f08b66b4ead807bcbd665d45  native/libvpss.so
-
-# server
-83fd92e97219c1cfc6320e0210103d9693efd8ad43b3ddd6cd9d2a444b30c3ab  server/NanoKVM-Server
+88fdbeac9f0a7a26108bb9f9ef652efcfa4296834961863eda0c0137fa362dfe  server/NanoKVM-Server
 9d94f8377b639842a77af97e43a8f3e6ce2b9e87862619f33687632622e93e48  server/nkos-apply-updates
 1fbd905fab9cd46d2f550c003dc4a1dfca96fb50286d2c46a2de12e401f7b9f4  server/nkos-update
-
-# system
 6dce13d5246012662f58f00a6cccbda3fa92e04454616350f09a8e75d0091275  system/kvm_system
-
-# tools
 bbfc9843646d483c334664f651c208b9839626891d8f17604db2146962f43548  tools/busybox-LICENSE
 fc838e52cd115f72989338efcf194870d3b30825a1feb5e3944a371d80348bd6  tools/devmem
 ba66e441dc6fb8902f02b8b9a2163689a7983854b9e9487685ec9b467e685d09  tools/edid/NanoKVM-QHD30.bin
@@ -284,8 +264,7 @@ a9cc321bcc9ad5763c364b161dcedf10ca79c69b871da13e77a8ad4bbbdfb803  tools/usb-audi
 01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551  tools/usb-audio/opus-COPYING
 1401e1769d37424806c1f453124a7220b7fe544c82cdc68d3137c64451baf61e  tools/usb-audio/tinyalsa-LICENSE
 1d154038e4a8155493995c5b2916af6d4d6225d393e4cc37653434af90319d5c  tools/usb-audio-capture
-
-# web
+bff4144429aea728fc2ac1fa19df73b8f95f231d5842f5a841005222530cd883  u-boot.bin
 d68e8c47241a006af4162c2a922c05f83426c58bfb2cbcd877dfc38a3ae77c5a  web/assets/ActionButton-CR_gFDfD.js
 b7c4e8baa911ce9fb0927d7cfe7dc655dfbd5964eaf8f7d705160c4653827f57  web/assets/Addon-DuUvONWG.js
 18785a8ca39bef1bd0f566b0bd3948e8228546477b1f31cd91bd257c506f56bf  web/assets/CheckOutlined-DEjMQ_Tq.js
@@ -331,7 +310,7 @@ b9fd31522ee519fc5092a24e536e84ae421d0f155b99f16fe07569d55288689f  web/assets/cre
 ce99242a7fddbbb3db57c7db5a199836828c0e9d7a6df790a73fff85f3fb9f65  web/assets/date-time-C-u5DRxf.js
 94554068d4e9877ade548fbff98b146f6fed7bed2f0e3d463328237e6cce0f01  web/assets/de-DkWCDSG5.js
 29700468bc285c34fa797411dc75ca57a63f5881b3ab418b8f9c766474c61cb2  web/assets/desktop-BCb6RBBA.css
-ce67f9a99bc564a60e38f50e3114fff7b8f6b8881de4e01a5ba6cd0c72966ec8  web/assets/desktop-CVjltma6.js
+e8aab0310bd38a11561da6ae12ed7722ed1ea23d085a5ca31e7bf7338203646a  web/assets/desktop-D-VhPsBv.js
 c1f5c92614ab9ef11495ddc839fc76f39deba76bca20774a4c9e29d84920f21b  web/assets/device-vloLmtwo.js
 b6dd25250e6c1e88c35b182130983797057f7889e9331d917001d1beda138968  web/assets/diagnostics-I8A8sfDW.js
 b872871b2454af4126da0e718780c1011c62cc526513389644bf277bccb89265  web/assets/direct.worker-OEgV2J-Z.js
@@ -355,7 +334,7 @@ b6746b80a0fb56453bf988fb540db7e0b500ab321e99c343940cb5f537bab829  web/assets/fr-
 7cf54bab06a745da333970c1ca87711fb03967347ee2b318b7792a0a6691c9fb  web/assets/hu-DlOzFSoH.js
 b4bbe88afc18679ceccccd03664410aa8d668787a5e69ee83cb602c3ca13bf93  web/assets/icon-base-D0MfDhA0.js
 53063ff8ed42bec8c03b3fbe273beebadac299c82c5cda7c0e9fa6d0fa84349b  web/assets/id-CZjhHYgA.js
-a92f72acd1a347df677628ee667d9536cac8d0118e448d6ecffab2b3c1682d23  web/assets/index-CQByCAkR.js
+d876ca8f2d1be4bd1bf0949be97ec9f35f876ae3556230e90e0ea334eda06bb7  web/assets/index-0Ef8IDbz.js
 450ec0c06f624f86c8629c9c4e89556dc2473b6d6cf78ae2deccffab44c8555e  web/assets/index-Dn9djHF4.css
 96204d9eb3091810ea32dc4796a5b3b714e91a0cc0574bf9d066aa9c2bff7307  web/assets/index.esm-DvsKJRK-.js
 0331365157c00bdf6682eae6333d825de24767e802b86b0ff6413aec10b6d657  web/assets/input-BS_sHr3S.js
@@ -440,8 +419,8 @@ a0e1e81308f389421ab63047938c55c16ca9cd8afb82de76b0b097bc2b2c5f1b  web/assets/uti
 9aa4102b75d1cd3a8f48235f8ddf9a5759dbaf2866d665d49f4afb931eed7eb0  web/assets/version-BlrQyO3h.js
 763b75d4dab631bb15460e9444dec8637d98e1f34f75abb93c006b362d26a334  web/assets/version-Dc_KeRYG.js
 b1bc3cfa9e1f2affced4e87d88fa1c7382afdbc3fa519ab566615170746a2e52  web/assets/vi-CSS8LojI.js
-338f43174db66e85659daab70530e49dfe2ccd6efc6b18740cac6a3c009d1537  web/assets/video-DgOnFy4g.js
-d10fcbecc56f426be937d817dcd7255998612cefc7aed930720c7f5a67adc2d4  web/assets/video-policy-D_PpD5Sy.js
+24472d7fd57f804980408fe0f8d3101467d8000b370078b5fdf21217615977e5  web/assets/video-Czn_Eg0Q.js
+62bef19215c801af18152078e109fd9ac4c95bf1924726427cf6e5b9a1667553  web/assets/video-policy-DYa5YIXM.js
 a3cf240cf908d9ad1284062c91504dafac5b51784f2b65c1f20759041e14b09a  web/assets/virtual-keyboard-B4fyNG4Q.js
 12e4472f9fa30bc3b681c3a5bd49759e363a7cddbf4c10f0ed8da640919f75ee  web/assets/virtual-keyboard-DoHGYJj7.css
 0bc8dbb930b63f2cef427b5d138928d5d69ec458fed92b04dc7cb4f73f9b5729  web/assets/visible-poll-CjyqbgSV.js
@@ -455,7 +434,7 @@ aa4f0a2453eabc5f13ff9e4f83ddeb2a62fb52fcfb6a8c542d1ba914d05133ba  web/assets/x-B
 7e9afaaf25d603628d678c916e9170fcc1858d3760872f702a17ced1de528890  web/assets/zh-Beex-suj.js
 a84593ebc9c3d54b84459bf70cd96429c62ebdea5bdf5dc5d25b46cd23cc3b7d  web/assets/zh_tw-DaCJA7oe.js
 7c148d1e86bc0dcd5c6aee65253cd4bc250d74aeea1988c4ed099c1722ca0442  web/assets/zoom-qVLFOr-a.js
-85fe55d165c334714c1647a46f6f83455628ff2f0b391998cb1d36928d042e8e  web/index.html
+653cd3e2869432d68b2aac6d4e70c54442755526716bc06ceaaa2e5c5016ba01  web/index.html
 da5f34398fcdec8c6b9098981cf41f398775cd997753ce95a994019190c11f8f  web/mockServiceWorker.js
 5d9c5529060f34690d7955b850e80b9d6acd507a67aff3c58731b3abb8f84476  web/nanokvm-os-connection-full.svg
 cb73ed110f43200464b7525a4471b9b9cb0a0c5fdb2b09acf24abab5d66638dc  web/nanokvm-os-connection.svg

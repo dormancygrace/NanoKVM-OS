@@ -93,7 +93,8 @@ export const Desktop = () => {
   const [encoderError, setEncoderError] = useState<string | null>(null);
   const [joinAttempt, setJoinAttempt] = useState(0);
   const joinRetries = useRef(0);
-  const onEncoderConflict = useCallback(() => {
+  const onEncoderConflict = useCallback((reconfigured = false) => {
+    if (reconfigured) joinRetries.current = 0;
     // Handle a simultaneous join between the state read and subscription,
     // without page reloads or an unbounded reconnect loop.
     if (joinRetries.current >= 2) return false;
@@ -137,7 +138,7 @@ export const Desktop = () => {
       const rsp = await getEncoderState();
       if (!active) return;
       if (rsp.code !== 0) throw new Error('encoder-state-failed');
-      const codec = rsp.data?.active ? rsp.data.codec : undefined;
+      const codec = rsp.data?.active || rsp.data?.selected ? rsp.data.codec : undefined;
       if (codec !== undefined && codec !== 'h264' && codec !== 'h265') {
         throw new Error('encoder-state-failed');
       }

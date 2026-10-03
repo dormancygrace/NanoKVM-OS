@@ -31,7 +31,11 @@ const parseSignalingData = <T,>(data?: string): T | null => {
   return JSON.parse(data) as T;
 };
 
-export const H264Webrtc = ({ onEncoderConflict }: { onEncoderConflict: () => boolean }) => {
+export const H264Webrtc = ({
+  onEncoderConflict
+}: {
+  onEncoderConflict: (reconfigured?: boolean) => boolean;
+}) => {
   const { t } = useTranslation();
   const mouseStyle = useAtomValue(mouseStyleAtom);
   const setScreenshotSource = useSetAtom(screenshotSourceAtom);
@@ -286,7 +290,8 @@ export const H264Webrtc = ({ onEncoderConflict }: { onEncoderConflict: () => boo
             setIsLoading(false);
             if (msg.data) console.error('WebRTC video stream rejected:', msg.data);
             const qhdBlocked = msg.data === 'qhd-h265-webrtc-disabled';
-            const retryingJoin = !qhdBlocked && onEncoderConflict();
+            const retryingJoin =
+              !qhdBlocked && onEncoderConflict(msg.data === 'encoder-reconfigured');
             if (!retryingJoin)
               notificationApi.error({
                 key: WEBRTC_CONNECTION_FAILED_NOTIFICATION_KEY,

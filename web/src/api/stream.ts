@@ -20,3 +20,8 @@ export function stopFrameDetect(duration: number) {
   };
   return http.post('/api/stream/mjpeg/detect/stop', data);
 }
+
+// Only an explicit user action may replace the shared encoder codec.
+export function selectEncoderCodec(codec: 'h264' | 'h265') {
+  return http.post('/api/stream/state', { codec });
+}

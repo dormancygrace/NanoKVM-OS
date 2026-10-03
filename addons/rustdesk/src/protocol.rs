@@ -229,6 +229,8 @@ pub struct SupportedDecoding {
 
 #[derive(Clone, PartialEq, ProstMessage)]
 pub struct OptionMessage {
+    #[prost(int32, tag = "7")]
+    pub disable_audio: i32,
     #[prost(message, optional, tag = "10")]
     pub supported_decoding: Option<SupportedDecoding>,
     #[prost(int32, tag = "11")]
@@ -379,15 +381,40 @@ pub enum ControlKey {
 
 #[derive(Clone, PartialEq, ProstMessage)]
 pub struct Misc {
-    #[prost(oneof = "misc::Union", tags = "7,9")]
+    #[prost(oneof = "misc::Union", tags = "6,7,8,9")]
     pub union: Option<misc::Union>,
 }
+
+#[derive(Clone, PartialEq, ProstMessage)]
+pub struct AudioFormat {
+    #[prost(uint32, tag = "1")]
+    pub sample_rate: u32,
+    #[prost(uint32, tag = "2")]
+    pub channels: u32,
+}
+#[derive(Clone, PartialEq, ProstMessage)]
+pub struct AudioFrame {
+    #[prost(bytes = "bytes", tag = "1")]
+    pub data: bytes::Bytes,
+}
+#[derive(Clone, PartialEq, ProstMessage)]
+pub struct PermissionInfo {
+    // message.proto PermissionInfo.Audio = 3 (rendezvous audio permission = 4).
+    #[prost(int32, tag = "1")]
+    pub permission: i32,
+    #[prost(bool, tag = "2")]
+    pub enabled: bool,
+}
 pub mod misc {
-    use super::{Oneof, OptionMessage};
+    use super::{AudioFormat, Oneof, OptionMessage, PermissionInfo};
     #[derive(Clone, PartialEq, Oneof)]
     pub enum Union {
+        #[prost(message, tag = "6")]
+        PermissionInfo(PermissionInfo),
         #[prost(message, tag = "7")]
         Option(OptionMessage),
+        #[prost(message, tag = "8")]
+        AudioFormat(AudioFormat),
         #[prost(string, tag = "9")]
         CloseReason(String),
     }
@@ -395,14 +422,14 @@ pub mod misc {
 
 #[derive(Clone, PartialEq, ProstMessage)]
 pub struct Message {
-    #[prost(oneof = "message::Union", tags = "3, 4, 5, 6, 7, 8, 9, 10, 15,19")]
+    #[prost(oneof = "message::Union", tags = "3, 4, 5, 6, 7, 8, 9, 10, 11, 15,19")]
     pub union: Option<message::Union>,
 }
 
 pub mod message {
     use super::{
-        Hash, KeyEvent, LoginRequest, LoginResponse, Misc, MouseEvent, Oneof, PublicKey, SignedId,
-        TestDelay, VideoFrame,
+        AudioFrame, Hash, KeyEvent, LoginRequest, LoginResponse, Misc, MouseEvent, Oneof,
+        PublicKey, SignedId, TestDelay, VideoFrame,
     };
 
     #[derive(Clone, PartialEq, Oneof)]
@@ -423,6 +450,8 @@ pub mod message {
         Hash(Hash),
         #[prost(message, tag = "10")]
         MouseEvent(MouseEvent),
+        #[prost(message, tag = "11")]
+        AudioFrame(AudioFrame),
         #[prost(message, tag = "15")]
         KeyEvent(KeyEvent),
         #[prost(message, tag = "19")]
@@ -511,6 +540,13 @@ pub enum RegisterPkResult {
 pub struct ControlPermissions {
     #[prost(uint64, tag = "1")]
     pub permissions: u64,
+}
+impl ControlPermissions {
+    // Canonical 1.5 permissions use two bits per enum value, not a one-bit mask.
+    // 0/not set and 3/invalid defer to our local policy; 1 denies, 2 permits.
+    pub fn allows(&self, index: u32) -> bool {
+        index < 32 && ((self.permissions >> (index * 2)) & 3) != 1
+    }
 }
 #[derive(Clone, PartialEq, ProstMessage)]
 pub struct ControlledContext {
@@ -819,6 +855,58 @@ mod tests {
             assert_eq!(key.kx_version, version);
             assert_eq!(key.encode_to_vec(), wire);
         }
+    }
+}
+
+#[cfg(test)]
+mod audio_wire_tests {
+    use super::*;
+    #[test]
+    fn canonical_150_opus_format_frames_and_mute_wire_tags() {
+        let format = [0x9a, 1, 8, 0x42, 6, 8, 0x80, 0xf7, 2, 0x10, 2];
+        let msg = Message::decode(&format[..]).unwrap();
+        assert!(matches!(
+            msg.union,
+            Some(message::Union::Misc(Misc {
+                union: Some(misc::Union::AudioFormat(AudioFormat {
+                    sample_rate: 48000,
+                    channels: 2
+                }))
+            }))
+        ));
+        assert_eq!(msg.encode_to_vec(), format);
+        let frame = [0x5a, 5, 0x0a, 3, 0xfc, 0xff, 0xfe];
+        let msg = Message::decode(&frame[..]).unwrap();
+        assert!(
+            matches!(&msg.union,Some(message::Union::AudioFrame(AudioFrame{data})) if data.as_ref()==[0xfc,0xff,0xfe])
+        );
+        assert_eq!(msg.encode_to_vec(), frame);
+        let mute = [0x9a, 1, 4, 0x3a, 2, 0x38, 2];
+        let msg = Message::decode(&mute[..]).unwrap();
+        assert!(matches!(
+            msg.union,
+            Some(message::Union::Misc(Misc {
+                union: Some(misc::Union::Option(OptionMessage {
+                    disable_audio: 2,
+                    ..
+                }))
+            }))
+        ));
+        assert_eq!(msg.encode_to_vec(), mute);
+    }
+    #[test]
+    fn rendezvous_permission_slots_are_two_bits_and_audio_is_independent_of_keyboard() {
+        for (bits, allow) in [(0, true), (1, false), (2, true), (3, true)] {
+            let permission = ControlPermissions { permissions: bits };
+            assert_eq!(permission.allows(0), allow);
+            assert!(permission.allows(4));
+            let permission = ControlPermissions {
+                permissions: bits << 8,
+            };
+            assert_eq!(permission.allows(4), allow);
+            assert!(permission.allows(0));
+        }
+        assert!(!ControlPermissions::default().allows(32));
     }
 }
 

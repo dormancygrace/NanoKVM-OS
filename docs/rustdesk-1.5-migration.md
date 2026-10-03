@@ -49,9 +49,19 @@ Device/client qualification, 2026-10-03:
   versions, installed-only extension children, and no upgrade action without a candidate.
 - No source archive, test APK or agent backup is retained on the device.
 
-The lower WebRTC FPS remains a qualification limit. CPU cost in the Go
-DTLS/SCTP bridge is a hypothesis until a bounded profile isolates it; browser
-RTP/SRTP results do not establish RustDesk data-channel performance. The exact
+The lower WebRTC FPS remains a qualification limit. A separate r12 synthetic
+ordered reliable AES-128-GCM test sent 651 validated 32768-byte messages, with
+zero invalid messages. It achieved 5.06 Mbps against a 10 Mbps target, and the
+application consumed 77.36% of total CPU ticks during the 30.35-second sender
+window. The test used only root IPC/data channels, not media or HID. After
+teardown: no daemon sessions, 30 application descriptors, about 35 MiB RSS,
+USB unbound and approximately 0.26% application CPU during a three-second idle
+window. The collected CPU profile preceded this transfer and is explicitly
+idle-only; it cannot identify the bulk-transfer hotspot.
+
+CPU cost in the Go DTLS/SCTP bridge is a hypothesis until a correctly aligned
+bounded profile isolates it; browser RTP/SRTP results do not establish RustDesk
+data-channel performance. The exact
 RustDesk 1.5.0 WebRTC fork does not implement ChaCha20 DTLS cipher suites, so
 Chrome's preferred cipher is not a compatible performance fix for this client.
 Reconnect caching and KX v1 have host protocol tests; this device run did not
@@ -119,9 +129,8 @@ SHA-512 checksums for the immutable archive and init script.
 
 ## Common application deployment
 
-The runtime owner integrated migration and hardening into common commit 2cbc2ac,
-added performance changes through c33d6c3, and installed nanokvm-app
-2.0_beta8-r15. Its APK SHA-256 is
+The runtime owner integrated migration and hardening into common commit 2cbc2ac
+and installed nanokvm-app 2.0_beta8-r15. Its APK SHA-256 is
 ac7711dc4899dac032be49f7aa36114d4e7c3943ab9ac4739a43c697bab18c4a;
 the server SHA-256 is
 7e3e4f2e183c9f11228e80b8e7e39951608a4a46ac0f542ad2498a62a5e867c1.

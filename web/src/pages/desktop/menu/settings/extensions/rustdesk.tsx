@@ -201,6 +201,13 @@ export const RustDeskControls = () => {
               <Form.Item name="service_enabled" label={l.enabled} valuePropName="checked">
                 <Switch />
               </Form.Item>
+              {status.supports_audio && (
+                <Alert
+                  type="info"
+                  title={status.usb_audio_enabled ? l.audioEnabled : l.audioDisabled}
+                  className="mb-4"
+                />
+              )}
               <Form.Item name="password_mode" label={l.passwordMode}>
                 <Select
                   options={[

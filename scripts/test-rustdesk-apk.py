@@ -67,7 +67,7 @@ empty.mkdir()
 provider = test / "provider.apk"
 run([apk, "mkpkg", "--files", str(empty), "--output", str(provider),
     "--info", "name:nanokvm-test-runtime", "--info", "version:1-r0",
-    "--info", "arch:riscv64", "--info", "provides:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 openrc=1"])
+    "--info", "arch:riscv64", "--info", "provides:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 nanokvm-rustdesk-usb-defaults=1 openrc=1"])
 # A v1 legacy bridge provider must not satisfy the new WebRTC daemon.
 legacy_provider = test / "legacy-provider.apk"
 run([apk, "mkpkg", "--files", str(empty), "--output", str(legacy_provider),
@@ -92,6 +92,14 @@ run([apk, "mkpkg", "--files", str(empty), "--output", str(audio_provider),
 run(base + ["add", "--upgrade", str(audio_provider)])
 missing_auto = run(base + ["--no-scripts", "add", str(package)], ok=False)
 assert missing_auto.returncode and "nanokvm-rustdesk-auto-codec" in missing_auto.stderr
+# 0.4.1 auto-codec runtime lacks the root-only USB preparation endpoint.
+auto_provider = test / "auto-provider.apk"
+run([apk, "mkpkg", "--files", str(empty), "--output", str(auto_provider),
+    "--info", "name:nanokvm-test-runtime", "--info", "version:0-r3",
+    "--info", "arch:riscv64", "--info", "provides:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 openrc=1"])
+run(base + ["add", "--upgrade", str(auto_provider)])
+missing_defaults = run(base + ["--no-scripts", "add", str(package)], ok=False)
+assert missing_defaults.returncode and "nanokvm-rustdesk-usb-defaults" in missing_defaults.stderr
 run(base + ["add", "--upgrade", str(provider), str(a.previous_package.absolute())])
 assert (root / "usr/bin/nanokvm-rustdesk").is_file()
 assert (root / "usr/share/nanokvm-rustdesk/source.tar.gz").is_file()
@@ -124,7 +132,7 @@ run([apk, "extract", "--allow-untrusted", "--destination", str(payload), str(pac
 assert not list(payload.rglob("*.tar.gz")), "source must remain external"
 command = [apk, "mkpkg", "--files", str(payload), "--output", str(upgraded)]
 for field in ["name:nanokvm-rustdesk", "version:" + upgrade_version, "arch:riscv64",
-              "depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 openrc"]:
+              "depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 nanokvm-rustdesk-usb-defaults=1 openrc"]:
     command += ["--info", field]
 for action in ["pre-upgrade", "post-upgrade", "pre-deinstall"]:
     script = repo / ("firmware/alpine/packages/nanokvm-rustdesk/nanokvm-rustdesk." + action)

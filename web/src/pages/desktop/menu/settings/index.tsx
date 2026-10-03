@@ -38,6 +38,7 @@ import { settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
 import { Netbird as NetbirdIcon } from '@/components/icons/netbird';
 import { OpenVPNIcon } from '@/components/icons/openvpn';
+import { RustDeskIcon } from '@/components/icons/rustdesk';
 import { Tailscale as TailscaleIcon } from '@/components/icons/tailscale';
 import { WireGuardIcon } from '@/components/icons/wireguard';
 import { MobileMenuItemContext } from '@/components/mobile-menu-context.ts';
@@ -197,7 +198,7 @@ export const Settings = ({
             ? [
                 {
                   id: 'extensions-rustdesk',
-                  icon: <PuzzleIcon size={16} />,
+                  icon: <RustDeskIcon size={18} />,
                   component: <RustDeskControls />
                 }
               ]

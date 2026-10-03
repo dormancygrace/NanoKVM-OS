@@ -334,6 +334,8 @@ mod tests {
         use prost::Message as _;
         use rand::RngCore;
         use sha2::{Digest, Sha256};
+        let audio_output = std::env::var("RUSTDESK_TEST_AUDIO_OUTPUT").ok();
+        let h265 = std::env::var("RUSTDESK_TEST_CODEC").as_deref() == Ok("h265");
         let target = std::env::var("RUSTDESK_TEST_ID").unwrap();
         let password = std::env::var("RUSTDESK_TEST_PASSWORD").unwrap();
         let server_key = std::env::var("RUSTDESK_TEST_KEY").unwrap();
@@ -451,6 +453,7 @@ mod tests {
                         disable_keyboard: 2,
                         supported_decoding: Some(protocol::SupportedDecoding {
                             ability_h264: 1,
+                            ability_h265: i32::from(h265),
                             ..Default::default()
                         }),
                         ..Default::default()
@@ -472,6 +475,9 @@ mod tests {
         let until = start + Duration::from_secs(20);
         let mut frames = 0;
         let mut bytes = 0;
+        let mut audio_frames = 0;
+        let mut opus = Vec::new();
+        let mut audio_format = false;
         loop {
             let msg: protocol::Message = match time::timeout_at(until, read.read()).await {
                 Ok(Ok(m)) => m,
@@ -480,11 +486,31 @@ mod tests {
             };
             match msg.union {
                 Some(message::Union::VideoFrame(video)) => {
-                    let Some(video_frame::Union::H264s(data)) = video.union else {
-                        panic!("not H264")
+                    let data = match video.union {
+                        Some(video_frame::Union::H264s(data)) if !h265 => data,
+                        Some(video_frame::Union::H265s(data)) if h265 => data,
+                        _ => panic!("unexpected video codec"),
                     };
                     frames += data.frames.len();
                     bytes += data.frames.iter().map(|f| f.data.len()).sum::<usize>();
+                }
+                Some(message::Union::Misc(protocol::Misc {
+                    union: Some(protocol::misc::Union::AudioFormat(format)),
+                })) => {
+                    assert_eq!((format.sample_rate, format.channels), (48000, 2));
+                    audio_format = true;
+                }
+                Some(message::Union::AudioFrame(frame)) => {
+                    assert!(
+                        audio_format
+                            && !frame.data.is_empty()
+                            && frame.data.len() <= crate::audio::MAX_PACKET
+                    );
+                    audio_frames += 1;
+                    if audio_output.is_some() {
+                        opus.extend_from_slice(&(frame.data.len() as u16).to_be_bytes());
+                        opus.extend_from_slice(&frame.data);
+                    }
                 }
                 Some(message::Union::TestDelay(delay)) => {
                     write
@@ -498,9 +524,16 @@ mod tests {
             }
         }
         assert!(frames > 100);
+        if let Some(path) = audio_output {
+            assert!(
+                audio_frames > 100,
+                "USB audio did not deliver enough packets"
+            );
+            std::fs::write(path, &opus).unwrap();
+        }
         eprintln!(
             "DIRECT_QUALIFICATION {}",
-            serde_json::json!({"transport":"encrypted direct TCP","kx_version":1,"view_only":true,"seconds":20,"video_frames":frames,"received_frame_rate":frames as f64/20.0,"video_bytes":bytes})
+            serde_json::json!({"transport":"encrypted direct TCP","kx_version":1,"view_only":true,"seconds":20,"video_frames":frames,"received_frame_rate":frames as f64/20.0,"video_bytes":bytes,"codec":if h265 {"h265"} else {"h264"},"audio_format":audio_format,"audio_frames":audio_frames})
         );
     }
 }

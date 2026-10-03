@@ -81,7 +81,7 @@ func (s *Service) statusCommand(name string, args ...string) ([]byte, error) {
 	return s.run(ctx, name, args...)
 }
 func defaultConfig() Config {
-	return Config{Official: true, Codec: "h265", MaxClients: 1, PasswordMode: "temporary"}
+	return Config{Official: true, Codec: "auto", MaxClients: 1, PasswordMode: "temporary"}
 }
 func readConfig() (Config, error) {
 	c := defaultConfig()
@@ -103,6 +103,8 @@ func readConfig() (Config, error) {
 	if _, exists := fields["password_mode"]; !exists && c.Password != "" {
 		c.PasswordMode = "permanent"
 	}
+	// Legacy per-add-on preferences never override the shared device codec.
+	c.Codec = "auto"
 	return c, nil
 }
 func (s *Service) Status() (Status, error) {
@@ -247,9 +249,10 @@ func serverAddress(value string, port string) (string, error) {
 	return value, nil
 }
 func validateConfig(c *Config) error {
-	if c.Codec != "h264" && c.Codec != "h265" {
-		return errors.New("codec must be h264 or h265")
+	if c.Codec != "" && c.Codec != "auto" && c.Codec != "h264" && c.Codec != "h265" {
+		return errors.New("codec must be auto, h264 or h265")
 	}
+	c.Codec = "auto"
 	if c.MaxClients < 1 || c.MaxClients > 8 {
 		return errors.New("client limit must be between 1 and 8")
 	}

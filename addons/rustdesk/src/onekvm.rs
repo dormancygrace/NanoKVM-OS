@@ -166,13 +166,8 @@ where
     })
 }
 
-pub async fn query_video_info(
-    socket_path: &str,
-    identity: &Identity,
-    profile: &VideoProfile,
-) -> io::Result<VideoInfo> {
-    let mut subscriber =
-        MediaSubscriber::connect(socket_path, identity, "info", Some(profile)).await?;
+pub async fn query_video_info(socket_path: &str, identity: &Identity) -> io::Result<VideoInfo> {
+    let mut subscriber = MediaSubscriber::connect(socket_path, identity, "info", None).await?;
     let frame = subscriber.read_frame().await?;
     if !frame.payload.is_empty()
         || frame.width == 0
@@ -190,17 +185,6 @@ pub async fn query_video_info(
         height: frame.height,
         fps: (1_000_000_u32 / frame.duration_usec).max(1),
     })
-}
-
-pub fn parse_codec(value: &str) -> io::Result<Codec> {
-    match value {
-        "h264" => Ok(Codec::H264),
-        "h265" => Ok(Codec::H265),
-        _ => Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("unsupported independent video codec {value}"),
-        )),
-    }
 }
 
 fn codec_name(codec: Codec) -> &'static str {
@@ -298,6 +282,61 @@ mod tests {
     use super::*;
     use crate::{input::InputState, protocol::MouseEvent};
     use tokio::net::UnixListener;
+
+    #[tokio::test]
+    async fn metadata_uses_the_device_codec_and_stream_pins_it() {
+        for (codec, native) in [(Codec::H264, 1), (Codec::H265, 2)] {
+            let dir = std::env::temp_dir().join(format!("nk-rd-codec-{:x}", rand::random::<u64>()));
+            std::fs::create_dir(&dir).unwrap();
+            let path = dir.join("media.sock");
+            let listener = UnixListener::bind(&path).unwrap();
+            let server = tokio::spawn(async move {
+                for command in ["info", "encoded"] {
+                    let (mut stream, _) = listener.accept().await.unwrap();
+                    let mut line = Vec::new();
+                    loop {
+                        let byte = stream.read_u8().await.unwrap();
+                        if byte == b'\n' {
+                            break;
+                        }
+                        line.push(byte);
+                    }
+                    let request: serde_json::Value = serde_json::from_slice(&line).unwrap();
+                    assert_eq!(request["video"], command);
+                    if command == "info" {
+                        assert!(request["codec"].is_null());
+                    } else {
+                        assert_eq!(request["codec"], codec_name(codec));
+                    }
+                    let mut header = [0; 40];
+                    header[..4].copy_from_slice(b"OKVF");
+                    header[4] = 1;
+                    header[5] = native;
+                    header[24..28].copy_from_slice(&16_667u32.to_be_bytes());
+                    header[28..30].copy_from_slice(&1920u16.to_be_bytes());
+                    header[30..32].copy_from_slice(&1080u16.to_be_bytes());
+                    stream.write_all(&header).await.unwrap();
+                }
+            });
+            let identity = Identity::load().unwrap();
+            let info = query_video_info(path.to_str().unwrap(), &identity)
+                .await
+                .unwrap();
+            assert_eq!(info.codec, codec);
+            let profile = VideoProfile { codec: info.codec };
+            let mut encoded = MediaSubscriber::connect(
+                path.to_str().unwrap(),
+                &identity,
+                "encoded",
+                Some(&profile),
+            )
+            .await
+            .unwrap();
+            assert_eq!(encoded.read_frame().await.unwrap().codec, codec);
+            server.await.unwrap();
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+    }
 
     #[tokio::test]
     async fn bridge_error_is_reported_without_codec_guessing() {

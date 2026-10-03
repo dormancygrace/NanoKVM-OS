@@ -343,3 +343,54 @@ func TestKeyframeRequestsCoalesceWithoutLosingDeferredIntent(t *testing.T) {
 		t.Fatal("deferred request lost")
 	}
 }
+
+func TestExplicitCodecSelectionReplacesSharedSession(t *testing.T) {
+	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
+	old, err := source.subscribe(LegacyEncoderConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Close()
+	source.selectConfig(DefaultEncoderConfig())
+	select {
+	case <-old.done:
+	default:
+		t.Fatal("old subscriber was not retired")
+	}
+	config, selected := source.selectedConfig()
+	if !selected || config != DefaultEncoderConfig() {
+		t.Fatal("new selection not visible while draining")
+	}
+	if stale, err := source.subscribe(LegacyEncoderConfig()); err == nil {
+		stale.Close()
+		t.Fatal("stale viewer reclaimed the encoder")
+	}
+	next, err := source.subscribe(DefaultEncoderConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer next.Close()
+	if next.session == old.session {
+		t.Fatal("codec change reused old capture session")
+	}
+}
+
+func TestSelectingCurrentCodecDoesNotInterruptViewers(t *testing.T) {
+	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
+	first, _ := source.subscribe(DefaultEncoderConfig())
+	defer first.Close()
+	source.selectConfig(DefaultEncoderConfig())
+	select {
+	case <-first.done:
+		t.Fatal("same codec interrupted stream")
+	default:
+	}
+	second, err := source.subscribe(DefaultEncoderConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer second.Close()
+	if second.session != first.session {
+		t.Fatal("matching viewer not shared")
+	}
+}

@@ -13,7 +13,11 @@ import { screenshotSourceAtom } from '@/jotai/screen.ts';
 import DirectWorker from './direct.worker.ts?worker';
 import { ScreenViewport } from './viewport.tsx';
 
-export const H264Direct = ({ onEncoderConflict }: { onEncoderConflict: () => boolean }) => {
+export const H264Direct = ({
+  onEncoderConflict
+}: {
+  onEncoderConflict: (reconfigured?: boolean) => boolean;
+}) => {
   const { t } = useTranslation();
   const mouseStyle = useAtomValue(mouseStyleAtom);
   const setScreenshotSource = useSetAtom(screenshotSourceAtom);
@@ -117,7 +121,8 @@ export const H264Direct = ({ onEncoderConflict }: { onEncoderConflict: () => boo
           return;
         }
         if (type === 'stream-error') {
-          if (code === 'encoder-conflict' && onEncoderConflict()) return;
+          if (code === 'encoder-conflict' && onEncoderConflict(detail === 'encoder-reconfigured'))
+            return;
           if (detail) console.error('Direct video stream rejected:', detail);
           setFatalError(
             translationRef.current(

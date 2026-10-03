@@ -33,6 +33,10 @@ the device remain outstanding. No claim of verified device recovery is made.
 - Regression test failed before the fix: a later CRA carried only NAL type 21,
   while Chromium requires types 32, 33, 34 and 21 in that access unit.
 - Host stream/WebRTC tests and race checks passed after the change.
+- Normal RISC-V production server cross-build passed using Go 1.27.1, the
+  updated native bundle and the updated Pion dependencies. No teststub or
+  nanokvm_profile build tags are present. Build outputs and provenance are in
+  work/h265-freeze-20261003; the source implementation commit is 0d75df7.
 - Tests reconstruct RFC 7798 single NAL, AP and FU packets independently and
   check retained ownership, all IRAP types 16-23, configuration updates,
   fragmentation, marker, MTU budget and continuous RTP clock/sequence.

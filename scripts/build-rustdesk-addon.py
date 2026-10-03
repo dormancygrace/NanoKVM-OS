@@ -11,6 +11,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import tarfile
+import tempfile
+import atexit
 import tomllib
 
 parser=argparse.ArgumentParser(description=__doc__)
@@ -35,8 +37,16 @@ build=root/"work/rustdesk-dist"
 build.mkdir(parents=True, exist_ok=True)
 output=args.output.resolve()
 output.mkdir(parents=True,exist_ok=True)
-stage=build/f"nanokvm-rustdesk-{version}"
-stage.mkdir(exist_ok=True)
+# A fresh root isolates both source and payload from every earlier build.
+# TemporaryDirectory removes only this newly-created host directory at exit.
+staging=tempfile.TemporaryDirectory(prefix=f"build-{package_version}-",dir=build)
+atexit.register(staging.cleanup)
+staging_root=Path(staging.name)
+stage=staging_root/f"nanokvm-rustdesk-{version}"
+stage.mkdir()
+for expected in [f"nanokvm-rustdesk-{version}-source.tar.gz",f"nanokvm-rustdesk-{package_version}.apk","APKBUILD"]:
+    if (output/expected).exists():
+        raise SystemExit(f"refusing to overwrite artifact: {output/expected}")
 for name in ["src","tests","Cargo.toml","Cargo.lock","LICENSE","NOTICE","README.md","upstream.json"]:
     p=source/name
     if p.is_dir():shutil.copytree(p,stage/name,dirs_exist_ok=True)
@@ -50,15 +60,20 @@ env=dict(os.environ,CARGO_TARGET_DIR=str(root/"work/rust-target"),CARGO_TARGET_R
 subprocess.run(["cargo","build","--locked","--release","--target","riscv64gc-unknown-linux-musl"],cwd=source,env=env,check=True)
 binary=root/"work/rust-target/riscv64gc-unknown-linux-musl/release/nanokvm-rustdesk"
 # Recipes and build inputs travel in the published source, not in the APK.
-shutil.copytree(pkg,stage/"packaging",dirs_exist_ok=True)
+shutil.copytree(pkg,stage/"packaging")
+# A corresponding-source tar cannot embed its own digest. Preserve the build
+# recipe as a template; the production recipe beside the archive is checksummed.
+embedded_recipe=stage/"packaging/APKBUILD"
+embedded_recipe.rename(stage/"packaging/APKBUILD.in")
 shutil.copyfile(Path(__file__),stage/"packaging/build-rustdesk-addon.py")
 (stage/"packaging/BUILD.md").write_text("""# Packaging this source
 
 The source root builds and tests with cargo --locked --offline using the
 vendored crates. See the source README for the exact static RISC-V target.
-For a native riscv64 Alpine build, copy APKBUILD and nanokvm-rustdesk.* from
-this directory into an abuild recipe directory, run abuild checksum, then
-build against the published source archive. The standalone builder here is
+For a native riscv64 Alpine build, use the checksummed APKBUILD distributed
+beside this immutable source archive, and copy nanokvm-rustdesk.* from this
+directory into its recipe directory. APKBUILD.in here records the recipe shape,
+not a production download checksum (an archive cannot contain its own digest). The standalone builder here is
 preserved as a record of the NanoKVM firmware repository's packaging script;
 it expects that repository's addons/rustdesk and firmware/alpine layout.
 The APK contains binary, lifecycle hooks, license, upstream metadata and a
@@ -119,7 +134,11 @@ uploaded APKs/source archives on device storage.
 shutil.copyfile(root/"server/service/rustdesk/webrtc_socket_test.go",go_transport/"webrtc_socket_test.go.integration")
 archive=output/f"nanokvm-rustdesk-{version}-source.tar.gz"
 with tarfile.open(archive,"w:gz") as tar:tar.add(stage,arcname=stage.name)
-payload=build/f"payload-{package_version}"
+# Publish/commit this external production recipe after computing the archive.
+checksum_block="sha512sums=\""+hashlib.sha512(archive.read_bytes()).hexdigest()+"  "+archive.name+"\n"+hashlib.sha512((pkg/"nanokvm-rustdesk.initd").read_bytes()).hexdigest()+"  nanokvm-rustdesk.initd\"\n"
+production_recipe=re.sub(r"(?ms)^sha512sums=.*\Z", "",recipe).rstrip()+"\n\n"+checksum_block
+(output/"APKBUILD").write_text(production_recipe)
+payload=staging_root/"payload"
 def install(src,dest,mode=0o644):
     path=payload/dest.lstrip("/")
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -129,7 +148,7 @@ install(binary,"usr/bin/nanokvm-rustdesk",0o755)
 install(pkg/"nanokvm-rustdesk.initd","etc/init.d/nanokvm-rustdesk",0o755)
 install(source/"LICENSE","usr/share/licenses/nanokvm-rustdesk/LICENSE")
 install(source/"NOTICE","usr/share/licenses/nanokvm-rustdesk/NOTICE")
-source_record=build/f"source-{package_version}.json"
+source_record=staging_root/"source.json"
 source_record.write_text(json.dumps({"url":args.source_url,"sha256":hashlib.sha256(archive.read_bytes()).hexdigest(),"package_version":package_version},indent=2)+"\n")
 install(source_record,"usr/share/nanokvm-rustdesk/source.json")
 install(source/"upstream.json","usr/share/nanokvm-rustdesk/upstream.json")

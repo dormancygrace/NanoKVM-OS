@@ -25,11 +25,9 @@ type srtpCipherAeadAesGcm struct {
 
 	useCryptex bool
 
-	// Pre-allocated buffers for IV to avoid heap allocation in hot path
-	rtpIV  [12]byte
-	rtcpIV [12]byte
-
-	// Like the IV buffers, encrypted RTCP AAD is reused under Context serialization.
+	// Pre-allocated buffers for IV and AAD to avoid heap allocation in hot path
+	rtpIV   [12]byte
+	rtcpIV  [12]byte
 	rtcpAAD [12]byte
 }
 
@@ -269,14 +267,13 @@ func (s *srtpCipherAeadAesGcm) encryptRTCP(dst, decrypted []byte, srtcpIndex uin
 	s.rtcpInitializationVector(srtcpIndex, ssrc)
 	if s.srtcpEncrypted {
 		s.rtcpAAD = s.rtcpAdditionalAuthenticatedData(decrypted, srtcpIndex)
-		aad := s.rtcpAAD[:]
 		if !sameBuffer {
 			// Copy the header unencrypted.
 			copy(dst[:srtcpHeaderSize], decrypted[:srtcpHeaderSize])
 		}
 		// Copy index to the proper place.
-		copy(dst[aadPos:aadPos+srtcpIndexSize], aad[8:12])
-		s.srtcpCipher.Seal(dst[srtcpHeaderSize:srtcpHeaderSize], s.rtcpIV[:], decrypted[srtcpHeaderSize:], aad[:])
+		copy(dst[aadPos:aadPos+srtcpIndexSize], s.rtcpAAD[8:12])
+		s.srtcpCipher.Seal(dst[srtcpHeaderSize:srtcpHeaderSize], s.rtcpIV[:], decrypted[srtcpHeaderSize:], s.rtcpAAD[:])
 	} else {
 		// Copy the packet unencrypted.
 		if !sameBuffer {
@@ -317,9 +314,8 @@ func (s *srtpCipherAeadAesGcm) decryptRTCP(dst, encrypted []byte, srtcpIndex, ss
 	s.rtcpInitializationVector(srtcpIndex, ssrc)
 	if isEncrypted {
 		s.rtcpAAD = s.rtcpAdditionalAuthenticatedData(encrypted, srtcpIndex)
-		aad := s.rtcpAAD[:]
 		if _, err := s.srtcpCipher.Open(dst[srtcpHeaderSize:srtcpHeaderSize], s.rtcpIV[:], encrypted[srtcpHeaderSize:aadPos],
-			aad[:]); err != nil {
+			s.rtcpAAD[:]); err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrFailedToVerifyAuthTag, err)
 		}
 	} else {

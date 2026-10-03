@@ -1,4 +1,10 @@
 #!/bin/sh
+# The matching kernel may activate only after reboot. nanokvm-policy retries
+# then, so a missing flow module must not fail the base package transaction.
+if [ -x /usr/libexec/nanokvm/legacy/S35flowoffload ]; then
+    /usr/libexec/nanokvm/legacy/S35flowoffload start ||
+        echo "Software flow offload will be applied at the next boot with the matching kernel." >&2
+fi
 set -eu
 # Alpine's standard loopback service is needed by local applications.
 rc-update add loopback boot

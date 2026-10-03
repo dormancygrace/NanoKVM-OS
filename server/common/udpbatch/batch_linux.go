@@ -1,6 +1,6 @@
 //go:build linux
 
-// Package udpbatch provides an opt-in, frame-scoped UDP sendmmsg adapter.
+// Package udpbatch provides a bounded, frame-scoped UDP sendmmsg adapter.
 //
 // The adapter deliberately does not change ordinary PacketConn semantics by
 // queueing arbitrary writes. Only RTP media writes observed between BeginFrame
@@ -24,6 +24,7 @@ import (
 
 	"NanoKVM-Server/common/udpfast"
 	"github.com/pion/transport/v5"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -78,6 +79,8 @@ type Conn struct {
 	flushInterval time.Duration
 	sticky        error
 	sendmmsg      sendmmsgFunc
+	gsoBuffer     *[maxBatchPackets * maxPacketBytes]byte
+	gsoStats      *gsoDiagnostics
 }
 
 // Wrap returns a frame-aware wrapper when c is an IPv4/IPv6 UDP socket with
@@ -102,7 +105,7 @@ func Wrap(c *net.UDPConn, fast bool, onClose func()) (*Conn, bool) {
 	if fast {
 		direct = udpfast.Wrap(c)
 	}
-	return &Conn{
+	wrapped := &Conn{
 		UDPConn:       direct,
 		udp:           c,
 		raw:           raw,
@@ -110,7 +113,14 @@ func Wrap(c *net.UDPConn, fast bool, onClose func()) (*Conn, bool) {
 		onClose:       onClose,
 		flushInterval: configuredFlushInterval(),
 		sendmmsg:      syscallSendmmsg,
-	}, true
+	}
+	if os.Getenv("NANOKVM_WEBRTC_UDP_GSO") == "1" {
+		wrapped.gsoBuffer = new([maxBatchPackets * maxPacketBytes]byte)
+		if os.Getenv("NANOKVM_WEBRTC_DIAGNOSTICS") == "1" {
+			wrapped.gsoStats = &gsoDiagnostics{}
+		}
+	}
+	return wrapped, true
 }
 
 func configuredFlushInterval() time.Duration {
@@ -309,6 +319,12 @@ func (c *Conn) Close() error {
 		c.frame = false
 		c.count = 0
 		c.sticky = net.ErrClosed
+		if s := c.gsoStats; s != nil && s.attempts != 0 {
+			log.Infof("WebRTC UDP GSO close: attempts=%d bundles=%d datagrams=%d fallbacks=%d", s.attempts, s.bundles, s.datagrams, s.fallbacks)
+		}
+		if c.gsoBuffer != nil {
+			clear(c.gsoBuffer[:])
+		}
 		for i := range c.slots {
 			c.slots[i] = packetSlot{}
 		}
@@ -394,37 +410,40 @@ func (c *Conn) flushLocked() error {
 	}
 	c.stopTimerLocked()
 
-	var messages [maxBatchPackets]mmsghdr
-	var iovs [maxBatchPackets]unix.Iovec
-	var addr4 [maxBatchPackets]unix.RawSockaddrInet4
-	var addr6 [maxBatchPackets]unix.RawSockaddrInet6
-	for i := 0; i < c.count; i++ {
-		slot := &c.slots[i]
-		iovs[i] = unix.Iovec{
-			Base: &slot.data[0],
-			Len:  uint64(slot.n),
-		}
-		messages[i].msg.Iov = &iovs[i]
-		messages[i].msg.Iovlen = 1
-		if c.family == unix.AF_INET {
-			ip := slot.addr.Addr().As4()
-			addr4[i].Family = unix.AF_INET
-			binary.BigEndian.PutUint16((*[2]byte)(unsafe.Pointer(&addr4[i].Port))[:], slot.addr.Port())
-			copy(addr4[i].Addr[:], ip[:])
-			messages[i].msg.Name = (*byte)(unsafe.Pointer(&addr4[i]))
-			messages[i].msg.Namelen = uint32(unsafe.Sizeof(addr4[i]))
-		} else {
-			ip := slot.addr.Addr().As16()
-			addr6[i].Family = unix.AF_INET6
-			binary.BigEndian.PutUint16((*[2]byte)(unsafe.Pointer(&addr6[i].Port))[:], slot.addr.Port())
-			copy(addr6[i].Addr[:], ip[:])
-			messages[i].msg.Name = (*byte)(unsafe.Pointer(&addr6[i]))
-			messages[i].msg.Namelen = uint32(unsafe.Sizeof(addr6[i]))
-		}
-	}
-
 	count := c.count
-	sent, err := c.sendMessagesLocked(&messages, count)
+	sent, err, handled := c.sendGSOLocked(count)
+	if !handled {
+		var messages [maxBatchPackets]mmsghdr
+		var iovs [maxBatchPackets]unix.Iovec
+		var addr4 [maxBatchPackets]unix.RawSockaddrInet4
+		var addr6 [maxBatchPackets]unix.RawSockaddrInet6
+		for i := 0; i < c.count; i++ {
+			slot := &c.slots[i]
+			iovs[i] = unix.Iovec{
+				Base: &slot.data[0],
+				Len:  uint64(slot.n),
+			}
+			messages[i].msg.Iov = &iovs[i]
+			messages[i].msg.Iovlen = 1
+			if c.family == unix.AF_INET {
+				ip := slot.addr.Addr().As4()
+				addr4[i].Family = unix.AF_INET
+				binary.BigEndian.PutUint16((*[2]byte)(unsafe.Pointer(&addr4[i].Port))[:], slot.addr.Port())
+				copy(addr4[i].Addr[:], ip[:])
+				messages[i].msg.Name = (*byte)(unsafe.Pointer(&addr4[i]))
+				messages[i].msg.Namelen = uint32(unsafe.Sizeof(addr4[i]))
+			} else {
+				ip := slot.addr.Addr().As16()
+				addr6[i].Family = unix.AF_INET6
+				binary.BigEndian.PutUint16((*[2]byte)(unsafe.Pointer(&addr6[i].Port))[:], slot.addr.Port())
+				copy(addr6[i].Addr[:], ip[:])
+				messages[i].msg.Name = (*byte)(unsafe.Pointer(&addr6[i]))
+				messages[i].msg.Namelen = uint32(unsafe.Sizeof(addr6[i]))
+			}
+		}
+
+		sent, err = c.sendMessagesLocked(&messages, count)
+	}
 	if errors.Is(err, syscall.ENOSYS) && sent == 0 {
 		_, fallbackErr := c.fallbackLocked(0, count)
 		if fallbackErr == nil {

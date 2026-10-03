@@ -3,6 +3,7 @@ package hid
 type QueuedReport struct {
 	Data               []byte
 	Execute            func(func() error) error
+	Cleanup            func(func() error) error
 	Complete           func(bool)
 	ResetKeyboard      func()
 	ResetRelativeMouse func()

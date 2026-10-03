@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+[ -f /run/openrc/softlevel ] || exit 0
+if rc-service nanokvm-rustdesk status >/dev/null 2>&1; then
+    rc-service nanokvm-rustdesk stop
+fi
+rc-update del nanokvm-rustdesk default >/dev/null 2>&1 || true
+# /etc/nanokvm-rustdesk is user state and is preserved by apk del.

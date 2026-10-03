@@ -8,7 +8,7 @@ import {
   type InputAdapterMode
 } from '@/lib/input-adapter.ts';
 import * as ls from '@/lib/localstorage.ts';
-import { inputAdapterAtom, mouseModeAtom } from '@/jotai/mouse.ts';
+import { effectiveMouseModeAtom, inputAdapterAtom } from '@/jotai/mouse.ts';
 import { MenuSubmenu } from '@/components/menu-item.tsx';
 
 const adapterModes: InputAdapterMode[] = ['auto', 'pointer-lock', 'touchpad'];
@@ -16,7 +16,7 @@ const adapterModes: InputAdapterMode[] = ['auto', 'pointer-lock', 'touchpad'];
 export const InputAdapter = () => {
   const { t } = useTranslation();
   const [inputAdapter, setInputAdapter] = useAtom(inputAdapterAtom);
-  const mouseMode = useAtomValue(mouseModeAtom);
+  const mouseMode = useAtomValue(effectiveMouseModeAtom);
   const effectiveAdapter = resolveInputAdapter(
     inputAdapter,
     mouseMode === 'relative' ? 'relative' : 'absolute'
@@ -39,7 +39,7 @@ export const InputAdapter = () => {
         return (
           <div
             key={normalizedMode}
-            className="flex cursor-pointer items-center space-x-1 rounded py-1.5 pl-2 pr-5 hover:bg-neutral-700/70"
+            className="flex cursor-pointer items-center space-x-1 rounded py-1.5 pr-5 pl-2 hover:bg-neutral-700/70"
             onClick={() => updateInputAdapter(normalizedMode)}
           >
             <div className="flex h-[16px] w-[16px] items-end text-blue-500">

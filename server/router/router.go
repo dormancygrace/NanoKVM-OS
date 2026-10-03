@@ -76,6 +76,7 @@ func server(r *gin.Engine) {
 	wsRouter(r)
 	downloadRouter(r)
 	extensionsRouter(r)
+	rustdeskRouter(r)
 	osUpdateRouter(r)
 }
 

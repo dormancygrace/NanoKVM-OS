@@ -293,7 +293,7 @@ func applyMonitorProfileLocked(path string) error {
 	if !info.Mode().IsRegular() {
 		return fmt.Errorf("monitor profile is unavailable: %s is not a regular file", path)
 	}
-	return GetKvmVision().ApplyMonitorProfile(path)
+	return applyMonitorPointerProfileLocked(path, WindowsPointerEnabled())
 }
 
 func persistMonitorPortraitLocked(enabled bool) error {

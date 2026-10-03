@@ -1,4 +1,5 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useContext, useEffect, useState, useSyncExternalStore } from 'react';
+import clsx from 'clsx';
 import { useSetAtom } from 'jotai';
 import { UsbIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -8,11 +9,13 @@ import { normalizeUsbStatus, usbDevices } from '@/lib/usb-composition.ts';
 import { client } from '@/lib/websocket.ts';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
+import { MobileMenuItemContext } from '@/components/mobile-menu-context';
 
 import { Usb } from './settings/usb';
 
 export const UsbMenu = () => {
   const { t } = useTranslation();
+  const { mobilePlacement } = useContext(MobileMenuItemContext);
   const lock = useSetAtom(keyboardLockAtom);
   const [open, setOpen] = useState(false);
   const [usbEnabled, setUsbEnabled] = useState<boolean | null>(null);
@@ -78,7 +81,14 @@ export const UsbMenu = () => {
         lock({ source: 'usb-popover', locked: value });
       }}
       content={
-        <div className="max-h-[75vh] w-[min(440px,85vw)] overflow-y-auto p-1">
+        <div
+          className={clsx(
+            'p-1',
+            mobilePlacement
+              ? 'min-w-0 w-full box-border'
+              : 'max-h-[75dvh] w-[min(440px,85vw)] overflow-y-auto'
+          )}
+        >
           {warning && (
             <div role="status" className="mb-2 px-2 text-sm" style={{ color }}>
               {statusText}

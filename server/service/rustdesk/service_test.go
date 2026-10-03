@@ -177,10 +177,13 @@ func TestTemporaryPasswordExposedOnlyWhenSelectedAndRunning(t *testing.T) {
 		if name == "rc-service" && !running {
 			return nil, errors.New("stopped")
 		}
+		if name == "apk" && strings.Join(args, " ") == "info -e -v "+Package {
+			return []byte(Package + "-0.2.0-r0\n"), nil
+		}
 		return nil, nil
 	}
 	status, err := s.Status()
-	if err != nil || status.TemporaryPassword != "ABCDEFGH23" || status.Config.Password != "" {
+	if err != nil || status.TemporaryPassword != "ABCDEFGH23" || status.Config.Password != "" || status.Version != "0.2.0-r0" {
 		t.Fatalf("temporary status: %+v %v", status, err)
 	}
 	running = false

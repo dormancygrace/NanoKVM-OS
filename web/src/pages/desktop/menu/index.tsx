@@ -18,12 +18,12 @@ import { useMenuBounds } from '@/hooks/useMenuBounds.ts';
 import { useMenuVisibility } from '@/hooks/useMenuVisibility.ts';
 import { useMobileMenuPlacement } from '@/hooks/useMobileMenuPlacement.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
+import { useUsbAudio } from '@/hooks/useUsbAudio.ts';
 import { useUsbInput } from '@/hooks/useUsbInput.ts';
 import { MobileMenuItemProvider } from '@/components/menu-item.tsx';
 
 import { Control } from '../control.tsx';
 import { KeyboardLedStatus } from '../keyboard-led-status';
-import { useUsbAudio } from '@/hooks/useUsbAudio.ts';
 import { AudioMenu } from './audio';
 import { Capture } from './capture';
 import { DownloadImage } from './download.tsx';
@@ -53,7 +53,7 @@ type MenuVariant = 'desktop' | 'mobile';
 
 export const Menu = () => {
   const audio = useUsbAudio();
-  const usbInputAvailable = useUsbInput();
+  const usbInput = useUsbInput();
   const { t } = useTranslation();
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const { account } = useAuth();
@@ -157,9 +157,13 @@ export const Menu = () => {
       ],
       audio.available ? [<AudioMenu key="audio" audio={audio} />] : [],
       [
-        ...(usbInputAvailable ? [<Control key="control" />] : []),
-        ...(captureEnabled && isEnabled('keyboard') ? [<Keyboard key="keyboard" />] : []),
-        ...(captureEnabled && isEnabled('mouse') ? [<Mouse key="mouse" />] : [])
+        ...(usbInput.available ? [<Control key="control" />] : []),
+        ...(captureEnabled && usbInput.keyboard && isEnabled('keyboard')
+          ? [<Keyboard key="keyboard" />]
+          : []),
+        ...(captureEnabled && (usbInput.absolute || usbInput.relative) && isEnabled('mouse')
+          ? [<Mouse key="mouse" />]
+          : [])
       ],
       isAdmin
         ? [
@@ -200,7 +204,8 @@ export const Menu = () => {
         items.push(...group);
       });
     // Pointer preferences must still initialize when its toolbar button is hidden.
-    if (captureEnabled && !isEnabled('mouse')) items.push(<Mouse key="mouse" hidden />);
+    if (captureEnabled && (!isEnabled('mouse') || !(usbInput.absolute || usbInput.relative)))
+      items.push(<Mouse key="mouse" hidden />);
     return items;
   }
 
@@ -340,16 +345,19 @@ export const Menu = () => {
                 isMenuHidden ? 'translate-y-[-110%] opacity-80' : 'translate-y-0 opacity-100'
               )}
             >
-              {isMenuExpanded && isKeyboardLedStatusVisible && !isTouchLandscapeMenu && (
-                <div
-                  className={clsx(
-                    'absolute inset-y-0 right-full mr-1 transition-all duration-300',
-                    isMenuHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
-                  )}
-                >
-                  <KeyboardLedStatus />
-                </div>
-              )}
+              {isMenuExpanded &&
+                usbInput.keyboard &&
+                isKeyboardLedStatusVisible &&
+                !isTouchLandscapeMenu && (
+                  <div
+                    className={clsx(
+                      'absolute inset-y-0 right-full mr-1 transition-all duration-300',
+                      isMenuHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
+                    )}
+                  >
+                    <KeyboardLedStatus />
+                  </div>
+                )}
               <strong className="shrink-0">
                 <div className="flex h-[30px] cursor-move items-center justify-center pl-1 text-neutral-500 select-none">
                   <GripVerticalIcon size={18} />

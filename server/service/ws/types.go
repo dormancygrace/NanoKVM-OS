@@ -11,9 +11,10 @@ import (
 )
 
 type Manager struct {
-	clients    map[*websocket.Conn]*Client
-	controller *Client
-	mutex      sync.RWMutex
+	controlMutex sync.Mutex // Serialize ownership changes and their notifications.
+	clients      map[*websocket.Conn]*Client
+	controller   *Client
+	mutex        sync.RWMutex
 }
 
 type Client struct {
@@ -35,6 +36,7 @@ type Client struct {
 	closeOnce          sync.Once
 	workers            sync.WaitGroup
 	controlEnabled     bool
+	manualViewOnly     bool // Protected by Manager.mutex; explicit opt-out from automatic control.
 	// inputLease is a random secret of this socket. While the socket owns
 	// input control it is sent only to this browser tab, which presents it
 	// on HTTP input routes (paste, ATX) to prove it is the controller.

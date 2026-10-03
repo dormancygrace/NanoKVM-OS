@@ -7,7 +7,7 @@
 # Steps, in order (default: all of them):
 #   fetch      download and verify every input in sources.lock
 #   toolchain  Buildroot 2026.08: cross toolchain, host tools, initramfs userland
-#   kernel     Linux 7.2.6 with kernel/*.patch and kernel/config
+#   kernel     Linux 7.2.9 with kernel/*.patch and kernel/config
 #   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod-sg2002
 #   uboot      U-Boot 2026.07 with uboot/*.patch and uboot/defconfig
 #   fip        fip.bin: fip/base-fip.bin with the new U-Boot
@@ -56,7 +56,7 @@ export GIT_CEILING_DIRECTORIES=$out
 version=$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")
 # Official Alpine packages; the c906-scalar overlay is not built here.
 profile=stock
-release=7.2.6-nanokvm-os-r1
+release=7.2.9-nanokvm-os-r1
 # Build times recorded in the binaries. The kernel keeps the v2.0 value so
 # that it stays identical to the released kernel.
 kernel_timestamp='Sat Sep 19 13:51:57 UTC 2026'
@@ -210,8 +210,8 @@ toolchain() {
 kernel() {
     rm -rf "$out/kernel"
     mkdir -p "$out/kernel" "$kbuild"
-    tar -xf "$dl/linux-7.2.6.tar.xz" -C "$out/kernel"
-    mv "$out/kernel/linux-7.2.6" "$ksrc"
+    tar -xf "$dl/linux-7.2.9.tar.xz" -C "$out/kernel"
+    mv "$out/kernel/linux-7.2.9" "$ksrc"
     apply_patches "$ksrc" "$here/kernel"
     python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel --record "$out/kernel/cpu-profile.json" --compiler "${cross}gcc"
     cp "$here/kernel/config" "$kbuild/.config"

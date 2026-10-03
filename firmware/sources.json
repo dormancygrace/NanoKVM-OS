@@ -8,9 +8,9 @@
     "sha256": "87aaca4164ea9d5c8085854953018263f7963f07c22e73a2a2185cc98c581c34"
   },
   "linux": {
-    "version": "7.2.5",
-    "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.5.tar.xz",
-    "sha256": "55ddf0df8325d9dad96fcff7bd93977d22e3f50af06527572af59b77c7632b78"
+    "version": "7.2.9",
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.9.tar.xz",
+    "sha256": "b4c5dfbe51a364a6c7f03869200f88c8e1f77403539005f14b7fc6bc91b8d8ba"
   },
   "gcc": {
     "version": "16.2.0",
@@ -54,9 +54,9 @@
     "scope": "MPI BIN/ISP_BIN source build"
   },
   "inih": {
-    "version": "r62",
+    "version": "r62 + upstream fixes (2026-10-03)",
     "url": "https://github.com/benhoyt/inih.git",
-    "commit": "26254ee9de7681f8825433415443e7116ff24b98"
+    "commit": "2bbdec4a366c8c39746ee0982e7ca0febbb044b6"
   },
   "sophgo_sensors": {
     "url": "https://github.com/sophgo/SensorSupportList.git",

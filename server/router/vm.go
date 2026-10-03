@@ -29,9 +29,9 @@ func vmRouter(r *gin.Engine) {
 	api.GET("/vm/hardware", service.GetHardware) // get hardware version
 
 	api.POST("/vm/gpio", requireInputOwner(), service.SetGpio) // update gpio
-	api.GET("/vm/gpio", service.GetGpio)      // get gpio
-	api.POST("/vm/screen", service.SetScreen) // update screen
-	api.GET("/vm/screen", service.GetScreen)  // read shared screen settings
+	api.GET("/vm/gpio", service.GetGpio)                       // get gpio
+	admin.POST("/vm/screen", service.SetScreen)                // update screen
+	api.GET("/vm/screen", service.GetScreen)                   // read shared screen settings
 
 	api.GET("/vm/input-region", service.GetInputRegion)
 	api.POST("/vm/input-region", service.SetInputRegion)

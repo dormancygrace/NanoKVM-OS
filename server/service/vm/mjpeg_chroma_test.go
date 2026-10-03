@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"NanoKVM-Server/authn"
 	"NanoKVM-Server/common"
 	"bytes"
 	"encoding/json"
@@ -42,7 +43,7 @@ func TestMjpegChromaApplyPersistAndFallback(t *testing.T) {
 		c, _ := gin.CreateTestContext(r)
 		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(fmt.Sprintf(`{"type":"mjpeg_chroma","value":%d}`, value)))
 		c.Request.Header.Set("Content-Type", "application/json")
-		(&Service{}).SetScreen(c)
+		setScreenAs(c, authn.RoleAdmin)
 		var result response
 		if err := json.Unmarshal(r.Body.Bytes(), &result); err != nil {
 			t.Fatal(err)

@@ -28,6 +28,7 @@ func main() {
 	ctx, stopMemory := context.WithCancel(context.Background())
 	defer stopMemory()
 	initialize(stopMemory)
+	startDiagnosticCPUProfile()
 	go vm.RunMemoryMaintenance(ctx)
 	go logs.RunArchive(ctx)
 	defer func() { stopMemory(); dispose() }()

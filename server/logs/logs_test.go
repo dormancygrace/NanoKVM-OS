@@ -1,6 +1,7 @@
 package logs
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -210,5 +211,90 @@ func TestReadRateSurvivesCacheEviction(t *testing.T) {
 	now = now.Add(RefreshInterval)
 	if _, err := collector.ReadBoot("system", "older"); err != nil {
 		t.Fatal("budget did not recover", err)
+	}
+}
+
+func TestCollectorCurrentDigestCacheHandlesFreshFlushAndChanges(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "messages")
+	if err := os.WriteFile(path, []byte("safe line\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	collector := NewCollector()
+	collector.logDir = directory
+	now := time.Unix(1000, 0)
+	collector.now = func() time.Time { return now }
+
+	first, err := collector.Read("system")
+	if err != nil || first.Content != "safe line" {
+		t.Fatalf("initial current read: %+v %v", first, err)
+	}
+	entry := collector.cache["current/system"]
+	entry.snapshot.Content = "cache hit"
+	collector.cache["current/system"] = entry
+	now = now.Add(RefreshInterval)
+	same, err := collector.read("system", "current", true)
+	if err != nil || same.Content != "cache hit" {
+		t.Fatalf("fresh unchanged read did not reuse sanitized cache: %+v %v", same, err)
+	}
+
+	if err = os.WriteFile(path, []byte("token=xyz\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	fixed := time.Unix(123, 456)
+	if err = os.Chtimes(path, fixed, fixed); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(RefreshInterval)
+	secret, err := collector.read("system", "current", true)
+	if err != nil || strings.Contains(secret.Content, "token=xyz") || !strings.Contains(secret.Content, redactedLine) {
+		t.Fatalf("same-size edit bypassed redaction: %+v %v", secret, err)
+	}
+
+	rotatedPath := path + ".0"
+	if err = os.Rename(path, rotatedPath); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(path, []byte("rotated!\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(RefreshInterval)
+	rotated, err := collector.read("system", "current", true)
+	if err != nil || !strings.Contains(rotated.Content, "rotated!") {
+		t.Fatalf("rotation was not observed: %+v %v", rotated, err)
+	}
+
+	if err = os.Remove(rotatedPath); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(path, []byte("short\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(RefreshInterval)
+	truncated, err := collector.read("system", "current", true)
+	if err != nil || truncated.Content != "short" || strings.Contains(truncated.Content, "rotated") {
+		t.Fatalf("truncation retained stale content: %+v %v", truncated, err)
+	}
+}
+
+func TestCollectorCurrentDigestCacheTracksTruncation(t *testing.T) {
+	collector := NewCollector()
+	raw := bytes.Repeat([]byte("x"), MaxBytes)
+	collector.kernel = func(data []byte) (int, error) {
+		return copy(data, raw), nil
+	}
+	collector.now = func() time.Time { return time.Unix(1000, 0) }
+
+	first, err := collector.Read("kernel")
+	if err != nil || first.Content != "" || !first.Truncated {
+		t.Fatalf("initial kernel read: %+v %v", first, err)
+	}
+	entry := collector.cache["current/kernel"]
+	entry.snapshot.Content = "cache hit"
+	entry.truncated = false
+	collector.cache["current/kernel"] = entry
+	next, err := collector.read("kernel", "current", true)
+	if err != nil || next.Content != "" || next.Content == "cache hit" || !next.Truncated {
+		t.Fatalf("truncated state reused stale sanitized output: %+v %v", next, err)
 	}
 }

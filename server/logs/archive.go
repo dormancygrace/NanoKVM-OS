@@ -390,11 +390,8 @@ func FlushArchives() error {
 	}
 	archive.flushMu.Lock()
 	defer archive.flushMu.Unlock()
-	Default.mu.Lock()
-	for _, source := range sources {
-		delete(Default.cache, "current/"+source)
-	}
-	Default.mu.Unlock()
+	// Internal reads bypass the client TTL but retain the current-source
+	// digest, allowing unchanged sanitized output to be reused after fresh I/O.
 	var snapshots []Snapshot
 	for _, source := range sources {
 		snapshot, err := Default.read(source, "current", true)

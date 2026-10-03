@@ -1,0 +1,30 @@
+#!/bin/sh
+# Native wildcard hooks follow interfaces created or renamed after boot.
+# Replace only our table; never load the stock /etc/nftables.nft ruleset.
+case "${1:-}" in
+    start|restart|reload)
+        nft -f - <<'EOF'
+add table inet nkos_flow
+delete table inet nkos_flow
+table inet nkos_flow {
+    flowtable forwarding {
+        hook ingress priority filter + 10;
+        devices = { "*" };
+        counter;
+    }
+    chain forward {
+        type filter hook forward priority filter + 10; policy accept;
+        iifname != "lo" oifname != "lo" ct state established meta l4proto { tcp, udp } flow add @forwarding
+    }
+}
+EOF
+        ;;
+    stop)
+        nft -f - <<'EOF'
+add table inet nkos_flow
+delete table inet nkos_flow
+EOF
+        ;;
+    status) nft list table inet nkos_flow ;;
+    *) echo "Usage: $0 {start|stop|restart|reload|status}" >&2; exit 1 ;;
+esac

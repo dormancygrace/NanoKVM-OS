@@ -121,20 +121,16 @@
       "upstream_pattern": "\"version\"\\s*:\\s*\"go([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\""
     },
     {
-      "name": "OpenSSL (Alpine / C906)",
-      "path": "scripts/build-alpine-tuned-packages.sh",
-      "pattern": "^APORTS_COMMIT=\\$\\{APORTS_COMMIT:-([0-9a-f]{40})\\}",
-      "kind": "alpine-package",
+      "name": "OpenSSL (stock Alpine)",
+      "path": "scripts/build-alpine-packages.sh",
+      "pattern": "ALPINE_VERSION=\"([0-9.]+)\"",
+      "kind": "alpine-stock",
       "aport": "main/openssl",
       "packages": [
         "openssl",
         "libssl3",
         "libcrypto3"
       ],
-      "branch_pin": {
-        "path": "scripts/build-alpine-packages.sh",
-        "pattern": "ALPINE_VERSION=\"([0-9.]+)\""
-      },
       "arch": "riscv64"
     },
     {

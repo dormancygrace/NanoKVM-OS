@@ -4,6 +4,7 @@ import { useAtomValue } from 'jotai';
 import { CheckIcon, ClapperboardIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { selectEncoderCodec } from '@/api/stream';
 import {
   getEncoderCodec,
   isEncoderCodecSupported,
@@ -58,6 +59,8 @@ export const Codec = () => {
         message.warning(t('videoSettings.unstableDescription'));
         return;
       }
+      const rsp = await selectEncoderCodec(nextCodec);
+      if (rsp.code !== 0) throw new Error(rsp.msg);
     } catch {
       message.error(t('videoSettings.failed'));
       return;

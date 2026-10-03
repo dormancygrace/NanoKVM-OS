@@ -38,6 +38,7 @@ type videoSession struct {
 }
 
 type VideoSource struct {
+	selected           *EncoderConfig
 	mutex              sync.Mutex
 	subscribers        map[*VideoSubscription]struct{}
 	subscriberSnapshot []*VideoSubscription
@@ -82,6 +83,30 @@ func (s *VideoSource) activeConfig() (EncoderConfig, bool) {
 	return s.session.config, true
 }
 
+// Explicit settings take precedence while the old encoder drains. Passive
+// joins still cannot change the device-wide encoder.
+func (s *VideoSource) selectedConfig() (EncoderConfig, bool) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.selected == nil {
+		return EncoderConfig{}, false
+	}
+	return *s.selected, true
+}
+
+func (s *VideoSource) selectConfig(config EncoderConfig) {
+	s.mutex.Lock()
+	s.selected = &config
+	var stale []*VideoSubscription
+	if s.session != nil && s.session.config != config {
+		stale = append(stale, s.subscriberSnapshot...)
+	}
+	s.mutex.Unlock()
+	for _, subscription := range stale {
+		subscription.Close()
+	}
+}
+
 func SubscribeVideo(config EncoderConfig) (*VideoSubscription, error) {
 	screen := common.GetScreen()
 	if portraitCodecBlocked(config.Codec, screen.Height,
@@ -94,6 +119,11 @@ func SubscribeVideo(config EncoderConfig) (*VideoSubscription, error) {
 func (s *VideoSource) subscribe(config EncoderConfig) (*VideoSubscription, error) {
 	for {
 		s.mutex.Lock()
+		if s.selected != nil && *s.selected != config {
+			selected := *s.selected
+			s.mutex.Unlock()
+			return nil, &EncoderConfigConflictError{Active: selected, Requested: config}
+		}
 		if s.session != nil && len(s.subscribers) == 0 {
 			// The last subscriber has gone, but its capture goroutine may still
 			// be returning from a native frame read.  Do not let a replacement

@@ -14,7 +14,7 @@ import {
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
-import { updateFrameDetect } from '@/api/stream';
+import { selectEncoderCodec, updateFrameDetect } from '@/api/stream';
 import { updateScreen } from '@/api/vm';
 import {
   getEncoderCodec,
@@ -288,6 +288,10 @@ export const VideoForm = ({
         url.searchParams.delete('directRender');
         url.searchParams.delete('directBufferMs');
         window.history.replaceState(window.history.state, '', url);
+      }
+      if (next.mode !== 'mjpeg' && (next.codec !== saved.codec || next.mode !== saved.mode)) {
+        const rsp = await selectEncoderCodec(next.codec);
+        if (rsp.code !== 0) throw new Error(rsp.msg || t('videoSettings.failed'));
       }
       if (next.codec !== saved.codec) setEncoderCodec(next.codec);
       if (next.mode !== saved.mode) storage.setVideoMode(next.mode);

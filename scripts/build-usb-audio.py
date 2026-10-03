@@ -19,7 +19,7 @@ a.add_argument('--jobs',default='4')
 args=a.parse_args()
 repo=Path(__file__).resolve().parents[1];out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
 cross=str(args.buildroot_output.resolve()/'host/bin/riscv64-buildroot-linux-musl-')
-tiny=args.tinyalsa.resolve();revision='9fab97ca07184371ecad81154d1dadb09d0fa7cf'
+tiny=args.tinyalsa.resolve();revision='961babfe962e71d952ae734074cc89576b28a9e7'
 expected='6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1'
 if hashlib.sha256(args.opus_archive.read_bytes()).hexdigest()!=expected:raise SystemExit('Opus archive hash mismatch')
 opus=out/'opus-1.6.1'

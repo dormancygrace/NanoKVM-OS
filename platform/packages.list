@@ -47,6 +47,7 @@ base  file  /usr/libexec/nanokvm/legacy/S30eth            0755  kvmapp/system/in
 base  file  /usr/libexec/nanokvm/legacy/S30usbnet         0755  firmware/buildroot/board/enhanced/init.d/S30usbnet
 base  file  /usr/libexec/nanokvm/legacy/S30wifi           0755  kvmapp/system/init.d/S30wifi
 base  file  /usr/libexec/nanokvm/legacy/S34mssclamp       0755  kvmapp/system/init.d/S34mssclamp
+base  file  /usr/libexec/nanokvm/legacy/S35flowoffload       0755  kvmapp/system/init.d/S35flowoffload
 base  file  /usr/libexec/nanokvm/legacy/S38memory         0755  kvmapp/system/init.d/S38memory
 base  file  /usr/libexec/nanokvm/legacy/S49chronyd        0755  firmware/alpine/compat/S49chronyd
 base  file  /usr/libexec/nanokvm/legacy/S49persistent-cron 0755 kvmapp/system/init.d/S49persistent-cron
@@ -69,6 +70,7 @@ base  link  /etc/init.d/S30eth                            -     /usr/libexec/nan
 base  link  /etc/init.d/S30usbnet                         -     /usr/libexec/nanokvm/legacy/S30usbnet
 base  link  /etc/init.d/S30wifi                           -     /usr/libexec/nanokvm/legacy/S30wifi
 base  link  /etc/init.d/S34mssclamp                       -     /usr/libexec/nanokvm/legacy/S34mssclamp
+base  link  /etc/init.d/S35flowoffload                       -     /usr/libexec/nanokvm/legacy/S35flowoffload
 base  link  /etc/init.d/S38memory                         -     /usr/libexec/nanokvm/legacy/S38memory
 base  link  /etc/init.d/S49chronyd                        -     /usr/libexec/nanokvm/legacy/S49chronyd
 base  link  /etc/init.d/S49persistent-cron                -     /usr/libexec/nanokvm/legacy/S49persistent-cron
@@ -129,6 +131,7 @@ app   file  /kvmapp/system/init.d/S30eth                  0755  kvmapp/system/in
 app   file  /kvmapp/system/init.d/S30usbnet               0755  firmware/buildroot/board/enhanced/init.d/S30usbnet
 app   file  /kvmapp/system/init.d/S30wifi                 0755  kvmapp/system/init.d/S30wifi
 app   file  /kvmapp/system/init.d/S34mssclamp             0755  kvmapp/system/init.d/S34mssclamp
+app   file  /kvmapp/system/init.d/S35flowoffload             0755  kvmapp/system/init.d/S35flowoffload
 app   file  /kvmapp/system/init.d/S38memory               0755  kvmapp/system/init.d/S38memory
 app   file  /kvmapp/system/init.d/S49persistent-cron      0755  kvmapp/system/init.d/S49persistent-cron
 app   file  /kvmapp/system/init.d/S50avahi-daemon         0755  kvmapp/system/init.d/S50avahi-daemon

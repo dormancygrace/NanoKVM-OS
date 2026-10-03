@@ -71,6 +71,19 @@ async fn write_rpc<W: AsyncWrite + Unpin>(w: &mut W, c: Command<'_>) -> io::Resu
     .await
     .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "WebRTC RPC write timed out"))?
 }
+async fn setup_step<T>(
+    shutdown: &mut watch::Receiver<bool>,
+    duration: Duration,
+    future: impl std::future::Future<Output = io::Result<T>>,
+) -> io::Result<T> {
+    if *shutdown.borrow() {
+        return Err(io::Error::new(io::ErrorKind::Interrupted, "WebRTC stopped"));
+    }
+    tokio::select! {
+        result=time::timeout(duration,future)=>result.map_err(|_|io::Error::new(io::ErrorKind::TimedOut,"WebRTC setup step timed out"))?,
+        _=shutdown.changed()=>Err(io::Error::new(io::ErrorKind::Interrupted,"WebRTC stopped")),
+    }
+}
 fn invalid(s: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, s)
 }
@@ -221,8 +234,18 @@ impl Manager {
                 let _pending = limits.try_pending().ok_or_else(|| {
                     io::Error::new(io::ErrorKind::WouldBlock, "pending handshake limit")
                 })?;
-                let mut signal = signaling::connect(&config).await?;
-                signal.writer.write(&response(request, &rd, answer)).await?;
+                let mut signal = setup_step(
+                    &mut shutdown,
+                    Duration::from_secs(12),
+                    signaling::connect(&config),
+                )
+                .await?;
+                setup_step(
+                    &mut shutdown,
+                    Duration::from_secs(3),
+                    signal.writer.write(&response(request, &rd, answer)),
+                )
+                .await?;
             }
             return Ok(());
         }
@@ -230,20 +253,32 @@ impl Manager {
         let pending = limits
             .try_pending()
             .ok_or_else(|| io::Error::new(io::ErrorKind::WouldBlock, "pending handshake limit"))?;
-        let mut signal = signaling::connect(&config).await?;
-        let mut rpc = UnixStream::connect(SOCKET).await?;
-        write_rpc(
-            &mut rpc,
-            Command {
-                op: "offer",
-                offer: Some(&request.webrtc_sdp_offer),
-                ..Default::default()
-            },
+        let mut signal = setup_step(
+            &mut shutdown,
+            Duration::from_secs(12),
+            signaling::connect(&config),
         )
         .await?;
-        let reply = time::timeout(Duration::from_secs(8), read_rpc(&mut rpc))
-            .await
-            .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "WebRTC answer timed out"))??;
+        let mut rpc = setup_step(
+            &mut shutdown,
+            Duration::from_secs(3),
+            UnixStream::connect(SOCKET),
+        )
+        .await?;
+        setup_step(
+            &mut shutdown,
+            Duration::from_secs(3),
+            write_rpc(
+                &mut rpc,
+                Command {
+                    op: "offer",
+                    offer: Some(&request.webrtc_sdp_offer),
+                    ..Default::default()
+                },
+            ),
+        )
+        .await?;
+        let reply = setup_step(&mut shutdown, Duration::from_secs(8), read_rpc(&mut rpc)).await?;
         if reply.event != "answer" {
             return Err(invalid(&format!("WebRTC bridge: {}", reply.error)));
         }
@@ -268,10 +303,14 @@ impl Manager {
         {
             return Err(invalid("WebRTC answer fingerprint mismatch"));
         }
-        signal
-            .writer
-            .write(&response(request, &rd, reply.answer.clone()))
-            .await?;
+        setup_step(
+            &mut shutdown,
+            Duration::from_secs(3),
+            signal
+                .writer
+                .write(&response(request, &rd, reply.answer.clone())),
+        )
+        .await?;
         if let Some(e) = self
             .entries
             .lock()
@@ -299,23 +338,34 @@ impl Manager {
         let signal_config = Arc::clone(&config);
         let mut candidate_signal: Option<signaling::Signal> = None;
         let mut connected = false;
-        let data_shutdown = shutdown.clone();
+        let (data_shutdown_tx, mut data_shutdown) = watch::channel(false);
+        let mut data_finished = false;
         let data = async {
-            let mut stream = UnixStream::connect(SOCKET).await?;
-            write_rpc(
-                &mut stream,
-                Command {
-                    op: "attach",
-                    token: Some(&reply.token),
-                    ..Default::default()
-                },
+            let mut stream = setup_step(
+                &mut data_shutdown,
+                Duration::from_secs(3),
+                UnixStream::connect(SOCKET),
             )
             .await?;
-            let ready = time::timeout(Duration::from_secs(20), read_rpc(&mut stream))
-                .await
-                .map_err(|_| {
-                    io::Error::new(io::ErrorKind::TimedOut, "WebRTC data channel timed out")
-                })??;
+            setup_step(
+                &mut data_shutdown,
+                Duration::from_secs(3),
+                write_rpc(
+                    &mut stream,
+                    Command {
+                        op: "attach",
+                        token: Some(&reply.token),
+                        ..Default::default()
+                    },
+                ),
+            )
+            .await?;
+            let ready = setup_step(
+                &mut data_shutdown,
+                Duration::from_secs(20),
+                read_rpc(&mut stream),
+            )
+            .await?;
             if ready.event != "ready" {
                 return Err(invalid("WebRTC data channel unavailable"));
             }
@@ -344,13 +394,13 @@ impl Manager {
                         // hbbs closes answer connections; trickled ICE has its own persistent encrypted connection.
                         for _ in 0..2 {
                             if candidate_signal.is_none() {
-                                match signaling::connect(&signal_config).await {
+                                match setup_step(&mut shutdown,Duration::from_secs(12),signaling::connect(&signal_config)).await {
                                     Ok(s)=>candidate_signal=Some(s),
                                     Err(_)=>break,
                                 }
                             }
-                            let sent=time::timeout(Duration::from_secs(3),candidate_signal.as_mut().unwrap().writer.write(&candidate)).await;
-                            if matches!(sent,Ok(Ok(()))) {break;}
+                            let sent=setup_step(&mut shutdown,Duration::from_secs(3),candidate_signal.as_mut().unwrap().writer.write(&candidate)).await;
+                            if sent.is_ok() {break;}
                             candidate_signal=None;
                         }
                     }
@@ -359,14 +409,20 @@ impl Manager {
                     None => return Err(io::Error::new(io::ErrorKind::BrokenPipe,"WebRTC bridge closed")),
                 },
                 c=rx.recv()=>match c {
-                    Some(c)=>write_rpc(&mut rpc_writer,Command {op:"candidate",candidate:Some(&c),..Default::default()}).await?,
+                    Some(c)=>setup_step(&mut shutdown,Duration::from_secs(3),write_rpc(&mut rpc_writer,Command {op:"candidate",candidate:Some(&c),..Default::default()})).await?,
                     None=>return Ok(()),
                 },
-                result=&mut data=>return result,
+                result=&mut data=>{data_finished=true;return result;},
                 _=shutdown.changed()=>return Ok(()),
             }
         }
         }.await;
+        let _ = data_shutdown_tx.send(true);
+        // Let the session's own shutdown release input and stop its media/reader
+        // tasks. Dropping the active serve future would skip that cleanup.
+        if !data_finished {
+            let _ = time::timeout(Duration::from_secs(3), &mut data).await;
+        }
         if connected {
             if let Err(e) = outcome {
                 eprintln!("RustDesk WebRTC session: {e}");
@@ -395,6 +451,47 @@ fn response(request: &PunchHole, rd: &RustDeskIdentity, answer: String) -> Rende
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn shutdown_interrupts_a_blocked_setup_write_and_timeout_is_bounded() {
+        let (tx, mut shutdown) = watch::channel(false);
+        let task = tokio::spawn(async move {
+            let (mut blocked, _reader) = tokio::io::duplex(1);
+            setup_step(
+                &mut shutdown,
+                Duration::from_secs(3),
+                write_rpc(
+                    &mut blocked,
+                    Command {
+                        op: "offer",
+                        offer: Some("bounded"),
+                        ..Default::default()
+                    },
+                ),
+            )
+            .await
+        });
+        tokio::task::yield_now().await;
+        tx.send(true).unwrap();
+        assert_eq!(
+            time::timeout(Duration::from_secs(1), task)
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::Interrupted
+        );
+        let (_tx, mut shutdown) = watch::channel(false);
+        let e = setup_step(
+            &mut shutdown,
+            Duration::from_millis(10),
+            std::future::pending::<io::Result<()>>(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(e.kind(), io::ErrorKind::TimedOut);
+    }
     #[test]
     fn policy_and_fingerprint_are_strict() {
         let fp = (0..32).map(|_| "AB").collect::<Vec<_>>().join(":");

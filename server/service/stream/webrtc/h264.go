@@ -207,6 +207,7 @@ func createMediaEngine(config stream.EncoderConfig) (*webrtc.MediaEngine, error)
 func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.MediaEngine, budgets ...*peerPathMTU) (*webrtc.PeerConnection, error) {
 	initializeHardwareAES()
 	settingEngine := webrtc.SettingEngine{}
+	configureDiagnosticICEInterface(&settingEngine)
 	// Keep a fixed-budget override for controlled comparisons and recovery.
 	if len(budgets) > 0 && budgets[0] != nil && os.Getenv("NANOKVM_WEBRTC_PMTU") != "0" {
 		network, err := pathmtu.NewNet(budgets[0].receive, os.Getenv("NANOKVM_WEBRTC_UDP_FAST") == "1")

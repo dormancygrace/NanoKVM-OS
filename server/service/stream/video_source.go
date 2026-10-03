@@ -3,6 +3,7 @@ package stream
 import (
 	"NanoKVM-Server/common"
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -279,6 +280,10 @@ func (s *VideoSource) run(session *videoSession) {
 			common.GetKvmVision().RequestKeyframe()
 		}
 		storage, data, result := s.captureFrame(session.config)
+		// A late native read can eliminate the cadence wait. Yield at the frame
+		// boundary so CGO return/callback traffic cannot starve queued input on
+		// the single Go processor used by the device runtime.
+		runtime.Gosched()
 		frame := VideoFrame{Result: result}
 		if result >= 0 {
 			if len(data) == 0 {

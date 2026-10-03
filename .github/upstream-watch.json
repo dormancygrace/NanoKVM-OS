@@ -74,11 +74,11 @@
     },
     {
       "name": "json_c",
-      "path": "platform/sources.lock",
-      "pattern": "^json-c\\s+\\S+\\s+([0-9a-f]{40})",
-      "kind": "github-commit",
+      "path": "firmware/sources.json",
+      "pattern": "\"json_c\"\\s*:\\s*\\{[^}]*\"version\"\\s*:\\s*\"([0-9.]+)\"",
+      "kind": "github-tags",
       "repo": "json-c/json-c",
-      "branch": null
+      "upstream_pattern": "^json-c-([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)-[0-9]{8}$"
     },
     {
       "name": "miniz",

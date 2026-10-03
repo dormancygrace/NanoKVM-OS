@@ -9,16 +9,21 @@ NanoKVM app. The original OneKVM firmware is not used.
 
 ## Architecture and limits
 
-The daemon uses two root-only Unix sockets under /run/nanokvm-rustdesk.
+The daemon uses three root-only Unix sockets under /run/nanokvm-rustdesk.
 A JSON version-1 subscription is followed by 40-byte OKVF headers and Annex B
 H.264/H.265 frames; codec zero carries a bounded error message. The app shares
 its existing encoder. Codec conflicts fail visibly, and device bitrate, GOP and
 frame rate remain in the existing Screen settings. No additional codec runs on
 the SoC. Maximum 1440x2560 portrait output uses H.265 and requires client support.
 
-Audio, files, clipboard, chat and ATX are not implemented. The inherited
-rendezvous implementation falls back to relay instead of completing direct NAT
-traversal. The direct TCP listener defaults to loopback: inherited direct
+Audio, files, clipboard, chat and ATX are not implemented. The legacy
+rendezvous path falls back to relay instead of completing direct TCP/UDP NAT
+traversal. RustDesk 1.5 WebRTC offers use ICE/DTLS/SCTP through the existing Go/Pion
+stack without decode/re-encode. SDP and ICE use authenticated encrypted hbbs TCP;
+the signed RustDesk identity binds the local DTLS fingerprint. If the ID server
+cannot secure/route these messages, the legacy encrypted relay remains available.
+A request demanding relay-only ICE uses legacy relay, since no TURN configuration
+is supplied. The first data channel must be ordered and fully reliable. The direct TCP listener defaults to loopback: inherited direct
 sessions lack transport encryption. The GUI offers ID/relay access only.
 Do not expose port 21118 remotely. Configure the same custom ID server and
 public key in the client. Public registration and encrypted relay video were confirmed on the test device;
@@ -34,8 +39,8 @@ Windows pointer translation. The bridge never changes USB composition.
 ## Package and settings
 
 nanokvm-rustdesk is an optional riscv64 package, absent from the base image list.
-It depends on nanokvm-rustdesk-bridge=1 supplied by the updated nanokvm-app and
-on OpenRC. Installation alone leaves it stopped. Upgrade restarts only a service
+It depends on nanokvm-rustdesk-bridge=1 and nanokvm-rustdesk-webrtc=1 supplied by
+the updated nanokvm-app, plus OpenRC. Upgrade the application before this package. Installation alone leaves it stopped. Upgrade restarts only a service
 that was running; removal stops it and removes its runlevel entry.
 
 Software > Add-ons contains package installation, upgrade and removal, plus a
@@ -50,7 +55,11 @@ The private /etc/nanokvm-rustdesk directory contains config.json, the stable ID,
 UUID and signing key. User state survives package removal and reinstallation.
 Configuration writes are atomic with mode 0600; the status API always omits the permanent password.
 Fresh installs default to temporary passwords. The daemon generates ten easy-to-read
-characters from OS randomness on each start. Only the admin status API exposes
+characters from OS randomness on each start and after a successful new login.
+An authenticated peer may reconnect with its previous credential for thirty
+seconds since its last received message, using the same peer ID, name and
+nonzero session ID. The cache is bounded to 32 peers; wrong identities and new
+sessions require the current password. Ten nonempty wrong attempts rotate it. Only the admin status API exposes
 this password while the service runs; its runtime file has mode 0600 and is removed
 on stop. The "New password" action restarts RustDesk and disconnects its sessions.
 Existing configurations retain permanent mode on upgrade. Switching to temporary
@@ -83,7 +92,7 @@ vendor/ and .cargo/config.toml and support --locked --offline builds and tests.
 
 For an unsigned local test package from the repository root, with cargo,
 fakeroot, a riscv64 musl GCC and apk-tools 3 mkpkg available:
-fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/nanokvm-rustdesk-0.2.1-r1/nanokvm-rustdesk-0.2.1-source.tar.gz
+fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/nanokvm-rustdesk-0.3.0-r0/nanokvm-rustdesk-0.3.0-source.tar.gz
 
 The exported source can also cross-build directly without repository scripts:
 CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=/path/to/riscv64-linux-gcc RUSTFLAGS='-C target-feature=+crt-static' cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl
@@ -117,14 +126,18 @@ The device test plan is in docs/rustdesk-handoff.md.
 ## Versions and upstream reference
 
 The add-on has its own Cargo/APK version. `upstream.json` records the audited
-RustDesk 1.4.9 protocol reference and exact source commits; it is embedded in
+RustDesk 1.5.0 protocol reference and exact source commits; it is embedded in
 the daemon and installed alongside it so the UI follows the installed package.
 This partial endpoint is derived through OneKVM, not a full RustDesk fork.
 `nanokvm-rustdesk --version` prints both versions without starting the service.
 The network version remains the reference version, not the newest client release.
 
-RustDesk 1.5.0's selected KX version is decoded and rejected unless it is the
-offered KX v0. KX v1 and WebRTC are not implemented. Wire fixtures generated
-from the pinned 1.5.0 schema and encrypted loopback tests cover this behavior.
-The repository's `docs/rustdesk-1.5-review.md` describes the transport/crypto
-changes and the proposed porting order.
+TCP/relay advertises KX v1, which derives independent transmit/receive keys with
+the upstream BLAKE2b transcript. Legacy v0 controllers remain supported; an
+unoffered version fails closed. WebRTC carries the same protobuf messages over
+DTLS, advertises KX v0 in the signed identity, and does not add secretbox framing.
+The IPC bridge and daemon bound message sizes, fragment reassembly, ICE queues,
+pending handshakes and session teardown. View-only ControlPermissions cannot
+submit HID, acquire an input lease or send release events.
+Host verification is distinct from device/client qualification; see
+docs/rustdesk-1.5-migration.md for the current evidence and remaining limits.

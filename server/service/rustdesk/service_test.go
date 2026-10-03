@@ -404,3 +404,38 @@ func TestTransportConfigIsOptionalAndCapabilityGated(t *testing.T) {
 		t.Fatal("false option must be omitted for old daemon compatibility")
 	}
 }
+
+func TestAudioCapabilityFollowsInstalledMetadataAndOptionalUSBState(t *testing.T) {
+	temporaryConfig(t)
+	b := NewBridge()
+	usbEnabled := false
+	b.audioEnabled = func() bool { return usbEnabled }
+	s := NewService(b)
+	s.upstreamFile = filepath.Join(t.TempDir(), "upstream.json")
+	installed := true
+	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if name == "apk" && strings.Join(args, " ") == "info -e "+Package && installed {
+			return nil, nil
+		}
+		return nil, errors.New("not available or stopped")
+	}
+	for _, tc := range []struct {
+		metadata                         string
+		usb, installed, support, enabled bool
+	}{
+		{`{"rustdesk_version":"1.5.0","features":{"audio":true}}`, false, true, true, false},
+		{`{"rustdesk_version":"1.5.0","features":{"audio":true}}`, true, true, true, true},
+		{`{"rustdesk_version":"1.5.0"}`, true, true, false, false},
+		{`{"rustdesk_version":"1.5.0","features":{"audio":true}}`, true, false, false, false},
+		{`invalid`, true, true, false, false},
+	} {
+		usbEnabled, installed = tc.usb, tc.installed
+		if err := os.WriteFile(s.upstreamFile, []byte(tc.metadata), 0600); err != nil {
+			t.Fatal(err)
+		}
+		got, err := s.Status()
+		if err != nil || got.SupportsAudio != tc.support || got.USBAudioEnabled != tc.enabled {
+			t.Fatalf("audio status: %+v %v", got, err)
+		}
+	}
+}

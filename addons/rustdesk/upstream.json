@@ -12,6 +12,7 @@
   ],
   "features": {
     "transport_settings": true,
-    "direct_tcp_by_id": true
+    "direct_tcp_by_id": true,
+    "audio": true
   }
 }

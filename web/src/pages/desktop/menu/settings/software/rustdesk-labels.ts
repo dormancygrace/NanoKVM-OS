@@ -34,6 +34,10 @@ export const rustDeskLabels = {
     waitingForPassword: 'Generating a temporary password…',
     regenerateConfirm: 'Generate a new password? Current RustDesk connections will close.',
     advanced: 'Advanced settings',
+    audioEnabled:
+      'USB audio is enabled. Select NanoKVM as the audio output on the connected computer. Sound can be muted in the RustDesk client.',
+    audioDisabled:
+      'To stream computer sound, enable USB audio in the device USB settings and select NanoKVM as the audio output on the computer.',
     webrtc: 'Allow WebRTC connections',
     transportHint:
       'TCP and relay are used by default. WebRTC may reduce frame rate on NanoKVM. To connect by TCP using an ID, turn WebRTC off in the RustDesk client too.',
@@ -94,6 +98,10 @@ export const rustDeskLabels = {
     waitingForPassword: 'Генерируется временный пароль…',
     regenerateConfirm: 'Создать новый пароль? Текущие подключения RustDesk будут завершены.',
     advanced: 'Дополнительные настройки',
+    audioEnabled:
+      'USB audio включён. Выберите NanoKVM как устройство вывода звука на подключённом компьютере. Звук можно отключить в клиенте RustDesk.',
+    audioDisabled:
+      'Для передачи звука включите USB audio в настройках USB устройства и выберите NanoKVM как устройство вывода звука на компьютере.',
     webrtc: 'Разрешить подключения WebRTC',
     transportHint:
       'По умолчанию используются TCP и relay. WebRTC может снижать частоту кадров на NanoKVM. Для подключения по ID через TCP выключите WebRTC и в клиенте RustDesk.',

@@ -18,6 +18,7 @@
 ### 🖥️ Portrait video
 
 - Match portrait and landscape frame-rate targets: **QHD up to 50 FPS, FHD up to 75 FPS and HD up to 120 FPS**. Update the maximum 1440×2560 H.265 Direct EDID to 50 Hz.
+- Fix explicit codec changes being overridden by an existing viewing session. Applying a new codec reconnects viewers to the selected encoder and preserves that choice across application restarts.
 
 ### 🔧 Reliability and interface fixes
 

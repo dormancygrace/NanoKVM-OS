@@ -1,85 +1,67 @@
 # RustDesk add-on integration handoff
 
-Worktree: /home/dgrace/nanokvm-astra/rustdesk-addon-20261003
-Branch: codex/rustdesk-addon-20261003
-Base: c818067d92217a6ed3265733e17191838e4f610c
+Current accepted version: **nanokvm-rustdesk 0.5.3-r0**, based on RustDesk **1.5.0**,
+qualified with **nanokvm-app 2.0_beta8-r25** on 2026-10-04.
+The user confirmed working screen control. See
+[rustdesk-0.5.3-finalization.md](rustdesk-0.5.3-finalization.md) for frozen digests,
+validation, display association and the state left after testing.
 
-This work implements an optional RustDesk protocol daemon, local NanoKVM
-HDMI/HID bridge, Alpine APK lifecycle, admin API and standalone Add-ons card.
-The daemon is derived from the open OneKVM RustDesk extension at
-7a278b5897716786dcc075a167b72f04d5b73766, with source and dependencies bundled.
-The proprietary OneKVM NanoKVM release core is not copied.
+## Integrated source and package boundaries
 
-## Integration boundaries
+Accepted source/recipe commit: `a2bd8b710a9f11c006140262abcaa2eb3936e251`.
+The common branch `codex/screen-role-permissions-20261003` integrated it at
+`7160a0c26c7e5511837bfacbf98107bb3df8a426`; do not reapply the historical UI patch.
+Finalization changes documentation only and does not rebuild the accepted APK.
 
-Cherry-pick the commits from this branch into the owner's active source tree.
-Only one line mounts the new router in router.go. The app APK advertises
-nanokvm-rustdesk-bridge=1; release a newly versioned app package with that
-capability before making the optional package available. The add-on is absent
-from platform/packages.list, so existing images do not install it by default.
+The optional package is absent from the base image package list. Its app
+capabilities are bridge=1, webrtc=1, audio=1, auto-codec=1 and usb-defaults=1;
+install a compatible app first. Software > Add-ons owns installation, available
+upgrades and removal. Settings > Extensions owns installed add-on management.
+Both package and RustDesk reference versions are shown. Config/status changes
+require an admin session; permanent passwords are excluded from status.
 
-The test branch now includes owner UI changes through 110d0d6 and mounts the
-RustDeskAddon in Software Add-ons. The earlier two-line patch remains an
-integration reference; do not apply it again to this tested branch.
+The endpoint uses the existing HDMI encoder and USB input/audio services.
+Enabled remote access prepares keyboard and both mice, and Transmit sound
+prepares USB audio. This preserves unrelated USB functions and the selected
+pointer profile. Input errors revoke that session's control while video/audio
+continue. Direct TCP/relay are supported and WebRTC is optional, disabled by default.
 
-The GUI install/upgrade/remove actions invoke fixed APK arguments. Config and
-status routes require an admin session. Configuration can enable public ID
-servers or a custom ID/relay server and key, password, codec and viewer limit.
-Source can be downloaded from the installed admin card. There is no hidden
-package installation, device access, signing, publication or app deployment.
+## Publication and release state
 
-## Validation completed
+[0.5.3-r0 corresponding source](https://github.com/dormancygrace/NanoKVM-OS-packages/releases/tag/nanokvm-rustdesk-0.5.3-r0)
+contains the locked/vendor source and external packaging/lifecycle files.
+The APK contains LICENSE, NOTICE, upstream.json and a public source URL/digest;
+it does not contain source archives or vendored dependencies.
+The source release is finalized independently of the unsigned local APK.
+No signed APK or package repository index was published by this test task.
+Signing and repository distribution use the normal release workflow.
 
-- Rust: 21 tests pass; two live-server/device tests are explicitly ignored.
-  The protocol test checks rejected login and ongoing video during a slow HID
-  response. New tests cover absolute wheel transport, bounded bridge errors
-  and separate relay viewers with bounded duplicate connection candidates.
-- Go: the complete go test -tags teststub ./... suite passes. The new bridge,
-  HID and WebSocket ownership packages also pass the race detector.
-- Web: TypeScript and Vite production build pass. The standalone component is
-  typechecked; no browser/device UI test has been performed.
-- The daemon cross-build produces a static RISC-V RV64GC binary. QEMU runs its
-  config check successfully and confirms refusal of an empty password.
-- The exported corresponding source passes its full Rust test suite offline.
-- APK mkpkg metadata and root:root payload ownership were inspected.
-  An isolated chroot test with mock OpenRC verifies the dependency guard,
-  stopped installation, restart of a previously running service on upgrade,
-  removal and preserved synthetic configuration. No real service runs in it.
+Do not overwrite accepted source assets or change installed source.json to a
+new archive digest under the same package revision. Documentation corrections
+and final acceptance are published separately in the finalization note.
 
-The production CGO server build now succeeds against the owner's current
-qualified native bundle and its prepared NanoKVM Go 1.27.1 runtime.
-Earlier failures came from selecting an outdated native bundle.
-The device qualification results and outstanding checks are recorded in
-rustdesk-device-test.md.
+## Qualification and cleanup
 
-## Artifacts and build
+Rust 57 tests passed, 3 hardware tests remain opt-in; strict Clippy passed.
+Real Windows/Android sessions, on-device HID responses and user screen-control
+acceptance confirm the repaired input path. Audio PCM/Opus qualification and
+historical transport measurements have separate evidence and limits.
 
-scripts/build-rustdesk-addon.py builds an unsigned local APK and vendored source
-archive. scripts/test-rustdesk-apk.py runs isolated lifecycle tests with a static
-host BusyBox and host apk-tools 3, requiring root solely for chroot execution.
-The APK contains its source archive and AGPL LICENSE/NOTICE. Build/install details
-and runtime limitations are documented in addons/rustdesk/README.md.
+The generic absolute Windows pointer maps to the primary monitor. User control
+worked while the captured NanoKVM display was temporarily primary; the Acer
+primary display was restored afterwards. Only one HDMI display is advertised.
+OS monitor enumeration/switching, clipboard, files, terminal, chat and ATX
+remain outside this version.
 
-The APK is a test artifact. It is not signed or published. Installing it on an
-older app deliberately fails because the bridge capability is absent.
+The runtime-owner task was notified of acceptance and cleanup. RustDesk,
+remote test windows, diagnostic proxy and all test loads are stopped; USB audio
+and current USB input functions remain enabled. Password, identity, configuration,
+native libraries and performance settings were preserved. Do not restart tests
+or services as part of finalization while the user is listening to music.
 
-## Coordinated live test
+Historical evidence:
 
-The device 192.168.4.128 is owned by the main runtime task. This work has not
-connected to it or changed its services, USB composition or video settings.
-
-1. Coordinate a test window with the runtime owner. Preserve 1440x2560 portrait,
-   Direct H.265 and Absolute Pointer Windows-only.
-2. Integrate the bridge and web card; build the updated app with its current
-   native bundle and deploy using the existing release workflow.
-3. Install the optional package; verify it stays stopped until configured.
-4. Choose an agreed ID/relay server and a unique password. Confirm actual ID
-   registration; connect a current client explicitly advertising H.265 support.
-5. Verify live HDMI, modifiers/key releases, absolute position, clicks, wheel,
-   browser video, explicit browser takeover and disconnect cleanup.
-6. Check OpenRC stop/start and APK upgrade/removal/reinstallation with the same
-   ID and settings. Check reboot persistence only in an approved test window.
-7. Exercise H.264 separately within the current hardware resolution limits.
-
-Hardware codec output, HID and Windows pointer behavior, live registration and
-official client compatibility remain unqualified until that test is completed.
+- [Initial 0.1 device test](rustdesk-device-test.md).
+- [RustDesk 1.5 migration and transport qualification](rustdesk-1.5-migration.md).
+- [USB audio path and remaining client checks](rustdesk-usb-audio.md).
+- [USB preparation and input isolation](rustdesk-usb-defaults.md).

@@ -66,7 +66,7 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
         <Tag>
           {status?.installed ? l.installed : l.absent} {status?.version}
         </Tag>
-        <p>{l.explain}</p>
+        <p>{l.description}</p>
         {!status?.installed && status && !status.available && (
           <Alert type="info" title={l.unavailable} />
         )}

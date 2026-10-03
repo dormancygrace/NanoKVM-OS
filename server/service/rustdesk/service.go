@@ -34,6 +34,7 @@ type Config struct {
 type Status struct {
 	Installed         bool            `json:"installed"`
 	Version           string          `json:"version,omitempty"`
+	UpdateVersion     string          `json:"update_version,omitempty"`
 	Available         bool            `json:"available"`
 	Running           bool            `json:"running"`
 	Config            Config          `json:"config"`
@@ -104,8 +105,8 @@ func (s *Service) Status() (Status, error) {
 	status.Config.Password = ""
 	_, err = s.statusCommand("apk", "info", "-e", Package)
 	status.Installed = err == nil
-	data, err := s.statusCommand("apk", "search", "-x", Package)
-	status.Available = err == nil && strings.HasPrefix(strings.TrimSpace(string(data)), Package+"-")
+	// Status polling reads the existing indexes; repository refresh belongs to package management.
+	_, status.Available = s.repositoryVersion(false)
 	if status.Installed {
 		if version, versionErr := s.statusCommand("apk", "info", "-e", "-v", Package); versionErr == nil {
 			value := strings.TrimSpace(string(version))
@@ -113,10 +114,13 @@ func (s *Service) Status() (Status, error) {
 				status.Version = strings.TrimPrefix(value, Package+"-")
 			}
 		}
+		if status.Version != "" {
+			status.UpdateVersion, _ = s.repositoryVersion(true)
+		}
 		_, err = s.statusCommand("rc-service", Package, "status")
 		status.Running = err == nil
 	}
-	if data, err = os.ReadFile(ConfigDir + "/settings-output.json"); err == nil {
+	if data, readErr := os.ReadFile(ConfigDir + "/settings-output.json"); readErr == nil {
 		var fields map[string]string
 		if json.Unmarshal(data, &fields) == nil {
 			status.ID = fields["rustdesk_id"]
@@ -129,12 +133,43 @@ func (s *Service) Status() (Status, error) {
 				status.TemporaryPassword = string(password)
 			}
 		}
-		if data, err = os.ReadFile(RuntimeDir + "/status.json"); err == nil && json.Valid(data) {
+		if data, readErr := os.ReadFile(RuntimeDir + "/status.json"); readErr == nil && json.Valid(data) {
 			status.Runtime = data
 		}
 	}
 	return status, nil
 }
+
+// APK reports newer repository versions using its own upgrade selection.
+func (s *Service) repositoryVersion(upgradable bool) (string, bool) {
+	args := []string{"query", "--no-network"}
+	if !upgradable {
+		args = append(args, "--from=repositories")
+	}
+	// Upgrade selection needs the installed database as well as the repositories.
+	args = append(args, "--format=json", "--fields=name,version")
+	if upgradable {
+		args = append(args, "--upgradable")
+	}
+	data, err := s.statusCommand("apk", append(args, Package)...)
+	if err != nil {
+		return "", false
+	}
+	var packages []struct {
+		Name    string `json:"name"`
+		Version string `json:"version"`
+	}
+	if json.Unmarshal(data, &packages) != nil {
+		return "", false
+	}
+	for _, p := range packages {
+		if p.Name == Package && p.Version != "" {
+			return p.Version, true
+		}
+	}
+	return "", false
+}
+
 func serverAddress(value string, port string) (string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {

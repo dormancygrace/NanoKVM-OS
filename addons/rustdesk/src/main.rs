@@ -100,6 +100,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let onekvm_identity = onekvm::Identity::load()?;
+    onekvm::HidClient::new(config.admin_socket.clone(), onekvm_identity.clone())
+        .prepare()
+        .await?;
     let rustdesk_identity = identity::RustDeskIdentity::load()?;
     rustdesk_identity.publish_settings_output()?;
     server::run(config, onekvm_identity, rustdesk_identity).await?;

@@ -211,6 +211,15 @@ impl HidClient {
         }
     }
 
+    pub async fn prepare(&self) -> io::Result<()> {
+        tokio::time::timeout(
+            std::time::Duration::from_secs(50),
+            self.post_inner("/api/hid/prepare", &serde_json::json!({})),
+        )
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "NanoKVM USB preparation timed out"))?
+    }
+
     pub async fn keyboard(&self, modifiers: u8, keys: &[u8]) -> io::Result<()> {
         self.post(
             "/api/hid/keyboard",
@@ -252,6 +261,14 @@ impl HidClient {
         let _ = self.post("/api/hid/close", &serde_json::json!({})).await;
     }
     async fn post(&self, path: &str, value: &serde_json::Value) -> io::Result<()> {
+        tokio::time::timeout(
+            std::time::Duration::from_secs(3),
+            self.post_inner(path, value),
+        )
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "NanoKVM HID request timed out"))?
+    }
+    async fn post_inner(&self, path: &str, value: &serde_json::Value) -> io::Result<()> {
         let body = serde_json::to_vec(value).map_err(io::Error::other)?;
         let mut stream = UnixStream::connect(&self.socket_path).await?;
         let headers = format!(

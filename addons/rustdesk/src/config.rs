@@ -11,6 +11,9 @@ const OFFICIAL_SERVER_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw="
 fn enabled() -> bool {
     false
 }
+fn audio_enabled() -> bool {
+    true
+}
 
 fn listen_address() -> String {
     "127.0.0.1".to_owned()
@@ -60,6 +63,8 @@ pub enum PasswordMode {
 pub struct Config {
     #[serde(default = "enabled")]
     pub service_enabled: bool,
+    #[serde(default = "audio_enabled")]
+    pub audio_enabled: bool,
     #[serde(default = "listen_address")]
     pub listen_address: String,
     #[serde(default = "port")]
@@ -93,6 +98,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             service_enabled: enabled(),
+            audio_enabled: audio_enabled(),
             listen_address: listen_address(),
             port: port(),
             access_control_enabled: true,
@@ -194,6 +200,21 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::{Config, PasswordMode, OFFICIAL_RENDEZVOUS_SERVER, OFFICIAL_SERVER_KEY};
+
+    #[test]
+    fn sound_defaults_to_enabled_and_an_explicit_disable_survives() {
+        assert!(Config::default().audio_enabled);
+        let old: Config = serde_json::from_str(r#"{"password":"stored-pass"}"#).unwrap();
+        assert!(old.audio_enabled);
+        let off: Config =
+            serde_json::from_str(r#"{"password":"stored-pass","audio_enabled":false}"#).unwrap();
+        assert!(!off.audio_enabled);
+        assert!(
+            !serde_json::from_str::<Config>(&serde_json::to_string(&off).unwrap())
+                .unwrap()
+                .audio_enabled
+        );
+    }
 
     #[test]
     fn webrtc_is_opt_in_for_existing_and_new_configs() {

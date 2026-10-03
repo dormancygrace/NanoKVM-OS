@@ -107,7 +107,7 @@ func (s *Service) Status() (Status, error) {
 	data, err := s.statusCommand("apk", "search", "-x", Package)
 	status.Available = err == nil && strings.HasPrefix(strings.TrimSpace(string(data)), Package+"-")
 	if status.Installed {
-		if version, versionErr := s.statusCommand("apk", "info", "-v", Package); versionErr == nil {
+		if version, versionErr := s.statusCommand("apk", "info", "-e", "-v", Package); versionErr == nil {
 			value := strings.TrimSpace(string(version))
 			if strings.HasPrefix(value, Package+"-") {
 				status.Version = strings.TrimPrefix(value, Package+"-")

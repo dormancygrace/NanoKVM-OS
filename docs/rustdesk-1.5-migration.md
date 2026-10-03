@@ -30,6 +30,7 @@ Host evidence, 2026-10-03:
   v0/v1 loopback, signed signaling roundtrips, DTLS identity/framing and view-only HID test.
 - Go: service/rustdesk and router pass with race detection/hardware stubs.
   Real Pion peer tests bidirectional fragmented payloads, bursts and setup teardown.
+- Protocol field audit: 162 selected field tags match the canonical 1.5.0 schema.
 - UI: TypeScript, scoped Prettier and ESLint pass for lifecycle correction.
 
 Device/client qualification is pending a coordinated slot after the runtime

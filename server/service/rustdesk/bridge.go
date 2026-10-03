@@ -34,6 +34,7 @@ type Bridge struct {
 	mu               sync.Mutex
 	media            net.Listener
 	control          *http.Server
+	rtc              *rtcBridge
 	sessions         map[string]*hidSession
 	videoConnections map[net.Conn]struct{}
 }
@@ -121,6 +122,13 @@ func (b *Bridge) Start() error {
 		media.Close()
 		return err
 	}
+	rtc, err := listenSocket(filepath.Join(RuntimeDir, "webrtc.sock"))
+	if err != nil {
+		media.Close()
+		control.Close()
+		return err
+	}
+	b.rtc = startRTCBridge(rtc)
 	b.media = media
 	b.control = &http.Server{Handler: http.HandlerFunc(b.serveHID), ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 3 * time.Second, WriteTimeout: 3 * time.Second, MaxHeaderBytes: 4096}
 	go b.control.Serve(control)
@@ -149,8 +157,8 @@ func (b *Bridge) Start() error {
 
 func (b *Bridge) Stop() {
 	b.mu.Lock()
-	media, control := b.media, b.control
-	b.media, b.control = nil, nil
+	media, control, rtc := b.media, b.control, b.rtc
+	b.media, b.control, b.rtc = nil, nil, nil
 	sessions := make([]*hidSession, 0, len(b.sessions))
 	for _, s := range b.sessions {
 		sessions = append(sessions, s)
@@ -165,6 +173,9 @@ func (b *Bridge) Stop() {
 	}
 	if control != nil {
 		control.Close()
+	}
+	if rtc != nil {
+		rtc.close()
 	}
 	for _, s := range sessions {
 		s.close()

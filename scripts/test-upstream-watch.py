@@ -16,6 +16,19 @@ spec.loader.exec_module(u)
 
 
 class WatchTests(unittest.TestCase):
+    def test_json_c_tracks_stable_release_tags(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        source = next(s for s in sources if s['name'] == 'json_c')
+        tags = [{'name': n} for n in ('json-c-0.19-20260627', 'json-c-0.19',
+                                     'json-c-0.19.99', 'json-c-0.20-rc1-20261001')]
+        with patch.object(u, 'github', return_value=tags):
+            result = u.check(source)
+            self.assertEqual(result['current'], '0.19')
+            self.assertEqual(result['latest'], '0.19')
+            self.assertEqual(result['status'], 'current')
+        with patch.object(u, 'github', return_value=tags + [{'name': 'json-c-0.20-20270101'}]):
+            self.assertEqual(u.check(source)['status'], 'update available')
+
     def test_inventory_matches_sources(self):
         import json
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']

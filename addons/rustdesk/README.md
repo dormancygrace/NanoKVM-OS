@@ -16,18 +16,19 @@ its existing encoder. Codec conflicts fail visibly, and device bitrate, GOP and
 frame rate remain in the existing Screen settings. No additional codec runs on
 the SoC. Maximum 1440x2560 portrait output uses H.265 and requires client support.
 
-Audio, files, clipboard, chat and ATX are not implemented. The legacy
-rendezvous path falls back to relay instead of completing direct TCP/UDP NAT
-traversal. RustDesk 1.5 WebRTC offers use ICE/DTLS/SCTP through the existing Go/Pion
-stack without decode/re-encode. SDP and ICE use authenticated encrypted hbbs TCP;
-the signed RustDesk identity binds the local DTLS fingerprint. If the ID server
-cannot secure/route these messages, the legacy encrypted relay remains available.
-A request demanding relay-only ICE uses legacy relay, since no TURN configuration
-is supplied. The first data channel must be ordered and fully reliable. The direct TCP listener defaults to loopback: inherited direct
-sessions lack transport encryption. The GUI offers ID/relay access only.
-Do not expose port 21118 remotely. Configure the same custom ID server and
-public key in the client. Public registration and encrypted relay video were confirmed on the test device;
-see docs/rustdesk-device-test.md for limits.
+Audio, files, clipboard, chat and ATX are not implemented. RustDesk 1.5
+sessions attempt encrypted direct TCP by ID using LAN address exchange and NAT
+punching, then fall back to encrypted relay. IPv6-only direct-by-ID currently
+uses relay. The explicit IP listener remains loopback by default.
+
+WebRTC is an optional setting, disabled by default. It uses ICE/DTLS/SCTP through
+the existing Go/Pion stack without decode/re-encode. SDP and ICE use authenticated
+encrypted hbbs TCP; the signed RustDesk identity binds the local DTLS fingerprint.
+Relay remains available when the ID server cannot route signaling. Relay-only
+ICE requests use the TCP relay because no TURN configuration is supplied. The
+first data channel must be ordered and fully reliable. Configure the same custom
+ID server and public key in the client; see docs/rustdesk-1.5-migration.md for
+device qualification and transport limits.
 
 Only one session owns input. An existing browser controller blocks external
 input. Browser joins stay view-only while RustDesk owns control; explicit
@@ -92,7 +93,7 @@ vendor/ and .cargo/config.toml and support --locked --offline builds and tests.
 
 For an unsigned local test package from the repository root, with cargo,
 fakeroot, a riscv64 musl GCC and apk-tools 3 mkpkg available:
-fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/nanokvm-rustdesk-0.3.0-r1/nanokvm-rustdesk-0.3.0-source.tar.gz
+fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/nanokvm-rustdesk-0.3.0-r2/nanokvm-rustdesk-0.3.0-source.tar.gz
 
 The exported source can also cross-build directly without repository scripts:
 CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=/path/to/riscv64-linux-gcc RUSTFLAGS='-C target-feature=+crt-static' cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl

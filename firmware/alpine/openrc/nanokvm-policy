@@ -9,7 +9,7 @@ depend() {
 start() {
     ebegin "Applying NanoKVM runtime policy"
     local script
-    for script in S29qdisc S34mssclamp S38memory S49persistent-cron S94sg2002aes; do
+    for script in S29qdisc S34mssclamp S35flowoffload S38memory S49persistent-cron S94sg2002aes; do
         /usr/libexec/nanokvm/legacy/"$script" start || ewarn "Could not apply $script"
     done
     eend 0

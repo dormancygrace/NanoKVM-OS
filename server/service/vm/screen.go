@@ -30,15 +30,6 @@ var mjpegChromaMutex sync.Mutex
 var readMjpegChromaStatus = common.GetMjpegChromaStatus
 var applyMjpegChroma = func(value uint16) int { return common.GetKvmVision().SetMjpegChroma(value) }
 
-// monitorScreenTypes reprogram the HDMI receiver's EDID flash or clear its
-// power-cycle marker; they are device configuration, not shared viewing.
-var monitorScreenTypes = map[string]bool{
-	"monitor":                 true,
-	"monitor_power_cycle_ack": true,
-	"portrait":                true,
-	"portrait_resolution":     true,
-}
-
 // maxQualityValue covers MJPEG quality (1-100) and H.26x bitrate in kbit/s.
 // The native readers of /kvmapp/kvm/qlty use small fixed buffers.
 const maxQualityValue = common.MaxQualityValue
@@ -76,6 +67,11 @@ func (s *Service) GetScreen(c *gin.Context) {
 }
 
 func (s *Service) SetScreen(c *gin.Context) {
+	if principal, ok := middleware.CurrentPrincipal(c); !ok || principal.Role != authn.RoleAdmin {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
 	var req proto.SetScreenReq
 	var rsp proto.Response
 
@@ -83,13 +79,6 @@ func (s *Service) SetScreen(c *gin.Context) {
 	if err != nil {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
-	}
-
-	if monitorScreenTypes[req.Type] {
-		if principal, ok := middleware.CurrentPrincipal(c); !ok || principal.Role != authn.RoleAdmin {
-			c.JSON(http.StatusForbidden, "forbidden")
-			return
-		}
 	}
 
 	switch req.Type {

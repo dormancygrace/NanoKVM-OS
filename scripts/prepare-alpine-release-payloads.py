@@ -45,10 +45,13 @@ link('/usr/libexec/nanokvm/legacy/S15kvmhwd',base/'etc/init.d/S15kvmhwd')
 copy(enhanced_s15,app/'kvmapp/system/init.d/S15kvmhwd')
 for name in ('S95nanokvm', 'S30eth', 'S30wifi'):
     copy(r/'kvmapp/system/init.d'/name,app/'kvmapp/system/init.d'/name)
-names='S30eth S30wifi S95nanokvm S29qdisc S34mssclamp S38memory S49persistent-cron S94sg2002aes S96picoclaw S98tailscaled S80dnsmasq S13nanokvm-watchdog'.split()
+names='S30eth S30wifi S29qdisc S34mssclamp S35flowoffload S38memory S49persistent-cron S94sg2002aes S96picoclaw S98tailscaled S80dnsmasq S13nanokvm-watchdog'.split()
 for name in names:
     copy(r/'kvmapp/system/init.d'/name,base/'usr/libexec/nanokvm/legacy'/name)
     link('/usr/libexec/nanokvm/legacy/'+name,base/'etc/init.d'/name)
+# The startup policy follows app updates, including compatibility entry points.
+link('/kvmapp/system/init.d/S95nanokvm',base/'usr/libexec/nanokvm/legacy/S95nanokvm')
+link('/usr/libexec/nanokvm/legacy/S95nanokvm',base/'etc/init.d/S95nanokvm')
 for name in ('S50sshd','S49chronyd','S50avahi-daemon'):
     copy(r/'firmware/alpine/compat'/name,base/'usr/libexec/nanokvm/legacy'/name)
     link('/usr/libexec/nanokvm/legacy/'+name,base/'etc/init.d'/name)

@@ -34,6 +34,11 @@ type srtpCipherAesCmHmacSha1 struct {
 	// Pre-allocated buffers for auth tag to avoid heap allocation in hot path.
 	authBuf     [4 + sha1.Size]byte // 4 bytes ROC + 20 bytes SHA1
 	rtcpAuthBuf [sha1.Size]byte
+
+	// Context callers serialize access. Fully overwrite these counters for each
+	// packet; xorBytesCTR and its optional accelerator do not retain the slices.
+	rtpCounter  [16]byte
+	rtcpCounter [16]byte
 }
 
 func (s *srtpCipherAesCmHmacSha1) setCryptex(useCryptex bool) {
@@ -155,9 +160,9 @@ func (s *srtpCipherAesCmHmacSha1) doEncryptRTP(dst []byte, header *rtp.Header, h
 	roc uint32, rocInAuthTag bool, sameBuffer bool, payloadLen int,
 ) error {
 	encrypt := func(dst, plaintext []byte, headerLen int) error {
-		counter := generateCounter(header.SequenceNumber, roc, header.SSRC, s.srtpSessionSalt)
+		s.rtpCounter = generateCounter(header.SequenceNumber, roc, header.SSRC, s.srtpSessionSalt)
 
-		return xorBytesCTR(s.srtpBlock, counter[:], dst[headerLen:], plaintext[headerLen:])
+		return xorBytesCTR(s.srtpBlock, s.rtpCounter[:], dst[headerLen:], plaintext[headerLen:])
 	}
 
 	var err error
@@ -241,9 +246,9 @@ func (s *srtpCipherAesCmHmacSha1) doDecryptRTP(dst, ciphertext []byte, header *r
 	sameBuffer bool,
 ) error {
 	decrypt := func(dst, ciphertext []byte, headerLen int) error {
-		counter := generateCounter(header.SequenceNumber, roc, header.SSRC, s.srtpSessionSalt)
+		s.rtpCounter = generateCounter(header.SequenceNumber, roc, header.SSRC, s.srtpSessionSalt)
 
-		return xorBytesCTR(s.srtpBlock, counter[:], dst[headerLen:], ciphertext[headerLen:])
+		return xorBytesCTR(s.srtpBlock, s.rtpCounter[:], dst[headerLen:], ciphertext[headerLen:])
 	}
 
 	switch {
@@ -289,8 +294,8 @@ func (s *srtpCipherAesCmHmacSha1) encryptRTCP(dst, decrypted []byte, srtcpIndex 
 
 	// Encrypt everything after header
 	if s.srtcpEncrypted {
-		counter := generateCounter(uint16(srtcpIndex&0xffff), srtcpIndex>>16, ssrc, s.srtcpSessionSalt) //nolint:gosec // G115
-		if err = xorBytesCTR(s.srtcpBlock, counter[:], dst[srtcpHeaderSize:], decrypted[srtcpHeaderSize:]); err != nil {
+		s.rtcpCounter = generateCounter(uint16(srtcpIndex&0xffff), srtcpIndex>>16, ssrc, s.srtcpSessionSalt) //nolint:gosec // G115
+		if err = xorBytesCTR(s.srtcpBlock, s.rtcpCounter[:], dst[srtcpHeaderSize:], decrypted[srtcpHeaderSize:]); err != nil {
 			return nil, err
 		}
 
@@ -358,8 +363,8 @@ func (s *srtpCipherAesCmHmacSha1) decryptRTCP(dst, encrypted []byte, index, ssrc
 
 	isEncrypted := encrypted[decryptedLen]&srtcpEncryptionFlag != 0
 	if isEncrypted {
-		counter := generateCounter(uint16(index&0xffff), index>>16, ssrc, s.srtcpSessionSalt) //nolint:gosec // G115
-		err = xorBytesCTR(s.srtcpBlock, counter[:], dst[srtcpHeaderSize:], encrypted[srtcpHeaderSize:decryptedLen])
+		s.rtcpCounter = generateCounter(uint16(index&0xffff), index>>16, ssrc, s.srtcpSessionSalt) //nolint:gosec // G115
+		err = xorBytesCTR(s.srtcpBlock, s.rtcpCounter[:], dst[srtcpHeaderSize:], encrypted[srtcpHeaderSize:decryptedLen])
 	} else if !sameBuffer {
 		copy(dst[srtcpHeaderSize:], encrypted[srtcpHeaderSize:])
 	}

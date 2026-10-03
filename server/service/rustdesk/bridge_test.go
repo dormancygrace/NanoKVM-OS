@@ -1,6 +1,7 @@
 package rustdesk
 
 import (
+	"context"
 	"encoding/binary"
 	"io"
 	"net"
@@ -97,5 +98,44 @@ func TestAbsoluteWheelHeartbeatAndExpiry(t *testing.T) {
 	b.serveHID(response, req)
 	if response.Code != 204 || len(b.sessions) != 0 {
 		t.Fatal("heartbeat claimed input")
+	}
+}
+
+func TestCanceledHIDRequestCannotWriteQueuedReportLater(t *testing.T) {
+	b := NewBridge()
+	id := strings.Repeat("c", 32)
+	s := &hidSession{id: id, touched: time.Now(), keyboard: make(chan hid.QueuedReport, 1), mouse: make(chan hid.QueuedReport, 1), manual: inputcontrol.NewManualSession(controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff), nil)}
+	if !ws.GetManager().AcquireExternalInput(id, s.close) {
+		t.Fatal("input unexpectedly occupied")
+	}
+	b.sessions[id] = s
+	t.Cleanup(b.Stop)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	req := httptest.NewRequest("POST", "/api/hid/mouse/absolute", strings.NewReader(`{"buttons":1,"x":123,"y":456}`)).WithContext(ctx)
+	req.Header.Set("X-NanoKVM-Session", id)
+	response := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() { defer close(done); b.serveHID(response, req) }()
+	var event hid.QueuedReport
+	select {
+	case event = <-s.mouse:
+	case <-time.After(time.Second):
+		t.Fatal("report was not queued")
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("canceled request did not return")
+	}
+	if response.Code != 504 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	writes := 0
+	err := event.Execute(func() error { writes++; return nil })
+	event.Complete(err == nil)
+	if err != context.Canceled || writes != 0 {
+		t.Fatalf("canceled report wrote later: writes=%d err=%v", writes, err)
 	}
 }

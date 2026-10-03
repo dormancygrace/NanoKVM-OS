@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"github.com/pion/ice/v4"
 	"github.com/pion/rtp"
-	"github.com/pion/rtp/codecs"
 	log "github.com/sirupsen/logrus"
 	"sync"
 	"sync/atomic"
@@ -84,7 +83,6 @@ func (p *peerPathMTU) endFrame() error {
 // changes; replacing a Pion packetizer alone would reset its random clock.
 type adaptiveVideoPacketizer struct {
 	codec     stream.VideoCodec
-	mtu       uint16
 	sequence  rtp.Sequencer
 	payloader rtp.Payloader
 	origin    uint32
@@ -100,13 +98,13 @@ func (p *adaptiveVideoPacketizer) packetize(data []byte, timestamp int64, mtu ui
 	if mtu < 32 || len(data) == 0 {
 		return nil
 	}
-	if p.payloader == nil || p.mtu != mtu {
+	// Payloaders receive MTU per call; retain their parameter sets across PMTU changes.
+	if p.payloader == nil {
 		var payloader rtp.Payloader = &ownedH264Payloader{}
 		if p.codec == stream.VideoCodecH265 {
-			payloader = &codecs.H265Payloader{}
+			payloader = &h265Payloader{}
 		}
 		p.payloader = payloader
-		p.mtu = mtu
 	}
 	payloads := p.payloader.Payload(mtu-12, data)
 	if len(payloads) == 0 {

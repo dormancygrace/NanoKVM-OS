@@ -214,7 +214,7 @@ func (m *WebRTCManager) sendVideoStream(subscription *stream.VideoSubscription) 
 func newVideoPacketizer(codec stream.VideoCodec) rtp.Packetizer {
 	payloader := rtp.Payloader(&codecs.H264Payloader{})
 	if codec == stream.VideoCodecH265 {
-		payloader = &codecs.H265Payloader{}
+		payloader = &h265Payloader{}
 	}
 	return rtp.NewPacketizer(
 		videoRTPMTU,

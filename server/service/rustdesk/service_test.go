@@ -147,7 +147,7 @@ func TestPasswordModeDefaultsAndLegacyMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	migrated, err := readConfig()
-	if err != nil || migrated.PasswordMode != "permanent" || migrated.Password != "legacy-secret" {
+	if err != nil || migrated.PasswordMode != "permanent" || migrated.Password != "legacy-secret" || migrated.Codec != "auto" {
 		t.Fatalf("legacy config: %+v %v", migrated, err)
 	}
 	fresh.PasswordMode = "permanent"

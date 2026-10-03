@@ -66,7 +66,7 @@ export const Addons = ({ onOpen }: { onOpen: () => void }) => {
     <div className="space-y-6 py-6">
       {contextHolder}
       <h2 className="text-lg font-semibold">{t('settings.software.addons.title')}</h2>
-      <div className="space-y-4 rounded-xl border border-neutral-700 bg-neutral-800/40 p-4">
+      <div className="flex flex-col items-start gap-4 rounded-xl border border-neutral-700 bg-neutral-800/40 p-4">
         <div className="flex items-center gap-3 text-neutral-200">
           <Robot size={24} />
           <div className="text-base font-medium">PicoClaw</div>

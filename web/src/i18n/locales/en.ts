@@ -693,7 +693,7 @@ const en = {
           packages: 'Packages',
           open: 'Open PicoClaw',
           source: 'Official releases',
-          picoclawDescription: 'AI assistant with optional remote control. Installs the latest stable Linux RISC-V release from the official PicoClaw website.',
+          picoclawDescription: 'AI assistant with optional remote control. Installs the latest stable release from the official PicoClaw website.',
         },
         title: 'Software',
         description:

@@ -218,7 +218,7 @@ fn spawn_requested_relay(
                     relay_server: String::new(),
                     union: None,
                     refuse_reason: String::new(),
-                    version: "1.4.9".to_owned(),
+                    version: crate::upstream::version().to_owned(),
                     feedback: 0,
                     socket_addr_v6: Vec::new(),
                     upnp_port: 0,
@@ -276,7 +276,7 @@ fn spawn_fallback_relay(
                 relay_server: relay.clone(),
                 union: Some(relay_response::Union::Id(rustdesk_identity.id.clone())),
                 refuse_reason: String::new(),
-                version: "1.4.9".to_owned(),
+                version: crate::upstream::version().to_owned(),
                 feedback: 0,
                 socket_addr_v6,
                 upnp_port: 0,
@@ -599,6 +599,7 @@ mod tests {
                 union: Some(message::Union::PublicKey(PublicKey {
                     asymmetric_value: public.as_bytes().to_vec(),
                     symmetric_value: sealed,
+                    kx_version: 0,
                 })),
             },
         )
@@ -631,7 +632,7 @@ mod tests {
                     password: second.finalize().to_vec(),
                     my_id: "interop-probe".to_owned(),
                     my_name: "OneKVM interop probe".to_owned(),
-                    version: "1.4.9".to_owned(),
+                    version: crate::upstream::version().to_owned(),
                     my_platform: "Linux".to_owned(),
                     ..Default::default()
                 })),

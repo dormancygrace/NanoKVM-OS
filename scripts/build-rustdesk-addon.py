@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tarfile
+import tomllib
 
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--linker",type=Path,required=True,help="riscv64 musl GCC")
@@ -16,13 +17,14 @@ parser.add_argument("--output",type=Path,required=True)
 args=parser.parse_args()
 root=Path(__file__).resolve().parents[1]
 source=root/"addons/rustdesk"
+version=tomllib.loads((source/"Cargo.toml").read_text())["package"]["version"]
 build=root/"work/rustdesk-dist"
 build.mkdir(parents=True, exist_ok=True)
 output=args.output.resolve()
 output.mkdir(parents=True,exist_ok=True)
-stage=build/"nanokvm-rustdesk-0.2.0"
+stage=build/f"nanokvm-rustdesk-{version}"
 stage.mkdir(exist_ok=True)
-for name in ["src","Cargo.toml","Cargo.lock","LICENSE","NOTICE","README.md"]:
+for name in ["src","tests","Cargo.toml","Cargo.lock","LICENSE","NOTICE","README.md","upstream.json"]:
     p=source/name
     if p.is_dir():shutil.copytree(p,stage/name,dirs_exist_ok=True)
     elif p.exists():shutil.copyfile(p,stage/name)
@@ -33,7 +35,7 @@ vendor=subprocess.check_output(["cargo","vendor","--locked","--versioned-dirs",s
 env=dict(os.environ,CARGO_TARGET_DIR=str(root/"work/rust-target"),CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=str(args.linker.absolute()),RUSTFLAGS="-C target-feature=+crt-static")
 subprocess.run(["cargo","build","--locked","--release","--target","riscv64gc-unknown-linux-musl"],cwd=source,env=env,check=True)
 binary=root/"work/rust-target/riscv64gc-unknown-linux-musl/release/nanokvm-rustdesk"
-archive=output/"nanokvm-rustdesk-0.2.0-source.tar.gz"
+archive=output/f"nanokvm-rustdesk-{version}-source.tar.gz"
 with tarfile.open(archive,"w:gz") as tar:tar.add(stage,arcname=stage.name)
 payload=build/"payload"
 def install(src,dest,mode=0o644):
@@ -47,9 +49,10 @@ install(pkg/"nanokvm-rustdesk.initd","etc/init.d/nanokvm-rustdesk",0o755)
 install(source/"LICENSE","usr/share/licenses/nanokvm-rustdesk/LICENSE")
 install(source/"NOTICE","usr/share/licenses/nanokvm-rustdesk/NOTICE")
 install(archive,"usr/share/nanokvm-rustdesk/source.tar.gz")
-apkfile=output/"nanokvm-rustdesk-0.2.0-r0.apk"
+install(source/"upstream.json","usr/share/nanokvm-rustdesk/upstream.json")
+apkfile=output/f"nanokvm-rustdesk-{version}-r0.apk"
 command=[str(args.apk.resolve()),"mkpkg","--files",str(payload),"--output",str(apkfile)]
-for value in ["name:nanokvm-rustdesk","version:0.2.0-r0","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
+for value in ["name:nanokvm-rustdesk",f"version:{version}-r0","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
     command+=["--info",value]
 for action in ["pre-upgrade","post-upgrade","pre-deinstall"]:
     command+=["--script",action+":"+str(pkg/("nanokvm-rustdesk."+action))]

@@ -729,7 +729,7 @@ fn peer_info(video: &VideoInfo) -> PeerInfo {
         }],
         current_display: 0,
         sas_enabled: false,
-        version: "1.4.9".to_owned(),
+        version: crate::upstream::version().to_owned(),
         features: Some(Features {
             privacy_mode: false,
             terminal: false,
@@ -870,6 +870,14 @@ async fn secure_handshake(
             "secure handshake expected PublicKey",
         ));
     };
+    // IdPk advertises KX v0 by omitting its version. Never accept a peer's
+    // selection of a scheme this endpoint did not offer or implement.
+    if public_key.kx_version != 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "peer selected a key exchange version not offered (only KX v0 is supported)",
+        ));
+    }
     let peer_public: [u8; 32] = public_key
         .asymmetric_value
         .try_into()
@@ -933,6 +941,69 @@ mod tests {
         client_supports_codec, peer_info, rustdesk_video_frame, serve, take_relative_chunk,
         verify_password, viewer_key, ClientLimits, PendingPointerMove,
     };
+
+    #[tokio::test]
+    async fn secure_handshake_preserves_v0_and_rejects_unoffered_v1() {
+        use crate::protocol::{IdPk, PublicKey};
+        use crypto_box::{aead::Aead as _, Nonce, SalsaBox, SecretKey};
+
+        for selected in [0, 1] {
+            let root = temporary_directory();
+            let identity = RustDeskIdentity::load_from(&root).unwrap();
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let key = super::secure_handshake(&mut stream, &identity).await?;
+                let mut writer = FrameWriter::new(stream, Some(key));
+                writer
+                    .write(&Message {
+                        union: Some(message::Union::Hash(Hash {
+                            salt: "salt".into(),
+                            challenge: "challenge".into(),
+                        })),
+                    })
+                    .await
+            });
+            let mut stream = TcpStream::connect(address).await.unwrap();
+            let response: Message = read_message(&mut stream).await.unwrap();
+            let Some(message::Union::SignedId(signed)) = response.union else {
+                panic!("missing signed identity")
+            };
+            let id = IdPk::decode(&signed.id[64..]).unwrap();
+            let peer_public: [u8; 32] = id.pk.try_into().unwrap();
+            let secret = SecretKey::from([17_u8; 32]);
+            let cipher = SalsaBox::new(&crypto_box::PublicKey::from(peer_public), &secret);
+            let session_bytes = [29_u8; 32];
+            let sealed = cipher
+                .encrypt(Nonce::from_slice(&[0_u8; 24]), session_bytes.as_slice())
+                .unwrap();
+            write_message(
+                &mut stream,
+                &Message {
+                    union: Some(message::Union::PublicKey(PublicKey {
+                        asymmetric_value: secret.public_key().as_bytes().to_vec(),
+                        symmetric_value: sealed,
+                        kx_version: selected,
+                    })),
+                },
+            )
+            .await
+            .unwrap();
+            if selected == 0 {
+                let mut reader =
+                    FrameReader::new(stream, Some(crate::framing::SessionKey::new(session_bytes)));
+                let response: Message = reader.read().await.unwrap();
+                assert!(matches!(response.union, Some(message::Union::Hash(_))));
+                assert!(server.await.unwrap().is_ok());
+            } else {
+                let error = server.await.unwrap().unwrap_err();
+                assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+                assert!(error.to_string().contains("not offered"));
+            }
+            std::fs::remove_dir_all(root).unwrap();
+        }
+    }
 
     #[test]
     fn relay_viewers_are_not_collapsed_by_relay_ip() {
@@ -1207,7 +1278,7 @@ mod tests {
                 union: Some(message::Union::LoginRequest(LoginRequest {
                     my_id: "test-client".to_owned(),
                     my_name: "NanoKVM test".to_owned(),
-                    version: "1.4.9".to_owned(),
+                    version: crate::upstream::version().to_owned(),
                     my_platform: "Linux".to_owned(),
                     ..Default::default()
                 })),
@@ -1231,7 +1302,7 @@ mod tests {
                     password: vec![0; 32],
                     my_id: "test-client".to_owned(),
                     my_name: "NanoKVM test".to_owned(),
-                    version: "1.4.9".to_owned(),
+                    version: crate::upstream::version().to_owned(),
                     my_platform: "Linux".to_owned(),
                     ..Default::default()
                 })),
@@ -1252,7 +1323,7 @@ mod tests {
             password: password_hash("onekvm-test", &hash),
             my_id: "test-client".to_owned(),
             my_name: "NanoKVM test".to_owned(),
-            version: "1.4.9".to_owned(),
+            version: crate::upstream::version().to_owned(),
             my_platform: "Linux".to_owned(),
             ..Default::default()
         };
@@ -1438,7 +1509,7 @@ mod tests {
                     password: password_hash(&password, &hash),
                     my_id: "media-cancellation-probe".to_owned(),
                     my_name: "NanoKVM media cancellation probe".to_owned(),
-                    version: "1.4.9".to_owned(),
+                    version: crate::upstream::version().to_owned(),
                     my_platform: "Linux".to_owned(),
                     option: Some(OptionMessage {
                         supported_decoding: Some(SupportedDecoding {

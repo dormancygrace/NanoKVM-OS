@@ -111,3 +111,18 @@ Live HDMI, USB, client compatibility and registration require coordinated
 testing on the real device before production use.
 
 The device test plan is in docs/rustdesk-handoff.md.
+
+## Versions and upstream reference
+
+The add-on has its own Cargo/APK version. `upstream.json` records the audited
+RustDesk 1.4.9 protocol reference and exact source commits; it is embedded in
+the daemon and installed alongside it so the UI follows the installed package.
+This partial endpoint is derived through OneKVM, not a full RustDesk fork.
+`nanokvm-rustdesk --version` prints both versions without starting the service.
+The network version remains the reference version, not the newest client release.
+
+RustDesk 1.5.0's selected KX version is decoded and rejected unless it is the
+offered KX v0. KX v1 and WebRTC are not implemented. Wire fixtures generated
+from the pinned 1.5.0 schema and encrypted loopback tests cover this behavior.
+The repository's `docs/rustdesk-1.5-review.md` describes the transport/crypto
+changes and the proposed porting order.

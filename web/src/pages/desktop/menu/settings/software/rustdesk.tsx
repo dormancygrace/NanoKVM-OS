@@ -12,6 +12,7 @@ import { RustDeskIcon } from '@/components/icons/rustdesk';
 
 import { AddonCard } from './addon-card';
 import { rustDeskLabels } from './rustdesk-labels';
+import { RustDeskVersions } from './rustdesk-versions';
 
 export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
   const { i18n } = useTranslation();
@@ -70,13 +71,7 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
         <>
           {error && <Alert type="error" title={error} showIcon />}
           {status &&
-            (status.installed ? (
-              <span className="text-sm text-neutral-400">
-                {l.addonVersion}: {status.version}
-              </span>
-            ) : (
-              <Tag>{l.absent}</Tag>
-            ))}
+            (status.installed ? <RustDeskVersions status={status} /> : <Tag>{l.absent}</Tag>)}
           <p className="text-sm text-neutral-300">{l.description}</p>
           {!status?.installed && status && !status.available && (
             <Alert type="info" title={l.unavailable} />

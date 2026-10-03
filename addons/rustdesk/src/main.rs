@@ -9,6 +9,7 @@ mod rendezvous;
 mod server;
 mod status;
 mod temporary_password;
+mod upstream;
 
 use std::{env, path::PathBuf, process::ExitCode};
 
@@ -37,6 +38,14 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut arguments = env::args().skip(1);
     while let Some(argument) = arguments.next() {
         match argument.as_str() {
+            "--version" => {
+                println!(
+                    "nanokvm-rustdesk {} (RustDesk protocol base {})",
+                    env!("CARGO_PKG_VERSION"),
+                    upstream::version()
+                );
+                return Ok(());
+            }
             "--health" => health = true,
             "--check" => check = true,
             "--config" => {

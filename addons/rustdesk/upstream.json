@@ -1,0 +1,8 @@
+{
+  "rustdesk_version": "1.4.9",
+  "basis": "protocol-reference",
+  "rustdesk_commit": "6c578292e8ebbbec708b76986ba8c4bc7c509747",
+  "hbb_common_commit": "7e1c392c62d39c364127307cd408421dd5f8cfb0",
+  "onekvm_commit": "7a278b5897716786dcc075a167b72f04d5b73766",
+  "kx_version": 0
+}

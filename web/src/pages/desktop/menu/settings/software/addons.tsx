@@ -8,6 +8,7 @@ import { getRuntimeStatus, installRuntime, uninstallRuntime } from '@/api/picocl
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { Robot } from '@/components/icons/robot.tsx';
+import { RustDeskAddon } from './rustdesk';
 
 export const Addons = ({ onOpen }: { onOpen: () => void }) => {
   const { t } = useTranslation();
@@ -127,6 +128,7 @@ export const Addons = ({ onOpen }: { onOpen: () => void }) => {
           </Button>
         )}
       </div>
+      <RustDeskAddon />
     </div>
   );
 };

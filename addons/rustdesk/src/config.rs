@@ -73,6 +73,7 @@ pub struct Config {
     #[serde(default = "rustdesk_id")]
     pub rustdesk_id: String,
     pub use_official_id_server: bool,
+    pub webrtc_enabled: bool,
     pub rendezvous_server: String,
     pub relay_server: String,
     pub server_key: String,
@@ -96,6 +97,7 @@ impl Default for Config {
             codec: codec(),
             rustdesk_id: rustdesk_id(),
             use_official_id_server: true,
+            webrtc_enabled: false,
             rendezvous_server: String::new(),
             relay_server: String::new(),
             server_key: String::new(),
@@ -185,6 +187,16 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::{Config, PasswordMode, OFFICIAL_RENDEZVOUS_SERVER, OFFICIAL_SERVER_KEY};
+
+    #[test]
+    fn webrtc_is_opt_in_for_existing_and_new_configs() {
+        assert!(!Config::default().webrtc_enabled);
+        let old: Config = serde_json::from_str(r#"{"password":"stored-pass"}"#).unwrap();
+        assert!(!old.webrtc_enabled);
+        let opted: Config =
+            serde_json::from_str(r#"{"password":"stored-pass","webrtc_enabled":true}"#).unwrap();
+        assert!(opted.webrtc_enabled);
+    }
 
     #[test]
     fn defaults_require_a_password() {

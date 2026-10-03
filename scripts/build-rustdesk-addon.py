@@ -11,6 +11,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import tarfile
+import tempfile
+import atexit
 import tomllib
 
 parser=argparse.ArgumentParser(description=__doc__)
@@ -35,13 +37,22 @@ build=root/"work/rustdesk-dist"
 build.mkdir(parents=True, exist_ok=True)
 output=args.output.resolve()
 output.mkdir(parents=True,exist_ok=True)
-stage=build/f"nanokvm-rustdesk-{version}"
-stage.mkdir(exist_ok=True)
+# A fresh root isolates both source and payload from every earlier build.
+# TemporaryDirectory removes only this newly-created host directory at exit.
+staging=tempfile.TemporaryDirectory(prefix=f"build-{package_version}-",dir=build)
+atexit.register(staging.cleanup)
+staging_root=Path(staging.name)
+stage=staging_root/f"nanokvm-rustdesk-{version}"
+stage.mkdir()
+for expected in [f"nanokvm-rustdesk-{version}-source.tar.gz",f"nanokvm-rustdesk-{package_version}.apk","APKBUILD"]:
+    if (output/expected).exists():
+        raise SystemExit(f"refusing to overwrite artifact: {output/expected}")
 for name in ["src","tests","Cargo.toml","Cargo.lock","LICENSE","NOTICE","README.md","upstream.json"]:
     p=source/name
     if p.is_dir():shutil.copytree(p,stage/name,dirs_exist_ok=True)
     elif p.exists():shutil.copyfile(p,stage/name)
-vendor=subprocess.check_output(["cargo","vendor","--locked","--versioned-dirs",str(stage/"vendor")],cwd=source,text=True)
+with (build/"cargo-vendor.log").open("w") as vendor_log:
+    vendor=subprocess.check_output(["cargo","vendor","--locked","--versioned-dirs",str(stage/"vendor")],cwd=source,text=True,stderr=vendor_log)
 # Cargo vendor prints an absolute path; make the archive relocatable.
 (stage/".cargo").mkdir(exist_ok=True)
 (stage/".cargo/config.toml").write_text(vendor.replace(str(stage/"vendor"),"vendor"))
@@ -49,23 +60,85 @@ env=dict(os.environ,CARGO_TARGET_DIR=str(root/"work/rust-target"),CARGO_TARGET_R
 subprocess.run(["cargo","build","--locked","--release","--target","riscv64gc-unknown-linux-musl"],cwd=source,env=env,check=True)
 binary=root/"work/rust-target/riscv64gc-unknown-linux-musl/release/nanokvm-rustdesk"
 # Recipes and build inputs travel in the published source, not in the APK.
-shutil.copytree(pkg,stage/"packaging",dirs_exist_ok=True)
+shutil.copytree(pkg,stage/"packaging")
+# A corresponding-source tar cannot embed its own digest. Preserve the build
+# recipe as a template; the production recipe beside the archive is checksummed.
+embedded_recipe=stage/"packaging/APKBUILD"
+embedded_recipe.rename(stage/"packaging/APKBUILD.in")
 shutil.copyfile(Path(__file__),stage/"packaging/build-rustdesk-addon.py")
 (stage/"packaging/BUILD.md").write_text("""# Packaging this source
 
 The source root builds and tests with cargo --locked --offline using the
 vendored crates. See the source README for the exact static RISC-V target.
-For a native riscv64 Alpine build, copy APKBUILD and nanokvm-rustdesk.* from
-this directory into an abuild recipe directory, run abuild checksum, then
-build against the published source archive. The standalone builder here is
+For a native riscv64 Alpine build, use the checksummed APKBUILD distributed
+beside this immutable source archive, and copy nanokvm-rustdesk.* from this
+directory into its recipe directory. APKBUILD.in here records the recipe shape,
+not a production download checksum (an archive cannot contain its own digest). The standalone builder here is
 preserved as a record of the NanoKVM firmware repository's packaging script;
 it expects that repository's addons/rustdesk and firmware/alpine layout.
 The APK contains binary, lifecycle hooks, license, upstream metadata and a
 source URL/digest record. It does not contain this archive or vendored crates.
 """)
+# Export the new Go transport as a independently buildable component as well.
+# The integrated application is packaged separately; this records its exact IPC hook.
+go_transport=stage/"app-webrtc"
+go_transport.mkdir(exist_ok=True)
+for name in ["webrtc.go","webrtc_test.go"]:
+    shutil.copyfile(root/"server/service/rustdesk"/name,go_transport/name)
+shutil.copyfile(root/"server/service/rustdesk/bridge.go",go_transport/"bridge.go.integration")
+(go_transport/"go.mod").write_text((root/"server/go.mod").read_text().replace("module NanoKVM-Server","module nanokvm-rustdesk-webrtc-source",1))
+shutil.copyfile(root/"server/go.sum",go_transport/"go.sum")
+# Preserve all local Pion replacements: these are production C906 changes.
+for line in (root/"server/go.mod").read_text().splitlines():
+    if "=> ./" in line:
+        component=Path(line.split("=>",1)[1].strip())
+        shutil.copytree(root/"server"/component,go_transport/component,dirs_exist_ok=True)
+subprocess.run(["go","mod","tidy"],cwd=go_transport,check=True)
+subprocess.run(["go","mod","vendor"],cwd=go_transport,check=True)
+(go_transport/"README.md").write_text("""# Pion IPC component
+
+The application runs webrtc.go in service/rustdesk. The standalone source here
+includes locked, vendored dependencies and real data-channel tests:
+go test -mod=vendor -race ./...
+bridge.go.integration records the application start/stop and root-only socket
+integration; its common/authn/media dependencies belong to the NanoKVM app source.
+The Unix listener must use SO_PEERCRED to allow uid 0 only, directory 0700 and
+socket 0600. Offer/answer/candidate/attach JSON has a u32 little-endian length
+(maximum 64 KiB). A one-time attach token switches the socket after ready to
+RustDesk's 1-4 byte little-endian length framing. Data-channel fragment byte 1
+means continuation, byte 0 means final. No source is installed on the device.
+""")
+
+(stage/"docs").mkdir(exist_ok=True)
+for name in ["rustdesk-1.5-review.md","rustdesk-1.5-migration.md"]:
+    shutil.copyfile(root/"docs"/name,stage/"docs"/name)
+# Raw diagnostic reports contain private device/controller IDs; publish only
+# the generic plan and summarized qualification evidence.
+(stage/"docs/rustdesk-device-test.md").write_text("""# Device qualification
+
+Historical 0.2-series lab tests verified public ID registration and encrypted
+relay video. Raw diagnostic identifiers and local host/device paths are kept
+only in the development workspace. See rustdesk-1.5-migration.md for the current
+candidate's host/device qualification evidence and transport limits.
+""")
+(stage/"docs/rustdesk-handoff.md").write_text("""# Device test plan
+
+Use a coordinated test slot. Upgrade the NanoKVM app with bridge=1 and webrtc=1
+before installing the add-on. Verify the installed add-on and protocol versions,
+public source URL/digest, identity/config preservation, registration, temporary
+password rotation and reconnect, actual 1.5-client encrypted relay/WebRTC video,
+view-only behavior, input ownership/release and transport cleanup under bounded
+CPU/RSS. Restore test settings afterwards. Do not create device backups or leave
+uploaded APKs/source archives on device storage.
+""")
+shutil.copyfile(root/"server/service/rustdesk/webrtc_socket_test.go",go_transport/"webrtc_socket_test.go.integration")
 archive=output/f"nanokvm-rustdesk-{version}-source.tar.gz"
 with tarfile.open(archive,"w:gz") as tar:tar.add(stage,arcname=stage.name)
-payload=build/f"payload-{package_version}"
+# Publish/commit this external production recipe after computing the archive.
+checksum_block="sha512sums=\""+hashlib.sha512(archive.read_bytes()).hexdigest()+"  "+archive.name+"\n"+hashlib.sha512((pkg/"nanokvm-rustdesk.initd").read_bytes()).hexdigest()+"  nanokvm-rustdesk.initd\"\n"
+production_recipe=re.sub(r"(?ms)^sha512sums=.*\Z", "",recipe).rstrip()+"\n\n"+checksum_block
+(output/"APKBUILD").write_text(production_recipe)
+payload=staging_root/"payload"
 def install(src,dest,mode=0o644):
     path=payload/dest.lstrip("/")
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -75,13 +148,13 @@ install(binary,"usr/bin/nanokvm-rustdesk",0o755)
 install(pkg/"nanokvm-rustdesk.initd","etc/init.d/nanokvm-rustdesk",0o755)
 install(source/"LICENSE","usr/share/licenses/nanokvm-rustdesk/LICENSE")
 install(source/"NOTICE","usr/share/licenses/nanokvm-rustdesk/NOTICE")
-source_record=build/f"source-{package_version}.json"
+source_record=staging_root/"source.json"
 source_record.write_text(json.dumps({"url":args.source_url,"sha256":hashlib.sha256(archive.read_bytes()).hexdigest(),"package_version":package_version},indent=2)+"\n")
 install(source_record,"usr/share/nanokvm-rustdesk/source.json")
 install(source/"upstream.json","usr/share/nanokvm-rustdesk/upstream.json")
 apkfile=output/f"nanokvm-rustdesk-{package_version}.apk"
 command=[str(args.apk.resolve()),"mkpkg","--files",str(payload),"--output",str(apkfile)]
-for value in ["name:nanokvm-rustdesk",f"version:{package_version}","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
+for value in ["name:nanokvm-rustdesk",f"version:{package_version}","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
     command+=["--info",value]
 for action in ["pre-upgrade","post-upgrade","pre-deinstall"]:
     command+=["--script",action+":"+str(pkg/("nanokvm-rustdesk."+action))]

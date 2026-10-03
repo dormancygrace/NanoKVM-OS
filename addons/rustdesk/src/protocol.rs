@@ -9,6 +9,10 @@ pub struct IdPk {
     pub id: String,
     #[prost(bytes = "vec", tag = "2")]
     pub pk: Vec<u8>,
+    #[prost(string, tag = "3")]
+    pub dtls_fingerprint: String,
+    #[prost(uint32, tag = "4")]
+    pub kx_version: u32,
 }
 
 #[derive(Clone, PartialEq, ProstMessage)]
@@ -229,6 +233,8 @@ pub struct OptionMessage {
     pub supported_decoding: Option<SupportedDecoding>,
     #[prost(int32, tag = "11")]
     pub custom_fps: i32,
+    #[prost(int32, tag = "12")]
+    pub disable_keyboard: i32,
 }
 
 #[derive(Clone, PartialEq, ProstMessage)]
@@ -372,14 +378,30 @@ pub enum ControlKey {
 }
 
 #[derive(Clone, PartialEq, ProstMessage)]
+pub struct Misc {
+    #[prost(oneof = "misc::Union", tags = "7,9")]
+    pub union: Option<misc::Union>,
+}
+pub mod misc {
+    use super::{Oneof, OptionMessage};
+    #[derive(Clone, PartialEq, Oneof)]
+    pub enum Union {
+        #[prost(message, tag = "7")]
+        Option(OptionMessage),
+        #[prost(string, tag = "9")]
+        CloseReason(String),
+    }
+}
+
+#[derive(Clone, PartialEq, ProstMessage)]
 pub struct Message {
-    #[prost(oneof = "message::Union", tags = "3, 4, 5, 6, 7, 8, 9, 10, 15")]
+    #[prost(oneof = "message::Union", tags = "3, 4, 5, 6, 7, 8, 9, 10, 15,19")]
     pub union: Option<message::Union>,
 }
 
 pub mod message {
     use super::{
-        Hash, KeyEvent, LoginRequest, LoginResponse, MouseEvent, Oneof, PublicKey, SignedId,
+        Hash, KeyEvent, LoginRequest, LoginResponse, Misc, MouseEvent, Oneof, PublicKey, SignedId,
         TestDelay, VideoFrame,
     };
 
@@ -403,6 +425,8 @@ pub mod message {
         MouseEvent(MouseEvent),
         #[prost(message, tag = "15")]
         KeyEvent(KeyEvent),
+        #[prost(message, tag = "19")]
+        Misc(Misc),
     }
 }
 
@@ -444,6 +468,8 @@ pub struct PunchHoleRequest {
     pub socket_addr_v6: Vec<u8>,
     #[prost(string, tag = "11")]
     pub switch_code: String,
+    #[prost(string, tag = "12")]
+    pub webrtc_sdp_offer: String,
 }
 
 #[derive(Clone, PartialEq, ProstMessage)]
@@ -482,6 +508,36 @@ pub enum RegisterPkResult {
 }
 
 #[derive(Clone, PartialEq, ProstMessage)]
+pub struct ControlPermissions {
+    #[prost(uint64, tag = "1")]
+    pub permissions: u64,
+}
+#[derive(Clone, PartialEq, ProstMessage)]
+pub struct ControlledContext {
+    #[prost(string, tag = "1")]
+    pub conn_audit_ref: String,
+}
+#[derive(Clone, PartialEq, ProstMessage)]
+pub struct PunchHoleSent {
+    #[prost(bytes = "vec", tag = "1")]
+    pub socket_addr: Vec<u8>,
+    #[prost(string, tag = "2")]
+    pub id: String,
+    #[prost(string, tag = "3")]
+    pub relay_server: String,
+    #[prost(enumeration = "NatType", tag = "4")]
+    pub nat_type: i32,
+    #[prost(string, tag = "5")]
+    pub version: String,
+    #[prost(int32, tag = "6")]
+    pub upnp_port: i32,
+    #[prost(bytes = "vec", tag = "7")]
+    pub socket_addr_v6: Vec<u8>,
+    #[prost(string, tag = "8")]
+    pub webrtc_sdp_answer: String,
+}
+
+#[derive(Clone, PartialEq, ProstMessage)]
 pub struct PunchHole {
     #[prost(bytes = "vec", tag = "1")]
     pub socket_addr: Vec<u8>,
@@ -497,6 +553,12 @@ pub struct PunchHole {
     pub upnp_port: i32,
     #[prost(bytes = "vec", tag = "7")]
     pub socket_addr_v6: Vec<u8>,
+    #[prost(string, tag = "10")]
+    pub webrtc_sdp_offer: String,
+    #[prost(message, optional, tag = "8")]
+    pub control_permissions: Option<ControlPermissions>,
+    #[prost(message, optional, tag = "9")]
+    pub controlled_context: Option<ControlledContext>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Enumeration)]
@@ -514,6 +576,26 @@ pub struct FetchLocalAddr {
     #[prost(string, tag = "2")]
     pub relay_server: String,
     #[prost(bytes = "vec", tag = "3")]
+    pub socket_addr_v6: Vec<u8>,
+    #[prost(message, optional, tag = "4")]
+    pub control_permissions: Option<ControlPermissions>,
+    #[prost(message, optional, tag = "5")]
+    pub controlled_context: Option<ControlledContext>,
+}
+
+#[derive(Clone, PartialEq, ProstMessage)]
+pub struct LocalAddr {
+    #[prost(bytes = "vec", tag = "1")]
+    pub socket_addr: Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub local_addr: Vec<u8>,
+    #[prost(string, tag = "3")]
+    pub relay_server: String,
+    #[prost(string, tag = "4")]
+    pub id: String,
+    #[prost(string, tag = "5")]
+    pub version: String,
+    #[prost(bytes = "vec", tag = "6")]
     pub socket_addr_v6: Vec<u8>,
 }
 
@@ -535,6 +617,12 @@ pub struct RequestRelay {
     pub conn_type: i32,
     #[prost(string, tag = "8")]
     pub token: String,
+    #[prost(message, optional, tag = "9")]
+    pub control_permissions: Option<ControlPermissions>,
+    #[prost(message, optional, tag = "10")]
+    pub controlled_context: Option<ControlledContext>,
+    #[prost(string, tag = "11")]
+    pub switch_code: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Enumeration)]
@@ -568,6 +656,8 @@ pub struct RelayResponse {
     pub socket_addr_v6: Vec<u8>,
     #[prost(int32, tag = "11")]
     pub upnp_port: i32,
+    #[prost(string, tag = "12")]
+    pub webrtc_sdp_answer: String,
 }
 
 #[derive(Clone, PartialEq, ProstMessage)]
@@ -592,6 +682,8 @@ pub struct PunchHoleResponse {
     pub upnp_port: i32,
     #[prost(bytes = "vec", tag = "11")]
     pub socket_addr_v6: Vec<u8>,
+    #[prost(string, tag = "12")]
+    pub webrtc_sdp_answer: String,
 }
 
 pub mod punch_hole_response {
@@ -627,19 +719,47 @@ pub struct ConfigUpdate {
 }
 
 #[derive(Clone, PartialEq, ProstMessage)]
+pub struct KeyExchange {
+    #[prost(bytes = "vec", repeated, tag = "1")]
+    pub keys: Vec<Vec<u8>>,
+    #[prost(uint32, tag = "2")]
+    pub version: u32,
+    #[prost(bytes = "vec", tag = "3")]
+    pub signed_params: Vec<u8>,
+}
+#[derive(Clone, PartialEq, ProstMessage)]
+pub struct KxParams {
+    #[prost(bytes = "vec", tag = "1")]
+    pub pk: Vec<u8>,
+    #[prost(uint32, tag = "2")]
+    pub version: u32,
+}
+#[derive(Clone, PartialEq, ProstMessage)]
+pub struct IceCandidate {
+    #[prost(string, tag = "1")]
+    pub id: String,
+    #[prost(bytes = "vec", tag = "2")]
+    pub socket_addr: Vec<u8>,
+    #[prost(string, tag = "3")]
+    pub session_key: String,
+    #[prost(string, tag = "4")]
+    pub candidate: String,
+}
+
+#[derive(Clone, PartialEq, ProstMessage)]
 pub struct RendezvousMessage {
     #[prost(
         oneof = "rendezvous_message::Union",
-        tags = "6, 7, 8, 9, 11, 12, 14, 15, 16, 18, 19"
+        tags = "6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 25, 29"
     )]
     pub union: Option<rendezvous_message::Union>,
 }
 
 pub mod rendezvous_message {
     use super::{
-        ConfigUpdate, FetchLocalAddr, Oneof, PunchHole, PunchHoleRequest, PunchHoleResponse,
-        RegisterPeer, RegisterPeerResponse, RegisterPk, RegisterPkResponse, RelayResponse,
-        RequestRelay,
+        ConfigUpdate, FetchLocalAddr, IceCandidate, KeyExchange, LocalAddr, Oneof, PunchHole,
+        PunchHoleRequest, PunchHoleResponse, PunchHoleSent, RegisterPeer, RegisterPeerResponse,
+        RegisterPk, RegisterPkResponse, RelayResponse, RequestRelay,
     };
 
     #[derive(Clone, PartialEq, Oneof)]
@@ -652,10 +772,14 @@ pub mod rendezvous_message {
         PunchHoleRequest(PunchHoleRequest),
         #[prost(message, tag = "9")]
         PunchHole(PunchHole),
+        #[prost(message, tag = "10")]
+        PunchHoleSent(PunchHoleSent),
         #[prost(message, tag = "11")]
         PunchHoleResponse(PunchHoleResponse),
         #[prost(message, tag = "12")]
         FetchLocalAddr(FetchLocalAddr),
+        #[prost(message, tag = "13")]
+        LocalAddr(LocalAddr),
         #[prost(message, tag = "14")]
         ConfigureUpdate(ConfigUpdate),
         #[prost(message, tag = "15")]
@@ -666,6 +790,10 @@ pub mod rendezvous_message {
         RequestRelay(RequestRelay),
         #[prost(message, tag = "19")]
         RelayResponse(RelayResponse),
+        #[prost(message, tag = "25")]
+        KeyExchange(KeyExchange),
+        #[prost(message, tag = "29")]
+        IceCandidate(IceCandidate),
     }
 }
 
@@ -691,5 +819,66 @@ mod tests {
             assert_eq!(key.kx_version, version);
             assert_eq!(key.encode_to_vec(), wire);
         }
+    }
+}
+
+#[cfg(test)]
+mod webrtc_wire_tests {
+    use super::*;
+    #[test]
+    fn ice_candidate_matches_150_canonical_field_numbers() {
+        // rustdesk/hbb_common 229b904, rendezvous.proto IceCandidate fields 1..4.
+        let bytes = [0x0a, 1, b'x', 0x12, 1, 0xab, 0x1a, 1, b'k', 0x22, 1, b'c'];
+        let candidate = IceCandidate::decode(bytes.as_slice()).unwrap();
+        assert_eq!(candidate.id, "x");
+        assert_eq!(candidate.socket_addr, vec![0xab]);
+        assert_eq!(candidate.session_key, "k");
+        assert_eq!(candidate.candidate, "c");
+        assert_eq!(candidate.encode_to_vec(), bytes);
+        let wire = RendezvousMessage {
+            union: Some(rendezvous_message::Union::IceCandidate(candidate)),
+        }
+        .encode_to_vec();
+        assert_eq!(&wire[..3], &[0xea, 1, 12]); // canonical oneof tag 29
+    }
+}
+
+#[cfg(test)]
+mod client_option_wire_tests {
+    use super::*;
+    #[test]
+    fn view_only_option_matches_canonical_150_misc_and_bool_tags() {
+        let wire = [0x9a, 0x01, 0x04, 0x3a, 0x02, 0x60, 0x02];
+        let message = Message::decode(wire.as_slice()).unwrap();
+        let Some(message::Union::Misc(Misc {
+            union: Some(misc::Union::Option(option)),
+        })) = message.union
+        else {
+            panic!("not a client option")
+        };
+        assert_eq!(option.disable_keyboard, 2);
+    }
+}
+
+#[cfg(test)]
+mod direct_wire_tests {
+    use super::*;
+    #[test]
+    fn local_addr_and_permissions_have_canonical_150_tags() {
+        // LocalAddr 1..6, RendezvousMessage.LocalAddr 13, FetchLocalAddr permissions 4.
+        let bytes = [
+            0x0a, 1, b'a', 0x12, 1, b'b', 0x1a, 1, b'c', 0x22, 1, b'd', 0x2a, 1, b'e', 0x32, 1,
+            b'f',
+        ];
+        let addr = LocalAddr::decode(bytes.as_slice()).unwrap();
+        assert_eq!(addr.local_addr, b"b");
+        assert_eq!(addr.encode_to_vec(), bytes);
+        let msg = RendezvousMessage {
+            union: Some(rendezvous_message::Union::LocalAddr(addr)),
+        }
+        .encode_to_vec();
+        assert_eq!(&msg[..2], &[0x6a, 18]);
+        let req = FetchLocalAddr::decode([0x22, 2, 0x08, 0x01].as_slice()).unwrap();
+        assert_eq!(req.control_permissions.unwrap().permissions, 1);
     }
 }

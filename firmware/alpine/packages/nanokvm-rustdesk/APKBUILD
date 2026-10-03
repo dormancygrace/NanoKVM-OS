@@ -31,5 +31,5 @@ package() {
         "$sourceurl" "$digest" "$pkgver" "$pkgrel" > "$pkgdir/usr/share/$pkgname/source.json"
 }
 
-sha512sums="fdfa200b58afa81f25247b48d2700e485aa93e37971d94e4d5953bc7ff2648875a2f891e55461ade3cb21080f1e74a39743171da0f4767484d232a4381d38d16  nanokvm-rustdesk-0.4.1-source.tar.gz
+sha512sums="3e4016e243f55ac6ff0509cda88cc9f73313d40e621c13b437e3cc84ff9a250f461e0f836792dba987476e91fa09355c6235ac5fba893b8d7a3573b0c2f9f158  nanokvm-rustdesk-0.5.0-source.tar.gz
 56ccd6558b9a5f58ac62aac11a16ab8647343bb206cacb05b5082289382841c89426e654cd6bcdb5378e0395d58905d1ce939d1a44ad4c7a485d8745e4508a1a  nanokvm-rustdesk.initd"

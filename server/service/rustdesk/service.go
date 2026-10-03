@@ -34,6 +34,7 @@ type Config struct {
 type Status struct {
 	Installed         bool            `json:"installed"`
 	Version           string          `json:"version,omitempty"`
+	RustDeskVersion   string          `json:"rustdesk_version,omitempty"`
 	UpdateVersion     string          `json:"update_version,omitempty"`
 	Available         bool            `json:"available"`
 	Running           bool            `json:"running"`
@@ -48,10 +49,11 @@ type Service struct {
 	bridge       *Bridge
 	run          func(context.Context, string, ...string) ([]byte, error)
 	passwordFile string
+	upstreamFile string
 }
 
 func NewService(b *Bridge) *Service {
-	return &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password"}
+	return &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password", upstreamFile: "/usr/share/nanokvm-rustdesk/upstream.json"}
 }
 func runCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
@@ -108,6 +110,17 @@ func (s *Service) Status() (Status, error) {
 	// Status polling reads the existing indexes; repository refresh belongs to package management.
 	_, status.Available = s.repositoryVersion(false)
 	if status.Installed {
+		// This metadata belongs to the installed daemon, including when stopped.
+		// Older packages without metadata remain unknown rather than inheriting
+		// a possibly incorrect version from the web application.
+		if data, readErr := os.ReadFile(s.upstreamFile); readErr == nil {
+			var upstream struct {
+				Version string `json:"rustdesk_version"`
+			}
+			if json.Unmarshal(data, &upstream) == nil && regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(upstream.Version) {
+				status.RustDeskVersion = upstream.Version
+			}
+		}
 		if version, versionErr := s.statusCommand("apk", "info", "-e", "-v", Package); versionErr == nil {
 			value := strings.TrimSpace(string(version))
 			if strings.HasPrefix(value, Package+"-") {

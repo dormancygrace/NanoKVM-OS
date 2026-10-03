@@ -17,6 +17,9 @@ pub struct PublicKey {
     pub asymmetric_value: Vec<u8>,
     #[prost(bytes = "vec", tag = "2")]
     pub symmetric_value: Vec<u8>,
+    // RustDesk 1.5.0: absent means the original KX v0 scheme.
+    #[prost(uint32, tag = "3")]
+    pub kx_version: u32,
 }
 
 #[derive(Clone, PartialEq, ProstMessage)]
@@ -663,5 +666,30 @@ pub mod rendezvous_message {
         RequestRelay(RequestRelay),
         #[prost(message, tag = "19")]
         RelayResponse(RelayResponse),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_upstream_150_key_exchange_version_and_legacy_absence() {
+        for (wire, version) in [
+            (
+                include_bytes!("../tests/fixtures/rustdesk-1.5-public-key-v0.bin").as_slice(),
+                0,
+            ),
+            (
+                include_bytes!("../tests/fixtures/rustdesk-1.5-public-key-v1.bin").as_slice(),
+                1,
+            ),
+        ] {
+            let key = PublicKey::decode(wire).unwrap();
+            assert_eq!(key.asymmetric_value, b"controller-key");
+            assert_eq!(key.symmetric_value, b"sealed-session-key");
+            assert_eq!(key.kx_version, version);
+            assert_eq!(key.encode_to_vec(), wire);
+        }
     }
 }

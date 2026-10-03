@@ -31,6 +31,7 @@ import { rustDeskStatusAtom } from '@/jotai/rustdesk';
 import { RustDeskIcon } from '@/components/icons/rustdesk';
 
 import { rustDeskLabels as labels } from '../software/rustdesk-labels';
+import { RustDeskVersions } from '../software/rustdesk-versions';
 
 export const RustDeskControls = () => {
   const { i18n } = useTranslation();
@@ -108,6 +109,7 @@ export const RustDeskControls = () => {
       </h2>
       <Space direction="vertical" size="middle" className="w-full">
         {error && <Alert type="error" title={error} showIcon />}
+        {status?.installed && <RustDeskVersions status={status} />}
         <div className="flex flex-wrap items-center gap-2">
           {status?.installed && (
             <Tag color={status.running ? 'green' : 'default'}>

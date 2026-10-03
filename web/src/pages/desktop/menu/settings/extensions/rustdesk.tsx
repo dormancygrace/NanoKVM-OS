@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Collapse,
+  ConfigProvider,
   Form,
   Input,
   InputNumber,
@@ -27,6 +28,7 @@ import {
 import { getBaseUrl } from '@/lib/service';
 import { pollWhileVisible } from '@/lib/visible-poll';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk';
+import { RustDeskIcon } from '@/components/icons/rustdesk';
 
 import { rustDeskLabels as labels } from '../software/rustdesk-labels';
 
@@ -100,11 +102,13 @@ export const RustDeskControls = () => {
 
   return (
     <div className="min-w-0">
-      <h2 className="mb-5 text-xl">{l.settings}</h2>
+      <h2 className="mb-5 flex items-center gap-2 text-xl">
+        <RustDeskIcon size={24} />
+        {l.settings}
+      </h2>
       <Space direction="vertical" size="middle" className="w-full">
         {error && <Alert type="error" title={error} showIcon />}
         <div className="flex flex-wrap items-center gap-2">
-          <Tag>{status?.installed ? l.installed : l.absent}</Tag>
           {status?.installed && (
             <Tag color={status.running ? 'green' : 'default'}>
               {status.running ? l.running : l.stopped}
@@ -146,111 +150,125 @@ export const RustDeskControls = () => {
         )}
         <p>{l.explain}</p>
         {status?.installed && (
-          <Form
-            form={form}
-            initialValues={{ ...status.config, password: '' }}
-            layout="vertical"
-            disabled={busy}
-            onValuesChange={() => {
-              dirty.current = true;
+          <ConfigProvider
+            theme={{
+              token: { colorBgContainer: '#262626', colorBorder: '#525252' },
+              components: {
+                Collapse: { headerPadding: '12px 16px', contentPadding: 16 }
+              }
             }}
           >
-            <Form.Item name="service_enabled" label={l.enabled} valuePropName="checked">
-              <Switch />
-            </Form.Item>
-            <Form.Item name="password_mode" label={l.passwordMode}>
-              <Select
-                options={[
-                  { value: 'temporary', label: l.temporary },
-                  { value: 'permanent', label: l.permanent }
-                ]}
-              />
-            </Form.Item>
-            {passwordMode === 'permanent' && (
-              <Form.Item
-                name="password"
-                label={l.password}
-                rules={[
-                  {
-                    validator: async (_, value: string) => {
-                      if (
-                        form.getFieldValue('password_mode') !== 'permanent' ||
-                        (!value && status.has_password)
-                      )
-                        return;
-                      const length = new TextEncoder().encode(value || '').length;
-                      if (length < 8 || length > 64) throw new Error(l.passwordRequired);
-                    }
-                  }
-                ]}
-              >
-                <Input.Password
-                  autoComplete="new-password"
-                  placeholder={status.has_password ? l.keepPassword : ''}
+            <Form
+              form={form}
+              initialValues={{ ...status.config, password: '' }}
+              layout="vertical"
+              disabled={busy}
+              onValuesChange={() => {
+                dirty.current = true;
+              }}
+            >
+              <Form.Item name="service_enabled" label={l.enabled} valuePropName="checked">
+                <Switch />
+              </Form.Item>
+              <Form.Item name="password_mode" label={l.passwordMode}>
+                <Select
+                  options={[
+                    { value: 'temporary', label: l.temporary },
+                    { value: 'permanent', label: l.permanent }
+                  ]}
                 />
               </Form.Item>
-            )}
-            <Collapse
-              className="mb-4"
-              items={[
-                {
-                  key: 'advanced',
-                  label: l.advanced,
-                  forceRender: true,
-                  children: (
-                    <>
-                      <Form.Item
-                        name="use_official_id_server"
-                        label={l.server}
-                        getValueProps={(value) => ({ value: value ? 'official' : 'custom' })}
-                        getValueFromEvent={(value) => value === 'official'}
-                      >
-                        <Select
-                          options={[
-                            { value: 'official', label: l.public },
-                            { value: 'custom', label: l.custom }
-                          ]}
-                        />
-                      </Form.Item>
-                      {!official && (
-                        <>
-                          <Alert type="info" title={l.sameServer} className="mb-4" />
-                          <Form.Item
-                            name="rendezvous_server"
-                            label={l.idServer}
-                            rules={[{ required: true }]}
-                          >
-                            <Input placeholder="id.example.com:21116" autoComplete="off" />
-                          </Form.Item>
-                          <Form.Item name="relay_server" label={l.relay}>
-                            <Input placeholder="relay.example.com:21117" autoComplete="off" />
-                          </Form.Item>
-                          <Form.Item name="server_key" label={l.key}>
-                            <Input autoComplete="off" />
-                          </Form.Item>
-                        </>
-                      )}
-                      <Alert type="info" title={l.video} className="mb-4" />
-                      <Form.Item name="codec" label={l.codec}>
-                        <Select
-                          options={[
-                            { value: 'h264', label: 'H.264' },
-                            { value: 'h265', label: 'H.265' }
-                          ]}
-                        />
-                      </Form.Item>
-                      <Form.Item name="max_clients" label={l.clients} rules={[{ required: true }]}>
-                        <InputNumber min={1} max={8} />
-                      </Form.Item>
-                    </>
-                  )
-                }
-              ]}
-            />
-            <Button type="primary" loading={busy} onClick={() => void operation('save')}>
-              {l.save}
-            </Button>
-          </Form>
+              {passwordMode === 'permanent' && (
+                <Form.Item
+                  name="password"
+                  label={l.password}
+                  rules={[
+                    {
+                      validator: async (_, value: string) => {
+                        if (
+                          form.getFieldValue('password_mode') !== 'permanent' ||
+                          (!value && status.has_password)
+                        )
+                          return;
+                        const length = new TextEncoder().encode(value || '').length;
+                        if (length < 8 || length > 64) throw new Error(l.passwordRequired);
+                      }
+                    }
+                  ]}
+                >
+                  <Input.Password
+                    autoComplete="new-password"
+                    placeholder={status.has_password ? l.keepPassword : ''}
+                  />
+                </Form.Item>
+              )}
+              <Collapse
+                className="mb-4"
+                items={[
+                  {
+                    key: 'advanced',
+                    label: l.advanced,
+                    forceRender: true,
+                    children: (
+                      <>
+                        <Form.Item
+                          name="use_official_id_server"
+                          label={l.server}
+                          getValueProps={(value) => ({ value: value ? 'official' : 'custom' })}
+                          getValueFromEvent={(value) => value === 'official'}
+                        >
+                          <Select
+                            options={[
+                              { value: 'official', label: l.public },
+                              { value: 'custom', label: l.custom }
+                            ]}
+                          />
+                        </Form.Item>
+                        {!official && (
+                          <>
+                            <Alert type="info" title={l.sameServer} className="mb-4" />
+                            <Form.Item
+                              name="rendezvous_server"
+                              label={l.idServer}
+                              rules={[{ required: true }]}
+                            >
+                              <Input placeholder="id.example.com:21116" autoComplete="off" />
+                            </Form.Item>
+                            <Form.Item name="relay_server" label={l.relay}>
+                              <Input placeholder="relay.example.com:21117" autoComplete="off" />
+                            </Form.Item>
+                            <Form.Item name="server_key" label={l.key}>
+                              <Input autoComplete="off" />
+                            </Form.Item>
+                          </>
+                        )}
+                        <Alert type="info" title={l.video} className="mb-4" />
+                        <Form.Item name="codec" label={l.codec}>
+                          <Select
+                            options={[
+                              { value: 'h264', label: 'H.264' },
+                              { value: 'h265', label: 'H.265' }
+                            ]}
+                          />
+                        </Form.Item>
+                        <Form.Item
+                          name="max_clients"
+                          label={l.clients}
+                          rules={[{ required: true }]}
+                          className="mb-0"
+                        >
+                          <InputNumber min={1} max={8} />
+                        </Form.Item>
+                      </>
+                    )
+                  }
+                ]}
+              />
+              <Button type="primary" loading={busy} onClick={() => void operation('save')}>
+                {l.save}
+              </Button>
+            </Form>
+          </ConfigProvider>
         )}
         {status?.installed && (
           <a href={getBaseUrl('http') + '/api/addons/rustdesk/source'}>{l.source} · AGPL-3.0</a>

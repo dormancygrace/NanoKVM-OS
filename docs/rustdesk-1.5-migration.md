@@ -1,4 +1,11 @@
-# RustDesk 1.5 migration: NanoKVM add-on 0.3.0-r2
+# RustDesk 1.5 migration
+
+Current accepted package: **0.5.3-r0**, protocol reference **1.5.0**. See
+[finalization](rustdesk-0.5.3-finalization.md) for current behavior and limits.
+Audio is now implemented and optional. The sections below retain the historical
+0.3.0 migration and transport measurements.
+
+## Historical 0.3.0-r2 migration
 
 The endpoint uses RustDesk 1.5.0 fada664df7a294d1d1a9ca3e7cd3637069122f17
 and hbb_common 229b904508364c8997aad0fb5af57effac859f60 as protocol reference.

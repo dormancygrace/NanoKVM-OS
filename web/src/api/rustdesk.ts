@@ -15,6 +15,7 @@ export type RustDeskStatus = {
   installed: boolean;
   version?: string;
   rustdesk_version?: string;
+  source_url?: string;
   update_version?: string;
   available: boolean;
   running: boolean;

@@ -3,6 +3,9 @@
 No device access, package installation, signing, publication or image changes.
 """
 import argparse
+import hashlib
+import json
+import re
 import os
 from pathlib import Path
 import shutil
@@ -14,10 +17,20 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--linker",type=Path,required=True,help="riscv64 musl GCC")
 parser.add_argument("--apk",type=Path,required=True,help="host apk-tools 3 with mkpkg")
 parser.add_argument("--output",type=Path,required=True)
+parser.add_argument("--source-url",required=True,help="immutable public URL for this package revision source archive")
 args=parser.parse_args()
 root=Path(__file__).resolve().parents[1]
 source=root/"addons/rustdesk"
 version=tomllib.loads((source/"Cargo.toml").read_text())["package"]["version"]
+pkg=root/"firmware/alpine/packages/nanokvm-rustdesk"
+recipe=(pkg/"APKBUILD").read_text()
+pkgver=re.search(r"^pkgver=(\S+)$",recipe,re.M).group(1)
+revision=re.search(r"^pkgrel=([0-9]+)$",recipe,re.M).group(1)
+if pkgver != version:
+    raise SystemExit("APKBUILD pkgver must match Cargo.toml")
+package_version=f"{version}-r{revision}"
+if not args.source_url.startswith("https://"):
+    raise SystemExit("--source-url must be an HTTPS URL")
 build=root/"work/rustdesk-dist"
 build.mkdir(parents=True, exist_ok=True)
 output=args.output.resolve()
@@ -35,24 +48,40 @@ vendor=subprocess.check_output(["cargo","vendor","--locked","--versioned-dirs",s
 env=dict(os.environ,CARGO_TARGET_DIR=str(root/"work/rust-target"),CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=str(args.linker.absolute()),RUSTFLAGS="-C target-feature=+crt-static")
 subprocess.run(["cargo","build","--locked","--release","--target","riscv64gc-unknown-linux-musl"],cwd=source,env=env,check=True)
 binary=root/"work/rust-target/riscv64gc-unknown-linux-musl/release/nanokvm-rustdesk"
+# Recipes and build inputs travel in the published source, not in the APK.
+shutil.copytree(pkg,stage/"packaging",dirs_exist_ok=True)
+shutil.copyfile(Path(__file__),stage/"packaging/build-rustdesk-addon.py")
+(stage/"packaging/BUILD.md").write_text("""# Packaging this source
+
+The source root builds and tests with cargo --locked --offline using the
+vendored crates. See the source README for the exact static RISC-V target.
+For a native riscv64 Alpine build, copy APKBUILD and nanokvm-rustdesk.* from
+this directory into an abuild recipe directory, run abuild checksum, then
+build against the published source archive. The standalone builder here is
+preserved as a record of the NanoKVM firmware repository's packaging script;
+it expects that repository's addons/rustdesk and firmware/alpine layout.
+The APK contains binary, lifecycle hooks, license, upstream metadata and a
+source URL/digest record. It does not contain this archive or vendored crates.
+""")
 archive=output/f"nanokvm-rustdesk-{version}-source.tar.gz"
 with tarfile.open(archive,"w:gz") as tar:tar.add(stage,arcname=stage.name)
-payload=build/"payload"
+payload=build/f"payload-{package_version}"
 def install(src,dest,mode=0o644):
     path=payload/dest.lstrip("/")
     path.parent.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(src,path)
     path.chmod(mode)
-pkg=root/"firmware/alpine/packages/nanokvm-rustdesk"
 install(binary,"usr/bin/nanokvm-rustdesk",0o755)
 install(pkg/"nanokvm-rustdesk.initd","etc/init.d/nanokvm-rustdesk",0o755)
 install(source/"LICENSE","usr/share/licenses/nanokvm-rustdesk/LICENSE")
 install(source/"NOTICE","usr/share/licenses/nanokvm-rustdesk/NOTICE")
-install(archive,"usr/share/nanokvm-rustdesk/source.tar.gz")
+source_record=build/f"source-{package_version}.json"
+source_record.write_text(json.dumps({"url":args.source_url,"sha256":hashlib.sha256(archive.read_bytes()).hexdigest(),"package_version":package_version},indent=2)+"\n")
+install(source_record,"usr/share/nanokvm-rustdesk/source.json")
 install(source/"upstream.json","usr/share/nanokvm-rustdesk/upstream.json")
-apkfile=output/f"nanokvm-rustdesk-{version}-r0.apk"
+apkfile=output/f"nanokvm-rustdesk-{package_version}.apk"
 command=[str(args.apk.resolve()),"mkpkg","--files",str(payload),"--output",str(apkfile)]
-for value in ["name:nanokvm-rustdesk",f"version:{version}-r0","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
+for value in ["name:nanokvm-rustdesk",f"version:{package_version}","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
     command+=["--info",value]
 for action in ["pre-upgrade","post-upgrade","pre-deinstall"]:
     command+=["--script",action+":"+str(pkg/("nanokvm-rustdesk."+action))]

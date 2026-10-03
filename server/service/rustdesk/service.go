@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"regexp"
@@ -35,6 +36,7 @@ type Status struct {
 	Installed         bool            `json:"installed"`
 	Version           string          `json:"version,omitempty"`
 	RustDeskVersion   string          `json:"rustdesk_version,omitempty"`
+	SourceURL         string          `json:"source_url,omitempty"`
 	UpdateVersion     string          `json:"update_version,omitempty"`
 	Available         bool            `json:"available"`
 	Running           bool            `json:"running"`
@@ -50,10 +52,11 @@ type Service struct {
 	run          func(context.Context, string, ...string) ([]byte, error)
 	passwordFile string
 	upstreamFile string
+	sourceFile   string
 }
 
 func NewService(b *Bridge) *Service {
-	return &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password", upstreamFile: "/usr/share/nanokvm-rustdesk/upstream.json"}
+	return &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password", upstreamFile: "/usr/share/nanokvm-rustdesk/upstream.json", sourceFile: "/usr/share/nanokvm-rustdesk/source.json"}
 }
 func runCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
@@ -110,6 +113,7 @@ func (s *Service) Status() (Status, error) {
 	// Status polling reads the existing indexes; repository refresh belongs to package management.
 	_, status.Available = s.repositoryVersion(false)
 	if status.Installed {
+		status.SourceURL = s.SourceURL()
 		// This metadata belongs to the installed daemon, including when stopped.
 		// Older packages without metadata remain unknown rather than inheriting
 		// a possibly incorrect version from the web application.
@@ -151,6 +155,26 @@ func (s *Service) Status() (Status, error) {
 		}
 	}
 	return status, nil
+}
+
+// SourceURL returns the immutable public source archive recorded by the APK.
+// No source archive is stored or served by the device.
+func (s *Service) SourceURL() string {
+	data, err := os.ReadFile(s.sourceFile)
+	if err != nil {
+		return ""
+	}
+	var source struct {
+		URL string `json:"url"`
+	}
+	if json.Unmarshal(data, &source) != nil {
+		return ""
+	}
+	parsed, err := url.Parse(source.URL)
+	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil || parsed.Path == "" {
+		return ""
+	}
+	return source.URL
 }
 
 // APK reports newer repository versions using its own upgrade selection.

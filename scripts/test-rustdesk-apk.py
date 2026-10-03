@@ -3,6 +3,8 @@
 No real service is started. Root is needed only for apk's chroot execution.
 """
 import argparse
+import json
+import re
 import os
 from pathlib import Path
 import shutil
@@ -12,6 +14,7 @@ import tempfile
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument("--apk", type=Path, required=True, help="host apk-tools 3")
 p.add_argument("--package", type=Path, required=True)
+p.add_argument("--previous-package", type=Path, required=True, help="previous source-bundled APK for upgrade verification")
 a = p.parse_args()
 if os.geteuid() != 0:
     p.error("run as root for isolated chroot tests")
@@ -65,7 +68,7 @@ provider = test / "provider.apk"
 run([apk, "mkpkg", "--files", str(empty), "--output", str(provider),
     "--info", "name:nanokvm-test-runtime", "--info", "version:1-r0",
     "--info", "arch:riscv64", "--info", "provides:nanokvm-rustdesk-bridge=1 openrc=1"])
-run(base + ["--initdb", "add", str(provider), str(package)])
+run(base + ["--initdb", "add", str(provider), str(a.previous_package.absolute())])
 assert (root / "usr/bin/nanokvm-rustdesk").is_file()
 assert (root / "usr/share/nanokvm-rustdesk/source.tar.gz").is_file()
 assert not (root / "state/calls").exists(), "install must leave daemon stopped"
@@ -78,13 +81,22 @@ softlevel.parent.mkdir(parents=True)
 softlevel.write_text("default")
 (root / "state/running").touch()
 original = subprocess.check_output([apk, "adbdump", str(package)], text=True)
-assert "version: 0.1.0-r0" in original
+version = re.search(r"^  version: (\S+)$", original, re.M).group(1)
+# This is the real packaging upgrade: apk removes the obsolete archive path.
+run(base + ["add", "--upgrade", str(package)])
+assert not (root / "usr/share/nanokvm-rustdesk/source.tar.gz").exists()
+record = json.loads((root / "usr/share/nanokvm-rustdesk/source.json").read_text())
+assert record["url"].startswith("https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/")
+assert re.fullmatch(r"[0-9a-f]{64}", record["sha256"])
+assert record["package_version"] == version
+major, rel = version.rsplit("-r", 1)
+upgrade_version = major + "-r" + str(int(rel) + 1)
 # The upgrade uses the identical payload and real lifecycle hooks, with a higher
 # test-only version. These mock chroot commands never start the actual daemon.
 upgraded = test / "upgrade.apk"
-payload = repo / "work/rustdesk-dist/payload"
+payload = repo / ("work/rustdesk-dist/payload-" + version)
 command = [apk, "mkpkg", "--files", str(payload), "--output", str(upgraded)]
-for field in ["name:nanokvm-rustdesk", "version:0.1.1-r0", "arch:riscv64",
+for field in ["name:nanokvm-rustdesk", "version:" + upgrade_version, "arch:riscv64",
               "depends:nanokvm-rustdesk-bridge=1 openrc"]:
     command += ["--info", field]
 for action in ["pre-upgrade", "post-upgrade", "pre-deinstall"]:
@@ -101,5 +113,5 @@ assert not (root / "usr/bin/nanokvm-rustdesk").exists()
 assert not (root / "state/running").exists()
 assert config.read_text() == '{"password":"synthetic-test-state"}\n'
 assert "rc-update del nanokvm-rustdesk default" in (root / "state/calls").read_text()
-print("PASS: dependency guard, stopped install, running upgrade, removal and preserved synthetic state")
+print("PASS: dependency guard, old archive removal, versioned source metadata, running upgrade, removal and preserved state")
 print("Test root:", root)

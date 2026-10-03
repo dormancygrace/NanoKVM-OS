@@ -199,3 +199,20 @@ References:
 - https://learn.microsoft.com/en-us/windows-hardware/design/component-guidelines/digitizer-display-mapping
 - https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/usb-containerids-in-windows
 - https://learn.microsoft.com/en-us/windows-hardware/drivers/display/specialized-monitors-edid-extension
+
+## Touch gestures with the absolute pointer
+
+Both Default and Windows profiles accept the same browser gestures:
+
+- Tap: left click; double tap: double left click.
+- Keep one finger on the video and tap with a second finger: right click at the
+  first finger's pointer position. Lift the second finger within 350 ms and keep
+  both fingers within an 8 CSS-pixel movement tolerance.
+- Move two fingers: vertical or horizontal scrolling. Small stationary jitter
+  does not scroll. Scrolling and pinching suppress the tap action.
+- Long press: existing right-button hold; lifting releases it.
+- Tap, then touch again and move: left-button drag; lifting releases it.
+
+Releasing the first finger after a two-finger gesture does not send a left click.
+A cancelled touch or leaving the page releases held buttons. The gestures apply
+to the touch input adapter, selected automatically for touch devices.

@@ -34,6 +34,10 @@ var modeMap = map[string]string{
 	"0x0511": ModeNormal,
 	"0x0623": ModeHidOnly,
 	"0x0624": ModeHidOnly,
+	"0x0710": ModeNormal,
+	"0x0711": ModeNormal,
+	"0x0720": ModeHidOnly,
+	"0x0721": ModeHidOnly,
 }
 
 func (s *Service) GetHidMode(c *gin.Context) {

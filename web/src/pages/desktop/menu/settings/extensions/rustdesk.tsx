@@ -40,6 +40,7 @@ export const RustDeskControls = () => {
   const [busy, setBusy] = useState(false);
   const [form] = Form.useForm<RustDeskConfig>();
   const dirty = useRef(false);
+  const mounted = useRef(false);
   const working = useRef(false);
   const pending = useRef(false);
   const generation = useRef(0);
@@ -47,7 +48,7 @@ export const RustDeskControls = () => {
   const official = Form.useWatch('use_official_id_server', form);
   const passwordMode = Form.useWatch('password_mode', form);
   const refresh = useCallback(async () => {
-    if (working.current || pending.current) return;
+    if (!mounted.current || working.current || pending.current) return;
     pending.current = true;
     const started = generation.current;
     const controller = new AbortController();
@@ -71,6 +72,7 @@ export const RustDeskControls = () => {
   }, [form, l.failed, setStatus]);
 
   useEffect(() => {
+    mounted.current = true;
     void refresh();
     const stop = pollWhileVisible(() => void refresh(), 4000);
     const invalidate = () => {
@@ -79,13 +81,15 @@ export const RustDeskControls = () => {
       pending.current = false;
     };
     return () => {
+      mounted.current = false;
       invalidate();
       stop();
     };
   }, [refresh]);
 
   const operation = async (action: 'regenerate-password' | 'save') => {
-    if (working.current) return;
+    if (!mounted.current || working.current) return;
+    const entered = generation.current;
     let values: RustDeskConfig | undefined;
     if (action === 'save') {
       try {
@@ -94,7 +98,8 @@ export const RustDeskControls = () => {
         return;
       }
     }
-    generation.current++;
+    if (!mounted.current || entered !== generation.current) return;
+    const started = ++generation.current;
     statusRequest.current?.abort();
     pending.current = false;
     working.current = true;
@@ -102,6 +107,7 @@ export const RustDeskControls = () => {
     try {
       const response =
         action === 'save' ? await configureRustDesk(values!) : await rustDeskPackageAction(action);
+      if (!mounted.current || started !== generation.current) return;
       if (response.code !== 0) {
         setError(response.msg);
         return;
@@ -110,11 +116,13 @@ export const RustDeskControls = () => {
       message.success(action === 'save' ? l.saved : l.passwordUpdated);
       setError('');
     } catch {
-      setError(l.failed);
+      if (mounted.current && started === generation.current) setError(l.failed);
     } finally {
       working.current = false;
-      setBusy(false);
-      await refresh();
+      if (mounted.current) {
+        setBusy(false);
+        if (started === generation.current) await refresh();
+      }
     }
   };
 

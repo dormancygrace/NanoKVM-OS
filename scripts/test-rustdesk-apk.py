@@ -102,7 +102,10 @@ upgrade_version = major + "-r" + str(int(rel) + 1)
 # The upgrade uses the identical payload and real lifecycle hooks, with a higher
 # test-only version. These mock chroot commands never start the actual daemon.
 upgraded = test / "upgrade.apk"
-payload = repo / ("work/rustdesk-dist/payload-" + version)
+payload = test / "verified-payload"
+payload.mkdir()
+run([apk, "extract", "--allow-untrusted", "--destination", str(payload), str(package)])
+assert not list(payload.rglob("*.tar.gz")), "source must remain external"
 command = [apk, "mkpkg", "--files", str(payload), "--output", str(upgraded)]
 for field in ["name:nanokvm-rustdesk", "version:" + upgrade_version, "arch:riscv64",
               "depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 openrc"]:

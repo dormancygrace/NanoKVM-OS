@@ -385,9 +385,9 @@ func (h *Hid) writeHID(device hidDevice, data []byte) error {
 		return fmt.Errorf("%s: hid handle is nil", device.path)
 	}
 
-	deadline := time.Now().Add(hidWriteTimeout)
-	if err := file.SetWriteDeadline(deadline); err != nil {
-		log.Debugf("set write deadline for %s failed: %s", device.path, err)
+	writer, err := newHIDFileWriter(file)
+	if err != nil {
+		return err
 	}
 
 	reports := [][]byte{data}
@@ -396,7 +396,7 @@ func (h *Hid) writeHID(device hidDevice, data []byte) error {
 	}
 	var writeErr error
 	for _, report := range reports {
-		if writeErr = writeWithTimeout(file, report, hidWriteTimeout); writeErr != nil {
+		if writeErr = writeWithTimeout(writer, report, hidWriteTimeout); writeErr != nil {
 			break
 		}
 	}
@@ -440,4 +440,43 @@ func (h *Hid) deviceDisabledNoLock(path string) bool {
 	default:
 		return false
 	}
+}
+
+// RelativeMouseOnly reflects the functions opened for the current USB profile.
+func (h *Hid) RelativeMouseOnly() bool {
+	h.mouseMutex.Lock()
+	defer h.mouseMutex.Unlock()
+	return h.absoluteDisabled && !h.relativeDisabled
+}
+
+// os.File.Write consumes EAGAIN inside Go's poller. Use one nonblocking syscall
+// per attempt so writeWithTimeout owns the whole timeout even when a gadget
+// does not deliver the readiness event expected by the runtime poller.
+type hidFileWriter struct{ raw syscall.RawConn }
+
+func newHIDFileWriter(file *os.File) (hidFileWriter, error) {
+	raw, err := file.SyscallConn()
+	if err != nil {
+		return hidFileWriter{}, err
+	}
+	var nonblockErr error
+	if err := raw.Control(func(fd uintptr) { nonblockErr = syscall.SetNonblock(int(fd), true) }); err != nil {
+		return hidFileWriter{}, err
+	}
+	if nonblockErr != nil {
+		return hidFileWriter{}, nonblockErr
+	}
+	return hidFileWriter{raw: raw}, nil
+}
+
+func (w hidFileWriter) Write(data []byte) (int, error) {
+	var n int
+	var writeErr error
+	if err := w.raw.Control(func(fd uintptr) { n, writeErr = syscall.Write(int(fd), data) }); err != nil {
+		return 0, err
+	}
+	if n < 0 {
+		n = 0
+	}
+	return n, writeErr
 }

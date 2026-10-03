@@ -139,3 +139,54 @@ func TestCanceledHIDRequestCannotWriteQueuedReportLater(t *testing.T) {
 		t.Fatalf("canceled report wrote later: writes=%d err=%v", writes, err)
 	}
 }
+
+func TestInitialMediaWaitsForEncoderStartupAndBoundsFailure(t *testing.T) {
+	calls := 0
+	frame, ok := waitInitialMediaFrame(context.Background(), func(context.Context) (stream.VideoFrame, bool) {
+		calls++
+		if calls < 3 {
+			return stream.VideoFrame{Result: -1}, true
+		}
+		return stream.VideoFrame{Result: 3, Data: []byte{1, 2, 3}}, true
+	})
+	if !ok || calls != 3 || frame.Result != 3 {
+		t.Fatalf("startup rejected transient capture failure: %v %d %+v", ok, calls, frame)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	_, ok = waitInitialMediaFrame(ctx, func(ctx context.Context) (stream.VideoFrame, bool) { <-ctx.Done(); return stream.VideoFrame{}, false })
+	if ok || ctx.Err() != context.DeadlineExceeded {
+		t.Fatal("persistent capture failure was not bounded")
+	}
+}
+
+func TestAndroidPositionsUseRelativeUSBWhenAbsoluteIsDisabled(t *testing.T) {
+	b := NewBridge()
+	id := strings.Repeat("d", 32)
+	s := &hidSession{id: id, touched: time.Now(), keyboard: make(chan hid.QueuedReport, 1), mouse: make(chan hid.QueuedReport, 1), manual: inputcontrol.NewManualSession(controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff), nil), relativeOnly: true, relativePointer: relativePointer{known: true, width: 1920, height: 1080}}
+	if !ws.GetManager().AcquireExternalInput(id, s.close) {
+		t.Fatal("input unexpectedly occupied")
+	}
+	b.sessions[id] = s
+	t.Cleanup(b.Stop)
+	reports := make(chan []byte, 1)
+	s.workers.Add(1)
+	go func() {
+		defer s.workers.Done()
+		for e := range s.mouse {
+			err := e.Execute(func() error { reports <- append([]byte(nil), e.Data...); return nil })
+			e.Complete(err == nil)
+		}
+	}()
+	req := httptest.NewRequest("POST", "/api/hid/mouse/absolute", strings.NewReader(`{"buttons":1,"x":100,"y":200,"wheel":-1}`))
+	req.Header.Set("X-NanoKVM-Session", id)
+	response := httptest.NewRecorder()
+	b.serveHID(response, req)
+	if response.Code != 204 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	report := <-reports
+	if len(report) != 5 || report[0] != 1 || report[1] != 5 || report[2] != 6 || report[3] != 255 {
+		t.Fatal("Android report did not reach relative USB", report)
+	}
+}

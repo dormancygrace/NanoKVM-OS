@@ -7,7 +7,7 @@ import (
 	"NanoKVM-Server/service/rustdesk"
 	"context"
 	"github.com/gin-gonic/gin"
-	"os"
+	"net/http"
 )
 
 func rustdeskRouter(r *gin.Engine) {
@@ -16,13 +16,13 @@ func rustdeskRouter(r *gin.Engine) {
 	service := rustdesk.NewService(bridge)
 	api := r.Group("/api/addons/rustdesk").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
 	api.GET("/source", func(c *gin.Context) {
-		const source = "/usr/share/nanokvm-rustdesk/source.tar.gz"
-		if _, err := os.Stat(source); err != nil {
-			c.Status(404)
+		source := service.SourceURL()
+		if source == "" {
+			c.Status(http.StatusNotFound)
 			return
 		}
 		c.Header("Cache-Control", "no-store")
-		c.FileAttachment(source, "nanokvm-rustdesk-source.tar.gz")
+		c.Redirect(http.StatusTemporaryRedirect, source)
 	})
 	api.GET("/status", func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")

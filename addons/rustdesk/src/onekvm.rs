@@ -277,7 +277,9 @@ impl HidClient {
         );
         stream.write_all(headers.as_bytes()).await?;
         stream.write_all(&body).await?;
-        stream.shutdown().await?;
+        // Content-Length terminates the request body. Sending a write-half EOF
+        // here cancels Go net/http's request context before its HID write.
+        // Connection: close lets the server close after sending its response.
         let mut response = Vec::with_capacity(512);
         (&mut stream).take(4096).read_to_end(&mut response).await?;
         let status_line = response
@@ -295,10 +297,65 @@ impl HidClient {
 }
 
 #[cfg(test)]
+pub(crate) async fn read_test_http_request(stream: &mut UnixStream) -> Vec<u8> {
+    let mut request = Vec::new();
+    while !request.ends_with(b"\r\n\r\n") {
+        assert!(request.len() < 8192, "oversized test HTTP headers");
+        request.push(stream.read_u8().await.unwrap());
+    }
+    let headers = String::from_utf8_lossy(&request);
+    let length: usize = headers
+        .lines()
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            name.eq_ignore_ascii_case("Content-Length")
+                .then(|| value.trim().parse().unwrap())
+        })
+        .unwrap();
+    let offset = request.len();
+    request.resize(offset + length, 0);
+    stream.read_exact(&mut request[offset..]).await.unwrap();
+    request
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{input::InputState, protocol::MouseEvent};
     use tokio::net::UnixListener;
+
+    #[tokio::test]
+    async fn hid_http_keeps_write_half_open_until_server_response() {
+        let dir = std::env::temp_dir().join(format!("nk-rd-http-{:x}", rand::random::<u64>()));
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("hid.sock");
+        let listener = UnixListener::bind(&path).unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let request = read_test_http_request(&mut stream).await;
+            assert!(request.starts_with(b"POST /api/hid/mouse "));
+            // Go net/http cancels r.Context() on a client write-half EOF.
+            // An HTTP client must wait for the response without sending it.
+            assert!(
+                tokio::time::timeout(std::time::Duration::from_millis(20), stream.read_u8())
+                    .await
+                    .is_err(),
+                "HID client sent EOF before receiving its HTTP response"
+            );
+            stream
+                .write_all(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
+                .await
+                .unwrap();
+        });
+        let hid = HidClient::new(
+            path.to_string_lossy().into_owned(),
+            Identity::load().unwrap(),
+        );
+        let result = hid.mouse(0, 1, 0, 0).await;
+        server.await.unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+        result.unwrap();
+    }
 
     #[tokio::test]
     async fn metadata_uses_the_device_codec_and_stream_pins_it() {
@@ -378,8 +435,7 @@ mod tests {
         let server = tokio::spawn(async move {
             for index in 0..3 {
                 let (mut stream, _) = listener.accept().await.unwrap();
-                let mut request = Vec::new();
-                stream.read_to_end(&mut request).await.unwrap();
+                let request = read_test_http_request(&mut stream).await;
                 let text = String::from_utf8(request).unwrap();
                 assert!(text.starts_with("POST /api/hid/mouse/absolute "));
                 assert!(text.contains("X-NanoKVM-Session: "));

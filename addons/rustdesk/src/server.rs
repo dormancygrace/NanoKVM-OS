@@ -1856,8 +1856,7 @@ mod tests {
             let mut hid_response_receiver = Some(hid_response_receiver);
             for request_index in 0..6 {
                 let (mut stream, _) = hid_listener.accept().await.unwrap();
-                let mut request = Vec::new();
-                stream.read_to_end(&mut request).await.unwrap();
+                let request = crate::onekvm::read_test_http_request(&mut stream).await;
                 hid_sender.send(request).await.unwrap();
                 if request_index == 0 {
                     let _ = hid_response_receiver.take().unwrap().await;

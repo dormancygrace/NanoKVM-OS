@@ -63,12 +63,13 @@ int main() {
     fixtures["/device_key"] = {};
     fixtures[runtime] = {};
     fixtures[clock] = {};
+    // Current upstream exposes a zero-valued clock entry when unavailable.
     for (int i = 0; i != 256; ++i) {
         assert(maix::sys::os_version() == "Unkonwn");
         assert(maix::sys::device_key().empty());
         assert(maix::sys::runtime_version().empty());
-        assert(maix::sys::cpu_freq().empty());
-        assert(maix::sys::npu_freq().empty());
+        assert(maix::sys::cpu_freq().at("cpu0") == 0);
+        assert(maix::sys::npu_freq().at("npu0") == 0);
         balanced();
     }
     fixtures["/boot/ver"].text = "  NanoKVM OS\n";
@@ -87,8 +88,8 @@ int main() {
         balanced();
     }
     fixtures[clock].text = " clk_c906_0 invalid\n clk_tpu invalid\n unrelated\n";
-    assert(maix::sys::cpu_freq().empty());
-    assert(maix::sys::npu_freq().empty());
+    assert(maix::sys::cpu_freq().at("cpu0") == 0);
+    assert(maix::sys::npu_freq().at("npu0") == 0);
     fixtures[runtime].text = " \t\r\n";
     assert(maix::sys::runtime_version().empty());
     balanced();
@@ -97,16 +98,16 @@ int main() {
     assert(maix::sys::os_version() == "Unkonwn");
     assert(maix::sys::device_key().empty());
     assert(maix::sys::runtime_version().empty());
-    assert(maix::sys::cpu_freq().empty());
-    assert(maix::sys::npu_freq().empty());
+    assert(maix::sys::cpu_freq().at("cpu0") == 0);
+    assert(maix::sys::npu_freq().at("npu0") == 0);
     balanced();
     for (auto &item : fixtures)
         item.second.missing = true;
     assert(maix::sys::os_version() == "Unkonwn");
     assert(maix::sys::device_key().empty());
     assert(maix::sys::runtime_version().empty());
-    assert(maix::sys::cpu_freq().empty());
-    assert(maix::sys::npu_freq().empty());
+    assert(maix::sys::cpu_freq().at("cpu0") == 0);
+    assert(maix::sys::npu_freq().at("npu0") == 0);
     balanced();
     printf("PASS: empty, successful, malformed, whitespace, read-error and missing files; %u streams closed\n",
            closed);

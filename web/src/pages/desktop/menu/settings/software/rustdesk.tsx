@@ -21,11 +21,17 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
   const [busy, setBusy] = useState(false);
   const working = useRef(false);
   const pending = useRef(false);
+  const generation = useRef(0);
+  const statusRequest = useRef<AbortController | null>(null);
   const refresh = useCallback(async () => {
     if (working.current || pending.current) return;
     pending.current = true;
+    const started = generation.current;
+    const controller = new AbortController();
+    statusRequest.current = controller;
     try {
-      const response = await getRustDeskStatus();
+      const response = await getRustDeskStatus(controller.signal);
+      if (started !== generation.current) return;
       if (response.code !== 0) {
         setError(response.msg);
         return;
@@ -33,17 +39,29 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
       setStatus(response.data as RustDeskStatus);
       setError('');
     } catch {
-      setError(l.failed);
+      if (started === generation.current && !controller.signal.aborted) setError(l.failed);
     } finally {
-      pending.current = false;
+      if (started === generation.current) pending.current = false;
     }
   }, [setStatus, l.failed]);
   useEffect(() => {
     void refresh();
-    return pollWhileVisible(() => void refresh(), 4000);
+    const stop = pollWhileVisible(() => void refresh(), 4000);
+    const invalidate = () => {
+      generation.current++;
+      statusRequest.current?.abort();
+      pending.current = false;
+    };
+    return () => {
+      invalidate();
+      stop();
+    };
   }, [refresh]);
   const operation = async (action: 'install' | 'upgrade' | 'remove') => {
     if (working.current) return;
+    generation.current++;
+    statusRequest.current?.abort();
+    pending.current = false;
     working.current = true;
     setBusy(true);
     try {

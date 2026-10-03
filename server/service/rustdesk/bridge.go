@@ -265,15 +265,21 @@ func (b *Bridge) serveMedia(c net.Conn) {
 		Video   string
 		Codec   stream.VideoCodec
 	}
-	if json.Unmarshal(line, &req) != nil || req.Version != 1 || (req.Video != "info" && req.Video != "encoded") || (req.Codec != stream.VideoCodecH264 && req.Codec != stream.VideoCodecH265) {
+	if json.Unmarshal(line, &req) != nil || req.Version != 1 || (req.Video != "info" && req.Video != "encoded") || (req.Codec != "" && req.Codec != "auto" && req.Codec != stream.VideoCodecH264 && req.Codec != stream.VideoCodecH265) {
 		return
 	}
-	subscription, err := stream.SubscribeVideo(stream.EncoderConfig{Codec: req.Codec})
+	var subscription *stream.VideoSubscription
+	if req.Codec == "" || req.Codec == "auto" {
+		subscription, err = stream.SubscribeCurrentVideo()
+	} else {
+		subscription, err = stream.SubscribeVideo(stream.EncoderConfig{Codec: req.Codec})
+	}
 	if err != nil {
 		writeMediaError(c, err.Error())
 		return
 	}
 	defer subscription.Close()
+	codec := subscription.Config().Codec
 	c.SetReadDeadline(time.Time{})
 	done := make(chan struct{})
 	go func() {
@@ -316,7 +322,7 @@ func (b *Bridge) serveMedia(c net.Conn) {
 			frame.Data = nil
 		}
 		c.SetWriteDeadline(time.Now().Add(2 * time.Second))
-		if _, err := c.Write(frameHeader(req.Codec, width, height, seq, frame)); err != nil {
+		if _, err := c.Write(frameHeader(codec, width, height, seq, frame)); err != nil {
 			return
 		}
 		if req.Video == "info" {

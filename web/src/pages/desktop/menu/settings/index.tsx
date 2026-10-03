@@ -1,4 +1,4 @@
-import { lazy, Suspense, useContext, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/auth.ts';
 import { Alert, Button, Modal, Spin, Tooltip, type TooltipProps } from 'antd';
 import clsx from 'clsx';
@@ -16,6 +16,7 @@ import {
   NetworkIcon,
   PackageIcon,
   PaletteIcon,
+  PuzzleIcon,
   SettingsIcon,
   ShieldIcon,
   SmartphoneIcon,
@@ -28,8 +29,11 @@ import {
 import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
+import { getRustDeskStatus, type RustDeskStatus } from '@/api/rustdesk.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
-import { picoclawChatOpenAtom } from '@/jotai/picoclaw.ts';
+import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
+import { rustDeskStatusAtom } from '@/jotai/rustdesk.ts';
 import { settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
 import { Netbird as NetbirdIcon } from '@/components/icons/netbird';
@@ -74,6 +78,9 @@ const Diagnostics = lazy(() =>
 const Addons = lazy(() =>
   import('./software/addons').then((module) => ({ default: module.Addons }))
 );
+const RustDeskControls = lazy(() =>
+  import('./extensions/rustdesk').then((module) => ({ default: module.RustDeskControls }))
+);
 const Software = lazy(() => import('./software').then((module) => ({ default: module.Software })));
 const Network = lazy(() => import('./network').then((module) => ({ default: module.Network })));
 const WifiSettings = lazy(() =>
@@ -110,6 +117,13 @@ export const Settings = ({
   const [networkExpanded, setNetworkExpanded] = useState(false);
   const [systemExpanded, setSystemExpanded] = useState(false);
   const [softwareExpanded, setSoftwareExpanded] = useState(false);
+  const [extensionsExpanded, setExtensionsExpanded] = useState(false);
+  const [rustDeskStatus, setRustDeskStatus] = useAtom(rustDeskStatusAtom);
+  const [picoclawStatus] = useAtom(picoclawRuntimeStatusAtom);
+  const { i18n } = useTranslation();
+  const extensionsTitle = (i18n.resolvedLanguage || i18n.language).startsWith('ru')
+    ? 'Расширения'
+    : 'Extensions';
   const setPicoclawOpen = useSetAtom(picoclawChatOpenAtom);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
 
@@ -161,6 +175,7 @@ export const Settings = ({
             icon: <BotIcon size={16} />,
             component: (
               <Addons
+                onOpenRustDesk={() => changeTab('extensions-rustdesk')}
                 onOpen={() => {
                   closeModal();
                   setPicoclawOpen(true);
@@ -169,6 +184,33 @@ export const Settings = ({
             )
           },
           { id: 'software-packages', icon: <PackageIcon size={16} />, component: <Software /> },
+          ...(rustDeskStatus?.installed || picoclawStatus?.installed
+            ? [
+                {
+                  id: 'extensions',
+                  icon: <PuzzleIcon size={16} />,
+                  component: null
+                }
+              ]
+            : []),
+          ...(rustDeskStatus?.installed
+            ? [
+                {
+                  id: 'extensions-rustdesk',
+                  icon: <PuzzleIcon size={16} />,
+                  component: <RustDeskControls />
+                }
+              ]
+            : []),
+          ...(picoclawStatus?.installed
+            ? [
+                {
+                  id: 'extensions-picoclaw',
+                  icon: <BotIcon size={16} />,
+                  component: null
+                }
+              ]
+            : []),
           {
             id: 'vpn',
             icon: <ShieldIcon size={16} />,
@@ -203,6 +245,39 @@ export const Settings = ({
     { id: 'about', icon: <InfoIcon size={14} />, component: <About /> }
   ];
 
+  const refreshRustDesk = useCallback(async () => {
+    try {
+      const response = await getRustDeskStatus();
+      if (response.code === 0) setRustDeskStatus(response.data as RustDeskStatus);
+    } catch {
+      /* Retain installed navigation during a brief connection loss. */
+    }
+  }, [setRustDeskStatus]);
+
+  useEffect(() => {
+    if (!isAdmin || !isModalOpen) return;
+    let pending = false;
+    const refresh = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        await refreshRustDesk();
+      } finally {
+        pending = false;
+      }
+    };
+    void refresh();
+    return pollWhileVisible(() => void refresh(), 15000);
+  }, [isAdmin, isModalOpen, refreshRustDesk]);
+
+  useEffect(() => {
+    if (currentTab === 'extensions-rustdesk' && rustDeskStatus?.installed === false) {
+      setCurrentTab('software-addons');
+      setSoftwareExpanded(true);
+      setDetailOpen(true);
+    }
+  }, [currentTab, rustDeskStatus?.installed]);
+
   useEffect(() => {
     scrollViewportRef.current?.scrollTo({ top: 0, left: 0 });
   }, [currentTab]);
@@ -232,6 +307,7 @@ export const Settings = ({
     if (requested.startsWith('vpn-')) setVpnExpanded(true);
     if (requested.startsWith('network-')) setNetworkExpanded(true);
     if (requested.startsWith('software-')) setSoftwareExpanded(true);
+    if (requested.startsWith('extensions-')) setExtensionsExpanded(true);
     if (requested.startsWith('system-')) setSystemExpanded(true);
     setCurrentTab(requested);
     setDetailOpen(true);
@@ -261,6 +337,15 @@ export const Settings = ({
       setSoftwareExpanded((expanded) => !expanded);
       return;
     }
+    if (tab === 'extensions') {
+      setExtensionsExpanded((expanded) => !expanded);
+      return;
+    }
+    if (tab === 'extensions-picoclaw') {
+      closeModal();
+      setPicoclawOpen(true);
+      return;
+    }
     if (tab === 'system') {
       setSystemExpanded((expanded) => !expanded);
       return;
@@ -269,6 +354,7 @@ export const Settings = ({
     if (target.startsWith('vpn-')) setVpnExpanded(true);
     if (target.startsWith('network-')) setNetworkExpanded(true);
     if (target.startsWith('software-')) setSoftwareExpanded(true);
+    if (target.startsWith('extensions-')) setExtensionsExpanded(true);
     if (target.startsWith('system-')) setSystemExpanded(true);
     setCurrentTab(target);
     setDetailOpen(true);
@@ -299,6 +385,7 @@ export const Settings = ({
     setNetworkExpanded(false);
     setSystemExpanded(false);
     setSoftwareExpanded(false);
+    setExtensionsExpanded(false);
     setSubmenuOpenCount((count) => Math.max(0, count - 1));
   }
 
@@ -317,6 +404,9 @@ export const Settings = ({
     if (id === 'system-users') return t('settings.account.title');
     if (id === 'system-mcp') return t('settings.mcp.title');
     if (id === 'system-updates') return t('settings.updates.title');
+    if (id === 'extensions') return extensionsTitle;
+    if (id === 'extensions-rustdesk') return 'RustDesk';
+    if (id === 'extensions-picoclaw') return 'PicoClaw';
     if (id === 'software') return t('settings.software.title');
     if (id === 'software-addons') return t('settings.software.addons.title');
     if (id === 'software-packages') return t('settings.software.addons.packages');
@@ -408,14 +498,16 @@ export const Settings = ({
                   (!tab.id.startsWith('vpn-') || vpnExpanded) &&
                   (!tab.id.startsWith('network-') || networkExpanded) &&
                   (!tab.id.startsWith('system-') || systemExpanded) &&
-                  (!tab.id.startsWith('software-') || softwareExpanded)
+                  (!tab.id.startsWith('software-') || softwareExpanded) &&
+                  (!tab.id.startsWith('extensions-') || extensionsExpanded)
               )
               .map((tab) => {
                 const child =
                   tab.id.startsWith('vpn-') ||
                   tab.id.startsWith('network-') ||
                   tab.id.startsWith('system-') ||
-                  tab.id.startsWith('software-');
+                  tab.id.startsWith('software-') ||
+                  tab.id.startsWith('extensions-');
                 const expanded =
                   tab.id === 'vpn'
                     ? vpnExpanded
@@ -425,7 +517,9 @@ export const Settings = ({
                         ? systemExpanded
                         : tab.id === 'software'
                           ? softwareExpanded
-                          : undefined;
+                          : tab.id === 'extensions'
+                            ? extensionsExpanded
+                            : undefined;
                 const label = tabTitle(tab.id);
                 return (
                   <button

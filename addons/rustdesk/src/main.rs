@@ -8,10 +8,11 @@ mod protocol;
 mod rendezvous;
 mod server;
 mod status;
+mod temporary_password;
 
 use std::{env, path::PathBuf, process::ExitCode};
 
-use config::Config;
+use config::{Config, PasswordMode};
 
 const DEFAULT_CONFIG_PATH: &str = "/etc/nanokvm-rustdesk/config.json";
 
@@ -66,6 +67,23 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     if !config.service_enabled {
         return Err("service is disabled in configuration".into());
     }
+
+    // Preserve a configured permanent credential while authenticating with
+    // a fresh, in-memory password for each daemon run in temporary mode.
+    let _password_guard = if config.password_mode == PasswordMode::Temporary {
+        config.password = temporary_password::generate()?;
+        Some(temporary_password::Guard::publish(
+            std::path::Path::new(temporary_password::PATH),
+            &config.password,
+        )?)
+    } else {
+        match std::fs::remove_file(temporary_password::PATH) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+        None
+    };
 
     let onekvm_identity = onekvm::Identity::load()?;
     let rustdesk_identity = identity::RustDeskIdentity::load()?;

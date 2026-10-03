@@ -28,6 +28,8 @@ export const rustDeskLabels = {
     newPassword: 'New password',
     temporaryHint:
       'Share this ID and password. The password changes when RustDesk starts or when you request a new one.',
+    rotatingTemporaryHint:
+      'Share this ID and the current password. Each new successful sign-in generates a new password without closing active sessions. RustDesk also replaces it on startup or when you request a new one.',
     startForPassword: 'Enable RustDesk and save settings to generate a password.',
     waitingForPassword: 'Generating a temporary password…',
     regenerateConfirm: 'Generate a new password? Current RustDesk connections will close.',
@@ -83,6 +85,8 @@ export const rustDeskLabels = {
     newPassword: 'Новый пароль',
     temporaryHint:
       'Передайте этот ID и пароль. Пароль меняется при запуске RustDesk или по кнопке «Новый пароль».',
+    rotatingTemporaryHint:
+      'Передайте этот ID и текущий пароль. После нового успешного входа создаётся новый пароль; открытые сеансы продолжают работать. Пароль также меняется при запуске RustDesk или по кнопке «Новый пароль».',
     startForPassword: 'Включите RustDesk и сохраните настройки, чтобы получить пароль.',
     waitingForPassword: 'Генерируется временный пароль…',
     regenerateConfirm: 'Создать новый пароль? Текущие подключения RustDesk будут завершены.',

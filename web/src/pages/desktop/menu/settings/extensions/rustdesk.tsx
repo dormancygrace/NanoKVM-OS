@@ -47,6 +47,8 @@ export const RustDeskControls = () => {
   const statusRequest = useRef<AbortController | null>(null);
   const official = Form.useWatch('use_official_id_server', form);
   const passwordMode = Form.useWatch('password_mode', form);
+  const [protocolMajor, protocolMinor] = (status?.rustdesk_version || '0.0').split('.').map(Number);
+  const rotatesOnLogin = protocolMajor > 1 || (protocolMajor === 1 && protocolMinor >= 5);
   const refresh = useCallback(async () => {
     if (!mounted.current || working.current || pending.current) return;
     pending.current = true;
@@ -172,7 +174,9 @@ export const RustDeskControls = () => {
             ) : (
               <p>{status.running ? l.waitingForPassword : l.startForPassword}</p>
             )}
-            <p className="mt-2 text-sm text-neutral-400">{l.temporaryHint}</p>
+            <p className="mt-2 text-sm text-neutral-400">
+              {rotatesOnLogin ? l.rotatingTemporaryHint : l.temporaryHint}
+            </p>
           </div>
         )}
         <p>{l.explain}</p>

@@ -170,7 +170,13 @@ async fn run_once(
                     Some(rendezvous_message::Union::PunchHole(request)) => {
                         let mut limits = limits.clone();
                         limits.input_allowed = request.control_permissions.as_ref().map(|p|p.permissions & 1 != 0).unwrap_or(true);
-                        if request.webrtc_sdp_offer.is_empty() {
+                        if request.webrtc_sdp_offer.is_empty() || !config.webrtc_enabled {
+                            if !request.force_relay                                 && request.nat_type != crate::protocol::NatType::Symmetric as i32
+                                && request.webrtc_sdp_offer.is_empty()
+                            {
+                                crate::direct::spawn(crate::direct::Request {peer:request.socket_addr, peer_v6:request.socket_addr_v6,relay:request.relay_server,lan:false},Arc::clone(&config),Arc::clone(&onekvm_identity),Arc::clone(&rustdesk_identity),shutdown.clone(),limits.clone());
+                                continue;
+                            }
                             spawn_fallback_relay(request.socket_addr, request.socket_addr_v6, request.relay_server,
                                 Arc::clone(&config), Arc::clone(&onekvm_identity), Arc::clone(&rustdesk_identity),
                                 shutdown.clone(), limits.clone());
@@ -184,6 +190,7 @@ async fn run_once(
                             tokio::spawn(async move {
                                 if let Err(error) = manager.answer(&request, Arc::clone(&config), Arc::clone(&onekvm),
                                     Arc::clone(&rd), shutdown.clone(), limits.clone()).await {
+                                    if *shutdown.borrow(){return}
                                     eprintln!("RustDesk WebRTC unavailable: {error}; using relay");
                                     spawn_fallback_relay(request.socket_addr, request.socket_addr_v6, request.relay_server,
                                         config, onekvm, rd, shutdown, limits);
@@ -192,16 +199,9 @@ async fn run_once(
                         }
                     }
                     Some(rendezvous_message::Union::FetchLocalAddr(request)) => {
-                        spawn_fallback_relay(
-                            request.socket_addr,
-                            request.socket_addr_v6,
-                            request.relay_server,
-                            Arc::clone(&config),
-                            Arc::clone(&onekvm_identity),
-                            Arc::clone(&rustdesk_identity),
-                            shutdown.clone(),
-                            limits.clone(),
-                        );
+                        let mut limits=limits.clone();
+                        limits.input_allowed=request.control_permissions.as_ref().map(|p|p.permissions&1!=0).unwrap_or(true);
+                        crate::direct::spawn(crate::direct::Request{peer:request.socket_addr,peer_v6:request.socket_addr_v6,relay:request.relay_server,lan:true},Arc::clone(&config),Arc::clone(&onekvm_identity),Arc::clone(&rustdesk_identity),shutdown.clone(),limits);
                     }
                     _ => {}
                 }
@@ -272,7 +272,7 @@ fn spawn_requested_relay(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn spawn_fallback_relay(
+pub(crate) fn spawn_fallback_relay(
     socket_addr: Vec<u8>,
     socket_addr_v6: Vec<u8>,
     offered_relay: String,
@@ -388,7 +388,7 @@ async fn connect_relay(
     .await
 }
 
-fn relay_address(config: &Config, offered: &str) -> String {
+pub(crate) fn relay_address(config: &Config, offered: &str) -> String {
     let configured = config.relay_server.trim();
     if !configured.is_empty() {
         return server_address(configured, RELAY_PORT).unwrap_or_else(|_| configured.to_owned());

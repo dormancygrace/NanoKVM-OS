@@ -1,8 +1,8 @@
-# RustDesk 1.5 migration: NanoKVM add-on 0.3.0-r1
+# RustDesk 1.5 migration: NanoKVM add-on 0.3.0-r2
 
 The endpoint uses RustDesk 1.5.0 fada664df7a294d1d1a9ca3e7cd3637069122f17
 and hbb_common 229b904508364c8997aad0fb5af57effac859f60 as protocol reference.
-Its own version is 0.3.0-r1; it remains a partial HDMI/HID endpoint.
+Its own version is 0.3.0-r2; it remains a partial HDMI/HID endpoint.
 
 Implemented:
 - KX v1 independent transmit/receive BLAKE2b keys, exact transcript and legacy v0.
@@ -97,3 +97,22 @@ and connection caps, oversized frames and actual Unix peer credentials.
 Revision r1 additionally honors client view-only at login and live option changes.
 Tests verify no HID/lease calls before enable, held-button release after disable,
 and continued heartbeat/video with server-side permissions still enforced.
+
+## r2 policy and packaging corrections
+
+WebRTC is opt-in; absent configuration means disabled. The default path adds
+classic encrypted TCP/LAN rendezvous with a temporary listener, repeated bounded
+outbound attempts and relay fallback. No permanent LAN port is enabled. The
+1.5 controller suppresses TCP while it sends a WebRTC offer, so turning it off
+on the client is necessary to request TCP by ID. Host tests verify listener reuse,
+retention of a successful crossing, canonical LocalAddr/permissions tags and
+compatibility of missing configuration. Device qualification above describes r1;
+r2 direct throughput remains pending an explicitly coordinated slot.
+
+Every WebRTC setup connect/write and signaling step now has a deadline and a
+shutdown interrupt. Active serving receives a stop signal and is awaited for
+cleanup rather than simply dropping its input/media future. Every source/APK
+build uses a fresh temporary host tree and refuses to overwrite an existing
+artifact. The source archive contains APKBUILD.in as a recipe template because
+an archive cannot embed its own digest; the external production APKBUILD includes
+SHA-512 checksums for the immutable archive and init script.

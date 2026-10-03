@@ -6,7 +6,12 @@
   "onekvm_commit": "7a278b5897716786dcc075a167b72f04d5b73766",
   "kx_version": 1,
   "transports": [
+    "encrypted-direct-tcp",
     "encrypted-relay",
     "webrtc-datachannel"
-  ]
+  ],
+  "features": {
+    "transport_settings": true,
+    "direct_tcp_by_id": true
+  }
 }

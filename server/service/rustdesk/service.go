@@ -22,6 +22,7 @@ var ConfigDir = "/etc/nanokvm-rustdesk"
 var ConfigFile = ConfigDir + "/config.json"
 
 type Config struct {
+	WebRTC       bool   `json:"webrtc_enabled,omitempty"`
 	Enabled      bool   `json:"service_enabled"`
 	Official     bool   `json:"use_official_id_server"`
 	Rendezvous   string `json:"rendezvous_server"`
@@ -33,18 +34,19 @@ type Config struct {
 	MaxClients   int    `json:"max_clients"`
 }
 type Status struct {
-	Installed         bool            `json:"installed"`
-	Version           string          `json:"version,omitempty"`
-	RustDeskVersion   string          `json:"rustdesk_version,omitempty"`
-	SourceURL         string          `json:"source_url,omitempty"`
-	UpdateVersion     string          `json:"update_version,omitempty"`
-	Available         bool            `json:"available"`
-	Running           bool            `json:"running"`
-	Config            Config          `json:"config"`
-	HasPassword       bool            `json:"has_password"`
-	TemporaryPassword string          `json:"temporary_password,omitempty"`
-	ID                string          `json:"id"`
-	Runtime           json.RawMessage `json:"runtime,omitempty"`
+	SupportsTransportSettings bool            `json:"supports_transport_settings"`
+	Installed                 bool            `json:"installed"`
+	Version                   string          `json:"version,omitempty"`
+	RustDeskVersion           string          `json:"rustdesk_version,omitempty"`
+	SourceURL                 string          `json:"source_url,omitempty"`
+	UpdateVersion             string          `json:"update_version,omitempty"`
+	Available                 bool            `json:"available"`
+	Running                   bool            `json:"running"`
+	Config                    Config          `json:"config"`
+	HasPassword               bool            `json:"has_password"`
+	TemporaryPassword         string          `json:"temporary_password,omitempty"`
+	ID                        string          `json:"id"`
+	Runtime                   json.RawMessage `json:"runtime,omitempty"`
 }
 type Service struct {
 	mu           sync.Mutex
@@ -119,10 +121,14 @@ func (s *Service) Status() (Status, error) {
 		// a possibly incorrect version from the web application.
 		if data, readErr := os.ReadFile(s.upstreamFile); readErr == nil {
 			var upstream struct {
-				Version string `json:"rustdesk_version"`
+				Version  string `json:"rustdesk_version"`
+				Features struct {
+					TransportSettings bool `json:"transport_settings"`
+				} `json:"features"`
 			}
 			if json.Unmarshal(data, &upstream) == nil && regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(upstream.Version) {
 				status.RustDeskVersion = upstream.Version
+				status.SupportsTransportSettings = upstream.Features.TransportSettings
 			}
 		}
 		if version, versionErr := s.statusCommand("apk", "info", "-e", "-v", Package); versionErr == nil {
@@ -304,6 +310,18 @@ func writeConfig(c Config) error {
 	defer dir.Close()
 	return dir.Sync()
 }
+func (s *Service) supportsTransportSettings() bool {
+	data, err := os.ReadFile(s.upstreamFile)
+	if err != nil {
+		return false
+	}
+	var metadata struct {
+		Features struct {
+			TransportSettings bool `json:"transport_settings"`
+		} `json:"features"`
+	}
+	return json.Unmarshal(data, &metadata) == nil && metadata.Features.TransportSettings
+}
 func (s *Service) Configure(candidate Config) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -322,6 +340,9 @@ func (s *Service) Configure(candidate Config) error {
 	}
 	if _, err = s.command("apk", "info", "-e", Package); err != nil {
 		return errors.New("install the RustDesk package first")
+	}
+	if candidate.WebRTC && !s.supportsTransportSettings() {
+		return errors.New("update the RustDesk add-on before enabling WebRTC")
 	}
 	if _, err = s.command("rc-service", Package, "status"); err == nil {
 		if _, err = s.command("rc-service", Package, "stop"); err != nil {

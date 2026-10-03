@@ -273,6 +273,16 @@ export const RustDeskControls = () => {
                             </Form.Item>
                           </>
                         )}
+                        {status.supports_transport_settings && (
+                          <Form.Item
+                            name="webrtc_enabled"
+                            label={l.webrtc}
+                            valuePropName="checked"
+                            extra={l.transportHint}
+                          >
+                            <Switch />
+                          </Form.Item>
+                        )}
                         <Alert type="info" title={l.video} className="mb-4" />
                         <Form.Item name="codec" label={l.codec}>
                           <Select

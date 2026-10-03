@@ -9,6 +9,7 @@ import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { Robot } from '@/components/icons/robot.tsx';
 
+import { AddonCard } from './addon-card';
 import { RustDeskAddon } from './rustdesk';
 
 export const Addons = ({
@@ -74,11 +75,7 @@ export const Addons = ({
     <div className="space-y-6 py-6">
       {contextHolder}
       <h2 className="text-lg font-semibold">{t('settings.software.addons.title')}</h2>
-      <div className="flex flex-col items-start gap-4 rounded-xl border border-neutral-700 bg-neutral-800/40 p-4">
-        <div className="flex items-center gap-3 text-neutral-200">
-          <Robot size={24} />
-          <div className="text-base font-medium">PicoClaw</div>
-        </div>
+      <AddonCard title="PicoClaw" icon={<Robot size={24} />}>
         <p className="text-sm text-neutral-300">
           {t('settings.software.addons.picoclawDescription')}
         </p>
@@ -134,7 +131,7 @@ export const Addons = ({
             {t('picoclaw.install.install')}
           </Button>
         )}
-      </div>
+      </AddonCard>
       <RustDeskAddon onOpen={onOpenRustDesk} />
     </div>
   );

@@ -65,8 +65,8 @@ func TestStatusRedactsPasswordAndDistinguishesAvailability(t *testing.T) {
 	}
 	s := NewService(NewBridge())
 	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
-		if name == "apk" && args[0] == "search" {
-			return []byte("nanokvm-rustdesk-0.1.0-r0\n"), nil
+		if name == "apk" && args[0] == "query" {
+			return []byte(`[{"name":"nanokvm-rustdesk","version":"0.1.0-r0"}]`), nil
 		}
 		return nil, errors.New("not installed")
 	}
@@ -243,5 +243,53 @@ func TestRegenerationRequiresRunningTemporaryModeAndPreservesConfig(t *testing.T
 	commands = nil
 	if s.Action("regenerate-password") == nil || len(commands) != 0 {
 		t.Fatal("permanent mode was restarted")
+	}
+}
+
+func TestUpdateButtonOnlyReceivesAPKUpgradeCandidates(t *testing.T) {
+	temporaryConfig(t)
+	tests := []struct {
+		name, available, upgrades, want string
+		fail                            bool
+	}{
+		{"newer", "0.2.1-r0", `[{"name":"nanokvm-rustdesk","version":"0.2.1-r0"}]`, "0.2.1-r0", false},
+		{"same version", "0.2.0-r0", "", "", false},
+		{"older repository", "0.1.0-r0", "", "", false},
+		{"no repository package", "", "", "", false},
+		{"package query failed", "0.2.1-r0", "", "", true},
+		{"malformed query", "0.2.1-r0", "invalid json", "", false},
+		{"unrelated package", "0.2.1-r0", `[{"name":"other","version":"99-r0"}]`, "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewService(NewBridge())
+			s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+				switch name + " " + strings.Join(args, " ") {
+				case "apk info -e " + Package:
+					return nil, nil
+				case "apk info -e -v " + Package:
+					return []byte(Package + "-0.2.0-r0\n"), nil
+				case "apk query --no-network --from=repositories --format=json --fields=name,version " + Package:
+					if tt.available == "" {
+						return nil, nil
+					}
+					return []byte(`[{"name":"nanokvm-rustdesk","version":"` + tt.available + `"}]`), nil
+				case "apk query --no-network --format=json --fields=name,version --upgradable " + Package:
+					if tt.fail {
+						return nil, errors.New("query failed")
+					}
+					return []byte(tt.upgrades), nil
+				case "rc-service " + Package + " status":
+					return nil, errors.New("stopped")
+				default:
+					t.Fatalf("unexpected command: %s %v", name, args)
+					return nil, errors.New("unexpected command")
+				}
+			}
+			status, err := s.Status()
+			if err != nil || status.UpdateVersion != tt.want || status.Version != "0.2.0-r0" {
+				t.Fatalf("status: %+v %v", status, err)
+			}
+		})
 	}
 }

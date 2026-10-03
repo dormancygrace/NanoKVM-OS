@@ -83,18 +83,20 @@ vendor/ and .cargo/config.toml and support --locked --offline builds and tests.
 
 For an unsigned local test package from the repository root, with cargo,
 fakeroot, a riscv64 musl GCC and apk-tools 3 mkpkg available:
-fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts
+fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/nanokvm-rustdesk-0.2.1-r1/nanokvm-rustdesk-0.2.1-source.tar.gz
 
 The exported source can also cross-build directly without repository scripts:
 CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=/path/to/riscv64-linux-gcc RUSTFLAGS='-C target-feature=+crt-static' cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl
 
 Install the Rust riscv64gc-unknown-linux-musl target first. Keep the linker
 symlink name intact for Buildroot wrappers. The builder produces a static RV64GC
-binary without vector instructions and root:root payload ownership. It bundles
-adapted source, Cargo.lock and vendored dependencies under
-/usr/share/nanokvm-rustdesk/source.tar.gz. The installed web card offers that
-archive; LICENSE and NOTICE are included. The builder performs no signing,
-publication or installation.
+binary without vector instructions and root:root payload ownership. It exports
+adapted source, Cargo.lock, vendored dependencies and packaging recipes as a
+separate source archive published in NanoKVM-OS-packages. The APK installs only
+LICENSE, NOTICE, upstream.json and source.json (public URL and SHA-256), alongside
+the binary and lifecycle files. It never installs the source archive or vendored
+crates. The installed web link opens the source for the exact package revision.
+The builder performs no signing, publication or installation.
 
 For Alpine repository builds, place the exported source archive next to
 firmware/alpine/packages/nanokvm-rustdesk/APKBUILD, generate abuild checksums

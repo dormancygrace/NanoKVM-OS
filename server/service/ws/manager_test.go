@@ -113,3 +113,37 @@ func TestExplicitViewOnlySurvivesOtherDisconnect(t *testing.T) {
 		t.Fatal("repeated disconnect must not undo manual lock")
 	}
 }
+
+// Browser takeover must run external cleanup with ownership absent, before
+// giving a new browser permission to inject reports.
+func TestExternalInputAndBrowserTakeover(t *testing.T) {
+	m := newManager()
+	first, second := &Client{inputLease: newInputLease()}, &Client{inputLease: newInputLease()}
+	cleaned := false
+	if !m.AcquireExternalInput("external", func() {
+		if m.externalLease != "" || m.CanControl(first) || m.AllowsInputLease("") || m.AllowsInputLease("external") {
+			t.Fatal("cleanup must happen before browser control")
+		}
+		cleaned = true
+		m.ReleaseExternalInput("external")
+	}) {
+		t.Fatal("external reservation failed")
+	}
+	if !m.AllowsInputLease("external") || m.AllowsInputLease("") || m.AcquireExternalInput("other", func() {}) {
+		t.Fatal("single-owner check failed")
+	}
+	c1, c2 := new(websocket.Conn), new(websocket.Conn)
+	m.AddClient(c1, first)
+	m.AddClient(c2, second)
+	m.RemoveClient(c2)
+	if m.CanControl(first) || first.controlEnabled || cleaned {
+		t.Fatal("joining/disconnecting browser stole external control")
+	}
+	m.SetControl(first, true)
+	if !cleaned || !m.CanControl(first) || !m.AllowsInputLease(first.inputLease) || m.AllowsInputLease("external") {
+		t.Fatal("takeover failed")
+	}
+	if m.AcquireExternalInput("other", func() {}) {
+		t.Fatal("browser control must block external input")
+	}
+}

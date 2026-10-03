@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+[ -f /run/openrc/softlevel ] || exit 0
+if rc-service nanokvm-rustdesk status >/dev/null 2>&1; then
+    mkdir -p /run/nanokvm-rustdesk
+    touch /run/nanokvm-rustdesk/restart-after-upgrade
+    rc-service nanokvm-rustdesk stop
+fi

@@ -28,7 +28,7 @@ func (m *Manager) AddClient(ws *websocket.Conn, client *Client) {
 	defer m.controlMutex.Unlock()
 	m.mutex.Lock()
 	m.clients[ws] = client
-	if m.controller == nil {
+	if m.controller == nil && m.externalLease == "" {
 		m.controller = client
 	}
 	enabled := m.controller == client
@@ -50,7 +50,7 @@ func (m *Manager) RemoveClient(ws *websocket.Conn) {
 		client.revokeInput()
 	}
 	var next *Client
-	if client != nil && m.controller == nil && len(m.clients) == 1 {
+	if client != nil && m.controller == nil && m.externalLease == "" && len(m.clients) == 1 {
 		for _, remaining := range m.clients {
 			if !remaining.manualViewOnly {
 				next = remaining
@@ -99,6 +99,15 @@ func (m *Manager) SetControl(client *Client, enabled bool) {
 		return
 	}
 
+	externalRelease := m.externalRelease
+	m.externalLease, m.externalRelease = "", nil
+	if externalRelease != nil {
+		m.externalCleanup = true
+		m.mutex.Unlock()
+		externalRelease()
+		m.mutex.Lock()
+		m.externalCleanup = false
+	}
 	previous := m.controller
 	if previous == client {
 		m.mutex.Unlock()
@@ -130,6 +139,12 @@ func (m *Manager) CanControl(client *Client) bool {
 func (m *Manager) AllowsInputLease(lease string) bool {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
+	if m.externalCleanup {
+		return false
+	}
+	if m.externalLease != "" {
+		return lease != "" && subtle.ConstantTimeCompare([]byte(lease), []byte(m.externalLease)) == 1
+	}
 	if m.controller == nil {
 		return true
 	}
@@ -147,4 +162,29 @@ func (m *Manager) GetClients() []*Client {
 	}
 
 	return clients
+}
+
+// AcquireExternalInput reserves manual input for an add-on. Browser joins stay
+// view-only; explicit takeover drains external held reports before new input.
+func (m *Manager) AcquireExternalInput(lease string, release func()) bool {
+	if lease == "" || release == nil {
+		return false
+	}
+	m.controlMutex.Lock()
+	defer m.controlMutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	if m.controller != nil || m.externalLease != "" {
+		return false
+	}
+	m.externalLease, m.externalRelease = lease, release
+	return true
+}
+
+func (m *Manager) ReleaseExternalInput(lease string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	if m.externalLease == lease {
+		m.externalLease, m.externalRelease = "", nil
+	}
 }

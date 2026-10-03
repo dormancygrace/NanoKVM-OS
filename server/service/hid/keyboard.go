@@ -40,6 +40,9 @@ func (h *Hid) keyboardReports(queue <-chan QueuedReport, path string) {
 
 	for event := range queue {
 		execute = event.Execute
+		if event.Cleanup != nil {
+			execute = event.Cleanup
+		}
 		resetKeyboard = event.ResetKeyboard
 		if len(event.Data) != 8 {
 			event.complete(false)

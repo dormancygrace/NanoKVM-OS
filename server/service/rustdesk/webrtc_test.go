@@ -188,6 +188,19 @@ func TestRustDeskRTCRealDataChannelAndRPCLifetime(t *testing.T) {
 	if err = readRTCJSON(data, &ready); err != nil || ready.Event != "ready" {
 		t.Fatal("attach", err, ready.Event)
 	}
+	duplicate, err := net.Dial("tcp", listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	duplicate.SetDeadline(time.Now().Add(time.Second))
+	if err = writeRTCJSON(duplicate, rtcCommand{Op: "attach", Token: answer.Token}); err != nil {
+		t.Fatal(err)
+	}
+	var rejected rtcEvent
+	if err = readRTCJSON(duplicate, &rejected); err == nil {
+		t.Fatal("duplicate attach accepted")
+	}
+	duplicate.Close()
 	outgoing := bytes.Repeat([]byte{0x6d}, 180001)
 	if err = writeRustDeskPayload(data, outgoing); err != nil {
 		t.Fatal(err)
@@ -271,5 +284,109 @@ func TestRustDeskRTCStopDuringSetup(t *testing.T) {
 		}
 		rtcTestWait(t, "stopped setup cleanup", func() bool { b.mu.Lock(); defer b.mu.Unlock(); return len(b.sessions) == 0 })
 		client.Close()
+	}
+}
+
+func TestRustDeskRTCStartedFrameDeadlineAndCancellation(t *testing.T) {
+	for _, partial := range [][]byte{{3, 1}, {7 << 2, 1, 2}} {
+		server, client := net.Pipe()
+		done := make(chan error, 1)
+		go func() { _, err := readRustDeskPayloadBounded(server, 60*time.Millisecond); done <- err }()
+		if _, err := client.Write(partial); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case err := <-done:
+			if netErr, ok := err.(net.Error); !ok || !netErr.Timeout() {
+				t.Fatal("missing partial-frame timeout", err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("partial frame stalled")
+		}
+		server.Close()
+		client.Close()
+	}
+	server, client := net.Pipe()
+	defer client.Close()
+	done := make(chan error, 1)
+	go func() { _, err := readRustDeskPayloadBounded(server, 60*time.Millisecond); done <- err }()
+	select {
+	case err := <-done:
+		t.Fatal("idle ended", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	server.Close()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("close accepted")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("idle cancellation stalled")
+	}
+
+	server, client = net.Pipe()
+	defer client.Close()
+	go func() { _, err := readRustDeskPayloadBounded(server, time.Second); done <- err }()
+	if _, err := client.Write([]byte{7 << 2, 1}); err != nil {
+		t.Fatal(err)
+	}
+	server.Close()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("close accepted")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("partial cancellation stalled")
+	}
+}
+func TestRustDeskRTCSessionAndConnectionCaps(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := &rtcBridge{listener: listener, sessions: make(map[string]*rtcSession), connections: make(map[net.Conn]struct{})}
+	// No PeerConnection is constructed once all four slots, including teardown, are held.
+	client, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if _, err = client.CreateDataChannel("data", nil); err != nil {
+		t.Fatal(err)
+	}
+	offer, err := client.CreateOffer(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, _ := json.Marshal(offer)
+	for _, token := range []string{"a", "b", "c", "d"} {
+		b.sessions[token] = nil
+	}
+	if _, _, _, _, err = b.answer("webrtc://" + base64.StdEncoding.EncodeToString(encoded)); err == nil {
+		t.Fatal("session cap bypassed")
+	}
+	clear(b.sessions)
+	peers := make([]net.Conn, 0, 12)
+	for i := 0; i < 12; i++ {
+		a, p := net.Pipe()
+		b.connections[a] = struct{}{}
+		peers = append(peers, p)
+	}
+	go b.accept()
+	rejected, err := net.Dial("tcp", listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	rejected.SetReadDeadline(time.Now().Add(time.Second))
+	var byte [1]byte
+	if _, err = rejected.Read(byte[:]); err == nil {
+		t.Fatal("connection cap bypassed")
+	}
+	rejected.Close()
+	b.close()
+	for _, p := range peers {
+		p.Close()
 	}
 }

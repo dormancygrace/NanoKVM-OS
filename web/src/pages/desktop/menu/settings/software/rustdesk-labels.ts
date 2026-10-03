@@ -51,7 +51,7 @@ export const rustDeskLabels = {
     explain:
       'Connect a RustDesk client to this ID to view HDMI and control USB keyboard and mouse.',
     video:
-      'The codec must match the shared NanoKVM encoder. H.265 requires client support. Maximum portrait output needs H.265. Browser takeover releases RustDesk input.',
+      'Video automatically uses the codec selected in NanoKVM video settings. H.265 requires client support. Reconnect after changing the device codec. Browser takeover releases RustDesk input.',
     deletion: 'Remove the package? Server settings, password and device ID are preserved.',
     failed: 'The request failed',
     saved: 'Settings saved',
@@ -115,7 +115,7 @@ export const rustDeskLabels = {
     explain:
       'Подключитесь к этому ID из RustDesk, чтобы видеть HDMI и управлять USB-клавиатурой и мышью.',
     video:
-      'Кодек должен совпадать с общим энкодером NanoKVM. Для H.265 нужна поддержка клиента. Максимальный портретный режим требует H.265. Перехват управления браузером освобождает ввод RustDesk.',
+      'Видеокодек автоматически берётся из настроек видео NanoKVM. Для H.265 нужна поддержка клиента. После смены кодека устройства подключитесь заново. Перехват управления браузером освобождает ввод RustDesk.',
     deletion: 'Удалить пакет? Настройки сервера, пароль и ID устройства сохранятся.',
     failed: 'Запрос не выполнен',
     saved: 'Настройки сохранены',

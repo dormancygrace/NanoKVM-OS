@@ -86,6 +86,12 @@ go_transport.mkdir(exist_ok=True)
 for name in ["webrtc.go","webrtc_test.go"]:
     shutil.copyfile(root/"server/service/rustdesk"/name,go_transport/name)
 shutil.copyfile(root/"server/service/rustdesk/bridge.go",go_transport/"bridge.go.integration")
+# Exact shared-encoder implementation used by the automatic media subscription.
+stream_integration=stage/"app-stream-integration"
+stream_integration.mkdir()
+for name in ["encoder_config.go","video_source.go","video_source_test.go","state.go","state_test.go"]:
+    shutil.copyfile(root/"server/service/stream"/name,stream_integration/(name+".integration"))
+
 for name in ["audio.go","audio_test.go"]:
     shutil.copyfile(root/"server/service/rustdesk"/name,go_transport/(name+".integration"))
 # Keep the app module name so the unchanged shared-audio import resolves offline.
@@ -144,7 +150,7 @@ candidate's host/device qualification evidence and transport limits.
 """)
 (stage/"docs/rustdesk-handoff.md").write_text("""# Device test plan
 
-Use a coordinated test slot. Upgrade the NanoKVM app with bridge=1, webrtc=1 and audio=1
+Use a coordinated test slot. Upgrade the NanoKVM app with bridge=1, webrtc=1, audio=1 and auto-codec=1
 before installing the add-on. Verify the installed add-on and protocol versions,
 public source URL/digest, identity/config preservation, registration, temporary
 password rotation and reconnect, actual 1.5-client encrypted relay/WebRTC video,
@@ -175,7 +181,7 @@ install(source_record,"usr/share/nanokvm-rustdesk/source.json")
 install(source/"upstream.json","usr/share/nanokvm-rustdesk/upstream.json")
 apkfile=output/f"nanokvm-rustdesk-{package_version}.apk"
 command=[str(args.apk.resolve()),"mkpkg","--files",str(payload),"--output",str(apkfile)]
-for value in ["name:nanokvm-rustdesk",f"version:{package_version}","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
+for value in ["name:nanokvm-rustdesk",f"version:{package_version}","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
     command+=["--info",value]
 for action in ["pre-upgrade","post-upgrade","pre-deinstall"]:
     command+=["--script",action+":"+str(pkg/("nanokvm-rustdesk."+action))]

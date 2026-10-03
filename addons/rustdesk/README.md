@@ -12,7 +12,10 @@ NanoKVM app. The original OneKVM firmware is not used.
 The daemon uses four root-only Unix sockets under /run/nanokvm-rustdesk.
 A JSON version-1 subscription is followed by 40-byte OKVF headers and Annex B
 H.264/H.265 frames; codec zero carries a bounded error message. The app shares
-its existing encoder. Codec conflicts fail visibly, and device bitrate, GOP and
+its existing encoder. At each login the add-on automatically adopts the shared
+selected/active codec (H.265 by default when idle without a selection). Old add-on
+codec preferences are ignored. Reconnect after changing the device codec; a client
+without support receives a clear error. Device bitrate, GOP and
 frame rate remain in the existing Screen settings. No additional codec runs on
 the SoC. Maximum 1440x2560 portrait output uses H.265 and requires client support.
 
@@ -47,7 +50,7 @@ that was running; removal stops it and removes its runlevel entry.
 Software > Add-ons contains package installation, upgrade and removal, plus a
 link to management. Settings > Extensions lists installed RustDesk and PicoClaw,
 including stopped services. RustDesk has one management screen with its ID,
-temporary password, service switch and password mode. Server, codec and viewer
+temporary password, service switch and password mode. Server and viewer
 settings are under Advanced settings. PicoClaw opens its existing control panel.
 English and Russian labels are provided. The old two-line UI patch is historical;
 do not apply it again to the integrated branch.
@@ -77,7 +80,7 @@ Example config.json (automatic temporary password):
   "relay_server": "",
   "server_key": "",
   "password_mode": "temporary",
-  "codec": "h265",
+  "codec": "auto",
   "max_clients": 1
 }
 

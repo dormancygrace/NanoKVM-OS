@@ -291,14 +291,6 @@ export const RustDeskControls = () => {
                           </Form.Item>
                         )}
                         <Alert type="info" title={l.video} className="mb-4" />
-                        <Form.Item name="codec" label={l.codec}>
-                          <Select
-                            options={[
-                              { value: 'h264', label: 'H.264' },
-                              { value: 'h265', label: 'H.265' }
-                            ]}
-                          />
-                        </Form.Item>
                         <Form.Item
                           name="max_clients"
                           label={l.clients}

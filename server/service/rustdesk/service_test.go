@@ -293,3 +293,39 @@ func TestUpdateButtonOnlyReceivesAPKUpgradeCandidates(t *testing.T) {
 		})
 	}
 }
+
+func TestRustDeskVersionComesFromInstalledDaemonMetadata(t *testing.T) {
+	temporaryConfig(t)
+	for _, tc := range []struct {
+		name, data, want string
+		installed        bool
+	}{
+		{"current base", `{"rustdesk_version":"1.4.9"}`, "1.4.9", true},
+		{"future base", `{"rustdesk_version":"1.5.0"}`, "1.5.0", true},
+		{"invalid metadata", `invalid`, "", true},
+		{"missing field", `{}`, "", true},
+		{"invalid version", `{"rustdesk_version":"unexpected text"}`, "", true},
+		{"uninstalled stale metadata", `{"rustdesk_version":"1.4.9"}`, "", false},
+		{"old package without metadata", "", "", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := NewService(NewBridge())
+			s.upstreamFile = filepath.Join(t.TempDir(), "upstream.json")
+			if tc.data != "" {
+				if err := os.WriteFile(s.upstreamFile, []byte(tc.data), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+				if name == "apk" && strings.Join(args, " ") == "info -e "+Package && tc.installed {
+					return nil, nil
+				}
+				return nil, errors.New("not available or stopped")
+			}
+			got, err := s.Status()
+			if err != nil || got.RustDeskVersion != tc.want {
+				t.Fatalf("got %q, want %q, error %v", got.RustDeskVersion, tc.want, err)
+			}
+		})
+	}
+}

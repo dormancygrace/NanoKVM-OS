@@ -39,6 +39,7 @@ pub async fn run(
     mut shutdown: watch::Receiver<bool>,
     limits: server::ClientLimits,
 ) -> io::Result<()> {
+    let webrtc = crate::webrtc::Manager::default();
     loop {
         let result = run_once(
             Arc::clone(&config),
@@ -46,6 +47,7 @@ pub async fn run(
             Arc::clone(&rustdesk_identity),
             shutdown.clone(),
             limits.clone(),
+            webrtc.clone(),
         )
         .await;
         if *shutdown.borrow() {
@@ -70,6 +72,7 @@ async fn run_once(
     rustdesk_identity: Arc<RustDeskIdentity>,
     mut shutdown: watch::Receiver<bool>,
     limits: server::ClientLimits,
+    webrtc: crate::webrtc::Manager,
 ) -> io::Result<()> {
     let hbbs = server_address(&config.rendezvous_server, RENDEZVOUS_PORT)?;
     let remote = lookup_host(&hbbs)
@@ -150,6 +153,8 @@ async fn run_once(
                         }
                     }
                     Some(rendezvous_message::Union::RequestRelay(request)) => {
+                        let mut limits = limits.clone();
+                        limits.input_allowed = request.control_permissions.as_ref().map(|p|p.permissions & 1 != 0).unwrap_or(true);
                         spawn_requested_relay(
                             request,
                             Arc::clone(&config),
@@ -159,17 +164,32 @@ async fn run_once(
                             limits.clone(),
                         );
                     }
+                    Some(rendezvous_message::Union::IceCandidate(candidate)) => {
+                        webrtc.candidate(candidate);
+                    }
                     Some(rendezvous_message::Union::PunchHole(request)) => {
-                        spawn_fallback_relay(
-                            request.socket_addr,
-                            request.socket_addr_v6,
-                            request.relay_server,
-                            Arc::clone(&config),
-                            Arc::clone(&onekvm_identity),
-                            Arc::clone(&rustdesk_identity),
-                            shutdown.clone(),
-                            limits.clone(),
-                        );
+                        let mut limits = limits.clone();
+                        limits.input_allowed = request.control_permissions.as_ref().map(|p|p.permissions & 1 != 0).unwrap_or(true);
+                        if request.webrtc_sdp_offer.is_empty() {
+                            spawn_fallback_relay(request.socket_addr, request.socket_addr_v6, request.relay_server,
+                                Arc::clone(&config), Arc::clone(&onekvm_identity), Arc::clone(&rustdesk_identity),
+                                shutdown.clone(), limits.clone());
+                        } else {
+                            let manager = webrtc.clone();
+                            let config = Arc::clone(&config);
+                            let onekvm = Arc::clone(&onekvm_identity);
+                            let rd = Arc::clone(&rustdesk_identity);
+                            let shutdown = shutdown.clone();
+                            let limits = limits.clone();
+                            tokio::spawn(async move {
+                                if let Err(error) = manager.answer(&request, Arc::clone(&config), Arc::clone(&onekvm),
+                                    Arc::clone(&rd), shutdown.clone(), limits.clone()).await {
+                                    eprintln!("RustDesk WebRTC unavailable: {error}; using relay");
+                                    spawn_fallback_relay(request.socket_addr, request.socket_addr_v6, request.relay_server,
+                                        config, onekvm, rd, shutdown, limits);
+                                }
+                            });
+                        }
                     }
                     Some(rendezvous_message::Union::FetchLocalAddr(request)) => {
                         spawn_fallback_relay(
@@ -222,6 +242,7 @@ fn spawn_requested_relay(
                     feedback: 0,
                     socket_addr_v6: Vec::new(),
                     upnp_port: 0,
+                    webrtc_sdp_answer: String::new(),
                 })),
             };
             let mut stream = time::timeout(CONNECT_TIMEOUT, TcpStream::connect(&hbbs))
@@ -280,6 +301,7 @@ fn spawn_fallback_relay(
                 feedback: 0,
                 socket_addr_v6,
                 upnp_port: 0,
+                webrtc_sdp_answer: String::new(),
             })),
         };
         let hbbs = match server_address(&config.rendezvous_server, RENDEZVOUS_PORT) {
@@ -346,6 +368,7 @@ async fn connect_relay(
                 licence_key: config.server_key.clone(),
                 conn_type: ConnType::DefaultConn as i32,
                 token: String::new(),
+                ..Default::default()
             })),
         },
     )
@@ -390,7 +413,7 @@ fn increment_port(value: &str) -> Option<String> {
     Some(format!("{host}:{port}"))
 }
 
-fn server_address(value: &str, default_port: u16) -> io::Result<String> {
+pub(crate) fn server_address(value: &str, default_port: u16) -> io::Result<String> {
     let value = value.trim();
     if value.is_empty() || value.contains("//") || value.chars().any(char::is_whitespace) {
         return Err(io::Error::new(
@@ -415,7 +438,7 @@ fn server_address(value: &str, default_port: u16) -> io::Result<String> {
     Ok(format!("{value}:{default_port}"))
 }
 
-fn decode_address(bytes: &[u8]) -> SocketAddr {
+pub(crate) fn decode_address(bytes: &[u8]) -> SocketAddr {
     if bytes.len() == 18 {
         let mut ip = [0_u8; 16];
         ip.copy_from_slice(&bytes[..16]);
@@ -530,6 +553,7 @@ mod tests {
                     licence_key: configured_key.clone(),
                     conn_type: ConnType::DefaultConn as i32,
                     token: String::new(),
+                    ..Default::default()
                 })),
             },
         )
@@ -566,6 +590,7 @@ mod tests {
                     licence_key: configured_key,
                     conn_type: ConnType::DefaultConn as i32,
                     token: String::new(),
+                    ..Default::default()
                 })),
             },
         )

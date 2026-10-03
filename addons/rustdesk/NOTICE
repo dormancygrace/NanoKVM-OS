@@ -5,9 +5,10 @@ The original media/control transport was replaced; RustDesk protocol, cryptograp
 Corresponding source: this addons/rustdesk directory and Cargo.lock; build instructions in README.md.
 Do not distribute a binary without its corresponding source and dependency sources required by AGPL.
 
-Protocol reference audited against RustDesk 1.4.9 (6c578292e8ebbbec708b76986ba8c4bc7c509747),
-hbb_common 7e1c392c62d39c364127307cd408421dd5f8cfb0. This is a partial
+Protocol reference audited against RustDesk 1.5.0 (fada664df7a294d1d1a9ca3e7cd3637069122f17),
+hbb_common 229b904508364c8997aad0fb5af57effac859f60. This is a partial
 protocol endpoint derived via OneKVM, not a complete RustDesk client fork.
-RustDesk 1.5.0 PublicKey.kx_version parsing and rejection of an unoffered
-version are adapted from RustDesk fada664df7a294d1d1a9ca3e7cd3637069122f17.
-KX v1 and WebRTC are not implemented; the endpoint advertises KX v0.
+RustDesk 1.5.0 KX v1, signed rendezvous parameters, DTLS identity binding,
+WebRTC data-channel framing and temporary-password rotation are adapted from
+the pinned RustDesk/hbb_common commits. The application bridge uses Pion v4.2.22;
+its source and standalone tests are included under app-webrtc in the source archive.

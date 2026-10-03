@@ -14,8 +14,8 @@ use crypto_box::{
 use rand::{distributions::Alphanumeric, Rng};
 use sha2::{Digest, Sha256};
 use tokio::{
-    io::AsyncWrite,
-    net::{TcpListener, TcpStream},
+    io::{AsyncRead, AsyncWrite},
+    net::{TcpListener, TcpStream, UnixStream},
     sync::{mpsc, watch, OwnedSemaphorePermit, Semaphore},
     task::JoinSet,
     time,
@@ -62,8 +62,10 @@ enum InputEvent {
 
 #[derive(Clone)]
 pub(crate) struct ClientLimits {
+    pub(crate) input_allowed: bool,
     sessions: Arc<Mutex<SessionRegistry>>,
     pending: Arc<Semaphore>,
+    credentials: Arc<Mutex<Option<crate::auth::Credentials>>>,
 }
 
 struct SessionRegistry {
@@ -94,6 +96,7 @@ impl Drop for SessionPermit {
 impl ClientLimits {
     fn new(max_clients: usize) -> Self {
         Self {
+            input_allowed: true,
             sessions: Arc::new(Mutex::new(SessionRegistry {
                 max_clients,
                 clients: HashMap::new(),
@@ -103,6 +106,7 @@ impl ClientLimits {
             // from the configured limit, which applies to authenticated
             // sessions. The pending cap still bounds unauthenticated work.
             pending: Arc::new(Semaphore::new(max_clients.saturating_mul(2).max(4))),
+            credentials: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -312,23 +316,83 @@ pub async fn run(
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn serve(
-    mut stream: TcpStream,
+    stream: TcpStream,
     peer: SocketAddr,
     config: Arc<Config>,
     identity: Arc<Identity>,
     rustdesk_identity: Arc<RustDeskIdentity>,
     secure: bool,
-    mut shutdown: watch::Receiver<bool>,
+    shutdown: watch::Receiver<bool>,
     limits: ClientLimits,
     pending_permit: OwnedSemaphorePermit,
 ) -> io::Result<()> {
     stream.set_nodelay(true)?;
-    let session_key = if secure {
-        Some(secure_handshake(&mut stream, &rustdesk_identity).await?)
-    } else {
-        None
+    serve_io(
+        stream,
+        peer,
+        config,
+        identity,
+        rustdesk_identity,
+        secure.then_some(String::new()),
+        shutdown,
+        limits,
+        pending_permit,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn serve_webrtc(
+    stream: UnixStream,
+    fingerprint: String,
+    peer: SocketAddr,
+    config: Arc<Config>,
+    identity: Arc<Identity>,
+    rustdesk_identity: Arc<RustDeskIdentity>,
+    shutdown: watch::Receiver<bool>,
+    limits: ClientLimits,
+    pending_permit: OwnedSemaphorePermit,
+) -> io::Result<()> {
+    if fingerprint.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "missing DTLS identity",
+        ));
+    }
+    serve_io(
+        stream,
+        peer,
+        config,
+        identity,
+        rustdesk_identity,
+        Some(fingerprint),
+        shutdown,
+        limits,
+        pending_permit,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
+    mut stream: S,
+    peer: SocketAddr,
+    config: Arc<Config>,
+    identity: Arc<Identity>,
+    rustdesk_identity: Arc<RustDeskIdentity>,
+    secure: Option<String>,
+    mut shutdown: watch::Receiver<bool>,
+    limits: ClientLimits,
+    pending_permit: OwnedSemaphorePermit,
+) -> io::Result<()> {
+    let is_relay = secure.is_some();
+    let session_key = match secure {
+        Some(fingerprint) => {
+            identity_handshake(&mut stream, &rustdesk_identity, &fingerprint).await?
+        }
+        None => None,
     };
-    let (reader, writer) = stream.into_split();
+    let (reader, writer) = tokio::io::split(stream);
     let mut reader = FrameReader::new(reader, session_key.clone());
     let mut writer = FrameWriter::new(writer, session_key);
     let hash = Hash {
@@ -339,7 +403,7 @@ pub(crate) async fn serve(
 
     let login_deadline = time::Instant::now() + LOGIN_TIMEOUT;
     let mut password_attempts = 0;
-    let login = loop {
+    let (login, _session_permit) = loop {
         let login: Message = tokio::select! {
             result = time::timeout_at(login_deadline, reader.read()) => {
                 result.map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "login timed out"))??
@@ -369,8 +433,29 @@ pub(crate) async fn serve(
             send_error(&mut writer, "Unsupported session type").await?;
             return Ok(());
         }
-        if !config.access_control_enabled || verify_password(&config.password, &hash, &login) {
-            break login;
+        let admission = {
+            let mut credentials = limits.credentials.lock().unwrap_or_else(|p| p.into_inner());
+            let credentials =
+                credentials.get_or_insert_with(|| crate::auth::Credentials::new(&config));
+            if let Some(verified) = credentials.verify(&hash, &login)? {
+                match limits.try_session(viewer_key(peer, is_relay, &login.my_id)) {
+                    Some(permit) => {
+                        credentials.admitted(&login, verified)?;
+                        Some(Ok(permit))
+                    }
+                    None => Some(Err(())),
+                }
+            } else {
+                None
+            }
+        };
+        match admission {
+            Some(Ok(permit)) => break (login, permit),
+            Some(Err(())) => {
+                send_error(&mut writer, "Maximum viewers reached").await?;
+                return Ok(());
+            }
+            None => {}
         }
 
         // The official client first sends an empty password to ask the server
@@ -449,19 +534,9 @@ pub(crate) async fn serve(
     )
     .await?;
 
-    // Candidate paths from an authenticated client share one slot. Relay peers
-    // share the relay's IP, so that IP cannot identify a logical viewer.
-    let client = viewer_key(peer, secure, &login.my_id);
-    let Some(_session_permit) = limits.try_session(client) else {
-        eprintln!(
-            "closing connected RustDesk client {peer} (id {:?}): maximum clients reached",
-            login.my_id
-        );
-        return Ok(());
-    };
     drop(pending_permit);
     eprintln!(
-        "RustDesk client {peer} login accepted (id {:?}, secure {secure})",
+        "RustDesk client {peer} login accepted (id {:?}, secure {is_relay})",
         login.my_id
     );
     let mut media = time::timeout(
@@ -483,6 +558,7 @@ pub(crate) async fn serve(
     // flush starts per 16 ms window, absolute moves keep the newest position,
     // and relative moves accumulate without losing displacement. Keyboard,
     // button, and wheel events flush pending movement before being handled.
+    let input_allowed = limits.input_allowed;
     let (input_sender, mut input_receiver) = mpsc::channel(64);
     let (input_result_sender, mut input_result_receiver) = mpsc::channel(1);
     let (input_shutdown_sender, mut input_shutdown) = watch::channel(false);
@@ -502,7 +578,7 @@ pub(crate) async fn serve(
             let event = tokio::select! {
                 event = input_receiver.recv() => event,
                 _ = heartbeat.tick() => {
-                    if let Err(error) = input.heartbeat().await { break Err(error); }
+                    if input_allowed { if let Err(error) = input.heartbeat().await { break Err(error); } }
                     continue;
                 },
                 _ = flush_tick.tick() => {
@@ -574,7 +650,9 @@ pub(crate) async fn serve(
                 }
             }
         };
-        input.release_all().await;
+        if input_allowed {
+            input.release_all().await;
+        }
         let _ = input_result_sender.send(result).await;
     });
     // AsyncReadExt::read_exact is not cancellation-safe. Reading a media frame
@@ -595,21 +673,39 @@ pub(crate) async fn serve(
     // cancellation constraint. Keep it alive across media sends so a partial
     // RustDesk packet cannot be mistaken for the next packet.
     let (incoming_sender, mut incoming_receiver) = mpsc::channel(16);
+    let incoming_limits = limits.clone();
+    let incoming_login = login.clone();
     let incoming_task = tokio::spawn(async move {
         loop {
-            let message = reader.read::<Message>().await;
+            // A stalled/half-open peer releases HID and its viewer slot. The
+            // whole stream ends on timeout, so partial reads are never reused.
+            let message = time::timeout(Duration::from_secs(30), reader.read::<Message>())
+                .await
+                .unwrap_or_else(|_| {
+                    Err(io::Error::new(io::ErrorKind::TimedOut, "peer idle timeout"))
+                });
+            if message.is_ok() {
+                if let Some(credentials) = incoming_limits
+                    .credentials
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .as_mut()
+                {
+                    credentials.touch(&incoming_login);
+                }
+            }
             match message {
                 Ok(Message {
                     union: Some(message::Union::MouseEvent(event)),
                 }) => {
-                    if input_sender.send(InputEvent::Mouse(event)).await.is_err() {
+                    if input_allowed && input_sender.send(InputEvent::Mouse(event)).await.is_err() {
                         break;
                     }
                 }
                 Ok(Message {
                     union: Some(message::Union::KeyEvent(event)),
                 }) => {
-                    if input_sender.send(InputEvent::Key(event)).await.is_err() {
+                    if input_allowed && input_sender.send(InputEvent::Key(event)).await.is_err() {
                         break;
                     }
                 }
@@ -631,8 +727,18 @@ pub(crate) async fn serve(
     );
 
     let mut first_video_frame = true;
+    let mut peer_tick = time::interval(Duration::from_secs(10));
+    peer_tick.tick().await;
     let result = loop {
         tokio::select! {
+            _ = peer_tick.tick() => {
+                let delay = crate::protocol::TestDelay { time: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as i64,
+                    from_client: false, ..Default::default() };
+                if let Err(error) = write_union(&mut writer, message::Union::TestDelay(delay)).await {
+                    break Err(error);
+                }
+            }
             incoming = incoming_receiver.recv() => {
                 match incoming {
                     Some(Ok(Message { union: Some(message::Union::TestDelay(mut delay)) })) => {
@@ -790,7 +896,7 @@ fn rustdesk_video_frame(frame: MediaFrame) -> Option<VideoFrame> {
     })
 }
 
-fn verify_password(password: &str, hash: &Hash, login: &LoginRequest) -> bool {
+pub(crate) fn verify_password(password: &str, hash: &Hash, login: &LoginRequest) -> bool {
     let mut first = Sha256::new();
     first.update(password.as_bytes());
     first.update(hash.salt.as_bytes());
@@ -838,10 +944,21 @@ async fn write_union<W: AsyncWrite + Unpin>(
     writer.write(&Message { union: Some(union) }).await
 }
 
+#[cfg(test)]
 async fn secure_handshake(
     stream: &mut TcpStream,
     identity: &RustDeskIdentity,
 ) -> io::Result<SessionKey> {
+    identity_handshake(stream, identity, "")
+        .await?
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing TCP session key"))
+}
+
+async fn identity_handshake<S: AsyncRead + AsyncWrite + Unpin>(
+    stream: &mut S,
+    identity: &RustDeskIdentity,
+    fingerprint: &str,
+) -> io::Result<Option<SessionKey>> {
     let mut ephemeral_secret = [0_u8; 32];
     rand::thread_rng().fill(&mut ephemeral_secret);
     let ephemeral_secret = BoxSecretKey::from(ephemeral_secret);
@@ -849,6 +966,8 @@ async fn secure_handshake(
     let id_pk = IdPk {
         id: identity.id.clone(),
         pk: ephemeral_public.as_bytes().to_vec(),
+        dtls_fingerprint: fingerprint.to_owned(),
+        kx_version: if fingerprint.is_empty() { 1 } else { 0 },
     }
     .encode_to_vec();
     write_message(
@@ -870,12 +989,13 @@ async fn secure_handshake(
             "secure handshake expected PublicKey",
         ));
     };
-    // IdPk advertises KX v0 by omitting its version. Never accept a peer's
-    // selection of a scheme this endpoint did not offer or implement.
-    if public_key.kx_version != 0 {
+    // Old controllers select v0; 1.5 controllers select the advertised v1.
+    // Reject any version above the signed offer before deriving frame keys.
+    let advertised = if fingerprint.is_empty() { 1 } else { 0 };
+    if public_key.kx_version > advertised {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "peer selected a key exchange version not offered (only KX v0 is supported)",
+            "peer selected a key exchange version not offered",
         ));
     }
     let peer_public: [u8; 32] = public_key
@@ -892,7 +1012,18 @@ async fn secure_handshake(
     let symmetric: [u8; 32] = symmetric
         .try_into()
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid symmetric session key"))?;
-    Ok(SessionKey::new(symmetric))
+    if !fingerprint.is_empty() {
+        return Ok(None);
+    }
+    SessionKey::negotiated(
+        symmetric,
+        &peer_public,
+        ephemeral_public.as_bytes(),
+        advertised,
+        public_key.kx_version,
+        false,
+    )
+    .map(Some)
 }
 
 #[cfg(unix)]
@@ -943,11 +1074,11 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn secure_handshake_preserves_v0_and_rejects_unoffered_v1() {
+    async fn secure_handshake_supports_v0_v1_and_rejects_unoffered_versions() {
         use crate::protocol::{IdPk, PublicKey};
         use crypto_box::{aead::Aead as _, Nonce, SalsaBox, SecretKey};
 
-        for selected in [0, 1] {
+        for selected in [0, 1, 2] {
             let root = temporary_directory();
             let identity = RustDeskIdentity::load_from(&root).unwrap();
             let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -990,9 +1121,18 @@ mod tests {
             )
             .await
             .unwrap();
-            if selected == 0 {
-                let mut reader =
-                    FrameReader::new(stream, Some(crate::framing::SessionKey::new(session_bytes)));
+            assert_eq!(id.kx_version, 1);
+            if selected <= 1 {
+                let key = crate::framing::SessionKey::negotiated(
+                    session_bytes,
+                    secret.public_key().as_bytes(),
+                    &peer_public,
+                    id.kx_version,
+                    selected,
+                    true,
+                )
+                .unwrap();
+                let mut reader = FrameReader::new(stream, Some(key));
                 let response: Message = reader.read().await.unwrap();
                 assert!(matches!(response.union, Some(message::Union::Hash(_))));
                 assert!(server.await.unwrap().is_ok());
@@ -1003,6 +1143,62 @@ mod tests {
             }
             std::fs::remove_dir_all(root).unwrap();
         }
+    }
+
+    #[tokio::test]
+    async fn dtls_identity_is_signed_and_does_not_add_secretbox_framing() {
+        use crate::protocol::{IdPk, PublicKey};
+        use crypto_box::{aead::Aead as _, Nonce, SalsaBox, SecretKey};
+        let root = temporary_directory();
+        let identity = RustDeskIdentity::load_from(&root).unwrap();
+        let (mut server, mut client) = tokio::net::UnixStream::pair().unwrap();
+        let fingerprint = "sha-256 ".to_owned() + &vec!["AB"; 32].join(":");
+        let expected = fingerprint.clone();
+        let responder = tokio::spawn(async move {
+            let key = super::identity_handshake(&mut server, &identity, &fingerprint)
+                .await
+                .unwrap();
+            assert!(key.is_none());
+            write_message(
+                &mut server,
+                &Message {
+                    union: Some(message::Union::Hash(Hash {
+                        salt: "s".into(),
+                        challenge: "c".into(),
+                    })),
+                },
+            )
+            .await
+            .unwrap();
+        });
+        let signed: Message = read_message(&mut client).await.unwrap();
+        let Some(message::Union::SignedId(signed)) = signed.union else {
+            panic!("unsigned DTLS identity")
+        };
+        let id = IdPk::decode(&signed.id[64..]).unwrap();
+        assert_eq!(id.dtls_fingerprint, expected);
+        assert_eq!(id.kx_version, 0);
+        let secret = SecretKey::from([33; 32]);
+        let pk: [u8; 32] = id.pk.try_into().unwrap();
+        let sealed = SalsaBox::new(&crypto_box::PublicKey::from(pk), &secret)
+            .encrypt(Nonce::from_slice(&[0; 24]), [7u8; 32].as_slice())
+            .unwrap();
+        write_message(
+            &mut client,
+            &Message {
+                union: Some(message::Union::PublicKey(PublicKey {
+                    asymmetric_value: secret.public_key().as_bytes().to_vec(),
+                    symmetric_value: sealed,
+                    kx_version: 0,
+                })),
+            },
+        )
+        .await
+        .unwrap();
+        let hash: Message = read_message(&mut client).await.unwrap();
+        assert!(matches!(hash.union, Some(message::Union::Hash(_))));
+        responder.await.unwrap();
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -1186,6 +1382,13 @@ mod tests {
 
     #[tokio::test]
     async fn bridges_login_video_and_hid_with_mock_onekvm() {
+        bridge_mock(true).await;
+    }
+    #[tokio::test]
+    async fn view_only_session_streams_video_without_any_hid_or_lease_requests() {
+        bridge_mock(false).await;
+    }
+    async fn bridge_mock(input_allowed: bool) {
         let directory = temporary_directory();
         std::fs::create_dir_all(&directory).unwrap();
         let media_path = directory.join("media.sock");
@@ -1252,7 +1455,8 @@ mod tests {
             token: "a".repeat(64),
         });
         let (_shutdown_sender, shutdown_receiver) = watch::channel(false);
-        let limits = ClientLimits::new(1);
+        let mut limits = ClientLimits::new(1);
+        limits.input_allowed = input_allowed;
         let pending_permit = limits.try_pending().unwrap();
         let rustdesk_identity =
             Arc::new(RustDeskIdentity::load_from(&directory.join("rustdesk-state")).unwrap());
@@ -1411,11 +1615,13 @@ mod tests {
         )
         .await
         .unwrap();
-        let request = time::timeout(Duration::from_secs(2), hid_receiver.recv())
-            .await
-            .unwrap()
-            .unwrap();
-        assert!(request.starts_with(b"POST /api/hid/mouse/absolute HTTP/1.1\r\n"));
+        if input_allowed {
+            let request = time::timeout(Duration::from_secs(2), hid_receiver.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(request.starts_with(b"POST /api/hid/mouse/absolute HTTP/1.1\r\n"));
+        }
         for (x, y) in [(200, 100), (300, 150)] {
             write_message(
                 &mut client,
@@ -1452,41 +1658,53 @@ mod tests {
             .unwrap();
         assert!(matches!(video.union, Some(message::Union::VideoFrame(_))));
         let _ = hid_response_sender.send(());
-        let request = time::timeout(Duration::from_secs(2), hid_receiver.recv())
-            .await
-            .unwrap()
-            .unwrap();
-        let body_offset = request
-            .windows(4)
-            .position(|window| window == b"\r\n\r\n")
-            .unwrap()
-            + 4;
-        let body: serde_json::Value = serde_json::from_slice(&request[body_offset..]).unwrap();
-        assert_eq!(body["x"], (300_u32 * 32767) / 1919);
-        assert_eq!(body["y"], (150_u32 * 32767) / 1079);
-        assert_eq!(body["buttons"], 0);
-        let request = time::timeout(Duration::from_secs(2), hid_receiver.recv())
-            .await
-            .unwrap()
-            .unwrap();
-        let body_offset = request
-            .windows(4)
-            .position(|window| window == b"\r\n\r\n")
-            .unwrap()
-            + 4;
-        let body: serde_json::Value = serde_json::from_slice(&request[body_offset..]).unwrap();
-        assert_eq!(body["x"], (300_u32 * 32767) / 1919);
-        assert_eq!(body["y"], (150_u32 * 32767) / 1079);
-        assert_eq!(body["buttons"], 1);
-        drop(client);
-        server_task.await.unwrap().unwrap();
-        for _ in 0..3 {
-            time::timeout(Duration::from_secs(2), hid_receiver.recv())
+        if input_allowed {
+            let request = time::timeout(Duration::from_secs(2), hid_receiver.recv())
                 .await
                 .unwrap()
                 .unwrap();
+            let body_offset = request
+                .windows(4)
+                .position(|window| window == b"\r\n\r\n")
+                .unwrap()
+                + 4;
+            let body: serde_json::Value = serde_json::from_slice(&request[body_offset..]).unwrap();
+            assert_eq!(body["x"], (300_u32 * 32767) / 1919);
+            assert_eq!(body["y"], (150_u32 * 32767) / 1079);
+            assert_eq!(body["buttons"], 0);
+            let request = time::timeout(Duration::from_secs(2), hid_receiver.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            let body_offset = request
+                .windows(4)
+                .position(|window| window == b"\r\n\r\n")
+                .unwrap()
+                + 4;
+            let body: serde_json::Value = serde_json::from_slice(&request[body_offset..]).unwrap();
+            assert_eq!(body["x"], (300_u32 * 32767) / 1919);
+            assert_eq!(body["y"], (150_u32 * 32767) / 1079);
+            assert_eq!(body["buttons"], 1);
         }
-        hid_task.await.unwrap();
+        drop(client);
+        server_task.await.unwrap().unwrap();
+        if input_allowed {
+            for _ in 0..3 {
+                time::timeout(Duration::from_secs(2), hid_receiver.recv())
+                    .await
+                    .unwrap()
+                    .unwrap();
+            }
+            hid_task.await.unwrap();
+        } else {
+            assert!(
+                time::timeout(Duration::from_millis(200), hid_receiver.recv())
+                    .await
+                    .is_err()
+            );
+            hid_task.abort();
+            let _ = hid_task.await;
+        }
         let _ = media_done_sender.send(());
         media_task.await.unwrap();
         std::fs::remove_dir_all(directory).unwrap();

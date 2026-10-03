@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
+	"NanoKVM-Server/common"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/hid"
 )
@@ -41,14 +42,15 @@ var usbEndpointCosts = map[string]proto.USBEndpointCost{
 }
 
 type usbComposition struct {
-	mode     string
-	keyboard bool
-	relative bool
-	absolute bool
-	network  bool
-	disk     bool
-	serial   bool
-	audio    bool
+	windowsPointer bool
+	mode           string
+	keyboard       bool
+	relative       bool
+	absolute       bool
+	network        bool
+	disk           bool
+	serial         bool
+	audio          bool
 }
 
 func (s *Service) GetVirtualDevice(c *gin.Context) {
@@ -61,7 +63,12 @@ func (s *Service) GetVirtualDevice(c *gin.Context) {
 
 func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 	inUsed, outUsed := s.endpointUsage()
+	profile := "default"
+	if s.windowsPointer {
+		profile = "windows"
+	}
 	return &proto.GetVirtualDeviceRsp{
+		PointerProfile: profile, WindowsPointerSupported: common.WindowsPointerSupported(),
 		Keyboard: s.keyboard, Relative: s.relative, Absolute: s.absolute,
 		Network: s.network, Disk: s.disk, Serial: s.serial, Audio: s.audio,
 		HID: s.keyboard || s.relative || s.absolute, Mode: s.mode,
@@ -72,7 +79,7 @@ func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 }
 
 func (s usbComposition) revision() string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%t:%t:%t:%t:%t:%t:%t", s.mode, s.keyboard, s.relative, s.absolute, s.network, s.disk, s.serial, s.audio))))
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%t:%t:%t:%t:%t:%t:%t:%t", s.mode, s.keyboard, s.relative, s.absolute, s.network, s.disk, s.serial, s.audio, s.windowsPointer))))
 }
 
 func (s *Service) SetUSBComposition(c *gin.Context) {
@@ -82,7 +89,7 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid composition")
 		return
 	}
-	candidate := usbComposition{mode: req.Mode, keyboard: *req.Keyboard, relative: *req.Relative, absolute: *req.Absolute, network: *req.Network, disk: *req.Disk, serial: *req.Serial, audio: *req.Audio}
+	candidate := usbComposition{windowsPointer: req.PointerProfile == "windows", mode: req.Mode, keyboard: *req.Keyboard, relative: *req.Relative, absolute: *req.Absolute, network: *req.Network, disk: *req.Disk, serial: *req.Serial, audio: *req.Audio}
 	if err := candidate.validate(); err != nil {
 		rsp.ErrRsp(c, -4, err.Error())
 		return
@@ -91,6 +98,9 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 	h.Lock()
 	defer h.Unlock()
 	current := getUSBComposition()
+	if req.PointerProfile == "" {
+		candidate.windowsPointer = current.windowsPointer
+	}
 	if current.revision() != req.Revision {
 		rsp.ErrRsp(c, -5, "USB composition changed; refresh and try again")
 		return
@@ -210,14 +220,15 @@ func getUSBComposition() usbComposition {
 	}
 
 	return usbComposition{
-		mode:     mode,
-		keyboard: hidEnabled && !deviceExists("/boot/usb.disable_keyboard"),
-		relative: hidEnabled && !deviceExists("/boot/usb.disable_relative"),
-		absolute: hidEnabled && !deviceExists("/boot/usb.disable_absolute"),
-		network:  networkEnabled,
-		disk:     diskEnabled,
-		serial:   deviceExists(virtualSerial),
-		audio:    mode != hid.ModeHidOnly && deviceExists(virtualAudio),
+		windowsPointer: common.WindowsPointerEnabled(),
+		mode:           mode,
+		keyboard:       hidEnabled && !deviceExists("/boot/usb.disable_keyboard"),
+		relative:       hidEnabled && !deviceExists("/boot/usb.disable_relative"),
+		absolute:       hidEnabled && !deviceExists("/boot/usb.disable_absolute"),
+		network:        networkEnabled,
+		disk:           diskEnabled,
+		serial:         deviceExists(virtualSerial),
+		audio:          mode != hid.ModeHidOnly && deviceExists(virtualAudio),
 	}
 }
 

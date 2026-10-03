@@ -1,0 +1,104 @@
+--- a/include/linux/usb/composite.h
++++ b/include/linux/usb/composite.h
+@@ -466,6 +466,8 @@
+ 	/* OS String is a custom (yet popular) extension to the USB standard. */
+ 	u8				qw_sign[OS_STRING_QW_SIGN_LEN];
+ 	u8				b_vendor_code;
++	/* Microsoft OS 1.0 ContainerID, GUID byte order; zero disables it. */
++	u8				os_container_id[16];
+ 	struct usb_configuration	*os_desc_config;
+ 	unsigned int			use_os_string:1;
+ 
+--- a/drivers/usb/gadget/configfs.c
++++ b/drivers/usb/gadget/configfs.c
+@@ -5,6 +5,7 @@
+ #include <linux/device.h>
+ #include <linux/kstrtox.h>
+ #include <linux/nls.h>
++#include <linux/uuid.h>
+ #include <linux/usb/composite.h>
+ #include <linux/usb/func_utils.h>
+ #include <linux/usb/gadget_configfs.h>
+@@ -1207,11 +1208,48 @@
+ 	return res;
+ }
+ 
++/* Shared with an external display to associate a Windows digitizer. */
++static ssize_t os_desc_container_id_show(struct config_item *item, char *page)
++{
++	struct gadget_info *gi = os_desc_item_to_gadget_info(item);
++	ssize_t ret;
++
++	mutex_lock(&gi->lock);
++	ret = sysfs_emit(page, "%pUl\n", gi->cdev.os_container_id);
++	mutex_unlock(&gi->lock);
++	return ret;
++}
++
++static ssize_t os_desc_container_id_store(struct config_item *item,
++		const char *page, size_t len)
++{
++	struct gadget_info *gi = os_desc_item_to_gadget_info(item);
++	guid_t id;
++	int ret;
++
++	if (len != UUID_STRING_LEN &&
++	    (len != UUID_STRING_LEN + 1 || page[UUID_STRING_LEN] != '\n'))
++		return -EINVAL;
++	ret = guid_parse(page, &id);
++	if (ret)
++		return ret;
++	mutex_lock(&gi->lock);
++	if (gi->composite.gadget_driver.udc_name) {
++		mutex_unlock(&gi->lock);
++		return -EBUSY;
++	}
++	memcpy(gi->cdev.os_container_id, &id, sizeof(id));
++	mutex_unlock(&gi->lock);
++	return len;
++}
++
++CONFIGFS_ATTR(os_desc_, container_id);
+ CONFIGFS_ATTR(os_desc_, use);
+ CONFIGFS_ATTR(os_desc_, b_vendor_code);
+ CONFIGFS_ATTR(os_desc_, qw_sign);
+ 
+ static struct configfs_attribute *os_desc_attrs[] = {
++	&os_desc_attr_container_id,
+ 	&os_desc_attr_use,
+ 	&os_desc_attr_b_vendor_code,
+ 	&os_desc_attr_qw_sign,
+--- a/drivers/usb/gadget/composite.c
++++ b/drivers/usb/gadget/composite.c
+@@ -1304,7 +1304,7 @@
+ 			"qwSignature size must be equal to qw_sign");
+ 		memcpy(&b->qwSignature, cdev->qw_sign, sizeof(b->qwSignature));
+ 		b->bMS_VendorCode = cdev->b_vendor_code;
+-		b->bPad = 0;
++		b->bPad = memchr_inv(cdev->os_container_id, 0, 16) ? BIT(1) : 0;
+ 		return sizeof(*b);
+ 	}
+ 
+@@ -2067,6 +2067,22 @@
+ 		break;
+ 	default:
+ unknown:
++		/* Microsoft OS 1.0 ContainerID: valid before SET_CONFIGURATION too. */
++		if (cdev->use_os_string &&
++		    ctrl->bRequestType == (USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE) &&
++		    ctrl->bRequest == cdev->b_vendor_code &&
++		    w_index == 6 && !w_value &&
++		    memchr_inv(cdev->os_container_id, 0, 16)) {
++			u8 *buf = req->buf;
++
++			put_unaligned_le32(24, buf);
++			put_unaligned_le16(0x0100, buf + 4);
++			put_unaligned_le16(6, buf + 6);
++			memcpy(buf + 8, cdev->os_container_id, 16);
++			value = min_t(u16, w_length, 24);
++			goto check_value;
++		}
++
+ 		/*
+ 		 * OS descriptors handling
+ 		 */

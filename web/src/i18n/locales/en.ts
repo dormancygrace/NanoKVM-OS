@@ -753,7 +753,7 @@ const en = {
         alpineBuilderMissing:
           'The attended image builder is not configured. Set alpine.builderURL or use a manually verified recovery bundle.',
         requestFailed: 'The update request failed. Check device connectivity and retry.',
-        reconnecting: 'Waiting for the device to reconnect…',
+        reconnecting: 'Waiting for the device to reconnect…'
       },
       memory: {
         videoMode: 'Video memory allocation',
@@ -1162,6 +1162,9 @@ const en = {
         cancelBtn: 'No'
       },
       usb: {
+        pointerProfile: 'Absolute pointer profile',
+        pointerProfileHelp:
+          'Windows binds the pointer to the captured monitor (Windows 10 1903 or newer). Applying reconnects USB and HDMI.',
         off: 'Off',
         title: 'USB Composition',
         enabled: 'USB devices',

@@ -1,5 +1,12 @@
 # RustDesk optional USB audio
 
+Current accepted package: **0.5.3-r0**, protocol reference **1.5.0**. Transmit sound
+now prepares optional USB audio while remote access is enabled; the source PC
+still needs to select the NanoKVM speaker output. See
+[finalization](rustdesk-0.5.3-finalization.md) for current status and limits.
+
+## Historical 0.4.0 implementation and qualification
+
 Package candidate: nanokvm-rustdesk 0.4.0-r0. RustDesk protocol reference remains
 1.5.0 (fada664df7a294d1d1a9ca3e7cd3637069122f17).
 

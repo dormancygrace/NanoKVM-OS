@@ -36,19 +36,23 @@ device qualification and transport limits.
 Only one session owns input. An existing browser controller blocks external
 input. Browser joins stay view-only while RustDesk owns control; explicit
 takeover drains held keys/buttons before new browser input. The heartbeat is
-two seconds and expiry ten seconds. Input refusal closes the RustDesk session.
-Absolute scrolling uses the absolute HID interface and the app's existing
-Windows pointer translation. The bridge never changes USB composition.
+two seconds and expiry ten seconds. Input refusal disables input for that session
+while video/audio continue. Absolute scrolling uses the absolute HID interface
+and the app's selected pointer translation. Enabled remote access prepares USB
+keyboard and both mouse interfaces through the existing validated composition;
+unrelated functions and the selected pointer profile are preserved.
 
 ## Package and settings
 
 nanokvm-rustdesk is an optional riscv64 package, absent from the base image list.
-It depends on nanokvm-rustdesk-bridge=1, nanokvm-rustdesk-webrtc=1 and nanokvm-rustdesk-audio=1 supplied by
-the updated nanokvm-app, plus OpenRC. Upgrade the application before this package. Installation alone leaves it stopped. Upgrade restarts only a service
+It depends on bridge, WebRTC, audio, auto-codec and USB-defaults capability version
+1 supplied by the updated nanokvm-app, plus OpenRC. Upgrade the application before
+this package. Installation alone leaves it stopped. Upgrade restarts only a service
 that was running; removal stops it and removes its runlevel entry.
 
-Software > Add-ons contains package installation, upgrade and removal, plus a
-link to management. Settings > Extensions lists installed RustDesk and PicoClaw,
+Software > Add-ons contains package installation, removal and upgrade when an
+upgrade candidate is available, plus a link to management. Settings > Extensions
+lists installed RustDesk and PicoClaw,
 including stopped services. RustDesk has one management screen with its ID,
 temporary password, service switch and password mode. Server and viewer
 settings are under Advanced settings. PicoClaw opens its existing control panel.
@@ -96,7 +100,7 @@ vendor/ and .cargo/config.toml and support --locked --offline builds and tests.
 
 For an unsigned local test package from the repository root, with cargo,
 fakeroot, a riscv64 musl GCC and apk-tools 3 mkpkg available:
-fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/nanokvm-rustdesk-0.4.0-r0/nanokvm-rustdesk-0.4.0-source.tar.gz
+fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/nanokvm-rustdesk-0.5.3-r0/nanokvm-rustdesk-0.5.3-source.tar.gz
 
 The exported source can also cross-build directly without repository scripts:
 CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=/path/to/riscv64-linux-gcc RUSTFLAGS='-C target-feature=+crt-static' cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl
@@ -125,7 +129,9 @@ identity. Go tests with hardware stubs validate application logic only.
 Live HDMI, USB, client compatibility and registration require coordinated
 testing on the real device before production use.
 
-The device test plan is in docs/rustdesk-handoff.md.
+The accepted 0.5.3-r0 build, evidence and current limitations are recorded in
+[finalization](../../docs/rustdesk-0.5.3-finalization.md). The integration handoff
+is in [rustdesk-handoff.md](../../docs/rustdesk-handoff.md).
 
 ## Versions and upstream reference
 
@@ -165,12 +171,12 @@ For TCP connections by ID, disable WebRTC in that client too. Requests forcing
 relay, or declaring symmetric NAT, retain relay fallback. Unsupported KCP/UDP
 requests can use the client's TCP leg when no WebRTC offer is present.
 
-## Optional USB audio (0.4.0)
+## Optional USB audio
 
 Sound from the connected computer uses the existing optional USB speaker
-function. Enable USB audio in the device USB settings and choose the NanoKVM
-USB audio output on that computer. No keyboard/mouse function is required for
-sound. The add-on does not enable USB functions automatically.
+function. Transmit sound prepares USB audio while remote access is enabled;
+choose the NanoKVM USB audio output on that computer. No keyboard/mouse
+function is required for sound.
 
 The app shares one existing Opus capture/encoder with browser listeners:
 48 kHz, stereo, 20 ms packets. RustDesk forwards the encoded packets unchanged
@@ -216,4 +222,16 @@ The HID HTTP client keeps its write half open until the server response. The
 Content-Length header delimits each report; sending an early EOF would cancel
 Go net/http request contexts and disable input while video continues.
 
-HID preparation, heartbeat and close requests send no body: the Go bridge answers these routes immediately, so a separate unused JSON body write could race its connection close and disable input with `Broken pipe`. HTTP headers and any report body are sent together.
+HID preparation, heartbeat and close requests send no body: the Go bridge answers
+these routes immediately, so a separate unused JSON body write could race its
+connection close and disable input with `Broken pipe`. HTTP headers and any report
+body are sent together.
+
+## Display association
+
+This endpoint advertises one HDMI capture. A generic absolute USB mouse maps to
+the Windows primary display, so a secondary HDMI capture needs correct display
+association. In the accepted two-monitor test, control worked after making the
+captured NanoKVM display primary. OS monitor enumeration and capture switching
+require a host helper and additional capture/selection support; they are not
+implemented in this version.

@@ -2,7 +2,9 @@ package stream
 
 import (
 	"errors"
+	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -491,5 +493,43 @@ func TestSelectingCurrentCodecDoesNotInterruptViewers(t *testing.T) {
 	defer second.Close()
 	if second.session != first.session {
 		t.Fatal("matching viewer not shared")
+	}
+}
+
+// The native reader can consume the whole cadence period. Workers created at
+// its return must run before another blocking capture, including empty/errors.
+func TestLateVideoCaptureAllowsNewInputWorkersToRun(t *testing.T) {
+	previous := runtime.GOMAXPROCS(1)
+	defer runtime.GOMAXPROCS(previous)
+	for _, result := range []int{-1, 0} {
+		var workers atomic.Int32
+		captures := 0
+		finished := make(chan int32, 1)
+		source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) {
+			captures++
+			if captures == 1 {
+				time.Sleep(50 * time.Millisecond)
+				go func() { workers.Add(1) }()
+				go func() { workers.Add(1) }()
+			} else if captures == 2 {
+				finished <- workers.Load()
+			}
+			return nil, nil, result
+		})
+		subscription, err := source.subscribe(DefaultEncoderConfig())
+		if err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case got := <-finished:
+			subscription.Close()
+			<-subscription.session.done
+			if got != 2 {
+				t.Fatalf("capture result %d: only %d new input workers ran before next capture", result, got)
+			}
+		case <-time.After(time.Second):
+			subscription.Close()
+			t.Fatal("capture did not progress")
+		}
 	}
 }

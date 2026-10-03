@@ -215,7 +215,7 @@ func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.Med
 			return nil, err
 		}
 		settingEngine.SetNet(network)
-		if os.Getenv("NANOKVM_WEBRTC_UDP_BATCH") == "1" {
+		if os.Getenv("NANOKVM_WEBRTC_UDP_BATCH") != "0" {
 			network.EnableFrameBatching()
 			budgets[0].setBatcher(network)
 		}

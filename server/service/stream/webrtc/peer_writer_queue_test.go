@@ -11,11 +11,11 @@ func TestPeerWriterQueueCapacityKnob(t *testing.T) {
 		value string
 		want  int
 	}{
-		{name: "default", value: "", want: 8},
+		{name: "default", value: "", want: 32},
 		{name: "eight", value: "8", want: 8},
 		{name: "thirty two", value: "32", want: 32},
 		{name: "sixty four", value: "64", want: 64},
-		{name: "invalid", value: "17", want: 8},
+		{name: "invalid", value: "17", want: 32},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv(peerVideoQueueEnv, tc.value)

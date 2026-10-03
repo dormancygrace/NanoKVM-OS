@@ -6,9 +6,9 @@ import (
 )
 
 const (
-	// The default remains the existing eight-frame behavior. The environment
-	// knob is intentionally limited to the experiment values.
-	peerVideoQueueCapacity = 8
+	// Thirty-two frames absorb measured Wi-Fi sender stalls while the byte
+	// budget below bounds compressed storage independently of frame count.
+	peerVideoQueueCapacity = 32
 	peerVideoQueueBytes    = 2 * 1024 * 1024
 	// video_pack_storage caps native payloads at 64 MiB and the capture path
 	// adds nine bytes of packetizer headroom. Keep that as the one-frame bound.
@@ -18,6 +18,8 @@ const (
 
 func peerWriterQueueCapacity() int {
 	switch os.Getenv(peerVideoQueueEnv) {
+	case "8":
+		return 8
 	case "32":
 		return 32
 	case "64":

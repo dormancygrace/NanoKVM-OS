@@ -1,7 +1,7 @@
 # Optional package; deliberately absent from platform/packages.list.
 pkgname=nanokvm-rustdesk
 pkgver=0.2.1
-pkgrel=0
+pkgrel=1
 pkgdesc="RustDesk endpoint for NanoKVM HDMI capture and USB HID"
 url="https://github.com/onekvm/onekvm-extension-rustdesk"
 arch="riscv64"
@@ -9,7 +9,8 @@ license="AGPL-3.0-only"
 depends="nanokvm-rustdesk-bridge=1 openrc"
 makedepends="cargo rust"
 install="$pkgname.pre-upgrade $pkgname.post-upgrade $pkgname.pre-deinstall"
-source="$pkgname-$pkgver-source.tar.gz $pkgname.initd"
+sourceurl="https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/$pkgname-$pkgver-r$pkgrel/$pkgname-$pkgver-source.tar.gz"
+source="$sourceurl $pkgname.initd"
 builddir="$srcdir/$pkgname-$pkgver"
 options="!strip !tracedeps"
 
@@ -25,7 +26,8 @@ package() {
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
     install -Dm644 NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
     install -Dm644 upstream.json "$pkgdir/usr/share/$pkgname/upstream.json"
-    mkdir -p "$pkgdir/usr/share/$pkgname"
-    tar --exclude=./target -czf "$pkgdir/usr/share/$pkgname/source.tar.gz" .
+    local digest=$(sha256sum "$srcdir/$pkgname-$pkgver-source.tar.gz" | cut -d ' ' -f 1)
+    printf '{"url":"%s","sha256":"%s","package_version":"%s-r%s"}\n' \
+        "$sourceurl" "$digest" "$pkgver" "$pkgrel" > "$pkgdir/usr/share/$pkgname/source.json"
 }
 sha512sums=""

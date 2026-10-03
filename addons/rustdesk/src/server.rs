@@ -548,6 +548,21 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     )
     .await?;
 
+    // Re-establish negotiated input permission on every login. Mobile clients
+    // can retain the denial sent after an earlier HID failure across reconnects.
+    write_union(
+        &mut writer,
+        message::Union::Misc(crate::protocol::Misc {
+            union: Some(crate::protocol::misc::Union::PermissionInfo(
+                crate::protocol::PermissionInfo {
+                    permission: 0,
+                    enabled: limits.input_allowed,
+                },
+            )),
+        }),
+    )
+    .await?;
+
     drop(pending_permit);
     eprintln!(
         "RustDesk client {peer} login accepted (id {:?}, secure {is_relay})",
@@ -1659,7 +1674,7 @@ mod tests {
                         }
                         Some(message::Union::Misc(crate::protocol::Misc {
                             union: Some(crate::protocol::misc::Union::PermissionInfo(p)),
-                        })) if !allowed => {
+                        })) if !allowed && p.permission == 3 => {
                             assert_eq!((p.permission, p.enabled), (3, false));
                             break;
                         }
@@ -1976,6 +1991,15 @@ mod tests {
         };
         assert_eq!(peer_info.platform, "NanoKVM");
         assert!(!peer_info.displays[0].cursor_embedded);
+        let keyboard_permission: Message = read_message(&mut client).await.unwrap();
+        assert!(matches!(
+            keyboard_permission.union,
+            Some(message::Union::Misc(crate::protocol::Misc {
+                union: Some(crate::protocol::misc::Union::PermissionInfo(
+                    crate::protocol::PermissionInfo { permission: 0, enabled }
+                ))
+            })) if enabled == can_control
+        ));
         let permission: Message = read_message(&mut client).await.unwrap();
         assert!(matches!(
             permission.union,

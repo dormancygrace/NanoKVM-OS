@@ -1,0 +1,31 @@
+# Optional package; deliberately absent from platform/packages.list.
+pkgname=nanokvm-rustdesk
+pkgver=0.2.1
+pkgrel=0
+pkgdesc="RustDesk endpoint for NanoKVM HDMI capture and USB HID"
+url="https://github.com/onekvm/onekvm-extension-rustdesk"
+arch="riscv64"
+license="AGPL-3.0-only"
+depends="nanokvm-rustdesk-bridge=1 openrc"
+makedepends="cargo rust"
+install="$pkgname.pre-upgrade $pkgname.post-upgrade $pkgname.pre-deinstall"
+source="$pkgname-$pkgver-source.tar.gz $pkgname.initd"
+builddir="$srcdir/$pkgname-$pkgver"
+options="!strip !tracedeps"
+
+build() {
+    cargo build --locked --offline --release
+}
+check() {
+    cargo test --locked --offline
+}
+package() {
+    install -Dm755 target/release/nanokvm-rustdesk "$pkgdir/usr/bin/nanokvm-rustdesk"
+    install -Dm755 "$srcdir/$pkgname.initd" "$pkgdir/etc/init.d/$pkgname"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
+    install -Dm644 upstream.json "$pkgdir/usr/share/$pkgname/upstream.json"
+    mkdir -p "$pkgdir/usr/share/$pkgname"
+    tar --exclude=./target -czf "$pkgdir/usr/share/$pkgname/source.tar.gz" .
+}
+sha512sums=""

@@ -360,6 +360,7 @@ export const MenuItem = ({
       trigger="click"
       zIndex={placement ? 1100 : desktopMenuPopoverZIndex}
       placement={popoverPlacement}
+      align={placement ? { overflow: { shiftX: true, shiftY: true } } : undefined}
       classNames={{ root: overlay }}
       open={isOpen}
       onOpenChange={toggle}

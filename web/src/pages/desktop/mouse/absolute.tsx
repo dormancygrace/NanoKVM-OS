@@ -15,6 +15,7 @@ import {
   getRenderedMediaRect,
   MediaSize
 } from '../screen/geometry.ts';
+import { createTouchChord } from './touch-chord.ts';
 import { MouseAbsoluteEvent } from './types.ts';
 
 enum MouseButton {
@@ -38,7 +39,6 @@ export const Absolute = () => {
   const lastScrollTimeRef = useRef(0);
 
   // For touch events
-  const lastTouchYRef = useRef(0);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressRef = useRef(false);
   const hasMoveRef = useRef(false);
@@ -65,6 +65,7 @@ export const Absolute = () => {
     const mouse = mouseRef.current;
     const previousTouchAction = target.style.touchAction;
     const pressedMouseButtons = new Set<number>();
+    const touchChord = createTouchChord();
     let pendingMove: { x: number; y: number } | null = null;
     let moveFrame: number | null = null;
 
@@ -199,19 +200,27 @@ export const Absolute = () => {
         releasePressedButton();
         isDoubleTapCandidateRef.current = false;
         doubleTapDragArmedUntilRef.current = 0;
-        lastTouchYRef.current = touch.clientY;
+        touchChord.reset();
         return;
       }
 
       isTouchActiveRef.current = true;
 
       if (e.touches.length > 1) {
+        // A held first finger plus a quick second-finger tap is a right click.
+        // Do not duplicate a long-press click or turn an active drag into a click.
+        touchChord.start(
+          Array.from(e.touches),
+          Date.now(),
+          !isLongPressRef.current && !isDraggingRef.current
+        );
         isMultiTouchRef.current = true;
         hasMoveRef.current = true;
         clearLongPressTimer();
         releasePressedButton();
         isDoubleTapCandidateRef.current = false;
-        lastTouchYRef.current = touch.clientY;
+        doubleTapDragArmedUntilRef.current = 0;
+        lastTapTimeRef.current = 0;
         return;
       }
 
@@ -226,7 +235,7 @@ export const Absolute = () => {
         (currentTime <= doubleTapDragArmedUntilRef.current && tapDistance <= DOUBLE_TAP_DISTANCE);
 
       // Reset states
-      lastTouchYRef.current = touch.clientY;
+      touchChord.reset();
       isLongPressRef.current = false;
       hasMoveRef.current = false;
       isDraggingRef.current = false;
@@ -269,6 +278,7 @@ export const Absolute = () => {
       const coordinate = getCoordinate(touch);
 
       if (!coordinate) {
+        touchChord.reset();
         hasMoveRef.current = true;
         clearLongPressTimer();
         releasePressedButton();
@@ -283,15 +293,14 @@ export const Absolute = () => {
         clearLongPressTimer();
         releasePressedButton();
 
+        const delta = touchChord.move(Array.from(e.touches));
         const currentTime = Date.now();
-        if (currentTime - lastScrollTimeRef.current < scrollInterval) {
-          return;
-        }
-
-        const deltaY = (touch.clientY - lastTouchYRef.current > 0 ? 1 : -1) * scrollDirection;
-        handleMouseEvent({ type: 'wheel', deltaY });
-
-        lastTouchYRef.current = touch.clientY;
+        if (!delta || currentTime - lastScrollTimeRef.current < scrollInterval) return;
+        handleMouseEvent({
+          type: 'wheel',
+          deltaY: delta.y * scrollDirection,
+          deltaX: -delta.x * scrollDirection
+        });
         lastScrollTimeRef.current = currentTime;
         return;
       }
@@ -340,6 +349,14 @@ export const Absolute = () => {
         return;
       }
 
+      if (
+        isMultiTouchRef.current &&
+        touchChord.end(Array.from(e.touches), Array.from(e.changedTouches), Date.now())
+      ) {
+        flushMouseMove();
+        handleMouseEvent({ type: 'mousedown', button: MouseButton.Right });
+        handleMouseEvent({ type: 'mouseup', button: MouseButton.Right });
+      }
       if (e.touches.length > 0) {
         isMultiTouchRef.current = true;
         return;
@@ -382,6 +399,7 @@ export const Absolute = () => {
     // Mouse touch cancel event
     function handleTouchCancel(e: TouchEvent) {
       disableEvent(e);
+      touchChord.reset();
 
       clearLongPressTimer();
 
@@ -528,6 +546,9 @@ export const Absolute = () => {
     }
 
     function releaseTouchState() {
+      touchChord.reset();
+      lastTapTimeRef.current = 0;
+      doubleTapDragArmedUntilRef.current = 0;
       clearLongPressTimer();
       releasePressedButton();
       isLongPressRef.current = false;

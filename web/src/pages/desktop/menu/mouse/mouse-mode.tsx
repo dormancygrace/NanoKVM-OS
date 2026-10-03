@@ -1,16 +1,17 @@
-import { useAtom } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { CheckIcon, SquareDashedMousePointerIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as ls from '@/lib/localstorage.ts';
 import { client } from '@/lib/websocket.ts';
-import { mouseModeAtom } from '@/jotai/mouse.ts';
+import { effectiveMouseModeAtom, mouseModeAtom } from '@/jotai/mouse.ts';
 import { MenuSubmenu } from '@/components/menu-item.tsx';
 
 export const MouseMode = () => {
   const { t } = useTranslation();
 
-  const [mouseMode, setMouseMode] = useAtom(mouseModeAtom);
+  const mouseMode = useAtomValue(effectiveMouseModeAtom);
+  const setMouseMode = useSetAtom(mouseModeAtom);
 
   const mouseModes = [
     { name: t('mouse.absolute'), value: 'absolute' },
@@ -34,7 +35,7 @@ export const MouseMode = () => {
       {mouseModes.map((mode) => (
         <div
           key={mode.value}
-          className="flex cursor-pointer items-center space-x-1 rounded py-1.5 pl-2 pr-5 hover:bg-neutral-700/70"
+          className="flex cursor-pointer items-center space-x-1 rounded py-1.5 pr-5 pl-2 hover:bg-neutral-700/70"
           onClick={() => updateMouseMode(mode.value)}
         >
           <div className="flex h-[16px] w-[16px] items-end text-blue-500">

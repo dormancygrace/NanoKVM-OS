@@ -12,6 +12,11 @@ func TestModeUsesConfiguredFunctions(t *testing.T) {
 	}{
 		{"normal without optional functions", "0x0510", "", ModeNormal},
 		{"normal serial", "0x0511", "acm.GS0", ModeNormal},
+		{"Windows normal", "0x0710", "", ModeNormal},
+		{"Windows normal serial", "0x0711", "acm.GS0", ModeNormal},
+		{"Windows hid", "0x0720", "hid.GS2", ModeHidOnly},
+		{"Windows hid serial", "0x0721", "acm.GS0", ModeHidOnly},
+		{"Windows stale hid with network", "0x0720", "ncm.usb0", ModeNormal},
 		{"hid only", "0x0623", "hid.GS0", ModeHidOnly},
 		{"hid serial", "0x0624", "acm.GS0", ModeHidOnly},
 		{"stale hid revision with rndis", "0x0623", "rndis.usb0", ModeNormal},

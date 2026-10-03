@@ -25,10 +25,12 @@ import {
   selectedOriginalResolutionAtom,
   videoModeAtom
 } from '@/jotai/screen.ts';
+import { usbInputAtom } from '@/jotai/usb-input.ts';
 import { Head } from '@/components/head.tsx';
 
 import { CaptureStatusOverlay, useCaptureStatus } from './capture-status';
 import { CapturePaused } from './capture-status/paused';
+import { ControlNotice } from './control.tsx';
 import { Keyboard } from './keyboard';
 import { Menu } from './menu';
 import { Mouse } from './mouse';
@@ -86,6 +88,11 @@ const LazyVirtualKeyboard = () => {
 };
 
 export const Desktop = () => {
+  const usbInput = useAtomValue(usbInputAtom);
+  const setKeyboardOpen = useSetAtom(isKeyboardOpenAtom);
+  useEffect(() => {
+    if (!usbInput.keyboard) setKeyboardOpen(false);
+  }, [usbInput.keyboard, setKeyboardOpen]);
   const { t } = useTranslation();
   const isBigScreen = useMediaQuery({ minWidth: 850 });
   const [activeVideoMode] = useState(getVideoMode);
@@ -314,11 +321,12 @@ export const Desktop = () => {
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-neutral-950">
+    <div className="h-dvh w-full overflow-hidden bg-neutral-950">
       <Head title={t('head.desktop')} />
 
       {isBigScreen && <Notification />}
       <H264ModeNotification />
+      <ControlNotice />
 
       {encoderReady && videoMode && resolution && (
         <div className="relative flex h-full min-h-0 w-full min-w-0">
@@ -383,7 +391,7 @@ export const Desktop = () => {
               <ManualRegion />
               <InputRegionOverlay />
               <Mouse />
-              <Keyboard />
+              {usbInput.keyboard && <Keyboard />}
             </>
           )}
         </div>
@@ -397,7 +405,7 @@ export const Desktop = () => {
         </div>
       ) : null}
 
-      {captureEnabled && <LazyVirtualKeyboard />}
+      {captureEnabled && usbInput.keyboard && <LazyVirtualKeyboard />}
     </div>
   );
 };

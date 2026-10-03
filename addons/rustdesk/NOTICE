@@ -1,0 +1,13 @@
+Derived from onekvm/onekvm-extension-rustdesk commit 7a278b5897716786dcc075a167b72f04d5b73766.
+Copyright: the OneKVM and RustDesk contributors. AGPL-3.0-only.
+Modified 2026-10-03 for NanoKVM OS: Alpine/OpenRC lifecycle, NanoKVM IPC and input ownership.
+The original media/control transport was replaced; RustDesk protocol, cryptography and input mapping remain derived work.
+Corresponding source: this addons/rustdesk directory and Cargo.lock; build instructions in README.md.
+Do not distribute a binary without its corresponding source and dependency sources required by AGPL.
+
+Protocol reference audited against RustDesk 1.4.9 (6c578292e8ebbbec708b76986ba8c4bc7c509747),
+hbb_common 7e1c392c62d39c364127307cd408421dd5f8cfb0. This is a partial
+protocol endpoint derived via OneKVM, not a complete RustDesk client fork.
+RustDesk 1.5.0 PublicKey.kx_version parsing and rejection of an unoffered
+version are adapted from RustDesk fada664df7a294d1d1a9ca3e7cd3637069122f17.
+KX v1 and WebRTC are not implemented; the endpoint advertises KX v0.

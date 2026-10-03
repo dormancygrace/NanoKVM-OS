@@ -168,3 +168,55 @@ editing, cancellation, conflict and error recovery.
 `bcdDevice` is a profile hint. If it says HID-only while configured RNDIS, NCM or
 mass-storage links exist, the server treats the profile as normal so those
 functions remain visible to composition and endpoint-budget checks.
+
+
+## Absolute pointer profiles
+
+The absolute pointer has two profiles. **Default** retains the USB absolute mouse
+for firmware, installers and other operating systems. **Windows** exposes a pen
+and an auxiliary mouse collection, using a shared USB/EDID ContainerID to bind
+coordinates to the captured display on Windows 10 1903 and newer. Relative mouse
+and keyboard remain separate USB functions. Middle/back/forward buttons and
+vertical/horizontal wheels use the auxiliary collection; left/right use pen
+contact/barrel reports.
+
+This is opt-in. Applying a profile reprograms the selected EDID and reconnects
+USB and HDMI. The UI offers Windows only with the matching kernel ContainerID
+support and live EDID programming support; receivers requiring a physical power
+cycle are currently excluded. The chosen monitor resolution/orientation and all
+advertised detailed timings are retained. A dense CTA extension reuses the
+redundant textual serial descriptor slot and removes a duplicated preferred DTD
+instead of discarding timings. The numeric EDID serial, monitor name, range
+limits and preferred timing remain unchanged.
+
+The per-device UUID is generated on first use in `/etc/kvm/usb_container_id`.
+`/boot/usb.pointer_windows` selects the profile. The kernel configfs attribute
+`os_desc/container_id` exposes Microsoft OS 1.0 ContainerID; its value is writable
+only while unbound. Zero disables this optional descriptor. Windows device
+revisions differ from Default to avoid cached descriptor reuse.
+
+References:
+- https://learn.microsoft.com/en-us/windows-hardware/design/component-guidelines/digitizer-display-mapping
+- https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/usb-containerids-in-windows
+- https://learn.microsoft.com/en-us/windows-hardware/drivers/display/specialized-monitors-edid-extension
+
+## Touch gestures with the absolute pointer
+
+Both Default and Windows profiles accept the same browser gestures:
+
+- Tap: left click; double tap: double left click.
+- Keep one finger on the video and tap with a second finger: right click at the
+  first finger's pointer position. Lift the second finger within 350 ms and keep
+  both fingers within an 8 CSS-pixel movement tolerance.
+- Move two fingers: vertical or horizontal scrolling. Small stationary jitter
+  does not scroll. Scrolling and pinching suppress the tap action.
+- Long press: existing right-button hold; lifting releases it.
+- Tap, then touch again and move: left-button drag; lifting releases it.
+
+Releasing the first finger after a two-finger gesture does not send a left click.
+A cancelled touch or leaving the page releases held buttons. The gestures apply
+to the touch input adapter, selected automatically for touch devices.
+
+Toolbar and input handlers follow the applied per-function USB status. A disabled keyboard has no toolbar button, virtual keyboard or key interception. The active mouse mode falls back to an enabled USB function without overwriting the browser preference. The mode chooser appears only when both mice are enabled. Pointer Lock and the relative touchpad guide appear only where applicable; Windows pointer mode does not offer legacy coordinate calibration. USB composition is the place to change gadget functions; the old HID-only toggle is no longer duplicated in the mouse menu.
+
+When the controlling browser disconnects and exactly one viewer remains, that viewer automatically receives control unless it explicitly selected view-only. With several remaining viewers, none is chosen automatically; the same rule is applied as viewers leave. A visible View only / Take control action supplements the lock icon on touch screens.

@@ -28,7 +28,8 @@ const en = {
 
     sessionControl: {
       active: 'This browser session controls keyboard and mouse',
-      locked: 'View-only: keyboard and mouse are controlled by another session',
+      locked: 'Input is disabled in this session. Select Take control to enable it.',
+      viewOnly: 'View only',
       take: 'Take control',
       release: 'Lock this session'
     },
@@ -687,6 +688,13 @@ const en = {
     },
     settings: {
       software: {
+        addons: {
+          title: 'Add-ons',
+          packages: 'Packages',
+          open: 'Open PicoClaw',
+          source: 'Official releases',
+          picoclawDescription: 'AI assistant with optional remote control. Installs the latest stable release from the official PicoClaw website.',
+        },
         title: 'Software',
         description:
           'Manage packages from the configured Alpine repositories. Package changes use the same APK database and services as SSH.',
@@ -753,7 +761,7 @@ const en = {
         alpineBuilderMissing:
           'The attended image builder is not configured. Set alpine.builderURL or use a manually verified recovery bundle.',
         requestFailed: 'The update request failed. Check device connectivity and retry.',
-        reconnecting: 'Waiting for the device to reconnect…',
+        reconnecting: 'Waiting for the device to reconnect…'
       },
       memory: {
         videoMode: 'Video memory allocation',
@@ -1162,6 +1170,9 @@ const en = {
         cancelBtn: 'No'
       },
       usb: {
+        pointerProfile: 'Absolute pointer profile',
+        pointerProfileHelp:
+          'Windows binds the pointer to the captured monitor (Windows 10 1903 or newer). Applying reconnects USB and HDMI.',
         off: 'Off',
         title: 'USB Composition',
         enabled: 'USB devices',
@@ -1490,6 +1501,7 @@ const en = {
       }
     },
     picoclaw: {
+      moreActions: 'More actions',
       title: 'PicoClaw Assistant',
       empty: 'Open the panel and start a task to begin.',
       inputPlaceholder: 'Describe what you want the PicoClaw to do',

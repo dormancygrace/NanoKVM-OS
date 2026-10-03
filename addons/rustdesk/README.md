@@ -211,3 +211,9 @@ Gadget writes use bounded nonblocking syscalls; a missing readiness event must
 not hold input indefinitely. Login announces the negotiated keyboard permission
 on every connection. The application waits up to two seconds for the first
 usable encoder frame without changing HDMI power intent.
+
+The HID HTTP client keeps its write half open until the server response. The
+Content-Length header delimits each report; sending an early EOF would cancel
+Go net/http request contexts and disable input while video continues.
+
+HID preparation, heartbeat and close requests send no body: the Go bridge answers these routes immediately, so a separate unused JSON body write could race its connection close and disable input with `Broken pipe`. HTTP headers and any report body are sent together.

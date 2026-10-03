@@ -34,6 +34,9 @@ export const rustDeskLabels = {
     waitingForPassword: 'Generating a temporary password…',
     regenerateConfirm: 'Generate a new password? Current RustDesk connections will close.',
     advanced: 'Advanced settings',
+    webrtc: 'Allow WebRTC connections',
+    transportHint:
+      'TCP and relay are used by default. WebRTC may reduce frame rate on NanoKVM. To connect by TCP using an ID, turn WebRTC off in the RustDesk client too.',
     open: 'Open management',
     settings: 'RustDesk',
     keepPassword: 'Leave empty to keep the current password',
@@ -91,6 +94,9 @@ export const rustDeskLabels = {
     waitingForPassword: 'Генерируется временный пароль…',
     regenerateConfirm: 'Создать новый пароль? Текущие подключения RustDesk будут завершены.',
     advanced: 'Дополнительные настройки',
+    webrtc: 'Разрешить подключения WebRTC',
+    transportHint:
+      'По умолчанию используются TCP и relay. WebRTC может снижать частоту кадров на NanoKVM. Для подключения по ID через TCP выключите WebRTC и в клиенте RustDesk.',
     open: 'Открыть управление',
     settings: 'RustDesk',
     keepPassword: 'Оставьте пустым, чтобы сохранить пароль',

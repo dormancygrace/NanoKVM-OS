@@ -577,6 +577,26 @@ pub struct FetchLocalAddr {
     pub relay_server: String,
     #[prost(bytes = "vec", tag = "3")]
     pub socket_addr_v6: Vec<u8>,
+    #[prost(message, optional, tag = "4")]
+    pub control_permissions: Option<ControlPermissions>,
+    #[prost(message, optional, tag = "5")]
+    pub controlled_context: Option<ControlledContext>,
+}
+
+#[derive(Clone, PartialEq, ProstMessage)]
+pub struct LocalAddr {
+    #[prost(bytes = "vec", tag = "1")]
+    pub socket_addr: Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub local_addr: Vec<u8>,
+    #[prost(string, tag = "3")]
+    pub relay_server: String,
+    #[prost(string, tag = "4")]
+    pub id: String,
+    #[prost(string, tag = "5")]
+    pub version: String,
+    #[prost(bytes = "vec", tag = "6")]
+    pub socket_addr_v6: Vec<u8>,
 }
 
 #[derive(Clone, PartialEq, ProstMessage)]
@@ -730,14 +750,14 @@ pub struct IceCandidate {
 pub struct RendezvousMessage {
     #[prost(
         oneof = "rendezvous_message::Union",
-        tags = "6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 18, 19, 25, 29"
+        tags = "6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 25, 29"
     )]
     pub union: Option<rendezvous_message::Union>,
 }
 
 pub mod rendezvous_message {
     use super::{
-        ConfigUpdate, FetchLocalAddr, IceCandidate, KeyExchange, Oneof, PunchHole,
+        ConfigUpdate, FetchLocalAddr, IceCandidate, KeyExchange, LocalAddr, Oneof, PunchHole,
         PunchHoleRequest, PunchHoleResponse, PunchHoleSent, RegisterPeer, RegisterPeerResponse,
         RegisterPk, RegisterPkResponse, RelayResponse, RequestRelay,
     };
@@ -758,6 +778,8 @@ pub mod rendezvous_message {
         PunchHoleResponse(PunchHoleResponse),
         #[prost(message, tag = "12")]
         FetchLocalAddr(FetchLocalAddr),
+        #[prost(message, tag = "13")]
+        LocalAddr(LocalAddr),
         #[prost(message, tag = "14")]
         ConfigureUpdate(ConfigUpdate),
         #[prost(message, tag = "15")]
@@ -835,5 +857,28 @@ mod client_option_wire_tests {
             panic!("not a client option")
         };
         assert_eq!(option.disable_keyboard, 2);
+    }
+}
+
+#[cfg(test)]
+mod direct_wire_tests {
+    use super::*;
+    #[test]
+    fn local_addr_and_permissions_have_canonical_150_tags() {
+        // LocalAddr 1..6, RendezvousMessage.LocalAddr 13, FetchLocalAddr permissions 4.
+        let bytes = [
+            0x0a, 1, b'a', 0x12, 1, b'b', 0x1a, 1, b'c', 0x22, 1, b'd', 0x2a, 1, b'e', 0x32, 1,
+            b'f',
+        ];
+        let addr = LocalAddr::decode(bytes.as_slice()).unwrap();
+        assert_eq!(addr.local_addr, b"b");
+        assert_eq!(addr.encode_to_vec(), bytes);
+        let msg = RendezvousMessage {
+            union: Some(rendezvous_message::Union::LocalAddr(addr)),
+        }
+        .encode_to_vec();
+        assert_eq!(&msg[..2], &[0x6a, 18]);
+        let req = FetchLocalAddr::decode([0x22, 2, 0x08, 0x01].as_slice()).unwrap();
+        assert_eq!(req.control_permissions.unwrap().permissions, 1);
     }
 }

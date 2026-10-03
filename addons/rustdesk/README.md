@@ -145,3 +145,18 @@ docs/rustdesk-1.5-migration.md for the current evidence and remaining limits.
 Client OptionMessage.disable_keyboard is honored at login and during a session.
 Switching to view-only discards queued movement, releases held input and ends
 its input lease; remote keyboard options cannot override server-side permissions.
+
+## Default transport policy (0.3.0-r2)
+
+WebRTC is disabled by default, including upgrades whose configuration has no
+webrtc_enabled field. Enable it explicitly through the installed add-on settings
+(or set webrtc_enabled to true). Classic TCP rendezvous now attempts encrypted
+direct TCP and local-address connection before relay. A direct listener is
+created only for a bounded ID-server request; the permanent direct-IP listener
+keeps its existing loopback default. Authentication, signed identity, KX v1,
+view-only and viewer limits apply to these direct sessions.
+
+The official 1.5 client does not try TCP in a round that contains a WebRTC offer.
+For TCP connections by ID, disable WebRTC in that client too. Requests forcing
+relay, or declaring symmetric NAT, retain relay fallback. Unsupported KCP/UDP
+requests can use the client's TCP leg when no WebRTC offer is present.

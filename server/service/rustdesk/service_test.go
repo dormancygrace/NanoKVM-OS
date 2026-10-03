@@ -365,3 +365,42 @@ func TestPublishedSourceURLUsesInstalledPackageRecord(t *testing.T) {
 		})
 	}
 }
+
+func TestTransportConfigIsOptionalAndCapabilityGated(t *testing.T) {
+	temporaryConfig(t)
+	s := NewService(NewBridge())
+	s.upstreamFile = filepath.Join(t.TempDir(), "upstream.json")
+	if defaultConfig().WebRTC || s.supportsTransportSettings() {
+		t.Fatal("WebRTC must be opt-in")
+	}
+	for _, m := range []string{`{"rustdesk_version":"1.5.0"}`, `{}`, `broken`} {
+		if err := os.WriteFile(s.upstreamFile, []byte(m), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if s.supportsTransportSettings() {
+			t.Fatal("legacy metadata must not expose transport controls")
+		}
+	}
+	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if name == "apk" && args[0] == "info" {
+			return []byte(Package + "-0.3.0-r1"), nil
+		}
+		t.Fatalf("must reject unsupported option before service mutation: %s", name)
+		return nil, nil
+	}
+	c := defaultConfig()
+	c.WebRTC = true
+	if err := s.Configure(c); err == nil || !strings.Contains(err.Error(), "update") {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(s.upstreamFile, []byte(`{"rustdesk_version":"1.5.0","features":{"transport_settings":true}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !s.supportsTransportSettings() {
+		t.Fatal("transport capability missing")
+	}
+	encoded, _ := json.Marshal(defaultConfig())
+	if strings.Contains(string(encoded), "webrtc_enabled") {
+		t.Fatal("false option must be omitted for old daemon compatibility")
+	}
+}

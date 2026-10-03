@@ -24,7 +24,7 @@ peripheral=maix/'components/peripheral'
 third=maix/'components/3rd_party'
 # Link only the functions needed by the board service. No vendor binary input.
 maix_sources=[basic/'src'/('maix_'+n+'.cpp') for n in ['time','err','log','fs','app','sys']]
-maix_sources += [peripheral/'port/maixcam/maix_i2c.cpp',third/'ini/inifile2/src/inifile.cpp']
+maix_sources += [peripheral/'port/linux_common/maix_i2c.cpp',third/'ini/inifile2/src/inifile.cpp']
 sources=maix_sources+sorted(p for p in main.rglob('*.c') if p.name != 'qrcmd.c')+sorted(main.rglob('*.cpp'))
 sources += [repo/'support/sg2002/additional/kvm/src/vi_state_shared.cpp']
 flags=['-g','-Wall','-Wextra','-ffunction-sections','-fdata-sections',
@@ -65,7 +65,7 @@ with tempfile.TemporaryDirectory(prefix='system-',dir=output) as directory:
     shutil.copy2(tmp/'kvm_system.debug',output/'kvm_system.debug')
     shutil.copy2(tmp/'system.map',output/'system.map')
     (output/'dependencies.d').write_text(dependencies)
-manifest={'maixcdk_commit':'b29c951647df74e4efa55fd4454efb37e4554be0',
+manifest={'maixcdk_commit':'30f4b8b7e3f66ded9cfa64fb081b46e30bc27248',
           'source_sha256':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},
           'kvm_system_sha256':hashlib.sha256((output/'kvm_system').read_bytes()).hexdigest()}
 (output/'licenses').mkdir(exist_ok=True)

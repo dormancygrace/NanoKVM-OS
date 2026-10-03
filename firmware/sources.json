@@ -65,12 +65,11 @@
     "qualification": "LT6911 callbacks tested; UXC hardware probe integration pending"
   },
   "maixcdk": {
-    "version": "4.11.3",
+    "version": "upstream snapshot 2026-10-04",
     "url": "https://github.com/sipeed/MaixCDK.git",
-    "tag": "v4.11.3",
-    "commit": "b29c951647df74e4efa55fd4454efb37e4554be0",
+    "commit": "30f4b8b7e3f66ded9cfa64fb081b46e30bc27248",
     "scope": "required basic/peripheral source subset in kvm_system; platform/native/maixcdk patches applied",
-    "qualification": "C906 service self-test and wrapped-I2C contracts passed; physical board-service qualification pending"
+    "qualification": "C906 T-Head/-O2 cross-build and host ASan/UBSan I2C/system contracts passed; physical board-service qualification deferred to v2.1-b1"
   },
   "sophgo_sdk42_candidate": {
     "version": "4.2.2",

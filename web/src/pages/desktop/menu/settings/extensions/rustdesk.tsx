@@ -42,13 +42,19 @@ export const RustDeskControls = () => {
   const dirty = useRef(false);
   const working = useRef(false);
   const pending = useRef(false);
+  const generation = useRef(0);
+  const statusRequest = useRef<AbortController | null>(null);
   const official = Form.useWatch('use_official_id_server', form);
   const passwordMode = Form.useWatch('password_mode', form);
   const refresh = useCallback(async () => {
     if (working.current || pending.current) return;
     pending.current = true;
+    const started = generation.current;
+    const controller = new AbortController();
+    statusRequest.current = controller;
     try {
-      const response = await getRustDeskStatus();
+      const response = await getRustDeskStatus(controller.signal);
+      if (started !== generation.current) return;
       if (response.code !== 0) {
         setError(response.msg);
         return;
@@ -58,15 +64,24 @@ export const RustDeskControls = () => {
       if (!dirty.current) form.setFieldsValue({ ...next.config, password: '' });
       setError('');
     } catch {
-      setError(l.failed);
+      if (started === generation.current && !controller.signal.aborted) setError(l.failed);
     } finally {
-      pending.current = false;
+      if (started === generation.current) pending.current = false;
     }
   }, [form, l.failed, setStatus]);
 
   useEffect(() => {
     void refresh();
-    return pollWhileVisible(() => void refresh(), 4000);
+    const stop = pollWhileVisible(() => void refresh(), 4000);
+    const invalidate = () => {
+      generation.current++;
+      statusRequest.current?.abort();
+      pending.current = false;
+    };
+    return () => {
+      invalidate();
+      stop();
+    };
   }, [refresh]);
 
   const operation = async (action: 'regenerate-password' | 'save') => {
@@ -79,6 +94,9 @@ export const RustDeskControls = () => {
         return;
       }
     }
+    generation.current++;
+    statusRequest.current?.abort();
+    pending.current = false;
     working.current = true;
     setBusy(true);
     try {

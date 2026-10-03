@@ -33,10 +33,33 @@ Host evidence, 2026-10-03:
 - Protocol field audit: 162 selected field tags match the canonical 1.5.0 schema.
 - UI: TypeScript, scoped Prettier and ESLint pass for lifecycle correction.
 
-Device/client qualification is pending a coordinated slot after the runtime
-owner's FPS experiments. No claim of a working production WebRTC session is made
-from the host tests alone. The Windows official 1.5.0 x86-64 executable digest is
-8555777215510d83d2d61c9dc984e4fcc838bd7e79f9d18a42585431f5e8bb47.
+Device/client qualification, 2026-10-03:
+- Upgraded 0.2.1-r1 to 0.3.0-r1 with application 2.0_beta8-r11. Registration,
+  temporary credentials, config, identity and installed native-library hashes survive.
+- Official Windows RustDesk 1.5.0 displays encrypted TCP relay with H.264 at
+  50–59 FPS, and direct encrypted WebRTC with H.264 at 13–28 FPS.
+- A new admitted connection rotates the current temporary password. Existing
+  connections continue. View-only testing leaves the USB gadget disabled.
+- During a 28.126-second WebRTC CPU window the application consumed 70.55% and
+  the daemon 3.65% of total CPU ticks. Application RSS was about 47 MiB with
+  46–47 descriptors; after disconnect the session count was zero and descriptors 35.
+- Daemon stop/start removes and recreates private temporary credentials and restores
+  registration. Client windows are closed and original client preferences restored.
+- Chrome Main verifies logo, matching card backgrounds, separate package/protocol
+  versions, installed-only extension children, and no upgrade action without a candidate.
+- No source archive, test APK or agent backup is retained on the device.
+
+The lower WebRTC FPS remains a qualification limit. CPU cost in the Go
+DTLS/SCTP bridge is a hypothesis until a bounded profile isolates it; browser
+RTP/SRTP results do not establish RustDesk data-channel performance. The exact
+RustDesk 1.5.0 WebRTC fork does not implement ChaCha20 DTLS cipher suites, so
+Chrome's preferred cipher is not a compatible performance fix for this client.
+Reconnect caching and KX v1 have host protocol tests; this device run did not
+capture negotiated KX v1 separately or establish a real reconnect test.
+
+The Windows official 1.5.0 x86-64 executable digest is
+8555777215510d83d2d61c9dc984e4fcc838bd7e79f9d18a42585431f5e8bb47;
+its Authenticode signature was valid (PURSLANE).
 
 The package contains source.json with an immutable public URL/digest, not source
 archives. Published source includes Rust vendor dependencies and the standalone

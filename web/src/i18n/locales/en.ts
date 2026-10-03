@@ -688,6 +688,13 @@ const en = {
     },
     settings: {
       software: {
+        addons: {
+          title: 'Add-ons',
+          packages: 'Packages',
+          open: 'Open PicoClaw',
+          source: 'Official releases',
+          picoclawDescription: 'AI assistant with optional remote control. Installs the latest stable Linux RISC-V release from the official PicoClaw website.',
+        },
         title: 'Software',
         description:
           'Manage packages from the configured Alpine repositories. Package changes use the same APK database and services as SSH.',

@@ -1,8 +1,12 @@
 {
-  "rustdesk_version": "1.4.9",
+  "rustdesk_version": "1.5.0",
   "basis": "protocol-reference",
-  "rustdesk_commit": "6c578292e8ebbbec708b76986ba8c4bc7c509747",
-  "hbb_common_commit": "7e1c392c62d39c364127307cd408421dd5f8cfb0",
+  "rustdesk_commit": "fada664df7a294d1d1a9ca3e7cd3637069122f17",
+  "hbb_common_commit": "229b904508364c8997aad0fb5af57effac859f60",
   "onekvm_commit": "7a278b5897716786dcc075a167b72f04d5b73766",
-  "kx_version": 0
+  "kx_version": 1,
+  "transports": [
+    "encrypted-relay",
+    "webrtc-datachannel"
+  ]
 }

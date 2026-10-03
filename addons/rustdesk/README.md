@@ -92,7 +92,7 @@ vendor/ and .cargo/config.toml and support --locked --offline builds and tests.
 
 For an unsigned local test package from the repository root, with cargo,
 fakeroot, a riscv64 musl GCC and apk-tools 3 mkpkg available:
-fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/nanokvm-rustdesk-0.3.0-r0/nanokvm-rustdesk-0.3.0-source.tar.gz
+fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/nanokvm-rustdesk-0.3.0-r1/nanokvm-rustdesk-0.3.0-source.tar.gz
 
 The exported source can also cross-build directly without repository scripts:
 CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=/path/to/riscv64-linux-gcc RUSTFLAGS='-C target-feature=+crt-static' cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl
@@ -141,3 +141,7 @@ pending handshakes and session teardown. View-only ControlPermissions cannot
 submit HID, acquire an input lease or send release events.
 Host verification is distinct from device/client qualification; see
 docs/rustdesk-1.5-migration.md for the current evidence and remaining limits.
+
+Client OptionMessage.disable_keyboard is honored at login and during a session.
+Switching to view-only discards queued movement, releases held input and ends
+its input lease; remote keyboard options cannot override server-side permissions.

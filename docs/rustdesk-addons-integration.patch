@@ -1,0 +1,18 @@
+--- a/web/src/pages/desktop/menu/settings/software/addons.tsx
++++ b/web/src/pages/desktop/menu/settings/software/addons.tsx
+@@ -8,6 +8,7 @@
+ import { pollWhileVisible } from '@/lib/visible-poll.ts';
+ import { picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
+ import { Robot } from '@/components/icons/robot.tsx';
++import { RustDeskAddon } from './rustdesk';
+ 
+ export const Addons = ({ onOpen }: { onOpen: () => void }) => {
+   const { t } = useTranslation();
+@@ -127,6 +128,7 @@
+           </Button>
+         )}
+       </div>
++      <RustDeskAddon />
+     </div>
+   );
+ };

@@ -3,8 +3,10 @@ package direct
 import (
 	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/vm"
+	"github.com/gorilla/websocket"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -117,6 +119,11 @@ func (s *Streamer) run(subscription *stream.VideoSubscription) {
 	for {
 		frame, ok := subscription.Next()
 		if !ok {
+			for _, client := range s.getClientsFor(subscription) {
+				_ = client.conn.WriteControl(websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "encoder-reconfigured"), time.Now().Add(time.Second))
+				s.removeClient(client)
+			}
 			return
 		}
 		clients := s.getClientsFor(subscription)

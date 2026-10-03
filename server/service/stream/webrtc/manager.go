@@ -180,6 +180,11 @@ func (m *WebRTCManager) sendVideoStream(subscription *stream.VideoSubscription) 
 	for {
 		frame, ok := subscription.Next()
 		if !ok {
+			for _, client := range m.getClientsFor(subscription) {
+				_ = client.WriteMessage("video-error", "encoder-reconfigured")
+				m.RemoveClient(client.ws)
+				client.Close()
+			}
 			return
 		}
 		stream.UpdateCaptureStatus(stream.CaptureModeH264, frame.Result)

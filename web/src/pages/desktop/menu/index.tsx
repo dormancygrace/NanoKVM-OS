@@ -2,13 +2,15 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '@/contexts/auth.ts';
 import { Button, Divider } from 'antd';
 import clsx from 'clsx';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { ChevronDownIcon, ChevronUpIcon, GripVerticalIcon } from 'lucide-react';
 import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
 import { useTranslation } from 'react-i18next';
 
+import { getRuntimeStatus } from '@/api/picoclaw.ts';
 import { clampMobileMenuTop, MobileMenuEdge } from '@/lib/mobile-layout.ts';
-import { picoclawChatOpenAtom } from '@/jotai/picoclaw.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { isHdmiEnabledAtom } from '@/jotai/screen.ts';
 import {
   keyboardLedStatusVisibleAtom,
@@ -54,12 +56,40 @@ type MenuVariant = 'desktop' | 'mobile';
 
 export const Menu = () => {
   const audio = useUsbAudio();
-  const picoclawOpen = useAtomValue(picoclawChatOpenAtom);
   const usbInput = useUsbInput();
   const { t } = useTranslation();
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const { account } = useAuth();
   const isAdmin = account.role === 'admin';
+  const picoclawStatus = useAtomValue(picoclawRuntimeStatusAtom);
+  const setPicoclawStatus = useSetAtom(picoclawRuntimeStatusAtom);
+  const setPicoclawOpen = useSetAtom(picoclawChatOpenAtom);
+  useEffect(() => {
+    if (!isAdmin) return;
+    let active = true;
+    let pending = false;
+    const refresh = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const response = await getRuntimeStatus();
+        if (active && response.code === 0) setPicoclawStatus(response.data);
+      } catch {
+        /* Keep the last known state through brief disconnects. */
+      } finally {
+        pending = false;
+      }
+    };
+    void refresh();
+    const stop = pollWhileVisible(() => void refresh(), 30000);
+    return () => {
+      active = false;
+      stop();
+    };
+  }, [isAdmin, setPicoclawStatus]);
+  useEffect(() => {
+    if (picoclawStatus?.installed === false) setPicoclawOpen(false);
+  }, [picoclawStatus?.installed, setPicoclawOpen]);
   const captureEnabled = useAtomValue(isHdmiEnabledAtom);
   const mobileRailRef = useRef<HTMLDivElement | null>(null);
 
@@ -180,7 +210,7 @@ export const Menu = () => {
         ? [
             ...(isEnabled('terminal') ? [<Terminal key="terminal" />] : []),
             ...(isEnabled('script') ? [<Script key="script" />] : []),
-            ...(isEnabled('picoclaw')
+            ...(picoclawStatus?.installed === true && isEnabled('picoclaw')
               ? [<Picoclaw key="picoclaw" tooltipPlacement={tooltipPlacement} />]
               : [])
           ]
@@ -210,10 +240,6 @@ export const Menu = () => {
       items.push(<Mouse key="mouse" hidden />);
     return items;
   }
-
-  // PicoClaw occupies the phone screen and has its own close control.
-  // The KVM rail otherwise covers the profile and uninstall menus.
-  if (isMobileRailActive && picoclawOpen) return null;
 
   if (isMobileRailActive) {
     const sideClass = placement.edge === 'left' ? 'left-2' : 'right-2';

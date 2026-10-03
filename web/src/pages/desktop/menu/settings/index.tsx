@@ -29,6 +29,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
+import { picoclawChatOpenAtom } from '@/jotai/picoclaw.ts';
 import { settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
 import { Netbird as NetbirdIcon } from '@/components/icons/netbird';
@@ -70,6 +71,9 @@ const System = lazy(() => import('./system').then((module) => ({ default: module
 const Diagnostics = lazy(() =>
   import('./system/diagnostics').then((module) => ({ default: module.Diagnostics }))
 );
+const Addons = lazy(() =>
+  import('./software/addons').then((module) => ({ default: module.Addons }))
+);
 const Software = lazy(() => import('./software').then((module) => ({ default: module.Software })));
 const Network = lazy(() => import('./network').then((module) => ({ default: module.Network })));
 const WifiSettings = lazy(() =>
@@ -105,6 +109,8 @@ export const Settings = ({
   const [vpnExpanded, setVpnExpanded] = useState(false);
   const [networkExpanded, setNetworkExpanded] = useState(false);
   const [systemExpanded, setSystemExpanded] = useState(false);
+  const [softwareExpanded, setSoftwareExpanded] = useState(false);
+  const setPicoclawOpen = useSetAtom(picoclawChatOpenAtom);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
 
   const setKeyboardLock = useSetAtom(keyboardLockAtom);
@@ -149,7 +155,20 @@ export const Settings = ({
           { id: 'system-users', icon: <UserRoundIcon size={16} />, component: <Account /> },
           { id: 'system-mcp', icon: <BotIcon size={16} />, component: <MCP /> },
           { id: 'system-updates', icon: <DownloadIcon size={16} />, component: <Updates /> },
-          { id: 'system-software', icon: <PackageIcon size={16} />, component: <Software /> },
+          { id: 'software', icon: <PackageIcon size={16} />, component: null },
+          {
+            id: 'software-addons',
+            icon: <BotIcon size={16} />,
+            component: (
+              <Addons
+                onOpen={() => {
+                  closeModal();
+                  setPicoclawOpen(true);
+                }}
+              />
+            )
+          },
+          { id: 'software-packages', icon: <PackageIcon size={16} />, component: <Software /> },
           {
             id: 'vpn',
             icon: <ShieldIcon size={16} />,
@@ -207,9 +226,12 @@ export const Settings = ({
           ? 'network-general'
           : request === 'system'
             ? 'system-general'
-            : request;
+            : request === 'system-software'
+              ? 'software-packages'
+              : request;
     if (requested.startsWith('vpn-')) setVpnExpanded(true);
     if (requested.startsWith('network-')) setNetworkExpanded(true);
+    if (requested.startsWith('software-')) setSoftwareExpanded(true);
     if (requested.startsWith('system-')) setSystemExpanded(true);
     setCurrentTab(requested);
     setDetailOpen(true);
@@ -235,6 +257,10 @@ export const Settings = ({
       setNetworkExpanded((expanded) => !expanded);
       return;
     }
+    if (tab === 'software') {
+      setSoftwareExpanded((expanded) => !expanded);
+      return;
+    }
     if (tab === 'system') {
       setSystemExpanded((expanded) => !expanded);
       return;
@@ -242,6 +268,7 @@ export const Settings = ({
     const target = tab;
     if (target.startsWith('vpn-')) setVpnExpanded(true);
     if (target.startsWith('network-')) setNetworkExpanded(true);
+    if (target.startsWith('software-')) setSoftwareExpanded(true);
     if (target.startsWith('system-')) setSystemExpanded(true);
     setCurrentTab(target);
     setDetailOpen(true);
@@ -271,6 +298,7 @@ export const Settings = ({
     setVpnExpanded(false);
     setNetworkExpanded(false);
     setSystemExpanded(false);
+    setSoftwareExpanded(false);
     setSubmenuOpenCount((count) => Math.max(0, count - 1));
   }
 
@@ -289,7 +317,9 @@ export const Settings = ({
     if (id === 'system-users') return t('settings.account.title');
     if (id === 'system-mcp') return t('settings.mcp.title');
     if (id === 'system-updates') return t('settings.updates.title');
-    if (id === 'system-software') return t('settings.software.title');
+    if (id === 'software') return t('settings.software.title');
+    if (id === 'software-addons') return t('settings.software.addons.title');
+    if (id === 'software-packages') return t('settings.software.addons.packages');
     if (id === 'account') return t('settings.account.title');
     if (id === 'vpn') return 'VPN';
     if (id === 'vpn-tailscale') return 'Tailscale';
@@ -377,13 +407,15 @@ export const Settings = ({
                   tab.id !== 'about' &&
                   (!tab.id.startsWith('vpn-') || vpnExpanded) &&
                   (!tab.id.startsWith('network-') || networkExpanded) &&
-                  (!tab.id.startsWith('system-') || systemExpanded)
+                  (!tab.id.startsWith('system-') || systemExpanded) &&
+                  (!tab.id.startsWith('software-') || softwareExpanded)
               )
               .map((tab) => {
                 const child =
                   tab.id.startsWith('vpn-') ||
                   tab.id.startsWith('network-') ||
-                  tab.id.startsWith('system-');
+                  tab.id.startsWith('system-') ||
+                  tab.id.startsWith('software-');
                 const expanded =
                   tab.id === 'vpn'
                     ? vpnExpanded
@@ -391,7 +423,9 @@ export const Settings = ({
                       ? networkExpanded
                       : tab.id === 'system'
                         ? systemExpanded
-                        : undefined;
+                        : tab.id === 'software'
+                          ? softwareExpanded
+                          : undefined;
                 const label = tabTitle(tab.id);
                 return (
                   <button

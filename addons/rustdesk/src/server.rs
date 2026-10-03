@@ -1832,11 +1832,12 @@ mod tests {
             }
             hid_task.await.unwrap();
         } else {
-            assert!(
-                time::timeout(Duration::from_millis(200), hid_receiver.recv())
-                    .await
-                    .is_err()
-            );
+            assert!(time::timeout(
+                Duration::from_millis(if initially_disabled { 2200 } else { 200 }),
+                hid_receiver.recv()
+            )
+            .await
+            .is_err());
             hid_task.abort();
             let _ = hid_task.await;
         }

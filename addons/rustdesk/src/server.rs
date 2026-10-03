@@ -690,10 +690,13 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 }
             }
         };
+        // Report loss of input immediately. Release reports may themselves
+        // time out when USB is off; viewing must remain independent of them.
+        drop(input_receiver);
+        let _ = input_result_sender.send(result).await;
         if active {
             input.release_all().await;
         }
-        let _ = input_result_sender.send(result).await;
     });
     // AsyncReadExt::read_exact is not cancellation-safe. Reading a media frame
     // directly inside the session select would lose a partially consumed
@@ -713,7 +716,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     // cancellation constraint. Keep it alive across media sends so a partial
     // RustDesk packet cannot be mistaken for the next packet.
     let (incoming_sender, mut incoming_receiver) = mpsc::channel(16);
-    let can_audio = limits.audio_allowed;
+    let can_audio = limits.audio_allowed && config.audio_enabled;
     let (audio_desired, audio_setting) =
         watch::channel(can_audio && login.option.as_ref().map_or(true, |o| o.disable_audio != 2));
     let audio_current = audio_setting.clone();
@@ -766,7 +769,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                             .await
                             .is_err()
                         {
-                            break;
+                            enabled = false;
                         }
                     }
                 }
@@ -780,14 +783,14 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                     union: Some(message::Union::MouseEvent(event)),
                 }) => {
                     if enabled && input_sender.send(InputEvent::Mouse(event)).await.is_err() {
-                        break;
+                        enabled = false;
                     }
                 }
                 Ok(Message {
                     union: Some(message::Union::KeyEvent(event)),
                 }) => {
                     if enabled && input_sender.send(InputEvent::Key(event)).await.is_err() {
-                        break;
+                        enabled = false;
                     }
                 }
                 message => {
@@ -813,6 +816,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let mut audio_updates_open = true;
     let mut audio_permission = None;
     let mut audio_generation = 0;
+    let mut input_updates_open = true;
     let result = loop {
         tokio::select! {
             changed=audio_state.changed(), if audio_updates_open => {
@@ -862,10 +866,13 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                     None => break Ok(()),
                 }
             }
-            input = input_result_receiver.recv() => {
-                break input.unwrap_or_else(|| {
-                    Err(io::Error::new(io::ErrorKind::BrokenPipe, "RustDesk input task ended"))
-                });
+            input = input_result_receiver.recv(), if input_updates_open => {
+                input_updates_open = false;
+                if let Some(Err(error)) = input {
+                    eprintln!("RustDesk input unavailable for {peer}; continuing video: {error}");
+                    let permission=crate::protocol::PermissionInfo{permission:0,enabled:false};
+                    if let Err(error)=write_union(&mut writer,message::Union::Misc(crate::protocol::Misc{union:Some(crate::protocol::misc::Union::PermissionInfo(permission))})).await{break Err(error);}
+                }
             }
             frame = media_receiver.recv() => {
                 let frame = match frame {
@@ -1526,7 +1533,8 @@ mod tests {
     }
     #[tokio::test]
     async fn authenticated_audio_mutes_resumes_and_never_overrides_server_denial() {
-        for allowed in [true, false] {
+        for (server_allowed, configured_audio) in [(true, true), (false, true), (true, false)] {
+            let allowed = server_allowed && configured_audio;
             let directory = temporary_directory();
             std::fs::create_dir_all(&directory).unwrap();
             let media_path = directory.join("media.sock");
@@ -1586,6 +1594,7 @@ mod tests {
             let (stream, peer) = listener.accept().await.unwrap();
             let config = Arc::new(Config {
                 password: "audio-fixture-password".into(),
+                audio_enabled: configured_audio,
                 media_socket: media_path.to_string_lossy().into_owned(),
                 audio_socket: audio_path.to_string_lossy().into_owned(),
                 ..Config::default()
@@ -1598,7 +1607,7 @@ mod tests {
                 Arc::new(RustDeskIdentity::load_from(&directory.join("identity")).unwrap());
             let (_shutdown, shutdown) = watch::channel(false);
             let mut limits = ClientLimits::new(1);
-            limits.audio_allowed = allowed;
+            limits.audio_allowed = server_allowed;
             let permit = limits.try_pending().unwrap();
             let server = tokio::spawn(serve(
                 stream,
@@ -1775,7 +1784,21 @@ mod tests {
             std::fs::remove_dir_all(directory).unwrap();
         }
     }
+    #[tokio::test]
+    async fn hid_rejection_disables_input_without_ending_video_or_peer_messages() {
+        for status in [409, 504] {
+            bridge_mock_with_hid_failure(true, false, false, Some(status)).await;
+        }
+    }
     async fn bridge_mock_with_options(can_control: bool, initially_disabled: bool, toggle: bool) {
+        bridge_mock_with_hid_failure(can_control, initially_disabled, toggle, None).await;
+    }
+    async fn bridge_mock_with_hid_failure(
+        can_control: bool,
+        initially_disabled: bool,
+        toggle: bool,
+        failure_status: Option<u16>,
+    ) {
         let input_allowed = can_control && (!initially_disabled || toggle);
         let directory = temporary_directory();
         std::fs::create_dir_all(&directory).unwrap();
@@ -1788,6 +1811,7 @@ mod tests {
         let (continue_frame_sender, continue_frame_receiver) = oneshot::channel();
         let (second_frame_sender, second_frame_receiver) = oneshot::channel();
         let (third_frame_sender, third_frame_receiver) = oneshot::channel();
+        let (fourth_frame_sender, fourth_frame_receiver) = oneshot::channel();
         let media_task = tokio::spawn(async move {
             let (mut info, _) = media_listener.accept().await.unwrap();
             read_subscription(&mut info).await;
@@ -1805,6 +1829,10 @@ mod tests {
             write_media_frame(&mut encoded, &[0, 0, 0, 1, 0x41, 0x99], false).await;
             let _ = third_frame_receiver.await;
             write_media_frame(&mut encoded, &[0, 0, 0, 1, 0x41, 0xaa], false).await;
+            if failure_status.is_some() {
+                let _ = fourth_frame_receiver.await;
+                write_media_frame(&mut encoded, &[0, 0, 0, 1, 0x41, 0xbb], false).await;
+            }
             let _ = media_done_receiver.await;
         });
         let (hid_response_sender, hid_response_receiver) = oneshot::channel();
@@ -1819,10 +1847,13 @@ mod tests {
                 if request_index == 0 {
                     let _ = hid_response_receiver.take().unwrap().await;
                 }
-                stream
-                    .write_all(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
-                    .await
-                    .unwrap();
+                let status = if request_index == 0 {
+                    failure_status.unwrap_or(204)
+                } else {
+                    204
+                };
+                let response = format!("HTTP/1.1 {status} Test\r\nConnection: close\r\n\r\n");
+                stream.write_all(response.as_bytes()).await.unwrap();
             }
         });
 
@@ -2102,7 +2133,72 @@ mod tests {
             .unwrap();
         assert!(matches!(video.union, Some(message::Union::VideoFrame(_))));
         let _ = hid_response_sender.send(());
-        if input_allowed {
+        if failure_status.is_some() {
+            let permission: Message =
+                time::timeout(Duration::from_secs(2), read_message(&mut client))
+                    .await
+                    .unwrap()
+                    .unwrap();
+            assert!(matches!(
+                permission.union,
+                Some(message::Union::Misc(crate::protocol::Misc {
+                    union: Some(crate::protocol::misc::Union::PermissionInfo(
+                        crate::protocol::PermissionInfo {
+                            permission: 0,
+                            enabled: false
+                        }
+                    ))
+                }))
+            ));
+            // A closed input worker must not close the network reader when the
+            // client sends another move or tries enabling input again.
+            for union in [
+                message::Union::MouseEvent(MouseEvent {
+                    mask: 0,
+                    x: 400,
+                    y: 200,
+                    ..Default::default()
+                }),
+                message::Union::Misc(crate::protocol::Misc {
+                    union: Some(crate::protocol::misc::Union::Option(OptionMessage {
+                        disable_keyboard: 1,
+                        ..Default::default()
+                    })),
+                }),
+                message::Union::MouseEvent(MouseEvent {
+                    mask: 0,
+                    x: 500,
+                    y: 250,
+                    ..Default::default()
+                }),
+                message::Union::KeyEvent(crate::protocol::KeyEvent::default()),
+                message::Union::TestDelay(TestDelay {
+                    time: 987,
+                    from_client: true,
+                    ..Default::default()
+                }),
+            ] {
+                write_message(&mut client, &Message { union: Some(union) })
+                    .await
+                    .unwrap();
+            }
+            let reply: Message = time::timeout(Duration::from_secs(2), read_message(&mut client))
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(matches!(
+                reply.union,
+                Some(message::Union::TestDelay(TestDelay { time: 987, .. }))
+            ));
+            let _ = fourth_frame_sender.send(());
+            let video: Message = time::timeout(Duration::from_secs(2), read_message(&mut client))
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(matches!(video.union, Some(message::Union::VideoFrame(_))));
+        }
+
+        if input_allowed && failure_status.is_none() {
             let request = time::timeout(Duration::from_secs(2), hid_receiver.recv())
                 .await
                 .unwrap()
@@ -2165,7 +2261,7 @@ mod tests {
         }
         drop(client);
         server_task.await.unwrap().unwrap();
-        if input_allowed {
+        if input_allowed && failure_status.is_none() {
             for _ in 0..3 {
                 time::timeout(Duration::from_secs(2), hid_receiver.recv())
                     .await
@@ -2174,12 +2270,14 @@ mod tests {
             }
             hid_task.await.unwrap();
         } else {
-            assert!(time::timeout(
-                Duration::from_millis(if initially_disabled { 2200 } else { 200 }),
-                hid_receiver.recv()
-            )
-            .await
-            .is_err());
+            if failure_status.is_none() {
+                assert!(time::timeout(
+                    Duration::from_millis(if initially_disabled { 2200 } else { 200 }),
+                    hid_receiver.recv()
+                )
+                .await
+                .is_err());
+            }
             hid_task.abort();
             let _ = hid_task.await;
         }

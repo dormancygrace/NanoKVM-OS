@@ -186,3 +186,19 @@ Rust daemon bound packet sizes to 1275 bytes and release subscriptions on
 mute, disconnect or shutdown. Rendezvous audio permission uses the canonical
 1.5 two-bit permission slot and cannot be overridden by a client option.
 See docs/rustdesk-usb-audio.md for qualification evidence and limits.
+
+## Remote access USB defaults
+
+The enabled daemon asks the private app bridge to prepare USB before accepting
+connections, including on boot and service restart. Enabling remote access also
+prepares USB keyboard and both absolute/relative mouse. The app uses its existing
+validated, serialized composition and preserves other functions and pointer
+profile. Endpoint budget failures are reported; unrelated functions are not
+silently removed. Disabling RustDesk does not disable shared USB functions.
+
+Transmit sound defaults to enabled for new and legacy configs; audio_enabled=false
+disables RustDesk sound and client permission while leaving shared USB audio
+available to other viewers. Enabling it prepares USB audio automatically. The
+source computer must select the NanoKVM speaker output. Keyboard/mouse errors
+disable that session's input without ending video/audio; reconnect after restoring
+USB input. Individual HID requests time out after three seconds.

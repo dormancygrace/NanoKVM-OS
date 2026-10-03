@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useContext, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/auth.ts';
 import { Alert, Button, Modal, Spin, Tooltip, type TooltipProps } from 'antd';
 import clsx from 'clsx';
@@ -29,8 +29,9 @@ import {
 import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
-import { getRustDeskStatus, type RustDeskStatus } from '@/api/rustdesk.ts';
+import { getAddonInventory, type AddonInventory } from '@/api/addons';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { addonInventoryAtom } from '@/jotai/addons';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk.ts';
@@ -119,7 +120,9 @@ export const Settings = ({
   const [systemExpanded, setSystemExpanded] = useState(false);
   const [softwareExpanded, setSoftwareExpanded] = useState(false);
   const [extensionsExpanded, setExtensionsExpanded] = useState(false);
-  const [rustDeskStatus, setRustDeskStatus] = useAtom(rustDeskStatusAtom);
+  const [rustDeskStatus] = useAtom(rustDeskStatusAtom);
+  const [inventory, setInventory] = useAtom(addonInventoryAtom);
+  const [inventoryError, setInventoryError] = useState(false);
   const [picoclawStatus] = useAtom(picoclawRuntimeStatusAtom);
   const { i18n } = useTranslation();
   const extensionsTitle = (i18n.resolvedLanguage || i18n.language).startsWith('ru')
@@ -185,16 +188,8 @@ export const Settings = ({
             )
           },
           { id: 'software-packages', icon: <PackageIcon size={16} />, component: <Software /> },
-          ...(rustDeskStatus?.installed || picoclawStatus?.installed
-            ? [
-                {
-                  id: 'extensions',
-                  icon: <PuzzleIcon size={16} />,
-                  component: null
-                }
-              ]
-            : []),
-          ...(rustDeskStatus?.installed
+          { id: 'extensions', icon: <PuzzleIcon size={16} />, component: null },
+          ...(inventory?.rustdesk.installed
             ? [
                 {
                   id: 'extensions-rustdesk',
@@ -203,7 +198,7 @@ export const Settings = ({
                 }
               ]
             : []),
-          ...(picoclawStatus?.installed
+          ...(inventory?.picoclaw.installed
             ? [
                 {
                   id: 'extensions-picoclaw',
@@ -246,38 +241,65 @@ export const Settings = ({
     { id: 'about', icon: <InfoIcon size={14} />, component: <About /> }
   ];
 
-  const refreshRustDesk = useCallback(async () => {
-    try {
-      const response = await getRustDeskStatus();
-      if (response.code === 0) setRustDeskStatus(response.data as RustDeskStatus);
-    } catch {
-      /* Retain installed navigation during a brief connection loss. */
-    }
-  }, [setRustDeskStatus]);
-
   useEffect(() => {
-    if (!isAdmin || !isModalOpen) return;
+    if (!isAdmin) return;
+    let active = true;
     let pending = false;
     const refresh = async () => {
       if (pending) return;
       pending = true;
       try {
-        await refreshRustDesk();
+        const response = await getAddonInventory();
+        if (!active) return;
+        if (response.code !== 0) throw new Error(response.msg);
+        setInventory(response.data as AddonInventory);
+        setInventoryError(false);
+      } catch {
+        if (active) setInventoryError(true);
       } finally {
         pending = false;
       }
     };
+    // Start before the modal opens, and refresh installation facts while open.
     void refresh();
-    return pollWhileVisible(() => void refresh(), 15000);
-  }, [isAdmin, isModalOpen, refreshRustDesk]);
+    const stop = isModalOpen ? pollWhileVisible(() => void refresh(), 15000) : undefined;
+    return () => {
+      active = false;
+      stop?.();
+    };
+  }, [isAdmin, isModalOpen, setInventory]);
 
   useEffect(() => {
-    if (currentTab === 'extensions-rustdesk' && rustDeskStatus?.installed === false) {
+    if (rustDeskStatus) {
+      setInventory(
+        (current) =>
+          current && {
+            ...current,
+            rustdesk: { installed: rustDeskStatus.installed }
+          }
+      );
+    }
+  }, [rustDeskStatus, setInventory]);
+
+  useEffect(() => {
+    if (picoclawStatus) {
+      setInventory(
+        (current) =>
+          current && {
+            ...current,
+            picoclaw: { installed: picoclawStatus.installed }
+          }
+      );
+    }
+  }, [picoclawStatus, setInventory]);
+
+  useEffect(() => {
+    if (currentTab === 'extensions-rustdesk' && inventory?.rustdesk.installed === false) {
       setCurrentTab('software-addons');
       setSoftwareExpanded(true);
       setDetailOpen(true);
     }
-  }, [currentTab, rustDeskStatus?.installed]);
+  }, [currentTab, inventory?.rustdesk.installed]);
 
   useEffect(() => {
     scrollViewportRef.current?.scrollTo({ top: 0, left: 0 });
@@ -523,41 +545,62 @@ export const Settings = ({
                             : undefined;
                 const label = tabTitle(tab.id);
                 return (
-                  <button
-                    type="button"
-                    key={tab.id}
-                    disabled={isLocked}
-                    aria-label={label}
-                    aria-current={currentTab === tab.id ? 'page' : undefined}
-                    data-child={child || undefined}
-                    aria-expanded={expanded}
-                    className={clsx(
-                      styles.item,
-                      'flex items-center gap-2 rounded-lg p-2 text-left select-none sm:px-3',
-                      mobile && 'min-h-12',
-                      child ? 'ml-4 w-[calc(100%_-_1rem)]' : 'w-full'
-                    )}
-                    onClick={() => changeTab(tab.id)}
-                  >
-                    <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
-                      {tab.icon}
-                    </div>
-                    <span
-                      className={mobile ? 'truncate text-sm' : 'hidden truncate text-sm sm:block'}
+                  <Fragment key={tab.id}>
+                    <button
+                      type="button"
+                      disabled={isLocked}
+                      aria-label={label}
+                      aria-current={currentTab === tab.id ? 'page' : undefined}
+                      data-child={child || undefined}
+                      aria-expanded={expanded}
+                      className={clsx(
+                        styles.item,
+                        'flex items-center gap-2 rounded-lg p-2 text-left select-none sm:px-3',
+                        mobile && 'min-h-12',
+                        child ? 'ml-4 w-[calc(100%_-_1rem)]' : 'w-full'
+                      )}
+                      onClick={() => changeTab(tab.id)}
                     >
-                      {label}
-                    </span>
-                    {expanded !== undefined && (
-                      <ChevronRightIcon
-                        size={12}
-                        className={clsx(
-                          'ml-auto shrink-0 transition-transform',
-                          !mobile && 'hidden sm:block',
-                          expanded && 'rotate-90'
-                        )}
-                      />
-                    )}
-                  </button>
+                      <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+                        {tab.icon}
+                      </div>
+                      <span
+                        className={mobile ? 'truncate text-sm' : 'hidden truncate text-sm sm:block'}
+                      >
+                        {label}
+                      </span>
+                      {expanded !== undefined && (
+                        <ChevronRightIcon
+                          size={12}
+                          className={clsx(
+                            'ml-auto shrink-0 transition-transform',
+                            !mobile && 'hidden sm:block',
+                            expanded && 'rotate-90'
+                          )}
+                        />
+                      )}
+                    </button>
+                    {tab.id === 'extensions' &&
+                      extensionsExpanded &&
+                      !inventory?.rustdesk.installed &&
+                      !inventory?.picoclaw.installed && (
+                        <div className="ml-4 px-3 py-2 text-xs text-neutral-400" role="status">
+                          {!inventory && !inventoryError ? (
+                            <Spin size="small" />
+                          ) : inventoryError ? (
+                            (i18n.resolvedLanguage || i18n.language).startsWith('ru') ? (
+                              'Не удалось загрузить расширения'
+                            ) : (
+                              'Could not load extensions'
+                            )
+                          ) : (i18n.resolvedLanguage || i18n.language).startsWith('ru') ? (
+                            'Нет установленных расширений'
+                          ) : (
+                            'No extensions installed'
+                          )}
+                        </div>
+                      )}
+                  </Fragment>
                 );
               })}
             <div className={clsx('px-3 pt-6 pb-4', !mobile && 'mt-auto!')}>

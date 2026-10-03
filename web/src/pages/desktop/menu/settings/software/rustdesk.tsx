@@ -19,12 +19,13 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
   const [status, setStatus] = useAtom(rustDeskStatusAtom);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const mounted = useRef(false);
   const working = useRef(false);
   const pending = useRef(false);
   const generation = useRef(0);
   const statusRequest = useRef<AbortController | null>(null);
   const refresh = useCallback(async () => {
-    if (working.current || pending.current) return;
+    if (!mounted.current || working.current || pending.current) return;
     pending.current = true;
     const started = generation.current;
     const controller = new AbortController();
@@ -45,6 +46,7 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
     }
   }, [setStatus, l.failed]);
   useEffect(() => {
+    mounted.current = true;
     void refresh();
     const stop = pollWhileVisible(() => void refresh(), 4000);
     const invalidate = () => {
@@ -53,19 +55,23 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
       pending.current = false;
     };
     return () => {
+      mounted.current = false;
       invalidate();
       stop();
     };
   }, [refresh]);
   const operation = async (action: 'install' | 'upgrade' | 'remove') => {
-    if (working.current) return;
-    generation.current++;
+    if (!mounted.current || working.current) return;
+    const entered = generation.current;
+    if (!mounted.current || entered !== generation.current) return;
+    const started = ++generation.current;
     statusRequest.current?.abort();
     pending.current = false;
     working.current = true;
     setBusy(true);
     try {
       const response = await rustDeskPackageAction(action);
+      if (!mounted.current || started !== generation.current) return;
       if (response.code !== 0) {
         setError(response.msg);
         return;
@@ -73,11 +79,13 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
       message.success(l.done);
       setError('');
     } catch {
-      setError(l.failed);
+      if (mounted.current && started === generation.current) setError(l.failed);
     } finally {
       working.current = false;
-      setBusy(false);
-      await refresh();
+      if (mounted.current) {
+        setBusy(false);
+        if (started === generation.current) await refresh();
+      }
     }
   };
   return (

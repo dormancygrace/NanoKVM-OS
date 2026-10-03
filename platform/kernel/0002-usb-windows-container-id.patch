@@ -102,3 +102,19 @@
  		/*
  		 * OS descriptors handling
  		 */
+--- a/Documentation/ABI/testing/configfs-usb-gadget
++++ b/Documentation/ABI/testing/configfs-usb-gadget
+@@ -156,3 +156,13 @@
+ 		bVendorCode	one-byte value used for custom per-device
+ 		landingPage	UTF-8 encoded URL of the device's landing page
+ 		=============	===============================================
++
++What:           /config/usb-gadget/gadget/os_desc/container_id
++Description:
++                Optional Microsoft OS 1.0 ContainerID for grouping this gadget
++                with functions on other buses, such as a display-associated
++                digitizer. Read/write canonical UUID text; writing is allowed
++                only while the gadget is unbound. The all-zero UUID disables
++                the descriptor (default). A nonzero UUID advertises bit 1 in
++                the Microsoft OS string flags and answers device vendor reads
++                at wIndex 6. os_desc/use and its vendor code must be configured.

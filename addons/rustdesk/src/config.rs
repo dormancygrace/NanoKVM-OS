@@ -40,7 +40,7 @@ fn frame_rate() -> u32 {
 }
 
 fn codec() -> String {
-    "h265".to_owned()
+    "auto".to_owned()
 }
 
 fn rustdesk_id() -> String {
@@ -71,6 +71,7 @@ pub struct Config {
     pub max_clients: usize,
     #[serde(default = "frame_rate")]
     pub fps: u32,
+    // Retained for old config files; the shared encoder is authoritative.
     #[serde(default = "codec")]
     pub codec: String,
     #[serde(default = "rustdesk_id")]
@@ -140,8 +141,8 @@ impl Config {
         if self.fps == 0 || self.fps > 60 {
             return Err("fps must be between 1 and 60".to_owned());
         }
-        if self.codec != "h264" && self.codec != "h265" {
-            return Err("codec must be h264 or h265".to_owned());
+        if self.codec != "auto" && self.codec != "h264" && self.codec != "h265" {
+            return Err("codec must be auto, h264 or h265".to_owned());
         }
         if self.rustdesk_id.trim().is_empty() {
             return Err("rustdesk_id must not be empty".to_owned());

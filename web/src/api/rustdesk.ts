@@ -9,7 +9,7 @@ export type RustDeskConfig = {
   server_key: string;
   password?: string;
   password_mode: 'temporary' | 'permanent';
-  codec: 'h264' | 'h265';
+  codec?: 'auto' | 'h264' | 'h265';
   max_clients: number;
 };
 export type RustDeskStatus = {

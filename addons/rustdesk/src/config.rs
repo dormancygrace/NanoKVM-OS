@@ -27,6 +27,9 @@ fn media_socket() -> String {
 fn admin_socket() -> String {
     "/run/nanokvm-rustdesk/control.sock".to_owned()
 }
+fn audio_socket() -> String {
+    "/run/nanokvm-rustdesk/audio.sock".to_owned()
+}
 
 fn maximum_clients() -> usize {
     1
@@ -81,6 +84,8 @@ pub struct Config {
     pub media_socket: String,
     #[serde(default = "admin_socket")]
     pub admin_socket: String,
+    #[serde(default = "audio_socket")]
+    pub audio_socket: String,
 }
 
 impl Default for Config {
@@ -103,6 +108,7 @@ impl Default for Config {
             server_key: String::new(),
             media_socket: media_socket(),
             admin_socket: admin_socket(),
+            audio_socket: audio_socket(),
         }
     }
 }

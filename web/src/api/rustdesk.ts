@@ -15,6 +15,8 @@ export type RustDeskConfig = {
 export type RustDeskStatus = {
   installed: boolean;
   supports_transport_settings?: boolean;
+  supports_audio?: boolean;
+  usb_audio_enabled?: boolean;
   version?: string;
   rustdesk_version?: string;
   source_url?: string;

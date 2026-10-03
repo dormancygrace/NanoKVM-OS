@@ -21,6 +21,7 @@ import (
 	"NanoKVM-Server/service/inputcontrol"
 	"NanoKVM-Server/service/picoclaw"
 	"NanoKVM-Server/service/stream"
+	"NanoKVM-Server/service/stream/audio"
 	"NanoKVM-Server/service/ws"
 	"golang.org/x/sys/unix"
 )
@@ -33,14 +34,18 @@ const Binary = "/usr/bin/nanokvm-rustdesk"
 type Bridge struct {
 	mu               sync.Mutex
 	media            net.Listener
+	audio            net.Listener
 	control          *http.Server
 	rtc              *rtcBridge
 	sessions         map[string]*hidSession
 	videoConnections map[net.Conn]struct{}
+	audioConnections map[net.Conn]struct{}
+	audioEnabled     func() bool
+	audioSubscribe   func() (audioSource, error)
 }
 
 func NewBridge() *Bridge {
-	return &Bridge{sessions: make(map[string]*hidSession), videoConnections: make(map[net.Conn]struct{})}
+	return &Bridge{sessions: make(map[string]*hidSession), videoConnections: make(map[net.Conn]struct{}), audioConnections: make(map[net.Conn]struct{}), audioEnabled: audio.Enabled, audioSubscribe: func() (audioSource, error) { return audio.Subscribe() }}
 }
 
 func rootPeer(conn net.Conn) bool {
@@ -128,7 +133,16 @@ func (b *Bridge) Start() error {
 		control.Close()
 		return err
 	}
+	audioListener, err := listenSocket(filepath.Join(RuntimeDir, "audio.sock"))
+	if err != nil {
+		media.Close()
+		control.Close()
+		rtc.Close()
+		return err
+	}
 	b.rtc = startRTCBridge(rtc)
+	b.audio = audioListener
+	go b.acceptAudio(audioListener)
 	b.media = media
 	b.control = &http.Server{Handler: http.HandlerFunc(b.serveHID), ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 3 * time.Second, WriteTimeout: 3 * time.Second, MaxHeaderBytes: 4096}
 	go b.control.Serve(control)
@@ -157,14 +171,17 @@ func (b *Bridge) Start() error {
 
 func (b *Bridge) Stop() {
 	b.mu.Lock()
-	media, control, rtc := b.media, b.control, b.rtc
-	b.media, b.control, b.rtc = nil, nil, nil
+	media, control, rtc, audioListener := b.media, b.control, b.rtc, b.audio
+	b.media, b.control, b.rtc, b.audio = nil, nil, nil, nil
 	sessions := make([]*hidSession, 0, len(b.sessions))
 	for _, s := range b.sessions {
 		sessions = append(sessions, s)
 	}
 	b.sessions = make(map[string]*hidSession)
 	for c := range b.videoConnections {
+		c.Close()
+	}
+	for c := range b.audioConnections {
 		c.Close()
 	}
 	b.mu.Unlock()
@@ -176,6 +193,9 @@ func (b *Bridge) Stop() {
 	}
 	if rtc != nil {
 		rtc.close()
+	}
+	if audioListener != nil {
+		audioListener.Close()
 	}
 	for _, s := range sessions {
 		s.close()

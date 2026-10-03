@@ -89,6 +89,12 @@ shutil.copyfile(root/"server/service/rustdesk/bridge.go",go_transport/"bridge.go
 # Exact shared-encoder implementation used by the automatic media subscription.
 stream_integration=stage/"app-stream-integration"
 stream_integration.mkdir()
+vm_integration=stage/"app-usb-integration"
+vm_integration.mkdir()
+for name in ["usb-composition.go","usb-composition_test.go","virtual-device.go"]:
+    shutil.copyfile(root/"server/service/vm"/name,vm_integration/(name+".integration"))
+shutil.copyfile(root/"server/service/rustdesk/service.go",vm_integration/"rustdesk-service.go.integration")
+
 for name in ["encoder_config.go","video_source.go","video_source_test.go","state.go","state_test.go"]:
     shutil.copyfile(root/"server/service/stream"/name,stream_integration/(name+".integration"))
 
@@ -181,7 +187,7 @@ install(source_record,"usr/share/nanokvm-rustdesk/source.json")
 install(source/"upstream.json","usr/share/nanokvm-rustdesk/upstream.json")
 apkfile=output/f"nanokvm-rustdesk-{package_version}.apk"
 command=[str(args.apk.resolve()),"mkpkg","--files",str(payload),"--output",str(apkfile)]
-for value in ["name:nanokvm-rustdesk",f"version:{package_version}","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
+for value in ["name:nanokvm-rustdesk",f"version:{package_version}","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 nanokvm-rustdesk-usb-defaults=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
     command+=["--info",value]
 for action in ["pre-upgrade","post-upgrade","pre-deinstall"]:
     command+=["--script",action+":"+str(pkg/("nanokvm-rustdesk."+action))]

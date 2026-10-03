@@ -42,6 +42,7 @@ type Bridge struct {
 	audioConnections map[net.Conn]struct{}
 	audioEnabled     func() bool
 	audioSubscribe   func() (audioSource, error)
+	prepareUSB       func() error
 }
 
 func NewBridge() *Bridge {
@@ -144,7 +145,7 @@ func (b *Bridge) Start() error {
 	b.audio = audioListener
 	go b.acceptAudio(audioListener)
 	b.media = media
-	b.control = &http.Server{Handler: http.HandlerFunc(b.serveHID), ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 3 * time.Second, WriteTimeout: 3 * time.Second, MaxHeaderBytes: 4096}
+	b.control = &http.Server{Handler: http.HandlerFunc(b.serveHID), ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 3 * time.Second, WriteTimeout: 55 * time.Second, MaxHeaderBytes: 4096}
 	go b.control.Serve(control)
 	go func() {
 		for {
@@ -422,6 +423,21 @@ func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := r.URL.Path
+	if path == "/api/hid/prepare" {
+		b.mu.Lock()
+		prepare := b.prepareUSB
+		b.mu.Unlock()
+		if prepare == nil {
+			http.Error(w, "USB preparation is unavailable", 503)
+			return
+		}
+		if err := prepare(); err != nil {
+			http.Error(w, err.Error(), 409)
+			return
+		}
+		w.WriteHeader(204)
+		return
+	}
 	heartbeat, closeSession := path == "/api/hid/heartbeat", path == "/api/hid/close"
 	if !heartbeat && !closeSession && path != "/api/hid/keyboard" && path != "/api/hid/mouse" && path != "/api/hid/mouse/absolute" {
 		http.NotFound(w, r)

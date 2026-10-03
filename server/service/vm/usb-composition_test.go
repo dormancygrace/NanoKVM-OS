@@ -108,6 +108,36 @@ func TestCompositionTransaction(t *testing.T) {
 	}
 }
 
+func TestRemoteAccessUSBDefaultsPreserveOtherFunctionsAndProfile(t *testing.T) {
+	current := usbComposition{mode: hid.ModeNormal, network: true, disk: true, windowsPointer: true}
+	candidate := current.remoteAccessDefaults(true)
+	if !candidate.keyboard || !candidate.relative || !candidate.absolute || !candidate.audio ||
+		!candidate.network || !candidate.disk || !candidate.windowsPointer {
+		t.Fatalf("required or existing functions lost: %+v", candidate)
+	}
+	if err := candidate.validate(); err != nil {
+		t.Fatal(err)
+	}
+	if candidate.remoteAccessDefaults(true) != candidate {
+		t.Fatal("defaults are not idempotent")
+	}
+	withoutSound := current.remoteAccessDefaults(false)
+	if withoutSound.audio {
+		t.Fatal("disabled RustDesk sound enabled USB audio")
+	}
+	if candidate.remoteAccessDefaults(false).audio != candidate.audio {
+		t.Fatal("disabling RustDesk sound removed shared USB audio")
+	}
+	hidOnly := (usbComposition{mode: hid.ModeHidOnly}).remoteAccessDefaults(true)
+	if hidOnly.mode != hid.ModeNormal || !hidOnly.audio {
+		t.Fatal("sound cannot be enabled in HID-only mode")
+	}
+	full := usbComposition{mode: hid.ModeNormal, network: true, disk: true, serial: true}
+	if full.remoteAccessDefaults(true).validate() == nil {
+		t.Fatal("defaults exceeded endpoint budget silently")
+	}
+}
+
 func TestCompositionNoOpAndInvalidDraftHaveNoSideEffects(t *testing.T) {
 	current := usbComposition{mode: hid.ModeNormal, keyboard: true, relative: true, absolute: true, network: true, disk: true}
 	// Missing callbacks and paths deliberately make any attempted mutation fail.

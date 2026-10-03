@@ -28,6 +28,31 @@ func (s usbComposition) validate() error {
 	return nil
 }
 
+// EnsureRemoteAccessUSB applies the same validated, serialized composition as
+// the USB settings screen. Other enabled functions and pointer profile survive.
+func EnsureRemoteAccessUSB(withAudio bool) error {
+	h := hid.GetHid()
+	h.Lock()
+	defer h.Unlock()
+	current := getUSBComposition()
+	candidate := current.remoteAccessDefaults(withAudio)
+	if err := candidate.validate(); err != nil {
+		return err
+	}
+	if current == candidate {
+		return verifyLiveUSBComposition(candidate)
+	}
+	return applyLiveUSBComposition(h, current, candidate)
+}
+
+func (s usbComposition) remoteAccessDefaults(withAudio bool) usbComposition {
+	s.keyboard, s.relative, s.absolute = true, true, true
+	if withAudio {
+		s.audio, s.mode = true, hid.ModeNormal
+	}
+	return s
+}
+
 func applyLiveUSBComposition(h *hid.Hid, current, candidate usbComposition) error {
 	if current == candidate {
 		return nil

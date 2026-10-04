@@ -1,0 +1,208 @@
+[
+  {
+    "full_name": "tokio-rs/axum",
+    "html_url": "https://github.com/tokio-rs/axum",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-10-04T12:52:43Z",
+    "updated_at": "2026-10-04T21:49:13Z",
+    "license": {
+      "key": "mit",
+      "name": "MIT License",
+      "spdx_id": "MIT",
+      "url": "https://api.github.com/licenses/mit",
+      "node_id": "MDc6TGljZW5zZTEz"
+    },
+    "open_issues_count": 85
+  },
+  {
+    "full_name": "tokio-rs/tokio",
+    "html_url": "https://github.com/tokio-rs/tokio",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-10-04T14:24:49Z",
+    "updated_at": "2026-10-04T21:50:03Z",
+    "license": {
+      "key": "mit",
+      "name": "MIT License",
+      "spdx_id": "MIT",
+      "url": "https://api.github.com/licenses/mit",
+      "node_id": "MDc6TGljZW5zZTEz"
+    },
+    "open_issues_count": 454
+  },
+  {
+    "full_name": "programatik29/axum-server",
+    "html_url": "https://github.com/programatik29/axum-server",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-08-05T06:03:40Z",
+    "updated_at": "2026-10-02T15:09:08Z",
+    "license": {
+      "key": "mit",
+      "name": "MIT License",
+      "spdx_id": "MIT",
+      "url": "https://api.github.com/licenses/mit",
+      "node_id": "MDc6TGljZW5zZTEz"
+    },
+    "open_issues_count": 29
+  },
+  {
+    "full_name": "rustls/rustls",
+    "html_url": "https://github.com/rustls/rustls",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-10-04T19:11:27Z",
+    "updated_at": "2026-10-04T19:11:30Z",
+    "license": {
+      "key": "other",
+      "name": "Other",
+      "spdx_id": "NOASSERTION",
+      "url": null,
+      "node_id": "MDc6TGljZW5zZTA="
+    },
+    "open_issues_count": 99
+  },
+  {
+    "full_name": "briansmith/ring",
+    "html_url": "https://github.com/briansmith/ring",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-07-23T18:48:09Z",
+    "updated_at": "2026-10-04T09:57:22Z",
+    "license": {
+      "key": "other",
+      "name": "Other",
+      "spdx_id": "NOASSERTION",
+      "url": null,
+      "node_id": "MDc6TGljZW5zZTA="
+    },
+    "open_issues_count": 53
+  },
+  {
+    "full_name": "aws/aws-lc-rs",
+    "html_url": "https://github.com/aws/aws-lc-rs",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-10-02T13:33:16Z",
+    "updated_at": "2026-10-02T13:33:25Z",
+    "license": {
+      "key": "other",
+      "name": "Other",
+      "spdx_id": "NOASSERTION",
+      "url": null,
+      "node_id": "MDc6TGljZW5zZTA="
+    },
+    "open_issues_count": 38
+  },
+  {
+    "full_name": "RustCrypto/block-ciphers",
+    "html_url": "https://github.com/RustCrypto/block-ciphers",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-09-22T08:22:32Z",
+    "updated_at": "2026-10-02T15:33:16Z",
+    "license": null,
+    "open_issues_count": 14
+  },
+  {
+    "full_name": "RustCrypto/MACs",
+    "html_url": "https://github.com/RustCrypto/MACs",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-09-21T17:52:52Z",
+    "updated_at": "2026-10-02T15:33:55Z",
+    "license": null,
+    "open_issues_count": 5
+  },
+  {
+    "full_name": "RustCrypto/hashes",
+    "html_url": "https://github.com/RustCrypto/hashes",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-09-22T06:42:57Z",
+    "updated_at": "2026-10-04T09:58:09Z",
+    "license": null,
+    "open_issues_count": 36
+  },
+  {
+    "full_name": "Keats/rust-bcrypt",
+    "html_url": "https://github.com/Keats/rust-bcrypt",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-07-27T08:50:15Z",
+    "updated_at": "2026-08-07T10:41:20Z",
+    "license": {
+      "key": "mit",
+      "name": "MIT License",
+      "spdx_id": "MIT",
+      "url": "https://api.github.com/licenses/mit",
+      "node_id": "MDc6TGljZW5zZTEz"
+    },
+    "open_issues_count": 5
+  },
+  {
+    "full_name": "bourumir-wyngs/serde-saphyr",
+    "html_url": "https://github.com/bourumir-wyngs/serde-saphyr",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-10-04T15:06:11Z",
+    "updated_at": "2026-10-04T15:06:08Z",
+    "license": {
+      "key": "apache-2.0",
+      "name": "Apache License 2.0",
+      "spdx_id": "Apache-2.0",
+      "url": "https://api.github.com/licenses/apache-2.0",
+      "node_id": "MDc6TGljZW5zZTI="
+    },
+    "open_issues_count": 5
+  },
+  {
+    "full_name": "acatton/serde-yaml-ng",
+    "html_url": "https://github.com/acatton/serde-yaml-ng",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2025-09-14T22:35:44Z",
+    "updated_at": "2026-09-12T12:32:31Z",
+    "license": {
+      "key": "mit",
+      "name": "MIT License",
+      "spdx_id": "MIT",
+      "url": "https://api.github.com/licenses/mit",
+      "node_id": "MDc6TGljZW5zZTEz"
+    },
+    "open_issues_count": 20
+  },
+  {
+    "full_name": "algesten/str0m",
+    "html_url": "https://github.com/algesten/str0m",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-10-04T18:56:37Z",
+    "updated_at": "2026-10-04T18:56:42Z",
+    "license": {
+      "key": "mit",
+      "name": "MIT License",
+      "spdx_id": "MIT",
+      "url": "https://api.github.com/licenses/mit",
+      "node_id": "MDc6TGljZW5zZTEz"
+    },
+    "open_issues_count": 33
+  },
+  {
+    "full_name": "webrtc-rs/webrtc",
+    "html_url": "https://github.com/webrtc-rs/webrtc",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-10-03T19:34:20Z",
+    "updated_at": "2026-10-03T19:34:27Z",
+    "license": {
+      "key": "apache-2.0",
+      "name": "Apache License 2.0",
+      "spdx_id": "Apache-2.0",
+      "url": "https://api.github.com/licenses/apache-2.0",
+      "node_id": "MDc6TGljZW5zZTI="
+    },
+    "open_issues_count": 5
+  }
+]

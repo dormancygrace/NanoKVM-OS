@@ -58,8 +58,7 @@ start_background() {
         : "${NANOKVM_WEBRTC_UDP_BATCH:=1}"
         : "${NANOKVM_WEBRTC_UDP_BATCH_FLUSH_US:=1000}"
         : "${NANOKVM_WEBRTC_UDP_GSO:=1}"
-        # CryptoDMA requires explicit opt-in until sustained video qualification.
-        : "${NANOKVM_SRTP_AES:=software}"
+        : "${NANOKVM_SRTP_AES:=hardware}"
         : "${GOMAXPROCS:=1}"
         export NANOKVM_WEBRTC_QUEUE_FRAMES NANOKVM_WEBRTC_UDP_BATCH
         export NANOKVM_WEBRTC_UDP_BATCH_FLUSH_US NANOKVM_WEBRTC_UDP_GSO

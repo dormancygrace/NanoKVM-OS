@@ -1,0 +1,709 @@
+{
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "go_source_files": 277,
+  "go_source_lines": 44250,
+  "main_package_files": [
+    "server/cmd/gpio-atx-probe/main.go",
+    "server/cmd/gpio-inspect/main.go",
+    "server/cmd/nkos-apply-updates/main.go",
+    "server/cmd/nkos-update/main.go",
+    "server/cmd/remote-media-probe/main.go",
+    "server/cmd/srtp-aes-qualify/main.go",
+    "server/diagnostic_profile.go",
+    "server/diagnostic_profile_disabled.go",
+    "server/main.go",
+    "server/tools/usb-audio-check/main.go"
+  ],
+  "modules": [
+    {
+      "path": "firmware/crypto/experimental/sg2002-crypto-all/ghash-go/go.mod",
+      "content": "module nanokvm-crypto-ghash-bench\n\ngo 1.27.1\n"
+    },
+    {
+      "path": "server/go.mod",
+      "content": "module NanoKVM-Server\n\ngo 1.26.0\n\nrequire (\n\tgithub.com/creack/pty v1.1.24\n\tgithub.com/gin-gonic/contrib v0.0.0-20240508051311-c1c6bf0061b0\n\tgithub.com/gin-gonic/gin v1.12.0\n\tgithub.com/go-playground/validator/v10 v10.30.5\n\tgithub.com/golang-jwt/jwt/v5 v5.3.1\n\tgithub.com/google/jsonschema-go v0.4.3\n\tgithub.com/google/uuid v1.6.0\n\tgithub.com/gorilla/websocket v1.5.3\n\tgithub.com/mervick/aes-everywhere/go/aes256 v0.0.0-20240803013625-6759956693c0\n\tgithub.com/modelcontextprotocol/go-sdk v1.8.0\n\tgithub.com/pion/dtls/v3 v3.1.10\n\tgithub.com/pion/ice/v4 v4.4.5\n\tgithub.com/pion/interceptor v0.1.49\n\tgithub.com/pion/rtcp v1.2.19\n\tgithub.com/pion/rtp v1.10.5\n\tgithub.com/pion/srtp/v3 v3.1.3\n\tgithub.com/pion/stun/v4 v4.0.1\n\tgithub.com/pion/transport/v5 v5.1.1\n\tgithub.com/pion/turn/v5 v5.1.2\n\tgithub.com/pion/webrtc/v4 v4.2.22\n\tgithub.com/rs/cors/wrapper/gin v0.0.0-20240830163046-1084d89a1692\n\tgithub.com/sirupsen/logrus v1.10.2\n\tgithub.com/spf13/viper v1.21.0\n\tgithub.com/unrolled/secure v1.17.0\n\tgolang.org/x/crypto v0.57.0\n\tgolang.org/x/net v0.59.0\n\tgolang.org/x/sys v0.48.0\n\tgopkg.in/yaml.v3 v3.0.1\n)\n\nrequire (\n\tgithub.com/bytedance/gopkg v0.1.4 // indirect\n\tgithub.com/bytedance/sonic v1.15.4 // indirect\n\tgithub.com/bytedance/sonic/loader v0.5.2 // indirect\n\tgithub.com/cloudwego/base64x v0.1.7 // indirect\n\tgithub.com/fsnotify/fsnotify v1.10.1 // indirect\n\tgithub.com/gabriel-vasile/mimetype v1.4.15 // indirect\n\tgithub.com/gin-contrib/sse v1.1.2 // indirect\n\tgithub.com/go-playground/locales v0.14.2 // indirect\n\tgithub.com/go-playground/universal-translator v0.18.2 // indirect\n\tgithub.com/go-viper/mapstructure/v2 v2.5.0 // indirect\n\tgithub.com/goccy/go-json v0.11.1 // indirect\n\tgithub.com/goccy/go-yaml v1.19.2 // indirect\n\tgithub.com/json-iterator/go v1.1.12 // indirect\n\tgithub.com/klauspost/cpuid/v2 v2.4.0 // indirect\n\tgithub.com/leodido/go-urn v1.5.0 // indirect\n\tgithub.com/mattn/go-isatty v0.0.24 // indirect\n\tgithub.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect\n\tgithub.com/modern-go/reflect2 v1.0.2 // indirect\n\tgithub.com/pelletier/go-toml/v2 v2.4.3 // indirect\n\tgithub.com/pion/datachannel v1.6.3 // indirect\n\tgithub.com/pion/logging v0.2.4 // indirect\n\tgithub.com/pion/mdns/v2 v2.2.2 // indirect\n\tgithub.com/pion/randutil v0.1.0 // indirect\n\tgithub.com/pion/sctp v1.11.3 // indirect\n\tgithub.com/pion/sdp/v3 v3.0.20 // indirect\n\tgithub.com/quic-go/qpack v0.6.0 // indirect\n\tgithub.com/quic-go/quic-go v0.63.0 // indirect\n\tgithub.com/rs/cors v1.11.1 // indirect\n\tgithub.com/sagikazarmark/locafero v0.12.0 // indirect\n\tgithub.com/segmentio/asm v1.2.1 // indirect\n\tgithub.com/segmentio/encoding v0.5.4 // indirect\n\tgithub.com/spf13/afero v1.15.0 // indirect\n\tgithub.com/spf13/cast v1.10.0 // indirect\n\tgithub.com/spf13/pflag v1.0.10 // indirect\n\tgithub.com/subosito/gotenv v1.6.0 // indirect\n\tgithub.com/twitchyliquid64/golang-asm v0.15.1 // indirect\n\tgithub.com/ugorji/go/codec v1.3.2 // indirect\n\tgithub.com/wlynxg/anet v0.0.5 // indirect\n\tgithub.com/yosida95/uritemplate/v3 v3.0.2 // indirect\n\tgo.mongodb.org/mongo-driver/v2 v2.9.1 // indirect\n\tgo.yaml.in/yaml/v3 v3.0.5 // indirect\n\tgolang.org/x/arch v0.31.0 // indirect\n\tgolang.org/x/oauth2 v0.37.0 // indirect\n\tgolang.org/x/sync v0.23.0 // indirect\n\tgolang.org/x/text v0.42.0 // indirect\n\tgolang.org/x/time v0.16.0 // indirect\n\tgoogle.golang.org/protobuf v1.36.12 // indirect\n)\n\n// Packet-level AES-CTR hook; upstream base is v3.1.3.\nreplace github.com/pion/srtp/v3 => ./third_party/pion-srtp\n\nreplace github.com/pion/ice/v4 => ./third_party/pion-ice\n\n// Server-side cipher negotiation follows NanoKVM's configured preference order.\nreplace github.com/pion/dtls/v3 => ./third_party/pion-dtls\n"
+    },
+    {
+      "path": "server/third_party/pion-dtls/go.mod",
+      "content": "module github.com/pion/dtls/v3\n\nrequire (\n\tgithub.com/pion/logging v0.2.4\n\tgithub.com/pion/transport/v5 v5.1.1\n\tgithub.com/stretchr/testify v1.12.1\n\tgolang.org/x/crypto v0.57.0\n\tgolang.org/x/net v0.59.0\n)\n\nrequire (\n\tgo.yaml.in/yaml/v3 v3.0.5 // indirect\n\tgolang.org/x/sys v0.48.0 // indirect\n)\n\ngo 1.26.0\n\n// Retract version with broken RSA interop with OpenSSL DTLS 1.2.\nretract v3.1.0\n\n// Retract version with broken interoperability with firefox.\nretract v3.1.3\n"
+    },
+    {
+      "path": "server/third_party/pion-ice/go.mod",
+      "content": "module github.com/pion/ice/v4\n\ngo 1.26.0\n\nrequire (\n\tgithub.com/google/uuid v1.6.0\n\tgithub.com/pion/dtls/v3 v3.1.9\n\tgithub.com/pion/logging v0.2.4\n\tgithub.com/pion/mdns/v2 v2.2.2\n\tgithub.com/pion/randutil v0.1.0\n\tgithub.com/pion/stun/v4 v4.0.1\n\tgithub.com/pion/transport/v5 v5.1.1\n\tgithub.com/pion/turn/v5 v5.1.2\n\tgithub.com/stretchr/testify v1.12.1\n\tgolang.org/x/net v0.59.0\n\tgolang.org/x/sys v0.48.0\n)\n\nrequire (\n\tgithub.com/wlynxg/anet v0.0.5 // indirect\n\tgo.yaml.in/yaml/v3 v3.0.5 // indirect\n\tgolang.org/x/crypto v0.57.0 // indirect\n\tgolang.org/x/time v0.16.0 // indirect\n)\n"
+    },
+    {
+      "path": "server/third_party/pion-srtp/go.mod",
+      "content": "module github.com/pion/srtp/v3\n\ngo 1.26.0\n\nrequire (\n\tgithub.com/pion/logging v0.2.4\n\tgithub.com/pion/rtcp v1.2.19\n\tgithub.com/pion/rtp v1.10.5\n\tgithub.com/pion/transport/v5 v5.1.1\n\tgithub.com/stretchr/testify v1.12.1\n)\n\nrequire (\n\tgithub.com/pion/randutil v0.1.0 // indirect\n\tgo.yaml.in/yaml/v3 v3.0.5 // indirect\n\tgolang.org/x/sys v0.48.0 // indirect\n)\n"
+    }
+  ],
+  "imported_dependencies": [
+    "github.com/creack/pty",
+    "github.com/gin-gonic/contrib/static",
+    "github.com/gin-gonic/gin",
+    "github.com/go-playground/validator/v10",
+    "github.com/golang-jwt/jwt/v5",
+    "github.com/google/jsonschema-go/jsonschema",
+    "github.com/google/uuid",
+    "github.com/gorilla/websocket",
+    "github.com/modelcontextprotocol/go-sdk/mcp",
+    "github.com/pion/dtls/v3",
+    "github.com/pion/ice/v4",
+    "github.com/pion/interceptor",
+    "github.com/pion/rtcp",
+    "github.com/pion/rtp",
+    "github.com/pion/rtp/codecs",
+    "github.com/pion/srtp/v3",
+    "github.com/pion/transport/v5",
+    "github.com/pion/transport/v5/stdnet",
+    "github.com/pion/webrtc/v4",
+    "github.com/pion/webrtc/v4/pkg/media",
+    "github.com/rs/cors/wrapper/gin",
+    "github.com/sirupsen/logrus",
+    "github.com/spf13/viper",
+    "github.com/unrolled/secure",
+    "golang.org/x/crypto/bcrypt",
+    "golang.org/x/sys/unix",
+    "gopkg.in/yaml.v3"
+  ],
+  "process_invocation_sites": [
+    {
+      "source": "server/cmd/nkos-apply-updates/main.go",
+      "line": 295,
+      "expression": "ctx, args[0], args[1:]...)"
+    },
+    {
+      "source": "server/cmd/nkos-apply-updates/main.go",
+      "line": 379,
+      "expression": "ctx, \"rc-status\", \"--nocolor\", \"--format\", \"ini\", \"--servicelist\").Output()"
+    },
+    {
+      "source": "server/cmd/nkos-apply-updates/main.go",
+      "line": 566,
+      "expression": "exe, \"apply\")"
+    },
+    {
+      "source": "server/common/kvm_vision.go",
+      "line": 205,
+      "expression": "ctx, \"/usr/sbin/nanokvm_update_edid\", args...).CombinedOutput()"
+    },
+    {
+      "source": "server/osupdate/alpine.go",
+      "line": 354,
+      "expression": "ctx, alpineStageHelper, dir)"
+    },
+    {
+      "source": "server/osupdate/alpine.go",
+      "line": 365,
+      "expression": "ctx, alpineStageHelper, \"--activate\", filepath.Join(\"/data\", \"nanokvm-update\")).CombinedOutput(); err != nil {"
+    },
+    {
+      "source": "server/osupdate/alpine.go",
+      "line": 368,
+      "expression": "ctx, alpineRebootCommand).CombinedOutput(); err != nil {"
+    },
+    {
+      "source": "server/osupdate/apk.go",
+      "line": 83,
+      "expression": "Helper, \"apk-inherited\", action)"
+    },
+    {
+      "source": "server/osupdate/apk.go",
+      "line": 105,
+      "expression": "\"/sbin/reboot\").Run()"
+    },
+    {
+      "source": "server/osupdate/apk.go",
+      "line": 113,
+      "expression": "ctx, apkExecutable, args...)"
+    },
+    {
+      "source": "server/osupdate/apk.go",
+      "line": 122,
+      "expression": "ctx, apkExecutable, \"version\", \"--limit\", \"<\").CombinedOutput()"
+    },
+    {
+      "source": "server/osupdate/software.go",
+      "line": 242,
+      "expression": "ctx, apkExecutable, args...).CombinedOutput()"
+    },
+    {
+      "source": "server/osupdate/software.go",
+      "line": 348,
+      "expression": "Helper, \"software-inherited\", action, name)"
+    },
+    {
+      "source": "server/osupdate/software.go",
+      "line": 384,
+      "expression": "ctx, apkExecutable, args...)"
+    },
+    {
+      "source": "server/remotemedia/device_linux.go",
+      "line": 55,
+      "expression": "ctx, \"modprobe\", \"nbd\", \"nbds_max=1\", \"max_part=0\")"
+    },
+    {
+      "source": "server/service/auth/password.go",
+      "line": 107,
+      "expression": "\"passwd\", \"root\")"
+    },
+    {
+      "source": "server/service/download/curl.go",
+      "line": 103,
+      "expression": "ctx, imageCurlPath, args...)"
+    },
+    {
+      "source": "server/service/extensions/apkpkg/apkpkg.go",
+      "line": 53,
+      "expression": "ctx, \"/sbin/apk\", \"update\").CombinedOutput(); runErr != nil {"
+    },
+    {
+      "source": "server/service/extensions/apkpkg/apkpkg.go",
+      "line": 60,
+      "expression": "ctx, \"/sbin/apk\", args...).CombinedOutput(); runErr != nil {"
+    },
+    {
+      "source": "server/service/extensions/netbird/cli.go",
+      "line": 133,
+      "expression": "NetbirdPath, \"up\", \"--daemon-addr\", netbirdSocket, \"--no-browser\")"
+    },
+    {
+      "source": "server/service/extensions/netbird/cli.go",
+      "line": 198,
+      "expression": "\"rc-service\", \"netbird\", \"status\")"
+    },
+    {
+      "source": "server/service/extensions/netbird/cli.go",
+      "line": 226,
+      "expression": "\"pidof\", process).Run() == nil {"
+    },
+    {
+      "source": "server/service/extensions/netbird/cli.go",
+      "line": 240,
+      "expression": "ctx, name, args...)"
+    },
+    {
+      "source": "server/service/extensions/openvpn/service.go",
+      "line": 199,
+      "expression": "ctx, \"resolvconf\", \"-a\", \"nkos.base\")"
+    },
+    {
+      "source": "server/service/extensions/openvpn/service.go",
+      "line": 225,
+      "expression": "\"openvpn\", args...)"
+    },
+    {
+      "source": "server/service/extensions/openvpn/service.go",
+      "line": 272,
+      "expression": "ctx, \"resolvconf\", \"-d\", name, \"-f\").Run()"
+    },
+    {
+      "source": "server/service/extensions/openvpn/service.go",
+      "line": 287,
+      "expression": "ctx, \"ip\", \"-o\", \"-4\", \"addr\", \"show\", \"dev\", name).Output()"
+    },
+    {
+      "source": "server/service/extensions/openvpn/service.go",
+      "line": 342,
+      "expression": "ctx, \"ip\", \"-j\", \"-d\", \"link\", \"show\", \"dev\", name).Output()"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 38,
+      "expression": "\"rc-update\", \"add\", \"tailscale\", \"default\").Run(); err != nil {"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 44,
+      "expression": "\"rc-service\", \"tailscale\", \"start\").Run()"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 54,
+      "expression": "\"rc-update\", \"add\", \"tailscale\", \"default\").Run(); err != nil {"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 58,
+      "expression": "\"rc-service\", \"tailscale\", \"start\").Run()"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 60,
+      "expression": "\"rc-service\", \"tailscale\", \"restart\").Run()"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 65,
+      "expression": "\"rc-service\", \"tailscale\", \"stop\").Run(); err != nil {"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 69,
+      "expression": "\"rc-update\", \"del\", \"tailscale\", \"default\").Run()"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 77,
+      "expression": "TailscalePath, \"up\", \"--accept-dns=false\").Run()"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 80,
+      "expression": "TailscalePath, \"down\").Run() }"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 83,
+      "expression": "TailscalePath, \"status\", \"--json\").CombinedOutput()"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 104,
+      "expression": "TailscalePath, \"login\", \"--accept-dns=false\", \"--timeout=10m\")"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 126,
+      "expression": "TailscalePath, \"logout\").Run() }"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 127,
+      "expression": "\"pidof\", \"tailscaled\").Run() == nil }"
+    },
+    {
+      "source": "server/service/extensions/tailscale/cli.go",
+      "line": 136,
+      "expression": "\"rc-service\", \"netbird\", \"status\").Run() == nil {"
+    },
+    {
+      "source": "server/service/extensions/vpn/versions.go",
+      "line": 27,
+      "expression": "ctx, tool, \"--version\").Output()"
+    },
+    {
+      "source": "server/service/extensions/wireguard/service.go",
+      "line": 136,
+      "expression": "ctx, name, args...)"
+    },
+    {
+      "source": "server/service/hid/status.go",
+      "line": 126,
+      "expression": "\"reboot\").Run()"
+    },
+    {
+      "source": "server/service/hid/status.go",
+      "line": 187,
+      "expression": "ctx, \"sh\", USBDevScript, \"restart_phy\").Run(); err != nil {"
+    },
+    {
+      "source": "server/service/network/dns.go",
+      "line": 102,
+      "expression": "\"sync\").Run()"
+    },
+    {
+      "source": "server/service/network/dns.go",
+      "line": 535,
+      "expression": "ctx, tool, \"-a\", \"nkos.base\")"
+    },
+    {
+      "source": "server/service/network/ethernet.go",
+      "line": 96,
+      "expression": "\"sync\").Run()"
+    },
+    {
+      "source": "server/service/network/ethernet.go",
+      "line": 317,
+      "expression": "ethernetInitScript, \"restart\").Run(); err != nil {"
+    },
+    {
+      "source": "server/service/network/gateway.go",
+      "line": 24,
+      "expression": "\"ip\", args...).Output()"
+    },
+    {
+      "source": "server/service/network/ipv6.go",
+      "line": 66,
+      "expression": "ctx, \"/bin/sh\", \"-s\", \"--\", \"apply\", value)"
+    },
+    {
+      "source": "server/service/network/wifi.go",
+      "line": 145,
+      "expression": "\"sh\", \"-c\", command)"
+    },
+    {
+      "source": "server/service/network/wifi_control.go",
+      "line": 35,
+      "expression": "ctx, name, args...)"
+    },
+    {
+      "source": "server/service/network/wol.go",
+      "line": 147,
+      "expression": "\"ether-wake\", \"-i\", interfaceName, \"-b\", mac)"
+    },
+    {
+      "source": "server/service/picoclaw/runtime_start_stop.go",
+      "line": 93,
+      "expression": "startCtx, \"sh\", \"-c\", command).CombinedOutput()"
+    },
+    {
+      "source": "server/service/picoclaw/runtime_start_stop.go",
+      "line": 187,
+      "expression": "ctx, \"sh\", \"-c\", command).CombinedOutput()"
+    },
+    {
+      "source": "server/service/picoclaw/runtime_start_stop.go",
+      "line": 290,
+      "expression": "onboardCtx, \"sh\", \"-c\", command).CombinedOutput()"
+    },
+    {
+      "source": "server/service/rustdesk/service.go",
+      "line": 93,
+      "expression": "ctx, name, args...)"
+    },
+    {
+      "source": "server/service/storage/image.go",
+      "line": 187,
+      "expression": "\"sh\", \"-c\", command).Run()"
+    },
+    {
+      "source": "server/service/stream/audio/audio.go",
+      "line": 191,
+      "expression": "ctx, \"/kvmapp/system/bin/usb-audio-capture\", card)"
+    },
+    {
+      "source": "server/service/vm/date_time.go",
+      "line": 21,
+      "expression": "ctx, script, \"restart\").Run()"
+    },
+    {
+      "source": "server/service/vm/diagnostics.go",
+      "line": 701,
+      "expression": "ctx, command, args...)"
+    },
+    {
+      "source": "server/service/vm/hostname.go",
+      "line": 125,
+      "expression": "\"hostname\", \"-F\", hostnameFiles.etc).Run(); err != nil {"
+    },
+    {
+      "source": "server/service/vm/mdns.go",
+      "line": 49,
+      "expression": "\"sh\", \"-c\", command).Run()"
+    },
+    {
+      "source": "server/service/vm/mdns.go",
+      "line": 74,
+      "expression": "\"sh\", \"-c\", command).Run()"
+    },
+    {
+      "source": "server/service/vm/mdns.go",
+      "line": 118,
+      "expression": "\"rc-service\", \"avahi-daemon\", action).Run()"
+    },
+    {
+      "source": "server/service/vm/memory-maintenance.go",
+      "line": 52,
+      "expression": "ctx, \"nice\", \"-n\", \"19\", \"sh\", memoryService, \"recompress\").CombinedOutput()"
+    },
+    {
+      "source": "server/service/vm/memory-status.go",
+      "line": 208,
+      "expression": "\"sh\", args...).CombinedOutput()"
+    },
+    {
+      "source": "server/service/vm/script.go",
+      "line": 176,
+      "expression": "pythonInterpreter, path), nil"
+    },
+    {
+      "source": "server/service/vm/script.go",
+      "line": 178,
+      "expression": "path), nil"
+    },
+    {
+      "source": "server/service/vm/ssh.go",
+      "line": 56,
+      "expression": "\"sh\", \"-c\", command).Run()"
+    },
+    {
+      "source": "server/service/vm/ssh.go",
+      "line": 68,
+      "expression": "\"passwd\", \"root\")"
+    },
+    {
+      "source": "server/service/vm/ssh.go",
+      "line": 94,
+      "expression": "\"sh\", \"-c\", command).Run()"
+    },
+    {
+      "source": "server/service/vm/system.go",
+      "line": 16,
+      "expression": "\"reboot\").Run()"
+    },
+    {
+      "source": "server/service/vm/terminal_command.go",
+      "line": 17,
+      "expression": "\"/bin/sh\", \"-l\"), nil"
+    },
+    {
+      "source": "server/service/vm/terminal_command.go",
+      "line": 51,
+      "expression": "path, args...), nil"
+    },
+    {
+      "source": "server/service/vm/tls.go",
+      "line": 46,
+      "expression": "\"sh\", \"-c\", \"/etc/init.d/S95nanokvm restart\").Run()"
+    },
+    {
+      "source": "server/service/vm/usb-composition.go",
+      "line": 74,
+      "expression": "ctx, \"sh\", hid.USBDevScript, action).CombinedOutput()"
+    },
+    {
+      "source": "server/service/vm/video-memory.go",
+      "line": 81,
+      "expression": "ctx, \"/usr/libexec/nanokvm/activate-kernel\", strings.Trim(string(board), \"\\x00 \\r\\n\"), req.Mode).CombinedOutput()"
+    },
+    {
+      "source": "server/service/vm/virtual-device.go",
+      "line": 188,
+      "expression": "\"kill\", \"-HUP\", \"1\").Run()"
+    },
+    {
+      "source": "server/timeconfig/chrony.go",
+      "line": 17,
+      "expression": "ctx, \"/usr/bin/chronyc\", \"-n\", \"-c\", \"-u\", \"root\", \"-h\", \"/run/chrony/chronyd.sock\", \"tracking\")"
+    }
+  ],
+  "absolute_path_literals": [
+    "/dev/gpiochip*",
+    "/dev/hidg0",
+    "/dev/hidg1",
+    "/dev/hidg2",
+    "/dev/mmcblk0p3",
+    "/dev/nbd0",
+    "/dev/sg2002-aes-probe",
+    "/dev/ttyGS",
+    "/dev/zram0",
+    "/etc/",
+    "/etc/alpine-release",
+    "/etc/apk/repositories",
+    "/etc/apk/world",
+    "/etc/chrony.conf",
+    "/etc/conf.d/",
+    "/etc/hostname",
+    "/etc/hosts",
+    "/etc/init.d",
+    "/etc/init.d/",
+    "/etc/init.d/S02ipv6",
+    "/etc/init.d/S03usbdev",
+    "/etc/init.d/S30eth",
+    "/etc/init.d/S30wifi",
+    "/etc/init.d/S38memory",
+    "/etc/init.d/S49chronyd",
+    "/etc/init.d/S49ntp",
+    "/etc/init.d/S50avahi-daemon",
+    "/etc/init.d/S50sshd",
+    "/etc/init.d/S95nanokvm restart",
+    "/etc/init.d/S96picoclaw",
+    "/etc/inittab",
+    "/etc/kvm",
+    "/etc/kvm/",
+    "/etc/kvm/.jwt_secret",
+    "/etc/kvm/.picoclaw_internal_token",
+    "/etc/kvm/GOMEMLIMIT",
+    "/etc/kvm/ai-control.mode",
+    "/etc/kvm/autostart",
+    "/etc/kvm/board-profile",
+    "/etc/kvm/branding",
+    "/etc/kvm/cache/wol",
+    "/etc/kvm/cpufreq",
+    "/etc/kvm/encoder_codec",
+    "/etc/kvm/hdmi_disable",
+    "/etc/kvm/hdmi_idle_timeout",
+    "/etc/kvm/hdmi_version",
+    "/etc/kvm/hw",
+    "/etc/kvm/input-region.json",
+    "/etc/kvm/leader-key",
+    "/etc/kvm/mcp.json",
+    "/etc/kvm/mdns_disabled",
+    "/etc/kvm/memory.conf",
+    "/etc/kvm/monitor_portrait",
+    "/etc/kvm/monitor_portrait_resolution",
+    "/etc/kvm/monitor_power_cycle_pending",
+    "/etc/kvm/monitor_resolution",
+    "/etc/kvm/mouse-jiggler",
+    "/etc/kvm/network",
+    "/etc/kvm/network/dns.mode",
+    "/etc/kvm/network/dns.servers",
+    "/etc/kvm/network/gateway.preferred",
+    "/etc/kvm/network/ipv6",
+    "/etc/kvm/oled_exist",
+    "/etc/kvm/oled_sleep",
+    "/etc/kvm/openvpn",
+    "/etc/kvm/openvpn/",
+    "/etc/kvm/openvpn/active",
+    "/etc/kvm/picoclaw-runtime.json",
+    "/etc/kvm/pwd",
+    "/etc/kvm/scripts",
+    "/etc/kvm/server.crt",
+    "/etc/kvm/server.key",
+    "/etc/kvm/server.yaml",
+    "/etc/kvm/shortcuts.json",
+    "/etc/kvm/ssh_stop",
+    "/etc/kvm/usb_container_id",
+    "/etc/kvm/web-title",
+    "/etc/kvm/wifi.pass",
+    "/etc/kvm/wifi.ssid",
+    "/etc/kvm/wifi_exist",
+    "/etc/kvm/wireguard",
+    "/etc/nanokvm-build-profile",
+    "/etc/nanokvm-buildroot",
+    "/etc/nanokvm-rustdesk",
+    "/etc/nkos-system-base",
+    "/etc/openvpn/down.sh",
+    "/etc/openvpn/up.sh",
+    "/etc/resolv.conf",
+    "/etc/resolv.conf.dhcp",
+    "/kvmapp/.os-update",
+    "/kvmapp/kvm/ap.pass",
+    "/kvmapp/kvm/fps",
+    "/kvmapp/kvm/gop_mode",
+    "/kvmapp/kvm/mjpeg_chroma",
+    "/kvmapp/kvm/qlty",
+    "/kvmapp/kvm/res",
+    "/kvmapp/kvm/type",
+    "/kvmapp/kvm/wifi_try_connect",
+    "/kvmapp/kvm_system",
+    "/kvmapp/server",
+    "/kvmapp/system/bin/picocom",
+    "/kvmapp/system/bin/usb-audio-capture",
+    "/kvmapp/system/init.d/S03usbdev",
+    "/kvmapp/system/init.d/S03usbhid",
+    "/kvmapp/system/init.d/S50avahi-daemon",
+    "/kvmapp/system/init.d/S96picoclaw",
+    "/kvmapp/version",
+    "/proc/%d/cmdline",
+    "/proc/%d/stat",
+    "/proc/[0-9]*",
+    "/proc/device-tree/reserved-memory/ion/size",
+    "/proc/loadavg",
+    "/proc/meminfo",
+    "/proc/mounts",
+    "/proc/net/route",
+    "/proc/stat",
+    "/proc/swaps",
+    "/proc/sys/kernel/hostname",
+    "/proc/sys/kernel/osrelease",
+    "/proc/sys/kernel/random/boot_id",
+    "/proc/sys/net/ipv6/conf",
+    "/proc/sys/net/ipv6/conf/",
+    "/proc/sys/net/ipv6/conf/default/disable_ipv6",
+    "/proc/uptime",
+    "/run/avahi-daemon/pid",
+    "/run/chrony/chronyd.sock",
+    "/run/nanokvm-apk",
+    "/run/nanokvm-apk-ui",
+    "/run/nanokvm-cpufreq",
+    "/run/nanokvm-download-resume.json",
+    "/run/nanokvm-rustdesk",
+    "/run/nanokvm-transfer-in-progress",
+    "/run/nanokvm/height",
+    "/run/nanokvm/mjpeg_height",
+    "/run/nanokvm/mjpeg_width",
+    "/run/nanokvm/now_fps",
+    "/run/nanokvm/stream_height",
+    "/run/nanokvm/stream_width",
+    "/run/nanokvm/video_height",
+    "/run/nanokvm/video_width",
+    "/run/nanokvm/width",
+    "/run/nanokvm/wifi_state",
+    "/run/nkos-openvpn",
+    "/run/nkos-openvpn/",
+    "/run/openrc/daemons/",
+    "/run/openrc/softlevel",
+    "/run/openrc/started/",
+    "/run/openrc/started/*",
+    "/run/openrc/starting/",
+    "/run/openrc/stopping/",
+    "/run/reboot-required",
+    "/run/reboot-required.pkgs",
+    "/run/resolvconf/interfaces",
+    "/run/resolvconf/interfaces/nkos.base",
+    "/sys/block/nbd0/pid",
+    "/sys/block/nbd0/queue/max_sectors_kb",
+    "/sys/block/zram0",
+    "/sys/block/zram0/comp_algorithm",
+    "/sys/block/zram0/idle",
+    "/sys/block/zram0/mm_stat",
+    "/sys/block/zram0/recomp_algorithm",
+    "/sys/block/zram0/recompress",
+    "/sys/class/gpio/gpio",
+    "/sys/class/gpio/gpio503/value",
+    "/sys/class/gpio/gpio504/value",
+    "/sys/class/gpio/gpio505/value",
+    "/sys/class/gpio/gpio507/value",
+    "/sys/class/net",
+    "/sys/class/net/eth0/carrier",
+    "/sys/class/net/eth0/flags",
+    "/sys/class/net/wlan0",
+    "/sys/class/sound",
+    "/sys/class/thermal",
+    "/sys/class/udc",
+    "/sys/devices/system/cpu/cpufreq/policy0",
+    "/sys/firmware/devicetree/base/sipeed,board-revision",
+    "/sys/kernel/config/usb_gadget/g0",
+    "/sys/kernel/config/usb_gadget/g0/UDC",
+    "/sys/kernel/config/usb_gadget/g0/bcdDevice",
+    "/sys/kernel/config/usb_gadget/g0/configs/c.1/hid.GS0",
+    "/sys/kernel/config/usb_gadget/g0/configs/c.1/mass_storage.disk0",
+    "/sys/kernel/config/usb_gadget/g0/configs/c.1/uac1.audio0",
+    "/sys/kernel/config/usb_gadget/g0/functions/hid.GS2/report_desc",
+    "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/cdrom",
+    "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/file",
+    "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/forced_eject",
+    "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/inquiry_string",
+    "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/ro",
+    "/sys/kernel/config/usb_gadget/g0/os_desc/container_id",
+    "/sys/kernel/debug/ion/carveout/num_of_alloc_bytes",
+    "/sys/module/cv181x_vi/parameters/yuv_bypass_aligned_stride",
+    "/sys/module/zram",
+    "/tmp/resolv.conf",
+    "/tmp/wifiap",
+    "/usr/bin/chronyc",
+    "/usr/bin/curl",
+    "/usr/bin/nanokvm-rustdesk",
+    "/usr/bin/netbird",
+    "/usr/bin/picoclaw",
+    "/usr/bin/python3",
+    "/usr/bin/tailscale",
+    "/usr/lib/nanokvm/boot",
+    "/usr/libexec/nanokvm/activate-kernel",
+    "/usr/libexec/nanokvm/legacy/",
+    "/usr/libexec/nanokvm/legacy/S13nanokvm-watchdog",
+    "/usr/libexec/nanokvm/legacy/S95nanokvm",
+    "/usr/sbin/nanokvm-stage-update",
+    "/usr/sbin/nanokvm_update_edid",
+    "/usr/sbin/nkos-update",
+    "/usr/sbin/openvpn",
+    "/usr/sbin/tailscaled",
+    "/usr/share/fw_vcodec",
+    "/usr/share/nanokvm-rustdesk/source.json",
+    "/usr/share/nanokvm-rustdesk/upstream.json",
+    "/usr/share/nanokvm/edid",
+    "/usr/share/nanokvm/edid/NanoKVM-portrait-1080x1920.bin",
+    "/usr/share/nanokvm/edid/NanoKVM-portrait-1296x2304.bin",
+    "/usr/share/nanokvm/edid/NanoKVM-portrait-1440x2560.bin",
+    "/usr/share/nanokvm/edid/NanoKVM-portrait-720x1280.bin",
+    "/usr/share/udhcpc/default.script.d/99-nanokvm-dns",
+    "/usr/share/udhcpc/default.script.d/99-nanokvm-gateway",
+    "/usr/share/zoneinfo",
+    "/usr/share/zoneinfo/zone.tab",
+    "/var/cache/apk",
+    "/var/log",
+    "/var/log/nanokvm-apk-apply.log",
+    "/var/log/nanokvm-boots"
+  ]
+}

@@ -18,7 +18,7 @@ index b4d137e..b3726c3 100644
 -  # Upstream GCC spelling for C906 vendor-vector instructions; not RVV 1.0.
 -  OPT_LEVEL := -Os -march=rv64gc_xtheadvector -mtune=thead-c906 -mno-fence-tso -mcmodel=medany -mabi=lp64d
 +  # Default matches platform/cpu-profile.json; NanoKVM builders pass OPT_LEVEL explicitly.
-+  OPT_LEVEL := -O2 -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mabi=lp64d -mno-fence-tso -mcmodel=medany
++  OPT_LEVEL := -O2 -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mabi=lp64d -mno-fence-tso -fno-tree-vectorize -fno-tree-slp-vectorize -mcmodel=medany
  else ifeq ($(TARGET_MACHINE), riscv64-unknown-linux-gnu)
    OPT_LEVEL := -Os
    OPT_LEVEL += -mno-ldd -mcpu=c906fdv -march=rv64imafdcv0p7xthead -mcmodel=medany -mabi=lp64d

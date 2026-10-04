@@ -1,0 +1,11 @@
+--- a/interdrv/jpeg/Makefile
++++ b/interdrv/jpeg/Makefile
+@@ -9,7 +9,7 @@
+ ifeq ($(DEBUG),y)
+   DEBFLAGS = -O	-g # "-O" is needed to expand inlines
+ else
+-  DEBFLAGS = -O2
++  DEBFLAGS = # Optimization is selected by platform KCFLAGS.
+ endif
+ 
+ ccflags-y += $(DEBFLAGS) -I$(PWD) -I$(LDDINCDIR) -D$(CHIP_TYPE) -D$(SUB_TYPE) -DUSE_KERNEL_MODE -Wno-date-time -Werror

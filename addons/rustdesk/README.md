@@ -235,3 +235,9 @@ association. In the accepted two-monitor test, control worked after making the
 captured NanoKVM display primary. OS monitor enumeration and capture switching
 require a host helper and additional capture/selection support; they are not
 implemented in this version.
+
+## C906 performance build
+
+Use cargo --config performance.toml build --locked --offline --profile performance --target riscv64gc-unknown-linux-musl with the existing cross-linker environment. The named profile selects optimization level 3, full LTO and one codegen unit; the config enables the qualified scalar T-Head extensions and static CRT. The generic release remains available. The repository packaging builder accepts --build-profile performance and records exact flags and compiler identity in build-profile.json. Use a separate output directory for each profile. This Rust backend does not implement RVV 0.7.1; this is a scalar optimized variant.
+
+Local unpublished APK/source pairs can be built with --local-only instead of --source-url; source.json records the local archive digest and publication state. This avoids claiming a public download exists before publication.

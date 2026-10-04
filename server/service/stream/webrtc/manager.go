@@ -28,8 +28,8 @@ func NewWebRTCManager() *WebRTCManager {
 }
 
 func (m *WebRTCManager) AddClient(ws *websocket.Conn, client *Client) error {
-	if qhdH265Blocked(client.config.Codec) {
-		return errors.New(qhdH265Error)
+	if h265WebRTCBlocked(client.config.Codec) {
+		return errors.New(h265WebRTCError)
 	}
 	m.mutex.Lock()
 	if _, exists := m.clients[ws]; exists {
@@ -61,9 +61,9 @@ func (m *WebRTCManager) AddClient(ws *websocket.Conn, client *Client) error {
 		if w.isClosed() {
 			return nil
 		}
-		if qhdH265Blocked(client.config.Codec) {
-			_ = client.WriteMessage("video-error", qhdH265Error)
-			return errors.New(qhdH265Error)
+		if h265WebRTCBlocked(client.config.Codec) {
+			_ = client.WriteMessage("video-error", h265WebRTCError)
+			return errors.New(h265WebRTCError)
 		}
 		packets := client.packetizer.packetize(sample.Data, sample.Timestamp, client.pathMTU.size())
 		if len(packets) == 0 {

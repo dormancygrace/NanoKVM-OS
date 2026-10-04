@@ -2,7 +2,7 @@
 
 Fresh-browser default: **H.265 Direct** over HTTPS. Existing browser preferences are retained. Browsers without secure WebCodecs fall back to WebRTC, then MJPEG when WebRTC is unavailable; unsupported H.265 falls back to H.264.
 
-> **Known issue: QHD H.265 WebRTC is unstable and can freeze or restart the device. Use H.265 Direct for QHD.** The mode remains available with warnings. A self-recovering reboot was observed on 2026-09-10; its root cause is unresolved.
+> **Since v2.1-b1, H.265 WebRTC is disabled at every resolution.** Use H.265 Direct or H.264 WebRTC. The server rejects H.265 signaling before negotiation because the known CryptoDMA/device freeze was also reproduced with FHD SmartP. Hardware AES remains available for supported modes.
 
 The quick video menu contains stream resolution, frame rate, quality/bitrate, browser scale and a link to **Settings → Video**. The capture button is green while capture is enabled and amber while disabled; its tooltip names the next action.
 

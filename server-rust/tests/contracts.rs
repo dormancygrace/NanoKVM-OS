@@ -599,3 +599,152 @@ async fn configured_authentication_disable_and_untrusted_forwarding_are_preserve
     assert_eq!(v["code"], 0);
     assert!(!headers["set-cookie"].to_str().unwrap().contains("; Secure"));
 }
+
+#[tokio::test]
+async fn hid_shortcuts_leader_key_and_admin_policy_preserve_persisted_formats() {
+    use std::os::unix::fs::PermissionsExt;
+    let (temp, state, app) = fixture();
+    let auth = format!("Bearer {}", login(&app, "owner").await);
+    let headers = [("authorization", auth.as_str())];
+    let file = temp.path().join("etc/kvm/shortcuts.json");
+    fs::write(&file, "torn old JSON").unwrap();
+    let (_, _, v) = request(&app, "GET", "/api/hid/shortcuts", Value::Null, &headers).await;
+    assert_eq!(v["data"]["shortcuts"], json!([]));
+    let (_, _, v) = request(
+        &app,
+        "POST",
+        "/api/hid/shortcut",
+        json!({"keys":[{"code":"ControlLeft","label":"Ctrl"},{"code":"KeyA","label":"A"}]}),
+        &headers,
+    )
+    .await;
+    assert_eq!(v["code"], 0);
+    assert_eq!(
+        fs::metadata(&file).unwrap().permissions().mode() & 0o777,
+        0o644
+    );
+    let persisted: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    let shortcut = &persisted["shortcuts"][0];
+    let id = shortcut["id"].as_str().unwrap();
+    assert_eq!(id.len(), 36);
+    assert_eq!(&id[14..15], "4");
+    assert!(b"89ab".contains(&id.as_bytes()[19]));
+    assert_eq!(shortcut["keys"][0]["code"], "ControlLeft");
+    let (_, _, v) = request(
+        &app,
+        "DELETE",
+        "/api/hid/shortcut",
+        json!({"id":id}),
+        &headers,
+    )
+    .await;
+    assert_eq!(v["code"], 0);
+    let (_, _, v) = request(
+        &app,
+        "DELETE",
+        "/api/hid/shortcut",
+        json!({"id":id}),
+        &headers,
+    )
+    .await;
+    assert_eq!(v["code"], -2);
+    let (_, _, v) = request(
+        &app,
+        "POST",
+        "/api/hid/shortcut/leader-key",
+        json!({"key":"ControlRight\n"}),
+        &headers,
+    )
+    .await;
+    assert_eq!(v["code"], 0);
+    let (_, _, v) = request(
+        &app,
+        "GET",
+        "/api/hid/shortcut/leader-key",
+        Value::Null,
+        &headers,
+    )
+    .await;
+    assert_eq!(v["data"]["key"], "ControlRight");
+    for _ in 0..2 {
+        assert_eq!(
+            request(
+                &app,
+                "POST",
+                "/api/hid/shortcut/leader-key",
+                json!({"key":""}),
+                &headers
+            )
+            .await
+            .2["code"],
+            0
+        );
+    }
+    state
+        .store
+        .create("viewer", "operator-password", "user")
+        .unwrap();
+    let viewer = format!("Bearer {}", login(&app, "viewer").await);
+    assert_eq!(
+        request(
+            &app,
+            "GET",
+            "/api/hid/shortcuts",
+            Value::Null,
+            &[("authorization", &viewer)]
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        request(
+            &app,
+            "POST",
+            "/api/hid/shortcut",
+            json!({"keys":[]}),
+            &[("authorization", &viewer)]
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+}
+
+#[tokio::test]
+async fn hid_mode_inspects_configured_usb_functions_and_disabled_markers() {
+    let (temp, _, app) = fixture();
+    let auth = format!("Bearer {}", login(&app, "owner").await);
+    let headers = [("authorization", auth.as_str())];
+    let gadget = temp.path().join("sys/kernel/config/usb_gadget/g0");
+    fs::create_dir_all(gadget.join("configs/c.1")).unwrap();
+    fs::write(gadget.join("bcdDevice"), "0x0721\n").unwrap();
+    let (_, _, v) = request(&app, "GET", "/api/hid/mode", Value::Null, &headers).await;
+    assert_eq!(v["data"]["mode"], "hid-only");
+    std::os::unix::fs::symlink(
+        "../../functions/uac1.usb0",
+        gadget.join("configs/c.1/audio"),
+    )
+    .unwrap();
+    let (_, _, v) = request(&app, "GET", "/api/hid/mode", Value::Null, &headers).await;
+    assert_eq!(v["data"]["mode"], "normal");
+    let boot = temp.path().join("boot");
+    fs::create_dir_all(&boot).unwrap();
+    fs::write(boot.join("usb.disable_absolute"), "").unwrap();
+    fs::write(boot.join("usb.pointer_windows"), "").unwrap();
+    let (_, _, v) = request(&app, "GET", "/api/hid/input-status", Value::Null, &headers).await;
+    assert_eq!(
+        v["data"],
+        json!({"available":true,"keyboard":true,"relative":true,"absolute":false,"pointerProfile":"windows"})
+    );
+    fs::write(boot.join("disable_hid"), "").unwrap();
+    let (_, _, v) = request(&app, "GET", "/api/hid/input-status", Value::Null, &headers).await;
+    assert_eq!(v["data"]["available"], false);
+    fs::write(gadget.join("bcdDevice"), "unknown").unwrap();
+    assert_eq!(
+        request(&app, "GET", "/api/hid/mode", Value::Null, &headers)
+            .await
+            .2["code"],
+        -1
+    );
+}

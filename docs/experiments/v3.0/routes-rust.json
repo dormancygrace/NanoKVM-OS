@@ -662,8 +662,11 @@
     "handler": "service.GetShortcuts)          ",
     "source": "server/router/hid.go",
     "line": 25,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hid_settings.rs",
+      "docs/experiments/v3.0/stage3-input.md"
+    ]
   },
   {
     "method": "GET",
@@ -673,8 +676,11 @@
     "handler": "service.GetLeaderKey",
     "source": "server/router/hid.go",
     "line": 26,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hid_settings.rs",
+      "docs/experiments/v3.0/stage3-input.md"
+    ]
   },
   {
     "method": "GET",
@@ -684,8 +690,11 @@
     "handler": "service.GetHidMode",
     "source": "server/router/hid.go",
     "line": 28,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hid_settings.rs",
+      "docs/experiments/v3.0/stage3-input.md"
+    ]
   },
   {
     "method": "GET",
@@ -706,8 +715,11 @@
     "handler": "service.GetInputStatus",
     "source": "server/router/hid.go",
     "line": 30,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hid_settings.rs",
+      "docs/experiments/v3.0/stage3-input.md"
+    ]
   },
   {
     "method": "POST",
@@ -739,8 +751,11 @@
     "handler": "service.AddShortcut",
     "source": "server/router/hid.go",
     "line": 38,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hid_settings.rs",
+      "docs/experiments/v3.0/stage3-input.md"
+    ]
   },
   {
     "method": "DELETE",
@@ -750,8 +765,11 @@
     "handler": "service.DeleteShortcut",
     "source": "server/router/hid.go",
     "line": 39,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hid_settings.rs",
+      "docs/experiments/v3.0/stage3-input.md"
+    ]
   },
   {
     "method": "POST",
@@ -761,8 +779,11 @@
     "handler": "service.SetLeaderKey",
     "source": "server/router/hid.go",
     "line": 40,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hid_settings.rs",
+      "docs/experiments/v3.0/stage3-input.md"
+    ]
   },
   {
     "method": "POST",

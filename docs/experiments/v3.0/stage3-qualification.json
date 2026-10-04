@@ -1,0 +1,65 @@
+{
+  "checked_at": "2026-10-04T23:44:30.964223+00:00",
+  "tests": {
+    "host": 24,
+    "target": 24
+  },
+  "checks": {
+    "fmt": {
+      "exit": 0,
+      "seconds": 0.068,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clippy": {
+      "exit": 0,
+      "seconds": 1.064,
+      "log_sha256": "8e0b84f4678e0162e8cbf5ca29b7b06945cc3ca963919797745108fdbab4c7c7"
+    },
+    "host-contracts": {
+      "exit": 0,
+      "seconds": 8.673,
+      "log_sha256": "16764691198f85380f28d4cb070fe2a243b80a3ced9a5c4f6405e547ad8bcc6e"
+    },
+    "target-build": {
+      "exit": 0,
+      "seconds": 12.993,
+      "log_sha256": "619c3e0a6bd6afe1e3a172a8875eade59213fc8fb59c77b3f4480e0319469920"
+    },
+    "target-contracts": {
+      "exit": 0,
+      "seconds": 14.638,
+      "log_sha256": "4c42c25c4fe8756f7c885fcdf7fd893370b38d6bfa64226466ed9466fe2fa55a"
+    },
+    "target-version": {
+      "exit": 0,
+      "seconds": 0.019,
+      "log_sha256": "45ab3a914204af49b93add1fe3d39a590e5df3bd17e51f7eee8a5c1f3ddc309e"
+    },
+    "target-file": {
+      "exit": 0,
+      "seconds": 0.014,
+      "log_sha256": "f844687d64c97e8e9669dd24e5e25fffc94bef64e6c16bd75ba30dfa1b19707a"
+    },
+    "target-binary": {
+      "sha256": "27c932b2aca15c3364c44a1866808941f46862e82e5cacfa813d1187b363fa40",
+      "bytes": 5538272
+    },
+    "tls-cert": {
+      "exit": 0,
+      "seconds": 0.021,
+      "log_sha256": "ff3104fd21afbb0ed0f433577ab9d07b65f59d08852dd829b1fd84074a5afaae"
+    },
+    "tls-runtime": {
+      "verified_certificate": true,
+      "redirect": 307,
+      "secure_cookie": true,
+      "sigterm_exit": 0,
+      "shutdown_seconds": 0.015,
+      "occupied_port_fails_closed": true
+    },
+    "licenses": {
+      "resolved_packages": 163,
+      "missing_spdx": []
+    }
+  }
+}

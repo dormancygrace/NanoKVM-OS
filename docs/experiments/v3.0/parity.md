@@ -1,6 +1,6 @@
 # Functional parity matrix
 
-204 baseline registrations: 15 implemented in the isolated Rust slice, 189 pending. This is source/host qualification, not complete hardware parity.
+204 baseline registrations: 22 implemented in the isolated Rust slice, 182 pending. This is source/host qualification, not complete hardware parity.
 
 Owner OS password synchronization cannot run in an isolated root; its rollback path is tested. Internal-token/MCP routes fail closed. Pending public/session/admin routes return HTTP 501 after their access gate. All nonpublic baseline routes have an unauthenticated protection test.
 
@@ -62,16 +62,16 @@ Owner OS password synchronization cannot run in an isolated root; its rollback p
 | POST | `/api/extensions/netbird/stop` | admin | server/router/extensions.go:53 | pending | — |
 | POST | `/api/extensions/netbird/restart` | admin | server/router/extensions.go:54 | pending | — |
 | POST | `/api/hid/paste` | session + input owner | server/router/hid.go:23 | pending | — |
-| GET | `/api/hid/shortcuts` | session | server/router/hid.go:25 | pending | — |
-| GET | `/api/hid/shortcut/leader-key` | session | server/router/hid.go:26 | pending | — |
-| GET | `/api/hid/mode` | session | server/router/hid.go:28 | pending | — |
+| GET | `/api/hid/shortcuts` | session | server/router/hid.go:25 | implemented-isolated | stage3-input.md; contract/filesystem |
+| GET | `/api/hid/shortcut/leader-key` | session | server/router/hid.go:26 | implemented-isolated | stage3-input.md; contract/filesystem |
+| GET | `/api/hid/mode` | session | server/router/hid.go:28 | implemented-isolated | stage3-input.md; contract/filesystem |
 | GET | `/api/hid/leds` | session | server/router/hid.go:29 | pending | — |
-| GET | `/api/hid/input-status` | session | server/router/hid.go:30 | pending | — |
+| GET | `/api/hid/input-status` | session | server/router/hid.go:30 | implemented-isolated | stage3-input.md; contract/filesystem |
 | POST | `/api/hid/mode` | admin | server/router/hid.go:36 | pending | — |
 | POST | `/api/hid/reset` | admin | server/router/hid.go:37 | pending | — |
-| POST | `/api/hid/shortcut` | admin | server/router/hid.go:38 | pending | — |
-| DELETE | `/api/hid/shortcut` | admin | server/router/hid.go:39 | pending | — |
-| POST | `/api/hid/shortcut/leader-key` | admin | server/router/hid.go:40 | pending | — |
+| POST | `/api/hid/shortcut` | admin | server/router/hid.go:38 | implemented-isolated | stage3-input.md; contract/filesystem |
+| DELETE | `/api/hid/shortcut` | admin | server/router/hid.go:39 | implemented-isolated | stage3-input.md; contract/filesystem |
+| POST | `/api/hid/shortcut/leader-key` | admin | server/router/hid.go:40 | implemented-isolated | stage3-input.md; contract/filesystem |
 | POST | `/api/internal/usb/recover` | loopback-internal-token | server/router/hid.go:42 | pending | — |
 | GET | `/api/mcp/config` | admin | server/router/mcp.go:31 | pending | — |
 | POST | `/api/mcp/config` | admin | server/router/mcp.go:32 | pending | — |

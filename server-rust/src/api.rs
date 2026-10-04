@@ -48,11 +48,18 @@ fn matched(method: &str, path: &str) -> Option<Route> {
         })
         .cloned()
 }
-fn ok(data: Value) -> Response {
+pub(crate) fn ok(data: Value) -> Response {
     Json(json!({"code":0,"msg":"success","data":data})).into_response()
 }
-fn error(code: i32, msg: &str) -> Response {
+pub(crate) fn error(code: i32, msg: &str) -> Response {
     Json(json!({"code":code,"msg":msg,"data":null})).into_response()
+}
+pub(crate) fn pending() -> Response {
+    (
+        StatusCode::NOT_IMPLEMENTED,
+        Json(json!({"code":-1,"msg":"v3 migration pending","data":null})),
+    )
+        .into_response()
 }
 fn unauthorized() -> Response {
     (StatusCode::UNAUTHORIZED, Json("unauthorized")).into_response()
@@ -480,11 +487,10 @@ fn handle(
                     _ => StatusCode::NOT_FOUND.into_response(),
                 }
             }
-            _ => (
-                StatusCode::NOT_IMPLEMENTED,
-                Json(json!({"code":-1,"msg":"v3 migration pending","data":null})),
-            )
-                .into_response(),
+            _ if path.starts_with("/api/hid/") => {
+                crate::hid_settings::handle(s, method, path, parsed)
+            }
+            _ => pending(),
         }
     };
     if method == Method::POST && path == "/api/auth/login" {

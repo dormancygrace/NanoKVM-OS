@@ -243,10 +243,9 @@ const ru = {
       discard: 'Отменить изменения',
       pending: 'Изменения ещё не применены',
       applied: 'Настройки видео применены',
-      unstableTitle: 'QHD H.265 WebRTC отключён',
-      unstableDescription:
-        'Для QHD H.265 используйте Direct или ограничьте разрешение WebRTC до 1080p.',
-      unstableTag: 'QHD отключён',
+      unstableTitle: 'H.265 WebRTC отключён',
+      unstableDescription: 'H.265 доступен только в режиме Direct. Для WebRTC выберите H.264.',
+      unstableTag: 'H.265 отключён',
       title: 'Видео',
       open: 'Настройки видео…',
       description: 'Настройте HDMI-монитор отдельно от видео, которое передаётся в браузер.',
@@ -705,7 +704,8 @@ const ru = {
           packages: 'Пакеты',
           open: 'Открыть PicoClaw',
           source: 'Официальные релизы',
-          picoclawDescription: 'ИИ-помощник с возможностью удалённого управления. Устанавливается последняя стабильная версия с официального сайта PicoClaw.',
+          picoclawDescription:
+            'ИИ-помощник с возможностью удалённого управления. Устанавливается последняя стабильная версия с официального сайта PicoClaw.'
         },
         title: 'Программы',
         description:

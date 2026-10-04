@@ -59,3 +59,12 @@ test('maximum profile blocks incompatible transports and codecs, including timin
   vm.runInNewContext(code + '\nexports.guard = isMaximumPortraitBlocked;', sandbox);
   assert.equal(await sandbox.exports.guard('h264', 'h265'), false);
 });
+
+test('H265 WebRTC is blocked without consulting resolution or signal state', () => {
+  const sandbox = { exports: {}, getScreen: () => { throw new Error('No signal read expected'); } };
+  vm.runInNewContext(code + '\nexports.guard = isH265WebRTCBlocked;', sandbox);
+  assert.equal(sandbox.exports.guard('h264', 'h265'), true);
+  assert.equal(sandbox.exports.guard('h264', 'h264'), false);
+  assert.equal(sandbox.exports.guard('direct', 'h265'), false);
+  assert.equal(sandbox.exports.guard('mjpeg', 'h265'), false);
+});

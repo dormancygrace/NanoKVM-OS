@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { updateScreen } from '@/api/vm';
 import { getEncoderCodec } from '@/lib/encoder';
 import { setResolution } from '@/lib/localstorage';
-import { isQhdWebRTCBlocked } from '@/lib/video-policy';
+import { isH265WebRTCBlocked } from '@/lib/video-policy';
 import { resolutionAtom, videoModeAtom } from '@/jotai/screen';
 import { MenuSubmenu } from '@/components/menu-item.tsx';
 
@@ -32,12 +32,12 @@ export const Resolution = () => {
         <Button
           type="text"
           key={item.height}
-          disabled={busy || (mode === 'h264' && getEncoderCodec() === 'h265' && item.height > 1080)}
+          disabled={busy || (mode === 'h264' && getEncoderCodec() === 'h265')}
           className="flex! w-full items-center gap-2 rounded px-2 py-2 text-left hover:bg-neutral-700/70 disabled:opacity-50"
           onClick={async () => {
             setBusy(true);
             try {
-              if (await isQhdWebRTCBlocked(mode, getEncoderCodec(), item.height)) {
+              if (await isH265WebRTCBlocked(mode, getEncoderCodec())) {
                 message.warning(t('videoSettings.unstableDescription'));
                 return;
               }

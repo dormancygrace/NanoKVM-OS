@@ -9,6 +9,7 @@ import (
 	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/stream/webrtcdtls"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"sync"
@@ -42,7 +43,7 @@ func getManager() *WebRTCManager {
 }
 
 func Connect(c *gin.Context) {
-	encoderConfig, err := stream.ParseEncoderConfig(c.Request.URL.Query(), stream.DefaultEncoderConfig())
+	encoderConfig, err := stream.ParseEncoderConfig(c.Request.URL.Query(), stream.LegacyEncoderConfig())
 	if err != nil {
 		c.String(http.StatusBadRequest, err.Error())
 		return
@@ -73,8 +74,8 @@ func connect(c *gin.Context, encoderConfig stream.EncoderConfig) {
 	_ = wsConn.SetReadDeadline(zeroTime)
 	wsConn.SetReadLimit(maxSignalingSize)
 
-	if qhdH265Blocked(encoderConfig.Codec) {
-		_ = wsConn.WriteJSON(&Message{Event: "video-error", Data: qhdH265Error})
+	if h265WebRTCBlocked(encoderConfig.Codec) {
+		_ = wsConn.WriteJSON(&Message{Event: "video-error", Data: h265WebRTCError})
 		return
 	}
 	// create video connection
@@ -175,6 +176,9 @@ func sendICEServers(client *Client, iceServers []webrtc.ICEServer) error {
 }
 
 func createMediaEngine(config stream.EncoderConfig) (*webrtc.MediaEngine, error) {
+	if h265WebRTCBlocked(config.Codec) {
+		return nil, errors.New(h265WebRTCError)
+	}
 	mediaEngine := &webrtc.MediaEngine{}
 	codec := webrtc.RTPCodecParameters{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -189,11 +193,6 @@ func createMediaEngine(config stream.EncoderConfig) (*webrtc.MediaEngine, error)
 			},
 		},
 		PayloadType: 102,
-	}
-	if config.Codec == stream.VideoCodecH265 {
-		codec.RTPCodecCapability.MimeType = webrtc.MimeTypeH265
-		codec.RTPCodecCapability.SDPFmtpLine = ""
-		codec.PayloadType = 126
 	}
 
 	if err := mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeVideo); err != nil {

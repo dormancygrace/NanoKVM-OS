@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next';
 
 import { getEncoderCodec } from '@/lib/encoder';
 import { setVideoMode as setCookie } from '@/lib/localstorage.ts';
-import { isMaximumPortraitBlocked, isQhdWebRTCBlocked } from '@/lib/video-policy';
-import { resolutionAtom, videoModeAtom } from '@/jotai/screen.ts';
+import { isH265WebRTCBlocked, isMaximumPortraitBlocked } from '@/lib/video-policy';
+import { videoModeAtom } from '@/jotai/screen.ts';
 import { MenuSubmenu } from '@/components/menu-item.tsx';
 
 const videoModes = [
@@ -19,8 +19,7 @@ const videoModes = [
 export const VideoMode = () => {
   const { t } = useTranslation();
   const videoMode = useAtomValue(videoModeAtom);
-  const resolution = useAtomValue(resolutionAtom);
-  const blocked = getEncoderCodec() === 'h265' && (resolution?.height ?? 0) > 1080;
+  const blocked = getEncoderCodec() === 'h265';
 
   const [isDirectSupported, setIsDirectSupported] = useState(false);
 
@@ -40,7 +39,7 @@ export const VideoMode = () => {
         message.warning(t('videoSettings.portraitMaximumHint'));
         return;
       }
-      if (await isQhdWebRTCBlocked(mode, getEncoderCodec())) {
+      if (await isH265WebRTCBlocked(mode, getEncoderCodec())) {
         message.warning(t('videoSettings.unstableDescription'));
         return;
       }

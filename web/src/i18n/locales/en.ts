@@ -239,9 +239,9 @@ const en = {
       discard: 'Discard changes',
       pending: 'Changes have not been applied',
       applied: 'Video settings applied',
-      unstableTitle: 'QHD H.265 WebRTC is disabled',
-      unstableDescription: 'Use Direct for QHD H.265, or limit the WebRTC stream to 1080p.',
-      unstableTag: 'QHD disabled',
+      unstableTitle: 'H.265 WebRTC is disabled',
+      unstableDescription: 'H.265 is available in Direct mode only. Select H.264 to use WebRTC.',
+      unstableTag: 'H.265 disabled',
       title: 'Video',
       open: 'Video settings…',
       description: 'Configure the HDMI monitor independently from the video sent to your browser.',
@@ -693,7 +693,8 @@ const en = {
           packages: 'Packages',
           open: 'Open PicoClaw',
           source: 'Official releases',
-          picoclawDescription: 'AI assistant with optional remote control. Installs the latest stable release from the official PicoClaw website.',
+          picoclawDescription:
+            'AI assistant with optional remote control. Installs the latest stable release from the official PicoClaw website.'
         },
         title: 'Software',
         description:

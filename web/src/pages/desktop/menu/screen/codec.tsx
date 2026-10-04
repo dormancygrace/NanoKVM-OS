@@ -12,8 +12,8 @@ import {
   type EncoderCodec,
   type EncoderTransport
 } from '@/lib/encoder.ts';
-import { isMaximumPortraitBlocked, isQhdWebRTCBlocked } from '@/lib/video-policy';
-import { resolutionAtom, videoModeAtom } from '@/jotai/screen.ts';
+import { isH265WebRTCBlocked, isMaximumPortraitBlocked } from '@/lib/video-policy';
+import { videoModeAtom } from '@/jotai/screen.ts';
 import { MenuSubmenu } from '@/components/menu-item.tsx';
 
 const codecs: Array<{ key: EncoderCodec; name: string }> = [
@@ -24,8 +24,7 @@ const codecs: Array<{ key: EncoderCodec; name: string }> = [
 export const Codec = () => {
   const { t } = useTranslation();
   const videoMode = useAtomValue(videoModeAtom);
-  const resolution = useAtomValue(resolutionAtom);
-  const blocked = videoMode === 'h264' && (resolution?.height ?? 0) > 1080;
+  const blocked = videoMode === 'h264';
   const [codec, setCodec] = useState(getEncoderCodec);
   const [h265Supported, setH265Supported] = useState(false);
   const [capabilityReady, setCapabilityReady] = useState(false);
@@ -55,7 +54,7 @@ export const Codec = () => {
         message.warning(t('videoSettings.portraitMaximumHint'));
         return;
       }
-      if (await isQhdWebRTCBlocked(videoMode, nextCodec)) {
+      if (await isH265WebRTCBlocked(videoMode, nextCodec)) {
         message.warning(t('videoSettings.unstableDescription'));
         return;
       }

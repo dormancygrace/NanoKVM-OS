@@ -15,12 +15,9 @@ export function isQhdStream(height: number, inputWidth = 0, inputHeight = 0) {
   return height > 1080 || (height === 0 && (inputWidth > 1920 || inputHeight > 1080));
 }
 
-// Re-read shared device settings before changing a browser-only mode or codec.
-export async function isQhdWebRTCBlocked(mode: string, codec: EncoderCodec, height?: number) {
-  if (mode !== 'h264' || codec !== 'h265') return false;
-  const rsp = await getScreen();
-  if (rsp.code !== 0) throw new Error(rsp.msg);
-  return isQhdStream(height ?? rsp.data.height, rsp.data.inputWidth, rsp.data.inputHeight);
+// H.265 is disabled for WebRTC at every resolution, including unknown input.
+export function isH265WebRTCBlocked(mode: string, codec: EncoderCodec) {
+  return mode === 'h264' && codec === 'h265';
 }
 
 // All menu entry points use the same maximum-profile restriction as Settings.

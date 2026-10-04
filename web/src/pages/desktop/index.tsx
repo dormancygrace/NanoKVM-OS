@@ -155,9 +155,11 @@ export const Desktop = () => {
       .catch((error: unknown) => {
         if (!active) return;
         setEncoderError(
-          error instanceof Error && error.message === 'active-codec-unsupported'
-            ? 'screen.activeEncoderUnsupported'
-            : 'screen.encoderStateFailed'
+          error instanceof Error && error.message === 'h265-webrtc-disabled'
+            ? 'videoSettings.unstableDescription'
+            : error instanceof Error && error.message === 'active-codec-unsupported'
+              ? 'screen.activeEncoderUnsupported'
+              : 'screen.encoderStateFailed'
         );
       })
       .finally(() => {

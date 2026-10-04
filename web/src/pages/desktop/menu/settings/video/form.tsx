@@ -23,7 +23,6 @@ import {
   type EncoderCodec
 } from '@/lib/encoder';
 import * as storage from '@/lib/localstorage';
-import { isQhdStream } from '@/lib/video-policy';
 import {
   resolutionAtom,
   streamFpsAtom,
@@ -109,8 +108,7 @@ export const VideoForm = ({
   const setGop = useSetAtom(streamGopAtom);
   const setQuality = useSetAtom(streamQualityAtom);
   const dirty = (Object.keys(draft) as (keyof Draft)[]).some((key) => draft[key] !== saved[key]);
-  const qhdSelected = isQhdStream(draft.height, status.inputWidth, status.inputHeight);
-  const unstableSelected = draft.mode === 'h264' && draft.codec === 'h265' && qhdSelected;
+  const unstableSelected = draft.mode === 'h264' && draft.codec === 'h265';
   const directSupported = window.isSecureContext && !!window.VideoDecoder;
   const maximumPortrait = draft.portrait && draft.portraitResolution === 2560;
 
@@ -486,10 +484,7 @@ export const VideoForm = ({
             {
               value: 'h264',
               label: 'WebRTC',
-              disabled:
-                maximumPortrait ||
-                !window.RTCPeerConnection ||
-                (draft.codec === 'h265' && qhdSelected)
+              disabled: maximumPortrait || !window.RTCPeerConnection || draft.codec === 'h265'
             },
             { value: 'mjpeg', label: 'MJPEG', disabled: maximumPortrait }
           ])
@@ -523,7 +518,7 @@ export const VideoForm = ({
                 {
                   value: 'h265',
                   label: `H.265 / HEVC${h265Supported === false ? ` (${t('screen.unsupported')})` : ''}`,
-                  disabled: h265Supported !== true || (draft.mode === 'h264' && qhdSelected)
+                  disabled: h265Supported !== true || draft.mode === 'h264'
                 },
                 { value: 'h264', label: 'H.264 / AVC', disabled: maximumPortrait }
               ],
@@ -556,10 +551,7 @@ export const VideoForm = ({
             t('videoSettings.streamResolution'),
             [0, ...(status.qhdSupported ? [1440] : []), 1080, 720, 600].map((value) => ({
               value,
-              disabled:
-                draft.mode === 'h264' &&
-                draft.codec === 'h265' &&
-                isQhdStream(value, status.inputWidth, status.inputHeight),
+              disabled: draft.mode === 'h264' && draft.codec === 'h265',
               label: value
                 ? t('videoSettings.atMost', { value: `${value}p` })
                 : t('videoSettings.sameAsInput')

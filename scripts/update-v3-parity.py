@@ -13,18 +13,24 @@ ported = {
     ("POST", "/api/auth/users/:username/password"),
     ("GET", "/api/branding"), ("GET", "/api/branding/logo"), ("GET", "/api/branding/favicon"),
     ("GET", "/api/vm/web-title"), ("POST", "/api/vm/web-title"),
+    ("GET", "/api/hid/mode"), ("GET", "/api/hid/input-status"),
+    ("GET", "/api/hid/shortcuts"), ("POST", "/api/hid/shortcut"), ("DELETE", "/api/hid/shortcut"),
+    ("GET", "/api/hid/shortcut/leader-key"), ("POST", "/api/hid/shortcut/leader-key"),
 }
 assert ported <= {(r["method"], r["path"]) for r in routes}
 rows = ["# Functional parity matrix", "",
-        "204 baseline registrations: 15 implemented in the isolated Rust slice, 189 pending. This is source/host qualification, not complete hardware parity.", "",
+        f"{len(routes)} baseline registrations: {len(ported)} implemented in the isolated Rust slice, {len(routes)-len(ported)} pending. This is source/host qualification, not complete hardware parity.", "",
         "Owner OS password synchronization cannot run in an isolated root; its rollback path is tested. Internal-token/MCP routes fail closed. Pending public/session/admin routes return HTTP 501 after their access gate. All nonpublic baseline routes have an unauthenticated protection test.", "",
         "| Method | Path | Access | Go handler/source | Rust status | Evidence |",
         "|---|---|---|---|---|---|"]
 for r in routes:
     if (r["method"], r["path"]) in ported:
         r["rust_status"] = "implemented-isolated"
-        r["evidence"] = ["server-rust/src/api.rs", "docs/experiments/v3.0/validation.md"]
-    evidence = "validation.md; API/contract/UI slice" if r["evidence"] else "—"
+        r["evidence"] = (["server-rust/src/hid_settings.rs", "docs/experiments/v3.0/stage3-input.md"]
+                         if r["path"].startswith("/api/hid/") else
+                         ["server-rust/src/api.rs", "docs/experiments/v3.0/validation.md"])
+    evidence = ("stage3-input.md; contract/filesystem" if r["path"].startswith("/api/hid/")
+                else "validation.md; API/contract/UI slice") if r["evidence"] else "—"
     rows.append(f"| {r['method']} | `{r['path']}` | {r['authorization']}" +
                 (" + input owner" if r["input_owner"] else "") +
                 f" | {r['source']}:{r['line']} | {r['rust_status']} | {evidence} |")

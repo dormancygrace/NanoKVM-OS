@@ -2,6 +2,9 @@ mod api;
 mod branding;
 pub mod config;
 pub mod crypto;
+pub mod hid_reports;
+mod hid_settings;
+pub mod input;
 pub mod lockout;
 pub mod redirect;
 pub mod store;
@@ -26,6 +29,7 @@ pub struct Runtime {
     pub store: store::Store,
     pub lockout: Mutex<lockout::Lockout>,
     pub jobs: Arc<Semaphore>,
+    pub hid_settings: Mutex<()>,
 }
 impl Runtime {
     pub fn load(root: &Path) -> Result<Arc<Self>, Error> {
@@ -36,6 +40,7 @@ impl Runtime {
             root,
             lockout: Mutex::new(lockout::Lockout::default()),
             jobs: Arc::new(Semaphore::new(4)),
+            hid_settings: Mutex::new(()),
         }))
     }
 }

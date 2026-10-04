@@ -204,5 +204,15 @@
       "node_id": "MDc6TGljZW5zZTI="
     },
     "open_issues_count": 5
+  },
+  {
+    "full_name": "RustCrypto/utils",
+    "html_url": "https://github.com/RustCrypto/utils",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-09-22T04:33:22Z",
+    "updated_at": "2026-10-02T15:34:09Z",
+    "license": null,
+    "open_issues_count": 34
   }
 ]

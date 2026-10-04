@@ -23,6 +23,7 @@ Branch/worktree: v3.0-experimental, /home/dgrace/nanokvm-astra/v3.0-experimental
 
 ## Current evidence
 - Exact branch verified. Stage 1 inventory committed as 4556d2e; stage 2 committed as 240d818e53eee49863881c097ff821f7598c906f. Working tree clean immediately after that commit.
+- Bounded stage 3 settings/input-core slice committed as 54e73bf. WS/device IO wiring is the next unfinished substage.
 - Parent AGENTS.md read; no nested AGENTS.md present.
 - Rust 1.99.0 pinned for the project; global default remains 1.86.0. Generic riscv64 musl binary executes under QEMU.
 - 24 host/target tests pass after the bounded stage 3 settings/input-core slice; eight real Go oracle response cases, two-way JWT interoperability, persisted HID settings, ownership/stale-ticket and HID descriptor/deadline contracts included. 22/204 route implementations, 182 pending.
@@ -33,7 +34,7 @@ Branch/worktree: v3.0-experimental, /home/dgrace/nanokvm-astra/v3.0-experimental
 - Go app depends on patched Pion ICE/DTLS/SRTP and RustDesk currently calls Go media/HID/WebRTC bridges.
 
 ## Next action
-Commit bounded stage 3 settings/input-core slice, then wire authenticated/origin-checked/revocable /api/ws to nonblocking HID descriptors and bounded workers. Preserve 4 KiB messages, 90-second heartbeat, 10-second writes, 4401 revocation closes, release-before-transfer and stale queue cancellation; LED lifecycle, manual/MCP/PicoClaw preemption, jiggler, USB rebind/reopen remain required. Relevant Go ws/hid/session sources and tests read. scripts/check-v3.py, check-v3-transport.py and refresh-v3-oracle.py reproduce qualification. NK_V3_PLATFORM points to matched read-only artifacts under /home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform. Runtime still refuses production activation and nonloopback hosts. No media/device parity or performance claim and no stand changes.
+Wire authenticated/origin-checked/revocable /api/ws to nonblocking HID descriptors and bounded workers. Preserve 4 KiB messages, 90-second heartbeat, 10-second writes, 4401 revocation closes, release-before-transfer and stale queue cancellation; LED lifecycle, manual/MCP/PicoClaw preemption, jiggler, USB rebind/reopen remain required. Relevant Go ws/hid/session sources and tests read. scripts/check-v3.py, check-v3-transport.py and refresh-v3-oracle.py reproduce qualification. NK_V3_PLATFORM points to matched read-only artifacts under /home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform. Runtime still refuses production activation and nonloopback hosts. No media/device parity or performance claim and no stand changes.
 
 ## User steering (2026-10-05)
 Choose the best maintained upstream projects; do not pick abandoned libraries or constrain the design to the old Rust 1.86 installation. Dependency maintenance/qualification recorded and committed with stage 2; webrtc-rs selected for integrated TURN parity, str0m retained as a measured alternative. No abandoned-project fallback or Go runtime bridge.

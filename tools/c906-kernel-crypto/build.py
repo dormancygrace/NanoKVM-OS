@@ -34,6 +34,8 @@ def main():
     code = re.sub(r"^MODULE_\w+\(.*\);\s*$", "", code, flags=re.M)
     defines = "\n".join(f"#define {n} kc_{n}" for n in exports)
     (output / "aead.c").write_text(defines + "\n#define chacha_crypt kc_candidate_chacha_crypt\n" + code)
+    scalar_defines = "\n".join(f"#define {n} kc_reference_{n}" for n in exports)
+    (output / "aead-scalar.c").write_text(scalar_defines + "\n#define chacha_crypt kc_reference_chacha_crypt\n" + code)
     qualified = here.parent / "c906-vector-copy/screen_client.c"
     text = qualified.read_text()
     start = text.index("struct vector_state {")
@@ -41,7 +43,7 @@ def main():
     (output / "vector_state_helpers.h").write_text(text[start:end])
     (output / "Makefile").write_text(
         "obj-m += c906_crypto_probe.o\n"
-        "c906_crypto_probe-y := probe.o candidates.o crc.o aead.o\n"
+        "c906_crypto_probe-y := probe.o candidates.o crc.o aead.o aead-scalar.o\n"
         "ccflags-y += -O3 -fno-tree-vectorize -fno-tree-slp-vectorize\n")
     command = ["make", "-C", str(source), f"O={build}", f"M={output}", "ARCH=riscv",
                f"CROSS_COMPILE={a.cross}", f"CC={a.cross}gcc", "-j4", "modules"]

@@ -21,11 +21,24 @@
 struct kc_context {
 	u8 *src, *dst, *expected;
 	struct chacha_state state, base;
-	struct scatterlist sg[32];
+	struct scatterlist sg[128];
 	u8 key[32], iv[16];
 };
 static DEFINE_MUTEX(run_lock);
 static struct kc_request *active_request;
+/* Keep the oracle scalar even when testing an integrated vector kernel. */
+void kc_reference_chacha_crypt(struct chacha_state *state, u8 *dst,
+	const u8 *src, unsigned int bytes, int rounds)
+{
+	u8 stream[CHACHA_BLOCK_SIZE] __aligned(sizeof(long));
+	while (bytes) {
+		unsigned int n = min(bytes, CHACHA_BLOCK_SIZE);
+		chacha_block_generic(state, stream, rounds);
+		crypto_xor_cpy(dst, src, stream, n);
+		dst += n; src += n; bytes -= n;
+	}
+	memzero_explicit(stream, sizeof(stream));
+}
 static int kc_open(struct inode *inode, struct file *file)
 {
 	struct kc_context *c = kzalloc(sizeof(*c), GFP_KERNEL);
@@ -51,8 +64,9 @@ void kc_candidate_chacha_crypt(struct chacha_state *state, u8 *dst,
 {
 	struct kc_request *r = active_request;
 	u32 stream[64] __aligned(16);
-	bool simd = r && (r->variant == 2 || r->variant == 3 || r->variant == 4)
-		&& bytes && (r->variant != 4 || bytes >= 256)
+	unsigned int threshold = r && r->variant >= 4 ? 256U << (r->variant - 4) : 1;
+	bool simd = r && r->variant >= 2
+		&& bytes >= threshold
 		&& has_xtheadvector() && may_use_simd();
 	if (!simd) { chacha_crypt(state, dst, src, bytes, rounds); return; }
 	kernel_vector_begin();
@@ -95,14 +109,29 @@ static u64 compute_one(struct kc_context *c, struct kc_request *r)
 		return c->state.x[12];
 	}
 	if (r->operation == KC_AEAD_SG)
-		return kc_chacha20poly1305_encrypt_sg_inplace(c->sg, r->bytes,
+		return (r->variant ? kc_chacha20poly1305_encrypt_sg_inplace :
+			chacha20poly1305_encrypt_sg_inplace)(c->sg, r->bytes,
+			NULL, 0, ((u64)r->seed << 32) | r->seed, c->key);
+	if (r->operation == KC_AEAD_SG_DECRYPT)
+		return (r->variant ? kc_chacha20poly1305_decrypt_sg_inplace :
+			chacha20poly1305_decrypt_sg_inplace)(c->sg, r->bytes + 16,
 			NULL, 0, ((u64)r->seed << 32) | r->seed, c->key);
 	simd = (r->variant == 2 || r->variant == 3) && r->bytes &&
 		(r->operation == KC_COPY_CSUM || r->bytes >= 512) && may_use_simd();
 	if (simd) { kernel_vector_begin(); r->vector_calls++; }
-	if (r->operation == KC_COPY_CSUM)
-		result = simd ? kc_copy_csum(dst, src, r->bytes) :
-			(__force u32)csum_partial_copy_nocheck(src, dst, r->bytes);
+	if (r->operation == KC_COPY_CSUM) {
+		if (simd) {
+			size_t n = r->bytes;
+			result = 0;
+			while (n) {
+				size_t chunk = min_t(size_t, n, 65536);
+				result += kc_copy_csum(dst, src, chunk);
+				dst += chunk; src += chunk; n -= chunk;
+			}
+			result = (result & 0xffff) + (result >> 16);
+			result = (result & 0xffff) + (result >> 16);
+		} else result = (__force u32)csum_partial_copy_nocheck(src, dst, r->bytes);
+	}
 	else if (simd)
 		result = kc_crc_vector(r->seed, src, r->bytes, r->operation == KC_CRC32C);
 	else if (r->variant == 1)
@@ -162,10 +191,10 @@ static long kc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	if (cmd != KC_RUN) return -ENOTTY;
 	if (copy_from_user(&r, (void __user *)arg, sizeof(r))) return -EFAULT;
 	if (r.bytes > KC_MAX || r.offset > 7 || r.dst_offset > 7 || r.pattern > 3 ||
-		r.operation >= KC_OPERATIONS || r.variant > 4 || r.flags > 15 ||
+		r.operation >= KC_OPERATIONS || r.variant > 8 || r.flags > 15 ||
 		!r.iterations || r.iterations > 4096 ||
 		(r.bytes && r.iterations > 64ULL*1024*1024/r.bytes) ||
-		(r.variant == 3 && (r.bytes > 4096 || r.operation == KC_AEAD_SG)) ||
+		(r.variant == 3 && (r.bytes > 4096 || r.operation == KC_AEAD_SG || r.operation == KC_AEAD_SG_DECRYPT)) ||
 		((r.flags & 8) && !((r.operation == KC_CHACHA20 && r.bytes == 64) ||
 			((r.operation == KC_CRC32 || r.operation == KC_CRC32C) && r.bytes == 9))))
 		return -EINVAL;
@@ -175,7 +204,7 @@ static long kc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	src = c->src + KC_PAD + r.offset;
 	dst = c->dst + KC_PAD + r.dst_offset;
 	expected = c->expected + KC_PAD;
-	output = r.bytes + (r.operation == KC_AEAD_SG ? 16 : 0);
+	output = r.bytes + ((r.operation == KC_AEAD_SG || r.operation == KC_AEAD_SG_DECRYPT) ? 16 : 0);
 	memset(c->src, 0xa5, KC_MAX + 4*KC_PAD);
 	memset(c->dst, 0xa5, KC_MAX + 4*KC_PAD);
 	memset(c->expected, 0xa5, KC_MAX + 4*KC_PAD);
@@ -195,13 +224,13 @@ static long kc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	chacha_init(&c->base, (const u32 *)c->key, c->iv);
 	expected_state = c->base;
 	if (r.operation < KC_AEAD_SG) {
-		chacha_crypt(&expected_state, expected, src, r.bytes,
+		kc_reference_chacha_crypt(&expected_state, expected, src, r.bytes,
 			r.operation == KC_CHACHA20 ? 20 : 12);
 		expected_result = expected_state.x[12];
-	} else if (r.operation == KC_AEAD_SG) {
-		chacha20poly1305_encrypt(expected, src, r.bytes, NULL, 0,
+	} else if (r.operation == KC_AEAD_SG || r.operation == KC_AEAD_SG_DECRYPT) {
+		kc_reference_chacha20poly1305_encrypt(expected, src, r.bytes, NULL, 0,
 			((u64)r.seed << 32) | r.seed, c->key);
-		expected_result = 1;
+		expected_result = r.operation == KC_AEAD_SG_DECRYPT ? !(r.flags & 2) : 1;
 	} else if (r.operation == KC_COPY_CSUM) {
 		memcpy(expected, src, r.bytes);
 		expected_result = (__force u32)csum_partial(src, r.bytes, 0);
@@ -220,8 +249,12 @@ static long kc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	r.elapsed_ns = r.vector_calls = r.completed = r.result = 0;
 	for (i = 0; i < r.iterations; i++) {
 		c->state = c->base;
-		if ((r.flags & 1) || r.operation == KC_AEAD_SG) memcpy(dst, src, r.bytes);
-		if (r.operation == KC_AEAD_SG) make_sg(c, dst, output, r.flags & 4);
+		if (r.operation == KC_AEAD_SG_DECRYPT) {
+			memcpy(dst, expected, output);
+			if (r.flags & 2) dst[r.bytes + 15] ^= 1;
+		} else if ((r.flags & 1) || r.operation == KC_AEAD_SG) memcpy(dst, src, r.bytes);
+		if (r.operation == KC_AEAD_SG || r.operation == KC_AEAD_SG_DECRYPT)
+			make_sg(c, dst, output, r.flags & 4);
 		start = ktime_get_ns();
 		r.result = run_one(c, &r);
 		r.elapsed_ns += ktime_get_ns() - start;
@@ -231,6 +264,8 @@ static long kc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 	if (!ret && (r.operation <= KC_AEAD_SG || r.operation == KC_COPY_CSUM) &&
 		memcmp(dst, expected, output)) ret = -EBADMSG;
+	if (!ret && r.operation == KC_AEAD_SG_DECRYPT && !(r.flags & 2) && memcmp(dst, src, r.bytes))
+		ret = -EBADMSG;
 	if (!ret && r.operation < KC_AEAD_SG && memcmp(&c->state, &expected_state, sizeof(c->state)))
 		ret = -EBADMSG;
 	entries = r.vector_calls;

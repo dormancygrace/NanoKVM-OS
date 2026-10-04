@@ -45,16 +45,46 @@ Correctness checks include the RFC8439 block vector, CRC known vectors and an
 independent CRC bitwise oracle, tails, offsets, inplace operation, counter wrap,
 64-bit AEAD nonces, fragmented SG, rejected modified tags, source/destination
 guards, and hard-IRQ scalar fallbacks. SG encryption and decryption are compared
-with the existing kernel library. A successful compile is not hardware qualification.
+with a separate scalar ChaCha library copy, including on an integrated vector
+kernel. A successful compile is not hardware qualification.
 
 Timings include dispatch and vector context entry/exit; buffer reset, SG setup
-and output validation occur outside each timed call. Full AEAD rows measure
-encryption; decryption is separately checked outside timing. Each benchmark row
+and output validation occur outside each timed call. Full AEAD rows distinguish
+encryption and decryption; bad tags are separate correctness cases. Each benchmark row
 uses eight separate ioctls with active userspace vectors and checks FCSR/VXRM/VXSAT.
 Five repetitions alternate variant order. Sizes include MTU-sized packets.
+The `thresholds` command instead uses 32 separate active-vector ioctls and seven
+repetitions, comparing ChaCha thresholds 256, 512, 1024, 2048 and 4096 bytes.
+Analyze private CSV files with `analyze.py CSV JSON`, adding `--thresholds`
+for that sweep. The analyzer rejects incomplete variant/repetition matrices.
+The `chunks` command checks fused-copy accumulation across 64 KiB boundaries,
+up to 256 KiB. The `kernel` command measures only real production library
+calls (including the exported SG AEAD functions) with 32 active-vector ioctls
+and seven repetitions. Build the probe against each tested kernel so its
+headers select the actual `csum_partial_copy_nocheck` implementation.
+Compare complete before/after matrices using `compare-kernels.py OLD NEW JSON`.
 Signal context tests check all 32 vector registers and VL/VTYPE/VSTART asynchronously;
 ordinary syscalls need not preserve those registers. No separate-CSR assumption is made.
 
 All functions must pass qualification and demonstrate relevant whole-function
-gains before inclusion in a single combined kernel candidate. Thresholds and
-kernel integration are intentionally not selected by this diagnostic module.
+gains before inclusion in a single combined kernel candidate.
+
+The opt-in `platform/kernel/0037-c906-vector-crypto-crc-copy.patch` applies after
+`0036-c906-vector-kernel-functions.patch`. Its three options default off:
+`RISCV_ISA_XTHEADVECTOR_CHACHA`, `RISCV_ISA_XTHEADVECTOR_CRC` and
+`RISCV_ISA_XTHEADVECTOR_COPY_CSUM`. Enable them explicitly for qualification.
+The `selected.config` fragment records the combined qualification configuration,
+including the earlier usercopy and checksum options. Merge it into the existing
+NanoKVM kernel configuration after applying both patches.
+ChaCha starts at 2048 bytes per library call; CRC uses slicing8 from 1024 bytes
+and vectors from 8192; fused RAM copy/checksum starts at 4096 bytes.
+Short buffers and SIMD-forbidden contexts retain scalar paths. CRC uses its
+original backend until its tables have initialized. HChaCha and Poly1305 keep
+their existing backends. Rebuild and deploy matching modules along with the
+kernel, including `libchacha.ko`; this change is not confined to the boot image.
+
+`integrate.py KERNEL PATCH` regenerates the patch from the qualification sources
+and modifies a fresh kernel tree with patch 0036 already applied. Optional
+threshold arguments allow controlled tuning. Keep GCC kernel C at O3 with
+compiler vectorization disabled; the vector routines are explicit legacy
+assembly. Do not add RVV 1.0 or vector-crypto requirements to the C906 build.

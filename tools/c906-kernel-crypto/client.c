@@ -49,6 +49,22 @@ static void execute(struct kc_request *r)
 		((r->operation != KC_CRC32 && r->operation != KC_CRC32C) || r->bytes >= 512) &&
 		!r->vector_calls) { fprintf(stderr,"FAIL missing vector entry\n"); exit(1); }
 }
+static void active_run(struct kc_request *, unsigned);
+static void kernel_bench(void)
+{
+	const size_t sizes[]={64,256,512,768,1420,1500,4096,8192,16384,65536};
+	puts("operation,variant,bytes,offset,dst_offset,pattern,seed,flags,repetition,iterations,elapsed_ns,vector_calls");
+	for(unsigned rep=0;rep<7;rep++)for(unsigned op=0;op<KC_OPERATIONS;op++)
+		for(unsigned i=0;i<sizeof(sizes)/sizeof(sizes[0]);i++)for(unsigned offset=0;offset<2;offset++) {
+			struct kc_request r={.operation=op,.variant=0,.bytes=sizes[i],.offset=offset?7:0,
+				.dst_offset=offset?3:0,.pattern=0,.seed=0xffffffffU,
+				.flags=(op==KC_AEAD_SG || op==KC_AEAD_SG_DECRYPT)?4:0};
+			active_run(&r,32);
+			printf("%u,0,%"PRIu64",%u,%u,%u,%u,%u,%u,%"PRIu64",%"PRIu64",%"PRIu64"\n",
+				op,(uint64_t)r.bytes,r.offset,r.dst_offset,r.pattern,r.seed,r.flags,rep,
+				(uint64_t)r.iterations,(uint64_t)r.elapsed_ns,(uint64_t)r.vector_calls);
+		}
+}
 static void active_run(struct kc_request *r, unsigned calls)
 {
 	unsigned char data[512] __attribute__((aligned(16)));
@@ -70,26 +86,36 @@ static void validate(int smoke)
 {
 	const size_t sizes[]={0,1,2,3,7,8,9,15,16,31,32,63,64,65,127,128,129,255,256,257,
 		511,512,513,768,1024,1420,1450,1500,2048,4095,4096,4097,8192,16384,65535,65536};
-	const unsigned offsets[]={0,1,3,7}, seeds[]={0,0xffffffffU,0xfffffffeU};
+	const unsigned offsets[]={0,1,2,3,4,5,6,7}, seeds[]={0,0xffffffffU,0xfffffffeU};
 	unsigned long cases=0;
 	for(unsigned op=0;op<KC_OPERATIONS;op++)
-		for(unsigned mode=0;mode<5;mode++) {
-			if ((op!=KC_CRC32 && op!=KC_CRC32C && mode==1) || (op>=KC_CRC32 && mode==4) ||
-				(op==KC_AEAD_SG && mode==3)) continue;
+		for(unsigned mode=0;mode<9;mode++) {
+			if ((op!=KC_CRC32 && op!=KC_CRC32C && mode==1) || (op>=KC_CRC32 && mode>=4) ||
+				((op==KC_AEAD_SG || op==KC_AEAD_SG_DECRYPT) && mode==3)) continue;
 			for(unsigned i=0;i<sizeof(sizes)/sizeof(sizes[0]);i++) {
 				size_t n=sizes[i];
 				if ((mode==3 && n>4096) || (smoke && n!=64 && n!=1450 && n!=4096)) continue;
-				for(unsigned offset=0;offset<(smoke?2U:4U);offset++)
+				for(unsigned offset=0;offset<(smoke?2U:8U);offset++)
 					for(unsigned pattern=0;pattern<(smoke?1U:4U);pattern++)
 						for(unsigned seed=0;seed<(smoke?1U:3U);seed++) {
 							struct kc_request r={.operation=op,.variant=mode,.bytes=n,.iterations=1,
-								.offset=offsets[offset],.dst_offset=offsets[3-offset],.pattern=pattern,
-								.seed=seeds[seed],.flags=op==KC_AEAD_SG?4U:(pattern&1)};
+								.offset=offsets[offset],.dst_offset=offsets[7-offset],.pattern=pattern,
+								.seed=seeds[seed],.flags=(op==KC_AEAD_SG || op==KC_AEAD_SG_DECRYPT)?4U:(pattern&1)};
 							execute(&r); cases++;
-							if(op==KC_AEAD_SG){r.flags=2|(pattern&1?4:0);execute(&r);cases++;}
+							if(op==KC_AEAD_SG || op==KC_AEAD_SG_DECRYPT){r.flags=2|(pattern&1?4:0);execute(&r);cases++;}
 						}
 			}
 		}
+	if(!smoke) {
+		const size_t boundaries[]={1,63,64,65,127,128,129,255,256,257,1450,4096,8192};
+		const unsigned operations[]={KC_CHACHA20,KC_COPY_CSUM};
+		for(unsigned op=0;op<2;op++)for(unsigned i=0;i<sizeof(boundaries)/sizeof(boundaries[0]);i++)
+			for(unsigned src=0;src<8;src++)for(unsigned dst=0;dst<8;dst++)for(unsigned mode=0;mode<3;mode+=2) {
+				struct kc_request r={.operation=operations[op],.variant=mode,.bytes=boundaries[i],
+					.iterations=1,.offset=src,.dst_offset=dst,.pattern=1,.seed=0xfffffffeU};
+				execute(&r);cases++;
+			}
+	}
 	for(unsigned op=0;op<KC_OPERATIONS;op++) {
 		if(op!=KC_CHACHA20 && op!=KC_CRC32 && op!=KC_CRC32C)continue;
 		for(unsigned mode=0;mode<3;mode++) {
@@ -111,9 +137,10 @@ static void context_test(void)
 	if(sigaction(SIGALRM,&action,NULL)||setitimer(ITIMER_REAL,&timer,NULL))die("context timer");
 	for(unsigned repeat=0;repeat<2;repeat++)for(unsigned rm=0;rm<4;rm++)for(unsigned sat=0;sat<2;sat++)
 		for(unsigned op=0;op<KC_OPERATIONS;op++)for(unsigned mode=2;mode<5;mode++) {
-			if((mode==3 && op==KC_AEAD_SG)||(mode==4 && op>=KC_CRC32))continue;
+			if((mode==3 && (op==KC_AEAD_SG || op==KC_AEAD_SG_DECRYPT))||(mode==4 && op>=KC_CRC32))continue;
 			struct kc_request r={.operation=op,.variant=mode,.bytes=4096,.iterations=8,
-				.offset=7,.dst_offset=3,.pattern=1,.seed=0xfffffffeU,.flags=op==KC_AEAD_SG?4:1};
+				.offset=7,.dst_offset=3,.pattern=1,.seed=0xfffffffeU,
+				.flags=(op==KC_AEAD_SG || op==KC_AEAD_SG_DECRYPT)?4:1};
 			seed_vector(data,rm,sat);capture_vector(&before);
 			sig_atomic_t old=signal_count;
 			while(signal_count-old<2)__asm__ volatile("nop":::"memory");
@@ -130,18 +157,34 @@ static void context_test(void)
 	if(!signal_count){fprintf(stderr,"FAIL missing asynchronous signals\n");exit(1);}
 	printf("PASS context_calls=%u vector_entries=%u signals=%d all32_VL_VTYPE_VSTART FCSR_VXRM_VXSAT\n",calls,entries,(int)signal_count);
 }
-static void bench(void)
+static void chunk_test(void)
+{
+	const size_t sizes[]={65537,131071,131072,131073,196607,196608,196609,262143,262144};
+	unsigned cases=0;
+	for(unsigned i=0;i<sizeof(sizes)/sizeof(sizes[0]);i++)
+		for(unsigned src=0;src<8;src++)for(unsigned dst=0;dst<8;dst++)
+			for(unsigned pattern=0;pattern<4;pattern++)for(unsigned mode=0;mode<3;mode+=2) {
+				struct kc_request r={.operation=KC_COPY_CSUM,.variant=mode,.bytes=sizes[i],
+					.offset=src,.dst_offset=dst,.pattern=pattern,.seed=0xffffffffU};
+				active_run(&r,1);cases++;
+			}
+	printf("PASS chunk_cases=%u max_bytes=%u all64_alignments four_patterns active_vector_controls\n",cases,KC_MAX);
+}
+static void bench(int thresholds)
 {
 	const size_t sizes[]={64,256,512,768,1420,1500,4096,8192,16384,65536};
 	puts("operation,variant,bytes,offset,dst_offset,pattern,seed,flags,repetition,iterations,elapsed_ns,vector_calls");
-	for(unsigned rep=0;rep<5;rep++)for(unsigned op=0;op<KC_OPERATIONS;op++)
+	unsigned repetitions=thresholds?7:5, modes=thresholds?9:5;
+	for(unsigned rep=0;rep<repetitions;rep++)for(unsigned op=0;op<KC_OPERATIONS;op++)
 		for(unsigned i=0;i<sizeof(sizes)/sizeof(sizes[0]);i++)for(unsigned offset=0;offset<2;offset++)
-			for(unsigned pos=0;pos<5;pos++) {
-				unsigned mode=rep&1?4-pos:pos;
-				if(mode==3 || (mode==1 && op!=KC_CRC32 && op!=KC_CRC32C) || (mode==4 && op>=KC_CRC32))continue;
+			for(unsigned pos=0;pos<modes;pos++) {
+				unsigned mode=rep&1?modes-1-pos:pos;
+				if(mode==3 || (mode==1 && op!=KC_CRC32 && op!=KC_CRC32C) || (mode>=4 && op>=KC_CRC32) ||
+					(thresholds && mode==2 && op<KC_CRC32))continue;
 				struct kc_request r={.operation=op,.variant=mode,.bytes=sizes[i],.offset=offset?7:0,
-					.dst_offset=offset?3:0,.pattern=0,.seed=0xffffffffU,.flags=op==KC_AEAD_SG?4:0};
-				active_run(&r,8);
+					.dst_offset=offset?3:0,.pattern=0,.seed=0xffffffffU,
+					.flags=(op==KC_AEAD_SG || op==KC_AEAD_SG_DECRYPT)?4:0};
+				active_run(&r,thresholds?32:8);
 				printf("%u,%u,%"PRIu64",%u,%u,%u,%u,%u,%u,%"PRIu64",%"PRIu64",%"PRIu64"\n",
 					op,mode,(uint64_t)r.bytes,r.offset,r.dst_offset,r.pattern,r.seed,r.flags,rep,
 					(uint64_t)r.iterations,(uint64_t)r.elapsed_ns,(uint64_t)r.vector_calls);
@@ -149,7 +192,7 @@ static void bench(void)
 }
 int main(int argc,char **argv)
 {
-	if(argc!=3){fprintf(stderr,"usage: %s DEVICE smoke|validate|context|bench\n",argv[0]);return 2;}
+	if(argc!=3){fprintf(stderr,"usage: %s DEVICE smoke|validate|context|chunks|bench|thresholds|kernel\n",argv[0]);return 2;}
 	__asm__ volatile("csrr %0,0x003":"=r"(original_fcsr));atexit(restore_controls);
 	fd=open(argv[1],O_RDWR);if(fd<0)die("open");
 	unsigned long width;
@@ -158,7 +201,10 @@ int main(int argc,char **argv)
 	if(!strcmp(argv[2],"smoke"))validate(1);
 	else if(!strcmp(argv[2],"validate"))validate(0);
 	else if(!strcmp(argv[2],"context"))context_test();
-	else if(!strcmp(argv[2],"bench"))bench();
+	else if(!strcmp(argv[2],"chunks"))chunk_test();
+	else if(!strcmp(argv[2],"bench"))bench(0);
+	else if(!strcmp(argv[2],"thresholds"))bench(1);
+	else if(!strcmp(argv[2],"kernel"))kernel_bench();
 	else return 2;
 	close(fd);return 0;
 }

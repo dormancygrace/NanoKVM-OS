@@ -16,6 +16,7 @@
 - Apply explicit codec changes across active viewers and preserve the selected codec after restarts. Fix returning stream resolution to **Same as input**.
 - Disable **H.265 over WebRTC at every resolution** in both the interface and server. Use **H.265 Direct** or **H.264 WebRTC**. Hardware AES acceleration remains enabled.
 - Reduce WebRTC allocations and batch UDP output.
+- The underlying concurrent H.265/CryptoDMA freeze is still under investigation; disabling H.265 WebRTC is a mitigation, not a driver fix.
 - Fit video and settings to the mobile browser's changing viewport. Fix settings requiring a second tap, inaccessible Apply buttons, nested scrolling, flashing transient encoder errors and the floating toolbar's corners.
 - Add the optional **Windows absolute-pointer profile** with USB/EDID display association.
 - Support right-click by holding one finger and tapping with another; improve touch scrolling.

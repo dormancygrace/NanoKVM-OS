@@ -1,23 +1,25 @@
 # Functional parity matrix
 
-Generated source ledger; all entries begin pending. Hardware evidence is required for target claims.
+204 baseline registrations: 15 implemented in the isolated Rust slice, 189 pending. This is source/host qualification, not complete hardware parity.
+
+Owner OS password synchronization cannot run in an isolated root; its rollback path is tested. Internal-token/MCP routes fail closed. Pending public/session/admin routes return HTTP 501 after their access gate. All nonpublic baseline routes have an unauthenticated protection test.
 
 | Method | Path | Access | Go handler/source | Rust status | Evidence |
 |---|---|---|---|---|---|
 | GET | `/api/addons/inventory` | admin | server/router/addons.go:15 | pending | — |
-| POST | `/api/auth/login` | public | server/router/auth.go:14 | pending | — |
-| GET | `/api/auth/password` | session | server/router/auth.go:18 | pending | — |
-| GET | `/api/auth/account` | session | server/router/auth.go:19 | pending | — |
-| POST | `/api/auth/password` | session | server/router/auth.go:20 | pending | — |
-| POST | `/api/auth/logout` | session | server/router/auth.go:21 | pending | — |
-| GET | `/api/auth/users` | admin | server/router/auth.go:27 | pending | — |
-| POST | `/api/auth/users` | admin | server/router/auth.go:28 | pending | — |
-| PUT | `/api/auth/users/:username` | admin | server/router/auth.go:29 | pending | — |
-| DELETE | `/api/auth/users/:username` | admin | server/router/auth.go:30 | pending | — |
-| POST | `/api/auth/users/:username/password` | admin | server/router/auth.go:31 | pending | — |
-| GET | `/api/branding` | public | server/router/branding.go:13 | pending | — |
-| GET | `/api/branding/logo` | public | server/router/branding.go:14 | pending | — |
-| GET | `/api/branding/favicon` | public | server/router/branding.go:15 | pending | — |
+| POST | `/api/auth/login` | public | server/router/auth.go:14 | implemented-isolated | validation.md; API/contract/UI slice |
+| GET | `/api/auth/password` | session | server/router/auth.go:18 | implemented-isolated | validation.md; API/contract/UI slice |
+| GET | `/api/auth/account` | session | server/router/auth.go:19 | implemented-isolated | validation.md; API/contract/UI slice |
+| POST | `/api/auth/password` | session | server/router/auth.go:20 | implemented-isolated | validation.md; API/contract/UI slice |
+| POST | `/api/auth/logout` | session | server/router/auth.go:21 | implemented-isolated | validation.md; API/contract/UI slice |
+| GET | `/api/auth/users` | admin | server/router/auth.go:27 | implemented-isolated | validation.md; API/contract/UI slice |
+| POST | `/api/auth/users` | admin | server/router/auth.go:28 | implemented-isolated | validation.md; API/contract/UI slice |
+| PUT | `/api/auth/users/:username` | admin | server/router/auth.go:29 | implemented-isolated | validation.md; API/contract/UI slice |
+| DELETE | `/api/auth/users/:username` | admin | server/router/auth.go:30 | implemented-isolated | validation.md; API/contract/UI slice |
+| POST | `/api/auth/users/:username/password` | admin | server/router/auth.go:31 | implemented-isolated | validation.md; API/contract/UI slice |
+| GET | `/api/branding` | public | server/router/branding.go:13 | implemented-isolated | validation.md; API/contract/UI slice |
+| GET | `/api/branding/logo` | public | server/router/branding.go:14 | implemented-isolated | validation.md; API/contract/UI slice |
+| GET | `/api/branding/favicon` | public | server/router/branding.go:15 | implemented-isolated | validation.md; API/contract/UI slice |
 | POST | `/api/branding/logo` | admin | server/router/branding.go:17 | pending | — |
 | DELETE | `/api/branding/logo` | admin | server/router/branding.go:18 | pending | — |
 | POST | `/api/branding/favicon` | admin | server/router/branding.go:19 | pending | — |
@@ -196,8 +198,8 @@ Generated source ledger; all entries begin pending. Hardware evidence is require
 | POST | `/api/vm/mouse-jiggler/` | admin | server/router/vm.go:79 | pending | — |
 | GET | `/api/vm/hostname` | session | server/router/vm.go:81 | pending | — |
 | POST | `/api/vm/hostname` | admin | server/router/vm.go:82 | pending | — |
-| GET | `/api/vm/web-title` | session | server/router/vm.go:84 | pending | — |
-| POST | `/api/vm/web-title` | admin | server/router/vm.go:85 | pending | — |
+| GET | `/api/vm/web-title` | session | server/router/vm.go:84 | implemented-isolated | validation.md; API/contract/UI slice |
+| POST | `/api/vm/web-title` | admin | server/router/vm.go:85 | implemented-isolated | validation.md; API/contract/UI slice |
 | GET | `/api/vm/mdns` | admin | server/router/vm.go:87 | pending | — |
 | POST | `/api/vm/mdns/enable` | admin | server/router/vm.go:88 | pending | — |
 | POST | `/api/vm/mdns/disable` | admin | server/router/vm.go:89 | pending | — |

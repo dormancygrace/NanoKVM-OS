@@ -22,10 +22,17 @@ Branch/worktree: v3.0-experimental, /home/dgrace/nanokvm-astra/v3.0-experimental
 7. Agreed device window: full UI compatibility and stability/latency/performance comparisons.
 
 ## Current evidence
-- Worktree clean at baseline; exact branch verified.
+- Exact branch verified. Stage 1 inventory committed as 4556d2e; stage 2 remains uncommitted during qualification.
 - Parent AGENTS.md read; no nested AGENTS.md present.
-- Rust 1.86.0/cargo 1.86.0 installed in WSL with riscv64gc-unknown-linux-musl target.
+- Rust 1.99.0 pinned for the project; global default remains 1.86.0. Generic riscv64 musl binary executes under QEMU.
+- 18 host/target contract tests pass, including eight real test-only Go oracle response cases, Go-issued JWTs/bcrypt, form login, password revocation and proxy-cookie policy. Go middleware also accepts a Rust-issued JWT.
+- Existing UI login passes in Chrome Main on an isolated loopback Rust server. Real host AND riscv64 musl/QEMU HTTPS certificate validation, 307 redirect, Secure cookie, SIGTERM and occupied-port rejection pass.
+- YAML uses maintained serde-saphyr 1.3 with Viper key/null/default fixtures; dependency repository metadata and resolved licenses recorded.
+- Select webrtc-rs 0.21.0 (runtime-tokio + crypto-ring) for feature parity: host/target direct and authenticated relay-only ICE/DTLS/SCTP exchanges pass. str0m 0.24.1 host/target direct exchange also passes but needs a separate TURN client; retained as a measured performance alternative. Neither qualifies hardware/browser media yet.
 - Go app depends on patched Pion ICE/DTLS/SRTP and RustDesk currently calls Go media/HID/WebRTC bridges.
 
 ## Next action
-Stage 1 source ledger and architecture written: 204 routes, 44,250 lines. Implement stage 2 auth/config/TLS/static UI in server-rust; prove generic riscv64 musl with the read-only matched toolchain at /home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/buildroot-output/host/bin/riscv64-buildroot-linux-musl-gcc. Native/UI/Go/QEMU outputs are under the same platform directory. Authn source semantics read. No device changes.
+Record validation and route statuses, review staged files and commit stage 2. Next implement session/input-owner arbitration and HID/USB contract slice before native media integration. scripts/check-v3.py, check-v3-transport.py and refresh-v3-oracle.py reproduce the qualification. NK_V3_PLATFORM points to the matched read-only cross toolchain/native/UI/Go/QEMU artifacts under /home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform. Runtime still refuses production activation and nonloopback hosts. Most of the 204 routes remain pending; no media/HID/system parity claim and no device changes.
+
+## User steering (2026-10-05)
+Choose the best maintained upstream projects; do not pick abandoned libraries or constrain the design to the old Rust 1.86 installation. Dependency maintenance evidence and target/runtime qualification are required. Rust stage 2 compiled; qualification in progress, not yet committed.

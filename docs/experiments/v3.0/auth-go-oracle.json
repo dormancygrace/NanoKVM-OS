@@ -1,0 +1,134 @@
+{
+  "cases": [
+    {
+      "name": "unauthorized",
+      "method": "GET",
+      "path": "/api/auth/account",
+      "body": "null",
+      "status": 401,
+      "response": "unauthorized"
+    },
+    {
+      "name": "factory-account",
+      "method": "GET",
+      "path": "/api/auth/account",
+      "body": "null",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwidG9rZW5WZXJzaW9uIjo3NTI5NTYyMzI2MjEyNTY3NDQ5LCJzdWIiOiJhZG1pbiIsImV4cCI6NDk0NDc1NTQ4OCwiaWF0IjoxNzkxMTU1NDg4fQ.Nhw-CqYW1n9l8FJLd9MPyMhQ_T_Pz9_iuIc9F62g1VY",
+      "status": 200,
+      "response": {
+        "code": 0,
+        "data": {
+          "mustChangePassword": true,
+          "role": "admin",
+          "username": "admin"
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "name": "factory-password",
+      "method": "GET",
+      "path": "/api/auth/password",
+      "body": "null",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwidG9rZW5WZXJzaW9uIjo3NTI5NTYyMzI2MjEyNTY3NDQ5LCJzdWIiOiJhZG1pbiIsImV4cCI6NDk0NDc1NTQ4OCwiaWF0IjoxNzkxMTU1NDg4fQ.Nhw-CqYW1n9l8FJLd9MPyMhQ_T_Pz9_iuIc9F62g1VY",
+      "status": 200,
+      "response": {
+        "code": 0,
+        "data": {
+          "isUpdated": false
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "name": "factory-admin-gate",
+      "method": "GET",
+      "path": "/api/auth/users",
+      "body": "null",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwidG9rZW5WZXJzaW9uIjo3NTI5NTYyMzI2MjEyNTY3NDQ5LCJzdWIiOiJhZG1pbiIsImV4cCI6NDk0NDc1NTQ4OCwiaWF0IjoxNzkxMTU1NDg4fQ.Nhw-CqYW1n9l8FJLd9MPyMhQ_T_Pz9_iuIc9F62g1VY",
+      "status": 403,
+      "response": {
+        "code": -10,
+        "msg": "password change required"
+      }
+    },
+    {
+      "name": "viewer-account",
+      "method": "GET",
+      "path": "/api/auth/account",
+      "body": "null",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InZpZXdlciIsInRva2VuVmVyc2lvbiI6NjIwNTUxMDQ3OTcwNzA5NDMzMiwic3ViIjoidmlld2VyIiwiZXhwIjo0OTQ0NzU1NDg4LCJpYXQiOjE3OTExNTU0ODh9.W_2OPNPSE49xJUwZy_EO2QAgLJs29URj0yrCgoQxThs",
+      "status": 200,
+      "response": {
+        "code": 0,
+        "data": {
+          "mustChangePassword": false,
+          "role": "user",
+          "username": "viewer"
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "name": "viewer-forbidden",
+      "method": "GET",
+      "path": "/api/auth/users",
+      "body": "null",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InZpZXdlciIsInRva2VuVmVyc2lvbiI6NjIwNTUxMDQ3OTcwNzA5NDMzMiwic3ViIjoidmlld2VyIiwiZXhwIjo0OTQ0NzU1NDg4LCJpYXQiOjE3OTExNTU0ODh9.W_2OPNPSE49xJUwZy_EO2QAgLJs29URj0yrCgoQxThs",
+      "status": 403,
+      "response": "forbidden"
+    },
+    {
+      "name": "malformed-login",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "body": "{}",
+      "status": 200,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid parameters"
+      }
+    },
+    {
+      "name": "wrong-login",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "body": "{\"username\":\"viewer\",\"password\":\"malformed\"}",
+      "status": 200,
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "invalid username or password"
+      }
+    }
+  ],
+  "configuration": {
+    "secret": "v3-test-only-secret"
+  },
+  "database": {
+    "version": 1,
+    "users": [
+      {
+        "username": "admin",
+        "password": "$2a$10$o4fmuRee52xh6sEkzF5SWu1Feht984n3esfpJdLxssvXgKySYTg6e",
+        "role": "admin",
+        "enabled": true,
+        "tokenVersion": 7529562326212567449,
+        "mustChangePassword": true,
+        "systemAccount": true
+      },
+      {
+        "username": "viewer",
+        "password": "$2a$10$encBdfEq13VHu.D2GxNQS.RvoEnOHkWbFa0VLBm.XVB8my.8Imi86",
+        "role": "user",
+        "enabled": true,
+        "tokenVersion": 6205510479707094332
+      }
+    ],
+    "username": "admin",
+    "password": "$2a$10$o4fmuRee52xh6sEkzF5SWu1Feht984n3esfpJdLxssvXgKySYTg6e"
+  },
+  "goVersion": "go1.27.1",
+  "rustTokenVerifiedByGo": true
+}

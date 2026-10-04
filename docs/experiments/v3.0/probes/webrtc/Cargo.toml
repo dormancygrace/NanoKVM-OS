@@ -1,0 +1,17 @@
+[package]
+name = "nk-v3-webrtc-probe"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+publish = false
+
+[dependencies]
+async-trait = "0.1"
+tokio = { version = "1", features = ["rt", "macros", "sync", "time"] }
+webrtc = { version = "=0.21.0", default-features = false, features = ["runtime-tokio", "crypto-ring"] }
+
+[profile.release]
+opt-level = 2
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"

@@ -48,3 +48,7 @@ kvmapp/kvm_system/kvm_system
 
 # Python bytecode from running the scripts and tests
 __pycache__/
+
+# Isolated Rust server build artifacts.
+/server-rust/target/
+/docs/experiments/v3.0/probes/*/target/

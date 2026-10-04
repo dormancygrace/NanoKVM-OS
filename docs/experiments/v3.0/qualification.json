@@ -1,0 +1,141 @@
+{
+  "checked_at": "2026-10-04T23:19:59.506541+00:00",
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "toolchain": "1.99.0",
+  "target": "riscv64gc-unknown-linux-musl",
+  "qualification": {
+    "fmt": {
+      "exit": 0,
+      "seconds": 0.09,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clippy": {
+      "exit": 0,
+      "seconds": 0.753,
+      "log_sha256": "e26126936f9ac9c15b4a20c9569954532bb2c65626cfb7f9189f3c39216a5449"
+    },
+    "host-contracts": {
+      "exit": 0,
+      "seconds": 6.605,
+      "log_sha256": "2cd517bb6325b95cbece82416a5e1ddf6736b0bf33688d269e4ff5d4f787a30f"
+    },
+    "target-build": {
+      "exit": 0,
+      "seconds": 25.463,
+      "log_sha256": "bab2d531eee265da508191bf84497c9998378eb904f5384d6f3b9be155519e3b"
+    },
+    "target-contracts": {
+      "exit": 0,
+      "seconds": 22.443,
+      "log_sha256": "610aadf0be8252734eecf1bc7514f2ffdaa746b3b60fd45ba4e773866c27c252"
+    },
+    "target-version": {
+      "exit": 0,
+      "seconds": 0.009,
+      "log_sha256": "45ab3a914204af49b93add1fe3d39a590e5df3bd17e51f7eee8a5c1f3ddc309e"
+    },
+    "target-file": {
+      "exit": 0,
+      "seconds": 0.016,
+      "log_sha256": "f844687d64c97e8e9669dd24e5e25fffc94bef64e6c16bd75ba30dfa1b19707a"
+    },
+    "target-binary": {
+      "sha256": "7ccf84e50dc7dfa1c505c6f9caec18c0fbc4f8c765ac637e15827170dbe222d1",
+      "bytes": 5484224
+    },
+    "tls-cert": {
+      "exit": 0,
+      "seconds": 0.022,
+      "log_sha256": "91ccb501241d6b988291b975fd6d5f828a085d763fe4a85623e92a0ad5b7eee0"
+    },
+    "tls-runtime": {
+      "verified_certificate": true,
+      "redirect": 307,
+      "secure_cookie": true,
+      "sigterm_exit": 0,
+      "shutdown_seconds": 0.016,
+      "occupied_port_fails_closed": true
+    },
+    "licenses": {
+      "resolved_packages": 163,
+      "missing_spdx": []
+    }
+  },
+  "webrtc": {
+    "fmt": {
+      "exit": 0,
+      "seconds": 0.045,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clippy": {
+      "exit": 0,
+      "seconds": 0.243,
+      "log_sha256": "e3d57640d8bb33dd156202acedf364b3591f64511c2cae9728eba20e3f6a4eec"
+    },
+    "host-exchange": {
+      "exit": 0,
+      "seconds": 2.013,
+      "log_sha256": "f5ff58997cf71a02f356bdd86b9555be846a97b62c34479a7e73f3031e3b2757"
+    },
+    "target-build": {
+      "exit": 0,
+      "seconds": 21.893,
+      "log_sha256": "779cf017a2ceda394fbe9a23f9fb4651522be51da17e67965051679032e97d3e"
+    },
+    "target-exchange": {
+      "exit": 0,
+      "seconds": 0.679,
+      "log_sha256": "877e9d99d5e01740b741a7a82cfc035d1f021f2efccdcc5043c7645c2915aa79"
+    },
+    "binary": {
+      "sha256": "18cb6044f4a06c768052de61abf2338a8ccd1d43320b01092812ce0273d68ef5",
+      "bytes": 6059440
+    },
+    "turn-build": {
+      "exit": 0,
+      "seconds": 5.033,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "host-turn-exchange": {
+      "exit": 0,
+      "seconds": 6.332,
+      "log_sha256": "b4ef60afe56a1d7421192a70b631b750da4e038cd637896920d34b13aabeaf4a"
+    },
+    "target-turn-exchange": {
+      "exit": 0,
+      "seconds": 6.506,
+      "log_sha256": "6f9b3935d13b2107eefdfb3e6673d74241f836f7b9914e899938d4618c673f6b"
+    }
+  },
+  "str0m": {
+    "fmt": {
+      "exit": 0,
+      "seconds": 0.05,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clippy": {
+      "exit": 0,
+      "seconds": 0.164,
+      "log_sha256": "4cf86278c1e6d659943a46a3d7e3da429ac15be90f0f17742e24ef85228e7d3e"
+    },
+    "host-exchange": {
+      "exit": 0,
+      "seconds": 0.135,
+      "log_sha256": "a73b9148e59b8e0e166ff605de622e6cab57c571538801607e271fd8b6d72348"
+    },
+    "target-build": {
+      "exit": 0,
+      "seconds": 0.083,
+      "log_sha256": "92434e198f27984c035c376ec77a7cf9e6ebdde782f8ccb1336ae3329b66ddb7"
+    },
+    "target-exchange": {
+      "exit": 0,
+      "seconds": 0.246,
+      "log_sha256": "49ed3514a07a15612d44ad61ce67476a1bb94a1f575bead02cc724aa72d6f340"
+    },
+    "binary": {
+      "sha256": "fb0bf7d8fcdf8fb62e796b98e4b9362fd360f5cf28e247378f1404c2cd6c3269",
+      "bytes": 4307200
+    }
+  }
+}

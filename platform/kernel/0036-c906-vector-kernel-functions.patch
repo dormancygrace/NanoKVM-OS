@@ -1,0 +1,373 @@
+--- a/arch/riscv/Kconfig
++++ b/arch/riscv/Kconfig
+@@ -648,6 +648,45 @@
+ 	  Prefer using vectorized copy_to_user()/copy_from_user() when the
+ 	  workload size exceeds this value.
+ 
++config RISCV_ISA_XTHEADVECTOR_UCOPY
++	bool "Experimental T-Head vector user copies"
++	depends on 64BIT && RISCV_ISA_V && RISCV_ISA_XTHEADVECTOR && MMU
++	default n
++	help
++	  Enable an explicit legacy RVV 0.7.1 copy_to_user()/copy_from_user()
++	  backend. This does not enable compiler autovectorization. Scalar
++	  copies remain available in contexts where SIMD cannot be used.
++	  Only copies with different word alignment enter the vector backend.
++
++config RISCV_ISA_XTHEADVECTOR_UCOPY_THRESHOLD
++	int "Threshold for legacy T-Head vector user copies"
++	depends on RISCV_ISA_XTHEADVECTOR_UCOPY
++	range 1 2147483647
++	default 16384
++	help
++	  Minimum copy size before entering kernel vector context. Select
++	  this value from complete wrapper timings on the target hardware.
++
++
++config RISCV_ISA_XTHEADVECTOR_CSUM
++	bool "Experimental T-Head vector checksums"
++	depends on 64BIT && RISCV_ISA_V && RISCV_ISA_XTHEADVECTOR && MMU
++	default n
++	help
++	  Enable an explicit legacy RVV 0.7.1 backend for large Internet
++	  checksums. Smaller buffers and contexts where SIMD cannot be
++	  used retain the scalar implementation. This option does not
++	  enable compiler autovectorization.
++
++config RISCV_ISA_XTHEADVECTOR_CSUM_THRESHOLD
++	int "Threshold for legacy T-Head vector checksums"
++	depends on RISCV_ISA_XTHEADVECTOR_CSUM
++	range 1 2147483647
++	default 8192
++	help
++	  Minimum buffer size before entering kernel vector context.
++	  Include active user vector state when measuring this threshold.
++
+ config RISCV_ISA_V_PREEMPTIVE
+ 	bool "Run kernel-mode Vector with kernel preemption"
+ 	depends on PREEMPTION
+--- a/arch/riscv/lib/Makefile
++++ b/arch/riscv/lib/Makefile
+@@ -12,8 +12,10 @@
+ lib-y			+= strrchr.o
+ endif
+ lib-y			+= csum.o
++lib-$(CONFIG_RISCV_ISA_XTHEADVECTOR_CSUM) += csum_xtheadvector.o
+ ifeq ($(CONFIG_MMU), y)
+ lib-$(CONFIG_RISCV_ISA_V)	+= uaccess_vector.o
++lib-$(CONFIG_RISCV_ISA_XTHEADVECTOR_UCOPY) += uaccess_xtheadvector.o
+ endif
+ lib-$(CONFIG_MMU)	+= uaccess.o
+ lib-$(CONFIG_32BIT)	+= ashldi3.o ashrdi3.o lshrdi3.o
+--- a/arch/riscv/lib/uaccess.S
++++ b/arch/riscv/lib/uaccess.S
+@@ -5,6 +5,9 @@
+ #include <asm/csr.h>
+ #include <asm/hwcap.h>
+ #include <asm/alternative-macros.h>
++#include <asm/vendorid_list.h>
++#include <asm/vendor_extensions.h>
++#include <asm/vendor_extensions/thead.h>
+ 
+ 	.macro fixup op reg addr lbl
+ 100:
+@@ -13,6 +16,17 @@
+ 	.endm
+ 
+ SYM_FUNC_START(__asm_copy_to_user)
++#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR_UCOPY
++	ALTERNATIVE("j 98f", "nop", THEAD_VENDOR_ID, (RISCV_ISA_VENDOR_EXT_XTHEADVECTOR + RISCV_VENDOR_EXT_ALTERNATIVES_BASE), CONFIG_RISCV_ISA_XTHEADVECTOR_UCOPY)
++	li	t0, CONFIG_RISCV_ISA_XTHEADVECTOR_UCOPY_THRESHOLD
++	bltu	a2, t0, 98f
++	xor	t0, a0, a1
++	andi	t0, t0, SZREG-1
++	beqz	t0, 98f
++	li	a3, 1
++	tail	enter_vector_usercopy
++98:
++#endif
+ #ifdef CONFIG_RISCV_ISA_V
+ 	ALTERNATIVE("j fallback_scalar_usercopy", "nop", 0, RISCV_ISA_EXT_ZVE32X, CONFIG_RISCV_ISA_V)
+ 	REG_L	t0, riscv_v_usercopy_threshold
+@@ -41,6 +55,17 @@
+ SYM_FUNC_END(fallback_scalar_usercopy)
+ 
+ SYM_FUNC_START(__asm_copy_to_user_sum_enabled)
++#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR_UCOPY
++	ALTERNATIVE("j 98f", "nop", THEAD_VENDOR_ID, (RISCV_ISA_VENDOR_EXT_XTHEADVECTOR + RISCV_VENDOR_EXT_ALTERNATIVES_BASE), CONFIG_RISCV_ISA_XTHEADVECTOR_UCOPY)
++	li	t0, CONFIG_RISCV_ISA_XTHEADVECTOR_UCOPY_THRESHOLD
++	bltu	a2, t0, 98f
++	xor	t0, a0, a1
++	andi	t0, t0, SZREG-1
++	beqz	t0, 98f
++	li	a3, 0
++	tail	enter_vector_usercopy
++98:
++#endif
+ #ifdef CONFIG_RISCV_ISA_V
+ 	ALTERNATIVE("j fallback_scalar_usercopy_sum_enabled", "nop", 0, RISCV_ISA_EXT_ZVE32X, CONFIG_RISCV_ISA_V)
+ 	REG_L	t0, riscv_v_usercopy_threshold
+--- a/arch/riscv/lib/riscv_v_helpers.c
++++ b/arch/riscv/lib/riscv_v_helpers.c
+@@ -15,6 +15,10 @@
+ 
+ #ifdef CONFIG_MMU
+ size_t riscv_v_usercopy_threshold = CONFIG_RISCV_ISA_V_UCOPY_THRESHOLD;
++#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR_UCOPY
++size_t __asm_xtheadvector_usercopy(void *dst, const void *src, size_t n);
++size_t __asm_xtheadvector_usercopy_sum_enabled(void *dst, const void *src, size_t n);
++#endif
+ int __asm_vector_usercopy(void *dst, void *src, size_t n);
+ int __asm_vector_usercopy_sum_enabled(void *dst, void *src, size_t n);
+ int fallback_scalar_usercopy(void *dst, void *src, size_t n);
+@@ -29,8 +33,14 @@
+ 		goto fallback;
+ 
+ 	kernel_vector_begin();
+-	remain = enable_sum ? __asm_vector_usercopy(dst, src, n) :
+-			      __asm_vector_usercopy_sum_enabled(dst, src, n);
++#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR_UCOPY
++	if (has_xtheadvector())
++		remain = enable_sum ? __asm_xtheadvector_usercopy(dst, src, n) :
++				      __asm_xtheadvector_usercopy_sum_enabled(dst, src, n);
++	else
++#endif
++		remain = enable_sum ? __asm_vector_usercopy(dst, src, n) :
++				      __asm_vector_usercopy_sum_enabled(dst, src, n);
+ 	kernel_vector_end();
+ 
+ 	if (remain) {
+--- /dev/null
++++ b/arch/riscv/lib/uaccess_xtheadvector.S
+@@ -0,0 +1,49 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/* Legacy RVV 0.7.1 byte copies. Call only while holding kernel vector state. */
++#include <linux/linkage.h>
++#include <asm/asm.h>
++#include <asm/asm-extable.h>
++#include <asm/csr.h>
++
++	.option push
++	.option arch, rv64imac_zicsr_zifencei_xtheadvector
++
++	.macro thead_fixup op, reg, addr, target
++100:
++	\op \reg, \addr
++	_asm_extable 100b, \target
++	.endm
++
++SYM_FUNC_START(__asm_xtheadvector_usercopy)
++	li	t6, SR_SUM
++	csrs	CSR_STATUS, t6
++	mv	t6, ra
++	call	__asm_xtheadvector_usercopy_sum_enabled
++	mv	ra, t6
++	li	t6, SR_SUM
++	csrc	CSR_STATUS, t6
++	ret
++SYM_FUNC_END(__asm_xtheadvector_usercopy)
++
++SYM_FUNC_START(__asm_xtheadvector_usercopy_sum_enabled)
++	beqz	a2, .Lthead_done
++.Lthead_copy:
++	th.vsetvli a3, a2, e8, m8
++	thead_fixup th.vlb.v, v0, (a1), .Lthead_done
++	sub	a2, a2, a3
++	add	a1, a1, a3
++	thead_fixup th.vsb.v, v0, (a0), .Lthead_store_fault
++	add	a0, a0, a3
++	bnez	a2, .Lthead_copy
++.Lthead_done:
++	mv	a0, a2
++	csrw	CSR_VSTART, zero
++	ret
++.Lthead_store_fault:
++	/* e8 means vstart is exactly the count of stores completed. */
++	add	a2, a2, a3
++	csrr	t2, CSR_VSTART
++	sub	a2, a2, t2
++	j	.Lthead_done
++SYM_FUNC_END(__asm_xtheadvector_usercopy_sum_enabled)
++	.option pop
+--- a/arch/riscv/include/asm/vendor_extensions.h
++++ b/arch/riscv/include/asm/vendor_extensions.h
+@@ -6,16 +6,19 @@
+ #ifndef _ASM_VENDOR_EXTENSIONS_H
+ #define _ASM_VENDOR_EXTENSIONS_H
+ 
++#ifndef __ASSEMBLY__
+ #include <asm/cpufeature.h>
+ 
+ #include <linux/array_size.h>
+ #include <linux/types.h>
++#endif
+ 
+ /*
+  * The extension keys of each vendor must be strictly less than this value.
+  */
+ #define RISCV_ISA_VENDOR_EXT_MAX 32
+ 
++#ifndef __ASSEMBLY__
+ struct riscv_isavendorinfo {
+ 	DECLARE_BITMAP(isa, RISCV_ISA_VENDOR_EXT_MAX);
+ };
+@@ -31,6 +34,7 @@
+ extern struct riscv_isa_vendor_ext_data_list *riscv_isa_vendor_ext_list[];
+ 
+ extern const size_t riscv_isa_vendor_ext_list_size;
++#endif
+ 
+ /*
+  * The alternatives need some way of distinguishing between vendor extensions
+@@ -41,6 +45,7 @@
+ 
+ #define VENDOR_EXT_ALL_CPUS			-1
+ 
++#ifndef __ASSEMBLY__
+ bool __riscv_isa_vendor_extension_available(int cpu, unsigned long vendor, unsigned int bit);
+ #define riscv_cpu_isa_vendor_extension_available(cpu, vendor, ext)	\
+ 	__riscv_isa_vendor_extension_available(cpu, vendor, RISCV_ISA_VENDOR_EXT_##ext)
+@@ -101,4 +106,6 @@
+ 	return __riscv_isa_vendor_extension_available(cpu, vendor, ext);
+ }
+ 
++#endif /* !__ASSEMBLY__ */
++
+ #endif /* _ASM_VENDOR_EXTENSIONS_H */
+--- a/arch/riscv/include/asm/vendor_extensions/thead.h
++++ b/arch/riscv/include/asm/vendor_extensions/thead.h
+@@ -2,15 +2,18 @@
+ #ifndef _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_H
+ #define _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_H
+ 
++#ifndef __ASSEMBLY__
+ #include <asm/vendor_extensions.h>
+ 
+ #include <linux/types.h>
++#endif
+ 
+ /*
+  * Extension keys must be strictly less than RISCV_ISA_VENDOR_EXT_MAX.
+  */
+ #define RISCV_ISA_VENDOR_EXT_XTHEADVECTOR		0
+ 
++#ifndef __ASSEMBLY__
+ extern struct riscv_isa_vendor_ext_data_list riscv_isa_vendor_ext_list_thead;
+ 
+ #ifdef CONFIG_RISCV_ISA_VENDOR_EXT_THEAD
+@@ -18,6 +21,8 @@
+ #else
+ static inline void disable_xtheadvector(void) { }
+ #endif
++
++#endif /* !__ASSEMBLY__ */
+ 
+ /* Extension specific helpers */
+ 
+--- a/arch/riscv/lib/csum.c
++++ b/arch/riscv/lib/csum.c
+@@ -12,6 +12,12 @@
+ #include <linux/kernel.h>
+ 
+ #include <asm/cpufeature.h>
++#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR_CSUM
++#include <asm/simd.h>
++#include <asm/vector.h>
++
++unsigned int __riscv_xtheadvector_csum(const void *buffer, size_t len);
++#endif
+ 
+ #include <net/checksum.h>
+ 
+@@ -263,6 +269,18 @@
+ {
+ 	if (unlikely(len <= 0))
+ 		return 0;
++#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR_CSUM
++	if (len >= CONFIG_RISCV_ISA_XTHEADVECTOR_CSUM_THRESHOLD &&
++	    has_xtheadvector() && may_use_simd()) {
++		unsigned int sum;
++
++		kernel_vector_begin();
++		sum = __riscv_xtheadvector_csum(buff, len);
++		kernel_vector_end();
++		return sum;
++	}
++#endif
++
+ 
+ 	/*
+ 	 * Significant performance gains can be seen by not doing alignment
+--- /dev/null
++++ b/arch/riscv/lib/csum_xtheadvector.S
+@@ -0,0 +1,70 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#include <linux/linkage.h>
++#include <asm/asm.h>
++	.option push
++	.option arch, rv64imac_zicsr_zifencei_xtheadvector
++/* Return do_csum's uncomplemented 16-bit little-endian sum.
++ * Aligned halfword loads; odd first-byte alignment is handled explicitly.
++ * Each widening reduction batch <=32768 halfwords, so its 32-bit seed
++ * cannot overflow or set the sign bit even for all-0xffff input.
++ */
++SYM_FUNC_START(__riscv_xtheadvector_csum)
++	li	t0, 0
++	andi	t1, a0, 1
++	beqz	a1, .Lcsum_zero
++	beqz	t1, .Lcsum_blocks
++	lbu	t0, 0(a0)
++	slli	t0, t0, 8
++	addi	a0, a0, 1
++	addi	a1, a1, -1
++.Lcsum_blocks:
++	srli	t2, a1, 1
++	beqz	t2, .Lcsum_tail
++	li	t3, 32768
++	bleu	t2, t3, .Lcsum_batch
++	mv	t2, t3
++.Lcsum_batch:
++	li	t3, 1
++	th.vsetvli zero, t3, e32, m1
++	th.vmv.s.x v8, zero
++	slli	t4, t2, 1
++	sub	a1, a1, t4
++.Lcsum_loop:
++	th.vsetvli t3, t2, e16, m8
++	th.vlh.v v0, (a0)
++	th.vwredsumu.vs v8, v0, v8
++	slli	t4, t3, 1
++	add	a0, a0, t4
++	sub	t2, t2, t3
++	bnez	t2, .Lcsum_loop
++	li	t3, 1
++	th.vsetvli zero, t3, e32, m1
++	th.vmv.x.s t3, v8
++	add	t0, t0, t3
++	li	t3, 2
++	bgeu	a1, t3, .Lcsum_blocks
++.Lcsum_tail:
++	beqz	a1, .Lcsum_fold
++	lbu	t3, 0(a0)
++	add	t0, t0, t3
++.Lcsum_fold:
++	li	t3, 65535
++	and	t4, t0, t3
++	srli	t0, t0, 16
++	add	t0, t0, t4
++	and	t4, t0, t3
++	srli	t0, t0, 16
++	add	t0, t0, t4
++	and	t4, t0, t3
++	srli	t0, t0, 16
++	add	t0, t0, t4
++	beqz	t1, .Lcsum_zero
++	srli	t4, t0, 8
++	slli	t0, t0, 8
++	or	t0, t0, t4
++	and	t0, t0, t3
++.Lcsum_zero:
++	mv	a0, t0
++	ret
++SYM_FUNC_END(__riscv_xtheadvector_csum)
++	.option pop

@@ -1,0 +1,13 @@
+*.o
+*.ko
+*.mod
+*.mod.c
+.*.cmd
+Module.symvers
+modules.order
+/client
+__pycache__/
+*.csv
+*-summary.json
+
+sample-kernel

@@ -47,7 +47,7 @@ for name, variable, options in sources:
         '-DCMAKE_SYSTEM_NAME=Linux', '-DCMAKE_SYSTEM_PROCESSOR=riscv64',
         '-DCMAKE_C_COMPILER=' + cross + 'gcc', '-DCMAKE_AR=' + cross + 'ar',
         '-DCMAKE_RANLIB=' + cross + 'ranlib', '-DCMAKE_C_FLAGS=' + flags,
-        '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_C_FLAGS_RELEASE=-O2 -DNDEBUG', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
+        '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_C_FLAGS_RELEASE=' + next(f for f in reversed(flags.split()) if f.startswith('-O')) + ' -DNDEBUG', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
         '-DBUILD_SHARED_LIBS=OFF', '-DCMAKE_INSTALL_LIBDIR=lib',
         '-DCMAKE_INSTALL_PREFIX=' + str(stage), *options], check=True)
     subprocess.run([cmake, '--build', str(build), '-j' + jobs], check=True)

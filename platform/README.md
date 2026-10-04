@@ -146,3 +146,11 @@ Recipe cleanup changes the toolchain input fingerprint. Existing output must not
 be reused under a new fingerprint; the next full platform build must still pass
 `verify` against `expected.sha256`. A dependency/configuration check alone does
 not qualify newly built boot images.
+
+## Component optimization profiles
+
+Kernel and modules use GCC `-O3` without LTO; source-owned userspace
+uses scalar `-O2`. USB audio explicitly selects float Opus with the
+`audio` profile. Handwritten vendor RVV/assembly remains available.
+See [component profiles](../docs/component-build-profiles.md) for the optional
+RustDesk performance build, measurement limits and release checksum policy.

@@ -18,14 +18,18 @@ PROFILE = json.loads(PROFILE_FILE.read_text())
 
 
 def flags(kind='userspace'):
-    if kind not in ('userspace', 'kernel', 'bootloader'):
+    if kind not in ('userspace', 'kernel', 'bootloader', 'audio'):
         raise ValueError('Unknown CPU build profile: ' + kind)
-    result = [PROFILE['optimization'], '-march=' + PROFILE[kind + '_isa'],
-              '-mtune=' + PROFILE['tune'], '-mabi=' + PROFILE[kind + '_abi']]
+    if kind == 'kernel' and PROFILE.get('kernel_lto', 'none') != 'none':
+        raise ValueError('Production GCC kernel requires kernel_lto=none')
+    isa_kind = 'userspace' if kind == 'audio' else kind
+    result = [PROFILE.get(kind + '_optimization', PROFILE['optimization']),
+              '-march=' + PROFILE[isa_kind + '_isa'],
+              '-mtune=' + PROFILE['tune'], '-mabi=' + PROFILE[isa_kind + '_abi']]
     if not PROFILE['fence_tso']:
         result.append('-mno-fence-tso')
-    if kind != 'userspace':
-        result += ['-fno-tree-vectorize', '-fno-tree-slp-vectorize']
+    # Keep handwritten/vendor RVV assembly; disable compiler autovectorization.
+    result += ['-fno-tree-vectorize', '-fno-tree-slp-vectorize']
     return result
 
 
@@ -41,8 +45,9 @@ def validate_flags(actual, kind='userspace'):
         if option not in actual:
             raise ValueError(f'{kind}: missing {option}')
     forbidden = {'-mfence-tso'}
-    if kind != 'userspace':
-        forbidden |= {'-ftree-vectorize', '-ftree-loop-vectorize', '-ftree-slp-vectorize'}
+    forbidden |= {'-ftree-vectorize', '-ftree-loop-vectorize', '-ftree-slp-vectorize'}
+    if any(f.startswith('-flto') for f in actual):
+        raise ValueError(f'{kind}: LTO is outside the GCC production profile')
     if forbidden.intersection(actual):
         raise ValueError(f'{kind}: contradictory compiler options')
 
@@ -55,6 +60,7 @@ def record(output, compiler, kind='userspace', effective_flags=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     data = {
         'schema': 1, 'profile': PROFILE['name'], 'kind': kind,
+        'compiler_family': 'gcc', 'lto': 'none',
         'profile_sha256': hashlib.sha256(PROFILE_FILE.read_bytes()).hexdigest(),
         'compiler_version': subprocess.check_output([str(compiler), '-dumpfullversion'], text=True).strip(),
         'compiler_target': subprocess.check_output([str(compiler), '-dumpmachine'], text=True).strip(),
@@ -66,7 +72,7 @@ def record(output, compiler, kind='userspace', effective_flags=None):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('kind', choices=('userspace', 'kernel', 'bootloader'))
+    p.add_argument('kind', choices=('userspace', 'kernel', 'bootloader', 'audio'))
     p.add_argument('--record', type=Path)
     p.add_argument('--compiler')
     args = p.parse_args()

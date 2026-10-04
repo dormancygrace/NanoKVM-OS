@@ -1,0 +1,16 @@
+--- a/arch/riscv/include/asm/switch_to.h
++++ b/arch/riscv/include/asm/switch_to.h
+@@ -115,9 +115,12 @@
+ 	struct task_struct *__prev = (prev);		\
+ 	struct task_struct *__next = (next);		\
+ 	__set_prev_cpu(__prev->thread);			\
++	/* C906 FCSR aliases VXRM/VXSAT: save V before restoring next FCSR. */ \
++	if (has_xtheadvector())				\
++		__switch_to_vector(__prev, __next);	\
+ 	if (has_fpu())					\
+ 		__switch_to_fpu(__prev, __next);	\
+-	if (has_vector() || has_xtheadvector())		\
++	if (has_vector() && !has_xtheadvector())		\
+ 		__switch_to_vector(__prev, __next);	\
+ 	if (switch_to_should_flush_icache(__next))	\
+ 		local_flush_icache_all();		\

@@ -31,9 +31,9 @@ opus_build=out/'opus-build'
 if opus_build.exists():shutil.rmtree(opus_build)
 opus_build.mkdir()
 with (out/'opus-build.log').open('w') as log:
-    subprocess.run([str(opus/'configure'),'--host=riscv64-buildroot-linux-musl','--disable-shared','--enable-static','--disable-doc','--disable-extra-programs','CC='+cross+'gcc','CFLAGS='+' '.join(cpu_flags())+' '+maps],cwd=opus_build,stdout=log,stderr=subprocess.STDOUT,check=True)
+    subprocess.run([str(opus/'configure'),'--host=riscv64-buildroot-linux-musl','--disable-shared','--enable-static','--disable-doc','--disable-extra-programs','--disable-fixed-point','--enable-float-api','CC='+cross+'gcc','CFLAGS='+' '.join(cpu_flags('audio'))+' '+maps],cwd=opus_build,stdout=log,stderr=subprocess.STDOUT,check=True)
     subprocess.run(['make','-j'+args.jobs],cwd=opus_build,stdout=log,stderr=subprocess.STDOUT,check=True)
-record_cpu_profile(out/'cpu-profile.json', cross+'gcc')
+record_cpu_profile(out/'cpu-profile.json', cross+'gcc', kind='audio')
 kernel_config=(args.kernel_output/'.config').read_text()
 audio_builtin='CONFIG_USB_U_AUDIO=y\n' in kernel_config and 'CONFIG_USB_F_UAC1=y\n' in kernel_config
 module_artifacts=[]
@@ -47,10 +47,10 @@ if not audio_builtin:
     (module/'Makefile').write_text('obj-m += u_audio.o usb_f_uac1.o\nusb_f_uac1-y := f_uac1.o\n')
     flags=' '.join(cpu_flags('kernel'))
     with (out/'module-build.log').open('w') as log:
-        subprocess.run(['make','-C',str(args.kernel_source),'O='+str(args.kernel_output),'ARCH=riscv','CROSS_COMPILE='+cross,'KCFLAGS='+flags,'M='+str(module),'modules','-j'+args.jobs],stdout=log,stderr=subprocess.STDOUT,check=True)
+        subprocess.run(['make','-C',str(args.kernel_source),'O='+str(args.kernel_output),'ARCH=riscv','CROSS_COMPILE='+cross,'CC='+cross+'gcc','KCFLAGS='+flags,'M='+str(module),'modules','-j'+args.jobs],stdout=log,stderr=subprocess.STDOUT,check=True)
     module_artifacts=[module/'u_audio.ko',module/'usb_f_uac1.ko']
 helper=out/'usb-audio-capture'
-cmd=[cross+'gcc',*cpu_flags(),'-Wall','-Wextra','-Werror','-static',*maps.split(),'-I'+str(tiny/'include'),'-I'+str(tiny/'src'),'-I'+str(opus/'include'),str(repo/'native/usb-audio/capture.c')]+[str(tiny/'src'/f) for f in ('pcm.c','pcm_hw.c','limits.c','snd_card_plugin.c')]+[str(opus_build/'.libs/libopus.a'),'-lm','-o',str(helper)]
+cmd=[cross+'gcc',*cpu_flags('audio'),'-Wall','-Wextra','-Werror','-static',*maps.split(),'-I'+str(tiny/'include'),'-I'+str(tiny/'src'),'-I'+str(opus/'include'),str(repo/'native/usb-audio/capture.c')]+[str(tiny/'src'/f) for f in ('pcm.c','pcm_hw.c','limits.c','snd_card_plugin.c')]+[str(opus_build/'.libs/libopus.a'),'-lm','-o',str(helper)]
 with (out/'helper-build.log').open('w') as log:subprocess.run(cmd,cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True)
 subprocess.run([cross+'strip',str(helper)],check=True)
 license_dir=out/'share/usb-audio';license_dir.mkdir(parents=True,exist_ok=True)

@@ -9,5 +9,8 @@
   "kernel_abi": "lp64",
   "fence_tso": false,
   "bootloader_isa": "rv64imac_zicsr_zifencei_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync",
-  "bootloader_abi": "lp64"
+  "bootloader_abi": "lp64",
+  "kernel_optimization": "-O3",
+  "audio_optimization": "-O2",
+  "kernel_lto": "none"
 }

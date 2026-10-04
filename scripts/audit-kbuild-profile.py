@@ -50,6 +50,9 @@ for path in sorted(a.root.rglob('.*.cmd')):
                                             '-ftree-loop-vectorize', '-fno-tree-loop-vectorize')]
     if not loop_options or loop_options[-1] not in ('-fno-tree-vectorize', '-fno-tree-loop-vectorize'):
         mismatch['loop_vectorization'] = loop_options
+    lto_flags = [f for f in args if f.startswith('-flto')]
+    if lto_flags:
+        mismatch['lto'] = lto_flags
     if mismatch:
         failures.append({'file': str(path.relative_to(a.root)), 'mismatch': mismatch})
 report = {'kind': a.kind, 'target_c_commands': checked, 'failures': failures, 'architecture_overrides': architecture_overrides,

@@ -1,0 +1,11 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -14,7 +14,7 @@
+ 	set(CMAKE_BUILD_TYPE debug)
+ endif()
+ 
+-set(CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE} -O2")
++# The toolchain or build recipe owns the selected Release optimization.
+ 
+ include(CTest)
+ 

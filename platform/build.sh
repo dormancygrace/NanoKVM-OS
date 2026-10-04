@@ -216,11 +216,12 @@ kernel() {
     python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel --record "$out/kernel/cpu-profile.json" --compiler "${cross}gcc"
     cp "$here/kernel/config" "$kbuild/.config"
     # Host pahole, rustc and bindgen would be recorded in .config; ignore them.
-    local make=(make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" LOCALVERSION= "KCFLAGS=$isa"
+    local make=(make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" CC="${cross}gcc" LOCALVERSION= "KCFLAGS=$isa"
                 PAHOLE=nkos-no-pahole RUSTC=nkos-no-rustc BINDGEN=nkos-no-bindgen)
     KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder KBUILD_BUILD_VERSION=1 \
         KBUILD_BUILD_TIMESTAMP=$kernel_timestamp "${make[@]}" olddefconfig
     cmp "$here/kernel/config" "$kbuild/.config"
+    grep -qx "CONFIG_LTO_NONE=y" "$kbuild/.config"
     KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder KBUILD_BUILD_VERSION=1 \
         KBUILD_BUILD_TIMESTAMP=$kernel_timestamp "${make[@]}" -j"$jobs" Image modules
     [ "$(cat "$kbuild/include/config/kernel.release")" = "$release" ]
@@ -246,7 +247,7 @@ modules() {
     maps="-ffile-prefix-map=$ksrc=./linux -ffile-prefix-map=$kbuild=./linux-build -ffile-prefix-map=$src=./modules -ffile-prefix-map=$bo=./toolchain"
     build() {
         local dir=$1; shift
-        (cd "$dir" && PWD=$dir make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" \
+        (cd "$dir" && PWD=$dir make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" CC="${cross}gcc" \
             "KCFLAGS=$isa $maps" M="$dir" "$@" -j"$jobs" modules)
     }
     for name in sys base cif vi vpss vcodec jpeg cvi_vc_drv ive dwa rgn snsr_i2c; do
@@ -418,6 +419,7 @@ native() {
     mkdir -p "$n/src" "$img/native"
     unpack_git cvi-mpi . "$n/src/cvi_mpi"
     for lib in sensors json-c miniz inih; do unpack_git "$lib" . "$n/src/$lib"; done
+    apply_patches "$n/src/json-c" "$here/native/json-c"
     apply_patches "$n/src/cvi_mpi" "$here/native/cvi_mpi"
     apply_patches "$n/src/sensors" "$repo/firmware/sensor/patches"
     local env=(NANOKVM_MPI_SOURCE="$n/src/cvi_mpi" NANOKVM_OSDRV_SOURCE="$out/modules/sources/osdrv"

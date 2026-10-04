@@ -7,6 +7,7 @@ prefix=/kvmapp/system/modern
 stage=$base/stage$prefix
 export CC=${CC:-riscv64-unknown-linux-musl-gcc}
 cross=${CC%gcc}
+cpu_flags=$(python3 "$root/scripts/nanokvm_cpu_profile.py" userspace)
 export AR=${AR:-${cross}ar} RANLIB=${RANLIB:-${cross}ranlib}
 sh "$root/scripts/build-network-libc.sh" "$base" "$CC"
 realcc=$(command -v "$CC")
@@ -15,11 +16,12 @@ mkdir -p "$base/toolchain-libs"
 cp "$("$realcc" -print-file-name=libatomic.a)" "$base/toolchain-libs/"
 cat > "$base/network-cc" <<EOF
 #!/bin/sh
-exec "$realcc" -specs="$base/musl/lib/musl-gcc.specs" -idirafter "$sysroot/usr/include" -L"$base/toolchain-libs" "\$@"
+exec "$realcc" -specs="$base/musl/lib/musl-gcc.specs" -idirafter "$sysroot/usr/include" -L"$base/toolchain-libs" "\$@" $cpu_flags
 EOF
 chmod 755 "$base/network-cc"
 export CC="$base/network-cc"
-export CFLAGS='-Os -march=rv64gc -mabi=lp64d'
+export CFLAGS="$cpu_flags"
+python3 "$root/scripts/nanokvm_cpu_profile.py" userspace --record "$base/cpu-profile.json" --compiler "$realcc"
 jobs=${JOBS:-8}
 mkdir -p "$base/sources" "$base/build" "$stage"
 fetch() {
@@ -37,12 +39,14 @@ fetch wpa_supplicant-2.12.tar.gz 08e23937e16d0155e55cab2b51f51fbe10d80a1aa91c4e1
 (
  cd "$base/build/openssl-3.5.8"
  perl Configure linux64-riscv64 --prefix="$prefix" --openssldir=/etc/ssl --libdir=lib no-shared no-module no-tests no-asm -static $CFLAGS
+ make clean
  make -j"$jobs"
  make DESTDIR="$base/stage" install_sw
 )
 (
  cd "$base/build/zlib-1.3.2"
  ./configure --static --prefix="$prefix"
+ make clean
  make -j"$jobs"
  make DESTDIR="$base/stage" install
 )
@@ -51,18 +55,21 @@ export PKG_CONFIG_LIBDIR="$stage/lib/pkgconfig" PKG_CONFIG_SYSROOT_DIR="$base/st
 (
  cd "$base/build/openssh-10.5p1"
  ./configure --host=riscv64-unknown-linux-musl --prefix="$prefix" --sysconfdir=/etc/ssh --libexecdir=/usr/libexec --with-ssl-dir="$stage" --with-zlib="$stage" --with-privsep-path=/var/empty --disable-strip
+ make clean
  make -j"$jobs"
  make DESTDIR="$base/stage" install-nokeys
 )
 (
  cd "$base/build/curl-8.22.0"
  ./configure --host=riscv64-unknown-linux-musl --prefix="$prefix" --disable-shared --enable-static --with-openssl="$stage" --with-zlib="$stage" --without-libpsl --without-libidn2 --without-brotli --without-zstd --without-nghttp2 --without-nghttp3 --without-libssh2 --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt --with-ca-path=/etc/ssl/certs
+ make clean
  make -j"$jobs" CURL_LDFLAGS_BIN=-all-static
  make DESTDIR="$base/stage" install
 )
 (
  cd "$base/build/libnl-3.12.0"
  ./configure --host=riscv64-unknown-linux-musl --prefix="$prefix" --disable-shared --enable-static --disable-cli
+ make clean
  make -j"$jobs"
  make DESTDIR="$base/stage" install
 )
@@ -87,6 +94,7 @@ LIBS += -L$stage/lib -lnl-genl-3 -lnl-3 -lm -lpthread
 LIBS_p += -L$stage/lib
 LIBS_c += -L$stage/lib
 EOF
+ make clean
  make -j"$jobs" CC="$CC"
  install -m755 wpa_supplicant wpa_cli wpa_passphrase "$stage/sbin/"
 )

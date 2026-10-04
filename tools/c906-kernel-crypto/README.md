@@ -63,6 +63,10 @@ calls (including the exported SG AEAD functions) with 32 active-vector ioctls
 and seven repetitions. Build the probe against each tested kernel so its
 headers select the actual `csum_partial_copy_nocheck` implementation.
 Compare complete before/after matrices using `compare-kernels.py OLD NEW JSON`.
+Use `kernel-context` on the integrated build for every VXRM/VXSAT combination
+through actual production functions at 16 KiB, above all selected thresholds.
+`probe_vector_entries` counts only the diagnostic module's own vector calls;
+it does not instrument the production backends.
 Signal context tests check all 32 vector registers and VL/VTYPE/VSTART asynchronously;
 ordinary syscalls need not preserve those registers. No separate-CSR assumption is made.
 

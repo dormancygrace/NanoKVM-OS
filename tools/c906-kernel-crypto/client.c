@@ -125,7 +125,7 @@ static void validate(int smoke)
 	}
 	printf("PASS cases=%lu RFC8439_CRC_KAT counter_wrap tails alignments inplace SG_split bad_tag guards IRQ_fallback\n",cases);
 }
-static void context_test(void)
+static void context_test(int production)
 {
 	struct vector_state before,after;
 	unsigned char data[512] __attribute__((aligned(16)));
@@ -136,9 +136,9 @@ static void context_test(void)
 	sigemptyset(&action.sa_mask);
 	if(sigaction(SIGALRM,&action,NULL)||setitimer(ITIMER_REAL,&timer,NULL))die("context timer");
 	for(unsigned repeat=0;repeat<2;repeat++)for(unsigned rm=0;rm<4;rm++)for(unsigned sat=0;sat<2;sat++)
-		for(unsigned op=0;op<KC_OPERATIONS;op++)for(unsigned mode=2;mode<5;mode++) {
+		for(unsigned op=0;op<KC_OPERATIONS;op++)for(unsigned mode=production?0:2;mode<(production?1U:5U);mode++) {
 			if((mode==3 && (op==KC_AEAD_SG || op==KC_AEAD_SG_DECRYPT))||(mode==4 && op>=KC_CRC32))continue;
-			struct kc_request r={.operation=op,.variant=mode,.bytes=4096,.iterations=8,
+			struct kc_request r={.operation=op,.variant=mode,.bytes=production?16384:4096,.iterations=8,
 				.offset=7,.dst_offset=3,.pattern=1,.seed=0xfffffffeU,
 				.flags=(op==KC_AEAD_SG || op==KC_AEAD_SG_DECRYPT)?4:1};
 			seed_vector(data,rm,sat);capture_vector(&before);
@@ -155,7 +155,8 @@ static void context_test(void)
 	memset(&timer,0,sizeof(timer));if(setitimer(ITIMER_REAL,&timer,NULL))die("stop timer");
 	restore_controls();
 	if(!signal_count){fprintf(stderr,"FAIL missing asynchronous signals\n");exit(1);}
-	printf("PASS context_calls=%u vector_entries=%u signals=%d all32_VL_VTYPE_VSTART FCSR_VXRM_VXSAT\n",calls,entries,(int)signal_count);
+	printf("PASS %scontext_calls=%u probe_vector_entries=%u signals=%d all32_VL_VTYPE_VSTART FCSR_VXRM_VXSAT\n",
+		production?"production_":"",calls,entries,(int)signal_count);
 }
 static void chunk_test(void)
 {
@@ -192,7 +193,7 @@ static void bench(int thresholds)
 }
 int main(int argc,char **argv)
 {
-	if(argc!=3){fprintf(stderr,"usage: %s DEVICE smoke|validate|context|chunks|bench|thresholds|kernel\n",argv[0]);return 2;}
+	if(argc!=3){fprintf(stderr,"usage: %s DEVICE smoke|validate|context|kernel-context|chunks|bench|thresholds|kernel\n",argv[0]);return 2;}
 	__asm__ volatile("csrr %0,0x003":"=r"(original_fcsr));atexit(restore_controls);
 	fd=open(argv[1],O_RDWR);if(fd<0)die("open");
 	unsigned long width;
@@ -200,7 +201,8 @@ int main(int argc,char **argv)
 	if(width!=128){fprintf(stderr,"Requires VLEN128 C906\n");return 2;}
 	if(!strcmp(argv[2],"smoke"))validate(1);
 	else if(!strcmp(argv[2],"validate"))validate(0);
-	else if(!strcmp(argv[2],"context"))context_test();
+	else if(!strcmp(argv[2],"context"))context_test(0);
+	else if(!strcmp(argv[2],"kernel-context"))context_test(1);
 	else if(!strcmp(argv[2],"chunks"))chunk_test();
 	else if(!strcmp(argv[2],"bench"))bench(0);
 	else if(!strcmp(argv[2],"thresholds"))bench(1);

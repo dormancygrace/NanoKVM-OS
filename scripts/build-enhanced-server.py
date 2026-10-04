@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Link the server against explicitly selected Enhanced capture/MPI artifacts."""
+from nanokvm_cpu_profile import flags as cpu_flags, record as record_cpu_profile
 from pathlib import Path
 import hashlib, json, os, shutil, subprocess
 
@@ -21,13 +22,14 @@ for name, source in inputs.items():
     shutil.copyfile(source, lib/name)
 cross = str(br/'host/bin/riscv64-buildroot-linux-musl-')
 env = dict(os.environ, GOOS='linux', GOARCH='riscv64', GORISCV64='rva20u64', CGO_ENABLED='1', GOEXPERIMENT='boringcrypto',
-           CC=cross+'gcc', CGO_CFLAGS='-O2 -march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector -mtune=thead-c906 -mno-fence-tso -mabi=lp64d',
+           CC=cross+'gcc', CGO_CFLAGS=' '.join(cpu_flags()), CGO_CXXFLAGS=' '.join(cpu_flags()),
            CGO_LDFLAGS=f'-L{lib} -Wl,-rpath-link,{lib} -Wl,--enable-new-dtags -Wl,-rpath,$ORIGIN/dl_lib')
 go = os.environ.get('NANOKVM_GO', 'go')
 # Keep the selected patched runtime even when bin/go is a symlink.
 go_root = Path(go).absolute().parent.parent.resolve() if '/' in go else Path(subprocess.check_output([go, 'env', 'GOROOT'], text=True).strip())
 env.update(GOROOT=str(go_root), GOTOOLCHAIN='local')
 version = subprocess.check_output([go,'version'],env=env,text=True).strip()
+record_cpu_profile(out/'cpu-profile-cgo.json', cross+'gcc')
 compiler = subprocess.check_output([cross+'gcc','-dumpfullversion'],text=True).strip()
 subprocess.run([go,'build','-buildvcs=false','-trimpath','-o',str(out/'NanoKVM-Server'),'.'],cwd=repo/'server',env=env,check=True)
 # Set RUNPATH at link time: post-link program-header reordering can break

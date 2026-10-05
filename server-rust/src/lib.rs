@@ -7,6 +7,7 @@ pub mod hid_device;
 pub mod hid_reports;
 mod hid_settings;
 pub mod input;
+pub mod leds;
 pub mod lockout;
 pub mod redirect;
 mod sessions;
@@ -78,6 +79,7 @@ impl Runtime {
             .store(true, std::sync::atomic::Ordering::Release);
         self.socket_slots.close();
         self.hid_jobs.close();
+        self.hid.leds().stop();
         for id in self.sessions.revoke_all() {
             let _ = self.input.leave(id);
         }
@@ -87,6 +89,7 @@ impl Runtime {
     }
 }
 pub fn app(state: Arc<Runtime>, web: PathBuf) -> Router {
+    state.hid.leds().start();
     Router::new()
         .route("/api/ws", get(ws::connect))
         .route("/api", any(api::dispatch))

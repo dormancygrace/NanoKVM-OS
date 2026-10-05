@@ -704,8 +704,11 @@
     "handler": "service.GetKeyboardLedStatus",
     "source": "server/router/hid.go",
     "line": 29,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/leds.rs",
+      "docs/experiments/v3.0/stage3-leds.md"
+    ]
   },
   {
     "method": "GET",

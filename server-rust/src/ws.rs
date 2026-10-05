@@ -1,4 +1,4 @@
-//! Authenticated input socket slice. Capture/LED snapshots and addon arbitration
+//! Authenticated input socket slice. Capture snapshots and addon arbitration
 //! remain migration gates; this module does not claim complete WS parity.
 use crate::{
     api,
@@ -126,8 +126,15 @@ fn worker(
 }
 async fn leave(runtime: &Arc<Runtime>, id: ClientId) {
     runtime.sessions.remove(id);
+    let Ok(permit) = runtime.jobs.clone().acquire_owned().await else {
+        return;
+    };
     let copy = runtime.clone();
-    let _ = tokio::task::spawn_blocking(move || copy.input.leave(id)).await;
+    let _ = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        copy.input.leave(id)
+    })
+    .await;
 }
 async fn run(
     socket: WebSocket,
@@ -136,7 +143,17 @@ async fn run(
     _slot: OwnedSemaphorePermit,
 ) {
     let copy = runtime.clone();
-    let registration = tokio::task::spawn_blocking(move || copy.input.join()).await;
+    let Ok(permit) = runtime.jobs.clone().acquire_owned().await else {
+        return;
+    };
+    let registration = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        if let Err(error) = copy.hid.open() {
+            eprintln!("HID open failed: {error}");
+        }
+        copy.input.join()
+    })
+    .await;
     let Ok(Ok((id, mut status))) = registration else {
         return;
     };
@@ -149,9 +166,16 @@ async fn run(
     };
     let copy = runtime.clone();
     let who = principal.clone();
-    let valid = tokio::task::spawn_blocking(move || who.valid(&copy))
-        .await
-        .unwrap_or(false);
+    let Ok(permit) = runtime.jobs.clone().acquire_owned().await else {
+        leave(&runtime, id).await;
+        return;
+    };
+    let valid = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        who.valid(&copy)
+    })
+    .await
+    .unwrap_or(false);
     let (mut sink, mut stream) = socket.split();
     if !valid {
         let _ = timeout(
@@ -171,13 +195,27 @@ async fn run(
         worker(runtime.clone(), principal.clone(), keyboard_queue),
         worker(runtime.clone(), principal.clone(), mouse_queue),
     ];
-    let initial = serde_json::to_string(&*status.borrow_and_update()).expect("control status");
-    let mut running = send(
+    let leds = runtime.hid.leds();
+    let mut led_updates = leds.subscribe();
+    let led_snapshot = serde_json::to_string(&leds.snapshot(false)).unwrap();
+    let sent_leds = send(
         &mut sink,
-        Message::Text(json!({"type":"control","data":initial}).to_string().into()),
+        Message::Text(
+            json!({"type":"hid-led-status","data":led_snapshot})
+                .to_string()
+                .into(),
+        ),
         &mut revoked,
     )
     .await;
+    let initial = serde_json::to_string(&*status.borrow_and_update()).expect("control status");
+    let mut running = sent_leds
+        && send(
+            &mut sink,
+            Message::Text(json!({"type":"control","data":initial}).to_string().into()),
+            &mut revoked,
+        )
+        .await;
     let mut heartbeat = Instant::now() + HEARTBEAT;
     let mut check = tokio::time::interval(Duration::from_secs(1));
     check.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -207,6 +245,11 @@ async fn run(
                 let data = serde_json::to_string(&*status.borrow_and_update()).expect("control status");
                 running = send(&mut sink, Message::Text(json!({"type":"control","data":data}).to_string().into()), &mut revoked).await;
             }
+            changed = led_updates.changed() => {
+                if changed.is_err() { break; }
+                let data = serde_json::to_string(&leds.snapshot(false)).unwrap();
+                running = send(&mut sink, Message::Text(json!({"type":"hid-led-status","data":data}).to_string().into()), &mut revoked).await;
+            }
             event = stream.next() => {
                 let message = match event {
                     Some(Ok(message)) => message,
@@ -230,8 +273,9 @@ async fn run(
                     Some(Frame::Heartbeat) => running = send(&mut sink, Message::Text(json!({"type":"heartbeat","data":""}).to_string().into()), &mut revoked).await,
                     Some(Frame::Control(enabled)) => {
                         let copy = runtime.clone();
+                        let Ok(permit) = runtime.jobs.clone().acquire_owned().await else { break; };
                         // Device cleanup can wait on a bounded write. Keep it off the event loop.
-                        running = matches!(tokio::task::spawn_blocking(move || copy.input.set_control(id, enabled)).await, Ok(Ok(())));
+                        running = matches!(tokio::task::spawn_blocking(move || { let _permit = permit; copy.input.set_control(id, enabled) }).await, Ok(Ok(())));
                     }
                     Some(Frame::Report(report)) => {
                         let Some(ticket) = runtime.input.ticket(id) else { continue; };

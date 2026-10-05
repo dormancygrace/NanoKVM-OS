@@ -14,6 +14,7 @@ ported = {
     ("GET", "/api/branding"), ("GET", "/api/branding/logo"), ("GET", "/api/branding/favicon"),
     ("GET", "/api/vm/web-title"), ("POST", "/api/vm/web-title"),
     ("GET", "/api/hid/mode"), ("GET", "/api/hid/input-status"),
+    ("GET", "/api/hid/leds"),
     ("GET", "/api/hid/shortcuts"), ("POST", "/api/hid/shortcut"), ("DELETE", "/api/hid/shortcut"),
     ("GET", "/api/hid/shortcut/leader-key"), ("POST", "/api/hid/shortcut/leader-key"),
 }
@@ -37,6 +38,9 @@ for r in routes:
                 else "validation.md; API/contract/UI slice") if r["evidence"] else "—"
     if (r["method"], r["path"]) in partial:
         evidence = "stage3-ws.md; real sockets/HID fixtures; snapshots/addon arbitration pending"
+    if r['path'] == '/api/hid/leds':
+        r['evidence'] = ['server-rust/src/leds.rs', 'docs/experiments/v3.0/stage3-leds.md']
+        evidence = 'stage3-leds.md; real descriptor/REST/socket snapshots'
     rows.append(f"| {r['method']} | `{r['path']}` | {r['authorization']}" +
                 (" + input owner" if r["input_owner"] else "") +
                 f" | {r['source']}:{r['line']} | {r['rust_status']} | {evidence} |")

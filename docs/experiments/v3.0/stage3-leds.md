@@ -1,0 +1,13 @@
+# Keyboard LED lifecycle and snapshots
+
+The isolated Rust runtime now implements GET /api/hid/leds and the hid-led-status WS snapshot/update event. The full WS route remains partial: capture/H.264-mode snapshots and addon arbitration are still pending. No stand changes or production activation.
+
+One Tokio AsyncFd reader waits for host output reports or a watch-mailbox descriptor replacement. No idle polling runs while the reader is healthy or intentionally detached. Unexpected EOF/error detaches only that same reader and retries opening with a two-second backoff; replacement/stop wake the reader immediately. A stale descriptor cannot detach or publish over its replacement. Auto-attach/retry accepts only confined character HID descriptors, so ordinary fake input files cannot supply fake LEDs. Failed reader reopening does not block keyboard writes.
+
+Host LED bits, unknown/disabled semantics, UTC RFC3339Nano formatting and the REST empty versus WS zero timestamp are preserved. Repeated identical reports refresh the stored timestamp without sending duplicate notifications. Latest-value watch notifications coalesce updates. Bound-function state is cached for async snapshots and refreshed off the event loop after HID lifecycle transitions, reader reopening or REST inspection. HID open/close now expose the needed reader lifecycle primitives; USB reset/rebind handlers remain separate work.
+
+Socket setup/control/disconnect blocking jobs now share the four-job admission bound, in addition to the two HID jobs and the singleton failed-reader retry. API mutation admission stops during runtime shutdown. This avoids creating a blocking thread per concurrently waiting socket on the single-core target. No thread/RSS performance claim is made until hardware measurements.
+
+Qualification: check-v3.py --host --target --tls passes 38 tests (14 unit, 17 API, seven actual-socket integration tests), fmt/clippy, generic static riscv64 musl/QEMU and real certificate-verified TLS/307/Secure cookie/SIGTERM/occupied-port checks. Reader replacement/stale EOF/stop, bit layout, timestamp coalescing, actual REST/WS payloads, disabled binding and rejection of fake regular input files are tested. Thirteen Go oracle cases and JWT interoperability remain included. No dependencies added: maintained Tokio and libc provide readiness and UTC conversion. stage3-leds-qualification.json records the binary and log hashes.
+
+Next: manual/MCP/PicoClaw coordinator, jiggler, USB composition/reset/reopen, RustDesk ownership; then media/native runtime integration, addons/updaters/APK/OpenRC and the agreed hardware window. Ledger: 23 implemented-isolated routes, one partial WS, 180 pending. H.265 WebRTC remains prohibited.

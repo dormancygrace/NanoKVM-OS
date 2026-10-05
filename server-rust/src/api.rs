@@ -292,6 +292,9 @@ fn change_password(s: &Runtime, name: &str, encrypted: &str) -> Result<(), Error
 }
 
 pub async fn dispatch(State((s, _)): State<(Arc<Runtime>, PathBuf)>, request: Request) -> Response {
+    if s.stopping.load(std::sync::atomic::Ordering::Acquire) {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
     let method = request.method().clone();
     let path = request.uri().path().to_owned();
     let Some(route) = matched(method.as_str(), &path) else {
@@ -348,6 +351,9 @@ fn handle(
     body: &[u8],
 ) -> (Response, Duration) {
     let result = || -> Response {
+        if s.stopping.load(std::sync::atomic::Ordering::Acquire) {
+            return StatusCode::SERVICE_UNAVAILABLE.into_response();
+        }
         let user = if route.authorization == "public" {
             None
         } else if ["loopback-internal-token", "mcp-api-key"].contains(&route.authorization.as_str())

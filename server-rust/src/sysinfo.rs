@@ -18,8 +18,20 @@ pub struct Interface {
     pub running: bool,
     pub addresses: Vec<IpAddr>,
 }
+#[derive(Clone, Debug)]
+pub struct TelemetryInterface {
+    pub interface: Interface,
+    pub loopback: bool,
+    pub kind: String,
+    pub mac: String,
+    pub mtu: i64,
+    pub addresses: Vec<String>,
+}
 pub trait Interfaces: Send + Sync {
     fn list(&self) -> Result<Vec<Interface>, Error>;
+    fn telemetry(&self) -> Result<Vec<TelemetryInterface>, Error> {
+        Err("network telemetry backend unavailable".into())
+    }
 }
 pub struct Native {
     root: PathBuf,
@@ -31,9 +43,26 @@ impl Native {
 }
 impl Interfaces for Native {
     fn list(&self) -> Result<Vec<Interface>, Error> {
+        Ok(self
+            .collect(false)?
+            .into_iter()
+            .map(|iface| iface.interface)
+            .collect())
+    }
+    fn telemetry(&self) -> Result<Vec<TelemetryInterface>, Error> {
+        self.collect(true)
+    }
+}
+impl Native {
+    fn collect(&self, detailed: bool) -> Result<Vec<TelemetryInterface>, Error> {
         if self.root != Path::new("/") {
             return Err("interface discovery unavailable in isolated root".into());
         }
+        let links = if detailed {
+            crate::link_telemetry::native()?
+        } else {
+            BTreeMap::new()
+        };
         let mut first = std::ptr::null_mut();
         if unsafe { libc::getifaddrs(&mut first) } != 0 {
             return Err(std::io::Error::last_os_error().into());
@@ -47,7 +76,7 @@ impl Interfaces for Native {
             }
         }
         let _guard = Guard(first);
-        let mut interfaces = BTreeMap::<u32, Interface>::new();
+        let mut interfaces = BTreeMap::<u32, TelemetryInterface>::new();
         let mut cursor = first;
         while !cursor.is_null() {
             // getifaddrs owns a linked list valid until Guard drops.
@@ -60,13 +89,25 @@ impl Interfaces for Native {
             if index == 0 {
                 continue;
             }
-            let interface = interfaces.entry(index).or_insert_with(|| Interface {
-                index,
-                name: crate::json_text::text(unsafe { CStr::from_ptr(item.ifa_name) }.to_bytes())
-                    .into_owned(),
-                up: item.ifa_flags & libc::IFF_UP as u32 != 0,
-                running: item.ifa_flags & libc::IFF_RUNNING as u32 != 0,
-                addresses: Vec::new(),
+            let interface = interfaces.entry(index).or_insert_with(|| {
+                let link = links.get(&index).cloned().unwrap_or_default();
+                TelemetryInterface {
+                    interface: Interface {
+                        index,
+                        name: crate::json_text::text(
+                            unsafe { CStr::from_ptr(item.ifa_name) }.to_bytes(),
+                        )
+                        .into_owned(),
+                        up: item.ifa_flags & libc::IFF_UP as u32 != 0,
+                        running: item.ifa_flags & libc::IFF_RUNNING as u32 != 0,
+                        addresses: Vec::new(),
+                    },
+                    loopback: item.ifa_flags & libc::IFF_LOOPBACK as u32 != 0,
+                    kind: link.kind,
+                    mac: link.mac,
+                    mtu: link.mtu,
+                    addresses: Vec::new(),
+                }
             });
             if item.ifa_addr.is_null() {
                 continue;
@@ -83,7 +124,28 @@ impl Interfaces for Native {
                 }
                 _ => continue,
             };
-            interface.addresses.push(ip);
+            interface.interface.addresses.push(ip);
+            if !item.ifa_netmask.is_null()
+                && unsafe { (*item.ifa_netmask).sa_family } as i32 == family
+            {
+                let mask = match family {
+                    libc::AF_INET => IpAddr::V4(Ipv4Addr::from(
+                        unsafe { &*item.ifa_netmask.cast::<libc::sockaddr_in>() }
+                            .sin_addr
+                            .s_addr
+                            .to_ne_bytes(),
+                    )),
+                    libc::AF_INET6 => IpAddr::V6(Ipv6Addr::from(
+                        unsafe { &*item.ifa_netmask.cast::<libc::sockaddr_in6>() }
+                            .sin6_addr
+                            .s6_addr,
+                    )),
+                    _ => continue,
+                };
+                if let Some(address) = cidr(ip, mask) {
+                    interface.addresses.push(address)
+                }
+            }
         }
         Ok(interfaces.into_values().collect())
     }
@@ -198,4 +260,42 @@ pub(crate) fn title(runtime: &Runtime) -> Response {
         Ok(title) => ok(serde_json::json!({"title":title})),
         Err(_) => crate::api::error(-1, "read web title failed"),
     }
+}
+
+/// Go IPNet.String preserves the address, with mapped IPv4 and non-CIDR masks.
+pub fn cidr(address: IpAddr, mask: IpAddr) -> Option<String> {
+    let (address, mask) = match (address, mask) {
+        (IpAddr::V4(address), IpAddr::V4(mask)) => (address.to_string(), mask.octets().to_vec()),
+        (IpAddr::V6(address), IpAddr::V6(mask)) => {
+            if let Some(mapped) = address.to_ipv4_mapped() {
+                (mapped.to_string(), mask.octets()[12..].to_vec())
+            } else {
+                (address.to_string(), mask.octets().to_vec())
+            }
+        }
+        _ => return None,
+    };
+    let mut prefix = 0;
+    let mut zeros = false;
+    let mut contiguous = true;
+    for byte in &mask {
+        for bit in (0..8).rev() {
+            if byte & (1 << bit) != 0 {
+                if zeros {
+                    contiguous = false
+                }
+                prefix += 1
+            } else {
+                zeros = true
+            }
+        }
+    }
+    Some(format!(
+        "{address}/{}",
+        if contiguous {
+            prefix.to_string()
+        } else {
+            mask.iter().map(|b| format!("{b:02x}")).collect::<String>()
+        }
+    ))
 }

@@ -506,6 +506,7 @@ fn handle(
         }
         let secure = secure_cookie(s, headers, peer);
         match (method.as_str(), path) {
+            ("GET", "/api/vm/dashboard") => crate::dashboard::get(s),
             ("GET", "/api/vm/memory/status") => crate::memory_status::get(s),
             ("GET", "/api/vm/info") => crate::sysinfo::get(s),
             ("GET", "/api/vm/mdns") => crate::sysinfo::mdns(s),

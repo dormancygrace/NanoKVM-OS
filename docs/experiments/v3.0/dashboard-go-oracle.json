@@ -1,0 +1,3818 @@
+{
+  "attributes": [
+    {
+      "data": "AQABAA==",
+      "value": ""
+    },
+    {
+      "data": "yAABAA==",
+      "value": ""
+    },
+    {
+      "data": "AAA=",
+      "value": ""
+    },
+    {
+      "data": "",
+      "value": ""
+    },
+    {
+      "data": "CAABgAECAwQ=",
+      "value": "AQIDBA=="
+    },
+    {
+      "data": "BQACAAkAAAAFAAEABwAAAA==",
+      "value": "Bw=="
+    }
+  ],
+  "cases": [
+    {
+      "files": {},
+      "interfaces": [],
+      "name": "missing",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "",
+        "kernel": "",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": null,
+        "cpuUsage": null,
+        "cpu": null,
+        "load": null,
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "normal",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "/+GACg==",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "invalid-utf8",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "\ufffd\ufffd\ufffd",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "cpu-3",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": null,
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "cpu-4",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": null,
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEgMiBiYWQgNA==",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "cpu-5",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": null,
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEgMiAz",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "cpu-6",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": null,
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1ICsxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "cpu-7",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": null,
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDE4NDQ2NzQ0MDczNzA5NTUxNjE1IDEgMiAz",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "cpu-8",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 5,
+          "idle": 3
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEgMiAzIDQgNSA2IDcgOCBiYWQ=",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "cpu-9",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 36,
+          "idle": 9
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": ""
+      },
+      "interfaces": [],
+      "name": "uptime-",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": null,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "YmFk"
+      },
+      "interfaces": [],
+      "name": "uptime-bad",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": null,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "LTE="
+      },
+      "interfaces": [],
+      "name": "uptime--1",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": null,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MA=="
+      },
+      "interfaces": [],
+      "name": "uptime-0",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 0,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MS41"
+      },
+      "interfaces": [],
+      "name": "uptime-1.5",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 1.5,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "KzIuNQ=="
+      },
+      "interfaces": [],
+      "name": "uptime-+2.5",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 2.5,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MWUz"
+      },
+      "interfaces": [],
+      "name": "uptime-1e3",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 1000,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "TmFO"
+      },
+      "interfaces": [],
+      "name": "uptime-NaN",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": null,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "load-18",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": null,
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MSAy",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "load-19",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": null,
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MSAyIDMgNA==",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "load-20",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "1",
+          "2",
+          "3"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "CTHigIIy44CAMwo=",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "load-21",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "1",
+          "2",
+          "3"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/hwmon/hwmon0/name": "bnZtZQo=",
+        "/sys/class/hwmon/hwmon0/temp1_input": "OTkwMDA=",
+        "/sys/class/thermal/thermal_zone0/temp": "NDUwMDA=",
+        "/sys/class/thermal/thermal_zone0/type": "U29DLXRoZXJtYWw="
+      },
+      "interfaces": [],
+      "name": "thermal-fallback",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": 45,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/hwmon/hwmon0/name": "bnZtZQo=",
+        "/sys/class/hwmon/hwmon0/temp1_input": "OTkwMDA=",
+        "/sys/class/hwmon/hwmon1/name": "c2cyMDAy",
+        "/sys/class/hwmon/hwmon1/temp1_input": "NTI4NzU=",
+        "/sys/class/hwmon/hwmon1/temp2_input": "aW52YWxpZA==",
+        "/sys/class/thermal/thermal_zone0/temp": "NDUwMDA=",
+        "/sys/class/thermal/thermal_zone0/type": "U29DLXRoZXJtYWw="
+      },
+      "interfaces": [],
+      "name": "board-temp-52875",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": 52.875,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/hwmon/hwmon0/name": "bnZtZQo=",
+        "/sys/class/hwmon/hwmon0/temp1_input": "OTkwMDA=",
+        "/sys/class/hwmon/hwmon1/name": "c2cyMDAy",
+        "/sys/class/hwmon/hwmon1/temp1_input": "",
+        "/sys/class/hwmon/hwmon1/temp2_input": "aW52YWxpZA==",
+        "/sys/class/thermal/thermal_zone0/temp": "NDUwMDA=",
+        "/sys/class/thermal/thermal_zone0/type": "U29DLXRoZXJtYWw="
+      },
+      "interfaces": [],
+      "name": "board-temp-",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/hwmon/hwmon0/name": "bnZtZQo=",
+        "/sys/class/hwmon/hwmon0/temp1_input": "OTkwMDA=",
+        "/sys/class/hwmon/hwmon1/name": "c2cyMDAy",
+        "/sys/class/hwmon/hwmon1/temp1_input": "TmFO",
+        "/sys/class/hwmon/hwmon1/temp2_input": "aW52YWxpZA==",
+        "/sys/class/thermal/thermal_zone0/temp": "NDUwMDA=",
+        "/sys/class/thermal/thermal_zone0/type": "U29DLXRoZXJtYWw="
+      },
+      "interfaces": [],
+      "name": "board-temp-NaN",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/hwmon/hwmon0/name": "bnZtZQo=",
+        "/sys/class/hwmon/hwmon0/temp1_input": "OTkwMDA=",
+        "/sys/class/hwmon/hwmon1/name": "c2cyMDAy",
+        "/sys/class/hwmon/hwmon1/temp1_input": "LTI3MzAwMA==",
+        "/sys/class/hwmon/hwmon1/temp2_input": "aW52YWxpZA==",
+        "/sys/class/thermal/thermal_zone0/temp": "NDUwMDA=",
+        "/sys/class/thermal/thermal_zone0/type": "U29DLXRoZXJtYWw="
+      },
+      "interfaces": [],
+      "name": "board-temp--273000",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/hwmon/hwmon0/name": "bnZtZQo=",
+        "/sys/class/hwmon/hwmon0/temp1_input": "OTkwMDA=",
+        "/sys/class/hwmon/hwmon1/name": "c2cyMDAy",
+        "/sys/class/hwmon/hwmon1/temp1_input": "MTUxMDAw",
+        "/sys/class/hwmon/hwmon1/temp2_input": "aW52YWxpZA==",
+        "/sys/class/thermal/thermal_zone0/temp": "NDUwMDA=",
+        "/sys/class/thermal/thermal_zone0/type": "U29DLXRoZXJtYWw="
+      },
+      "interfaces": [],
+      "name": "board-temp-151000",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/hwmon/hwmon0/name": "bnZtZQo=",
+        "/sys/class/hwmon/hwmon0/temp1_input": "OTkwMDA=",
+        "/sys/class/hwmon/hwmon1/name": "c2cyMDAy",
+        "/sys/class/hwmon/hwmon1/temp1_input": "bm90IGF2YWlsYWJsZQ==",
+        "/sys/class/hwmon/hwmon1/temp2_input": "aW52YWxpZA==",
+        "/sys/class/thermal/thermal_zone0/temp": "NDUwMDA=",
+        "/sys/class/thermal/thermal_zone0/type": "U29DLXRoZXJtYWw="
+      },
+      "interfaces": [],
+      "name": "board-temp-not available",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/hwmon/hwmon0/name": "bnZtZQo=",
+        "/sys/class/hwmon/hwmon0/temp1_input": "OTkwMDA=",
+        "/sys/class/hwmon/hwmon1/name": "c2cyMDAy",
+        "/sys/class/hwmon/hwmon1/temp1_input": "MA==",
+        "/sys/class/hwmon/hwmon1/temp2_input": "aW52YWxpZA==",
+        "/sys/class/thermal/thermal_zone0/temp": "NDUwMDA=",
+        "/sys/class/thermal/thermal_zone0/type": "U29DLXRoZXJtYWw="
+      },
+      "interfaces": [],
+      "name": "board-temp-0",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": 0,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/hwmon/hwmon0/name": "bnZtZQo=",
+        "/sys/class/hwmon/hwmon0/temp1_input": "OTkwMDA=",
+        "/sys/class/hwmon/hwmon1/name": "c2cyMDAy",
+        "/sys/class/hwmon/hwmon1/temp1_input": "LTQwMDAw",
+        "/sys/class/hwmon/hwmon1/temp2_input": "aW52YWxpZA==",
+        "/sys/class/thermal/thermal_zone0/temp": "NDUwMDA=",
+        "/sys/class/thermal/thermal_zone0/type": "U29DLXRoZXJtYWw="
+      },
+      "interfaces": [],
+      "name": "board-temp--40000",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": -40,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/hwmon/hwmon0/name": "bnZtZQo=",
+        "/sys/class/hwmon/hwmon0/temp1_input": "OTkwMDA=",
+        "/sys/class/hwmon/hwmon1/name": "c2cyMDAy",
+        "/sys/class/hwmon/hwmon1/temp1_input": "MTUwMDAw",
+        "/sys/class/hwmon/hwmon1/temp2_input": "aW52YWxpZA==",
+        "/sys/class/thermal/thermal_zone0/temp": "NDUwMDA=",
+        "/sys/class/thermal/thermal_zone0/type": "U29DLXRoZXJtYWw="
+      },
+      "interfaces": [],
+      "name": "board-temp-150000",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": 150,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/hwmon/hwmon0/name": "bnZtZQo=",
+        "/sys/class/hwmon/hwmon0/temp1_input": "OTkwMDA=",
+        "/sys/class/hwmon/hwmon1/name": "c2cyMDAy",
+        "/sys/class/hwmon/hwmon1/temp1_input": "KzQyMDAw",
+        "/sys/class/hwmon/hwmon1/temp2_input": "aW52YWxpZA==",
+        "/sys/class/thermal/thermal_zone0/temp": "NDUwMDA=",
+        "/sys/class/thermal/thermal_zone0/type": "U29DLXRoZXJtYWw="
+      },
+      "interfaces": [],
+      "name": "board-temp-+42000",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": 42,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/hwmon/hwmon0/name": "bnZtZQo=",
+        "/sys/class/hwmon/hwmon0/temp1_input": "OTkwMDA=",
+        "/sys/class/hwmon/hwmon1/name": "c2cyMDAy",
+        "/sys/class/hwmon/hwmon1/temp1_input": "NTUwMDA=",
+        "/sys/class/hwmon/hwmon1/temp2_input": "NTcwMDA=",
+        "/sys/class/thermal/thermal_zone0/temp": "NDUwMDA=",
+        "/sys/class/thermal/thermal_zone0/type": "U29DLXRoZXJtYWw="
+      },
+      "interfaces": [],
+      "name": "max-temp",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": 57,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/hwmon/hwmon0/name": "c2cyMDAyLWV4dHJh",
+        "/sys/class/hwmon/hwmon0/temp1_input": "NTUwMDA=",
+        "/sys/class/thermal/thermal_zone0/temp": "NDUwMDA=",
+        "/sys/class/thermal/thermal_zone0/type": "YW1iaWVudA=="
+      },
+      "interfaces": [],
+      "name": "wrong-name",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed": "MTE1MDAwMA=="
+      },
+      "interfaces": [],
+      "name": "frequency-None",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "ODUwMDAw",
+        "/sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed": "MTE1MDAwMA=="
+      },
+      "interfaces": [],
+      "name": "frequency-850000",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": 850,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "MTAwMDAwMA==",
+        "/sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed": "MTE1MDAwMA=="
+      },
+      "interfaces": [],
+      "name": "frequency-1000000",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": 1000,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "MTEyNTAwMA==",
+        "/sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed": "MTE1MDAwMA=="
+      },
+      "interfaces": [],
+      "name": "frequency-1125000",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": 1125,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "MQ==",
+        "/sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed": "MTE1MDAwMA=="
+      },
+      "interfaces": [],
+      "name": "frequency-1",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": 0,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "MA==",
+        "/sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed": "MTE1MDAwMA=="
+      },
+      "interfaces": [],
+      "name": "frequency-0",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "LTE=",
+        "/sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed": "MTE1MDAwMA=="
+      },
+      "interfaces": [],
+      "name": "frequency--1",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "KzEyMzQwMDA=",
+        "/sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed": "MTE1MDAwMA=="
+      },
+      "interfaces": [],
+      "name": "frequency-+1234000",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": 1234,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "aW52YWxpZA==",
+        "/sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed": "MTE1MDAwMA=="
+      },
+      "interfaces": [],
+      "name": "frequency-invalid",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "OTIyMzM3MjAzNjg1NDc3NTgwOA==",
+        "/sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed": "MTE1MDAwMA=="
+      },
+      "interfaces": [],
+      "name": "frequency-9223372036854775808",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "unmounted",
+      "stats": {
+        "/data": {
+          "Blocks": 100,
+          "Available": 30,
+          "Free": 40,
+          "BlockSize": 4096,
+          "Flags": 1
+        }
+      },
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/mounts": "L2Rldi9yb290IC8gZXh0NCBydyAwIDAKL2Rldi9zZCAvZGF0YSBleHQ0IHJvIDAgMAo=",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "mounted",
+      "stats": {
+        "/": {
+          "Blocks": 100,
+          "Available": 30,
+          "Free": 40,
+          "BlockSize": 4096,
+          "Flags": 0
+        },
+        "/data": {
+          "Blocks": 100,
+          "Available": 30,
+          "Free": 40,
+          "BlockSize": 4096,
+          "Flags": 1
+        }
+      },
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": true,
+            "total": 409600,
+            "free": 122880,
+            "used": 245760,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": true,
+            "total": 409600,
+            "free": 122880,
+            "used": 245760,
+            "readOnly": true
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/mounts": "L2Rldi9zZCAvZGF0YSBleHQ0IHJ3IDAgMAo=",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "stat-error",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/mounts": "L2Rldi9zZCAvZGF0YSBleHQ0IHJ3IDAgMAo=",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "zero-stat",
+      "stats": {
+        "/data": {
+          "Blocks": 0,
+          "Available": 30,
+          "Free": 40,
+          "BlockSize": 4096,
+          "Flags": 1
+        }
+      },
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/mounts": "L2Rldi9zZCAvZGF0YSBleHQ0IHJ3IDAgMAo=",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [],
+      "name": "over-free",
+      "stats": {
+        "/data": {
+          "Blocks": 100,
+          "Available": 30,
+          "Free": 101,
+          "BlockSize": 4096,
+          "Flags": 1
+        }
+      },
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": true,
+            "total": 409600,
+            "free": 122880,
+            "used": 0,
+            "readOnly": true
+          }
+        ],
+        "interfaces": []
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK"
+      },
+      "interfaces": [
+        {
+          "Index": 1,
+          "Name": "lo",
+          "Up": true,
+          "Running": true,
+          "Loopback": true,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "",
+          "Addresses": [
+            "127.0.0.1/8"
+          ]
+        },
+        {
+          "Index": 2,
+          "Name": "eth0",
+          "Up": true,
+          "Running": true,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "",
+          "Addresses": [
+            "192.0.2.1/24",
+            "2001:db8::1/64"
+          ]
+        },
+        {
+          "Index": 3,
+          "Name": "eth0.100",
+          "Up": true,
+          "Running": false,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "vlan",
+          "Addresses": [
+            "198.51.100.1/24"
+          ]
+        },
+        {
+          "Index": 4,
+          "Name": "wlan0",
+          "Up": false,
+          "Running": false,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "",
+          "Addresses": []
+        },
+        {
+          "Index": 5,
+          "Name": "wg0",
+          "Up": true,
+          "Running": true,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "wireguard",
+          "Addresses": [
+            "10.0.0.1/32"
+          ]
+        },
+        {
+          "Index": 6,
+          "Name": "wlx0",
+          "Up": true,
+          "Running": true,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "",
+          "Addresses": []
+        }
+      ],
+      "name": "interfaces",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": [
+          {
+            "kind": "",
+            "name": "eth0",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": true,
+            "enabled": true,
+            "connected": true,
+            "wireless": false,
+            "addresses": [
+              "192.0.2.1/24",
+              "2001:db8::1/64"
+            ],
+            "received": null,
+            "sent": null
+          },
+          {
+            "kind": "vlan",
+            "name": "eth0.100",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": true,
+            "enabled": true,
+            "connected": false,
+            "wireless": false,
+            "addresses": [
+              "198.51.100.1/24"
+            ],
+            "received": null,
+            "sent": null
+          },
+          {
+            "kind": "",
+            "name": "wlan0",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": false,
+            "enabled": true,
+            "connected": false,
+            "wireless": true,
+            "addresses": [],
+            "received": null,
+            "sent": null
+          },
+          {
+            "kind": "wireguard",
+            "name": "wg0",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": true,
+            "enabled": true,
+            "connected": true,
+            "wireless": false,
+            "addresses": [
+              "10.0.0.1/32"
+            ],
+            "received": null,
+            "sent": null
+          },
+          {
+            "kind": "",
+            "name": "wlx0",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": true,
+            "enabled": true,
+            "connected": true,
+            "wireless": true,
+            "addresses": [],
+            "received": null,
+            "sent": null
+          }
+        ]
+      }
+    },
+    {
+      "files": {
+        "/boot/eth.disabled": "MQ==",
+        "/etc/kvm/wifi.disabled": "MQ==",
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/net/eth0/carrier": "MA==",
+        "/sys/class/net/eth0/statistics/rx_bytes": "KzE=",
+        "/sys/class/net/eth0/statistics/tx_bytes": "MTg0NDY3NDQwNzM3MDk1NTE2MTU=",
+        "/sys/class/net/wg0/statistics/rx_bytes": "NDI=",
+        "/sys/class/net/wg0/statistics/tx_bytes": "YmFk",
+        "/sys/class/net/wg0/wireless/marker": ""
+      },
+      "interfaces": [
+        {
+          "Index": 1,
+          "Name": "lo",
+          "Up": true,
+          "Running": true,
+          "Loopback": true,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "",
+          "Addresses": [
+            "127.0.0.1/8"
+          ]
+        },
+        {
+          "Index": 2,
+          "Name": "eth0",
+          "Up": true,
+          "Running": true,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "",
+          "Addresses": [
+            "192.0.2.1/24",
+            "2001:db8::1/64"
+          ]
+        },
+        {
+          "Index": 3,
+          "Name": "eth0.100",
+          "Up": true,
+          "Running": false,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "vlan",
+          "Addresses": [
+            "198.51.100.1/24"
+          ]
+        },
+        {
+          "Index": 4,
+          "Name": "wlan0",
+          "Up": false,
+          "Running": false,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "",
+          "Addresses": []
+        },
+        {
+          "Index": 5,
+          "Name": "wg0",
+          "Up": true,
+          "Running": true,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "wireguard",
+          "Addresses": [
+            "10.0.0.1/32"
+          ]
+        },
+        {
+          "Index": 6,
+          "Name": "wlx0",
+          "Up": true,
+          "Running": true,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "",
+          "Addresses": []
+        }
+      ],
+      "name": "preferences-carrier",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": [
+          {
+            "kind": "",
+            "name": "eth0",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": true,
+            "enabled": false,
+            "connected": false,
+            "wireless": false,
+            "addresses": [
+              "192.0.2.1/24",
+              "2001:db8::1/64"
+            ],
+            "received": null,
+            "sent": 18446744073709551615
+          },
+          {
+            "kind": "vlan",
+            "name": "eth0.100",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": true,
+            "enabled": false,
+            "connected": false,
+            "wireless": false,
+            "addresses": [
+              "198.51.100.1/24"
+            ],
+            "received": null,
+            "sent": null
+          },
+          {
+            "kind": "",
+            "name": "wlan0",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": false,
+            "enabled": false,
+            "connected": false,
+            "wireless": true,
+            "addresses": [],
+            "received": null,
+            "sent": null
+          },
+          {
+            "kind": "wireguard",
+            "name": "wg0",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": true,
+            "enabled": true,
+            "connected": true,
+            "wireless": true,
+            "addresses": [
+              "10.0.0.1/32"
+            ],
+            "received": 42,
+            "sent": null
+          },
+          {
+            "kind": "",
+            "name": "wlx0",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": true,
+            "enabled": true,
+            "connected": true,
+            "wireless": true,
+            "addresses": [],
+            "received": null,
+            "sent": null
+          }
+        ]
+      }
+    },
+    {
+      "files": {
+        "/proc/loadavg": "MC4wMCAxLjAwIDIuMDAgMS85OSAxMjMK",
+        "/proc/stat": "Y3B1IDEwMCAyMCAzMCA0MDAgNTAgNiA3IDggOTAgMTAKY3B1MCAxIDIgMyA0",
+        "/proc/sys/kernel/hostname": "IG5hbm8K",
+        "/proc/sys/kernel/osrelease": "Ni42LjAK",
+        "/proc/uptime": "MTAwLjI1IDE5LjAK",
+        "/sys/class/net/eth0/statistics/rx_bytes": "MTg0NDY3NDQwNzM3MDk1NTE2MTY=",
+        "/sys/class/net/eth0/statistics/tx_bytes": "MA=="
+      },
+      "interfaces": [
+        {
+          "Index": 1,
+          "Name": "lo",
+          "Up": true,
+          "Running": true,
+          "Loopback": true,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "",
+          "Addresses": [
+            "127.0.0.1/8"
+          ]
+        },
+        {
+          "Index": 2,
+          "Name": "eth0",
+          "Up": true,
+          "Running": true,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "",
+          "Addresses": [
+            "192.0.2.1/24",
+            "2001:db8::1/64"
+          ]
+        },
+        {
+          "Index": 3,
+          "Name": "eth0.100",
+          "Up": true,
+          "Running": false,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "vlan",
+          "Addresses": [
+            "198.51.100.1/24"
+          ]
+        },
+        {
+          "Index": 4,
+          "Name": "wlan0",
+          "Up": false,
+          "Running": false,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "",
+          "Addresses": []
+        },
+        {
+          "Index": 5,
+          "Name": "wg0",
+          "Up": true,
+          "Running": true,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "wireguard",
+          "Addresses": [
+            "10.0.0.1/32"
+          ]
+        },
+        {
+          "Index": 6,
+          "Name": "wlx0",
+          "Up": true,
+          "Running": true,
+          "Loopback": false,
+          "MTU": 1500,
+          "MAC": "02:00:00:00:00:01",
+          "Kind": "",
+          "Addresses": []
+        }
+      ],
+      "name": "counter-overflow",
+      "stats": {},
+      "status": {
+        "now": 123456000,
+        "hostname": "nano",
+        "kernel": "6.6.0",
+        "architecture": "riscv64",
+        "cores": 2,
+        "uptime": 100.25,
+        "cpuUsage": null,
+        "cpu": {
+          "total": 621,
+          "idle": 450
+        },
+        "load": [
+          "0.00",
+          "1.00",
+          "2.00"
+        ],
+        "cpuFrequency": null,
+        "temperature": null,
+        "storage": [
+          {
+            "path": "/",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/boot",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          },
+          {
+            "path": "/data",
+            "available": false,
+            "total": 0,
+            "free": 0,
+            "used": 0,
+            "readOnly": false
+          }
+        ],
+        "interfaces": [
+          {
+            "kind": "",
+            "name": "eth0",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": true,
+            "enabled": true,
+            "connected": true,
+            "wireless": false,
+            "addresses": [
+              "192.0.2.1/24",
+              "2001:db8::1/64"
+            ],
+            "received": null,
+            "sent": 0
+          },
+          {
+            "kind": "vlan",
+            "name": "eth0.100",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": true,
+            "enabled": true,
+            "connected": false,
+            "wireless": false,
+            "addresses": [
+              "198.51.100.1/24"
+            ],
+            "received": null,
+            "sent": null
+          },
+          {
+            "kind": "",
+            "name": "wlan0",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": false,
+            "enabled": true,
+            "connected": false,
+            "wireless": true,
+            "addresses": [],
+            "received": null,
+            "sent": null
+          },
+          {
+            "kind": "wireguard",
+            "name": "wg0",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": true,
+            "enabled": true,
+            "connected": true,
+            "wireless": false,
+            "addresses": [
+              "10.0.0.1/32"
+            ],
+            "received": null,
+            "sent": null
+          },
+          {
+            "kind": "",
+            "name": "wlx0",
+            "mac": "02:00:00:00:00:01",
+            "mtu": 1500,
+            "up": true,
+            "enabled": true,
+            "connected": true,
+            "wireless": true,
+            "addresses": [],
+            "received": null,
+            "sent": null
+          }
+        ]
+      }
+    }
+  ],
+  "cidrs": [
+    {
+      "address": "192.0.2.1",
+      "mask": "255.255.255.0",
+      "text": "192.0.2.1/24"
+    },
+    {
+      "address": "2001:db8::1",
+      "mask": "ffff:ffff:ffff:ffff::",
+      "text": "2001:db8::1/64"
+    },
+    {
+      "address": "::ffff:192.0.2.1",
+      "mask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ff00",
+      "text": "192.0.2.1/24"
+    },
+    {
+      "address": "192.0.2.1",
+      "mask": "255.0.255.0",
+      "text": "192.0.2.1/ff00ff00"
+    },
+    {
+      "address": "2001:db8::1",
+      "mask": "ff00:ffff::",
+      "text": "2001:db8::1/ff00ffff000000000000000000000000"
+    }
+  ],
+  "native": {
+    "readOnly": false,
+    "total": 1081101176832
+  },
+  "sampler": [
+    {
+      "at3": null,
+      "at4": null,
+      "cpu": {
+        "total": 100,
+        "idle": 60
+      },
+      "usage": null
+    },
+    {
+      "at3": 30,
+      "at4": null,
+      "cpu": {
+        "total": 200,
+        "idle": 130
+      },
+      "usage": 30
+    },
+    {
+      "at3": null,
+      "at4": null,
+      "cpu": {
+        "total": 1,
+        "idle": 1
+      },
+      "usage": null
+    },
+    {
+      "at3": null,
+      "at4": null,
+      "cpu": null,
+      "usage": null
+    },
+    {
+      "at3": null,
+      "at4": null,
+      "cpu": {
+        "total": 100,
+        "idle": 10
+      },
+      "usage": null
+    },
+    {
+      "at3": null,
+      "at4": null,
+      "cpu": {
+        "total": 101,
+        "idle": 20
+      },
+      "usage": null
+    },
+    {
+      "at3": 50,
+      "at4": null,
+      "cpu": {
+        "total": 201,
+        "idle": 70
+      },
+      "usage": 50
+    }
+  ]
+}

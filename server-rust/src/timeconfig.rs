@@ -391,7 +391,7 @@ pub(crate) fn set(runtime: &Runtime, parameters: Result<Value, Error>) -> Respon
     match runtime.time.save(&config){Ok(())=>get(runtime),Err(_)=>error(-2,"Cannot apply date and time settings; previous configuration was restored where possible")}
 }
 
-fn unix_millis(now: SystemTime) -> i64 {
+pub(crate) fn unix_millis(now: SystemTime) -> i64 {
     match now.duration_since(UNIX_EPOCH) {
         Ok(value) => value.as_millis().min(i64::MAX as u128) as i64,
         Err(error) => {

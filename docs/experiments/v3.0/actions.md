@@ -303,3 +303,23 @@ Routing focusedhost2unit+3API+1realWS cases pass; exactGo404/aliases/sessionrole
 Routing afterfullqualification:134host/target/static/TLS tests pass,54actualGin marker/redirect/404 cases plusactualencodedWS401/101/control/heartbeat andsession/admin/userone-decode/pendingbody/HEAD/errorfixtures.173SPDX;binaryc0827f35dcbf8d9b7a9d865d53ddd9f6ee1cd39cc12b70fbb67901b872e0a7a8 6720880bytes. Ledgerunchanged47isolated/1partial/156pending. Beforelocalboundedcommit; thenreadonlydashboard. No stand/runtimeactivation/publication.
 
 Routing localcommite42f869 createdafter134-test qualification; checkpoint/logamendment. No push. Nextreadonlydashboard.
+
+Dashboard beforeimplementation: routing7b9f195 qualified134tests, clean. Baseline dashboard/system/CPU sampler/sensors/storage/interfaces source+tests fullyread. Add sessionGETdashboard, rootedproc/sys read-only files, independent1secCPU/3sstale sampler withshutdownabort/Weak ownership, storageonlymounted paths, memorynull-onfailure andidentity/hardware. Extendnativeownedinterfaces withCIDR/MAC/MTU/kernelkind via boundedlocalRTM_GETLINK1sec/64KiB/1024messages, affinity/statfs readonlybackend+isolationguards. No new dependencies or host/stand mutations. ActualimmutableGo oracle/ABI/fixture tests next. Invalidinfiniteuptime isnull intentionally toavoid brokenJSON; no sourcebaseline change.
+
+Dashboard firstcompile: libc0.2.190 GNUstatfs hidesf_flags; keep exactstatfsblockmath andobtainreadonlyflag withfstatvfs on sameownedO_PATH descriptor (no brittleprivatefieldlayout). POSIX/libc primarydocs https://man7.org/linux/man-pages/man3/statvfs.3.html verifiedf_flag/Linuxstatfs backing. Thencompile/nativeoracle/targetABI checks. No storagewrites.
+
+Dashboard beforeoracle/nativefixtures: installedcompilepass; preserve basicinfo getifaddrs independently ofoptionalrichnetlink dump so metadatafailure cannot breakoldinfoAPI. Generate immutableRead withonlyclock/files/network/statfs substitutions, sourceCPU/sensor/frequency/enabled/counter/attr/sampler unchanged, realGoIPNetcases/nativeStatfs totals.58plannedfilesystem cases; no liveconfiguration/action.
+
+Dashboard oraclecompile: nestedmap value typedany needs explicitmap[string]any composite. Fixdriver only; baselinefunctions unchanged; rerun immutableGo oracle.
+
+Dashboard beforefixtures:53actualGo filesystem/interface/statfs cases+7CPUintervals+5IPNet strings+6attributes generated; installfiveintegrationtests includingactual1sec/stale3s worker/noHTTP/abort/Weak, nativeaffinity/sameFDstatfs-vfs/netlink/getifaddrs hostANDtarget andsessionmemorynull/success; twounitnetlink metadata/invalidframing tests. No host/stand writes or externalagent.
+
+Dashboard firstfocusedchecks:53Go systemcases/realnativeaffinity-statfs-netlink/workerpass; CIDRdriver incorrectlyconvertsfullIPv6mask withTo4 =>nil, keepactualIPNet fullrawmask; APIfixture usedtotal instead ofbaseline totalBytes. Correctfixture/driver (runtime unchanged) andrerunfiveintegration/twounit/clippy.
+
+Dashboard focusedhostfiveintegration+twounit pass,53GoRead+7sampler+5IPNet+6attr cases exactJSONsemanticvalues. NativeownedRTM_GETLINK/getifaddrs/affinity/sameFDfilesystem hostpass. Removetestparensclippywarning and avoidhardcodedhostdiskcapacity fixture dependency (actualGo native snapshotretainedasevidence). Beforefull141expectedhost/target/TLS/static tests; sourcefrozen. No stand/storage/network/servicewrites.
+
+Dashboard fullhost141pass; targetcompilecaught muslstatfs.f_bsize u64 vs GNUi64. Explicit64bitfrom_ne_bytes preservesGo int64 bits without hostunnecessarycast orprivateABIassumptions. Before repeatfull141host/target/TLS gates; nativeABI targetstillunqualified. Readremainingmemoryswap/video/maintenance/helpers/tests andGoMemLimitutils/tests: softGC50MiBminimum, atomic0644saved setting/concurrencypersist-beforeapply/disable1GiB; nativeeffectivebudget designpending, preference-onlyport wouldnotfulfil feature. Sharedosupdate lock/kvmapp/.os-update+safeO_NOFOLLOW/flock; retained S38memory/activate-kernel helpers fullyread. No memory/storage/clock/network/stand actions.
+
+Dashboard afterfullqualification:141host/target/TLS/static tests pass aftermusl f_bsize correction;53immutableGo systemcases+7intervals+5IPNet+6attrs, realnativeaffinity/sameFDstatfs-vfs/ownednetlink-getifaddrs targetABI andindependent1sec/stale3sec/shutdown worker.173SPDX; ledger48isolated/1partial/155pending. Sourcefrozenqualified; beforelocalboundedcommit. Next immediateauthclockpanic+WSfar-expiry timer fix, thenmemoryswap/video/maintenance. No stand/hoststorage/network/service/config mutation.
+
+Dashboard localcommit3d8ab15 createdafter141-test qualification; logamendment. No push. Nextauthclockrepair.

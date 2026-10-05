@@ -166,6 +166,7 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         ("POST", "/api/auth/users") => &["username", "password", "role"],
         ("POST", "/api/vm/web-title") => &["title"],
         ("POST", "/api/hid/shortcut") => &["keys"],
+        ("POST", "/api/hid/mode") => &["mode"],
         ("DELETE", "/api/hid/shortcut") => &["id"],
         ("POST", "/api/hid/shortcut/leader-key") => &["key"],
         ("POST", "/api/vm/mouse-jiggler/") => &["enabled", "mode"],

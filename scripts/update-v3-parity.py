@@ -14,6 +14,7 @@ ported = {
     ("GET", "/api/branding"), ("GET", "/api/branding/logo"), ("GET", "/api/branding/favicon"),
     ("GET", "/api/vm/web-title"), ("POST", "/api/vm/web-title"),
     ("GET", "/api/hid/mode"), ("GET", "/api/hid/input-status"),
+    ("POST", "/api/hid/mode"), ("POST", "/api/hid/reset"),
     ("GET", "/api/hid/leds"),
     ("GET", "/api/vm/mouse-jiggler"), ("POST", "/api/vm/mouse-jiggler/"),
     ("GET", "/api/hid/shortcuts"), ("POST", "/api/hid/shortcut"), ("DELETE", "/api/hid/shortcut"),
@@ -45,6 +46,9 @@ for r in routes:
     if r['path'].startswith('/api/vm/mouse-jiggler'):
         r['evidence'] = ['server-rust/src/jiggler.rs', 'docs/experiments/v3.0/stage3-jiggler.md']
         evidence = 'stage3-jiggler.md; settings/admin/actual timer/priority/compensation'
+    if (r['method'], r['path']) in {('POST', '/api/hid/mode'), ('POST', '/api/hid/reset')}:
+        r['evidence'] = ['server-rust/src/usb.rs', 'docs/experiments/v3.0/stage3-usb.md']
+        evidence = 'stage3-usb.md; injected actions/reopen/ownership/symlink/response ordering'
     rows.append(f"| {r['method']} | `{r['path']}` | {r['authorization']}" +
                 (" + input owner" if r["input_owner"] else "") +
                 f" | {r['source']}:{r['line']} | {r['rust_status']} | {evidence} |")

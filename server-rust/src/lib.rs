@@ -4,6 +4,7 @@ mod branding;
 pub mod config;
 pub mod controlmode;
 pub mod crypto;
+pub mod fsroot;
 pub mod hid_device;
 pub mod hid_reports;
 mod hid_settings;
@@ -15,6 +16,8 @@ pub mod lockout;
 pub mod redirect;
 mod sessions;
 pub mod store;
+pub mod systemops;
+pub mod usb;
 mod ws;
 mod ws_origin;
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -45,6 +48,8 @@ pub struct Runtime {
     pub coordinator: Arc<inputcontrol::Coordinator>,
     pub pico_lock: Arc<inputcontrol::PicoLock>,
     pub jiggler: Arc<jiggler::Jiggler>,
+    pub commands: Arc<dyn systemops::Executor>,
+    reboot_pending: Arc<std::sync::atomic::AtomicBool>,
     pub(crate) sessions: sessions::Registry,
     pub(crate) socket_slots: Arc<Semaphore>,
     pub(crate) hid_jobs: Arc<Semaphore>,
@@ -53,6 +58,14 @@ pub struct Runtime {
 }
 impl Runtime {
     pub fn load(root: &Path) -> Result<Arc<Self>, Error> {
+        let root = root.canonicalize()?;
+        let commands = Arc::new(systemops::Native::new(root.clone()));
+        Self::load_with_executor(&root, commands)
+    }
+    pub fn load_with_executor(
+        root: &Path,
+        commands: Arc<dyn systemops::Executor>,
+    ) -> Result<Arc<Self>, Error> {
         let root = root.canonicalize()?;
         let hid = Arc::new(hid_device::Devices::new(root.clone()));
         let release = hid.clone();
@@ -67,6 +80,8 @@ impl Runtime {
             pico_lock: Arc::new(inputcontrol::PicoLock::default()),
             jiggler: jiggler::Jiggler::load(config::rooted(&root, "/etc/kvm/mouse-jiggler")?),
             root,
+            commands,
+            reboot_pending: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             lockout: Mutex::new(lockout::Lockout::default()),
             jobs: Arc::new(Semaphore::new(4)),
             hid_settings: Mutex::new(()),
@@ -83,6 +98,32 @@ impl Runtime {
             stopping: std::sync::atomic::AtomicBool::new(false),
         }))
     }
+    pub(crate) fn schedule_reboot(&self) -> Result<(), Error> {
+        use std::sync::atomic::Ordering;
+        let handle = tokio::runtime::Handle::try_current()?;
+        if self.reboot_pending.swap(true, Ordering::AcqRel) {
+            return Ok(());
+        }
+        let pending = self.reboot_pending.clone();
+        let commands = self.commands.clone();
+        handle.spawn(async move {
+            // Let the success body reach the client before a real reboot can
+            // terminate the process. Bound/deduplicate the one pending action.
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            let result = tokio::task::spawn_blocking(move || {
+                commands.run(
+                    systemops::Action::Reboot,
+                    std::time::Duration::from_secs(10),
+                )
+            })
+            .await;
+            if !matches!(result, Ok(Ok(()))) {
+                eprintln!("profile reboot failed: {result:?}");
+            }
+            pending.store(false, Ordering::Release);
+        });
+        Ok(())
+    }
     pub(crate) fn revoke_sessions(&self, username: &str) {
         for id in self.sessions.revoke(username) {
             if let Err(error) = self.input.leave(id) {
@@ -93,6 +134,7 @@ impl Runtime {
     pub fn shutdown(&self) {
         self.stopping
             .store(true, std::sync::atomic::Ordering::Release);
+        self.commands.stop();
         self.socket_slots.close();
         self.hid_jobs.close();
         self.control_jobs.close();

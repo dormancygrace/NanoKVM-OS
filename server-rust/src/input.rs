@@ -199,6 +199,36 @@ impl Hub {
     }
     /// Serialize trusted background/lifecycle IO with browser ownership changes.
     /// The operation must not reenter this hub.
+    /// Pause browser tickets, invalidate every queued/manual generation and
+    /// release held input before privileged gadget lifecycle operations.
+    pub fn reconfigure(&self, operation: impl FnOnce() -> Result<(), Error>) -> Result<(), Error> {
+        let _transition = self.transition()?;
+        let mut state = self.state()?;
+        state.generation = state
+            .generation
+            .checked_add(1)
+            .ok_or("input generation exhausted")?;
+        state.cleanup = true;
+        Self::publish(&state);
+        let cleanup: Vec<_> = state
+            .clients
+            .values()
+            .map(|client| client.cleanup.clone())
+            .collect();
+        let external = state.external.take();
+        drop(state);
+        if let Some(external) = external {
+            (external.release)();
+        }
+        for cleanup in cleanup {
+            cleanup(false);
+        }
+        let result = operation();
+        let mut state = self.state()?;
+        state.cleanup = false;
+        Self::publish(&state);
+        result
+    }
     pub fn synchronized<T>(
         &self,
         operation: impl FnOnce() -> Result<T, Error>,

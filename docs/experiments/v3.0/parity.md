@@ -1,6 +1,6 @@
 # Functional parity matrix
 
-204 baseline registrations: 25 implemented in the isolated Rust slice, 1 partial, 178 pending. This is source/host qualification, not complete hardware parity.
+204 baseline registrations: 27 implemented in the isolated Rust slice, 1 partial, 176 pending. This is source/host qualification, not complete hardware parity.
 
 Owner OS password synchronization cannot run in an isolated root; its rollback path is tested. Internal-token/MCP routes fail closed. Pending public/session/admin routes return HTTP 501 after their access gate. All nonpublic baseline routes have an unauthenticated protection test.
 
@@ -67,8 +67,8 @@ Owner OS password synchronization cannot run in an isolated root; its rollback p
 | GET | `/api/hid/mode` | session | server/router/hid.go:28 | implemented-isolated | stage3-input.md; contract/filesystem |
 | GET | `/api/hid/leds` | session | server/router/hid.go:29 | implemented-isolated | stage3-leds.md; real descriptor/REST/socket snapshots |
 | GET | `/api/hid/input-status` | session | server/router/hid.go:30 | implemented-isolated | stage3-input.md; contract/filesystem |
-| POST | `/api/hid/mode` | admin | server/router/hid.go:36 | pending | — |
-| POST | `/api/hid/reset` | admin | server/router/hid.go:37 | pending | — |
+| POST | `/api/hid/mode` | admin | server/router/hid.go:36 | implemented-isolated | stage3-usb.md; injected actions/reopen/ownership/symlink/response ordering |
+| POST | `/api/hid/reset` | admin | server/router/hid.go:37 | implemented-isolated | stage3-usb.md; injected actions/reopen/ownership/symlink/response ordering |
 | POST | `/api/hid/shortcut` | admin | server/router/hid.go:38 | implemented-isolated | stage3-input.md; contract/filesystem |
 | DELETE | `/api/hid/shortcut` | admin | server/router/hid.go:39 | implemented-isolated | stage3-input.md; contract/filesystem |
 | POST | `/api/hid/shortcut/leader-key` | admin | server/router/hid.go:40 | implemented-isolated | stage3-input.md; contract/filesystem |

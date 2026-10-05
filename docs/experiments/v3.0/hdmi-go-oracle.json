@@ -1,0 +1,1163 @@
+{
+  "cases": [
+    {
+      "calls": [],
+      "case": {
+        "Name": "default",
+        "Path": "timeout",
+        "Body": "{}",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "maximum",
+        "Path": "timeout",
+        "Body": "{\"Minutes\":10080}",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "10080"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "negative",
+        "Path": "timeout",
+        "Body": "{\"Minutes\":-1}",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid arguments"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "too-large",
+        "Path": "timeout",
+        "Body": "{\"Minutes\":10081}",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid arguments"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "fold",
+        "Path": "timeout",
+        "Body": "{\"minutes\":10}",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "10"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "null",
+        "Path": "timeout",
+        "Body": "null",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "null-no-overwrite",
+        "Path": "timeout",
+        "Body": "{\"Minutes\":5,\"MINUTES\":null}",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "5"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "duplicates",
+        "Path": "timeout",
+        "Body": "{\"Minutes\":5,\"MINUTES\":10}",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "10"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "fraction",
+        "Path": "timeout",
+        "Body": "{\"Minutes\":1.0}",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid arguments"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "exponent",
+        "Path": "timeout",
+        "Body": "{\"Minutes\":1e2}",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid arguments"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "string",
+        "Path": "timeout",
+        "Body": "{\"Minutes\":\"1\"}",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid arguments"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "overflow",
+        "Path": "timeout",
+        "Body": "{\"Minutes\":9223372036854775808}",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid arguments"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "early-error",
+        "Path": "timeout",
+        "Body": "{\"Minutes\":\"1\",\"Minutes\":2}",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid arguments"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "trailing",
+        "Path": "timeout",
+        "Body": "{\"Minutes\":2} true",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "2"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "unknown",
+        "Path": "timeout",
+        "Body": "{\"ignored\":1e10000}",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "empty",
+        "Path": "timeout",
+        "Body": "",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid arguments"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "array",
+        "Path": "timeout",
+        "Body": "[]",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid arguments"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "form",
+        "Path": "timeout",
+        "Body": "Minutes=10",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "10"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "form-space",
+        "Path": "timeout",
+        "Body": "Minutes=+10+",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "10"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "form-Unicode",
+        "Path": "timeout",
+        "Body": "Minutes=%C2%8510%E3%80%80",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "10"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "form-first",
+        "Path": "timeout",
+        "Body": "Minutes=10&Minutes=invalid",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "10"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "form-lower",
+        "Path": "timeout",
+        "Body": "minutes=10",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "form-empty",
+        "Path": "timeout",
+        "Body": "Minutes=",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "form-negative",
+        "Path": "timeout",
+        "Body": "Minutes=-1",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid arguments"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "form-overflow",
+        "Path": "timeout",
+        "Body": "Minutes=9223372036854775808",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid arguments"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "form-semicolon",
+        "Path": "timeout",
+        "Body": "Minutes=1;foo=x",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid arguments"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "form-bad-escape",
+        "Path": "timeout",
+        "Body": "Minutes=%GG",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid arguments"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "form-body-over-query",
+        "Path": "timeout",
+        "Body": "Minutes=10",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Query": "Minutes=20",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "10"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "query-only",
+        "Path": "timeout",
+        "Body": "",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Query": "Minutes=10",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "10"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "text-query",
+        "Path": "timeout",
+        "Body": "Minutes=20",
+        "ContentType": "text/plain",
+        "Query": "Minutes=10",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "10"
+    },
+    {
+      "calls": [
+        true
+      ],
+      "case": {
+        "Name": "enable",
+        "Path": "enable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": true,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [
+        true
+      ],
+      "case": {
+        "Name": "enable-absent",
+        "Path": "enable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [
+        false
+      ],
+      "case": {
+        "Name": "disable",
+        "Path": "disable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": true,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [
+        false
+      ],
+      "case": {
+        "Name": "disable-present",
+        "Path": "disable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": true,
+        "Viewers": 0
+      },
+      "disabled": true,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [
+        false,
+        true
+      ],
+      "case": {
+        "Name": "reset",
+        "Path": "reset",
+        "Body": "",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "reset-disabled",
+        "Path": "reset",
+        "Body": "",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": true,
+        "Viewers": 0
+      },
+      "disabled": true,
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "HDMI capture is disabled"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "state",
+        "Path": "get",
+        "Body": "",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "0",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": {
+          "enabled": true,
+          "idleTimeout": 0,
+          "signal": true,
+          "viewerCount": 0
+        },
+        "msg": "success"
+      },
+      "savedTimeout": "0"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "state-disabled",
+        "Path": "get",
+        "Body": "",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "10",
+        "Disabled": true,
+        "Viewers": 3
+      },
+      "disabled": true,
+      "response": {
+        "code": 0,
+        "data": {
+          "enabled": false,
+          "idleTimeout": 10,
+          "signal": false,
+          "viewerCount": 3
+        },
+        "msg": "success"
+      },
+      "savedTimeout": "10"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "state-viewers",
+        "Path": "get",
+        "Body": "",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": " 10\n",
+        "Disabled": false,
+        "Viewers": 3
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": {
+          "enabled": true,
+          "idleTimeout": 10,
+          "signal": true,
+          "viewerCount": 3
+        },
+        "msg": "success"
+      },
+      "savedTimeout": " 10\n"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "state-invalid-timeout",
+        "Path": "get",
+        "Body": "",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "10081",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": {
+          "enabled": true,
+          "idleTimeout": 0,
+          "signal": true,
+          "viewerCount": 0
+        },
+        "msg": "success"
+      },
+      "savedTimeout": "10081"
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "state-invalid-number",
+        "Path": "get",
+        "Body": "",
+        "ContentType": "application/json",
+        "Query": "",
+        "Timeout": "abc",
+        "Disabled": false,
+        "Viewers": 0
+      },
+      "disabled": false,
+      "response": {
+        "code": 0,
+        "data": {
+          "enabled": true,
+          "idleTimeout": 0,
+          "signal": true,
+          "viewerCount": 0
+        },
+        "msg": "success"
+      },
+      "savedTimeout": "abc"
+    }
+  ],
+  "state": [
+    {
+      "accepted": true,
+      "demand": true,
+      "fresh": false,
+      "leases": 0,
+      "nextA": 1,
+      "step": {
+        "Op": "viewer",
+        "Source": "a",
+        "Count": 3,
+        "Version": 0
+      },
+      "viewers": 3,
+      "warming": false
+    },
+    {
+      "accepted": false,
+      "demand": true,
+      "fresh": false,
+      "leases": 0,
+      "nextA": 1,
+      "step": {
+        "Op": "viewer",
+        "Source": "a",
+        "Count": 8,
+        "Version": 0
+      },
+      "viewers": 3,
+      "warming": false
+    },
+    {
+      "accepted": true,
+      "demand": true,
+      "fresh": false,
+      "leases": 0,
+      "nextA": 3,
+      "step": {
+        "Op": "viewer",
+        "Source": "a",
+        "Count": 2,
+        "Version": 2
+      },
+      "viewers": 2,
+      "warming": false
+    },
+    {
+      "accepted": false,
+      "demand": true,
+      "fresh": false,
+      "leases": 0,
+      "nextA": 3,
+      "step": {
+        "Op": "viewer",
+        "Source": "a",
+        "Count": 0,
+        "Version": 1
+      },
+      "viewers": 2,
+      "warming": false
+    },
+    {
+      "accepted": true,
+      "demand": true,
+      "fresh": false,
+      "leases": 0,
+      "nextA": 3,
+      "step": {
+        "Op": "viewer",
+        "Source": "b",
+        "Count": 4,
+        "Version": 9
+      },
+      "viewers": 6,
+      "warming": false
+    },
+    {
+      "accepted": true,
+      "demand": true,
+      "fresh": false,
+      "leases": 0,
+      "nextA": 3,
+      "step": {
+        "Op": "viewer",
+        "Source": "c",
+        "Count": -8,
+        "Version": 2
+      },
+      "viewers": 6,
+      "warming": false
+    },
+    {
+      "accepted": false,
+      "demand": true,
+      "fresh": false,
+      "leases": 1,
+      "nextA": 3,
+      "step": {
+        "Op": "lease",
+        "Source": "",
+        "Count": 0,
+        "Version": 0
+      },
+      "viewers": 6,
+      "warming": false
+    },
+    {
+      "accepted": false,
+      "demand": true,
+      "fresh": false,
+      "leases": 2,
+      "nextA": 3,
+      "step": {
+        "Op": "lease",
+        "Source": "",
+        "Count": 0,
+        "Version": 0
+      },
+      "viewers": 6,
+      "warming": false
+    },
+    {
+      "accepted": true,
+      "demand": true,
+      "fresh": false,
+      "leases": 1,
+      "nextA": 3,
+      "step": {
+        "Op": "release",
+        "Source": "",
+        "Count": 0,
+        "Version": 0
+      },
+      "viewers": 6,
+      "warming": false
+    },
+    {
+      "accepted": false,
+      "demand": true,
+      "fresh": true,
+      "leases": 1,
+      "nextA": 3,
+      "step": {
+        "Op": "warm",
+        "Source": "",
+        "Count": 0,
+        "Version": 0
+      },
+      "viewers": 6,
+      "warming": true
+    },
+    {
+      "accepted": true,
+      "demand": true,
+      "fresh": false,
+      "leases": 1,
+      "nextA": 3,
+      "step": {
+        "Op": "claim",
+        "Source": "",
+        "Count": 0,
+        "Version": 0
+      },
+      "viewers": 6,
+      "warming": true
+    },
+    {
+      "accepted": false,
+      "demand": true,
+      "fresh": false,
+      "leases": 1,
+      "nextA": 3,
+      "step": {
+        "Op": "claim",
+        "Source": "",
+        "Count": 0,
+        "Version": 0
+      },
+      "viewers": 6,
+      "warming": true
+    },
+    {
+      "accepted": false,
+      "demand": true,
+      "fresh": true,
+      "leases": 1,
+      "nextA": 3,
+      "step": {
+        "Op": "warm",
+        "Source": "",
+        "Count": 0,
+        "Version": 0
+      },
+      "viewers": 6,
+      "warming": true
+    },
+    {
+      "accepted": false,
+      "demand": true,
+      "fresh": false,
+      "leases": 1,
+      "nextA": 3,
+      "step": {
+        "Op": "clear",
+        "Source": "",
+        "Count": 0,
+        "Version": 0
+      },
+      "viewers": 6,
+      "warming": false
+    },
+    {
+      "accepted": false,
+      "demand": true,
+      "fresh": false,
+      "leases": 1,
+      "nextA": 3,
+      "step": {
+        "Op": "claim",
+        "Source": "",
+        "Count": 0,
+        "Version": 0
+      },
+      "viewers": 6,
+      "warming": false
+    },
+    {
+      "accepted": true,
+      "demand": true,
+      "fresh": false,
+      "leases": 1,
+      "nextA": 4,
+      "step": {
+        "Op": "viewer",
+        "Source": "a",
+        "Count": 0,
+        "Version": 3
+      },
+      "viewers": 4,
+      "warming": false
+    },
+    {
+      "accepted": true,
+      "demand": true,
+      "fresh": false,
+      "leases": 1,
+      "nextA": 4,
+      "step": {
+        "Op": "viewer",
+        "Source": "b",
+        "Count": 0,
+        "Version": 10
+      },
+      "viewers": 0,
+      "warming": false
+    },
+    {
+      "accepted": true,
+      "demand": false,
+      "fresh": false,
+      "leases": 0,
+      "nextA": 4,
+      "step": {
+        "Op": "release",
+        "Source": "",
+        "Count": 0,
+        "Version": 0
+      },
+      "viewers": 0,
+      "warming": false
+    },
+    {
+      "accepted": false,
+      "demand": false,
+      "fresh": false,
+      "leases": 0,
+      "nextA": 4,
+      "step": {
+        "Op": "release",
+        "Source": "",
+        "Count": 0,
+        "Version": 0
+      },
+      "viewers": 0,
+      "warming": false
+    }
+  ],
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "goVersion": "1.27.1",
+  "source_sha256": {
+    "server/service/vm/hdmi.go": "2cd8c1b3b119479ffb80dec5ace1139ede667160e0b87a409d724bbabcfbdb07",
+    "server/service/vm/hdmi_state/state.go": "ac32fc92a5c3135e6b0621981bc45886aeb3f7100bd7af313fb00ac63e9788d4",
+    "server/utils/hdmi.go": "2b895b2f2504cb5224bb04c530dcda66bfa5b57329e2e0953ec281936e90435c",
+    "server/proto/request.go": "02e7435a0d864ba8fae2cf9db5cab7c996b0da8589c90351484cb2cf9b35dc64",
+    "server/proto/response.go": "1290cc1e89a73bc1fc705ae66f3917c05a878382a2efbc792807531264d55cf4",
+    "server/proto/vm.go": "efb90cdca7c9e230a6e2405b9ffd767df87b78c03dab0ce078f9f92c3d38d188",
+    "server/go.mod": "6c73aefb26aa2af74f77cf5cb4b0d9bc7cf2f48eaf4e8f4176102f5a7c262091",
+    "server/go.sum": "94922fbd383453d16e873e925cdfefd478400ff59884aed51b56201a53faddb3"
+  },
+  "transforms": [
+    "two exact utils constant paths redirected into temporary fixture root",
+    "native vision stub only; complete HDMI handler/demand logic unchanged"
+  ]
+}

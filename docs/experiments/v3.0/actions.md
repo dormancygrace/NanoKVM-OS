@@ -453,3 +453,37 @@ Native supplemental host default-build TLS also passes real certificate/redirect
 Native before local bounded commit: exact own branch, all qualified source hashes unchanged, binary SHA matches, default release has no DT_NEEDED and no C fixture/vendor symbols. git diff --check clean. Commit only named native/runtime-build/docs files. No route count change (57isolated/1partial/146pending), no runtime native launch, stand action, push, publication or merge.
 
 Native local commit 090c8db created after178 qualification; checkpoint/log amendment follows. Full replacement remains incomplete; next screen/HDMI/native media ownership integration, then transports/addons/package/image and agreed hardware gates. No push.
+
+Screen/HDMI source review after native commit94f0d61: full stored screen/default/validation/effective FPS, monitor/portrait/ION/stride/profile/power-cycle, HDMI demand/revision/lease/idle/warmup/fresh-claim, encoder codec policy and Gin binding sources read. No implementation or hardware action yet. Found baseline HDMI persistence functions log failures while handlers acknowledge success; Rust mutation must report failed durable intent and preserve admin disable through reset/idle races, with deliberate error-path changes documented alongside actual Go oracles. Next fixture-only immutable differential oracle and Manager/API/backend wiring; common/windows_pointer.go must be read before shared EDID transaction integration. Ledger unchanged, full178 native qualification remains current.
+
+Scalar oracle before new script installation: new-file collision checked, immutable source extraction only; prepare real Gin numeric/bool form evidence before changing Rust behavior.
+
+Scalar form binding before immutable Go oracle: source review found Rust trims integer/bool values although Gin uses raw strconv parsing. Extract exact three scalar request structs from baseline; execute54 synthetic body/query/duplicate/case/whitespace/overflow cases through real Gin ShouldBind. No handler, native library, helper, host or stand operation.
+
+Scalar oracle result:50 actual Gin cases (earlier before-log54 was a count typo), whitespace-wrapped integer/bool forms fail while raw valid/empty/first-value cases retain Go defaults. Before Rust correction: remove only scalar .trim(), keep empty defaults and string fields unchanged; regression test loops exact50 immutable cases. All replacement/new-module anchors prevalidated before mutation; no native or device operation.
+
+Scalar form correction after real oracle mismatch: prior raw-strconv hypothesis and after-log rejecting whitespace were wrong. Actual pinned Gin1.12 setWithProperType calls strings.TrimSpace for every non-string value. Restore numeric/bool trimming before any further work, retain differential regression and expand whitespace-only/Unicode/minimum/overflow cases. Exact baseline go.mod/go.sum verified; no runtime or device action.
+
+Scalar form binding before immutable Go oracle: pinned Gin1.12 trims Unicode whitespace for non-string fields; string contents remain unmodified. Execute 63 cases through real Gin ShouldBind using three exact baseline structs. No handler, native library, helper, host or stand operation.
+
+HDMI before immutable oracle execution: exact baseline handlers, demand state, utils, proto request/response and pinned go.mod/go.sum. Redirect only two persistent paths into local fixture; replace native vision with counters/signal stub. 41 actual API cases and 19 demand transitions. No vendor/native/hardware or host settings operation.
+
+HDMI oracle result:41 unchanged baseline API cases and19 demand transitions generated; no effects outside temporary fixture. Before Manager/API implementation: shared media Backend gains explicit HDMI/signal hooks, same constructor chain; durable intent before effect, strict marker handling, revisioned/bounded source counts, one-second reset/warmup, RAII leases/read slot/fresh claim, idle worker with weak ownership and blocking work off event loop. Reset cancellation restores only its own capture state; concurrent admin disable/newer reset wins. Fix deadline-subtraction race in draft before installation. All file/replacement anchors verified before mutations. Default native backend remains unavailable; no Runtime native launch, package/device change.
+
+HDMI before lifecycle fixture checks: exact19 Go demand transitions, bounded/count overflow, saved boot intent, revisioned idle/resume, RAII/read warmup/single-slot/fresh/cancellation, reset admin race/cancel/stop, persistence/native failure and current-thread timer responsiveness. Native-only injected fixtures; no device effects.
+
+HDMI before API fixtures: exact41 immutable Go response/native-call/file cases; session/admin/input-owner gates, aborted HTTP reset and released job, concurrent admin disable, durable/native failures and explicit unavailable default. Native injected counters only, no audio/EDID/system commands.
+
+HDMI focused host18 tests and clippy pass (12 lifecycle +6 API including41 Go cases). Before actual loopback HTTP disconnect test: verify server handler cancellation, capture restoration and four-job reclamation over real socket, not only dropped router future. No hardware effects.
+
+Form oracle63 cases pass host with restored Gin1.12 trim behavior. Before provenance hardening: both development oracles use readonly Go modules; scalar oracle records immutable proto/go.mod/go.sum hashes and checks exact source before execution. Actual loopback HDMI disconnect also passes, returning capture and all four blocking jobs. No runtime/vendor/device effects.
+
+Scalar form binding before immutable Go oracle: pinned Gin1.12 trims Unicode whitespace for non-string fields; string contents remain unmodified. Execute 63 cases through real Gin ShouldBind using three exact baseline structs. No handler, native library, helper, host or stand operation.
+
+HDMI before full source-frozen qualification:19 focused HDMI tests (12 unit+7 API/socket),63 form cases,41 immutable API and19 demand transitions; all host pass. Run full fmt/clippy/host+generic-static riscv64/QEMU tests, release/TLS gates. Expect198 tests (86unit+112integration); no default native launch or vendor/device effects. Earlier native178 evidence retained.
+
+HDMI full198 qualification passed:86 unit+112 integration host AND static generic riscv64/QEMU, fmt/clippy/release, actual target certificate-verified TLS/307/Secure-cookie/SIGTERM/occupied-port/internal loopback gates.19 HDMI tests plus63 real Gin cases; source hashes frozen unchanged. Full results preserved before supplemental host-default TLS. Default native backend still unavailable; no device/vendor execution.
+
+HDMI before own-branch local commit: complete198 and supplemental host-default TLS gates passed; all frozen source hashes unchanged, binary6929432 bytes SHA256f29b10a589f95bec6be0f91fc986ee62b9fe18a3f337a9eeb4fb25e4274acfe6, no DT_NEEDED/native fixture/vendor symbols,173 SPDX no missing. Route ledger62isolated/1partial/141pending. Commit named HDMI/form/docs files only; no runtime activation, vendor/device action, push/publication/stable merge. Continue screen/monitor/media after this bounded stage.
+
+HDMI local bounded commit4085978 created after198 gates. Qualification helper caught a trailing checkpoint blank line; trim before own-commit amendment. Runtime/test/oracle frozen hashes remain unchanged. No push/device/native activation.

@@ -7,6 +7,12 @@ use std::{
     sync::Mutex,
 };
 pub trait Backend: Send + Sync {
+    fn set_hdmi(&self, _: bool) -> Result<(), Error> {
+        Err("native HDMI backend is not linked".into())
+    }
+    fn has_hdmi_signal(&self) -> Result<bool, Error> {
+        Err("native HDMI signal backend is not linked".into())
+    }
     fn stop_audio(&self) -> Result<(), Error>;
     fn apply_monitor_profile(&self, path: &Path) -> Result<(), Error>;
 }

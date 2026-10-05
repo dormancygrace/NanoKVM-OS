@@ -2091,8 +2091,14 @@
     "handler": "service.GetHdmiState)          ",
     "source": "server/router/vm.go",
     "line": 65,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hdmi.rs",
+      "server-rust/tests/hdmi.rs",
+      "docs/experiments/v3.0/hdmi-go-oracle.json",
+      "docs/experiments/v3.0/stage3-hdmi.md",
+      "docs/experiments/v3.0/stage3-hdmi-qualification.json"
+    ]
   },
   {
     "method": "POST",
@@ -2102,8 +2108,14 @@
     "handler": "service.ResetHdmi)      ",
     "source": "server/router/vm.go",
     "line": 66,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hdmi.rs",
+      "server-rust/tests/hdmi.rs",
+      "docs/experiments/v3.0/hdmi-go-oracle.json",
+      "docs/experiments/v3.0/stage3-hdmi.md",
+      "docs/experiments/v3.0/stage3-hdmi-qualification.json"
+    ]
   },
   {
     "method": "POST",
@@ -2113,8 +2125,14 @@
     "handler": "service.EnableHdmi)  ",
     "source": "server/router/vm.go",
     "line": 67,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hdmi.rs",
+      "server-rust/tests/hdmi.rs",
+      "docs/experiments/v3.0/hdmi-go-oracle.json",
+      "docs/experiments/v3.0/stage3-hdmi.md",
+      "docs/experiments/v3.0/stage3-hdmi-qualification.json"
+    ]
   },
   {
     "method": "POST",
@@ -2124,8 +2142,14 @@
     "handler": "service.DisableHdmi",
     "source": "server/router/vm.go",
     "line": 68,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hdmi.rs",
+      "server-rust/tests/hdmi.rs",
+      "docs/experiments/v3.0/hdmi-go-oracle.json",
+      "docs/experiments/v3.0/stage3-hdmi.md",
+      "docs/experiments/v3.0/stage3-hdmi-qualification.json"
+    ]
   },
   {
     "method": "POST",
@@ -2135,8 +2159,14 @@
     "handler": "service.SetHdmiIdleTimeout",
     "source": "server/router/vm.go",
     "line": 69,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hdmi.rs",
+      "server-rust/tests/hdmi.rs",
+      "docs/experiments/v3.0/hdmi-go-oracle.json",
+      "docs/experiments/v3.0/stage3-hdmi.md",
+      "docs/experiments/v3.0/stage3-hdmi-qualification.json"
+    ]
   },
   {
     "method": "GET",

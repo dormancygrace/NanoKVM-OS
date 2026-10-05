@@ -1,0 +1,156 @@
+{
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "stage": "HDMI and pinned Gin scalar forms",
+  "checks": {
+    "fmt": {
+      "exit": 0,
+      "seconds": 0.198,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clippy": {
+      "exit": 0,
+      "seconds": 0.732,
+      "log_sha256": "e26126936f9ac9c15b4a20c9569954532bb2c65626cfb7f9189f3c39216a5449"
+    },
+    "host-contracts": {
+      "exit": 0,
+      "seconds": 89.233,
+      "log_sha256": "280a9e71606c6d1b7ac1ddaee79b96e140833ce555358b3f02f26aaa13955adc"
+    },
+    "target-build": {
+      "exit": 0,
+      "seconds": 23.242,
+      "log_sha256": "81bf1bec6e131616128bf190941c2794b226693fbe31667f191410368587afa1"
+    },
+    "target-contracts": {
+      "exit": 0,
+      "seconds": 128.172,
+      "log_sha256": "f8909823b874bcbf6b3f3cad73ea94773e726d575b9cf2a7fe48ff08ef452fb0"
+    },
+    "target-version": {
+      "exit": 0,
+      "seconds": 0.013,
+      "log_sha256": "45ab3a914204af49b93add1fe3d39a590e5df3bd17e51f7eee8a5c1f3ddc309e"
+    },
+    "target-file": {
+      "exit": 0,
+      "seconds": 0.022,
+      "log_sha256": "f844687d64c97e8e9669dd24e5e25fffc94bef64e6c16bd75ba30dfa1b19707a"
+    },
+    "target-binary": {
+      "sha256": "f29b10a589f95bec6be0f91fc986ee62b9fe18a3f337a9eeb4fb25e4274acfe6",
+      "bytes": 6929432
+    },
+    "tls-cert": {
+      "exit": 0,
+      "seconds": 0.021,
+      "log_sha256": "317970780b6f6407c27edd4d3b554fb6edaf057118f10118725a3dd12b3498f4"
+    },
+    "tls-runtime": {
+      "verified_certificate": true,
+      "redirect": 307,
+      "secure_cookie": true,
+      "internal_loopback_http_exception": true,
+      "unauthorized_internal_redirect": 307,
+      "sigterm_exit": 0,
+      "shutdown_seconds": 0.032,
+      "occupied_port_fails_closed": true
+    },
+    "licenses": {
+      "resolved_packages": 173,
+      "missing_spdx": []
+    }
+  },
+  "source_sha256": {
+    "server-rust/src/api.rs": "156c1affa0c029e13617522ab4a19e4ac82e70413ae5506129df5aa16c14c365",
+    "server-rust/src/binding.rs": "43a9108540e29fff21e1cca7b25c62c0623f3228d8ca5bd6ccb4bc8770c3554c",
+    "server-rust/src/lib.rs": "1d730ccd55fc956d0152cdb3349f1f85a79faff102d7157537fe47aa35a408dd",
+    "server-rust/src/monitor.rs": "8414f4328acf05515b145e3aeed9861d9ac4fedca4b06f017460c80673ed7157",
+    "server-rust/src/hdmi.rs": "fe404f69aee07ead37f06a61df180022403d1007be55f59b987d14d40229ea2b",
+    "server-rust/tests/hdmi.rs": "dad612d0d06996af3960f56d954a0cfe6d4a2d8e75310f583a62fd7c45f43b6b",
+    "scripts/refresh-v3-hdmi-oracle.py": "4d0d3641b85912e60606b0832941ae91082bb6ac58bad0a4ed669c1494916558",
+    "scripts/refresh-v3-form-scalar-oracle.py": "30e5f026755f564f058382199ee3b1e3a8bad44196d66bd9a563decb33b76ccc",
+    "docs/experiments/v3.0/hdmi-go-oracle.json": "34cd913c352f2f940c379a83e67dd9c62e18bf0934359f5bc687b5115036eb93",
+    "docs/experiments/v3.0/form-scalar-go-oracle.json": "b7eccbd6f71b7aa680259260ffcf658eb11a8c7bb70efc4fc52f9266afff7624"
+  },
+  "test_counts": {
+    "host": [
+      86,
+      0,
+      27,
+      9,
+      5,
+      11,
+      7,
+      3,
+      6,
+      3,
+      3,
+      8,
+      9,
+      21,
+      0
+    ],
+    "target": [
+      86,
+      0,
+      27,
+      9,
+      5,
+      11,
+      7,
+      3,
+      6,
+      3,
+      3,
+      8,
+      9,
+      21,
+      0
+    ]
+  },
+  "host_target_tests": 198,
+  "hdmi_tests": 19,
+  "actual_go_api_cases": 41,
+  "actual_go_demand_transitions": 19,
+  "actual_go_scalar_cases": 63,
+  "native_backend_wired": false,
+  "vendor_executed": false,
+  "hardware_qualified": false,
+  "device_modified": false,
+  "supplemental_host_default_tls": {
+    "host-build": {
+      "exit": 0,
+      "seconds": 4.803,
+      "log_sha256": "8bd2207d0c97f56603431e7bacb7e3807ab91865c5aa17abfc7cc5ccf319bd02"
+    },
+    "tls-cert": {
+      "exit": 0,
+      "seconds": 0.023,
+      "log_sha256": "43e65c6ba2db05b65924a4a71841880f16d7ce357d83f4dfc8ad4e674de25b5c"
+    },
+    "tls-runtime": {
+      "verified_certificate": true,
+      "redirect": 307,
+      "secure_cookie": true,
+      "internal_loopback_http_exception": true,
+      "unauthorized_internal_redirect": 307,
+      "sigterm_exit": 0,
+      "shutdown_seconds": 0.003,
+      "occupied_port_fails_closed": true
+    },
+    "licenses": {
+      "resolved_packages": 173,
+      "missing_spdx": []
+    }
+  },
+  "default_binary": {
+    "dt_needed": false,
+    "native_fixture_or_vendor_symbols": false
+  },
+  "routes": {
+    "pending": 141,
+    "implemented-isolated": 62,
+    "partial-isolated": 1
+  }
+}

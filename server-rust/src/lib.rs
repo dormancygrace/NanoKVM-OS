@@ -16,6 +16,7 @@ mod gpio_api;
 mod gpio_binding;
 pub mod gpio_monitor;
 pub mod hardware;
+pub mod hdmi;
 pub mod hid_device;
 pub mod hid_reports;
 mod hid_settings;
@@ -87,6 +88,8 @@ pub struct Runtime {
     pub jiggler: Arc<jiggler::Jiggler>,
     pub commands: Arc<dyn systemops::Executor>,
     pub monitor: monitor::Monitor,
+    pub hdmi: Arc<hdmi::Manager>,
+    hdmi_task: Option<tokio::task::JoinHandle<()>>,
     pub hardware: hardware::Hardware,
     pub atx: gpio::Controller,
     pub atx_leds: gpio_monitor::Monitor,
@@ -185,6 +188,8 @@ impl Runtime {
                 eprintln!("apply saved CPU frequency failed: {error}");
             }
         }
+        let hdmi = hdmi::Manager::new(root.clone(), media.clone());
+        let hdmi_task = hdmi.start();
         let hardware = hardware::Hardware::detect(&root);
         let hid = Arc::new(hid_device::Devices::new(root.clone()));
         let release = hid.clone();
@@ -200,6 +205,8 @@ impl Runtime {
             jiggler: jiggler::Jiggler::load(config::rooted(&root, "/etc/kvm/mouse-jiggler")?),
             commands,
             monitor: monitor::Monitor::new(media),
+            hdmi,
+            hdmi_task,
             atx: gpio::Controller::new(gpio.clone()),
             atx_leds: gpio_monitor::Monitor::new(&hardware, gpio),
             hardware,
@@ -270,6 +277,10 @@ impl Runtime {
         self.stopping
             .store(true, std::sync::atomic::Ordering::Release);
         self.commands.stop();
+        self.hdmi.stop();
+        if let Some(task) = &self.hdmi_task {
+            task.abort();
+        }
         self.memory.stop();
         if let Some(task) = &self.memory_task {
             task.abort();

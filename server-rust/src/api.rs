@@ -168,6 +168,7 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         ("POST", "/api/vm/hostname") => &["hostname"],
         ("POST", "/api/vm/oled") => &["sleep"],
         ("POST", "/api/vm/cpu-frequency") => &["target"],
+        ("POST", "/api/vm/date-time") => &["servers", "timezone", "format"],
         ("POST", "/api/hid/shortcut") => &["keys"],
         ("POST", "/api/hid/paste") => &["content", "langue"],
         ("POST", "/api/hid/mode") => &["mode"],
@@ -200,10 +201,11 @@ fn params(
     query: Option<&str>,
 ) -> Result<Value, Error> {
     if method != Method::GET
-        && headers
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .is_some_and(|v| v.split(';').next() == Some("application/json"))
+        && (path == "/api/vm/date-time"
+            || headers
+                .get("content-type")
+                .and_then(|v| v.to_str().ok())
+                .is_some_and(|v| v.split(';').next() == Some("application/json")))
     {
         Ok(crate::binding::json(
             body,
@@ -470,6 +472,8 @@ fn handle(
         }
         let secure = secure_cookie(s, headers, peer);
         match (method.as_str(), path) {
+            ("GET", "/api/vm/date-time") => crate::timeconfig::get(s),
+            ("POST", "/api/vm/date-time") => crate::timeconfig::set(s, parsed),
             ("GET", "/api/vm/cpu-frequency") => crate::cpufreq::get(s),
             ("POST", "/api/vm/cpu-frequency") => crate::cpufreq::set(s, parsed),
             ("GET", "/api/vm/oled") => crate::oled::get(s),

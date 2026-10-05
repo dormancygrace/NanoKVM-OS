@@ -16,6 +16,10 @@ pub enum Action {
     ReloadInit,
     Reboot,
     ApplyHostname,
+    NtpRestart,
+    ChronyRestart,
+    NtpStatus,
+    ChronyTracking,
 }
 pub trait Executor: Send + Sync {
     /// Refuse an unavailable/stopped backend before acknowledging delayed work.
@@ -23,6 +27,9 @@ pub trait Executor: Send + Sync {
         Ok(())
     }
     fn run(&self, action: Action, timeout: Duration) -> Result<(), Error>;
+    fn output(&self, _action: Action, _timeout: Duration) -> Result<Vec<u8>, Error> {
+        Err("command output unavailable".into())
+    }
     fn stop(&self) {}
 }
 pub struct Native {
@@ -73,6 +80,18 @@ impl Executor for Native {
                 command
             }
             Action::Reboot => Command::new("reboot"),
+            Action::NtpStatus | Action::ChronyTracking => {
+                return Err("action requires status/output interface".into())
+            }
+            Action::NtpRestart | Action::ChronyRestart => {
+                let mut command = Command::new(if action == Action::ChronyRestart {
+                    "/etc/init.d/S49chronyd"
+                } else {
+                    "/etc/init.d/S49ntp"
+                });
+                command.arg("restart");
+                command
+            }
             Action::ApplyHostname => {
                 let mut command = Command::new("hostname");
                 command.args(["-F", "/etc/hostname"]);
@@ -80,6 +99,27 @@ impl Executor for Native {
             }
         };
         bounded_with_cancel(&mut command, timeout, || {
+            self.stopped.load(std::sync::atomic::Ordering::Acquire)
+        })
+    }
+    fn output(&self, action: Action, timeout: Duration) -> Result<Vec<u8>, Error> {
+        self.check(action)?;
+        if action != Action::ChronyTracking {
+            return Err("action has no output interface".into());
+        }
+        let mut command = Command::new("/usr/bin/chronyc");
+        command
+            .args([
+                "-n",
+                "-c",
+                "-u",
+                "root",
+                "-h",
+                "/run/chrony/chronyd.sock",
+                "tracking",
+            ])
+            .env("LC_ALL", "C");
+        captured_with_cancel(&mut command, timeout, || {
             self.stopped.load(std::sync::atomic::Ordering::Acquire)
         })
     }
@@ -228,5 +268,134 @@ mod tests {
         .to_string()
         .contains("timed out"));
         assert!(start.elapsed() < Duration::from_secs(3));
+    }
+}
+
+fn captured_with_cancel(
+    command: &mut Command,
+    timeout: Duration,
+    cancelled: impl Fn() -> bool,
+) -> Result<Vec<u8>, Error> {
+    use std::{io::Read, os::fd::AsRawFd};
+    let deadline = Instant::now()
+        .checked_add(timeout)
+        .ok_or("invalid command timeout")?;
+    if timeout.is_zero() {
+        return Err("command timed out".into());
+    }
+    if cancelled() {
+        return Err("runtime is stopping".into());
+    }
+    let mut child = command
+        .process_group(0)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()?;
+    let result = (|| -> Result<Vec<u8>, Error> {
+        let mut stdout = child.stdout.take().ok_or("missing command output pipe")?;
+        let fd = stdout.as_raw_fd();
+        let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+        if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+            return Err(std::io::Error::last_os_error().into());
+        }
+        let mut bytes = Vec::new();
+        let mut exited = None;
+        let mut eof = false;
+        loop {
+            if cancelled() {
+                return Err("runtime is stopping".into());
+            }
+            if Instant::now() >= deadline {
+                return Err("command timed out".into());
+            }
+            if !eof {
+                loop {
+                    let mut buffer = [0; 1024];
+                    match stdout.read(&mut buffer) {
+                        Ok(0) => {
+                            eof = true;
+                            break;
+                        }
+                        Ok(count) => {
+                            if bytes.len() + count > 16384 {
+                                return Err("device command output exceeds limit".into());
+                            }
+                            bytes.extend_from_slice(&buffer[..count]);
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => break,
+                        Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                        Err(error) => return Err(error.into()),
+                    }
+                }
+            }
+            if exited.is_none() {
+                exited = child.try_wait()?;
+            }
+            if let Some(exit) = exited {
+                if !exit.success() {
+                    return Err(format!("device command exited {exit}").into());
+                }
+                if eof {
+                    return Ok(bytes);
+                }
+            }
+            thread::sleep(
+                deadline
+                    .saturating_duration_since(Instant::now())
+                    .min(Duration::from_millis(10)),
+            );
+        }
+    })();
+    // An inherited pipe cannot leave a descendant alive after the owned command.
+    if let Ok(pid) = i32::try_from(child.id()) {
+        unsafe {
+            libc::kill(-pid, libc::SIGKILL);
+        }
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+    result
+}
+#[cfg(test)]
+mod output_tests {
+    use super::*;
+    #[test]
+    fn captured_output_is_exact_bounded_and_descendant_pipe_obeys_deadline() {
+        assert_eq!(
+            captured_with_cancel(
+                Command::new("printf").arg("tracking\n"),
+                Duration::from_secs(2),
+                || false
+            )
+            .unwrap(),
+            b"tracking\n"
+        );
+        assert!(captured_with_cancel(
+            Command::new("sh").args(["-c", "head -c 20000 /dev/zero"]),
+            Duration::from_secs(2),
+            || false
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("output exceeds"));
+        let start = Instant::now();
+        assert!(captured_with_cancel(
+            Command::new("sh").args(["-c", "sleep 30 & exit 0"]),
+            Duration::from_millis(60),
+            || false
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("timed out"));
+        assert!(start.elapsed() < Duration::from_secs(2));
+        assert!(
+            captured_with_cancel(&mut Command::new("false"), Duration::from_secs(2), || false)
+                .is_err()
+        );
+        assert!(
+            captured_with_cancel(&mut Command::new("true"), Duration::from_secs(2), || true)
+                .is_err()
+        );
     }
 }

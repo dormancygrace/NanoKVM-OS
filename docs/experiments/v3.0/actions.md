@@ -243,3 +243,23 @@ CPU before final fixtures: first six host tests/30 actual Go status cases and wa
 CPU after qualification: check-v3.py --host --target --tls passes 110 tests each (39+24+8+19+9+11), 30 immutable Go status fixtures, delayed-QoS/thermal/readback/partial preference bytes+mode+absence rollback/no-create/admin. Static generic-rv64 and real TLS shutdown/port checks pass, 164 SPDX packages. Ledger42 isolated/1partial/161pending. Local bounded commit next; no stand CPU mutation/publication.
 
 CPU local commit b3fe031 created after 110-test qualification; checkpoint/log amended with the result. No push. Next date/time.
+
+Date/time before implementation: CPU committed10424d2 clean; all Go timeconfig and tests read. Use maintained qualified Jiff0.2.37 std-only TZif, system tzdata paths only. Preserve JSON binding/defaults/validation/errors; safe localtime final-link replacement+rollback (never write tzdata target), preflight/snapshot/reverse rollback/restart recovery, display-only no daemon restart or clock step. Native isolated daemon/sync refuse host; fixed bounded process output and local NTP control query. Add fixture backends. No stand clock/TZ/daemon mutation.
+
+Date/time compile correction before qualification: JSON syntax scanner validates but returns no byte offset; use complete struct decoder with parser.end for saved JSON (HTTP Gin remains first-value only). Reject zone name dot like baseline JoinWithin, rather than classify as missing tzdata. No settings applied.
+
+Date/time before fixtures: host clippy warning-denied passes after complete saved JSON decoder/dot-zone correction. Generate immutable Go time validation/read/server-config/Chrony/NTP plus actual Gin binding oracle. Add injected persistence/restart recovery/mode/missing/link TZif-DST tests, UDP request/response/sequence/timeout, session/admin/content-type contract and isolated native refusal. No daemon/clock/stand mutation.
+
+Date/time before fixtures: host clippy warning-denied passes after complete saved JSON decoder/dot-zone correction. Generate immutable Go time validation/read/server-config/Chrony/NTP plus actual Gin binding oracle. Add injected persistence/restart recovery/mode/missing/link TZif-DST tests, UDP request/response/sequence/timeout, session/admin/content-type contract and isolated native refusal. No daemon/clock/stand mutation.
+
+Date/time first fixture results: seven integration tests pass; API failure fixture lacked mandatory ConnectInfo and received500, now supplies real peer and assertsHTTP200 before JSON. Go oracle initial compile missed strconv import, fixed generator then116 cases generated (40validation+17Gin+13read+5serverbytes+24Chrony+17NTP). Rename deprecated Rust1.99 fetch_update to try_update. Make UDP send/read share one absolute750ms deadline like Go.
+
+Date/time before final-link repair:116 actual Go cases/eight time fixtures/two new unit tests and clippy pass. Inspection found CPU preference resolver followed final symlink, unlike baseline atomic rename; fix immediately. Share link/file/mode/missing snapshot+restore helper with timeconfig, replace CPU final nodes without modifying link targets and prove rollback preserves links. Add time rename-success/failed-directory-sync injection to validate rollback of already-created current file. No stand changes.
+
+Date/time before full qualification: nine CPU/eight time integration and41unit expected; all focused fixtures116Go cases and clippy pass after final-link fix. Run check-v3.py --host --target --tls without runtime edits during execution; expected121tests per architecture. No host clock/daemon or stand mutation.
+
+Date/time full qualification first pass121host/target/static/TLS passes. Inspection then found negative Unix milliseconds truncated toward zero for sub-millisecond pre-epoch times, unlike Go floor rounding. Fix immediately and add nine actual Go UnixMilli cases, never change OS clock. Earlier binary evidence121 remains superseded by final122-test run; rerun complete gates after correction.
+
+Date/time after final qualification: check-v3.py --host --target --tls passes122perarchitecture (42+24+9+8+19+9+11),125Go cases plus earlier58Jiff probes, linked CPU+localtime andafter-rename/mode/absence recovery, realUDP/status/command-pipe deadlines. Generic staticmusl+realTLS/SIGTERM/occupiedport pass;173SPDXpackages. Ledger44isolated/1partial/159pending. Nextlocalboundedcommit thenreadonlyidentity/network/mdnsstatus. No clock/TZ/daemon/stand mutation or publication.
+
+Time local commit9c71b14 created after final122-test qualification; checkpoint/log amendment records completion of this bounded slice. No push. Next readonlyinfo/interfaces/mdnsstatus.

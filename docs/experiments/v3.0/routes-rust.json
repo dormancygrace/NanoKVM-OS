@@ -1678,8 +1678,9 @@
     "handler": "service.GetDateTime",
     "source": "server/router/vm.go",
     "line": 20,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-time.md; tests/timeconfig.rs; 125 immutable Go cases; TZif/DST/transaction/restart/UDP/session/admin and static target gates"
   },
   {
     "method": "POST",
@@ -1689,8 +1690,9 @@
     "handler": "service.SetDateTime",
     "source": "server/router/vm.go",
     "line": 21,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-time.md; tests/timeconfig.rs; 125 immutable Go cases; TZif/DST/transaction/restart/UDP/session/admin and static target gates"
   },
   {
     "method": "GET",

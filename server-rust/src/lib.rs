@@ -29,11 +29,14 @@ pub mod monitor;
 mod oled;
 mod paste;
 mod paste_layout;
+mod preferences;
 pub mod redirect;
 mod request_cancel;
 mod sessions;
 pub mod store;
 pub mod systemops;
+pub mod time_sync;
+pub mod timeconfig;
 pub mod usb;
 mod ws;
 mod ws_origin;
@@ -73,6 +76,7 @@ pub struct Runtime {
     pub atx: gpio::Controller,
     pub atx_leds: gpio_monitor::Monitor,
     pub cpu: cpufreq::Manager,
+    pub time: timeconfig::Manager,
     pub(crate) internal: internal::Token,
     reboot_pending: Arc<std::sync::atomic::AtomicBool>,
     pub(crate) sessions: sessions::Registry,
@@ -120,6 +124,19 @@ impl Runtime {
         cpu: Arc<dyn cpufreq::Backend>,
     ) -> Result<Arc<Self>, Error> {
         let root = root.canonicalize()?;
+        let time = Arc::new(timeconfig::Native::new(root.clone(), commands.clone()));
+        Self::load_with_all_backends(&root, commands, media, gpio, cpu, time)
+    }
+    pub fn load_with_all_backends(
+        root: &Path,
+        commands: Arc<dyn systemops::Executor>,
+        media: Arc<dyn monitor::Backend>,
+        gpio: Arc<dyn gpio::Backend>,
+        cpu: Arc<dyn cpufreq::Backend>,
+        time: Arc<dyn timeconfig::Backend>,
+    ) -> Result<Arc<Self>, Error> {
+        let root = root.canonicalize()?;
+        let time = timeconfig::Manager::new(root.clone(), time);
         let cpu = cpufreq::Manager::new(root.clone(), cpu);
         if root == Path::new("/") {
             if let Err(error) = cpu.apply_saved() {
@@ -145,6 +162,7 @@ impl Runtime {
             atx_leds: gpio_monitor::Monitor::new(&hardware, gpio),
             hardware,
             cpu,
+            time,
             internal: internal::Token::load(&root)?,
             root,
             reboot_pending: Arc::new(std::sync::atomic::AtomicBool::new(false)),

@@ -430,3 +430,29 @@ fn unproven_qos_clamp_times_out_and_reports_failed_restore() {
     assert!(error.contains("restore CPU clock"));
     assert!(!root.path().join("etc/kvm/cpufreq").exists());
 }
+
+#[test]
+fn cpu_preference_links_are_replaced_and_rollback_preserves_original_targets() {
+    use std::os::unix::fs::symlink;
+    let (root, fake, manager) = fixture();
+    fake.file(&format!("{POLICY}/cpuinfo_cur_freq"), "1000000");
+    let boot = root.path().join("etc/kvm/cpufreq");
+    let run = root.path().join("run/nanokvm-cpufreq");
+    let boot_target = root.path().join("etc/kvm/boot-cap");
+    let run_target = root.path().join("run/runtime-cap");
+    fs::write(&boot_target, b"1000\n").unwrap();
+    fs::write(&run_target, b"1000\n").unwrap();
+    symlink("boot-cap", &boot).unwrap();
+    symlink("runtime-cap", &run).unwrap();
+    fake.preference_fail.store(true, Ordering::Release);
+    assert!(manager.apply(850, true).is_err());
+    assert_eq!(fs::read_link(&boot).unwrap(), Path::new("boot-cap"));
+    assert_eq!(fs::read_link(&run).unwrap(), Path::new("runtime-cap"));
+    manager.apply(850, true).unwrap();
+    assert!(fs::symlink_metadata(&boot).unwrap().is_file());
+    assert!(fs::symlink_metadata(&run).unwrap().is_file());
+    assert_eq!(fs::read(&boot).unwrap(), b"850\n");
+    assert_eq!(fs::read(&run).unwrap(), b"850\n");
+    assert_eq!(fs::read(&boot_target).unwrap(), b"1000\n");
+    assert_eq!(fs::read(&run_target).unwrap(), b"1000\n");
+}

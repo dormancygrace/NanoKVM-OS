@@ -47,6 +47,8 @@ pub mod redirect;
 mod request_cancel;
 mod routing;
 pub mod screen;
+mod screen_api;
+mod screen_store;
 mod services;
 mod sessions;
 pub mod store;
@@ -90,6 +92,7 @@ pub struct Runtime {
     pub commands: Arc<dyn systemops::Executor>,
     pub monitor: monitor::Monitor,
     pub hdmi: Arc<hdmi::Manager>,
+    pub screen: screen::Manager,
     hdmi_task: Option<tokio::task::JoinHandle<()>>,
     pub hardware: hardware::Hardware,
     pub atx: gpio::Controller,
@@ -206,6 +209,7 @@ impl Runtime {
             jiggler: jiggler::Jiggler::load(config::rooted(&root, "/etc/kvm/mouse-jiggler")?),
             commands,
             monitor: monitor::Monitor::new(media),
+            screen: screen::Manager::load(&root)?,
             hdmi,
             hdmi_task,
             atx: gpio::Controller::new(gpio.clone()),

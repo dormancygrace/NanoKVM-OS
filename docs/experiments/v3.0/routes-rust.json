@@ -1821,8 +1821,15 @@
     "handler": "service.SetScreen)               ",
     "source": "server/router/vm.go",
     "line": 33,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/screen_api.rs",
+      "server-rust/src/screen.rs",
+      "server-rust/src/monitor.rs",
+      "server-rust/tests/screen.rs",
+      "docs/experiments/v3.0/stage3-screen-api.md",
+      "docs/experiments/v3.0/stage3-screen-api-qualification.json"
+    ]
   },
   {
     "method": "GET",
@@ -1832,8 +1839,15 @@
     "handler": "service.GetScreen)                  ",
     "source": "server/router/vm.go",
     "line": 34,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/screen_api.rs",
+      "server-rust/src/screen.rs",
+      "server-rust/src/monitor.rs",
+      "server-rust/tests/screen.rs",
+      "docs/experiments/v3.0/stage3-screen-api.md",
+      "docs/experiments/v3.0/stage3-screen-api-qualification.json"
+    ]
   },
   {
     "method": "GET",

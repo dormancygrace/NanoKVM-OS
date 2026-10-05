@@ -718,12 +718,9 @@ async fn configured_authentication_disable_and_untrusted_forwarding_are_preserve
     assert!(!headers.contains_key("set-cookie"));
     let (_, _, v) = request(&app, "GET", "/api/auth/account", Value::Null, &[]).await;
     assert_eq!(v["data"]["role"], "admin");
-    assert_eq!(
-        request(&app, "GET", "/api/vm/screen", Value::Null, &[])
-            .await
-            .0,
-        StatusCode::NOT_IMPLEMENTED
-    );
+    let (status, _, response) = request(&app, "GET", "/api/vm/screen", Value::Null, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(response["code"], -2); // Authentication bypass works; native backend is unavailable.
     fs::write(
         &config,
         "proto: http\nport:\n  http: 38080\n  https: 38443\nsecurity:\n  trustedProxies: []\n",

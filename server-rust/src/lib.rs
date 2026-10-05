@@ -5,6 +5,7 @@ pub mod composition;
 pub mod config;
 pub mod controlmode;
 pub mod crypto;
+mod form_binding;
 pub mod fsroot;
 pub mod hid_device;
 pub mod hid_reports;

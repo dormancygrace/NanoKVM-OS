@@ -1,0 +1,460 @@
+{
+  "goVersion": "1.27.1",
+  "primitive": "net/http.Request.ParseForm (Gin v1.12 Form binder)",
+  "cases": [
+    {
+      "body": "content=body&langue=de",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": false,
+      "method": "POST",
+      "name": "body precedes query",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "body",
+          "query"
+        ],
+        "langue": [
+          "de",
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": false,
+      "method": "POST",
+      "name": "query only",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "",
+      "error": false,
+      "method": "POST",
+      "name": "absent type ignores body",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "text/plain",
+      "error": false,
+      "method": "POST",
+      "name": "plain type ignores body",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": false,
+      "method": "DELETE",
+      "name": "DELETE ignores body",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": false,
+      "method": "GET",
+      "name": "GET ignores body",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": false,
+      "method": "PUT",
+      "name": "PUT reads body",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "body",
+          "query"
+        ],
+        "langue": [
+          "de",
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": false,
+      "method": "PATCH",
+      "name": "PATCH reads body",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "body",
+          "query"
+        ],
+        "langue": [
+          "de",
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "Application/X-WWW-Form-Urlencoded; CHARSET=UTF-8",
+      "error": false,
+      "method": "POST",
+      "name": "case-insensitive form media",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "body",
+          "query"
+        ],
+        "langue": [
+          "de",
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": " application/x-www-form-urlencoded ; charset=\"UTF-8\" ",
+      "error": false,
+      "method": "POST",
+      "name": "parameter whitespace",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "body",
+          "query"
+        ],
+        "langue": [
+          "de",
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "application/x-www-form-urlencoded;",
+      "error": false,
+      "method": "POST",
+      "name": "trailing semicolon",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "body",
+          "query"
+        ],
+        "langue": [
+          "de",
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "application/x-www-form-urlencoded; charset=UTF-8; CHARSET=\"UTF-8\"",
+      "error": false,
+      "method": "POST",
+      "name": "equal duplicate params",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "body",
+          "query"
+        ],
+        "langue": [
+          "de",
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "application/x-www-form-urlencoded; charset=UTF-8; charset=ASCII",
+      "error": true,
+      "method": "POST",
+      "name": "unequal duplicate params",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "application/x-www-form-urlencoded; broken",
+      "error": true,
+      "method": "POST",
+      "name": "invalid media parameter",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "body",
+          "query"
+        ],
+        "langue": [
+          "de",
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "broken",
+      "error": false,
+      "method": "POST",
+      "name": "invalid media type",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=%zz",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": true,
+      "method": "POST",
+      "name": "invalid body percent",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": true,
+      "method": "POST",
+      "name": "invalid query percent",
+      "query": "content=%zz",
+      "values": {
+        "content": [
+          "body"
+        ],
+        "langue": [
+          "de"
+        ]
+      }
+    },
+    {
+      "body": "content=%",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": true,
+      "method": "POST",
+      "name": "short percent",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=a;b",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": true,
+      "method": "POST",
+      "name": "raw semicolon",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=a%3Bb",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": false,
+      "method": "POST",
+      "name": "encoded semicolon",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "a;b",
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=body&langue=de",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": true,
+      "method": "POST",
+      "name": "semicolon in unknown",
+      "query": "unknown=a;b",
+      "values": {
+        "content": [
+          "body"
+        ],
+        "langue": [
+          "de"
+        ]
+      }
+    },
+    {
+      "body": "content=%zz",
+      "contentType": "text/plain",
+      "error": false,
+      "method": "POST",
+      "name": "ignored plain bad body",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "content=a+b&content=last&langue=%D1%80%D1%83",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": false,
+      "method": "POST",
+      "name": "first scalar plus Unicode",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "a b",
+          "last",
+          "query"
+        ],
+        "langue": [
+          "\u0440\u0443",
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "Keys=first&Keys=second",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": false,
+      "method": "POST",
+      "name": "repeated body and query",
+      "query": "Keys=third&Keys=fourth",
+      "values": {
+        "Keys": [
+          "first",
+          "second",
+          "third",
+          "fourth"
+        ]
+      }
+    },
+    {
+      "body": "content=%26%3D%2B",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": false,
+      "method": "POST",
+      "name": "escaped equals ampersand",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "&=+",
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    },
+    {
+      "body": "&&content=&flag&",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": false,
+      "method": "POST",
+      "name": "empty parameters",
+      "query": "",
+      "values": {
+        "content": [
+          ""
+        ],
+        "flag": [
+          ""
+        ]
+      }
+    },
+    {
+      "body": "content=%ff",
+      "contentType": "application/x-www-form-urlencoded",
+      "error": false,
+      "method": "POST",
+      "name": "UTF-8 replacement in response",
+      "query": "content=query&langue=fr",
+      "values": {
+        "content": [
+          "\ufffd",
+          "query"
+        ],
+        "langue": [
+          "fr"
+        ]
+      }
+    }
+  ]
+}

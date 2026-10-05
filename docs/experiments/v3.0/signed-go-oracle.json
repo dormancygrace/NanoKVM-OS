@@ -1,0 +1,116 @@
+[
+  {
+    "body": "{}",
+    "error": false,
+    "name": "empty",
+    "sleep": 0
+  },
+  {
+    "body": "null",
+    "error": false,
+    "name": "null",
+    "sleep": 0
+  },
+  {
+    "body": "{\"Sleep\":15,\"sleep\":null}",
+    "error": false,
+    "name": "null-retains",
+    "sleep": 15
+  },
+  {
+    "body": "{\"sleep\":15,\"SLEEP\":30}",
+    "error": false,
+    "name": "case-order",
+    "sleep": 30
+  },
+  {
+    "body": "{\"Sleep\":-1}",
+    "error": false,
+    "name": "negative",
+    "sleep": -1
+  },
+  {
+    "body": "{\"Sleep\":-0}",
+    "error": false,
+    "name": "negative-zero",
+    "sleep": 0
+  },
+  {
+    "body": "{\"Sleep\":-9223372036854775808}",
+    "error": false,
+    "name": "min",
+    "sleep": -9223372036854775808
+  },
+  {
+    "body": "{\"Sleep\":9223372036854775807}",
+    "error": false,
+    "name": "max",
+    "sleep": 9223372036854775807
+  },
+  {
+    "body": "{\"Sleep\":9223372036854775808}",
+    "error": true,
+    "name": "overflow",
+    "sleep": 0
+  },
+  {
+    "body": "{\"Sleep\":-9223372036854775809}",
+    "error": true,
+    "name": "underflow",
+    "sleep": 0
+  },
+  {
+    "body": "{\"Sleep\":15.0}",
+    "error": true,
+    "name": "float",
+    "sleep": 0
+  },
+  {
+    "body": "{\"Sleep\":15e0}",
+    "error": true,
+    "name": "exponent",
+    "sleep": 0
+  },
+  {
+    "body": "{\"Sleep\":false}",
+    "error": true,
+    "name": "bool",
+    "sleep": 0
+  },
+  {
+    "body": "{\"Sleep\":\"15\"}",
+    "error": true,
+    "name": "string",
+    "sleep": 0
+  },
+  {
+    "body": "{\"Sleep\":[]}",
+    "error": true,
+    "name": "array",
+    "sleep": 0
+  },
+  {
+    "body": "{\"Sleep\":{}}",
+    "error": true,
+    "name": "object",
+    "sleep": 0
+  },
+  {
+    "body": "{\"Sleep\":false,\"Sleep\":15}",
+    "error": true,
+    "name": "early-type",
+    "sleep": 15
+  },
+  {
+    "body": "{\"Sleep\":15,\"ignored\":1e10000}",
+    "error": false,
+    "name": "unknown",
+    "sleep": 15
+  },
+  {
+    "body": "{\"Sleep\":15} true",
+    "error": false,
+    "name": "trailing",
+    "sleep": 15
+  }
+]

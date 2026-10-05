@@ -110,7 +110,7 @@ pub(crate) fn get(runtime: &Runtime) -> Response {
     let data = fsroot::resolve(&runtime.root, Path::new("/etc/hostname"), false)
         .and_then(|path| fs::read(path).map_err(Into::into));
     match data {
-        Ok(data) => ok(json!({"hostname":String::from_utf8_lossy(&data).replace('\n',"")})),
+        Ok(data) => ok(json!({"hostname":crate::json_text::text(&data).replace('\n',"")})),
         Err(_) => error(-1, "read Hostname failed"),
     }
 }

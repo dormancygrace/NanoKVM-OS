@@ -1,0 +1,80 @@
+[
+  {
+    "error": false,
+    "input": "eyJUaXRsZSI6Iv8ifQ==",
+    "name": "invalid-byte",
+    "title": "\ufffd"
+  },
+  {
+    "error": false,
+    "input": "eyJUaXRsZSI6IuGA/yJ9",
+    "name": "truncated-UTF8",
+    "title": "\ufffd\ufffd\ufffd"
+  },
+  {
+    "error": false,
+    "input": "eyJUaXRsZSI6InhcdWQ4MDB5In0=",
+    "name": "high",
+    "title": "x\ufffdy"
+  },
+  {
+    "error": false,
+    "input": "eyJUaXRsZSI6Ilx1ZGMwMCJ9",
+    "name": "low",
+    "title": "\ufffd"
+  },
+  {
+    "error": false,
+    "input": "eyJUaXRsZSI6Ilx1ZDgwMFx1MDA0MSJ9",
+    "name": "high-before-normal",
+    "title": "\ufffdA"
+  },
+  {
+    "error": false,
+    "input": "eyJUaXRsZSI6Ilx1ZDgwMFx1ZGMwMCJ9",
+    "name": "paired",
+    "title": "\ud800\udc00"
+  },
+  {
+    "error": false,
+    "input": "eyJUaXRsZSI6IlxcdWQ4MDAifQ==",
+    "name": "escaped-backslash",
+    "title": "\\ud800"
+  },
+  {
+    "error": false,
+    "input": "eyJUaXRsZSI6Ilx1MDA1Q3VkODAwIn0=",
+    "name": "unicode-backslash",
+    "title": "\\ud800"
+  },
+  {
+    "error": false,
+    "input": "eyJcdWQ4MDAiOiJpZ25vcmVkIiwiVGl0bGUiOiJvayJ9",
+    "name": "unknown-surrogate-key",
+    "title": "ok"
+  },
+  {
+    "error": false,
+    "input": "eyJUaXRsZSI6Im9rIiwiaWdub3JlZCI6eyJ2YWx1ZSI6Ilx1ZDgwMCJ9fQ==",
+    "name": "unknown-value",
+    "title": "ok"
+  },
+  {
+    "error": false,
+    "input": "eyJUaXRsZSI6Ilx1ZDgwMFx1ZGZmZiJ9",
+    "name": "pair-high-low-max",
+    "title": "\ud800\udfff"
+  },
+  {
+    "error": false,
+    "input": "eyJUaXRsZSI6Ilx1ZDgwMFx1ZDgwMFx1ZGMwMCJ9",
+    "name": "high-high-low",
+    "title": "\ufffd\ud800\udc00"
+  },
+  {
+    "error": false,
+    "input": "eyL/IjoiaWdub3JlZCIsIlRpdGxlIjoib2sifQ==",
+    "name": "invalid-key",
+    "title": "ok"
+  }
+]

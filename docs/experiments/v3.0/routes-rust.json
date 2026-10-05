@@ -2052,8 +2052,12 @@
     "handler": "service.GetOLED) ",
     "source": "server/router/vm.go",
     "line": 61,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/oled.rs",
+      "server-rust/tests/contracts.rs",
+      "docs/experiments/v3.0/stage3-oled.md"
+    ]
   },
   {
     "method": "POST",
@@ -2063,8 +2067,12 @@
     "handler": "service.SetOLED",
     "source": "server/router/vm.go",
     "line": 62,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/oled.rs",
+      "server-rust/tests/contracts.rs",
+      "docs/experiments/v3.0/stage3-oled.md"
+    ]
   },
   {
     "method": "GET",

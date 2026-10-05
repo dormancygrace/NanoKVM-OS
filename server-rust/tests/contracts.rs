@@ -1352,3 +1352,87 @@ async fn hostname_form(
     let bytes = to_bytes(rsp.into_body(), 1 << 20).await.unwrap();
     (status, headers, serde_json::from_slice(&bytes).unwrap())
 }
+
+#[tokio::test]
+async fn oled_signed_binding_defaults_storage_permissions_and_admin_policy() {
+    use std::os::unix::fs::PermissionsExt;
+    let (root, state, app) = fixture();
+    let auth = format!("Bearer {}", login(&app, "owner").await);
+    let headers = [("authorization", auth.as_str())];
+    let (_, _, v) = request(&app, "GET", "/api/vm/oled", Value::Null, &headers).await;
+    assert_eq!(v["data"], json!({"exist":false,"sleep":0}));
+    fs::write(root.path().join("etc/kvm/oled_exist"), "").unwrap();
+    let (_, _, v) = request(&app, "GET", "/api/vm/oled", Value::Null, &headers).await;
+    assert_eq!(v["data"], json!({"exist":true,"sleep":0}));
+    let path = root.path().join("etc/kvm/oled_sleep");
+    fs::write(&path, "+030\n").unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+    let (_, _, v) = request(&app, "GET", "/api/vm/oled", Value::Null, &headers).await;
+    assert_eq!(v["data"]["sleep"], 30);
+    for body in [
+        r#"{"sleep":1.0}"#,
+        r#"{"Sleep":"30"}"#,
+        r#"{"Sleep":9223372036854775808}"#,
+        r#"{"Sleep":false,"Sleep":30}"#,
+    ] {
+        let (_, _, v) = request_raw(&app, "POST", "/api/vm/oled", body, &headers).await;
+        assert_eq!(v["code"], -1);
+        assert_eq!(v["msg"], "invalid arguments");
+        assert_eq!(fs::read(&path).unwrap(), b"+030\n");
+    }
+    for sleep in [-1, 0, 15, 30, 60, 180, 300, 600, 1800, 3600] {
+        let (_, _, v) = request(
+            &app,
+            "POST",
+            "/api/vm/oled",
+            json!({"sleep":sleep}),
+            &headers,
+        )
+        .await;
+        assert_eq!(v["code"], 0);
+        assert_eq!(fs::read(&path).unwrap(), sleep.to_string().as_bytes());
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
+    let (_, _, v) = request_raw(
+        &app,
+        "POST",
+        "/api/vm/oled",
+        r#"{"Sleep":15,"sleep":null,"SLEEP":-1} true"#,
+        &headers,
+    )
+    .await;
+    assert_eq!(v["code"], 0);
+    assert_eq!(fs::read(&path).unwrap(), b"-1");
+    let (_, _, v) = request_raw(&app, "POST", "/api/vm/oled", "null", &headers).await;
+    assert_eq!(v["code"], 0);
+    assert_eq!(fs::read(&path).unwrap(), b"0");
+    let (_, _, v) = request(&app, "POST", "/api/vm/oled", json!({"sleep":1}), &headers).await;
+    assert_eq!(v["msg"], "invalid OLED sleep duration");
+    fs::write(&path, "broken").unwrap();
+    let (_, _, v) = request(&app, "GET", "/api/vm/oled", Value::Null, &headers).await;
+    assert_eq!(v["msg"], "failed to parse OLED config");
+    let (_, _, v) =
+        hostname_form(&app, "/api/vm/oled?Sleep=15", "Sleep=%2B30&Sleep=60", &auth).await;
+    assert_eq!(v["code"], 0);
+    assert_eq!(fs::read(&path).unwrap(), b"30");
+    state
+        .store
+        .create("viewer", "operator-password", "user")
+        .unwrap();
+    let user = format!("Bearer {}", login(&app, "viewer").await);
+    for method in ["GET", "POST"] {
+        let (status, _, _) = request(
+            &app,
+            method,
+            "/api/vm/oled",
+            json!({"sleep":30}),
+            &[("authorization", user.as_str())],
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+    }
+    state.shutdown();
+}

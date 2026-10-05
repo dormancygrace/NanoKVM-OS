@@ -192,3 +192,10 @@ pub(crate) fn get(runtime: &Runtime) -> Response {
 pub(crate) fn mdns(runtime: &Runtime) -> Response {
     ok(serde_json::json!({"enabled":runtime.info.mdns_enabled()}))
 }
+
+pub(crate) fn title(runtime: &Runtime) -> Response {
+    match runtime.info.text("/etc/kvm/web-title") {
+        Ok(title) => ok(serde_json::json!({"title":title})),
+        Err(_) => crate::api::error(-1, "read web title failed"),
+    }
+}

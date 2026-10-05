@@ -275,3 +275,11 @@ Information focused3host+3targettests andclippy pass, including actualownedgetif
 Information after qualification: check-v3.py --host --target --tls125tests each (42+24+9+8+3+19+9+11),28Go identity/IP/PIDcases and actualownednativegetifaddrs host/staticmusl/QEMU pass. SPDX173; ledger46isolated/1partial/157pending. Localboundedcommitnext. Dashboardfullsource/tests and memory-status/video-memory/maintenance source+memory-status/video tests nowread; planreadonlymemory telemetry next; mutation/maintenance/memory-limit policies remainpending. No stand/interface/daemon mutation.
 
 Identity local commitdf0aec2 created after125-test qualification; checkpoint/log amendment. No push; nextreadonlymemory telemetry.
+
+Memory before implementation: identity committed8f9ae6c clean; allreadonlymemory/video sources/testsandmaintenance source/tests read. PortadminGETmemory/status only, preservecounter/swaps/cache/defaults/availability/modules/recompression/mmstat/algorithm/ION/devicetreeactive-selected-boot image semantics. GenerateactualpureGo filesystem oracle; no swaps/boot/nativeallocator/daemonchanges. Fix existingGETweb-title invalidUTF8 decoding toGo per-byte replacement instead of read_to_string error, exactGoGinresponses. Mutation/maintenance/dashboard/Go-memory-limit equivalents remainpending.
+
+Memory afterfocusedchecks: threehostfixtures+clippypass;34actualGo memory/video cases,5actualGinTitleGETresponses match, including unsignedoverflow/scannerbounds/devicesandFDT/modes/defaults. Beforefullqualification128host/target/TLS gates; freeze runtime source until done. Readonlymemory only, no swap/boot/daemon/stand changes.
+
+Memory after fullqualification:128host/target/static/TLS tests pass,34actualGo memory/video+5GinTitle cases. Adminmemorytelemetry/null/error/algorithm/config/counters/video/rootconfinement passes; invalidUTF8title behavior fixed.173SPDXpackages; ledger47isolated/1partial/156pending. Localboundedcommitnext. Routing inspectionfound missingGin trailing-slash redirects/rawpercent path handling; qualify and repair next before dashboard/remaining systems. No swap/allocator/boot/daemon/stand mutation/publication.
+
+Memorylocalcommit31de0d5 createdafter128-test qualification; checkpoint/logamendment. No push. NextexactGinrouting/redirectrepair.

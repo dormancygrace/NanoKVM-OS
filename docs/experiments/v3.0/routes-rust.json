@@ -1991,8 +1991,9 @@
     "handler": "service.SetMemorySwap",
     "source": "server/router/vm.go",
     "line": 52,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-memory-mutations.md; tests/memory_mutations.rs; 66 immutable Go contracts, typed helper/combined-tail/cancellation/15sec worker and target/static/TLS qualification"
   },
   {
     "method": "POST",
@@ -2002,8 +2003,9 @@
     "handler": "service.SetVideoMemory",
     "source": "server/router/vm.go",
     "line": 53,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-memory-mutations.md; tests/memory_mutations.rs; 66 immutable Go contracts, typed helper/combined-tail/cancellation/15sec worker and target/static/TLS qualification"
   },
   {
     "method": "GET",
@@ -2177,8 +2179,9 @@
     "handler": "service.GetSwap) ",
     "source": "server/router/vm.go",
     "line": 75,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-memory-mutations.md; tests/memory_mutations.rs; 66 immutable Go contracts, typed helper/combined-tail/cancellation/15sec worker and target/static/TLS qualification"
   },
   {
     "method": "POST",
@@ -2188,8 +2191,9 @@
     "handler": "service.SetSwap",
     "source": "server/router/vm.go",
     "line": 76,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-memory-mutations.md; tests/memory_mutations.rs; 66 immutable Go contracts, typed helper/combined-tail/cancellation/15sec worker and target/static/TLS qualification"
   },
   {
     "method": "GET",

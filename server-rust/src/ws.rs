@@ -1,0 +1,272 @@
+//! Authenticated input socket slice. Capture/LED snapshots and addon arbitration
+//! remain migration gates; this module does not claim complete WS parity.
+use crate::{
+    api,
+    hid_reports::{self, Frame, Report},
+    input::{ClientId, Ticket},
+    sessions::Principal,
+    Runtime,
+};
+use axum::{
+    extract::{
+        ws::{
+            rejection::WebSocketUpgradeRejection, CloseFrame, Message, WebSocket, WebSocketUpgrade,
+        },
+        ConnectInfo, State,
+    },
+    http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
+    Json,
+};
+use futures_util::{stream::SplitSink, SinkExt, StreamExt};
+use serde_json::json;
+use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
+use tokio::{
+    sync::{mpsc, watch, OwnedSemaphorePermit},
+    task::JoinHandle,
+    time::{timeout, Instant},
+};
+
+const HEARTBEAT: Duration = Duration::from_secs(90);
+const WRITE: Duration = Duration::from_secs(10);
+
+pub async fn connect(
+    State((runtime, _)): State<(Arc<Runtime>, PathBuf)>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    upgrade: Result<WebSocketUpgrade, WebSocketUpgradeRejection>,
+) -> Response {
+    let Ok(permit) = runtime.jobs.clone().try_acquire_owned() else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    };
+    let copy = runtime.clone();
+    let auth_headers = headers.clone();
+    let principal = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        api::principal(&copy, &auth_headers)
+    })
+    .await;
+    let Ok(Ok(principal)) = principal else {
+        return api::unauthorized();
+    };
+    if principal.user.must_change_password {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({"code":-10,"msg":"password change required"})),
+        )
+            .into_response();
+    }
+    if !crate::ws_origin::allowed(&runtime.config, &headers, peer.ip()) {
+        return (
+            StatusCode::FORBIDDEN,
+            "websocket: request origin not allowed",
+        )
+            .into_response();
+    }
+    let upgrade = match upgrade {
+        Ok(value) => value,
+        Err(error) => return error.into_response(),
+    };
+    let Ok(slot) = runtime.socket_slots.clone().try_acquire_owned() else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    };
+    upgrade
+        .max_message_size(4 << 10)
+        .max_frame_size(4 << 10)
+        .on_upgrade(move |socket| run(socket, runtime, principal, slot))
+}
+async fn cancelled(receiver: &mut watch::Receiver<bool>) {
+    loop {
+        if *receiver.borrow_and_update() {
+            return;
+        }
+        if receiver.changed().await.is_err() {
+            return;
+        }
+    }
+}
+async fn send(
+    sink: &mut SplitSink<WebSocket, Message>,
+    message: Message,
+    revoked: &mut watch::Receiver<bool>,
+) -> bool {
+    tokio::select! {
+        biased;
+        _ = cancelled(revoked) => false,
+        result = timeout(WRITE, sink.send(message)) => matches!(result, Ok(Ok(()))),
+    }
+}
+fn worker(
+    runtime: Arc<Runtime>,
+    principal: Principal,
+    mut queue: mpsc::Receiver<(Ticket, Report)>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        while let Some((ticket, report)) = queue.recv().await {
+            let Ok(permit) = runtime.hid_jobs.clone().acquire_owned().await else {
+                break;
+            };
+            let copy = runtime.clone();
+            let who = principal.clone();
+            let result = tokio::task::spawn_blocking(move || {
+                let _permit = permit;
+                copy.input.execute(ticket, || {
+                    if !who.valid(&copy) {
+                        return Err("session expired or revoked".into());
+                    }
+                    copy.hid.write(&report)
+                })
+            })
+            .await;
+            if let Ok(Err(error)) = result {
+                eprintln!("HID report failed: {error}");
+            }
+        }
+    })
+}
+async fn leave(runtime: &Arc<Runtime>, id: ClientId) {
+    runtime.sessions.remove(id);
+    let copy = runtime.clone();
+    let _ = tokio::task::spawn_blocking(move || copy.input.leave(id)).await;
+}
+async fn run(
+    socket: WebSocket,
+    runtime: Arc<Runtime>,
+    principal: Principal,
+    _slot: OwnedSemaphorePermit,
+) {
+    let copy = runtime.clone();
+    let registration = tokio::task::spawn_blocking(move || copy.input.join()).await;
+    let Ok(Ok((id, mut status))) = registration else {
+        return;
+    };
+    let mut revoked = match runtime.sessions.register(id, &principal.user.username) {
+        Ok(receiver) => receiver,
+        Err(_) => {
+            leave(&runtime, id).await;
+            return;
+        }
+    };
+    let copy = runtime.clone();
+    let who = principal.clone();
+    let valid = tokio::task::spawn_blocking(move || who.valid(&copy))
+        .await
+        .unwrap_or(false);
+    let (mut sink, mut stream) = socket.split();
+    if !valid {
+        let _ = timeout(
+            Duration::from_secs(2),
+            sink.send(Message::Close(Some(CloseFrame {
+                code: 4401,
+                reason: "session expired or revoked".into(),
+            }))),
+        )
+        .await;
+        leave(&runtime, id).await;
+        return;
+    }
+    let (keyboard, keyboard_queue) = mpsc::channel(200);
+    let (mouse, mouse_queue) = mpsc::channel(200);
+    let workers = [
+        worker(runtime.clone(), principal.clone(), keyboard_queue),
+        worker(runtime.clone(), principal.clone(), mouse_queue),
+    ];
+    let initial = serde_json::to_string(&*status.borrow_and_update()).expect("control status");
+    let mut running = send(
+        &mut sink,
+        Message::Text(json!({"type":"control","data":initial}).to_string().into()),
+        &mut revoked,
+    )
+    .await;
+    let mut heartbeat = Instant::now() + HEARTBEAT;
+    let mut check = tokio::time::interval(Duration::from_secs(1));
+    check.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let expiry = tokio::time::sleep(Duration::from_secs(
+        principal
+            .expires
+            .map(|exp| exp.saturating_sub(api::now()))
+            .unwrap_or(u64::from(u32::MAX)),
+    ));
+    tokio::pin!(expiry);
+    let mut session_revoked = false;
+    let mut failure_close = None;
+    while running {
+        tokio::select! {
+            biased;
+            _ = cancelled(&mut revoked) => { session_revoked = true; break; }
+            _ = &mut expiry => { session_revoked = true; break; }
+            _ = tokio::time::sleep_until(heartbeat) => break,
+            _ = check.tick() => {
+                let Ok(permit) = runtime.jobs.clone().try_acquire_owned() else { continue; };
+                let copy = runtime.clone(); let who = principal.clone();
+                let valid = tokio::task::spawn_blocking(move || { let _permit = permit; who.valid(&copy) }).await.unwrap_or(false);
+                if !valid { session_revoked = true; break; }
+            }
+            changed = status.changed() => {
+                if changed.is_err() { break; }
+                let data = serde_json::to_string(&*status.borrow_and_update()).expect("control status");
+                running = send(&mut sink, Message::Text(json!({"type":"control","data":data}).to_string().into()), &mut revoked).await;
+            }
+            event = stream.next() => {
+                let message = match event {
+                    Some(Ok(message)) => message,
+                    Some(Err(error)) => {
+                        if error.into_inner().downcast_ref::<tokio_tungstenite::tungstenite::Error>().is_some_and(|error| matches!(error, tokio_tungstenite::tungstenite::Error::Capacity(_))) {
+                            failure_close = Some(CloseFrame { code: 1009, reason: "message too big".into() });
+                        }
+                        break;
+                    }
+                    None => break,
+                };
+                heartbeat = Instant::now() + HEARTBEAT;
+                let frame = match &message {
+                    Message::Binary(bytes) => hid_reports::parse(bytes),
+                    Message::Text(text) => hid_reports::parse(text.as_bytes()),
+                    Message::Close(_) => break,
+                    Message::Ping(bytes) => { running = send(&mut sink, Message::Pong(bytes.clone()), &mut revoked).await; continue; }
+                    _ => continue,
+                };
+                match frame {
+                    Some(Frame::Heartbeat) => running = send(&mut sink, Message::Text(json!({"type":"heartbeat","data":""}).to_string().into()), &mut revoked).await,
+                    Some(Frame::Control(enabled)) => {
+                        let copy = runtime.clone();
+                        // Device cleanup can wait on a bounded write. Keep it off the event loop.
+                        running = matches!(tokio::task::spawn_blocking(move || copy.input.set_control(id, enabled)).await, Ok(Ok(())));
+                    }
+                    Some(Frame::Report(report)) => {
+                        let Some(ticket) = runtime.input.ticket(id) else { continue; };
+                        let queue = if report.kind() == hid_reports::Kind::Keyboard { &keyboard } else { &mouse };
+                        tokio::select! {
+                            biased;
+                            _ = cancelled(&mut revoked) => { session_revoked = true; break; }
+                            // Bounded backpressure, without retaining an unlimited list of reports.
+                            _ = timeout(Duration::from_secs(2), queue.send((ticket, report))) => {},
+                        }
+                    }
+                    None => {},
+                }
+            }
+        }
+    }
+    session_revoked |= *revoked.borrow();
+    for worker in workers {
+        worker.abort();
+    }
+    leave(&runtime, id).await;
+    if session_revoked {
+        let _ = timeout(
+            Duration::from_secs(2),
+            sink.send(Message::Close(Some(CloseFrame {
+                code: 4401,
+                reason: "session expired or revoked".into(),
+            }))),
+        )
+        .await;
+    } else {
+        let _ = timeout(
+            Duration::from_secs(2),
+            sink.send(Message::Close(failure_close)),
+        )
+        .await;
+    }
+}

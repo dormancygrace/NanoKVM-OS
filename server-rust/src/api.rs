@@ -20,6 +20,7 @@ struct Route {
     method: String,
     path: String,
     authorization: String,
+    input_owner: bool,
 }
 fn matched(method: &str, path: &str) -> Option<Route> {
     static ROUTES: std::sync::OnceLock<Vec<Route>> = std::sync::OnceLock::new();
@@ -61,25 +62,34 @@ pub(crate) fn pending() -> Response {
     )
         .into_response()
 }
-fn unauthorized() -> Response {
+pub(crate) fn unauthorized() -> Response {
     (StatusCode::UNAUTHORIZED, Json("unauthorized")).into_response()
 }
-fn now() -> u64 {
+pub(crate) fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system time before Unix epoch")
         .as_secs()
 }
 fn authenticate(s: &Runtime, headers: &HeaderMap) -> Result<store::User, Error> {
+    Ok(principal(s, headers)?.user)
+}
+pub(crate) fn principal(
+    s: &Runtime,
+    headers: &HeaderMap,
+) -> Result<crate::sessions::Principal, Error> {
     if s.config.authentication == "disable" {
-        return Ok(store::User {
-            username: "admin".into(),
-            hash: String::new(),
-            role: "admin".into(),
-            enabled: true,
-            token_version: 0,
-            must_change_password: false,
-            system_account: false,
+        return Ok(crate::sessions::Principal {
+            user: store::User {
+                username: "admin".into(),
+                hash: String::new(),
+                role: "admin".into(),
+                enabled: true,
+                token_version: 0,
+                must_change_password: false,
+                system_account: false,
+            },
+            expires: None,
         });
     }
     let token = if let Some(header) = headers.get("authorization") {
@@ -111,7 +121,10 @@ fn authenticate(s: &Runtime, headers: &HeaderMap) -> Result<store::User, Error> 
     if !u.enabled || u.token_version != c.token_version {
         return Err("session revoked".into());
     }
-    Ok(u)
+    Ok(crate::sessions::Principal {
+        user: u,
+        expires: Some(c.exp),
+    })
 }
 fn secure_cookie(s: &Runtime, h: &HeaderMap, peer: IpAddr) -> bool {
     let trusted = s.config.security.trusted_proxies.iter().any(|p| {
@@ -320,6 +333,16 @@ fn handle(
             Some(u)
         };
         let parsed = params(headers, body);
+        if route.input_owner
+            && !s.input.allows_http(
+                headers
+                    .get("x-nanokvm-input-lease")
+                    .and_then(|h| h.to_str().ok())
+                    .unwrap_or(""),
+            )
+        {
+            return error(-4, "another session holds input control");
+        }
         let secure = secure_cookie(s, headers, peer);
         match (method.as_str(), path) {
             ("GET", "/api/branding") => crate::branding::status(&s.root),
@@ -343,6 +366,9 @@ fn handle(
                     && s.store.revoke(&u.username).is_err()
                 {
                     return error(-1, "failed to revoke session");
+                }
+                if s.config.authentication != "disable" && s.config.jwt.revoke_tokens_on_logout {
+                    s.revoke_sessions(&u.username);
                 }
                 let mut r = ok(Value::Null);
                 cookie(&mut r, "", -1, secure);
@@ -371,6 +397,7 @@ fn handle(
                 if let Err(e) = change_password(s, &u.username, encrypted) {
                     return error(-5, &e.to_string());
                 }
+                s.revoke_sessions(&u.username);
                 let mut r = ok(Value::Null);
                 cookie(&mut r, "", -1, secure);
                 r
@@ -457,12 +484,20 @@ fn handle(
                             return error(-1, "invalid parameters");
                         }
                         match s.store.update(&actor, &name, patch) {
-                            Ok(()) => ok(Value::Null),
+                            Ok(changed) => {
+                                if changed {
+                                    s.revoke_sessions(&name);
+                                }
+                                ok(Value::Null)
+                            }
                             Err(e) => error(-2, &e.to_string()),
                         }
                     }
                     "DELETE" => match s.store.delete(&actor, &name) {
-                        Ok(()) => ok(Value::Null),
+                        Ok(()) => {
+                            s.revoke_sessions(&name);
+                            ok(Value::Null)
+                        }
                         Err(e) => error(-1, &e.to_string()),
                     },
                     "POST" => {
@@ -480,7 +515,10 @@ fn handle(
                             _ => {}
                         }
                         match change_password(s, &name, encrypted) {
-                            Ok(()) => ok(Value::Null),
+                            Ok(()) => {
+                                s.revoke_sessions(&name);
+                                ok(Value::Null)
+                            }
                             Err(e) => error(-4, &e.to_string()),
                         }
                     }

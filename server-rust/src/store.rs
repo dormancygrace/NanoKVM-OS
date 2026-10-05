@@ -295,7 +295,7 @@ impl Store {
         });
         self.save(db)
     }
-    pub fn update(&self, actor: &str, name: &str, patch: Patch) -> Result<(), Error> {
+    pub fn update(&self, actor: &str, name: &str, patch: Patch) -> Result<bool, Error> {
         let _guard = self.lock.lock().map_err(|_| "account store unavailable")?;
         let mut db = self.load(true)?;
         let index = db.index(name)?;
@@ -331,7 +331,7 @@ impl Store {
             || patch.role.as_ref().is_some_and(|r| r != &user.role)
             || patch.enabled.is_some_and(|b| b != user.enabled);
         if !changed {
-            return Ok(());
+            return Ok(false);
         }
         if let Some(v) = patch.username {
             user.username = v;
@@ -344,7 +344,8 @@ impl Store {
         }
         user.token_version = user.token_version.wrapping_add(1);
         db.users[index] = user;
-        self.save(db)
+        self.save(db)?;
+        Ok(true)
     }
     pub fn delete(&self, actor: &str, name: &str) -> Result<(), Error> {
         if actor == name {

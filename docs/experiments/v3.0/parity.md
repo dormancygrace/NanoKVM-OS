@@ -1,6 +1,6 @@
 # Functional parity matrix
 
-204 baseline registrations: 22 implemented in the isolated Rust slice, 182 pending. This is source/host qualification, not complete hardware parity.
+204 baseline registrations: 22 implemented in the isolated Rust slice, 1 partial, 181 pending. This is source/host qualification, not complete hardware parity.
 
 Owner OS password synchronization cannot run in an isolated root; its rollback path is tested. Internal-token/MCP routes fail closed. Pending public/session/admin routes return HTTP 501 after their access gate. All nonpublic baseline routes have an unauthenticated protection test.
 
@@ -209,4 +209,4 @@ Owner OS password synchronization cannot run in an isolated root; its rollback p
 | DELETE | `/api/vm/autostart/:name` | admin | server/router/vm.go:95 | pending | — |
 | POST | `/api/vm/autostart/:name` | admin | server/router/vm.go:96 | pending | — |
 | POST | `/api/vm/system/reboot` | admin | server/router/vm.go:98 | pending | — |
-| GET | `/api/ws` | session | server/router/ws.go:14 | pending | — |
+| GET | `/api/ws` | session | server/router/ws.go:14 | partial-isolated | stage3-ws.md; real sockets/HID fixtures; snapshots/addon arbitration pending |

@@ -23,18 +23,19 @@ Branch/worktree: v3.0-experimental, /home/dgrace/nanokvm-astra/v3.0-experimental
 
 ## Current evidence
 - Exact branch verified. Stage 1 inventory committed as 4556d2e; stage 2 committed as 240d818e53eee49863881c097ff821f7598c906f. Working tree clean immediately after that commit.
-- Bounded stage 3 settings/input-core slice committed as 54e73bf. WS/device IO wiring is the next unfinished substage.
+- Bounded stage 3 settings/input-core slice committed as 54e73bf. Live WS/HID slice qualified with 33 host/target tests; commit preparation in progress.
 - Parent AGENTS.md read; no nested AGENTS.md present.
 - Rust 1.99.0 pinned for the project; global default remains 1.86.0. Generic riscv64 musl binary executes under QEMU.
-- 24 host/target tests pass after the bounded stage 3 settings/input-core slice; eight real Go oracle response cases, two-way JWT interoperability, persisted HID settings, ownership/stale-ticket and HID descriptor/deadline contracts included. 22/204 route implementations, 182 pending.
-- Seven HID settings/read APIs implemented; input ownership and framing core tested but NOT connected to WS/device IO yet. See stage3-input.md and stage3-qualification.json. Current release SHA256 27c932b2aca15c3364c44a1866808941f46862e82e5cacfa813d1187b363fa40, 5,538,272 bytes.
+- 33 host/target tests pass: 12 unit, 15 API contracts, six real WebSocket/HID fixture tests. Go oracle/JWT evidence remains included. Ledger: 22/204 implemented in isolation, one partial (/api/ws), 181 pending.
+- Live authenticated/origin-checked/revocable WS, bounded queues, nonblocking HID descriptors, HTTP leases and release/transfer/shutdown are wired and tested. See stage3-ws.md and stage3-ws-qualification.json. Current release SHA256 a791dc06ef99ed0a8ec6efb9b4c633f6c9f5ef3efc2a110a79880fac1b963a5b, 6,011,432 bytes. No hardware input qualification.
 - Existing UI login passes in Chrome Main on an isolated loopback Rust server. Real host AND riscv64 musl/QEMU HTTPS certificate validation, 307 redirect, Secure cookie, SIGTERM and occupied-port rejection pass.
 - YAML uses maintained serde-saphyr 1.3 with Viper key/null/default fixtures; dependency repository metadata and resolved licenses recorded.
 - Select webrtc-rs 0.21.0 (runtime-tokio + crypto-ring) for feature parity: host/target direct and authenticated relay-only ICE/DTLS/SCTP exchanges pass. str0m 0.24.1 host/target direct exchange also passes but needs a separate TURN client; retained as a measured performance alternative. Neither qualifies hardware/browser media yet.
 - Go app depends on patched Pion ICE/DTLS/SRTP and RustDesk currently calls Go media/HID/WebRTC bridges.
 
 ## Next action
-Wire authenticated/origin-checked/revocable /api/ws to nonblocking HID descriptors and bounded workers. Preserve 4 KiB messages, 90-second heartbeat, 10-second writes, 4401 revocation closes, release-before-transfer and stale queue cancellation; LED lifecycle, manual/MCP/PicoClaw preemption, jiggler, USB rebind/reopen remain required. Relevant Go ws/hid/session sources and tests read. scripts/check-v3.py, check-v3-transport.py and refresh-v3-oracle.py reproduce qualification. NK_V3_PLATFORM points to matched read-only artifacts under /home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform. Runtime still refuses production activation and nonloopback hosts. No media/device parity or performance claim and no stand changes.
+Commit qualified live WS/HID slice, then wire LED state/readiness/lifecycle and snapshots. Go LEDs, poll notifier and WS broadcaster sources read. Manual/MCP/PicoClaw preemption, jiggler, USB rebind/reopen and RustDesk ownership remain required. scripts/check-v3.py, check-v3-transport.py and refresh-v3-oracle.py reproduce qualification. NK_V3_PLATFORM points to matched read-only artifacts under /home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform. Runtime still refuses production activation and nonloopback hosts. No media/device parity or performance claim and no stand changes.
 
 ## User steering (2026-10-05)
 Choose the best maintained upstream projects; do not pick abandoned libraries or constrain the design to the old Rust 1.86 installation. Dependency maintenance/qualification recorded and committed with stage 2; webrtc-rs selected for integrated TURN parity, str0m retained as a measured alternative. No abandoned-project fallback or Go runtime bridge.
+Fix implementation defects immediately when found (explicit user steering). This slice corrected boot-marker names before qualification, fail/stale-queue handling and shutdown release; ordinary/dependent origin tests account for Go's default trusted loopback proxies.

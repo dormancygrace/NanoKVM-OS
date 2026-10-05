@@ -16,10 +16,10 @@ impl Principal {
         if self.expires.is_none() && runtime.config.authentication == "disable" {
             return true;
         }
-        if self
-            .expires
-            .is_none_or(|expiry| expiry <= crate::api::now())
-        {
+        let Ok(now) = crate::api::now() else {
+            return false;
+        };
+        if self.expires.is_none_or(|expiry| expiry <= now) {
             return false;
         }
         runtime.store.get(&self.user.username).is_ok_and(|user| {

@@ -138,13 +138,15 @@ fn worker(
     })
 }
 async fn leave(runtime: &Arc<Runtime>, id: ClientId) {
-    runtime.sessions.remove(id);
-    let Ok(permit) = runtime.jobs.clone().acquire_owned().await else {
+    // Keep teardown independent of long API work. Retain registry membership
+    // until admitted so shutdown can still revoke sessions queued for cleanup.
+    let Ok(permit) = runtime.cleanup_jobs.clone().acquire_owned().await else {
         return;
     };
     let copy = runtime.clone();
     let _ = tokio::task::spawn_blocking(move || {
         let _permit = permit;
+        copy.sessions.remove(id);
         copy.input.leave(id)
     })
     .await;
@@ -156,7 +158,7 @@ async fn run(
     _slot: OwnedSemaphorePermit,
 ) {
     let copy = runtime.clone();
-    let Ok(permit) = runtime.jobs.clone().acquire_owned().await else {
+    let Ok(permit) = runtime.cleanup_jobs.clone().acquire_owned().await else {
         return;
     };
     let registration = tokio::task::spawn_blocking(move || {
@@ -187,7 +189,7 @@ async fn run(
     };
     let copy = runtime.clone();
     let who = principal.clone();
-    let Ok(permit) = runtime.jobs.clone().acquire_owned().await else {
+    let Ok(permit) = runtime.cleanup_jobs.clone().acquire_owned().await else {
         leave(&runtime, id).await;
         return;
     };
@@ -240,12 +242,9 @@ async fn run(
     let mut heartbeat = Instant::now() + HEARTBEAT;
     let mut check = tokio::time::interval(Duration::from_secs(1));
     check.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    let expiry = tokio::time::sleep(Duration::from_secs(
-        principal
-            .expires
-            .map(|exp| exp.saturating_sub(api::now()))
-            .unwrap_or(u64::from(u32::MAX)),
-    ));
+    // Keep timer arithmetic bounded even with a very distant signed expiry.
+    // The periodic session check still observes revocation/clock changes.
+    let expiry = tokio::time::sleep(expiry_delay(principal.expires, api::now()));
     tokio::pin!(expiry);
     let mut session_revoked = false;
     let mut failure_close = None;
@@ -253,9 +252,15 @@ async fn run(
         tokio::select! {
             biased;
             _ = cancelled(&mut revoked) => { session_revoked = true; break; }
-            _ = &mut expiry => { session_revoked = true; break; }
+            _ = &mut expiry => {
+                let remaining=expiry_delay(principal.expires,api::now());
+                if remaining.is_zero(){session_revoked=true;break;}
+                expiry.as_mut().reset(Instant::now()+remaining);
+            }
             _ = tokio::time::sleep_until(heartbeat) => break,
             _ = check.tick() => {
+                // Expiry/clock failure cannot depend on free blocking API jobs.
+                if expiry_delay(principal.expires,api::now()).is_zero(){session_revoked=true;break;}
                 let Ok(permit) = runtime.jobs.clone().try_acquire_owned() else { continue; };
                 let copy = runtime.clone(); let who = principal.clone();
                 let valid = tokio::task::spawn_blocking(move || { let _permit = permit; who.valid(&copy) }).await.unwrap_or(false);
@@ -293,10 +298,18 @@ async fn run(
                 match frame {
                     Some(Frame::Heartbeat) => running = send(&mut sink, Message::Text(json!({"type":"heartbeat","data":""}).to_string().into()), &mut revoked).await,
                     Some(Frame::Control(enabled)) => {
-                        let copy = runtime.clone();
-                        let Ok(permit) = runtime.jobs.clone().acquire_owned().await else { break; };
-                        // Device cleanup can wait on a bounded write. Keep it off the event loop.
-                        running = matches!(tokio::task::spawn_blocking(move || { let _permit = permit; copy.input.set_control(id, enabled) }).await, Ok(Ok(())));
+                        let copy=runtime.clone();let who=principal.clone();
+                        let permit=tokio::select! {
+                            biased;
+                            _=cancelled(&mut revoked)=>{session_revoked=true;break;}
+                            result=timeout(Duration::from_secs(2),runtime.cleanup_jobs.clone().acquire_owned())=>match result {Ok(Ok(permit))=>permit,_=>break}
+                        };
+                        // Control/release cannot be stalled behind long API work.
+                        running=matches!(tokio::task::spawn_blocking(move||{
+                            let _permit=permit;
+                            if !who.valid(&copy){return Err("session expired or revoked".into());}
+                            copy.input.set_control(id,enabled)
+                        }).await,Ok(Ok(())));
                     }
                     Some(Frame::Report(report)) => {
                         let Some(ticket) = runtime.input.ticket(id) else { continue; };
@@ -339,7 +352,7 @@ async fn run(
             }
         }
     }
-    session_revoked |= *revoked.borrow();
+    session_revoked |= *revoked.borrow() || expiry_delay(principal.expires, api::now()).is_zero();
     for worker in workers {
         worker.abort();
     }
@@ -359,5 +372,35 @@ async fn run(
             sink.send(Message::Close(failure_close)),
         )
         .await;
+    }
+}
+
+fn expiry_delay(expires: Option<u64>, now: Result<u64, crate::Error>) -> Duration {
+    Duration::from_secs(match expires {
+        None => 3600,
+        Some(exp) => now
+            .map(|now| exp.saturating_sub(now).min(3600))
+            .unwrap_or(0),
+    })
+}
+#[cfg(test)]
+mod clock_tests {
+    use super::*;
+    #[test]
+    fn expiry_timer_is_bounded_and_invalid_clock_closes_authenticated_sessions() {
+        assert_eq!(
+            expiry_delay(Some(u64::MAX), Ok(0)),
+            Duration::from_secs(3600)
+        );
+        assert_eq!(expiry_delay(Some(120), Ok(100)), Duration::from_secs(20));
+        assert_eq!(expiry_delay(Some(100), Ok(100)), Duration::ZERO);
+        assert_eq!(
+            expiry_delay(Some(100), Err("clock unavailable".into())),
+            Duration::ZERO
+        );
+        assert_eq!(
+            expiry_delay(None, Err("clock unavailable".into())),
+            Duration::from_secs(3600)
+        );
     }
 }

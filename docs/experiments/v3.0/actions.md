@@ -323,3 +323,17 @@ Dashboard fullhost141pass; targetcompilecaught muslstatfs.f_bsize u64 vs GNUi64.
 Dashboard afterfullqualification:141host/target/TLS/static tests pass aftermusl f_bsize correction;53immutableGo systemcases+7intervals+5IPNet+6attrs, realnativeaffinity/sameFDstatfs-vfs/ownednetlink-getifaddrs targetABI andindependent1sec/stale3sec/shutdown worker.173SPDX; ledger48isolated/1partial/155pending. Sourcefrozenqualified; beforelocalboundedcommit. Next immediateauthclockpanic+WSfar-expiry timer fix, thenmemoryswap/video/maintenance. No stand/hoststorage/network/service/config mutation.
 
 Dashboard localcommit3d8ab15 createdafter141-test qualification; logamendment. No push. Nextauthclockrepair.
+
+Authclock beforeimmediatefix: discovered api::now expectpanic ifwallclockbeforeepoch, sharedprincipal/session/ws paths. Returnclockerror, refuseauthenticatedvalidation/tokencreation, retainexplicitauthdisable; neverwrap/clamp invalidclock. WSexpiry timer also boundedhourly andrescheduleduntilactualexpiry, preventing Instantoverflow onverydistantclaim/configexpiry whilekeeping1sec revocation/clock checks. Twofocusedunitboundary tests, existingrealexpiry/revocation/full143host/target/TLS gates next. No OSclock/token/device changes.
+
+Authclock focused2newboundaryunits+existingGoMillistest andclippy pass; attemptedrevocation filtermatchedzero, fullsuitewillverifyrealexpiry/revocations. WS1sectick nowchecks expiry/clockerror beforejobpermit, addactualsocketclose4401 whileall4APIjobsoccupied. Beforefull144expectedhost/target/TLS/static qualification; sourcefrozen. No OSclock/account/device/stand writes.
+
+Authclock fullhostfailed newlyadded allAPIjobsexpirysockettest: loop correctlydetectedexpiry but leaveawaited sameoccupiedAPIsemaphore beforeclose. Immediateimplementationfix dedicated2cleanup jobs; retainregistry untilcleanupadmitted soqueuedteardown remainscoveredbyshutdownrevoke. NativeHIDneutralization/controlrelease stillcompletebeforeclose. Rerun actualbusyAPIexpiry+shutdown+blockedHID thenfull144gates. No stand actions.
+
+WS cleanupfocusedbusyexpiry/shutdown/blockedHID+clippypass. AdjacentFrameControl alsoawaitedAPIjobs; movecontrol/release tobounded2cleanup lane withrevocationselect/2secadmission andfreshprincipalcheck, classifyexpiredcloseafterwait. ExpandsameactualbusyAPItest tocontrolrelease+heartbeat+4401, preventingcontrolframefromblockingexpiryloop. Full144gatesafterfocusedpass. No stand writes.
+
+WS finaladjacentrepair: postupgrade registration andfreshsessionvalidation also usedAPIjobs; movebothshortbounded stages to2cleanup lane soacceptedupgrades cannotwaitbehindlongHTTPoperations. Allcleanup/control/nativework remainslimited; registryqueuedshutdowncoverage retained. Beforefull144host/target/TLS/static check, sourcefrozenuntilcomplete.
+
+Auth clock/WS after full qualification: all 144 host/target tests, fmt/clippy, generic static riscv64 release and real TLS gates pass. Binary7522c73714f23892efa238424d24cacc093338e4f424c6e266ad4fd0f1cde25c (6808384bytes); 173 SPDX packages. Real socket control release, heartbeat and expiry4401 pass with all four API jobs occupied. Clock boundaries and bounded distant expiry pass. Before local bounded commit, then memory operations. No stand actions or publication.
+
+Auth clock/WS local commit 1aaa0b3 created after qualification; log amendment. No push. Next memory operations.

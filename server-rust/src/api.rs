@@ -65,11 +65,14 @@ pub(crate) fn pending() -> Response {
 pub(crate) fn unauthorized() -> Response {
     (StatusCode::UNAUTHORIZED, Json("unauthorized")).into_response()
 }
-pub(crate) fn now() -> u64 {
-    SystemTime::now()
+pub(crate) fn unix_seconds(time: SystemTime) -> Result<u64, Error> {
+    Ok(time
         .duration_since(UNIX_EPOCH)
-        .expect("system time before Unix epoch")
-        .as_secs()
+        .map_err(|_| "system clock before Unix epoch")?
+        .as_secs())
+}
+pub(crate) fn now() -> Result<u64, Error> {
+    unix_seconds(SystemTime::now())
 }
 fn authenticate(s: &Runtime, headers: &HeaderMap) -> Result<store::User, Error> {
     Ok(principal(s, headers)?.user)
@@ -116,7 +119,7 @@ pub(crate) fn principal(
             .ok_or("missing session cookie")?
             .to_owned()
     };
-    let c = crypto::verify(&token, &s.config.jwt.secret_key, now())?;
+    let c = crypto::verify(&token, &s.config.jwt.secret_key, now()?)?;
     let u = s.store.get(&c.username)?;
     if !u.enabled || u.token_version != c.token_version {
         return Err("session revoked".into());
@@ -805,7 +808,9 @@ fn handle(
         if let Ok(mut l) = s.lockout.lock() {
             l.clear(peer);
         }
-        let n = now();
+        let Ok(n) = now() else {
+            return (error(-3, "generate token failed"), Duration::from_secs(1));
+        };
         let Some(exp) = n.checked_add(s.config.jwt.refresh_token_duration) else {
             return (error(-3, "generate token failed"), Duration::from_secs(1));
         };
@@ -932,6 +937,25 @@ mod routing_oracle_tests {
         assert_eq!(
             crate::routing::redirect("GET", b"/api/vm/info", None, &headers).headers()["location"],
             "/api/vm/info"
+        );
+    }
+}
+
+#[cfg(test)]
+mod clock_tests {
+    use super::*;
+    #[test]
+    fn pre_epoch_clock_is_an_error_without_panicking_or_unsigned_wrap() {
+        assert!(unix_seconds(UNIX_EPOCH - Duration::from_nanos(1)).is_err());
+        assert!(unix_seconds(UNIX_EPOCH - Duration::from_secs(1)).is_err());
+        assert_eq!(unix_seconds(UNIX_EPOCH).unwrap(), 0);
+        assert_eq!(
+            unix_seconds(UNIX_EPOCH + Duration::from_millis(999)).unwrap(),
+            0
+        );
+        assert_eq!(
+            unix_seconds(UNIX_EPOCH + Duration::from_millis(1001)).unwrap(),
+            1
         );
     }
 }

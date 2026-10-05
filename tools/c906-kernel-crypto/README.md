@@ -82,7 +82,7 @@ The opt-in `platform/kernel/0037-c906-vector-crypto-crc-copy.patch` applies afte
 The `selected.config` fragment records the combined qualification configuration,
 including the earlier usercopy and checksum options. Merge it into the existing
 NanoKVM kernel configuration after applying both patches.
-ChaCha starts at 2048 bytes per library call; CRC uses slicing8 from 1024 bytes
+ChaCha starts at 512 bytes per library call; CRC uses slicing8 from 1024 bytes
 and vectors from 8192; fused RAM copy/checksum starts at 4096 bytes.
 Short buffers and SIMD-forbidden contexts retain scalar paths. CRC uses its
 original backend until its tables have initialized. HChaCha and Poly1305 keep

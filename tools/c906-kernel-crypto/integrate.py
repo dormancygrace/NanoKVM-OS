@@ -9,7 +9,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('kernel', type=Path)
     p.add_argument('patch', type=Path)
-    p.add_argument('--chacha-threshold', type=int, default=2048)
+    p.add_argument('--chacha-threshold', type=int, default=512)
     p.add_argument('--crc-scalar-threshold', type=int, default=1024)
     p.add_argument('--crc-vector-threshold', type=int, default=8192)
     p.add_argument('--copy-threshold', type=int, default=4096)

@@ -244,7 +244,7 @@
 +		const u8 *src, unsigned int bytes, int rounds)
 +{
 +	u32 stream[64] __aligned(16);
-+	if (bytes < 2048 || !has_xtheadvector() ||
++	if (bytes < 512 || !has_xtheadvector() ||
 +	    riscv_vector_vlen() < 128 || !may_use_simd())
 +		return false;
 +	kernel_vector_begin();

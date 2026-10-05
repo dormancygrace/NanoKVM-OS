@@ -483,6 +483,8 @@ async fn blocked_nonblocking_hid_does_not_stall_control_and_discards_old_queue()
             .await
             .unwrap();
     }
+    // Allow a blocked write and its failed neutral cleanup to complete first.
+    sleep(Duration::from_millis(180)).await;
     let start = Instant::now();
     b.send(Message::Binary(vec![3, 1].into())).await.unwrap();
     timeout(Duration::from_secs(2), control(&mut b, true))
@@ -502,9 +504,15 @@ async fn blocked_nonblocking_hid_does_not_stall_control_and_discards_old_queue()
         .await
         .unwrap();
     let report = timeout(Duration::from_secs(5), async {
+        let mut reports = Vec::new();
         loop {
             match reader.read(&mut buffer) {
-                Ok(n) if n > 0 => return buffer[..n].to_vec(),
+                Ok(n) if n > 0 => {
+                    reports.extend_from_slice(&buffer[..n]);
+                    if reports.len() >= 16 {
+                        return reports;
+                    }
+                }
                 Ok(_) => {}
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
                 Err(error) => panic!("{error}"),
@@ -514,7 +522,7 @@ async fn blocked_nonblocking_hid_does_not_stall_control_and_discards_old_queue()
     })
     .await
     .unwrap();
-    assert_eq!(report, [0, 0, 6, 0, 0, 0, 0, 0]);
+    assert_eq!(report, [vec![0; 8], vec![0, 0, 6, 0, 0, 0, 0, 0]].concat());
     b.close(None).await.unwrap();
     a.close(None).await.unwrap();
 }
@@ -584,4 +592,177 @@ async fn led_rest_and_socket_snapshots_follow_host_output_and_bound_keyboard_sta
         disabled
     );
     socket.close(None).await.unwrap();
+}
+
+#[tokio::test]
+async fn manual_socket_preempts_addon_waits_cleanup_and_holds_lane_through_cooldown() {
+    use nanokvm_server::inputcontrol::{Cause, OperationKind};
+    let server = Server::new("").await;
+    let token = server.token("owner", 120);
+    let mut socket = server.socket(&token, &[]).await.unwrap();
+    control(&mut socket, true).await;
+    let mut operation = server
+        .runtime
+        .coordinator
+        .begin(OperationKind::Hid)
+        .unwrap();
+    socket
+        .send(Message::Binary(vec![1, 0, 0, 4, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    assert_eq!(
+        timeout(Duration::from_secs(2), operation.cancelled())
+            .await
+            .unwrap(),
+        Cause::ManualPreempted
+    );
+    assert!(fs::read(server.root.path().join("dev/hidg0"))
+        .unwrap()
+        .is_empty());
+    // Other HTTP work and socket heartbeats continue while this socket waits.
+    let (status, _) = timeout(
+        Duration::from_secs(1),
+        server.api("GET", "/api/hid/mode", &token, Value::Null, None),
+    )
+    .await
+    .unwrap();
+    assert_eq!(status, StatusCode::OK);
+    drop(operation); // An actual addon drops this after its bounded HID cleanup.
+    server.hid(0, 8).await;
+    assert!(server
+        .runtime
+        .coordinator
+        .begin(OperationKind::Hid)
+        .is_err());
+    let read = server
+        .runtime
+        .coordinator
+        .begin(OperationKind::ReadOnly)
+        .unwrap();
+    socket
+        .send(Message::Binary(vec![1, 0, 0, 0, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    assert_eq!(server.hid(0, 16).await[8..], [0; 8]);
+    assert_eq!(read.cause(), None);
+    drop(read);
+    assert!(server
+        .runtime
+        .coordinator
+        .begin(OperationKind::Hid)
+        .is_err());
+    sleep(Duration::from_millis(2050)).await;
+    server
+        .runtime
+        .coordinator
+        .begin(OperationKind::Hid)
+        .unwrap();
+    socket.close(None).await.unwrap();
+}
+
+#[tokio::test]
+async fn picoclaw_lock_filters_new_input_but_allows_release_and_viewer_close_is_safe() {
+    let server = Server::new("").await;
+    let token = server.token("owner", 120);
+    let mut owner = server.socket(&token, &[]).await.unwrap();
+    control(&mut owner, true).await;
+    assert!(server.runtime.pico_lock.acquire("agent-one").unwrap());
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 4, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    owner.send(Message::Binary(vec![0].into())).await.unwrap();
+    event(&mut owner, "heartbeat").await;
+    assert!(fs::read(server.root.path().join("dev/hidg0"))
+        .unwrap()
+        .is_empty());
+    assert!(server.runtime.pico_lock.release_owned("agent-one"));
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 4, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    server.hid(0, 8).await;
+    let mut viewer = server.socket(&token, &[]).await.unwrap();
+    control(&mut viewer, false).await;
+    viewer.close(None).await.unwrap();
+    sleep(Duration::from_millis(30)).await;
+    assert_eq!(
+        fs::read(server.root.path().join("dev/hidg0"))
+            .unwrap()
+            .len(),
+        8
+    );
+    server.runtime.pico_lock.acquire("agent-two").unwrap();
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 5, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 0, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    assert_eq!(server.hid(0, 16).await[8..], [0; 8]);
+    owner.close(None).await.unwrap();
+}
+
+#[tokio::test]
+async fn socket_release_and_disconnect_drain_ai_mode_transitions() {
+    use nanokvm_server::controlmode::Mode;
+    let server = Server::new("").await;
+    let token = server.token("owner", 120);
+    let mut owner = server.socket(&token, &[]).await.unwrap();
+    control(&mut owner, true).await;
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 4, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    server.hid(0, 8).await;
+    let (preempt, mut saw_preempt) = tokio::sync::mpsc::channel(1);
+    let mode = server.runtime.control.clone();
+    let switch = tokio::task::spawn_blocking(move || {
+        mode.switch(
+            None,
+            Mode::Mcp,
+            || {
+                preempt.blocking_send(()).unwrap();
+                Ok(())
+            },
+            || Ok(()),
+        )
+    });
+    timeout(Duration::from_secs(2), saw_preempt.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 5, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 0, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    assert_eq!(server.hid(0, 16).await[8..], [0; 8]);
+    timeout(Duration::from_secs(2), switch)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_eq!(server.runtime.control.current(), Mode::Mcp);
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 6, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    server.hid(0, 24).await;
+    let mode = server.runtime.control.clone();
+    let switch =
+        tokio::task::spawn_blocking(move || mode.switch(None, Mode::Off, || Ok(()), || Ok(())));
+    owner.close(None).await.unwrap();
+    timeout(Duration::from_secs(2), switch)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_eq!(server.hid(0, 32).await[24..], [0; 8]);
+    assert_eq!(server.runtime.control.current(), Mode::Off);
 }

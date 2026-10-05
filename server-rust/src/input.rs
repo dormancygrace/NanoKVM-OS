@@ -25,6 +25,7 @@ struct Client {
     lease: String,
     view_only: bool,
     status: watch::Sender<ControlStatus>,
+    cleanup: Arc<dyn Fn(bool) + Send + Sync>,
 }
 struct External {
     lease: String,
@@ -80,6 +81,12 @@ impl Hub {
         }
     }
     pub fn join(&self) -> Result<(ClientId, watch::Receiver<ControlStatus>), Error> {
+        self.join_with_cleanup(|_| {})
+    }
+    pub fn join_with_cleanup(
+        &self,
+        cleanup: impl Fn(bool) + Send + Sync + 'static,
+    ) -> Result<(ClientId, watch::Receiver<ControlStatus>), Error> {
         let new_lease = lease()?;
         let _transition = self.transition()?;
         let mut state = self.state()?;
@@ -98,6 +105,7 @@ impl Hub {
                 lease: new_lease,
                 view_only: false,
                 status,
+                cleanup: Arc::new(cleanup),
             },
         );
         if state.owner.is_none() && state.external.is_none() && !state.cleanup {
@@ -122,6 +130,8 @@ impl Hub {
             return Ok(());
         }
         let previous = state.owner.take();
+        let cleanup =
+            previous.and_then(|id| state.clients.get(&id).map(|client| client.cleanup.clone()));
         let external = if enabled { state.external.take() } else { None };
         state.generation = state
             .generation
@@ -132,6 +142,9 @@ impl Hub {
         drop(state);
         if let Some(external) = external {
             (external.release)();
+        }
+        if let Some(cleanup) = cleanup {
+            cleanup(false);
         }
         if previous.is_some() {
             (self.release_reports)();
@@ -145,9 +158,9 @@ impl Hub {
     pub fn leave(&self, id: ClientId) -> Result<(), Error> {
         let _transition = self.transition()?;
         let mut state = self.state()?;
-        if state.clients.remove(&id).is_none() {
+        let Some(client) = state.clients.remove(&id) else {
             return Ok(());
-        }
+        };
         let owner = state.owner == Some(id);
         if owner {
             state.owner = None;
@@ -157,9 +170,14 @@ impl Hub {
                 .ok_or("input generation exhausted")?;
             state.cleanup = true;
             Self::publish(&state);
-            drop(state);
+        }
+        drop(state);
+        (client.cleanup)(true);
+        if owner {
             (self.release_reports)();
-            state = self.state()?;
+        }
+        state = self.state()?;
+        if owner {
             state.cleanup = false;
         }
         if state.owner.is_none() && state.external.is_none() && state.clients.len() == 1 {

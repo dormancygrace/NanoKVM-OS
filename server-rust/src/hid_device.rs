@@ -17,6 +17,7 @@ use std::{
 struct State {
     files: [Option<File>; 3],
     held: [Option<Report>; 3],
+    pending_release: bool,
     windows_pointer: bool,
     led_capable: bool,
     led_retry: Option<Instant>,
@@ -156,7 +157,10 @@ impl Devices {
     }
     fn release_kind(&self, state: &mut State, i: usize) -> Result<(), Error> {
         if let Some(report) = state.held[i].clone() {
-            self.emit(state, &report.released())?;
+            if let Err(error) = self.emit(state, &report.released()) {
+                state.pending_release = true;
+                return Err(error);
+            }
             state.held[i] = None;
         }
         Ok(())
@@ -164,10 +168,19 @@ impl Devices {
     pub fn write(&self, report: &Report) -> Result<(), Error> {
         let mut state = self.state.lock().map_err(|_| "HID state unavailable")?;
         let i = index(report.kind());
+        if state.pending_release {
+            // Failed cleanup may survive a descriptor reopen or ownership change.
+            // Recover the neutral state before admitting a new held report.
+            for i in 0..3 {
+                self.release_kind(&mut state, i)?;
+            }
+            state.pending_release = false;
+        }
         if i > 0 {
             self.release_kind(&mut state, 3 - i)?;
         }
         if let Err(error) = self.emit(&mut state, report) {
+            state.pending_release = true;
             // A descriptor may have accepted a partial Windows packet before
             // failing. Remember the attempted buttons/coordinates for cleanup.
             if report.held() {
@@ -188,6 +201,9 @@ impl Devices {
                     first = Some(error);
                 }
             }
+        }
+        if first.is_none() {
+            state.pending_release = false;
         }
         first.map_or(Ok(()), Err)
     }

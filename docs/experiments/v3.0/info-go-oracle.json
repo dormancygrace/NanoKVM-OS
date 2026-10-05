@@ -1,0 +1,571 @@
+[
+  {
+    "files": {},
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [],
+    "mdnsEnabled": false,
+    "name": "defaults"
+  },
+  {
+    "files": {
+      "/boot/ver": "MjAyNC0wNi0yMy0yMC01OS0yZDJiZmIuaW1nCg==",
+      "/device_key": "IGRldmljZQ0Ka2V5Cg==",
+      "/kvmapp/version": "My4wCmV4cGVyaW1lbnRhbAo="
+    },
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "v1.0.0",
+      "application": "3.0experimental",
+      "deviceKey": " device\rkey"
+    },
+    "interfaces": [],
+    "mdnsEnabled": false,
+    "name": "image-2024-06-23-20-59-2d2bfb.img"
+  },
+  {
+    "files": {
+      "/boot/ver": "MjAyNC0wNy0yMy0yMC0xOC01ODc3MTAuaW1nCg==",
+      "/device_key": "IGRldmljZQ0Ka2V5Cg==",
+      "/kvmapp/version": "My4wCmV4cGVyaW1lbnRhbAo="
+    },
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "v1.1.0",
+      "application": "3.0experimental",
+      "deviceKey": " device\rkey"
+    },
+    "interfaces": [],
+    "mdnsEnabled": false,
+    "name": "image-2024-07-23-20-18-587710.img"
+  },
+  {
+    "files": {
+      "/boot/ver": "MjAyNC0wOC0wOC0xOS00NC1iZWYyY2EuaW1nCg==",
+      "/device_key": "IGRldmljZQ0Ka2V5Cg==",
+      "/kvmapp/version": "My4wCmV4cGVyaW1lbnRhbAo="
+    },
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "v1.2.0",
+      "application": "3.0experimental",
+      "deviceKey": " device\rkey"
+    },
+    "interfaces": [],
+    "mdnsEnabled": false,
+    "name": "image-2024-08-08-19-44-bef2ca.img"
+  },
+  {
+    "files": {
+      "/boot/ver": "MjAyNC0xMS0xMy0wOS01OS05Yzk2MWEuaW1nCg==",
+      "/device_key": "IGRldmljZQ0Ka2V5Cg==",
+      "/kvmapp/version": "My4wCmV4cGVyaW1lbnRhbAo="
+    },
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "v1.3.0",
+      "application": "3.0experimental",
+      "deviceKey": " device\rkey"
+    },
+    "interfaces": [],
+    "mdnsEnabled": false,
+    "name": "image-2024-11-13-09-59-9c961a.img"
+  },
+  {
+    "files": {
+      "/boot/ver": "MjAyNS0wMi0xNy0xOS0wOC0zNjQ5ZmUuaW1nCg==",
+      "/device_key": "IGRldmljZQ0Ka2V5Cg==",
+      "/kvmapp/version": "My4wCmV4cGVyaW1lbnRhbAo="
+    },
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "v1.4.0",
+      "application": "3.0experimental",
+      "deviceKey": " device\rkey"
+    },
+    "interfaces": [],
+    "mdnsEnabled": false,
+    "name": "image-2025-02-17-19-08-3649fe.img"
+  },
+  {
+    "files": {
+      "/boot/ver": "MjAyNS0wNC0xNy0xNC0yMS05OGQxN2QuaW1nCg==",
+      "/device_key": "IGRldmljZQ0Ka2V5Cg==",
+      "/kvmapp/version": "My4wCmV4cGVyaW1lbnRhbAo="
+    },
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "v1.4.1",
+      "application": "3.0experimental",
+      "deviceKey": " device\rkey"
+    },
+    "interfaces": [],
+    "mdnsEnabled": false,
+    "name": "image-2025-04-17-14-21-98d17d.img"
+  },
+  {
+    "files": {
+      "/boot/ver": "MjAyNi0wMS0wNS0xXzRfMS5pbWcK",
+      "/device_key": "IGRldmljZQ0Ka2V5Cg==",
+      "/kvmapp/version": "My4wCmV4cGVyaW1lbnRhbAo="
+    },
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "v1.4.2",
+      "application": "3.0experimental",
+      "deviceKey": " device\rkey"
+    },
+    "interfaces": [],
+    "mdnsEnabled": false,
+    "name": "image-2026-01-05-1_4_1.img"
+  },
+  {
+    "files": {
+      "/boot/ver": "djMtZXhwZXJpbWVudGFsCg==",
+      "/device_key": "IGRldmljZQ0Ka2V5Cg==",
+      "/kvmapp/version": "My4wCmV4cGVyaW1lbnRhbAo="
+    },
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "v3-experimental",
+      "application": "3.0experimental",
+      "deviceKey": " device\rkey"
+    },
+    "interfaces": [],
+    "mdnsEnabled": false,
+    "name": "image-v3-experimental"
+  },
+  {
+    "files": {
+      "/boot/ver": "djMNCgo=",
+      "/device_key": "IGRldmljZQ0Ka2V5Cg==",
+      "/kvmapp/version": "My4wCmV4cGVyaW1lbnRhbAo="
+    },
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "v3\r",
+      "application": "3.0experimental",
+      "deviceKey": " device\rkey"
+    },
+    "interfaces": [],
+    "mdnsEnabled": false,
+    "name": "image-v3\r\n"
+  },
+  {
+    "files": {
+      "/etc/hostname": "bmFubwo=",
+      "/run/avahi-daemon/pid": "MTIzCg=="
+    },
+    "info": {
+      "ips": null,
+      "mdns": "nano.local",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [],
+    "mdnsEnabled": true,
+    "name": "mdns-normal"
+  },
+  {
+    "files": {
+      "/etc/hostname": "bmFubw==",
+      "/run/avahi-daemon/pid": "Cg=="
+    },
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [],
+    "mdnsEnabled": false,
+    "name": "mdns-empty-pid"
+  },
+  {
+    "files": {
+      "/etc/hostname": "IG5hbm8NCg==",
+      "/run/avahi-daemon/pid": "IA0K"
+    },
+    "info": {
+      "ips": null,
+      "mdns": " nano\r.local",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [],
+    "mdnsEnabled": true,
+    "name": "mdns-spaces-pid"
+  },
+  {
+    "files": {
+      "/etc/hostname": "Cg==",
+      "/run/avahi-daemon/pid": "MQ=="
+    },
+    "info": {
+      "ips": null,
+      "mdns": ".local",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [],
+    "mdnsEnabled": true,
+    "name": "mdns-empty-host"
+  },
+  {
+    "files": {
+      "/etc/hostname": "bmHhgP8K",
+      "/run/avahi-daemon/pid": "MQ=="
+    },
+    "info": {
+      "ips": null,
+      "mdns": "na\ufffd\ufffd\ufffd.local",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [],
+    "mdnsEnabled": true,
+    "name": "mdns-invalid-bytes"
+  },
+  {
+    "files": {
+      "/run/avahi-daemon/pid": "MQ=="
+    },
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [],
+    "mdnsEnabled": true,
+    "name": "missing-host"
+  },
+  {
+    "files": {
+      "/boot/ver": "/wo=",
+      "/device_key": "//8K",
+      "/kvmapp/version": "4YD/"
+    },
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "\ufffd",
+      "application": "\ufffd\ufffd\ufffd",
+      "deviceKey": "\ufffd\ufffd"
+    },
+    "interfaces": [],
+    "mdnsEnabled": false,
+    "name": "raw"
+  },
+  {
+    "files": {},
+    "info": {
+      "ips": [
+        {
+          "name": "eth0",
+          "addr": "192.0.2.1",
+          "version": "IPv4",
+          "type": "Wired"
+        }
+      ],
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [
+      {
+        "name": "eth0",
+        "up": true,
+        "running": true,
+        "addresses": [
+          "192.0.2.1",
+          "2001:db8::1"
+        ]
+      }
+    ],
+    "mdnsEnabled": false,
+    "name": "interface-17"
+  },
+  {
+    "files": {},
+    "info": {
+      "ips": [
+        {
+          "name": "enp0s1",
+          "addr": "198.51.100.1",
+          "version": "IPv4",
+          "type": "Wired"
+        }
+      ],
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [
+      {
+        "name": "enp0s1",
+        "up": true,
+        "running": true,
+        "addresses": [
+          "198.51.100.1"
+        ]
+      }
+    ],
+    "mdnsEnabled": false,
+    "name": "interface-18"
+  },
+  {
+    "files": {},
+    "info": {
+      "ips": [
+        {
+          "name": "wlan0",
+          "addr": "192.0.2.2",
+          "version": "IPv4",
+          "type": "Wireless"
+        }
+      ],
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [
+      {
+        "name": "wlan0",
+        "up": true,
+        "running": true,
+        "addresses": [
+          "192.0.2.2"
+        ]
+      }
+    ],
+    "mdnsEnabled": false,
+    "name": "interface-19"
+  },
+  {
+    "files": {},
+    "info": {
+      "ips": [
+        {
+          "name": "wlx0",
+          "addr": "192.0.2.3",
+          "version": "IPv4",
+          "type": "Wireless"
+        }
+      ],
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [
+      {
+        "name": "wlx0",
+        "up": true,
+        "running": true,
+        "addresses": [
+          "::ffff:192.0.2.3"
+        ]
+      }
+    ],
+    "mdnsEnabled": false,
+    "name": "interface-20"
+  },
+  {
+    "files": {},
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [
+      {
+        "name": "wg0",
+        "up": true,
+        "running": true,
+        "addresses": [
+          "192.0.2.4"
+        ]
+      }
+    ],
+    "mdnsEnabled": false,
+    "name": "interface-21"
+  },
+  {
+    "files": {},
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [
+      {
+        "name": "lo",
+        "up": true,
+        "running": true,
+        "addresses": [
+          "127.0.0.1"
+        ]
+      }
+    ],
+    "mdnsEnabled": false,
+    "name": "interface-22"
+  },
+  {
+    "files": {},
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [
+      {
+        "name": "eth0",
+        "up": false,
+        "running": true,
+        "addresses": [
+          "192.0.2.1"
+        ]
+      }
+    ],
+    "mdnsEnabled": false,
+    "name": "interface-23"
+  },
+  {
+    "files": {},
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [
+      {
+        "name": "eth0",
+        "up": true,
+        "running": false,
+        "addresses": [
+          "169.254.1.1"
+        ]
+      }
+    ],
+    "mdnsEnabled": false,
+    "name": "interface-24"
+  },
+  {
+    "files": {},
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [
+      {
+        "name": "eth0",
+        "up": true,
+        "running": true,
+        "addresses": [
+          "2001:db8::1",
+          "192.0.2.1"
+        ]
+      }
+    ],
+    "mdnsEnabled": false,
+    "name": "interface-25"
+  },
+  {
+    "files": {},
+    "info": {
+      "ips": null,
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [
+      {
+        "name": "eth0",
+        "up": true,
+        "running": true,
+        "addresses": []
+      }
+    ],
+    "mdnsEnabled": false,
+    "name": "interface-26"
+  },
+  {
+    "files": {},
+    "info": {
+      "ips": [
+        {
+          "name": "wlan0",
+          "addr": "192.0.2.2",
+          "version": "IPv4",
+          "type": "Wireless"
+        },
+        {
+          "name": "eth0",
+          "addr": "192.0.2.1",
+          "version": "IPv4",
+          "type": "Wired"
+        }
+      ],
+      "mdns": "",
+      "image": "",
+      "application": "1.0.0",
+      "deviceKey": ""
+    },
+    "interfaces": [
+      {
+        "name": "wlan0",
+        "up": true,
+        "running": true,
+        "addresses": [
+          "192.0.2.2"
+        ]
+      },
+      {
+        "name": "eth0",
+        "up": true,
+        "running": true,
+        "addresses": [
+          "192.0.2.1"
+        ]
+      }
+    ],
+    "mdnsEnabled": false,
+    "name": "ordered"
+  }
+]

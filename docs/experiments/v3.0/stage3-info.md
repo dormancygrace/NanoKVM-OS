@@ -1,0 +1,9 @@
+# Firmware identity, interfaces and mDNS state
+
+GETinfo preserves session access and GETmdns preserves admin access. Identity reads keep the seven baseline image-name mappings, unknown raw version strings, application default1.0.0, device-key/mDNS defaults and newline-only removal. Invalid UTF-8 receives Go replacement per byte. mDNS identity/state use the baseline nonempty PID-file rule; no daemon action executes.
+
+Interface discovery owns and frees libcgetifaddrs allocations, copies names before freeing, decodes IPv4/IPv6 ABI, retains address order and returns interfaces by kernel index. Selection requires administrative UP and kernel RUNNING, wired eth/en or wireless wlan/wl names, then filters the first address for IPv4 (including mapped IPv6). Empty/unavailable addresses preserve JSONnull. Isolated native roots refuse host interface discovery; trusted fixtures inject address/flag snapshots.
+
+Twenty-eight pure immutable Go baseline identity/interface/PID cases pass. Three integration tests cover those fixtures, session/admin contracts and repeated actual getifaddrs calls on host and generic static riscv64musl/QEMU. The native test reads only the executor's network state, not the shared stand. No interface or daemon configuration changes.
+
+check-v3.py --host --target --tls passes125tests each:42unit,24API,9CPU,8time,3identity,19socket/paste,9USB/monitor and11GPIO/system. Warning-denied clippy, static generic-rv64, real TLS/307/Secure cookie/SIGTERM/occupied-port and173SPDXpackages qualify. Binary/log details are stage3-info-qualification.json. Ledger46isolated/1partialWS/157pending of204. mDNSenable/disable, SSH, complete dashboard/memory telemetry and remaining runtime/media/addon/package/hardware work remain pending. No stand writes or publication; H.265 WebRTC remains disabled.

@@ -263,3 +263,15 @@ Date/time full qualification first pass121host/target/static/TLS passes. Inspect
 Date/time after final qualification: check-v3.py --host --target --tls passes122perarchitecture (42+24+9+8+19+9+11),125Go cases plus earlier58Jiff probes, linked CPU+localtime andafter-rename/mode/absence recovery, realUDP/status/command-pipe deadlines. Generic staticmusl+realTLS/SIGTERM/occupiedport pass;173SPDXpackages. Ledger44isolated/1partial/159pending. Nextlocalboundedcommit thenreadonlyidentity/network/mdnsstatus. No clock/TZ/daemon/stand mutation or publication.
 
 Time local commit9c71b14 created after final122-test qualification; checkpoint/log amendment records completion of this bounded slice. No push. Next readonlyinfo/interfaces/mdnsstatus.
+
+Information before implementation: time committed/qualified122tests, source fullyreadinfo/ip/mdns. Add sessionGETinfo/adminGETmdnsstatus, exact identity defaults/version maps/newline-only/per-byteUTF8, up+running first-address thenIPv4 wired/wireless/null-list, owned libcgetifaddrs/native rootguard/fixtureinjection. PurebaselineGo functions oracle, hostANDtargetnative readonlynetworkABI test. mDNSmutations stillpending. No network/daemon/stand configuration writes.
+
+Information first compile: json_text returnsCow; interface names requireinto_owned before freeing getifaddrs allocation. Correct conversion, then host+static-target focused native ABI/contract tests and clippy before full qualification.28actualGo cases generated.
+
+Information fixture correction: nativehost/API tests pass; pureGo expected-interface metadata used capitalized default struct field names while Rustfixture expectedlowercase. Add explicit oracle metadata tags; baselinefunctions unchanged. Rerunfocusedhost/target/clippy, thenfull125 gates.
+
+Information focused3host+3targettests andclippy pass, including actualownedgetifaddrs generic-rv64/QEMU against local readonlynetwork state (notstand).28pureGofiles/IP/PIDcasesmatch. Beforefullcheck125tests each; sourcefrozenuntilcomplete.
+
+Information after qualification: check-v3.py --host --target --tls125tests each (42+24+9+8+3+19+9+11),28Go identity/IP/PIDcases and actualownednativegetifaddrs host/staticmusl/QEMU pass. SPDX173; ledger46isolated/1partial/157pending. Localboundedcommitnext. Dashboardfullsource/tests and memory-status/video-memory/maintenance source+memory-status/video tests nowread; planreadonlymemory telemetry next; mutation/maintenance/memory-limit policies remainpending. No stand/interface/daemon mutation.
+
+Identity local commitdf0aec2 created after125-test qualification; checkpoint/log amendment. No push; nextreadonlymemory telemetry.

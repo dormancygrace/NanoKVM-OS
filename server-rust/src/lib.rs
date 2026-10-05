@@ -34,6 +34,7 @@ pub mod redirect;
 mod request_cancel;
 mod sessions;
 pub mod store;
+pub mod sysinfo;
 pub mod systemops;
 pub mod time_sync;
 pub mod timeconfig;
@@ -77,6 +78,7 @@ pub struct Runtime {
     pub atx_leds: gpio_monitor::Monitor,
     pub cpu: cpufreq::Manager,
     pub time: timeconfig::Manager,
+    pub info: sysinfo::Manager,
     pub(crate) internal: internal::Token,
     reboot_pending: Arc<std::sync::atomic::AtomicBool>,
     pub(crate) sessions: sessions::Registry,
@@ -136,6 +138,20 @@ impl Runtime {
         time: Arc<dyn timeconfig::Backend>,
     ) -> Result<Arc<Self>, Error> {
         let root = root.canonicalize()?;
+        let network = Arc::new(sysinfo::Native::new(root.clone()));
+        Self::load_with_information_backends(&root, commands, media, gpio, cpu, time, network)
+    }
+    pub fn load_with_information_backends(
+        root: &Path,
+        commands: Arc<dyn systemops::Executor>,
+        media: Arc<dyn monitor::Backend>,
+        gpio: Arc<dyn gpio::Backend>,
+        cpu: Arc<dyn cpufreq::Backend>,
+        time: Arc<dyn timeconfig::Backend>,
+        network: Arc<dyn sysinfo::Interfaces>,
+    ) -> Result<Arc<Self>, Error> {
+        let root = root.canonicalize()?;
+        let info = sysinfo::Manager::new(root.clone(), network);
         let time = timeconfig::Manager::new(root.clone(), time);
         let cpu = cpufreq::Manager::new(root.clone(), cpu);
         if root == Path::new("/") {
@@ -163,6 +179,7 @@ impl Runtime {
             hardware,
             cpu,
             time,
+            info,
             internal: internal::Token::load(&root)?,
             root,
             reboot_pending: Arc::new(std::sync::atomic::AtomicBool::new(false)),

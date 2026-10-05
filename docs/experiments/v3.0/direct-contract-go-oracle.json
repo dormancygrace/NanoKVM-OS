@@ -1,0 +1,4395 @@
+{
+  "allScalarQuotedSHA256": "d9c25bb7a2adcfa15823170b626d19ad242f5d09558367dbdac9051e52648ee0",
+  "captureStatuses": [
+    {
+      "latest": [
+        {
+          "ok": false,
+          "result": -5,
+          "message": "Retrieving image",
+          "mode": "mjpeg",
+          "severity": "warning",
+          "updatedAt": "1970-01-01T00:16:40.000000001Z"
+        }
+      ],
+      "mode": "mjpeg",
+      "notifications": 1,
+      "result": -5,
+      "timestamp": "1970-01-01T00:16:40.000000001Z"
+    },
+    {
+      "latest": [
+        {
+          "ok": true,
+          "result": 3,
+          "message": "",
+          "mode": "direct",
+          "severity": "",
+          "updatedAt": "1970-01-01T00:16:40.000000002Z"
+        },
+        {
+          "ok": false,
+          "result": -5,
+          "message": "Retrieving image",
+          "mode": "mjpeg",
+          "severity": "warning",
+          "updatedAt": "1970-01-01T00:16:40.000000001Z"
+        }
+      ],
+      "mode": "direct",
+      "notifications": 2,
+      "result": 3,
+      "timestamp": "1970-01-01T00:16:40.000000002Z"
+    },
+    {
+      "latest": [
+        {
+          "ok": true,
+          "result": 3,
+          "message": "",
+          "mode": "direct",
+          "severity": "",
+          "updatedAt": "1970-01-01T00:16:40.000000002Z"
+        },
+        {
+          "ok": false,
+          "result": -7,
+          "message": "HDMI input resolution error",
+          "mode": "h264",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000003Z"
+        },
+        {
+          "ok": false,
+          "result": -5,
+          "message": "Retrieving image",
+          "mode": "mjpeg",
+          "severity": "warning",
+          "updatedAt": "1970-01-01T00:16:40.000000001Z"
+        }
+      ],
+      "mode": "h264",
+      "notifications": 3,
+      "result": -7,
+      "timestamp": "1970-01-01T00:16:40.000000003Z"
+    },
+    {
+      "latest": [
+        {
+          "ok": true,
+          "result": 3,
+          "message": "",
+          "mode": "direct",
+          "severity": "",
+          "updatedAt": "1970-01-01T00:16:40.000000002Z"
+        },
+        {
+          "ok": false,
+          "result": -7,
+          "message": "HDMI input resolution error",
+          "mode": "h264",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000003Z"
+        },
+        {
+          "ok": false,
+          "result": -5,
+          "message": "Retrieving image",
+          "mode": "mjpeg",
+          "severity": "warning",
+          "updatedAt": "1970-01-01T00:16:40.000000001Z"
+        }
+      ],
+      "mode": "direct",
+      "notifications": 3,
+      "result": 4,
+      "timestamp": "1970-01-01T00:16:40.000000004Z"
+    },
+    {
+      "latest": [
+        {
+          "ok": false,
+          "result": -1,
+          "message": "No image captured",
+          "mode": "direct",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000005Z"
+        },
+        {
+          "ok": false,
+          "result": -7,
+          "message": "HDMI input resolution error",
+          "mode": "h264",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000003Z"
+        },
+        {
+          "ok": false,
+          "result": -5,
+          "message": "Retrieving image",
+          "mode": "mjpeg",
+          "severity": "warning",
+          "updatedAt": "1970-01-01T00:16:40.000000001Z"
+        }
+      ],
+      "mode": "direct",
+      "notifications": 4,
+      "result": -1,
+      "timestamp": "1970-01-01T00:16:40.000000005Z"
+    },
+    {
+      "latest": [
+        {
+          "ok": false,
+          "result": -1,
+          "message": "No image captured",
+          "mode": "direct",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000005Z"
+        },
+        {
+          "ok": false,
+          "result": -7,
+          "message": "HDMI input resolution error",
+          "mode": "h264",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000003Z"
+        },
+        {
+          "ok": false,
+          "result": -5,
+          "message": "Retrieving image",
+          "mode": "mjpeg",
+          "severity": "warning",
+          "updatedAt": "1970-01-01T00:16:40.000000001Z"
+        }
+      ],
+      "mode": "direct",
+      "notifications": 4,
+      "result": -1,
+      "timestamp": "1970-01-01T00:16:40.000000006Z"
+    },
+    {
+      "latest": [
+        {
+          "ok": false,
+          "result": -1,
+          "message": "No image captured",
+          "mode": "direct",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000005Z"
+        },
+        {
+          "ok": false,
+          "result": -7,
+          "message": "HDMI input resolution error",
+          "mode": "h264",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000003Z"
+        },
+        {
+          "ok": true,
+          "result": 0,
+          "message": "",
+          "mode": "mjpeg",
+          "severity": "",
+          "updatedAt": "1970-01-01T00:16:40.000000007Z"
+        }
+      ],
+      "mode": "mjpeg",
+      "notifications": 5,
+      "result": 0,
+      "timestamp": "1970-01-01T00:16:40.000000007Z"
+    },
+    {
+      "latest": [
+        {
+          "ok": false,
+          "result": -1,
+          "message": "No image captured",
+          "mode": "direct",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000005Z"
+        },
+        {
+          "ok": false,
+          "result": -7,
+          "message": "HDMI input resolution error",
+          "mode": "h264",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000003Z"
+        },
+        {
+          "ok": true,
+          "result": 0,
+          "message": "",
+          "mode": "mjpeg",
+          "severity": "",
+          "updatedAt": "1970-01-01T00:16:40.000000007Z"
+        }
+      ],
+      "mode": "mjpeg",
+      "notifications": 5,
+      "result": 5,
+      "timestamp": "1970-01-01T00:16:40.000000008Z"
+    },
+    {
+      "latest": [
+        {
+          "ok": false,
+          "result": -1,
+          "message": "No image captured",
+          "mode": "direct",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000005Z"
+        },
+        {
+          "ok": false,
+          "result": -6,
+          "message": "Unsupported HDMI resolution",
+          "mode": "h264",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000009Z"
+        },
+        {
+          "ok": true,
+          "result": 0,
+          "message": "",
+          "mode": "mjpeg",
+          "severity": "",
+          "updatedAt": "1970-01-01T00:16:40.000000007Z"
+        }
+      ],
+      "mode": "h264",
+      "notifications": 6,
+      "result": -6,
+      "timestamp": "1970-01-01T00:16:40.000000009Z"
+    },
+    {
+      "latest": [
+        {
+          "ok": false,
+          "result": -1,
+          "message": "No image captured",
+          "mode": "direct",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000005Z"
+        },
+        {
+          "ok": false,
+          "result": -4,
+          "message": "Changing image resolution",
+          "mode": "h264",
+          "severity": "warning",
+          "updatedAt": "1970-01-01T00:16:40.00000001Z"
+        },
+        {
+          "ok": true,
+          "result": 0,
+          "message": "",
+          "mode": "mjpeg",
+          "severity": "",
+          "updatedAt": "1970-01-01T00:16:40.000000007Z"
+        }
+      ],
+      "mode": "h264",
+      "notifications": 7,
+      "result": -4,
+      "timestamp": "1970-01-01T00:16:40.00000001Z"
+    },
+    {
+      "latest": [
+        {
+          "ok": false,
+          "result": -1,
+          "message": "No image captured",
+          "mode": "direct",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000005Z"
+        },
+        {
+          "ok": false,
+          "result": -3,
+          "message": "Image buffer full",
+          "mode": "h264",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000011Z"
+        },
+        {
+          "ok": true,
+          "result": 0,
+          "message": "",
+          "mode": "mjpeg",
+          "severity": "",
+          "updatedAt": "1970-01-01T00:16:40.000000007Z"
+        }
+      ],
+      "mode": "h264",
+      "notifications": 8,
+      "result": -3,
+      "timestamp": "1970-01-01T00:16:40.000000011Z"
+    },
+    {
+      "latest": [
+        {
+          "ok": false,
+          "result": -1,
+          "message": "No image captured",
+          "mode": "direct",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000005Z"
+        },
+        {
+          "ok": false,
+          "result": -2,
+          "message": "Encoder error",
+          "mode": "h264",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000012Z"
+        },
+        {
+          "ok": true,
+          "result": 0,
+          "message": "",
+          "mode": "mjpeg",
+          "severity": "",
+          "updatedAt": "1970-01-01T00:16:40.000000007Z"
+        }
+      ],
+      "mode": "h264",
+      "notifications": 9,
+      "result": -2,
+      "timestamp": "1970-01-01T00:16:40.000000012Z"
+    },
+    {
+      "latest": [
+        {
+          "ok": false,
+          "result": -1,
+          "message": "No image captured",
+          "mode": "direct",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000005Z"
+        },
+        {
+          "ok": false,
+          "result": -8,
+          "message": "Capture failed",
+          "mode": "h264",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000013Z"
+        },
+        {
+          "ok": true,
+          "result": 0,
+          "message": "",
+          "mode": "mjpeg",
+          "severity": "",
+          "updatedAt": "1970-01-01T00:16:40.000000007Z"
+        }
+      ],
+      "mode": "h264",
+      "notifications": 10,
+      "result": -8,
+      "timestamp": "1970-01-01T00:16:40.000000013Z"
+    },
+    {
+      "latest": [
+        {
+          "ok": false,
+          "result": -1,
+          "message": "No image captured",
+          "mode": "direct",
+          "severity": "error",
+          "updatedAt": "1970-01-01T00:16:40.000000005Z"
+        },
+        {
+          "ok": true,
+          "result": 0,
+          "message": "",
+          "mode": "h264",
+          "severity": "",
+          "updatedAt": "1970-01-01T00:16:40.000000014Z"
+        },
+        {
+          "ok": true,
+          "result": 0,
+          "message": "",
+          "mode": "mjpeg",
+          "severity": "",
+          "updatedAt": "1970-01-01T00:16:40.000000007Z"
+        }
+      ],
+      "mode": "h264",
+      "notifications": 11,
+      "result": 0,
+      "timestamp": "1970-01-01T00:16:40.000000014Z"
+    }
+  ],
+  "config": [
+    {
+      "codec": "h265",
+      "error": "",
+      "fallback": "h265",
+      "flow": 0,
+      "query": ""
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 0,
+      "query": ""
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=h264"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=h264"
+    },
+    {
+      "codec": "h265",
+      "error": "",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=h265&rc=cbr"
+    },
+    {
+      "codec": "h265",
+      "error": "",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=h265&rc=cbr"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=h264&codec=h265"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=h264&codec=h265"
+    },
+    {
+      "codec": "h265",
+      "error": "",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=&codec=h264"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=&codec=h264"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"H264\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=H264"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"H264\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=H264"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"vp9\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=vp9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"vp9\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=vp9"
+    },
+    {
+      "codec": "",
+      "error": "invalid rate control \"vbr\": only cbr is supported",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "rc=vbr"
+    },
+    {
+      "codec": "",
+      "error": "invalid rate control \"vbr\": only cbr is supported",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "rc=vbr"
+    },
+    {
+      "codec": "h265",
+      "error": "",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "rc=cbr&rc=vbr"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "rc=cbr&rc=vbr"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=h264&bitrate=1&gop=0"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=h264&bitrate=1&gop=0"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "x=%zz&codec=h264"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "x=%zz&codec=h264"
+    },
+    {
+      "codec": "h265",
+      "error": "",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=h264;x=x&rc=cbr"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=h264;x=x&rc=cbr"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%zz&codec=h264"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%zz&codec=h264"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xff\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%FF"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xff\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%FF"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\ufffd\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%EF%BF%BD"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\ufffd\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%EF%BF%BD"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"%s\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%25s"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"%s\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%25s"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x00\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%00"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x00\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%00"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\ud83d\ude00\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%F0%9F%98%80"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\ud83d\ude00\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%F0%9F%98%80"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\u00a0\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%C2%A0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\u00a0\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%C2%A0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\u0301\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%CC%81"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\u0301\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%CC%81"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\u200b\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%E2%80%8B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\u200b\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%E2%80%8B"
+    },
+    {
+      "codec": "h265",
+      "error": "",
+      "fallback": "h265",
+      "flow": 8,
+      "query": "flow=%2B8"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 8,
+      "query": "flow=%2B8"
+    },
+    {
+      "codec": "h265",
+      "error": "",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "flow=9999999999999999999999999999"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "flow=9999999999999999999999999999"
+    },
+    {
+      "codec": "h265",
+      "error": "",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "flow=-1"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "flow=-1"
+    },
+    {
+      "codec": "h265",
+      "error": "",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "flow=+8"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "flow=+8"
+    },
+    {
+      "codec": "h265",
+      "error": "",
+      "fallback": "h265",
+      "flow": 8,
+      "query": "flow=9&flow=1"
+    },
+    {
+      "codec": "h264",
+      "error": "",
+      "fallback": "h264",
+      "flow": 8,
+      "query": "flow=9&flow=1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x00\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%00"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x00\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%00"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x01\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%01"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x01\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%01"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x02\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%02"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x02\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%02"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x03\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%03"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x03\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%03"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x04\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%04"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x04\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%04"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x05\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%05"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x05\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%05"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x06\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%06"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x06\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%06"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\a\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%07"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\a\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%07"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\b\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%08"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\b\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%08"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\t\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%09"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\t\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%09"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\n\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%0A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\n\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%0A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\v\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%0B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\v\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%0B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\f\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%0C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\f\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%0C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\r\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%0D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\r\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%0D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x0e\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%0E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x0e\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%0E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x0f\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%0F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x0f\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%0F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x10\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%10"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x10\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%10"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x11\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%11"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x11\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%11"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x12\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%12"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x12\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%12"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x13\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%13"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x13\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%13"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x14\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%14"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x14\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%14"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x15\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%15"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x15\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%15"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x16\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%16"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x16\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%16"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x17\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%17"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x17\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%17"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x18\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%18"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x18\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%18"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x19\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%19"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x19\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%19"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x1a\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%1A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x1a\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%1A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x1b\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%1B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x1b\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%1B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x1c\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%1C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x1c\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%1C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x1d\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%1D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x1d\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%1D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x1e\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%1E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x1e\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%1E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x1f\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%1F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x1f\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%1F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \" \": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=+"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \" \": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=+"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"!\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%21"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"!\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%21"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\\"\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%22"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\\"\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%22"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"#\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%23"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"#\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%23"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"$\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%24"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"$\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%24"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"%\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%25"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"%\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%25"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"&\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%26"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"&\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%26"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"'\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%27"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"'\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%27"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"(\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%28"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"(\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%28"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \")\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%29"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \")\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%29"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"*\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%2A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"*\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%2A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"+\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%2B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"+\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%2B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \",\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%2C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \",\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%2C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"-\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=-"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"-\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=-"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \".\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=."
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \".\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=."
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"/\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%2F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"/\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%2F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"0\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"0\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"1\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"1\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"2\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"2\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"3\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"3\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"4\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"4\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"5\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"5\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"6\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"6\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"7\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"7\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"8\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"8\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"9\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"9\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \":\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%3A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \":\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%3A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \";\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%3B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \";\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%3B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"<\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%3C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"<\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%3C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"=\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%3D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"=\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%3D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \">\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%3E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \">\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%3E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"?\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%3F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"?\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%3F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"@\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%40"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"@\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%40"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"A\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"A\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"B\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"B\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"C\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"C\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"D\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"D\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"E\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"E\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"F\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"F\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"G\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=G"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"G\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=G"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"H\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=H"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"H\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=H"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"I\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=I"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"I\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=I"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"J\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=J"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"J\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=J"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"K\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=K"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"K\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=K"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"L\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=L"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"L\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=L"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"M\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=M"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"M\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=M"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"N\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=N"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"N\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=N"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"O\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=O"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"O\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=O"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"P\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=P"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"P\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=P"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"Q\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=Q"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"Q\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=Q"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"R\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=R"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"R\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=R"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"S\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=S"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"S\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=S"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"T\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=T"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"T\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=T"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"U\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=U"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"U\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=U"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"V\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=V"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"V\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=V"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"W\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=W"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"W\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=W"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"X\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=X"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"X\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=X"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"Y\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=Y"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"Y\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=Y"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"Z\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=Z"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"Z\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=Z"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"[\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%5B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"[\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%5B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\\\\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%5C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\\\\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%5C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"]\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%5D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"]\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%5D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"^\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%5E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"^\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%5E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"_\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=_"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"_\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=_"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"`\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%60"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"`\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%60"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"a\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=a"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"a\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=a"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"b\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=b"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"b\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=b"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"c\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=c"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"c\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=c"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"d\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=d"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"d\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=d"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"e\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=e"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"e\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=e"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"f\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=f"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"f\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=f"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"g\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=g"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"g\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=g"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"h\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=h"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"h\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=h"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"i\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=i"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"i\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=i"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"j\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=j"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"j\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=j"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"k\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=k"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"k\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=k"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"l\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=l"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"l\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=l"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"m\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=m"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"m\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=m"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"n\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=n"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"n\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=n"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"o\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=o"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"o\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=o"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"p\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=p"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"p\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=p"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"q\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=q"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"q\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=q"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"r\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=r"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"r\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=r"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"s\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=s"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"s\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=s"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"t\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=t"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"t\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=t"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"u\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=u"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"u\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=u"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"v\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=v"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"v\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=v"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"w\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=w"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"w\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=w"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"x\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=x"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"x\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=x"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"y\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=y"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"y\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=y"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"z\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=z"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"z\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=z"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"{\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%7B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"{\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%7B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"|\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%7C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"|\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%7C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"}\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%7D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"}\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%7D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"~\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=~"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"~\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=~"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x7f\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%7F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x7f\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%7F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x80\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%80"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x80\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%80"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x81\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%81"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x81\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%81"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x82\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%82"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x82\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%82"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x83\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%83"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x83\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%83"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x84\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%84"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x84\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%84"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x85\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%85"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x85\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%85"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x86\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%86"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x86\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%86"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x87\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%87"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x87\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%87"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x88\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%88"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x88\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%88"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x89\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%89"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x89\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%89"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x8a\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%8A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x8a\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%8A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x8b\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%8B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x8b\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%8B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x8c\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%8C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x8c\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%8C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x8d\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%8D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x8d\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%8D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x8e\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%8E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x8e\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%8E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x8f\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%8F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x8f\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%8F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x90\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%90"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x90\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%90"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x91\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%91"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x91\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%91"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x92\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%92"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x92\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%92"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x93\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%93"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x93\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%93"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x94\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%94"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x94\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%94"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x95\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%95"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x95\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%95"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x96\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%96"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x96\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%96"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x97\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%97"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x97\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%97"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x98\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%98"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x98\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%98"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x99\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%99"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x99\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%99"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x9a\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%9A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x9a\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%9A"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x9b\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%9B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x9b\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%9B"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x9c\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%9C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x9c\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%9C"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x9d\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%9D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x9d\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%9D"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x9e\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%9E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x9e\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%9E"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x9f\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%9F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\x9f\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%9F"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa0\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%A0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa0\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%A0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa1\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%A1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa1\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%A1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa2\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%A2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa2\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%A2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa3\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%A3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa3\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%A3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa4\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%A4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa4\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%A4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa5\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%A5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa5\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%A5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa6\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%A6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa6\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%A6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa7\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%A7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa7\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%A7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa8\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%A8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa8\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%A8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa9\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%A9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xa9\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%A9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xaa\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%AA"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xaa\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%AA"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xab\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%AB"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xab\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%AB"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xac\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%AC"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xac\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%AC"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xad\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%AD"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xad\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%AD"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xae\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%AE"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xae\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%AE"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xaf\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%AF"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xaf\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%AF"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb0\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%B0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb0\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%B0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb1\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%B1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb1\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%B1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb2\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%B2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb2\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%B2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb3\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%B3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb3\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%B3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb4\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%B4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb4\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%B4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb5\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%B5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb5\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%B5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb6\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%B6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb6\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%B6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb7\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%B7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb7\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%B7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb8\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%B8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb8\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%B8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb9\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%B9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xb9\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%B9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xba\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%BA"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xba\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%BA"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xbb\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%BB"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xbb\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%BB"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xbc\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%BC"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xbc\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%BC"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xbd\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%BD"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xbd\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%BD"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xbe\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%BE"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xbe\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%BE"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xbf\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%BF"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xbf\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%BF"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc0\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%C0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc0\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%C0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc1\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%C1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc1\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%C1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc2\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%C2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc2\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%C2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc3\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%C3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc3\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%C3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc4\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%C4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc4\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%C4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc5\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%C5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc5\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%C5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc6\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%C6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc6\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%C6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc7\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%C7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc7\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%C7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc8\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%C8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc8\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%C8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc9\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%C9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xc9\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%C9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xca\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%CA"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xca\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%CA"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xcb\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%CB"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xcb\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%CB"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xcc\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%CC"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xcc\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%CC"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xcd\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%CD"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xcd\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%CD"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xce\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%CE"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xce\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%CE"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xcf\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%CF"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xcf\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%CF"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd0\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%D0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd0\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%D0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd1\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%D1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd1\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%D1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd2\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%D2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd2\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%D2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd3\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%D3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd3\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%D3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd4\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%D4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd4\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%D4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd5\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%D5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd5\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%D5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd6\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%D6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd6\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%D6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd7\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%D7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd7\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%D7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd8\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%D8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd8\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%D8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd9\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%D9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xd9\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%D9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xda\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%DA"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xda\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%DA"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xdb\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%DB"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xdb\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%DB"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xdc\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%DC"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xdc\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%DC"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xdd\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%DD"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xdd\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%DD"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xde\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%DE"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xde\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%DE"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xdf\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%DF"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xdf\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%DF"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe0\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%E0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe0\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%E0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe1\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%E1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe1\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%E1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe2\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%E2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe2\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%E2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe3\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%E3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe3\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%E3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe4\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%E4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe4\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%E4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe5\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%E5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe5\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%E5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe6\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%E6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe6\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%E6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe7\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%E7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe7\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%E7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe8\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%E8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe8\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%E8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe9\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%E9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xe9\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%E9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xea\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%EA"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xea\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%EA"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xeb\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%EB"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xeb\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%EB"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xec\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%EC"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xec\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%EC"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xed\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%ED"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xed\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%ED"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xee\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%EE"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xee\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%EE"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xef\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%EF"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xef\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%EF"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf0\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%F0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf0\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%F0"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf1\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%F1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf1\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%F1"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf2\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%F2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf2\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%F2"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf3\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%F3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf3\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%F3"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf4\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%F4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf4\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%F4"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf5\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%F5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf5\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%F5"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf6\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%F6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf6\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%F6"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf7\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%F7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf7\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%F7"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf8\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%F8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf8\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%F8"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf9\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%F9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xf9\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%F9"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xfa\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%FA"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xfa\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%FA"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xfb\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%FB"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xfb\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%FB"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xfc\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%FC"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xfc\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%FC"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xfd\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%FD"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xfd\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%FD"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xfe\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%FE"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xfe\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%FE"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xff\": expected h264 or h265",
+      "fallback": "h265",
+      "flow": 0,
+      "query": "codec=%FF"
+    },
+    {
+      "codec": "",
+      "error": "invalid codec \"\\xff\": expected h264 or h265",
+      "fallback": "h264",
+      "flow": 0,
+      "query": "codec=%FF"
+    }
+  ],
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "sources": {
+    "server/service/stream/encoder_config.go": "af493c923539b0b3694d6988731018dbb4bcb44b32cd7652360c635ed01793e0",
+    "server/service/stream/encoder_config_test.go": "14b0c50c1e76bc9c9c649bdda0584c586b4b548042703336d7c2cdf16bf0ac0f",
+    "server/service/stream/capture_status.go": "3f9a72d333fc5869ca34e30dab7cffc04fdece983da00c137a865f5fb512e5b9"
+  },
+  "original_tests": [
+    "TestEncoderConfigDefaults",
+    "TestParseEncoderConfig",
+    "TestParseEncoderConfigRejectsUnsupportedValues"
+  ],
+  "go_version": "go version go1.27.1 linux/amd64",
+  "quote_source_sha256": {
+    "src/strconv/quote.go": "6602960ec8777de9926c1d02fbf5cb0828d4aefa38083865f4af17b6892c09a2",
+    "src/strconv/isprint.go": "e6f4b35fbf38f9c9c8b251e5d3cf94daa880789cb89825f11f9734ba4a42e9ff"
+  }
+}

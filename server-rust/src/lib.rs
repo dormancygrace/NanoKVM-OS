@@ -9,8 +9,10 @@ pub mod controlmode;
 pub mod cpufreq;
 pub mod crypto;
 pub mod dashboard;
+pub mod direct;
 mod form_binding;
 pub mod fsroot;
+mod go_printable;
 pub mod gpio;
 mod gpio_api;
 mod gpio_binding;
@@ -30,6 +32,8 @@ mod json_text;
 pub mod leds;
 mod link_telemetry;
 pub mod lockout;
+mod media_session;
+pub mod media_status;
 pub mod memory_command;
 pub mod memory_ops;
 pub mod memory_status;
@@ -55,6 +59,7 @@ mod screen_store;
 mod services;
 mod sessions;
 pub mod store;
+mod stream_api;
 pub mod sysinfo;
 pub mod systemops;
 pub mod time_sync;
@@ -98,6 +103,10 @@ pub struct Runtime {
     pub hdmi: Arc<hdmi::Manager>,
     pub screen: Arc<screen::Manager>,
     pub video: Arc<video_source::Source>,
+    pub direct: Arc<direct::Group>,
+    pub capture_status: Arc<media_status::Statuses>,
+    pub frame_rate: Arc<media_status::FrameRate>,
+    pub(crate) encoder_settings: Mutex<()>,
     hdmi_task: Option<tokio::task::JoinHandle<()>>,
     pub hardware: hardware::Hardware,
     pub atx: gpio::Controller,
@@ -230,12 +239,16 @@ impl Runtime {
         let hdmi = hdmi::Manager::new(root.clone(), media.clone());
         let hdmi_task = hdmi.start();
         let screen = Arc::new(screen::Manager::load(&root)?);
-        let video = video_source::Source::new(
+        let capture_status = media_status::Statuses::new();
+        let frame_rate = media_status::FrameRate::new(root.clone());
+        let video = video_source::Source::with_counter(
             root.clone(),
             screen.clone(),
             hdmi.clone(),
             media.capture_actor(),
+            frame_rate.clone(),
         );
+        let direct = direct::Group::new(video.clone(), hdmi.clone(), capture_status.clone());
         let hardware = hardware::Hardware::detect(&root);
         let hid = Arc::new(hid_device::Devices::new(root.clone()));
         let release = hid.clone();
@@ -253,6 +266,10 @@ impl Runtime {
             monitor: monitor::Monitor::new(media),
             screen,
             video,
+            direct,
+            capture_status,
+            frame_rate,
+            encoder_settings: Mutex::new(()),
             hdmi,
             hdmi_task,
             atx: gpio::Controller::new(gpio.clone()),
@@ -329,12 +346,15 @@ impl Runtime {
         })
         .await?;
         self.video.join().await;
+        self.direct.join().await;
         result
     }
     pub fn shutdown(&self) {
         self.stopping
             .store(true, std::sync::atomic::Ordering::Release);
         self.commands.stop();
+        self.direct.stop();
+        self.frame_rate.stop();
         self.video.stop();
         self.monitor.backend.stop();
         self.hdmi.stop();

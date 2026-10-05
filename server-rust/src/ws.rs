@@ -239,6 +239,25 @@ async fn run(
             &mut revoked,
         )
         .await;
+    let mut capture_updates = runtime.capture_status.subscribe();
+    let mut capture_sent = capture_updates.borrow_and_update().clone();
+    for capture in capture_sent.values() {
+        let data = serde_json::to_string(capture).expect("capture status");
+        if !send(
+            &mut sink,
+            Message::Text(
+                json!({"type":"capture-status","data":data})
+                    .to_string()
+                    .into(),
+            ),
+            &mut revoked,
+        )
+        .await
+        {
+            running = false;
+            break;
+        }
+    }
     let mut heartbeat = Instant::now() + HEARTBEAT;
     let mut check = tokio::time::interval(Duration::from_secs(1));
     check.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -270,6 +289,16 @@ async fn run(
                 if changed.is_err() { break; }
                 let data = serde_json::to_string(&*status.borrow_and_update()).expect("control status");
                 running = send(&mut sink, Message::Text(json!({"type":"control","data":data}).to_string().into()), &mut revoked).await;
+            }
+            changed = capture_updates.changed() => {
+                if changed.is_err() { break; }
+                let captures = capture_updates.borrow_and_update().clone();
+                for (mode,capture) in captures.iter() {
+                    if capture_sent.get(mode) == Some(capture) { continue; }
+                    let data = serde_json::to_string(capture).expect("capture status");
+                    if !send(&mut sink,Message::Text(json!({"type":"capture-status","data":data}).to_string().into()),&mut revoked).await {running=false;break;}
+                }
+                capture_sent = captures;
             }
             changed = led_updates.changed() => {
                 if changed.is_err() { break; }

@@ -1,0 +1,3190 @@
+{
+  "cases": [
+    {
+      "steps": [
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 1,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 10
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 10,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 10
+          },
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 20,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": {
+            "key": false,
+            "size": 10,
+            "timestamp": 20
+          },
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": -1,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": 10,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "discontinuity",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 30,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 40
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 40,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 40
+          },
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "resync",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 50
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 50,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 50
+          },
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": false,
+          "closed": true,
+          "frames": [],
+          "operation": {
+            "Kind": "close",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": false,
+          "closed": true,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 60,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        }
+      ],
+      "window": 0
+    },
+    {
+      "steps": [
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 10
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 10,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 10
+          },
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 20,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 20
+          },
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": 9,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": 10,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": 9223372036854775807,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        }
+      ],
+      "window": 0
+    },
+    {
+      "steps": [
+        {
+          "accepted": true,
+          "bytes": 2097152,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 2097152,
+              "timestamp": 1
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 1,
+            "Size": 2097143
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 2,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 3,
+            "Size": 2097144
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 4
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 4,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 4
+          },
+          "waiting": false
+        }
+      ],
+      "window": 0
+    },
+    {
+      "steps": [
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 1,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 20,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 2,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 30,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 3,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 40,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 4,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 50,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 5
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 5,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 60,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 5
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 6
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 6,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 70,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 5
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 6
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 7
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 7,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 80,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 5
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 6
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 7
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 8
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 8,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 9,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 10,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 20,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 20
+          },
+          "waiting": false
+        }
+      ],
+      "window": 0
+    },
+    {
+      "steps": [
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 1,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 10
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 10,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            10
+          ],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 10
+          },
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 20,
+            "Size": 1
+          },
+          "pending": [
+            10
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            10
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": -1,
+            "Size": 0
+          },
+          "pending": [
+            10
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            10
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": 10,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            20
+          ],
+          "popped": {
+            "key": false,
+            "size": 10,
+            "timestamp": 20
+          },
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "discontinuity",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            20
+          ],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 30,
+            "Size": 1
+          },
+          "pending": [
+            20
+          ],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 40
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 40,
+            "Size": 1
+          },
+          "pending": [
+            20
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 40
+            }
+          ],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            20
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "resync",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 50
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 50,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            50
+          ],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 50
+          },
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": false,
+          "closed": true,
+          "frames": [],
+          "operation": {
+            "Kind": "close",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": false,
+          "closed": true,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 60,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        }
+      ],
+      "window": 1
+    },
+    {
+      "steps": [
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 10
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 10,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            10
+          ],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 10
+          },
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 20,
+            "Size": 1
+          },
+          "pending": [
+            10
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            10
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": 9,
+            "Size": 0
+          },
+          "pending": [
+            10
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": 10,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            20
+          ],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 20
+          },
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": 9223372036854775807,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        }
+      ],
+      "window": 1
+    },
+    {
+      "steps": [
+        {
+          "accepted": true,
+          "bytes": 2097152,
+          "canAdvance": false,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 2097152,
+              "timestamp": 1
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 1,
+            "Size": 2097143
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 2,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 3,
+            "Size": 2097144
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 4
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 4,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            4
+          ],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 4
+          },
+          "waiting": false
+        }
+      ],
+      "window": 1
+    },
+    {
+      "steps": [
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 1,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 20,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 2,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 30,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 3,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 40,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 4,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 50,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 5
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 5,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 60,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 5
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 6
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 6,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 70,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 5
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 6
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 7
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 7,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 80,
+          "canAdvance": false,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 5
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 6
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 7
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 8
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 8,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 9,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 10,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 20,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            20
+          ],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 20
+          },
+          "waiting": false
+        }
+      ],
+      "window": 1
+    },
+    {
+      "steps": [
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 1,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 10
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 10,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            10
+          ],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 10
+          },
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 20,
+            "Size": 1
+          },
+          "pending": [
+            10
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            10,
+            20
+          ],
+          "popped": {
+            "key": false,
+            "size": 10,
+            "timestamp": 20
+          },
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": -1,
+            "Size": 0
+          },
+          "pending": [
+            10,
+            20
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            10,
+            20
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": 10,
+            "Size": 0
+          },
+          "pending": [
+            20
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            20
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "discontinuity",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            20
+          ],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 30,
+            "Size": 1
+          },
+          "pending": [
+            20
+          ],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 40
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 40,
+            "Size": 1
+          },
+          "pending": [
+            20
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            20,
+            40
+          ],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 40
+          },
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "resync",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 50
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 50,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            50
+          ],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 50
+          },
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": false,
+          "closed": true,
+          "frames": [],
+          "operation": {
+            "Kind": "close",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": false,
+          "closed": true,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 60,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        }
+      ],
+      "window": 8
+    },
+    {
+      "steps": [
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 10
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 10,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            10
+          ],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 10
+          },
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 20,
+            "Size": 1
+          },
+          "pending": [
+            10
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            10,
+            20
+          ],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 20
+          },
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": 9,
+            "Size": 0
+          },
+          "pending": [
+            10,
+            20
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": 10,
+            "Size": 0
+          },
+          "pending": [
+            20
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            20
+          ],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "ack",
+            "Key": false,
+            "Timestamp": 9223372036854775807,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        }
+      ],
+      "window": 8
+    },
+    {
+      "steps": [
+        {
+          "accepted": true,
+          "bytes": 2097152,
+          "canAdvance": false,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 2097152,
+              "timestamp": 1
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 1,
+            "Size": 2097143
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 2,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 3,
+            "Size": 2097144
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 4
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 4,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            4
+          ],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 4
+          },
+          "waiting": false
+        }
+      ],
+      "window": 8
+    },
+    {
+      "steps": [
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 1,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 20,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 2,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 30,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 3,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 40,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 4,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 50,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 5
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 5,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 60,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 5
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 6
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 6,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 70,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 5
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 6
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 7
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 7,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "bytes": 80,
+          "canAdvance": false,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 1
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 2
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 3
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 4
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 5
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 6
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 7
+            },
+            {
+              "key": false,
+              "size": 10,
+              "timestamp": 8
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 8,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 9,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "offer",
+            "Key": false,
+            "Timestamp": 10,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "bytes": 10,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [
+            {
+              "key": true,
+              "size": 10,
+              "timestamp": 20
+            }
+          ],
+          "operation": {
+            "Kind": "offer",
+            "Key": true,
+            "Timestamp": 20,
+            "Size": 1
+          },
+          "pending": [],
+          "popped": null,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "bytes": 0,
+          "canAdvance": true,
+          "closed": false,
+          "frames": [],
+          "operation": {
+            "Kind": "pop",
+            "Key": false,
+            "Timestamp": 0,
+            "Size": 0
+          },
+          "pending": [
+            20
+          ],
+          "popped": {
+            "key": true,
+            "size": 10,
+            "timestamp": 20
+          },
+          "waiting": false
+        }
+      ],
+      "window": 8
+    }
+  ],
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "source_sha256": {
+    "server/service/stream/direct/client.go": "1b8128c21c492d1c2bf5b3b6b99e5ac5ffe3bdbfb2b1354b215ce9a2f2de14d6",
+    "server/service/stream/direct/client_test.go": "41817e7f4139e95a4b58ec84ccdbca5a6976d0288fbcfaea8d9f3418d8fdcc84",
+    "server/service/stream/encoder_config.go": "af493c923539b0b3694d6988731018dbb4bcb44b32cd7652360c635ed01793e0",
+    "server/go.mod": "6c73aefb26aa2af74f77cf5cb4b0d9bc7cf2f48eaf4e8f4176102f5a7c262091",
+    "server/go.sum": "94922fbd383453d16e873e925cdfefd478400ff59884aed51b56201a53faddb3"
+  },
+  "original_tests": [
+    "TestMarkDiscontinuityWaitsForNextKeyframe",
+    "TestNewOutboundFrameReusesHeadroom",
+    "TestNewOutboundDeltaClearsReusedKeyframeMarker",
+    "TestNewOutboundFrameFallsBackWithoutHeadroom",
+    "TestNewOutboundFrameFallsBackForUnrelatedStorage",
+    "TestAckStallPreservesQueuedPredictionChain",
+    "TestAckStallStillBoundsPendingFramesAndBytes"
+  ],
+  "go_version": "1.27.1"
+}

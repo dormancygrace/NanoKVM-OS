@@ -1,0 +1,1428 @@
+{
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "goVersion": "1.27.1",
+  "cases": [
+    {
+      "calls": [],
+      "case": {
+        "Name": "mdns-missing",
+        "Method": "GET",
+        "Path": "/api/vm/mdns",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": {
+          "enabled": false
+        },
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "cp -f /kvmapp/system/init.d/S50avahi-daemon /etc/init.d/S50avahi-daemon && /etc/init.d/S50avahi-daemon start"
+        ]
+      ],
+      "case": {
+        "Name": "mdns-missing/enable",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/enable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "mdns-missing/disable",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/disable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "mdns-empty",
+        "Method": "GET",
+        "Path": "/api/vm/mdns",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+          "/run/avahi-daemon/pid": ""
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": {
+          "enabled": false
+        },
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": ""
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "cp -f /kvmapp/system/init.d/S50avahi-daemon /etc/init.d/S50avahi-daemon && /etc/init.d/S50avahi-daemon start"
+        ]
+      ],
+      "case": {
+        "Name": "mdns-empty/enable",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/enable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+          "/run/avahi-daemon/pid": ""
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": ""
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "mdns-empty/disable",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/disable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+          "/run/avahi-daemon/pid": ""
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": ""
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "mdns-newline",
+        "Method": "GET",
+        "Path": "/api/vm/mdns",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+          "/run/avahi-daemon/pid": "Cg=="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": {
+          "enabled": false
+        },
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": "Cg=="
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "cp -f /kvmapp/system/init.d/S50avahi-daemon /etc/init.d/S50avahi-daemon && /etc/init.d/S50avahi-daemon start"
+        ]
+      ],
+      "case": {
+        "Name": "mdns-newline/enable",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/enable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+          "/run/avahi-daemon/pid": "Cg=="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": "Cg=="
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "mdns-newline/disable",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/disable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+          "/run/avahi-daemon/pid": "Cg=="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": "Cg=="
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "mdns-active",
+        "Method": "GET",
+        "Path": "/api/vm/mdns",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+          "/run/avahi-daemon/pid": "MTIzNAo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": {
+          "enabled": true
+        },
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": "MTIzNAo="
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "mdns-active/enable",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/enable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+          "/run/avahi-daemon/pid": "MTIzNAo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": "MTIzNAo="
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "kill -9 1234"
+        ]
+      ],
+      "case": {
+        "Name": "mdns-active/disable",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/disable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+          "/run/avahi-daemon/pid": "MTIzNAo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "mdns-cr",
+        "Method": "GET",
+        "Path": "/api/vm/mdns",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+          "/run/avahi-daemon/pid": "DQo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": {
+          "enabled": true
+        },
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": "DQo="
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "mdns-cr/enable",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/enable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+          "/run/avahi-daemon/pid": "DQo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": "DQo="
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "kill -9 \r"
+        ]
+      ],
+      "case": {
+        "Name": "mdns-cr/disable",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/disable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+          "/run/avahi-daemon/pid": "DQo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "rc-service",
+          "avahi-daemon",
+          "stop"
+        ]
+      ],
+      "case": {
+        "Name": "alpine-False-False",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/disable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/etc/alpine-release": "",
+          "/etc/kvm/mdns_disabled": "b2xk",
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": "MQo=",
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "rc-service",
+          "avahi-daemon",
+          "stop"
+        ]
+      ],
+      "case": {
+        "Name": "alpine-False-True",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/disable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": true,
+        "PasswordFail": false,
+        "Files": {
+          "/etc/alpine-release": "",
+          "/etc/kvm/mdns_disabled": "b2xk",
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "failed to change mDNS state"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": "MQo=",
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "rc-service",
+          "avahi-daemon",
+          "start"
+        ]
+      ],
+      "case": {
+        "Name": "alpine-True-False",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/enable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/etc/alpine-release": "",
+          "/etc/kvm/mdns_disabled": "b2xk",
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "rc-service",
+          "avahi-daemon",
+          "start"
+        ]
+      ],
+      "case": {
+        "Name": "alpine-True-True",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/enable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": true,
+        "PasswordFail": false,
+        "Files": {
+          "/etc/alpine-release": "",
+          "/etc/kvm/mdns_disabled": "b2xk",
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "failed to change mDNS state"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "cp -f /kvmapp/system/init.d/S50avahi-daemon /etc/init.d/S50avahi-daemon && /etc/init.d/S50avahi-daemon start"
+        ]
+      ],
+      "case": {
+        "Name": "legacy-fail-enable",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/enable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": true,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "failed to enable mdns"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "kill -9 1234"
+        ]
+      ],
+      "case": {
+        "Name": "legacy-fail-disable",
+        "Method": "POST",
+        "Path": "/api/vm/mdns/disable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": true,
+        "PasswordFail": false,
+        "Files": {
+          "/kvmapp/system/init.d/S50avahi-daemon": "IyEvYmluL3NoCmZpeHR1cmUtc2VydmljZQo=",
+          "/run/avahi-daemon/pid": "MTIzNAo="
+        },
+        "Dirs": [
+          "etc/init.d"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "failed to disable mdns"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": "MTIzNAo="
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "ssh-get-missing",
+        "Method": "GET",
+        "Path": "/api/vm/ssh",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": {
+          "enabled": true
+        },
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "ssh-get-flag",
+        "Method": "GET",
+        "Path": "/api/vm/ssh",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {
+          "/etc/kvm/ssh_stop": ""
+        },
+        "Dirs": []
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": {
+          "enabled": false
+        },
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": "",
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "ssh-get-directory",
+        "Method": "GET",
+        "Path": "/api/vm/ssh",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": [
+          "etc/kvm/ssh_stop"
+        ]
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": {
+          "enabled": false
+        },
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "/etc/init.d/S50sshd permanent_on"
+        ]
+      ],
+      "case": {
+        "Name": "ssh-enable-good",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "{\"password\":\"U2FsdGVkX18BAgMEBQYHCAYxCSLAPMRLBN50FK6MThD5LJbtpoNOIvKD0JUr9yUm\"}",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": true,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "ssh-enable-short",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "{\"password\":\"U2FsdGVkX18BAgMEBQYHCJnG5hcmAxqE9rzJzpLhsEY=\"}",
+        "ContentType": "application/json",
+        "Password": "short",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "password must be between 8 and 72 bytes"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "ssh-enable-long",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "{\"password\":\"U2FsdGVkX18BAgMEBQYHCEOWrycdg6WqI7sBUqmjkzRvXRepBdmQBgLX8BPO5XXMYJQQIyYQ2LaDnv6x8gzACj+IvPZ/kZNZra+hN4E2seIoIkooqYP5lMJsvtHSNo3p\"}",
+        "ContentType": "application/json",
+        "Password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "password must be between 8 and 72 bytes"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "ssh-enable-root",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "{\"password\":\"U2FsdGVkX18BAgMEBQYHCBpbME6haRV232WJTdSdvVQ=\"}",
+        "ContentType": "application/json",
+        "Password": " ROOT ",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid root password"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "ssh-enable-empty",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "{\"password\":\"U2FsdGVkX18BAgMEBQYHCIhNVFIoil/ejbjuuv/P0jY=\"}",
+        "ContentType": "application/json",
+        "Password": "",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "password must be between 8 and 72 bytes"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "/etc/init.d/S50sshd permanent_on"
+        ]
+      ],
+      "case": {
+        "Name": "ssh-enable-unicode",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "{\"password\":\"U2FsdGVkX18BAgMEBQYHCCnHUWB37QXdJ6BSUQlaBSw=\"}",
+        "ContentType": "application/json",
+        "Password": "\u00e9\u00e9\u00e9\u00e9",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": true,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "/etc/init.d/S50sshd permanent_on"
+        ]
+      ],
+      "case": {
+        "Name": "ssh-enable-max",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "{\"password\":\"U2FsdGVkX18BAgMEBQYHCEOWrycdg6WqI7sBUqmjkzRvXRepBdmQBgLX8BPO5XXMYJQQIyYQ2LaDnv6x8gzACj+IvPZ/kZNZra+hN4E2seLuprzO+XoyadAl73xXpKwn\"}",
+        "ContentType": "application/json",
+        "Password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": true,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "ssh-form",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "password=U2FsdGVkX18BAgMEBQYHCAYxCSLAPMRLBN50FK6MThD5LJbtpoNOIvKD0JUr9yUm",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Password": "operator-password",
+        "Form": true,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "a new root password is required"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "/etc/init.d/S50sshd permanent_on"
+        ]
+      ],
+      "case": {
+        "Name": "ssh-form-uppercase",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "Password=U2FsdGVkX18BAgMEBQYHCAYxCSLAPMRLBN50FK6MThD5LJbtpoNOIvKD0JUr9yUm",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Password": "operator-password",
+        "Form": true,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": true,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "ssh-password-fail",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "{\"password\":\"U2FsdGVkX18BAgMEBQYHCAYxCSLAPMRLBN50FK6MThD5LJbtpoNOIvKD0JUr9yUm\"}",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": true,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": true,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "could not set root password"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "/etc/init.d/S50sshd permanent_on"
+        ]
+      ],
+      "case": {
+        "Name": "ssh-start-fail",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "{\"password\":\"U2FsdGVkX18BAgMEBQYHCAYxCSLAPMRLBN50FK6MThD5LJbtpoNOIvKD0JUr9yUm\"}",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": true,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": true,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "operation failed"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "ssh-missing",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "{}",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": true,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "a new root password is required"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "ssh-malformed",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "{",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": true,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "a new root password is required"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "ssh-wrong-type",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "{\"password\":7}",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": true,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "a new root password is required"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "ssh-invalid-cipher",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/enable",
+        "Body": "{\"password\":\"not-ciphertext\"}",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": true,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid root password"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "/etc/init.d/S50sshd permanent_off"
+        ]
+      ],
+      "case": {
+        "Name": "ssh-disable-False",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/disable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": false,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": false,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "-c",
+          "/etc/init.d/S50sshd permanent_off"
+        ]
+      ],
+      "case": {
+        "Name": "ssh-disable-True",
+        "Method": "POST",
+        "Path": "/api/vm/ssh/disable",
+        "Body": "",
+        "ContentType": "application/json",
+        "Password": "operator-password",
+        "Form": false,
+        "RawBody": false,
+        "Fail": true,
+        "PasswordFail": false,
+        "Files": {},
+        "Dirs": []
+      },
+      "changed": false,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "operation failed"
+      },
+      "state": {
+        "etc/init.d/S50avahi-daemon": null,
+        "etc/kvm/mdns_disabled": null,
+        "etc/kvm/ssh_stop": null,
+        "run/avahi-daemon/pid": null
+      }
+    }
+  ]
+}

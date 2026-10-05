@@ -20,6 +20,12 @@ pub enum Action {
     ChronyRestart,
     NtpStatus,
     ChronyTracking,
+    AlpineMdnsStart,
+    AlpineMdnsStop,
+    LegacyMdnsStart,
+    LegacyMdnsStop,
+    SshEnable,
+    SshDisable,
 }
 pub trait Executor: Send + Sync {
     /// Refuse an unavailable/stopped backend before acknowledging delayed work.
@@ -27,6 +33,25 @@ pub trait Executor: Send + Sync {
         Ok(())
     }
     fn run(&self, action: Action, timeout: Duration) -> Result<(), Error>;
+    fn run_cancel(
+        &self,
+        action: Action,
+        timeout: Duration,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<(), Error> {
+        if cancelled() {
+            return Err("request cancelled".into());
+        }
+        self.run(action, timeout)
+    }
+    fn password(
+        &self,
+        _password: &str,
+        _timeout: Duration,
+        _cancelled: &dyn Fn() -> bool,
+    ) -> Result<(), Error> {
+        Err("system password update unavailable in isolated root".into())
+    }
     fn output(&self, _action: Action, _timeout: Duration) -> Result<Vec<u8>, Error> {
         Err("command output unavailable".into())
     }
@@ -63,6 +88,14 @@ impl Executor for Native {
         Ok(())
     }
     fn run(&self, action: Action, timeout: Duration) -> Result<(), Error> {
+        self.run_cancel(action, timeout, &|| false)
+    }
+    fn run_cancel(
+        &self,
+        action: Action,
+        timeout: Duration,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<(), Error> {
         self.check(action)?;
         let mut command = match action {
             Action::UsbPhyRestart => {
@@ -100,15 +133,66 @@ impl Executor for Native {
                 command.arg("restart");
                 command
             }
+            Action::AlpineMdnsStart | Action::AlpineMdnsStop => {
+                let mut c = Command::new("rc-service");
+                c.args([
+                    "avahi-daemon",
+                    if action == Action::AlpineMdnsStart {
+                        "start"
+                    } else {
+                        "stop"
+                    },
+                ]);
+                c
+            }
+            Action::LegacyMdnsStart => {
+                let mut c = Command::new("/etc/init.d/S50avahi-daemon");
+                c.arg("start");
+                c
+            }
+            Action::LegacyMdnsStop => {
+                let mut c = Command::new("/usr/sbin/avahi-daemon");
+                c.arg("-k");
+                c
+            }
+            Action::SshEnable | Action::SshDisable => {
+                let mut c = Command::new("/etc/init.d/S50sshd");
+                c.arg(if action == Action::SshEnable {
+                    "permanent_on"
+                } else {
+                    "permanent_off"
+                });
+                c
+            }
             Action::ApplyHostname => {
                 let mut command = Command::new("hostname");
                 command.args(["-F", "/etc/hostname"]);
                 command
             }
         };
+        command.env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin");
         bounded_with_cancel(&mut command, timeout, || {
-            self.stopped.load(std::sync::atomic::Ordering::Acquire)
+            self.stopped.load(std::sync::atomic::Ordering::Acquire) || cancelled()
         })
+    }
+    fn password(
+        &self,
+        password: &str,
+        timeout: Duration,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<(), Error> {
+        if self.root != std::path::Path::new("/") {
+            return Err("system password update unavailable in isolated root".into());
+        }
+        self.check(Action::SshEnable)?;
+        crate::password_command::set(
+            Command::new("passwd")
+                .arg("root")
+                .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin"),
+            password,
+            timeout,
+            || self.stopped.load(std::sync::atomic::Ordering::Acquire) || cancelled(),
+        )
     }
     fn output(&self, action: Action, timeout: Duration) -> Result<Vec<u8>, Error> {
         self.check(action)?;

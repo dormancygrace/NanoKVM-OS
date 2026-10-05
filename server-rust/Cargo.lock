@@ -848,6 +848,7 @@ dependencies = [
  "base64 0.23.1",
  "bcrypt",
  "cbc",
+ "cc",
  "ctutils",
  "futures-util",
  "getrandom 0.4.3",

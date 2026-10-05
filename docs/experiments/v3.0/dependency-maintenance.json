@@ -265,5 +265,21 @@
     },
     "open_issues_count": 19,
     "checked_at": "2026-10-05T00:13:04.748055+00:00"
+  },
+  {
+    "full_name": "rust-lang/cc-rs",
+    "html_url": "https://github.com/rust-lang/cc-rs",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-10-05T04:04:04Z",
+    "updated_at": "2026-10-05T04:04:06Z",
+    "license": {
+      "key": "apache-2.0",
+      "name": "Apache License 2.0",
+      "spdx_id": "Apache-2.0",
+      "url": "https://api.github.com/licenses/apache-2.0",
+      "node_id": "MDc6TGljZW5zZTI="
+    },
+    "open_issues_count": 157
   }
 ]

@@ -1,0 +1,33 @@
+{
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "baseline_header_sha256": "e28c76f72ff7e49060dd6edd321a6c3a05f853d3ab6acbc3554b7a24855ae8fe",
+  "function_abi": {
+    "kvmv_init": "void(*)(uint8_t)",
+    "kvmv_deinit": "void(*)(void)",
+    "kvmv_hdmi_control": "int(*)(uint8_t)",
+    "kvmv_hdmi_signal_active": "uint8_t(*)(void)",
+    "set_h264_gop": "void(*)(uint8_t)",
+    "set_h265_gop_mode": "int8_t(*)(uint8_t)",
+    "get_h265_gop_mode": "uint8_t(*)(void)",
+    "set_mjpeg_chroma": "int(*)(uint8_t)",
+    "get_mjpeg_chroma_status": "uint8_t(*)(void)",
+    "set_frame_detact": "void(*)(uint8_t)",
+    "kvmv_request_keyframe": "void(*)(void)",
+    "kvmv_edid_maintenance": "int(*)(uint8_t)",
+    "kvmv_read_mjpeg_sink": "int(*)(uint16_t,uint16_t,uint16_t,kvmv_video_sink,uintptr_t)",
+    "kvmv_read_video_sink": "int(*)(uint16_t,uint16_t,uint8_t,uint16_t,uint8_t,uint8_t,kvmv_video_sink,uintptr_t)"
+  },
+  "matched_library_sha256": "b8a34a5c717caeabbff4c323d4c1a644835586cfcce80911c507c75fc864ded6",
+  "helper": {
+    "sha256": "4985d68ff5797cb9002afcfdb3f916e3f946860c8953cef662eccc748afdf3f2",
+    "bytes": 14016,
+    "description": "/home/dgrace/nanokvm-astra/v3.0-experimental/work/v3/native-capture-build/nanokvm-capture-worker: ELF 64-bit LSB pie executable, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, interpreter /lib/ld-musl-riscv64.so.1, not stripped",
+    "dynamic_entries": [
+      "0x0000000000000001 (NEEDED)             Shared library: [libkvm.so]",
+      "0x0000000000000001 (NEEDED)             Shared library: [libc.so]"
+    ]
+  },
+  "vendor_code_executed": false,
+  "installed": false,
+  "runtime_wired": false
+}

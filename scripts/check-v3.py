@@ -179,12 +179,12 @@ def main():
     try:
         if args.host or not (args.target or args.tls):
             run("fmt", [CARGO, "fmt", "--all", "--", "--check"])
-            run("clippy", [CARGO, "clippy", "--locked", "--all-targets", "--", "-D", "warnings"])
-            run("host-contracts", [CARGO, "test", "--locked"])
+            run("clippy", [CARGO, "clippy", "--locked", "--all-targets", "--features", "native-fixture", "--", "-D", "warnings"])
+            run("host-contracts", [CARGO, "test", "--locked", "--features", "native-fixture"])
         if args.target:
             env = target_env()
             run("target-build", [CARGO, "build", "--locked", "--release", "--target", TARGET], env)
-            run("target-contracts", [CARGO, "test", "--locked", "--target", TARGET], env)
+            run("target-contracts", [CARGO, "test", "--locked", "--features", "native-fixture", "--target", TARGET], env)
             binary = CRATE / f"target/{TARGET}/release/NanoKVM-Server"
             run("target-version", [env["CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_RUNNER"], binary, "--version"])
             run("target-file", ["file", binary])

@@ -472,6 +472,8 @@ fn handle(
         }
         let secure = secure_cookie(s, headers, peer);
         match (method.as_str(), path) {
+            ("GET", "/api/vm/info") => crate::sysinfo::get(s),
+            ("GET", "/api/vm/mdns") => crate::sysinfo::mdns(s),
             ("GET", "/api/vm/date-time") => crate::timeconfig::get(s),
             ("POST", "/api/vm/date-time") => crate::timeconfig::set(s, parsed),
             ("GET", "/api/vm/cpu-frequency") => crate::cpufreq::get(s),

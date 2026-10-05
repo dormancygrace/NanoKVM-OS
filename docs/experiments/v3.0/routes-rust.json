@@ -1757,8 +1757,9 @@
     "handler": "service.GetInfo)        ",
     "source": "server/router/vm.go",
     "line": 28,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-info.md; tests/sysinfo.rs; 28 actual baseline Go file/IP/PID cases; native host/target getifaddrs and role contracts"
   },
   {
     "method": "GET",
@@ -2282,8 +2283,9 @@
     "handler": "service.GetMdnsState)        ",
     "source": "server/router/vm.go",
     "line": 87,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-info.md; tests/sysinfo.rs; 28 actual baseline Go file/IP/PID cases; native host/target getifaddrs and role contracts"
   },
   {
     "method": "POST",

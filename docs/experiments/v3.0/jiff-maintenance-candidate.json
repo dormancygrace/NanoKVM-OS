@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/BurntSushi/jiff",
+  "archived": false,
+  "disabled": false,
+  "pushedAt": "2026-09-12T15:40:00Z",
+  "stable": "0.2.37",
+  "publishedAt": "2026-09-12T15:39:55.879487Z",
+  "license": "Unlicense OR MIT",
+  "rustVersion": "1.70",
+  "docs": "https://docs.rs/jiff/latest/jiff/tz/struct.TimeZone.html#method.tzif",
+  "use": "candidate only; direct system TZif, default-features=false + std/alloc; host/target not yet qualified"
+}

@@ -193,3 +193,19 @@ GPIO qualification after final check: fmt/clippy, full host/target suites and st
 GPIO commit before command: stage verified source/oracle/qualification/docs/ledger only and create a bounded local commit; no push or production activation.96 host/target/TLS tests passed.
 
 GPIO local commit created successfully; amend this same bounded stage to record completion and next hostname action. No external publication.
+
+Hostname before implementation: GPIO committed as987dafa, clean tree. Port exact source validator/hosts replacement/write order and response errors, existing0644 atomic writer, sessionGET/adminPOST and exact JSON/form field behavior. Serialize persistent settings, root-confined Alpine links, fixed bounded hostname-F action; native isolated backend refuses command, persistent write success preserved perGo. Generate immutable Go pure-function oracle and file/role/form fixtures.
+
+Hostname review before byte fix: new UTF-8-lossy hosts conversion would change unrelated invalid bytes. Replace whole-token logic with Unicode-whitespace byte ranges and raw-preserving trim/replacement. Add two actual baseline Go binary cases encoded base64, including matching an old invalid-byte hostname. Preserve JSON-only response replacement.
+
+Hostname qualification before command: immutable Go16validator+5text+2rawbytes cases pass, twoAPI side-effect/form/admin/symlink fixtures pass, clippy clean. Run full check-v3.py --host --target --tls; expected99tests. Native hostname command remains refused in isolated roots.
+
+System time research before metadata: Go timeconfig source read. Candidate Jiff supports direct system TZif via TimeZone::tzif; verify official repository activity/release metadata before any dependency addition. Web API endpoints unavailable in browser tool; use bounded public HTTPS metadata requests. No Cargo changes yet.
+
+Jiff metadata result: {"repository": "https://github.com/BurntSushi/jiff", "archived": false, "disabled": false, "pushedAt": "2026-09-12T15:40:00Z", "stable": "0.2.37", "publishedAt": "2026-09-12T15:39:55.879487Z", "license": "Unlicense OR MIT", "rustVersion": "1.70", "docs": "https://docs.rs/jiff/latest/jiff/tz/struct.TimeZone.html#method.tzif", "use": "candidate only; direct system TZif, default-features=false + std/alloc; host/target not yet qualified"}
+
+Hostname after qualification:99 tests pass on host and target, fmt/clippy/static/TLS all pass. Save exact release evidence and ledger38isolated/1partial/165pending, then bounded local commit. No native hostname command or stand change. Jiff remains a researched candidate only; qualify before future addition.
+
+Hostname commit before command:99 host/target/TLS passes; stage verified source/oracle/generator/qualification/docs/ledger only and create bounded local commit. No push, native hostname action or stand change.
+
+Hostname local commit created successfully; amend same bounded stage to record completion/next system actions. Jiff remains candidate only, no dependency change.

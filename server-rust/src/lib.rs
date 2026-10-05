@@ -15,6 +15,7 @@ pub mod hardware;
 pub mod hid_device;
 pub mod hid_reports;
 mod hid_settings;
+mod hostname;
 pub mod input;
 pub mod inputcontrol;
 pub mod internal;
@@ -56,6 +57,7 @@ pub struct Runtime {
     pub jobs: Arc<Semaphore>,
     pub hid_settings: Mutex<()>,
     pub paste: Mutex<()>,
+    pub system_settings: Mutex<()>,
     pub hid: Arc<hid_device::Devices>,
     pub input: Arc<input::Hub>,
     pub control: Arc<controlmode::Manager>,
@@ -128,6 +130,7 @@ impl Runtime {
             jobs: Arc::new(Semaphore::new(4)),
             hid_settings: Mutex::new(()),
             paste: Mutex::new(()),
+            system_settings: Mutex::new(()),
             hid,
             input: Arc::new(input::Hub::new(move || {
                 if let Err(error) = release.release_all() {

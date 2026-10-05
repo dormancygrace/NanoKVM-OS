@@ -1,0 +1,116 @@
+{
+  "hosts": [
+    {
+      "input": "127.0.0.1 local localhost # local in comment\n::1\tlocal\tother\n# local\n",
+      "new": "nano.example",
+      "old": "local",
+      "output": "127.0.0.1\tnano.example\tlocalhost\t# local in comment\n::1\tnano.example\tother\n# local\n"
+    },
+    {
+      "input": "  10.0.0.1\told old\t# untouched  \ninvalid\n",
+      "new": "new",
+      "old": "old",
+      "output": "10.0.0.1\tnew\tnew\t# untouched  \ninvalid\n"
+    },
+    {
+      "input": "127.0.0.1 old-name old\n",
+      "new": "X",
+      "old": "old",
+      "output": "127.0.0.1\told-name\tX\n"
+    },
+    {
+      "input": "127.0.0.1 old\n",
+      "new": "new",
+      "old": "",
+      "output": "127.0.0.1 old\n"
+    },
+    {
+      "input": "127.0.0.1\u00a0old\u0085alias #c\n",
+      "new": "new",
+      "old": "old",
+      "output": "127.0.0.1\tnew\talias\t#c\n"
+    }
+  ],
+  "names": [
+    {
+      "error": "hostname must be 1-253 characters",
+      "name": ""
+    },
+    {
+      "error": "",
+      "name": "local"
+    },
+    {
+      "error": "",
+      "name": "nanokvm-1"
+    },
+    {
+      "error": "",
+      "name": "Example.CO.UK"
+    },
+    {
+      "error": "",
+      "name": "0"
+    },
+    {
+      "error": "hostname labels may contain only letters, digits and inner hyphens (1-63 characters)",
+      "name": "-a"
+    },
+    {
+      "error": "hostname labels may contain only letters, digits and inner hyphens (1-63 characters)",
+      "name": "a-"
+    },
+    {
+      "error": "hostname labels may contain only letters, digits and inner hyphens (1-63 characters)",
+      "name": "a_b"
+    },
+    {
+      "error": "hostname labels may contain only letters, digits and inner hyphens (1-63 characters)",
+      "name": "a b"
+    },
+    {
+      "error": "hostname labels may contain only letters, digits and inner hyphens (1-63 characters)",
+      "name": "a..b"
+    },
+    {
+      "error": "hostname labels may contain only letters, digits and inner hyphens (1-63 characters)",
+      "name": "a."
+    },
+    {
+      "error": "hostname labels may contain only letters, digits and inner hyphens (1-63 characters)",
+      "name": "\u043f\u043b\u0430\u0442\u0430"
+    },
+    {
+      "error": "",
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "error": "hostname labels may contain only letters, digits and inner hyphens (1-63 characters)",
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "error": "",
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "error": "hostname must be 1-253 characters",
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "rawHosts": [
+    {
+      "input": "MTI3LjAuMC4xIG9sZCAj/woxMC4wLjAuMSD/IGFsaWFzCg==",
+      "new": "bmV3",
+      "old": "b2xk",
+      "output": "MTI3LjAuMC4xCW5ldwkj/woxMC4wLjAuMSD/IGFsaWFzCg=="
+    },
+    {
+      "input": "MTI3LjAuMC4xIG9sZCAj/woxMC4wLjAuMSD/IGFsaWFzCg==",
+      "new": "bmV3",
+      "old": "/w==",
+      "output": "MTI3LjAuMC4xIG9sZCAj/woxMC4wLjAuMQluZXcJYWxpYXMK"
+    }
+  ],
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "goVersion": "1.27.1"
+}

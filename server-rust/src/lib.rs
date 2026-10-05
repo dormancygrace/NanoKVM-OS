@@ -33,6 +33,7 @@ mod paste_layout;
 mod preferences;
 pub mod redirect;
 mod request_cancel;
+mod routing;
 mod sessions;
 pub mod store;
 pub mod sysinfo;
@@ -46,7 +47,6 @@ pub type Error = Box<dyn std::error::Error + Send + Sync>;
 use axum::{
     extract::{Request, State},
     response::{IntoResponse, Response},
-    routing::{any, get},
     Router,
 };
 use std::{
@@ -259,12 +259,19 @@ impl Runtime {
 pub fn app(state: Arc<Runtime>, web: PathBuf) -> Router {
     state.hid.leds().start();
     jiggler::Jiggler::start(&state);
-    Router::new()
-        .route("/api/ws", get(ws::connect))
-        .route("/api", any(api::dispatch))
-        .route("/api/{*path}", any(api::dispatch))
-        .fallback(static_file)
-        .with_state((state, web))
+    Router::new().fallback(entry).with_state((state, web))
+}
+async fn entry(State(state): State<(Arc<Runtime>, PathBuf)>, mut request: Request) -> Response {
+    let path = match routing::decode(request.uri().path()) {
+        Ok(path) => path,
+        Err(_) => return axum::http::StatusCode::BAD_REQUEST.into_response(),
+    };
+    if path == b"/api" || path.starts_with(b"/api/") {
+        request.extensions_mut().insert(routing::DecodedPath(path));
+        api::dispatch(State(state), request).await
+    } else {
+        static_file(State(state), request).await
+    }
 }
 async fn static_file(State((_, web)): State<(Arc<Runtime>, PathBuf)>, req: Request) -> Response {
     let decoded = match percent_encoding::percent_decode_str(req.uri().path()).decode_utf8() {

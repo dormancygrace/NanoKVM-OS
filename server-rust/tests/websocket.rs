@@ -1469,3 +1469,39 @@ async fn actual_http_disconnect_cancels_paste_before_more_keys() {
     assert!(length < 100 * 16);
     server.runtime.shutdown();
 }
+
+#[tokio::test]
+async fn encoded_websocket_endpoints_upgrade_authenticate_and_heartbeat() {
+    let server = Server::new("").await;
+    let token = server.token("owner", 120);
+    let origin = format!("http://{}", server.address);
+    for path in ["/api/%77s", "/%61pi/ws", "/api%2Fws"] {
+        let mut request = format!("ws://{}{path}", server.address)
+            .into_client_request()
+            .unwrap();
+        request
+            .headers_mut()
+            .insert("origin", origin.parse().unwrap());
+        let error = connect_async(request.clone()).await.unwrap_err();
+        let tungstenite::Error::Http(response) = error else {
+            panic!("expected unauthorized handshake")
+        };
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        request
+            .headers_mut()
+            .insert("cookie", format!("nano-kvm-token={token}").parse().unwrap());
+        let (mut socket, response) = timeout(Duration::from_secs(5), connect_async(request))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::SWITCHING_PROTOCOLS);
+        let _ = control(&mut socket, true).await;
+        socket.send(Message::Binary(vec![0].into())).await.unwrap();
+        assert_eq!(
+            event(&mut socket, "heartbeat").await,
+            json!({"type":"heartbeat","data":""})
+        );
+        socket.close(None).await.unwrap();
+    }
+    server.runtime.shutdown();
+}

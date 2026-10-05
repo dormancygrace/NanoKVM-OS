@@ -283,3 +283,23 @@ Memory afterfocusedchecks: threehostfixtures+clippypass;34actualGo memory/video 
 Memory after fullqualification:128host/target/static/TLS tests pass,34actualGo memory/video+5GinTitle cases. Adminmemorytelemetry/null/error/algorithm/config/counters/video/rootconfinement passes; invalidUTF8title behavior fixed.173SPDXpackages; ledger47isolated/1partial/156pending. Localboundedcommitnext. Routing inspectionfound missingGin trailing-slash redirects/rawpercent path handling; qualify and repair next before dashboard/remaining systems. No swap/allocator/boot/daemon/stand mutation/publication.
 
 Memorylocalcommit31de0d5 createdafter128-test qualification; checkpoint/logamendment. No push. NextexactGinrouting/redirectrepair.
+
+Routing before compatibility fix: memory committed6f872e0, clean. main.go usesGin.New defaultRedirectTrailingSlash/decodedURL.Path, no fixed-path or extra-slash cleanup. Existing raw-URI Rustdispatch misses aliases/encodedstatic paths; directAxumWSGET alsoimplicitly acceptsHEAD unlikeGin. Generate45actualGin inventory/marker cases (no device/service actions). Plan decodedpath once, correct301/307query redirects beforebody/auth, actualWSupgrade delegation andHEAD404. Safeforwardedprefix separately; do not create external-location redirects. HTTPheader/idledeadlines stillpending.
+
+Routing beforeimplementation:45actualGin cases generated, main/framework sourceconfirmed. Decodepath once withstrictpercent syntax, preserve rawbytes forredirectescaping, trailing301GET/307others/query beforeauth/body, routeWSaliases throughactualUpgrade andeliminate implicitHEADGET. Dynamicusernames no secondpercent decode. Localproxy prefixjoined once andinvalidprefixignored soLocation remainslocal; intentionalGinprefix correction, no externallydirectedredirects. No hardware/servicewrites.
+
+Routing beforefixture/refinement: clippy flags sevenobsoleteCownameborrows afterone-decode change, remove withinusersbranch. Universalentrydispatch routes percent-encoded APIprefix/slashes too (rawAxumprefix previouslyfellthroughstatic), cachedecodedbytesrequestextension. ExpandactualGindynamicPUT+encodedroot cases; add differential matching/redirect/location/content-type/body andsafeproxy/strictpercent tests. No externaltargetredirectorservice actions.
+
+Routing beforefinalfixtures: WSL launches stalled at inheritedWindowscwd; explicit --cd repo restored reads, cancelled own read-only waits, no distrorestart. ExactGin404 text/plain/body fix andunitassertions; add redirectpendingbody/nopeer/auth/HEAD/invalidpercent integration, normalizedsession/admin andonedecodeusers tests, realencodedWS401/101/heartbeat cases. Also fix discovered POSTtitle rootedpathunwrap toexactwrite/reset APIerrors andconfinedfixture. All replacements prevalidated before mutations; no stand/service/input writes.
+
+Routing fixture generation: Pythonstringescaping malformed oneexpectedHTML string; replaceboundedassertion usingrawPythonliteral, no runtimebehavior change. fmt then focusedtests.
+
+Routing focusedcompile: fournewfixture shutdowncalls assumedasync; runtime shutdownissynchronous. Removeawait andrerun focusedcontract/socketcases thenclippy.
+
+Routing titlefixture correction: config::rooted islexical only; finalsymlink iscorrectly replaced byatomicrename (notfollowed), so priorfixture expectederror incorrectly. Resolveparent throughfsroot beforetitlewrite/reset; preserve finalsymlink replacement. Directoryattitlepath providesrealwrite/unlinkfailures forAPIerror test. No outsidefiles/device changes.
+
+Routing focusedhost2unit+3API+1realWS cases pass; exactGo404/aliases/sessionroles/useronedecode andrealencodedupgrades/heartbeat qualify. POSTtitle parentfsroot/write-reset failure tests pass; clippy obsoleteconfigimport remove. Beforefull134expected host/target/TLS/static gates; sourcefrozenuntilcomplete, no hardware/services/stand writes.
+
+Routing afterfullqualification:134host/target/static/TLS tests pass,54actualGin marker/redirect/404 cases plusactualencodedWS401/101/control/heartbeat andsession/admin/userone-decode/pendingbody/HEAD/errorfixtures.173SPDX;binaryc0827f35dcbf8d9b7a9d865d53ddd9f6ee1cd39cc12b70fbb67901b872e0a7a8 6720880bytes. Ledgerunchanged47isolated/1partial/156pending. Beforelocalboundedcommit; thenreadonlydashboard. No stand/runtimeactivation/publication.
+
+Routing localcommite42f869 createdafter134-test qualification; checkpoint/logamendment. No push. Nextreadonlydashboard.

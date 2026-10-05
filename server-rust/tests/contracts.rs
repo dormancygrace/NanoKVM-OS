@@ -1436,3 +1436,201 @@ async fn oled_signed_binding_defaults_storage_permissions_and_admin_policy() {
     }
     state.shutdown();
 }
+
+#[tokio::test]
+async fn routing_aliases_do_not_wait_for_body_peer_or_auth_and_404_is_gin_text() {
+    let (_root, state, router) = fixture();
+    for (method, path, status, location) in [
+        (
+            "GET",
+            "/api/%76m/info/?a=1&b=2",
+            StatusCode::MOVED_PERMANENTLY,
+            "/api/vm/info?a=1&b=2",
+        ),
+        (
+            "POST",
+            "/api/hid/paste/?layout=en",
+            StatusCode::TEMPORARY_REDIRECT,
+            "/api/hid/paste?layout=en",
+        ),
+    ] {
+        let body = Body::from_stream(futures_util::stream::pending::<
+            Result<axum::body::Bytes, std::io::Error>,
+        >());
+        let request = Request::builder()
+            .method(method)
+            .uri(path)
+            .body(body)
+            .unwrap();
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            router.clone().oneshot(request),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(response.status(), status);
+        assert_eq!(response.headers()["location"], location);
+        if method == "GET" {
+            assert_eq!(
+                response.headers()["content-type"],
+                "text/html; charset=utf-8"
+            );
+            assert_eq!(
+                to_bytes(response.into_body(), 1024).await.unwrap(),
+                "<a href=\"/api/vm/info?a=1&amp;b=2\">Moved Permanently</a>.\n\n"
+            );
+        }
+    }
+    for (method, path) in [
+        ("GET", "/api/missing"),
+        ("POST", "/api/vm/info/"),
+        ("OPTIONS", "/api/ws"),
+    ] {
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(response.headers()["content-type"], "text/plain");
+        assert_eq!(
+            to_bytes(response.into_body(), 1024).await.unwrap(),
+            "404 page not found"
+        );
+    }
+    for path in ["/api/ws", "/api/ws/", "/api/%77s"] {
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("HEAD")
+                    .uri(path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+    for path in ["/api/%", "/api/%GG"] {
+        let response = router
+            .clone()
+            .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+    state.shutdown();
+}
+#[tokio::test]
+async fn decoded_api_paths_preserve_session_roles_and_decode_user_name_once() {
+    let (_root, state, router) = fixture();
+    let admin = login(&router, "owner").await;
+    let auth = format!("Bearer {admin}");
+    for path in [
+        "/api/%61uth/account",
+        "/%61pi/auth/account",
+        "/api%2Fauth%2Faccount",
+    ] {
+        assert_eq!(
+            request(&router, "GET", path, Value::Null, &[]).await.0,
+            StatusCode::UNAUTHORIZED
+        );
+        let (status, _, v) = request(
+            &router,
+            "GET",
+            path,
+            Value::Null,
+            &[("authorization", &auth)],
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(v["data"]["username"], "owner");
+    }
+    assert_eq!(
+        request(
+            &router,
+            "POST",
+            "/api/auth/users",
+            json!({"username":"alice","password":ENCRYPTED,"role":"user"}),
+            &[("authorization", &auth)]
+        )
+        .await
+        .2["code"],
+        0
+    );
+    let token = login(&router, "alice").await;
+    let user_auth = format!("Bearer {token}");
+    for path in [
+        "/api/%61uth/users",
+        "/api%2Fauth%2Fusers",
+        "/%61pi/auth/users",
+    ] {
+        assert_eq!(
+            request(
+                &router,
+                "GET",
+                path,
+                Value::Null,
+                &[("authorization", &user_auth)]
+            )
+            .await
+            .0,
+            StatusCode::FORBIDDEN
+        );
+    }
+    let response = request(
+        &router,
+        "PUT",
+        "/api/auth/users/%2561lice",
+        json!({"enabled":false}),
+        &[("authorization", &auth)],
+    )
+    .await
+    .2;
+    assert_eq!(response["code"], -2);
+    assert!(state.store.get("alice").unwrap().enabled);
+    assert_eq!(
+        request(
+            &router,
+            "PUT",
+            "/api/auth/users/%61lice",
+            json!({"enabled":false}),
+            &[("authorization", &auth)]
+        )
+        .await
+        .2["code"],
+        0
+    );
+    assert!(!state.store.get("alice").unwrap().enabled);
+    state.shutdown();
+}
+#[tokio::test]
+async fn web_title_write_reset_failures_return_api_errors() {
+    let (root, state, router) = fixture();
+    let auth = format!("Bearer {}", login(&router, "owner").await);
+    // A directory at the file path makes both atomic rename and unlink fail.
+    fs::create_dir(root.path().join("etc/kvm/web-title")).unwrap();
+    for (title, code, msg) in [("new title", -3, "write failed"), ("", -2, "reset failed")] {
+        let (status, _, v) = request(
+            &router,
+            "POST",
+            "/api/vm/web-title",
+            json!({"title":title}),
+            &[("authorization", &auth)],
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(v["code"], code);
+        assert_eq!(v["msg"], msg);
+    }
+    assert!(root.path().join("etc/kvm/web-title").is_dir());
+    state.shutdown();
+}

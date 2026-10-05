@@ -19,6 +19,12 @@
 		device_type = "memory";
 		reg = <0x80000000 0x10000000>;
 	};
+	pmu {
+		compatible = "riscv,pmu";
+		// SBI 3.0 event-info requires explicit fixed-counter mappings.
+		// Advertise only the architectural mcycle/minstret events.
+		riscv,event-to-mhpmcounters = <0x1 0x1 0x1>, <0x2 0x2 0x4>;
+	};
 	reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;

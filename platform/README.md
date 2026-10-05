@@ -6,7 +6,7 @@
 - the board tools, the EDID profiles and the firmware files;
 - the six `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
-Every upstream input is pinned in `sources.lock` and checked when it is downloaded. The outputs of the build steps are checked against `expected.sha256`. The OpenSBI/FIP candidate has host validation; hardware boot validation is still pending.
+Every upstream input is pinned in `sources.lock` and checked when it is downloaded. The outputs of the build steps are checked against `expected.sha256`. The OpenSBI/FIP candidate passed host checks and ROM UART RAM boot on SG2002 with Linux 7.2.9, timer/PLIC, fixed PMU counters and live video. Persistent installation and candidate SD cold boot remain untested.
 
 | Output | Shipped in |
 |---|---|
@@ -52,7 +52,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`). Re
 
 | Path | Contents |
 |---|---|
-| `opensbi/` | upstream generic SG2002 configuration, M-mode DT and FDT handoff patch |
+| `opensbi/` | upstream generic SG2002 configuration, M-mode DT, FDT handoff and C906 draft VS compatibility patches |
 | `sources.lock` | Every upstream input: archives by SHA-256, Git trees by commit and tree id |
 | `build.sh` | All build steps |
 | `expected.sha256` | Hash of every output in `images/`; `build.sh verify` fails if an output is missing, differs or is not listed |

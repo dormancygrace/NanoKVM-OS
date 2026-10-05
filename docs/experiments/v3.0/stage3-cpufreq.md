@@ -1,0 +1,11 @@
+# Verified CPU frequency policy
+
+Both CPU routes remain admin-only. Status reads the exact sg2002-cpufreq driver and positive cpuinfo_cur_freq, the legal boot/run target, the qualified thermal zone/cooling state and filtered available frequencies. Empty/invalid available data preserves Go null options; a missing capability file uses 850/1000 MHz. Thirty actual immutable-baseline Go status fixtures pass.
+
+Changes write the userspace governor, safe minimum, intermediate ceiling, requested clock and final maximum in order. Each QoS limit waits up to two seconds for effective readback, accepting the 850 MHz cap only with the board's thermal zone and cpufreq-cpu0 cooling state. Final hardware frequency must match the request or the proven thermal cap. Sysfs nodes are never created when hardware disappears. Failure restores the previous actual or thermally intended target and retains recovery errors.
+
+The boot preference is capped at 1000 MHz; qualified 1050/1075/1100/1125/1150 overclock preferences live in /run and survive application restarts, not reboots. Saved settings apply only at real-root startup after a qualified driver appears. Persistent writes preflight both files and reverse-roll back bytes, modes or absence. This fixes the baseline partial-write error that could leave a changed boot target after the request failed. New preference files remain mode 0600.
+
+Eight CPU tests cover actual clock/readback errors, unsupported driver/capabilities, all legal overclocks, boot scope, known versus unrelated thermal state, delayed effective QoS, bounded unproven cap failures, failed clock restoration, partial preference rollback, no-create native nodes and admin/numeric/form contracts. check-v3.py --host --target --tls passes 110 tests on each architecture: 39 unit, 24 API, 8 CPU, 19 socket/paste, 9 USB/monitor and 11 GPIO/system. Static generic-rv64 musl/QEMU, warning-denied clippy, TLS/307/Secure cookie/SIGTERM/occupied-port and 164 resolved SPDX packages qualify. Exact binary/log evidence is in stage3-cpufreq-qualification.json.
+
+Ledger: 42 isolated / 1 partial WS / 161 pending of 204. This remains an incomplete full replacement; time/media/addons/package/hardware qualification is pending. No real CPU or shared stand setting changed, no production activation or publication. H.265 WebRTC remains disabled.

@@ -2030,8 +2030,9 @@
     "handler": "service.GetCPUFrequency",
     "source": "server/router/vm.go",
     "line": 58,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-cpufreq.md; tests/cpufreq.rs; 30 immutable Go status cases; injected limits/thermal/persistence/admin and static target qualification"
   },
   {
     "method": "POST",
@@ -2041,8 +2042,9 @@
     "handler": "service.SetCPUFrequency",
     "source": "server/router/vm.go",
     "line": 59,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-cpufreq.md; tests/cpufreq.rs; 30 immutable Go status cases; injected limits/thermal/persistence/admin and static target qualification"
   },
   {
     "method": "GET",

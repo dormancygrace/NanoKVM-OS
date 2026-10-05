@@ -1,0 +1,175 @@
+{
+  "sdkCProbe": {
+    "exit": -4,
+    "stdout": "",
+    "stderr": "",
+    "elf": {
+      "path": "/home/dgrace/nanokvm-astra/v3.0-experimental/work/v3/native-link-probe/probe",
+      "sha256": "5bc9f7f5ab10bbe07c0a512963e720698206b7e3241f61afdfff40cf44529eae",
+      "description": "/home/dgrace/nanokvm-astra/v3.0-experimental/work/v3/native-link-probe/probe: ELF 64-bit LSB executable, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), statically linked, with debug_info, not stripped",
+      "needed": []
+    }
+  },
+  "staticLoader": {
+    "exit": 3,
+    "output": "Dynamic loading not supported",
+    "elf": {
+      "path": "/home/dgrace/nanokvm-astra/v3.0-experimental/work/v3/native-link-probe/rust-probe",
+      "sha256": "d6bb31250c1aa519cac77cd89985714ec1b33cf651061504605da3c12de4bbb4",
+      "description": "/home/dgrace/nanokvm-astra/v3.0-experimental/work/v3/native-link-probe/rust-probe: ELF 64-bit LSB executable, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), statically linked, with debug_info, not stripped",
+      "needed": []
+    }
+  },
+  "baselineServer": {
+    "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/NanoKVM-Server",
+    "sha256": "88f651b685aa9a713e45c510606e2edf8f03f1def98b4735311ea18e1a882a68",
+    "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/NanoKVM-Server: ELF 64-bit LSB executable, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, interpreter /lib/ld-musl-riscv64.so.1, with debug_info, not stripped",
+    "needed": [
+      "0x0000000000000001 (NEEDED)             Shared library: [libkvm.so]",
+      "0x0000000000000001 (NEEDED)             Shared library: [libc.so]"
+    ]
+  },
+  "libraries": [
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libae.so",
+      "sha256": "53e3a0ac3f636bb4571a881e1300466b27a550a8f92dda16a1c949206f1b4a8e",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libae.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libaf.so",
+      "sha256": "d88814bbb68d4eadd324459166ff208f06b2a535362cf0871aca8a837deaee94",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libaf.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libawb.so",
+      "sha256": "e7b485ea28f93e202ad46d2af7036cb78b1212e9e63c50288041255d48b107a7",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libawb.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libcvi_bin.so",
+      "sha256": "9f26da80e619e7103d43bd35f0f4aefcea44ee5db634ba4cc92a3bba1fa5fee5",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libcvi_bin.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libcvi_bin_isp.so",
+      "sha256": "d62007ca7275262f1b3252247adc079610eedd384024c56e895f9933e2ca1af2",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libcvi_bin_isp.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libcvi_ive.so",
+      "sha256": "a5996af35ebe27d860fbf0e5020075ccacebad48cc7b6e7034d95c9820378f8c",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libcvi_ive.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libgdc.so",
+      "sha256": "61dfff3c77e3480cd03f4ed9304d1f8cfe5852d94a1b0fd0b2ce0489bf0772f7",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libgdc.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libisp.so",
+      "sha256": "9a2e0a8c573d29919e03baa5024437c5d7a66f0789fba71a75424b1a26e37c81",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libisp.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libisp_algo.so",
+      "sha256": "7d57cc7d9f5acee2e7cb87e69474b233c57ee2bbb2418810126d1860d7899a3e",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libisp_algo.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libkvm.so",
+      "sha256": "b8a34a5c717caeabbff4c323d4c1a644835586cfcce80911c507c75fc864ded6",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libkvm.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": [
+        "0x0000000000000001 (NEEDED)             Shared library: [libkvm_mmf.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libc.so]"
+      ]
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libkvm_mmf.so",
+      "sha256": "8a12cfb49fc93a3cb98e1ba42ddec581034839e18123f2d99fb733a4e58a5879",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libkvm_mmf.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": [
+        "0x0000000000000001 (NEEDED)             Shared library: [libsys.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libvi.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libvpss.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libvo.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [librgn.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libgdc.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libvenc.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libvdec.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libmisc.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libcvi_ive.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libisp.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libisp_algo.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libae.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libawb.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libaf.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libcvi_bin.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libcvi_bin_isp.so]",
+        "0x0000000000000001 (NEEDED)             Shared library: [libc.so]"
+      ]
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libmisc.so",
+      "sha256": "b1684f48bc6f9abef57ac61dfce8e0692b425e18ec091ff9627eaa2e37d356a1",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libmisc.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/librgn.so",
+      "sha256": "a9fdd2e85b6c5e33405738a478bd7aef809499fc12fce52e43402a80c702899b",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/librgn.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libsys.so",
+      "sha256": "0ea5b4d7dc11b8c480bb55089995e891b2ae3816035c22291c6d642b7634d9d8",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libsys.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": [
+        "0x0000000000000001 (NEEDED)             Shared library: [libc.so]"
+      ]
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libvdec.so",
+      "sha256": "e45834fea2b1d2a7a4b46af3b010c915b769b87b6f32a7816d32b8f88a9d8e1a",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libvdec.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libvenc.so",
+      "sha256": "3e28f5d811f10171a25a6425e25fddd41e4f0742e6298d2403b01494746176dc",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libvenc.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": [
+        "0x0000000000000001 (NEEDED)             Shared library: [libsys.so]"
+      ]
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libvi.so",
+      "sha256": "19118af86ffae7ce33bd0e0e4005812f9f16606eb241aa56cee9a3006767a858",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libvi.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libvo.so",
+      "sha256": "369682a86b6b4548f8cdb987342a022f79038eedd7f47a7b9cbc67429a358eb2",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libvo.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": []
+    },
+    {
+      "path": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libvpss.so",
+      "sha256": "a13df92024a7de3320f1fb109dd3ced4f7b54b09f08b66b4ead807bcbd665d45",
+      "description": "/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/platform/server/out/dl_lib/libvpss.so: ELF 64-bit LSB shared object, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, not stripped",
+      "needed": []
+    }
+  ]
+}

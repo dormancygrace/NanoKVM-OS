@@ -87,7 +87,12 @@ func main() {
 		{Name: "viewer-account", Method: "GET", Path: "/api/auth/account", Body: "null", Token: viewerToken},
 		{Name: "viewer-forbidden", Method: "GET", Path: "/api/auth/users", Body: "null", Token: viewerToken},
 		{Name: "malformed-login", Method: "POST", Path: "/api/auth/login", Body: "{}"},
+		{Name: "unicode-fold-login", Method: "POST", Path: "/api/auth/login", Body: `{"uſername":"viewer","paſſword":"U2FsdGVkX18zLUxaLNGy7jL96oMO4tq6wDYwVzUMO3XfTY2Zy/ipO4LDEqtBT+fx"}`},
 		{Name: "wrong-login", Method: "POST", Path: "/api/auth/login", Body: `{"username":"viewer","password":"malformed"}`},
+		{Name: "mixed-case-login", Method: "POST", Path: "/api/auth/login", Body: `{"UsErNaMe":"viewer","PaSsWoRd":"malformed"}`},
+		{Name: "duplicate-case-login", Method: "POST", Path: "/api/auth/login", Body: `{"username":"","USERNAME":"viewer","password":"malformed"}`},
+		{Name: "null-after-string-login", Method: "POST", Path: "/api/auth/login", Body: `{"username":"viewer","USERNAME":null,"password":"malformed"}`},
+		{Name: "invalid-type-before-string-login", Method: "POST", Path: "/api/auth/login", Body: `{"username":7,"USERNAME":"viewer","password":"malformed"}`},
 	}
 	for i := range cases {
 		c := &cases[i]

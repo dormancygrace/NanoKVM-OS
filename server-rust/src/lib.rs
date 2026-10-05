@@ -1,4 +1,5 @@
 mod api;
+mod binding;
 mod branding;
 pub mod config;
 pub mod crypto;

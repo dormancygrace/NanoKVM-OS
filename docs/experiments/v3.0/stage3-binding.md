@@ -1,0 +1,9 @@
+# Request binding compatibility fixes
+
+The Rust JSON path previously depended on case-sensitive `Value`/serde field matching and decoded differential-test bodies through `Value` before sending them. This rejected fields Go accepts and could erase duplicate wire order. An array body could also be treated as an empty title and reset a persisted setting.
+
+Implemented request schemas now preserve Go struct decoding: case/Unicode-fold matches of known ASCII field names, last matching field in wire order, nonpointer-string nulls that retain previous values, pointer-field nulls that clear optional values, and type errors even before a later valid duplicate. Unknown fields retain ordinary JSON and do not undergo typed normalization; shortcut arrays use their own known key schema, including null elements as zero structs. Nonobject bodies reject before side effects. URL forms keep exact declared/default Gin names, first scalar value, repeated struct-slice values and Gin/strconv boolean spellings and whitespace behavior.
+
+The actual tagged Go oracle now has 13 cases, including mixed/duplicate/Unicode-case login fields, string-null updates and an invalid numeric field before a valid string. Differential tests send the original body bytes directly. Go accepts the separately minted Rust JWT as before. Tests also cover persisted HID shortcut values, nullable/idempotent user patches and malformed title bodies that must not change the saved title.
+
+`refresh-v3-oracle.py` and `check-v3.py --host --target --tls` pass. Current suite: 36 tests (13 unit, 17 API, six real-socket integration); warning-free clippy/fmt, static riscv64 musl/QEMU and verified TLS/redirect/Secure cookie/SIGTERM/occupied-port checks. `stage3-binding-qualification.json` identifies this binary/evidence. No new dependencies or shared-device writes. Route count remains 22 isolated implementations, one partial WS route and 181 pending; full runtime parity is still incomplete.

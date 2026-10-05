@@ -32,4 +32,5 @@ with tempfile.TemporaryDirectory(prefix="inputs-", dir=out) as tmp:
     with (out / "go-oracle.log").open("w") as f:
         subprocess.run([go, "run", "-tags", "teststub,v3oracle", "./cmd/v3-contract-oracle"],
                        cwd=checks.REPO / "server", env=env, stdout=f, stderr=subprocess.STDOUT, check=True)
-print("eight Go response cases; Rust JWT accepted by Go middleware:", json.loads(fixture.read_text())["rustTokenVerifiedByGo"])
+result = json.loads(fixture.read_text())
+print(len(result["cases"]), "Go response cases; Rust JWT accepted by Go middleware:", result["rustTokenVerifiedByGo"])

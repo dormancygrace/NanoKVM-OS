@@ -159,23 +159,68 @@ fn cookie(response: &mut Response, value: &str, age: i64, secure: bool) {
         .expect("encoded JWT cookie"),
     );
 }
-fn params(headers: &HeaderMap, body: &[u8]) -> Result<Value, Error> {
+fn fields(method: &Method, path: &str) -> &'static [&'static str] {
+    match (method.as_str(), path) {
+        ("POST", "/api/auth/login") => &["username", "password"],
+        ("POST", "/api/auth/password") => &["password", "currentPassword"],
+        ("POST", "/api/auth/users") => &["username", "password", "role"],
+        ("POST", "/api/vm/web-title") => &["title"],
+        ("POST", "/api/hid/shortcut") => &["keys"],
+        ("DELETE", "/api/hid/shortcut") => &["id"],
+        ("POST", "/api/hid/shortcut/leader-key") => &["key"],
+        ("PUT", _) if path.starts_with("/api/auth/users/") => &["username", "role", "enabled"],
+        ("POST", _) if path.starts_with("/api/auth/users/") => &["password"],
+        _ => &[],
+    }
+}
+fn params(headers: &HeaderMap, body: &[u8], method: &Method, path: &str) -> Result<Value, Error> {
     if headers
         .get("content-type")
         .and_then(|v| v.to_str().ok())
         .is_some_and(|v| v.split(';').next() == Some("application/json"))
     {
-        Ok(serde_json::from_slice(body)?)
+        Ok(crate::binding::json(
+            body,
+            fields(method, path),
+            method == Method::PUT,
+        )?)
     } else {
         let form: Vec<(String, String)> = serde_urlencoded::from_bytes(body)?;
         let mut v = serde_json::Map::new();
-        for (k, value) in form {
-            let value = if k == "enabled" {
-                Value::Bool(value.parse()?)
+        for (key, value) in form {
+            let Some(&canonical) = fields(method, path).iter().find(|canonical| {
+                key == match **canonical {
+                    "keys" => "Keys",
+                    "id" => "ID",
+                    "key" => "Key",
+                    "title" => "Title",
+                    name => name,
+                }
+            }) else {
+                continue;
+            };
+            if canonical != "keys" && v.contains_key(canonical) {
+                continue;
+            }
+            if canonical == "keys" {
+                let item = crate::binding::json_key(value.trim().as_bytes())?;
+                v.entry("keys")
+                    .or_insert_with(|| json!([]))
+                    .as_array_mut()
+                    .unwrap()
+                    .push(item);
+                continue;
+            }
+            let value = if canonical == "enabled" {
+                Value::Bool(match value.trim() {
+                    "1" | "t" | "T" | "true" | "TRUE" | "True" => true,
+                    "" | "0" | "f" | "F" | "false" | "FALSE" | "False" => false,
+                    _ => return Err("invalid boolean".into()),
+                })
             } else {
                 Value::String(value)
             };
-            v.entry(k).or_insert(value);
+            v.insert(canonical.into(), value);
         }
         Ok(Value::Object(v))
     }
@@ -332,7 +377,7 @@ fn handle(
             }
             Some(u)
         };
-        let parsed = params(headers, body);
+        let parsed = params(headers, body, method, path);
         if route.input_owner
             && !s.input.allows_http(
                 headers
@@ -549,7 +594,7 @@ fn handle(
             return (error(-5, msg), Duration::from_secs(3));
         }
         drop(attempts);
-        let parsed = params(headers, body);
+        let parsed = params(headers, body, method, path);
         let Ok(v) = parsed else {
             return (error(-1, "invalid parameters"), Duration::from_secs(3));
         };

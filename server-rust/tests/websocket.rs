@@ -94,6 +94,21 @@ impl Server {
             task,
         }
     }
+    async fn internal_recover(&self) -> (StatusCode, Value) {
+        let token =
+            fs::read_to_string(self.root.path().join("etc/kvm/.picoclaw_internal_token")).unwrap();
+        let mut request = Request::builder()
+            .method("POST")
+            .uri("/api/internal/usb/recover")
+            .header("x-nanokvm-internal-token", token.trim())
+            .body(Body::empty())
+            .unwrap();
+        request.extensions_mut().insert(ConnectInfo(self.address));
+        let response = self.router.clone().oneshot(request).await.unwrap();
+        let status = response.status();
+        let bytes = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
     fn token(&self, name: &str, ttl: u64) -> String {
         let user = self.runtime.store.get(name).unwrap();
         let now = SystemTime::now()
@@ -955,6 +970,32 @@ async fn usb_reset_releases_old_input_reopens_new_nodes_and_preserves_socket_con
             .1["msg"],
         "failed to reset hid"
     );
+    fixture
+        .fail
+        .store(false, std::sync::atomic::Ordering::Release);
+    // Recover uses the same lifecycle but a distinct loopback-only credential.
+    // Reopen/write once to make the fixture's old-held release observable.
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 6, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if fs::read(server.root.path().join("dev/hidg0"))
+                .unwrap()
+                .starts_with(&[0, 0, 6, 0, 0, 0, 0, 0])
+            {
+                break;
+            }
+            sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let recover = server.internal_recover().await;
+    assert_eq!(recover.0, StatusCode::OK);
+    assert_eq!(recover.1["code"], 0);
+
     // A failed command still releases old ownership generations and allows recovery.
     owner
         .send(Message::Binary(vec![1, 0, 0, 6, 0, 0, 0, 0, 0].into()))

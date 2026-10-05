@@ -72,12 +72,25 @@ pub(crate) fn set_mode(runtime: &Runtime, parameters: Result<Value, Error>) -> R
     }
 }
 pub(crate) fn reset(runtime: &Runtime) -> Response {
+    reset_response(runtime, false)
+}
+pub(crate) fn recover(runtime: &Runtime) -> Response {
+    reset_response(runtime, true)
+}
+fn reset_response(runtime: &Runtime, internal: bool) -> Response {
     let manual = ManualSession::new(runtime.control.clone(), runtime.coordinator.clone());
     let reservation = manual.reserve(Kind::Relative, false, true, Duration::from_secs(2), |_| {
         true
     });
     let Ok(reservation) = reservation else {
-        return error(-1, "HID control is busy");
+        return error(
+            -1,
+            if internal {
+                "failed to recover usb"
+            } else {
+                "HID control is busy"
+            },
+        );
     };
     let result = runtime.input.reconfigure(|| {
         reservation
@@ -95,7 +108,14 @@ pub(crate) fn reset(runtime: &Runtime) -> Response {
     }
     match result {
         Ok(()) => ok(Value::Null),
-        Err(_) => error(-1, "failed to reset hid"),
+        Err(_) => error(
+            -1,
+            if internal {
+                "failed to recover usb"
+            } else {
+                "failed to reset hid"
+            },
+        ),
     }
 }
 #[cfg(test)]

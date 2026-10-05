@@ -1,6 +1,8 @@
 mod api;
 mod binding;
 mod branding;
+#[cfg(all(test, feature = "native-fixture"))]
+mod capture_tests;
 pub mod composition;
 pub mod config;
 pub mod controlmode;
@@ -31,6 +33,10 @@ pub mod memory_command;
 pub mod memory_ops;
 pub mod memory_status;
 pub mod monitor;
+pub mod native_capture;
+pub mod native_capture_actor;
+pub mod native_frame;
+mod native_protocol;
 mod oled;
 mod password_command;
 mod paste;

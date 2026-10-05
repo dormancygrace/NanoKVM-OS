@@ -1,0 +1,193 @@
+{
+  "fmt": {
+    "exit": 0,
+    "seconds": 0.236,
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "clippy": {
+    "exit": 0,
+    "seconds": 1.74,
+    "log_sha256": "6fcd494fc96ef5e730ec88469343e59c35119a89ca0b7901d5e0fab7e9d159de"
+  },
+  "host-contracts": {
+    "exit": 0,
+    "seconds": 90.452,
+    "log_sha256": "2866eed9e1d94c550864b699b6af7e3572d6d4643dae85125eaf671428238404"
+  },
+  "target-build": {
+    "exit": 0,
+    "seconds": 22.723,
+    "log_sha256": "e48c32cd1496058097e3a1a3d7f63d59e8f12dbf820e33bfc6565b79dea80474"
+  },
+  "target-contracts": {
+    "exit": 0,
+    "seconds": 120.28,
+    "log_sha256": "685f7ca0556fc9da4e6b28bd45c2a9e8e261d47db639a90be170bf8887debde8"
+  },
+  "target-version": {
+    "exit": 0,
+    "seconds": 0.013,
+    "log_sha256": "45ab3a914204af49b93add1fe3d39a590e5df3bd17e51f7eee8a5c1f3ddc309e"
+  },
+  "target-file": {
+    "exit": 0,
+    "seconds": 0.011,
+    "log_sha256": "f844687d64c97e8e9669dd24e5e25fffc94bef64e6c16bd75ba30dfa1b19707a"
+  },
+  "target-binary": {
+    "sha256": "cbf65412be389023c34c8712849325c8e657ba1f33d1d04e37a200f98c625577",
+    "bytes": 6884296
+  },
+  "tls-cert": {
+    "exit": 0,
+    "seconds": 0.037,
+    "log_sha256": "e90e4827f6cddb3ad15d4d6d5b484fc644ed5c3855cea3ffdce5f09a93ae0673"
+  },
+  "tls-runtime": {
+    "verified_certificate": true,
+    "redirect": 307,
+    "secure_cookie": true,
+    "internal_loopback_http_exception": true,
+    "unauthorized_internal_redirect": 307,
+    "sigterm_exit": 0,
+    "shutdown_seconds": 0.015,
+    "occupied_port_fails_closed": true
+  },
+  "licenses": {
+    "resolved_packages": 173,
+    "missing_spdx": []
+  },
+  "test_counts": {
+    "total_per_architecture": 178,
+    "native_added": 20,
+    "substantive_native_added": 19,
+    "unit": 73,
+    "api": 27,
+    "dashboard": 5,
+    "cpu": 9,
+    "time": 8,
+    "identity": 3,
+    "memory_read": 3,
+    "memory_mutation": 6,
+    "services": 3,
+    "websocket_and_paste": 21,
+    "usb_monitor": 9,
+    "gpio_system": 11,
+    "harness_groups": {
+      "host": [
+        73,
+        0,
+        27,
+        9,
+        5,
+        11,
+        3,
+        6,
+        3,
+        3,
+        8,
+        9,
+        21,
+        0
+      ],
+      "target": [
+        73,
+        0,
+        27,
+        9,
+        5,
+        11,
+        3,
+        6,
+        3,
+        3,
+        8,
+        9,
+        21,
+        0
+      ]
+    }
+  },
+  "native": {
+    "build": {
+      "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+      "baseline_header_sha256": "e28c76f72ff7e49060dd6edd321a6c3a05f853d3ab6acbc3554b7a24855ae8fe",
+      "function_abi": {
+        "kvmv_init": "void(*)(uint8_t)",
+        "kvmv_deinit": "void(*)(void)",
+        "kvmv_hdmi_control": "int(*)(uint8_t)",
+        "kvmv_hdmi_signal_active": "uint8_t(*)(void)",
+        "set_h264_gop": "void(*)(uint8_t)",
+        "set_h265_gop_mode": "int8_t(*)(uint8_t)",
+        "get_h265_gop_mode": "uint8_t(*)(void)",
+        "set_mjpeg_chroma": "int(*)(uint8_t)",
+        "get_mjpeg_chroma_status": "uint8_t(*)(void)",
+        "set_frame_detact": "void(*)(uint8_t)",
+        "kvmv_request_keyframe": "void(*)(void)",
+        "kvmv_edid_maintenance": "int(*)(uint8_t)",
+        "kvmv_read_mjpeg_sink": "int(*)(uint16_t,uint16_t,uint16_t,kvmv_video_sink,uintptr_t)",
+        "kvmv_read_video_sink": "int(*)(uint16_t,uint16_t,uint8_t,uint16_t,uint8_t,uint8_t,kvmv_video_sink,uintptr_t)"
+      },
+      "matched_library_sha256": "b8a34a5c717caeabbff4c323d4c1a644835586cfcce80911c507c75fc864ded6",
+      "helper": {
+        "sha256": "4985d68ff5797cb9002afcfdb3f916e3f946860c8953cef662eccc748afdf3f2",
+        "bytes": 14016,
+        "description": "/home/dgrace/nanokvm-astra/v3.0-experimental/work/v3/native-capture-build/nanokvm-capture-worker: ELF 64-bit LSB pie executable, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), dynamically linked, interpreter /lib/ld-musl-riscv64.so.1, not stripped",
+        "dynamic_entries": [
+          "0x0000000000000001 (NEEDED)             Shared library: [libkvm.so]",
+          "0x0000000000000001 (NEEDED)             Shared library: [libc.so]"
+        ]
+      },
+      "vendor_code_executed": false,
+      "installed": false,
+      "runtime_wired": false
+    },
+    "runtime_launch_wired": false,
+    "vendor_executed": false,
+    "device_activated": false,
+    "frame_budget_is_global_memory_policy": false
+  },
+  "source_sha256": {
+    "server-rust/src/native_capture.rs": "bd1756398a3220cd1effcaaed3b1fa4e683ffdd917eb34c5d5528562910e34c8",
+    "server-rust/src/native_capture_actor.rs": "01dcdd481a7c110679c2e4f45237a9c57308a34b00266ed1ae8dfe15117d5ef4",
+    "server-rust/src/native_frame.rs": "acab459a1b204737b8edf451c8609c3403edc1faba5045e9389f02136cb91147",
+    "server-rust/src/native_protocol.rs": "39965e292f0b121ea833cf98cda4cb517db7a8d4ed54c7f22d17d8bf1cb21632",
+    "server-rust/src/capture_tests.rs": "23a0b5f9e37f92ea60443749cc3c1f7d1e129eadc497f1730a5bb9c1d1091e67",
+    "server-rust/build.rs": "a48af5e999b47b717aa25881c88bdaebe569ea2605dee8c446900ec36f684cc1",
+    "server-rust/native/capture/main.c": "b3751cfd48a0f73ba8573e863129f7debf013901b77a1710b97a723010c70543",
+    "server-rust/native/capture/nk-capture-abi.h": "c1b5c5a9914dc176b1528cf8ff94e6f5417d4548d38117443c3399243c4bacb2",
+    "server-rust/native/capture/nk-capture-fixture.c": "7274617b8c8d26611a37c6839a6b74f17102bd89704d9bf08013ec6b64469b0a",
+    "server-rust/native/capture/nk-capture-protocol.h": "1ed1a75de845aa7387f21851de4a1e9ff661f688b71563fa557c2ecac679b846",
+    "server-rust/native/capture/nk-capture-worker.c": "2d47812012c07762f9580c8ca193ed04d6987a724c15f3f187374ed89b1100c3",
+    "scripts/build-v3-capture.py": "b592127ec533f0ee4a864cb3647f01f41c0d3bbfde6938684ef1b18d079e8ec8",
+    "scripts/check-v3.py": "1d106f9b80ce75c5a198dea708bcf20279e49d64bcd48ed0e5e4ee7e1f597173",
+    "server-rust/Cargo.toml": "f595975a7c3ef744076f2734e52a0b34cf4f22cbc8b899dce1b07ca5b76a136a",
+    "server-rust/Cargo.lock": "ec9426b868264a888d1d0dca1fedd05fff69c919c2573ce2c7a78b773d8e9c1d"
+  },
+  "host_tls": {
+    "host-build": {
+      "exit": 0,
+      "seconds": 6.756,
+      "log_sha256": "cbd6506e1addc72546228e3b70c5bfe367b376781837de104252276912729c4a"
+    },
+    "tls-cert": {
+      "exit": 0,
+      "seconds": 0.045,
+      "log_sha256": "a8e029723d2041edd51697b912e8011032d723a3b7474791a24599fbfc29c07d"
+    },
+    "tls-runtime": {
+      "verified_certificate": true,
+      "redirect": 307,
+      "secure_cookie": true,
+      "internal_loopback_http_exception": true,
+      "unauthorized_internal_redirect": 307,
+      "sigterm_exit": 0,
+      "shutdown_seconds": 0.003,
+      "occupied_port_fails_closed": true
+    },
+    "licenses": {
+      "resolved_packages": 173,
+      "missing_spdx": []
+    }
+  }
+}

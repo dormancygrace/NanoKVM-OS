@@ -45,6 +45,12 @@ impl Drop for Server {
 }
 impl Server {
     async fn new(extra: &str) -> Self {
+        Self::with_executor(extra, None).await
+    }
+    async fn with_executor(
+        extra: &str,
+        executor: Option<Arc<dyn nanokvm_server::systemops::Executor>>,
+    ) -> Self {
         let root = tempfile::tempdir().unwrap();
         fs::create_dir_all(root.path().join("etc/kvm")).unwrap();
         fs::write(root.path().join("etc/kvm/server.yaml"), format!("proto: http\njwt:\n  secretKey: websocket-test-secret\n  revokeTokensOnLogout: true\nsecurity:\n  trustedProxies: []\n{extra}")).unwrap();
@@ -59,7 +65,10 @@ impl Server {
         }
         fs::create_dir(root.path().join("web")).unwrap();
         fs::write(root.path().join("web/index.html"), "test").unwrap();
-        let runtime = Runtime::load(root.path()).unwrap();
+        let runtime = match executor {
+            Some(executor) => Runtime::load_with_executor(root.path(), executor).unwrap(),
+            None => Runtime::load(root.path()).unwrap(),
+        };
         runtime
             .store
             .authenticate("owner", "operator-password")
@@ -853,5 +862,265 @@ async fn persisted_jiggler_worker_moves_after_inactivity_and_stops_on_disable() 
     assert!(!nanokvm_server::jiggler::move_once(server.runtime.clone())
         .await
         .unwrap());
+    server.runtime.shutdown();
+}
+
+struct UsbFixture {
+    root: std::sync::Mutex<Option<std::path::PathBuf>>,
+    calls: std::sync::Mutex<Vec<nanokvm_server::systemops::Action>>,
+    fail: std::sync::atomic::AtomicBool,
+}
+impl UsbFixture {
+    fn new() -> Arc<Self> {
+        Arc::new(Self {
+            root: std::sync::Mutex::new(None),
+            calls: std::sync::Mutex::new(Vec::new()),
+            fail: std::sync::atomic::AtomicBool::new(false),
+        })
+    }
+}
+impl nanokvm_server::systemops::Executor for UsbFixture {
+    fn run(
+        &self,
+        action: nanokvm_server::systemops::Action,
+        bound: Duration,
+    ) -> Result<(), nanokvm_server::Error> {
+        use nanokvm_server::systemops::Action;
+        assert_eq!(bound, Duration::from_secs(10));
+        self.calls.lock().unwrap().push(action);
+        if self.fail.load(std::sync::atomic::Ordering::Acquire) {
+            return Err("fixture command failed".into());
+        }
+        if action == Action::UsbPhyRestart {
+            let root = self.root.lock().unwrap().clone().unwrap();
+            assert_eq!(fs::read(root.join("dev/hidg0")).unwrap()[8..16], [0; 8]);
+            for i in 0..3 {
+                fs::rename(
+                    root.join(format!("dev/hidg{i}")),
+                    root.join(format!("dev/old-hidg{i}")),
+                )?;
+            }
+            // Simulate delayed configfs device-node reappearance, never kernel IO.
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(150));
+                for i in 0..3 {
+                    fs::write(root.join(format!("dev/hidg{i}")), []).unwrap();
+                }
+            });
+        }
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn usb_reset_releases_old_input_reopens_new_nodes_and_preserves_socket_control() {
+    use nanokvm_server::systemops::Action;
+    let fixture = UsbFixture::new();
+    let server = Server::with_executor("", Some(fixture.clone())).await;
+    *fixture.root.lock().unwrap() = Some(server.root.path().to_path_buf());
+    let token = server.token("owner", 120);
+    let mut owner = server.socket(&token, &[]).await.unwrap();
+    let old_control = control(&mut owner, true).await;
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 4, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    server.hid(0, 8).await;
+    let start = Instant::now();
+    let response = server
+        .api("POST", "/api/hid/reset", &token, Value::Null, None)
+        .await;
+    assert_eq!(response.1["code"], 0);
+    assert!(start.elapsed() >= Duration::from_millis(150));
+    assert_eq!(*fixture.calls.lock().unwrap(), [Action::UsbPhyRestart]);
+    assert_eq!(
+        control(&mut owner, true).await["lease"],
+        old_control["lease"]
+    );
+    assert!(fs::read(server.root.path().join("dev/hidg0"))
+        .unwrap()
+        .is_empty());
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 5, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    assert_eq!(server.hid(0, 8).await, [0, 0, 5, 0, 0, 0, 0, 0]);
+    fixture
+        .fail
+        .store(true, std::sync::atomic::Ordering::Release);
+    assert_eq!(
+        server
+            .api("POST", "/api/hid/reset", &token, Value::Null, None)
+            .await
+            .1["msg"],
+        "failed to reset hid"
+    );
+    // A failed command still releases old ownership generations and allows recovery.
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 6, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if fs::read(server.root.path().join("dev/hidg0"))
+                .unwrap()
+                .starts_with(&[0, 0, 6, 0, 0, 0, 0, 0])
+            {
+                break;
+            }
+            sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    owner.close(None).await.unwrap();
+}
+
+#[tokio::test]
+async fn hid_profile_install_validation_noop_symlink_copy_reboot_and_admin_gate() {
+    use nanokvm_server::systemops::Action;
+    let fixture = UsbFixture::new();
+    let server = Server::with_executor("", Some(fixture.clone())).await;
+    *fixture.root.lock().unwrap() = Some(server.root.path().to_path_buf());
+    let token = server.token("owner", 120);
+    for path in [
+        "sys/kernel/config/usb_gadget/g0",
+        "etc/init.d",
+        "usr/libexec/nanokvm/legacy",
+        "kvmapp/system/init.d",
+    ] {
+        fs::create_dir_all(server.root.path().join(path)).unwrap();
+    }
+    fs::write(
+        server
+            .root
+            .path()
+            .join("sys/kernel/config/usb_gadget/g0/bcdDevice"),
+        "0x0710\n",
+    )
+    .unwrap();
+    let target = server
+        .root
+        .path()
+        .join("usr/libexec/nanokvm/legacy/S03usbdev");
+    fs::write(&target, "old").unwrap();
+    std::os::unix::fs::symlink(
+        "/usr/libexec/nanokvm/legacy/S03usbdev",
+        server.root.path().join("etc/init.d/S03usbdev"),
+    )
+    .unwrap();
+    fs::write(
+        server.root.path().join("kvmapp/system/init.d/S03usbhid"),
+        "new profile",
+    )
+    .unwrap();
+    assert_eq!(
+        server
+            .api(
+                "POST",
+                "/api/hid/mode",
+                &token,
+                json!({"mode":"normal"}),
+                None
+            )
+            .await
+            .1["code"],
+        0
+    );
+    assert!(fixture.calls.lock().unwrap().is_empty());
+    assert_eq!(
+        server
+            .api("POST", "/api/hid/mode", &token, json!({"mode":""}), None)
+            .await
+            .1["code"],
+        -1
+    );
+    assert_eq!(
+        server
+            .api(
+                "POST",
+                "/api/hid/mode",
+                &token,
+                json!({"mode":"invalid"}),
+                None
+            )
+            .await
+            .1["code"],
+        -2
+    );
+    assert_eq!(
+        server
+            .api(
+                "POST",
+                "/api/hid/mode",
+                &token,
+                json!({"MODE":"hid-only"}),
+                None
+            )
+            .await
+            .1["code"],
+        0
+    );
+    assert_eq!(fs::read(&target).unwrap(), b"new profile");
+    // The response precedes the delayed reboot dispatch.
+    assert!(fixture.calls.lock().unwrap().is_empty());
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if !fixture.calls.lock().unwrap().is_empty() {
+                break;
+            }
+            sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(*fixture.calls.lock().unwrap(), [Action::Reboot]);
+    fs::remove_file(server.root.path().join("kvmapp/system/init.d/S03usbhid")).unwrap();
+    assert_eq!(
+        server
+            .api(
+                "POST",
+                "/api/hid/mode",
+                &token,
+                json!({"mode":"hid-only"}),
+                None
+            )
+            .await
+            .1["code"],
+        -3
+    );
+    assert_eq!(fs::read(&target).unwrap(), b"new profile");
+    assert!(
+        fs::symlink_metadata(server.root.path().join("etc/init.d/S03usbdev"))
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+    server
+        .runtime
+        .store
+        .create("viewer", "operator-password", "user")
+        .unwrap();
+    let viewer = server.token("viewer", 120);
+    assert_eq!(
+        server
+            .api("POST", "/api/hid/reset", &viewer, Value::Null, None)
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        server
+            .api(
+                "POST",
+                "/api/hid/mode",
+                &viewer,
+                json!({"mode":"normal"}),
+                None
+            )
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
     server.runtime.shutdown();
 }

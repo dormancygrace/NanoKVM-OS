@@ -207,6 +207,54 @@ impl Devices {
         }
         first.map_or(Ok(()), Err)
     }
+    /// Holds the descriptor lock through command/reopen. Caller runs this on an
+    /// admitted blocking worker with ownership/background writes paused.
+    pub fn reconfigure(
+        &self,
+        reset: bool,
+        operation: impl FnOnce() -> Result<(), Error>,
+    ) -> Result<(), Error> {
+        let mut state = self.state.lock().map_err(|_| "HID state unavailable")?;
+        for i in 0..3 {
+            if let Err(error) = self.release_kind(&mut state, i) {
+                eprintln!("USB held-state release failed: {error}");
+            }
+        }
+        state.files = Default::default();
+        let _ = self.leds.replace_reader(None);
+        let operation_result = operation();
+        if reset && operation_result.is_err() {
+            return operation_result;
+        }
+        // Profile installation reopens current descriptors even on copy error,
+        // matching the Go defer and keeping LEDs/input alive after failure.
+        if reset {
+            state.held = Default::default();
+            state.pending_release = false;
+        }
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            self.leds.refresh();
+            let mut first = None;
+            for kind in [Kind::Keyboard, Kind::Relative, Kind::Absolute] {
+                if let Err(error) = self.open_kind(&mut state, kind) {
+                    if first.is_none() {
+                        first = Some(error);
+                    }
+                }
+            }
+            let Some(error) = first else {
+                return operation_result;
+            };
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err(
+                    format!("reopen HID devices after USB reconfiguration: {error}").into(),
+                );
+            }
+            std::thread::sleep(remaining.min(Duration::from_millis(100)));
+        }
+    }
     pub fn close(&self) -> Result<(), Error> {
         self.leds.refresh();
         let release = self.release_all();

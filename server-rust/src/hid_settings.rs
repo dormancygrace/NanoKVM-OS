@@ -60,7 +60,7 @@ fn new_id() -> Result<String, Error> {
         &h[20..]
     ))
 }
-fn mode(root: &Path) -> Result<&'static str, Error> {
+pub(crate) fn mode(root: &Path) -> Result<&'static str, Error> {
     let gadget = root.join("sys/kernel/config/usb_gadget/g0");
     let flag = fs::read_to_string(gadget.join("bcdDevice"))?;
     match flag.trim() {
@@ -108,6 +108,8 @@ pub fn handle(
     let shortcuts_path = s.root.join("etc/kvm/shortcuts.json");
     let leader = s.root.join("etc/kvm/leader-key");
     match (method.as_str(), path) {
+        ("POST", "/api/hid/mode") => crate::usb::set_mode(s, parameters),
+        ("POST", "/api/hid/reset") => crate::usb::reset(s),
         ("GET", "/api/hid/leds") => {
             let leds = s.hid.leds();
             leds.refresh();

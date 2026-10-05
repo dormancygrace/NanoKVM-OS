@@ -732,8 +732,11 @@
     "handler": "service.SetHidMode",
     "source": "server/router/hid.go",
     "line": 36,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/usb.rs",
+      "docs/experiments/v3.0/stage3-usb.md"
+    ]
   },
   {
     "method": "POST",
@@ -743,8 +746,11 @@
     "handler": "service.ResetHid) ",
     "source": "server/router/hid.go",
     "line": 37,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/usb.rs",
+      "docs/experiments/v3.0/stage3-usb.md"
+    ]
   },
   {
     "method": "POST",

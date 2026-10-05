@@ -105,6 +105,25 @@ def tls_check(command):
                 assert response.getheader("location") == f"https://127.0.0.1:{tls_port}/api/branding?x=1"
                 response.read()
                 conn.close()
+                token = (etc / ".picoclaw_internal_token").read_text().strip()
+                conn = http.client.HTTPConnection("127.0.0.1", http_port, timeout=3)
+                conn.request("POST", "/api/internal/usb/recover", headers={"X-NanoKVM-Internal-Token": token})
+                response = conn.getresponse()
+                assert response.status == 200 and response.getheader("location") is None
+                assert json.loads(response.read())["msg"] == "failed to recover usb"
+                conn.close()
+                conn = http.client.HTTPConnection("127.0.0.1", http_port, timeout=3)
+                conn.request("POST", "/api/internal/usb/recover", headers={"X-NanoKVM-Internal-Token": "wrong"})
+                response = conn.getresponse()
+                assert response.status == 307
+                response.read()
+                conn.close()
+                conn = http.client.HTTPConnection("127.0.0.1", http_port, timeout=3)
+                conn.request("GET", "/api/auth/account", headers={"X-NanoKVM-Internal-Token": token})
+                response = conn.getresponse()
+                assert response.status == 307
+                response.read()
+                conn.close()
                 conn = http.client.HTTPSConnection("localhost", tls_port, context=context, timeout=10)
                 conn.request("POST", "/api/auth/login", json.dumps({"username": "owner", "password":
                     "U2FsdGVkX18zLUxaLNGy7jL96oMO4tq6wDYwVzUMO3XfTY2Zy/ipO4LDEqtBT+fx"}),
@@ -118,7 +137,8 @@ def tls_check(command):
                 proc.send_signal(signal.SIGTERM)
                 assert proc.wait(timeout=8) == 0
                 RESULTS["tls-runtime"] = {"verified_certificate": True, "redirect": 307,
-                                          "secure_cookie": True, "sigterm_exit": 0,
+                                          "secure_cookie": True, "internal_loopback_http_exception": True,
+                                          "unauthorized_internal_redirect": 307, "sigterm_exit": 0,
                                           "shutdown_seconds": round(time.monotonic() - start, 3)}
             finally:
                 if proc.poll() is None:

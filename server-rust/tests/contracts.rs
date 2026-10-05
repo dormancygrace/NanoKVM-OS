@@ -988,3 +988,77 @@ async fn jiggler_api_preserves_binding_persistence_modes_and_admin_policy() {
     assert_eq!(state.jiggler.status().unwrap()["enabled"], false);
     state.shutdown();
 }
+
+#[tokio::test]
+async fn incomplete_bodies_do_not_consume_blocking_execution_slots() {
+    let (_temp, state, app) = fixture();
+    let token = login(&app, "owner").await;
+    let auth = format!("Bearer {token}");
+    let mut pending = Vec::new();
+    for _ in 0..4 {
+        let body = Body::from_stream(futures_util::stream::pending::<
+            Result<axum::body::Bytes, std::io::Error>,
+        >());
+        let mut request = Request::builder()
+            .method("POST")
+            .uri("/api/auth/login")
+            .body(body)
+            .unwrap();
+        request.extensions_mut().insert(ConnectInfo(
+            "127.0.0.1:34000".parse::<SocketAddr>().unwrap(),
+        ));
+        pending.push(tokio::spawn(app.clone().oneshot(request)));
+    }
+    for _ in 0..4 {
+        tokio::task::yield_now().await;
+    }
+    assert_eq!(state.jobs.available_permits(), 4);
+    let response = tokio::time::timeout(
+        std::time::Duration::from_secs(1),
+        request(
+            &app,
+            "GET",
+            "/api/auth/account",
+            Value::Null,
+            &[("authorization", &auth)],
+        ),
+    )
+    .await
+    .unwrap();
+    assert_eq!(response.0, StatusCode::OK);
+    assert_eq!(response.2["data"]["username"], "owner");
+    for task in pending {
+        task.abort();
+    }
+    state.shutdown();
+}
+
+#[tokio::test]
+async fn internal_usb_credential_is_independent_of_browser_auth_and_actual_peer_only() {
+    let (temp, state, app) = fixture();
+    let token = fs::read_to_string(temp.path().join("etc/kvm/.picoclaw_internal_token")).unwrap();
+    for (peer, supplied, expected) in [
+        ("127.0.0.1:34000", "wrong", StatusCode::UNAUTHORIZED),
+        ("192.0.2.1:34000", token.trim(), StatusCode::UNAUTHORIZED),
+        ("127.0.0.1:34000", token.trim(), StatusCode::OK),
+    ] {
+        let mut req = Request::builder()
+            .method("POST")
+            .uri("/api/internal/usb/recover")
+            .header("x-nanokvm-internal-token", supplied)
+            .header("x-forwarded-for", "127.0.0.1")
+            .body(Body::empty())
+            .unwrap();
+        req.extensions_mut()
+            .insert(ConnectInfo(peer.parse::<SocketAddr>().unwrap()));
+        let response = app.clone().oneshot(req).await.unwrap();
+        assert_eq!(response.status(), expected);
+        if expected == StatusCode::OK {
+            let bytes = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+            let body: Value = serde_json::from_slice(&bytes).unwrap();
+            // Default isolated runtime refuses firmware commands, even with valid auth.
+            assert_eq!(body["msg"], "failed to recover usb");
+        }
+    }
+    state.shutdown();
+}

@@ -83,10 +83,14 @@ async fn main() -> Result<(), Error> {
             std::net::TcpListener::bind(SocketAddr::new(host, state.config.port.https))?;
         http_listener.set_nonblocking(true)?;
         https_listener.set_nonblocking(true)?;
-        let redirects = nanokvm_server::redirect::router(state.config.port.https);
+        let redirects = nanokvm_server::redirect::router_with_runtime(
+            state.config.port.https,
+            state.clone(),
+            router.clone(),
+        );
         let redirect_server = axum_server::from_tcp(http_listener)?
             .handle(redirect_handle)
-            .serve(redirects.into_make_service());
+            .serve(redirects.into_make_service_with_connect_info::<SocketAddr>());
         let address = SocketAddr::new(host, state.config.port.https);
         eprintln!("v3 isolated HTTPS listener {address}; functional parity incomplete");
         let tls_server = axum_server::from_tcp_rustls(https_listener, tls)?

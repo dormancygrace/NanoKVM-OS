@@ -802,8 +802,12 @@
     "handler": "service.RecoverUSB",
     "source": "server/router/hid.go",
     "line": 42,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/internal.rs",
+      "server-rust/src/usb.rs",
+      "docs/experiments/v3.0/stage3-internal-usb.md"
+    ]
   },
   {
     "method": "GET",

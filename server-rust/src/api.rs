@@ -312,13 +312,15 @@ pub async fn dispatch(State((s, _)): State<(Arc<Runtime>, PathBuf)>, request: Re
     let Some(peer) = peer else {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
-    let Ok(permit) = s.jobs.clone().try_acquire_owned() else {
-        return StatusCode::SERVICE_UNAVAILABLE.into_response();
-    };
     let headers = request.headers().clone();
     let body = match to_bytes(request.into_body(), 1 << 20).await {
         Ok(b) => b,
         Err(_) => return error(-1, "invalid parameters"),
+    };
+    // Body buffering is async IO, not a blocking job. A slow/incomplete body
+    // must not occupy all execution slots used by other API and socket work.
+    let Ok(permit) = s.jobs.clone().try_acquire_owned() else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
@@ -361,8 +363,12 @@ fn handle(
         }
         let user = if route.authorization == "public" {
             None
-        } else if ["loopback-internal-token", "mcp-api-key"].contains(&route.authorization.as_str())
-        {
+        } else if route.authorization == "loopback-internal-token" {
+            if !s.internal.allowed(peer, headers) {
+                return unauthorized();
+            }
+            None
+        } else if route.authorization == "mcp-api-key" {
             return unauthorized();
         } else {
             let Ok(u) = authenticate(s, headers) else {
@@ -404,6 +410,7 @@ fn handle(
             ("GET", "/api/vm/mouse-jiggler") | ("POST", "/api/vm/mouse-jiggler/") => {
                 crate::jiggler::handle(s, method, parsed)
             }
+            ("POST", "/api/internal/usb/recover") => crate::usb::recover(s),
             ("GET", "/api/branding") => crate::branding::status(&s.root),
             ("GET", "/api/branding/logo") => crate::branding::image(&s.root, "logo.png", headers),
             ("GET", "/api/branding/favicon") => {

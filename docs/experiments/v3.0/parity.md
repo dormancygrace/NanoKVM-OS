@@ -1,8 +1,8 @@
 # Functional parity matrix
 
-204 baseline registrations: 27 implemented in the isolated Rust slice, 1 partial, 176 pending. This is source/host qualification, not complete hardware parity.
+204 baseline registrations: 28 implemented in the isolated Rust slice, 1 partial, 175 pending. This is source/host qualification, not complete hardware parity.
 
-Owner OS password synchronization cannot run in an isolated root; its rollback path is tested. Internal-token/MCP routes fail closed. Pending public/session/admin routes return HTTP 501 after their access gate. All nonpublic baseline routes have an unauthenticated protection test.
+Owner OS password synchronization cannot run in an isolated root; its rollback path is tested. Internal routes require their loopback credential; pending handlers return 501 after that gate. MCP API-key routes fail closed. Pending public/session/admin routes return HTTP 501 after their access gate. All nonpublic baseline routes have an unauthenticated protection test.
 
 | Method | Path | Access | Go handler/source | Rust status | Evidence |
 |---|---|---|---|---|---|
@@ -72,7 +72,7 @@ Owner OS password synchronization cannot run in an isolated root; its rollback p
 | POST | `/api/hid/shortcut` | admin | server/router/hid.go:38 | implemented-isolated | stage3-input.md; contract/filesystem |
 | DELETE | `/api/hid/shortcut` | admin | server/router/hid.go:39 | implemented-isolated | stage3-input.md; contract/filesystem |
 | POST | `/api/hid/shortcut/leader-key` | admin | server/router/hid.go:40 | implemented-isolated | stage3-input.md; contract/filesystem |
-| POST | `/api/internal/usb/recover` | loopback-internal-token | server/router/hid.go:42 | pending | — |
+| POST | `/api/internal/usb/recover` | loopback-internal-token | server/router/hid.go:42 | implemented-isolated | stage3-internal-usb.md; actual-peer auth/HTTP exception/injected recovery |
 | GET | `/api/mcp/config` | admin | server/router/mcp.go:31 | pending | — |
 | POST | `/api/mcp/config` | admin | server/router/mcp.go:32 | pending | — |
 | POST | `/api/mcp/key/regenerate` | admin | server/router/mcp.go:33 | pending | — |

@@ -6,10 +6,45 @@ use axum::{
     Router,
 };
 
-pub fn router(port: u16) -> Router {
-    Router::new().fallback(any(redirect)).with_state(port)
+#[derive(Clone)]
+struct RedirectState {
+    port: u16,
+    internal: Option<(std::sync::Arc<crate::Runtime>, Router)>,
 }
-async fn redirect(State(port): State<u16>, req: Request) -> Response {
+pub fn router(port: u16) -> Router {
+    Router::new()
+        .fallback(any(redirect))
+        .with_state(RedirectState {
+            port,
+            internal: None,
+        })
+}
+pub fn router_with_runtime(
+    port: u16,
+    runtime: std::sync::Arc<crate::Runtime>,
+    app: Router,
+) -> Router {
+    Router::new()
+        .fallback(any(redirect))
+        .with_state(RedirectState {
+            port,
+            internal: Some((runtime, app)),
+        })
+}
+async fn redirect(State(state): State<RedirectState>, req: Request) -> Response {
+    if let Some((runtime, app)) = &state.internal {
+        let peer = req
+            .extensions()
+            .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+            .map(|peer| peer.0.ip());
+        if crate::internal::http_path(req.uri().path())
+            && peer.is_some_and(|peer| runtime.internal.allowed(peer, req.headers()))
+        {
+            use tower::ServiceExt;
+            return app.clone().oneshot(req).await.unwrap().into_response();
+        }
+    }
+    let port = state.port;
     let Some(raw) = req
         .headers()
         .get(header::HOST)

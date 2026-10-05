@@ -10,6 +10,7 @@ pub mod hid_reports;
 mod hid_settings;
 pub mod input;
 pub mod inputcontrol;
+pub mod internal;
 pub mod jiggler;
 pub mod leds;
 pub mod lockout;
@@ -49,6 +50,7 @@ pub struct Runtime {
     pub pico_lock: Arc<inputcontrol::PicoLock>,
     pub jiggler: Arc<jiggler::Jiggler>,
     pub commands: Arc<dyn systemops::Executor>,
+    pub(crate) internal: internal::Token,
     reboot_pending: Arc<std::sync::atomic::AtomicBool>,
     pub(crate) sessions: sessions::Registry,
     pub(crate) socket_slots: Arc<Semaphore>,
@@ -79,8 +81,9 @@ impl Runtime {
             coordinator: inputcontrol::Coordinator::new(),
             pico_lock: Arc::new(inputcontrol::PicoLock::default()),
             jiggler: jiggler::Jiggler::load(config::rooted(&root, "/etc/kvm/mouse-jiggler")?),
-            root,
             commands,
+            internal: internal::Token::load(&root)?,
+            root,
             reboot_pending: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             lockout: Mutex::new(lockout::Lockout::default()),
             jobs: Arc::new(Semaphore::new(4)),

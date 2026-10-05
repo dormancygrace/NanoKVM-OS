@@ -28,7 +28,7 @@ rows = ["# Functional parity matrix", "",
 for r in routes:
     if (r["method"], r["path"]) in partial:
         r["rust_status"] = "partial-isolated"
-        r["evidence"] = ["server-rust/src/ws.rs", "docs/experiments/v3.0/stage3-ws.md"]
+        r["evidence"] = ["server-rust/src/ws.rs", "docs/experiments/v3.0/stage3-coordinator.md"]
     if (r["method"], r["path"]) in ported:
         r["rust_status"] = "implemented-isolated"
         r["evidence"] = (["server-rust/src/hid_settings.rs", "docs/experiments/v3.0/stage3-input.md"]
@@ -37,7 +37,7 @@ for r in routes:
     evidence = ("stage3-input.md; contract/filesystem" if r["path"].startswith("/api/hid/")
                 else "validation.md; API/contract/UI slice") if r["evidence"] else "—"
     if (r["method"], r["path"]) in partial:
-        evidence = "stage3-ws.md; real sockets/HID fixtures; snapshots/addon arbitration pending"
+        evidence = "stage3-coordinator.md; real sockets/HID/LED/ownership; media snapshots and full addons pending"
     if r['path'] == '/api/hid/leds':
         r['evidence'] = ['server-rust/src/leds.rs', 'docs/experiments/v3.0/stage3-leds.md']
         evidence = 'stage3-leds.md; real descriptor/REST/socket snapshots'

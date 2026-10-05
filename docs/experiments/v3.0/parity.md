@@ -209,4 +209,4 @@ Owner OS password synchronization cannot run in an isolated root; its rollback p
 | DELETE | `/api/vm/autostart/:name` | admin | server/router/vm.go:95 | pending | — |
 | POST | `/api/vm/autostart/:name` | admin | server/router/vm.go:96 | pending | — |
 | POST | `/api/vm/system/reboot` | admin | server/router/vm.go:98 | pending | — |
-| GET | `/api/ws` | session | server/router/ws.go:14 | partial-isolated | stage3-ws.md; real sockets/HID fixtures; snapshots/addon arbitration pending |
+| GET | `/api/ws` | session | server/router/ws.go:14 | partial-isolated | stage3-coordinator.md; real sockets/HID/LED/ownership; media snapshots and full addons pending |

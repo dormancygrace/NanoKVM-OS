@@ -1,9 +1,10 @@
-//! Authenticated input socket slice. Capture snapshots and addon arbitration
+//! Authenticated input socket slice. Capture snapshots and addon services
 //! remain migration gates; this module does not claim complete WS parity.
 use crate::{
     api,
     hid_reports::{self, Frame, Report},
     input::{ClientId, Ticket},
+    inputcontrol::{ManualSession, Reservation},
     sessions::Principal,
     Runtime,
 };
@@ -99,10 +100,10 @@ async fn send(
 fn worker(
     runtime: Arc<Runtime>,
     principal: Principal,
-    mut queue: mpsc::Receiver<(Ticket, Report)>,
+    mut queue: mpsc::Receiver<(Ticket, Report, Reservation)>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        while let Some((ticket, report)) = queue.recv().await {
+        while let Some((ticket, report, reservation)) = queue.recv().await {
             let Ok(permit) = runtime.hid_jobs.clone().acquire_owned().await else {
                 break;
             };
@@ -114,7 +115,18 @@ fn worker(
                     if !who.valid(&copy) {
                         return Err("session expired or revoked".into());
                     }
-                    copy.hid.write(&report)
+                    reservation
+                        .execute(|| {
+                            let result = copy.hid.write(&report);
+                            if result.is_err() {
+                                // Finish cleanup before returning the manual lane to addons.
+                                if let Err(error) = copy.hid.release_all() {
+                                    eprintln!("HID failure cleanup failed: {error}");
+                                }
+                            }
+                            result
+                        })
+                        .map(|_| ())
                 })
             })
             .await;
@@ -151,10 +163,18 @@ async fn run(
         if let Err(error) = copy.hid.open() {
             eprintln!("HID open failed: {error}");
         }
-        copy.input.join()
+        let manual = ManualSession::new(copy.control.clone(), copy.coordinator.clone());
+        let cleanup = manual.clone();
+        let hid = copy.hid.clone();
+        let (id, status) = copy.input.join_with_cleanup(move |closed| {
+            if let Err(error) = cleanup.revoke(closed, || hid.release_all()) {
+                eprintln!("manual session cleanup failed: {error}");
+            }
+        })?;
+        Ok::<_, crate::Error>((id, status, manual))
     })
     .await;
-    let Ok(Ok((id, mut status))) = registration else {
+    let Ok(Ok((id, mut status, manual))) = registration else {
         return;
     };
     let mut revoked = match runtime.sessions.register(id, &principal.user.username) {
@@ -279,12 +299,36 @@ async fn run(
                     }
                     Some(Frame::Report(report)) => {
                         let Some(ticket) = runtime.input.ticket(id) else { continue; };
+                        // Admission has its own bounded lane: waiting for addon cleanup
+                        // must not occupy HID workers or block unrelated HTTP requests.
+                        let permit = tokio::select! {
+                            biased;
+                            _ = cancelled(&mut revoked) => { session_revoked = true; break; }
+                            result = timeout(Duration::from_secs(2), runtime.control_jobs.clone().acquire_owned()) => {
+                                match result { Ok(Ok(permit)) => permit, _ => continue }
+                            }
+                        };
+                        let session = manual.clone();
+                        let copy = runtime.clone();
+                        let (kind, held, cooldown) = (report.kind(), report.held(), report.starts_cooldown());
+                        let reservation = tokio::select! {
+                            biased;
+                            _ = cancelled(&mut revoked) => { session_revoked = true; break; }
+                            result = tokio::task::spawn_blocking(move || {
+                                let _permit = permit;
+                                session.reserve(kind, held, cooldown, Duration::from_secs(2), |mode| {
+                                    mode != crate::controlmode::Mode::Picoclaw || copy.pico_lock.owner().is_empty()
+                                })
+                            }) => { match result { Ok(Ok(reservation)) => reservation, _ => continue } }
+                        };
+                        // Ownership may have moved while this socket waited for a reservation.
+                        if runtime.input.ticket(id).is_none() { drop(reservation); continue; }
                         let queue = if report.kind() == hid_reports::Kind::Keyboard { &keyboard } else { &mouse };
                         tokio::select! {
                             biased;
                             _ = cancelled(&mut revoked) => { session_revoked = true; break; }
                             // Bounded backpressure, without retaining an unlimited list of reports.
-                            _ = timeout(Duration::from_secs(2), queue.send((ticket, report))) => {},
+                            _ = timeout(Duration::from_secs(2), queue.send((ticket, report, reservation))) => {},
                         }
                     }
                     None => {},

@@ -2,11 +2,13 @@ mod api;
 mod binding;
 mod branding;
 pub mod config;
+pub mod controlmode;
 pub mod crypto;
 pub mod hid_device;
 pub mod hid_reports;
 mod hid_settings;
 pub mod input;
+pub mod inputcontrol;
 pub mod leds;
 pub mod lockout;
 pub mod redirect;
@@ -38,9 +40,13 @@ pub struct Runtime {
     pub hid_settings: Mutex<()>,
     pub hid: Arc<hid_device::Devices>,
     pub input: Arc<input::Hub>,
+    pub control: Arc<controlmode::Manager>,
+    pub coordinator: Arc<inputcontrol::Coordinator>,
+    pub pico_lock: Arc<inputcontrol::PicoLock>,
     pub(crate) sessions: sessions::Registry,
     pub(crate) socket_slots: Arc<Semaphore>,
     pub(crate) hid_jobs: Arc<Semaphore>,
+    pub(crate) control_jobs: Arc<Semaphore>,
     pub(crate) stopping: std::sync::atomic::AtomicBool,
 }
 impl Runtime {
@@ -51,6 +57,12 @@ impl Runtime {
         Ok(Arc::new(Self {
             config: config::Config::load(&root)?,
             store: store::Store::new(config::rooted(&root, "/etc/kvm/pwd")?),
+            control: controlmode::Manager::new(
+                config::rooted(&root, "/etc/kvm/ai-control.mode")?,
+                controlmode::Mode::Picoclaw,
+            ),
+            coordinator: inputcontrol::Coordinator::new(),
+            pico_lock: Arc::new(inputcontrol::PicoLock::default()),
             root,
             lockout: Mutex::new(lockout::Lockout::default()),
             jobs: Arc::new(Semaphore::new(4)),
@@ -64,6 +76,7 @@ impl Runtime {
             sessions: sessions::Registry::default(),
             socket_slots: Arc::new(Semaphore::new(64)),
             hid_jobs: Arc::new(Semaphore::new(2)),
+            control_jobs: Arc::new(Semaphore::new(2)),
             stopping: std::sync::atomic::AtomicBool::new(false),
         }))
     }
@@ -79,6 +92,9 @@ impl Runtime {
             .store(true, std::sync::atomic::Ordering::Release);
         self.socket_slots.close();
         self.hid_jobs.close();
+        self.control_jobs.close();
+        self.coordinator.cancel(inputcontrol::Cause::ModeChanged);
+        self.pico_lock.release("");
         self.hid.leds().stop();
         for id in self.sessions.revoke_all() {
             let _ = self.input.leave(id);

@@ -1,0 +1,526 @@
+[
+  {
+    "files": {},
+    "name": "missing",
+    "status": {
+      "supported": false,
+      "throttled": false,
+      "running": 0,
+      "target": 1000,
+      "options": []
+    }
+  },
+  {
+    "files": {
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "qualified-default",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "unqualified"
+    },
+    "name": "wrong-driver",
+    "status": {
+      "supported": false,
+      "throttled": false,
+      "running": 0,
+      "target": 1000,
+      "options": []
+    }
+  },
+  {
+    "files": {
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "0",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "running-0",
+    "status": {
+      "supported": false,
+      "throttled": false,
+      "running": 0,
+      "target": 1000,
+      "options": []
+    }
+  },
+  {
+    "files": {
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "-1",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "running--1",
+    "status": {
+      "supported": false,
+      "throttled": false,
+      "running": 0,
+      "target": 1000,
+      "options": []
+    }
+  },
+  {
+    "files": {
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "invalid",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "running-invalid",
+    "status": {
+      "supported": false,
+      "throttled": false,
+      "running": 0,
+      "target": 1000,
+      "options": []
+    }
+  },
+  {
+    "files": {
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "9223372036854775808",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "running-9223372036854775808",
+    "status": {
+      "supported": false,
+      "throttled": false,
+      "running": 0,
+      "target": 1000,
+      "options": []
+    }
+  },
+  {
+    "files": {
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "+1000000",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "running-+1000000",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 1000,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "1",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "running-1",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 0,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "849999",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "running-849999",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 849,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/etc/kvm/cpufreq": "850",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "boot-850",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 850,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/etc/kvm/cpufreq": "1000",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "boot-1000",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/etc/kvm/cpufreq": "1050",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "boot-1050",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/etc/kvm/cpufreq": "invalid",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "boot-invalid",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/etc/kvm/cpufreq": "  +850\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "boot-  +850\n",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 850,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/etc/kvm/cpufreq": "9223372036854775808",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "boot-9223372036854775808",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/etc/kvm/cpufreq": "850",
+      "/run/nanokvm-cpufreq": "1125",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "runtime-1125",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1125,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/etc/kvm/cpufreq": "850",
+      "/run/nanokvm-cpufreq": "1175",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "runtime-1175",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 850,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/etc/kvm/cpufreq": "850",
+      "/run/nanokvm-cpufreq": "invalid",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "runtime-invalid",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 850,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/etc/kvm/cpufreq": "850",
+      "/run/nanokvm-cpufreq": "-0",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "runtime--0",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 850,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_available_frequencies": "",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "options-empty",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1000,
+      "options": null
+    }
+  },
+  {
+    "files": {
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_available_frequencies": "bad 600000 1175000 850001",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "options-invalid",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1000,
+      "options": null
+    }
+  },
+  {
+    "files": {
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_available_frequencies": "1125000 850000 600000 850000 +1000000 1150000 850001",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "options-ordered",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1000,
+      "options": [
+        1125,
+        850,
+        850,
+        1000,
+        1150
+      ]
+    }
+  },
+  {
+    "files": {
+      "/sys/class/thermal/thermal_zone0/cdev0/cur_state": "1",
+      "/sys/class/thermal/thermal_zone0/cdev0/type": "cpufreq-cpu0",
+      "/sys/class/thermal/thermal_zone0/type": "sg2002-cpu",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "thermal-known",
+    "status": {
+      "supported": true,
+      "throttled": true,
+      "running": 850,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/sys/class/thermal/thermal_zone0/cdev0/cur_state": "6",
+      "/sys/class/thermal/thermal_zone0/cdev0/type": "cpufreq-cpu0",
+      "/sys/class/thermal/thermal_zone0/type": "sg2002-cpu",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "thermal-high",
+    "status": {
+      "supported": true,
+      "throttled": true,
+      "running": 850,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/sys/class/thermal/thermal_zone0/cdev0/cur_state": "1",
+      "/sys/class/thermal/thermal_zone0/cdev0/type": "cpufreq-cpu0",
+      "/sys/class/thermal/thermal_zone0/type": "other",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "thermal-wrong-zone",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/sys/class/thermal/thermal_zone0/cdev0/cur_state": "1",
+      "/sys/class/thermal/thermal_zone0/cdev0/type": "other",
+      "/sys/class/thermal/thermal_zone0/type": "sg2002-cpu",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "thermal-wrong-cooling",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/sys/class/thermal/thermal_zone0/cdev0/cur_state": "0",
+      "/sys/class/thermal/thermal_zone0/cdev0/type": "cpufreq-cpu0",
+      "/sys/class/thermal/thermal_zone0/type": "sg2002-cpu",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "thermal-zero",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/sys/class/thermal/thermal_zone0/cdev0/cur_state": "-1",
+      "/sys/class/thermal/thermal_zone0/cdev0/type": "cpufreq-cpu0",
+      "/sys/class/thermal/thermal_zone0/type": "sg2002-cpu",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "thermal-negative",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  },
+  {
+    "files": {
+      "/sys/class/thermal/thermal_zone0/cdev0/cur_state": "bad",
+      "/sys/class/thermal/thermal_zone0/cdev0/type": "cpufreq-cpu0",
+      "/sys/class/thermal/thermal_zone0/type": "sg2002-cpu",
+      "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_cur_freq": "850000\n",
+      "/sys/devices/system/cpu/cpufreq/policy0/scaling_driver": "sg2002-cpufreq\n"
+    },
+    "name": "thermal-invalid",
+    "status": {
+      "supported": true,
+      "throttled": false,
+      "running": 850,
+      "target": 1000,
+      "options": [
+        850,
+        1000
+      ]
+    }
+  }
+]

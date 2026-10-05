@@ -167,6 +167,7 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         ("POST", "/api/vm/web-title") => &["title"],
         ("POST", "/api/vm/hostname") => &["hostname"],
         ("POST", "/api/vm/oled") => &["sleep"],
+        ("POST", "/api/vm/cpu-frequency") => &["target"],
         ("POST", "/api/hid/shortcut") => &["keys"],
         ("POST", "/api/hid/paste") => &["content", "langue"],
         ("POST", "/api/hid/mode") => &["mode"],
@@ -469,6 +470,8 @@ fn handle(
         }
         let secure = secure_cookie(s, headers, peer);
         match (method.as_str(), path) {
+            ("GET", "/api/vm/cpu-frequency") => crate::cpufreq::get(s),
+            ("POST", "/api/vm/cpu-frequency") => crate::cpufreq::set(s, parsed),
             ("GET", "/api/vm/oled") => crate::oled::get(s),
             ("POST", "/api/vm/oled") => crate::oled::set(s, parsed),
             ("GET", "/api/vm/hostname") => crate::hostname::get(s),

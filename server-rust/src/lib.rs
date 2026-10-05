@@ -4,6 +4,7 @@ mod branding;
 pub mod composition;
 pub mod config;
 pub mod controlmode;
+pub mod cpufreq;
 pub mod crypto;
 mod form_binding;
 pub mod fsroot;
@@ -71,6 +72,7 @@ pub struct Runtime {
     pub hardware: hardware::Hardware,
     pub atx: gpio::Controller,
     pub atx_leds: gpio_monitor::Monitor,
+    pub cpu: cpufreq::Manager,
     pub(crate) internal: internal::Token,
     reboot_pending: Arc<std::sync::atomic::AtomicBool>,
     pub(crate) sessions: sessions::Registry,
@@ -107,6 +109,23 @@ impl Runtime {
         gpio: Arc<dyn gpio::Backend>,
     ) -> Result<Arc<Self>, Error> {
         let root = root.canonicalize()?;
+        let cpu = Arc::new(cpufreq::Native::new(root.clone()));
+        Self::load_with_hardware_backends(&root, commands, media, gpio, cpu)
+    }
+    pub fn load_with_hardware_backends(
+        root: &Path,
+        commands: Arc<dyn systemops::Executor>,
+        media: Arc<dyn monitor::Backend>,
+        gpio: Arc<dyn gpio::Backend>,
+        cpu: Arc<dyn cpufreq::Backend>,
+    ) -> Result<Arc<Self>, Error> {
+        let root = root.canonicalize()?;
+        let cpu = cpufreq::Manager::new(root.clone(), cpu);
+        if root == Path::new("/") {
+            if let Err(error) = cpu.apply_saved() {
+                eprintln!("apply saved CPU frequency failed: {error}");
+            }
+        }
         let hardware = hardware::Hardware::detect(&root);
         let hid = Arc::new(hid_device::Devices::new(root.clone()));
         let release = hid.clone();
@@ -125,6 +144,7 @@ impl Runtime {
             atx: gpio::Controller::new(gpio.clone()),
             atx_leds: gpio_monitor::Monitor::new(&hardware, gpio),
             hardware,
+            cpu,
             internal: internal::Token::load(&root)?,
             root,
             reboot_pending: Arc::new(std::sync::atomic::AtomicBool::new(false)),

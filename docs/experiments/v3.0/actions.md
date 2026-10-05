@@ -233,3 +233,13 @@ Jiff probe result:58 actual Go cases match host and target, six system TZif zone
 OLED/string commit before command: all102 host/target/TLS tests and independent58-case locked Jiff replay pass. Stage source/oracles/fixtures/docs/ledger/probe only and commit locally; no server dependency, external publication or stand change.
 
 OLED/string bounded local commit created; amend to record completion and next CPU/time settings action. All102 tests passed, Jiff58-case host/target parser proof saved; no firmware action.
+
+CPU frequency before implementation: OLED committed94ef207, clean. Full baseline CPU source/tests read. Implement qualified-driver/status/options/known-thermal checks, five-step effective-limit waits/clock readback, rollback, boot-cap1000/run overclock, scoped native sysfs writes without creating disappeared nodes, admin APIs and real-root startup-only saved target. Fix baseline partial preference persistence with preflight/snapshot/reverse rollback so a failed request cannot retain a new boot target. Backend injection is isolated; no CPU/stand writes.
+
+CPU before tests: generate actual baseline Go status oracle from pure file readers; add isolated driver/clock/capability/thermal/QoS delay/persistence rollback/no-create/admin binding fixtures. No device writes.
+
+CPU before final fixtures: first six host tests/30 actual Go status cases and warning-denied clippy pass. Add injectable atomic preference writes (native default unchanged) to prove second-write failure restores prior bytes/modes or absence, plus effective-QoS timeout/failed-restore evidence.
+
+CPU after qualification: check-v3.py --host --target --tls passes 110 tests each (39+24+8+19+9+11), 30 immutable Go status fixtures, delayed-QoS/thermal/readback/partial preference bytes+mode+absence rollback/no-create/admin. Static generic-rv64 and real TLS shutdown/port checks pass, 164 SPDX packages. Ledger42 isolated/1partial/161pending. Local bounded commit next; no stand CPU mutation/publication.
+
+CPU local commit b3fe031 created after 110-test qualification; checkpoint/log amended with the result. No push. Next date/time.

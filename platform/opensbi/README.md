@@ -28,7 +28,9 @@ The FSBL passes `fw_dynamic_info` with U-Boot's entry and S-mode, so use FW_DYNA
 | Vendor behavior | Decision and evidence |
 |---|---|
 | C906 cache/CSR setup | Retain the original FSBL. Pinned `fsbl/lib/cpu/riscv/bl1_entrypoint.S` and `bl2_entrypoint.S` initialize mxstatus/mhcr/mcor and PLIC delegation before MONITOR. |
+| C906 draft vector VS | Patch `0002` restores SG2002 mstatus[24:23] after generic hart initialization, including warm-hart startup. Vendor 0.9 used `0x01800000`; ratified upstream uses `0x600`. Without the SG2002 handoff, the installed Linux 7.2.9 faults at CSR_VLENB in `riscv_v_setup_vsize`. Standard VS and other SoCs are unchanged; firmware remains scalar. |
 | Vendor custom PMU SBI extension `0x09000001` | Use upstream SBI PMU with the SG2002 override in `platform/generic/thead/thead-generic.c`. Current mainline Linux uses standard SBI PMU. |
+| SBI 3.0 PMU event discovery | The M-mode DT explicitly maps event 1 to counter 0 (mcycle) and event 2 to counter 2 (minstret). Without this table, EVENT_GET_INFO makes Linux reject cycles/instructions despite registering the PMU. No platform-specific raw/cache events are advertised. |
 | Old CLINT binding / access width | Use mainline `thead,c900-clint`: 32-bit MMIO accesses and time CSR instead of an MMIO mtime. |
 | PLIC | Use mainline `thead,c900-plic`, 101 sources, M/S contexts. Upstream handles T-Head delegation. |
 | Vendor `thead,reset-sample` ebreak reset | Do not carry the sample reset handler; it is not matched by the stock DT. System reset is advertised only if an upstream backend supports it. Linux/U-Boot have the SoC reset driver. |
@@ -53,6 +55,16 @@ python3 scripts/test-opensbi-reservations.py \
 ```
 
 This uses calculated PMP fixtures, native scalar cell-decoding adapters and the real U-Boot copy/deduplication code. It verifies exact-range deduplication, the additional RW range, stable repeated copies and detection of an oversized overlapping static range. It does not execute OpenSBI or simulate C906 hardware.
+
+## SG2002 RAM hardware result (2026-10-05)
+
+FIP SHA-256 `76e50ecc3fab0da16f2ab750e6f79a67ec2dedeac9397c5f437343e6008e3692` passed ROM UART RAM loading on Sipeed NanoKVM PCIe. OpenSBI 1.9 handed off to the unchanged U-Boot and installed Linux 7.2.9 with normal bootcmd/bootargs. Runtime SBI version is 3.0, implementation version 0x10009. Linux imported both 256/64 KiB firmware reservations and the unchanged 2 MiB small-core reservation.
+
+Timer and PLIC device interrupts progress, both application services start, and Chrome Main displays an advancing HDMI stopwatch. A bounded perf_event_open counting probe opened cycles and instructions together; both values increased (108515 to 921149 cycles, 71670 to 774880 instructions). No Oops/panic/overlap diagnostics appeared. This checks counting, not PMU overflow sampling, raw events, multicore IPI/RFENCE or vector context switching.
+
+The SD FIP was never replaced. Candidate cold boot from SD and persistent installation remain untested. Deterministic build manifests retain their build-time hardware_validation=pending field; a separate hardware report links measured results to the exact artifact hash.
+
+ROM UART bypasses SD ROM pad initialization. RAM U-Boot needs volatile SD0 settings before mmc rescan: SD0_PWR_EN mux 0x03001038=0, SD power 0x030001f4=0x1209, and CMD/D0-D3 pads 0x03001a04..0x03001a14=0x44. These are register changes, not SD writes. The ROM-only host adapter uses an empty partition/program list and excludes the persistent programming stage. Loading the original host FIP into RAM and booting the unchanged SD Linux was verified first. This does not by itself prove that a damaged SD FIP can be repaired.
 
 ## Upgrade and recovery
 

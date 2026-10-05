@@ -2306,7 +2306,10 @@
     "handler": "service.Connect",
     "source": "server/router/ws.go",
     "line": 14,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "partial-isolated",
+    "evidence": [
+      "server-rust/src/ws.rs",
+      "docs/experiments/v3.0/stage3-ws.md"
+    ]
   }
 ]

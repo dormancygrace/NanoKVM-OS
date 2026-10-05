@@ -214,5 +214,56 @@
     "updated_at": "2026-10-02T15:34:09Z",
     "license": null,
     "open_issues_count": 34
+  },
+  {
+    "full_name": "rust-lang/libc",
+    "html_url": "https://github.com/rust-lang/libc",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-10-02T19:33:22Z",
+    "updated_at": "2026-10-04T15:47:44Z",
+    "license": {
+      "key": "apache-2.0",
+      "name": "Apache License 2.0",
+      "spdx_id": "Apache-2.0",
+      "url": "https://api.github.com/licenses/apache-2.0",
+      "node_id": "MDc6TGljZW5zZTI="
+    },
+    "open_issues_count": 168,
+    "checked_at": "2026-10-05T00:13:04.780937+00:00"
+  },
+  {
+    "full_name": "rust-lang/futures-rs",
+    "html_url": "https://github.com/rust-lang/futures-rs",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-10-01T12:14:07Z",
+    "updated_at": "2026-10-04T09:53:57Z",
+    "license": {
+      "key": "apache-2.0",
+      "name": "Apache License 2.0",
+      "spdx_id": "Apache-2.0",
+      "url": "https://api.github.com/licenses/apache-2.0",
+      "node_id": "MDc6TGljZW5zZTI="
+    },
+    "open_issues_count": 280,
+    "checked_at": "2026-10-05T00:13:04.759353+00:00"
+  },
+  {
+    "full_name": "snapview/tokio-tungstenite",
+    "html_url": "https://github.com/snapview/tokio-tungstenite",
+    "archived": false,
+    "disabled": false,
+    "pushed_at": "2026-07-11T13:02:02Z",
+    "updated_at": "2026-10-02T10:57:53Z",
+    "license": {
+      "key": "mit",
+      "name": "MIT License",
+      "spdx_id": "MIT",
+      "url": "https://api.github.com/licenses/mit",
+      "node_id": "MDc6TGljZW5zZTEz"
+    },
+    "open_issues_count": 19,
+    "checked_at": "2026-10-05T00:13:04.748055+00:00"
   }
 ]

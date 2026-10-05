@@ -193,7 +193,15 @@ impl Hub {
             return Ok(false);
         }
         drop(state);
-        operation()?;
+        if let Err(error) = operation() {
+            // Cancel reports already queued behind a failed device write.
+            let mut state = self.state()?;
+            state.generation = state
+                .generation
+                .checked_add(1)
+                .ok_or("input generation exhausted")?;
+            return Err(error);
+        }
         Ok(true)
     }
     pub fn allows_http(&self, lease: &str) -> bool {

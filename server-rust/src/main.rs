@@ -4,6 +4,12 @@ use std::{
     path::PathBuf,
     time::Duration,
 };
+struct Cleanup(std::sync::Arc<Runtime>);
+impl Drop for Cleanup {
+    fn drop(&mut self) {
+        self.0.shutdown();
+    }
+}
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Error> {
@@ -33,6 +39,7 @@ async fn main() -> Result<(), Error> {
         return Err("v3 production activation blocked: functional parity is incomplete; use an isolated --root".into());
     }
     let state = Runtime::load(&root)?;
+    let _cleanup = Cleanup(state.clone());
     let host: IpAddr = if state.config.host.is_empty() {
         "127.0.0.1".parse()?
     } else {
@@ -52,10 +59,12 @@ async fn main() -> Result<(), Error> {
     let router = app(state.clone(), web);
     let handle = axum_server::Handle::new();
     let shutdown = handle.clone();
+    let shutdown_state = state.clone();
     tokio::spawn(async move {
         let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
             .expect("SIGTERM handler");
         tokio::select! {_ = tokio::signal::ctrl_c()=>{},_ = term.recv()=>{}}
+        let _ = tokio::task::spawn_blocking(move || shutdown_state.shutdown()).await;
         shutdown.graceful_shutdown(Some(Duration::from_secs(5)));
     });
     if state.config.proto == "https" {

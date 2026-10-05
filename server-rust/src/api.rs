@@ -169,6 +169,7 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         ("POST", "/api/auth/users") => &["username", "password", "role"],
         ("POST", "/api/vm/web-title") => &["title"],
         ("POST", "/api/vm/hostname") => &["hostname"],
+        ("POST", "/api/vm/ssh/enable") => &["password"],
         ("POST", "/api/vm/oled") => &["sleep"],
         ("POST", "/api/vm/cpu-frequency") => &["target"],
         ("POST", "/api/vm/date-time") => &["servers", "timezone", "format"],
@@ -231,6 +232,7 @@ fn params(
                     "key" => "Key",
                     "title" => "Title",
                     "hostname" => "Hostname",
+                    "password" if path == "/api/vm/ssh/enable" => "Password",
                     "sleep" => "Sleep",
                     "size" => "Size",
                     "target" => "Target",
@@ -303,57 +305,34 @@ fn required<'a>(v: &'a Value, key: &str) -> Result<&'a str, Error> {
         }
     })
 }
-fn change_password(s: &Runtime, name: &str, encrypted: &str) -> Result<(), Error> {
+fn change_password(
+    s: &Runtime,
+    name: &str,
+    encrypted: &str,
+    cancelled: &crate::request_cancel::Cancellation,
+) -> Result<(), Error> {
     let password = crypto::decrypt(encrypted).map_err(|_| "invalid password")?;
     if password.is_empty() {
         return Err("invalid password".into());
     }
     let user = s.store.get(name)?;
+    if user.system_account && password.contains(['\r', '\n', '\0']) {
+        return Err("invalid root password".into());
+    }
+    let _settings = if user.system_account {
+        Some(crate::services::settings(s, cancelled)?)
+    } else {
+        None
+    };
     s.store.password(name, &password, || {
-        if !user.system_account {
-            return Ok(());
+        if user.system_account {
+            s.commands
+                .password(&password, Duration::from_secs(10), &|| {
+                    cancelled.cancelled()
+                })
+        } else {
+            Ok(())
         }
-        // Sandbox roots never invoke a host account command.
-        if s.root != std::path::Path::new("/") {
-            return Err("system password update unavailable in isolated root".into());
-        }
-        use std::{
-            io::Write,
-            process::{Command, Stdio},
-            thread,
-        };
-        let mut child = Command::new("passwd")
-            .arg("root")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()?;
-        let result = (|| -> Result<(), Error> {
-            let input = child.stdin.as_mut().ok_or("password input unavailable")?;
-            writeln!(input, "{password}")?;
-            thread::sleep(Duration::from_millis(100));
-            writeln!(input, "{password}")?;
-            drop(child.stdin.take());
-            let deadline = Instant::now() + Duration::from_secs(10);
-            loop {
-                if let Some(exit) = child.try_wait()? {
-                    return if exit.success() {
-                        Ok(())
-                    } else {
-                        Err("system password update failed".into())
-                    };
-                }
-                if Instant::now() >= deadline {
-                    return Err("system password update timed out".into());
-                }
-                thread::sleep(Duration::from_millis(20));
-            }
-        })();
-        if result.is_err() {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
-        result
     })
 }
 
@@ -523,6 +502,13 @@ fn handle(
             ("POST", "/api/vm/swap") => crate::memory_ops::legacy_set(s, parsed, cancelled),
             ("GET", "/api/vm/info") => crate::sysinfo::get(s),
             ("GET", "/api/vm/mdns") => crate::sysinfo::mdns(s),
+            ("POST", "/api/vm/mdns/enable") => crate::services::mdns(s, true, cancelled),
+            ("POST", "/api/vm/mdns/disable") => crate::services::mdns(s, false, cancelled),
+            ("GET", "/api/vm/ssh") => crate::services::ssh_get(s),
+            ("POST", "/api/vm/ssh/enable") => crate::services::ssh_set(s, true, parsed, cancelled),
+            ("POST", "/api/vm/ssh/disable") => {
+                crate::services::ssh_set(s, false, parsed, cancelled)
+            }
             ("GET", "/api/vm/date-time") => crate::timeconfig::get(s),
             ("POST", "/api/vm/date-time") => crate::timeconfig::set(s, parsed),
             ("GET", "/api/vm/cpu-frequency") => crate::cpufreq::get(s),
@@ -614,7 +600,7 @@ fn handle(
                     Ok(None) => return error(-3, "current password is incorrect"),
                     Ok(Some(_)) => {}
                 }
-                if let Err(e) = change_password(s, &u.username, encrypted) {
+                if let Err(e) = change_password(s, &u.username, encrypted, cancelled) {
                     return error(-5, &e.to_string());
                 }
                 s.revoke_sessions(&u.username);
@@ -742,7 +728,7 @@ fn handle(
                             }
                             _ => {}
                         }
-                        match change_password(s, name, encrypted) {
+                        match change_password(s, name, encrypted, cancelled) {
                             Ok(()) => {
                                 s.revoke_sessions(name);
                                 ok(Value::Null)

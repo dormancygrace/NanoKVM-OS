@@ -349,3 +349,27 @@ Memory focused host five integration plus four units and clippy pass. Add actual
 Memory operations after full qualification:154 host/target tests (52unit+27API+5dashboard+9CPU+8time+3identity+3memory+6mutations+21WS+9USB+11GPIO), fmt/clippy, static release and real TLS gates pass.66 immutable Go mutation contracts. Binary1487041ad6999de5d8900ac229a45bfd0eead12b7e55cb37fbe3074e1cefb512 (6869368bytes),173 SPDX packages. Ledger52 isolated/1partial/151pending. Before local bounded commit, then mDNS/SSH. No host/stand helper, swap, boot or service/password action.
 
 Memory operations local commit b68d996 created after qualification; log amendment. No push. Next mDNS/SSH.
+
+Services before implementation: memory committed46bd5b9 qualified154, source/helper/password validation read. Port admin mDNS mutations and SSH GET/enable/disable; preserve Alpine marker+OpenRC and legacy script copy/cleanup. Correct unsafe PID shell interpolation with fixed Avahi -k (no PID used as command text). Fixed SSH helper arguments; password only owned passwd stdin with100ms confirmation,10sec deadline, request/shutdown cancellation and process-group reaping. Reuse injectable executor for owner account password sync/rollback. Reject CR/LF/NUL system-password protocol input rather than set a different root credential. Isolated native commands remain refused. Fixtures/oracle next, no host/stand service or password action.
+
+Services compile passes. Before immutable Gin oracle: substitute command/password operations only; emulate fixed legacy cp into temporary root, inspect actual marker/cleanup effects. Password ciphertexts are generated synthetic fixture values; no real credentials or command execution.
+
+Services oracle compile found baseline local variable command shadows fixture function name. Rename fixture to fixtureExec; baseline function logic unchanged, no runtime source change.
+
+Services before focused fixtures:40 immutable Go Gin response/binding/password-order/marker/cleanup cases generated. Match required encrypted password before decrypt; share system mutex across SSH and owner password updates to prevent concurrent root credential changes. Three integrations cover Go effects/admin/isolation/owner DB rollback/dropped-request no-enable; one local stdin confirmation/timeout/cancellation process-group unit. No passwd/Avahi/SSH helper executed.
+
+Services focused oracle caught real form mapping mismatch: EnableSSHReq has JSON password but Gin defaults form name Password. Rust had accepted lowercase. Correct route-specific form field, expand actual Go uppercase successful case (41 total), rerun. Owner rollback/cancel/admin/native isolation and local stdin runner passed; clippy pass.
+
+Services focused all41 actual Go contracts/three integrations, stdin process unit and clippy pass after route form correction. Owner DB exact rollback and request-drop no-enable/permit recovery pass. Before full158 host/target/static/TLS qualification; runtime source frozen. No host/stand SSH/Avahi/passwd or helper execution.
+
+Native link boundary before probe: retained kvm/kvm_mmf components are DYNAMIC; musl MPI CMake links vendor .so libraries. Check static riscv64 musl dlopen using a synthetic exported function only, inspect existing native/server ELF dependencies. No libkvm initialization, capture, HDMI, device access or stand action. Runtime source stays frozen for services qualification.
+
+Native loader probe first SDK-C static executable traps SIGILL under generic QEMU before reporting loader result; no hardware/library initialized. This does not prove dlopen behavior. Repeat using qualified Rust distributed generic-musl libc/crt, retain SDK result as separate ABI evidence. Vendor CMake .so linkage and baseline dynamic musl interpreter confirmed.
+
+Native link boundary before probe: retained kvm/kvm_mmf components are DYNAMIC; musl MPI CMake links vendor .so libraries. Check static riscv64 musl dlopen through the Rust distributed libc using a synthetic exported function only, inspect existing native/server ELF dependencies. No libkvm initialization, capture, HDMI, device access or stand action. Runtime source stays frozen for services qualification.
+
+Native link probe result: static generic riscv64 musl/QEMU refuses synthetic dlopen: Dynamic loading not supported. Existing server/native ELF dependencies recorded in native-link-probe.json; native .so not loaded or initialized. Need a reviewed static-native archive build or a retained C capture process boundary; do not assume dynamic loading works in static Rust. No runtime/source/device action.
+
+Services after full qualification:158 host/target tests (53unit+27API+5dashboard+9CPU+8time+3identity+3memory+6mutations+3services+21WS+9USB+11GPIO), fmt/clippy/static/TLS gates pass.41 immutable Go contracts. Binaryf1c3026ffbd6973c24730c72778d5d5fa812d5e19a95a5f410aee26b8b470202 (6884328bytes),173 SPDX. Ledger57 isolated/1partial/146pending. Before local bounded services commit. Native loader probe evidence remains separate. No host/stand service/password/capture action.
+
+Services local commit e3daa36 created after qualification; log amendment. No push. Next native static/shared boundary evidence.

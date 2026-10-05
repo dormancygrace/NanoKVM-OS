@@ -2146,8 +2146,9 @@
     "handler": "service.GetSSHState)        ",
     "source": "server/router/vm.go",
     "line": 71,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-services.md; tests/services.rs; 41 immutable Go API/policy cases, owned stdin password/rollback/cancellation and host-target/static/TLS gates"
   },
   {
     "method": "POST",
@@ -2157,8 +2158,9 @@
     "handler": "service.EnableSSH)  ",
     "source": "server/router/vm.go",
     "line": 72,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-services.md; tests/services.rs; 41 immutable Go API/policy cases, owned stdin password/rollback/cancellation and host-target/static/TLS gates"
   },
   {
     "method": "POST",
@@ -2168,8 +2170,9 @@
     "handler": "service.DisableSSH",
     "source": "server/router/vm.go",
     "line": 73,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-services.md; tests/services.rs; 41 immutable Go API/policy cases, owned stdin password/rollback/cancellation and host-target/static/TLS gates"
   },
   {
     "method": "GET",
@@ -2301,8 +2304,9 @@
     "handler": "service.EnableMdns)  ",
     "source": "server/router/vm.go",
     "line": 88,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-services.md; tests/services.rs; 41 immutable Go API/policy cases, owned stdin password/rollback/cancellation and host-target/static/TLS gates"
   },
   {
     "method": "POST",
@@ -2312,8 +2316,9 @@
     "handler": "service.DisableMdns",
     "source": "server/router/vm.go",
     "line": 89,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-services.md; tests/services.rs; 41 immutable Go API/policy cases, owned stdin password/rollback/cancellation and host-target/static/TLS gates"
   },
   {
     "method": "POST",

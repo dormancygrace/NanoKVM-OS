@@ -518,3 +518,70 @@ async fn blocked_nonblocking_hid_does_not_stall_control_and_discards_old_queue()
     b.close(None).await.unwrap();
     a.close(None).await.unwrap();
 }
+
+#[tokio::test]
+async fn led_rest_and_socket_snapshots_follow_host_output_and_bound_keyboard_state() {
+    use std::{
+        io::Write,
+        os::{fd::OwnedFd, unix::net::UnixStream},
+    };
+    let server = Server::new("").await;
+    let bound = server
+        .root
+        .path()
+        .join("sys/kernel/config/usb_gadget/g0/configs/c.1/hid.GS0");
+    fs::create_dir_all(&bound).unwrap();
+    let token = server.token("owner", 120);
+    let initial = server
+        .api("GET", "/api/hid/leds", &token, Value::Null, None)
+        .await
+        .1["data"]
+        .clone();
+    assert_eq!(
+        initial,
+        json!({"keyboardEnabled":true,"numLock":false,"capsLock":false,"scrollLock":false,"known":false,"updatedAt":""})
+    );
+    let mut socket = server.socket(&token, &[]).await.unwrap();
+    let initial = event(&mut socket, "hid-led-status").await;
+    let initial: Value = serde_json::from_str(initial["data"].as_str().unwrap()).unwrap();
+    assert_eq!(initial["updatedAt"], "0001-01-01T00:00:00Z");
+    control(&mut socket, true).await;
+    assert!(server.runtime.hid.leds().missing_reader()); // Fake regular input files are never read as output reports.
+    let (reader, mut host) = UnixStream::pair().unwrap();
+    reader.set_nonblocking(true).unwrap();
+    server
+        .runtime
+        .hid
+        .leds()
+        .replace_reader(Some(fs::File::from(OwnedFd::from(reader))))
+        .unwrap();
+    host.write_all(&[3]).unwrap();
+    let update = event(&mut socket, "hid-led-status").await;
+    let update: Value = serde_json::from_str(update["data"].as_str().unwrap()).unwrap();
+    assert_eq!(update["known"], true);
+    assert_eq!(update["numLock"], true);
+    assert_eq!(update["capsLock"], true);
+    assert_eq!(update["scrollLock"], false);
+    assert!(update["updatedAt"].as_str().unwrap().ends_with('Z'));
+    assert_eq!(
+        server
+            .api("GET", "/api/hid/leds", &token, Value::Null, None)
+            .await
+            .1["data"],
+        update
+    );
+    fs::remove_dir(bound).unwrap();
+    let disabled = server
+        .api("GET", "/api/hid/leds", &token, Value::Null, None)
+        .await
+        .1["data"]
+        .clone();
+    assert_eq!(disabled["keyboardEnabled"], false);
+    assert_eq!(disabled["known"], false);
+    let update = event(&mut socket, "hid-led-status").await;
+    assert_eq!(
+        serde_json::from_str::<Value>(update["data"].as_str().unwrap()).unwrap(),
+        disabled
+    );
+    socket.close(None).await.unwrap();
+}

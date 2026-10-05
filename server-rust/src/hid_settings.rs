@@ -1,5 +1,5 @@
 //! Persisted HID settings and read-only composition inspection.
-//! Gadget rebinding, report queues and LED readers are separate stage 3 work.
+//! Gadget rebinding is separate stage 3 work.
 use crate::{
     api::{error, ok, pending},
     store::atomic_write,
@@ -108,6 +108,11 @@ pub fn handle(
     let shortcuts_path = s.root.join("etc/kvm/shortcuts.json");
     let leader = s.root.join("etc/kvm/leader-key");
     match (method.as_str(), path) {
+        ("GET", "/api/hid/leds") => {
+            let leds = s.hid.leds();
+            leds.refresh();
+            ok(serde_json::to_value(leds.snapshot(true)).unwrap())
+        }
         ("GET", "/api/hid/mode") => match mode(&s.root) {
             Ok(value) => ok(json!({"mode":value})),
             Err(_) => error(-1, "get HID mode failed"),

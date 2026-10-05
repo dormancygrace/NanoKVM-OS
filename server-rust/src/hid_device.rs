@@ -7,10 +7,10 @@ use crate::{
 };
 use std::{
     fs::{self, File, OpenOptions},
-    os::unix::fs::OpenOptionsExt,
+    os::unix::fs::{FileTypeExt, OpenOptionsExt},
     path::PathBuf,
     sync::Mutex,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 #[derive(Default)]
@@ -18,10 +18,13 @@ struct State {
     files: [Option<File>; 3],
     held: [Option<Report>; 3],
     windows_pointer: bool,
+    led_capable: bool,
+    led_retry: Option<Instant>,
 }
 pub struct Devices {
     root: PathBuf,
     state: Mutex<State>,
+    leds: std::sync::Arc<crate::leds::Leds>,
 }
 fn index(kind: Kind) -> usize {
     match kind {
@@ -32,10 +35,74 @@ fn index(kind: Kind) -> usize {
 }
 impl Devices {
     pub fn new(root: PathBuf) -> Self {
+        let leds = crate::leds::Leds::new(root.clone());
         Self {
             root,
             state: Mutex::new(State::default()),
+            leds,
         }
+    }
+    pub fn leds(&self) -> std::sync::Arc<crate::leds::Leds> {
+        self.leds.clone()
+    }
+    fn open_kind(&self, state: &mut State, kind: Kind) -> Result<(), Error> {
+        let i = index(kind);
+        if self.disabled(kind) {
+            state.files[i] = None;
+            if i == 0 {
+                let _ = self.leds.replace_reader(None);
+            }
+            return Ok(());
+        }
+        if state.files[i].is_none() {
+            if i == 2 {
+                state.windows_pointer = self.windows();
+            }
+            let path = self.path(["/dev/hidg0", "/dev/hidg1", "/dev/hidg2"][i])?;
+            let file = OpenOptions::new()
+                .write(true)
+                .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+                .open(path)?;
+            if i == 0 {
+                state.led_capable = file.metadata()?.file_type().is_char_device();
+                state.led_retry = None;
+            }
+            state.files[i] = Some(file);
+        }
+        if i == 0
+            && state.led_capable
+            && self.leds.missing_reader()
+            && state
+                .led_retry
+                .is_none_or(|deadline| Instant::now() >= deadline)
+        {
+            state.led_retry = Some(Instant::now() + Duration::from_secs(2));
+            let result = (|| -> Result<(), Error> {
+                let path = self.path("/dev/hidg0")?;
+                let file = OpenOptions::new()
+                    .read(true)
+                    .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+                    .open(path)?;
+                self.leds.replace_reader(Some(file))
+            })();
+            if let Err(error) = result {
+                eprintln!("keyboard LED reader open failed: {error}");
+            }
+        }
+        Ok(())
+    }
+    pub fn open(&self) -> Result<(), Error> {
+        self.leds.refresh();
+        let mut state = self.state.lock().map_err(|_| "HID state unavailable")?;
+        let mut first = None;
+        for kind in [Kind::Keyboard, Kind::Relative, Kind::Absolute] {
+            if let Err(error) = self.open_kind(&mut state, kind) {
+                if first.is_none() {
+                    first = Some(error);
+                }
+            }
+        }
+        first.map_or(Ok(()), Err)
     }
     fn path(&self, path: &str) -> Result<PathBuf, Error> {
         let path = config::rooted(&self.root, path)?.canonicalize()?;
@@ -66,20 +133,12 @@ impl Devices {
         let i = index(report.kind());
         if self.disabled(report.kind()) {
             state.files[i] = None;
+            if i == 0 {
+                let _ = self.leds.replace_reader(None);
+            }
             return Ok(());
         }
-        if state.files[i].is_none() {
-            if i == 2 {
-                state.windows_pointer = self.windows();
-            }
-            let path = self.path(["/dev/hidg0", "/dev/hidg1", "/dev/hidg2"][i])?;
-            state.files[i] = Some(
-                OpenOptions::new()
-                    .write(true)
-                    .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW | libc::O_CLOEXEC)
-                    .open(path)?,
-            );
-        }
+        self.open_kind(state, report.kind())?;
         for packet in report.packets(state.windows_pointer) {
             if let Err(error) = hid_reports::write_bounded(
                 state.files[i].as_mut().unwrap(),
@@ -87,6 +146,9 @@ impl Devices {
                 Duration::from_millis(50),
             ) {
                 state.files[i] = None;
+                if i == 0 {
+                    let _ = self.leds.replace_reader(None);
+                }
                 return Err(error.into());
             }
         }
@@ -130,11 +192,13 @@ impl Devices {
         first.map_or(Ok(()), Err)
     }
     pub fn close(&self) -> Result<(), Error> {
+        self.leds.refresh();
         let release = self.release_all();
         self.state
             .lock()
             .map_err(|_| "HID state unavailable")?
             .files = Default::default();
+        let _ = self.leds.replace_reader(None);
         release
     }
 }

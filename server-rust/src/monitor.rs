@@ -20,6 +20,9 @@ pub struct VideoStatus {
     pub chroma_fallback: String,
 }
 pub trait Backend: Send + Sync {
+    fn capture_actor(&self) -> Option<crate::native_capture_actor::Actor> {
+        None
+    }
     fn stop(&self) {}
     fn join(&self) -> Result<(), Error> {
         Ok(())

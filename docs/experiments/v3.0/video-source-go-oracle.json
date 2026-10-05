@@ -1,0 +1,1670 @@
+{
+  "cadence": [
+    {
+      "next": 33333333,
+      "offset": 0,
+      "period": 33333333
+    },
+    {
+      "next": 33333333,
+      "offset": 2000000,
+      "period": 33333333
+    },
+    {
+      "next": 33333333,
+      "offset": 34333333,
+      "period": 33333333
+    },
+    {
+      "next": 333333330,
+      "offset": 333333330,
+      "period": 33333333
+    },
+    {
+      "next": 20000000,
+      "offset": 0,
+      "period": 20000000
+    },
+    {
+      "next": 20000000,
+      "offset": 2000000,
+      "period": 20000000
+    },
+    {
+      "next": 20000000,
+      "offset": 21000000,
+      "period": 20000000
+    },
+    {
+      "next": 200000000,
+      "offset": 200000000,
+      "period": 20000000
+    },
+    {
+      "next": 13333333,
+      "offset": 0,
+      "period": 13333333
+    },
+    {
+      "next": 13333333,
+      "offset": 2000000,
+      "period": 13333333
+    },
+    {
+      "next": 13333333,
+      "offset": 14333333,
+      "period": 13333333
+    },
+    {
+      "next": 133333330,
+      "offset": 133333330,
+      "period": 13333333
+    },
+    {
+      "next": 8333333,
+      "offset": 0,
+      "period": 8333333
+    },
+    {
+      "next": 8333333,
+      "offset": 2000000,
+      "period": 8333333
+    },
+    {
+      "next": 8333333,
+      "offset": 9333333,
+      "period": 8333333
+    },
+    {
+      "next": 83333330,
+      "offset": 83333330,
+      "period": 8333333
+    }
+  ],
+  "conflict": "video encoder is already in use with {Codec:h264}; requested {Codec:h265}",
+  "keyframes": [
+    {
+      "offset": 0,
+      "pending": false,
+      "request": false,
+      "taken": false
+    },
+    {
+      "offset": 0,
+      "pending": false,
+      "request": true,
+      "taken": true
+    },
+    {
+      "offset": 1000000000,
+      "pending": false,
+      "request": false,
+      "taken": false
+    },
+    {
+      "offset": 1000000000,
+      "pending": false,
+      "request": true,
+      "taken": true
+    },
+    {
+      "offset": 1499000000,
+      "pending": true,
+      "request": true,
+      "taken": false
+    },
+    {
+      "offset": 1500000000,
+      "pending": false,
+      "request": false,
+      "taken": true
+    },
+    {
+      "offset": 2000000000,
+      "pending": false,
+      "request": false,
+      "taken": false
+    }
+  ],
+  "portraits": [
+    {
+      "blocked": true,
+      "codec": "h264",
+      "height": 2560,
+      "streamHeight": 0,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1440,
+      "streamHeight": 0,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1920,
+      "streamHeight": 0,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 2304,
+      "streamHeight": 0,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 0,
+      "streamHeight": 0,
+      "width": 0
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 2560,
+      "streamHeight": 600,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1440,
+      "streamHeight": 600,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1920,
+      "streamHeight": 600,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 2304,
+      "streamHeight": 600,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 0,
+      "streamHeight": 600,
+      "width": 0
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 2560,
+      "streamHeight": 720,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1440,
+      "streamHeight": 720,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1920,
+      "streamHeight": 720,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 2304,
+      "streamHeight": 720,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 0,
+      "streamHeight": 720,
+      "width": 0
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 2560,
+      "streamHeight": 1080,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1440,
+      "streamHeight": 1080,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1920,
+      "streamHeight": 1080,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 2304,
+      "streamHeight": 1080,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 0,
+      "streamHeight": 1080,
+      "width": 0
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 2560,
+      "streamHeight": 1439,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1440,
+      "streamHeight": 1439,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1920,
+      "streamHeight": 1439,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 2304,
+      "streamHeight": 1439,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 0,
+      "streamHeight": 1439,
+      "width": 0
+    },
+    {
+      "blocked": true,
+      "codec": "h264",
+      "height": 2560,
+      "streamHeight": 1440,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1440,
+      "streamHeight": 1440,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1920,
+      "streamHeight": 1440,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 2304,
+      "streamHeight": 1440,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 0,
+      "streamHeight": 1440,
+      "width": 0
+    },
+    {
+      "blocked": true,
+      "codec": "h264",
+      "height": 2560,
+      "streamHeight": 2560,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1440,
+      "streamHeight": 2560,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 1920,
+      "streamHeight": 2560,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 2304,
+      "streamHeight": 2560,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h264",
+      "height": 0,
+      "streamHeight": 2560,
+      "width": 0
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2560,
+      "streamHeight": 0,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1440,
+      "streamHeight": 0,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1920,
+      "streamHeight": 0,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2304,
+      "streamHeight": 0,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 0,
+      "streamHeight": 0,
+      "width": 0
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2560,
+      "streamHeight": 600,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1440,
+      "streamHeight": 600,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1920,
+      "streamHeight": 600,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2304,
+      "streamHeight": 600,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 0,
+      "streamHeight": 600,
+      "width": 0
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2560,
+      "streamHeight": 720,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1440,
+      "streamHeight": 720,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1920,
+      "streamHeight": 720,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2304,
+      "streamHeight": 720,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 0,
+      "streamHeight": 720,
+      "width": 0
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2560,
+      "streamHeight": 1080,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1440,
+      "streamHeight": 1080,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1920,
+      "streamHeight": 1080,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2304,
+      "streamHeight": 1080,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 0,
+      "streamHeight": 1080,
+      "width": 0
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2560,
+      "streamHeight": 1439,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1440,
+      "streamHeight": 1439,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1920,
+      "streamHeight": 1439,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2304,
+      "streamHeight": 1439,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 0,
+      "streamHeight": 1439,
+      "width": 0
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2560,
+      "streamHeight": 1440,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1440,
+      "streamHeight": 1440,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1920,
+      "streamHeight": 1440,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2304,
+      "streamHeight": 1440,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 0,
+      "streamHeight": 1440,
+      "width": 0
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2560,
+      "streamHeight": 2560,
+      "width": 1440
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1440,
+      "streamHeight": 2560,
+      "width": 2560
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 1920,
+      "streamHeight": 2560,
+      "width": 1088
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 2304,
+      "streamHeight": 2560,
+      "width": 1296
+    },
+    {
+      "blocked": false,
+      "codec": "h265",
+      "height": 0,
+      "streamHeight": 2560,
+      "width": 0
+    }
+  ],
+  "queues": [
+    {
+      "frames": [
+        {
+          "result": -1,
+          "timestamp": 1
+        },
+        {
+          "result": 3,
+          "timestamp": 3
+        },
+        {
+          "result": 4,
+          "timestamp": 4
+        },
+        {
+          "result": -3,
+          "timestamp": 5
+        },
+        {
+          "result": 3,
+          "timestamp": 6
+        },
+        {
+          "result": 4,
+          "timestamp": 7
+        }
+      ],
+      "steps": [
+        {
+          "accepted": false,
+          "queued": 0,
+          "requested": false,
+          "result": 4,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 1,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "queued": 1,
+          "requested": false,
+          "result": 0,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 2,
+          "requested": false,
+          "result": 3,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 3,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 4,
+          "requested": false,
+          "result": -3,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 5,
+          "requested": false,
+          "result": 3,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 6,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        }
+      ]
+    },
+    {
+      "frames": [
+        {
+          "result": -5,
+          "timestamp": 0
+        },
+        {
+          "result": -1,
+          "timestamp": 1
+        },
+        {
+          "result": -2,
+          "timestamp": 2
+        }
+      ],
+      "steps": [
+        {
+          "accepted": true,
+          "queued": 1,
+          "requested": false,
+          "result": -5,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 2,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 3,
+          "requested": false,
+          "result": -2,
+          "waiting": true
+        }
+      ]
+    },
+    {
+      "frames": [
+        {
+          "result": 3,
+          "timestamp": 0
+        },
+        {
+          "result": 4,
+          "timestamp": 1
+        },
+        {
+          "result": 3,
+          "timestamp": 2
+        },
+        {
+          "result": 4,
+          "timestamp": 3
+        }
+      ],
+      "steps": [
+        {
+          "accepted": true,
+          "queued": 1,
+          "requested": false,
+          "result": 3,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 2,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 3,
+          "requested": false,
+          "result": 3,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 4,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        }
+      ]
+    },
+    {
+      "frames": [
+        {
+          "result": 3,
+          "timestamp": 26
+        },
+        {
+          "result": 4,
+          "timestamp": 27
+        }
+      ],
+      "steps": [
+        {
+          "accepted": true,
+          "queued": 1,
+          "requested": false,
+          "result": 3,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 2,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 3,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 4,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 5,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 6,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 7,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 8,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 9,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 10,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 11,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 12,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 13,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 14,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 15,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 16,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 17,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 18,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 19,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 20,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 21,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 22,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 23,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 24,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "queued": 0,
+          "requested": true,
+          "result": 4,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "queued": 0,
+          "requested": true,
+          "result": 4,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 1,
+          "requested": true,
+          "result": 3,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 2,
+          "requested": true,
+          "result": 4,
+          "waiting": false
+        }
+      ]
+    },
+    {
+      "frames": [
+        {
+          "result": 3,
+          "timestamp": 24
+        },
+        {
+          "result": 4,
+          "timestamp": 25
+        }
+      ],
+      "steps": [
+        {
+          "accepted": true,
+          "queued": 1,
+          "requested": false,
+          "result": 3,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 2,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 3,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 4,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 5,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 6,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 7,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 8,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 9,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 10,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 11,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 12,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 13,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 14,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 15,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 16,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 17,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 18,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 19,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 20,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 21,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 22,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 23,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 24,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 1,
+          "requested": true,
+          "result": 3,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 2,
+          "requested": true,
+          "result": 4,
+          "waiting": false
+        }
+      ]
+    },
+    {
+      "frames": [
+        {
+          "result": -5,
+          "timestamp": 25
+        },
+        {
+          "result": 3,
+          "timestamp": 26
+        },
+        {
+          "result": 4,
+          "timestamp": 27
+        }
+      ],
+      "steps": [
+        {
+          "accepted": true,
+          "queued": 1,
+          "requested": false,
+          "result": 3,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 2,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 3,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 4,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 5,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 6,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 7,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 8,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 9,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 10,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 11,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 12,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 13,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 14,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 15,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 16,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 17,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 18,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 19,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 20,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 21,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 22,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 23,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 24,
+          "requested": false,
+          "result": 4,
+          "waiting": false
+        },
+        {
+          "accepted": false,
+          "queued": 0,
+          "requested": true,
+          "result": -3,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 1,
+          "requested": true,
+          "result": -5,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 2,
+          "requested": true,
+          "result": 3,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 3,
+          "requested": true,
+          "result": 4,
+          "waiting": false
+        }
+      ]
+    },
+    {
+      "frames": [
+        {
+          "result": -1,
+          "timestamp": 25
+        },
+        {
+          "result": 3,
+          "timestamp": 27
+        },
+        {
+          "result": 4,
+          "timestamp": 28
+        }
+      ],
+      "steps": [
+        {
+          "accepted": true,
+          "queued": 1,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 2,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 3,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 4,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 5,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 6,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 7,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 8,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 9,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 10,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 11,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 12,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 13,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 14,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 15,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 16,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 17,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 18,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 19,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 20,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 21,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 22,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 23,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 24,
+          "requested": false,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "queued": 0,
+          "requested": true,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 1,
+          "requested": true,
+          "result": -1,
+          "waiting": true
+        },
+        {
+          "accepted": false,
+          "queued": 1,
+          "requested": true,
+          "result": 4,
+          "waiting": true
+        },
+        {
+          "accepted": true,
+          "queued": 2,
+          "requested": true,
+          "result": 3,
+          "waiting": false
+        },
+        {
+          "accepted": true,
+          "queued": 3,
+          "requested": true,
+          "result": 4,
+          "waiting": false
+        }
+      ]
+    }
+  ],
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "sources": {
+    "server/service/stream/video_source.go": "a555000d326a19e088c58430c69b0099c852b5c800e4599ba6f72dade68b63eb",
+    "server/service/stream/video_source_test.go": "a7ec330fd1155979c9e87e2431fa775f5304e0019ccb782a2852af20beef40bd",
+    "server/service/stream/encoder_config.go": "af493c923539b0b3694d6988731018dbb4bcb44b32cd7652360c635ed01793e0"
+  },
+  "fixture_changes": [
+    "package renamed to main",
+    "common import relocated; screen/native methods and FPS counter are fixture values, no native execution"
+  ],
+  "original_tests": [
+    "TestVideoSourceSharesOnlyExactConfiguration",
+    "TestAutomaticVideoSubscriptionUsesSharedSelection",
+    "TestAutomaticVideoSubscriptionAdoptsActiveCodecOrDefault",
+    "TestAutomaticVideoSubscriptionResolvesAgainAfterDrain",
+    "TestAutomaticVideoSubscriptionValidatesResolvedCodecBeforeCapture",
+    "TestVideoSourceDoesNotLeakFramesAcrossSessions",
+    "TestVideoSourceWaitsForPreviousCaptureBeforeStartingNewProfile",
+    "TestVideoSubscriptionRecoversAtKeyframeAfterBackpressure",
+    "TestNativeEncoderMappings",
+    "TestVideoSubscriptionStartsAtKeyframeAndPreservesErrors",
+    "TestActiveEncoderConfigExcludesDrainingCapture",
+    "TestMaximumPortraitCodecPolicy",
+    "TestVideoSourceSnapshotRemainsImmutableAcrossMembershipChanges",
+    "TestCaptureDeadlinePreservesCadenceAndBoundsCatchup",
+    "TestKeyframeRequestsCoalesceWithoutLosingDeferredIntent",
+    "TestExplicitCodecSelectionReplacesSharedSession",
+    "TestSelectingCurrentCodecDoesNotInterruptViewers",
+    "TestLateVideoCaptureAllowsNewInputWorkersToRun"
+  ],
+  "go_version": "go version go1.27.1 linux/amd64"
+}

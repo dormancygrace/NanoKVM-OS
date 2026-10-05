@@ -61,6 +61,7 @@ pub mod time_sync;
 pub mod timeconfig;
 pub mod update_lock;
 pub mod usb;
+pub mod video_source;
 mod ws;
 mod ws_origin;
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -95,7 +96,8 @@ pub struct Runtime {
     pub commands: Arc<dyn systemops::Executor>,
     pub monitor: monitor::Monitor,
     pub hdmi: Arc<hdmi::Manager>,
-    pub screen: screen::Manager,
+    pub screen: Arc<screen::Manager>,
+    pub video: Arc<video_source::Source>,
     hdmi_task: Option<tokio::task::JoinHandle<()>>,
     pub hardware: hardware::Hardware,
     pub atx: gpio::Controller,
@@ -227,6 +229,13 @@ impl Runtime {
         }
         let hdmi = hdmi::Manager::new(root.clone(), media.clone());
         let hdmi_task = hdmi.start();
+        let screen = Arc::new(screen::Manager::load(&root)?);
+        let video = video_source::Source::new(
+            root.clone(),
+            screen.clone(),
+            hdmi.clone(),
+            media.capture_actor(),
+        );
         let hardware = hardware::Hardware::detect(&root);
         let hid = Arc::new(hid_device::Devices::new(root.clone()));
         let release = hid.clone();
@@ -242,7 +251,8 @@ impl Runtime {
             jiggler: jiggler::Jiggler::load(config::rooted(&root, "/etc/kvm/mouse-jiggler")?),
             commands,
             monitor: monitor::Monitor::new(media),
-            screen: screen::Manager::load(&root)?,
+            screen,
+            video,
             hdmi,
             hdmi_task,
             atx: gpio::Controller::new(gpio.clone()),
@@ -313,16 +323,19 @@ impl Runtime {
     }
     pub async fn shutdown_async(self: &Arc<Self>) -> Result<(), Error> {
         let runtime = self.clone();
-        tokio::task::spawn_blocking(move || {
+        let result = tokio::task::spawn_blocking(move || {
             runtime.shutdown();
             runtime.monitor.backend.join()
         })
-        .await?
+        .await?;
+        self.video.join().await;
+        result
     }
     pub fn shutdown(&self) {
         self.stopping
             .store(true, std::sync::atomic::Ordering::Release);
         self.commands.stop();
+        self.video.stop();
         self.monitor.backend.stop();
         self.hdmi.stop();
         if let Some(task) = &self.hdmi_task {

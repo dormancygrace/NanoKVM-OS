@@ -1,0 +1,1 @@
+Test-only self-signed localhost certificate and private key. Generated with OpenSSL on 2026-10-05T14:48:33.753869+00:00, valid3650days; SAN localhost/127.0.0.1, CA:false, serverAuth. Embedded only by cfg(test) transport socket fixtures. Not a deployed credential and not a production trust anchor.

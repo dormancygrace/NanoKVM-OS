@@ -91,11 +91,28 @@ async fn main() -> Result<(), Error> {
             router.clone(),
         );
         let redirect_server = axum_server::from_tcp(http_listener)?
+            .map(|inner| {
+                nanokvm_server::transport::Acceptor::new(
+                    inner,
+                    state.transport_shutdown(),
+                    nanokvm_server::transport::Protocol::Http1,
+                )
+            })
+            .http1_only()
             .handle(redirect_handle)
             .serve(redirects.into_make_service_with_connect_info::<SocketAddr>());
         let address = SocketAddr::new(host, state.config.port.https);
         eprintln!("v3 isolated HTTPS listener {address}; functional parity incomplete");
         let tls_server = axum_server::from_tcp_rustls(https_listener, tls)?
+            .map(|inner| {
+                nanokvm_server::transport::Acceptor::new(
+                    inner,
+                    state.transport_shutdown(),
+                    nanokvm_server::transport::Protocol::Alpn,
+                )
+            })
+            // Negotiated HTTP2 is handled inside Acceptor; returned IO is HTTP1.
+            .http1_only()
             .handle(handle)
             .serve(router.into_make_service_with_connect_info::<SocketAddr>());
         tokio::pin!(redirect_server, tls_server);
@@ -116,6 +133,14 @@ async fn main() -> Result<(), Error> {
         let address = SocketAddr::new(host, state.config.port.http);
         eprintln!("v3 isolated HTTP listener {address}; functional parity incomplete");
         axum_server::bind(address)
+            .map(|inner| {
+                nanokvm_server::transport::Acceptor::new(
+                    inner,
+                    state.transport_shutdown(),
+                    nanokvm_server::transport::Protocol::Http1,
+                )
+            })
+            .http1_only()
             .handle(handle)
             .serve(router.into_make_service_with_connect_info::<SocketAddr>())
             .await?;

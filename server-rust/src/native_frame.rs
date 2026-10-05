@@ -199,6 +199,27 @@ impl Pending {
         }))
     }
 }
+/// Independent fixed-length mutable snapshot, charged to the native frame budget.
+pub struct FrameCopy {
+    data: Vec<u8>,
+    _reservation: Reservation,
+}
+impl std::ops::Deref for FrameCopy {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        &self.data
+    }
+}
+impl std::ops::DerefMut for FrameCopy {
+    fn deref_mut(&mut self) -> &mut [u8] {
+        &mut self.data
+    }
+}
+impl AsRef<[u8]> for FrameCopy {
+    fn as_ref(&self) -> &[u8] {
+        &self.data
+    }
+}
 pub struct Frame {
     address: NonNull<u8>,
     _fd: OwnedFd,
@@ -228,6 +249,17 @@ impl AsRef<[u8]> for SharedBytes {
     }
 }
 impl Frame {
+    pub fn copy_data(&self) -> Result<FrameCopy, Error> {
+        let source = self.data();
+        let reservation = self.reservation.budget.reserve(source.len())?;
+        let mut data = Vec::new();
+        data.try_reserve_exact(source.len())?;
+        data.extend_from_slice(source);
+        Ok(FrameCopy {
+            data,
+            _reservation: reservation,
+        })
+    }
     pub fn packet_bytes(self: &Arc<Self>) -> axum::body::Bytes {
         axum::body::Bytes::from_owner(SharedBytes {
             frame: self.clone(),

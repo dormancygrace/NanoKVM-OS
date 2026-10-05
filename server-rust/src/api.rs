@@ -174,6 +174,8 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         ("POST", "/api/vm/hdmi/timeout") => &["minutes"],
         ("POST", "/api/vm/screen") => &["type", "value", "confirmPowerCycle"],
         ("POST", "/api/stream/state") => &["codec"],
+        ("POST", "/api/stream/mjpeg/detect") => &["enabled"],
+        ("POST", "/api/stream/mjpeg/detect/stop") => &["duration"],
         ("POST", "/api/vm/cpu-frequency") => &["target"],
         ("POST", "/api/vm/date-time") => &["servers", "timezone", "format"],
         ("POST", "/api/vm/memory/swap") => &["kind", "enabled", "sizeMiB", "recompress"],
@@ -241,6 +243,7 @@ fn params(
                     "password" if path == "/api/vm/ssh/enable" => "Password",
                     "sleep" => "Sleep",
                     "minutes" => "Minutes",
+                    "duration" => "Duration",
                     "type" => "Type",
                     "value" => "Value",
                     "confirmPowerCycle" => "ConfirmPowerCycle",
@@ -257,7 +260,14 @@ fn params(
                     "disk" => "Disk",
                     "serial" => "Serial",
                     "audio" => "Audio",
-                    "enabled" if path == "/api/vm/mouse-jiggler/" => "Enabled",
+                    "enabled"
+                        if matches!(
+                            path,
+                            "/api/vm/mouse-jiggler/" | "/api/stream/mjpeg/detect"
+                        ) =>
+                    {
+                        "Enabled"
+                    }
                     name => name,
                 }
             }) else {
@@ -275,7 +285,10 @@ fn params(
                     .push(item);
                 continue;
             }
-            let value = if matches!(canonical, "sleep" | "target" | "size" | "minutes" | "value") {
+            let value = if matches!(
+                canonical,
+                "sleep" | "duration" | "target" | "size" | "minutes" | "value"
+            ) {
                 let value = value.trim();
                 let value = if value.is_empty() { "0" } else { value };
                 Value::from(value.parse::<i64>()?)
@@ -418,12 +431,24 @@ pub async fn dispatch(
         )
         .await;
     }
+    if method == Method::GET && path == "/api/stream/mjpeg" {
+        let control = request
+            .extensions()
+            .get::<crate::transport::WriteControl>()
+            .cloned();
+        let (parts, body) = request.into_parts();
+        drop(body);
+        return crate::mjpeg::connect(s, parts.headers, control).await;
+    }
     let peer = peer.ip();
     let headers = request.headers().clone();
     let body = match to_bytes(request.into_body(), 1 << 20).await {
         Ok(b) => b,
         Err(_) => return error(-1, "invalid parameters"),
     };
+    if method == Method::POST && path == "/api/stream/mjpeg/detect/stop" {
+        return crate::frame_detect::temporary(s, headers, body, query).await;
+    }
     // Body buffering is async IO, not a blocking job. A slow/incomplete body
     // must not occupy all execution slots used by other API and socket work.
     let Ok(permit) = s.jobs.clone().try_acquire_owned() else {
@@ -464,6 +489,19 @@ pub async fn dispatch(
         }
         Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json("internal error")).into_response(),
     }
+}
+pub(crate) fn frame_detect_params(
+    headers: &HeaderMap,
+    body: &[u8],
+    query: Option<&str>,
+) -> Result<Value, Error> {
+    params(
+        headers,
+        body,
+        &Method::POST,
+        "/api/stream/mjpeg/detect/stop",
+        query,
+    )
 }
 fn handle(
     s: &Runtime,
@@ -526,6 +564,9 @@ fn handle(
         let secure = secure_cookie(s, headers, peer);
         match (method.as_str(), path) {
             ("GET", "/api/stream/state") => crate::stream_api::state(s),
+            ("POST", "/api/stream/mjpeg/detect") => {
+                crate::frame_detect::update(s, parsed, cancelled)
+            }
             ("POST", "/api/stream/state") => crate::stream_api::select(
                 s,
                 user.as_ref().map_or("", |user| user.role.as_str()),

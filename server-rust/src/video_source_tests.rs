@@ -35,6 +35,17 @@ pub(crate) struct Fixture {
 }
 impl Fixture {
     pub(crate) fn new(selection: Option<&str>, status: Option<i32>, hold: bool) -> Self {
+        Self::build(selection, status, hold, None)
+    }
+    pub(crate) fn new_mjpeg(data: &[u8]) -> Self {
+        Self::build(None, None, false, Some(data))
+    }
+    fn build(
+        selection: Option<&str>,
+        status: Option<i32>,
+        hold: bool,
+        mjpeg: Option<&[u8]>,
+    ) -> Self {
         let root = tempfile::tempdir().unwrap();
         for dir in ["etc/kvm", "kvmapp/kvm", "run/nanokvm", "web"] {
             fs::create_dir_all(root.path().join(dir)).unwrap();
@@ -52,6 +63,18 @@ impl Fixture {
         let budget = Budget::new(128 * 1024);
         let mut command = worker_command();
         command.env("NK_FIXTURE_TRACE_FILE", root.path().join("trace"));
+        if let Some(data) = mjpeg {
+            fs::write(root.path().join("mjpeg-data"), data).unwrap();
+            fs::write(root.path().join("mjpeg-status"), "0").unwrap();
+            command
+                .env("NK_FIXTURE_MJPEG_DATA", root.path().join("mjpeg-data"))
+                .env(
+                    "NK_FIXTURE_MJPEG_STATUS_FILE",
+                    root.path().join("mjpeg-status"),
+                )
+                .env("NK_FIXTURE_MJPEG_HOLD", root.path().join("mjpeg-hold"))
+                .env("NK_FIXTURE_MJPEG_COUNTER", "1");
+        }
         if let Some(status) = status {
             command.env("NK_FIXTURE_VIDEO_STATUS", status.to_string());
         } else {

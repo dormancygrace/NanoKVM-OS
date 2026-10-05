@@ -1,6 +1,6 @@
 # Functional parity matrix
 
-204 baseline registrations: 68 implemented in the isolated Rust slice, 1 partial, 135 pending. This is source/host qualification, not complete hardware parity.
+204 baseline registrations: 71 implemented in the isolated Rust slice, 1 partial, 132 pending. This is source/host qualification, not complete hardware parity.
 
 Owner OS password synchronization cannot run in an isolated root; its rollback path is tested. Internal routes require their loopback credential; pending handlers return 501 after that gate. MCP API-key routes fail closed. Pending public/session/admin routes return HTTP 501 after their access gate. All nonpublic baseline routes have an unauthenticated protection test.
 
@@ -140,9 +140,9 @@ Owner OS password synchronization cannot run in an isolated root; its rollback p
 | POST | `/api/storage/image/mount` | admin | server/router/storage.go:20 | pending | — |
 | GET | `/api/storage/cdrom` | admin | server/router/storage.go:21 | pending | — |
 | POST | `/api/storage/image/delete` | admin | server/router/storage.go:22 | pending | — |
-| GET | `/api/stream/mjpeg` | session | server/router/stream.go:17 | pending | — |
-| POST | `/api/stream/mjpeg/detect` | session | server/router/stream.go:18 | pending | — |
-| POST | `/api/stream/mjpeg/detect/stop` | session | server/router/stream.go:19 | pending | — |
+| GET | `/api/stream/mjpeg` | session | server/router/stream.go:17 | implemented-isolated | stage3-mjpeg.md |
+| POST | `/api/stream/mjpeg/detect` | session | server/router/stream.go:18 | implemented-isolated | stage3-mjpeg.md |
+| POST | `/api/stream/mjpeg/detect/stop` | session | server/router/stream.go:19 | implemented-isolated | stage3-mjpeg.md |
 | GET | `/api/stream/state` | session | server/router/stream.go:21 | implemented-isolated | stage3-direct.md; actual C/API/WS/Go contracts |
 | POST | `/api/stream/state` | session | server/router/stream.go:22 | implemented-isolated | stage3-direct.md; actual C/API/WS/Go contracts |
 | GET | `/api/stream/audio` | session | server/router/stream.go:23 | pending | — |

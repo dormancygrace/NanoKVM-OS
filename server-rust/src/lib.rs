@@ -11,6 +11,7 @@ pub mod crypto;
 pub mod dashboard;
 pub mod direct;
 mod form_binding;
+pub mod frame_detect;
 pub mod fsroot;
 mod go_printable;
 pub mod gpio;
@@ -37,6 +38,7 @@ pub mod media_status;
 pub mod memory_command;
 pub mod memory_ops;
 pub mod memory_status;
+pub mod mjpeg;
 pub mod monitor;
 pub mod native_backend;
 #[cfg(all(test, feature = "native-fixture"))]
@@ -64,6 +66,7 @@ pub mod sysinfo;
 pub mod systemops;
 pub mod time_sync;
 pub mod timeconfig;
+pub mod transport;
 pub mod update_lock;
 pub mod usb;
 pub mod video_source;
@@ -104,8 +107,10 @@ pub struct Runtime {
     pub screen: Arc<screen::Manager>,
     pub video: Arc<video_source::Source>,
     pub direct: Arc<direct::Group>,
+    pub mjpeg: Arc<mjpeg::Group>,
     pub capture_status: Arc<media_status::Statuses>,
     pub frame_rate: Arc<media_status::FrameRate>,
+    pub frame_detect: Arc<frame_detect::Manager>,
     pub(crate) encoder_settings: Mutex<()>,
     hdmi_task: Option<tokio::task::JoinHandle<()>>,
     pub hardware: hardware::Hardware,
@@ -125,6 +130,7 @@ pub struct Runtime {
     pub(crate) hid_jobs: Arc<Semaphore>,
     pub(crate) control_jobs: Arc<Semaphore>,
     pub(crate) cleanup_jobs: Arc<Semaphore>,
+    pub(crate) transport_shutdown: transport::Shutdown,
     pub(crate) stopping: std::sync::atomic::AtomicBool,
 }
 impl Runtime {
@@ -239,6 +245,7 @@ impl Runtime {
         let hdmi = hdmi::Manager::new(root.clone(), media.clone());
         let hdmi_task = hdmi.start();
         let screen = Arc::new(screen::Manager::load(&root)?);
+        let frame_detect = frame_detect::Manager::new(media.capture_actor());
         let capture_status = media_status::Statuses::new();
         let frame_rate = media_status::FrameRate::new(root.clone());
         let video = video_source::Source::with_counter(
@@ -249,6 +256,13 @@ impl Runtime {
             frame_rate.clone(),
         );
         let direct = direct::Group::new(video.clone(), hdmi.clone(), capture_status.clone());
+        let mjpeg = mjpeg::Group::new(
+            media.capture_actor(),
+            hdmi.clone(),
+            screen.clone(),
+            capture_status.clone(),
+            frame_rate.clone(),
+        );
         let hardware = hardware::Hardware::detect(&root);
         let hid = Arc::new(hid_device::Devices::new(root.clone()));
         let release = hid.clone();
@@ -267,8 +281,10 @@ impl Runtime {
             screen,
             video,
             direct,
+            mjpeg,
             capture_status,
             frame_rate,
+            frame_detect,
             encoder_settings: Mutex::new(()),
             hdmi,
             hdmi_task,
@@ -301,6 +317,7 @@ impl Runtime {
             hid_jobs: Arc::new(Semaphore::new(2)),
             control_jobs: Arc::new(Semaphore::new(2)),
             cleanup_jobs: Arc::new(Semaphore::new(2)),
+            transport_shutdown: transport::Shutdown::default(),
             stopping: std::sync::atomic::AtomicBool::new(false),
         }))
     }
@@ -347,14 +364,22 @@ impl Runtime {
         .await?;
         self.video.join().await;
         self.direct.join().await;
+        self.mjpeg.join().await;
+        self.frame_detect.join().await;
         result
     }
+    pub fn transport_shutdown(&self) -> transport::Shutdown {
+        self.transport_shutdown.clone()
+    }
     pub fn shutdown(&self) {
+        self.transport_shutdown.stop();
         self.stopping
             .store(true, std::sync::atomic::Ordering::Release);
         self.commands.stop();
         self.direct.stop();
+        self.mjpeg.stop();
         self.frame_rate.stop();
+        self.frame_detect.stop();
         self.video.stop();
         self.monitor.backend.stop();
         self.hdmi.stop();

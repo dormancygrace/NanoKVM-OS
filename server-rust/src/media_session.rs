@@ -84,3 +84,19 @@ impl Drop for Registration {
         self.runtime.sessions.remove_media(self.id);
     }
 }
+
+/// Long media/temporary-control requests must not expire a disabled-auth session
+/// or mistake the one-hour reevaluation interval for the actual JWT expiry.
+pub(crate) async fn expired(principal: &Principal) {
+    if principal.expires.is_none() {
+        std::future::pending::<()>().await;
+        return;
+    }
+    loop {
+        let remaining = expiry_delay(principal);
+        if remaining.is_zero() {
+            return;
+        }
+        tokio::time::sleep(remaining).await;
+    }
+}

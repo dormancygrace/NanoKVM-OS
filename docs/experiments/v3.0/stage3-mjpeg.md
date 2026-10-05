@@ -1,5 +1,7 @@
 # Shared MJPEG, frame detection and HTTP transport qualification
 
+Qualified code commit: `208b57482d7f03f3b03d59f89266689f985625f0`.
+
 Three routes qualify in isolation: GET `/api/stream/mjpeg`, POST `/api/stream/mjpeg/detect` and POST `/api/stream/mjpeg/detect/stop`. The reviewed ledger is 71 implemented, one partial and 132 pending out of 204. Full migration and production/hardware activation remain incomplete.
 
 The connected stage passes 293 host AND generic static riscv64 musl/QEMU tests: 172 unit and 121 integration, with one explicitly launched browser helper ignored in normal runs. The 32 new tests comprise eight frame-detect, ten real HTTP transport and fourteen MJPEG tests (five model/cache, two actual C capture loops and seven real native API sockets). Formatting, strict Clippy, feature-free release and actual target AND default-host main HTTPS certificate validation, 307 redirect, Secure cookie, internal loopback exemption, SIGTERM and occupied-port rejection pass. Binary 8,126,816 bytes, SHA256 `99a7e9c352b49845ff29d3a32dcf58d4dba6c9755184c05e176dae3087732af4`. No DT_NEEDED, native synthetic/vendor implementation symbols or synthetic MJPEG fixture strings; resolved Cargo/SPDX graph remains 173 packages including root (172 third-party).

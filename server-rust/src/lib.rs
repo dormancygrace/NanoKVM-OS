@@ -6,6 +6,7 @@ pub mod config;
 pub mod controlmode;
 pub mod cpufreq;
 pub mod crypto;
+pub mod dashboard;
 mod form_binding;
 pub mod fsroot;
 pub mod gpio;
@@ -24,6 +25,7 @@ pub mod jiggler;
 mod json_syntax;
 mod json_text;
 pub mod leds;
+mod link_telemetry;
 pub mod lockout;
 pub mod memory_status;
 pub mod monitor;
@@ -80,6 +82,8 @@ pub struct Runtime {
     pub cpu: cpufreq::Manager,
     pub time: timeconfig::Manager,
     pub info: sysinfo::Manager,
+    pub dashboard: Arc<dashboard::Manager>,
+    dashboard_task: Option<tokio::task::JoinHandle<()>>,
     pub(crate) internal: internal::Token,
     reboot_pending: Arc<std::sync::atomic::AtomicBool>,
     pub(crate) sessions: sessions::Registry,
@@ -152,6 +156,11 @@ impl Runtime {
         network: Arc<dyn sysinfo::Interfaces>,
     ) -> Result<Arc<Self>, Error> {
         let root = root.canonicalize()?;
+        let dashboard = dashboard::Manager::new(
+            root.clone(),
+            Arc::new(dashboard::Native::new(root.clone(), network.clone())),
+        );
+        let dashboard_task = dashboard.start();
         let info = sysinfo::Manager::new(root.clone(), network);
         let time = timeconfig::Manager::new(root.clone(), time);
         let cpu = cpufreq::Manager::new(root.clone(), cpu);
@@ -181,6 +190,8 @@ impl Runtime {
             cpu,
             time,
             info,
+            dashboard,
+            dashboard_task,
             internal: internal::Token::load(&root)?,
             root,
             reboot_pending: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -240,6 +251,9 @@ impl Runtime {
         self.stopping
             .store(true, std::sync::atomic::Ordering::Release);
         self.commands.stop();
+        if let Some(task) = &self.dashboard_task {
+            task.abort();
+        }
         self.socket_slots.close();
         self.hid_jobs.close();
         self.control_jobs.close();

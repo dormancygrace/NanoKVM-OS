@@ -1702,8 +1702,9 @@
     "handler": "service.GetDashboard",
     "source": "server/router/vm.go",
     "line": 23,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-dashboard.md; tests/dashboard.rs; 53 actual Go system cases/7CPU intervals/5IPNet/6netlink attrs; owned native host and static target ABI/TLS checks"
   },
   {
     "method": "GET",

@@ -1,0 +1,1247 @@
+{
+  "binding": [
+    {
+      "body": "{\"servers\": [\"pool.ntp.org\", \"192.0.2.1\", \"2001:db8::1\"], \"timezone\": \"Asia/Jerusalem\", \"format\": \"24\"}",
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": false,
+      "name": "good"
+    },
+    {
+      "body": "null",
+      "config": {
+        "servers": null,
+        "timezone": "",
+        "format": ""
+      },
+      "error": false,
+      "name": "null"
+    },
+    {
+      "body": "{}",
+      "config": {
+        "servers": null,
+        "timezone": "",
+        "format": ""
+      },
+      "error": false,
+      "name": "missing"
+    },
+    {
+      "body": "[]",
+      "config": {
+        "servers": null,
+        "timezone": "",
+        "format": ""
+      },
+      "error": true,
+      "name": "array"
+    },
+    {
+      "body": "{\"servers\":null}",
+      "config": {
+        "servers": null,
+        "timezone": "",
+        "format": ""
+      },
+      "error": false,
+      "name": "servers-null"
+    },
+    {
+      "body": "{\"servers\":[null,\"pool.ntp.org\"]}",
+      "config": {
+        "servers": [
+          "",
+          "pool.ntp.org"
+        ],
+        "timezone": "",
+        "format": ""
+      },
+      "error": false,
+      "name": "server-null-element"
+    },
+    {
+      "body": "{\"servers\":[1]}",
+      "config": {
+        "servers": [
+          ""
+        ],
+        "timezone": "",
+        "format": ""
+      },
+      "error": true,
+      "name": "server-number"
+    },
+    {
+      "body": "{\"servers\":\"pool.ntp.org\"}",
+      "config": {
+        "servers": null,
+        "timezone": "",
+        "format": ""
+      },
+      "error": true,
+      "name": "servers-string"
+    },
+    {
+      "body": "{\"timezone\":\"UTC\",\"TIMEZONE\":null,\"format\":\"24\",\"FORMAT\":null}",
+      "config": {
+        "servers": null,
+        "timezone": "UTC",
+        "format": "24"
+      },
+      "error": false,
+      "name": "primitive-null"
+    },
+    {
+      "body": "{\"SERVERS\":[\"x\"],\"TIMEZONE\":\"UTC\",\"FORMAT\":\"12\"}",
+      "config": {
+        "servers": [
+          "x"
+        ],
+        "timezone": "UTC",
+        "format": "12"
+      },
+      "error": false,
+      "name": "case"
+    },
+    {
+      "body": "{\"servers\":[\"a\"],\"SERVERS\":[\"b\"]}",
+      "config": {
+        "servers": [
+          "b"
+        ],
+        "timezone": "",
+        "format": ""
+      },
+      "error": false,
+      "name": "duplicate"
+    },
+    {
+      "body": "{\"servers\":[1],\"SERVERS\":[\"b\"]}",
+      "config": {
+        "servers": [
+          "b"
+        ],
+        "timezone": "",
+        "format": ""
+      },
+      "error": true,
+      "name": "duplicate-error"
+    },
+    {
+      "body": "{\"servers\":[\"x\"],\"SERVERS\":null}",
+      "config": {
+        "servers": null,
+        "timezone": "",
+        "format": ""
+      },
+      "error": false,
+      "name": "clear"
+    },
+    {
+      "body": "{\"unknown\":1e10000,\"format\":\"24\"}",
+      "config": {
+        "servers": null,
+        "timezone": "",
+        "format": "24"
+      },
+      "error": false,
+      "name": "unknown-large"
+    },
+    {
+      "body": "{\"format\":\"24\"} true",
+      "config": {
+        "servers": null,
+        "timezone": "",
+        "format": "24"
+      },
+      "error": false,
+      "name": "trailing"
+    },
+    {
+      "body": "{\"timezone\":\"\\ud800\"}",
+      "config": {
+        "servers": null,
+        "timezone": "\ufffd",
+        "format": ""
+      },
+      "error": false,
+      "name": "surrogate"
+    },
+    {
+      "body": "{\"format\":24}",
+      "config": {
+        "servers": null,
+        "timezone": "",
+        "format": ""
+      },
+      "error": true,
+      "name": "wrong-string"
+    }
+  ],
+  "chrony": [
+    {
+      "error": false,
+      "name": "leap-Normal",
+      "synchronized": true,
+      "text": "C0A80101,192.168.1.1,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": false,
+      "name": "leap-Insert second",
+      "synchronized": true,
+      "text": "C0A80101,192.168.1.1,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Insert second"
+    },
+    {
+      "error": false,
+      "name": "leap-Delete second",
+      "synchronized": true,
+      "text": "C0A80101,192.168.1.1,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Delete second"
+    },
+    {
+      "error": false,
+      "name": "leap-Not synchronised",
+      "synchronized": false,
+      "text": "C0A80101,192.168.1.1,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Not synchronised"
+    },
+    {
+      "error": true,
+      "name": "leap-unknown",
+      "synchronized": false,
+      "text": "C0A80101,192.168.1.1,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,unknown"
+    },
+    {
+      "error": false,
+      "name": "stratum-0",
+      "synchronized": false,
+      "text": "C0A80101,192.168.1.1,0,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": false,
+      "name": "stratum-16",
+      "synchronized": false,
+      "text": "C0A80101,192.168.1.1,16,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": false,
+      "name": "stratum-+3",
+      "synchronized": true,
+      "text": "C0A80101,192.168.1.1,+3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": false,
+      "name": "stratum--1",
+      "synchronized": false,
+      "text": "C0A80101,192.168.1.1,-1,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": true,
+      "name": "stratum-bad",
+      "synchronized": false,
+      "text": "C0A80101,192.168.1.1,bad,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": true,
+      "name": "stratum- 3",
+      "synchronized": false,
+      "text": "C0A80101,192.168.1.1, 3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": false,
+      "name": "local-00000000",
+      "synchronized": false,
+      "text": "00000000,192.168.1.1,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": false,
+      "name": "local-7F7F0101",
+      "synchronized": false,
+      "text": "7F7F0101,192.168.1.1,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": true,
+      "name": "empty",
+      "synchronized": false,
+      "text": ""
+    },
+    {
+      "error": true,
+      "name": "error",
+      "synchronized": false,
+      "text": "506 Cannot talk to daemon"
+    },
+    {
+      "error": true,
+      "name": "twice",
+      "synchronized": false,
+      "text": "C0A80101,192.168.1.1,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal\nC0A80101,192.168.1.1,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": false,
+      "name": "crlf",
+      "synchronized": true,
+      "text": "C0A80101,192.168.1.1,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal\r\n"
+    },
+    {
+      "error": false,
+      "name": "quoted-comma",
+      "synchronized": true,
+      "text": "C0A80101,\"name,host\",3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": false,
+      "name": "quoted-newline",
+      "synchronized": true,
+      "text": "C0A80101,\"name\nline\",3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": false,
+      "name": "quote-escape",
+      "synchronized": true,
+      "text": "C0A80101,\"name\"\"host\",3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": true,
+      "name": "bare-quote",
+      "synchronized": false,
+      "text": "C0A80101,name\"host,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal"
+    },
+    {
+      "error": false,
+      "name": "quote-space",
+      "synchronized": true,
+      "text": "C0A80101,192.168.1.1,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,\"Normal\" "
+    },
+    {
+      "error": true,
+      "name": "malformed-quoted",
+      "synchronized": false,
+      "text": "C0A80101,192.168.1.1,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,\"Normal"
+    },
+    {
+      "error": false,
+      "name": "blank",
+      "synchronized": true,
+      "text": "C0A80101,192.168.1.1,3,1789128483.0,0.0001,-0.0002,0.0003,1.0,0.0,0.1,0.02,0.003,64.0,Normal\n\n"
+    }
+  ],
+  "configs": [
+    {
+      "chrony": false,
+      "input": "",
+      "name": "ntp-empty",
+      "output": "c2VydmVyIG5ldy5leGFtcGxlIGlidXJzdApzZXJ2ZXIgMTkyLjAuMi4xIGlidXJzdApyZXN0cmljdCBkZWZhdWx0IG5vbW9kaWZ5IG5vcGVlciBub3F1ZXJ5IGxpbWl0ZWQga29kCnJlc3RyaWN0IDEyNy4wLjAuMQpyZXN0cmljdCBbOjoxXQo=",
+      "servers": [
+        "new.example",
+        "192.0.2.1"
+      ]
+    },
+    {
+      "chrony": true,
+      "input": "",
+      "name": "chrony-empty",
+      "output": "c2VydmVyIG5ldy5leGFtcGxlIGlidXJzdApzZXJ2ZXIgMTkyLjAuMi4xIGlidXJzdApkcmlmdGZpbGUgL3Zhci9saWIvY2hyb255L2RyaWZ0Cm1ha2VzdGVwIDEuMCAzCnJ0Y3N5bmMKcG9ydCAwCmNtZHBvcnQgMApiaW5kY21kYWRkcmVzcyAvcnVuL2Nocm9ueS9jaHJvbnlkLnNvY2sK",
+      "servers": [
+        "new.example",
+        "192.0.2.1"
+      ]
+    },
+    {
+      "chrony": false,
+      "input": "c2VydmVyIG9sZCBpYnVyc3QKcG9vbCBvbGQyCiAgcmVzdHJpY3QgZGVmYXVsdCBub3F1ZXJ5CmRyaWZ0ZmlsZSAvdmFyL2xpYi9udHAvZHJpZnQK",
+      "name": "policy",
+      "output": "c2VydmVyIG5ldy5leGFtcGxlIGlidXJzdApzZXJ2ZXIgMTkyLjAuMi4xIGlidXJzdAogIHJlc3RyaWN0IGRlZmF1bHQgbm9xdWVyeQpkcmlmdGZpbGUgL3Zhci9saWIvbnRwL2RyaWZ0Cg==",
+      "servers": [
+        "new.example",
+        "192.0.2.1"
+      ]
+    },
+    {
+      "chrony": true,
+      "input": "c2VydmVyIG9sZAojIHJhd/8NCnBvcnQgMAoK",
+      "name": "raw",
+      "output": "c2VydmVyIG5ldy5leGFtcGxlIGlidXJzdApzZXJ2ZXIgMTkyLjAuMi4xIGlidXJzdAojIHJhd/8NCnBvcnQgMAo=",
+      "servers": [
+        "new.example",
+        "192.0.2.1"
+      ]
+    },
+    {
+      "chrony": false,
+      "input": "wqBzZXJ2ZXIgb2xkCiMga2VwdAo=",
+      "name": "white",
+      "output": "c2VydmVyIG5ldy5leGFtcGxlIGlidXJzdApzZXJ2ZXIgMTkyLjAuMi4xIGlidXJzdAojIGtlcHQK",
+      "servers": [
+        "new.example",
+        "192.0.2.1"
+      ]
+    }
+  ],
+  "millis": [
+    {
+      "millis": -2,
+      "nanos": -1500000
+    },
+    {
+      "millis": -1,
+      "nanos": -1000000
+    },
+    {
+      "millis": -1,
+      "nanos": -999999
+    },
+    {
+      "millis": -1,
+      "nanos": -1
+    },
+    {
+      "millis": 0,
+      "nanos": 0
+    },
+    {
+      "millis": 0,
+      "nanos": 1
+    },
+    {
+      "millis": 0,
+      "nanos": 999999
+    },
+    {
+      "millis": 1,
+      "nanos": 1000000
+    },
+    {
+      "millis": 1,
+      "nanos": 1500000
+    }
+  ],
+  "ntp": [
+    {
+      "error": false,
+      "name": "status-0x615",
+      "packet": "JoIAKgYVAAAAAAAA",
+      "sequence": 42,
+      "synchronized": true
+    },
+    {
+      "error": false,
+      "name": "status-0xc016",
+      "packet": "JoIAKsAWAAAAAAAA",
+      "sequence": 42,
+      "synchronized": false
+    },
+    {
+      "error": false,
+      "name": "status-0xc615",
+      "packet": "JoIAKsYVAAAAAAAA",
+      "sequence": 42,
+      "synchronized": false
+    },
+    {
+      "error": false,
+      "name": "status-0x4615",
+      "packet": "JoIAKkYVAAAAAAAA",
+      "sequence": 42,
+      "synchronized": true
+    },
+    {
+      "error": false,
+      "name": "status-0x8615",
+      "packet": "JoIAKoYVAAAAAAAA",
+      "sequence": 42,
+      "synchronized": true
+    },
+    {
+      "error": false,
+      "name": "status-0x515",
+      "packet": "JoIAKgUVAAAAAAAA",
+      "sequence": 42,
+      "synchronized": false
+    },
+    {
+      "error": true,
+      "name": "wrong-sequence",
+      "packet": "JoIAKgYVAAAAAAAA",
+      "sequence": 43,
+      "synchronized": false
+    },
+    {
+      "error": true,
+      "name": "short",
+      "packet": "JoIAKgYVAAA=",
+      "sequence": 42,
+      "synchronized": false
+    },
+    {
+      "error": true,
+      "name": "mode",
+      "packet": "JYIAKgYVAAAAAAAA",
+      "sequence": 42,
+      "synchronized": false
+    },
+    {
+      "error": true,
+      "name": "version",
+      "packet": "DoIAKgYVAAAAAAAA",
+      "sequence": 42,
+      "synchronized": false
+    },
+    {
+      "error": true,
+      "name": "no-response",
+      "packet": "JgIAKgYVAAAAAAAA",
+      "sequence": 42,
+      "synchronized": false
+    },
+    {
+      "error": true,
+      "name": "error-flag",
+      "packet": "JsIAKgYVAAAAAAAA",
+      "sequence": 42,
+      "synchronized": false
+    },
+    {
+      "error": true,
+      "name": "opcode",
+      "packet": "JoMAKgYVAAAAAAAA",
+      "sequence": 42,
+      "synchronized": false
+    },
+    {
+      "error": true,
+      "name": "association",
+      "packet": "JoIAKgYVAAEAAAAA",
+      "sequence": 42,
+      "synchronized": false
+    },
+    {
+      "error": true,
+      "name": "offset",
+      "packet": "JoIAKgYVAAAAAQAA",
+      "sequence": 42,
+      "synchronized": false
+    },
+    {
+      "error": true,
+      "name": "truncated-payload",
+      "packet": "JoIAKgYVAAAAAAAB",
+      "sequence": 42,
+      "synchronized": false
+    },
+    {
+      "error": false,
+      "name": "more-fragments",
+      "packet": "JqIAKgYVAAAAAAAA",
+      "sequence": 42,
+      "synchronized": true
+    }
+  ],
+  "reads": [
+    {
+      "config": {
+        "servers": [
+          "0.pool.ntp.org",
+          "1.pool.ntp.org",
+          "2.pool.ntp.org",
+          "3.pool.ntp.org"
+        ],
+        "timezone": "UTC",
+        "format": "24"
+      },
+      "error": false,
+      "files": {},
+      "name": "defaults"
+    },
+    {
+      "config": {
+        "servers": [
+          "old.example",
+          "pool.example"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": false,
+      "files": {
+        "ntp.conf": "server old.example iburst\npool pool.example\nrestrict default noquery\n",
+        "timezone": " Asia/Jerusalem\n"
+      },
+      "name": "legacy"
+    },
+    {
+      "config": {
+        "servers": [
+          "chrony.example"
+        ],
+        "timezone": "UTC",
+        "format": "24"
+      },
+      "error": false,
+      "files": {
+        "chrony.conf": "pool chrony.example iburst\n",
+        "ntp.conf": "server ignored\n"
+      },
+      "name": "chrony"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": false,
+      "files": {
+        "kvm/date-time.json": "{\"servers\": [\"pool.ntp.org\", \"192.0.2.1\", \"2001:db8::1\"], \"timezone\": \"Asia/Jerusalem\", \"format\": \"24\"}"
+      },
+      "name": "saved"
+    },
+    {
+      "config": {
+        "servers": [
+          "0.pool.ntp.org",
+          "1.pool.ntp.org",
+          "2.pool.ntp.org",
+          "3.pool.ntp.org"
+        ],
+        "timezone": "UTC",
+        "format": "24"
+      },
+      "error": false,
+      "files": {
+        "kvm/date-time.json": "{}"
+      },
+      "name": "empty"
+    },
+    {
+      "config": {
+        "servers": [
+          "0.pool.ntp.org",
+          "1.pool.ntp.org",
+          "2.pool.ntp.org",
+          "3.pool.ntp.org"
+        ],
+        "timezone": "UTC",
+        "format": "24"
+      },
+      "error": false,
+      "files": {
+        "kvm/date-time.json": "null"
+      },
+      "name": "null"
+    },
+    {
+      "config": {
+        "servers": [
+          "0.pool.ntp.org",
+          "1.pool.ntp.org",
+          "2.pool.ntp.org",
+          "3.pool.ntp.org"
+        ],
+        "timezone": "UTC",
+        "format": "24"
+      },
+      "error": false,
+      "files": {
+        "kvm/date-time.json": "{\"timezone\":null,\"format\":null}"
+      },
+      "name": "null-strings"
+    },
+    {
+      "config": {
+        "servers": null,
+        "timezone": "UTC",
+        "format": "24"
+      },
+      "error": true,
+      "files": {
+        "kvm/date-time.json": "{\"servers\":null}"
+      },
+      "name": "servers-null"
+    },
+    {
+      "config": {
+        "servers": [
+          "0.pool.ntp.org"
+        ],
+        "timezone": "UTC",
+        "format": "24"
+      },
+      "error": true,
+      "files": {
+        "kvm/date-time.json": "{\"servers\":[1]}"
+      },
+      "name": "wrong-type"
+    },
+    {
+      "config": {
+        "servers": [
+          "0.pool.ntp.org",
+          "1.pool.ntp.org",
+          "2.pool.ntp.org",
+          "3.pool.ntp.org"
+        ],
+        "timezone": "UTC",
+        "format": "auto"
+      },
+      "error": true,
+      "files": {
+        "kvm/date-time.json": "{\"format\":\"auto\"}"
+      },
+      "name": "invalid-format"
+    },
+    {
+      "config": {
+        "servers": [
+          "0.pool.ntp.org",
+          "1.pool.ntp.org",
+          "2.pool.ntp.org",
+          "3.pool.ntp.org"
+        ],
+        "timezone": "UTC",
+        "format": "24"
+      },
+      "error": true,
+      "files": {
+        "kvm/date-time.json": "{} true"
+      },
+      "name": "trailing"
+    },
+    {
+      "config": {
+        "servers": [
+          "0.pool.ntp.org",
+          "1.pool.ntp.org",
+          "2.pool.ntp.org",
+          "3.pool.ntp.org"
+        ],
+        "timezone": "UTC",
+        "format": "24"
+      },
+      "error": true,
+      "files": {
+        "kvm/date-time.json": "{"
+      },
+      "name": "broken"
+    },
+    {
+      "config": {
+        "servers": [
+          "-q"
+        ],
+        "timezone": "UTC",
+        "format": "24"
+      },
+      "error": false,
+      "files": {
+        "ntp.conf": "server -q\n",
+        "timezone": "Invalid"
+      },
+      "name": "invalid-legacy-unvalidated"
+    }
+  ],
+  "validation": [
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "",
+      "name": "good"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "",
+        "format": "24"
+      },
+      "error": "unknown time zone",
+      "name": "zone-"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": ".",
+        "format": "24"
+      },
+      "error": "unknown time zone",
+      "name": "zone-."
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "..",
+        "format": "24"
+      },
+      "error": "unknown time zone",
+      "name": "zone-.."
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "../UTC",
+        "format": "24"
+      },
+      "error": "unknown time zone",
+      "name": "zone-../UTC"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "Europe/../UTC",
+        "format": "24"
+      },
+      "error": "unknown time zone",
+      "name": "zone-Europe/../UTC"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "/UTC",
+        "format": "24"
+      },
+      "error": "unknown time zone",
+      "name": "zone-/UTC"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "UTC/",
+        "format": "24"
+      },
+      "error": "unknown time zone",
+      "name": "zone-UTC/"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "./UTC",
+        "format": "24"
+      },
+      "error": "unknown time zone",
+      "name": "zone-./UTC"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "Asia//Jerusalem",
+        "format": "24"
+      },
+      "error": "unknown time zone",
+      "name": "zone-Asia//Jerusalem"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "Missing/Zone",
+        "format": "24"
+      },
+      "error": "unknown time zone; install tzdata",
+      "name": "zone-Missing/Zone"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "Invalid",
+        "format": "24"
+      },
+      "error": "invalid time zone",
+      "name": "zone-Invalid"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "UTC\\x",
+        "format": "24"
+      },
+      "error": "unknown time zone",
+      "name": "zone-UTC\\x"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "zone.tab",
+        "format": "24"
+      },
+      "error": "invalid time zone",
+      "name": "zone-zone.tab"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "12"
+      },
+      "error": "",
+      "name": "format-12"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "",
+      "name": "format-24"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "auto"
+      },
+      "error": "time format must be 24 or 12",
+      "name": "format-auto"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "192.0.2.1",
+          "2001:db8::1"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": ""
+      },
+      "error": "time format must be 24 or 12",
+      "name": "format-"
+    },
+    {
+      "config": {
+        "servers": [
+          "-q"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "NTP server must be a hostname or IP address",
+      "name": "server--q"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org\nrestrict default"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "NTP server must be a hostname or IP address",
+      "name": "server-pool.ntp.org\nrestrict default"
+    },
+    {
+      "config": {
+        "servers": [
+          "foo;reboot"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "NTP server must be a hostname or IP address",
+      "name": "server-foo;reboot"
+    },
+    {
+      "config": {
+        "servers": [
+          "https://pool.ntp.org"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "NTP server must be a hostname or IP address",
+      "name": "server-https://pool.ntp.org"
+    },
+    {
+      "config": {
+        "servers": [
+          "foo bar"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "NTP server must be a hostname or IP address",
+      "name": "server-foo bar"
+    },
+    {
+      "config": {
+        "servers": [
+          ""
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "invalid NTP server",
+      "name": "server-"
+    },
+    {
+      "config": {
+        "servers": [
+          "a..b"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "NTP server must be a hostname or IP address",
+      "name": "server-a..b"
+    },
+    {
+      "config": {
+        "servers": [
+          "a."
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "",
+      "name": "server-a."
+    },
+    {
+      "config": {
+        "servers": [
+          "0"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "",
+      "name": "server-0"
+    },
+    {
+      "config": {
+        "servers": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "",
+      "name": "server-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "config": {
+        "servers": [
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "NTP server must be a hostname or IP address",
+      "name": "server-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "config": {
+        "servers": [
+          "a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.b"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "",
+      "name": "server-a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.b"
+    },
+    {
+      "config": {
+        "servers": [
+          "a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.b"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "invalid NTP server",
+      "name": "server-a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.b"
+    },
+    {
+      "config": {
+        "servers": [
+          "192.168.01.1"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "",
+      "name": "server-192.168.01.1"
+    },
+    {
+      "config": {
+        "servers": [
+          "::ffff:192.0.2.1"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "",
+      "name": "server-::ffff:192.0.2.1"
+    },
+    {
+      "config": {
+        "servers": [
+          "fe80::1%eth0"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "NTP server must be a hostname or IP address",
+      "name": "server-fe80::1%eth0"
+    },
+    {
+      "config": {
+        "servers": [
+          "2001:db8:0:0:0:0:0:1"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "",
+      "name": "server-2001:db8:0:0:0:0:0:1"
+    },
+    {
+      "config": {
+        "servers": null,
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "choose between 1 and 6 NTP servers",
+      "name": "none"
+    },
+    {
+      "config": {
+        "servers": [],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "choose between 1 and 6 NTP servers",
+      "name": "empty"
+    },
+    {
+      "config": {
+        "servers": [
+          "s0",
+          "s1",
+          "s2",
+          "s3",
+          "s4",
+          "s5",
+          "s6"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "choose between 1 and 6 NTP servers",
+      "name": "seven"
+    },
+    {
+      "config": {
+        "servers": [
+          "pool.ntp.org",
+          "POOL.NTP.ORG."
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "duplicate NTP server",
+      "name": "duplicate"
+    },
+    {
+      "config": {
+        "servers": [
+          "2001:db8::1",
+          "2001:db8:0:0:0:0:0:1"
+        ],
+        "timezone": "Asia/Jerusalem",
+        "format": "24"
+      },
+      "error": "",
+      "name": "ips-distinct-text"
+    }
+  ],
+  "zoneNames": [
+    "Asia/Jerusalem",
+    "UTC"
+  ],
+  "zones": {
+    "Asia/Jerusalem": "VFppZjMAAAAAAAAAAAAAAAAAAAAAAAAJAAAACQAAAAAAAACVAAAACQAAABWAAAAAnjBFiMhZzwDI+qYAyTicgMzl64DNrP4AzscfAM+PgwDQqaQA0YR9ANKK14DTZbCA1GwLANdaMIDX31gA2C/DgNkeYwDaEPcA2uvQANu0NADcuT0A3eCNAN60zoDfpL+A4It2AOFWfQDivmaA4zZfAOSeSIDlFkEA5nTwAOcR0oDoJq2A6Oh6AAh8i+AI/bDQCfbqYAqmM9AT6fxgFCFbYBr6xmAbjm5gHL744B13fNAezP9gH2CZUCCCsWAhSbXQIl6e4CMgXVAkWjBgJQA/UCYL7eAm1ubQJ+vP4CjAA1Ap1OxgKqkf0Cu7ZeAsiQHQLZtH4C5fqVAveyngMEjF0DFIluAyPG5QMzGzYDQa/tA1EZVgNfGmUDcECIA3zwFwOPZfgDnc+eA60O1wO65bYDyjoHA9oLJgPoOCcD98n+BAczZwQVCkYEJMjwBDSE9wRCxxAEUe9vBGDFMARuxj8EfsNQBI5/VwScwXAEq+nPBLq/kATIwJ8E2VFYBOh5twT3T3gFBeQvBRVNmAUmxJcFM0u4BUTCtwVRSdgFYsDXBW9H+AWBUp8FjUYYBZ9QvwWrRDgFvU7fBcnWAAXbTP8F59QgBflLHwYF0kAGF9znBiPQYAY12wcGQc6ABlPZJwZgYEgGcddHBn5eaAaP1WcGnFyIBq3Thwa6WqgGzGVPBthYyAbqY28G9lboBwhhjwcU6LAHJl+vBzLm0AdEXc8HUOTwB2Lvlwdu4xAHgO23B4zhMAee69cHqt9QB7zp9wfJcRgH2ugXB+dvOAf45jcAEGAgMCAwIDAgMCAwIDBAIDAgMCAwIDAgMCAwIDAgMCAwIDBQYFBgcIBwgFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGAAAhBgAAAAAg+AAEAAAqMAEIAAAcIAAMAAA4QAEQAAAqMAEIAAAcIAAMAAAqMAEIAAAcIAAMTE1UAEpNVABJRFQASVNUAElERFQAAAABAQEAAAEBAAABAQEAAAAAVFppZjMAAAAAAAAAAAAAAAAAAAAAAAAJAAAACQAAAAAAAACVAAAACQAAABX/////VrbC+v////+eMEWI/////8hZzwD/////yPqmAP/////JOJyA/////8zl64D/////zaz+AP/////Oxx8A/////8+PgwD/////0KmkAP/////RhH0A/////9KK14D/////02WwgP/////UbAsA/////9daMID/////199YAP/////YL8OA/////9keYwD/////2hD3AP/////a69AA/////9u0NAD/////3Lk9AP/////d4I0A/////960zoD/////36S/gP/////gi3YA/////+FWfQD/////4r5mgP/////jNl8A/////+SeSID/////5RZBAP/////mdPAA/////+cR0oD/////6CatgP/////o6HoAAAAAAAh8i+AAAAAACP2w0AAAAAAJ9upgAAAAAAqmM9AAAAAAE+n8YAAAAAAUIVtgAAAAABr6xmAAAAAAG45uYAAAAAAcvvjgAAAAAB13fNAAAAAAHsz/YAAAAAAfYJlQAAAAACCCsWAAAAAAIUm10AAAAAAiXp7gAAAAACMgXVAAAAAAJFowYAAAAAAlAD9QAAAAACYL7eAAAAAAJtbm0AAAAAAn68/gAAAAACjAA1AAAAAAKdTsYAAAAAAqqR/QAAAAACu7ZeAAAAAALIkB0AAAAAAtm0fgAAAAAC5fqVAAAAAAL3sp4AAAAAAwSMXQAAAAADFIluAAAAAAMjxuUAAAAAAzMbNgAAAAADQa/tAAAAAANRGVYAAAAAA18aZQAAAAADcECIAAAAAAN88BcAAAAAA49l+AAAAAADnc+eAAAAAAOtDtcAAAAAA7rltgAAAAADyjoHAAAAAAPaCyYAAAAAA+g4JwAAAAAD98n+AAAAAAQHM2cAAAAABBUKRgAAAAAEJMjwAAAAAAQ0hPcAAAAABELHEAAAAAAEUe9vAAAAAARgxTAAAAAABG7GPwAAAAAEfsNQAAAAAASOf1cAAAAABJzBcAAAAAAEq+nPAAAAAAS6v5AAAAAABMjAnwAAAAAE2VFYAAAAAAToebcAAAAABPdPeAAAAAAFBeQvAAAAAAUVTZgAAAAABSbElwAAAAAFM0u4AAAAAAVEwrcAAAAABVFJ2AAAAAAFYsDXAAAAAAVvR/gAAAAABYFSnwAAAAAFjUYYAAAAAAWfUL8AAAAABatEOAAAAAAFvU7fAAAAAAXJ1gAAAAAABdtM/wAAAAAF59QgAAAAAAX5Sx8AAAAABgXSQAAAAAAGF9znAAAAAAYj0GAAAAAABjXbBwAAAAAGQc6AAAAAAAZT2ScAAAAABmBgSAAAAAAGcddHAAAAAAZ+XmgAAAAABo/VZwAAAAAGnFyIAAAAAAat04cAAAAABrpaqAAAAAAGzGVPAAAAAAbYWMgAAAAABupjbwAAAAAG9lboAAAAAAcIYY8AAAAABxTosAAAAAAHJl+vAAAAAAcy5tAAAAAAB0RdzwAAAAAHUOTwAAAAAAdi75cAAAAAB27jEAAAAAAHgO23AAAAAAeM4TAAAAAAB57r1wAAAAAHqt9QAAAAAAe86fcAAAAAB8lxGAAAAAAH2ugXAAAAAAfnbzgAAAAAB/jmNwAQYCAwIDAgMCAwIDAgMEAgMCAwIDAgMCAwIDAgMCAwIDAgMFBgUGBwgHCAUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYFBgUGBQYAACEGAAAAACD4AAQAACowAQgAABwgAAwAADhAARAAACowAQgAABwgAAwAACowAQgAABwgAAxMTVQASk1UAElEVABJU1QASUREVAAAAAEBAQAAAQEAAAEBAQAAAAAKSVNULTJJRFQsTTMuNC40LzI2LE0xMC41LjAK",
+    "Invalid": "bm90IFRaaWY=",
+    "UTC": "VFppZjIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAQAAAAAAABVVEMAVFppZjIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAQAAAAAAABVVEMAClVUQzAK",
+    "zone.tab": "IyBmaXh0dXJlCklMCSszMTQ2KzAzNTE0CUFzaWEvSmVydXNhbGVtClhYIDAgVVRDCklMIDAgQXNpYS9KZXJ1c2FsZW0K"
+  },
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "goVersion": "1.27.1"
+}

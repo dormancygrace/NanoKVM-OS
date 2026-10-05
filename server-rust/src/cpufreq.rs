@@ -1,9 +1,7 @@
 //! Qualified SG2002 cpufreq policy, verified readback and boot-safe persistence.
 use crate::{
     api::{error, ok},
-    fsroot,
-    store::atomic_write,
-    Error, Runtime,
+    fsroot, Error, Runtime,
 };
 use axum::response::Response;
 use serde::Serialize;
@@ -24,7 +22,7 @@ pub trait Backend: Send + Sync {
     fn write(&self, path: &str, data: &[u8]) -> Result<(), Error>;
     fn entries(&self, path: &str) -> Vec<String>;
     fn atomic_preference(&self, path: &Path, data: &[u8], mode: u32) -> Result<(), Error> {
-        atomic_write(path, data, mode)
+        crate::preferences::write(path, data, mode)
     }
 }
 pub struct Native {
@@ -237,36 +235,22 @@ impl Manager {
         Ok(())
     }
     fn persist(&self, target: i64) -> Result<(), Error> {
-        // A failed request must not leave a new boot cap after restoring its clock.
-        use std::os::unix::fs::PermissionsExt;
+        // Replace the final preference node, never its symlink target.
         let mut files = Vec::new();
-        for (path, value) in [(PREF, target.min(1000)), (RUN_PREF, target)] {
-            let path = fsroot::resolve(&self.root, Path::new(path), true)?;
-            let old = match fs::metadata(&path) {
-                Ok(meta) if meta.is_file() => {
-                    Some((fs::read(&path)?, meta.permissions().mode() & 0o7777))
-                }
-                Ok(_) => return Err("CPU frequency preference is not a regular file".into()),
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-                Err(error) => return Err(error.into()),
-            };
+        for (name, value) in [(PREF, target.min(1000)), (RUN_PREF, target)] {
+            let name = Path::new(name);
+            let path = fsroot::resolve(&self.root, name.parent().unwrap(), false)?
+                .join(name.file_name().unwrap());
+            let old = crate::preferences::snapshot(&path)?;
             files.push((path, format!("{value}\n"), old));
         }
         for (index, (path, data, _)) in files.iter().enumerate() {
             if let Err(cause) = self.backend.atomic_preference(path, data.as_bytes(), 0o600) {
-                let cleanup = files[..=index]
-                    .iter()
-                    .rev()
-                    .map(|(path, _, old)| match old {
-                        Some((bytes, mode)) => self.backend.atomic_preference(path, bytes, *mode),
-                        None => match fs::remove_file(path) {
-                            Ok(()) => fs::File::open(path.parent().unwrap())
-                                .and_then(|file| file.sync_all())
-                                .map_err(Into::into),
-                            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                            Err(error) => Err(error.into()),
-                        },
-                    });
+                let cleanup = files[..=index].iter().rev().map(|(path, _, saved)| {
+                    crate::preferences::restore(path, saved, |path, bytes, mode| {
+                        self.backend.atomic_preference(path, bytes, mode)
+                    })
+                });
                 return crate::gpio::joined(Err(cause), cleanup);
             }
         }

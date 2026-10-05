@@ -55,6 +55,15 @@ impl<'de> Visitor<'de> for Object {
             };
             let value = match canonical {
                 "keys" => object.next_value_seed(Keys)?,
+                "servers" => match object.next_value::<Option<Vec<Option<String>>>>()? {
+                    Some(values) => Value::Array(
+                        values
+                            .into_iter()
+                            .map(|value| Value::String(value.unwrap_or_default()))
+                            .collect(),
+                    ),
+                    None => Value::Null,
+                },
                 "sleep" | "target" => {
                     let raw = object.next_value::<Box<serde_json::value::RawValue>>()?;
                     if raw.get() == "null" {
@@ -122,6 +131,22 @@ pub(crate) fn json(
     }
     .deserialize(&mut parser)?;
     // Gin JSON binding decodes the first JSON value only.
+    Ok(value)
+}
+pub(crate) fn json_complete(
+    data: &[u8],
+    fields: &'static [&'static str],
+) -> Result<Value, serde_json::Error> {
+    crate::json_syntax::first_value(data).map_err(<serde_json::Error as de::Error>::custom)?;
+    let normalized = crate::json_text::normalize(data);
+    let mut parser = serde_json::Deserializer::from_slice(&normalized);
+    let value = Object {
+        fields,
+        nullable: false,
+        empty_null: false,
+    }
+    .deserialize(&mut parser)?;
+    parser.end()?;
     Ok(value)
 }
 pub(crate) fn json_key(data: &[u8]) -> Result<Value, serde_json::Error> {
@@ -203,6 +228,35 @@ mod signed_oracle_tests {
                     "{}",
                     case["name"]
                 );
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod time_oracle_tests {
+    use super::*;
+    #[test]
+    fn actual_gin_time_array_null_duplicate_and_first_value_binding() {
+        let oracle: Value = serde_json::from_str(include_str!(
+            "../../docs/experiments/v3.0/time-go-oracle.json"
+        ))
+        .unwrap();
+        for case in oracle["binding"].as_array().unwrap() {
+            let result = json(
+                case["body"].as_str().unwrap().as_bytes(),
+                &["servers", "timezone", "format"],
+                false,
+            );
+            assert_eq!(
+                result.is_err(),
+                case["error"].as_bool().unwrap(),
+                "{}",
+                case["name"]
+            );
+            if let Ok(value) = result {
+                let config = serde_json::json!({"servers":value.get("servers").unwrap_or(&Value::Null),"timezone":value["timezone"].as_str().unwrap_or(""),"format":value["format"].as_str().unwrap_or("")});
+                assert_eq!(config, case["config"], "{}", case["name"]);
             }
         }
     }

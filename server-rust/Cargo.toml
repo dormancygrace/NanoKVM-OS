@@ -21,6 +21,7 @@ ctutils = "0.4"
 futures-util = { version = "0.3", default-features = false, features = ["std", "sink"] }
 hmac = "0.13"
 ipnet = "2"
+jiff = { version = "=0.2.37", default-features = false, features = ["std"] }
 libc = "0.2"
 md-5 = "0.11"
 mediatype = "0.23"

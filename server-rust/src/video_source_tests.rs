@@ -11,7 +11,7 @@ use crate::{
 use serde_json::{json, Value};
 use std::os::unix::fs::symlink;
 
-struct NoEffects;
+pub(crate) struct NoEffects;
 impl AudioControl for NoEffects {
     fn stop(&self) -> Result<(), Error> {
         Ok(())
@@ -27,14 +27,14 @@ impl Executor for NoEffects {
         panic!("video tests must not run host commands")
     }
 }
-struct Fixture {
-    root: tempfile::TempDir,
-    runtime: Arc<Runtime>,
-    backend: Arc<Native>,
-    budget: Arc<Budget>,
+pub(crate) struct Fixture {
+    pub(crate) root: tempfile::TempDir,
+    pub(crate) runtime: Arc<Runtime>,
+    pub(crate) backend: Arc<Native>,
+    pub(crate) budget: Arc<Budget>,
 }
 impl Fixture {
-    fn new(selection: Option<&str>, status: Option<i32>, hold: bool) -> Self {
+    pub(crate) fn new(selection: Option<&str>, status: Option<i32>, hold: bool) -> Self {
         let root = tempfile::tempdir().unwrap();
         for dir in ["etc/kvm", "kvmapp/kvm", "run/nanokvm", "web"] {
             fs::create_dir_all(root.path().join(dir)).unwrap();
@@ -74,20 +74,20 @@ impl Fixture {
             budget,
         }
     }
-    fn source(&self) -> &Arc<Source> {
+    pub(crate) fn source(&self) -> &Arc<Source> {
         &self.runtime.video
     }
-    async fn initialize(&self) {
+    pub(crate) async fn initialize(&self) {
         let hdmi = self.runtime.hdmi.clone();
         tokio::task::spawn_blocking(move || hdmi.initialize())
             .await
             .unwrap()
             .unwrap();
     }
-    fn trace(&self) -> String {
+    pub(crate) fn trace(&self) -> String {
         fs::read_to_string(self.root.path().join("trace")).unwrap_or_default()
     }
-    async fn until_trace(&self, value: &str) {
+    pub(crate) async fn until_trace(&self, value: &str) {
         let deadline = Instant::now() + Duration::from_secs(4);
         while !self.trace().contains(value) {
             assert!(
@@ -98,7 +98,7 @@ impl Fixture {
             tokio::time::sleep(Duration::from_millis(5)).await;
         }
     }
-    async fn cleanup(&self) {
+    pub(crate) async fn cleanup(&self) {
         self.runtime.shutdown_async().await.unwrap();
         assert!(self.backend.actor().finished());
         assert!(self.source().lock().session.is_none());

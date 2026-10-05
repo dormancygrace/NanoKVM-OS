@@ -1,6 +1,6 @@
 # Functional parity matrix
 
-204 baseline registrations: 32 implemented in the isolated Rust slice, 1 partial, 171 pending. This is source/host qualification, not complete hardware parity.
+204 baseline registrations: 68 implemented in the isolated Rust slice, 1 partial, 135 pending. This is source/host qualification, not complete hardware parity.
 
 Owner OS password synchronization cannot run in an isolated root; its rollback path is tested. Internal routes require their loopback credential; pending handlers return 501 after that gate. MCP API-key routes fail closed. Pending public/session/admin routes return HTTP 501 after their access gate. All nonpublic baseline routes have an unauthenticated protection test.
 
@@ -143,27 +143,27 @@ Owner OS password synchronization cannot run in an isolated root; its rollback p
 | GET | `/api/stream/mjpeg` | session | server/router/stream.go:17 | pending | — |
 | POST | `/api/stream/mjpeg/detect` | session | server/router/stream.go:18 | pending | — |
 | POST | `/api/stream/mjpeg/detect/stop` | session | server/router/stream.go:19 | pending | — |
-| GET | `/api/stream/state` | session | server/router/stream.go:21 | pending | — |
-| POST | `/api/stream/state` | session | server/router/stream.go:22 | pending | — |
+| GET | `/api/stream/state` | session | server/router/stream.go:21 | implemented-isolated | stage3-direct.md; actual C/API/WS/Go contracts |
+| POST | `/api/stream/state` | session | server/router/stream.go:22 | implemented-isolated | stage3-direct.md; actual C/API/WS/Go contracts |
 | GET | `/api/stream/audio` | session | server/router/stream.go:23 | pending | — |
 | GET | `/api/stream/audio/status` | session | server/router/stream.go:24 | pending | — |
 | GET | `/api/stream/video` | session | server/router/stream.go:26 | pending | — |
-| GET | `/api/stream/video/direct` | session | server/router/stream.go:27 | pending | — |
+| GET | `/api/stream/video/direct` | session | server/router/stream.go:27 | implemented-isolated | stage3-direct.md; actual C/API/WS/Go contracts |
 | GET | `/api/stream/h264` | session | server/router/stream.go:28 | pending | — |
-| GET | `/api/stream/h264/direct` | session | server/router/stream.go:29 | pending | — |
-| GET | `/api/vm/date-time` | session | server/router/vm.go:20 | pending | — |
-| POST | `/api/vm/date-time` | admin | server/router/vm.go:21 | pending | — |
-| GET | `/api/vm/dashboard` | session | server/router/vm.go:23 | pending | — |
+| GET | `/api/stream/h264/direct` | session | server/router/stream.go:29 | implemented-isolated | stage3-direct.md; actual C/API/WS/Go contracts |
+| GET | `/api/vm/date-time` | session | server/router/vm.go:20 | implemented-isolated | — |
+| POST | `/api/vm/date-time` | admin | server/router/vm.go:21 | implemented-isolated | — |
+| GET | `/api/vm/dashboard` | session | server/router/vm.go:23 | implemented-isolated | — |
 | GET | `/api/vm/logs` | admin | server/router/vm.go:24 | pending | — |
 | GET | `/api/vm/logs/boots` | admin | server/router/vm.go:25 | pending | — |
 | GET | `/api/vm/diagnostics` | admin | server/router/vm.go:26 | pending | — |
 | GET | `/api/vm/diagnostics/report` | admin | server/router/vm.go:27 | pending | — |
-| GET | `/api/vm/info` | session | server/router/vm.go:28 | pending | — |
-| GET | `/api/vm/hardware` | session | server/router/vm.go:29 | pending | — |
-| POST | `/api/vm/gpio` | session + input owner | server/router/vm.go:31 | pending | — |
-| GET | `/api/vm/gpio` | session | server/router/vm.go:32 | pending | — |
-| POST | `/api/vm/screen` | admin | server/router/vm.go:33 | pending | — |
-| GET | `/api/vm/screen` | session | server/router/vm.go:34 | pending | — |
+| GET | `/api/vm/info` | session | server/router/vm.go:28 | implemented-isolated | — |
+| GET | `/api/vm/hardware` | session | server/router/vm.go:29 | implemented-isolated | — |
+| POST | `/api/vm/gpio` | session + input owner | server/router/vm.go:31 | implemented-isolated | — |
+| GET | `/api/vm/gpio` | session | server/router/vm.go:32 | implemented-isolated | — |
+| POST | `/api/vm/screen` | admin | server/router/vm.go:33 | implemented-isolated | — |
+| GET | `/api/vm/screen` | session | server/router/vm.go:34 | implemented-isolated | — |
 | GET | `/api/vm/input-region` | session | server/router/vm.go:36 | pending | — |
 | POST | `/api/vm/input-region` | session | server/router/vm.go:37 | pending | — |
 | GET | `/api/vm/input-resolution` | session | server/router/vm.go:38 | pending | — |
@@ -175,38 +175,38 @@ Owner OS password synchronization cannot run in an isolated root; its rollback p
 | GET | `/api/vm/device/virtual` | admin | server/router/vm.go:47 | implemented-isolated | stage3-composition.md; actual-Go budget/EDID; injected native rebind/rollback |
 | POST | `/api/vm/device/virtual` | admin | server/router/vm.go:48 | implemented-isolated | stage3-composition.md; actual-Go budget/EDID; injected native rebind/rollback |
 | PUT | `/api/vm/device/virtual` | admin | server/router/vm.go:49 | implemented-isolated | stage3-composition.md; actual-Go budget/EDID; injected native rebind/rollback |
-| GET | `/api/vm/memory/status` | admin | server/router/vm.go:51 | pending | — |
-| POST | `/api/vm/memory/swap` | admin | server/router/vm.go:52 | pending | — |
-| POST | `/api/vm/memory/video` | admin | server/router/vm.go:53 | pending | — |
+| GET | `/api/vm/memory/status` | admin | server/router/vm.go:51 | implemented-isolated | — |
+| POST | `/api/vm/memory/swap` | admin | server/router/vm.go:52 | implemented-isolated | — |
+| POST | `/api/vm/memory/video` | admin | server/router/vm.go:53 | implemented-isolated | — |
 | GET | `/api/vm/memory/limit` | admin | server/router/vm.go:55 | pending | — |
 | POST | `/api/vm/memory/limit` | admin | server/router/vm.go:56 | pending | — |
-| GET | `/api/vm/cpu-frequency` | admin | server/router/vm.go:58 | pending | — |
-| POST | `/api/vm/cpu-frequency` | admin | server/router/vm.go:59 | pending | — |
-| GET | `/api/vm/oled` | admin | server/router/vm.go:61 | pending | — |
-| POST | `/api/vm/oled` | admin | server/router/vm.go:62 | pending | — |
-| GET | `/api/vm/hdmi` | session | server/router/vm.go:65 | pending | — |
-| POST | `/api/vm/hdmi/reset` | session | server/router/vm.go:66 | pending | — |
-| POST | `/api/vm/hdmi/enable` | admin | server/router/vm.go:67 | pending | — |
-| POST | `/api/vm/hdmi/disable` | admin | server/router/vm.go:68 | pending | — |
-| POST | `/api/vm/hdmi/timeout` | admin | server/router/vm.go:69 | pending | — |
-| GET | `/api/vm/ssh` | admin | server/router/vm.go:71 | pending | — |
-| POST | `/api/vm/ssh/enable` | admin | server/router/vm.go:72 | pending | — |
-| POST | `/api/vm/ssh/disable` | admin | server/router/vm.go:73 | pending | — |
-| GET | `/api/vm/swap` | admin | server/router/vm.go:75 | pending | — |
-| POST | `/api/vm/swap` | admin | server/router/vm.go:76 | pending | — |
+| GET | `/api/vm/cpu-frequency` | admin | server/router/vm.go:58 | implemented-isolated | — |
+| POST | `/api/vm/cpu-frequency` | admin | server/router/vm.go:59 | implemented-isolated | — |
+| GET | `/api/vm/oled` | admin | server/router/vm.go:61 | implemented-isolated | — |
+| POST | `/api/vm/oled` | admin | server/router/vm.go:62 | implemented-isolated | — |
+| GET | `/api/vm/hdmi` | session | server/router/vm.go:65 | implemented-isolated | — |
+| POST | `/api/vm/hdmi/reset` | session | server/router/vm.go:66 | implemented-isolated | — |
+| POST | `/api/vm/hdmi/enable` | admin | server/router/vm.go:67 | implemented-isolated | — |
+| POST | `/api/vm/hdmi/disable` | admin | server/router/vm.go:68 | implemented-isolated | — |
+| POST | `/api/vm/hdmi/timeout` | admin | server/router/vm.go:69 | implemented-isolated | — |
+| GET | `/api/vm/ssh` | admin | server/router/vm.go:71 | implemented-isolated | — |
+| POST | `/api/vm/ssh/enable` | admin | server/router/vm.go:72 | implemented-isolated | — |
+| POST | `/api/vm/ssh/disable` | admin | server/router/vm.go:73 | implemented-isolated | — |
+| GET | `/api/vm/swap` | admin | server/router/vm.go:75 | implemented-isolated | — |
+| POST | `/api/vm/swap` | admin | server/router/vm.go:76 | implemented-isolated | — |
 | GET | `/api/vm/mouse-jiggler` | admin | server/router/vm.go:78 | implemented-isolated | stage3-jiggler.md; settings/admin/actual timer/priority/compensation |
 | POST | `/api/vm/mouse-jiggler/` | admin | server/router/vm.go:79 | implemented-isolated | stage3-jiggler.md; settings/admin/actual timer/priority/compensation |
-| GET | `/api/vm/hostname` | session | server/router/vm.go:81 | pending | — |
-| POST | `/api/vm/hostname` | admin | server/router/vm.go:82 | pending | — |
+| GET | `/api/vm/hostname` | session | server/router/vm.go:81 | implemented-isolated | — |
+| POST | `/api/vm/hostname` | admin | server/router/vm.go:82 | implemented-isolated | — |
 | GET | `/api/vm/web-title` | session | server/router/vm.go:84 | implemented-isolated | validation.md; API/contract/UI slice |
 | POST | `/api/vm/web-title` | admin | server/router/vm.go:85 | implemented-isolated | validation.md; API/contract/UI slice |
-| GET | `/api/vm/mdns` | admin | server/router/vm.go:87 | pending | — |
-| POST | `/api/vm/mdns/enable` | admin | server/router/vm.go:88 | pending | — |
-| POST | `/api/vm/mdns/disable` | admin | server/router/vm.go:89 | pending | — |
+| GET | `/api/vm/mdns` | admin | server/router/vm.go:87 | implemented-isolated | — |
+| POST | `/api/vm/mdns/enable` | admin | server/router/vm.go:88 | implemented-isolated | — |
+| POST | `/api/vm/mdns/disable` | admin | server/router/vm.go:89 | implemented-isolated | — |
 | POST | `/api/vm/tls` | admin | server/router/vm.go:91 | pending | — |
 | GET | `/api/vm/autostart` | admin | server/router/vm.go:93 | pending | — |
 | GET | `/api/vm/autostart/:name` | admin | server/router/vm.go:94 | pending | — |
 | DELETE | `/api/vm/autostart/:name` | admin | server/router/vm.go:95 | pending | — |
 | POST | `/api/vm/autostart/:name` | admin | server/router/vm.go:96 | pending | — |
-| POST | `/api/vm/system/reboot` | admin | server/router/vm.go:98 | pending | — |
-| GET | `/api/ws` | session | server/router/ws.go:14 | partial-isolated | stage3-coordinator.md; real sockets/HID/LED/ownership; media snapshots and full addons pending |
+| POST | `/api/vm/system/reboot` | admin | server/router/vm.go:98 | implemented-isolated | — |
+| GET | `/api/ws` | session | server/router/ws.go:14 | partial-isolated | stage3-coordinator.md; real sockets/HID/LED/ownership; media snapshots and full addons pending; stage3-direct.md capture-status |

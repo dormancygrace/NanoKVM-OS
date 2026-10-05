@@ -1,0 +1,301 @@
+{
+  "stage": "direct-encoder-state-capture-status-fps",
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "source_sha256": {
+    "server-rust/src/usb.rs": "8e31a92a7bebd81268558f55fb0ef95209bb17de97aeab37d02e448a1ce52ebd",
+    "server-rust/src/gpio.rs": "ee8cb90b4ad22cc5669a2e749a762ae914ab951d001e4cfb1a735f277747dc6b",
+    "server-rust/src/media_status.rs": "928963524231ca71851d0196bc40ac0d2fbfd595bc1b5955c15894bc9cefc285",
+    "server-rust/src/update_lock.rs": "daeb4fa3b6e015381894ed1e21bf2a504684368511936e8c59d24b6215f0dcb6",
+    "server-rust/src/paste_layout.rs": "509be4f5308cbb3d64fcd27be4de1d3037574b8fd965e8239356421a074a67be",
+    "server-rust/src/gpio_monitor.rs": "cddd6f2c3757ccfa99c8a7d79b60f12a1e637d2ea9fecc09d34d54ba674e8976",
+    "server-rust/src/sysinfo.rs": "061aa09b6be21f652b19d509e1460b4e821b4c44e90d94590f9395a1cfd2ad56",
+    "server-rust/src/routing.rs": "328bee38680280ab3c8d4c8164da2965d7b5e3474dcd4738920ec79c4bb1153c",
+    "server-rust/src/config.rs": "14a668c4d566b2dc0ac1de082a152e3e623d9860ed3cb3a3e61a0c1138ef9fb4",
+    "server-rust/src/preferences.rs": "ac8e6aa1e8a0771cea8620ec5fc2d99e3489d7859c5192dac9d1f7c1915b3858",
+    "server-rust/src/stream_api.rs": "8e62786aefa5cdac7664e5a8012daaceb15b464cfc522a3b08e1bf3389fc64e2",
+    "server-rust/src/composition.rs": "bd7291025a0b87d0602eca35a41df0edd4ab21af4f346fda4d3df45abf9ac3fa",
+    "server-rust/src/direct_queue_tests.rs": "da6d2eef9253dd4023d135b5b2b5f2e4f7d20046b90d038584beac98d171df3d",
+    "server-rust/src/memory_command.rs": "00ac07e96ac04ac7b319ef20caaa2a1737704a2517d2a44bbfcab3cbb0f6f1c6",
+    "server-rust/src/branding.rs": "55c6e137a026760dca930bb850212c100a9e49100d125f0e076ce835fcd886be",
+    "server-rust/src/hid_reports.rs": "7877d45fefa289d254c9b025bf0eb47a50a5d769e052fec48163184f72550195",
+    "server-rust/src/direct.rs": "bb93bfcf3aa3284b143e3d850fe8b648f535c27582c8e8b72b8770e46d3097eb",
+    "server-rust/src/ws_origin.rs": "72222189985c6412c6fbd960e591e7bcc10cf9f7e090309f7a1a3429a1243055",
+    "server-rust/src/api.rs": "8cfceb2671bf2f571dba5a17669028bd4158cdfaf0b63d910d2e79020d1c1648",
+    "server-rust/src/hostname.rs": "8535c25da53f2398523988b292f46c6ecad1032098de64629d9a8c5c3d019192",
+    "server-rust/src/media_session.rs": "22bec46f1a00d436a85cfcf9fe0168c4129b44bb02613e7d87c1af848d92f85b",
+    "server-rust/src/json_text.rs": "d90509116088642af2e3ce6d19bf07b9462f2afc6da60ed695efee42f071446b",
+    "server-rust/src/fsroot.rs": "0e3456eb59c3fa15fe43f638a91bc4c7584d4566a792edd4a0c22c9947412544",
+    "server-rust/src/timeconfig.rs": "13f27564bd2ca5df0e807d73a10922d51900f16a03468c9e1ae665574f20f485",
+    "server-rust/src/hid_settings.rs": "85c6e27c6440e2c9dea7e3c84efc89687822a24ae254cc10ede321db3488e12e",
+    "server-rust/src/lib.rs": "9554466730e1dd7013ee116bfcd960c814052843f772c65bdf1bef4f1c9c9266",
+    "server-rust/src/go_printable.rs": "e8ba75a6c0e1acf2b0eec25005390aebcc8770b432211e5386c3d569469de2ba",
+    "server-rust/src/native_capture.rs": "bd1756398a3220cd1effcaaed3b1fa4e683ffdd917eb34c5d5528562910e34c8",
+    "server-rust/src/video_source.rs": "487d05d5f253e038c25b7328c85c6019bf23ea81ee8c09e3934960bde189e8d5",
+    "server-rust/src/systemops.rs": "f952ae02b274cfc7d9a9562bc6b5210d217b24b0830b8b39b10d996e809aafbd",
+    "server-rust/src/gpio_binding.rs": "21803b619573fc0ba6d5d28c7fb060e85eae2e74125ac4e820be8c5befbaafed",
+    "server-rust/src/sessions.rs": "8380bb22dea070eca196fdb02b2626e3f7788460b1eeea963eea226d7b3b0dfd",
+    "server-rust/src/oled.rs": "42913fdb08c9526481943057794e3b712de9004eadf711403f96050c957b16b9",
+    "server-rust/src/hdmi.rs": "fe404f69aee07ead37f06a61df180022403d1007be55f59b987d14d40229ea2b",
+    "server-rust/src/screen_api.rs": "8ee92500af23ce7184549730919dce29f8327bf2cd515817dcb0ff97d94e3ccf",
+    "server-rust/src/main.rs": "b6eadd7aa5bb3f630682772fc1ade84bfb90256f85057356f325b628ff49a3cd",
+    "server-rust/src/request_cancel.rs": "cff4d1a1df2b0764bbe50d77c5ca49ca68e90cf4648ea716ede24e30119cb1fc",
+    "server-rust/src/native_backend.rs": "b52f777667d6d3921fe71bfce020bee217b5cadc97c62b04bac88d398f0613bb",
+    "server-rust/src/json_syntax.rs": "5792b1e87a771c9c562242a9bb3ea7a62c944f83dc1f6ed8fa2a01b26d865224",
+    "server-rust/src/password_command.rs": "a244a01809a4ce9ef26a094c8e96fa8bc67ee7afa13f7aa3138a624121f5d7db",
+    "server-rust/src/jiggler.rs": "1079d44a8aea7d942a77d24b4bd5b265af577b10af1aac8157eb395984b42cf4",
+    "server-rust/src/ws.rs": "f632bd7b824ebe03b13322c185d9b85854992f24728b54c0c008341b3e6016e3",
+    "server-rust/src/native_capture_actor.rs": "4061bfc1df8a4a6b027fba6fe1c2943174ac0ef1932f4ebc31ee39afde5050ef",
+    "server-rust/src/native_frame.rs": "acab459a1b204737b8edf451c8609c3403edc1faba5045e9389f02136cb91147",
+    "server-rust/src/controlmode.rs": "4e5a70947845383505c2d506be6656b126f23ad3ec028a1e99c5b1d308aede26",
+    "server-rust/src/binding.rs": "acc7823ada7e4a72f96595f62951e388247b8a9c37d3ae888c81c0632b363b44",
+    "server-rust/src/services.rs": "58ff994a566675a9e7a3d05624e2fc7cf3208597b473247cda193f3def284a13",
+    "server-rust/src/time_sync.rs": "84ef74d07abdd68c166822a5ec914dc7eff6450cba2360d4b530610a6ebc5609",
+    "server-rust/src/memory_ops.rs": "69b7e8dd42b60d66527c6eb55ba698a8af4cbc216cd73ef982d805b2a3312246",
+    "server-rust/src/redirect.rs": "0b09c03245206a39938943ef2877df94175d382d9494451c6c930be55d5334f0",
+    "server-rust/src/capture_tests.rs": "9b32d26adb415c4cf613ebd47eaa17c7376567ca7a1fb800a09487f85904d029",
+    "server-rust/src/internal.rs": "85389af12165a6a51ed5ad405d6e956f2c5655e5a280e1d5788d85333125cdb2",
+    "server-rust/src/input.rs": "bc01dd357af067236b83f5b0d74e015de720156b4e0bfb94ab229d4a1f7aece1",
+    "server-rust/src/native_backend_tests.rs": "84e3d6fb2ed91838f1a9f0ccd8087dd5da595de8a8597d17b52007f6bc2c7251",
+    "server-rust/src/inputcontrol.rs": "9951d91e71d8dd47093bbafe9828cd97a037d52cc5cfd1bedf370abbc01886ac",
+    "server-rust/src/cpufreq.rs": "98bb4c030528379081622e2df1115a662f9e0e380818e344c7505adc5b621639",
+    "server-rust/src/crypto.rs": "1f9c1700c1c6a5e6a6a504979752751ab6dfea590ec3eb028babb48a726ee35f",
+    "server-rust/src/form_binding.rs": "d08259dae45ed3dee80eb66837508edb3052afd5b15052dc48d0336f088cc8d3",
+    "server-rust/src/screen.rs": "f80d4a179a0e67193a03094e749a35d3dd76307cda1ffe41d7263c202b8bd60c",
+    "server-rust/src/screen_store.rs": "4127ff1d09275bba6bb3d7eef2a5931ec883ab80bbb9c2b2e6cfa48af234c8c9",
+    "server-rust/src/store.rs": "922b16a89a0232c5bd70ed9e3ba56b82b0b1aba68b14113c1299112310c30b3c",
+    "server-rust/src/video_source_tests.rs": "98c59d43f0cba475e400dc7a1f6e21b5573ea6aef75851c3e578dfe0ece6c79c",
+    "server-rust/src/lockout.rs": "30c0d1453d7b3aa6658cb2560d373087a32440e36280cd0f1e1629818cd8d603",
+    "server-rust/src/native_protocol.rs": "39965e292f0b121ea833cf98cda4cb517db7a8d4ed54c7f22d17d8bf1cb21632",
+    "server-rust/src/hardware.rs": "8b0ebfb879cf0ef4411a230a924f8f3cc8d39f7d3bdfe727aa038f667e02f895",
+    "server-rust/src/memory_status.rs": "dc97311e5e3287b838e80f93c9a8154fb5e8408442b62fce7c4951542201b3cf",
+    "server-rust/src/monitor.rs": "b54b4694340dfe4224b1a7257c3a555ff327cb95777361e321f80b12fb6f45fe",
+    "server-rust/src/leds.rs": "5107d64da6e195fc8b95d9a7fd43d2947e5dc0f59956b136e8c8bf8ec59cd142",
+    "server-rust/src/link_telemetry.rs": "2a3d81147870580957fe5d24b74f0f27ee40806b89e19b672e3c6a7db70a7bff",
+    "server-rust/src/gpio_api.rs": "03e7d509458a4b3306e3d57155568b23ddc1bc8bbc0681da74ea7e119188d22e",
+    "server-rust/src/dashboard.rs": "672168390c787e4f8f82a00c0db5c42b8a2eacf1b3c2405e6c7cc0588ca1078c",
+    "server-rust/src/paste.rs": "afd71924b68bd55c29b9c714e3ee58bdc26b1716e45786aad7b8584d027532d6",
+    "server-rust/src/hid_device.rs": "a2db03baf174a138276c6f9657b7cf5a4a13db15acd6c2e9e03b63e548c9e987",
+    "server-rust/src/direct_socket_tests.rs": "57d65cb141dcc75102d31f936ce362450845d3054096f24bd36456d4bbbfb9ae",
+    "server-rust/tests/usb.rs": "fa2c744dd98e6929830d653350134c7087e53af980e7e41b846e615bfed53d26",
+    "server-rust/tests/gpio.rs": "a613aad8aae65b45a4a3a6066dad0e3accd398834990ad4fa8fe2782120592af",
+    "server-rust/tests/sysinfo.rs": "6532521b3ad33e1ee1286fb0862d7fd3e2d65f497194b01321b34d5c159dacb2",
+    "server-rust/tests/timeconfig.rs": "9de52cb07653ab1bfe9aa49c3ef4b8cfdc18f1beaab176b922df3fc7b99b4771",
+    "server-rust/tests/hdmi.rs": "dad612d0d06996af3960f56d954a0cfe6d4a2d8e75310f583a62fd7c45f43b6b",
+    "server-rust/tests/contracts.rs": "c34b6e1e1445d6b22ee396dbeb01826eddee7480c06d2ac7bd77c3f678e78437",
+    "server-rust/tests/memory.rs": "02bd8ef36c2c999c6d694f3638c25ec15a05f9dfa36c79eff2eab6e157470e87",
+    "server-rust/tests/services.rs": "c9f11c1b711bbca2da322833d3e152c6b7d32262ce38a1ef47dda8f07e412331",
+    "server-rust/tests/cpufreq.rs": "abaab38e763a2e589ffe21b75d8dfbb2b39756721e3ec8404da432a61df1b3a8",
+    "server-rust/tests/screen.rs": "a5842a5fa5dc9fb5461ac81078b6aca51be735c449193f09ce7443551673dbdf",
+    "server-rust/tests/memory_mutations.rs": "443b90d5689e27057ef4e13da36cb4556b2421651f933186c74f969de91cf36e",
+    "server-rust/tests/websocket.rs": "816d62a353f027e999003215db3583080e04ccc9ec5123ad1efdd4080cb55ee3",
+    "server-rust/tests/dashboard.rs": "ac984be8595949e3d6a545f69a061478fdc0717b858db72705fcc8af7b1eda0b",
+    "server-rust/native/licenses/go-stdlib.txt": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+    "server-rust/native/capture/nk-capture-worker.c": "2d47812012c07762f9580c8ca193ed04d6987a724c15f3f187374ed89b1100c3",
+    "server-rust/native/capture/nk-capture-fixture.c": "c3038471dc7e6d30cf9407045951e91c0242e7d52750480433e70607f51b3a69",
+    "server-rust/native/capture/nk-capture-protocol.h": "1ed1a75de845aa7387f21851de4a1e9ff661f688b71563fa557c2ecac679b846",
+    "server-rust/native/capture/nk-capture-abi.h": "c1b5c5a9914dc176b1528cf8ff94e6f5417d4548d38117443c3399243c4bacb2",
+    "server-rust/native/capture/main.c": "b3751cfd48a0f73ba8573e863129f7debf013901b77a1710b97a723010c70543",
+    "server-rust/Cargo.toml": "f595975a7c3ef744076f2734e52a0b34cf4f22cbc8b899dce1b07ca5b76a136a",
+    "server-rust/Cargo.lock": "ec9426b868264a888d1d0dca1fedd05fff69c919c2573ce2c7a78b773d8e9c1d",
+    "server-rust/build.rs": "a48af5e999b47b717aa25881c88bdaebe569ea2605dee8c446900ec36f684cc1",
+    "server-rust/rust-toolchain.toml": "efaa9f2edd345e4ef19fd016909971bdeeaff9dc999e967ff08fdc4f9ed2a41f",
+    "scripts/check-v3.py": "1d106f9b80ce75c5a198dea708bcf20279e49d64bcd48ed0e5e4ee7e1f597173",
+    "scripts/refresh-v3-direct-contract-oracle.py": "1321763b107e7d0b09dbf2a378a963afa8d43def670f63ddfb6cd524fd3eb70d",
+    "scripts/refresh-v3-direct-queue-oracle.py": "c994103c05b069a05167cd7b14babdb304ca77b796a23c88922cb7a9d7a7b2ef",
+    "scripts/refresh-v3-encoder-state-oracle.py": "bfc2783583b8d1fc0e49e5156cb7dbd209ff195582019b37f67aedc47356b5dd",
+    "docs/experiments/v3.0/direct-contract-go-oracle.json": "08d0dad8d97d3820e08ffaf3a414e378212430de73c1a421ccf57ec3803aba7d",
+    "docs/experiments/v3.0/direct-queue-go-oracle.json": "adacb5fc18d525b0031ec36e0030cb73361091b21161a88eae98b7e470f0b548",
+    "docs/experiments/v3.0/encoder-state-go-oracle.json": "595ec69c3cb62a2b45966f09341351fc5c8bfbcea52326f3db849ce10f04638f"
+  },
+  "checks": {
+    "fmt": {
+      "exit": 0,
+      "seconds": 0.25,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clippy": {
+      "exit": 0,
+      "seconds": 0.096,
+      "log_sha256": "ee1d3fffa2022e962e63e0dbe4d35c9c198450a20c29fc09030f635dbb38bfcd"
+    },
+    "host-contracts": {
+      "exit": 0,
+      "seconds": 98.46,
+      "log_sha256": "de6de3b24e8827a95560dcb5a1a302185da1dc4ec11d9adf3e167737d9c2931b"
+    },
+    "target-build": {
+      "exit": 0,
+      "seconds": 28.403,
+      "log_sha256": "32efe6f89c3ee9decde18f5ca8c86902a0e67e7a3b5c45490ac27fd1a3a41050"
+    },
+    "target-contracts": {
+      "exit": 0,
+      "seconds": 148.993,
+      "log_sha256": "cde2506be53fd8deb68f11985a24f7fac20685602871c638745e503ac40c4b11"
+    },
+    "target-version": {
+      "exit": 0,
+      "seconds": 0.021,
+      "log_sha256": "45ab3a914204af49b93add1fe3d39a590e5df3bd17e51f7eee8a5c1f3ddc309e"
+    },
+    "target-file": {
+      "exit": 0,
+      "seconds": 0.019,
+      "log_sha256": "f844687d64c97e8e9669dd24e5e25fffc94bef64e6c16bd75ba30dfa1b19707a"
+    },
+    "target-binary": {
+      "sha256": "3220845c5fd04b1ba4e084ba27dfe5c72be1df2a47ec07f87be57343798de640",
+      "bytes": 7555448
+    },
+    "tls-cert": {
+      "exit": 0,
+      "seconds": 0.05,
+      "log_sha256": "c4d2d36f67c4462f4b119e323c7e7bf7b848c572d3961a1913a7f40dbcf42519"
+    },
+    "tls-runtime": {
+      "verified_certificate": true,
+      "redirect": 307,
+      "secure_cookie": true,
+      "internal_loopback_http_exception": true,
+      "unauthorized_internal_redirect": 307,
+      "sigterm_exit": 0,
+      "shutdown_seconds": 0.032,
+      "occupied_port_fails_closed": true
+    },
+    "licenses": {
+      "resolved_packages": 173,
+      "missing_spdx": []
+    }
+  },
+  "test_counts": {
+    "host-contracts": {
+      "passed": 261,
+      "suites": [
+        140,
+        0,
+        27,
+        9,
+        5,
+        11,
+        7,
+        3,
+        6,
+        9,
+        3,
+        3,
+        8,
+        9,
+        21,
+        0
+      ]
+    },
+    "target-contracts": {
+      "passed": 261,
+      "suites": [
+        140,
+        0,
+        27,
+        9,
+        5,
+        11,
+        7,
+        3,
+        6,
+        9,
+        3,
+        3,
+        8,
+        9,
+        21,
+        0
+      ]
+    }
+  },
+  "new_tests": 21,
+  "actual_socket_api_tests": 12,
+  "go_reference_counts": {
+    "config": 564,
+    "status_sequence": 14,
+    "queue_steps": 135,
+    "encoder_state": 26,
+    "unicode_scalar_quotes": 1112064
+  },
+  "original_go_tests": {
+    "config": [
+      "TestEncoderConfigDefaults",
+      "TestParseEncoderConfig",
+      "TestParseEncoderConfigRejectsUnsupportedValues"
+    ],
+    "queue": [
+      "TestMarkDiscontinuityWaitsForNextKeyframe",
+      "TestNewOutboundFrameReusesHeadroom",
+      "TestNewOutboundDeltaClearsReusedKeyframeMarker",
+      "TestNewOutboundFrameFallsBackWithoutHeadroom",
+      "TestNewOutboundFrameFallsBackForUnrelatedStorage",
+      "TestAckStallPreservesQueuedPredictionChain",
+      "TestAckStallStillBoundsPendingFramesAndBytes"
+    ],
+    "state": [
+      "TestEncoderSelectionRequiresExplicitAuthorizedValidRequest",
+      "TestEncoderSelectionWriteFailureKeepsActiveCodec"
+    ]
+  },
+  "native_fixture_worker_executed": true,
+  "hardware_execution": false,
+  "production_activation": false,
+  "vendored_runtime_data": {
+    "file": "server-rust/src/go_printable.rs",
+    "license": "BSD-3-Clause",
+    "license_file": "server-rust/native/licenses/go-stdlib.txt",
+    "source": "Go 1.27.1 strconv IsPrint static ranges; no Go runtime"
+  },
+  "notes": [
+    "One shared Direct Source subscription per immutable codec/group; queues8/2MiB and flow1..8/signedi64 ACK/resync",
+    "Independent media registry, origin/factory/account/expiry/revoke,64byte input/30s read/2s write/15s ping, bounded WS buffers",
+    "One coalesced joined HDMI viewer publisher; every new decoder requests coalesced IDR; closes release native owners and never poison last in-flight capture",
+    "Shared lazy3s source FPS; bounded sorted capture-status snapshots/dedup JSON-string WS events; save-before-select mode600 JSON encoder APIs",
+    "Correct Go Unicode quotes; literal percent-error formatting intentionally fixes Go dynamic printf bug",
+    "Default isolated native backend/main gate preserved; synthetic frames do not qualify hardware encoding/browser media; MJPEG/frame-detect/audio/WebRTC/remaining APIs/package/hardware pending"
+  ],
+  "supplemental_host_default_tls": {
+    "host-build": {
+      "exit": 0,
+      "seconds": 6.541,
+      "log_sha256": "4d3d4afa17612fba41f1358922b8d6080fdae8df69183e460acccc82e203532a"
+    },
+    "tls-cert": {
+      "exit": 0,
+      "seconds": 0.027,
+      "log_sha256": "28b2aa4eb00b390ed361a0f17d262eaf1bc82f82024a6d1c587f71a548954d04"
+    },
+    "tls-runtime": {
+      "verified_certificate": true,
+      "redirect": 307,
+      "secure_cookie": true,
+      "internal_loopback_http_exception": true,
+      "unauthorized_internal_redirect": 307,
+      "sigterm_exit": 0,
+      "shutdown_seconds": 0.003,
+      "occupied_port_fails_closed": true
+    },
+    "licenses": {
+      "resolved_packages": 173,
+      "missing_spdx": []
+    }
+  },
+  "default_binary": {
+    "dt_needed": false,
+    "native_fixture_or_vendor_symbols": false
+  },
+  "elapsed_seconds": 283.9,
+  "routes_before_qualification": {
+    "partial-isolated": 1,
+    "implemented-isolated": 64,
+    "pending": 139
+  },
+  "routes_after_qualification": {
+    "pending": 135,
+    "implemented-isolated": 68,
+    "partial-isolated": 1
+  }
+}

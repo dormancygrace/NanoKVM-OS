@@ -1,0 +1,611 @@
+{
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "source_sha256": {
+    "server/service/stream/state.go": "382dfe5353b88b93cdcf5529a575c312b6d551b40c42b9003d4cc94c357817fd",
+    "server/service/stream/state_test.go": "b454824b885707f76ee8ad2754638e8980ee58d227f75bba935e9f1f98a9dbcf",
+    "server/service/stream/video_source.go": "a555000d326a19e088c58430c69b0099c852b5c800e4599ba6f72dade68b63eb",
+    "server/service/stream/encoder_config.go": "af493c923539b0b3694d6988731018dbb4bcb44b32cd7652360c635ed01793e0",
+    "server/proto/response.go": "1290cc1e89a73bc1fc705ae66f3917c05a878382a2efbc792807531264d55cf4",
+    "server/go.mod": "6c73aefb26aa2af74f77cf5cb4b0d9bc7cf2f48eaf4e8f4176102f5a7c262091",
+    "server/go.sum": "94922fbd383453d16e873e925cdfefd478400ff59884aed51b56201a53faddb3"
+  },
+  "cases": [
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{}",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "",
+      "mode": null,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "codec must be h264 or h265"
+      },
+      "saved": null,
+      "selected": false,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "null",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "",
+      "mode": null,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "codec must be h264 or h265"
+      },
+      "saved": null,
+      "selected": false,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "[]",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "",
+      "mode": null,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "codec must be h264 or h265"
+      },
+      "saved": null,
+      "selected": false,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":\"h264\"}",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "h264",
+      "mode": 384,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "saved": "h264\n",
+      "selected": true,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"CODEC\":\"h265\"}",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "h265",
+      "mode": 384,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "saved": "h265\n",
+      "selected": true,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":\"h264\",\"codec\":null}",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "h264",
+      "mode": 384,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "saved": "h264\n",
+      "selected": true,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":null}",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "",
+      "mode": null,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "codec must be h264 or h265"
+      },
+      "saved": null,
+      "selected": false,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":\"H264\"}",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "",
+      "mode": null,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "codec must be h264 or h265"
+      },
+      "saved": null,
+      "selected": false,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":1}",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "",
+      "mode": null,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "codec must be h264 or h265"
+      },
+      "saved": null,
+      "selected": false,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":1,\"codec\":\"h264\"}",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "",
+      "mode": null,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "codec must be h264 or h265"
+      },
+      "saved": null,
+      "selected": false,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":\"h264\",\"codec\":\"h265\"}",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "h265",
+      "mode": 384,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "saved": "h265\n",
+      "selected": true,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":\"h265\"} true",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "h265",
+      "mode": 384,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "saved": "h265\n",
+      "selected": true,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":\"h265\",\"unknown\":1e9999}",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "h265",
+      "mode": 384,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "saved": "h265\n",
+      "selected": true,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":\"h264\"}",
+        "Method": "POST",
+        "ContentType": "",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "h264",
+      "mode": 384,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "saved": "h264\n",
+      "selected": true,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":\"h264\"}",
+        "Method": "POST",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "h264",
+      "mode": 384,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "saved": "h264\n",
+      "selected": true,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":\"h264\"}",
+        "Method": "POST",
+        "ContentType": "garbage;=bad",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "h264",
+      "mode": 384,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "saved": "h264\n",
+      "selected": true,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":\"h264\"}",
+        "Method": "POST",
+        "ContentType": "text/plain",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "h264",
+      "mode": 384,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      },
+      "saved": "h264\n",
+      "selected": true,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "codec=h264",
+        "Method": "POST",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Role": "admin",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "",
+      "mode": null,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "codec must be h264 or h265"
+      },
+      "saved": null,
+      "selected": false,
+      "status": 200
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":\"h265\"}",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "user",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "",
+      "mode": null,
+      "response": null,
+      "saved": null,
+      "selected": false,
+      "status": 403
+    },
+    {
+      "cacheControl": "",
+      "case": {
+        "Body": "{\"codec\":\"h265\"}",
+        "Method": "POST",
+        "ContentType": "application/json",
+        "Role": "admin",
+        "Active": "h264",
+        "Selected": "",
+        "Blocked": true
+      },
+      "codec": "",
+      "mode": null,
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "cannot save encoder selection"
+      },
+      "saved": null,
+      "selected": false,
+      "status": 200
+    },
+    {
+      "cacheControl": "no-store",
+      "case": {
+        "Body": "",
+        "Method": "GET",
+        "ContentType": "",
+        "Role": "user",
+        "Active": "",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "",
+      "mode": null,
+      "response": {
+        "code": 0,
+        "data": {
+          "active": false,
+          "codec": "",
+          "selected": false
+        },
+        "msg": "success"
+      },
+      "saved": null,
+      "selected": false,
+      "status": 200
+    },
+    {
+      "cacheControl": "no-store",
+      "case": {
+        "Body": "",
+        "Method": "GET",
+        "ContentType": "",
+        "Role": "user",
+        "Active": "h264",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "",
+      "mode": null,
+      "response": {
+        "code": 0,
+        "data": {
+          "active": true,
+          "codec": "h264",
+          "selected": false
+        },
+        "msg": "success"
+      },
+      "saved": null,
+      "selected": false,
+      "status": 200
+    },
+    {
+      "cacheControl": "no-store",
+      "case": {
+        "Body": "",
+        "Method": "GET",
+        "ContentType": "",
+        "Role": "user",
+        "Active": "h265",
+        "Selected": "",
+        "Blocked": false
+      },
+      "codec": "",
+      "mode": null,
+      "response": {
+        "code": 0,
+        "data": {
+          "active": true,
+          "codec": "h265",
+          "selected": false
+        },
+        "msg": "success"
+      },
+      "saved": null,
+      "selected": false,
+      "status": 200
+    },
+    {
+      "cacheControl": "no-store",
+      "case": {
+        "Body": "",
+        "Method": "GET",
+        "ContentType": "",
+        "Role": "user",
+        "Active": "",
+        "Selected": "h264",
+        "Blocked": false
+      },
+      "codec": "h264",
+      "mode": null,
+      "response": {
+        "code": 0,
+        "data": {
+          "active": false,
+          "codec": "h264",
+          "selected": true
+        },
+        "msg": "success"
+      },
+      "saved": null,
+      "selected": true,
+      "status": 200
+    },
+    {
+      "cacheControl": "no-store",
+      "case": {
+        "Body": "",
+        "Method": "GET",
+        "ContentType": "",
+        "Role": "user",
+        "Active": "",
+        "Selected": "h265",
+        "Blocked": false
+      },
+      "codec": "h265",
+      "mode": null,
+      "response": {
+        "code": 0,
+        "data": {
+          "active": false,
+          "codec": "h265",
+          "selected": true
+        },
+        "msg": "success"
+      },
+      "saved": null,
+      "selected": true,
+      "status": 200
+    },
+    {
+      "cacheControl": "no-store",
+      "case": {
+        "Body": "",
+        "Method": "GET",
+        "ContentType": "",
+        "Role": "user",
+        "Active": "h265",
+        "Selected": "h264",
+        "Blocked": false
+      },
+      "codec": "h264",
+      "mode": null,
+      "response": {
+        "code": 0,
+        "data": {
+          "active": false,
+          "codec": "h264",
+          "selected": true
+        },
+        "msg": "success"
+      },
+      "saved": null,
+      "selected": true,
+      "status": 200
+    }
+  ],
+  "go_version": "1.27.1",
+  "original_tests": [
+    "TestEncoderSelectionRequiresExplicitAuthorizedValidRequest",
+    "TestEncoderSelectionWriteFailureKeepsActiveCodec"
+  ]
+}

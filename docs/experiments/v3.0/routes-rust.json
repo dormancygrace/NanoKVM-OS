@@ -1590,8 +1590,14 @@
     "handler": "stream.GetEncoderState",
     "source": "server/router/stream.go",
     "line": 21,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/stream_api.rs",
+      "server-rust/src/direct.rs",
+      "server-rust/src/direct_socket_tests.rs",
+      "docs/experiments/v3.0/stage3-direct.md",
+      "docs/experiments/v3.0/stage3-direct-qualification.json"
+    ]
   },
   {
     "method": "POST",
@@ -1601,8 +1607,14 @@
     "handler": "stream.SetEncoderState",
     "source": "server/router/stream.go",
     "line": 22,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/stream_api.rs",
+      "server-rust/src/direct.rs",
+      "server-rust/src/direct_socket_tests.rs",
+      "docs/experiments/v3.0/stage3-direct.md",
+      "docs/experiments/v3.0/stage3-direct-qualification.json"
+    ]
   },
   {
     "method": "GET",
@@ -1645,8 +1657,14 @@
     "handler": "direct.Connect)     ",
     "source": "server/router/stream.go",
     "line": 27,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/stream_api.rs",
+      "server-rust/src/direct.rs",
+      "server-rust/src/direct_socket_tests.rs",
+      "docs/experiments/v3.0/stage3-direct.md",
+      "docs/experiments/v3.0/stage3-direct-qualification.json"
+    ]
   },
   {
     "method": "GET",
@@ -1667,8 +1685,14 @@
     "handler": "direct.ConnectLegacy",
     "source": "server/router/stream.go",
     "line": 29,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/stream_api.rs",
+      "server-rust/src/direct.rs",
+      "server-rust/src/direct_socket_tests.rs",
+      "docs/experiments/v3.0/stage3-direct.md",
+      "docs/experiments/v3.0/stage3-direct-qualification.json"
+    ]
   },
   {
     "method": "GET",
@@ -2447,7 +2471,9 @@
     "rust_status": "partial-isolated",
     "evidence": [
       "server-rust/src/ws.rs",
-      "docs/experiments/v3.0/stage3-coordinator.md"
+      "docs/experiments/v3.0/stage3-coordinator.md",
+      "server-rust/src/media_status.rs",
+      "docs/experiments/v3.0/stage3-direct.md"
     ]
   }
 ]

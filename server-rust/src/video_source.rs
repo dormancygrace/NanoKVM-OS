@@ -234,6 +234,7 @@ pub struct Source {
     screen: Arc<screen::Manager>,
     hdmi: Arc<hdmi::Manager>,
     actor: Option<Actor>,
+    frame_rate: Arc<crate::media_status::FrameRate>,
     state: Mutex<State>,
     keyframe: Arc<AtomicBool>,
     stopping: AtomicBool,
@@ -274,6 +275,16 @@ impl Source {
         hdmi: Arc<hdmi::Manager>,
         actor: Option<Actor>,
     ) -> Arc<Self> {
+        let frame_rate = crate::media_status::FrameRate::new(root.clone());
+        Self::with_counter(root, screen, hdmi, actor, frame_rate)
+    }
+    pub(crate) fn with_counter(
+        root: PathBuf,
+        screen: Arc<screen::Manager>,
+        hdmi: Arc<hdmi::Manager>,
+        actor: Option<Actor>,
+        frame_rate: Arc<crate::media_status::FrameRate>,
+    ) -> Arc<Self> {
         let selected = fsroot::resolve(&root, Path::new("/etc/kvm/encoder_codec"), false)
             .ok()
             .and_then(|path| fs::read_to_string(path).ok())
@@ -284,6 +295,7 @@ impl Source {
             screen,
             hdmi,
             actor,
+            frame_rate,
             state: Mutex::new(State {
                 selected,
                 session: None,
@@ -297,6 +309,26 @@ impl Source {
     }
     fn lock(&self) -> MutexGuard<'_, State> {
         self.state.lock().unwrap_or_else(|error| error.into_inner())
+    }
+    pub(crate) fn available(&self) -> bool {
+        !self.stopping.load(Ordering::Acquire)
+            && self.actor.as_ref().is_some_and(|actor| !actor.stopped())
+    }
+    pub(crate) fn encoder_state(&self) -> (bool, bool, String) {
+        let state = self.lock();
+        let active = !state.entries.is_empty() && state.session.is_some();
+        let config = state.selected.or_else(|| {
+            state
+                .session
+                .as_ref()
+                .filter(|_| active)
+                .map(|session| session.config)
+        });
+        (
+            active,
+            state.selected.is_some(),
+            config.map_or_else(String::new, |config| config.codec.to_string()),
+        )
     }
     pub fn active_config(&self) -> Option<EncoderConfig> {
         let state = self.lock();
@@ -594,6 +626,9 @@ impl Source {
                 period = current_period;
                 next = Instant::now() + period;
             }
+            if outcome.frame.is_some() {
+                self.frame_rate.update();
+            }
             if discard {
                 self.request_keyframe();
             } else if let Some(frame) = outcome.frame {
@@ -677,4 +712,4 @@ fn advance_deadline(previous: Instant, now: Instant, period: Duration) -> Instan
 
 #[cfg(all(test, feature = "native-fixture"))]
 #[path = "video_source_tests.rs"]
-mod tests;
+pub(crate) mod tests;

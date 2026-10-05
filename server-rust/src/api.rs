@@ -173,6 +173,7 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         ("POST", "/api/vm/oled") => &["sleep"],
         ("POST", "/api/vm/hdmi/timeout") => &["minutes"],
         ("POST", "/api/vm/screen") => &["type", "value", "confirmPowerCycle"],
+        ("POST", "/api/stream/state") => &["codec"],
         ("POST", "/api/vm/cpu-frequency") => &["target"],
         ("POST", "/api/vm/date-time") => &["servers", "timezone", "format"],
         ("POST", "/api/vm/memory/swap") => &["kind", "enabled", "sizeMiB", "recompress"],
@@ -212,7 +213,10 @@ fn params(
     if method != Method::GET
         && (matches!(
             path,
-            "/api/vm/date-time" | "/api/vm/memory/swap" | "/api/vm/memory/video"
+            "/api/vm/date-time"
+                | "/api/vm/memory/swap"
+                | "/api/vm/memory/video"
+                | "/api/stream/state"
         ) || headers
             .get("content-type")
             .and_then(|v| v.to_str().ok())
@@ -394,6 +398,26 @@ pub async fn dispatch(
         let upgrade = WebSocketUpgrade::from_request_parts(&mut parts, &()).await;
         return crate::ws::connect(State((s, web)), ConnectInfo(peer), headers, upgrade).await;
     }
+    if method == Method::GET
+        && matches!(
+            path.as_str(),
+            "/api/stream/video/direct" | "/api/stream/h264/direct"
+        )
+    {
+        let (mut parts, body) = request.into_parts();
+        drop(body);
+        let headers = parts.headers.clone();
+        let upgrade = WebSocketUpgrade::from_request_parts(&mut parts, &()).await;
+        return crate::direct::connect(
+            s,
+            peer,
+            headers,
+            upgrade,
+            query.as_deref().unwrap_or(""),
+            path == "/api/stream/h264/direct",
+        )
+        .await;
+    }
     let peer = peer.ip();
     let headers = request.headers().clone();
     let body = match to_bytes(request.into_body(), 1 << 20).await {
@@ -501,6 +525,13 @@ fn handle(
         }
         let secure = secure_cookie(s, headers, peer);
         match (method.as_str(), path) {
+            ("GET", "/api/stream/state") => crate::stream_api::state(s),
+            ("POST", "/api/stream/state") => crate::stream_api::select(
+                s,
+                user.as_ref().map_or("", |user| user.role.as_str()),
+                parsed,
+                cancelled,
+            ),
             ("GET", "/api/vm/dashboard") => crate::dashboard::get(s),
             ("GET", "/api/vm/screen") => crate::screen_api::get(s, cancelled),
             ("POST", "/api/vm/screen") => crate::screen_api::set(s, parsed, cancelled),

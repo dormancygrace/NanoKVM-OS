@@ -651,8 +651,11 @@
     "handler": "requireInputOwner(), service.Paste",
     "source": "server/router/hid.go",
     "line": 23,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/paste.rs",
+      "docs/experiments/v3.0/stage3-paste.md"
+    ]
   },
   {
     "method": "GET",

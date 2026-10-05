@@ -260,7 +260,7 @@ async fn real_sockets_transfer_release_filter_viewers_and_enforce_http_leases() 
     let (status, _) = server
         .api("POST", "/api/hid/paste", &token, json!({}), Some(lease_a))
         .await;
-    assert_eq!(status, StatusCode::NOT_IMPLEMENTED); // Paste itself is still pending.
+    assert_eq!(status, StatusCode::OK); // Authenticated paste validation now runs.
     b.send(Message::Binary(vec![3, 1].into())).await.unwrap();
     let owned_b = control(&mut b, true).await;
     assert!(control(&mut a, false).await.get("lease").is_none());
@@ -1163,5 +1163,309 @@ async fn hid_profile_install_validation_noop_symlink_copy_reboot_and_admin_gate(
             .0,
         StatusCode::FORBIDDEN
     );
+    server.runtime.shutdown();
+}
+
+async fn paste_request(router: Router, token: String, body: Value, lease: Option<String>) -> Value {
+    let mut request = Request::builder()
+        .method("POST")
+        .uri("/api/hid/paste")
+        .header("content-type", "application/json")
+        .header("authorization", format!("Bearer {token}"));
+    if let Some(lease) = lease {
+        request = request.header("x-nanokvm-input-lease", lease);
+    }
+    let mut request = request.body(Body::from(body.to_string())).unwrap();
+    request.extensions_mut().insert(ConnectInfo(
+        "127.0.0.1:38000".parse::<SocketAddr>().unwrap(),
+    ));
+    let response = router.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    serde_json::from_slice(&to_bytes(response.into_body(), 1 << 20).await.unwrap()).unwrap()
+}
+#[tokio::test]
+async fn actual_go_paste_layouts_produce_exact_reports_and_final_key_up() {
+    let server = Server::new("").await;
+    let token = server.token("owner", 120);
+    let oracle: Value = serde_json::from_str(include_str!(
+        "../../docs/experiments/v3.0/paste-go-oracle.json"
+    ))
+    .unwrap();
+    let path = server.root.path().join("dev/hidg0");
+    for language in ["", "de", "fr", "es"] {
+        let rows = oracle["layouts"][language].as_array().unwrap();
+        let mut content = String::new();
+        let mut expected = Vec::new();
+        for row in rows {
+            content.push(char::from_u32(row["rune"].as_u64().unwrap() as u32).unwrap());
+            let key = &row["key"];
+            expected.extend_from_slice(&[
+                key[0].as_u64().unwrap() as u8,
+                0,
+                key[1].as_u64().unwrap() as u8,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]);
+            expected.extend_from_slice(&[0; 8]);
+            if !row["follow"].as_array().unwrap().is_empty() {
+                let key = &row["follow"];
+                expected.extend_from_slice(&[
+                    key[0].as_u64().unwrap() as u8,
+                    0,
+                    key[1].as_u64().unwrap() as u8,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                ]);
+                expected.extend_from_slice(&[0; 8]);
+            }
+        }
+        expected.extend_from_slice(&[0; 8]);
+        let start = fs::read(&path).unwrap().len();
+        let response = paste_request(
+            server.router.clone(),
+            token.clone(),
+            json!({"content":content,"langue":language}),
+            None,
+        )
+        .await;
+        assert_eq!(response["code"], 0);
+        assert_eq!(&fs::read(&path).unwrap()[start..], expected, "{language}");
+    }
+    let initial = fs::read(&path).unwrap().len();
+    assert_eq!(
+        paste_request(
+            server.router.clone(),
+            token.clone(),
+            json!({"content":"😀"}),
+            None
+        )
+        .await["code"],
+        0
+    );
+    assert_eq!(&fs::read(&path).unwrap()[initial..], &[0; 8]);
+    for (body, code) in [
+        (json!({"content":""}), -1),
+        (json!({"content":"x".repeat(834)}), -2),
+        (json!({"content":"á".repeat(417),"langue":"es"}), -2),
+        (json!({"content":7}), -1),
+    ] {
+        assert_eq!(
+            paste_request(server.router.clone(), token.clone(), body, None).await["code"],
+            code
+        );
+    }
+    // Test real cadence and the largest Go-valid paste, including scheduler IO
+    // overhead. A 25s wall-clock cutoff would reject this valid request.
+    let start = fs::read(&path).unwrap().len();
+    let started = Instant::now();
+    assert_eq!(
+        paste_request(
+            server.router.clone(),
+            token.clone(),
+            json!({"content":"a".repeat(833)}),
+            None
+        )
+        .await["code"],
+        0
+    );
+    assert!(started.elapsed() >= Duration::from_millis(833 * 30));
+    assert!(started.elapsed() < Duration::from_secs(28));
+    let expected = [[0, 0, 4, 0, 0, 0, 0, 0], [0; 8]].concat().repeat(833);
+    assert_eq!(
+        &fs::read(&path).unwrap()[start..],
+        [expected, vec![0; 8]].concat()
+    );
+    // The explicit Go form tags remain lower case.
+    let mut raw = Request::builder()
+        .method("POST")
+        .uri("/api/hid/paste")
+        .header("content-type", "application/x-www-form-urlencoded")
+        .header("authorization", format!("Bearer {token}"))
+        .body(Body::from("content=y&langue=de"))
+        .unwrap();
+    raw.extensions_mut().insert(ConnectInfo(server.address));
+    let response = server.router.clone().oneshot(raw).await.unwrap();
+    let value: Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 1 << 20).await.unwrap()).unwrap();
+    assert_eq!(value["code"], 0);
+    server.runtime.shutdown();
+}
+#[tokio::test]
+async fn paste_owner_transfer_cancels_without_clearing_the_new_owner() {
+    let server = Server::new("").await;
+    let token = server.token("owner", 120);
+    let mut a = server.socket(&token, &[]).await.unwrap();
+    let owned = control(&mut a, true).await;
+    let mut b = server.socket(&token, &[]).await.unwrap();
+    control(&mut b, false).await;
+    let paste = tokio::spawn(paste_request(
+        server.router.clone(),
+        token.clone(),
+        json!({"content":"a".repeat(100)}),
+        Some(owned["lease"].as_str().unwrap().into()),
+    ));
+    server.hid(0, 16).await;
+    b.send(Message::Binary(vec![3, 1].into())).await.unwrap();
+    control(&mut b, true).await;
+    assert_eq!(
+        timeout(Duration::from_secs(2), paste)
+            .await
+            .unwrap()
+            .unwrap()["msg"],
+        "HID paste failed"
+    );
+    let path = server.root.path().join("dev/hidg0");
+    let length = fs::read(&path).unwrap().len();
+    b.send(Message::Binary(vec![1, 0, 0, 5, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    server.hid(0, length + 8).await;
+    sleep(Duration::from_millis(100)).await;
+    assert_eq!(
+        &fs::read(&path).unwrap()[length..],
+        &[0, 0, 5, 0, 0, 0, 0, 0]
+    );
+    a.close(None).await.unwrap();
+    b.close(None).await.unwrap();
+    server.runtime.shutdown();
+}
+#[tokio::test]
+async fn paste_serializes_requests_and_stops_on_revoke_or_request_drop() {
+    let server = Server::new("").await;
+    let token = server.token("owner", 120);
+    let path = server.root.path().join("dev/hidg0");
+    let paste = tokio::spawn(paste_request(
+        server.router.clone(),
+        token.clone(),
+        json!({"content":"a".repeat(100)}),
+        None,
+    ));
+    server.hid(0, 16).await;
+    assert_eq!(
+        paste_request(
+            server.router.clone(),
+            token.clone(),
+            json!({"content":"b"}),
+            None
+        )
+        .await["msg"],
+        "HID control is busy"
+    );
+    paste.abort();
+    assert!(paste.await.unwrap_err().is_cancelled());
+    sleep(Duration::from_millis(100)).await;
+    let length = fs::read(&path).unwrap().len();
+    sleep(Duration::from_millis(100)).await;
+    assert_eq!(fs::read(&path).unwrap().len(), length);
+    assert_eq!(&fs::read(&path).unwrap()[length - 8..], &[0; 8]);
+    let paste = tokio::spawn(paste_request(
+        server.router.clone(),
+        token.clone(),
+        json!({"content":"a".repeat(100)}),
+        None,
+    ));
+    server.hid(0, length + 16).await;
+    server.runtime.store.revoke("owner").unwrap();
+    assert_eq!(
+        timeout(Duration::from_secs(2), paste)
+            .await
+            .unwrap()
+            .unwrap()["code"],
+        -3
+    );
+    let length = fs::read(&path).unwrap().len();
+    sleep(Duration::from_millis(100)).await;
+    assert_eq!(fs::read(&path).unwrap().len(), length);
+    server.runtime.shutdown();
+}
+#[tokio::test]
+async fn paste_cancels_on_usb_generation_pico_lock_and_mode_transition() {
+    use nanokvm_server::controlmode::Mode;
+    let server = Server::new("").await;
+    let token = server.token("owner", 120);
+    let path = server.root.path().join("dev/hidg0");
+    server.runtime.pico_lock.acquire("pico-owned").unwrap();
+    assert_eq!(
+        paste_request(
+            server.router.clone(),
+            token.clone(),
+            json!({"content":"a"}),
+            None
+        )
+        .await["msg"],
+        "HID control is busy"
+    );
+    assert!(fs::read(&path).unwrap().is_empty());
+    server.runtime.pico_lock.release("");
+    let paste = tokio::spawn(paste_request(
+        server.router.clone(),
+        token.clone(),
+        json!({"content":"a".repeat(100)}),
+        None,
+    ));
+    server.hid(0, 16).await;
+    server.runtime.input.reconfigure(|| Ok(())).unwrap();
+    assert_eq!(
+        timeout(Duration::from_secs(2), paste)
+            .await
+            .unwrap()
+            .unwrap()["code"],
+        -3
+    );
+    let length = fs::read(&path).unwrap().len();
+    let paste = tokio::spawn(paste_request(
+        server.router.clone(),
+        token.clone(),
+        json!({"content":"a".repeat(100)}),
+        None,
+    ));
+    server.hid(0, length + 16).await;
+    let runtime = server.runtime.clone();
+    let switching = tokio::task::spawn_blocking(move || {
+        runtime
+            .control
+            .switch(None, Mode::Mcp, || Ok(()), || Ok(()))
+    });
+    assert_eq!(
+        timeout(Duration::from_secs(2), paste)
+            .await
+            .unwrap()
+            .unwrap()["code"],
+        -3
+    );
+    timeout(Duration::from_secs(2), switching)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    server.runtime.shutdown();
+}
+#[tokio::test]
+async fn actual_http_disconnect_cancels_paste_before_more_keys() {
+    use tokio::io::AsyncWriteExt;
+    let server = Server::new("").await;
+    let token = server.token("owner", 120);
+    let path = server.root.path().join("dev/hidg0");
+    let mut connection = TcpStream::connect(server.address).await.unwrap();
+    let body = json!({"content":"a".repeat(100)}).to_string();
+    let request=format!("POST /api/hid/paste HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",server.address,body.len());
+    connection.write_all(request.as_bytes()).await.unwrap();
+    server.hid(0, 16).await;
+    drop(connection);
+    sleep(Duration::from_millis(200)).await;
+    let length = fs::read(&path).unwrap().len();
+    sleep(Duration::from_millis(200)).await;
+    assert_eq!(
+        fs::read(&path).unwrap().len(),
+        length,
+        "disconnected client still types"
+    );
+    assert!(length < 100 * 16);
     server.runtime.shutdown();
 }

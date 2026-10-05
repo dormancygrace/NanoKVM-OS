@@ -1,0 +1,49 @@
+--- a/arch/riscv/Kconfig
++++ b/arch/riscv/Kconfig
+@@ -717,6 +717,17 @@
+ 	  Fuse csum_partial_copy_nocheck() for large kernel RAM buffers.
+ 	  Faulting userspace copies keep their existing implementations.
+ 
++config RISCV_C906_LZ4_DECOMPRESS
++	bool "C906 aligned LZ4 decompression copies"
++	depends on 64BIT && ARCH_THEAD && LZ4_DECOMPRESS
++	default n
++	help
++	  Use native aligned 64-bit copies for complete wild-copy spans in
++	  the LZ4 decompressor. Dispatch once per span, retain the original
++	  unaligned path and forward order for overlapping matches. The
++	  compressor and compiler vectorization policy stay unchanged.
++	  This scalar path was qualified on the NanoKVM C906.
++
+ config RISCV_ISA_V_PREEMPTIVE
+ 	bool "Run kernel-mode Vector with kernel preemption"
+ 	depends on PREEMPTION
+--- a/lib/lz4/lz4defs.h
++++ b/lib/lz4/lz4defs.h
+@@ -175,6 +175,16 @@
+ 	BYTE *d = (BYTE *)dstPtr;
+ 	const BYTE *s = (const BYTE *)srcPtr;
+ 	BYTE *const e = (BYTE *)dstEnd;
++#if defined(CONFIG_RISCV_C906_LZ4_DECOMPRESS) && defined(LZ4_C906_ALIGNED_WILDCOPY)
++    if (!(((uintptr_t)d | (uintptr_t)s) & 7)) {
++        do {
++            *(U64 *)d = *(const U64 *)s;
++            d += 8; s += 8;
++        } while (d < e);
++        return;
++    }
++#endif
++
+ 
+ 	do {
+ 		LZ4_copy8(d, s);
+--- a/lib/lz4/lz4_decompress.c
++++ b/lib/lz4/lz4_decompress.c
+@@ -33,6 +33,7 @@
+ /*-************************************
+  *	Dependencies
+  **************************************/
++#define LZ4_C906_ALIGNED_WILDCOPY
+ #include "lz4defs.h"
+ #include <linux/init.h>
+ #include <linux/module.h>

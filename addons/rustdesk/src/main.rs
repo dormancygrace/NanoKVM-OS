@@ -4,6 +4,7 @@ mod auth;
 mod config;
 mod direct;
 mod framing;
+mod frame_crypto;
 mod identity;
 mod input;
 mod onekvm;

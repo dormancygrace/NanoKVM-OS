@@ -241,3 +241,57 @@ implemented in this version.
 Use cargo --config performance.toml build --locked --offline --profile performance --target riscv64gc-unknown-linux-musl with the existing cross-linker environment. The named profile selects optimization level 3, full LTO and one codegen unit; the config enables the qualified scalar T-Head extensions and static CRT. The generic release remains available. The repository packaging builder accepts --build-profile performance and records exact flags and compiler identity in build-profile.json. Use a separate output directory for each profile. This Rust backend does not implement RVV 0.7.1; this is a scalar optimized variant.
 
 Local unpublished APK/source pairs can be built with --local-only instead of --source-url; source.json records the local archive digest and publication state. This avoids claiming a public download exists before publication.
+
+## C906 framing and Salsa qualification
+
+The frame reader and writer reuse a bounded payload buffer. Protobuf output is
+encoded behind a reserved 16-byte tag prefix, and XSalsa20-Poly1305 processes
+that buffer in place. The existing tag-prefix wire format, KX directions and
+nonce counter rules are retained. Buffers above 1 MiB are released after the
+frame; the maximum wire frame is 8 MiB.
+
+The explicit RVV 0.7.1 Salsa prototype is preserved in the separate
+`codex/c906-salsa-rvv07-20261005` research branch. Its correctness passed on
+C906, including low-counter wrap, eight output alignments, guards and all
+eight VXRM/VXSAT control pairs. CPU measurements showed mostly slower
+encryption than the scalar in-place path. Production uses RustCrypto scalar
+XSalsa20-Poly1305; no vector feature or extra assembly compiler is required.
+
+With a static musl linker and the qualified scalar performance profile:
+
+```sh
+cargo --config performance.toml build --locked --profile performance \
+  --target riscv64gc-unknown-linux-musl --features performance-probes \
+  --bin c906-crypto-perf
+```
+
+The tool's `qualify` command checks tag-prefix byte equality, decryption,
+modified-tag handling, input/output guards and size/alignment boundaries.
+`bench` compares the allocation API, detached scalar API and current adapter.
+`frame-bench` compares the original protobuf/allocating encrypted writer with
+the actual current writer, using an observable sink. It records process CPU
+time, wall time and heap allocations. Run measurements in a coordinated slot;
+raw results and device access belong outside the public repository. These
+measurements do not include the encoder, network or client video decoder.
+
+On the qualified C906 performance build, the actual writer benchmark measured
+34–37% less process CPU time for 16–256 KiB messages than the previous
+protobuf-plus-allocating-secretbox writer. After buffer warm-up, payload
+allocations fell from two per message to zero for retained sizes. These
+numbers describe the framing writer, excluding encoding and network delivery.
+The hardware gate covered 3,360 crypto cases and 256 active VXRM/VXSAT cases;
+the research prototype passed its counter-wrap and output-alignment checks.
+
+The installed scalar candidate preserved the configuration and identity
+byte for byte, registered with the official server, authenticated an encrypted
+view-only relay session and decoded live 1080p video messages. The longer
+120-message relay gate currently ends in EOF after 10–11 messages; its cause
+is unresolved, so this does not establish sustained relay throughput.
+The optional interop test requests no audio or HID input and sends finite
+normal protocol keepalives. No application encoder or Go scanner change is
+part of this optimization.
+
+For a fresh private package revision, the packaging builder also accepts
+`--package-revision N`. Run its ownership stage under `fakeroot`, keep each
+output directory separate, and retain the matching source archive with the
+private APK.

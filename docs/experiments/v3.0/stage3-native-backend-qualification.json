@@ -1,0 +1,246 @@
+{
+  "stage": "connected-native-backend",
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "source_sha256": {
+    "server-rust/src/usb.rs": "8e31a92a7bebd81268558f55fb0ef95209bb17de97aeab37d02e448a1ce52ebd",
+    "server-rust/src/gpio.rs": "ee8cb90b4ad22cc5669a2e749a762ae914ab951d001e4cfb1a735f277747dc6b",
+    "server-rust/src/update_lock.rs": "daeb4fa3b6e015381894ed1e21bf2a504684368511936e8c59d24b6215f0dcb6",
+    "server-rust/src/paste_layout.rs": "509be4f5308cbb3d64fcd27be4de1d3037574b8fd965e8239356421a074a67be",
+    "server-rust/src/gpio_monitor.rs": "cddd6f2c3757ccfa99c8a7d79b60f12a1e637d2ea9fecc09d34d54ba674e8976",
+    "server-rust/src/sysinfo.rs": "061aa09b6be21f652b19d509e1460b4e821b4c44e90d94590f9395a1cfd2ad56",
+    "server-rust/src/routing.rs": "328bee38680280ab3c8d4c8164da2965d7b5e3474dcd4738920ec79c4bb1153c",
+    "server-rust/src/config.rs": "14a668c4d566b2dc0ac1de082a152e3e623d9860ed3cb3a3e61a0c1138ef9fb4",
+    "server-rust/src/preferences.rs": "ac8e6aa1e8a0771cea8620ec5fc2d99e3489d7859c5192dac9d1f7c1915b3858",
+    "server-rust/src/composition.rs": "bd7291025a0b87d0602eca35a41df0edd4ab21af4f346fda4d3df45abf9ac3fa",
+    "server-rust/src/memory_command.rs": "00ac07e96ac04ac7b319ef20caaa2a1737704a2517d2a44bbfcab3cbb0f6f1c6",
+    "server-rust/src/branding.rs": "55c6e137a026760dca930bb850212c100a9e49100d125f0e076ce835fcd886be",
+    "server-rust/src/hid_reports.rs": "7877d45fefa289d254c9b025bf0eb47a50a5d769e052fec48163184f72550195",
+    "server-rust/src/ws_origin.rs": "72222189985c6412c6fbd960e591e7bcc10cf9f7e090309f7a1a3429a1243055",
+    "server-rust/src/api.rs": "e4a2989e767daa7e2156585b370094e674303e4369d593c2b4f09ef8b150b9e9",
+    "server-rust/src/hostname.rs": "8535c25da53f2398523988b292f46c6ecad1032098de64629d9a8c5c3d019192",
+    "server-rust/src/json_text.rs": "d90509116088642af2e3ce6d19bf07b9462f2afc6da60ed695efee42f071446b",
+    "server-rust/src/fsroot.rs": "0e3456eb59c3fa15fe43f638a91bc4c7584d4566a792edd4a0c22c9947412544",
+    "server-rust/src/timeconfig.rs": "13f27564bd2ca5df0e807d73a10922d51900f16a03468c9e1ae665574f20f485",
+    "server-rust/src/hid_settings.rs": "85c6e27c6440e2c9dea7e3c84efc89687822a24ae254cc10ede321db3488e12e",
+    "server-rust/src/lib.rs": "c931ea6c0a4e994b0de6739649d447e538e47f89177c36108a88c316206b7b22",
+    "server-rust/src/native_capture.rs": "bd1756398a3220cd1effcaaed3b1fa4e683ffdd917eb34c5d5528562910e34c8",
+    "server-rust/src/systemops.rs": "f952ae02b274cfc7d9a9562bc6b5210d217b24b0830b8b39b10d996e809aafbd",
+    "server-rust/src/gpio_binding.rs": "21803b619573fc0ba6d5d28c7fb060e85eae2e74125ac4e820be8c5befbaafed",
+    "server-rust/src/sessions.rs": "9d1f16406652818d4039f1c5548af46a3468eca83afb6fbac9e1026b81c0670c",
+    "server-rust/src/oled.rs": "42913fdb08c9526481943057794e3b712de9004eadf711403f96050c957b16b9",
+    "server-rust/src/hdmi.rs": "fe404f69aee07ead37f06a61df180022403d1007be55f59b987d14d40229ea2b",
+    "server-rust/src/screen_api.rs": "8ee92500af23ce7184549730919dce29f8327bf2cd515817dcb0ff97d94e3ccf",
+    "server-rust/src/main.rs": "b6eadd7aa5bb3f630682772fc1ade84bfb90256f85057356f325b628ff49a3cd",
+    "server-rust/src/request_cancel.rs": "cff4d1a1df2b0764bbe50d77c5ca49ca68e90cf4648ea716ede24e30119cb1fc",
+    "server-rust/src/native_backend.rs": "648bf29f1579b6a82acb65fd4b6ba59d526982b50cc6cd08052996158271987c",
+    "server-rust/src/json_syntax.rs": "5792b1e87a771c9c562242a9bb3ea7a62c944f83dc1f6ed8fa2a01b26d865224",
+    "server-rust/src/password_command.rs": "a244a01809a4ce9ef26a094c8e96fa8bc67ee7afa13f7aa3138a624121f5d7db",
+    "server-rust/src/jiggler.rs": "1079d44a8aea7d942a77d24b4bd5b265af577b10af1aac8157eb395984b42cf4",
+    "server-rust/src/ws.rs": "a753b5bf35cfef67155518dce99932d0743d4e5a412d7d992eb0b92528a31138",
+    "server-rust/src/native_capture_actor.rs": "d4db271b5bb898c580090355fcf17de65eb615b508b153abcdcaa326d44d719e",
+    "server-rust/src/native_frame.rs": "acab459a1b204737b8edf451c8609c3403edc1faba5045e9389f02136cb91147",
+    "server-rust/src/controlmode.rs": "4e5a70947845383505c2d506be6656b126f23ad3ec028a1e99c5b1d308aede26",
+    "server-rust/src/binding.rs": "acc7823ada7e4a72f96595f62951e388247b8a9c37d3ae888c81c0632b363b44",
+    "server-rust/src/services.rs": "58ff994a566675a9e7a3d05624e2fc7cf3208597b473247cda193f3def284a13",
+    "server-rust/src/time_sync.rs": "84ef74d07abdd68c166822a5ec914dc7eff6450cba2360d4b530610a6ebc5609",
+    "server-rust/src/memory_ops.rs": "69b7e8dd42b60d66527c6eb55ba698a8af4cbc216cd73ef982d805b2a3312246",
+    "server-rust/src/redirect.rs": "0b09c03245206a39938943ef2877df94175d382d9494451c6c930be55d5334f0",
+    "server-rust/src/capture_tests.rs": "9b32d26adb415c4cf613ebd47eaa17c7376567ca7a1fb800a09487f85904d029",
+    "server-rust/src/internal.rs": "85389af12165a6a51ed5ad405d6e956f2c5655e5a280e1d5788d85333125cdb2",
+    "server-rust/src/input.rs": "bc01dd357af067236b83f5b0d74e015de720156b4e0bfb94ab229d4a1f7aece1",
+    "server-rust/src/native_backend_tests.rs": "84e3d6fb2ed91838f1a9f0ccd8087dd5da595de8a8597d17b52007f6bc2c7251",
+    "server-rust/src/inputcontrol.rs": "9951d91e71d8dd47093bbafe9828cd97a037d52cc5cfd1bedf370abbc01886ac",
+    "server-rust/src/cpufreq.rs": "98bb4c030528379081622e2df1115a662f9e0e380818e344c7505adc5b621639",
+    "server-rust/src/crypto.rs": "1f9c1700c1c6a5e6a6a504979752751ab6dfea590ec3eb028babb48a726ee35f",
+    "server-rust/src/form_binding.rs": "d08259dae45ed3dee80eb66837508edb3052afd5b15052dc48d0336f088cc8d3",
+    "server-rust/src/screen.rs": "f80d4a179a0e67193a03094e749a35d3dd76307cda1ffe41d7263c202b8bd60c",
+    "server-rust/src/screen_store.rs": "4127ff1d09275bba6bb3d7eef2a5931ec883ab80bbb9c2b2e6cfa48af234c8c9",
+    "server-rust/src/store.rs": "922b16a89a0232c5bd70ed9e3ba56b82b0b1aba68b14113c1299112310c30b3c",
+    "server-rust/src/lockout.rs": "30c0d1453d7b3aa6658cb2560d373087a32440e36280cd0f1e1629818cd8d603",
+    "server-rust/src/native_protocol.rs": "39965e292f0b121ea833cf98cda4cb517db7a8d4ed54c7f22d17d8bf1cb21632",
+    "server-rust/src/hardware.rs": "8b0ebfb879cf0ef4411a230a924f8f3cc8d39f7d3bdfe727aa038f667e02f895",
+    "server-rust/src/memory_status.rs": "dc97311e5e3287b838e80f93c9a8154fb5e8408442b62fce7c4951542201b3cf",
+    "server-rust/src/monitor.rs": "200206fdfde19be5430c48047933b90b62ea77b794151e7981977ce44c18154b",
+    "server-rust/src/leds.rs": "5107d64da6e195fc8b95d9a7fd43d2947e5dc0f59956b136e8c8bf8ec59cd142",
+    "server-rust/src/link_telemetry.rs": "2a3d81147870580957fe5d24b74f0f27ee40806b89e19b672e3c6a7db70a7bff",
+    "server-rust/src/gpio_api.rs": "03e7d509458a4b3306e3d57155568b23ddc1bc8bbc0681da74ea7e119188d22e",
+    "server-rust/src/dashboard.rs": "672168390c787e4f8f82a00c0db5c42b8a2eacf1b3c2405e6c7cc0588ca1078c",
+    "server-rust/src/paste.rs": "afd71924b68bd55c29b9c714e3ee58bdc26b1716e45786aad7b8584d027532d6",
+    "server-rust/src/hid_device.rs": "a2db03baf174a138276c6f9657b7cf5a4a13db15acd6c2e9e03b63e548c9e987",
+    "server-rust/tests/usb.rs": "fa2c744dd98e6929830d653350134c7087e53af980e7e41b846e615bfed53d26",
+    "server-rust/tests/gpio.rs": "a613aad8aae65b45a4a3a6066dad0e3accd398834990ad4fa8fe2782120592af",
+    "server-rust/tests/sysinfo.rs": "6532521b3ad33e1ee1286fb0862d7fd3e2d65f497194b01321b34d5c159dacb2",
+    "server-rust/tests/timeconfig.rs": "9de52cb07653ab1bfe9aa49c3ef4b8cfdc18f1beaab176b922df3fc7b99b4771",
+    "server-rust/tests/hdmi.rs": "dad612d0d06996af3960f56d954a0cfe6d4a2d8e75310f583a62fd7c45f43b6b",
+    "server-rust/tests/contracts.rs": "c34b6e1e1445d6b22ee396dbeb01826eddee7480c06d2ac7bd77c3f678e78437",
+    "server-rust/tests/memory.rs": "02bd8ef36c2c999c6d694f3638c25ec15a05f9dfa36c79eff2eab6e157470e87",
+    "server-rust/tests/services.rs": "c9f11c1b711bbca2da322833d3e152c6b7d32262ce38a1ef47dda8f07e412331",
+    "server-rust/tests/cpufreq.rs": "abaab38e763a2e589ffe21b75d8dfbb2b39756721e3ec8404da432a61df1b3a8",
+    "server-rust/tests/screen.rs": "a5842a5fa5dc9fb5461ac81078b6aca51be735c449193f09ce7443551673dbdf",
+    "server-rust/tests/memory_mutations.rs": "443b90d5689e27057ef4e13da36cb4556b2421651f933186c74f969de91cf36e",
+    "server-rust/tests/websocket.rs": "816d62a353f027e999003215db3583080e04ccc9ec5123ad1efdd4080cb55ee3",
+    "server-rust/tests/dashboard.rs": "ac984be8595949e3d6a545f69a061478fdc0717b858db72705fcc8af7b1eda0b",
+    "server-rust/native/capture/nk-capture-worker.c": "2d47812012c07762f9580c8ca193ed04d6987a724c15f3f187374ed89b1100c3",
+    "server-rust/native/capture/nk-capture-fixture.c": "52c4a2cdbd3db4eca1452ff853eed240e439419f6b3fd3fca844e6d95ab79419",
+    "server-rust/native/capture/nk-capture-protocol.h": "1ed1a75de845aa7387f21851de4a1e9ff661f688b71563fa557c2ecac679b846",
+    "server-rust/native/capture/nk-capture-abi.h": "c1b5c5a9914dc176b1528cf8ff94e6f5417d4548d38117443c3399243c4bacb2",
+    "server-rust/native/capture/main.c": "b3751cfd48a0f73ba8573e863129f7debf013901b77a1710b97a723010c70543",
+    "server-rust/Cargo.toml": "f595975a7c3ef744076f2734e52a0b34cf4f22cbc8b899dce1b07ca5b76a136a",
+    "server-rust/Cargo.lock": "ec9426b868264a888d1d0dca1fedd05fff69c919c2573ce2c7a78b773d8e9c1d",
+    "server-rust/build.rs": "a48af5e999b47b717aa25881c88bdaebe569ea2605dee8c446900ec36f684cc1",
+    "server-rust/rust-toolchain.toml": "efaa9f2edd345e4ef19fd016909971bdeeaff9dc999e967ff08fdc4f9ed2a41f",
+    "scripts/check-v3.py": "1d106f9b80ce75c5a198dea708bcf20279e49d64bcd48ed0e5e4ee7e1f597173",
+    "scripts/refresh-v3-native-status-oracle.py": "7adc175076dd10ce194eb83421809991d1af341b83c9932ebb560265204d04e7",
+    "docs/experiments/v3.0/native-status-go-oracle.json": "e8484901c2f2bdd6ea51826e3fb4ad2403982ad3b9db8870768e837c7cc98e60"
+  },
+  "checks": {
+    "fmt": {
+      "exit": 0,
+      "seconds": 0.218,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clippy": {
+      "exit": 0,
+      "seconds": 0.094,
+      "log_sha256": "ee1d3fffa2022e962e63e0dbe4d35c9c198450a20c29fc09030f635dbb38bfcd"
+    },
+    "host-contracts": {
+      "exit": 0,
+      "seconds": 89.96,
+      "log_sha256": "727babf5c182d6989c4dfe43f0fad83d328e907a2a18e106b3711a1273fc151f"
+    },
+    "target-build": {
+      "exit": 0,
+      "seconds": 23.758,
+      "log_sha256": "fc749c912b23940fabfa40c3e576905b8c670b259b2adab16bc8c4bee5e6cd2e"
+    },
+    "target-contracts": {
+      "exit": 0,
+      "seconds": 133.885,
+      "log_sha256": "c9af79af30556f89756937ad7884e9c36edb1185f02e8245ed5b9d6b033929d4"
+    },
+    "target-version": {
+      "exit": 0,
+      "seconds": 0.02,
+      "log_sha256": "45ab3a914204af49b93add1fe3d39a590e5df3bd17e51f7eee8a5c1f3ddc309e"
+    },
+    "target-file": {
+      "exit": 0,
+      "seconds": 0.015,
+      "log_sha256": "f844687d64c97e8e9669dd24e5e25fffc94bef64e6c16bd75ba30dfa1b19707a"
+    },
+    "target-binary": {
+      "sha256": "4ffaeafa5ac354bd3b15c9552ed5ec6a743e2656b40d974ad5e8dc3f12844dca",
+      "bytes": 6991696
+    },
+    "tls-cert": {
+      "exit": 0,
+      "seconds": 0.022,
+      "log_sha256": "8ef139e5151cfd46d06bfcfa88cd15b252ba2ba88362928b62f9de82c3188f10"
+    },
+    "tls-runtime": {
+      "verified_certificate": true,
+      "redirect": 307,
+      "secure_cookie": true,
+      "internal_loopback_http_exception": true,
+      "unauthorized_internal_redirect": 307,
+      "sigterm_exit": 0,
+      "shutdown_seconds": 0.032,
+      "occupied_port_fails_closed": true
+    },
+    "licenses": {
+      "resolved_packages": 173,
+      "missing_spdx": []
+    }
+  },
+  "test_counts": {
+    "host-contracts": {
+      "passed": 226,
+      "suites": [
+        105,
+        0,
+        27,
+        9,
+        5,
+        11,
+        7,
+        3,
+        6,
+        9,
+        3,
+        3,
+        8,
+        9,
+        21,
+        0
+      ]
+    },
+    "target-contracts": {
+      "passed": 226,
+      "suites": [
+        105,
+        0,
+        27,
+        9,
+        5,
+        11,
+        7,
+        3,
+        6,
+        9,
+        3,
+        3,
+        8,
+        9,
+        21,
+        0
+      ]
+    }
+  },
+  "native_integration_tests": 13,
+  "go_status_cases": 256,
+  "hardware_execution": false,
+  "native_fixture_worker_executed": true,
+  "production_activation": false,
+  "notes": [
+    "Native Backend/explicit root-only Runtime loader now connected; default isolated backend stays unavailable",
+    "Audio stop owner is injected; production audio capture and main activation remain pending",
+    "One8-slot queue for async/blocking/compound work; durable Cube marker and latest HDMI disable honored; restore failure closes owner"
+  ],
+  "supplemental_host_default_tls": {
+    "host-build": {
+      "exit": 0,
+      "seconds": 4.441,
+      "log_sha256": "fe41e825b8d28766ccc9ba82d7620ca6e2d9fd7f45f735f83de39decdc8095d0"
+    },
+    "tls-cert": {
+      "exit": 0,
+      "seconds": 0.06,
+      "log_sha256": "0b611794b871f2fd722ea1e64a77bccc51562eb45f4e36e78d83965f452ff8a6"
+    },
+    "tls-runtime": {
+      "verified_certificate": true,
+      "redirect": 307,
+      "secure_cookie": true,
+      "internal_loopback_http_exception": true,
+      "unauthorized_internal_redirect": 307,
+      "sigterm_exit": 0,
+      "shutdown_seconds": 0.003,
+      "occupied_port_fails_closed": true
+    },
+    "licenses": {
+      "resolved_packages": 173,
+      "missing_spdx": []
+    }
+  },
+  "default_binary": {
+    "dt_needed": false,
+    "native_fixture_or_vendor_symbols": false
+  },
+  "elapsed_seconds": 253.5,
+  "routes": {
+    "pending": 139,
+    "partial-isolated": 1,
+    "implemented-isolated": 64
+  }
+}

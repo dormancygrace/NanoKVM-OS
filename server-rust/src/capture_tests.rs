@@ -492,7 +492,7 @@ fn abandoned_offer_times_out_and_worker_closes_the_capture_cleanly() {
     fixture.close();
 }
 
-fn worker_command() -> Command {
+pub(crate) fn worker_command() -> Command {
     let exe = std::env::current_exe().unwrap();
     let mut command = if cfg!(target_arch = "riscv64") {
         let runner = std::env::var_os("CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_RUNNER").unwrap();

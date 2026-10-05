@@ -1,0 +1,1296 @@
+{
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "goVersion": "1.27.1",
+  "source_sha256": {
+    "server/common/kvm_vision.go": "a8d735964171c4179e3e20011a351c5802069226678363c996514884a3b03110",
+    "server/include/kvm_vision.h": "3af58ecc95325b2580e6d4f13a0f5b012faec87d6fb257d5d986cb13284d7a0b",
+    "server/go.mod": "6c73aefb26aa2af74f77cf5cb4b0d9bc7cf2f48eaf4e8f4176102f5a7c262091",
+    "server/go.sum": "94922fbd383453d16e873e925cdfefd478400ff59884aed51b56201a53faddb3"
+  },
+  "transforms": [
+    "complete original GetMjpegChromaStatus function",
+    "only C status read supplied as fixture byte and six C constants supplied from immutable header"
+  ],
+  "cases": [
+    {
+      "active": 420,
+      "flags": 0,
+      "reason": ""
+    },
+    {
+      "active": 422,
+      "flags": 1,
+      "reason": ""
+    },
+    {
+      "active": 420,
+      "flags": 2,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 3,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 4,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 5,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 420,
+      "flags": 6,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 7,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 8,
+      "reason": "diagnostic"
+    },
+    {
+      "active": 422,
+      "flags": 9,
+      "reason": "diagnostic"
+    },
+    {
+      "active": 420,
+      "flags": 10,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 11,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 12,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 13,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 420,
+      "flags": 14,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 15,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 16,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 17,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 18,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 19,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 20,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 21,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 22,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 23,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 24,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 25,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 26,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 27,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 28,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 29,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 30,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 31,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 32,
+      "reason": ""
+    },
+    {
+      "active": 422,
+      "flags": 33,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 34,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 35,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 36,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 37,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 38,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 39,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 40,
+      "reason": "diagnostic"
+    },
+    {
+      "active": 422,
+      "flags": 41,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 42,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 43,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 44,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 45,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 46,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 47,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 48,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 49,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 50,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 51,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 52,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 53,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 54,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 55,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 56,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 57,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 58,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 59,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 60,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 61,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 62,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 63,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 64,
+      "reason": ""
+    },
+    {
+      "active": 422,
+      "flags": 65,
+      "reason": ""
+    },
+    {
+      "active": 420,
+      "flags": 66,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 67,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 68,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 69,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 420,
+      "flags": 70,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 71,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 72,
+      "reason": "diagnostic"
+    },
+    {
+      "active": 422,
+      "flags": 73,
+      "reason": "diagnostic"
+    },
+    {
+      "active": 420,
+      "flags": 74,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 75,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 76,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 77,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 420,
+      "flags": 78,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 79,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 80,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 81,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 82,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 83,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 84,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 85,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 86,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 87,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 88,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 89,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 90,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 91,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 92,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 93,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 94,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 95,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 96,
+      "reason": ""
+    },
+    {
+      "active": 422,
+      "flags": 97,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 98,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 99,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 100,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 101,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 102,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 103,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 104,
+      "reason": "diagnostic"
+    },
+    {
+      "active": 422,
+      "flags": 105,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 106,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 107,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 108,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 109,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 110,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 111,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 112,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 113,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 114,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 115,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 116,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 117,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 118,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 119,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 120,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 121,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 122,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 123,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 124,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 125,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 126,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 127,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 128,
+      "reason": ""
+    },
+    {
+      "active": 422,
+      "flags": 129,
+      "reason": ""
+    },
+    {
+      "active": 420,
+      "flags": 130,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 131,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 132,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 133,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 420,
+      "flags": 134,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 135,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 136,
+      "reason": "diagnostic"
+    },
+    {
+      "active": 422,
+      "flags": 137,
+      "reason": "diagnostic"
+    },
+    {
+      "active": 420,
+      "flags": 138,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 139,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 140,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 141,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 420,
+      "flags": 142,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 143,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 144,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 145,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 146,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 147,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 148,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 149,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 150,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 151,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 152,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 153,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 154,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 155,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 156,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 157,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 158,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 159,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 160,
+      "reason": ""
+    },
+    {
+      "active": 422,
+      "flags": 161,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 162,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 163,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 164,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 165,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 166,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 167,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 168,
+      "reason": "diagnostic"
+    },
+    {
+      "active": 422,
+      "flags": 169,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 170,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 171,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 172,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 173,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 174,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 175,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 176,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 177,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 178,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 179,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 180,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 181,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 182,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 183,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 184,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 185,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 186,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 187,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 188,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 189,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 190,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 191,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 192,
+      "reason": ""
+    },
+    {
+      "active": 422,
+      "flags": 193,
+      "reason": ""
+    },
+    {
+      "active": 420,
+      "flags": 194,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 195,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 196,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 197,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 420,
+      "flags": 198,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 199,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 200,
+      "reason": "diagnostic"
+    },
+    {
+      "active": 422,
+      "flags": 201,
+      "reason": "diagnostic"
+    },
+    {
+      "active": 420,
+      "flags": 202,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 203,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 204,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 205,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 420,
+      "flags": 206,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 207,
+      "reason": "video"
+    },
+    {
+      "active": 420,
+      "flags": 208,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 209,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 210,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 211,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 212,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 213,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 214,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 215,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 216,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 217,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 218,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 219,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 220,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 221,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 222,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 223,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 224,
+      "reason": ""
+    },
+    {
+      "active": 422,
+      "flags": 225,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 226,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 227,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 228,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 229,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 230,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 231,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 232,
+      "reason": "diagnostic"
+    },
+    {
+      "active": 422,
+      "flags": 233,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 234,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 235,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 236,
+      "reason": "frameDetection"
+    },
+    {
+      "active": 422,
+      "flags": 237,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 238,
+      "reason": "video"
+    },
+    {
+      "active": 422,
+      "flags": 239,
+      "reason": "resolution"
+    },
+    {
+      "active": 420,
+      "flags": 240,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 241,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 242,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 243,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 244,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 245,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 246,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 247,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 248,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 249,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 250,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 251,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 252,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 253,
+      "reason": "hardware"
+    },
+    {
+      "active": 420,
+      "flags": 254,
+      "reason": "hardware"
+    },
+    {
+      "active": 422,
+      "flags": 255,
+      "reason": "hardware"
+    }
+  ]
+}

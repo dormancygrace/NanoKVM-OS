@@ -20,6 +20,10 @@ pub struct VideoStatus {
     pub chroma_fallback: String,
 }
 pub trait Backend: Send + Sync {
+    fn stop(&self) {}
+    fn join(&self) -> Result<(), Error> {
+        Ok(())
+    }
     fn set_hdmi(&self, _: bool) -> Result<(), Error> {
         Err("native HDMI backend is not linked".into())
     }

@@ -13,15 +13,15 @@ Status: ACTIVE, explicitly requested goal, created 2026-10-05. Goal owner: chat 
 | Order | Work package | Current state | Exit evidence |
 |---|---|---|---|
 | 1 | Wire screen state into Runtime and GET/POST screen API; shared monitor/portrait/pointer operations | DONE in isolation; 105 Go cases/nine connected tests qualified | Response, file and backend-effect differential fixtures; roles/default failure; concurrent write/rollback checks |
-| 2 | Connect bounded native backend and whole capture/audio/EDID transactions | NEXT; worker/frame/async actor qualified, blocking backend/transactions/startup pending | Actual synthetic worker lifecycle, cancellation/timeout/queue/transaction ordering, no default vendor launch |
-| 3 | Shared subscriptions, MJPEG and Direct H.264/H.265 | Pending | Real socket streams, IDR/reconfiguration/queue/drain/budget/failure tests |
+| 2 | Connect bounded native backend and whole capture/audio/EDID transactions | DONE software connection; actual worker fixtures/explicit loader qualified; production audio/activation/hardware pending | Actual synthetic worker lifecycle, cancellation/timeout/queue/transaction ordering, no default vendor launch |
+| 3 | Shared subscriptions, MJPEG and Direct H.264/H.265 | NEXT | Real socket streams, IDR/reconfiguration/queue/drain/budget/failure tests |
 | 4 | Audio/WebRTC and media consumers (RustDesk/MCP/PicoClaw) | Transport candidates qualified; integration pending | Authenticated direct/relay, protocol/media and cleanup tests; unconditional H.265 WebRTC rejection |
 | 5 | Remaining system/files/terminal/addon/update APIs | Pending; route matrix is source of completeness | Per-family parity and real effects inside isolated roots; no Go bridges |
 | 6 | Complete package/APK/OpenRC/update/image and global resource/time limits | Pending | Reproducibility, package contents/install/rollback, complete host/target software gates |
 | 7 | Agreed hardware window and final qualification | Not authorized for activation yet | UI compatibility, stability and measured performance on device; final handoff |
 
 ## Current frozen evidence
-Connected screen stage:213 tests on host AND generic static riscv64/QEMU (92unit+121integration), fmt/clippy, feature-free release and actual host/target certificate-verified HTTPS/307/Secure-cookie/SIGTERM/occupied-port/internal-loopback gates. Release 6,989,616 bytes, SHA256 876a9a96f9b36abf03423c3fe66ac892c65e84cc2d17b2776106e7f911c16293. 173 SPDX dependencies, none missing. Full frozen evidence is stage3-screen-api-qualification.json. Route ledger:64 implemented-isolated, one partial-isolated,139 pending. Test count is not implemented route count.
+Connected native backend stage:226 tests on host AND generic static riscv64/QEMU (105unit+121integration), fmt/clippy/feature-free release and actual host/target TLS/307/Secure-cookie/SIGTERM/occupied-port/internal-loopback gates. Release 6,991,696 bytes SHA2564ffaeafa5ac354bd3b15c9552ed5ec6a743e2656b40d974ad5e8dc3f12844dca,173 SPDX dependencies without missing licenses. Frozen proof stage3-native-backend-qualification.json includes13 actual synthetic C-process/API/transaction fixtures and256 actual Go status cases. Explicit root-only loader is implemented; default isolated backend/production activation gate remain. Real audio capture/vendor/device/package qualification are pending. Ledger64isolated/1partial/139pending; no new routes from backend wiring alone.
 
 ## Rules against repeating completed work
 - Continue the first incomplete work package. Do not reopen completed foundations without a changed source, failed check or concrete new integration requirement.
@@ -31,4 +31,4 @@ Connected screen stage:213 tests on host AND generic static riscv64/QEMU (92unit
 - Prevalidate replacement anchors and new-file collisions before source/log mutations. Stop dependent sequences on failed commands. Commit only qualified bounded changes locally; no push/publication/stable merge.
 
 ## Immediate next step
-Work package1 is qualified. Implement bounded synchronous admission to the existing native Actor, compound maintenance/helper/restore transactions and explicit native Backend/startup/shutdown/audio ownership. Then proceed to shared streams. Do not regenerate the unchanged Go screen references or requalify screen-only code without a new integration reason.
+Work packages1 and native software connection2 are qualified. Implement shared video source/subscriptions and authenticated MJPEG/Direct endpoints, with actual ownership/queue/IDR/codec/demand/cadence failure tests. Real audio capture/owner, final main native startup/activation and hardware gates remain explicit later requirements. Do not repeat unchanged screen/status/ABI qualification without a new integration reason.

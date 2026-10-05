@@ -50,7 +50,7 @@ impl AsRawFd for Descriptor {
 }
 fn timestamp(time: SystemTime) -> Result<String, Error> {
     let duration = time.duration_since(UNIX_EPOCH)?;
-    let seconds: libc::time_t = duration.as_secs().try_into()?;
+    let seconds = duration.as_secs().try_into()?;
     let mut output = std::mem::MaybeUninit::<libc::tm>::uninit();
     // gmtime_r fills the caller-owned struct on success; time_t is checked.
     if unsafe { libc::gmtime_r(&seconds, output.as_mut_ptr()) }.is_null() {

@@ -460,6 +460,18 @@ fn handle(
         }
         let secure = secure_cookie(s, headers, peer);
         match (method.as_str(), path) {
+            ("GET", "/api/vm/hardware") => ok(json!({"version":s.hardware.version})),
+            ("GET", "/api/vm/gpio") => crate::gpio_api::get(s, cancelled),
+            ("POST", "/api/vm/gpio") => {
+                let Ok(principal) = principal(s, headers) else {
+                    return unauthorized();
+                };
+                crate::gpio_api::set(s, headers, body, query, principal, cancelled)
+            }
+            ("POST", "/api/vm/system/reboot") => match s.schedule_reboot() {
+                Ok(()) => ok(Value::Null),
+                Err(_) => error(-1, "operation failed"),
+            },
             ("GET", "/api/vm/mouse-jiggler") | ("POST", "/api/vm/mouse-jiggler/") => {
                 crate::jiggler::handle(s, method, parsed)
             }

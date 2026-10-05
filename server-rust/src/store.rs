@@ -70,6 +70,8 @@ pub fn atomic_write(path: &Path, data: &[u8], mode: u32) -> Result<(), Error> {
             .create_new(true)
             .mode(mode)
             .open(&temp)?;
+        // Match Go atomicfile.Chmod even under a restrictive process umask.
+        file.set_permissions(std::os::unix::fs::PermissionsExt::from_mode(mode))?;
         file.write_all(data)?;
         file.sync_all()?;
         drop(file);
@@ -390,5 +392,51 @@ impl Store {
             return Err(error);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod atomic_mode_tests {
+    #[test]
+    fn requested_file_permissions_survive_restrictive_process_umask() {
+        const FLAG: &str = "NK_V3_ATOMIC_MODE_CHILD";
+        if std::env::var_os(FLAG).is_none() {
+            let exe = std::env::current_exe().unwrap();
+            let runner = if cfg!(target_arch = "riscv64") {
+                std::env::var_os("CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_RUNNER")
+            } else {
+                None
+            };
+            let mut command = match runner {
+                Some(runner) => {
+                    let mut command = std::process::Command::new(runner);
+                    command.arg(exe);
+                    command
+                }
+                None => std::process::Command::new(exe),
+            };
+            let result=command.args(["--exact","store::atomic_mode_tests::requested_file_permissions_survive_restrictive_process_umask"]).env(FLAG,"1").output().unwrap();
+            assert!(
+                result.status.success(),
+                "{}",
+                String::from_utf8_lossy(&result.stderr)
+            );
+            return;
+        }
+        // Child-only umask: never race the other test threads' file creation.
+        unsafe {
+            libc::umask(0o077);
+        }
+        use std::os::unix::fs::PermissionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("script");
+        for mode in [0o755, 0o644, 0o600] {
+            super::atomic_write(&path, b"complete contents", mode).unwrap();
+            assert_eq!(
+                std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                mode
+            );
+            assert_eq!(std::fs::read(&path).unwrap(), b"complete contents");
+        }
     }
 }

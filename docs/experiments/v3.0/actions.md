@@ -156,3 +156,40 @@ Passed 82 host/target tests, fmt/clippy, static target and verified TLS lifecycl
 
 ## 2026-10-05T03:23:38.699485+00:00 — License snapshot completion, before local amend
 Form correction committed as 1499777; qualification automatically refreshed the tracked license snapshot with mediatype, but that file was omitted from staging. Include it in the same local unpublished commit with this action note. No source change or repeat qualification needed. Full hardware.go and gpio_monitor_test.go now read: enhanced marker /etc/nanokvm-buildroot flavour=enhanced, board-profile overrides hw, unknown/lite exposes no ATX pins, legacy newline-only version normalization, Alpha/Beta/PCIE response names. GPIO-v2 chips/offsets and active-high output/active-low LEDs remain exact source mapping. Native UAPI and actual ABI/schema fixture preparation are next. No stand changes.
+
+## GPIO/ATX before implementation (2026-10-05)
+Read checkpoint and exact GPIO/hardware/request baseline. Generate actual Gin+validator uint/error fixtures and native C/Go GPIO-v2 ABI evidence before Rust implementation. Keep all GPIO/ioctl/commands isolated; no stand changes. Also repair unknown JSON-field numeric parsing and cancellation notification race found during review.
+
+## GPIO/ATX before implementation (2026-10-05)
+Read checkpoint and exact GPIO/hardware/request baseline. Generate actual Gin+validator uint/error fixtures and native C/Go GPIO-v2 ABI evidence before Rust implementation. Keep all GPIO/ioctl/commands isolated; no stand changes. Also repair unknown JSON-field numeric parsing and cancellation notification race found during review.
+
+GPIO ABI evidence: first cross-C executable hit SIGILL because the matched platform libc is T-Head tuned; changed evidence to host C execution plus matched riscv64 C static assertions (no libc execution required). Both equal Go x/sys layouts/ioctls. Runtime Rust qualification remains generic-rv64 QEMU.
+
+GPIO implementation before edits: native existing sysfs descriptors and exact v2 UAPI, injected ATX backend, lazy LED worker (20ms/350ms/1s), cached board mapping, uint request binding and four API routes. Fix notification race/unknown-field parser and actual Gin trailing-value acceptance. All changes prevalidated. Hardware qualification remains pending.
+
+## GPIO/ATX before implementation (2026-10-05)
+Read checkpoint and exact GPIO/hardware/request baseline. Generate actual Gin+validator uint/error fixtures and native C/Go GPIO-v2 ABI evidence before Rust implementation. Keep all GPIO/ioctl/commands isolated; no stand changes. Also repair unknown JSON-field numeric parsing and cancellation notification race found during review.
+
+GPIO ABI evidence: first cross-C executable hit SIGILL because the matched platform libc is T-Head tuned; changed evidence to host C execution plus matched riscv64 C static assertions (no libc execution required). Both equal Go x/sys layouts/ioctls. Runtime Rust qualification remains generic-rv64 QEMU.
+
+GPIO before fixture qualification: ABI and 33 actual Gin cases pass; install pulse/panic/sysfs/board/monitor/API/real TCP-disconnect tests. Recover an unlocked ATX gate after a caught panic while keeping deassert/close RAII; malformed syntax text and non-JSON/form encodings remain broader binder integration work. No firmware actions.
+
+GPIO fixture compile fix: external trait requires a local FakeBackend wrapper, rather than Arc<Fake>. No production behavior change.
+
+GPIO final fixtures before edits: add exact Go syntax-diagnostic checks, missing optional-HDD cleanup/retry and admin delayed/deduplicated reboot; require an actually asserted pin before TCP-disconnect. Commit a reproducible generator that verifies proto files against immutable baseline. Existing depth/encoding/invalid-byte limitations remain explicit.
+
+GPIO syntax oracle exposed Go 1.27 JSON-v2 legacy-diagnostic changes for invalid numbers/escapes. Correct adapter using actual source v2_scanner.go and measured responses, rather than older Go message assumptions.
+
+GPIO qualification before command: run python3 scripts/check-v3.py --host --target --tls; 35 unit and ten GPIO fixtures pass locally; expected total94. No stand/native actions.
+
+GPIO target correction before edits: host94 passes, target ioctl compile exposed libc musl signed-request type versus glibc unsigned long. Cast inferred libc request preserving32bits. Remove target time_t alias deprecation via FFI type inference. JSON diagnostic scanner becomes iterative with actual Go10000 nesting limit, proved by deep unknown-field and limit fixtures; no artificial128-level cap. Rerun full qualification after these fixes.
+
+GPIO final review before edits: an isolated native reboot could acknowledge scheduling before backend rejection. Add Executor::check and preflight schedule_reboot, reuse Native root/stop guards at actual execution, restore baseline reboot failure text operation failed. New API test uses real Native backend at isolated root and proves rejection before success. GPIO host/target rerun required after this fix.
+
+Atomic file review before system settings exposed a shared mode bug: OpenOptions.mode is filtered by umask whereas baseline atomicfile.Write explicitly Chmods. Set requested permissions on the created private temp descriptor before write/fsync/rename. Test in a separate own test-process with077umask to avoid racing parallel tests and check755/644/600 plus complete content. Rerun required qualification.
+
+GPIO qualification after final check: fmt/clippy, full host/target suites and static release/TLS lifecycle passed. Save exact evidence and route/checkpoint update before bounded local commit. No device changes, native commands or publication.
+
+GPIO commit before command: stage verified source/oracle/qualification/docs/ledger only and create a bounded local commit; no push or production activation.96 host/target/TLS tests passed.
+
+GPIO local commit created successfully; amend this same bounded stage to record completion and next hostname action. No external publication.

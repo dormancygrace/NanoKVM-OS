@@ -890,3 +890,101 @@ async fn hid_mode_inspects_configured_usb_functions_and_disabled_markers() {
         -1
     );
 }
+
+#[tokio::test]
+async fn jiggler_api_preserves_binding_persistence_modes_and_admin_policy() {
+    let (temp, state, app) = fixture();
+    let token = login(&app, "owner").await;
+    let auth = format!("Bearer {token}");
+    let headers = [("authorization", auth.as_str())];
+    let path = temp.path().join("etc/kvm/mouse-jiggler");
+    let response = request(&app, "GET", "/api/vm/mouse-jiggler", Value::Null, &headers)
+        .await
+        .2;
+    assert_eq!(response["data"], json!({"enabled":false,"mode":"relative"}));
+    let response = request_raw(
+        &app,
+        "POST",
+        "/api/vm/mouse-jiggler/",
+        r#"{"Enabled":true,"enabled":null,"Mode":"absolute"}"#,
+        &headers,
+    )
+    .await
+    .2;
+    assert_eq!(response["code"], 0);
+    assert_eq!(fs::read(&path).unwrap(), b"absolute");
+    assert_eq!(
+        state.jiggler.status().unwrap(),
+        json!({"enabled":true,"mode":"absolute"})
+    );
+    let response = request_raw(
+        &app,
+        "POST",
+        "/api/vm/mouse-jiggler/",
+        r#"{"enabled":7,"ENABLED":true,"mode":"relative"}"#,
+        &headers,
+    )
+    .await
+    .2;
+    assert_eq!(response["code"], -1);
+    assert_eq!(fs::read(&path).unwrap(), b"absolute");
+    let mut form = Request::builder()
+        .method("POST")
+        .uri("/api/vm/mouse-jiggler/")
+        .header("content-type", "application/x-www-form-urlencoded")
+        .header("authorization", &auth)
+        .body(Body::from("Enabled=true&Mode=relative"))
+        .unwrap();
+    form.extensions_mut().insert(ConnectInfo(
+        "127.0.0.1:34000".parse::<SocketAddr>().unwrap(),
+    ));
+    assert_eq!(
+        app.clone().oneshot(form).await.unwrap().status(),
+        StatusCode::OK
+    );
+    assert_eq!(fs::read(&path).unwrap(), b"relative");
+    state
+        .store
+        .create("viewer", "operator-password", "user")
+        .unwrap();
+    let viewer_token = login(&app, "viewer").await;
+    let viewer_auth = format!("Bearer {viewer_token}");
+    assert_eq!(
+        request(
+            &app,
+            "GET",
+            "/api/vm/mouse-jiggler",
+            Value::Null,
+            &[("authorization", &viewer_auth)]
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let response = request(&app, "POST", "/api/vm/mouse-jiggler/", json!({}), &headers)
+        .await
+        .2;
+    assert_eq!(response["code"], 0);
+    assert!(!path.exists());
+    let response = request(&app, "POST", "/api/vm/mouse-jiggler/", json!({}), &headers)
+        .await
+        .2;
+    assert_eq!(response["code"], -2);
+    assert_eq!(
+        state.jiggler.status().unwrap(),
+        json!({"enabled":false,"mode":"relative"})
+    );
+    fs::create_dir(&path).unwrap();
+    let response = request(
+        &app,
+        "POST",
+        "/api/vm/mouse-jiggler/",
+        json!({"enabled":true,"mode":"absolute"}),
+        &headers,
+    )
+    .await
+    .2;
+    assert_eq!(response["code"], -2);
+    assert_eq!(state.jiggler.status().unwrap()["enabled"], false);
+    state.shutdown();
+}

@@ -37,6 +37,7 @@ pub async fn connect(
     headers: HeaderMap,
     upgrade: Result<WebSocketUpgrade, WebSocketUpgradeRejection>,
 ) -> Response {
+    crate::jiggler::Jiggler::start(&runtime);
     let Ok(permit) = runtime.jobs.clone().try_acquire_owned() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
@@ -328,7 +329,9 @@ async fn run(
                             biased;
                             _ = cancelled(&mut revoked) => { session_revoked = true; break; }
                             // Bounded backpressure, without retaining an unlimited list of reports.
-                            _ = timeout(Duration::from_secs(2), queue.send((ticket, report, reservation))) => {},
+                            result = timeout(Duration::from_secs(2), queue.send((ticket, report, reservation))) => {
+                                if matches!(result, Ok(Ok(()))) { runtime.jiggler.update(); }
+                            },
                         }
                     }
                     None => {},

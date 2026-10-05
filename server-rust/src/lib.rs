@@ -9,6 +9,7 @@ pub mod hid_reports;
 mod hid_settings;
 pub mod input;
 pub mod inputcontrol;
+pub mod jiggler;
 pub mod leds;
 pub mod lockout;
 pub mod redirect;
@@ -43,6 +44,7 @@ pub struct Runtime {
     pub control: Arc<controlmode::Manager>,
     pub coordinator: Arc<inputcontrol::Coordinator>,
     pub pico_lock: Arc<inputcontrol::PicoLock>,
+    pub jiggler: Arc<jiggler::Jiggler>,
     pub(crate) sessions: sessions::Registry,
     pub(crate) socket_slots: Arc<Semaphore>,
     pub(crate) hid_jobs: Arc<Semaphore>,
@@ -63,6 +65,7 @@ impl Runtime {
             ),
             coordinator: inputcontrol::Coordinator::new(),
             pico_lock: Arc::new(inputcontrol::PicoLock::default()),
+            jiggler: jiggler::Jiggler::load(config::rooted(&root, "/etc/kvm/mouse-jiggler")?),
             root,
             lockout: Mutex::new(lockout::Lockout::default()),
             jobs: Arc::new(Semaphore::new(4)),
@@ -95,17 +98,19 @@ impl Runtime {
         self.control_jobs.close();
         self.coordinator.cancel(inputcontrol::Cause::ModeChanged);
         self.pico_lock.release("");
+        self.jiggler.stop();
         self.hid.leds().stop();
         for id in self.sessions.revoke_all() {
             let _ = self.input.leave(id);
         }
-        if let Err(error) = self.hid.close() {
+        if let Err(error) = self.input.synchronized(|| self.hid.close()) {
             eprintln!("shutdown HID release failed: {error}");
         }
     }
 }
 pub fn app(state: Arc<Runtime>, web: PathBuf) -> Router {
     state.hid.leds().start();
+    jiggler::Jiggler::start(&state);
     Router::new()
         .route("/api/ws", get(ws::connect))
         .route("/api", any(api::dispatch))

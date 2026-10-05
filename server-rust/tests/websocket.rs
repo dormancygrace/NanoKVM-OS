@@ -766,3 +766,92 @@ async fn socket_release_and_disconnect_drain_ai_mode_transitions() {
     assert_eq!(server.hid(0, 32).await[24..], [0; 8]);
     assert_eq!(server.runtime.control.current(), Mode::Off);
 }
+
+#[tokio::test]
+async fn jiggler_background_reports_skip_owned_control_and_compensate_before_manual_input() {
+    use nanokvm_server::jiggler::move_once;
+    let server = Server::new("").await;
+    let token = server.token("owner", 120);
+    let mut owner = server.socket(&token, &[]).await.unwrap();
+    control(&mut owner, true).await;
+    assert!(!move_once(server.runtime.clone()).await.unwrap());
+    server.runtime.jiggler.configure(true, "absolute").unwrap();
+    server.runtime.pico_lock.acquire("active-agent").unwrap();
+    assert!(!move_once(server.runtime.clone()).await.unwrap());
+    assert!(server.runtime.pico_lock.release_owned("active-agent"));
+    assert!(move_once(server.runtime.clone()).await.unwrap());
+    assert_eq!(
+        server.hid(2, 14).await,
+        [
+            vec![0, 0, 0x3f, 0, 0x3f, 0, 0],
+            vec![0, 0xff, 0x3f, 0xff, 0x3f, 0, 0]
+        ]
+        .concat()
+    );
+    server.runtime.jiggler.configure(true, "relative").unwrap();
+    let movement = tokio::spawn(move_once(server.runtime.clone()));
+    server.hid(1, 5).await;
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 4, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    server.hid(0, 8).await;
+    assert!(movement.await.unwrap().unwrap());
+    // Compensation completed before the manual reservation acquired the lane.
+    assert_eq!(
+        fs::read(server.root.path().join("dev/hidg1")).unwrap(),
+        [vec![0, 10, 10, 0, 0], vec![0, 246, 246, 0, 0]].concat()
+    );
+    assert!(!move_once(server.runtime.clone()).await.unwrap());
+    owner
+        .send(Message::Binary(vec![1, 0, 0, 0, 0, 0, 0, 0, 0].into()))
+        .await
+        .unwrap();
+    server.hid(0, 16).await;
+    assert!(!move_once(server.runtime.clone()).await.unwrap());
+    server.runtime.shutdown();
+    let length = fs::metadata(server.root.path().join("dev/hidg1"))
+        .unwrap()
+        .len();
+    assert!(!move_once(server.runtime.clone()).await.unwrap());
+    sleep(Duration::from_millis(30)).await;
+    assert_eq!(
+        fs::metadata(server.root.path().join("dev/hidg1"))
+            .unwrap()
+            .len(),
+        length
+    );
+}
+
+#[tokio::test]
+async fn persisted_jiggler_worker_moves_after_inactivity_and_stops_on_disable() {
+    let server = Server::new("").await;
+    server.runtime.jiggler.configure(true, "relative").unwrap();
+    assert!(fs::read(server.root.path().join("dev/hidg1"))
+        .unwrap()
+        .is_empty());
+    timeout(Duration::from_secs(20), async {
+        loop {
+            if fs::metadata(server.root.path().join("dev/hidg1"))
+                .unwrap()
+                .len()
+                >= 10
+            {
+                break;
+            }
+            sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .expect("15-second inactivity worker");
+    assert_eq!(
+        fs::read(server.root.path().join("dev/hidg1")).unwrap(),
+        [vec![0, 10, 10, 0, 0], vec![0, 246, 246, 0, 0]].concat()
+    );
+    server.runtime.jiggler.configure(false, "").unwrap();
+    assert_eq!(server.runtime.jiggler.status().unwrap()["enabled"], false);
+    assert!(!nanokvm_server::jiggler::move_once(server.runtime.clone())
+        .await
+        .unwrap());
+    server.runtime.shutdown();
+}

@@ -168,6 +168,7 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         ("POST", "/api/hid/shortcut") => &["keys"],
         ("DELETE", "/api/hid/shortcut") => &["id"],
         ("POST", "/api/hid/shortcut/leader-key") => &["key"],
+        ("POST", "/api/vm/mouse-jiggler/") => &["enabled", "mode"],
         ("PUT", _) if path.starts_with("/api/auth/users/") => &["username", "role", "enabled"],
         ("POST", _) if path.starts_with("/api/auth/users/") => &["password"],
         _ => &[],
@@ -194,6 +195,8 @@ fn params(headers: &HeaderMap, body: &[u8], method: &Method, path: &str) -> Resu
                     "id" => "ID",
                     "key" => "Key",
                     "title" => "Title",
+                    "mode" => "Mode",
+                    "enabled" if path == "/api/vm/mouse-jiggler/" => "Enabled",
                     name => name,
                 }
             }) else {
@@ -292,6 +295,7 @@ fn change_password(s: &Runtime, name: &str, encrypted: &str) -> Result<(), Error
 }
 
 pub async fn dispatch(State((s, _)): State<(Arc<Runtime>, PathBuf)>, request: Request) -> Response {
+    crate::jiggler::Jiggler::start(&s);
     if s.stopping.load(std::sync::atomic::Ordering::Acquire) {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     }
@@ -396,6 +400,9 @@ fn handle(
         }
         let secure = secure_cookie(s, headers, peer);
         match (method.as_str(), path) {
+            ("GET", "/api/vm/mouse-jiggler") | ("POST", "/api/vm/mouse-jiggler/") => {
+                crate::jiggler::handle(s, method, parsed)
+            }
             ("GET", "/api/branding") => crate::branding::status(&s.root),
             ("GET", "/api/branding/logo") => crate::branding::image(&s.root, "logo.png", headers),
             ("GET", "/api/branding/favicon") => {

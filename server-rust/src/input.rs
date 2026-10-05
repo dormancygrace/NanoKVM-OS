@@ -197,6 +197,15 @@ impl Hub {
             generation: state.generation,
         })
     }
+    /// Serialize trusted background/lifecycle IO with browser ownership changes.
+    /// The operation must not reenter this hub.
+    pub fn synchronized<T>(
+        &self,
+        operation: impl FnOnce() -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        let _transition = self.transition()?;
+        operation()
+    }
     pub fn execute(
         &self,
         ticket: Ticket,

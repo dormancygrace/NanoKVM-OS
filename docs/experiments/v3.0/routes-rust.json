@@ -2138,8 +2138,11 @@
     "handler": "service.GetMouseJiggler)  ",
     "source": "server/router/vm.go",
     "line": 78,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/jiggler.rs",
+      "docs/experiments/v3.0/stage3-jiggler.md"
+    ]
   },
   {
     "method": "POST",
@@ -2149,8 +2152,11 @@
     "handler": "service.SetMouseJiggler",
     "source": "server/router/vm.go",
     "line": 79,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/jiggler.rs",
+      "docs/experiments/v3.0/stage3-jiggler.md"
+    ]
   },
   {
     "method": "GET",

@@ -55,9 +55,11 @@ impl<'de> Visitor<'de> for Object {
             };
             let value = match canonical {
                 "keys" => object.next_value_seed(Keys)?,
-                "enabled" => object
-                    .next_value::<Option<bool>>()?
-                    .map_or(Value::Null, Value::Bool),
+                "enabled" => match object.next_value::<Option<bool>>()? {
+                    Some(value) => Value::Bool(value),
+                    None if self.nullable => Value::Null,
+                    None => continue,
+                },
                 _ => match object.next_value::<Option<String>>()? {
                     Some(value) => value.into(),
                     None if self.nullable => Value::Null,
@@ -138,6 +140,10 @@ mod tests {
             )
             .unwrap()["username"],
             Value::Null
+        );
+        assert_eq!(
+            json(br#"{"enabled":true,"ENABLED":null}"#, &["enabled"], false).unwrap()["enabled"],
+            true
         );
         assert!(json(br#"{"username":7,"USERNAME":"last"}"#, &["username"], false).is_err());
         assert!(json(br#"{"username":"x"} true"#, &["username"], false).is_err());

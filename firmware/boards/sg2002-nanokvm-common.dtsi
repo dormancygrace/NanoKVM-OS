@@ -47,8 +47,9 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
-		// Match the actual OpenSBI PMP range copied by the installed U-Boot.
-		// Equal ranges are deduplicated; a larger no-map node overlaps and fails.
+		// Covers stock OpenSBI and the upstream RO PMP region.
+		// U-Boot deduplicates this exact range and copies the upstream
+		// RW PMP region (0x80040000/0x10000) from the firmware DT.
 		mmode_resv0@80000000 { reg = <0x80000000 0x40000>; no-map; };
 		// Preserve the reservation used by the unchanged installed FIP.
 		c906l@8d000000 { reg = <0x8d000000 0x200000>; no-map; };

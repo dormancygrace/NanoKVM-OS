@@ -64,7 +64,7 @@ impl<'de> Visitor<'de> for Object {
                     ),
                     None => Value::Null,
                 },
-                "sleep" | "target" | "size" | "sizeMiB" | "minutes" | "value" => {
+                "sleep" | "duration" | "target" | "size" | "sizeMiB" | "minutes" | "value" => {
                     let raw = object.next_value::<Box<serde_json::value::RawValue>>()?;
                     if raw.get() == "null" {
                         continue;

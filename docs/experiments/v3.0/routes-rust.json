@@ -1557,8 +1557,14 @@
     "handler": "mjpeg.Connect)                     ",
     "source": "server/router/stream.go",
     "line": 17,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/mjpeg.rs",
+      "server-rust/src/frame_detect.rs",
+      "server-rust/src/transport.rs",
+      "docs/experiments/v3.0/stage3-mjpeg.md",
+      "docs/experiments/v3.0/stage3-mjpeg-qualification.json"
+    ]
   },
   {
     "method": "POST",
@@ -1568,8 +1574,14 @@
     "handler": "mjpeg.UpdateFrameDetect)   ",
     "source": "server/router/stream.go",
     "line": 18,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/mjpeg.rs",
+      "server-rust/src/frame_detect.rs",
+      "server-rust/src/transport.rs",
+      "docs/experiments/v3.0/stage3-mjpeg.md",
+      "docs/experiments/v3.0/stage3-mjpeg-qualification.json"
+    ]
   },
   {
     "method": "POST",
@@ -1579,8 +1591,14 @@
     "handler": "mjpeg.StopFrameDetect",
     "source": "server/router/stream.go",
     "line": 19,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/mjpeg.rs",
+      "server-rust/src/frame_detect.rs",
+      "server-rust/src/transport.rs",
+      "docs/experiments/v3.0/stage3-mjpeg.md",
+      "docs/experiments/v3.0/stage3-mjpeg-qualification.json"
+    ]
   },
   {
     "method": "GET",

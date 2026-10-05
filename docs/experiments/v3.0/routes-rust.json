@@ -2212,8 +2212,12 @@
     "handler": "service.GetHostname)   ",
     "source": "server/router/vm.go",
     "line": 81,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hostname.rs",
+      "server-rust/tests/contracts.rs",
+      "docs/experiments/v3.0/stage3-hostname.md"
+    ]
   },
   {
     "method": "POST",
@@ -2223,8 +2227,12 @@
     "handler": "service.SetHostname",
     "source": "server/router/vm.go",
     "line": 82,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/hostname.rs",
+      "server-rust/tests/contracts.rs",
+      "docs/experiments/v3.0/stage3-hostname.md"
+    ]
   },
   {
     "method": "GET",

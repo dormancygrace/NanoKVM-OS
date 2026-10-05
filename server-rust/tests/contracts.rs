@@ -1207,3 +1207,148 @@ async fn form_query_body_precedence_media_rules_and_invalid_encodings_preserve_f
         serde_json::from_slice(&to_bytes(response.into_body(), 1 << 20).await.unwrap()).unwrap();
     assert_eq!(value["code"], 0);
 }
+
+#[tokio::test]
+async fn hostname_api_validation_exact_file_side_effects_and_admin_gate() {
+    use std::os::unix::fs::PermissionsExt;
+    let (root, state, app) = fixture();
+    let token = login(&app, "owner").await;
+    // Auth helper expects a Bearer prefix.
+    let token = format!("Bearer {token}");
+    let auth = [("authorization", token.as_str())];
+    let (_, _, v) = request(&app, "GET", "/api/vm/hostname", Value::Null, &auth).await;
+    assert_eq!(v["code"], -1);
+    assert_eq!(v["msg"], "read Hostname failed");
+    fs::create_dir(root.path().join("boot")).unwrap();
+    fs::write(root.path().join("etc/hostname"), "local\n").unwrap();
+    let original = "127.0.0.1 local localhost # local stays here\n::1 local\n";
+    fs::write(root.path().join("etc/hosts"), original).unwrap();
+    let (_, _, v) = request(&app, "GET", "/api/vm/hostname", Value::Null, &auth).await;
+    assert_eq!(v["data"], json!({"hostname":"local"}));
+    for value in ["-bad", "bad.", "bad_host", "a..b"] {
+        let (_, _, v) = request(
+            &app,
+            "POST",
+            "/api/vm/hostname",
+            json!({"hostname":value}),
+            &auth,
+        )
+        .await;
+        assert_eq!(v["code"], -1);
+        assert_eq!(
+            fs::read_to_string(root.path().join("etc/hosts")).unwrap(),
+            original
+        );
+    }
+    let (_, _, v) = request_raw(
+        &app,
+        "POST",
+        "/api/vm/hostname",
+        r#"{"HOSTNAME":"first","Hostname":"nano.example","hostname":null,"unknown":1e10000} true"#,
+        &auth,
+    )
+    .await;
+    assert_eq!(v["code"], 0);
+    assert_eq!(
+        fs::read_to_string(root.path().join("etc/hosts")).unwrap(),
+        "127.0.0.1\tnano.example\tlocalhost\t# local stays here\n::1\tnano.example\n"
+    );
+    for path in ["etc/hostname", "boot/hostname"] {
+        let path = root.path().join(path);
+        assert_eq!(fs::read_to_string(&path).unwrap(), "nano.example");
+        assert_eq!(
+            fs::metadata(path).unwrap().permissions().mode() & 0o777,
+            0o644
+        );
+    }
+    fs::remove_file(root.path().join("etc/hosts")).unwrap();
+    let (_, _, v) = request(
+        &app,
+        "POST",
+        "/api/vm/hostname",
+        json!({"hostname":"nano.example"}),
+        &auth,
+    )
+    .await;
+    assert_eq!(v["code"], 0);
+    let (_, _, v) = request(
+        &app,
+        "POST",
+        "/api/vm/hostname",
+        json!({"hostname":"new"}),
+        &auth,
+    )
+    .await;
+    assert_eq!(v["code"], -1);
+    assert_eq!(v["msg"], "read Hosts failed");
+    state
+        .store
+        .create("viewer", "operator-password", "user")
+        .unwrap();
+    let viewer = format!("Bearer {}", login(&app, "viewer").await);
+    let (status, _, _) = request(
+        &app,
+        "POST",
+        "/api/vm/hostname",
+        json!({"hostname":"forbidden"}),
+        &[("authorization", viewer.as_str())],
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    state.shutdown();
+}
+#[tokio::test]
+async fn hostname_forms_exact_names_and_alpine_absolute_symlinks() {
+    use std::os::unix::fs::symlink;
+    let (root, state, app) = fixture();
+    let token = format!("Bearer {}", login(&app, "owner").await);
+    fs::create_dir(root.path().join("boot")).unwrap();
+    fs::write(root.path().join("boot/hostname"), "old").unwrap();
+    symlink("/boot/hostname", root.path().join("etc/hostname")).unwrap();
+    fs::write(root.path().join("etc/hosts"), "127.0.0.1 old\n").unwrap();
+    let (_, _, v) = hostname_form(&app, "/api/vm/hostname", "hostname=lowercase", &token).await;
+    assert_eq!(v["code"], -1);
+    let (_, _, v) = hostname_form(
+        &app,
+        "/api/vm/hostname?Hostname=query",
+        "Hostname=first&Hostname=second",
+        &token,
+    )
+    .await;
+    assert_eq!(v["code"], 0);
+    assert_eq!(
+        fs::read_to_string(root.path().join("boot/hostname")).unwrap(),
+        "first"
+    );
+    assert!(fs::symlink_metadata(root.path().join("etc/hostname"))
+        .unwrap()
+        .is_symlink());
+    assert_eq!(
+        fs::read_to_string(root.path().join("etc/hosts")).unwrap(),
+        "127.0.0.1\tfirst\n"
+    );
+    state.shutdown();
+}
+
+async fn hostname_form(
+    app: &Router,
+    path: &str,
+    body: &str,
+    auth: &str,
+) -> (StatusCode, axum::http::HeaderMap, Value) {
+    let mut req = Request::builder()
+        .method("POST")
+        .uri(path)
+        .header("content-type", "application/x-www-form-urlencoded")
+        .header("authorization", auth)
+        .body(Body::from(body.to_owned()))
+        .unwrap();
+    req.extensions_mut().insert(ConnectInfo(
+        "127.0.0.1:34000".parse::<SocketAddr>().unwrap(),
+    ));
+    let rsp = app.clone().oneshot(req).await.unwrap();
+    let status = rsp.status();
+    let headers = rsp.headers().clone();
+    let bytes = to_bytes(rsp.into_body(), 1 << 20).await.unwrap();
+    (status, headers, serde_json::from_slice(&bytes).unwrap())
+}

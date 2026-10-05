@@ -15,6 +15,7 @@ pub enum Action {
     UsbStart,
     ReloadInit,
     Reboot,
+    ApplyHostname,
 }
 pub trait Executor: Send + Sync {
     /// Refuse an unavailable/stopped backend before acknowledging delayed work.
@@ -72,6 +73,11 @@ impl Executor for Native {
                 command
             }
             Action::Reboot => Command::new("reboot"),
+            Action::ApplyHostname => {
+                let mut command = Command::new("hostname");
+                command.args(["-F", "/etc/hostname"]);
+                command
+            }
         };
         bounded_with_cancel(&mut command, timeout, || {
             self.stopped.load(std::sync::atomic::Ordering::Acquire)

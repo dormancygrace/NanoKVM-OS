@@ -1,6 +1,6 @@
 # Functional parity matrix
 
-204 baseline registrations: 23 implemented in the isolated Rust slice, 1 partial, 180 pending. This is source/host qualification, not complete hardware parity.
+204 baseline registrations: 25 implemented in the isolated Rust slice, 1 partial, 178 pending. This is source/host qualification, not complete hardware parity.
 
 Owner OS password synchronization cannot run in an isolated root; its rollback path is tested. Internal-token/MCP routes fail closed. Pending public/session/admin routes return HTTP 501 after their access gate. All nonpublic baseline routes have an unauthenticated protection test.
 
@@ -194,8 +194,8 @@ Owner OS password synchronization cannot run in an isolated root; its rollback p
 | POST | `/api/vm/ssh/disable` | admin | server/router/vm.go:73 | pending | — |
 | GET | `/api/vm/swap` | admin | server/router/vm.go:75 | pending | — |
 | POST | `/api/vm/swap` | admin | server/router/vm.go:76 | pending | — |
-| GET | `/api/vm/mouse-jiggler` | admin | server/router/vm.go:78 | pending | — |
-| POST | `/api/vm/mouse-jiggler/` | admin | server/router/vm.go:79 | pending | — |
+| GET | `/api/vm/mouse-jiggler` | admin | server/router/vm.go:78 | implemented-isolated | stage3-jiggler.md; settings/admin/actual timer/priority/compensation |
+| POST | `/api/vm/mouse-jiggler/` | admin | server/router/vm.go:79 | implemented-isolated | stage3-jiggler.md; settings/admin/actual timer/priority/compensation |
 | GET | `/api/vm/hostname` | session | server/router/vm.go:81 | pending | — |
 | POST | `/api/vm/hostname` | admin | server/router/vm.go:82 | pending | — |
 | GET | `/api/vm/web-title` | session | server/router/vm.go:84 | implemented-isolated | validation.md; API/contract/UI slice |

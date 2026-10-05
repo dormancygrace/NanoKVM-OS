@@ -278,16 +278,29 @@ impl ManualSession {
         wait: Duration,
         allow: impl Fn(Mode) -> bool,
     ) -> Result<Reservation, Error> {
-        let generation = {
-            let mut state = self
+        let (generation, active) = {
+            let state = self
                 .state
                 .lock()
                 .map_err(|_| "manual input session unavailable")?;
             if state.closed || state.revoking {
                 return Err("manual input session is closed".into());
             }
+            (state.generation, state.active)
+        };
+        if active {
+            // This can stat/read the mode file. Keep queue Drop and async state
+            // readers independent of its filesystem latency.
+            let status = self.control.status()?;
+            let permitted = !status.transitioning && allow(status.mode);
+            let mut state = self
+                .state
+                .lock()
+                .map_err(|_| "manual input session unavailable")?;
+            if state.closed || state.revoking || state.generation != generation {
+                return Err("manual input is blocked".into());
+            }
             if state.active {
-                let status = self.control.status()?;
                 let release = !held
                     && match kind {
                         Kind::Keyboard => state.held[0] || state.pending_held[0] > 0,
@@ -298,13 +311,12 @@ impl ManualSession {
                                 || state.pending_held[2] > 0
                         }
                     };
-                if (status.transitioning || !allow(status.mode)) && !release {
+                if !permitted && !release {
                     return Err("manual input is blocked".into());
                 }
                 return self.reservation(&mut state, kind, held, cooldown);
             }
-            state.generation
-        };
+        }
         let (status, lease) = self.control.acquire(None)?;
         if !allow(status.mode) {
             return Err("manual input is blocked".into());

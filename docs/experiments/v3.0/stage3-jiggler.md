@@ -1,0 +1,11 @@
+# Mouse jiggler lifecycle
+
+The isolated runtime implements admin GET /api/vm/mouse-jiggler and POST /api/vm/mouse-jiggler/ with persisted /etc/kvm/mouse-jiggler, exact relative/absolute report formats, 15-second inactivity ticks and a cancellable 100ms forward/compensating move. File presence, embedded newline removal, empty/unknown mode behavior and disable-on-missing-file error match Go. JSON/form field names and Go nonpointer bool null semantics are covered; failed persistence leaves settings unchanged.
+
+One synchronized worker replaces Go's unsynchronized enabled/mode/time fields and duplicate-run risk. Mode/activity and addon leases protect each movement; manual admission preempts it, waits for compensation and receives the lane afterward. Held manual keys, manual cooldown, another addon and a owned PicoClaw session skip background movement. Successful admitted browser reports refresh activity. Configuration changes and shutdown wake the current movement. Weak runtime references avoid a timer ownership cycle. Synchronous Router construction remains supported; startup retries at async API/WS entry when a Tokio reactor exists.
+
+No filesystem sync runs under state locks read by async snapshots/activity updates. Manual-session mode stat/read also now runs outside its state lock with generation revalidation. Background device writes share the input transition with final shutdown close, preventing descriptor reopening after shutdown.
+
+Qualification: check-v3.py --host --target --tls passes 56 tests on both architectures (26 unit, 18 API, twelve actual-socket tests), fmt/clippy, generic static riscv64 musl/QEMU and verified TLS lifecycle. Actual tests cover settings/admin/form/null/error behavior, exact pointer reports, priority/compensation before manual input, cooldown/PicoClaw exclusion, shutdown and the real 15-second timer. Existing thirteen Go oracle responses and JWT interoperability remain included. No new dependency was added; stage3-jiggler-qualification.json records the artifact and logs.
+
+Ledger: 25 isolated implementations, one partial WS, 178 pending. USB mode/reset/rebind and HTTP input still remain before native/media/addon/package/hardware parity. H.265 WebRTC remains disabled. No stand changes or complete replacement claim.

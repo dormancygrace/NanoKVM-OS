@@ -40,6 +40,15 @@ async fn request(
     body: Value,
     headers: &[(&str, &str)],
 ) -> (StatusCode, axum::http::HeaderMap, Value) {
+    request_raw(app, method, path, &body.to_string(), headers).await
+}
+async fn request_raw(
+    app: &Router,
+    method: &str,
+    path: &str,
+    body: &str,
+    headers: &[(&str, &str)],
+) -> (StatusCode, axum::http::HeaderMap, Value) {
     let mut r = Request::builder()
         .method(method)
         .uri(path)
@@ -47,7 +56,7 @@ async fn request(
     for (k, v) in headers {
         r = r.header(*k, *v);
     }
-    let mut r = r.body(Body::from(body.to_string())).unwrap();
+    let mut r = r.body(Body::from(body.to_owned())).unwrap();
     r.extensions_mut().insert(ConnectInfo(
         "127.0.0.1:34000".parse::<SocketAddr>().unwrap(),
     ));
@@ -481,11 +490,11 @@ async fn exact_go_oracle_responses_with_go_tokens_and_hashes() {
             .as_ref()
             .map(|h| vec![("authorization", h.as_str())])
             .unwrap_or_default();
-        let (status, _, response) = request(
+        let (status, _, response) = request_raw(
             &router,
             case["method"].as_str().unwrap(),
             case["path"].as_str().unwrap(),
-            serde_json::from_str(case["body"].as_str().unwrap()).unwrap(),
+            case["body"].as_str().unwrap(),
             &headers,
         )
         .await;
@@ -497,6 +506,139 @@ async fn exact_go_oracle_responses_with_go_tokens_and_hashes() {
         );
         assert_eq!(response, case["response"], "{}", case["name"]);
     }
+}
+
+#[tokio::test]
+async fn typed_json_case_binding_preserves_hid_values_and_rejects_invalid_title_without_reset() {
+    let (temp, state, app) = fixture();
+    let token = login(&app, "owner").await;
+    let bearer = format!("Bearer {token}");
+    let auth = [("authorization", bearer.as_str())];
+    fs::write(temp.path().join("etc/kvm/web-title"), "kept title").unwrap();
+    for body in [r#"[]"#, r#"{"title":7,"TITLE":"later valid value"}"#] {
+        assert_eq!(
+            request_raw(&app, "POST", "/api/vm/web-title", body, &auth)
+                .await
+                .2["code"],
+            -1
+        );
+        assert_eq!(
+            fs::read_to_string(temp.path().join("etc/kvm/web-title")).unwrap(),
+            "kept title"
+        );
+    }
+    assert_eq!(
+        request_raw(
+            &app,
+            "POST",
+            "/api/vm/web-title",
+            r#"{"TITLE":"first","Title":"last","title":null}"#,
+            &auth
+        )
+        .await
+        .2["code"],
+        0
+    );
+    assert_eq!(
+        fs::read_to_string(temp.path().join("etc/kvm/web-title")).unwrap(),
+        "last"
+    );
+    assert_eq!(
+        request_raw(
+            &app,
+            "POST",
+            "/api/hid/shortcut",
+            r#"{"KEYS":[{"CoDe":"control","LABEL":"ctrl"},null]}"#,
+            &auth
+        )
+        .await
+        .2["code"],
+        0
+    );
+    let shortcuts: Value =
+        serde_json::from_slice(&fs::read(temp.path().join("etc/kvm/shortcuts.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        shortcuts["shortcuts"][0]["keys"],
+        json!([{"code":"control","label":"ctrl"},{"code":"","label":""}])
+    );
+    state
+        .store
+        .create("viewer", "operator-password", "user")
+        .unwrap();
+    let version = state.store.get("viewer").unwrap().token_version;
+    assert_eq!(
+        request_raw(
+            &app,
+            "PUT",
+            "/api/auth/users/viewer",
+            r#"{"USERNAME":"renamed","username":null,"Enabled":true}"#,
+            &auth
+        )
+        .await
+        .2["code"],
+        0
+    );
+    assert_eq!(state.store.get("viewer").unwrap().token_version, version);
+}
+
+#[tokio::test]
+async fn gin_form_names_boolean_spellings_first_scalar_and_shortcut_arrays_are_preserved() {
+    let (temp, state, app) = fixture();
+    let token = login(&app, "owner").await;
+    let bearer = format!("Bearer {token}");
+    state
+        .store
+        .create("viewer", "operator-password", "user")
+        .unwrap();
+    let keys = serde_urlencoded::to_string([
+        ("Keys", r#"{"CoDe":"Control","LABEL":"Ctrl"}"#),
+        ("Keys", "null"),
+    ])
+    .unwrap();
+    let cases = [
+        ("POST", "/api/vm/web-title", "Title=form+title"),
+        ("POST", "/api/hid/shortcut/leader-key", "Key=Ctrl"),
+        (
+            "PUT",
+            "/api/auth/users/viewer",
+            "enabled=+False+&enabled=not-valid",
+        ),
+        ("POST", "/api/hid/shortcut", keys.as_str()),
+    ];
+    for (method, path, body) in cases {
+        let mut request = Request::builder()
+            .method(method)
+            .uri(path)
+            .header("content-type", "application/x-www-form-urlencoded")
+            .header("authorization", &bearer)
+            .body(Body::from(body.to_owned()))
+            .unwrap();
+        request.extensions_mut().insert(ConnectInfo(
+            "127.0.0.1:34000".parse::<SocketAddr>().unwrap(),
+        ));
+        let response = app.clone().oneshot(request).await.unwrap();
+        let data: Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 1 << 20).await.unwrap())
+                .unwrap();
+        assert_eq!(data["code"], 0, "{method} {path}: {data}");
+    }
+    assert_eq!(
+        fs::read_to_string(temp.path().join("etc/kvm/web-title")).unwrap(),
+        "form title"
+    );
+    assert_eq!(
+        fs::read_to_string(temp.path().join("etc/kvm/leader-key")).unwrap(),
+        "Ctrl"
+    );
+    assert!(!state.store.get("viewer").unwrap().enabled);
+    let shortcuts: Value =
+        serde_json::from_slice(&fs::read(temp.path().join("etc/kvm/shortcuts.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        shortcuts["shortcuts"][0]["keys"],
+        json!([{"code":"Control","label":"Ctrl"},{"code":"","label":""}])
+    );
 }
 
 #[tokio::test]

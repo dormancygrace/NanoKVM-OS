@@ -13,7 +13,7 @@
       "method": "GET",
       "path": "/api/auth/account",
       "body": "null",
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwidG9rZW5WZXJzaW9uIjo3NTI5NTYyMzI2MjEyNTY3NDQ5LCJzdWIiOiJhZG1pbiIsImV4cCI6NDk0NDc1NTQ4OCwiaWF0IjoxNzkxMTU1NDg4fQ.Nhw-CqYW1n9l8FJLd9MPyMhQ_T_Pz9_iuIc9F62g1VY",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwidG9rZW5WZXJzaW9uIjo3NTI5NTYyMzI2MjEyNTY3NDQ5LCJzdWIiOiJhZG1pbiIsImV4cCI6NDk0NDc2MDY1MiwiaWF0IjoxNzkxMTYwNjUyfQ.IybeKRlg-ng33E-AG16pMLBlyzJleCUHRqYvTWZCtHw",
       "status": 200,
       "response": {
         "code": 0,
@@ -30,7 +30,7 @@
       "method": "GET",
       "path": "/api/auth/password",
       "body": "null",
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwidG9rZW5WZXJzaW9uIjo3NTI5NTYyMzI2MjEyNTY3NDQ5LCJzdWIiOiJhZG1pbiIsImV4cCI6NDk0NDc1NTQ4OCwiaWF0IjoxNzkxMTU1NDg4fQ.Nhw-CqYW1n9l8FJLd9MPyMhQ_T_Pz9_iuIc9F62g1VY",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwidG9rZW5WZXJzaW9uIjo3NTI5NTYyMzI2MjEyNTY3NDQ5LCJzdWIiOiJhZG1pbiIsImV4cCI6NDk0NDc2MDY1MiwiaWF0IjoxNzkxMTYwNjUyfQ.IybeKRlg-ng33E-AG16pMLBlyzJleCUHRqYvTWZCtHw",
       "status": 200,
       "response": {
         "code": 0,
@@ -45,7 +45,7 @@
       "method": "GET",
       "path": "/api/auth/users",
       "body": "null",
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwidG9rZW5WZXJzaW9uIjo3NTI5NTYyMzI2MjEyNTY3NDQ5LCJzdWIiOiJhZG1pbiIsImV4cCI6NDk0NDc1NTQ4OCwiaWF0IjoxNzkxMTU1NDg4fQ.Nhw-CqYW1n9l8FJLd9MPyMhQ_T_Pz9_iuIc9F62g1VY",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwidG9rZW5WZXJzaW9uIjo3NTI5NTYyMzI2MjEyNTY3NDQ5LCJzdWIiOiJhZG1pbiIsImV4cCI6NDk0NDc2MDY1MiwiaWF0IjoxNzkxMTYwNjUyfQ.IybeKRlg-ng33E-AG16pMLBlyzJleCUHRqYvTWZCtHw",
       "status": 403,
       "response": {
         "code": -10,
@@ -57,7 +57,7 @@
       "method": "GET",
       "path": "/api/auth/account",
       "body": "null",
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InZpZXdlciIsInRva2VuVmVyc2lvbiI6NjIwNTUxMDQ3OTcwNzA5NDMzMiwic3ViIjoidmlld2VyIiwiZXhwIjo0OTQ0NzU1NDg4LCJpYXQiOjE3OTExNTU0ODh9.W_2OPNPSE49xJUwZy_EO2QAgLJs29URj0yrCgoQxThs",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InZpZXdlciIsInRva2VuVmVyc2lvbiI6NjIwNTUxMDQ3OTcwNzA5NDMzMiwic3ViIjoidmlld2VyIiwiZXhwIjo0OTQ0NzYwNjUyLCJpYXQiOjE3OTExNjA2NTJ9.cOktMK07XHGu828RFy-gqZINX79c-gst8u-3MoKUPqs",
       "status": 200,
       "response": {
         "code": 0,
@@ -74,7 +74,7 @@
       "method": "GET",
       "path": "/api/auth/users",
       "body": "null",
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InZpZXdlciIsInRva2VuVmVyc2lvbiI6NjIwNTUxMDQ3OTcwNzA5NDMzMiwic3ViIjoidmlld2VyIiwiZXhwIjo0OTQ0NzU1NDg4LCJpYXQiOjE3OTExNTU0ODh9.W_2OPNPSE49xJUwZy_EO2QAgLJs29URj0yrCgoQxThs",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InZpZXdlciIsInRva2VuVmVyc2lvbiI6NjIwNTUxMDQ3OTcwNzA5NDMzMiwic3ViIjoidmlld2VyIiwiZXhwIjo0OTQ0NzYwNjUyLCJpYXQiOjE3OTExNjA2NTJ9.cOktMK07XHGu828RFy-gqZINX79c-gst8u-3MoKUPqs",
       "status": 403,
       "response": "forbidden"
     },
@@ -91,6 +91,18 @@
       }
     },
     {
+      "name": "unicode-fold-login",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "body": "{\"uſername\":\"viewer\",\"paſſword\":\"U2FsdGVkX18zLUxaLNGy7jL96oMO4tq6wDYwVzUMO3XfTY2Zy/ipO4LDEqtBT+fx\"}",
+      "status": 200,
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      }
+    },
+    {
       "name": "wrong-login",
       "method": "POST",
       "path": "/api/auth/login",
@@ -100,6 +112,54 @@
         "code": -2,
         "data": null,
         "msg": "invalid username or password"
+      }
+    },
+    {
+      "name": "mixed-case-login",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "body": "{\"UsErNaMe\":\"viewer\",\"PaSsWoRd\":\"malformed\"}",
+      "status": 200,
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "invalid username or password"
+      }
+    },
+    {
+      "name": "duplicate-case-login",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "body": "{\"username\":\"\",\"USERNAME\":\"viewer\",\"password\":\"malformed\"}",
+      "status": 200,
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "invalid username or password"
+      }
+    },
+    {
+      "name": "null-after-string-login",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "body": "{\"username\":\"viewer\",\"USERNAME\":null,\"password\":\"malformed\"}",
+      "status": 200,
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "invalid username or password"
+      }
+    },
+    {
+      "name": "invalid-type-before-string-login",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "body": "{\"username\":7,\"USERNAME\":\"viewer\",\"password\":\"malformed\"}",
+      "status": 200,
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "invalid parameters"
       }
     }
   ],

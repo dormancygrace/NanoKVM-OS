@@ -1,0 +1,6236 @@
+{
+  "cases": [
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "defaults",
+        "Files": {},
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 420
+      },
+      "case": {
+        "Name": "env-420",
+        "Files": {},
+        "Ion": "",
+        "Env": "0",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 420
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 420
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "env-other",
+        "Files": {},
+        "Ion": "",
+        "Env": "false",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "fps-''",
+        "Files": {
+          "fps": ""
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "fps-'abc'",
+        "Files": {
+          "fps": "abc"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 10,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "fps-'0'",
+        "Files": {
+          "fps": "0"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 10,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 10,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 10,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "fps-'-1'",
+        "Files": {
+          "fps": "-1"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 10,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 10,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 10,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "fps-'9'",
+        "Files": {
+          "fps": "9"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 10,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 10,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 10,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "fps-'10'",
+        "Files": {
+          "fps": "10"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 10,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 10,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "fps-'50'",
+        "Files": {
+          "fps": "50"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "fps-'120'",
+        "Files": {
+          "fps": "120"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "fps-'121'",
+        "Files": {
+          "fps": "121"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "fps-'9223372036854775808'",
+        "Files": {
+          "fps": "9223372036854775808"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "fps-' 75\\n'",
+        "Files": {
+          "fps": " 75\n"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "res-'0'",
+        "Files": {
+          "res": "0"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 800,
+        "Height": 600,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "res-'600'",
+        "Files": {
+          "res": "600"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 800,
+        "Height": 600,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 800,
+        "Height": 600,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "res-'720'",
+        "Files": {
+          "res": "720"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "res-'1080'",
+        "Files": {
+          "res": "1080"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "res-'1440'",
+        "Files": {
+          "res": "1440"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "res-'-1'",
+        "Files": {
+          "res": "-1"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "res-'65536'",
+        "Files": {
+          "res": "65536"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "res-'1081'",
+        "Files": {
+          "res": "1081"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'0'",
+        "Files": {
+          "qlty": "0"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'1'",
+        "Files": {
+          "qlty": "1"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 50,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'50'",
+        "Files": {
+          "qlty": "50"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 50,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 50,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 60,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'60'",
+        "Files": {
+          "qlty": "60"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 60,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 60,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'80'",
+        "Files": {
+          "qlty": "80"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 100,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'100'",
+        "Files": {
+          "qlty": "100"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 100,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 100,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'101'",
+        "Files": {
+          "qlty": "101"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'999'",
+        "Files": {
+          "qlty": "999"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 1000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'1000'",
+        "Files": {
+          "qlty": "1000"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 1000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 1000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 2000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'2000'",
+        "Files": {
+          "qlty": "2000"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 2000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 2000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'3000'",
+        "Files": {
+          "qlty": "3000"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 5000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'5000'",
+        "Files": {
+          "qlty": "5000"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 5000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 5000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 10000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'10000'",
+        "Files": {
+          "qlty": "10000"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 10000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 10000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 15000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'15000'",
+        "Files": {
+          "qlty": "15000"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 15000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 15000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 20000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'20000'",
+        "Files": {
+          "qlty": "20000"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 20000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 20000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "qlty-'20001'",
+        "Files": {
+          "qlty": "20001"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 0,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "gop_mode-'0'",
+        "Files": {
+          "gop_mode": "0"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 0,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 0,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "gop_mode-'1'",
+        "Files": {
+          "gop_mode": "1"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "gop_mode-'2'",
+        "Files": {
+          "gop_mode": "2"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "gop_mode-'-1'",
+        "Files": {
+          "gop_mode": "-1"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 420
+      },
+      "case": {
+        "Name": "mjpeg_chroma-'420'",
+        "Files": {
+          "mjpeg_chroma": "420"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 420
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 420
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "mjpeg_chroma-'422'",
+        "Files": {
+          "mjpeg_chroma": "422"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "mjpeg_chroma-'421'",
+        "Files": {
+          "mjpeg_chroma": "421"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "mjpeg_chroma-'0'",
+        "Files": {
+          "mjpeg_chroma": "0"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "QHD-60",
+        "Files": {
+          "res": "1440"
+        },
+        "Ion": "03c00000",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "QHD-61",
+        "Files": {
+          "res": "1440"
+        },
+        "Ion": "03d00000",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "QHD-62",
+        "Files": {
+          "res": "1440"
+        },
+        "Ion": "03e00000",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "QHD-63",
+        "Files": {
+          "res": "1440"
+        },
+        "Ion": "03f00000",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "QHD-64",
+        "Files": {
+          "res": "1440"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "QHD-short",
+        "Files": {
+          "res": "1440"
+        },
+        "Ion": "03",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "QHD-extra",
+        "Files": {
+          "res": "1440"
+        },
+        "Ion": "0400000000",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "save-over-env",
+        "Files": {
+          "mjpeg_chroma": "422"
+        },
+        "Ion": "",
+        "Env": "0",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "published-sequence",
+        "Files": {},
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "",
+        "InputHeight": "",
+        "Steps": [
+          {
+            "Key": "resolution",
+            "Value": -1
+          },
+          {
+            "Key": "resolution",
+            "Value": 65536
+          },
+          {
+            "Key": "resolution",
+            "Value": 1081
+          },
+          {
+            "Key": "resolution",
+            "Value": 600
+          },
+          {
+            "Key": "resolution",
+            "Value": 720
+          },
+          {
+            "Key": "resolution",
+            "Value": 1080
+          },
+          {
+            "Key": "resolution",
+            "Value": 1440
+          },
+          {
+            "Key": "resolution",
+            "Value": 0
+          },
+          {
+            "Key": "fps",
+            "Value": -1
+          },
+          {
+            "Key": "fps",
+            "Value": 10
+          },
+          {
+            "Key": "fps",
+            "Value": 50
+          },
+          {
+            "Key": "fps",
+            "Value": 120
+          },
+          {
+            "Key": "fps",
+            "Value": 121
+          },
+          {
+            "Key": "quality",
+            "Value": 1
+          },
+          {
+            "Key": "quality",
+            "Value": 50
+          },
+          {
+            "Key": "quality",
+            "Value": 100
+          },
+          {
+            "Key": "quality",
+            "Value": 101
+          },
+          {
+            "Key": "quality",
+            "Value": 3000
+          },
+          {
+            "Key": "quality",
+            "Value": 20000
+          },
+          {
+            "Key": "quality",
+            "Value": 20001
+          },
+          {
+            "Key": "quality",
+            "Value": 0
+          },
+          {
+            "Key": "gop",
+            "Value": 0
+          },
+          {
+            "Key": "gop",
+            "Value": 1
+          },
+          {
+            "Key": "gop",
+            "Value": 100
+          },
+          {
+            "Key": "gop",
+            "Value": 101
+          },
+          {
+            "Key": "gop_mode",
+            "Value": -1
+          },
+          {
+            "Key": "gop_mode",
+            "Value": 0
+          },
+          {
+            "Key": "gop_mode",
+            "Value": 1
+          },
+          {
+            "Key": "gop_mode",
+            "Value": 2
+          },
+          {
+            "Key": "mjpeg_chroma",
+            "Value": 420
+          },
+          {
+            "Key": "mjpeg_chroma",
+            "Value": 421
+          },
+          {
+            "Key": "mjpeg_chroma",
+            "Value": 422
+          },
+          {
+            "Key": "unknown",
+            "Value": 1
+          },
+          {
+            "Key": "quality",
+            "Value": 101
+          },
+          {
+            "Key": "quality",
+            "Value": 1
+          },
+          {
+            "Key": "check",
+            "Value": 0
+          }
+        ]
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 50,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "resolution",
+            "Value": -1
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 50,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "resolution",
+            "Value": 65536
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 50,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "resolution",
+            "Value": 1081
+          }
+        },
+        {
+          "screen": {
+            "Width": 800,
+            "Height": 600,
+            "FPS": 50,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "resolution",
+            "Value": 600
+          }
+        },
+        {
+          "screen": {
+            "Width": 1280,
+            "Height": 720,
+            "FPS": 50,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "resolution",
+            "Value": 720
+          }
+        },
+        {
+          "screen": {
+            "Width": 1920,
+            "Height": 1080,
+            "FPS": 50,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "resolution",
+            "Value": 1080
+          }
+        },
+        {
+          "screen": {
+            "Width": 2560,
+            "Height": 1440,
+            "FPS": 50,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "resolution",
+            "Value": 1440
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 50,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "resolution",
+            "Value": 0
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 10,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "fps",
+            "Value": -1
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 10,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "fps",
+            "Value": 10
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 50,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "fps",
+            "Value": 50
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "fps",
+            "Value": 120
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "fps",
+            "Value": 121
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 1,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "quality",
+            "Value": 1
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 50,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "quality",
+            "Value": 50
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "quality",
+            "Value": 100
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 101,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "quality",
+            "Value": 101
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 3000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "quality",
+            "Value": 3000
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "quality",
+            "Value": 20000
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "quality",
+            "Value": 20001
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "quality",
+            "Value": 0
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 30,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "gop",
+            "Value": 0
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 1,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "gop",
+            "Value": 1
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 100,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "gop",
+            "Value": 100
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 100,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "gop",
+            "Value": 101
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 100,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "gop_mode",
+            "Value": -1
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 100,
+            "GOPMode": 0,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "gop_mode",
+            "Value": 0
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 100,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "gop_mode",
+            "Value": 1
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 100,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "gop_mode",
+            "Value": 2
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 100,
+            "GOPMode": 1,
+            "MjpegChroma": 420
+          },
+          "step": {
+            "Key": "mjpeg_chroma",
+            "Value": 420
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 100,
+            "GOPMode": 1,
+            "MjpegChroma": 420
+          },
+          "step": {
+            "Key": "mjpeg_chroma",
+            "Value": 421
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 100,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "mjpeg_chroma",
+            "Value": 422
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 20000,
+            "GOP": 100,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "unknown",
+            "Value": 1
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 100,
+            "BitRate": 101,
+            "GOP": 100,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "quality",
+            "Value": 101
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 1,
+            "BitRate": 101,
+            "GOP": 100,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "quality",
+            "Value": 1
+          }
+        },
+        {
+          "screen": {
+            "Width": 0,
+            "Height": 0,
+            "FPS": 120,
+            "Quality": 80,
+            "BitRate": 3000,
+            "GOP": 100,
+            "GOPMode": 1,
+            "MjpegChroma": 422
+          },
+          "step": {
+            "Key": "check",
+            "Value": 0
+          }
+        }
+      ],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-0x0-0",
+        "Files": {
+          "fps": "120",
+          "res": "0"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "0",
+        "InputHeight": "0",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-0x0-720",
+        "Files": {
+          "fps": "120",
+          "res": "720"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "0",
+        "InputHeight": "0",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-0x0-1080",
+        "Files": {
+          "fps": "120",
+          "res": "1080"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "0",
+        "InputHeight": "0",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-0x0-1440",
+        "Files": {
+          "fps": "120",
+          "res": "1440"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "0",
+        "InputHeight": "0",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 0,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1280x720-0",
+        "Files": {
+          "fps": "120",
+          "res": "0"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1280",
+        "InputHeight": "720",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 720,
+      "inputWidth": 1280,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1280x720-720",
+        "Files": {
+          "fps": "120",
+          "res": "720"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1280",
+        "InputHeight": "720",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 720,
+      "inputWidth": 1280,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1280x720-1080",
+        "Files": {
+          "fps": "120",
+          "res": "1080"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1280",
+        "InputHeight": "720",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 720,
+      "inputWidth": 1280,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1280x720-1440",
+        "Files": {
+          "fps": "120",
+          "res": "1440"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1280",
+        "InputHeight": "720",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 720,
+      "inputWidth": 1280,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-720x1280-0",
+        "Files": {
+          "fps": "120",
+          "res": "0"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "720",
+        "InputHeight": "1280",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1280,
+      "inputWidth": 720,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-720x1280-720",
+        "Files": {
+          "fps": "120",
+          "res": "720"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "720",
+        "InputHeight": "1280",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1280,
+      "inputWidth": 720,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-720x1280-1080",
+        "Files": {
+          "fps": "120",
+          "res": "1080"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "720",
+        "InputHeight": "1280",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1280,
+      "inputWidth": 720,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-720x1280-1440",
+        "Files": {
+          "fps": "120",
+          "res": "1440"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "720",
+        "InputHeight": "1280",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1280,
+      "inputWidth": 720,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1920x1080-0",
+        "Files": {
+          "fps": "120",
+          "res": "0"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1920",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": 1920,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1920x1080-720",
+        "Files": {
+          "fps": "120",
+          "res": "720"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1920",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": 1920,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1920x1080-1080",
+        "Files": {
+          "fps": "120",
+          "res": "1080"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1920",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": 1920,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1920x1080-1440",
+        "Files": {
+          "fps": "120",
+          "res": "1440"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1920",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": 1920,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1088x1920-0",
+        "Files": {
+          "fps": "120",
+          "res": "0"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1088",
+        "InputHeight": "1920",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1920,
+      "inputWidth": 1088,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1088x1920-720",
+        "Files": {
+          "fps": "120",
+          "res": "720"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1088",
+        "InputHeight": "1920",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1920,
+      "inputWidth": 1088,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1088x1920-1080",
+        "Files": {
+          "fps": "120",
+          "res": "1080"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1088",
+        "InputHeight": "1920",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1920,
+      "inputWidth": 1088,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1088x1920-1440",
+        "Files": {
+          "fps": "120",
+          "res": "1440"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1088",
+        "InputHeight": "1920",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1920,
+      "inputWidth": 1088,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1920x1088-0",
+        "Files": {
+          "fps": "120",
+          "res": "0"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1920",
+        "InputHeight": "1088",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1088,
+      "inputWidth": 1920,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1920x1088-720",
+        "Files": {
+          "fps": "120",
+          "res": "720"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1920",
+        "InputHeight": "1088",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1088,
+      "inputWidth": 1920,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1920x1088-1080",
+        "Files": {
+          "fps": "120",
+          "res": "1080"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1920",
+        "InputHeight": "1088",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1088,
+      "inputWidth": 1920,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1920x1088-1440",
+        "Files": {
+          "fps": "120",
+          "res": "1440"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1920",
+        "InputHeight": "1088",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1088,
+      "inputWidth": 1920,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1920x1089-0",
+        "Files": {
+          "fps": "120",
+          "res": "0"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1920",
+        "InputHeight": "1089",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1089,
+      "inputWidth": 1920,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1920x1089-720",
+        "Files": {
+          "fps": "120",
+          "res": "720"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1920",
+        "InputHeight": "1089",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1089,
+      "inputWidth": 1920,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1920x1089-1080",
+        "Files": {
+          "fps": "120",
+          "res": "1080"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1920",
+        "InputHeight": "1089",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1089,
+      "inputWidth": 1920,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1920x1089-1440",
+        "Files": {
+          "fps": "120",
+          "res": "1440"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1920",
+        "InputHeight": "1089",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1089,
+      "inputWidth": 1920,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-2560x1440-0",
+        "Files": {
+          "fps": "120",
+          "res": "0"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "2560",
+        "InputHeight": "1440",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1440,
+      "inputWidth": 2560,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-2560x1440-720",
+        "Files": {
+          "fps": "120",
+          "res": "720"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "2560",
+        "InputHeight": "1440",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1440,
+      "inputWidth": 2560,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-2560x1440-1080",
+        "Files": {
+          "fps": "120",
+          "res": "1080"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "2560",
+        "InputHeight": "1440",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1440,
+      "inputWidth": 2560,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-2560x1440-1440",
+        "Files": {
+          "fps": "120",
+          "res": "1440"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "2560",
+        "InputHeight": "1440",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1440,
+      "inputWidth": 2560,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1440x2560-0",
+        "Files": {
+          "fps": "120",
+          "res": "0"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1440",
+        "InputHeight": "2560",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 2560,
+      "inputWidth": 1440,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1440x2560-720",
+        "Files": {
+          "fps": "120",
+          "res": "720"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1440",
+        "InputHeight": "2560",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 2560,
+      "inputWidth": 1440,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1440x2560-1080",
+        "Files": {
+          "fps": "120",
+          "res": "1080"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1440",
+        "InputHeight": "2560",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 2560,
+      "inputWidth": 1440,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture-1440x2560-1440",
+        "Files": {
+          "fps": "120",
+          "res": "1440"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "1440",
+        "InputHeight": "2560",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 2560,
+      "inputWidth": 1440,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture--1x1080-0",
+        "Files": {
+          "fps": "120",
+          "res": "0"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "-1",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": -1,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture--1x1080-720",
+        "Files": {
+          "fps": "120",
+          "res": "720"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "-1",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": -1,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1280,
+        "Height": 720,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture--1x1080-1080",
+        "Files": {
+          "fps": "120",
+          "res": "1080"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "-1",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": -1,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "capture--1x1080-1440",
+        "Files": {
+          "fps": "120",
+          "res": "1440"
+        },
+        "Ion": "04000000",
+        "Env": "",
+        "InputWidth": "-1",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": -1,
+      "published": [],
+      "qhd": true,
+      "savedAfterCapture": {
+        "Width": 2560,
+        "Height": 1440,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "overflow-status",
+        "Files": {
+          "fps": "120"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "9223372036854775808",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": 9223372036854775807,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "status-'-9223372036854775809'",
+        "Files": {
+          "fps": "120"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "-9223372036854775809",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": -9223372036854775808,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "status-'9223372036854775808x'",
+        "Files": {
+          "fps": "120"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "9223372036854775808x",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "status-'999999999999999999999999x'",
+        "Files": {
+          "fps": "120"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "999999999999999999999999x",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": 9223372036854775807,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 50,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "status-'+9223372036854775808'",
+        "Files": {
+          "fps": "120"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "+9223372036854775808",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": 9223372036854775807,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "status-'999x'",
+        "Files": {
+          "fps": "120"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "999x",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "status-'9_000'",
+        "Files": {
+          "fps": "120"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": "9_000",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "status-' '",
+        "Files": {
+          "fps": "120"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": " ",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": 0,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "capture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 75,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "case": {
+        "Name": "status-' 1920\\n'",
+        "Files": {
+          "fps": "120"
+        },
+        "Ion": "",
+        "Env": "",
+        "InputWidth": " 1920\n",
+        "InputHeight": "1080",
+        "Steps": []
+      },
+      "initial": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      },
+      "inputHeight": 1080,
+      "inputWidth": 1920,
+      "published": [],
+      "qhd": false,
+      "savedAfterCapture": {
+        "Width": 0,
+        "Height": 0,
+        "FPS": 120,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 30,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    }
+  ],
+  "checks": [
+    {
+      "input": {
+        "Width": 999,
+        "Height": 99,
+        "FPS": -1,
+        "Quality": 1,
+        "BitRate": 101,
+        "GOP": 0,
+        "GOPMode": 3,
+        "MjpegChroma": 421
+      },
+      "output": {
+        "Width": 1920,
+        "Height": 1080,
+        "FPS": -1,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 0,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "input": {
+        "Width": 999,
+        "Height": 720,
+        "FPS": -1,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 0,
+        "GOPMode": 3,
+        "MjpegChroma": 421
+      },
+      "output": {
+        "Width": 999,
+        "Height": 720,
+        "FPS": -1,
+        "Quality": 80,
+        "BitRate": 3000,
+        "GOP": 0,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "input": {
+        "Width": 999,
+        "Height": 0,
+        "FPS": -1,
+        "Quality": 100,
+        "BitRate": 20000,
+        "GOP": 0,
+        "GOPMode": 3,
+        "MjpegChroma": 421
+      },
+      "output": {
+        "Width": 999,
+        "Height": 0,
+        "FPS": -1,
+        "Quality": 100,
+        "BitRate": 20000,
+        "GOP": 0,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    },
+    {
+      "input": {
+        "Width": 999,
+        "Height": 1440,
+        "FPS": -1,
+        "Quality": 60,
+        "BitRate": 1000,
+        "GOP": 0,
+        "GOPMode": 3,
+        "MjpegChroma": 421
+      },
+      "output": {
+        "Width": 999,
+        "Height": 1440,
+        "FPS": -1,
+        "Quality": 60,
+        "BitRate": 1000,
+        "GOP": 0,
+        "GOPMode": 1,
+        "MjpegChroma": 422
+      }
+    }
+  ],
+  "rates": [
+    {
+      "fhd": false,
+      "height": -1,
+      "limit": 120,
+      "width": -1
+    },
+    {
+      "fhd": false,
+      "height": 0,
+      "limit": 120,
+      "width": -1
+    },
+    {
+      "fhd": false,
+      "height": 720,
+      "limit": 120,
+      "width": -1
+    },
+    {
+      "fhd": false,
+      "height": 1080,
+      "limit": 120,
+      "width": -1
+    },
+    {
+      "fhd": false,
+      "height": 1088,
+      "limit": 120,
+      "width": -1
+    },
+    {
+      "fhd": false,
+      "height": 1280,
+      "limit": 120,
+      "width": -1
+    },
+    {
+      "fhd": false,
+      "height": 1920,
+      "limit": 120,
+      "width": -1
+    },
+    {
+      "fhd": false,
+      "height": 1921,
+      "limit": 120,
+      "width": -1
+    },
+    {
+      "fhd": false,
+      "height": 2560,
+      "limit": 120,
+      "width": -1
+    },
+    {
+      "fhd": false,
+      "height": -1,
+      "limit": 120,
+      "width": 0
+    },
+    {
+      "fhd": false,
+      "height": 0,
+      "limit": 120,
+      "width": 0
+    },
+    {
+      "fhd": false,
+      "height": 720,
+      "limit": 120,
+      "width": 0
+    },
+    {
+      "fhd": false,
+      "height": 1080,
+      "limit": 120,
+      "width": 0
+    },
+    {
+      "fhd": false,
+      "height": 1088,
+      "limit": 120,
+      "width": 0
+    },
+    {
+      "fhd": false,
+      "height": 1280,
+      "limit": 120,
+      "width": 0
+    },
+    {
+      "fhd": false,
+      "height": 1920,
+      "limit": 120,
+      "width": 0
+    },
+    {
+      "fhd": false,
+      "height": 1921,
+      "limit": 120,
+      "width": 0
+    },
+    {
+      "fhd": false,
+      "height": 2560,
+      "limit": 120,
+      "width": 0
+    },
+    {
+      "fhd": false,
+      "height": -1,
+      "limit": 120,
+      "width": 720
+    },
+    {
+      "fhd": false,
+      "height": 0,
+      "limit": 120,
+      "width": 720
+    },
+    {
+      "fhd": true,
+      "height": 720,
+      "limit": 120,
+      "width": 720
+    },
+    {
+      "fhd": true,
+      "height": 1080,
+      "limit": 120,
+      "width": 720
+    },
+    {
+      "fhd": true,
+      "height": 1088,
+      "limit": 120,
+      "width": 720
+    },
+    {
+      "fhd": true,
+      "height": 1280,
+      "limit": 120,
+      "width": 720
+    },
+    {
+      "fhd": true,
+      "height": 1920,
+      "limit": 75,
+      "width": 720
+    },
+    {
+      "fhd": false,
+      "height": 1921,
+      "limit": 50,
+      "width": 720
+    },
+    {
+      "fhd": false,
+      "height": 2560,
+      "limit": 50,
+      "width": 720
+    },
+    {
+      "fhd": false,
+      "height": -1,
+      "limit": 120,
+      "width": 1080
+    },
+    {
+      "fhd": false,
+      "height": 0,
+      "limit": 120,
+      "width": 1080
+    },
+    {
+      "fhd": true,
+      "height": 720,
+      "limit": 120,
+      "width": 1080
+    },
+    {
+      "fhd": true,
+      "height": 1080,
+      "limit": 75,
+      "width": 1080
+    },
+    {
+      "fhd": true,
+      "height": 1088,
+      "limit": 75,
+      "width": 1080
+    },
+    {
+      "fhd": true,
+      "height": 1280,
+      "limit": 75,
+      "width": 1080
+    },
+    {
+      "fhd": true,
+      "height": 1920,
+      "limit": 75,
+      "width": 1080
+    },
+    {
+      "fhd": false,
+      "height": 1921,
+      "limit": 50,
+      "width": 1080
+    },
+    {
+      "fhd": false,
+      "height": 2560,
+      "limit": 50,
+      "width": 1080
+    },
+    {
+      "fhd": false,
+      "height": -1,
+      "limit": 120,
+      "width": 1088
+    },
+    {
+      "fhd": false,
+      "height": 0,
+      "limit": 120,
+      "width": 1088
+    },
+    {
+      "fhd": true,
+      "height": 720,
+      "limit": 120,
+      "width": 1088
+    },
+    {
+      "fhd": true,
+      "height": 1080,
+      "limit": 75,
+      "width": 1088
+    },
+    {
+      "fhd": false,
+      "height": 1088,
+      "limit": 75,
+      "width": 1088
+    },
+    {
+      "fhd": false,
+      "height": 1280,
+      "limit": 75,
+      "width": 1088
+    },
+    {
+      "fhd": true,
+      "height": 1920,
+      "limit": 75,
+      "width": 1088
+    },
+    {
+      "fhd": false,
+      "height": 1921,
+      "limit": 50,
+      "width": 1088
+    },
+    {
+      "fhd": false,
+      "height": 2560,
+      "limit": 50,
+      "width": 1088
+    },
+    {
+      "fhd": false,
+      "height": -1,
+      "limit": 120,
+      "width": 1280
+    },
+    {
+      "fhd": false,
+      "height": 0,
+      "limit": 120,
+      "width": 1280
+    },
+    {
+      "fhd": true,
+      "height": 720,
+      "limit": 120,
+      "width": 1280
+    },
+    {
+      "fhd": true,
+      "height": 1080,
+      "limit": 75,
+      "width": 1280
+    },
+    {
+      "fhd": false,
+      "height": 1088,
+      "limit": 75,
+      "width": 1280
+    },
+    {
+      "fhd": false,
+      "height": 1280,
+      "limit": 50,
+      "width": 1280
+    },
+    {
+      "fhd": false,
+      "height": 1920,
+      "limit": 50,
+      "width": 1280
+    },
+    {
+      "fhd": false,
+      "height": 1921,
+      "limit": 50,
+      "width": 1280
+    },
+    {
+      "fhd": false,
+      "height": 2560,
+      "limit": 50,
+      "width": 1280
+    },
+    {
+      "fhd": false,
+      "height": -1,
+      "limit": 120,
+      "width": 1920
+    },
+    {
+      "fhd": false,
+      "height": 0,
+      "limit": 120,
+      "width": 1920
+    },
+    {
+      "fhd": true,
+      "height": 720,
+      "limit": 75,
+      "width": 1920
+    },
+    {
+      "fhd": true,
+      "height": 1080,
+      "limit": 75,
+      "width": 1920
+    },
+    {
+      "fhd": false,
+      "height": 1088,
+      "limit": 75,
+      "width": 1920
+    },
+    {
+      "fhd": false,
+      "height": 1280,
+      "limit": 50,
+      "width": 1920
+    },
+    {
+      "fhd": false,
+      "height": 1920,
+      "limit": 50,
+      "width": 1920
+    },
+    {
+      "fhd": false,
+      "height": 1921,
+      "limit": 50,
+      "width": 1920
+    },
+    {
+      "fhd": false,
+      "height": 2560,
+      "limit": 50,
+      "width": 1920
+    },
+    {
+      "fhd": false,
+      "height": -1,
+      "limit": 120,
+      "width": 1921
+    },
+    {
+      "fhd": false,
+      "height": 0,
+      "limit": 120,
+      "width": 1921
+    },
+    {
+      "fhd": false,
+      "height": 720,
+      "limit": 50,
+      "width": 1921
+    },
+    {
+      "fhd": false,
+      "height": 1080,
+      "limit": 50,
+      "width": 1921
+    },
+    {
+      "fhd": false,
+      "height": 1088,
+      "limit": 50,
+      "width": 1921
+    },
+    {
+      "fhd": false,
+      "height": 1280,
+      "limit": 50,
+      "width": 1921
+    },
+    {
+      "fhd": false,
+      "height": 1920,
+      "limit": 50,
+      "width": 1921
+    },
+    {
+      "fhd": false,
+      "height": 1921,
+      "limit": 50,
+      "width": 1921
+    },
+    {
+      "fhd": false,
+      "height": 2560,
+      "limit": 50,
+      "width": 1921
+    },
+    {
+      "fhd": false,
+      "height": -1,
+      "limit": 120,
+      "width": 2560
+    },
+    {
+      "fhd": false,
+      "height": 0,
+      "limit": 120,
+      "width": 2560
+    },
+    {
+      "fhd": false,
+      "height": 720,
+      "limit": 50,
+      "width": 2560
+    },
+    {
+      "fhd": false,
+      "height": 1080,
+      "limit": 50,
+      "width": 2560
+    },
+    {
+      "fhd": false,
+      "height": 1088,
+      "limit": 50,
+      "width": 2560
+    },
+    {
+      "fhd": false,
+      "height": 1280,
+      "limit": 50,
+      "width": 2560
+    },
+    {
+      "fhd": false,
+      "height": 1920,
+      "limit": 50,
+      "width": 2560
+    },
+    {
+      "fhd": false,
+      "height": 1921,
+      "limit": 50,
+      "width": 2560
+    },
+    {
+      "fhd": false,
+      "height": 2560,
+      "limit": 50,
+      "width": 2560
+    }
+  ],
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "goVersion": "1.27.1",
+  "source_sha256": {
+    "server/common/screen.go": "b908c055cbf6cdaf5a5e932033c18f24fc3fa8131d3c5963e98b6e7a9d167b43",
+    "server/common/video_status.go": "f60fb5d47023fe161485b080e0e4af656847b8882f66295433abf95ca8a5dbf2",
+    "server/go.mod": "6c73aefb26aa2af74f77cf5cb4b0d9bc7cf2f48eaf4e8f4176102f5a7c262091",
+    "server/go.sum": "94922fbd383453d16e873e925cdfefd478400ff59884aed51b56201a53faddb3"
+  },
+  "transforms": [
+    "package common renamed main for private helpers",
+    "only fixed firmware path literals redirected to temporary fixture; full screen/state/rate logic unchanged"
+  ]
+}

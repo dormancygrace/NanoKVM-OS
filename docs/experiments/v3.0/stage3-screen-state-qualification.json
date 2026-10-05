@@ -1,0 +1,156 @@
+{
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "stage": "screen state and capture rate model",
+  "checks": {
+    "fmt": {
+      "exit": 0,
+      "seconds": 0.217,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clippy": {
+      "exit": 0,
+      "seconds": 0.097,
+      "log_sha256": "ee1d3fffa2022e962e63e0dbe4d35c9c198450a20c29fc09030f635dbb38bfcd"
+    },
+    "host-contracts": {
+      "exit": 0,
+      "seconds": 92.834,
+      "log_sha256": "7820e68a0678fe112dc53d7d04442cab1fdeb57255c83f40fbbcc747ec0c3d3c"
+    },
+    "target-build": {
+      "exit": 0,
+      "seconds": 24.367,
+      "log_sha256": "b9f157de659450678065045ba7afac889880739d214b78364d0b8b4a26217432"
+    },
+    "target-contracts": {
+      "exit": 0,
+      "seconds": 125.791,
+      "log_sha256": "0dfd72d2c6a8cfcf1f81a6119bc69495f21c8e91c526b76e95cd2efda8492953"
+    },
+    "target-version": {
+      "exit": 0,
+      "seconds": 0.014,
+      "log_sha256": "45ab3a914204af49b93add1fe3d39a590e5df3bd17e51f7eee8a5c1f3ddc309e"
+    },
+    "target-file": {
+      "exit": 0,
+      "seconds": 0.019,
+      "log_sha256": "f844687d64c97e8e9669dd24e5e25fffc94bef64e6c16bd75ba30dfa1b19707a"
+    },
+    "target-binary": {
+      "sha256": "c984b8033be33e963dc7449553a01d0549a41663aa5a5a6eaedc73724a204bf8",
+      "bytes": 6929432
+    },
+    "tls-cert": {
+      "exit": 0,
+      "seconds": 0.022,
+      "log_sha256": "b284a92d6e81e01bfd43992b6d820394b2b5419b7bc737d86fab0225b0244387"
+    },
+    "tls-runtime": {
+      "verified_certificate": true,
+      "redirect": 307,
+      "secure_cookie": true,
+      "internal_loopback_http_exception": true,
+      "unauthorized_internal_redirect": 307,
+      "sigterm_exit": 0,
+      "shutdown_seconds": 0.031,
+      "occupied_port_fails_closed": true
+    },
+    "licenses": {
+      "resolved_packages": 173,
+      "missing_spdx": []
+    }
+  },
+  "source_sha256": {
+    "server-rust/src/lib.rs": "515cb9b38bdc173138f534e3853e2a6c96d71d485c148284a654714fdea2eff5",
+    "server-rust/src/screen.rs": "b025e1a8766133aca353da5cafd18037c5af0153300c9ca7d72487e3ae3ca8f1",
+    "scripts/refresh-v3-screen-state-oracle.py": "d6934ca318e09d0ee2414a62eaf5836e3633e7b8f761dd688e43da991e98ef0b",
+    "docs/experiments/v3.0/screen-state-go-oracle.json": "6378567718fb3dbd60b522712120c821c9980670469ec12184dcafae24ee30f9"
+  },
+  "test_counts": {
+    "host": [
+      92,
+      0,
+      27,
+      9,
+      5,
+      11,
+      7,
+      3,
+      6,
+      3,
+      3,
+      8,
+      9,
+      21,
+      0
+    ],
+    "target": [
+      92,
+      0,
+      27,
+      9,
+      5,
+      11,
+      7,
+      3,
+      6,
+      3,
+      3,
+      8,
+      9,
+      21,
+      0
+    ]
+  },
+  "host_target_tests": 204,
+  "screen_state_tests": 6,
+  "actual_go_state_cases": 104,
+  "actual_go_rate_cases": 81,
+  "actual_go_raw_check_cases": 4,
+  "actual_go_api_reference_cases": 105,
+  "screen_runtime_api_wired": false,
+  "media_transports_wired": false,
+  "vendor_executed": false,
+  "hardware_qualified": false,
+  "device_modified": false,
+  "supplemental_host_default_tls": {
+    "host-build": {
+      "exit": 0,
+      "seconds": 5.621,
+      "log_sha256": "3fd73d482dea4dec7fdc674fc941a4fd2260ebfc2c6ecf576c683bc6e33675d3"
+    },
+    "tls-cert": {
+      "exit": 0,
+      "seconds": 0.03,
+      "log_sha256": "adde4f7bc122908448e9bc0a13989216ee1ea4c86d6a7fce21bbae52e5526403"
+    },
+    "tls-runtime": {
+      "verified_certificate": true,
+      "redirect": 307,
+      "secure_cookie": true,
+      "internal_loopback_http_exception": true,
+      "unauthorized_internal_redirect": 307,
+      "sigterm_exit": 0,
+      "shutdown_seconds": 0.003,
+      "occupied_port_fails_closed": true
+    },
+    "licenses": {
+      "resolved_packages": 173,
+      "missing_spdx": []
+    }
+  },
+  "development_api_reference_sha256": {
+    "scripts/refresh-v3-screen-api-oracle.py": "603adfd08355ed571061915698a8f138b9a27e1104c60528227e06cbe82dd98e",
+    "docs/experiments/v3.0/screen-api-go-oracle.json": "a0ee9b3a31aa4693cf63003cefc9c278ad59bc9447fc15bb132a7905ca7ed184"
+  },
+  "default_binary": {
+    "dt_needed": false,
+    "native_fixture_or_vendor_symbols": false
+  },
+  "routes": {
+    "partial-isolated": 1,
+    "implemented-isolated": 62,
+    "pending": 141
+  }
+}

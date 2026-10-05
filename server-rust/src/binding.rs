@@ -55,9 +55,10 @@ impl<'de> Visitor<'de> for Object {
             };
             let value = match canonical {
                 "keys" => object.next_value_seed(Keys)?,
-                "enabled" => match object.next_value::<Option<bool>>()? {
+                "enabled" | "keyboard" | "relative" | "absolute" | "network" | "disk"
+                | "serial" | "audio" => match object.next_value::<Option<bool>>()? {
                     Some(value) => Value::Bool(value),
-                    None if self.nullable => Value::Null,
+                    None if self.nullable || canonical != "enabled" => Value::Null,
                     None => continue,
                 },
                 _ => match object.next_value::<Option<String>>()? {

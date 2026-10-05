@@ -1906,8 +1906,13 @@
     "handler": "service.GetVirtualDevice)    ",
     "source": "server/router/vm.go",
     "line": 47,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/composition.rs",
+      "server-rust/src/usb.rs",
+      "server-rust/src/monitor.rs",
+      "docs/experiments/v3.0/stage3-composition.md"
+    ]
   },
   {
     "method": "POST",
@@ -1917,8 +1922,13 @@
     "handler": "service.UpdateVirtualDevice",
     "source": "server/router/vm.go",
     "line": 48,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/composition.rs",
+      "server-rust/src/usb.rs",
+      "server-rust/src/monitor.rs",
+      "docs/experiments/v3.0/stage3-composition.md"
+    ]
   },
   {
     "method": "PUT",
@@ -1928,8 +1938,13 @@
     "handler": "service.SetUSBComposition)   ",
     "source": "server/router/vm.go",
     "line": 49,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/composition.rs",
+      "server-rust/src/usb.rs",
+      "server-rust/src/monitor.rs",
+      "docs/experiments/v3.0/stage3-composition.md"
+    ]
   },
   {
     "method": "GET",

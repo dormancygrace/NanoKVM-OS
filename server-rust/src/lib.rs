@@ -1,6 +1,7 @@
 mod api;
 mod binding;
 mod branding;
+pub mod composition;
 pub mod config;
 pub mod controlmode;
 pub mod crypto;
@@ -14,6 +15,7 @@ pub mod internal;
 pub mod jiggler;
 pub mod leds;
 pub mod lockout;
+pub mod monitor;
 pub mod redirect;
 mod sessions;
 pub mod store;
@@ -50,6 +52,7 @@ pub struct Runtime {
     pub pico_lock: Arc<inputcontrol::PicoLock>,
     pub jiggler: Arc<jiggler::Jiggler>,
     pub commands: Arc<dyn systemops::Executor>,
+    pub monitor: monitor::Monitor,
     pub(crate) internal: internal::Token,
     reboot_pending: Arc<std::sync::atomic::AtomicBool>,
     pub(crate) sessions: sessions::Registry,
@@ -68,6 +71,13 @@ impl Runtime {
         root: &Path,
         commands: Arc<dyn systemops::Executor>,
     ) -> Result<Arc<Self>, Error> {
+        Self::load_with_backends(root, commands, Arc::new(monitor::Unavailable))
+    }
+    pub fn load_with_backends(
+        root: &Path,
+        commands: Arc<dyn systemops::Executor>,
+        media: Arc<dyn monitor::Backend>,
+    ) -> Result<Arc<Self>, Error> {
         let root = root.canonicalize()?;
         let hid = Arc::new(hid_device::Devices::new(root.clone()));
         let release = hid.clone();
@@ -82,6 +92,7 @@ impl Runtime {
             pico_lock: Arc::new(inputcontrol::PicoLock::default()),
             jiggler: jiggler::Jiggler::load(config::rooted(&root, "/etc/kvm/mouse-jiggler")?),
             commands,
+            monitor: monitor::Monitor::new(media),
             internal: internal::Token::load(&root)?,
             root,
             reboot_pending: Arc::new(std::sync::atomic::AtomicBool::new(false)),

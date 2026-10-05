@@ -10,10 +10,9 @@ impl Token {
         let path = config::rooted(root, "/etc/kvm/.picoclaw_internal_token")?;
         let path = fsroot::resolve(root, &path, true)?;
         let token = match fs::read(&path) {
-            Ok(data) => match std::str::from_utf8(&data) {
-                Ok(value) => value.trim().as_bytes().to_vec(),
-                Err(_) => data,
-            },
+            // Go TrimSpace decodes whitespace around invalid UTF-8 without
+            // replacing or discarding the invalid credential bytes themselves.
+            Ok(data) => trim_space(&data).to_vec(),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
             Err(error) => return Err(error.into()),
         };
@@ -38,6 +37,20 @@ impl Token {
                 .get("x-nanokvm-internal-token")
                 .is_some_and(|value| bool::from(value.as_bytes().ct_eq(self.0.as_slice())))
     }
+}
+fn trim_space(data: &[u8]) -> &[u8] {
+    let start = data
+        .utf8_chunks()
+        .next()
+        .map(|chunk| chunk.valid().len() - chunk.valid().trim_start().len())
+        .unwrap_or(0);
+    let removed = data
+        .utf8_chunks()
+        .last()
+        .filter(|chunk| chunk.invalid().is_empty())
+        .map(|chunk| chunk.valid().len() - chunk.valid().trim_end().len())
+        .unwrap_or(0);
+    &data[start..data.len().saturating_sub(removed).max(start)]
 }
 pub fn http_path(path: &str) -> bool {
     matches!(
@@ -81,6 +94,10 @@ mod tests {
         assert!(!first.allowed("127.0.0.1".parse().unwrap(), &headers));
         fs::write(&path, "  existing secret\n").unwrap();
         assert_eq!(Token::load(temp.path()).unwrap().0, b"existing secret");
+        fs::write(&path, [b' ', b'\t', 0xff, b'a', 0xe3, 0x80, 0x80, b'\n']).unwrap();
+        assert_eq!(Token::load(temp.path()).unwrap().0, [0xff, b'a']);
+        assert_eq!(trim_space(b"  \t\n"), b"");
+        assert_eq!(trim_space(&[b' ', 0xff, b' ', 0xff]), &[0xff, b' ', 0xff]);
         // Runtime cache follows Go: file changes take effect after restart.
         assert_eq!(first.0, second.0);
     }

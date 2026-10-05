@@ -1,0 +1,4152 @@
+{
+  "compositions": [
+    {
+      "error": "",
+      "in": 0,
+      "mask": 0,
+      "mode": "normal",
+      "out": 0,
+      "revision": "d3feda2fd3db56e7bcc61e4ae2d8e6855e04b99fbcb7bd62ad69a54b410802f0"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 1,
+      "mode": "normal",
+      "out": 1,
+      "revision": "d5a89c7290adc6acc045ec7f54c6f04804e2da8f2b42561926c0434f365d46be"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 2,
+      "mode": "normal",
+      "out": 1,
+      "revision": "65887d6d7ff91f78fc9acf23fbc54588d45efdb631458efdbd13359fd71063b1"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 3,
+      "mode": "normal",
+      "out": 2,
+      "revision": "06e350cbefbebbba95d5f4135d33f20b34d52ff38d909be3ec86372c0e64f17a"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 4,
+      "mode": "normal",
+      "out": 1,
+      "revision": "22cb7add1cce0bb5d71598cacea190b90d0631c4e73d299597731107719d51d9"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 5,
+      "mode": "normal",
+      "out": 2,
+      "revision": "7a902faf64d889440962d700355bf9256a8817ffc4d7bff862dd2f09f18a962c"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 6,
+      "mode": "normal",
+      "out": 2,
+      "revision": "653ed9b2e7cc09f2427b466714e854b391b9b82ddecf3b16bc2dc04d22db1e3f"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 7,
+      "mode": "normal",
+      "out": 3,
+      "revision": "492f6a1817b91a80328f73fedc4e446ceab560110aed09096e78c0e227c80694"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 8,
+      "mode": "normal",
+      "out": 1,
+      "revision": "40139ea701c94f41702c2c8c57d50a5d6553f5dfadb1c8a14a9b9b79eaa19087"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 9,
+      "mode": "normal",
+      "out": 2,
+      "revision": "3c7181d71779dfd02f8ba8a5f40d94d4f9f3a554d98fc3277636523d07347c5e"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 10,
+      "mode": "normal",
+      "out": 2,
+      "revision": "8c677481950bad2095c8758e4a6b4b4757756e989f12542a870fbfc5c462da0b"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 11,
+      "mode": "normal",
+      "out": 3,
+      "revision": "33755784e172bff56cd34699c7cd0c51f9c94bad47d7b842bdbfd8e029b7b1e5"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 12,
+      "mode": "normal",
+      "out": 2,
+      "revision": "f7ae81eedab3713976068161b578b0de2778b4edab0aa90264f2343bc85a80a9"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 13,
+      "mode": "normal",
+      "out": 3,
+      "revision": "98d109c52cd299e589bcc2d6a11dc016c243923340c5142b65ca8cfe2ad34b15"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 14,
+      "mode": "normal",
+      "out": 3,
+      "revision": "4150ed0e18783a458ad60be44ca3804e58896decc3c457fc0c801ab57b8820bf"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 15,
+      "mode": "normal",
+      "out": 4,
+      "revision": "5f6e9ad8731d199e78e967ca37606711ea04a4f9b66d6f5a4d0bff0b08acf3ae"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 16,
+      "mode": "normal",
+      "out": 1,
+      "revision": "1132a15fa7419ade5918f8599d4d1eaff099844c40aa3616790a8aa967f7c8b9"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 17,
+      "mode": "normal",
+      "out": 2,
+      "revision": "eff6bf03e9cc2086a06add659e0dc16f4b2e730c29d789827222073dc0934982"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 18,
+      "mode": "normal",
+      "out": 2,
+      "revision": "c38edaabc6beca199af223253b09d45ef0443aca1826b08cd11beeac6f759f57"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 19,
+      "mode": "normal",
+      "out": 3,
+      "revision": "7973ff86ab6a831196320d29a5d78c49a1826c150e59a386a5eed928f8fac597"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 20,
+      "mode": "normal",
+      "out": 2,
+      "revision": "1bfdb29033a01236c8e4dab75fe821469583ccfc035a8382691a0d8dd6bc948b"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 21,
+      "mode": "normal",
+      "out": 3,
+      "revision": "4f2ca7688c5004becc04d1b45c08b7dbdbc0277e725c3fbb337eabd00a780d83"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 22,
+      "mode": "normal",
+      "out": 3,
+      "revision": "3ed3afb7ed08f53260a4ee047885e61abc9455282359a3b398a3daddfb162da4"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 23,
+      "mode": "normal",
+      "out": 4,
+      "revision": "d0db470079fb3d5ac07f3199ea1833f58ac90645c427284aa4d4d380cc3b4a3a"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 24,
+      "mode": "normal",
+      "out": 2,
+      "revision": "19b91f1cf56eccf44f19c479cb88d6b981f43014144bab224a7d1481a9eb586d"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 25,
+      "mode": "normal",
+      "out": 3,
+      "revision": "56ab503af3772bc118b30e1a13f04fd953b8adb749687c35054d888f56842995"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 26,
+      "mode": "normal",
+      "out": 3,
+      "revision": "914d91429ac7c72aa9c07081252d922b9234f85acab2fc7ed4b0abe4016a4bfd"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 27,
+      "mode": "normal",
+      "out": 4,
+      "revision": "d79c9c72e159ae6c0acb0ab9cd1bcb7c95ce137738c01751c6343ccbad2484fc"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 28,
+      "mode": "normal",
+      "out": 3,
+      "revision": "29e6db34906021e41d5789590648aaf9b7f71b0a1ff2e46ef9f60644815b4636"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 29,
+      "mode": "normal",
+      "out": 4,
+      "revision": "a77df60ab30be4b6df6ff9bc6767ecb810257734d8b420a4e0471cdc61f50a76"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 30,
+      "mode": "normal",
+      "out": 4,
+      "revision": "c2442f92ed4031aafe01c6d42bf889a1d932a4852ec904e2c965a76e8f9be034"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 31,
+      "mode": "normal",
+      "out": 5,
+      "revision": "3877f30e4138dcd99512690b62f032bc433303fea0da358c32db7b97fc76e7e3"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 32,
+      "mode": "normal",
+      "out": 1,
+      "revision": "011cde4c23ae6b1ee8b252360bfff4ac0e6099c91dd58b4c4d8edf191ad95dd4"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 33,
+      "mode": "normal",
+      "out": 2,
+      "revision": "ace22b154a51a6a6dd5d4ee3da0323622bfe7212329126d37b6077a1943ee879"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 34,
+      "mode": "normal",
+      "out": 2,
+      "revision": "23d142f7c064cb147d9009969c74fa5fee48bf3f841a207a8de4d97889f8687a"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 35,
+      "mode": "normal",
+      "out": 3,
+      "revision": "5d1bde50afb433df32f0c41cc27e81d0f6115c4b907351cabcafb1756451e0ac"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 36,
+      "mode": "normal",
+      "out": 2,
+      "revision": "cbb810355db4093080fa3acab0b662ce0bfd7576fa23ce78e788bf435cb7c92d"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 37,
+      "mode": "normal",
+      "out": 3,
+      "revision": "d5f35623acfd1f6c0063f99b35f7f105703c80f5f0c03dbd2e3c1b5c8a0f9c69"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 38,
+      "mode": "normal",
+      "out": 3,
+      "revision": "bfa73eb75a78469ce42aef027c0ab5f60046ff57b3fad53e8839f93ee85bff01"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 39,
+      "mode": "normal",
+      "out": 4,
+      "revision": "d962da625a4012d21bd19557e5db2395571e2077f3e3f6247b48891fc525d823"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 40,
+      "mode": "normal",
+      "out": 2,
+      "revision": "f0994966c952dcad2665a01da4695085892ace24e7231bfa16f30cfb99dfd8e0"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 41,
+      "mode": "normal",
+      "out": 3,
+      "revision": "91b055a33bb8749a8440fbd8d1157b445e9716d1aeede6f0c39326a04b450f28"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 42,
+      "mode": "normal",
+      "out": 3,
+      "revision": "075211ef78a57a66dbca0b1e4872ca29da6707b55b56e0825abfe0f9360831fe"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 43,
+      "mode": "normal",
+      "out": 4,
+      "revision": "e955afe48a61a72b4edaa8fbabf38e4a01ccec2dd9659b4bed97fe5e1e22f89c"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 44,
+      "mode": "normal",
+      "out": 3,
+      "revision": "3d7c7de2da2d84a43b3f59a45ec647b5025c5e030eeb666264341ab8568fb361"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 45,
+      "mode": "normal",
+      "out": 4,
+      "revision": "a86ce303db2b2ab0dc899d92da58e5b2881e057433b021e598eb4b9406e12063"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 46,
+      "mode": "normal",
+      "out": 4,
+      "revision": "5bc3f69f1f47e06c85bb29993a6feb3afa6c40cc48fac0c344506243a058f6dc"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 47,
+      "mode": "normal",
+      "out": 5,
+      "revision": "825dd708e73d616664e648539e4bb9cfb5af4a53958a22b130cb90dde69c47dc"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 48,
+      "mode": "normal",
+      "out": 2,
+      "revision": "500d3dad78a0f08ff6dc8875c887f6371e9d48b90d7681d29205522c4ae99e45"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 49,
+      "mode": "normal",
+      "out": 3,
+      "revision": "0c83871a2be8d404d09f1f773fefbff06f8e7baeb8531fbcdde70f73448100ed"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 50,
+      "mode": "normal",
+      "out": 3,
+      "revision": "46624e2107139961ef49f1c7dd607d527e3823e4917281af76709dab552bfbc1"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 51,
+      "mode": "normal",
+      "out": 4,
+      "revision": "44397be744a5068b983659375e7dc0490730e337b5232a3363af3a48cd5e854a"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 52,
+      "mode": "normal",
+      "out": 3,
+      "revision": "9192f032c4456796d6cfcd174f35af49a15099e4b92b98111428dad2933e28e1"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 53,
+      "mode": "normal",
+      "out": 4,
+      "revision": "77ef6a7dffb6759a57319e97f0e3cd41128968fcd3661c77dac027f55396e0dd"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 54,
+      "mode": "normal",
+      "out": 4,
+      "revision": "a189ff8c8da1703da23133e189c463cb3babe2bb2ae733d69572dfe983291195"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 55,
+      "mode": "normal",
+      "out": 5,
+      "revision": "825f0902047a746e84ec163b525a57fbe4daeba3a5d90f32da64ab4d220f656b"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 56,
+      "mode": "normal",
+      "out": 3,
+      "revision": "6a3043ece6edc0f69863487eeeffda5109c272fbff6a9e06aa6ce1014eb7b8b3"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 57,
+      "mode": "normal",
+      "out": 4,
+      "revision": "da1cff71953d5372a29f3146ef2ac92d5bf08d239e11330306800d7491a3d392"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 58,
+      "mode": "normal",
+      "out": 4,
+      "revision": "fdcc7fa82eb51a6907ae3166a0af73ee1f730164eb0a8745e143a720833b6696"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 59,
+      "mode": "normal",
+      "out": 5,
+      "revision": "1540309ed29881e0ec31bbe4d28a15e472795a8f73e3c47f118ef3aed2725a75"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 60,
+      "mode": "normal",
+      "out": 4,
+      "revision": "47ebefd7752fabdabb262e4532d2afa2bb5719cac503d622c1dc2a7c016181a2"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 61,
+      "mode": "normal",
+      "out": 5,
+      "revision": "809d2239e5fc161e7e4fcf8d247b917467796f3ff6a5c509dcb7358634654a0a"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 62,
+      "mode": "normal",
+      "out": 5,
+      "revision": "3a5b846834d54f5bb11658cf8060dfc995aff383c0a0fd218eab9ecd35e1adc4"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 8,
+      "mask": 63,
+      "mode": "normal",
+      "out": 6,
+      "revision": "b887718c73cab2db741113cdbb1e185b46c4a2369981030093b6e57aa2b0e849"
+    },
+    {
+      "error": "",
+      "in": 0,
+      "mask": 64,
+      "mode": "normal",
+      "out": 1,
+      "revision": "0c26b25e044243c11e649265932f5657ca7c463748d4cd7dd753eb2aac2493cd"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 65,
+      "mode": "normal",
+      "out": 2,
+      "revision": "f30e3d1107a3078ff826576e2771306538ea30d3c3d9b43ae7e7e35916c21600"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 66,
+      "mode": "normal",
+      "out": 2,
+      "revision": "803b9f2ab46a037a62786a267b69ba1b394d98da440a8ee651bdb08a41ba1b5b"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 67,
+      "mode": "normal",
+      "out": 3,
+      "revision": "a9d003ca21356e2f67968d7fcf715409fa635acf10eb4be4b68b8f8e3c03d588"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 68,
+      "mode": "normal",
+      "out": 2,
+      "revision": "46e45427246c4ba8d7cdfa353cbed8e69b189107231daf36159f177ceeb9aec8"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 69,
+      "mode": "normal",
+      "out": 3,
+      "revision": "0e8b75115fd4f4b113ddcd66163bf00073205031000c69a7c6b06536cfb032d7"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 70,
+      "mode": "normal",
+      "out": 3,
+      "revision": "18830532b3e2c274feeea3390b4d1a50ceed52077621068bd4e858dd6d553dc5"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 71,
+      "mode": "normal",
+      "out": 4,
+      "revision": "ca8075511ad132ffaf83077f66494c4ce9fbaae01e7ca07ad6a237ccb18a0c99"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 72,
+      "mode": "normal",
+      "out": 2,
+      "revision": "7eeb9ecde7fd71c35e7d45faa9a3659087425b4774fc98eb6d68404a32cee76a"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 73,
+      "mode": "normal",
+      "out": 3,
+      "revision": "7cf731eee963c2bf8d078f5bd3ce0d56cc6895a4e85eab04383ee65666d7e1b0"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 74,
+      "mode": "normal",
+      "out": 3,
+      "revision": "7433fb50ed5876ed22e19222354b2e32827116a98eebdf4645ec2e953fb46c0d"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 75,
+      "mode": "normal",
+      "out": 4,
+      "revision": "97ef1cace1f1bebbb5b965552a6e0f6fd32021c2ed22684e98e3a63a5c6864f1"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 76,
+      "mode": "normal",
+      "out": 3,
+      "revision": "c92fc8536d23adbd293f88dc213c74dcb0a697c98430b3aa4e5ec6e27e344b07"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 77,
+      "mode": "normal",
+      "out": 4,
+      "revision": "9bcc58f7d6c1ae4250aa61eba6a3412157f1dd48230f1e4fcd95a6a95c332024"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 78,
+      "mode": "normal",
+      "out": 4,
+      "revision": "1b1429e569a93f3b79ac57abb72347bee406c1b37966e49493315783d7622950"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 79,
+      "mode": "normal",
+      "out": 5,
+      "revision": "2beb4cb5db17a0fb799b5d1b1b54e67b61a69f09ef5272668083d639604611f9"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 80,
+      "mode": "normal",
+      "out": 2,
+      "revision": "2ff311372a2e9f0cbdb0d024c033c9d7b6d0c906334dac97a779e45bdcf6cbc0"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 81,
+      "mode": "normal",
+      "out": 3,
+      "revision": "25b1c965fb3814cc9524da013961462f838017e8954b5b7d05999ec15fe2f45d"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 82,
+      "mode": "normal",
+      "out": 3,
+      "revision": "76ca970430282469cfec6ed6d13654e9003dada84cbdf79d4f3997676aabbd55"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 83,
+      "mode": "normal",
+      "out": 4,
+      "revision": "41714dad3e3c8a3b10e43c8db5945a2e2356f77b240c4f4b2011a196742d29e5"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 84,
+      "mode": "normal",
+      "out": 3,
+      "revision": "e44ebcb5036049764ee81a9fae159334f4686978b31dfbe5c1410ef8452663d7"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 85,
+      "mode": "normal",
+      "out": 4,
+      "revision": "1884e2ede1f9f52ab9441ad039af72ea2e97bf0b68230b99fccf27ffdb1438c4"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 86,
+      "mode": "normal",
+      "out": 4,
+      "revision": "5d0b0496ee14876a381b94293586d9077505a358af7c5c71d4424f9e9f20567d"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 87,
+      "mode": "normal",
+      "out": 5,
+      "revision": "ec38049965293d4aa71f0419722b4131a04f6b1146fc456835b0b6d4b15ab73f"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 88,
+      "mode": "normal",
+      "out": 3,
+      "revision": "956307a94b42037e70646dff4b5ca98ad1ae0ccfb77fa2a535aabefada07750e"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 89,
+      "mode": "normal",
+      "out": 4,
+      "revision": "79ae52bec785871f269ba99fce9d97446bf6ac1fc72a640c1b93e82bc7be5be1"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 90,
+      "mode": "normal",
+      "out": 4,
+      "revision": "0911c7ceeac3b786b5deb97dcbd9f370e802d78a176e8fad47d79544b7f31000"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 91,
+      "mode": "normal",
+      "out": 5,
+      "revision": "dd70289d6ee868cebd3534ccc7af5d10389fcd62fd5516931f7e813bbe0111c9"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 92,
+      "mode": "normal",
+      "out": 4,
+      "revision": "8ee2c840243da4c0ca41d28925365516e4405e8ad91176e5c9d763ae235bfd1c"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 93,
+      "mode": "normal",
+      "out": 5,
+      "revision": "d9bb42bf76123f32b1f454bc21c0c7ed05e4cbd81a9b5f8b9e41fd003cc36aed"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 94,
+      "mode": "normal",
+      "out": 5,
+      "revision": "055a093a480a833dec9122e6eedb882731a01b537fbeadf72b80f3517c1889c2"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 95,
+      "mode": "normal",
+      "out": 6,
+      "revision": "aa762a9f30043e3a1173ecb799f46bfcf03ad97ebd545b19e3b3c90bcc515fe3"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 96,
+      "mode": "normal",
+      "out": 2,
+      "revision": "b5c755bf5e3556e3ad990f97c73bf68764585c2bbdd790dd19e246003060adc9"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 97,
+      "mode": "normal",
+      "out": 3,
+      "revision": "0860966aa520a2b92f144476dd4b41e8a022c7dda59d02b1a67cd27e16cfbe2e"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 98,
+      "mode": "normal",
+      "out": 3,
+      "revision": "4fb339ae16dfdabd2b78781e87db3162161331460e023808a3a4ed0572534ce1"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 99,
+      "mode": "normal",
+      "out": 4,
+      "revision": "982a312773bd5ff8497ee6aabb9e8365974038184bc98495b63d1ecf1530b7e2"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 100,
+      "mode": "normal",
+      "out": 3,
+      "revision": "7a41f679416d67592d27c94cf51e9835c15479817d62f155f7fa6e2baf99c87a"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 101,
+      "mode": "normal",
+      "out": 4,
+      "revision": "c1132d5e4498c59db37988040231117b88e9f1ed3a846705a6da9f594460c6fc"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 102,
+      "mode": "normal",
+      "out": 4,
+      "revision": "87a4ca47dbcbcf82250341e9dfddd881f661a8a1b5917ddf06ae8ae1cc29d0de"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 103,
+      "mode": "normal",
+      "out": 5,
+      "revision": "f7ab89dbeacba132acfb2fb235a4e1e89cfb87e57f856a6322c4f7481a8d384b"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 104,
+      "mode": "normal",
+      "out": 3,
+      "revision": "d52e5e0d4e8352ede3752727b03c505e5fbbef6562c72db8125a4db7cf8eab1f"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 105,
+      "mode": "normal",
+      "out": 4,
+      "revision": "ee61ae0036fc2a79436366f2ec3b23d843aaa387400b1254c573c8ef04ce62a1"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 106,
+      "mode": "normal",
+      "out": 4,
+      "revision": "72ff69ba9936553e6d5f334b7cf8ea53a3b7ceeafcc36f450ed673e16f71d878"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 107,
+      "mode": "normal",
+      "out": 5,
+      "revision": "1bf7630fc31c25dff33d77ac6c4ace7bb1ea6207280bed8aece5bc000b0330cf"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 108,
+      "mode": "normal",
+      "out": 4,
+      "revision": "aecdf645bafe428ffa8cad078359215ce6c660149f7a9351d1f37c3b368b4937"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 109,
+      "mode": "normal",
+      "out": 5,
+      "revision": "4652ad4e886d1eea056f93e65bf19bef30e2bf932dd6425972d1c014427e3325"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 110,
+      "mode": "normal",
+      "out": 5,
+      "revision": "403d03fe52c742f486bad11d921ad87d6bbb72c68b4853a8a3e26867173ede61"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 111,
+      "mode": "normal",
+      "out": 6,
+      "revision": "cd58fe60d44beeeedbbc8f25f2729f1b584355df8b6c19e6d1ff462a5f6f081e"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 112,
+      "mode": "normal",
+      "out": 3,
+      "revision": "975a0835cfa0e6218d381ffb531c978e19cb2665101df13b70056ace1e240f14"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 113,
+      "mode": "normal",
+      "out": 4,
+      "revision": "2b38c39532a780966b82e681f54275f3031cd109d848ab342d293d215e6e18b2"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 114,
+      "mode": "normal",
+      "out": 4,
+      "revision": "ffce2a89cd0911f03c5cc9e1dc8dd691dd6f91fca1188639b27baa0b40c0c721"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 115,
+      "mode": "normal",
+      "out": 5,
+      "revision": "15c19d5852a46b394127cc0f3f87b615295587391616f10f5ccb103f11ce8e0c"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 116,
+      "mode": "normal",
+      "out": 4,
+      "revision": "9960fc2451538f05b44f4fb1a7ed64fceb491f9bf655a8803ec626c4ca7014e1"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 117,
+      "mode": "normal",
+      "out": 5,
+      "revision": "a8334e85ab44e6e08943a164c9f47d0d9291c8071458e5987799c769d7977aee"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 118,
+      "mode": "normal",
+      "out": 5,
+      "revision": "4b400bb2854a613b19cb10a42644b5b5915099486c411f951140c83b971858f0"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 119,
+      "mode": "normal",
+      "out": 6,
+      "revision": "5a8ac8a2246f92a5f3aa0dc3694bedf551dabe962e5dc72ee199653f3f113383"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 120,
+      "mode": "normal",
+      "out": 4,
+      "revision": "ceb71b7cf08ad9bd03f7bba86a7d9c8129fceee5860bbb4e7a0969d6fa951512"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 121,
+      "mode": "normal",
+      "out": 5,
+      "revision": "8b8d60db63a7d0a6fdf4289d59f888ee7cd6faab415cb8053b4a28da46d78dd7"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 122,
+      "mode": "normal",
+      "out": 5,
+      "revision": "7baf35ffd04435dadfa17bbd5cef27fe52183cbc76d10b20455c9fc31e6b99cb"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 123,
+      "mode": "normal",
+      "out": 6,
+      "revision": "b555e4920f467484fdccbe381f93743da4a6df0614dc6bd7fb1ca11853fdef15"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 124,
+      "mode": "normal",
+      "out": 5,
+      "revision": "8087f00bdcbf112f1b357f8f94e2040fda7125c2474f270caf78ae165953af95"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 125,
+      "mode": "normal",
+      "out": 6,
+      "revision": "5d75c1f064c8d2be6c3f34c20713e07f131269e162765db60fa9e076ff14966c"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 126,
+      "mode": "normal",
+      "out": 6,
+      "revision": "f3e45cb09c333fb986fccbd4f5fcde44daccb273661af56f9f7197620e1cff5f"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 8,
+      "mask": 127,
+      "mode": "normal",
+      "out": 7,
+      "revision": "6b6544e87b4ec0b0cdb333b56adeb2116ad476cf7dea15cf438faba6147c09a2"
+    },
+    {
+      "error": "",
+      "in": 0,
+      "mask": 128,
+      "mode": "normal",
+      "out": 0,
+      "revision": "33de9e2c80e7bd58fd13afdd0be13ceceebedb3592ac867ec04156f02f303dbe"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 129,
+      "mode": "normal",
+      "out": 1,
+      "revision": "4f22c97cd7d71b9068455c4678f1c469f2dcd37dc618fb480012322929ee0a3a"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 130,
+      "mode": "normal",
+      "out": 1,
+      "revision": "6715bab225b2cd07d7a0f92b11978aa0638591179c5782dac76fbff404de3334"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 131,
+      "mode": "normal",
+      "out": 2,
+      "revision": "8d569d5dbe65c7c5467b5c96c3705e9e6089601e153592be822d774edbb9628f"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 132,
+      "mode": "normal",
+      "out": 1,
+      "revision": "03c69b146c67ae1d2a880ad38f1c0348b54934422e121e1f0c62b3557506d442"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 133,
+      "mode": "normal",
+      "out": 2,
+      "revision": "a2bc4e41d42114b804f9479d401c95bc11bfeab9be8885b4141cb4cbf432b385"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 134,
+      "mode": "normal",
+      "out": 2,
+      "revision": "7aa03dcc71b6f3d6ff30739ead78347591f0e6c1e80da10aa7034eb2a164bfe8"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 135,
+      "mode": "normal",
+      "out": 3,
+      "revision": "b591f14dc298edd55eff6fca3d1af762ee16711250d1832482732e01628a736e"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 136,
+      "mode": "normal",
+      "out": 1,
+      "revision": "2659dcbd74bc3967bbdf152cff7911069030d07672a11c963badc6d54a9d4c4a"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 137,
+      "mode": "normal",
+      "out": 2,
+      "revision": "4b2d78c19c515fd155e1942bffda3d8de76d538588a96e0427eb841dcaa74637"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 138,
+      "mode": "normal",
+      "out": 2,
+      "revision": "9064ce9502802b56b93a87796be76e4b2bc3f3d9708341fbf2671e3d2065d387"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 139,
+      "mode": "normal",
+      "out": 3,
+      "revision": "7ae644726c04c7a36adfd6caefe83e1f616f44630b26daa98ccaea3513349419"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 140,
+      "mode": "normal",
+      "out": 2,
+      "revision": "9646fea88176fd10d5ca40e8e634a827ef9b8ad3db7a22c6451fef5a52444780"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 141,
+      "mode": "normal",
+      "out": 3,
+      "revision": "43df03bdae6203739e20fc0d1d2fa827a3a5d9a01f11984023f7a1d6087000ff"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 142,
+      "mode": "normal",
+      "out": 3,
+      "revision": "19d0e1ba5550f257dee69d15553a420a4f16f9ab22652014f89664cdfc8b835b"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 143,
+      "mode": "normal",
+      "out": 4,
+      "revision": "530d2125403fc7dfcc1b76d9a982cc874244674ca8da1f033f37d2948078d4ec"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 144,
+      "mode": "normal",
+      "out": 1,
+      "revision": "59311e36c95d09efd2fbb0164d46eae217f59c217f479fe9b8b7620c0549da61"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 145,
+      "mode": "normal",
+      "out": 2,
+      "revision": "5ffcc86c6b23b9c84e0080978c30a36c448b606f5cab8d882ff8bf63e790bbc0"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 146,
+      "mode": "normal",
+      "out": 2,
+      "revision": "850e1706f2776c0d4a4448f0b56f53099fd331da1fafbe02d1203900f7f094d0"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 147,
+      "mode": "normal",
+      "out": 3,
+      "revision": "aa3a6786ff8c490d5223c9c5c7990acacb77131f19eb60f6e3b3f54f29dd875b"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 148,
+      "mode": "normal",
+      "out": 2,
+      "revision": "37f92303c42ddf3310087fd47b1a5e128b4147e89ae219a45511f8ec36bcaa25"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 149,
+      "mode": "normal",
+      "out": 3,
+      "revision": "a2d8a475829c7522c2719e09129f6958c6aadf1dccfee44db7d93fc7475b178a"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 150,
+      "mode": "normal",
+      "out": 3,
+      "revision": "587f096ef997fe4ad26f71564b011fbcb1d3cc1c4cfc8c34b70dffdb9bb946cd"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 151,
+      "mode": "normal",
+      "out": 4,
+      "revision": "8fc229ecc1a9318ff9cec1b5707dedc190cae465d1ce4fe5d1198945269dbcae"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 152,
+      "mode": "normal",
+      "out": 2,
+      "revision": "4e2bc5bf329531be6fd3942db7815e1f64041e8dc799a6bf4f6624a751eb20d1"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 153,
+      "mode": "normal",
+      "out": 3,
+      "revision": "b5b91b68b9534f60296d14df8bd80a84dace3a286945825b1e13f93a081ef4c5"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 154,
+      "mode": "normal",
+      "out": 3,
+      "revision": "78ff4175e67ea2e2157f419ac0c8c0edcd00f7c721e44c2f66f471661bbf2e2c"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 155,
+      "mode": "normal",
+      "out": 4,
+      "revision": "3fa5d9769774a06243d8236d0b0973dac2a63138d5a04359fb6505cf93ab26f1"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 156,
+      "mode": "normal",
+      "out": 3,
+      "revision": "091a95c9911e8a727636a47026347aeb9e1f487326e11fabceab3fd13bd481f4"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 157,
+      "mode": "normal",
+      "out": 4,
+      "revision": "9965023b8faa2b0de59c47ead5c72d08d23494e661a6f3bff6e9f50ecbae3d63"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 158,
+      "mode": "normal",
+      "out": 4,
+      "revision": "39efc15e363447ab5274c2c3d0120c1d1281eff63204ac5e48b2ca942f739a36"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 159,
+      "mode": "normal",
+      "out": 5,
+      "revision": "bd52553a9899420449a80f37a6f139e243a32d6ac1092efc92d8697e2887a25e"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 160,
+      "mode": "normal",
+      "out": 1,
+      "revision": "64ddb9c525b2d97d6f49605874736e7112104b2616005ff41a5916fdee114bfb"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 161,
+      "mode": "normal",
+      "out": 2,
+      "revision": "c9f9b1be2543c0e59f669a63f4580997f46e14c00297a5891f657bd8298a28bc"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 162,
+      "mode": "normal",
+      "out": 2,
+      "revision": "1d5e85b97d86a3ca3aeb5e5fc429dbd677bb1d74f79f1a8a34e8253d7d45e76c"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 163,
+      "mode": "normal",
+      "out": 3,
+      "revision": "31aeba2dbeb1a4eb08cb55e43e750e6c576fe0d81d4119709261bb43adc8b740"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 164,
+      "mode": "normal",
+      "out": 2,
+      "revision": "a5d9bbea92e12145aa38f121e026f05f4e4d626fe2a44392bb82d087c1300445"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 165,
+      "mode": "normal",
+      "out": 3,
+      "revision": "37561a4826ae830a60af2ff57f06cd3a3f95189ad85307384e8ae89916788163"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 166,
+      "mode": "normal",
+      "out": 3,
+      "revision": "dba4793941b69c8088acb50f01f1baf55e1ebb70c42d493eb38bb034d594e6ec"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 167,
+      "mode": "normal",
+      "out": 4,
+      "revision": "f5a5d068400837b6ca92ba161c4881389f7dd561cbbe049c8b238e6f71ad0b12"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 168,
+      "mode": "normal",
+      "out": 2,
+      "revision": "1312f816ff6ed89a98921fe656309010d24686dadb09969a509bdb4a9b4289f4"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 169,
+      "mode": "normal",
+      "out": 3,
+      "revision": "1c577f21807f3c7962c15b60682597191ee1c4bd69626cd9bf62653d6e2b63df"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 170,
+      "mode": "normal",
+      "out": 3,
+      "revision": "245afb5fb913a4161529d332343fef1334423f8585c559beb9c327342f7dbb88"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 171,
+      "mode": "normal",
+      "out": 4,
+      "revision": "d8704b365c68d56188cdd8f67bef38c66985c64a46d20e11bd6cbd9c18360293"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 172,
+      "mode": "normal",
+      "out": 3,
+      "revision": "049766c09a7dcde52d02c223ff76a442d25cf3075451a949d338eb9bc072dedf"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 173,
+      "mode": "normal",
+      "out": 4,
+      "revision": "78fe5fb60716a0c7f9f64ae583d39b278f8bba69f11ac0af315601d615c03c38"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 174,
+      "mode": "normal",
+      "out": 4,
+      "revision": "5bb2b156c3c15de44e00cd9450241454623a20019e47531600d42ca93d915ecf"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 175,
+      "mode": "normal",
+      "out": 5,
+      "revision": "cb427634111253ab6b7c7e3bda8afed5f9ccfe1bf5237f3ee996a1f105efa93f"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 176,
+      "mode": "normal",
+      "out": 2,
+      "revision": "5c2e5934008428e49d0e07041549e399042651230616a7d5469638c6201b71d5"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 177,
+      "mode": "normal",
+      "out": 3,
+      "revision": "d3f8532be5509d13ff0badcab13410418765745f39fa1b03b0e0d605685000fe"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 178,
+      "mode": "normal",
+      "out": 3,
+      "revision": "213cf9adea2e01b3d57cefe992b5681fa735fde562cb9b9f1ebb658aab5b5f6e"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 179,
+      "mode": "normal",
+      "out": 4,
+      "revision": "3ccbb457e3afc2ad22c92f4b2694a8185f68921c32ddb9465aa8266990cf8e84"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 180,
+      "mode": "normal",
+      "out": 3,
+      "revision": "446c5b0fc8cd4109c4b2aeb28d190b28605f7d5a0f6469a754a774ae1a61f804"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 181,
+      "mode": "normal",
+      "out": 4,
+      "revision": "4c98c70a4ff28e1b4d4d0c28c1e6109a1513607585e25ac2aff1c86db8fec968"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 182,
+      "mode": "normal",
+      "out": 4,
+      "revision": "a8b97d71dee99357154e60816482132fa84decc3b708f242d501d1f58987fffd"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 183,
+      "mode": "normal",
+      "out": 5,
+      "revision": "b755655d52faddce2fb67ddef93868854b80ce75ffd2a2c0f4dad8012acc4371"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 184,
+      "mode": "normal",
+      "out": 3,
+      "revision": "ae6fa220da91829c26e149f9df29652926e1aa3eac1d83e5c899ddc8dd04fde3"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 185,
+      "mode": "normal",
+      "out": 4,
+      "revision": "f318bf6c73fc61df93d127b45b59073fadd4f5d74dab9e5c0e6e1cd0c2ca2d80"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 186,
+      "mode": "normal",
+      "out": 4,
+      "revision": "973d63409c178844e95b97fb28690c2cfb8695cfc4b183203717778839f92240"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 187,
+      "mode": "normal",
+      "out": 5,
+      "revision": "e9bd42cff8825436d2a85e0ea851b1e673ba3f0fd65376a5a25249ec83480972"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 188,
+      "mode": "normal",
+      "out": 4,
+      "revision": "ef2a95485d9c42c1e822838b3d882e711fd48e8d7933687ce8d3883bf61e6532"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 189,
+      "mode": "normal",
+      "out": 5,
+      "revision": "38bde46bc0a59b173b276d6f77f841f745ee34615d06c01c85ef01b9a84919e8"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 190,
+      "mode": "normal",
+      "out": 5,
+      "revision": "20e6d6e342adbf2f318c19f4f5cbb38157e6071c5624043247aaff3ec79b3012"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 8,
+      "mask": 191,
+      "mode": "normal",
+      "out": 6,
+      "revision": "5f7567835cf1c6cc18ebacde558ca7af5e63003300b9b0571899d325c8e85733"
+    },
+    {
+      "error": "",
+      "in": 0,
+      "mask": 192,
+      "mode": "normal",
+      "out": 1,
+      "revision": "959eff82c6fa7b3f091641b34c426d72b65c7f5733e4293375301f9c90f2f6ce"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 193,
+      "mode": "normal",
+      "out": 2,
+      "revision": "407bbb09a62d33df37d91d44576652faf6c8bf7d5fae2cacbdb98f2422225485"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 194,
+      "mode": "normal",
+      "out": 2,
+      "revision": "ee411271e9c325da98cc972fe036b154f75f350e1f6333ba6294ae952f20ea3a"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 195,
+      "mode": "normal",
+      "out": 3,
+      "revision": "1efcf918703e3e3ee583dae1afcdf456306d3e460ffe3f157b6d3114c9d09c74"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 196,
+      "mode": "normal",
+      "out": 2,
+      "revision": "fb62332d0401b118a3be5294089a5100637546896ef7c5891bcdccac6d537968"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 197,
+      "mode": "normal",
+      "out": 3,
+      "revision": "befe9508098bcd2ab50c7adbb799d682572af0174a41f35811cc6291e2411ed9"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 198,
+      "mode": "normal",
+      "out": 3,
+      "revision": "069d5a4413ce378b1c065a7f49ed265ad23d251793478b3c00300bea59f7f52d"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 199,
+      "mode": "normal",
+      "out": 4,
+      "revision": "baec4eadeaae7377869a1d7436103115e89c159452e1387120122de48dc7e295"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 200,
+      "mode": "normal",
+      "out": 2,
+      "revision": "89112628089cfe1275e941a0d99a0882763b6a612e1b7315bf375d8bf82ee3bf"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 201,
+      "mode": "normal",
+      "out": 3,
+      "revision": "461793ceb6288e55e5b2754efc229601df10b356fcca520f98433eb9f7911420"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 202,
+      "mode": "normal",
+      "out": 3,
+      "revision": "1df5f3e436a9ec089885440bfe91926f6eca249cbb7da4ac7811931ce896bff2"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 203,
+      "mode": "normal",
+      "out": 4,
+      "revision": "44ab25794ceac83617b6508d82ea8600ae929669995ffe1896d5c9f12f0fb067"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 204,
+      "mode": "normal",
+      "out": 3,
+      "revision": "1a1c025628572dbb3acd9d55779e1fb685a1f4b08dcf4fe2655df7a0cbf03896"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 205,
+      "mode": "normal",
+      "out": 4,
+      "revision": "a2df133d3e9c149bb61325cf6332458b62dbb2cb3b54b0c9b2677c151ee77c65"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 206,
+      "mode": "normal",
+      "out": 4,
+      "revision": "64f4c9117602c971a08e4de4c8136001c9cc1492e1f8b1076b188c8b28efe54a"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 207,
+      "mode": "normal",
+      "out": 5,
+      "revision": "95813a7990e4f668f5215bb0dbdb9f0afc85ebfc5855eb72fe5335935d2dd592"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 208,
+      "mode": "normal",
+      "out": 2,
+      "revision": "c7b67f3588d75e2b7a3e9a1ca63c51d9bc397d1d32bd4923584d1afa502b2ed2"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 209,
+      "mode": "normal",
+      "out": 3,
+      "revision": "3ee671c158ccf4aefd2cbdc3866018a723a6e6beb42ad1bda90626ee40bc1789"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 210,
+      "mode": "normal",
+      "out": 3,
+      "revision": "bd99d54f147b69f02c8f1b0f37070ade7378b63d3e4b3ef94257db29d7d3e5b0"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 211,
+      "mode": "normal",
+      "out": 4,
+      "revision": "7eaed1e97d203f6d5b50e0d197273794bd0cfbf1c2525fdd7eeff0d3bac0c05b"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 212,
+      "mode": "normal",
+      "out": 3,
+      "revision": "2f47643b28154524fb8f604bc08a3bb5077db7cf9448d0a46a4be4a8ef0ad9d1"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 213,
+      "mode": "normal",
+      "out": 4,
+      "revision": "3f4871accc96c9c273dd756d09da047e87d4ee31a6fe9176eabdb80c82aaa20c"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 214,
+      "mode": "normal",
+      "out": 4,
+      "revision": "dc7606ebc141c985e6f65c0706b3a52fba035bf92ea19d0efb75a8136eecb4d0"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 215,
+      "mode": "normal",
+      "out": 5,
+      "revision": "419e978812a8fc1279c342ee6ca1f486936889be59e3ce8ab43a7217ff6e6a22"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 216,
+      "mode": "normal",
+      "out": 3,
+      "revision": "0471b5f419e35713ccfe40ac40d3b288584941c3af4809feb3b692a2eda0ab84"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 217,
+      "mode": "normal",
+      "out": 4,
+      "revision": "73fe12af897de9e986e3ff1cc0bf86b070f232f33079e7b1eea1b190c3e00e54"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 218,
+      "mode": "normal",
+      "out": 4,
+      "revision": "ced221804b5868bfe477ebbd98843eed168e0ceaeffed2f38d5976ef2937c34b"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 219,
+      "mode": "normal",
+      "out": 5,
+      "revision": "98633cd498ab8c9871f6ce0f305547537496444d250cbb6b29b96a75b50134ae"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 220,
+      "mode": "normal",
+      "out": 4,
+      "revision": "fee40ffaeacc6f1abe0349bac31ec82a3219e60f2463245dabd64fffd90cee29"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 221,
+      "mode": "normal",
+      "out": 5,
+      "revision": "9a825df734fbfd6933e66f1bd2d859ea1248247be7bb27bb9f350fda6aaddacf"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 222,
+      "mode": "normal",
+      "out": 5,
+      "revision": "de04ffd3484f1b03ae31aef256b24656be08792e401c5f986ddebf0fb9997d06"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 223,
+      "mode": "normal",
+      "out": 6,
+      "revision": "cdb55b101ccfa464275d5456d6d45b28ed2f3f5fdb5148d310e7e3d511913e1e"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 224,
+      "mode": "normal",
+      "out": 2,
+      "revision": "e08fbd3f0918a5ec7543f8fa34878152d3aa89ec34f0be43c6d58b13dd640f49"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 225,
+      "mode": "normal",
+      "out": 3,
+      "revision": "8341734d48bdd62f7d72aeff6818ea2e8ab8afd4c1c7623ef6912ea056ccfaf7"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 226,
+      "mode": "normal",
+      "out": 3,
+      "revision": "39bf2096ddc6131f3419784d85e500084b1230872cec2300349f6cc93fa8ed93"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 227,
+      "mode": "normal",
+      "out": 4,
+      "revision": "bd56fc4889f20a738e98fd19af9d5f818dc35c2491917cad8923fd452b018d4f"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 228,
+      "mode": "normal",
+      "out": 3,
+      "revision": "252852d726a1b5d2474741fbbc2a31781792cf28a2550606a656d44eb07de202"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 229,
+      "mode": "normal",
+      "out": 4,
+      "revision": "4043b29ebbd98b523086e01aa7517b06f35b0222a4a4874c84a36cfc8bb3ab0b"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 230,
+      "mode": "normal",
+      "out": 4,
+      "revision": "7c3f2425a0bd11cd0a52c82fe5f8a3fc849b0a633722b33ee1fe0b1ac781ec64"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 231,
+      "mode": "normal",
+      "out": 5,
+      "revision": "425233b5662ef75a82981c93171d50ee7cde168eb81858f257753a590e49c978"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 232,
+      "mode": "normal",
+      "out": 3,
+      "revision": "b6668e316f516ae62be230c0b1caaf158c4c59fefb216f151cbf4791514ca631"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 233,
+      "mode": "normal",
+      "out": 4,
+      "revision": "08f2cdb8a858675aa70b8cf80d83b5235a3b43b31e5ea0305f45432cc94e3d6d"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 234,
+      "mode": "normal",
+      "out": 4,
+      "revision": "1c0576081c95cf853aba0491e75c91270e83ed0a4a160274ae6ffdc8544b5eda"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 235,
+      "mode": "normal",
+      "out": 5,
+      "revision": "fad7ccd0f73be471e354ba5251ed9c5ebce56376a413ce63c063aaae7690791f"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 236,
+      "mode": "normal",
+      "out": 4,
+      "revision": "96c7939206de203c2b8e55afb1214df26ddb63cf186c079ec007fef4ed53ca03"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 237,
+      "mode": "normal",
+      "out": 5,
+      "revision": "8867654707851f5b1cfdd960fe27c7cba6379c72f231236d8b9a474bb00db354"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 238,
+      "mode": "normal",
+      "out": 5,
+      "revision": "7e02da847396f555013f099ea7c6876bfcd5ece4b0e0bd8636daa6937c24c355"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 239,
+      "mode": "normal",
+      "out": 6,
+      "revision": "c8f7570db3497051fe896182365e76326c30e6aebf0fd93ffea1cfcc4ebbdf81"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 240,
+      "mode": "normal",
+      "out": 3,
+      "revision": "eebb82f0636984be8971803ed78dce8ecb2051b60ccc1d0b661d8a0e95d929f3"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 241,
+      "mode": "normal",
+      "out": 4,
+      "revision": "482f7bcbfbe265b5c15485ca149fe5febd6f772cfa23b1d19b5e66e63a6ed5fe"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 242,
+      "mode": "normal",
+      "out": 4,
+      "revision": "fce8c925d1d2b499852d8cb951c32935817efd00008a28e912fcaa35b1dad3a6"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 243,
+      "mode": "normal",
+      "out": 5,
+      "revision": "a3afd5a02bed62f12e66cc44c2f2c68d700a47eafe06358e08358612f1054b1a"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 244,
+      "mode": "normal",
+      "out": 4,
+      "revision": "e7272896595b63908e5716d7984808d5486df31d04c159a18baf97b35a209a25"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 245,
+      "mode": "normal",
+      "out": 5,
+      "revision": "9be0b01645c2c1fb3d67826e4d76bfeb7c635a2cba0284c27e69a0d40d06c16f"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 246,
+      "mode": "normal",
+      "out": 5,
+      "revision": "92731520f05f1144e93691be42310e86498cfa25782f6691bc2ba59594822428"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 247,
+      "mode": "normal",
+      "out": 6,
+      "revision": "c3a3e93ff177f1fa56cdaae2b656ab9528d8710298d58baa4c40d0886ae3178a"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 248,
+      "mode": "normal",
+      "out": 4,
+      "revision": "35eaf99f9556c6e42de55f9d11c44eb1843c281ed14b502603dc048e94de53e8"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 249,
+      "mode": "normal",
+      "out": 5,
+      "revision": "e5a8293f2b6200461a327f3e183a4a2868033d64229e1608d0879fc022af0cf5"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 250,
+      "mode": "normal",
+      "out": 5,
+      "revision": "b8fe7ee559c27560c5c2d7462b034cbf809e388410f7f5ad0bbc383f5b9d6ce0"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 251,
+      "mode": "normal",
+      "out": 6,
+      "revision": "55a8bfa2c6659f5615aef29663be6974337353960a99aaba9d4af427b0594613"
+    },
+    {
+      "error": "",
+      "in": 6,
+      "mask": 252,
+      "mode": "normal",
+      "out": 5,
+      "revision": "0061a0592ca4d446cd93963b191c4af270fb3a625880426417b44c78aaf8ba7a"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 253,
+      "mode": "normal",
+      "out": 6,
+      "revision": "2c5aecef39ff19f732565cd9973ae12ac7afe07cdd99849d1d5c02fced738a92"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 7,
+      "mask": 254,
+      "mode": "normal",
+      "out": 6,
+      "revision": "3a3eba30016b8f2d3a771212727896afbaa375d684d6a96a990f8df9ea1b0c37"
+    },
+    {
+      "error": "USB endpoint budget exceeded",
+      "in": 8,
+      "mask": 255,
+      "mode": "normal",
+      "out": 7,
+      "revision": "35402316f5976eff49942839e2e50829a4465f1d0585eaa9162afa6359f8f322"
+    },
+    {
+      "error": "",
+      "in": 0,
+      "mask": 0,
+      "mode": "hid-only",
+      "out": 0,
+      "revision": "bfd16aec2e21d1eac6aba4730a822eea673f5c7e0b71e15f08d65d159ac4b230"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 1,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "54f2c90613097b1c45614369dc605ce2a1a342370f5053e1a265b277368c0141"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 2,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "95a04d497e562700820a18f342c857273728eae5c010f9180f111c2b101245ca"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 3,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "5f199c550782874bd2f08aa0772aba3754040d712b346eb80dd5a8db12564fc7"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 4,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "2e308cf97468e1a1718bad9172fdaa50f446548832c0f42d6765b020aac08a9b"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 5,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "08500ae609067904c1426eba058bf5eca602063a408e5badd951640b90cdf2d8"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 6,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "eb378eecc6589d74567931ddc4a283d95c27cdef21c48db7ce185bbcb0f0e5e5"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 7,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "33de62a66673f006b3619d44ade8d33de0d2cd9e5d104ecce45c294da104de72"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 8,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "b511697c2ed1da9f4dce4856e4672a5b479324352471d9f2615d190509b7cfd8"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 9,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "d3a2ff09b7e8c40777819d22b68151db9e1ef395ad5ed3916b508b04c28010c4"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 10,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "4b592b166be1897f711235097e2411d674db9c7ae035aba809c339d68b7375eb"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 11,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "ed087207fa3bf542a4f9dd11722477c32ceeb8dfa085d243d7a9c701edbf8333"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 12,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "c13e32ec7331ed5d27b501e96f3db1f15c188740c792f6fd2bd976d080d1d3f2"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 13,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "cc0646604a3b6b2a13bf844aad37f9c56a71f82f3d85895fcdac7b677245f6e3"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 14,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "2a38bbc1ea1df8a4c9f25c93422b1a1db76e8132ed0db72543cdacde37a4bfdc"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 15,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "b29a655e7e5e4e79d7aa8b5c000e24de61f3f465be9d76ca2e6376e18e099dcf"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 1,
+      "mask": 16,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "57f7734138a2733452d8657298d4b1aa7f462a1e6ddcf15c3771373c2461138d"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 17,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "4ae0f03a269bb77e8c2c548c605ba9919fb157a43c5a5590488370017dbc4f80"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 18,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "76ebbee631cd0015886b5fa142ff7f3257f7e5a71d042962af13051b6b95698a"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 19,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "12df88d6c062918d040c4059a5d877891253f134478df41bb1a2d245f5b9f118"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 20,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "53823385a48da8749443ee336e4150157fbf8d80263c6a450ae9e0ff57e78a85"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 21,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "853b28ac1ac9f75af5b0ac349fa9125b768f270bce7db50e315bb742e0dc85d2"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 22,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "1190c9af7dbaecd204ede3ad5133896ca845abad2a74f2e1b7d333f5623c757f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 23,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "06d3919c6b7fc53225f1a451241bee673c970d8515e8d88f2a4282588b14a920"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 24,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "c23bdded62d48c8923f991abc2148d627361d703de2c2df65a08fe6ac6f07533"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 25,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "02ba40bf00e058cdc0866fd27540de60bc03ed45c8b8b9d6d755dd99dd006181"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 26,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "d5417bcc8c345adb4dcad8b751e6e6e46c2409b4929b357fee41f3533dec6b3d"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 27,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "eea2da83b099959ae6349b954386710e5d9e9e49d65fa94cd9f063f29e61a3cc"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 28,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "aa2a09011c8afa18df42e566fee1c2a0535b5ddb277c902799a7350b36b76d21"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 29,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "38c1a2669a57c89c95b11b0cde44acf0069cd1dd9452ca65760b38bda90bde26"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 30,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "20a8893f1a7a1dcbfae4b8e0a9cb19615779063a3fabd43767447db1355e33c0"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 31,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "b68e9dd73a65dd55d1a6bb24b952525bc1c00a428382fc87387c4feb1b3d31a0"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 32,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "e76fb107ba25cfa63ed92323f8d6bdf5a6f5b345458bfd65276bc08589c27c73"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 33,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "2967ff7e024ce889d660a8d11e67eec10afb52b96832d2c392ccf0a6c71972f7"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 34,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "caac889a1c54bbf87950c6f3997c40fd922445da42b66f6e5c24b89b988a3aec"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 35,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "62b03da93f2aad8a52eea2ac981a6d627288ff60228a0d6a1dbb6486664ae101"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 36,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "51a78bfa3b65dd00f36374169a74102e3a0349cb4d197c9098c8dc8679e4712b"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 37,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "59f139220ee8cf9ec62d719ebac98f18e88c872ed66301feb7165012417f9a4c"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 38,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "4bd3f2988c0bb8c54a6995aad2032acfffac4526b3feba38895bb5784b7e0a97"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 39,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "6cebf28416da1e7940d119f6be5be3177f351d89da77356cecc0daf3568fdb18"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 40,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "3bc6a5ac2d943f64d58535fdc33b2bac1e62ed4fc42890b0194b703829f47d45"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 41,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "28c422a2d674fd883e0f665dc4717ac12a11c13cc1332543ad9ae6bb0ee77bcb"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 42,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "f5c7f19712e461075d998f0a9a38630124a8355fb6d9527361be7b64729fc1ba"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 43,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "e7bc2b17400b7bccd6dd1c226dc569d82b4606dae2eb47d58c443c943d58ff9a"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 44,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "1caa95ab0f529470ee9323e0204ae3a161f37c06f0ed44931e254b13610b9033"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 45,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "57d646cad310912e70f1ede45a59754f8e959225478d7bbe8396d952a8c199c3"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 46,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "08021090702166ad71c9a4ece3bc39d2fd1033d9bf49d79a7ff72820af3cedb4"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 47,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "b26fbc8aea1be9b49a2cc9b9ef283f5e20ce565765c39352ea8e0df499ddab8f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 48,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "1fea137f73d5c73b33f4ffe6c8a7f25a759927f8b16afd7c0df8d0d971442fd5"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 49,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "56eabd6ec756c26ff11a74529fb477940683900f97a700f6988b5ed8b3c2d28c"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 50,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "e8a9b3b1254b120d9fd7f9b1e548f6301c265c86b1919d4cd8303e7969da353f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 51,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "605222f801baba5356a152a0eac7d22d6979cc73cbab3a5f0aab1ff29504bc93"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 52,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "dc4ac45408957766644f9339f705ab026e159b6307ed0288ae4c76089f8a9e36"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 53,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "e2eb128fecbd4b2346e8625cb508637a84501d979cbcb7a88bf0af7c0db84f05"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 54,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "cdcb1c24d279720a86b231435801b2c6a031bdd0c982fe1aadb08cb7d0097091"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 55,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "aefce0df885394dd243fd5725550ee3301232f004aec2a3ab2fadbddef61a58e"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 56,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "707f72ff1638b8325282a46dab7e33d2795daf1f28a276e09f936c76e1cab7b8"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 57,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "5ff65fce2fc41661327db0f95e531a21713901253d36dd5511465fd278ad6d78"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 58,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "e47e5693768405fc946d8d2fd8c5968284c30a54723352ec941ed5207e2fee99"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 59,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "b80ef40f2896f38e8d86757597b3475abfdb97abf46cb48116847e2f3dbdc4cd"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 60,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "13963079427cd0972c78d53d244090af7003044ffcefe1eb409b5eb8305fd56f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 61,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "ce97ac3d2e2740d6c54c487d9684c1639a5b18ad0d6e8d30cee80ba52a229bfe"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 62,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "e75864a0fda53e1d8300a76209402d437f90fcecdc4baceb977d30d2f81c6380"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 8,
+      "mask": 63,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "21e77a015b9852b879a4566f2decf42a77423e9cc93b7e08f90b4a5d12ef075c"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 0,
+      "mask": 64,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "7474e5f06c8ec77ea5512a8e5bb55ed403e98195df9b4dfe28d738cc88e6ef06"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 1,
+      "mask": 65,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "1dbc737dd66464c91a9756db3e8b563f87775359aba505dafb68912b7dd2fc95"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 1,
+      "mask": 66,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "7e3bab395bdd13685dfd6ac0a7245772e5ef8c67961d6909ec7a38da99377379"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 67,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "0ad9b4d0736443e670e3767e1547173cc18d6e98931f47c0a02912a7a1a6aecd"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 1,
+      "mask": 68,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "f44c740ccaa7d7b74f0e9602a3ca1d29c1415b19a149bf3e8ede81b9aeed4165"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 69,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "0784933c150da070b9bc29d2f696ea72736b3e83d531738236c5be59e854b352"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 70,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "521b25aab24a2a7c00188322f6b3eb2a80fafd40194e740efad74bf7e05b15fd"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 71,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "f33ded47ec9f9fc8f0b5899924832e3de33019b530230b100c20a0ced39dccd5"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 72,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "5b12fa284a844b2aa4150bbeaef3111c4f8d1004aa3aef83713dd823c20e366e"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 73,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "0fd3a33877a8fa04d73e359df3eca420b13feaa052cab7fbea6cfa8146e91055"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 74,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "2187de45a80c5e3b82539e8bd2ce1c023b57bc7ecb221b0c791f6e0d9e5b024b"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 75,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "cfee2b9ad2c3d489b759ab3e51811dc99c22b3acde111f2682a8b958796e09c1"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 76,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "f91799b5c9b20226db33236a7b29df1ca5f836cfbbe8f02c5545d44f035ccf4b"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 77,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "0e97fc6859663bda88f476a85e34f53758f84d39db32612fadf88456cec374ca"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 78,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "e8f0e66bf97893576e08507f624050c2de586f3db0031eca35334ccd31ceb776"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 79,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "ff80aa15d2b425f8767fd117454a9bc2cc90f23a08f6603473d3ecb3da71df0f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 1,
+      "mask": 80,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "a477e5246e32bdbe42383c2887f068ccf1ce4f395e8535baad0dcfdc5e25f5b5"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 81,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "07ea97ee34f169c3f49a75dbf326e56a6bf54a3a6fcc4072f9889ed6725be816"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 82,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "ade4d0fef83eb00bcb83e5555fdf2d7fe5a7b1b4be06c093627bef419afe0df6"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 83,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "27fe54ebea886dbb6ace2b8b3ba023364c720017dc3bf14076a7f2b7f0c0524b"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 84,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "43a4e5d6a403a4454472207fe8acc3abeda9d29222d8378c872d6dcfa11d3e5d"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 85,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "26413650773b6f807f14af457ae6c3aa3eab47604dc09c36179f2be31b277433"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 86,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "04bf25dddff4eb87b57009b661618e935dcaa4fa461d2c4e7c5c4953979cf1fb"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 87,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "d9d90ab4669b5720a42f3509cf344b20b76ad0c5f8f05b29f0aa8bc5f9b27ecf"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 88,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "19b77733a66d47421f057707035f9f704155e9b9610b03fc410b4690d645b040"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 89,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "dea04720acc944a22374bd2ce18792514dca604391dc3e9e2b181dd99c328da9"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 90,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "a0c621a848e2a2d9e2fcb05b9732bb3b6dab793a45c0ef93253937688277b67d"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 91,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "21ba9ecd57dd5bb5974c6d45a78f7a5b6bf1129a3276f7d3b489c56ee1eb7b07"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 92,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "dfd0fb9f9d12de83f0e1b4ba474c578b37fa6821a14327adb93cd74b9b394124"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 93,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "32db5eccf4ac3b8f4ee296d19d98274d2de8710c3af90653c17f50eb06253a22"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 94,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "a1270627aeda312697315dec952ec55f0c8e3b3ac16483c5b5de52e114fb07a9"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 95,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "af96e904dc9b77730e5ca5adff1d95576f61aec9a3f7a4357d2ba69905e3c326"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 96,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "a06e24a61f8247c9a45ec40a24b9e0ee1c56b123af6339827cf5584c15ab9924"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 97,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "dfc32ff3064c41de9aa27cb88ba1d2f667e4c24ec1e3b903a0dcb289303522c8"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 98,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "3159b42819c037eef46d6d734eb26c6859ddae8dbac3cd752b145bd803055ef0"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 99,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "111cff1d38b5e5a0101f4ec30e5babd524e5ab2b5b40d2db189dd2219f890101"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 100,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "92c2b2553f3fde354333386f0b1ec8df70232f90cfda35a233205fe41c4869ac"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 101,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "a67595756109448ef925de18d86ad44b39663c04e42b1b349ec2eb971c5dfb98"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 102,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "800c2b5ec081f9b3bfe2a929dba7269de370a60e4665f8f1b1b761d2eb3cfd55"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 103,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "2161599ce52d4245c3ca910c92f78aaf23e5e0a18356aff8b0af3bcb64e21b00"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 104,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "3420b36593268561c01e4e0fd0878df54b3401a4c7f856203e2373982ce65d09"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 105,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "4859610c4069ae4b6b8148002a9366c18ff97c0d5ef7879d5622a6ea5e948c36"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 106,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "2c861ac12d306e9d61e93440926159b065d5ea0076b2ac71f53d1476c881d48c"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 107,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "22bd75e48f6fd8148ea90882df79a4425c10ba841f6da0823f4aebd19f562305"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 108,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "37eafd2a897ad8a146b9e2489aa790e2500bed323793f5467632f1310dd7d8ec"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 109,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "4d2c5e90ab1d9fd6c2162759ede6714f80fb5c37b99bab2324dafc262657cbac"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 110,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "60bf918b2559d63ad21b4c19c3636c6b1f2b26722e3a079a0a1075c89f5ae8e4"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 111,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "eb9ef480842d19e29da83014177afedb31749c625a5fd14977d227dc7a1d260a"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 112,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "4382e6dcb97d4b622474c61811003aa88a08d4bb94dbe7b730eefd688b4a8760"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 113,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "03b4783dfdea4675def709e070642604b64cdef62ad3062ebe047666f8f5c3b9"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 114,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "ff370fe7386ca9b9bd58585c7e41a941268ae0657ba36a6de3f1f160c130b7de"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 115,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "6cca784875354e48c7d84be280e376c18ade9d8aa223fd31757fc89866ede617"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 116,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "bd464e93dd0f41d72f6c45c35e6787e8f66057876fda3f5303b21c8246ce304b"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 117,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "07773a1f1061942473bd8f38bf13312e8cb84e5b1044a66935cbd280813047ac"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 118,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "3eb1a0d9feb079fce5b767a0821ea2d045e9d55cdc6211c8087dacb7f1bf1ab8"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 119,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "9b73e1ce5ca72ae5028c36ac063a4b6e292f7bebc7067282a5a27b415a7f2e97"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 120,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "a1663f889260b802ce27801b0500d449963081cd4486448bb6348d5cd141a89a"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 121,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "86ef28a0a39ca88ba29223b3ec86ffc883a38a7f9b9f8cc9232cfa5283f7a6f5"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 122,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "817da4937e5681d8e631119a4ff07177cfa474b4364ea3f5b438adf17bb7661d"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 123,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "6f98f1c5765384d18e429d5a987d774b3aee4a152e6219cbcde4dc25d910e6ac"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 124,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "a1b21eb5254a82b63c16cddda8d4a4963321ec4914988fad45fa02e42cd981de"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 125,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "10cba446fe4a4d02c9cab863fb59de2950b8f6f6c4629425673861948cb8441f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 126,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "5b140239b7c6ae296069d7b94a2e20292557bba871f127efd1d5d6c649768e38"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 8,
+      "mask": 127,
+      "mode": "hid-only",
+      "out": 7,
+      "revision": "554bc362ca323dcd9fe04693b7c0fc5aa3163ec696b8a2bf450afe82d6a64928"
+    },
+    {
+      "error": "",
+      "in": 0,
+      "mask": 128,
+      "mode": "hid-only",
+      "out": 0,
+      "revision": "d5703ff1747e8eac3f5ea631c325f447d721a112387fb1155ca7e97e845ea460"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 129,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "1789f6ba0513b253b2c897110ff34c42fbe6d4ae0df5a6cd27718de19d84fe07"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 130,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "cf9bac8f9952542d377cb7f1267df0c93e31cafa377af2fe2eac88fea383e73c"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 131,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "157bc5debceba2b26a0b38cb139b59db70bfb27b10a025f0f503dadb5f3bfd78"
+    },
+    {
+      "error": "",
+      "in": 1,
+      "mask": 132,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "73b4684178e763180db5b12cb0b1fadab5cf72712d70ab2e1361071fe3d1b3a9"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 133,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "4b3f98f6a2c33547a1570ddaebb68e933fabce18a6dd17dbca2defbb8442ddb9"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 134,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "bd4a5c86205a167c003648e50f22d43d0dc022bcf44d4e1d6f0aa674a2627311"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 135,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "7d75c547320a9fc1c937d2ff5732dc1ccc06e0dc7ad763f8540f09b8d117d612"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 136,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "4b3a4fc67ad3d3c50caf0c2e0760a2ec81786c162446ec254a695430c9cbb3d1"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 137,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "d599166481f66b3f388c5ebab0577d286d80a5e4443a3a47a2ede11bdb2a6178"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 138,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "6f6a82919a93495e249416f84e56572457c55845a189fb544a8b956372d96568"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 139,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "d3655b37a27941fb37f02021ed16f4bdd23f28d266f90448934f5d259848ef4f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 140,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "4692e4c58729bd6561890be0aff9f9969c5f2f9db15763b9ec580fb861b68529"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 141,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "9418f1e8374931c19390be08fad33b39bcffc76ecb7eb63110f5bcb252d1ff30"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 142,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "ce8b1d1fc93dd2cbdd6ccbcb634183764468fbd7504207e33ee021fe608471ca"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 143,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "71ac28bba1f410b9be35ed7bc9f87fe3555c615ca74e8d79b14b8c5bcddb9e14"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 1,
+      "mask": 144,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "6dd4cca6433efe1936e1941be76ef9c6f9bdbaca556cf75ba5feb7f4902a36cb"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 145,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "d54cea565e4357d08b1167999488c76214860a28d4a3139d0ca31bd46757e5ba"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 146,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "baacbc90443ac07784fb17f3ceee0ef15d860367f534724cfddf4379357ec86b"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 147,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "8ffb6b5aa1976d1b78281ad2131bc01f4ad967ec3662a0e5445decebb04ab524"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 148,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "2eb3f374455a4946267cdd58d183735f4e7d270649633ca24ac9d976857f4279"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 149,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "f29918d18507e793c9651238c634bb5bde32bed7f3dfecdb4ad6eb1897dfbd54"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 150,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "35dbb97bfb753620abc1ff2ef13ecdf9840456afa63d78ae3b78800dd1e33b2f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 151,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "fdc779454f941655c341db1741f4bb3dc26e7e9ed234b61fba6ca39b75273fe4"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 152,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "d7ff57e32404744194b93b3e39bd111ea319b5d975af9f5033629461a3247866"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 153,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "afcb652e14cd47221395ac7485bd6a238dc739ec8e57576895c3de3ca3f6e63b"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 154,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "200de99e91ef87de2f13dd93bc558e44818c53b1ee85b0464174fd63c9f2db1c"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 155,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "3f014545192dc90376922deaeb43f7922150f091f6235adc5e68d5bc57a373d8"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 156,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "875bd3a54b9871046af00c4cbb2736ff3fb7f79dff6b80b9cb865127e4ac965e"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 157,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "fbaaf357d8968c8d37b4bf6694bc1368ab95ec75d6355021895cb1ac3a0130bf"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 158,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "15cddeb32dcb35f99fad1aef901cfae163a6352d623c05fcac0ae4adb128cf5a"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 159,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "ea1d14ebaa33807d3e4580d6e8eada651d52386b79125b0dc42d35977ccdb94f"
+    },
+    {
+      "error": "",
+      "in": 2,
+      "mask": 160,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "6a7c40d74755afd9267b6b74c7527e46d21836bcf836fed2c3e0aac115a364a2"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 161,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "254fc5f0cfee54f01427b042712415d5c4bd0ea79ec75be2516b7b9068b85031"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 162,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "102f45af886707ba09012e4f10e4e8f6f7b2f4a4603739f386b6e2e1fb5ebebe"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 163,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "c6a5d901093f725d12d03bbe36992495fd76623f49fcfc3962cf67d4fc4397f3"
+    },
+    {
+      "error": "",
+      "in": 3,
+      "mask": 164,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "1a9299561edc814f1ca2064ee8dc58793aa614da9155f12897e23da02c7250ea"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 165,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "ec4b09a20c96a5a93d7e9b616f4293e1d0b9937eb6c533bfdb91dc11114c66c2"
+    },
+    {
+      "error": "",
+      "in": 4,
+      "mask": 166,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "ddc158c0f4c738b02e058c74658e7f6b1a61108b33e84dbdc5f0ccdaf1e5aa96"
+    },
+    {
+      "error": "",
+      "in": 5,
+      "mask": 167,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "0fdea18d720a04e7583036c8c717c59d816595e873fcc75199dd91788299e10c"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 168,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "540353ad28a96559640ef45407e8e9f70677c21ccfd653b35dabcdce6ae1f8a2"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 169,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "766b9d2153a3061db2209c1c46702f8f0e019f220173f22eb0044d5b2cd73969"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 170,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "bee56a7ab7592804dadb528e608d35347709ba105b5218b9b29bc4b503c0a150"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 171,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "9eecfe51dc3d7ae7540caaa96aabaf61959802458230c1ca23fc2bbd1bb8d81d"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 172,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "d4f11e1028ebee04dc1425e6795de1b424d481f1ece1d622f2ef6b66675037d3"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 173,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "00007d3ee762a88ce4c9add2599b21cd9264d8be74125867c1441a33109040dc"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 174,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "54352fcbd92092e1d39e45939565619f204318ed9f7f1346d50661df0eaf8471"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 175,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "08c4118d2adab4b84633eca4da9c0394f3dff343481e8797bf599e9836d4f55c"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 176,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "0a86e94f2e716632d4519939332a558d889b60fe30896c8908f90d25998534cb"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 177,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "c4c238dd0b3ba235aa3232b97d45057d6a0c1441bf7a05e7ac180fdfb1b738c7"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 178,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "67af48facaee47c93016ae9793dc44d63bb6296cd9061433e3a2d1544f0f074f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 179,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "46ceb60cf15b125f56966cf5e5c27b85d01b930ccb6589f967d15beb0a43fe8d"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 180,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "18d0a78a259f7d23d9c6f35b0fcb7c2f926da287730cf93d4a37cba3bb16949e"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 181,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "9c7f7fae9228549ec95a050281a2f343dc75eb3ae168f4636e1a0781273ff7d3"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 182,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "8176fec0da2cf9d8904058ce6a59b1256aba9e6f794cd597772b01a628b17da8"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 183,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "922252d27e1e9b602e9598721d3d276b7846031bbdadd5ef3aabadb9f869571b"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 184,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "5a02cb66f050443b463903070c766f88b952d857b64fa63c87df9241232ec6f7"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 185,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "b464d643d5e7c248b58a208b0dc35cd6c314dac72674867ecd065a29fd4caecc"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 186,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "9cde29ed61848d0528bb4052928699eb782589e9dbcb35a48036eb266a52b3e0"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 187,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "dd6e4ed69955dc7c61110d887f2d6f737476fab5522a367f939ceaa7e44d676b"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 188,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "abfc3f494a6311200b756877b479c63125568ef7fc4a6f9f40edf57a195225fd"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 189,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "444c17a1c920a1942490a78fd78c5f5d71c75a3a5f0d755f219326ba40354565"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 190,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "e439e08bd544ceff43ad31d53cf805962e49db4465b8df97f9764099600c4490"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 8,
+      "mask": 191,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "1d7d60e414851b9fdbd49f96d97fc3c603774cc39120b91c5776cfb29b1bccc0"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 0,
+      "mask": 192,
+      "mode": "hid-only",
+      "out": 1,
+      "revision": "ccf8ee3eb04f19d6db25e1efd7e53cd2fb8d52bb626c9b4fbfc651ec21fe74a1"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 1,
+      "mask": 193,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "5320bcf6230d13accf1cdfb518bef27d0d44ddd9999f8febdf14ad596af2107c"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 1,
+      "mask": 194,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "c71ddecdff6e99d969dd3fa6088dc3faf2a8d265c7bf95774946c7f154d9bde8"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 195,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "06f4380089c8f0fdb6d14ecd7964b0398ce9df6f0c8b26c87b1d48ab35fc8b3a"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 1,
+      "mask": 196,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "e273bd74bf46b2a25ea71cbb24a5a3d939e7353253ec76947a9cb411e97167e9"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 197,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "c2b8f625c8e8790ef81bbb27a5086814e50ef3a793ac29da7a48e37ac859a9e6"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 198,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "93be7b10566cf68f8c376b18cbc43d3189c3496ad10734740b4c4bb77ea36abf"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 199,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "75a86771f85a057db254f64ae38e4de1b3c7998c479adac97969b8cf6067788b"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 200,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "1bbce7a21638fcb0f828bb567334ca64c02d0e2faa3c948dc83441f536282d84"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 201,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "25ebcbc302efc3a1679b80cd80f800c6c75964b705470b8cc33e38e3039f9a8f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 202,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "8c5a4ac324e5a32aba76136c85105573aadd3260865c5cc25b2e88ec21cab917"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 203,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "88cc8d87b3974bd7f67f5005b27a489bcfabdb28f8f198b49fd65b804e727429"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 204,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "116d57bc9f07b1bd5e831979b85ad3585c3bfdd5809eb3413c269daf7d7e2fd4"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 205,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "8c03fe6a0c331687d9b8a78f8fbcdeff251f592eab299af87bdcf26b3f1a4cea"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 206,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "f6c54fd05104d51d5b1c8f5ef245c124f2107cd5e7df9fbb5f6183be42777929"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 207,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "ea3927d9e198835c0f17327f45e379d603536e752e7762552b1aa01278c7eefa"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 1,
+      "mask": 208,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "bd447be742a53e8e6af9e69b6400f32a20a6911291c9fb951f0e44a7b95a207e"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 209,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "7be2398a9226d60b7a3031212a9195b55a3776f9be15de24981671a6bdd71557"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 210,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "6289c8bf14fff20aea6255f7a9bdc24de2ac0da256915804f1f8c386b95b85c5"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 211,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "eede405d16b5535a687f962e26789b9f78aa6788a2d6c9ebbe7320b02188441f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 212,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "7509efb3eecc57a8994231cab1d0ac6ae8fe2c96a1f919da1c396b78eb6487de"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 213,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "162c96d81ce27a05cfdac445e405b9e7c3ecf376e1d0f4a6d2540d8d6d573270"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 214,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "315c92b6c6acb9df46500a3932d9bd238ddf971e908ae09a9c3134d37d0799f3"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 215,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "d396a8e2472d4e8cc6816e61a9b406d7ae5ca0a969dc58a708b78825f7795697"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 216,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "655a71b7c65283cf82f2c2e9d1453fbbf6f3319e66a3691bb4702ea7a3d95f97"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 217,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "a487e48e36539ad49f310e29aff659ff92eb1bdb068c6f6545e081c35d83f8cd"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 218,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "71b70e75726d94258c6b530bcefc3ceb311f752d9ec064aed4f16c1ffac13ed5"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 219,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "f88af72ad57bb23410b9febca3dba1ff1f4b40b34ce331857fb02debafcf513b"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 220,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "2a9ff03d945728f8f3ef0fbcd2efdf9316b498e01865c4cc1728460ad007e354"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 221,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "e33472cdc31174352947d55b93377687fa7478ef77451b1aaea4cd03919bf6a7"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 222,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "4f6442a9b3818cfbef3c565fea8cb0c0dea5c9a0705308a224b2ae9bccc505bf"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 223,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "da08aedca4d8f33fd2cee2f9ed8468c62fe95c9e271c28d846ac800e1e6f2f9f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 2,
+      "mask": 224,
+      "mode": "hid-only",
+      "out": 2,
+      "revision": "603705a00812c9991a6f3046a22bb33d8da60e50ecec5dab68d4bf109e72377e"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 225,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "94b55d671872cb8d5a41223fc9c0ff54f73aabf078c431cec9543c185e4c2610"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 226,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "d414a1aad38fd601df53528c6228dba60399a254efdff1d74d6f8be4891aa8c8"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 227,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "2c31d71ac714ce9de7e86a1e11212cb88e657fe854798186f29dcb45dba30af8"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 228,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "3a41c8cd8983e58967edc80f08c0340423f1059f3e323e36a200d55032b18a5f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 229,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "29cddddaaab4cb76ba905dfb58e725beb788ac2388bb3093a67e108ca187d9ef"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 230,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "6fbd7c2f4e5ae33422f293a387ab39118c1da9caded9efa8590c9266225f6062"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 231,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "f3bd3bd95b4a38f0f4fdf5dbdb11031c0e3aff53dddc467f50acb4609ec236ff"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 232,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "cc872d59a41e5219669b6222e103e498438b47e534a81a11177443b48a3d15d3"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 233,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "5ba298c36889e6d6f1de2006453f3062744d31cffb29838a1509afe6dbc8baa7"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 234,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "973ca855cd678c362b9bb10d71b6351ce50725cbc33bf4aa5fafd8556abab41e"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 235,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "c5a1cb6643bb0720280cc7ae820e688be5a810802b32f34cd7914d0012b69af1"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 236,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "3209a2c37bf316aee023c0af67077b3665bc6a8ffde91b759f27a4c213caff50"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 237,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "f4401d3634729cd55ab7bf970bc808e9f3e64df70754c9009d758ff1aaca95c6"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 238,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "6a6921320e8ea68860a29cb88f8cc9fed6a4de2d562a5a3cf7b5f14d16fceb8b"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 239,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "6a12b4f6f4d5e51c23d9b3fda4581713b907b5bf19e33e974cb90533c6c12ff9"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 3,
+      "mask": 240,
+      "mode": "hid-only",
+      "out": 3,
+      "revision": "8f69c0190e3b87e8f3dfac2a249b224edea98ba3fb25ce7b14f8a6e537c4d06c"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 241,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "2e94213061db580929e1b8f875113924412fe48f9b681ead0b9a0355c8586233"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 242,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "56890be1fe77100304ae458d876328f0c0f30daddf49d68bba0a48059fcf8cfb"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 243,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "c9448af4a45fa01454a48a1db49e048751df752a60c4fcdeb636fa48a21e016d"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 4,
+      "mask": 244,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "003286cdd0d4d8733c765b86206c863a857909529b7ab47445458709d5c8c6bc"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 245,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "9dffbe66a66e55f0988e114fa35d076a7024acfdd0d194d97ad2bd0918a968ea"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 246,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "317f2aca85b78ffd1d4b274fee2785b6672d97d2dc43e5bd84b27057447ed127"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 247,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "fd616a42d20b2c6714e8d8523f218cb923a82a40e4c1ec0410ac64d0cf1649b8"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 5,
+      "mask": 248,
+      "mode": "hid-only",
+      "out": 4,
+      "revision": "7dc22d4fbaad7635f298734d3846216951e3cb5a333fe332d065b1137b904000"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 249,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "48b877e54f5c5789d51f1919dcf63c1ba7bc346722008694a904a0a60ca23e3a"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 250,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "ce38f149491a09aa480ea490de33eb5f11d5c58e3830a90e8a69e33a6283ed08"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 251,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "f306e2318335f3548dcdadbdada1331f587fd849035acfeae8546c6e5dfc0931"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 6,
+      "mask": 252,
+      "mode": "hid-only",
+      "out": 5,
+      "revision": "2d0b0803f9279c13ad8a4b25d6608809591b13c40772659e70ce8338877a2123"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 253,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "c52ea8e0cd4ea3da68894e0ffac4023ddb9a37bd37cc2a89a3075ac07c120d1f"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 7,
+      "mask": 254,
+      "mode": "hid-only",
+      "out": 6,
+      "revision": "971c73e8880464db307c7b66fda26c90b47dd9eb7d52652eca656686cc697937"
+    },
+    {
+      "error": "USB network, disk and audio are unavailable in HID-only mode",
+      "in": 8,
+      "mask": 255,
+      "mode": "hid-only",
+      "out": 7,
+      "revision": "a33f53591c085613c62838951605a7f0f8e5cc24b4a1f3f82207f149ff0c4958"
+    }
+  ],
+  "edids": [
+    {
+      "error": "",
+      "input": "AP///////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwEAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAAAAAAAAAAAAAAAAAAAA/AAAAAAAAAAAAAAAAAAAAAAA/QAAAAAAAAAAAAAAAAAAAQkCAwQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9w==",
+      "name": "simple",
+      "output": "AP///////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwEAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAAAAAAAAAAAAAAAAAAAA/AAAAAAAAAAAAAAAAAAAAAAA/QAAAAAAAAAAAAAAAAAAAQkCAxoAdVwSygNCLKe0DHvRTyW1c6E6l13cBwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwg=="
+    },
+    {
+      "error": "",
+      "input": "AP///////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwEAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAAAAAAAAAAAAAAAAAAAA/AAAAAAAAAAAAAAAAAAAAAAA/QAAAAAAAAAAAAAAAAAAAQkCAxIAZQMMAAAAJwkHBwAAAAABAQAAAAAAAAAAAAAAAAAAAAACAQAAAAAAAAAAAAAAAAAAAAADAQAAAAAAAAAAAAAAAAAAAAAEAQAAAAAAAAAAAAAAAAAAAAAFAQAAAAAAAAAAAAAAAAAAAAAGAQAAAAAAAAAAAAAAAAAAAAAAHA==",
+      "name": "dense",
+      "output": "AP///////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwEAAAAAAAAAAAAAAAAAAAAABgEAAAAAAAAAAAAAAAAAAAAAAAAA/AAAAAAAAAAAAAAAAAAAAAAA/QAAAAAAAAAAAAAAAAAAAQECAygAZQMMAAAAJwkHBwAAAAB1XBLKA0Isp7QMe9FPJbVzoTqXXdwHAQEAAAAAAAAAAAAAAAAAAAAAAgEAAAAAAAAAAAAAAAAAAAAABAEAAAAAAAAAAAAAAAAAAAAABQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8g=="
+    },
+    {
+      "error": "",
+      "input": "AP///////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwEAAAAAAAAAAAAAAAAAAAAABgEAAAAAAAAAAAAAAAAAAAAAAAAA/AAAAAAAAAAAAAAAAAAAAAAA/QAAAAAAAAAAAAAAAAAAAQECAygAZQMMAAAAJwkHBwAAAAB1XBLKA0Isp7QMe9FPJbVzoTqXXdwHAQEAAAAAAAAAAAAAAAAAAAAAAgEAAAAAAAAAAAAAAAAAAAAABAEAAAAAAAAAAAAAAAAAAAAABQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8g==",
+      "name": "redecorate",
+      "output": "AP///////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwEAAAAAAAAAAAAAAAAAAAAABgEAAAAAAAAAAAAAAAAAAAAAAAAA/AAAAAAAAAAAAAAAAAAAAAAA/QAAAAAAAAAAAAAAAAAAAQECAygAZQMMAAAAJwkHBwAAAAB1XBLKA0Isp7QMe9FPJbVzoTqXXdwHAQEAAAAAAAAAAAAAAAAAAAAAAgEAAAAAAAAAAAAAAAAAAAAABAEAAAAAAAAAAAAAAAAAAAAABQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8g=="
+    },
+    {
+      "error": "invalid EDID checksum",
+      "input": "AP///////wAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwEAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAAAAAAAAAAAAAAAAAAAA/AAAAAAAAAAAAAAAAAAAAAAA/QAAAAAAAAAAAAAAAAAAAQkCAxIAZQMMAAAAJwkHBwAAAAABAQAAAAAAAAAAAAAAAAAAAAACAQAAAAAAAAAAAAAAAAAAAAADAQAAAAAAAAAAAAAAAAAAAAAEAQAAAAAAAAAAAAAAAAAAAAAFAQAAAAAAAAAAAAAAAAAAAAAGAQAAAAAAAAAAAAAAAAAAAAAAHA==",
+      "name": "checksum",
+      "output": null
+    },
+    {
+      "error": "invalid CTA boundary",
+      "input": "AP///////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwEAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAAAAAAAAAAAAAAAAAAAA/AAAAAAAAAAAAAAAAAAAAAAA/QAAAAAAAAAAAAAAAAAAAQkCAwAAZQMMAAAAJwkHBwAAAAABAQAAAAAAAAAAAAAAAAAAAAACAQAAAAAAAAAAAAAAAAAAAAADAQAAAAAAAAAAAAAAAAAAAAAEAQAAAAAAAAAAAAAAAAAAAAAFAQAAAAAAAAAAAAAAAAAAAAAGAQAAAAAAAAAAAAAAAAAAAAAALg==",
+      "name": "boundary",
+      "output": null
+    },
+    {
+      "error": "invalid CTA data block",
+      "input": "AP///////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwEAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAAAAAAAAAAAAAAAAAAAA/AAAAAAAAAAAAAAAAAAAAAAA/QAAAAAAAAAAAAAAAAAAAQkCAxIAfwMMAAAAJwkHBwAAAAABAQAAAAAAAAAAAAAAAAAAAAACAQAAAAAAAAAAAAAAAAAAAAADAQAAAAAAAAAAAAAAAAAAAAAEAQAAAAAAAAAAAAAAAAAAAAAFAQAAAAAAAAAAAAAAAAAAAAAGAQAAAAAAAAAAAAAAAAAAAAAAAg==",
+      "name": "block",
+      "output": null
+    },
+    {
+      "error": "EDID has no room for monitor association without losing timings",
+      "input": "AP///////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwEAAAAAAAAAAAAAAAAAAAAAAAAA/AAAAAAAAAAAAAAAAAAAAAAA/AAAAAAAAAAAAAAAAAAAAAAA/QAAAAAAAAAAAAAAAAAAAQwCAxIAZQMMAAAAJwkHBwAAAAABAQAAAAAAAAAAAAAAAAAAAAACAQAAAAAAAAAAAAAAAAAAAAADAQAAAAAAAAAAAAAAAAAAAAAEAQAAAAAAAAAAAAAAAAAAAAAFAQAAAAAAAAAAAAAAAAAAAAAGAQAAAAAAAAAAAAAAAAAAAAAAHA==",
+      "name": "full",
+      "output": null
+    }
+  ],
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "sourceFunctions": [
+    "usbComposition.revision",
+    "usbComposition.endpointUsage",
+    "usbComposition.fitsEndpointBudget",
+    "usbComposition.validate",
+    "windowsPointerEDID"
+  ]
+}

@@ -16,6 +16,7 @@ ported = {
     ("GET", "/api/hid/mode"), ("GET", "/api/hid/input-status"),
     ("POST", "/api/hid/mode"), ("POST", "/api/hid/reset"),
     ("POST", "/api/internal/usb/recover"),
+    ("GET", "/api/vm/device/virtual"), ("POST", "/api/vm/device/virtual"), ("PUT", "/api/vm/device/virtual"),
     ("GET", "/api/hid/leds"),
     ("GET", "/api/vm/mouse-jiggler"), ("POST", "/api/vm/mouse-jiggler/"),
     ("GET", "/api/hid/shortcuts"), ("POST", "/api/hid/shortcut"), ("DELETE", "/api/hid/shortcut"),
@@ -53,6 +54,9 @@ for r in routes:
     if r['path'] == '/api/internal/usb/recover':
         r['evidence'] = ['server-rust/src/internal.rs', 'server-rust/src/usb.rs', 'docs/experiments/v3.0/stage3-internal-usb.md']
         evidence = 'stage3-internal-usb.md; actual-peer auth/HTTP exception/injected recovery'
+    if r['path'] == '/api/vm/device/virtual':
+        r['evidence'] = ['server-rust/src/composition.rs', 'server-rust/src/usb.rs', 'server-rust/src/monitor.rs', 'docs/experiments/v3.0/stage3-composition.md']
+        evidence = 'stage3-composition.md; actual-Go budget/EDID; injected native rebind/rollback'
     rows.append(f"| {r['method']} | `{r['path']}` | {r['authorization']}" +
                 (" + input owner" if r["input_owner"] else "") +
                 f" | {r['source']}:{r['line']} | {r['rust_status']} | {evidence} |")

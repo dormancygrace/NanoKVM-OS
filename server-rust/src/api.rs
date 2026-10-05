@@ -167,6 +167,19 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         ("POST", "/api/vm/web-title") => &["title"],
         ("POST", "/api/hid/shortcut") => &["keys"],
         ("POST", "/api/hid/mode") => &["mode"],
+        ("POST", "/api/vm/device/virtual") => &["device"],
+        ("PUT", "/api/vm/device/virtual") => &[
+            "pointerProfile",
+            "keyboard",
+            "relative",
+            "absolute",
+            "network",
+            "disk",
+            "serial",
+            "audio",
+            "mode",
+            "revision",
+        ],
         ("DELETE", "/api/hid/shortcut") => &["id"],
         ("POST", "/api/hid/shortcut/leader-key") => &["key"],
         ("POST", "/api/vm/mouse-jiggler/") => &["enabled", "mode"],
@@ -184,7 +197,7 @@ fn params(headers: &HeaderMap, body: &[u8], method: &Method, path: &str) -> Resu
         Ok(crate::binding::json(
             body,
             fields(method, path),
-            method == Method::PUT,
+            method == Method::PUT && path.starts_with("/api/auth/users/"),
         )?)
     } else {
         let form: Vec<(String, String)> = serde_urlencoded::from_bytes(body)?;
@@ -197,6 +210,16 @@ fn params(headers: &HeaderMap, body: &[u8], method: &Method, path: &str) -> Resu
                     "key" => "Key",
                     "title" => "Title",
                     "mode" => "Mode",
+                    "device" => "Device",
+                    "pointerProfile" => "PointerProfile",
+                    "revision" => "Revision",
+                    "keyboard" => "Keyboard",
+                    "relative" => "Relative",
+                    "absolute" => "Absolute",
+                    "network" => "Network",
+                    "disk" => "Disk",
+                    "serial" => "Serial",
+                    "audio" => "Audio",
                     "enabled" if path == "/api/vm/mouse-jiggler/" => "Enabled",
                     name => name,
                 }
@@ -215,7 +238,17 @@ fn params(headers: &HeaderMap, body: &[u8], method: &Method, path: &str) -> Resu
                     .push(item);
                 continue;
             }
-            let value = if canonical == "enabled" {
+            let value = if matches!(
+                canonical,
+                "enabled"
+                    | "keyboard"
+                    | "relative"
+                    | "absolute"
+                    | "network"
+                    | "disk"
+                    | "serial"
+                    | "audio"
+            ) {
                 Value::Bool(match value.trim() {
                     "1" | "t" | "T" | "true" | "TRUE" | "True" => true,
                     "" | "0" | "f" | "F" | "false" | "FALSE" | "False" => false,
@@ -411,6 +444,9 @@ fn handle(
                 crate::jiggler::handle(s, method, parsed)
             }
             ("POST", "/api/internal/usb/recover") => crate::usb::recover(s),
+            ("GET" | "POST" | "PUT", "/api/vm/device/virtual") => {
+                crate::usb::composition_response(s, method, parsed)
+            }
             ("GET", "/api/branding") => crate::branding::status(&s.root),
             ("GET", "/api/branding/logo") => crate::branding::image(&s.root, "logo.png", headers),
             ("GET", "/api/branding/favicon") => {

@@ -1,6 +1,6 @@
 # Functional parity matrix
 
-204 baseline registrations: 28 implemented in the isolated Rust slice, 1 partial, 175 pending. This is source/host qualification, not complete hardware parity.
+204 baseline registrations: 31 implemented in the isolated Rust slice, 1 partial, 172 pending. This is source/host qualification, not complete hardware parity.
 
 Owner OS password synchronization cannot run in an isolated root; its rollback path is tested. Internal routes require their loopback credential; pending handlers return 501 after that gate. MCP API-key routes fail closed. Pending public/session/admin routes return HTTP 501 after their access gate. All nonpublic baseline routes have an unauthenticated protection test.
 
@@ -172,9 +172,9 @@ Owner OS password synchronization cannot run in an isolated root; its rollback p
 | POST | `/api/vm/script/upload` | admin | server/router/vm.go:43 | pending | — |
 | POST | `/api/vm/script/run` | admin | server/router/vm.go:44 | pending | — |
 | DELETE | `/api/vm/script` | admin | server/router/vm.go:45 | pending | — |
-| GET | `/api/vm/device/virtual` | admin | server/router/vm.go:47 | pending | — |
-| POST | `/api/vm/device/virtual` | admin | server/router/vm.go:48 | pending | — |
-| PUT | `/api/vm/device/virtual` | admin | server/router/vm.go:49 | pending | — |
+| GET | `/api/vm/device/virtual` | admin | server/router/vm.go:47 | implemented-isolated | stage3-composition.md; actual-Go budget/EDID; injected native rebind/rollback |
+| POST | `/api/vm/device/virtual` | admin | server/router/vm.go:48 | implemented-isolated | stage3-composition.md; actual-Go budget/EDID; injected native rebind/rollback |
+| PUT | `/api/vm/device/virtual` | admin | server/router/vm.go:49 | implemented-isolated | stage3-composition.md; actual-Go budget/EDID; injected native rebind/rollback |
 | GET | `/api/vm/memory/status` | admin | server/router/vm.go:51 | pending | — |
 | POST | `/api/vm/memory/swap` | admin | server/router/vm.go:52 | pending | — |
 | POST | `/api/vm/memory/video` | admin | server/router/vm.go:53 | pending | — |

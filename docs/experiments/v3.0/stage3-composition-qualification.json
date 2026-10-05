@@ -1,0 +1,60 @@
+{
+  "fmt": {
+    "exit": 0,
+    "seconds": 0.128,
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "clippy": {
+    "exit": 0,
+    "seconds": 0.664,
+    "log_sha256": "bf727f4709ab813f5cf3887b74285e9392bc126e2643e38c98859f1f45d48968"
+  },
+  "host-contracts": {
+    "exit": 0,
+    "seconds": 36.449,
+    "log_sha256": "aec022655ae3999f2210b59f191434d98f9d24d95457f956219739a6e45fb962"
+  },
+  "target-build": {
+    "exit": 0,
+    "seconds": 22.399,
+    "log_sha256": "d786bdd8a9363a0b343388f9d183267433903290672fb29e6e741dec43f75a60"
+  },
+  "target-contracts": {
+    "exit": 0,
+    "seconds": 49.232,
+    "log_sha256": "22d7d6268c0ad1c5d5715eedef8c7ddbc38c51bb279d8cb81d87bea08f625b57"
+  },
+  "target-version": {
+    "exit": 0,
+    "seconds": 0.012,
+    "log_sha256": "45ab3a914204af49b93add1fe3d39a590e5df3bd17e51f7eee8a5c1f3ddc309e"
+  },
+  "target-file": {
+    "exit": 0,
+    "seconds": 0.017,
+    "log_sha256": "f844687d64c97e8e9669dd24e5e25fffc94bef64e6c16bd75ba30dfa1b19707a"
+  },
+  "target-binary": {
+    "sha256": "d499689a8bb71a2ce57fb16e9b29c37da6d9929d8200319a0d8a9af441e26cd8",
+    "bytes": 6317944
+  },
+  "tls-cert": {
+    "exit": 0,
+    "seconds": 0.016,
+    "log_sha256": "97500e0df7d5c61d242e3bd25d9b6f99ace59aa68c862c1f49888afea9944f7a"
+  },
+  "tls-runtime": {
+    "verified_certificate": true,
+    "redirect": 307,
+    "secure_cookie": true,
+    "internal_loopback_http_exception": true,
+    "unauthorized_internal_redirect": 307,
+    "sigterm_exit": 0,
+    "shutdown_seconds": 0.015,
+    "occupied_port_fails_closed": true
+  },
+  "licenses": {
+    "resolved_packages": 163,
+    "missing_spdx": []
+  }
+}

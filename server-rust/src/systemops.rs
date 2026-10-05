@@ -11,6 +11,9 @@ use std::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
     UsbPhyRestart,
+    UsbStop,
+    UsbStart,
+    ReloadInit,
     Reboot,
 }
 pub trait Executor: Send + Sync {
@@ -38,6 +41,23 @@ impl Executor for Native {
             Action::UsbPhyRestart => {
                 let mut command = Command::new("sh");
                 command.args(["/etc/init.d/S03usbdev", "restart_phy"]);
+                command
+            }
+            Action::UsbStop | Action::UsbStart => {
+                let mut command = Command::new("sh");
+                command.args([
+                    "/etc/init.d/S03usbdev",
+                    if action == Action::UsbStop {
+                        "stop"
+                    } else {
+                        "start"
+                    },
+                ]);
+                command
+            }
+            Action::ReloadInit => {
+                let mut command = Command::new("kill");
+                command.args(["-HUP", "1"]);
                 command
             }
             Action::Reboot => Command::new("reboot"),

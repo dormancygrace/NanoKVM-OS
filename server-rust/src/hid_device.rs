@@ -248,9 +248,11 @@ impl Devices {
             };
             let remaining = deadline.saturating_duration_since(Instant::now());
             if remaining.is_zero() {
-                return Err(
-                    format!("reopen HID devices after USB reconfiguration: {error}").into(),
-                );
+                let reopen = format!("reopen HID devices after USB reconfiguration: {error}");
+                return Err(match operation_result {
+                    Ok(()) => reopen.into(),
+                    Err(cause) => format!("{cause}; {reopen}").into(),
+                });
             }
             std::thread::sleep(remaining.min(Duration::from_millis(100)));
         }

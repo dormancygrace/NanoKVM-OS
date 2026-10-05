@@ -1,0 +1,40 @@
+--- a/arch/riscv/include/asm/vector.h
++++ b/arch/riscv/include/asm/vector.h
+@@ -123,7 +123,9 @@
+ 
+ static __always_inline bool riscv_v_is_on(void)
+ {
+-	return !!(csr_read(CSR_SSTATUS) & SR_VS);
++	unsigned long mask = has_xtheadvector() ? SR_VS_THEAD : SR_VS;
++
++	return !!(csr_read(CSR_SSTATUS) & mask);
+ }
+ 
+ static __always_inline void __vstate_csr_save(struct __riscv_v_ext_state *dest)
+--- a/arch/riscv/kernel/entry.S
++++ b/arch/riscv/kernel/entry.S
+@@ -16,6 +16,8 @@
+ #include <asm/thread_info.h>
+ #include <asm/asm-offsets.h>
+ #include <asm/errata_list.h>
++#include <asm/vendor_extensions.h>
++#include <asm/vendor_extensions/thead.h>
+ #include <linux/sizes.h>
+ 
+ 	.section .irqentry.text, "ax"
+@@ -178,7 +180,14 @@
+ 	 * Disable the FPU/Vector to detect illegal usage of floating point
+ 	 * or vector in kernel space.
+ 	 */
+-	li t0, SR_SUM | SR_FS_VS
++
++	/* Legacy T-Head VS is outside the standard SR_FS_VS mask. Keep the
++	 * standard entry mask on other CPUs, including their reserved bits. */
++	ALTERNATIVE(__stringify(li t0, SR_SUM | SR_FS_VS),
++		    __stringify(li t0, SR_SUM | SR_FS_VS | SR_VS_THEAD),
++		    THEAD_VENDOR_ID,
++		    RISCV_VENDOR_EXT_ALTERNATIVES_BASE + RISCV_ISA_VENDOR_EXT_XTHEADVECTOR,
++		    CONFIG_RISCV_ISA_XTHEADVECTOR)
+ #ifdef CONFIG_64BIT
+ 	li t1, SR_ELP
+ 	or t0, t0, t1

@@ -92,3 +92,16 @@ and modifies a fresh kernel tree with patch 0036 already applied. Optional
 threshold arguments allow controlled tuning. Keep GCC kernel C at O3 with
 compiler vectorization disabled; the vector routines are explicit legacy
 assembly. Do not add RVV 1.0 or vector-crypto requirements to the C906 build.
+
+The context correction in patch 0038 must accompany these preemptive T-Head
+vector functions. It selects the proper legacy VS mask in the status predicate
+and clears legacy VS at trap entry using a vendor extension alternative.
+Other processors retain the standard entry mask. Correcting only the predicate
+does not qualify the preemptive path. Check both actual source contracts before
+building, then qualify the complete kernel and matched modules on hardware:
+
+    ./check-vector-status.py SOURCE
+    ./check-trap-mask.py SOURCE
+
+The host checks cover both architectures' state contracts; they do not execute
+RISC-V instructions or replace signal, fault, IRQ and production-function tests.

@@ -209,3 +209,27 @@ Hostname after qualification:99 tests pass on host and target, fmt/clippy/static
 Hostname commit before command:99 host/target/TLS passes; stage verified source/oracle/generator/qualification/docs/ledger only and create bounded local commit. No push, native hostname action or stand change.
 
 Hostname local commit created successfully; amend same bounded stage to record completion/next system actions. Jiff remains candidate only, no dependency change.
+
+OLED/signed binding before edits: hostname committed36058e6, clean. Add optional signed Sleep field with raw numeric token parsing (Go accepts -0 unlike serde i64), form names/default/first and existing Go primitive null/duplicate semantics. Port admin OLED status/sleep flags with no native operation, atomic writes preserving existing mode, allowed values/errors. Nineteen actual baseline Gin signed cases plus API file/admin/forms fixtures. Target CPU signed field prepared but no CPU routes claimed yet.
+
+Shared binder review before fix: Go accepts lone UTF16 escapes and replaces every invalidUTF8 byte, whereas serde rejects lone escapes and Rust lossy conversion can group bytes. Normalize JSON strings safely (preserve paired escapes/escaped backslashes), keep maintained serde parser and actual Go depth10000 scanner for every struct/shortcut binder. Add13 actual baseline string/key/binary cases; fix hostname GET replacement count. URL-form raw byte persistence remains separate unported integration.
+
+OLED/shared-string qualification before command:39unit and OLEDAPI cases pass; actual19Go signed and13UTF8/UTF16 cases match. Run check-v3.py --host --target --tls, expected102tests; no new dependency or stand operation.
+
+Jiff probe before implementation: official0.2.37 active Sep12, build isolated temporary crate with default-features=false/std and explicit TZif bytes. Compare actual Go LoadLocationFromTZData offsets across six system zones/historical/future epochs plus corrupt/truncated data. Run host and generic-rv64 static musl/QEMU; no server dependency or time/zone/daemon changes.
+
+Jiff probe correction before rerun: six far-future cases selected a timestamp beyond Jiff global range near final9999day. Parser/other offsets matched; use9999Dec29 inside shared supported domain. Jiff will validate TZif only in the time API; no claim of whole-Go datetime range equivalence.
+
+Jiff probe before implementation: official0.2.37 active Sep12, build isolated temporary crate with default-features=false/std and explicit TZif bytes. Compare actual Go LoadLocationFromTZData offsets across six system zones/historical/future epochs plus corrupt/truncated data. Run host and generic-rv64 static musl/QEMU; no server dependency or time/zone/daemon changes.
+
+Jiff probe result:58 actual Go cases match host and target, six system TZif zones through1900..9999 plus four invalid files; std-only/no auto system database features. Static target SHA256 7e9dc531c7d5ec0e75c3384dcab22b61a048c14feffd34754ff2fdeb833f0b8b. Server/time API integration remains pending.
+
+OLED/string slice after qualification:102 host/target tests, fmt/clippy/static/TLS pass. Save exact evidence; Jiff independent58-case probe passes and remains unlinked from server. Stage OLED/binder/docs and reproducible locked Jiff proof, then local bounded commit. No firmware/time/stand action.
+
+Jiff probe before implementation: official0.2.37 active Sep12, build isolated temporary crate with default-features=false/std and explicit TZif bytes. Compare actual Go LoadLocationFromTZData offsets across six system zones/historical/future epochs plus corrupt/truncated data. Run host and generic-rv64 static musl/QEMU; no server dependency or time/zone/daemon changes.
+
+Jiff probe result:58 actual Go cases match host and target, six system TZif zones through1900..9999 plus four invalid files; std-only/no auto system database features. Static target SHA256 7e9dc531c7d5ec0e75c3384dcab22b61a048c14feffd34754ff2fdeb833f0b8b. Server/time API integration remains pending.
+
+OLED/string commit before command: all102 host/target/TLS tests and independent58-case locked Jiff replay pass. Stage source/oracles/fixtures/docs/ledger/probe only and commit locally; no server dependency, external publication or stand change.
+
+OLED/string bounded local commit created; amend to record completion and next CPU/time settings action. All102 tests passed, Jiff58-case host/target parser proof saved; no firmware action.

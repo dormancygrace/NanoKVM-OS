@@ -166,6 +166,7 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         ("POST", "/api/auth/users") => &["username", "password", "role"],
         ("POST", "/api/vm/web-title") => &["title"],
         ("POST", "/api/vm/hostname") => &["hostname"],
+        ("POST", "/api/vm/oled") => &["sleep"],
         ("POST", "/api/hid/shortcut") => &["keys"],
         ("POST", "/api/hid/paste") => &["content", "langue"],
         ("POST", "/api/hid/mode") => &["mode"],
@@ -219,6 +220,8 @@ fn params(
                     "key" => "Key",
                     "title" => "Title",
                     "hostname" => "Hostname",
+                    "sleep" => "Sleep",
+                    "target" => "Target",
                     "mode" => "Mode",
                     "device" => "Device",
                     "pointerProfile" => "PointerProfile",
@@ -248,7 +251,11 @@ fn params(
                     .push(item);
                 continue;
             }
-            let value = if matches!(
+            let value = if matches!(canonical, "sleep" | "target") {
+                let value = value.trim();
+                let value = if value.is_empty() { "0" } else { value };
+                Value::from(value.parse::<i64>()?)
+            } else if matches!(
                 canonical,
                 "enabled"
                     | "keyboard"
@@ -462,6 +469,8 @@ fn handle(
         }
         let secure = secure_cookie(s, headers, peer);
         match (method.as_str(), path) {
+            ("GET", "/api/vm/oled") => crate::oled::get(s),
+            ("POST", "/api/vm/oled") => crate::oled::set(s, parsed),
             ("GET", "/api/vm/hostname") => crate::hostname::get(s),
             ("POST", "/api/vm/hostname") => crate::hostname::set(s, parsed),
             ("GET", "/api/vm/hardware") => ok(json!({"version":s.hardware.version})),

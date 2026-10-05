@@ -1,0 +1,372 @@
+{
+  "version": "0.2.37",
+  "features": [
+    "std"
+  ],
+  "defaultFeatures": false,
+  "host": "pass",
+  "target": "riscv64 generic musl static/QEMU pass",
+  "goCases": 58,
+  "zones": [
+    "UTC",
+    "Europe/London",
+    "America/New_York",
+    "Asia/Jerusalem",
+    "Australia/Lord_Howe",
+    "Pacific/Apia"
+  ],
+  "caseResults": [
+    {
+      "error": false,
+      "name": "UTC",
+      "offset": 0,
+      "second": -2208988800
+    },
+    {
+      "error": false,
+      "name": "UTC",
+      "offset": 0,
+      "second": -1
+    },
+    {
+      "error": false,
+      "name": "UTC",
+      "offset": 0,
+      "second": 0
+    },
+    {
+      "error": false,
+      "name": "UTC",
+      "offset": 0,
+      "second": 946684800
+    },
+    {
+      "error": false,
+      "name": "UTC",
+      "offset": 0,
+      "second": 1710052200
+    },
+    {
+      "error": false,
+      "name": "UTC",
+      "offset": 0,
+      "second": 1761442200
+    },
+    {
+      "error": false,
+      "name": "UTC",
+      "offset": 0,
+      "second": 1791144000
+    },
+    {
+      "error": false,
+      "name": "UTC",
+      "offset": 0,
+      "second": 4102444800
+    },
+    {
+      "error": false,
+      "name": "UTC",
+      "offset": 0,
+      "second": 253402041600
+    },
+    {
+      "error": false,
+      "name": "Europe/London",
+      "offset": 0,
+      "second": -2208988800
+    },
+    {
+      "error": false,
+      "name": "Europe/London",
+      "offset": 3600,
+      "second": -1
+    },
+    {
+      "error": false,
+      "name": "Europe/London",
+      "offset": 3600,
+      "second": 0
+    },
+    {
+      "error": false,
+      "name": "Europe/London",
+      "offset": 0,
+      "second": 946684800
+    },
+    {
+      "error": false,
+      "name": "Europe/London",
+      "offset": 0,
+      "second": 1710052200
+    },
+    {
+      "error": false,
+      "name": "Europe/London",
+      "offset": 0,
+      "second": 1761442200
+    },
+    {
+      "error": false,
+      "name": "Europe/London",
+      "offset": 3600,
+      "second": 1791144000
+    },
+    {
+      "error": false,
+      "name": "Europe/London",
+      "offset": 0,
+      "second": 4102444800
+    },
+    {
+      "error": false,
+      "name": "Europe/London",
+      "offset": 0,
+      "second": 253402041600
+    },
+    {
+      "error": false,
+      "name": "America/New_York",
+      "offset": -18000,
+      "second": -2208988800
+    },
+    {
+      "error": false,
+      "name": "America/New_York",
+      "offset": -18000,
+      "second": -1
+    },
+    {
+      "error": false,
+      "name": "America/New_York",
+      "offset": -18000,
+      "second": 0
+    },
+    {
+      "error": false,
+      "name": "America/New_York",
+      "offset": -18000,
+      "second": 946684800
+    },
+    {
+      "error": false,
+      "name": "America/New_York",
+      "offset": -18000,
+      "second": 1710052200
+    },
+    {
+      "error": false,
+      "name": "America/New_York",
+      "offset": -14400,
+      "second": 1761442200
+    },
+    {
+      "error": false,
+      "name": "America/New_York",
+      "offset": -14400,
+      "second": 1791144000
+    },
+    {
+      "error": false,
+      "name": "America/New_York",
+      "offset": -18000,
+      "second": 4102444800
+    },
+    {
+      "error": false,
+      "name": "America/New_York",
+      "offset": -18000,
+      "second": 253402041600
+    },
+    {
+      "error": false,
+      "name": "Asia/Jerusalem",
+      "offset": 8440,
+      "second": -2208988800
+    },
+    {
+      "error": false,
+      "name": "Asia/Jerusalem",
+      "offset": 7200,
+      "second": -1
+    },
+    {
+      "error": false,
+      "name": "Asia/Jerusalem",
+      "offset": 7200,
+      "second": 0
+    },
+    {
+      "error": false,
+      "name": "Asia/Jerusalem",
+      "offset": 7200,
+      "second": 946684800
+    },
+    {
+      "error": false,
+      "name": "Asia/Jerusalem",
+      "offset": 7200,
+      "second": 1710052200
+    },
+    {
+      "error": false,
+      "name": "Asia/Jerusalem",
+      "offset": 7200,
+      "second": 1761442200
+    },
+    {
+      "error": false,
+      "name": "Asia/Jerusalem",
+      "offset": 10800,
+      "second": 1791144000
+    },
+    {
+      "error": false,
+      "name": "Asia/Jerusalem",
+      "offset": 7200,
+      "second": 4102444800
+    },
+    {
+      "error": false,
+      "name": "Asia/Jerusalem",
+      "offset": 7200,
+      "second": 253402041600
+    },
+    {
+      "error": false,
+      "name": "Australia/Lord_Howe",
+      "offset": 36000,
+      "second": -2208988800
+    },
+    {
+      "error": false,
+      "name": "Australia/Lord_Howe",
+      "offset": 36000,
+      "second": -1
+    },
+    {
+      "error": false,
+      "name": "Australia/Lord_Howe",
+      "offset": 36000,
+      "second": 0
+    },
+    {
+      "error": false,
+      "name": "Australia/Lord_Howe",
+      "offset": 39600,
+      "second": 946684800
+    },
+    {
+      "error": false,
+      "name": "Australia/Lord_Howe",
+      "offset": 39600,
+      "second": 1710052200
+    },
+    {
+      "error": false,
+      "name": "Australia/Lord_Howe",
+      "offset": 39600,
+      "second": 1761442200
+    },
+    {
+      "error": false,
+      "name": "Australia/Lord_Howe",
+      "offset": 39600,
+      "second": 1791144000
+    },
+    {
+      "error": false,
+      "name": "Australia/Lord_Howe",
+      "offset": 39600,
+      "second": 4102444800
+    },
+    {
+      "error": false,
+      "name": "Australia/Lord_Howe",
+      "offset": 39600,
+      "second": 253402041600
+    },
+    {
+      "error": false,
+      "name": "Pacific/Apia",
+      "offset": -41216,
+      "second": -2208988800
+    },
+    {
+      "error": false,
+      "name": "Pacific/Apia",
+      "offset": -39600,
+      "second": -1
+    },
+    {
+      "error": false,
+      "name": "Pacific/Apia",
+      "offset": -39600,
+      "second": 0
+    },
+    {
+      "error": false,
+      "name": "Pacific/Apia",
+      "offset": -39600,
+      "second": 946684800
+    },
+    {
+      "error": false,
+      "name": "Pacific/Apia",
+      "offset": 46800,
+      "second": 1710052200
+    },
+    {
+      "error": false,
+      "name": "Pacific/Apia",
+      "offset": 46800,
+      "second": 1761442200
+    },
+    {
+      "error": false,
+      "name": "Pacific/Apia",
+      "offset": 46800,
+      "second": 1791144000
+    },
+    {
+      "error": false,
+      "name": "Pacific/Apia",
+      "offset": 46800,
+      "second": 4102444800
+    },
+    {
+      "error": false,
+      "name": "Pacific/Apia",
+      "offset": 46800,
+      "second": 253402041600
+    },
+    {
+      "error": true,
+      "name": "bad-magic",
+      "offset": 0,
+      "second": 0
+    },
+    {
+      "error": true,
+      "name": "truncated",
+      "offset": 0,
+      "second": 0
+    },
+    {
+      "error": true,
+      "name": "empty",
+      "offset": 0,
+      "second": 0
+    },
+    {
+      "error": true,
+      "name": "zero-header",
+      "offset": 0,
+      "second": 0
+    }
+  ],
+  "binarySha256": "7e9dc531c7d5ec0e75c3384dcab22b61a048c14feffd34754ff2fdeb833f0b8b",
+  "binaryBytes": 735408,
+  "elf": "/home/dgrace/nanokvm-astra/v3.0-experimental/work/v3/jiff-probe/target/riscv64gc-unknown-linux-musl/release/v3-jiff-probe: ELF 64-bit LSB executable, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), statically linked, not stripped",
+  "use": "qualified isolated parser probe; not yet linked into server/time API"
+}

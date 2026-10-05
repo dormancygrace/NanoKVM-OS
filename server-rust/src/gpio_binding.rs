@@ -69,7 +69,8 @@ pub(crate) fn parse(
         }
         crate::json_syntax::first_value(body)?;
         // Gin invokes Decoder.Decode once, so it accepts a trailing value.
-        let mut parser = serde_json::Deserializer::from_slice(body);
+        let normalized = crate::json_text::normalize(body);
+        let mut parser = serde_json::Deserializer::from_slice(&normalized);
         let raw = Box::<RawValue>::deserialize(&mut parser).map_err(|error| {
             if error.is_eof() {
                 "unexpected EOF".to_owned()

@@ -55,6 +55,13 @@ impl<'de> Visitor<'de> for Object {
             };
             let value = match canonical {
                 "keys" => object.next_value_seed(Keys)?,
+                "sleep" | "target" => {
+                    let raw = object.next_value::<Box<serde_json::value::RawValue>>()?;
+                    if raw.get() == "null" {
+                        continue;
+                    }
+                    Value::from(raw.get().parse::<i64>().map_err(de::Error::custom)?)
+                }
                 "enabled" | "keyboard" | "relative" | "absolute" | "network" | "disk"
                 | "serial" | "audio" => match object.next_value::<Option<bool>>()? {
                     Some(value) => Value::Bool(value),
@@ -105,7 +112,9 @@ pub(crate) fn json(
     fields: &'static [&'static str],
     nullable: bool,
 ) -> Result<Value, serde_json::Error> {
-    let mut parser = serde_json::Deserializer::from_slice(data);
+    crate::json_syntax::first_value(data).map_err(<serde_json::Error as de::Error>::custom)?;
+    let normalized = crate::json_text::normalize(data);
+    let mut parser = serde_json::Deserializer::from_slice(&normalized);
     let value = Object {
         fields,
         nullable,
@@ -116,7 +125,9 @@ pub(crate) fn json(
     Ok(value)
 }
 pub(crate) fn json_key(data: &[u8]) -> Result<Value, serde_json::Error> {
-    let mut parser = serde_json::Deserializer::from_slice(data);
+    crate::json_syntax::first_value(data).map_err(<serde_json::Error as de::Error>::custom)?;
+    let normalized = crate::json_text::normalize(data);
+    let mut parser = serde_json::Deserializer::from_slice(&normalized);
     let value = Object {
         fields: &["code", "label"],
         nullable: false,
@@ -165,5 +176,34 @@ mod tests {
             .unwrap(),
             serde_json::json!({"username":"viewer","keys":[]})
         );
+    }
+}
+
+#[cfg(test)]
+mod signed_oracle_tests {
+    use super::*;
+    #[test]
+    fn actual_baseline_signed_json_binding() {
+        let oracle: Value = serde_json::from_str(include_str!(
+            "../../docs/experiments/v3.0/signed-go-oracle.json"
+        ))
+        .unwrap();
+        for case in oracle.as_array().unwrap() {
+            let result = json(case["body"].as_str().unwrap().as_bytes(), &["sleep"], false);
+            assert_eq!(
+                result.is_err(),
+                case["error"].as_bool().unwrap(),
+                "{}",
+                case["name"]
+            );
+            if let Ok(v) = result {
+                assert_eq!(
+                    v["sleep"].as_i64().unwrap_or(0),
+                    case["sleep"],
+                    "{}",
+                    case["name"]
+                );
+            }
+        }
     }
 }

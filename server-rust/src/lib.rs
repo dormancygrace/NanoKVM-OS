@@ -25,6 +25,7 @@ mod json_syntax;
 mod json_text;
 pub mod leds;
 pub mod lockout;
+pub mod memory_status;
 pub mod monitor;
 mod oled;
 mod paste;

@@ -1978,8 +1978,9 @@
     "handler": "service.GetMemoryStatus",
     "source": "server/router/vm.go",
     "line": 51,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [],
+    "rust_evidence": "stage3-memory-read.md; tests/memory.rs; 34 actual Go filesystem/video cases and admin/error contracts; target/static/TLS gates"
   },
   {
     "method": "POST",

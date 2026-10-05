@@ -472,6 +472,7 @@ fn handle(
         }
         let secure = secure_cookie(s, headers, peer);
         match (method.as_str(), path) {
+            ("GET", "/api/vm/memory/status") => crate::memory_status::get(s),
             ("GET", "/api/vm/info") => crate::sysinfo::get(s),
             ("GET", "/api/vm/mdns") => crate::sysinfo::mdns(s),
             ("GET", "/api/vm/date-time") => crate::timeconfig::get(s),
@@ -605,12 +606,7 @@ fn handle(
                     Err(e) => error(-3, &e.to_string()),
                 }
             }
-            ("GET", "/api/vm/web-title") => match std::fs::read_to_string(
-                config::rooted(&s.root, "/etc/kvm/web-title").unwrap(),
-            ) {
-                Ok(title) => ok(json!({"title":title.replace('\n',"")})),
-                Err(_) => error(-1, "read web title failed"),
-            },
+            ("GET", "/api/vm/web-title") => crate::sysinfo::title(s),
             ("POST", "/api/vm/web-title") => {
                 let Ok(v) = parsed else {
                     return error(-1, "invalid arguments");

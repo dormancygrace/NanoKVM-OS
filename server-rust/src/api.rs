@@ -166,6 +166,7 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         ("POST", "/api/auth/users") => &["username", "password", "role"],
         ("POST", "/api/vm/web-title") => &["title"],
         ("POST", "/api/hid/shortcut") => &["keys"],
+        ("POST", "/api/hid/paste") => &["content", "langue"],
         ("POST", "/api/hid/mode") => &["mode"],
         ("POST", "/api/vm/device/virtual") => &["device"],
         ("PUT", "/api/vm/device/virtual") => &[
@@ -355,9 +356,19 @@ pub async fn dispatch(State((s, _)): State<(Arc<Runtime>, PathBuf)>, request: Re
     let Ok(permit) = s.jobs.clone().try_acquire_owned() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
+    let cancelled = Arc::new(crate::request_cancel::Cancellation::default());
+    let _guard = crate::request_cancel::Guard(cancelled.clone());
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
-        let mut response = handle(&s, &route, &method, &path, &headers, peer, &body);
+        let mut response = handle(
+            &s,
+            &route,
+            &method,
+            &path,
+            &headers,
+            peer,
+            (&body, &cancelled),
+        );
         if method == Method::POST && path == "/api/auth/login" {
             response
                 .0
@@ -388,8 +399,9 @@ fn handle(
     path: &str,
     headers: &HeaderMap,
     peer: IpAddr,
-    body: &[u8],
+    request_body: (&[u8], &crate::request_cancel::Cancellation),
 ) -> (Response, Duration) {
+    let (body, cancelled) = request_body;
     let result = || -> Response {
         if s.stopping.load(std::sync::atomic::Ordering::Acquire) {
             return StatusCode::SERVICE_UNAVAILABLE.into_response();
@@ -442,6 +454,21 @@ fn handle(
         match (method.as_str(), path) {
             ("GET", "/api/vm/mouse-jiggler") | ("POST", "/api/vm/mouse-jiggler/") => {
                 crate::jiggler::handle(s, method, parsed)
+            }
+            ("POST", "/api/hid/paste") => {
+                let Ok(principal) = principal(s, headers) else {
+                    return unauthorized();
+                };
+                crate::paste::handle(
+                    s,
+                    parsed,
+                    principal,
+                    headers
+                        .get("x-nanokvm-input-lease")
+                        .and_then(|value| value.to_str().ok())
+                        .unwrap_or(""),
+                    cancelled,
+                )
             }
             ("POST", "/api/internal/usb/recover") => crate::usb::recover(s),
             ("GET" | "POST" | "PUT", "/api/vm/device/virtual") => {

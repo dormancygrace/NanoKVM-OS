@@ -1,6 +1,6 @@
 # Functional parity matrix
 
-204 baseline registrations: 31 implemented in the isolated Rust slice, 1 partial, 172 pending. This is source/host qualification, not complete hardware parity.
+204 baseline registrations: 32 implemented in the isolated Rust slice, 1 partial, 171 pending. This is source/host qualification, not complete hardware parity.
 
 Owner OS password synchronization cannot run in an isolated root; its rollback path is tested. Internal routes require their loopback credential; pending handlers return 501 after that gate. MCP API-key routes fail closed. Pending public/session/admin routes return HTTP 501 after their access gate. All nonpublic baseline routes have an unauthenticated protection test.
 
@@ -61,7 +61,7 @@ Owner OS password synchronization cannot run in an isolated root; its rollback p
 | POST | `/api/extensions/netbird/start` | admin | server/router/extensions.go:52 | pending | — |
 | POST | `/api/extensions/netbird/stop` | admin | server/router/extensions.go:53 | pending | — |
 | POST | `/api/extensions/netbird/restart` | admin | server/router/extensions.go:54 | pending | — |
-| POST | `/api/hid/paste` | session + input owner | server/router/hid.go:23 | pending | — |
+| POST | `/api/hid/paste` | session + input owner | server/router/hid.go:23 | implemented-isolated | stage3-paste.md; actual Go layouts/HID/HTTP disconnect/ownership/cadence |
 | GET | `/api/hid/shortcuts` | session | server/router/hid.go:25 | implemented-isolated | stage3-input.md; contract/filesystem |
 | GET | `/api/hid/shortcut/leader-key` | session | server/router/hid.go:26 | implemented-isolated | stage3-input.md; contract/filesystem |
 | GET | `/api/hid/mode` | session | server/router/hid.go:28 | implemented-isolated | stage3-input.md; contract/filesystem |

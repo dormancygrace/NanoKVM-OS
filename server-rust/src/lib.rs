@@ -16,7 +16,10 @@ pub mod jiggler;
 pub mod leds;
 pub mod lockout;
 pub mod monitor;
+mod paste;
+mod paste_layout;
 pub mod redirect;
+mod request_cancel;
 mod sessions;
 pub mod store;
 pub mod systemops;
@@ -45,6 +48,7 @@ pub struct Runtime {
     pub lockout: Mutex<lockout::Lockout>,
     pub jobs: Arc<Semaphore>,
     pub hid_settings: Mutex<()>,
+    pub paste: Mutex<()>,
     pub hid: Arc<hid_device::Devices>,
     pub input: Arc<input::Hub>,
     pub control: Arc<controlmode::Manager>,
@@ -99,6 +103,7 @@ impl Runtime {
             lockout: Mutex::new(lockout::Lockout::default()),
             jobs: Arc::new(Semaphore::new(4)),
             hid_settings: Mutex::new(()),
+            paste: Mutex::new(()),
             hid,
             input: Arc::new(input::Hub::new(move || {
                 if let Err(error) = release.release_all() {

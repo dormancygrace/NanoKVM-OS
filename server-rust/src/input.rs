@@ -280,6 +280,29 @@ impl Hub {
             });
         owner.is_none_or(|owner| !lease.is_empty() && equal(owner, lease))
     }
+    /// Capture the ownership generation for a long HTTP input operation.
+    pub(crate) fn http_generation(&self, lease: &str) -> Option<u64> {
+        let state = self.state().ok()?;
+        if state.cleanup {
+            return None;
+        }
+        let owner = state
+            .external
+            .as_ref()
+            .map(|e| e.lease.as_str())
+            .or_else(|| {
+                state
+                    .owner
+                    .and_then(|id| state.clients.get(&id))
+                    .map(|c| c.lease.as_str())
+            });
+        owner
+            .is_none_or(|owner| !lease.is_empty() && equal(owner, lease))
+            .then_some(state.generation)
+    }
+    pub(crate) fn allows_http_at(&self, lease: &str, generation: u64) -> bool {
+        self.http_generation(lease) == Some(generation)
+    }
     pub fn acquire_external(
         &self,
         lease: String,

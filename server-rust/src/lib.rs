@@ -90,6 +90,7 @@ pub struct Runtime {
     pub(crate) socket_slots: Arc<Semaphore>,
     pub(crate) hid_jobs: Arc<Semaphore>,
     pub(crate) control_jobs: Arc<Semaphore>,
+    pub(crate) cleanup_jobs: Arc<Semaphore>,
     pub(crate) stopping: std::sync::atomic::AtomicBool,
 }
 impl Runtime {
@@ -210,6 +211,7 @@ impl Runtime {
             socket_slots: Arc::new(Semaphore::new(64)),
             hid_jobs: Arc::new(Semaphore::new(2)),
             control_jobs: Arc::new(Semaphore::new(2)),
+            cleanup_jobs: Arc::new(Semaphore::new(2)),
             stopping: std::sync::atomic::AtomicBool::new(false),
         }))
     }
@@ -257,6 +259,7 @@ impl Runtime {
         self.socket_slots.close();
         self.hid_jobs.close();
         self.control_jobs.close();
+        self.cleanup_jobs.close();
         self.coordinator.cancel(inputcontrol::Cause::ModeChanged);
         self.pico_lock.release("");
         self.jiggler.stop();

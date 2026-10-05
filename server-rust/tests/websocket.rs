@@ -1505,3 +1505,30 @@ async fn encoded_websocket_endpoints_upgrade_authenticate_and_heartbeat() {
     }
     server.runtime.shutdown();
 }
+
+#[tokio::test]
+async fn socket_expiry_does_not_wait_for_api_jobs() {
+    let server = Server::new("").await;
+    let token = server.token("owner", 2);
+    let mut socket = server.socket(&token, &[]).await.unwrap();
+    let _ = control(&mut socket, true).await;
+    let _jobs = server
+        .runtime
+        .jobs
+        .clone()
+        .acquire_many_owned(4)
+        .await
+        .unwrap();
+    socket
+        .send(Message::Binary(vec![3, 0].into()))
+        .await
+        .unwrap();
+    let _ = control(&mut socket, false).await;
+    socket.send(Message::Binary(vec![0].into())).await.unwrap();
+    assert_eq!(
+        event(&mut socket, "heartbeat").await,
+        json!({"type":"heartbeat","data":""})
+    );
+    assert_eq!(close_code(&mut socket).await, 4401);
+    server.runtime.shutdown();
+}

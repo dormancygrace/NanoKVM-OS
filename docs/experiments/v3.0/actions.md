@@ -373,3 +373,11 @@ Native link probe result: static generic riscv64 musl/QEMU refuses synthetic dlo
 Services after full qualification:158 host/target tests (53unit+27API+5dashboard+9CPU+8time+3identity+3memory+6mutations+3services+21WS+9USB+11GPIO), fmt/clippy/static/TLS gates pass.41 immutable Go contracts. Binaryf1c3026ffbd6973c24730c72778d5d5fa812d5e19a95a5f410aee26b8b470202 (6884328bytes),173 SPDX. Ledger57 isolated/1partial/146pending. Before local bounded services commit. Native loader probe evidence remains separate. No host/stand service/password/capture action.
 
 Services local commit e3daa36 created after qualification; log amendment. No push. Next native static/shared boundary evidence.
+
+Native evidence before reproducible handoff: only shared libkvm/MPI binaries found in accessible matched artifacts and SDK; CMake explicitly DYNAMIC. Install probe script with core dumps disabled and platform override. Record candidate C hardware-owner process/private inherited socketpair/one-copy shared immutable frame boundary; worker remains unimplemented and unqualified. Rust/browser transports stay native Rust; no Go bridge. No device action.
+
+Native link boundary before probe: retained kvm/kvm_mmf components are DYNAMIC; musl MPI CMake links vendor .so libraries. Check static riscv64 musl dlopen through the Rust distributed libc using a synthetic exported function only, inspect existing native/server ELF dependencies. No libkvm initialization, capture, HDMI, device access or stand action. Runtime source stays frozen for services qualification.
+
+Native link probe result: static generic riscv64 musl/QEMU refuses synthetic dlopen: Dynamic loading not supported. Existing server/native ELF dependencies recorded in native-link-probe.json; native .so not loaded or initialized. Need a reviewed static-native archive build or a retained C capture process boundary; do not assume dynamic loading works in static Rust. No runtime/source/device action.
+
+Native linkage evidence after reproducible rerun: Rust static loader returns expected controlled unsupported result;19 native ELF dependencies/hashes recorded. Sources and artifacts show only shared capture libraries. Probe has core dump disabled, no native initialization. Before local evidence commit; C worker/ABI implementation next, no device action.

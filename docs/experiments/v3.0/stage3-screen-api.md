@@ -1,0 +1,31 @@
+# Connected screen API and shared monitor profiles
+
+Both retained screen routes now use the Rust Runtime: session GET `/api/vm/screen` and admin POST `/api/vm/screen`. The previously qualified `screen::Manager` loads saved defaults once and supplies selected and effective capture settings. Screen settings, profile choices and native interfaces are connected; native worker startup and media transports remain the next work package.
+
+POST preserves Type/Value/ConfirmPowerCycle form names, first scalar/body-before-query rules and Gin whitespace trimming. JSON field matching is case-insensitive, signed integers reject floats/overflow, early duplicate type errors remain errors, primitive null does not replace a prior confirmation/value, and only the first JSON value is decoded. The existing session/admin/password-change policies apply before effects; screen settings are independent of another HID input lease.
+
+Settings retain their original paths and exact contents. FPS, stream limits, quality/bitrate, selected codec, GOP mode and chroma use the original ranges and response fields. Invalid GOP requests use 30, and GOP does not create a persistent file. Selected FPS remains unchanged when effective capture FPS is limited by the source/output dimensions. H.265 selection is permitted for Direct; it does not enable H.265 WebRTC.
+
+GET reports the retained screen, input/output dimensions, measured/effective FPS, active/selected GOP/chroma, fallback, hardware/ION/stride, landscape/portrait capabilities and power-cycle state. Native status is obtained through explicit `monitor::Backend` hooks. The default backend remains unavailable and reports an error; it does not invent active video status or acknowledge GOP/chroma/profile effects.
+
+All settings writes and publication use one cancellable operation lock. This prevents an earlier concurrent persistence operation from publishing after a later saved value. Chroma apply/save/publish/rollback is serialized; save failure reapplies the previous chroma and preserves the selected snapshot. Backend GOP failures now return an error without publishing a value the encoder did not accept; the Go void setter could silently acknowledge that failure.
+
+`screen_store` replaces settings atomically with data and directory sync. Ordinary Go-write settings retain existing permissions and follow confined legacy symlinks; new files honor the process umask with the original mode 0666 (monitor resolution 0600). Atomic portrait files use mode 0600 and replace a final symlink itself, matching the baseline atomic rename. Missing firmware parents are errors and are not created. Power-cycle acknowledgement removes the marker itself, including a final symlink, and never deletes its target.
+
+Landscape/portrait selection, capabilities and Windows-pointer decoration now share the existing Monitor mutex with USB profile changes. The lock spans profile selection, native effect and persistence. Landscape intent remains saved while portrait is active; disabling portrait restores that landscape. Cube confirmation/gates and the separate 64 MiB maximum portrait gate are retained, including the maximum-profile exception to the stride gate. Normal profile changes retain the stable ContainerID and exact EDID decoration. Temporary decorated files are removed after either success or failure.
+
+Screen requests waiting behind either settings or an independent USB monitor transaction can be cancelled before effects; their blocking API permit is released. An admitted effect completes persistence/cleanup. The next native package must bound/cancel actual worker/helper waits and preserve whole capture/EDID transactions. Profile persistence failure after successful programming explicitly reports that hardware changed while saving failed; saved state is not fabricated.
+
+## Qualification
+
+The ready immutable `screen-api-go-oracle.json` was reused without regeneration. Its 105 complete Go handler/profile cases match Rust responses, status, saved files, screen snapshots and ordered native effects. Native vision/status are fixtures, while profile selection, portrait/ION/stride/confirmation and pointer EDID logic are actual baseline code. No Go oracle belongs in the production runtime.
+
+Nine connected integration tests additionally cover real roles and a held unrelated input lease, native unavailability, chroma rollback and cancelled waiting requests, shared USB/profile serialization, cancellation behind USB, modes/legacy links/final-link rename/unlink, native GOP failure, selected/effective FPS, missing parents and profile-after-effect persistence failures. Existing USB and HDMI regressions pass. A stale older authentication test expecting a pending screen route was updated to the connected unavailable-backend response.
+
+`stage3-screen-api-qualification.json` contains frozen source hashes and full 213 host AND static generic riscv64/QEMU tests (92 unit, 121 integration), fmt/clippy, feature-free static release, resolved licenses and actual host/target certificate-verified HTTPS, 307 redirect, Secure cookie, SIGTERM, occupied-port rejection and internal-loopback gates. The default ELF contains no synthetic/vendor native implementation or DT_NEEDED entries.
+
+Commands: focused `cargo test --locked --test screen --test usb --test hdmi`; `cargo clippy --locked --all-targets --features native-fixture -- -D warnings`; frozen full `python3 scripts/check-v3.py --host --target --tls`; supplemental host-default `python3 scripts/check-v3.py --tls`. Results and qualification interruption/fix are recorded in actions.md. No dependency was added.
+
+## Remaining work
+
+Route ledger after this connected slice: 64 implemented-isolated, one partial-isolated, 139 pending of 204. This is not a complete replacement. Implement bounded synchronous native Actor admission, compound capture/EDID transactions, backend/status mapping, explicit startup/shutdown and audio ownership; then shared subscriptions/MJPEG/Direct/WebRTC and all remaining families/package/image. Hardware media/stability/performance remain unqualified, and the stand stays read-only until an agreed window. The explicitly requested full replacement goal remains ACTIVE.

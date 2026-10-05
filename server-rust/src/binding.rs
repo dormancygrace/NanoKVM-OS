@@ -64,13 +64,17 @@ impl<'de> Visitor<'de> for Object {
                     ),
                     None => Value::Null,
                 },
-                "sleep" | "target" | "size" | "sizeMiB" | "minutes" => {
+                "sleep" | "target" | "size" | "sizeMiB" | "minutes" | "value" => {
                     let raw = object.next_value::<Box<serde_json::value::RawValue>>()?;
                     if raw.get() == "null" {
                         continue;
                     }
                     Value::from(raw.get().parse::<i64>().map_err(de::Error::custom)?)
                 }
+                "confirmPowerCycle" => match object.next_value::<Option<bool>>()? {
+                    Some(value) => Value::Bool(value),
+                    None => continue,
+                },
                 "recompress" => object
                     .next_value::<Option<bool>>()?
                     .map_or(Value::Null, Value::Bool),

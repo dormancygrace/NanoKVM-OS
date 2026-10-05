@@ -172,6 +172,7 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         ("POST", "/api/vm/ssh/enable") => &["password"],
         ("POST", "/api/vm/oled") => &["sleep"],
         ("POST", "/api/vm/hdmi/timeout") => &["minutes"],
+        ("POST", "/api/vm/screen") => &["type", "value", "confirmPowerCycle"],
         ("POST", "/api/vm/cpu-frequency") => &["target"],
         ("POST", "/api/vm/date-time") => &["servers", "timezone", "format"],
         ("POST", "/api/vm/memory/swap") => &["kind", "enabled", "sizeMiB", "recompress"],
@@ -236,6 +237,9 @@ fn params(
                     "password" if path == "/api/vm/ssh/enable" => "Password",
                     "sleep" => "Sleep",
                     "minutes" => "Minutes",
+                    "type" => "Type",
+                    "value" => "Value",
+                    "confirmPowerCycle" => "ConfirmPowerCycle",
                     "size" => "Size",
                     "target" => "Target",
                     "mode" => "Mode",
@@ -267,13 +271,14 @@ fn params(
                     .push(item);
                 continue;
             }
-            let value = if matches!(canonical, "sleep" | "target" | "size" | "minutes") {
+            let value = if matches!(canonical, "sleep" | "target" | "size" | "minutes" | "value") {
                 let value = value.trim();
                 let value = if value.is_empty() { "0" } else { value };
                 Value::from(value.parse::<i64>()?)
             } else if matches!(
                 canonical,
                 "enabled"
+                    | "confirmPowerCycle"
                     | "keyboard"
                     | "relative"
                     | "absolute"
@@ -497,6 +502,8 @@ fn handle(
         let secure = secure_cookie(s, headers, peer);
         match (method.as_str(), path) {
             ("GET", "/api/vm/dashboard") => crate::dashboard::get(s),
+            ("GET", "/api/vm/screen") => crate::screen_api::get(s, cancelled),
+            ("POST", "/api/vm/screen") => crate::screen_api::set(s, parsed, cancelled),
             ("GET", "/api/vm/hdmi") => crate::hdmi::get(s),
             (
                 "POST",

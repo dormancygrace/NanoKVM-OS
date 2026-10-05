@@ -195,6 +195,7 @@ pub struct Manager {
     root: PathBuf,
     screen: RwLock<Screen>,
     timing: Mutex<Timing>,
+    pub(crate) updates: Mutex<()>,
 }
 impl Manager {
     pub fn load(root: &Path) -> Result<Self, Error> {
@@ -228,6 +229,7 @@ impl Manager {
             root,
             screen: RwLock::new(screen),
             timing: Mutex::new(Timing::default()),
+            updates: Mutex::new(()),
         })
     }
     pub fn snapshot(&self) -> Result<Screen, Error> {

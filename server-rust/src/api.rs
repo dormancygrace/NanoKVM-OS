@@ -171,6 +171,7 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         ("POST", "/api/vm/hostname") => &["hostname"],
         ("POST", "/api/vm/ssh/enable") => &["password"],
         ("POST", "/api/vm/oled") => &["sleep"],
+        ("POST", "/api/vm/hdmi/timeout") => &["minutes"],
         ("POST", "/api/vm/cpu-frequency") => &["target"],
         ("POST", "/api/vm/date-time") => &["servers", "timezone", "format"],
         ("POST", "/api/vm/memory/swap") => &["kind", "enabled", "sizeMiB", "recompress"],
@@ -234,6 +235,7 @@ fn params(
                     "hostname" => "Hostname",
                     "password" if path == "/api/vm/ssh/enable" => "Password",
                     "sleep" => "Sleep",
+                    "minutes" => "Minutes",
                     "size" => "Size",
                     "target" => "Target",
                     "mode" => "Mode",
@@ -265,7 +267,7 @@ fn params(
                     .push(item);
                 continue;
             }
-            let value = if matches!(canonical, "sleep" | "target" | "size") {
+            let value = if matches!(canonical, "sleep" | "target" | "size" | "minutes") {
                 let value = value.trim();
                 let value = if value.is_empty() { "0" } else { value };
                 Value::from(value.parse::<i64>()?)
@@ -495,6 +497,14 @@ fn handle(
         let secure = secure_cookie(s, headers, peer);
         match (method.as_str(), path) {
             ("GET", "/api/vm/dashboard") => crate::dashboard::get(s),
+            ("GET", "/api/vm/hdmi") => crate::hdmi::get(s),
+            (
+                "POST",
+                "/api/vm/hdmi/enable"
+                | "/api/vm/hdmi/disable"
+                | "/api/vm/hdmi/reset"
+                | "/api/vm/hdmi/timeout",
+            ) => crate::hdmi::handle(s, path, parsed, cancelled),
             ("GET", "/api/vm/memory/status") => crate::memory_status::get(s),
             ("POST", "/api/vm/memory/swap") => crate::memory_ops::swap(s, parsed, cancelled),
             ("POST", "/api/vm/memory/video") => crate::memory_ops::video(s, parsed, cancelled),
@@ -953,5 +963,52 @@ mod clock_tests {
             unix_seconds(UNIX_EPOCH + Duration::from_millis(1001)).unwrap(),
             1
         );
+    }
+}
+
+#[cfg(test)]
+mod scalar_form_oracle_tests {
+    use super::*;
+    #[test]
+    fn actual_gin_scalar_forms_trim_non_strings_and_preserve_first_value() {
+        let oracle: Value = serde_json::from_str(include_str!(
+            "../../docs/experiments/v3.0/form-scalar-go-oracle.json"
+        ))
+        .unwrap();
+        for row in oracle["cases"].as_array().unwrap() {
+            let case = &row["case"];
+            let (path, key) = match case["Field"].as_str().unwrap() {
+                "Size" => ("/api/vm/swap", "size"),
+                "Sleep" => ("/api/vm/oled", "sleep"),
+                "Enabled" => ("/api/vm/mouse-jiggler/", "enabled"),
+                _ => unreachable!(),
+            };
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                "content-type",
+                "application/x-www-form-urlencoded".parse().unwrap(),
+            );
+            let result = params(
+                &headers,
+                case["Body"].as_str().unwrap().as_bytes(),
+                &Method::POST,
+                path,
+                Some(case["Query"].as_str().unwrap()),
+            );
+            assert_eq!(
+                result.is_err(),
+                row["error"].as_bool().unwrap(),
+                "{}",
+                case["Name"]
+            );
+            if let Ok(value) = result {
+                let actual = if key == "enabled" {
+                    Value::Bool(value[key].as_bool().unwrap_or(false))
+                } else {
+                    Value::from(value[key].as_i64().unwrap_or(0))
+                };
+                assert_eq!(actual, row["value"], "{}", case["Name"]);
+            }
+        }
     }
 }

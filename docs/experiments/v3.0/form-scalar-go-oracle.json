@@ -1,0 +1,704 @@
+{
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "goVersion": "1.27.1",
+  "source_sha256": {
+    "server/proto/vm.go": "efb90cdca7c9e230a6e2405b9ffd767df87b78c03dab0ce078f9f92c3d38d188",
+    "server/go.mod": "6c73aefb26aa2af74f77cf5cb4b0d9bc7cf2f48eaf4e8f4176102f5a7c262091",
+    "server/go.sum": "94922fbd383453d16e873e925cdfefd478400ff59884aed51b56201a53faddb3"
+  },
+  "cases": [
+    {
+      "case": {
+        "Name": "Size-0",
+        "Field": "Size",
+        "Value": "",
+        "Body": "Size=",
+        "Query": ""
+      },
+      "error": false,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Size-1",
+        "Field": "Size",
+        "Value": "0",
+        "Body": "Size=0",
+        "Query": ""
+      },
+      "error": false,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Size-2",
+        "Field": "Size",
+        "Value": "+0128",
+        "Body": "Size=%2B0128",
+        "Query": ""
+      },
+      "error": false,
+      "value": 128
+    },
+    {
+      "case": {
+        "Name": "Size-3",
+        "Field": "Size",
+        "Value": "-1",
+        "Body": "Size=-1",
+        "Query": ""
+      },
+      "error": false,
+      "value": -1
+    },
+    {
+      "case": {
+        "Name": "Size-4",
+        "Field": "Size",
+        "Value": "9223372036854775807",
+        "Body": "Size=9223372036854775807",
+        "Query": ""
+      },
+      "error": false,
+      "value": 9223372036854775807
+    },
+    {
+      "case": {
+        "Name": "Size-5",
+        "Field": "Size",
+        "Value": "9223372036854775808",
+        "Body": "Size=9223372036854775808",
+        "Query": ""
+      },
+      "error": true,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Size-6",
+        "Field": "Size",
+        "Value": " 128",
+        "Body": "Size=+128",
+        "Query": ""
+      },
+      "error": false,
+      "value": 128
+    },
+    {
+      "case": {
+        "Name": "Size-7",
+        "Field": "Size",
+        "Value": "128 ",
+        "Body": "Size=128+",
+        "Query": ""
+      },
+      "error": false,
+      "value": 128
+    },
+    {
+      "case": {
+        "Name": "Size-8",
+        "Field": "Size",
+        "Value": "\t128",
+        "Body": "Size=%09128",
+        "Query": ""
+      },
+      "error": false,
+      "value": 128
+    },
+    {
+      "case": {
+        "Name": "Size-9",
+        "Field": "Size",
+        "Value": "128\n",
+        "Body": "Size=128%0A",
+        "Query": ""
+      },
+      "error": false,
+      "value": 128
+    },
+    {
+      "case": {
+        "Name": "Size-10",
+        "Field": "Size",
+        "Value": "1.0",
+        "Body": "Size=1.0",
+        "Query": ""
+      },
+      "error": true,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Size-11",
+        "Field": "Size",
+        "Value": "0x10",
+        "Body": "Size=0x10",
+        "Query": ""
+      },
+      "error": true,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Size-12",
+        "Field": "Size",
+        "Value": " ",
+        "Body": "Size=+",
+        "Query": ""
+      },
+      "error": false,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Size-13",
+        "Field": "Size",
+        "Value": "\t\n",
+        "Body": "Size=%09%0A",
+        "Query": ""
+      },
+      "error": false,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Size-14",
+        "Field": "Size",
+        "Value": "\u0085\u00a0128\u3000",
+        "Body": "Size=%C2%85%C2%A0128%E3%80%80",
+        "Query": ""
+      },
+      "error": false,
+      "value": 128
+    },
+    {
+      "case": {
+        "Name": "Size-15",
+        "Field": "Size",
+        "Value": "-9223372036854775808",
+        "Body": "Size=-9223372036854775808",
+        "Query": ""
+      },
+      "error": false,
+      "value": -9223372036854775808
+    },
+    {
+      "case": {
+        "Name": "Size-16",
+        "Field": "Size",
+        "Value": "-9223372036854775809",
+        "Body": "Size=-9223372036854775809",
+        "Query": ""
+      },
+      "error": true,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Size-17",
+        "Field": "Size",
+        "Value": "1_000",
+        "Body": "Size=1_000",
+        "Query": ""
+      },
+      "error": true,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Sleep-0",
+        "Field": "Sleep",
+        "Value": "",
+        "Body": "Sleep=",
+        "Query": ""
+      },
+      "error": false,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Sleep-1",
+        "Field": "Sleep",
+        "Value": "+10",
+        "Body": "Sleep=%2B10",
+        "Query": ""
+      },
+      "error": false,
+      "value": 10
+    },
+    {
+      "case": {
+        "Name": "Sleep-2",
+        "Field": "Sleep",
+        "Value": "-1",
+        "Body": "Sleep=-1",
+        "Query": ""
+      },
+      "error": false,
+      "value": -1
+    },
+    {
+      "case": {
+        "Name": "Sleep-3",
+        "Field": "Sleep",
+        "Value": " 10",
+        "Body": "Sleep=+10",
+        "Query": ""
+      },
+      "error": false,
+      "value": 10
+    },
+    {
+      "case": {
+        "Name": "Sleep-4",
+        "Field": "Sleep",
+        "Value": "10 ",
+        "Body": "Sleep=10+",
+        "Query": ""
+      },
+      "error": false,
+      "value": 10
+    },
+    {
+      "case": {
+        "Name": "Sleep-5",
+        "Field": "Sleep",
+        "Value": "\n10",
+        "Body": "Sleep=%0A10",
+        "Query": ""
+      },
+      "error": false,
+      "value": 10
+    },
+    {
+      "case": {
+        "Name": "Sleep-6",
+        "Field": "Sleep",
+        "Value": "10\t",
+        "Body": "Sleep=10%09",
+        "Query": ""
+      },
+      "error": false,
+      "value": 10
+    },
+    {
+      "case": {
+        "Name": "Sleep-7",
+        "Field": "Sleep",
+        "Value": "10.0",
+        "Body": "Sleep=10.0",
+        "Query": ""
+      },
+      "error": true,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Sleep-8",
+        "Field": "Sleep",
+        "Value": " ",
+        "Body": "Sleep=+",
+        "Query": ""
+      },
+      "error": false,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Sleep-9",
+        "Field": "Sleep",
+        "Value": "\u200210\u202f",
+        "Body": "Sleep=%E2%80%8210%E2%80%AF",
+        "Query": ""
+      },
+      "error": false,
+      "value": 10
+    },
+    {
+      "case": {
+        "Name": "Sleep-10",
+        "Field": "Sleep",
+        "Value": "\u200b10",
+        "Body": "Sleep=%E2%80%8B10",
+        "Query": ""
+      },
+      "error": true,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Enabled-0",
+        "Field": "Enabled",
+        "Value": "",
+        "Body": "Enabled=",
+        "Query": ""
+      },
+      "error": false,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Enabled-1",
+        "Field": "Enabled",
+        "Value": "true",
+        "Body": "Enabled=true",
+        "Query": ""
+      },
+      "error": false,
+      "value": true
+    },
+    {
+      "case": {
+        "Name": "Enabled-2",
+        "Field": "Enabled",
+        "Value": "True",
+        "Body": "Enabled=True",
+        "Query": ""
+      },
+      "error": false,
+      "value": true
+    },
+    {
+      "case": {
+        "Name": "Enabled-3",
+        "Field": "Enabled",
+        "Value": "TRUE",
+        "Body": "Enabled=TRUE",
+        "Query": ""
+      },
+      "error": false,
+      "value": true
+    },
+    {
+      "case": {
+        "Name": "Enabled-4",
+        "Field": "Enabled",
+        "Value": "t",
+        "Body": "Enabled=t",
+        "Query": ""
+      },
+      "error": false,
+      "value": true
+    },
+    {
+      "case": {
+        "Name": "Enabled-5",
+        "Field": "Enabled",
+        "Value": "T",
+        "Body": "Enabled=T",
+        "Query": ""
+      },
+      "error": false,
+      "value": true
+    },
+    {
+      "case": {
+        "Name": "Enabled-6",
+        "Field": "Enabled",
+        "Value": "1",
+        "Body": "Enabled=1",
+        "Query": ""
+      },
+      "error": false,
+      "value": true
+    },
+    {
+      "case": {
+        "Name": "Enabled-7",
+        "Field": "Enabled",
+        "Value": "false",
+        "Body": "Enabled=false",
+        "Query": ""
+      },
+      "error": false,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Enabled-8",
+        "Field": "Enabled",
+        "Value": "False",
+        "Body": "Enabled=False",
+        "Query": ""
+      },
+      "error": false,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Enabled-9",
+        "Field": "Enabled",
+        "Value": "FALSE",
+        "Body": "Enabled=FALSE",
+        "Query": ""
+      },
+      "error": false,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Enabled-10",
+        "Field": "Enabled",
+        "Value": "f",
+        "Body": "Enabled=f",
+        "Query": ""
+      },
+      "error": false,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Enabled-11",
+        "Field": "Enabled",
+        "Value": "F",
+        "Body": "Enabled=F",
+        "Query": ""
+      },
+      "error": false,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Enabled-12",
+        "Field": "Enabled",
+        "Value": "0",
+        "Body": "Enabled=0",
+        "Query": ""
+      },
+      "error": false,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Enabled-13",
+        "Field": "Enabled",
+        "Value": " true",
+        "Body": "Enabled=+true",
+        "Query": ""
+      },
+      "error": false,
+      "value": true
+    },
+    {
+      "case": {
+        "Name": "Enabled-14",
+        "Field": "Enabled",
+        "Value": "true ",
+        "Body": "Enabled=true+",
+        "Query": ""
+      },
+      "error": false,
+      "value": true
+    },
+    {
+      "case": {
+        "Name": "Enabled-15",
+        "Field": "Enabled",
+        "Value": "\tfalse",
+        "Body": "Enabled=%09false",
+        "Query": ""
+      },
+      "error": false,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Enabled-16",
+        "Field": "Enabled",
+        "Value": "false\n",
+        "Body": "Enabled=false%0A",
+        "Query": ""
+      },
+      "error": false,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Enabled-17",
+        "Field": "Enabled",
+        "Value": "yes",
+        "Body": "Enabled=yes",
+        "Query": ""
+      },
+      "error": true,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Enabled-18",
+        "Field": "Enabled",
+        "Value": " ",
+        "Body": "Enabled=+",
+        "Query": ""
+      },
+      "error": false,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Enabled-19",
+        "Field": "Enabled",
+        "Value": "\t\n",
+        "Body": "Enabled=%09%0A",
+        "Query": ""
+      },
+      "error": false,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Enabled-20",
+        "Field": "Enabled",
+        "Value": "\u0085true\u3000",
+        "Body": "Enabled=%C2%85true%E3%80%80",
+        "Query": ""
+      },
+      "error": false,
+      "value": true
+    },
+    {
+      "case": {
+        "Name": "Enabled-21",
+        "Field": "Enabled",
+        "Value": "\u200btrue",
+        "Body": "Enabled=%E2%80%8Btrue",
+        "Query": ""
+      },
+      "error": true,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Size-lower",
+        "Field": "Size",
+        "Value": "10",
+        "Body": "size=10",
+        "Query": ""
+      },
+      "error": false,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Size-body-first",
+        "Field": "Size",
+        "Value": "10",
+        "Body": "Size=10",
+        "Query": "Size=+invalid"
+      },
+      "error": false,
+      "value": 10
+    },
+    {
+      "case": {
+        "Name": "Size-query-space",
+        "Field": "Size",
+        "Value": "10",
+        "Body": "",
+        "Query": "Size=+10"
+      },
+      "error": false,
+      "value": 10
+    },
+    {
+      "case": {
+        "Name": "Size-repeat-first",
+        "Field": "Size",
+        "Value": "10",
+        "Body": "Size=10&Size=+invalid",
+        "Query": ""
+      },
+      "error": false,
+      "value": 10
+    },
+    {
+      "case": {
+        "Name": "Sleep-lower",
+        "Field": "Sleep",
+        "Value": "10",
+        "Body": "sleep=10",
+        "Query": ""
+      },
+      "error": false,
+      "value": 0
+    },
+    {
+      "case": {
+        "Name": "Sleep-body-first",
+        "Field": "Sleep",
+        "Value": "10",
+        "Body": "Sleep=10",
+        "Query": "Sleep=+invalid"
+      },
+      "error": false,
+      "value": 10
+    },
+    {
+      "case": {
+        "Name": "Sleep-query-space",
+        "Field": "Sleep",
+        "Value": "10",
+        "Body": "",
+        "Query": "Sleep=+10"
+      },
+      "error": false,
+      "value": 10
+    },
+    {
+      "case": {
+        "Name": "Sleep-repeat-first",
+        "Field": "Sleep",
+        "Value": "10",
+        "Body": "Sleep=10&Sleep=+invalid",
+        "Query": ""
+      },
+      "error": false,
+      "value": 10
+    },
+    {
+      "case": {
+        "Name": "Enabled-lower",
+        "Field": "Enabled",
+        "Value": "true",
+        "Body": "enabled=true",
+        "Query": ""
+      },
+      "error": false,
+      "value": false
+    },
+    {
+      "case": {
+        "Name": "Enabled-body-first",
+        "Field": "Enabled",
+        "Value": "true",
+        "Body": "Enabled=true",
+        "Query": "Enabled=+invalid"
+      },
+      "error": false,
+      "value": true
+    },
+    {
+      "case": {
+        "Name": "Enabled-query-space",
+        "Field": "Enabled",
+        "Value": "true",
+        "Body": "",
+        "Query": "Enabled=+true"
+      },
+      "error": false,
+      "value": true
+    },
+    {
+      "case": {
+        "Name": "Enabled-repeat-first",
+        "Field": "Enabled",
+        "Value": "true",
+        "Body": "Enabled=true&Enabled=+invalid",
+        "Query": ""
+      },
+      "error": false,
+      "value": true
+    }
+  ]
+}

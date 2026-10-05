@@ -7,6 +7,11 @@ pub mod controlmode;
 pub mod crypto;
 mod form_binding;
 pub mod fsroot;
+pub mod gpio;
+mod gpio_api;
+mod gpio_binding;
+pub mod gpio_monitor;
+pub mod hardware;
 pub mod hid_device;
 pub mod hid_reports;
 mod hid_settings;
@@ -14,6 +19,7 @@ pub mod input;
 pub mod inputcontrol;
 pub mod internal;
 pub mod jiggler;
+mod json_syntax;
 pub mod leds;
 pub mod lockout;
 pub mod monitor;
@@ -58,6 +64,9 @@ pub struct Runtime {
     pub jiggler: Arc<jiggler::Jiggler>,
     pub commands: Arc<dyn systemops::Executor>,
     pub monitor: monitor::Monitor,
+    pub hardware: hardware::Hardware,
+    pub atx: gpio::Controller,
+    pub atx_leds: gpio_monitor::Monitor,
     pub(crate) internal: internal::Token,
     reboot_pending: Arc<std::sync::atomic::AtomicBool>,
     pub(crate) sessions: sessions::Registry,
@@ -84,6 +93,17 @@ impl Runtime {
         media: Arc<dyn monitor::Backend>,
     ) -> Result<Arc<Self>, Error> {
         let root = root.canonicalize()?;
+        let gpio = Arc::new(gpio::Native::new(root.clone()));
+        Self::load_with_peripherals(&root, commands, media, gpio)
+    }
+    pub fn load_with_peripherals(
+        root: &Path,
+        commands: Arc<dyn systemops::Executor>,
+        media: Arc<dyn monitor::Backend>,
+        gpio: Arc<dyn gpio::Backend>,
+    ) -> Result<Arc<Self>, Error> {
+        let root = root.canonicalize()?;
+        let hardware = hardware::Hardware::detect(&root);
         let hid = Arc::new(hid_device::Devices::new(root.clone()));
         let release = hid.clone();
         Ok(Arc::new(Self {
@@ -98,6 +118,9 @@ impl Runtime {
             jiggler: jiggler::Jiggler::load(config::rooted(&root, "/etc/kvm/mouse-jiggler")?),
             commands,
             monitor: monitor::Monitor::new(media),
+            atx: gpio::Controller::new(gpio.clone()),
+            atx_leds: gpio_monitor::Monitor::new(&hardware, gpio),
+            hardware,
             internal: internal::Token::load(&root)?,
             root,
             reboot_pending: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -120,6 +143,7 @@ impl Runtime {
     }
     pub(crate) fn schedule_reboot(&self) -> Result<(), Error> {
         use std::sync::atomic::Ordering;
+        self.commands.check(systemops::Action::Reboot)?;
         let handle = tokio::runtime::Handle::try_current()?;
         if self.reboot_pending.swap(true, Ordering::AcqRel) {
             return Ok(());
@@ -138,7 +162,7 @@ impl Runtime {
             })
             .await;
             if !matches!(result, Ok(Ok(()))) {
-                eprintln!("profile reboot failed: {result:?}");
+                eprintln!("reboot failed: {result:?}");
             }
             pending.store(false, Ordering::Release);
         });
@@ -161,6 +185,7 @@ impl Runtime {
         self.coordinator.cancel(inputcontrol::Cause::ModeChanged);
         self.pico_lock.release("");
         self.jiggler.stop();
+        self.atx_leds.stop();
         self.hid.leds().stop();
         for id in self.sessions.revoke_all() {
             let _ = self.input.leave(id);

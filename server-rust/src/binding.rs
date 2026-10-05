@@ -6,7 +6,7 @@ use serde::{
 };
 use serde_json::{Map, Value};
 use std::fmt;
-fn same_name(key: &str, canonical: &str) -> bool {
+pub(crate) fn same_name(key: &str, canonical: &str) -> bool {
     // Go Unicode SimpleFold has these two non-ASCII equivalents of ASCII
     // letters. All implemented struct field names themselves are ASCII.
     key.chars()
@@ -50,7 +50,7 @@ impl<'de> Visitor<'de> for Object {
                 .find(|canonical| same_name(&key, canonical))
             else {
                 // Go ignores unknown struct fields, including their contents.
-                values.insert(key, object.next_value::<Value>()?);
+                let _ = object.next_value::<de::IgnoredAny>()?;
                 continue;
             };
             let value = match canonical {
@@ -112,7 +112,7 @@ pub(crate) fn json(
         empty_null: false,
     }
     .deserialize(&mut parser)?;
-    parser.end()?;
+    // Gin JSON binding decodes the first JSON value only.
     Ok(value)
 }
 pub(crate) fn json_key(data: &[u8]) -> Result<Value, serde_json::Error> {
@@ -132,7 +132,7 @@ mod tests {
     #[test]
     fn case_order_nulls_types_and_unknown_fields_match_go_struct_binding() {
         assert_eq!(json(br#"{"username":"first","USERNAME":"last","username":null,"KEYS":[{"CoDe":"first","CODE":"last","LABEL":"a"},null],"unknown":{"PASSWORD":7},"customKey":18446744073709551615}"#, &["username","keys"], false).unwrap(),
-            serde_json::json!({"username":"last","keys":[{"code":"last","label":"a"},{}],"unknown":{"PASSWORD":7},"customKey":u64::MAX}));
+            serde_json::json!({"username":"last","keys":[{"code":"last","label":"a"},{}]}));
         assert_eq!(
             json(
                 br#"{"USERNAME":"first","username":null}"#,
@@ -147,7 +147,13 @@ mod tests {
             true
         );
         assert!(json(br#"{"username":7,"USERNAME":"last"}"#, &["username"], false).is_err());
-        assert!(json(br#"{"username":"x"} true"#, &["username"], false).is_err());
+        assert!(json(br#"{"username":"x"} true"#, &["username"], false).is_ok());
+        assert!(json(
+            br#"{"username":"x","unknown":1e10000}"#,
+            &["username"],
+            false
+        )
+        .is_ok());
         assert!(json(b"[]", &["title"], false).is_err());
         assert_eq!(json(b"null", &["title"], false).unwrap(), Value::Null);
         assert_eq!(

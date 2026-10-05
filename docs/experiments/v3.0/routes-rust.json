@@ -1766,8 +1766,14 @@
     "handler": "service.GetHardware",
     "source": "server/router/vm.go",
     "line": 29,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/gpio.rs",
+      "server-rust/src/gpio_monitor.rs",
+      "server-rust/src/hardware.rs",
+      "server-rust/tests/gpio.rs",
+      "docs/experiments/v3.0/stage3-gpio.md"
+    ]
   },
   {
     "method": "POST",
@@ -1777,8 +1783,14 @@
     "handler": "requireInputOwner(), service.SetGpio",
     "source": "server/router/vm.go",
     "line": 31,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/gpio.rs",
+      "server-rust/src/gpio_monitor.rs",
+      "server-rust/src/hardware.rs",
+      "server-rust/tests/gpio.rs",
+      "docs/experiments/v3.0/stage3-gpio.md"
+    ]
   },
   {
     "method": "GET",
@@ -1788,8 +1800,14 @@
     "handler": "service.GetGpio)                      ",
     "source": "server/router/vm.go",
     "line": 32,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/gpio.rs",
+      "server-rust/src/gpio_monitor.rs",
+      "server-rust/src/hardware.rs",
+      "server-rust/tests/gpio.rs",
+      "docs/experiments/v3.0/stage3-gpio.md"
+    ]
   },
   {
     "method": "POST",
@@ -2332,8 +2350,14 @@
     "handler": "service.Reboot",
     "source": "server/router/vm.go",
     "line": 98,
-    "rust_status": "pending",
-    "evidence": []
+    "rust_status": "implemented-isolated",
+    "evidence": [
+      "server-rust/src/gpio.rs",
+      "server-rust/src/gpio_monitor.rs",
+      "server-rust/src/hardware.rs",
+      "server-rust/tests/gpio.rs",
+      "docs/experiments/v3.0/stage3-gpio.md"
+    ]
   },
   {
     "method": "GET",

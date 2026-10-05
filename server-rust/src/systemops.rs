@@ -17,6 +17,10 @@ pub enum Action {
     Reboot,
 }
 pub trait Executor: Send + Sync {
+    /// Refuse an unavailable/stopped backend before acknowledging delayed work.
+    fn check(&self, _action: Action) -> Result<(), Error> {
+        Ok(())
+    }
     fn run(&self, action: Action, timeout: Duration) -> Result<(), Error>;
     fn stop(&self) {}
 }
@@ -33,10 +37,17 @@ impl Native {
     }
 }
 impl Executor for Native {
-    fn run(&self, action: Action, timeout: Duration) -> Result<(), Error> {
+    fn check(&self, _action: Action) -> Result<(), Error> {
         if self.root != std::path::Path::new("/") {
             return Err("device command unavailable in isolated root".into());
         }
+        if self.stopped.load(std::sync::atomic::Ordering::Acquire) {
+            return Err("runtime is stopping".into());
+        }
+        Ok(())
+    }
+    fn run(&self, action: Action, timeout: Duration) -> Result<(), Error> {
+        self.check(action)?;
         let mut command = match action {
             Action::UsbPhyRestart => {
                 let mut command = Command::new("sh");

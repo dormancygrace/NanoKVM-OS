@@ -1,4 +1,5 @@
-//! Bounded asynchronous admission to the single blocking capture owner.
+//! One bounded queue for async captures, blocking API controls and compound
+//! native maintenance. The owner thread runs every job to its cleanup boundary.
 use crate::{
     native_capture::{Outcome, Request, Worker},
     native_protocol, Error,
@@ -12,13 +13,38 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::{mpsc, oneshot};
-
 const QUEUE_CAPACITY: usize = 8;
-struct Job {
-    request: Request,
+type Work = Box<dyn FnOnce(&mut Worker, &Context) -> Result<Outcome, Error> + Send>;
+pub(crate) struct Context {
     origin: Instant,
     deadline: Instant,
     cancelled: Arc<AtomicBool>,
+    stopping: Arc<AtomicBool>,
+}
+impl Context {
+    pub(crate) fn cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Acquire) || self.stopping.load(Ordering::Acquire)
+    }
+    pub(crate) fn remaining(&self) -> Result<Duration, Error> {
+        if self.cancelled() {
+            return Err("native capture cancelled".into());
+        }
+        let remaining = self.deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            Err("native capture queue deadline expired".into())
+        } else {
+            Ok(remaining)
+        }
+    }
+    pub(crate) fn call(&self, worker: &mut Worker, request: Request) -> Result<Outcome, Error> {
+        worker.call(request, self.origin, self.remaining()?, &|| {
+            self.cancelled()
+        })
+    }
+}
+struct Job {
+    work: Work,
+    context: Context,
     reply: oneshot::Sender<Result<Outcome, Error>>,
 }
 enum Message {
@@ -37,8 +63,6 @@ impl Owner {
         let _ = self.sender.try_send(Message::Stop);
     }
     fn join(&self) -> Result<(), Error> {
-        // Hold the join lock until exit: concurrent shutdown callers must
-        // not return early after another caller takes the JoinHandle.
         let mut holder = self
             .thread
             .lock()
@@ -65,9 +89,12 @@ impl Drop for CancelOnDrop {
         self.0.store(true, Ordering::Release);
     }
 }
+struct Admission {
+    receiver: oneshot::Receiver<Result<Outcome, Error>>,
+    guard: CancelOnDrop,
+    deadline: Instant,
+}
 impl Actor {
-    /// Takes exclusive ownership of an explicitly launched native worker.
-    /// A fixed thread prevents native waits from blocking the Tokio event loop.
     pub fn new(mut worker: Worker) -> Result<Self, Error> {
         let (sender, mut receiver) = mpsc::channel(QUEUE_CAPACITY);
         let stopping = Arc::new(AtomicBool::new(false));
@@ -81,28 +108,16 @@ impl Actor {
                     let Some(message) = receiver.blocking_recv() else {
                         break;
                     };
-                    let Message::Call(job) = message else { break };
-                    if stop.load(Ordering::Acquire)
-                        || job.cancelled.load(Ordering::Acquire)
-                        || job.reply.is_closed()
-                    {
-                        let _ = job
-                            .reply
-                            .send(Err("native capture cancelled before admission".into()));
-                        continue;
-                    }
-                    let remaining = job.deadline.saturating_duration_since(Instant::now());
-                    if remaining.is_zero() {
-                        let _ = job
-                            .reply
-                            .send(Err("native capture queue deadline expired".into()));
-                        continue;
-                    }
-                    let result = worker.call(job.request, job.origin, remaining, &|| {
-                        stop.load(Ordering::Acquire)
-                            || job.cancelled.load(Ordering::Acquire)
-                            || job.reply.is_closed()
-                    });
+                    let Message::Call(job) = message else {
+                        break;
+                    };
+                    let result = if job.reply.is_closed() {
+                        Err("native capture cancelled before admission".into())
+                    } else {
+                        job.context
+                            .remaining()
+                            .and_then(|_| (job.work)(&mut worker, &job.context))
+                    };
                     let _ = job.reply.send(result);
                     if worker.closed() {
                         break;
@@ -115,8 +130,6 @@ impl Actor {
                         let _ = job.reply.send(Err("native capture owner stopped".into()));
                     }
                 }
-                // Normal teardown requests native deinit; poisoned IPC is already
-                // terminated. No automatic relaunch after an uncertain native failure.
                 drop(worker);
                 done.store(true, Ordering::Release);
             })?;
@@ -129,37 +142,113 @@ impl Actor {
             }),
         })
     }
+    fn admit(&self, work: Work, origin: Instant, timeout: Duration) -> Result<Admission, Error> {
+        if self.owner.stopping.load(Ordering::Acquire) {
+            return Err("native capture owner stopped".into());
+        }
+        let deadline = native_protocol::deadline(timeout)?;
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let guard = CancelOnDrop(cancelled.clone());
+        let (reply, receiver) = oneshot::channel();
+        let context = Context {
+            origin,
+            deadline,
+            cancelled,
+            stopping: self.owner.stopping.clone(),
+        };
+        self.owner
+            .sender
+            .try_send(Message::Call(Job {
+                work,
+                context,
+                reply,
+            }))
+            .map_err(|error| match error {
+                mpsc::error::TrySendError::Full(_) => "native capture queue is full",
+                mpsc::error::TrySendError::Closed(_) => "native capture owner stopped",
+            })?;
+        Ok(Admission {
+            receiver,
+            guard,
+            deadline,
+        })
+    }
     pub async fn call(
         &self,
         request: Request,
         origin: Instant,
         timeout: Duration,
     ) -> Result<Outcome, Error> {
-        if self.owner.stopping.load(Ordering::Acquire) {
-            return Err("native capture owner stopped".into());
-        }
-        let deadline = native_protocol::deadline(timeout)?;
-        let cancelled = Arc::new(AtomicBool::new(false));
-        let _guard = CancelOnDrop(cancelled.clone());
-        let (reply, receiver) = oneshot::channel();
-        let job = Job {
-            request,
+        let admission = self.admit(
+            Box::new(move |worker, context| context.call(worker, request)),
             origin,
-            deadline,
+            timeout,
+        )?;
+        let _guard = admission.guard;
+        tokio::time::timeout_at(
+            tokio::time::Instant::from_std(admission.deadline),
+            admission.receiver,
+        )
+        .await
+        .map_err(|_| "native capture request timed out")?
+        .map_err(|_| "native capture owner stopped")?
+    }
+    /// Only for an API blocking worker or a dedicated thread. Never wait on a
+    /// Tokio event-loop thread. Admission shares the same fixed eight slots.
+    pub fn call_blocking(
+        &self,
+        request: Request,
+        origin: Instant,
+        timeout: Duration,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<Outcome, Error> {
+        self.transaction_blocking(
+            origin,
+            timeout,
+            Duration::ZERO,
             cancelled,
-            reply,
-        };
-        self.owner
-            .sender
-            .try_send(Message::Call(job))
-            .map_err(|error| match error {
-                mpsc::error::TrySendError::Full(_) => "native capture queue is full",
-                mpsc::error::TrySendError::Closed(_) => "native capture owner stopped",
-            })?;
-        tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), receiver)
-            .await
-            .map_err(|_| "native capture request timed out")?
-            .map_err(|_| "native capture owner stopped")?
+            move |worker, context| context.call(worker, request),
+        )
+    }
+    /// Trusted bounded work only. Compound maintenance keeps the owner until
+    /// its finally/restore step, so no capture/control interleaves with it.
+    pub(crate) fn transaction_blocking<F>(
+        &self,
+        origin: Instant,
+        timeout: Duration,
+        cleanup_grace: Duration,
+        cancelled: &dyn Fn() -> bool,
+        work: F,
+    ) -> Result<Outcome, Error>
+    where
+        F: FnOnce(&mut Worker, &Context) -> Result<Outcome, Error> + Send + 'static,
+    {
+        if cancelled() {
+            return Err("native capture cancelled before admission".into());
+        }
+        let mut admission = self.admit(Box::new(work), origin, timeout)?;
+        let mut cancelled_at = None;
+        loop {
+            match admission.receiver.try_recv() {
+                Ok(result) => return result,
+                Err(oneshot::error::TryRecvError::Closed) => {
+                    return Err("native capture owner stopped".into())
+                }
+                Err(oneshot::error::TryRecvError::Empty) => {}
+            }
+            let now = Instant::now();
+            if cancelled()
+                || now >= admission.deadline
+                || self.owner.stopping.load(Ordering::Acquire)
+            {
+                admission.guard.0.store(true, Ordering::Release);
+                let since = *cancelled_at.get_or_insert(now);
+                if now.saturating_duration_since(since) >= cleanup_grace {
+                    return Err("native capture request cancelled or timed out".into());
+                }
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
     }
     pub fn stop(&self) {
         self.owner.stop();
@@ -167,7 +256,10 @@ impl Actor {
     pub fn finished(&self) -> bool {
         self.owner.finished.load(Ordering::Acquire)
     }
-    /// Call during async shutdown before dropping the last owner handle.
+    pub fn join_blocking(&self) -> Result<(), Error> {
+        self.stop();
+        self.owner.join()
+    }
     pub async fn shutdown(&self) -> Result<(), Error> {
         self.stop();
         let owner = self.owner.clone();

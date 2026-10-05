@@ -64,7 +64,9 @@ async fn main() -> Result<(), Error> {
         let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
             .expect("SIGTERM handler");
         tokio::select! {_ = tokio::signal::ctrl_c()=>{},_ = term.recv()=>{}}
-        let _ = tokio::task::spawn_blocking(move || shutdown_state.shutdown()).await;
+        if let Err(error) = shutdown_state.shutdown_async().await {
+            eprintln!("runtime shutdown failed: {error}");
+        }
         shutdown.graceful_shutdown(Some(Duration::from_secs(5)));
     });
     if state.config.proto == "https" {
@@ -118,5 +120,6 @@ async fn main() -> Result<(), Error> {
             .serve(router.into_make_service_with_connect_info::<SocketAddr>())
             .await?;
     }
+    state.shutdown_async().await?;
     Ok(())
 }

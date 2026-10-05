@@ -34,6 +34,9 @@ pub mod memory_command;
 pub mod memory_ops;
 pub mod memory_status;
 pub mod monitor;
+pub mod native_backend;
+#[cfg(all(test, feature = "native-fixture"))]
+mod native_backend_tests;
 pub mod native_capture;
 pub mod native_capture_actor;
 pub mod native_frame;
@@ -118,6 +121,36 @@ impl Runtime {
         let root = root.canonicalize()?;
         let commands = Arc::new(systemops::Native::new(root.clone()));
         Self::load_with_executor(&root, commands)
+    }
+    /// Explicit native loading for the eventual qualified firmware runtime.
+    /// The isolated executable keeps its production activation gate.
+    pub fn load_with_native(
+        root: &Path,
+        budget: Arc<native_frame::Budget>,
+        audio: Arc<dyn native_backend::AudioControl>,
+    ) -> Result<Arc<Self>, Error> {
+        use monitor::Backend;
+        let root = root.canonicalize()?;
+        if root != Path::new("/") {
+            return Err("native capture is unavailable in an isolated root".into());
+        }
+        let media = native_backend::Native::launch(&root, budget, audio)?;
+        let commands = Arc::new(systemops::Native::new(root.clone()));
+        let result = Self::load_with_backends(&root, commands, media.clone());
+        let runtime = match result {
+            Ok(runtime) => runtime,
+            Err(error) => {
+                media.stop();
+                let _ = media.join();
+                return Err(error);
+            }
+        };
+        if let Err(error) = runtime.hdmi.initialize() {
+            runtime.shutdown();
+            let _ = media.join();
+            return Err(error);
+        }
+        Ok(runtime)
     }
     pub fn load_with_executor(
         root: &Path,
@@ -278,10 +311,19 @@ impl Runtime {
             }
         }
     }
+    pub async fn shutdown_async(self: &Arc<Self>) -> Result<(), Error> {
+        let runtime = self.clone();
+        tokio::task::spawn_blocking(move || {
+            runtime.shutdown();
+            runtime.monitor.backend.join()
+        })
+        .await?
+    }
     pub fn shutdown(&self) {
         self.stopping
             .store(true, std::sync::atomic::Ordering::Release);
         self.commands.stop();
+        self.monitor.backend.stop();
         self.hdmi.stop();
         if let Some(task) = &self.hdmi_task {
             task.abort();

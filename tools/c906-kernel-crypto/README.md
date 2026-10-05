@@ -64,7 +64,9 @@ and seven repetitions. Build the probe against each tested kernel so its
 headers select the actual `csum_partial_copy_nocheck` implementation.
 Compare complete before/after matrices using `compare-kernels.py OLD NEW JSON`.
 Use `kernel-context` on the integrated build for every VXRM/VXSAT combination
-through actual production functions at 16 KiB, above all selected thresholds.
+through actual production functions at 64, 255, 256, 257, 511, 512, 1420, 1500,
+2048, 8192 and 16384 bytes. This covers small-buffer dispatch boundaries, packet
+sizes near MTU, and buffers above all selected thresholds.
 `probe_vector_entries` counts only the diagnostic module's own vector calls;
 it does not instrument the production backends.
 Signal context tests check all 32 vector registers and VL/VTYPE/VSTART asynchronously;

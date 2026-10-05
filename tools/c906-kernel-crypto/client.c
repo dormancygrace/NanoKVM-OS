@@ -127,6 +127,7 @@ static void validate(int smoke)
 }
 static void context_test(int production)
 {
+	const unsigned production_sizes[]={64,255,256,257,511,512,1420,1500,2048,8192,16384};
 	struct vector_state before,after;
 	unsigned char data[512] __attribute__((aligned(16)));
 	struct sigaction action={.sa_handler=clobber_vector_in_signal,.sa_flags=SA_RESTART};
@@ -135,10 +136,11 @@ static void context_test(int production)
 	for(unsigned i=0;i<512;i++)data[i]=(unsigned char)(i*13+1);
 	sigemptyset(&action.sa_mask);
 	if(sigaction(SIGALRM,&action,NULL)||setitimer(ITIMER_REAL,&timer,NULL))die("context timer");
+	for(unsigned size=0;size<(production?sizeof(production_sizes)/sizeof(production_sizes[0]):1U);size++)
 	for(unsigned repeat=0;repeat<2;repeat++)for(unsigned rm=0;rm<4;rm++)for(unsigned sat=0;sat<2;sat++)
 		for(unsigned op=0;op<KC_OPERATIONS;op++)for(unsigned mode=production?0:2;mode<(production?1U:5U);mode++) {
 			if((mode==3 && (op==KC_AEAD_SG || op==KC_AEAD_SG_DECRYPT))||(mode==4 && op>=KC_CRC32))continue;
-			struct kc_request r={.operation=op,.variant=mode,.bytes=production?16384:4096,.iterations=8,
+			struct kc_request r={.operation=op,.variant=mode,.bytes=production?production_sizes[size]:4096,.iterations=8,
 				.offset=7,.dst_offset=3,.pattern=1,.seed=0xfffffffeU,
 				.flags=(op==KC_AEAD_SG || op==KC_AEAD_SG_DECRYPT)?4:1};
 			seed_vector(data,rm,sat);capture_vector(&before);

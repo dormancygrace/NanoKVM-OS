@@ -1,0 +1,619 @@
+[
+  {
+    "body": "<a href=\"/api/vm/mouse-jiggler?a=%2F&amp;b=1\">Moved Permanently</a>.\n\n",
+    "contentType": "text/html; charset=utf-8",
+    "location": "/api/vm/mouse-jiggler?a=%2F&b=1",
+    "marker": null,
+    "method": "GET",
+    "name": "GET/api/vm/mouse-jiggler/",
+    "status": 301,
+    "url": "/api/vm/mouse-jiggler/?a=%2F&b=1"
+  },
+  {
+    "body": "{\"params\":null,\"path\":\"/api/vm/mouse-jiggler\",\"pattern\":\"/api/vm/mouse-jiggler\"}",
+    "contentType": "application/json; charset=utf-8",
+    "location": "",
+    "marker": {
+      "params": null,
+      "path": "/api/vm/mouse-jiggler",
+      "pattern": "/api/vm/mouse-jiggler"
+    },
+    "method": "GET",
+    "name": "GET/api/vm/mouse-jiggler",
+    "status": 200,
+    "url": "/api/vm/mouse-jiggler?a=%2F&b=1"
+  },
+  {
+    "body": "<a href=\"/api/vm/info?a=%2F&amp;b=1\">Moved Permanently</a>.\n\n",
+    "contentType": "text/html; charset=utf-8",
+    "location": "/api/vm/info?a=%2F&b=1",
+    "marker": null,
+    "method": "GET",
+    "name": "GET/api/vm/info/",
+    "status": 301,
+    "url": "/api/vm/info/?a=%2F&b=1"
+  },
+  {
+    "body": "{\"params\":null,\"path\":\"/api/vm/info\",\"pattern\":\"/api/vm/info\"}",
+    "contentType": "application/json; charset=utf-8",
+    "location": "",
+    "marker": {
+      "params": null,
+      "path": "/api/vm/info",
+      "pattern": "/api/vm/info"
+    },
+    "method": "GET",
+    "name": "GET/api/vm/info",
+    "status": 200,
+    "url": "/api/vm/info?a=%2F&b=1"
+  },
+  {
+    "body": "<a href=\"/api/ws?a=%2F&amp;b=1\">Moved Permanently</a>.\n\n",
+    "contentType": "text/html; charset=utf-8",
+    "location": "/api/ws?a=%2F&b=1",
+    "marker": null,
+    "method": "GET",
+    "name": "GET/api/ws/",
+    "status": 301,
+    "url": "/api/ws/?a=%2F&b=1"
+  },
+  {
+    "body": "{\"params\":null,\"path\":\"/api/ws\",\"pattern\":\"/api/ws\"}",
+    "contentType": "application/json; charset=utf-8",
+    "location": "",
+    "marker": {
+      "params": null,
+      "path": "/api/ws",
+      "pattern": "/api/ws"
+    },
+    "method": "GET",
+    "name": "GET/api/ws",
+    "status": 200,
+    "url": "/api/ws?a=%2F&b=1"
+  },
+  {
+    "body": "{\"params\":null,\"path\":\"/api/vm/mouse-jiggler/\",\"pattern\":\"/api/vm/mouse-jiggler/\"}",
+    "contentType": "application/json; charset=utf-8",
+    "location": "",
+    "marker": {
+      "params": null,
+      "path": "/api/vm/mouse-jiggler/",
+      "pattern": "/api/vm/mouse-jiggler/"
+    },
+    "method": "POST",
+    "name": "POST/api/vm/mouse-jiggler/",
+    "status": 200,
+    "url": "/api/vm/mouse-jiggler/?a=%2F&b=1"
+  },
+  {
+    "body": "",
+    "contentType": "",
+    "location": "/api/vm/mouse-jiggler/?a=%2F&b=1",
+    "marker": null,
+    "method": "POST",
+    "name": "POST/api/vm/mouse-jiggler",
+    "status": 307,
+    "url": "/api/vm/mouse-jiggler?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "POST",
+    "name": "POST/api/vm/info/",
+    "status": 404,
+    "url": "/api/vm/info/?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "POST",
+    "name": "POST/api/vm/info",
+    "status": 404,
+    "url": "/api/vm/info?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "POST",
+    "name": "POST/api/ws/",
+    "status": 404,
+    "url": "/api/ws/?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "POST",
+    "name": "POST/api/ws",
+    "status": 404,
+    "url": "/api/ws?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "HEAD",
+    "name": "HEAD/api/vm/mouse-jiggler/",
+    "status": 404,
+    "url": "/api/vm/mouse-jiggler/?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "HEAD",
+    "name": "HEAD/api/vm/mouse-jiggler",
+    "status": 404,
+    "url": "/api/vm/mouse-jiggler?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "HEAD",
+    "name": "HEAD/api/vm/info/",
+    "status": 404,
+    "url": "/api/vm/info/?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "HEAD",
+    "name": "HEAD/api/vm/info",
+    "status": 404,
+    "url": "/api/vm/info?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "HEAD",
+    "name": "HEAD/api/ws/",
+    "status": 404,
+    "url": "/api/ws/?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "HEAD",
+    "name": "HEAD/api/ws",
+    "status": 404,
+    "url": "/api/ws?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "OPTIONS",
+    "name": "OPTIONS/api/vm/mouse-jiggler/",
+    "status": 404,
+    "url": "/api/vm/mouse-jiggler/?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "OPTIONS",
+    "name": "OPTIONS/api/vm/mouse-jiggler",
+    "status": 404,
+    "url": "/api/vm/mouse-jiggler?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "OPTIONS",
+    "name": "OPTIONS/api/vm/info/",
+    "status": 404,
+    "url": "/api/vm/info/?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "OPTIONS",
+    "name": "OPTIONS/api/vm/info",
+    "status": 404,
+    "url": "/api/vm/info?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "OPTIONS",
+    "name": "OPTIONS/api/ws/",
+    "status": 404,
+    "url": "/api/ws/?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "OPTIONS",
+    "name": "OPTIONS/api/ws",
+    "status": 404,
+    "url": "/api/ws?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "CONNECT",
+    "name": "CONNECT/api/vm/mouse-jiggler/",
+    "status": 404,
+    "url": "/api/vm/mouse-jiggler/?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "CONNECT",
+    "name": "CONNECT/api/vm/mouse-jiggler",
+    "status": 404,
+    "url": "/api/vm/mouse-jiggler?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "CONNECT",
+    "name": "CONNECT/api/vm/info/",
+    "status": 404,
+    "url": "/api/vm/info/?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "CONNECT",
+    "name": "CONNECT/api/vm/info",
+    "status": 404,
+    "url": "/api/vm/info?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "CONNECT",
+    "name": "CONNECT/api/ws/",
+    "status": 404,
+    "url": "/api/ws/?a=%2F&b=1"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "CONNECT",
+    "name": "CONNECT/api/ws",
+    "status": 404,
+    "url": "/api/ws?a=%2F&b=1"
+  },
+  {
+    "body": "{\"params\":null,\"path\":\"/api/vm/info\",\"pattern\":\"/api/vm/info\"}",
+    "contentType": "application/json; charset=utf-8",
+    "location": "",
+    "marker": {
+      "params": null,
+      "path": "/api/vm/info",
+      "pattern": "/api/vm/info"
+    },
+    "method": "GET",
+    "name": "encoded-static",
+    "status": 200,
+    "url": "/api/%76m/%69nfo"
+  },
+  {
+    "body": "{\"params\":null,\"path\":\"/api/vm/info\",\"pattern\":\"/api/vm/info\"}",
+    "contentType": "application/json; charset=utf-8",
+    "location": "",
+    "marker": {
+      "params": null,
+      "path": "/api/vm/info",
+      "pattern": "/api/vm/info"
+    },
+    "method": "GET",
+    "name": "encoded-slash",
+    "status": 200,
+    "url": "/api%2fvm/info"
+  },
+  {
+    "body": "<a href=\"/api/vm/info\">Moved Permanently</a>.\n\n",
+    "contentType": "text/html; charset=utf-8",
+    "location": "/api/vm/info",
+    "marker": null,
+    "method": "GET",
+    "name": "encoded-alias",
+    "status": 301,
+    "url": "/api/vm/%69nfo/"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "GET",
+    "name": "user",
+    "status": 404,
+    "url": "/api/auth/users/alpha"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "GET",
+    "name": "user-encoded",
+    "status": 404,
+    "url": "/api/auth/users/a%6Cpha"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "GET",
+    "name": "user-double",
+    "status": 404,
+    "url": "/api/auth/users/alpha%252Fbeta"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "GET",
+    "name": "user-slash",
+    "status": 404,
+    "url": "/api/auth/users/alpha%2Fbeta"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "GET",
+    "name": "user-space",
+    "status": 404,
+    "url": "/api/auth/users/alpha%20beta"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "GET",
+    "name": "user-invalid-utf8",
+    "status": 404,
+    "url": "/api/auth/users/%FF"
+  },
+  {
+    "body": "<a href=\"/api/auth/users\">Moved Permanently</a>.\n\n",
+    "contentType": "text/html; charset=utf-8",
+    "location": "/api/auth/users",
+    "marker": null,
+    "method": "GET",
+    "name": "users-slash",
+    "status": 301,
+    "url": "/api/auth/users/"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "GET",
+    "name": "double-slash",
+    "status": 404,
+    "url": "/api/vm/info//"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "GET",
+    "name": "double-jiggler",
+    "status": 404,
+    "url": "/api/vm/mouse-jiggler//"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "GET",
+    "name": "case",
+    "status": 404,
+    "url": "/API/vm/info"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "GET",
+    "name": "dots",
+    "status": 404,
+    "url": "/api/vm/../vm/info"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "GET",
+    "name": "empty-segment",
+    "status": 404,
+    "url": "/api//vm/info"
+  },
+  {
+    "body": "{\"params\":[{\"Key\":\"username\",\"Value\":\"alpha\"}],\"path\":\"/api/auth/users/alpha\",\"pattern\":\"/api/auth/users/:username\"}",
+    "contentType": "application/json; charset=utf-8",
+    "location": "",
+    "marker": {
+      "params": [
+        {
+          "Key": "username",
+          "Value": "alpha"
+        }
+      ],
+      "path": "/api/auth/users/alpha",
+      "pattern": "/api/auth/users/:username"
+    },
+    "method": "PUT",
+    "name": "put-user",
+    "status": 200,
+    "url": "/api/auth/users/alpha"
+  },
+  {
+    "body": "{\"params\":[{\"Key\":\"username\",\"Value\":\"alpha\"}],\"path\":\"/api/auth/users/alpha\",\"pattern\":\"/api/auth/users/:username\"}",
+    "contentType": "application/json; charset=utf-8",
+    "location": "",
+    "marker": {
+      "params": [
+        {
+          "Key": "username",
+          "Value": "alpha"
+        }
+      ],
+      "path": "/api/auth/users/alpha",
+      "pattern": "/api/auth/users/:username"
+    },
+    "method": "PUT",
+    "name": "put-user-encoded",
+    "status": 200,
+    "url": "/api/auth/users/a%6Cpha"
+  },
+  {
+    "body": "{\"params\":[{\"Key\":\"username\",\"Value\":\"alpha%2Fbeta\"}],\"path\":\"/api/auth/users/alpha%2Fbeta\",\"pattern\":\"/api/auth/users/:username\"}",
+    "contentType": "application/json; charset=utf-8",
+    "location": "",
+    "marker": {
+      "params": [
+        {
+          "Key": "username",
+          "Value": "alpha%2Fbeta"
+        }
+      ],
+      "path": "/api/auth/users/alpha%2Fbeta",
+      "pattern": "/api/auth/users/:username"
+    },
+    "method": "PUT",
+    "name": "put-user-double",
+    "status": 200,
+    "url": "/api/auth/users/alpha%252Fbeta"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "PUT",
+    "name": "put-user-slash",
+    "status": 404,
+    "url": "/api/auth/users/alpha%2Fbeta"
+  },
+  {
+    "body": "{\"params\":[{\"Key\":\"username\",\"Value\":\"alpha beta\"}],\"path\":\"/api/auth/users/alpha beta\",\"pattern\":\"/api/auth/users/:username\"}",
+    "contentType": "application/json; charset=utf-8",
+    "location": "",
+    "marker": {
+      "params": [
+        {
+          "Key": "username",
+          "Value": "alpha beta"
+        }
+      ],
+      "path": "/api/auth/users/alpha beta",
+      "pattern": "/api/auth/users/:username"
+    },
+    "method": "PUT",
+    "name": "put-user-space",
+    "status": 200,
+    "url": "/api/auth/users/alpha%20beta"
+  },
+  {
+    "body": "{\"params\":[{\"Key\":\"username\",\"Value\":\"\ufffd\"}],\"path\":\"/api/auth/users/\ufffd\",\"pattern\":\"/api/auth/users/:username\"}",
+    "contentType": "application/json; charset=utf-8",
+    "location": "",
+    "marker": {
+      "params": [
+        {
+          "Key": "username",
+          "Value": "\ufffd"
+        }
+      ],
+      "path": "/api/auth/users/\ufffd",
+      "pattern": "/api/auth/users/:username"
+    },
+    "method": "PUT",
+    "name": "put-user-invalid-utf8",
+    "status": 200,
+    "url": "/api/auth/users/%FF"
+  },
+  {
+    "body": "404 page not found",
+    "contentType": "text/plain",
+    "location": "",
+    "marker": null,
+    "method": "PUT",
+    "name": "put-users-slash",
+    "status": 404,
+    "url": "/api/auth/users/"
+  },
+  {
+    "body": "{\"params\":[],\"path\":\"/api/vm/info\",\"pattern\":\"/api/vm/info\"}",
+    "contentType": "application/json; charset=utf-8",
+    "location": "",
+    "marker": {
+      "params": [],
+      "path": "/api/vm/info",
+      "pattern": "/api/vm/info"
+    },
+    "method": "GET",
+    "name": "encoded-api-root",
+    "status": 200,
+    "url": "/%61pi/vm/info"
+  },
+  {
+    "body": "{\"params\":[],\"path\":\"/api/vm/info\",\"pattern\":\"/api/vm/info\"}",
+    "contentType": "application/json; charset=utf-8",
+    "location": "",
+    "marker": {
+      "params": [],
+      "path": "/api/vm/info",
+      "pattern": "/api/vm/info"
+    },
+    "method": "GET",
+    "name": "encoded-api-slashes",
+    "status": 200,
+    "url": "/api%2Fvm%2Finfo"
+  }
+]

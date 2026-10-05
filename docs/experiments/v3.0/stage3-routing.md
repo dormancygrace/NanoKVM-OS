@@ -1,0 +1,9 @@
+# Gin route compatibility repair
+
+API routing decodes URL path bytes once, including encoded API prefixes and separators. Dynamic usernames no longer undergo a second decode. Gin default trailing-slash aliases produce GET301 or other-method307 before body buffering/authentication, with query preservation and exact escaped Location/GET HTML. Unknown API routes return404, text/plain and exact body404 page not found. HEAD no longer implicitly upgrades WebSocket. CONNECT, doubled separators and case/dot variants retain route rejection.
+
+Fifty-four actual immutable Gin1.12 inventory-marker requests verify methods, route patterns, decoded paths, redirect codes/headers/bodies and default404. Two unit tests plus three added API tests prove no body/peer/auth wait for aliases, normalized session/admin gates, one-decode usernames, strict invalid percent escapes and title write/reset errors. One actual TCP socket test proves401 then authenticated101/control/heartbeat for three encoded WS endpoints.
+
+Forwarded local proxy prefixes are joined once; invalid prefixes are ignored. This intentionally corrects Gin prefix joining while keeping locations local. POSTtitle now resolves the parent inside the runtime root and returns existing write/reset errors without an unwrap; atomic final-link replacement remains intact.
+
+check-v3.py --host --target --tls passes134tests per architecture:44unit,27API,9CPU,8time,3identity,3memory,20sockets/paste,9USB/monitor,11GPIO/system. Warning-denied clippy, generic-rv64 staticmusl/QEMU, real TLS/307/Securecookie/SIGTERM/occupiedport and173SPDX packages pass. stage3-routing-qualification.json records binary/log hashes. No new route implementations; ledger47isolated/1partialWS/156pending of204. HTTPheader/idle deadlines and runtime media/remaining APIs/package/device qualification remain pending. No stand actions or publication.

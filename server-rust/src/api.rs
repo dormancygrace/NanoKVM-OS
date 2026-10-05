@@ -1,7 +1,7 @@
-use crate::{config, crypto, store, Error, Runtime};
+use crate::{crypto, store, Error, Runtime};
 use axum::{
     body::to_bytes,
-    extract::{ConnectInfo, Request, State},
+    extract::{ws::WebSocketUpgrade, ConnectInfo, FromRequestParts, Request, State},
     http::{HeaderMap, Method, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -348,24 +348,58 @@ fn change_password(s: &Runtime, name: &str, encrypted: &str) -> Result<(), Error
     })
 }
 
-pub async fn dispatch(State((s, _)): State<(Arc<Runtime>, PathBuf)>, request: Request) -> Response {
+pub async fn dispatch(
+    State((s, web)): State<(Arc<Runtime>, PathBuf)>,
+    mut request: Request,
+) -> Response {
     crate::jiggler::Jiggler::start(&s);
     if s.stopping.load(std::sync::atomic::Ordering::Acquire) {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     }
     let method = request.method().clone();
-    let path = request.uri().path().to_owned();
+    let bytes = if let Some(path) = request
+        .extensions_mut()
+        .remove::<crate::routing::DecodedPath>()
+    {
+        path.0
+    } else {
+        match crate::routing::decode(request.uri().path()) {
+            Ok(path) => path,
+            Err(_) => return StatusCode::BAD_REQUEST.into_response(),
+        }
+    };
+    let path = crate::routing::text(&bytes);
     let query = request.uri().query().map(str::to_owned);
     let Some(route) = matched(method.as_str(), &path) else {
-        return StatusCode::NOT_FOUND.into_response();
+        if method != Method::CONNECT {
+            if let Some(candidate) = crate::routing::slash(&bytes) {
+                if matched(method.as_str(), &crate::routing::text(&candidate)).is_some() {
+                    return crate::routing::redirect(
+                        method.as_str(),
+                        &candidate,
+                        query.as_deref(),
+                        request.headers(),
+                    );
+                }
+            }
+        }
+        return crate::routing::not_found();
     };
     let peer = request
         .extensions()
         .get::<ConnectInfo<SocketAddr>>()
-        .map(|c| c.0.ip());
+        .map(|c| c.0);
     let Some(peer) = peer else {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
+    if path == "/api/ws" {
+        let (mut parts, body) = request.into_parts();
+        drop(body);
+        let headers = parts.headers.clone();
+        let upgrade = WebSocketUpgrade::from_request_parts(&mut parts, &()).await;
+        return crate::ws::connect(State((s, web)), ConnectInfo(peer), headers, upgrade).await;
+    }
+    let peer = peer.ip();
     let headers = request.headers().clone();
     let body = match to_bytes(request.into_body(), 1 << 20).await {
         Ok(b) => b,
@@ -616,8 +650,24 @@ fn handle(
                     Some(Value::String(v)) => v.as_str(),
                     _ => return error(-1, "invalid arguments"),
                 };
-                let file = config::rooted(&s.root, "/etc/kvm/web-title").unwrap();
-                if title.is_empty() || title == "NanoKVM OS" {
+                let reset = title.is_empty() || title == "NanoKVM OS";
+                let file =
+                    match crate::fsroot::resolve(&s.root, std::path::Path::new("/etc/kvm"), false)
+                        .map(|parent| parent.join("web-title"))
+                    {
+                        Ok(file) => file,
+                        Err(_) => {
+                            return error(
+                                if reset { -2 } else { -3 },
+                                if reset {
+                                    "reset failed"
+                                } else {
+                                    "write failed"
+                                },
+                            )
+                        }
+                    };
+                if reset {
                     if std::fs::remove_file(file).is_err() {
                         return error(-2, "reset failed");
                     }
@@ -631,10 +681,7 @@ fn handle(
                     .trim_start_matches("/api/auth/users/")
                     .split('/')
                     .collect();
-                let name = match percent_encoding::percent_decode_str(pieces[0]).decode_utf8() {
-                    Ok(n) => n,
-                    Err(_) => return error(-1, "invalid parameters"),
-                };
+                let name = pieces[0];
                 let actor = user.unwrap().username;
                 match method.as_str() {
                     "PUT" => {
@@ -650,19 +697,19 @@ fn handle(
                         {
                             return error(-1, "invalid parameters");
                         }
-                        match s.store.update(&actor, &name, patch) {
+                        match s.store.update(&actor, name, patch) {
                             Ok(changed) => {
                                 if changed {
-                                    s.revoke_sessions(&name);
+                                    s.revoke_sessions(name);
                                 }
                                 ok(Value::Null)
                             }
                             Err(e) => error(-2, &e.to_string()),
                         }
                     }
-                    "DELETE" => match s.store.delete(&actor, &name) {
+                    "DELETE" => match s.store.delete(&actor, name) {
                         Ok(()) => {
-                            s.revoke_sessions(&name);
+                            s.revoke_sessions(name);
                             ok(Value::Null)
                         }
                         Err(e) => error(-1, &e.to_string()),
@@ -674,16 +721,16 @@ fn handle(
                         let Ok(encrypted) = required(&v, "password") else {
                             return error(-1, "invalid parameters");
                         };
-                        match s.store.get(&name) {
+                        match s.store.get(name) {
                             Err(e) => return error(-2, &e.to_string()),
                             Ok(u) if u.system_account => {
                                 return error(-3, "the device owner must change its own password")
                             }
                             _ => {}
                         }
-                        match change_password(s, &name, encrypted) {
+                        match change_password(s, name, encrypted) {
                             Ok(()) => {
-                                s.revoke_sessions(&name);
+                                s.revoke_sessions(name);
                                 ok(Value::Null)
                             }
                             Err(e) => error(-4, &e.to_string()),
@@ -794,4 +841,96 @@ fn handle(
         return (r, Duration::ZERO);
     }
     (result(), Duration::ZERO)
+}
+
+#[cfg(test)]
+mod routing_oracle_tests {
+    use super::*;
+    #[tokio::test]
+    async fn gin_inventory_decoding_alias_status_location_and_body() {
+        let oracle: Value = serde_json::from_str(include_str!(
+            "../../docs/experiments/v3.0/routing-go-oracle.json"
+        ))
+        .unwrap();
+        for case in oracle.as_array().unwrap() {
+            let uri: axum::http::Uri = case["url"].as_str().unwrap().parse().unwrap();
+            let method = case["method"].as_str().unwrap();
+            let bytes = crate::routing::decode(uri.path()).unwrap();
+            let path = crate::routing::text(&bytes);
+            if let Some(route) = matched(method, &path) {
+                assert_eq!(case["status"], 200, "{}", case["name"]);
+                assert_eq!(route.path, case["marker"]["pattern"], "{}", case["name"]);
+                assert_eq!(path, case["marker"]["path"], "{}", case["name"]);
+            } else if let Some(candidate) = crate::routing::slash(&bytes).filter(|candidate| {
+                method != "CONNECT" && matched(method, &crate::routing::text(candidate)).is_some()
+            }) {
+                let response =
+                    crate::routing::redirect(method, &candidate, uri.query(), &HeaderMap::new());
+                assert_eq!(
+                    response.status().as_u16(),
+                    case["status"].as_u64().unwrap() as u16,
+                    "{}",
+                    case["name"]
+                );
+                assert_eq!(
+                    response.headers()["location"],
+                    case["location"].as_str().unwrap(),
+                    "{}",
+                    case["name"]
+                );
+                let content = response
+                    .headers()
+                    .get("content-type")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("");
+                assert_eq!(content, case["contentType"], "{}", case["name"]);
+                let body = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+                assert_eq!(
+                    String::from_utf8(body.to_vec()).unwrap(),
+                    case["body"],
+                    "{}",
+                    case["name"]
+                );
+            } else {
+                let response = crate::routing::not_found();
+                assert_eq!(
+                    response.status().as_u16(),
+                    case["status"].as_u64().unwrap() as u16,
+                    "{}",
+                    case["name"]
+                );
+                assert_eq!(
+                    response.headers()["content-type"],
+                    case["contentType"].as_str().unwrap(),
+                    "{}",
+                    case["name"]
+                );
+                let body = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+                assert_eq!(
+                    String::from_utf8(body.to_vec()).unwrap(),
+                    case["body"],
+                    "{}",
+                    case["name"]
+                );
+            }
+        }
+    }
+    #[tokio::test]
+    async fn proxy_prefix_is_local_joined_once_and_percent_escapes_are_strict() {
+        assert!(crate::routing::decode("/api/%").is_err());
+        assert!(crate::routing::decode("/api/%GG").is_err());
+        assert_eq!(crate::routing::decode("/api/%252F").unwrap(), b"/api/%2F");
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-prefix", "/nanokvm/".parse().unwrap());
+        let response = crate::routing::redirect("GET", b"/api/vm/info", Some("a=1&b=2"), &headers);
+        assert_eq!(
+            response.headers()["location"],
+            "/nanokvm/api/vm/info?a=1&b=2"
+        );
+        headers.insert("x-forwarded-prefix", "bad-prefix".parse().unwrap());
+        assert_eq!(
+            crate::routing::redirect("GET", b"/api/vm/info", None, &headers).headers()["location"],
+            "/api/vm/info"
+        );
+    }
 }

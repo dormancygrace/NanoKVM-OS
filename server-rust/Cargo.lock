@@ -720,6 +720,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "mediatype"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0695a693e38d35838dd34bc3ab19911395f6837ccf55c7271189cfb12cb8b57f"
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -775,6 +781,7 @@ dependencies = [
  "ipnet",
  "libc",
  "md-5",
+ "mediatype",
  "percent-encoding",
  "rustls",
  "serde",

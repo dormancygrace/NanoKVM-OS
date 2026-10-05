@@ -29,4 +29,5 @@ for language,name in [('', 'US'),('de','DE'),('fr','FR'),('es','ES')]:
     native+= ['];']
 (repo/'server-rust/src/paste_layout.rs').write_text('\n'.join(native)+'\n')
 (repo/'docs/experiments/v3.0/paste-go-oracle.json').write_text(json.dumps({'baseline':baseline,'layouts':data},indent=2)+'\n')
+subprocess.run([checks.CARGO, 'fmt'], cwd=checks.CRATE, check=True)
 print('Generated native layout tables and actual Go oracle:', {lang:len(rows) for lang,rows in data.items()})

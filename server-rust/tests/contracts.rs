@@ -1062,3 +1062,148 @@ async fn internal_usb_credential_is_independent_of_browser_auth_and_actual_peer_
     }
     state.shutdown();
 }
+
+#[tokio::test]
+async fn form_query_body_precedence_media_rules_and_invalid_encodings_preserve_files() {
+    let (temp, _state, router) = fixture();
+    let token = login(&router, "owner").await;
+    let auth = format!("Bearer {token}");
+    let file = temp.path().join("etc/kvm/web-title");
+    fs::write(&file, "initial").unwrap();
+    let cases = [
+        (
+            "Title=query",
+            Some("application/x-www-form-urlencoded"),
+            "Title=body",
+            Some("body"),
+        ),
+        (
+            "Title=query",
+            Some("application/x-www-form-urlencoded"),
+            "Title=first&Title=last",
+            Some("first"),
+        ),
+        ("Title=query", None, "Title=ignored", Some("query")),
+        (
+            "Title=query2",
+            Some("text/plain"),
+            "Title=%zz",
+            Some("query2"),
+        ),
+        (
+            "Title=query",
+            Some("Application/X-WWW-Form-Urlencoded; charset=\"UTF-8\""),
+            "Title=uppercase",
+            Some("uppercase"),
+        ),
+        (
+            "Title=query",
+            Some("broken"),
+            "Title=ignored",
+            Some("query"),
+        ),
+        (
+            "Title=query",
+            Some("application/json"),
+            "{\"title\":\"json\"}",
+            Some("json"),
+        ),
+        (
+            "Title=%zz",
+            Some("application/x-www-form-urlencoded"),
+            "Title=body",
+            None,
+        ),
+        (
+            "unknown=x;y",
+            Some("application/x-www-form-urlencoded"),
+            "Title=body",
+            None,
+        ),
+        (
+            "Title=query",
+            Some("application/x-www-form-urlencoded"),
+            "Title=%",
+            None,
+        ),
+        (
+            "Title=query",
+            Some("application/x-www-form-urlencoded; broken"),
+            "Title=body",
+            None,
+        ),
+        (
+            "Title=query",
+            Some("application/x-www-form-urlencoded; charset=UTF-8; charset=ASCII"),
+            "Title=body",
+            None,
+        ),
+        (
+            "Title=query",
+            Some("application/x-www-form-urlencoded"),
+            "Title=a%3Bb",
+            Some("a;b"),
+        ),
+    ];
+    for (query, content_type, body, expected) in cases {
+        let before = fs::read(&file).unwrap();
+        let mut request = Request::builder()
+            .method("POST")
+            .uri(format!("/api/vm/web-title?{query}"))
+            .header("authorization", &auth);
+        if let Some(content_type) = content_type {
+            request = request.header("content-type", content_type);
+        }
+        let mut request = request.body(Body::from(body)).unwrap();
+        request.extensions_mut().insert(ConnectInfo(
+            "127.0.0.1:38000".parse::<SocketAddr>().unwrap(),
+        ));
+        let response = router.clone().oneshot(request).await.unwrap();
+        let value: Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 1 << 20).await.unwrap())
+                .unwrap();
+        if let Some(expected) = expected {
+            assert_eq!(value["code"], 0, "{query} {content_type:?} {body}: {value}");
+            assert_eq!(fs::read(&file).unwrap(), expected.as_bytes());
+        } else {
+            assert_eq!(
+                value["code"], -1,
+                "{query} {content_type:?} {body}: {value}"
+            );
+            assert_eq!(fs::read(&file).unwrap(), before);
+        }
+    }
+    // Query ID is valid for DELETE, while its urlencoded body is ignored by Go.
+    let (_, _, created) = request(
+        &router,
+        "POST",
+        "/api/hid/shortcut",
+        json!({"keys":[{"code":"A","label":"A"}]}),
+        &[("authorization", auth.as_str())],
+    )
+    .await;
+    assert_eq!(created["code"], 0);
+    let (_, _, list) = request(
+        &router,
+        "GET",
+        "/api/hid/shortcuts",
+        Value::Null,
+        &[("authorization", auth.as_str())],
+    )
+    .await;
+    let id = list["data"]["shortcuts"][0]["id"].as_str().unwrap();
+    let mut delete = Request::builder()
+        .method("DELETE")
+        .uri(format!("/api/hid/shortcut?ID={id}"))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .header("authorization", auth)
+        .body(Body::from("ID=wrong"))
+        .unwrap();
+    delete.extensions_mut().insert(ConnectInfo(
+        "127.0.0.1:38000".parse::<SocketAddr>().unwrap(),
+    ));
+    let response = router.clone().oneshot(delete).await.unwrap();
+    let value: Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 1 << 20).await.unwrap()).unwrap();
+    assert_eq!(value["code"], 0);
+}

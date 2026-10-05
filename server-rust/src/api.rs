@@ -189,11 +189,18 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         _ => &[],
     }
 }
-fn params(headers: &HeaderMap, body: &[u8], method: &Method, path: &str) -> Result<Value, Error> {
-    if headers
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .is_some_and(|v| v.split(';').next() == Some("application/json"))
+fn params(
+    headers: &HeaderMap,
+    body: &[u8],
+    method: &Method,
+    path: &str,
+    query: Option<&str>,
+) -> Result<Value, Error> {
+    if method != Method::GET
+        && headers
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.split(';').next() == Some("application/json"))
     {
         Ok(crate::binding::json(
             body,
@@ -201,7 +208,7 @@ fn params(headers: &HeaderMap, body: &[u8], method: &Method, path: &str) -> Resu
             method == Method::PUT && path.starts_with("/api/auth/users/"),
         )?)
     } else {
-        let form: Vec<(String, String)> = serde_urlencoded::from_bytes(body)?;
+        let form = crate::form_binding::parameters(headers, body, method, query)?;
         let mut v = serde_json::Map::new();
         for (key, value) in form {
             let Some(&canonical) = fields(method, path).iter().find(|canonical| {
@@ -336,6 +343,7 @@ pub async fn dispatch(State((s, _)): State<(Arc<Runtime>, PathBuf)>, request: Re
     }
     let method = request.method().clone();
     let path = request.uri().path().to_owned();
+    let query = request.uri().query().map(str::to_owned);
     let Some(route) = matched(method.as_str(), &path) else {
         return StatusCode::NOT_FOUND.into_response();
     };
@@ -367,7 +375,7 @@ pub async fn dispatch(State((s, _)): State<(Arc<Runtime>, PathBuf)>, request: Re
             &path,
             &headers,
             peer,
-            (&body, &cancelled),
+            (&body, &cancelled, query.as_deref()),
         );
         if method == Method::POST && path == "/api/auth/login" {
             response
@@ -399,9 +407,9 @@ fn handle(
     path: &str,
     headers: &HeaderMap,
     peer: IpAddr,
-    request_body: (&[u8], &crate::request_cancel::Cancellation),
+    request_body: (&[u8], &crate::request_cancel::Cancellation, Option<&str>),
 ) -> (Response, Duration) {
-    let (body, cancelled) = request_body;
+    let (body, cancelled, query) = request_body;
     let result = || -> Response {
         if s.stopping.load(std::sync::atomic::Ordering::Acquire) {
             return StatusCode::SERVICE_UNAVAILABLE.into_response();
@@ -439,7 +447,7 @@ fn handle(
             }
             Some(u)
         };
-        let parsed = params(headers, body, method, path);
+        let parsed = params(headers, body, method, path, query);
         if route.input_owner
             && !s.input.allows_http(
                 headers
@@ -678,7 +686,7 @@ fn handle(
             return (error(-5, msg), Duration::from_secs(3));
         }
         drop(attempts);
-        let parsed = params(headers, body, method, path);
+        let parsed = params(headers, body, method, path, query);
         let Ok(v) = parsed else {
             return (error(-1, "invalid parameters"), Duration::from_secs(3));
         };

@@ -30,6 +30,14 @@ pub trait Executor: Send + Sync {
     fn output(&self, _action: Action, _timeout: Duration) -> Result<Vec<u8>, Error> {
         Err("command output unavailable".into())
     }
+    fn memory(
+        &self,
+        _action: crate::memory_command::Action,
+        _timeout: Duration,
+        _cancelled: &dyn Fn() -> bool,
+    ) -> Result<crate::memory_command::Output, Error> {
+        Err("memory command unavailable".into())
+    }
     fn stop(&self) {}
 }
 pub struct Native {
@@ -121,6 +129,17 @@ impl Executor for Native {
             .env("LC_ALL", "C");
         captured_with_cancel(&mut command, timeout, || {
             self.stopped.load(std::sync::atomic::Ordering::Acquire)
+        })
+    }
+    fn memory(
+        &self,
+        action: crate::memory_command::Action,
+        timeout: Duration,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<crate::memory_command::Output, Error> {
+        self.check(Action::UsbStop)?;
+        crate::memory_command::combined(&mut action.command()?, timeout, || {
+            self.stopped.load(std::sync::atomic::Ordering::Acquire) || cancelled()
         })
     }
     fn stop(&self) {

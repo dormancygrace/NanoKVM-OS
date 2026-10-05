@@ -172,6 +172,9 @@ fn fields(method: &Method, path: &str) -> &'static [&'static str] {
         ("POST", "/api/vm/oled") => &["sleep"],
         ("POST", "/api/vm/cpu-frequency") => &["target"],
         ("POST", "/api/vm/date-time") => &["servers", "timezone", "format"],
+        ("POST", "/api/vm/memory/swap") => &["kind", "enabled", "sizeMiB", "recompress"],
+        ("POST", "/api/vm/memory/video") => &["mode"],
+        ("POST", "/api/vm/swap") => &["size"],
         ("POST", "/api/hid/shortcut") => &["keys"],
         ("POST", "/api/hid/paste") => &["content", "langue"],
         ("POST", "/api/hid/mode") => &["mode"],
@@ -204,11 +207,13 @@ fn params(
     query: Option<&str>,
 ) -> Result<Value, Error> {
     if method != Method::GET
-        && (path == "/api/vm/date-time"
-            || headers
-                .get("content-type")
-                .and_then(|v| v.to_str().ok())
-                .is_some_and(|v| v.split(';').next() == Some("application/json")))
+        && (matches!(
+            path,
+            "/api/vm/date-time" | "/api/vm/memory/swap" | "/api/vm/memory/video"
+        ) || headers
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.split(';').next() == Some("application/json")))
     {
         Ok(crate::binding::json(
             body,
@@ -227,6 +232,7 @@ fn params(
                     "title" => "Title",
                     "hostname" => "Hostname",
                     "sleep" => "Sleep",
+                    "size" => "Size",
                     "target" => "Target",
                     "mode" => "Mode",
                     "device" => "Device",
@@ -257,7 +263,7 @@ fn params(
                     .push(item);
                 continue;
             }
-            let value = if matches!(canonical, "sleep" | "target") {
+            let value = if matches!(canonical, "sleep" | "target" | "size") {
                 let value = value.trim();
                 let value = if value.is_empty() { "0" } else { value };
                 Value::from(value.parse::<i64>()?)
@@ -511,6 +517,10 @@ fn handle(
         match (method.as_str(), path) {
             ("GET", "/api/vm/dashboard") => crate::dashboard::get(s),
             ("GET", "/api/vm/memory/status") => crate::memory_status::get(s),
+            ("POST", "/api/vm/memory/swap") => crate::memory_ops::swap(s, parsed, cancelled),
+            ("POST", "/api/vm/memory/video") => crate::memory_ops::video(s, parsed, cancelled),
+            ("GET", "/api/vm/swap") => crate::memory_ops::legacy_get(s),
+            ("POST", "/api/vm/swap") => crate::memory_ops::legacy_set(s, parsed, cancelled),
             ("GET", "/api/vm/info") => crate::sysinfo::get(s),
             ("GET", "/api/vm/mdns") => crate::sysinfo::mdns(s),
             ("GET", "/api/vm/date-time") => crate::timeconfig::get(s),

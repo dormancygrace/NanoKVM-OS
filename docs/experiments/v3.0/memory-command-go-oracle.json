@@ -1,0 +1,2405 @@
+{
+  "baseline": "a53b25579ab87cc98f85323b4743deb0d4da907b",
+  "goVersion": "1.27.1",
+  "cases": [
+    {
+      "calls": [],
+      "case": {
+        "Name": "zram-0",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"zram\", \"enabled\": true, \"sizeMiB\": 0}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "zram-31",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"zram\", \"enabled\": true, \"sizeMiB\": 31}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "zram",
+          "1",
+          "32"
+        ]
+      ],
+      "case": {
+        "Name": "zram-32",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"zram\", \"enabled\": true, \"sizeMiB\": 32}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "zram",
+          "1",
+          "64"
+        ]
+      ],
+      "case": {
+        "Name": "zram-64",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"zram\", \"enabled\": true, \"sizeMiB\": 64}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "zram",
+          "1",
+          "128"
+        ]
+      ],
+      "case": {
+        "Name": "zram-128",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"zram\", \"enabled\": true, \"sizeMiB\": 128}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "zram",
+          "1",
+          "162"
+        ]
+      ],
+      "case": {
+        "Name": "zram-162",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"zram\", \"enabled\": true, \"sizeMiB\": 162}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "zram-163",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"zram\", \"enabled\": true, \"sizeMiB\": 163}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "zram-256",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"zram\", \"enabled\": true, \"sizeMiB\": 256}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "sd-0",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"sd\", \"enabled\": true, \"sizeMiB\": 0}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "sd-64",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"sd\", \"enabled\": true, \"sizeMiB\": 64}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "1",
+          "128"
+        ]
+      ],
+      "case": {
+        "Name": "sd-128",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"sd\", \"enabled\": true, \"sizeMiB\": 128}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "1",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "sd-256",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"sd\", \"enabled\": true, \"sizeMiB\": 256}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "1",
+          "512"
+        ]
+      ],
+      "case": {
+        "Name": "sd-512",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"sd\", \"enabled\": true, \"sizeMiB\": 512}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "sd-513",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\": \"sd\", \"enabled\": true, \"sizeMiB\": 513}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "missing",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "null",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "null",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "array",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "[]",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "wrong-size",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":\"256\"}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "fraction",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":256.0}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "overflow",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":9223372036854775808}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "kind-case",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"SD\",\"sizeMiB\":256}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "zram",
+          "1",
+          "64"
+        ]
+      ],
+      "case": {
+        "Name": "duplicates",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"first\",\"KIND\":\"zram\",\"SIZE MIB\":1,\"sizeMiB\":64,\"sizeMiB\":null,\"enabled\":true,\"ENABLED\":null,\"recompress\":true,\"RECOMPRESS\":null}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "type-error-first",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"sizeMiB\":\"bad\",\"sizeMiB\":64,\"kind\":\"zram\"}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "zram",
+          "0",
+          "64",
+          "1"
+        ]
+      ],
+      "case": {
+        "Name": "pointer-bool",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"zram\",\"sizeMiB\":64,\"recompress\":true}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "zram",
+          "0",
+          "64",
+          "0"
+        ]
+      ],
+      "case": {
+        "Name": "pointer-false",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"zram\",\"sizeMiB\":64,\"recompress\":false}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "pointer-sd",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":256,\"recompress\":false}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "pointer-wrong",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"zram\",\"sizeMiB\":64,\"recompress\":\"true\"}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "enabled-wrong",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"zram\",\"sizeMiB\":64,\"enabled\":1}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "128"
+        ]
+      ],
+      "case": {
+        "Name": "first-value",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":128} true",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "forced-json",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":256}",
+        "ContentType": "text/plain",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "forced-form-invalid",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "kind=sd&sizeMiB=256",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid swap type or size"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "swap-fail-empty",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":256}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": true,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "Failed to change swap"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "swap-fail-spaces",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":256}",
+        "ContentType": "application/json",
+        "Output": "IAoJ",
+        "LockError": "",
+        "Fail": true,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "Failed to change swap"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "swap-fail-stderr",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":256}",
+        "ContentType": "application/json",
+        "Output": "IHN3YXAgZmFpbGVkIAo=",
+        "LockError": "",
+        "Fail": true,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "swap failed"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "swap-fail-long",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":256}",
+        "ContentType": "application/json",
+        "Output": "cHJlZml4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eCB0YWlsIAo=",
+        "LockError": "",
+        "Fail": true,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx tail"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "swap-fail-long-trailing-space",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":256}",
+        "ContentType": "application/json",
+        "Output": "IHVzZWZ1bCBlcnJvciAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA==",
+        "LockError": "",
+        "Fail": true,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "useful error"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "swap-fail-unicode-trim",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":256}",
+        "ContentType": "application/json",
+        "Output": "4oCDw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcKF",
+        "LockError": "",
+        "Fail": true,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "swap-fail-invalid",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":256}",
+        "ContentType": "application/json",
+        "Output": "IP/hgP8K",
+        "LockError": "",
+        "Fail": true,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "\ufffd\ufffd\ufffd\ufffd"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "success-read-error",
+        "Method": "POST",
+        "Path": "/api/vm/memory/swap",
+        "Body": "{\"kind\":\"sd\",\"sizeMiB\":256}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": true,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Failed to read memory statistics"
+      }
+    },
+    {
+      "calls": [
+        [
+          "/usr/libexec/nanokvm/activate-kernel",
+          "pcie",
+          "fixed"
+        ]
+      ],
+      "case": {
+        "Name": "video-good",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":\"fixed\"}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {
+          "/sys/firmware/devicetree/base/sipeed,board-revision": "cGNpZQA=",
+          "/usr/lib/nanokvm/boot/pcie-fixed.sd": "",
+          "/usr/lib/nanokvm/boot/pcie.sd": ""
+        }
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [
+        [
+          "/usr/libexec/nanokvm/activate-kernel",
+          "pcie",
+          "cma"
+        ]
+      ],
+      "case": {
+        "Name": "video-cma",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":\"cma\"}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {
+          "/sys/firmware/devicetree/base/sipeed,board-revision": "cGNpZQA=",
+          "/usr/lib/nanokvm/boot/pcie-fixed.sd": "",
+          "/usr/lib/nanokvm/boot/pcie.sd": ""
+        }
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "video-wrong",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":\"FIXED\"}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {
+          "/sys/firmware/devicetree/base/sipeed,board-revision": "cGNpZQA=",
+          "/usr/lib/nanokvm/boot/pcie-fixed.sd": "",
+          "/usr/lib/nanokvm/boot/pcie.sd": ""
+        }
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid video memory mode"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "video-null",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "null",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {
+          "/sys/firmware/devicetree/base/sipeed,board-revision": "cGNpZQA=",
+          "/usr/lib/nanokvm/boot/pcie-fixed.sd": "",
+          "/usr/lib/nanokvm/boot/pcie.sd": ""
+        }
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid video memory mode"
+      }
+    },
+    {
+      "calls": [
+        [
+          "/usr/libexec/nanokvm/activate-kernel",
+          "pcie",
+          "fixed"
+        ]
+      ],
+      "case": {
+        "Name": "video-duplicate",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":\"fixed\",\"MODE\":null}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {
+          "/sys/firmware/devicetree/base/sipeed,board-revision": "cGNpZQA=",
+          "/usr/lib/nanokvm/boot/pcie-fixed.sd": "",
+          "/usr/lib/nanokvm/boot/pcie.sd": ""
+        }
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "video-type",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":1}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {
+          "/sys/firmware/devicetree/base/sipeed,board-revision": "cGNpZQA=",
+          "/usr/lib/nanokvm/boot/pcie-fixed.sd": "",
+          "/usr/lib/nanokvm/boot/pcie.sd": ""
+        }
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid video memory mode"
+      }
+    },
+    {
+      "calls": [
+        [
+          "/usr/libexec/nanokvm/activate-kernel",
+          "pcie",
+          "fixed"
+        ]
+      ],
+      "case": {
+        "Name": "video-first",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":\"fixed\"} []",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {
+          "/sys/firmware/devicetree/base/sipeed,board-revision": "cGNpZQA=",
+          "/usr/lib/nanokvm/boot/pcie-fixed.sd": "",
+          "/usr/lib/nanokvm/boot/pcie.sd": ""
+        }
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "video-missing",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":\"fixed\"}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "Install the kernel package with both video memory modes first"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "video-lock",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":\"fixed\"}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "another update operation is in progress",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "another update operation is in progress"
+      }
+    },
+    {
+      "calls": [
+        [
+          "/usr/libexec/nanokvm/activate-kernel",
+          "pcie",
+          "cma"
+        ]
+      ],
+      "case": {
+        "Name": "video-forced",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":\"cma\"}",
+        "ContentType": "text/plain",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {
+          "/sys/firmware/devicetree/base/sipeed,board-revision": "cGNpZQA=",
+          "/usr/lib/nanokvm/boot/pcie-fixed.sd": "",
+          "/usr/lib/nanokvm/boot/pcie.sd": ""
+        }
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "availableBytes": 0,
+          "cachedBytes": 0,
+          "sd": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          },
+          "swapTotalBytes": 0,
+          "swapUsedBytes": 0,
+          "totalBytes": 0,
+          "usedBytes": 0,
+          "videoBytes": 0,
+          "videoMemory": {
+            "active": "",
+            "available": false,
+            "rebootRequired": false,
+            "selected": "",
+            "sizeMiB": 0
+          },
+          "zram": {
+            "available": false,
+            "enabled": false,
+            "priority": 0,
+            "recompress": false,
+            "recompressAvailable": false,
+            "recompressReady": false,
+            "sizeMiB": 0,
+            "usedBytes": 0
+          }
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [
+        [
+          "/usr/libexec/nanokvm/activate-kernel",
+          "pcie",
+          "fixed"
+        ]
+      ],
+      "case": {
+        "Name": "video-fail-empty",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":\"fixed\"}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": true,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {
+          "/sys/firmware/devicetree/base/sipeed,board-revision": "cGNpZQA=",
+          "/usr/lib/nanokvm/boot/pcie-fixed.sd": "",
+          "/usr/lib/nanokvm/boot/pcie.sd": ""
+        }
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "Failed to select video memory mode: "
+      }
+    },
+    {
+      "calls": [
+        [
+          "/usr/libexec/nanokvm/activate-kernel",
+          "pcie",
+          "fixed"
+        ]
+      ],
+      "case": {
+        "Name": "video-fail-long",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":\"fixed\"}",
+        "ContentType": "application/json",
+        "Output": "cHJlZml4IHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHggdGFpbCAK",
+        "LockError": "",
+        "Fail": true,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {
+          "/sys/firmware/devicetree/base/sipeed,board-revision": "cGNpZQA=",
+          "/usr/lib/nanokvm/boot/pcie-fixed.sd": "",
+          "/usr/lib/nanokvm/boot/pcie.sd": ""
+        }
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "Failed to select video memory mode: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx tail"
+      }
+    },
+    {
+      "calls": [
+        [
+          "/usr/libexec/nanokvm/activate-kernel",
+          "pcie",
+          "fixed"
+        ]
+      ],
+      "case": {
+        "Name": "video-fail-unicode",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":\"fixed\"}",
+        "ContentType": "application/json",
+        "Output": "w6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqcOpw6nDqQ==",
+        "LockError": "",
+        "Fail": true,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {
+          "/sys/firmware/devicetree/base/sipeed,board-revision": "cGNpZQA=",
+          "/usr/lib/nanokvm/boot/pcie-fixed.sd": "",
+          "/usr/lib/nanokvm/boot/pcie.sd": ""
+        }
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "Failed to select video memory mode: \u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+      }
+    },
+    {
+      "calls": [
+        [
+          "/usr/libexec/nanokvm/activate-kernel",
+          "pcie",
+          "fixed"
+        ]
+      ],
+      "case": {
+        "Name": "video-fail-invalid",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":\"fixed\"}",
+        "ContentType": "application/json",
+        "Output": "/+GA/w==",
+        "LockError": "",
+        "Fail": true,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {
+          "/sys/firmware/devicetree/base/sipeed,board-revision": "cGNpZQA=",
+          "/usr/lib/nanokvm/boot/pcie-fixed.sd": "",
+          "/usr/lib/nanokvm/boot/pcie.sd": ""
+        }
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "Failed to select video memory mode: \ufffd\ufffd\ufffd\ufffd"
+      }
+    },
+    {
+      "calls": [
+        [
+          "/usr/libexec/nanokvm/activate-kernel",
+          "pcie",
+          "fixed"
+        ]
+      ],
+      "case": {
+        "Name": "video-fail-spaces",
+        "Method": "POST",
+        "Path": "/api/vm/memory/video",
+        "Body": "{\"mode\":\"fixed\"}",
+        "ContentType": "application/json",
+        "Output": "IHVzZWZ1bCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA==",
+        "LockError": "",
+        "Fail": true,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {
+          "/sys/firmware/devicetree/base/sipeed,board-revision": "cGNpZQA=",
+          "/usr/lib/nanokvm/boot/pcie-fixed.sd": "",
+          "/usr/lib/nanokvm/boot/pcie.sd": ""
+        }
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "Failed to select video memory mode: "
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "legacy-disable",
+        "Method": "POST",
+        "Path": "/api/vm/swap",
+        "Body": "{}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "1",
+          "128"
+        ]
+      ],
+      "case": {
+        "Name": "legacy-good",
+        "Method": "POST",
+        "Path": "/api/vm/swap",
+        "Body": "{\"size\":128}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "legacy-invalid",
+        "Method": "POST",
+        "Path": "/api/vm/swap",
+        "Body": "{\"size\":1}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -2,
+        "data": null,
+        "msg": "invalid swap type or size"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "legacy-wrong",
+        "Method": "POST",
+        "Path": "/api/vm/swap",
+        "Body": "{\"size\":\"256\"}",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid arguments"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "1",
+          "512"
+        ]
+      ],
+      "case": {
+        "Name": "legacy-form",
+        "Method": "POST",
+        "Path": "/api/vm/swap",
+        "Body": "Size=512",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "legacy-form-lower",
+        "Method": "POST",
+        "Path": "/api/vm/swap",
+        "Body": "size=512",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "legacy-form-empty",
+        "Method": "POST",
+        "Path": "/api/vm/swap",
+        "Body": "Size=",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "legacy-form-bad",
+        "Method": "POST",
+        "Path": "/api/vm/swap",
+        "Body": "Size=x",
+        "ContentType": "application/x-www-form-urlencoded",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Invalid arguments"
+      }
+    },
+    {
+      "calls": [
+        [
+          "sh",
+          "/etc/init.d/S38memory",
+          "configure",
+          "sd",
+          "0",
+          "256"
+        ]
+      ],
+      "case": {
+        "Name": "legacy-query",
+        "Method": "POST",
+        "Path": "/api/vm/swap",
+        "Body": "",
+        "ContentType": "text/plain",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": null,
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "legacy-get-inactive",
+        "Method": "GET",
+        "Path": "/api/vm/swap",
+        "Body": "",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": false,
+        "SDSize": 512,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "size": 0
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "legacy-get-active",
+        "Method": "GET",
+        "Path": "/api/vm/swap",
+        "Body": "",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": false,
+        "SDEnabled": true,
+        "SDSize": 256,
+        "Files": {}
+      },
+      "response": {
+        "code": 0,
+        "data": {
+          "size": 256
+        },
+        "msg": "success"
+      }
+    },
+    {
+      "calls": [],
+      "case": {
+        "Name": "legacy-get-error",
+        "Method": "GET",
+        "Path": "/api/vm/swap",
+        "Body": "",
+        "ContentType": "application/json",
+        "Output": "",
+        "LockError": "",
+        "Fail": false,
+        "ReadError": true,
+        "SDEnabled": false,
+        "SDSize": 0,
+        "Files": {}
+      },
+      "response": {
+        "code": -1,
+        "data": null,
+        "msg": "Failed to read swap state"
+      }
+    }
+  ]
+}

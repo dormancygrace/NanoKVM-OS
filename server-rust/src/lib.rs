@@ -27,6 +27,8 @@ mod json_text;
 pub mod leds;
 mod link_telemetry;
 pub mod lockout;
+pub mod memory_command;
+pub mod memory_ops;
 pub mod memory_status;
 pub mod monitor;
 mod oled;
@@ -42,6 +44,7 @@ pub mod sysinfo;
 pub mod systemops;
 pub mod time_sync;
 pub mod timeconfig;
+pub mod update_lock;
 pub mod usb;
 mod ws;
 mod ws_origin;
@@ -83,6 +86,8 @@ pub struct Runtime {
     pub time: timeconfig::Manager,
     pub info: sysinfo::Manager,
     pub dashboard: Arc<dashboard::Manager>,
+    pub memory: Arc<memory_ops::Manager>,
+    memory_task: Option<tokio::task::JoinHandle<()>>,
     dashboard_task: Option<tokio::task::JoinHandle<()>>,
     pub(crate) internal: internal::Token,
     reboot_pending: Arc<std::sync::atomic::AtomicBool>,
@@ -162,6 +167,8 @@ impl Runtime {
             Arc::new(dashboard::Native::new(root.clone(), network.clone())),
         );
         let dashboard_task = dashboard.start();
+        let memory = memory_ops::Manager::new(root.clone(), commands.clone());
+        let memory_task = memory.start();
         let info = sysinfo::Manager::new(root.clone(), network);
         let time = timeconfig::Manager::new(root.clone(), time);
         let cpu = cpufreq::Manager::new(root.clone(), cpu);
@@ -193,6 +200,8 @@ impl Runtime {
             info,
             dashboard,
             dashboard_task,
+            memory,
+            memory_task,
             internal: internal::Token::load(&root)?,
             root,
             reboot_pending: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -253,6 +262,10 @@ impl Runtime {
         self.stopping
             .store(true, std::sync::atomic::Ordering::Release);
         self.commands.stop();
+        self.memory.stop();
+        if let Some(task) = &self.memory_task {
+            task.abort();
+        }
         if let Some(task) = &self.dashboard_task {
             task.abort();
         }

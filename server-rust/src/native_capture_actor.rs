@@ -253,6 +253,9 @@ impl Actor {
     pub fn stop(&self) {
         self.owner.stop();
     }
+    pub fn stopped(&self) -> bool {
+        self.owner.stopping.load(Ordering::Acquire)
+    }
     pub fn finished(&self) -> bool {
         self.owner.finished.load(Ordering::Acquire)
     }

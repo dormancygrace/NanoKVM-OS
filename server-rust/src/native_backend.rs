@@ -252,6 +252,9 @@ impl Native {
     }
 }
 impl Backend for Native {
+    fn capture_actor(&self) -> Option<Actor> {
+        Some(self.actor.clone())
+    }
     fn set_hdmi(&self, enabled: bool) -> Result<(), Error> {
         self.control(Request::Hdmi(enabled)).and_then(nonnegative)
     }

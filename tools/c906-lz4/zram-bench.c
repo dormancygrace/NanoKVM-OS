@@ -40,14 +40,17 @@ static int guards(const uint8_t *buf,size_t bytes) {
 int main(int argc,char **argv) {
     int periodic=argc==4&&!strcmp(argv[3],"periodic-kat");
     if(argc!=3&&!periodic)return 2;
-    char device[256],*end;
-    if(!realpath(argv[1],device)||strncmp(device,"/dev/zram",9))return 2;
-    unsigned long number=strtoul(device+9,&end,10);
-    if(*end||!number||number>255)return 2; /* Never production zram0. */
+    char *end;
     unsigned long pages=strtoul(argv[2],&end,10);
     if(*end||pages<128||pages>2048)return 2;
+    char *device=realpath(argv[1],NULL);
+    if(!device)return 2;
+    if(strncmp(device,"/dev/zram",9)){free(device);return 2;}
+    unsigned long number=strtoul(device+9,&end,10);
+    if(*end||!number||number>255){free(device);return 2;} /* Never production zram0. */
     size_t bytes=pages*PAGE;uint64_t capacity;struct stat st;
     int fd=open(device,O_RDWR|O_DIRECT|O_CLOEXEC);
+    free(device);
     if(fd<0||fstat(fd,&st)||!S_ISBLK(st.st_mode)||ioctl(fd,BLKGETSIZE64,&capacity)||capacity<bytes){perror("secondary zram");return 1;}
     char sysfs[128];snprintf(sysfs,sizeof(sysfs),"/sys/block/zram%lu/dev",number);
     FILE *info=fopen(sysfs,"r");unsigned ma,mi;

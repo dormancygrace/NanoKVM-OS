@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// Portrait sizes share the landscape tiers: 1080x1920 at 100, 1440x2560 at 60.
 func TestPortraitEffectiveFPSIsBoundedWithoutChangingRequest(t *testing.T) {
 	screen := GetScreen()
 	previous := *screen
@@ -20,13 +21,13 @@ func TestPortraitEffectiveFPSIsBoundedWithoutChangingRequest(t *testing.T) {
 		sourceTiming.width, sourceTiming.height, sourceTiming.expires = width, height, expires
 		sourceTiming.Unlock()
 	}()
-	if got := GetCaptureScreen().FPS; got != 75 {
-		t.Fatalf("portrait effective FPS = %d, want 75", got)
+	if got := GetCaptureScreen().FPS; got != 100 {
+		t.Fatalf("portrait effective FPS = %d, want 100", got)
 	}
 	if screen.FPS != 120 {
 		t.Fatal("effective cap changed the saved request")
 	}
-	for _, size := range [][3]int{{720, 1280, 120}, {1080, 1920, 75}, {1296, 2304, 50}, {1440, 2560, 50}} {
+	for _, size := range [][3]int{{720, 1280, 120}, {1080, 1920, 100}, {1296, 2304, 60}, {1440, 2560, 60}} {
 		sourceTiming.Lock()
 		sourceTiming.width, sourceTiming.height = size[0], size[1]
 		sourceTiming.Unlock()
@@ -42,8 +43,7 @@ func TestPortraitEffectiveFPSIsBoundedWithoutChangingRequest(t *testing.T) {
 	sourceTiming.width, sourceTiming.height = 1440, 2560
 	sourceTiming.Unlock()
 	screen.FPS, screen.Width, screen.Height = 60, 2560, 1440
-	t.Setenv("NANOKVM_QHD60_MAX_EXPERIMENT", "1")
-	if got := GetCaptureScreen().FPS; got != 50 {
-		t.Fatalf("maximum portrait effective FPS = %d, want 50", got)
+	if got := GetCaptureScreen().FPS; got != 60 {
+		t.Fatalf("maximum portrait effective FPS = %d, want 60", got)
 	}
 }

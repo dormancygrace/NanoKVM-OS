@@ -374,8 +374,9 @@ print('Validated EDID profiles:',len(profiles))
 PY
 
 # The APK-owned boot set is authoritative and matches the installed module ABI.
-if [ -f "$STAGE_ROOT/usr/lib/nanokvm/boot/detect.sd" ]; then
-    BOOT_FIT=$STAGE_ROOT/usr/lib/nanokvm/boot/detect.sd
+if [ -f "$STAGE_ROOT/usr/lib/nanokvm/boot/detect.dtb" ]; then
+    BOOT_FIT=$BUILD_TMP/detect.sd
+    sh "$STAGE_ROOT/usr/lib/nanokvm/boot/compose-fit" "$STAGE_ROOT/usr/lib/nanokvm/boot" detect "$BOOT_FIT"
     BOOT_SHA256=$(sha256sum "$BOOT_FIT")
     BOOT_SHA256=${BOOT_SHA256%% *}
     kernel_release=$(cat "$STAGE_ROOT/usr/lib/nanokvm/boot/kernel.release")

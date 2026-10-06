@@ -9,12 +9,12 @@ import { updateScreen } from '@/api/vm';
 import { getEncoderCodec } from '@/lib/encoder';
 import { videoModeAtom, videoSessionCountAtom } from '@/jotai/screen';
 import { menuCloseSignalAtom, settingsRequestAtom } from '@/jotai/settings';
+import { useResponsiveDevice } from '@/hooks/useResponsiveDevice';
 import { MenuItem } from '@/components/menu-item';
 import { useDismissMobileMenu } from '@/components/mobile-menu-context';
-import { useResponsiveDevice } from '@/hooks/useResponsiveDevice';
 
 import { getScreenType } from './constants';
-import { StreamControls } from './controls';
+import { QuickVideo } from './quick-video';
 import { Scale } from './scale';
 
 export const Screen = () => {
@@ -42,9 +42,9 @@ export const Screen = () => {
           <ClapperboardIcon size={18} />
           {t(mode === 'mjpeg' ? 'screen.video' : 'screen.codec')}
         </span>
-        <span className="whitespace-nowrap font-medium text-sky-300">{streamLabel}</span>
+        <span className="font-medium whitespace-nowrap text-sky-300">{streamLabel}</span>
       </div>
-      <StreamControls />
+      <QuickVideo />
       <Scale />
       <div className="my-1 border-t border-neutral-700" />
       <Button
@@ -79,7 +79,7 @@ export const Screen = () => {
             <span
               aria-hidden="true"
               style={sessions > 0 ? { backgroundColor: '#38bdf8' } : undefined}
-              className={`pointer-events-none absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full font-mono text-[11px] font-bold leading-none ring-2 ring-neutral-800 ${sessions > 99 ? 'text-[7px]!' : sessions > 9 ? 'text-[9px]!' : ''} ${sessions > 0 ? 'text-neutral-950' : 'bg-neutral-600 text-neutral-200'}`}
+              className={`pointer-events-none absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-mono text-[11px] leading-none font-bold ring-2 ring-neutral-800 ${sessions > 99 ? 'text-[7px]!' : sessions > 9 ? 'text-[9px]!' : ''} ${sessions > 0 ? 'text-neutral-950' : 'bg-neutral-600 text-neutral-200'}`}
             >
               {sessions > 99 ? '99+' : sessions}
             </span>

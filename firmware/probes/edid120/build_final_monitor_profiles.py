@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Create final-mode EDIDs with 720p120, FHD75, QHD50 or UHD30 preferred."""
+"""Create final-mode EDIDs: one per monitor resolution and refresh rate.
+
+NanoKVM-monitor-<height>-<hz>.bin prefers that mode; NanoKVM-monitor-<height>.bin
+is the fastest rate of a resolution, as before. The server picks the slowest
+rate that is not below the stream frame rate, so the source renders and sends
+no more frames than are streamed.
+"""
 
 from __future__ import annotations
 
@@ -163,6 +169,101 @@ def build_uhd_profile(source: bytes) -> tuple[bytes, object]:
     return candidate, preferred
 
 
+# Refresh rates per monitor height; the first is the default profile.
+RATES = {720: (120, 60, 30), 1080: (100, 75, 60, 30), 1440: (60, 50, 40, 30), 2160: (30,)}
+
+# Timings that the final CTA block does not already list.
+EXTRA_TIMINGS = {
+    # CVT reduced blanking; the encoder sustains about 109 fps at 1080p.
+    (1920, 1080, 100): dict(width=1920, height=1080, pixel_clock_hz=235_500_000, hblank=160,
+                            vblank=53, hfront=48, hsync=32, vfront=3, vsync=5, flags=0x1A),
+    # CVT reduced blanking.
+    (2560, 1440, 60): dict(width=2560, height=1440, pixel_clock_hz=241_500_000, hblank=160,
+                           vblank=41, hfront=48, hsync=32, vfront=3, vsync=5, flags=0x1A),
+    # CTA VIC 34.
+    (1920, 1080, 30): dict(width=1920, height=1080, pixel_clock_hz=74_250_000, hblank=280,
+                           vblank=45, hfront=88, hsync=44, vfront=4, vsync=5, flags=0x1E),
+    # CVT reduced blanking; CTA VIC 62 has a front porch beyond the DTD field.
+    (1280, 720, 30): dict(width=1280, height=720, pixel_clock_hz=31_750_000, hblank=160,
+                          vblank=14, hfront=48, hsync=32, vfront=3, vsync=5, flags=0x1A),
+    # CVT reduced blanking, as scripts/build-monitor-edids.py.
+    (2560, 1440, 30): dict(width=2560, height=1440, pixel_clock_hz=120_750_000, hblank=160,
+                           vblank=41, hfront=48, hsync=32, vfront=3, vsync=5, flags=0x1A),
+}
+WIDTHS = {720: 1280, 1080: 1920, 1440: 2560, 2160: 3840}
+# Video Identification Codes of the final CTA video block: (width, height, Hz).
+VIC_MODES = {1: (640, 480, 60), 4: (1280, 720, 60), 16: (1920, 1080, 60), 19: (1280, 720, 50),
+             20: (1920, 1080, 50), 31: (1920, 1080, 50), 47: (1280, 720, 120)}
+STD_ASPECT = {0: (16, 10), 1: (4, 3), 2: (5, 4), 3: (16, 9)}
+
+
+def drop_faster_modes(data: bytes, width: int, height: int, rate: int) -> bytes:
+    """Remove every mode of width x height faster than rate: standard timings,
+    CTA video codes and CTA DTDs. Other resolutions stay as fallbacks."""
+    def faster(w, h, hz):
+        return (w, h) == (width, height) and hz > rate + 0.1
+
+    out = bytearray(data)
+    for pos in range(38, 54, 2):
+        a, b = out[pos], out[pos + 1]
+        if (a, b) == (1, 1):
+            continue
+        w = (a + 31) * 8
+        num, den = STD_ASPECT[b >> 6]
+        if faster(w, w * den // num, (b & 63) + 60):
+            out[pos:pos + 2] = b"\x01\x01"
+    out[127] = (-sum(out[:127])) & 0xFF
+    blocks, start = PRIMARY.parse_cta_blocks(data)
+    cta = bytearray()
+    for tag, payload in blocks:
+        if tag == 2:
+            unknown = [v & 0x7F for v in payload if (v & 0x7F) not in VIC_MODES]
+            if unknown:
+                raise ValueError(f"review CTA video codes {unknown}")
+            payload = bytes(v for v in payload if not faster(*VIC_MODES[v & 0x7F]))
+        cta += bytes([(tag << 5) | len(payload)]) + payload
+    ext = bytearray(128)
+    ext[:4] = bytes([2, 3, 4 + len(cta), data[131]])
+    ext[4:4 + len(cta)] = cta
+    offset = 4 + len(cta)
+    for _, raw, t in PRIMARY.parse_cta_dtds(data, start):
+        if faster(t.width, t.height, t.refresh_hz):
+            continue
+        ext[offset:offset + 18] = raw
+        offset += 18
+    ext[127] = (-sum(ext[:127])) & 0xFF
+    return bytes(out[:128] + ext)
+
+
+def build_rate_profile(source: bytes, height: int, rate: int) -> tuple[bytes, object]:
+    """The default-rate profile of a height with another preferred timing."""
+    if height == 2160:
+        if rate != 30:
+            raise ValueError("3840x2160 is offered at 30 Hz only")
+        return build_uhd_profile(source)
+    data, default = build_profile(source, height)
+    if abs(default.refresh_hz - rate) < 0.1:
+        return data, default
+    width = WIDTHS[height]
+    _, start = PRIMARY.parse_cta_blocks(data)
+    listed = [raw for _, raw, t in PRIMARY.parse_cta_dtds(data, start)
+              if (t.width, t.height) == (width, height) and abs(t.refresh_hz - rate) < 0.1]
+    if len(listed) > 1:
+        raise ValueError(f"duplicate {width}x{height}@{rate} DTDs")
+    raw = listed[0] if listed else encode_dtd(EXTRA_TIMINGS[(width, height, rate)], data[66:71])
+    out = bytearray(data)
+    out[54:72] = raw
+    candidate = drop_faster_modes(bytes(out), width, height, rate)
+    PRIMARY.check_basic_edid(candidate, label=f"monitor-{height}-{rate}")
+    timing = PRIMARY.decode_dtd(candidate[54:72], label="preferred")
+    if (timing.width, timing.height) != (width, height) or abs(timing.refresh_hz - rate) > 0.1:
+        raise ValueError(f"unexpected {width}x{height}@{rate} timing")
+    pos = PRIMARY.find_range_descriptor(candidate)
+    if timing.pixel_clock_hz > candidate[pos + 9] * 10_000_000:
+        raise ValueError("preferred pixel clock exceeds the range limit")
+    return candidate, timing
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
@@ -189,6 +290,21 @@ def main() -> int:
             "added_cta_mode": "2560x1440@50",
             }
         )
+    for height, rates in sorted(RATES.items()):
+        for rate in rates:
+            data, timing = build_rate_profile(source, height, rate)
+            target = args.output / f"NanoKVM-monitor-{height}-{rate}.bin"
+            target.write_bytes(data)
+            manifest.append(
+                {
+                    "file": target.name,
+                    "width": timing.width,
+                    "height": timing.height,
+                    "refresh_hz": round(timing.refresh_hz, 6),
+                    "source_sha256": sha256(source),
+                    "sha256": sha256(data),
+                }
+            )
     uhd_data, uhd_timing = build_uhd_profile(source)
     uhd_target = args.output / "NanoKVM-monitor-2160.bin"
     uhd_target.write_bytes(uhd_data)
@@ -204,11 +320,11 @@ def main() -> int:
             "added_mode": "3840x2160@30 preferred",
         }
     )
-    # Auto is deliberately the same byte sequence as the explicit QHD50
+    # Auto is 1920x1080 at 100 Hz; QHD and UHD are explicit choices.
     # profile.  The runtime already resolves monitor value 0 to
     # NanoKVM-final-video-profiles.bin; the package install step maps this
     # generated Auto file to that stable runtime name.
-    auto_data, auto_timing = profiles[1440]
+    auto_data, auto_timing = build_rate_profile(source, 1080, 100)
     auto_target = args.output / "NanoKVM-monitor-auto.bin"
     auto_target.write_bytes(auto_data)
     manifest.append(
@@ -220,7 +336,7 @@ def main() -> int:
             "refresh_hz": round(auto_timing.refresh_hz, 6),
             "source_sha256": sha256(source),
             "sha256": sha256(auto_data),
-            "identical_to": "NanoKVM-monitor-1440.bin",
+            "identical_to": "NanoKVM-monitor-1080-100.bin",
             "unique_cta_modes_preserved": True,
             "added_cta_mode": "2560x1440@50",
         }

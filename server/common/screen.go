@@ -64,7 +64,9 @@ var QualityMap = map[uint16]bool{
 var BitRateMap = map[uint16]bool{
 	20000: true,
 	15000: true,
+	12000: true,
 	10000: true,
+	8000:  true,
 	5000:  true,
 	3000:  true,
 	2000:  true,
@@ -151,9 +153,12 @@ func SupportsQHD() bool {
 }
 
 // SupportsUHD reports the 128 MiB video pool that 3840x2160 needs: 117 MiB
-// with SmartP (see uhd_ion_mib in kvm_vision.cpp).
+// with SmartP (see uhd_ion_mib in kvm_vision.cpp). It must be a fixed
+// carveout: with CMA the encoder's UHD buffers failed on 2 of 4 cold boots,
+// when Linux's borrowed pages could not be migrated back.
 func SupportsUHD() bool {
-	return ionAtLeast(128 * 1024 * 1024)
+	_, err := os.Stat("/proc/device-tree/reserved-memory/ion/reusable")
+	return ionAtLeast(128*1024*1024) && os.IsNotExist(err)
 }
 
 func ionAtLeast(bytes uint32) bool {
@@ -187,7 +192,7 @@ func checkScreen(target *Screen) {
 	}
 
 	if _, ok := BitRateMap[target.BitRate]; !ok {
-		target.BitRate = 3000
+		target.BitRate = 12000
 	}
 
 	if target.GOPMode != GOPModeNormalP && target.GOPMode != GOPModeSmartP {
@@ -200,8 +205,8 @@ func loadScreen(readFile func(string) ([]byte, error)) *Screen {
 		Width:       0,
 		Height:      0,
 		Quality:     80,
-		FPS:         50,
-		BitRate:     3000,
+		FPS:         100,
+		BitRate:     12000, // recommended for 1080p100 H.265 with motion
 		GOP:         30,
 		GOPMode:     GOPModeSmartP,
 		MjpegChroma: 422,

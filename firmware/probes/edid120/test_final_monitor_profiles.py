@@ -48,6 +48,37 @@ class MonitorProfilesTest(unittest.TestCase):
         self.assertEqual(kept, expected)
         self.assertEqual(len(modes), len(expected))
 
+    def test_rate_profiles(self):
+        for height, rates in profiles.RATES.items():
+            default = profiles.build_rate_profile(self.source, height, rates[0])[0]
+            for rate in rates:
+                with self.subTest(height=height, rate=rate):
+                    data, timing = profiles.build_rate_profile(self.source, height, rate)
+                    self.assertEqual([sum(data[i:i + 128]) % 256 for i in (0, 128)], [0, 0])
+                    self.assertEqual((timing.width, timing.height), (profiles.WIDTHS[height], height))
+                    self.assertAlmostEqual(timing.refresh_hz, rate, delta=0.1)
+                    # The preferred timing changes and faster modes of this
+                    # resolution are gone; everything else is the default.
+                    self.assertEqual(data[:38], default[:38])
+                    self.assertEqual(data[72:127], default[72:127])
+                    rng = profiles.PRIMARY.find_range_descriptor(data)
+                    self.assertGreaterEqual(data[rng + 9] * 10_000_000, timing.pixel_clock_hz)
+                    _, start = profiles.PRIMARY.parse_cta_blocks(data)
+                    modes = [t for _, _, t in profiles.PRIMARY.parse_cta_dtds(data, start)]
+                    self.assertFalse([t for t in modes if (t.width, t.height) == (timing.width, height)
+                                      and t.refresh_hz > rate + 0.1])
+                    _, dstart = profiles.PRIMARY.parse_cta_blocks(default)
+                    others = {raw for _, raw, t in profiles.PRIMARY.parse_cta_dtds(default, dstart)
+                              if (t.width, t.height) != (timing.width, height)}
+                    self.assertTrue(others <= {raw for _, raw, _ in profiles.PRIMARY.parse_cta_dtds(data, start)})
+                    vics = dict(profiles.PRIMARY.parse_cta_blocks(data)[0])[2]
+                    self.assertFalse([v for v in vics if profiles.VIC_MODES[v & 0x7F][:2] == (timing.width, height)
+                                      and profiles.VIC_MODES[v & 0x7F][2] > rate])
+        # NanoKVM-monitor-<height>.bin keeps its rate and bytes.
+        for height, (_, _, rate) in profiles.PREFERRED.items():
+            self.assertEqual(profiles.build_rate_profile(self.source, height, int(rate))[0],
+                             profiles.build_profile(self.source, height)[0])
+
     def test_unreviewed_input_is_rejected(self):
         changed = bytearray(self.source)
         changed[10] ^= 1

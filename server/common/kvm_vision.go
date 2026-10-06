@@ -12,6 +12,10 @@ package common
         int (*fn)(unsigned char) = (int (*)(unsigned char))dlsym(RTLD_DEFAULT, "kvmv_edid_maintenance");
         return fn ? fn(pause) : -1;
     }
+    static int set_capture_fps(unsigned char fps) {
+        int (*fn)(unsigned char) = (int (*)(unsigned char))dlsym(RTLD_DEFAULT, "kvmv_set_capture_fps");
+        return fn ? fn(fps) : -1;
+    }
 */
 import "C"
 import (
@@ -35,6 +39,11 @@ type KvmVision struct {
 	closed               bool
 	captureWorkerEnabled bool
 	captureWorker        *videoCaptureWorker
+}
+
+func init() {
+	// Older native libraries lack the symbol; they process every input frame.
+	applyCaptureFPS = func(fps int) { C.set_capture_fps(C.uchar(fps)) }
 }
 
 func GetKvmVision() *KvmVision {

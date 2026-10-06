@@ -40,8 +40,8 @@ static int sg2_cipher_process(struct skcipher_request *req, bool encrypt)
   if (a->mode == SG2002_MODE_CBC && !encrypt) memcpy(next_iv, buffer + r.length - a->block, a->block);
   err = crypto_run_locked(&r);
   if (err) goto chunk_done;
-  if (sg_pcopy_from_buffer(req->dst, out_nents, buffer, r.length, pos) != r.length) { err = -EINVAL; goto chunk_done; }
-  if (a->mode == SG2002_MODE_CBC) memcpy(r.iv, encrypt ? buffer + r.length - a->block : next_iv, a->block);
+  if (sg_pcopy_from_buffer(req->dst, out_nents, crypto_output, r.length, pos) != r.length) { err = -EINVAL; goto chunk_done; }
+  if (a->mode == SG2002_MODE_CBC) memcpy(r.iv, encrypt ? crypto_output + r.length - a->block : next_iv, a->block);
   if (a->mode == SG2002_MODE_CTR) sg2_inc_counter(r.iv, a->block, DIV_ROUND_UP(r.length, a->block));
 chunk_done:
   crypto_clean_locked(&r);

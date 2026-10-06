@@ -283,13 +283,18 @@ The hardware gate covered 3,360 crypto cases and 256 active VXRM/VXSAT cases;
 the research prototype passed its counter-wrap and output-alignment checks.
 
 The installed scalar candidate preserved the configuration and identity
-byte for byte, registered with the official server, authenticated an encrypted
-view-only relay session and decoded live 1080p video messages. The longer
-120-message relay gate currently ends in EOF after 10–11 messages; its cause
-is unresolved, so this does not establish sustained relay throughput.
-The optional interop test requests no audio or HID input and sends finite
-normal protocol keepalives. No application encoder or Go scanner change is
-part of this optimization.
+byte for byte, registered with the official server, and passed signed/encrypted
+view-only login plus 120 real HDMI video messages through a finite local relay.
+Both client and relay ran on C906; the complete test took 4.92 seconds including
+setup and forwarded 2,147,489 video-direction bytes. The exact production
+scalar-profile test executable also passed all 59 non-ignored tests on C906.
+See `tools/c906-rustdesk` for the finite relay fixture and reproduction steps.
+
+The external-relay version of the 120-message test ends in EOF after 10–11
+messages on both the previous binary and the new candidate. Its cause remains
+unresolved; no external throughput improvement is claimed. The interop test
+requests no audio or HID input and sends finite normal protocol keepalives.
+No application encoder or Go scanner change is part of this optimization.
 
 For a fresh private package revision, the packaging builder also accepts
 `--package-revision N`. Run its ownership stage under `fakeroot`, keep each

@@ -75,130 +75,145 @@ func (s *Service) SetScreen(c *gin.Context) {
 	var req proto.SetScreenReq
 	var rsp proto.Response
 
-	err := proto.ParseFormRequest(c, &req)
-	if err != nil {
+	if err := proto.ParseFormRequest(c, &req); err != nil {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
+	if failure := validateScreenSetting(req); failure != nil {
+		rsp.ErrRsp(c, failure.code, failure.msg)
+		return
+	}
+	data, failure := applyScreenSetting(req)
+	if failure != nil {
+		rsp.ErrRsp(c, failure.code, failure.msg)
+		return
+	}
+	if data == nil {
+		rsp.OkRsp(c)
+		return
+	}
+	rsp.OkRspWithData(c, data)
+}
 
+type settingError struct {
+	code int
+	msg  string
+}
+
+func settingFailure(code int, msg string) *settingError { return &settingError{code, msg} }
+
+// validateScreenSetting checks a setting without changing anything, so a
+// batch can reject a request before applying any part of it.
+func validateScreenSetting(req proto.SetScreenReq) *settingError {
+	switch req.Type {
+	case "mjpeg_chroma":
+		if req.Value != 420 && req.Value != 422 {
+			return settingFailure(-1, "MJPEG chroma must be 420 or 422")
+		}
+	case "monitor_power_cycle_ack":
+		if !req.ConfirmPowerCycle {
+			return settingFailure(-1, "power cycle confirmation required")
+		}
+	case "portrait":
+		if req.Value != 0 && req.Value != 1 {
+			return settingFailure(-1, "portrait must be 0 or 1")
+		}
+	case "portrait_resolution":
+		if req.Value != 2304 && req.Value != 1280 && req.Value != 1920 && req.Value != 2560 {
+			return settingFailure(-1, "unsupported portrait monitor resolution")
+		}
+		if req.Value == 2560 && !common.PortraitMaxSupported() {
+			return settingFailure(-3, "maximum portrait monitor profile is unavailable")
+		}
+		if req.Value != 2560 && !common.PortraitSupported() {
+			return settingFailure(-3, "portrait monitor profile is unavailable")
+		}
+	case "monitor":
+		if common.MonitorRequiresPowerCycle() && !req.ConfirmPowerCycle {
+			return settingFailure(-5, "Physical power cycle required after EDID programming; confirm before writing")
+		}
+		if req.Value != 0 && req.Value != 720 && req.Value != 1080 && req.Value != 1440 && req.Value != 2160 {
+			return settingFailure(-1, "unsupported monitor profile")
+		}
+		if req.Value == 1440 && !common.SupportsQHD() {
+			return settingFailure(-3, "QHD requires at least 62 MiB of ION memory")
+		}
+		if req.Value == 2160 && !common.SupportsUHD() {
+			return settingFailure(-3, "3840x2160 requires the 128 MiB CMA video memory")
+		}
+	case "resolution":
+		if req.Value < 0 || req.Value > 2160 || (req.Value > 1440 && !common.SupportsUHD()) {
+			return settingFailure(-1, "unsupported stream limit")
+		}
+		if _, ok := common.ResolutionMap[uint16(req.Value)]; !ok {
+			return settingFailure(-1, "unsupported stream limit")
+		}
+	case "fps":
+		if req.Value < 10 || req.Value > 120 {
+			return settingFailure(-1, "FPS must be between 10 and 120")
+		}
+	case "type":
+		if req.Value < 0 || req.Value > 2 {
+			return settingFailure(-1, "stream type must be MJPEG, H.264, or H.265")
+		}
+	case "gop":
+	case "gop_mode":
+		if req.Value != int(common.GOPModeNormalP) && req.Value != int(common.GOPModeSmartP) {
+			return settingFailure(-1, "GOP mode must be NormalP or SmartP")
+		}
+	case "quality":
+		if req.Value < 1 || req.Value > maxQualityValue {
+			return settingFailure(-1, "quality must be 1-100, or a bitrate up to 20000 kbit/s")
+		}
+	default:
+		return settingFailure(-1, "unknown screen setting")
+	}
+	return nil
+}
+
+// applyScreenSetting applies a validated setting and returns the response
+// data of the single-setting endpoint (nil for a plain success).
+func applyScreenSetting(req proto.SetScreenReq) (gin.H, *settingError) {
+	var err error
 	switch req.Type {
 	case "mjpeg_chroma":
 		mjpegChromaMutex.Lock()
 		defer mjpegChromaMutex.Unlock()
-		if req.Value != 420 && req.Value != 422 {
-			rsp.ErrRsp(c, -1, "MJPEG chroma must be 420 or 422")
-			return
-		}
 		previous := common.GetScreen().MjpegChroma
 		if applyMjpegChroma(uint16(req.Value)) != 0 {
-			rsp.ErrRsp(c, -4, "cannot apply MJPEG chroma")
-			return
+			return nil, settingFailure(-4, "cannot apply MJPEG chroma")
 		}
 		if err = writeScreen(req.Type, strconv.Itoa(req.Value)); err != nil {
 			applyMjpegChroma(previous)
-			rsp.ErrRsp(c, -2, "update screen failed")
-			return
+			return nil, settingFailure(-2, "update screen failed")
 		}
 		common.SetScreen(req.Type, req.Value)
 		active, reason := readMjpegChromaStatus()
-		rsp.OkRspWithData(c, gin.H{"mjpegChroma": req.Value, "mjpegChromaActive": active, "mjpegChromaFallback": reason})
-		return
+		return gin.H{"mjpegChroma": req.Value, "mjpegChromaActive": active, "mjpegChromaFallback": reason}, nil
 	case "monitor_power_cycle_ack":
-		if !req.ConfirmPowerCycle {
-			rsp.ErrRsp(c, -1, "power cycle confirmation required")
-			return
-		}
 		if err = common.ClearMonitorPowerCyclePending(); err != nil {
-			rsp.ErrRsp(c, -4, err.Error())
-			return
+			return nil, settingFailure(-4, err.Error())
 		}
-		rsp.OkRsp(c)
-		return
+		return nil, nil
 	case "portrait":
-		if req.Value != 0 && req.Value != 1 {
-			rsp.ErrRsp(c, -1, "portrait must be 0 or 1")
-			return
-		}
 		if err = common.ApplyMonitorPortrait(req.Value == 1); err != nil {
-			rsp.ErrRsp(c, -4, err.Error())
-			return
+			return nil, settingFailure(-4, err.Error())
 		}
-		rsp.OkRsp(c)
-		return
+		return nil, nil
 	case "portrait_resolution":
-		if req.Value != 2304 && req.Value != 1280 && req.Value != 1920 && req.Value != 2560 {
-			rsp.ErrRsp(c, -1, "unsupported portrait monitor resolution")
-			return
-		}
-		if req.Value == 2560 && !common.PortraitMaxSupported() {
-			rsp.ErrRsp(c, -3, "maximum portrait monitor profile is unavailable")
-			return
-		}
-		if (req.Value == 2304 || req.Value == 1280 || req.Value == 1920) && !common.PortraitSupported() {
-			rsp.ErrRsp(c, -3, "portrait monitor profile is unavailable")
-			return
-		}
 		if err = common.ApplyPortraitResolution(uint16(req.Value)); err != nil {
-			rsp.ErrRsp(c, -4, err.Error())
-			return
+			return nil, settingFailure(-4, err.Error())
 		}
-		rsp.OkRsp(c)
-		return
+		return nil, nil
 	case "monitor":
-		if common.MonitorRequiresPowerCycle() && !req.ConfirmPowerCycle {
-			rsp.ErrRsp(c, -5, "Physical power cycle required after EDID programming; confirm before writing")
-			return
-		}
-		if req.Value != 0 && req.Value != 720 && req.Value != 1080 && req.Value != 1440 && req.Value != 2160 {
-			rsp.ErrRsp(c, -1, "unsupported monitor profile")
-			return
-		}
-		if req.Value == 1440 && !common.SupportsQHD() {
-			rsp.ErrRsp(c, -3, "QHD requires at least 62 MiB of ION memory")
-			return
-		}
-		if req.Value == 2160 && !common.SupportsUHD() {
-			rsp.ErrRsp(c, -3, "3840x2160 requires the 128 MiB CMA video memory")
-			return
-		}
 		if err = common.ApplyMonitorResolution(uint16(req.Value)); err != nil {
-			rsp.ErrRsp(c, -4, err.Error())
-			return
+			return nil, settingFailure(-4, err.Error())
 		}
-		rsp.OkRsp(c)
-		return
-	case "resolution":
-		if req.Value < 0 || req.Value > 2160 || (req.Value > 1440 && !common.SupportsUHD()) {
-			rsp.ErrRsp(c, -1, "unsupported stream limit")
-			return
-		}
-		if _, ok := common.ResolutionMap[uint16(req.Value)]; !ok {
-			rsp.ErrRsp(c, -1, "unsupported stream limit")
-			return
-		}
+		return nil, nil
+	case "resolution", "fps", "gop_mode", "quality":
 		err = writeScreen(req.Type, strconv.Itoa(req.Value))
-	case "fps":
-		if req.Value < 10 || req.Value > 120 {
-			rsp.ErrRsp(c, -1, "FPS must be between 10 and 120")
-			return
-		}
-		err = writeScreen(req.Type, strconv.Itoa(req.Value))
-
 	case "type":
-		data := ""
-		switch req.Value {
-		case 0:
-			data = "mjpeg"
-		case 1:
-			data = "h264"
-		case 2:
-			data = "h265"
-		default:
-			rsp.ErrRsp(c, -1, "stream type must be MJPEG, H.264, or H.265")
-			return
-		}
-		err = writeScreen("type", data)
-
+		err = writeScreen("type", []string{"mjpeg", "h264", "h265"}[req.Value])
 	case "gop":
 		gop := 30
 		if req.Value >= 1 && req.Value <= 100 {
@@ -207,48 +222,26 @@ func (s *Service) SetScreen(c *gin.Context) {
 		common.GetKvmVision().SetGop(uint8(gop))
 		// Store the value the encoder actually uses, not the raw request.
 		req.Value = gop
-
-	case "gop_mode":
-		if req.Value != int(common.GOPModeNormalP) && req.Value != int(common.GOPModeSmartP) {
-			rsp.ErrRsp(c, -1, "GOP mode must be NormalP or SmartP")
-			return
-		}
-		err = writeScreen(req.Type, strconv.Itoa(req.Value))
-
-	case "quality":
-		if req.Value < 1 || req.Value > maxQualityValue {
-			rsp.ErrRsp(c, -1, "quality must be 1-100, or a bitrate up to 20000 kbit/s")
-			return
-		}
-		err = writeScreen(req.Type, strconv.Itoa(req.Value))
-
-	default:
-		rsp.ErrRsp(c, -1, "unknown screen setting")
-		return
 	}
-
 	if err != nil {
-		rsp.ErrRsp(c, -2, "update screen failed")
-		return
+		return nil, settingFailure(-2, "update screen failed")
 	}
 
 	common.SetScreen(req.Type, req.Value)
 
 	log.Debugf("update screen: %+v", req)
-	if req.Type == "fps" {
-		rsp.OkRspWithData(c, gin.H{"fps": common.GetScreen().FPS})
-		return
-	}
-	if req.Type == "gop_mode" {
+	switch req.Type {
+	case "fps":
+		return gin.H{"fps": common.GetScreen().FPS}, nil
+	case "gop_mode":
 		selected := common.GetScreen().GOPMode
 		active := readActiveGOPMode()
-		rsp.OkRspWithData(c, gin.H{
+		return gin.H{
 			"gopMode": selected, "gopModeActive": active,
 			"gopModeRestartRequired": selected != active,
-		})
-		return
+		}, nil
 	}
-	rsp.OkRsp(c)
+	return nil, nil
 }
 
 func writeScreen(key string, value string) error {

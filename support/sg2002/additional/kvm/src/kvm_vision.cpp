@@ -470,6 +470,10 @@ uint8_t check_res(uint16_t _width, uint16_t _height)
         const uint32_t required_mib = (_width > 2560 || _height > 2560) ? uhd_ion_mib
             : (_width == 1440 && _height == 2560) ? 64U : 62U;
         if (count != sizeof(ion_size) || bytes < required_mib * 1024U * 1024U) return UNSUPPORT_RES;
+        // UHD needs a fixed carveout: CMA cannot always return Linux's borrowed
+        // pages for the encoder's reference buffers (video memory mode "uhd").
+        if (required_mib == uhd_ion_mib && access("/proc/device-tree/reserved-memory/ion/reusable", F_OK) == 0)
+            return UNSUPPORT_RES;
     }
 #endif
     uint8_t i;
@@ -2035,6 +2039,34 @@ void set_frame_detact(uint8_t _frame_detact)
 
 // Cross-thread callers only enqueue intent; VENC is touched under vi_mutex.
 static std::atomic<bool> requested_keyframe{false};
+
+/*
+ * The stream rate the server will request (0: unknown). When the HDMI input
+ * is faster, VPSS drops the surplus input frames before converting them, so a
+ * 30 fps stream of a 60 Hz source does half the VPSS work and DDR traffic.
+ * Applied under vi_mutex by kvmv_read_img, at most once per second.
+ */
+static std::atomic<int> capture_target_fps{0};
+int kvmv_set_capture_fps(uint8_t fps)
+{
+    capture_target_fps.store(fps, std::memory_order_relaxed);
+    return 0;
+}
+
+static void apply_capture_rate(void)
+{
+    static uint64_t last_ms = 0;
+    const uint64_t now = vi_state_shared::monotonic_ms();
+    if (now - last_ms < 1000) return;
+    last_ms = now;
+    const int input_fps = mmf_vi_input_fps();
+    mmf_vpss_set_rate(input_fps, capture_target_fps.load(std::memory_order_relaxed));
+    static int published_fps = -1;
+    if (input_fps != published_fps) {
+        nanokvm::write_small_uint("/run/nanokvm/input_fps", input_fps);
+        published_fps = input_fps;
+    }
+}
 void kvmv_request_keyframe(void) {
  requested_keyframe.store(true, std::memory_order_relaxed);
 }
@@ -2059,7 +2091,8 @@ static bool video_encoder_matches(int width, int height, uint16_t bitrate, uint8
 }
 
 /*
- * Above QHD one frame takes the encoder about a whole frame period. After the
+ * At a high pixel rate one frame takes the encoder about a whole frame
+ * period (3840x2160@30, 2560x1440@60, 1920x1080@120). After the
  * stream of frame N is out, submit the newest queued VPSS frame right away so
  * the hardware encodes it while frame N is copied and delivered; the next read
  * collects it (see kvmv_read_img). Wait briefly for a frame that VPSS is about
@@ -2068,7 +2101,7 @@ static bool video_encoder_matches(int width, int height, uint16_t bitrate, uint8
  */
 static void submit_next_video_frame(int vi_ch, int width, int height)
 {
-	if (width * height <= 2560 * 1440) return;
+	if ((long)width * height * kvm_venc.kvm_venc_cfg.output_fps <= nanokvm::fast_pixel_rate) return;
 	int len = 0, w = 0, h = 0, format = 0;
 	if (mmf_vi_frame_try_pop_native(vi_ch, 5, &len, &w, &h, &format) != 0) return;
 	if (w != width || h != height || format != nanokvm::nv21_format()
@@ -2378,6 +2411,7 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
             pthread_mutex_unlock(&vi_mutex);
             return IMG_VENC_ERROR;
         }
+        apply_capture_rate();
         nanokvm::Nv21Frame *img = NULL;
         int native_vi_ch = -1;
         int native_len = 0;

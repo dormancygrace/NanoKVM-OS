@@ -48,6 +48,19 @@ export function updateScreen(type: string, value: number, confirmPowerCycle = fa
   return http.post('/api/vm/screen', data);
 }
 
+// every video choice this device offers, and why the others are unavailable
+export function getVideoCapabilities() {
+  return http.get('/api/vm/video/capabilities');
+}
+
+// apply several video settings together; returns the new capabilities
+export function applyVideoSettings(
+  settings: Record<string, number | boolean>,
+  confirmPowerCycle = false
+) {
+  return http.post('/api/vm/video', { ...settings, confirmPowerCycle });
+}
+
 // get the device-level absolute mouse input region
 export function getInputRegion() {
   return http.get('/api/vm/input-region');
@@ -269,10 +282,20 @@ export type MemorySwap = {
   recompress?: boolean;
   recompressAvailable?: boolean;
   recompressReady?: boolean;
+  auto?: boolean;
 };
 
+export type VideoMemoryMode = 'cma' | 'fixed' | 'uhd';
+
 export type MemoryStatus = {
- videoMemory: { active: string; selected: 'cma' | 'fixed'; sizeMiB: number; available: boolean; rebootRequired: boolean };
+  videoMemory: {
+    active: string;
+    selected: VideoMemoryMode;
+    sizeMiB: number;
+    modes?: VideoMemoryMode[];
+    available: boolean;
+    rebootRequired: boolean;
+  };
   totalBytes: number;
   availableBytes: number;
   usedBytes: number;
@@ -304,4 +327,6 @@ export function setCPUFrequency(target: number) {
   return http.post('/api/vm/cpu-frequency', { target });
 }
 
-export function setVideoMemory(mode: 'cma' | 'fixed') { return http.post('/api/vm/memory/video', { mode }); }
+export function setVideoMemory(mode: VideoMemoryMode) {
+  return http.post('/api/vm/memory/video', { mode });
+}

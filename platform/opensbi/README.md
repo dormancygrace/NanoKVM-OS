@@ -66,6 +66,19 @@ The SD FIP was never replaced. Candidate cold boot from SD and persistent instal
 
 ROM UART bypasses SD ROM pad initialization. RAM U-Boot needs volatile SD0 settings before mmc rescan: SD0_PWR_EN mux 0x03001038=0, SD power 0x030001f4=0x1209, and CMD/D0-D3 pads 0x03001a04..0x03001a14=0x44. These are register changes, not SD writes. The ROM-only host adapter uses an empty partition/program list and excludes the persistent programming stage. Loading the original host FIP into RAM and booting the unchanged SD Linux was verified first. This does not by itself prove that a damaged SD FIP can be repaired.
 
+## Known limitations
+
+- The draft vector `mstatus.VS` field is restored in the platform
+  `final_init` hook. A non-retentive suspend resume goes through
+  `sbi_hart_reinit()` and `mstatus_init()` without `final_init`, so VS would
+  be cleared again. This path is unreachable today (no idle states in the
+  board device trees, SUSP disabled in the defconfig); add the restore to the
+  resume path before enabling either.
+- The 64 KiB OpenSBI RW reservation reaches Linux only through U-Boot
+  copying the firmware `reserved-memory` node; the board `.dtsi` files
+  describe only the 256 KiB RX region. Check `/proc/iomem` after updating
+  the FIP.
+
 ## Upgrade and recovery
 
 An application/APK update does not replace `/boot/fip.bin`. FIP takes effect at the next boot.

@@ -170,10 +170,16 @@ def build_uhd_profile(source: bytes) -> tuple[bytes, object]:
 
 
 # Refresh rates per monitor height; the first is the default profile.
-RATES = {720: (120, 60, 30), 1080: (75, 60, 30), 1440: (50, 40, 30), 2160: (30,)}
+RATES = {720: (120, 60, 30), 1080: (100, 75, 60, 30), 1440: (60, 50, 40, 30), 2160: (30,)}
 
 # Timings that the final CTA block does not already list.
 EXTRA_TIMINGS = {
+    # CVT reduced blanking; the encoder sustains about 109 fps at 1080p.
+    (1920, 1080, 100): dict(width=1920, height=1080, pixel_clock_hz=235_500_000, hblank=160,
+                            vblank=53, hfront=48, hsync=32, vfront=3, vsync=5, flags=0x1A),
+    # CVT reduced blanking.
+    (2560, 1440, 60): dict(width=2560, height=1440, pixel_clock_hz=241_500_000, hblank=160,
+                           vblank=41, hfront=48, hsync=32, vfront=3, vsync=5, flags=0x1A),
     # CTA VIC 34.
     (1920, 1080, 30): dict(width=1920, height=1080, pixel_clock_hz=74_250_000, hblank=280,
                            vblank=45, hfront=88, hsync=44, vfront=4, vsync=5, flags=0x1E),
@@ -314,11 +320,11 @@ def main() -> int:
             "added_mode": "3840x2160@30 preferred",
         }
     )
-    # Auto is deliberately the same byte sequence as the explicit QHD50
+    # Auto is 1920x1080 at 100 Hz; QHD and UHD are explicit choices.
     # profile.  The runtime already resolves monitor value 0 to
     # NanoKVM-final-video-profiles.bin; the package install step maps this
     # generated Auto file to that stable runtime name.
-    auto_data, auto_timing = profiles[1440]
+    auto_data, auto_timing = build_rate_profile(source, 1080, 100)
     auto_target = args.output / "NanoKVM-monitor-auto.bin"
     auto_target.write_bytes(auto_data)
     manifest.append(
@@ -330,7 +336,7 @@ def main() -> int:
             "refresh_hz": round(auto_timing.refresh_hz, 6),
             "source_sha256": sha256(source),
             "sha256": sha256(auto_data),
-            "identical_to": "NanoKVM-monitor-1440.bin",
+            "identical_to": "NanoKVM-monitor-1080-100.bin",
             "unique_cta_modes_preserved": True,
             "added_cta_mode": "2560x1440@50",
         }

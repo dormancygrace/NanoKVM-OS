@@ -61,6 +61,8 @@ class MonitorProfilesTest(unittest.TestCase):
                     # resolution are gone; everything else is the default.
                     self.assertEqual(data[:38], default[:38])
                     self.assertEqual(data[72:127], default[72:127])
+                    rng = profiles.PRIMARY.find_range_descriptor(data)
+                    self.assertGreaterEqual(data[rng + 9] * 10_000_000, timing.pixel_clock_hz)
                     _, start = profiles.PRIMARY.parse_cta_blocks(data)
                     modes = [t for _, _, t in profiles.PRIMARY.parse_cta_dtds(data, start)]
                     self.assertFalse([t for t in modes if (t.width, t.height) == (timing.width, height)
@@ -72,8 +74,9 @@ class MonitorProfilesTest(unittest.TestCase):
                     vics = dict(profiles.PRIMARY.parse_cta_blocks(data)[0])[2]
                     self.assertFalse([v for v in vics if profiles.VIC_MODES[v & 0x7F][:2] == (timing.width, height)
                                       and profiles.VIC_MODES[v & 0x7F][2] > rate])
-        for height in (720, 1080, 1440):
-            self.assertEqual(profiles.build_rate_profile(self.source, height, profiles.RATES[height][0])[0],
+        # NanoKVM-monitor-<height>.bin keeps its rate and bytes.
+        for height, (_, _, rate) in profiles.PREFERRED.items():
+            self.assertEqual(profiles.build_rate_profile(self.source, height, int(rate))[0],
                              profiles.build_profile(self.source, height)[0])
 
     def test_unreviewed_input_is_rejected(self):

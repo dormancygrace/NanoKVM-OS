@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create final-mode EDIDs with 720p120, FHD75, or QHD50 preferred."""
+"""Create final-mode EDIDs with 720p120, FHD75, QHD50 or UHD30 preferred."""
 
 from __future__ import annotations
 
@@ -82,6 +82,87 @@ def build_profile(source: bytes, height: int) -> tuple[bytes, object]:
     return bytes(candidate), preferred
 
 
+# 3840x2160 at 29.98 Hz, CVT reduced blanking: the lowest pixel clock and
+# therefore MIPI rate for UHD (CTA VIC 95 needs 297 MHz).
+UHD30 = dict(width=3840, height=2160, pixel_clock_hz=262_750_000, hblank=160,
+             vblank=31, hfront=48, hsync=32, vfront=3, vsync=5, flags=0x1A)
+UHD_MAX_PIXEL_CLOCK_MHZ = 270
+UHD_MAX_TMDS_MHZ = 300
+
+
+def encode_dtd(t: dict, size: bytes) -> bytes:
+    d = bytearray(18)
+    d[:2] = (t["pixel_clock_hz"] // 10_000).to_bytes(2, "little")
+    d[2:5] = bytes([t["width"] & 255, t["hblank"] & 255,
+                    ((t["width"] >> 8) << 4) | (t["hblank"] >> 8)])
+    d[5:8] = bytes([t["height"] & 255, t["vblank"] & 255,
+                    ((t["height"] >> 8) << 4) | (t["vblank"] >> 8)])
+    d[8:12] = bytes([t["hfront"] & 255, t["hsync"] & 255,
+                     ((t["vfront"] & 15) << 4) | (t["vsync"] & 15),
+                     ((t["hfront"] >> 8) << 6) | ((t["hsync"] >> 8) << 4)
+                     | ((t["vfront"] >> 4) << 2) | (t["vsync"] >> 4)])
+    d[12:17] = size
+    d[17] = t["flags"]
+    return bytes(d)
+
+
+def build_uhd_profile(source: bytes) -> tuple[bytes, object]:
+    """UHD30 preferred; every other final mode stays as a CTA fallback.
+
+    UHD30 is the base-block preferred DTD; the QHD50 it displaces stays in
+    the CTA list. The CTA block is full, so the 720p60 DTD (also CTA VIC 4)
+    makes room for a Max_TMDS_Clock byte in the HDMI vendor block. The range
+    limit is raised from 250 to 270 MHz to admit 262.75 MHz.
+    """
+    if sha256(source) != EXPECTED_SOURCE_SHA256:
+        raise ValueError("input is not the accepted final EDID")
+    qhd, _ = build_profile(source, 1440)
+    blocks, dtd_start = PRIMARY.parse_cta_blocks(qhd)
+    dtds = PRIMARY.parse_cta_dtds(qhd, dtd_start)
+    hd60 = [raw for _, raw, timing in dtds
+            if (timing.width, timing.height) == (1280, 720)
+            and abs(timing.refresh_hz - 60) < 0.1]
+    video = [payload for tag, payload in blocks if tag == 2]
+    vsdb = [payload for tag, payload in blocks if tag == 3]
+    if len(hd60) != 1 or len(video) != 1 or 4 not in video[0]:
+        raise ValueError("expected one 720p60 DTD that duplicates CTA VIC 4")
+    if len(vsdb) != 1 or vsdb[0] != bytes.fromhex("030c001000"):
+        raise ValueError("review the HDMI vendor block before extending it")
+    uhd = encode_dtd(UHD30, qhd[66:71])
+    out = bytearray(qhd[:128])
+    out[54:72] = uhd
+    pos = PRIMARY.find_range_descriptor(out)
+    if out[pos + 9] != 25:
+        raise ValueError("expected a 250 MHz range limit")
+    out[pos + 9] = UHD_MAX_PIXEL_CLOCK_MHZ // 10
+    out[127] = (-sum(out[:127])) & 0xFF
+    # Max_TMDS_Clock follows one byte of HDMI feature flags (all clear).
+    cta = bytearray()
+    for tag, payload in blocks:
+        if tag == 3:
+            payload = payload + bytes([0, UHD_MAX_TMDS_MHZ // 5])
+        cta += bytes([(tag << 5) | len(payload)]) + payload
+    ext = bytearray(128)
+    ext[:4] = bytes([2, 3, 4 + len(cta), qhd[131]])
+    ext[4:4 + len(cta)] = cta
+    offset = 4 + len(cta)
+    for raw in [raw for _, raw, _ in dtds if raw != hd60[0]]:
+        if offset + 18 > 127:
+            raise ValueError("CTA fallback timings do not fit")
+        ext[offset:offset + 18] = raw
+        offset += 18
+    ext[127] = (-sum(ext[:127])) & 0xFF
+    candidate = bytes(out + ext)
+    PRIMARY.check_basic_edid(candidate, label="monitor-2160")
+    preferred = PRIMARY.decode_dtd(candidate[54:72], label="preferred")
+    if (preferred.width, preferred.height) != (3840, 2160) or abs(preferred.refresh_hz - 30) > 0.05:
+        raise ValueError("unexpected UHD30 timing")
+    kept = {raw for _, raw, _ in PRIMARY.parse_cta_dtds(candidate, 128 + candidate[130])}
+    if not {raw for _, raw, _ in dtds if raw != hd60[0]} <= kept:
+        raise ValueError("a fallback timing was removed")
+    return candidate, preferred
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
@@ -108,6 +189,21 @@ def main() -> int:
             "added_cta_mode": "2560x1440@50",
             }
         )
+    uhd_data, uhd_timing = build_uhd_profile(source)
+    uhd_target = args.output / "NanoKVM-monitor-2160.bin"
+    uhd_target.write_bytes(uhd_data)
+    manifest.append(
+        {
+            "file": uhd_target.name,
+            "width": uhd_timing.width,
+            "height": uhd_timing.height,
+            "refresh_hz": round(uhd_timing.refresh_hz, 6),
+            "source_sha256": sha256(source),
+            "sha256": sha256(uhd_data),
+            "removed_cta_mode": "1280x720@60 DTD (CTA VIC 4 remains)",
+            "added_mode": "3840x2160@30 preferred",
+        }
+    )
     # Auto is deliberately the same byte sequence as the explicit QHD50
     # profile.  The runtime already resolves monitor value 0 to
     # NanoKVM-final-video-profiles.bin; the package install step maps this

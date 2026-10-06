@@ -7,7 +7,8 @@ Changes below cover everything since **v2.0-b7**, including the previously unpub
 ### System and updates
 
 - Update Linux from **7.2.6 to 7.2.9**, with matching drivers and boot images for the supported boards and both CMA/fixed video-memory modes.
-- Enable **nftables software flow offload** for established forwarded TCP/UDP connections. Local traffic, including video served by NanoKVM itself, does not use this forwarding fast path.
+- Add an independent **Internet over USB** switch: share the NanoKVM Ethernet/Wi-Fi uplink with the managed computer through USB NCM. Disabled by default; IPv4 sharing includes DHCP, DNS and NAT. Turning sharing off keeps local USB access available.
+- Use **nftables software flow offload** for eligible USB-forwarded TCP/UDP connections, with ordinary NAT fallback. Preserve VPN routing and suppress acceleration where other forwarding policies would conflict. Local video traffic does not use this forwarding fast path.
 - Use official **Alpine Linux 3.24** packages by default, including OpenSSL. Keep the optional C906 package profile available for experiments.
 - Build the complete SD image, application, native libraries, kernel, drivers and signed APK packages from the public repository with pinned upstream sources and recorded output checksums.
 - Use **GCC 16.2 / T-Head C906**, with **`-O3` and no LTO for the kernel and modules**, and scalar **`-O2` for native userspace**. Correct vector-context handling and optimize the aligned LZ4 decode path. Fix the ISP errors exposed by optimization and preserve HDMI receiver wiring/detection patches in clean builds.

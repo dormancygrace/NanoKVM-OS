@@ -34,6 +34,7 @@ copy(r/'firmware/alpine/compat/nanokvm-firstboot-storage',base/'usr/libexec/nano
 copy(r/'firmware/alpine/compat/nanokvm-activate-kernel',base/'usr/libexec/nanokvm/activate-kernel')
 copy(r/'firmware/alpine/compat/nkos-board-select',base/'usr/sbin/nkos-board-select')
 copy(old/'usr/sbin/nkos-board-probe',base/'usr/sbin/nkos-board-probe')
+copy(args.server/'nkos-usb-internet',base/'usr/sbin/nkos-usb-internet')
 copy(args.server/'nkos-update',base/'usr/sbin/nkos-update')
 copy(args.server/'nkos-apply-updates',base/'usr/sbin/nkos-apply-updates')
 copy(args.devmem,base/'usr/sbin/devmem')
@@ -45,6 +46,8 @@ link('/usr/libexec/nanokvm/legacy/S15kvmhwd',base/'etc/init.d/S15kvmhwd')
 copy(enhanced_s15,app/'kvmapp/system/init.d/S15kvmhwd')
 for name in ('S95nanokvm', 'S30eth', 'S30wifi'):
     copy(r/'kvmapp/system/init.d'/name,app/'kvmapp/system/init.d'/name)
+copy(r/'firmware/alpine/compat/S30usbnet',base/'usr/libexec/nanokvm/legacy/S30usbnet')
+link('/usr/libexec/nanokvm/legacy/S30usbnet',base/'etc/init.d/S30usbnet')
 names='S30eth S30wifi S29qdisc S34mssclamp S35flowoffload S38memory S49persistent-cron S94sg2002aes S96picoclaw S98tailscaled S80dnsmasq S13nanokvm-watchdog'.split()
 for name in names:
     copy(r/'kvmapp/system/init.d'/name,base/'usr/libexec/nanokvm/legacy'/name)

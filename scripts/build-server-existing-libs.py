@@ -91,6 +91,10 @@ subprocess.run([go, 'build', '-trimpath', '-buildvcs=false', '-ldflags=-s -w -bu
                 '-o', str(out/'nkos-apply-updates'), './cmd/nkos-apply-updates'],
                cwd=repo/'server', env=helper_env, check=True)
 files.append(out/'nkos-apply-updates')
+subprocess.run([go, 'build', '-trimpath', '-buildvcs=false', '-ldflags=-s -w -buildid=',
+                '-o', str(out/'nkos-usb-internet'), './cmd/nkos-usb-internet'],
+               cwd=repo/'server', env=helper_env, check=True)
+files.append(out/'nkos-usb-internet')
 manifest = {'qualification': 'cross-build only',
             'custom_runtime_expected': custom_runtime_expected,
             'custom_runtime_present': custom_runtime_present,

@@ -13,6 +13,8 @@
 # Parent directories are created with mode 0755.
 
 # nanokvm-base: OpenRC services, compatibility scripts and board tools
+base  file  /etc/init.d/nanokvm-usb-internet             0755  firmware/alpine/openrc/nanokvm-usb-internet
+base  file  /usr/sbin/nkos-usb-internet                  0755  @server/nkos-usb-internet
 base  file  /etc/apk/commit_hooks.d/50-nanokvm-apply      0755  firmware/alpine/compat/50-nanokvm-apply
 base  file  /etc/apk/protected_paths.d/nanokvm.list       0644  %protected-paths
 base  file  /etc/chrony.conf                              0644  firmware/buildroot/board/overlay/etc/chrony.conf
@@ -44,7 +46,7 @@ base  file  /usr/libexec/nanokvm/legacy/S15kvmhwd         0755  firmware/buildro
 base  file  /usr/libexec/nanokvm/legacy/S25wifimod        0755  kvmapp/system/init.d/S25wifimod
 base  file  /usr/libexec/nanokvm/legacy/S29qdisc          0755  kvmapp/system/init.d/S29qdisc
 base  file  /usr/libexec/nanokvm/legacy/S30eth            0755  kvmapp/system/init.d/S30eth
-base  file  /usr/libexec/nanokvm/legacy/S30usbnet         0755  firmware/buildroot/board/enhanced/init.d/S30usbnet
+base  file  /usr/libexec/nanokvm/legacy/S30usbnet         0755  firmware/alpine/compat/S30usbnet
 base  file  /usr/libexec/nanokvm/legacy/S30wifi           0755  kvmapp/system/init.d/S30wifi
 base  file  /usr/libexec/nanokvm/legacy/S34mssclamp       0755  kvmapp/system/init.d/S34mssclamp
 base  file  /usr/libexec/nanokvm/legacy/S35flowoffload       0755  kvmapp/system/init.d/S35flowoffload
@@ -128,7 +130,7 @@ app   file  /kvmapp/system/init.d/S15kvmhwd               0755  firmware/buildro
 app   file  /kvmapp/system/init.d/S25wifimod              0755  kvmapp/system/init.d/S25wifimod
 app   file  /kvmapp/system/init.d/S29qdisc                0755  kvmapp/system/init.d/S29qdisc
 app   file  /kvmapp/system/init.d/S30eth                  0755  kvmapp/system/init.d/S30eth
-app   file  /kvmapp/system/init.d/S30usbnet               0755  firmware/buildroot/board/enhanced/init.d/S30usbnet
+app   file  /kvmapp/system/init.d/S30usbnet               0755  firmware/alpine/compat/S30usbnet
 app   file  /kvmapp/system/init.d/S30wifi                 0755  kvmapp/system/init.d/S30wifi
 app   file  /kvmapp/system/init.d/S34mssclamp             0755  kvmapp/system/init.d/S34mssclamp
 app   file  /kvmapp/system/init.d/S35flowoffload             0755  kvmapp/system/init.d/S35flowoffload

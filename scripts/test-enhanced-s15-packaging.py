@@ -36,7 +36,7 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
         write(accepted / 'etc' / name)
     write(accepted / 'mnt/data/sensor_cfg.ini.LT')
 
-    for name in ('nkos-update', 'nkos-apply-updates', 'NanoKVM-Server.stripped'):
+    for name in ('nkos-update', 'nkos-apply-updates', 'nkos-usb-internet', 'NanoKVM-Server.stripped'):
         write(server / name)
     write(server / 'dl_lib/libsys.so')
     write(web / 'index.html', b'<!doctype html>\n')
@@ -55,6 +55,10 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
         '--output', str(output),
     ], check=True)
 
+    assert '"$s/out/nkos-usb-internet"' in (root / 'platform/build.sh').read_text()
+    assert (output / 'base/usr/sbin/nkos-usb-internet').is_file()
+    assert (output / 'base/etc/init.d/nanokvm-usb-internet').is_file()
+    assert (output / 'base/usr/libexec/nanokvm/legacy/S30usbnet').read_bytes() == (root / 'firmware/alpine/compat/S30usbnet').read_bytes()
     expected = enhanced.read_bytes()
     base_s15 = output / 'base/usr/libexec/nanokvm/legacy/S15kvmhwd'
     app_s15 = output / 'app/kvmapp/system/init.d/S15kvmhwd'

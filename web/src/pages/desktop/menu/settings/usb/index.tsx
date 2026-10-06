@@ -17,6 +17,7 @@ import {
 import type { UsbComposition, UsbDevice, UsbStatus } from '@/lib/usb-composition.ts';
 
 import { MouseJiggler } from '../device/mouse-jiggler';
+import { UsbInternet } from './internet';
 
 const previousCompositionKey = 'nanokvm.usb.previous-composition';
 function readPreviousComposition(): UsbComposition | undefined {
@@ -198,6 +199,7 @@ export const Usb = () => {
           onChange={(next) => void toggleUsb(next)}
         />
       </div>
+      <UsbInternet usbBusy={loading} />
       {enabled && (
         <>
           <label htmlFor="usb-preset" className="mb-2 block text-sm text-neutral-400">

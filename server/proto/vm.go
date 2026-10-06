@@ -248,3 +248,9 @@ type GetInputResolutionRsp struct {
 	Width  int `json:"width"`
 	Height int `json:"height"`
 }
+
+// Explicit false is valid; omitted fields are rejected.
+type SetUSBInternetReq struct {
+	Enabled         *bool `json:"enabled" validate:"required"`
+	ExpectedEnabled *bool `json:"expectedEnabled" validate:"required"`
+}

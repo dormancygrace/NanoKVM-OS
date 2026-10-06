@@ -9,7 +9,7 @@ for service in loopback bootmisc hostname hwdrivers localmount modules sysctl ud
     [ ! -x "/etc/init.d/$service" ] || rc-update add "$service" boot
 done
 for service in nanokvm-storage nanokvm-modules nanokvm-board \
-	       nanokvm-network nanokvm-usb nanokvm-policy nanokvm-ssh nanokvm-app nanokvm-watchdog chronyd crond dbus nanokvm-mdns; do
+	       nanokvm-network nanokvm-usb-internet nanokvm-usb nanokvm-policy nanokvm-ssh nanokvm-app nanokvm-watchdog chronyd crond dbus nanokvm-mdns; do
 	[ ! -x "/etc/init.d/$service" ] || rc-update add "$service" default
 done
 [ ! -x /etc/init.d/mount-ro ] || rc-update add mount-ro shutdown

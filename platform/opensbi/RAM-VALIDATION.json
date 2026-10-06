@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "date": "2026-10-05",
+  "source_commit": "ce36bfc9185e4fc2aefa96bb7d44f01de94a2f41",
+  "device": "Sipeed NanoKVM PCIe / SG2002",
+  "kernel": "7.2.9-nanokvm-os-r1",
+  "kernel_build_id": "d1a5fdb0386eef869cd379d32e47a9e12f7c9ccf",
+  "candidate_fip_sha256": "76e50ecc3fab0da16f2ab750e6f79a67ec2dedeac9397c5f437343e6008e3692",
+  "firmware_sha256": "6df03b97a913f0b3a14d2eb8f0e46f558c7a09cca97d50c4649f1938a308ac22",
+  "ram_boot": {
+    "result": "pass",
+    "boot_id": "57a378e4-d07c-4565-aecb-1020df002d42",
+    "sbi_spec": "3.0",
+    "sbi_implementation": "0x1",
+    "sbi_implementation_version": "0x10009",
+    "bootcmd_and_kernel_unchanged": true,
+    "load_method": "ROM UART RAM-only; empty partition/program list"
+  },
+  "memory": {
+    "firmware_ro": "0x80000000/0x40000",
+    "firmware_rw": "0x80040000/0x10000",
+    "small_core": "0x8d000000/0x200000",
+    "linux_memtotal_kib": 237772
+  },
+  "timer": {
+    "before": 13435,
+    "after": 13700,
+    "uptime_before_s": 55.45,
+    "uptime_after_s": 56.53
+  },
+  "pmu_counting": {
+    "result": "pass",
+    "cycles": [
+      108515,
+      921149
+    ],
+    "instructions": [
+      71670,
+      774880
+    ],
+    "running_ns": 952880,
+    "enabled_ns": 952880,
+    "probe_ram_only_and_removed": true
+  },
+  "video": {
+    "browser": "Chrome Main",
+    "result": "pass",
+    "stopwatch_frames": [
+      "7:52:02.41",
+      "7:53:13.43"
+    ],
+    "remote_hid_input": false
+  },
+  "services": {
+    "nanokvm-app": "started",
+    "nanokvm-rustdesk": "started"
+  },
+  "sd_fip_sha256_before_after": "c5958e0849741bc6ae9bb4053c3bc96f2ffb40fbdf477bd3fe8c41173e5e5f2a",
+  "candidate_installed": false,
+  "returned_to_stock": {
+    "result": "pass",
+    "boot_id": "a2ededc6-7882-4c61-91f4-62b715d7d58e",
+    "opensbi": "0.9",
+    "services": "both started",
+    "fip_sha256": "c5958e0849741bc6ae9bb4053c3bc96f2ffb40fbdf477bd3fe8c41173e5e5f2a"
+  },
+  "not_tested": [
+    "candidate SD cold boot",
+    "persistent candidate installation",
+    "repairing a damaged SD FIP through ROM RAM Linux",
+    "PMU overflow sampling and platform raw/cache events",
+    "multicore IPI/RFENCE",
+    "vector context switching"
+  ],
+  "source_commit_note": "Tested before unchanged cherry-pick onto v3; firmware and FIP hashes identify the measured artifacts.",
+  "application_scope": "Installed current services; experimental v3 Rust runtime not tested.",
+  "full_logs": "Retained on the host; current and two previous device-boot archives."
+}

@@ -17,7 +17,10 @@ u-boot     https://ftp.denx.de/pub/u-boot/u-boot-2026.07.tar.bz2            78e8
 osdrv      https://github.com/sophgo/osdrv.git               1b3a49649d18488ecf54fb4fcb6c27599e433fdc  .=2e17c3f6cec2205e0089e6341326333c12fdf1f2
 aic8800  https://github.com/radxa-pkg/aic8800.git  d13d07963cd15d731e2895e8288a04cca6152ac9  src/SDIO/driver_fw/driver/aic8800=69d01d7f6b245608c6f55f24e921a48517798411 src/SDIO/driver_fw/fw/aic8800=171d691f1538b996baad40fb2e639030aa0a53aa src/SDIO/driver_fw/fw/aic8800D80=bd537de207ce0b0ec4871a03094ba2033f162cc0 src/SDIO/driver_fw/fw/aic8800D80N=26ec1457136a206d7d2e103b617a96e91757a4c5 src/SDIO/driver_fw/fw/aic8800D80X2=c4954c202771cd9ec6b526d4fd4b88eb91b46f2f src/SDIO/driver_fw/fw/aic8800DC=60a63ad1a85c839904676689e1c3151c2e8b4cee debian/copyright=8dfc445409656856b3e265741692e42f19da8220
 cryptodev  https://github.com/cryptodev-linux/cryptodev-linux.git  08644db02d43478f802755903212f5ee506af73b  .=6babcb49f610d502f554cbc990d89b22223c3208
-sipeed-sdk  https://github.com/sipeed/LicheeRV-Nano-Build.git  d4003f15b35d43ad4842f427050ab2bba0114fa5  osdrv/extdrv/wireless/rtl8733bs=f4282244c91fd7852a7b24c6bda24075e8cbfe47 fsbl/plat/cv181x/fiptool.py=8e470afb8049830524f1bf5a325f27f342d8ee4b ramdisk/rootfs/common_musl_riscv64/usr/share/fw_vcodec=60cc76a9d6afbe4d38a623ff81ae55bd1cd08362
+sipeed-sdk  https://github.com/sipeed/LicheeRV-Nano-Build.git  d4003f15b35d43ad4842f427050ab2bba0114fa5  osdrv/extdrv/wireless/rtl8733bs=f4282244c91fd7852a7b24c6bda24075e8cbfe47 fsbl=a7ff72edc7332a1abab12b298aef97fa093a24a3 opensbi=21bbe9fa4ada20c2e8fa8c9ca09396584e0ea656 ramdisk/rootfs/common_musl_riscv64/usr/share/fw_vcodec=60cc76a9d6afbe4d38a623ff81ae55bd1cd08362
+
+# Official stable release v1.9, verified 2026-10-05; no moving branch.
+opensbi https://github.com/riscv-software-src/opensbi.git cbf9f6734dd85a982c63e3cb5db7ffe09da839ca .=d6a4747810533f9da9e17428cab821ccc8b1594c
 
 # Application and native media libraries
 cvi-mpi    https://github.com/sophgo/cvi_mpi.git             693a72a1d52f2e08ea767e0a72905e81f10572a5  .=839006d556c5d57bed19aa2974a57470a5f7a900

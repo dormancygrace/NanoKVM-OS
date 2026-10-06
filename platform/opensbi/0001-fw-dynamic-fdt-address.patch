@@ -1,0 +1,33 @@
+diff --git a/firmware/fw_dynamic.S b/firmware/fw_dynamic.S
+index 5ee2883..b99c246 100644
+--- a/firmware/fw_dynamic.S
++++ b/firmware/fw_dynamic.S
+@@ -82,8 +82,13 @@ fw_save_info:
+ 	 * The next arg1 should be returned in 'a0'.
+ 	 */
+ fw_next_arg1:
++#ifdef FW_DYNAMIC_FDT_ADDR
++	/* A fixed-address FSBL FDT may overlap the new firmware image. */
++	li	a0, FW_DYNAMIC_FDT_ADDR
++#else
+ 	lla	a0, _dynamic_next_arg1
+ 	REG_L	a0, (a0)
++#endif
+ 	ret
+ 
+ 	.section .entry, "ax", %progbits
+diff --git a/firmware/objects.mk b/firmware/objects.mk
+index bfec467..3d5c900 100644
+--- a/firmware/objects.mk
++++ b/firmware/objects.mk
+@@ -19,6 +19,10 @@ else
+ firmware-genflags-y += -DFW_TEXT_START=0x0
+ endif
+ 
++ifdef FW_DYNAMIC_FDT_ADDR
++firmware-genflags-y += -DFW_DYNAMIC_FDT_ADDR=$(FW_DYNAMIC_FDT_ADDR)
++endif
++
+ ifdef FW_FDT_PATH
+ firmware-genflags-y += -DFW_FDT_PATH=\"$(FW_FDT_PATH)\"
+ ifdef FW_FDT_PADDING

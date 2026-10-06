@@ -397,9 +397,11 @@ boot() {
             [ "$mode" = cma ] || name=$profile-fixed
             dtb=$img/dtb/$name.dtb
             cp "$b/$profile.dtb" "$dtb"
-            # Same kernel and modules; only the 64 MiB video pool backend differs.
-            [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 4000000 ]
+            # Same kernel and modules; only the video pool differs: 128 MiB
+            # reusable CMA, or a 64 MiB fixed carveout that Linux never uses.
+            [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 8000000 ]
             if [ "$mode" = fixed ]; then
+                "$host/fdtput" -t x "$dtb" /reserved-memory/ion size 4000000
                 "$host/fdtput" -t s "$dtb" /reserved-memory/ion compatible ion-region
                 "$host/fdtput" -d "$dtb" /reserved-memory/ion reusable
                 "$host/fdtput" -d "$dtb" /cvitek-ion/heap-carveout nanokvm,cma-backend

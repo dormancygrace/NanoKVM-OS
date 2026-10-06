@@ -41,8 +41,8 @@
 #define vi_min_width            32
 #define vi_min_height           3
 #ifdef NANOKVM_ENHANCED
-#define vi_max_width            2560
-#define vi_max_height           1440
+#define vi_max_width            3840
+#define vi_max_height           2160
 #else
 #define vi_max_width            1920
 #define vi_max_height           1080
@@ -76,6 +76,10 @@
 #define vi_detection_idle_poll_ms 100U
 #define hdmi_mode_max_age_ms 1000U
 #define ion_summary_path "/sys/kernel/debug/ion/cvi_carveout_heap_dump/summary"
+/* 3840x2160 H.265 takes 117 MiB of ION: two UYVY VI blocks (32), three NV21
+ * VPSS buffers (36), three SmartP reconstruction frames (36), a 4 MiB
+ * bitstream and codec tables. The CMA video pool provides 128 MiB. */
+#define uhd_ion_mib             128U
 
 /* Resolution-bounded opt-ins expose the accepted high-rate profiles while
  * retaining the normal 60-FPS ceiling for every other geometry. */
@@ -248,6 +252,9 @@ kvm_venc_t kvm_venc;
 
 static bool restart_capture()
 {
+    // A pipelined frame leases a VPSS buffer; retire it before the restart.
+    if (kvm_venc.enc_video_init && mmf_venc_pending_vi(kvm_venc.mmf_venc_chn) >= 0)
+        mmf_del_venc_channel(kvm_venc.mmf_venc_chn);
     kvm_venc.enc_video_init = 0;
     const int result = cam->restart(default_vpss_width, default_vpss_height);
     kvmv_cfg.reopen_cam_flag = result != 0;
@@ -414,6 +421,7 @@ static bool reserve_save_buffer(kvmv_data_t* buffer, uint32_t size)
 uint16_t hdmi_res_list[][2] = {
     {1920, 1080},
 #ifdef NANOKVM_ENHANCED
+    {3840, 2160},
     {2560, 1440},
     {720, 1280},
     {1080, 1920},
@@ -459,7 +467,8 @@ uint8_t check_res(uint16_t _width, uint16_t _height)
         if (ion) fclose(ion);
         uint32_t bytes = ((uint32_t)ion_size[0] << 24) | ((uint32_t)ion_size[1] << 16)
             | ((uint32_t)ion_size[2] << 8) | ion_size[3];
-        const uint32_t required_mib = (_width == 1440 && _height == 2560) ? 64U : 62U;
+        const uint32_t required_mib = (_width > 2560 || _height > 2560) ? uhd_ion_mib
+            : (_width == 1440 && _height == 2560) ? 64U : 62U;
         if (count != sizeof(ion_size) || bytes < required_mib * 1024U * 1024U) return UNSUPPORT_RES;
     }
 #endif
@@ -2030,21 +2039,51 @@ void kvmv_request_keyframe(void) {
  requested_keyframe.store(true, std::memory_order_relaxed);
 }
 
-int8_t frame_to_video(uint8_t *data, int width, int height, int format, int vi_ch,
-	kvmv_data_t *ret_stream, uint16_t bitrate, uint8_t codec, uint8_t gop, uint8_t fps)
+static uint8_t video_output_fps(int width, int height, uint8_t fps)
 {
 #ifdef NANOKVM_ENHANCED
     const int limit = nanokvm::capture_stream_rate_limit(
         kvmv_cfg.vi_width, kvmv_cfg.vi_height, width, height);
     if (fps > limit) fps = limit;
 #endif
+    return fps;
+}
+
+static bool video_encoder_matches(int width, int height, uint16_t bitrate, uint8_t codec,
+	uint8_t gop, uint8_t fps)
+{
+	return kvm_venc.enc_video_init == 1 && width == kvm_venc.kvm_venc_cfg.w &&
+		height == kvm_venc.kvm_venc_cfg.h && bitrate == kvm_venc.kvm_venc_cfg.bitrate &&
+		(codec == VENC_H265 ? 1 : 2) == kvm_venc.kvm_venc_cfg.type &&
+		gop == kvm_venc.kvm_venc_cfg.gop && video_output_fps(width, height, fps) == kvm_venc.kvm_venc_cfg.output_fps;
+}
+
+/*
+ * Above QHD one frame takes the encoder about a whole frame period. After the
+ * stream of frame N is out, submit the newest queued VPSS frame right away so
+ * the hardware encodes it while frame N is copied and delivered; the next read
+ * collects it (see kvmv_read_img). Wait briefly for a frame that VPSS is about
+ * to finish, so it does not wait for the caller instead; otherwise the next
+ * read acquires one as usual.
+ */
+static void submit_next_video_frame(int vi_ch, int width, int height)
+{
+	if (width * height <= 2560 * 1440) return;
+	int len = 0, w = 0, h = 0, format = 0;
+	if (mmf_vi_frame_try_pop_native(vi_ch, 5, &len, &w, &h, &format) != 0) return;
+	if (w != width || h != height || format != nanokvm::nv21_format()
+		|| mmf_venc_push_vi(kvm_venc.mmf_venc_chn, vi_ch) != 0)
+		mmf_vi_frame_release(vi_ch);
+}
+
+int8_t frame_to_video(uint8_t *data, int width, int height, int format, int vi_ch,
+	kvmv_data_t *ret_stream, uint16_t bitrate, uint8_t codec, uint8_t gop, uint8_t fps,
+	bool submitted = false)
+{
+	fps = video_output_fps(width, height, fps);
 	int8_t ret = 0;
-	uint8_t mmf_type = codec == VENC_H265 ? 1 : 2;
 	mmf_stream_t stream = {};
-	if (kvm_venc.enc_video_init != 1 || width != kvm_venc.kvm_venc_cfg.w ||
-		height != kvm_venc.kvm_venc_cfg.h || bitrate != kvm_venc.kvm_venc_cfg.bitrate ||
-		mmf_type != kvm_venc.kvm_venc_cfg.type || gop != kvm_venc.kvm_venc_cfg.gop ||
-		fps != kvm_venc.kvm_venc_cfg.output_fps) {
+	if (!video_encoder_matches(width, height, bitrate, codec, gop, fps)) {
 		debug("[kvmv]init video codec=%d %dx%d bitrate=%d gop=%d fps=%d gop_mode=%s\n",
 			codec, width, height, bitrate, gop, fps,
 			codec == VENC_H265 && kvmvenc_gop_mode == MMF_VENC_GOP_SMARTP
@@ -2059,7 +2098,7 @@ int8_t frame_to_video(uint8_t *data, int width, int height, int format, int vi_c
   mmf_venc_request_idr(kvm_venc.mmf_venc_chn);
  }
 
-	int push_ret = vi_ch >= 0
+	int push_ret = submitted ? 0 : vi_ch >= 0
 		? mmf_venc_push_vi(kvm_venc.mmf_venc_chn, vi_ch)
 		: mmf_venc_push(kvm_venc.mmf_venc_chn, data, width, height, format);
 	if (push_ret) {
@@ -2081,6 +2120,7 @@ int8_t frame_to_video(uint8_t *data, int width, int height, int format, int vi_c
 
 	ret = video_stream_dump(ret_stream, &stream, codec);
 	mmf_venc_free(kvm_venc.mmf_venc_chn);
+	if (ret >= 0 && vi_ch >= 0) submit_next_video_frame(vi_ch, width, height);
 	debug("[kvmv]Frame size = %d; dump ret = %d\n", ret_stream->img_data_size, ret);
 	return ret;
 }
@@ -2344,7 +2384,30 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
         int native_width = 0;
         int native_height = 0;
         int native_format = 0;
-        if (_type == VENC_H264 || _type == VENC_H265 ||
+        // Collect a frame that the previous read already submitted when this
+        // read asks for the same stream; otherwise retire it first.
+        bool submitted = false;
+        const int pending_vi = kvm_venc.enc_video_init ? mmf_venc_pending_vi(kvm_venc.mmf_venc_chn) : -1;
+        if (pending_vi >= 0) {
+            if ((_type == VENC_H264 || _type == VENC_H265) && _type == kvmv_cfg.venc_type
+                    && pending_vi == cam->get_channel() && capture_format == nanokvm::nv21_format()
+                    && kvmv_cfg.fresh_frame_count == 0
+                    && video_encoder_matches(output.width, output.height,
+                        maxmin_data(20000, 500, (int)_qlty), _type, kvmvenc_gop, kvmvenc_fps)) {
+                submitted = true;
+                native_vi_ch = pending_vi;
+                native_width = output.width;
+                native_height = output.height;
+                native_format = capture_format;
+            } else if (mmf_del_venc_channel(kvm_venc.mmf_venc_chn) == 0) {
+                kvm_venc.enc_video_init = 0;
+            } else {
+                pthread_mutex_unlock(&vi_mutex);
+                return IMG_VENC_ERROR;
+            }
+        }
+        if (submitted) {
+        } else if (_type == VENC_H264 || _type == VENC_H265 ||
                 (_type == VENC_MJPEG && kvmv_cfg.frame_detact == 0)) {
             native_vi_ch = cam->get_channel();
             const int native_result = mmf_vi_frame_pop_native(native_vi_ch, &native_len, &native_width,
@@ -2505,7 +2568,7 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
 			int frame_format = img == NULL ? native_format : img->format();
 			ret = frame_to_video(frame_data, frame_width, frame_height, frame_format,
 				native_vi_ch, p_kvmv_data, maxmin_data(20000, 500, (int)_qlty),
-				kvmv_cfg.venc_type, kvmvenc_gop, kvmvenc_fps);
+				kvmv_cfg.venc_type, kvmvenc_gop, kvmvenc_fps, submitted);
 			// debug("[kvmv]venc frame_to_video: %d \r\n", (int)(time::time_ms() - start_time));
 			delete img;
             if(ret < 0){

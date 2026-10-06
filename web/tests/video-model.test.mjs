@@ -14,10 +14,11 @@ const model = (() => {
   return sandbox.exports;
 })();
 
+// The server table (server/common/video_status.go).
 const tiers = [
   { longSide: 1280, shortSide: 720, fps: 120 },
-  { longSide: 1920, shortSide: 1088, fps: 75 },
-  { longSide: 2560, shortSide: 1440, fps: 50 },
+  { longSide: 1920, shortSide: 1088, fps: 100 },
+  { longSide: 2560, shortSide: 1440, fps: 60 },
   { longSide: 0, shortSide: 0, fps: 30 }
 ];
 
@@ -39,18 +40,18 @@ function caps({ uhd = true, input = [2560, 1440], follows = true, programmable =
       selected: 0,
       refreshHz: 50,
       modes: [
-        mode(0, 0, [50, 40, 30]),
+        { ...mode(0, 0, [100, 75, 60, 30]), effectiveWidth: 1920, effectiveHeight: 1080 },
         mode(2160, 3840, [30], uhd, uhd ? undefined : 'video-memory'),
-        mode(1440, 2560, [50, 40, 30]),
-        mode(1080, 1920, [75, 60, 30]),
+        mode(1440, 2560, [60, 50, 40, 30]),
+        mode(1080, 1920, [100, 75, 60, 30]),
         mode(720, 1280, [120, 60, 30])
       ],
       portrait: {
         enabled: false,
         resolution: 1920,
         profiles: [
-          { resolution: 1920, width: 1080, rate: 75, codecs: ['mjpeg', 'h264', 'h265'], transports: ['direct', 'webrtc', 'mjpeg'], available: true },
-          { resolution: 2560, width: 1440, rate: 50, codecs: ['h265'], transports: ['direct'], available: true }
+          { resolution: 1920, width: 1080, rate: 100, rates: [100, 75, 60, 30], codecs: ['mjpeg', 'h264', 'h265'], transports: ['direct', 'webrtc', 'mjpeg'], available: true },
+          { resolution: 2560, width: 1440, rate: 60, rates: [60, 50, 30], codecs: ['h265'], transports: ['direct', 'webrtc'], available: true }
         ]
       }
     },
@@ -92,8 +93,8 @@ const draft = (over = {}) => ({
 
 test('rate tiers follow the server table in either orientation', () => {
   assert.equal(model.rateLimit(tiers, 3840, 2160), 30);
-  assert.equal(model.rateLimit(tiers, 1440, 2560), 50);
-  assert.equal(model.rateLimit(tiers, 1088, 1920), 75);
+  assert.equal(model.rateLimit(tiers, 1440, 2560), 60);
+  assert.equal(model.rateLimit(tiers, 1088, 1920), 100);
   assert.equal(model.rateLimit(tiers, 1280, 720), 120);
 });
 
@@ -107,8 +108,8 @@ test('monitor refresh follows the stream rate', () => {
   const c = caps();
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 30 }), c).refresh, 30);
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 50 }), c).refresh, 60);
-  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 120 }), c).refresh, 75);
-  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 30 }), caps({ follows: false })).refresh, 75);
+  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 120 }), c).refresh, 100);
+  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 30 }), caps({ follows: false })).refresh, 100);
 });
 
 test('H.265 over WebRTC is allowed when the browser decodes it', () => {
@@ -120,10 +121,11 @@ test('H.265 over WebRTC is allowed when the browser decodes it', () => {
   );
 });
 
-test('the tallest portrait profile needs H.265 Direct', () => {
+test('the tallest portrait profile needs H.265, over Direct or WebRTC', () => {
   const c = caps();
-  assert.equal(model.draftIssues(draft({ portrait: 2560, transport: 'webrtc' }), c, everything).transport, 'portrait');
+  assert.equal(model.draftIssues(draft({ portrait: 2560, transport: 'mjpeg' }), c, everything).transport, 'portrait');
   assert.equal(model.draftIssues(draft({ portrait: 2560, codec: 'h264' }), c, everything).codec, 'portrait');
+  assert.deepEqual({ ...model.draftIssues(draft({ portrait: 2560, transport: 'webrtc' }), c, everything) }, {});
   assert.deepEqual({ ...model.draftIssues(draft({ portrait: 2560 }), c, everything) }, {});
 });
 
@@ -141,7 +143,7 @@ test('presets build coherent drafts', () => {
   assert.equal(sharp.codec, 'h265');
   const sharpQhd = model.buildPreset('sharp', caps({ uhd: false }), everything, draft()).draft;
   assert.equal(sharpQhd.monitor, 1440);
-  assert.equal(sharpQhd.fps, 50);
+  assert.equal(sharpQhd.fps, 60);
   const responsive = model.buildPreset('responsive', caps(), everything, draft()).draft;
   assert.deepEqual([responsive.monitor, responsive.fps, responsive.directPlayback], [720, 120, 'immediate']);
   const compatible = model.buildPreset('compatible', caps(), everything, draft()).draft;
@@ -161,7 +163,7 @@ test('presets fall back to what the browser plays', () => {
 });
 
 test('presets keep a portrait monitor and a fixed receiver', () => {
-  const portrait = model.buildPreset('smooth', caps(), everything, draft({ portrait: 1920 })).draft;
+  const portrait = model.buildPreset('balanced', caps(), everything, draft({ portrait: 1920 })).draft;
   assert.equal(portrait.portrait, 1920);
   assert.equal(portrait.monitor, 0);
   const fixed = model.buildPreset('sharp', caps({ programmable: false }), everything, draft()).draft;
@@ -204,4 +206,39 @@ test('the measured input rate is shown as its nominal rate', () => {
   assert.equal(model.nominalRate(29), 30);
   assert.equal(model.nominalRate(59), 60);
   assert.equal(model.nominalRate(44), 44);
+});
+
+test('portrait refresh follows the frame rate like landscape', () => {
+  const c = caps();
+  assert.equal(model.monitorTarget(draft({ portrait: 1920, fps: 100 }), c).refresh, 100);
+  assert.equal(model.monitorTarget(draft({ portrait: 1920, fps: 30 }), c).refresh, 30);
+  assert.equal(model.monitorTarget(draft({ portrait: 2560, fps: 45 }), c).refresh, 50);
+  const saved = draft({ portrait: 1920, fps: 100 });
+  assert.equal(model.draftChanges(saved, { ...saved, fps: 60 }, c).monitorRewrite, true);
+});
+
+test('the bitrate follows the size and rate for every resolution', () => {
+  assert.equal(model.recommendedBitrate(1280, 720, 120, 'h265'), 8000);
+  assert.equal(model.recommendedBitrate(1920, 1080, 100, 'h265'), 12000);
+  assert.equal(model.recommendedBitrate(1920, 1080, 60, 'h265'), 8000);
+  assert.equal(model.recommendedBitrate(1920, 1080, 30, 'h265'), 5000);
+  assert.equal(model.recommendedBitrate(2560, 1440, 60, 'h265'), 12000);
+  assert.equal(model.recommendedBitrate(3840, 2160, 30, 'h265'), 15000);
+  assert.equal(model.recommendedBitrate(1920, 1080, 100, 'h264'), 20000);
+  assert.equal(model.recommendedBitrate(1920, 1080, 60, 'h264'), 10000);
+});
+
+test('presets derive the bitrate from what they stream', () => {
+  const auto = model.buildPreset('auto', caps(), everything, draft()).draft;
+  assert.deepEqual([auto.monitor, auto.fps, auto.codec, auto.bitRate], [0, 100, 'h265', 12000]);
+  const noHevc = { ...everything, directH265: false, webrtcH265: false };
+  const h264 = model.buildPreset('auto', caps(), noHevc, draft()).draft;
+  assert.deepEqual([h264.codec, h264.bitRate], ['h264', 20000]);
+  const balanced = model.buildPreset('balanced', caps(), everything, draft()).draft;
+  assert.deepEqual([balanced.monitor, balanced.fps, balanced.bitRate], [1440, 60, 12000]);
+  // Lowest latency streams H.264: 1280x720 at 120 fps.
+  const responsive = model.buildPreset('responsive', caps(), everything, draft()).draft;
+  assert.equal(responsive.bitRate, 10000);
+  const sharp = model.buildPreset('sharp', caps(), everything, draft()).draft;
+  assert.equal(sharp.bitRate, 20000);
 });

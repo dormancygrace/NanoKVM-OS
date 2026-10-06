@@ -64,7 +64,9 @@ var QualityMap = map[uint16]bool{
 var BitRateMap = map[uint16]bool{
 	20000: true,
 	15000: true,
+	12000: true,
 	10000: true,
+	8000:  true,
 	5000:  true,
 	3000:  true,
 	2000:  true,
@@ -187,7 +189,7 @@ func checkScreen(target *Screen) {
 	}
 
 	if _, ok := BitRateMap[target.BitRate]; !ok {
-		target.BitRate = 3000
+		target.BitRate = 12000
 	}
 
 	if target.GOPMode != GOPModeNormalP && target.GOPMode != GOPModeSmartP {
@@ -200,8 +202,8 @@ func loadScreen(readFile func(string) ([]byte, error)) *Screen {
 		Width:       0,
 		Height:      0,
 		Quality:     80,
-		FPS:         50,
-		BitRate:     3000,
+		FPS:         100,
+		BitRate:     12000, // recommended for 1080p100 H.265 with motion
 		GOP:         30,
 		GOPMode:     GOPModeSmartP,
 		MjpegChroma: 422,

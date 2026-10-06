@@ -104,12 +104,13 @@ type CaptureRateTier struct {
 }
 
 // CaptureRateTiers is the native capture_rate.hpp table (a test compares
-// them). 1088 is the legacy aligned FHD width; above QHD, 30 fps needs the
-// video overclock.
+// them). With the video overclock the encoder sustains about 250 Mpix/s: QHD
+// 60 and UHD 30 fps; 1080p gets 100 of the about 109 fps it reaches. 1088 is
+// the legacy aligned FHD width.
 var CaptureRateTiers = []CaptureRateTier{
 	{LongSide: 1280, ShortSide: 720, FPS: 120},
-	{LongSide: 1920, ShortSide: 1088, FPS: 75},
-	{LongSide: 2560, ShortSide: 1440, FPS: 50},
+	{LongSide: 1920, ShortSide: 1088, FPS: 100},
+	{LongSide: 2560, ShortSide: 1440, FPS: 60},
 	{FPS: 30},
 }
 

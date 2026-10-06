@@ -21,7 +21,7 @@ func TestCaptureRatesAcrossSourceAndDownscale(t *testing.T) {
 		sourceTiming.width, sourceTiming.height, sourceTiming.expires = sw, sh, exp
 		sourceTiming.Unlock()
 	}()
-	for _, c := range [][5]int{{3840, 2160, 0, 0, 30}, {3840, 2160, 2560, 1440, 30}, {2560, 1440, 0, 0, 50}, {2560, 1440, 1920, 1080, 50}, {2560, 1440, 1280, 720, 50}, {1920, 1080, 0, 0, 75}, {1920, 1080, 1280, 720, 75}, {1280, 720, 0, 0, 120}, {640, 480, 640, 480, 120}} {
+	for _, c := range [][5]int{{3840, 2160, 0, 0, 30}, {3840, 2160, 2560, 1440, 30}, {2560, 1440, 0, 0, 60}, {2560, 1440, 1920, 1080, 60}, {2560, 1440, 1280, 720, 60}, {1920, 1080, 0, 0, 100}, {1920, 1080, 1280, 720, 100}, {1280, 720, 0, 0, 120}, {640, 480, 640, 480, 120}} {
 		sourceTiming.Lock()
 		sourceTiming.width, sourceTiming.height, sourceTiming.expires = c[0], c[1], time.Now().Add(time.Hour)
 		sourceTiming.Unlock()
@@ -40,7 +40,7 @@ func TestCaptureRatesAcrossSourceAndDownscale(t *testing.T) {
 }
 
 func TestCaptureRateOrientationParity(t *testing.T) {
-	for _, size := range [][3]int{{1280, 720, 120}, {1920, 1080, 75}, {1920, 1088, 75}, {2560, 1440, 50}, {2304, 1296, 50}, {3840, 2160, 30}} {
+	for _, size := range [][3]int{{1280, 720, 120}, {1920, 1080, 100}, {1920, 1088, 100}, {2560, 1440, 60}, {2304, 1296, 60}, {3840, 2160, 30}} {
 		if got := CaptureRateLimit(size[0], size[1]); got != size[2] {
 			t.Errorf("%v: %d", size, got)
 		}

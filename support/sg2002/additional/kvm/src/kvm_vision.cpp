@@ -2087,7 +2087,8 @@ static bool video_encoder_matches(int width, int height, uint16_t bitrate, uint8
 }
 
 /*
- * Above QHD one frame takes the encoder about a whole frame period. After the
+ * At a high pixel rate one frame takes the encoder about a whole frame
+ * period (3840x2160@30, 2560x1440@60, 1920x1080@120). After the
  * stream of frame N is out, submit the newest queued VPSS frame right away so
  * the hardware encodes it while frame N is copied and delivered; the next read
  * collects it (see kvmv_read_img). Wait briefly for a frame that VPSS is about
@@ -2096,7 +2097,7 @@ static bool video_encoder_matches(int width, int height, uint16_t bitrate, uint8
  */
 static void submit_next_video_frame(int vi_ch, int width, int height)
 {
-	if (width * height <= 2560 * 1440) return;
+	if ((long)width * height * kvm_venc.kvm_venc_cfg.output_fps <= nanokvm::fast_pixel_rate) return;
 	int len = 0, w = 0, h = 0, format = 0;
 	if (mmf_vi_frame_try_pop_native(vi_ch, 5, &len, &w, &h, &format) != 0) return;
 	if (w != width || h != height || format != nanokvm::nv21_format()

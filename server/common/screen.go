@@ -153,9 +153,12 @@ func SupportsQHD() bool {
 }
 
 // SupportsUHD reports the 128 MiB video pool that 3840x2160 needs: 117 MiB
-// with SmartP (see uhd_ion_mib in kvm_vision.cpp).
+// with SmartP (see uhd_ion_mib in kvm_vision.cpp). It must be a fixed
+// carveout: with CMA the encoder's UHD buffers failed on 2 of 4 cold boots,
+// when Linux's borrowed pages could not be migrated back.
 func SupportsUHD() bool {
-	return ionAtLeast(128 * 1024 * 1024)
+	_, err := os.Stat("/proc/device-tree/reserved-memory/ion/reusable")
+	return ionAtLeast(128*1024*1024) && os.IsNotExist(err)
 }
 
 func ionAtLeast(bytes uint32) bool {

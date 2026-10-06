@@ -282,13 +282,17 @@ export type MemorySwap = {
   recompress?: boolean;
   recompressAvailable?: boolean;
   recompressReady?: boolean;
+  auto?: boolean;
 };
+
+export type VideoMemoryMode = 'cma' | 'fixed' | 'uhd';
 
 export type MemoryStatus = {
   videoMemory: {
     active: string;
-    selected: 'cma' | 'fixed';
+    selected: VideoMemoryMode;
     sizeMiB: number;
+    modes?: VideoMemoryMode[];
     available: boolean;
     rebootRequired: boolean;
   };
@@ -323,6 +327,6 @@ export function setCPUFrequency(target: number) {
   return http.post('/api/vm/cpu-frequency', { target });
 }
 
-export function setVideoMemory(mode: 'cma' | 'fixed') {
+export function setVideoMemory(mode: VideoMemoryMode) {
   return http.post('/api/vm/memory/video', { mode });
 }

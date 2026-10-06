@@ -45,7 +45,19 @@ Capture follows the actual HDMI dimensions when the BIOS, bootloader or operatin
 
 ## Stream resolution
 
-**Same as input** uses the actual source dimensions. **Up to 2160p / 1440p / 1080p / 720p / 600p** fits the source within the corresponding bounding box, preserves aspect ratio and never enlarges a smaller image. NV21 dimensions are rounded down to even pixels. 2160p needs 128 MiB of video memory (the default CMA mode); 1440p needs 62 MiB.
+**Same as input** uses the actual source dimensions. **Up to 2160p / 1440p / 1080p / 720p / 600p** fits the source within the corresponding bounding box, preserves aspect ratio and never enlarges a smaller image. NV21 dimensions are rounded down to even pixels. 2160p needs the **4K video memory mode**; 1440p needs 62 MiB, which every mode provides.
+
+## Video memory modes
+
+**Settings → Memory → Video memory allocation** selects the boot image; a change applies after a restart.
+
+| Mode | Video memory | Largest size | Linux memory |
+|---|---|---|---|
+| CMA (default) | 128 MiB, lent to Linux while unused | 2560 × 1440 | about 230 MiB |
+| Fixed | 64 MiB, video only | 2560 × 1440 | about 170 MiB |
+| 4K | 128 MiB, video only | 3840 × 2160 | about 105 MiB |
+
+3840 × 2160 uses 117 MiB. With CMA the encoder could not always get its last reference buffers back from Linux on a cold boot (2 of 4 boots had no video), so the 4K monitor profile, the 2160p stream limit and 3840 × 2160 capture require the 4K mode; elsewhere they are shown as unavailable with the reason. In the 4K mode zram defaults to half of the Linux memory (**Half of RAM**, also selectable in the other modes) unless a size was chosen.
 
 Examples:
 
@@ -65,7 +77,7 @@ The frame rate is capped by the larger of the input and the encoded size, in eit
 
 ## API
 
-- `GET /api/vm/video/capabilities` lists every monitor mode with its refresh rates, the portrait profiles with the codecs and transports they need, the stream limits, the frame-rate table, the input size and rate, the codecs per transport and the video memory. Unavailable entries carry a reason: `video-memory` or `receiver`.
+- `GET /api/vm/video/capabilities` lists every monitor mode with its refresh rates, the portrait profiles with the codecs and transports they need, the stream limits, the frame-rate table, the input size and rate, the codecs per transport and the video memory. Unavailable entries carry a reason: `video-memory` (3840 × 2160 outside the 4K video memory mode, or too little video memory) or `receiver`.
 - `POST /api/vm/video` (administrators) applies several settings together: `type`, `quality` (MJPEG), `bitRate`, `gop`, `gopMode`, `mjpegChroma`, `height`, `fps`, `portraitResolution`, `portrait`, `monitor`, `confirmPowerCycle`. Every setting is validated before any is applied; the EDID is written at most once, last, and follows `fps`. It returns the new capabilities.
 - `GET/POST /api/vm/screen` remain for single settings.
 

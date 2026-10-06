@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import type { MemoryStatus, MemorySwap } from '@/api/vm.ts';
+import { swapRequestSize } from '@/lib/swap-request.ts';
 
 const mib = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MiB`;
 
@@ -111,7 +112,7 @@ export const Memory = () => {
     }
   }
 
-  async function changeVideo(mode: 'cma' | 'fixed') {
+  async function changeVideo(mode: api.VideoMemoryMode) {
     if (mutating.current) return;
     mutating.current = true;
     generation.current++;
@@ -129,7 +130,11 @@ export const Memory = () => {
   }
 
   function swapCard(kind: 'zram' | 'sd', swap: MemorySwap) {
-    const sizes = kind === 'zram' ? [32, 64, 128, 162] : [128, 256, 512];
+    // zram 0: "auto", half of the Linux memory.
+    const sizes = kind === 'zram' ? [0, 32, 64, 128, 162] : [128, 256, 512];
+    const half = Math.floor((data?.totalBytes ?? 0) / 2 / 1048576);
+    // Auto zram is size 0 in requests; sizeMiB is then the computed size.
+    const requestSize = swapRequestSize(kind, swap);
     return (
       <div className="space-y-3 rounded-lg border border-neutral-700/70 p-4">
         <div className="flex items-center justify-between gap-3">
@@ -141,7 +146,7 @@ export const Memory = () => {
             checked={swap.enabled}
             loading={busy === kind}
             disabled={!!busy || !swap.available}
-            onChange={(enabled) => void change(kind, enabled, swap.sizeMiB)}
+            onChange={(enabled) => void change(kind, enabled, requestSize)}
           />
         </div>
         <p className="text-sm text-neutral-400">{t(`settings.memory.${kind}Description`)}</p>
@@ -152,10 +157,15 @@ export const Memory = () => {
           <label htmlFor={`memory-${kind}-size`}>{t('settings.memory.size')}</label>
           <Select
             id={`memory-${kind}-size`}
-            value={swap.sizeMiB}
+            value={kind === 'zram' && swap.auto ? 0 : swap.sizeMiB}
             className="w-32"
             disabled={!!busy || !swap.available}
-            options={sizes.map((value) => ({ value, label: `${value} MiB` }))}
+            options={sizes.map((value) => ({
+              value,
+              label: value
+                ? `${value} MiB`
+                : t('settings.memory.zramAuto', { size: swap.auto ? swap.sizeMiB : half })
+            }))}
             onChange={(size) => void change(kind, swap.enabled, size)}
           />
         </div>
@@ -180,7 +190,7 @@ export const Memory = () => {
                 checked={!!swap.recompress}
                 loading={busy === 'zram'}
                 disabled={!!busy || (!swap.recompressAvailable && !swap.recompress)}
-                onChange={(enabled) => void change('zram', swap.enabled, swap.sizeMiB, enabled)}
+                onChange={(enabled) => void change('zram', swap.enabled, requestSize, enabled)}
               />
             </div>
             <p className="pt-1 text-xs">{t('settings.memory.recompressDescription')}</p>
@@ -232,9 +242,9 @@ export const Memory = () => {
               <p className="text-sm text-neutral-400">{t('settings.memory.videoModeDescription')}</p>
               <Select id="video-memory-mode" className="w-full" value={data.videoMemory.selected}
                 loading={busy === 'video'} disabled={!!busy || !data.videoMemory.available}
-                options={[{ value: 'cma', label: t('settings.memory.videoCma') }, { value: 'fixed', label: t('settings.memory.videoFixed') }]}
+                options={(data.videoMemory.modes ?? ['cma', 'fixed']).map((mode) => ({ value: mode, label: t(`settings.memory.video_${mode}`) }))}
                 onChange={(mode) => void changeVideo(mode)} />
-              <p className="text-sm">{t('settings.memory.videoActive')}: {data.videoMemory.active === 'cma' ? 'CMA' : data.videoMemory.active === 'fixed' ? t('settings.memory.videoFixedShort') : t('settings.memory.videoUnknown')}</p>
+              <p className="text-sm">{t('settings.memory.videoActive')}: {['cma', 'fixed', 'uhd'].includes(data.videoMemory.active) ? t(`settings.memory.video_${data.videoMemory.active}`) : t('settings.memory.videoUnknown')}</p>
               {!data.videoMemory.available && <p className="text-sm text-amber-400">{t('settings.memory.videoModeUnavailable')}</p>}
               {data.videoMemory.rebootRequired && <Alert type="info" showIcon message={t('settings.memory.videoReboot')} />}
             </div>

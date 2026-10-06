@@ -470,6 +470,10 @@ uint8_t check_res(uint16_t _width, uint16_t _height)
         const uint32_t required_mib = (_width > 2560 || _height > 2560) ? uhd_ion_mib
             : (_width == 1440 && _height == 2560) ? 64U : 62U;
         if (count != sizeof(ion_size) || bytes < required_mib * 1024U * 1024U) return UNSUPPORT_RES;
+        // UHD needs a fixed carveout: CMA cannot always return Linux's borrowed
+        // pages for the encoder's reference buffers (video memory mode "uhd").
+        if (required_mib == uhd_ion_mib && access("/proc/device-tree/reserved-memory/ion/reusable", F_OK) == 0)
+            return UNSUPPORT_RES;
     }
 #endif
     uint8_t i;

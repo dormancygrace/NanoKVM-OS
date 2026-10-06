@@ -10,6 +10,10 @@ if ! flock -n 9; then
     echo 'Another memory operation is in progress.' >&2; exit 1
 fi
 ZRAM_ENABLED=0 ZRAM_SIZE=64 ZRAM_RECOMPRESS=0 SD_ENABLED=0 SD_SIZE=256
+# The 4K video memory mode leaves Linux about 100 MiB: default to zram there.
+if [ "$(tr -d '\000' < /proc/device-tree/nanokvm,video-memory-mode 2>/dev/null)" = uhd ]; then
+    ZRAM_ENABLED=1 ZRAM_SIZE=auto
+fi
 active() { awk -v path="$1" 'NR > 1 && $1 == path { found=1 } END { exit !found }' /proc/swaps; }
 fail() { echo "$*" >&2; exit 1; }
 if [ -f "$CONFIG" ]; then
@@ -18,7 +22,7 @@ if [ -f "$CONFIG" ]; then
             ZRAM_ENABLED:0|ZRAM_ENABLED:1) ZRAM_ENABLED=$value ;;
             ZRAM_RECOMPRESS:0|ZRAM_RECOMPRESS:1) ZRAM_RECOMPRESS=$value ;;
             SD_ENABLED:0|SD_ENABLED:1) SD_ENABLED=$value ;;
-            ZRAM_SIZE:32|ZRAM_SIZE:64|ZRAM_SIZE:128|ZRAM_SIZE:162) ZRAM_SIZE=$value ;;
+            ZRAM_SIZE:32|ZRAM_SIZE:64|ZRAM_SIZE:128|ZRAM_SIZE:162|ZRAM_SIZE:auto) ZRAM_SIZE=$value ;;
             SD_SIZE:128|SD_SIZE:256|SD_SIZE:512) SD_SIZE=$value ;;
         esac
     done < "$CONFIG"
@@ -45,7 +49,12 @@ apply_zram() {
         return
     fi
     modprobe zram num_devices=1 || fail 'ZRAM is unavailable in this kernel.'
-    target=$((ZRAM_SIZE * 1024 * 1024))
+    if [ "$ZRAM_SIZE" = auto ]; then
+        # Half of the memory Linux manages, in whole MiB.
+        target=$(awk '$1 == "MemTotal:" {print int($2 / 2048) * 1048576}' /proc/meminfo)
+    else
+        target=$((ZRAM_SIZE * 1024 * 1024))
+    fi
     secondary=$(cat /sys/block/zram0/recomp_algorithm 2>/dev/null || true)
     if [ "$ZRAM_RECOMPRESS" = 1 ]; then
         [ -w /sys/block/zram0/recomp_algorithm ] && [ -w /sys/block/zram0/recompress ] && [ -w /sys/block/zram0/idle ] || fail 'This kernel does not support ZRAM recompression.'
@@ -125,7 +134,7 @@ case "${1:-}" in
             esac
         fi
         case "$2:$3:$4" in
-            zram:0:32|zram:0:64|zram:0:128|zram:0:162|zram:1:32|zram:1:64|zram:1:128|zram:1:162)
+            zram:0:32|zram:0:64|zram:0:128|zram:0:162|zram:0:auto|zram:1:32|zram:1:64|zram:1:128|zram:1:162|zram:1:auto)
                 ZRAM_ENABLED=$3 ZRAM_SIZE=$4; apply_zram ;;
             sd:0:128|sd:0:256|sd:0:512|sd:1:128|sd:1:256|sd:1:512)
                 SD_ENABLED=$3 SD_SIZE=$4; apply_sd ;;

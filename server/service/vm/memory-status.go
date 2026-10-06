@@ -31,6 +31,9 @@ type memorySwap struct {
 	Recompress          bool   `json:"recompress"`
 	RecompressAvailable bool   `json:"recompressAvailable"`
 	RecompressReady     bool   `json:"recompressReady"`
+	// zram only: the size follows the memory (half of MemTotal); sizeMiB is
+	// then the current size.
+	Auto bool `json:"auto"`
 }
 type memoryStatus struct {
 	VideoMemory    videoMemoryStatus `json:"videoMemory"`
@@ -45,10 +48,11 @@ type memoryStatus struct {
 	SD             memorySwap        `json:"sd"`
 }
 type memorySwapRequest struct {
-	Kind       string `json:"kind"`
-	Enabled    bool   `json:"enabled"`
-	SizeMiB    int64  `json:"sizeMiB"`
-	Recompress *bool  `json:"recompress,omitempty"`
+	Kind    string `json:"kind"`
+	Enabled bool   `json:"enabled"`
+	// zram: 0 selects "auto", half of the Linux memory.
+	SizeMiB    int64 `json:"sizeMiB"`
+	Recompress *bool `json:"recompress,omitempty"`
 }
 
 func parseMemoryCounters(text string) map[string]uint64 {
@@ -90,7 +94,7 @@ func parseActiveSwaps(text string) map[string]memorySwap {
 func validSwapRequest(req memorySwapRequest) bool {
 	switch req.Kind {
 	case "zram":
-		return req.SizeMiB == 32 || req.SizeMiB == 64 || req.SizeMiB == 128 || req.SizeMiB == 162
+		return req.SizeMiB == 0 || req.SizeMiB == 32 || req.SizeMiB == 64 || req.SizeMiB == 128 || req.SizeMiB == 162
 	case "sd":
 		if req.Recompress != nil {
 			return false
@@ -144,8 +148,15 @@ func readMemoryStatus() (memoryStatus, error) {
 		if !ok {
 			continue
 		}
+		if key == "ZRAM_SIZE" && value == "auto" {
+			result.Zram.Auto = true
+			if !result.Zram.Enabled {
+				result.Zram.SizeMiB = int64(counters["MemTotal"] / 2 >> 20)
+			}
+			continue
+		}
 		size, _ := strconv.ParseInt(value, 10, 64)
-		if key == "ZRAM_SIZE" && !result.Zram.Enabled && validSwapRequest(memorySwapRequest{Kind: "zram", SizeMiB: size}) {
+		if key == "ZRAM_SIZE" && !result.Zram.Enabled && size > 0 && validSwapRequest(memorySwapRequest{Kind: "zram", SizeMiB: size}) {
 			result.Zram.SizeMiB = size
 		}
 		if key == "SD_SIZE" && !result.SD.Enabled && validSwapRequest(memorySwapRequest{Kind: "sd", SizeMiB: size}) {
@@ -197,7 +208,11 @@ func applyMemorySwap(req memorySwapRequest) error {
 	if req.Enabled {
 		enabled = "1"
 	}
-	args := []string{memoryService, "configure", kind, enabled, strconv.FormatInt(req.SizeMiB, 10)}
+	size := strconv.FormatInt(req.SizeMiB, 10)
+	if req.SizeMiB == 0 {
+		size = "auto"
+	}
+	args := []string{memoryService, "configure", kind, enabled, size}
 	if req.Recompress != nil {
 		flag := "0"
 		if *req.Recompress {

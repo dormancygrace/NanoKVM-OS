@@ -392,16 +392,18 @@ boot() {
             -I"$ksrc/arch/riscv/boot/dts/sophgo" -I"$ksrc/include" -I"$ksrc/scripts/dtc/include-prefixes" \
             "$repo/firmware/boards/sg2002-nanokvm-$profile.dts" > "$b/$profile.dts"
         "$host/dtc" -q -I dts -O dtb -o "$b/$profile.dtb" "$b/$profile.dts"
-        for mode in cma fixed; do
+        for mode in cma fixed uhd; do
             name=$profile
-            [ "$mode" = cma ] || name=$profile-fixed
+            [ "$mode" = cma ] || name=$profile-$mode
             dtb=$img/dtb/$name.dtb
             cp "$b/$profile.dtb" "$dtb"
             # Same kernel and modules; only the video pool differs: 128 MiB
-            # reusable CMA, or a 64 MiB fixed carveout that Linux never uses.
+            # reusable CMA, a 64 MiB fixed carveout that Linux never uses, or
+            # a 128 MiB fixed carveout for 3840x2160 (CMA cannot always migrate
+            # borrowed pages back for the UHD encoder buffers).
             [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 8000000 ]
-            if [ "$mode" = fixed ]; then
-                "$host/fdtput" -t x "$dtb" /reserved-memory/ion size 4000000
+            if [ "$mode" != cma ]; then
+                [ "$mode" = uhd ] || "$host/fdtput" -t x "$dtb" /reserved-memory/ion size 4000000
                 "$host/fdtput" -t s "$dtb" /reserved-memory/ion compatible ion-region
                 "$host/fdtput" -d "$dtb" /reserved-memory/ion reusable
                 "$host/fdtput" -d "$dtb" /cvitek-ion/heap-carveout nanokvm,cma-backend

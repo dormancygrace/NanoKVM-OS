@@ -9,11 +9,11 @@ flock -x 9
 payload=/usr/lib/nanokvm/boot
 selection=/etc/kvm/video-memory-mode
 mode=${2:-$(cat "$selection" 2>/dev/null || printf cma)}
-case "$mode" in cma|fixed) ;; *) echo 'Invalid video memory mode' >&2; exit 1;; esac
+case "$mode" in cma|fixed|uhd) ;; *) echo 'Invalid video memory mode' >&2; exit 1;; esac
 profile=${1:-$(tr -d '\000' < /sys/firmware/devicetree/base/sipeed,board-revision)}
 case "$profile" in alpha|beta|pcie|lite) ;; *) echo "Unsupported board profile: $profile" >&2; exit 1;; esac
 name=$profile
-[ "$mode" = cma ] || name=$profile-fixed
+[ "$mode" = cma ] || name=$profile-$mode
 release=$(cat "$payload/kernel.release")
 case "$release" in ''|*[!a-zA-Z0-9._+-]*) echo 'Invalid kernel release' >&2; exit 1;; esac
 [ -d "/lib/modules/$release" ] || { echo 'Matching kernel modules are missing' >&2; exit 1; }

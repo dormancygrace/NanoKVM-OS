@@ -244,13 +244,13 @@ static int _mmf_find_deferred_vi_frame(int width, int height, int format,
 }
 
 static int _mmf_acquire_vi_frame(int ch, int *len, int *width, int *height,
-	int *format)
+	int *format, int timeout_ms = 1000)
 {
 	VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[ch];
 	_mmf_release_vi_frame(ch);
 	if (priv.vi_frame_valid[ch]) return CVI_ERR_VENC_BUSY;
 	memset(frame, 0, sizeof(*frame));
-	if (CVI_VPSS_GetChnFrame(0, ch, frame, 1000) != CVI_SUCCESS) {
+	if (CVI_VPSS_GetChnFrame(0, ch, frame, timeout_ms) != CVI_SUCCESS) {
 		return -1;
 	}
 
@@ -1473,6 +1473,18 @@ int mmf_vi_frame_pop_native(int ch, int *len, int *width, int *height, int *form
 	return 0;
 }
 
+int mmf_vi_frame_try_pop_native(int ch, int timeout_ms, int *len, int *width, int *height, int *format) {
+	if (ch < 0 || ch >= MMF_VI_MAX_CHN || !priv.vi_chn_is_inited[ch] || priv.vi_chn_stopping[ch]
+		|| len == NULL || width == NULL || height == NULL || format == NULL) {
+		return -1;
+	}
+	if (_mmf_acquire_vi_frame(ch, len, width, height, format, timeout_ms) != 0) {
+		return -1;
+	}
+	priv.vi_frame_deferred[ch] = true;
+	return 0;
+}
+
 void mmf_vi_frame_free(int ch) {
 	if (ch < 0 || ch >= MMF_VI_MAX_CHN || !priv.vi_frame_valid[ch]) {
 		return;
@@ -2116,7 +2128,8 @@ int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 	stVencChnAttr.stVencAttr.enType = cfg->type == 1 ? PT_H265 : PT_H264;
 	stVencChnAttr.stVencAttr.u32MaxPicWidth = cfg->w;
 	stVencChnAttr.stVencAttr.u32MaxPicHeight = cfg->h;
-	stVencChnAttr.stVencAttr.u32BufSize = 1024 * 1024;	// 1024Kb
+	// 1 MiB up to QHD; 4 MiB for 3840x2160, whose I-frames exceed 1 MiB.
+	stVencChnAttr.stVencAttr.u32BufSize = cfg->w * cfg->h > 2560 * 1440 ? 4 << 20 : 1 << 20;
 	stVencChnAttr.stVencAttr.bByFrame = CVI_TRUE;
 	stVencChnAttr.stVencAttr.u32PicWidth = cfg->w;
 	stVencChnAttr.stVencAttr.u32PicHeight = cfg->h;
@@ -2432,6 +2445,12 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
         frame->stVFrame.u32Height, frame->stVFrame.enPixelFormat, frame);
     if (copied == CVI_SUCCESS) priv.venc_input_vi_ch[ch] = vi_ch;
     return copied;
+}
+
+int mmf_venc_pending_vi(int ch) {
+	if (ch < 0 || ch >= MMF_VENC_MAX_CHN || !priv.venc[ch].is_inited
+		|| !priv.venc[ch].is_running || priv.venc_stream_acquired[ch]) return -1;
+	return priv.venc_input_vi_ch[ch];
 }
 
 int mmf_venc_request_idr(int ch) {

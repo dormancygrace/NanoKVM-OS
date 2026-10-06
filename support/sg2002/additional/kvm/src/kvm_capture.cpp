@@ -103,7 +103,10 @@ int Capture::open_output(int index, int width, int height) {
     if (ch < 0 || mmf_vi_chn_is_open(ch)) return -1;
     mmf_set_vi_hmirror(ch, mirror_);
     mmf_set_vi_vflip(ch, flip_);
-    if (mmf_add_vi_channel_configured(ch, width, height, index ? nv16_format() : nv21_format(), 2, 1)) return -1;
+    // Above QHD the encoder holds one buffer for a whole frame period, so VPSS
+    // needs a third one or it drops input frames (3840x2160: 25 of 30 fps).
+    const int buffers = width * height > 2560 * 1440 ? 3 : 2;
+    if (mmf_add_vi_channel_configured(ch, width, height, index ? nv16_format() : nv21_format(), buffers, 1)) return -1;
     outputs_[index] = {ch, width, height};
     return 0;
 }

@@ -1,6 +1,7 @@
 /dts-v1/;
 / {
-    description = "NanoKVM OS automatic profile: @PROFILE@";
+    // One description for every board: images differ only in the device tree.
+    description = "NanoKVM OS";
     #address-cells = <1>;
     images {
         kernel-1 {

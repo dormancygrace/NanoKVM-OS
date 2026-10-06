@@ -1,11 +1,13 @@
+// TLS is verified. For the device self-signed certificate run with
+// NODE_EXTRA_CA_CERTS=/path/to/device-cert.pem.
 const https = require('https');
 const http2 = require('http2');
 const fs = require('fs');
 const base=`https://${process.env.NANOKVM_HOST || 'nanokvm.local'}`;
 const headers={cookie:'nano-kvm-token='+process.env.NANOKVM_TOKEN};
 async function trial(protocol) {
- const agent = protocol==='h1' ? new https.Agent({keepAlive:true,maxSockets:6,rejectUnauthorized:false}) : null;
- const session = protocol==='h2' ? http2.connect(base,{rejectUnauthorized:false}) : null;
+ const agent = protocol==='h1' ? new https.Agent({keepAlive:true,maxSockets:6}) : null;
+ const session = protocol==='h2' ? http2.connect(base,{}) : null;
  if(session) await new Promise((resolve,reject)=>{session.once('connect',resolve);session.once('error',reject)});
  const lat=[]; let bytes=0;
  async function request(){

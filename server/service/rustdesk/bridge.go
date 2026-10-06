@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -667,18 +669,32 @@ func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(204)
 }
 
+// Runtime dimensions must fit the RustDesk frame header without wrapping.
+// Missing or invalid values retain the existing zero/fallback behavior.
+func readMediaDimension(path string) uint16 {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	value, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 16)
+	if err != nil {
+		return 0
+	}
+	return uint16(value)
+}
+
 func mediaDimensions() (uint16, uint16) {
 	screen := common.GetCaptureScreen()
 	width, height := screen.Width, screen.Height
-	if w := common.ReadVideoValue("/run/nanokvm/stream_width"); w > 0 {
-		width = uint16(w)
+	if w := readMediaDimension("/run/nanokvm/stream_width"); w > 0 {
+		width = w
 	}
-	if h := common.ReadVideoValue("/run/nanokvm/stream_height"); h > 0 {
-		height = uint16(h)
+	if h := readMediaDimension("/run/nanokvm/stream_height"); h > 0 {
+		height = h
 	}
 	if width == 0 || height == 0 {
-		width = uint16(common.ReadVideoValue("/run/nanokvm/width"))
-		height = uint16(common.ReadVideoValue("/run/nanokvm/height"))
+		width = readMediaDimension("/run/nanokvm/width")
+		height = readMediaDimension("/run/nanokvm/height")
 	}
 	return width, height
 }

@@ -53,9 +53,12 @@
 		mmode_resv0@80000000 { reg = <0x80000000 0x40000>; no-map; };
 		// Preserve the reservation used by the unchanged installed FIP.
 		c906l@8d000000 { reg = <0x8d000000 0x200000>; no-map; };
+		/* 128 MiB CMA: 3840x2160 capture uses about 90 MiB. The pool
+		 * is reusable, so idle pages stay available to Linux; the
+		 * fixed-carveout boot variant shrinks it to 64 MiB. */
 		ion_region: ion {
 			compatible = "shared-dma-pool";
-			size = <0x04000000>;
+			size = <0x08000000>;
 			alignment = <0x00400000>;
 			reusable;
 		};
@@ -457,9 +460,18 @@
 	};
 };
 
-/* Match the production kernel codec clock policy on every board profile. */
+/*
+ * Video overclock at the stock core voltage, sized for 3840x2160 at 30 fps.
+ * Encode time scales with vc_src0 (4K H.265: 20 fps at 396 MHz, 30 fps at
+ * 594 MHz) and VPSS time with src_vip_sys_1 (4K: 32 ms at 300 MHz, 24.5 ms
+ * at the vendor overdrive 396 MHz). axi_video_codec feeds the H.264/H.265/
+ * JPEG bus and runs at the vendor overdrive 450 MHz. All three divide fixed
+ * PLLs: DISPPLL 1188 / 2, DISPPLL 1188 / 3 and MIPIMPLL 900 / 2.
+ */
 &clk {
-	assigned-clocks = <&clk CLK_VC_SRC0>, <&clk CLK_AXI_VIDEO_CODEC>;
-	assigned-clock-parents = <&clk CLK_FPLL>, <&clk CLK_CAM1PLL>;
-	assigned-clock-rates = <500000000>, <360000000>;
+	assigned-clocks = <&clk CLK_VC_SRC0>, <&clk CLK_AXI_VIDEO_CODEC>,
+			  <&clk CLK_SRC_VIP_SYS_1>;
+	assigned-clock-parents = <&clk CLK_DISPPLL>, <&clk CLK_MIPIMPLL>,
+				 <&clk CLK_DISPPLL>;
+	assigned-clock-rates = <594000000>, <450000000>, <396000000>;
 };

@@ -6,7 +6,7 @@ import (
 )
 
 func TestCheckScreenAcceptsKnownVideoBitRates(t *testing.T) {
-	for _, bitRate := range []uint16{1000, 2000, 3000, 5000, 10000, 15000, 20000} {
+	for _, bitRate := range []uint16{1000, 2000, 3000, 5000, 8000, 10000, 12000, 15000, 20000} {
 		screen := &Screen{Height: 1080, Quality: 80, BitRate: bitRate}
 		checkScreen(screen)
 		if screen.BitRate != bitRate {
@@ -19,8 +19,8 @@ func TestCheckScreenRejectsUnknownVideoBitRate(t *testing.T) {
 	for _, bitRate := range []uint16{0, 500, 7500, 10001, 20001} {
 		screen := &Screen{Height: 1080, Quality: 80, BitRate: bitRate}
 		checkScreen(screen)
-		if screen.BitRate != 3000 {
-			t.Fatalf("bit rate = %d; want 3000 for unknown input %d", screen.BitRate, bitRate)
+		if screen.BitRate != 12000 {
+			t.Fatalf("bit rate = %d; want 12000 for unknown input %d", screen.BitRate, bitRate)
 		}
 	}
 }
@@ -69,11 +69,11 @@ func TestLoadScreenKeepsDefaultsForMissingOrInvalidSettings(t *testing.T) {
 		return data, nil
 	})
 
-	if got.FPS != 50 {
-		t.Fatalf("FPS = %d, want default 50", got.FPS)
+	if got.FPS != 100 {
+		t.Fatalf("FPS = %d, want default 100", got.FPS)
 	}
-	if got.Quality != 80 || got.BitRate != 3000 {
-		t.Fatalf("quality = %d, bitrate = %d; want 80 and 3000", got.Quality, got.BitRate)
+	if got.Quality != 80 || got.BitRate != 12000 {
+		t.Fatalf("quality = %d, bitrate = %d; want 80 and 12000", got.Quality, got.BitRate)
 	}
 	if got.Width != 0 || got.Height != 0 {
 		t.Fatalf("resolution = %dx%d, want default 0x0", got.Width, got.Height)

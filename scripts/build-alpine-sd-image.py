@@ -27,7 +27,8 @@ def sha(path):
     with path.open('rb') as stream:return hashlib.file_digest(stream,'sha256').hexdigest()
 run('tar','--numeric-owner','-xzf',a.rootfs_archive,'-C',root)
 bootset=root/'usr/lib/nanokvm/boot'
-assert (bootset/'detect.sd').is_file()
+# The kernel package carries a FIT template and device trees (see platform/boot/compose-fit).
+assert (bootset/'detect.dtb').is_file() and (bootset/'compose-fit').is_file()
 release=(bootset/'kernel.release').read_text().strip()
 assert (root/'lib/modules'/release).is_dir()
 assert (root/'etc/kvm/ssh_stop').is_file()
@@ -57,7 +58,7 @@ bootimage=out/'boot-partition.img'
 with bootimage.open('xb') as stream:stream.truncate(64*1024*1024)
 run(tool('mkfs.fat'),'--invariant','-F','16','-S','512','-s','4','-R','4','-n','boot',bootimage)
 files=out/'boot-files';files.mkdir()
-shutil.copy2(bootset/'detect.sd',files/'boot.sd');shutil.copy2(a.fip,files/'fip.bin')
+run('sh',bootset/'compose-fit',bootset,'detect',files/'boot.sd');shutil.copy2(a.fip,files/'fip.bin')
 (files/'uEnv.txt').write_text('showlogo=echo NanoKVM OS\n')
 (files/'hostname.prefix').write_text('kvm')
 (files/'ver').write_text('NanoKVM OS '+a.version+'\n')

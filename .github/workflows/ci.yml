@@ -64,6 +64,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+      - name: Install SD image test tools
+        run: sudo apt-get update && sudo apt-get install -y dosfstools mtools
       - name: Shellcheck (errors only; parses each script per its shebang)
         run: |
           git ls-files -z | while IFS= read -r -d '' f; do
@@ -81,7 +83,7 @@ jobs:
       - name: Script tests
         run: |
           set -e
-          for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-network \
+          for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-sd-image-boot alpine-network \
                    alpine-recovery-password alpine-service-deps board-selection enhanced-fs \
                    enhanced-s15-packaging hdmi-detection-cache hdmi-receiver-start \
                    monitor-edids nanokvm-service-stop oled-ip-window platform-build \

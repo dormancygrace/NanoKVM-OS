@@ -60,6 +60,8 @@ int mmf_vi_frame_pop(int ch, void **data, int *len, int *width, int *height, int
 // Lease a VI frame without mapping it into CPU address space. The frame can be
 // submitted to an H.264 encoder with mmf_venc_push_vi().
 int mmf_vi_frame_pop_native(int ch, int *len, int *width, int *height, int *format);
+// As mmf_vi_frame_pop_native(), but waits at most timeout_ms for a frame.
+int mmf_vi_frame_try_pop_native(int ch, int timeout_ms, int *len, int *width, int *height, int *format);
 void mmf_vi_frame_free(int ch);
 // Release the current VI frame immediately. mmf_vi_frame_free() defers
 // release so the frame can be sent directly to VENC without a second copy.
@@ -99,6 +101,14 @@ int mmf_venc_push_vi(int ch, int vi_ch);
 int mmf_trim_idle_copy_buffers(void);
 int mmf_venc_pop(int ch, mmf_stream_t *stream);
 int mmf_venc_free(int ch);
+// Input rate measured by VI, in frames per second; 0 when unknown.
+int mmf_vi_input_fps(void);
+// Let VPSS process dst_fps of every src_fps input frames and drop the rest
+// before any scaling. dst_fps <= 0, or within 5% (at least 2 fps) of
+// src_fps, processes every frame.
+int mmf_vpss_set_rate(int src_fps, int dst_fps);
+// VI channel whose frame VENC channel ch is encoding, or -1.
+int mmf_venc_pending_vi(int ch);
 int mmf_venc_request_idr(int ch);
 
 #endif // __KVM_MMF_HPP__

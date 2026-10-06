@@ -1,5 +1,5 @@
 From 5ded7b8dd5c232f83d42b328be9a07077301cb84 Mon Sep 17 00:00:00 2001
-From: dgrace <g.pesin@globalte.ru>
+From: Gleb Pesin <dormancygrace@gmail.com>
 Date: Sun, 6 Sep 2026 20:39:00 +0300
 Subject: [PATCH] mpi: use the NanoKVM C906 -O2 userspace profile
 

@@ -1,5 +1,5 @@
 From 863fb607b7b4e57a4e470682bbb799bade8a7f81 Mon Sep 17 00:00:00 2001
-From: dgrace <g.pesin@globalte.ru>
+From: Gleb Pesin <dormancygrace@gmail.com>
 Date: Sat, 5 Sep 2026 18:12:04 +0300
 Subject: [PATCH] Fix odd-grid ISP vector read and port packing intrinsics to
  GCC16

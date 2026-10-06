@@ -384,8 +384,8 @@ initramfs() {
 
 boot() {
     local b=$out/boot profile mode name dtb
-    rm -rf "$b" "${img:?}/boot" "${img:?}/dtb"
-    mkdir -p "$b" "$img/boot" "$img/dtb"
+    rm -rf "$b" "${img:?}/boot" "${img:?}/dtb" "${img:?}/boot-fit"
+    mkdir -p "$b" "$img/boot" "$img/dtb" "$img/boot-fit"
     "$host/zstd" -q -f -19 -T1 "$img/Image" -o "$b/Image.zst"
     for profile in "${boards[@]}"; do
         "${cross}cpp" -P -nostdinc -undef -D__DTS__ -x assembler-with-cpp \
@@ -409,16 +409,24 @@ boot() {
                 "$host/fdtput" -d "$dtb" /cvitek-ion/heap-carveout nanokvm,cma-backend
             fi
             "$host/fdtput" -t s "$dtb" / nanokvm,video-memory-mode "$mode"
+            # One size for every device tree, so the FIT images share a layout.
+            "$host/dtc" -q -I dtb -O dtb -S 32768 -o "$dtb.pad" "$dtb"
+            mv "$dtb.pad" "$dtb"
+            [ "$(stat -c %s "$dtb")" = 32768 ]
             mkdir "$b/$name"
             cp "$b/Image.zst" "$img/initramfs.cpio.zst" "$b/$name/"
             cp "$dtb" "$b/$name/board.dtb"
-            sed "s/@PROFILE@/$profile/" "$here/boot/boot.its" > "$b/$name/boot.its"
+            cp "$here/boot/boot.its" "$b/$name/boot.its"
             (cd "$b/$name" && SOURCE_DATE_EPOCH=0 "$host/mkimage" -f boot.its boot.sd > /dev/null)
             [ "$(stat -c %s "$b/$name/boot.sd")" -lt $((16 * 1024 * 1024)) ]
-            cp "$b/$name/boot.sd" "$img/boot/$name.sd"
-            (cd "$img/boot" && sha256sum "$name.sd" > "$name.sha256")
+            cp "$b/$name/boot.sd" "$img/boot-fit/$name.sd"
         done
     done
+    # The package carries one FIT template and the device trees (about 10 MiB
+    # instead of 15 images of 9 MiB); compose-fit rebuilds an image on the
+    # device and checks it against the hash of the image built here.
+    python3 "$here/boot/fit-layout.py" "$img/boot-fit" "$img/dtb" "$img/boot"
+    install -m 0644 "$here/boot/compose-fit" "$img/boot/compose-fit"
     echo "$release" > "$img/boot/kernel.release"
 }
 

@@ -54,9 +54,10 @@ func readVideoMemoryStatus(root string) videoMemoryStatus {
 	switch board {
 	case "alpha", "beta", "pcie", "lite":
 		for _, mode := range videoMemoryModes {
-			name := board + ".sd"
+			// The kernel package composes boot.sd from a template and NAME.dtb.
+			name := board + ".dtb"
 			if mode != "cma" {
-				name = board + "-" + mode + ".sd"
+				name = board + "-" + mode + ".dtb"
 			}
 			if _, err := os.Stat(filepath.Join(root, "usr/lib/nanokvm/boot", name)); err == nil {
 				modes = append(modes, mode)

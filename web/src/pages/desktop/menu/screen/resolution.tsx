@@ -18,6 +18,7 @@ export const Resolution = () => {
   const [busy, setBusy] = useState(false);
   const choices = [
     { width: 0, height: 0 },
+    { width: 3840, height: 2160 },
     { width: 2560, height: 1440 },
     { width: 1920, height: 1080 },
     { width: 1280, height: 720 },

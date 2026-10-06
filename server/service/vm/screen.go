@@ -51,7 +51,7 @@ func (s *Service) GetScreen(c *gin.Context) {
 		"monitorRequiresPowerCycle":   common.MonitorRequiresPowerCycle(),
 		"monitorPowerCyclePending":    common.MonitorPowerCyclePending(),
 		"monitorHighRefreshSupported": common.MonitorHighRefreshSupported(),
-		"monitorSupported":            common.MonitorProfileSupported(), "qhdSupported": common.SupportsQHD(),
+		"monitorSupported":            common.MonitorProfileSupported(), "qhdSupported": common.SupportsQHD(), "uhdSupported": common.SupportsUHD(),
 		"portrait": portrait, "portraitSupported": portraitSupported,
 		"portraitResolution": portraitResolution, "portraitMaxSupported": portraitMaxSupported,
 		"inputWidth":        common.ReadVideoValue("/run/nanokvm/width"),
@@ -149,12 +149,16 @@ func (s *Service) SetScreen(c *gin.Context) {
 			rsp.ErrRsp(c, -5, "Physical power cycle required after EDID programming; confirm before writing")
 			return
 		}
-		if req.Value != 0 && req.Value != 720 && req.Value != 1080 && req.Value != 1440 {
+		if req.Value != 0 && req.Value != 720 && req.Value != 1080 && req.Value != 1440 && req.Value != 2160 {
 			rsp.ErrRsp(c, -1, "unsupported monitor profile")
 			return
 		}
 		if req.Value == 1440 && !common.SupportsQHD() {
 			rsp.ErrRsp(c, -3, "QHD requires at least 62 MiB of ION memory")
+			return
+		}
+		if req.Value == 2160 && !common.SupportsUHD() {
+			rsp.ErrRsp(c, -3, "3840x2160 requires the 128 MiB CMA video memory")
 			return
 		}
 		if err = common.ApplyMonitorResolution(uint16(req.Value)); err != nil {
@@ -164,7 +168,7 @@ func (s *Service) SetScreen(c *gin.Context) {
 		rsp.OkRsp(c)
 		return
 	case "resolution":
-		if req.Value < 0 || req.Value > 1440 {
+		if req.Value < 0 || req.Value > 2160 || (req.Value > 1440 && !common.SupportsUHD()) {
 			rsp.ErrRsp(c, -1, "unsupported stream limit")
 			return
 		}

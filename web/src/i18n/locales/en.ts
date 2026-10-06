@@ -274,6 +274,7 @@ const en = {
       portraitUnavailable: 'Portrait monitor profile is unavailable on this device.',
       automatic: 'Automatic (recommended)',
       preferFhd: 'Prefer 1920 × 1080 · 75 Hz',
+      preferUhd: 'Prefer 3840 × 2160 · 30 Hz',
       preferQhd: 'Prefer 2560 × 1440 · 50 Hz',
       preferHd: 'Prefer 1280 × 720 · 120 Hz',
       monitorHint:

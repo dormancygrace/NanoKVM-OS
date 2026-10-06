@@ -564,7 +564,7 @@ func monitorProfile() string {
 	if value == "0" {
 		return "automatic"
 	}
-	if value == "720" || value == "1080" || value == "1440" {
+	if value == "720" || value == "1080" || value == "1440" || value == "2160" {
 		return value
 	}
 	return ""

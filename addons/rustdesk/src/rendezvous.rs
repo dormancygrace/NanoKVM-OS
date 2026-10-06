@@ -656,6 +656,16 @@ mod tests {
                     my_name: "OneKVM interop probe".to_owned(),
                     version: crate::upstream::version().to_owned(),
                     my_platform: "Linux".to_owned(),
+                    option: Some(crate::protocol::OptionMessage {
+                        disable_keyboard: 2,
+                        disable_audio: 2,
+                        supported_decoding: Some(crate::protocol::SupportedDecoding {
+                            ability_h264: 1,
+                            ability_h265: 1,
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }),
                     ..Default::default()
                 })),
             })
@@ -672,18 +682,44 @@ mod tests {
             assert!(!peer.displays.is_empty());
             assert!(peer.displays[0].width > 0 && peer.displays[0].height > 0);
 
-            let video: Message = time::timeout(Duration::from_secs(10), reader.read())
-                .await
-                .expect("target did not send a video frame")
-                .unwrap();
-            let Some(message::Union::VideoFrame(video)) = video.union else {
-                panic!("target did not send VideoFrame after successful login");
-            };
-            let Some(video_frame::Union::H264s(frames)) = video.union else {
-                panic!("target did not send H.264 video");
-            };
-            assert!(!frames.frames.is_empty());
-            assert!(frames.frames.iter().all(|frame| !frame.data.is_empty()));
+            let keepalive = tokio::spawn(async move {
+                for sequence in 0..40_i64 {
+                    writer
+                        .write(&Message {
+                            union: Some(message::Union::TestDelay(crate::protocol::TestDelay {
+                                time: sequence,
+                                from_client: true,
+                                ..Default::default()
+                            })),
+                        })
+                        .await
+                        .unwrap();
+                    time::sleep(Duration::from_millis(500)).await;
+                }
+            });
+            let video = time::timeout(Duration::from_secs(20), async {
+                let mut count = 0;
+                while count < 120 {
+                    let message: Message = reader
+                        .read()
+                        .await
+                        .unwrap_or_else(|error| panic!("video ended after {count} messages: {error}"));
+                    if let Some(message::Union::VideoFrame(video)) = message.union {
+                        let frames = match video.union {
+                            Some(video_frame::Union::H264s(frames))
+                            | Some(video_frame::Union::H265s(frames)) => frames,
+                            _ => panic!("target did not send a supported HDMI codec"),
+                        };
+                        assert!(!frames.frames.is_empty());
+                        assert!(frames.frames.iter().all(|frame| !frame.data.is_empty()));
+                        count += 1;
+                    }
+                }
+            })
+            .await;
+            keepalive.abort();
+            let _ = keepalive.await;
+            video.expect("target did not sustain 120 encrypted HDMI video messages");
         } else {
             assert!(matches!(
                 response.union,

@@ -21,6 +21,7 @@ parser.add_argument("--linker",type=Path,required=True,help="riscv64 musl GCC")
 parser.add_argument("--apk",type=Path,required=True,help="host apk-tools 3 with mkpkg")
 parser.add_argument("--output",type=Path,required=True)
 parser.add_argument("--build-profile", choices=("release", "performance"), default="release")
+parser.add_argument("--package-revision", type=int, help="package revision for this fresh source/build; defaults to the recipe")
 source_group=parser.add_mutually_exclusive_group(required=True)
 source_group.add_argument("--source-url",help="immutable public URL for this package revision source archive")
 source_group.add_argument("--local-only",action="store_true",help="local unpublished package with corresponding source beside the APK")
@@ -32,6 +33,11 @@ pkg=root/"firmware/alpine/packages/nanokvm-rustdesk"
 recipe=(pkg/"APKBUILD").read_text()
 pkgver=re.search(r"^pkgver=(\S+)$",recipe,re.M).group(1)
 revision=re.search(r"^pkgrel=([0-9]+)$",recipe,re.M).group(1)
+if args.package_revision is not None:
+    if args.package_revision < 0:
+        parser.error("--package-revision must be nonnegative")
+    revision=str(args.package_revision)
+    recipe=re.sub(r"^pkgrel=[0-9]+$", "pkgrel="+revision, recipe, flags=re.M)
 if pkgver != version:
     raise SystemExit("APKBUILD pkgver must match Cargo.toml")
 package_version=f"{version}-r{revision}"
@@ -83,6 +89,7 @@ shutil.copytree(pkg,stage/"packaging")
 # A corresponding-source tar cannot embed its own digest. Preserve the build
 # recipe as a template; the production recipe beside the archive is checksummed.
 embedded_recipe=stage/"packaging/APKBUILD"
+embedded_recipe.write_text(recipe)
 embedded_recipe.rename(stage/"packaging/APKBUILD.in")
 shutil.copyfile(Path(__file__),stage/"packaging/build-rustdesk-addon.py")
 (stage/"packaging/BUILD.md").write_text("""# Packaging this source

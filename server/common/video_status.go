@@ -119,6 +119,8 @@ func CaptureRateLimit(width, height int) int {
 	case longer <= 1920 && shorter <= 1088:
 		// Include the legacy aligned 1088x1920 FHD profile.
 		return 75
+	case longer > 2560 || shorter > 1440:
+		return 30
 	default:
 		return 50
 	}

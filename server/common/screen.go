@@ -46,6 +46,7 @@ var screenFileMap = map[string]string{
 
 // ResolutionMap height to width
 var ResolutionMap = map[uint16]uint16{
+	2160: 3840,
 	1440: 2560,
 	1080: 1920,
 	720:  1280,
@@ -74,6 +75,9 @@ var BitRateMap = map[uint16]bool{
 func GetScreen() *Screen {
 	screenOnce.Do(func() {
 		initial := loadScreen(os.ReadFile)
+		if initial.Height > 1440 && !SupportsUHD() {
+			initial.Width, initial.Height = 2560, 1440
+		}
 		if initial.Height > 1080 && !SupportsQHD() {
 			initial.Width, initial.Height = 1920, 1080
 		}
@@ -143,8 +147,18 @@ func setScreenValue(target *Screen, key string, value int) {
 // least 2 MiB above their 59.914 MiB measured peak (see ION qualification).
 // Read the booted Device Tree, independently of debugfs being mounted.
 func SupportsQHD() bool {
+	return ionAtLeast(62 * 1024 * 1024)
+}
+
+// SupportsUHD reports the 128 MiB video pool that 3840x2160 needs: 117 MiB
+// with SmartP (see uhd_ion_mib in kvm_vision.cpp).
+func SupportsUHD() bool {
+	return ionAtLeast(128 * 1024 * 1024)
+}
+
+func ionAtLeast(bytes uint32) bool {
 	data, err := os.ReadFile("/proc/device-tree/reserved-memory/ion/size")
-	return err == nil && len(data) == 4 && binary.BigEndian.Uint32(data) >= 62*1024*1024
+	return err == nil && len(data) == 4 && binary.BigEndian.Uint32(data) >= bytes
 }
 
 func CheckScreen() {

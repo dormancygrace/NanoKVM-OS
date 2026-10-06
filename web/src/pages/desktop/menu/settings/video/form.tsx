@@ -66,6 +66,7 @@ export const VideoForm = ({
     monitorPowerCyclePending: boolean;
     monitorHighRefreshSupported: boolean;
     qhdSupported: boolean;
+    uhdSupported?: boolean;
     portraitSupported: boolean;
     portraitMaxSupported: boolean;
     inputWidth: number;
@@ -236,7 +237,10 @@ export const VideoForm = ({
             const resolution = {
               height: next.height,
               width: (
-                { 0: 0, 600: 800, 720: 1280, 1080: 1920, 1440: 2560 } as Record<number, number>
+                { 0: 0, 600: 800, 720: 1280, 1080: 1920, 1440: 2560, 2160: 3840 } as Record<
+                  number,
+                  number
+                >
               )[next.height]
             };
             setResolution(resolution);
@@ -386,6 +390,9 @@ export const VideoForm = ({
             t('videoSettings.monitorProfile'),
             [
               { value: 0, label: t('videoSettings.automatic') },
+              ...(status.uhdSupported && status.monitorHighRefreshSupported
+                ? [{ value: 2160, label: t('videoSettings.preferUhd') }]
+                : []),
               ...(status.qhdSupported && status.monitorHighRefreshSupported
                 ? [{ value: 1440, label: t('videoSettings.preferQhd') }]
                 : []),
@@ -549,7 +556,14 @@ export const VideoForm = ({
           select(
             'height',
             t('videoSettings.streamResolution'),
-            [0, ...(status.qhdSupported ? [1440] : []), 1080, 720, 600].map((value) => ({
+            [
+              0,
+              ...(status.uhdSupported ? [2160] : []),
+              ...(status.qhdSupported ? [1440] : []),
+              1080,
+              720,
+              600
+            ].map((value) => ({
               value,
               disabled: draft.mode === 'h264' && draft.codec === 'h265',
               label: value

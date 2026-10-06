@@ -119,7 +119,7 @@ func TestDiagnosticsReportExcludesAdversarialValues(t *testing.T) {
 	snapshot.Versions.Application = "host.example Authorization: Bearer SECRET"
 	snapshot.Versions.Image = "https://user:pass@host/path?api_key=QUERY"
 	snapshot.Versions.Alpine = "password is multi word secret"
-	snapshot.Versions.Kernel = "192.168.4.128 aa:bb:cc:dd:ee:ff"
+	snapshot.Versions.Kernel = "192.0.2.10 aa:bb:cc:dd:ee:ff"
 	snapshot.Versions.SystemBase = "device-hostname"
 	snapshot.Versions.Packages = []DiagnosticPackage{{Name: "host.example", Version: "SECRET", State: "installed"}}
 	snapshot.Services = []DiagnosticService{{Name: "hostname", Desired: "SECRET", DiagnosticItem: DiagnosticItem{State: "running"}}}
@@ -130,7 +130,7 @@ func TestDiagnosticsReportExcludesAdversarialValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(b)
-	for _, forbidden := range []string{"SECRET", "user:pass", "QUERY", "multi word", "192.168.4.128", "aa:bb:cc:dd:ee:ff", "device-hostname", "host.example"} {
+	for _, forbidden := range []string{"SECRET", "user:pass", "QUERY", "multi word", "192.0.2.10", "aa:bb:cc:dd:ee:ff", "device-hostname", "host.example"} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("report leaked %q: %s", forbidden, text)
 		}

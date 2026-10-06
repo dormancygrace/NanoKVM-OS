@@ -2,7 +2,7 @@
 set -eu
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-TOOLCHAIN=${TOOLCHAIN:-/home/dgrace/.local/share/nkos-build/buildroot-output/host}
+TOOLCHAIN=${TOOLCHAIN:-$HOME/.local/share/nkos-build/buildroot-output/host}
 CC=${CC:-$TOOLCHAIN/bin/riscv64-buildroot-linux-musl-gcc}
 OUT=${OUT:-$ROOT/work/alpine/c906-bench}
 SOURCE=$ROOT/firmware/alpine/bench/c906-scalar-bench.c

@@ -97,7 +97,7 @@ consumer. See [Sophgo issue #9](https://github.com/sophgo/sophpi/issues/9).
 
 ## Evidence location
 
-Host evidence: `/home/dgrace/nanokvm-astra/work/v2.1-b1-20261004/`:
+Host evidence (kept outside the repository):
 `build-h265-block.log`, `packages-h265-block.log`, `final-go-tests.log`,
 `h265-block-go-tests.log`, `h265-block-web-tests.log`, `final-app-install.log`,
 `final-device-check.txt`, `final-direct-check.txt`, `final-apk-signatures.log`,

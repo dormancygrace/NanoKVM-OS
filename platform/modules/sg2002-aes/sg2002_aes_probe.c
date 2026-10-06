@@ -22,7 +22,25 @@
 #define DESC_LO 0x08
 #define DESC_HI 0x0c
 #define STATUS 0x10
+/*
+ * DMA_CTRL: write max burst (31:24), read max burst (23:16), descriptor mode,
+ * enable. The vendor Linux driver writes bursts of 6 (its secure boot uses
+ * 16). Concurrent HDMI capture, scaling and H.265 encoding with CryptoDMA
+ * writes still hung the SoC with out-of-place requests: mean time to hang
+ * about 48 s with bursts of 16 and 78 s with 6, at 1250 requests of 1216
+ * bytes per second and 1920x1080@100. Bursts of 4 ran without a hang there
+ * (15 min) and with 3840x2160 H.265 over WebRTC with hardware SRTP (13 min),
+ * for 2.6 % fewer 1216-byte requests per second. Reads (hashes) never hung.
+ */
+#define DMA_CTRL_VALUE ((4 << 24) | (16 << 16) | 3)
 #define DESC_BYTES 128
+/* Runtime capability for app-only upgrades: old modules have no marker.
+ * Read-only after load; this identifies the out-of-place/write-burst-4 path.
+ */
+static bool out_of_place_burst4 = true;
+module_param(out_of_place_burst4, bool, 0444);
+MODULE_PARM_DESC(out_of_place_burst4, "Out-of-place CryptoDMA with four-beat write bursts");
+
 static struct platform_device *pdev;
 static void __iomem *regs;
 static u32 *desc;
@@ -81,12 +99,14 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  desc[1] = BIT(5) | BIT(2) | BIT(0); /* AES128,CTR,encrypt */
  desc[4] = lower_32_bits(buffer_dma);
  desc[5] = upper_32_bits(buffer_dma);
- desc[6] = lower_32_bits(buffer_dma);
- desc[7] = upper_32_bits(buffer_dma);
+ /* Never in place: see crypto_prepare_descriptor(). */
+ desc[6] = lower_32_bits(crypto_output_dma);
+ desc[7] = upper_32_bits(crypto_output_dma);
  desc[8] = size;
  memcpy(&desc[10], header.key, 16);
  memcpy(&desc[18], header.iv, 16);
  dma_sync_single_for_device(&pdev->dev, buffer_dma, size, DMA_BIDIRECTIONAL);
+ dma_sync_single_for_device(&pdev->dev, crypto_output_dma, size, DMA_BIDIRECTIONAL);
  dma_sync_single_for_device(&pdev->dev, desc_dma, DESC_BYTES, DMA_BIDIRECTIONAL);
  dma_wmb();
  /* Match vendor interrupt/status enable. The first MASK=0 experiment
@@ -95,7 +115,7 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  writel(7, regs + STATUS);
  writel(lower_32_bits(desc_dma), regs + DESC_LO);
  writel(upper_32_bits(desc_dma), regs + DESC_HI);
- writel((6 << 24) | (16 << 16) | 3, regs + CTRL);
+ writel(DMA_CTRL_VALUE, regs + CTRL);
  err = readl_poll_timeout(regs + STATUS, status, status != 0, 1, 20000);
  if (err || status != 1) {
   /* Completion/error bits beyond bit0 are not assumed to prove DMA idle.
@@ -109,6 +129,7 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  dma_rmb();
  dma_sync_single_for_cpu(&pdev->dev, desc_dma, DESC_BYTES, DMA_BIDIRECTIONAL);
  dma_sync_single_for_cpu(&pdev->dev, buffer_dma, size, DMA_BIDIRECTIONAL);
+ dma_sync_single_for_cpu(&pdev->dev, crypto_output_dma, size, DMA_BIDIRECTIONAL);
  header.status = status;
  /* Preserve the old contiguous copy_to_user ordering: return the header first,
   * then the ciphertext. A failed copy still runs the normal scratch cleanup. */
@@ -117,13 +138,14 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
   goto clear_scratch;
  }
  if (copy_to_user((u8 __user *)arg + offsetof(struct sg2002_aes_request, data),
-      buffer, header.length)) {
+      crypto_output, header.length)) {
   err = -EFAULT;
   goto clear_scratch;
  }
  err = 0;
 clear_scratch:
  memzero_explicit(buffer, size);
+ memzero_explicit(crypto_output, size);
  memzero_explicit(desc, DESC_BYTES);
  writel(7, regs + STATUS);
  writel(initial_mask, regs + MASK);

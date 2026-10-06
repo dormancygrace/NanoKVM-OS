@@ -53,6 +53,10 @@ def started(failed):
 
 assert started(set()) == set(DEFAULT), started(set())
 print("all services start: pass")
+# OpenRC stops services that need a stopped service; an application restart
+# must leave the hang watchdog running.
+assert "nanokvm-app" not in DEPS["nanokvm-watchdog"]["need"], DEPS["nanokvm-watchdog"]
+print("watchdog survives application restart: pass")
 for failed in ({"nanokvm-storage"}, {"nanokvm-modules"}, {"nanokvm-board"},
                {"nanokvm-modules", "nanokvm-board"}):
     running = started(failed)

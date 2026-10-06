@@ -21,17 +21,21 @@ const (
 )
 
 type monitorModeCapability struct {
-	Height    uint16 `json:"height"`
-	Width     uint16 `json:"width"`
-	Rates     []int  `json:"rates"`
-	Available bool   `json:"available"`
-	Reason    string `json:"reason,omitempty"`
+	Height uint16 `json:"height"`
+	Width  uint16 `json:"width"`
+	// Auto (height 0): the size it stands for; 0 for the stock profile.
+	EffectiveWidth  uint16 `json:"effectiveWidth,omitempty"`
+	EffectiveHeight uint16 `json:"effectiveHeight,omitempty"`
+	Rates           []int  `json:"rates"`
+	Available       bool   `json:"available"`
+	Reason          string `json:"reason,omitempty"`
 }
 
 type portraitCapability struct {
 	Resolution uint16   `json:"resolution"`
 	Width      uint16   `json:"width"`
 	Rate       int      `json:"rate"`
+	Rates      []int    `json:"rates"`
 	Codecs     []string `json:"codecs"`
 	Transports []string `json:"transports"`
 	Available  bool     `json:"available"`
@@ -65,6 +69,10 @@ func videoCapabilities() gin.H {
 		if m.Rates == nil {
 			m.Rates = []int{}
 		}
+		if height == 0 {
+			m.EffectiveHeight = common.AutoMonitorHeight()
+			m.EffectiveWidth = common.ResolutionMap[m.EffectiveHeight]
+		}
 		switch {
 		case !programmable || (needsLive && !live):
 			m.Available, m.Reason = false, reasonReceiver
@@ -83,7 +91,7 @@ func videoCapabilities() gin.H {
 
 	portraitProfile := func(resolution, width uint16, rate int, codecs, transports []string, ok bool) portraitCapability {
 		p := portraitCapability{Resolution: resolution, Width: width, Rate: rate,
-			Codecs: codecs, Transports: transports, Available: ok}
+			Rates: common.PortraitRates(resolution), Codecs: codecs, Transports: transports, Available: ok}
 		if !ok {
 			p.Reason = reasonReceiver
 			if live && programmable {
@@ -96,10 +104,11 @@ func videoCapabilities() gin.H {
 	allTransports := []string{"direct", "webrtc", "mjpeg"}
 	portraitProfiles := []portraitCapability{
 		portraitProfile(1280, 720, 120, all, allTransports, portraitSupported),
-		portraitProfile(1920, 1080, 75, all, allTransports, portraitSupported),
-		// H.264 tops out at 2304 lines; the tallest profile is H.265 Direct.
-		portraitProfile(2304, 1296, 50, []string{"h264"}, []string{"direct", "webrtc"}, portraitSupported),
-		portraitProfile(2560, 1440, 50, []string{"h265"}, []string{"direct"}, portraitMax),
+		portraitProfile(1920, 1080, 100, all, allTransports, portraitSupported),
+		// The H.264 encoder takes at most 4096x2304: 1296x2304 is the tallest
+		// portrait for browsers without H.265, 1440x2560 needs H.265.
+		portraitProfile(2304, 1296, 60, []string{"h264"}, []string{"direct", "webrtc"}, portraitSupported),
+		portraitProfile(2560, 1440, 60, []string{"h265"}, []string{"direct", "webrtc"}, portraitMax),
 	}
 
 	limit := func(height uint16, memoryOK bool) streamLimitCapability {

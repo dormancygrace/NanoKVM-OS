@@ -11,6 +11,7 @@ import {
   matchPreset,
   monitorTarget,
   QUALITY_CHOICES,
+  recommendedBitrate,
   streamSize,
   type BrowserSupport,
   type Reason,
@@ -389,7 +390,13 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                               label: t('videoSettings.mbps', { value: value / 1000 })
                             }))
                       }
-                    />
+                    />,
+                    draft.transport !== 'mjpeg' && out.width
+                      ? t('videoSettings.bitrateHint', {
+                          value:
+                            recommendedBitrate(out.width, out.height, delivered, draft.codec) / 1000
+                        })
+                      : undefined
                   )}
                   <p className="text-xs leading-relaxed text-neutral-400">
                     {t('videoSettings.streamHint')}

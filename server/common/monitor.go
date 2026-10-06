@@ -91,7 +91,7 @@ func ApplyMonitorResolution(height uint16) error {
 		if !portraitResolutionSupportedLocked(portraitResolution) {
 			return fmt.Errorf("portrait monitor profile is unavailable")
 		}
-		path = portraitMonitorEDIDPath(portraitResolution)
+		path = portraitProfilePathAt(portraitResolution, GetScreen().FPS)
 	}
 	if err := applyMonitorProfileLocked(path); err != nil {
 		return err
@@ -114,7 +114,7 @@ func ApplyMonitorPortrait(enabled bool) error {
 	}
 
 	portraitResolution := savedPortraitResolutionLocked()
-	path := portraitMonitorEDIDPath(portraitResolution)
+	path := portraitProfilePathAt(portraitResolution, GetScreen().FPS)
 	if !enabled {
 		path = monitorProfilePathAt(savedMonitorResolutionLocked(), GetScreen().FPS)
 	}
@@ -144,7 +144,7 @@ func ApplyPortraitResolution(resolution uint16) error {
 		return fmt.Errorf("portrait monitor profile is unavailable")
 	}
 	if monitorPortraitEnabledLocked() {
-		if err := applyMonitorProfileLocked(portraitMonitorEDIDPath(resolution)); err != nil {
+		if err := applyMonitorProfileLocked(portraitProfilePathAt(resolution, GetScreen().FPS)); err != nil {
 			return err
 		}
 	}
@@ -164,7 +164,8 @@ func monitorProfilePath(height uint16) string {
 	profile := fmt.Sprintf("NanoKVM-monitor-%d.bin", height)
 	if height == 0 {
 		profile = "NanoKVM-stock.bin"
-		if SupportsQHD() {
+		if MonitorHighRefreshSupported() {
+			// Auto: 1920x1080 at up to 100 Hz.
 			profile = "NanoKVM-final-video-profiles.bin"
 		}
 	}

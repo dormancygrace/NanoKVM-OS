@@ -14,9 +14,54 @@ import (
 // faster modes of its resolution, so the source cannot pick them.
 var monitorRates = map[uint16][]int{
 	720:  {120, 60, 30},
-	1080: {75, 60, 30},
-	1440: {50, 40, 30},
+	1080: {100, 75, 60, 30},
+	1440: {60, 50, 40, 30},
 	2160: {30},
+}
+
+// portraitRates lists the refresh rates of each portrait profile, fastest
+// first: NanoKVM-portrait-<w>x<h>-<hz>.bin.
+var portraitRates = map[uint16][]int{
+	portraitResolutionHD:      {120, 60, 30},
+	portraitResolutionDefault: {100, 75, 60, 30},
+	portraitResolutionAVC:     {60, 50, 30},
+	portraitResolutionMax:     {60, 50, 30},
+}
+
+var portraitWidths = map[uint16]uint16{
+	portraitResolutionHD: 720, portraitResolutionDefault: 1080,
+	portraitResolutionAVC: 1296, portraitResolutionMax: 1440,
+}
+
+// PortraitRates returns the refresh rates of a portrait profile, fastest first.
+func PortraitRates(resolution uint16) []int {
+	return append([]int(nil), portraitRates[resolution]...)
+}
+
+func slowestRateFor(rates []int, fps int) int {
+	if len(rates) == 0 {
+		return 0
+	}
+	best := rates[0]
+	for _, rate := range rates {
+		if rate >= fps {
+			best = rate
+		}
+	}
+	return best
+}
+
+// portraitProfilePathAt is the portrait profile for a stream rate, falling
+// back to the single-rate profile.
+func portraitProfilePathAt(resolution uint16, fps int) string {
+	if rate := slowestRateFor(portraitRates[resolution], fps); rate > 0 {
+		path := filepath.Join(monitorEDIDDir, fmt.Sprintf("NanoKVM-portrait-%dx%d-%d.bin",
+			portraitWidths[resolution], resolution, rate))
+		if info, err := os.Stat(path); err == nil && info.Mode().IsRegular() {
+			return path
+		}
+	}
+	return portraitMonitorEDIDPath(resolution)
 }
 
 var (
@@ -43,32 +88,24 @@ func MonitorRates(height uint16) []int {
 // MonitorRefreshFor returns the slowest rate of a monitor setting that is not
 // below fps (the fastest when fps exceeds them all); 0 when it is fixed.
 func MonitorRefreshFor(height uint16, fps int) int {
-	rates := MonitorRates(height)
-	if len(rates) == 0 {
-		return 0
-	}
-	best := rates[0]
-	for _, rate := range rates {
-		if rate >= fps {
-			best = rate
-		}
-	}
-	return best
+	return slowestRateFor(MonitorRates(height), fps)
 }
 
 // MonitorRefreshFollowsStream reports whether applying video settings may
-// rewrite the EDID to follow the stream rate. Cube receivers need a power
-// cycle after every write, and portrait profiles have a single rate.
+// rewrite the EDID to follow the stream rate, for landscape and portrait
+// profiles alike. Cube receivers need a power cycle after every write.
 func MonitorRefreshFollowsStream() bool {
-	enabled, _ := MonitorPortraitStatus()
-	return MonitorHighRefreshSupported() && !enabled
+	return MonitorHighRefreshSupported()
 }
 
-// Auto prefers QHD wherever its video memory and live EDID writes exist;
-// elsewhere it is the stock receiver profile with its own timings.
+// Auto is 1920x1080 (up to 100 Hz) wherever live EDID writes exist; QHD and
+// UHD are explicit choices. Elsewhere it is the stock receiver profile.
+// AutoMonitorHeight is the size Auto stands for, 0 for the stock profile.
+func AutoMonitorHeight() uint16 { return autoMonitorHeight() }
+
 func autoMonitorHeight() uint16 {
-	if SupportsQHD() && MonitorHighRefreshSupported() {
-		return 1440
+	if MonitorHighRefreshSupported() {
+		return 1080
 	}
 	return 0
 }
@@ -99,11 +136,11 @@ func SyncMonitorRefresh(fps int) (bool, error) {
 	}
 	monitorMutex.Lock()
 	defer monitorMutex.Unlock()
-	if monitorPortraitEnabledLocked() {
-		return false, nil
-	}
 	height := savedMonitorResolutionLocked()
 	target := monitorProfilePathAt(height, fps)
+	if monitorPortraitEnabledLocked() {
+		target = portraitProfilePathAt(savedPortraitResolutionLocked(), fps)
+	}
 	if programmedMonitorProfileLocked(target, height) {
 		return false, nil
 	}
@@ -115,10 +152,18 @@ func SyncMonitorRefresh(fps int) (bool, error) {
 func MonitorRefreshHz() int {
 	monitorMutex.Lock()
 	defer monitorMutex.Unlock()
+	height := savedMonitorResolutionLocked()
 	if monitorPortraitEnabledLocked() {
+		resolution := savedPortraitResolutionLocked()
+		for _, rate := range portraitRates[resolution] {
+			path := filepath.Join(monitorEDIDDir, fmt.Sprintf("NanoKVM-portrait-%dx%d-%d.bin",
+				portraitWidths[resolution], resolution, rate))
+			if programmedMonitorProfileLocked(path, height) {
+				return rate
+			}
+		}
 		return 0
 	}
-	height := savedMonitorResolutionLocked()
 	for _, rate := range MonitorRates(height) {
 		effective := height
 		if effective == 0 {

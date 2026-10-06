@@ -12,20 +12,32 @@ A profile sets the monitor, the stream and the player together, adapted to the d
 
 | Profile | Monitor | Stream |
 |---|---|---|
-| Recommended | Automatic | Same as input, the highest rate it allows, H.265 when the browser plays it, 5 Mbit/s |
-| Sharpest | The largest available: 3840×2160, 2560×1440 or 1920×1080 | Same as input, the highest rate, 20 Mbit/s |
-| Smooth | 1920×1080 | 75 fps, 10 Mbit/s |
-| Lowest latency | 1280×720 | 120 fps, Direct without a playback buffer |
-| Compatible | 1920×1080 | WebRTC H.264, 60 fps |
+| Recommended | Automatic: 1920×1080 at up to 100 Hz | Same as input, 100 fps, H.265 when the browser plays it, bitrate for motion |
+| Sharpest | The largest available: 3840×2160 at 30 Hz, else 2560×1440 at 60 Hz | Same as input, the highest rate, 20 Mbit/s |
+| Balanced | 2560×1440 at 60 Hz | 60 fps, bitrate for motion |
+| Lowest latency | 1280×720 at 120 Hz | H.264, 120 fps, Direct without a playback buffer |
+| Compatible | 1920×1080 | WebRTC H.264, 60 fps, bitrate for motion |
 | Low traffic | 1920×1080 at 30 Hz | Up to 1080p, 30 fps, 1 Mbit/s |
+
+**Bitrate for motion** is about 0.05 bit per pixel for H.265 (video playback, scrolling) and 1.5 times that for H.264, rounded up to an offered value: 1280×720@120 8, 1920×1080@60 8, 1920×1080@100 12, 2560×1440@60 12, 3840×2160@30 15 Mbit/s with H.265. A static desktop needs much less; the manual settings show the recommendation for the chosen size and rate. Factory defaults match Recommended: 100 fps, 12 Mbit/s.
 
 Profiles keep a portrait monitor as it is, and do not change the monitor on boards whose receiver needs a power cycle after an EDID write (Cube/Lite). Settings that match no profile are shown as **Custom**. **Manual settings** contains every individual choice; unavailable choices stay visible, disabled, with the reason.
 
 ## HDMI monitor and automatic input detection
 
-The monitor profile advertises preferred and fallback modes through EDID. **Automatic** uses the board's supported default profile (QHD on supported memory configurations). The landscape profiles prefer 3840×2160, 2560×1440, 1920×1080 or 1280×720; the portrait profiles are in the same list. A source may choose another supported resolution; applying the profile does not require the source to adopt its preferred timing. Changing a profile briefly reconnects HDMI. Explicit profile switching requires NanoKVM PCIe/LT6911UXC, or a power cycle on Cube/Lite; this restriction does not disable automatic source detection on other receivers.
+The monitor profile advertises preferred and fallback modes through EDID. **Automatic** is 1920×1080 at up to 100 Hz wherever the EDID can be written live (the stock receiver profile elsewhere); 2560×1440 and 3840×2160 are explicit choices. The landscape profiles prefer 3840×2160, 2560×1440, 1920×1080 or 1280×720; the portrait profiles 720×1280, 1080×1920, 1296×2304 and 1440×2560 are in the same list. 1296×2304 is the tallest portrait the H.264 encoder takes (at most 4096×2304); 1440×2560 needs H.265, over Direct or WebRTC. A source may choose another supported resolution; applying the profile does not require the source to adopt its preferred timing. Changing a profile briefly reconnects HDMI. Explicit profile switching requires NanoKVM PCIe/LT6911UXC, or a power cycle on Cube/Lite; this restriction does not disable automatic source detection on other receivers.
 
-**The monitor refresh follows the frame rate.** When video settings are applied, the monitor uses the slowest refresh rate of its resolution that is not below the stream frame rate: 1280×720 at 120/60/30 Hz, 1920×1080 at 75/60/30 Hz, 2560×1440 at 50/40/30 Hz, 3840×2160 at 30 Hz. A 30 fps stream therefore makes the computer render and send 30 frames per second instead of 60. These profiles leave out the faster modes of their resolution, because a source otherwise picks the fastest one. Portrait profiles and Cube/Lite boards keep a single rate. Changing only the frame rate from the quick menu never rewrites the EDID.
+**The monitor refresh follows the frame rate.** When video settings are applied, the monitor uses the slowest refresh rate of its profile that is not below the stream frame rate:
+
+| Profile | Refresh rates (Hz) |
+|---|---|
+| 1280×720, 720×1280 | 120, 60, 30 |
+| 1920×1080, 1080×1920 | 100, 75, 60, 30 |
+| 2560×1440 | 60, 50, 40, 30 |
+| 1296×2304, 1440×2560 | 60, 50, 30 |
+| 3840×2160 | 30 |
+
+A 30 fps stream therefore makes the computer render and send 30 frames per second instead of 100. These profiles leave out the faster modes of their resolution, because a source otherwise picks the fastest one. Cube/Lite boards keep their single 60 Hz profiles. Changing only the frame rate from the quick menu never rewrites the EDID.
 
 When the input is still faster than the stream (an unchanged monitor, or a source that ignores the preferred mode), VPSS drops the surplus input frames before converting them.
 
@@ -49,7 +61,7 @@ Scaling occurs in VPSS before encoding. Browser scale only changes local present
 
 ## Frame rate limits
 
-The frame rate is capped by the larger of the input and the encoded size, in either orientation: up to 1280×720 at 120 fps, up to 1920×1088 at 75 fps, up to 2560×1440 at 50 fps, larger sizes at 30 fps. The server and the native capture library use one table (`server/common/video_status.go`, `kvm_mmf/include/internal/capture_rate.hpp`); a test keeps them equal. The saved request is retained across source changes and is restored when the source allows it again. Settings show the delivered rate when it is below the request.
+The frame rate is capped by the larger of the input and the encoded size, in either orientation: up to 1280×720 at 120 fps, up to 1920×1088 at 100 fps, up to 2560×1440 at 60 fps, larger sizes at 30 fps. With the video overclock the encoder sustains about 250 million pixels per second: 3840×2160 at 30 and 2560×1440 at 60 fps; at 1920×1080 a fixed per-frame cost limits it to about 109 fps, so 1080p is offered at 100. The server and the native capture library use one table (`server/common/video_status.go`, `kvm_mmf/include/internal/capture_rate.hpp`); a test keeps them equal. The saved request is retained across source changes and is restored when the source allows it again. Settings show the delivered rate when it is below the request.
 
 ## API
 

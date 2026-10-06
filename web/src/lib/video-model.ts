@@ -8,6 +8,9 @@ export type Reason =
 export type MonitorMode = {
   height: number;
   width: number;
+  // Auto (height 0): the size it stands for, 0 when it is the stock profile.
+  effectiveWidth?: number;
+  effectiveHeight?: number;
   rates: number[];
   available: boolean;
   reason?: Reason;
@@ -17,6 +20,7 @@ export type PortraitProfile = {
   resolution: number;
   width: number;
   rate: number;
+  rates?: number[];
   codecs: string[];
   transports: string[];
   available: boolean;
@@ -72,7 +76,23 @@ export type VideoDraft = {
 };
 
 export const FPS_CHOICES = [120, 75, 60, 50, 40, 30];
-export const BITRATE_CHOICES = [20000, 15000, 10000, 5000, 3000, 2000, 1000];
+export const BITRATE_CHOICES = [20000, 15000, 12000, 10000, 8000, 5000, 3000, 2000, 1000];
+
+// Bitrate for a stream with motion (video, scrolling): about 0.05 bit per
+// pixel for H.265 and 1.5 times that for H.264, rounded up to an offered
+// value. 1080p100 H.265: 12 Mbit/s; 3840x2160@30: 15 Mbit/s.
+export function recommendedBitrate(width: number, height: number, fps: number, codec: Codec) {
+  const kbps = (width * height * fps * 0.05 * (codec === 'h264' ? 1.5 : 1)) / 1000;
+  return [...BITRATE_CHOICES].reverse().find((b) => b >= kbps) ?? BITRATE_CHOICES[0];
+}
+
+// The size a monitor setting stands for (Auto included).
+export function monitorSize(mode: MonitorMode | undefined) {
+  if (!mode) return { width: 0, height: 0 };
+  return mode.height
+    ? { width: mode.width, height: mode.height }
+    : { width: mode.effectiveWidth ?? 0, height: mode.effectiveHeight ?? 0 };
+}
 export const QUALITY_CHOICES = [100, 80, 60, 50];
 
 // Server stream type: what the device encodes for this draft.
@@ -137,17 +157,16 @@ export function effectiveFps(draft: VideoDraft, caps: VideoCapabilities) {
 // The monitor the source will see: size and refresh rate. With a rate-following
 // monitor the refresh is the slowest offered rate not below the stream rate.
 export function monitorTarget(draft: VideoDraft, caps: VideoCapabilities) {
-  if (draft.portrait) {
-    const profile = portraitProfile(caps, draft.portrait);
-    return { width: profile?.width ?? 0, height: draft.portrait, refresh: profile?.rate ?? 0 };
-  }
-  const mode = monitorMode(caps, draft.monitor);
-  const rates = mode?.rates ?? [];
+  const profile = draft.portrait ? portraitProfile(caps, draft.portrait) : undefined;
+  const mode = draft.portrait ? undefined : monitorMode(caps, draft.monitor);
+  const rates = profile ? (profile.rates ?? [profile.rate]) : (mode?.rates ?? []);
   let refresh = rates[0] ?? 0;
   if (caps.monitor.followsStreamRate) {
     for (const rate of rates) if (rate >= draft.fps) refresh = rate;
   }
-  return { width: mode?.width ?? 0, height: draft.monitor, refresh };
+  return draft.portrait
+    ? { width: profile?.width ?? 0, height: draft.portrait, refresh }
+    : { width: mode?.width ?? 0, height: draft.monitor, refresh };
 }
 
 export function codecPlayable(browser: BrowserSupport, transport: Transport, codec: Codec) {
@@ -199,8 +218,15 @@ export function draftIssues(
   return issues;
 }
 
-export type PresetId = 'auto' | 'sharp' | 'smooth' | 'responsive' | 'compatible' | 'saver';
-export const PRESETS: PresetId[] = ['auto', 'sharp', 'smooth', 'responsive', 'compatible', 'saver'];
+export type PresetId = 'auto' | 'sharp' | 'balanced' | 'responsive' | 'compatible' | 'saver';
+export const PRESETS: PresetId[] = [
+  'auto',
+  'sharp',
+  'balanced',
+  'responsive',
+  'compatible',
+  'saver'
+];
 
 type PresetSpec = {
   monitor: number[]; // preferred monitor settings, first available wins
@@ -208,7 +234,7 @@ type PresetSpec = {
   fps: number | 'max';
   transports: Transport[];
   codec: Codec | 'best';
-  bitRate: number;
+  bitRate: number | 'motion'; // 'motion': recommendedBitrate for the result
   gop: number;
   gopMode: number;
   directPlayback: DirectPlayback;
@@ -221,7 +247,7 @@ const PRESET_SPECS: Record<PresetId, PresetSpec> = {
     fps: 'max',
     transports: ['direct', 'webrtc', 'mjpeg'],
     codec: 'best',
-    bitRate: 5000,
+    bitRate: 'motion',
     gop: 30,
     gopMode: 1,
     directPlayback: 'paced'
@@ -237,14 +263,14 @@ const PRESET_SPECS: Record<PresetId, PresetSpec> = {
     gopMode: 1,
     directPlayback: 'paced'
   },
-  smooth: {
-    monitor: [1080],
+  balanced: {
+    monitor: [1440],
     height: 0,
-    fps: 75,
+    fps: 'max',
     transports: ['direct', 'webrtc'],
     codec: 'best',
-    bitRate: 10000,
-    gop: 75,
+    bitRate: 'motion',
+    gop: 60,
     gopMode: 1,
     directPlayback: 'paced'
   },
@@ -254,7 +280,7 @@ const PRESET_SPECS: Record<PresetId, PresetSpec> = {
     fps: 120,
     transports: ['direct', 'webrtc'],
     codec: 'h264',
-    bitRate: 5000,
+    bitRate: 'motion',
     gop: 120,
     gopMode: 1,
     directPlayback: 'immediate'
@@ -265,7 +291,7 @@ const PRESET_SPECS: Record<PresetId, PresetSpec> = {
     fps: 60,
     transports: ['webrtc', 'mjpeg'],
     codec: 'h264',
-    bitRate: 5000,
+    bitRate: 'motion',
     gop: 60,
     gopMode: 1,
     directPlayback: 'paced'
@@ -297,7 +323,7 @@ export function buildPreset(
   current: VideoDraft
 ): { draft: VideoDraft } | { reason: Reason } {
   const spec = PRESET_SPECS[id];
-  const draft: VideoDraft = { ...current, height: spec.height, bitRate: spec.bitRate };
+  const draft: VideoDraft = { ...current, height: spec.height };
   if (presetsSetMonitor(caps, current)) {
     const mode = spec.monitor.map((height) => monitorMode(caps, height)).find((m) => m?.available);
     if (!mode) return { reason: monitorMode(caps, spec.monitor[0])?.reason ?? 'receiver' };
@@ -330,13 +356,27 @@ export function buildPreset(
   if (presetsSetMonitor(caps, current) && mode) {
     const tiers = caps.stream.rateTiers;
     const limit = caps.stream.limits.find((l) => l.height === draft.height);
+    const size = monitorSize(mode);
     ceiling = Math.min(
       mode.rates[0] ?? 120,
-      mode.width ? rateLimit(tiers, mode.width, mode.height) : ceiling,
+      size.width ? rateLimit(tiers, size.width, size.height) : ceiling,
       limit && limit.height ? rateLimit(tiers, limit.width, limit.height) : 120
     );
   }
   draft.fps = spec.fps === 'max' ? ceiling : Math.min(spec.fps, ceiling);
+  if (spec.bitRate === 'motion') {
+    // The size the source will send: the new monitor, else the current input,
+    // within the stream limit.
+    const size = presetsSetMonitor(caps, current)
+      ? monitorSize(monitorMode(caps, draft.monitor))
+      : { width: caps.input.width, height: caps.input.height };
+    const out = size.width
+      ? streamSize(draft, { ...caps, input: { ...caps.input, ...size } })
+      : streamSize(draft, caps);
+    draft.bitRate = recommendedBitrate(out.width, out.height, draft.fps, draft.codec);
+  } else {
+    draft.bitRate = spec.bitRate;
+  }
   draft.gop = spec.gop;
   draft.gopMode = spec.gopMode;
   draft.directPlayback = spec.directPlayback;
@@ -392,7 +432,7 @@ export function draftChanges(
     caps.monitor.programmable &&
     (draft.monitor !== saved.monitor ||
       draft.portrait !== saved.portrait ||
-      (caps.monitor.followsStreamRate && !draft.portrait && before.refresh !== after.refresh));
+      (caps.monitor.followsStreamRate && before.refresh !== after.refresh));
   const reconnect =
     draft.transport !== saved.transport ||
     (draft.transport !== 'mjpeg' && draft.codec !== saved.codec) ||

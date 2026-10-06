@@ -15,7 +15,7 @@
     "SHA256SUMS"
   ],
   "hardware_acceptance": {
-    "device": "192.168.4.128",
+    "device": "test device",
     "version": "1.0.0-beta.9",
     "sequence": 22,
     "boot": "PASS",

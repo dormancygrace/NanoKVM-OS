@@ -1,7 +1,7 @@
 const https = require('https');
 const http2 = require('http2');
 const fs = require('fs');
-const base='https://192.168.4.128';
+const base=`https://${process.env.NANOKVM_HOST || 'nanokvm.local'}`;
 const headers={cookie:'nano-kvm-token='+process.env.NANOKVM_TOKEN};
 async function trial(protocol) {
  const agent = protocol==='h1' ? new https.Agent({keepAlive:true,maxSockets:6,rejectUnauthorized:false}) : null;

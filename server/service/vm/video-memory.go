@@ -8,19 +8,25 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
 
 type videoMemoryStatus struct {
-	Active         string `json:"active"`
-	Selected       string `json:"selected"`
-	SizeMiB        int    `json:"sizeMiB"`
-	Available      bool   `json:"available"`
-	RebootRequired bool   `json:"rebootRequired"`
+	Active   string `json:"active"`
+	Selected string `json:"selected"`
+	SizeMiB  int    `json:"sizeMiB"`
+	// Modes whose boot image is installed: cma (128 MiB lent to Linux),
+	// fixed (64 MiB) and uhd (128 MiB fixed, needed for 3840x2160).
+	Modes          []string `json:"modes"`
+	Available      bool     `json:"available"`
+	RebootRequired bool     `json:"rebootRequired"`
 }
 
-func validVideoMemoryMode(mode string) bool { return mode == "cma" || mode == "fixed" }
+var videoMemoryModes = []string{"cma", "fixed", "uhd"}
+
+func validVideoMemoryMode(mode string) bool { return mode == "cma" || mode == "fixed" || mode == "uhd" }
 func readVideoMemoryStatus(root string) videoMemoryStatus {
 	read := func(path string) string {
 		b, _ := os.ReadFile(filepath.Join(root, path))
@@ -32,6 +38,9 @@ func readVideoMemoryStatus(root string) videoMemoryStatus {
 			active = "cma"
 		} else if read("sys/firmware/devicetree/base/reserved-memory/ion/compatible") == "ion-region" {
 			active = "fixed"
+			if ionSizeMiB(root) >= 128 {
+				active = "uhd"
+			}
 		} else {
 			active = "unknown"
 		}
@@ -41,14 +50,29 @@ func readVideoMemoryStatus(root string) videoMemoryStatus {
 		selected = "cma"
 	}
 	board := read("sys/firmware/devicetree/base/sipeed,board-revision")
-	available := false
+	modes := []string{}
 	switch board {
 	case "alpha", "beta", "pcie", "lite":
-		_, a := os.Stat(filepath.Join(root, "usr/lib/nanokvm/boot", board+".sd"))
-		_, b := os.Stat(filepath.Join(root, "usr/lib/nanokvm/boot", board+"-fixed.sd"))
-		available = a == nil && b == nil
+		for _, mode := range videoMemoryModes {
+			name := board + ".sd"
+			if mode != "cma" {
+				name = board + "-" + mode + ".sd"
+			}
+			if _, err := os.Stat(filepath.Join(root, "usr/lib/nanokvm/boot", name)); err == nil {
+				modes = append(modes, mode)
+			}
+		}
 	}
-	return videoMemoryStatus{Active: active, Selected: selected, SizeMiB: 64, Available: available, RebootRequired: active != "unknown" && active != selected}
+	return videoMemoryStatus{Active: active, Selected: selected, SizeMiB: ionSizeMiB(root), Modes: modes,
+		Available: len(modes) > 1, RebootRequired: active != "unknown" && active != selected}
+}
+
+func ionSizeMiB(root string) int {
+	data, err := os.ReadFile(filepath.Join(root, "sys/firmware/devicetree/base/reserved-memory/ion/size"))
+	if err != nil || len(data) != 4 {
+		return 0
+	}
+	return int(uint32(data[0])<<24|uint32(data[1])<<16|uint32(data[2])<<8|uint32(data[3])) >> 20
 }
 func (s *Service) SetVideoMemory(c *gin.Context) {
 	var rsp proto.Response
@@ -67,8 +91,8 @@ func (s *Service) SetVideoMemory(c *gin.Context) {
 	defer lock.Close()
 	memoryMutation.Lock()
 	defer memoryMutation.Unlock()
-	if !readVideoMemoryStatus("/").Available {
-		rsp.ErrRsp(c, -2, "Install the kernel package with both video memory modes first")
+	if !slices.Contains(readVideoMemoryStatus("/").Modes, req.Mode) {
+		rsp.ErrRsp(c, -2, "Install the kernel package with this video memory mode first")
 		return
 	}
 	board, err := os.ReadFile("/sys/firmware/devicetree/base/sipeed,board-revision")

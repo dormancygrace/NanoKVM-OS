@@ -1,3 +1,28 @@
+# Current release naming
+
+Starting with **NanoKVM OS v2.5-a1**, application releases and full SD images
+are versioned independently. Both `a` releases are alpha, marked as GitHub
+prereleases until the maintainer explicitly promotes them.
+
+| Artifact | First release with independent image version |
+|---|---|
+| Application release / Git tag | `v2.5-a1` |
+| GitHub release title | `NanoKVM OS v2.5-a1 · Image v1.0-a1 (Alpha)` |
+| Full image | `NanoKVM-OS-Image-v1.0-a1-apps-v2.5-a1.img.zip` |
+| APK upstream version | `2.5_alpha1` |
+| Corresponding source | `NanoKVM-OS-v2.5-a1-source.tar.xz` |
+
+The full image is an installation bundle. Its version does not replace the
+application version or APK ordering. A subsequent application update can be
+installed on Image v1.0-a1 without rewriting that image's origin metadata.
+The original bundled version stays visible alongside the current application
+version in About. A new full image gets an independently selected image version.
+
+Values live in `firmware/alpine/release.env`; the SD builder and build manifest
+use them directly. The legacy v1 naming helper remains for archived artifacts.
+
+## Legacy naming (v1 releases)
+
 # Release names
 
 Use `python3 scripts/release_names.py VERSION` as the source of names.

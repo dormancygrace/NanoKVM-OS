@@ -12,11 +12,17 @@ import { Credits } from './credits';
 export const About = () => {
   const { t } = useTranslation();
   const [version, setVersion] = useState('');
+  const [imageVersion, setImageVersion] = useState('');
+  const [bundledVersion, setBundledVersion] = useState('');
   useEffect(() => {
     let active = true;
     getInfo()
       .then((rsp) => {
-        if (active && rsp.code === 0) setVersion(rsp.data.application);
+        if (active && rsp.code === 0) {
+          setVersion(rsp.data.application);
+          setImageVersion(rsp.data.image || '');
+          setBundledVersion(rsp.data.bundledApplication || '');
+        }
       })
       .catch(() => {});
     return () => {
@@ -43,7 +49,22 @@ export const About = () => {
             className="absolute top-3 right-3 text-neutral-600 transition-colors group-hover:text-neutral-300"
           />
         </a>
-        <p className="text-sm text-neutral-400">{version ? `v${formatVersion(version)}` : '—'}</p>
+        <div className="space-y-1 text-sm text-neutral-400">
+          <p>
+            {t('settings.about.applicationVersion')}:{' '}
+            {version ? `v${formatVersion(version.replace(/^v/, ''))}` : '—'}
+          </p>
+          {imageVersion && (
+            <p>
+              {t('settings.about.imageVersion')}: {imageVersion}
+            </p>
+          )}
+          {bundledVersion && (
+            <p>
+              {t('settings.about.bundledVersion')}: {bundledVersion}
+            </p>
+          )}
+        </div>
         <p className="max-w-xl text-sm leading-relaxed text-neutral-300">
           {t('settings.about.description')}
         </p>

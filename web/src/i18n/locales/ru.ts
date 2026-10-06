@@ -977,6 +977,9 @@ const ru = {
         cancelBtn: 'Отмена'
       },
       about: {
+        applicationVersion: 'Приложения',
+        imageVersion: 'Установленный образ',
+        bundledVersion: 'Приложения в исходном образе',
         title: 'О проекте',
         description: 'Прошивка сообщества для NanoKVM.',
         specialThanksTitle: 'Особая благодарность',

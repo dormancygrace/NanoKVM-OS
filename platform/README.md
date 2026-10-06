@@ -24,7 +24,23 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware-sg2002` |
 | `release/apk/` | the signed APK repository of the six packages |
 | `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt` | the root file system and its package versions |
-| `release/image/NanoKVM-OS-<version>.img.zip`, `SHA256SUMS` | the SD card image |
+| `release/image/NanoKVM-OS-Image-<image-version>-apps-<application-version>.img.zip`, `SHA256SUMS` | the SD card image |
+
+## Image and application versions
+
+Starting with applications **v2.5-a1**, full SD images have their own version.
+**Image v1.0-a1** includes applications **v2.5-a1**; both are alpha releases.
+`firmware/alpine/release.env` is the source of truth: `NANOKVM_IMAGE_VERSION`
+identifies the image, `NANOKVM_VERSION` the applications, and
+`NANOKVM_APK_VERSION` their APK-comparable version (`2.5_alpha1`).
+
+The image filename and `build-manifest.json` record both versions. The image
+builder also checks `/kvmapp/version` against the requested bundle version.
+`/boot/image.json` records the original image and its bundled applications;
+this file is not owned by an APK and is not rewritten by component updates.
+About shows the installed image, its original applications, and the current
+application version separately. Existing installations retain their original
+`/boot/ver` identity; an APK update does not label them as a newly flashed image.
 
 ## Build
 
@@ -93,9 +109,9 @@ A changed kernel also needs a new release name: update `CONFIG_LOCALVERSION` in 
 
 ## Verification
 
-`build.sh verify` compares every output in `images/` with `expected.sha256` and rejects missing, changed or unlisted files. The b8 reference uses GCC 16.2 / Binutils 2.47 and the shared C906/T-Head `-O2` profile in `cpu-profile.json`.
+`build.sh verify` compares every output in `images/` with `expected.sha256` and rejects missing, changed or unlisted files. The release uses GCC 16.2 / Binutils 2.47 and the component profiles in `cpu-profile.json`: kernel and modules use `-O3` without LTO, while source-owned userspace uses scalar `-O2`.
 
-The Linux `Image`, release name and board device trees remain byte-identical to the previously released platform. The RTL8733BS driver now follows `-O2`; the AIC8800 driver includes the cfg80211 compatibility patch. U-Boot, the initramfs, FIT images, native media libraries, system service and native tools were rebuilt with the shared profile. Closed SOPHGO ISP/3A objects remain pinned binary inputs: relinking does not recompile those objects. Go uses its own compiler; the profile applies to its C/C++ interoperability code.
+Kernel, device trees and modules change with the reviewed C906 vector-context, video-clock and memory-profile updates. The AIC8800 driver includes the cfg80211 compatibility patch. U-Boot, the initramfs, FIT images, native media libraries, system service and native tools are built from the pinned inputs. Closed SOPHGO ISP/3A objects remain pinned binary inputs: relinking does not recompile those objects. Go uses its own compiler; the profile applies to its C/C++ interoperability code.
 
 Audit the effective compiler commands as well as the supplied flags:
 
@@ -105,7 +121,7 @@ python3 scripts/audit-kbuild-profile.py build/platform/modules
 python3 scripts/audit-kbuild-profile.py build/platform/uboot/build --kind bootloader
 ```
 
-The audit checks the last effective optimization, ISA and ABI options. Kernel vDSO objects retain Kbuild's explicit portable/CFI ISA choices and are reported separately; they still use `-O2` and C906 tuning. Kernel and bootloader builds do not enable floating-point or automatic vector code generation.
+The audit checks the last effective optimization, ISA and ABI options. Kernel vDSO objects retain Kbuild's explicit portable/CFI ISA choices and are reported separately; they retain the kernel optimization level and C906 tuning. Kernel and bootloader builds do not enable floating-point or automatic vector code generation.
 
 APK signatures depend on the signing key; the root filesystem also depends on the current official Alpine 3.24 package versions. They are listed in `release/installed-packages.txt`. Existing installations with the optional C906 overlay require the documented stock-package migration; installing a NanoKVM application update alone does not replace every Alpine package.
 

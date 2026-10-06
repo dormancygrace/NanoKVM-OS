@@ -962,6 +962,9 @@ const en = {
         cancelBtn: 'Cancel'
       },
       about: {
+        applicationVersion: 'Applications',
+        imageVersion: 'Installed image',
+        bundledVersion: 'Applications bundled with image',
         title: 'About',
         description: 'Community firmware for NanoKVM.',
         specialThanksTitle: 'Special thanks',

@@ -10,10 +10,12 @@ p.add_argument('--f2fs-tools',type=Path,required=True)
 p.add_argument('--output',type=Path,required=True)
 release_file=Path(__file__).resolve().parents[1]/'firmware/alpine/release.env'
 release_values=dict(line.split('=',1) for line in release_file.read_text().splitlines() if line and not line.startswith('#'))
-p.add_argument('--version',default=release_values['NANOKVM_VERSION'])
+p.add_argument('--version',default=release_values['NANOKVM_VERSION'], help='Bundled application version')
+p.add_argument('--image-version',default=release_values['NANOKVM_IMAGE_VERSION'])
 a=p.parse_args()
-if not a.version or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-' for c in a.version):
-    p.error('Invalid version')
+for version in (a.version, a.image_version):
+    if not version or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-' for c in version):
+        p.error('Invalid version')
 out=a.output.resolve();out.mkdir(parents=True,exist_ok=False)
 root=out/'root';root.mkdir()
 def run(*args):
@@ -30,6 +32,9 @@ bootset=root/'usr/lib/nanokvm/boot'
 # The kernel package carries a FIT template and device trees (see platform/boot/compose-fit).
 assert (bootset/'detect.dtb').is_file() and (bootset/'compose-fit').is_file()
 release=(bootset/'kernel.release').read_text().strip()
+bundled_version=(root/'kvmapp/version').read_text().strip()
+if bundled_version.removeprefix('v') != a.version.removeprefix('v'):
+    p.error('Application version does not match the rootfs bundle')
 assert (root/'lib/modules'/release).is_dir()
 assert (root/'etc/kvm/ssh_stop').is_file()
 assert not list((root/'root').glob('.ssh/*'))
@@ -61,7 +66,10 @@ files=out/'boot-files';files.mkdir()
 run('sh',bootset/'compose-fit',bootset,'detect',files/'boot.sd');shutil.copy2(a.fip,files/'fip.bin')
 (files/'uEnv.txt').write_text('showlogo=echo NanoKVM OS\n')
 (files/'hostname.prefix').write_text('kvm')
-(files/'ver').write_text('NanoKVM OS '+a.version+'\n')
+# Origin metadata belongs to the SD image, never to an upgradable APK.
+image_metadata={'image_version':a.image_version,'bundled_application_version':a.version}
+(files/'image.json').write_text(json.dumps(image_metadata,indent=2)+'\n')
+(files/'ver').write_text('NanoKVM OS Image '+a.image_version+'\n')
 for name in ['usb.dev','usb.disk0','wifi.sta','gt9xx']:(files/name).touch()
 for file in sorted(files.iterdir()):run(tool('mcopy'),'-i',bootimage,file,'::/'+file.name)
 run(tool('fsck.fat'),'-n',bootimage)
@@ -69,7 +77,7 @@ mbr=bytearray(512);mbr[510:]=b'\x55\xaa'
 for index,kind,start,sectors in [(0,0x0c,1,131072),(1,0x83,131073,1572864)]:
     offset=446+16*index
     struct.pack_into('<B3sB3sII',mbr,offset,0,b'\xfe\xff\xff',kind,b'\xfe\xff\xff',start,sectors)
-image=out/('NanoKVM-OS-'+a.version+'.img')
+image=out/('NanoKVM-OS-Image-'+a.image_version+'-apps-'+a.version+'.img')
 with image.open('xb') as dst:
     dst.write(mbr)
     for source in [bootimage,rootimage]:
@@ -77,7 +85,7 @@ with image.open('xb') as dst:
 assert image.stat().st_size==832*1024*1024+512
 archive=out/(image.name+'.zip')
 with zipfile.ZipFile(archive,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:z.write(image,image.name)
-manifest={'version':a.version,'kernel':release,'rootfs_archive_sha256':sha(a.rootfs_archive),'fip_sha256':sha(a.fip),'image_bytes':image.stat().st_size,'zip_bytes':archive.stat().st_size,'partitions':[{'number':1,'start':1,'sectors':131072,'filesystem':'FAT16'},{'number':2,'start':131073,'sectors':1572864,'filesystem':'F2FS'},{'number':3,'start':1705984,'sectors':'remaining SD capacity; created on first boot','filesystem':'exFAT'}]}
+manifest={'version':a.version,**image_metadata,'kernel':release,'rootfs_archive_sha256':sha(a.rootfs_archive),'fip_sha256':sha(a.fip),'image_bytes':image.stat().st_size,'zip_bytes':archive.stat().st_size,'partitions':[{'number':1,'start':1,'sectors':131072,'filesystem':'FAT16'},{'number':2,'start':131073,'sectors':1572864,'filesystem':'F2FS'},{'number':3,'start':1705984,'sectors':'remaining SD capacity; created on first boot','filesystem':'exFAT'}]}
 (out/'build-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(x)+'  '+x.name+'\n' for x in [image,archive,out/'build-manifest.json']))
 print(json.dumps(manifest,indent=2))

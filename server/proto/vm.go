@@ -8,11 +8,12 @@ type IP struct {
 }
 
 type GetInfoRsp struct {
-	IPs         []IP   `json:"ips"`
-	Mdns        string `json:"mdns"`
-	Image       string `json:"image"`
-	Application string `json:"application"`
-	DeviceKey   string `json:"deviceKey"`
+	IPs                []IP   `json:"ips"`
+	Mdns               string `json:"mdns"`
+	Image              string `json:"image"`
+	Application        string `json:"application"`
+	BundledApplication string `json:"bundledApplication,omitempty"`
+	DeviceKey          string `json:"deviceKey"`
 }
 
 type GetHardwareRsp struct {

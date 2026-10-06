@@ -56,6 +56,7 @@ export GIT_CEILING_DIRECTORIES=$out
 
 version=$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")
 # Official Alpine packages; the c906-scalar overlay is not built here.
+image_version=$(sed -n 's/^NANOKVM_IMAGE_VERSION=//p' "$repo/firmware/alpine/release.env")
 profile=stock
 release=7.2.9-nanokvm-os-r1
 # Build times recorded in the binaries. The kernel keeps the v2.0 value so
@@ -849,7 +850,7 @@ image() {
     rm -rf "${rel:?}/image"
     PATH=$bo/host/sbin:$host:$PATH "$host/python3" "$repo/scripts/build-alpine-sd-image.py" \
         --rootfs-archive "$rel/alpine-rootfs.tar.gz" --fip "$img/fip.bin" --f2fs-tools "$bo/host/sbin" \
-        --output "$rel/image" --version "$version"
+        --output "$rel/image" --version "$version" --image-version "$image_version"
 }
 
 verify() {

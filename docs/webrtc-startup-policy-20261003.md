@@ -56,3 +56,16 @@ windows is not established.
 Host CPU records: work/perf-webrtc-20261003/r17_cold_boot_{one,two}.json and
 r17_app_owned_{one,two}.json. Browser records:
 the r17 browser result files (kept outside the repository).
+
+### Component update compatibility
+
+Before enabling SRTP hardware AES, the server requires the loaded
+`sg2002_aes_probe` module to advertise `out_of_place_burst4=Y` in sysfs.
+The marker is provided by the out-of-place DMA/write-burst-4 module in PR #53
+(#52 on main). The ioctl ABI is unchanged. Updating the APK on disk alone
+cannot satisfy this check while the old module is still loaded.
+
+With an old, absent or unrecognised module, the server uses software SRTP and
+logs the reason; H.265 WebRTC remains usable without that CryptoDMA path.
+Load the updated module (normally by rebooting after the kernel/module update)
+and restart the app to enable hardware SRTP. Selection remains process-wide.

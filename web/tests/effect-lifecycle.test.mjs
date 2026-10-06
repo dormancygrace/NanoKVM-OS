@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 
+import { swapRequestSize } from '../src/lib/swap-request.ts';
+
 const deferred = () => {
   let resolve, reject;
   const promise = new Promise((yes, no) => {
@@ -224,6 +226,7 @@ test('memory effect replay and locale changes discard stale reads and keep one p
   const requests = [],
     pollers = new Set();
   const h = harness('../src/pages/desktop/menu/settings/memory/index.tsx', 'Memory', {
+    '@/lib/swap-request.ts': { swapRequestSize },
     antd: {
       Alert: 'Alert',
       Progress: 'Progress',

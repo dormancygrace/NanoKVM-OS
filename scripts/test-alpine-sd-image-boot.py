@@ -48,10 +48,13 @@ class SdImageBootTests(unittest.TestCase):
             out = tmp/'out'
             result = subprocess.run(['python3', str(BUILDER), '--rootfs-archive', str(archive), '--fip', str(fip),
                             '--f2fs-tools', str(f2fs), '--output', str(out)], capture_output=True, text=True)
-            # Later disk assembly steps may need more host tools; the boot set is assembled first.
+            self.assertEqual(result.returncode, 0, result.stderr[-1500:])
             self.assertTrue((out/'boot-files/boot.sd').exists(), result.stderr[-1500:])
             self.assertEqual((out/'boot-files/boot.sd').read_bytes(), COMPOSED)
             self.assertIn('compose-fit', (out/'assembly.log').read_text())
+            extracted = tmp/'boot-from-fat.sd'
+            subprocess.run(['mcopy', '-i', str(out/'boot-partition.img'), '::/boot.sd', str(extracted)], check=True)
+            self.assertEqual(extracted.read_bytes(), COMPOSED)
 
 
 if __name__ == '__main__':

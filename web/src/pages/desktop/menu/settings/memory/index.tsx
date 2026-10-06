@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import type { MemoryStatus, MemorySwap } from '@/api/vm.ts';
+import { swapRequestSize } from '@/lib/swap-request.ts';
 
 const mib = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MiB`;
 
@@ -132,6 +133,8 @@ export const Memory = () => {
     // zram 0: "auto", half of the Linux memory.
     const sizes = kind === 'zram' ? [0, 32, 64, 128, 162] : [128, 256, 512];
     const half = Math.floor((data?.totalBytes ?? 0) / 2 / 1048576);
+    // Auto zram is size 0 in requests; sizeMiB is then the computed size.
+    const requestSize = swapRequestSize(kind, swap);
     return (
       <div className="space-y-3 rounded-lg border border-neutral-700/70 p-4">
         <div className="flex items-center justify-between gap-3">
@@ -143,7 +146,7 @@ export const Memory = () => {
             checked={swap.enabled}
             loading={busy === kind}
             disabled={!!busy || !swap.available}
-            onChange={(enabled) => void change(kind, enabled, swap.sizeMiB)}
+            onChange={(enabled) => void change(kind, enabled, requestSize)}
           />
         </div>
         <p className="text-sm text-neutral-400">{t(`settings.memory.${kind}Description`)}</p>
@@ -187,7 +190,7 @@ export const Memory = () => {
                 checked={!!swap.recompress}
                 loading={busy === 'zram'}
                 disabled={!!busy || (!swap.recompressAvailable && !swap.recompress)}
-                onChange={(enabled) => void change('zram', swap.enabled, swap.sizeMiB, enabled)}
+                onChange={(enabled) => void change('zram', swap.enabled, requestSize, enabled)}
               />
             </div>
             <p className="pt-1 text-xs">{t('settings.memory.recompressDescription')}</p>

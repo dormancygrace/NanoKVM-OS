@@ -16,6 +16,7 @@ func TestMediaEngineOffersOnlySelectedVideoCodec(t *testing.T) {
 		reject     string
 	}{
 		{name: "H264", codec: stream.VideoCodecH264, wantRTPMap: "H264/90000", reject: "H265/90000"},
+		{name: "H265", codec: stream.VideoCodecH265, wantRTPMap: "H265/90000", reject: "H264/90000"},
 	}
 
 	for _, test := range tests {

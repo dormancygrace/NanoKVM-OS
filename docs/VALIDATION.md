@@ -45,7 +45,7 @@ The final beta-2 kernel #5 and OpenSSL without kTLS were installed and booted on
 ## Known issues and remaining qualification
 
 - **QHD + H.265 + WebRTC is unstable and can freeze or restart the device within seconds.** Use H.265 Direct for QHD. This specific combination is marked in the interface; the label does not apply to all QHD or all WebRTC modes.
-- Earlier sustained H.265/CryptoDMA runs caused whole-device hangs. Their cause is unresolved. Watchdog recovery is not guaranteed for a bus/SoC lockup; physical power cycling may be required.
+- Concurrent H.265 encoding and CryptoDMA could hang the whole device. In-place CryptoDMA requests (source equal to destination, as in the SOPHGO reference driver) with long writes reproduced it within 10–168 s at QHD; short requests, read-only hash requests and register access alone did not. The driver now writes every cipher result to a separate DMA buffer. Out-of-place runs totalled about 47 minutes without a hang, but one 30-second run still hung, so the risk is reduced, not eliminated. The hardware watchdog does recover this hang; `nanokvm-watchdog` must be running (restarting `nanokvm-app` stops it).
 - Network responsiveness can degrade under load. A reported ping sample included 2–337 ms replies and repeated timeouts, without synchronized load/driver counters. It does not prove Wi-Fi disassociation. Paired idle/load/recovery browser, IRQ, queue and network measurements are still needed.
 - Forced termination can leave native media buffers unusable. Application rollback is not a hardware reset.
 - Fresh-card first boot, hardware Boot flashing of this exact image, power-loss recovery, Cube-specific operation, Realtek association and broad multi-browser endurance are not yet qualified.

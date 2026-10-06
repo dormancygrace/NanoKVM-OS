@@ -22,6 +22,17 @@
 #define DESC_LO 0x08
 #define DESC_HI 0x0c
 #define STATUS 0x10
+/*
+ * DMA_CTRL: write max burst (31:24), read max burst (23:16), descriptor mode,
+ * enable. The vendor Linux driver writes bursts of 6 (its secure boot uses
+ * 16). Concurrent HDMI capture, scaling and H.265 encoding with CryptoDMA
+ * writes still hung the SoC with out-of-place requests: mean time to hang
+ * about 48 s with bursts of 16 and 78 s with 6, at 1250 requests of 1216
+ * bytes per second and 1920x1080@100. Bursts of 4 ran without a hang there
+ * (15 min) and with 3840x2160 H.265 over WebRTC with hardware SRTP (13 min),
+ * for 2.6 % fewer 1216-byte requests per second. Reads (hashes) never hung.
+ */
+#define DMA_CTRL_VALUE ((4 << 24) | (16 << 16) | 3)
 #define DESC_BYTES 128
 static struct platform_device *pdev;
 static void __iomem *regs;
@@ -97,7 +108,7 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  writel(7, regs + STATUS);
  writel(lower_32_bits(desc_dma), regs + DESC_LO);
  writel(upper_32_bits(desc_dma), regs + DESC_HI);
- writel((6 << 24) | (16 << 16) | 3, regs + CTRL);
+ writel(DMA_CTRL_VALUE, regs + CTRL);
  err = readl_poll_timeout(regs + STATUS, status, status != 0, 1, 20000);
  if (err || status != 1) {
   /* Completion/error bits beyond bit0 are not assumed to prove DMA idle.

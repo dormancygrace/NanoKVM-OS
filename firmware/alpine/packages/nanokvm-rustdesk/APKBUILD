@@ -1,0 +1,35 @@
+# Optional package; deliberately absent from platform/packages.list.
+pkgname=nanokvm-rustdesk
+pkgver=0.5.3
+pkgrel=0
+pkgdesc="RustDesk endpoint for NanoKVM HDMI capture and USB HID"
+url="https://github.com/onekvm/onekvm-extension-rustdesk"
+arch="riscv64"
+license="AGPL-3.0-only"
+depends="nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 nanokvm-rustdesk-usb-defaults=1 openrc"
+makedepends="cargo rust"
+install="$pkgname.pre-upgrade $pkgname.post-upgrade $pkgname.pre-deinstall"
+sourceurl="https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/$pkgname-$pkgver-r$pkgrel/$pkgname-$pkgver-source.tar.gz"
+source="$sourceurl $pkgname.initd"
+builddir="$srcdir/$pkgname-$pkgver"
+options="!strip !tracedeps"
+
+build() {
+    cargo build --locked --offline --release
+}
+check() {
+    cargo test --locked --offline
+}
+package() {
+    install -Dm755 target/release/nanokvm-rustdesk "$pkgdir/usr/bin/nanokvm-rustdesk"
+    install -Dm755 "$srcdir/$pkgname.initd" "$pkgdir/etc/init.d/$pkgname"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
+    install -Dm644 upstream.json "$pkgdir/usr/share/$pkgname/upstream.json"
+    local digest=$(sha256sum "$srcdir/$pkgname-$pkgver-source.tar.gz" | cut -d ' ' -f 1)
+    printf '{"url":"%s","sha256":"%s","package_version":"%s-r%s"}\n' \
+        "$sourceurl" "$digest" "$pkgver" "$pkgrel" > "$pkgdir/usr/share/$pkgname/source.json"
+}
+
+sha512sums="7bad027db7db5b10b936a3d7976e67519e373847c492d16dc4b3bdf164de22d69e6856dbf22df33f36724e39be8680fbcbc535c1f69aa3bf40a360b3b6af4949  nanokvm-rustdesk-0.5.3-source.tar.gz
+56ccd6558b9a5f58ac62aac11a16ab8647343bb206cacb05b5082289382841c89426e654cd6bcdb5378e0395d58905d1ce939d1a44ad4c7a485d8745e4508a1a  nanokvm-rustdesk.initd"

@@ -16,6 +16,19 @@ spec.loader.exec_module(u)
 
 
 class WatchTests(unittest.TestCase):
+    def test_json_c_tracks_stable_release_tags(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        source = next(s for s in sources if s['name'] == 'json_c')
+        tags = [{'name': n} for n in ('json-c-0.19-20260627', 'json-c-0.19',
+                                     'json-c-0.19.99', 'json-c-0.20-rc1-20261001')]
+        with patch.object(u, 'github', return_value=tags):
+            result = u.check(source)
+            self.assertEqual(result['current'], '0.19')
+            self.assertEqual(result['latest'], '0.19')
+            self.assertEqual(result['status'], 'current')
+        with patch.object(u, 'github', return_value=tags + [{'name': 'json-c-0.20-20270101'}]):
+            self.assertEqual(u.check(source)['status'], 'update available')
+
     def test_inventory_matches_sources(self):
         import json
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
@@ -39,8 +52,20 @@ class WatchTests(unittest.TestCase):
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
         selected = [s for s in sources if 'openssl' in s['name'].lower()]
         self.assertEqual(len(selected), 1)
-        self.assertEqual(selected[0]['kind'], 'alpine-package')
+        self.assertEqual(selected[0]['kind'], 'alpine-stock')
         self.assertNotIn('buildroot', selected[0]['path'])
+
+    def test_stock_alpine_does_not_require_c906_rebuild(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        source = next(s for s in sources if s['kind'] == 'alpine-stock')
+        with patch.object(u, 'request_bytes', return_value=self.alpine_index('3.5.9-r0')), patch.object(u, 'request') as recipe:
+            result = u.check(source)
+            self.assertEqual(result['status'], 'repository-managed')
+            self.assertEqual(result['latest'], '3.5.9-r0')
+            self.assertIn('not inspected', result['detail'])
+            recipe.assert_not_called()
+        with patch.object(u, 'request_bytes', return_value=self.alpine_index('3.5.9-r0', missing='libssl3')):
+            self.assertEqual(u.check(source)['status'], 'error')
 
     def test_retired_buildroot_packages_are_not_current_candidates(self):
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
@@ -49,7 +74,12 @@ class WatchTests(unittest.TestCase):
 
     def test_alpine_baseline_revision_not_local_increment(self):
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
-        source = next(s for s in sources if s['kind'] == 'alpine-package')
+        source = dict(name='Optional C906 recipe', path='scripts/build-alpine-tuned-packages.sh',
+                      pattern=r'^APORTS_COMMIT=\$\{APORTS_COMMIT:-([0-9a-f]{40})\}',
+                      kind='alpine-package', aport='main/openssl', arch='riscv64',
+                      packages=['openssl', 'libssl3', 'libcrypto3'],
+                      branch_pin=dict(path='scripts/build-alpine-packages.sh',
+                                      pattern=r'ALPINE_VERSION="([0-9.]+)"'))
         for upstream, expected in [('3.5.8-r0', 'current'), ('3.5.8-r1', 'C906 rebuild required'),
                                    ('3.5.8-r10', 'C906 rebuild required'), ('3.5.9-r0', 'C906 rebuild required'),
                                    ('3.5.7-r10', 'pinned recipe ahead')]:
@@ -63,7 +93,12 @@ class WatchTests(unittest.TestCase):
 
     def test_alpine_missing_subpackage_and_recipe_failure_are_visible(self):
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
-        source = next(s for s in sources if s['kind'] == 'alpine-package')
+        source = dict(name='Optional C906 recipe', path='scripts/build-alpine-tuned-packages.sh',
+                      pattern=r'^APORTS_COMMIT=\$\{APORTS_COMMIT:-([0-9a-f]{40})\}',
+                      kind='alpine-package', aport='main/openssl', arch='riscv64',
+                      packages=['openssl', 'libssl3', 'libcrypto3'],
+                      branch_pin=dict(path='scripts/build-alpine-packages.sh',
+                                      pattern=r'ALPINE_VERSION="([0-9.]+)"'))
         with patch.object(u, 'request', return_value='pkgver=3.5.8\npkgrel=0\n'), patch.object(u, 'request_bytes', return_value=self.alpine_index('3.5.9-r0', missing='libssl3')):
             result = u.check(source)
             self.assertEqual(result['status'], 'error')

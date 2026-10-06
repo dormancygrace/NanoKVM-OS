@@ -1,0 +1,14 @@
+# RustDesk USB defaults and input failure isolation
+
+The behavior introduced in 0.5.0 is retained in accepted package **0.5.3-r0**.
+Later HTTP/HID fixes, 57 passing Rust tests and actual user control acceptance
+are recorded in [finalization](rustdesk-0.5.3-finalization.md). The original
+0.5.0 host qualification below is historical.
+
+Add-on 0.5.0-r0 remains based on RustDesk protocol 1.5.0. When installed and remote access enabled, configuration applies USB keyboard, relative mouse and absolute mouse through vm.EnsureRemoteAccessUSB. The daemon also posts to the root-only control bridge /api/hid/prepare once before accepting connections, covering cold boot, upgrades and service restarts. Disabled remote access cannot prepare USB. Composition updates retain existing unrelated functions and pointer profile, use the existing HID mutex and transactional apply/rebind, and reject endpoint-budget overflow without silently removing another function.
+
+The management screen includes Transmit sound (audio_enabled, defaults true for new/legacy configuration). Turning it on while remote access is enabled prepares USB audio. Turning it off suppresses RustDesk capture and Audio permission, even if a client requests unmute; it leaves shared USB audio for browser viewers. Disabling RustDesk leaves shared keyboard/mouse/audio available. USB flags persist normally on /boot. Older add-ons do not receive the new audio field from a hidden control; package dependency nanokvm-rustdesk-usb-defaults=1 protects the preparation endpoint contract.
+
+Input errors such as HID409 (input preemption) and HID504 (USB unavailable) disable input for that connection and notify Keyboard permission false. The incoming reader continues processing heartbeats and audio options after the input channel closes, and video/audio remain active. Input is reported unavailable before sending cleanup releases, individual HID requests are bounded to three seconds and startup preparation to 50 seconds. Normal input-worker shutdown does not send a permission message to a disconnected peer. Reconnect after input is restored.
+
+Host qualification: 55 Rust tests passed, 3 external-device tests ignored; tests cover backend 409/504, later moves/keys/input-enable, peer messages and a later video frame, configurable audio denial and mute/resume. Go teststub race tests for rustdesk/vm/router passed, including required/default composition preservation, idempotence and budget errors, private preparation callback without lease and failed preparation preserving service/config state. ESLint, TypeScript and Vite passed. Connection, input and sound testing on the device is left to the user by explicit request.

@@ -1,0 +1,22 @@
+--- a/modules/sys/Makefile
++++ b/modules/sys/Makefile
+@@ -41,7 +41,7 @@
+ 
+ $(ODIR)/%.$(TARGET_MACHINE).$(CHIP_ARCH_L).o : $(SDIR)/%.c
+ 	@mkdir -p $(dir $@)
+-	@$(CC) $(DEPFLAGS) $(CFLAGS) $(EXTRA_CFLAGS) -O3 -c $< -o $@
++	@$(CC) $(DEPFLAGS) $(CFLAGS) $(EXTRA_CFLAGS) -c $< -o $@
+ 	@echo [$(notdir $(CC))] $(notdir $@)
+ 
+ $(TARGET_A): $(OBJS)
+--- a/modules/gdc/Makefile
++++ b/modules/gdc/Makefile
+@@ -26,7 +26,7 @@
+ 
+ $(ODIR)/%.$(TARGET_MACHINE).$(CHIP_ARCH_L).o : $(SDIR)/%.c
+ 	$(Q)mkdir -p $(dir $@)
+-	@$(CC) $(DEPFLAGS) $(CFLAGS) $(EXTRA_CFLAGS) -O3 -c $< -o $@
++	@$(CC) $(DEPFLAGS) $(CFLAGS) $(EXTRA_CFLAGS) -c $< -o $@
+ 	@echo [$(notdir $(CC))] $(notdir $@)
+ 
+ $(SDIR)/%.o: $(SDIR)/%.c

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"NanoKVM-Server/common"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/inputcontrol"
 
@@ -34,6 +35,10 @@ var modeMap = map[string]string{
 	"0x0511": ModeNormal,
 	"0x0623": ModeHidOnly,
 	"0x0624": ModeHidOnly,
+	"0x0710": ModeNormal,
+	"0x0711": ModeNormal,
+	"0x0720": ModeHidOnly,
+	"0x0721": ModeHidOnly,
 }
 
 func (s *Service) GetHidMode(c *gin.Context) {
@@ -58,7 +63,11 @@ func (s *Service) GetInputStatus(c *gin.Context) {
 	defer h.Unlock()
 	keyboard, relative, absolute := disabledHIDFunctions("/boot")
 	var rsp proto.Response
-	rsp.OkRspWithData(c, gin.H{"available": !keyboard || !relative || !absolute})
+	rsp.OkRspWithData(c, gin.H{
+		"available": !keyboard || !relative || !absolute,
+		"keyboard":  !keyboard, "relative": !relative, "absolute": !absolute,
+		"pointerProfile": map[bool]string{false: "default", true: "windows"}[common.WindowsPointerEnabled()],
+	})
 }
 
 func (s *Service) GetKeyboardLedStatus(c *gin.Context) {

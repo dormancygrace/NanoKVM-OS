@@ -82,3 +82,47 @@ func TestRetryCancelledImmediately(t *testing.T) {
 		t.Fatal("cancellation blocked")
 	}
 }
+
+func TestSubscriptionCloseDropsQueuedAudioAndStopsOnlyLastListener(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	first := &listener{frames: make(chan packet, 4), done: make(chan struct{})}
+	second := &listener{frames: make(chan packet, 4), done: make(chan struct{})}
+	h := &hub{clients: map[*listener]struct{}{first: {}, second: {}}, run: &captureRun{cancel: cancel, done: make(chan struct{})}}
+	s1 := &Subscription{hub: h, client: first}
+	s2 := &Subscription{hub: h, client: second}
+	h.publish(packet{data: []byte{1, 2, 3}, index: 42})
+	p, err := s2.Read(context.Background())
+	if err != nil || p.Index != 42 || !bytes.Equal(p.Data, []byte{1, 2, 3}) {
+		t.Fatalf("shared packet %v %v", p, err)
+	}
+	s1.Close()
+	s1.Close()
+	if ctx.Err() != nil {
+		t.Fatal("first close stopped another audio listener")
+	}
+	if _, err := s1.Read(context.Background()); err != io.EOF {
+		t.Fatal("queued audio leaked after close", err)
+	}
+	s2.Close()
+	if ctx.Err() == nil || len(h.clients) != 0 {
+		t.Fatal("last listener did not stop capture")
+	}
+}
+
+func TestSubscriptionReadCancellationAndSharedListenerCap(t *testing.T) {
+	l := &listener{frames: make(chan packet, 4), done: make(chan struct{})}
+	s := &Subscription{client: l}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := s.Read(ctx); err != context.Canceled {
+		t.Fatal(err)
+	}
+	h := hub{clients: make(map[*listener]struct{})}
+	for i := 0; i < 8; i++ {
+		h.clients[&listener{}] = struct{}{}
+	}
+	if _, err := h.add(); err == nil {
+		t.Fatal("audio listener cap exceeded")
+	}
+}

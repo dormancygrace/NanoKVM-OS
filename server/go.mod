@@ -13,12 +13,12 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/mervick/aes-everywhere/go/aes256 v0.0.0-20240803013625-6759956693c0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
-	github.com/pion/dtls/v3 v3.1.9
-	github.com/pion/ice/v4 v4.4.4
+	github.com/pion/dtls/v3 v3.1.10
+	github.com/pion/ice/v4 v4.4.5
 	github.com/pion/interceptor v0.1.49
 	github.com/pion/rtcp v1.2.19
 	github.com/pion/rtp v1.10.5
-	github.com/pion/srtp/v3 v3.1.0
+	github.com/pion/srtp/v3 v3.1.3
 	github.com/pion/stun/v4 v4.0.1
 	github.com/pion/transport/v5 v5.1.1
 	github.com/pion/turn/v5 v5.1.2
@@ -83,7 +83,7 @@ require (
 	google.golang.org/protobuf v1.36.12 // indirect
 )
 
-// Packet-level AES-CTR hook; upstream base is v3.1.0.
+// Packet-level AES-CTR hook; upstream base is v3.1.3.
 replace github.com/pion/srtp/v3 => ./third_party/pion-srtp
 
 replace github.com/pion/ice/v4 => ./third_party/pion-ice

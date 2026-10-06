@@ -4,6 +4,7 @@
 package pathmtu
 
 import (
+	"NanoKVM-Server/common/udpbatch"
 	"NanoKVM-Server/common/udpfast"
 	"encoding/binary"
 	"fmt"
@@ -30,6 +31,8 @@ type Net struct {
 	mu           sync.Mutex
 	dontFragment map[socketKey]bool
 	callback     func(ice.PathMTUResult)
+	batch        bool
+	batchConns   map[*udpbatch.Conn]struct{}
 }
 
 func NewNet(callback func(ice.PathMTUResult), fast bool) (*Net, error) {
@@ -37,7 +40,7 @@ func NewNet(callback func(ice.PathMTUResult), fast bool) (*Net, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Net{Net: base, dontFragment: make(map[socketKey]bool), callback: callback, fast: fast}, nil
+	return &Net{Net: base, dontFragment: make(map[socketKey]bool), callback: callback, fast: fast, batchConns: make(map[*udpbatch.Conn]struct{})}, nil
 }
 
 func (n *Net) ListenUDP(network string, addr *net.UDPAddr) (transport.UDPConn, error) {
@@ -69,10 +72,88 @@ func (n *Net) ListenUDP(network string, addr *net.UDPAddr) (transport.UDPConn, e
 	n.dontFragment[socketKey{local.Port, false}] = v4
 	n.dontFragment[socketKey{local.Port, true}] = v6
 	n.mu.Unlock()
+	if n.batchEnabled() {
+		var wrapped *udpbatch.Conn
+		wrapped, ok = udpbatch.Wrap(udp, n.fast, func() { n.removeBatchConn(wrapped) })
+		if ok && n.addBatchConn(wrapped) {
+			return wrapped, nil
+		}
+	}
 	if n.fast {
 		return udpfast.Wrap(udp), nil
 	}
 	return conn, nil
+}
+
+const maxBatchConns = 16
+
+// EnableFrameBatching opts this Net into the bounded frame-scoped adapter.
+// It must be called before ICE starts opening sockets; sockets opened after the
+// limit are deliberately left on the ordinary synchronous implementation.
+func (n *Net) EnableFrameBatching() {
+	n.mu.Lock()
+	n.batch = true
+	n.mu.Unlock()
+}
+
+func (n *Net) batchEnabled() bool {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.batch
+}
+
+func (n *Net) addBatchConn(c *udpbatch.Conn) bool {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if !n.batch || len(n.batchConns) >= maxBatchConns {
+		return false
+	}
+	if n.batchConns == nil {
+		n.batchConns = make(map[*udpbatch.Conn]struct{})
+	}
+	n.batchConns[c] = struct{}{}
+	return true
+}
+
+func (n *Net) removeBatchConn(c *udpbatch.Conn) {
+	n.mu.Lock()
+	delete(n.batchConns, c)
+	n.mu.Unlock()
+}
+
+// BeginFrame starts buffering media writes on every wrapped socket.
+func (n *Net) BeginFrame() {
+	var conns [maxBatchConns]*udpbatch.Conn
+	n.mu.Lock()
+	count := 0
+	for c := range n.batchConns {
+		conns[count] = c
+		count++
+	}
+	n.mu.Unlock()
+	for i := 0; i < count; i++ {
+		conns[i].BeginFrame()
+	}
+}
+
+// EndFrame flushes each wrapped socket and returns the first error while still
+// flushing all other active sockets.
+func (n *Net) EndFrame() error {
+	var conns [maxBatchConns]*udpbatch.Conn
+	n.mu.Lock()
+	count := 0
+	for c := range n.batchConns {
+		conns[count] = c
+		count++
+	}
+	n.mu.Unlock()
+	var first error
+	for i := 0; i < count; i++ {
+		if err := conns[i].EndFrame(); err != nil && first == nil {
+			first = err
+		}
+	}
+	return first
 }
 
 // Pion's TURN/UDP control socket is opened through ListenPacket rather than

@@ -2,6 +2,7 @@
 package logs
 
 import (
+	"crypto/sha256"
 	"errors"
 	"io"
 	"os"
@@ -76,8 +77,11 @@ func (b *Buffer) tail() ([]byte, bool) {
 // Collector serializes reads and shares a five-second cache across all clients.
 // The client supplies a source ID, never a filename, command or byte limit.
 type cachedLog struct {
-	snapshot Snapshot
-	at       time.Time
+	snapshot  Snapshot
+	at        time.Time
+	rawDigest [sha256.Size]byte
+	truncated bool
+	rawValid  bool
 }
 
 type Collector struct {
@@ -127,7 +131,8 @@ func (c *Collector) read(source, boot string, internal bool) (Snapshot, error) {
 	defer c.mu.Unlock()
 	now := c.now()
 	key := boot + "/" + source
-	if cached, ok := c.cache[key]; ok && now.Sub(cached.at) < RefreshInterval {
+	cached, hasCache := c.cache[key]
+	if hasCache && !internal && now.Sub(cached.at) < RefreshInterval {
 		return cached.snapshot, nil
 	}
 	// Six cache misses per five seconds is shared across authenticated clients.
@@ -150,7 +155,7 @@ func (c *Collector) read(source, boot string, internal bool) (Snapshot, error) {
 				snapshot = saved
 			}
 		}
-		c.remember(key, snapshot, now)
+		c.remember(key, snapshot, now, [sha256.Size]byte{}, false, false)
 		return snapshot, nil
 	}
 	var data []byte
@@ -171,16 +176,25 @@ func (c *Collector) read(source, boot string, internal bool) (Snapshot, error) {
 			truncated = n == MaxBytes
 		}
 	}
+	var rawDigest [sha256.Size]byte
 	if err == nil {
-		snapshot.Content, snapshot.Lines, snapshot.Truncated = sanitizeTail(data, truncated)
-		snapshot.State = "ready"
-		if snapshot.Content == "" {
-			snapshot.State = "empty"
+		rawDigest = sha256.Sum256(data)
+		if hasCache && cached.rawValid && cached.rawDigest == rawDigest && cached.truncated == truncated {
+			// Internal archive flushes bypass the TTL but still reuse the
+			// already-redacted content after fresh source I/O.
+			snapshot = cached.snapshot
+			snapshot.CollectedAt = now.UnixMilli()
+		} else {
+			snapshot.Content, snapshot.Lines, snapshot.Truncated = sanitizeTail(data, truncated)
+			snapshot.State = "ready"
+			if snapshot.Content == "" {
+				snapshot.State = "empty"
+			}
 		}
 	}
 	// Cache failures too: an absent or unreadable source cannot trigger a read
 	// storm. No raw OS error (which may contain paths) is exposed.
-	c.remember(key, snapshot, now)
+	c.remember(key, snapshot, now, rawDigest, truncated, err == nil)
 	return snapshot, nil
 }
 
@@ -260,7 +274,7 @@ func trimPartialLine(data []byte) []byte {
 }
 
 // Keep a MiB viewer from retaining all nine source/boot combinations in RAM.
-func (c *Collector) remember(key string, snapshot Snapshot, now time.Time) {
+func (c *Collector) remember(key string, snapshot Snapshot, now time.Time, rawDigest [sha256.Size]byte, truncated, rawValid bool) {
 	if _, exists := c.cache[key]; !exists && len(c.cache) >= maxCachedSnapshots {
 		oldestKey := ""
 		var oldest time.Time
@@ -271,5 +285,11 @@ func (c *Collector) remember(key string, snapshot Snapshot, now time.Time) {
 		}
 		delete(c.cache, oldestKey)
 	}
-	c.cache[key] = cachedLog{snapshot, now}
+	c.cache[key] = cachedLog{
+		snapshot:  snapshot,
+		at:        now,
+		rawDigest: rawDigest,
+		truncated: truncated,
+		rawValid:  rawValid,
+	}
 }

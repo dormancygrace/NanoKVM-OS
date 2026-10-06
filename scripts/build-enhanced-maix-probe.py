@@ -15,12 +15,15 @@ if 'NANOKVM_BUILDROOT_OUTPUT' in os.environ:
     flags+=['-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector','-mtune=thead-c906','-mno-fence-tso','-mabi=lp64d']
 else:
     cc='g++'
-    flags+=['-fsanitize=address,undefined','-fno-omit-frame-pointer']
+    flags+=['-fsanitize=address,undefined','-fno-omit-frame-pointer','-fno-pie','-no-pie']
 flags+=['-I'+str(p) for p in [out,maix/'components/basic/include',maix/'components/peripheral/include']]
 sources=[repo/'firmware/probes/maix-peripheral-contract.cpp',
-         maix/'components/peripheral/port/maixcam/maix_i2c.cpp',
+         maix/'components/peripheral/port/linux_common/maix_i2c.cpp',
          maix/'components/basic/src/maix_err.cpp',maix/'components/basic/src/maix_log.cpp']
 subprocess.run([cc,*flags,*map(str,sources),'-Wl,--gc-sections',
     '-Wl,--wrap=open,--wrap=close,--wrap=ioctl,--wrap=read,--wrap=write',
     '-o',str(out/'maix-peripheral-contract')],check=True)
 print(out/'maix-peripheral-contract')
+if 'NANOKVM_BUILDROOT_OUTPUT' not in os.environ:
+    subprocess.run([str(out/'maix-peripheral-contract')], env=dict(os.environ,
+        ASAN_OPTIONS='detect_leaks=1:halt_on_error=1', UBSAN_OPTIONS='halt_on_error=1'), check=True)

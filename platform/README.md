@@ -1,20 +1,21 @@
 # Building NanoKVM OS
 
 `platform/build.sh` builds the complete NanoKVM OS SD card image from this repository with one command:
-- the toolchain, the Linux kernel and all kernel modules, U-Boot, `fip.bin`, the initramfs and the `boot.sd` images;
+- the toolchain, the Linux kernel and all kernel modules, U-Boot, OpenSBI, `fip.bin`, the initramfs and the `boot.sd` images;
 - the SOPHGO media libraries, the board service `kvm_system`, the server, the update helpers and the web UI;
 - the board tools, the EDID profiles and the firmware files;
 - the six `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
-Every upstream input is pinned in `sources.lock` and checked when it is downloaded. The outputs of the build steps are checked against `expected.sha256`.
+Every upstream input is pinned in `sources.lock` and checked when it is downloaded. The outputs of the build steps are checked against `expected.sha256`. The OpenSBI/FIP candidate passed host checks and ROM UART RAM boot on SG2002 with Linux 7.2.9, timer/PLIC, fixed PMU counters and live video. Persistent installation and candidate SD cold boot remain untested.
 
 | Output | Shipped in |
 |---|---|
-| `images/Image` (Linux `7.2.6-nanokvm-os-r1`) | every `boot.sd` |
-| `images/lib/modules/7.2.6-nanokvm-os-r1/` (62 in-tree and 17 out-of-tree modules, `modules.*`) | `nanokvm-kmod-sg2002` |
+| `images/Image` (Linux `7.2.9-nanokvm-os-r1`) | every `boot.sd` |
+| `images/lib/modules/7.2.9-nanokvm-os-r1/` (65 in-tree and 17 out-of-tree modules, `modules.*`) | `nanokvm-kmod-sg2002` |
 | `images/boot/*.sd`, `*.sha256`, `kernel.release` (5 boards × CMA/fixed video memory) | `nanokvm-kernel-sg2002`, `/usr/lib/nanokvm/boot` |
 | `images/dtb/*.dtb`, `images/initramfs.cpio.zst` | inside the `boot.sd` images |
 | `images/u-boot.bin`, `images/fip.bin` | boot partition of the SD image |
+| `images/opensbi/*`, `images/fip-manifest.json` | host build provenance and loader checks |
 | `images/native/*.so` (19 libraries) | `nanokvm-app`, `/kvmapp/server/dl_lib` |
 | `images/system/kvm_system` | `nanokvm-app`, `/kvmapp/kvm_system` |
 | `images/server/NanoKVM-Server`, `nkos-update`, `nkos-apply-updates` | `nanokvm-app`, `nanokvm-base` |
@@ -51,11 +52,12 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`). Re
 
 | Path | Contents |
 |---|---|
+| `opensbi/` | upstream generic SG2002 configuration, M-mode DT, FDT handoff and C906 draft VS compatibility patches |
 | `sources.lock` | Every upstream input: archives by SHA-256, Git trees by commit and tree id |
 | `build.sh` | All build steps |
 | `expected.sha256` | Hash of every output in `images/`; `build.sh verify` fails if an output is missing, differs or is not listed |
 | `packages.list` | The contents of the six APK packages: each file, its mode and where it comes from |
-| `kernel/` | `config` and patches for kernel.org Linux 7.2.6 |
+| `kernel/` | `config` and patches for kernel.org Linux 7.2.9 |
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi and cryptodev; `sg2002-aes/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.07 |
 | `fip/base-fip.bin` | First-stage boot firmware; the build replaces only U-Boot in it |
@@ -118,13 +120,13 @@ The image contains GPL-licensed code:
 - Alpine packages.
 
 `platform/build.sh source` writes `build/platform/NanoKVM-OS-<version>-source.tar.xz` after a build. Run it on a clean checkout. The archive contains:
-- the GPL-licensed inputs from `sources.lock`: Buildroot, Linux, U-Boot, `osdrv`, the AIC8800 package, cryptodev, the Sipeed SDK paths and BusyBox;
+- the GPL-licensed inputs from `sources.lock`: Buildroot, Linux, U-Boot, `osdrv`, the AIC8800 package, cryptodev, the Sipeed SDK paths and BusyBox, plus the BSD-licensed upstream OpenSBI source;
 - the Buildroot downloads of the initramfs packages;
 - this repository at the release commit, the source commit and `SHA256SUMS`.
 
 The other inputs of `sources.lock` are not redistributed; see [docs/DISTRIBUTION.md](../docs/DISTRIBUTION.md). Attach the archive to the GitHub release next to the image. The v2.0-b7 archive (`NanoKVM-OS-v2.0-b7-platform-source.tar.xz`) covers the kernel, modules and boot images only; it also contains util-linux 2.41.5 and `B7-INITRAMFS.txt`, because that initramfs was assembled before this build existed.
 
-The first-stage firmware in `fip/base-fip.bin` is unchanged from the stock Sipeed NanoKVM firmware: FSBL/BL2 (BSD-3-Clause), OpenSBI 0.9 (BSD-2-Clause), and the SOPHGO DDR parameters and small-core loader. Its source is in [sipeed/LicheeRV-Nano-Build](https://github.com/sipeed/LicheeRV-Nano-Build) at the `sipeed-sdk` commit in `sources.lock` (`fsbl/`, `opensbi/`).
+The reference `fip/base-fip.bin` contains stock FSBL/BL2 (BSD-3-Clause), OpenSBI 0.9 (BSD-2-Clause), DDR parameters and small-core fields. The output `images/fip.bin` preserves FSBL/BL2, BLCP, DDR parameters and BLCP_2ND bytes and replaces MONITOR with pinned upstream OpenSBI 1.9 and LOADER_2ND with U-Boot. Vendor reference source is in [sipeed/LicheeRV-Nano-Build](https://github.com/sipeed/LicheeRV-Nano-Build) at the `sipeed-sdk` commit in `sources.lock` (`fsbl/`, `opensbi/`). OpenSBI source is separately pinned and included by the source step. See [the OpenSBI port and recovery procedure](opensbi/README.md).
 
 Alpine publishes the build recipes ([aports](https://gitlab.alpinelinux.org/alpine/aports)) and source archives of its packages. The installed versions are listed in `/lib/apk/db/installed` of each image and in `release/installed-packages.txt`.
 
@@ -146,3 +148,11 @@ Recipe cleanup changes the toolchain input fingerprint. Existing output must not
 be reused under a new fingerprint; the next full platform build must still pass
 `verify` against `expected.sha256`. A dependency/configuration check alone does
 not qualify newly built boot images.
+
+## Component optimization profiles
+
+Kernel and modules use GCC `-O3` without LTO; source-owned userspace
+uses scalar `-O2`. USB audio explicitly selects float Opus with the
+`audio` profile. Handwritten vendor RVV/assembly remains available.
+See [component profiles](../docs/component-build-profiles.md) for the optional
+RustDesk performance build, measurement limits and release checksum policy.

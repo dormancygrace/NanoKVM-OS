@@ -7,10 +7,11 @@
 # Steps, in order (default: all of them):
 #   fetch      download and verify every input in sources.lock
 #   toolchain  Buildroot 2026.08: cross toolchain, host tools, initramfs userland
-#   kernel     Linux 7.2.6 with kernel/*.patch and kernel/config
+#   kernel     Linux 7.2.9 with kernel/*.patch and kernel/config
 #   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod-sg2002
 #   uboot      U-Boot 2026.07 with uboot/*.patch and uboot/defconfig
-#   fip        fip.bin: fip/base-fip.bin with the new U-Boot
+#   opensbi    OpenSBI 1.9: SG2002 FW_DYNAMIC with embedded M-mode DT
+#   fip        fip.bin: stock FSBL/DDR with new OpenSBI and U-Boot
 #   initramfs  initramfs from boot/initramfs.list and the Buildroot userland
 #   boot       board device trees and boot.sd images like nanokvm-kernel-sg2002
 #   native     SOPHGO media libraries, libkvm_mmf and libkvm
@@ -48,7 +49,7 @@ done
 shift $((OPTIND - 1))
 out=$(realpath -m "$out")
 steps=("$@")
-[ "${#steps[@]}" -gt 0 ] || steps=(fetch toolchain kernel modules uboot fip initramfs boot
+[ "${#steps[@]}" -gt 0 ] || steps=(fetch toolchain kernel modules uboot opensbi fip initramfs boot
     native system server web tools firmware verify payloads packages rootfs image)
 # Keep builds inside OUTPUT from finding an enclosing Git checkout.
 export GIT_CEILING_DIRECTORIES=$out
@@ -56,7 +57,7 @@ export GIT_CEILING_DIRECTORIES=$out
 version=$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")
 # Official Alpine packages; the c906-scalar overlay is not built here.
 profile=stock
-release=7.2.6-nanokvm-os-r1
+release=7.2.9-nanokvm-os-r1
 # Build times recorded in the binaries. The kernel keeps the v2.0 value so
 # that it stays identical to the released kernel.
 kernel_timestamp='Sat Sep 19 13:51:57 UTC 2026'
@@ -210,17 +211,18 @@ toolchain() {
 kernel() {
     rm -rf "$out/kernel"
     mkdir -p "$out/kernel" "$kbuild"
-    tar -xf "$dl/linux-7.2.6.tar.xz" -C "$out/kernel"
-    mv "$out/kernel/linux-7.2.6" "$ksrc"
+    tar -xf "$dl/linux-7.2.9.tar.xz" -C "$out/kernel"
+    mv "$out/kernel/linux-7.2.9" "$ksrc"
     apply_patches "$ksrc" "$here/kernel"
     python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel --record "$out/kernel/cpu-profile.json" --compiler "${cross}gcc"
     cp "$here/kernel/config" "$kbuild/.config"
     # Host pahole, rustc and bindgen would be recorded in .config; ignore them.
-    local make=(make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" LOCALVERSION= "KCFLAGS=$isa"
+    local make=(make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" CC="${cross}gcc" LOCALVERSION= "KCFLAGS=$isa"
                 PAHOLE=nkos-no-pahole RUSTC=nkos-no-rustc BINDGEN=nkos-no-bindgen)
     KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder KBUILD_BUILD_VERSION=1 \
         KBUILD_BUILD_TIMESTAMP=$kernel_timestamp "${make[@]}" olddefconfig
     cmp "$here/kernel/config" "$kbuild/.config"
+    grep -qx "CONFIG_LTO_NONE=y" "$kbuild/.config"
     KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder KBUILD_BUILD_VERSION=1 \
         KBUILD_BUILD_TIMESTAMP=$kernel_timestamp "${make[@]}" -j"$jobs" Image modules
     [ "$(cat "$kbuild/include/config/kernel.release")" = "$release" ]
@@ -246,7 +248,7 @@ modules() {
     maps="-ffile-prefix-map=$ksrc=./linux -ffile-prefix-map=$kbuild=./linux-build -ffile-prefix-map=$src=./modules -ffile-prefix-map=$bo=./toolchain"
     build() {
         local dir=$1; shift
-        (cd "$dir" && PWD=$dir make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" \
+        (cd "$dir" && PWD=$dir make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" CC="${cross}gcc" \
             "KCFLAGS=$isa $maps" M="$dir" "$@" -j"$jobs" modules)
     }
     for name in sys base cif vi vpss vcodec jpeg cvi_vc_drv ive dwa rgn snsr_i2c; do
@@ -307,39 +309,45 @@ uboot() {
     python3 "$repo/scripts/nanokvm_cpu_profile.py" bootloader --record "$u/cpu-profile.json" --compiler "${cross}gcc"
 }
 
+opensbi() {
+    local o=$out/opensbi
+    rm -rf "$o" "${img:?}/opensbi"
+    mkdir -p "$o/build" "$img/opensbi"
+    unpack_git opensbi . "$o/src"
+    apply_patches "$o/src" "$here/opensbi"
+    cp "$here/opensbi/defconfig" "$o/src/platform/generic/configs/nanokvm_defconfig"
+    "$host/dtc" -I dts -O dtb -o "$o/build/sg2002.dtb" "$here/opensbi/sg2002.dts"
+    # Portable scalar instructions: C906's draft vector ISA is not RVV 1.0.
+    # Keep upstream -O2 and separate RO/RW firmware PMP regions.
+    SOURCE_DATE_EPOCH=1782907200 make -C "$o/src" O="$o/build" -j"$jobs" \
+        CROSS_COMPILE="$cross" \
+        PLATFORM=generic PLATFORM_DEFCONFIG=nanokvm_defconfig \
+        PLATFORM_RISCV_XLEN=64 PLATFORM_RISCV_ISA=rv64imac_zicsr_zifencei PLATFORM_RISCV_ABI=lp64 \
+        FW_TEXT_START=0x80000000 FW_DYNAMIC=y FW_JUMP=n FW_PAYLOAD=n \
+        FW_FDT_PATH="$o/build/sg2002.dtb" FW_FDT_PADDING=0 FW_DYNAMIC_FDT_ADDR=0x80100000 \
+        REPRODUCIBLE=y OPENSBI_VERSION_GIT=
+    "$host/python3" "$repo/scripts/nanokvm-opensbi-manifest.py" \
+        --elf "$o/build/platform/generic/firmware/fw_dynamic.elf" \
+        --binary "$o/build/platform/generic/firmware/fw_dynamic.bin" \
+        --dtb "$o/build/sg2002.dtb" --nm "${cross}nm" --compiler "${cross}gcc" \
+        --config "$o/build/platform/generic/kconfig/.config" --fdtget "$host/fdtget" \
+        --output "$img/opensbi/build-manifest.json"
+    cp "$o/build/platform/generic/firmware/fw_dynamic.bin" "$img/opensbi/"
+    cp "$o/build/sg2002.dtb" "$img/opensbi/"
+}
+
 fip() {
     local f=$out/fip
     rm -rf "$f"
     mkdir -p "$f"
     tar -xf "$dl/sipeed-sdk.tar" -C "$f" fsbl/plat/cv181x/fiptool.py
-    # FSBL enters U-Boot at 0x80200000 after a 32-byte loader header. The base
-    # FIP keeps BL2, BLCP, DDR parameters and OpenSBI byte for byte.
-    "$host/python3" - "$f/fsbl/plat/cv181x/fiptool.py" "$here/fip/base-fip.bin" "$img/u-boot.bin" "$f" <<'PY'
-import binascii, importlib.util, lzma, struct, subprocess, sys
-from pathlib import Path
-tool, base, uboot, work = map(Path, sys.argv[1:])
-text_base = 0x80200000
-raw = work / 'u-boot-raw.bin'
-raw.write_bytes(struct.pack('<I4sIIQII', 0, b'BL33', 0, 32 + uboot.stat().st_size, text_base - 32, 0, 0) + uboot.read_bytes())
-subprocess.run([sys.executable, str(tool), 'genfip', '--OLD_FIP', str(base), '--LOADER_2ND', str(raw),
-                '--compress', 'lzma', str(work / 'fip.bin')], check=True, stdout=subprocess.DEVNULL)
-spec = importlib.util.spec_from_file_location('fiptool', tool)
-fiptool = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(fiptool)
-def parts(path):
-    f = fiptool.FIP()
-    f.read_fip(str(path))
-    return {k: bytes(v.content) for table in (f.body1, f.body2) for k, v in table.items()}
-old, new = parts(base), parts(work / 'fip.bin')
-for part in ('BL2', 'BLCP', 'DDR_PARAM', 'BLCP_2ND', 'MONITOR'):
-    assert old[part] == new[part], part
-loader = new['LOADER_2ND']
-fields = struct.unpack('<I4sIIQII', loader[:32])
-assert fields[4] + 32 == text_base
-assert fields[2] == (0xcafe0000 | binascii.crc_hqx(loader[12:fields[3]], 0))
-assert lzma.LZMADecompressor(format=lzma.FORMAT_ALONE).decompress(loader[32:]) == uboot.read_bytes()
-PY
+    "$host/python3" "$repo/scripts/nanokvm-fip.py" build \
+        --tool "$f/fsbl/plat/cv181x/fiptool.py" --base "$here/fip/base-fip.bin" \
+        --monitor "$img/opensbi/fw_dynamic.bin" --uboot "$img/u-boot.bin" \
+        --opensbi-manifest "$img/opensbi/build-manifest.json" \
+        --output "$f/fip.bin" --report "$f/manifest.json"
     cp "$f/fip.bin" "$img/fip.bin"
+    cp "$f/manifest.json" "$img/fip-manifest.json"
 }
 
 initramfs() {
@@ -376,37 +384,49 @@ initramfs() {
 
 boot() {
     local b=$out/boot profile mode name dtb
-    rm -rf "$b" "${img:?}/boot" "${img:?}/dtb"
-    mkdir -p "$b" "$img/boot" "$img/dtb"
+    rm -rf "$b" "${img:?}/boot" "${img:?}/dtb" "${img:?}/boot-fit"
+    mkdir -p "$b" "$img/boot" "$img/dtb" "$img/boot-fit"
     "$host/zstd" -q -f -19 -T1 "$img/Image" -o "$b/Image.zst"
     for profile in "${boards[@]}"; do
         "${cross}cpp" -P -nostdinc -undef -D__DTS__ -x assembler-with-cpp \
             -I"$ksrc/arch/riscv/boot/dts/sophgo" -I"$ksrc/include" -I"$ksrc/scripts/dtc/include-prefixes" \
             "$repo/firmware/boards/sg2002-nanokvm-$profile.dts" > "$b/$profile.dts"
         "$host/dtc" -q -I dts -O dtb -o "$b/$profile.dtb" "$b/$profile.dts"
-        for mode in cma fixed; do
+        for mode in cma fixed uhd; do
             name=$profile
-            [ "$mode" = cma ] || name=$profile-fixed
+            [ "$mode" = cma ] || name=$profile-$mode
             dtb=$img/dtb/$name.dtb
             cp "$b/$profile.dtb" "$dtb"
-            # Same kernel and modules; only the 64 MiB video pool backend differs.
-            [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 4000000 ]
-            if [ "$mode" = fixed ]; then
+            # Same kernel and modules; only the video pool differs: 128 MiB
+            # reusable CMA, a 64 MiB fixed carveout that Linux never uses, or
+            # a 128 MiB fixed carveout for 3840x2160 (CMA cannot always migrate
+            # borrowed pages back for the UHD encoder buffers).
+            [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 8000000 ]
+            if [ "$mode" != cma ]; then
+                [ "$mode" = uhd ] || "$host/fdtput" -t x "$dtb" /reserved-memory/ion size 4000000
                 "$host/fdtput" -t s "$dtb" /reserved-memory/ion compatible ion-region
                 "$host/fdtput" -d "$dtb" /reserved-memory/ion reusable
                 "$host/fdtput" -d "$dtb" /cvitek-ion/heap-carveout nanokvm,cma-backend
             fi
             "$host/fdtput" -t s "$dtb" / nanokvm,video-memory-mode "$mode"
+            # One size for every device tree, so the FIT images share a layout.
+            "$host/dtc" -q -I dtb -O dtb -S 32768 -o "$dtb.pad" "$dtb"
+            mv "$dtb.pad" "$dtb"
+            [ "$(stat -c %s "$dtb")" = 32768 ]
             mkdir "$b/$name"
             cp "$b/Image.zst" "$img/initramfs.cpio.zst" "$b/$name/"
             cp "$dtb" "$b/$name/board.dtb"
-            sed "s/@PROFILE@/$profile/" "$here/boot/boot.its" > "$b/$name/boot.its"
+            cp "$here/boot/boot.its" "$b/$name/boot.its"
             (cd "$b/$name" && SOURCE_DATE_EPOCH=0 "$host/mkimage" -f boot.its boot.sd > /dev/null)
             [ "$(stat -c %s "$b/$name/boot.sd")" -lt $((16 * 1024 * 1024)) ]
-            cp "$b/$name/boot.sd" "$img/boot/$name.sd"
-            (cd "$img/boot" && sha256sum "$name.sd" > "$name.sha256")
+            cp "$b/$name/boot.sd" "$img/boot-fit/$name.sd"
         done
     done
+    # The package carries one FIT template and the device trees (about 10 MiB
+    # instead of 15 images of 9 MiB); compose-fit rebuilds an image on the
+    # device and checks it against the hash of the image built here.
+    python3 "$here/boot/fit-layout.py" "$img/boot-fit" "$img/dtb" "$img/boot"
+    install -m 0644 "$here/boot/compose-fit" "$img/boot/compose-fit"
     echo "$release" > "$img/boot/kernel.release"
 }
 
@@ -418,6 +438,7 @@ native() {
     mkdir -p "$n/src" "$img/native"
     unpack_git cvi-mpi . "$n/src/cvi_mpi"
     for lib in sensors json-c miniz inih; do unpack_git "$lib" . "$n/src/$lib"; done
+    apply_patches "$n/src/json-c" "$here/native/json-c"
     apply_patches "$n/src/cvi_mpi" "$here/native/cvi_mpi"
     apply_patches "$n/src/sensors" "$repo/firmware/sensor/patches"
     local env=(NANOKVM_MPI_SOURCE="$n/src/cvi_mpi" NANOKVM_OSDRV_SOURCE="$out/modules/sources/osdrv"
@@ -516,7 +537,8 @@ tools() {
     "$py" "$repo/scripts/build-portrait-edid.py" --profile hd --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-portrait-720x1280.bin"
     "$py" "$repo/scripts/build-portrait-edid.py" --profile h264 --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-portrait-1296x2304.bin"
     "$py" "$repo/scripts/build-portrait-edid.py" --profile max --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-portrait-1440x2560.bin"
-    cp "$e/NanoKVM-QHD30.bin" "$e"/NanoKVM-portrait-*.bin "$e"/monitor-profiles/NanoKVM-monitor-*.bin \
+    "$py" "$repo/scripts/build-portrait-edid.py" --rates --input "$e/E21_NanoKVM.bin" --output "$e/portrait-rates"
+    cp "$e/NanoKVM-QHD30.bin" "$e"/NanoKVM-portrait-*.bin "$e"/portrait-rates/NanoKVM-portrait-*.bin "$e"/monitor-profiles/NanoKVM-monitor-*.bin \
         "$e"/monitor-profiles/NanoKVM-cube-monitor-*.bin "$img/tools/edid/"
     cp "$e/monitor-profiles/NanoKVM-monitor-auto.bin" "$img/tools/edid/NanoKVM-final-video-profiles.bin"
     cp "$e/E21_NanoKVM.bin" "$img/tools/edid/NanoKVM-stock.bin"
@@ -853,7 +875,7 @@ source_archive() {
     mkdir -p "$stage/$name/upstream/buildroot-packages" "$stage/$name/NanoKVM-OS"
     # The GPL-licensed inputs of the image. The rest of sources.lock is
     # fetched from its upstream by build.sh and is not redistributed here.
-    for pkg in buildroot linux u-boot osdrv aic8800 cryptodev sipeed-sdk busybox; do
+    for pkg in buildroot linux u-boot osdrv aic8800 cryptodev sipeed-sdk opensbi busybox; do
         url=$(lock "$pkg" | awk '{ print $2 }')
         if [[ $url == *.git ]]; then cp "$dl/$pkg.tar" "$stage/$name/upstream/"
         else cp "$dl/${url##*/}" "$stage/$name/upstream/"; fi
@@ -875,7 +897,7 @@ source_archive() {
 
 for step in "${steps[@]}"; do
     case $step in
-        fetch|toolchain|kernel|modules|uboot|fip|initramfs|boot|native|system|server|web|tools|firmware|verify|payloads)
+        fetch|toolchain|kernel|modules|uboot|opensbi|fip|initramfs|boot|native|system|server|web|tools|firmware|verify|payloads)
             log "$step"; "$step" ;;
         packages|rootfs|image|clean)
             if [ "${NANOKVM_USERNS:-0}" = 1 ]; then log "$step"; "$step"; else in_userns "$step"; fi ;;

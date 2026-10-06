@@ -1,0 +1,142 @@
+export const rustDeskLabels = {
+  en: {
+    installed: 'Installed',
+    absent: 'Not installed',
+    running: 'Running',
+    stopped: 'Stopped',
+    registered: 'Registered',
+    registering: 'Waiting for ID server',
+    install: 'Install',
+    remove: 'Remove',
+    upgrade: 'Update to {version}',
+    addonVersion: 'Add-on version',
+    rustdeskVersion: 'RustDesk protocol base',
+    unknownVersion: 'Unknown',
+    save: 'Save settings',
+    enabled: 'Enable remote access',
+    server: 'Server',
+    public: 'Official public servers',
+    custom: 'Custom server',
+    idServer: 'ID / rendezvous server',
+    relay: 'Relay server (optional)',
+    key: 'Server public key (optional)',
+    password: 'Access password',
+    passwordMode: 'Password',
+    temporary: 'Temporary (automatic)',
+    permanent: 'Permanent',
+    temporaryPassword: 'Temporary password',
+    newPassword: 'New password',
+    temporaryHint:
+      'Share this ID and password. The password changes when RustDesk starts or when you request a new one.',
+    rotatingTemporaryHint:
+      'Share this ID and the current password. Each new successful sign-in generates a new password without closing active sessions. RustDesk also replaces it on startup or when you request a new one.',
+    startForPassword: 'Enable RustDesk and save settings to generate a password.',
+    waitingForPassword: 'Generating a temporary password…',
+    regenerateConfirm: 'Generate a new password? Current RustDesk connections will close.',
+    advanced: 'Advanced settings',
+    audioEnabled:
+      'USB audio is enabled. Select NanoKVM as the audio output on the connected computer. Sound can be muted in the RustDesk client.',
+    audioDisabled:
+      'To stream computer sound, enable USB audio in the device USB settings and select NanoKVM as the audio output on the computer.',
+    webrtc: 'Allow WebRTC connections',
+    transportHint:
+      'TCP and relay are used by default. WebRTC may reduce frame rate on NanoKVM. To connect by TCP using an ID, turn WebRTC off in the RustDesk client too.',
+    open: 'Open management',
+    settings: 'RustDesk',
+    keepPassword: 'Leave empty to keep the current password',
+    inputDefaults:
+      'Enabling remote access automatically enables USB keyboard and absolute/relative mouse.',
+    transmitAudio: 'Transmit sound',
+    audioHint:
+      'Enables USB audio automatically. Select NanoKVM as the sound output on the connected computer.',
+    audioMuted: 'Sound transmission through RustDesk is disabled.',
+    codec: 'Video codec',
+    clients: 'Maximum viewers',
+    unavailable:
+      'RustDesk is not available in the configured APK repositories. Add the repository containing nanokvm-rustdesk, or install its APK through Packages.',
+    explain:
+      'Connect a RustDesk client to this ID to view HDMI and control USB keyboard and mouse.',
+    video:
+      'Video automatically uses the codec selected in NanoKVM video settings. H.265 requires client support. Reconnect after changing the device codec. Browser takeover releases RustDesk input.',
+    deletion: 'Remove the package? Server settings, password and device ID are preserved.',
+    failed: 'The request failed',
+    saved: 'Settings saved',
+    passwordUpdated: 'Password updated',
+    description: 'Remote access to the computer connected to NanoKVM, using RustDesk.',
+    done: 'Package operation completed',
+    id: 'RustDesk ID',
+    source: 'Source and license',
+    passwordRequired: 'Enter a password of 8 to 64 bytes',
+    sameServer: 'Configure the same custom ID server and public key in the RustDesk client.'
+  },
+  ru: {
+    installed: 'Установлен',
+    absent: 'Не установлен',
+    running: 'Работает',
+    stopped: 'Остановлен',
+    registered: 'Зарегистрирован',
+    registering: 'Ожидание ID-сервера',
+    install: 'Установить',
+    remove: 'Удалить',
+    upgrade: 'Обновить до {version}',
+    addonVersion: 'Версия аддона',
+    rustdeskVersion: 'RustDesk — база протокола',
+    unknownVersion: 'Неизвестна',
+    save: 'Сохранить настройки',
+    enabled: 'Включить удалённый доступ',
+    server: 'Сервер',
+    public: 'Штатные публичные серверы',
+    custom: 'Собственный сервер',
+    idServer: 'ID / rendezvous сервер',
+    relay: 'Relay сервер (необязательно)',
+    key: 'Публичный ключ сервера (необязательно)',
+    password: 'Пароль доступа',
+    passwordMode: 'Пароль',
+    temporary: 'Временный (автоматически)',
+    permanent: 'Постоянный',
+    temporaryPassword: 'Временный пароль',
+    newPassword: 'Новый пароль',
+    temporaryHint:
+      'Передайте этот ID и пароль. Пароль меняется при запуске RustDesk или по кнопке «Новый пароль».',
+    rotatingTemporaryHint:
+      'Передайте этот ID и текущий пароль. После нового успешного входа создаётся новый пароль; открытые сеансы продолжают работать. Пароль также меняется при запуске RustDesk или по кнопке «Новый пароль».',
+    startForPassword: 'Включите RustDesk и сохраните настройки, чтобы получить пароль.',
+    waitingForPassword: 'Генерируется временный пароль…',
+    regenerateConfirm: 'Создать новый пароль? Текущие подключения RustDesk будут завершены.',
+    advanced: 'Дополнительные настройки',
+    audioEnabled:
+      'USB audio включён. Выберите NanoKVM как устройство вывода звука на подключённом компьютере. Звук можно отключить в клиенте RustDesk.',
+    audioDisabled:
+      'Для передачи звука включите USB audio в настройках USB устройства и выберите NanoKVM как устройство вывода звука на компьютере.',
+    webrtc: 'Разрешить подключения WebRTC',
+    transportHint:
+      'По умолчанию используются TCP и relay. WebRTC может снижать частоту кадров на NanoKVM. Для подключения по ID через TCP выключите WebRTC и в клиенте RustDesk.',
+    open: 'Открыть управление',
+    settings: 'RustDesk',
+    keepPassword: 'Оставьте пустым, чтобы сохранить пароль',
+    inputDefaults:
+      'Включение удалённого доступа автоматически включает USB-клавиатуру и абсолютную/относительную мышь.',
+    transmitAudio: 'Передавать звук',
+    audioHint:
+      'Автоматически включает USB audio. Выберите NanoKVM как устройство вывода звука на подключённом компьютере.',
+    audioMuted: 'Передача звука через RustDesk отключена.',
+    codec: 'Видеокодек',
+    clients: 'Максимум зрителей',
+    unavailable:
+      'В настроенных APK-репозиториях нет RustDesk. Добавьте репозиторий с nanokvm-rustdesk или установите его APK через Packages.',
+    explain:
+      'Подключитесь к этому ID из RustDesk, чтобы видеть HDMI и управлять USB-клавиатурой и мышью.',
+    video:
+      'Видеокодек автоматически берётся из настроек видео NanoKVM. Для H.265 нужна поддержка клиента. После смены кодека устройства подключитесь заново. Перехват управления браузером освобождает ввод RustDesk.',
+    deletion: 'Удалить пакет? Настройки сервера, пароль и ID устройства сохранятся.',
+    failed: 'Запрос не выполнен',
+    saved: 'Настройки сохранены',
+    passwordUpdated: 'Пароль обновлён',
+    description: 'Удалённый доступ через RustDesk к компьютеру, подключённому к NanoKVM.',
+    done: 'Операция с пакетом завершена',
+    id: 'RustDesk ID',
+    source: 'Исходники и лицензия',
+    passwordRequired: 'Введите пароль от 8 до 64 байт',
+    sameServer: 'Укажите тот же собственный ID-сервер и публичный ключ в клиенте RustDesk.'
+  }
+};

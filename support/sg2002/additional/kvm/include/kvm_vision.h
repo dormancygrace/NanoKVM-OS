@@ -102,6 +102,8 @@ void set_frame_detact(uint8_t _frame_detact);
 void kvmv_deinit();
 int kvmv_hdmi_control(uint8_t _en);
 int kvmv_edid_maintenance(uint8_t pause);
+/* Stream rate the server will request; VPSS drops surplus input frames. */
+int kvmv_set_capture_fps(uint8_t fps);
 uint8_t kvmv_hdmi_signal_active(void);
 
 #ifdef __cplusplus

@@ -289,16 +289,12 @@ export const H264Webrtc = ({
             cancelReconnect();
             setIsLoading(false);
             if (msg.data) console.error('WebRTC video stream rejected:', msg.data);
-            const qhdBlocked = msg.data === 'qhd-h265-webrtc-disabled';
-            const retryingJoin =
-              !qhdBlocked && onEncoderConflict(msg.data === 'encoder-reconfigured');
+            const retryingJoin = onEncoderConflict(msg.data === 'encoder-reconfigured');
             if (!retryingJoin)
               notificationApi.error({
                 key: WEBRTC_CONNECTION_FAILED_NOTIFICATION_KEY,
                 message: translationRef.current('screen.encoderError'),
-                description: translationRef.current(
-                  qhdBlocked ? 'videoSettings.unstableDescription' : 'screen.encoderConflict'
-                ),
+                description: translationRef.current('screen.encoderConflict'),
                 placement: 'topRight',
                 duration: 0
               });

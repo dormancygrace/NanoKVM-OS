@@ -92,3 +92,11 @@ test('joining WebRTC uses its own codec capability', async () => {
   await assert.rejects(api.initializeEncoderCodec('webrtc', 'h265'), /active-codec-unsupported/);
   assert.equal(await api.initializeEncoderCodec('direct', 'h265'), 'h265');
 });
+
+test('HEVC-capable WebRTC browsers restore a saved H265 preference', async () => {
+  const { api, writes } = browser({ stored: 'h265', rtc: true });
+  assert.equal(api.supportsWebRTCH265(), true);
+  assert.equal(await api.initializeEncoderCodec('webrtc'), 'h265');
+  assert.equal(await api.initializeEncoderCodec('webrtc', 'h265'), 'h265');
+  assert.deepEqual(writes, []);
+});

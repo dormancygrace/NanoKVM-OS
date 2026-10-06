@@ -11,18 +11,21 @@ import (
 
 var monitorMutex sync.Mutex
 
+var (
+	monitorResolutionFile         = "/etc/kvm/monitor_resolution"
+	monitorPortraitFile           = "/etc/kvm/monitor_portrait"
+	monitorPortraitResolutionFile = "/etc/kvm/monitor_portrait_resolution"
+)
+
 const (
-	monitorResolutionFile                = "/etc/kvm/monitor_resolution"
-	monitorPortraitFile                  = "/etc/kvm/monitor_portrait"
-	monitorPortraitResolutionFile        = "/etc/kvm/monitor_portrait_resolution"
-	portraitMonitorEDID                  = "/usr/share/nanokvm/edid/NanoKVM-portrait-1080x1920.bin"
-	portraitMaxMonitorEDID               = "/usr/share/nanokvm/edid/NanoKVM-portrait-1440x2560.bin"
-	portraitHDMonitorEDID                = "/usr/share/nanokvm/edid/NanoKVM-portrait-720x1280.bin"
-	portraitAVCMonitorEDID               = "/usr/share/nanokvm/edid/NanoKVM-portrait-1296x2304.bin"
-	portraitResolutionAVC         uint16 = 2304
-	portraitResolutionHD          uint16 = 1280
-	portraitResolutionDefault     uint16 = 1920
-	portraitResolutionMax         uint16 = 2560
+	portraitMonitorEDID              = "/usr/share/nanokvm/edid/NanoKVM-portrait-1080x1920.bin"
+	portraitMaxMonitorEDID           = "/usr/share/nanokvm/edid/NanoKVM-portrait-1440x2560.bin"
+	portraitHDMonitorEDID            = "/usr/share/nanokvm/edid/NanoKVM-portrait-720x1280.bin"
+	portraitAVCMonitorEDID           = "/usr/share/nanokvm/edid/NanoKVM-portrait-1296x2304.bin"
+	portraitResolutionAVC     uint16 = 2304
+	portraitResolutionHD      uint16 = 1280
+	portraitResolutionDefault uint16 = 1920
+	portraitResolutionMax     uint16 = 2560
 )
 
 // MonitorPortraitStatus returns the persisted orientation and whether this
@@ -70,88 +73,17 @@ func PortraitMaxSupported() bool {
 // ApplyMonitorResolution changes the virtual HDMI monitor, without forcing the
 // HDMI source to adopt it. BIOS and operating systems may choose other timings.
 func ApplyMonitorResolution(height uint16) error {
-	if MonitorRequiresPowerCycle() && height != 0 && height != 720 && height != 1080 {
-		return fmt.Errorf("Cube EDID profiles are limited to 720p/1080p at 60 Hz")
-	}
-	monitorMutex.Lock()
-	defer monitorMutex.Unlock()
-	_, ok := ResolutionMap[height]
-	if !ok {
-		return fmt.Errorf("unsupported monitor resolution")
-	}
-	if err := requireMonitorHardwareLocked(); err != nil {
-		return err
-	}
-
-	path := monitorProfilePath(height)
-	if monitorPortraitEnabledLocked() {
-		// monitor_resolution remains the user's ordinary landscape profile
-		// while the active EDID stays portrait.
-		portraitResolution := savedPortraitResolutionLocked()
-		if !portraitResolutionSupportedLocked(portraitResolution) {
-			return fmt.Errorf("portrait monitor profile is unavailable")
-		}
-		path = portraitMonitorEDIDPath(portraitResolution)
-	}
-	if err := applyMonitorProfileLocked(path); err != nil {
-		return err
-	}
-	if err := os.WriteFile(monitorResolutionFile, []byte(fmt.Sprint(height)), 0600); err != nil {
-		return fmt.Errorf("monitor changed, but saving its setting failed: %w", err)
-	}
-	return nil
+	return ApplyMonitorSettings(MonitorSettings{Resolution: &height})
 }
 
-// ApplyMonitorPortrait changes the active HDMI EDID and persists the
-// orientation. When disabling it, the last ordinary monitor profile is
-// restored from monitor_resolution.
+// ApplyMonitorPortrait changes the orientation and applies its final EDID.
 func ApplyMonitorPortrait(enabled bool) error {
-	monitorMutex.Lock()
-	defer monitorMutex.Unlock()
-
-	if err := requireMonitorHardwareLocked(); err != nil {
-		return err
-	}
-
-	portraitResolution := savedPortraitResolutionLocked()
-	path := portraitMonitorEDIDPath(portraitResolution)
-	if !enabled {
-		path = monitorProfilePath(savedMonitorResolutionLocked())
-	}
-	if enabled && !portraitResolutionSupportedLocked(portraitResolution) {
-		return fmt.Errorf("portrait monitor profile is unavailable")
-	}
-	if err := applyMonitorProfileLocked(path); err != nil {
-		return err
-	}
-	if err := persistMonitorPortraitLocked(enabled); err != nil {
-		return fmt.Errorf("monitor changed, but saving portrait setting failed: %w", err)
-	}
-	return nil
+	return ApplyMonitorSettings(MonitorSettings{Portrait: &enabled})
 }
 
-// ApplyPortraitResolution changes the selected portrait profile. Selection is
-// persisted while portrait is disabled; an active portrait monitor is updated
-// immediately and remains on the selected portrait EDID.
+// ApplyPortraitResolution saves the choice, applying it only when active.
 func ApplyPortraitResolution(resolution uint16) error {
-	monitorMutex.Lock()
-	defer monitorMutex.Unlock()
-
-	if !validPortraitResolution(resolution) {
-		return fmt.Errorf("unsupported portrait monitor resolution")
-	}
-	if !portraitResolutionSupportedLocked(resolution) {
-		return fmt.Errorf("portrait monitor profile is unavailable")
-	}
-	if monitorPortraitEnabledLocked() {
-		if err := applyMonitorProfileLocked(portraitMonitorEDIDPath(resolution)); err != nil {
-			return err
-		}
-	}
-	if err := persistMonitorPortraitResolutionLocked(resolution); err != nil {
-		return fmt.Errorf("portrait resolution changed, but saving its setting failed: %w", err)
-	}
-	return nil
+	return ApplyMonitorSettings(MonitorSettings{PortraitResolution: &resolution})
 }
 
 func monitorProfilePath(height uint16) string {
@@ -164,7 +96,8 @@ func monitorProfilePath(height uint16) string {
 	profile := fmt.Sprintf("NanoKVM-monitor-%d.bin", height)
 	if height == 0 {
 		profile = "NanoKVM-stock.bin"
-		if SupportsQHD() {
+		if MonitorHighRefreshSupported() {
+			// Auto: 1920x1080 at up to 100 Hz.
 			profile = "NanoKVM-final-video-profiles.bin"
 		}
 	}
@@ -293,7 +226,11 @@ func applyMonitorProfileLocked(path string) error {
 	if !info.Mode().IsRegular() {
 		return fmt.Errorf("monitor profile is unavailable: %s is not a regular file", path)
 	}
-	return GetKvmVision().ApplyMonitorProfile(path)
+	if err = applyMonitorPointerProfileLocked(path, WindowsPointerEnabled()); err != nil {
+		return err
+	}
+	recordMonitorProfileLocked(path)
+	return nil
 }
 
 func persistMonitorPortraitLocked(enabled bool) error {

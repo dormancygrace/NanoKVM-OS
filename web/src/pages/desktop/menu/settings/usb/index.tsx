@@ -94,7 +94,7 @@ export const Usb = () => {
     } else {
       const preset = usbPresets.find((item) => item.id === id);
       if (preset && status && fitsBudget(preset.composition, status))
-        setDraft({ ...preset.composition });
+        setDraft({ ...preset.composition, pointerProfile: draft?.pointerProfile });
     }
     setError('');
   }
@@ -284,6 +284,23 @@ export const Usb = () => {
               }
             ]}
           />
+          {draft?.absolute && (
+            <div className="mt-3 space-y-1.5">
+              <div className="text-sm">{t('settings.usb.pointerProfile')}</div>
+              <Select
+                aria-label={t('settings.usb.pointerProfile')}
+                className="w-full"
+                value={draft.pointerProfile ?? 'default'}
+                disabled={loading || !status}
+                options={[
+                  { value: 'default', label: 'Default' },
+                  { value: 'windows', label: 'Windows', disabled: !status?.windowsPointerSupported }
+                ]}
+                onChange={(value) => setDraft({ ...draft, pointerProfile: value })}
+              />
+              <div className="text-xs text-neutral-500">{t('settings.usb.pointerProfileHelp')}</div>
+            </div>
+          )}
           {empty && <div className="mt-3 text-sm text-neutral-400">{t('settings.usb.empty')}</div>}
           {status && !status.revision && (
             <div className="mt-3 text-sm text-amber-400">

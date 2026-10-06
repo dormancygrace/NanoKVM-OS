@@ -1,8 +1,10 @@
 #include "kvm_capture.hpp"
 #include "kvm_mmf.hpp"
+#include "internal/capture_rate.hpp"
 #include "linux/cvi_comm_video.h"
 
 #include <cerrno>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <new>
@@ -87,6 +89,20 @@ int Capture::discard_other_pending() {
     }
     return 0;
 }
+static unsigned video_pool_mib() {
+    static int mib = -1;
+    if (mib < 0) {
+        uint8_t size[4] = {};
+        FILE *file = fopen("/proc/device-tree/reserved-memory/ion/size", "rb");
+        const size_t count = file ? fread(size, 1, sizeof(size), file) : 0;
+        if (file) fclose(file);
+        mib = count == sizeof(size)
+            ? (int)((((uint32_t)size[0] << 24) | ((uint32_t)size[1] << 16)
+                | ((uint32_t)size[2] << 8) | size[3]) >> 20) : 0;
+    }
+    return (unsigned)mib;
+}
+
 int Capture::open_output(int index, int width, int height) {
     // Only physical channel 1 produces real pixels beyond 1920 on this SoC.
     // Rehome a narrow peer if it occupies the wide-capable scaler.
@@ -103,7 +119,13 @@ int Capture::open_output(int index, int width, int height) {
     if (ch < 0 || mmf_vi_chn_is_open(ch)) return -1;
     mmf_set_vi_hmirror(ch, mirror_);
     mmf_set_vi_vflip(ch, flip_);
-    if (mmf_add_vi_channel_configured(ch, width, height, index ? nv16_format() : nv21_format(), 2, 1)) return -1;
+    // When the encoder holds one buffer for about a whole frame period, VPSS
+    // needs a third one or it drops input frames (3840x2160: 25 of 30 fps).
+    // QHD keeps two buffers in a 64 MiB pool, where a third does not fit.
+    const bool fast = (long)width * height * capture_rate_limit(width, height) > fast_pixel_rate;
+    const bool room = width * height <= 1920 * 1088 || video_pool_mib() >= 96;
+    const int buffers = fast && room ? 3 : 2;
+    if (mmf_add_vi_channel_configured(ch, width, height, index ? nv16_format() : nv21_format(), buffers, 1)) return -1;
     outputs_[index] = {ch, width, height};
     return 0;
 }

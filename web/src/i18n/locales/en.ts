@@ -28,7 +28,8 @@ const en = {
 
     sessionControl: {
       active: 'This browser session controls keyboard and mouse',
-      locked: 'View-only: keyboard and mouse are controlled by another session',
+      locked: 'Input is disabled in this session. Select Take control to enable it.',
+      viewOnly: 'View only',
       take: 'Take control',
       release: 'Lock this session'
     },
@@ -192,6 +193,53 @@ const en = {
       }
     },
     videoSettings: {
+      hz: '{{value}} Hz',
+      upToHz: 'up to {{value}} Hz',
+      fpsValue: '{{value}} fps',
+      mbps: '{{value}} Mbit/s',
+      landscape: 'Landscape monitor',
+      refreshFollows: 'Refresh follows the frame rate: {{value}} Hz',
+      transport: 'Transport',
+      transportHint: {
+        direct: 'H.264/H.265 over HTTPS, decoded by the browser. Lowest latency.',
+        webrtc: 'Works in most browsers and across networks; encrypted with SRTP.',
+        mjpeg: 'A JPEG image per frame: the most compatible, the most traffic.'
+      },
+      streamSize: 'Encoded at {{value}}',
+      fpsDelivered: 'Delivered: up to {{fps}} fps at {{size}}',
+      bitrateHint: 'With motion (video, scrolling) about {{value}} Mbit/s fits this size and rate.',
+      manual: 'Manual settings',
+      userHint:
+        'An administrator sets the shared video settings. You can choose how this browser receives and plays the video.',
+      invalid: 'Some selected options are unavailable',
+      changeMonitor:
+        'The monitor switches to {{monitor}}: the connected computer detects it again and the picture blinks.',
+      changeReload: 'The page reloads to switch the player.',
+      preset: {
+        title: 'Profile',
+        custom: 'Custom',
+        auto: 'Recommended',
+        autoHint: '1920 × 1080 up to 100 fps, bitrate for motion',
+        sharp: 'Sharpest',
+        sharpHint: 'Largest monitor: 4K at 30 or 2K at 60 fps, 20 Mbit/s',
+        balanced: 'Balanced',
+        balancedHint: '2560 × 1440 at 60 fps, bitrate for motion',
+        responsive: 'Lowest latency',
+        responsiveHint: '1280 × 720 at 120 fps without a playback buffer',
+        compatible: 'Compatible',
+        compatibleHint: 'WebRTC H.264, 1080p60, any browser',
+        saver: 'Low traffic',
+        saverHint: '1080p at 30 fps, 1 Mbit/s; the computer renders 30 Hz'
+      },
+      reason: {
+        'video-memory': 'needs the 4K video memory mode (Settings → Memory, restart)',
+        receiver: 'not supported by this HDMI receiver',
+        browser: 'this browser cannot play it',
+        codec: 'not available with this transport',
+        transport: 'not available with this transport',
+        portrait: 'not supported by this portrait profile',
+        range: 'out of range'
+      },
       mjpegChroma: 'JPEG color sampling',
       mjpegChroma420: '4:2:0 — smaller frames',
       mjpegChroma422: '4:2:2 — sharper color edges',
@@ -207,8 +255,6 @@ const en = {
       mjpegChromaFallback_hardware:
         'Capture fell back to 4:2:0 after an error. Retry 4:2:2 when the signal is stable.',
       mjpegChromaFallback_pending: '4:2:2 will apply to the next captured frame.',
-      preferFhd60: 'Prefer 1920 × 1080 · 60 Hz',
-      preferHd60: 'Prefer 1280 × 720 · 60 Hz',
       cubeMonitorHint:
         'Cube/Lite: writes and verifies the EDID. Physically disconnect all power sources and reconnect to apply it. A software reboot is not sufficient. Automatic uses the conservative 1080p/60 profile.',
       powerCycleTitle: 'Physical power cycle required',
@@ -238,17 +284,12 @@ const en = {
       discard: 'Discard changes',
       pending: 'Changes have not been applied',
       applied: 'Video settings applied',
-      unstableTitle: 'QHD H.265 WebRTC is disabled',
-      unstableDescription: 'Use Direct for QHD H.265, or limit the WebRTC stream to 1080p.',
-      unstableTag: 'QHD disabled',
       title: 'Video',
       open: 'Video settings…',
       description: 'Configure the HDMI monitor independently from the video sent to your browser.',
       sameAsInput: 'Same as input',
       atMost: 'Up to {{value}}',
       streamResolution: 'Stream resolution',
-      limitHint:
-        'Keep the source aspect ratio. Larger input is reduced; smaller input is never enlarged.',
       failed: 'Could not apply video settings.',
       bitrate: 'Bitrate',
       current: 'Current video',
@@ -256,25 +297,10 @@ const en = {
       captureOff: 'Capture disabled',
       input: 'HDMI input',
       output: 'Encoded stream',
-      requested: 'Requested frame rate',
-      measured: 'Server output rate',
       monitor: 'HDMI monitor',
       monitorProfile: 'Virtual monitor profile',
       portrait: 'Portrait monitor',
-      portraitProfile: 'Portrait profile',
-      portraitHDProfile: '720 × 1280 · 120 Hz',
-      portraitDefaultProfile: '1080 × 1920 · 75 Hz',
-      portraitAVCProfile: '1296 × 2304 · 50 Hz (H.264)',
-      portraitMaximumProfile: '1440 × 2560 · 50 Hz (H.265)',
-      portraitMaximumHint:
-        'The maximum profile requires H.265 Direct, up to 50 FPS. Selecting it sets this video mode automatically.',
-      portraitHint:
-        'Uses the selected portrait monitor profile. The maximum 1440 × 2560 profile is about 3.7 MP at 50 FPS. Your selected landscape profile is kept and restored when portrait is turned off.',
-      portraitUnavailable: 'Portrait monitor profile is unavailable on this device.',
       automatic: 'Automatic (recommended)',
-      preferFhd: 'Prefer 1920 × 1080 · 75 Hz',
-      preferQhd: 'Prefer 2560 × 1440 · 50 Hz',
-      preferHd: 'Prefer 1280 × 720 · 120 Hz',
       monitorHint:
         'Advertises a preferred mode and fallback timings. BIOS and the operating system may choose different resolutions; capture follows the actual signal automatically. Changing this profile briefly reconnects HDMI.',
       monitorUnavailable:
@@ -292,7 +318,7 @@ const en = {
       gopHint:
         'GOP is the interval between keyframes. HDMI recovery restarts capture if the source stops responding.',
       fpsLimited:
-        'Current QHD input limits capture to {{fps}} FPS. The saved FPS request is kept for the next source mode.',
+        'The current input limits capture to {{fps}} FPS. The saved request is kept for the next source mode.',
       statusFailed: 'Could not refresh video status.',
       retry: 'Retry'
     },
@@ -687,6 +713,14 @@ const en = {
     },
     settings: {
       software: {
+        addons: {
+          title: 'Add-ons',
+          packages: 'Packages',
+          open: 'Open PicoClaw',
+          source: 'Official releases',
+          picoclawDescription:
+            'AI assistant with optional remote control. Installs the latest stable release from the official PicoClaw website.'
+        },
         title: 'Software',
         description:
           'Manage packages from the configured Alpine repositories. Package changes use the same APK database and services as SSH.',
@@ -753,15 +787,16 @@ const en = {
         alpineBuilderMissing:
           'The attended image builder is not configured. Set alpine.builderURL or use a manually verified recovery bundle.',
         requestFailed: 'The update request failed. Check device connectivity and retry.',
-        reconnecting: 'Waiting for the device to reconnect…',
+        reconnecting: 'Waiting for the device to reconnect…'
       },
       memory: {
         videoMode: 'Video memory allocation',
         videoModeDescription:
-          'Both modes provide 64 MiB for video. CMA lets Linux use unused pages; Fixed reserves the entire region exclusively for video. Changes apply after reboot.',
-        videoCma: 'CMA — 64 MiB (default)',
-        videoFixed: 'Fixed — 64 MiB',
-        videoFixedShort: 'Fixed',
+          'CMA lends unused video memory to Linux. The fixed modes reserve it for video only. 3840 × 2160 needs the 4K mode, because with CMA the encoder cannot always get its memory back. Changes apply after reboot.',
+        video_cma: 'CMA — 128 MiB, up to 2560 × 1440 (default)',
+        video_fixed: 'Fixed — 64 MiB, up to 2560 × 1440',
+        video_uhd: '4K — 128 MiB fixed, up to 3840 × 2160',
+        zramAuto: 'Half of RAM ({{size}} MiB)',
         videoActive: 'Currently active',
         videoUnknown: 'Unknown',
         videoModeUnavailable: 'Update the kernel package to enable switching.',
@@ -1162,6 +1197,9 @@ const en = {
         cancelBtn: 'No'
       },
       usb: {
+        pointerProfile: 'Absolute pointer profile',
+        pointerProfileHelp:
+          'Windows binds the pointer to the captured monitor (Windows 10 1903 or newer). Applying reconnects USB and HDMI.',
         off: 'Off',
         title: 'USB Composition',
         enabled: 'USB devices',
@@ -1490,6 +1528,7 @@ const en = {
       }
     },
     picoclaw: {
+      moreActions: 'More actions',
       title: 'PicoClaw Assistant',
       empty: 'Open the panel and start a task to begin.',
       inputPlaceholder: 'Describe what you want the PicoClaw to do',

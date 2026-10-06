@@ -73,8 +73,11 @@ func TestPacketSlabMatchesPionAndRetainsPreviousFrames(t *testing.T) {
 }
 
 func BenchmarkPionPacketizationBaseline(b *testing.B) {
- frame:=bytes.Repeat([]byte{0x55},128*1024);copy(frame,[]byte{0,0,0,1,0x65})
- p:=rtp.NewPacketizer(1216,100,0x1234ABCD,&codecs.H264Payloader{},rtp.NewRandomSequencer(),90000)
- b.ReportAllocs()
- for i:=0;i<b.N;i++ { p.Packetize(frame,3000) }
+	frame := bytes.Repeat([]byte{0x55}, 128*1024)
+	copy(frame, []byte{0, 0, 0, 1, 0x65})
+	p := rtp.NewPacketizer(1216, 100, 0x1234ABCD, &codecs.H264Payloader{}, rtp.NewRandomSequencer(), 90000)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		p.Packetize(frame, 3000)
+	}
 }

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import { client } from '@/lib/websocket.ts';
 
+import { createCaptureStatusGate } from './status-gate';
+
 import {
   CAPTURE_STATUS_EVENT,
   CaptureStatus,
@@ -21,7 +23,8 @@ export function useCaptureStatus(activeVideoMode: string) {
       return;
     }
 
-    return client.on(CAPTURE_STATUS_EVENT, (message) => {
+    const gate = createCaptureStatusGate(setCaptureStatus);
+    const unsubscribe = client.on(CAPTURE_STATUS_EVENT, (message) => {
       const status = parseCaptureStatusMessage(message);
       if (!status || status.mode !== activeVideoMode) {
         return;
@@ -31,8 +34,12 @@ export function useCaptureStatus(activeVideoMode: string) {
       }
 
       latestStatusRef.current = status;
-      setCaptureStatus(status.ok ? null : status);
+      gate.accept(status);
     });
+    return () => {
+      unsubscribe();
+      gate.dispose();
+    };
   }, [activeVideoMode]);
 
   return captureStatus;

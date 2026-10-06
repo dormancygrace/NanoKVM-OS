@@ -5,12 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
-)
-
-const (
-	fhdClassLongSide  = 1920
-	fhdClassShortSide = 1080
 )
 
 func ReadVideoValue(path string) int {
@@ -59,22 +55,12 @@ func ClearMonitorPowerCyclePending() error {
 	return err
 }
 
-// IsFHDClassDimensions classifies a signal after normalizing its orientation.
-// The native portrait path explicitly accepts 1088x1920 (8160 16x16
-// macroblocks). Other normalized dimensions follow the native FHD limit of a
-// 1920-pixel long side and 1080-pixel short side.
-func IsFHDClassDimensions(width, height int) bool {
-	if width <= 0 || height <= 0 {
-		return false
-	}
-	if width == 1088 && height == 1920 {
-		return true
-	}
-	if width < height {
-		width, height = height, width
-	}
-	return width <= fhdClassLongSide && height <= fhdClassShortSide
-}
+// applyCaptureFPS tells native capture the effective stream rate, so VPSS can
+// drop surplus input frames. Set by the native binding; a no-op in tests.
+var (
+	applyCaptureFPS   = func(int) {}
+	appliedCaptureFPS atomic.Int32
+)
 
 var sourceTiming struct {
 	sync.Mutex
@@ -103,23 +89,42 @@ func GetCaptureScreen() *Screen {
 	if next.FPS > limit {
 		next.FPS = limit
 	}
+	if appliedCaptureFPS.Swap(int32(next.FPS)) != int32(next.FPS) {
+		applyCaptureFPS(next.FPS)
+	}
 	return &next
 }
 
-// CaptureRateLimit matches the native capture_rate.hpp policy. Input limits
-// still apply when the output is downscaled; Auto retains the saved request.
+// CaptureRateTier caps the frame rate of sizes within LongSide x ShortSide
+// after normalizing orientation; the 0x0 tier covers every larger size.
+type CaptureRateTier struct {
+	LongSide  int `json:"longSide"`
+	ShortSide int `json:"shortSide"`
+	FPS       int `json:"fps"`
+}
+
+// CaptureRateTiers is the native capture_rate.hpp table (a test compares
+// them). With the video overclock the encoder sustains about 250 Mpix/s: QHD
+// 60 and UHD 30 fps; 1080p gets 100 of the about 109 fps it reaches. 1088 is
+// the legacy aligned FHD width.
+var CaptureRateTiers = []CaptureRateTier{
+	{LongSide: 1280, ShortSide: 720, FPS: 120},
+	{LongSide: 1920, ShortSide: 1088, FPS: 100},
+	{LongSide: 2560, ShortSide: 1440, FPS: 60},
+	{FPS: 30},
+}
+
+// CaptureRateLimit is the frame-rate cap of a size. Input limits still apply
+// when the output is downscaled; Auto retains the saved request.
 func CaptureRateLimit(width, height int) int {
 	if width <= 0 || height <= 0 {
 		return 120
 	}
 	longer, shorter := max(width, height), min(width, height)
-	switch {
-	case longer <= 1280 && shorter <= 720:
-		return 120
-	case longer <= 1920 && shorter <= 1088:
-		// Include the legacy aligned 1088x1920 FHD profile.
-		return 75
-	default:
-		return 50
+	for _, tier := range CaptureRateTiers {
+		if tier.LongSide == 0 || (longer <= tier.LongSide && shorter <= tier.ShortSide) {
+			return tier.FPS
+		}
 	}
+	return CaptureRateTiers[0].FPS
 }

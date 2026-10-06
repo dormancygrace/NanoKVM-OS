@@ -2,7 +2,9 @@ package stream
 
 import (
 	"NanoKVM-Server/common"
+	"context"
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -108,17 +110,41 @@ func (s *VideoSource) selectConfig(config EncoderConfig) {
 }
 
 func SubscribeVideo(config EncoderConfig) (*VideoSubscription, error) {
+	return defaultVideoSource.subscribeValidated(config, validateVideoConfig)
+}
+
+// SubscribeCurrentVideo joins the device-wide codec without selecting a new one.
+// Resolution and subscription happen under the same lock, including while the
+// previous native read drains, so an arriving viewer cannot choose a stale codec.
+func SubscribeCurrentVideo() (*VideoSubscription, error) {
+	return defaultVideoSource.subscribeValidated(EncoderConfig{}, validateVideoConfig)
+}
+
+func validateVideoConfig(config EncoderConfig) error {
 	screen := common.GetScreen()
 	if portraitCodecBlocked(config.Codec, screen.Height,
 		common.ReadVideoValue("/run/nanokvm/width"), common.ReadVideoValue("/run/nanokvm/height")) {
-		return nil, fmt.Errorf("maximum portrait output requires H.265 Direct or a smaller stream resolution")
+		return fmt.Errorf("maximum portrait output requires H.265 Direct or a smaller stream resolution")
 	}
-	return defaultVideoSource.subscribe(config)
+	return nil
 }
 
 func (s *VideoSource) subscribe(config EncoderConfig) (*VideoSubscription, error) {
+	return s.subscribeValidated(config, nil)
+}
+
+func (s *VideoSource) subscribeValidated(requested EncoderConfig, validate func(EncoderConfig) error) (*VideoSubscription, error) {
 	for {
 		s.mutex.Lock()
+		config := requested
+		if config.Codec == "" {
+			config = DefaultEncoderConfig()
+			if s.selected != nil {
+				config = *s.selected
+			} else if s.session != nil && len(s.subscribers) > 0 {
+				config = s.session.config
+			}
+		}
 		if s.selected != nil && *s.selected != config {
 			selected := *s.selected
 			s.mutex.Unlock()
@@ -137,6 +163,12 @@ func (s *VideoSource) subscribe(config EncoderConfig) (*VideoSubscription, error
 			active := s.session.config
 			s.mutex.Unlock()
 			return nil, &EncoderConfigConflictError{Active: active, Requested: config}
+		}
+		if validate != nil {
+			if err := validate(config); err != nil {
+				s.mutex.Unlock()
+				return nil, err
+			}
 		}
 
 		start := s.session == nil
@@ -169,11 +201,20 @@ func (s *VideoSource) subscribe(config EncoderConfig) (*VideoSubscription, error
 	}
 }
 
+// Config is immutable for the lifetime of this subscription.
+func (s *VideoSubscription) Config() EncoderConfig { return s.session.config }
+
 func (s *VideoSubscription) Next() (VideoFrame, bool) {
+	return s.NextContext(context.Background())
+}
+
+func (s *VideoSubscription) NextContext(ctx context.Context) (VideoFrame, bool) {
 	select {
 	case frame := <-s.frames:
 		return frame, true
 	case <-s.done:
+		return VideoFrame{}, false
+	case <-ctx.Done():
 		return VideoFrame{}, false
 	}
 }
@@ -246,6 +287,10 @@ func (s *VideoSource) run(session *videoSession) {
 			common.GetKvmVision().RequestKeyframe()
 		}
 		storage, data, result := s.captureFrame(session.config)
+		// A late native read can eliminate the cadence wait. Yield at the frame
+		// boundary so CGO return/callback traffic cannot starve queued input on
+		// the single Go processor used by the device runtime.
+		runtime.Gosched()
 		frame := VideoFrame{Result: result}
 		if result >= 0 {
 			if len(data) == 0 {

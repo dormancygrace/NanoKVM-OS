@@ -319,6 +319,9 @@ func sleepRuntimeLifecycleContext(ctx context.Context, delay time.Duration) *Pic
 	}
 }
 
+// Installed checks the binary only, without probing or starting the runtime.
+func Installed() (bool, error) { return isPicoclawInstalled() }
+
 func isPicoclawInstalled() (bool, error) {
 	info, err := os.Stat(picoclawBinaryPath)
 	if err == nil {

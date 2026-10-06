@@ -1,6 +1,10 @@
 package common
 
 import (
+	"os"
+	"reflect"
+	"regexp"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -43,5 +47,27 @@ func TestCaptureRateOrientationParity(t *testing.T) {
 		if got := CaptureRateLimit(size[1], size[0]); got != size[2] {
 			t.Errorf("rotated %v: %d", size, got)
 		}
+	}
+}
+
+// The native capture library enforces the same table under its own mutex.
+func TestCaptureRateTiersMatchNative(t *testing.T) {
+	source, err := os.ReadFile("../../support/sg2002/additional/kvm_mmf/include/internal/capture_rate.hpp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	table := regexp.MustCompile(`(?s)capture_rate_tiers\[\] = \{(.*?)\n\};`).FindSubmatch(source)
+	if table == nil {
+		t.Fatal("capture_rate_tiers not found")
+	}
+	var native []CaptureRateTier
+	for _, m := range regexp.MustCompile(`\{(\d+), (\d+), (\d+)\}`).FindAllStringSubmatch(string(table[1]), -1) {
+		l, _ := strconv.Atoi(m[1])
+		s, _ := strconv.Atoi(m[2])
+		f, _ := strconv.Atoi(m[3])
+		native = append(native, CaptureRateTier{LongSide: l, ShortSide: s, FPS: f})
+	}
+	if !reflect.DeepEqual(native, CaptureRateTiers) {
+		t.Fatalf("native %v, server %v", native, CaptureRateTiers)
 	}
 }

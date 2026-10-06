@@ -23,9 +23,7 @@ use them directly. The legacy v1 naming helper remains for archived artifacts.
 
 ## Legacy naming (v1 releases)
 
-# Release names
-
-Use `python3 scripts/release_names.py VERSION` as the source of names.
+For archived v1 artifacts, use `python3 scripts/release_names.py VERSION` as the source of names.
 The OS version and Git tag retain SemVer. Starting with beta-11, release titles and filenames share
 the `NanoKVM-OS-v` prefix and use a hyphen before the prerelease number.
 

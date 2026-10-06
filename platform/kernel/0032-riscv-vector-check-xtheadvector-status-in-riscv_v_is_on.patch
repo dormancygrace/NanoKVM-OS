@@ -1,0 +1,46 @@
+From 67268227a9a96027f5669f0493dd25a15594092b Mon Sep 17 00:00:00 2001
+From: Gleb Pesin <dormancygrace@gmail.com>
+Date: Tue, 6 Oct 2026 03:00:45 +0300
+Subject: [PATCH 1/3] riscv: vector: Check the xtheadvector status field in
+ riscv_v_is_on()
+
+riscv_v_is_on() tests only the standard sstatus.VS field. Since commit
+d863910eabaf ("riscv: vector: Support xtheadvector save/restore"),
+riscv_v_enable() and riscv_v_disable() set and clear SR_VS_THEAD instead
+on cores with xtheadvector, so riscv_v_is_on() returns false there even
+while the vector unit is enabled.
+
+__switch_to_vector() relies on riscv_v_is_on() to recognise a task that
+is switched out inside a preemptible kernel-mode vector section. On
+xtheadvector cores that check never succeeds: the outgoing task neither
+disables the vector unit nor sets RISCV_PREEMPT_V_IN_SCHEDULE, and
+riscv_v_enable() is skipped when the task is switched back in.
+
+Test the status field that the running core actually uses.
+
+Fixes: d863910eabaf ("riscv: vector: Support xtheadvector save/restore")
+Cc: stable@vger.kernel.org
+Assisted-by: LLM
+Signed-off-by: Gleb Pesin <dormancygrace@gmail.com>
+---
+ arch/riscv/include/asm/vector.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/arch/riscv/include/asm/vector.h b/arch/riscv/include/asm/vector.h
+index fffe72a77..910313dd0 100644
+--- a/arch/riscv/include/asm/vector.h
++++ b/arch/riscv/include/asm/vector.h
+@@ -128,7 +128,9 @@ static __always_inline void riscv_v_disable(void)
+ 
+ static __always_inline bool riscv_v_is_on(void)
+ {
+-	return !!(csr_read(CSR_SSTATUS) & SR_VS);
++	unsigned long mask = has_xtheadvector() ? SR_VS_THEAD : SR_VS;
++
++	return !!(csr_read(CSR_SSTATUS) & mask);
+ }
+ 
+ static __always_inline void __vstate_csr_save(struct __riscv_v_ext_state *dest)
+-- 
+2.53.0
+

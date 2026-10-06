@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -76,6 +77,13 @@ func IsFHDClassDimensions(width, height int) bool {
 	return width <= fhdClassLongSide && height <= fhdClassShortSide
 }
 
+// applyCaptureFPS tells native capture the effective stream rate, so VPSS can
+// drop surplus input frames. Set by the native binding; a no-op in tests.
+var (
+	applyCaptureFPS   = func(int) {}
+	appliedCaptureFPS atomic.Int32
+)
+
 var sourceTiming struct {
 	sync.Mutex
 	expires time.Time
@@ -102,6 +110,9 @@ func GetCaptureScreen() *Screen {
 	}
 	if next.FPS > limit {
 		next.FPS = limit
+	}
+	if appliedCaptureFPS.Swap(int32(next.FPS)) != int32(next.FPS) {
+		applyCaptureFPS(next.FPS)
 	}
 	return &next
 }

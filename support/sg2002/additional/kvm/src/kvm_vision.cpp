@@ -2035,6 +2035,28 @@ void set_frame_detact(uint8_t _frame_detact)
 
 // Cross-thread callers only enqueue intent; VENC is touched under vi_mutex.
 static std::atomic<bool> requested_keyframe{false};
+
+/*
+ * The stream rate the server will request (0: unknown). When the HDMI input
+ * is faster, VPSS drops the surplus input frames before converting them, so a
+ * 30 fps stream of a 60 Hz source does half the VPSS work and DDR traffic.
+ * Applied under vi_mutex by kvmv_read_img, at most once per second.
+ */
+static std::atomic<int> capture_target_fps{0};
+int kvmv_set_capture_fps(uint8_t fps)
+{
+    capture_target_fps.store(fps, std::memory_order_relaxed);
+    return 0;
+}
+
+static void apply_capture_rate(void)
+{
+    static uint64_t last_ms = 0;
+    const uint64_t now = vi_state_shared::monotonic_ms();
+    if (now - last_ms < 1000) return;
+    last_ms = now;
+    mmf_vpss_set_rate(mmf_vi_input_fps(), capture_target_fps.load(std::memory_order_relaxed));
+}
 void kvmv_request_keyframe(void) {
  requested_keyframe.store(true, std::memory_order_relaxed);
 }
@@ -2378,6 +2400,7 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
             pthread_mutex_unlock(&vi_mutex);
             return IMG_VENC_ERROR;
         }
+        apply_capture_rate();
         nanokvm::Nv21Frame *img = NULL;
         int native_vi_ch = -1;
         int native_len = 0;

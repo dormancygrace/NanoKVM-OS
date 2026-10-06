@@ -2447,6 +2447,32 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
     return copied;
 }
 
+int mmf_vi_input_fps(void) {
+	VI_CHN_STATUS_S status = {};
+	if (CVI_VI_QueryChnStatus(0, 0, &status) != CVI_SUCCESS || !status.bEnable) return 0;
+	return (int)status.u32FrameRate;
+}
+
+int mmf_vpss_set_rate(int src_fps, int dst_fps) {
+	// The VI measurement reads a 50 Hz input as 50 or 51; never thin a stream
+	// that already matches the input.
+	const int tolerance = src_fps / 20 > 2 ? src_fps / 20 : 2;
+	if (src_fps <= 0 || dst_fps <= 0 || dst_fps >= src_fps - tolerance) src_fps = dst_fps = -1;
+	// Group frame-rate control is not applied to a started group; the
+	// channel control is, and skips the conversion of dropped frames.
+	int result = 0;
+	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) {
+		if (!priv.vi_chn_is_inited[ch]) continue;
+		VPSS_CHN_ATTR_S attr;
+		if (CVI_VPSS_GetChnAttr(0, ch, &attr) != CVI_SUCCESS) { result = -1; continue; }
+		if (attr.stFrameRate.s32SrcFrameRate == src_fps && attr.stFrameRate.s32DstFrameRate == dst_fps) continue;
+		attr.stFrameRate.s32SrcFrameRate = src_fps;
+		attr.stFrameRate.s32DstFrameRate = dst_fps;
+		if (CVI_VPSS_SetChnAttr(0, ch, &attr) != CVI_SUCCESS) result = -1;
+	}
+	return result;
+}
+
 int mmf_venc_pending_vi(int ch) {
 	if (ch < 0 || ch >= MMF_VENC_MAX_CHN || !priv.venc[ch].is_inited
 		|| !priv.venc[ch].is_running || priv.venc_stream_acquired[ch]) return -1;

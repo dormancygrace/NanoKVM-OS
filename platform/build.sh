@@ -527,7 +527,8 @@ tools() {
     "$py" "$repo/scripts/build-portrait-edid.py" --profile hd --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-portrait-720x1280.bin"
     "$py" "$repo/scripts/build-portrait-edid.py" --profile h264 --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-portrait-1296x2304.bin"
     "$py" "$repo/scripts/build-portrait-edid.py" --profile max --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-portrait-1440x2560.bin"
-    cp "$e/NanoKVM-QHD30.bin" "$e"/NanoKVM-portrait-*.bin "$e"/monitor-profiles/NanoKVM-monitor-*.bin \
+    "$py" "$repo/scripts/build-portrait-edid.py" --rates --input "$e/E21_NanoKVM.bin" --output "$e/portrait-rates"
+    cp "$e/NanoKVM-QHD30.bin" "$e"/NanoKVM-portrait-*.bin "$e"/portrait-rates/NanoKVM-portrait-*.bin "$e"/monitor-profiles/NanoKVM-monitor-*.bin \
         "$e"/monitor-profiles/NanoKVM-cube-monitor-*.bin "$img/tools/edid/"
     cp "$e/monitor-profiles/NanoKVM-monitor-auto.bin" "$img/tools/edid/NanoKVM-final-video-profiles.bin"
     cp "$e/E21_NanoKVM.bin" "$img/tools/edid/NanoKVM-stock.bin"

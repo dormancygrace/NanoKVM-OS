@@ -89,21 +89,23 @@ original backend until its tables have initialized. HChaCha and Poly1305 keep
 their existing backends. Rebuild and deploy matching modules along with the
 kernel, including `libchacha.ko`; this change is not confined to the boot image.
 
-`integrate.py KERNEL PATCH` regenerates the patch from the qualification sources
-and modifies a fresh kernel tree with patch 0036 already applied. Optional
-threshold arguments allow controlled tuning. Keep GCC kernel C at O3 with
-compiler vectorization disabled; the vector routines are explicit legacy
-assembly. Do not add RVV 1.0 or vector-crypto requirements to the C906 build.
+The kernel patches in `platform/kernel/` are the source of truth;
+`candidates.S` keeps the qualification copies of the routines. Keep GCC kernel
+C at O3 with compiler vectorization disabled; the vector routines are explicit
+legacy assembly. Do not add RVV 1.0 or vector-crypto requirements to the C906
+build. Every backend enters through `xtheadvector_kernel_usable()`
+(`asm/xtheadvector_kernel.h`): size threshold, xtheadvector with VLEN >= 128,
+and `may_use_simd()`.
 
-The context correction in patch 0038 must accompany these preemptive T-Head
-vector functions. It selects the proper legacy VS mask in the status predicate
-and clears legacy VS at trap entry using a vendor extension alternative.
-Other processors retain the standard entry mask. Correcting only the predicate
-does not qualify the preemptive path. Check both actual source contracts before
-building, then qualify the complete kernel and matched modules on hardware:
+Patches 0032-0034 are the upstream series that fixes xtheadvector status
+handling (`riscv_v_is_on()` and the trap entry mask, plus the assembly-safe
+vendor extension headers), sent to linux-riscv as
+https://lore.kernel.org/all/20261006-riscv-xtheadvector-vs-v1-0-b00e5abc9f7a@gmail.com/
+The preemptive vector functions require them. Host checks of the state
+contracts:
 
     ./check-vector-status.py SOURCE
     ./check-trap-mask.py SOURCE
 
-The host checks cover both architectures' state contracts; they do not execute
-RISC-V instructions or replace signal, fault, IRQ and production-function tests.
+They do not execute RISC-V instructions or replace signal, fault, IRQ and
+production-function tests.

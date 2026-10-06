@@ -193,6 +193,52 @@ const en = {
       }
     },
     videoSettings: {
+      hz: '{{value}} Hz',
+      upToHz: 'up to {{value}} Hz',
+      fpsValue: '{{value}} fps',
+      mbps: '{{value}} Mbit/s',
+      landscape: 'Landscape monitor',
+      refreshFollows: 'Refresh follows the frame rate: {{value}} Hz',
+      transport: 'Transport',
+      transportHint: {
+        direct: 'H.264/H.265 over HTTPS, decoded by the browser. Lowest latency.',
+        webrtc: 'Works in most browsers and across networks; encrypted with SRTP.',
+        mjpeg: 'A JPEG image per frame: the most compatible, the most traffic.'
+      },
+      streamSize: 'Encoded at {{value}}',
+      fpsDelivered: 'Delivered: up to {{fps}} fps at {{size}}',
+      manual: 'Manual settings',
+      userHint:
+        'An administrator sets the shared video settings. You can choose how this browser receives and plays the video.',
+      invalid: 'Some selected options are unavailable',
+      changeMonitor:
+        'The monitor switches to {{monitor}}: the connected computer detects it again and the picture blinks.',
+      changeReload: 'The page reloads to switch the player.',
+      preset: {
+        title: 'Profile',
+        custom: 'Custom',
+        auto: 'Recommended',
+        autoHint: 'Follows the source and this browser',
+        sharp: 'Sharpest',
+        sharpHint: 'Largest monitor, H.265, 20 Mbit/s',
+        smooth: 'Smooth',
+        smoothHint: '1920 × 1080 at 75 fps',
+        responsive: 'Lowest latency',
+        responsiveHint: '1280 × 720 at 120 fps without a playback buffer',
+        compatible: 'Compatible',
+        compatibleHint: 'WebRTC H.264, 1080p60, any browser',
+        saver: 'Low traffic',
+        saverHint: '1080p at 30 fps, 1 Mbit/s; the computer renders 30 Hz'
+      },
+      reason: {
+        'video-memory': 'needs more video memory',
+        receiver: 'not supported by this HDMI receiver',
+        browser: 'this browser cannot play it',
+        codec: 'not available with this transport',
+        transport: 'not available with this transport',
+        portrait: 'not supported by this portrait profile',
+        range: 'out of range'
+      },
       mjpegChroma: 'JPEG color sampling',
       mjpegChroma420: '4:2:0 — smaller frames',
       mjpegChroma422: '4:2:2 — sharper color edges',
@@ -208,8 +254,6 @@ const en = {
       mjpegChromaFallback_hardware:
         'Capture fell back to 4:2:0 after an error. Retry 4:2:2 when the signal is stable.',
       mjpegChromaFallback_pending: '4:2:2 will apply to the next captured frame.',
-      preferFhd60: 'Prefer 1920 × 1080 · 60 Hz',
-      preferHd60: 'Prefer 1280 × 720 · 60 Hz',
       cubeMonitorHint:
         'Cube/Lite: writes and verifies the EDID. Physically disconnect all power sources and reconnect to apply it. A software reboot is not sufficient. Automatic uses the conservative 1080p/60 profile.',
       powerCycleTitle: 'Physical power cycle required',
@@ -239,17 +283,12 @@ const en = {
       discard: 'Discard changes',
       pending: 'Changes have not been applied',
       applied: 'Video settings applied',
-      unstableTitle: 'H.265 WebRTC is disabled',
-      unstableDescription: 'H.265 is available in Direct mode only. Select H.264 to use WebRTC.',
-      unstableTag: 'H.265 disabled',
       title: 'Video',
       open: 'Video settings…',
       description: 'Configure the HDMI monitor independently from the video sent to your browser.',
       sameAsInput: 'Same as input',
       atMost: 'Up to {{value}}',
       streamResolution: 'Stream resolution',
-      limitHint:
-        'Keep the source aspect ratio. Larger input is reduced; smaller input is never enlarged.',
       failed: 'Could not apply video settings.',
       bitrate: 'Bitrate',
       current: 'Current video',
@@ -257,26 +296,10 @@ const en = {
       captureOff: 'Capture disabled',
       input: 'HDMI input',
       output: 'Encoded stream',
-      requested: 'Requested frame rate',
-      measured: 'Server output rate',
       monitor: 'HDMI monitor',
       monitorProfile: 'Virtual monitor profile',
       portrait: 'Portrait monitor',
-      portraitProfile: 'Portrait profile',
-      portraitHDProfile: '720 × 1280 · 120 Hz',
-      portraitDefaultProfile: '1080 × 1920 · 75 Hz',
-      portraitAVCProfile: '1296 × 2304 · 50 Hz (H.264)',
-      portraitMaximumProfile: '1440 × 2560 · 50 Hz (H.265)',
-      portraitMaximumHint:
-        'The maximum profile requires H.265 Direct, up to 50 FPS. Selecting it sets this video mode automatically.',
-      portraitHint:
-        'Uses the selected portrait monitor profile. The maximum 1440 × 2560 profile is about 3.7 MP at 50 FPS. Your selected landscape profile is kept and restored when portrait is turned off.',
-      portraitUnavailable: 'Portrait monitor profile is unavailable on this device.',
       automatic: 'Automatic (recommended)',
-      preferFhd: 'Prefer 1920 × 1080 · 75 Hz',
-      preferUhd: 'Prefer 3840 × 2160 · 30 Hz',
-      preferQhd: 'Prefer 2560 × 1440 · 50 Hz',
-      preferHd: 'Prefer 1280 × 720 · 120 Hz',
       monitorHint:
         'Advertises a preferred mode and fallback timings. BIOS and the operating system may choose different resolutions; capture follows the actual signal automatically. Changing this profile briefly reconnects HDMI.',
       monitorUnavailable:
@@ -294,7 +317,7 @@ const en = {
       gopHint:
         'GOP is the interval between keyframes. HDMI recovery restarts capture if the source stops responding.',
       fpsLimited:
-        'Current QHD input limits capture to {{fps}} FPS. The saved FPS request is kept for the next source mode.',
+        'The current input limits capture to {{fps}} FPS. The saved request is kept for the next source mode.',
       statusFailed: 'Could not refresh video status.',
       retry: 'Retry'
     },

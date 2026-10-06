@@ -34,6 +34,13 @@
  */
 #define DMA_CTRL_VALUE ((4 << 24) | (16 << 16) | 3)
 #define DESC_BYTES 128
+/* Runtime capability for app-only upgrades: old modules have no marker.
+ * Read-only after load; this identifies the out-of-place/write-burst-4 path.
+ */
+static bool out_of_place_burst4 = true;
+module_param(out_of_place_burst4, bool, 0444);
+MODULE_PARM_DESC(out_of_place_burst4, "Out-of-place CryptoDMA with four-beat write bursts");
+
 static struct platform_device *pdev;
 static void __iomem *regs;
 static u32 *desc;

@@ -1,5 +1,5 @@
 From c029c1b2d8f78cc9987e4e6b4d37caf515b7817c Mon Sep 17 00:00:00 2001
-From: dgrace <g.pesin@globalte.ru>
+From: Gleb Pesin <dormancygrace@gmail.com>
 Date: Sat, 5 Sep 2026 19:06:14 +0300
 Subject: [PATCH] Fix LT6911 mode indexing and preserve NanoKVM bus and MIPI
  configuration

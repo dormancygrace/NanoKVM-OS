@@ -1,14 +1,13 @@
 // NanoKVM OS adaptation, 2026-10-03. SPDX-License-Identifier: AGPL-3.0-only
 use std::io;
 
-use crypto_secretbox::{
-    aead::{Aead, KeyInit},
-    Key, Nonce, XSalsa20Poly1305,
-};
+use crate::frame_crypto::FrameCipher;
+use crypto_secretbox::{Key, Nonce, Tag, XSalsa20Poly1305};
 use prost::Message as ProstMessage;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 const MAX_PACKET_LENGTH: usize = 8 << 20;
+const MAX_RETAINED_BUFFER: usize = 1 << 20;
 
 #[derive(Clone)]
 pub struct SessionKey {
@@ -82,14 +81,16 @@ impl SessionKey {
 
 pub struct FrameReader<R> {
     inner: R,
-    cipher: Option<XSalsa20Poly1305>,
+    cipher: Option<FrameCipher>,
     sequence: u64,
+    buffer: Vec<u8>,
 }
 
 pub struct FrameWriter<W> {
     inner: W,
-    cipher: Option<XSalsa20Poly1305>,
+    cipher: Option<FrameCipher>,
     sequence: u64,
+    buffer: Vec<u8>,
 }
 
 impl<R> FrameReader<R>
@@ -99,8 +100,9 @@ where
     pub fn new(inner: R, key: Option<SessionKey>) -> Self {
         Self {
             inner,
-            cipher: key.map(|key| XSalsa20Poly1305::new(Key::from_slice(&key.receive))),
+            cipher: key.map(|key| FrameCipher::new(Key::from_slice(&key.receive))),
             sequence: 0,
+            buffer: Vec::new(),
         }
     }
 
@@ -108,7 +110,8 @@ where
     where
         M: ProstMessage + Default,
     {
-        let mut payload = read_payload(&mut self.inner).await?;
+        read_payload_into(&mut self.inner, &mut self.buffer).await?;
+        let mut offset = 0;
         if let Some(cipher) = &self.cipher {
             self.sequence = self.sequence.checked_add(1).ok_or_else(|| {
                 io::Error::new(
@@ -116,14 +119,24 @@ where
                     "session nonce counter exhausted",
                 )
             })?;
-            payload = cipher
-                .decrypt(&nonce(self.sequence), payload.as_slice())
+            if self.buffer.len() < XSalsa20Poly1305::TAG_SIZE {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "frame decryption failed",
+                ));
+            }
+            let tag = Tag::clone_from_slice(&self.buffer[..XSalsa20Poly1305::TAG_SIZE]);
+            offset = XSalsa20Poly1305::TAG_SIZE;
+            cipher
+                .decrypt(&nonce(self.sequence), &mut self.buffer[offset..], &tag)
                 .map_err(|_| {
                     io::Error::new(io::ErrorKind::InvalidData, "frame decryption failed")
                 })?;
         }
-        M::decode(payload.as_slice())
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+        let result = M::decode(&self.buffer[offset..])
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error));
+        release_oversized_buffer(&mut self.buffer);
+        result
     }
 }
 
@@ -134,8 +147,9 @@ where
     pub fn new(inner: W, key: Option<SessionKey>) -> Self {
         Self {
             inner,
-            cipher: key.map(|key| XSalsa20Poly1305::new(Key::from_slice(&key.send))),
+            cipher: key.map(|key| FrameCipher::new(Key::from_slice(&key.send))),
             sequence: 0,
+            buffer: Vec::new(),
         }
     }
 
@@ -143,7 +157,22 @@ where
     where
         M: ProstMessage,
     {
-        let mut payload = message.encode_to_vec();
+        self.buffer.clear();
+        let offset = if self.cipher.is_some() {
+            XSalsa20Poly1305::TAG_SIZE
+        } else {
+            0
+        };
+        let length = message
+            .encoded_len()
+            .checked_add(offset)
+            .filter(|&length| length <= MAX_PACKET_LENGTH)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "packet is too large"))?;
+        self.buffer.reserve(length);
+        self.buffer.resize(offset, 0);
+        message
+            .encode(&mut self.buffer)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         if let Some(cipher) = &self.cipher {
             self.sequence = self.sequence.checked_add(1).ok_or_else(|| {
                 io::Error::new(
@@ -151,13 +180,16 @@ where
                     "session nonce counter exhausted",
                 )
             })?;
-            payload = cipher
-                .encrypt(&nonce(self.sequence), payload.as_slice())
+            let tag = cipher
+                .encrypt(&nonce(self.sequence), &mut self.buffer[offset..])
                 .map_err(|_| {
                     io::Error::new(io::ErrorKind::InvalidData, "frame encryption failed")
                 })?;
+            self.buffer[..offset].copy_from_slice(&tag);
         }
-        write_payload(&mut self.inner, &payload).await
+        let result = write_payload(&mut self.inner, &self.buffer).await;
+        release_oversized_buffer(&mut self.buffer);
+        result
     }
 }
 
@@ -186,6 +218,15 @@ where
 }
 
 async fn read_payload<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<Vec<u8>> {
+    let mut payload = Vec::new();
+    read_payload_into(reader, &mut payload).await?;
+    Ok(payload)
+}
+
+async fn read_payload_into<R: AsyncRead + Unpin>(
+    reader: &mut R,
+    payload: &mut Vec<u8>,
+) -> io::Result<()> {
     let length = read_length(reader).await?;
     if length > MAX_PACKET_LENGTH {
         return Err(io::Error::new(
@@ -193,9 +234,15 @@ async fn read_payload<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<Vec<u8
             "packet is too large",
         ));
     }
-    let mut payload = vec![0; length];
-    reader.read_exact(&mut payload).await?;
-    Ok(payload)
+    payload.resize(length, 0);
+    reader.read_exact(payload).await?;
+    Ok(())
+}
+
+fn release_oversized_buffer(buffer: &mut Vec<u8>) {
+    if buffer.capacity() > MAX_RETAINED_BUFFER {
+        *buffer = Vec::new();
+    }
 }
 
 async fn write_payload<W: AsyncWrite + Unpin>(writer: &mut W, payload: &[u8]) -> io::Result<()> {
@@ -296,5 +343,54 @@ mod tests {
         write_message(&mut left, &expected).await.unwrap();
         let actual: Message = read_message(&mut right).await.unwrap();
         assert_eq!(actual, expected);
+    }
+    #[tokio::test]
+    async fn detached_frames_are_byte_identical_to_existing_secretbox() {
+        use crypto_secretbox::aead::{Aead, KeyInit};
+        use prost::Message as _;
+        for size in [
+            0, 1, 15, 16, 31, 32, 63, 64, 255, 256, 511, 512, 513, 1420, 16384, 1048593,
+        ] {
+            let message = Message {
+                union: Some(message::Union::Hash(Hash {
+                    salt: "x".repeat(size),
+                    challenge: "wire reference".to_owned(),
+                })),
+            };
+            let (left, mut right) = duplex(size + 512);
+            let mut writer =
+                super::FrameWriter::new(left, Some(super::SessionKey::new([0x37; 32])));
+            writer.write(&message).await.unwrap();
+            let actual = super::read_payload(&mut right).await.unwrap();
+            let reference = crypto_secretbox::XSalsa20Poly1305::new((&[0x37; 32]).into())
+                .encrypt(&super::nonce(1), message.encode_to_vec().as_slice())
+                .unwrap();
+            assert_eq!(actual, reference, "size={size}");
+            if size > super::MAX_RETAINED_BUFFER {
+                assert_eq!(writer.buffer.capacity(), 0);
+            }
+            let (mut left, right) = duplex(size + 512);
+            super::write_payload(&mut left, &reference).await.unwrap();
+            let mut reader =
+                super::FrameReader::new(right, Some(super::SessionKey::new([0x37; 32])));
+            let decoded: Message = reader.read().await.unwrap();
+            assert_eq!(decoded, message);
+            if size > super::MAX_RETAINED_BUFFER {
+                assert_eq!(reader.buffer.capacity(), 0);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn framed_bad_tag_and_short_ciphertext_remain_rejected() {
+        for payload in [vec![0; 15], vec![0x93; 256]] {
+            let (mut left, right) = duplex(512);
+            super::write_payload(&mut left, &payload).await.unwrap();
+            let mut reader = super::FrameReader::new(right, Some(super::SessionKey::new([3; 32])));
+            assert_eq!(
+                reader.read::<Message>().await.unwrap_err().kind(),
+                std::io::ErrorKind::InvalidData
+            );
+        }
     }
 }

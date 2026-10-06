@@ -1,5 +1,5 @@
 From 5d939490da65e0013cc24055ed8f1b1219c06f55 Mon Sep 17 00:00:00 2001
-From: dgrace <g.pesin@globalte.ru>
+From: Gleb Pesin <dormancygrace@gmail.com>
 Date: Sat, 5 Sep 2026 18:30:49 +0300
 Subject: [PATCH] Preserve full unsigned 64-bit range when reading ISP JSON
 

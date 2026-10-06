@@ -1,7 +1,7 @@
 param(
  [Parameter(Mandatory)][string]$OutputDirectory,
  [ValidateRange(5,3600)][int]$Seconds=300,
- [string]$DeviceHost='192.168.4.128', [string]$Port='COM3',
+ [Parameter(Mandatory)][string]$DeviceHost, [string]$Port='COM3',
  [ValidatePattern('^[a-zA-Z0-9-]{1,48}$')][string]$HeartbeatToken='diagnostic',
  [switch]$AllowSysRq, [switch]$AutoDumpOnLoss
 )

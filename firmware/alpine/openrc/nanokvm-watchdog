@@ -1,6 +1,8 @@
 #!/sbin/openrc-run
 # shellcheck shell=sh disable=SC2034
 description="NanoKVM hardware watchdog"
-depend() { need nanokvm-app; }
+# Require the hardware setup the application requires, but not the
+# application itself: restarting nanokvm-app must not stop the watchdog.
+depend() { need nanokvm-board nanokvm-storage nanokvm-modules; after nanokvm-app; }
 start() { /usr/libexec/nanokvm/legacy/S13nanokvm-watchdog start; }
 stop() { /usr/libexec/nanokvm/legacy/S13nanokvm-watchdog stop; }

@@ -1,3 +1,5 @@
+// TLS is verified. For the device self-signed certificate run with
+// NODE_EXTRA_CA_CERTS=/path/to/device-cert.pem.
 const https = require('https');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -12,7 +14,7 @@ function client(name, delay=0, slow=false) {
   let buffer=Buffer.alloc(0), previousHash, previousImageHash, previousTime, saved=false;
   result.requestedAtMs=Date.now()-start;
   if(process.env.MJPEG_TRACE==='1')result.frameEvents=[];
-  const req=https.get(`https://${process.env.NANOKVM_HOST || '192.168.4.128'}/api/stream/mjpeg`,{rejectUnauthorized:false,headers:{Cookie:`nano-kvm-token=${process.env.NANOKVM_TOKEN}`}},res=>{
+  const req=https.get(`https://${process.env.NANOKVM_HOST || 'nanokvm.local'}/api/stream/mjpeg`,{headers:{Cookie:`nano-kvm-token=${process.env.NANOKVM_TOKEN}`}},res=>{
    result.httpStatus=res.statusCode;
    if(res.statusCode!==200){result.errors.push(`HTTP ${res.statusCode}`);res.resume();return;}
    res.on('data',chunk=>{

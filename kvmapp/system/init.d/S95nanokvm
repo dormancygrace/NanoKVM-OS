@@ -58,6 +58,7 @@ start_background() {
         : "${NANOKVM_WEBRTC_UDP_BATCH:=1}"
         : "${NANOKVM_WEBRTC_UDP_BATCH_FLUSH_US:=1000}"
         : "${NANOKVM_WEBRTC_UDP_GSO:=1}"
+        # CryptoDMA SRTP AES (ciphers run out of place); "software" overrides.
         : "${NANOKVM_SRTP_AES:=hardware}"
         : "${GOMAXPROCS:=1}"
         export NANOKVM_WEBRTC_QUEUE_FRAMES NANOKVM_WEBRTC_UDP_BATCH

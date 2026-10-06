@@ -3,7 +3,7 @@ import("crypto/tls";"encoding/binary";"encoding/json";"flag";"fmt";"net/http";"o
 type message struct{Event string `json:"event"`;Data json.RawMessage `json:"data"`}
 type result struct{Client int `json:"client"`;Packets int `json:"packets"`;Bytes int `json:"bytes"`;Gaps int `json:"gaps"`;TimestampErrors int `json:"timestampErrors"`;Error string `json:"error,omitempty"`}
 func main(){
- host:=flag.String("host","192.168.4.128","NanoKVM address");seconds:=flag.Int("seconds",15,"capture seconds");clients:=flag.Int("clients",1,"audio listeners");output:=flag.String("output","audio-packets.bin","length-prefixed Opus output for client 0");flag.Parse()
+ host:=flag.String("host","nanokvm.local","NanoKVM address");seconds:=flag.Int("seconds",15,"capture seconds");clients:=flag.Int("clients",1,"audio listeners");output:=flag.String("output","audio-packets.bin","length-prefixed Opus output for client 0");flag.Parse()
  var wg sync.WaitGroup;rs:=make([]result,*clients)
  for i:=range rs{wg.Add(1);go func(i int){defer wg.Done();rs[i]=run(i,*host,*seconds,*output)}(i)}
  wg.Wait();data,_:=json.MarshalIndent(rs,"","  ");fmt.Println(string(data));for _,r:=range rs{if r.Error!=""||r.Packets==0{os.Exit(1)}}

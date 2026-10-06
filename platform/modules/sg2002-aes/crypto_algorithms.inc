@@ -114,7 +114,11 @@ static int crypto_prepare_descriptor(struct sg2002_crypto_request *r,
   return 0;
  }
  desc[0] |= BIT(19);
- desc[6] = lower_32_bits(buffer_dma); desc[7] = upper_32_bits(buffer_dma);
+ /* Ciphers write to a separate buffer. In-place requests (source ==
+  * destination, as in the vendor driver) hung the SoC within minutes while
+  * the H.265 encoder was active; the same requests out of place did not. */
+ desc[6] = lower_32_bits(crypto_output_dma); desc[7] = upper_32_bits(crypto_output_dma);
+ *output_size = *input_size;
  memcpy(&desc[10], r->key, r->key_length);
  switch (r->algorithm) {
  case SG2002_ALG_AES:
@@ -155,7 +159,7 @@ static int crypto_run_locked(struct sg2002_crypto_request *r)
  writel(7, regs + MASK); writel(7, regs + STATUS);
  writel(lower_32_bits(desc_dma), regs + DESC_LO); writel(upper_32_bits(desc_dma), regs + DESC_HI);
  crypto_submitted[r->algorithm]++;
- writel((6 << 24) | (16 << 16) | 3, regs + CTRL);
+ writel(DMA_CTRL_VALUE, regs + CTRL);
  err = readl_poll_timeout(regs + STATUS, status, status != 0, 1, 20000);
  r->status = status;
  // SG2002 TRM 22.3: bit0 is encryption completion, bit1 hash completion.
@@ -187,6 +191,8 @@ static void crypto_clean_locked(const struct sg2002_crypto_request *r)
  memzero_explicit(buffer, ALIGN(r->length, 16));
  if (r->algorithm == SG2002_ALG_BASE64)
   memzero_explicit(crypto_output, r->encrypt ? DIV_ROUND_UP(r->length, 3)*4 : r->length/4*3);
+ else if (!crypto_is_hash(r->algorithm))
+  memzero_explicit(crypto_output, ALIGN(r->length, 16));
  memzero_explicit(desc, DESC_BYTES);
 }
 static long crypto_ioctl(unsigned int cmd, unsigned long arg)
@@ -213,7 +219,7 @@ static long crypto_ioctl(unsigned int cmd, unsigned long arg)
  err = crypto_run_locked(&r);
  if (err) goto clean;
  if (!crypto_is_hash(r.algorithm) && copy_to_user(u64_to_user_ptr(r.output),
-     r.algorithm == SG2002_ALG_BASE64 ? crypto_output : buffer, r.output_length)) err = -EFAULT;
+     crypto_output, r.output_length)) err = -EFAULT;
  if (!err && copy_to_user((void __user *)arg, &r, sizeof(r))) err = -EFAULT;
 clean:
  crypto_clean_locked(&r);

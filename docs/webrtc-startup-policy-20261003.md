@@ -36,7 +36,7 @@ Both runs used app r17 SHA256
 the same boot e0cc3075-5027-41a4-b843-53b76e1414f2 and native bundle,
 H.264 1920x1080 / 60 requested FPS / 10 Mbps, Wi-Fi power save on.
 No Ethernet or WireGuard video traffic was measured, both selected browser
-candidate pairs used 192.168.4.128, and both receivers reported zero RTP loss.
+candidate pairs used the device LAN address, and both receivers reported zero RTP loss.
 The CPU and browser observation windows differ; exact windows are in the raw
 records and these values are not claimed as synchronized per-frame samples.
 
@@ -55,4 +55,4 @@ windows is not established.
 
 Host CPU records: work/perf-webrtc-20261003/r17_cold_boot_{one,two}.json and
 r17_app_owned_{one,two}.json. Browser records:
-C:/Users/dorma/.codex/tmp/nkos-perf-01a10190/r17-{cold-boot,app-owned}-{one,two}-browser.json.
+the r17 browser result files (kept outside the repository).

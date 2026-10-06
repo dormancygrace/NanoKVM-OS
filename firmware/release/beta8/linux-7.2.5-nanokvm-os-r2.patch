@@ -61,7 +61,7 @@ diff -ruN '--exclude=.git' a/Documentation/devicetree/bindings/misc/sipeed,nanok
 +title: NanoKVM PCIe HDMI maintenance reset
 +
 +maintainers:
-+  - dgrace <g.pesin@globalte.ru>
++  - Gleb Pesin <dormancygrace@gmail.com>
 +
 +description: |
 +  Board reset line of the HDMI-to-CSI receiver. It is separate from the

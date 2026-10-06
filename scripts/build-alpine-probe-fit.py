@@ -19,7 +19,7 @@ def main() -> None:
     parser.add_argument(
         "--release-root",
         type=Path,
-        default=Path("/home/dgrace/.local/share/nkos-build/releases/beta14-seq30"),
+        default=Path.home() / ".local/share/nkos-build/releases/beta14-seq30",
     )
     parser.add_argument(
         "--f2fs-build",
@@ -87,7 +87,7 @@ fi
     for name in ("Image.zst", "board.dtb", "boot.its"):
         shutil.copyfile(source_fit / name, args.output / name)
     mkimage = Path(
-        "/home/dgrace/.local/share/nkos-build/buildroot-output/host/bin/mkimage"
+        str(Path.home() / ".local/share/nkos-build/buildroot-output/host/bin/mkimage")
     )
     subprocess.run(
         [str(mkimage), "-f", "boot.its", "boot-alpine-test.sd"],

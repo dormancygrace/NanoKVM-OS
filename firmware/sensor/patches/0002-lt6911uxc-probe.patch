@@ -1,5 +1,5 @@
 From 4bf35e656532958b43ba9864a48bc9b9f1f3f05d Mon Sep 17 00:00:00 2001
-From: dgrace <g.pesin@globalte.ru>
+From: Gleb Pesin <dormancygrace@gmail.com>
 Date: Sun, 6 Sep 2026 20:39:00 +0300
 Subject: [PATCH] sensor: identify NanoKVM LT6911UXC and propagate I2C failures
 

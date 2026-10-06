@@ -1,5 +1,5 @@
 From 3c9fecb0ecb098302bbe5f808d2616020cbbebb4 Mon Sep 17 00:00:00 2001
-From: dgrace <g.pesin@globalte.ru>
+From: Gleb Pesin <dormancygrace@gmail.com>
 Date: Mon, 7 Sep 2026 00:06:45 +0300
 Subject: [PATCH] mmc: cv1800b: preserve board voltage and frequency limits
 

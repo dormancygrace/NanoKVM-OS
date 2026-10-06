@@ -1,5 +1,5 @@
 From 2663aa4862f675a857fc85b8ea8fe0915f268595 Mon Sep 17 00:00:00 2001
-From: dgrace <g.pesin@globalte.ru>
+From: Gleb Pesin <dormancygrace@gmail.com>
 Date: Sat, 5 Sep 2026 21:10:28 +0300
 Subject: [PATCH] Fix MaixCAM I2C descriptor and failed-read ownership
 

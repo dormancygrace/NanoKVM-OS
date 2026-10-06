@@ -122,3 +122,22 @@ func TestVideoCapabilitiesListEveryChoice(t *testing.T) {
 		t.Fatalf("WebRTC codecs %v", got)
 	}
 }
+
+func TestVideoSettingsBatchesMonitorChanges(t *testing.T) {
+	old := applyVideoMonitorSettings
+	t.Cleanup(func() { applyVideoMonitorSettings = old })
+	calls := 0
+	applyVideoMonitorSettings = func(update common.MonitorSettings) error {
+		calls++
+		if update.Resolution == nil || *update.Resolution != 1080 || update.Portrait == nil || *update.Portrait {
+			t.Fatalf("not the final combined monitor request: %+v", update)
+		}
+		return nil
+	}
+	if code, raw := setVideoAs(t, `{"portrait":false,"monitor":1080}`, authn.RoleAdmin); code != 0 {
+		t.Fatalf("rejected: %s", raw)
+	}
+	if calls != 1 {
+		t.Fatalf("monitor calls = %d, want 1", calls)
+	}
+}

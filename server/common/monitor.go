@@ -83,7 +83,7 @@ func ApplyMonitorResolution(height uint16) error {
 		return err
 	}
 
-	path := monitorProfilePath(height)
+	path := monitorProfilePathAt(height, GetScreen().FPS)
 	if monitorPortraitEnabledLocked() {
 		// monitor_resolution remains the user's ordinary landscape profile
 		// while the active EDID stays portrait.
@@ -116,7 +116,7 @@ func ApplyMonitorPortrait(enabled bool) error {
 	portraitResolution := savedPortraitResolutionLocked()
 	path := portraitMonitorEDIDPath(portraitResolution)
 	if !enabled {
-		path = monitorProfilePath(savedMonitorResolutionLocked())
+		path = monitorProfilePathAt(savedMonitorResolutionLocked(), GetScreen().FPS)
 	}
 	if enabled && !portraitResolutionSupportedLocked(portraitResolution) {
 		return fmt.Errorf("portrait monitor profile is unavailable")
@@ -293,7 +293,11 @@ func applyMonitorProfileLocked(path string) error {
 	if !info.Mode().IsRegular() {
 		return fmt.Errorf("monitor profile is unavailable: %s is not a regular file", path)
 	}
-	return applyMonitorPointerProfileLocked(path, WindowsPointerEnabled())
+	if err = applyMonitorPointerProfileLocked(path, WindowsPointerEnabled()); err != nil {
+		return err
+	}
+	recordMonitorProfileLocked(path)
+	return nil
 }
 
 func persistMonitorPortraitLocked(enabled bool) error {

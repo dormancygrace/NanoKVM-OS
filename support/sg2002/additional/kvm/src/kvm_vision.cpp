@@ -2055,7 +2055,13 @@ static void apply_capture_rate(void)
     const uint64_t now = vi_state_shared::monotonic_ms();
     if (now - last_ms < 1000) return;
     last_ms = now;
-    mmf_vpss_set_rate(mmf_vi_input_fps(), capture_target_fps.load(std::memory_order_relaxed));
+    const int input_fps = mmf_vi_input_fps();
+    mmf_vpss_set_rate(input_fps, capture_target_fps.load(std::memory_order_relaxed));
+    static int published_fps = -1;
+    if (input_fps != published_fps) {
+        nanokvm::write_small_uint("/run/nanokvm/input_fps", input_fps);
+        published_fps = input_fps;
+    }
 }
 void kvmv_request_keyframe(void) {
  requested_keyframe.store(true, std::memory_order_relaxed);

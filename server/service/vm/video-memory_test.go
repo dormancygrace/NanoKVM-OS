@@ -20,12 +20,12 @@ func TestVideoMemorySeparatesActiveAndSelected(t *testing.T) {
 	}
 	put("sys/firmware/devicetree/base/cvitek-ion/heap-carveout/nanokvm,cma-backend", "")
 	put("sys/firmware/devicetree/base/sipeed,board-revision", "pcie\x00")
-	put("usr/lib/nanokvm/boot/pcie.sd", "cma")
+	put("usr/lib/nanokvm/boot/pcie.dtb", "cma")
 	s := readVideoMemoryStatus(root)
 	if s.Active != "cma" || s.Selected != "cma" || s.Available || s.RebootRequired {
 		t.Fatalf("legacy: %+v", s)
 	}
-	put("usr/lib/nanokvm/boot/pcie-fixed.sd", "fixed")
+	put("usr/lib/nanokvm/boot/pcie-fixed.dtb", "fixed")
 	put("etc/kvm/video-memory-mode", "fixed\n")
 	s = readVideoMemoryStatus(root)
 	if !s.Available || !s.RebootRequired || s.Active != "cma" || s.Selected != "fixed" {
@@ -51,7 +51,7 @@ func TestVideoMemoryUHDMode(t *testing.T) {
 		}
 	}
 	put("sys/firmware/devicetree/base/sipeed,board-revision", "pcie\x00")
-	for _, name := range []string{"pcie.sd", "pcie-fixed.sd", "pcie-uhd.sd"} {
+	for _, name := range []string{"pcie.dtb", "pcie-fixed.dtb", "pcie-uhd.dtb"} {
 		put("usr/lib/nanokvm/boot/"+name, "fit")
 	}
 	// An older boot image without the mode property: a 128 MiB fixed region is uhd.
@@ -67,7 +67,7 @@ func TestVideoMemoryUHDMode(t *testing.T) {
 	if s = readVideoMemoryStatus(root); s.Active != "fixed" || s.SizeMiB != 64 || !s.RebootRequired {
 		t.Fatalf("fixed 64 MiB: %+v", s)
 	}
-	if err := os.Remove(filepath.Join(root, "usr/lib/nanokvm/boot/pcie-uhd.sd")); err != nil {
+	if err := os.Remove(filepath.Join(root, "usr/lib/nanokvm/boot/pcie-uhd.dtb")); err != nil {
 		t.Fatal(err)
 	}
 	if s = readVideoMemoryStatus(root); len(s.Modes) != 2 || !validVideoMemoryMode("uhd") || validVideoMemoryMode("auto") {

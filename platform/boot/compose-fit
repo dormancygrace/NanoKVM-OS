@@ -1,0 +1,33 @@
+#!/bin/sh
+# Compose a board boot image from the shared FIT template.
+#   compose-fit PAYLOAD_DIR NAME OUTPUT
+# Every board and video memory mode has the same kernel and initramfs and a
+# device tree padded to one size, so its FIT differs from the template only
+# in the device tree bytes and their SHA-256 in the image hash node
+# (offsets in fit.layout). The result must match NAME.sha256, the hash of the
+# image the build made with mkimage; OUTPUT is written only then.
+set -eu
+dir=$1 name=$2 out=$3
+case "$name" in ''|*[!a-z0-9-]*) echo "Invalid boot image name: $name" >&2; exit 1;; esac
+DTB_OFFSET='' DTB_SIZE='' HASH_OFFSET=''
+while IFS='=' read -r key value; do
+    case "$key:$value" in
+        DTB_OFFSET:*[!0-9]*|DTB_SIZE:*[!0-9]*|HASH_OFFSET:*[!0-9]*) ;;
+        DTB_OFFSET:?*) DTB_OFFSET=$value ;;
+        DTB_SIZE:?*) DTB_SIZE=$value ;;
+        HASH_OFFSET:?*) HASH_OFFSET=$value ;;
+    esac
+done < "$dir/fit.layout"
+[ -n "$DTB_OFFSET" ] && [ -n "$DTB_SIZE" ] && [ -n "$HASH_OFFSET" ] || { echo 'Invalid fit.layout' >&2; exit 1; }
+[ "$(wc -c < "$dir/$name.dtb")" -eq "$DTB_SIZE" ] || { echo "Device tree size mismatch: $name" >&2; exit 1; }
+[ "$(wc -c < "$dir/$name.fdt-sha256")" -eq 32 ] || { echo "Device tree hash missing: $name" >&2; exit 1; }
+expected=$(cut -d ' ' -f 1 "$dir/$name.sha256")
+tmp=$out.compose.$$
+trap 'rm -f "$tmp"' EXIT
+cp "$dir/fit-template.sd" "$tmp"
+dd if="$dir/$name.dtb" of="$tmp" bs=1 seek="$DTB_OFFSET" conv=notrunc 2>/dev/null
+dd if="$dir/$name.fdt-sha256" of="$tmp" bs=1 seek="$HASH_OFFSET" conv=notrunc 2>/dev/null
+actual=$(sha256sum "$tmp" | cut -d ' ' -f 1)
+[ "$actual" = "$expected" ] || { echo "Composed boot image does not match $name.sha256" >&2; exit 1; }
+mv "$tmp" "$out"
+trap - EXIT

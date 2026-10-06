@@ -16,7 +16,7 @@ require (
 	github.com/pion/dtls/v3 v3.1.9
 	github.com/pion/ice/v4 v4.4.4
 	github.com/pion/interceptor v0.1.49
-	github.com/pion/rtcp v1.2.18
+	github.com/pion/rtcp v1.2.19
 	github.com/pion/rtp v1.10.5
 	github.com/pion/srtp/v3 v3.1.0
 	github.com/pion/stun/v4 v4.0.1
@@ -44,7 +44,7 @@ require (
 	github.com/go-playground/locales v0.14.2 // indirect
 	github.com/go-playground/universal-translator v0.18.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
-	github.com/goccy/go-json v0.11.1 // indirect
+	github.com/goccy/go-json v0.11.2 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
@@ -55,9 +55,9 @@ require (
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/pion/datachannel v1.6.3 // indirect
 	github.com/pion/logging v0.2.4 // indirect
-	github.com/pion/mdns/v2 v2.2.1 // indirect
+	github.com/pion/mdns/v2 v2.2.2 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
-	github.com/pion/sctp v1.11.3 // indirect
+	github.com/pion/sctp v1.12.0 // indirect
 	github.com/pion/sdp/v3 v3.0.20 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.63.0 // indirect

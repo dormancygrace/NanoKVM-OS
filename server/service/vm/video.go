@@ -214,6 +214,7 @@ func (r VideoSettingsReq) settings() []proto.SetScreenReq {
 }
 
 var videoSettingsMutex sync.Mutex
+var applyVideoMonitorSettings = common.ApplyMonitorSettings
 
 // SetVideoSettings validates every setting before it changes any, applies
 // them in order and, when the stream rate changed but the monitor did not,
@@ -247,20 +248,29 @@ func (s *Service) SetVideoSettings(c *gin.Context) {
 			return
 		}
 	}
-	monitorWritten := false
 	for _, setting := range settings {
+		switch setting.Type {
+		case "monitor", "portrait", "portrait_resolution":
+			continue // Apply the final HDMI state once after stream settings.
+		}
 		if _, failure := applyScreenSetting(setting); failure != nil {
 			rsp.ErrRsp(c, failure.code, failure.msg)
 			return
 		}
-		monitorWritten = monitorWritten || setting.Type == "monitor" || setting.Type == "portrait" ||
-			setting.Type == "portrait_resolution"
 	}
-	if req.FPS != nil && !monitorWritten {
-		if _, err := common.SyncMonitorRefresh(common.GetScreen().FPS); err != nil {
-			rsp.ErrRsp(c, -4, err.Error())
-			return
-		}
+	monitor := common.MonitorSettings{Portrait: req.Portrait, SyncRefresh: req.FPS != nil}
+	if req.Monitor != nil {
+		value := uint16(*req.Monitor)
+		monitor.Resolution = &value
 	}
+	if req.PortraitResolution != nil {
+		value := uint16(*req.PortraitResolution)
+		monitor.PortraitResolution = &value
+	}
+	if err := applyVideoMonitorSettings(monitor); err != nil {
+		rsp.ErrRsp(c, -4, err.Error())
+		return
+	}
+
 	rsp.OkRspWithData(c, videoCapabilities())
 }

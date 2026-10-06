@@ -39,9 +39,6 @@ export async function initializeEncoderCodec(
     // A joining browser follows the existing encoder without overwriting its
     // saved preference or silently reconfiguring other viewers' stream.
     effectiveCodec = activeCodec;
-    if (transport === 'webrtc' && activeCodec === 'h265') {
-      throw new Error('h265-webrtc-disabled');
-    }
     if (!(await isEncoderCodecSupported(transport, activeCodec))) {
       throw new Error('active-codec-unsupported');
     }
@@ -107,6 +104,15 @@ async function probeDirectH265() {
 }
 
 export function supportsWebRTCH265() {
-  // Device policy, regardless of the browser decoder's HEVC capability.
-  return false;
+  if (!window.RTCRtpReceiver?.getCapabilities) return false;
+
+  try {
+    return (
+      window.RTCRtpReceiver.getCapabilities('video')?.codecs.some(
+        ({ mimeType }) => mimeType.toLowerCase() === 'video/h265'
+      ) ?? false
+    );
+  } catch {
+    return false;
+  }
 }

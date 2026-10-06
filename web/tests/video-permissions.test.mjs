@@ -4,190 +4,224 @@ import test from 'node:test';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-const status = {
-  monitor: 0, portrait: false, portraitResolution: 1920, height: 1080,
-  fps: 60, quality: 80, bitRate: 3000, gop: 30, gopMode: 1, mjpegChroma: 420,
-  gopModeActive: 1, gopModeRestartRequired: false, monitorSupported: true,
-  monitorRequiresPowerCycle: false, monitorPowerCyclePending: false,
-  monitorHighRefreshSupported: true, qhdSupported: true, portraitSupported: true,
-  portraitMaxSupported: true, inputWidth: 1920, inputHeight: 1080
-};
-
-function render(file, { role = 'user', draft = {} } = {}) {
-  const calls = { shared: [], encoder: [], local: [], errors: [], reloads: 0, refreshes: 0 };
-  let stateIndex = 0;
-  const element = (type, props) => ({ type, props: props ?? {} });
-  const atoms = Object.fromEntries(
-    ['resolutionAtom', 'streamFpsAtom', 'streamGopAtom', 'streamQualityAtom', 'videoModeAtom']
-      .map((name) => [name, name])
-  );
-  const values = {
-    resolutionAtom: { width: 1920, height: 1080 }, streamFpsAtom: 60,
-    streamGopAtom: 30, streamQualityAtom: 2, videoModeAtom: 'direct'
-  };
-  const storage = {
-    getFrameDetect: () => false,
-    getDirectPlayback: () => 'paced',
-    setVideoMode: (value) => calls.local.push(['mode', value]),
-    setDirectPlayback: (value) => calls.local.push(['playback', value]),
-    setFrameDetect: () => assert.fail('viewer must not persist frame detection'),
-    setResolution: () => {}, setFps: () => {}, setGop: () => {}, setQuality: () => {}
-  };
-  const components = Object.fromEntries(
-    ['Alert', 'Button', 'Checkbox', 'Collapse', 'InputNumber', 'Modal', 'Select', 'Switch']
-      .map((name) => [name, name])
-  );
-  const modules = {
-    react: {
-      useEffect: () => {},
-      useRef: (value) => ({ current: value }),
-      useState: (initial) => {
-        const value = typeof initial === 'function' ? initial() : initial;
-        return [stateIndex++ === 0 ? { ...value, ...draft } : value, () => {}];
-      }
-    },
-    'react/jsx-runtime': { jsx: element, jsxs: element, Fragment: 'Fragment' },
-    '@/contexts/auth': { useAuth: () => ({ account: { role } }) },
-    'react-i18next': { useTranslation: () => ({ t: (key) => key }) },
-    jotai: {
-      useAtomValue: (atom) => values[atom],
-      useAtom: (atom) => [values[atom], () => {}],
-      useSetAtom: () => () => {}
-    },
-    antd: {
-      ...components,
-      message: { success: () => {}, error: (error) => calls.errors.push(error) }
-    },
-    '@/api/stream': {
-      selectEncoderCodec: async (codec) => {
-        calls.encoder.push(codec);
-        return { code: 0 };
-      },
-      updateFrameDetect: async (value) => {
-        calls.shared.push(['frameDetect', value]);
-        return { code: 0 };
-      }
-    },
-    '@/api/vm': {
-      getScreen: async () => ({ code: 0, data: status }),
-      updateScreen: async (...args) => {
-        calls.shared.push(args);
-        return { code: 0 };
-      }
-    },
-    '@/lib/encoder': {
-      getEncoderCodec: () => 'h264',
-      isEncoderCodecSupported: async () => true,
-      setEncoderCodec: (value) => calls.local.push(['codec', value])
-    },
-    '@/lib/localstorage': storage,
-    '@/lib/video-policy': { isQhdStream: () => false },
-    '@/jotai/screen': atoms,
-    '../../screen/constants': { getQualityMap: () => new Map([[2, 3000]]) },
-    './constants': { getQualityMap: () => new Map([[2, 3000]]) },
-    '../../screen/reset': { Reset: 'Reset' },
-    './fps': { Fps: 'Fps' }, './gop': { Gop: 'Gop' },
-    './quality': { Quality: 'Quality' }, './resolution': { Resolution: 'Resolution' }
-  };
-  const exports = {};
-  const code = ts.transpileModule(readFileSync(new URL(file, import.meta.url), 'utf8'), {
+function transpile(file, jsx = false) {
+  return ts.transpileModule(readFileSync(new URL(file, import.meta.url), 'utf8'), {
     compilerOptions: {
-      module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
-      jsx: ts.JsxEmit.ReactJSX
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      ...(jsx ? { jsx: ts.JsxEmit.ReactJSX } : {})
     }
   }).outputText;
-  vm.runInNewContext(code, {
+}
+
+function load(file, modules, globals = {}, jsx = false) {
+  const exports = {};
+  vm.runInNewContext(transpile(file, jsx), {
     exports,
     require: (name) => {
       if (!(name in modules)) throw new Error(`unmocked import ${name}`);
       return modules[name];
     },
     URL,
-    window: {
-      isSecureContext: true, VideoDecoder: {}, RTCPeerConnection: {},
-      location: { href: 'https://kvm.test/', reload: () => { calls.reloads++; } },
-      history: { state: null, replaceState: () => {} }
-    }
+    ...globals
   });
-  const tree = file.includes('form.tsx')
-    ? exports.VideoForm({
-        status, refresh: async () => { calls.refreshes++; }, setIsLocked: () => {}
-      })
-    : exports.StreamControls({ advanced: false });
-  return { tree, calls };
+  return exports;
 }
 
-function nodes(tree) {
-  if (!tree || typeof tree !== 'object') return [];
-  return [tree, ...Object.values(tree).flatMap(nodes)];
+const model = load('../src/lib/video-model.ts', {});
+const constants = { getQualityMap: () => new Map([[2, 3000], [7, 5000]]) };
+
+const caps = {
+  input: { width: 1920, height: 1080, fps: 60, maxFps: 75 },
+  monitor: {
+    programmable: true,
+    requiresPowerCycle: false,
+    powerCyclePending: false,
+    followsStreamRate: true,
+    selected: 1080,
+    refreshHz: 60,
+    modes: [
+      { height: 0, width: 0, rates: [50, 40, 30], available: true },
+      { height: 1080, width: 1920, rates: [75, 60, 30], available: true }
+    ],
+    portrait: { enabled: false, resolution: 1920, profiles: [] }
+  },
+  stream: {
+    limits: [
+      { height: 0, width: 0, available: true },
+      { height: 1080, width: 1920, available: true }
+    ],
+    rateTiers: [
+      { longSide: 1920, shortSide: 1088, fps: 75 },
+      { longSide: 0, shortSide: 0, fps: 30 }
+    ],
+    minFps: 10,
+    maxFps: 120
+  },
+  transports: { direct: ['h264', 'h265'], webrtc: ['h264', 'h265'], mjpeg: ['mjpeg'] },
+  videoMemoryMiB: 64
+};
+const browser = { direct: true, webrtc: true, directH265: true, webrtcH265: true };
+const saved = {
+  monitor: 1080,
+  portrait: 0,
+  height: 0,
+  fps: 60,
+  transport: 'direct',
+  codec: 'h264',
+  bitRate: 3000,
+  quality: 80,
+  gop: 30,
+  gopMode: 1,
+  mjpegChroma: 420,
+  directPlayback: 'paced',
+  frameDetect: false
+};
+
+function applier() {
+  const calls = { shared: [], encoder: [], local: [], reloads: 0 };
+  const apply = load('../src/pages/desktop/menu/settings/video/apply.ts', {
+    '@/api/stream': {},
+    '@/api/vm': {},
+    '@/lib/encoder': {},
+    '@/lib/localstorage': {},
+    '@/lib/video-model': model,
+    '../../screen/constants': constants
+  });
+  const deps = {
+    applyVideoSettings: async (body, confirm) => {
+      calls.shared.push([{ ...body }, confirm]);
+      return { code: 0, data: null };
+    },
+    selectEncoderCodec: async (codec) => {
+      calls.encoder.push(codec);
+      return { code: 0 };
+    },
+    updateFrameDetect: async (value) => {
+      calls.shared.push(['frameDetect', value]);
+      return { code: 0 };
+    },
+    setEncoderCodec: (codec) => calls.local.push(['codec', codec]),
+    storage: {
+      setVideoMode: (value) => calls.local.push(['mode', value]),
+      setDirectPlayback: (value) => calls.local.push(['playback', value]),
+      setFrameDetect: () => assert.fail('viewer must not persist frame detection'),
+      setResolution: () => {},
+      setFps: () => {},
+      setGop: () => {},
+      setQuality: () => {}
+    },
+    reload: () => calls.reloads++,
+    clearPlaybackOverrides: () => {}
+  };
+  return { apply: apply.applyVideoDraft, deps, calls };
 }
 
-const form = '../src/pages/desktop/menu/settings/video/form.tsx';
-const controls = '../src/pages/desktop/menu/screen/controls.tsx';
-
-test('users see shared values without mounting mutable toolbar controls', () => {
-  const { tree } = render(controls);
-  const types = nodes(tree).map((node) => node.type);
-  for (const type of ['Fps', 'Quality', 'Gop', 'Resolution']) {
-    assert.equal(types.includes(type), false, `${type} must be read-only for users`);
-  }
-  assert.ok(nodes(tree).some((node) => node.props?.children === 'screen.fps'));
-});
-
-test('administrators retain mutable toolbar controls', () => {
-  const { tree } = render(controls, { role: 'admin' });
-  const types = nodes(tree).map((node) => node.type);
-  for (const type of ['Fps', 'Quality', 'Resolution']) assert.ok(types.includes(type));
-});
-
-test('users can choose transport and playback while shared codec is read-only', () => {
-  const { tree } = render(form);
-  const select = (label) => nodes(tree).find((node) => node.type === 'Select' && node.props['aria-label'] === label);
-  assert.equal(select('screen.codec').props.disabled, true);
-  assert.equal(select('screen.video').props.disabled, false);
-  assert.equal(select('videoSettings.directPlayback').props.disabled, false);
-});
-
-for (const [name, draft, expected] of [
-  ['WebRTC transport', { mode: 'h264' }, ['mode', 'h264']],
-  ['MJPEG transport', { mode: 'mjpeg' }, ['mode', 'mjpeg']],
+for (const [name, change, expected] of [
+  ['WebRTC transport', { transport: 'webrtc' }, ['mode', 'h264']],
+  ['MJPEG transport', { transport: 'mjpeg' }, ['mode', 'mjpeg']],
   ['Direct playback', { directPlayback: 'immediate' }, ['playback', 'immediate']],
-  ['transport after role demotion with a pending shared draft', { mode: 'h264', fps: 75, gop: 10 }, ['mode', 'h264']]
+  [
+    'transport with a pending shared draft after role demotion',
+    { transport: 'webrtc', fps: 75, gop: 10 },
+    ['mode', 'h264']
+  ]
 ]) {
   test(`user applies ${name} without calling shared-setting APIs`, async () => {
-    const { tree, calls } = render(form, { draft });
-    const apply = nodes(tree).find((node) => node.type === 'Button' && node.props.children === 'videoSettings.apply');
-    assert.equal(apply.props.disabled, false);
-    await apply.props.onClick();
-    // The click callback starts an async action; wait for its refresh/finally.
-    await new Promise((resolve) => setImmediate(resolve));
+    const { apply, deps, calls } = applier();
+    const result = await apply(saved, { ...saved, ...change }, caps, { admin: false, confirmPowerCycle: false }, deps);
     assert.deepEqual(calls.shared, []);
     assert.deepEqual(calls.encoder, []);
-    assert.deepEqual(calls.errors, []);
-    assert.ok(calls.local.some((entry) => entry[0] === expected[0] && entry[1] === expected[1]));
+    assert.ok(calls.local.some((e) => e[0] === expected[0] && e[1] === expected[1]));
     assert.equal(calls.reloads, 1);
-    assert.equal(calls.refreshes, 1);
+    assert.equal(result.reloading, true);
   });
 }
 
-test('administrator transport changes still select the shared encoder', async () => {
-  const { tree, calls } = render(form, { role: 'admin', draft: { mode: 'h264' } });
-  const apply = nodes(tree).find((node) => node.type === 'Button' && node.props.children === 'videoSettings.apply');
-  await apply.props.onClick();
-  await new Promise((resolve) => setImmediate(resolve));
+test('administrator transport changes select the shared encoder', async () => {
+  const { apply, deps, calls } = applier();
+  await apply(saved, { ...saved, transport: 'webrtc' }, caps, { admin: true, confirmPowerCycle: false }, deps);
   assert.deepEqual(calls.encoder, ['h264']);
-  assert.deepEqual(calls.errors, []);
   assert.equal(calls.reloads, 1);
 });
 
-test('administrator can still apply a shared FPS preference', async () => {
-  const { tree, calls } = render(form, { role: 'admin', draft: { fps: 75 } });
-  const apply = nodes(tree).find((node) => node.type === 'Button' && node.props.children === 'videoSettings.apply');
-  await apply.props.onClick();
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(calls.shared, [['fps', 75, false]]);
+test('administrator applies shared settings in one request', async () => {
+  const { apply, deps, calls } = applier();
+  const result = await apply(saved, { ...saved, fps: 30, bitRate: 5000 }, caps, { admin: true, confirmPowerCycle: false }, deps);
+  assert.deepEqual(calls.shared, [[{ bitRate: 5000, fps: 30 }, false]]);
   assert.deepEqual(calls.encoder, []);
-  assert.deepEqual(calls.errors, []);
   assert.equal(calls.reloads, 0);
-  assert.equal(calls.refreshes, 1);
+  // 30 fps selects the 1080p 30 Hz monitor.
+  assert.equal(result.monitorRewritten, true);
+});
+
+test('a rejected request leaves this browser unchanged', async () => {
+  const { apply, deps, calls } = applier();
+  deps.applyVideoSettings = async () => ({ code: -3, msg: 'needs video memory' });
+  await assert.rejects(
+    apply(saved, { ...saved, transport: 'webrtc', fps: 30 }, caps, { admin: true, confirmPowerCycle: false }, deps),
+    /needs video memory/
+  );
+  assert.deepEqual(calls.local, []);
+  assert.equal(calls.reloads, 0);
+});
+
+function renderForm(role) {
+  let stateIndex = 0;
+  const element = (type, props) => ({ type, props: props ?? {} });
+  const components = Object.fromEntries(
+    ['Button', 'Collapse', 'InputNumber', 'Modal', 'Select', 'Switch'].map((n) => [n, n])
+  );
+  const form = load(
+    '../src/pages/desktop/menu/settings/video/form.tsx',
+    {
+      react: {
+        useEffect: () => {},
+        useRef: (value) => ({ current: value }),
+        useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}]
+      },
+      'react/jsx-runtime': { jsx: element, jsxs: element, Fragment: 'Fragment' },
+      'react-i18next': { useTranslation: () => ({ t: (key) => key }) },
+      antd: { ...components, message: { success: () => {}, error: () => {} } },
+      '@/lib/video-model': model,
+      '../../screen/reset': { Reset: 'Reset' },
+      './apply': { applyVideoDraft: async () => ({}) },
+      './presets': { PresetPicker: 'PresetPicker' },
+      './use-video-settings': { useSyncStreamAtoms: () => () => {} }
+    },
+    {},
+    true
+  );
+  void stateIndex;
+  const tree = form.VideoForm({
+    caps,
+    browser,
+    saved,
+    admin: role === 'admin',
+    refresh: async () => {},
+    setIsLocked: () => {}
+  });
+  const nodes = (n) => (!n || typeof n !== 'object' ? [] : [n, ...Object.values(n).flatMap(nodes)]);
+  return nodes(tree);
+}
+
+test('users choose transport and playback; shared settings are read-only', () => {
+  const nodes = renderForm('user');
+  const select = (label) =>
+    nodes.find((n) => n.type === 'Select' && n.props['aria-label'] === label);
+  assert.equal(select('screen.codec').props.disabled, true);
+  assert.equal(select('screen.fps').props.disabled, true);
+  assert.equal(select('videoSettings.monitorProfile').props.disabled, true);
+  assert.equal(select('screen.video').props.disabled, false);
+  assert.equal(select('videoSettings.directPlayback').props.disabled, false);
+  assert.equal(nodes.some((n) => n.type === 'PresetPicker'), false);
+});
+
+test('administrators see presets and editable shared settings', () => {
+  const nodes = renderForm('admin');
+  const select = (label) =>
+    nodes.find((n) => n.type === 'Select' && n.props['aria-label'] === label);
+  assert.equal(select('screen.codec').props.disabled, false);
+  assert.equal(select('screen.fps').props.disabled, false);
+  assert.ok(nodes.some((n) => n.type === 'PresetPicker'));
 });

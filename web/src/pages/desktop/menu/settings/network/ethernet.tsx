@@ -127,7 +127,7 @@ export const Ethernet = () => {
             onChange={(enabled) => update({ enabled })}
           />
         </SettingRow>
-        {!config.enabled && (
+        {original?.enabled && !config.enabled && (
           <Alert
             type="warning"
             showIcon

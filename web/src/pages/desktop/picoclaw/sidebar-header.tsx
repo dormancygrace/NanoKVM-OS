@@ -111,6 +111,7 @@ export const SidebarHeader = ({
             type="text"
             size="small"
             onClick={onClose}
+            aria-label={t('menu.collapse')}
             title={t('menu.collapse')}
             className="flex! items-center! justify-center! !text-neutral-400 hover:!bg-white/[0.08] hover:!text-neutral-200"
             icon={<LayoutSidebarRightCollapse size={18} />}
@@ -126,6 +127,7 @@ export const SidebarHeader = ({
               <Select
                 variant="borderless"
                 size="small"
+                aria-label={t('picoclaw.agent.label')}
                 value={agentProfile || 'kvm'}
                 onChange={(value) => void onAgentProfileChange?.(value)}
                 disabled={
@@ -166,6 +168,7 @@ export const SidebarHeader = ({
                     type="text"
                     size="small"
                     onClick={onOpenHistory}
+                    aria-label={t('picoclaw.history.title')}
                     title={t('picoclaw.history.title')}
                     className={[
                       'flex! items-center! justify-center!',
@@ -179,6 +182,7 @@ export const SidebarHeader = ({
                     disabled={isRuntimeActionDisabled || isTogglingRuntime}
                     loading={isTogglingRuntime}
                     onClick={() => void onToggleRuntime()}
+                    aria-label={runtimeToggleTitle || t('picoclaw.config.stopRuntime')}
                     title={runtimeToggleTitle || t('picoclaw.config.stopRuntime')}
                     icon={!isTogglingRuntime ? <PowerIcon size={14} /> : undefined}
                     type="text"
@@ -191,6 +195,7 @@ export const SidebarHeader = ({
                   disabled={isRuntimeActionDisabled || isTogglingRuntime}
                   loading={isTogglingRuntime}
                   onClick={() => void onToggleRuntime()}
+                  aria-label={runtimeToggleTitle || t('picoclaw.config.startRuntime')}
                   title={runtimeToggleTitle || t('picoclaw.config.startRuntime')}
                   icon={!isTogglingRuntime ? <PlayIcon size={14} /> : undefined}
                   type="text"

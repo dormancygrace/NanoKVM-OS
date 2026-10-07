@@ -75,13 +75,24 @@ export const Hostname = ({ editable = false }: { editable?: boolean }) => {
         {editState === 'editing' ? (
           <div className="flex items-center space-x-1">
             <Input
+              aria-label={t('settings.about.hostname')}
               disabled={isLoading}
               style={{ width: 150 }}
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
-            <Button size="small" icon={<CheckOutlined />} onClick={update} />
-            <Button size="small" icon={<CloseOutlined />} onClick={() => setEditState('')} />
+            <Button
+              size="small"
+              aria-label={t('settings.about.hostnameSave')}
+              icon={<CheckOutlined />}
+              onClick={update}
+            />
+            <Button
+              size="small"
+              aria-label={t('settings.about.hostnameCancel')}
+              icon={<CloseOutlined />}
+              onClick={() => setEditState('')}
+            />
           </div>
         ) : (
           <div className="flex items-center space-x-2">
@@ -90,8 +101,8 @@ export const Hostname = ({ editable = false }: { editable?: boolean }) => {
               <Button
                 size="small"
                 type="text"
-                aria-label={t('settings.about.hostname')}
-                title={t('settings.about.hostname')}
+                aria-label={t('settings.about.hostnameEdit')}
+                title={t('settings.about.hostnameEdit')}
                 className="text-neutral-400 hover:!text-blue-500"
                 icon={<ClipboardPenIcon size={16} />}
                 onClick={showInput}

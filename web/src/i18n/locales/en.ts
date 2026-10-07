@@ -744,6 +744,7 @@ const en = {
         updateAvailable: 'Packages with available updates',
         upToDate: 'All installed packages are up to date.',
         searchPlaceholder: 'Search package name',
+        search: 'Search',
         searchHint: 'Search starts automatically after you pause typing.',
         noResults: 'No matching packages',
         indexMissing:
@@ -965,6 +966,10 @@ const en = {
           'Anyone with this API key can control the remote host and view its screen. Use HTTPS and enable it only on trusted networks.',
         endpoint: 'Endpoint',
         apiKey: 'API key',
+        showKey: 'Show API key',
+        hideKey: 'Hide API key',
+        regenerateKey: 'Regenerate API key',
+        copyValue: 'Copy {{label}}',
         regenerateConfirmTitle: 'Regenerate MCP API key?',
         regenerateConfirmDesc: 'The current key will stop working immediately.',
         enableConfirmTitle: 'Enable external MCP control?',
@@ -1044,6 +1049,9 @@ const en = {
         deviceKey: 'Device key',
         community: 'Community',
         hostname: 'Hostname',
+        hostnameEdit: 'Edit hostname',
+        hostnameSave: 'Save hostname',
+        hostnameCancel: 'Cancel editing',
         hostnameUpdated: 'Hostname updated. Reboot to apply.',
         ipType: {
           Wired: 'Wired',
@@ -1428,7 +1436,9 @@ const en = {
           ipAddress: 'IP address',
           subnetMask: 'Subnet mask',
           router: 'Router',
-          none: 'None'
+          none: 'None',
+          server: 'DNS server {{index}}',
+          remove: 'Remove DNS server {{index}}'
         }
       },
       tailscale: {
@@ -1646,7 +1656,8 @@ const en = {
         kvmTitle: 'Remote control',
         kvmDescription: 'Operate the remote host through NanoKVM.',
         switched: 'Agent role switched',
-        switchFailed: 'Failed to switch agent role'
+        switchFailed: 'Failed to switch agent role',
+        label: 'Agent role'
       },
       send: 'Send',
       cancel: 'Cancel',

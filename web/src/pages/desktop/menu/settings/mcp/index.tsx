@@ -240,6 +240,7 @@ export const MCP = () => {
               <CredentialRow
                 label={t('settings.mcp.endpoint')}
                 value={endpoint}
+                copyLabel={t('settings.mcp.copyValue', { label: t('settings.mcp.endpoint') })}
                 copied={isEndpointCopied}
                 onCopy={() => copyText(endpoint, 'endpoint')}
               />
@@ -247,6 +248,7 @@ export const MCP = () => {
               <CredentialRow
                 label={t('settings.mcp.apiKey')}
                 value={displayKey}
+                copyLabel={t('settings.mcp.copyValue', { label: t('settings.mcp.apiKey') })}
                 copied={isKeyCopied}
                 onCopy={() => copyText(config.apiKey, 'key')}
                 disabled={!config.apiKey}
@@ -255,6 +257,8 @@ export const MCP = () => {
                     <Button
                       type="text"
                       size="small"
+                      aria-label={t(isKeyVisible ? 'settings.mcp.hideKey' : 'settings.mcp.showKey')}
+                      title={t(isKeyVisible ? 'settings.mcp.hideKey' : 'settings.mcp.showKey')}
                       className="text-neutral-400 hover:text-white"
                       icon={isKeyVisible ? <EyeOffIcon size={15} /> : <EyeIcon size={15} />}
                       disabled={!config.apiKey}
@@ -263,6 +267,8 @@ export const MCP = () => {
                     <Button
                       type="text"
                       size="small"
+                      aria-label={t('settings.mcp.regenerateKey')}
+                      title={t('settings.mcp.regenerateKey')}
                       className="text-neutral-400 hover:text-white"
                       loading={isLoading}
                       icon={<RefreshCcwIcon size={15} />}
@@ -282,6 +288,7 @@ export const MCP = () => {
 type CredentialRowProps = {
   label: string;
   value: string;
+  copyLabel: string;
   copied: boolean;
   onCopy: () => void;
   disabled?: boolean;
@@ -291,6 +298,7 @@ type CredentialRowProps = {
 const CredentialRow = ({
   label,
   value,
+  copyLabel,
   copied,
   onCopy,
   disabled = false,
@@ -302,11 +310,13 @@ const CredentialRow = ({
       <span className="min-w-0 flex-1 select-all truncate font-mono text-sm text-neutral-300">
         {value}
       </span>
-      <div className="flex shrink-0 items-center space-x-1 opacity-40 transition-opacity group-hover:opacity-100 sm:ml-4">
+      <div className="flex shrink-0 items-center space-x-1 opacity-40 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 sm:ml-4">
         {actions}
         <Button
           type="text"
           size="small"
+          aria-label={copyLabel}
+          title={copyLabel}
           className="text-neutral-400 hover:text-white"
           icon={
             copied ? <CheckIcon size={15} className="text-green-500" /> : <CopyIcon size={15} />

@@ -153,11 +153,15 @@ const ServerList = ({ servers }: { servers: string[] }) => {
 
 const EditableServerRow = ({
   value,
+  label,
+  removeLabel,
   autoFocus,
   onChange,
   onRemove
 }: {
   value: string;
+  label: string;
+  removeLabel: string;
   autoFocus: boolean;
   onChange: (value: string) => void;
   onRemove: () => void;
@@ -177,6 +181,7 @@ const EditableServerRow = ({
       <div className="flex items-center gap-2">
         <Input
           ref={inputRef}
+          aria-label={label}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="0.0.0.0"
@@ -185,6 +190,8 @@ const EditableServerRow = ({
         <Button
           size="small"
           shape="circle"
+          aria-label={removeLabel}
+          title={removeLabel}
           icon={<XIcon size={14} />}
           onClick={onRemove}
           className="opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
@@ -360,6 +367,8 @@ export const DNS = () => {
                   <EditableServerRow
                     key={index}
                     value={server}
+                    label={t('settings.network.dns.server', { index: index + 1 })}
+                    removeLabel={t('settings.network.dns.remove', { index: index + 1 })}
                     autoFocus={focusNewRow && index === servers.length - 1}
                     onChange={(val) => updateServer(index, val)}
                     onRemove={() => removeServer(index)}

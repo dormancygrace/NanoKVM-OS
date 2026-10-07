@@ -761,6 +761,7 @@ const ru = {
         updateAvailable: 'Пакеты с доступными обновлениями',
         upToDate: 'Все установленные пакеты актуальны.',
         searchPlaceholder: 'Поиск по имени пакета',
+        search: 'Найти',
         searchHint: 'Поиск запускается автоматически после короткой паузы при вводе.',
         noResults: 'Пакеты не найдены',
         indexMissing: 'Индексов пакетов нет. Обновите индексы перед поиском или установкой.',
@@ -983,6 +984,10 @@ const ru = {
           'Любой, у кого есть этот ключ API, может управлять удалённым хостом и просматривать его экран. Используйте HTTPS и включайте службу только в доверенных сетях.',
         endpoint: 'Конечная точка',
         apiKey: 'Ключ API',
+        showKey: 'Показать ключ API',
+        hideKey: 'Скрыть ключ API',
+        regenerateKey: 'Создать новый ключ API',
+        copyValue: 'Копировать: {{label}}',
         regenerateConfirmTitle: 'Создать новый ключ API MCP?',
         regenerateConfirmDesc: 'Текущий ключ немедленно перестанет работать.',
         enableConfirmTitle: 'Включить внешнее управление MCP?',
@@ -1063,6 +1068,9 @@ const ru = {
         deviceKey: 'Ключ устройства',
         community: 'Сообщество',
         hostname: 'Имя хоста',
+        hostnameEdit: 'Изменить имя хоста',
+        hostnameSave: 'Сохранить имя хоста',
+        hostnameCancel: 'Отменить изменение',
         hostnameUpdated:
           'Имя хоста изменено. Перезагрузите NanoKVM, чтобы настройки вступили в силу.',
         ipType: {
@@ -1459,7 +1467,9 @@ const ru = {
           ipAddress: 'IP-адрес',
           subnetMask: 'Маска подсети',
           router: 'Маршрутизатор',
-          none: 'Нет'
+          none: 'Нет',
+          server: 'DNS-сервер {{index}}',
+          remove: 'Удалить DNS-сервер {{index}}'
         }
       },
       tailscale: {
@@ -1675,7 +1685,8 @@ const ru = {
         kvmTitle: 'Удалённое управление',
         kvmDescription: 'Управляйте удаленным хостом через NanoKVM.',
         switched: 'Роль агента изменена',
-        switchFailed: 'Не удалось переключить роль агента.'
+        switchFailed: 'Не удалось переключить роль агента.',
+        label: 'Роль агента'
       },
       send: 'Отправить',
       cancel: 'Отмена',

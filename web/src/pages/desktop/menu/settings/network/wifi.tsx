@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Checkbox, Divider, Input, Modal, Select, Switch } from 'antd';
+import { Button, Checkbox, Input, Modal, Select, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
@@ -217,15 +217,11 @@ export const Wifi = () => {
 
   return (
     <>
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-base">
-        <span>{tr('title')}</span>
-        {state && (!state.supported || state.model) && (
-          <span className="text-xs text-neutral-500">
-            {state.supported ? state.model : tr('notDetected')}
-          </span>
-        )}
-      </div>
-      <Divider className="opacity-50" />
+      {state && (!state.supported || state.model) && (
+        <div className="text-fg-muted mb-4 text-xs">
+          {state.supported ? state.model : tr('notDetected')}
+        </div>
+      )}
       <div className="flex flex-col space-y-5">
         <div className="flex items-center justify-between space-x-3">
           <div className="flex min-w-0 flex-col space-y-1">

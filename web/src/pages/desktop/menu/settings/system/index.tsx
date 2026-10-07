@@ -1,7 +1,9 @@
-import { Divider } from 'antd';
 import { useTranslation } from 'react-i18next';
 
+import { SettingsSection } from '@/components/ui/settings.tsx';
+
 import { CPUFrequency } from '../device/advanced/cpu-frequency.tsx';
+import { Oled } from '../device/oled.tsx';
 import { Reboot } from '../device/reboot.tsx';
 import { Ssh } from '../device/ssh.tsx';
 
@@ -9,24 +11,17 @@ export const System = () => {
   const { t } = useTranslation();
 
   return (
-    <>
-      <div className="text-base">{t('settings.system.title')}</div>
-      <Divider className="opacity-50" />
-      <section aria-labelledby="system-services-heading" className="space-y-6">
-        <h3 id="system-services-heading" className="text-sm font-medium text-neutral-400">
-          {t('settings.system.services')}
-        </h3>
+    <div className="space-y-8">
+      <SettingsSection title={t('settings.system.device')}>
+        <Oled />
+      </SettingsSection>
+      <SettingsSection title={t('settings.system.services')}>
         <Ssh />
-      </section>
-      <Divider className="opacity-50" />
-      <section aria-labelledby="system-performance-heading" className="space-y-6">
-        <h3 id="system-performance-heading" className="text-sm font-medium text-neutral-400">
-          {t('settings.system.performance')}
-        </h3>
+      </SettingsSection>
+      <SettingsSection title={t('settings.system.performance')}>
         <CPUFrequency />
-      </section>
-      <Divider className="opacity-50" />
+      </SettingsSection>
       <Reboot />
-    </>
+    </div>
   );
 };

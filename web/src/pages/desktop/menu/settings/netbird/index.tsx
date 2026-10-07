@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Divider } from "antd";
+import { Alert } from "antd";
 import { LoaderCircleIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -70,7 +70,6 @@ export const Netbird = ({ setIsLocked }: NetbirdProps) => {
   return (
     <>
       <Header state={status?.state} onSuccess={getStatus} />
-      <Divider className="opacity-50" />
 
       {isLoading && !status ? (
         <div className="flex w-full items-center justify-center space-x-2 pt-5 text-neutral-500">

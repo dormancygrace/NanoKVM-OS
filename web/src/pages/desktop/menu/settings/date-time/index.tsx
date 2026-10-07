@@ -1,6 +1,6 @@
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Divider, Select, Spin, Tag } from 'antd';
+import { Alert, Button, Select, Spin, Tag } from 'antd';
 import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
@@ -85,8 +85,6 @@ export function DateTimeSettings() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="text-base">{t('dateTime.title')}</div>
-      <Divider className="!my-0 opacity-50" />
       {error && <Alert type="error" showIcon message={error} />}
       {!status || !config ? (
         <Spin />

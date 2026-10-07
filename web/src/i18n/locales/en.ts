@@ -938,6 +938,7 @@ const en = {
           }
         },
         services: 'Services',
+        device: 'Device',
         performance: 'Performance',
         ssh: {
           description: 'Enable SSH remote access',

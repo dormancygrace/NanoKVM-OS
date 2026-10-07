@@ -66,7 +66,7 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
   return (
     <>
       <div className="flex items-center justify-between">
-        <span className="text-base">{t("settings.netbird.title")}</span>
+        <span />
         <div className="flex items-center space-x-2">
           {hasKnownInstalledState && (
             <>

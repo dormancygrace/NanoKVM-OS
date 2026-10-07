@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Divider } from 'antd';
 import { LoaderCircleIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -59,7 +58,6 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
   return (
     <>
       <Header state={status?.state} onSuccess={getStatus} />
-      <Divider className="opacity-50" />
 
       {isLoading ? (
         <div className="flex w-full items-center justify-center space-x-2 pt-5 text-neutral-500">

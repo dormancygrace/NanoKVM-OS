@@ -956,6 +956,7 @@ const ru = {
           }
         },
         services: 'Службы',
+        device: 'Устройство',
         performance: 'Производительность',
         ssh: {
           description: 'Включить удалённый доступ по SSH',

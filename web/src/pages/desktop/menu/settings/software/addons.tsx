@@ -74,7 +74,6 @@ export const Addons = ({
   return (
     <div className="space-y-6 py-6">
       {contextHolder}
-      <h2 className="text-lg font-semibold">{t('settings.software.addons.title')}</h2>
       <AddonCard title="PicoClaw" icon={<Robot size={24} />}>
         <p className="text-sm text-neutral-300">
           {t('settings.software.addons.picoclawDescription')}

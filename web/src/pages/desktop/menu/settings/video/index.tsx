@@ -37,7 +37,6 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
   return (
     <div className="space-y-6 pb-6">
       <div>
-        <h2 className="mb-2 text-xl font-medium">{t('videoSettings.title')}</h2>
         <p className="text-sm text-neutral-400">{t('videoSettings.description')}</p>
       </div>
       <Hdmi />

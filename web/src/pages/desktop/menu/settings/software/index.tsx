@@ -285,7 +285,6 @@ export const Software = () => {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h2 className="text-xl">{t('settings.software.title')}</h2>
         <p className="text-sm text-neutral-400">{t('settings.software.description')}</p>
       </div>
       {indexWarning}

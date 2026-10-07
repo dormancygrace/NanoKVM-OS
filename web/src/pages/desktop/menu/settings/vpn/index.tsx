@@ -1,6 +1,6 @@
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Divider, Input, Popconfirm, Switch, Tag, Tooltip } from 'antd';
+import { Alert, Button, Input, Popconfirm, Switch, Tag, Tooltip } from 'antd';
 import { CheckIcon, FileUpIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -111,11 +111,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
 
   return (
     <div className="space-y-4">
-      <div className="text-base">
-        WireGuard
-        <VPNVersion name="wireguard" />
-      </div>
-      <Divider className="opacity-50" />
+      <VPNVersion name="wireguard" />
       <p className="text-sm text-neutral-400">{t('vpn.description')}</p>
       <p className="text-xs text-neutral-500">{t('vpn.routingNote')}</p>
       {available === false && <Alert type="warning" showIcon message={t('vpn.systemRequired')} />}

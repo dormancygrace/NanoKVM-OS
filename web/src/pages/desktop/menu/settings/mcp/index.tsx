@@ -1,7 +1,7 @@
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Alert, Button, Divider, message, Modal, Switch } from 'antd';
+import { Alert, Button, message, Modal, Switch } from 'antd';
 import { useSetAtom } from 'jotai';
 import { CheckIcon, CopyIcon, EyeIcon, EyeOffIcon, RefreshCcwIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -216,8 +216,6 @@ export const MCP = () => {
   return (
     <>
       {contextHolder}
-      <div className="text-base">{t('settings.mcp.title')}</div>
-      <Divider className="opacity-50" />
 
       <div className="flex flex-col space-y-6">
         <Alert type="warning" showIcon message={t('settings.mcp.securityWarning')} />

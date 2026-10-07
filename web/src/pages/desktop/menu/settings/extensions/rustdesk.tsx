@@ -27,7 +27,6 @@ import {
 } from '@/api/rustdesk';
 import { pollWhileVisible } from '@/lib/visible-poll';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk';
-import { RustDeskIcon } from '@/components/icons/rustdesk';
 
 import { RustDeskVersions } from '../software/rustdesk-versions';
 
@@ -130,10 +129,6 @@ export const RustDeskControls = () => {
 
   return (
     <div className="min-w-0">
-      <h2 className="mb-5 flex items-center gap-2 text-xl">
-        <RustDeskIcon size={24} />
-        {t('settings')}
-      </h2>
       <Space direction="vertical" size="middle" className="w-full">
         {error && <Alert type="error" title={error} showIcon />}
         {status?.installed && <RustDeskVersions status={status} />}

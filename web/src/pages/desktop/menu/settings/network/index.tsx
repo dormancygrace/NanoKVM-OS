@@ -1,6 +1,3 @@
-import { Divider } from 'antd';
-import { useTranslation } from 'react-i18next';
-
 import { DNS } from './dns.tsx';
 import { Ethernet } from './ethernet.tsx';
 import { Gateway } from './gateway.tsx';
@@ -23,13 +20,4 @@ export const Network = () => (
 
 export const WifiSettings = () => <Wifi />;
 
-export const EthernetSettings = () => {
-  const { t } = useTranslation();
-  return (
-    <>
-      <div className="text-base">{t('settings.network.ethernet.name')}</div>
-      <Divider className="opacity-50" />
-      <Ethernet />
-    </>
-  );
-};
+export const EthernetSettings = () => <Ethernet />;

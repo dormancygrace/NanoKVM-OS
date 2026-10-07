@@ -205,7 +205,6 @@ export const Memory = () => {
 
   return (
     <div className="space-y-5 px-1 pb-3 text-neutral-300">
-      <h2 className="text-base font-medium">{t('settings.memory.title')}</h2>
       {error && <Alert type="error" message={error} showIcon />}
       {!data ? (
         <div className="py-8 text-center">

@@ -186,8 +186,6 @@ export const Usb = () => {
 
   return (
     <>
-      <div className="text-base">{t('settings.usb.title')}</div>
-      <Divider className="opacity-50" />
       <div className="mb-6 flex items-center justify-between">
         <span>{t('settings.usb.enabled')}</span>
         <Switch

@@ -17,9 +17,6 @@ export const Appearance = () => {
 
   return (
     <>
-      <div className="text-base">{t('settings.appearance.title')}</div>
-      <Divider className="opacity-50" />
-
       <div className="text-neutral-400">{t('settings.appearance.display')}</div>
       <Language />
       {account.role === 'admin' && (

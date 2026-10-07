@@ -22,6 +22,6 @@ export function VPNVersion({ name }: { name: 'tailscale' | 'wireguard' | 'openvp
     };
   }, [name]);
   return version ? (
-    <span className="ml-2 text-xs font-normal text-neutral-500">v{version}</span>
+    <div className="text-xs text-fg-muted">v{version}</div>
   ) : null;
 }

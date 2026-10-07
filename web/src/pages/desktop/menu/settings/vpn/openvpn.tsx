@@ -1,6 +1,6 @@
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Divider, Input, Modal, Popconfirm, Switch, Tag } from 'antd';
+import { Alert, Button, Input, Modal, Popconfirm, Switch, Tag } from 'antd';
 import { FileUpIcon, KeyRoundIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -126,11 +126,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
   }
   return (
     <div className="space-y-4">
-      <div className="text-base">
-        OpenVPN
-        <VPNVersion name="openvpn" />
-      </div>
-      <Divider className="opacity-50" />
+      <VPNVersion name="openvpn" />
       <p className="text-sm text-neutral-400">{t('vpn.openvpnDescription')}</p>
       {available === false && (
         <ExtensionInstallResult

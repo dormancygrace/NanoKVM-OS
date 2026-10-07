@@ -56,10 +56,7 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
 
   return (
     <div className="flex items-center justify-between">
-      <span className="text-base">
-        {t('settings.tailscale.title')}
-        <VPNVersion name="tailscale" />
-      </span>
+      <VPNVersion name="tailscale" />
 
       <div className="flex items-center space-x-2">
         {state && ['notLogin', 'stopped', 'running'].includes(state) && (

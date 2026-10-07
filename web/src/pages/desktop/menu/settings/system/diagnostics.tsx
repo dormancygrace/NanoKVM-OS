@@ -292,7 +292,6 @@ export const Diagnostics = () => {
   const { t } = useTranslation();
   return (
     <div className="min-w-0 space-y-2">
-      <h2 className="mb-0 text-base font-normal">{t('settings.system.diagnostics.title')}</h2>
       <Tabs
         defaultActiveKey="status"
         destroyOnHidden

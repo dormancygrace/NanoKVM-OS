@@ -124,7 +124,6 @@ export const Updates = () => {
   );
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-xl">{t('settings.updates.title')}</h2>
       <p className="text-sm text-neutral-400">{t('settings.updates.description')}</p>
       <div>
         {t('settings.updates.installed')}:{' '}

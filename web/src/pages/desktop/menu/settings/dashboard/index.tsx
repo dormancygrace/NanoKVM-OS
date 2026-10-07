@@ -347,7 +347,6 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   return (
     <div className="space-y-5 pb-6">
       <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
-        <h2 className="text-xl font-medium">{t('dashboard.title')}</h2>
         <span className="max-w-full text-xs wrap-break-word text-neutral-500">
           {t('dashboard.live')}
         </span>

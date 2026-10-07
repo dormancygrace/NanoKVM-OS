@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import { encrypt } from '@/lib/encrypt.ts';
-import { HelpTip } from '@/components/ui/settings.tsx';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 type PasswordForm = { password: string; confirmation: string };
 
@@ -14,7 +15,6 @@ export const Ssh = () => {
   const [isEnabled, setIsEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     setIsLoading(true);
@@ -36,22 +36,21 @@ export const Ssh = () => {
 
   async function enable(values: PasswordForm) {
     if (values.password.trim().toLowerCase() === 'root') {
-      setError(t('settings.system.ssh.rootForbidden'));
+      form.setFields([{ name: 'password', errors: [t('settings.system.ssh.rootForbidden')] }]);
       return;
     }
     setIsLoading(true);
-    setError('');
     try {
       const rsp = await api.enableSSH(encrypt(values.password));
       if (rsp.code !== 0) {
-        setError(rsp.msg || t('settings.system.ssh.failed'));
+        showRequestError(rsp, 'settings.system.ssh.failed');
         return;
       }
       setIsEnabled(true);
       setPasswordOpen(false);
       form.resetFields();
-    } catch {
-      setError(t('settings.system.ssh.failed'));
+    } catch (err) {
+      showRequestError(err, 'settings.system.ssh.failed');
     } finally {
       setIsLoading(false);
     }
@@ -59,21 +58,20 @@ export const Ssh = () => {
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col space-y-1">
-          <div className="flex items-center space-x-2">
-            <span>SSH</span>
-            <HelpTip title={t('settings.system.ssh.tip')} />
-          </div>
-          <span className="text-fg-muted text-xs">{t('settings.system.ssh.description')}</span>
-        </div>
+      <SettingRow
+        label="SSH"
+        description={t('settings.system.ssh.description')}
+        help={t('settings.system.ssh.tip')}
+        htmlFor="system-ssh"
+      >
         <Switch
-          aria-label="SSH"
+          id="system-ssh"
+          aria-describedby="system-ssh-description"
           checked={isEnabled}
           loading={isLoading}
           onChange={(next) => (next ? setPasswordOpen(true) : void disable())}
         />
-      </div>
+      </SettingRow>
       <Modal
         open={passwordOpen}
         title={t('settings.system.ssh.passwordTitle')}
@@ -82,14 +80,11 @@ export const Ssh = () => {
         onCancel={() => {
           if (!isLoading) {
             setPasswordOpen(false);
-            setError('');
             form.resetFields();
           }
         }}
       >
-        <p className="mb-5 text-sm text-neutral-400">
-          {t('settings.system.ssh.passwordDescription')}
-        </p>
+        <p className="text-fg-muted mb-5 text-sm">{t('settings.system.ssh.passwordDescription')}</p>
         <Form form={form} layout="vertical" onFinish={enable}>
           <Form.Item
             name="password"
@@ -123,7 +118,6 @@ export const Ssh = () => {
           >
             <Input.Password autoComplete="new-password" />
           </Form.Item>
-          {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button disabled={isLoading} onClick={() => setPasswordOpen(false)}>
               {t('auth.cancel')}

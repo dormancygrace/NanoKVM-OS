@@ -1,10 +1,12 @@
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useState } from 'react';
-import { Select } from 'antd';
+import { Alert, Select } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { confirmAction } from '@/components/ui/confirm.ts';
 
 import * as api from '@/api/vm.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { confirmAction } from '@/components/ui/confirm.ts';
+import { SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
 
 export const CPUFrequency = () => {
   const { t } = useTranslation();
@@ -16,19 +18,22 @@ export const CPUFrequency = () => {
     options: number[];
   }>();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  // null: no error; '': failed without a server message.
+  const [loadError, setLoadError] = useState<string | null>(null);
   function refresh() {
     return api.getCPUFrequency().then((rsp) => {
-      if (rsp.code === 0) setState(rsp.data);
-      else setError(rsp.msg);
+      if (rsp.code === 0) {
+        setState(rsp.data);
+        setLoadError(null);
+      } else setLoadError(rsp.msg ?? '');
     });
   }
   useEffect(() => {
-    const poll = () => refresh().catch(() => setError(t('settings.device.cpuFrequency.failed')));
+    const poll = () => refresh().catch(() => setLoadError(''));
     poll();
     const stopPolling = pollWhileVisible(poll, 2000);
     return () => stopPolling();
-  }, [t]);
+  }, []);
   async function update(target: number) {
     if (
       target > 1000 &&
@@ -40,29 +45,37 @@ export const CPUFrequency = () => {
     )
       return;
     setLoading(true);
-    setError('');
     try {
       const rsp = await api.setCPUFrequency(target);
-      if (rsp.code !== 0) setError(rsp.msg);
+      if (rsp.code !== 0) showRequestError(rsp, 'settings.device.cpuFrequency.failed');
       await refresh();
-    } catch {
-      setError(t('settings.device.cpuFrequency.failed'));
+    } catch (err) {
+      showRequestError(err, 'settings.device.cpuFrequency.failed');
     } finally {
       setLoading(false);
     }
   }
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <div>{t('settings.device.cpuFrequency.title')}</div>
-          <div className="text-xs text-fg-muted">
-            {state?.supported
-              ? t('settings.device.cpuFrequency.running', { mhz: state.running })
-              : t('settings.device.cpuFrequency.unavailable')}
-          </div>
-        </div>
+      {loadError !== null && (
+        <Alert
+          type="error"
+          showIcon
+          message={loadError || t('settings.device.cpuFrequency.failed')}
+        />
+      )}
+      <SettingRow
+        label={t('settings.device.cpuFrequency.title')}
+        description={
+          state?.supported
+            ? t('settings.device.cpuFrequency.running', { mhz: state.running })
+            : t('settings.device.cpuFrequency.unavailable')
+        }
+        htmlFor="device-cpu-frequency"
+      >
         <Select
+          id="device-cpu-frequency"
+          aria-describedby="device-cpu-frequency-description"
           style={{ width: 280, maxWidth: '100%' }}
           disabled={!state?.supported || loading}
           loading={loading}
@@ -73,23 +86,20 @@ export const CPUFrequency = () => {
           }))}
           onChange={update}
         />
-      </div>
+      </SettingRow>
       {state?.supported && (
-        <div className="text-xs text-fg-muted">
-          {t('settings.device.cpuFrequency.description')}
-        </div>
+        <div className="text-fg-muted text-xs">{t('settings.device.cpuFrequency.description')}</div>
       )}
       {state?.supported && state.options.some((value) => value > 1000) && (
-        <div className="text-xs text-amber-500" role="note">
+        <div className="text-warning text-xs" role="note">
           {t('settings.device.cpuFrequency.warning')}
         </div>
       )}
       {state?.throttled && (
-        <div className="text-xs text-amber-500" role="status">
-          {t('settings.device.cpuFrequency.throttled')}
+        <div role="status">
+          <StatusBadge tone="warning">{t('settings.device.cpuFrequency.throttled')}</StatusBadge>
         </div>
       )}
-      {error && <div className="text-xs text-red-400">{error}</div>}
     </div>
   );
 };

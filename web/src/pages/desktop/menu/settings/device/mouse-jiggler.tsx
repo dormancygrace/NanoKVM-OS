@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import * as api from '@/api/vm.ts';
 import { setMouseJiggler } from '@/api/vm.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 export const MouseJiggler = () => {
   const { t } = useTranslation();
@@ -87,18 +88,16 @@ export const MouseJiggler = () => {
   }
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex flex-col space-y-1">
-        <span>{t('settings.device.mouseJiggler.title')}</span>
-        <span className="text-fg-muted text-xs">
-          {t('settings.device.mouseJiggler.description')}
-        </span>
-      </div>
-
+    <SettingRow
+      label={t('settings.device.mouseJiggler.title')}
+      description={t('settings.device.mouseJiggler.description')}
+      htmlFor="device-mouse-jiggler"
+    >
       {enabled ? (
         <Select
-          aria-label={t('settings.device.mouseJiggler.title')}
-          style={{ width: 150 }}
+          id="device-mouse-jiggler"
+          aria-describedby="device-mouse-jiggler-description"
+          style={{ width: 180 }}
           value={mode}
           options={options}
           loading={isLoading}
@@ -106,12 +105,13 @@ export const MouseJiggler = () => {
         />
       ) : (
         <Switch
-          aria-label={t('settings.device.mouseJiggler.title')}
+          id="device-mouse-jiggler"
+          aria-describedby="device-mouse-jiggler-description"
           checked={enabled}
           loading={isLoading}
           onChange={enable}
         />
       )}
-    </div>
+    </SettingRow>
   );
 };

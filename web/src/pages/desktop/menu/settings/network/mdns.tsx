@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Switch, Tooltip } from 'antd';
-import { CircleAlertIcon } from 'lucide-react';
+import { CircleHelpIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
@@ -66,7 +66,7 @@ export const Mdns = () => {
             placement="right"
             styles={{ root: { maxWidth: '400px' } }}
           >
-            <CircleAlertIcon className="text-neutral-500" size={14} />
+            <CircleHelpIcon className="text-neutral-500" size={14} />
           </Tooltip>
         </div>
 

@@ -36,5 +36,3 @@ export const controlRegionModeAtom = atom<ControlRegionMode>('off');
 export const inputRegionSelectingAtom = atom(false);
 
 export const streamFpsAtom = atom(60);
-export const streamQualityAtom = atom(2);
-export const streamGopAtom = atom(30);

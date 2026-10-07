@@ -1,12 +1,6 @@
-import { Resolution } from '@/types';
-
 const LANGUAGE_KEY = 'nano-kvm-language';
 const VIDEO_MODE_KEY = 'nano-kvm-vide-mode';
 const VIDEO_SCALE_KEY = 'nano-kvm-video-scale';
-const WEB_RESOLUTION_KEY = 'nano-kvm-web-resolution';
-const FPS_KEY = 'nano-kvm-fps';
-const QUALITY_KEY = 'nano-kvm-quality';
-const GOP_KEY = 'nano-kvm-gop';
 const MOUSE_STYLE_KEY = 'nano-kvm-mouse-style';
 const MOUSE_MODE_KEY = 'nano-kvm-mouse-mode';
 const INPUT_ADAPTER_KEY = 'nano-kvm-input-adapter';
@@ -19,6 +13,24 @@ const MENU_AUTO_HIDE_KEY = 'nano-kvm-menu-auto-hide';
 const MOBILE_MENU_PLACEMENT_KEY = 'nano-kvm-mobile-menu-placement';
 const KEYBOARD_LED_STATUS_VISIBLE_KEY = 'nano-kvm-keyboard-led-status-visible';
 const POWER_CONFIRM_KEY = 'nano-kvm-power-confirm';
+
+// Keys older versions wrote but nothing reads any more.
+const LEGACY_KEYS = [
+  'nano-kvm-web-resolution',
+  'nano-kvm-fps',
+  'nano-kvm-quality',
+  'nano-kvm-gop',
+  'nano-kvm-skip-modify-password',
+  'nano-kvm-frame-detect'
+];
+
+export function removeLegacyKeys() {
+  try {
+    for (const key of LEGACY_KEYS) localStorage.removeItem(key);
+  } catch {
+    // Storage may be unavailable (blocked site data); nothing to clean up.
+  }
+}
 
 export function getLanguage() {
   return localStorage.getItem(LANGUAGE_KEY);
@@ -46,47 +58,6 @@ export function getVideoScale(): number | null {
 
 export function setVideoScale(scale: number): void {
   localStorage.setItem(VIDEO_SCALE_KEY, String(scale));
-}
-
-export function getResolution(): Resolution | null {
-  const resolution = localStorage.getItem(WEB_RESOLUTION_KEY);
-  if (resolution) {
-    const obj = JSON.parse(window.atob(resolution));
-    return obj as Resolution;
-  }
-
-  return null;
-}
-
-export function setResolution(resolution: Resolution) {
-  localStorage.setItem(WEB_RESOLUTION_KEY, window.btoa(JSON.stringify(resolution)));
-}
-
-export function getFps() {
-  const fps = localStorage.getItem(FPS_KEY);
-  return fps ? Number(fps) : null;
-}
-
-export function setFps(fps: number) {
-  localStorage.setItem(FPS_KEY, String(fps));
-}
-
-export function getQuality() {
-  const quality = localStorage.getItem(QUALITY_KEY);
-  return quality ? Number(quality) : null;
-}
-
-export function setQuality(quality: number) {
-  localStorage.setItem(QUALITY_KEY, String(quality));
-}
-
-export function getGop() {
-  const gop = localStorage.getItem(GOP_KEY);
-  return gop ? Number(gop) : null;
-}
-
-export function setGop(gop: number) {
-  localStorage.setItem(GOP_KEY, String(gop));
 }
 
 export function getMouseStyle() {

@@ -3,7 +3,7 @@ import { Popconfirm, Popover } from "antd";
 import {
   CircleStopIcon,
   EllipsisIcon,
-  LoaderIcon,
+  LoaderCircleIcon,
   RotateCwIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -80,9 +80,9 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
               >
                 <div className="flex cursor-pointer rounded p-1 text-green-500 hover:bg-neutral-600">
                   {loading === "restarting" ? (
-                    <LoaderIcon className="animate-spin" size={18} />
+                    <LoaderCircleIcon className="animate-spin" size={16} />
                   ) : (
-                    <RotateCwIcon size={18} />
+                    <RotateCwIcon size={16} />
                   )}
                 </div>
               </Popconfirm>
@@ -97,9 +97,9 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
               >
                 <div className="flex cursor-pointer rounded p-1 text-red-500 hover:bg-neutral-600">
                   {loading === "stopping" ? (
-                    <LoaderIcon className="animate-spin" size={18} />
+                    <LoaderCircleIcon className="animate-spin" size={16} />
                   ) : (
-                    <CircleStopIcon size={18} />
+                    <CircleStopIcon size={16} />
                   )}
                 </div>
               </Popconfirm>
@@ -109,7 +109,7 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
                 arrow={false}
               >
                 <div className="flex cursor-pointer rounded p-1 text-neutral-300 hover:bg-neutral-600">
-                  <EllipsisIcon size={18} />
+                  <EllipsisIcon size={16} />
                 </div>
               </Popover>
             </>

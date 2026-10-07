@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { Button, Input } from 'antd';
-import { ClipboardPenIcon } from 'lucide-react';
+import { CheckIcon, ClipboardPenIcon, XIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
@@ -80,8 +79,8 @@ export const Hostname = ({ editable = false }: { editable?: boolean }) => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
-            <Button size="small" icon={<CheckOutlined />} onClick={update} />
-            <Button size="small" icon={<CloseOutlined />} onClick={() => setEditState('')} />
+            <Button size="small" icon={<CheckIcon size={14} />} onClick={update} />
+            <Button size="small" icon={<XIcon size={14} />} onClick={() => setEditState('')} />
           </div>
         ) : (
           <div className="flex items-center space-x-2">
@@ -93,7 +92,7 @@ export const Hostname = ({ editable = false }: { editable?: boolean }) => {
                 aria-label={t('settings.about.hostname')}
                 title={t('settings.about.hostname')}
                 className="text-neutral-400 hover:!text-blue-500"
-                icon={<ClipboardPenIcon size={16} />}
+                icon={<ClipboardPenIcon size={14} />}
                 onClick={showInput}
               />
             )}

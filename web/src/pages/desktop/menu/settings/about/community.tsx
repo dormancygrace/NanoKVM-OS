@@ -6,12 +6,12 @@ export const Community = () => {
   const links = [
     {
       label: t('settings.about.documentation'),
-      icon: <BookOpenIcon size={17} />,
+      icon: <BookOpenIcon size={16} />,
       href: 'https://github.com/dormancygrace/NanoKVM-OS/tree/main/docs'
     },
     {
       label: t('settings.about.reportIssue'),
-      icon: <BugIcon size={17} />,
+      icon: <BugIcon size={16} />,
       href: 'https://github.com/dormancygrace/NanoKVM-OS/issues'
     }
   ];

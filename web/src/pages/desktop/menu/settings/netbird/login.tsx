@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { UserSwitchOutlined } from "@ant-design/icons";
 import { Button, Card } from "antd";
+import { LogInIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import * as api from "@/api/extensions/netbird.ts";
@@ -65,7 +65,7 @@ export const Login = ({ onSuccess }: LoginProps) => {
           type="primary"
           size="large"
           shape="round"
-          icon={<UserSwitchOutlined />}
+          icon={<LogInIcon size={16} />}
           loading={isLoading}
           onClick={login}
         >

@@ -52,7 +52,7 @@ export const PresetPicker = ({
               onClick={() => 'draft' in built && onPick(built.draft, id)}
             >
               <span className="w-4 text-blue-400">
-                {selected === id && <CheckIcon size={15} />}
+                {selected === id && <CheckIcon size={16} />}
               </span>
               <span>{t(`videoSettings.preset.${id}`)}</span>
             </Button>
@@ -61,7 +61,7 @@ export const PresetPicker = ({
         {selected === 'custom' && (
           <div className="flex items-center gap-2 px-3 py-1.5 text-sm text-neutral-400">
             <span className="w-4 text-blue-400">
-              <CheckIcon size={15} />
+              <CheckIcon size={16} />
             </span>
             {t('videoSettings.preset.custom')}
           </div>
@@ -102,7 +102,7 @@ export const PresetPicker = ({
             >
               <span className="flex items-center justify-between gap-2 text-sm font-medium">
                 {t(`videoSettings.preset.${id}`)}
-                {active && <CheckIcon size={15} className="text-blue-400" />}
+                {active && <CheckIcon size={16} className="text-blue-400" />}
               </span>
               <span className="mt-1 block text-xs leading-relaxed text-neutral-400">
                 {unavailable

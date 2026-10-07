@@ -1,7 +1,7 @@
 import { ReactElement, useEffect, useState } from 'react';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { Button, Form, Input } from 'antd';
 import { useAtomValue } from 'jotai';
+import { LockIcon, UserIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -95,7 +95,7 @@ export const Login = (): ReactElement => {
             name="username"
             rules={[{ required: true, message: t('auth.noEmptyUsername'), min: 1 }]}
           >
-            <Input prefix={<UserOutlined />} placeholder={t('auth.placeholderUsername')} />
+            <Input prefix={<UserIcon size={14} />} placeholder={t('auth.placeholderUsername')} />
           </Form.Item>
 
           <Form.Item
@@ -103,7 +103,7 @@ export const Login = (): ReactElement => {
             rules={[{ required: true, message: t('auth.noEmptyPassword'), min: 1 }]}
           >
             <Input
-              prefix={<LockOutlined />}
+              prefix={<LockIcon size={14} />}
               type="password"
               placeholder={t('auth.placeholderPassword')}
             />

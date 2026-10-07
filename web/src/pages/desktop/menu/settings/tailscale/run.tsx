@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { PauseCircleOutlined } from '@ant-design/icons';
 import { Button, Card, Result } from 'antd';
+import { CirclePauseIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/extensions/tailscale.ts';
@@ -40,7 +40,7 @@ export const Run = ({ onSuccess }: RunProps) => {
   return (
     <Card>
       <Result
-        icon={<PauseCircleOutlined />}
+        icon={<CirclePauseIcon size={72} />}
         subTitle={t('settings.tailscale.notRunning')}
         extra={
           <Button key="install" type="primary" loading={isLoading} onClick={run}>

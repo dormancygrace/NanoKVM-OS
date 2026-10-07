@@ -214,7 +214,7 @@ export const Software = () => {
             onChange={(event) => setQuery(event.target.value.toLowerCase())}
             onPressEnter={searchNow}
             placeholder={t('settings.software.searchPlaceholder')}
-            suffix={<Button type="text" size="small" icon={<SearchIcon size={15} />} loading={searching} onClick={searchNow} />}
+            suffix={<Button type="text" size="small" icon={<SearchIcon size={14} />} loading={searching} onClick={searchNow} />}
           />
           <p className="mt-2 text-xs text-neutral-500">{t('settings.software.searchHint')}</p>
           <div className="mt-3 max-h-80 overflow-auto pr-3">
@@ -288,7 +288,7 @@ export const Software = () => {
         <p className="text-sm text-neutral-400">{t('settings.software.description')}</p>
       </div>
       {indexWarning}
-      <Button className="self-start" icon={<RefreshCwIcon size={15} />} disabled={working} onClick={() => run('refresh')}>
+      <Button className="self-start" icon={<RefreshCwIcon size={16} />} disabled={working} onClick={() => run('refresh')}>
         {t('settings.software.refresh')}
       </Button>
       <Tabs className={styles.tabs} activeKey={activeTab} onChange={setActiveTab} items={tabs} />

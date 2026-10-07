@@ -195,7 +195,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
                     type="text"
                     size="small"
                     aria-label={`${t('vpn.delete')} ${p.name}`}
-                    icon={<Trash2Icon size={15} />}
+                    icon={<Trash2Icon size={14} />}
                     disabled={busy}
                   />
                 </Popconfirm>

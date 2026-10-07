@@ -61,7 +61,7 @@ export const Swap = () => {
           placement="top"
           styles={{ root: { maxWidth: '400px' } }}
         >
-          <CircleHelpIcon size={15} />
+          <CircleHelpIcon size={14} />
         </Tooltip>
       </div>
 

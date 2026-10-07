@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { InfoCircleOutlined } from '@ant-design/icons';
 import { Button, Result } from 'antd';
+import { CircleAlertIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/extensions/tailscale.ts';
@@ -47,7 +47,7 @@ export const Install = ({ setIsLocked, onSuccess }: InstallProps) => {
         status="warning"
         title={t('settings.tailscale.failed')}
         subTitle={t('settings.tailscale.retry')}
-        icon={<InfoCircleOutlined />}
+        icon={<CircleAlertIcon size={72} />}
         extra={
           <Button type="primary" onClick={install}>
             {t('settings.tailscale.install')}

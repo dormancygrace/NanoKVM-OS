@@ -90,7 +90,7 @@ export const CPUFrequency = () => {
       {state?.supported && (
         <div className="text-fg-muted text-xs">{t('settings.device.cpuFrequency.description')}</div>
       )}
-      {state?.supported && state.options.some((value) => value > 1000) && (
+      {state?.supported && Math.max(state.target, state.running) > 1000 && (
         <div className="text-warning text-xs" role="note">
           {t('settings.device.cpuFrequency.warning')}
         </div>

@@ -4,14 +4,14 @@
 
 ### Your tiny KVM. More possibilities.
 
-**Community firmware for SG2002 NanoKVM. PCIe/UXC is the current test platform; physical validation of Cube and Lite is pending.**
+**Browser KVM, Internet over USB, remote access and a full Alpine system — on SG2002 NanoKVM hardware.**
 
-![Version: 2.0 b7](https://img.shields.io/badge/version-2.0--b7-orange)
-![Hardware: Cube, Lite and PCIe](https://img.shields.io/badge/hardware-Cube%20%7C%20Lite%20%7C%20PCIe-blue)
+[![Applications: v2.5-a1 Alpha](https://img.shields.io/badge/applications-v2.5--a1%20Alpha-orange)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v2.5-a1)
+[![Image: v1.0-a1 Alpha](https://img.shields.io/badge/SD%20image-v1.0--a1%20Alpha-orange)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v2.5-a1)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
-[🚀 Install](docs/INSTALL.md) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Compatibility](#compatibility) · [⚖️ Compare](#comparison) · [💻 Build](platform/README.md) · [🐛 Report an issue](https://github.com/dormancygrace/NanoKVM-OS/issues)
+[🚀 Install](#install) · [✨ Features](#features) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Hardware](#compatibility) · [🔄 Update](#updates) · [💻 Build](#build) · [🐛 Issues](https://github.com/dormancygrace/NanoKVM-OS/issues)
 
 </div>
 
@@ -19,139 +19,196 @@
 
 ## ✨ What is NanoKVM OS?
 
-**NanoKVM OS** brings QHD video, 5 GHz Wi-Fi support, a USB console for headless Linux, an Alpine Linux base and native signed APK updates to the SG2002-based NanoKVM you already own. Control a desktop through HDMI, or reach a Linux server's console through USB — from your browser.
+**NanoKVM OS** is independent community firmware for the SG2002-based NanoKVM. Control a computer through HDMI and USB from a desktop or phone, mount installation media, reach a headless Linux console, or give the connected computer Internet through the same USB cable.
 
-The aim is a responsive IP-KVM with maintained system components, package updates that preserve settings, and measurable resource use. This is an independent community project built on Sipeed NanoKVM and SOPHGO/CVITEK software, with credit to the original authors.
+Underneath the interface is **Alpine Linux 3.24 on a writable F2FS root**, with ordinary APK packages, OpenRC services and official Alpine userspace. You can install software, update individual components and retain your settings without rebuilding or reflashing the entire card.
 
-## 🚀 At a glance
+**Current alpha: applications v2.5-a1, bundled in Image v1.0-a1.** This release brings together the changes since v2.0-b7, including 4K support, restored H.265 WebRTC with a CryptoDMA fix, USB Internet sharing, RustDesk and the mobile-control improvements. See the [complete release notes](docs/RELEASE-v2.5-a1.md).
 
-- **🖼️ More desktop space:** **QHD@50** (2560×1440), **FHD@75** (1920×1080) and **HD@120** (1280×720); delivered frame rate depends on source timing, codec and load.
-- **📐 Portrait video:** four portrait monitor profiles with matching codec-aware capture controls.
-- **📸 Screenshots:** save the current frame as a native-resolution PNG from Direct, WebRTC or MJPEG.
-- **🔌 A console without HDMI:** USB Serial (CDC ACM) for headless Linux, with access through the browser terminal.
-- **🎞️ More video choices:** H.265 Direct by default; H.264, H.265 and MJPEG available. QHD H.265 WebRTC is disabled.
-- **🔒 HTTPS from first boot:** a unique device certificate, HTTP redirect and secure browser access.
-- **🧠 More control over memory:** a reusable CMA/ION pool and configurable memory settings.
-- **🌐 VPN menu:** WireGuard plus optional OpenVPN 2, Tailscale and NetBird clients, installed through APK from their settings.
-- **📶 Wi-Fi across both bands:** automatic scanning, grouped 2.4/5 GHz networks and signal-strength icons. Prefer 5 GHz by default, with fallback to 2.4 GHz on compatible adapters.
-- **📦 Software manager:** search, install, remove and update APK packages from **Settings → System → Software**, or use ordinary `apk` commands over SSH/the terminal.
-- **🖱️ Shared viewing, explicit control:** additional browser sessions start without keyboard/mouse control; release or transfer control explicitly. The lock appears only when USB input is enabled.
-- **⚙️ Native component updates:** the application, system integration, kernel, matching modules and firmware are packaged separately. Routine updates preserve settings and the writable root filesystem.
+<a id="features"></a>
+<a id="comparison"></a>
 
-## ✨ More project improvements
+## 🚀 What you can do
 
-USB audio reaches the browser with one shared Opus encoder. Mount an ISO directly from your computer without copying it to SD; CD/DVD emulation now supports images up to 31.625 GiB. Dashboard shows SoC temperature and CPU frequency, with independent thermal protection and optional runtime overclocking.
+### 🎬 Video, from HD to 4K
 
-OLED controls, IME input, horizontal scrolling, per-viewer WebRTC delivery, MJPEG, DHCP and VPN status have also improved. The system uses **Alpine Linux 3.24**, **Linux 7.2.6-nanokvm-os-r1** and Alpine's standard OpenSSL libraries. The custom kernel retains its **`-O2`** build policy and ordinary userspace packages come from official Alpine repositories. The optional C906 tuning profile is retained for experiments. Packages install directly into the writable **F2FS root**, with dependency resolution and service handling through OpenRC. The interface also includes mobile settings improvements, custom branding and named Wake-on-LAN history entries. See [release notes](docs/RELEASE-v2.0-b7.md).
+| Landscape resolution | Selectable frame-rate target |
+| --- | --- |
+| **4K / UHD — 3840 × 2160** | **Up to 30 FPS** |
+| **QHD — 2560 × 1440** | **Up to 60 FPS** |
+| **Full HD — 1920 × 1080** | **Up to 100 FPS** |
+| **HD — 1280 × 720** | **Up to 120 FPS** |
+
+These are targets, not guaranteed delivered rates. Available modes depend on the HDMI receiver, video-memory profile, source timing, codec and browser. The interface reports the input and encoded stream separately and explains unavailable choices.
+
+- **H.264 and H.265 over Direct or WebRTC**, plus **MJPEG**. H.265 WebRTC is available again in v2.5-a1; older releases' QHD restriction no longer describes the current release.
+- **Hardware video encoding**, bitrate and GOP controls, H.265 NormalP/SmartP, and Direct playback options for responsiveness or a smoother picture. Bitrate is an encoder target; actual traffic depends on the image and operating conditions.
+- **MJPEG quality and JPEG colour sampling:** choose **4:2:2** (default) or **4:2:0**, with the selection saved across reboots.
+- **Virtual monitor / EDID controls:** choose the resolution, refresh and orientation seen by the managed computer independently from the stream-size limit. Presets apply related settings together; **Same as input** preserves the input dimensions.
+- **Portrait profiles:** 720 × 1280, 1080 × 1920, 1296 × 2304 for H.264, and 1440 × 2560 for H.265, subject to the reported device and browser capabilities.
+- **PNG screenshots and browser-side recording**, plus USB audio playback in the browser through a shared Opus encoder.
+- **HDMI enable/disable and capture idle timeout**, so capture can stop when no viewer is watching.
+
+H.265 requires a browser and platform with a compatible decoder. Direct playback uses WebCodecs in a secure context. The device does not transcode a shared H.265 stream separately for a browser that only supports H.264.
+
+### 📱 Control from a desktop or phone
+
+- A movable, collapsible toolbar and responsive settings with reachable **Apply** controls.
+- Relative mouse and absolute pointer modes, touchpad gestures, scrolling and IME input. **Hold one finger and tap with another to right-click.**
+- An optional **Windows absolute-pointer profile** for USB/EDID display association on multi-monitor hosts.
+- Multiple viewers with server-enforced input ownership. Additional sessions start with control locked; control can be transferred explicitly, and the sole remaining viewer receives it automatically when the owner disconnects.
+- Controls follow the USB composition: disabled input functions are hidden, and the control lock is shown only when USB input is enabled.
+- User accounts with administrator/user roles, administrator-only shared video settings and a **Logout** action.
+
+Viewers share the device's encoder and video settings. Multiple sessions do not create independent Windows desktops or independent host mouse pointers.
+
+### 🔌 One USB connection, several jobs
+
+Configure the USB gadget through presets or individual switches for the keyboard, relative mouse, absolute pointer, network, virtual storage and serial console. The interface checks the controller's endpoint budget before applying a combination. USB can also be disabled entirely.
+
+| Function | What it provides |
+| --- | --- |
+| **Keyboard and pointers** | Browser control, with normal and HID compatibility profiles |
+| **Virtual media** | SD-backed images or direct ISO mounting from your computer without first copying the ISO to the card; CD/DVD images up to 31.625 GiB |
+| **USB network** | Local access to NanoKVM through NCM/RNDIS configurations |
+| **Internet over USB NCM** | Share the NanoKVM Ethernet/Wi-Fi uplink with the managed computer |
+| **USB Serial / CDC ACM** | Reach a configured host serial console through the browser terminal |
+
+**Internet over USB** has its own switch in **Settings → USB**, off by default. It provides IPv4 DHCP, DNS and NAT, with software flow offload for eligible TCP/UDP connections. Turning sharing off keeps local USB access. Existing VPN routing and firewall policies are respected; conflicting routes can leave sharing waiting for a usable uplink. See [USB Internet sharing](docs/usb-internet-sharing.md).
+
+For a **headless Linux login**, enable USB Serial and configure a serial login service on the managed host. This works after its USB stack loads; it does not provide pre-USB BIOS/UEFI output. See [USB composition and serial setup](docs/usb-composition.md#host-serial-console).
+
+ATX power/reset controls are available on supported boards. **Wake-on-LAN** includes a saved list of named MAC addresses for frequently used machines.
+
+### 🌐 Network and remote access
+
+- **Ethernet and Wi-Fi controls**, hostname, DNS, gateway, IPv6 and mDNS settings.
+- **2.4 / 5 GHz Wi-Fi** on compatible adapters: automatic scanning across both bands, grouped network entries, signal-strength icons, hidden-network setup and a preferred band. **5 GHz is preferred by default**, with fallback to 2.4 GHz.
+- A single **VPN overview** for **WireGuard, OpenVPN 2, Tailscale and NetBird**, with installation state, version and connection/profile controls. OpenVPN, Tailscale and NetBird are optional APK installations.
+- **WireGuard `.conf` profiles** with an explicit Route Allowed IPs option; **OpenVPN routed TUN `.ovpn` profiles**, including referenced certificate/key files in the same upload.
+- **HTTPS from first boot** with a unique device certificate and HTTP redirect. Newly generated certificates use ECDSA P-256; existing certificates are preserved. SSH can be enabled from settings.
+
+### 🧩 Software and add-ons
+
+**Software is a top-level settings section.** Its package manager searches repositories and installs, removes or updates packages using the same APK database as the terminal. Install tools such as `nano`, `htop`, `mc` or Python as needed.
+
+| Add-on | Installation and capabilities |
+| --- | --- |
+| **RustDesk** | Optional signed APK, managed from Software. Share the captured HDMI display and USB input using the official RustDesk servers or your own; temporary/permanent passwords, H.264/H.265, direct/relay TCP and optional WebRTC. Based on the RustDesk 1.5 protocol. |
+| **PicoClaw** | Install, update or remove the official latest RISC-V release from Software → Add-ons. Configure the model, API key and endpoint for remote-control or general-assistant use. Its navigation entry appears only while installed. |
+
+RustDesk can forward USB audio; its integration does not include clipboard, file transfer, terminal, chat or ATX control. Its [signed package and corresponding source](https://github.com/dormancygrace/NanoKVM-OS-packages/releases/tag/nanokvm-rustdesk-0.5.3-r2) are published separately from the base image.
+
+PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM APK**. An **MCP endpoint** with enable/disable and API-key controls is also available under System for external AI clients.
+
+### ⚙️ System controls and everyday tools
+
+| Area | Controls and information |
+| --- | --- |
+| **Dashboard** | CPU load, RAM, SoC temperature, CPU frequency, storage, network and VPN status |
+| **Memory** | CMA, fixed and UHD video-memory profiles; ZRAM with automatic sizing and optional ZSTD recompression; SD swap; application memory-limit setting |
+| **CPU** | Frequency control, thermal protection and an explicit Apply at startup option; an incomplete overclocked startup triggers a 1000 MHz fallback on the next boot |
+| **Diagnostics** | Service, USB, firewall and package-operation status, plus system logs in the GUI |
+| **Terminal** | Browser shell and serial sessions, with shell command history |
+| **Appearance** | Menu layout/icons, colours, language, web title, bundled branding choices and custom logo/favicon uploads |
+| **Device** | OLED settings, mouse jiggler, date/time and reboot controls |
+
+The interface shares live-status polling, loads settings pages on demand, and serves compressed, cacheable assets. Package operations are serialized and check available memory before starting. OpenRC manages services independently of video initialization.
 
 <a id="compatibility"></a>
 
 ## 🔌 Compatible devices
 
-**The full image automatically selects a board-specific boot profile for the SG2002 NanoKVM family. The b1 components and native APK update were tested on PCIe/UXC. The b1 full image was assembled and checked, but fresh-card boot and Cube/Lite physical validation remain pending.**
+NanoKVM OS targets the **SG2002 RISC-V NanoKVM family**. The full image includes automatic board-profile selection.
 
-| Device | Firmware compatibility | Current physical validation |
-|---|:---:|---|
-| 🧊 **NanoKVM Cube Full** | Alpha and serial-production profiles included | Physical acceptance pending |
-| **NanoKVM Lite** | Base profile; ATX disabled | Physical acceptance pending |
-| 🧩 **NanoKVM PCIe** | ✅ Compatible | Active test platform; current checks use the UXC HDMI receiver |
-| **NanoKVM Pro** | ❌ Not supported | Different hardware platform |
-| **NanoKVM USB** | ❌ Not supported | Different product; not an SG2002 IP-KVM target |
+| Device | Included support | Physical validation |
+| --- | --- | --- |
+| **NanoKVM Cube Full** | Alpha and serial-production board profiles | Pending |
+| **NanoKVM Lite** | Base profile, without ATX | Pending |
+| **NanoKVM PCIe** | Board profile and receiver detection | PCIe/UXC is the active development test platform |
+| **NanoKVM Pro** | Not supported | Different hardware platform |
+| **NanoKVM USB** | Not supported | Different product; not an SG2002 IP-KVM target |
 
-Recorded device tests currently come from PCIe/UXC. Included Cube Full and Lite profiles do not establish physical qualification of those models. Features tied to the HDMI receiver, including QHD monitor switching, still need verification on other board revisions.
+Receiver-specific features, including higher resolutions and programmable EDID, vary by board. Included profiles are not a claim of physical qualification on every revision. See [board support](firmware/boards/README.md).
 
-<a id="comparison"></a>
+<a id="install"></a>
 
-## ⚖️ Compared with original NanoKVM
+## 🚀 Install: Image v1.0-a1
 
-This comparison uses the documented SG2002 Cube/PCIe features in the [Sipeed NanoKVM repository](https://github.com/sipeed/NanoKVM), not NanoKVM Pro. Upstream evolves, and some fixes contributed upstream may already be shared by both projects.
+**Image v1.0-a1 bundles applications v2.5-a1. Both are alpha releases.**
 
-| Area | Original SG2002 NanoKVM | NanoKVM OS |
-|---|---|---|
-| 🖼️ Video resolution | Up to 1920×1080 documented | QHD@50 (2560×1440), FHD@75 (1920×1080) and HD@120 (1280×720), with QHD monitor switching exercised on the PCIe/UXC test board |
-| 🎞️ Video formats | MJPEG and H.264 documented | MJPEG, H.264 and H.265; Direct and WebRTC paths for H.264/H.265. Use Direct for QHD H.265; its WebRTC path is disabled |
-| 🖥️ Virtual HDMI monitor | Stock EDID and resolution controls | Separate monitor preference and stream resolution; aspect-ratio-preserving downscaling. QHD@50, FHD@75 and HD@120 monitor profiles retain BIOS fallback timings |
-| ⏱️ Stream frame-rate control | Existing FPS control | QHD / 50 FPS, FHD / 75 FPS and HD / 120 FPS targets. Targets depend on source timing, codec and load; they do not guarantee delivered FPS |
-| 🎚️ Video bitrate | Existing video quality controls | Adds 15 and 20 Mbit/s CBR targets for H.264/H.265 in Video settings and the toolbar; MJPEG keeps its quality controls |
-| 📶 Wi-Fi | Optional Wi-Fi hardware | Adds 5 GHz alongside 2.4 GHz on compatible adapters, automatic scanning across both bands, signal icons, hidden-network setup and a preferred band with fallback |
-| 🐧 System | Vendor firmware baseline | Alpine 3.24 on writable F2FS, Linux 7.2.6 with matching modules, official Alpine userspace and OpenSSL libraries |
-| 🧠 Memory | Vendor allocation policy | Reusable 64 MiB CMA/ION region and configurable memory controls; allocations can still fail under pressure |
-| 🔐 Crypto | Standard application encryption | SG2002 CryptoDMA SRTP adapter with software fallback; sustained stability remains under evaluation |
-| 🌐 VPN | Tailscale and system networking | Browser-managed WireGuard and optional OpenVPN 2, Tailscale and NetBird; native APK installation and profile/status controls |
-| 🧩 Optional applications | Software supplied with stock firmware | Software GUI and native `apk add` / `apk del`, using the same package database in the system root; install tools such as nano, htop, mc and Python as needed |
-| 📦 Updates | Original NanoKVM update ecosystem | Signed APK component updates through the GUI or `apk upgrade`, preserving settings and installed software. Kernel and matching modules update together; initial installation uses a full SD image |
-| 🔌 Headless Linux console | Serial terminal documented | Adds USB Serial (CDC ACM): access the managed Linux host through the browser terminal without HDMI, after configuring a host-side serial login service; sessions keep independent settings and close their processes when finished |
-| ⌨️ Core KVM functions | Browser video, keyboard/mouse, virtual media, ATX, WoL and terminals | Retained, with configurable USB composition, USB on/off control, server-enforced session ownership and named Wake-on-LAN history |
+1. Download the [full SD image](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.5-a1/NanoKVM-OS-Image-v1.0-a1-apps-v2.5-a1.img.zip) and [SHA256SUMS](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.5-a1/SHA256SUMS).
+2. Verify the ZIP checksum, extract the `.img` and flash it to an SD card of at least **2 GB**. Flashing replaces the card's existing installation and data.
+3. Boot NanoKVM, allow automatic board selection and its restart to finish, then open `https://DEVICE-IP/`.
+4. Sign in with **admin / admin** and set a new password when prompted. For the administrator, this also sets the Linux root password used by SSH. SSH is disabled by default.
 
-### 🔌 USB Serial: headless Linux, from your browser
+The ZIP is **66.8 MiB**. The image uses a **64 MiB boot partition** and **768 MiB F2FS root**; first boot creates an exFAT data partition in the remaining space. See [installation details](docs/INSTALL.md).
 
-NanoKVM presents a USB serial port to the managed computer and exposes its other end in the browser terminal. This supports a Linux login without a monitor after the host USB driver and serial login service start. It does not provide pre-USB BIOS/UEFI output. See [USB Serial setup](docs/usb-composition.md#host-serial-console).
+Image and application versions are independent: later APK updates preserve the original image identity. **About** shows the installed image, its bundled applications and the current application version.
 
-H.265 needs a browser/platform that actually supports decoding it. Pion packetizes and transports encoded video; it does not transcode H.265 into H.264. Browser playback, latency and stability must be measured separately from encoder counters.
+<a id="updates"></a>
 
-## 🚀 Installing NanoKVM OS
+## 🔄 Update an existing installation
 
-Download **[NanoKVM-OS-v2.0-b7.img.zip](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.0-b7/NanoKVM-OS-v2.0-b7.img.zip)** and **[SHA256SUMS](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.0-b7/SHA256SUMS)**, verify the ZIP checksum, extract the `.img` and flash the SD card. Use a card of at least **2 GB**.
-
-| Your current installation | How to install b7 |
-|---|---|
-| Stock firmware, beta-14 or an older beta, or a blank SD card | Flash the full image; this replaces the existing installation and data |
-| Published **v2.0-a2 or later** | Use the existing GUI package updater or `apk update` followed by `apk upgrade`, then reboot; no reflash or new signing key is needed |
-
-If you installed **b5 from its attached `.apk` files**, those packages are pinned to the files in `/etc/apk/world` and `apk upgrade` keeps them. Release the pin first with `apk add nanokvm-base nanokvm-app nanokvm-release`, then upgrade.
-
-Since b7 the web interface opens only the password page until the factory **admin** password is changed. For the administrator account this also sets the Linux root password used by SSH.
-
-The full image contains a **64 MiB boot partition** and **768 MiB F2FS system partition**. First boot creates an exFAT data partition from the remaining card space, selects the board profile and restarts automatically. See [installation and recovery](docs/INSTALL.md).
-
-## 🌐 VPN profiles
-
-Open **Settings → VPN** and choose WireGuard, OpenVPN, Tailscale or NetBird. OpenVPN, Tailscale and NetBird are optional: install them from their settings when needed. WireGuard accepts `.conf` profiles; OpenVPN accepts routed TUN `.ovpn` profiles and referenced certificate/key files in the same upload.
-
-**Upgrading from a2:** b1 removes the bundled OpenVPN 3 client and its private OpenSSL 4 dependency. Install the optional **OpenVPN 2** client before reconnecting; existing profile files are retained. The OS base stays on Alpine 3.24; tagged edge/community packages are used only where required for optional clients.
-
-**Route Allowed IPs** is off by default for each WireGuard profile: only the subnet from the interface Address is routed. Enable it while the profile is stopped to install routes from AllowedIPs, including default routes. Uploaded AllowedIPs values are preserved. See the [b1 release notes](docs/RELEASE-v2.0-b1.md) for the current VPN transition.
-
-## 📦 Updates
-
-NanoKVM OS v2 uses **native APK packages in the writable system root**. From b1 onward, open **Settings → System → Updates**; on a2, use **Settings → Updates → Package updates**. The same operations are available from the terminal:
+**v2.0-a2 or newer:** use **Settings → System → Updates** (on a2: **Settings → Updates → Package updates**) or run as root:
 
 ```sh
 apk update
 apk upgrade
+reboot
 ```
 
-To add or remove software, use `apk add PACKAGE` and `apk del PACKAGE`, or the Software GUI. APK resolves dependencies and verifies signatures.
+Updates retain settings, user data and independently installed packages. The seven core v2.5-a1 packages total **36.5 MiB**; add-ons and Alpine dependency updates are additional. The kernel and matching modules update to **7.2.9-nanokvm-os-r1** and need a reboot. Application service updates use OpenRC automatically; no separate apply command is needed.
 
-Settings, user data and independently installed packages are retained. Linux is **7.2.6-nanokvm-os-r1** from a2 through b7; the kernel binary and its matching modules are unchanged across these updates.
+- **Local `.apk` installations:** file-pinned packages may require an `apk add` step before upgrading; see [update instructions](docs/UPDATES.md).
+- **Signing transition:** `nanokvm-keys` installs the public keys and moves the official repository to the RSA/ECDSA-signed v3 index automatically. The RSA-signed legacy index remains available for older installations.
+- **C906 overlay installations:** follow the [stock Alpine migration instructions](firmware/alpine/README.md#existing-c906-installations). Updating NanoKVM alone does not remove the overlay.
+- **Stock firmware or pre-v2 releases:** install the full SD image. Legacy `.nkos` updates do not migrate the system to Alpine.
 
-Completed transactions apply affected services through **OpenRC**. An application update briefly reconnects video and control; no manual apply command is needed. A future kernel update installs matching modules, selects the board's boot image and requires a reboot. Full system reinstallation remains a separate operation. See [updates](docs/UPDATES.md).
+Component updates preserve the installed bootloader. A full image includes the rebuilt bootloader as well as the applications and system packages.
 
 <a id="limitations"></a>
 
-## 🧪 Current limitations
+## 🧪 Release status and limits
 
-- **QHD H.265 WebRTC is disabled.** The underlying fault remains unresolved; use H.265 Direct for QHD.
-- Portrait and landscape video were exercised on the PCIe/UXC test board. Fresh-card creation and all browser/client combinations remain to be qualified; see [beta-14 acceptance](docs/BETA14-ACCEPTANCE.md).
-- Forced application termination can leave native media buffers in an unusable state; application rollback is not a hardware reset.
-- A watchdog cannot be assumed to recover every bus/SoC lockup. Physical power cycling may still be necessary.
-- OpenVPN supports routed TUN profiles; TAP, scripts and interactive SSO/MFA are not supported. DCO availability depends on the installed client and active kernel interface; broad provider interoperability remains unqualified.
-- Simultaneous viewers share encoder settings. New viewers adopt the active settings and start without manual input ownership; all browsers must support the selected codec.
-- Full firmware source/notice consolidation and fresh-card recovery validation remain incomplete; see [distribution status](docs/DISTRIBUTION.md) and [validation](docs/VALIDATION.md).
+- **v2.5-a1 / Image v1.0-a1 is alpha.** The final combined artifacts passed host builds, tests, signature and integrity checks; installation of this exact set and persistent full-image SD cold boot remain unqualified. Earlier component tests do not replace final hardware acceptance. See [validation](docs/RELEASE-v2.5-a1-VALIDATION.md).
+- Frame-rate targets, portrait modes and H.265 decoding depend on the source, receiver, memory profile and client. Viewers share the active codec and encoder settings.
+- USB functions share a limited endpoint budget; not every combination can be enabled together. Internet sharing is IPv4-only.
+- OpenVPN supports routed TUN profiles; TAP, scripts and interactive SSO/MFA are not supported.
+- Native media or SoC lockups can require physical power cycling; a service restart or watchdog is not guaranteed to recover every hardware fault.
 
-## 💻 Source and builds
+<a id="build"></a>
 
-- `server/`: Go API, video sessions, Pion integration and native APK update orchestration.
-- `web/`: React/TypeScript browser interface.
-- `support/`: SG2002 native capture and board-service source.
-- `firmware/`: Alpine packaging and OpenRC services, kernel/driver patches, retained SDK/Buildroot inputs and source pins.
-- `platform/`: the build of the complete image, with every upstream input pinned; `scripts/`: the component build tools it calls.
-- `tools/` and `kvmapp/system/init.d/`: EDID tools and device startup services.
+## 💻 Build from the public repository
 
-`platform/build.sh` builds the complete SD card image from this repository; see [platform/README.md](platform/README.md).
+The repository contains the application, browser UI, native integration, kernel/driver patches and complete image build. It fetches upstream sources at the revisions and hashes recorded in [`platform/sources.lock`](platform/sources.lock), then checks build outputs against [`platform/expected.sha256`](platform/expected.sha256). Separate private SDK checkouts are not required.
+
+For a local test build, after installing the [host prerequisites](platform/README.md#build):
+
+```sh
+git clone https://github.com/dormancygrace/NanoKVM-OS.git
+cd NanoKVM-OS
+git checkout v2.5-a1
+platform/build.sh -d
+```
+
+`-d` generates **local test signing keys**. Official release builds require the maintainer's RSA and ECDSA keys; test-signed packages are not official updates. See [build and signing instructions](platform/README.md).
+
+The platform uses **Linux 7.2.9**, **U-Boot 2026.07**, **OpenSBI 1.9** and a **GCC 16.2 / T-Head C906** toolchain. Kernel/modules use `-O3` without LTO; native userspace uses the reviewed scalar `-O2` profile. Web builds use **Node.js 24 LTS**. Ordinary userspace, including OpenSSL, comes from official Alpine repositories; the optional C906 package profile is retained for experiments.
+
+Pinned platform inputs, Go modules and the web lockfile fix their respective source versions. Alpine 3.24 repositories continue receiving updates, so later builds can install newer Alpine packages; the build records them in `release/installed-packages.txt`.
+
+| Source directory | Contents |
+| --- | --- |
+| `server/`, `web/` | Go application, streaming/API services and React/TypeScript interface |
+| `support/`, `native/`, `tools/` | Native media/board integration, USB audio and device tools |
+| `firmware/` | Alpine recipes, OpenRC integration, retained SDK inputs and board support |
+| `platform/`, `scripts/` | Pinned platform build, patches, packaging and image generation |
 
 ## ❤️ Credits and licenses
 
-NanoKVM application changes retain the upstream [GPL-3.0 license](LICENSE). Individual kernel, driver, Go, Pion, SDK and other third-party components retain their respective licenses and notices. See [third-party notices](docs/THIRD-PARTY.md). The kernel, modules, U-Boot and boot images are built from pinned sources by [platform](platform/README.md), which also describes their corresponding source and the written offer.
+Built on the work of [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), Alpine, Linux, Buildroot, Go, [Pion](https://github.com/pion) and [OneKVM](https://github.com/onekvm), with thanks to the contributors and hardware testers.
 
-Thanks to [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), the Alpine/Linux/Buildroot/Go communities and [Pion](https://github.com/pion). Please include board revision, browser, codec/transport, resolution, FPS target and reproduction steps when reporting an issue. Remove credentials and private screen contents from logs.
+NanoKVM application changes retain the upstream [GPL-3.0 license](LICENSE). Other components retain their own licenses and notices. See [third-party notices](docs/THIRD-PARTY.md), [distribution status](docs/DISTRIBUTION.md) and the [corresponding-source build](platform/README.md#corresponding-source). Release downloads include the corresponding-source archive; RustDesk has its own source release.
+
+When [reporting an issue](https://github.com/dormancygrace/NanoKVM-OS/issues), include the board/HDMI receiver, application version, browser/client, codec and transport, resolution/FPS target and reproduction steps. Remove credentials and private screen contents from logs.

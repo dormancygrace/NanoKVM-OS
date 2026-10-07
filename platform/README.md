@@ -49,8 +49,11 @@ On a Linux x86-64 host (tested on Ubuntu 24.04) with:
 - for the packages, rootfs and image steps: Linux 6.7 or newer, `newuidmap` and `newgidmap` (package `uidmap`), and subordinate IDs for the build user in `/etc/subuid` and `/etc/subgid` (Ubuntu adds them for every user).
 
 ```sh
-platform/build.sh
+platform/build.sh -d
 ```
+
+This creates a local test image signed with generated test keys. For official
+release signing, supply both keys as described [below](#signing-key).
 
 The build needs no root. The packages, rootfs and image steps run as root of a user namespace: it maps the subordinate IDs, so that the root file system gets its real owners, and starts riscv64 programs through qemu in the namespace's own `binfmt_misc`. Files in `OUTPUT/apk-builder` and `OUTPUT/rootfs` then belong to subordinate IDs; `build.sh clean` deletes them.
 

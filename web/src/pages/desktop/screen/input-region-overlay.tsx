@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
-import { HolderOutlined } from '@ant-design/icons';
 import { Alert, Button, Card, Space, theme } from 'antd';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { GripVerticalIcon } from 'lucide-react';
 import Draggable from 'react-draggable';
 import { useTranslation } from 'react-i18next';
 
@@ -731,7 +731,7 @@ export const InputRegionOverlay = () => {
             size="small"
             title={
               <div className="control-region-drag-handle flex cursor-move items-center gap-2">
-                <HolderOutlined />
+                <GripVerticalIcon size={14} />
                 <span>{t('screen.controlRegion.dragHint')}</span>
               </div>
             }

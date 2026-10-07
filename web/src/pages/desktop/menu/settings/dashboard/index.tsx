@@ -263,12 +263,24 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
     value: string,
     icon: ReactNode,
     detail?: string,
-    fill?: number
+    fill?: number,
+    tab?: string
   ) => (
     <Panel className="min-w-0">
       <div className="text-fg-muted mb-2 flex items-center gap-2 text-xs">
         {icon}
-        {title}
+        <span className="min-w-0 flex-1">{title}</span>
+        {tab && (
+          // Negative margin keeps the header as tall as tiles without a link.
+          <Button
+            type="text"
+            size="small"
+            className="-my-1"
+            aria-label={t('dashboard.open', { name: title })}
+            onClick={() => navigate(tab)}
+            icon={<ArrowUpRightIcon size={16} />}
+          />
+        )}
       </div>
       <div className="text-lg font-medium wrap-break-word tabular-nums">{value}</div>
       {detail && <div className="text-fg-muted mt-1 text-xs">{detail}</div>}
@@ -370,7 +382,8 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           bytes(memory?.usedBytes),
           <MemoryStickIcon size={16} />,
           memory ? t('dashboard.of', { total: bytes(memory.totalBytes) }) : undefined,
-          memory ? percent(memory.usedBytes, memory.totalBytes) : undefined
+          memory ? percent(memory.usedBytes, memory.totalBytes) : undefined,
+          admin ? 'system-memory' : undefined
         )}
         {metric(
           t('dashboard.freeStorage'),

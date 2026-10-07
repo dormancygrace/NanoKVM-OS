@@ -62,10 +62,49 @@ type Service struct {
 	upstreamFile string
 	sourceFile   string
 	ensureUSB    func(bool) error
+
+	// Package facts only change with the apk database, world or indexes, so
+	// status polling reuses them until apkStamp changes or a package action runs.
+	apkStamp       func() string
+	apkMu          sync.Mutex // serializes apk runs that load the repository indexes
+	factsMu        sync.Mutex
+	generation     int
+	installed      installedFacts
+	repository     repositoryFacts
+	refreshing     chan struct{}
+	failedStamp    string
+	retryAt        time.Time
+	repositoryWait time.Duration
+}
+
+type installedFacts struct {
+	stamp     string
+	installed bool
+	version   string
+}
+type repositoryFacts struct {
+	stamp     string
+	version   string // installed version the upgrade candidate was selected for
+	available bool
+	update    string
+}
+
+// Loading the repository indexes takes apk several seconds of CPU and about
+// 20 MiB on the device, so these queries run in the background, one at a time,
+// with a deadline that lets them finish.
+const repositoryTimeout = time.Minute
+const repositoryRetry = time.Minute
+
+// Files apk rewrites whenever installed packages, repositories or their cached
+// indexes change.
+var apkStatePaths = []string{
+	"/etc/apk/arch", "/etc/apk/keys", "/etc/apk/repositories", "/etc/apk/repositories.d",
+	"/lib/apk/repositories.d", "/etc/apk/world", "/lib/apk/db/installed", "/etc/apk/cache", "/var/cache/apk",
 }
 
 func NewService(b *Bridge) *Service {
-	s := &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password", upstreamFile: "/usr/share/nanokvm-rustdesk/upstream.json", sourceFile: "/usr/share/nanokvm-rustdesk/source.json", ensureUSB: vm.EnsureRemoteAccessUSB}
+	s := &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password", upstreamFile: "/usr/share/nanokvm-rustdesk/upstream.json", sourceFile: "/usr/share/nanokvm-rustdesk/source.json", ensureUSB: vm.EnsureRemoteAccessUSB,
+		apkStamp: func() string { return apkStamp(apkStatePaths) }, repositoryWait: 250 * time.Millisecond}
 	b.mu.Lock()
 	b.prepareUSB = s.PrepareUSB
 	b.mu.Unlock()
@@ -104,9 +143,161 @@ func (s *Service) command(name string, args ...string) ([]byte, error) {
 	return s.run(ctx, name, args...)
 }
 func (s *Service) statusCommand(name string, args ...string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	data, _, err := s.probe(3*time.Second, name, args...)
+	return data, err
+}
+
+// probe also reports whether the command finished before its deadline: an
+// expired deadline says nothing about the package and is never cached.
+func (s *Service) probe(timeout time.Duration, name string, args ...string) ([]byte, bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	return s.run(ctx, name, args...)
+	data, err := s.run(ctx, name, args...)
+	return data, ctx.Err() == nil, err
+}
+
+// apkStamp summarizes the size and modification time of apk's state files and
+// of the files in its state directories.
+func apkStamp(paths []string) string {
+	var b strings.Builder
+	for _, path := range paths {
+		info, err := os.Stat(path)
+		if err != nil {
+			fmt.Fprintf(&b, "%s:-;", path)
+			continue
+		}
+		fmt.Fprintf(&b, "%s:%d:%d;", path, info.Size(), info.ModTime().UnixNano())
+		if !info.IsDir() {
+			continue
+		}
+		entries, _ := os.ReadDir(path)
+		for _, entry := range entries {
+			if info, err := entry.Info(); err == nil {
+				fmt.Fprintf(&b, "%s:%d:%d;", entry.Name(), info.Size(), info.ModTime().UnixNano())
+			}
+		}
+	}
+	return b.String()
+}
+
+// stamp identifies the apk state that cached facts were read from. Package
+// actions also advance it in case file timestamps are too coarse to notice.
+func (s *Service) stamp() string {
+	s.factsMu.Lock()
+	generation := s.generation
+	s.factsMu.Unlock()
+	return fmt.Sprintf("%d;%s", generation, s.apkStamp())
+}
+func (s *Service) forgetPackageFacts() {
+	s.factsMu.Lock()
+	s.generation++
+	s.factsMu.Unlock()
+}
+
+func (s *Service) installedFacts(stamp string) installedFacts {
+	s.factsMu.Lock()
+	cached := s.installed
+	s.factsMu.Unlock()
+	if cached.stamp == stamp {
+		return cached
+	}
+	facts := installedFacts{stamp: stamp}
+	_, conclusive, err := s.probe(3*time.Second, "apk", "info", "-e", Package)
+	facts.installed = err == nil
+	if facts.installed {
+		version, finished, versionErr := s.probe(3*time.Second, "apk", "info", "-e", "-v", Package)
+		conclusive = conclusive && finished
+		if versionErr == nil {
+			value := strings.TrimSpace(string(version))
+			if strings.HasPrefix(value, Package+"-") {
+				facts.version = strings.TrimPrefix(value, Package+"-")
+			}
+		}
+	}
+	if conclusive {
+		s.factsMu.Lock()
+		s.installed = facts
+		s.factsMu.Unlock()
+	}
+	return facts
+}
+
+// repositoryFacts waits briefly for a refresh after apk changed. Until it
+// finishes, the previous answer stands in; its upgrade candidate only counts
+// for the installed version it was selected for.
+func (s *Service) repositoryFacts(stamp, version string) repositoryFacts {
+	deadline := time.NewTimer(s.repositoryWait)
+	defer deadline.Stop()
+	s.factsMu.Lock()
+	defer s.factsMu.Unlock()
+	started := false
+	// A refresh still running for an older state is awaited first.
+	for s.repository.stamp != stamp {
+		done := s.refreshing
+		if done == nil {
+			if started || s.failedStamp == stamp && time.Now().Before(s.retryAt) {
+				break
+			}
+			started = true
+			done = make(chan struct{})
+			s.refreshing = done
+			go s.refreshRepository(stamp, version, done)
+		}
+		s.factsMu.Unlock()
+		select {
+		case <-done:
+			s.factsMu.Lock()
+		case <-deadline.C:
+			s.factsMu.Lock()
+			return s.repository
+		}
+	}
+	return s.repository
+}
+func (s *Service) refreshRepository(stamp, version string, done chan struct{}) {
+	defer close(done)
+	s.apkMu.Lock()
+	var facts repositoryFacts
+	var err error
+	// A package action may have changed apk while this waited; the next
+	// status request then asks again.
+	current := s.stamp() == stamp
+	if current {
+		facts, err = s.queryRepository(version)
+	}
+	s.apkMu.Unlock()
+	s.factsMu.Lock()
+	defer s.factsMu.Unlock()
+	s.refreshing = nil
+	if !current {
+		return
+	}
+	// A failed query reports nothing, as before, and is retried later.
+	if err != nil {
+		s.failedStamp, s.retryAt = stamp, time.Now().Add(repositoryRetry)
+		stamp = ""
+	}
+	facts.stamp = stamp
+	s.repository = facts
+}
+func (s *Service) queryRepository(version string) (repositoryFacts, error) {
+	facts := repositoryFacts{version: version}
+	var err, updateErr error
+	_, facts.available, err = s.repositoryVersion(false)
+	if version != "" {
+		facts.update, _, updateErr = s.repositoryVersion(true)
+	}
+	return facts, errors.Join(err, updateErr)
+}
+
+// packageCommand holds the index lock so that a status query never loads the
+// indexes alongside an apk transaction.
+func (s *Service) packageCommand(args ...string) error {
+	s.apkMu.Lock()
+	defer s.apkMu.Unlock()
+	defer s.forgetPackageFacts()
+	_, err := s.command("apk", args...)
+	return err
 }
 func defaultConfig() Config {
 	return Config{Official: true, Codec: "auto", MaxClients: 1, PasswordMode: "temporary"}
@@ -142,10 +333,12 @@ func (s *Service) Status() (Status, error) {
 	}
 	status := Status{Config: c, HasPassword: c.Password != ""}
 	status.Config.Password = ""
-	_, err = s.statusCommand("apk", "info", "-e", Package)
-	status.Installed = err == nil
+	stamp := s.stamp()
+	installed := s.installedFacts(stamp)
+	status.Installed = installed.installed
 	// Status polling reads the existing indexes; repository refresh belongs to package management.
-	_, status.Available = s.repositoryVersion(false)
+	repository := s.repositoryFacts(stamp, installed.version)
+	status.Available = repository.available
 	if status.Installed {
 		status.SourceURL = s.SourceURL()
 		// This metadata belongs to the installed daemon, including when stopped.
@@ -168,14 +361,9 @@ func (s *Service) Status() (Status, error) {
 				status.USBAudioEnabled = status.SupportsAudio && s.bridge.audioEnabled()
 			}
 		}
-		if version, versionErr := s.statusCommand("apk", "info", "-e", "-v", Package); versionErr == nil {
-			value := strings.TrimSpace(string(version))
-			if strings.HasPrefix(value, Package+"-") {
-				status.Version = strings.TrimPrefix(value, Package+"-")
-			}
-		}
-		if status.Version != "" {
-			status.UpdateVersion, _ = s.repositoryVersion(true)
+		status.Version = installed.version
+		if status.Version != "" && repository.version == status.Version {
+			status.UpdateVersion = repository.update
 		}
 		_, err = s.statusCommand("rc-service", Package, "status")
 		status.Running = err == nil
@@ -221,7 +409,8 @@ func (s *Service) SourceURL() string {
 }
 
 // APK reports newer repository versions using its own upgrade selection.
-func (s *Service) repositoryVersion(upgradable bool) (string, bool) {
+// Only a failed query is an error; a missing or unreadable answer is not.
+func (s *Service) repositoryVersion(upgradable bool) (string, bool, error) {
 	args := []string{"query", "--no-network"}
 	if !upgradable {
 		args = append(args, "--from=repositories")
@@ -231,23 +420,23 @@ func (s *Service) repositoryVersion(upgradable bool) (string, bool) {
 	if upgradable {
 		args = append(args, "--upgradable")
 	}
-	data, err := s.statusCommand("apk", append(args, Package)...)
+	data, _, err := s.probe(repositoryTimeout, "apk", append(args, Package)...)
 	if err != nil {
-		return "", false
+		return "", false, err
 	}
 	var packages []struct {
 		Name    string `json:"name"`
 		Version string `json:"version"`
 	}
 	if json.Unmarshal(data, &packages) != nil {
-		return "", false
+		return "", false, nil
 	}
 	for _, p := range packages {
 		if p.Name == Package && p.Version != "" {
-			return p.Version, true
+			return p.Version, true, nil
 		}
 	}
-	return "", false
+	return "", false, nil
 }
 
 func serverAddress(value string, port string) (string, error) {
@@ -457,13 +646,11 @@ func (s *Service) Action(action string) error {
 		_, err = s.command("rc-service", Package, "restart")
 		return err
 	case "install":
-		_, err := s.command("apk", "add", Package)
-		return err
+		return s.packageCommand("add", Package)
 	case "upgrade":
-		_, err := s.command("apk", "upgrade", Package)
-		return err
+		return s.packageCommand("upgrade", Package)
 	case "remove":
-		if _, err := s.command("apk", "del", Package); err != nil {
+		if err := s.packageCommand("del", Package); err != nil {
 			return err
 		}
 		s.bridge.Stop()

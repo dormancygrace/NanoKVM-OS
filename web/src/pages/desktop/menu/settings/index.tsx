@@ -544,12 +544,7 @@ export const Settings = ({
               viewportRef={scrollViewportRef}
               className="box-border min-h-0 min-w-0 flex-1 rounded-r-lg bg-neutral-900/50 px-3 [&_[data-slot=scroll-area-scrollbar]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:p-0 [&_[data-slot=scroll-area-thumb]]:bg-neutral-500/30"
             >
-              <div
-                className={clsx(
-                  'flex h-full w-full min-w-0 justify-center',
-                  mobile && 'nanokvm-settings-mobile-content'
-                )}
-              >
+              <div className="flex h-full w-full min-w-0 justify-center">
                 <div
                   className={clsx(
                     'w-full min-w-0 pb-10',

@@ -8,6 +8,29 @@ This release brings together the work since **v2.0-b7**, including the previousl
 
 > ⚡ **More ways to connect. More control from your pocket. More of what this tiny machine can do.**
 
+## ⚡ Less waiting. More NanoKVM.
+
+The interface does much less work to show the same information: five background pollers become **one shared live-status request**, static assets are compressed during the build, and browsers can reuse unchanged assets across visits.
+
+Measurements reported during development on the test device:
+
+| Operation | Before | After |
+| --- | --- | --- |
+| Idle API requests over 20 seconds | 26 | **7** |
+| Cold desktop load | 131 requests / ~1.6 MB | **43 requests / ~530 KB** |
+| Repeat desktop load | Full asset transfer | **~4 KB; 42 of 43 assets cached** |
+| RustDesk status | ~7 seconds | **~30 ms** |
+| Wi-Fi / gateway / VPN status polls | Up to 0.3–0.7 seconds | **10–30 ms** |
+| New TLS handshake | 70–95 ms | **18–30 ms** |
+
+These measurements describe the development test setup; browser cache, installed add-ons and device configuration affect the result. Newly generated HTTPS certificates use **ECDSA P-256**; existing certificates are preserved.
+
+## ✨ Settings, brought together
+
+Eight clear top-level entries: **Dashboard, Video, USB, Network, VPN, System, Software and Appearance**. VPN providers share one overview with installation state, version and active profile, then open into their own settings with back navigation.
+
+Shared cards, typography, colours and confirmations make the pages consistent. Dashboard CPU and RAM tiles link directly to their settings, the VPN card includes NetBird, and risky actions such as disabling Wi-Fi/USB, changing HTTPS or overclocking ask for confirmation.
+
 ## 🌐 Give the connected computer Internet — over USB
 
 The USB connection gains a new job. Enable **Internet over USB** to share NanoKVM's Ethernet or Wi-Fi uplink with the computer you are managing.
@@ -88,6 +111,14 @@ Manage extensions from **Software**. Install, update and remove **PicoClaw** usi
 ### 🛠️ Everyday fixes
 
 The everyday fixes matter too: React cleanup and state handling across audio, input, memory, software management and the terminal; stricter image filename, video value, autostart and time-zone validation; and reuse of unchanged sanitized log snapshots.
+
+## 🛡️ Make the most of a small memory budget
+
+Package operations now share a process-wide and cross-process execution lock. Index queries run at low CPU priority, and an operation is refused with an explanation if the memory check finds it cannot fit. APK helpers are preferred OOM victims, while the main application receives protection.
+
+The saved **Go memory limit** now takes effect on startup; without a saved setting, the default is one quarter of the RAM visible to Linux. RustDesk respects a deliberate USB-off choice across daemon restarts.
+
+CPU frequency gains an explicit **Apply at startup** option. An overclocked startup uses a two-minute settling marker; an uncleared marker at the next boot triggers a fallback to **1000 MHz** and disables automatic overclocking. This recovery logic is covered by tests; a real overclocked reboot was not exercised for this release.
 
 ## 🔐 A new generation of signed updates
 

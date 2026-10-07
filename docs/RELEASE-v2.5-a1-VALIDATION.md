@@ -3,7 +3,7 @@
 ## Source and host build
 
 - Fresh platform output, pinned upstream downloads; no reuse of previously compiled components.
-- Full Go teststub suite; production web build, lint and 147 web tests passed.
+- Full Go teststub suite; production web build, lint and 168 web tests passed.
 - Packaging/service dependency checks and Linux namespace USB-sharing qualification passed.
 - Effective kernel/module/bootloader compiler-profile audits passed. Kernel uses the exact committed config; NAT, flow table and nft flow offload are modules.
 - Rebuilt kvm_system in a second output directory: shipped binaries compare identical.
@@ -38,7 +38,20 @@ platform-build and OpenRC dependency suites. Restored executable modes on seven
 imported build scripts. USB Internet helper/service and dnsmasq/iproute2 dependencies
 were retained while resolving the package-manifest conflicts.
 
-Repackaging requires the existing private EC key corresponding to
-nkos-release-ec-b8e89b66.pub; do not generate a replacement. Its location is
-pending from the maintainer. Device installation and reboot remain paused by
+The existing private EC key was found and verified by comparing its derived
+public DER with nkos-release-ec-b8e89b66.pub. No replacement key was generated. Device installation and reboot remain paused by
 explicit user instruction.
+
+## PR #64 integration
+
+PR #64 was merged into main at dc42a323 and then into this release branch.
+USB NCM Internet sharing, its dependencies and the independent image/application
+version display were preserved. Its controls use the shared settings colours,
+and USB-off confirmation includes the network/Internet-sharing effect.
+
+The combined Go teststub suite and vet pass. The actual fresh production web
+build passes all 168 tests and lint. The initial chunk test against the stale
+checkout dist directory was discarded; the fresh build includes the expected
+lazy chunks. The checked output manifest now contains 546 files. All outputs
+outside server/ and web/ remain byte-for-byte unchanged from the preceding
+qualified host build. No device was changed or rebooted during integration.

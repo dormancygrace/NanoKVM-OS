@@ -1,6 +1,7 @@
 package rustdesk
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -10,12 +11,15 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"NanoKVM-Server/service/vm"
+
+	"golang.org/x/sys/unix"
 )
 
 const Package = "nanokvm-rustdesk"
@@ -61,6 +65,7 @@ type Service struct {
 	passwordFile string
 	upstreamFile string
 	sourceFile   string
+	startedFile  string
 	ensureUSB    func(bool) error
 
 	// Package facts only change with the apk database, world or indexes, so
@@ -91,9 +96,16 @@ type repositoryFacts struct {
 
 // Loading the repository indexes takes apk several seconds of CPU and about
 // 20 MiB on the device, so these queries run in the background, one at a time,
-// with a deadline that lets them finish.
-const repositoryTimeout = time.Minute
+// at idle priority and with a deadline that lets them finish under load.
+const repositoryTimeout = 3 * time.Minute
 const repositoryRetry = time.Minute
+
+type idlePriority struct{}
+
+// Commands run with this context yield the CPU to requests and streaming.
+func withIdlePriority(ctx context.Context) context.Context {
+	return context.WithValue(ctx, idlePriority{}, true)
+}
 
 // Files apk rewrites whenever installed packages, repositories or their cached
 // indexes change.
@@ -103,7 +115,7 @@ var apkStatePaths = []string{
 }
 
 func NewService(b *Bridge) *Service {
-	s := &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password", upstreamFile: "/usr/share/nanokvm-rustdesk/upstream.json", sourceFile: "/usr/share/nanokvm-rustdesk/source.json", ensureUSB: vm.EnsureRemoteAccessUSB,
+	s := &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password", upstreamFile: "/usr/share/nanokvm-rustdesk/upstream.json", sourceFile: "/usr/share/nanokvm-rustdesk/source.json", startedFile: "/run/openrc/started/" + Package, ensureUSB: vm.EnsureRemoteAccessUSB,
 		apkStamp: func() string { return apkStamp(apkStatePaths) }, repositoryWait: 250 * time.Millisecond}
 	b.mu.Lock()
 	b.prepareUSB = s.PrepareUSB
@@ -131,7 +143,16 @@ func (s *Service) PrepareUSB() error {
 }
 func runCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
-	data, err := cmd.CombinedOutput()
+	var output bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &output, &output
+	err := cmd.Start()
+	if err == nil {
+		if ctx.Value(idlePriority{}) != nil {
+			_ = unix.Setpriority(unix.PRIO_PROCESS, cmd.Process.Pid, 19)
+		}
+		err = cmd.Wait()
+	}
+	data := output.Bytes()
 	if err != nil {
 		return nil, fmt.Errorf("%s failed: %s", name, strings.TrimSpace(string(data[:min(len(data), 2048)])))
 	}
@@ -143,14 +164,14 @@ func (s *Service) command(name string, args ...string) ([]byte, error) {
 	return s.run(ctx, name, args...)
 }
 func (s *Service) statusCommand(name string, args ...string) ([]byte, error) {
-	data, _, err := s.probe(3*time.Second, name, args...)
+	data, _, err := s.probe(context.Background(), 3*time.Second, name, args...)
 	return data, err
 }
 
 // probe also reports whether the command finished before its deadline: an
 // expired deadline says nothing about the package and is never cached.
-func (s *Service) probe(timeout time.Duration, name string, args ...string) ([]byte, bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func (s *Service) probe(parent context.Context, timeout time.Duration, name string, args ...string) ([]byte, bool, error) {
+	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	data, err := s.run(ctx, name, args...)
 	return data, ctx.Err() == nil, err
@@ -202,10 +223,10 @@ func (s *Service) installedFacts(stamp string) installedFacts {
 		return cached
 	}
 	facts := installedFacts{stamp: stamp}
-	_, conclusive, err := s.probe(3*time.Second, "apk", "info", "-e", Package)
+	_, conclusive, err := s.probe(context.Background(), 3*time.Second, "apk", "info", "-e", Package)
 	facts.installed = err == nil
 	if facts.installed {
-		version, finished, versionErr := s.probe(3*time.Second, "apk", "info", "-e", "-v", Package)
+		version, finished, versionErr := s.probe(context.Background(), 3*time.Second, "apk", "info", "-e", "-v", Package)
 		conclusive = conclusive && finished
 		if versionErr == nil {
 			value := strings.TrimSpace(string(version))
@@ -222,36 +243,28 @@ func (s *Service) installedFacts(stamp string) installedFacts {
 	return facts
 }
 
-// repositoryFacts waits briefly for a refresh after apk changed. Until it
-// finishes, the previous answer stands in; its upgrade candidate only counts
-// for the installed version it was selected for.
+// repositoryFacts starts a refresh after apk changed and only the request that
+// starts it waits briefly. Until it finishes, the previous answer stands in;
+// its upgrade candidate only counts for the installed version it was selected
+// for. A refresh still running for an older state is followed by another one
+// on a later request.
 func (s *Service) repositoryFacts(stamp, version string) repositoryFacts {
-	deadline := time.NewTimer(s.repositoryWait)
-	defer deadline.Stop()
 	s.factsMu.Lock()
 	defer s.factsMu.Unlock()
-	started := false
-	// A refresh still running for an older state is awaited first.
-	for s.repository.stamp != stamp {
-		done := s.refreshing
-		if done == nil {
-			if started || s.failedStamp == stamp && time.Now().Before(s.retryAt) {
-				break
-			}
-			started = true
-			done = make(chan struct{})
-			s.refreshing = done
-			go s.refreshRepository(stamp, version, done)
-		}
-		s.factsMu.Unlock()
-		select {
-		case <-done:
-			s.factsMu.Lock()
-		case <-deadline.C:
-			s.factsMu.Lock()
-			return s.repository
-		}
+	if s.repository.stamp == stamp || s.refreshing != nil || s.failedStamp == stamp && time.Now().Before(s.retryAt) {
+		return s.repository
 	}
+	done := make(chan struct{})
+	s.refreshing = done
+	go s.refreshRepository(stamp, version, done)
+	s.factsMu.Unlock()
+	timer := time.NewTimer(s.repositoryWait)
+	select {
+	case <-done:
+	case <-timer.C:
+	}
+	timer.Stop()
+	s.factsMu.Lock()
 	return s.repository
 }
 func (s *Service) refreshRepository(stamp, version string, done chan struct{}) {
@@ -288,6 +301,19 @@ func (s *Service) queryRepository(version string) (repositoryFacts, error) {
 		facts.update, _, updateErr = s.repositoryVersion(true)
 	}
 	return facts, errors.Join(err, updateErr)
+}
+
+// The default openrc-run status succeeds only in the started state, so a
+// service without its started link is stopped and needs no rc-service run.
+// rc-service still decides for a started service, which may have crashed.
+func (s *Service) daemonRunning() bool {
+	if _, err := os.Lstat(filepath.Dir(s.startedFile)); err == nil {
+		if _, err = os.Lstat(s.startedFile); errors.Is(err, os.ErrNotExist) {
+			return false
+		}
+	}
+	_, err := s.statusCommand("rc-service", Package, "status")
+	return err == nil
 }
 
 // packageCommand holds the index lock so that a status query never loads the
@@ -365,8 +391,7 @@ func (s *Service) Status() (Status, error) {
 		if status.Version != "" && repository.version == status.Version {
 			status.UpdateVersion = repository.update
 		}
-		_, err = s.statusCommand("rc-service", Package, "status")
-		status.Running = err == nil
+		status.Running = s.daemonRunning()
 	}
 	if data, readErr := os.ReadFile(ConfigDir + "/settings-output.json"); readErr == nil {
 		var fields map[string]string
@@ -420,7 +445,7 @@ func (s *Service) repositoryVersion(upgradable bool) (string, bool, error) {
 	if upgradable {
 		args = append(args, "--upgradable")
 	}
-	data, _, err := s.probe(repositoryTimeout, "apk", append(args, Package)...)
+	data, _, err := s.probe(withIdlePriority(context.Background()), repositoryTimeout, "apk", append(args, Package)...)
 	if err != nil {
 		return "", false, err
 	}

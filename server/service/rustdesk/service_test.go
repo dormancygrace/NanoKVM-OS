@@ -556,6 +556,17 @@ func (f *fakeAPK) install(s *Service) {
 		return nil, nil
 	}
 }
+func waitForRefresh(s *Service) {
+	for {
+		s.factsMu.Lock()
+		done := s.refreshing
+		s.factsMu.Unlock()
+		if done == nil {
+			return
+		}
+		<-done
+	}
+}
 func (f *fakeAPK) apkCommands() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -613,8 +624,14 @@ func TestSlowRepositoryQueryDoesNotDelayStatus(t *testing.T) {
 	if err != nil || !status.Installed || status.Version != "0.2.0-r0" || status.Available || status.UpdateVersion != "" || time.Since(started) > time.Second {
 		t.Fatalf("status while the indexes load: %+v %v", status, err)
 	}
-	close(f.gate)
+	// Later polls do not wait for the refresh another request started.
 	s.repositoryWait = time.Minute
+	started = time.Now()
+	if status, err = s.Status(); err != nil || status.Available || time.Since(started) > time.Second {
+		t.Fatalf("second status while the indexes load: %+v %v", status, err)
+	}
+	close(f.gate)
+	waitForRefresh(s)
 	if status, err = s.Status(); err != nil || !status.Available || status.UpdateVersion != "0.2.1-r0" {
 		t.Fatalf("status after the indexes loaded: %+v %v", status, err)
 	}
@@ -685,6 +702,7 @@ func TestRepositoryQueriesNeverOverlapPackageTransactions(t *testing.T) {
 	if err := s.Action("upgrade"); err != nil {
 		t.Fatal(err)
 	}
+	waitForRefresh(s)
 	s.repositoryWait = time.Minute
 	if _, err := s.Status(); err != nil {
 		t.Fatal(err)
@@ -693,6 +711,44 @@ func TestRepositoryQueriesNeverOverlapPackageTransactions(t *testing.T) {
 	defer mu.Unlock()
 	if overlaps != 0 || queries == 0 {
 		t.Fatalf("%d overlapping apk runs, %d queries", overlaps, queries)
+	}
+}
+
+func TestStoppedServiceStatusNeedsNoRCService(t *testing.T) {
+	temporaryConfig(t)
+	s := NewService(NewBridge())
+	f := &fakeAPK{version: "0.2.0-r0"}
+	f.install(s)
+	s.startedFile = filepath.Join(t.TempDir(), Package)
+	rcService := func() int {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		n := 0
+		for _, command := range f.commands {
+			if strings.HasPrefix(command, "rc-service ") {
+				n++
+			}
+		}
+		f.commands = nil
+		return n
+	}
+	if status, err := s.Status(); err != nil || status.Running || rcService() != 0 {
+		t.Fatalf("stopped service: %+v %v", status, err)
+	}
+	// A started service may have crashed; openrc decides.
+	if err := os.Symlink("/etc/init.d/"+Package, s.startedFile); err != nil {
+		t.Fatal(err)
+	}
+	if status, err := s.Status(); err != nil || !status.Running || rcService() != 1 {
+		t.Fatalf("started service: %+v %v", status, err)
+	}
+}
+
+func TestRepositoryQueriesRunAtIdlePriority(t *testing.T) {
+	// The shell reports its own nice value after runCommand lowered it.
+	data, err := runCommand(withIdlePriority(context.Background()), "sh", "-c", `sleep 0.2; cut -d" " -f19 /proc/$$/stat`)
+	if err != nil || strings.TrimSpace(string(data)) != "19" {
+		t.Fatalf("nice %q %v", data, err)
 	}
 }
 

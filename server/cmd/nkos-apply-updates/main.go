@@ -16,6 +16,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"NanoKVM-Server/internal/oomscore"
 )
 
 const stateDir = "/run/nanokvm-apk"
@@ -576,6 +578,12 @@ func mainErr() error {
 		fmt.Println("NanoKVM: applying changed components; nkos-apply-updates status shows the result")
 		return nil
 	case "apply":
+		// This worker descends from apk, which the NanoKVM apk runner makes
+		// the preferred OOM victim; the services it restarts must not inherit
+		// that or a lowered priority. It runs while apk may still hold the
+		// runner's lock and therefore never runs apk itself.
+		_ = oomscore.Set(0, oomscore.Normal)
+		_ = syscall.Setpriority(syscall.PRIO_PROCESS, 0, 0)
 		var s snapshot
 		b, e := os.ReadFile(path)
 		if e != nil {

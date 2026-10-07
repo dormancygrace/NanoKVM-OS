@@ -11,6 +11,7 @@ import (
 
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/config"
+	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/logger"
 	"NanoKVM-Server/logs"
 	"NanoKVM-Server/middleware"
@@ -43,6 +44,12 @@ func initialize(stopMemory context.CancelFunc) {
 
 	logger.Init()
 	utils.InitGoMemLimit()
+	// The server owns video capture; let the OOM killer take other processes
+	// first. Set here rather than by the init script so that every way of
+	// starting the server gets it.
+	if err := oomscore.Set(0, oomscore.Critical); err != nil {
+		log.Printf("failed to set OOM score adjustment: %v", err)
+	}
 	vm.ApplySavedCPUFrequency()
 	if err := network.InitializeIPv6(); err != nil {
 		log.Printf("failed to initialize IPv6 policy: %v", err)

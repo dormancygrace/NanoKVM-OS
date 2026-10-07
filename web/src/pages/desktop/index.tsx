@@ -26,6 +26,7 @@ import {
   videoModeAtom
 } from '@/jotai/screen.ts';
 import { usbInputAtom } from '@/jotai/usb-input.ts';
+import { useDeviceTime } from '@/hooks/useDeviceTime.ts';
 import { Head } from '@/components/head.tsx';
 
 import { CaptureStatusOverlay, useCaptureStatus } from './capture-status';
@@ -94,6 +95,8 @@ export const Desktop = () => {
     if (!usbInput.keyboard) setKeyboardOpen(false);
   }, [usbInput.keyboard, setKeyboardOpen]);
   const { t } = useTranslation();
+  // Load the device time format once for every displayed device time.
+  useDeviceTime();
   const isBigScreen = useMediaQuery({ minWidth: 850 });
   const [activeVideoMode] = useState(getVideoMode);
   const [encoderReady, setEncoderReady] = useState(false);

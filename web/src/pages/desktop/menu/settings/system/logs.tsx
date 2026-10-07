@@ -1,5 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Input, Select, Switch } from 'antd';
+import { useAtomValue } from 'jotai';
 import { ChevronDownIcon, ChevronUpIcon, RefreshCwIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -11,11 +12,14 @@ import {
   type LogSnapshot,
   type LogSource
 } from '@/api/logs';
+import { formatDeviceTime } from '@/lib/date-time.ts';
+import { timePreferencesAtom } from '@/hooks/useDeviceTime.ts';
 
 const refreshInterval = 5000;
 
 export const Logs = () => {
   const { t, i18n } = useTranslation();
+  const timePreferences = useAtomValue(timePreferencesAtom);
   const [source, setSource] = useState<LogSource>('system');
   const [boot, setBoot] = useState<LogBoot>('current');
   const [boots, setBoots] = useState<LogBootInfo[]>([{ id: 'current', startedAt: 0, savedAt: 0 }]);
@@ -151,7 +155,7 @@ export const Logs = () => {
   }, [activeRow, snapshot, follow, boot]);
 
   const key = 'settings.system.logs';
-  const timestamp = (at: number) => new Date(at).toLocaleTimeString(i18n.language);
+  const timestamp = (at: number) => formatDeviceTime(at, timePreferences, i18n.language);
   const sourceChanged = (value: LogSource) => {
     setSource(value);
     setMatchIndex(0);
@@ -188,7 +192,7 @@ export const Logs = () => {
             label:
               t(`${key}.boots.${item.id}`) +
               (item.id !== 'current' && item.startedAt
-                ? ' · ' + new Date(item.startedAt).toLocaleString(i18n.language)
+                ? ' · ' + formatDeviceTime(item.startedAt, timePreferences, i18n.language, true)
                 : '')
           }))}
         />

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Spin, Tabs } from 'antd';
+import { useAtomValue } from 'jotai';
 import { DownloadIcon, RefreshCwIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { downloadDiagnosticsReport, getDiagnostics } from '@/api/vm';
+import { formatDeviceTime } from '@/lib/date-time.ts';
+import { timePreferencesAtom } from '@/hooks/useDeviceTime.ts';
 
 import { Logs } from './logs';
 
@@ -48,6 +51,7 @@ const dash = (value?: string | null) => value || '—';
 
 const DiagnosticsStatus = () => {
   const { t, i18n } = useTranslation();
+  const timePreferences = useAtomValue(timePreferencesAtom);
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -156,7 +160,7 @@ const DiagnosticsStatus = () => {
           <>
             <p className="text-xs text-neutral-500">
               {t('settings.system.diagnostics.collected', {
-                time: new Date(snapshot.collectedAt).toLocaleString(i18n.language)
+                time: formatDeviceTime(snapshot.collectedAt, timePreferences, i18n.language, true)
               })}
             </p>
             <div className="grid gap-4 lg:grid-cols-2">

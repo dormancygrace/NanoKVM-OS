@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Select } from 'antd';
+import { Alert, Checkbox, Select } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
@@ -16,6 +16,8 @@ export const CPUFrequency = () => {
     running: number;
     target: number;
     options: number[];
+    applyAtBoot?: boolean;
+    bootFallback?: boolean;
   }>();
   const [loading, setLoading] = useState(false);
   // null: no error; '': failed without a server message.
@@ -34,19 +36,10 @@ export const CPUFrequency = () => {
     const stopPolling = pollWhileVisible(poll, 2000);
     return () => stopPolling();
   }, []);
-  async function update(target: number) {
-    if (
-      target > 1000 &&
-      !(await confirmAction({
-        title: t('settings.device.cpuFrequency.confirmOverclock', { mhz: target }),
-        content: t('settings.device.cpuFrequency.warning'),
-        danger: true
-      }))
-    )
-      return;
+  async function save(target: number, applyAtBoot: boolean) {
     setLoading(true);
     try {
-      const rsp = await api.setCPUFrequency(target);
+      const rsp = await api.setCPUFrequency(target, applyAtBoot);
       if (rsp.code !== 0) showRequestError(rsp, 'settings.device.cpuFrequency.failed');
       await refresh();
     } catch (err) {
@@ -55,6 +48,40 @@ export const CPUFrequency = () => {
       setLoading(false);
     }
   }
+  async function update(target: number) {
+    const applyAtBoot = !!state?.applyAtBoot;
+    if (
+      target > 1000 &&
+      !(await confirmAction({
+        title: t('settings.device.cpuFrequency.confirmOverclock', { mhz: target }),
+        content: (
+          <>
+            <p className="mt-0">{t('settings.device.cpuFrequency.warning')}</p>
+            {applyAtBoot && (
+              <p className="text-danger mb-0">{t('settings.device.cpuFrequency.bootWarning')}</p>
+            )}
+          </>
+        ),
+        danger: true
+      }))
+    )
+      return;
+    await save(target, applyAtBoot);
+  }
+  async function toggleBoot(applyAtBoot: boolean) {
+    if (!state) return;
+    if (
+      applyAtBoot &&
+      !(await confirmAction({
+        title: t('settings.device.cpuFrequency.confirmBoot'),
+        content: t('settings.device.cpuFrequency.bootWarning'),
+        danger: true
+      }))
+    )
+      return;
+    await save(state.target, applyAtBoot);
+  }
+  const overclocked = !!state?.supported && Math.max(state.target, state.running) > 1000;
   return (
     <div className="space-y-2">
       {loadError !== null && (
@@ -63,6 +90,9 @@ export const CPUFrequency = () => {
           showIcon
           message={loadError || t('settings.device.cpuFrequency.failed')}
         />
+      )}
+      {state?.bootFallback && (
+        <Alert type="warning" showIcon message={t('settings.device.cpuFrequency.bootFallback')} />
       )}
       <SettingRow
         label={t('settings.device.cpuFrequency.title')}
@@ -88,9 +118,30 @@ export const CPUFrequency = () => {
         />
       </SettingRow>
       {state?.supported && (
-        <div className="text-fg-muted text-xs">{t('settings.device.cpuFrequency.description')}</div>
+        <div className="space-y-1">
+          <Checkbox
+            checked={!!state.applyAtBoot}
+            disabled={loading}
+            aria-describedby="device-cpu-frequency-boot-description"
+            onChange={(e) => void toggleBoot(e.target.checked)}
+          >
+            {t('settings.device.cpuFrequency.applyAtBoot')}
+          </Checkbox>
+          <div id="device-cpu-frequency-boot-description" className="text-danger text-xs">
+            {t('settings.device.cpuFrequency.bootWarning')}
+          </div>
+        </div>
       )}
-      {state?.supported && Math.max(state.target, state.running) > 1000 && (
+      {state?.supported && (
+        <div className="text-fg-muted text-xs">
+          {t(
+            state.applyAtBoot
+              ? 'settings.device.cpuFrequency.descriptionAtBoot'
+              : 'settings.device.cpuFrequency.description'
+          )}
+        </div>
+      )}
+      {overclocked && (
         <div className="text-warning text-xs" role="note">
           {t('settings.device.cpuFrequency.warning')}
         </div>

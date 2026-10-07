@@ -1108,12 +1108,20 @@ const en = {
         title: 'Device',
         cpuFrequency: {
           confirmOverclock: 'Overclock the CPU to {{mhz}} MHz?',
+          confirmBoot: 'Apply the CPU frequency at every start?',
+          applyAtBoot: 'Apply the selected frequency at startup',
+          bootWarning:
+            'Dangerous with overclocking: if NanoKVM cannot run at this frequency, it may stop starting and the system may need to be reflashed. If a start freezes within the first 2 minutes, the next start runs at 1000 MHz and turns this option off.',
+          bootFallback:
+            'The last start with overclocking did not finish, so NanoKVM started at 1000 MHz and stopped applying the frequency at startup.',
+          descriptionAtBoot:
+            'Applied immediately and again at every start, including overclocking. Check SoC temperature in Dashboard.',
           eco: 'Power saving',
           stock: 'Standard',
           moderate: 'Moderate overclock',
           sampleDependent: 'Depends on the individual chip',
           warning:
-            'Overclocking can cause freezes, restarts, data loss or hardware damage. Stability is not guaranteed at any overclocked frequency. All overclocking is applied at runtime only. After a reboot, the CPU returns to 1000 MHz. Thermal protection limits it to 850 MHz at 75°C.',
+            'Overclocking can cause freezes, restarts, data loss or hardware damage. Stability is not guaranteed at any overclocked frequency. Thermal protection limits it to 850 MHz at 75°C.',
           throttled: 'Temperature limit active. Your selected frequency will resume after cooling.',
           title: 'CPU frequency & overclocking',
           running: 'Running: {{mhz}} MHz',
@@ -1161,7 +1169,8 @@ const en = {
       },
       usb: {
         confirmDisable: 'Turn off USB?',
-        confirmDisableDescription: 'The computer loses the NanoKVM keyboard, mouse, storage and audio until USB is turned on again here. RustDesk loses keyboard and mouse control too.',
+        confirmDisableDescription:
+          'The computer loses the NanoKVM keyboard, mouse, storage and audio until USB is turned on again here. RustDesk loses keyboard and mouse control too.',
         pointerProfile: 'Absolute pointer profile',
         pointerProfileHelp:
           'Windows binds the pointer to the captured monitor (Windows 10 1903 or newer). Applying reconnects USB and HDMI.',
@@ -1253,7 +1262,8 @@ const en = {
         },
         wifi: {
           confirmDisable: 'Turn off Wi-Fi?',
-          confirmDisableDescription: 'Without Ethernet, NanoKVM leaves the network and this page loses its connection.',
+          confirmDisableDescription:
+            'Without Ethernet, NanoKVM leaves the network and this page loses its connection.',
           loading: 'Loading…',
           noAdapter: 'Wi-Fi adapter not detected',
           notDetected: 'not detected',
@@ -1299,7 +1309,8 @@ const en = {
         tls: {
           confirmEnable: 'Turn on HTTPS?',
           confirmDisable: 'Turn off HTTPS?',
-          confirmRestart: 'The web server restarts and this page reloads at the new address. Other open sessions disconnect.',
+          confirmRestart:
+            'The web server restarts and this page reloads at the new address. Other open sessions disconnect.',
           description: 'Enable HTTPS protocol',
           tip: 'Be aware: Using HTTPS can increase latency, especially with MJPEG video mode.',
           failed: 'Failed to change HTTPS. The current setting is unchanged.'

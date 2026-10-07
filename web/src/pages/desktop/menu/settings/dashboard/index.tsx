@@ -375,7 +375,8 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           ]
             .filter(Boolean)
             .join(' · ') || undefined,
-          cpu ?? undefined
+          cpu ?? undefined,
+          admin ? 'system-general' : undefined
         )}
         {metric(
           'RAM',

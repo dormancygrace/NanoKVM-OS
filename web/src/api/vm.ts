@@ -291,8 +291,8 @@ export function setMemorySwap(
 export function getCPUFrequency() {
   return http.get('/api/vm/cpu-frequency');
 }
-export function setCPUFrequency(target: number) {
-  return http.post('/api/vm/cpu-frequency', { target });
+export function setCPUFrequency(target: number, applyAtBoot: boolean) {
+  return http.post('/api/vm/cpu-frequency', { target, applyAtBoot });
 }
 
 export function setVideoMemory(mode: VideoMemoryMode) {

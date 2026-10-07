@@ -22,12 +22,29 @@ var cpuFreqRuntimePreference = "/run/nanokvm-cpufreq"
 var cpuFreqWrite = os.WriteFile
 var cpuThermalRoot = "/sys/class/thermal"
 
+// With the boot flag the saved preference may hold an overclock, applied
+// when the application starts after boot. The pending marker lives until
+// the overclocked start has run for cpuFreqBootSettle; finding it at the
+// next boot means that start froze, so that boot falls back to 1000 MHz,
+// clears the flag and leaves the failed marker for the settings page.
+var cpuFreqBootFlag = "/etc/kvm/cpufreq.boot"
+var cpuFreqBootPending = "/etc/kvm/cpufreq.boot-pending"
+var cpuFreqBootFailed = "/etc/kvm/cpufreq.boot-failed"
+var cpuFreqBootSettle = 2 * time.Minute
+
 type cpuFrequencyStatus struct {
-	Supported bool  `json:"supported"`
-	Throttled bool  `json:"throttled"`
-	Running   int   `json:"running"`
-	Target    int   `json:"target"`
-	Options   []int `json:"options"`
+	Supported    bool  `json:"supported"`
+	Throttled    bool  `json:"throttled"`
+	Running      int   `json:"running"`
+	Target       int   `json:"target"`
+	Options      []int `json:"options"`
+	ApplyAtBoot  bool  `json:"applyAtBoot"`
+	BootFallback bool  `json:"bootFallback"`
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func readCPUFreq(name string) (string, error) {
@@ -61,9 +78,9 @@ func cpuThermalLimited() bool {
 }
 
 func cpuFrequencyState() cpuFrequencyStatus {
-	state := cpuFrequencyStatus{Target: 1000, Options: []int{}}
+	state := cpuFrequencyStatus{Target: 1000, Options: []int{}, ApplyAtBoot: fileExists(cpuFreqBootFlag), BootFallback: fileExists(cpuFreqBootFailed)}
 	if data, err := os.ReadFile(cpuFreqPreference); err == nil {
-		if n, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil && (n == 850 || n == 1000) {
+		if n, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil && (n == 850 || n == 1000 || state.ApplyAtBoot && validCPUFrequency(n)) {
 			state.Target = n
 		}
 	}
@@ -162,9 +179,21 @@ func setCPUFreqRuntime(mhz int) error {
 	return nil
 }
 
-func persistCPUFreq(mhz int) error {
-	// Overclock survives application restarts, but /run is cleared at boot.
-	if err := persistCPUFreqFile(cpuFreqPreference, min(mhz, 1000)); err != nil {
+func persistCPUFreq(mhz int, applyAtBoot bool) error {
+	// Overclock survives application restarts, but /run is cleared at boot;
+	// only the boot flag lets the saved preference keep it.
+	boot := min(mhz, 1000)
+	if applyAtBoot {
+		boot = mhz
+		if err := persistCPUFreqFile(cpuFreqBootFlag, 1); err != nil {
+			return err
+		}
+	} else if err := os.Remove(cpuFreqBootFlag); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	// A deliberate choice replaces the report of an earlier failed start.
+	os.Remove(cpuFreqBootFailed)
+	if err := persistCPUFreqFile(cpuFreqPreference, boot); err != nil {
 		return err
 	}
 	return persistCPUFreqFile(cpuFreqRuntimePreference, mhz)
@@ -199,7 +228,8 @@ func persistCPUFreqFile(path string, mhz int) error {
 	return directory.Sync()
 }
 
-func applyCPUFreq(mhz int, persist bool) error {
+// applyAtBoot is used only with persist.
+func applyCPUFreq(mhz int, persist, applyAtBoot bool) error {
 	cpuFreqMu.Lock()
 	defer cpuFreqMu.Unlock()
 	before := cpuFrequencyState()
@@ -208,7 +238,7 @@ func applyCPUFreq(mhz int, persist bool) error {
 	}
 	err := setCPUFreqRuntime(mhz)
 	if err == nil && persist {
-		err = persistCPUFreq(mhz)
+		err = persistCPUFreq(mhz, applyAtBoot)
 	}
 	restoreTarget := before.Running
 	if before.Throttled {
@@ -224,11 +254,45 @@ func applyCPUFreq(mhz int, persist bool) error {
 
 // ApplySavedCPUFrequency runs only after the matching kernel has exposed a
 // qualified driver. A missing driver leaves stock hardware configuration alone.
+// The first start after boot has no runtime preference yet.
 func ApplySavedCPUFrequency() {
 	state := cpuFrequencyState()
-	if state.Supported {
-		if err := applyCPUFreq(state.Target, false); err != nil {
-			log.Errorf("apply saved CPU frequency: %v", err)
+	if !state.Supported {
+		return
+	}
+	firstStart := !fileExists(cpuFreqRuntimePreference)
+	if firstStart && state.Target > 1000 {
+		if fileExists(cpuFreqBootPending) {
+			log.Errorf("previous start at %d MHz did not settle; starting at 1000 MHz and turning off overclock at boot", state.Target)
+			err := errors.Join(
+				os.Remove(cpuFreqBootFlag),
+				persistCPUFreqFile(cpuFreqPreference, 1000),
+				persistCPUFreqFile(cpuFreqBootFailed, state.Target),
+				os.Remove(cpuFreqBootPending),
+			)
+			if err != nil {
+				log.Errorf("record CPU frequency boot fallback: %v", err)
+			}
+			state.Target = 1000
+		} else if err := persistCPUFreqFile(cpuFreqBootPending, state.Target); err != nil {
+			// Without the marker a freeze could repeat on every boot.
+			log.Errorf("mark overclocked start, staying at 1000 MHz: %v", err)
+			state.Target = 1000
+		} else {
+			settle, pending := cpuFreqBootSettle, cpuFreqBootPending
+			go func() {
+				time.Sleep(settle)
+				os.Remove(pending)
+			}()
+		}
+	}
+	if err := applyCPUFreq(state.Target, false, false); err != nil {
+		log.Errorf("apply saved CPU frequency: %v", err)
+		return
+	}
+	if firstStart {
+		if err := persistCPUFreqFile(cpuFreqRuntimePreference, state.Target); err != nil {
+			log.Errorf("record applied CPU frequency: %v", err)
 		}
 	}
 }
@@ -244,13 +308,19 @@ func (s *Service) GetCPUFrequency(c *gin.Context) {
 func (s *Service) SetCPUFrequency(c *gin.Context) {
 	var req struct {
 		Target int `json:"target" validate:"oneof=850 1000 1050 1075 1100 1125 1150"`
+		// Omitted by older clients: keep the saved choice.
+		ApplyAtBoot *bool `json:"applyAtBoot"`
 	}
 	var rsp proto.Response
 	if err := proto.ParseFormRequest(c, &req); err != nil {
 		rsp.ErrRsp(c, -1, "invalid CPU frequency")
 		return
 	}
-	if err := applyCPUFreq(req.Target, true); err != nil {
+	applyAtBoot := fileExists(cpuFreqBootFlag)
+	if req.ApplyAtBoot != nil {
+		applyAtBoot = *req.ApplyAtBoot
+	}
+	if err := applyCPUFreq(req.Target, true, applyAtBoot); err != nil {
 		rsp.ErrRsp(c, -2, err.Error())
 		return
 	}

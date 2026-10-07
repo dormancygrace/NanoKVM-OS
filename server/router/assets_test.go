@@ -65,6 +65,16 @@ func TestAssetsServePrecompressedHashedFiles(t *testing.T) {
 	if rec.Body.String() != "small" || rec.Header().Get("Cache-Control") == "" {
 		t.Fatalf("small: %v %q", rec.Header(), rec.Body.String())
 	}
+	// A missing hashed asset (e.g. mid-update) is an uncached 404, even when
+	// a stray .gz exists.
+	os.WriteFile(filepath.Join(dir, "assets", "orphan-abc.js.gz"), []byte("x"), 0644)
+	for _, missing := range []string{"/assets/not-yet-installed-abc.js", "/assets/orphan-abc.js"} {
+		rec = get(missing, "gzip")
+		if rec.Code != http.StatusNotFound || rec.Header().Get("Cache-Control") != "" ||
+			rec.Header().Get("Content-Encoding") != "" {
+			t.Fatalf("%s: %d %v", missing, rec.Code, rec.Header())
+		}
+	}
 	// Outside /assets nothing changes, and paths cannot climb out of it.
 	if rec = get("/index.html", "gzip"); rec.Header().Get("Cache-Control") != "" {
 		t.Fatalf("index: %v", rec.Header())

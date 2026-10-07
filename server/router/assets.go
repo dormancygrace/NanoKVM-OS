@@ -23,6 +23,13 @@ func assets(webPath string) gin.HandlerFunc {
 			c.Next()
 			return
 		}
+		// Only an asset that exists may be cached: a 404 during a package
+		// replacement must not stick in browsers once the file arrives.
+		plain := filepath.Join(webPath, filepath.FromSlash(name))
+		if info, err := os.Stat(plain); err != nil || info.IsDir() {
+			c.Next()
+			return
+		}
 		c.Header("Cache-Control", "public, max-age=31536000, immutable")
 		c.Header("Vary", "Accept-Encoding")
 		if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead ||
@@ -30,7 +37,7 @@ func assets(webPath string) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		file := filepath.Join(webPath, filepath.FromSlash(name)) + ".gz"
+		file := plain + ".gz"
 		if info, err := os.Stat(file); err != nil || info.IsDir() {
 			c.Next()
 			return

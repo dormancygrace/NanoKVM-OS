@@ -184,6 +184,32 @@ test('production worker preserves flow control, paces the first frame and releas
   assert.equal(h.timers.size, 0);
 });
 
+test('decode ACKs are batched: keyframes at once, deltas every four frames or by timer', () => {
+  const h = harness();
+  const acks = () =>
+    h.sockets[0].sent
+      .map((data) => new Uint8Array(data))
+      .filter((bytes) => bytes[0] === 2)
+      .map((bytes) => Number(new DataView(bytes.buffer).getBigUint64(1, true)));
+  h.send(0, true);
+  assert.deepEqual(acks(), [0], 'keyframe acknowledged immediately');
+  h.send(17000);
+  h.send(34000);
+  h.send(51000);
+  assert.deepEqual(acks(), [0], 'three deltas wait for the batch');
+  h.send(68000);
+  assert.deepEqual(acks(), [0, 68000], 'the fourth delta acknowledges all four');
+  h.send(85000);
+  assert.deepEqual(acks(), [0, 68000]);
+  for (const [id, tick] of [...h.timers]) {
+    h.timers.delete(id);
+    tick();
+  }
+  assert.deepEqual(acks(), [0, 68000, 85000], 'the timer flushes a partial batch');
+  h.stop();
+  assert.equal(h.timers.size, 0);
+});
+
 test('slow decoder resets once and rejects deltas until a fresh keyframe', () => {
   const h = harness();
   h.send(0, true);

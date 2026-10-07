@@ -9,8 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const FrameDetectInterval uint8 = 60
-
+// UpdateFrameDetect saves the device-wide frame-detect choice and applies it.
 func UpdateFrameDetect(c *gin.Context) {
 	var req proto.UpdateFrameDetectReq
 	var rsp proto.Response
@@ -20,12 +19,13 @@ func UpdateFrameDetect(c *gin.Context) {
 		return
 	}
 
-	var frame uint8 = 0
-	if req.Enabled {
-		frame = FrameDetectInterval
+	if err := common.SaveFrameDetect(req.Enabled); err != nil {
+		log.Errorf("save frame detect failed: %s", err)
+		rsp.ErrRsp(c, -2, "save frame detect failed")
+		return
 	}
 
-	common.GetKvmVision().SetFrameDetect(frame)
+	common.GetKvmVision().SetFrameDetect(common.FrameDetectFrames(req.Enabled))
 
 	rsp.OkRsp(c)
 	log.Debugf("update frame detect: %t", req.Enabled)
@@ -40,6 +40,12 @@ func StopFrameDetect(c *gin.Context) {
 		return
 	}
 
+	// Nothing to pause, and restoring would enable it against the saved choice.
+	if !common.FrameDetectEnabled() {
+		rsp.OkRsp(c)
+		return
+	}
+
 	duration := 10 * time.Second
 	if req.Duration > 0 {
 		duration = time.Duration(req.Duration) * time.Second
@@ -49,7 +55,8 @@ func StopFrameDetect(c *gin.Context) {
 
 	vision.SetFrameDetect(0)
 	time.Sleep(duration)
-	vision.SetFrameDetect(FrameDetectInterval)
+	// Restore the saved choice, which an administrator may have changed meanwhile.
+	vision.SetFrameDetect(common.FrameDetectFrames(common.FrameDetectEnabled()))
 
 	rsp.OkRsp(c)
 }

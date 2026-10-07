@@ -45,6 +45,8 @@ export type ScreenStatus = {
   videoOutputHeight: number;
   effectiveFps: number;
   measuredFps: number;
+  // Device-wide MJPEG frame detection, saved by the server.
+  frameDetect: boolean;
 };
 
 const transportOf = (mode: string): Transport =>
@@ -64,7 +66,7 @@ export function savedDraft(status: ScreenStatus, mode: string): VideoDraft {
     gopMode: status.gopMode,
     mjpegChroma: status.mjpegChroma === 422 ? 422 : 420,
     directPlayback: storage.getDirectPlayback(),
-    frameDetect: storage.getFrameDetect()
+    frameDetect: status.frameDetect === true
   };
 }
 

@@ -18,13 +18,7 @@ export type ApplyDeps = {
   setEncoderCodec: typeof setEncoderCodec;
   storage: Pick<
     typeof storage,
-    | 'setVideoMode'
-    | 'setDirectPlayback'
-    | 'setFrameDetect'
-    | 'setResolution'
-    | 'setFps'
-    | 'setGop'
-    | 'setQuality'
+    'setVideoMode' | 'setDirectPlayback' | 'setResolution' | 'setFps' | 'setGop' | 'setQuality'
   >;
   reload: () => void;
   clearPlaybackOverrides: () => void;
@@ -89,7 +83,6 @@ export async function applyVideoDraft(
     if (draft.frameDetect !== saved.frameDetect) {
       const rsp = await deps.updateFrameDetect(draft.frameDetect);
       if (rsp.code !== 0) throw new Error(rsp.msg || 'video-settings-failed');
-      deps.storage.setFrameDetect(draft.frameDetect);
     }
     const width = caps.stream.limits.find((l) => l.height === draft.height)?.width ?? 0;
     if (draft.height !== saved.height) deps.storage.setResolution({ width, height: draft.height });

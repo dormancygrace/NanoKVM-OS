@@ -79,7 +79,17 @@ func (c *Cli) Up() error {
 
 func (c *Cli) Down() error { return exec.Command(TailscalePath, "down").Run() }
 
+// Status is polled every 5 s by the VPN page. It asks tailscaled directly
+// and starts the client only when the local API gives no usable answer.
 func (c *Cli) Status() (*TsStatus, error) {
+	status, err := localStatus(localAPISocket)
+	if err == nil || errors.Is(err, errDaemonUnreachable) {
+		return status, err
+	}
+	return cliStatus()
+}
+
+var cliStatus = func() (*TsStatus, error) {
 	output, err := exec.Command(TailscalePath, "status", "--json").CombinedOutput()
 	if err != nil {
 		return nil, err

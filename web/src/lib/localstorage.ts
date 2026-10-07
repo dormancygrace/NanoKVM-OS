@@ -128,7 +128,15 @@ export function setMenuDisabledItems(items: string[]) {
 
 export function getMenuDisabledItems(): string[] {
   const value = localStorage.getItem(MENU_DISABLED_ITEMS_KEY);
-  return value ? JSON.parse(value) : [];
+  if (!value) return [];
+
+  // A corrupt value must not break the menu; fall back to showing everything.
+  try {
+    const items: unknown = JSON.parse(value);
+    return Array.isArray(items) ? items.filter((item) => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
 }
 
 export function getMenuDisplayMode(): string {

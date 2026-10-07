@@ -22,11 +22,42 @@ import (
 var wifiMu sync.Mutex
 var wifiBusy bool
 var wifiError string
-var wifiControl = radioControl{etc: "/etc/kvm", net: "/sys/class/net/wlan0", run: runRadioCommand}
+var wifiControl = radioControl{etc: "/etc/kvm", net: "/sys/class/net/wlan0", run: runRadioCommand,
+	request: wpaControl(wpaControlSocket), bands: &bandCache{ttl: 30 * time.Second}}
 
 type radioControl struct {
 	etc, net string
 	run      func(string, ...string) (string, error)
+	// request sends a command to wpa_supplicant for wlan0 and returns the reply.
+	request func(string) (string, error)
+	// bands, when set, lets status polls reuse a recent channel list.
+	bands *bandCache
+}
+
+// bandCache keeps the last successful channel list of a phy. iw reports
+// hardware and regulatory limits, which change rarely, while the Wi-Fi page
+// asks for status every few seconds. Concurrent pollers share one iw run.
+type bandCache struct {
+	mu    sync.Mutex
+	ttl   time.Duration
+	phy   string
+	at    time.Time
+	freqs map[string][]string
+}
+
+func (c *bandCache) get(phy string, now time.Time, read func() map[string][]string) map[string][]string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.freqs != nil && c.phy == phy && now.Sub(c.at) >= 0 && now.Sub(c.at) < c.ttl {
+		return c.freqs
+	}
+	freqs := read()
+	c.freqs = nil
+	// A failed or empty answer is not kept; the next poll asks again.
+	if len(freqs) > 0 {
+		c.phy, c.at, c.freqs = phy, now, freqs
+	}
+	return freqs
 }
 
 func runRadioCommand(name string, args ...string) (string, error) {
@@ -85,16 +116,34 @@ func parseFrequencies(output string) map[string][]string {
 	}
 	return result
 }
-func (w radioControl) frequencies() map[string][]string {
+func (w radioControl) phy() string {
 	phy, err := filepath.EvalSymlinks(filepath.Join(w.net, "phy80211"))
 	if err != nil {
+		return ""
+	}
+	return filepath.Base(phy)
+}
+
+func (w radioControl) phyFrequencies(phy string) map[string][]string {
+	if phy == "" {
 		return map[string][]string{}
 	}
-	out, err := w.run("iw", "phy", filepath.Base(phy), "info")
+	out, err := w.run("iw", "phy", phy, "info")
 	if err != nil {
 		return map[string][]string{}
 	}
 	return parseFrequencies(out)
+}
+
+func (w radioControl) frequencies() map[string][]string { return w.phyFrequencies(w.phy()) }
+
+// Scan and connect read the channel list afresh; only status reuses it.
+func (w radioControl) statusFrequencies() map[string][]string {
+	phy := w.phy()
+	if w.bands == nil || phy == "" {
+		return w.phyFrequencies(phy)
+	}
+	return w.bands.get(phy, time.Now(), func() map[string][]string { return w.phyFrequencies(phy) })
 }
 
 const wifiBandPreferenceFile = "wifi.band_preference"
@@ -244,7 +293,7 @@ func (w radioControl) status() *proto.GetWifiRsp {
 		return d
 	}
 	d.Model = w.model()
-	freqs := w.frequencies()
+	freqs := w.statusFrequencies()
 	for _, b := range []string{"2.4", "5"} {
 		if len(freqs[b]) > 0 {
 			d.Bands = append(d.Bands, b)
@@ -253,7 +302,7 @@ func (w radioControl) status() *proto.GetWifiRsp {
 	if !d.Enabled || d.ApMode {
 		return d
 	}
-	out, err := w.run("wpa_cli", "-i", "wlan0", "status")
+	out, err := w.request("STATUS")
 	if err != nil {
 		return d
 	}

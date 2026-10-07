@@ -35,8 +35,10 @@ var (
 )
 
 type KvmVision struct {
-	mutex                sync.RWMutex
-	closed               bool
+	mutex  sync.RWMutex
+	closed bool
+	// Frame reads wait through the netpoller on a native capture thread.
+	// NANOKVM_NATIVE_CAPTURE_WORKER=0 selects the previous blocking cgo read.
 	captureWorkerEnabled bool
 	captureWorker        *videoCaptureWorker
 }
@@ -48,7 +50,10 @@ func init() {
 
 func GetKvmVision() *KvmVision {
 	kvmVisionOnce.Do(func() {
-		kvmVision = &KvmVision{captureWorkerEnabled: os.Getenv("NANOKVM_NATIVE_CAPTURE_WORKER") == "1"}
+		kvmVision = &KvmVision{captureWorkerEnabled: os.Getenv("NANOKVM_NATIVE_CAPTURE_WORKER") != "0"}
+		if !kvmVision.captureWorkerEnabled {
+			log.Info("native capture worker disabled; using blocking frame reads")
+		}
 
 		// initialize() loads Screen before it enables or disables HDMI, and both
 		// HDMI paths call GetKvmVision. Select the saved H.265 GOP mode before
@@ -84,7 +89,17 @@ func (k *KvmVision) ReadMjpeg(width uint16, height uint16, quality uint16) (data
 		return nil, -1
 	}
 
-	data, result = readMjpegIntoOwnedStorage(width, height, quality)
+	if worker := k.captureWorkerLocked(); worker != nil {
+		state := &videoPackStorage{}
+		code, err := worker.readMjpeg(width, height, quality, state)
+		if err != nil {
+			k.failCaptureWorkerLocked(err)
+			code = -1
+		}
+		data, result = state.mjpegResult(code)
+	} else {
+		data, result = readMjpegIntoOwnedStorage(width, height, quality)
+	}
 	if result < 0 {
 		log.Errorf("failed to read kvm image: %v", result)
 	}
@@ -108,7 +123,43 @@ func (k *KvmVision) ReadVideoWithHeadroom(width uint16, height uint16, codec uin
 		return nil, nil, -1
 	}
 
+	if worker := k.captureWorkerLocked(); worker != nil {
+		state := &videoPackStorage{headroom: headroom}
+		code, err := worker.readVideo(width, height, codec, bitRate, gop, fps, state)
+		if err != nil {
+			k.failCaptureWorkerLocked(err)
+			return nil, nil, -1
+		}
+		return state.videoResult(code)
+	}
 	return readVideoIntoOwnedStorage(width, height, codec, bitRate, gop, fps, headroom)
+}
+
+// captureWorkerLocked starts the native capture thread on first use. nil
+// selects the blocking read. The caller holds k.mutex for writing.
+func (k *KvmVision) captureWorkerLocked() *videoCaptureWorker {
+	if !k.captureWorkerEnabled || k.captureWorker != nil {
+		return k.captureWorker
+	}
+	worker, err := newVideoCaptureWorker()
+	if err != nil {
+		log.Errorf("native capture worker unavailable; using blocking frame reads: %v", err)
+		k.captureWorkerEnabled = false
+		return nil
+	}
+	k.captureWorker = worker
+	log.Info("native capture worker enabled")
+	return worker
+}
+
+// A broken notification invariant retires the worker for this process. The
+// aborted access unit may have been a reference, so the next one is an IDR.
+func (k *KvmVision) failCaptureWorkerLocked(err error) {
+	log.Errorf("native capture worker failed; using blocking frame reads: %v", err)
+	k.captureWorker.close()
+	k.captureWorker = nil
+	k.captureWorkerEnabled = false
+	C.kvmv_request_keyframe()
 }
 
 func (k *KvmVision) SetHDMI(enable bool) int {

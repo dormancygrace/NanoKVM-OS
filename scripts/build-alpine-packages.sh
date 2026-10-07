@@ -134,6 +134,19 @@ archive_payload nanokvm-release "$release_payload"
 export CARCH=riscv64
 export REPODEST SRCDEST PKGVER
 
+# abuild signs each package and the index with abuild-sign and no type, which
+# means RSA: RSA with SHA-1. abuild has no setting for the type, so a wrapper
+# first in PATH asks for RSA256, RSA with SHA-256 (apk-tools 2.12 and later).
+real_abuild_sign=$(command -v abuild-sign) || {
+	echo "build-alpine-packages: abuild-sign is required" >&2
+	exit 1
+}
+mkdir -p "$WORK/bin"
+printf '#!/bin/sh\nexec %s -t RSA256 "$@"\n' "$real_abuild_sign" > "$WORK/bin/abuild-sign"
+chmod 0755 "$WORK/bin/abuild-sign"
+PATH=$WORK/bin:$PATH
+export PATH
+
 run_abuild() {
 	if [ -n "$ABUILD_FLAGS" ]; then
 		# Intentional word splitting: this variable is a short list of abuild flags.
@@ -187,14 +200,18 @@ tar -tzf "$index" >/dev/null || {
 	echo "build-alpine-packages: invalid APKINDEX.tar.gz: $index" >&2
 	exit 1
 }
+tar -tzf "$index" | grep -qE '(^|/)\.SIGN\.RSA256\.' || {
+	echo "build-alpine-packages: APKINDEX.tar.gz has no RSA256 signature: $index" >&2
+	exit 1
+}
 apk_count=$(find "$REPODEST" -type f -name '*.apk' | wc -l)
 [ "$apk_count" -ge 7 ] || {
 	echo "build-alpine-packages: expected seven APKs, found $apk_count" >&2
 	exit 1
 }
 find "$REPODEST" -type f -name '*.apk' -print | while IFS= read -r apk; do
-	if ! tar -tzf "$apk" | grep -qE '(^|/)\.SIGN\.RSA\.'; then
-		echo "build-alpine-packages: unsigned APK: $apk" >&2
+	if ! tar -tzf "$apk" | grep -qE '(^|/)\.SIGN\.RSA256\.'; then
+		echo "build-alpine-packages: APK without an RSA256 signature: $apk" >&2
 		exit 1
 	fi
 done

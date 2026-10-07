@@ -114,11 +114,11 @@ def sign_legacy_index(unsigned: Path, signed: Path, key: Path, key_name: str,
                       epoch: int, abuild_tar: Path, rootfs: Path | None,
                       qemu: Path | None, work: Path) -> None:
     signature = work / "index.signature"
-    run(["openssl", "dgst", "-sha1", "-sign", str(key), "-out",
+    run(["openssl", "dgst", "-sha256", "-sign", str(key), "-out",
          str(signature), str(unsigned)])
     os.utime(signature, (epoch, epoch))
 
-    member_name = f".SIGN.RSA.{key_name}"
+    member_name = f".SIGN.RSA256.{key_name}"
     signature_member = work / member_name
     shutil.copyfile(signature, signature_member)
     tar_path = work / "signature.tar"

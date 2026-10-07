@@ -27,6 +27,15 @@ export const fullFrameContent = (mediaSize: MediaSize): FrameContent => ({
   height: mediaSize.height
 });
 
+// Equal plain geometry objects (sizes, rects, regions). Polling keeps the
+// previous state object while nothing changed, so readers do not re-render.
+export function isSameGeometry<T extends object>(a: T | null, b: T | null) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const keys = Object.keys(a) as (keyof T)[];
+  return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);
+}
+
 export function getMediaSize(screen: Element, fallback?: MediaSize | null): MediaSize | null {
   const dataWidth = Number(screen.getAttribute(mediaWidthAttribute));
   const dataHeight = Number(screen.getAttribute(mediaHeightAttribute));

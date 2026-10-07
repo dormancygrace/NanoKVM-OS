@@ -66,6 +66,24 @@ access-unit interface still accepts at most eight packs and rejects larger
 vendor results after releasing them. This prevents the previous fixed-size
 vendor buffer from being overrun before its returned count could be checked.
 
+## Frame wait
+
+The server reads H.264/H.265 access units and MJPEG images on a native capture
+thread, `nkos-capture` (`server/common/capture_worker.c`). The thread runs the
+existing `kvmv_read_video_sink` and `kvmv_read_mjpeg_sink` reads and lends each
+borrowed pack to Go through a notification pipe. It waits until a short cgo
+call has copied the pack into Go-owned storage, so the vendor stream is still
+held during the copy. The capture goroutine therefore waits for a frame in the
+netpoller instead of in a cgo call lasting a whole frame period; on the
+single-core runtime this avoids handing the P to another thread and back for
+every frame. Reads remain serialized by the `KvmVision` mutex. Result codes,
+key/delta classification and per-call encoder parameters are unchanged, and no
+native library change is required.
+
+`NANOKVM_NATIVE_CAPTURE_WORKER=0` selects the previous blocking cgo read for
+this release. The server also falls back to it, and logs the reason, when the
+thread cannot be started or its notification sequence breaks.
+
 ## Building and testing
 
 `libkvm.so` and `libkvm_mmf.so` must be rebuilt and deployed together with the

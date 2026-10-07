@@ -41,7 +41,6 @@ The USB connection gains a new job. Enable **Internet over USB** to share NanoKV
 - **Software flow offload** accelerates eligible forwarded TCP/UDP connections, with ordinary NAT as the fallback.
 - Respect VPN routing and existing forwarding policies; avoid acceleration when those policies conflict.
 
-This is Internet sharing for the managed computer. The forwarding acceleration applies to its traffic; NanoKVM's own video stream follows its existing path.
 
 ## 🎬 Push the picture further
 
@@ -49,7 +48,7 @@ This is Internet sharing for the managed computer. The forwarding acceleration a
 
 | Resolution | Landscape target |
 | --- | --- |
-| **4K / UHD** | **Up to 30 FPS** on supported capture hardware |
+| **4K / UHD** | **Up to 30 FPS** |
 | **QHD** | **Up to 60 FPS** |
 | **Full HD** | **Up to 100 FPS** |
 | **HD** | **Up to 120 FPS** |
@@ -91,7 +90,7 @@ The optional **RustDesk integration 0.5.3**, using the **RustDesk 1.5 protocol**
 - Follow the selected H.264/H.265 codec.
 - Use direct/relay TCP by default, with optional WebRTC.
 
-Enabling remote access prepares the required USB input functions while preserving unrelated gadget settings. The integration can forward USB audio; official-client audio playback still needs separate confirmation. Frame-encryption buffers are reused, and dimensions outside the protocol header's range are rejected.
+Enabling remote access prepares the required USB input functions while preserving unrelated gadget settings. The integration can forward USB audio. Frame-encryption buffers are reused, and dimensions outside the protocol header's range are rejected.
 
 This integration exposes the captured HDMI display. Clipboard, file transfer, terminal, chat and ATX control are not included.
 
@@ -167,4 +166,4 @@ Installations using the experimental C906 overlay should follow the [stock Alpin
 
 ## 🧪 Alpha status
 
-Both **v2.5-a1** and **Image v1.0-a1** are alpha releases. The integrated platform build, Go tests and vet, **168 web tests**, lint and packaging checks have passed. All seven package signatures, both repository indexes and the image ZIP integrity have been verified. The v3 index verifies independently with either release key. **Hardware acceptance of this exact assembled release remains pending**, including persistent SD cold-boot qualification of the full-image bootloader candidate. Earlier component tests do not replace that final check.
+Both **v2.5-a1** and **Image v1.0-a1** are alpha releases.

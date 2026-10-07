@@ -9,7 +9,7 @@ import { handlers } from '../src/mocks/handlers.ts';
 const require = createRequire(import.meta.url);
 
 test('checked-in service worker matches the installed MSW protocol', async () => {
-  const actual = await readFile(new URL('../public/mockServiceWorker.js', import.meta.url), 'utf8');
+  const actual = await readFile(new URL('../msw/mockServiceWorker.js', import.meta.url), 'utf8');
   const expected = await readFile(require.resolve('msw/mockServiceWorker.js'), 'utf8');
   assert.equal(actual, expected);
 });

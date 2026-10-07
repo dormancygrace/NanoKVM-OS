@@ -72,9 +72,9 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
             >
               <div className="flex cursor-pointer rounded p-1 text-green-500 hover:bg-neutral-600 hover:text-green-500/80">
                 {loading === 'restarting' ? (
-                  <LoaderCircleIcon className="animate-spin" size={18} />
+                  <LoaderCircleIcon className="animate-spin" size={16} />
                 ) : (
-                  <RotateCwIcon size={18} />
+                  <RotateCwIcon size={16} />
                 )}
               </div>
             </Popconfirm>
@@ -91,9 +91,9 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
             >
               <div className="flex cursor-pointer rounded p-1 text-red-500 hover:bg-neutral-600 hover:text-red-500/80">
                 {loading === 'stopping' ? (
-                  <LoaderCircleIcon className="animate-spin" size={18} />
+                  <LoaderCircleIcon className="animate-spin" size={16} />
                 ) : (
-                  <CircleStopIcon size={18} />
+                  <CircleStopIcon size={16} />
                 )}
               </div>
             </Popconfirm>
@@ -112,7 +112,7 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
             trigger="click"
           >
             <div className="flex cursor-pointer rounded p-1 text-white hover:bg-neutral-700/50">
-              <EllipsisIcon size={18} />
+              <EllipsisIcon size={16} />
             </div>
           </Popover>
         )}

@@ -35,7 +35,7 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
 
   const title = (
     <div className="flex items-center space-x-1 text-red-500">
-      <Trash2Icon size={18} />
+      <Trash2Icon size={16} />
       <span>{t('settings.tailscale.uninstall')}</span>
     </div>
   );

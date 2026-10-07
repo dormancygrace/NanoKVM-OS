@@ -148,7 +148,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
             cancelText={t('vpn.cancel')}
             disabled={busy}
           >
-            <Button danger loading={busy} icon={<Trash2Icon size={15} />}>
+            <Button danger loading={busy} icon={<Trash2Icon size={16} />}>
               {t('vpn.openvpnUninstall')}
             </Button>
           </Popconfirm>
@@ -213,7 +213,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
                   <Button
                     type="text"
                     size="small"
-                    icon={<KeyRoundIcon size={15} />}
+                    icon={<KeyRoundIcon size={14} />}
                     aria-label={`${t('vpn.credentials')} ${p.name}`}
                     disabled={busy || on}
                     onClick={() => setEditing(p)}
@@ -227,7 +227,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
                   <Button
                     type="text"
                     size="small"
-                    icon={<Trash2Icon size={15} />}
+                    icon={<Trash2Icon size={14} />}
                     disabled={busy}
                     aria-label={`${t('vpn.delete')} ${p.name}`}
                   />

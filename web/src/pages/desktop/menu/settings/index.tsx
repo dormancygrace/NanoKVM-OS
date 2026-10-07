@@ -442,7 +442,7 @@ export const Settings = ({
                   type="text"
                   aria-label={t('settings.back')}
                   disabled={isLocked}
-                  icon={<ArrowLeftIcon size={18} />}
+                  icon={<ArrowLeftIcon size={16} />}
                   onClick={() => setDetailOpen(false)}
                 />
               )}

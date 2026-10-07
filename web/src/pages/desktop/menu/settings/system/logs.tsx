@@ -197,7 +197,7 @@ export const Logs = () => {
           }))}
         />
         <Button
-          icon={<RefreshCwIcon size={15} />}
+          icon={<RefreshCwIcon size={16} />}
           loading={loading}
           disabled={!refreshReady}
           onClick={() => setRevision((value) => value + 1)}
@@ -225,14 +225,14 @@ export const Logs = () => {
         <Button
           size="small"
           aria-label={t(`${key}.previousMatch`)}
-          icon={<ChevronUpIcon size={16} />}
+          icon={<ChevronUpIcon size={14} />}
           disabled={!view.matches.length}
           onClick={() => moveMatch(-1)}
         />
         <Button
           size="small"
           aria-label={t(`${key}.nextMatch`)}
-          icon={<ChevronDownIcon size={16} />}
+          icon={<ChevronDownIcon size={14} />}
           disabled={!view.matches.length}
           onClick={() => moveMatch(1)}
         />

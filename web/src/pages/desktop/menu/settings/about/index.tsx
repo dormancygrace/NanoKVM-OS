@@ -39,7 +39,7 @@ export const About = () => {
             className="h-36 w-60 object-contain"
           />
           <ArrowUpRightIcon
-            size={17}
+            size={16}
             className="absolute top-3 right-3 text-neutral-600 transition-colors group-hover:text-neutral-300"
           />
         </a>

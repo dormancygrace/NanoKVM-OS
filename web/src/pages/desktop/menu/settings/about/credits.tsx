@@ -41,7 +41,7 @@ export const Credits = () => {
 
   return (
     <>
-      <Button type="primary" icon={<ClapperboardIcon size={17} />} onClick={show}>
+      <Button type="primary" icon={<ClapperboardIcon size={16} />} onClick={show}>
         {tr('button')}
       </Button>
       <Modal

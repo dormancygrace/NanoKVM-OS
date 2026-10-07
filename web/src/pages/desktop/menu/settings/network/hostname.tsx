@@ -92,7 +92,7 @@ export const Hostname = ({ editable = false }: { editable?: boolean }) => {
                 aria-label={t('settings.about.hostname')}
                 title={t('settings.about.hostname')}
                 className="text-neutral-400 hover:!text-blue-500"
-                icon={<ClipboardPenIcon size={16} />}
+                icon={<ClipboardPenIcon size={14} />}
                 onClick={showInput}
               />
             )}

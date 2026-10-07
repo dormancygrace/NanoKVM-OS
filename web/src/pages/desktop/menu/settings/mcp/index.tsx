@@ -255,7 +255,7 @@ export const MCP = () => {
                       type="text"
                       size="small"
                       className="text-neutral-400 hover:text-white"
-                      icon={isKeyVisible ? <EyeOffIcon size={15} /> : <EyeIcon size={15} />}
+                      icon={isKeyVisible ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
                       disabled={!config.apiKey}
                       onClick={() => setIsKeyVisible((visible) => !visible)}
                     />
@@ -264,7 +264,7 @@ export const MCP = () => {
                       size="small"
                       className="text-neutral-400 hover:text-white"
                       loading={isLoading}
-                      icon={<RefreshCcwIcon size={15} />}
+                      icon={<RefreshCcwIcon size={14} />}
                       onClick={regenerateKey}
                     />
                   </>
@@ -308,7 +308,7 @@ const CredentialRow = ({
           size="small"
           className="text-neutral-400 hover:text-white"
           icon={
-            copied ? <CheckIcon size={15} className="text-green-500" /> : <CopyIcon size={15} />
+            copied ? <CheckIcon size={14} className="text-green-500" /> : <CopyIcon size={14} />
           }
           disabled={disabled}
           onClick={onCopy}

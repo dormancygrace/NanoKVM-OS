@@ -134,7 +134,7 @@ const DiagnosticsStatus = () => {
         <div className="flex gap-2">
           <Button
             size="small"
-            icon={<RefreshCwIcon size={15} />}
+            icon={<RefreshCwIcon size={14} />}
             loading={loading}
             onClick={() => void refresh()}
           >
@@ -142,7 +142,7 @@ const DiagnosticsStatus = () => {
           </Button>
           <Button
             size="small"
-            icon={<DownloadIcon size={15} />}
+            icon={<DownloadIcon size={14} />}
             loading={downloading}
             onClick={() => void download()}
           >

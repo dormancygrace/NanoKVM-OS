@@ -60,7 +60,7 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
       <Header state={status?.state} onSuccess={getStatus} />
 
       {isLoading ? (
-        <div className="flex w-full items-center justify-center space-x-2 pt-5 text-neutral-500">
+        <div className="text-fg-muted flex w-full items-center justify-center space-x-2 pt-5">
           <LoaderCircleIcon className="animate-spin" size={18} />
           <span>{t('settings.tailscale.loading')}</span>
         </div>

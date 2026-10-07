@@ -65,7 +65,7 @@ export const Ssh = () => {
             <span>SSH</span>
             <HelpTip title={t('settings.system.ssh.tip')} />
           </div>
-          <span className="text-xs text-neutral-500">{t('settings.system.ssh.description')}</span>
+          <span className="text-xs text-fg-muted">{t('settings.system.ssh.description')}</span>
         </div>
         <Switch
           aria-label="SSH"

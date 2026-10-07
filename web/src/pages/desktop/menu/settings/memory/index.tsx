@@ -233,7 +233,7 @@ export const Memory = () => {
               <span className="text-neutral-400">{t('settings.memory.video')}</span>
               <span className="text-right">{mib(data.videoBytes)}</span>
             </div>
-            <p className="mt-3 text-xs text-neutral-500">{t('settings.memory.ramNote')}</p>
+            <p className="mt-3 text-xs text-fg-muted">{t('settings.memory.ramNote')}</p>
           </div>
           {data.videoMemory && (
             <div className="space-y-3 rounded-lg border border-neutral-700/70 p-4">

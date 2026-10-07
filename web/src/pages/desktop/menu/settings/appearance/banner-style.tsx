@@ -38,7 +38,7 @@ export const BannerStyleSetting = () => {
     <div className="mt-8 flex w-full flex-wrap items-center justify-between gap-4">
       <div className="flex min-w-0 flex-col gap-1">
         <span>{tr('title')}</span>
-        <span className="text-xs text-neutral-500">{tr('description')}</span>
+        <span className="text-fg-muted text-xs">{tr('description')}</span>
       </div>
       <Segmented<BannerStyle>
         value={current}

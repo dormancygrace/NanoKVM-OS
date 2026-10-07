@@ -251,7 +251,7 @@ export const Usb = () => {
                             <div className={blocked ? 'text-neutral-500' : ''}>
                               {t(`settings.usb.devices.${name}.title`)}
                             </div>
-                            <div className="text-xs text-neutral-500">
+                            <div className="text-fg-muted text-xs">
                               {t(`settings.usb.devices.${name}.description`)}
                             </div>
                           </div>
@@ -296,7 +296,7 @@ export const Usb = () => {
                 ]}
                 onChange={(value) => setDraft({ ...draft, pointerProfile: value })}
               />
-              <div className="text-xs text-neutral-500">{t('settings.usb.pointerProfileHelp')}</div>
+              <div className="text-fg-muted text-xs">{t('settings.usb.pointerProfileHelp')}</div>
             </div>
           )}
           {empty && <div className="mt-3 text-sm text-neutral-400">{t('settings.usb.empty')}</div>}
@@ -333,7 +333,7 @@ export const Usb = () => {
               {t(error ? 'settings.usb.reload' : 'settings.usb.cancel')}
             </Button>
           </div>
-          <p className="mt-3 text-xs text-neutral-500">{t('settings.usb.reconnectNotice')}</p>
+          <p className="text-fg-muted mt-3 text-xs">{t('settings.usb.reconnectNotice')}</p>
           <Divider className="opacity-50" />
           <MouseJiggler />
         </>

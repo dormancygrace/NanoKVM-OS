@@ -46,7 +46,7 @@ export const CPUFrequency = () => {
       <div className="flex items-center justify-between gap-4">
         <div>
           <div>{t('settings.device.cpuFrequency.title')}</div>
-          <div className="text-xs text-neutral-500">
+          <div className="text-xs text-fg-muted">
             {state?.supported
               ? t('settings.device.cpuFrequency.running', { mhz: state.running })
               : t('settings.device.cpuFrequency.unavailable')}
@@ -65,7 +65,7 @@ export const CPUFrequency = () => {
         />
       </div>
       {state?.supported && (
-        <div className="text-xs text-neutral-500">
+        <div className="text-xs text-fg-muted">
           {t('settings.device.cpuFrequency.description')}
         </div>
       )}

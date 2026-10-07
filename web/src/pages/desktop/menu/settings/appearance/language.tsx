@@ -15,9 +15,7 @@ export const Language = () => {
     label: language.partial ? (
       <span title={t('settings.appearance.languagePartialHint')}>
         {language.name}{' '}
-        <span className="text-xs text-neutral-500">
-          ({t('settings.appearance.languagePartial')})
-        </span>
+        <span className="text-fg-muted text-xs">({t('settings.appearance.languagePartial')})</span>
       </span>
     ) : (
       language.name
@@ -42,7 +40,7 @@ export const Language = () => {
     <div className="mt-5 flex items-center justify-between space-x-5">
       <div className="flex flex-col space-y-1">
         <span>{t('settings.appearance.language')}</span>
-        <span className="text-xs text-neutral-500">{t('settings.appearance.languageDesc')}</span>
+        <span className="text-fg-muted text-xs">{t('settings.appearance.languageDesc')}</span>
       </div>
 
       <div>

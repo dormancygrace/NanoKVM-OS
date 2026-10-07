@@ -175,7 +175,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
       </Button>
       {error && <Alert type="error" showIcon message={error} />}
       {available === true && profiles.length === 0 && (
-        <div className="rounded-lg border border-dashed border-neutral-700 p-6 text-center text-sm text-neutral-500">
+        <div className="rounded-lg border border-dashed border-neutral-700 p-6 text-center text-sm text-fg-muted">
           {t('vpn.openvpnEmpty')}
         </div>
       )}
@@ -236,7 +236,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
               </div>
               {p.address && <div className="break-all text-xs text-neutral-400">{p.address}</div>}
               {p.state !== 'off' && (
-                <div className="text-xs text-neutral-500">
+                <div className="text-xs text-fg-muted">
                   ↓ {(p.received / 1048576).toFixed(1)} MiB · ↑ {(p.sent / 1048576).toFixed(1)} MiB
                 </div>
               )}
@@ -251,7 +251,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
             </div>
           );
       })}
-      <p className="text-xs text-neutral-500">{t('vpn.openvpnNote')}</p>
+      <p className="text-xs text-fg-muted">{t('vpn.openvpnNote')}</p>
       <Modal
         title={t('vpn.credentials')}
         open={!!editing}

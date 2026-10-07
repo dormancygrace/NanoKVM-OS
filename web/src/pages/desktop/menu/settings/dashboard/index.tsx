@@ -269,7 +269,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
         {title}
       </div>
       <div className="text-lg font-medium wrap-break-word tabular-nums">{value}</div>
-      {detail && <div className="mt-1 text-xs text-neutral-500">{detail}</div>}
+      {detail && <div className="text-fg-muted mt-1 text-xs">{detail}</div>}
       {fill !== undefined && (
         <Progress
           percent={fill}
@@ -317,15 +317,15 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                   <div className="mt-1 break-all text-neutral-400">{profile.address}</div>
                 )}
                 {!!(profile.mtu || iface?.mtu) && (
-                  <div className="mt-1 text-neutral-500">MTU {profile.mtu || iface?.mtu}</div>
+                  <div className="text-fg-muted mt-1">MTU {profile.mtu || iface?.mtu}</div>
                 )}
                 {kind === 'wireguard' && profile.state !== 'off' && (
-                  <div className="mt-1 text-neutral-500">
+                  <div className="text-fg-muted mt-1">
                     RX {bytes(profile.received)} · TX {bytes(profile.sent)}
                   </div>
                 )}
                 {!!profile.lastHandshake && (
-                  <div className="mt-1 text-neutral-500">
+                  <div className="text-fg-muted mt-1">
                     {t('dashboard.handshake')}:{' '}
                     <HandshakeAge
                       timestamp={profile.lastHandshake!}
@@ -337,7 +337,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             );
           })
         ) : (
-          <div className="mt-1 text-xs text-neutral-500">
+          <div className="text-fg-muted mt-1 text-xs">
             {profiles ? t('dashboard.noProfiles') : '—'}
           </div>
         )}
@@ -347,7 +347,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   return (
     <div className="space-y-5 pb-6">
       <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
-        <span className="max-w-full text-xs wrap-break-word text-neutral-500">
+        <span className="text-fg-muted max-w-full text-xs wrap-break-word">
           {t('dashboard.live')}
         </span>
       </div>
@@ -498,7 +498,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                           ? 'dashboard.dataStorage'
                           : 'dashboard.bootStorage'
                     )}{' '}
-                    <span className="text-xs text-neutral-500">{item.path}</span>
+                    <span className="text-fg-muted text-xs">{item.path}</span>
                   </span>
                   {item.readOnly && (
                     <span className="text-xs text-amber-300">{t('dashboard.readOnly')}</span>
@@ -521,7 +521,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                     </div>
                   </>
                 ) : (
-                  <div className="mt-1 text-xs text-neutral-500">{t('dashboard.unavailable')}</div>
+                  <div className="text-fg-muted mt-1 text-xs">{t('dashboard.unavailable')}</div>
                 )}
               </div>
             )) ?? '—'}
@@ -558,7 +558,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                       : iface.name}
                   </span>
                   <span
-                    className={`ml-auto text-xs ${iface.up && iface.connected ? 'text-green-500' : 'text-neutral-500'}`}
+                    className={`ml-auto text-xs ${iface.up && iface.connected ? 'text-green-500' : 'text-fg-muted'}`}
                   >
                     {t(
                       iface.up && iface.connected ? 'dashboard.connected' : 'dashboard.disconnected'
@@ -566,7 +566,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                   </span>
                 </div>
                 {iface.kind === 'wireguard' && (
-                  <div className="mb-1 text-xs text-neutral-500">
+                  <div className="text-fg-muted mb-1 text-xs">
                     {wireguardNames.get(iface.name) ? 'WireGuard' : iface.name}
                   </div>
                 )}
@@ -580,11 +580,11 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                     </div>
                   ))}
                 </div>
-                <div className="mt-2 text-xs text-neutral-500">
+                <div className="text-fg-muted mt-2 text-xs">
                   MTU {iface.mtu}
                   {iface.mac ? ` · ${iface.mac}` : ''}
                 </div>
-                <div className="mt-1 text-xs text-neutral-500">
+                <div className="text-fg-muted mt-1 text-xs">
                   RX {bytes(iface.received)} · TX {bytes(iface.sent)}
                 </div>
               </div>

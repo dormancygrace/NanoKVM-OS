@@ -62,7 +62,7 @@ export const Mdns = () => {
           <HelpTip title={t('settings.device.mdns.tip')} />
         </div>
 
-        <span className="text-xs text-neutral-500">
+        <span className="text-fg-muted text-xs">
           {isEnabled && address ? address : t('settings.device.mdns.description')}
         </span>
       </div>

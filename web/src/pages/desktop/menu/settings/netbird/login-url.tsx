@@ -19,7 +19,7 @@ export const LoginUrl = ({ url, onConfirm, onCancel }: LoginUrlProps) => {
         {url}
       </Button>
 
-      <span className="text-xs text-neutral-600">
+      <span className="text-xs text-fg-muted">
         {t("settings.netbird.urlPeriod")}
       </span>
 

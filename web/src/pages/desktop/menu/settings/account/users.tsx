@@ -169,7 +169,7 @@ export const Users = () => {
               <span className="min-w-0 flex-1 truncate">
                 {user.username}
                 {user.systemAccount && (
-                  <span className="ml-2 text-xs text-neutral-500">
+                  <span className="text-fg-muted ml-2 text-xs">
                     {t('settings.account.users.deviceOwner')}
                   </span>
                 )}

@@ -72,7 +72,7 @@ export const Netbird = ({ setIsLocked }: NetbirdProps) => {
       <Header state={status?.state} onSuccess={getStatus} />
 
       {isLoading && !status ? (
-        <div className="flex w-full items-center justify-center space-x-2 pt-5 text-neutral-500">
+        <div className="flex w-full items-center justify-center space-x-2 pt-5 text-fg-muted">
           <LoaderCircleIcon className="animate-spin" size={18} />
           <span>{t("settings.netbird.loading")}</span>
         </div>
@@ -100,7 +100,7 @@ export const Netbird = ({ setIsLocked }: NetbirdProps) => {
           )}
 
           {isLoading && status && (
-            <div className="mb-4 flex items-center space-x-2 text-sm text-neutral-500">
+            <div className="mb-4 flex items-center space-x-2 text-sm text-fg-muted">
               <LoaderCircleIcon className="animate-spin" size={16} />
               <span>{t("settings.netbird.loading")}</span>
             </div>

@@ -53,7 +53,7 @@ export const Gateway = () => {
     <div className="space-y-3 rounded-xl bg-neutral-800/50 p-4">
       <div>
         <div className="font-semibold text-neutral-100">{t('settings.network.gateway.title')}</div>
-        <div className="mt-0.5 text-xs leading-snug text-neutral-500">
+        <div className="text-fg-muted mt-0.5 text-xs leading-snug">
           {t('settings.network.gateway.description')}
         </div>
       </div>
@@ -69,7 +69,7 @@ export const Gateway = () => {
         ]}
       />
       {status && routes.length === 0 ? (
-        <div className="text-xs text-neutral-500">{t('settings.network.gateway.none')}</div>
+        <div className="text-fg-muted text-xs">{t('settings.network.gateway.none')}</div>
       ) : status ? (
         <div className="space-y-1 text-xs text-neutral-400">
           {routes.map((route) => (

@@ -67,7 +67,7 @@ export const Login = ({ onSuccess }: LoginProps) => {
             {loginUrl}
           </Button>
 
-          <span className="text-xs text-neutral-600">{t('settings.tailscale.urlPeriod')}</span>
+          <span className="text-fg-muted text-xs">{t('settings.tailscale.urlPeriod')}</span>
 
           <Button type="primary" size="large" shape="round" onClick={onSuccess}>
             {t('settings.tailscale.loginSuccess')}

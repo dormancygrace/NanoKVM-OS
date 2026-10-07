@@ -74,7 +74,7 @@ export const Tls = () => {
           <span>HTTPS</span>
           <HelpTip title={t('settings.network.tls.tip')} />
         </div>
-        <span className="text-xs text-neutral-500">{t('settings.network.tls.description')}</span>
+        <span className="text-xs text-fg-muted">{t('settings.network.tls.description')}</span>
       </div>
 
       <Switch aria-label="HTTPS" checked={isEnabled} loading={isLoading} onChange={update} />

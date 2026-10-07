@@ -50,7 +50,7 @@ export const IPv6 = () => {
       <div className="flex items-center justify-between gap-6">
         <div className="flex flex-col gap-1">
           <span>IPv6</span>
-          <span className="text-xs text-neutral-500">{t('settings.network.ipv6.description')}</span>
+          <span className="text-xs text-fg-muted">{t('settings.network.ipv6.description')}</span>
         </div>
         <Switch
           aria-label={t('settings.network.ipv6.enable')}
@@ -61,7 +61,7 @@ export const IPv6 = () => {
         />
       </div>
       {status && !status.supported && (
-        <div className="text-xs text-neutral-500">{t('settings.network.ipv6.unsupported')}</div>
+        <div className="text-xs text-fg-muted">{t('settings.network.ipv6.unsupported')}</div>
       )}
       {status?.enabled && (
         <div className="space-y-3 rounded-xl bg-neutral-800/50 p-4">
@@ -81,7 +81,7 @@ export const IPv6 = () => {
               </div>
             ))
           )}
-          <div className="text-xs text-neutral-500">
+          <div className="text-xs text-fg-muted">
             {t('settings.network.ipv6.disconnectHint')}
           </div>
         </div>

@@ -92,7 +92,7 @@ const Panel = ({
       <div className="px-4 pt-3 pb-1.5">
         <div className="font-semibold text-neutral-100">{title}</div>
         {description && (
-          <div className="mt-0.5 text-xs leading-snug text-neutral-500">{description}</div>
+          <div className="text-fg-muted mt-0.5 text-xs leading-snug">{description}</div>
         )}
       </div>
       <div>{children}</div>
@@ -117,7 +117,7 @@ const InfoRow = ({
         }`}
       >
         <span className="text-sm text-neutral-300">{label}</span>
-        <span className="max-w-[330px] text-right text-sm break-all text-neutral-500">
+        <span className="text-fg-muted max-w-[330px] text-right text-sm break-all">
           {value || '-'}
         </span>
       </div>
@@ -129,9 +129,7 @@ const ServerList = ({ servers }: { servers: string[] }) => {
   const { t } = useTranslation();
 
   if (!servers.length) {
-    return (
-      <div className="px-4 py-3 text-sm text-neutral-500">{t('settings.network.dns.none')}</div>
-    );
+    return <div className="text-fg-muted px-4 py-3 text-sm">{t('settings.network.dns.none')}</div>;
   }
 
   return (
@@ -336,7 +334,7 @@ export const DNS = () => {
       <div className="flex items-center justify-between">
         <div className="flex flex-col space-y-1">
           <span>{t('settings.network.dns.title')}</span>
-          <span className="text-xs text-neutral-500">{t('settings.network.dns.description')}</span>
+          <span className="text-fg-muted text-xs">{t('settings.network.dns.description')}</span>
         </div>
 
         <Segmented
@@ -359,7 +357,7 @@ export const DNS = () => {
           {mode === 'manual' ? (
             <div>
               {servers.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-neutral-500">
+                <div className="text-fg-muted px-4 py-3 text-sm">
                   {t('settings.network.dns.none')}
                 </div>
               ) : (

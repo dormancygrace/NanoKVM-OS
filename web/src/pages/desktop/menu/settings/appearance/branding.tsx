@@ -61,7 +61,7 @@ export const Branding = () => {
     <div className="mt-8 flex flex-col gap-5">
       <div className="flex flex-col gap-1">
         <span>{tr('title')}</span>
-        <span className="text-xs text-neutral-500">{tr('description')}</span>
+        <span className="text-fg-muted text-xs">{tr('description')}</span>
       </div>
 
       {assets.map(({ asset, preview, custom, input, previewClassName }) => (
@@ -79,7 +79,7 @@ export const Branding = () => {
             </div>
             <div className="flex w-full min-w-0 flex-none flex-col gap-1 sm:flex-1 sm:basis-40">
               <span className="text-neutral-200">{tr(`${asset}Title`)}</span>
-              <span className="text-xs text-neutral-500">{tr(`${asset}Description`)}</span>
+              <span className="text-fg-muted text-xs">{tr(`${asset}Description`)}</span>
               <span className="text-xs text-neutral-400">
                 {custom ? tr('customActive') : tr('defaultActive')}
               </span>
@@ -119,7 +119,7 @@ export const Branding = () => {
         </div>
       ))}
 
-      <span className="text-xs text-neutral-500">{tr('formats')}</span>
+      <span className="text-fg-muted text-xs">{tr('formats')}</span>
     </div>
   );
 };

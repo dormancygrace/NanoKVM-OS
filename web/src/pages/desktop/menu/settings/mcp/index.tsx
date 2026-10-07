@@ -223,7 +223,7 @@ export const MCP = () => {
         <div className="flex items-center justify-between">
           <div className="flex flex-col space-y-1 pr-4">
             <span className="text-sm font-medium">{t('settings.mcp.service')}</span>
-            <span className="text-xs text-neutral-500">{t('settings.mcp.serviceDesc')}</span>
+            <span className="text-xs text-fg-muted">{t('settings.mcp.serviceDesc')}</span>
           </div>
           <Switch
             aria-label={t('settings.mcp.service')}

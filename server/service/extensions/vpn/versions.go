@@ -5,33 +5,36 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
+	"NanoKVM-Server/internal/toolcache"
 	"NanoKVM-Server/proto"
 	"github.com/gin-gonic/gin"
 )
 
 var versionPattern = regexp.MustCompile(`[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:[-+][a-zA-Z0-9.-]+)*`)
-var mu sync.Mutex
-var cached map[string]string
-var expires time.Time
+
+var tools = map[string]string{"tailscale": "tailscale", "wireguard": "wg", "openvpn": "openvpn", "netbird": "netbird"}
+
+// The VPN pages ask every 5 s; a version only changes with the program file.
+var versions = toolcache.New(func(path string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	b, err := exec.CommandContext(ctx, path, args...).Output()
+	return string(b), err
+}, time.Minute)
 
 func Versions(c *gin.Context) {
-	mu.Lock()
-	defer mu.Unlock()
-	if time.Now().After(expires) {
-		cached = make(map[string]string)
-		for name, tool := range map[string]string{"tailscale": "tailscale", "wireguard": "wg", "openvpn": "openvpn", "netbird": "netbird"} {
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			b, err := exec.CommandContext(ctx, tool, "--version").Output()
-			cancel()
-			if err == nil {
-				cached[name] = versionPattern.FindString(strings.SplitN(string(b), "\n", 2)[0])
-			}
+	result := make(map[string]string)
+	for name, tool := range tools {
+		path, err := exec.LookPath(tool)
+		if err != nil {
+			continue
 		}
-		expires = time.Now().Add(time.Minute)
+		if out, err := versions.Output(path, "--version"); err == nil {
+			result[name] = versionPattern.FindString(strings.SplitN(out, "\n", 2)[0])
+		}
 	}
 	var rsp proto.Response
-	rsp.OkRspWithData(c, cached)
+	rsp.OkRspWithData(c, result)
 }

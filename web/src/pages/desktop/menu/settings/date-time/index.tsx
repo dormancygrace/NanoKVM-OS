@@ -176,7 +176,7 @@ export function DateTimeSettings() {
                 onChange={(servers) => change({ servers })}
               />
             </SettingRow>
-            <p className="text-fg-muted mb-0 text-xs">{t('dateTime.scope')}</p>
+            <p className="text-fg-muted mt-0 text-xs">{t('dateTime.scope')}</p>
             <div>
               <Button
                 type="primary"

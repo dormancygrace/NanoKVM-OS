@@ -238,13 +238,13 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   const line = (label: string, value: ReactNode) => (
     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-1 py-1 sm:flex sm:flex-wrap sm:justify-between">
       <dt className="text-fg-muted min-w-0 wrap-break-word">{label}</dt>
-      <dd className="text-fg min-w-0 text-right wrap-break-word">{value ?? '—'}</dd>
+      <dd className="text-fg min-w-0 text-right wrap-break-word sm:ml-auto">{value ?? '—'}</dd>
     </div>
   );
   const section = (title: string, children: ReactNode, tab?: string) => (
     <Panel className="min-w-0">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="font-medium">{title}</h3>
+        <h3 className="m-0 text-sm font-medium">{title}</h3>
         {tab && (
           <Button
             type="text"

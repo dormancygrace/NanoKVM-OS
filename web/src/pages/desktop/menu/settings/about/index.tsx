@@ -65,7 +65,9 @@ export const About = () => {
       <Panel className="flex gap-4">
         <HeartIcon className="mt-0.5 shrink-0 text-[#f43f5e]" size={22} fill="currentColor" />
         <div className="space-y-1">
-          <h3 className="text-fg font-medium">{t('settings.about.specialThanksTitle')}</h3>
+          <h3 className="text-fg mt-0 text-sm font-medium">
+            {t('settings.about.specialThanksTitle')}
+          </h3>
           <p className="text-fg-muted text-sm leading-relaxed">
             {t('settings.about.specialThanksWife')}
           </p>

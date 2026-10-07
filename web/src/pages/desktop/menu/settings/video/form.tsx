@@ -218,7 +218,7 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
             children: (
               <div className="space-y-6">
                 <section className="space-y-3">
-                  <h3 className="font-medium">{t('videoSettings.monitor')}</h3>
+                  <h3 className="mt-0 text-sm font-medium">{t('videoSettings.monitor')}</h3>
                   {row(
                     t('videoSettings.monitorProfile'),
                     <Select
@@ -254,7 +254,7 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                 </section>
 
                 <section className="space-y-3">
-                  <h3 className="font-medium">{t('videoSettings.stream')}</h3>
+                  <h3 className="mt-0 text-sm font-medium">{t('videoSettings.stream')}</h3>
                   {row(
                     t('videoSettings.transport'),
                     <Select
@@ -404,7 +404,7 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                 </section>
 
                 <section className="space-y-3">
-                  <h3 className="font-medium">{t('videoSettings.advanced')}</h3>
+                  <h3 className="mt-0 text-sm font-medium">{t('videoSettings.advanced')}</h3>
                   {draft.transport === 'direct' &&
                     row(
                       t('videoSettings.directPlayback'),

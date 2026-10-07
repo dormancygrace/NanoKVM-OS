@@ -115,7 +115,7 @@ const DiagnosticsStatus = () => {
   );
   const card = (title: string, children: React.ReactNode) => (
     <Panel className="min-w-0">
-      <h3 className="mb-2 font-medium">{title}</h3>
+      <h3 className="m-0 mb-2 text-sm font-medium">{title}</h3>
       {children}
     </Panel>
   );

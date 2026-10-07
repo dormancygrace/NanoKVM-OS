@@ -125,7 +125,7 @@ export const Updates = () => {
   );
   return (
     <div className="space-y-6">
-      <p className="text-fg-muted m-0 text-sm">{t('settings.updates.description')}</p>
+      <p className="text-fg-muted mt-0 text-sm">{t('settings.updates.description')}</p>
       <SettingRow label={t('settings.updates.installed')}>
         <span>{state?.installed.version ? formatVersion(state.installed.version) : '—'}</span>
       </SettingRow>
@@ -133,7 +133,7 @@ export const Updates = () => {
       {state?.alpine?.enabled && (
         <Panel className="space-y-4">
           <div className="font-medium">{t('settings.updates.alpineTitle')}</div>
-          <p className="text-fg-muted m-0 text-sm">{t('settings.updates.alpineDisclaimer')}</p>
+          <p className="text-fg-muted mt-0 text-sm">{t('settings.updates.alpineDisclaimer')}</p>
           <Collapse
             ghost
             expandIconPosition="end"

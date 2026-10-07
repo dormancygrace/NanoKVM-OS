@@ -240,7 +240,7 @@ export const Software = () => {
               />
             }
           />
-          <p className="text-fg-muted m-0 text-xs">{t('settings.software.searchHint')}</p>
+          <p className="text-fg-muted mt-0 text-xs">{t('settings.software.searchHint')}</p>
           <div className="divide-line max-h-80 divide-y overflow-auto pr-3">
             {results.map((pkg) => (
               <div className="flex items-center justify-between gap-3 py-2 text-sm" key={pkg.name}>
@@ -367,7 +367,7 @@ export const Software = () => {
 
   return (
     <div className="space-y-6">
-      <p className="text-fg-muted m-0 text-sm">{t('settings.software.description')}</p>
+      <p className="text-fg-muted mt-0 text-sm">{t('settings.software.description')}</p>
       {indexWarning}
       <Button icon={<RefreshCwIcon size={16} />} disabled={working} onClick={() => run('refresh')}>
         {t('settings.software.refresh')}

@@ -134,7 +134,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
       {loadFailed && <Alert type="error" showIcon message={t('vpn.loadFailed')} />}
       <SettingsSection>
         <VPNVersion name="openvpn" />
-        <p className="text-fg-muted m-0 text-sm">{t('vpn.openvpnDescription')}</p>
+        <p className="text-fg-muted mt-0 text-sm">{t('vpn.openvpnDescription')}</p>
         {available === false && (
           <ExtensionInstallResult
             title={t('vpn.openvpnNotInstalled')}

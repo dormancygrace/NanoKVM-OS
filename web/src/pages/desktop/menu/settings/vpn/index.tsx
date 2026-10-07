@@ -119,8 +119,8 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
       {loadFailed && <Alert type="error" showIcon message={t('vpn.loadFailed')} />}
       <SettingsSection>
         <VPNVersion name="wireguard" />
-        <p className="text-fg-muted m-0 text-sm">{t('vpn.description')}</p>
-        <p className="text-fg-muted m-0 text-xs">{t('vpn.routingNote')}</p>
+        <p className="text-fg-muted mt-0 text-sm">{t('vpn.description')}</p>
+        <p className="text-fg-muted mt-0 text-xs">{t('vpn.routingNote')}</p>
         {available === false && <Alert type="warning" showIcon message={t('vpn.systemRequired')} />}
         <input
           ref={input}

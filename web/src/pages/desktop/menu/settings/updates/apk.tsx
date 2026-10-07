@@ -35,7 +35,7 @@ export const APKUpdates = ({
   return (
     <Panel className="space-y-4">
       <div className="font-medium">{tr('title')}</div>
-      <p className="text-fg-muted m-0 text-sm">{tr('description')}</p>
+      <p className="text-fg-muted mt-0 text-sm">{tr('description')}</p>
       <div className="text-sm">
         {tr('kernel')}: {state?.kernel || '—'}
       </div>

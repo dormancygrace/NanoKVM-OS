@@ -71,7 +71,7 @@ export const PresetPicker = ({
   return (
     <section className="space-y-3">
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="font-medium">{t('videoSettings.preset.title')}</h3>
+        <h3 className="m-0 text-sm font-medium">{t('videoSettings.preset.title')}</h3>
         {selected === 'custom' && (
           <span className="text-fg-muted text-xs">{t('videoSettings.preset.custom')}</span>
         )}

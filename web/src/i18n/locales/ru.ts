@@ -119,8 +119,8 @@ const ru = {
       systemRequired:
         'Системные инструменты WireGuard отсутствуют. Установите системный образ с поддержкой WireGuard.',
       routingNote:
-        'По умолчанию создаётся только маршрут подсети интерфейса. Route Allowed IPs добавляет маршруты из AllowedIPs.',
-      routeAllowedIPs: 'Route Allowed IPs',
+        'По умолчанию создаётся только маршрут подсети интерфейса. Включите «Маршруты из AllowedIPs», чтобы добавить маршруты пира.',
+      routeAllowedIPs: 'Маршруты из AllowedIPs',
       routingHelp:
         'Добавлять маршруты из AllowedIPs, включая маршрут по умолчанию для 0.0.0.0/0 или ::/0.',
       routingDisableFirst: 'Выключите профиль перед изменением маршрутизации.',
@@ -354,15 +354,18 @@ const ru = {
       login: 'Войти',
       placeholderUsername: 'Введите имя пользователя',
       placeholderPassword: 'Введите пароль',
+      placeholderCurrentPassword: 'Текущий пароль',
       placeholderPassword2: 'Введите пароль снова',
       noEmptyUsername: 'Имя пользователя не может быть пустым',
       noEmptyPassword: 'Пароль не может быть пустым',
+      passwordLength: 'Пароль должен содержать от 8 до 72 символов',
       noAccount:
         'Не удалось получить информацию о пользователе, пожалуйста, обновите веб-страницу или сбросьте пароль',
       invalidUser: 'Неверное имя пользователя или пароль',
       locked: 'Слишком много входов. Повторите попытку позже.',
       globalLocked: 'Система находится под защитой. Повторите попытку позже.',
       error: 'Непредвиденная ошибка',
+      invalidCurrentPassword: 'Текущий пароль указан неверно',
       changePassword: 'Изменить пароль',
       changePasswordDesc: 'Для безопасности вашего устройства, пожалуйста поменяйте пароль!',
       differentPassword: 'Пароли не совпадают',
@@ -920,7 +923,7 @@ const ru = {
           input: 'Вход',
           output: 'Выход',
           fps: 'Измеренный FPS',
-          usb: 'USB gadget',
+          usb: 'USB-гаджет',
           binding: 'Привязка контроллера',
           selected: 'Выбранные функции',
           firewall: 'nftables',
@@ -991,7 +994,7 @@ const ru = {
         specialThanksWife:
           'Моей жене — за терпение, поддержку и за то, что она переносила моё отсутствие в самую активную фазу разработки.',
         credits: {
-          button: 'Credits',
+          button: 'Титры',
           title: 'Титры',
           pause: 'Пауза',
           resume: 'Продолжить',
@@ -1099,7 +1102,7 @@ const ru = {
           title: 'SSH-баннер',
           description: 'Выберите баннер для новых интерактивных SSH-сеансов.',
           default: 'Обычный',
-          rainbow: 'Rainbow',
+          rainbow: 'Радуга',
           failed: 'Не удалось сохранить стиль SSH-баннера.'
         },
         title: 'Внешний вид',
@@ -1613,13 +1616,36 @@ const ru = {
       account: {
         title: 'Пользователи',
         webAccount: 'Имя веб-аккаунта',
+        role: 'Роль',
         password: 'Пароль',
         updateBtn: 'Обновить',
         logoutBtn: 'Выйти',
         logoutDesc: 'Вы действительно хотите выйти?',
         logoutFailed: 'Не удалось выйти: сеанс по-прежнему активен.',
         okBtn: 'Да',
-        cancelBtn: 'Нет'
+        cancelBtn: 'Нет',
+        roles: {
+          admin: 'Администратор',
+          user: 'Пользователь'
+        },
+        users: {
+          title: 'Пользователи',
+          create: 'Создать пользователя',
+          enabled: 'Включён',
+          disabled: 'Отключён',
+          deviceOwner: 'Владелец устройства',
+          rename: 'Переименовать',
+          resetPassword: 'Сбросить пароль',
+          delete: 'Удалить',
+          deleteConfirm: 'Удалить пользователя и завершить все его сеансы?',
+          created: 'Пользователь создан',
+          deleted: 'Пользователь удалён',
+          passwordUpdated: 'Пароль обновлён',
+          usernameUpdated: 'Имя пользователя обновлено',
+          loadFailed: 'Не удалось загрузить пользователей',
+          saveFailed: 'Не удалось сохранить пользователя',
+          deleteFailed: 'Не удалось удалить пользователя'
+        }
       },
       extensions: {
         title: 'Расширения',
@@ -1658,24 +1684,24 @@ const ru = {
       connection: {
         runtime: {
           checking: 'Проверка',
-          restoring: 'Restoring PicoClaw',
+          restoring: 'Восстановление PicoClaw',
           ready: 'Runtime готов',
           stopped: 'Runtime остановлен',
           blockedByMCP: 'Внешнее управление MCP активно',
           readyBlockedByMCP:
-            'The runtime is running, but external MCP currently controls device input.',
+            'Runtime запущен, но вводом на устройстве сейчас управляет внешний MCP.',
           readyWithoutControl:
-            'The runtime is running. Grant PicoClaw device control before reconnecting.',
+            'Runtime запущен. Передайте PicoClaw управление устройством, прежде чем переподключаться.',
           unavailable: 'Runtime недоступен',
           configError: 'Ошибка конфигурации'
         },
         transport: {
           connecting: 'Подключение',
           connected: 'Подключено',
-          disconnected: 'Disconnected',
-          reconnect: 'Reconnect',
-          reconnectDescription: 'Reconnect to the running PicoClaw session.',
-          reconnectBlocked: 'PicoClaw needs device control before reconnecting.'
+          disconnected: 'Отключено',
+          reconnect: 'Переподключить',
+          reconnectDescription: 'Переподключиться к запущенному сеансу PicoClaw.',
+          reconnectBlocked: 'Для переподключения PicoClaw нужно управление устройством.'
         },
         run: {
           idle: 'Простой',
@@ -1692,21 +1718,22 @@ const ru = {
       },
       control: {
         picoclaw: 'Управление устройством: PicoClaw',
-        picoclawDescription: 'PicoClaw can write keyboard and mouse input. Manual input may pause.',
+        picoclawDescription:
+          'PicoClaw может вводить с клавиатуры и мыши. Ручной ввод может приостанавливаться.',
         mcp: 'Управление устройством: внешний MCP',
-        mcpDescription: 'External MCP can write to the device. PicoClaw will not take over input.',
+        mcpDescription:
+          'Внешний MCP может управлять устройством. PicoClaw не будет перехватывать ввод.',
         off: 'Управление устройством: выкл.',
-        offDescription:
-          'AI will not write keyboard or mouse input. Manual control remains available.',
-        transitioning: 'Device control: switching',
-        transitioningDescription: 'Device control is syncing. Please wait.',
+        offDescription: 'ИИ не управляет клавиатурой и мышью. Ручное управление доступно.',
+        transitioning: 'Управление устройством: переключение',
+        transitioningDescription: 'Управление устройством синхронизируется. Подождите.',
         grant: 'Передать управление',
         release: 'Освободить',
-        releasing: 'Releasing...',
-        switching: 'Switching...',
-        releasingLabel: 'Device control: releasing',
+        releasing: 'Освобождение…',
+        switching: 'Переключение…',
+        releasingLabel: 'Управление устройством: освобождение',
         releasingDescription:
-          'Device control is being returned. PicoClaw has stopped current writes.',
+          'Управление устройством возвращается. PicoClaw прекратил текущий ввод.',
         granted: 'Управление PicoClaw предоставлено',
         released: 'Управление PicoClaw освобождено',
         grantFailed: 'Не удалось предоставить управление PicoClaw',
@@ -1744,7 +1771,7 @@ const ru = {
         menuLabel: 'Настройка модели',
         modelIdentifier: 'Идентификатор модели',
         modelIdentifierPlaceholder: 'openai/gpt-5.4',
-        apiBase: 'API Base URL',
+        apiBase: 'Базовый URL API',
         apiBasePlaceholder: 'https://api.example.com/v1',
         apiKey: 'API-ключ',
         apiKeyPlaceholder: 'Введите API-ключ модели',
@@ -1790,8 +1817,8 @@ const ru = {
         enableConfirmCancel: 'Отмена',
         title: 'Запустить PicoClaw',
         description: 'Запустите runtime, чтобы начать использовать помощник PicoClaw.',
-        switchFromMCP: 'Switch to PicoClaw and start',
-        takeoverAndStart: 'Take over and start'
+        switchFromMCP: 'Переключить на PicoClaw и запустить',
+        takeoverAndStart: 'Перехватить управление и запустить'
       }
     },
     error: {

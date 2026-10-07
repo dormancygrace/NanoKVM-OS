@@ -81,17 +81,13 @@ const ja = {
         duplicateResolution: 'この解像度はすでに存在します。',
         width: '幅',
         height: '高さ',
-        apply: '計算して適用',
         invalidResolution: 'ビデオの準備完了後、有効な元の解像度を入力してください。',
         select: '領域を選択',
-        clear: '自動に戻す',
         saveFailed: '入力領域を保存できませんでした。',
         tooSmall: '選択した領域が小さすぎます。',
         previewUnavailable: 'プレビューを利用できません',
-        clearConfirm: '黒帯の自動検出に戻しますか？',
         dragHint: 'ドラッグしてリモートデスクトップの領域を選択',
         finish: '完了',
-        confirm: '確認',
         cancel: 'キャンセル'
       },
       auto: '自動',
@@ -221,16 +217,7 @@ const ja = {
         dragTitle: '長押し後に動かしてドラッグ',
         dragDesc: '長押しが有効になった後、指を動かすと左ボタンを押したままドラッグします。'
       },
-      resetHid: 'HID をリセット',
-      hidOnly: {
-        title: 'HID-Only モード',
-        desc: '使用中にマウスとキーボードが反応しなくなり、HID をリセットしても効果がない場合は、NanoKVM とデバイス間の互換性に問題がある可能性があります。互換性を向上させるために、HID-Only モードを有効にすることをお勧めします。',
-        tip1: 'HID-Only モードを有効にすると、仮想 U ディスクと仮想ネットワークがアンマウントされます',
-        tip2: 'HID-Only モードでは、イメージのマウントは無効になります',
-        tip3: 'モードを切り替えると、NanoKVM は自動的に再起動します。',
-        enable: 'HID-Only モードを有効化',
-        disable: 'HID-Only モードを無効化'
-      }
+      resetHid: 'HID をリセット'
     },
     image: {
       title: 'イメージ',
@@ -359,22 +346,10 @@ const ja = {
       },
       about: {
         title: 'NanoKVM について',
-        information: '情報',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'アプリケーションバージョン',
-        applicationTip: 'NanoKVM ウェブアプリケーションバージョン',
         image: 'イメージバージョン',
-        imageTip: 'NanoKVM システムイメージバージョン',
-        deviceKey: 'デバイスキー',
-        community: 'コミュニティ',
         hostname: 'ホスト名',
-        hostnameUpdated: 'ホスト名は正常に変更され、再起動後に有効になります',
-        ipType: {
-          Wired: '有線',
-          Wireless: 'ワイヤレス',
-          Other: 'その他'
-        }
+        hostnameUpdated: 'ホスト名は正常に変更され、再起動後に有効になります'
       },
       appearance: {
         title: '外観',
@@ -387,7 +362,6 @@ const ja = {
           title: 'メニューバー',
           mode: '表示モード',
           modeDesc: 'メニューバーの画面表示方法',
-          modeOff: '閉じる',
           modeAuto: '自動非表示',
           modeAlways: '常に表示',
           keyboardLedStatus: 'キーボードロックの表示',
@@ -425,17 +399,6 @@ const ja = {
           1800: '30分',
           3600: '1時間'
         },
-        ssh: {
-          description: 'SSH リモートアクセスを有効にする',
-          tip: '使用する前に必ず強力なパスワードを設定してください（アカウント - パスワードの変更）'
-        },
-        advanced: '詳細設定',
-        swap: {
-          title: 'スワップ',
-          disable: '無効',
-          description: 'スワップファイルのサイズを設定する',
-          tip: 'この機能を有効にすると、SD カードの寿命が短くなる可能性があります！'
-        },
         mouseJiggler: {
           title: 'マウスジグラー',
           description: 'リモートホストの休止を防ぐ',
@@ -454,24 +417,6 @@ const ja = {
             'アクティブな閲覧者がいない状態が次の時間続いたら HDMI キャプチャを停止',
           minutes: '分'
         },
-        autostart: {
-          title: '自動起動スクリプト設定',
-          description: 'NanoKVM の起動時に自動的に実行されるスクリプトファイルを管理します',
-          new: '新しいスクリプトを作成する',
-          deleteConfirm: 'このファイルを削除してもよろしいですか？',
-          yes: 'はい',
-          no: 'いいえ',
-          scriptName: '自動起動スクリプト名',
-          scriptContent: '自動起動スクリプト内容',
-          settings: '設定'
-        },
-        hidOnly: 'HID-Only モード',
-        hidOnlyDesc:
-          'このモードでは仮想デバイスはマウントされなくなり、基本的な HID 制御機能のみが保持されます。',
-        disk: '仮想ディスク',
-        diskDesc: 'リモートホストに仮想 USB ドライブをマウントする',
-        network: '仮想ネットワークカード',
-        networkDesc: 'リモートホストに仮想ネットワークカードをマウントする',
         reboot: '再起動',
         rebootDesc: 'NanoKVM を再起動してもよろしいですか?',
         okBtn: 'はい',
@@ -515,21 +460,17 @@ const ja = {
           invalid: '無効な IP アドレスです',
           save: '保存',
           unsaved: '未保存の変更',
-          savedStatic: '固定 IP アドレス {{address}} を保存しました。',
-          savedDhcp: 'DHCP 設定を保存しました。',
           saveFailed: '設定を保存できませんでした。',
           loadFailed: '設定を読み込めませんでした。'
         },
         dns: {
           title: 'DNS',
           description: 'NanoKVM の DNS サーバーを設定',
-          mode: 'モード',
           dhcp: 'DHCP',
           manual: '手動',
           add: 'DNS を追加',
           save: '保存',
           invalid: '有効な IP アドレスを入力してください',
-          noDhcp: '現在 DHCP DNS は利用できません',
           saved: 'DNS 設定を保存しました',
           saveFailed: 'DNS 設定の保存に失敗しました',
           unsaved: '未保存の変更',
@@ -547,14 +488,6 @@ const ja = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'メモリ最適化',
-          tip: 'メモリ使用量が上限を超えると、メモリ解放のためにより積極的にガベージコレクションが実行されます。Tailscale を使用する場合は 50MB に設定することをお勧めします。この設定を有効にするには Tailscale を再起動する必要があります。'
-        },
-        swap: {
-          title: 'スワップメモリ',
-          tip: 'メモリ最適化を有効にしても問題が解決しない場合は、スワップメモリ​​を有効にしてみてください。有効にするとスワップファイルが 256MB に設定されます。このサイズは「設定 - デバイス」で変更できます。'
-        },
         restart: 'Tailscale を再起動しますか？',
         stop: 'Tailscale を停止しますか？',
         stopDesc: 'Tailscale からログアウトし、起動時の自動実行を無効にします。',

@@ -81,17 +81,13 @@ const cz = {
         duplicateResolution: 'Toto rozlišení již existuje.',
         width: 'Šířka',
         height: 'Výška',
-        apply: 'Vypočítat a použít',
         invalidResolution: 'Po načtení videa zadejte platné původní rozlišení.',
         select: 'Vybrat oblast',
-        clear: 'Obnovit automatickou detekci',
         saveFailed: 'Vstupní oblast se nepodařilo uložit.',
         tooSmall: 'Vybraná oblast je příliš malá.',
         previewUnavailable: 'Náhled není k dispozici',
-        clearConfirm: 'Obnovit automatickou detekci černých okrajů?',
         dragHint: 'Tažením vyberte oblast vzdálené plochy',
         finish: 'Hotovo',
-        confirm: 'Potvrdit',
         cancel: 'Zrušit'
       },
       auto: 'Automatické',
@@ -223,16 +219,7 @@ const cz = {
         dragDesc:
           'Jakmile je podržení aktivní, pohybem prstu přetáhnete se stisknutým levým tlačítkem.'
       },
-      resetHid: 'Resetovat HID',
-      hidOnly: {
-        title: 'Režim pouze HID',
-        desc: 'Pokud vaše myš a klávesnice přestanou reagovat a resetování HID nepomůže, může jít o problém s kompatibilitou mezi NanoKVM a zařízením. Zkuste povolit režim HID-Only pro lepší kompatibilitu.',
-        tip1: 'Povolení režimu HID-Only odpojí virtuální U-disk a virtuální síť',
-        tip2: 'V režimu HID-Only je připojení obrazu zakázáno',
-        tip3: 'NanoKVM se po přepnutí režimů automaticky restartuje',
-        enable: 'Povolit režim HID-Only',
-        disable: 'Zakázat režim HID-Only'
-      }
+      resetHid: 'Resetovat HID'
     },
     image: {
       title: 'Obrázky',
@@ -360,22 +347,10 @@ const cz = {
       },
       about: {
         title: 'O NanoKVM',
-        information: 'Informace',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'Verze aplikace',
-        applicationTip: 'Verze webové aplikace NanoKVM',
         image: 'Verze obrazu',
-        imageTip: 'Verze systémového obrazu NanoKVM',
-        deviceKey: 'Klíč zařízení',
-        community: 'Komunita',
         hostname: 'Název hostitele',
-        hostnameUpdated: 'Název hostitele byl aktualizován. Pro použití restartujte.',
-        ipType: {
-          Wired: 'Kabelové',
-          Wireless: 'Bezdrátové',
-          Other: 'Jiné'
-        }
+        hostnameUpdated: 'Název hostitele byl aktualizován. Pro použití restartujte.'
       },
       appearance: {
         title: 'Vzhled',
@@ -388,7 +363,6 @@ const cz = {
           title: 'Panel nabídek',
           mode: 'Režim zobrazení',
           modeDesc: 'Zobrazení panelu nabídek na obrazovce',
-          modeOff: 'Vypnuto',
           modeAuto: 'Automatické skrytí',
           modeAlways: 'Vždy viditelné',
           keyboardLedStatus: 'Indikátory zámku klávesnice',
@@ -426,17 +400,6 @@ const cz = {
           1800: '30 min',
           3600: '1 hodina'
         },
-        ssh: {
-          description: 'Povolit vzdálený přístup SSH',
-          tip: 'Před povolením nastavte silné heslo (Účet – Změnit heslo)'
-        },
-        advanced: 'Pokročilá nastavení',
-        swap: {
-          title: 'Vyměnit',
-          disable: 'Zakázat',
-          description: 'Nastavte velikost odkládacího souboru',
-          tip: 'Povolení této funkce může zkrátit životnost vaší SD karty!'
-        },
         mouseJiggler: {
           title: 'Mouse Jiggler',
           description: 'Zabraňte spánku vzdáleného hostitele',
@@ -454,23 +417,6 @@ const cz = {
           idleTimeoutDescription: 'Zastavit snímání HDMI po době bez aktivních diváků',
           minutes: 'min'
         },
-        autostart: {
-          title: 'Nastavení automatického spuštění skriptů',
-          description: 'Správa skriptů, které se spouštějí automaticky při spuštění systému',
-          new: 'Nové',
-          deleteConfirm: 'Opravdu chcete tento soubor smazat?',
-          yes: 'Ano',
-          no: 'Ne',
-          scriptName: 'Název skriptu automatického spuštění',
-          scriptContent: 'Obsah skriptu automatického spuštění',
-          settings: 'Nastavení'
-        },
-        hidOnly: 'HID-Pouze režim',
-        hidOnlyDesc: 'Zastavit emulaci virtuálních zařízení a zachovat pouze základní ovládání HID',
-        disk: 'Virtuální disk',
-        diskDesc: 'Mount virtual U-disk on the remote host',
-        network: 'Virtuální síť',
-        networkDesc: 'Připojit virtuální síťovou kartu na vzdáleném hostiteli',
         reboot: 'Restartujte',
         rebootDesc: 'Opravdu chcete restartovat NanoKVM?',
         okBtn: 'Ano',
@@ -514,21 +460,17 @@ const cz = {
           invalid: 'Neplatná IP adresa',
           save: 'Uložit',
           unsaved: 'Neuložené změny',
-          savedStatic: 'Statická IP adresa {{address}} byla uložena.',
-          savedDhcp: 'Konfigurace DHCP byla uložena.',
           saveFailed: 'Konfiguraci se nepodařilo uložit.',
           loadFailed: 'Konfiguraci se nepodařilo načíst.'
         },
         dns: {
           title: 'DNS',
           description: 'Nastavit DNS servery pro NanoKVM',
-          mode: 'Režim',
           dhcp: 'DHCP',
           manual: 'Ručně',
           add: 'Přidat DNS',
           save: 'Uložit',
           invalid: 'Zadejte platnou IP adresu',
-          noDhcp: 'Momentálně není k dispozici žádné DHCP DNS',
           saved: 'Nastavení DNS uloženo',
           saveFailed: 'Nastavení DNS se nepodařilo uložit',
           unsaved: 'Neuložené změny',
@@ -546,14 +488,6 @@ const cz = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Optimalizace paměti',
-          tip: "When memory usage exceeds the limit, garbage collection is performed more aggressively to attempt to free up memory. it's recommended to set to 50MB if using Tailscale. A Tailscale restart is required for the change to take effect."
-        },
-        swap: {
-          title: 'Vyměňte paměť',
-          tip: 'Pokud problémy přetrvávají i po povolení optimalizace paměti, zkuste povolit odkládací paměť. Tím se ve výchozím nastavení nastaví velikost odkládacího souboru na 256MB, kterou lze upravit v „Nastavení > Zařízení“.'
-        },
         restart: 'Are you sure to restart Tailscale?',
         stop: 'Are you sure to stop Tailscale?',
         stopDesc: 'Log out Tailscale and disable its automatic startup on boot.',

@@ -81,17 +81,13 @@ const vi = {
         duplicateResolution: 'Độ phân giải này đã tồn tại.',
         width: 'Chiều rộng',
         height: 'Chiều cao',
-        apply: 'Tính toán và áp dụng',
         invalidResolution: 'Nhập độ phân giải gốc hợp lệ sau khi video sẵn sàng.',
         select: 'Chọn vùng',
-        clear: 'Khôi phục tự động',
         saveFailed: 'Không thể lưu vùng đầu vào.',
         tooSmall: 'Vùng đã chọn quá nhỏ.',
         previewUnavailable: 'Không thể xem trước',
-        clearConfirm: 'Khôi phục tính năng tự động phát hiện viền đen?',
         dragHint: 'Kéo để chọn vùng màn hình từ xa',
         finish: 'Xong',
-        confirm: 'Xác nhận',
         cancel: 'Hủy'
       },
       auto: 'Tự động',
@@ -220,16 +216,7 @@ const vi = {
         dragTitle: 'Di chuyển sau khi giữ để kéo',
         dragDesc: 'Sau khi giữ có hiệu lực, di chuyển ngón tay để kéo với nút trái đang được giữ.'
       },
-      resetHid: 'Đặt lại HID',
-      hidOnly: {
-        title: 'Chế độ chỉ HID',
-        desc: 'Nếu chuột và bàn phím của bạn ngừng phản hồi và việc đặt lại HID không có tác dụng thì đó có thể là sự cố tương thích giữa NanoKVM và thiết bị. Hãy thử bật chế độ HID-Only để tương thích tốt hơn.',
-        tip1: 'Kích hoạt HID-Chế độ chỉ sẽ ngắt kết nối đĩa U ảo và mạng ảo',
-        tip2: 'Ở chế độ HID-Chỉ, tính năng gắn hình ảnh bị tắt',
-        tip3: 'NanoKVM sẽ tự động khởi động lại sau khi chuyển chế độ',
-        enable: 'Bật chế độ HID-Chỉ',
-        disable: 'Tắt chế độ HID-Chỉ'
-      }
+      resetHid: 'Đặt lại HID'
     },
     image: {
       title: 'Hình ảnh',
@@ -355,22 +342,10 @@ const vi = {
       },
       about: {
         title: 'Giới thiệu về NanoKVM',
-        information: 'Thông tin',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'Phiên bản Ứng dụng',
-        applicationTip: 'Phiên bản ứng dụng web NanoKVM',
         image: 'Phiên bản Hình ảnh',
-        imageTip: 'Phiên bản image hệ thống NanoKVM',
-        deviceKey: 'Khóa Thiết bị',
-        community: 'Cộng đồng',
         hostname: 'Tên máy chủ',
-        hostnameUpdated: 'Đã cập nhật tên máy chủ. Khởi động lại để áp dụng.',
-        ipType: {
-          Wired: 'Có dây',
-          Wireless: 'Không dây',
-          Other: 'Khác'
-        }
+        hostnameUpdated: 'Đã cập nhật tên máy chủ. Khởi động lại để áp dụng.'
       },
       appearance: {
         title: 'Giao diện',
@@ -383,7 +358,6 @@ const vi = {
           title: 'Thanh menu',
           mode: 'Chế độ hiển thị',
           modeDesc: 'Hiển thị thanh menu trên màn hình',
-          modeOff: 'Tắt',
           modeAuto: 'Tự động ẩn',
           modeAlways: 'Luôn hiển thị',
           keyboardLedStatus: 'Chỉ báo khóa bàn phím',
@@ -421,17 +395,6 @@ const vi = {
           1800: '30 min',
           3600: '1 giờ'
         },
-        ssh: {
-          description: 'Kích hoạt SSH truy cập từ xa',
-          tip: 'Đặt mật khẩu mạnh trước khi kích hoạt (Tài khoản - Đổi mật khẩu)'
-        },
-        advanced: 'Cài đặt nâng cao',
-        swap: {
-          title: 'Hoán đổi',
-          disable: 'Tắt',
-          description: 'Đặt kích thước tệp hoán đổi',
-          tip: 'Kích hoạt tính năng này có thể rút ngắn thời gian sử dụng thẻ SD của bạn!'
-        },
         mouseJiggler: {
           title: 'Máy lắc lư chuột',
           description: 'Ngăn máy chủ từ xa ngủ',
@@ -450,23 +413,6 @@ const vi = {
             'Dừng việc ghi hình HDMI sau khi không có người xem hoạt động trong',
           minutes: 'phút'
         },
-        autostart: {
-          title: 'Cài đặt tập lệnh tự khởi động',
-          description: 'Quản lý các tập lệnh chạy tự động khi khởi động hệ thống',
-          new: 'Mới',
-          deleteConfirm: 'Bạn có chắc chắn muốn xóa tệp này không?',
-          yes: 'Có',
-          no: 'Không',
-          scriptName: 'Tên tập lệnh tự khởi động',
-          scriptContent: 'Nội dung tập lệnh tự khởi động',
-          settings: 'Cài đặt'
-        },
-        hidOnly: 'HID-Chế độ chỉ',
-        hidOnlyDesc: 'Dừng mô phỏng các thiết bị ảo, chỉ giữ lại điều khiển HID cơ bản',
-        disk: 'Đĩa ảo',
-        diskDesc: 'Mount virtual U-disk on the remote host',
-        network: 'Mạng ảo',
-        networkDesc: 'Gắn card mạng ảo trên máy chủ từ xa',
         reboot: 'Khởi động lại',
         rebootDesc: 'Bạn có chắc chắn muốn khởi động lại NanoKVM không?',
         okBtn: 'Có',
@@ -510,21 +456,17 @@ const vi = {
           invalid: 'Nhập địa chỉ IPv4, mặt nạ mạng con và cổng kết nối hợp lệ',
           save: 'Lưu',
           unsaved: 'Thay đổi chưa lưu',
-          savedStatic: 'Đã lưu địa chỉ tĩnh. Kết nối lại tại {{address}}.',
-          savedDhcp: 'Đã bật DHCP. Kết nối lại bằng địa chỉ do bộ định tuyến của bạn cấp.',
           saveFailed: 'Không thể lưu cài đặt Ethernet',
           loadFailed: 'Không thể tải cài đặt Ethernet'
         },
         dns: {
           title: 'DNS',
           description: 'Cấu hình máy chủ DNS cho NanoKVM',
-          mode: 'Chế độ',
           dhcp: 'DHCP',
           manual: 'Thủ công',
           add: 'Thêm DNS',
           save: 'Lưu',
           invalid: 'Vui lòng nhập địa chỉ IP hợp lệ',
-          noDhcp: 'Hiện không có DNS DHCP khả dụng',
           saved: 'Đã lưu cài đặt DNS',
           saveFailed: 'Không thể lưu cài đặt DNS',
           unsaved: 'Thay đổi chưa lưu',
@@ -542,14 +484,6 @@ const vi = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Tối ưu bộ nhớ',
-          tip: "When memory usage exceeds the limit, garbage collection is performed more aggressively to attempt to free up memory. it's recommended to set to 50MB if using Tailscale. A Tailscale restart is required for the change to take effect."
-        },
-        swap: {
-          title: 'Hoán đổi bộ nhớ',
-          tip: 'Nếu sự cố vẫn tiếp diễn sau khi bật tối ưu hóa bộ nhớ, hãy thử bật bộ nhớ trao đổi. Việc này sẽ đặt kích thước tệp hoán đổi thành 256MB theo mặc định, có thể điều chỉnh được trong "Cài đặt > Thiết bị".'
-        },
         restart: 'Are you sure to restart Tailscale?',
         stop: 'Are you sure to stop Tailscale?',
         stopDesc: 'Log out Tailscale and disable its automatic startup on boot.',

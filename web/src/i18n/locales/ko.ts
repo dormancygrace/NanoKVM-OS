@@ -79,17 +79,13 @@ const ko = {
         duplicateResolution: '이미 존재하는 해상도입니다.',
         width: '너비',
         height: '높이',
-        apply: '계산 후 적용',
         invalidResolution: '비디오가 준비되면 올바른 원본 해상도를 입력하세요.',
         select: '영역 선택',
-        clear: '자동으로 복원',
         saveFailed: '입력 영역을 저장하지 못했습니다.',
         tooSmall: '선택한 영역이 너무 작습니다.',
         previewUnavailable: '미리보기를 사용할 수 없습니다',
-        clearConfirm: '자동 검은색 테두리 감지로 복원하시겠습니까?',
         dragHint: '드래그하여 원격 데스크톱 영역을 선택하세요',
         finish: '완료',
-        confirm: '확인',
         cancel: '취소'
       },
       auto: '자동 설정',
@@ -218,16 +214,7 @@ const ko = {
         dragDesc:
           '길게 누르기가 활성화된 뒤 손가락을 움직이면 왼쪽 버튼을 누른 상태로 드래그합니다.'
       },
-      resetHid: 'HID 초기화',
-      hidOnly: {
-        title: 'HID 전용 모드',
-        desc: '마우스와 키보드가 응답하지 않고 HID 초기화도 도움이 되지 않는다면, NanoKVM과 장치 간의 호환성 문제일 수 있습니다. 더 나은 호환성을 위해 HID 전용 모드를 활성화해 보세요.',
-        tip1: 'HID 전용 모드를 활성화하면 가상 USB와 가상 네트워크가 언마운트됩니다',
-        tip2: 'HID 전용 모드에서는 이미지 마운트가 비활성화됩니다',
-        tip3: '모드 전환 후 NanoKVM이 자동으로 재부팅됩니다',
-        enable: 'HID 전용 모드 활성화',
-        disable: 'HID 전용 모드 비활성화'
-      }
+      resetHid: 'HID 초기화'
     },
     image: {
       title: '이미지',
@@ -355,22 +342,10 @@ const ko = {
       },
       about: {
         title: 'NanoKVM 정보',
-        information: '정보',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: '펌웨어 버전',
-        applicationTip: 'NanoKVM 웹 애플리케이션 버전',
         image: '이미지 버전',
-        imageTip: 'NanoKVM 시스템 이미지 버전',
-        deviceKey: '장치 키',
-        community: '커뮤니티',
         hostname: '호스트 이름',
-        hostnameUpdated: '호스트 이름이 업데이트되었습니다. 적용하려면 재부팅하세요.',
-        ipType: {
-          Wired: '유선',
-          Wireless: '무선',
-          Other: '기타'
-        }
+        hostnameUpdated: '호스트 이름이 업데이트되었습니다. 적용하려면 재부팅하세요.'
       },
       appearance: {
         title: '디자인',
@@ -383,7 +358,6 @@ const ko = {
           title: '메뉴 바',
           mode: '표시 모드',
           modeDesc: '메뉴 바를 화면에 표시합니다',
-          modeOff: '꺼짐',
           modeAuto: '자동 숨기기',
           modeAlways: '항상 보이기',
           keyboardLedStatus: '키보드 잠금 표시기',
@@ -420,17 +394,6 @@ const ko = {
           1800: '30분',
           3600: '1시간'
         },
-        ssh: {
-          description: 'SSH 원격 접속 활성화',
-          tip: '활성화하기 전에 강력한 비밀번호를 설정하세요. (계정 - 비밀번호 변경)'
-        },
-        advanced: '고급 설정',
-        swap: {
-          title: '스왑',
-          disable: '비활성화',
-          description: '스왑 파일 크기 설정',
-          tip: '이 기능을 활성화하면 SD 카드의 수명이 단축될 수 있습니다!'
-        },
         mouseJiggler: {
           title: '마우스 흔들기',
           description: '원격 호스트가 절전 모드로 진입하는 것을 방지',
@@ -449,23 +412,6 @@ const ko = {
             '활성 시청자가 없는 상태가 다음 시간 동안 지속되면 HDMI 캡처 중지',
           minutes: '분'
         },
-        autostart: {
-          title: '자동 시작 스크립트 설정',
-          description: '시스템 시작 시 자동으로 실행되는 스크립트를 관리합니다.',
-          new: '새로운',
-          deleteConfirm: '이 파일을 정말로 삭제합니까?',
-          yes: '네',
-          no: '아니오',
-          scriptName: '자동 시작 스크립트 이름',
-          scriptContent: '자동 시작 스크립트 내용',
-          settings: '설정'
-        },
-        hidOnly: 'HID 전용 모드',
-        hidOnlyDesc: '가상 장치 에뮬레이션을 중지하고 기본 HID 제어만 유지합니다.',
-        disk: '가상 디스크',
-        diskDesc: '원격 호스트에서 가상 USB를 마운트합니다.',
-        network: '가상 네트워크',
-        networkDesc: '원격 호스트에서 가상 네트워크 카드를 마운트합니다.',
         reboot: '재부팅',
         rebootDesc: 'NanoKVM을 재부팅하시겠습니까?',
         okBtn: '네',
@@ -509,21 +455,17 @@ const ko = {
           invalid: '유효하지 않은 IP 주소',
           save: '저장',
           unsaved: '저장되지 않은 변경 사항',
-          savedStatic: '고정 IP 주소 {{address}}가 저장되었습니다.',
-          savedDhcp: 'DHCP 구성이 저장되었습니다.',
           saveFailed: '구성을 저장하지 못했습니다.',
           loadFailed: '구성을 불러오지 못했습니다.'
         },
         dns: {
           title: 'DNS',
           description: 'NanoKVM의 DNS 서버 설정',
-          mode: '모드',
           dhcp: 'DHCP',
           manual: '수동',
           add: 'DNS 추가',
           save: '저장',
           invalid: '유효한 IP 주소를 입력하세요',
-          noDhcp: '현재 사용 가능한 DHCP DNS가 없습니다',
           saved: 'DNS 설정이 저장되었습니다',
           saveFailed: 'DNS 설정 저장 실패',
           unsaved: '저장되지 않은 변경사항',
@@ -541,14 +483,6 @@ const ko = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: '메모리 최적화',
-          tip: '메모리 사용량이 제한을 초과하면 가비지 컬렉션이 더 적극적으로 실행되어 메모리를 확보하려고 시도합니다. Tailscale을 사용할 경우 50MB로 설정하는 것이 좋습니다. 변경 사항을 적용하려면 Tailscale을 다시 시작해야 합니다.'
-        },
-        swap: {
-          title: '스왑 메모리',
-          tip: '메모리 최적화를 활성화한 후에도 문제가 지속되면 스왑 메모리를 활성화해 보세요. 이 설정은 스왑 파일 크기를 기본값으로 256MB로 설정하며, "설정 > 기기"에서 조정할 수 있습니다.'
-        },
         restart: '정말로 Tailscale을 다시 시작하시겠습니까?',
         stop: '정말로 Tailscale을 중지하시겠습니까?',
         stopDesc: 'Tailscale에서 로그아웃하고 자동 시작을 비활성화합니다.',

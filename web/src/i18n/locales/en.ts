@@ -427,17 +427,13 @@ const en = {
         duplicateResolution: 'This resolution already exists.',
         width: 'Width',
         height: 'Height',
-        apply: 'Calculate and apply',
         invalidResolution: 'Enter a valid original resolution after the video is ready.',
         select: 'Select area',
-        clear: 'Restore automatic',
         saveFailed: 'Failed to save the input area.',
         tooSmall: 'The selected area is too small.',
         previewUnavailable: 'Preview unavailable',
-        clearConfirm: 'Restore automatic black-border detection?',
         dragHint: 'Drag to select the remote desktop area',
         finish: 'Done',
-        confirm: 'Confirm',
         cancel: 'Cancel'
       },
       auto: 'Automatic',
@@ -576,16 +572,7 @@ const en = {
         dragTitle: 'Move after hold to drag',
         dragDesc: 'After the hold is active, move your finger to drag with the left button held.'
       },
-      resetHid: 'Reset HID',
-      hidOnly: {
-        title: 'HID-only mode',
-        desc: "If your mouse and keyboard stop responding and resetting HID doesn't help, it could be a compatibility issue between the NanoKVM and the device. Try to enable HID-only mode for better compatibility.",
-        tip1: 'Enabling HID-only mode will unmount the virtual U-disk and virtual network',
-        tip2: 'In HID-only mode, image mounting is disabled',
-        tip3: 'NanoKVM will automatically reboot after switching modes',
-        enable: 'Enable HID-only mode',
-        disable: 'Disable HID-only mode'
-      }
+      resetHid: 'Reset HID'
     },
     image: {
       remote: {
@@ -790,7 +777,6 @@ const en = {
         alpineTitle: 'Reinstall system',
         alpineDisclaimer:
           'Replace the system with a newly built image. Saved settings are restored and selected packages are included. Other files on the system partition are removed. The device will restart.',
-        alpineCurrent: 'Current Alpine profile',
         alpineProfile: 'Build profile',
         alpinePackages: 'Packages to include',
         alpineBuild: 'Build image',
@@ -821,9 +807,6 @@ const en = {
         recompressNotReady:
           'The saved mode is not active. Reapply it when sufficient RAM is available.',
         applicationTitle: 'Reduce application memory',
-        applicationTip:
-          'Use a {{limit}} MiB soft limit for Go-managed memory. Applies to NanoKVM immediately and to Tailscale when it next starts. Garbage collection may use more CPU. This does not cap total process RAM or video buffers.',
-        applicationError: 'Could not change the application memory limit',
         title: 'Memory',
         ram: 'RAM in use',
         available: 'Available',
@@ -1038,26 +1021,13 @@ const en = {
         reportIssue: 'Report an issue',
         upstreamCredit:
           'Built on the original Sipeed NanoKVM project. Thank you to its authors and contributors.',
-        systemInformation: 'System information',
-        information: 'Information',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'Application version',
-        applicationTip: 'NanoKVM web application version',
         image: 'Image version',
-        imageTip: 'NanoKVM system image version',
-        deviceKey: 'Device key',
-        community: 'Community',
         hostname: 'Hostname',
         hostnameEdit: 'Edit hostname',
         hostnameSave: 'Save hostname',
         hostnameCancel: 'Cancel editing',
-        hostnameUpdated: 'Hostname updated. Reboot to apply.',
-        ipType: {
-          Wired: 'Wired',
-          Wireless: 'Wireless',
-          Other: 'Other'
-        }
+        hostnameUpdated: 'Hostname updated. Reboot to apply.'
       },
       appearance: {
         branding: {
@@ -1112,7 +1082,6 @@ const en = {
           title: 'Menu bar',
           mode: 'Display mode',
           modeDesc: 'Display menu bar on the screen',
-          modeOff: 'Off',
           modeAuto: 'Auto hide',
           modeAlways: 'Always visible',
           keyboardLedStatus: 'Keyboard lock indicators',
@@ -1137,8 +1106,6 @@ const en = {
       },
       device: {
         title: 'Device',
-        general: 'General settings',
-        sections: { device: 'Device', network: 'Common network settings', access: 'Device access' },
         cpuFrequency: {
           eco: 'Power saving',
           stock: 'Standard',
@@ -1169,17 +1136,6 @@ const en = {
           1800: '30 min',
           3600: '1 hour'
         },
-        ssh: {
-          description: 'Enable SSH remote access',
-          tip: 'Set a strong password before enabling (Account - Change password)'
-        },
-        advanced: 'Advanced settings',
-        swap: {
-          title: 'Swap',
-          disable: 'Disable',
-          description: 'Set the swap file size',
-          tip: "Enabling this feature could shorten your SD card's usable life!"
-        },
         mouseJiggler: {
           title: 'Mouse jiggler',
           description: 'Prevent the remote host from sleeping',
@@ -1197,26 +1153,6 @@ const en = {
           idleTimeoutDescription: 'Stop HDMI capture after there are no active viewers for',
           minutes: 'min'
         },
-        autostart: {
-          title: 'Autostart scripts',
-          description: 'Manage scripts that run automatically on system startup',
-          new: 'New',
-          deleteConfirm: 'Are you sure you want to delete this file?',
-          yes: 'Yes',
-          no: 'No',
-          scriptName: 'Autostart script name',
-          scriptContent: 'Autostart script content',
-          name: 'Name',
-          actions: 'Actions',
-          settings: 'Settings',
-          nameRequired: 'Enter a script name'
-        },
-        hidOnly: 'HID-only mode',
-        hidOnlyDesc: 'Stop emulating virtual devices, retaining only basic HID control',
-        disk: 'Virtual disk',
-        diskDesc: 'Mount SD card on the remote host',
-        network: 'Virtual network',
-        networkDesc: 'Mount virtual network card on the remote host',
         reboot: 'Reboot',
         rebootDesc: 'Are you sure you want to reboot NanoKVM?',
         okBtn: 'Yes',
@@ -1231,8 +1167,6 @@ const en = {
         title: 'USB composition',
         enabled: 'USB devices',
         budgetTitle: 'Endpoint budget',
-        budgetDescription:
-          'The controller has six configured IN FIFOs and seven OUT endpoint numbers.',
         budgetExceeded: 'This selection exceeds the USB endpoint budget.',
         presetLabel: 'Composition',
         custom: 'Custom composition',
@@ -1407,23 +1341,17 @@ const en = {
           saved: 'Ethernet settings saved. Network interfaces are restarting.',
           save: 'Save',
           unsaved: 'Unsaved changes',
-          savedStatic: 'Static address saved. Reconnect at {{address}}.',
-          savedDhcp: 'DHCP enabled. Reconnect using the address assigned by your router.',
-          savedDisabled:
-            'Ethernet disabled. The IPv4 configuration is retained for the next enable.',
           saveFailed: 'Failed to save Ethernet settings',
           loadFailed: 'Failed to load Ethernet settings'
         },
         dns: {
           title: 'DNS',
           description: 'Configure DNS servers for NanoKVM',
-          mode: 'Mode',
           dhcp: 'DHCP',
           manual: 'Manual',
           add: 'Add DNS',
           save: 'Save',
           invalid: 'Please enter a valid IP address',
-          noDhcp: 'No DHCP DNS is currently available',
           saved: 'DNS settings saved',
           saveFailed: 'Failed to save DNS settings',
           unsaved: 'Unsaved changes',
@@ -1443,14 +1371,6 @@ const en = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Memory optimization',
-          tip: 'When memory usage exceeds the limit, garbage collection is performed more aggressively to attempt to free up memory. A Tailscale restart is required for the change to take effect.'
-        },
-        swap: {
-          title: 'Swap memory',
-          tip: 'If issues persist after enabling memory optimization, try enabling swap memory. This sets the swap file size to 256MB by default, which can be adjusted in "Settings > Device".'
-        },
         restart: 'Restart Tailscale?',
         restartAction: 'Restart Tailscale',
         stopAction: 'Stop Tailscale',
@@ -1644,9 +1564,7 @@ const en = {
         }
       },
       extensions: {
-        title: 'Extensions',
-        loadFailed: 'Could not load extensions',
-        empty: 'No extensions installed'
+        title: 'Extensions'
       }
     },
     picoclaw: {

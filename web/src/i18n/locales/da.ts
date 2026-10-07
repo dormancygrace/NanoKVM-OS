@@ -81,17 +81,13 @@ const da = {
         duplicateResolution: 'Denne opløsning findes allerede.',
         width: 'Bredde',
         height: 'Højde',
-        apply: 'Beregn og anvend',
         invalidResolution: 'Indtast en gyldig oprindelig opløsning, når videoen er klar.',
         select: 'Vælg område',
-        clear: 'Gendan automatisk registrering',
         saveFailed: 'Inputområdet kunne ikke gemmes.',
         tooSmall: 'Det valgte område er for lille.',
         previewUnavailable: 'Forhåndsvisning er ikke tilgængelig',
-        clearConfirm: 'Gendan automatisk registrering af sorte kanter?',
         dragHint: 'Træk for at vælge fjernskrivebordets område',
         finish: 'Færdig',
-        confirm: 'Bekræft',
         cancel: 'Annuller'
       },
       auto: 'Automatisk',
@@ -220,16 +216,7 @@ const da = {
         dragTitle: 'Flyt efter hold for at trække',
         dragDesc: 'Når hold er aktivt, kan du flytte fingeren for at trække med venstre knap nede.'
       },
-      resetHid: 'Nulstil HID',
-      hidOnly: {
-        title: 'Kun HID-tilstand',
-        desc: 'Hvis din mus og tastatur holder op med at reagere, og nulstilling af HID ikke hjælper, kan det være et kompatibilitetsproblem mellem NanoKVM og enheden. Prøv at aktivere HID-Only-tilstand for bedre kompatibilitet.',
-        tip1: 'Aktivering af HID-Only-tilstand vil afmontere den virtuelle U-disk og det virtuelle netværk',
-        tip2: 'I HID-Only-tilstand er billedmontering deaktiveret',
-        tip3: 'NanoKVM genstarter automatisk efter at have skiftet tilstand',
-        enable: 'Aktiver HID-kun tilstand',
-        disable: 'Deaktiver HID-kun tilstand'
-      }
+      resetHid: 'Nulstil HID'
     },
     image: {
       title: 'Diskbilleder',
@@ -356,22 +343,10 @@ const da = {
       },
       about: {
         title: 'Om NanoKVM',
-        information: 'Information',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'Program version',
-        applicationTip: 'Version af NanoKVM-webapplikationen',
         image: 'Firmware version',
-        imageTip: 'Version af NanoKVM-systemimaget',
-        deviceKey: 'Enhedsnøgle',
-        community: 'Fællesskab',
         hostname: 'Værtsnavn',
-        hostnameUpdated: 'Værtsnavn opdateret. Genstart for at anvende.',
-        ipType: {
-          Wired: 'Kablet',
-          Wireless: 'Trådløs',
-          Other: 'Andet'
-        }
+        hostnameUpdated: 'Værtsnavn opdateret. Genstart for at anvende.'
       },
       appearance: {
         title: 'Udseende',
@@ -384,7 +359,6 @@ const da = {
           title: 'Menulinje',
           mode: 'Visningstilstand',
           modeDesc: 'Vis menulinje på skærmen',
-          modeOff: 'Fra',
           modeAuto: 'Skjul automatisk',
           modeAlways: 'Altid synlig',
           keyboardLedStatus: 'Tastaturlåseindikatorer',
@@ -422,17 +396,6 @@ const da = {
           1800: '30 min',
           3600: '1 time'
         },
-        ssh: {
-          description: 'Aktiver SSH fjernadgang',
-          tip: 'Indstil en stærk adgangskode før aktivering (Konto - Skift adgangskode)'
-        },
-        advanced: 'Avancerede indstillinger',
-        swap: {
-          title: 'Byt',
-          disable: 'Deaktiver',
-          description: 'Indstil swap-filstørrelsen',
-          tip: 'Aktivering af denne funktion kan forkorte dit SD-korts brugbare levetid!'
-        },
         mouseJiggler: {
           title: 'Mus Jiggler',
           description: 'Forhindrer fjernværten i at sove',
@@ -450,24 +413,6 @@ const da = {
           idleTimeoutDescription: 'Stop HDMI-optagelse efter en periode uden aktive seere på',
           minutes: 'min'
         },
-        autostart: {
-          title: 'Indstillinger for autostart scripts',
-          description: 'Administrer scripts, der kører automatisk ved systemstart',
-          new: 'Ny',
-          deleteConfirm: 'Er du sikker på at du vil slette denne fil?',
-          yes: 'Ja',
-          no: 'Annuller',
-          scriptName: 'Autostart scriptnavn',
-          scriptContent: 'Autostart scriptindhold',
-          settings: 'Indstillinger'
-        },
-        hidOnly: 'HID-Kun tilstand',
-        hidOnlyDesc:
-          'Stop med at emulere virtuelle enheder, og behold kun grundlæggende HID kontrol',
-        disk: 'Virtuel disk',
-        diskDesc: 'Mount virtual U-disk on the remote host',
-        network: 'Virtuelt netværk',
-        networkDesc: 'Monter det virtuelle netværkskort på den eksterne vært',
         reboot: 'Genstart',
         rebootDesc: 'Er du sikker på, at du vil genstarte NanoKVM?',
         okBtn: 'Ja',
@@ -511,21 +456,17 @@ const da = {
           invalid: 'Ugyldig IP-adresse',
           save: 'Gem',
           unsaved: 'Ikke-gemte ændringer',
-          savedStatic: 'Den statiske IP-adresse {{address}} er gemt.',
-          savedDhcp: 'DHCP-konfigurationen er gemt.',
           saveFailed: 'Konfigurationen kunne ikke gemmes.',
           loadFailed: 'Konfigurationen kunne ikke indlæses.'
         },
         dns: {
           title: 'DNS',
           description: 'Konfigurer DNS-servere til NanoKVM',
-          mode: 'Tilstand',
           dhcp: 'DHCP',
           manual: 'Manuel',
           add: 'Tilføj DNS',
           save: 'Gem',
           invalid: 'Indtast en gyldig IP-adresse',
-          noDhcp: 'Ingen DHCP-DNS er tilgængelig i øjeblikket',
           saved: 'DNS-indstillinger gemt',
           saveFailed: 'DNS-indstillinger kunne ikke gemmes',
           unsaved: 'Ikke-gemte ændringer',
@@ -543,14 +484,6 @@ const da = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Hukommelsesoptimering',
-          tip: "When memory usage exceeds the limit, garbage collection is performed more aggressively to attempt to free up memory. it's recommended to set to 50MB if using Tailscale. A Tailscale restart is required for the change to take effect."
-        },
-        swap: {
-          title: 'Skift hukommelse',
-          tip: 'Hvis problemerne fortsætter efter aktivering af hukommelsesoptimering, prøv at aktivere swap-hukommelse. Dette indstiller swap-filstørrelsen til 256MB som standard, som kan justeres i "Indstillinger > Enhed".'
-        },
         restart: 'Are you sure to restart Tailscale?',
         stop: 'Are you sure to stop Tailscale?',
         stopDesc: 'Log out Tailscale and disable its automatic startup on boot.',

@@ -81,17 +81,13 @@ const id = {
         duplicateResolution: 'Resolusi ini sudah ada.',
         width: 'Lebar',
         height: 'Tinggi',
-        apply: 'Hitung dan Terapkan',
         invalidResolution: 'Masukkan resolusi asli yang valid setelah video siap.',
         select: 'Pilih Area',
-        clear: 'Pulihkan Otomatis',
         saveFailed: 'Gagal menyimpan area input.',
         tooSmall: 'Area yang dipilih terlalu kecil.',
         previewUnavailable: 'Pratinjau tidak tersedia',
-        clearConfirm: 'Pulihkan deteksi batas hitam otomatis?',
         dragHint: 'Seret untuk memilih area desktop jarak jauh',
         finish: 'Selesai',
-        confirm: 'Konfirmasi',
         cancel: 'Batal'
       },
       auto: 'Otomatis',
@@ -222,16 +218,7 @@ const id = {
         dragDesc:
           'Setelah tahan aktif, gerakkan jari untuk menyeret dengan tombol kiri tetap ditekan.'
       },
-      resetHid: 'Setel ulang HID',
-      hidOnly: {
-        title: 'Mode hanya HID',
-        desc: 'Jika mouse dan keyboard Anda berhenti merespons dan menyetel ulang HID tidak membantu, mungkin ada masalah kompatibilitas antara NanoKVM dan perangkat. Coba aktifkan mode HID-Only untuk kompatibilitas yang lebih baik.',
-        tip1: 'Mengaktifkan mode HID-Hanya akan melepas U-disk virtual dan jaringan virtual',
-        tip2: 'Dalam mode HID-Only, pemasangan gambar dinonaktifkan',
-        tip3: 'NanoKVM akan otomatis reboot setelah berpindah mode',
-        enable: 'Aktifkan mode HID-Hanya',
-        disable: 'Nonaktifkan mode HID-Hanya'
-      }
+      resetHid: 'Setel ulang HID'
     },
     image: {
       title: 'Gambar',
@@ -359,22 +346,10 @@ const id = {
       },
       about: {
         title: 'Tentang NanoKVM',
-        information: 'Informasi',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'Versi Aplikasi',
-        applicationTip: 'Versi aplikasi web NanoKVM',
         image: 'Version Gambar',
-        imageTip: 'Versi image sistem NanoKVM',
-        deviceKey: 'Kunci Perangkat',
-        community: 'Komunitas',
         hostname: 'Nama Host',
-        hostnameUpdated: 'Nama host diperbarui. Nyalakan ulang untuk menerapkan.',
-        ipType: {
-          Wired: 'Berkabel',
-          Wireless: 'Nirkabel',
-          Other: 'Lainnya'
-        }
+        hostnameUpdated: 'Nama host diperbarui. Nyalakan ulang untuk menerapkan.'
       },
       appearance: {
         title: 'Tampilan',
@@ -387,7 +362,6 @@ const id = {
           title: 'Bilah Menu',
           mode: 'Mode Tampilan',
           modeDesc: 'Menampilkan bilah menu di layar',
-          modeOff: 'Mati',
           modeAuto: 'Sembunyikan otomatis',
           modeAlways: 'Selalu terlihat',
           keyboardLedStatus: 'Indikator kunci keyboard',
@@ -425,17 +399,6 @@ const id = {
           1800: '30 min',
           3600: '1 jam'
         },
-        ssh: {
-          description: 'Aktifkan akses jarak jauh SSH',
-          tip: 'Tetapkan kata sandi yang kuat sebelum mengaktifkan (Akun - Ubah Kata Sandi)'
-        },
-        advanced: 'Pengaturan Lanjutan',
-        swap: {
-          title: 'Tukar',
-          disable: 'Nonaktifkan',
-          description: 'Atur ukuran file swap',
-          tip: 'Mengaktifkan fitur ini dapat mempersingkat masa pakai kartu SD Anda!'
-        },
         mouseJiggler: {
           title: 'Tikus Jiggler',
           description: 'Mencegah host jarak jauh tertidur',
@@ -453,23 +416,6 @@ const id = {
           idleTimeoutDescription: 'Hentikan tangkapan HDMI setelah tidak ada penonton aktif selama',
           minutes: 'mnt'
         },
-        autostart: {
-          title: 'Pengaturan Skrip Mulai Otomatis',
-          description: 'Mengelola skrip yang berjalan secara otomatis saat startup sistem',
-          new: 'Baru',
-          deleteConfirm: 'Apa kamu yakin menghapus data ini?',
-          yes: 'Ya',
-          no: 'Tidak',
-          scriptName: 'Nama Skrip Mulai Otomatis',
-          scriptContent: 'Konten Skrip Mulai Otomatis',
-          settings: 'Pengaturan'
-        },
-        hidOnly: 'HID-Mode Hanya',
-        hidOnlyDesc: 'Berhenti meniru perangkat virtual, hanya mempertahankan kontrol dasar HID',
-        disk: 'Disk virtual',
-        diskDesc: 'Mount virtual U-disk on the remote host',
-        network: 'Jaringan virtual',
-        networkDesc: 'Pasang kartu jaringan virtual pada host jarak jauh',
         reboot: 'Mulai ulang',
         rebootDesc: 'Apakah Anda yakin ingin me-reboot NanoKVM?',
         okBtn: 'Ya',
@@ -513,21 +459,17 @@ const id = {
           invalid: 'Alamat IP tidak valid',
           save: 'Simpan',
           unsaved: 'Perubahan belum disimpan',
-          savedStatic: 'Alamat IP statis {{address}} telah disimpan.',
-          savedDhcp: 'Konfigurasi DHCP telah disimpan.',
           saveFailed: 'Gagal menyimpan konfigurasi.',
           loadFailed: 'Gagal memuat konfigurasi.'
         },
         dns: {
           title: 'DNS',
           description: 'Konfigurasi server DNS untuk NanoKVM',
-          mode: 'Mode',
           dhcp: 'DHCP',
           manual: 'Manual',
           add: 'Tambah DNS',
           save: 'Simpan',
           invalid: 'Masukkan alamat IP yang valid',
-          noDhcp: 'DNS DHCP saat ini tidak tersedia',
           saved: 'Pengaturan DNS disimpan',
           saveFailed: 'Gagal menyimpan pengaturan DNS',
           unsaved: 'Perubahan belum disimpan',
@@ -545,14 +487,6 @@ const id = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Optimasi memori',
-          tip: "When memory usage exceeds the limit, garbage collection is performed more aggressively to attempt to free up memory. it's recommended to set to 50MB if using Tailscale. A Tailscale restart is required for the change to take effect."
-        },
-        swap: {
-          title: 'Tukar memori',
-          tip: 'Jika masalah terus berlanjut setelah mengaktifkan pengoptimalan memori, coba aktifkan memori swap. Ini menetapkan ukuran file swap ke 256MB secara default, yang dapat disesuaikan di "Pengaturan > Perangkat".'
-        },
         restart: 'Are you sure to restart Tailscale?',
         stop: 'Are you sure to stop Tailscale?',
         stopDesc: 'Log out Tailscale and disable its automatic startup on boot.',

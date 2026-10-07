@@ -134,7 +134,7 @@ Full SD images now have their own version number:
 
 Future application updates keep the original image version and its bundled application version visible in **About**. You can identify what the card started with and which application version it runs today.
 
-The root partition remains **768 MiB**, with the remaining SD-card space available for user data. The core update now consists of **seven packages**, including the new public-key package; optional add-ons remain separate.
+The full image is **66.8 MiB compressed**. Its root partition remains **768 MiB**, with the remaining SD-card space available for user data. The core update consists of **seven packages totalling 36.5 MiB**, including the new public-key package; optional add-ons and dependency updates are additional.
 
 ## 🚀 Install or upgrade
 
@@ -167,4 +167,4 @@ Installations using the experimental C906 overlay should follow the [stock Alpin
 
 ## 🧪 Alpha status
 
-Both **v2.5-a1** and **Image v1.0-a1** are alpha releases. The platform build and automated checks have passed. Final package signing and image checks are being repeated for the new key and repository migration. **Hardware acceptance of this exact assembled release remains pending**, including persistent SD cold-boot qualification of the full-image bootloader candidate. Earlier component tests do not replace that final check.
+Both **v2.5-a1** and **Image v1.0-a1** are alpha releases. The integrated platform build, Go tests and vet, **168 web tests**, lint and packaging checks have passed. All seven package signatures, both repository indexes and the image ZIP integrity have been verified. The v3 index verifies independently with either release key. **Hardware acceptance of this exact assembled release remains pending**, including persistent SD cold-boot qualification of the full-image bootloader candidate. Earlier component tests do not replace that final check.

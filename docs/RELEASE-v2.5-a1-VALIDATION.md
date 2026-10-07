@@ -29,9 +29,9 @@ The full-image OpenSBI/FIP candidate previously passed UART RAM boot; persistent
 ## Signing/index integration follow-up
 
 The release now includes nanokvm-keys, RSA-SHA256 package signatures and a
-v3 Packages.adb index signed with RSA and ECDSA. The prior six-package output,
-full image and source archive predate these changes and must be refreshed before
-publication. Platform binaries need no rebuild for this packaging-only change.
+v3 Packages.adb index signed with RSA and ECDSA. The prior six-package output and full image have been replaced by the
+integrated seven-package build; the corresponding source archive is regenerated
+from the final release commit. Platform binaries need no rebuild for this packaging-only change.
 
 The key/repository and stock-profile suites passed (16 tests), along with the
 platform-build and OpenRC dependency suites. Restored executable modes on seven
@@ -55,3 +55,19 @@ checkout dist directory was discarded; the fresh build includes the expected
 lazy chunks. The checked output manifest now contains 546 files. All outputs
 outside server/ and web/ remain byte-for-byte unchanged from the preceding
 qualified host build. No device was changed or rebooted during integration.
+
+## Final packaged artifacts
+
+- Seven core APKs: 38,272,293 bytes (36.5 MiB). Each RSA256 signature verified.
+- Legacy APKINDEX.tar.gz: RSA signature verified with only the RSA release key.
+- Packages.adb: verified independently with only RSA, then only ECDSA.
+- Image ZIP: 70,008,524 bytes (66.8 MiB); CRC integrity check passed.
+- Raw image: 872,415,744 bytes; root remains 768 MiB.
+- Rootfs contains nanokvm-keys, both public keys, the explicit v3 repository
+  URL and the USB Internet helper/OpenRC service. No EC private key is included.
+- Image version v1.0-a1 bundles applications v2.5-a1 and kernel 7.2.9-nanokvm-os-r1.
+
+Measured interface performance figures in the release notes come from PR #64's
+recorded development device measurements, not a new installation of this final
+combined release. Device acceptance and persistent full-image cold boot remain
+pending as stated above.

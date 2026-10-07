@@ -565,12 +565,6 @@ const ja = {
         installing: 'インストール中',
         failed: 'インストールに失敗しました',
         retry: 'ページを更新してもう一度お試しいただくか、手動でインストールしてください',
-        download: 'ダウンロードして',
-        package: 'インストールパッケージを',
-        unzip: '解凍してください',
-        upTailscale: 'tailscale ファイルを NanoKVM の /usr/bin ディレクトリにアップロードします',
-        upTailscaled: 'tailscaled ファイルを NanoKVM の /usr/sbin ディレクトリにアップロードします',
-        refresh: 'ページを更新します',
         notRunning: 'Tailscale はまだ実行されていません。起動操作を実行してください',
         run: '起動',
         notLogin:

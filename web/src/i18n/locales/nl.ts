@@ -572,12 +572,6 @@ const nl = {
         installing: 'Installeren bezig',
         failed: 'Installatie mislukt',
         retry: 'Vernieuw en probeer opnieuw. Of probeer handmatig te installeren',
-        download: 'Download het',
-        package: 'installatiepakket',
-        unzip: 'en pak het uit',
-        upTailscale: 'Upload tailscale naar NanoKVM directory /usr/bin/',
-        upTailscaled: 'Upload tailscaled naar NanoKVM directory /usr/sbin/',
-        refresh: 'Vernieuw huidige pagina',
         notRunning: 'Tailscale is niet actief. Start het programma om door te gaan.',
         run: 'Begin',
         notLogin:

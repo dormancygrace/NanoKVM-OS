@@ -570,12 +570,6 @@ const fr = {
         installing: 'Installation',
         failed: 'Installation échouée',
         retry: "Veuillez rafraîchir et réessayer. Ou essayez d'installer manuellement",
-        download: 'Télécharger le',
-        package: "paquet d'installation",
-        unzip: 'et décompressez-le',
-        upTailscale: 'Téléverser tailscale dans le répertoire NanoKVM /usr/sbin/',
-        upTailscaled: 'Téléverser tailscaled dans le répertoire NanoKVM /usr/sbin/',
-        refresh: 'Rafraîchir la page courante',
         notRunning:
           "Tailscale n'est pas en cours d'exécution. Veuillez le démarrer pour continuer.",
         run: 'Début',

@@ -1110,6 +1110,8 @@ const ru = {
         customize: 'Настройка',
         language: 'Язык',
         languageDesc: 'Выбор языка интерфейса',
+        languagePartial: 'частично',
+        languagePartialHint: 'Перевод неполный. Недостающие тексты показываются на английском.',
         webTitle: 'Заголовок страницы',
         webTitleDesc: 'Изменить заголовок страницы',
         menuBar: {

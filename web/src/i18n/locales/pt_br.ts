@@ -567,12 +567,6 @@ const pt_br = {
         installing: 'Instalando',
         failed: 'Falha na instalação',
         retry: 'Por favor, atualize e tente novamente. Ou tente instalar manualmente',
-        download: 'Baixar o',
-        package: 'pacote de instalação',
-        unzip: 'e descompacte-o',
-        upTailscale: 'Fazer upload do tailscale para o diretório NanoKVM /usr/bin/',
-        upTailscaled: 'Fazer upload do tailscaled para o diretório NanoKVM /usr/sbin/',
-        refresh: 'Atualizar página atual',
         notRunning: 'Tailscale não está em execução. Por favor, inicie-o para continuar.',
         run: 'Iniciar',
         notLogin:

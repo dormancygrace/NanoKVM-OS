@@ -563,12 +563,6 @@ const id = {
         installing: 'Memasangkan',
         failed: 'Gagal memasangkan',
         retry: 'Harap segarkan dan coba lagi. Atau coba instal secara manual',
-        download: 'Mengunduh',
-        package: 'paket instalasi',
-        unzip: 'dan unzip itu',
-        upTailscale: 'Unggah tailscale ke direktori NanoKVM /usr/bin/',
-        upTailscaled: 'Unggah tailscaled ke direktori NanoKVM /usr/sbin/',
-        refresh: 'Segarkan halaman ini',
         notRunning: 'Tailscale tidak berjalan. Silakan mulai untuk melanjutkan.',
         run: 'Mulai',
         notLogin:

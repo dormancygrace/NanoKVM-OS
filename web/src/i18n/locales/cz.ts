@@ -564,12 +564,6 @@ const cz = {
         installing: 'Instalace probíhá',
         failed: 'Instalace se nezdařila',
         retry: 'Obnovte stránku a zkuste to znovu. Nebo zkuste instalaci manuálně',
-        download: 'Stáhnout',
-        package: 'instalační balíček',
-        unzip: 'a rozbalit ho',
-        upTailscale: 'Nahrajte Tailscale do adresáře NanoKVM /usr/bin/',
-        upTailscaled: 'Nahrajte Tailscaled do adresáře NanoKVM /usr/sbin/',
-        refresh: 'Obnovit stránku',
         notRunning: 'Tailscale neběží. Chcete-li pokračovat, spusťte jej.',
         run: 'Spustit',
         notLogin:

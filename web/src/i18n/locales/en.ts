@@ -1091,6 +1091,8 @@ const en = {
         customize: 'Customize',
         language: 'Language',
         languageDesc: 'Select the language for the interface',
+        languagePartial: 'partial',
+        languagePartialHint: 'Partially translated. Missing texts are shown in English.',
         webTitle: 'Web Title',
         webTitleDesc: 'Customize the web page title',
         menuBar: {

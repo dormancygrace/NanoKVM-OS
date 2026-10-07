@@ -77,8 +77,8 @@ export const UsbInternet = ({ usbBusy }: { usbBusy: boolean }) => {
           onChange={(value) => void toggle(value)}
         />
       </div>
-      <p className="text-xs text-neutral-500">{t('settings.usb.internet.description')}</p>
-      <div role="status" aria-live="polite" className="text-xs text-neutral-400">
+      <p className="text-xs text-fg-muted">{t('settings.usb.internet.description')}</p>
+      <div role="status" aria-live="polite" className="text-xs text-fg-muted">
         {t(`settings.usb.internet.states.${state}`, {
           defaultValue: t('settings.usb.internet.states.error'),
           uplink: status?.uplink,
@@ -86,7 +86,7 @@ export const UsbInternet = ({ usbBusy }: { usbBusy: boolean }) => {
         })}
       </div>
       {state === 'active' && (
-        <div className="text-xs text-neutral-500">
+        <div className="text-xs text-fg-muted">
           {t(
             status?.flowOffload
               ? 'settings.usb.internet.offload'
@@ -94,7 +94,7 @@ export const UsbInternet = ({ usbBusy }: { usbBusy: boolean }) => {
           )}
         </div>
       )}
-      <p className="text-xs text-neutral-500">{t('settings.usb.internet.renew')}</p>
+      <p className="text-xs text-fg-muted">{t('settings.usb.internet.renew')}</p>
     </div>
   );
 };

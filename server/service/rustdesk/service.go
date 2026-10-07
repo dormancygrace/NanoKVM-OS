@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"NanoKVM-Server/internal/apkrun"
 	"NanoKVM-Server/service/vm"
 
 	"golang.org/x/sys/unix"
@@ -70,8 +71,11 @@ type Service struct {
 
 	// Package facts only change with the apk database, world or indexes, so
 	// status polling reuses them until apkStamp changes or a package action runs.
-	apkStamp       func() string
-	apkMu          sync.Mutex // serializes apk runs that load the repository indexes
+	apkStamp func() string
+	// apkMu keeps a repository refresh, including its apk state check, apart
+	// from package actions; apkrun serializes the apk runs themselves with
+	// everything else on the device.
+	apkMu          sync.Mutex
 	factsMu        sync.Mutex
 	generation     int
 	installed      installedFacts
@@ -142,17 +146,26 @@ func (s *Service) PrepareUSB() error {
 	return err
 }
 func runCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
-	var output bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &output, &output
-	err := cmd.Start()
-	if err == nil {
-		if ctx.Value(idlePriority{}) != nil {
-			_ = unix.Setpriority(unix.PRIO_PROCESS, cmd.Process.Pid, 19)
+	var data []byte
+	var err error
+	if name == "apk" {
+		// The shared runner queues apk behind runs of other services and
+		// processes within the context's deadline, and lowers the priority of
+		// repository queries itself.
+		data, err = apkrun.Command(ctx, name, args...).CombinedOutput()
+	} else {
+		cmd := exec.CommandContext(ctx, name, args...)
+		var output bytes.Buffer
+		cmd.Stdout, cmd.Stderr = &output, &output
+		err = cmd.Start()
+		if err == nil {
+			if ctx.Value(idlePriority{}) != nil {
+				_ = unix.Setpriority(unix.PRIO_PROCESS, cmd.Process.Pid, 19)
+			}
+			err = cmd.Wait()
 		}
-		err = cmd.Wait()
+		data = output.Bytes()
 	}
-	data := output.Bytes()
 	if err != nil {
 		return nil, fmt.Errorf("%s failed: %s", name, strings.TrimSpace(string(data[:min(len(data), 2048)])))
 	}

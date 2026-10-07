@@ -373,7 +373,9 @@ export const Settings = ({
       setSystemExpanded((expanded) => !expanded);
       return;
     }
-    const target = tab;
+    // An unknown or no longer available tab falls back to the dashboard
+    // instead of rendering an empty page.
+    const target = tabs.some((item) => item.id === tab) ? tab : 'dashboard';
     if (target.startsWith('vpn-')) setVpnExpanded(true);
     if (target.startsWith('network-')) setNetworkExpanded(true);
     if (target.startsWith('software-')) setSoftwareExpanded(true);
@@ -646,7 +648,7 @@ export const Settings = ({
                     fallback={<Alert type="error" showIcon message={t('error.title')} />}
                   >
                     <Suspense fallback={<PageLoading />}>
-                      {tabs.find((tab) => tab.id === currentTab)?.component}
+                      {(tabs.find((tab) => tab.id === currentTab) ?? tabs[0]).component}
                     </Suspense>
                   </ErrorBoundary>
                 </div>

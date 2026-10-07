@@ -356,6 +356,8 @@ const en = {
       invalidCurrentPassword: 'Current password is incorrect',
       changePassword: 'Change Password',
       changePasswordDesc: 'For the security of your device, please change the password!',
+      passwordChanged: 'Password changed. Sign in with the new password.',
+      cancelAndLogout: 'Cancel and log out',
       differentPassword: 'Passwords do not match',
       illegalUsername: 'Username contains illegal characters',
       illegalPassword: 'Password contains illegal characters',
@@ -369,7 +371,7 @@ const en = {
         reset2: 'For detailed steps, please consult this document:',
         reset3: 'Web default account:',
         reset4: 'SSH default account:',
-        change1: 'Please note that this action will change the following passwords:',
+        change1: 'For the built-in admin account, this action changes the following passwords:',
         change2: 'Web login password',
         change3: 'System root password (SSH login password)',
         change4: 'To reset the passwords, press and hold the BOOT button on the NanoKVM.'

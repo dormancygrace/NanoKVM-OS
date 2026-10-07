@@ -1,10 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Button, notification } from 'antd';
+import { notification } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 
-import { isPasswordUpdated } from '@/api/auth.ts';
-import { getSkipModifyPassword, setSkipModifyPassword } from '@/lib/localstorage.ts';
 import { client } from '@/lib/websocket.ts';
 
 const H264_MODE_STATUS_EVENT = 'h264-mode-status';
@@ -14,43 +11,6 @@ type H264ModeStatus = {
   generation: string;
   revision: number;
   mixed: boolean;
-};
-
-export const Notification = () => {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const [api, contextHolder] = notification.useNotification();
-
-  useEffect(() => {
-    const skip = getSkipModifyPassword();
-    if (skip) return;
-
-    isPasswordUpdated().then((rsp) => {
-      if (rsp.code === 0 && !rsp.data.isUpdated) {
-        api.warning({
-          key: 'no_change_password',
-          message: t('auth.changePassword'),
-          description: t('auth.changePasswordDesc'),
-          placement: 'topRight',
-          btn: (
-            <Button
-              type="primary"
-              onClick={() => {
-                api.destroy();
-                navigate('/auth/password');
-              }}
-            >
-              {t('auth.ok')}
-            </Button>
-          ),
-          duration: 0,
-          onClose: () => setSkipModifyPassword(true)
-        });
-      }
-    });
-  }, [api, navigate, t]);
-
-  return <>{contextHolder}</>;
 };
 
 export const H264ModeNotification = () => {

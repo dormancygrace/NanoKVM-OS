@@ -5,6 +5,7 @@ import { HardDriveIcon, LoaderCircleIcon, PowerIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm';
+import { subscribeLiveStatus } from '@/lib/live-status.ts';
 import * as localstorage from '@/lib/localstorage.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
@@ -42,10 +43,20 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
       }
     }
 
-    // The toolbar only shows the power glow and HDD LED; poll quickly only
-    // while the popover is open and the user is acting on power controls.
-    void refreshLeds();
-    const stopPolling = pollWhileVisible(refreshLeds, isOpen ? 300 : 3000);
+    // The toolbar only shows the power glow and HDD LED, which the shared live
+    // poll provides; poll quickly only while the popover is open and the user
+    // is acting on power controls.
+    let stopPolling: () => void;
+    if (isOpen) {
+      void refreshLeds();
+      stopPolling = pollWhileVisible(refreshLeds, 300);
+    } else {
+      stopPolling = subscribeLiveStatus((status) => {
+        if (disposed || !status?.gpio) return;
+        setIsPowerOn(status.gpio.pwr);
+        setIsHddActive(status.gpio.hdd);
+      });
+    }
 
     return () => {
       disposed = true;

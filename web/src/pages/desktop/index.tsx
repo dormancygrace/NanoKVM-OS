@@ -7,10 +7,10 @@ import { useMediaQuery } from 'react-responsive';
 import { getEncoderState } from '@/api/stream.ts';
 import { getInputRegion, getScreen, setControlRegionMode } from '@/api/vm.ts';
 import { ControlRegionConfig, InputRegion } from '@/types';
-import { refreshCapture } from '@/lib/capture-control.ts';
+import { adoptLiveCapture } from '@/lib/capture-control.ts';
 import { getEncoderCodec, initializeEncoderCodec } from '@/lib/encoder.ts';
+import { refreshLiveStatus, subscribeLiveStatus } from '@/lib/live-status.ts';
 import * as storage from '@/lib/localstorage.ts';
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { client } from '@/lib/websocket.ts';
 import { isKeyboardOpenAtom } from '@/jotai/keyboard.ts';
 import { picoclawChatOpenAtom } from '@/jotai/picoclaw.ts';
@@ -118,14 +118,13 @@ export const Desktop = () => {
   const captureStatus = useCaptureStatus(activeVideoMode);
   const captureEnabled = useAtomValue(isHdmiEnabledAtom);
   useEffect(() => {
-    const refresh = () => {
-      void refreshCapture().catch(() => undefined);
-    };
-    refresh();
-    const stopPolling = pollWhileVisible(refresh, 3000);
+    const refresh = () => void refreshLiveStatus({ force: true });
+    const unsubscribe = subscribeLiveStatus((status, startedAt) =>
+      adoptLiveCapture(status?.hdmi ?? null, startedAt)
+    );
     window.addEventListener('focus', refresh);
     return () => {
-      stopPolling();
+      unsubscribe();
       window.removeEventListener('focus', refresh);
     };
   }, []);

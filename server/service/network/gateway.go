@@ -91,34 +91,30 @@ func writeGatewayPreference(preferred string) error {
 	return os.Rename(temporary, gatewayPreferenceFile)
 }
 
+// The kernel's main IPv4 table, which ip -4 route show lists, without
+// starting ip each time the network settings open.
+var gatewayRouteTable = "/proc/net/route"
+
 func defaultGatewayRoutes() []proto.GatewayRoute {
-	output, err := gatewayRouteCommand("-4", "route", "show", "default")
+	table, err := os.ReadFile(gatewayRouteTable)
 	if err != nil {
 		return []proto.GatewayRoute{}
 	}
-	return parseDefaultGatewayRoutes(string(output))
+	return parseDefaultGatewayRoutes(string(table))
 }
 
-func parseDefaultGatewayRoutes(output string) []proto.GatewayRoute {
+// parseDefaultGatewayRoutes reads /proc/net/route: Iface, Destination,
+// Gateway, Flags, RefCnt, Use, Metric, Mask, ... with addresses in hex.
+func parseDefaultGatewayRoutes(table string) []proto.GatewayRoute {
 	routes := []proto.GatewayRoute{}
 	seen := map[string]bool{}
-	for _, line := range strings.Split(output, "\n") {
+	for _, line := range strings.Split(table, "\n") {
 		fields := strings.Fields(line)
-		if len(fields) < 5 || fields[0] != "default" {
+		if len(fields) < 8 || fields[1] != "00000000" || fields[7] != "00000000" {
 			continue
 		}
-		var gateway, iface string
-		metric := 0
-		for i := 0; i+1 < len(fields); i++ {
-			switch fields[i] {
-			case "via":
-				gateway = fields[i+1]
-			case "dev":
-				iface = fields[i+1]
-			case "metric":
-				metric, _ = strconv.Atoi(fields[i+1])
-			}
-		}
+		iface, gateway := fields[0], parseRouteGateway(fields[2])
+		metric, _ := strconv.Atoi(fields[6])
 		if gateway == "" || !isGatewayInterface(iface) {
 			continue
 		}

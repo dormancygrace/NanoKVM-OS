@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Modal, Progress, Spin } from 'antd';
+import { Alert, Button, message, Modal, Progress, Spin } from 'antd';
 import { useAtom } from 'jotai';
 import { DownloadIcon, ExternalLinkIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +22,7 @@ export const Addons = ({
   const { t } = useTranslation();
   const [status, setStatus] = useAtom(picoclawRuntimeStatusAtom);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
   const pending = useRef(false);
   const generation = useRef(0);
   const [modal, contextHolder] = Modal.useModal();
@@ -35,9 +35,10 @@ export const Addons = ({
       if (started !== generation.current) return;
       if (response.code !== 0) throw new Error(response.msg);
       setStatus(response.data);
+      setLoadError('');
     } catch (err) {
       if (started === generation.current)
-        setError(err instanceof Error ? err.message : t('settings.software.requestFailed'));
+        setLoadError(err instanceof Error ? err.message : t('settings.software.requestFailed'));
     } finally {
       pending.current = false;
     }
@@ -57,7 +58,6 @@ export const Addons = ({
   const run = async (remove: boolean) => {
     if (busy || status?.installing) return;
     setBusy(true);
-    setError('');
     generation.current++;
     try {
       const response = await (remove ? uninstallRuntime() : installRuntime());
@@ -65,35 +65,33 @@ export const Addons = ({
       if (response.data?.status) setStatus(response.data.status);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('settings.software.requestFailed'));
+      void message.error(err instanceof Error ? err.message : t('settings.software.requestFailed'));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="space-y-6 py-6">
+    <div className="space-y-6">
       {contextHolder}
       <AddonCard title="PicoClaw" icon={<Robot size={24} />}>
-        <p className="text-sm text-neutral-300">
-          {t('settings.software.addons.picoclawDescription')}
-        </p>
+        <p className="text-fg m-0 text-sm">{t('settings.software.addons.picoclawDescription')}</p>
         <a
-          className="inline-flex items-center gap-1 text-sm text-emerald-400 no-underline!"
+          className="text-info inline-flex items-center gap-1 text-sm no-underline!"
           href="https://github.com/sipeed/picoclaw/releases/latest"
           target="_blank"
           rel="noreferrer"
         >
           {t('settings.software.addons.source')} <ExternalLinkIcon size={14} />
         </a>
-        {(error || status?.last_error) && (
-          <Alert type="error" title={error || status?.last_error} showIcon />
+        {(loadError || status?.last_error) && (
+          <Alert type="error" title={loadError || status?.last_error} showIcon />
         )}
         {!status ? (
           <Spin size="small" />
         ) : status.installing ? (
           <div>
-            <div className="text-sm text-neutral-300">
+            <div className="text-fg text-sm">
               {t(`picoclaw.install.stages.${status.install_stage || 'preparing'}`)}
             </div>
             <Progress percent={status.install_progress || 0} status="active" />

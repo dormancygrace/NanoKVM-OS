@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, message, Popconfirm, Spin, Tag } from 'antd';
+import { Alert, Button, message, Popconfirm, Spin } from 'antd';
 import { useAtom } from 'jotai';
 import { DownloadIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { getRustDeskStatus, rustDeskPackageAction, type RustDeskStatus } from '@/api/rustdesk';
+import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk';
 import { RustDeskIcon } from '@/components/icons/rustdesk';
+import { StatusBadge } from '@/components/ui/settings.tsx';
 
 import { AddonCard } from './addon-card';
 import { RustDeskVersions } from './rustdesk-versions';
@@ -71,13 +73,14 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
       const response = await rustDeskPackageAction(action);
       if (!mounted.current || started !== generation.current) return;
       if (response.code !== 0) {
-        setError(response.msg);
+        showRequestError(response, 'settings.rustdesk.failed');
         return;
       }
       message.success(t('done'));
       setError('');
-    } catch {
-      if (mounted.current && started === generation.current) setError(t('failed'));
+    } catch (err) {
+      if (mounted.current && started === generation.current)
+        showRequestError(err, 'settings.rustdesk.failed');
     } finally {
       working.current = false;
       if (mounted.current) {
@@ -94,8 +97,12 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
         <>
           {error && <Alert type="error" title={error} showIcon />}
           {status &&
-            (status.installed ? <RustDeskVersions status={status} /> : <Tag>{t('absent')}</Tag>)}
-          <p className="text-sm text-neutral-300">{t('description')}</p>
+            (status.installed ? (
+              <RustDeskVersions status={status} />
+            ) : (
+              <StatusBadge tone="neutral">{t('absent')}</StatusBadge>
+            ))}
+          <p className="text-fg m-0 text-sm">{t('description')}</p>
           {!status?.installed && status && !status.available && (
             <Alert type="info" title={t('unavailable')} />
           )}

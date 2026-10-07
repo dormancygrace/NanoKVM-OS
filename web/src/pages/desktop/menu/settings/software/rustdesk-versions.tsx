@@ -5,7 +5,7 @@ import type { RustDeskStatus } from '@/api/rustdesk';
 export const RustDeskVersions = ({ status }: { status: RustDeskStatus }) => {
   const { t } = useTranslation('translation', { keyPrefix: 'settings.rustdesk' });
   return (
-    <div className="flex flex-col gap-1 text-sm text-neutral-400">
+    <div className="text-fg-muted flex flex-col gap-1 text-sm">
       <span>
         {t('addonVersion')}: {status.version || t('unknownVersion')}
       </span>

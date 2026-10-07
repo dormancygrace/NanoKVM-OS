@@ -10,9 +10,7 @@ import {
   message,
   Popconfirm,
   Select,
-  Space,
   Switch,
-  Tag,
   Typography
 } from 'antd';
 import { useAtom } from 'jotai';
@@ -25,8 +23,10 @@ import {
   type RustDeskConfig,
   type RustDeskStatus
 } from '@/api/rustdesk';
+import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk';
+import { SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
 import { RustDeskVersions } from '../software/rustdesk-versions';
 
@@ -110,14 +110,15 @@ export const RustDeskControls = () => {
         action === 'save' ? await configureRustDesk(values!) : await rustDeskPackageAction(action);
       if (!mounted.current || started !== generation.current) return;
       if (response.code !== 0) {
-        setError(response.msg);
+        showRequestError(response, 'settings.rustdesk.failed');
         return;
       }
       if (action !== 'regenerate-password') dirty.current = false;
       message.success(action === 'save' ? t('saved') : t('passwordUpdated'));
       setError('');
-    } catch {
-      if (mounted.current && started === generation.current) setError(t('failed'));
+    } catch (err) {
+      if (mounted.current && started === generation.current)
+        showRequestError(err, 'settings.rustdesk.failed');
     } finally {
       working.current = false;
       if (mounted.current) {
@@ -128,20 +129,20 @@ export const RustDeskControls = () => {
   };
 
   return (
-    <div className="min-w-0">
-      <Space direction="vertical" size="middle" className="w-full">
-        {error && <Alert type="error" title={error} showIcon />}
+    <div className="min-w-0 space-y-6">
+      {error && <Alert type="error" title={error} showIcon />}
+      <SettingsSection>
         {status?.installed && <RustDeskVersions status={status} />}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-4">
           {status?.installed && (
-            <Tag color={status.running ? 'green' : 'default'}>
+            <StatusBadge tone={status.running ? 'success' : 'neutral'}>
               {status.running ? t('running') : t('stopped')}
-            </Tag>
+            </StatusBadge>
           )}
           {status?.running && (
-            <Tag color={status.runtime?.registered ? 'green' : 'orange'}>
+            <StatusBadge tone={status.runtime?.registered ? 'success' : 'warning'}>
               {status.runtime?.registered ? t('registered') : t('registering')}
-            </Tag>
+            </StatusBadge>
           )}
         </div>
 
@@ -169,171 +170,171 @@ export const RustDeskControls = () => {
             ) : (
               <p>{status.running ? t('waitingForPassword') : t('startForPassword')}</p>
             )}
-            <p className="mt-2 text-sm text-neutral-400">
+            <p className="text-fg-muted mt-2 mb-0 text-sm">
               {rotatesOnLogin ? t('rotatingTemporaryHint') : t('temporaryHint')}
             </p>
           </div>
         )}
-        <p>{t('explain')}</p>
-        {status?.installed && (
-          <ConfigProvider
-            theme={{
-              token: { colorBgContainer: '#262626', colorBorder: '#525252' },
-              components: {
-                Collapse: { headerPadding: '12px 16px', contentPadding: 16 }
-              }
+        <p className="m-0">{t('explain')}</p>
+      </SettingsSection>
+      {status?.installed && (
+        <ConfigProvider
+          theme={{
+            token: { colorBgContainer: '#262626', colorBorder: '#525252' },
+            components: {
+              Collapse: { headerPadding: '12px 16px', contentPadding: 16 }
+            }
+          }}
+        >
+          <Form
+            form={form}
+            initialValues={{ audio_enabled: true, ...status.config, password: '' }}
+            layout="vertical"
+            disabled={busy}
+            onValuesChange={() => {
+              dirty.current = true;
             }}
           >
-            <Form
-              form={form}
-              initialValues={{ audio_enabled: true, ...status.config, password: '' }}
-              layout="vertical"
-              disabled={busy}
-              onValuesChange={() => {
-                dirty.current = true;
-              }}
+            <Form.Item
+              name="service_enabled"
+              label={t('enabled')}
+              valuePropName="checked"
+              extra={t('inputDefaults')}
             >
+              <Switch />
+            </Form.Item>
+            {status.supports_audio_settings && (
               <Form.Item
-                name="service_enabled"
-                label={t('enabled')}
+                name="audio_enabled"
+                label={t('transmitAudio')}
                 valuePropName="checked"
-                extra={t('inputDefaults')}
+                extra={t('audioHint')}
               >
                 <Switch />
               </Form.Item>
-              {status.supports_audio_settings && (
-                <Form.Item
-                  name="audio_enabled"
-                  label={t('transmitAudio')}
-                  valuePropName="checked"
-                  extra={t('audioHint')}
-                >
-                  <Switch />
-                </Form.Item>
-              )}
-              {status.supports_audio && (
-                <Alert
-                  type="info"
-                  title={
-                    status.supports_audio_settings && audioEnabled === false
-                      ? t('audioMuted')
-                      : status.usb_audio_enabled
-                        ? t('audioEnabled')
-                        : status.supports_audio_settings
-                          ? t('audioHint')
-                          : t('audioDisabled')
-                  }
-                  className="mb-4"
-                />
-              )}
-              <Form.Item name="password_mode" label={t('passwordMode')}>
-                <Select
-                  options={[
-                    { value: 'temporary', label: t('temporary') },
-                    { value: 'permanent', label: t('permanent') }
-                  ]}
-                />
-              </Form.Item>
-              {passwordMode === 'permanent' && (
-                <Form.Item
-                  name="password"
-                  label={t('password')}
-                  rules={[
-                    {
-                      validator: async (_, value: string) => {
-                        if (
-                          form.getFieldValue('password_mode') !== 'permanent' ||
-                          (!value && status.has_password)
-                        )
-                          return;
-                        const length = new TextEncoder().encode(value || '').length;
-                        if (length < 8 || length > 64) throw new Error(t('passwordRequired'));
-                      }
-                    }
-                  ]}
-                >
-                  <Input.Password
-                    autoComplete="new-password"
-                    placeholder={status.has_password ? t('keepPassword') : ''}
-                  />
-                </Form.Item>
-              )}
-              <Collapse
+            )}
+            {status.supports_audio && (
+              <Alert
+                type="info"
+                title={
+                  status.supports_audio_settings && audioEnabled === false
+                    ? t('audioMuted')
+                    : status.usb_audio_enabled
+                      ? t('audioEnabled')
+                      : status.supports_audio_settings
+                        ? t('audioHint')
+                        : t('audioDisabled')
+                }
                 className="mb-4"
-                items={[
-                  {
-                    key: 'advanced',
-                    label: t('advanced'),
-                    forceRender: true,
-                    children: (
-                      <>
-                        <Form.Item
-                          name="use_official_id_server"
-                          label={t('server')}
-                          getValueProps={(value) => ({ value: value ? 'official' : 'custom' })}
-                          getValueFromEvent={(value) => value === 'official'}
-                        >
-                          <Select
-                            options={[
-                              { value: 'official', label: t('public') },
-                              { value: 'custom', label: t('custom') }
-                            ]}
-                          />
-                        </Form.Item>
-                        {!official && (
-                          <>
-                            <Alert type="info" title={t('sameServer')} className="mb-4" />
-                            <Form.Item
-                              name="rendezvous_server"
-                              label={t('idServer')}
-                              rules={[{ required: true }]}
-                            >
-                              <Input placeholder="id.example.com:21116" autoComplete="off" />
-                            </Form.Item>
-                            <Form.Item name="relay_server" label={t('relay')}>
-                              <Input placeholder="relay.example.com:21117" autoComplete="off" />
-                            </Form.Item>
-                            <Form.Item name="server_key" label={t('key')}>
-                              <Input autoComplete="off" />
-                            </Form.Item>
-                          </>
-                        )}
-                        {status.supports_transport_settings && (
-                          <Form.Item
-                            name="webrtc_enabled"
-                            label={t('webrtc')}
-                            valuePropName="checked"
-                            extra={t('transportHint')}
-                          >
-                            <Switch />
-                          </Form.Item>
-                        )}
-                        <Alert type="info" title={t('video')} className="mb-4" />
-                        <Form.Item
-                          name="max_clients"
-                          label={t('clients')}
-                          rules={[{ required: true }]}
-                          className="mb-0"
-                        >
-                          <InputNumber min={1} max={8} />
-                        </Form.Item>
-                      </>
-                    )
-                  }
+              />
+            )}
+            <Form.Item name="password_mode" label={t('passwordMode')}>
+              <Select
+                options={[
+                  { value: 'temporary', label: t('temporary') },
+                  { value: 'permanent', label: t('permanent') }
                 ]}
               />
-              <Button type="primary" loading={busy} onClick={() => void operation('save')}>
-                {t('save')}
-              </Button>
-            </Form>
-          </ConfigProvider>
-        )}
-        {status?.installed && status.source_url && (
-          <a href={status.source_url} target="_blank" rel="noopener noreferrer">
-            {t('source')} · AGPL-3.0
-          </a>
-        )}
-      </Space>
+            </Form.Item>
+            {passwordMode === 'permanent' && (
+              <Form.Item
+                name="password"
+                label={t('password')}
+                rules={[
+                  {
+                    validator: async (_, value: string) => {
+                      if (
+                        form.getFieldValue('password_mode') !== 'permanent' ||
+                        (!value && status.has_password)
+                      )
+                        return;
+                      const length = new TextEncoder().encode(value || '').length;
+                      if (length < 8 || length > 64) throw new Error(t('passwordRequired'));
+                    }
+                  }
+                ]}
+              >
+                <Input.Password
+                  autoComplete="new-password"
+                  placeholder={status.has_password ? t('keepPassword') : ''}
+                />
+              </Form.Item>
+            )}
+            <Collapse
+              className="mb-4"
+              items={[
+                {
+                  key: 'advanced',
+                  label: t('advanced'),
+                  forceRender: true,
+                  children: (
+                    <>
+                      <Form.Item
+                        name="use_official_id_server"
+                        label={t('server')}
+                        getValueProps={(value) => ({ value: value ? 'official' : 'custom' })}
+                        getValueFromEvent={(value) => value === 'official'}
+                      >
+                        <Select
+                          options={[
+                            { value: 'official', label: t('public') },
+                            { value: 'custom', label: t('custom') }
+                          ]}
+                        />
+                      </Form.Item>
+                      {!official && (
+                        <>
+                          <Alert type="info" title={t('sameServer')} className="mb-4" />
+                          <Form.Item
+                            name="rendezvous_server"
+                            label={t('idServer')}
+                            rules={[{ required: true }]}
+                          >
+                            <Input placeholder="id.example.com:21116" autoComplete="off" />
+                          </Form.Item>
+                          <Form.Item name="relay_server" label={t('relay')}>
+                            <Input placeholder="relay.example.com:21117" autoComplete="off" />
+                          </Form.Item>
+                          <Form.Item name="server_key" label={t('key')}>
+                            <Input autoComplete="off" />
+                          </Form.Item>
+                        </>
+                      )}
+                      {status.supports_transport_settings && (
+                        <Form.Item
+                          name="webrtc_enabled"
+                          label={t('webrtc')}
+                          valuePropName="checked"
+                          extra={t('transportHint')}
+                        >
+                          <Switch />
+                        </Form.Item>
+                      )}
+                      <Alert type="info" title={t('video')} className="mb-4" />
+                      <Form.Item
+                        name="max_clients"
+                        label={t('clients')}
+                        rules={[{ required: true }]}
+                        className="mb-0"
+                      >
+                        <InputNumber min={1} max={8} />
+                      </Form.Item>
+                    </>
+                  )
+                }
+              ]}
+            />
+            <Button type="primary" loading={busy} onClick={() => void operation('save')}>
+              {t('save')}
+            </Button>
+          </Form>
+        </ConfigProvider>
+      )}
+      {status?.installed && status.source_url && (
+        <a href={status.source_url} target="_blank" rel="noopener noreferrer">
+          {t('source')} · AGPL-3.0
+        </a>
+      )}
     </div>
   );
 };

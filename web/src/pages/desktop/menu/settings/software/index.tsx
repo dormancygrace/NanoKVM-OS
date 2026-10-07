@@ -1,10 +1,11 @@
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Input, Modal, Popconfirm, Spin, Tabs, message } from 'antd';
+import { Alert, Button, Input, message, Modal, Popconfirm, Spin, Tabs } from 'antd';
 import { RefreshCwIcon, SearchIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { http } from '@/lib/http';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { Panel } from '@/components/ui/settings.tsx';
 
 import styles from './mobile-tabs.module.css';
 
@@ -27,8 +28,16 @@ type IndexStatus = {
 type SoftwareState = { installed: Package[]; operation: Operation; indexes?: IndexStatus };
 
 const protectedPackages = new Set([
-  "apk-tools", "busybox", "musl", "openrc", "nanokvm-app", "nanokvm-base",
-  "nanokvm-release", "nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002", "nanokvm-firmware-sg2002"
+  'apk-tools',
+  'busybox',
+  'musl',
+  'openrc',
+  'nanokvm-app',
+  'nanokvm-base',
+  'nanokvm-release',
+  'nanokvm-kernel-sg2002',
+  'nanokvm-kmod-sg2002',
+  'nanokvm-firmware-sg2002'
 ]);
 
 export const Software = () => {
@@ -53,43 +62,42 @@ export const Software = () => {
   const operationState = useRef('');
 
   const working = busy || state?.operation.state === 'running';
-  const showOperation = state?.operation.state === 'running' || (actionStarted && (state?.operation.state === 'succeeded' || state?.operation.state === 'failed'));
-  const refresh = useCallback(
-    async () => {
-      if (refreshInFlight.current) return;
-      refreshInFlight.current = true;
-      try {
-        const rsp = await http.get('/api/os/update/software');
-        if (rsp.code === 0) {
-          operationState.current = rsp.data.operation?.state || '';
-          setState(rsp.data);
-          setLoadError('');
-        } else setLoadError(rsp.msg);
-      } catch {
-        setLoadError(t('settings.software.requestFailed'));
-      } finally {
-        refreshInFlight.current = false;
-      }
-    },
-    [t]
-  );
+  const showOperation =
+    state?.operation.state === 'running' ||
+    (actionStarted &&
+      (state?.operation.state === 'succeeded' || state?.operation.state === 'failed'));
+  const refresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    try {
+      const rsp = await http.get('/api/os/update/software');
+      if (rsp.code === 0) {
+        operationState.current = rsp.data.operation?.state || '';
+        setState(rsp.data);
+        setLoadError('');
+      } else setLoadError(rsp.msg);
+    } catch {
+      setLoadError(t('settings.software.requestFailed'));
+    } finally {
+      refreshInFlight.current = false;
+    }
+  }, [t]);
 
-  const refreshStatus = useCallback(
-    async () => {
-      try {
-        const rsp = await http.get('/api/os/update/software/status');
-        if (rsp.code !== 0) return;
-        const nextOperation = rsp.data.operation as Operation;
-        const previousState = operationState.current;
-        operationState.current = nextOperation.state;
-        setState((current) => current ? { ...current, operation: nextOperation, indexes: rsp.data.indexes } : current);
-        if (previousState === 'running' && nextOperation.state !== 'running') void refresh();
-      } catch {
-        // Status polling is passive. It must never interrupt the user with a toast.
-      }
-    },
-    [refresh]
-  );
+  const refreshStatus = useCallback(async () => {
+    try {
+      const rsp = await http.get('/api/os/update/software/status');
+      if (rsp.code !== 0) return;
+      const nextOperation = rsp.data.operation as Operation;
+      const previousState = operationState.current;
+      operationState.current = nextOperation.state;
+      setState((current) =>
+        current ? { ...current, operation: nextOperation, indexes: rsp.data.indexes } : current
+      );
+      if (previousState === 'running' && nextOperation.state !== 'running') void refresh();
+    } catch {
+      // Status polling is passive. It must never interrupt the user with a toast.
+    }
+  }, [refresh]);
 
   useEffect(() => {
     void refresh();
@@ -125,7 +133,8 @@ export const Software = () => {
           setSearchError('');
         } else setSearchError(rsp.msg);
       } catch {
-        if (generation === searchGeneration.current) setSearchError(t('settings.software.requestFailed'));
+        if (generation === searchGeneration.current)
+          setSearchError(t('settings.software.requestFailed'));
       } finally {
         if (generation === searchGeneration.current) setSearching(false);
       }
@@ -170,125 +179,197 @@ export const Software = () => {
     }
   };
 
-  const loadUpdates = useCallback(
-    async () => {
-      if (updatesInFlight.current) return;
-      updatesInFlight.current = true;
-      setUpdatesLoading(true);
-      try {
-        const rsp = await http.get('/api/os/update/software/updates');
-        if (rsp.code === 0) {
-          setUpdates(rsp.data.updates || []);
-          setUpdatesError('');
-        } else setUpdatesError(rsp.msg);
-      } catch {
-        setUpdatesError(t('settings.software.requestFailed'));
-      } finally {
-        updatesInFlight.current = false;
-        setUpdatesLoading(false);
-      }
-    },
-    [t]
-  );
+  const loadUpdates = useCallback(async () => {
+    if (updatesInFlight.current) return;
+    updatesInFlight.current = true;
+    setUpdatesLoading(true);
+    try {
+      const rsp = await http.get('/api/os/update/software/updates');
+      if (rsp.code === 0) {
+        setUpdates(rsp.data.updates || []);
+        setUpdatesError('');
+      } else setUpdatesError(rsp.msg);
+    } catch {
+      setUpdatesError(t('settings.software.requestFailed'));
+    } finally {
+      updatesInFlight.current = false;
+      setUpdatesLoading(false);
+    }
+  }, [t]);
 
   useEffect(() => {
     if (activeTab === 'updates') void loadUpdates();
   }, [activeTab, loadUpdates]);
 
-  const indexWarning = state?.indexes?.state === 'missing'
-    ? <Alert type="warning" showIcon message={t('settings.software.indexMissing')} />
-    : state?.indexes?.state === 'stale'
-      ? <Alert type="warning" showIcon message={t('settings.software.indexStale', { updated: state.indexes.updatedAt ? new Date(state.indexes.updatedAt * 1000).toLocaleString() : t('settings.software.indexUnknown') })} />
-      : null;
+  const indexWarning =
+    state?.indexes?.state === 'missing' ? (
+      <Alert type="warning" showIcon message={t('settings.software.indexMissing')} />
+    ) : state?.indexes?.state === 'stale' ? (
+      <Alert
+        type="warning"
+        showIcon
+        message={t('settings.software.indexStale', {
+          updated: state.indexes.updatedAt
+            ? new Date(state.indexes.updatedAt * 1000).toLocaleString()
+            : t('settings.software.indexUnknown')
+        })}
+      />
+    ) : null;
 
   const tabs = [
     {
       key: 'available',
       label: t('settings.software.available'),
       children: (
-        <section className="rounded-lg border border-neutral-700 p-4">
-          {searchError && <Alert className="mb-3" type="error" showIcon message={searchError} />}
+        <Panel className="space-y-3">
+          {searchError && <Alert type="error" showIcon message={searchError} />}
           <Input
             value={query}
             maxLength={128}
             onChange={(event) => setQuery(event.target.value.toLowerCase())}
             onPressEnter={searchNow}
             placeholder={t('settings.software.searchPlaceholder')}
-            suffix={<Button type="text" size="small" aria-label={t('settings.software.search')} icon={<SearchIcon size={14} />} loading={searching} onClick={searchNow} />}
+            suffix={
+              <Button
+                type="text"
+                size="small"
+                aria-label={t('settings.software.search')}
+                icon={<SearchIcon size={14} />}
+                loading={searching}
+                onClick={searchNow}
+              />
+            }
           />
-          <p className="mt-2 text-xs text-fg-muted">{t('settings.software.searchHint')}</p>
-          <div className="mt-3 max-h-80 overflow-auto pr-3">
+          <p className="text-fg-muted m-0 text-xs">{t('settings.software.searchHint')}</p>
+          <div className="divide-line max-h-80 divide-y overflow-auto pr-3">
             {results.map((pkg) => (
-              <div className="flex items-center justify-between gap-3 border-b border-neutral-800 py-2 text-sm" key={pkg.name}>
-                <span className="min-w-0 truncate">{pkg.name} <span className="text-fg-muted">{pkg.version}</span></span>
-                <Button size="small" type="primary" disabled={working} onClick={() => void run('install', pkg.name)}>{t('settings.software.install')}</Button>
+              <div className="flex items-center justify-between gap-3 py-2 text-sm" key={pkg.name}>
+                <span className="min-w-0 truncate">
+                  {pkg.name} <span className="text-fg-muted">{pkg.version}</span>
+                </span>
+                <Button
+                  size="small"
+                  type="primary"
+                  disabled={working}
+                  onClick={() => void run('install', pkg.name)}
+                >
+                  {t('settings.software.install')}
+                </Button>
               </div>
             ))}
-            {searchedQuery === query.trim() && !searching && results.length === 0 && <p className="py-2 text-sm text-fg-muted">{t('settings.software.noResults')}</p>}
+            {searchedQuery === query.trim() && !searching && results.length === 0 && (
+              <p className="text-fg-muted m-0 py-2 text-sm">{t('settings.software.noResults')}</p>
+            )}
           </div>
-        </section>
+        </Panel>
       )
     },
     {
       key: 'installed',
       label: t('settings.software.installed'),
       children: (
-        <section className="rounded-lg border border-neutral-700 p-4">
-          {loadError && <Alert className="mb-3" type="error" showIcon message={loadError} />}
-          <div className="mb-3 flex items-center gap-2 font-medium">
+        <Panel className="space-y-3">
+          {loadError && <Alert type="error" showIcon message={loadError} />}
+          <div className="flex items-center gap-2 font-medium">
             {t('settings.software.installed')} {!state && <Spin size="small" />}
           </div>
-          <div className="max-h-96 overflow-auto pr-3">
+          <div className="divide-line max-h-96 divide-y overflow-auto pr-3">
             {state?.installed.map((pkg) => (
-              <div className="flex items-center justify-between gap-3 border-b border-neutral-800 py-2 text-sm" key={pkg.name}>
-                <span className="min-w-0 truncate">{pkg.name} <span className="text-fg-muted">{pkg.version}</span></span>
-                <Button size="small" danger icon={<Trash2Icon size={14} />} disabled={working || protectedPackages.has(pkg.name)} onClick={() => void previewRemoval(pkg.name)}>{t('settings.software.remove')}</Button>
+              <div className="flex items-center justify-between gap-3 py-2 text-sm" key={pkg.name}>
+                <span className="min-w-0 truncate">
+                  {pkg.name} <span className="text-fg-muted">{pkg.version}</span>
+                </span>
+                <Button
+                  size="small"
+                  danger
+                  icon={<Trash2Icon size={14} />}
+                  disabled={working || protectedPackages.has(pkg.name)}
+                  onClick={() => void previewRemoval(pkg.name)}
+                >
+                  {t('settings.software.remove')}
+                </Button>
               </div>
             ))}
           </div>
-        </section>
+        </Panel>
       )
     },
     {
       key: 'updates',
       label: t('settings.software.updatesTab'),
       children: (
-        <div className="flex flex-col gap-4">
+        <div className="space-y-4">
           {updatesError && <Alert type="error" showIcon message={updatesError} />}
-          {showOperation && state?.operation.state === 'running' && <Alert type="info" showIcon message={t('settings.software.running', { action: state.operation.action, package: state.operation.package || '' })} />}
-          {showOperation && state?.operation.state === 'failed' && <Alert type="error" showIcon message={state.operation.message || t('settings.software.failed')} />}
-          {showOperation && state?.operation.state === 'succeeded' && <Alert type="success" showIcon message={state.operation.message || t('settings.software.succeeded')} />}
-          <div className="rounded-lg border border-neutral-700 p-4">
-            <div className="mb-3 flex items-center justify-between gap-3 font-medium">
+          {showOperation && state?.operation.state === 'running' && (
+            <Alert
+              type="info"
+              showIcon
+              message={t('settings.software.running', {
+                action: state.operation.action,
+                package: state.operation.package || ''
+              })}
+            />
+          )}
+          {showOperation && state?.operation.state === 'failed' && (
+            <Alert
+              type="error"
+              showIcon
+              message={state.operation.message || t('settings.software.failed')}
+            />
+          )}
+          {showOperation && state?.operation.state === 'succeeded' && (
+            <Alert
+              type="success"
+              showIcon
+              message={state.operation.message || t('settings.software.succeeded')}
+            />
+          )}
+          <Panel className="space-y-3">
+            <div className="flex items-center justify-between gap-3 font-medium">
               <span>{t('settings.software.updateAvailable')}</span>
               {updatesLoading && <Spin size="small" />}
             </div>
-            <div className="max-h-80 overflow-auto pr-3">
+            <div className="divide-line max-h-80 divide-y overflow-auto pr-3">
               {updates.map((pkg) => (
-                <div className="flex items-center justify-between gap-3 border-b border-neutral-800 py-2 text-sm" key={pkg.name}>
+                <div
+                  className="flex items-center justify-between gap-3 py-2 text-sm"
+                  key={pkg.name}
+                >
                   <span className="min-w-0 truncate">{pkg.name}</span>
-                  <span className="shrink-0 text-xs text-fg-muted">{pkg.installed} → {pkg.available}</span>
+                  <span className="text-fg-muted shrink-0 text-xs">
+                    {pkg.installed} → {pkg.available}
+                  </span>
                 </div>
               ))}
-              {!updatesLoading && updates.length === 0 && <p className="py-2 text-sm text-fg-muted">{t('settings.software.upToDate')}</p>}
+              {!updatesLoading && updates.length === 0 && (
+                <p className="text-fg-muted m-0 py-2 text-sm">{t('settings.software.upToDate')}</p>
+              )}
             </div>
-          </div>
-          <Popconfirm title={t('settings.software.upgradeConfirm')} onConfirm={() => run('upgrade')} disabled={working || updates.length === 0}>
-            <Button type="primary" disabled={working || updates.length === 0}>{t('settings.software.upgrade')}</Button>
+          </Panel>
+          <Popconfirm
+            title={t('settings.software.upgradeConfirm')}
+            onConfirm={() => run('upgrade')}
+            disabled={working || updates.length === 0}
+          >
+            <Button type="primary" disabled={working || updates.length === 0}>
+              {t('settings.software.upgrade')}
+            </Button>
           </Popconfirm>
-          {showOperation && state?.operation.log && <pre className="max-h-48 overflow-auto rounded bg-neutral-900 p-3 text-xs whitespace-pre-wrap">{state.operation.log}</pre>}
+          {showOperation && state?.operation.log && (
+            <pre className="border-line m-0 max-h-48 overflow-auto rounded-lg border bg-black/30 p-3 text-xs whitespace-pre-wrap">
+              {state.operation.log}
+            </pre>
+          )}
         </div>
       )
     }
   ];
 
   return (
-    <div className="flex flex-col gap-5">
-      <div>
-        <p className="text-sm text-neutral-400">{t('settings.software.description')}</p>
-      </div>
+    <div className="space-y-6">
+      <p className="text-fg-muted m-0 text-sm">{t('settings.software.description')}</p>
       {indexWarning}
-      <Button className="self-start" icon={<RefreshCwIcon size={16} />} disabled={working} onClick={() => run('refresh')}>
+      <Button icon={<RefreshCwIcon size={16} />} disabled={working} onClick={() => run('refresh')}>
         {t('settings.software.refresh')}
       </Button>
       <Tabs className={styles.tabs} activeKey={activeTab} onChange={setActiveTab} items={tabs} />
@@ -304,7 +385,9 @@ export const Software = () => {
         }}
       >
         <p>{t('settings.software.removeDescription')}</p>
-        <pre className="max-h-64 overflow-auto rounded bg-neutral-900 p-3 text-xs whitespace-pre-wrap">{removal?.preview}</pre>
+        <pre className="border-line max-h-64 overflow-auto rounded-lg border bg-black/30 p-3 text-xs whitespace-pre-wrap">
+          {removal?.preview}
+        </pre>
       </Modal>
     </div>
   );

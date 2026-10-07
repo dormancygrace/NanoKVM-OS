@@ -1,10 +1,11 @@
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Collapse, message, Popconfirm, Select } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import { http } from '@/lib/http';
 import { formatVersion } from '@/lib/version';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
 import { APKUpdates, type APKState } from './apk';
 
@@ -123,17 +124,16 @@ export const Updates = () => {
     alpineOperation?.state || ''
   );
   return (
-    <div className="flex flex-col gap-4">
-      <p className="text-sm text-neutral-400">{t('settings.updates.description')}</p>
-      <div>
-        {t('settings.updates.installed')}:{' '}
-        {state?.installed.version ? formatVersion(state.installed.version) : '—'}
-      </div>
+    <div className="space-y-6">
+      <p className="text-fg-muted m-0 text-sm">{t('settings.updates.description')}</p>
+      <SettingRow label={t('settings.updates.installed')}>
+        <span>{state?.installed.version ? formatVersion(state.installed.version) : '—'}</span>
+      </SettingRow>
       {state && <APKUpdates state={state.apk} busy={busy || alpineWorking} action={action} />}
       {state?.alpine?.enabled && (
-        <div className="flex flex-col gap-4 rounded-lg border border-neutral-700 p-4">
+        <Panel className="space-y-4">
           <div className="font-medium">{t('settings.updates.alpineTitle')}</div>
-          <p className="text-sm text-neutral-400">{t('settings.updates.alpineDisclaimer')}</p>
+          <p className="text-fg-muted m-0 text-sm">{t('settings.updates.alpineDisclaimer')}</p>
           <Collapse
             ghost
             expandIconPosition="end"
@@ -142,26 +142,29 @@ export const Updates = () => {
                 key: 'image-options',
                 label: t('settings.updates.alpineOptions'),
                 children: (
-                  <div className="flex flex-col gap-4 pb-2">
-                    <div className="flex flex-col gap-2">
-                      <label htmlFor="image-profile" className="text-sm">
-                        {t('settings.updates.alpineProfile')}
-                      </label>
+                  <div className="space-y-4 pb-2">
+                    <SettingRow
+                      label={t('settings.updates.alpineProfile')}
+                      htmlFor="image-profile"
+                      stacked
+                    >
                       <Select
                         id="image-profile"
                         value={alpineProfile}
                         disabled={busy || working || alpineWorking}
                         onChange={setAlpineProfile}
+                        className="w-full"
                         options={[
                           { value: 'stock', label: 'stock' },
                           { value: 'c906-scalar', label: 'c906-scalar' }
                         ]}
                       />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <label htmlFor="image-packages" className="text-sm">
-                        {t('settings.updates.alpinePackages')}
-                      </label>
+                    </SettingRow>
+                    <SettingRow
+                      label={t('settings.updates.alpinePackages')}
+                      htmlFor="image-packages"
+                      stacked
+                    >
                       <Select
                         id="image-packages"
                         mode="tags"
@@ -173,7 +176,7 @@ export const Updates = () => {
                         className="w-full"
                         open={false}
                       />
-                    </div>
+                    </SettingRow>
                   </div>
                 )
               }
@@ -211,7 +214,7 @@ export const Updates = () => {
               message={alpineOperation.message}
             />
           )}
-        </div>
+        </Panel>
       )}
       {state && !state.alpine.enabled && (
         <Alert type="info" message={t('settings.updates.alpineBuilderMissing')} />

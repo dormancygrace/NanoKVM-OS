@@ -84,8 +84,11 @@ export https_proxy=…
 scripts/build-alpine-tuned-packages.sh
 ```
 
-`SIGN_KEY` signs both APKs (through `abuild`) and `Packages.adb`. The private
-key is not copied into the output repository. The output contains the signed
+`SIGN_KEY` signs the APKs and `APKINDEX.tar.gz` (through `abuild`, RSA256) and
+`Packages.adb`. With `EC_SIGN_KEY=/path/NAME.key` (and `NAME.pub` next to it),
+`Packages.adb` also carries an ECDSA signature and verifies with either key;
+`scripts/qualify-alpine-c906-repo.py` takes the same key as `--ec-sign-key`.
+The private keys are not copied into the output repository. The output contains the signed
 index, APK SHA256 manifest, pinned aports commit, exact C906 flags and a
 `repositories` file with the custom repository first, followed by Alpine
 `main` and `community` fallback repositories.

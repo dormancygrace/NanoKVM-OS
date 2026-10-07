@@ -1,11 +1,11 @@
-# ChaCha20 for the C906 in Go's TLS stack
+# ChaCha20-Poly1305 for the C906 in Go's TLS stack
 
 NanoKVM-Server serves video over HTTPS/WebSocket. Without AES hardware, Go's
 TLS 1.3 prefers ChaCha20-Poly1305, which uses the std-vendored copy of
 `golang.org/x/crypto` (`$GOROOT/src/vendor/golang.org/x/crypto`), not the module
 cache. The generic Go ChaCha20 is about three quarters of the AEAD time on the
 SG2002's single C906 core. `../sysmon-runtime/prepare.py` copies the files of
-this directory into the prepared GOROOT and patches the vendored package by
+this directory into the prepared GOROOT and patches the vendored packages by
 exact match; the base toolchain is not modified.
 
 ## Kernel
@@ -74,6 +74,20 @@ line of `/proc/cpuinfo` lists `xtheadvector` and
 ignored. The vector registers are saved by the kernel across context switches
 and signal delivery; the first vector instruction allocates the thread's
 vector context.
+
+## Poly1305
+
+The vendored Poly1305 is the x/crypto v0.57.0 code without its riscv64
+assembly. prepare.py adds `sum_riscv64.s` (checked against the v0.57.0 file,
+sha256 `59299b25...dc84b`) with the v0.57.0 build tags, which take its 64x64
+multiplies with `MUL`/`MULHU` instead of the generic `bits.Mul64` code. That
+assembly loads unaligned messages byte by byte; TLS ciphertext starts 5 bytes
+into the record. `riscv_hwprobe` reports fast misaligned scalar access on this
+C906 (and unsupported misaligned vector access, so the ChaCha20 kernel keeps
+byte elements), so prepare.py lets it use 64-bit loads when
+`cpu.RISCV64.HasFastMisaligned` is set (`sum_misaligned_riscv64.go`);
+without it the byte loads remain. `tests/poly1305` compares both paths with
+the generic code for every offset modulo 16.
 
 ## Tests
 

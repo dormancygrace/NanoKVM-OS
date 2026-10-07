@@ -20,10 +20,10 @@ args = parser.parse_args()
 here = Path(__file__).resolve().parent
 goroot = args.goroot.absolute()
 args.output.mkdir(parents=True, exist_ok=True)
-hooks = (goroot / 'src/vendor/golang.org/x/crypto/chacha20/chacha_riscv64.go').exists()
 overlay = {}
 for pkg in PACKAGES:
     target = goroot / 'src/vendor/golang.org/x/crypto' / pkg
+    hooks = any(target.glob('*_riscv64.s'))  # the base GOROOT has none
     for f in sorted((args.xcrypto / pkg).glob('*_test.go')):
         overlay[str(target / f.name)] = str(f)
     for f in sorted((here / 'tests' / Path(pkg).name).glob('*_test.go')):

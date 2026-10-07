@@ -10,10 +10,11 @@ startup hook at the start of sysmon, a thread hook after minit in mstart1, and
 the argument of sysmon's per-iteration usleep. Other OS/architecture
 combinations have no-op hooks.
 
-prepare.py also copies the std-vendored `golang.org/x/crypto/chacha20` package
-(its symlinked parent directories become directories of symlinks), checks the
-pinned checksums of the vendored files it relies on, and adds the C906
-XTheadVector ChaCha20 described in [go-crypto-c906](../go-crypto-c906/README.md).
+prepare.py also copies the std-vendored `golang.org/x/crypto/chacha20` and
+`internal/poly1305` packages (their symlinked parent directories become
+directories of symlinks), checks the pinned checksums of the vendored files it
+relies on, and adds the C906 XTheadVector ChaCha20 and the riscv64 Poly1305
+described in [go-crypto-c906](../go-crypto-c906/README.md).
 nanokvm-manifest.json records the resulting vendored source checksums.
 
 ## Timer slack policy

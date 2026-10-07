@@ -17,36 +17,15 @@ static inline int nkosReadMjpeg(uint16_t w, uint16_t h, uint16_t quality, uintpt
 }
 */
 import "C"
-import (
-	"runtime/cgo"
-	"unsafe"
-)
+import "runtime/cgo"
 
-//export goVideoPack
-func goVideoPack(context C.uintptr_t, data unsafe.Pointer, size, offset, total C.uint32_t) C.int {
-	state := cgo.Handle(context).Value().(*videoPackStorage)
-	if data == nil || size == 0 || uint64(size) > 64<<20 {
-		state.failed = true
-		return -1
-	}
-	if !state.appendPack(unsafe.Slice((*byte)(data), int(size)), int(offset), int(total)) {
-		return -1
-	}
-	return 0
-}
-
+// Blocking path: the calling M waits inside cgo for the next access unit.
 func readVideoIntoOwnedStorage(width, height uint16, codec uint8, rate uint16, gop, fps uint8, headroom int) ([]byte, []byte, int) {
 	state := &videoPackStorage{headroom: headroom}
 	handle := cgo.NewHandle(state)
 	defer handle.Delete()
 	result := int(C.nkosReadVideo(C.uint16_t(width), C.uint16_t(height), C.uint8_t(codec), C.uint16_t(rate), C.uint8_t(gop), C.uint8_t(fps), C.uintptr_t(handle)))
-	if result < 0 {
-		return nil, nil, result
-	}
-	if !state.complete() {
-		return nil, nil, -2
-	}
-	return state.storage, state.storage[headroom:], result
+	return state.videoResult(result)
 }
 
 // JPEG is one borrowed pack. The returned bytes are owned by Go before the
@@ -56,11 +35,5 @@ func readMjpegIntoOwnedStorage(width, height, quality uint16) ([]byte, int) {
 	handle := cgo.NewHandle(state)
 	defer handle.Delete()
 	result := int(C.nkosReadMjpeg(C.uint16_t(width), C.uint16_t(height), C.uint16_t(quality), C.uintptr_t(handle)))
-	if result != 0 {
-		return nil, result
-	}
-	if !state.complete() {
-		return nil, -2
-	}
-	return state.storage, result
+	return state.mjpegResult(result)
 }

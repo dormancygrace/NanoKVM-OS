@@ -1,7 +1,9 @@
 import { useAuth } from '@/contexts/auth.ts';
-import { Button, Divider } from 'antd';
+import { Button } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+
+import { SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
 import { Logout } from './logout.tsx';
 import { Users } from './users.tsx';
@@ -16,36 +18,26 @@ export const Account = () => {
   }
 
   return (
-    <>
-      <div className="flex flex-col space-y-8">
-        <div className="flex items-center justify-between">
-          <span>{t('settings.account.webAccount')}</span>
+    <div className="space-y-6">
+      <SettingsSection>
+        <SettingRow label={t('settings.account.webAccount')}>
           <span>{account.username}</span>
-        </div>
+        </SettingRow>
 
-        <div className="flex items-center justify-between">
-          <span>{t('settings.account.role')}</span>
+        <SettingRow label={t('settings.account.role')}>
           <span>{t(`settings.account.roles.${account.role}`)}</span>
-        </div>
+        </SettingRow>
 
-        <div className="flex items-center justify-between">
-          <span>{t('settings.account.password')}</span>
+        <SettingRow label={t('settings.account.password')}>
           <Button type="primary" onClick={changePassword}>
             {t('settings.account.updateBtn')}
           </Button>
-        </div>
-      </div>
+        </SettingRow>
+      </SettingsSection>
 
-      <Divider className="opacity-50" />
-
-      {account.role === 'admin' && (
-        <>
-          <Users />
-          <Divider className="opacity-50" />
-        </>
-      )}
+      {account.role === 'admin' && <Users />}
 
       <Logout />
-    </>
+    </div>
   );
 };

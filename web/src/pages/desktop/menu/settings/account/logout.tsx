@@ -28,7 +28,7 @@ export const Logout = () => {
   }
 
   return (
-    <div className="flex justify-center pt-3">
+    <div className="flex justify-center">
       <Popconfirm
         placement="bottom"
         title={t('settings.account.logoutDesc')}

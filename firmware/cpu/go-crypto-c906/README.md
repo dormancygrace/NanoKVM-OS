@@ -30,21 +30,31 @@ inside the function and no vector state lives across calls.
 `bufSize` is five blocks (320 bytes) on riscv64. `XORKeyStream` only passes
 multiples of it; it never lets the 32-bit counter wrap inside one call.
 
-Measured on the device with thread CPU time, 20 KiB of blocks per call:
+Kernel variants measured on the device by thread CPU time, 20 KiB per call,
+in one run while video streamed (the shipped kernel reaches 94 MB/s when the
+device is quieter):
 
 | kernel | MB/s |
 | --- | ---: |
 | generic Go | 26 |
 | RV64I scalar assembly, 1 block | 32 |
 | XTheadVector, 4 blocks | 65 |
-| XTheadVector 4 + scalar 1 (shipped) | 79 |
+| XTheadVector 4 + scalar 1, 16 strided stores (`th.vsse.v`) | 75 |
+| XTheadVector 4 + scalar 1, 2 segment stores (shipped) | 79 |
 | same, rounds only (no add/store/XOR) | 91 |
 
 The rounds run at the vector datapath limit (1600 vector instructions of two
 cycles per 320 bytes). `th.vrgather.vv` costs four cycles, so byte permutes
-for the 16 and 8 bit rotates do not pay. XTheadBb's `th.srriw` would shorten
-the scalar rotates, but this kernel's device tree does not advertise
-`xtheadbb`, so it is not used.
+for the 16 and 8 bit rotates do not pay, and LMUL 2 or 4 has the same
+throughput per element. XTheadBb's `th.srriw` would shorten the scalar
+rotates, but the NanoKVM device tree does not advertise `xtheadbb`, so it is
+not used.
+
+With `NANOKVM_CHACHA20=generic` the generic code still fills five-block
+buffers, which wastes up to four blocks per message: its key stream is about
+15% slower than upstream for 1400 byte records (Seal 8%, with the faster
+Poly1305), within noise for 16 KiB. Compare against an unpatched GOROOT for a
+baseline.
 
 ## Encodings
 
@@ -88,6 +98,27 @@ byte elements), so prepare.py lets it use 64-bit loads when
 `cpu.RISCV64.HasFastMisaligned` is set (`sum_misaligned_riscv64.go`);
 without it the byte loads remain. `tests/poly1305` compares both paths with
 the generic code for every offset modulo 16.
+
+## Results
+
+Device, by thread CPU time (MB/s, medians of 7 interleaved runs of 5 rounds,
+with video streaming in the background), base = unpatched GOROOT:
+
+| | 1400 B base | 1400 B new | 16 KiB base | 16 KiB new |
+| --- | ---: | ---: | ---: | ---: |
+| ChaCha20 part of Seal | 25.3 | 49.3 | 27.0 | 77.7 |
+| Poly1305, message at offset 5 | 93.5 | 197.4 | 96.8 | 202.7 |
+| ChaCha20-Poly1305 Seal | 19.4 | 34.2 | 20.3 | 49.2 |
+
+`tls-smoke.go` sends random data over a crypto/tls 1.3 loopback connection
+and checks that it arrives intact with TLS_CHACHA20_POLY1305_SHA256. With 16
+KiB writes (Seal on the client, Open on the server) user time went from about
+118 to 60 ms per MiB.
+
+```sh
+GOROOT=/path/to/prepared-goroot GOOS=linux GOARCH=riscv64 go build -o /tmp/tls-smoke tls-smoke.go
+/var/tmp/tls-smoke 16 16384
+```
 
 ## Tests
 

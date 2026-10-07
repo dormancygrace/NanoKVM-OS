@@ -1183,7 +1183,7 @@ const ru = {
       },
       usb: {
         confirmDisable: 'Выключить USB?',
-        confirmDisableDescription: 'Компьютер потеряет клавиатуру, мышь, накопитель и звук NanoKVM, пока USB снова не включат.',
+        confirmDisableDescription: 'Компьютер потеряет клавиатуру, мышь, накопитель и звук NanoKVM, пока USB снова не включат здесь. RustDesk тоже потеряет управление клавиатурой и мышью.',
         pointerProfile: 'Режим абсолютного указателя',
         pointerProfileHelp:
           'Windows привязывает указатель к захватываемому монитору (Windows 10 1903 и новее). Применение переподключает USB и HDMI.',

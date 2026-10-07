@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -150,6 +151,38 @@ func TestRemoteAccessPreparationFailurePreservesSettingsAndRunningService(t *tes
 	got, err := readConfig()
 	if err != nil || got.Enabled {
 		t.Fatal("failed preparation changed configuration")
+	}
+}
+
+func TestRestartsAndUnrelatedSavesKeepUserUSBComposition(t *testing.T) {
+	temporaryConfig(t)
+	current := defaultConfig()
+	current.Enabled = true
+	current.Password = "stored-pass"
+	if err := writeConfig(current); err != nil {
+		t.Fatal(err)
+	}
+	media, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer media.Close()
+	b := NewBridge()
+	b.media = media // already started: Configure must not open runtime sockets
+	s := NewService(b)
+	s.run = func(context.Context, string, ...string) ([]byte, error) { return nil, nil }
+	calls := 0
+	s.ensureUSB = func(bool) error { calls++; return nil }
+
+	// The daemon asks on every start, e.g. after boot or a package upgrade.
+	_ = s.PrepareUSB()
+	candidate := current
+	candidate.MaxClients = 2
+	if err := s.Configure(candidate); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatalf("USB composition changed %d times without turning RustDesk on", calls)
 	}
 }
 

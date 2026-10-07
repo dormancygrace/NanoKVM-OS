@@ -74,8 +74,11 @@ func NewService(b *Bridge) *Service {
 
 func audioRequested(c Config) bool { return c.AudioEnabled == nil || *c.AudioEnabled }
 
-// Called once by the enabled daemon before it accepts remote connections.
-// This covers cold boot, package upgrade and terminal service restarts too.
+// Called once by the enabled daemon before it accepts remote connections,
+// including after cold boot, package upgrade and service restarts. It leaves
+// the USB composition alone: USB functions are enabled when the user turns
+// RustDesk or its sound on (Configure), and a later choice in USB settings,
+// such as turning USB off, must survive restarts.
 func (s *Service) PrepareUSB() error {
 	c, err := readConfig()
 	if err != nil {
@@ -84,10 +87,8 @@ func (s *Service) PrepareUSB() error {
 	if !c.Enabled {
 		return errors.New("RustDesk remote access is disabled")
 	}
-	if _, err := os.Stat(Binary); err != nil {
-		return err
-	}
-	return s.ensureUSB(audioRequested(c))
+	_, err = os.Stat(Binary)
+	return err
 }
 func runCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
@@ -399,7 +400,10 @@ func (s *Service) Configure(candidate Config) error {
 	if candidate.AudioEnabled != nil && !s.supportsAudioSettings() {
 		return errors.New("update the RustDesk add-on before configuring sound transmission")
 	}
-	if candidate.Enabled {
+	// Only turning RustDesk or its sound on changes USB; saving other settings
+	// keeps what the user chose in USB settings.
+	turningOn := candidate.Enabled && (!current.Enabled || audioRequested(candidate) && !audioRequested(current))
+	if turningOn {
 		if err = s.ensureUSB(audioRequested(candidate)); err != nil {
 			return fmt.Errorf("prepare USB for RustDesk: %w", err)
 		}

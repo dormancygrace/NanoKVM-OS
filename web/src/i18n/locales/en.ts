@@ -1161,7 +1161,7 @@ const en = {
       },
       usb: {
         confirmDisable: 'Turn off USB?',
-        confirmDisableDescription: 'The computer loses the NanoKVM keyboard, mouse, storage and audio until USB is turned on again.',
+        confirmDisableDescription: 'The computer loses the NanoKVM keyboard, mouse, storage and audio until USB is turned on again here. RustDesk loses keyboard and mouse control too.',
         pointerProfile: 'Absolute pointer profile',
         pointerProfileHelp:
           'Windows binds the pointer to the captured monitor (Windows 10 1903 or newer). Applying reconnects USB and HDMI.',

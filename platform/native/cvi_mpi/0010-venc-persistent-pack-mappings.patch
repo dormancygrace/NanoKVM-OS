@@ -1,0 +1,231 @@
+diff --git a/modules/venc/src/cvi_venc.c b/modules/venc/src/cvi_venc.c
+index 56e4a3c..98e4321 100644
+--- a/modules/venc/src/cvi_venc.c
++++ b/modules/venc/src/cvi_venc.c
+@@ -1,7 +1,9 @@
+ 
+ #include <fcntl.h>
++#include <pthread.h>
+ #include <unistd.h>
+ #include <sys/ioctl.h>
++#include <sys/mman.h>
+ #include <stdlib.h>
+ 
+ #include "devmem.h"
+@@ -41,8 +43,143 @@ static CVI_S32 s32DevmemFd = -1;
+ static CVI_U32 u32ChannelCreatedCnt;
+ 
+ CVI_S32 s32VencFd[VENC_MAX_CHN_NUM] = {0};
++/* Exported but no longer used: the pack bookkeeping is in stPackMap below. */
+ CVI_U8 *pStreamPackArray[VENC_MAX_CHN_NUM][8] = {NULL};
+ 
++/*
++ * Stream pack mappings.
++ *
++ * The driver returns every pack by physical address. GetStream used to mmap
++ * each pack through /dev/mem and ReleaseStream to munmap it: per frame two
++ * system calls, page-table setup and a TLB flush. The packs lie in a few
++ * long-lived buffers (the channel's bitstream buffer, the driver's header
++ * copies), so keep read-only windows over them mapped and hand out pointers
++ * into those; a pack that fits no window and finds no idle slot is mapped
++ * alone as before.
++ *
++ * Cache coherence is unchanged. The windows use the same cached /dev/mem
++ * descriptor as the per-pack mappings did, and creating or removing a mapping
++ * does no cache maintenance, so a fresh mapping never hid stale lines. What
++ * makes the bytes current is the driver: it invalidates the range the encoder
++ * wrote by physical address before it publishes a pack, and packs the CPU
++ * wrote (headers, user data) are coherent in the physically tagged data cache.
++ * Read-only windows cannot create dirty lines over memory the kernel reuses.
++ *
++ * A window starts at the page of the pack that created it and ends at the
++ * next VENC_MAP_GRANULE boundary after it, so it never reaches below a pack
++ * or across a granule boundary that the pack itself does not cross.
++ */
++#define VENC_MAP_WINDOWS	8
++#define VENC_MAP_GRANULE	(1ULL << 20)
++#define VENC_MAP_PACKS		16
++
++typedef struct {
++	CVI_U64 u64Base;	/* page-aligned physical start */
++	CVI_U64 u64End;		/* physical end, exclusive */
++	CVI_U8 *pu8Virt;	/* NULL if the slot is free */
++	CVI_U32 u32Users;	/* packs handed out and not released */
++	CVI_U64 u64Stamp;	/* last use */
++} VENC_MAP_WINDOW_S;
++
++typedef struct {
++	CVI_BOOL bMapped;	/* the pack had an address and a length */
++	CVI_U8 *pu8KernelAddr;	/* restored on release, as before */
++	CVI_U8 *pu8Single;	/* pack mapped alone, or NULL */
++	CVI_U32 u32Len;
++	CVI_S32 s32Window;	/* window holding the pack, or -1 */
++} VENC_PACK_MAP_S;
++
++static pthread_mutex_t vencMapLock = PTHREAD_MUTEX_INITIALIZER;
++static VENC_MAP_WINDOW_S stMapWindow[VENC_MAP_WINDOWS];
++static CVI_U64 u64MapStamp;
++static VENC_PACK_MAP_S stPackMap[VENC_MAX_CHN_NUM][VENC_MAP_PACKS];
++static CVI_U32 u32MappedPacks[VENC_MAX_CHN_NUM];
++
++/* Called with vencMapLock held. */
++static CVI_U8 *vencMapPack(CVI_U64 u64PhyAddr, CVI_U32 u32Len, VENC_PACK_MAP_S *pstMap)
++{
++	const CVI_U64 u64Page = (CVI_U64)sysconf(_SC_PAGE_SIZE);
++	const CVI_U64 u64End = u64PhyAddr + u32Len;
++	VENC_MAP_WINDOW_S *pstWin;
++	CVI_S32 i, s32Slot = -1;
++
++	pstMap->pu8Single = NULL;
++	pstMap->u32Len = u32Len;
++	pstMap->s32Window = -1;
++	for (i = 0; i < VENC_MAP_WINDOWS; i++) {
++		pstWin = &stMapWindow[i];
++		if (pstWin->pu8Virt && pstWin->u64Base <= u64PhyAddr && u64End <= pstWin->u64End) {
++			s32Slot = i;
++			goto found;
++		}
++	}
++	/* A free slot, else the least recently used idle window. */
++	for (i = 0; i < VENC_MAP_WINDOWS; i++) {
++		pstWin = &stMapWindow[i];
++		if (!pstWin->pu8Virt) {
++			s32Slot = i;
++			break;
++		}
++		if (pstWin->u32Users == 0 &&
++		    (s32Slot < 0 || pstWin->u64Stamp < stMapWindow[s32Slot].u64Stamp))
++			s32Slot = i;
++	}
++	if (s32Slot >= 0 && s32DevmemFd >= 0 && u64End > u64PhyAddr) {
++		CVI_U64 u64Base = u64PhyAddr & ~(u64Page - 1);
++		CVI_U64 u64WinEnd = (u64End + VENC_MAP_GRANULE - 1) & ~(VENC_MAP_GRANULE - 1);
++		void *pVirt = mmap(NULL, u64WinEnd - u64Base, PROT_READ, MAP_SHARED,
++				   s32DevmemFd, (off_t)u64Base);
++
++		if (pVirt != MAP_FAILED) {
++			pstWin = &stMapWindow[s32Slot];
++			if (pstWin->pu8Virt)
++				munmap(pstWin->pu8Virt, pstWin->u64End - pstWin->u64Base);
++			pstWin->u64Base = u64Base;
++			pstWin->u64End = u64WinEnd;
++			pstWin->pu8Virt = pVirt;
++			pstWin->u32Users = 0;
++			goto found;
++		}
++	}
++	pstMap->pu8Single = devm_map(s32DevmemFd, u64PhyAddr, u32Len);
++	return pstMap->pu8Single;
++
++found:
++	pstWin = &stMapWindow[s32Slot];
++	pstWin->u32Users++;
++	pstWin->u64Stamp = ++u64MapStamp;
++	pstMap->s32Window = s32Slot;
++	return pstWin->pu8Virt + (u64PhyAddr - pstWin->u64Base);
++}
++
++/* Called with vencMapLock held. */
++static CVI_VOID vencUnmapPack(VENC_PACK_MAP_S *pstMap)
++{
++	if (pstMap->s32Window >= 0) {
++		if (stMapWindow[pstMap->s32Window].u32Users > 0)
++			stMapWindow[pstMap->s32Window].u32Users--;
++	} else if (pstMap->pu8Single) {
++		devm_unmap(pstMap->pu8Single, pstMap->u32Len);
++	}
++	pstMap->pu8Single = NULL;
++	pstMap->s32Window = -1;
++}
++
++/* Called with vencMapLock held, when no channel is left. */
++static CVI_VOID vencUnmapIdleWindows(CVI_VOID)
++{
++	CVI_S32 i;
++
++	for (i = 0; i < VENC_MAP_WINDOWS; i++) {
++		VENC_MAP_WINDOW_S *pstWin = &stMapWindow[i];
++
++		if (pstWin->pu8Virt && pstWin->u32Users == 0) {
++			munmap(pstWin->pu8Virt, pstWin->u64End - pstWin->u64Base);
++			pstWin->pu8Virt = NULL;
++		}
++	}
++}
++
+ static CVI_S32 cviGetEnv(CVI_CHAR *env, CVI_CHAR *fmt, CVI_VOID *param)
+ {
+ 	CVI_CHAR *debugEnv;
+@@ -167,6 +304,9 @@ CVI_S32 CVI_VENC_DestroyChn(VENC_CHN VeChn)
+ 
+ 	u32ChannelCreatedCnt -= 1;
+ 	if (u32ChannelCreatedCnt == 0) {
++		pthread_mutex_lock(&vencMapLock);
++		vencUnmapIdleWindows();
++		pthread_mutex_unlock(&vencMapLock);
+ 		devm_close(s32DevmemFd);
+ 		s32DevmemFd = -1;
+ 	}
+@@ -236,14 +376,31 @@ CVI_S32 CVI_VENC_GetStream(VENC_CHN VeChn, VENC_STREAM_S *pstStream, CVI_S32 S32
+ 		if (s32Ret == CVI_SUCCESS) {
+ 			CVI_U32 i = 0;
+ 			VENC_PACK_S *ppack;
++			VENC_PACK_MAP_S *pstMap;
+ 
++			pthread_mutex_lock(&vencMapLock);
++			/* A stream that was not released: its pointers are invalid now. */
++			for (i = 0; i < u32MappedPacks[VeChn]; i++)
++				vencUnmapPack(&stPackMap[VeChn][i]);
++			u32MappedPacks[VeChn] = 0;
+ 			for (i = 0; i < pstStreamEx->pstStream->u32PackCount; i++) {
+ 				ppack = &pstStreamEx->pstStream->pstPack[i];
+-				if (ppack->u64PhyAddr && ppack->u32Len) {
+-					pStreamPackArray[VeChn][i] = ppack->pu8Addr;
+-					ppack->pu8Addr = devm_map(s32DevmemFd, ppack->u64PhyAddr, ppack->u32Len);
++				if (i >= VENC_MAP_PACKS) {
++					/* The driver returns at most MAX_NUM_PACKS (12). */
++					ppack->pu8Addr = NULL;
++					continue;
++				}
++				pstMap = &stPackMap[VeChn][i];
++				pstMap->bMapped = ppack->u64PhyAddr && ppack->u32Len;
++				pstMap->pu8Single = NULL;
++				pstMap->s32Window = -1;
++				if (pstMap->bMapped) {
++					pstMap->pu8KernelAddr = ppack->pu8Addr;
++					ppack->pu8Addr = vencMapPack(ppack->u64PhyAddr, ppack->u32Len, pstMap);
+ 				}
++				u32MappedPacks[VeChn] = i + 1;
+ 			}
++			pthread_mutex_unlock(&vencMapLock);
+ 		}
+ 		return s32Ret;
+ 	}
+@@ -254,15 +411,19 @@ CVI_S32 CVI_VENC_ReleaseStream(VENC_CHN VeChn, VENC_STREAM_S *pstStream)
+ {
+ 	if (s32VencFd[VeChn] > 0) {
+ 		CVI_U32 i = 0;
+-		VENC_PACK_S *ppack;
+-
+-		for (i = 0; i < pstStream->u32PackCount; i++) {
+-			ppack = &pstStream->pstPack[i];
+-			if (ppack->u64PhyAddr && ppack->u32Len) {
+-				devm_unmap(ppack->pu8Addr, ppack->u32Len);
+-				ppack->pu8Addr = pStreamPackArray[VeChn][i];
+-			}
++		VENC_PACK_MAP_S *pstMap;
++
++		pthread_mutex_lock(&vencMapLock);
++		for (i = 0; i < u32MappedPacks[VeChn]; i++) {
++			pstMap = &stPackMap[VeChn][i];
++			if (!pstMap->bMapped)
++				continue;
++			vencUnmapPack(pstMap);
++			if (i < pstStream->u32PackCount)
++				pstStream->pstPack[i].pu8Addr = pstMap->pu8KernelAddr;
+ 		}
++		u32MappedPacks[VeChn] = 0;
++		pthread_mutex_unlock(&vencMapLock);
+ 		return ioctl(s32VencFd[VeChn], CVI_VC_VENC_RELEASE_STREAM, pstStream);
+ 	}
+ 	return CVI_FAILURE;

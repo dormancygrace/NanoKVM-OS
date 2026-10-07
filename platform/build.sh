@@ -694,7 +694,7 @@ in_userns() (
     exec {mapped_fd}<>"$sync/mapped"
     unshare --user --mount --pid --fork --kill-child \
         bash -c 'echo > "$1/ready"; read -r _ < "$1/mapped"; shift; exec "$@"' sh "$sync" \
-        env NANOKVM_USERNS=1 bash "$here/build.sh" -o "$out" -j "$jobs" ${key:+-k "$key"} "$1" &
+        env NANOKVM_USERNS=1 bash "$here/build.sh" -o "$out" -j "$jobs" ${key:+-k "$key"} ${devkey:+-d} "$1" &
     pid=$!
     deadline=$((SECONDS + 30))
     until read -r -t 0.1 -u "$ready_fd" _; do
@@ -775,8 +775,9 @@ signing_key() {
         exit 2
     else
         echo "Signing with a local test key: do not publish these packages or this image" >&2
+        # Only a key this option created; never another key left in OUTPUT/keys.
         keyfile=
-        [ ! -d "$out/keys" ] || keyfile=$(find "$out/keys" -name '*.rsa' | head -n 1)
+        [ ! -d "$out/keys" ] || keyfile=$(find "$out/keys" -name 'nanokvm-test-*.rsa' | LC_ALL=C sort | head -n 1)
         if [ -z "$keyfile" ]; then
             mkdir -p "$out/keys"
             tmp=$out/keys/new.rsa

@@ -4,7 +4,7 @@
 - the toolchain, the Linux kernel and all kernel modules, U-Boot, OpenSBI, `fip.bin`, the initramfs and the `boot.sd` images;
 - the SOPHGO media libraries, the board service `kvm_system`, the server, the update helpers and the web UI;
 - the board tools, the EDID profiles and the firmware files;
-- the six `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
+- the seven `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
 Every upstream input is pinned in `sources.lock` and checked when it is downloaded. The outputs of the build steps are checked against `expected.sha256`. The OpenSBI/FIP candidate passed host checks and ROM UART RAM boot on SG2002 with Linux 7.2.9, timer/PLIC, fixed PMU counters and live video. Persistent installation and candidate SD cold boot remain untested.
 
@@ -22,7 +22,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/web/` | `nanokvm-app`, `/kvmapp/server/web` |
 | `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm-app`, `nanokvm-firmware-sg2002` |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware-sg2002` |
-| `release/apk/` | the signed APK repository of the six packages |
+| `release/apk/` | the signed APK repository of the seven packages |
 | `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt` | the root file system and its package versions |
 | `release/image/NanoKVM-OS-Image-<image-version>-apps-<application-version>.img.zip`, `SHA256SUMS` | the SD card image |
 
@@ -60,7 +60,9 @@ Go modules, npm packages and Alpine packages are downloaded during the build and
 
 ### Signing key
 
-The APK packages are signed, and the packages and rootfs steps need a key. Release builds pass the maintainer key: `-k path/to/dgrace-6aaddbb6.rsa`, with its `.rsa.pub` next to it. Local test builds pass `-d` instead: the first run creates a test key in `OUTPUT/keys` and the image trusts it, so never publish those packages or images. apk does not tie a key to a repository: a device trusts every key in `/etc/apk/keys` for every repository it uses. Every image also trusts the public key of NanoKVM OS releases in `firmware/alpine/keys` and uses the release repository `https://nkos.pesin.pro/repos/nanokvm`, so an image built from this repository updates to later releases.
+The APK packages are signed, and the packages and rootfs steps need a key. Release builds pass the maintainer key: `-k path/to/dgrace-6aaddbb6.rsa`, with its `.rsa.pub` next to it; that public key must be in `firmware/alpine/keys` under the same name, or `build.sh` stops. Local test builds pass `-d` instead: the first run creates a test key `OUTPUT/keys/nanokvm-test-*.rsa` and the image trusts it, so never publish those packages or images. apk does not tie a key to a repository: a device trusts every key in `/etc/apk/keys` for every repository it uses.
+
+The package `nanokvm-keys` installs the public keys of `firmware/alpine/keys` (with `-d`, also the test key) in `/etc/apk/keys` and owns them, so a later release can add or remove a key. Every image trusts them and uses the release repository `https://nkos.pesin.pro/repos/nanokvm`, so an image built from this repository updates to later releases. The rootfs step copies the keys into the root before it installs `nanokvm-release`, and apk takes over the identical files; the step fails if a key in `/etc/apk/keys` has no owner. Replacing the release key is described in [firmware/alpine/README.md](../firmware/alpine/README.md#signing-keys).
 
 The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`). Releases up to v2.0-b7 replaced busybox, coreutils, openssl, lz4 and zstd with C906-tuned builds (`c906-scalar`); that overlay is not built here.
 
@@ -72,7 +74,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`). Re
 | `sources.lock` | Every upstream input: archives by SHA-256, Git trees by commit and tree id |
 | `build.sh` | All build steps |
 | `expected.sha256` | Hash of every output in `images/`; `build.sh verify` fails if an output is missing, differs or is not listed |
-| `packages.list` | The contents of the six APK packages: each file, its mode and where it comes from |
+| `packages.list` | The contents of the seven APK packages: each file, its mode and where it comes from |
 | `kernel/` | `config` and patches for kernel.org Linux 7.2.9 |
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi and cryptodev; `sg2002-aes/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.07 |

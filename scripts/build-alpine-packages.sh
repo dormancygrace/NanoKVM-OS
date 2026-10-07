@@ -7,8 +7,10 @@
 #
 # The payload tree is prepared by the NanoKVM image staging step. It may either
 # contain package directories directly or contain one directory per profile:
-#   PAYLOAD_ROOT/stock/{base,kernel-sg2002,kmod-sg2002,firmware-sg2002,app,release}
-#   PAYLOAD_ROOT/c906-scalar/{base,kernel-sg2002,kmod-sg2002,firmware-sg2002,app,release}
+#   PAYLOAD_ROOT/stock/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,app,release}
+#   PAYLOAD_ROOT/c906-scalar/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,app,release}
+# Without keys/, nanokvm-keys holds firmware/alpine/keys; without release/,
+# a release marker is generated.
 #
 # This script only creates source archives and calls abuild. It does not install
 # packages, change a device, or contact a NanoKVM. Build on Alpine with abuild
@@ -96,6 +98,17 @@ EOF
 	echo "$release_dir"
 }
 
+make_keys_payload() {
+	if [ -d "$PROFILE_ROOT/keys" ]; then
+		echo "$PROFILE_ROOT/keys"
+		return
+	fi
+	mkdir -p "$WORK/keys/etc/apk/keys"
+	cp "$ROOT"/firmware/alpine/keys/*.rsa.pub "$WORK/keys/etc/apk/keys/"
+	chmod 0644 "$WORK"/keys/etc/apk/keys/*
+	echo "$WORK/keys"
+}
+
 archive_payload() {
 	pkg=$1
 	payload=$2
@@ -108,6 +121,8 @@ archive_payload() {
 	echo "prepared $SRCDEST/$pkg-$version.tar.gz"
 }
 
+keys_payload=$(make_keys_payload)
+archive_payload nanokvm-keys "$keys_payload"
 archive_payload nanokvm-base "$PROFILE_ROOT/base"
 archive_payload nanokvm-kernel-sg2002 "$PROFILE_ROOT/kernel-sg2002"
 archive_payload nanokvm-kmod-sg2002 "$PROFILE_ROOT/kmod-sg2002"
@@ -153,7 +168,7 @@ prepare_recipe() {
 	fi
 }
 
-for pkg in nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 \
+for pkg in nanokvm-keys nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 \
 	 nanokvm-app nanokvm-release; do
 	echo "building $pkg ($PROFILE)"
 	prepare_recipe "$pkg"
@@ -173,8 +188,8 @@ tar -tzf "$index" >/dev/null || {
 	exit 1
 }
 apk_count=$(find "$REPODEST" -type f -name '*.apk' | wc -l)
-[ "$apk_count" -ge 6 ] || {
-	echo "build-alpine-packages: expected six APKs, found $apk_count" >&2
+[ "$apk_count" -ge 7 ] || {
+	echo "build-alpine-packages: expected seven APKs, found $apk_count" >&2
 	exit 1
 }
 find "$REPODEST" -type f -name '*.apk' -print | while IFS= read -r apk; do

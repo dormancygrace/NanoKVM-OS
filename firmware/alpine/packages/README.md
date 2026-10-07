@@ -13,6 +13,7 @@ and invokes `abuild` in dependency order.
 Set `PAYLOAD_ROOT` to a directory containing these subdirectories:
 
 ```
+keys/                    etc/apk/keys/*.rsa.pub (default: firmware/alpine/keys)
 base/                    files installed below /
 kernel-sg2002/           FIT, DTB and kernel payload below /usr/lib/nanokvm/boot
 kmod-sg2002/             lib/modules/<kernel-release>/
@@ -24,7 +25,10 @@ release/                  etc/nanokvm-release and build profile metadata
 The helper also accepts `PAYLOAD_ROOT/<profile>/...` (for example
 `PAYLOAD_ROOT/stock/app` and `PAYLOAD_ROOT/c906-scalar/app`) so stock and tuned
 repositories can be generated from the same checkout. Files containing device
-identity, keys, `/data`, or user settings must not be put in these payloads.
+identity, private keys, `/data`, or user settings must not be put in these
+payloads; `nanokvm-keys` refuses anything but public keys in `/etc/apk/keys`.
+`nanokvm-base` depends on `nanokvm-keys`, which owns the repository keys (see
+[signing keys](../README.md#signing-keys)).
 
 ## Sophgo `devmem` dependency
 

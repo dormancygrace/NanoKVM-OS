@@ -114,11 +114,11 @@ def sign_legacy_index(unsigned: Path, signed: Path, key: Path, key_name: str,
                       epoch: int, abuild_tar: Path, rootfs: Path | None,
                       qemu: Path | None, work: Path) -> None:
     signature = work / "index.signature"
-    run(["openssl", "dgst", "-sha1", "-sign", str(key), "-out",
+    run(["openssl", "dgst", "-sha256", "-sign", str(key), "-out",
          str(signature), str(unsigned)])
     os.utime(signature, (epoch, epoch))
 
-    member_name = f".SIGN.RSA.{key_name}"
+    member_name = f".SIGN.RSA256.{key_name}"
     signature_member = work / member_name
     shutil.copyfile(signature, signature_member)
     tar_path = work / "signature.tar"
@@ -148,6 +148,9 @@ def main() -> int:
                         default=root / "firmware/alpine/evidence/2026-09-19-qualified-c906")
     parser.add_argument("--sign-key", type=Path,
                         default=Path(os.environ["SIGN_KEY"]) if os.environ.get("SIGN_KEY") else None)
+    parser.add_argument("--ec-sign-key", type=Path,
+                        default=Path(os.environ["EC_SIGN_KEY"]) if os.environ.get("EC_SIGN_KEY") else None,
+                        help="ECDSA key NAME.key (NAME.pub next to it) that also signs Packages.adb")
     parser.add_argument("--rootfs", type=Path,
                         default=Path(os.environ.get("ALPINE_TOOL_ROOTFS", root / "work/alpine/tuned-builder-full/rootfs")))
     parser.add_argument("--qemu", type=Path,
@@ -172,6 +175,10 @@ def main() -> int:
         parser.error(f"source repository does not exist: {source}")
     if not key.is_file():
         parser.error(f"signing key does not exist: {key}")
+    ec_key = args.ec_sign_key.resolve() if args.ec_sign_key else None
+    ec_public = ec_key.with_suffix(".pub") if ec_key else None
+    if ec_key and not (ec_key.is_file() and ec_public.is_file()):
+        parser.error(f"EC signing key or its .pub does not exist: {ec_key}")
     for path in (output, evidence):
         if path.exists():
             if not args.force:
@@ -250,7 +257,9 @@ def main() -> int:
                 "--description", "NanoKVM Alpine v3.24 c906-scalar qualified",
                 *[str(package) for package in staged_packages], env=apk_env)
         packages_adb = staging_arch / "Packages.adb"
-        apk_run(apk, rootfs, qemu, "--keys-dir", str(keys), "--sign-key", str(key),
+        # With an EC key the v3 index has two signatures; either key verifies it.
+        ec_sign = ["--sign-key", str(ec_key)] if ec_key else []
+        apk_run(apk, rootfs, qemu, "--keys-dir", str(keys), "--sign-key", str(key), *ec_sign,
                 "mkndx", "--output", str(packages_adb),
                 "--description", "NanoKVM Alpine v3.24 c906-scalar qualified",
                 *[str(package) for package in staged_packages], env=apk_env)
@@ -282,6 +291,11 @@ def main() -> int:
         # signatures before making the output visible.
         apk_run(apk, rootfs, qemu, "--keys-dir", str(keys), "verify", str(signed_index))
         apk_run(apk, rootfs, qemu, "--keys-dir", str(keys), "verify", str(packages_adb))
+        if ec_key:
+            ec_keys = temp / "keys-ec"
+            ec_keys.mkdir()
+            shutil.copyfile(ec_public, ec_keys / ec_public.name)
+            apk_run(apk, rootfs, qemu, "--keys-dir", str(ec_keys), "verify", str(packages_adb))
         for package in staged_packages:
             apk_run(apk, rootfs, qemu, "--keys-dir", str(keys), "verify", str(package))
 
@@ -317,7 +331,8 @@ def main() -> int:
             "`xz` and `zlib` are excluded.\n\n"
             "The APK bytes are retained only under the ignored work output "
             "`work/alpine/repo-c906-qualified`. `APKINDEX.tar.gz` and `Packages.adb` "
-            "are regenerated and signed with the existing RSA key. Package and index "
+            "are regenerated and signed with the existing RSA key (Packages.adb also "
+            "with the ECDSA key, if one is given). Package and index "
             "signatures were verified before publication of the output directory. "
             "Each APK is stored under its declared `riscv64` or `noarch` path. "
             "The private key is not copied to either output or evidence.\n\n"

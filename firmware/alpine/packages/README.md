@@ -13,6 +13,7 @@ and invokes `abuild` in dependency order.
 Set `PAYLOAD_ROOT` to a directory containing these subdirectories:
 
 ```
+keys/                    etc/apk/keys/*.pub (default: firmware/alpine/keys)
 base/                    files installed below /
 kernel-sg2002/           FIT, DTB and kernel payload below /usr/lib/nanokvm/boot
 kmod-sg2002/             lib/modules/<kernel-release>/
@@ -24,7 +25,10 @@ release/                  etc/nanokvm-release and build profile metadata
 The helper also accepts `PAYLOAD_ROOT/<profile>/...` (for example
 `PAYLOAD_ROOT/stock/app` and `PAYLOAD_ROOT/c906-scalar/app`) so stock and tuned
 repositories can be generated from the same checkout. Files containing device
-identity, keys, `/data`, or user settings must not be put in these payloads.
+identity, private keys, `/data`, or user settings must not be put in these
+payloads; `nanokvm-keys` refuses anything but public keys in `/etc/apk/keys`.
+`nanokvm-base` depends on `nanokvm-keys`, which owns the repository keys (see
+[signing keys](../README.md#signing-keys)).
 
 ## Sophgo `devmem` dependency
 
@@ -72,7 +76,8 @@ The helper copies each recipe to a temporary build directory and runs
 `abuild checksum` there before `abuild -r`. This keeps checksums out of the
 working tree while retaining normal APKBUILD checksum verification. The final
 repository check requires a valid `APKINDEX.tar.gz` and one APK per recipe;
-package and index signing are performed by the configured abuild key.
+package and index signing are performed by the configured abuild key, with
+RSA256 signatures (RSA with SHA-256) instead of abuild's default RSA with SHA-1.
 
 The kernel APK stages all board FITs and their hashes below
 `/usr/lib/nanokvm/boot` and has an exact dependency on the matching module APK.

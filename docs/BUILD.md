@@ -4,7 +4,7 @@
 
 - the toolchain, Linux kernel and modules, U-Boot, `fip.bin` and the boot images;
 - the SOPHGO media libraries, the board service, the server and the web UI;
-- the six `nanokvm-*` APK packages, the Alpine root file system and the image.
+- the seven `nanokvm-*` APK packages, the Alpine root file system and the image.
 
 Host requirements, the steps, the outputs and how they are checked are described in [platform/README.md](../platform/README.md). Buildroot (`firmware/buildroot/configs/nanokvm_platform_defconfig`) builds only the toolchain, host tools and initramfs utilities; the installed OS and optional software are Alpine APKs.
 

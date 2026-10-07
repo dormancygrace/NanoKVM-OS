@@ -96,7 +96,8 @@ def main() -> None:
     parser.add_argument("--boot-fit", type=Path, required=True)
     parser.add_argument("--nanokvm-repo", type=Path, required=True)
     parser.add_argument("--tuned-repo", type=Path, help="Optional experimental C906 repository")
-    parser.add_argument("--repo-key", type=Path, required=True)
+    # Repeatable: the RSA key and the ECDSA key that signs the v3 index.
+    parser.add_argument("--repo-key", type=Path, action="append", required=True)
     parser.add_argument("--qemu-static", type=Path, required=True)
     parser.add_argument("--f2fs-build", type=Path, default=Path("build/f2fs"))
     parser.add_argument("--sample-package", default="nano")
@@ -111,7 +112,6 @@ def main() -> None:
     inputs = {
         "base_rootfs": require_file(resolve(repo, args.base_rootfs), "base rootfs"),
         "boot_fit": require_file(resolve(repo, args.boot_fit), "normal FIT"),
-        "repo_key": require_file(resolve(repo, args.repo_key), "repository public key"),
         "qemu": require_file(resolve(repo, args.qemu_static), "qemu-riscv64-static"),
     }
     nanokvm_repo = require_directory(resolve(repo, args.nanokvm_repo), "NanoKVM repository")
@@ -122,9 +122,15 @@ def main() -> None:
         parser.error(f"output exists; pass --force to replace it: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    key_text = inputs["repo_key"].read_text(encoding="ascii", errors="strict")
-    if "PRIVATE KEY" in key_text or "PUBLIC KEY" not in key_text:
-        parser.error("--repo-key must be a PEM public key; private keys are forbidden")
+    repo_keys = [require_file(resolve(repo, key), "repository public key") for key in args.repo_key]
+    if len({key.name for key in repo_keys}) != len(repo_keys):
+        parser.error("--repo-key file names must differ")
+    for key in repo_keys:
+        key_text = key.read_text(encoding="ascii", errors="strict")
+        if "PRIVATE KEY" in key_text or "PUBLIC KEY" not in key_text:
+            parser.error("--repo-key must be a PEM public key; private keys are forbidden")
+    if not (nanokvm_repo / "riscv64/Packages.adb").is_file():
+        parser.error(f"{nanokvm_repo}/riscv64/Packages.adb is missing; images read the v3 index")
 
     with tempfile.TemporaryDirectory(prefix="nanokvm-builder-deploy-") as temp_name:
         bundle = Path(temp_name) / "nanokvm-builder"
@@ -144,7 +150,8 @@ def main() -> None:
 
         copy_file(inputs["base_rootfs"], bundle / "input" / inputs["base_rootfs"].name)
         copy_file(inputs["boot_fit"], bundle / "input/boot-alpine.sd")
-        copy_file(inputs["repo_key"], bundle / "keys" / inputs["repo_key"].name)
+        for key in repo_keys:
+            copy_file(key, bundle / "keys" / key.name)
         copy_file(inputs["qemu"], bundle / "qemu/qemu-riscv64-static")
         shutil.copytree(nanokvm_repo, bundle / "repos/nanokvm")
         if tuned_repo is not None:
@@ -156,7 +163,6 @@ def main() -> None:
 
         base_hash = sha256(inputs["base_rootfs"])
         boot_hash = sha256(inputs["boot_fit"])
-        key_name = inputs["repo_key"].name
         config = {
             "project_root": ".",
             "base_rootfs": f"input/{inputs['base_rootfs'].name}",
@@ -165,7 +171,7 @@ def main() -> None:
             "boot_sha256": boot_hash,
             "nanokvm_repo": "repos/nanokvm",
             "tuned_repo": "repos/c906-qualified" if tuned_repo is not None else None,
-            "repo_keys": [f"keys/{key_name}"],
+            "repo_keys": [f"keys/{key.name}" for key in repo_keys],
             "qemu_static": "qemu/qemu-riscv64-static",
             "output_root": "output",
             "alpine_version": "3.24",
@@ -194,7 +200,7 @@ def main() -> None:
             "  --boot-fit input/boot-alpine.sd \\\n"
             f"  --boot-sha256 {boot_hash} \\\n"
             "  --nanokvm-repo http://127.0.0.1:18080/nanokvm \\\n"
-            f"  --repo-key keys/{key_name} \\\n"
+            + "".join(f"  --repo-key keys/{key.name} \\\n" for key in repo_keys) +
             "  --packages-file requests/sample.packages \\\n"
             "  --qemu-static qemu/qemu-riscv64-static \\\n"
             "  --output output/sample\n"

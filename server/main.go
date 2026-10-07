@@ -42,6 +42,7 @@ func initialize(stopMemory context.CancelFunc) {
 	}
 
 	logger.Init()
+	utils.InitGoMemLimit()
 	vm.ApplySavedCPUFrequency()
 	if err := network.InitializeIPv6(); err != nil {
 		log.Printf("failed to initialize IPv6 policy: %v", err)

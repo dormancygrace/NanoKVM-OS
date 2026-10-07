@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ComponentProps, ReactNode } from 'react';
 import { Button, Divider, Tooltip } from 'antd';
 import clsx from 'clsx';
 import { CircleHelpIcon } from 'lucide-react';
@@ -103,7 +103,7 @@ export const HelpTip = ({ title }: { title: string }) => (
     <button
       type="button"
       aria-label={title}
-      className="text-fg-muted inline-flex shrink-0 cursor-help items-center border-0 bg-transparent p-0"
+      className="nanokvm-button-base text-fg-muted inline-flex shrink-0 cursor-help items-center"
     >
       <CircleHelpIcon size={14} aria-hidden />
     </button>
@@ -137,34 +137,19 @@ export const StatusBadge = ({ tone, children }: { tone: Tone; children: ReactNod
   </span>
 );
 
-type IconButtonProps = {
+type IconButtonProps = Omit<
+  ComponentProps<typeof Button>,
+  'type' | 'size' | 'icon' | 'children'
+> & {
   // Accessible name and tooltip.
   label: string;
   icon: ReactNode;
-  onClick?: () => void;
-  danger?: boolean;
-  loading?: boolean;
-  disabled?: boolean;
 };
 
-export const IconButton = ({
-  label,
-  icon,
-  onClick,
-  danger,
-  loading,
-  disabled
-}: IconButtonProps) => (
+// The remaining props (including the ref and the event handlers a wrapping
+// Popconfirm or Popover injects) go to the button.
+export const IconButton = ({ label, icon, ...props }: IconButtonProps) => (
   <Tooltip title={label}>
-    <Button
-      type="text"
-      size="small"
-      aria-label={label}
-      icon={icon}
-      danger={danger}
-      loading={loading}
-      disabled={disabled}
-      onClick={onClick}
-    />
+    <Button type="text" size="small" aria-label={label} icon={icon} {...props} />
   </Tooltip>
 );

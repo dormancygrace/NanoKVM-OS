@@ -1452,6 +1452,9 @@ const en = {
           tip: 'If issues persist after enabling memory optimization, try enabling swap memory. This sets the swap file size to 256MB by default, which can be adjusted in "Settings > Device".'
         },
         restart: 'Restart Tailscale?',
+        restartAction: 'Restart Tailscale',
+        stopAction: 'Stop Tailscale',
+        moreActions: 'More actions',
         stop: 'Stop Tailscale?',
         stopDesc: 'Sign out of Tailscale and disable automatic startup on boot.',
         loading: 'Loading…',
@@ -1486,6 +1489,9 @@ const en = {
       netbird: {
         title: 'NetBird',
         restart: 'Restart NetBird?',
+        restartAction: 'Restart NetBird',
+        stopAction: 'Stop NetBird',
+        moreActions: 'More actions',
         stop: 'Stop NetBird?',
         stopDesc: 'Stop the NetBird service.',
         loading: 'Loading…',

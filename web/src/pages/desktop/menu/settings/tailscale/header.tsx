@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/extensions/tailscale.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
+import { IconButton } from '@/components/ui/settings.tsx';
 
 import { VPNVersion } from '../vpn/version';
 import type { State } from './types.ts';
@@ -70,13 +71,17 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
               placement="bottom"
               disabled={loading !== ''}
             >
-              <div className="flex cursor-pointer rounded p-1 text-green-500 hover:bg-neutral-600 hover:text-green-500/80">
-                {loading === 'restarting' ? (
-                  <LoaderIcon className="animate-spin" size={18} />
-                ) : (
-                  <RotateCwIcon size={18} />
-                )}
-              </div>
+              <IconButton
+                label={t('settings.tailscale.restartAction')}
+                className="text-green-500 hover:text-green-500/80"
+                icon={
+                  loading === 'restarting' ? (
+                    <LoaderIcon className="animate-spin" size={18} />
+                  ) : (
+                    <RotateCwIcon size={18} />
+                  )
+                }
+              />
             </Popconfirm>
 
             {/* stop button */}
@@ -89,13 +94,17 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
               placement="bottom"
               disabled={loading !== ''}
             >
-              <div className="flex cursor-pointer rounded p-1 text-red-500 hover:bg-neutral-600 hover:text-red-500/80">
-                {loading === 'stopping' ? (
-                  <LoaderIcon className="animate-spin" size={18} />
-                ) : (
-                  <CircleStopIcon size={18} />
-                )}
-              </div>
+              <IconButton
+                label={t('settings.tailscale.stopAction')}
+                className="text-red-500 hover:text-red-500/80"
+                icon={
+                  loading === 'stopping' ? (
+                    <LoaderIcon className="animate-spin" size={18} />
+                  ) : (
+                    <CircleStopIcon size={18} />
+                  )
+                }
+              />
             </Popconfirm>
           </>
         )}
@@ -111,9 +120,11 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
             placement="bottom"
             trigger="click"
           >
-            <div className="flex cursor-pointer rounded p-1 text-white hover:bg-neutral-700/50">
-              <EllipsisIcon size={18} />
-            </div>
+            <IconButton
+              label={t('settings.tailscale.moreActions')}
+              className="text-white"
+              icon={<EllipsisIcon size={18} />}
+            />
           </Popover>
         )}
       </div>

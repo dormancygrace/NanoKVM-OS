@@ -9,6 +9,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import * as api from "@/api/extensions/netbird.ts";
+import { IconButton } from "@/components/ui/settings.tsx";
 
 import { ErrorHelp } from "./error-help.tsx";
 import type { State } from "./types.ts";
@@ -78,13 +79,17 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
                 placement="bottom"
                 disabled={!!loading}
               >
-                <div className="flex cursor-pointer rounded p-1 text-green-500 hover:bg-neutral-600">
-                  {loading === "restarting" ? (
-                    <LoaderIcon className="animate-spin" size={18} />
-                  ) : (
-                    <RotateCwIcon size={18} />
-                  )}
-                </div>
+                <IconButton
+                  label={t("settings.netbird.restartAction")}
+                  className="text-green-500"
+                  icon={
+                    loading === "restarting" ? (
+                      <LoaderIcon className="animate-spin" size={18} />
+                    ) : (
+                      <RotateCwIcon size={18} />
+                    )
+                  }
+                />
               </Popconfirm>
               <Popconfirm
                 title={t("settings.netbird.stop")}
@@ -95,22 +100,29 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
                 placement="bottom"
                 disabled={!!loading}
               >
-                <div className="flex cursor-pointer rounded p-1 text-red-500 hover:bg-neutral-600">
-                  {loading === "stopping" ? (
-                    <LoaderIcon className="animate-spin" size={18} />
-                  ) : (
-                    <CircleStopIcon size={18} />
-                  )}
-                </div>
+                <IconButton
+                  label={t("settings.netbird.stopAction")}
+                  className="text-red-500"
+                  icon={
+                    loading === "stopping" ? (
+                      <LoaderIcon className="animate-spin" size={18} />
+                    ) : (
+                      <CircleStopIcon size={18} />
+                    )
+                  }
+                />
               </Popconfirm>
               <Popover
                 content={<Uninstall onSuccess={onSuccess} />}
                 placement="bottomRight"
                 arrow={false}
+                trigger="click"
               >
-                <div className="flex cursor-pointer rounded p-1 text-neutral-300 hover:bg-neutral-600">
-                  <EllipsisIcon size={18} />
-                </div>
+                <IconButton
+                  label={t("settings.netbird.moreActions")}
+                  className="text-neutral-300"
+                  icon={<EllipsisIcon size={18} />}
+                />
               </Popover>
             </>
           )}

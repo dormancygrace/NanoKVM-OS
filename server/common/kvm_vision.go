@@ -37,10 +37,12 @@ var (
 type KvmVision struct {
 	mutex  sync.RWMutex
 	closed bool
-	// Frame reads wait through the netpoller on a native capture thread.
-	// NANOKVM_NATIVE_CAPTURE_WORKER=0 selects the previous blocking cgo read.
+	// H.264/H.265 streams are paced by a native capture thread and waited for
+	// through the netpoller. NANOKVM_NATIVE_CAPTURE_WORKER=0 selects the
+	// previous Go-paced blocking reads.
 	captureWorkerEnabled bool
 	captureWorker        *videoCaptureWorker
+	capture              *VideoCapture
 }
 
 func init() {
@@ -52,7 +54,7 @@ func GetKvmVision() *KvmVision {
 	kvmVisionOnce.Do(func() {
 		kvmVision = &KvmVision{captureWorkerEnabled: os.Getenv("NANOKVM_NATIVE_CAPTURE_WORKER") != "0"}
 		if !kvmVision.captureWorkerEnabled {
-			log.Info("native capture worker disabled; using blocking frame reads")
+			log.Info("native capture worker disabled; using Go-paced blocking frame reads")
 		}
 
 		// initialize() loads Screen before it enables or disables HDMI, and both
@@ -89,17 +91,9 @@ func (k *KvmVision) ReadMjpeg(width uint16, height uint16, quality uint16) (data
 		return nil, -1
 	}
 
-	if worker := k.captureWorkerLocked(); worker != nil {
-		state := &videoPackStorage{}
-		code, err := worker.readMjpeg(width, height, quality, state)
-		if err != nil {
-			k.failCaptureWorkerLocked(err)
-			code = -1
-		}
-		data, result = state.mjpegResult(code)
-	} else {
-		data, result = readMjpegIntoOwnedStorage(width, height, quality)
-	}
+	defer k.pauseCaptureLocked()()
+
+	data, result = readMjpegIntoOwnedStorage(width, height, quality)
 	if result < 0 {
 		log.Errorf("failed to read kvm image: %v", result)
 	}
@@ -116,23 +110,52 @@ func (k *KvmVision) ReadVideo(width uint16, height uint16, codec uint8, bitRate 
 	return
 }
 
+// ReadVideoWithHeadroom is the Go-paced blocking read: the calling M waits
+// inside cgo for the next access unit.
 func (k *KvmVision) ReadVideoWithHeadroom(width uint16, height uint16, codec uint8, bitRate uint16, gop uint8, fps uint8, headroom int) (storage []byte, data []byte, result int) {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 	if k.closed || headroom < 0 {
 		return nil, nil, -1
 	}
+	defer k.pauseCaptureLocked()()
 
-	if worker := k.captureWorkerLocked(); worker != nil {
-		state := &videoPackStorage{headroom: headroom}
-		code, err := worker.readVideo(width, height, codec, bitRate, gop, fps, state)
-		if err != nil {
-			k.failCaptureWorkerLocked(err)
-			return nil, nil, -1
-		}
-		return state.videoResult(code)
-	}
 	return readVideoIntoOwnedStorage(width, height, codec, bitRate, gop, fps, headroom)
+}
+
+// StartVideoCapture starts a stream paced by the native capture thread. nil
+// selects Go-paced ReadVideoWithHeadroom: the worker is disabled or failed,
+// vision is closed, or the previous stream has not been closed yet.
+func (k *KvmVision) StartVideoCapture(params VideoCaptureParams) VideoStream {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+	if k.closed || k.capture != nil {
+		return nil
+	}
+	worker := k.captureWorkerLocked()
+	if worker == nil {
+		return nil
+	}
+	k.capture = worker.start(params, k.releaseCapture)
+	return k.capture
+}
+
+// Runs from VideoCapture.Close after its thread stopped and its frames were
+// dropped. A broken notification sequence retires the worker for this process;
+// the aborted access unit may have been a reference, so the next one is an IDR.
+func (k *KvmVision) releaseCapture(capture *VideoCapture) {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+	if k.capture == capture {
+		k.capture = nil
+	}
+	if err := capture.Err(); err != nil && k.captureWorker == capture.worker {
+		log.Errorf("native capture worker failed; using Go-paced blocking frame reads: %v", err)
+		k.captureWorker.close()
+		k.captureWorker = nil
+		k.captureWorkerEnabled = false
+		C.kvmv_request_keyframe()
+	}
 }
 
 // captureWorkerLocked starts the native capture thread on first use. nil
@@ -148,18 +171,24 @@ func (k *KvmVision) captureWorkerLocked() *videoCaptureWorker {
 		return nil
 	}
 	k.captureWorker = worker
+	if os.Getenv("NANOKVM_CAPTURE_DEBUG") == "1" {
+		worker.startDebugLog(10*time.Second, log.Infof)
+	}
 	log.Info("native capture worker enabled")
 	return worker
 }
 
-// A broken notification invariant retires the worker for this process. The
-// aborted access unit may have been a reference, so the next one is an IDR.
-func (k *KvmVision) failCaptureWorkerLocked(err error) {
-	log.Errorf("native capture worker failed; using blocking frame reads: %v", err)
-	k.captureWorker.close()
-	k.captureWorker = nil
-	k.captureWorkerEnabled = false
-	C.kvmv_request_keyframe()
+// Go-paced reads held k.mutex for their whole duration. The native-paced
+// stream reads without it, so every other native operation pauses the stream
+// and waits for its read in flight. The caller holds k.mutex (either mode)
+// and calls the returned function when done.
+func (k *KvmVision) pauseCaptureLocked() func() {
+	if k.capture == nil {
+		return func() {}
+	}
+	worker := k.captureWorker
+	worker.pause()
+	return worker.resume
 }
 
 func (k *KvmVision) SetHDMI(enable bool) int {
@@ -168,6 +197,7 @@ func (k *KvmVision) SetHDMI(enable bool) int {
 	if k.closed {
 		return -1
 	}
+	defer k.pauseCaptureLocked()()
 
 	hdmiEnable := C.uint8_t(0)
 	if enable {
@@ -199,6 +229,7 @@ func (k *KvmVision) SetGop(gop uint8) {
 	if k.closed {
 		return
 	}
+	defer k.pauseCaptureLocked()()
 
 	_gop := C.uint8_t(gop)
 	C.set_h264_gop(_gop)
@@ -210,6 +241,7 @@ func (k *KvmVision) SetFrameDetect(frame uint8) {
 	if k.closed {
 		return
 	}
+	defer k.pauseCaptureLocked()()
 
 	_frame := C.uint8_t(frame)
 	C.set_frame_detact(_frame)
@@ -217,12 +249,22 @@ func (k *KvmVision) SetFrameDetect(frame uint8) {
 
 func (k *KvmVision) Close() {
 	k.mutex.Lock()
-	defer k.mutex.Unlock()
 	if k.closed {
+		k.mutex.Unlock()
 		return
 	}
-
 	k.closed = true
+	capture := k.capture
+	k.mutex.Unlock()
+	// Its reader closes the stream; that takes k.mutex, as may the reader's
+	// RequestKeyframe meanwhile, so wait without holding it.
+	if capture != nil {
+		capture.Stop()
+		<-capture.done
+	}
+
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
 	if k.captureWorker != nil {
 		k.captureWorker.close()
 		k.captureWorker = nil
@@ -240,6 +282,7 @@ func (k *KvmVision) ApplyMonitorProfile(path string) error {
 	if k.closed {
 		return fmt.Errorf("video capture is closed")
 	}
+	defer k.pauseCaptureLocked()()
 	cube := MonitorRequiresPowerCycle()
 	if cube {
 		if C.edid_maintenance(1) < 0 {
@@ -316,5 +359,6 @@ func (k *KvmVision) SetMjpegChroma(chroma uint16) int {
 	if k.closed || (chroma != 420 && chroma != 422) {
 		return -1
 	}
+	defer k.pauseCaptureLocked()()
 	return int(C.set_mjpeg_chroma(C.uint8_t(boolToInt(chroma == 422))))
 }

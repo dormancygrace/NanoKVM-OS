@@ -2,78 +2,109 @@
 
 #include "kvm_vision.h"
 
-/* Scripted stand-in for the libkvm sink readers used by the worker tests.
-   Each pack is lent from a scratch "vendor" buffer that is overwritten as
-   soon as the sink returns, as ReleaseStream would recycle it. */
+/* Scripted stand-in for kvmv_read_video_sink used by the worker tests. Reads
+   take queued frames in order; with blocking set, an empty queue waits like a
+   VPSS frame wait, otherwise it reports IMG_NOT_EXIST. Each pack is lent from
+   a scratch "vendor" buffer overwritten as soon as the sink returns, as
+   ReleaseStream would recycle it. */
+enum { FAKE_FRAMES = 32, FAKE_READS = 64, FAKE_BYTES = 4096 };
+typedef struct {
+    uint8_t data[FAKE_BYTES];
+    uint32_t sizes[8];
+    int count, result, offset_skew;
+    uint32_t total_skew;
+} fake_frame;
 static pthread_mutex_t fake_lock = PTHREAD_MUTEX_INITIALIZER;
-static uint8_t fake_data[4096];
-static uint32_t fake_sizes[8];
-static int fake_count, fake_result, fake_sink_result, fake_offset_skew;
-static uint32_t fake_total_skew;
-static uint16_t fake_args[6];
+static pthread_cond_t fake_changed = PTHREAD_COND_INITIALIZER;
+static fake_frame fake_queue[FAKE_FRAMES];
+static int fake_head, fake_tail, fake_block, fake_waiting, fake_reads;
+static uint16_t fake_args[FAKE_READS][6];
+static int64_t fake_times[FAKE_READS];
 
-void nk_fake_capture_script(const uint8_t *data, const uint32_t *sizes, int count,
+void nk_fake_capture_reset(int block) {
+    pthread_mutex_lock(&fake_lock);
+    fake_head = fake_tail = fake_reads = 0;
+    fake_block = block;
+    pthread_mutex_unlock(&fake_lock);
+}
+
+int nk_fake_capture_push(const uint8_t *data, const uint32_t *sizes, int count,
         int result, uint32_t total_skew, int offset_skew) {
     pthread_mutex_lock(&fake_lock);
+    if (fake_tail - fake_head >= FAKE_FRAMES || count > 8) {
+        pthread_mutex_unlock(&fake_lock);
+        return -1;
+    }
+    fake_frame *f = &fake_queue[fake_tail++ % FAKE_FRAMES];
     uint32_t used = 0;
-    for (int i = 0; i < count && i < 8; i++) {
-        memcpy(fake_data + used, data + used, sizes[i]);
-        fake_sizes[i] = sizes[i];
+    for (int i = 0; i < count; i++) {
+        f->sizes[i] = sizes[i];
         used += sizes[i];
     }
-    fake_count = count;
-    fake_result = result;
-    fake_total_skew = total_skew;
-    fake_offset_skew = offset_skew;
+    memcpy(f->data, data, used);
+    f->count = count;
+    f->result = result;
+    f->total_skew = total_skew;
+    f->offset_skew = offset_skew;
+    pthread_cond_broadcast(&fake_changed);
+    pthread_mutex_unlock(&fake_lock);
+    return 0;
+}
+
+/* Ends blocking: waiting and later reads report IMG_NOT_EXIST. */
+void nk_fake_capture_unblock(void) {
+    pthread_mutex_lock(&fake_lock);
+    fake_block = 0;
+    pthread_cond_broadcast(&fake_changed);
     pthread_mutex_unlock(&fake_lock);
 }
 
-/* width, height, codec, rate, gop, fps of the last read and the last
-   nonzero sink result. */
-int nk_fake_capture_last(uint16_t *args) {
+/* Number of reads started; copies the parameters (width, height, codec, rate,
+   gop, fps) and CLOCK_MONOTONIC start of the first max of them. */
+int nk_fake_capture_reads(uint16_t *args, int64_t *times, int max, int *waiting) {
     pthread_mutex_lock(&fake_lock);
-    memcpy(args, fake_args, sizeof(fake_args));
-    int result = fake_sink_result;
-    pthread_mutex_unlock(&fake_lock);
-    return result;
-}
-
-static int fake_read(uint16_t width, uint16_t height, uint8_t codec, uint16_t rate,
-        uint8_t gop, uint8_t fps, kvmv_video_sink sink, uintptr_t context) {
-    pthread_mutex_lock(&fake_lock);
-    const uint16_t args[6] = {width, height, codec, rate, gop, fps};
-    memcpy(fake_args, args, sizeof(args));
-    fake_sink_result = 0;
-    uint32_t total = fake_total_skew, used = 0;
-    for (int i = 0; i < fake_count; i++) total += fake_sizes[i];
-    int result = fake_result;
-    for (int i = 0; i < fake_count; i++) {
-        uint8_t vendor[sizeof(fake_data)];
-        memcpy(vendor, fake_data + used, fake_sizes[i]);
-        uint32_t offset = used + (i > 0 ? fake_offset_skew : 0);
-        /* The worker sink blocks until Go takes the pack; do not hold the
-           script lock across it. */
-        pthread_mutex_unlock(&fake_lock);
-        int sunk = sink(context, vendor, fake_sizes[i], offset, total);
-        memset(vendor, 0xee, fake_sizes[i]);
-        pthread_mutex_lock(&fake_lock);
-        used += fake_sizes[i];
-        if (sunk != 0) {
-            fake_sink_result = sunk;
-            result = IMG_BUFFER_FULL;
-            break;
-        }
+    int reads = fake_reads;
+    for (int i = 0; i < reads && i < max && i < FAKE_READS; i++) {
+        memcpy(args + 6 * i, fake_args[i], sizeof(fake_args[i]));
+        times[i] = fake_times[i];
     }
+    *waiting = fake_waiting;
     pthread_mutex_unlock(&fake_lock);
-    return result;
+    return reads;
 }
 
 int kvmv_read_video_sink(uint16_t width, uint16_t height, uint8_t codec,
         uint16_t bitrate, uint8_t gop, uint8_t fps, kvmv_video_sink sink, uintptr_t context) {
-    return fake_read(width, height, codec, bitrate, gop, fps, sink, context);
-}
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    pthread_mutex_lock(&fake_lock);
+    if (fake_reads < FAKE_READS) {
+        const uint16_t args[6] = {width, height, codec, bitrate, gop, fps};
+        memcpy(fake_args[fake_reads], args, sizeof(args));
+        fake_times[fake_reads] = (int64_t)now.tv_sec * 1000000000 + now.tv_nsec;
+    }
+    fake_reads++;
+    fake_waiting = 1;
+    while (fake_block && fake_head == fake_tail)
+        pthread_cond_wait(&fake_changed, &fake_lock);
+    fake_waiting = 0;
+    if (fake_head == fake_tail) {
+        pthread_mutex_unlock(&fake_lock);
+        return IMG_NOT_EXIST;
+    }
+    fake_frame frame = fake_queue[fake_head++ % FAKE_FRAMES];
+    pthread_mutex_unlock(&fake_lock);
 
-int kvmv_read_mjpeg_sink(uint16_t width, uint16_t height, uint16_t quality,
-        kvmv_video_sink sink, uintptr_t context) {
-    return fake_read(width, height, 0, quality, 0, 0, sink, context);
+    uint32_t total = frame.total_skew, used = 0;
+    for (int i = 0; i < frame.count; i++) total += frame.sizes[i];
+    for (int i = 0; i < frame.count; i++) {
+        uint8_t vendor[FAKE_BYTES];
+        memcpy(vendor, frame.data + used, frame.sizes[i]);
+        uint32_t offset = used + (i > 0 ? frame.offset_skew : 0);
+        int sunk = sink(context, vendor, frame.sizes[i], offset, total);
+        memset(vendor, 0xee, frame.sizes[i]);
+        used += frame.sizes[i];
+        if (sunk != 0) return IMG_BUFFER_FULL;
+    }
+    return frame.result;
 }

@@ -2,7 +2,7 @@
 # NanoKVM OS build: everything in the SD card image, from the inputs pinned in
 # sources.lock.
 #
-#   platform/build.sh [-o OUTPUT] [-j JOBS] [-k KEY] [STEP...]
+#   platform/build.sh [-o OUTPUT] [-j JOBS] [-k KEY | -d] [STEP...]
 #
 # Steps, in order (default: all of them):
 #   fetch      download and verify every input in sources.lock
@@ -31,9 +31,11 @@
 #              to subordinate IDs (see packages)
 #
 # Checked outputs are in OUTPUT/images (default: build/platform/images), the
-# APK repository and the SD card image in OUTPUT/release. -k names the APK
-# signing key (an abuild .rsa private key with its .rsa.pub next to it); without
-# it, the first run creates one in OUTPUT/keys.
+# APK repository and the SD card image in OUTPUT/release. The packages and
+# rootfs steps sign with, and make the image trust, the key named by -k (an
+# abuild .rsa private key with its .rsa.pub next to it). For local tests -d
+# uses a test key in OUTPUT/keys instead, created on the first run; such an
+# image trusts that key, so never publish it.
 set -euo pipefail
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin LC_ALL=C TZ=UTC
 umask 022
@@ -42,15 +44,27 @@ repo=$(dirname "$here")
 out=${NANOKVM_PLATFORM_OUT:-$repo/build/platform}
 jobs=$(nproc)
 key=
-usage() { sed -n '2,35p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
-while getopts o:j:k:h opt; do
-    case $opt in o) out=$OPTARG ;; j) jobs=$OPTARG ;; k) key=$(realpath "$OPTARG") ;; *) usage ;; esac
+devkey=
+usage() { sed -n '2,37p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+while getopts o:j:k:dh opt; do
+    case $opt in
+        o) out=$OPTARG ;; j) jobs=$OPTARG ;; k) key=$(realpath "$OPTARG") ;; d) devkey=1 ;; *) usage ;;
+    esac
 done
+[ -z "$key" ] || [ -z "$devkey" ] || { echo "-k and -d exclude each other" >&2; exit 2; }
 shift $((OPTIND - 1))
 out=$(realpath -m "$out")
 steps=("$@")
 [ "${#steps[@]}" -gt 0 ] || steps=(fetch toolchain kernel modules uboot opensbi fip initramfs boot
     native system server web tools firmware verify payloads packages rootfs image)
+# Fail before a long build, not at the signing steps.
+case " ${steps[*]} " in
+    *" packages "* | *" rootfs "*)
+        [ -n "$key$devkey" ] || {
+            echo "APK signing key required: -k path/to/key.rsa, or -d for a local test key" >&2
+            exit 2
+        } ;;
+esac
 # Keep builds inside OUTPUT from finding an enclosing Git checkout.
 export GIT_CEILING_DIRECTORIES=$out
 
@@ -749,12 +763,17 @@ in_chroot() (
     chroot "$root" "$@"
 )
 
-# The APK signing key: -k KEY, or one created on the first run.
+# The APK signing key: -k KEY, or with -d a local test key created on the first
+# run. Never a key nobody chose: an image trusts it for every repository.
 signing_key() {
     local tmp
     if [ -n "$key" ]; then
         keyfile=$key
+    elif [ -z "$devkey" ]; then
+        echo "APK signing key required: -k path/to/key.rsa, or -d for a local test key" >&2
+        exit 2
     else
+        echo "Signing with a local test key: do not publish these packages or this image" >&2
         keyfile=
         [ ! -d "$out/keys" ] || keyfile=$(find "$out/keys" -name '*.rsa' | head -n 1)
         if [ -z "$keyfile" ]; then
@@ -762,7 +781,7 @@ signing_key() {
             tmp=$out/keys/new.rsa
             openssl genrsa -out "$tmp" 4096 2> /dev/null
             openssl rsa -in "$tmp" -pubout -out "$tmp.pub" 2> /dev/null
-            keyfile=$out/keys/nanokvm-build-$(sha256sum < "$tmp.pub" | cut -c1-8).rsa
+            keyfile=$out/keys/nanokvm-test-$(sha256sum < "$tmp.pub" | cut -c1-8).rsa
             mv "$tmp" "$keyfile"
             mv "$tmp.pub" "$keyfile.pub"
             echo "Created APK signing key $keyfile"

@@ -44,7 +44,7 @@ Go modules, npm packages and Alpine packages are downloaded during the build and
 
 ### Signing key
 
-The APK packages are signed. Without `-k`, the first run creates a key in `OUTPUT/keys` and the image trusts it. Release builds pass the maintainer key: `-k path/to/dgrace-6aaddbb6.rsa`, with its `.rsa.pub` next to it. Every image also trusts the public key of NanoKVM OS releases in `firmware/alpine/keys` and uses the release repository `https://nkos.pesin.pro/repos/nanokvm`, so an image built from this repository updates to later releases.
+The APK packages are signed, and the packages and rootfs steps need a key. Release builds pass the maintainer key: `-k path/to/dgrace-6aaddbb6.rsa`, with its `.rsa.pub` next to it. Local test builds pass `-d` instead: the first run creates a test key in `OUTPUT/keys` and the image trusts it, so never publish those packages or images. apk does not tie a key to a repository: a device trusts every key in `/etc/apk/keys` for every repository it uses. Every image also trusts the public key of NanoKVM OS releases in `firmware/alpine/keys` and uses the release repository `https://nkos.pesin.pro/repos/nanokvm`, so an image built from this repository updates to later releases.
 
 The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`). Releases up to v2.0-b7 replaced busybox, coreutils, openssl, lz4 and zstd with C906-tuned builds (`c906-scalar`); that overlay is not built here.
 

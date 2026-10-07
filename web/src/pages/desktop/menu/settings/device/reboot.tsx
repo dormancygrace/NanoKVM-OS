@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 export const Reboot = () => {
   const { t } = useTranslation();
@@ -36,25 +37,18 @@ export const Reboot = () => {
   }
 
   return (
-    <div className="flex justify-center">
+    <SettingRow label={t('settings.device.reboot')}>
       <Popconfirm
-        placement="bottom"
+        placement="bottomRight"
         title={t('settings.device.rebootDesc')}
         okText={t('settings.device.okBtn')}
         cancelText={t('settings.device.cancelBtn')}
         onConfirm={reboot}
       >
-        <Button
-          danger
-          type="primary"
-          size="large"
-          shape="round"
-          loading={isLoading}
-          icon={<RotateCwIcon size={16} />}
-        >
+        <Button danger loading={isLoading} icon={<RotateCwIcon size={16} />}>
           {t('settings.device.reboot')}
         </Button>
       </Popconfirm>
-    </div>
+    </SettingRow>
   );
 };

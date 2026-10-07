@@ -172,7 +172,7 @@ export const Users = () => {
                 const canRename = !user.systemAccount || isSelf;
                 return (
                   <li key={user.username} className="flex flex-wrap items-center gap-2 px-4 py-3">
-                    <span className="min-w-0 flex-1 truncate">
+                    <span className="min-w-32 flex-1 truncate">
                       {user.username}
                       {user.systemAccount && (
                         <span className="text-fg-muted ml-2 text-xs">

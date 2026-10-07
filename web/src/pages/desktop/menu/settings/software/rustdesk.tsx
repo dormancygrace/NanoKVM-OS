@@ -10,12 +10,10 @@ import { rustDeskStatusAtom } from '@/jotai/rustdesk';
 import { RustDeskIcon } from '@/components/icons/rustdesk';
 
 import { AddonCard } from './addon-card';
-import { rustDeskLabels } from './rustdesk-labels';
 import { RustDeskVersions } from './rustdesk-versions';
 
 export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
-  const { i18n } = useTranslation();
-  const l = rustDeskLabels[(i18n.resolvedLanguage || i18n.language).startsWith('ru') ? 'ru' : 'en'];
+  const { t } = useTranslation('translation', { keyPrefix: 'settings.rustdesk' });
   const [status, setStatus] = useAtom(rustDeskStatusAtom);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -40,11 +38,11 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
       setStatus(response.data as RustDeskStatus);
       setError('');
     } catch {
-      if (started === generation.current && !controller.signal.aborted) setError(l.failed);
+      if (started === generation.current && !controller.signal.aborted) setError(t('failed'));
     } finally {
       if (started === generation.current) pending.current = false;
     }
-  }, [setStatus, l.failed]);
+  }, [setStatus, t]);
   useEffect(() => {
     mounted.current = true;
     void refresh();
@@ -76,10 +74,10 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
         setError(response.msg);
         return;
       }
-      message.success(l.done);
+      message.success(t('done'));
       setError('');
     } catch {
-      if (mounted.current && started === generation.current) setError(l.failed);
+      if (mounted.current && started === generation.current) setError(t('failed'));
     } finally {
       working.current = false;
       if (mounted.current) {
@@ -96,25 +94,25 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
         <>
           {error && <Alert type="error" title={error} showIcon />}
           {status &&
-            (status.installed ? <RustDeskVersions status={status} /> : <Tag>{l.absent}</Tag>)}
-          <p className="text-sm text-neutral-300">{l.description}</p>
+            (status.installed ? <RustDeskVersions status={status} /> : <Tag>{t('absent')}</Tag>)}
+          <p className="text-sm text-neutral-300">{t('description')}</p>
           {!status?.installed && status && !status.available && (
-            <Alert type="info" title={l.unavailable} />
+            <Alert type="info" title={t('unavailable')} />
           )}
           <div className="flex flex-wrap gap-2">
             {status?.installed ? (
               <>
                 <Button type="primary" disabled={busy} onClick={onOpen}>
-                  {l.open}
+                  {t('open')}
                 </Button>
                 {status.update_version && (
                   <Button disabled={busy} onClick={() => void operation('upgrade')}>
-                    {l.upgrade.replace('{version}', status.update_version)}
+                    {t('upgrade', { version: status.update_version })}
                   </Button>
                 )}
-                <Popconfirm title={l.deletion} onConfirm={() => operation('remove')}>
+                <Popconfirm title={t('deletion')} onConfirm={() => operation('remove')}>
                   <Button danger disabled={busy} icon={<Trash2Icon size={16} />}>
-                    {l.remove}
+                    {t('remove')}
                   </Button>
                 </Popconfirm>
               </>
@@ -126,13 +124,13 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
                 disabled={!status?.available}
                 onClick={() => void operation('install')}
               >
-                {l.install}
+                {t('install')}
               </Button>
             )}
           </div>
           {status?.installed && status.source_url && (
             <a href={status.source_url} target="_blank" rel="noopener noreferrer">
-              {l.source} · AGPL-3.0
+              {t('source')} · AGPL-3.0
             </a>
           )}
         </>

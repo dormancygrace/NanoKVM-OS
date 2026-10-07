@@ -203,16 +203,6 @@ export function disableSSH() {
   return http.post('/api/vm/ssh/disable');
 }
 
-// get swap file size
-export function getSwap() {
-  return http.get('/api/vm/swap');
-}
-
-// set swap file size
-export function setSwap(size: number) {
-  return http.post('/api/vm/swap', { size });
-}
-
 // get mouse jiggler
 export function getMouseJiggler() {
   return http.get('/api/vm/mouse-jiggler');

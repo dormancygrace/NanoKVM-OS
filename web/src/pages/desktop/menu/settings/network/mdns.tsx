@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
-import { HelpTip } from '@/components/ui/settings.tsx';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 export const Mdns = () => {
   const { t } = useTranslation();
@@ -55,19 +55,20 @@ export const Mdns = () => {
   }
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex flex-col space-y-1">
-        <div className="flex items-center space-x-2">
-          <span>mDNS</span>
-          <HelpTip title={t('settings.device.mdns.tip')} />
-        </div>
-
-        <span className="text-fg-muted text-xs">
-          {isEnabled && address ? address : t('settings.device.mdns.description')}
-        </span>
-      </div>
-
-      <Switch aria-label="mDNS" checked={isEnabled} loading={isLoading} onChange={update} />
-    </div>
+    <SettingRow
+      label="mDNS"
+      description={isEnabled && address ? address : t('settings.device.mdns.description')}
+      help={t('settings.device.mdns.tip')}
+      htmlFor="network-mdns"
+    >
+      <Switch
+        id="network-mdns"
+        aria-label="mDNS"
+        aria-describedby="network-mdns-description"
+        checked={isEnabled}
+        loading={isLoading}
+        onChange={update}
+      />
+    </SettingRow>
   );
 };

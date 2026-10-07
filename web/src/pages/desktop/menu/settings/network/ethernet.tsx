@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
 import type { EthernetConfig, EthernetMode } from '@/api/network.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
 function isIPv4(value: string) {
   const parts = value.trim().split('.');
@@ -32,21 +34,21 @@ export const Ethernet = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   const getEthernet = useCallback(async () => {
     setIsLoading(true);
     try {
       const rsp = await api.getEthernet();
       if (rsp.code !== 0) {
-        setError(rsp.msg || t('settings.network.ethernet.loadFailed'));
+        setLoadError(rsp.msg || t('settings.network.ethernet.loadFailed'));
         return;
       }
       const fetched = rsp.data as EthernetConfig;
       setConfig(fetched);
       setOriginal(fetched);
     } catch {
-      setError(t('settings.network.ethernet.loadFailed'));
+      setLoadError(t('settings.network.ethernet.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +60,6 @@ export const Ethernet = () => {
 
   function update(fields: Partial<EthernetConfig>) {
     setMessage('');
-    setError('');
     setConfig((current) => ({ ...current, ...fields }));
   }
 
@@ -73,7 +74,6 @@ export const Ethernet = () => {
     if (isSaving || invalidStatic || invalidVLAN) return;
     setIsSaving(true);
     setMessage('');
-    setError('');
     try {
       const rsp = await api.setEthernet({
         enabled: config.enabled,
@@ -85,112 +85,116 @@ export const Ethernet = () => {
         vlanId: config.vlanId
       });
       if (rsp.code !== 0) {
-        setError(rsp.msg || t('settings.network.ethernet.saveFailed'));
+        showRequestError(rsp, 'settings.network.ethernet.saveFailed');
         return;
       }
       setOriginal(config);
       setMessage(t('settings.network.ethernet.saved'));
-    } catch {
-      setError(t('settings.network.ethernet.saveFailed'));
+    } catch (err) {
+      showRequestError(err, 'settings.network.ethernet.saveFailed');
     } finally {
       setIsSaving(false);
     }
   }
 
+  const linkState = !config.enabled ? (
+    <StatusBadge tone="neutral">{t('settings.network.ethernet.disabled')}</StatusBadge>
+  ) : !config.adminUp ? (
+    <StatusBadge tone="warning">{t('settings.network.ethernet.interfaceDown')}</StatusBadge>
+  ) : config.linkUp ? (
+    <StatusBadge tone="success">{t('settings.network.ethernet.linkUp')}</StatusBadge>
+  ) : (
+    <StatusBadge tone="warning">{t('settings.network.ethernet.noCable')}</StatusBadge>
+  );
+
   return (
-    <div className="flex flex-col space-y-5">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col space-y-1">
-          <span>{t('settings.network.ethernet.enable')}</span>
-          <span className="text-fg-muted text-xs">
-            {!config.enabled
-              ? t('settings.network.ethernet.disabled')
-              : !config.adminUp
-                ? t('settings.network.ethernet.interfaceDown')
-                : config.linkUp
-                  ? t('settings.network.ethernet.linkUp')
-                  : t('settings.network.ethernet.noCable')}
-          </span>
-        </div>
-        <Switch
-          aria-label={t('settings.network.ethernet.enable')}
-          checked={config.enabled}
-          loading={isSaving}
-          disabled={isLoading || isSaving}
-          onChange={(enabled) => update({ enabled })}
-        />
-      </div>
+    <div className="space-y-6">
+      {loadError && <Alert type="error" showIcon message={loadError} />}
 
-      {!config.enabled && (
-        <Alert type="warning" showIcon message={t('settings.network.ethernet.disconnectWarning')} />
-      )}
-      {original &&
-        (config.vlanEnabled !== original.vlanEnabled ||
-          (config.vlanEnabled && config.vlanId !== original.vlanId)) && (
-          <Alert type="warning" showIcon message={t('settings.network.ethernet.vlanWarning')} />
-        )}
-
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-col space-y-1">
-          <span>{t('settings.network.ethernet.title')}</span>
-          <span className="text-fg-muted text-xs">
-            {t('settings.network.ethernet.description')}
-          </span>
-        </div>
-        <Segmented
-          disabled={isLoading || isSaving}
-          value={config.mode}
-          onChange={(mode) => update({ mode: mode as EthernetMode })}
-          options={[
-            { label: t('settings.network.ethernet.dhcp'), value: 'dhcp' },
-            { label: t('settings.network.ethernet.static'), value: 'static' }
-          ]}
-        />
-      </div>
-
-      <div className="flex items-center justify-between gap-3 rounded-xl bg-neutral-800/50 p-4">
-        <div>
-          <Checkbox
-            checked={config.vlanEnabled}
+      <SettingsSection>
+        <SettingRow
+          label={t('settings.network.ethernet.enable')}
+          description={linkState}
+          htmlFor="ethernet-enabled"
+        >
+          <Switch
+            id="ethernet-enabled"
+            aria-label={t('settings.network.ethernet.enable')}
+            aria-describedby="ethernet-enabled-description"
+            checked={config.enabled}
+            loading={isSaving}
             disabled={isLoading || isSaving}
-            onChange={(event) => update({ vlanEnabled: event.target.checked })}
-          >
-            {t('settings.network.ethernet.vlan')}
-          </Checkbox>
-          <div className="text-fg-muted text-xs">
-            {t('settings.network.ethernet.vlanDescription')}
-          </div>
-        </div>
-        {config.vlanEnabled && (
-          <InputNumber
-            min={1}
-            max={4094}
-            value={config.vlanId || undefined}
-            placeholder={t('settings.network.ethernet.vlanId')}
-            status={invalidVLAN ? 'error' : undefined}
-            disabled={isLoading || isSaving}
-            onChange={(vlanId) => update({ vlanId: vlanId ?? 0 })}
+            onChange={(enabled) => update({ enabled })}
+          />
+        </SettingRow>
+        {!config.enabled && (
+          <Alert
+            type="warning"
+            showIcon
+            message={t('settings.network.ethernet.disconnectWarning')}
           />
         )}
-      </div>
-      {invalidVLAN && (
-        <div className="text-xs text-red-400">{t('settings.network.ethernet.invalidVlan')}</div>
-      )}
+      </SettingsSection>
 
-      <div className="overflow-hidden rounded-xl bg-neutral-800/50">
-        <div className="px-4 pt-3 pb-1.5">
-          <div className="font-semibold text-neutral-100">
-            {t('settings.network.ethernet.ipv4')}
-          </div>
-          <div className="text-fg-muted mt-0.5 text-xs leading-snug">
-            {config.mode === 'dhcp'
-              ? t('settings.network.ethernet.dhcpDescription')
-              : t('settings.network.ethernet.staticDescription')}
-          </div>
-        </div>
+      <SettingsSection
+        title={t('settings.network.ethernet.ipv4')}
+        description={
+          config.mode === 'dhcp'
+            ? t('settings.network.ethernet.dhcpDescription')
+            : t('settings.network.ethernet.staticDescription')
+        }
+      >
+        <SettingRow
+          label={t('settings.network.ethernet.title')}
+          description={t('settings.network.ethernet.description')}
+        >
+          <Segmented
+            disabled={isLoading || isSaving}
+            value={config.mode}
+            onChange={(mode) => update({ mode: mode as EthernetMode })}
+            options={[
+              { label: t('settings.network.ethernet.dhcp'), value: 'dhcp' },
+              { label: t('settings.network.ethernet.static'), value: 'static' }
+            ]}
+          />
+        </SettingRow>
+
+        <SettingRow
+          label={
+            <Checkbox
+              checked={config.vlanEnabled}
+              disabled={isLoading || isSaving}
+              onChange={(event) => update({ vlanEnabled: event.target.checked })}
+            >
+              {t('settings.network.ethernet.vlan')}
+            </Checkbox>
+          }
+          description={t('settings.network.ethernet.vlanDescription')}
+        >
+          {config.vlanEnabled && (
+            <InputNumber
+              min={1}
+              max={4094}
+              style={{ width: 180 }}
+              value={config.vlanId || undefined}
+              placeholder={t('settings.network.ethernet.vlanId')}
+              status={invalidVLAN ? 'error' : undefined}
+              disabled={isLoading || isSaving}
+              onChange={(vlanId) => update({ vlanId: vlanId ?? 0 })}
+            />
+          )}
+        </SettingRow>
+        {invalidVLAN && (
+          <div className="text-danger text-xs">{t('settings.network.ethernet.invalidVlan')}</div>
+        )}
+        {original &&
+          (config.vlanEnabled !== original.vlanEnabled ||
+            (config.vlanEnabled && config.vlanId !== original.vlanId)) && (
+            <Alert type="warning" showIcon message={t('settings.network.ethernet.vlanWarning')} />
+          )}
 
         {config.mode === 'static' && (
-          <div className="space-y-3 px-4 pt-2 pb-4">
+          <Panel className="space-y-3">
             <Input
               value={config.address}
               status={config.address && !isIPv4(config.address) ? 'error' : undefined}
@@ -212,18 +216,16 @@ export const Ethernet = () => {
               onChange={(event) => update({ gateway: event.target.value })}
             />
             {invalidStatic && (
-              <div className="text-xs text-red-400">{t('settings.network.ethernet.invalid')}</div>
+              <div className="text-danger text-xs">{t('settings.network.ethernet.invalid')}</div>
             )}
-          </div>
+          </Panel>
         )}
-      </div>
+      </SettingsSection>
 
-      {(hasChanges || message || error) && (
+      {(hasChanges || message) && (
         <div className="flex items-center justify-between gap-4">
-          <span
-            className={`text-xs ${error ? 'text-red-400' : message ? 'text-green-500' : 'text-yellow-400/80'}`}
-          >
-            {error || message || t('settings.network.ethernet.unsaved')}
+          <span className={`text-xs ${message ? 'text-success' : 'text-warning'}`}>
+            {message || t('settings.network.ethernet.unsaved')}
           </span>
           <Button
             type={hasChanges ? 'primary' : 'default'}

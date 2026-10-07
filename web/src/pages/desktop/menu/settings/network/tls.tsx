@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
 import { message, Switch } from 'antd';
+import axios from 'axios';
 import { useTranslation } from 'react-i18next';
-import { confirmAction } from '@/components/ui/confirm.ts';
 
 import * as api from '@/api/vm.ts';
-import { HelpTip } from '@/components/ui/settings.tsx';
+import { confirmAction } from '@/components/ui/confirm.ts';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 function restartInterruptedRequest(err: unknown): boolean {
   if (!axios.isAxiosError(err)) return false;
@@ -29,7 +29,9 @@ export const Tls = () => {
 
     const enable = !isEnabled;
     const confirmed = await confirmAction({
-      title: t(enable ? 'settings.network.tls.confirmEnable' : 'settings.network.tls.confirmDisable'),
+      title: t(
+        enable ? 'settings.network.tls.confirmEnable' : 'settings.network.tls.confirmDisable'
+      ),
       content: t('settings.network.tls.confirmRestart'),
       danger: true
     });
@@ -75,16 +77,20 @@ export const Tls = () => {
   }
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex flex-col space-y-1">
-        <div className="flex items-center space-x-2">
-          <span>HTTPS</span>
-          <HelpTip title={t('settings.network.tls.tip')} />
-        </div>
-        <span className="text-xs text-fg-muted">{t('settings.network.tls.description')}</span>
-      </div>
-
-      <Switch aria-label="HTTPS" checked={isEnabled} loading={isLoading} onChange={update} />
-    </div>
+    <SettingRow
+      label="HTTPS"
+      description={t('settings.network.tls.description')}
+      help={t('settings.network.tls.tip')}
+      htmlFor="network-tls"
+    >
+      <Switch
+        id="network-tls"
+        aria-label="HTTPS"
+        aria-describedby="network-tls-description"
+        checked={isEnabled}
+        loading={isLoading}
+        onChange={update}
+      />
+    </SettingRow>
   );
 };

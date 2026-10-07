@@ -56,6 +56,7 @@ func web(r *gin.Engine) {
 		c.Next()
 	})
 
+	r.Use(assets(webPath))
 	r.Use(static.Serve("/", static.LocalFile(webPath, true)))
 }
 

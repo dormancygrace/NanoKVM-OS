@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "vite",
     "mocked": "vite --mode mocked",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && node scripts/precompress.mjs",
     "test:usb": "node --experimental-strip-types --test tests/usb-composition.test.mjs",
     "test:direct": "node --import tsx --test tests/direct-playout.test.mjs tests/direct-worker.test.mjs",
     "test:i18n": "node --import tsx --test tests/i18n-keys.test.mjs",

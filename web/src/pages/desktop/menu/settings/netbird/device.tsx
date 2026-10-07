@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { DisconnectOutlined } from "@ant-design/icons";
 import { Button, Divider, Popconfirm, Switch } from "antd";
+import { UnplugIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import * as api from "@/api/extensions/netbird.ts";
@@ -132,7 +132,7 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
             type="primary"
             size="large"
             shape="round"
-            icon={<DisconnectOutlined />}
+            icon={<UnplugIcon size={16} />}
             disabled={isUpdating}
             loading={isDisconnecting}
           >

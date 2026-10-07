@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { LogoutOutlined } from '@ant-design/icons';
 import { Button, Divider, Popconfirm, Switch } from 'antd';
+import { LogOutIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/extensions/tailscale.ts';
@@ -99,7 +99,7 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
             type="primary"
             size="large"
             shape="round"
-            icon={<LogoutOutlined />}
+            icon={<LogOutIcon size={16} />}
             loading={isLogging}
           >
             {t('settings.tailscale.logout')}

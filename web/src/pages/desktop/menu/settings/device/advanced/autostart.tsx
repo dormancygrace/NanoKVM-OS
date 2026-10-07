@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { DeleteOutlined, EditOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { Button, Input, message, Modal, Popconfirm, Space, Table } from 'antd';
 import TextArea from 'antd/es/input/TextArea';
 import type { TableProps } from 'antd/es/table';
 import { useSetAtom } from 'jotai';
+import { PencilIcon, PlusIcon, SettingsIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/autostart.ts';
@@ -36,7 +36,11 @@ export const Autostart = () => {
       key: 'action',
       render: (_, record) => (
         <>
-          <Button type="text" icon={<EditOutlined />} onClick={() => editAutostart(record.name)} />
+          <Button
+            type="text"
+            icon={<PencilIcon size={16} />}
+            onClick={() => editAutostart(record.name)}
+          />
 
           <Popconfirm
             title={t('settings.device.autostart.deleteConfirm')}
@@ -44,7 +48,7 @@ export const Autostart = () => {
             okText={t('settings.device.autostart.yes')}
             cancelText={t('settings.device.autostart.no')}
           >
-            <Button type="text" danger icon={<DeleteOutlined />} />
+            <Button type="text" danger icon={<Trash2Icon size={16} />} />
           </Popconfirm>
         </>
       )
@@ -139,7 +143,7 @@ export const Autostart = () => {
             onClick={() => {
               setIsManageAutostartOpen(true);
             }}
-            icon={<SettingOutlined />}
+            icon={<SettingsIcon size={16} />}
           />
         </div>
       </div>
@@ -177,7 +181,7 @@ export const Autostart = () => {
             onClick={() => {
               setIsEditAutostartOpen(true);
             }}
-            icon={<PlusOutlined />}
+            icon={<PlusIcon size={16} />}
           >
             {t('settings.device.autostart.new')}
           </Button>

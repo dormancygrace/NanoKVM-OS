@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { GithubOutlined } from '@ant-design/icons';
 import { ArrowUpRightIcon, HeartIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { getInfo } from '@/api/vm';
 import { formatVersion } from '@/lib/version';
+import { GithubIcon } from '@/components/icons/github';
 
 import { Community } from './community';
 import { Credits } from './credits';
@@ -55,7 +55,7 @@ export const About = () => {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 text-sm !text-neutral-300 hover:!text-white"
           >
-            <GithubOutlined />
+            <GithubIcon size={16} />
             GitHub
           </a>
         </div>

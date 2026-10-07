@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { confirmAction } from '@/components/ui/confirm.ts';
 
 import { groupWifiNetworks, type WifiGroup } from './wifi-networks';
 import { WifiSignal } from './wifi-signal';
@@ -98,6 +99,15 @@ export const Wifi = () => {
 
   async function toggle(value: boolean) {
     if (locked) return;
+    if (
+      !value &&
+      !(await confirmAction({
+        title: tr('confirmDisable'),
+        content: tr('confirmDisableDescription'),
+        danger: true
+      }))
+    )
+      return;
     setBusy(true);
     setMessage('');
     try {

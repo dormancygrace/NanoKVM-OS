@@ -3,6 +3,7 @@ import axios from 'axios';
 import { message, Switch, Tooltip } from 'antd';
 import { CircleAlertIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { confirmAction } from '@/components/ui/confirm.ts';
 
 import * as api from '@/api/vm.ts';
 
@@ -27,6 +28,12 @@ export const Tls = () => {
     setIsLoading(true);
 
     const enable = !isEnabled;
+    const confirmed = await confirmAction({
+      title: t(enable ? 'settings.network.tls.confirmEnable' : 'settings.network.tls.confirmDisable'),
+      content: t('settings.network.tls.confirmRestart'),
+      danger: true
+    });
+    if (!confirmed) return;
 
     try {
       const rsp = await api.setTLS(enable);

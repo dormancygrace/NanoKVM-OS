@@ -15,6 +15,7 @@ import {
   usbPresets
 } from '@/lib/usb-composition.ts';
 import type { UsbComposition, UsbDevice, UsbStatus } from '@/lib/usb-composition.ts';
+import { confirmAction } from '@/components/ui/confirm.ts';
 
 import { MouseJiggler } from '../device/mouse-jiggler';
 
@@ -113,6 +114,12 @@ export const Usb = () => {
       next = { ...(previousComposition.current ?? usbPresets[0].composition) };
       if (!fitsBudget(next, status)) return;
     } else {
+      const confirmed = await confirmAction({
+        title: t('settings.usb.confirmDisable'),
+        content: t('settings.usb.confirmDisableDescription'),
+        danger: true
+      });
+      if (!confirmed) return;
       previousComposition.current = { ...status };
       next = {
         mode: 'normal',

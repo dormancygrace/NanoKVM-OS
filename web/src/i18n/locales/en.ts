@@ -1132,6 +1132,7 @@ const en = {
         general: 'General settings',
         sections: { device: 'Device', network: 'Common network settings', access: 'Device access' },
         cpuFrequency: {
+          confirmOverclock: 'Overclock the CPU to {{mhz}} MHz?',
           eco: 'Power saving',
           stock: 'Standard',
           moderate: 'Moderate overclock',
@@ -1215,6 +1216,8 @@ const en = {
         cancelBtn: 'No'
       },
       usb: {
+        confirmDisable: 'Turn off USB?',
+        confirmDisableDescription: 'The computer loses the NanoKVM keyboard, mouse, storage and audio until USB is turned on again.',
         pointerProfile: 'Absolute pointer profile',
         pointerProfileHelp:
           'Windows binds the pointer to the captured monitor (Windows 10 1903 or newer). Applying reconnects USB and HDMI.',
@@ -1307,6 +1310,8 @@ const en = {
           saveFailed: 'Could not save the preferred gateway.'
         },
         wifi: {
+          confirmDisable: 'Turn off Wi-Fi?',
+          confirmDisableDescription: 'Without Ethernet, NanoKVM leaves the network and this page loses its connection.',
           loading: 'Loading…',
           noAdapter: 'Wi-Fi adapter not detected',
           notDetected: 'not detected',
@@ -1350,6 +1355,9 @@ const en = {
           cancelBtn: 'Cancel'
         },
         tls: {
+          confirmEnable: 'Turn on HTTPS?',
+          confirmDisable: 'Turn off HTTPS?',
+          confirmRestart: 'The web server restarts and this page reloads at the new address. Other open sessions disconnect.',
           description: 'Enable HTTPS protocol',
           tip: 'Be aware: Using HTTPS can increase latency, especially with MJPEG video mode.',
           failed: 'Failed to change HTTPS. The current setting is unchanged.'

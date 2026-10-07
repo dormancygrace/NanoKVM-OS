@@ -2,6 +2,7 @@ import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useState } from 'react';
 import { Select } from 'antd';
 import { useTranslation } from 'react-i18next';
+import { confirmAction } from '@/components/ui/confirm.ts';
 
 import * as api from '@/api/vm.ts';
 
@@ -29,6 +30,15 @@ export const CPUFrequency = () => {
     return () => stopPolling();
   }, [t]);
   async function update(target: number) {
+    if (
+      target > 1000 &&
+      !(await confirmAction({
+        title: t('settings.device.cpuFrequency.confirmOverclock', { mhz: target }),
+        content: t('settings.device.cpuFrequency.warning'),
+        danger: true
+      }))
+    )
+      return;
     setLoading(true);
     setError('');
     try {

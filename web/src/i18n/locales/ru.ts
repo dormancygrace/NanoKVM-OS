@@ -1157,6 +1157,7 @@ const ru = {
           access: 'Доступ к устройству'
         },
         cpuFrequency: {
+          confirmOverclock: 'Разогнать процессор до {{mhz}} МГц?',
           eco: 'Экономичный режим',
           stock: 'Штатная частота',
           moderate: 'Умеренный разгон',
@@ -1243,6 +1244,8 @@ const ru = {
         cancelBtn: 'Нет'
       },
       usb: {
+        confirmDisable: 'Выключить USB?',
+        confirmDisableDescription: 'Компьютер потеряет клавиатуру, мышь, накопитель и звук NanoKVM, пока USB снова не включат.',
         pointerProfile: 'Режим абсолютного указателя',
         pointerProfileHelp:
           'Windows привязывает указатель к захватываемому монитору (Windows 10 1903 и новее). Применение переподключает USB и HDMI.',
@@ -1336,6 +1339,8 @@ const ru = {
           saveFailed: 'Не удалось сохранить предпочтительный шлюз.'
         },
         wifi: {
+          confirmDisable: 'Выключить Wi-Fi?',
+          confirmDisableDescription: 'Без Ethernet NanoKVM отключится от сети, и эта страница потеряет связь.',
           loading: 'Загрузка…',
           noAdapter: 'Wi-Fi адаптер не обнаружен',
           notDetected: 'не обнаружен',
@@ -1379,6 +1384,9 @@ const ru = {
           cancelBtn: 'Отмена'
         },
         tls: {
+          confirmEnable: 'Включить HTTPS?',
+          confirmDisable: 'Выключить HTTPS?',
+          confirmRestart: 'Веб-сервер перезапустится, и страница откроется по новому адресу. Другие открытые сеансы отключатся.',
           description: 'Включить протокол HTTPS',
           tip: 'Имейте в виду: использование HTTPS может увеличить задержку, особенно в режиме видео MJPEG.',
           failed: 'Не удалось изменить HTTPS. Текущая настройка не изменилась.'

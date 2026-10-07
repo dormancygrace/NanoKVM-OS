@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"NanoKVM-Server/internal/oomscore"
 )
 
 const TailscaledPath = "/usr/sbin/tailscaled"
@@ -41,7 +43,7 @@ func (c *Cli) Start() error {
 	if c.IsRunning() {
 		return nil
 	}
-	return exec.Command("rc-service", "tailscale", "start").Run()
+	return startDaemon("start")
 }
 
 func (c *Cli) Restart() error {
@@ -55,9 +57,9 @@ func (c *Cli) Restart() error {
 		return err
 	}
 	if !c.IsRunning() {
-		return exec.Command("rc-service", "tailscale", "start").Run()
+		return startDaemon("start")
 	}
-	return exec.Command("rc-service", "tailscale", "restart").Run()
+	return startDaemon("restart")
 }
 
 func (c *Cli) Stop() error {
@@ -147,4 +149,11 @@ func ensureNetbirdStopped() error {
 		return fmt.Errorf("stop NetBird before starting Tailscale")
 	}
 	return nil
+}
+
+// startDaemon starts tailscaled through OpenRC without the server's OOM
+// protection, which it would otherwise inherit.
+func startDaemon(action string) error {
+	argv := oomscore.Unprotected("rc-service", "tailscale", action)
+	return exec.Command(argv[0], argv[1:]...).Run()
 }

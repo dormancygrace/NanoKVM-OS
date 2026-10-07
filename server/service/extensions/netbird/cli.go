@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/internal/toolcache"
 )
 
@@ -76,7 +77,7 @@ func (c *Cli) Start() error {
 	if err != nil || running {
 		return err
 	}
-	return runProgram(commandTimeout, "rc-service", "netbird", "start")
+	return startDaemon("start")
 }
 
 func (c *Cli) Restart() error {
@@ -97,9 +98,9 @@ func (c *Cli) Restart() error {
 		return err
 	}
 	if !running {
-		return runProgram(commandTimeout, "rc-service", "netbird", "start")
+		return startDaemon("start")
 	}
-	return runProgram(commandTimeout, "rc-service", "netbird", "restart")
+	return startDaemon("restart")
 }
 
 func (c *Cli) Stop() error {
@@ -341,4 +342,11 @@ func scanLoginURL(reader io.Reader, urls chan<- string, wg *sync.WaitGroup) {
 			return
 		}
 	}
+}
+
+// startDaemon starts the netbird service through OpenRC without the server
+// OOM protection, which it would otherwise inherit.
+func startDaemon(action string) error {
+	argv := oomscore.Unprotected("rc-service", "netbird", action)
+	return runProgram(commandTimeout, argv[0], argv[1:]...)
 }

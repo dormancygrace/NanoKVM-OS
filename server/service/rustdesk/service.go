@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"NanoKVM-Server/internal/apkrun"
+	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/service/vm"
 
 	"golang.org/x/sys/unix"
@@ -154,7 +155,12 @@ func runCommand(ctx context.Context, name string, args ...string) ([]byte, error
 		// repository queries itself.
 		data, err = apkrun.Command(ctx, name, args...).CombinedOutput()
 	} else {
-		cmd := exec.CommandContext(ctx, name, args...)
+		argv := append([]string{name}, args...)
+		if name == "rc-service" && len(args) > 1 && (args[1] == "start" || args[1] == "restart") {
+			// The daemon must not inherit the server's OOM protection.
+			argv = oomscore.Unprotected(name, args...)
+		}
+		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 		var output bytes.Buffer
 		cmd.Stdout, cmd.Stderr = &output, &output
 		err = cmd.Start()

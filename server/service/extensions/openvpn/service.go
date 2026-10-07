@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/extensions/apkpkg"
 	"github.com/gin-gonic/gin"
@@ -233,6 +234,9 @@ func (s *Service) start(p Profile) error {
 	if e = cmd.Start(); e != nil {
 		return fmt.Errorf("OpenVPN could not start")
 	}
+	// openvpn runs in the foreground without scripts, so resetting the
+	// adjustment it inherited from the server right after start is enough.
+	_ = oomscore.Set(cmd.Process.Pid, oomscore.Normal)
 	go func() { _ = cmd.Wait() }()
 	if e = writePrivate(s.runtime(p.ID, ".pid"), []byte(strconv.Itoa(cmd.Process.Pid)+"\n")); e != nil {
 		_ = cmd.Process.Kill()

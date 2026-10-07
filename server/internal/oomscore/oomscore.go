@@ -30,6 +30,17 @@ const (
 
 var procRoot = "/proc"
 
+// ResetPrefix resets the adjustment of a sh -c script before it runs.
+const ResetPrefix = "echo 0 >/proc/self/oom_score_adj; "
+
+// Unprotected returns the command line that runs name with args at the
+// normal adjustment. A protected process uses it for daemons it starts (for
+// example through rc-service): the shell resets its own value and then
+// becomes the program, so nothing the program starts inherits the protection.
+func Unprotected(name string, args ...string) []string {
+	return append([]string{"/bin/sh", "-c", ResetPrefix + `exec "$0" "$@"`, name}, args...)
+}
+
 // Set writes the adjustment for pid; pid 0 means the calling process. Raising
 // it is always allowed; lowering it requires CAP_SYS_RESOURCE.
 func Set(pid, value int) error {

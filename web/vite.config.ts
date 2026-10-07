@@ -31,8 +31,5 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     port: 3001
-  },
-  build: {
-    chunkSizeWarningLimit: 1024
   }
 }));

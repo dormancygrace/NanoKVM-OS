@@ -89,6 +89,12 @@ Manage extensions from **Software**. Install, update and remove **PicoClaw** usi
 
 The everyday fixes matter too: React cleanup and state handling across audio, input, memory, software management and the terminal; stricter image filename, video value, autostart and time-zone validation; and reuse of unchanged sanitized log snapshots.
 
+## 🔐 A new generation of signed updates
+
+Release keys now have their own **nanokvm-keys** package. An ordinary update installs the public keys and automatically switches the official NanoKVM repository to the new **apk v3 index**, signed with **ECDSA P-256 and RSA** during the transition.
+
+Older installations keep their upgrade path through the **RSA-signed legacy index**. Packages use **RSA with SHA-256**. No manual key installation or repository editing is needed for the official NanoKVM repository; custom repositories and C906 overlay entries are left unchanged.
+
 ## 💾 One image version. An evolving system.
 
 Full SD images now have their own version number:
@@ -97,7 +103,7 @@ Full SD images now have their own version number:
 
 Future application updates keep the original image version and its bundled application version visible in **About**. You can identify what the card started with and which application version it runs today.
 
-The initial image is about **65.7 MiB compressed**. Its root partition remains **768 MiB**, with the remaining SD-card space available for user data. The six core update packages total about **35.5 MiB**; optional packages and dependency updates are additional.
+The root partition remains **768 MiB**, with the remaining SD-card space available for user data. The core update now consists of **seven packages**, including the new public-key package; optional add-ons remain separate.
 
 ## 🚀 Install or upgrade
 
@@ -130,4 +136,4 @@ Installations using the experimental C906 overlay should follow the [stock Alpin
 
 ## 🧪 Alpha status
 
-Both **v2.5-a1** and **Image v1.0-a1** are alpha releases. Host builds, automated tests, package signatures and artifact checks have passed. **Hardware acceptance of this exact assembled release remains pending**, including persistent SD cold-boot qualification of the full-image bootloader candidate. Earlier component tests do not replace that final check.
+Both **v2.5-a1** and **Image v1.0-a1** are alpha releases. The platform build and automated checks have passed. Final package signing and image checks are being repeated for the new key and repository migration. **Hardware acceptance of this exact assembled release remains pending**, including persistent SD cold-boot qualification of the full-image bootloader candidate. Earlier component tests do not replace that final check.

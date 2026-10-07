@@ -152,17 +152,25 @@ the packages need no ECDSA signature.
 
 ### Publishing a release
 
-1. Build with both release keys, each with its public key next to it:
+1. Set the application and APK versions in `firmware/alpine/release.env`;
+   retain the independently versioned image value unless releasing a new image.
+   For this release: applications `v2.5-a1`, APK `2.5_alpha1`, image `v1.0-a1`.
+   Keep both private keys outside the source tree, each with its public key
+   next to it: `dgrace-6aaddbb6.rsa` / `dgrace-6aaddbb6.rsa.pub` and
+   `nkos-release-ec-b8e89b66.key` / `nkos-release-ec-b8e89b66.pub`.
+   Use an unencrypted EC private key; encrypted-key builds have not been tested.
+   Build with both release keys:
 
    ```sh
-   platform/build.sh -k /secure/dgrace-6aaddbb6.rsa -e /secure/nkos-release-ec-b8e89b66.key
+   platform/build.sh -o OUTPUT -k /secure/dgrace-6aaddbb6.rsa -e /secure/nkos-release-ec-b8e89b66.key
    ```
 
 2. Upload the contents of `OUTPUT/release/apk/recipes/riscv64/` (the `*.apk`
    files, `APKINDEX.tar.gz` and `Packages.adb`) to
    `https://nkos.pesin.pro/repos/nanokvm/riscv64/`, replacing the previous
    release. Upload the packages first and the two indexes last, so that no
-   index names a package that is not there yet.
+   index names a package that is not there yet. Keep older package files available
+   for clients that still have a cached index; do not delete them during upload.
 3. Check the published indexes from a scratch root, for example
    `apk --keys-dir DIR verify Packages.adb` with only one of the keys in `DIR`.
 

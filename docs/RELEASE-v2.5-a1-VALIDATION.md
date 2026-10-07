@@ -25,3 +25,20 @@ The previous expected.sha256 had not incorporated all integrated code/profile ch
 Pending installation and validation of this exact package set. Earlier component experiments and namespace tests do not replace release hardware acceptance.
 
 The full-image OpenSBI/FIP candidate previously passed UART RAM boot; persistent candidate SD cold boot is not yet qualified. APK installation preserves the existing FIP.
+
+## Signing/index integration follow-up
+
+The release now includes nanokvm-keys, RSA-SHA256 package signatures and a
+v3 Packages.adb index signed with RSA and ECDSA. The prior six-package output,
+full image and source archive predate these changes and must be refreshed before
+publication. Platform binaries need no rebuild for this packaging-only change.
+
+The key/repository and stock-profile suites passed (16 tests), along with the
+platform-build and OpenRC dependency suites. Restored executable modes on seven
+imported build scripts. USB Internet helper/service and dnsmasq/iproute2 dependencies
+were retained while resolving the package-manifest conflicts.
+
+Repackaging requires the existing private EC key corresponding to
+nkos-release-ec-b8e89b66.pub; do not generate a replacement. Its location is
+pending from the maintainer. Device installation and reboot remain paused by
+explicit user instruction.

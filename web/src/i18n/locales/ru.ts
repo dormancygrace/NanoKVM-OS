@@ -664,6 +664,7 @@ const ru = {
       usbSerial: 'USB serial-консоль',
       usbSpeed: 'Виртуальный USB serial — baud rate не ограничивает скорость передачи.',
       invalidParameters: 'Некорректные параметры serial-порта.',
+      disconnected: 'Соединение закрыто. Нажмите Enter, чтобы переподключиться.',
       serial: 'Терминал COM-порта',
       serialPort: 'COM-порт',
       serialPortPlaceholder: 'Введите COM-порт',

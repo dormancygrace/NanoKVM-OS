@@ -651,6 +651,7 @@ const en = {
       usbSerial: 'USB serial console',
       usbSpeed: 'Virtual USB serial — baud rate does not limit transfer speed.',
       invalidParameters: 'Invalid serial parameters.',
+      disconnected: 'Connection closed. Press Enter to reconnect.',
       serial: 'Serial Port Terminal',
       serialPort: 'Serial Port',
       serialPortPlaceholder: 'Please enter the serial port',

@@ -1,0 +1,56 @@
+diff --git a/interdrv/cvi_vc_drv/cvi_vc_drv.c b/interdrv/cvi_vc_drv/cvi_vc_drv.c
+index e40c99d..1a04a22 100644
+--- a/interdrv/cvi_vc_drv/cvi_vc_drv.c
++++ b/interdrv/cvi_vc_drv/cvi_vc_drv.c
+@@ -218,7 +218,7 @@ static long cvi_vc_drv_venc_ioctl(struct file *filp, u_int cmd, u_long arg)
+ 		if (s32Ret != CVI_SUCCESS) {
+ #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+ 			if (stStream.pstPack) {
+-				vfree(stStream.pstPack);
++				kvfree(stStream.pstPack);
+ 				stStream.pstPack = NULL;
+ 			}
+ #endif
+@@ -233,7 +233,7 @@ static long cvi_vc_drv_venc_ioctl(struct file *filp, u_int cmd, u_long arg)
+ 					 stStream.u32PackCount) != 0) {
+ 
+ 				if (stStream.pstPack) {
+-					vfree(stStream.pstPack);
++					kvfree(stStream.pstPack);
+ 					stStream.pstPack = NULL;
+ 				}
+ 
+@@ -242,7 +242,7 @@ static long cvi_vc_drv_venc_ioctl(struct file *filp, u_int cmd, u_long arg)
+ 			}
+ 
+ 			if (stStream.pstPack) {
+-				vfree(stStream.pstPack);
++				kvfree(stStream.pstPack);
+ 				stStream.pstPack = NULL;
+ 			}
+ 		}
+diff --git a/interdrv/cvi_vc_drv/module/src/cvi_venc.c b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
+index ee54c4c..8c33225 100644
+--- a/interdrv/cvi_vc_drv/module/src/cvi_venc.c
++++ b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
+@@ -3334,7 +3334,10 @@ CVI_S32 CVI_VENC_GetStream(VENC_CHN VeChn, VENC_STREAM_S *pstStream,
+ 	}
+ 
+ #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+-	pstStream->pstPack = vzalloc(sizeof(VENC_PACK_S) * _cviGetNumPacks(pChnAttr->stVencAttr.enType));
++	/* Per stream: a slab allocation, not a vmalloc area with its page-table
++	 * update and TLB flush. Callers free it with kvfree. */
++	pstStream->pstPack = kcalloc(_cviGetNumPacks(pChnAttr->stVencAttr.enType),
++				     sizeof(VENC_PACK_S), GFP_KERNEL);
+ 	if (pstStream->pstPack == NULL)
+ 		return CVI_ERR_VENC_NOMEM;
+ #endif
+@@ -3775,7 +3778,7 @@ CVI_S32 CVI_VENC_DestroyChn(VENC_CHN VeChn)
+ 					CVI_VENC_ReleaseStream(VeChn, &stStream);
+ 
+ 				if (stStream.pstPack)
+-					MEM_FREE(stStream.pstPack);
++					kvfree(stStream.pstPack);
+ 			}
+ 		}
+ 

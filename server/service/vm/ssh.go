@@ -2,6 +2,7 @@ package vm
 
 import (
 	"NanoKVM-Server/authn"
+	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/utils"
 	"errors"
@@ -52,7 +53,8 @@ func (s *Service) EnableSSH(c *gin.Context) {
 		return
 	}
 
-	command := fmt.Sprintf("%s permanent_on", SSHScript)
+	// sshd must not inherit the server's OOM protection.
+	command := oomscore.ResetPrefix + fmt.Sprintf("%s permanent_on", SSHScript)
 	err = exec.Command("sh", "-c", command).Run()
 	if err != nil {
 		log.Errorf("failed to run SSH script: %s", err)

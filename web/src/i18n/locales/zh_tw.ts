@@ -59,7 +59,6 @@ const zh_tw = {
       scale: '缩放',
       title: '螢幕',
       video: '編碼格式',
-      videoDirectTips: '本模式需先啟用 HTTPS，請前往「設定 -> 設備」中開啟',
       resolution: '解析度',
       controlRegion: {
         title: '滑鼠校正',
@@ -78,17 +77,13 @@ const zh_tw = {
         duplicateResolution: '此解析度已存在。',
         width: '寬度',
         height: '高度',
-        apply: '計算並套用',
         invalidResolution: '請在影片準備完成後輸入有效的原始解析度。',
         select: '選擇區域',
-        clear: '恢復自動偵測',
         saveFailed: '無法儲存輸入區域。',
         tooSmall: '所選區域太小。',
         previewUnavailable: '無法預覽',
-        clearConfirm: '要恢復自動黑邊偵測嗎？',
         dragHint: '拖曳以選擇遠端桌面區域',
         finish: '完成',
-        confirm: '確認',
         cancel: '取消'
       },
       auto: '自動',
@@ -213,16 +208,7 @@ const zh_tw = {
         dragTitle: '按住後移動進行拖曳',
         dragDesc: '左鍵按住狀態生效後繼續移動手指，會變成按住滑鼠左鍵的拖曳。'
       },
-      resetHid: '重設 HID',
-      hidOnly: {
-        title: 'HID-Only 模式',
-        desc: '如果您的滑鼠和鍵盤沒有反應，且重設 HID 無效，可能是 NanoKVM 與您的裝置間有相容性問題。請嘗試啟用 HID-Only 模式以獲得更好的相容性。',
-        tip1: '啟用 HID-Only 模式將會停用虛擬隨身碟和虛擬網卡的功能',
-        tip2: '在 HID-Only 模式下，映像檔掛載功能將被停用',
-        tip3: 'NanoKVM 將在切換模式後自動重新啟動',
-        enable: '啟用 HID-Only 模式',
-        disable: '停用 HID-Only 模式'
-      }
+      resetHid: '重設 HID'
     },
     image: {
       title: '映像檔',
@@ -346,22 +332,10 @@ const zh_tw = {
       },
       about: {
         title: '關於 NanoKVM',
-        information: '資訊',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: '應用程式版本',
-        applicationTip: 'NanoKVM 網頁程式版本',
         image: '韌體版本',
-        imageTip: 'NanoKVM 系统韌體版本',
-        deviceKey: '設備序號',
-        community: '社群',
         hostname: '主機名稱',
-        hostnameUpdated: '已更新主機名稱. 請重新啟動以生效',
-        ipType: {
-          Wired: '有線',
-          Wireless: '無線',
-          Other: '其他'
-        }
+        hostnameUpdated: '已更新主機名稱. 請重新啟動以生效'
       },
       appearance: {
         title: '外觀',
@@ -374,7 +348,6 @@ const zh_tw = {
           title: '選單列',
           mode: '顯示方式',
           modeDesc: '選單欄在螢幕上的顯示方式',
-          modeOff: '關閉',
           modeAuto: '自動隱藏',
           modeAlways: '始終顯示',
           keyboardLedStatus: '鍵盤鎖定狀態指示燈',
@@ -411,17 +384,6 @@ const zh_tw = {
           1800: '30 分鐘',
           3600: '1 小時'
         },
-        ssh: {
-          description: '啟用 SSH 伺服器',
-          tip: '啟用前請務必設定強密碼（帳號 - 更改密碼）'
-        },
-        advanced: '進階設定',
-        swap: {
-          title: 'Swap',
-          disable: '停用',
-          description: '設定 Swap 檔大小',
-          tip: '啟用此功能可能會減少SD卡的使用壽命！'
-        },
         mouseJiggler: {
           title: '滑鼠抖動模式 (Mouse Jiggler)',
           description: '避免遠端主機進入休眠狀態',
@@ -439,23 +401,6 @@ const zh_tw = {
           idleTimeoutDescription: '沒有活躍觀看者時，在指定時間後停止 HDMI 擷取',
           minutes: '分鐘'
         },
-        autostart: {
-          title: '啟動時指令碼設定',
-          description: '管理能夠在 NanoKVM 啟動時自動執行的相關指令碼',
-          new: '建立新指令碼',
-          deleteConfirm: '確定要刪除該檔案嗎？',
-          yes: '是',
-          no: '否',
-          scriptName: 'Script 名稱',
-          scriptContent: 'Script 內容',
-          settings: '設定'
-        },
-        hidOnly: 'HID-Only 模式',
-        hidOnlyDesc: '停止模擬虛擬設備，僅保留基礎 HID 控制',
-        disk: '虛擬隨身碟',
-        diskDesc: '在遠端主機上連接虛擬隨身碟',
-        network: '虛擬網卡',
-        networkDesc: '在遠端主機上新增虛擬網卡',
         reboot: '重新啟動',
         rebootDesc: '您確定要重新啟動 NanoKVM?',
         okBtn: '確定',
@@ -499,21 +444,17 @@ const zh_tw = {
           invalid: '請輸入有效的 IPv4 位址、子網路遮罩與閘道',
           save: '儲存',
           unsaved: '有未儲存的變更',
-          savedStatic: '固定 IP 已儲存。請使用 {{address}} 重新連線。',
-          savedDhcp: '已啟用 DHCP。請使用路由器指派的位址重新連線。',
           saveFailed: '儲存有線網路設定失敗',
           loadFailed: '讀取有線網路設定失敗'
         },
         dns: {
           title: 'DNS',
           description: '設定 NanoKVM 使用的 DNS 伺服器',
-          mode: '模式',
           dhcp: 'DHCP',
           manual: '手動',
           add: '新增 DNS',
           save: '儲存',
           invalid: '請輸入有效的 IP 位址',
-          noDhcp: '目前未取得 DHCP DNS',
           saved: 'DNS 設定已儲存',
           saveFailed: '儲存 DNS 設定失敗',
           unsaved: '有未儲存的變更',
@@ -531,14 +472,6 @@ const zh_tw = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: '記憶體最佳化',
-          tip: '當記憶體使用量超過限制時，會更積極的進行垃圾回收來嘗試釋放記憶體。若使用 Tailscale 建議設定為 50MB，於重啟 Tailscale 後生效。'
-        },
-        swap: {
-          title: 'Swap',
-          tip: '如果啟用記憶體最佳化後依然存在問題，可以嘗試開啟 Swap。啟用後會將交換檔案設定為 256MB，可以在「設定 - 裝置」中修改該選項。'
-        },
         restart: '確定要重啟 Tailscale 嗎？',
         stop: '確定要停止 Tailscale 嗎？',
         stopDesc: '登出 Tailscale 並停用開機自動啟動。',
@@ -548,12 +481,6 @@ const zh_tw = {
         installing: '安裝中',
         failed: '安裝失敗',
         retry: '請重新整理並重試。或嘗試手動安裝',
-        download: '下載',
-        package: '安裝包',
-        unzip: '並解壓縮它',
-        upTailscale: '將 Tailscale 上傳到 NanoKVM 的 /usr/bin/ 資料夾',
-        upTailscaled: '將 Tailscale 上傳到 NanoKVM 的 /usr/sbin/ 資料夾',
-        refresh: '重新整理頁面',
         notRunning: 'Tailscale 尚未執行',
         run: '啟動',
         notLogin: '設備尚未綁定。請登入並將該裝置綁定到您的帳戶。',

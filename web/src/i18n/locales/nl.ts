@@ -64,7 +64,6 @@ const nl = {
       scale: 'Schaal',
       title: 'Scherm',
       video: 'Videomodus',
-      videoDirectTips: 'Schakel HTTPS in "Instellingen > Apparaat" in om deze modus te gebruiken',
       resolution: 'Resolutie',
       controlRegion: {
         title: 'Muiskalibratie',
@@ -84,18 +83,14 @@ const nl = {
         duplicateResolution: 'Deze resolutie bestaat al.',
         width: 'Breedte',
         height: 'Hoogte',
-        apply: 'Berekenen en toepassen',
         invalidResolution:
           'Voer een geldige oorspronkelijke resolutie in zodra de video gereed is.',
         select: 'Gebied selecteren',
-        clear: 'Automatische detectie herstellen',
         saveFailed: 'Het invoergebied kan niet worden opgeslagen.',
         tooSmall: 'Het geselecteerde gebied is te klein.',
         previewUnavailable: 'Voorbeeld niet beschikbaar',
-        clearConfirm: 'Automatische detectie van zwarte randen herstellen?',
         dragHint: 'Sleep om het externe bureaubladgebied te selecteren',
         finish: 'Gereed',
-        confirm: 'Bevestigen',
         cancel: 'Annuleren'
       },
       auto: 'Automatisch',
@@ -227,16 +222,7 @@ const nl = {
         dragDesc:
           'Wanneer vasthouden actief is, beweeg uw vinger om te slepen met de linkermuisknop ingedrukt.'
       },
-      resetHid: 'HID resetten',
-      hidOnly: {
-        title: 'Alleen HID-modus',
-        desc: 'Als uw muis en toetsenbord niet meer reageren en het opnieuw instellen van HID niet helpt, kan er sprake zijn van een compatibiliteitsprobleem tussen de NanoKVM en het apparaat. Probeer de modus HID-Only in te schakelen voor betere compatibiliteit.',
-        tip1: 'Als u de modus HID-Only inschakelt, worden de virtuele U-schijf en het virtuele netwerk ontkoppeld',
-        tip2: 'In de modus HID-Alleen is beeldmontage uitgeschakeld',
-        tip3: 'NanoKVM wordt automatisch opnieuw opgestart na het wisselen van modus',
-        enable: 'Schakel de modus HID-Alleen in',
-        disable: 'Schakel de modus HID-Alleen uit'
-      }
+      resetHid: 'HID resetten'
     },
     image: {
       title: 'Afbeeldingen',
@@ -364,22 +350,10 @@ const nl = {
       },
       about: {
         title: 'Over NanoKVM',
-        information: 'Informatie',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'Applicatie versie',
-        applicationTip: 'Versie van de NanoKVM-webapplicatie',
         image: 'Image versie',
-        imageTip: 'Versie van de NanoKVM-systeemimage',
-        deviceKey: 'Apparaat sleutel',
-        community: 'Community',
         hostname: 'Hostnaam',
-        hostnameUpdated: 'Hostnaam bijgewerkt. Start opnieuw op om toe te passen.',
-        ipType: {
-          Wired: 'Bedraad',
-          Wireless: 'Draadloos',
-          Other: 'Anders'
-        }
+        hostnameUpdated: 'Hostnaam bijgewerkt. Start opnieuw op om toe te passen.'
       },
       appearance: {
         title: 'Uiterlijk',
@@ -392,7 +366,6 @@ const nl = {
           title: 'Menubalk',
           mode: 'Weergavemodus',
           modeDesc: 'Geef de menubalk weer op het scherm',
-          modeOff: 'Uit',
           modeAuto: 'Automatisch verbergen',
           modeAlways: 'Altijd zichtbaar',
           keyboardLedStatus: 'Toetsvergrendelingsindicatoren',
@@ -430,17 +403,6 @@ const nl = {
           1800: '30 min',
           3600: '1 uur'
         },
-        ssh: {
-          description: 'Schakel SSH externe toegang in',
-          tip: 'Stel een sterk wachtwoord in voordat u (Account - Wachtwoord wijzigen) inschakelt'
-        },
-        advanced: 'Geavanceerde instellingen',
-        swap: {
-          title: 'Wisselen',
-          disable: 'Uitschakelen',
-          description: 'Stel de grootte van het wisselbestand in',
-          tip: 'Het inschakelen van deze functie kan de bruikbare levensduur van uw SD-kaart verkorten!'
-        },
         mouseJiggler: {
           title: 'Muisschommel',
           description: 'Voorkom dat de externe host in slaap valt',
@@ -459,25 +421,6 @@ const nl = {
             'HDMI-opname stoppen nadat er gedurende deze tijd geen actieve kijkers zijn:',
           minutes: 'min'
         },
-        autostart: {
-          title: 'Instellingen voor automatisch starten van scripts',
-          description:
-            'Beheer scripts die automatisch worden uitgevoerd bij het opstarten van het systeem',
-          new: 'Nieuw',
-          deleteConfirm: 'Weet u zeker dat u dit bestand wilt verwijderen?',
-          yes: 'Ja',
-          no: 'Nee',
-          scriptName: 'Scriptnaam automatisch starten',
-          scriptContent: 'Scriptinhoud automatisch starten',
-          settings: 'Instellingen'
-        },
-        hidOnly: 'HID-Alleen modus',
-        hidOnlyDesc:
-          'Stop met het emuleren van virtuele apparaten en behoud alleen de basisbesturing van HID',
-        disk: 'Virtuele schijf',
-        diskDesc: 'Koppel virtuele U-schijf aan de externe host',
-        network: 'Virtueel Netwerk',
-        networkDesc: 'Koppel virtueel netwerk kaart aan de externe host',
         reboot: 'Opnieuw opstarten',
         rebootDesc: 'Weet u zeker dat u NanoKVM opnieuw wilt opstarten?',
         okBtn: 'Ja',
@@ -522,22 +465,17 @@ const nl = {
           invalid: 'Voer een geldig IPv4-adres, subnetmasker en gateway in',
           save: 'Opslaan',
           unsaved: 'Niet-opgeslagen wijzigingen',
-          savedStatic: 'Statisch adres opgeslagen. Maak opnieuw verbinding met {{address}}.',
-          savedDhcp:
-            'DHCP ingeschakeld. Maak opnieuw verbinding met het adres dat door uw router is toegewezen.',
           saveFailed: 'Ethernetinstellingen opslaan mislukt',
           loadFailed: 'Ethernetinstellingen laden mislukt'
         },
         dns: {
           title: 'DNS',
           description: 'Configureer DNS-servers voor NanoKVM',
-          mode: 'Modus',
           dhcp: 'DHCP',
           manual: 'Handmatig',
           add: 'DNS toevoegen',
           save: 'Opslaan',
           invalid: 'Voer een geldig IP-adres in',
-          noDhcp: 'Er is momenteel geen DHCP-DNS beschikbaar',
           saved: 'DNS-instellingen opgeslagen',
           saveFailed: 'DNS-instellingen opslaan mislukt',
           unsaved: 'Niet-opgeslagen wijzigingen',
@@ -555,14 +493,6 @@ const nl = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Geheugen optimalisatie',
-          tip: 'Wanneer geheugen gebruik de limiet overschreid, garbage collection wordt agressiever uitgevoerd om geheugen vrij te maken. geadviseerd om 50MB te kiezen als Tailscale wordt gebruikt. Tailscale moet worden herstart om de wijziging door te voeren.'
-        },
-        swap: {
-          title: 'Geheugen wisselen',
-          tip: 'Als de problemen aanhouden nadat u geheugenoptimalisatie hebt ingeschakeld, probeer dan het wisselgeheugen in te schakelen. Hierdoor wordt de grootte van het wisselbestand standaard ingesteld op 256MB, wat kan worden aangepast in "Instellingen > Apparaat".'
-        },
         restart: 'Weet u zeker dat u Tailscale opnieuw wilt opstarten?',
         stop: 'Weet u zeker dat u Tailscale wilt stoppen?',
         stopDesc: 'Meld Tailscale af en schakel het automatisch opstarten bij het opstarten uit.',
@@ -572,12 +502,6 @@ const nl = {
         installing: 'Installeren bezig',
         failed: 'Installatie mislukt',
         retry: 'Vernieuw en probeer opnieuw. Of probeer handmatig te installeren',
-        download: 'Download het',
-        package: 'installatiepakket',
-        unzip: 'en pak het uit',
-        upTailscale: 'Upload tailscale naar NanoKVM directory /usr/bin/',
-        upTailscaled: 'Upload tailscaled naar NanoKVM directory /usr/sbin/',
-        refresh: 'Vernieuw huidige pagina',
         notRunning: 'Tailscale is niet actief. Start het programma om door te gaan.',
         run: 'Begin',
         notLogin:

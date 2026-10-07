@@ -242,7 +242,7 @@ export const Paste = () => {
               onClick={readFromClipboard}
               className="flex items-center"
             >
-              {t('keyboard.readClipboard') || 'Read from Clipboard'}
+              {t('keyboard.readClipboard')}
             </Button>
           )}
 

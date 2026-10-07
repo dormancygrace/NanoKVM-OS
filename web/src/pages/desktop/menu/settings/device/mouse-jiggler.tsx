@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import { setMouseJiggler } from '@/api/vm.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 export const MouseJiggler = () => {
   const { t } = useTranslation();
@@ -29,13 +31,14 @@ export const MouseJiggler = () => {
       .getMouseJiggler()
       .then((rsp) => {
         if (rsp.code !== 0) {
-          console.log(rsp.msg);
+          showRequestError(rsp);
           return;
         }
 
         setEnabled(rsp.data.enabled);
         setMode(rsp.data.mode);
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         setIsLoading(false);
       });
@@ -49,12 +52,13 @@ export const MouseJiggler = () => {
       .setMouseJiggler(true, mode)
       .then((rsp) => {
         if (rsp.code !== 0) {
-          console.log(rsp.msg);
+          showRequestError(rsp);
           return;
         }
 
         setEnabled(true);
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         setIsLoading(false);
       });
@@ -70,38 +74,44 @@ export const MouseJiggler = () => {
     setMouseJiggler(_enabled, _mode)
       .then((rsp) => {
         if (rsp.code !== 0) {
-          console.log(rsp.msg);
+          showRequestError(rsp);
           return;
         }
 
         setEnabled(_enabled);
         setMode(_mode);
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         setIsLoading(false);
       });
   }
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex flex-col space-y-1">
-        <span>{t('settings.device.mouseJiggler.title')}</span>
-        <span className="text-xs text-neutral-500">
-          {t('settings.device.mouseJiggler.description')}
-        </span>
-      </div>
-
+    <SettingRow
+      label={t('settings.device.mouseJiggler.title')}
+      description={t('settings.device.mouseJiggler.description')}
+      htmlFor="device-mouse-jiggler"
+    >
       {enabled ? (
         <Select
-          style={{ width: 150 }}
+          id="device-mouse-jiggler"
+          aria-describedby="device-mouse-jiggler-description"
+          style={{ width: 180 }}
           value={mode}
           options={options}
           loading={isLoading}
           onChange={updateMode}
         />
       ) : (
-        <Switch checked={enabled} loading={isLoading} onChange={enable} />
+        <Switch
+          id="device-mouse-jiggler"
+          aria-describedby="device-mouse-jiggler-description"
+          checked={enabled}
+          loading={isLoading}
+          onChange={enable}
+        />
       )}
-    </div>
+    </SettingRow>
   );
 };

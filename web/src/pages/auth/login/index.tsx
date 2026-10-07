@@ -1,7 +1,7 @@
-import { ReactElement, useEffect, useState } from 'react';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { ReactElement, useEffect, useRef, useState } from 'react';
 import { Button, Form, Input } from 'antd';
 import { useAtomValue } from 'jotai';
+import { LockIcon, UserIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,6 +19,7 @@ export const Login = (): ReactElement => {
 
   const [isLoading, setIsloading] = useState(false);
   const [msg, setMsg] = useState('');
+  const logoRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     api
@@ -68,38 +69,37 @@ export const Login = (): ReactElement => {
       });
   }
 
+  function spinLogo() {
+    const logo = logoRef.current;
+    if (!logo) return;
+    logo.classList.add('animate-spin');
+    setTimeout(() => logo.classList.remove('animate-spin'), 1000);
+  }
+
   return (
     <>
       <Head title={t('head.login')} />
 
       <div className="flex h-screen w-screen flex-col items-center justify-center">
-        <Form
-          style={{ minWidth: 300, maxWidth: 500 }}
-          initialValues={{ remember: true }}
-          onFinish={login}
-        >
+        <Form style={{ minWidth: 300, maxWidth: 500 }} onFinish={login}>
           <div className="flex flex-col items-center justify-center pb-4">
-            <img
-              id="logo"
-              src={brandingLogo(branding)}
-              width={300}
-              height={branding.customLogoAvailable ? 100 : 180}
-              alt={branding.customLogoAvailable ? 'Logo' : 'NanoKVM OS'}
-              className="max-w-full object-contain"
-              onClick={(evt) => {
-                evt.preventDefault();
-                (evt.target as HTMLImageElement).classList.add('animate-spin');
-                setTimeout(() => {
-                  (evt.target as HTMLImageElement).classList.remove('animate-spin');
-                }, 1000);
-              }}
-            />
+            <button type="button" className="nanokvm-button-base max-w-full" onClick={spinLogo}>
+              <img
+                ref={logoRef}
+                id="logo"
+                src={brandingLogo(branding)}
+                width={300}
+                height={branding.customLogoAvailable ? 100 : 180}
+                alt={branding.customLogoAvailable ? 'Logo' : 'NanoKVM OS'}
+                className="block max-w-full object-contain"
+              />
+            </button>
           </div>
           <Form.Item
             name="username"
             rules={[{ required: true, message: t('auth.noEmptyUsername'), min: 1 }]}
           >
-            <Input prefix={<UserOutlined />} placeholder={t('auth.placeholderUsername')} />
+            <Input prefix={<UserIcon size={14} />} placeholder={t('auth.placeholderUsername')} />
           </Form.Item>
 
           <Form.Item
@@ -107,7 +107,7 @@ export const Login = (): ReactElement => {
             rules={[{ required: true, message: t('auth.noEmptyPassword'), min: 1 }]}
           >
             <Input
-              prefix={<LockOutlined />}
+              prefix={<LockIcon size={14} />}
               type="password"
               placeholder={t('auth.placeholderPassword')}
             />

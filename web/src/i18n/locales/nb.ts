@@ -63,7 +63,6 @@ const nb = {
       scale: 'Skala',
       title: 'Skjerm',
       video: 'Video-kodek',
-      videoDirectTips: 'Aktiver HTTPS i "Innstillinger > Enhet" for å bruke denne modusen',
       resolution: 'Oppløsning',
       controlRegion: {
         title: 'Musekalibrering',
@@ -83,17 +82,13 @@ const nb = {
         duplicateResolution: 'Denne oppløsningen finnes allerede.',
         width: 'Bredde',
         height: 'Høyde',
-        apply: 'Beregn og bruk',
         invalidResolution: 'Angi en gyldig opprinnelig oppløsning når videoen er klar.',
         select: 'Velg område',
-        clear: 'Gjenopprett automatisk registrering',
         saveFailed: 'Kunne ikke lagre inndataområdet.',
         tooSmall: 'Det valgte området er for lite.',
         previewUnavailable: 'Forhåndsvisning er utilgjengelig',
-        clearConfirm: 'Gjenopprette automatisk registrering av svarte kanter?',
         dragHint: 'Dra for å velge området på det eksterne skrivebordet',
         finish: 'Ferdig',
-        confirm: 'Bekreft',
         cancel: 'Avbryt'
       },
       auto: 'Automatisk',
@@ -223,16 +218,7 @@ const nb = {
         dragTitle: 'Flytt etter hold for å dra',
         dragDesc: 'Når hold er aktivt, flytter du fingeren for å dra med venstre knapp nede.'
       },
-      resetHid: 'Gjenopprett HID',
-      hidOnly: {
-        title: 'Kun HID-modus',
-        desc: 'Hvis musen og tastaturet slutter å svare og tilbakestilling av HID ikke hjelper, kan det være et kompatibilitetsproblem mellom NanoKVM og enheten. Prøv å aktivere HID-Only-modus for bedre kompatibilitet.',
-        tip1: 'Aktivering av HID-Only-modus vil demontere den virtuelle U-disken og det virtuelle nettverket',
-        tip2: 'I HID-Only-modus er bildemontering deaktivert',
-        tip3: 'NanoKVM vil automatisk starte på nytt etter bytte av modus',
-        enable: 'Aktiver HID-Only-modus',
-        disable: 'Deaktiver HID-bare-modus'
-      }
+      resetHid: 'Gjenopprett HID'
     },
     image: {
       title: 'Bilder',
@@ -359,22 +345,10 @@ const nb = {
       },
       about: {
         title: 'Om NanoKVM',
-        information: 'Informasjon',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'Applikasjonsversjon',
-        applicationTip: 'Versjon av NanoKVM-webapplikasjonen',
         image: 'Arkivfil-versjon',
-        imageTip: 'Versjon av NanoKVM-systemavbildningen',
-        deviceKey: 'Enhetsnøkkel',
-        community: 'Fellesskap',
         hostname: 'Vertsnavn',
-        hostnameUpdated: 'Vertsnavn oppdatert. Start på nytt for å søke.',
-        ipType: {
-          Wired: 'Kablet',
-          Wireless: 'Trådløs',
-          Other: 'Annet'
-        }
+        hostnameUpdated: 'Vertsnavn oppdatert. Start på nytt for å søke.'
       },
       appearance: {
         title: 'Utseende',
@@ -387,7 +361,6 @@ const nb = {
           title: 'Menylinje',
           mode: 'Visningsmodus',
           modeDesc: 'Vis menylinje på skjermen',
-          modeOff: 'Av',
           modeAuto: 'Skjul automatisk',
           modeAlways: 'Alltid synlig',
           keyboardLedStatus: 'Indikatorer for tastaturlås',
@@ -425,17 +398,6 @@ const nb = {
           1800: '30 min',
           3600: '1 time'
         },
-        ssh: {
-          description: 'Aktiver SSH ekstern tilgang',
-          tip: 'Angi et sterkt passord før du aktiverer (Konto - Endre passord)'
-        },
-        advanced: 'Avanserte innstillinger',
-        swap: {
-          title: 'Bytt',
-          disable: 'Deaktiver',
-          description: 'Angi størrelsen på byttefilen',
-          tip: 'Aktivering av denne funksjonen kan forkorte SD-kortets brukbare levetid!'
-        },
         mouseJiggler: {
           title: 'Mus Jiggler',
           description: 'Hindre den eksterne verten fra å sove',
@@ -453,23 +415,6 @@ const nb = {
           idleTimeoutDescription: 'Stopp HDMI-opptak etter at det ikke har vært aktive seere i',
           minutes: 'min'
         },
-        autostart: {
-          title: 'Autostart skriptinnstillinger',
-          description: 'Administrer skript som kjører automatisk ved systemstart',
-          new: 'Ny',
-          deleteConfirm: 'Er du sikker på at du vil slette denne filen?',
-          yes: 'Ja',
-          no: 'Nei',
-          scriptName: 'Autostart skriptnavn',
-          scriptContent: 'Autostart skriptinnhold',
-          settings: 'Innstillinger'
-        },
-        hidOnly: 'HID-Bare modus',
-        hidOnlyDesc: 'Slutt å emulere virtuelle enheter, behold bare grunnleggende HID-kontroll',
-        disk: 'Virtuell disk',
-        diskDesc: 'Mount virtual U-disk on the remote host',
-        network: 'Virtuelt nettverk',
-        networkDesc: 'Monter virtuelt nettverkskort på den eksterne verten',
         reboot: 'Start på nytt',
         rebootDesc: 'Er du sikker på at du vil starte NanoKVM på nytt?',
         okBtn: 'Ja',
@@ -513,21 +458,17 @@ const nb = {
           invalid: 'Angi en gyldig IPv4-adresse, nettverksmaske og gateway',
           save: 'Lagre',
           unsaved: 'Ulagrede endringer',
-          savedStatic: 'Statisk adresse lagret. Koble til igjen på {{address}}.',
-          savedDhcp: 'DHCP aktivert. Koble til igjen med adressen ruteren har tildelt.',
           saveFailed: 'Kunne ikke lagre Ethernet-innstillinger',
           loadFailed: 'Kunne ikke laste inn Ethernet-innstillinger'
         },
         dns: {
           title: 'DNS',
           description: 'Konfigurer DNS-servere for NanoKVM',
-          mode: 'Modus',
           dhcp: 'DHCP',
           manual: 'Manuell',
           add: 'Legg til DNS',
           save: 'Lagre',
           invalid: 'Skriv inn en gyldig IP-adresse',
-          noDhcp: 'Ingen DHCP-DNS er tilgjengelig nå',
           saved: 'DNS-innstillinger lagret',
           saveFailed: 'Kunne ikke lagre DNS-innstillinger',
           unsaved: 'Ulagrede endringer',
@@ -545,14 +486,6 @@ const nb = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Minneoptimalisering',
-          tip: "When memory usage exceeds the limit, garbage collection is performed more aggressively to attempt to free up memory. it's recommended to set to 50MB if using Tailscale. A Tailscale restart is required for the change to take effect."
-        },
-        swap: {
-          title: 'Bytt minne',
-          tip: 'Hvis problemene vedvarer etter at du har aktivert minneoptimalisering, prøv å aktivere swap-minne. Dette setter swap-filstørrelsen til 256MB som standard, som kan justeres i "Innstillinger > Enhet".'
-        },
         restart: 'Are you sure to restart Tailscale?',
         stop: 'Are you sure to stop Tailscale?',
         stopDesc: 'Log out Tailscale and disable its automatic startup on boot.',
@@ -562,12 +495,6 @@ const nb = {
         installing: 'Installerer',
         failed: 'Installering feilet',
         retry: 'Vennligst last inn siden på nytt og forsøk igjen eller installer manuelt',
-        download: 'Last ned',
-        package: 'installasjonspakken',
-        unzip: 'og pakk den ut',
-        upTailscale: 'Last opp Tailscale til NanoKVM-enhetens mappe /usr/bin/',
-        upTailscaled: 'Last opp tailscaled til NanoKVM-enhetens mappe /usr/sbin/',
-        refresh: 'Last inn denne siden på nytt',
         notRunning: 'Tailscale kjører ikke. Start den for å fortsette.',
         run: 'Start',
         notLogin:

@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
+import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
+
+import { formatDeviceTime } from '@/lib/date-time.ts';
+import { timePreferencesAtom } from '@/hooks/useDeviceTime.ts';
 
 // Anchor to the device clock, then advance locally without polling every second.
 export function HandshakeAge({ timestamp, serverNow }: { timestamp: number; serverNow?: number }) {
   const { i18n } = useTranslation();
+  const preferences = useAtomValue(timePreferencesAtom);
   const [sample, setSample] = useState(() => ({
     now: serverNow ?? Date.now(),
     at: performance.now()
@@ -22,11 +27,14 @@ export function HandshakeAge({ timestamp, serverNow }: { timestamp: number; serv
     seconds < 60 ? 'second' : seconds < 3600 ? 'minute' : seconds < 86400 ? 'hour' : 'day';
   const divisor = { second: 1, minute: 60, hour: 3600, day: 86400 }[unit];
   return (
-    <>
+    <time
+      dateTime={new Date(timestamp * 1000).toISOString()}
+      title={formatDeviceTime(timestamp * 1000, preferences, i18n.language, true)}
+    >
       {new Intl.RelativeTimeFormat(i18n.language, { numeric: 'always' }).format(
         -Math.floor(seconds / divisor),
         unit
       )}
-    </>
+    </time>
   );
 }

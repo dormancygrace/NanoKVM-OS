@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
 	"fmt"
 	"os"
@@ -45,7 +46,7 @@ func (s *Service) EnableMdns(c *gin.Context) {
 		fmt.Sprintf("%s start", AvahiDaemonScript),
 	}
 
-	command := strings.Join(commands, " && ")
+	command := oomscore.ResetPrefix + strings.Join(commands, " && ")
 	err := exec.Command("sh", "-c", command).Run()
 	if err != nil {
 		log.Errorf("failed to start avahi-daemon: %s", err)
@@ -115,7 +116,8 @@ func setAlpineMdns(c *gin.Context, enabled bool) {
 		err = os.WriteFile(marker, []byte("1\n"), 0600)
 	}
 	if err == nil {
-		err = exec.Command("rc-service", "avahi-daemon", action).Run()
+		argv := oomscore.Unprotected("rc-service", "avahi-daemon", action)
+		err = exec.Command(argv[0], argv[1:]...).Run()
 	}
 	if err != nil {
 		rsp.ErrRsp(c, -1, "failed to change mDNS state")

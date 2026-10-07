@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import * as api from "@/api/extensions/netbird.ts";
+import * as api from '@/api/extensions/netbird.ts';
 
-import { ExtensionInstallResult } from "../vpn/extension-install-result.tsx";
-import { ErrorHelp } from "./error-help.tsx";
+import { ExtensionInstallResult } from '../vpn/extension-install-result.tsx';
+import { ErrorHelp } from './error-help.tsx';
 
 type InstallProps = {
   setIsLocked: (isLocked: boolean) => void;
@@ -15,7 +15,7 @@ export const Install = ({ setIsLocked, onSuccess }: InstallProps) => {
   const { t } = useTranslation();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [errMsg, setErrMsg] = useState("");
+  const [errMsg, setErrMsg] = useState('');
 
   function install() {
     if (isLoading) return;
@@ -33,7 +33,7 @@ export const Install = ({ setIsLocked, onSuccess }: InstallProps) => {
         onSuccess();
       })
       .catch((err) => {
-        setErrMsg(err.message || "Install failed");
+        setErrMsg(err.message || t('settings.netbird.error.installFailed'));
       })
       .finally(() => {
         setIsLoading(false);
@@ -44,9 +44,9 @@ export const Install = ({ setIsLocked, onSuccess }: InstallProps) => {
   return (
     <>
       <ExtensionInstallResult
-        title={t("settings.netbird.notInstall")}
-        description={t("settings.netbird.installDescription")}
-        actionLabel={isLoading ? t("settings.netbird.installing") : t("settings.netbird.install")}
+        title={t('settings.netbird.notInstall')}
+        description={t('settings.netbird.installDescription')}
+        actionLabel={isLoading ? t('settings.netbird.installing') : t('settings.netbird.install')}
         loading={isLoading}
         onInstall={install}
       />

@@ -40,11 +40,16 @@ export function useLeaderKey(
 
   // Get leader key
   useEffect(() => {
-    api.getLeaderKey().then((rsp: any) => {
-      if (rsp.code === 0 && rsp.data?.key !== undefined) {
-        setLeaderKeyCode(rsp.data.key);
-      }
-    });
+    api
+      .getLeaderKey()
+      .then((rsp: any) => {
+        if (rsp.code === 0 && rsp.data?.key !== undefined) {
+          setLeaderKeyCode(rsp.data.key);
+        }
+      })
+      .catch(() => {
+        /* Keep the current leader key; the request is retried on the next page load. */
+      });
   }, [setLeaderKeyCode]);
 
   // Update leader key

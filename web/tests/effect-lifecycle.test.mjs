@@ -227,8 +227,11 @@ test('memory effect replay and locale changes discard stale reads and keep one p
     pollers = new Set();
   const h = harness('../src/pages/desktop/menu/settings/memory/index.tsx', 'Memory', {
     '@/lib/swap-request.ts': { swapRequestSize },
+    '@/lib/theme-tokens.ts': { themeTokens: { info: '#38bdf8' } },
+    '@/components/ui/settings.tsx': { Panel: 'Panel', SettingRow: 'SettingRow' },
     antd: {
       Alert: 'Alert',
+      message: { error: noOp },
       Progress: 'Progress',
       Select: 'Select',
       Spin: 'Spin',

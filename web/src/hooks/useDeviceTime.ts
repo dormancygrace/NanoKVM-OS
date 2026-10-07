@@ -15,7 +15,14 @@ export function useDeviceTime() {
       void http
         .get('/api/vm/date-time')
         .then((rsp) => {
-          if (mounted && rsp.code === 0) setPreferences(rsp.data.config);
+          if (!mounted || rsp.code !== 0) return;
+          const { timezone, format } = rsp.data.config as TimePreferences;
+          // Keep the same object while nothing changed, so readers do not re-render.
+          setPreferences((current) =>
+            current.timezone === timezone && current.format === format
+              ? current
+              : { timezone, format }
+          );
         })
         .catch(() => {
           /* Keep the last known format during a disconnect. */

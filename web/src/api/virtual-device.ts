@@ -31,17 +31,6 @@ export async function setUsbComposition(composition: UsbComposition, revision: s
   return response;
 }
 
-// mount/unmount virtual device
-export async function updateVirtualDevice(device: string) {
-  const data = {
-    device
-  };
-
-  const response = await http.post('/api/vm/device/virtual', data);
-  if (response.code === 0) window.dispatchEvent(new Event(usbCompositionChangedEvent));
-  return response;
-}
-
 export type UsbInternetStatus = {
   enabled: boolean;
   state: string;

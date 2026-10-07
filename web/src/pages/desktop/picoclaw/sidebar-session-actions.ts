@@ -4,12 +4,14 @@ import type { TFunction } from 'i18next';
 import {
   closeGateway,
   connectGateway,
+  picoclawGateway,
+  sendChatMessage,
+  sendStopMessage
+} from '@/api/picoclaw-gateway.ts';
+import {
   deletePicoclawSession,
   getPicoclawSession,
   listPicoclawSessions,
-  picoclawGateway,
-  sendChatMessage,
-  sendStopMessage,
   type PicoclawSessionListItem
 } from '@/api/picoclaw.ts';
 import { generateUUIDv4 } from '@/lib/picoclaw-gateway.ts';

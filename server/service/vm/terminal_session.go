@@ -7,6 +7,8 @@ import (
 	"syscall"
 	"time"
 
+	"NanoKVM-Server/internal/oomscore"
+
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
 )
@@ -32,6 +34,9 @@ func runTerminalSession(ws *websocket.Conn, cmd *exec.Cmd) error {
 	if err != nil {
 		return err
 	}
+	// Commands typed here, apk included, must not share the server's OOM
+	// protection.
+	_ = oomscore.Set(cmd.Process.Pid, oomscore.Normal)
 	defer func() {
 		_ = ptmx.Close()
 		_ = cmd.Process.Kill()

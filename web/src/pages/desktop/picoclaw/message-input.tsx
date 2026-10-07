@@ -63,6 +63,7 @@ export const MessageInput = ({
       <textarea
         ref={textareaRef}
         rows={3}
+        aria-label={t('picoclaw.inputPlaceholder')}
         value={value}
         disabled={disabled || isConnecting}
         placeholder={isConnecting ? '...' : t('picoclaw.inputPlaceholder')}
@@ -100,6 +101,7 @@ export const MessageInput = ({
         onClick={() => void onNewConversation()}
         disabled={disabled || disableNewConversation}
         className="absolute bottom-2.5 right-11 flex! !h-7 !w-7 items-center! justify-center! !rounded-lg border! !border-white/[0.08]"
+        aria-label={t('picoclaw.newConversation')}
         title={t('picoclaw.newConversation')}
       />
       <Button
@@ -108,6 +110,7 @@ export const MessageInput = ({
         onClick={() => void submit()}
         disabled={!canSubmit || !value.trim()}
         className="absolute bottom-2.5 right-2.5 flex! !h-7 !w-7 items-center! justify-center! !rounded-lg"
+        aria-label={t('picoclaw.send')}
         title={t('picoclaw.send')}
       />
     </div>

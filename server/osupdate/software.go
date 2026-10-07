@@ -13,6 +13,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"NanoKVM-Server/internal/apkrun"
 )
 
 const (
@@ -238,8 +240,15 @@ func GetSoftwareIndexStatus() SoftwareIndexStatus {
 	return status
 }
 
-func runAPKOutput(ctx context.Context, args ...string) (string, error) {
-	b, err := exec.CommandContext(ctx, apkExecutable, args...).CombinedOutput()
+// softwareLockWait bounds how long a Software page query waits for another
+// apk run. With the query's own timeout it stays below the browser's 60 s
+// request limit.
+const softwareLockWait = 12 * time.Second
+
+func runAPKOutput(timeout time.Duration, args ...string) (string, error) {
+	cmd := apkrun.Command(context.Background(), apkExecutable, args...)
+	cmd.LockWait, cmd.Timeout = softwareLockWait, timeout
+	b, err := cmd.CombinedOutput()
 	if len(b) > softwareLogLimit {
 		b = b[len(b)-softwareLogLimit:]
 	}
@@ -252,9 +261,7 @@ func ListInstalledSoftware() ([]SoftwarePackage, error) {
 	}
 	// On the NanoKVM, even the installed-package query can take around twenty
 	// seconds after the APK database has grown. Keep it below the browser limit.
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-	defer cancel()
-	output, err := runAPKOutput(ctx, "info", "--verbose")
+	output, err := runAPKOutput(45*time.Second, "info", "--verbose")
 	if err != nil {
 		return nil, fmt.Errorf("cannot list installed packages: %s", strings.TrimSpace(output))
 	}
@@ -272,9 +279,7 @@ func SearchSoftware(query string) ([]SoftwarePackage, error) {
 	// Package catalogue scans run on the NanoKVM's low-power CPU and can take
 	// longer than the lightweight installed-package query. Keep this below the
 	// browser request timeout while allowing APK to finish a normal search.
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-	defer cancel()
-	output, err := runAPKOutput(ctx, "search", "--all", "--verbose", "*"+query+"*")
+	output, err := runAPKOutput(45*time.Second, "search", "--all", "--verbose", "*"+query+"*")
 	if err != nil {
 		return nil, fmt.Errorf("package search failed: %s", strings.TrimSpace(output))
 	}
@@ -287,9 +292,7 @@ func ListSoftwareUpdates() ([]SoftwareUpdate, error) {
 	if _, err := os.Stat("/etc/alpine-release"); err != nil {
 		return nil, errors.New("native APK software management requires Alpine")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-	defer cancel()
-	output, err := runAPKOutput(ctx, "version", "-l", "<")
+	output, err := runAPKOutput(45*time.Second, "version", "-l", "<")
 	if err != nil {
 		return nil, fmt.Errorf("cannot check available package updates: %s", strings.TrimSpace(output))
 	}
@@ -305,9 +308,7 @@ func PreviewSoftwareRemoval(name string) (string, error) {
 		return "", err
 	}
 	defer lock.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	output, err := runAPKOutput(ctx, "del", "--simulate", "--", name)
+	output, err := runAPKOutput(30*time.Second, "del", "--simulate", "--", name)
 	if err != nil {
 		return "", fmt.Errorf("cannot simulate package removal: %s", strings.TrimSpace(output))
 	}
@@ -381,7 +382,7 @@ func RunSoftware(action, name string) (result error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 	run := func(args ...string) error {
-		cmd := exec.CommandContext(ctx, apkExecutable, args...)
+		cmd := apkrun.Command(ctx, apkExecutable, args...)
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 		return cmd.Run()
 	}

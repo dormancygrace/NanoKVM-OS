@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
-import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
-import { Button, Input } from 'antd';
-import { ClipboardPenIcon } from 'lucide-react';
+import { Alert, Button, Input } from 'antd';
+import { CheckIcon, ClipboardPenIcon, XIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+import { requestErrorText } from '@/lib/request-error.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { IconButton, SettingRow } from '@/components/ui/settings.tsx';
 
 export const Hostname = ({ editable = false }: { editable?: boolean }) => {
   const { t } = useTranslation();
 
   const [isLoading, setIsLoading] = useState(false);
   const [hostname, setHostname] = useState('');
+  // The failed load request; its text is derived when rendering.
+  const [loadError, setLoadError] = useState<{ error: unknown } | null>(null);
 
   const [editState, setEditState] = useState<'' | 'editing' | 'edited'>('');
   const [input, setInput] = useState('');
@@ -29,6 +33,7 @@ export const Hostname = ({ editable = false }: { editable?: boolean }) => {
           setHostname(rsp.data?.hostname);
         }
       })
+      .catch((err) => setLoadError({ error: err }))
       .finally(() => {
         setIsLoading(false);
       });
@@ -52,57 +57,68 @@ export const Hostname = ({ editable = false }: { editable?: boolean }) => {
       .setHostname(input)
       .then((rsp) => {
         if (rsp.code !== 0) {
-          console.log(rsp.msg);
+          showRequestError(rsp);
           return;
         }
 
         setHostname(input);
         setEditState('edited');
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         setIsLoading(false);
       });
   }
 
-  return (
-    <div className="space-y-1">
-      <div className="flex w-full items-center justify-between">
-        <span>{t('settings.about.hostname')}</span>
+  const loadErrorText = loadError && requestErrorText(loadError.error, t('error.requestFailed'));
 
+  return (
+    <>
+      {loadErrorText && <Alert type="error" showIcon message={loadErrorText} />}
+      <SettingRow
+        label={t('settings.about.hostname')}
+        description={
+          editState === 'edited' ? (
+            <span className="text-success">{t('settings.about.hostnameUpdated')}</span>
+          ) : undefined
+        }
+      >
         {editState === 'editing' ? (
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center gap-1">
             <Input
+              aria-label={t('settings.about.hostname')}
               disabled={isLoading}
-              style={{ width: 150 }}
+              style={{ width: 180 }}
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
-            <Button size="small" icon={<CheckOutlined />} onClick={update} />
-            <Button size="small" icon={<CloseOutlined />} onClick={() => setEditState('')} />
+            <Button
+              size="small"
+              aria-label={t('settings.about.hostnameSave')}
+              icon={<CheckIcon size={14} />}
+              onClick={update}
+            />
+            <Button
+              size="small"
+              aria-label={t('settings.about.hostnameCancel')}
+              icon={<XIcon size={14} />}
+              onClick={() => setEditState('')}
+            />
           </div>
         ) : (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <span>{hostname}</span>
             {editable && (
-              <Button
-                size="small"
-                type="text"
-                aria-label={t('settings.about.hostname')}
-                title={t('settings.about.hostname')}
-                className="text-neutral-400 hover:!text-blue-500"
-                icon={<ClipboardPenIcon size={16} />}
+              <IconButton
+                label={t('settings.about.hostnameEdit')}
+                className="text-fg-muted hover:text-info!"
+                icon={<ClipboardPenIcon size={14} />}
                 onClick={showInput}
               />
             )}
           </div>
         )}
-      </div>
-
-      {editState === 'edited' && (
-        <div className="flex w-full justify-end text-xs text-green-500">
-          {t('settings.about.hostnameUpdated')}
-        </div>
-      )}
-    </div>
+      </SettingRow>
+    </>
   );
 };

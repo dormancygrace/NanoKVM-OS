@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { PauseCircleOutlined } from "@ant-design/icons";
-import { Button, Card, Result } from "antd";
-import { useTranslation } from "react-i18next";
+import { useState } from 'react';
+import { Button, Result } from 'antd';
+import { CirclePauseIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-import * as api from "@/api/extensions/netbird.ts";
+import * as api from '@/api/extensions/netbird.ts';
+import { Panel } from '@/components/ui/settings.tsx';
 
-import { ErrorHelp } from "./error-help.tsx";
+import { ErrorHelp } from './error-help.tsx';
 
 type RunProps = {
   onSuccess: () => void;
@@ -15,7 +16,7 @@ export const Run = ({ onSuccess }: RunProps) => {
   const { t } = useTranslation();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [errMsg, setErrMsg] = useState("");
+  const [errMsg, setErrMsg] = useState('');
 
   function run() {
     if (isLoading) return;
@@ -32,7 +33,7 @@ export const Run = ({ onSuccess }: RunProps) => {
         onSuccess();
       })
       .catch((err) => {
-        setErrMsg(err.message || "Start failed");
+        setErrMsg(err.message || t('settings.netbird.error.startFailed'));
       })
       .finally(() => {
         setIsLoading(false);
@@ -40,22 +41,20 @@ export const Run = ({ onSuccess }: RunProps) => {
   }
 
   return (
-    <Card>
+    <Panel>
       <Result
-        icon={<PauseCircleOutlined />}
-        subTitle={t("settings.netbird.notRunning")}
+        icon={<CirclePauseIcon size={72} />}
+        subTitle={t('settings.netbird.notRunning')}
         extra={
           <Button key="run" type="primary" loading={isLoading} onClick={run}>
-            {t("settings.netbird.run")}
+            {t('settings.netbird.run')}
           </Button>
         }
       />
 
       <div className="flex justify-center">
-        {errMsg && (
-          <ErrorHelp error={errMsg} onRefresh={onSuccess} canRestart />
-        )}
+        {errMsg && <ErrorHelp error={errMsg} onRefresh={onSuccess} canRestart />}
       </div>
-    </Card>
+    </Panel>
   );
 };

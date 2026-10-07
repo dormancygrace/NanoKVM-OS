@@ -1,11 +1,8 @@
-import { useEffect } from 'react';
-import { useAuth } from '@/contexts/auth';
 import { Button } from 'antd';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { ClapperboardIcon, MonitorIcon, SettingsIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { updateScreen } from '@/api/vm';
 import { getEncoderCodec } from '@/lib/encoder';
 import { videoModeAtom, videoSessionCountAtom } from '@/jotai/screen';
 import { menuCloseSignalAtom, settingsRequestAtom } from '@/jotai/settings';
@@ -13,13 +10,11 @@ import { useResponsiveDevice } from '@/hooks/useResponsiveDevice';
 import { MenuItem } from '@/components/menu-item';
 import { useDismissMobileMenu } from '@/components/mobile-menu-context';
 
-import { getScreenType } from './constants';
 import { QuickVideo } from './quick-video';
 import { Scale } from './scale';
 
 export const Screen = () => {
   const { t } = useTranslation();
-  const { account } = useAuth();
   const mode = useAtomValue(videoModeAtom);
   const sessions = useAtomValue(videoSessionCountAtom);
   const codec = getEncoderCodec();
@@ -31,10 +26,6 @@ export const Screen = () => {
   const closeMenu = useSetAtom(menuCloseSignalAtom);
   const dismissMobileMenu = useDismissMobileMenu();
   const { isMobilePortrait } = useResponsiveDevice();
-  useEffect(() => {
-    const type = getScreenType(mode, codec);
-    if (type !== null && account.role === 'admin') void updateScreen('type', type);
-  }, [mode, codec, account.role]);
   const content = (
     <div className="flex! min-w-64 flex-col gap-1">
       <div className="flex items-center justify-between gap-4 px-3 py-2 text-sm">

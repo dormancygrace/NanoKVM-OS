@@ -1,40 +1,30 @@
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useState } from 'react';
 
-import { getVirtualDevice, usbCompositionChangedEvent } from '@/api/virtual-device.ts';
+import { usbCompositionChangedEvent } from '@/api/virtual-device.ts';
+import { refreshLiveStatus, subscribeLiveStatus } from '@/lib/live-status.ts';
 
 // Read the applied composition, never an unapplied draft from the settings panel.
+// The live status carries it for administrators only; others get null.
 export function useVirtualDisk() {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   useEffect(() => {
-    let active = true;
-    let generation = 0;
-    async function refresh() {
-      const request = ++generation;
-      try {
-        const response = await getVirtualDevice();
-        if (!active || request !== generation) return;
-        setEnabled(
-          response.code === 0 && typeof response.data?.disk === 'boolean'
-            ? response.data.disk && response.data.mode !== 'hid-only'
-            : null
-        );
-      } catch {
-        if (active && request === generation) setEnabled(null);
-      }
-    }
+    let changedAt = -Infinity;
+    const unsubscribe = subscribeLiveStatus((live, startedAt) => {
+      if (startedAt < changedAt) return;
+      const usb = live?.usb;
+      setEnabled(typeof usb?.disk === 'boolean' ? usb.disk && usb.mode !== 'hid-only' : null);
+    });
+    const refresh = () => void refreshLiveStatus({ force: true });
     function compositionChanged() {
+      changedAt = performance.now();
       setEnabled(null);
-      void refresh();
+      refresh();
     }
-    void refresh();
-    const stopPolling = pollWhileVisible(refresh, 5000);
     window.addEventListener(usbCompositionChangedEvent, compositionChanged);
     window.addEventListener('nanokvm:usb-updated', compositionChanged);
     window.addEventListener('focus', refresh);
     return () => {
-      active = false;
-      stopPolling();
+      unsubscribe();
       window.removeEventListener(usbCompositionChangedEvent, compositionChanged);
       window.removeEventListener('nanokvm:usb-updated', compositionChanged);
       window.removeEventListener('focus', refresh);

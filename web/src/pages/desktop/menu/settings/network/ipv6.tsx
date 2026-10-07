@@ -1,10 +1,12 @@
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useCallback, useEffect, useState } from 'react';
-import { Switch } from 'antd';
+import { Alert, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import { getIPv6, setIPv6 } from '@/api/network.ts';
 import type { IPv6Status } from '@/api/network.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
 export const IPv6 = () => {
   const { t } = useTranslation();
@@ -33,63 +35,61 @@ export const IPv6 = () => {
   async function change(enabled: boolean) {
     if (saving) return;
     setSaving(true);
-    setError('');
     try {
       const rsp = await setIPv6(enabled);
-      if (rsp.code !== 0) throw new Error();
+      if (rsp.code !== 0) {
+        showRequestError(rsp, 'settings.network.ipv6.saveFailed');
+        return;
+      }
       await refresh();
-    } catch {
-      setError(t('settings.network.ipv6.saveFailed'));
+    } catch (err) {
+      showRequestError(err, 'settings.network.ipv6.saveFailed');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-6">
-        <div className="flex flex-col gap-1">
-          <span>IPv6</span>
-          <span className="text-xs text-neutral-500">{t('settings.network.ipv6.description')}</span>
-        </div>
+    <div className="space-y-3">
+      {error && <Alert type="error" showIcon message={error} />}
+      <SettingRow
+        label="IPv6"
+        description={t('settings.network.ipv6.description')}
+        htmlFor="network-ipv6"
+      >
         <Switch
+          id="network-ipv6"
           aria-label={t('settings.network.ipv6.enable')}
+          aria-describedby="network-ipv6-description"
           checked={status?.enabled ?? false}
           loading={saving}
           disabled={!status?.supported || saving}
           onChange={(enabled) => void change(enabled)}
         />
-      </div>
+      </SettingRow>
       {status && !status.supported && (
-        <div className="text-xs text-neutral-500">{t('settings.network.ipv6.unsupported')}</div>
+        <div className="text-fg-muted text-xs">{t('settings.network.ipv6.unsupported')}</div>
       )}
       {status?.enabled && (
-        <div className="space-y-3 rounded-xl bg-neutral-800/50 p-4">
+        <Panel className="space-y-3">
           {status.addresses.length === 0 ? (
-            <div className="text-sm text-neutral-400">{t('settings.network.ipv6.waiting')}</div>
+            <div className="text-fg-muted text-sm">{t('settings.network.ipv6.waiting')}</div>
           ) : (
             status.addresses.map((address) => (
               <div key={`${address.interface}/${address.address}`} className="space-y-1">
-                <div className="flex items-center gap-2 text-xs text-neutral-400">
+                <div className="text-fg-muted flex items-center gap-2 text-xs">
                   <span>{address.interface}</span>
                   <span>· {t(`settings.network.ipv6.${address.scope}`)}</span>
                   {address.mtu > 0 && <span>· MTU {address.mtu}</span>}
                 </div>
-                <div className="select-text break-all font-mono text-sm text-neutral-200">
+                <div className="text-fg font-mono text-sm break-all select-text">
                   {address.address}
                 </div>
               </div>
             ))
           )}
-          <div className="text-xs text-neutral-500">
-            {t('settings.network.ipv6.disconnectHint')}
-          </div>
-        </div>
-      )}
-      {error && (
-        <div role="alert" className="text-xs text-red-400">
-          {error}
-        </div>
+          <div className="text-fg-muted text-xs">{t('settings.network.ipv6.disconnectHint')}</div>
+        </Panel>
       )}
     </div>
   );

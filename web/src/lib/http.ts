@@ -1,10 +1,8 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
-import { notifyAuthExpired } from '@/lib/auth-events.ts';
+import { notifyAuthExpired, notifyPasswordChangeRequired } from '@/lib/auth-events.ts';
+import { isHandledRequestError, passwordChangeRequiredCode } from '@/lib/request-error.ts';
 import { getBaseUrl } from '@/lib/service.ts';
-
-// Matches middleware.PasswordChangeRequiredCode on the server.
-const passwordChangeRequiredCode = -10;
 
 type Response = {
   code: number;
@@ -42,12 +40,15 @@ class Http {
         return response.data;
       },
       (error) => {
-        console.log(error);
+        // Aborts, session expiry and the password redirect are expected.
+        if (!isHandledRequestError(error)) console.log(error);
         const code = error.response?.status;
         if (code === 401) {
           notifyAuthExpired();
         } else if (code === 403 && error.response?.data?.code === passwordChangeRequiredCode) {
-          window.location.hash = '#/auth/password';
+          // Let the route guard show the forced change, so the page knows
+          // why it opened and Cancel cannot lead back here in a loop.
+          notifyPasswordChangeRequired();
         }
         return Promise.reject(error);
       }

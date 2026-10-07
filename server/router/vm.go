@@ -28,6 +28,12 @@ func vmRouter(r *gin.Engine) {
 	api.GET("/vm/info", service.GetInfo)         // get device information
 	api.GET("/vm/hardware", service.GetHardware) // get hardware version
 
+	// HDMI, ATX LEDs, input, audio and (administrators) USB in one poll.
+	api.GET("/vm/live-status", func(c *gin.Context) {
+		principal, _ := middleware.CurrentPrincipal(c)
+		service.GetLiveStatus(c, principal.Role == authn.RoleAdmin)
+	})
+
 	api.POST("/vm/gpio", requireInputOwner(), service.SetGpio)      // update gpio
 	api.GET("/vm/gpio", service.GetGpio)                            // get gpio
 	admin.POST("/vm/screen", service.SetScreen)                     // update screen

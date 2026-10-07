@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { GithubOutlined } from '@ant-design/icons';
 import { ArrowUpRightIcon, HeartIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { getInfo } from '@/api/vm';
 import { formatVersion } from '@/lib/version';
+import { GithubIcon } from '@/components/icons/github';
+import { Panel } from '@/components/ui/settings.tsx';
 
 import { Community } from './community';
 import { Credits } from './credits';
@@ -30,14 +31,14 @@ export const About = () => {
     };
   }, []);
   return (
-    <div className="space-y-8 py-3">
+    <div className="space-y-6">
       <div className="flex flex-col items-center space-y-3 text-center">
         <a
           href="https://github.com/dormancygrace/NanoKVM-OS"
           target="_blank"
           rel="noopener noreferrer"
           aria-label="NanoKVM OS — GitHub"
-          className="group relative inline-flex rounded-lg p-2 transition-colors hover:bg-neutral-800/60"
+          className="group hover:bg-surface-raised relative inline-flex rounded-lg p-2 transition-colors"
         >
           <img
             src="/nanokvm-os-connection-full.svg?v=2"
@@ -45,11 +46,11 @@ export const About = () => {
             className="h-36 w-60 object-contain"
           />
           <ArrowUpRightIcon
-            size={17}
-            className="absolute top-3 right-3 text-neutral-600 transition-colors group-hover:text-neutral-300"
+            size={16}
+            className="text-fg-muted group-hover:text-fg absolute top-3 right-3 transition-colors"
           />
         </a>
-        <div className="space-y-1 text-sm text-neutral-400">
+        <div className="space-y-1 text-sm text-fg-muted">
           <p>
             {t('settings.about.applicationVersion')}:{' '}
             {version ? `v${formatVersion(version.replace(/^v/, ''))}` : '—'}
@@ -65,7 +66,7 @@ export const About = () => {
             </p>
           )}
         </div>
-        <p className="max-w-xl text-sm leading-relaxed text-neutral-300">
+        <p className="max-w-xl text-sm leading-relaxed text-fg">
           {t('settings.about.description')}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -74,23 +75,25 @@ export const About = () => {
             href="https://github.com/dormancygrace/NanoKVM-OS"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm !text-neutral-300 hover:!text-white"
+            className="!text-fg inline-flex items-center gap-2 text-sm hover:!text-white"
           >
-            <GithubOutlined />
+            <GithubIcon size={16} />
             GitHub
           </a>
         </div>
       </div>
 
-      <div className="flex gap-4 rounded-lg border border-neutral-700/70 bg-neutral-800/30 p-5">
+      <Panel className="flex gap-4">
         <HeartIcon className="mt-0.5 shrink-0 text-[#f43f5e]" size={22} fill="currentColor" />
         <div className="space-y-1">
-          <h3 className="font-medium text-neutral-100">{t('settings.about.specialThanksTitle')}</h3>
-          <p className="text-sm leading-relaxed text-neutral-400">
+          <h3 className="text-fg mt-0 text-sm font-medium">
+            {t('settings.about.specialThanksTitle')}
+          </h3>
+          <p className="text-fg-muted text-sm leading-relaxed">
             {t('settings.about.specialThanksWife')}
           </p>
         </div>
-      </div>
+      </Panel>
 
       <Community />
     </div>

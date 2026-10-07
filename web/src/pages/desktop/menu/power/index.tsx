@@ -5,6 +5,7 @@ import { HardDriveIcon, LoaderCircleIcon, PowerIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm';
+import { subscribeLiveStatus } from '@/lib/live-status.ts';
 import * as localstorage from '@/lib/localstorage.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
@@ -20,6 +21,7 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
   const [isHddActive, setIsHddActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(localstorage.getPowerConfirm);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     let disposed = false;
@@ -41,14 +43,26 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
       }
     }
 
-    void refreshLeds();
-    const stopPolling = pollWhileVisible(refreshLeds, 200);
+    // The toolbar only shows the power glow and HDD LED, which the shared live
+    // poll provides; poll quickly only while the popover is open and the user
+    // is acting on power controls.
+    let stopPolling: () => void;
+    if (isOpen) {
+      void refreshLeds();
+      stopPolling = pollWhileVisible(refreshLeds, 300);
+    } else {
+      stopPolling = subscribeLiveStatus((status) => {
+        if (disposed || !status?.gpio) return;
+        setIsPowerOn(status.gpio.pwr);
+        setIsHddActive(status.gpio.hdd);
+      });
+    }
 
     return () => {
       disposed = true;
       stopPolling();
     };
-  }, []);
+  }, [isOpen]);
 
   function updateShowConfirm(value: boolean) {
     setShowConfirm(value);
@@ -100,11 +114,11 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
 
   return (
     <div className={clsx('flex shrink-0 items-center', vertical && 'flex-col')}>
-      <MenuItem title={t('power.title')} icon={icon} content={content} />
-      <Tooltip title="HDD LED" placement="bottom" mouseEnterDelay={0.6}>
+      <MenuItem title={t('power.title')} icon={icon} content={content} onOpenChange={setIsOpen} />
+      <Tooltip title={t('power.hddLed')} placement="bottom" mouseEnterDelay={0.6}>
         <div
           role="img"
-          aria-label="HDD LED"
+          aria-label={t('power.hddLed')}
           className={clsx(
             'flex h-[30px] cursor-default items-center justify-center transition-colors',
             vertical ? 'w-[30px]' : 'w-[24px]',

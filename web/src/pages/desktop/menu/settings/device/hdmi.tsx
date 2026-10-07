@@ -5,7 +5,9 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import { changeCapture, refreshCapture } from '@/lib/capture-control.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
 import { isHdmiEnabledAtom } from '@/jotai/screen.ts';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 export const Hdmi = () => {
   const { t } = useTranslation();
@@ -24,26 +26,34 @@ export const Hdmi = () => {
   }, []);
 
   async function getHardware() {
-    const rsp = await api.getHardware();
-    if (rsp.code !== 0) {
-      return;
-    }
+    try {
+      const rsp = await api.getHardware();
+      if (rsp.code !== 0) {
+        return;
+      }
 
-    setIsPcie(rsp.data?.version === 'PCIE');
+      setIsPcie(rsp.data?.version === 'PCIE');
+    } catch (err) {
+      showRequestError(err);
+    }
   }
 
   async function getHdmiState() {
     setIsLoading(true);
 
-    const rsp = await api.getHdmiState();
-    if (rsp.code === 0) {
-      await refreshCapture();
-      const timeout = rsp.data.idleTimeout ?? 0;
-      setIdleTimeout(timeout);
-      setIdleTimeoutInput(timeout);
+    try {
+      const rsp = await api.getHdmiState();
+      if (rsp.code === 0) {
+        await refreshCapture();
+        const timeout = rsp.data.idleTimeout ?? 0;
+        setIdleTimeout(timeout);
+        setIdleTimeoutInput(timeout);
+      }
+    } catch (err) {
+      showRequestError(err);
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   }
 
   function updateIdleTimeout() {
@@ -62,10 +72,15 @@ export const Hdmi = () => {
       .then((rsp) => {
         if (rsp.code !== 0) {
           setIdleTimeoutInput(idleTimeout);
+          showRequestError(rsp);
           return;
         }
 
         setIdleTimeout(idleTimeoutInput);
+      })
+      .catch((err) => {
+        setIdleTimeoutInput(idleTimeout);
+        showRequestError(err);
       })
       .finally(() => {
         setIsIdleTimeoutLoading(false);
@@ -85,45 +100,44 @@ export const Hdmi = () => {
     }
   }
 
+  if (!isPcie) return null;
+
   return (
-    <>
-      {isPcie && (
-        <div className="flex flex-col space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col space-y-1">
-              <span>HDMI</span>
+    <div className="space-y-4">
+      <SettingRow
+        label="HDMI"
+        description={t('settings.device.hdmi.description')}
+        htmlFor="device-hdmi"
+      >
+        <Switch
+          id="device-hdmi"
+          aria-describedby="device-hdmi-description"
+          checked={isHdmiEnabled}
+          loading={isLoading}
+          onChange={setHdmiState}
+        />
+      </SettingRow>
 
-              <span className="text-xs text-neutral-500">
-                {t('settings.device.hdmi.description')}
-              </span>
-            </div>
-
-            <Switch checked={isHdmiEnabled} loading={isLoading} onChange={setHdmiState} />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col space-y-1">
-              <span>{t('settings.device.hdmi.idleTimeoutTitle')}</span>
-              <span className="text-xs text-neutral-500">
-                {t('settings.device.hdmi.idleTimeoutDescription')}
-              </span>
-            </div>
-
-            <InputNumber
-              style={{ width: 150 }}
-              min={0}
-              max={10080}
-              precision={0}
-              value={idleTimeoutInput}
-              addonAfter={t('settings.device.hdmi.minutes')}
-              disabled={isIdleTimeoutLoading}
-              onChange={setIdleTimeoutInput}
-              onBlur={updateIdleTimeout}
-              onPressEnter={updateIdleTimeout}
-            />
-          </div>
-        </div>
-      )}
-    </>
+      <SettingRow
+        label={t('settings.device.hdmi.idleTimeoutTitle')}
+        description={t('settings.device.hdmi.idleTimeoutDescription')}
+        htmlFor="device-hdmi-idle-timeout"
+      >
+        <InputNumber
+          id="device-hdmi-idle-timeout"
+          aria-describedby="device-hdmi-idle-timeout-description"
+          style={{ width: 180 }}
+          min={0}
+          max={10080}
+          precision={0}
+          value={idleTimeoutInput}
+          addonAfter={t('settings.device.hdmi.minutes')}
+          disabled={isIdleTimeoutLoading}
+          onChange={setIdleTimeoutInput}
+          onBlur={updateIdleTimeout}
+          onPressEnter={updateIdleTimeout}
+        />
+      </SettingRow>
+    </div>
   );
 };

@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"time"
 
+	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/timeconfig"
 	"github.com/gin-gonic/gin"
@@ -18,7 +19,8 @@ var deviceTime = timeconfig.Store{Dir: "/etc", Restart: func() error {
 	if deviceUsesChrony() {
 		script = "/etc/init.d/S49chronyd"
 	}
-	return exec.CommandContext(ctx, script, "restart").Run()
+	argv := oomscore.Unprotected(script, "restart")
+	return exec.CommandContext(ctx, argv[0], argv[1:]...).Run()
 }}
 
 func deviceUsesChrony() bool { _, err := os.Stat("/etc/chrony.conf"); return err == nil }

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '@/contexts/auth';
 import { Alert, Button, Progress } from 'antd';
 import { useAtomValue } from 'jotai';
@@ -17,6 +17,7 @@ import type { MemoryStatus } from '@/api/vm';
 import { formatDeviceTime, type DateTimeConfig } from '@/lib/date-time';
 import { getEncoderCodec } from '@/lib/encoder';
 import { http } from '@/lib/http';
+import { themeTokens } from '@/lib/theme-tokens';
 import { formatVersion } from '@/lib/version';
 import {
   captureReadyAtom,
@@ -25,9 +26,13 @@ import {
   videoSessionCountAtom
 } from '@/jotai/screen';
 import { HandshakeAge } from '@/components/handshake-age';
+import { Netbird as NetbirdIcon } from '@/components/icons/netbird';
 import { OpenVPNIcon } from '@/components/icons/openvpn';
 import { Tailscale as TailscaleIcon } from '@/components/icons/tailscale';
 import { WireGuardIcon } from '@/components/icons/wireguard';
+import { Panel, StatusBadge } from '@/components/ui/settings.tsx';
+
+import { summarizeVPN, vpnProviders } from '../vpn/providers.ts';
 
 type CPU = { total: number; idle: number };
 type Disk = {
@@ -101,9 +106,10 @@ type Profile = {
 type Extras = {
   time?: { config: DateTimeConfig; synchronized: boolean; daemon: string };
   wifi?: { connected: boolean; ssid: string };
-  wireguard?: { profiles: Profile[]; now?: number };
-  openvpn?: { profiles: Profile[] };
+  wireguard?: { available: boolean; profiles: Profile[]; now?: number };
+  openvpn?: { available: boolean; profiles: Profile[] };
   tailscale?: { state: string; ip: string; name: string };
+  netbird?: { state: string; ip: string; name: string };
 };
 const bytes = (value?: number | null) => {
   if (value == null) return '—';
@@ -193,6 +199,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             ['wifi', '/api/network/wifi'],
             ['openvpn', '/api/extensions/openvpn/status'],
             ['tailscale', '/api/extensions/tailscale/status'],
+            ['netbird', '/api/extensions/netbird/status'],
             ['wireguard', '/api/extensions/wireguard/status']
           );
         const results = await Promise.allSettled(
@@ -235,14 +242,14 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   const state = (key: string) => t(`dashboard.states.${key}`, { defaultValue: key });
   const line = (label: string, value: ReactNode) => (
     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-1 py-1 sm:flex sm:flex-wrap sm:justify-between">
-      <dt className="min-w-0 wrap-break-word text-neutral-400">{label}</dt>
-      <dd className="min-w-0 text-right wrap-break-word text-neutral-200">{value ?? '—'}</dd>
+      <dt className="text-fg-muted min-w-0 wrap-break-word">{label}</dt>
+      <dd className="text-fg min-w-0 text-right wrap-break-word sm:ml-auto">{value ?? '—'}</dd>
     </div>
   );
   const section = (title: string, children: ReactNode, tab?: string) => (
-    <section className="min-w-0 rounded-xl border border-neutral-700/60 bg-neutral-800/30 p-4">
+    <Panel className="min-w-0">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="font-medium">{title}</h3>
+        <h3 className="m-0 text-sm font-medium">{title}</h3>
         {tab && (
           <Button
             type="text"
@@ -254,32 +261,44 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
         )}
       </div>
       {children}
-    </section>
+    </Panel>
   );
   const metric = (
     title: string,
     value: string,
     icon: ReactNode,
     detail?: string,
-    fill?: number
+    fill?: number,
+    tab?: string
   ) => (
-    <div className="min-w-0 rounded-xl border border-neutral-700/60 bg-neutral-800/40 p-3">
-      <div className="mb-2 flex items-center gap-2 text-xs text-neutral-400">
+    <Panel className="min-w-0">
+      <div className="text-fg-muted mb-2 flex items-center gap-2 text-xs">
         {icon}
-        {title}
+        <span className="min-w-0 flex-1">{title}</span>
+        {tab && (
+          // Negative margin keeps the header as tall as tiles without a link.
+          <Button
+            type="text"
+            size="small"
+            className="-my-1"
+            aria-label={t('dashboard.open', { name: title })}
+            onClick={() => navigate(tab)}
+            icon={<ArrowUpRightIcon size={16} />}
+          />
+        )}
       </div>
       <div className="text-lg font-medium wrap-break-word tabular-nums">{value}</div>
-      {detail && <div className="mt-1 text-xs text-neutral-500">{detail}</div>}
+      {detail && <div className="text-fg-muted mt-1 text-xs">{detail}</div>}
       {fill !== undefined && (
         <Progress
           percent={fill}
           showInfo={false}
           size="small"
-          strokeColor="#38bdf8"
+          strokeColor={themeTokens.info}
           railColor="#404040"
         />
       )}
-    </div>
+    </Panel>
   );
   const vpnProfiles = (kind: 'openvpn' | 'wireguard', name: string) => {
     const profiles = extra[kind]?.profiles;
@@ -287,7 +306,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
       <div>
         <button
           type="button"
-          className="inline-flex items-center gap-2 border-0! bg-transparent! !p-0 text-sm font-medium text-neutral-200 hover:text-blue-400"
+          className="text-fg hover:text-info inline-flex items-center gap-2 border-0! bg-transparent! !p-0 text-sm font-medium"
           onClick={() => navigate(`vpn-${kind}`)}
         >
           {kind === 'openvpn' ? <OpenVPNIcon /> : <WireGuardIcon />}
@@ -305,27 +324,23 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
               <div key={profile.id} className="mt-2 text-xs">
                 <div className="flex justify-between gap-2">
                   <span className="break-all">{profile.name}</span>
-                  <span
-                    className={
-                      profile.state === 'connected' ? 'text-green-500' : 'text-neutral-400'
-                    }
-                  >
+                  <StatusBadge tone={profile.state === 'connected' ? 'success' : 'neutral'}>
                     {state(profile.state)}
-                  </span>
+                  </StatusBadge>
                 </div>
                 {profile.address && (
-                  <div className="mt-1 break-all text-neutral-400">{profile.address}</div>
+                  <div className="text-fg-muted mt-1 break-all">{profile.address}</div>
                 )}
                 {!!(profile.mtu || iface?.mtu) && (
-                  <div className="mt-1 text-neutral-500">MTU {profile.mtu || iface?.mtu}</div>
+                  <div className="text-fg-muted mt-1">MTU {profile.mtu || iface?.mtu}</div>
                 )}
                 {kind === 'wireguard' && profile.state !== 'off' && (
-                  <div className="mt-1 text-neutral-500">
+                  <div className="text-fg-muted mt-1">
                     RX {bytes(profile.received)} · TX {bytes(profile.sent)}
                   </div>
                 )}
                 {!!profile.lastHandshake && (
-                  <div className="mt-1 text-neutral-500">
+                  <div className="text-fg-muted mt-1">
                     {t('dashboard.handshake')}:{' '}
                     <HandshakeAge
                       timestamp={profile.lastHandshake!}
@@ -337,7 +352,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             );
           })
         ) : (
-          <div className="mt-1 text-xs text-neutral-500">
+          <div className="text-fg-muted mt-1 text-xs">
             {profiles ? t('dashboard.noProfiles') : '—'}
           </div>
         )}
@@ -347,8 +362,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   return (
     <div className="space-y-5 pb-6">
       <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
-        <h2 className="text-xl font-medium">Dashboard</h2>
-        <span className="max-w-full text-xs wrap-break-word text-neutral-500">
+        <span className="text-fg-muted max-w-full text-xs wrap-break-word">
           {t('dashboard.live')}
         </span>
       </div>
@@ -366,14 +380,16 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           ]
             .filter(Boolean)
             .join(' · ') || undefined,
-          cpu ?? undefined
+          cpu ?? undefined,
+          admin ? 'system-general' : undefined
         )}
         {metric(
           'RAM',
           bytes(memory?.usedBytes),
           <MemoryStickIcon size={16} />,
           memory ? t('dashboard.of', { total: bytes(memory.totalBytes) }) : undefined,
-          memory ? percent(memory.usedBytes, memory.totalBytes) : undefined
+          memory ? percent(memory.usedBytes, memory.totalBytes) : undefined,
+          admin ? 'system-memory' : undefined
         )}
         {metric(
           t('dashboard.freeStorage'),
@@ -397,7 +413,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             {line(t('dashboard.kernel'), sys?.kernel)}
             {line(t('dashboard.load'), sys?.load?.join(' / '))}
           </dl>,
-          admin ? 'device-general' : undefined
+          admin ? 'device' : undefined
         )}
         {section(
           t('videoSettings.title'),
@@ -432,14 +448,18 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             )}
             {line(
               t('dashboard.fps'),
-              video ? `${enabled ? video.measuredFps : 0} / ${video.fps} FPS` : '—'
+              video
+                ? t('videoSettings.fpsValue', {
+                    value: `${enabled ? video.measuredFps : 0} / ${video.fps}`
+                  })
+                : '—'
             )}
             {line(
               t(mode === 'mjpeg' ? 'screen.quality' : 'videoSettings.bitrate'),
               video
                 ? mode === 'mjpeg'
                   ? `${video.quality}%`
-                  : `${video.bitRate / 1000} Mbit/s`
+                  : t('videoSettings.mbps', { value: video.bitRate / 1000 })
                 : '—'
             )}
             {line(t('dashboard.sessions'), sessions)}
@@ -452,10 +472,13 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             {line(t('dashboard.available'), bytes(memory?.availableBytes))}
             {line(t('dashboard.cache'), bytes(memory?.cachedBytes))}
             {line(
-              'zram',
+              t('dashboard.zram'),
               memory
                 ? memory.zram.enabled
-                  ? `${bytes(memory.zram.usedBytes)} / ${memory.zram.sizeMiB} MiB`
+                  ? t('dashboard.swapUsage', {
+                      used: bytes(memory.zram.usedBytes),
+                      size: memory.zram.sizeMiB
+                    })
                   : state('off')
                 : '—'
             )}
@@ -465,10 +488,13 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                 `${memory.zram.algorithm}${memory.zram.recompressReady ? ' + zstd' : ''}`
               )}
             {line(
-              'Swap (SD)',
+              t('dashboard.sdSwap'),
               memory
                 ? memory.sd.enabled
-                  ? `${bytes(memory.sd.usedBytes)} / ${memory.sd.sizeMiB} MiB`
+                  ? t('dashboard.swapUsage', {
+                      used: bytes(memory.sd.usedBytes),
+                      size: memory.sd.sizeMiB
+                    })
                   : state('off')
                 : '—'
             )}
@@ -489,10 +515,10 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                           ? 'dashboard.dataStorage'
                           : 'dashboard.bootStorage'
                     )}{' '}
-                    <span className="text-xs text-neutral-500">{item.path}</span>
+                    <span className="text-fg-muted text-xs">{item.path}</span>
                   </span>
                   {item.readOnly && (
-                    <span className="text-xs text-amber-300">{t('dashboard.readOnly')}</span>
+                    <StatusBadge tone="warning">{t('dashboard.readOnly')}</StatusBadge>
                   )}
                 </div>
                 {item.available ? (
@@ -501,10 +527,10 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                       size="small"
                       percent={percent(item.used, item.total)}
                       showInfo={false}
-                      strokeColor="#38bdf8"
+                      strokeColor={themeTokens.info}
                       railColor="#404040"
                     />
-                    <div className="text-xs text-neutral-400">
+                    <div className="text-fg-muted text-xs">
                       {t('dashboard.diskSpace', {
                         free: bytes(item.free),
                         total: bytes(item.total)
@@ -512,7 +538,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                     </div>
                   </>
                 ) : (
-                  <div className="mt-1 text-xs text-neutral-500">{t('dashboard.unavailable')}</div>
+                  <div className="text-fg-muted mt-1 text-xs">{t('dashboard.unavailable')}</div>
                 )}
               </div>
             )) ?? '—'}
@@ -548,63 +574,81 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                       ? wireguardNames.get(iface.name) || 'WireGuard'
                       : iface.name}
                   </span>
-                  <span
-                    className={`ml-auto text-xs ${iface.up && iface.connected ? 'text-green-500' : 'text-neutral-500'}`}
-                  >
-                    {t(
-                      iface.up && iface.connected ? 'dashboard.connected' : 'dashboard.disconnected'
-                    )}
+                  <span className="ml-auto">
+                    <StatusBadge tone={iface.up && iface.connected ? 'success' : 'neutral'}>
+                      {t(
+                        iface.up && iface.connected
+                          ? 'dashboard.connected'
+                          : 'dashboard.disconnected'
+                      )}
+                    </StatusBadge>
                   </span>
                 </div>
                 {iface.kind === 'wireguard' && (
-                  <div className="mb-1 text-xs text-neutral-500">
+                  <div className="text-fg-muted mb-1 text-xs">
                     {wireguardNames.get(iface.name) ? 'WireGuard' : iface.name}
                   </div>
                 )}
                 {iface.wireless && iface.connected && extra.wifi?.connected && (
-                  <p className="mb-1 break-all text-neutral-300">{extra.wifi.ssid}</p>
+                  <p className="text-fg mb-1 break-all">{extra.wifi.ssid}</p>
                 )}
-                <div className={iface.connected ? 'text-neutral-300' : 'text-neutral-500'}>
+                <div className={iface.connected ? 'text-fg' : 'text-fg-muted'}>
                   {iface.addresses.map((addr) => (
                     <div key={addr} className="break-all">
                       {addr}
                     </div>
                   ))}
                 </div>
-                <div className="mt-2 text-xs text-neutral-500">
+                <div className="text-fg-muted mt-2 text-xs">
                   MTU {iface.mtu}
                   {iface.mac ? ` · ${iface.mac}` : ''}
                 </div>
-                <div className="mt-1 text-xs text-neutral-500">
+                <div className="text-fg-muted mt-1 text-xs">
                   RX {bytes(iface.received)} · TX {bytes(iface.sent)}
                 </div>
               </div>
             )) ?? '—'}
         </div>,
-        admin ? 'network' : undefined
+        admin ? 'network-general' : undefined
       )}
       <div className="grid gap-4 md:grid-cols-2">
         {admin &&
           section(
             'VPN',
             <div className="space-y-4">
-              {vpnProfiles('openvpn', 'OpenVPN')}
-              <div>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 border-0! bg-transparent! !p-0 text-sm font-medium text-neutral-200 hover:text-blue-400"
-                  onClick={() => navigate('vpn-tailscale')}
-                >
-                  <TailscaleIcon />
-                  Tailscale
-                </button>
-                <div className="mt-1 text-xs text-neutral-400">
-                  {extra.tailscale ? state(extra.tailscale.state) : '—'}
-                  {extra.tailscale?.ip ? ` · ${extra.tailscale.ip}` : ''}
-                </div>
-              </div>
-              {vpnProfiles('wireguard', 'WireGuard')}
-            </div>
+              {vpnProviders.map((provider) => {
+                const data = extra[provider.id];
+                if (!data || !summarizeVPN(data).installed) return null;
+                if ('profiles' in data)
+                  return (
+                    <Fragment key={provider.id}>
+                      {vpnProfiles(provider.id as 'openvpn' | 'wireguard', provider.name)}
+                    </Fragment>
+                  );
+                const daemon = data;
+                return (
+                  <div key={provider.id}>
+                    <button
+                      type="button"
+                      className="text-fg hover:text-info inline-flex items-center gap-2 border-0! bg-transparent! !p-0 text-sm font-medium"
+                      onClick={() => navigate(`vpn-${provider.id}`)}
+                    >
+                      {provider.id === 'tailscale' ? <TailscaleIcon /> : <NetbirdIcon />}
+                      {provider.name}
+                    </button>
+                    <div className="text-fg-muted mt-1 text-xs">
+                      {state(daemon.state)}
+                      {daemon.ip ? ` · ${daemon.ip}` : ''}
+                    </div>
+                  </div>
+                );
+              })}
+              {vpnProviders.every((provider) => extra[provider.id]) &&
+                !vpnProviders.some((provider) => summarizeVPN(extra[provider.id]!).installed) && (
+                  <div className="text-fg-muted text-xs">{t('dashboard.noVpn')}</div>
+                )}
+            </div>,
+            'vpn'
           )}
         {section(
           t('dateTime.title'),
@@ -627,7 +671,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             {line(t('dashboard.timeService'), extra.time?.daemon)}
             {line(t('dashboard.ntpServers'), extra.time?.config.servers.join(', '))}
           </dl>,
-          admin ? 'date-time' : undefined
+          admin ? 'system-date-time' : undefined
         )}
       </div>
     </div>

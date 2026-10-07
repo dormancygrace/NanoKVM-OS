@@ -1,5 +1,7 @@
 import { type ReactNode } from 'react';
 
+import { Panel } from '@/components/ui/settings.tsx';
+
 export const AddonCard = ({
   icon,
   title,
@@ -9,11 +11,11 @@ export const AddonCard = ({
   title: string;
   children: ReactNode;
 }) => (
-  <div className="flex min-w-0 flex-col items-start gap-4 rounded-xl border border-neutral-700 bg-neutral-800/40 p-4">
-    <div className="flex items-center gap-3 text-neutral-200">
+  <Panel className="flex min-w-0 flex-col items-start gap-4">
+    <div className="text-fg flex items-center gap-3">
       {icon}
       <div className="text-base font-medium">{title}</div>
     </div>
     {children}
-  </div>
+  </Panel>
 );

@@ -62,7 +62,6 @@ const pt_br = {
       scale: 'Escala',
       title: 'Tela',
       video: 'Modo de Vídeo',
-      videoDirectTips: 'Ative HTTPS em "Configurações > Dispositivo" para usar este modo',
       resolution: 'Resolução',
       controlRegion: {
         title: 'Calibração do mouse',
@@ -82,17 +81,13 @@ const pt_br = {
         duplicateResolution: 'Esta resolução já existe.',
         width: 'Largura',
         height: 'Altura',
-        apply: 'Calcular e aplicar',
         invalidResolution: 'Insira uma resolução original válida quando o vídeo estiver pronto.',
         select: 'Selecionar área',
-        clear: 'Restaurar detecção automática',
         saveFailed: 'Falha ao salvar a área de entrada.',
         tooSmall: 'A área selecionada é muito pequena.',
         previewUnavailable: 'Pré-visualização indisponível',
-        clearConfirm: 'Restaurar a detecção automática de bordas pretas?',
         dragHint: 'Arraste para selecionar a área da área de trabalho remota',
         finish: 'Concluir',
-        confirm: 'Confirmar',
         cancel: 'Cancelar'
       },
       auto: 'Automático',
@@ -225,16 +220,7 @@ const pt_br = {
         dragDesc:
           'Depois que a ação de manter pressionado for ativada, mova o dedo para arrastar com o botão esquerdo pressionado.'
       },
-      resetHid: 'Redefinir HID',
-      hidOnly: {
-        title: 'Modo somente HID',
-        desc: 'Se o seu mouse e teclado pararem de responder e a redefinição de HID não ajudar, pode ser um problema de compatibilidade entre o NanoKVM e o dispositivo. Tente habilitar o modo Somente-HID para melhor compatibilidade.',
-        tip1: 'Habilitar o modo Somente-HID irá desmontar o U-disk virtual e a rede virtual',
-        tip2: 'No modo Somente-HID, a montagem de imagem está desativada',
-        tip3: 'NanoKVM será reiniciado automaticamente após a troca de modos',
-        enable: 'Habilitar modo Somente-HID',
-        disable: 'Desabilitar modo Somente-HID'
-      }
+      resetHid: 'Redefinir HID'
     },
     image: {
       title: 'Imagens',
@@ -362,22 +348,10 @@ const pt_br = {
       },
       about: {
         title: 'Sobre o NanoKVM',
-        information: 'Informação',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'Versão do Aplicativo',
-        applicationTip: 'Versão do aplicativo web NanoKVM',
         image: 'Versão da Imagem',
-        imageTip: 'Versão da imagem do sistema NanoKVM',
-        deviceKey: 'Chave do Dispositivo',
-        community: 'Comunidade',
         hostname: 'Nome do Host',
-        hostnameUpdated: 'Nome do host atualizado. Reinicie para aplicar.',
-        ipType: {
-          Wired: 'Com Fio',
-          Wireless: 'Sem Fio',
-          Other: 'Outro'
-        }
+        hostnameUpdated: 'Nome do host atualizado. Reinicie para aplicar.'
       },
       appearance: {
         title: 'Aparência',
@@ -390,7 +364,6 @@ const pt_br = {
           title: 'Barra de Menu',
           mode: 'Modo de exibição',
           modeDesc: 'Exibir barra de menu na tela',
-          modeOff: 'Desligado',
           modeAuto: 'Ocultar automaticamente',
           modeAlways: 'Sempre visível',
           keyboardLedStatus: 'Indicadores de bloqueio do teclado',
@@ -428,17 +401,6 @@ const pt_br = {
           1800: '30 min',
           3600: '1 hora'
         },
-        ssh: {
-          description: 'Habilitar acesso remoto SSH',
-          tip: 'Defina uma senha forte antes de habilitar (Conta - Mudar Senha)'
-        },
-        advanced: 'Configurações Avançadas',
-        swap: {
-          title: 'Swap',
-          disable: 'Desativar',
-          description: 'Defina o tamanho do arquivo de swap',
-          tip: 'Habilitar esta função pode encurtar a vida útil do seu cartão SD!'
-        },
         mouseJiggler: {
           title: 'Movimentador de Mouse',
           description: 'Impedir que o host remoto entre em suspensão',
@@ -456,24 +418,6 @@ const pt_br = {
           idleTimeoutDescription: 'Parar a captura HDMI após não haver visualizadores ativos por',
           minutes: 'min'
         },
-        autostart: {
-          title: 'Configurações de scripts de inicialização automática',
-          description:
-            'Gerencia scripts que são executados automaticamente na inicialização do sistema',
-          new: 'Novo',
-          deleteConfirm: 'Tem certeza de que deseja excluir este arquivo?',
-          yes: 'Sim',
-          no: 'Não',
-          scriptName: 'Nome do script de inicialização automática',
-          scriptContent: 'Conteúdo do script de inicialização automática',
-          settings: 'Configurações'
-        },
-        hidOnly: 'Modo Somente-HID',
-        hidOnlyDesc: 'Pare de emular dispositivos virtuais, mantendo apenas o controle básico HID',
-        disk: 'Disco Virtual',
-        diskDesc: 'Montar U-disk virtual no host remoto',
-        network: 'Rede Virtual',
-        networkDesc: 'Montar placa de rede virtual no host remoto',
         reboot: 'Reiniciar',
         rebootDesc: 'Tem certeza de que deseja reiniciar o NanoKVM?',
         okBtn: 'Sim',
@@ -518,21 +462,17 @@ const pt_br = {
           invalid: 'Insira um endereço IPv4, uma máscara de sub-rede e um gateway válidos',
           save: 'Salvar',
           unsaved: 'Alterações não salvas',
-          savedStatic: 'Endereço estático salvo. Reconecte-se em {{address}}.',
-          savedDhcp: 'DHCP ativado. Reconecte-se usando o endereço atribuído pelo roteador.',
           saveFailed: 'Falha ao salvar as configurações de Ethernet',
           loadFailed: 'Falha ao carregar as configurações de Ethernet'
         },
         dns: {
           title: 'DNS',
           description: 'Configurar servidores DNS para o NanoKVM',
-          mode: 'Modo',
           dhcp: 'DHCP',
           manual: 'Manual',
           add: 'Adicionar DNS',
           save: 'Salvar',
           invalid: 'Digite um endereço IP válido',
-          noDhcp: 'Nenhum DNS DHCP está disponível no momento',
           saved: 'Configurações de DNS salvas',
           saveFailed: 'Falha ao salvar as configurações de DNS',
           unsaved: 'Alterações não salvas',
@@ -550,14 +490,6 @@ const pt_br = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Otimização de memória',
-          tip: 'Quando o uso de memória excede o limite, a coleta de lixo é realizada de forma mais agressiva para tentar liberar memória. Recomenda-se definir para 75MB se estiver usando Tailscale. É necessário reiniciar o Tailscale para que a alteração tenha efeito.'
-        },
-        swap: {
-          title: 'Trocar memória',
-          tip: 'Se os problemas persistirem após ativar a otimização de memória, tente ativar a memória swap. Isso define o tamanho do arquivo de troca para 256MB por padrão, que pode ser ajustado em "Configurações > Dispositivo".'
-        },
         restart: 'Reiniciar Tailscale?',
         stop: 'Parar Tailscale?',
         stopDesc: 'Sair do Tailscale e desabilitar a inicialização automática no boot.',
@@ -567,12 +499,6 @@ const pt_br = {
         installing: 'Instalando',
         failed: 'Falha na instalação',
         retry: 'Por favor, atualize e tente novamente. Ou tente instalar manualmente',
-        download: 'Baixar o',
-        package: 'pacote de instalação',
-        unzip: 'e descompacte-o',
-        upTailscale: 'Fazer upload do tailscale para o diretório NanoKVM /usr/bin/',
-        upTailscaled: 'Fazer upload do tailscaled para o diretório NanoKVM /usr/sbin/',
-        refresh: 'Atualizar página atual',
         notRunning: 'Tailscale não está em execução. Por favor, inicie-o para continuar.',
         run: 'Iniciar',
         notLogin:

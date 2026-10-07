@@ -4,6 +4,7 @@ import { Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/extensions/tailscale.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
 
 type UninstallProps = {
   onSuccess: () => void;
@@ -19,28 +20,35 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
     if (isLoading) return;
     setIsLoading(true);
 
-    api.uninstall().finally(() => {
-      setIsModalOpen(false);
-      setIsLoading(false);
-      onSuccess();
-    });
+    api
+      .uninstall()
+      .then((rsp) => {
+        if (rsp.code !== 0) showRequestError(rsp);
+      })
+      .catch((err) => showRequestError(err))
+      .finally(() => {
+        setIsModalOpen(false);
+        setIsLoading(false);
+        onSuccess();
+      });
   }
 
   const title = (
-    <div className="flex items-center space-x-1 text-red-500">
-      <Trash2Icon size={18} />
+    <div className="text-danger flex items-center gap-1">
+      <Trash2Icon size={16} />
       <span>{t('settings.tailscale.uninstall')}</span>
     </div>
   );
 
   return (
     <>
-      <div
-        className="flex h-[30px] cursor-pointer items-center space-x-1 rounded px-2 py-1 text-neutral-300 hover:bg-neutral-700/70"
+      <button
+        type="button"
+        className="nanokvm-button-base text-fg hover:bg-surface-raised flex h-[30px] w-full cursor-pointer items-center space-x-1 rounded px-2 py-1"
         onClick={() => setIsModalOpen(true)}
       >
         <span>{t('settings.tailscale.uninstall')}</span>
-      </div>
+      </button>
 
       <Modal
         title={title}

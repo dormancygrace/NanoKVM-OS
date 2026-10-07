@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Divider } from 'antd';
+import { Alert } from 'antd';
 import { LoaderCircleIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -11,6 +11,10 @@ import { Install } from './install.tsx';
 import { Login } from './login.tsx';
 import { Run } from './run.tsx';
 import type { Status } from './types.ts';
+
+// Stored as a key and translated on render, so getStatus stays stable across
+// language changes and does not refetch.
+const statusFailed = 'settings.tailscale.statusFailed';
 
 type TailscaleProps = {
   setIsLocked: (isLocked: boolean) => void;
@@ -40,7 +44,7 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
         setStatus(rsp.data);
       })
       .catch((err) => {
-        setErrMsg(err?.message || 'Failed to get status');
+        setErrMsg(err?.message || statusFailed);
       })
       .finally(() => {
         statusInFlight.current = false;
@@ -53,13 +57,16 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
   }, [getStatus]);
 
   return (
-    <>
+    <div className="space-y-6">
+      {errMsg && (
+        <Alert type="error" showIcon message={errMsg === statusFailed ? t(statusFailed) : errMsg} />
+      )}
+
       <Header state={status?.state} onSuccess={getStatus} />
-      <Divider className="opacity-50" />
 
       {isLoading ? (
-        <div className="flex w-full items-center justify-center space-x-2 pt-5 text-neutral-500">
-          <LoaderCircleIcon className="animate-spin" size={18} />
+        <div className="text-fg-muted flex w-full items-center justify-center gap-2">
+          <LoaderCircleIcon className="animate-spin" size={16} />
           <span>{t('settings.tailscale.loading')}</span>
         </div>
       ) : (
@@ -75,10 +82,8 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
           {(status?.state === 'stopped' || status?.state === 'running') && (
             <Device status={status} onLogout={getStatus} />
           )}
-
-          {errMsg && <div className="pt-5 text-red-500">{errMsg}</div>}
         </>
       )}
-    </>
+    </div>
   );
 };

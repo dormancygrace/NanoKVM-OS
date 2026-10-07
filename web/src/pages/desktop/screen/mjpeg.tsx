@@ -3,7 +3,6 @@ import clsx from 'clsx';
 import { useAtomValue, useSetAtom } from 'jotai';
 
 import { stopFrameDetect } from '@/api/stream.ts';
-import { getFrameDetect } from '@/lib/localstorage.ts';
 import { captureMediaElement } from '@/lib/screenshot.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { mouseStyleAtom } from '@/jotai/mouse.ts';
@@ -60,11 +59,9 @@ export const Mjpeg = () => {
   useEffect(() => () => setScreenshotSource(null), [setScreenshotSource]);
 
   useEffect(() => {
-    // stop frame detect for a while
-    const enabled = getFrameDetect();
-    if (enabled) {
-      stopFrameDetect(10);
-    }
+    // Pause frame detect for a while so the first frames arrive. The server
+    // ignores this when frame detect is off, so it needs no local state.
+    void stopFrameDetect(10).catch(() => {});
     window.clearTimeout(retryTimer.current);
     retryTimer.current = undefined;
     retryDelay.current = INITIAL_RETRY_DELAY;

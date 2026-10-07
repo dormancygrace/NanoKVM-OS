@@ -12,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"NanoKVM-Server/internal/apkrun"
 )
 
 var apkStateDir = "/run/nanokvm-apk-ui"
@@ -110,7 +112,7 @@ func RunAPK(action string) (result error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 	run := func(args ...string) error {
-		cmd := exec.CommandContext(ctx, apkExecutable, args...)
+		cmd := apkrun.Command(ctx, apkExecutable, args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
@@ -119,7 +121,7 @@ func RunAPK(action string) (result error) {
 		return fmt.Errorf("APK index refresh failed: %w", e)
 	}
 	if action == "check" {
-		b, e := exec.CommandContext(ctx, apkExecutable, "version", "--limit", "<").CombinedOutput()
+		b, e := apkrun.Command(ctx, apkExecutable, "version", "--limit", "<").CombinedOutput()
 		if e != nil {
 			return fmt.Errorf("APK upgrade check failed: %s", strings.TrimSpace(string(b)))
 		}

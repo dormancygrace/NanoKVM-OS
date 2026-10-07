@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { LogoutOutlined } from '@ant-design/icons';
-import { Button, Divider, Popconfirm, Switch } from 'antd';
+import { Button, Popconfirm, Switch } from 'antd';
+import { LogOutIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/extensions/tailscale.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
 import { Status } from './types.ts';
 
@@ -18,7 +20,6 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
   const [isRunning, setIsRunning] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isLogging, setIsLogging] = useState(false);
-  const [errMsg, setErrMsg] = useState('');
 
   useEffect(() => {
     setIsRunning(status.state === 'running');
@@ -31,7 +32,7 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
     try {
       const rsp = isRunning ? await api.down() : await api.up();
       if (rsp.code !== 0) {
-        setErrMsg(rsp.msg);
+        showRequestError(rsp);
         return;
       }
 
@@ -49,44 +50,39 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
       .logout()
       .then((rsp) => {
         if (rsp.code !== 0) {
-          setErrMsg(rsp.msg);
+          showRequestError(rsp, 'settings.tailscale.logoutFailed');
           return;
         }
 
         onLogout();
       })
-      .catch((err) => {
-        setErrMsg(err?.message || 'Failed to logout');
-      })
+      .catch((err) => showRequestError(err, 'settings.tailscale.logoutFailed'))
       .finally(() => {
         setIsLogging(false);
       });
   }
 
   return (
-    <div className="flex flex-col space-y-6 pt-5">
-      <div className="flex justify-between">
-        <span>{t('settings.tailscale.enable')}</span>
-        <Switch checked={isRunning} loading={isUpdating} onClick={update} />
-      </div>
+    <div className="space-y-6">
+      <SettingsSection>
+        <SettingRow label={t('settings.tailscale.enable')} htmlFor="tailscale-enable">
+          <Switch id="tailscale-enable" checked={isRunning} loading={isUpdating} onClick={update} />
+        </SettingRow>
 
-      <div className="flex justify-between">
-        <span>{t('settings.tailscale.deviceName')}</span>
-        <span>{status.name}</span>
-      </div>
+        <SettingRow label={t('settings.tailscale.deviceName')}>
+          <span>{status.name}</span>
+        </SettingRow>
 
-      <div className="flex justify-between">
-        <span>{t('settings.tailscale.deviceIP')}</span>
-        <span>{status.ip}</span>
-      </div>
+        <SettingRow label={t('settings.tailscale.deviceIP')}>
+          <span>{status.ip}</span>
+        </SettingRow>
 
-      <div className="flex justify-between">
-        <span>{t('settings.tailscale.account')}</span>
-        <span>{status.account}</span>
-      </div>
-      <Divider />
+        <SettingRow label={t('settings.tailscale.account')}>
+          <span>{status.account}</span>
+        </SettingRow>
+      </SettingsSection>
 
-      <div className="flex justify-center pt-3">
+      <div className="flex justify-center">
         <Popconfirm
           placement="bottom"
           title={t('settings.tailscale.logoutDesc')}
@@ -99,15 +95,13 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
             type="primary"
             size="large"
             shape="round"
-            icon={<LogoutOutlined />}
+            icon={<LogOutIcon size={16} />}
             loading={isLogging}
           >
             {t('settings.tailscale.logout')}
           </Button>
         </Popconfirm>
       </div>
-
-      {errMsg && <span className="text-red-500">{errMsg}</span>}
     </div>
   );
 };

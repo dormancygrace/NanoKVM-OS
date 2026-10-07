@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import { Select, Switch } from 'antd';
+import { Alert, Select, Switch } from 'antd';
 import { ScreenShareOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import { LatestValueQueue } from '@/lib/latest-value-queue.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { SettingRow } from '@/components/ui/settings.tsx';
+
+const KEY_FAILED = 'settings.device.oled.failed';
 
 export const Oled = () => {
   const { t } = useTranslation();
   const [isOLEDExist, setIsOLEDExist] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [sleep, setSleep] = useState(-1);
-  const [error, setError] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const lastTimeout = useRef(60);
   const updateQueue = useRef<LatestValueQueue<number> | null>(null);
 
@@ -19,9 +23,9 @@ export const Oled = () => {
     updateQueue.current = new LatestValueQueue(async (value) => {
       try {
         const rsp = await api.setOLED(value);
-        if (rsp.code !== 0) setError(true);
-      } catch {
-        setError(true);
+        if (rsp.code !== 0) showRequestError(rsp, KEY_FAILED);
+      } catch (err) {
+        showRequestError(err, KEY_FAILED);
       }
     });
   }
@@ -33,7 +37,7 @@ export const Oled = () => {
       .then((rsp) => {
         if (disposed) return;
         if (rsp.code !== 0) {
-          setError(true);
+          setLoadError(true);
           return;
         }
         setIsOLEDExist(rsp.data.exist);
@@ -41,7 +45,7 @@ export const Oled = () => {
         if (rsp.data.sleep >= 0) lastTimeout.current = rsp.data.sleep;
       })
       .catch(() => {
-        if (!disposed) setError(true);
+        if (!disposed) setLoadError(true);
       })
       .finally(() => {
         if (!disposed) setIsLoading(false);
@@ -58,48 +62,41 @@ export const Oled = () => {
 
   function update(value: number) {
     if (isLoading) return;
-    setError(false);
     setSleep(value);
     if (value >= 0) lastTimeout.current = value;
     void updateQueue.current?.enqueue(value);
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-4">
-        <span>{t('settings.device.oled.title')}</span>
+    <div className="space-y-4">
+      {loadError && <Alert type="error" showIcon message={t(KEY_FAILED)} />}
+      <SettingRow label={t('settings.device.oled.title')} htmlFor="device-oled">
         {isOLEDExist || isLoading ? (
           <Switch
-            aria-label={t('settings.device.oled.title')}
+            id="device-oled"
             checked={isOLEDExist && sleep >= 0}
             loading={isLoading}
             disabled={!isOLEDExist || isLoading}
             onChange={(enabled) => update(enabled ? lastTimeout.current : -1)}
           />
         ) : (
-          <span className="text-neutral-500">
+          <span className="text-fg-muted">
             <ScreenShareOff size={16} />
           </span>
         )}
-      </div>
+      </SettingRow>
       {isOLEDExist && sleep >= 0 && (
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-xs text-neutral-500">{t('settings.device.oled.description')}</span>
+        <SettingRow label={t('settings.device.oled.description')} htmlFor="device-oled-sleep">
           <Select
-            aria-label={t('settings.device.oled.description')}
-            style={{ width: 150 }}
+            id="device-oled-sleep"
+            style={{ width: 180 }}
             value={sleep}
             options={options}
             disabled={isLoading}
             loading={isLoading}
             onChange={update}
           />
-        </div>
-      )}
-      {error && (
-        <div className="text-xs text-red-400" role="alert">
-          {t('settings.device.oled.failed')}
-        </div>
+        </SettingRow>
       )}
     </div>
   );

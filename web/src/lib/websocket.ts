@@ -1,5 +1,3 @@
-import { ICloseEvent, IMessageEvent, w3cwebsocket as W3cWebSocket } from 'websocket';
-
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 
@@ -10,7 +8,9 @@ export type InputConnectionStatus =
   | 'reconnecting'
   | 'disconnected';
 
-type MessageHandler = (message: IMessageEvent) => void;
+// The exported MessageEvent enum below shadows the DOM type of the same name.
+type SocketMessageEvent = globalThis.MessageEvent;
+type MessageHandler = (message: SocketMessageEvent) => void;
 type SendData = number[] | ArrayBuffer | Uint8Array;
 
 export enum MessageEvent {
@@ -36,7 +36,7 @@ const DEFAULT_OPTIONS: Required<WsClientOptions> = {
 
 export class WsClient {
   private readonly options: Required<WsClientOptions>;
-  private instance: W3cWebSocket | null = null;
+  private instance: WebSocket | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
@@ -181,7 +181,7 @@ export class WsClient {
     }
 
     if (data instanceof ArrayBuffer || (data as unknown) instanceof Uint8Array) {
-      this.instance.send(data);
+      this.instance.send(data as BufferSource);
     } else {
       this.instance.send(JSON.stringify(data));
     }
@@ -190,7 +190,7 @@ export class WsClient {
   }
 
   public get isConnected(): boolean {
-    return this.instance?.readyState === W3cWebSocket.OPEN;
+    return this.instance?.readyState === WebSocket.OPEN;
   }
 
   private createConnection(): void {
@@ -199,7 +199,7 @@ export class WsClient {
     const previous = this.instance;
     this.instance = null;
     previous?.close();
-    const socket = new W3cWebSocket(this.options.url);
+    const socket = new WebSocket(this.options.url);
     this.instance = socket;
     socket.binaryType = 'arraybuffer';
 
@@ -226,7 +226,7 @@ export class WsClient {
     this.startHeartbeat();
   }
 
-  private handleClose(event: ICloseEvent): void {
+  private handleClose(event: CloseEvent): void {
     this.stopHeartbeat();
     this.inputReports.clear();
     this.setControlEnabled(false);
@@ -242,11 +242,11 @@ export class WsClient {
     this.scheduleReconnect();
   }
 
-  private handleError(error: Error): void {
+  private handleError(error: Event): void {
     console.error('[WebSocket] Error:', error);
   }
 
-  private handleMessage(message: IMessageEvent): void {
+  private handleMessage(message: SocketMessageEvent): void {
     try {
       const data = JSON.parse(message.data as string);
       this.lastResponseAt = Date.now();

@@ -76,6 +76,11 @@ start_background() {
         export LD_LIBRARY_PATH
     fi
     nohup "$executable" </dev/null >/dev/null 2>&1 &
+    if [ "$executable" = /tmp/kvm_system/kvm_system ]; then
+        # Let the OOM killer take helpers such as apk before the hardware
+        # daemon. NanoKVM-Server sets the same value for itself at start.
+        { echo -300 > "/proc/$!/oom_score_adj"; } 2>/dev/null || true
+    fi
 }
 
 prepare_runtime_directory() {

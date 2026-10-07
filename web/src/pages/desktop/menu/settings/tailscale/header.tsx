@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Popconfirm, Popover } from 'antd';
-import { CircleStopIcon, EllipsisIcon, LoaderIcon, RotateCwIcon } from 'lucide-react';
+import { CircleStopIcon, EllipsisIcon, LoaderCircleIcon, RotateCwIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/extensions/tailscale.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { IconButton } from '@/components/ui/settings.tsx';
 
 import { VPNVersion } from '../vpn/version';
 import type { State } from './types.ts';
@@ -25,30 +27,39 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
     if (loading !== '') return;
     setLoading('restarting');
 
-    api.restart().finally(() => {
-      setLoading('');
-      onSuccess();
-    });
+    api
+      .restart()
+      .then((rsp) => {
+        if (rsp.code !== 0) showRequestError(rsp);
+      })
+      .catch((err) => showRequestError(err))
+      .finally(() => {
+        setLoading('');
+        onSuccess();
+      });
   }
 
   function stop() {
     if (loading !== '') return;
     setLoading('stopping');
 
-    api.stop().finally(() => {
-      setLoading('');
-      onSuccess();
-    });
+    api
+      .stop()
+      .then((rsp) => {
+        if (rsp.code !== 0) showRequestError(rsp);
+      })
+      .catch((err) => showRequestError(err))
+      .finally(() => {
+        setLoading('');
+        onSuccess();
+      });
   }
 
   return (
     <div className="flex items-center justify-between">
-      <span className="text-base">
-        {t('settings.tailscale.title')}
-        <VPNVersion name="tailscale" />
-      </span>
+      <VPNVersion name="tailscale" />
 
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center gap-2">
         {state && ['notLogin', 'stopped', 'running'].includes(state) && (
           <>
             {/* restart button */}
@@ -60,13 +71,17 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
               placement="bottom"
               disabled={loading !== ''}
             >
-              <div className="flex cursor-pointer rounded p-1 text-green-500 hover:bg-neutral-600 hover:text-green-500/80">
-                {loading === 'restarting' ? (
-                  <LoaderIcon className="animate-spin" size={18} />
-                ) : (
-                  <RotateCwIcon size={18} />
-                )}
-              </div>
+              <IconButton
+                label={t('settings.tailscale.restartAction')}
+                className="text-success hover:text-success/80"
+                icon={
+                  loading === 'restarting' ? (
+                    <LoaderCircleIcon className="animate-spin" size={16} />
+                  ) : (
+                    <RotateCwIcon size={16} />
+                  )
+                }
+              />
             </Popconfirm>
 
             {/* stop button */}
@@ -79,13 +94,17 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
               placement="bottom"
               disabled={loading !== ''}
             >
-              <div className="flex cursor-pointer rounded p-1 text-red-500 hover:bg-neutral-600 hover:text-red-500/80">
-                {loading === 'stopping' ? (
-                  <LoaderIcon className="animate-spin" size={18} />
-                ) : (
-                  <CircleStopIcon size={18} />
-                )}
-              </div>
+              <IconButton
+                label={t('settings.tailscale.stopAction')}
+                className="text-danger hover:text-danger/80"
+                icon={
+                  loading === 'stopping' ? (
+                    <LoaderCircleIcon className="animate-spin" size={16} />
+                  ) : (
+                    <CircleStopIcon size={16} />
+                  )
+                }
+              />
             </Popconfirm>
           </>
         )}
@@ -101,9 +120,11 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
             placement="bottom"
             trigger="click"
           >
-            <div className="flex cursor-pointer rounded p-1 text-white hover:bg-neutral-700/50">
-              <EllipsisIcon size={18} />
-            </div>
+            <IconButton
+              label={t('settings.tailscale.moreActions')}
+              className="text-fg"
+              icon={<EllipsisIcon size={16} />}
+            />
           </Popover>
         )}
       </div>

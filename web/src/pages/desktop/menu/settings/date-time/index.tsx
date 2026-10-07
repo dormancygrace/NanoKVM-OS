@@ -1,12 +1,14 @@
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Divider, Select, Spin, Tag } from 'antd';
+import { Alert, Button, Select, Spin } from 'antd';
 import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import { formatDeviceTime, type DateTimeConfig } from '@/lib/date-time.ts';
 import { http } from '@/lib/http.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { timePreferencesAtom } from '@/hooks/useDeviceTime.ts';
+import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
 type Status = { config: DateTimeConfig; zones: string[]; now: number; synchronized: boolean };
 
@@ -66,8 +68,11 @@ export function DateTimeSettings() {
     setSaved(false);
     try {
       const rsp = await http.post('/api/vm/date-time', config);
-      if (rsp.code !== 0) throw new Error(rsp.msg);
       if (!mounted.current) return;
+      if (rsp.code !== 0) {
+        showRequestError(rsp, 'dateTime.saveFailed');
+        return;
+      }
       dirty.current = false;
       received.current = performance.now();
       setElapsed(0);
@@ -75,8 +80,8 @@ export function DateTimeSettings() {
       setConfig(rsp.data.config);
       setPreferences(rsp.data.config);
       setSaved(true);
-    } catch {
-      if (mounted.current) setError(t('dateTime.saveFailed'));
+    } catch (err) {
+      if (mounted.current) showRequestError(err, 'dateTime.saveFailed');
     } finally {
       operation.current = false;
       if (mounted.current) setBusy(false);
@@ -84,89 +89,106 @@ export function DateTimeSettings() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="text-base">{t('dateTime.title')}</div>
-      <Divider className="!my-0 opacity-50" />
+    <div className="space-y-6">
       {error && <Alert type="error" showIcon message={error} />}
       {!status || !config ? (
         <Spin />
       ) : (
         <>
-          <div className="rounded-lg bg-neutral-800/60 p-4">
-            <div className="mb-2 text-xs text-neutral-400">{t('dateTime.deviceTime')}</div>
+          <Panel>
+            <div className="text-fg-muted mb-2 text-xs">{t('dateTime.deviceTime')}</div>
             <div className="text-xl tabular-nums">
               {formatDeviceTime(status.now + elapsed, status.config, i18n.language, true)}
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-neutral-400">
+            <div className="text-fg-muted mt-2 flex flex-wrap items-center gap-2 text-xs">
               <span>{status.config.timezone}</span>
-              <Tag bordered={false} color={status.synchronized ? 'success' : 'default'}>
+              <StatusBadge tone={status.synchronized ? 'success' : 'neutral'}>
                 {t(status.synchronized ? 'dateTime.synchronized' : 'dateTime.waiting')}
-              </Tag>
+              </StatusBadge>
             </div>
-          </div>
-          <label className="flex flex-col gap-2 text-sm">
-            <span>{t('dateTime.timezone')}</span>
-            <Select
-              aria-label={t('dateTime.timezone')}
-              showSearch
-              optionFilterProp="label"
-              value={config.timezone}
-              disabled={busy}
-              options={status.zones.map((zone) => ({
-                value: zone,
-                label: zone.replace(/_/g, ' ')
-              }))}
-              onChange={(timezone) => change({ timezone })}
-            />
-          </label>
-          <label className="flex flex-col gap-2 text-sm">
-            <span>{t('dateTime.format')}</span>
-            <Select
-              aria-label={t('dateTime.format')}
-              value={config.format}
-              disabled={busy}
-              options={[
-                { value: '24', label: t('dateTime.hour24') },
-                { value: '12', label: t('dateTime.hour12') }
-              ]}
-              onChange={(format) => change({ format })}
-            />
-            <span className="text-xs text-neutral-400">
-              {t('dateTime.preview')}:{' '}
-              {formatDeviceTime(status.now + elapsed, config, i18n.language)}
-            </span>
-          </label>
-          <label className="flex flex-col gap-2 text-sm">
-            <span>{t('dateTime.servers')}</span>
-            <Select
-              aria-label={t('dateTime.servers')}
-              mode="tags"
-              value={config.servers}
-              disabled={busy}
-              tokenSeparators={[',', ' ']}
-              maxCount={6}
-              options={[
-                '0.pool.ntp.org',
-                '1.pool.ntp.org',
-                '2.pool.ntp.org',
-                '3.pool.ntp.org',
-                'time.cloudflare.com',
-                'time.google.com'
-              ].map((value) => ({ value }))}
-              onChange={(servers) => change({ servers })}
-            />
-            <span className="text-xs text-neutral-400">{t('dateTime.serversHelp')}</span>
-          </label>
-          <p className="text-xs text-neutral-400">{t('dateTime.scope')}</p>
-          <Button
-            type="primary"
-            loading={busy}
-            disabled={!dirty.current || config.servers.length === 0}
-            onClick={() => void save()}
-          >
-            {t('dateTime.save')}
-          </Button>
-          {saved && <Alert type="success" showIcon message={t('dateTime.saved')} />}
+          </Panel>
+          <SettingsSection>
+            <SettingRow label={t('dateTime.timezone')} htmlFor="date-time-timezone">
+              <Select
+                id="date-time-timezone"
+                aria-label={t('dateTime.timezone')}
+                style={{ width: 180 }}
+                popupMatchSelectWidth={false}
+                showSearch
+                optionFilterProp="label"
+                value={config.timezone}
+                disabled={busy}
+                options={status.zones.map((zone) => ({
+                  value: zone,
+                  label: zone.replace(/_/g, ' ')
+                }))}
+                onChange={(timezone) => change({ timezone })}
+              />
+            </SettingRow>
+            <SettingRow
+              label={t('dateTime.format')}
+              description={
+                <>
+                  {t('dateTime.preview')}:{' '}
+                  {formatDeviceTime(status.now + elapsed, config, i18n.language)}
+                </>
+              }
+              htmlFor="date-time-format"
+            >
+              <Select
+                id="date-time-format"
+                aria-label={t('dateTime.format')}
+                aria-describedby="date-time-format-description"
+                style={{ width: 180 }}
+                value={config.format}
+                disabled={busy}
+                options={[
+                  { value: '24', label: t('dateTime.hour24') },
+                  { value: '12', label: t('dateTime.hour12') }
+                ]}
+                onChange={(format) => change({ format })}
+              />
+            </SettingRow>
+            <SettingRow
+              label={t('dateTime.servers')}
+              description={t('dateTime.serversHelp')}
+              htmlFor="date-time-servers"
+              stacked
+            >
+              <Select
+                id="date-time-servers"
+                aria-label={t('dateTime.servers')}
+                aria-describedby="date-time-servers-description"
+                className="w-full"
+                mode="tags"
+                value={config.servers}
+                disabled={busy}
+                tokenSeparators={[',', ' ']}
+                maxCount={6}
+                options={[
+                  '0.pool.ntp.org',
+                  '1.pool.ntp.org',
+                  '2.pool.ntp.org',
+                  '3.pool.ntp.org',
+                  'time.cloudflare.com',
+                  'time.google.com'
+                ].map((value) => ({ value }))}
+                onChange={(servers) => change({ servers })}
+              />
+            </SettingRow>
+            <p className="text-fg-muted mt-0 text-xs">{t('dateTime.scope')}</p>
+            <div>
+              <Button
+                type="primary"
+                loading={busy}
+                disabled={!dirty.current || config.servers.length === 0}
+                onClick={() => void save()}
+              >
+                {t('dateTime.save')}
+              </Button>
+            </div>
+            {saved && <Alert type="success" showIcon message={t('dateTime.saved')} />}
+          </SettingsSection>
         </>
       )}
     </div>

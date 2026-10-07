@@ -7,16 +7,7 @@ import { getEncoderCodec, isEncoderCodecSupported } from '@/lib/encoder';
 import * as storage from '@/lib/localstorage';
 import type { BrowserSupport, Transport, VideoCapabilities, VideoDraft } from '@/lib/video-model';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
-import {
-  resolutionAtom,
-  streamFpsAtom,
-  streamGopAtom,
-  streamQualityAtom,
-  videoModeAtom
-} from '@/jotai/screen';
-
-import { getQualityMap } from '../../screen/constants';
-import { storedMode } from './apply';
+import { resolutionAtom, streamFpsAtom, videoModeAtom } from '@/jotai/screen';
 
 // Shared settings and status returned by GET /api/vm/screen.
 export type ScreenStatus = {
@@ -45,6 +36,8 @@ export type ScreenStatus = {
   videoOutputHeight: number;
   effectiveFps: number;
   measuredFps: number;
+  // Device-wide MJPEG frame detection, saved by the server.
+  frameDetect: boolean;
 };
 
 const transportOf = (mode: string): Transport =>
@@ -64,7 +57,7 @@ export function savedDraft(status: ScreenStatus, mode: string): VideoDraft {
     gopMode: status.gopMode,
     mjpegChroma: status.mjpegChroma === 422 ? 422 : 420,
     directPlayback: storage.getDirectPlayback(),
-    frameDetect: storage.getFrameDetect()
+    frameDetect: status.frameDetect === true
   };
 }
 
@@ -124,20 +117,12 @@ export function useVideoSettings(pollMs = 3000) {
 export function useSyncStreamAtoms() {
   const setResolution = useSetAtom(resolutionAtom);
   const setFps = useSetAtom(streamFpsAtom);
-  const setGop = useSetAtom(streamGopAtom);
-  const setQuality = useSetAtom(streamQualityAtom);
   return useCallback(
     (draft: VideoDraft, caps: VideoCapabilities) => {
       const width = caps.stream.limits.find((l) => l.height === draft.height)?.width ?? 0;
       setResolution({ width, height: draft.height });
       setFps(draft.fps);
-      setGop(draft.gop);
-      const value = draft.transport === 'mjpeg' ? draft.quality : draft.bitRate;
-      const index = [...(getQualityMap(storedMode(draft.transport)) ?? [])].find(
-        ([, v]) => v === value
-      )?.[0];
-      if (index !== undefined) setQuality(index);
     },
-    [setResolution, setFps, setGop, setQuality]
+    [setResolution, setFps]
   );
 }

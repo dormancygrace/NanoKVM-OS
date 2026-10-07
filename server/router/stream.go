@@ -1,6 +1,7 @@
 package router
 
 import (
+	"NanoKVM-Server/authn"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/stream/audio"
@@ -13,9 +14,13 @@ import (
 
 func streamRouter(r *gin.Engine) {
 	api := r.Group("/api").Use(middleware.CheckToken())
+	admin := r.Group("/api").Use(
+		middleware.CheckToken(),
+		middleware.RequireRole(authn.RoleAdmin),
+	)
 
 	api.GET("/stream/mjpeg", mjpeg.Connect)                      // mjpeg stream
-	api.POST("/stream/mjpeg/detect", mjpeg.UpdateFrameDetect)    // update frame detect
+	admin.POST("/stream/mjpeg/detect", mjpeg.UpdateFrameDetect)  // update frame detect (device-wide)
 	api.POST("/stream/mjpeg/detect/stop", mjpeg.StopFrameDetect) // temporary stop frame detect
 
 	api.GET("/stream/state", stream.GetEncoderState)

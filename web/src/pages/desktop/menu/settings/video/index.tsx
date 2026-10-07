@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Alert, Button, message, Modal, Tag } from 'antd';
+import { Alert, Button, message, Modal } from 'antd';
 import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import { updateScreen } from '@/api/vm';
 import { monitorTarget, nominalRate } from '@/lib/video-model';
 import { isHdmiEnabledAtom } from '@/jotai/screen';
+import { Panel, StatusBadge } from '@/components/ui/settings.tsx';
 
 import { Hdmi } from '../device/hdmi';
 import { VideoForm } from './form';
@@ -29,7 +30,7 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
   const monitor = saved && caps ? monitorTarget(saved, caps) : undefined;
   const line = (label: string, value: React.ReactNode) => (
     <div className="flex justify-between gap-3 py-1">
-      <span className="text-neutral-400">{label}</span>
+      <span className="text-fg-muted">{label}</span>
       <span className="text-right">{value}</span>
     </div>
   );
@@ -37,8 +38,7 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
   return (
     <div className="space-y-6 pb-6">
       <div>
-        <h2 className="mb-2 text-xl font-medium">{t('videoSettings.title')}</h2>
-        <p className="text-sm text-neutral-400">{t('videoSettings.description')}</p>
+        <p className="text-fg-muted text-sm">{t('videoSettings.description')}</p>
       </div>
       <Hdmi />
       {failed && (
@@ -124,41 +124,40 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
             }
           />
         )}
-      <div
-        className="rounded-xl border border-neutral-700 bg-neutral-800/50 p-4 text-sm"
-        aria-live="polite"
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <span className="font-medium">{t('videoSettings.current')}</span>
-          <Tag color={enabled ? 'success' : 'gold'}>
-            {t(enabled ? 'videoSettings.captureOn' : 'videoSettings.captureOff')}
-          </Tag>
-        </div>
-        {line(
-          t('videoSettings.input'),
-          enabled && status
-            ? `${size(status.inputWidth, status.inputHeight)}${caps?.input.fps ? ` · ${t('videoSettings.hz', { value: nominalRate(caps.input.fps) })}` : ''}`
-            : '—'
-        )}
-        {line(
-          t('videoSettings.output'),
-          enabled && status
-            ? `${size(outputWidth || status.outputWidth, outputHeight || status.outputHeight)} · ${[codec, transport].filter(Boolean).join(' ')} · ${t('videoSettings.fpsValue', { value: status.measuredFps })}`
-            : '—'
-        )}
-        {caps?.monitor.programmable &&
-          monitor &&
-          line(
-            t('videoSettings.monitor'),
-            `${saved?.portrait ? t('videoSettings.portrait') : saved?.monitor ? '' : t('videoSettings.automatic')}${
-              monitor.width ? ` ${size(monitor.width, monitor.height)}` : ''
-            }${caps.monitor.refreshHz || monitor.refresh ? ` · ${t('videoSettings.hz', { value: caps.monitor.refreshHz || monitor.refresh })}` : ''}`.trim()
+      <div aria-live="polite">
+        <Panel className="text-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="font-medium">{t('videoSettings.current')}</span>
+            <StatusBadge tone={enabled ? 'success' : 'warning'}>
+              {t(enabled ? 'videoSettings.captureOn' : 'videoSettings.captureOff')}
+            </StatusBadge>
+          </div>
+          {line(
+            t('videoSettings.input'),
+            enabled && status
+              ? `${size(status.inputWidth, status.inputHeight)}${caps?.input.fps ? ` · ${t('videoSettings.hz', { value: nominalRate(caps.input.fps) })}` : ''}`
+              : '—'
           )}
-        {enabled && status && status.effectiveFps < status.fps && (
-          <p className="mt-3 text-xs text-amber-300">
-            {t('videoSettings.fpsLimited', { fps: status.effectiveFps })}
-          </p>
-        )}
+          {line(
+            t('videoSettings.output'),
+            enabled && status
+              ? `${size(outputWidth || status.outputWidth, outputHeight || status.outputHeight)} · ${[codec, transport].filter(Boolean).join(' ')} · ${t('videoSettings.fpsValue', { value: status.measuredFps })}`
+              : '—'
+          )}
+          {caps?.monitor.programmable &&
+            monitor &&
+            line(
+              t('videoSettings.monitor'),
+              `${saved?.portrait ? t('videoSettings.portrait') : saved?.monitor ? '' : t('videoSettings.automatic')}${
+                monitor.width ? ` ${size(monitor.width, monitor.height)}` : ''
+              }${caps.monitor.refreshHz || monitor.refresh ? ` · ${t('videoSettings.hz', { value: caps.monitor.refreshHz || monitor.refresh })}` : ''}`.trim()
+            )}
+          {enabled && status && status.effectiveFps < status.fps && (
+            <p className="text-warning mt-3 text-xs">
+              {t('videoSettings.fpsLimited', { fps: status.effectiveFps })}
+            </p>
+          )}
+        </Panel>
       </div>
       {caps && browser && saved && (
         <VideoForm

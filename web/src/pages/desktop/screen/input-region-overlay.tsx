@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
-import { HolderOutlined } from '@ant-design/icons';
 import { Alert, Button, Card, Space, theme } from 'antd';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { GripVerticalIcon } from 'lucide-react';
 import Draggable from 'react-draggable';
 import { useTranslation } from 'react-i18next';
 
@@ -19,7 +19,13 @@ import {
   videoScaleAtom
 } from '@/jotai/screen.ts';
 
-import { getMediaSize, getRenderedMediaRect, MediaSize, RenderedMediaRect } from './geometry.ts';
+import {
+  getMediaSize,
+  getRenderedMediaRect,
+  isSameGeometry,
+  MediaSize,
+  RenderedMediaRect
+} from './geometry.ts';
 
 type SelectionRect = {
   left: number;
@@ -191,8 +197,9 @@ export const InputRegionOverlay = () => {
         setSelection(null);
       }
 
-      setMediaSize(nextMediaSize);
-      setFrameRect(nextFrameRect);
+      // Polled every 250 ms: keep the previous objects while nothing changed.
+      setMediaSize((current) => (isSameGeometry(current, nextMediaSize) ? current : nextMediaSize));
+      setFrameRect((current) => (isSameGeometry(current, nextFrameRect) ? current : nextFrameRect));
       frameRectRef.current = nextFrameRect;
     }
 
@@ -724,7 +731,7 @@ export const InputRegionOverlay = () => {
             size="small"
             title={
               <div className="control-region-drag-handle flex cursor-move items-center gap-2">
-                <HolderOutlined />
+                <GripVerticalIcon size={14} />
                 <span>{t('screen.controlRegion.dragHint')}</span>
               </div>
             }

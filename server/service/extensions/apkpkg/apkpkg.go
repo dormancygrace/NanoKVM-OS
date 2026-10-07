@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
+	"NanoKVM-Server/internal/apkrun"
 	"NanoKVM-Server/osupdate"
 )
 
@@ -50,14 +50,14 @@ func InstallTagged(tag, repository string, names ...string) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
-	if output, runErr := exec.CommandContext(ctx, "/sbin/apk", "update").CombinedOutput(); runErr != nil {
+	if output, runErr := apkrun.Command(ctx, "/sbin/apk", "update").CombinedOutput(); runErr != nil {
 		return fmt.Errorf("apk update failed: %s", tail(output))
 	}
 	args := []string{"add", "--"}
 	for _, name := range names {
 		args = append(args, name+"@"+tag)
 	}
-	if output, runErr := exec.CommandContext(ctx, "/sbin/apk", args...).CombinedOutput(); runErr != nil {
+	if output, runErr := apkrun.Command(ctx, "/sbin/apk", args...).CombinedOutput(); runErr != nil {
 		return fmt.Errorf("apk add failed: %s", tail(output))
 	}
 	return nil

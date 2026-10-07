@@ -1,8 +1,9 @@
 package utils
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -59,9 +60,13 @@ func generateCertFiles(certFile, keyFile string) error {
 		validFor  = time.Hour * 24 * 365 * 10
 	)
 
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	// ECDSA P-256: on the device an RSA-2048 signature takes about 80 ms of
+	// every full TLS handshake and generating the key about 6.5 s at first
+	// boot; P-256 takes about 3.6 ms and 10 ms. Existing certificates, RSA
+	// included, are kept so browsers that trust them see no new warning.
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		log.Errorf("failed to generate RSA private key: %v", err)
+		log.Errorf("failed to generate ECDSA private key: %v", err)
 		return err
 	}
 	publicKey := &privateKey.PublicKey
@@ -80,7 +85,7 @@ func generateCertFiles(certFile, keyFile string) error {
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(validFor),
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		KeyUsage:              x509.KeyUsageDigitalSignature, // ECDSA keys only sign
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  false,

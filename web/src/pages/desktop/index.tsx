@@ -46,6 +46,7 @@ import {
 } from './screen/geometry.ts';
 import { InputRegionOverlay } from './screen/input-region-overlay.tsx';
 import { ManualRegion } from './screen/manual-region.tsx';
+import { preloadPlayer } from './screen/players.ts';
 
 function getVideoMode() {
   const directSupported = window.isSecureContext && !!window.VideoDecoder;
@@ -151,6 +152,9 @@ export const Desktop = () => {
       }
       await initializeEncoderCodec(activeVideoMode === 'h264' ? 'webrtc' : 'direct', codec);
     };
+    // Fetch the player chunk alongside the encoder state, so that the player
+    // mounts together with the input handlers that attach to #screen.
+    const playerReady = preloadPlayer(activeVideoMode);
     void join()
       .catch((error: unknown) => {
         if (!active) return;
@@ -160,6 +164,7 @@ export const Desktop = () => {
             : 'screen.encoderStateFailed'
         );
       })
+      .then(() => playerReady)
       .finally(() => {
         if (!active) return;
         setVideoMode(activeVideoMode);

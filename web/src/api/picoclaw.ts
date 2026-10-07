@@ -1,11 +1,4 @@
 import { http } from '@/lib/http.ts';
-import {
-  picoclawGateway,
-  type GatewayRunState,
-  type GatewayTransportState
-} from '@/lib/picoclaw-gateway.ts';
-
-const sessionIDHeader = 'X-PicoClaw-Session-ID';
 
 type ModelConfigRequest = {
   model: string;
@@ -91,53 +84,3 @@ export function installRuntime() {
 export function uninstallRuntime() {
   return http.post('/api/picoclaw/runtime/uninstall');
 }
-
-export function connectGateway(sessionId?: string) {
-  return picoclawGateway.connect({ sessionId });
-}
-
-export function releaseRuntimeSession(sessionId?: string) {
-  const activeSessionId = sessionId || picoclawGateway.getSessionId();
-  if (!activeSessionId) {
-    return Promise.resolve(null);
-  }
-
-  return http.request({
-    method: 'delete',
-    url: '/api/picoclaw/runtime/session',
-    headers: {
-      [sessionIDHeader]: activeSessionId
-    }
-  });
-}
-
-export function sendChatMessage(
-  content: string,
-  options?: { id?: string; maxSteps?: number; maxRuntimeMs?: number; trackState?: boolean }
-) {
-  return picoclawGateway.sendChatMessage(content, options);
-}
-
-export function sendStopMessage() {
-  return picoclawGateway.sendStopMessage();
-}
-
-export async function closeGateway() {
-  const activeSessionId = picoclawGateway.getSessionId();
-  picoclawGateway.close();
-  if (!activeSessionId) {
-    return;
-  }
-
-  await releaseRuntimeSession(activeSessionId).catch(() => undefined);
-}
-
-export function onGatewayConnectionState(listener: (state: GatewayTransportState) => void) {
-  return picoclawGateway.on('transport_state', listener);
-}
-
-export function onGatewayRunState(listener: (state: GatewayRunState) => void) {
-  return picoclawGateway.on('run_state', listener);
-}
-
-export { picoclawGateway };

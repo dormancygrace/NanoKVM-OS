@@ -1,12 +1,10 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { TFunction } from 'i18next';
 
+import { closeGateway, connectGateway, picoclawGateway } from '@/api/picoclaw-gateway.ts';
 import {
-  closeGateway,
-  connectGateway,
   getRuntimeStatus,
   installRuntime,
-  picoclawGateway,
   setAIControlMode,
   setPicoclawAgentProfile,
   setPicoclawModelConfig,

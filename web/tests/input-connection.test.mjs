@@ -42,7 +42,7 @@ function fixture() {
   }).outputText;
   const sandbox = {
     exports: {},
-    W3cWebSocket: Socket,
+    WebSocket: Socket,
     getBaseUrl: () => 'ws://test',
     notifyAuthExpired: () => expired++,
     console: { log() {}, error() {} },

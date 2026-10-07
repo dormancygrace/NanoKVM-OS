@@ -63,7 +63,6 @@ const uk = {
       scale: 'Масштаб',
       title: 'Екран',
       video: 'Відеорежим',
-      videoDirectTips: 'Увімкніть HTTPS у "Налаштування > Пристрій", щоб використовувати цей режим',
       resolution: 'Роздільна здатність',
       controlRegion: {
         title: 'Калібрування миші',

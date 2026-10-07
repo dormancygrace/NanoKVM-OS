@@ -63,7 +63,6 @@ const es = {
       scale: 'Escala',
       title: 'Pantalla',
       video: 'Modo de vídeo',
-      videoDirectTips: 'Habilita HTTPS en "Ajustes > Dispositivo" para usar este modo',
       resolution: 'Resolución',
       controlRegion: {
         title: 'Calibración del ratón',

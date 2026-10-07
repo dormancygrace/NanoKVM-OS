@@ -59,7 +59,6 @@ const zh_tw = {
       scale: '缩放',
       title: '螢幕',
       video: '編碼格式',
-      videoDirectTips: '本模式需先啟用 HTTPS，請前往「設定 -> 設備」中開啟',
       resolution: '解析度',
       controlRegion: {
         title: '滑鼠校正',

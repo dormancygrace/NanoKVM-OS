@@ -64,7 +64,6 @@ const nl = {
       scale: 'Schaal',
       title: 'Scherm',
       video: 'Videomodus',
-      videoDirectTips: 'Schakel HTTPS in "Instellingen > Apparaat" in om deze modus te gebruiken',
       resolution: 'Resolutie',
       controlRegion: {
         title: 'Muiskalibratie',

@@ -61,7 +61,6 @@ const ko = {
       scale: '규모',
       title: '화면',
       video: '비디오 모드',
-      videoDirectTips: '이 모드를 사용하려면 "설정 > 장치"에서 HTTPS를 활성화하세요',
       resolution: '해상도',
       controlRegion: {
         title: '마우스 보정',

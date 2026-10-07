@@ -62,7 +62,6 @@ const da = {
       scale: 'Skala',
       title: 'Skærm',
       video: 'Videotilstand',
-      videoDirectTips: 'Aktiver HTTPS i "Indstillinger > Enhed" for at bruge denne tilstand',
       resolution: 'Opløsning',
       controlRegion: {
         title: 'Musekalibrering',

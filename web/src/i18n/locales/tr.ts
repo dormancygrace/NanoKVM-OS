@@ -63,7 +63,6 @@ const tr = {
       scale: 'Ölçek',
       title: 'Ekran',
       video: 'Görüntü modu',
-      videoDirectTips: 'kullanmak için "Ayarlar > Cihaz" HTTPS aktif edin',
       resolution: 'Çözünürlük',
       controlRegion: {
         title: 'Fare Kalibrasyonu',

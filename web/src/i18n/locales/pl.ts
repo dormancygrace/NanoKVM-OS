@@ -63,7 +63,6 @@ const pl = {
       scale: 'Skala',
       title: 'Ekran',
       video: 'Tryb wideo',
-      videoDirectTips: 'Włącz HTTPS w „Ustawienia > Urządzenie”, aby korzystać z tego trybu',
       resolution: 'Rozdzielczość',
       controlRegion: {
         title: 'Kalibracja myszy',

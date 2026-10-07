@@ -62,7 +62,6 @@ const vi = {
       scale: 'Quy mô',
       title: 'Màn hình',
       video: 'Chế độ video',
-      videoDirectTips: 'Bật HTTPS trong "Cài đặt > Thiết bị" để sử dụng chế độ này',
       resolution: 'Độ phân giải',
       controlRegion: {
         title: 'Hiệu chỉnh chuột',

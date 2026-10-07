@@ -62,7 +62,6 @@ const ja = {
       scale: '倍率',
       title: '画面',
       video: 'ビデオモード',
-      videoDirectTips: 'このモードを使用するには「設定 - デバイス」で HTTPS を有効にしてください',
       resolution: '解像度',
       controlRegion: {
         title: 'マウス位置補正',

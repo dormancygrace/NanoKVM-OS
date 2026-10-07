@@ -63,8 +63,6 @@ const it = {
       scale: 'Scala',
       title: 'Schermo',
       video: 'Modalità video',
-      videoDirectTips:
-        'Abilita HTTPS in "Impostazioni > Dispositivo" per utilizzare questa modalità',
       resolution: 'Risoluzione',
       controlRegion: {
         title: 'Calibrazione del mouse',

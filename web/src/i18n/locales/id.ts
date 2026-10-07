@@ -62,7 +62,6 @@ const id = {
       scale: 'Skala',
       title: 'Layar',
       video: 'Mode Video',
-      videoDirectTips: 'Aktifkan HTTPS di "Pengaturan > Perangkat" untuk menggunakan mode ini',
       resolution: 'Resolusi',
       controlRegion: {
         title: 'Kalibrasi Tetikus',

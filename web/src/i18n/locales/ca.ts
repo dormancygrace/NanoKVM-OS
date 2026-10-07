@@ -62,7 +62,6 @@ const ca = {
       scale: 'Escala',
       title: 'Pantalla',
       video: 'Mode de vídeo',
-      videoDirectTips: "Activa HTTPS a 'Configuració > Dispositiu' per utilitzar aquest mode",
       resolution: 'Resolució',
       controlRegion: {
         title: 'Calibratge del ratolí',

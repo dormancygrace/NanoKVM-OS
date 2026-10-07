@@ -63,8 +63,6 @@ const hu = {
       scale: 'Skála',
       title: 'Képernyő',
       video: 'Videó mód',
-      videoDirectTips:
-        'Engedélyezze az HTTPS elemet a "Beállítások > Eszköz" menüpontban ennek a módnak a használatához',
       resolution: 'Felbontás',
       controlRegion: {
         title: 'Egérkalibrálás',

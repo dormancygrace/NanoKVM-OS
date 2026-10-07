@@ -63,7 +63,6 @@ const nb = {
       scale: 'Skala',
       title: 'Skjerm',
       video: 'Video-kodek',
-      videoDirectTips: 'Aktiver HTTPS i "Innstillinger > Enhet" for å bruke denne modusen',
       resolution: 'Oppløsning',
       controlRegion: {
         title: 'Musekalibrering',

@@ -62,7 +62,6 @@ const pt_br = {
       scale: 'Escala',
       title: 'Tela',
       video: 'Modo de Vídeo',
-      videoDirectTips: 'Ative HTTPS em "Configurações > Dispositivo" para usar este modo',
       resolution: 'Resolução',
       controlRegion: {
         title: 'Calibração do mouse',

@@ -65,7 +65,6 @@ const fr = {
       scale: 'Échelle',
       title: 'Écran',
       video: 'Mode vidéo',
-      videoDirectTips: 'Activez HTTPS dans "Paramètres > Appareil" pour utiliser ce mode',
       resolution: 'Résolution',
       controlRegion: {
         title: 'Étalonnage de la souris',

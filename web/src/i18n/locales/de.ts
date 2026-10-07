@@ -64,8 +64,6 @@ const de = {
       scale: 'Skala',
       title: 'Bildschirm',
       video: 'Video Modus',
-      videoDirectTips:
-        'Aktivieren Sie HTTPS unter „Einstellungen > Gerät“, um diesen Modus zu verwenden',
       resolution: 'Auflösung',
       controlRegion: {
         title: 'Mauskalibrierung',

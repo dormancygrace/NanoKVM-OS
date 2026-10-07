@@ -60,7 +60,6 @@ const th = {
       scale: 'สเกล',
       title: 'หน้าจอ',
       video: 'โหมดวีดีโอ',
-      videoDirectTips: 'เปิดใช้งาน HTTPS ใน "การตั้งค่า > อุปกรณ์" เพื่อใช้โหมดนี้',
       resolution: 'ความคมชัด',
       controlRegion: {
         title: 'ปรับเทียบเมาส์',

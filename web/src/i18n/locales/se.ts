@@ -60,7 +60,6 @@ const se = {
       scale: 'Skala',
       title: 'Skärm',
       video: 'Videoläge',
-      videoDirectTips: 'Aktivera HTTPS i "Inställningar > Enhet" för att använda detta läge',
       resolution: 'Upplösning',
       controlRegion: {
         title: 'Muskalibrering',

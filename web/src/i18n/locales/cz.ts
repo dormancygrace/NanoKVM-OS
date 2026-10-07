@@ -63,7 +63,6 @@ const cz = {
       scale: 'Měřítko',
       title: 'Obrazovka',
       video: 'Režim videa',
-      videoDirectTips: 'Chcete-li používat tento režim, povolte HTTPS v "Nastavení > Zařízení"',
       resolution: 'Rozlišení',
       controlRegion: {
         title: 'Kalibrace myši',

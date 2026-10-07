@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import * as ls from '@/lib/localstorage.ts';
 import { menuDisabledItemsAtom } from '@/jotai/settings.ts';
 import { Robot } from '@/components/icons/robot.tsx';
+import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
 export const MenuIcons = () => {
   const { t } = useTranslation();
@@ -59,30 +60,31 @@ export const MenuIcons = () => {
   }
 
   return (
-    <div className="mt-8 flex flex-col space-y-5">
-      <div className="flex flex-col">
-        <span className="text-neutral-400">{t('settings.appearance.menuBar.icons')}</span>
-        <span className="text-fg-muted text-xs">{t('settings.appearance.menuBar.iconsDesc')}</span>
-      </div>
+    <SettingRow
+      label={t('settings.appearance.menuBar.icons')}
+      description={t('settings.appearance.menuBar.iconsDesc')}
+      stacked
+    >
+      <Panel flush>
+        <ul className="divide-line m-0 list-none divide-y p-0">
+          {items.map((item) => (
+            <li key={item.key} className="flex items-center justify-between gap-3 px-4 py-2.5">
+              <div className="text-fg-muted flex min-w-0 items-center gap-2">
+                {item.icon}
+                <span className="text-fg">
+                  {item.label ? t(item.label) : t(`${item.key}.title`)}
+                </span>
+              </div>
 
-      <div className="mt-5 flex flex-col space-y-5">
-        {items.map((item) => (
-          <div key={item.key} className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-neutral-400">
-              {item.icon}
-              <span className="text-neutral-300">
-                {item.label ? t(item.label) : t(`${item.key}.title`)}
-              </span>
-            </div>
-
-            <Switch
-              aria-label={item.label ? t(item.label) : t(`${item.key}.title`)}
-              value={!menuDisabledItems.includes(item.key)}
-              onChange={() => updateItems(item.key)}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
+              <Switch
+                aria-label={item.label ? t(item.label) : t(`${item.key}.title`)}
+                value={!menuDisabledItems.includes(item.key)}
+                onChange={() => updateItems(item.key)}
+              />
+            </li>
+          ))}
+        </ul>
+      </Panel>
+    </SettingRow>
   );
 };

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { http } from '@/lib/http';
 import { brandingAtom } from '@/jotai/branding';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 type BannerStyle = 'default' | 'rainbow';
 
@@ -35,17 +36,13 @@ export const BannerStyleSetting = () => {
   }
 
   return (
-    <div className="mt-8 flex w-full flex-wrap items-center justify-between gap-4">
-      <div className="flex min-w-0 flex-col gap-1">
-        <span>{tr('title')}</span>
-        <span className="text-fg-muted text-xs">{tr('description')}</span>
-      </div>
+    <SettingRow label={tr('title')} description={tr('description')}>
       <Segmented<BannerStyle>
         value={current}
         options={options}
         disabled={busy}
         onChange={handleChange}
       />
-    </div>
+    </SettingRow>
   );
 };

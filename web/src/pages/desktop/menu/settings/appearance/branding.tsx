@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { http } from '@/lib/http';
 import { brandingAtom, brandingFavicon, brandingLogo } from '@/jotai/branding';
+import { Panel, SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
 
 type Asset = 'logo' | 'favicon';
 
@@ -58,68 +59,62 @@ export const Branding = () => {
   ];
 
   return (
-    <div className="mt-8 flex flex-col gap-5">
-      <div className="flex flex-col gap-1">
-        <span>{tr('title')}</span>
-        <span className="text-fg-muted text-xs">{tr('description')}</span>
-      </div>
-
-      {assets.map(({ asset, preview, custom, input, previewClassName }) => (
-        <div
-          key={asset}
-          className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-neutral-700/70 bg-neutral-800/30 p-4"
-        >
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4">
-            <div className="flex h-28 w-full max-w-56 flex-none items-center justify-center rounded-md bg-neutral-900/70 p-3 sm:flex-1 sm:basis-48">
-              <img
-                src={preview}
-                alt={tr(`${asset}Preview`)}
-                className={`${previewClassName} max-w-full object-contain`}
-              />
+    <SettingRow label={tr('title')} description={tr('description')} stacked>
+      <div className="space-y-2">
+        {assets.map(({ asset, preview, custom, input, previewClassName }) => (
+          <Panel key={asset} className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4">
+              <div className="bg-surface-raised flex h-28 w-full max-w-56 flex-none items-center justify-center rounded-md p-3 sm:flex-1 sm:basis-48">
+                <img
+                  src={preview}
+                  alt={tr(`${asset}Preview`)}
+                  className={`${previewClassName} max-w-full object-contain`}
+                />
+              </div>
+              <div className="flex w-full min-w-0 flex-none flex-col items-start gap-1 sm:flex-1 sm:basis-40">
+                <span className="text-fg">{tr(`${asset}Title`)}</span>
+                <span className="text-fg-muted text-xs">{tr(`${asset}Description`)}</span>
+                <StatusBadge tone={custom ? 'info' : 'neutral'}>
+                  {custom ? tr('customActive') : tr('defaultActive')}
+                </StatusBadge>
+              </div>
             </div>
-            <div className="flex w-full min-w-0 flex-none flex-col gap-1 sm:flex-1 sm:basis-40">
-              <span className="text-neutral-200">{tr(`${asset}Title`)}</span>
-              <span className="text-fg-muted text-xs">{tr(`${asset}Description`)}</span>
-              <span className="text-xs text-neutral-400">
-                {custom ? tr('customActive') : tr('defaultActive')}
-              </span>
-            </div>
-          </div>
 
-          <input
-            ref={input}
-            type="file"
-            accept="image/png,image/jpeg"
-            aria-label={tr(`${asset}Upload`)}
-            className="hidden"
-            onChange={(event) => {
-              void upload(asset, event.target.files?.[0]);
-              event.target.value = '';
-            }}
-          />
-          <div className="flex w-full max-w-full min-w-0 flex-wrap gap-2 sm:w-auto">
-            <Button
-              className="h-auto w-full max-w-full py-1 whitespace-normal sm:w-auto [&>span]:break-words [&>span]:whitespace-normal"
-              disabled={busy !== undefined}
-              loading={busy === asset}
-              onClick={() => input.current?.click()}
-            >
-              {tr(`${asset}Upload`)}
-            </Button>
-            {custom && (
+            <input
+              ref={input}
+              type="file"
+              accept="image/png,image/jpeg"
+              aria-label={tr(`${asset}Upload`)}
+              className="hidden"
+              onChange={(event) => {
+                void upload(asset, event.target.files?.[0]);
+                event.target.value = '';
+              }}
+            />
+            <div className="flex w-full max-w-full min-w-0 flex-wrap gap-2 sm:w-auto">
               <Button
                 className="h-auto w-full max-w-full py-1 whitespace-normal sm:w-auto [&>span]:break-words [&>span]:whitespace-normal"
                 disabled={busy !== undefined}
-                onClick={() => update(asset, () => http.delete(`/api/branding/${asset}`))}
+                loading={busy === asset}
+                onClick={() => input.current?.click()}
               >
-                {tr('restoreDefault')}
+                {tr(`${asset}Upload`)}
               </Button>
-            )}
-          </div>
-        </div>
-      ))}
+              {custom && (
+                <Button
+                  className="h-auto w-full max-w-full py-1 whitespace-normal sm:w-auto [&>span]:break-words [&>span]:whitespace-normal"
+                  disabled={busy !== undefined}
+                  onClick={() => update(asset, () => http.delete(`/api/branding/${asset}`))}
+                >
+                  {tr('restoreDefault')}
+                </Button>
+              )}
+            </div>
+          </Panel>
+        ))}
 
-      <span className="text-fg-muted text-xs">{tr('formats')}</span>
-    </div>
+        <div className="text-fg-muted text-xs">{tr('formats')}</div>
+      </div>
+    </SettingRow>
   );
 };

@@ -31,18 +31,30 @@ export const SettingsPage = ({ title, description, actions, children }: Settings
 type SettingsSectionProps = {
   title?: ReactNode;
   description?: ReactNode;
+  // Section-level actions (for example a refresh button) next to the title.
+  actions?: ReactNode;
   children: ReactNode;
 };
 
-export const SettingsSection = ({ title, description, children }: SettingsSectionProps) => (
+// Sections of a page are separated by space-y-6 (the page root), the rows
+// inside a section by space-y-4.
+export const SettingsSection = ({
+  title,
+  description,
+  actions,
+  children
+}: SettingsSectionProps) => (
   <section className="space-y-3">
-    {(title || description) && (
-      <div>
-        {title && <h3 className="text-fg-muted m-0 text-sm font-medium">{title}</h3>}
-        {description && <p className="text-fg-muted mt-1 mb-0 text-xs">{description}</p>}
+    {(title || description || actions) && (
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {title && <h3 className="text-fg-muted m-0 text-sm font-medium">{title}</h3>}
+          {description && <p className="text-fg-muted mt-1 mb-0 text-xs">{description}</p>}
+        </div>
+        {actions && <div className="flex shrink-0 items-center gap-1">{actions}</div>}
       </div>
     )}
-    {children}
+    <div className="space-y-4">{children}</div>
   </section>
 );
 
@@ -112,11 +124,15 @@ export const HelpTip = ({ title }: { title: string }) => (
 
 type PanelProps = {
   className?: string;
+  // No padding, for lists whose rows bring their own (divide-y divide-line).
+  flush?: boolean;
   children: ReactNode;
 };
 
-export const Panel = ({ className, children }: PanelProps) => (
-  <div className={clsx('border-line bg-surface rounded-lg border p-4', className)}>{children}</div>
+export const Panel = ({ className, flush, children }: PanelProps) => (
+  <div className={clsx('border-line bg-surface rounded-lg border', !flush && 'p-4', className)}>
+    {children}
+  </div>
 );
 
 type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';

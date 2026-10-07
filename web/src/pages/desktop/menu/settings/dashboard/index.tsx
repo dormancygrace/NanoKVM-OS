@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '@/contexts/auth';
 import { Alert, Button, Progress } from 'antd';
 import { useAtomValue } from 'jotai';
@@ -26,10 +26,13 @@ import {
   videoSessionCountAtom
 } from '@/jotai/screen';
 import { HandshakeAge } from '@/components/handshake-age';
+import { Netbird as NetbirdIcon } from '@/components/icons/netbird';
 import { OpenVPNIcon } from '@/components/icons/openvpn';
 import { Tailscale as TailscaleIcon } from '@/components/icons/tailscale';
 import { WireGuardIcon } from '@/components/icons/wireguard';
 import { Panel, StatusBadge } from '@/components/ui/settings.tsx';
+
+import { summarizeVPN, vpnProviders } from '../vpn/providers.ts';
 
 type CPU = { total: number; idle: number };
 type Disk = {
@@ -103,9 +106,10 @@ type Profile = {
 type Extras = {
   time?: { config: DateTimeConfig; synchronized: boolean; daemon: string };
   wifi?: { connected: boolean; ssid: string };
-  wireguard?: { profiles: Profile[]; now?: number };
-  openvpn?: { profiles: Profile[] };
+  wireguard?: { available: boolean; profiles: Profile[]; now?: number };
+  openvpn?: { available: boolean; profiles: Profile[] };
   tailscale?: { state: string; ip: string; name: string };
+  netbird?: { state: string; ip: string; name: string };
 };
 const bytes = (value?: number | null) => {
   if (value == null) return '—';
@@ -195,6 +199,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             ['wifi', '/api/network/wifi'],
             ['openvpn', '/api/extensions/openvpn/status'],
             ['tailscale', '/api/extensions/tailscale/status'],
+            ['netbird', '/api/extensions/netbird/status'],
             ['wireguard', '/api/extensions/wireguard/status']
           );
         const results = await Promise.allSettled(
@@ -611,23 +616,39 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           section(
             'VPN',
             <div className="space-y-4">
-              {vpnProfiles('openvpn', 'OpenVPN')}
-              <div>
-                <button
-                  type="button"
-                  className="text-fg hover:text-info inline-flex items-center gap-2 border-0! bg-transparent! !p-0 text-sm font-medium"
-                  onClick={() => navigate('vpn-tailscale')}
-                >
-                  <TailscaleIcon />
-                  Tailscale
-                </button>
-                <div className="text-fg-muted mt-1 text-xs">
-                  {extra.tailscale ? state(extra.tailscale.state) : '—'}
-                  {extra.tailscale?.ip ? ` · ${extra.tailscale.ip}` : ''}
-                </div>
-              </div>
-              {vpnProfiles('wireguard', 'WireGuard')}
-            </div>
+              {vpnProviders.map((provider) => {
+                const data = extra[provider.id];
+                if (!data || !summarizeVPN(data).installed) return null;
+                if ('profiles' in data)
+                  return (
+                    <Fragment key={provider.id}>
+                      {vpnProfiles(provider.id as 'openvpn' | 'wireguard', provider.name)}
+                    </Fragment>
+                  );
+                const daemon = data;
+                return (
+                  <div key={provider.id}>
+                    <button
+                      type="button"
+                      className="text-fg hover:text-info inline-flex items-center gap-2 border-0! bg-transparent! !p-0 text-sm font-medium"
+                      onClick={() => navigate(`vpn-${provider.id}`)}
+                    >
+                      {provider.id === 'tailscale' ? <TailscaleIcon /> : <NetbirdIcon />}
+                      {provider.name}
+                    </button>
+                    <div className="text-fg-muted mt-1 text-xs">
+                      {state(daemon.state)}
+                      {daemon.ip ? ` · ${daemon.ip}` : ''}
+                    </div>
+                  </div>
+                );
+              })}
+              {vpnProviders.every((provider) => extra[provider.id]) &&
+                !vpnProviders.some((provider) => summarizeVPN(extra[provider.id]!).installed) && (
+                  <div className="text-fg-muted text-xs">{t('dashboard.noVpn')}</div>
+                )}
+            </div>,
+            'vpn'
           )}
         {section(
           t('dateTime.title'),

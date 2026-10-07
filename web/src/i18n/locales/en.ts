@@ -181,6 +181,7 @@ const en = {
       ntpServers: 'NTP servers',
       handshake: 'Last handshake',
       noProfiles: 'No profiles',
+      noVpn: 'No VPN is installed',
       states: {
         off: 'Off',
         waiting: 'Waiting',

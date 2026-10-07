@@ -185,6 +185,7 @@ const ru = {
       ntpServers: 'Серверы NTP',
       handshake: 'Последнее рукопожатие',
       noProfiles: 'Нет конфигураций',
+      noVpn: 'VPN не установлены',
       states: {
         off: 'Выключен',
         waiting: 'Ожидание',

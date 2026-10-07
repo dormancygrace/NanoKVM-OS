@@ -22,7 +22,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/web/` | `nanokvm-app`, `/kvmapp/server/web` |
 | `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm-app`, `nanokvm-firmware-sg2002` |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware-sg2002` |
-| `release/apk/` | the signed APK repository of the seven packages |
+| `release/apk/` | the signed APK repository of the seven packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
 | `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt` | the root file system and its package versions |
 | `release/image/NanoKVM-OS-Image-<image-version>-apps-<application-version>.img.zip`, `SHA256SUMS` | the SD card image |
 
@@ -60,9 +60,11 @@ Go modules, npm packages and Alpine packages are downloaded during the build and
 
 ### Signing key
 
-The APK packages are signed, and the packages and rootfs steps need a key. Release builds pass the maintainer key: `-k path/to/dgrace-6aaddbb6.rsa`, with its `.rsa.pub` next to it; that public key must be in `firmware/alpine/keys` under the same name, or `build.sh` stops. Local test builds pass `-d` instead: the first run creates a test key `OUTPUT/keys/nanokvm-test-*.rsa` and the image trusts it, so never publish those packages or images. apk does not tie a key to a repository: a device trusts every key in `/etc/apk/keys` for every repository it uses.
+The APK packages and indexes are signed, and the packages and rootfs steps need keys. Release builds pass both maintainer keys: `-k path/to/dgrace-6aaddbb6.rsa` (RSA, with its `.rsa.pub` next to it) and `-e path/to/nkos-release-ec-b8e89b66.key` (ECDSA P-256, with `nkos-release-ec-b8e89b66.pub` next to it). Both public keys must be in `firmware/alpine/keys`, or `build.sh` stops before the first step. Local test builds pass `-d` instead: the first run creates the test keys `OUTPUT/keys/nanokvm-test-*.rsa` and `nanokvm-test-ec-*.key`, and the image trusts them, so never publish those packages or images. apk does not tie a key to a repository: a device trusts every key in `/etc/apk/keys` for every repository it uses.
 
-The package `nanokvm-keys` installs the public keys of `firmware/alpine/keys` (with `-d`, also the test key) in `/etc/apk/keys` and owns them, so a later release can add or remove a key. Every image trusts them and uses the release repository `https://nkos.pesin.pro/repos/nanokvm`, so an image built from this repository updates to later releases. The rootfs step copies the keys into the root before it installs `nanokvm-release`, and apk takes over the identical files; the step fails if a key in `/etc/apk/keys` has no owner. Replacing the release key is described in [firmware/alpine/README.md](../firmware/alpine/README.md#signing-keys).
+The packages step signs the packages and the v2 index `APKINDEX.tar.gz` with the RSA key (RSA256: RSA with SHA-256), and writes the apk-tools v3 index `Packages.adb` next to it, signed with the ECDSA key and the RSA key; it checks that each key alone verifies `Packages.adb`. Devices up to 2.0 read the v2 index; images from 2.5 on read `https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb`.
+
+The package `nanokvm-keys` installs the public keys of `firmware/alpine/keys` (with `-d`, also the test keys) in `/etc/apk/keys` and owns them, so a later release can add or remove a key; on an older device it also moves the NanoKVM repository line to the v3 index. The rootfs step copies the keys into the root before it installs `nanokvm-release`, and apk takes over the identical files; the step fails if a key in `/etc/apk/keys` has no owner. Publishing a release, moving to the ECDSA key and replacing a key are described in [firmware/alpine/README.md](../firmware/alpine/README.md#signing-keys).
 
 The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`). Releases up to v2.0-b7 replaced busybox, coreutils, openssl, lz4 and zstd with C906-tuned builds (`c906-scalar`); that overlay is not built here.
 

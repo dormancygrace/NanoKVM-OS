@@ -46,6 +46,12 @@ Repository order in the generated root is:
 3. Alpine `main`;
 4. Alpine `community`.
 
+The NanoKVM and C906 repositories are read through their apk-tools v3 index:
+a repository base URL becomes `URL/riscv64/Packages.adb`, and a URL ending in
+`.adb` is used as it is. Pass the ECDSA key that signs the v3 index
+(`nkos-release-ec-b8e89b66.pub`) as a `--repo-key` together with the RSA key
+(see [signing keys](../README.md#signing-keys)).
+
 The NanoKVM packages have unique names. Tuned replacements retain their Alpine
 package names and use the tested higher `pkgrel`; packages missing from the two
 local repositories resolve normally from Alpine. A changing Alpine branch URL
@@ -53,7 +59,7 @@ does not provide byte-for-byte reproducibility by itself. Production should
 point `--alpine-main` and `--alpine-community` at immutable mirrored snapshots.
 The output records the exact effective repository file and every installed
 package version. The HTTP service also hashes the current remote Alpine
-`APKINDEX.tar.gz` files, both local repository indexes, the public keys and all
+`APKINDEX.tar.gz` files, both local `Packages.adb` indexes, the public keys and all
 image-building inputs into the build ID. A repeated request is cached only while
 those inputs are unchanged, so a new Alpine index produces a new personal image.
 
@@ -104,7 +110,8 @@ signing key:
   --base-rootfs work/alpine/alpine-minirootfs-3.24.2-riscv64.tar.gz \
   --boot-fit work/alpine/final-vm-good/boot-alpine.sd \
   --nanokvm-repo work/alpine/repo-r4/stock/recipes \
-  --repo-key work/alpine/signing/dgrace-6aaddbb6.rsa.pub \
+  --repo-key firmware/alpine/keys/dgrace-6aaddbb6.rsa.pub \
+  --repo-key firmware/alpine/keys/nkos-release-ec-b8e89b66.pub \
   --qemu-static work/alpine/tuned-builder-full/rootfs/usr/bin/qemu-riscv64-static
 ```
 
@@ -122,10 +129,9 @@ sudo apt-get install python3 qemu-user-static binfmt-support device-tree-compile
 `qemu-user-static` and `binfmt-support` are required for APK maintainer scripts;
 the bundled Buildroot `mkimage` invokes the host `dtc` when it creates the
 recovery FIT. Run one build as root in a fresh output directory. The public key
-filename must match the key name used by the APK signatures. The current
-development NanoKVM and C906 repositories use the same signing key. If
-production separates those keys, repeat the repo-key option once for each
-public key.
+filename of an RSA key must match the key name used by the APK signatures. The
+NanoKVM repository needs both release keys; the C906 repository uses the same
+RSA key. Repeat the repo-key option once for each public key.
 
 ```sh
 sudo ./scripts/build-alpine-personal-image.sh \
@@ -135,7 +141,8 @@ sudo ./scripts/build-alpine-personal-image.sh \
   --boot-fit /srv/nanokvm/input/boot-alpine.sd \
   --boot-sha256 <verified-boot-sha256> \
   --nanokvm-repo https://builder.example/nanokvm/stock/recipes \
-  --repo-key /srv/nanokvm/keys/nanokvm-packages.rsa.pub \
+  --repo-key /srv/nanokvm/keys/dgrace-6aaddbb6.rsa.pub \
+  --repo-key /srv/nanokvm/keys/nkos-release-ec-b8e89b66.pub \
   --packages-file request.packages \
   --output /srv/nanokvm/output/request-001
 ```

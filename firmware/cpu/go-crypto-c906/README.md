@@ -143,3 +143,62 @@ wrap inside a call, unaligned and in-place buffers, guard bytes around dst),
 3000 random cross-checks of the public API per implementation (chunking,
 `SetCounter`, the end of the counter space) and a stress run with a CPU
 profile, GC and four goroutines.
+
+## Multi-buffer HMAC-SHA1 (`server/internal/sha1mb`)
+
+SRTP authenticates every packet with HMAC-SHA1 (AES128_CM_HMAC_SHA1_80).
+`sha1mb.Key.SumBatch` computes the tags of a whole frame at once. Its
+kernel comes from `gen_sha1mb_riscv64.py`, which reuses the XTheadVector
+encoder and the GNU as/objdump check of `gen_chacha_riscv64.py`. The package
+lives in the server module, not in the prepared GOROOT.
+
+- `sha1x4` hashes four block streams in the 32-bit lanes of XTheadVector
+  registers, one SHA-1 word per register (v0-v15 schedule, v16-v20 a-e,
+  v21-v25 chaining value). Rotates are shift, shift, or (or two adds when
+  the result is added anyway). The 1414 vector instructions of a step are
+  list-scheduled for an assumed result latency of 6 cycles; in program
+  order the kernel took about 1.6 times as long.
+- Scalar code interleaved with the rounds copies the next step's four
+  blocks into a stack buffer with byte loads, as big-endian words and
+  transposed, so W is loaded with two LMUL 8 loads; no alignment is needed.
+  Copying little-endian words and swapping them with 16 `th.vrgather.vv`
+  per step measured the same. Leaving out the copy (wrong results) was
+  about 7% faster, which bounds the cost of the byte swap and transpose.
+- Go splits each message (up to three parts) into segments: runs of whole
+  blocks inside one part are read in place; blocks that straddle parts and
+  the padded tail are copied to a scratch buffer. Each message goes to the
+  least loaded lane, and its outer block follows on the same lane, with the
+  inner hash patched into message words 0-4 between steps. Lanes switch
+  messages between steps, so one call hashes the whole batch.
+- Batches of one message use crypto/sha1, as do other CPUs, a missing
+  `xtheadvector` in `/proc/cpuinfo`, vector state disabled according to
+  `prctl(PR_RISCV_V_GET_CONTROL)`, and `NANOKVM_SHA1MB=generic`.
+
+Device, thread CPU time per packet, medians of 7 interleaved rounds with
+video streaming. Messages are a 12-byte header, the payload and a 4-byte
+ROC; crypto/hmac is used as pion/srtp does (Reset, Write, Write, Sum):
+
+| batch | crypto/hmac | SumBatch | speedup |
+| --- | ---: | ---: | ---: |
+| video, 13 x 1200 B + 600 B | 45.8 us | 17.1 us | 2.7x |
+| audio, 4 x 172 B | 12.1 us | 4.7 us | 2.6x |
+| 2 x 1200 B | 44.7 us | 27.7 us | 1.6x |
+| 4 x 4096 B | 148.9 us | 44.5 us | 3.3x |
+
+The Go part (scheduling, segments, copies) takes about 1.4 us per packet.
+A vector instruction costs about two cycles whatever `vl` is, so idle lanes
+cost as much as busy ones: 14 video packets fill 271 of 320 lane steps.
+
+```sh
+B=.../buildroot-output/host/bin/riscv64-buildroot-linux-musl-
+python3 gen_sha1mb_riscv64.py --binutils $B --check ../../../server/internal/sha1mb/sha1mb_riscv64.s
+cd ../../../server
+go test -tags teststub ./internal/sha1mb   # host: generic code and a Go model of the kernel
+GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 go test -c -o sha1mb.test ./internal/sha1mb
+python3 ../firmware/cpu/go-crypto-c906/check-binary.py --binutils $B \
+    --symbol NanoKVM-Server/internal/sha1mb.sha1x4 --source internal/sha1mb/sha1mb_riscv64.s sha1mb.test
+# on the device, in /var/tmp:
+./sha1mb.test -test.run 'RFC|Cross|Bound|Large|Selection' -test.v
+./sha1mb.test -test.run Stress -sha1mb.stress=90s &   # twice, concurrently
+./sha1mb.test -test.run Measure -test.v -sha1mb.measure=7
+```

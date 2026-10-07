@@ -1,52 +1,113 @@
-# NanoKVM OS v2.5-a1 · Image v1.0-a1 (Alpha)
+# 🚀 NanoKVM OS v2.5-a1 — Small hardware. A legendary leap.
 
-**Alpha release.** Full SD images now have their own version: **Image v1.0-a1** ships with **applications v2.5-a1**. Updating applications later keeps the original image version and bundled application version visible in About.
+**📦 Applications v2.5-a1 · 💾 Image v1.0-a1 · 🧪 Alpha**
 
-Changes below cover everything since **v2.0-b7**, including the previously unpublished v2.1 work.
+Your NanoKVM is getting a serious upgrade: **4K support, Internet over USB, the return of H.265 WebRTC with a CryptoDMA fix, optional RustDesk access, and a much better experience from your phone.** Underneath it all: a refreshed Linux kernel, official Alpine packages, hardware-specific optimizations, and a complete build you can reproduce from the public repository's pinned sources.
 
-### System and updates
+This release brings together the work since **v2.0-b7**, including the previously unpublished v2.1 changes. Video, networking, remote access, touch controls, packaging and the system underneath them all move forward together.
 
-- Update Linux from **7.2.6 to 7.2.9**, with matching drivers and boot images for the supported boards and both CMA/fixed video-memory modes.
-- Add an independent **Internet over USB** switch: share the NanoKVM Ethernet/Wi-Fi uplink with the managed computer through USB NCM. Disabled by default; IPv4 sharing includes DHCP, DNS and NAT. Turning sharing off keeps local USB access available.
-- Use **nftables software flow offload** for eligible USB-forwarded TCP/UDP connections, with ordinary NAT fallback. Preserve VPN routing and suppress acceleration where other forwarding policies would conflict. Local video traffic does not use this forwarding fast path.
-- Use official **Alpine Linux 3.24** packages by default, including OpenSSL. Keep the optional C906 package profile available for experiments.
-- Build the complete SD image, application, native libraries, kernel, drivers and signed APK packages from the public repository with pinned upstream sources and recorded output checksums.
-- Use **GCC 16.2 / T-Head C906**, with **`-O3` and no LTO for the kernel and modules**, and scalar **`-O2` for native userspace**. Correct vector-context handling and optimize the aligned LZ4 decode path. Fix the ISP errors exposed by optimization and preserve HDMI receiver wiring/detection patches in clean builds.
-- Refresh MaixCDK, Pion DTLS/ICE/SRTP, inih, tinyalsa and relevant driver/firmware source pins. Keep json-c on the official stable **0.19** release. Web builds use **Node.js 24 LTS**.
-- Run the application through OpenRC with the same startup policy used by its compatibility entry point. Keep networking and SSH independent of video initialization failures.
+> ⚡ **More ways to connect. More control from your pocket. More of what this tiny machine can do.**
 
-### Video and mobile controls
+## 🌐 Give the connected computer Internet — over USB
 
-- Add **4K at up to 30 FPS** on supported capture hardware. Raise landscape targets to **QHD up to 60 FPS, FHD up to 100 FPS and HD up to 120 FPS**; portrait profiles use their supported mode limits. These are requested limits, not guaranteed frame rates for every source and codec.
-- Add video profiles and apply monitor resolution, orientation and refresh changes as one EDID operation. Keep FPS following and inactive portrait preferences consistent.
-- Raise video clock rates and add the UHD fixed-memory profile with automatic ZRAM sizing. Package the shared FIT template once instead of duplicating complete boot images for every board and memory mode.
-- Apply explicit codec changes across active viewers and preserve the selected codec after restarts. Fix returning stream resolution to **Same as input**.
-- Restore **H.265 WebRTC** with the reviewed CryptoDMA fix: separate DMA input/output buffers and a burst size of four. On an older loaded driver, use software SRTP until the updated module is loaded and the application is restarted.
-- Reduce WebRTC allocations and batch UDP output. Keep networking, SSH and the watchdog independent of video startup failures.
-- Fit video and settings to the mobile browser's changing viewport. Fix settings requiring a second tap, inaccessible Apply buttons, nested scrolling, flashing transient encoder errors and the floating toolbar's corners.
-- Add the optional **Windows absolute-pointer profile** with USB/EDID display association.
-- Support right-click by holding one finger and tapping with another; improve touch scrolling.
-- Hide input controls when the corresponding USB gadget functions are disabled. Automatically grant control to the sole remaining viewer, and restrict shared video settings to administrators.
+The USB connection gains a new job. Enable **Internet over USB** to share NanoKVM's Ethernet or Wi-Fi uplink with the computer you are managing.
 
-### Software and extensions
+- One independent switch, **off by default**.
+- **IPv4 DHCP, DNS and NAT** through USB NCM.
+- Keep local USB access when Internet sharing is switched off.
+- **Software flow offload** accelerates eligible forwarded TCP/UDP connections, with ordinary NAT as the fallback.
+- Respect VPN routing and existing forwarding policies; avoid acceleration when those policies conflict.
 
-- Manage add-ons in **Software**. Install, update and remove **PicoClaw** using its official latest RISC-V release; show its navigation entry only while installed. Improve its mobile layout and contrast.
-- Add optional **RustDesk 0.5.3**, using the RustDesk 1.5 protocol, with official or custom servers, temporary/permanent passwords, shared HDMI video and USB input. Direct/relay TCP is the default; WebRTC is optional.
-- Reuse RustDesk frame-encryption buffers and reject video dimensions that exceed the protocol header range.
-- RustDesk follows the device's H.264/H.265 selection and can forward USB audio. Enabling remote access prepares the required USB input functions; audio prepares USB sound while preserving unrelated gadget settings.
-- RustDesk exposes the HDMI capture, not the source computer's other monitors. Clipboard, file transfer, terminal, chat and ATX control are not included. Official-client audio playback still requires separate confirmation.
+This is Internet sharing for the managed computer. The forwarding acceleration applies to its traffic; NanoKVM's own video stream follows its existing path.
 
-### Other fixes
+## 🎬 Push the picture further
 
-- Correct React cleanup and state handling across audio, input, memory, software management and the browser terminal.
-- Tighten image-download/resume/mount filename checks, numeric video validation, autostart and time-zone path handling.
-- Reuse unchanged sanitized log snapshots to reduce repeated processing.
+**4K joins the lineup**, with higher landscape frame-rate targets across the familiar resolutions:
 
-### Installation and updates
+| Resolution | Landscape target |
+| --- | --- |
+| **4K / UHD** | **Up to 30 FPS** on supported capture hardware |
+| **QHD** | **Up to 60 FPS** |
+| **Full HD** | **Up to 100 FPS** |
+| **HD** | **Up to 120 FPS** |
 
-For a fresh installation, extract **NanoKVM-OS-Image-v1.0-a1-apps-v2.5-a1.img.zip** and write the `.img` to an SD card of at least **2 GB**. The root partition remains **768 MiB** and user data uses the remaining card space.
+These are selectable targets, not a promise of sustained output in every configuration. Capture hardware, source timing, codec and operating conditions determine the actual rate. Portrait profiles retain their supported mode limits.
 
-From **v2.0-a2 or newer**, use **Settings → System → Updates** (on a2: **Settings → Updates → Package updates**), or run as root after this release is published:
+Video profiles now apply monitor resolution, orientation and refresh changes together in a single EDID operation. FPS following and saved portrait preferences behave consistently, and **Same as input** works correctly again.
+
+Higher video clocks and a new **UHD fixed-memory profile with automatic ZRAM sizing** support the expanded video modes. Kernel packages share a compact FIT template instead of carrying repeated complete boot images for every board and memory mode.
+
+### 🔥 H.265 WebRTC returns
+
+This release includes the reviewed **CryptoDMA fix: separate DMA input/output buffers and a burst size of four**. H.265 is available over WebRTC again.
+
+The application also recognizes older loaded drivers and uses software SRTP until the updated module is loaded and the application restarts. WebRTC reuses more allocations and batches UDP output. Explicit codec changes propagate across active viewers, and the selected codec survives restarts.
+
+## 📱 A KVM you can actually use from your phone
+
+The mobile work reaches well beyond fitting a page onto a smaller screen:
+
+- Settings open on the first tap; **Apply** stays reachable.
+- Video and panels follow the browser's changing viewport.
+- Nested scrolling, briefly flashing encoder errors and floating-toolbar corner glitches are fixed.
+- **Hold one finger and tap with another to right-click**, with improved touch scrolling.
+- An optional **Windows absolute-pointer profile** adds USB/EDID display association.
+- Disabled USB input functions no longer leave their controls visible.
+- When the controlling viewer disconnects, the **sole remaining viewer automatically receives control**.
+- Shared video settings are restricted to administrators.
+
+## 🌍 Choose how you connect
+
+### 🖥️ RustDesk, directly on your NanoKVM
+
+The optional **RustDesk integration 0.5.3**, using the **RustDesk 1.5 protocol**, adds another way to reach the captured computer:
+
+- Use the official servers or your own.
+- Connect with temporary or permanent passwords.
+- Share the HDMI capture and control the computer through USB input.
+- Follow the selected H.264/H.265 codec.
+- Use direct/relay TCP by default, with optional WebRTC.
+
+Enabling remote access prepares the required USB input functions while preserving unrelated gadget settings. The integration can forward USB audio; official-client audio playback still needs separate confirmation. Frame-encryption buffers are reused, and dimensions outside the protocol header's range are rejected.
+
+This integration exposes the captured HDMI display. Clipboard, file transfer, terminal, chat and ATX control are not included.
+
+### 🧩 Add-ons with a home of their own
+
+Manage extensions from **Software**. Install, update and remove **PicoClaw** using its official latest RISC-V release. Its navigation entry appears only while installed, and its mobile layout and contrast are improved.
+
+## ⚙️ A stronger foundation — and a build you can own
+
+- **Linux 7.2.9**, upgraded from 7.2.6, with matching modules and board boot images for CMA and fixed video-memory modes.
+- Official **Alpine Linux 3.24** packages by default, including OpenSSL. The optional C906 package profile remains available for experiments.
+- **GCC 16.2 / T-Head C906**: `-O3` without LTO for the kernel and modules; scalar `-O2` for native userspace. Corrected vector-context handling, an optimized aligned LZ4 decode path, and fixes for ISP bugs exposed by optimization.
+- Updated MaixCDK, Pion DTLS/ICE/SRTP, inih, tinyalsa and relevant driver/firmware pins. **json-c 0.19** stays on its official stable release; web builds use **Node.js 24 LTS**.
+- Consistent **OpenRC** application startup, with networking, SSH and watchdog operation independent of video initialization failures.
+- A complete public build path for the SD image, application, native libraries, kernel, drivers and signed APK packages, with **pinned upstream sources and recorded output checksums**. HDMI receiver wiring and detection patches are retained in clean builds.
+
+### 🛠️ Everyday fixes
+
+The everyday fixes matter too: React cleanup and state handling across audio, input, memory, software management and the terminal; stricter image filename, video value, autostart and time-zone validation; and reuse of unchanged sanitized log snapshots.
+
+## 💾 One image version. An evolving system.
+
+Full SD images now have their own version number:
+
+> 📦 **Image v1.0-a1 includes applications v2.5-a1.**
+
+Future application updates keep the original image version and its bundled application version visible in **About**. You can identify what the card started with and which application version it runs today.
+
+The initial image is about **65.7 MiB compressed**. Its root partition remains **768 MiB**, with the remaining SD-card space available for user data. The six core update packages total about **35.5 MiB**; optional packages and dependency updates are additional.
+
+## 🚀 Install or upgrade
+
+### ✨ Fresh SD card
+
+Extract **NanoKVM-OS-Image-v1.0-a1-apps-v2.5-a1.img.zip** and write the `.img` to an SD card of at least **2 GB**.
+
+### 🔄 Existing installation: v2.0-a2 or newer
+
+After publication, use **Settings → System → Updates**. On a2, use **Settings → Updates → Package updates**. You can also update as root:
 
 ```sh
 apk update
@@ -54,7 +115,7 @@ apk upgrade
 reboot
 ```
 
-If NanoKVM packages were installed from local `.apk` files, remove those local package pins first by selecting their repository versions:
+If NanoKVM packages were installed from local `.apk` files, first replace the local package pins with repository selections:
 
 ```sh
 apk update
@@ -63,6 +124,10 @@ apk upgrade
 reboot
 ```
 
-An application update does **not** require rewriting the SD card or changing the original image version. Settings, user data and independently installed packages are retained. The kernel and modules update together; reboot to start **7.2.9-nanokvm-os-r1**. Full images include the rebuilt bootloader; APK updates preserve the installed bootloader.
+**Keep your settings, user data and independently installed packages.** Application updates do not require rewriting the SD card. The kernel and modules update together; reboot to start **7.2.9-nanokvm-os-r1**. Full images include the rebuilt bootloader; APK updates preserve the installed bootloader.
 
-Existing installations using the experimental C906 overlay can follow the [stock migration instructions](https://github.com/dormancygrace/NanoKVM-OS/blob/main/firmware/alpine/README.md#existing-c906-installations). Updating NanoKVM components alone does not replace that overlay.
+Installations using the experimental C906 overlay should follow the [stock Alpine migration instructions](https://github.com/dormancygrace/NanoKVM-OS/blob/main/firmware/alpine/README.md#existing-c906-installations). Updating NanoKVM components alone does not replace that overlay.
+
+## 🧪 Alpha status
+
+Both **v2.5-a1** and **Image v1.0-a1** are alpha releases. Host builds, automated tests, package signatures and artifact checks have passed. **Hardware acceptance of this exact assembled release remains pending**, including persistent SD cold-boot qualification of the full-image bootloader candidate. Earlier component tests do not replace that final check.

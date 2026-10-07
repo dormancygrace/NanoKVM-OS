@@ -27,12 +27,12 @@ export const Autostart = () => {
 
   const autostartColumns: TableProps<AutostartItem>['columns'] = [
     {
-      title: 'Name',
+      title: t('settings.device.autostart.name'),
       dataIndex: 'name',
       key: 'name'
     },
     {
-      title: 'Action',
+      title: t('settings.device.autostart.actions'),
       key: 'action',
       render: (_, record) => (
         <>

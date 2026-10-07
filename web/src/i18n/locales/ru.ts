@@ -14,6 +14,7 @@ const ru = {
       },
       title: 'USB-звук',
       listen: 'Слушать',
+      resume: 'Возобновить звук',
       volume: 'Громкость',
       failed: 'Звук недоступен. Проверьте USB-подключение и попробуйте снова.'
     },
@@ -103,7 +104,6 @@ const ru = {
       passphrase: 'Пароль приватного ключа',
       save: 'Сохранить',
 
-      keyboardDisabled: 'USB-клавиатура отключена в композиции USB',
       description:
         'Импортируйте профили WireGuard и включите нужный. Включённый профиль подключается снова после перезапуска.',
       import: 'Импорт .conf файлов',
@@ -119,8 +119,8 @@ const ru = {
       systemRequired:
         'Системные инструменты WireGuard отсутствуют. Установите системный образ с поддержкой WireGuard.',
       routingNote:
-        'По умолчанию создаётся только маршрут подсети интерфейса. Route Allowed IPs добавляет маршруты из AllowedIPs.',
-      routeAllowedIPs: 'Route Allowed IPs',
+        'По умолчанию создаётся только маршрут подсети интерфейса. Включите «Маршруты из AllowedIPs», чтобы добавить маршруты пира.',
+      routeAllowedIPs: 'Маршруты из AllowedIPs',
       routingHelp:
         'Добавлять маршруты из AllowedIPs, включая маршрут по умолчанию для 0.0.0.0/0 или ::/0.',
       routingDisableFirst: 'Выключите профиль перед изменением маршрутизации.',
@@ -143,6 +143,7 @@ const ru = {
       coreCount_few: '{{count}} ядра',
       coreCount_many: '{{count}} ядер',
       coreCount_other: '{{count}} ядра',
+      title: 'Обзор',
       live: 'Обновляется, пока открыта страница',
       stale: 'Часть данных не удалось обновить. Показаны последние доступные значения.',
       duration: '{{days}} д {{hours}} ч {{minutes}} мин',
@@ -162,6 +163,9 @@ const ru = {
       memory: 'Память',
       available: 'Доступная RAM',
       cache: 'Кэш',
+      zram: 'ZRAM',
+      sdSwap: 'Swap на SD',
+      swapUsage: '{{used}} / {{size}} MiB',
       compression: 'Сжатие',
       storage: 'Накопитель',
       systemStorage: 'Система',
@@ -312,7 +316,7 @@ const ru = {
         'Смена профиля виртуального монитора недоступна на этом устройстве. Входной сигнал определяется автоматически.',
       stream: 'Трансляция',
       streamHint:
-        'Разрешение, FPS и битрейт влияют на всех зрителей. Разрешение трансляции не меняет рабочий стол компьютера. Новые клиенты автоматически используют кодек активного потока; способ передачи и масштаб остаются индивидуальными.',
+        'Разрешение, частота кадров и битрейт влияют на всех зрителей. Разрешение трансляции не меняет рабочий стол компьютера. Новые клиенты автоматически используют кодек активного потока; способ передачи и масштаб остаются индивидуальными.',
       advanced: 'Дополнительно и восстановление',
       gopMode: 'Режим GOP H.265',
       gopModeHint:
@@ -350,15 +354,18 @@ const ru = {
       login: 'Войти',
       placeholderUsername: 'Введите имя пользователя',
       placeholderPassword: 'Введите пароль',
+      placeholderCurrentPassword: 'Текущий пароль',
       placeholderPassword2: 'Введите пароль снова',
       noEmptyUsername: 'Имя пользователя не может быть пустым',
       noEmptyPassword: 'Пароль не может быть пустым',
+      passwordLength: 'Пароль должен содержать от 8 до 72 символов',
       noAccount:
         'Не удалось получить информацию о пользователе, пожалуйста, обновите веб-страницу или сбросьте пароль',
       invalidUser: 'Неверное имя пользователя или пароль',
       locked: 'Слишком много входов. Повторите попытку позже.',
       globalLocked: 'Система находится под защитой. Повторите попытку позже.',
       error: 'Непредвиденная ошибка',
+      invalidCurrentPassword: 'Текущий пароль указан неверно',
       changePassword: 'Изменить пароль',
       changePasswordDesc: 'Для безопасности вашего устройства, пожалуйста поменяйте пароль!',
       passwordChanged: 'Пароль изменён. Войдите с новым паролем.',
@@ -392,7 +399,7 @@ const ru = {
         'Подключение к сети. Точка доступа NanoKVM может отключиться; проверьте состояние сети на устройстве.',
       invalidMode:
         'Текущий режим не поддерживает настройку сети. Пожалуйста, перейдите на свое устройство и включите режим конфигурации Wi-Fi.',
-      confirmBtn: 'OK',
+      confirmBtn: 'ОК',
       finishBtn: 'Готово',
       ap: {
         authTitle: 'Требуется аутентификация',
@@ -412,7 +419,6 @@ const ru = {
       video: 'Видеорежим',
       codec: 'Кодек',
       unsupported: 'не поддерживается',
-      videoDirectTips: 'Включите HTTPS в "Настройки > Устройство", чтобы использовать этот режим',
       resolution: 'Разрешение',
       controlRegion: {
         title: 'Калибровка мыши',
@@ -480,8 +486,8 @@ const ru = {
       captureStatus: {
         hdmiError: 'Ошибка изображения HDMI',
         unsupportedResolution: 'Текущее разрешение не поддерживается',
-        retrieving: 'Получение изображения...',
-        changingResolution: 'Переключение разрешения...',
+        retrieving: 'Получение изображения…',
+        changingResolution: 'Переключение разрешения…',
         updateFailed: 'Сейчас невозможно обновить изображение',
         videoError: 'Ошибка отображения видео',
         noHdmi: 'Сигнал HDMI не обнаружен',
@@ -540,7 +546,7 @@ const ru = {
         recorder: {
           rec: 'ЗАП.',
           activate: 'Активировать клавиши',
-          input: 'Пожалуйста, нажмите ярлык...'
+          input: 'Нажмите сочетание клавиш…'
         }
       }
     },
@@ -573,6 +579,7 @@ const ru = {
         title: 'Руководство по тачпаду',
         scope:
           'Применяется, когда адаптер ввода выбран как тачпад, а режим мыши выбран как относительный.',
+        screen: 'Экран',
         swipeTitle: 'Проведите, чтобы переместить',
         swipeDesc: 'Проведите в активной области экрана, чтобы переместить удаленный указатель.',
         tapTitle: 'Коснитесь, чтобы щелкнуть',
@@ -612,9 +619,11 @@ const ru = {
         disconnectFailed: 'Не удалось отключить ISO. Повторите попытку.'
       },
       title: 'Образы',
-      loading: 'Загрузка...',
+      loading: 'Загрузка…',
       empty: 'Пусто',
       mountMode: 'Режим монтирования',
+      massStorage: 'USB-накопитель',
+      cdrom: 'CD/DVD',
       mountFailed: 'Монтирование образа не удалось',
       mountDesc:
         'В некоторых системах необходимо отсоединить виртуальный диск на удаленном хосте перед монтированием образа.',
@@ -683,7 +692,7 @@ const ru = {
     },
     wol: {
       title: 'Wake-on-LAN',
-      sending: 'Отправка команды...',
+      sending: 'Отправка команды…',
       sent: 'Magic packet отправлен. Целевой компьютер может оставаться выключенным или недоступным.',
       input: 'Введите MAC-адрес',
       interface: 'Интерфейс',
@@ -701,7 +710,7 @@ const ru = {
       finishing: 'Завершение…',
       title: 'Скачать образ',
       input: 'Введите URL удаленного образа',
-      ok: 'OK',
+      ok: 'ОК',
       disabled: 'Невозможно скачать образ, раздел /data находится в режиме только для чтения',
       uploadbox: 'Перетащите сюда файл или нажмите, чтобы выбрать',
       inputfile: 'Пожалуйста, введите файл изображения',
@@ -723,6 +732,7 @@ const ru = {
       power: 'Питание',
       powerShort: 'Питание (короткое нажатие)',
       powerLong: 'Питание (длительное нажатие)',
+      hddLed: 'Индикатор HDD',
       resetConfirm: 'Вы уверены, что хотите выполнить экстренную перезагрузку?',
       powerConfirm: 'Вы уверены, что хотите нажать кнопку питания?',
       okBtn: 'Да',
@@ -917,8 +927,8 @@ const ru = {
           profile: 'Профиль EDID',
           input: 'Вход',
           output: 'Выход',
-          fps: 'Измеренный FPS',
-          usb: 'USB gadget',
+          fps: 'Измеренная частота кадров',
+          usb: 'USB-гаджет',
           binding: 'Привязка контроллера',
           selected: 'Выбранные функции',
           firewall: 'nftables',
@@ -989,7 +999,7 @@ const ru = {
         specialThanksWife:
           'Моей жене — за терпение, поддержку и за то, что она переносила моё отсутствие в самую активную фазу разработки.',
         credits: {
-          button: 'Credits',
+          button: 'Титры',
           title: 'Титры',
           pause: 'Пауза',
           resume: 'Продолжить',
@@ -1097,7 +1107,7 @@ const ru = {
           title: 'SSH-баннер',
           description: 'Выберите баннер для новых интерактивных SSH-сеансов.',
           default: 'Обычный',
-          rainbow: 'Rainbow',
+          rainbow: 'Радуга',
           failed: 'Не удалось сохранить стиль SSH-баннера.'
         },
         title: 'Внешний вид',
@@ -1105,6 +1115,8 @@ const ru = {
         customize: 'Настройка',
         language: 'Язык',
         languageDesc: 'Выбор языка интерфейса',
+        languagePartial: 'частично',
+        languagePartialHint: 'Перевод неполный. Недостающие тексты показываются на английском.',
         webTitle: 'Заголовок страницы',
         webTitleDesc: 'Изменить заголовок страницы',
         menuBar: {
@@ -1132,7 +1144,8 @@ const ru = {
         scrollLockShort: 'Scr',
         on: 'Вкл.',
         off: 'Выкл.',
-        unknown: 'Неизвестно'
+        unknown: 'Неизвестно',
+        keyboardDisabled: 'USB-клавиатура отключена в композиции USB'
       },
       device: {
         title: 'Устройство',
@@ -1155,7 +1168,7 @@ const ru = {
           running: 'Текущая: {{mhz}} МГц',
           unavailable: 'Управление частотой недоступно в этом ядре',
           description:
-            'Применяется сразу. Штатный и экономичный режимы сохраняются; разгон действует до перезагрузки устройства. Температура SoC доступна в Dashboard.',
+            'Применяется сразу. Штатный и экономичный режимы сохраняются; разгон действует до перезагрузки устройства. Температура SoC доступна в разделе «Обзор».',
           failed: 'Не удалось изменить частоту CPU'
         },
         oled: {
@@ -1211,6 +1224,8 @@ const ru = {
           no: 'Нет',
           scriptName: 'Имя сценария автозапуска',
           scriptContent: 'Содержимое сценария автозапуска',
+          name: 'Имя',
+          actions: 'Действия',
           settings: 'Настройки',
           nameRequired: 'Введите имя сценария'
         },
@@ -1230,6 +1245,7 @@ const ru = {
         pointerProfile: 'Режим абсолютного указателя',
         pointerProfileHelp:
           'Windows привязывает указатель к захватываемому монитору (Windows 10 1903 и новее). Применение переподключает USB и HDMI.',
+        pointerProfileDefault: 'По умолчанию',
         off: 'Выключено',
         title: 'Композиция USB',
         enabled: 'USB-устройства',
@@ -1321,6 +1337,7 @@ const ru = {
         wifi: {
           loading: 'Загрузка…',
           noAdapter: 'Wi-Fi адаптер не обнаружен',
+          notDetected: 'не обнаружен',
           disabled: 'Выключен',
           band: 'Диапазон',
           band24: '2,4 ГГц',
@@ -1357,7 +1374,7 @@ const ru = {
           ssid: 'Имя',
           password: 'Пароль',
           joinBtn: 'Подключить',
-          confirmBtn: 'OK',
+          confirmBtn: 'ОК',
           cancelBtn: 'Отмена'
         },
         tls: {
@@ -1381,6 +1398,7 @@ const ru = {
         },
         ethernet: {
           title: 'Ethernet IPv4',
+          name: 'Ethernet',
           description: 'Выберите DHCP или настройте постоянный статический IPv4-адрес',
           enable: 'Ethernet',
           disabled: 'Отключён',
@@ -1456,7 +1474,8 @@ const ru = {
         restart: 'Вы уверены что хотите перезагрузить Tailscale?',
         stop: 'Вы уверены что хотите остановить Tailscale?',
         stopDesc: 'Выйти из Tailscale и отключить его автоматический запуск при включении.',
-        loading: 'Загрузка...',
+        loading: 'Загрузка…',
+        statusFailed: 'Не удалось получить статус Tailscale',
         notInstall: 'Tailscale не установлен.',
         installDescription: 'Установите Tailscale по запросу. Существующие настройки сохранятся.',
         install: 'Установить Tailscale',
@@ -1468,7 +1487,7 @@ const ru = {
         notLogin: 'Устройство не привязано. Войдите, чтобы привязать его к аккаунту.',
         urlPeriod: 'Этот адрес действителен в течение 10 минут',
         login: 'Войти',
-        loginSuccess: 'Вход выполнен',
+        loginSuccess: 'Я вошёл в аккаунт',
         enable: 'Включить Tailscale',
         deviceName: 'Имя устройства',
         deviceIP: 'IP адрес устройства',
@@ -1478,14 +1497,17 @@ const ru = {
         uninstall: 'Удалить Tailscale',
         uninstallDesc: 'Вы уверены, что хотите удалить Tailscale?',
         okBtn: 'Да',
-        cancelBtn: 'Нет'
+        cancelBtn: 'Нет',
+        startFailed: 'Не удалось запустить Tailscale',
+        loginFailed: 'Не удалось войти',
+        logoutFailed: 'Не удалось выйти'
       },
       netbird: {
         title: 'NetBird',
         restart: 'Перезапустить NetBird?',
         stop: 'Остановить NetBird?',
         stopDesc: 'Остановить службу NetBird.',
-        loading: 'Загрузка...',
+        loading: 'Загрузка…',
         statusUnknown: 'Статус NetBird неизвестен',
         statusStale: 'Показан последний подтверждённый статус NetBird',
         notInstall: 'NetBird не установлен.',
@@ -1520,19 +1542,122 @@ const ru = {
           restartButton: 'Перезапустить службу',
           refreshButton: 'Обновить статус',
           restartFailed: 'Не удалось перезапустить службу',
-          stopFailed: 'Не удалось остановить службу'
+          stopFailed: 'Не удалось остановить службу',
+          statusFailed: 'Не удалось получить статус NetBird',
+          requestFailed: 'Запрос не выполнен',
+          installFailed: 'Не удалось установить',
+          startFailed: 'Не удалось запустить',
+          loginFailed: 'Не удалось войти',
+          disconnectFailed: 'Не удалось отключиться',
+          uninstallFailed: 'Не удалось удалить'
         }
+      },
+      rustdesk: {
+        absent: 'Не установлен',
+        running: 'Работает',
+        stopped: 'Остановлен',
+        registered: 'Зарегистрирован',
+        registering: 'Ожидание ID-сервера',
+        install: 'Установить',
+        remove: 'Удалить',
+        upgrade: 'Обновить до {{version}}',
+        addonVersion: 'Версия аддона',
+        rustdeskVersion: 'RustDesk — база протокола',
+        unknownVersion: 'Неизвестна',
+        save: 'Сохранить настройки',
+        enabled: 'Включить удалённый доступ',
+        server: 'Сервер',
+        public: 'Штатные публичные серверы',
+        custom: 'Собственный сервер',
+        idServer: 'ID / rendezvous сервер',
+        relay: 'Relay сервер (необязательно)',
+        key: 'Публичный ключ сервера (необязательно)',
+        password: 'Пароль доступа',
+        passwordMode: 'Пароль',
+        temporary: 'Временный (автоматически)',
+        permanent: 'Постоянный',
+        temporaryPassword: 'Временный пароль',
+        newPassword: 'Новый пароль',
+        temporaryHint:
+          'Передайте этот ID и пароль. Пароль меняется при запуске RustDesk или по кнопке «Новый пароль».',
+        rotatingTemporaryHint:
+          'Передайте этот ID и текущий пароль. После нового успешного входа создаётся новый пароль; открытые сеансы продолжают работать. Пароль также меняется при запуске RustDesk или по кнопке «Новый пароль».',
+        startForPassword: 'Включите RustDesk и сохраните настройки, чтобы получить пароль.',
+        waitingForPassword: 'Генерируется временный пароль…',
+        regenerateConfirm: 'Создать новый пароль? Текущие подключения RustDesk будут завершены.',
+        advanced: 'Дополнительные настройки',
+        audioEnabled:
+          'USB audio включён. Выберите NanoKVM как устройство вывода звука на подключённом компьютере. Звук можно отключить в клиенте RustDesk.',
+        audioDisabled:
+          'Для передачи звука включите USB audio в настройках USB устройства и выберите NanoKVM как устройство вывода звука на компьютере.',
+        webrtc: 'Разрешить подключения WebRTC',
+        transportHint:
+          'По умолчанию используются TCP и relay. WebRTC может снижать частоту кадров на NanoKVM. Для подключения по ID через TCP выключите WebRTC и в клиенте RustDesk.',
+        open: 'Открыть управление',
+        settings: 'RustDesk',
+        keepPassword: 'Оставьте пустым, чтобы сохранить пароль',
+        inputDefaults:
+          'Включение удалённого доступа автоматически включает USB-клавиатуру и абсолютную/относительную мышь.',
+        transmitAudio: 'Передавать звук',
+        audioHint:
+          'Автоматически включает USB audio. Выберите NanoKVM как устройство вывода звука на подключённом компьютере.',
+        audioMuted: 'Передача звука через RustDesk отключена.',
+        clients: 'Максимум зрителей',
+        unavailable:
+          'В настроенных APK-репозиториях нет RustDesk. Добавьте репозиторий с nanokvm-rustdesk или установите его APK через Packages.',
+        explain:
+          'Подключитесь к этому ID из RustDesk, чтобы видеть HDMI и управлять USB-клавиатурой и мышью.',
+        video:
+          'Видеокодек автоматически берётся из настроек видео NanoKVM. Для H.265 нужна поддержка клиента. После смены кодека устройства подключитесь заново. Перехват управления браузером освобождает ввод RustDesk.',
+        deletion: 'Удалить пакет? Настройки сервера, пароль и ID устройства сохранятся.',
+        failed: 'Запрос не выполнен',
+        saved: 'Настройки сохранены',
+        passwordUpdated: 'Пароль обновлён',
+        description: 'Удалённый доступ через RustDesk к компьютеру, подключённому к NanoKVM.',
+        done: 'Операция с пакетом завершена',
+        id: 'RustDesk ID',
+        source: 'Исходники и лицензия',
+        passwordRequired: 'Введите пароль от 8 до 64 байт',
+        sameServer: 'Укажите тот же собственный ID-сервер и публичный ключ в клиенте RustDesk.'
       },
       account: {
         title: 'Пользователи',
         webAccount: 'Имя веб-аккаунта',
+        role: 'Роль',
         password: 'Пароль',
         updateBtn: 'Обновить',
         logoutBtn: 'Выйти',
         logoutDesc: 'Вы действительно хотите выйти?',
         logoutFailed: 'Не удалось выйти: сеанс по-прежнему активен.',
         okBtn: 'Да',
-        cancelBtn: 'Нет'
+        cancelBtn: 'Нет',
+        roles: {
+          admin: 'Администратор',
+          user: 'Пользователь'
+        },
+        users: {
+          title: 'Пользователи',
+          create: 'Создать пользователя',
+          enabled: 'Включён',
+          disabled: 'Отключён',
+          deviceOwner: 'Владелец устройства',
+          rename: 'Переименовать',
+          resetPassword: 'Сбросить пароль',
+          delete: 'Удалить',
+          deleteConfirm: 'Удалить пользователя и завершить все его сеансы?',
+          created: 'Пользователь создан',
+          deleted: 'Пользователь удалён',
+          passwordUpdated: 'Пароль обновлён',
+          usernameUpdated: 'Имя пользователя обновлено',
+          loadFailed: 'Не удалось загрузить пользователей',
+          saveFailed: 'Не удалось сохранить пользователя',
+          deleteFailed: 'Не удалось удалить пользователя'
+        }
+      },
+      extensions: {
+        title: 'Расширения',
+        loadFailed: 'Не удалось загрузить расширения',
+        empty: 'Нет установленных расширений'
       }
     },
     picoclaw: {
@@ -1541,7 +1666,7 @@ const ru = {
       empty: 'Откройте панель и запустите задачу для начала.',
       inputPlaceholder: 'Опишите, что вы хотите от PicoClaw.',
       newConversation: 'Новый разговор',
-      processing: 'Обработка...',
+      processing: 'Обработка…',
       agent: {
         defaultTitle: 'Универсальный помощник',
         defaultDescription: 'Общая помощь в чате, поиске и рабочей области.',
@@ -1553,7 +1678,7 @@ const ru = {
       send: 'Отправить',
       cancel: 'Отмена',
       status: {
-        connecting: 'Подключение к шлюзу...',
+        connecting: 'Подключение к шлюзу…',
         connected: 'Сеанс PicoClaw подключен',
         disconnected: 'Сеанс PicoClaw отключен',
         stopped: 'Запрос на остановку отправлен',
@@ -1566,24 +1691,24 @@ const ru = {
       connection: {
         runtime: {
           checking: 'Проверка',
-          restoring: 'Restoring PicoClaw',
+          restoring: 'Восстановление PicoClaw',
           ready: 'Runtime готов',
           stopped: 'Runtime остановлен',
           blockedByMCP: 'Внешнее управление MCP активно',
           readyBlockedByMCP:
-            'The runtime is running, but external MCP currently controls device input.',
+            'Runtime запущен, но вводом на устройстве сейчас управляет внешний MCP.',
           readyWithoutControl:
-            'The runtime is running. Grant PicoClaw device control before reconnecting.',
+            'Runtime запущен. Передайте PicoClaw управление устройством, прежде чем переподключаться.',
           unavailable: 'Runtime недоступен',
           configError: 'Ошибка конфигурации'
         },
         transport: {
           connecting: 'Подключение',
           connected: 'Подключено',
-          disconnected: 'Disconnected',
-          reconnect: 'Reconnect',
-          reconnectDescription: 'Reconnect to the running PicoClaw session.',
-          reconnectBlocked: 'PicoClaw needs device control before reconnecting.'
+          disconnected: 'Отключено',
+          reconnect: 'Переподключить',
+          reconnectDescription: 'Переподключиться к запущенному сеансу PicoClaw.',
+          reconnectBlocked: 'Для переподключения PicoClaw нужно управление устройством.'
         },
         run: {
           idle: 'Простой',
@@ -1600,21 +1725,22 @@ const ru = {
       },
       control: {
         picoclaw: 'Управление устройством: PicoClaw',
-        picoclawDescription: 'PicoClaw can write keyboard and mouse input. Manual input may pause.',
+        picoclawDescription:
+          'PicoClaw может вводить с клавиатуры и мыши. Ручной ввод может приостанавливаться.',
         mcp: 'Управление устройством: внешний MCP',
-        mcpDescription: 'External MCP can write to the device. PicoClaw will not take over input.',
+        mcpDescription:
+          'Внешний MCP может управлять устройством. PicoClaw не будет перехватывать ввод.',
         off: 'Управление устройством: выкл.',
-        offDescription:
-          'AI will not write keyboard or mouse input. Manual control remains available.',
-        transitioning: 'Device control: switching',
-        transitioningDescription: 'Device control is syncing. Please wait.',
+        offDescription: 'ИИ не управляет клавиатурой и мышью. Ручное управление доступно.',
+        transitioning: 'Управление устройством: переключение',
+        transitioningDescription: 'Управление устройством синхронизируется. Подождите.',
         grant: 'Передать управление',
         release: 'Освободить',
-        releasing: 'Releasing...',
-        switching: 'Switching...',
-        releasingLabel: 'Device control: releasing',
+        releasing: 'Освобождение…',
+        switching: 'Переключение…',
+        releasingLabel: 'Управление устройством: освобождение',
         releasingDescription:
-          'Device control is being returned. PicoClaw has stopped current writes.',
+          'Управление устройством возвращается. PicoClaw прекратил текущий ввод.',
         granted: 'Управление PicoClaw предоставлено',
         released: 'Управление PicoClaw освобождено',
         grantFailed: 'Не удалось предоставить управление PicoClaw',
@@ -1627,7 +1753,7 @@ const ru = {
         installing: 'Установка PicoClaw',
         success: 'PicoClaw успешно установлен',
         failed: 'Не удалось установить PicoClaw',
-        uninstalling: 'Удаление runtime...',
+        uninstalling: 'Удаление runtime…',
         uninstalled: 'Runtime успешно удален.',
         uninstallFailed: 'Не удалось удалить.',
         requiredTitle: 'PicoClaw не установлен',
@@ -1652,7 +1778,7 @@ const ru = {
         menuLabel: 'Настройка модели',
         modelIdentifier: 'Идентификатор модели',
         modelIdentifierPlaceholder: 'openai/gpt-5.4',
-        apiBase: 'API Base URL',
+        apiBase: 'Базовый URL API',
         apiBasePlaceholder: 'https://api.example.com/v1',
         apiKey: 'API-ключ',
         apiKeyPlaceholder: 'Введите API-ключ модели',
@@ -1674,7 +1800,7 @@ const ru = {
       },
       history: {
         title: 'История',
-        loading: 'Загрузка сеансов...',
+        loading: 'Загрузка сеансов…',
         emptyTitle: 'Пока нет истории',
         emptyDescription: 'Здесь появятся предыдущие сеансы PicoClaw.',
         loadFailed: 'Не удалось загрузить историю сеансов.',
@@ -1698,8 +1824,8 @@ const ru = {
         enableConfirmCancel: 'Отмена',
         title: 'Запустить PicoClaw',
         description: 'Запустите runtime, чтобы начать использовать помощник PicoClaw.',
-        switchFromMCP: 'Switch to PicoClaw and start',
-        takeoverAndStart: 'Take over and start'
+        switchFromMCP: 'Переключить на PicoClaw и запустить',
+        takeoverAndStart: 'Перехватить управление и запустить'
       }
     },
     error: {

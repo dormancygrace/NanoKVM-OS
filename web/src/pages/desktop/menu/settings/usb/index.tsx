@@ -293,7 +293,7 @@ export const Usb = () => {
                 value={draft.pointerProfile ?? 'default'}
                 disabled={loading || !status}
                 options={[
-                  { value: 'default', label: 'Default' },
+                  { value: 'default', label: t('settings.usb.pointerProfileDefault') },
                   { value: 'windows', label: 'Windows', disabled: !status?.windowsPointerSupported }
                 ]}
                 onChange={(value) => setDraft({ ...draft, pointerProfile: value })}

@@ -12,7 +12,16 @@ export const Language = () => {
 
   const options = languages.map((language) => ({
     value: localeTag(language.key),
-    label: language.name
+    label: language.partial ? (
+      <span title={t('settings.appearance.languagePartialHint')}>
+        {language.name}{' '}
+        <span className="text-xs text-neutral-500">
+          ({t('settings.appearance.languagePartial')})
+        </span>
+      </span>
+    ) : (
+      language.name
+    )
   }));
 
   async function changeLanguage(value: string) {

@@ -62,7 +62,6 @@ const vi = {
       scale: 'Quy mô',
       title: 'Màn hình',
       video: 'Chế độ video',
-      videoDirectTips: 'Bật HTTPS trong "Cài đặt > Thiết bị" để sử dụng chế độ này',
       resolution: 'Độ phân giải',
       controlRegion: {
         title: 'Hiệu chỉnh chuột',
@@ -560,12 +559,6 @@ const vi = {
         installing: 'Đang cài đặt',
         failed: 'Cài đặt thất bại',
         retry: 'Vui lòng làm mới và thử lại. Hoặc thử cài đặt thủ công',
-        download: 'Tải xuống',
-        package: 'gói cài đặt',
-        unzip: 'và giải nén nó',
-        upTailscale: 'Tải tailscale lên thư mục /usr/bin/ của NanoKVM',
-        upTailscaled: 'Tải tailscaled lên thư mục /usr/sbin/ của NanoKVM',
-        refresh: 'Làm mới trang hiện tại',
         notRunning: 'Tailscale không chạy. Hãy bắt đầu nó để tiếp tục.',
         run: 'Bắt đầu',
         notLogin:

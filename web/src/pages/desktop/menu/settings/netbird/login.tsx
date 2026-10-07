@@ -49,7 +49,7 @@ export const Login = ({ onSuccess }: LoginProps) => {
         loginTimer.current = setTimeout(() => setLoginUrl(""), 10 * 60 * 1000);
       })
       .catch((err) => {
-        setErrMsg(err.message || "Login failed");
+        setErrMsg(err.message || t("settings.netbird.error.loginFailed"));
       })
       .finally(() => {
         setIsLoading(false);

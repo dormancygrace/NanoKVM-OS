@@ -63,8 +63,6 @@ const hu = {
       scale: 'Skála',
       title: 'Képernyő',
       video: 'Videó mód',
-      videoDirectTips:
-        'Engedélyezze az HTTPS elemet a "Beállítások > Eszköz" menüpontban ennek a módnak a használatához',
       resolution: 'Felbontás',
       controlRegion: {
         title: 'Egérkalibrálás',
@@ -567,12 +565,6 @@ const hu = {
         installing: 'Telepítés folyamatban',
         failed: 'Telepítés sikertelen',
         retry: 'Frissítse az oldalt, majd próbálja újra. Vagy próbálja meg manuálisan telepíteni.',
-        download: 'Letöltés a',
-        package: 'telepítési csomag',
-        unzip: 'és kicsomagolás',
-        upTailscale: 'Töltsön fel tailscale-t a NanoKVM /usr/bin/ könyvtárába',
-        upTailscaled: 'Töltsön fel tailscaled-t a NanoKVM /usr/sbin/ könyvtárába',
-        refresh: 'Frissítse az aktuális oldalt',
         notRunning: 'Tailscale nem fut. Kérjük, indítsa el a folytatáshoz.',
         run: 'Indítás',
         notLogin:

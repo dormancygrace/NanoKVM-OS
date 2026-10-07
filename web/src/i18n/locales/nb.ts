@@ -63,7 +63,6 @@ const nb = {
       scale: 'Skala',
       title: 'Skjerm',
       video: 'Video-kodek',
-      videoDirectTips: 'Aktiver HTTPS i "Innstillinger > Enhet" for å bruke denne modusen',
       resolution: 'Oppløsning',
       controlRegion: {
         title: 'Musekalibrering',
@@ -562,12 +561,6 @@ const nb = {
         installing: 'Installerer',
         failed: 'Installering feilet',
         retry: 'Vennligst last inn siden på nytt og forsøk igjen eller installer manuelt',
-        download: 'Last ned',
-        package: 'installasjonspakken',
-        unzip: 'og pakk den ut',
-        upTailscale: 'Last opp Tailscale til NanoKVM-enhetens mappe /usr/bin/',
-        upTailscaled: 'Last opp tailscaled til NanoKVM-enhetens mappe /usr/sbin/',
-        refresh: 'Last inn denne siden på nytt',
         notRunning: 'Tailscale kjører ikke. Start den for å fortsette.',
         run: 'Start',
         notLogin:

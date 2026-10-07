@@ -63,7 +63,6 @@ const pl = {
       scale: 'Skala',
       title: 'Ekran',
       video: 'Tryb wideo',
-      videoDirectTips: 'Włącz HTTPS w „Ustawienia > Urządzenie”, aby korzystać z tego trybu',
       resolution: 'Rozdzielczość',
       controlRegion: {
         title: 'Kalibracja myszy',
@@ -568,12 +567,6 @@ const pl = {
         installing: 'Instalowanie',
         failed: 'Instalowanie nie powiodło się',
         retry: 'Odśwież stronę i spróbuj ponownie, albo spróbuj zainstalować manualnie.',
-        download: 'Pobierz',
-        package: 'pakiet instalacyjny',
-        unzip: 'i wypakuj pliki',
-        upTailscale: 'Prześlij tailscale do NanoKVM w katalogu /usr/bin/',
-        upTailscaled: 'Prześlij tailscaled do NanoKVM w katalogu /usr/sbin/',
-        refresh: 'Odśwież obecną stronę',
         notRunning: 'Tailscale nie działa. Rozpocznij, aby kontynuować.',
         run: 'Rozpocznij',
         notLogin:

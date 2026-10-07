@@ -104,10 +104,10 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
   return (
     <div className={clsx('flex shrink-0 items-center', vertical && 'flex-col')}>
       <MenuItem title={t('power.title')} icon={icon} content={content} onOpenChange={setIsOpen} />
-      <Tooltip title="HDD LED" placement="bottom" mouseEnterDelay={0.6}>
+      <Tooltip title={t('power.hddLed')} placement="bottom" mouseEnterDelay={0.6}>
         <div
           role="img"
-          aria-label="HDD LED"
+          aria-label={t('power.hddLed')}
           className={clsx(
             'flex h-[30px] cursor-default items-center justify-center transition-colors',
             vertical ? 'w-[30px]' : 'w-[24px]',

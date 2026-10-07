@@ -63,7 +63,6 @@ const uk = {
       scale: 'Масштаб',
       title: 'Екран',
       video: 'Відеорежим',
-      videoDirectTips: 'Увімкніть HTTPS у "Налаштування > Пристрій", щоб використовувати цей режим',
       resolution: 'Роздільна здатність',
       controlRegion: {
         title: 'Калібрування миші',
@@ -566,12 +565,6 @@ const uk = {
         installing: 'Встановлення',
         failed: 'Не вдалося встановити',
         retry: 'Будь ласка, оновіть сторінку та спробуйте ще раз. Або спробуйте встановити вручну',
-        download: 'Завантажте',
-        package: 'пакет встановлення',
-        unzip: 'та розпакуйте його',
-        upTailscale: 'Завантажте Tailscale до каталогу /usr/bin/ на NanoKVM',
-        upTailscaled: 'Завантажте Tailscaled до каталогу /usr/sbin/ на NanoKVM',
-        refresh: 'Оновіть поточну сторінку',
         notRunning: 'Tailscale не працює. Щоб продовжити, запустіть його.',
         run: 'Початок',
         notLogin:

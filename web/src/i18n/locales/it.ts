@@ -63,8 +63,6 @@ const it = {
       scale: 'Scala',
       title: 'Schermo',
       video: 'Modalità video',
-      videoDirectTips:
-        'Abilita HTTPS in "Impostazioni > Dispositivo" per utilizzare questa modalità',
       resolution: 'Risoluzione',
       controlRegion: {
         title: 'Calibrazione del mouse',
@@ -569,12 +567,6 @@ const it = {
         installing: 'Installazione in corso',
         failed: 'Installazione fallita',
         retry: 'Riprova aggiornando la pagina o installa manualmente',
-        download: 'Scarica il',
-        package: 'pacchetto di installazione',
-        unzip: 'e decomprimilo',
-        upTailscale: 'Carica tailscale nella directory /usr/bin/ del NanoKVM',
-        upTailscaled: 'Carica tailscaled nella directory /usr/sbin/ del NanoKVM',
-        refresh: 'Aggiorna la pagina corrente',
         notRunning: 'Tailscale non è in esecuzione. Per favore avvialo per continuare.',
         run: 'Inizio',
         notLogin:

@@ -14,6 +14,7 @@ const en = {
       },
       title: 'USB audio',
       listen: 'Listen',
+      resume: 'Resume audio',
       volume: 'Volume',
       failed: 'Audio unavailable. Check the USB connection and try again.'
     },
@@ -35,7 +36,7 @@ const en = {
     },
 
     dateTime: {
-      title: 'Date & Time',
+      title: 'Date & time',
       deviceTime: 'Device time',
       timezone: 'Time zone',
       format: 'Time format',
@@ -102,7 +103,6 @@ const en = {
       passphrase: 'Private-key passphrase',
       save: 'Save',
 
-      keyboardDisabled: 'USB keyboard is disabled in USB Composition',
       description:
         'Import WireGuard profiles and enable the one you need. The enabled profile reconnects after a restart.',
       import: 'Import .conf files',
@@ -118,8 +118,8 @@ const en = {
       systemRequired:
         'WireGuard system tools are missing. Install a system image with WireGuard support.',
       routingNote:
-        'Only the interface subnet is routed by default. Enable Route Allowed IPs to add the peer routes.',
-      routeAllowedIPs: 'Route Allowed IPs',
+        'Only the interface subnet is routed by default. Enable Route allowed IPs to add the peer routes.',
+      routeAllowedIPs: 'Route allowed IPs',
       routingHelp: 'Add routes from AllowedIPs, including a default route for 0.0.0.0/0 or ::/0.',
       routingDisableFirst: 'Disable this profile before changing routing.',
       note: 'One WireGuard profile can be enabled at a time. Import does not connect automatically. DNS accepts IP addresses; executable hooks and SaveConfig are not supported. Idle means the tunnel has no recent handshake, not necessarily a connection failure.',
@@ -139,6 +139,7 @@ const en = {
     dashboard: {
       coreCount_one: '{{count}} core',
       coreCount_other: '{{count}} cores',
+      title: 'Dashboard',
       live: 'Updates while this page is open',
       stale: 'Some information could not be refreshed. Showing the last available values.',
       duration: '{{days}}d {{hours}}h {{minutes}}m',
@@ -158,6 +159,9 @@ const en = {
       memory: 'Memory',
       available: 'Available RAM',
       cache: 'Cache',
+      zram: 'ZRAM',
+      sdSwap: 'SD swap',
+      swapUsage: '{{used}} / {{size}} MiB',
       compression: 'Compression',
       storage: 'Storage',
       systemStorage: 'System',
@@ -250,7 +254,7 @@ const en = {
         'MJPEG is limited to 1920 pixels in width to preserve 4:2:2 while H.264/H.265 uses a wider output. The selected resolution resumes when that video stream ends.',
       mjpegChromaFallback_video:
         'Only one capture output supports widths above 1920 pixels. MJPEG uses 4:2:0 while both streams are wider; 4:2:2 resumes when the video stream ends or either stream is reduced.',
-      mjpegChromaFallback_frameDetection: 'Turn off Frame Detect to use 4:2:2.',
+      mjpegChromaFallback_frameDetection: 'Turn off frame detection to use 4:2:2.',
       mjpegChromaFallback_diagnostic: '4:2:2 is unavailable in the current capture mode.',
       mjpegChromaFallback_hardware:
         'Capture fell back to 4:2:0 after an error. Retry 4:2:2 when the signal is stable.',
@@ -307,7 +311,7 @@ const en = {
         'Changing the virtual monitor profile is unavailable on this device. Input detection remains automatic.',
       stream: 'Video stream',
       streamHint:
-        'Resolution, FPS and bitrate affect all viewers. Changing stream resolution does not change the computer’s desktop. New viewers automatically use the active encoder codec; transport and display scale remain individual.',
+        'Resolution, frame rate and bitrate affect all viewers. Changing stream resolution does not change the computer’s desktop. New viewers automatically use the active encoder codec; transport and display scale remain individual.',
       advanced: 'Advanced and recovery',
       gopMode: 'H.265 GOP mode',
       gopModeHint:
@@ -318,7 +322,7 @@ const en = {
       gopHint:
         'GOP is the interval between keyframes. HDMI recovery restarts capture if the source stops responding.',
       fpsLimited:
-        'The current input limits capture to {{fps}} FPS. The saved request is kept for the next source mode.',
+        'The current input limits capture to {{fps}} fps. The saved request is kept for the next source mode.',
       statusFailed: 'Could not refresh video status.',
       retry: 'Retry'
     },
@@ -333,14 +337,14 @@ const en = {
       storageUnavailable: 'Image storage is not writable. Check free space and storage state.'
     },
     head: {
-      desktop: 'Remote Desktop',
-      login: 'Login',
-      changePassword: 'Change Password',
+      desktop: 'Remote desktop',
+      login: 'Sign in',
+      changePassword: 'Change password',
       terminal: 'Terminal',
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Login',
+      login: 'Sign in',
       placeholderUsername: 'Username',
       placeholderPassword: 'Password',
       placeholderCurrentPassword: 'Current password',
@@ -350,21 +354,21 @@ const en = {
       passwordLength: 'Password must be between 8 and 72 characters',
       noAccount: 'Failed to get user information, please refresh web page or reset password',
       invalidUser: 'Invalid username or password',
-      locked: 'Too many logins, please try again later',
+      locked: 'Too many sign-in attempts, please try again later',
       globalLocked: 'System under protection, please try again later',
       error: 'Unexpected error',
       invalidCurrentPassword: 'Current password is incorrect',
-      changePassword: 'Change Password',
+      changePassword: 'Change password',
       changePasswordDesc: 'For the security of your device, please change the password!',
       passwordChanged: 'Password changed. Sign in with the new password.',
       cancelAndLogout: 'Cancel and log out',
       differentPassword: 'Passwords do not match',
       illegalUsername: 'Username contains illegal characters',
       illegalPassword: 'Password contains illegal characters',
-      forgetPassword: 'Forgot Password',
-      ok: 'Ok',
+      forgetPassword: 'Forgot password',
+      ok: 'OK',
       cancel: 'Cancel',
-      loginButtonText: 'Login',
+      loginButtonText: 'Sign in',
       tips: {
         reset1:
           'To reset the passwords, press and hold the BOOT button on the NanoKVM for 10 seconds.',
@@ -386,10 +390,10 @@ const en = {
         'Connecting to the network. The NanoKVM hotspot may disconnect; check the network status on the device.',
       invalidMode:
         'The current mode does not support network setup. Please go to your device and enable Wi-Fi configuration mode.',
-      confirmBtn: 'Ok',
+      confirmBtn: 'OK',
       finishBtn: 'Finished',
       ap: {
-        authTitle: 'Authentication Required',
+        authTitle: 'Authentication required',
         authDescription: 'Please enter the AP password to continue',
         authFailed: 'Invalid AP password',
         passPlaceholder: 'AP password',
@@ -402,32 +406,31 @@ const en = {
       monitorFailed: 'Could not change the HDMI monitor resolution',
       scale: 'Scale',
       title: 'Screen',
-      video: 'Video Mode',
+      video: 'Video mode',
       codec: 'Codec',
       unsupported: 'unsupported',
-      videoDirectTips: 'Enable HTTPS in "Settings > Device" to use this mode',
       resolution: 'Resolution',
       controlRegion: {
-        title: 'Mouse Calibration',
+        title: 'Mouse calibration',
         description:
           'Use this setting when the controlled device uses a non-16:9 resolution and the cursor is misaligned horizontally or vertically.',
         off: 'Off',
         auto: 'Auto',
         autoWarning: 'Calibration may fail when the user application has a pure black background.',
         manual: 'Manual',
-        selectedResolution: 'Selected Area Resolution',
+        selectedResolution: 'Selected area resolution',
         unused: 'Not used',
-        originalResolution: 'Original Resolution',
+        originalResolution: 'Original resolution',
         selectResolution: 'Select original resolution',
         addResolution: 'Add custom resolution',
         add: 'Add',
         duplicateResolution: 'This resolution already exists.',
         width: 'Width',
         height: 'Height',
-        apply: 'Calculate and Apply',
+        apply: 'Calculate and apply',
         invalidResolution: 'Enter a valid original resolution after the video is ready.',
-        select: 'Select Area',
-        clear: 'Restore Automatic',
+        select: 'Select area',
+        clear: 'Restore automatic',
         saveFailed: 'Failed to save the input area.',
         tooSmall: 'The selected area is too small.',
         previewUnavailable: 'Preview unavailable',
@@ -440,14 +443,14 @@ const en = {
       auto: 'Automatic',
       autoTips:
         'Restores the default monitor profile and lets the connected computer choose its resolution.',
-      fps: 'FPS',
+      fps: 'Frame rate',
       customizeFps: 'Customize',
       quality: 'Quality',
       qualityLossless: 'Lossless',
       qualityHigh: 'High',
       qualityMedium: 'Medium',
       qualityLow: 'Low',
-      frameDetect: 'Frame Detect',
+      frameDetect: 'Frame detection',
       frameDetectTip:
         "Calculate the difference between frames. Stop transmitting video stream when no changes are detected on the remote host's screen.",
       resetHdmi: 'Recover HDMI',
@@ -472,8 +475,8 @@ const en = {
       captureStatus: {
         hdmiError: 'HDMI screen error',
         unsupportedResolution: 'Current resolution is not supported',
-        retrieving: 'Getting screen...',
-        changingResolution: 'Switching resolution...',
+        retrieving: 'Getting screen…',
+        changingResolution: 'Switching resolution…',
         updateFailed: 'Screen cannot update right now',
         videoError: 'Video display error',
         noHdmi: 'No HDMI signal detected',
@@ -487,7 +490,7 @@ const en = {
       placeholder: 'Please input',
       submit: 'Submit',
       virtual: 'Keyboard',
-      readClipboard: 'Read from Clipboard',
+      readClipboard: 'Read from clipboard',
       clipboardPermissionDenied:
         'Clipboard permission denied. Please allow clipboard access in your browser.',
       clipboardReadError: 'Failed to read clipboard',
@@ -507,23 +510,23 @@ const en = {
         enterFullScreen: 'Toggle full-screen mode.'
       },
       leaderKey: {
-        title: 'Leader Key',
+        title: 'Leader key',
         desc: 'Bypass browser restrictions and send system shortcuts directly to the remote host.',
-        howToUse: 'How to Use',
+        howToUse: 'How to use',
         simultaneous: {
-          title: 'Simultaneous Mode',
-          desc1: 'Press and hold the Leader Key, then press the shortcut.',
+          title: 'Simultaneous mode',
+          desc1: 'Press and hold the leader key, then press the shortcut.',
           desc2: 'Intuitive, but may conflict with system shortcuts.'
         },
         sequential: {
-          title: 'Sequential Mode',
+          title: 'Sequential mode',
           desc1:
-            'Press the Leader Key → press the shortcut in sequence → press the Leader Key again.',
+            'Press the leader key → press the shortcut in sequence → press the leader key again.',
           desc2: 'Requires more steps, but completely avoids system conflicts.'
         },
-        enable: 'Enable Leader Key',
-        tip: 'When assigned as a Leader Key, this key functions exclusively as a shortcut trigger and loses its default behavior.',
-        placeholder: 'Please press the Leader Key',
+        enable: 'Enable leader key',
+        tip: 'When assigned as a leader key, this key functions exclusively as a shortcut trigger and loses its default behavior.',
+        placeholder: 'Please press the leader key',
         shiftRight: 'Right Shift',
         ctrlRight: 'Right Ctrl',
         metaRight: 'Right Win',
@@ -531,7 +534,7 @@ const en = {
         recorder: {
           rec: 'REC',
           activate: 'Activate keys',
-          input: 'Please press the shortcut...'
+          input: 'Please press the shortcut…'
         }
       }
     },
@@ -555,14 +558,15 @@ const en = {
       slow: 'Slow',
       requestPointer: 'Using relative mode. Please click desktop to get mouse pointer.',
       inputAdapter: {
-        title: 'Input Adapter',
+        title: 'Input adapter',
         auto: 'Auto',
         'pointer-lock': 'Pointer Lock',
         touchpad: 'Touchpad'
       },
       touchpadGuide: {
         title: 'Touchpad guide',
-        scope: 'Applies when Input Adapter is Touchpad and Mouse Mode is Relative.',
+        scope: 'Applies when Input adapter is Touchpad and Mouse mode is Relative.',
+        screen: 'Screen',
         swipeTitle: 'Swipe to move',
         swipeDesc: 'Swipe inside the active screen area to move the remote pointer.',
         tapTitle: 'Tap to click',
@@ -574,13 +578,13 @@ const en = {
       },
       resetHid: 'Reset HID',
       hidOnly: {
-        title: 'HID-Only mode',
-        desc: "If your mouse and keyboard stop responding and resetting HID doesn't help, it could be a compatibility issue between the NanoKVM and the device. Try to enable HID-Only mode for better compatibility.",
-        tip1: 'Enabling HID-Only mode will unmount the virtual U-disk and virtual network',
-        tip2: 'In HID-Only mode, image mounting is disabled',
+        title: 'HID-only mode',
+        desc: "If your mouse and keyboard stop responding and resetting HID doesn't help, it could be a compatibility issue between the NanoKVM and the device. Try to enable HID-only mode for better compatibility.",
+        tip1: 'Enabling HID-only mode will unmount the virtual U-disk and virtual network',
+        tip2: 'In HID-only mode, image mounting is disabled',
         tip3: 'NanoKVM will automatically reboot after switching modes',
-        enable: 'Enable HID-Only mode',
-        disable: 'Disable HID-Only mode'
+        enable: 'Enable HID-only mode',
+        disable: 'Disable HID-only mode'
       }
     },
     image: {
@@ -599,9 +603,11 @@ const en = {
         disconnectFailed: 'Could not disconnect the ISO. Try again.'
       },
       title: 'Images',
-      loading: 'Loading...',
-      empty: 'Nothing Found',
+      loading: 'Loading…',
+      empty: 'Nothing found',
       mountMode: 'Mount mode',
+      massStorage: 'Mass storage',
+      cdrom: 'CD/DVD',
       mountFailed: 'Mount failed',
       mountDesc:
         'On some systems, you need to eject the virtual disk from the remote host before mounting the image.',
@@ -619,12 +625,12 @@ const en = {
       tips: {
         title: 'How to upload',
         usb1: 'Connect the NanoKVM to your computer via USB.',
-        usb2: 'Ensure that the virtual disk is mounted (Settings - Virtual Disk).',
+        usb2: 'Ensure that the virtual disk is mounted (Settings - Virtual disk).',
         usb3: 'Open the virtual disk on your computer and copy the image file to the root directory of the virtual disk.',
         scp1: 'Make sure the NanoKVM and your computer are on the same local network.',
         scp2: 'Open a terminal on your computer and use the SCP command to upload the image file to the /data directory on the NanoKVM.',
         scp3: 'Example: scp your-image-path root@your-nanokvm-ip:/data',
-        tfCard: 'TF Card',
+        tfCard: 'TF card',
         tf1: 'This method is supported on Linux system',
         tf2: 'Get TF card from the NanoKVM (for the FULL version, disassemble the case first).',
         tf3: 'Insert the TF card into a card reader and connect it to your computer.',
@@ -636,7 +642,7 @@ const en = {
       title: 'Scripts',
       upload: 'Upload',
       run: 'Run',
-      runBackground: 'Run Background',
+      runBackground: 'Run in background',
       runFailed: 'Run failed',
       attention: 'Attention',
       delDesc: 'Are you sure you want to delete this file?',
@@ -647,13 +653,13 @@ const en = {
     },
     terminal: {
       title: 'Terminal',
-      nanokvm: 'NanoKVM Terminal',
+      nanokvm: 'NanoKVM terminal',
       usbSerial: 'USB serial console',
       usbSpeed: 'Virtual USB serial — baud rate does not limit transfer speed.',
       invalidParameters: 'Invalid serial parameters.',
       disconnected: 'Connection closed. Press Enter to reconnect.',
-      serial: 'Serial Port Terminal',
-      serialPort: 'Serial Port',
+      serial: 'Serial port terminal',
+      serialPort: 'Serial port',
       serialPortPlaceholder: 'Please enter the serial port',
       baudrate: 'Baud rate',
       parity: 'Parity',
@@ -666,15 +672,15 @@ const en = {
       flowControlHard: 'Hard',
       dataBits: 'Data bits',
       stopBits: 'Stop bits',
-      confirm: 'Ok'
+      confirm: 'OK'
     },
     wol: {
       title: 'Wake-on-LAN',
-      sending: 'Sending command...',
+      sending: 'Sending command…',
       sent: 'Magic packet sent. The target may still be off or unavailable.',
       input: 'Please enter the MAC',
       interface: 'Interface',
-      ok: 'Ok',
+      ok: 'OK',
       name: 'Device name',
       save: 'Save name',
       cancel: 'Cancel',
@@ -686,12 +692,12 @@ const en = {
       downloading: 'Downloading',
       uploading: 'Uploading',
       finishing: 'Finishing…',
-      title: 'Image Downloader',
+      title: 'Image downloader',
       input: 'Please enter a remote image URL',
-      ok: 'Ok',
+      ok: 'OK',
       disabled: '/data partition is RO, so we cannot download the image',
       uploadbox: 'Drop file here or click to select',
-      inputfile: 'Please enter the image File',
+      inputfile: 'Please enter the image file',
       NoISO: 'No ISO',
       sha256: 'SHA-256 (optional)',
       sha256Placeholder: 'Enter a 64-character SHA-256 checksum',
@@ -710,6 +716,7 @@ const en = {
       power: 'Power',
       powerShort: 'Power (short press)',
       powerLong: 'Power (long press)',
+      hddLed: 'HDD LED',
       resetConfirm: 'Proceed reset operation?',
       powerConfirm: 'Proceed power operation?',
       okBtn: 'Yes',
@@ -902,7 +909,7 @@ const en = {
           profile: 'EDID profile',
           input: 'Input',
           output: 'Output',
-          fps: 'Measured FPS',
+          fps: 'Measured fps',
           usb: 'USB gadget',
           binding: 'Controller binding',
           selected: 'Selected functions',
@@ -949,14 +956,14 @@ const en = {
       back: 'Back',
       close: 'Close',
       mcp: {
-        title: 'MCP Service',
+        title: 'MCP service',
         service: 'Remote control MCP',
         serviceDesc:
           'Allow trusted MCP clients to control the keyboard and mouse and capture screenshots',
         securityWarning:
           'Anyone with this API key can control the remote host and view its screen. Use HTTPS and enable it only on trusted networks.',
         endpoint: 'Endpoint',
-        apiKey: 'API Key',
+        apiKey: 'API key',
         regenerateConfirmTitle: 'Regenerate MCP API key?',
         regenerateConfirmDesc: 'The current key will stop working immediately.',
         enableConfirmTitle: 'Enable external MCP control?',
@@ -1029,11 +1036,11 @@ const en = {
         information: 'Information',
         ip: 'IP',
         mdns: 'mDNS',
-        application: 'Application Version',
+        application: 'Application version',
         applicationTip: 'NanoKVM web application version',
-        image: 'Image Version',
+        image: 'Image version',
         imageTip: 'NanoKVM system image version',
-        deviceKey: 'Device Key',
+        deviceKey: 'Device key',
         community: 'Community',
         hostname: 'Hostname',
         hostnameUpdated: 'Hostname updated. Reboot to apply.',
@@ -1088,18 +1095,20 @@ const en = {
         customize: 'Customize',
         language: 'Language',
         languageDesc: 'Select the language for the interface',
-        webTitle: 'Web Title',
+        languagePartial: 'partial',
+        languagePartialHint: 'Partially translated. Missing texts are shown in English.',
+        webTitle: 'Web title',
         webTitleDesc: 'Customize the web page title',
         menuBar: {
-          title: 'Menu Bar',
-          mode: 'Display Mode',
+          title: 'Menu bar',
+          mode: 'Display mode',
           modeDesc: 'Display menu bar on the screen',
           modeOff: 'Off',
           modeAuto: 'Auto hide',
           modeAlways: 'Always visible',
           keyboardLedStatus: 'Keyboard lock indicators',
           keyboardLedStatusDesc: 'Display remote Num Lock, Caps Lock, and Scroll Lock status',
-          icons: 'Submenu Icons',
+          icons: 'Submenu icons',
           iconsDesc: 'Display submenu icons in the menu bar'
         }
       },
@@ -1114,7 +1123,8 @@ const en = {
         scrollLockShort: 'Scr',
         on: 'On',
         off: 'Off',
-        unknown: 'Unknown'
+        unknown: 'Unknown',
+        keyboardDisabled: 'USB keyboard is disabled in USB composition'
       },
       device: {
         title: 'Device',
@@ -1152,9 +1162,9 @@ const en = {
         },
         ssh: {
           description: 'Enable SSH remote access',
-          tip: 'Set a strong password before enabling (Account - Change Password)'
+          tip: 'Set a strong password before enabling (Account - Change password)'
         },
-        advanced: 'Advanced Settings',
+        advanced: 'Advanced settings',
         swap: {
           title: 'Swap',
           disable: 'Disable',
@@ -1162,11 +1172,11 @@ const en = {
           tip: "Enabling this feature could shorten your SD card's usable life!"
         },
         mouseJiggler: {
-          title: 'Mouse Jiggler',
+          title: 'Mouse jiggler',
           description: 'Prevent the remote host from sleeping',
           disable: 'Disable',
-          absolute: 'Absolute Mode',
-          relative: 'Relative Mode'
+          absolute: 'Absolute mode',
+          relative: 'Relative mode'
         },
         mdns: {
           description: 'Enable mDNS discovery service',
@@ -1179,22 +1189,24 @@ const en = {
           minutes: 'min'
         },
         autostart: {
-          title: 'Autostart Scripts Settings',
+          title: 'Autostart scripts',
           description: 'Manage scripts that run automatically on system startup',
           new: 'New',
           deleteConfirm: 'Are you sure you want to delete this file?',
           yes: 'Yes',
           no: 'No',
-          scriptName: 'Autostart Script Name',
-          scriptContent: 'Autostart Script Content',
+          scriptName: 'Autostart script name',
+          scriptContent: 'Autostart script content',
+          name: 'Name',
+          actions: 'Actions',
           settings: 'Settings',
           nameRequired: 'Enter a script name'
         },
-        hidOnly: 'HID-Only Mode',
+        hidOnly: 'HID-only mode',
         hidOnlyDesc: 'Stop emulating virtual devices, retaining only basic HID control',
-        disk: 'Virtual Disk',
+        disk: 'Virtual disk',
         diskDesc: 'Mount SD card on the remote host',
-        network: 'Virtual Network',
+        network: 'Virtual network',
         networkDesc: 'Mount virtual network card on the remote host',
         reboot: 'Reboot',
         rebootDesc: 'Are you sure you want to reboot NanoKVM?',
@@ -1205,8 +1217,9 @@ const en = {
         pointerProfile: 'Absolute pointer profile',
         pointerProfileHelp:
           'Windows binds the pointer to the captured monitor (Windows 10 1903 or newer). Applying reconnects USB and HDMI.',
+        pointerProfileDefault: 'Default',
         off: 'Off',
-        title: 'USB Composition',
+        title: 'USB composition',
         enabled: 'USB devices',
         budgetTitle: 'Endpoint budget',
         budgetDescription:
@@ -1254,27 +1267,27 @@ const en = {
             description: 'Boot-compatible keyboard and LED reports'
           },
           relative: {
-            title: 'Relative Mouse',
+            title: 'Relative mouse',
             description: 'Pointer-lock mouse for firmware, installers and games'
           },
           absolute: {
-            title: 'Absolute Pointer',
+            title: 'Absolute pointer',
             description: 'Direct screen-coordinate mapping without pointer drift'
           },
           network: {
-            title: 'Virtual Network',
+            title: 'Virtual network',
             description: 'NCM network adapter on the remote host'
           },
           disk: {
-            title: 'Virtual Disk',
+            title: 'Virtual disk',
             description: 'Present a mounted image as a USB drive'
           },
           audio: {
-            title: 'USB Audio',
+            title: 'USB audio',
             description: 'Stereo audio output for the connected computer (48 kHz, 16-bit)'
           },
           serial: {
-            title: 'USB Serial Console',
+            title: 'USB serial console',
             description: 'CDC ACM serial port for the connected computer'
           }
         }
@@ -1295,6 +1308,7 @@ const en = {
         wifi: {
           loading: 'Loading…',
           noAdapter: 'Wi-Fi adapter not detected',
+          notDetected: 'not detected',
           disabled: 'Off',
           band: 'Frequency band',
           band24: '2.4 GHz',
@@ -1331,7 +1345,7 @@ const en = {
           ssid: 'Name',
           password: 'Password',
           joinBtn: 'Join',
-          confirmBtn: 'Ok',
+          confirmBtn: 'OK',
           cancelBtn: 'Cancel'
         },
         tls: {
@@ -1354,6 +1368,7 @@ const en = {
         },
         ethernet: {
           title: 'Ethernet IPv4',
+          name: 'Ethernet',
           description: 'Choose DHCP or configure a persistent static IPv4 address',
           enable: 'Ethernet',
           disabled: 'Disabled',
@@ -1364,12 +1379,12 @@ const en = {
             'Saving will immediately end connections using Ethernet. Make sure another management connection is available.',
           dhcp: 'DHCP',
           static: 'Static',
-          ipv4: 'IPv4 Configuration',
+          ipv4: 'IPv4 configuration',
           dhcpDescription: 'IP address and gateway are obtained automatically from DHCP',
           staticDescription: 'Settings are applied immediately and retained after a reboot',
-          ipAddress: 'IP Address',
+          ipAddress: 'IP address',
           addressPlaceholder: '192.168.10.32',
-          subnetMask: 'Subnet Mask',
+          subnetMask: 'Subnet mask',
           subnetMaskPlaceholder: '255.255.255.0',
           gateway: 'Gateway',
           gatewayPlaceholder: '192.168.10.1',
@@ -1404,13 +1419,13 @@ const en = {
           saveFailed: 'Failed to save DNS settings',
           unsaved: 'Unsaved changes',
           maxServers: 'Maximum {{count}} DNS servers allowed',
-          dnsServers: 'DNS Servers',
+          dnsServers: 'DNS servers',
           dhcpServersDescription: 'DNS servers are automatically obtained from DHCP',
           manualServersDescription: 'DNS servers can be edited manually',
-          networkDetails: 'Network Details',
+          networkDetails: 'Network details',
           interface: 'Interface',
-          ipAddress: 'IP Address',
-          subnetMask: 'Subnet Mask',
+          ipAddress: 'IP address',
+          subnetMask: 'Subnet mask',
           router: 'Router',
           none: 'None'
         }
@@ -1427,8 +1442,9 @@ const en = {
         },
         restart: 'Restart Tailscale?',
         stop: 'Stop Tailscale?',
-        stopDesc: 'Log out Tailscale and disable automatic startup on boot.',
-        loading: 'Loading...',
+        stopDesc: 'Sign out of Tailscale and disable automatic startup on boot.',
+        loading: 'Loading…',
+        statusFailed: 'Could not get Tailscale status',
         notInstall: 'Tailscale is not installed.',
         installDescription: 'Install Tailscale on demand. Existing settings are preserved.',
         install: 'Install Tailscale',
@@ -1438,27 +1454,30 @@ const en = {
         notRunning: 'Tailscale is not running. Please start it to continue.',
         run: 'Start',
         notLogin:
-          'The device has not been bound yet. Please login and bind this device to your account.',
+          'The device has not been bound yet. Please sign in and bind this device to your account.',
         urlPeriod: 'This url is valid for 10 minutes',
-        login: 'Login',
-        loginSuccess: 'Login Success',
+        login: 'Sign in',
+        loginSuccess: 'I have signed in',
         enable: 'Enable Tailscale',
-        deviceName: 'Device Name',
+        deviceName: 'Device name',
         deviceIP: 'Device IP',
         account: 'Account',
-        logout: 'Logout',
-        logoutDesc: 'Are you sure you want to logout?',
+        logout: 'Sign out',
+        logoutDesc: 'Are you sure you want to sign out?',
         uninstall: 'Uninstall Tailscale',
         uninstallDesc: 'Are you sure you want to uninstall Tailscale?',
         okBtn: 'Yes',
-        cancelBtn: 'No'
+        cancelBtn: 'No',
+        startFailed: 'Could not start Tailscale',
+        loginFailed: 'Sign-in failed',
+        logoutFailed: 'Sign-out failed'
       },
       netbird: {
         title: 'NetBird',
         restart: 'Restart NetBird?',
         stop: 'Stop NetBird?',
         stopDesc: 'Stop the NetBird service.',
-        loading: 'Loading...',
+        loading: 'Loading…',
         statusUnknown: 'NetBird status is unknown',
         statusStale: 'Showing the last confirmed NetBird status',
         notInstall: 'NetBird is not installed.',
@@ -1468,12 +1487,12 @@ const en = {
         notRunning: 'NetBird service is not running.',
         run: 'Start',
         notLogin:
-          'The device has not been bound yet. Please login and bind this device to your account.',
+          'The device has not been bound yet. Please sign in and bind this device to your account.',
         urlPeriod: 'This url is valid for 10 minutes',
-        login: 'Login',
-        loginSuccess: 'I have logged in',
+        login: 'Sign in',
+        loginSuccess: 'I have signed in',
         enable: 'Enable NetBird',
-        deviceName: 'Device Name',
+        deviceName: 'Device name',
         deviceIP: 'Device IP',
         uninstall: 'Uninstall NetBird',
         uninstallDesc: 'Are you sure you want to uninstall NetBird?',
@@ -1488,18 +1507,93 @@ const en = {
           title: 'NetBird operation failed',
           intro: 'Error details:',
           stepWait: '1. Wait 10-15 seconds and retry the action.',
-          stepRestartUI: '2. Click "Restart Service" below.',
+          stepRestartUI: '2. Click "Restart service" below.',
           stepRestartSSH: '3. If needed, run: /etc/init.d/S99netbird restart',
           stepReboot: '4. Reboot NanoKVM only if the steps above do not help.',
-          restartButton: 'Restart Service',
-          refreshButton: 'Refresh Status',
+          restartButton: 'Restart service',
+          refreshButton: 'Refresh status',
           restartFailed: 'Restart failed',
-          stopFailed: 'Stop failed'
+          stopFailed: 'Stop failed',
+          statusFailed: 'Could not get NetBird status',
+          requestFailed: 'Request failed',
+          installFailed: 'Install failed',
+          startFailed: 'Start failed',
+          loginFailed: 'Sign-in failed',
+          disconnectFailed: 'Disconnect failed',
+          uninstallFailed: 'Uninstall failed'
         }
+      },
+      rustdesk: {
+        absent: 'Not installed',
+        running: 'Running',
+        stopped: 'Stopped',
+        registered: 'Registered',
+        registering: 'Waiting for ID server',
+        install: 'Install',
+        remove: 'Remove',
+        upgrade: 'Update to {{version}}',
+        addonVersion: 'Add-on version',
+        rustdeskVersion: 'RustDesk protocol base',
+        unknownVersion: 'Unknown',
+        save: 'Save settings',
+        enabled: 'Enable remote access',
+        server: 'Server',
+        public: 'Official public servers',
+        custom: 'Custom server',
+        idServer: 'ID / rendezvous server',
+        relay: 'Relay server (optional)',
+        key: 'Server public key (optional)',
+        password: 'Access password',
+        passwordMode: 'Password',
+        temporary: 'Temporary (automatic)',
+        permanent: 'Permanent',
+        temporaryPassword: 'Temporary password',
+        newPassword: 'New password',
+        temporaryHint:
+          'Share this ID and password. The password changes when RustDesk starts or when you request a new one.',
+        rotatingTemporaryHint:
+          'Share this ID and the current password. Each new successful sign-in generates a new password without closing active sessions. RustDesk also replaces it on startup or when you request a new one.',
+        startForPassword: 'Enable RustDesk and save settings to generate a password.',
+        waitingForPassword: 'Generating a temporary password…',
+        regenerateConfirm: 'Generate a new password? Current RustDesk connections will close.',
+        advanced: 'Advanced settings',
+        audioEnabled:
+          'USB audio is enabled. Select NanoKVM as the audio output on the connected computer. Sound can be muted in the RustDesk client.',
+        audioDisabled:
+          'To stream computer sound, enable USB audio in the device USB settings and select NanoKVM as the audio output on the computer.',
+        webrtc: 'Allow WebRTC connections',
+        transportHint:
+          'TCP and relay are used by default. WebRTC may reduce frame rate on NanoKVM. To connect by TCP using an ID, turn WebRTC off in the RustDesk client too.',
+        open: 'Open management',
+        settings: 'RustDesk',
+        keepPassword: 'Leave empty to keep the current password',
+        inputDefaults:
+          'Enabling remote access automatically enables USB keyboard and absolute/relative mouse.',
+        transmitAudio: 'Transmit sound',
+        audioHint:
+          'Enables USB audio automatically. Select NanoKVM as the sound output on the connected computer.',
+        audioMuted: 'Sound transmission through RustDesk is disabled.',
+        clients: 'Maximum viewers',
+        unavailable:
+          'RustDesk is not available in the configured APK repositories. Add the repository containing nanokvm-rustdesk, or install its APK through Packages.',
+        explain:
+          'Connect a RustDesk client to this ID to view HDMI and control USB keyboard and mouse.',
+        video:
+          'Video automatically uses the codec selected in NanoKVM video settings. H.265 requires client support. Reconnect after changing the device codec. Browser takeover releases RustDesk input.',
+        deletion: 'Remove the package? Server settings, password and device ID are preserved.',
+        failed: 'The request failed',
+        saved: 'Settings saved',
+        passwordUpdated: 'Password updated',
+        description: 'Remote access to the computer connected to NanoKVM, using RustDesk.',
+        done: 'Package operation completed',
+        id: 'RustDesk ID',
+        source: 'Source and license',
+        passwordRequired: 'Enter a password of 8 to 64 bytes',
+        sameServer: 'Configure the same custom ID server and public key in the RustDesk client.'
       },
       account: {
         title: 'Users',
-        webAccount: 'Web Account Name',
+        webAccount: 'Web account name',
         role: 'Role',
         roles: {
           admin: 'Administrator',
@@ -1507,19 +1601,19 @@ const en = {
         },
         password: 'Password',
         updateBtn: 'Change',
-        logoutBtn: 'Logout',
-        logoutDesc: 'Are you sure you want to logout?',
-        logoutFailed: 'Logout failed; this session is still signed in.',
+        logoutBtn: 'Sign out',
+        logoutDesc: 'Are you sure you want to sign out?',
+        logoutFailed: 'Sign-out failed; this session is still signed in.',
         okBtn: 'Yes',
         cancelBtn: 'No',
         users: {
           title: 'Users',
-          create: 'Create User',
+          create: 'Create user',
           enabled: 'Enabled',
           disabled: 'Disabled',
           deviceOwner: 'Device owner',
           rename: 'Rename',
-          resetPassword: 'Reset Password',
+          resetPassword: 'Reset password',
           delete: 'Delete',
           deleteConfirm: 'Delete this user and revoke all of their sessions?',
           created: 'User created',
@@ -1530,19 +1624,24 @@ const en = {
           saveFailed: 'Failed to save user',
           deleteFailed: 'Failed to delete user'
         }
+      },
+      extensions: {
+        title: 'Extensions',
+        loadFailed: 'Could not load extensions',
+        empty: 'No extensions installed'
       }
     },
     picoclaw: {
       moreActions: 'More actions',
-      title: 'PicoClaw Assistant',
+      title: 'PicoClaw assistant',
       empty: 'Open the panel and start a task to begin.',
       inputPlaceholder: 'Describe what you want the PicoClaw to do',
       newConversation: 'New conversation',
-      processing: 'Processing...',
+      processing: 'Processing…',
       agent: {
-        defaultTitle: 'General Assistant',
+        defaultTitle: 'General assistant',
         defaultDescription: 'General chat, search, and workspace help.',
-        kvmTitle: 'Remote Control',
+        kvmTitle: 'Remote control',
         kvmDescription: 'Operate the remote host through NanoKVM.',
         switched: 'Agent role switched',
         switchFailed: 'Failed to switch agent role'
@@ -1550,7 +1649,7 @@ const en = {
       send: 'Send',
       cancel: 'Cancel',
       status: {
-        connecting: 'Connecting to gateway...',
+        connecting: 'Connecting to gateway…',
         connected: 'PicoClaw session connected',
         disconnected: 'PicoClaw session closed',
         stopped: 'Stop request sent',
@@ -1607,8 +1706,8 @@ const en = {
         transitioningDescription: 'Device control is syncing. Please wait.',
         grant: 'Take over',
         release: 'Return control',
-        releasing: 'Releasing...',
-        switching: 'Switching...',
+        releasing: 'Releasing…',
+        switching: 'Switching…',
         releasingLabel: 'Device control: releasing',
         releasingDescription:
           'Device control is being returned. PicoClaw has stopped current writes.',
@@ -1624,7 +1723,7 @@ const en = {
         installing: 'Installing PicoClaw',
         success: 'PicoClaw installed successfully',
         failed: 'Failed to install PicoClaw',
-        uninstalling: 'Uninstalling runtime...',
+        uninstalling: 'Uninstalling runtime…',
         uninstalled: 'Runtime uninstalled successfully.',
         uninstallFailed: 'Uninstall failed.',
         requiredTitle: 'PicoClaw is not installed',
@@ -1637,21 +1736,21 @@ const en = {
           verifying: 'Verifying',
           installing: 'Installing',
           installed: 'Installed',
-          install_timeout: 'Timed Out',
+          install_timeout: 'Timed out',
           install_failed: 'Failed'
         }
       },
       model: {
         requiredTitle: 'Model configuration is required',
         requiredDescription: 'Configure the PicoClaw model before using PicoClaw chat.',
-        docsTitle: 'Configuration Guide',
+        docsTitle: 'Configuration guide',
         docsDesc: 'Supported models and protocols',
         menuLabel: 'Configure model',
-        modelIdentifier: 'Model Identifier',
+        modelIdentifier: 'Model identifier',
         modelIdentifierPlaceholder: 'openai/gpt-5.4',
-        apiBase: 'API Base URL',
+        apiBase: 'API base URL',
         apiBasePlaceholder: 'https://api.example.com/v1',
-        apiKey: 'API Key',
+        apiKey: 'API key',
         apiKeyPlaceholder: 'Enter the model API key',
         apiKeyOptionalPlaceholder: 'Optional for this local provider',
         save: 'Save',
@@ -1671,7 +1770,7 @@ const en = {
       },
       history: {
         title: 'History',
-        loading: 'Loading sessions...',
+        loading: 'Loading sessions…',
         emptyTitle: 'No history yet',
         emptyDescription: 'Previous PicoClaw sessions will appear here.',
         loadFailed: 'Failed to load session history',
@@ -1705,11 +1804,11 @@ const en = {
       requestFailed: 'The request failed. Check the connection and try again.'
     },
     fullscreen: {
-      toggle: 'Toggle Fullscreen'
+      toggle: 'Toggle fullscreen'
     },
     menu: {
-      collapse: 'Collapse Menu',
-      expand: 'Expand Menu'
+      collapse: 'Collapse menu',
+      expand: 'Expand menu'
     }
   }
 };

@@ -64,8 +64,6 @@ const de = {
       scale: 'Skala',
       title: 'Bildschirm',
       video: 'Video Modus',
-      videoDirectTips:
-        'Aktivieren Sie HTTPS unter „Einstellungen > Gerät“, um diesen Modus zu verwenden',
       resolution: 'Auflösung',
       controlRegion: {
         title: 'Mauskalibrierung',
@@ -572,12 +570,6 @@ const de = {
         installing: 'Installiere',
         failed: 'Installation fehlgeschlagen',
         retry: 'Bitte Seite neu laden und erneut versuchen oder manuelle Installation versuchen.',
-        download: 'Laden Sie das',
-        package: 'Installations-Paket herunter',
-        unzip: 'und entpacken Sie es',
-        upTailscale: 'Tailscale nach /usr/bin/ auf NanoKVM hochladen',
-        upTailscaled: 'Tailscaled nach /usr/bin/ auf NanoKVM hochladen',
-        refresh: 'Aktuelle Seite neu laden',
         notRunning: 'Tailscale läuft nicht. Bitte starten Sie es, um fortzufahren.',
         run: 'Start',
         notLogin:

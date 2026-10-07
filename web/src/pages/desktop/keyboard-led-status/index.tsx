@@ -4,12 +4,6 @@ import { useTranslation } from 'react-i18next';
 
 import { useKeyboardLedStatus } from './use-keyboard-led-status';
 
-const LOCK_INDICATORS = {
-  numLock: { label: 'Num Lock', shortLabel: 'Num' },
-  capsLock: { label: 'Caps Lock', shortLabel: 'Caps' },
-  scrollLock: { label: 'Scroll Lock', shortLabel: 'Scr' }
-} as const;
-
 type LockIndicatorProps = {
   labelKey: 'numLock' | 'capsLock' | 'scrollLock';
   active: boolean;
@@ -18,10 +12,10 @@ type LockIndicatorProps = {
 };
 
 function LockIndicator({ labelKey, active, known, disabled }: LockIndicatorProps) {
-  const { label, shortLabel } = LOCK_INDICATORS[labelKey];
-  const { t } = useTranslation();
-  const state = disabled ? t('vpn.keyboardDisabled') : known ? (active ? 'On' : 'Off') : 'Unknown';
-  const indicatorLabel = `${label}: ${state}`;
+  const { t } = useTranslation('translation', { keyPrefix: 'settings.keyboardLedStatus' });
+  const shortLabel = t(`${labelKey}Short`);
+  const state = t(disabled ? 'keyboardDisabled' : known ? (active ? 'on' : 'off') : 'unknown');
+  const indicatorLabel = t('indicatorLabel', { label: t(labelKey), state });
 
   return (
     <Tooltip title={indicatorLabel} placement="bottom" mouseEnterDelay={0.6}>
@@ -50,6 +44,7 @@ function LockIndicator({ labelKey, active, known, disabled }: LockIndicatorProps
 }
 
 export function KeyboardLedStatus() {
+  const { t } = useTranslation();
   const status = useKeyboardLedStatus();
   const disabled = status?.keyboardEnabled === false;
   const known = !disabled && (status?.known ?? false);
@@ -57,7 +52,7 @@ export function KeyboardLedStatus() {
   return (
     <div
       className="flex h-full w-[40px] flex-col items-start justify-center rounded bg-neutral-800/80"
-      aria-label="Keyboard lock status"
+      aria-label={t('settings.keyboardLedStatus.groupLabel')}
       role="group"
     >
       <LockIndicator

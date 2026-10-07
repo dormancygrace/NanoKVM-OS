@@ -10,6 +10,7 @@ import {
   message,
   Popconfirm,
   Select,
+  Spin,
   Switch,
   Typography
 } from 'antd';
@@ -131,6 +132,7 @@ export const RustDeskControls = () => {
   return (
     <div className="min-w-0 space-y-6">
       {error && <Alert type="error" title={error} showIcon />}
+      {!status && !error && <Spin />}
       <SettingsSection>
         {status?.installed && <RustDeskVersions status={status} />}
         <div className="flex flex-wrap items-center gap-4">

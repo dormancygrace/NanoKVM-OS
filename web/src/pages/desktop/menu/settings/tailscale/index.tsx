@@ -12,6 +12,10 @@ import { Login } from './login.tsx';
 import { Run } from './run.tsx';
 import type { Status } from './types.ts';
 
+// Stored as a key and translated on render, so getStatus stays stable across
+// language changes and does not refetch.
+const statusFailed = 'settings.tailscale.statusFailed';
+
 type TailscaleProps = {
   setIsLocked: (isLocked: boolean) => void;
 };
@@ -40,13 +44,13 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
         setStatus(rsp.data);
       })
       .catch((err) => {
-        setErrMsg(err?.message || t('settings.tailscale.statusFailed'));
+        setErrMsg(err?.message || statusFailed);
       })
       .finally(() => {
         statusInFlight.current = false;
         setIsLoading(false);
       });
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     getStatus();
@@ -76,7 +80,11 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
             <Device status={status} onLogout={getStatus} />
           )}
 
-          {errMsg && <div className="pt-5 text-red-500">{errMsg}</div>}
+          {errMsg && (
+            <div className="pt-5 text-red-500">
+              {errMsg === statusFailed ? t(statusFailed) : errMsg}
+            </div>
+          )}
         </>
       )}
     </>

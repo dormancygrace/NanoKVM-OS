@@ -13,6 +13,10 @@ import { Login } from "./login.tsx";
 import { Run } from "./run.tsx";
 import type { Status } from "./types.ts";
 
+// Stored as a key and translated on render, so getStatus stays stable across
+// language changes and does not refetch.
+const statusFailed = "settings.netbird.error.statusFailed";
+
 type NetbirdProps = {
   setIsLocked: (isLocked: boolean) => void;
 };
@@ -23,6 +27,7 @@ export const Netbird = ({ setIsLocked }: NetbirdProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<Status>();
   const [errMsg, setErrMsg] = useState("");
+  const errorText = errMsg === statusFailed ? t(statusFailed) : errMsg;
   const requestId = useRef(0);
   const isMounted = useRef(true);
 
@@ -42,13 +47,13 @@ export const Netbird = ({ setIsLocked }: NetbirdProps) => {
       setStatus(rsp.data);
     } catch (err: any) {
       if (!isMounted.current || currentRequestId !== requestId.current) return;
-      setErrMsg(err?.message || t("settings.netbird.error.statusFailed"));
+      setErrMsg(err?.message || statusFailed);
     } finally {
       if (isMounted.current && currentRequestId === requestId.current) {
         setIsLoading(false);
       }
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     // Effects are mounted twice in development Strict Mode. Restore the guard
@@ -85,10 +90,10 @@ export const Netbird = ({ setIsLocked }: NetbirdProps) => {
                     ? "settings.netbird.statusStale"
                     : "settings.netbird.statusUnknown",
                 )}
-                description={errMsg}
+                description={errorText}
               />
               <ErrorHelp
-                error={errMsg}
+                error={errorText}
                 onRefresh={getStatus}
                 canRestart={!!status && status.state !== "notInstall"}
               />

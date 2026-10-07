@@ -245,6 +245,42 @@ func TestCPUFrequencyBootOverclockFallsBackAfterFrozenStart(t *testing.T) {
 	}
 }
 
+func TestCPUFrequencyBootOverclockSettlesAcrossRestarts(t *testing.T) {
+	cpuFixture(t)
+	os.WriteFile(filepath.Join(cpuFreqPolicy, "scaling_available_frequencies"), []byte("600000 850000 1000000 1050000 1075000 1100000 1125000 1150000"), 0600)
+	if err := applyCPUFreq(1100, true, true); err != nil {
+		t.Fatal(err)
+	}
+	reboot := func() {
+		t.Helper()
+		os.Remove(cpuFreqRuntimePreference)
+		os.WriteFile(filepath.Join(cpuFreqPolicy, "cpuinfo_cur_freq"), []byte("1000000"), 0600)
+		ApplySavedCPUFrequency()
+	}
+	reboot()
+	if !fileExists(cpuFreqBootPending) {
+		t.Fatal("overclocked start left no marker")
+	}
+	// The marking process was restarted shortly after boot; the boot itself
+	// kept running past the settle period before the next restart.
+	old := time.Now().Add(-2 * cpuFreqBootSettle)
+	if err := os.Chtimes(cpuFreqBootPending, old, old); err != nil {
+		t.Fatal(err)
+	}
+	ApplySavedCPUFrequency()
+	deadline := time.Now().Add(2 * time.Second)
+	for fileExists(cpuFreqBootPending) {
+		if time.Now().After(deadline) {
+			t.Fatal("a later start in a settled boot kept the marker")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	reboot()
+	if s := cpuFrequencyState(); s.Running != 1100 || !s.ApplyAtBoot || s.BootFallback {
+		t.Fatalf("restart before settle was taken for a frozen boot: state=%+v", s)
+	}
+}
+
 func TestCPUFrequencyExpandedCoolingTable(t *testing.T) {
 	cpuFixture(t)
 	zone := filepath.Join(cpuThermalRoot, "thermal_zone0")

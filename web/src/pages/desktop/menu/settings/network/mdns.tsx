@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Switch, Tooltip } from 'antd';
-import { CircleHelpIcon } from 'lucide-react';
+import { Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
+import { HelpTip } from '@/components/ui/settings.tsx';
 
 export const Mdns = () => {
   const { t } = useTranslation();
@@ -59,18 +59,10 @@ export const Mdns = () => {
       <div className="flex flex-col space-y-1">
         <div className="flex items-center space-x-2">
           <span>mDNS</span>
-
-          <Tooltip
-            title={t('settings.device.mdns.tip')}
-            className="cursor-pointer"
-            placement="right"
-            styles={{ root: { maxWidth: '400px' } }}
-          >
-            <CircleHelpIcon className="text-neutral-500" size={14} />
-          </Tooltip>
+          <HelpTip title={t('settings.device.mdns.tip')} />
         </div>
 
-        <span className="text-xs text-neutral-500">
+        <span className="text-fg-muted text-xs">
           {isEnabled && address ? address : t('settings.device.mdns.description')}
         </span>
       </div>

@@ -42,12 +42,13 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
 
   return (
     <>
-      <div
-        className="flex h-[30px] cursor-pointer items-center space-x-1 rounded px-2 py-1 text-neutral-300 hover:bg-neutral-700/70"
+      <button
+        type="button"
+        className="nanokvm-button-base flex h-[30px] w-full cursor-pointer items-center space-x-1 rounded px-2 py-1 text-neutral-300 hover:bg-neutral-700/70"
         onClick={() => setIsModalOpen(true)}
       >
         <span>{t('settings.tailscale.uninstall')}</span>
-      </div>
+      </button>
 
       <Modal
         title={title}

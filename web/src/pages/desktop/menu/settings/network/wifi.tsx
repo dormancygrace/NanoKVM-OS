@@ -236,7 +236,7 @@ export const Wifi = () => {
         <div className="flex items-center justify-between space-x-3">
           <div className="flex min-w-0 flex-col space-y-1">
             <span>{tr('title')}</span>
-            <span className="text-xs break-words text-neutral-500">
+            <span className="text-fg-muted text-xs break-words">
               {!state
                 ? tr('loading')
                 : !state.supported
@@ -273,7 +273,7 @@ export const Wifi = () => {
                 }))}
                 onChange={setPreferredBand}
               />
-              <span className="text-xs text-neutral-500">{tr('preferredBandHint')}</span>
+              <span className="text-fg-muted text-xs">{tr('preferredBandHint')}</span>
             </label>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="text-sm">{tr('availableNetworks')}</span>
@@ -287,7 +287,7 @@ export const Wifi = () => {
               </Button>
             </div>
             {!state.bands?.length && (
-              <span className="text-xs text-neutral-500">{tr('bandsUnavailable')}</span>
+              <span className="text-fg-muted text-xs">{tr('bandsUnavailable')}</span>
             )}
             <div className="flex flex-col space-y-3">
               {groupedNetworks.map((network) => (
@@ -304,7 +304,7 @@ export const Wifi = () => {
                           {network.bands.join(' / ')} GHz
                         </span>
                       </div>
-                      <div className="text-xs text-neutral-500">
+                      <div className="text-fg-muted text-xs">
                         {Array.from(
                           new Set(
                             network.candidates.flatMap((item) =>
@@ -332,7 +332,7 @@ export const Wifi = () => {
                 </div>
               ))}
               {scanned && networks.length === 0 && (
-                <span className="text-xs text-neutral-500">{tr('noNetworks')}</span>
+                <span className="text-fg-muted text-xs">{tr('noNetworks')}</span>
               )}
             </div>
             <Button
@@ -346,7 +346,7 @@ export const Wifi = () => {
           </>
         )}
         {!!pending && (
-          <span role="status" className="text-xs text-neutral-500">
+          <span role="status" className="text-fg-muted text-xs">
             {tr('applying')}
           </span>
         )}
@@ -415,7 +415,7 @@ export const Wifi = () => {
                   autoComplete="new-password"
                   onChange={(e) => setProfile({ ...profile, password: e.target.value })}
                 />
-                <span className="text-xs text-neutral-500">{tr('passwordHint')}</span>
+                <span className="text-fg-muted text-xs">{tr('passwordHint')}</span>
               </label>
             )}
             {message && (

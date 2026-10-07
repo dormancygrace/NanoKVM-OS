@@ -27,9 +27,7 @@ export const MenuMode = () => {
     <div className="mt-5 flex w-full items-center justify-between">
       <div className="flex flex-col">
         <span className="text-neutral-400">{t('settings.appearance.menuBar.mode')}</span>
-        <span className="text-xs text-neutral-500">
-          {t('settings.appearance.menuBar.modeDesc')}
-        </span>
+        <span className="text-fg-muted text-xs">{t('settings.appearance.menuBar.modeDesc')}</span>
       </div>
 
       <Segmented value={menuDisplayMode} options={options} onChange={handleChange} />

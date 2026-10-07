@@ -82,17 +82,13 @@ const tr = {
         duplicateResolution: 'Bu çözünürlük zaten mevcut.',
         width: 'Genişlik',
         height: 'Yükseklik',
-        apply: 'Hesapla ve Uygula',
         invalidResolution: 'Video hazır olduktan sonra geçerli bir orijinal çözünürlük girin.',
         select: 'Alan Seç',
-        clear: 'Otomatik Ayarı Geri Yükle',
         saveFailed: 'Giriş alanı kaydedilemedi.',
         tooSmall: 'Seçili alan çok küçük.',
         previewUnavailable: 'Önizleme kullanılamıyor',
-        clearConfirm: 'Otomatik siyah kenar algılama geri yüklensin mi?',
         dragHint: 'Uzak masaüstü alanını seçmek için sürükleyin',
         finish: 'Bitti',
-        confirm: 'Onayla',
         cancel: 'İptal'
       },
       auto: 'Otomatik',
@@ -224,16 +220,7 @@ const tr = {
         dragDesc:
           'Basılı tutma etkinleştikten sonra, sol düğme basılıyken sürüklemek için parmağınızı hareket ettirin.'
       },
-      resetHid: 'HID’yi sıfırla',
-      hidOnly: {
-        title: 'Yalnızca HID modu',
-        desc: 'Fare ve klavye yanıt vermeyi durdurursa ve HID sıfırlama yardımcı olmazsa, NanoKVM ile cihaz arasında bir uyumluluk sorunu olabilir. Daha iyi uyumluluk için yalnızca HID modunu etkinleştirmeyi deneyin.',
-        tip1: 'Yalnızca HID modunu etkinleştirmek sanal U-disk’i ve sanal ağı ayırır',
-        tip2: 'Yalnızca HID modunda imaj bağlama devre dışıdır',
-        tip3: 'NanoKVM mod değişiminden sonra kendiliğinden yeniden başlatılacaktır',
-        enable: 'Yalnızca HID modunu etkinleştir',
-        disable: 'Yalnızca HID modunu devre dışı bırak'
-      }
+      resetHid: 'HID’yi sıfırla'
     },
     image: {
       title: 'Disk İmajları',
@@ -361,22 +348,10 @@ const tr = {
       },
       about: {
         title: 'NanoKVM Hakkında',
-        information: 'Bilgi',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'Uygulama sürümü',
-        applicationTip: 'NanoKVM web uygulaması sürümü',
         image: 'İmaj Sürümü',
-        imageTip: 'NanoKVM sistem imajı sürümü',
-        deviceKey: 'Cihaz Anahtarı',
-        community: 'Topluluk',
         hostname: 'Ana makine adı',
-        hostnameUpdated: 'Hostname güncellendi. Uygulamak için yeniden başlatın.',
-        ipType: {
-          Wired: 'Kablolu bağlantı',
-          Wireless: 'Kablosuz bağlantı',
-          Other: 'Diğer'
-        }
+        hostnameUpdated: 'Hostname güncellendi. Uygulamak için yeniden başlatın.'
       },
       appearance: {
         title: 'Görünüm',
@@ -389,7 +364,6 @@ const tr = {
           title: 'Menü Çubuğu',
           mode: 'Görüntüleme Modu',
           modeDesc: 'Ekranda menü çubuğunu görüntüle',
-          modeOff: 'Kapalı',
           modeAuto: 'Otomatik gizle',
           modeAlways: 'Her zaman görünür',
           keyboardLedStatus: 'Klavye kilidi göstergeleri',
@@ -427,17 +401,6 @@ const tr = {
           1800: '30 dakika',
           3600: '1 saat'
         },
-        ssh: {
-          description: 'Güvenli Kabuk Bağlantısı (SSH) aktif et',
-          tip: 'Aktifleştirmeden önce güçlü bir şifreye sahip olduğunuzdan emin olun (Hesap - Şifremi Değiştir)'
-        },
-        advanced: 'Gelişmiş Ayarlar',
-        swap: {
-          title: 'Swap',
-          disable: 'Aktifleştir',
-          description: 'Swap dosyasının boyutunu belirle',
-          tip: 'Bu özelliği aktifleştirmek micro SD kartınızın ömrünü kısaltabilir!'
-        },
         mouseJiggler: {
           title: 'Fare Oynatıcı',
           description: 'Uzak ana bilgisayarın uykuya geçmesini engeller',
@@ -456,25 +419,6 @@ const tr = {
             'Etkin görüntüleyici olmadığında HDMI yakalamayı şu süre sonunda durdur:',
           minutes: 'dk'
         },
-        autostart: {
-          title: 'Otomatik Başlatılan Komut Dosyaları Ayarları',
-          description:
-            'Sistem başlangıcında otomatik olarak çalıştırılan komut dosyalarını yönetme',
-          new: 'Yeni',
-          deleteConfirm: 'Bu dosyayı silmek istediğinden emin misin?',
-          yes: 'Evet',
-          no: 'Hayır',
-          scriptName: 'Otomatik Başlatma Komut Dosyası Adı',
-          scriptContent: 'Otomatik Başlatılan Komut Dosyası İçeriği',
-          settings: 'Ayarlar'
-        },
-        hidOnly: 'Yalnızca HID modu',
-        hidOnlyDesc:
-          'Yalnızca temel HID kontrolünü koruyarak sanal aygıtları taklit etmeyi bırakın',
-        disk: 'Sanal Disk',
-        diskDesc: "Sanal U-disk'i uzak ana bilgisayara bağla",
-        network: 'Sanal Ağ',
-        networkDesc: 'Sanal ağ kartını uzak ana bilgisayara bağla',
         reboot: 'Yeniden Başlat',
         rebootDesc: "NanoKVM'i yeniden başlatmak istediğinizden emin misiniz?",
         okBtn: 'Evet',
@@ -518,22 +462,17 @@ const tr = {
           invalid: 'Geçerli bir IPv4 adresi, alt ağ maskesi ve ağ geçidi girin',
           save: 'Kaydet',
           unsaved: 'Kaydedilmemiş değişiklikler',
-          savedStatic: 'Statik adres kaydedildi. {{address}} adresinden yeniden bağlanın.',
-          savedDhcp:
-            'DHCP etkinleştirildi. Yönlendiricinizin atadığı adresi kullanarak yeniden bağlanın.',
           saveFailed: 'Ethernet ayarları kaydedilemedi',
           loadFailed: 'Ethernet ayarları yüklenemedi'
         },
         dns: {
           title: 'DNS',
           description: 'NanoKVM için DNS sunucularını yapılandır',
-          mode: 'Mod',
           dhcp: 'DHCP',
           manual: 'Manuel',
           add: 'DNS ekle',
           save: 'Kaydet',
           invalid: 'Geçerli bir IP adresi girin',
-          noDhcp: 'Şu anda DHCP DNS mevcut değil',
           saved: 'DNS ayarları kaydedildi',
           saveFailed: 'DNS ayarları kaydedilemedi',
           unsaved: 'Kaydedilmemiş değişiklikler',
@@ -551,14 +490,6 @@ const tr = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Bellek optimizasyonu',
-          tip: "Bellek kullanımı sınırı aştığında, belleği boşaltmak amacıyla çöp toplama işlemi daha agresif bir şekilde gerçekleştirilir. Tailscale kullanıyorsanız bu değerin 75 MB olarak ayarlanması önerilir. Değişikliğin etkili olabilmesi için Tailscale'in yeniden başlatılması gerekir."
-        },
-        swap: {
-          title: 'Belleği değiştir',
-          tip: 'Bellek optimizasyonunu etkinleştirdikten sonra sorunlar devam ederse, takas belleğini etkinleştirmeyi deneyin. Bu, takas dosyası boyutunu varsayılan olarak 256MB olarak ayarlar ve bu, "Ayarlar > Cihaz" bölümünden ayarlanabilir.'
-        },
         restart: "Tailscale'i yeniden başlat?",
         stop: "Tailscale'i durdur?",
         stopDesc: 'Tailscale oturumundan çıkış yap ve başlangıçta çalışmasını devre dışı bırak.',

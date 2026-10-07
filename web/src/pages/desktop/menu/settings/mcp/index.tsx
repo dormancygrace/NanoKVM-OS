@@ -223,9 +223,10 @@ export const MCP = () => {
         <div className="flex items-center justify-between">
           <div className="flex flex-col space-y-1 pr-4">
             <span className="text-sm font-medium">{t('settings.mcp.service')}</span>
-            <span className="text-xs text-neutral-500">{t('settings.mcp.serviceDesc')}</span>
+            <span className="text-xs text-fg-muted">{t('settings.mcp.serviceDesc')}</span>
           </div>
           <Switch
+            aria-label={t('settings.mcp.service')}
             checked={config.enabled}
             loading={isLoading || config.transitioning}
             disabled={config.transitioning}
@@ -239,6 +240,7 @@ export const MCP = () => {
               <CredentialRow
                 label={t('settings.mcp.endpoint')}
                 value={endpoint}
+                copyLabel={t('settings.mcp.copyValue', { label: t('settings.mcp.endpoint') })}
                 copied={isEndpointCopied}
                 onCopy={() => copyText(endpoint, 'endpoint')}
               />
@@ -246,6 +248,7 @@ export const MCP = () => {
               <CredentialRow
                 label={t('settings.mcp.apiKey')}
                 value={displayKey}
+                copyLabel={t('settings.mcp.copyValue', { label: t('settings.mcp.apiKey') })}
                 copied={isKeyCopied}
                 onCopy={() => copyText(config.apiKey, 'key')}
                 disabled={!config.apiKey}
@@ -254,6 +257,8 @@ export const MCP = () => {
                     <Button
                       type="text"
                       size="small"
+                      aria-label={t(isKeyVisible ? 'settings.mcp.hideKey' : 'settings.mcp.showKey')}
+                      title={t(isKeyVisible ? 'settings.mcp.hideKey' : 'settings.mcp.showKey')}
                       className="text-neutral-400 hover:text-white"
                       icon={isKeyVisible ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
                       disabled={!config.apiKey}
@@ -262,6 +267,8 @@ export const MCP = () => {
                     <Button
                       type="text"
                       size="small"
+                      aria-label={t('settings.mcp.regenerateKey')}
+                      title={t('settings.mcp.regenerateKey')}
                       className="text-neutral-400 hover:text-white"
                       loading={isLoading}
                       icon={<RefreshCcwIcon size={14} />}
@@ -281,6 +288,7 @@ export const MCP = () => {
 type CredentialRowProps = {
   label: string;
   value: string;
+  copyLabel: string;
   copied: boolean;
   onCopy: () => void;
   disabled?: boolean;
@@ -290,6 +298,7 @@ type CredentialRowProps = {
 const CredentialRow = ({
   label,
   value,
+  copyLabel,
   copied,
   onCopy,
   disabled = false,
@@ -301,11 +310,13 @@ const CredentialRow = ({
       <span className="min-w-0 flex-1 select-all truncate font-mono text-sm text-neutral-300">
         {value}
       </span>
-      <div className="flex shrink-0 items-center space-x-1 opacity-40 transition-opacity group-hover:opacity-100 sm:ml-4">
+      <div className="flex shrink-0 items-center space-x-1 opacity-40 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 sm:ml-4">
         {actions}
         <Button
           type="text"
           size="small"
+          aria-label={copyLabel}
+          title={copyLabel}
           className="text-neutral-400 hover:text-white"
           icon={
             copied ? <CheckIcon size={14} className="text-green-500" /> : <CopyIcon size={14} />

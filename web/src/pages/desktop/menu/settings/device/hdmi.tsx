@@ -107,23 +107,27 @@ export const Hdmi = () => {
             <div className="flex flex-col space-y-1">
               <span>HDMI</span>
 
-              <span className="text-xs text-neutral-500">
-                {t('settings.device.hdmi.description')}
-              </span>
+              <span className="text-fg-muted text-xs">{t('settings.device.hdmi.description')}</span>
             </div>
 
-            <Switch checked={isHdmiEnabled} loading={isLoading} onChange={setHdmiState} />
+            <Switch
+              aria-label="HDMI"
+              checked={isHdmiEnabled}
+              loading={isLoading}
+              onChange={setHdmiState}
+            />
           </div>
 
           <div className="flex items-center justify-between">
             <div className="flex flex-col space-y-1">
               <span>{t('settings.device.hdmi.idleTimeoutTitle')}</span>
-              <span className="text-xs text-neutral-500">
+              <span className="text-fg-muted text-xs">
                 {t('settings.device.hdmi.idleTimeoutDescription')}
               </span>
             </div>
 
             <InputNumber
+              aria-label={t('settings.device.hdmi.idleTimeoutTitle')}
               style={{ width: 150 }}
               min={0}
               max={10080}

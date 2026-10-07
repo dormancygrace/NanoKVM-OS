@@ -84,7 +84,7 @@ export const Oled = () => {
       </div>
       {isOLEDExist && sleep >= 0 && (
         <div className="flex items-center justify-between gap-4">
-          <span className="text-xs text-neutral-500">{t('settings.device.oled.description')}</span>
+          <span className="text-fg-muted text-xs">{t('settings.device.oled.description')}</span>
           <Select
             aria-label={t('settings.device.oled.description')}
             style={{ width: 150 }}

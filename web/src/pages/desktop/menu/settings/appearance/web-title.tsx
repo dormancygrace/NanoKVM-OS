@@ -48,7 +48,7 @@ export const WebTitle = () => {
     <div className="mt-8 flex items-center justify-between space-x-5">
       <div className="flex flex-col">
         <span>{t('settings.appearance.webTitle')}</span>
-        <span className="text-xs text-neutral-500">{t('settings.appearance.webTitleDesc')}</span>
+        <span className="text-fg-muted text-xs">{t('settings.appearance.webTitleDesc')}</span>
       </div>
 
       <div>

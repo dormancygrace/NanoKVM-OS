@@ -1,11 +1,6 @@
 export type EncoderTransport = 'direct' | 'webrtc';
 export type EncoderCodec = 'h264' | 'h265';
 
-export type EncoderCapabilities = {
-  directH265: boolean;
-  webRTCH265: boolean;
-};
-
 const CODEC_KEY = 'nano-kvm-video-codec';
 let effectiveCodec: EncoderCodec | undefined;
 let directH265Support: Promise<boolean> | undefined;
@@ -57,13 +52,6 @@ export function setEncoderCodec(codec: EncoderCodec) {
 
 export function encoderCodecQuery(codec: EncoderCodec) {
   return new URLSearchParams({ codec });
-}
-
-export async function detectEncoderCapabilities(): Promise<EncoderCapabilities> {
-  const directH265 = await supportsDirectH265();
-  const webRTCH265 = supportsWebRTCH265();
-
-  return { directH265, webRTCH265 };
 }
 
 export async function isEncoderCodecSupported(

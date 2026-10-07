@@ -113,7 +113,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
     <div className="space-y-4">
       <VPNVersion name="wireguard" />
       <p className="text-sm text-neutral-400">{t('vpn.description')}</p>
-      <p className="text-xs text-neutral-500">{t('vpn.routingNote')}</p>
+      <p className="text-xs text-fg-muted">{t('vpn.routingNote')}</p>
       {available === false && <Alert type="warning" showIcon message={t('vpn.systemRequired')} />}
       <input
         ref={input}
@@ -137,7 +137,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
       </Button>
       {error && <Alert type="error" showIcon message={error} />}
       {available !== undefined && profiles.length === 0 && (
-        <div className="rounded-lg border border-dashed border-neutral-700 p-6 text-center text-sm text-neutral-500">
+        <div className="rounded-lg border border-dashed border-neutral-700 p-6 text-center text-sm text-fg-muted">
           {t('vpn.empty')}
         </div>
       )}
@@ -235,7 +235,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
               </div>
             )}
             <div className="break-all text-xs text-neutral-400">{p.address}</div>
-            {!!p.mtu && <div className="text-xs text-neutral-500">MTU {p.mtu}</div>}
+            {!!p.mtu && <div className="text-xs text-fg-muted">MTU {p.mtu}</div>}
             <div className="flex items-center justify-between gap-3 text-sm text-neutral-300">
               <span>{t('vpn.routeAllowedIPs')}</span>
               <Tooltip title={on ? t('vpn.routingDisableFirst') : t('vpn.routingHelp')}>
@@ -259,7 +259,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
               </Tooltip>
             </div>
             {p.state !== 'off' && (
-              <div className="text-xs text-neutral-500">
+              <div className="text-xs text-fg-muted">
                 ↓ {formatBytes(p.received)} · ↑ {formatBytes(p.sent)}
                 {p.lastHandshake > 0 && (
                   <>
@@ -278,7 +278,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
           </div>
         );
       })}
-      <p className="text-xs text-neutral-500">{t('vpn.note')}</p>
+      <p className="text-xs text-fg-muted">{t('vpn.note')}</p>
     </div>
   );
 }

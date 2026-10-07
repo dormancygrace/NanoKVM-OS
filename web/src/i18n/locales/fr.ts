@@ -84,17 +84,13 @@ const fr = {
         duplicateResolution: 'Cette résolution existe déjà.',
         width: 'Largeur',
         height: 'Hauteur',
-        apply: 'Calculer et appliquer',
         invalidResolution: "Saisissez une résolution d'origine valide une fois la vidéo prête.",
         select: 'Sélectionner une zone',
-        clear: 'Rétablir la détection automatique',
         saveFailed: "Échec de l'enregistrement de la zone d'entrée.",
         tooSmall: 'La zone sélectionnée est trop petite.',
         previewUnavailable: 'Aperçu indisponible',
-        clearConfirm: 'Rétablir la détection automatique des bordures noires ?',
         dragHint: 'Faites glisser pour sélectionner la zone du bureau distant',
         finish: 'Terminé',
-        confirm: 'Confirmer',
         cancel: 'Annuler'
       },
       auto: 'Automatique',
@@ -227,16 +223,7 @@ const fr = {
         dragDesc:
           'Une fois le maintien actif, déplacez le doigt pour faire glisser avec le bouton gauche enfoncé.'
       },
-      resetHid: 'Réinitialiser le périphérique HID',
-      hidOnly: {
-        title: 'Mode HID uniquement',
-        desc: "Si votre souris et votre clavier ne répondent plus et que la réinitialisation de HID ne vous aide pas, il peut s'agir d'un problème de compatibilité entre le NanoKVM et l'appareil. Essayez d'activer le mode HID-Only pour une meilleure compatibilité.",
-        tip1: "L'activation du mode HID-Only démontera le disque U virtuel et le réseau virtuel",
-        tip2: "En mode HID-Only, le montage d'image est désactivé",
-        tip3: 'NanoKVM redémarrera automatiquement après avoir changé de mode',
-        enable: 'Activer le mode HID uniquement',
-        disable: 'Désactiver le mode HID uniquement'
-      }
+      resetHid: 'Réinitialiser le périphérique HID'
     },
     image: {
       title: 'Images',
@@ -364,22 +351,10 @@ const fr = {
       },
       about: {
         title: 'A propos de NanoKVM',
-        information: 'Informations',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: "Version de l'application",
-        applicationTip: "Version de l'application Web NanoKVM",
         image: "Version de l'image",
-        imageTip: "Version de l'image système NanoKVM",
-        deviceKey: "Clé de l'appareil",
-        community: 'Communauté',
         hostname: "Nom d'hôte",
-        hostnameUpdated: "Nom d'hôte mis à jour. Redémarrez pour appliquer.",
-        ipType: {
-          Wired: 'Filaire',
-          Wireless: 'Sans fil',
-          Other: 'Autre'
-        }
+        hostnameUpdated: "Nom d'hôte mis à jour. Redémarrez pour appliquer."
       },
       appearance: {
         title: 'Apparence',
@@ -392,7 +367,6 @@ const fr = {
           title: 'Barre de menus',
           mode: "Mode d'affichage",
           modeDesc: "Afficher la barre de menu sur l'écran",
-          modeOff: 'Désactivé',
           modeAuto: 'Masquer automatiquement',
           modeAlways: 'Toujours visible',
           keyboardLedStatus: 'Indicateurs de verrouillage du clavier',
@@ -430,17 +404,6 @@ const fr = {
           1800: '30 min',
           3600: '1 heure'
         },
-        ssh: {
-          description: "Activer l'accès à distance SSH",
-          tip: "Définissez un mot de passe fort avant d'activer (Compte - Modifier le mot de passe)"
-        },
-        advanced: 'Paramètres avancés',
-        swap: {
-          title: 'Échange',
-          disable: 'Désactiver',
-          description: "Définir la taille du fichier d'échange",
-          tip: "L'activation de cette fonctionnalité pourrait réduire la durée de vie de votre carte SD!"
-        },
         mouseJiggler: {
           title: 'Souris Jiggler',
           description: "Empêcher l'hôte distant de dormir",
@@ -459,24 +422,6 @@ const fr = {
             "Arrêter la capture HDMI lorsqu'il n'y a aucun spectateur actif pendant",
           minutes: 'min'
         },
-        autostart: {
-          title: 'Paramètres des scripts de démarrage automatique',
-          description: "Gérer les scripts qui s'exécutent automatiquement au démarrage du système",
-          new: 'Nouveau',
-          deleteConfirm: 'Êtes-vous sûr de vouloir supprimer ce fichier ?',
-          yes: 'Oui',
-          no: 'Non',
-          scriptName: 'Nom du script de démarrage automatique',
-          scriptContent: 'Contenu du script de démarrage automatique',
-          settings: 'Paramètres'
-        },
-        hidOnly: 'HID-Mode uniquement',
-        hidOnlyDesc:
-          "Arrêtez d'émuler des périphériques virtuels, en ne conservant que le contrôle de base HID",
-        disk: 'Disque virtuel',
-        diskDesc: "Monter le disque virtuel U sur l'hôte distant",
-        network: 'Réseau virtuel',
-        networkDesc: "Monter la carte réseau virtuelle sur l'hôte distant",
         reboot: 'Redémarrer',
         rebootDesc: 'Êtes-vous sûr de vouloir redémarrer NanoKVM?',
         okBtn: 'Oui',
@@ -520,21 +465,17 @@ const fr = {
           invalid: 'Adresse IP non valide',
           save: 'Enregistrer',
           unsaved: 'Modifications non enregistrées',
-          savedStatic: "L'adresse IP statique {{address}} a été enregistrée.",
-          savedDhcp: 'La configuration DHCP a été enregistrée.',
           saveFailed: "Impossible d'enregistrer la configuration.",
           loadFailed: 'Impossible de charger la configuration.'
         },
         dns: {
           title: 'DNS',
           description: 'Configurer les serveurs DNS pour NanoKVM',
-          mode: 'Mode',
           dhcp: 'DHCP',
           manual: 'Manuel',
           add: 'Ajouter un DNS',
           save: 'Enregistrer',
           invalid: 'Veuillez saisir une adresse IP valide',
-          noDhcp: "Aucun DNS DHCP n'est actuellement disponible",
           saved: 'Paramètres DNS enregistrés',
           saveFailed: "Échec de l'enregistrement des paramètres DNS",
           unsaved: 'Modifications non enregistrées',
@@ -552,14 +493,6 @@ const fr = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Optimisation de la mémoire',
-          tip: "Lorsque l'utilisation de la mémoire dépasse la limite, la collecte des ordures est effectuée plus agressivement pour essayer de libérer de la mémoire. Il est recommandé de définir à 50MB si vous utilisez Tailscale. Un redémarrage de Tailscale est nécessaire pour que le changement prenne effet."
-        },
-        swap: {
-          title: 'Échanger la mémoire',
-          tip: "Si les problèmes persistent après l'activation de l'optimisation de la mémoire, essayez d'activer la mémoire d'échange. Cela définit la taille du fichier d'échange sur 256MB par défaut, qui peut être ajustée dans « Paramètres > Appareil »."
-        },
         restart: 'Êtes-vous sûr de vouloir redémarrer Tailscale ?',
         stop: 'Êtes-vous sûr de vouloir arrêter Tailscale ?',
         stopDesc: 'Arrêtez Tailscale et désactivez son démarrage automatique.',

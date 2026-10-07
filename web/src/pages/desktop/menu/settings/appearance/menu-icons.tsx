@@ -62,9 +62,7 @@ export const MenuIcons = () => {
     <div className="mt-8 flex flex-col space-y-5">
       <div className="flex flex-col">
         <span className="text-neutral-400">{t('settings.appearance.menuBar.icons')}</span>
-        <span className="text-xs text-neutral-500">
-          {t('settings.appearance.menuBar.iconsDesc')}
-        </span>
+        <span className="text-fg-muted text-xs">{t('settings.appearance.menuBar.iconsDesc')}</span>
       </div>
 
       <div className="mt-5 flex flex-col space-y-5">

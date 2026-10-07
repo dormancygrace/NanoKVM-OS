@@ -90,13 +90,14 @@ export const MouseJiggler = () => {
     <div className="flex items-center justify-between">
       <div className="flex flex-col space-y-1">
         <span>{t('settings.device.mouseJiggler.title')}</span>
-        <span className="text-xs text-neutral-500">
+        <span className="text-fg-muted text-xs">
           {t('settings.device.mouseJiggler.description')}
         </span>
       </div>
 
       {enabled ? (
         <Select
+          aria-label={t('settings.device.mouseJiggler.title')}
           style={{ width: 150 }}
           value={mode}
           options={options}
@@ -104,7 +105,12 @@ export const MouseJiggler = () => {
           onChange={updateMode}
         />
       ) : (
-        <Switch checked={enabled} loading={isLoading} onChange={enable} />
+        <Switch
+          aria-label={t('settings.device.mouseJiggler.title')}
+          checked={enabled}
+          loading={isLoading}
+          onChange={enable}
+        />
       )}
     </div>
   );

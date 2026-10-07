@@ -20,12 +20,16 @@ export const KeyboardLedStatusSetting = () => {
         <span className="text-neutral-400">
           {t('settings.appearance.menuBar.keyboardLedStatus')}
         </span>
-        <span className="text-xs text-neutral-500">
+        <span className="text-fg-muted text-xs">
           {t('settings.appearance.menuBar.keyboardLedStatusDesc')}
         </span>
       </div>
 
-      <Switch checked={visible} onChange={update} />
+      <Switch
+        aria-label={t('settings.appearance.menuBar.keyboardLedStatus')}
+        checked={visible}
+        onChange={update}
+      />
     </div>
   );
 };

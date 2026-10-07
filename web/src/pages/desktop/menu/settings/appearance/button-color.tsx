@@ -46,7 +46,7 @@ export const ButtonColor = () => {
     <div className="mt-8 flex flex-col gap-5">
       <div className="flex flex-col gap-1">
         <span>{tr('title')}</span>
-        <span className="text-xs text-neutral-500">{tr('description')}</span>
+        <span className="text-fg-muted text-xs">{tr('description')}</span>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-neutral-700/70 bg-neutral-800/30 p-4">
@@ -65,7 +65,7 @@ export const ButtonColor = () => {
           </div>
           <div className="flex w-full min-w-0 flex-none flex-col gap-1 sm:flex-1 sm:basis-40">
             <span className="text-neutral-200">{tr('accentTitle')}</span>
-            <span className="text-xs text-neutral-500">{tr('accentDescription')}</span>
+            <span className="text-fg-muted text-xs">{tr('accentDescription')}</span>
             <span className="text-xs text-neutral-400">
               {branding.customButtonColor ? tr('customActive') : tr('defaultActive')}
             </span>

@@ -268,7 +268,7 @@ export const Logs = () => {
         <Alert type="warning" showIcon title={t(`${key}.archiveUnavailable`)} />
       )}
       {archiveAvailable && boots.length === 1 && (
-        <p className="mb-0 text-xs text-neutral-500">{t(`${key}.noHistory`)}</p>
+        <p className="text-fg-muted mb-0 text-xs">{t(`${key}.noHistory`)}</p>
       )}
       {error && <Alert type="error" showIcon title={t(`${key}.loadError`)} />}
       {snapshot?.state === 'unavailable' && (
@@ -304,7 +304,7 @@ export const Logs = () => {
         )}
       </pre>
       {snapshot && (
-        <div className="space-y-1 text-xs text-neutral-500">
+        <div className="text-fg-muted space-y-1 text-xs">
           <div>
             {t(`${key}.collected`, {
               time: timestamp(snapshot.collectedAt),

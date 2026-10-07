@@ -82,17 +82,13 @@ const pl = {
         duplicateResolution: 'Ta rozdzielczość już istnieje.',
         width: 'Szerokość',
         height: 'Wysokość',
-        apply: 'Oblicz i zastosuj',
         invalidResolution: 'Po uruchomieniu wideo wprowadź prawidłową oryginalną rozdzielczość.',
         select: 'Zaznacz obszar',
-        clear: 'Przywróć automatyczne wykrywanie',
         saveFailed: 'Nie udało się zapisać obszaru wejściowego.',
         tooSmall: 'Zaznaczony obszar jest zbyt mały.',
         previewUnavailable: 'Podgląd niedostępny',
-        clearConfirm: 'Przywrócić automatyczne wykrywanie czarnych obramowań?',
         dragHint: 'Przeciągnij, aby zaznaczyć obszar pulpitu zdalnego',
         finish: 'Gotowe',
-        confirm: 'Potwierdź',
         cancel: 'Anuluj'
       },
       auto: 'Automatyczny',
@@ -224,16 +220,7 @@ const pl = {
         dragDesc:
           'Gdy przytrzymanie jest aktywne, przesuń palec, aby przeciągać z wciśniętym lewym przyciskiem.'
       },
-      resetHid: 'Zresetuj HID',
-      hidOnly: {
-        title: 'Tryb tylko HID',
-        desc: 'Jeśli mysz i klawiatura przestaną odpowiadać, a resetowanie HID nie pomoże, może to oznaczać problem ze zgodnością między NanoKVM a urządzeniem. Spróbuj włączyć tryb HID-Only, aby uzyskać lepszą kompatybilność.',
-        tip1: 'Włączenie trybu HID-Only spowoduje odmontowanie wirtualnego dysku U i sieci wirtualnej',
-        tip2: 'W trybie HID-Only montowanie obrazu jest wyłączone',
-        tip3: 'NanoKVM automatycznie uruchomi się ponownie po przełączeniu trybów',
-        enable: 'Włącz tryb HID-Only',
-        disable: 'Wyłącz tryb HID-Tylko'
-      }
+      resetHid: 'Zresetuj HID'
     },
     image: {
       title: 'Obrazy',
@@ -361,22 +348,10 @@ const pl = {
       },
       about: {
         title: 'NanoKVM - informacje',
-        information: 'Informacje o systemie',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'Wersja oprogramowania',
-        applicationTip: 'Wersja aplikacji web NanoKVM',
         image: 'Wersja obrazu',
-        imageTip: 'Wersja obrazu systemu NanoKVM',
-        deviceKey: 'Klucz urządzenia',
-        community: 'Społeczność',
         hostname: 'Nazwa hosta',
-        hostnameUpdated: 'Zaktualizowano nazwę hosta. Uruchom ponownie, aby zastosować.',
-        ipType: {
-          Wired: 'Przewodowy',
-          Wireless: 'Bezprzewodowe',
-          Other: 'Inne'
-        }
+        hostnameUpdated: 'Zaktualizowano nazwę hosta. Uruchom ponownie, aby zastosować.'
       },
       appearance: {
         title: 'Wygląd',
@@ -389,7 +364,6 @@ const pl = {
           title: 'Pasek menu',
           mode: 'Tryb wyświetlania',
           modeDesc: 'Wyświetl pasek menu na ekranie',
-          modeOff: 'Wyłączone',
           modeAuto: 'Automatyczne ukrywanie',
           modeAlways: 'Zawsze widoczny',
           keyboardLedStatus: 'Wskaźniki blokad klawiatury',
@@ -427,17 +401,6 @@ const pl = {
           1800: '30 min',
           3600: '1 godzina'
         },
-        ssh: {
-          description: 'Włącz SSH zdalny dostęp',
-          tip: 'Ustaw silne hasło przed włączeniem (Konto - Zmień hasło)'
-        },
-        advanced: 'Ustawienia zaawansowane',
-        swap: {
-          title: 'Zamień',
-          disable: 'Wyłącz',
-          description: 'Ustaw rozmiar pliku wymiany',
-          tip: 'Włączenie tej funkcji może skrócić żywotność karty SD!'
-        },
         mouseJiggler: {
           title: 'Jiggler myszy',
           description: 'Uniemożliwia uśpienie zdalnego hosta',
@@ -455,25 +418,6 @@ const pl = {
           idleTimeoutDescription: 'Zatrzymaj przechwytywanie HDMI po czasie bez aktywnych widzów:',
           minutes: 'min'
         },
-        autostart: {
-          title: 'Ustawienia skryptów autostartu',
-          description:
-            'Zarządzaj skryptami uruchamianymi automatycznie podczas uruchamiania systemu',
-          new: 'Nowy',
-          deleteConfirm: 'Czy na pewno chcesz usunąć ten plik?',
-          yes: 'Tak',
-          no: 'Nie',
-          scriptName: 'Nazwa skryptu autostartu',
-          scriptContent: 'Treść skryptu autostartu',
-          settings: 'Ustawienia'
-        },
-        hidOnly: 'HID – tylko tryb',
-        hidOnlyDesc:
-          'Przestań emulować urządzenia wirtualne, zachowując jedynie podstawową kontrolę HID',
-        disk: 'Dysk wirtualny',
-        diskDesc: 'Mount virtual U-disk on the remote host',
-        network: 'Sieć wirtualna',
-        networkDesc: 'Zamontuj wirtualną kartę sieciową na zdalnym hoście',
         reboot: 'Uruchom ponownie',
         rebootDesc: 'Czy na pewno chcesz ponownie uruchomić NanoKVM?',
         okBtn: 'Tak',
@@ -518,21 +462,17 @@ const pl = {
           invalid: 'Wprowadź poprawny adres IPv4, maskę podsieci i bramę',
           save: 'Zapisz',
           unsaved: 'Niezapisane zmiany',
-          savedStatic: 'Statyczny adres zapisano. Połącz ponownie, używając {{address}}.',
-          savedDhcp: 'Włączono DHCP. Połącz ponownie, używając adresu przydzielonego przez router.',
           saveFailed: 'Nie udało się zapisać ustawień Ethernet',
           loadFailed: 'Nie udało się wczytać ustawień Ethernet'
         },
         dns: {
           title: 'DNS',
           description: 'Skonfiguruj serwery DNS dla NanoKVM',
-          mode: 'Tryb',
           dhcp: 'DHCP',
           manual: 'Ręcznie',
           add: 'Dodaj DNS',
           save: 'Zapisz',
           invalid: 'Wprowadź prawidłowy adres IP',
-          noDhcp: 'Brak obecnie dostępnego DNS z DHCP',
           saved: 'Ustawienia DNS zapisane',
           saveFailed: 'Nie udało się zapisać ustawień DNS',
           unsaved: 'Niezapisane zmiany',
@@ -550,14 +490,6 @@ const pl = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Optymalizacja pamięci',
-          tip: "When memory usage exceeds the limit, garbage collection is performed more aggressively to attempt to free up memory. it's recommended to set to 50MB if using Tailscale. A Tailscale restart is required for the change to take effect."
-        },
-        swap: {
-          title: 'Zamień pamięć',
-          tip: 'Jeśli po włączeniu optymalizacji pamięci problemy nadal występują, spróbuj włączyć pamięć wymiany. Spowoduje to ustawienie domyślnego rozmiaru pliku wymiany na 256MB, który można dostosować w „Ustawienia > Urządzenie”.'
-        },
         restart: 'Are you sure to restart Tailscale?',
         stop: 'Are you sure to stop Tailscale?',
         stopDesc: 'Log out Tailscale and disable its automatic startup on boot.',

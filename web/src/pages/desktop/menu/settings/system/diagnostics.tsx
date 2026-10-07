@@ -158,7 +158,7 @@ const DiagnosticsStatus = () => {
       ) : (
         snapshot && (
           <>
-            <p className="text-xs text-neutral-500">
+            <p className="text-fg-muted text-xs">
               {t('settings.system.diagnostics.collected', {
                 time: formatDeviceTime(snapshot.collectedAt, timePreferences, i18n.language, true)
               })}

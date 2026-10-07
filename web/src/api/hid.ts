@@ -11,22 +11,9 @@ export function reset() {
   return http.post('/api/hid/reset');
 }
 
-// get hid mode
-export function getHidMode() {
-  return http.get('/api/hid/mode');
-}
-
 // get remote keyboard lock LED status
 export function getKeyboardLedStatus() {
   return http.get('/api/hid/leds');
-}
-
-// set hid mode
-export function setHidMode(mode: string) {
-  const data = {
-    mode
-  };
-  return http.post('/api/hid/mode', data);
 }
 
 // get shortcuts

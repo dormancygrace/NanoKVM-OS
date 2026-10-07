@@ -214,17 +214,17 @@ export const Software = () => {
             onChange={(event) => setQuery(event.target.value.toLowerCase())}
             onPressEnter={searchNow}
             placeholder={t('settings.software.searchPlaceholder')}
-            suffix={<Button type="text" size="small" icon={<SearchIcon size={14} />} loading={searching} onClick={searchNow} />}
+            suffix={<Button type="text" size="small" aria-label={t('settings.software.search')} icon={<SearchIcon size={14} />} loading={searching} onClick={searchNow} />}
           />
-          <p className="mt-2 text-xs text-neutral-500">{t('settings.software.searchHint')}</p>
+          <p className="mt-2 text-xs text-fg-muted">{t('settings.software.searchHint')}</p>
           <div className="mt-3 max-h-80 overflow-auto pr-3">
             {results.map((pkg) => (
               <div className="flex items-center justify-between gap-3 border-b border-neutral-800 py-2 text-sm" key={pkg.name}>
-                <span className="min-w-0 truncate">{pkg.name} <span className="text-neutral-500">{pkg.version}</span></span>
+                <span className="min-w-0 truncate">{pkg.name} <span className="text-fg-muted">{pkg.version}</span></span>
                 <Button size="small" type="primary" disabled={working} onClick={() => void run('install', pkg.name)}>{t('settings.software.install')}</Button>
               </div>
             ))}
-            {searchedQuery === query.trim() && !searching && results.length === 0 && <p className="py-2 text-sm text-neutral-500">{t('settings.software.noResults')}</p>}
+            {searchedQuery === query.trim() && !searching && results.length === 0 && <p className="py-2 text-sm text-fg-muted">{t('settings.software.noResults')}</p>}
           </div>
         </section>
       )
@@ -241,7 +241,7 @@ export const Software = () => {
           <div className="max-h-96 overflow-auto pr-3">
             {state?.installed.map((pkg) => (
               <div className="flex items-center justify-between gap-3 border-b border-neutral-800 py-2 text-sm" key={pkg.name}>
-                <span className="min-w-0 truncate">{pkg.name} <span className="text-neutral-500">{pkg.version}</span></span>
+                <span className="min-w-0 truncate">{pkg.name} <span className="text-fg-muted">{pkg.version}</span></span>
                 <Button size="small" danger icon={<Trash2Icon size={14} />} disabled={working || protectedPackages.has(pkg.name)} onClick={() => void previewRemoval(pkg.name)}>{t('settings.software.remove')}</Button>
               </div>
             ))}
@@ -267,10 +267,10 @@ export const Software = () => {
               {updates.map((pkg) => (
                 <div className="flex items-center justify-between gap-3 border-b border-neutral-800 py-2 text-sm" key={pkg.name}>
                   <span className="min-w-0 truncate">{pkg.name}</span>
-                  <span className="shrink-0 text-xs text-neutral-500">{pkg.installed} → {pkg.available}</span>
+                  <span className="shrink-0 text-xs text-fg-muted">{pkg.installed} → {pkg.available}</span>
                 </div>
               ))}
-              {!updatesLoading && updates.length === 0 && <p className="py-2 text-sm text-neutral-500">{t('settings.software.upToDate')}</p>}
+              {!updatesLoading && updates.length === 0 && <p className="py-2 text-sm text-fg-muted">{t('settings.software.upToDate')}</p>}
             </div>
           </div>
           <Popconfirm title={t('settings.software.upgradeConfirm')} onConfirm={() => run('upgrade')} disabled={working || updates.length === 0}>

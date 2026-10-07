@@ -102,7 +102,7 @@ export const Ethernet = () => {
       <div className="flex items-center justify-between">
         <div className="flex flex-col space-y-1">
           <span>{t('settings.network.ethernet.enable')}</span>
-          <span className="text-xs text-neutral-500">
+          <span className="text-fg-muted text-xs">
             {!config.enabled
               ? t('settings.network.ethernet.disabled')
               : !config.adminUp
@@ -133,7 +133,7 @@ export const Ethernet = () => {
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col space-y-1">
           <span>{t('settings.network.ethernet.title')}</span>
-          <span className="text-xs text-neutral-500">
+          <span className="text-fg-muted text-xs">
             {t('settings.network.ethernet.description')}
           </span>
         </div>
@@ -157,7 +157,7 @@ export const Ethernet = () => {
           >
             {t('settings.network.ethernet.vlan')}
           </Checkbox>
-          <div className="text-xs text-neutral-500">
+          <div className="text-fg-muted text-xs">
             {t('settings.network.ethernet.vlanDescription')}
           </div>
         </div>
@@ -182,7 +182,7 @@ export const Ethernet = () => {
           <div className="font-semibold text-neutral-100">
             {t('settings.network.ethernet.ipv4')}
           </div>
-          <div className="mt-0.5 text-xs leading-snug text-neutral-500">
+          <div className="text-fg-muted mt-0.5 text-xs leading-snug">
             {config.mode === 'dhcp'
               ? t('settings.network.ethernet.dhcpDescription')
               : t('settings.network.ethernet.staticDescription')}

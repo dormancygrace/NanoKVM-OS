@@ -65,10 +65,6 @@ export function stopRuntime() {
   return http.post('/api/picoclaw/runtime/stop');
 }
 
-export function getAIControlStatus() {
-  return http.get('/api/ai/control/status');
-}
-
 export function setAIControlMode(mode: 'off' | 'mcp' | 'picoclaw') {
   return http.request({
     method: 'put',

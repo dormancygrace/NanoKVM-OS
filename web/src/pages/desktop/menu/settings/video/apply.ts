@@ -9,17 +9,12 @@ import {
   type VideoDraft
 } from '@/lib/video-model';
 
-import { getQualityMap } from '../../screen/constants';
-
 export type ApplyDeps = {
   applyVideoSettings: typeof applyVideoSettings;
   selectEncoderCodec: typeof selectEncoderCodec;
   updateFrameDetect: typeof updateFrameDetect;
   setEncoderCodec: typeof setEncoderCodec;
-  storage: Pick<
-    typeof storage,
-    'setVideoMode' | 'setDirectPlayback' | 'setResolution' | 'setFps' | 'setGop' | 'setQuality'
-  >;
+  storage: Pick<typeof storage, 'setVideoMode' | 'setDirectPlayback'>;
   reload: () => void;
   clearPlaybackOverrides: () => void;
 };
@@ -84,15 +79,6 @@ export async function applyVideoDraft(
       const rsp = await deps.updateFrameDetect(draft.frameDetect);
       if (rsp.code !== 0) throw new Error(rsp.msg || 'video-settings-failed');
     }
-    const width = caps.stream.limits.find((l) => l.height === draft.height)?.width ?? 0;
-    if (draft.height !== saved.height) deps.storage.setResolution({ width, height: draft.height });
-    if (draft.fps !== saved.fps) deps.storage.setFps(draft.fps);
-    if (draft.gop !== saved.gop) deps.storage.setGop(draft.gop);
-    const value = draft.transport === 'mjpeg' ? draft.quality : draft.bitRate;
-    const index = [...(getQualityMap(storedMode(draft.transport)) ?? [])].find(
-      ([, v]) => v === value
-    )?.[0];
-    if (index !== undefined) deps.storage.setQuality(index);
     if (
       draft.transport !== 'mjpeg' &&
       (draft.codec !== saved.codec || draft.transport !== saved.transport)

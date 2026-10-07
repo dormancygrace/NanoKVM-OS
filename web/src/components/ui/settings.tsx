@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ComponentProps, ReactNode } from 'react';
 import { Button, Divider, Tooltip } from 'antd';
 import clsx from 'clsx';
 import { CircleHelpIcon } from 'lucide-react';
@@ -50,7 +50,7 @@ type SettingRowProps = {
   label: ReactNode;
   description?: ReactNode;
   // Extra explanation behind a help icon, for details most people do not need.
-  help?: ReactNode;
+  help?: string;
   // id of the control. The description gets the id <htmlFor>-description;
   // pass it to the control as aria-describedby.
   htmlFor?: string;
@@ -78,11 +78,7 @@ export const SettingRow = ({
       <div className="min-w-0 space-y-0.5">
         <div className="text-fg flex items-center gap-1.5">
           {htmlFor ? <label htmlFor={htmlFor}>{label}</label> : <span>{label}</span>}
-          {help && (
-            <Tooltip title={help}>
-              <CircleHelpIcon size={14} className="text-fg-muted shrink-0" aria-hidden />
-            </Tooltip>
-          )}
+          {help && <HelpTip title={help} />}
         </div>
         {description && (
           <div id={descriptionId} className="text-fg-muted text-xs">
@@ -94,6 +90,25 @@ export const SettingRow = ({
     </div>
   );
 };
+
+// A help icon for neutral extra information. The tooltip text is also the
+// icon's accessible name, and the tooltip opens on keyboard focus too.
+export const HelpTip = ({ title }: { title: string }) => (
+  <Tooltip
+    title={title}
+    trigger={['hover', 'focus']}
+    placement="right"
+    styles={{ root: { maxWidth: 400 } }}
+  >
+    <button
+      type="button"
+      aria-label={title}
+      className="nanokvm-button-base text-fg-muted inline-flex shrink-0 cursor-help items-center"
+    >
+      <CircleHelpIcon size={14} aria-hidden />
+    </button>
+  </Tooltip>
+);
 
 type PanelProps = {
   className?: string;
@@ -122,34 +137,19 @@ export const StatusBadge = ({ tone, children }: { tone: Tone; children: ReactNod
   </span>
 );
 
-type IconButtonProps = {
+type IconButtonProps = Omit<
+  ComponentProps<typeof Button>,
+  'type' | 'size' | 'icon' | 'children'
+> & {
   // Accessible name and tooltip.
   label: string;
   icon: ReactNode;
-  onClick?: () => void;
-  danger?: boolean;
-  loading?: boolean;
-  disabled?: boolean;
 };
 
-export const IconButton = ({
-  label,
-  icon,
-  onClick,
-  danger,
-  loading,
-  disabled
-}: IconButtonProps) => (
+// The remaining props (including the ref and the event handlers a wrapping
+// Popconfirm or Popover injects) go to the button.
+export const IconButton = ({ label, icon, ...props }: IconButtonProps) => (
   <Tooltip title={label}>
-    <Button
-      type="text"
-      size="small"
-      aria-label={label}
-      icon={icon}
-      danger={danger}
-      loading={loading}
-      disabled={disabled}
-      onClick={onClick}
-    />
+    <Button type="text" size="small" aria-label={label} icon={icon} {...props} />
   </Tooltip>
 );

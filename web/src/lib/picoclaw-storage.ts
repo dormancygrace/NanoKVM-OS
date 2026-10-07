@@ -36,15 +36,6 @@ function removeLocalValue(primaryKey: string, legacyKey: string) {
   localStorage.removeItem(legacyKey);
 }
 
-export function getPicoclawSessionId() {
-  const sessionStore = getSessionStore();
-  return (
-    sessionStore?.getItem(PICOCLAW_SESSION_ID_KEY) ||
-    sessionStore?.getItem(LEGACY_AI_SESSION_ID_KEY) ||
-    getLocalValue(PICOCLAW_SESSION_ID_KEY, LEGACY_AI_SESSION_ID_KEY)
-  );
-}
-
 export function setPicoclawSessionId(sessionId: string) {
   const sessionStore = getSessionStore();
   sessionStore?.setItem(PICOCLAW_SESSION_ID_KEY, sessionId);
@@ -65,11 +56,6 @@ export function getPicoclawMaxSteps() {
   return Math.max(1, Math.min(50, Number.isFinite(parsed) ? parsed : 20));
 }
 
-export function setPicoclawMaxSteps(maxSteps: number) {
-  const value = Math.max(1, Math.min(50, Math.round(maxSteps)));
-  setLocalValue(PICOCLAW_MAX_STEPS_KEY, LEGACY_AI_MAX_STEPS_KEY, String(value));
-}
-
 export function getPicoclawMaxRuntimeMs() {
   const value = getLocalValue(PICOCLAW_MAX_RUNTIME_KEY, LEGACY_AI_MAX_RUNTIME_KEY);
   const parsed = value ? Number(value) : 120000;
@@ -77,11 +63,6 @@ export function getPicoclawMaxRuntimeMs() {
     return 120000;
   }
   return parsed;
-}
-
-export function setPicoclawMaxRuntimeMs(maxRuntimeMs: number) {
-  const value = Math.max(1000, Math.round(maxRuntimeMs));
-  setLocalValue(PICOCLAW_MAX_RUNTIME_KEY, LEGACY_AI_MAX_RUNTIME_KEY, String(value));
 }
 
 export function getPicoclawRuntimeInstallSnapshot(): PicoclawRuntimeInstallSnapshot | null {

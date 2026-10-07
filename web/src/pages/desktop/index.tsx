@@ -193,7 +193,6 @@ export const Desktop = () => {
           rsp.code === 0
             ? { width: rsp.data.width, height: rsp.data.height }
             : { width: 0, height: 0 };
-        storage.setResolution(res);
         setResolution(res);
       })
       .catch(() => {

@@ -169,7 +169,7 @@ export const Users = () => {
               <span className="min-w-0 flex-1 truncate">
                 {user.username}
                 {user.systemAccount && (
-                  <span className="ml-2 text-xs text-neutral-500">
+                  <span className="text-fg-muted ml-2 text-xs">
                     {t('settings.account.users.deviceOwner')}
                   </span>
                 )}
@@ -185,6 +185,7 @@ export const Users = () => {
                 onChange={(role) => updateUser(user, { role })}
               />
               <Switch
+                aria-label={t('settings.account.users.enableUser', { username: user.username })}
                 checked={user.enabled}
                 disabled={isLoading || isProtected}
                 checkedChildren={t('settings.account.users.enabled')}

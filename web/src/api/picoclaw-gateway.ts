@@ -1,11 +1,7 @@
 // Gateway helpers live apart from the REST calls in ./picoclaw.ts so that the
 // gateway client is only bundled with the PicoClaw sidebar, not the desktop page.
 import { http } from '@/lib/http.ts';
-import {
-  picoclawGateway,
-  type GatewayRunState,
-  type GatewayTransportState
-} from '@/lib/picoclaw-gateway.ts';
+import { picoclawGateway } from '@/lib/picoclaw-gateway.ts';
 
 const sessionIDHeader = 'X-PicoClaw-Session-ID';
 
@@ -47,14 +43,6 @@ export async function closeGateway() {
   }
 
   await releaseRuntimeSession(activeSessionId).catch(() => undefined);
-}
-
-export function onGatewayConnectionState(listener: (state: GatewayTransportState) => void) {
-  return picoclawGateway.on('transport_state', listener);
-}
-
-export function onGatewayRunState(listener: (state: GatewayRunState) => void) {
-  return picoclawGateway.on('run_state', listener);
 }
 
 export { picoclawGateway };

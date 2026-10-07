@@ -1,8 +1,8 @@
-# Contents of the six nanokvm-* APK packages (firmware/alpine/packages).
+# Contents of the seven nanokvm-* APK packages (firmware/alpine/packages).
 #
 #   package  type  path  mode  source
 #
-# package: base, app, release, firmware-sg2002, kernel-sg2002, kmod-sg2002
+# package: keys, base, app, release, firmware-sg2002, kernel-sg2002, kmod-sg2002
 # type:    file  one file
 #          tree  every file below a directory, with this mode; directories 0755
 #          dir   a directory with a mode other than 0755
@@ -12,7 +12,11 @@
 #          %name a file that the payloads step writes (build.sh payloads).
 # Parent directories are created with mode 0755.
 
-# nanokvm-base: OpenRC services, compatibility scripts and board tools
+# nanokvm-keys: the public keys that the packages are signed with. With -d the
+# packages step adds the local test key.
+keys  tree  /etc/apk/keys                                 0644  firmware/alpine/keys
+
+# nanokvm-base:OpenRC services, compatibility scripts and board tools
 base  file  /etc/apk/commit_hooks.d/50-nanokvm-apply      0755  firmware/alpine/compat/50-nanokvm-apply
 base  file  /etc/apk/protected_paths.d/nanokvm.list       0644  %protected-paths
 base  file  /etc/chrony.conf                              0644  firmware/buildroot/board/overlay/etc/chrony.conf

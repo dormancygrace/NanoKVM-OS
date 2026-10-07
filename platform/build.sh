@@ -21,8 +21,8 @@
 #   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   verify     compare the outputs with expected.sha256
-#   payloads   contents of the six nanokvm-* packages, from packages.list
-#   packages   signed APK repository of the six packages
+#   payloads   contents of the seven nanokvm-* packages, from packages.list
+#   packages   signed APK repository of the seven packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -31,11 +31,12 @@
 #              to subordinate IDs (see packages)
 #
 # Checked outputs are in OUTPUT/images (default: build/platform/images), the
-# APK repository and the SD card image in OUTPUT/release. The packages and
-# rootfs steps sign with, and make the image trust, the key named by -k (an
-# abuild .rsa private key with its .rsa.pub next to it). For local tests -d
-# uses a test key in OUTPUT/keys instead, created on the first run; such an
-# image trusts that key, so never publish it.
+# APK repository and the SD card image in OUTPUT/release. The packages step
+# signs with the key named by -k (an abuild .rsa private key with its
+# .rsa.pub next to it), which must be one of firmware/alpine/keys:
+# the image trusts those, and nanokvm-keys owns them. For local tests -d uses
+# a test key in OUTPUT/keys instead, created on the first run; such an image
+# also trusts that key, so never publish it.
 set -euo pipefail
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin LC_ALL=C TZ=UTC
 umask 022
@@ -45,7 +46,7 @@ out=${NANOKVM_PLATFORM_OUT:-$repo/build/platform}
 jobs=$(nproc)
 key=
 devkey=
-usage() { sed -n '2,37p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '2,39p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 while getopts o:j:k:dh opt; do
     case $opt in
         o) out=$OPTARG ;; j) jobs=$OPTARG ;; k) key=$(realpath "$OPTARG") ;; d) devkey=1 ;; *) usage ;;
@@ -62,6 +63,12 @@ case " ${steps[*]} " in
     *" packages "* | *" rootfs "*)
         [ -n "$key$devkey" ] || {
             echo "APK signing key required: -k path/to/key.rsa, or -d for a local test key" >&2
+            exit 2
+        }
+        # Devices trust the keys of nanokvm-keys; a release key must be one of them.
+        [ -z "$key" ] || cmp -s "$key.pub" "$repo/firmware/alpine/keys/$(basename "$key" .rsa).rsa.pub" || {
+            echo "$key.pub is not in firmware/alpine/keys under the same name; add it there," >&2
+            echo "and publish it in nanokvm-keys before signing with it (firmware/alpine/README.md)" >&2
             exit 2
         } ;;
 esac
@@ -602,7 +609,7 @@ firmware() {
     cp "$out/firmware/wireless-regdb-2026.09.03/LICENSE" "$f/licenses/wireless-regdb-LICENSE"
 }
 
-# Assemble the six package payloads from packages.list.
+# Assemble the seven package payloads from packages.list.
 payloads() {
     local p=$out/payloads gen pkg type path mode src dest file
     rm -rf "$p"
@@ -792,7 +799,7 @@ signing_key() {
     keyname=$(basename "$keyfile" .rsa)
 }
 
-# Build the six packages with abuild in an Alpine riscv64 tree.
+# Build the seven packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu
@@ -803,6 +810,8 @@ packages() (
     cp "$repo/scripts/build-alpine-packages.sh" "$b/build/src/scripts/"
     cp -r "$repo/firmware/alpine/packages" "$repo/firmware/alpine/release.env" "$b/build/src/firmware/alpine/"
     cp -a "$out/payloads" "$b/build/payloads"
+    # A test image trusts the test key too; nanokvm-keys owns it there.
+    [ -z "$devkey" ] || install -D -m 0644 "$keyfile.pub" "$b/build/payloads/keys/etc/apk/keys/$keyname.rsa.pub"
     trap 'rm -f "$b/root/.abuild/$keyname.rsa"' EXIT
     install -m 0600 "$keyfile" "$b/root/.abuild/$keyname.rsa"
     install -m 0644 "$keyfile.pub" "$b/root/.abuild/$keyname.rsa.pub"
@@ -829,6 +838,8 @@ rootfs() {
     signing_key
     rm -rf "$out/rootfs"
     alpine_tree "$r"
+    # apk must trust the keys before it can install nanokvm-keys; it then takes
+    # over these identical files (/etc/apk is not a protected path).
     install -m 0644 "$keyfile.pub" "$r/etc/apk/keys/$keyname.rsa.pub"
     for pub in "$repo"/firmware/alpine/keys/*.rsa.pub; do install -m 0644 "$pub" "$r/etc/apk/keys/"; done
     printf '%s\n' /mnt/nanokvm-apk/recipes https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
@@ -849,6 +860,14 @@ rootfs() {
     done
     [ -d "$r/lib/modules/$(cat "$r/usr/lib/nanokvm/boot/kernel.release")" ] || {
         echo "rootfs: boot.sd and modules differ" >&2; exit 1; }
+    # Every trusted key belongs to a package (nanokvm-keys, alpine-keys), so
+    # that updates can add and remove keys; this also catches an .apk-new.
+    for pub in "$r"/etc/apk/keys/*; do
+        awk -v name="${pub##*/}" '/^F:/ { dir = substr($0, 3) }
+            /^R:/ && dir == "etc/apk/keys" && substr($0, 3) == name { found = 1 }
+            END { exit !found }' "$r/lib/apk/db/installed" || {
+            echo "rootfs: no package owns /etc/apk/keys/${pub##*/}" >&2; exit 1; }
+    done
     for path in dev proc sys mnt/nanokvm-apk; do
         ! mountpoint -q "$r/$path" || { echo "rootfs: $path is still mounted" >&2; exit 1; }
     done

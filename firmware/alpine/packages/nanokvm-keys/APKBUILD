@@ -1,0 +1,34 @@
+# The public keys that NanoKVM OS packages and indexes are signed with, as
+# alpine-keys holds Alpine's. Owning them lets an update add or remove a key.
+pkgname=nanokvm-keys
+pkgver=${PKGVER:-0.1.0}
+pkgrel=0
+pkgdesc="Public keys for NanoKVM OS packages"
+url="https://github.com/sipeed/NanoKVM"
+arch="noarch"
+license="GPL-3.0-only"
+source="$pkgname-$pkgver.tar.gz"
+options="!check !strip !tracedeps"
+
+build() {
+	:
+}
+
+package() {
+	mkdir -p "$pkgdir"
+	cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
+	# Public keys in /etc/apk/keys and nothing else, never a private key.
+	local f count=0
+	for f in $(cd "$pkgdir" && find . ! -type d | LC_ALL=C sort); do
+		case $f in
+			./etc/apk/keys/*.rsa.pub) ;;
+			*) die "unexpected file $f" ;;
+		esac
+		[ -f "$pkgdir/$f" ] && [ "$(head -n 1 "$pkgdir/$f")" = "-----BEGIN PUBLIC KEY-----" ] &&
+			! grep -q PRIVATE "$pkgdir/$f" || die "$f is not a public key"
+		count=$((count + 1))
+	done
+	[ "$count" -gt 0 ] || die "no keys in the payload"
+}
+
+sha256sums=""

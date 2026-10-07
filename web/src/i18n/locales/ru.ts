@@ -727,6 +727,10 @@ const ru = {
       controlRequired: 'Вводом управляет другая сессия. Сначала возьмите управление.'
     },
     settings: {
+      vpn: {
+        title: 'VPN',
+        description: 'Подключение NanoKVM к частной сети. Выберите VPN, чтобы настроить его.'
+      },
       software: {
         addons: {
           title: 'Дополнения',

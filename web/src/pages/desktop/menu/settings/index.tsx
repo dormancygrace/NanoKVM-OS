@@ -1,4 +1,13 @@
-import { Fragment, lazy, Suspense, useContext, useEffect, useRef, useState } from 'react';
+import {
+  Fragment,
+  lazy,
+  Suspense,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode
+} from 'react';
 import { useAuth } from '@/contexts/auth.ts';
 import { Alert, Button, Divider, Modal, Spin, Tooltip, type TooltipProps } from 'antd';
 import clsx from 'clsx';
@@ -10,6 +19,7 @@ import {
   ClockIcon,
   DownloadIcon,
   EthernetPortIcon,
+  GlobeLockIcon,
   InfoIcon,
   LayoutDashboardIcon,
   MemoryStickIcon,
@@ -35,16 +45,18 @@ import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picocla
 import { rustDeskStatusAtom } from '@/jotai/rustdesk.ts';
 import { settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
-import { Netbird as NetbirdIcon } from '@/components/icons/netbird';
-import { OpenVPNIcon } from '@/components/icons/openvpn';
 import { RustDeskIcon } from '@/components/icons/rustdesk';
-import { Tailscale as TailscaleIcon } from '@/components/icons/tailscale';
-import { WireGuardIcon } from '@/components/icons/wireguard';
 import { MobileMenuItemContext } from '@/components/mobile-menu-context.ts';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 import styles from './sidebar.module.css';
-import { resolveSettingsTab, settingsGroupOf, type SettingsGroup } from './tabs.ts';
+import {
+  resolveSettingsTab,
+  settingsCollectionOf,
+  settingsGroupOf,
+  settingsParentOf,
+  type SettingsGroup
+} from './tabs.ts';
 
 // Keep the navigation light; only the selected settings page is fetched.
 const About = lazy(() => import('./about').then((module) => ({ default: module.About })));
@@ -69,6 +81,7 @@ const Usb = lazy(() => import('./usb').then((module) => ({ default: module.Usb }
 const VideoSettings = lazy(() =>
   import('./video').then((module) => ({ default: module.VideoSettings }))
 );
+const VPNList = lazy(() => import('./vpn/list').then((module) => ({ default: module.VPNList })));
 const WireGuard = lazy(() => import('./vpn').then((module) => ({ default: module.WireGuard })));
 const OpenVPN = lazy(() => import('./vpn/openvpn').then((module) => ({ default: module.OpenVPN })));
 const System = lazy(() => import('./system').then((module) => ({ default: module.System })));
@@ -124,7 +137,8 @@ export const Settings = ({
   const setKeyboardLock = useSetAtom(keyboardLockAtom);
   const setSubmenuOpenCount = useSetAtom(submenuOpenCountAtom);
 
-  const tabs = [
+  // Hidden tabs are collection items: opened from their list, not the menu.
+  const tabs: { id: string; icon?: ReactNode; component: ReactNode; hidden?: boolean }[] = [
     {
       id: 'dashboard',
       icon: <LayoutDashboardIcon size={16} />,
@@ -146,25 +160,26 @@ export const Settings = ({
             icon: <EthernetPortIcon size={16} />,
             component: <EthernetSettings />
           },
+          { id: 'vpn', icon: <GlobeLockIcon size={16} />, component: <VPNList open={changeTab} /> },
           {
-            id: 'network-openvpn',
-            icon: <OpenVPNIcon />,
+            id: 'vpn-wireguard',
+            hidden: true,
+            component: <WireGuard setIsLocked={setIsLocked} />
+          },
+          {
+            id: 'vpn-openvpn',
+            hidden: true,
             component: <OpenVPN setIsLocked={setIsLocked} />
           },
           {
-            id: 'network-tailscale',
-            icon: <TailscaleIcon />,
+            id: 'vpn-tailscale',
+            hidden: true,
             component: <Tailscale setIsLocked={setIsLocked} />
           },
           {
-            id: 'network-netbird',
-            icon: <NetbirdIcon />,
+            id: 'vpn-netbird',
+            hidden: true,
             component: <Netbird setIsLocked={setIsLocked} />
-          },
-          {
-            id: 'network-wireguard',
-            icon: <WireGuardIcon />,
-            component: <WireGuard setIsLocked={setIsLocked} />
           },
           { id: 'system', icon: <ShieldIcon size={16} />, component: null },
           { id: 'system-general', icon: <SettingsIcon size={16} />, component: <System /> },
@@ -366,10 +381,11 @@ export const Settings = ({
     if (id === 'network-general') return t('settings.network.general');
     if (id === 'network-wifi') return t('settings.network.wifi.title');
     if (id === 'network-ethernet') return t('settings.network.ethernet.name');
-    if (id === 'network-openvpn') return 'OpenVPN';
-    if (id === 'network-tailscale') return 'Tailscale';
-    if (id === 'network-netbird') return 'NetBird';
-    if (id === 'network-wireguard') return 'WireGuard';
+    if (id === 'vpn') return t('settings.vpn.title');
+    if (id === 'vpn-openvpn') return 'OpenVPN';
+    if (id === 'vpn-tailscale') return 'Tailscale';
+    if (id === 'vpn-netbird') return 'NetBird';
+    if (id === 'vpn-wireguard') return 'WireGuard';
     if (id === 'system') return t('settings.system.title');
     if (id === 'system-general') return t('settings.system.general');
     if (id === 'system-users') return t('settings.account.title');
@@ -386,11 +402,14 @@ export const Settings = ({
     return t(`settings.${id}.title`);
   }
 
-  // "Group / Page" for pages inside a group.
+  // "Group / Page" for pages inside a group or a collection.
   function pageTitle(id: string) {
-    const group = settingsGroupOf(id);
-    return group ? `${tabTitle(group)} / ${tabTitle(id)}` : tabTitle(id);
+    const parent = settingsParentOf(id);
+    return parent ? `${tabTitle(parent)} / ${tabTitle(id)}` : tabTitle(id);
   }
+
+  // A collection item goes back to its list; other pages to the menu (mobile).
+  const collection = settingsCollectionOf(currentTab);
 
   return (
     <>
@@ -443,7 +462,7 @@ export const Settings = ({
                   aria-label={t('settings.back')}
                   disabled={isLocked}
                   icon={<ArrowLeftIcon size={16} />}
-                  onClick={() => setDetailOpen(false)}
+                  onClick={() => (collection ? changeTab(collection) : setDetailOpen(false))}
                 />
               )}
               <span className="truncate font-medium">
@@ -468,6 +487,7 @@ export const Settings = ({
               .filter(
                 (tab) =>
                   tab.id !== 'about' &&
+                  !tab.hidden &&
                   (() => {
                     const group = settingsGroupOf(tab.id);
                     return !group || expandedGroups.has(group);
@@ -486,7 +506,9 @@ export const Settings = ({
                       type="button"
                       disabled={isLocked}
                       aria-label={label}
-                      aria-current={currentTab === tab.id ? 'page' : undefined}
+                      aria-current={
+                        currentTab === tab.id || collection === tab.id ? 'page' : undefined
+                      }
                       data-child={child || undefined}
                       aria-expanded={expanded}
                       className={clsx(
@@ -558,9 +580,21 @@ export const Settings = ({
                   >
                     {!mobile && currentTab !== 'about' && (
                       <>
-                        <h2 className="text-fg m-0 text-base font-medium">
-                          {pageTitle(currentTab)}
-                        </h2>
+                        <div className="flex items-center gap-2">
+                          {collection && (
+                            <Button
+                              type="text"
+                              size="small"
+                              aria-label={t('settings.back')}
+                              disabled={isLocked}
+                              icon={<ArrowLeftIcon size={16} />}
+                              onClick={() => changeTab(collection)}
+                            />
+                          )}
+                          <h2 className="text-fg m-0 text-base font-medium">
+                            {pageTitle(currentTab)}
+                          </h2>
+                        </div>
                         <Divider className="opacity-50" />
                       </>
                     )}

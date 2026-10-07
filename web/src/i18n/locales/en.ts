@@ -711,6 +711,10 @@ const en = {
       controlRequired: 'Another session controls the input. Take control first.'
     },
     settings: {
+      vpn: {
+        title: 'VPN',
+        description: 'Connect NanoKVM to a private network. Select a VPN to set it up.'
+      },
       software: {
         addons: {
           title: 'Add-ons',

@@ -841,7 +841,7 @@ rootfs() {
     # apk must trust the keys before it can install nanokvm-keys; it then takes
     # over these identical files (/etc/apk is not a protected path).
     install -m 0644 "$keyfile.pub" "$r/etc/apk/keys/$keyname.rsa.pub"
-    for pub in "$repo"/firmware/alpine/keys/*.rsa.pub; do install -m 0644 "$pub" "$r/etc/apk/keys/"; done
+    for pub in "$repo"/firmware/alpine/keys/*.pub; do install -m 0644 "$pub" "$r/etc/apk/keys/"; done
     printf '%s\n' /mnt/nanokvm-apk/recipes https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
         https://dl-cdn.alpinelinux.org/alpine/v3.24/community > "$r/etc/apk/repositories"
     BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache add nanokvm-release

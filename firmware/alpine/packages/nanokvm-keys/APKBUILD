@@ -21,7 +21,7 @@ package() {
 	local f count=0
 	for f in $(cd "$pkgdir" && find . ! -type d | LC_ALL=C sort); do
 		case $f in
-			./etc/apk/keys/*.rsa.pub) ;;
+			./etc/apk/keys/*.pub) ;;
 			*) die "unexpected file $f" ;;
 		esac
 		[ -f "$pkgdir/$f" ] && [ "$(head -n 1 "$pkgdir/$f")" = "-----BEGIN PUBLIC KEY-----" ] &&

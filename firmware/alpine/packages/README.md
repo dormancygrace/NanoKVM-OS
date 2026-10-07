@@ -13,7 +13,7 @@ and invokes `abuild` in dependency order.
 Set `PAYLOAD_ROOT` to a directory containing these subdirectories:
 
 ```
-keys/                    etc/apk/keys/*.rsa.pub (default: firmware/alpine/keys)
+keys/                    etc/apk/keys/*.pub (default: firmware/alpine/keys)
 base/                    files installed below /
 kernel-sg2002/           FIT, DTB and kernel payload below /usr/lib/nanokvm/boot
 kmod-sg2002/             lib/modules/<kernel-release>/

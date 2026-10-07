@@ -104,7 +104,7 @@ make_keys_payload() {
 		return
 	fi
 	mkdir -p "$WORK/keys/etc/apk/keys"
-	cp "$ROOT"/firmware/alpine/keys/*.rsa.pub "$WORK/keys/etc/apk/keys/"
+	cp "$ROOT"/firmware/alpine/keys/*.pub "$WORK/keys/etc/apk/keys/"
 	chmod 0644 "$WORK"/keys/etc/apk/keys/*
 	echo "$WORK/keys"
 }

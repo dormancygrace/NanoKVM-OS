@@ -31,10 +31,18 @@ class StockProfileTests(unittest.TestCase):
         result = subprocess.run(args, capture_output=True, text=True, check=True)
         self.assertIn("profile=stock", result.stdout)
         self.assertNotIn("c906", result.stdout)
+        # NanoKVM repositories are read through their v3 index.
+        self.assertIn("  https://example.test/nanokvm/riscv64/Packages.adb\n", result.stdout)
+        self.assertNotIn("  https://example.test/nanokvm\n", result.stdout)
         result = subprocess.run(args + ["--profile", "c906-scalar"], capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
         result = subprocess.run(args + ["--profile", "c906-scalar", "--tuned-repo", "https://example.test/c906"], capture_output=True, text=True, check=True)
         self.assertIn("profile=c906-scalar", result.stdout)
+        self.assertIn("  https://example.test/c906/riscv64/Packages.adb\n", result.stdout)
+        # An explicit v3 index URL is kept as it is.
+        explicit = [a.replace("https://example.test/nanokvm", "https://example.test/x/Packages.adb") for a in args]
+        result = subprocess.run(explicit, capture_output=True, text=True, check=True)
+        self.assertIn("  https://example.test/x/Packages.adb\n", result.stdout)
         result = subprocess.run(args + ["--runtime-tuned-repo", "https://example.test/c906"], capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
 
@@ -54,7 +62,8 @@ class StockProfileTests(unittest.TestCase):
     def config(self, tuned=False):
         for name in ("base", "boot", "qemu", "scripts/build-alpine-personal-image.sh",
                      "scripts/build-alpine-update-bundle.sh", "scripts/build-alpine-recovery-fit.py",
-                     "firmware/alpine/recovery/init", "repo/riscv64/APKINDEX.tar.gz", "key.pub"):
+                     "firmware/alpine/recovery/init", "repo/riscv64/APKINDEX.tar.gz",
+                     "repo/riscv64/Packages.adb", "key.pub"):
             p = self.root / name
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text("PUBLIC KEY" if name == "key.pub" else "fixture")
@@ -87,12 +96,13 @@ class StockProfileTests(unittest.TestCase):
         handler.server = types.SimpleNamespace(config=config, local_url="http://127.0.0.1:8080")
         self.assertIn("--tuned-repo", handler.build_command("c906-scalar", [], self.root / "output"))
 
-    def migration(self, mode, fail=False, custom=False, fix_fail=False, checksum_hold=False):
+    def migration(self, mode, fail=False, custom=False, fix_fail=False, checksum_hold=False, v3=False):
+        index = "/riscv64/Packages.adb" if v3 else ""
         for name, content in {
             "etc/alpine-release": "3.24.2\n",
             "etc/nanokvm-build-profile": "c906-scalar\n",
             "etc/nanokvm-release": 'VERSION="2.0-b12"\nBUILD_PROFILE="c906-scalar"\n',
-            "etc/apk/repositories": "https://nkos.pesin.pro/repos/c906-qualified\nhttps://nkos.pesin.pro/repos/nanokvm\nhttps://dl-cdn.alpinelinux.org/alpine/v3.24/main\n@edgecommunity https://dl-cdn.alpinelinux.org/alpine/edge/community\n" + ("https://custom.test/c906-scalar\n" if custom else ""),
+            "etc/apk/repositories": f"https://nkos.pesin.pro/repos/c906-qualified{index}\nhttps://nkos.pesin.pro/repos/nanokvm{index}\nhttps://dl-cdn.alpinelinux.org/alpine/v3.24/main\n@edgecommunity https://dl-cdn.alpinelinux.org/alpine/edge/community\n" + ("https://custom.test/c906-scalar\n" if custom else ""),
             "etc/apk/world": "busybox\nnanokvm-kernel-sg2002" + ("><Q1test=\n" if checksum_hold else "=held-version\n") + "htop\n",
             "lib/apk/db/installed": "P:busybox\nV:1-r1\no:busybox\n\nP:libcrypto3\nV:3-r1\no:openssl\n\nP:htop\nV:3-r0\no:htop\n\nP:nanokvm-kernel-sg2002\nV:2-r0\no:nanokvm-kernel-sg2002\n\n",
         }.items():
@@ -131,6 +141,13 @@ class StockProfileTests(unittest.TestCase):
         self.assertNotIn("c906", repos)
         self.assertIn("/repos/nanokvm", repos)
         self.assertIn("@edgecommunity", repos)
+
+    def test_migration_removes_v3_c906_line(self):
+        result = self.migration("--apply", v3=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        repos = (self.root / "etc/apk/repositories").read_text()
+        self.assertNotIn("c906", repos)
+        self.assertIn("https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb\n", repos)
 
     def test_simulate_leaves_profile_and_repositories_unchanged(self):
         result = self.migration("--simulate")

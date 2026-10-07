@@ -133,8 +133,9 @@ class BuilderConfig:
             ("nanokvm_repo", self.nanokvm_repo),
             ("tuned_repo", self.tuned_repo),
         ):
-            if path is not None and not (path / "riscv64/APKINDEX.tar.gz").is_file():
-                raise SystemExit(f"missing {label} APKINDEX: {path}")
+            # Images read the v3 index (build-alpine-personal-image.sh).
+            if path is not None and not (path / "riscv64/Packages.adb").is_file():
+                raise SystemExit(f"missing {label} Packages.adb: {path}")
         if not self.repo_keys:
             raise SystemExit("repo_keys must contain at least one public key")
         for key in self.repo_keys:
@@ -161,8 +162,8 @@ class BuilderConfig:
             "packages": packages,
             "base_sha256": self.base_sha256,
             "boot_sha256": self.boot_sha256,
-            "nanokvm_index_sha256": sha256(self.nanokvm_repo / "riscv64/APKINDEX.tar.gz"),
-            "tuned_index_sha256": sha256(self.tuned_repo / "riscv64/APKINDEX.tar.gz") if profile == "c906-scalar" else None,
+            "nanokvm_index_sha256": sha256(self.nanokvm_repo / "riscv64/Packages.adb"),
+            "tuned_index_sha256": sha256(self.tuned_repo / "riscv64/Packages.adb") if profile == "c906-scalar" else None,
             "alpine_main_index_sha256": repository_index_sha256(self.alpine_main),
             "alpine_community_index_sha256": repository_index_sha256(self.alpine_community),
             "builder_sha256": sha256(self.builder),

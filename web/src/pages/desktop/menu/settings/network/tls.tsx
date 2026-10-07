@@ -35,7 +35,11 @@ export const Tls = () => {
       content: t('settings.network.tls.confirmRestart'),
       danger: true
     });
-    if (!confirmed) return;
+    if (!confirmed) {
+      // The switch shows loading while the dialog is open; clear it on cancel.
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const rsp = await api.setTLS(enable);

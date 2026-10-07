@@ -9,11 +9,14 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"NanoKVM-Server/internal/toolcache"
 )
 
 const (
@@ -192,7 +195,7 @@ func (c *Cli) Status() (*NbStatus, error) {
 }
 
 func (c *Cli) ServiceRunning() (bool, error) {
-	if !isInstalled() {
+	if !isInstalled() || !openrcMayRun("netbird") {
 		return false, nil
 	}
 	cmd := exec.Command("rc-service", "netbird", "status")
@@ -217,8 +220,28 @@ func parseStatus(output string) (*NbStatus, error) {
 	return &status, nil
 }
 
+var openrcStartedDir = "/run/openrc/started"
+
+// openrcMayRun is false for a service without its started link: rc-service
+// status exits non-zero for it, so it need not run (about 0.45 s on the
+// device). rc-service still decides for a started service, which may have
+// crashed, and whenever OpenRC state is not visible.
+func openrcMayRun(service string) bool {
+	if _, err := os.Lstat(openrcStartedDir); err != nil {
+		return true
+	}
+	_, err := os.Lstat(filepath.Join(openrcStartedDir, service))
+	return !errors.Is(err, os.ErrNotExist)
+}
+
+// Stopped NetBird reports this version on every status poll; it only
+// changes when the program is replaced.
+var versions = toolcache.New(func(path string, args ...string) (string, error) {
+	return runProgramOutput(5*time.Second, path, args...)
+}, time.Minute)
+
 func installedVersion() string {
-	output, _ := runProgramOutput(5*time.Second, NetbirdPath, "version")
+	output, _ := versions.Output(NetbirdPath, "version")
 	return versionRE.FindString(output)
 }
 

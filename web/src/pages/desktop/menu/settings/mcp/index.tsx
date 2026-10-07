@@ -1,7 +1,6 @@
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Alert, Button, message, Modal, Switch } from 'antd';
+import { Alert, message, Modal, Switch } from 'antd';
 import { useSetAtom } from 'jotai';
 import { CheckIcon, CopyIcon, EyeIcon, EyeOffIcon, RefreshCcwIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +8,10 @@ import { useTranslation } from 'react-i18next';
 import * as api from '@/api/mcp.ts';
 import type { MCPConfig } from '@/api/mcp.ts';
 import { getBaseUrl } from '@/lib/service.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { aiControlStatusAtom, normalizeAIControlStatus } from '@/jotai/ai-control.ts';
+import { IconButton, Panel, SettingRow } from '@/components/ui/settings.tsx';
 
 function maskKey(key: string) {
   if (!key) return '-';
@@ -69,6 +71,7 @@ export const MCP = () => {
     transitioning: false
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [isKeyVisible, setIsKeyVisible] = useState(false);
   const [isEndpointCopied, setIsEndpointCopied] = useState(false);
   const [isKeyCopied, setIsKeyCopied] = useState(false);
@@ -109,22 +112,23 @@ export const MCP = () => {
         .getMCPConfig()
         .then((rsp) => {
           if (rsp.code !== 0) {
-            if (!silent) message.error(t('settings.mcp.failed'));
+            if (!silent) setLoadFailed(true);
             return;
           }
           if (silent && actionVersion !== actionVersionRef.current) return;
+          setLoadFailed(false);
           syncConfig(rsp.data);
           if (!rsp.data.enabled) setIsKeyVisible(false);
         })
         .catch(() => {
-          if (!silent) message.error(t('settings.mcp.failed'));
+          if (!silent) setLoadFailed(true);
         })
         .finally(() => {
           if (silent) silentRefreshRef.current = false;
           else updateLoading(false);
         });
     },
-    [syncConfig, t, updateLoading]
+    [syncConfig, updateLoading]
   );
 
   useEffect(() => {
@@ -147,7 +151,7 @@ export const MCP = () => {
         syncConfig(rsp.data);
         if (!enabled) setIsKeyVisible(false);
       })
-      .catch(() => message.error(t('settings.mcp.failed')))
+      .catch((err) => showRequestError(err, 'settings.mcp.failed'))
       .finally(() => updateLoading(false));
   }
 
@@ -159,9 +163,7 @@ export const MCP = () => {
 
     modal.confirm({
       title: t('settings.mcp.enableConfirmTitle'),
-      content: (
-        <span className="text-sm text-neutral-400">{t('settings.mcp.enableConfirmDesc')}</span>
-      ),
+      content: <span className="text-fg-muted text-sm">{t('settings.mcp.enableConfirmDesc')}</span>,
       okText: t('settings.mcp.okBtn'),
       cancelText: t('settings.mcp.cancelBtn'),
       onOk: () => updateEnabled(true)
@@ -189,7 +191,7 @@ export const MCP = () => {
     modal.confirm({
       title: t('settings.mcp.regenerateConfirmTitle'),
       content: (
-        <span className="text-sm text-neutral-400">{t('settings.mcp.regenerateConfirmDesc')}</span>
+        <span className="text-fg-muted text-sm">{t('settings.mcp.regenerateConfirmDesc')}</span>
       ),
       okText: t('settings.mcp.okBtn'),
       cancelText: t('settings.mcp.cancelBtn'),
@@ -204,8 +206,8 @@ export const MCP = () => {
           }
           syncConfig(rsp.data);
           setIsKeyVisible(false);
-        } catch {
-          message.error(t('settings.mcp.failed'));
+        } catch (err) {
+          showRequestError(err, 'settings.mcp.failed');
         } finally {
           updateLoading(false);
         }
@@ -217,26 +219,29 @@ export const MCP = () => {
     <>
       {contextHolder}
 
-      <div className="flex flex-col space-y-6">
+      <div className="space-y-6">
+        {loadFailed && <Alert type="error" showIcon message={t('settings.mcp.failed')} />}
         <Alert type="warning" showIcon message={t('settings.mcp.securityWarning')} />
 
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col space-y-1 pr-4">
-            <span className="text-sm font-medium">{t('settings.mcp.service')}</span>
-            <span className="text-xs text-fg-muted">{t('settings.mcp.serviceDesc')}</span>
-          </div>
+        <SettingRow
+          label={t('settings.mcp.service')}
+          description={t('settings.mcp.serviceDesc')}
+          htmlFor="mcp-service"
+        >
           <Switch
+            id="mcp-service"
             aria-label={t('settings.mcp.service')}
+            aria-describedby="mcp-service-description"
             checked={config.enabled}
             loading={isLoading || config.transitioning}
             disabled={config.transitioning}
             onChange={(enabled) => setEnabled(enabled)}
           />
-        </div>
+        </SettingRow>
 
         {config.enabled && (
           <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="flex flex-col overflow-hidden rounded-xl border border-neutral-700/50 bg-neutral-800/40 shadow-sm">
+            <Panel flush className="divide-line divide-y overflow-hidden">
               <CredentialRow
                 label={t('settings.mcp.endpoint')}
                 value={endpoint}
@@ -244,7 +249,6 @@ export const MCP = () => {
                 copied={isEndpointCopied}
                 onCopy={() => copyText(endpoint, 'endpoint')}
               />
-              <div className="border-t border-neutral-800" />
               <CredentialRow
                 label={t('settings.mcp.apiKey')}
                 value={displayKey}
@@ -254,22 +258,16 @@ export const MCP = () => {
                 disabled={!config.apiKey}
                 actions={
                   <>
-                    <Button
-                      type="text"
-                      size="small"
-                      aria-label={t(isKeyVisible ? 'settings.mcp.hideKey' : 'settings.mcp.showKey')}
-                      title={t(isKeyVisible ? 'settings.mcp.hideKey' : 'settings.mcp.showKey')}
-                      className="text-neutral-400 hover:text-white"
+                    <IconButton
+                      label={t(isKeyVisible ? 'settings.mcp.hideKey' : 'settings.mcp.showKey')}
+                      className="text-fg-muted hover:text-fg"
                       icon={isKeyVisible ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
                       disabled={!config.apiKey}
                       onClick={() => setIsKeyVisible((visible) => !visible)}
                     />
-                    <Button
-                      type="text"
-                      size="small"
-                      aria-label={t('settings.mcp.regenerateKey')}
-                      title={t('settings.mcp.regenerateKey')}
-                      className="text-neutral-400 hover:text-white"
+                    <IconButton
+                      label={t('settings.mcp.regenerateKey')}
+                      className="text-fg-muted hover:text-fg"
                       loading={isLoading}
                       icon={<RefreshCcwIcon size={14} />}
                       onClick={regenerateKey}
@@ -277,7 +275,7 @@ export const MCP = () => {
                   </>
                 }
               />
-            </div>
+            </Panel>
           </div>
         )}
       </div>
@@ -304,23 +302,16 @@ const CredentialRow = ({
   disabled = false,
   actions
 }: CredentialRowProps) => (
-  <div className="group flex flex-col space-y-2 px-4 py-3.5 transition-colors hover:bg-neutral-800/40 sm:flex-row sm:items-center sm:justify-between">
-    <span className="w-24 shrink-0 text-sm font-medium text-neutral-400">{label}</span>
+  <div className="group hover:bg-surface-raised flex flex-col gap-2 px-4 py-3 transition-colors sm:flex-row sm:items-center sm:justify-between">
+    <span className="text-fg-muted w-24 shrink-0 text-sm font-medium">{label}</span>
     <div className="flex min-w-0 items-center justify-between gap-2">
-      <span className="min-w-0 flex-1 select-all truncate font-mono text-sm text-neutral-300">
-        {value}
-      </span>
+      <span className="text-fg min-w-0 flex-1 truncate font-mono text-sm select-all">{value}</span>
       <div className="flex shrink-0 items-center space-x-1 opacity-40 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 sm:ml-4">
         {actions}
-        <Button
-          type="text"
-          size="small"
-          aria-label={copyLabel}
-          title={copyLabel}
-          className="text-neutral-400 hover:text-white"
-          icon={
-            copied ? <CheckIcon size={14} className="text-green-500" /> : <CopyIcon size={14} />
-          }
+        <IconButton
+          label={copyLabel}
+          className="text-fg-muted hover:text-fg"
+          icon={copied ? <CheckIcon size={14} className="text-success" /> : <CopyIcon size={14} />}
           disabled={disabled}
           onClick={onCopy}
         />

@@ -168,7 +168,7 @@ export const Logs = () => {
 
   return (
     <div className="min-w-0 space-y-4">
-      <p className="mb-0 text-sm text-neutral-400">{t(`${key}.description`)}</p>
+      <p className="text-fg-muted mb-0 text-sm">{t(`${key}.description`)}</p>
       <div className="flex flex-wrap items-center gap-3">
         <Select
           className="min-w-0 flex-1"
@@ -219,7 +219,7 @@ export const Logs = () => {
           onPressEnter={(event) => moveMatch(event.shiftKey ? -1 : 1)}
           allowClear
         />
-        <span className="min-w-12 text-center text-xs text-neutral-400">
+        <span className="text-fg-muted min-w-12 text-center text-xs">
           {view.matches.length ? selectedMatch + 1 : 0} / {view.matches.length}
         </span>
         <Button
@@ -279,7 +279,7 @@ export const Logs = () => {
         tabIndex={0}
         aria-label={t(`${key}.title`)}
         aria-busy={loading}
-        className="m-0 h-80 w-full max-w-full min-w-0 overflow-auto rounded-lg border border-neutral-700/60 bg-neutral-950/60 p-3 font-mono text-xs leading-5 whitespace-pre text-neutral-200 focus-visible:outline-2 focus-visible:outline-blue-400"
+        className="border-line text-fg m-0 h-80 w-full max-w-full min-w-0 overflow-auto rounded-lg border bg-black/30 p-3 font-mono text-xs leading-5 whitespace-pre focus-visible:outline-2 focus-visible:outline-blue-400"
       >
         {view.lines.length ? (
           activeRow === undefined ? (
@@ -287,9 +287,7 @@ export const Logs = () => {
           ) : (
             <>
               {activeRow > 0 ? view.lines.slice(0, activeRow).join('\n') + '\n' : ''}
-              <mark className="rounded bg-amber-300/25 text-amber-100">
-                {view.lines[activeRow]}
-              </mark>
+              <mark className="bg-warning/25 text-fg rounded">{view.lines[activeRow]}</mark>
               {activeRow < view.lines.length - 1
                 ? '\n' + view.lines.slice(activeRow + 1).join('\n')
                 : ''}
@@ -314,7 +312,7 @@ export const Logs = () => {
           {snapshot.truncated && <div>{t(`${key}.truncated`)}</div>}
         </div>
       )}
-      <p className="mb-0 text-xs text-neutral-400">{t(`${key}.privacy`)}</p>
+      <p className="text-fg-muted mb-0 text-xs">{t(`${key}.privacy`)}</p>
     </div>
   );
 };

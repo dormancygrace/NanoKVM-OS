@@ -17,6 +17,7 @@ import type { MemoryStatus } from '@/api/vm';
 import { formatDeviceTime, type DateTimeConfig } from '@/lib/date-time';
 import { getEncoderCodec } from '@/lib/encoder';
 import { http } from '@/lib/http';
+import { themeTokens } from '@/lib/theme-tokens';
 import { formatVersion } from '@/lib/version';
 import {
   captureReadyAtom,
@@ -28,6 +29,7 @@ import { HandshakeAge } from '@/components/handshake-age';
 import { OpenVPNIcon } from '@/components/icons/openvpn';
 import { Tailscale as TailscaleIcon } from '@/components/icons/tailscale';
 import { WireGuardIcon } from '@/components/icons/wireguard';
+import { Panel, StatusBadge } from '@/components/ui/settings.tsx';
 
 type CPU = { total: number; idle: number };
 type Disk = {
@@ -235,12 +237,12 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   const state = (key: string) => t(`dashboard.states.${key}`, { defaultValue: key });
   const line = (label: string, value: ReactNode) => (
     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-1 py-1 sm:flex sm:flex-wrap sm:justify-between">
-      <dt className="min-w-0 wrap-break-word text-neutral-400">{label}</dt>
-      <dd className="min-w-0 text-right wrap-break-word text-neutral-200">{value ?? '—'}</dd>
+      <dt className="text-fg-muted min-w-0 wrap-break-word">{label}</dt>
+      <dd className="text-fg min-w-0 text-right wrap-break-word">{value ?? '—'}</dd>
     </div>
   );
   const section = (title: string, children: ReactNode, tab?: string) => (
-    <section className="min-w-0 rounded-xl border border-neutral-700/60 bg-neutral-800/30 p-4">
+    <Panel className="min-w-0">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="font-medium">{title}</h3>
         {tab && (
@@ -254,7 +256,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
         )}
       </div>
       {children}
-    </section>
+    </Panel>
   );
   const metric = (
     title: string,
@@ -263,8 +265,8 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
     detail?: string,
     fill?: number
   ) => (
-    <div className="min-w-0 rounded-xl border border-neutral-700/60 bg-neutral-800/40 p-3">
-      <div className="mb-2 flex items-center gap-2 text-xs text-neutral-400">
+    <Panel className="min-w-0">
+      <div className="text-fg-muted mb-2 flex items-center gap-2 text-xs">
         {icon}
         {title}
       </div>
@@ -275,11 +277,11 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           percent={fill}
           showInfo={false}
           size="small"
-          strokeColor="#38bdf8"
+          strokeColor={themeTokens.info}
           railColor="#404040"
         />
       )}
-    </div>
+    </Panel>
   );
   const vpnProfiles = (kind: 'openvpn' | 'wireguard', name: string) => {
     const profiles = extra[kind]?.profiles;
@@ -287,7 +289,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
       <div>
         <button
           type="button"
-          className="inline-flex items-center gap-2 border-0! bg-transparent! !p-0 text-sm font-medium text-neutral-200 hover:text-blue-400"
+          className="text-fg hover:text-info inline-flex items-center gap-2 border-0! bg-transparent! !p-0 text-sm font-medium"
           onClick={() => navigate(`vpn-${kind}`)}
         >
           {kind === 'openvpn' ? <OpenVPNIcon /> : <WireGuardIcon />}
@@ -305,16 +307,12 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
               <div key={profile.id} className="mt-2 text-xs">
                 <div className="flex justify-between gap-2">
                   <span className="break-all">{profile.name}</span>
-                  <span
-                    className={
-                      profile.state === 'connected' ? 'text-green-500' : 'text-neutral-400'
-                    }
-                  >
+                  <StatusBadge tone={profile.state === 'connected' ? 'success' : 'neutral'}>
                     {state(profile.state)}
-                  </span>
+                  </StatusBadge>
                 </div>
                 {profile.address && (
-                  <div className="mt-1 break-all text-neutral-400">{profile.address}</div>
+                  <div className="text-fg-muted mt-1 break-all">{profile.address}</div>
                 )}
                 {!!(profile.mtu || iface?.mtu) && (
                   <div className="text-fg-muted mt-1">MTU {profile.mtu || iface?.mtu}</div>
@@ -501,7 +499,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                     <span className="text-fg-muted text-xs">{item.path}</span>
                   </span>
                   {item.readOnly && (
-                    <span className="text-xs text-amber-300">{t('dashboard.readOnly')}</span>
+                    <StatusBadge tone="warning">{t('dashboard.readOnly')}</StatusBadge>
                   )}
                 </div>
                 {item.available ? (
@@ -510,10 +508,10 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                       size="small"
                       percent={percent(item.used, item.total)}
                       showInfo={false}
-                      strokeColor="#38bdf8"
+                      strokeColor={themeTokens.info}
                       railColor="#404040"
                     />
-                    <div className="text-xs text-neutral-400">
+                    <div className="text-fg-muted text-xs">
                       {t('dashboard.diskSpace', {
                         free: bytes(item.free),
                         total: bytes(item.total)
@@ -557,12 +555,14 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                       ? wireguardNames.get(iface.name) || 'WireGuard'
                       : iface.name}
                   </span>
-                  <span
-                    className={`ml-auto text-xs ${iface.up && iface.connected ? 'text-green-500' : 'text-fg-muted'}`}
-                  >
-                    {t(
-                      iface.up && iface.connected ? 'dashboard.connected' : 'dashboard.disconnected'
-                    )}
+                  <span className="ml-auto">
+                    <StatusBadge tone={iface.up && iface.connected ? 'success' : 'neutral'}>
+                      {t(
+                        iface.up && iface.connected
+                          ? 'dashboard.connected'
+                          : 'dashboard.disconnected'
+                      )}
+                    </StatusBadge>
                   </span>
                 </div>
                 {iface.kind === 'wireguard' && (
@@ -571,9 +571,9 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                   </div>
                 )}
                 {iface.wireless && iface.connected && extra.wifi?.connected && (
-                  <p className="mb-1 break-all text-neutral-300">{extra.wifi.ssid}</p>
+                  <p className="text-fg mb-1 break-all">{extra.wifi.ssid}</p>
                 )}
-                <div className={iface.connected ? 'text-neutral-300' : 'text-neutral-500'}>
+                <div className={iface.connected ? 'text-fg' : 'text-fg-muted'}>
                   {iface.addresses.map((addr) => (
                     <div key={addr} className="break-all">
                       {addr}
@@ -601,13 +601,13 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
               <div>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 border-0! bg-transparent! !p-0 text-sm font-medium text-neutral-200 hover:text-blue-400"
+                  className="text-fg hover:text-info inline-flex items-center gap-2 border-0! bg-transparent! !p-0 text-sm font-medium"
                   onClick={() => navigate('vpn-tailscale')}
                 >
                   <TailscaleIcon />
                   Tailscale
                 </button>
-                <div className="mt-1 text-xs text-neutral-400">
+                <div className="text-fg-muted mt-1 text-xs">
                   {extra.tailscale ? state(extra.tailscale.state) : '—'}
                   {extra.tailscale?.ip ? ` · ${extra.tailscale.ip}` : ''}
                 </div>

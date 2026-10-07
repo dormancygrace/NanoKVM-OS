@@ -6,7 +6,9 @@ import { useTranslation } from 'react-i18next';
 
 import { downloadDiagnosticsReport, getDiagnostics } from '@/api/vm';
 import { formatDeviceTime } from '@/lib/date-time.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
 import { timePreferencesAtom } from '@/hooks/useDeviceTime.ts';
+import { Panel, StatusBadge } from '@/components/ui/settings.tsx';
 
 import { Logs } from './logs';
 
@@ -78,7 +80,6 @@ const DiagnosticsStatus = () => {
 
   const download = async () => {
     setDownloading(true);
-    setError(undefined);
     try {
       const response = (await downloadDiagnosticsReport()) as unknown as Blob;
       const url = URL.createObjectURL(new Blob([response], { type: 'application/json' }));
@@ -87,8 +88,8 @@ const DiagnosticsStatus = () => {
       link.download = 'nanokvm-diagnostics.json';
       link.click();
       URL.revokeObjectURL(url);
-    } catch {
-      setError(t('settings.system.diagnostics.downloadError'));
+    } catch (err) {
+      showRequestError(err, 'settings.system.diagnostics.downloadError');
     } finally {
       setDownloading(false);
     }
@@ -97,37 +98,33 @@ const DiagnosticsStatus = () => {
   const state = (item?: Item) => {
     const key = item?.state || 'unavailable';
     return (
-      <span
-        className={
-          key === 'error'
-            ? 'text-red-300'
-            : key === 'running' || key === 'ok'
-              ? 'text-emerald-300'
-              : 'text-amber-200'
+      <StatusBadge
+        tone={
+          key === 'error' ? 'danger' : key === 'running' || key === 'ok' ? 'success' : 'warning'
         }
       >
         {t(`settings.system.diagnostics.states.${key}`, { defaultValue: key })}
-      </span>
+      </StatusBadge>
     );
   };
   const line = (label: string, value?: string | null) => (
     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 py-1 text-sm">
-      <span className="min-w-0 text-neutral-400">{label}</span>
+      <span className="text-fg-muted min-w-0">{label}</span>
       <span className="min-w-0 text-right break-words">{dash(value)}</span>
     </div>
   );
   const card = (title: string, children: React.ReactNode) => (
-    <section className="rounded-xl border border-neutral-700/60 bg-neutral-800/30 p-4">
+    <Panel className="min-w-0">
       <h3 className="mb-2 font-medium">{title}</h3>
       {children}
-    </section>
+    </Panel>
   );
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="mb-0 text-sm text-neutral-400">
+          <p className="text-fg-muted mb-0 text-sm">
             {t('settings.system.diagnostics.description')}
           </p>
         </div>
@@ -178,13 +175,11 @@ const DiagnosticsStatus = () => {
                   <div className="pt-1 text-sm">
                     {t('settings.system.diagnostics.modules')}: {state(snapshot.versions.modules)}
                   </div>
-                  <p className="mb-0 text-xs text-neutral-400">
-                    {snapshot.versions.modules.detail}
-                  </p>
+                  <p className="text-fg-muted mb-0 text-xs">{snapshot.versions.modules.detail}</p>
                   <div className="pt-2 text-sm">
                     {t('settings.system.diagnostics.boot')}: {state(snapshot.versions.boot)}
                   </div>
-                  <p className="mb-0 text-xs text-neutral-400">{snapshot.versions.boot.detail}</p>
+                  <p className="text-fg-muted mb-0 text-xs">{snapshot.versions.boot.detail}</p>
                   {snapshot.versions.packages.map((pkg) =>
                     line(
                       pkg.name,
@@ -219,7 +214,7 @@ const DiagnosticsStatus = () => {
                   <div className="text-sm">
                     {t('settings.system.diagnostics.binding')}: {state(snapshot.usb.binding)}
                   </div>
-                  <p className="mb-2 text-xs text-neutral-400">{snapshot.usb.binding.detail}</p>
+                  <p className="text-fg-muted mb-2 text-xs">{snapshot.usb.binding.detail}</p>
                   {line(
                     t('settings.system.diagnostics.selected'),
                     snapshot.usb.selected.join(', ')
@@ -230,9 +225,9 @@ const DiagnosticsStatus = () => {
                 t('settings.system.diagnostics.firewall'),
                 <>
                   <div className="text-sm">{state({ state: snapshot.firewall.state })}</div>
-                  <p className="text-xs text-neutral-400">{snapshot.firewall.detail}</p>
+                  <p className="text-fg-muted text-xs">{snapshot.firewall.detail}</p>
                   {snapshot.firewall.hookChains.map((chain) => (
-                    <div key={chain.label} className="border-t border-neutral-700/60 py-1 text-xs">
+                    <div key={chain.label} className="border-line border-t py-1 text-xs">
                       {chain.label}: {chain.hook}
                       {chain.policy ? ` (${chain.policy})` : ''}
                     </div>
@@ -242,12 +237,9 @@ const DiagnosticsStatus = () => {
             </div>
             {card(
               t('settings.system.diagnostics.services'),
-              <div className="space-y-2">
+              <div className="divide-line divide-y">
                 {snapshot.services.map((service) => (
-                  <div
-                    key={service.name}
-                    className="border-b border-neutral-700/60 pb-2 last:border-0"
-                  >
+                  <div key={service.name} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex justify-between gap-3 text-sm">
                       <span>
                         {service.name}
@@ -255,7 +247,7 @@ const DiagnosticsStatus = () => {
                       </span>
                       {state(service)}
                     </div>
-                    <p className="mb-0 text-xs text-neutral-400">{service.detail}</p>
+                    <p className="text-fg-muted mb-0 text-xs">{service.detail}</p>
                   </div>
                 ))}
               </div>
@@ -275,7 +267,7 @@ const DiagnosticsStatus = () => {
                   })}
                 </div>
                 {snapshot.apk.errorCategory && (
-                  <p className="mb-1 text-xs text-neutral-400">
+                  <p className="text-fg-muted mb-1 text-xs">
                     {t('settings.system.diagnostics.operationFailed')}
                   </p>
                 )}
@@ -291,7 +283,7 @@ const DiagnosticsStatus = () => {
 export const Diagnostics = () => {
   const { t } = useTranslation();
   return (
-    <div className="min-w-0 space-y-2">
+    <div className="min-w-0 space-y-6">
       <Tabs
         defaultActiveKey="status"
         destroyOnHidden

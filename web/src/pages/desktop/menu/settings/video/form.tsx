@@ -137,10 +137,10 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
 
   const row = (label: string, control: React.ReactNode, note?: React.ReactNode) => (
     <div className="grid items-start gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(200px,1.2fr)]">
-      <span className="pt-1 text-sm text-neutral-300">{label}</span>
+      <span className="text-fg pt-1 text-sm">{label}</span>
       <div className="flex flex-col gap-1">
         {control}
-        {note && <span className="text-xs leading-relaxed text-neutral-400">{note}</span>}
+        {note && <span className="text-fg-muted text-xs leading-relaxed">{note}</span>}
       </div>
     </div>
   );
@@ -205,7 +205,7 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
         />
       )}
       {!admin && (
-        <p className="text-xs leading-relaxed text-neutral-400">{t('videoSettings.userHint')}</p>
+        <p className="text-fg-muted text-xs leading-relaxed">{t('videoSettings.userHint')}</p>
       )}
 
       <Collapse
@@ -244,7 +244,7 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                         : undefined
                       : t('videoSettings.monitorUnavailable')
                   )}
-                  <p className="text-xs leading-relaxed text-neutral-400">
+                  <p className="text-fg-muted text-xs leading-relaxed">
                     {t(
                       caps.monitor.requiresPowerCycle
                         ? 'videoSettings.cubeMonitorHint'
@@ -398,7 +398,7 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                         })
                       : undefined
                   )}
-                  <p className="text-xs leading-relaxed text-neutral-400">
+                  <p className="text-fg-muted text-xs leading-relaxed">
                     {t('videoSettings.streamHint')}
                   </p>
                 </section>
@@ -495,9 +495,9 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
         ]}
       />
 
-      <div className="sticky bottom-0 z-10 space-y-2 border-t border-neutral-700 bg-neutral-900 py-3">
+      <div className="border-line sticky bottom-0 z-10 space-y-2 border-t bg-neutral-900 py-3">
         {dirty && (changes.monitorRewrite || changes.reconnect) && (
-          <ul className="space-y-1 text-xs text-amber-300" role="status">
+          <ul className="text-warning space-y-1 text-xs" role="status">
             {changes.monitorRewrite && (
               <li>
                 {t('videoSettings.changeMonitor', {
@@ -526,7 +526,7 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
           >
             {t('videoSettings.discard')}
           </Button>
-          <span className="text-xs text-neutral-400" role="status">
+          <span className="text-fg-muted text-xs" role="status">
             {dirty ? (valid ? t('videoSettings.pending') : t('videoSettings.invalid')) : ''}
           </span>
         </div>

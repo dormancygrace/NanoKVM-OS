@@ -16,7 +16,7 @@ export const Community = () => {
     }
   ];
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-wrap gap-x-6 gap-y-3">
         {links.map((link) => (
           <a
@@ -24,20 +24,20 @@ export const Community = () => {
             href={link.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm !text-blue-400 hover:!text-blue-300"
+            className="!text-info hover:!text-info/80 inline-flex items-center gap-2 text-sm"
           >
             {link.icon}
             {link.label}
           </a>
         ))}
       </div>
-      <div className="space-y-2 border-t border-neutral-800 pt-5 text-sm leading-relaxed text-neutral-400">
+      <div className="border-line text-fg-muted space-y-2 border-t pt-5 text-sm leading-relaxed">
         <p>{t('settings.about.upstreamCredit')}</p>
         <a
           href="https://github.com/sipeed/NanoKVM"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-block !text-neutral-300 underline decoration-neutral-600 underline-offset-4 hover:!text-white"
+          className="!text-fg decoration-line inline-block underline underline-offset-4 hover:!text-white"
         >
           Sipeed NanoKVM
         </a>

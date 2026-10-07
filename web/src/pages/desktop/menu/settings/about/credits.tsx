@@ -76,23 +76,21 @@ export const Credits = () => {
               alt="NanoKVM OS"
               className="mx-auto block size-20"
             />
-            <h2 className="mt-5 text-center text-2xl font-semibold text-neutral-100">NanoKVM OS</h2>
-            <p className="mt-2 text-center text-sm text-neutral-400">{tr('madePossibleBy')}</p>
+            <h2 className="text-fg mt-5 text-center text-2xl font-semibold">NanoKVM OS</h2>
+            <p className="text-fg-muted mt-2 text-center text-sm">{tr('madePossibleBy')}</p>
 
             <div className="mt-14 space-y-12">
               {entries.map((entry) => (
                 <section key={entry.name} className="space-y-2 text-center">
-                  <h3 className="text-lg font-medium text-neutral-100">{entry.name}</h3>
-                  <p className="mx-auto max-w-md text-sm leading-relaxed text-neutral-400">
+                  <h3 className="text-fg text-lg font-medium">{entry.name}</h3>
+                  <p className="text-fg-muted mx-auto max-w-md text-sm leading-relaxed">
                     {entry.contribution}
                   </p>
                 </section>
               ))}
             </div>
 
-            <p className="mt-16 text-center text-base font-medium text-neutral-200">
-              {tr('closing')}
-            </p>
+            <p className="text-fg mt-16 text-center text-base font-medium">{tr('closing')}</p>
           </div>
         </div>
       </Modal>

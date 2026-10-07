@@ -32,8 +32,8 @@
 #
 # Checked outputs are in OUTPUT/images (default: build/platform/images), the
 # APK repository and the SD card image in OUTPUT/release. The packages step
-# signs with the key named by -k (an abuild .rsa private key with its
-# .rsa.pub next to it), which must be one of firmware/alpine/keys:
+# signs (RSA256) with the key named by -k (an abuild .rsa private key with
+# its .rsa.pub next to it), which must be one of firmware/alpine/keys:
 # the image trusts those, and nanokvm-keys owns them. For local tests -d uses
 # a test key in OUTPUT/keys instead, created on the first run; such an image
 # also trusts that key, so never publish it.

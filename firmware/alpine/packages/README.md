@@ -76,7 +76,8 @@ The helper copies each recipe to a temporary build directory and runs
 `abuild checksum` there before `abuild -r`. This keeps checksums out of the
 working tree while retaining normal APKBUILD checksum verification. The final
 repository check requires a valid `APKINDEX.tar.gz` and one APK per recipe;
-package and index signing are performed by the configured abuild key.
+package and index signing are performed by the configured abuild key, with
+RSA256 signatures (RSA with SHA-256) instead of abuild's default RSA with SHA-1.
 
 The kernel APK stages all board FITs and their hashes below
 `/usr/lib/nanokvm/boot` and has an exact dependency on the matching module APK.

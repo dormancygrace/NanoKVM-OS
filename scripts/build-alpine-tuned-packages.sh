@@ -138,6 +138,16 @@ if [ ! -e "$KEYS_DIR/${key_name}.pub" ]; then
 	fi
 fi
 
+# abuild signs packages and its index with abuild-sign and no type, which
+# means RSA: RSA with SHA-1. A wrapper first in PATH asks for RSA256, RSA with
+# SHA-256. apk mkndx signs Packages.adb with SHA-512 by itself.
+real_abuild_sign=$(command -v abuild-sign) || die "required command is missing: abuild-sign"
+mkdir -p "$WORK_DIR/bin"
+printf '#!/bin/sh\nexec %s -t RSA256 "$@"\n' "$real_abuild_sign" > "$WORK_DIR/bin/abuild-sign"
+chmod 0755 "$WORK_DIR/bin/abuild-sign"
+PATH=$WORK_DIR/bin:$PATH
+export PATH
+
 if [ "$FINALIZE_ONLY" -eq 0 ]; then
 	rm -rf "$WORK_DIR/ports"
 	mkdir -p "$WORK_DIR/ports"
@@ -234,6 +244,10 @@ for file in "$OUTPUT_DIR/riscv64"/*.apk; do
 done
 
 # Verify both signatures before handing the repository to the image builder.
+for file in "$OUTPUT_DIR/riscv64"/*.apk "$OUTPUT_DIR/riscv64/APKINDEX.tar.gz"; do
+	tar -tzf "$file" | grep -qE '(^|/)\.SIGN\.RSA256\.' ||
+		die "no RSA256 signature in $file"
+done
 for file in "$OUTPUT_DIR/riscv64"/*.apk; do
 	apk --keys-dir "$KEYS_DIR" verify "$file" >/dev/null
 done

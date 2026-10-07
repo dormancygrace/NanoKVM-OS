@@ -74,7 +74,9 @@ subprocess.run([go, 'build', '-trimpath', '-buildvcs=false', '-ldflags=-linkmode
 info = subprocess.check_output([go, 'version', '-m', str(out/'NanoKVM-Server')], env=env, text=True)
 symbols = subprocess.check_output([go, 'tool', 'nm', str(out/'NanoKVM-Server')], env=env, text=True)
 custom_runtime_present = all(name in {line.split()[-1] for line in symbols.splitlines() if line.split()}
-                             for name in ('runtime.nanokvmSysmonInit', 'runtime.nanokvmThreadInit'))
+                             for name in ('runtime.nanokvmSysmonInit', 'runtime.nanokvmThreadInit',
+                                          # Data word read by the inlined sysmon sleep hook.
+                                          'runtime.nanokvmSysmonMinDelay'))
 if custom_runtime_expected and not custom_runtime_present:
     raise SystemExit('Requested NanoKVM runtime hooks are missing from the built server')
 (out/'build-info.txt').write_text(info)

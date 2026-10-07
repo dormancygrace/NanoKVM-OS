@@ -31,6 +31,13 @@ text = original.decode()
 anchor = 'func sysmon() {\n'
 assert text.count(anchor) == 1
 text = text.replace(anchor, anchor + '\tnanokvmSysmonInit()\n')
+# The sleep hook leaves sysmon's delay/idle backoff state untouched.
+sleep = ('\t\tif delay > 10*1000 { // up to 10ms\n'
+         '\t\t\tdelay = 10 * 1000\n'
+         '\t\t}\n'
+         '\t\tusleep(delay)\n')
+assert text.count(sleep) == 1 and text.count('usleep(delay)') == 1
+text = text.replace(sleep, sleep.replace('usleep(delay)', 'usleep(nanokvmSysmonDelay(delay))'))
 pos = text.index('\tminit()\n', text.index('func mstart1() {')) + len('\tminit()\n')
 text = text[:pos] + '\tnanokvmThreadInit()\n' + text[pos:]
 (out / 'src/runtime/proc.go').write_text(text)

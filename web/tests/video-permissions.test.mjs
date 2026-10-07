@@ -105,7 +105,6 @@ function applier() {
     storage: {
       setVideoMode: (value) => calls.local.push(['mode', value]),
       setDirectPlayback: (value) => calls.local.push(['playback', value]),
-      setFrameDetect: () => assert.fail('viewer must not persist frame detection'),
       setResolution: () => {},
       setFps: () => {},
       setGop: () => {},

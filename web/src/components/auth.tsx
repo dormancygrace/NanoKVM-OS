@@ -4,7 +4,7 @@ import { Spin } from 'antd';
 import { Navigate, useLocation } from 'react-router-dom';
 
 import { Account, getAccount } from '@/api/auth.ts';
-import { AUTH_EXPIRED_EVENT } from '@/lib/auth-events.ts';
+import { AUTH_EXPIRED_EVENT, PASSWORD_CHANGE_REQUIRED_EVENT } from '@/lib/auth-events.ts';
 
 export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
@@ -41,11 +41,16 @@ export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
       setIsAuthenticated(false);
       setIsLoading(false);
     };
+    const handlePasswordChangeRequired = () => {
+      setAccount((current) => current && { ...current, mustChangePassword: true });
+    };
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    window.addEventListener(PASSWORD_CHANGE_REQUIRED_EVENT, handlePasswordChangeRequired);
 
     return () => {
       active = false;
       window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+      window.removeEventListener(PASSWORD_CHANGE_REQUIRED_EVENT, handlePasswordChangeRequired);
     };
   }, []);
 

@@ -7,7 +7,6 @@ const WEB_RESOLUTION_KEY = 'nano-kvm-web-resolution';
 const FPS_KEY = 'nano-kvm-fps';
 const QUALITY_KEY = 'nano-kvm-quality';
 const GOP_KEY = 'nano-kvm-gop';
-const FRAME_DETECT_KEY = 'nano-kvm-frame-detect';
 const MOUSE_STYLE_KEY = 'nano-kvm-mouse-style';
 const MOUSE_MODE_KEY = 'nano-kvm-mouse-mode';
 const INPUT_ADAPTER_KEY = 'nano-kvm-input-adapter';
@@ -15,44 +14,11 @@ const MOUSE_SCROLL_DIRECTION_KEY = 'nano-kvm-mouse-scroll-direction';
 const MOUSE_SCROLL_INTERVAL_KEY = 'nano-kvm-mouse-scroll-interval';
 const KEYBOARD_SYSTEM_KEY = 'nano-kvm-keyboard-system';
 const KEYBOARD_LANGUAGE_KEY = 'nano-kvm-keyboard-language';
-const SKIP_MODIFY_PASSWORD_KEY = 'nano-kvm-skip-modify-password';
 const MENU_DISABLED_ITEMS_KEY = 'nano-kvm-menu-disabled-items';
 const MENU_AUTO_HIDE_KEY = 'nano-kvm-menu-auto-hide';
 const MOBILE_MENU_PLACEMENT_KEY = 'nano-kvm-mobile-menu-placement';
 const KEYBOARD_LED_STATUS_VISIBLE_KEY = 'nano-kvm-keyboard-led-status-visible';
 const POWER_CONFIRM_KEY = 'nano-kvm-power-confirm';
-
-type ItemWithExpiry = {
-  value: string;
-  expiry: number;
-};
-
-// set the value with expiration time (unit: milliseconds)
-function setWithExpiry(key: string, value: string, ttl: number) {
-  const now = new Date();
-
-  const item: ItemWithExpiry = {
-    value: value,
-    expiry: now.getTime() + ttl
-  };
-
-  localStorage.setItem(key, JSON.stringify(item));
-}
-
-// get the value with expiration time
-function getWithExpiry(key: string) {
-  const itemStr = localStorage.getItem(key);
-  if (!itemStr) return null;
-
-  const item: ItemWithExpiry = JSON.parse(itemStr);
-  const now = new Date();
-  if (now.getTime() > item.expiry) {
-    localStorage.removeItem(key);
-    return null;
-  }
-
-  return item.value;
-}
 
 export function getLanguage() {
   return localStorage.getItem(LANGUAGE_KEY);
@@ -123,15 +89,6 @@ export function setGop(gop: number) {
   localStorage.setItem(GOP_KEY, String(gop));
 }
 
-export function getFrameDetect(): boolean {
-  const enabled = localStorage.getItem(FRAME_DETECT_KEY);
-  return enabled === 'true';
-}
-
-export function setFrameDetect(enabled: boolean) {
-  localStorage.setItem(FRAME_DETECT_KEY, String(enabled));
-}
-
 export function getMouseStyle() {
   return localStorage.getItem(MOUSE_STYLE_KEY);
 }
@@ -191,16 +148,6 @@ export function setKeyboardLanguage(language: string) {
 
 export function getKeyboardLanguage() {
   return localStorage.getItem(KEYBOARD_LANGUAGE_KEY);
-}
-
-export function setSkipModifyPassword(skip: boolean) {
-  const expiry = 3 * 24 * 60 * 60 * 1000; // 3 days
-  setWithExpiry(SKIP_MODIFY_PASSWORD_KEY, String(skip), expiry);
-}
-
-export function getSkipModifyPassword() {
-  const skip = getWithExpiry(SKIP_MODIFY_PASSWORD_KEY);
-  return skip === 'true';
 }
 
 export function setMenuDisabledItems(items: string[]) {

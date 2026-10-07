@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth.ts';
 import { LockOutlined } from '@ant-design/icons';
-import { Button, Card, Form, Input } from 'antd';
+import { Button, Card, Form, Input, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,12 +13,15 @@ import { Head } from '@/components/head.tsx';
 // This code is specific to POST /api/auth/password. The backend uses it when
 // the authenticated user cannot verify their current password.
 const invalidCurrentPasswordCode = -3;
+// POST /api/auth/password: the new password was rejected; msg says why.
+const invalidNewPasswordCode = -5;
 
 export const Password = () => {
   const { t } = useTranslation();
   const [msg, setMsg] = useState('');
   const navigate = useNavigate();
   const { account } = useAuth();
+  const forced = account.mustChangePassword === true;
 
   useEffect(() => {
     if (msg) {
@@ -41,11 +44,15 @@ export const Password = () => {
           setMsg(
             rsp.code === invalidCurrentPasswordCode
               ? t('auth.invalidCurrentPassword')
-              : t('auth.error')
+              : rsp.code === invalidNewPasswordCode && rsp.msg
+                ? rsp.msg
+                : t('auth.error')
           );
           return;
         }
 
+        // The server ended every session of this user; sign in again.
+        void message.success(t('auth.passwordChanged'));
         notifyAuthExpired();
         navigate('/auth/login', { replace: true });
       })
@@ -55,15 +62,23 @@ export const Password = () => {
   }
 
   function cancel() {
-    // The device stays locked to this page until the factory password changes.
-    if (account.mustChangePassword) {
-      void api.logout().finally(() => {
-        notifyAuthExpired();
-        navigate('/auth/login', { replace: true });
-      });
+    // The device stays locked to this page until the factory password changes,
+    // so cancelling a forced change logs out (the button says so).
+    if (forced) {
+      void api
+        .logout()
+        .catch(() => {
+          /* The session is dropped locally either way. */
+        })
+        .finally(() => {
+          notifyAuthExpired();
+          navigate('/auth/login', { replace: true });
+        });
       return;
     }
-    window.location.replace('/');
+    // Return to the previous page without reloading the application.
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+    else navigate('/', { replace: true });
   }
 
   return (
@@ -72,12 +87,13 @@ export const Password = () => {
 
       <div className="flex h-screen w-screen flex-col items-center justify-center space-y-5">
         <h2 className="text-xl font-semibold text-neutral-100">{t('auth.changePassword')}</h2>
+        {forced && (
+          <p className="max-w-[450px] text-center text-neutral-300">
+            {t('auth.changePasswordDesc')}
+          </p>
+        )}
 
-        <Form
-          style={{ minWidth: 300, maxWidth: 500 }}
-          initialValues={{ remember: true }}
-          onFinish={changePassword}
-        >
+        <Form style={{ minWidth: 300, maxWidth: 500 }} onFinish={changePassword}>
           <Form.Item
             name="currentPassword"
             rules={[{ required: true, message: t('auth.noEmptyPassword') }]}
@@ -127,7 +143,7 @@ export const Password = () => {
                 {t('auth.ok')}
               </Button>
               <Button className="w-1/2" onClick={cancel}>
-                {t('auth.cancel')}
+                {forced ? t('auth.cancelAndLogout') : t('auth.cancel')}
               </Button>
             </div>
           </Form.Item>

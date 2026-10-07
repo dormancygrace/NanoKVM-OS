@@ -73,11 +73,7 @@ export const Login = (): ReactElement => {
       <Head title={t('head.login')} />
 
       <div className="flex h-screen w-screen flex-col items-center justify-center">
-        <Form
-          style={{ minWidth: 300, maxWidth: 500 }}
-          initialValues={{ remember: true }}
-          onFinish={login}
-        >
+        <Form style={{ minWidth: 300, maxWidth: 500 }} onFinish={login}>
           <div className="flex flex-col items-center justify-center pb-4">
             <img
               id="logo"

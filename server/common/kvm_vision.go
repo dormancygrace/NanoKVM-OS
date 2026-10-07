@@ -63,6 +63,7 @@ func GetKvmVision() *KvmVision {
 		if C.set_mjpeg_chroma(C.uint8_t(boolToInt(GetScreen().MjpegChroma == 422))) != 0 {
 			log.Error("failed to select saved MJPEG chroma")
 		}
+		C.set_frame_detact(C.uint8_t(FrameDetectFrames(FrameDetectEnabled())))
 		log.Debugf("kvm vision initialized")
 	})
 

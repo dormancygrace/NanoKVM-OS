@@ -63,6 +63,7 @@ func (s *Service) GetScreen(c *gin.Context) {
 		"videoOutputWidth":  common.ReadVideoValue("/run/nanokvm/video_width"),
 		"videoOutputHeight": common.ReadVideoValue("/run/nanokvm/video_height"),
 		"measuredFps":       common.ReadVideoValue("/run/nanokvm/now_fps"),
+		"frameDetect":       common.FrameDetectEnabled(),
 		"effectiveFps":      common.GetCaptureScreen().FPS})
 }
 

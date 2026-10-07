@@ -4,6 +4,7 @@ import { CircleStopIcon, EllipsisIcon, LoaderIcon, RotateCwIcon } from 'lucide-r
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/extensions/tailscale.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
 
 import { VPNVersion } from '../vpn/version';
 import type { State } from './types.ts';
@@ -25,20 +26,32 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
     if (loading !== '') return;
     setLoading('restarting');
 
-    api.restart().finally(() => {
-      setLoading('');
-      onSuccess();
-    });
+    api
+      .restart()
+      .then((rsp) => {
+        if (rsp.code !== 0) showRequestError(rsp);
+      })
+      .catch((err) => showRequestError(err))
+      .finally(() => {
+        setLoading('');
+        onSuccess();
+      });
   }
 
   function stop() {
     if (loading !== '') return;
     setLoading('stopping');
 
-    api.stop().finally(() => {
-      setLoading('');
-      onSuccess();
-    });
+    api
+      .stop()
+      .then((rsp) => {
+        if (rsp.code !== 0) showRequestError(rsp);
+      })
+      .catch((err) => showRequestError(err))
+      .finally(() => {
+        setLoading('');
+        onSuccess();
+      });
   }
 
   return (

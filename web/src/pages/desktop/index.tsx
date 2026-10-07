@@ -26,6 +26,7 @@ import {
   videoModeAtom
 } from '@/jotai/screen.ts';
 import { usbInputAtom } from '@/jotai/usb-input.ts';
+import { useDeviceTime } from '@/hooks/useDeviceTime.ts';
 import { Head } from '@/components/head.tsx';
 
 import { CaptureStatusOverlay, useCaptureStatus } from './capture-status';
@@ -34,7 +35,7 @@ import { ControlNotice } from './control.tsx';
 import { Keyboard } from './keyboard';
 import { Menu } from './menu';
 import { Mouse } from './mouse';
-import { H264ModeNotification, Notification } from './notification.tsx';
+import { H264ModeNotification } from './notification.tsx';
 import { ActionOverlay } from './picoclaw/action-overlay.tsx';
 import { Screen } from './screen';
 import { AutoRegion } from './screen/auto-region.tsx';
@@ -94,6 +95,8 @@ export const Desktop = () => {
     if (!usbInput.keyboard) setKeyboardOpen(false);
   }, [usbInput.keyboard, setKeyboardOpen]);
   const { t } = useTranslation();
+  // Load the device time format once for every displayed device time.
+  useDeviceTime();
   const isBigScreen = useMediaQuery({ minWidth: 850 });
   const [activeVideoMode] = useState(getVideoMode);
   const [encoderReady, setEncoderReady] = useState(false);
@@ -324,7 +327,6 @@ export const Desktop = () => {
     <div className="h-dvh w-full overflow-hidden bg-neutral-950">
       <Head title={t('head.desktop')} />
 
-      {isBigScreen && <Notification />}
       <H264ModeNotification />
       <ControlNotice />
 

@@ -20,6 +20,7 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
   const [isHddActive, setIsHddActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(localstorage.getPowerConfirm);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     let disposed = false;
@@ -41,14 +42,16 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
       }
     }
 
+    // The toolbar only shows the power glow and HDD LED; poll quickly only
+    // while the popover is open and the user is acting on power controls.
     void refreshLeds();
-    const stopPolling = pollWhileVisible(refreshLeds, 200);
+    const stopPolling = pollWhileVisible(refreshLeds, isOpen ? 300 : 3000);
 
     return () => {
       disposed = true;
       stopPolling();
     };
-  }, []);
+  }, [isOpen]);
 
   function updateShowConfirm(value: boolean) {
     setShowConfirm(value);
@@ -100,7 +103,7 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
 
   return (
     <div className={clsx('flex shrink-0 items-center', vertical && 'flex-col')}>
-      <MenuItem title={t('power.title')} icon={icon} content={content} />
+      <MenuItem title={t('power.title')} icon={icon} content={content} onOpenChange={setIsOpen} />
       <Tooltip title="HDD LED" placement="bottom" mouseEnterDelay={0.6}>
         <div
           role="img"

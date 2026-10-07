@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import { setMouseJiggler } from '@/api/vm.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
 
 export const MouseJiggler = () => {
   const { t } = useTranslation();
@@ -29,13 +30,14 @@ export const MouseJiggler = () => {
       .getMouseJiggler()
       .then((rsp) => {
         if (rsp.code !== 0) {
-          console.log(rsp.msg);
+          showRequestError(rsp);
           return;
         }
 
         setEnabled(rsp.data.enabled);
         setMode(rsp.data.mode);
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         setIsLoading(false);
       });
@@ -49,12 +51,13 @@ export const MouseJiggler = () => {
       .setMouseJiggler(true, mode)
       .then((rsp) => {
         if (rsp.code !== 0) {
-          console.log(rsp.msg);
+          showRequestError(rsp);
           return;
         }
 
         setEnabled(true);
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         setIsLoading(false);
       });
@@ -70,13 +73,14 @@ export const MouseJiggler = () => {
     setMouseJiggler(_enabled, _mode)
       .then((rsp) => {
         if (rsp.code !== 0) {
-          console.log(rsp.msg);
+          showRequestError(rsp);
           return;
         }
 
         setEnabled(_enabled);
         setMode(_mode);
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         setIsLoading(false);
       });

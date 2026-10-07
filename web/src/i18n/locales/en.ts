@@ -356,6 +356,8 @@ const en = {
       invalidCurrentPassword: 'Current password is incorrect',
       changePassword: 'Change Password',
       changePasswordDesc: 'For the security of your device, please change the password!',
+      passwordChanged: 'Password changed. Sign in with the new password.',
+      cancelAndLogout: 'Cancel and log out',
       differentPassword: 'Passwords do not match',
       illegalUsername: 'Username contains illegal characters',
       illegalPassword: 'Password contains illegal characters',
@@ -369,7 +371,7 @@ const en = {
         reset2: 'For detailed steps, please consult this document:',
         reset3: 'Web default account:',
         reset4: 'SSH default account:',
-        change1: 'Please note that this action will change the following passwords:',
+        change1: 'For the built-in admin account, this action changes the following passwords:',
         change2: 'Web login password',
         change3: 'System root password (SSH login password)',
         change4: 'To reset the passwords, press and hold the BOOT button on the NanoKVM.'
@@ -380,6 +382,8 @@ const en = {
       description: 'Configure Wi-Fi for NanoKVM',
       success: 'Please go to the device to check the network status of NanoKVM.',
       failed: 'Operation failed, please try again.',
+      pending:
+        'Connecting to the network. The NanoKVM hotspot may disconnect; check the network status on the device.',
       invalidMode:
         'The current mode does not support network setup. Please go to your device and enable Wi-Fi configuration mode.',
       confirmBtn: 'Ok',
@@ -647,6 +651,7 @@ const en = {
       usbSerial: 'USB serial console',
       usbSpeed: 'Virtual USB serial — baud rate does not limit transfer speed.',
       invalidParameters: 'Invalid serial parameters.',
+      disconnected: 'Connection closed. Press Enter to reconnect.',
       serial: 'Serial Port Terminal',
       serialPort: 'Serial Port',
       serialPortPlaceholder: 'Please enter the serial port',
@@ -1696,7 +1701,8 @@ const en = {
     },
     error: {
       title: "We've ran into an issue",
-      refresh: 'Refresh'
+      refresh: 'Refresh',
+      requestFailed: 'The request failed. Check the connection and try again.'
     },
     fullscreen: {
       toggle: 'Toggle Fullscreen'

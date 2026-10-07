@@ -34,10 +34,6 @@ export function changePassword(currentPassword: string, password: string) {
   return http.post('/api/auth/password', { currentPassword, password });
 }
 
-export function isPasswordUpdated() {
-  return http.get('/api/auth/password');
-}
-
 export function getUsers() {
   return http.get('/api/auth/users');
 }

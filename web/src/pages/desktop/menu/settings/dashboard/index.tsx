@@ -397,7 +397,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             {line(t('dashboard.kernel'), sys?.kernel)}
             {line(t('dashboard.load'), sys?.load?.join(' / '))}
           </dl>,
-          admin ? 'device-general' : undefined
+          admin ? 'device' : undefined
         )}
         {section(
           t('videoSettings.title'),
@@ -581,7 +581,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
               </div>
             )) ?? '—'}
         </div>,
-        admin ? 'network' : undefined
+        admin ? 'network-general' : undefined
       )}
       <div className="grid gap-4 md:grid-cols-2">
         {admin &&
@@ -627,7 +627,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             {line(t('dashboard.timeService'), extra.time?.daemon)}
             {line(t('dashboard.ntpServers'), extra.time?.config.servers.join(', '))}
           </dl>,
-          admin ? 'date-time' : undefined
+          admin ? 'system-date-time' : undefined
         )}
       </div>
     </div>

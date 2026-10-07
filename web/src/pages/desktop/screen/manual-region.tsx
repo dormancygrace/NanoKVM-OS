@@ -10,7 +10,7 @@ import {
   selectedOriginalResolutionAtom
 } from '@/jotai/screen.ts';
 
-import { getCenteredInputRegionByAspectRatio, getMediaSize } from './geometry.ts';
+import { getCenteredInputRegionByAspectRatio, getMediaSize, isSameGeometry } from './geometry.ts';
 
 export const ManualRegion = () => {
   const mode = useAtomValue(controlRegionModeAtom);
@@ -45,9 +45,9 @@ export const ManualRegion = () => {
       const target = document.getElementById('screen');
       if (!target) return;
       const mediaSize = getMediaSize(target, resolution);
-      setInputRegion(
-        mediaSize ? getCenteredInputRegionByAspectRatio(width, height, mediaSize) : null
-      );
+      const next = mediaSize ? getCenteredInputRegionByAspectRatio(width, height, mediaSize) : null;
+      // Polled every 250 ms: publish only real changes, or the desktop re-renders.
+      setInputRegion((current) => (isSameGeometry(current, next) ? current : next));
     };
     update();
     const timer = window.setInterval(update, 250);

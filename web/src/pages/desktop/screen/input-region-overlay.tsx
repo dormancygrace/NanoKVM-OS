@@ -19,7 +19,13 @@ import {
   videoScaleAtom
 } from '@/jotai/screen.ts';
 
-import { getMediaSize, getRenderedMediaRect, MediaSize, RenderedMediaRect } from './geometry.ts';
+import {
+  getMediaSize,
+  getRenderedMediaRect,
+  isSameGeometry,
+  MediaSize,
+  RenderedMediaRect
+} from './geometry.ts';
 
 type SelectionRect = {
   left: number;
@@ -191,8 +197,9 @@ export const InputRegionOverlay = () => {
         setSelection(null);
       }
 
-      setMediaSize(nextMediaSize);
-      setFrameRect(nextFrameRect);
+      // Polled every 250 ms: keep the previous objects while nothing changed.
+      setMediaSize((current) => (isSameGeometry(current, nextMediaSize) ? current : nextMediaSize));
+      setFrameRect((current) => (isSameGeometry(current, nextFrameRect) ? current : nextFrameRect));
       frameRectRef.current = nextFrameRect;
     }
 

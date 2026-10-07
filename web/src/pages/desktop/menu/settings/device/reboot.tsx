@@ -4,6 +4,7 @@ import { Button, Popconfirm } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
 
 export const Reboot = () => {
   const { t } = useTranslation();
@@ -22,13 +23,13 @@ export const Reboot = () => {
       .reboot()
       .then((rsp) => {
         if (rsp.code !== 0) {
-          console.log(rsp.msg);
+          showRequestError(rsp);
           setIsLoading(false);
           clearTimeout(timeoutId);
         }
       })
       .catch((err) => {
-        console.log(err);
+        showRequestError(err);
         setIsLoading(false);
         clearTimeout(timeoutId);
       });

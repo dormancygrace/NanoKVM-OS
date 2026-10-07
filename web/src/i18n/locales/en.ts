@@ -14,6 +14,7 @@ const en = {
       },
       title: 'USB audio',
       listen: 'Listen',
+      resume: 'Resume audio',
       volume: 'Volume',
       failed: 'Audio unavailable. Check the USB connection and try again.'
     },
@@ -102,7 +103,6 @@ const en = {
       passphrase: 'Private-key passphrase',
       save: 'Save',
 
-      keyboardDisabled: 'USB keyboard is disabled in USB Composition',
       description:
         'Import WireGuard profiles and enable the one you need. The enabled profile reconnects after a restart.',
       import: 'Import .conf files',
@@ -139,6 +139,7 @@ const en = {
     dashboard: {
       coreCount_one: '{{count}} core',
       coreCount_other: '{{count}} cores',
+      title: 'Dashboard',
       live: 'Updates while this page is open',
       stale: 'Some information could not be refreshed. Showing the last available values.',
       duration: '{{days}}d {{hours}}h {{minutes}}m',
@@ -158,6 +159,9 @@ const en = {
       memory: 'Memory',
       available: 'Available RAM',
       cache: 'Cache',
+      zram: 'ZRAM',
+      sdSwap: 'SD swap',
+      swapUsage: '{{used}} / {{size}} MiB',
       compression: 'Compression',
       storage: 'Storage',
       systemStorage: 'System',
@@ -559,6 +563,7 @@ const en = {
       touchpadGuide: {
         title: 'Touchpad guide',
         scope: 'Applies when Input Adapter is Touchpad and Mouse Mode is Relative.',
+        screen: 'Screen',
         swipeTitle: 'Swipe to move',
         swipeDesc: 'Swipe inside the active screen area to move the remote pointer.',
         tapTitle: 'Tap to click',
@@ -598,6 +603,8 @@ const en = {
       loading: 'Loading...',
       empty: 'Nothing Found',
       mountMode: 'Mount mode',
+      massStorage: 'Mass storage',
+      cdrom: 'CD/DVD',
       mountFailed: 'Mount failed',
       mountDesc:
         'On some systems, you need to eject the virtual disk from the remote host before mounting the image.',
@@ -705,6 +712,7 @@ const en = {
       power: 'Power',
       powerShort: 'Power (short press)',
       powerLong: 'Power (long press)',
+      hddLed: 'HDD LED',
       resetConfirm: 'Proceed reset operation?',
       powerConfirm: 'Proceed power operation?',
       okBtn: 'Yes',
@@ -1109,7 +1117,8 @@ const en = {
         scrollLockShort: 'Scr',
         on: 'On',
         off: 'Off',
-        unknown: 'Unknown'
+        unknown: 'Unknown',
+        keyboardDisabled: 'USB keyboard is disabled in USB Composition'
       },
       device: {
         title: 'Device',
@@ -1182,6 +1191,8 @@ const en = {
           no: 'No',
           scriptName: 'Autostart Script Name',
           scriptContent: 'Autostart Script Content',
+          name: 'Name',
+          actions: 'Actions',
           settings: 'Settings',
           nameRequired: 'Enter a script name'
         },
@@ -1200,6 +1211,7 @@ const en = {
         pointerProfile: 'Absolute pointer profile',
         pointerProfileHelp:
           'Windows binds the pointer to the captured monitor (Windows 10 1903 or newer). Applying reconnects USB and HDMI.',
+        pointerProfileDefault: 'Default',
         off: 'Off',
         title: 'USB Composition',
         enabled: 'USB devices',
@@ -1290,6 +1302,7 @@ const en = {
         wifi: {
           loading: 'Loading…',
           noAdapter: 'Wi-Fi adapter not detected',
+          notDetected: 'not detected',
           disabled: 'Off',
           band: 'Frequency band',
           band24: '2.4 GHz',
@@ -1349,6 +1362,7 @@ const en = {
         },
         ethernet: {
           title: 'Ethernet IPv4',
+          name: 'Ethernet',
           description: 'Choose DHCP or configure a persistent static IPv4 address',
           enable: 'Ethernet',
           disabled: 'Disabled',
@@ -1424,6 +1438,7 @@ const en = {
         stop: 'Stop Tailscale?',
         stopDesc: 'Log out Tailscale and disable automatic startup on boot.',
         loading: 'Loading...',
+        statusFailed: 'Could not get Tailscale status',
         notInstall: 'Tailscale is not installed.',
         installDescription: 'Install Tailscale on demand. Existing settings are preserved.',
         install: 'Install Tailscale',
@@ -1446,7 +1461,10 @@ const en = {
         uninstall: 'Uninstall Tailscale',
         uninstallDesc: 'Are you sure you want to uninstall Tailscale?',
         okBtn: 'Yes',
-        cancelBtn: 'No'
+        cancelBtn: 'No',
+        startFailed: 'Could not start Tailscale',
+        loginFailed: 'Sign-in failed',
+        logoutFailed: 'Sign-out failed'
       },
       netbird: {
         title: 'NetBird',
@@ -1489,7 +1507,14 @@ const en = {
           restartButton: 'Restart Service',
           refreshButton: 'Refresh Status',
           restartFailed: 'Restart failed',
-          stopFailed: 'Stop failed'
+          stopFailed: 'Stop failed',
+          statusFailed: 'Could not get NetBird status',
+          requestFailed: 'Request failed',
+          installFailed: 'Install failed',
+          startFailed: 'Start failed',
+          loginFailed: 'Sign-in failed',
+          disconnectFailed: 'Disconnect failed',
+          uninstallFailed: 'Uninstall failed'
         }
       },
       rustdesk: {
@@ -1593,6 +1618,11 @@ const en = {
           saveFailed: 'Failed to save user',
           deleteFailed: 'Failed to delete user'
         }
+      },
+      extensions: {
+        title: 'Extensions',
+        loadFailed: 'Could not load extensions',
+        empty: 'No extensions installed'
       }
     },
     picoclaw: {

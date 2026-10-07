@@ -30,7 +30,7 @@ export const Run = ({ onSuccess }: RunProps) => {
         onSuccess();
       })
       .catch((err) => {
-        setErrMsg(err?.message || 'Failed to run tailscale');
+        setErrMsg(err?.message || t('settings.tailscale.startFailed'));
       })
       .finally(() => {
         setIsLoading(false);

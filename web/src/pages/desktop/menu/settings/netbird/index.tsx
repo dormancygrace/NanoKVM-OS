@@ -42,13 +42,13 @@ export const Netbird = ({ setIsLocked }: NetbirdProps) => {
       setStatus(rsp.data);
     } catch (err: any) {
       if (!isMounted.current || currentRequestId !== requestId.current) return;
-      setErrMsg(err?.message || "Failed to get status");
+      setErrMsg(err?.message || t("settings.netbird.error.statusFailed"));
     } finally {
       if (isMounted.current && currentRequestId === requestId.current) {
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     // Effects are mounted twice in development Strict Mode. Restore the guard

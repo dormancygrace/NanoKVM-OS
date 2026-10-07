@@ -50,7 +50,7 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
       // obtain a new observation instead of applying an optimistic toggle.
       onLogout();
     } catch (err: any) {
-      setErrMsg(err?.message || "Request failed");
+      setErrMsg(err?.message || t("settings.netbird.error.requestFailed"));
     } finally {
       setIsUpdating(false);
     }
@@ -71,7 +71,7 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
         onLogout();
       })
       .catch((err) => {
-        setErrMsg(err.message || "Disconnect failed");
+        setErrMsg(err.message || t("settings.netbird.error.disconnectFailed"));
       })
       .finally(() => {
         setIsDisconnecting(false);

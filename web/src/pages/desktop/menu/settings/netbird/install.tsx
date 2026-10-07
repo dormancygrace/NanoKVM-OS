@@ -33,7 +33,7 @@ export const Install = ({ setIsLocked, onSuccess }: InstallProps) => {
         onSuccess();
       })
       .catch((err) => {
-        setErrMsg(err.message || "Install failed");
+        setErrMsg(err.message || t("settings.netbird.error.installFailed"));
       })
       .finally(() => {
         setIsLoading(false);

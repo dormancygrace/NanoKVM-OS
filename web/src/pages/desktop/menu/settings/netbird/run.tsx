@@ -32,7 +32,7 @@ export const Run = ({ onSuccess }: RunProps) => {
         onSuccess();
       })
       .catch((err) => {
-        setErrMsg(err.message || "Start failed");
+        setErrMsg(err.message || t("settings.netbird.error.startFailed"));
       })
       .finally(() => {
         setIsLoading(false);

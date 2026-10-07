@@ -29,7 +29,7 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
       .uninstall()
       .then((rsp) => {
         if (rsp.code !== 0) {
-          setErrMsg(rsp.msg || "Uninstall failed");
+          setErrMsg(rsp.msg || t("settings.netbird.error.uninstallFailed"));
           return;
         }
 
@@ -40,7 +40,7 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
         onSuccess();
       })
       .catch((err) => {
-        setErrMsg(err.message || "Uninstall failed");
+        setErrMsg(err.message || t("settings.netbird.error.uninstallFailed"));
       })
       .finally(() => {
         uninstallInFlight.current = false;

@@ -45,7 +45,7 @@ export const AudioMenu = ({ audio }: { audio: ReturnType<typeof useUsbAudio> }) 
           </div>
           {blocked && (
             <Button className="mt-2" onClick={() => void start()}>
-              {t('audio.resume', { defaultValue: 'Resume audio' })}
+              {t('audio.resume')}
             </Button>
           )}
           <div className="mt-3">

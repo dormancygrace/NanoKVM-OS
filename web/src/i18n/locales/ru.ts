@@ -14,6 +14,7 @@ const ru = {
       },
       title: 'USB-звук',
       listen: 'Слушать',
+      resume: 'Возобновить звук',
       volume: 'Громкость',
       failed: 'Звук недоступен. Проверьте USB-подключение и попробуйте снова.'
     },
@@ -103,7 +104,6 @@ const ru = {
       passphrase: 'Пароль приватного ключа',
       save: 'Сохранить',
 
-      keyboardDisabled: 'USB-клавиатура отключена в композиции USB',
       description:
         'Импортируйте профили WireGuard и включите нужный. Включённый профиль подключается снова после перезапуска.',
       import: 'Импорт .conf файлов',
@@ -143,6 +143,7 @@ const ru = {
       coreCount_few: '{{count}} ядра',
       coreCount_many: '{{count}} ядер',
       coreCount_other: '{{count}} ядра',
+      title: 'Обзор',
       live: 'Обновляется, пока открыта страница',
       stale: 'Часть данных не удалось обновить. Показаны последние доступные значения.',
       duration: '{{days}} д {{hours}} ч {{minutes}} мин',
@@ -162,6 +163,9 @@ const ru = {
       memory: 'Память',
       available: 'Доступная RAM',
       cache: 'Кэш',
+      zram: 'ZRAM',
+      sdSwap: 'Swap на SD',
+      swapUsage: '{{used}} / {{size}} MiB',
       compression: 'Сжатие',
       storage: 'Накопитель',
       systemStorage: 'Система',
@@ -568,6 +572,7 @@ const ru = {
         title: 'Руководство по тачпаду',
         scope:
           'Применяется, когда адаптер ввода выбран как тачпад, а режим мыши выбран как относительный.',
+        screen: 'Экран',
         swipeTitle: 'Проведите, чтобы переместить',
         swipeDesc: 'Проведите в активной области экрана, чтобы переместить удаленный указатель.',
         tapTitle: 'Коснитесь, чтобы щелкнуть',
@@ -610,6 +615,8 @@ const ru = {
       loading: 'Загрузка...',
       empty: 'Пусто',
       mountMode: 'Режим монтирования',
+      massStorage: 'USB-накопитель',
+      cdrom: 'CD/DVD',
       mountFailed: 'Монтирование образа не удалось',
       mountDesc:
         'В некоторых системах необходимо отсоединить виртуальный диск на удаленном хосте перед монтированием образа.',
@@ -717,6 +724,7 @@ const ru = {
       power: 'Питание',
       powerShort: 'Питание (короткое нажатие)',
       powerLong: 'Питание (длительное нажатие)',
+      hddLed: 'Индикатор HDD',
       resetConfirm: 'Вы уверены, что хотите выполнить экстренную перезагрузку?',
       powerConfirm: 'Вы уверены, что хотите нажать кнопку питания?',
       okBtn: 'Да',
@@ -1126,7 +1134,8 @@ const ru = {
         scrollLockShort: 'Scr',
         on: 'Вкл.',
         off: 'Выкл.',
-        unknown: 'Неизвестно'
+        unknown: 'Неизвестно',
+        keyboardDisabled: 'USB-клавиатура отключена в композиции USB'
       },
       device: {
         title: 'Устройство',
@@ -1149,7 +1158,7 @@ const ru = {
           running: 'Текущая: {{mhz}} МГц',
           unavailable: 'Управление частотой недоступно в этом ядре',
           description:
-            'Применяется сразу. Штатный и экономичный режимы сохраняются; разгон действует до перезагрузки устройства. Температура SoC доступна в Dashboard.',
+            'Применяется сразу. Штатный и экономичный режимы сохраняются; разгон действует до перезагрузки устройства. Температура SoC доступна в разделе «Обзор».',
           failed: 'Не удалось изменить частоту CPU'
         },
         oled: {
@@ -1205,6 +1214,8 @@ const ru = {
           no: 'Нет',
           scriptName: 'Имя сценария автозапуска',
           scriptContent: 'Содержимое сценария автозапуска',
+          name: 'Имя',
+          actions: 'Действия',
           settings: 'Настройки',
           nameRequired: 'Введите имя сценария'
         },
@@ -1224,6 +1235,7 @@ const ru = {
         pointerProfile: 'Режим абсолютного указателя',
         pointerProfileHelp:
           'Windows привязывает указатель к захватываемому монитору (Windows 10 1903 и новее). Применение переподключает USB и HDMI.',
+        pointerProfileDefault: 'По умолчанию',
         off: 'Выключено',
         title: 'Композиция USB',
         enabled: 'USB-устройства',
@@ -1315,6 +1327,7 @@ const ru = {
         wifi: {
           loading: 'Загрузка…',
           noAdapter: 'Wi-Fi адаптер не обнаружен',
+          notDetected: 'не обнаружен',
           disabled: 'Выключен',
           band: 'Диапазон',
           band24: '2,4 ГГц',
@@ -1375,6 +1388,7 @@ const ru = {
         },
         ethernet: {
           title: 'Ethernet IPv4',
+          name: 'Ethernet',
           description: 'Выберите DHCP или настройте постоянный статический IPv4-адрес',
           enable: 'Ethernet',
           disabled: 'Отключён',
@@ -1451,6 +1465,7 @@ const ru = {
         stop: 'Вы уверены что хотите остановить Tailscale?',
         stopDesc: 'Выйти из Tailscale и отключить его автоматический запуск при включении.',
         loading: 'Загрузка...',
+        statusFailed: 'Не удалось получить статус Tailscale',
         notInstall: 'Tailscale не установлен.',
         installDescription: 'Установите Tailscale по запросу. Существующие настройки сохранятся.',
         install: 'Установить Tailscale',
@@ -1472,7 +1487,10 @@ const ru = {
         uninstall: 'Удалить Tailscale',
         uninstallDesc: 'Вы уверены, что хотите удалить Tailscale?',
         okBtn: 'Да',
-        cancelBtn: 'Нет'
+        cancelBtn: 'Нет',
+        startFailed: 'Не удалось запустить Tailscale',
+        loginFailed: 'Не удалось войти',
+        logoutFailed: 'Не удалось выйти'
       },
       netbird: {
         title: 'NetBird',
@@ -1514,7 +1532,14 @@ const ru = {
           restartButton: 'Перезапустить службу',
           refreshButton: 'Обновить статус',
           restartFailed: 'Не удалось перезапустить службу',
-          stopFailed: 'Не удалось остановить службу'
+          stopFailed: 'Не удалось остановить службу',
+          statusFailed: 'Не удалось получить статус NetBird',
+          requestFailed: 'Запрос не выполнен',
+          installFailed: 'Не удалось установить',
+          startFailed: 'Не удалось запустить',
+          loginFailed: 'Не удалось войти',
+          disconnectFailed: 'Не удалось отключиться',
+          uninstallFailed: 'Не удалось удалить'
         }
       },
       rustdesk: {
@@ -1595,6 +1620,11 @@ const ru = {
         logoutFailed: 'Не удалось выйти: сеанс по-прежнему активен.',
         okBtn: 'Да',
         cancelBtn: 'Нет'
+      },
+      extensions: {
+        title: 'Расширения',
+        loadFailed: 'Не удалось загрузить расширения',
+        empty: 'Нет установленных расширений'
       }
     },
     picoclaw: {

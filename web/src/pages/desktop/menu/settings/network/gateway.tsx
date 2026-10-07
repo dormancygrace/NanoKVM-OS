@@ -4,11 +4,12 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
 
-const labelFor = (route: api.GatewayRoute) =>
-  `${route.interface.startsWith('eth') ? 'Ethernet' : 'Wi‑Fi'} · ${route.gateway}`;
-
 export const Gateway = () => {
   const { t } = useTranslation();
+  const ethernet = t('settings.network.ethernet.name');
+  const wifi = t('settings.network.wifi.title');
+  const labelFor = (route: api.GatewayRoute) =>
+    `${route.interface.startsWith('eth') ? ethernet : wifi} · ${route.gateway}`;
   const [status, setStatus] = useState<api.GatewayStatus>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -63,8 +64,8 @@ export const Gateway = () => {
         onChange={(value) => void change(value as api.GatewayPreference)}
         options={[
           { label: t('settings.network.gateway.auto'), value: 'auto' },
-          { label: 'Ethernet', value: 'ethernet', disabled: !available.has('ethernet') },
-          { label: 'Wi‑Fi', value: 'wifi', disabled: !available.has('wifi') }
+          { label: ethernet, value: 'ethernet', disabled: !available.has('ethernet') },
+          { label: wifi, value: 'wifi', disabled: !available.has('wifi') }
         ]}
       />
       {status && routes.length === 0 ? (

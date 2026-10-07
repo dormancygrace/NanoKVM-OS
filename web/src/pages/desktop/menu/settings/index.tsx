@@ -124,10 +124,6 @@ export const Settings = ({
   const [inventory, setInventory] = useAtom(addonInventoryAtom);
   const [inventoryError, setInventoryError] = useState(false);
   const [picoclawStatus] = useAtom(picoclawRuntimeStatusAtom);
-  const { i18n } = useTranslation();
-  const extensionsTitle = (i18n.resolvedLanguage || i18n.language).startsWith('ru')
-    ? 'Расширения'
-    : 'Extensions';
   const setPicoclawOpen = useSetAtom(picoclawChatOpenAtom);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
 
@@ -413,12 +409,12 @@ export const Settings = ({
   }
 
   function tabTitle(id: string) {
-    if (id === 'dashboard') return 'Dashboard';
+    if (id === 'dashboard') return t('dashboard.title');
     if (id === 'system-date-time') return t('dateTime.title');
     if (id === 'video') return t('videoSettings.title');
     if (id === 'network') return t('settings.network.title');
     if (id === 'network-wifi') return t('settings.network.wifi.title');
-    if (id === 'network-ethernet') return 'Ethernet';
+    if (id === 'network-ethernet') return t('settings.network.ethernet.name');
     if (id === 'network-general') return t('settings.network.general');
     if (id === 'system') return t('settings.system.title');
     if (id === 'system-general') return t('settings.system.general');
@@ -427,7 +423,7 @@ export const Settings = ({
     if (id === 'system-users') return t('settings.account.title');
     if (id === 'system-mcp') return t('settings.mcp.title');
     if (id === 'system-updates') return t('settings.updates.title');
-    if (id === 'extensions') return extensionsTitle;
+    if (id === 'extensions') return t('settings.extensions.title');
     if (id === 'extensions-rustdesk') return 'RustDesk';
     if (id === 'extensions-picoclaw') return 'PicoClaw';
     if (id === 'software') return t('settings.software.title');
@@ -588,15 +584,9 @@ export const Settings = ({
                           {!inventory && !inventoryError ? (
                             <Spin size="small" />
                           ) : inventoryError ? (
-                            (i18n.resolvedLanguage || i18n.language).startsWith('ru') ? (
-                              'Не удалось загрузить расширения'
-                            ) : (
-                              'Could not load extensions'
-                            )
-                          ) : (i18n.resolvedLanguage || i18n.language).startsWith('ru') ? (
-                            'Нет установленных расширений'
+                            t('settings.extensions.loadFailed')
                           ) : (
-                            'No extensions installed'
+                            t('settings.extensions.empty')
                           )}
                         </div>
                       )}

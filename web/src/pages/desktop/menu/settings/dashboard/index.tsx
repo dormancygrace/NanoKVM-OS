@@ -347,7 +347,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   return (
     <div className="space-y-5 pb-6">
       <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
-        <h2 className="text-xl font-medium">Dashboard</h2>
+        <h2 className="text-xl font-medium">{t('dashboard.title')}</h2>
         <span className="max-w-full text-xs wrap-break-word text-neutral-500">
           {t('dashboard.live')}
         </span>
@@ -432,14 +432,18 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             )}
             {line(
               t('dashboard.fps'),
-              video ? `${enabled ? video.measuredFps : 0} / ${video.fps} FPS` : '—'
+              video
+                ? t('videoSettings.fpsValue', {
+                    value: `${enabled ? video.measuredFps : 0} / ${video.fps}`
+                  })
+                : '—'
             )}
             {line(
               t(mode === 'mjpeg' ? 'screen.quality' : 'videoSettings.bitrate'),
               video
                 ? mode === 'mjpeg'
                   ? `${video.quality}%`
-                  : `${video.bitRate / 1000} Mbit/s`
+                  : t('videoSettings.mbps', { value: video.bitRate / 1000 })
                 : '—'
             )}
             {line(t('dashboard.sessions'), sessions)}
@@ -452,10 +456,13 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             {line(t('dashboard.available'), bytes(memory?.availableBytes))}
             {line(t('dashboard.cache'), bytes(memory?.cachedBytes))}
             {line(
-              'zram',
+              t('dashboard.zram'),
               memory
                 ? memory.zram.enabled
-                  ? `${bytes(memory.zram.usedBytes)} / ${memory.zram.sizeMiB} MiB`
+                  ? t('dashboard.swapUsage', {
+                      used: bytes(memory.zram.usedBytes),
+                      size: memory.zram.sizeMiB
+                    })
                   : state('off')
                 : '—'
             )}
@@ -465,10 +472,13 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                 `${memory.zram.algorithm}${memory.zram.recompressReady ? ' + zstd' : ''}`
               )}
             {line(
-              'Swap (SD)',
+              t('dashboard.sdSwap'),
               memory
                 ? memory.sd.enabled
-                  ? `${bytes(memory.sd.usedBytes)} / ${memory.sd.sizeMiB} MiB`
+                  ? t('dashboard.swapUsage', {
+                      used: bytes(memory.sd.usedBytes),
+                      size: memory.sd.sizeMiB
+                    })
                   : state('off')
                 : '—'
             )}

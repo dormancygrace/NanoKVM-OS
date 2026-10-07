@@ -27,13 +27,14 @@ import {
   specialKeyMap
 } from './virtual-keys.ts';
 
+// Layout names are shown in their own language, as in the interface language list.
 const languages = [
   { value: 'en', label: 'English' },
-  { value: 'fr', label: 'French' },
-  { value: 'de', label: 'German' },
-  { value: 'ru', label: 'Russian' },
-  { value: 'ko', label: 'Korean' },
-  { value: 'ja', label: 'Japanese' }
+  { value: 'fr', label: 'Français' },
+  { value: 'de', label: 'Deutsch' },
+  { value: 'ru', label: 'Русский' },
+  { value: 'ko', label: '한국어' },
+  { value: 'ja', label: '日本語' }
 ];
 
 export const VirtualKeyboard = () => {

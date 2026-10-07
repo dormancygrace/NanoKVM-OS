@@ -221,7 +221,7 @@ export const Wifi = () => {
         <span>{tr('title')}</span>
         {state && (!state.supported || state.model) && (
           <span className="text-xs text-neutral-500">
-            {state.supported ? state.model : 'not detected'}
+            {state.supported ? state.model : tr('notDetected')}
           </span>
         )}
       </div>

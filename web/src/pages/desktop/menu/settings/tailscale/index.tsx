@@ -40,13 +40,13 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
         setStatus(rsp.data);
       })
       .catch((err) => {
-        setErrMsg(err?.message || 'Failed to get status');
+        setErrMsg(err?.message || t('settings.tailscale.statusFailed'));
       })
       .finally(() => {
         statusInFlight.current = false;
         setIsLoading(false);
       });
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     getStatus();

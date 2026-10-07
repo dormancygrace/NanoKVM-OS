@@ -19,15 +19,18 @@ type GuideItem = {
   diagram: JSX.Element;
 };
 
-const TouchpadArea = ({ children }: { children: JSX.Element }) => (
-  <div className="relative h-[96px] overflow-hidden rounded border border-neutral-700 bg-neutral-950">
-    <div className="absolute inset-3 rounded border border-dashed border-neutral-700/80" />
-    <div className="absolute left-3 top-2 text-[10px] uppercase tracking-wide text-neutral-500">
-      screen
+const TouchpadArea = ({ children }: { children: JSX.Element }) => {
+  const { t } = useTranslation();
+  return (
+    <div className="relative h-[96px] overflow-hidden rounded border border-neutral-700 bg-neutral-950">
+      <div className="absolute inset-3 rounded border border-dashed border-neutral-700/80" />
+      <div className="absolute left-3 top-2 text-[10px] uppercase tracking-wide text-neutral-500">
+        {t('mouse.touchpadGuide.screen')}
+      </div>
+      {children}
     </div>
-    {children}
-  </div>
-);
+  );
+};
 
 const SwipeDiagram = () => (
   <TouchpadArea>

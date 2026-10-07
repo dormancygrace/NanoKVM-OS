@@ -146,7 +146,7 @@ export const Wifi = () => {
           </Form.Item>
 
           <Form.Item name="password">
-            <Input.Password prefix={<LockOutlined />} placeholder="Password" />
+            <Input.Password prefix={<LockOutlined />} placeholder={t('auth.placeholderPassword')} />
           </Form.Item>
 
           <Form.Item>

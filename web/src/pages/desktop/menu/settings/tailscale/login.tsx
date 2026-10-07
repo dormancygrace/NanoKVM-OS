@@ -39,7 +39,7 @@ export const Login = ({ onSuccess }: LoginProps) => {
         setTimeout(() => setLoginUrl(''), 10 * 60 * 1000);
       })
       .catch((err) => {
-        setErrMsg(err?.message || 'Failed to login');
+        setErrMsg(err?.message || t('settings.tailscale.loginFailed'));
       })
       .finally(() => {
         setIsLoading(false);

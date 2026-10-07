@@ -38,7 +38,7 @@ export const ErrorHelp = ({
         onRefresh();
       })
       .catch((err) => {
-        setActionError(err.message || "Restart failed");
+        setActionError(err.message || t("settings.netbird.error.restartFailed"));
       })
       .finally(() => {
         setIsRestarting(false);

@@ -1,6 +1,6 @@
 import { Fragment, lazy, Suspense, useContext, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/auth.ts';
-import { Alert, Button, Modal, Spin, Tooltip, type TooltipProps } from 'antd';
+import { Alert, Button, Divider, Modal, Spin, Tooltip, type TooltipProps } from 'antd';
 import clsx from 'clsx';
 import { useAtom, useSetAtom } from 'jotai';
 import {
@@ -16,10 +16,8 @@ import {
   NetworkIcon,
   PackageIcon,
   PaletteIcon,
-  PuzzleIcon,
   SettingsIcon,
   ShieldIcon,
-  SmartphoneIcon,
   StethoscopeIcon,
   UsbIcon,
   UserRoundIcon,
@@ -46,6 +44,7 @@ import { MobileMenuItemContext } from '@/components/mobile-menu-context.ts';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 import styles from './sidebar.module.css';
+import { resolveSettingsTab, settingsGroupOf, type SettingsGroup } from './tabs.ts';
 
 // Keep the navigation light; only the selected settings page is fetched.
 const About = lazy(() => import('./about').then((module) => ({ default: module.About })));
@@ -59,7 +58,6 @@ const Dashboard = lazy(() =>
 const DateTimeSettings = lazy(() =>
   import('./date-time').then((module) => ({ default: module.DateTimeSettings }))
 );
-const Device = lazy(() => import('./device').then((module) => ({ default: module.Device })));
 const MCP = lazy(() => import('./mcp').then((module) => ({ default: module.MCP })));
 const Memory = lazy(() => import('./memory').then((module) => ({ default: module.Memory })));
 const Netbird = lazy(() => import('./netbird').then((module) => ({ default: module.Netbird })));
@@ -115,14 +113,10 @@ export const Settings = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [currentTab, setCurrentTab] = useState('dashboard');
-  const [vpnExpanded, setVpnExpanded] = useState(false);
-  const [networkExpanded, setNetworkExpanded] = useState(false);
-  const [systemExpanded, setSystemExpanded] = useState(false);
-  const [softwareExpanded, setSoftwareExpanded] = useState(false);
-  const [extensionsExpanded, setExtensionsExpanded] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<SettingsGroup>>(new Set());
   const [rustDeskStatus] = useAtom(rustDeskStatusAtom);
   const [inventory, setInventory] = useAtom(addonInventoryAtom);
-  const [inventoryError, setInventoryError] = useState(false);
+  const [, setInventoryError] = useState(false);
   const [picoclawStatus] = useAtom(picoclawRuntimeStatusAtom);
   const setPicoclawOpen = useSetAtom(picoclawChatOpenAtom);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
@@ -144,7 +138,6 @@ export const Settings = ({
     ...(isAdmin
       ? [
           { id: 'usb', icon: <UsbIcon size={16} />, component: <Usb /> },
-          { id: 'device', icon: <SmartphoneIcon size={16} />, component: <Device /> },
           { id: 'network', icon: <NetworkIcon size={16} />, component: null },
           { id: 'network-general', icon: <SettingsIcon size={16} />, component: <Network /> },
           { id: 'network-wifi', icon: <WifiIcon size={16} />, component: <WifiSettings /> },
@@ -153,29 +146,49 @@ export const Settings = ({
             icon: <EthernetPortIcon size={16} />,
             component: <EthernetSettings />
           },
-          { id: 'system', icon: <SettingsIcon size={16} />, component: null },
-          { id: 'system-general', icon: <SettingsIcon size={16} />, component: <System /> },
           {
-            id: 'system-diagnostics',
-            icon: <StethoscopeIcon size={16} />,
-            component: <Diagnostics />
+            id: 'network-openvpn',
+            icon: <OpenVPNIcon />,
+            component: <OpenVPN setIsLocked={setIsLocked} />
           },
-          { id: 'system-memory', icon: <MemoryStickIcon size={16} />, component: <Memory /> },
+          {
+            id: 'network-tailscale',
+            icon: <TailscaleIcon />,
+            component: <Tailscale setIsLocked={setIsLocked} />
+          },
+          {
+            id: 'network-netbird',
+            icon: <NetbirdIcon />,
+            component: <Netbird setIsLocked={setIsLocked} />
+          },
+          {
+            id: 'network-wireguard',
+            icon: <WireGuardIcon />,
+            component: <WireGuard setIsLocked={setIsLocked} />
+          },
+          { id: 'system', icon: <ShieldIcon size={16} />, component: null },
+          { id: 'system-general', icon: <SettingsIcon size={16} />, component: <System /> },
+          { id: 'system-users', icon: <UserRoundIcon size={16} />, component: <Account /> },
           {
             id: 'system-date-time',
             icon: <ClockIcon size={16} />,
             component: <DateTimeSettings />
           },
-          { id: 'system-users', icon: <UserRoundIcon size={16} />, component: <Account /> },
-          { id: 'system-mcp', icon: <BotIcon size={16} />, component: <MCP /> },
           { id: 'system-updates', icon: <DownloadIcon size={16} />, component: <Updates /> },
+          { id: 'system-mcp', icon: <BotIcon size={16} />, component: <MCP /> },
+          { id: 'system-memory', icon: <MemoryStickIcon size={16} />, component: <Memory /> },
+          {
+            id: 'system-diagnostics',
+            icon: <StethoscopeIcon size={16} />,
+            component: <Diagnostics />
+          },
           { id: 'software', icon: <PackageIcon size={16} />, component: null },
           {
             id: 'software-addons',
-            icon: <BotIcon size={16} />,
+            icon: <PackageIcon size={16} />,
             component: (
               <Addons
-                onOpenRustDesk={() => changeTab('extensions-rustdesk')}
+                onOpenRustDesk={() => changeTab('software-rustdesk')}
                 onOpen={() => {
                   closeModal();
                   setPicoclawOpen(true);
@@ -184,57 +197,22 @@ export const Settings = ({
             )
           },
           { id: 'software-packages', icon: <PackageIcon size={16} />, component: <Software /> },
-          { id: 'extensions', icon: <PuzzleIcon size={16} />, component: null },
           ...(inventory?.rustdesk.installed
             ? [
                 {
-                  id: 'extensions-rustdesk',
-                  icon: <RustDeskIcon size={18} />,
+                  id: 'software-rustdesk',
+                  icon: <RustDeskIcon size={16} />,
                   component: <RustDeskControls />
                 }
               ]
-            : []),
-          ...(inventory?.picoclaw.installed
-            ? [
-                {
-                  id: 'extensions-picoclaw',
-                  icon: <BotIcon size={16} />,
-                  component: null
-                }
-              ]
-            : []),
-          {
-            id: 'vpn',
-            icon: <ShieldIcon size={16} />,
-            component: null
-          },
-          {
-            id: 'vpn-openvpn',
-            icon: <OpenVPNIcon />,
-            component: <OpenVPN setIsLocked={setIsLocked} />
-          },
-          {
-            id: 'vpn-tailscale',
-            icon: <TailscaleIcon />,
-            component: <Tailscale setIsLocked={setIsLocked} />
-          },
-          {
-            id: 'vpn-netbird',
-            icon: <NetbirdIcon />,
-            component: <Netbird setIsLocked={setIsLocked} />
-          },
-          {
-            id: 'vpn-wireguard',
-            icon: <WireGuardIcon />,
-            component: <WireGuard setIsLocked={setIsLocked} />
-          }
+            : [])
         ]
       : []),
     { id: 'appearance', icon: <PaletteIcon size={16} />, component: <Appearance /> },
     ...(!isAdmin
-      ? [{ id: 'account', icon: <UserRoundIcon size={18} />, component: <Account /> }]
+      ? [{ id: 'account', icon: <UserRoundIcon size={16} />, component: <Account /> }]
       : []),
-    { id: 'about', icon: <InfoIcon size={14} />, component: <About /> }
+    { id: 'about', icon: <InfoIcon size={16} />, component: <About /> }
   ];
 
   useEffect(() => {
@@ -290,9 +268,8 @@ export const Settings = ({
   }, [picoclawStatus, setInventory]);
 
   useEffect(() => {
-    if (currentTab === 'extensions-rustdesk' && inventory?.rustdesk.installed === false) {
+    if (currentTab === 'software-rustdesk' && inventory?.rustdesk.installed === false) {
       setCurrentTab('software-addons');
-      setSoftwareExpanded(true);
       setDetailOpen(true);
     }
   }, [currentTab, inventory?.rustdesk.installed]);
@@ -313,21 +290,8 @@ export const Settings = ({
 
   useEffect(() => {
     if (!request || isLocked) return;
-    const requested =
-      request === 'tailscale' || request === 'vpn'
-        ? 'vpn-tailscale'
-        : request === 'network'
-          ? 'network-general'
-          : request === 'system'
-            ? 'system-general'
-            : request === 'system-software'
-              ? 'software-packages'
-              : request;
-    if (requested.startsWith('vpn-')) setVpnExpanded(true);
-    if (requested.startsWith('network-')) setNetworkExpanded(true);
-    if (requested.startsWith('software-')) setSoftwareExpanded(true);
-    if (requested.startsWith('extensions-')) setExtensionsExpanded(true);
-    if (requested.startsWith('system-')) setSystemExpanded(true);
+    const requested = resolveSettingsTab(request);
+    expandGroupOf(requested);
     setCurrentTab(requested);
     setDetailOpen(true);
     if (!modalOpenRef.current) {
@@ -339,44 +303,33 @@ export const Settings = ({
     setRequest(null);
   }, [request, isLocked, isModalOpen, setRequest, setKeyboardLock, setSubmenuOpenCount]);
 
+  function expandGroupOf(id: string) {
+    const group = settingsGroupOf(id);
+    if (group) setExpandedGroups((groups) => new Set(groups).add(group));
+  }
+
+  function toggleGroup(group: SettingsGroup) {
+    setExpandedGroups((groups) => {
+      const next = new Set(groups);
+      if (!next.delete(group)) next.add(group);
+      return next;
+    });
+  }
+
   function changeTab(tab: string) {
     if (isLocked) {
       return;
     }
 
-    if (tab === 'vpn') {
-      setVpnExpanded((expanded) => !expanded);
-      return;
-    }
-    if (tab === 'network') {
-      setNetworkExpanded((expanded) => !expanded);
-      return;
-    }
-    if (tab === 'software') {
-      setSoftwareExpanded((expanded) => !expanded);
-      return;
-    }
-    if (tab === 'extensions') {
-      setExtensionsExpanded((expanded) => !expanded);
-      return;
-    }
-    if (tab === 'extensions-picoclaw') {
-      closeModal();
-      setPicoclawOpen(true);
-      return;
-    }
-    if (tab === 'system') {
-      setSystemExpanded((expanded) => !expanded);
+    if (tab === 'network' || tab === 'system' || tab === 'software') {
+      toggleGroup(tab);
       return;
     }
     // An unknown or no longer available tab falls back to the dashboard
     // instead of rendering an empty page.
-    const target = tabs.some((item) => item.id === tab) ? tab : 'dashboard';
-    if (target.startsWith('vpn-')) setVpnExpanded(true);
-    if (target.startsWith('network-')) setNetworkExpanded(true);
-    if (target.startsWith('software-')) setSoftwareExpanded(true);
-    if (target.startsWith('extensions-')) setExtensionsExpanded(true);
-    if (target.startsWith('system-')) setSystemExpanded(true);
+    const resolved = resolveSettingsTab(tab);
+    const target = tabs.some((item) => item.id === resolved) ? resolved : 'dashboard';
+    expandGroupOf(target);
     setCurrentTab(target);
     setDetailOpen(true);
   }
@@ -402,42 +355,41 @@ export const Settings = ({
     setKeyboardLock({ source: 'settings-modal', locked: false });
     setIsModalOpen(false);
     setCurrentTab('dashboard');
-    setVpnExpanded(false);
-    setNetworkExpanded(false);
-    setSystemExpanded(false);
-    setSoftwareExpanded(false);
-    setExtensionsExpanded(false);
+    setExpandedGroups(new Set());
     setSubmenuOpenCount((count) => Math.max(0, count - 1));
   }
 
   function tabTitle(id: string) {
     if (id === 'dashboard') return t('dashboard.title');
-    if (id === 'system-date-time') return t('dateTime.title');
     if (id === 'video') return t('videoSettings.title');
     if (id === 'network') return t('settings.network.title');
+    if (id === 'network-general') return t('settings.network.general');
     if (id === 'network-wifi') return t('settings.network.wifi.title');
     if (id === 'network-ethernet') return t('settings.network.ethernet.name');
-    if (id === 'network-general') return t('settings.network.general');
+    if (id === 'network-openvpn') return 'OpenVPN';
+    if (id === 'network-tailscale') return 'Tailscale';
+    if (id === 'network-netbird') return 'NetBird';
+    if (id === 'network-wireguard') return 'WireGuard';
     if (id === 'system') return t('settings.system.title');
     if (id === 'system-general') return t('settings.system.general');
-    if (id === 'system-diagnostics') return t('settings.system.diagnostics.title');
-    if (id === 'system-memory') return t('settings.memory.title');
     if (id === 'system-users') return t('settings.account.title');
-    if (id === 'system-mcp') return t('settings.mcp.title');
+    if (id === 'system-date-time') return t('dateTime.title');
     if (id === 'system-updates') return t('settings.updates.title');
-    if (id === 'extensions') return t('settings.extensions.title');
-    if (id === 'extensions-rustdesk') return 'RustDesk';
-    if (id === 'extensions-picoclaw') return 'PicoClaw';
+    if (id === 'system-mcp') return t('settings.mcp.title');
+    if (id === 'system-memory') return t('settings.memory.title');
+    if (id === 'system-diagnostics') return t('settings.system.diagnostics.title');
     if (id === 'software') return t('settings.software.title');
     if (id === 'software-addons') return t('settings.software.addons.title');
     if (id === 'software-packages') return t('settings.software.addons.packages');
+    if (id === 'software-rustdesk') return 'RustDesk';
     if (id === 'account') return t('settings.account.title');
-    if (id === 'vpn') return 'VPN';
-    if (id === 'vpn-tailscale') return 'Tailscale';
-    if (id === 'vpn-netbird') return 'NetBird';
-    if (id === 'vpn-wireguard') return 'WireGuard';
-    if (id === 'vpn-openvpn') return 'OpenVPN';
     return t(`settings.${id}.title`);
+  }
+
+  // "Group / Page" for pages inside a group.
+  function pageTitle(id: string) {
+    const group = settingsGroupOf(id);
+    return group ? `${tabTitle(group)} / ${tabTitle(id)}` : tabTitle(id);
   }
 
   return (
@@ -495,7 +447,7 @@ export const Settings = ({
                 />
               )}
               <span className="truncate font-medium">
-                {detailOpen ? tabTitle(currentTab) : t('settings.title')}
+                {detailOpen ? pageTitle(currentTab) : t('settings.title')}
               </span>
             </div>
           )}
@@ -516,31 +468,17 @@ export const Settings = ({
               .filter(
                 (tab) =>
                   tab.id !== 'about' &&
-                  (!tab.id.startsWith('vpn-') || vpnExpanded) &&
-                  (!tab.id.startsWith('network-') || networkExpanded) &&
-                  (!tab.id.startsWith('system-') || systemExpanded) &&
-                  (!tab.id.startsWith('software-') || softwareExpanded) &&
-                  (!tab.id.startsWith('extensions-') || extensionsExpanded)
+                  (() => {
+                    const group = settingsGroupOf(tab.id);
+                    return !group || expandedGroups.has(group);
+                  })()
               )
               .map((tab) => {
-                const child =
-                  tab.id.startsWith('vpn-') ||
-                  tab.id.startsWith('network-') ||
-                  tab.id.startsWith('system-') ||
-                  tab.id.startsWith('software-') ||
-                  tab.id.startsWith('extensions-');
+                const child = settingsGroupOf(tab.id) !== undefined;
                 const expanded =
-                  tab.id === 'vpn'
-                    ? vpnExpanded
-                    : tab.id === 'network'
-                      ? networkExpanded
-                      : tab.id === 'system'
-                        ? systemExpanded
-                        : tab.id === 'software'
-                          ? softwareExpanded
-                          : tab.id === 'extensions'
-                            ? extensionsExpanded
-                            : undefined;
+                  tab.id === 'network' || tab.id === 'system' || tab.id === 'software'
+                    ? expandedGroups.has(tab.id)
+                    : undefined;
                 const label = tabTitle(tab.id);
                 return (
                   <Fragment key={tab.id}>
@@ -578,20 +516,6 @@ export const Settings = ({
                         />
                       )}
                     </button>
-                    {tab.id === 'extensions' &&
-                      extensionsExpanded &&
-                      !inventory?.rustdesk.installed &&
-                      !inventory?.picoclaw.installed && (
-                        <div className="ml-4 px-3 py-2 text-xs text-neutral-400" role="status">
-                          {!inventory && !inventoryError ? (
-                            <Spin size="small" />
-                          ) : inventoryError ? (
-                            t('settings.extensions.loadFailed')
-                          ) : (
-                            t('settings.extensions.empty')
-                          )}
-                        </div>
-                      )}
                   </Fragment>
                 );
               })}
@@ -637,6 +561,14 @@ export const Settings = ({
                     key={currentTab}
                     fallback={<Alert type="error" showIcon message={t('error.title')} />}
                   >
+                    {!mobile && currentTab !== 'about' && (
+                      <>
+                        <h2 className="text-fg m-0 text-base font-medium">
+                          {pageTitle(currentTab)}
+                        </h2>
+                        <Divider className="opacity-50" />
+                      </>
+                    )}
                     <Suspense fallback={<PageLoading />}>
                       {(tabs.find((tab) => tab.id === currentTab) ?? tabs[0]).component}
                     </Suspense>

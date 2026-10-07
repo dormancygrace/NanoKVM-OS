@@ -257,9 +257,12 @@ export const Software = () => {
                 </Button>
               </div>
             ))}
-            {searchedQuery === query.trim() && !searching && results.length === 0 && (
-              <p className="text-fg-muted m-0 py-2 text-sm">{t('settings.software.noResults')}</p>
-            )}
+            {query.trim() !== '' &&
+              searchedQuery === query.trim() &&
+              !searching &&
+              results.length === 0 && (
+                <p className="text-fg-muted m-0 py-2 text-sm">{t('settings.software.noResults')}</p>
+              )}
           </div>
         </Panel>
       )

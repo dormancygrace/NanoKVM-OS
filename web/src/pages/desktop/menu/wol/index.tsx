@@ -17,6 +17,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { deleteWolMac, getWolInterfaces, getWolMacs, setWolMacName, wol } from '@/api/network.ts';
+import { isHandledRequestError } from '@/lib/request-error.ts';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
 
@@ -60,49 +61,60 @@ export const Wol = () => {
   }
 
   function getInterfaces() {
-    getWolInterfaces().then((rsp) => {
-      if (rsp.code !== 0) {
-        setInterfaces([]);
-        setNetworkInterface('');
-        return;
-      }
+    getWolInterfaces()
+      .then((rsp) => {
+        if (rsp.code !== 0) {
+          setInterfaces([]);
+          setNetworkInterface('');
+          return;
+        }
 
-      const available = rsp.data.interfaces as string[];
-      setInterfaces(available);
-      setNetworkInterface((current) => {
-        if (available.includes(current)) return current;
-        if (available.includes('eth0')) return 'eth0';
-        return available[0] || '';
-      });
-    });
+        const available = rsp.data.interfaces as string[];
+        setInterfaces(available);
+        setNetworkInterface((current) => {
+          if (available.includes(current)) return current;
+          if (available.includes('eth0')) return 'eth0';
+          return available[0] || '';
+        });
+      })
+      .catch(showFailure);
   }
 
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
     setInput(e.target.value);
   }
 
+  // Requests here report failures in the popover's status line.
+  function showFailure(error?: unknown, detail?: string) {
+    if (isHandledRequestError(error)) return;
+    setStatus('failed');
+    setLog(detail || t('auth.error'));
+  }
+
   function getMacs() {
-    getWolMacs().then((rsp) => {
-      if (rsp.code !== 0) {
-        console.log(rsp.msg);
-        return;
-      }
+    getWolMacs()
+      .then((rsp) => {
+        if (rsp.code !== 0) {
+          showFailure(undefined, rsp.msg);
+          return;
+        }
 
-      const isEdit = false;
-      const macList = rsp.data.macs
-        .map((item: string) => item.trim())
-        .filter((item: string) => item !== '')
-        .map((item: string) => {
-          const separator = item.search(/\s/);
-          const mac = separator === -1 ? item : item.slice(0, separator);
-          const name = separator === -1 ? '' : item.slice(separator).trim();
-          const isName = name !== '';
-          const isShow = !isName;
-          return { name, mac, isShow, isName, isEdit };
-        });
+        const isEdit = false;
+        const macList = rsp.data.macs
+          .map((item: string) => item.trim())
+          .filter((item: string) => item !== '')
+          .map((item: string) => {
+            const separator = item.search(/\s/);
+            const mac = separator === -1 ? item : item.slice(0, separator);
+            const name = separator === -1 ? '' : item.slice(separator).trim();
+            const isName = name !== '';
+            const isShow = !isName;
+            return { name, mac, isShow, isName, isEdit };
+          });
 
-      setMacList(macList);
-    });
+        setMacList(macList);
+      })
+      .catch(showFailure);
   }
 
   function toggleShow(mac: string) {
@@ -121,21 +133,28 @@ export const Wol = () => {
     value = value.trim();
     if (!value) return;
 
-    const rsp = await setWolMacName(mac, value);
-    if (rsp.code !== 0) {
-      setStatus('failed');
-      setLog(rsp.msg || t('auth.error'));
-      return;
+    try {
+      const rsp = await setWolMacName(mac, value);
+      if (rsp.code !== 0) {
+        showFailure(undefined, rsp.msg);
+        return;
+      }
+      getMacs();
+    } catch (err) {
+      showFailure(err);
     }
-    getMacs();
   }
 
   function deleteMac(mac: string) {
-    deleteWolMac(mac).then((rsp) => {
-      if (rsp.code === 0) {
+    deleteWolMac(mac)
+      .then((rsp) => {
+        if (rsp.code !== 0) {
+          showFailure(undefined, rsp.msg);
+          return;
+        }
         getMacs();
-      }
-    });
+      })
+      .catch(showFailure);
   }
 
   function wake(mac?: string) {
@@ -160,10 +179,7 @@ export const Wol = () => {
         getMacs();
         setInput('');
       })
-      .catch(() => {
-        setStatus('failed');
-        setLog(t('auth.error'));
-      });
+      .catch(showFailure);
   }
 
   const content = (

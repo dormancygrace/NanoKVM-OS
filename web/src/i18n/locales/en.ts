@@ -1696,7 +1696,8 @@ const en = {
     },
     error: {
       title: "We've ran into an issue",
-      refresh: 'Refresh'
+      refresh: 'Refresh',
+      requestFailed: 'The request failed. Check the connection and try again.'
     },
     fullscreen: {
       toggle: 'Toggle Fullscreen'

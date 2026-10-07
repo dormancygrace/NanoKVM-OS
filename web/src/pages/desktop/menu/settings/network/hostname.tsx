@@ -5,6 +5,7 @@ import { ClipboardPenIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
 
 export const Hostname = ({ editable = false }: { editable?: boolean }) => {
   const { t } = useTranslation();
@@ -29,6 +30,7 @@ export const Hostname = ({ editable = false }: { editable?: boolean }) => {
           setHostname(rsp.data?.hostname);
         }
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         setIsLoading(false);
       });
@@ -52,13 +54,14 @@ export const Hostname = ({ editable = false }: { editable?: boolean }) => {
       .setHostname(input)
       .then((rsp) => {
         if (rsp.code !== 0) {
-          console.log(rsp.msg);
+          showRequestError(rsp);
           return;
         }
 
         setHostname(input);
         setEditState('edited');
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         setIsLoading(false);
       });

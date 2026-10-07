@@ -4,6 +4,7 @@ import { CircleAlertIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
 
 export const Mdns = () => {
   const { t } = useTranslation();
@@ -35,15 +36,19 @@ export const Mdns = () => {
     try {
       const next = !isEnabled;
       const rsp = next ? await api.enableMdns() : await api.disableMdns();
-      if (rsp.code !== 0) return;
+      if (rsp.code !== 0) {
+        showRequestError(rsp);
+        return;
+      }
       setIsEnabled(next);
       setAddress('');
       if (next) {
         const info = await api.getInfo();
         if (info.code === 0) setAddress(info.data?.mdns || '');
       }
-    } catch {
+    } catch (err) {
       // Keep the last confirmed state if the request fails.
+      showRequestError(err);
     } finally {
       setIsLoading(false);
     }

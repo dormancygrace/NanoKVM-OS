@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import { changeCapture, refreshCapture } from '@/lib/capture-control.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
 import { isHdmiEnabledAtom } from '@/jotai/screen.ts';
 
 export const Hdmi = () => {
@@ -24,26 +25,34 @@ export const Hdmi = () => {
   }, []);
 
   async function getHardware() {
-    const rsp = await api.getHardware();
-    if (rsp.code !== 0) {
-      return;
-    }
+    try {
+      const rsp = await api.getHardware();
+      if (rsp.code !== 0) {
+        return;
+      }
 
-    setIsPcie(rsp.data?.version === 'PCIE');
+      setIsPcie(rsp.data?.version === 'PCIE');
+    } catch (err) {
+      showRequestError(err);
+    }
   }
 
   async function getHdmiState() {
     setIsLoading(true);
 
-    const rsp = await api.getHdmiState();
-    if (rsp.code === 0) {
-      await refreshCapture();
-      const timeout = rsp.data.idleTimeout ?? 0;
-      setIdleTimeout(timeout);
-      setIdleTimeoutInput(timeout);
+    try {
+      const rsp = await api.getHdmiState();
+      if (rsp.code === 0) {
+        await refreshCapture();
+        const timeout = rsp.data.idleTimeout ?? 0;
+        setIdleTimeout(timeout);
+        setIdleTimeoutInput(timeout);
+      }
+    } catch (err) {
+      showRequestError(err);
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   }
 
   function updateIdleTimeout() {
@@ -62,10 +71,15 @@ export const Hdmi = () => {
       .then((rsp) => {
         if (rsp.code !== 0) {
           setIdleTimeoutInput(idleTimeout);
+          showRequestError(rsp);
           return;
         }
 
         setIdleTimeout(idleTimeoutInput);
+      })
+      .catch((err) => {
+        setIdleTimeoutInput(idleTimeout);
+        showRequestError(err);
       })
       .finally(() => {
         setIsIdleTimeoutLoading(false);

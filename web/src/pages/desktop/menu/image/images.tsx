@@ -12,6 +12,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/storage.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
 import { client } from '@/lib/websocket.ts';
 
 const imageUpdatedEvent = 'nanokvm:image-updated';
@@ -38,13 +39,18 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
 
   // get mounted image
   const getMountedImage = useCallback(() => {
-    api.getMountedImage().then((rsp) => {
-      if (rsp.code !== 0) return;
+    api
+      .getMountedImage()
+      .then((rsp) => {
+        if (rsp.code !== 0) return;
 
-      const file = rsp.data?.file;
-      setMountedImage(file);
-      setIsMounted(!!file);
-    });
+        const file = rsp.data?.file;
+        setMountedImage(file);
+        setIsMounted(!!file);
+      })
+      .catch(() => {
+        /* The image list read below reports the failure. */
+      });
   }, [setIsMounted]);
 
   const imageReadInFlight = useRef(false);
@@ -70,6 +76,7 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
           setImages([]);
         }
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         imageReadInFlight.current = false;
         setIsLoading(false);
@@ -105,7 +112,6 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
       .mountImage(filename, cdrom, force)
       .then((rsp) => {
         if (rsp.code !== 0) {
-          console.log(rsp.msg);
           if (rsp.code === -4 && isMounted && !force) {
             setForceEjectImage(image);
           } else {
@@ -117,6 +123,7 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
         setMountedImage(filename);
         setIsMounted(!!filename);
       })
+      .catch(() => openNotification(isMounted))
       .finally(() => {
         setMountingImage('');
         client.connect();
@@ -149,7 +156,7 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
       .deleteImage(selectedImage)
       .then((rsp) => {
         if (rsp.code !== 0) {
-          console.log(rsp.msg);
+          showRequestError(rsp);
           return;
         }
 
@@ -157,6 +164,7 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
 
         setSelectedImage('');
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         setDeletingImage('');
       });

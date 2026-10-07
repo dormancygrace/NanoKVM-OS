@@ -6,6 +6,7 @@ import { ChevronRightIcon, FileJsonIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/script.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
 
 import { Run } from './run';
@@ -50,7 +51,7 @@ export const Script = () => {
       .uploadScript(formData)
       .then((rsp) => {
         if (rsp.code !== 0) {
-          console.log(rsp.msg);
+          showRequestError(rsp);
           return;
         }
 
@@ -58,6 +59,7 @@ export const Script = () => {
           setScripts([...scripts, rsp.data.file]);
         }
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         setIsUploading(false);
       });
@@ -69,39 +71,45 @@ export const Script = () => {
     if (type === 'foreground') {
       setIsRunning(true);
     } else {
-      api.runScript(currentScript, type).then((rsp) => {
-        if (rsp.code !== 0) {
-          console.log(rsp.msg);
-          return;
-        }
-      });
+      api
+        .runScript(currentScript, type)
+        .then((rsp) => {
+          if (rsp.code !== 0) showRequestError(rsp, 'script.runFailed');
+        })
+        .catch((err) => showRequestError(err, 'script.runFailed'));
     }
   }
 
   function getScripts() {
-    api.getScripts().then((rsp) => {
-      if (rsp.code !== 0) {
-        console.log(rsp.msg);
-        return;
-      }
+    api
+      .getScripts()
+      .then((rsp) => {
+        if (rsp.code !== 0) {
+          showRequestError(rsp);
+          return;
+        }
 
-      if (rsp.data?.files?.length > 0) {
-        setScripts(rsp.data.files);
-      }
-    });
+        if (rsp.data?.files?.length > 0) {
+          setScripts(rsp.data.files);
+        }
+      })
+      .catch((err) => showRequestError(err));
   }
 
   function deleteScript() {
     if (!currentScript) return;
 
-    api.deleteScript(currentScript).then((rsp) => {
-      if (rsp.code !== 0) {
-        console.log(rsp.msg);
-        return;
-      }
+    api
+      .deleteScript(currentScript)
+      .then((rsp) => {
+        if (rsp.code !== 0) {
+          showRequestError(rsp);
+          return;
+        }
 
-      setScripts(scripts.filter((script) => script !== currentScript));
-    });
+        setScripts(scripts.filter((script) => script !== currentScript));
+      })
+      .catch((err) => showRequestError(err));
   }
 
   function activate(script: string) {

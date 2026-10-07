@@ -382,6 +382,8 @@ const en = {
       description: 'Configure Wi-Fi for NanoKVM',
       success: 'Please go to the device to check the network status of NanoKVM.',
       failed: 'Operation failed, please try again.',
+      pending:
+        'Connecting to the network. The NanoKVM hotspot may disconnect; check the network status on the device.',
       invalidMode:
         'The current mode does not support network setup. Please go to your device and enable Wi-Fi configuration mode.',
       confirmBtn: 'Ok',

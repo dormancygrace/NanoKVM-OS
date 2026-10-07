@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { closeGateway } from '@/api/picoclaw.ts';
+import { closeGateway } from '@/api/picoclaw-gateway.ts';
 import { picoclawChatOpenAtom } from '@/jotai/picoclaw.ts';
 
 import { MessageInput } from './message-input.tsx';

@@ -38,7 +38,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
       label: (
         <div className="flex items-center space-x-1">
           <HardDriveIcon size={16} />
-          <span>Mass Storage</span>
+          <span>{t('image.massStorage')}</span>
         </div>
       )
     },
@@ -47,7 +47,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
       label: (
         <div className="flex items-center space-x-1">
           <DiscIcon size={16} />
-          <span>CD/DVD</span>
+          <span>{t('image.cdrom')}</span>
         </div>
       )
     }

@@ -2,9 +2,8 @@ import { useEffect, useSyncExternalStore } from 'react';
 import { useAtom } from 'jotai';
 
 import { usbCompositionChangedEvent } from '@/api/virtual-device.ts';
-import { http } from '@/lib/http.ts';
+import { refreshLiveStatus, subscribeLiveStatus } from '@/lib/live-status.ts';
 import { noUsbInput, parseUsbInput } from '@/lib/usb-input.ts';
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { client } from '@/lib/websocket.ts';
 import { usbInputAtom } from '@/jotai/usb-input.ts';
 
@@ -16,25 +15,16 @@ export function useUsbInput() {
     client.getConnectionStatus
   );
   useEffect(() => {
-    let active = true;
-    let generation = 0;
-    async function refresh() {
-      const request = ++generation;
-      try {
-        const response = await http.get('/api/hid/input-status');
-        if (active && request === generation)
-          setStatus(response.code === 0 ? parseUsbInput(response.data) : noUsbInput);
-      } catch {
-        if (active && request === generation) setStatus(noUsbInput);
-      }
-    }
-    void refresh();
-    const stopPolling = pollWhileVisible(refresh, 5000);
+    const refresh = () => void refreshLiveStatus({ force: true });
+    const unsubscribe = subscribeLiveStatus((live) =>
+      setStatus(live ? parseUsbInput(live.input) : noUsbInput)
+    );
+    // A new connection may follow a device restart: read again.
+    refresh();
     window.addEventListener(usbCompositionChangedEvent, refresh);
     window.addEventListener('focus', refresh);
     return () => {
-      active = false;
-      stopPolling();
+      unsubscribe();
       window.removeEventListener(usbCompositionChangedEvent, refresh);
       window.removeEventListener('focus', refresh);
     };

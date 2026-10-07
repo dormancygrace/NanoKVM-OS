@@ -6,7 +6,8 @@
   "boot_sha256": "6421359320b60b6b03528f553290f266279f83cdacb03200af378d16254a5c12",
   "nanokvm_repo": "repos/nanokvm",
   "repo_keys": [
-    "keys/dgrace-6aaddbb6.rsa.pub"
+    "keys/dgrace-6aaddbb6.rsa.pub",
+    "keys/nkos-release-ec-b8e89b66.pub"
   ],
   "qemu_static": "qemu/qemu-riscv64-static",
   "output_root": "output",

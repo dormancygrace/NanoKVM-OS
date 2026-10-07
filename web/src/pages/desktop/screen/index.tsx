@@ -1,25 +1,40 @@
+import { useEffect, useState } from 'react';
 import { useAtomValue } from 'jotai';
 
 import { videoModeAtom } from '@/jotai/screen.ts';
 
-import { H264Direct } from './h264-direct.tsx';
-import { H264Webrtc } from './h264-webrtc.tsx';
-import { Mjpeg } from './mjpeg.tsx';
+import { getLoadedPlayer, hasPlayer, loadPlayer, type PlayerProps } from './players.ts';
 
-export const Screen = ({ onEncoderConflict }: { onEncoderConflict: () => boolean }) => {
+// The desktop page preloads the player before it first renders the screen, so
+// the player normally mounts in the same commit as the input handlers that
+// attach to its #screen element. Otherwise nothing is shown until it loads.
+const PlayerHost = ({ mode, ...props }: PlayerProps & { mode: string }) => {
+  const [Player, setPlayer] = useState(() => getLoadedPlayer(mode));
+  const [error, setError] = useState<unknown>(null);
+
+  useEffect(() => {
+    if (Player) return;
+    let active = true;
+    loadPlayer(mode)?.then(
+      (player) => active && setPlayer(() => player),
+      (reason: unknown) => active && setError(reason)
+    );
+    return () => {
+      active = false;
+    };
+  }, [mode, Player]);
+
+  // Surface a failed chunk request to the error boundary, as a static import would.
+  if (error) throw error;
+  return Player ? <Player {...props} /> : null;
+};
+
+export const Screen = ({ onEncoderConflict }: PlayerProps) => {
   const videoMode = useAtomValue(videoModeAtom);
 
-  if (videoMode === 'mjpeg') {
-    return <Mjpeg />;
+  if (!hasPlayer(videoMode)) {
+    return null;
   }
 
-  if (videoMode === 'direct') {
-    return <H264Direct onEncoderConflict={onEncoderConflict} />;
-  }
-
-  if (videoMode === 'h264') {
-    return <H264Webrtc onEncoderConflict={onEncoderConflict} />;
-  }
-
-  return null;
+  return <PlayerHost key={videoMode} mode={videoMode} onEncoderConflict={onEncoderConflict} />;
 };

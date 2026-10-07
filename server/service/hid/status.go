@@ -58,16 +58,22 @@ func (s *Service) GetHidMode(c *gin.Context) {
 
 // GetInputStatus is read-only and available to every authenticated KVM viewer.
 func (s *Service) GetInputStatus(c *gin.Context) {
+	var rsp proto.Response
+	rsp.OkRspWithData(c, InputStatus())
+}
+
+// InputStatus is the GET /api/hid/input-status payload, also part of the
+// combined live status.
+func InputStatus() gin.H {
 	h := GetHid()
 	h.Lock()
 	defer h.Unlock()
 	keyboard, relative, absolute := disabledHIDFunctions("/boot")
-	var rsp proto.Response
-	rsp.OkRspWithData(c, gin.H{
+	return gin.H{
 		"available": !keyboard || !relative || !absolute,
 		"keyboard":  !keyboard, "relative": !relative, "absolute": !absolute,
 		"pointerProfile": map[bool]string{false: "default", true: "windows"}[common.WindowsPointerEnabled()],
-	})
+	}
 }
 
 func (s *Service) GetKeyboardLedStatus(c *gin.Context) {

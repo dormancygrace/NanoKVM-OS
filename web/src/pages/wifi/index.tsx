@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CheckOutlined, KeyOutlined, LockOutlined, WifiOutlined } from '@ant-design/icons';
 import { Button, Form, Input } from 'antd';
+import { isAxiosError } from 'axios';
+import { KeyRoundIcon, LockIcon, WifiIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
 import * as api from '@/api/network.ts';
 import { Head } from '@/components/head.tsx';
 
-type State = '' | 'loading' | 'success' | 'failed' | 'denied';
+type State = '' | 'loading' | 'success' | 'pending' | 'failed' | 'denied';
 type VerifyState = '' | 'failed' | 'denied';
 
 export const Wifi = () => {
@@ -70,16 +71,13 @@ export const Wifi = () => {
         case -4:
           setState('denied');
           return;
-        case -2:
-        case -3:
-          setState('failed');
-          return;
       }
+      setState('failed');
     } catch (err) {
-      console.log(err);
+      // Joining the network can take the hotspot (and this response) down;
+      // that is expected, so only an answer from the device means failure.
+      setState(isAxiosError(err) && !err.response ? 'pending' : 'failed');
     }
-
-    setState('success');
   }
 
   if (!isAuthenticated) {
@@ -88,11 +86,7 @@ export const Wifi = () => {
         <Head title={t('head.wifi')} />
 
         <div className="flex h-screen w-screen flex-col items-center justify-center">
-          <Form
-            style={{ minWidth: 300, maxWidth: 500 }}
-            initialValues={{ remember: true }}
-            onFinish={onVerifyFinish}
-          >
+          <Form style={{ minWidth: 300, maxWidth: 500 }} onFinish={onVerifyFinish}>
             <div className="flex flex-col space-y-1 pb-5">
               <span className="text-center text-2xl font-semibold text-red-500">
                 {t('wifi.ap.authTitle')}
@@ -101,7 +95,10 @@ export const Wifi = () => {
             </div>
 
             <Form.Item name="apPassword">
-              <Input.Password prefix={<KeyOutlined />} placeholder={t('wifi.ap.passPlaceholder')} />
+              <Input.Password
+                prefix={<KeyRoundIcon size={14} />}
+                placeholder={t('wifi.ap.passPlaceholder')}
+              />
             </Form.Item>
 
             <Form.Item>
@@ -129,11 +126,7 @@ export const Wifi = () => {
       <Head title={t('head.wifi')} />
 
       <div className="flex h-screen w-screen flex-col items-center justify-center">
-        <Form
-          style={{ minWidth: 300, maxWidth: 500 }}
-          initialValues={{ remember: true }}
-          onFinish={connect}
-        >
+        <Form style={{ minWidth: 300, maxWidth: 500 }} onFinish={connect}>
           <div className="flex flex-col space-y-1 pb-5">
             <span className="text-center text-2xl font-semibold text-neutral-100">
               {t('wifi.title')}
@@ -142,34 +135,34 @@ export const Wifi = () => {
           </div>
 
           <Form.Item name="ssid">
-            <Input prefix={<WifiOutlined />} placeholder="SSID" />
+            <Input prefix={<WifiIcon size={14} />} placeholder="SSID" />
           </Form.Item>
 
           <Form.Item name="password">
-            <Input.Password prefix={<LockOutlined />} placeholder="Password" />
+            <Input.Password
+              prefix={<LockIcon size={14} />}
+              placeholder={t('auth.placeholderPassword')}
+            />
           </Form.Item>
 
           <Form.Item>
-            {state === 'success' ? (
-              <Button className="w-full" type="primary" icon={<CheckOutlined />}>
-                {t('wifi.finishBtn')}
-              </Button>
-            ) : (
-              <Button
-                className="w-full"
-                htmlType="submit"
-                type="primary"
-                loading={state === 'loading'}
-              >
-                {t('wifi.confirmBtn')}
-              </Button>
-            )}
+            <Button
+              className="w-full"
+              htmlType="submit"
+              type="primary"
+              loading={state === 'loading'}
+            >
+              {t('wifi.confirmBtn')}
+            </Button>
           </Form.Item>
         </Form>
 
         <div className="flex max-w-[500px] justify-center px-5 pt-3 md:px-10">
           {state === 'success' && (
             <span className="text-sm text-green-500">{t('wifi.success')}</span>
+          )}
+          {state === 'pending' && (
+            <span className="text-sm text-neutral-300">{t('wifi.pending')}</span>
           )}
 
           {state === 'failed' && <span className="text-sm text-red-500">{t('wifi.failed')} </span>}

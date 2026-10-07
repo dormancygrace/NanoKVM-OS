@@ -66,10 +66,6 @@ export function getInputRegion() {
   return http.get('/api/vm/input-region');
 }
 
-export function getInputResolution() {
-  return http.get('/api/vm/input-resolution');
-}
-
 // save the device-level absolute mouse input region
 export function setInputRegion(region: InputRegion) {
   return http.post('/api/vm/input-region', { mode: 'manual', ...region });
@@ -91,10 +87,6 @@ export function setInputRegionConfig(
 
 export function setControlRegionMode(mode: ControlRegionMode) {
   return http.post('/api/vm/input-region', { mode });
-}
-
-export function setOriginalResolutions(mode: ControlRegionMode, resolutions: OriginalResolution[]) {
-  return http.post('/api/vm/input-region', { mode, resolutions });
 }
 
 export function setOriginalResolutionConfig(
@@ -129,20 +121,6 @@ export function setManualRegions(
     selectedRegion,
     selectedResolution
   });
-}
-
-// get memory limit
-export function getMemoryLimit() {
-  return http.get('/api/vm/memory/limit');
-}
-
-// set memory limit
-export function setMemoryLimit(enabled: boolean, limit: number) {
-  const data = {
-    enabled,
-    limit
-  };
-  return http.post('/api/vm/memory/limit', data);
 }
 
 // get OLED configuration
@@ -201,16 +179,6 @@ export function enableSSH(password: string) {
 // disable SSH
 export function disableSSH() {
   return http.post('/api/vm/ssh/disable');
-}
-
-// get swap file size
-export function getSwap() {
-  return http.get('/api/vm/swap');
-}
-
-// set swap file size
-export function setSwap(size: number) {
-  return http.post('/api/vm/swap', { size });
 }
 
 // get mouse jiggler
@@ -323,8 +291,8 @@ export function setMemorySwap(
 export function getCPUFrequency() {
   return http.get('/api/vm/cpu-frequency');
 }
-export function setCPUFrequency(target: number) {
-  return http.post('/api/vm/cpu-frequency', { target });
+export function setCPUFrequency(target: number, applyAtBoot: boolean) {
+  return http.post('/api/vm/cpu-frequency', { target, applyAtBoot });
 }
 
 export function setVideoMemory(mode: VideoMemoryMode) {

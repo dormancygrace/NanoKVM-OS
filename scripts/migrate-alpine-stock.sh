@@ -19,7 +19,8 @@ fi
 # NanoKVM board/application channel, Alpine mirrors and explicit edge tags.
 repos=$(mktemp /etc/apk/.stock-repositories.XXXXXX)
 trap 'rm -f "$repos"' EXIT HUP INT TERM
-awk '$1 !~ /^https:\/\/nkos\.pesin\.pro\/repos\/c906-qualified\/?$/ { print }' /etc/apk/repositories > "$repos"
+# The C906 line names the repository or its v3 index (riscv64/Packages.adb).
+awk '$1 !~ /^https:\/\/nkos\.pesin\.pro\/repos\/c906-qualified(\/|\/riscv64\/Packages\.adb)?$/ { print }' /etc/apk/repositories > "$repos"
 # Custom experimental endpoints must be removed explicitly by their operator.
 # Never guess at unrelated repository ownership or silently discard it.
 if grep -E '^[[:space:]]*[^#].*c906' "$repos"; then

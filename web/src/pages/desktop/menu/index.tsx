@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@/contexts/auth.ts';
 import { Button, Divider } from 'antd';
 import clsx from 'clsx';
@@ -28,24 +28,41 @@ import { MobileMenuItemProvider } from '@/components/menu-item.tsx';
 import { Control } from '../control.tsx';
 import { KeyboardLedStatus } from '../keyboard-led-status';
 import { AudioMenu } from './audio';
-import { Capture } from './capture';
-import { DownloadImage } from './download.tsx';
 import { Fullscreen } from './fullscreen';
-import { Image } from './image';
 import { Keyboard } from './keyboard';
 import { Logout } from './logout';
 import { Mouse } from './mouse';
 import { Collapse, Expand } from './operations';
-import { Picoclaw } from './picoclaw';
 import { Power } from './power';
 import { Recorder } from './recorder';
 import { Screen } from './screen';
 import { Screenshot } from './screenshot';
-import { Script } from './script';
 import { Settings } from './settings';
-import { Terminal } from './terminal';
-import { UsbMenu } from './usb';
 import { Wol } from './wol';
+
+// Admin-only items come from one lazily loaded chunk (see admin-items.ts).
+const loadAdminItems = () => import('./admin-items.ts');
+const Capture = lazy(() => loadAdminItems().then((module) => ({ default: module.Capture })));
+const DownloadImage = lazy(() =>
+  loadAdminItems().then((module) => ({ default: module.DownloadImage }))
+);
+const Image = lazy(() => loadAdminItems().then((module) => ({ default: module.Image })));
+const Picoclaw = lazy(() => loadAdminItems().then((module) => ({ default: module.Picoclaw })));
+const Script = lazy(() => loadAdminItems().then((module) => ({ default: module.Script })));
+const Terminal = lazy(() => loadAdminItems().then((module) => ({ default: module.Terminal })));
+const UsbMenu = lazy(() => loadAdminItems().then((module) => ({ default: module.UsbMenu })));
+
+// Keeps a lazy toolbar item's 30x30 slot while its chunk loads, so the bar
+// does not shift. Image renders nothing until the virtual disk state is known,
+// so its placeholder is empty as well.
+const ToolbarSlot = () => <div className="h-[30px] w-[30px]" aria-hidden="true" />;
+function lazyItem(key: string, item: ReactNode, placeholder: ReactNode = <ToolbarSlot />) {
+  return (
+    <Suspense key={key} fallback={placeholder}>
+      {item}
+    </Suspense>
+  );
+}
 
 const mobileRailToggleButtonClass =
   'flex! size-[30px]! min-w-[30px]! touch-manipulation items-center! justify-center! !p-0 text-neutral-300 transition-colors hover:!bg-neutral-700/80 hover:!text-white active:!bg-neutral-600/70';
@@ -183,7 +200,7 @@ export const Menu = () => {
     const groups: ReactNode[][] = [
       [
         <Screen key="screen" />,
-        ...(isAdmin ? [<Capture key="capture" />] : []),
+        ...(isAdmin ? [lazyItem('capture', <Capture />)] : []),
         <Screenshot key="screenshot" />,
         ...(isEnabled('recorder') ? [<Recorder key="recorder" />] : [])
       ],
@@ -199,19 +216,19 @@ export const Menu = () => {
       ],
       isAdmin
         ? [
-            <UsbMenu key="usb" />,
+            lazyItem('usb', <UsbMenu />),
             ...(isEnabled('image')
-              ? [<Image key="image" tooltipPlacement={tooltipPlacement} />]
+              ? [lazyItem('image', <Image tooltipPlacement={tooltipPlacement} />, null)]
               : []),
-            ...(isEnabled('download') ? [<DownloadImage key="download" />] : [])
+            ...(isEnabled('download') ? [lazyItem('download', <DownloadImage />)] : [])
           ]
         : [],
       isAdmin
         ? [
-            ...(isEnabled('terminal') ? [<Terminal key="terminal" />] : []),
-            ...(isEnabled('script') ? [<Script key="script" />] : []),
+            ...(isEnabled('terminal') ? [lazyItem('terminal', <Terminal />)] : []),
+            ...(isEnabled('script') ? [lazyItem('script', <Script />)] : []),
             ...(picoclawStatus?.installed === true && isEnabled('picoclaw')
-              ? [<Picoclaw key="picoclaw" tooltipPlacement={tooltipPlacement} />]
+              ? [lazyItem('picoclaw', <Picoclaw tooltipPlacement={tooltipPlacement} />)]
               : [])
           ]
         : [],

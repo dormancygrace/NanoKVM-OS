@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { usbCompositionChangedEvent } from '@/api/virtual-device.ts';
 import { stereoOffer } from '@/lib/audio-sdp.ts';
-import { http } from '@/lib/http.ts';
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { refreshLiveStatus, subscribeLiveStatus } from '@/lib/live-status.ts';
 
 type Playback = {
   context: AudioContext;
@@ -72,25 +71,19 @@ export const useUsbAudio = () => {
   }, []);
 
   useEffect(() => {
-    let alive = true;
-    const refresh = async () => {
-      try {
-        const rsp = await http.get('/api/stream/audio/status');
-        if (!alive || rsp.code !== 0) return;
-        const enabled = Boolean(rsp.data.audio);
-        setAvailable(enabled);
-        if (!enabled) disconnect();
-      } catch {
-        /* Preserve the last known composition during a transient disconnect. */
-      }
-    };
-    void refresh();
-    const stopPolling = pollWhileVisible(refresh, 5000);
+    const refresh = () => void refreshLiveStatus({ force: true });
+    const unsubscribe = subscribeLiveStatus((live) => {
+      // A failed read preserves the last known composition during a transient
+      // disconnect.
+      if (!live) return;
+      const enabled = Boolean(live.audio.audio);
+      setAvailable(enabled);
+      if (!enabled) disconnect();
+    });
     window.addEventListener(usbCompositionChangedEvent, refresh);
     window.addEventListener('nanokvm:usb-updated', refresh);
     return () => {
-      alive = false;
-      stopPolling();
+      unsubscribe();
       window.removeEventListener(usbCompositionChangedEvent, refresh);
       window.removeEventListener('nanokvm:usb-updated', refresh);
       disconnect();

@@ -62,7 +62,6 @@ const ca = {
       scale: 'Escala',
       title: 'Pantalla',
       video: 'Mode de vídeo',
-      videoDirectTips: "Activa HTTPS a 'Configuració > Dispositiu' per utilitzar aquest mode",
       resolution: 'Resolució',
       controlRegion: {
         title: 'Calibratge del ratolí',
@@ -82,17 +81,13 @@ const ca = {
         duplicateResolution: 'Aquesta resolució ja existeix.',
         width: 'Amplada',
         height: 'Alçada',
-        apply: 'Calcula i aplica',
         invalidResolution: 'Introduïu una resolució original vàlida quan el vídeo estigui llest.',
         select: "Selecciona l'àrea",
-        clear: 'Restaura la detecció automàtica',
         saveFailed: "No s'ha pogut desar l'àrea d'entrada.",
         tooSmall: "L'àrea seleccionada és massa petita.",
         previewUnavailable: 'Vista prèvia no disponible',
-        clearConfirm: 'Voleu restaurar la detecció automàtica de vores negres?',
         dragHint: "Arrossegueu per seleccionar l'àrea de l'escriptori remot",
         finish: 'Fet',
-        confirm: 'Confirma',
         cancel: 'Cancel·la'
       },
       auto: 'Automàtic',
@@ -224,16 +219,7 @@ const ca = {
         dragDesc:
           'Un cop activada la pulsació mantinguda, mou el dit per arrossegar mantenint premut el botó esquerre.'
       },
-      resetHid: 'Restablir HID',
-      hidOnly: {
-        title: 'Mode només HID',
-        desc: 'Si el ratolí i el teclat deixen de respondre i restablir HID no ajuda, pot ser un problema de compatibilitat entre el NanoKVM i el dispositiu. Proveu d’activar el mode només HID per millorar la compatibilitat.',
-        tip1: 'Activar el mode només HID desmuntarà el disc virtual i la xarxa virtual',
-        tip2: 'En mode només HID, no es pot muntar imatges',
-        tip3: 'El NanoKVM es reiniciarà automàticament en canviar de mode',
-        enable: 'Activa mode només HID',
-        disable: 'Desactiva mode només HID'
-      }
+      resetHid: 'Restablir HID'
     },
     image: {
       title: 'Imatges',
@@ -360,22 +346,10 @@ const ca = {
       },
       about: {
         title: 'Sobre NanoKVM',
-        information: 'Informació',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'Versió aplicació',
-        applicationTip: 'Versió de la interfície web de NanoKVM',
         image: 'Versió de la imatge',
-        imageTip: 'Versió del sistema NanoKVM',
-        deviceKey: 'Clau del dispositiu',
-        community: 'Comunitat',
         hostname: 'Nom del dispositiu',
-        hostnameUpdated: 'Nom actualitzat. Reinicia per aplicar.',
-        ipType: {
-          Wired: 'Cablejada',
-          Wireless: 'Sense fil',
-          Other: 'Altra'
-        }
+        hostnameUpdated: 'Nom actualitzat. Reinicia per aplicar.'
       },
       appearance: {
         title: 'Aparença',
@@ -388,7 +362,6 @@ const ca = {
           title: 'Barra de menús',
           mode: 'Mode de visualització',
           modeDesc: 'Mostra la barra de menús a la pantalla',
-          modeOff: 'Apagat',
           modeAuto: 'Ocultació automàtica',
           modeAlways: 'Sempre visible',
           keyboardLedStatus: 'Indicadors de bloqueig del teclat',
@@ -426,17 +399,6 @@ const ca = {
           1800: '30 min',
           3600: '1 h'
         },
-        ssh: {
-          description: 'Activa accés remot per SSH',
-          tip: 'Configura una contrasenya segura abans (Compte - Canvia contrasenya)'
-        },
-        advanced: 'Configuració avançada',
-        swap: {
-          title: 'Swap',
-          disable: 'Desactiva',
-          description: 'Defineix la mida del fitxer swap',
-          tip: 'Pot reduir la vida útil de la targeta SD!'
-        },
         mouseJiggler: {
           title: 'Mou-ratolí automàtic',
           description: 'Evita que el dispositiu remot entri en repòs',
@@ -455,23 +417,6 @@ const ca = {
             'Atura la captura HDMI després de no detectar espectadors actius durant',
           minutes: 'min'
         },
-        autostart: {
-          title: "Configuració dels scripts d'inici automàtic",
-          description: "Gestioneu els scripts que s'executen automàticament a l'inici del sistema",
-          new: 'Nou',
-          deleteConfirm: 'Estàs segur que vols eliminar aquest fitxer?',
-          yes: 'Sí',
-          no: 'No',
-          scriptName: "Nom de l'script d'inici automàtic",
-          scriptContent: "Contingut de l'script d'inici automàtic",
-          settings: 'Configuració'
-        },
-        hidOnly: 'Mode només HID',
-        hidOnlyDesc: "Deixeu d'emular dispositius virtuals, conservant només el control bàsic HID",
-        disk: 'Disc virtual',
-        diskDesc: 'Munta un disc U virtual al dispositiu remot',
-        network: 'Xarxa virtual',
-        networkDesc: 'Munta una targeta de xarxa virtual al dispositiu remot',
         reboot: 'Reinicia',
         rebootDesc: 'Segur que vols reiniciar el NanoKVM?',
         okBtn: 'Sí',
@@ -515,21 +460,17 @@ const ca = {
           invalid: 'Adreça IP no vàlida',
           save: 'Desa',
           unsaved: 'Canvis no desats',
-          savedStatic: "S'ha desat l'adreça IP estàtica {{address}}.",
-          savedDhcp: "S'ha desat la configuració DHCP.",
           saveFailed: "No s'ha pogut desar la configuració.",
           loadFailed: "No s'ha pogut carregar la configuració."
         },
         dns: {
           title: 'DNS',
           description: 'Configura els servidors DNS per a NanoKVM',
-          mode: 'Mode',
           dhcp: 'DHCP',
           manual: 'Manual',
           add: 'Afegeix DNS',
           save: 'Desa',
           invalid: 'Introdueix una adreça IP vàlida',
-          noDhcp: 'No hi ha cap DNS DHCP disponible actualment',
           saved: 'Configuració DNS desada',
           saveFailed: "No s'ha pogut desar la configuració DNS",
           unsaved: 'Canvis no desats',
@@ -547,14 +488,6 @@ const ca = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Optimització de memòria',
-          tip: 'Quan es supera el límit de memòria, es fa una neteja més agressiva. Recomanat: 75MB si uses Tailscale. Requereix reiniciar Tailscale.'
-        },
-        swap: {
-          title: 'Intercanvi de memòria',
-          tip: "Si els problemes persisteixen després d'activar l'optimització de memòria, proveu d'habilitar la memòria d'intercanvi. Això estableix la mida del fitxer d'intercanvi a 256MB per defecte, que es pot ajustar a \"Configuració > Dispositiu\"."
-        },
         restart: 'Reiniciar Tailscale?',
         stop: 'Aturar Tailscale?',
         stopDesc: 'Tanca la sessió de Tailscale i desactiva l’inici automàtic en arrencar.',
@@ -564,12 +497,6 @@ const ca = {
         installing: 'Instal·lant',
         failed: 'Error en la instal·lació',
         retry: 'Actualitza i torna-ho a provar. O instal·la manualment',
-        download: 'Descarrega el',
-        package: "paquet d'instal·lació",
-        unzip: 'i descomprimeix-lo',
-        upTailscale: 'Puja tailscale al directori /usr/bin/ del NanoKVM',
-        upTailscaled: 'Puja tailscaled al directori /usr/sbin/ del NanoKVM',
-        refresh: 'Actualitza la pàgina',
         notRunning: "Tailscale no s'està executant. Si us plau, inicieu-lo per continuar.",
         run: 'Comença',
         notLogin: 'El dispositiu no està vinculat. Inicia sessió per vincular-lo.',

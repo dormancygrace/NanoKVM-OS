@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Alert, Button, Collapse, message, Popconfirm } from 'antd';
 import { useTranslation } from 'react-i18next';
 
+import { Panel } from '@/components/ui/settings.tsx';
+
 export type APKState = {
   state: string;
   message?: string;
@@ -31,14 +33,14 @@ export const APKUpdates = ({
   }, [state?.state, tr]);
   const working = busy || ['checking', 'installing', 'rebooting'].includes(state?.state || '');
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-neutral-700 p-4">
+    <Panel className="space-y-4">
       <div className="font-medium">{tr('title')}</div>
-      <p className="text-sm text-neutral-400">{tr('description')}</p>
+      <p className="text-fg-muted mt-0 text-sm">{tr('description')}</p>
       <div className="text-sm">
         {tr('kernel')}: {state?.kernel || '—'}
       </div>
       {state?.state === 'ready' && state.upgrades && (
-        <pre className="max-h-48 overflow-auto text-xs whitespace-pre-wrap text-neutral-300">
+        <pre className="text-fg m-0 max-h-48 overflow-auto text-xs whitespace-pre-wrap">
           {state.upgrades}
         </pre>
       )}
@@ -92,6 +94,6 @@ export const APKUpdates = ({
           ]}
         />
       )}
-    </div>
+    </Panel>
   );
 };

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
+import { message, Switch } from 'antd';
 import axios from 'axios';
-import { message, Switch, Tooltip } from 'antd';
-import { CircleAlertIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+import { confirmAction } from '@/components/ui/confirm.ts';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 function restartInterruptedRequest(err: unknown): boolean {
   if (!axios.isAxiosError(err)) return false;
@@ -27,6 +28,18 @@ export const Tls = () => {
     setIsLoading(true);
 
     const enable = !isEnabled;
+    const confirmed = await confirmAction({
+      title: t(
+        enable ? 'settings.network.tls.confirmEnable' : 'settings.network.tls.confirmDisable'
+      ),
+      content: t('settings.network.tls.confirmRestart'),
+      danger: true
+    });
+    if (!confirmed) {
+      // The switch shows loading while the dialog is open; clear it on cancel.
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const rsp = await api.setTLS(enable);
@@ -68,24 +81,20 @@ export const Tls = () => {
   }
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex flex-col space-y-1">
-        <div className="flex items-center space-x-2">
-          <span>HTTPS</span>
-
-          <Tooltip
-            title={t('settings.network.tls.tip')}
-            className="cursor-pointer"
-            placement="right"
-            styles={{ root: { maxWidth: '400px' } }}
-          >
-            <CircleAlertIcon className="text-neutral-500" size={14} />
-          </Tooltip>
-        </div>
-        <span className="text-xs text-neutral-500">{t('settings.network.tls.description')}</span>
-      </div>
-
-      <Switch checked={isEnabled} loading={isLoading} onChange={update} />
-    </div>
+    <SettingRow
+      label="HTTPS"
+      description={t('settings.network.tls.description')}
+      help={t('settings.network.tls.tip')}
+      htmlFor="network-tls"
+    >
+      <Switch
+        id="network-tls"
+        aria-label="HTTPS"
+        aria-describedby="network-tls-description"
+        checked={isEnabled}
+        loading={isLoading}
+        onChange={update}
+      />
+    </SettingRow>
   );
 };

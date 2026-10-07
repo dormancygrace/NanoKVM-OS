@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Collapse, Divider, message, Select, Switch, Tag, Tooltip } from 'antd';
+import { Alert, Button, Collapse, message, Select, Switch, Tag, Tooltip } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/virtual-device.ts';
@@ -15,6 +15,8 @@ import {
   usbPresets
 } from '@/lib/usb-composition.ts';
 import type { UsbComposition, UsbDevice, UsbStatus } from '@/lib/usb-composition.ts';
+import { confirmAction } from '@/components/ui/confirm.ts';
+import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
 import { MouseJiggler } from '../device/mouse-jiggler';
 
@@ -45,9 +47,11 @@ export const Usb = () => {
   const [loading, setLoading] = useState(false);
   const busy = useRef(false);
   const [error, setError] = useState('');
+  const [loadFailed, setLoadFailed] = useState(false);
   const previousComposition = useRef<UsbComposition | undefined>(readPreviousComposition());
 
   const adopt = useCallback((next: UsbStatus) => {
+    setLoadFailed(false);
     setStatus(next);
     setDraft(next);
     if (usbDevices.some((name) => next[name])) {
@@ -78,7 +82,7 @@ export const Usb = () => {
       .catch(() => {
         if (active) {
           setError(t('settings.usb.loadFailed'));
-          message.error(t('settings.usb.loadFailed'));
+          setLoadFailed(true);
         }
       });
     return () => {
@@ -113,6 +117,12 @@ export const Usb = () => {
       next = { ...(previousComposition.current ?? usbPresets[0].composition) };
       if (!fitsBudget(next, status)) return;
     } else {
+      const confirmed = await confirmAction({
+        title: t('settings.usb.confirmDisable'),
+        content: t('settings.usb.confirmDisableDescription'),
+        danger: true
+      });
+      if (!confirmed) return;
       previousComposition.current = { ...status };
       next = {
         mode: 'normal',
@@ -175,6 +185,7 @@ export const Usb = () => {
       setError('');
     } catch {
       setError(t('settings.usb.loadFailed'));
+      setLoadFailed(true);
     }
   }
 
@@ -185,161 +196,165 @@ export const Usb = () => {
   const withinBudget = Boolean(draft && status && fitsBudget(draft, status));
 
   return (
-    <>
-      <div className="text-base">{t('settings.usb.title')}</div>
-      <Divider className="opacity-50" />
-      <div className="mb-6 flex items-center justify-between">
-        <span>{t('settings.usb.enabled')}</span>
+    <div className="space-y-6">
+      {loadFailed && <Alert type="error" showIcon message={t('settings.usb.loadFailed')} />}
+      <SettingRow label={t('settings.usb.enabled')} htmlFor="usb-enabled">
         <Switch
-          aria-label={t('settings.usb.enabled')}
+          id="usb-enabled"
           checked={enabled}
           disabled={!status?.revision || loading}
           loading={loading || (!status && !error)}
           onChange={(next) => void toggleUsb(next)}
         />
-      </div>
+      </SettingRow>
       {enabled && (
         <>
-          <label htmlFor="usb-preset" className="mb-2 block text-sm text-neutral-400">
-            {t('settings.usb.presetLabel')}
-          </label>
-          <Select
-            id="usb-preset"
-            className="w-full"
-            value={selection}
-            loading={!status && !error}
-            disabled={!status || loading}
-            onChange={choosePreset}
-            options={[
-              ...usbPresets.map((preset) => ({
-                value: preset.id,
-                label: t(`settings.usb.presets.${preset.id}.title`),
-                disabled: !status || !fitsBudget(preset.composition, status)
-              })),
-              { value: 'custom', label: t('settings.usb.custom') }
-            ]}
-          />
-          <p className="mt-2 mb-4 text-xs text-neutral-400">
-            {selection === 'custom'
-              ? t('settings.usb.customDescription')
-              : t(`settings.usb.presets.${selection}.description`)}
-          </p>
-          <Collapse
-            ghost
-            activeKey={manualOpen ? ['manual'] : []}
-            onChange={(keys) => setManualOpen(keys.includes('manual'))}
-            items={[
-              {
-                key: 'manual',
-                label: t('settings.usb.manual'),
-                children: (
-                  <div className="flex flex-col gap-5">
-                    <div className="flex items-center justify-between rounded-lg bg-neutral-800/60 p-3 text-xs">
-                      <span className="text-neutral-400">{t('settings.usb.budgetTitle')}</span>
-                      <span
-                        className={`font-mono ${withinBudget ? 'text-neutral-300' : 'text-amber-400'}`}
-                      >
-                        IN {used?.in ?? '–'}/{status?.budget.inLimit ?? '–'} · OUT{' '}
-                        {used?.out ?? '–'}/{status?.budget.outLimit ?? '–'}
-                      </span>
-                    </div>
-                    {usbDevices.map((name) => {
-                      const blocked = Boolean(
-                        draft && status && !canToggleDevice(draft, name, status)
-                      );
-                      return (
-                        <div key={name} className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className={blocked ? 'text-neutral-500' : ''}>
-                              {t(`settings.usb.devices.${name}.title`)}
-                            </div>
-                            <div className="text-xs text-neutral-500">
-                              {t(`settings.usb.devices.${name}.description`)}
-                            </div>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            <Tag
-                              bordered={false}
-                              className="m-0 font-mono text-[10px] text-neutral-400"
-                            >
-                              {status?.costs[name].in ?? '–'} IN · {status?.costs[name].out ?? '–'}{' '}
-                              OUT
-                            </Tag>
-                            <Tooltip title={blocked ? t('settings.usb.budgetExceeded') : undefined}>
-                              <span>
-                                <Switch
-                                  aria-label={t(`settings.usb.devices.${name}.title`)}
-                                  checked={Boolean(draft?.[name])}
-                                  disabled={!status || loading || blocked}
-                                  onChange={() => toggle(name)}
-                                />
-                              </span>
-                            </Tooltip>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )
+          <div className="space-y-4">
+            <SettingRow
+              label={t('settings.usb.presetLabel')}
+              description={
+                selection === 'custom'
+                  ? t('settings.usb.customDescription')
+                  : t(`settings.usb.presets.${selection}.description`)
               }
-            ]}
-          />
-          {draft?.absolute && (
-            <div className="mt-3 space-y-1.5">
-              <div className="text-sm">{t('settings.usb.pointerProfile')}</div>
+              htmlFor="usb-preset"
+              stacked
+            >
               <Select
-                aria-label={t('settings.usb.pointerProfile')}
+                id="usb-preset"
+                aria-describedby="usb-preset-description"
                 className="w-full"
-                value={draft.pointerProfile ?? 'default'}
-                disabled={loading || !status}
+                value={selection}
+                loading={!status && !error}
+                disabled={!status || loading}
+                onChange={choosePreset}
                 options={[
-                  { value: 'default', label: 'Default' },
-                  { value: 'windows', label: 'Windows', disabled: !status?.windowsPointerSupported }
+                  ...usbPresets.map((preset) => ({
+                    value: preset.id,
+                    label: t(`settings.usb.presets.${preset.id}.title`),
+                    disabled: !status || !fitsBudget(preset.composition, status)
+                  })),
+                  { value: 'custom', label: t('settings.usb.custom') }
                 ]}
-                onChange={(value) => setDraft({ ...draft, pointerProfile: value })}
               />
-              <div className="text-xs text-neutral-500">{t('settings.usb.pointerProfileHelp')}</div>
-            </div>
-          )}
-          {empty && <div className="mt-3 text-sm text-neutral-400">{t('settings.usb.empty')}</div>}
-          {status && !status.revision && (
-            <div className="mt-3 text-sm text-amber-400">
-              {t('settings.usb.serverUpdateRequired')}
-            </div>
-          )}
-          {error && (
-            <div role="alert" className="mt-3 text-sm text-red-400">
-              {error}
-            </div>
-          )}
-          <div className="mt-5 flex items-center gap-3">
-            <Button
-              type="primary"
-              loading={loading}
-              disabled={!dirty || !withinBudget || !status?.revision}
-              onClick={apply}
-            >
-              {t('settings.usb.apply')}
-            </Button>
-            <Button
-              disabled={loading || (!dirty && !error)}
-              onClick={() => {
-                if (status && !error) {
-                  adopt(status);
-                  setError('');
-                } else {
-                  void reload();
+            </SettingRow>
+            <Collapse
+              ghost
+              activeKey={manualOpen ? ['manual'] : []}
+              onChange={(keys) => setManualOpen(keys.includes('manual'))}
+              items={[
+                {
+                  key: 'manual',
+                  label: t('settings.usb.manual'),
+                  children: (
+                    <div className="space-y-4">
+                      <Panel className="flex items-center justify-between gap-3 text-xs">
+                        <span className="text-fg-muted">{t('settings.usb.budgetTitle')}</span>
+                        <span className={`font-mono ${withinBudget ? 'text-fg' : 'text-warning'}`}>
+                          IN {used?.in ?? '–'}/{status?.budget.inLimit ?? '–'} · OUT{' '}
+                          {used?.out ?? '–'}/{status?.budget.outLimit ?? '–'}
+                        </span>
+                      </Panel>
+                      {usbDevices.map((name) => {
+                        const blocked = Boolean(
+                          draft && status && !canToggleDevice(draft, name, status)
+                        );
+                        return (
+                          <SettingRow
+                            key={name}
+                            label={
+                              <span className={blocked ? 'text-fg-muted' : undefined}>
+                                {t(`settings.usb.devices.${name}.title`)}
+                              </span>
+                            }
+                            description={t(`settings.usb.devices.${name}.description`)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Tag
+                                bordered={false}
+                                className="text-fg-muted m-0 font-mono text-[10px]"
+                              >
+                                {status?.costs[name].in ?? '–'} IN ·{' '}
+                                {status?.costs[name].out ?? '–'} OUT
+                              </Tag>
+                              <Tooltip
+                                title={blocked ? t('settings.usb.budgetExceeded') : undefined}
+                              >
+                                <span>
+                                  <Switch
+                                    aria-label={t(`settings.usb.devices.${name}.title`)}
+                                    checked={Boolean(draft?.[name])}
+                                    disabled={!status || loading || blocked}
+                                    onChange={() => toggle(name)}
+                                  />
+                                </span>
+                              </Tooltip>
+                            </div>
+                          </SettingRow>
+                        );
+                      })}
+                    </div>
+                  )
                 }
-              }}
-            >
-              {t(error ? 'settings.usb.reload' : 'settings.usb.cancel')}
-            </Button>
+              ]}
+            />
+            {draft?.absolute && (
+              <SettingRow
+                label={t('settings.usb.pointerProfile')}
+                description={t('settings.usb.pointerProfileHelp')}
+                htmlFor="usb-pointer-profile"
+                stacked
+              >
+                <Select
+                  id="usb-pointer-profile"
+                  aria-describedby="usb-pointer-profile-description"
+                  className="w-full"
+                  value={draft.pointerProfile ?? 'default'}
+                  disabled={loading || !status}
+                  options={[
+                    { value: 'default', label: t('settings.usb.pointerProfileDefault') },
+                    {
+                      value: 'windows',
+                      label: 'Windows',
+                      disabled: !status?.windowsPointerSupported
+                    }
+                  ]}
+                  onChange={(value) => setDraft({ ...draft, pointerProfile: value })}
+                />
+              </SettingRow>
+            )}
+            {empty && <div className="text-fg-muted text-sm">{t('settings.usb.empty')}</div>}
+            {status && !status.revision && (
+              <div className="text-warning text-sm">{t('settings.usb.serverUpdateRequired')}</div>
+            )}
+            <div className="flex items-center gap-3">
+              <Button
+                type="primary"
+                loading={loading}
+                disabled={!dirty || !withinBudget || !status?.revision}
+                onClick={apply}
+              >
+                {t('settings.usb.apply')}
+              </Button>
+              <Button
+                disabled={loading || (!dirty && !error)}
+                onClick={() => {
+                  if (status && !error) {
+                    adopt(status);
+                    setError('');
+                  } else {
+                    void reload();
+                  }
+                }}
+              >
+                {t(error ? 'settings.usb.reload' : 'settings.usb.cancel')}
+              </Button>
+            </div>
+            <p className="text-fg-muted m-0 text-xs">{t('settings.usb.reconnectNotice')}</p>
           </div>
-          <p className="mt-3 text-xs text-neutral-500">{t('settings.usb.reconnectNotice')}</p>
-          <Divider className="opacity-50" />
           <MouseJiggler />
         </>
       )}
-    </>
+    </div>
   );
 };

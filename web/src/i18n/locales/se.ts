@@ -60,7 +60,6 @@ const se = {
       scale: 'Skala',
       title: 'Skärm',
       video: 'Videoläge',
-      videoDirectTips: 'Aktivera HTTPS i "Inställningar > Enhet" för att använda detta läge',
       resolution: 'Upplösning',
       controlRegion: {
         title: 'Muskalibrering',
@@ -79,17 +78,13 @@ const se = {
         duplicateResolution: 'Den här upplösningen finns redan.',
         width: 'Bredd',
         height: 'Höjd',
-        apply: 'Beräkna och tillämpa',
         invalidResolution: 'Ange en giltig ursprunglig upplösning när videon är klar.',
         select: 'Välj område',
-        clear: 'Återställ automatiskt',
         saveFailed: 'Det gick inte att spara inmatningsområdet.',
         tooSmall: 'Det valda området är för litet.',
         previewUnavailable: 'Förhandsvisning är inte tillgänglig',
-        clearConfirm: 'Återställa automatisk identifiering av svarta kanter?',
         dragHint: 'Dra för att välja området för fjärrskrivbordet',
         finish: 'Klar',
-        confirm: 'Bekräfta',
         cancel: 'Avbryt'
       },
       auto: 'Automatisk',
@@ -220,16 +215,7 @@ const se = {
         dragDesc:
           'När långtryckningen är aktiv flyttar du fingret för att dra med vänsterknappen nedtryckt.'
       },
-      resetHid: 'Återställ HID',
-      hidOnly: {
-        title: 'Endast HID-läge',
-        desc: 'Om din mus och ditt tangentbord slutar svara och återställning av HID inte hjälper, kan det bero på kompatibilitetsproblem mellan NanoKVM och enheten. Prova att aktivera Endast-HID-läge för bättre kompatibilitet.',
-        tip1: 'Aktivering av Endast-HID-läge avmonterar den virtuella U-disken och nätverket',
-        tip2: 'I Endast-HID-läge är avbildningsmontering inaktiverat',
-        tip3: 'NanoKVM kommer automatiskt att starta om efter lägesbyte',
-        enable: 'Aktivera Endast-HID-läge',
-        disable: 'Inaktivera Endast-HID-läge'
-      }
+      resetHid: 'Återställ HID'
     },
     image: {
       title: 'Avbildningar',
@@ -357,22 +343,10 @@ const se = {
       },
       about: {
         title: 'Om NanoKVM',
-        information: 'Information',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'Applikationsversion',
-        applicationTip: 'NanoKVM webbapplikationsversion',
         image: 'Systemversion',
-        imageTip: 'NanoKVM systemavbildningsversion',
-        deviceKey: 'Enhetsnyckel',
-        community: 'Community',
         hostname: 'Värdnamn',
-        hostnameUpdated: 'Värdnamn uppdaterat. Starta om för att tillämpa.',
-        ipType: {
-          Wired: 'Trådbundet',
-          Wireless: 'Trådlöst',
-          Other: 'Annat'
-        }
+        hostnameUpdated: 'Värdnamn uppdaterat. Starta om för att tillämpa.'
       },
       appearance: {
         title: 'Utseende',
@@ -385,7 +359,6 @@ const se = {
           title: 'Menyrad',
           mode: 'Visningsläge',
           modeDesc: 'Visa menyraden på skärmen',
-          modeOff: 'Av',
           modeAuto: 'Dölj automatiskt',
           modeAlways: 'Alltid synlig',
           keyboardLedStatus: 'Indikatorer för tangentbordslås',
@@ -423,17 +396,6 @@ const se = {
           1800: '30 min',
           3600: '1 timme'
         },
-        ssh: {
-          description: 'Aktivera SSH-fjärråtkomst',
-          tip: 'Ställ in ett starkt lösenord innan du aktiverar (Konto - Byt lösenord)'
-        },
-        advanced: 'Avancerade inställningar',
-        swap: {
-          title: 'Swap',
-          disable: 'Inaktivera',
-          description: 'Ange swap-filens storlek',
-          tip: 'Aktivering av denna funktion kan förkorta livslängden på ditt SD-kort!'
-        },
         mouseJiggler: {
           title: 'Musvickare',
           description: 'Förhindra att fjärrvärden går i viloläge',
@@ -452,23 +414,6 @@ const se = {
             'Stoppa HDMI-inspelning efter att det inte har funnits aktiva tittare i',
           minutes: 'min'
         },
-        autostart: {
-          title: 'Autostart skriptinställningar',
-          description: 'Hantera skript som körs automatiskt vid systemstart',
-          new: 'Nytt',
-          deleteConfirm: 'Är du säker på att du vill ta bort denna fil?',
-          yes: 'Ja',
-          no: 'Nej',
-          scriptName: 'Autostart skriptnamn',
-          scriptContent: 'Autostart skriptinnehåll',
-          settings: 'Inställningar'
-        },
-        hidOnly: 'Endast-HID-läge',
-        hidOnlyDesc: 'Sluta emulera virtuella enheter, behåll bara grundläggande HID kontroll',
-        disk: 'Virtuell disk',
-        diskDesc: 'Montera virtuell U-disk på fjärrvärden',
-        network: 'Virtuellt nätverk',
-        networkDesc: 'Montera virtuell nätverkskort på fjärrvärden',
         reboot: 'Starta om',
         rebootDesc: 'Är du säker på att du vill starta om NanoKVM?',
         okBtn: 'Ja',
@@ -512,21 +457,17 @@ const se = {
           invalid: 'Ange en giltig IPv4-adress, nätmask och gateway',
           save: 'Spara',
           unsaved: 'Osparade ändringar',
-          savedStatic: 'Statisk adress sparad. Anslut igen på {{address}}.',
-          savedDhcp: 'DHCP aktiverat. Anslut igen med adressen som routern har tilldelat.',
           saveFailed: 'Det gick inte att spara Ethernet-inställningarna',
           loadFailed: 'Det gick inte att läsa in Ethernet-inställningarna'
         },
         dns: {
           title: 'DNS',
           description: 'Konfigurera DNS-servrar för NanoKVM',
-          mode: 'Läge',
           dhcp: 'DHCP',
           manual: 'Manuell',
           add: 'Lägg till DNS',
           save: 'Spara',
           invalid: 'Ange en giltig IP-adress',
-          noDhcp: 'Ingen DHCP-DNS är tillgänglig just nu',
           saved: 'DNS-inställningar sparade',
           saveFailed: 'Det gick inte att spara DNS-inställningar',
           unsaved: 'Osparade ändringar',
@@ -544,14 +485,6 @@ const se = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Minnesoptimering',
-          tip: 'När minnesanvändningen överskrider gränsen utförs aggressivare skräpsamling för att frigöra minne. Rekommenderas att sättas till 75 MB om du använder Tailscale. Omstart krävs för att det ska gälla.'
-        },
-        swap: {
-          title: 'Byt minne',
-          tip: 'Om problemen kvarstår efter att du har aktiverat minnesoptimering, försök att aktivera utbyte av minne. Detta ställer in växlingsfilens storlek till 256MB som standard, vilket kan justeras i "Inställningar > Enhet".'
-        },
         restart: 'Starta om Tailscale?',
         stop: 'Stoppa Tailscale?',
         stopDesc: 'Logga ut från Tailscale och inaktivera autostart vid uppstart.',
@@ -561,12 +494,6 @@ const se = {
         installing: 'Installerar',
         failed: 'Installationen misslyckades',
         retry: 'Uppdatera sidan och försök igen. Eller installera manuellt',
-        download: 'Ladda ner',
-        package: 'installationspaketet',
-        unzip: 'och packa upp det',
-        upTailscale: 'Ladda upp tailscale till NanoKVM-katalogen /usr/bin/',
-        upTailscaled: 'Ladda upp tailscaled till NanoKVM-katalogen /usr/sbin/',
-        refresh: 'Uppdatera sidan',
         notRunning: 'Tailscale körs inte. Starta den för att fortsätta.',
         run: 'Start',
         notLogin: 'Enheten är ännu inte bunden. Logga in och bind enheten till ditt konto.',

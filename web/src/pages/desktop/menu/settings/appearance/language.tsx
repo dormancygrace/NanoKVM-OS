@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import languages from '@/i18n/languages.ts';
 import { changeLoadedLanguage, localeTag } from '@/i18n/locale-loader.ts';
 import { setLanguage } from '@/lib/localstorage.ts';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 export const Language = () => {
   const { t, i18n } = useTranslation();
@@ -12,7 +13,14 @@ export const Language = () => {
 
   const options = languages.map((language) => ({
     value: localeTag(language.key),
-    label: language.name
+    label: language.partial ? (
+      <span title={t('settings.appearance.languagePartialHint')}>
+        {language.name}{' '}
+        <span className="text-fg-muted text-xs">({t('settings.appearance.languagePartial')})</span>
+      </span>
+    ) : (
+      language.name
+    )
   }));
 
   async function changeLanguage(value: string) {
@@ -30,22 +38,21 @@ export const Language = () => {
   }
 
   return (
-    <div className="mt-5 flex items-center justify-between space-x-5">
-      <div className="flex flex-col space-y-1">
-        <span>{t('settings.appearance.language')}</span>
-        <span className="text-xs text-neutral-500">{t('settings.appearance.languageDesc')}</span>
-      </div>
-
-      <div>
-        <Select
-          value={i18n.language}
-          loading={loading}
-          disabled={loading}
-          style={{ width: 180 }}
-          options={options}
-          onSelect={changeLanguage}
-        />
-      </div>
-    </div>
+    <SettingRow
+      label={t('settings.appearance.language')}
+      description={t('settings.appearance.languageDesc')}
+      htmlFor="appearance-language"
+    >
+      <Select
+        id="appearance-language"
+        aria-describedby="appearance-language-description"
+        value={i18n.language}
+        loading={loading}
+        disabled={loading}
+        style={{ width: 180 }}
+        options={options}
+        onSelect={changeLanguage}
+      />
+    </SettingRow>
   );
 };

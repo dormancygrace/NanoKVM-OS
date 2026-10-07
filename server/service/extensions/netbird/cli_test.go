@@ -1,6 +1,8 @@
 package netbird
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -22,6 +24,28 @@ func TestScanLoginURL(t *testing.T) {
 	wg.Wait()
 	if got := <-urls; got != "https://app.netbird.io/setup?token=secret" {
 		t.Fatalf("unexpected URL %q", got)
+	}
+}
+
+func TestOpenRCMayRunOnlyWithStartedLink(t *testing.T) {
+	previous := openrcStartedDir
+	defer func() { openrcStartedDir = previous }()
+	openrcStartedDir = filepath.Join(t.TempDir(), "started")
+	if !openrcMayRun("netbird") {
+		t.Fatal("unknown OpenRC state must be left to rc-service")
+	}
+	if err := os.Mkdir(openrcStartedDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if openrcMayRun("netbird") {
+		t.Fatal("service without a started link reported as possibly running")
+	}
+	// OpenRC's started entries are symbolic links to the init script.
+	if err := os.Symlink("/etc/init.d/netbird-absent", filepath.Join(openrcStartedDir, "netbird")); err != nil {
+		t.Fatal(err)
+	}
+	if !openrcMayRun("netbird") {
+		t.Fatal("started service not left to rc-service")
 	}
 }
 

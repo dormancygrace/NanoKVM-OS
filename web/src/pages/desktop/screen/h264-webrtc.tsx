@@ -3,7 +3,6 @@ import { notification, Spin } from 'antd';
 import clsx from 'clsx';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
-import { w3cwebsocket as W3cWebSocket } from 'websocket';
 
 import { encoderCodecQuery, getEncoderCodec, supportsWebRTCH265 } from '@/lib/encoder.ts';
 import { captureMediaElement } from '@/lib/screenshot.ts';
@@ -68,7 +67,7 @@ export const H264Webrtc = ({
     const codec = requestedCodec === 'h265' && !supportsWebRTCH265() ? 'h264' : requestedCodec;
     const query = encoderCodecQuery(codec);
     const url = `${getBaseUrl('ws')}/api/stream/video?${query}`;
-    const ws = new W3cWebSocket(url);
+    const ws = new WebSocket(url);
     const videoElement = videoRef.current;
 
     let video: RTCPeerConnection | null = null;

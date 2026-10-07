@@ -8,6 +8,7 @@ import { DownloadIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { cancelDownloadImage, downloadImage, imageEnabled, statusImage } from '@/api/download.ts';
+import { notifyAuthExpired } from '@/lib/auth-events.ts';
 import { readTransferProgress, transferBytes } from '@/lib/download-progress';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
@@ -309,10 +310,15 @@ export const DownloadImage = () => {
       body: formData
     })
       .then(async (response) => {
-        const rsp = await response.json();
-        if (!response.ok || rsp.code !== 0) {
-          const message = rsp.msg === 'sha256 mismatch' ? t('download.checksumFailed') : rsp.msg;
-          throw new Error(message || t('download.failed'));
+        // Error pages from the server or a proxy (e.g. 413) need not be JSON.
+        const rsp = await response.json().catch(() => null);
+        if (response.status === 401) {
+          // Same as the shared HTTP client: the session expired, sign in again.
+          notifyAuthExpired();
+        }
+        if (!response.ok || rsp?.code !== 0) {
+          const message = rsp?.msg === 'sha256 mismatch' ? t('download.checksumFailed') : rsp?.msg;
+          throw new Error(message || `${t('download.failed')} (HTTP ${response.status})`);
         }
 
         finishImageTransfer(true);

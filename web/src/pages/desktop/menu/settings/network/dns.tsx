@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import { Button, Input, Segmented } from 'antd';
+import { Alert, Button, Input, Segmented } from 'antd';
 import { CheckIcon, ChevronDownIcon, PlusIcon, XIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
 import type { DNSMode } from '@/api/network.ts';
+import { requestErrorText } from '@/lib/request-error.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { Panel, SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
 type DNSState = {
   mode: DNSMode;
@@ -78,49 +80,13 @@ function isValidIPv6(value: string) {
   }
 }
 
-const Panel = ({
-  title,
-  description,
-  children
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) => {
+const InfoRow = ({ label, value }: { label: string; value?: string }) => {
   return (
-    <div className="overflow-hidden rounded-xl bg-neutral-800/50">
-      <div className="px-4 pt-3 pb-1.5">
-        <div className="font-semibold text-neutral-100">{title}</div>
-        {description && (
-          <div className="mt-0.5 text-xs leading-snug text-neutral-500">{description}</div>
-        )}
-      </div>
-      <div>{children}</div>
-    </div>
-  );
-};
-
-const InfoRow = ({
-  label,
-  value,
-  isLast = false
-}: {
-  label: string;
-  value?: string;
-  isLast?: boolean;
-}) => {
-  return (
-    <div className="px-4">
-      <div
-        className={`flex min-h-[44px] items-center justify-between ${
-          isLast ? '' : 'border-b border-neutral-700/50'
-        }`}
-      >
-        <span className="text-sm text-neutral-300">{label}</span>
-        <span className="max-w-[330px] text-right text-sm break-all text-neutral-500">
-          {value || '-'}
-        </span>
-      </div>
+    <div className="flex min-h-[44px] items-center justify-between gap-4">
+      <span className="text-sm">{label}</span>
+      <span className="text-fg-muted max-w-[330px] text-right text-sm break-all">
+        {value || '-'}
+      </span>
     </div>
   );
 };
@@ -130,34 +96,34 @@ const ServerList = ({ servers }: { servers: string[] }) => {
 
   if (!servers.length) {
     return (
-      <div className="px-4 py-3 text-sm text-neutral-500">{t('settings.network.dns.none')}</div>
+      <Panel>
+        <div className="text-fg-muted text-sm">{t('settings.network.dns.none')}</div>
+      </Panel>
     );
   }
 
   return (
-    <div>
+    <Panel flush className="divide-line divide-y">
       {servers.map((server, index) => (
-        <div key={`${server}-${index}`} className="px-4">
-          <div
-            className={`min-h-[44px] py-2.5 text-sm text-neutral-400 ${
-              index === servers.length - 1 ? '' : 'border-b border-neutral-700/50'
-            }`}
-          >
-            {server}
-          </div>
+        <div key={`${server}-${index}`} className="text-fg-muted px-4 py-3 text-sm">
+          {server}
         </div>
       ))}
-    </div>
+    </Panel>
   );
 };
 
 const EditableServerRow = ({
   value,
+  label,
+  removeLabel,
   autoFocus,
   onChange,
   onRemove
 }: {
   value: string;
+  label: string;
+  removeLabel: string;
   autoFocus: boolean;
   onChange: (value: string) => void;
   onRemove: () => void;
@@ -173,23 +139,24 @@ const EditableServerRow = ({
   }, [autoFocus]);
 
   return (
-    <div className="group px-4 py-1.5">
-      <div className="flex items-center gap-2">
-        <Input
-          ref={inputRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="0.0.0.0"
-          status={isInvalid ? 'error' : undefined}
-        />
-        <Button
-          size="small"
-          shape="circle"
-          icon={<XIcon size={14} />}
-          onClick={onRemove}
-          className="opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
-        />
-      </div>
+    <div className="group flex items-center gap-2">
+      <Input
+        ref={inputRef}
+        aria-label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0.0.0.0"
+        status={isInvalid ? 'error' : undefined}
+      />
+      <Button
+        size="small"
+        shape="circle"
+        aria-label={removeLabel}
+        title={removeLabel}
+        icon={<XIcon size={14} />}
+        onClick={onRemove}
+        className="opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+      />
     </div>
   );
 };
@@ -206,7 +173,10 @@ export const DNS = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // The failed load request; its text is derived when rendering.
+  const [loadError, setLoadError] = useState<{ error: unknown } | null>(null);
   const [message, setMessage] = useState('');
+  // Validation of the entered servers; request failures are shown as toasts.
   const [error, setError] = useState('');
   const [focusNewRow, setFocusNewRow] = useState(false);
 
@@ -220,7 +190,7 @@ export const DNS = () => {
     try {
       const rsp = await api.getDNS();
       if (rsp.code !== 0) {
-        setError(rsp.msg);
+        setLoadError({ error: rsp });
         return;
       }
 
@@ -234,8 +204,9 @@ export const DNS = () => {
       setOriginalServers(fetchedServers);
       setDHCP(data.dhcp || []);
       setInfo(data.info || {});
+      setLoadError(null);
     } catch (err) {
-      console.log(err);
+      setLoadError({ error: err });
     } finally {
       if (showLoading) setIsLoading(false);
     }
@@ -262,7 +233,7 @@ export const DNS = () => {
     try {
       const rsp = await api.setDNS(mode, mode === 'manual' ? normalized : []);
       if (rsp.code !== 0) {
-        setError(rsp.msg || t('settings.network.dns.saveFailed'));
+        showRequestError(rsp, 'settings.network.dns.saveFailed');
         return;
       }
 
@@ -273,8 +244,7 @@ export const DNS = () => {
       await getDNS(false);
       setMessage(t('settings.network.dns.saved'));
     } catch (err) {
-      console.log(err);
-      setError(t('settings.network.dns.saveFailed'));
+      showRequestError(err, 'settings.network.dns.saveFailed');
     } finally {
       setIsSaving(false);
     }
@@ -315,23 +285,24 @@ export const DNS = () => {
     normalizedServers.join(',') !== normalizeServers(originalServers).join(',');
 
   const statusText = error || message || (hasChanges ? t('settings.network.dns.unsaved') : '');
-  const statusColor = error ? 'text-red-400' : message ? 'text-green-500' : 'text-yellow-400/80';
+  const statusColor = error ? 'text-danger' : message ? 'text-success' : 'text-warning';
   const serversDescription =
     mode === 'dhcp'
       ? t('settings.network.dns.dhcpServersDescription')
       : t('settings.network.dns.manualServersDescription');
 
+  const loadErrorText = loadError && requestErrorText(loadError.error, t('error.requestFailed'));
+
   const canAdd = !isLoading && !isSaving && servers.length < maxServers;
 
   return (
-    <div className="flex flex-col space-y-5">
-      {/* Header row: title + segmented control */}
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col space-y-1">
-          <span>{t('settings.network.dns.title')}</span>
-          <span className="text-xs text-neutral-500">{t('settings.network.dns.description')}</span>
-        </div>
+    <SettingsSection>
+      {loadErrorText && <Alert type="error" showIcon message={loadErrorText} />}
 
+      <SettingRow
+        label={t('settings.network.dns.title')}
+        description={t('settings.network.dns.description')}
+      >
         <Segmented
           disabled={isLoading || isSaving}
           value={mode}
@@ -345,73 +316,73 @@ export const DNS = () => {
             { label: t('settings.network.dns.manual'), value: 'manual' }
           ]}
         />
-      </div>
+      </SettingRow>
 
-      <div className="space-y-5">
-        <Panel title={t('settings.network.dns.dnsServers')} description={serversDescription}>
-          {mode === 'manual' ? (
-            <div>
-              {servers.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-neutral-500">
-                  {t('settings.network.dns.none')}
-                </div>
-              ) : (
-                servers.map((server, index) => (
-                  <EditableServerRow
-                    key={index}
-                    value={server}
-                    autoFocus={focusNewRow && index === servers.length - 1}
-                    onChange={(val) => updateServer(index, val)}
-                    onRemove={() => removeServer(index)}
-                  />
-                ))
-              )}
+      <SettingRow
+        label={t('settings.network.dns.dnsServers')}
+        description={serversDescription}
+        stacked
+      >
+        {mode === 'manual' ? (
+          <Panel className="space-y-2">
+            {servers.length === 0 ? (
+              <div className="text-fg-muted text-sm">{t('settings.network.dns.none')}</div>
+            ) : (
+              servers.map((server, index) => (
+                <EditableServerRow
+                  key={index}
+                  value={server}
+                  label={t('settings.network.dns.server', { index: index + 1 })}
+                  removeLabel={t('settings.network.dns.remove', { index: index + 1 })}
+                  autoFocus={focusNewRow && index === servers.length - 1}
+                  onChange={(val) => updateServer(index, val)}
+                  onRemove={() => removeServer(index)}
+                />
+              ))
+            )}
 
-              {/* Add server button */}
-              {canAdd && (
-                <div className="px-4 py-1.5 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="dashed"
-                      className="flex-1"
-                      icon={<PlusIcon size={14} />}
-                      onClick={addServer}
-                    >
-                      {t('settings.network.dns.add')}
-                    </Button>
-                    <Button
-                      type="text"
-                      size="small"
-                      className="invisible shrink-0"
-                      icon={<XIcon size={14} />}
-                    />
+            {/* Add server button */}
+            {canAdd && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="dashed"
+                  className="flex-1"
+                  icon={<PlusIcon size={14} />}
+                  onClick={addServer}
+                >
+                  {t('settings.network.dns.add')}
+                </Button>
+                <Button
+                  type="text"
+                  size="small"
+                  className="invisible shrink-0"
+                  icon={<XIcon size={14} />}
+                />
+              </div>
+            )}
+
+            {/* Validation hints */}
+            {(hasInvalidServer || isExceedMax) && (
+              <div className="space-y-1">
+                {hasInvalidServer && (
+                  <div className="text-danger text-xs">{t('settings.network.dns.invalid')}</div>
+                )}
+                {isExceedMax && (
+                  <div className="text-danger text-xs">
+                    {t('settings.network.dns.maxServers', { count: maxServers })}
                   </div>
-                </div>
-              )}
-
-              {/* Validation hints */}
-              {(hasInvalidServer || isExceedMax) && (
-                <div className="space-y-1 px-4 pb-3">
-                  {hasInvalidServer && (
-                    <div className="text-xs text-red-400">{t('settings.network.dns.invalid')}</div>
-                  )}
-                  {isExceedMax && (
-                    <div className="text-xs text-red-400">
-                      {t('settings.network.dns.maxServers', { count: maxServers })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <ServerList servers={dhcp} />
-          )}
-        </Panel>
-      </div>
+                )}
+              </div>
+            )}
+          </Panel>
+        ) : (
+          <ServerList servers={dhcp} />
+        )}
+      </SettingRow>
 
       {/* Footer: status + save button */}
       {(hasChanges || statusText) && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <span className={`text-xs ${statusColor}`}>{statusText}</span>
 
           <Button
@@ -428,16 +399,20 @@ export const DNS = () => {
         </div>
       )}
 
-      <details className="group overflow-hidden rounded-xl bg-neutral-800/50">
-        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm text-neutral-400 hover:text-neutral-200 [&::-webkit-details-marker]:hidden">
-          <span>{t('settings.network.dns.networkDetails')}</span>
-          <ChevronDownIcon size={16} className="transition-transform group-open:rotate-180" />
-        </summary>
-        <InfoRow label={t('settings.network.dns.interface')} value={formatInterface(info)} />
-        <InfoRow label={t('settings.network.dns.ipAddress')} value={info.address} />
-        <InfoRow label={t('settings.network.dns.subnetMask')} value={info.subnetMask} />
-        <InfoRow label={t('settings.network.dns.router')} value={info.gateway} isLast />
-      </details>
-    </div>
+      <Panel flush className="overflow-hidden">
+        <details className="group">
+          <summary className="text-fg-muted hover:text-fg flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm [&::-webkit-details-marker]:hidden">
+            <span>{t('settings.network.dns.networkDetails')}</span>
+            <ChevronDownIcon size={16} className="transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="divide-line divide-y px-4">
+            <InfoRow label={t('settings.network.dns.interface')} value={formatInterface(info)} />
+            <InfoRow label={t('settings.network.dns.ipAddress')} value={info.address} />
+            <InfoRow label={t('settings.network.dns.subnetMask')} value={info.subnetMask} />
+            <InfoRow label={t('settings.network.dns.router')} value={info.gateway} />
+          </div>
+        </details>
+      </Panel>
+    </SettingsSection>
   );
 };

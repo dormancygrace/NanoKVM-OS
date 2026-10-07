@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/auth.ts';
-import { Divider } from 'antd';
 import { useTranslation } from 'react-i18next';
+
+import { SettingsSection } from '@/components/ui/settings.tsx';
 
 import { BannerStyleSetting } from './banner-style.tsx';
 import { Branding } from './branding.tsx';
@@ -16,29 +17,25 @@ export const Appearance = () => {
   const { account } = useAuth();
 
   return (
-    <>
-      <div className="text-base">{t('settings.appearance.title')}</div>
-      <Divider className="opacity-50" />
+    <div className="space-y-6">
+      <SettingsSection title={t('settings.appearance.display')}>
+        <Language />
+      </SettingsSection>
 
-      <div className="text-neutral-400">{t('settings.appearance.display')}</div>
-      <Language />
       {account.role === 'admin' && (
-        <>
-          <Divider className="opacity-50" style={{ margin: '32px 0' }} />
-          <div className="text-neutral-400">{t('settings.appearance.customize')}</div>
+        <SettingsSection title={t('settings.appearance.customize')}>
           <WebTitle />
           <Branding />
           <ButtonColor />
           <BannerStyleSetting />
-        </>
+        </SettingsSection>
       )}
 
-      <Divider className="opacity-50" style={{ margin: '32px 0' }} />
-
-      <div className="text-neutral-400">{t('settings.appearance.menuBar.title')}</div>
-      <MenuMode />
-      <KeyboardLedStatusSetting />
-      <MenuIcons />
-    </>
+      <SettingsSection title={t('settings.appearance.menuBar.title')}>
+        <MenuMode />
+        <KeyboardLedStatusSetting />
+        <MenuIcons />
+      </SettingsSection>
+    </div>
   );
 };

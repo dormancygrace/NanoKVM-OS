@@ -54,11 +54,15 @@ type usbComposition struct {
 }
 
 func (s *Service) GetVirtualDevice(c *gin.Context) {
+	var rsp proto.Response
+	rsp.OkRspWithData(c, virtualDeviceState())
+}
+
+func virtualDeviceState() *proto.GetVirtualDeviceRsp {
 	h := hid.GetHid()
 	h.Lock()
 	defer h.Unlock()
-	var rsp proto.Response
-	rsp.OkRspWithData(c, getUSBComposition().response())
+	return getUSBComposition().response()
 }
 
 func (s usbComposition) response() *proto.GetVirtualDeviceRsp {

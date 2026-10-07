@@ -1,17 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Divider } from "antd";
-import { LoaderCircleIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert } from 'antd';
+import { LoaderCircleIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-import * as api from "@/api/extensions/netbird.ts";
+import * as api from '@/api/extensions/netbird.ts';
 
-import { Device } from "./device.tsx";
-import { ErrorHelp } from "./error-help.tsx";
-import { Header } from "./header.tsx";
-import { Install } from "./install.tsx";
-import { Login } from "./login.tsx";
-import { Run } from "./run.tsx";
-import type { Status } from "./types.ts";
+import { Device } from './device.tsx';
+import { ErrorHelp } from './error-help.tsx';
+import { Header } from './header.tsx';
+import { Install } from './install.tsx';
+import { Login } from './login.tsx';
+import { Run } from './run.tsx';
+import type { Status } from './types.ts';
+
+// Stored as a key and translated on render, so getStatus stays stable across
+// language changes and does not refetch.
+const statusFailed = 'settings.netbird.error.statusFailed';
 
 type NetbirdProps = {
   setIsLocked: (isLocked: boolean) => void;
@@ -22,7 +26,8 @@ export const Netbird = ({ setIsLocked }: NetbirdProps) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<Status>();
-  const [errMsg, setErrMsg] = useState("");
+  const [errMsg, setErrMsg] = useState('');
+  const errorText = errMsg === statusFailed ? t(statusFailed) : errMsg;
   const requestId = useRef(0);
   const isMounted = useRef(true);
 
@@ -38,11 +43,11 @@ export const Netbird = ({ setIsLocked }: NetbirdProps) => {
         return;
       }
 
-      setErrMsg("");
+      setErrMsg('');
       setStatus(rsp.data);
     } catch (err: any) {
       if (!isMounted.current || currentRequestId !== requestId.current) return;
-      setErrMsg(err?.message || "Failed to get status");
+      setErrMsg(err?.message || statusFailed);
     } finally {
       if (isMounted.current && currentRequestId === requestId.current) {
         setIsLoading(false);
@@ -63,52 +68,48 @@ export const Netbird = ({ setIsLocked }: NetbirdProps) => {
   }, [getStatus]);
 
   return (
-    <>
+    <div className="space-y-6">
       <Header state={status?.state} onSuccess={getStatus} />
-      <Divider className="opacity-50" />
 
       {isLoading && !status ? (
-        <div className="flex w-full items-center justify-center space-x-2 pt-5 text-neutral-500">
-          <LoaderCircleIcon className="animate-spin" size={18} />
-          <span>{t("settings.netbird.loading")}</span>
+        <div className="text-fg-muted flex w-full items-center justify-center gap-2">
+          <LoaderCircleIcon className="animate-spin" size={16} />
+          <span>{t('settings.netbird.loading')}</span>
         </div>
       ) : (
         <>
           {errMsg && (
             <>
               <Alert
-                className="mb-4"
                 type="warning"
                 showIcon
                 message={t(
-                  status
-                    ? "settings.netbird.statusStale"
-                    : "settings.netbird.statusUnknown",
+                  status ? 'settings.netbird.statusStale' : 'settings.netbird.statusUnknown'
                 )}
-                description={errMsg}
+                description={errorText}
               />
               <ErrorHelp
-                error={errMsg}
+                error={errorText}
                 onRefresh={getStatus}
-                canRestart={!!status && status.state !== "notInstall"}
+                canRestart={!!status && status.state !== 'notInstall'}
               />
             </>
           )}
 
           {isLoading && status && (
-            <div className="mb-4 flex items-center space-x-2 text-sm text-neutral-500">
+            <div className="text-fg-muted flex items-center gap-2 text-sm">
               <LoaderCircleIcon className="animate-spin" size={16} />
-              <span>{t("settings.netbird.loading")}</span>
+              <span>{t('settings.netbird.loading')}</span>
             </div>
           )}
 
-          {status?.state === "notInstall" && (
+          {status?.state === 'notInstall' && (
             <Install setIsLocked={setIsLocked} onSuccess={getStatus} />
           )}
 
-          {status?.state === "notRunning" && <Run onSuccess={getStatus} />}
+          {status?.state === 'notRunning' && <Run onSuccess={getStatus} />}
 
-          {status?.state === "notLogin" && <Login onSuccess={getStatus} />}
+          {status?.state === 'notLogin' && <Login onSuccess={getStatus} />}
 
           {/*
             `stopped` covers two situations the CLI status does not separate:
@@ -116,16 +117,13 @@ export const Netbird = ({ setIsLocked }: NetbirdProps) => {
             panel for the second leaves empty Name/IP and no way forward, so an
             unnamed device is routed to Login instead.
           */}
-          {status?.state === "stopped" && !status.name && (
-            <Login onSuccess={getStatus} />
-          )}
+          {status?.state === 'stopped' && !status.name && <Login onSuccess={getStatus} />}
 
-          {((status?.state === "stopped" && !!status.name) ||
-            status?.state === "running") && (
+          {((status?.state === 'stopped' && !!status.name) || status?.state === 'running') && (
             <Device status={status} onLogout={getStatus} />
           )}
         </>
       )}
-    </>
+    </div>
   );
 };

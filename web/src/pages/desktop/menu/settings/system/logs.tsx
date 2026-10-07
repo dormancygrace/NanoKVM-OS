@@ -1,5 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Input, Select, Switch } from 'antd';
+import { useAtomValue } from 'jotai';
 import { ChevronDownIcon, ChevronUpIcon, RefreshCwIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -11,11 +12,14 @@ import {
   type LogSnapshot,
   type LogSource
 } from '@/api/logs';
+import { formatDeviceTime } from '@/lib/date-time.ts';
+import { timePreferencesAtom } from '@/hooks/useDeviceTime.ts';
 
 const refreshInterval = 5000;
 
 export const Logs = () => {
   const { t, i18n } = useTranslation();
+  const timePreferences = useAtomValue(timePreferencesAtom);
   const [source, setSource] = useState<LogSource>('system');
   const [boot, setBoot] = useState<LogBoot>('current');
   const [boots, setBoots] = useState<LogBootInfo[]>([{ id: 'current', startedAt: 0, savedAt: 0 }]);
@@ -151,7 +155,7 @@ export const Logs = () => {
   }, [activeRow, snapshot, follow, boot]);
 
   const key = 'settings.system.logs';
-  const timestamp = (at: number) => new Date(at).toLocaleTimeString(i18n.language);
+  const timestamp = (at: number) => formatDeviceTime(at, timePreferences, i18n.language);
   const sourceChanged = (value: LogSource) => {
     setSource(value);
     setMatchIndex(0);
@@ -164,7 +168,7 @@ export const Logs = () => {
 
   return (
     <div className="min-w-0 space-y-4">
-      <p className="mb-0 text-sm text-neutral-400">{t(`${key}.description`)}</p>
+      <p className="text-fg-muted mb-0 text-sm">{t(`${key}.description`)}</p>
       <div className="flex flex-wrap items-center gap-3">
         <Select
           className="min-w-0 flex-1"
@@ -188,12 +192,12 @@ export const Logs = () => {
             label:
               t(`${key}.boots.${item.id}`) +
               (item.id !== 'current' && item.startedAt
-                ? ' · ' + new Date(item.startedAt).toLocaleString(i18n.language)
+                ? ' · ' + formatDeviceTime(item.startedAt, timePreferences, i18n.language, true)
                 : '')
           }))}
         />
         <Button
-          icon={<RefreshCwIcon size={15} />}
+          icon={<RefreshCwIcon size={16} />}
           loading={loading}
           disabled={!refreshReady}
           onClick={() => setRevision((value) => value + 1)}
@@ -215,20 +219,20 @@ export const Logs = () => {
           onPressEnter={(event) => moveMatch(event.shiftKey ? -1 : 1)}
           allowClear
         />
-        <span className="min-w-12 text-center text-xs text-neutral-400">
+        <span className="text-fg-muted min-w-12 text-center text-xs">
           {view.matches.length ? selectedMatch + 1 : 0} / {view.matches.length}
         </span>
         <Button
           size="small"
           aria-label={t(`${key}.previousMatch`)}
-          icon={<ChevronUpIcon size={16} />}
+          icon={<ChevronUpIcon size={14} />}
           disabled={!view.matches.length}
           onClick={() => moveMatch(-1)}
         />
         <Button
           size="small"
           aria-label={t(`${key}.nextMatch`)}
-          icon={<ChevronDownIcon size={16} />}
+          icon={<ChevronDownIcon size={14} />}
           disabled={!view.matches.length}
           onClick={() => moveMatch(1)}
         />
@@ -264,7 +268,7 @@ export const Logs = () => {
         <Alert type="warning" showIcon title={t(`${key}.archiveUnavailable`)} />
       )}
       {archiveAvailable && boots.length === 1 && (
-        <p className="mb-0 text-xs text-neutral-500">{t(`${key}.noHistory`)}</p>
+        <p className="text-fg-muted mb-0 text-xs">{t(`${key}.noHistory`)}</p>
       )}
       {error && <Alert type="error" showIcon title={t(`${key}.loadError`)} />}
       {snapshot?.state === 'unavailable' && (
@@ -275,7 +279,7 @@ export const Logs = () => {
         tabIndex={0}
         aria-label={t(`${key}.title`)}
         aria-busy={loading}
-        className="m-0 h-80 w-full max-w-full min-w-0 overflow-auto rounded-lg border border-neutral-700/60 bg-neutral-950/60 p-3 font-mono text-xs leading-5 whitespace-pre text-neutral-200 focus-visible:outline-2 focus-visible:outline-blue-400"
+        className="border-line text-fg m-0 h-80 w-full max-w-full min-w-0 overflow-auto rounded-lg border bg-black/30 p-3 font-mono text-xs leading-5 whitespace-pre focus-visible:outline-2 focus-visible:outline-blue-400"
       >
         {view.lines.length ? (
           activeRow === undefined ? (
@@ -283,9 +287,7 @@ export const Logs = () => {
           ) : (
             <>
               {activeRow > 0 ? view.lines.slice(0, activeRow).join('\n') + '\n' : ''}
-              <mark className="rounded bg-amber-300/25 text-amber-100">
-                {view.lines[activeRow]}
-              </mark>
+              <mark className="bg-warning/25 text-fg rounded">{view.lines[activeRow]}</mark>
               {activeRow < view.lines.length - 1
                 ? '\n' + view.lines.slice(activeRow + 1).join('\n')
                 : ''}
@@ -300,7 +302,7 @@ export const Logs = () => {
         )}
       </pre>
       {snapshot && (
-        <div className="space-y-1 text-xs text-neutral-500">
+        <div className="text-fg-muted space-y-1 text-xs">
           <div>
             {t(`${key}.collected`, {
               time: timestamp(snapshot.collectedAt),
@@ -310,7 +312,7 @@ export const Logs = () => {
           {snapshot.truncated && <div>{t(`${key}.truncated`)}</div>}
         </div>
       )}
-      <p className="mb-0 text-xs text-neutral-400">{t(`${key}.privacy`)}</p>
+      <p className="text-fg-muted mb-0 text-xs">{t(`${key}.privacy`)}</p>
     </div>
   );
 };

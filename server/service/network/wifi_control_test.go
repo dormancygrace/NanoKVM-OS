@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
+	gonet "net"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -119,6 +120,11 @@ func TestWifiHardwareAndStatus(t *testing.T) {
 		if name == "iw" {
 			return "* 2412 MHz [1]\n* 5180 MHz [36]", nil
 		}
+		return "", errors.New("unexpected command " + name)
+	}, request: func(command string) (string, error) {
+		if command != "STATUS" {
+			return "", errors.New("unexpected request " + command)
+		}
 		return "wpa_state=COMPLETED\nssid=Actual\x20Network\nfreq=5180", nil
 	}}
 	if !w.enabled() || w.present() {
@@ -143,9 +149,79 @@ func TestWifiHardwareAndStatus(t *testing.T) {
 	}
 	_ = os.Remove(filepath.Join(etc, "wifi.disabled"))
 	w.run = func(string, ...string) (string, error) { return "", errors.New("unavailable") }
+	w.request = func(string) (string, error) { return "", errors.New("unavailable") }
 	d = w.status()
 	if d.Connected || len(d.Bands) != 0 {
 		t.Fatal("invented state on command failure")
+	}
+}
+
+func TestWifiStatusReusesRecentBands(t *testing.T) {
+	root := t.TempDir()
+	net := filepath.Join(root, "wlan0")
+	_ = os.Mkdir(net, 0700)
+	for _, phy := range []string{"phy0", "phy1"} {
+		_ = os.Mkdir(filepath.Join(root, phy), 0700)
+	}
+	_ = os.Symlink(filepath.Join(root, "phy0"), filepath.Join(net, "phy80211"))
+	runs := 0
+	output, failure := "* 2412 MHz [1]\n* 5180 MHz [36]", error(nil)
+	w := radioControl{etc: root, net: net, bands: &bandCache{ttl: time.Hour}, run: func(name string, args ...string) (string, error) {
+		runs++
+		return output, failure
+	}, request: func(string) (string, error) { return "wpa_state=SCANNING", nil }}
+	bands := func() []string { return w.status().Bands }
+	if got := bands(); len(got) != 2 || runs != 1 {
+		t.Fatalf("bands %v after %d runs", got, runs)
+	}
+	output = "* 2412 MHz [1]"
+	if got := bands(); len(got) != 2 || runs != 1 {
+		t.Fatalf("status did not reuse the channel list: %v after %d runs", got, runs)
+	}
+	if got := w.frequencies(); len(got["5"]) != 0 || runs != 2 {
+		t.Fatalf("scan and connect must read channels afresh: %v", got)
+	}
+	// A replaced phy (driver reload) is read again.
+	_ = os.Remove(filepath.Join(net, "phy80211"))
+	_ = os.Symlink(filepath.Join(root, "phy1"), filepath.Join(net, "phy80211"))
+	if got := bands(); len(got) != 1 || runs != 3 {
+		t.Fatalf("new phy not read: %v after %d runs", got, runs)
+	}
+	// So is an expired entry, and a failure is not kept.
+	w.bands.at = w.bands.at.Add(-2 * time.Hour)
+	failure = errors.New("busy")
+	if got := bands(); len(got) != 0 || runs != 4 {
+		t.Fatalf("failure: %v after %d runs", got, runs)
+	}
+	failure = nil
+	if got := bands(); len(got) != 1 || runs != 5 {
+		t.Fatalf("failure was cached: %v after %d runs", got, runs)
+	}
+}
+
+func TestWpaControlRequest(t *testing.T) {
+	socket := filepath.Join(t.TempDir(), "wlan0")
+	server, err := gonet.ListenUnixgram("unixgram", &gonet.UnixAddr{Net: "unixgram", Name: socket})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	go func() {
+		buf := make([]byte, 64)
+		n, from, err := server.ReadFromUnix(buf)
+		if err != nil || from == nil {
+			return
+		}
+		// An event before the reply must be skipped.
+		_, _ = server.WriteToUnix([]byte("<3>CTRL-EVENT-SCAN-STARTED"), from)
+		_, _ = server.WriteToUnix([]byte("wpa_state=COMPLETED\nrequest="+string(buf[:n])+"\n"), from)
+	}()
+	reply, err := wpaControl(socket)("STATUS")
+	if err != nil || reply != "wpa_state=COMPLETED\nrequest=STATUS\n" {
+		t.Fatalf("reply %q, err %v", reply, err)
+	}
+	if _, err = wpaControl(filepath.Join(t.TempDir(), "absent"))("STATUS"); err == nil {
+		t.Fatal("missing wpa_supplicant socket reported a reply")
 	}
 }
 

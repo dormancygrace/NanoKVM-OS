@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth.ts';
-import { Button, Form, Input, message, Modal, Popconfirm, Select, Switch } from 'antd';
+import { Alert, Button, Form, Input, message, Modal, Popconfirm, Select, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/auth.ts';
 import { User, UserRole } from '@/api/auth.ts';
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
 import { encrypt } from '@/lib/encrypt.ts';
+import { Panel, SettingsSection } from '@/components/ui/settings.tsx';
 
 type CreateValues = {
   username: string;
@@ -32,6 +33,7 @@ export const Users = () => {
 
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [passwordUser, setPasswordUser] = useState<string | null>(null);
   const [usernameUser, setUsernameUser] = useState<User | null>(null);
@@ -53,12 +55,13 @@ export const Users = () => {
           systemAccount: user.systemAccount === true
         }))
       );
+      setLoadFailed(false);
     } catch {
-      messageApi.error(t('settings.account.users.loadFailed'));
+      setLoadFailed(true);
     } finally {
       setIsLoading(false);
     }
-  }, [messageApi, t]);
+  }, []);
 
   useEffect(() => {
     loadUsers();
@@ -149,80 +152,89 @@ export const Users = () => {
   return (
     <>
       {contextHolder}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="text-base">{t('settings.account.users.title')}</div>
-        <Button type="primary" onClick={() => setIsCreateOpen(true)}>
-          {t('settings.account.users.create')}
-        </Button>
-      </div>
-
-      <div className="flex flex-col space-y-2 opacity-100">
-        {users.map((user) => {
-          const isSelf = user.username === account.username;
-          const isProtected = isSelf || user.systemAccount;
-          const canRename = !user.systemAccount || isSelf;
-          return (
-            <div
-              key={user.username}
-              className="flex flex-wrap items-center gap-2 rounded-md bg-neutral-800/60 px-3 py-2"
-            >
-              <span className="min-w-0 flex-1 truncate">
-                {user.username}
-                {user.systemAccount && (
-                  <span className="ml-2 text-xs text-neutral-500">
-                    {t('settings.account.users.deviceOwner')}
-                  </span>
-                )}
-              </span>
-              <Select<UserRole>
-                className="w-28"
-                value={user.role}
-                disabled={isLoading || isProtected}
-                options={[
-                  { value: 'admin', label: t('settings.account.roles.admin') },
-                  { value: 'user', label: t('settings.account.roles.user') }
-                ]}
-                onChange={(role) => updateUser(user, { role })}
-              />
-              <Switch
-                checked={user.enabled}
-                disabled={isLoading || isProtected}
-                checkedChildren={t('settings.account.users.enabled')}
-                unCheckedChildren={t('settings.account.users.disabled')}
-                onChange={(enabled) => updateUser(user, { enabled })}
-              />
-              <Button
-                size="small"
-                disabled={isLoading || !canRename}
-                onClick={() => {
-                  usernameForm.setFieldsValue({ username: user.username });
-                  setUsernameUser(user);
-                }}
-              >
-                {t('settings.account.users.rename')}
-              </Button>
-              <Button
-                size="small"
-                disabled={isLoading || isProtected}
-                onClick={() => setPasswordUser(user.username)}
-              >
-                {t('settings.account.users.resetPassword')}
-              </Button>
-              <Popconfirm
-                title={t('settings.account.users.deleteConfirm')}
-                okText={t('settings.account.okBtn')}
-                cancelText={t('settings.account.cancelBtn')}
-                disabled={isProtected}
-                onConfirm={() => deleteUser(user.username)}
-              >
-                <Button danger size="small" disabled={isLoading || isProtected}>
-                  {t('settings.account.users.delete')}
-                </Button>
-              </Popconfirm>
-            </div>
-          );
-        })}
-      </div>
+      <SettingsSection
+        title={t('settings.account.users.title')}
+        actions={
+          <Button type="primary" onClick={() => setIsCreateOpen(true)}>
+            {t('settings.account.users.create')}
+          </Button>
+        }
+      >
+        {loadFailed && (
+          <Alert type="error" showIcon message={t('settings.account.users.loadFailed')} />
+        )}
+        {users.length > 0 && (
+          <Panel flush>
+            <ul className="divide-line m-0 list-none divide-y p-0">
+              {users.map((user) => {
+                const isSelf = user.username === account.username;
+                const isProtected = isSelf || user.systemAccount;
+                const canRename = !user.systemAccount || isSelf;
+                return (
+                  <li key={user.username} className="flex flex-wrap items-center gap-2 px-4 py-3">
+                    <span className="min-w-32 flex-1 truncate">
+                      {user.username}
+                      {user.systemAccount && (
+                        <span className="text-fg-muted ml-2 text-xs">
+                          {t('settings.account.users.deviceOwner')}
+                        </span>
+                      )}
+                    </span>
+                    <Select<UserRole>
+                      className="w-28"
+                      value={user.role}
+                      disabled={isLoading || isProtected}
+                      options={[
+                        { value: 'admin', label: t('settings.account.roles.admin') },
+                        { value: 'user', label: t('settings.account.roles.user') }
+                      ]}
+                      onChange={(role) => updateUser(user, { role })}
+                    />
+                    <Switch
+                      aria-label={t('settings.account.users.enableUser', {
+                        username: user.username
+                      })}
+                      checked={user.enabled}
+                      disabled={isLoading || isProtected}
+                      checkedChildren={t('settings.account.users.enabled')}
+                      unCheckedChildren={t('settings.account.users.disabled')}
+                      onChange={(enabled) => updateUser(user, { enabled })}
+                    />
+                    <Button
+                      size="small"
+                      disabled={isLoading || !canRename}
+                      onClick={() => {
+                        usernameForm.setFieldsValue({ username: user.username });
+                        setUsernameUser(user);
+                      }}
+                    >
+                      {t('settings.account.users.rename')}
+                    </Button>
+                    <Button
+                      size="small"
+                      disabled={isLoading || isProtected}
+                      onClick={() => setPasswordUser(user.username)}
+                    >
+                      {t('settings.account.users.resetPassword')}
+                    </Button>
+                    <Popconfirm
+                      title={t('settings.account.users.deleteConfirm')}
+                      okText={t('settings.account.okBtn')}
+                      cancelText={t('settings.account.cancelBtn')}
+                      disabled={isProtected}
+                      onConfirm={() => deleteUser(user.username)}
+                    >
+                      <Button danger size="small" disabled={isLoading || isProtected}>
+                        {t('settings.account.users.delete')}
+                      </Button>
+                    </Popconfirm>
+                  </li>
+                );
+              })}
+            </ul>
+          </Panel>
+        )}
+      </SettingsSection>
 
       <Modal
         title={t('settings.account.users.rename')}

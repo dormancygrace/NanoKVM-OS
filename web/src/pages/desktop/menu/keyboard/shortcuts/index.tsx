@@ -5,6 +5,7 @@ import { CommandIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/hid.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
 import { MenuSubmenu } from '@/components/menu-item.tsx';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -44,13 +45,13 @@ export const Shortcuts = () => {
     try {
       const rsp = await api.getShortcuts();
       if (rsp.code !== 0) {
-        console.log(rsp.msg);
+        showRequestError(rsp);
         return;
       }
 
       setCustomShortcuts(rsp.data.shortcuts);
     } catch (err) {
-      console.log(err);
+      showRequestError(err);
     }
   }
 
@@ -58,13 +59,13 @@ export const Shortcuts = () => {
     try {
       const rsp = await api.addShortcut(shortcut.keys);
       if (rsp.code !== 0) {
-        console.log(rsp.msg);
+        showRequestError(rsp);
         return;
       }
 
       await getShortcuts();
     } catch (err) {
-      console.log(err);
+      showRequestError(err);
     }
   }
 
@@ -74,13 +75,13 @@ export const Shortcuts = () => {
 
       const rsp = await api.deleteShortcut(shortcut.id);
       if (rsp.code !== 0) {
-        console.log(rsp.msg);
+        showRequestError(rsp);
         return;
       }
 
       await getShortcuts();
     } catch (err) {
-      console.log(err);
+      showRequestError(err);
     }
   }
 

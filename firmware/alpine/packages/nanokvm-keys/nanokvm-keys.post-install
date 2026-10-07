@@ -1,0 +1,23 @@
+#!/bin/sh
+# Devices from before nanokvm-keys read the v2 index (APKINDEX.tar.gz) of the
+# NanoKVM repository, which only the RSA key signs. Now that this package has
+# installed the release keys, including the ECDSA key, read the v3 index
+# (Packages.adb) instead; it is signed with the ECDSA key. Only that one
+# exact line changes: Alpine's repositories and any other line stay as they
+# are, and a failure leaves the working v2 line in place.
+repositories=/etc/apk/repositories
+old=https://nkos.pesin.pro/repos/nanokvm
+new=https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb
+
+[ -f "$repositories" ] || exit 0
+awk -v old="$old" '{ sub(/^[ \t]+/, ""); sub(/[ \t]+$/, ""); sub(/\/$/, "") }
+	$0 == old { found = 1 } END { exit !found }' "$repositories" || exit 0
+tmp=$(mktemp "$repositories.XXXXXX") || exit 0
+if awk -v old="$old" -v new="$new" '{ line = $0; sub(/^[ \t]+/, "", line); sub(/[ \t]+$/, "", line)
+	sub(/\/$/, "", line); print (line == old ? new : $0) }' "$repositories" > "$tmp" &&
+	chmod 0644 "$tmp" && mv "$tmp" "$repositories"; then
+	echo "NanoKVM repository: now $new" >&2
+else
+	rm -f "$tmp"
+fi
+exit 0

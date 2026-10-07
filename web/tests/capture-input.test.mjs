@@ -13,12 +13,11 @@ class Socket {
 const source = readFileSync(new URL('../src/lib/websocket.ts', import.meta.url), 'utf8');
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const exports = {};
-new Function('exports', 'require', js)(exports, name => {
-  if (name === 'websocket') return { w3cwebsocket: Socket };
+new Function('exports', 'require', 'WebSocket', js)(exports, name => {
   if (name.endsWith('service.ts')) return { getBaseUrl: () => 'ws://test' };
   if (name.endsWith('auth-events.ts')) return { notifyAuthExpired() {} };
   throw new Error(name);
-});
+}, Socket);
 
 test('capture input gate releases held controls, blocks all input representations and preserves heartbeat', () => {
   const c = new exports.WsClient();

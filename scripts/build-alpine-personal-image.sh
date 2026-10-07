@@ -38,7 +38,9 @@ Execution:
   -h, --help                  Show this help
 
 Only unversioned APK names are accepted in a request. nanokvm-release is
-always installed. Repository URLs must use http:// or https://. The output
+always installed. Repository URLs must use http:// or https://. The NanoKVM
+and C906 repositories are read through their apk v3 index: a base URL becomes
+URL/riscv64/Packages.adb, and a URL ending in .adb is kept. The output
 directory must not already exist.
 EOF
 }
@@ -171,6 +173,19 @@ for path_value in "$BASE_ROOTFS" "$BOOT_FIT" "$OUTPUT" "$QEMU_STATIC"; do
 		die "file and directory paths must be single-line values"
 done
 [ -s "$KEYS_RAW" ] || die "at least one --repo-key is required"
+
+# The v3 index is signed with the ECDSA release key (and, during the
+# transition, the RSA key); the v2 APKINDEX only with the RSA key.
+v3_index() {
+	case "$1" in
+		''|*.adb) printf '%s\n' "$1" ;;
+		*) printf '%s/riscv64/Packages.adb\n' "${1%/}" ;;
+	esac
+}
+NANOKVM_REPO=$(v3_index "$NANOKVM_REPO")
+RUNTIME_NANOKVM_REPO=$(v3_index "$RUNTIME_NANOKVM_REPO")
+TUNED_REPO=$(v3_index "$TUNED_REPO")
+RUNTIME_TUNED_REPO=$(v3_index "$RUNTIME_TUNED_REPO")
 
 ALPINE_MAIN=${ALPINE_MAIN:-https://dl-cdn.alpinelinux.org/alpine/v$ALPINE_VERSION/main}
 ALPINE_COMMUNITY=${ALPINE_COMMUNITY:-https://dl-cdn.alpinelinux.org/alpine/v$ALPINE_VERSION/community}

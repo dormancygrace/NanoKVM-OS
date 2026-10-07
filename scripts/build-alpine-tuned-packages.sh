@@ -31,14 +31,17 @@ C906_FLAGS=${C906_FLAGS:-'-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xth
 
 if [ "${1:-}" = --help ]; then
 	cat <<'EOF'
-Usage: SIGN_KEY=/path/key.rsa [WORK_DIR=/writable/path] \
+Usage: SIGN_KEY=/path/key.rsa [EC_SIGN_KEY=/path/key.key] [WORK_DIR=/writable/path] \
   scripts/build-alpine-tuned-packages.sh
 
-  SIGN_KEY=/path/key.rsa WORK_DIR=/existing/work \
+  SIGN_KEY=/path/key.rsa [EC_SIGN_KEY=/path/key.key] WORK_DIR=/existing/work \
     OUTPUT_DIR=/existing/repository \
     scripts/build-alpine-tuned-packages.sh --finalize-only
 
 Run as an unprivileged Alpine abuild user in an Alpine v3.24 riscv64 rootfs.
+SIGN_KEY signs the APKs and APKINDEX.tar.gz (RSA256). Packages.adb is signed
+with SIGN_KEY and, if set, the ECDSA key EC_SIGN_KEY (NAME.key with NAME.pub
+next to it), so that a device trusting either key accepts it.
 EOF
 	exit 0
 fi
@@ -91,6 +94,11 @@ need sha256sum
 [ -n "$SIGN_KEY" ] ||
 	die "set SIGN_KEY to the private APK signing key (do not commit it)"
 [ -f "$SIGN_KEY" ] || die "signing key does not exist: $SIGN_KEY"
+EC_SIGN_KEY=${EC_SIGN_KEY:-}
+if [ -n "$EC_SIGN_KEY" ]; then
+	[ -f "$EC_SIGN_KEY" ] || die "EC signing key does not exist: $EC_SIGN_KEY"
+	[ -f "${EC_SIGN_KEY%.key}.pub" ] || die "EC public key does not exist: ${EC_SIGN_KEY%.key}.pub"
+fi
 
 if [ "$FINALIZE_ONLY" -eq 1 ]; then
 	[ -d "$OUTPUT_DIR" ] || die "finalize output does not exist: $OUTPUT_DIR"
@@ -137,6 +145,16 @@ if [ ! -e "$KEYS_DIR/${key_name}.pub" ]; then
 		die "openssl is required to derive the APK public key"
 	fi
 fi
+
+# abuild signs packages and its index with abuild-sign and no type, which
+# means RSA: RSA with SHA-1. A wrapper first in PATH asks for RSA256, RSA with
+# SHA-256. apk mkndx signs Packages.adb with SHA-512 by itself.
+real_abuild_sign=$(command -v abuild-sign) || die "required command is missing: abuild-sign"
+mkdir -p "$WORK_DIR/bin"
+printf '#!/bin/sh\nexec %s -t RSA256 "$@"\n' "$real_abuild_sign" > "$WORK_DIR/bin/abuild-sign"
+chmod 0755 "$WORK_DIR/bin/abuild-sign"
+PATH=$WORK_DIR/bin:$PATH
+export PATH
 
 if [ "$FINALIZE_ONLY" -eq 0 ]; then
 	rm -rf "$WORK_DIR/ports"
@@ -210,10 +228,22 @@ index_count=$(tar -xOzf "$OUTPUT_DIR/riscv64/APKINDEX.tar.gz" APKINDEX |
 	die "APKINDEX contains $index_count packages, expected $apk_count"
 
 index="$OUTPUT_DIR/riscv64/Packages.adb"
-apk --keys-dir "$KEYS_DIR" --sign-key "$SIGN_KEY" mkndx \
+# With EC_SIGN_KEY the v3 index carries two signatures, RSA and ECDSA.
+apk --keys-dir "$KEYS_DIR" --sign-key "$SIGN_KEY" \
+	${EC_SIGN_KEY:+--sign-key "$EC_SIGN_KEY"} mkndx \
 	--output "$index" \
 	--description "NanoKVM Alpine v3.24 c906-scalar $APORTS_COMMIT" \
 	"$OUTPUT_DIR/riscv64"/*.apk
+if [ -n "$EC_SIGN_KEY" ]; then
+	# Each key alone must verify it.
+	rm -rf "$WORK_DIR/verify-ec"
+	mkdir -p "$WORK_DIR/verify-ec"
+	cp "${EC_SIGN_KEY%.key}.pub" "$WORK_DIR/verify-ec/"
+	apk --keys-dir "$WORK_DIR/verify-ec" verify "$index" >/dev/null ||
+		die "EC_SIGN_KEY does not verify $index"
+fi
+apk --keys-dir "$KEYS_DIR" verify "$index" >/dev/null ||
+	die "SIGN_KEY does not verify $index"
 
 # Exact package identities are read from .PKGINFO, not inferred from filenames
 # (subpackage names can contain hyphens). This is the handoff consumed by the
@@ -234,6 +264,10 @@ for file in "$OUTPUT_DIR/riscv64"/*.apk; do
 done
 
 # Verify both signatures before handing the repository to the image builder.
+for file in "$OUTPUT_DIR/riscv64"/*.apk "$OUTPUT_DIR/riscv64/APKINDEX.tar.gz"; do
+	tar -tzf "$file" | grep -qE '(^|/)\.SIGN\.RSA256\.' ||
+		die "no RSA256 signature in $file"
+done
 for file in "$OUTPUT_DIR/riscv64"/*.apk; do
 	apk --keys-dir "$KEYS_DIR" verify "$file" >/dev/null
 done

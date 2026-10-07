@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Switch, Tooltip } from 'antd';
-import { CircleAlertIcon } from 'lucide-react';
+import { Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 export const Mdns = () => {
   const { t } = useTranslation();
@@ -35,42 +36,39 @@ export const Mdns = () => {
     try {
       const next = !isEnabled;
       const rsp = next ? await api.enableMdns() : await api.disableMdns();
-      if (rsp.code !== 0) return;
+      if (rsp.code !== 0) {
+        showRequestError(rsp);
+        return;
+      }
       setIsEnabled(next);
       setAddress('');
       if (next) {
         const info = await api.getInfo();
         if (info.code === 0) setAddress(info.data?.mdns || '');
       }
-    } catch {
+    } catch (err) {
       // Keep the last confirmed state if the request fails.
+      showRequestError(err);
     } finally {
       setIsLoading(false);
     }
   }
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex flex-col space-y-1">
-        <div className="flex items-center space-x-2">
-          <span>mDNS</span>
-
-          <Tooltip
-            title={t('settings.device.mdns.tip')}
-            className="cursor-pointer"
-            placement="right"
-            styles={{ root: { maxWidth: '400px' } }}
-          >
-            <CircleAlertIcon className="text-neutral-500" size={14} />
-          </Tooltip>
-        </div>
-
-        <span className="text-xs text-neutral-500">
-          {isEnabled && address ? address : t('settings.device.mdns.description')}
-        </span>
-      </div>
-
-      <Switch aria-label="mDNS" checked={isEnabled} loading={isLoading} onChange={update} />
-    </div>
+    <SettingRow
+      label="mDNS"
+      description={isEnabled && address ? address : t('settings.device.mdns.description')}
+      help={t('settings.device.mdns.tip')}
+      htmlFor="network-mdns"
+    >
+      <Switch
+        id="network-mdns"
+        aria-label="mDNS"
+        aria-describedby="network-mdns-description"
+        checked={isEnabled}
+        loading={isLoading}
+        onChange={update}
+      />
+    </SettingRow>
   );
 };

@@ -7,10 +7,10 @@ import { useMediaQuery } from 'react-responsive';
 import { getEncoderState } from '@/api/stream.ts';
 import { getInputRegion, getScreen, setControlRegionMode } from '@/api/vm.ts';
 import { ControlRegionConfig, InputRegion } from '@/types';
-import { refreshCapture } from '@/lib/capture-control.ts';
+import { adoptLiveCapture } from '@/lib/capture-control.ts';
 import { getEncoderCodec, initializeEncoderCodec } from '@/lib/encoder.ts';
+import { refreshLiveStatus, subscribeLiveStatus } from '@/lib/live-status.ts';
 import * as storage from '@/lib/localstorage.ts';
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { client } from '@/lib/websocket.ts';
 import { isKeyboardOpenAtom } from '@/jotai/keyboard.ts';
 import { picoclawChatOpenAtom } from '@/jotai/picoclaw.ts';
@@ -26,6 +26,7 @@ import {
   videoModeAtom
 } from '@/jotai/screen.ts';
 import { usbInputAtom } from '@/jotai/usb-input.ts';
+import { useDeviceTime } from '@/hooks/useDeviceTime.ts';
 import { Head } from '@/components/head.tsx';
 
 import { CaptureStatusOverlay, useCaptureStatus } from './capture-status';
@@ -34,7 +35,7 @@ import { ControlNotice } from './control.tsx';
 import { Keyboard } from './keyboard';
 import { Menu } from './menu';
 import { Mouse } from './mouse';
-import { H264ModeNotification, Notification } from './notification.tsx';
+import { H264ModeNotification } from './notification.tsx';
 import { ActionOverlay } from './picoclaw/action-overlay.tsx';
 import { Screen } from './screen';
 import { AutoRegion } from './screen/auto-region.tsx';
@@ -46,6 +47,7 @@ import {
 } from './screen/geometry.ts';
 import { InputRegionOverlay } from './screen/input-region-overlay.tsx';
 import { ManualRegion } from './screen/manual-region.tsx';
+import { preloadPlayer } from './screen/players.ts';
 
 function getVideoMode() {
   const directSupported = window.isSecureContext && !!window.VideoDecoder;
@@ -94,6 +96,8 @@ export const Desktop = () => {
     if (!usbInput.keyboard) setKeyboardOpen(false);
   }, [usbInput.keyboard, setKeyboardOpen]);
   const { t } = useTranslation();
+  // Load the device time format once for every displayed device time.
+  useDeviceTime();
   const isBigScreen = useMediaQuery({ minWidth: 850 });
   const [activeVideoMode] = useState(getVideoMode);
   const [encoderReady, setEncoderReady] = useState(false);
@@ -114,14 +118,13 @@ export const Desktop = () => {
   const captureStatus = useCaptureStatus(activeVideoMode);
   const captureEnabled = useAtomValue(isHdmiEnabledAtom);
   useEffect(() => {
-    const refresh = () => {
-      void refreshCapture().catch(() => undefined);
-    };
-    refresh();
-    const stopPolling = pollWhileVisible(refresh, 3000);
+    const refresh = () => void refreshLiveStatus({ force: true });
+    const unsubscribe = subscribeLiveStatus((status, startedAt) =>
+      adoptLiveCapture(status?.hdmi ?? null, startedAt)
+    );
     window.addEventListener('focus', refresh);
     return () => {
-      stopPolling();
+      unsubscribe();
       window.removeEventListener('focus', refresh);
     };
   }, []);
@@ -151,6 +154,9 @@ export const Desktop = () => {
       }
       await initializeEncoderCodec(activeVideoMode === 'h264' ? 'webrtc' : 'direct', codec);
     };
+    // Fetch the player chunk alongside the encoder state, so that the player
+    // mounts together with the input handlers that attach to #screen.
+    const playerReady = preloadPlayer(activeVideoMode);
     void join()
       .catch((error: unknown) => {
         if (!active) return;
@@ -160,6 +166,7 @@ export const Desktop = () => {
             : 'screen.encoderStateFailed'
         );
       })
+      .then(() => playerReady)
       .finally(() => {
         if (!active) return;
         setVideoMode(activeVideoMode);
@@ -185,7 +192,6 @@ export const Desktop = () => {
           rsp.code === 0
             ? { width: rsp.data.width, height: rsp.data.height }
             : { width: 0, height: 0 };
-        storage.setResolution(res);
         setResolution(res);
       })
       .catch(() => {
@@ -324,7 +330,6 @@ export const Desktop = () => {
     <div className="h-dvh w-full overflow-hidden bg-neutral-950">
       <Head title={t('head.desktop')} />
 
-      {isBigScreen && <Notification />}
       <H264ModeNotification />
       <ControlNotice />
 

@@ -10,6 +10,7 @@ import {
   buttonTextColor,
   DEFAULT_BUTTON_COLOR
 } from '@/jotai/branding';
+import { Panel, SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
 
 const normalizeColor = (value: string) => value.trim().toUpperCase();
 const isColor = (value: string) => /^#[0-9A-F]{6}$/.test(value);
@@ -43,15 +44,10 @@ export const ButtonColor = () => {
   const previewColor = valid ? normalizedDraft : currentColor;
 
   return (
-    <div className="mt-8 flex flex-col gap-5">
-      <div className="flex flex-col gap-1">
-        <span>{tr('title')}</span>
-        <span className="text-xs text-neutral-500">{tr('description')}</span>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-neutral-700/70 bg-neutral-800/30 p-4">
+    <SettingRow label={tr('title')} description={tr('description')} stacked>
+      <Panel className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4">
-          <div className="flex h-28 w-full max-w-56 flex-none items-center justify-center rounded-md bg-neutral-900/70 p-3 sm:flex-1 sm:basis-48">
+          <div className="bg-surface-raised flex h-28 w-full max-w-56 flex-none items-center justify-center rounded-md p-3 sm:flex-1 sm:basis-48">
             <Button
               type="primary"
               style={{
@@ -63,12 +59,12 @@ export const ButtonColor = () => {
               {tr('preview')}
             </Button>
           </div>
-          <div className="flex w-full min-w-0 flex-none flex-col gap-1 sm:flex-1 sm:basis-40">
-            <span className="text-neutral-200">{tr('accentTitle')}</span>
-            <span className="text-xs text-neutral-500">{tr('accentDescription')}</span>
-            <span className="text-xs text-neutral-400">
+          <div className="flex w-full min-w-0 flex-none flex-col items-start gap-1 sm:flex-1 sm:basis-40">
+            <span className="text-fg">{tr('accentTitle')}</span>
+            <span className="text-fg-muted text-xs">{tr('accentDescription')}</span>
+            <StatusBadge tone={branding.customButtonColor ? 'info' : 'neutral'}>
               {branding.customButtonColor ? tr('customActive') : tr('defaultActive')}
-            </span>
+            </StatusBadge>
           </div>
         </div>
 
@@ -107,7 +103,7 @@ export const ButtonColor = () => {
             </Button>
           )}
         </div>
-      </div>
-    </div>
+      </Panel>
+    </SettingRow>
   );
 };

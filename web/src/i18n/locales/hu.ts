@@ -63,8 +63,6 @@ const hu = {
       scale: 'Skála',
       title: 'Képernyő',
       video: 'Videó mód',
-      videoDirectTips:
-        'Engedélyezze az HTTPS elemet a "Beállítások > Eszköz" menüpontban ennek a módnak a használatához',
       resolution: 'Felbontás',
       controlRegion: {
         title: 'Egérkalibrálás',
@@ -84,17 +82,13 @@ const hu = {
         duplicateResolution: 'Ez a felbontás már létezik.',
         width: 'Szélesség',
         height: 'Magasság',
-        apply: 'Számítás és alkalmazás',
         invalidResolution: 'A videó betöltése után adjon meg érvényes eredeti felbontást.',
         select: 'Terület kijelölése',
-        clear: 'Automatikus felismerés visszaállítása',
         saveFailed: 'Nem sikerült menteni a bemeneti területet.',
         tooSmall: 'A kijelölt terület túl kicsi.',
         previewUnavailable: 'Az előnézet nem érhető el',
-        clearConfirm: 'Visszaállítja a fekete szegélyek automatikus felismerését?',
         dragHint: 'Húzással jelölje ki a távoli asztal területét',
         finish: 'Kész',
-        confirm: 'Megerősítés',
         cancel: 'Mégse'
       },
       auto: 'Automatikus',
@@ -226,16 +220,7 @@ const hu = {
         dragDesc:
           'Amikor a tartás aktív, mozgassa az ujját a bal gomb lenyomva tartásával történő húzáshoz.'
       },
-      resetHid: 'HID alaphelyzetbe állítása',
-      hidOnly: {
-        title: 'Csak HID mód',
-        desc: 'Ha az egér és a billentyűzet nem válaszol, és az HID alaphelyzetbe állítása nem segít, akkor az NanoKVM és az eszköz közötti kompatibilitási probléma lehet. Próbálja engedélyezni az HID-Csak módot a jobb kompatibilitás érdekében.',
-        tip1: 'Az HID-Csak mód engedélyezése leválasztja a virtuális U-lemezt és a virtuális hálózatot',
-        tip2: 'HID-Csak módban a képrögzítés le van tiltva',
-        tip3: 'A NanoKVM automatikusan újraindul az üzemmódváltás után',
-        enable: 'Engedélyezze a HID-Csak módot',
-        disable: 'A HID-Csak mód letiltása'
-      }
+      resetHid: 'HID alaphelyzetbe állítása'
     },
     image: {
       title: 'Képek',
@@ -363,22 +348,10 @@ const hu = {
       },
       about: {
         title: 'NanoKVM Névjegy',
-        information: 'Információ',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: 'Alkalmazás verzió',
-        applicationTip: 'NanoKVM webalkalmazás verziója',
         image: 'Képfájl verzió',
-        imageTip: 'NanoKVM rendszerkép verziója',
-        deviceKey: 'Eszköz kulcs',
-        community: 'Közösség',
         hostname: 'Gazdanév',
-        hostnameUpdated: 'Gazdanév frissítve. Az alkalmazáshoz indítsa újra.',
-        ipType: {
-          Wired: 'Vezetékes',
-          Wireless: 'Vezeték nélküli',
-          Other: 'Egyéb'
-        }
+        hostnameUpdated: 'Gazdanév frissítve. Az alkalmazáshoz indítsa újra.'
       },
       appearance: {
         title: 'Megjelenés',
@@ -391,7 +364,6 @@ const hu = {
           title: 'Menüsor',
           mode: 'Megjelenítési mód',
           modeDesc: 'Menüsor megjelenítése a képernyőn',
-          modeOff: 'Ki',
           modeAuto: 'Automatikus elrejtés',
           modeAlways: 'Mindig látható',
           keyboardLedStatus: 'Billentyűzár-jelzők',
@@ -429,17 +401,6 @@ const hu = {
           1800: '30 min',
           3600: '1 óra'
         },
-        ssh: {
-          description: 'Engedélyezze a SSH távoli hozzáférést',
-          tip: 'Az engedélyezés előtt állítson be erős jelszót (Fiók - Jelszó módosítása)'
-        },
-        advanced: 'Speciális beállítások',
-        swap: {
-          title: 'Csere',
-          disable: 'Letiltás',
-          description: 'Állítsa be a swap fájl méretét',
-          tip: 'Ennek a funkciónak az engedélyezése lerövidítheti az SD-kártya élettartamát!'
-        },
         mouseJiggler: {
           title: 'Mouse Jiggler',
           description: 'A távoli gazdagép alvó állapotának megakadályozása',
@@ -457,24 +418,6 @@ const hu = {
           idleTimeoutDescription: 'A HDMI-rögzítés leállítása, ha nincs aktív néző ennyi ideig:',
           minutes: 'perc'
         },
-        autostart: {
-          title: 'Automatikus indítási parancsfájlok beállításai',
-          description: 'A rendszer indításakor automatikusan futó szkriptek kezelése',
-          new: 'Új',
-          deleteConfirm: 'Biztosan törli ezt a fájlt?',
-          yes: 'Igen',
-          no: 'Nem',
-          scriptName: 'Automatikusan induló szkript neve',
-          scriptContent: 'A szkripttartalom automatikus indítása',
-          settings: 'Beállítások'
-        },
-        hidOnly: 'HID-Csak mód',
-        hidOnlyDesc:
-          'A virtuális eszközök emulálásának leállítása, csak az alapvető HID vezérlés megtartásával',
-        disk: 'Virtuális lemez',
-        diskDesc: 'Mount virtual U-disk on the remote host',
-        network: 'Virtuális hálózat',
-        networkDesc: 'Virtuális hálózati kártya csatlakoztatása a távoli gazdagépen',
         reboot: 'Újraindítás',
         rebootDesc: 'Biztos, hogy újra akarja indítani a NanoKVM-t?',
         okBtn: 'Igen',
@@ -518,21 +461,17 @@ const hu = {
           invalid: 'Érvénytelen IP-cím',
           save: 'Mentés',
           unsaved: 'Nem mentett módosítások',
-          savedStatic: 'A(z) {{address}} statikus IP-cím mentve.',
-          savedDhcp: 'A DHCP-konfiguráció mentve.',
           saveFailed: 'A konfiguráció mentése nem sikerült.',
           loadFailed: 'A konfiguráció betöltése nem sikerült.'
         },
         dns: {
           title: 'DNS',
           description: 'DNS-kiszolgálók beállítása a NanoKVM számára',
-          mode: 'Mód',
           dhcp: 'DHCP',
           manual: 'Kézi',
           add: 'DNS hozzáadása',
           save: 'Mentés',
           invalid: 'Adjon meg egy érvényes IP-címet',
-          noDhcp: 'Jelenleg nincs elérhető DHCP DNS',
           saved: 'DNS-beállítások mentve',
           saveFailed: 'Nem sikerült menteni a DNS-beállításokat',
           unsaved: 'Nem mentett módosítások',
@@ -550,14 +489,6 @@ const hu = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: 'Memóriaoptimalizálás',
-          tip: "When memory usage exceeds the limit, garbage collection is performed more aggressively to attempt to free up memory. it's recommended to set to 50MB if using Tailscale. A Tailscale restart is required for the change to take effect."
-        },
-        swap: {
-          title: 'Memória csere',
-          tip: 'Ha a memóriaoptimalizálás engedélyezése után is fennállnak a problémák, próbálja meg engedélyezni a swap memóriát. Ez alapértelmezés szerint a swap fájl méretét 256MB értékre állítja be, amely a "Beállítások > Eszköz" menüpontban állítható be.'
-        },
         restart: 'Are you sure to restart Tailscale?',
         stop: 'Are you sure to stop Tailscale?',
         stopDesc: 'Log out Tailscale and disable its automatic startup on boot.',
@@ -567,12 +498,6 @@ const hu = {
         installing: 'Telepítés folyamatban',
         failed: 'Telepítés sikertelen',
         retry: 'Frissítse az oldalt, majd próbálja újra. Vagy próbálja meg manuálisan telepíteni.',
-        download: 'Letöltés a',
-        package: 'telepítési csomag',
-        unzip: 'és kicsomagolás',
-        upTailscale: 'Töltsön fel tailscale-t a NanoKVM /usr/bin/ könyvtárába',
-        upTailscaled: 'Töltsön fel tailscaled-t a NanoKVM /usr/sbin/ könyvtárába',
-        refresh: 'Frissítse az aktuális oldalt',
         notRunning: 'Tailscale nem fut. Kérjük, indítsa el a folytatáshoz.',
         run: 'Indítás',
         notLogin:

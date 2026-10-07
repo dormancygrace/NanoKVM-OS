@@ -18,6 +18,7 @@ export const Terminal = () => {
   const invalidParameters = useEffectEvent(() =>
     t('terminal.invalidParameters', { defaultValue: 'Invalid serial parameters.' })
   );
+  const disconnected = useEffectEvent(() => t('terminal.disconnected'));
 
   useEffect(() => {
     const terminalEle = document.getElementById('terminal');
@@ -64,7 +65,15 @@ export const Terminal = () => {
     ws.addEventListener('close', (event) => {
       if (event.code === 4401) {
         notifyAuthExpired();
+        return;
       }
+      if (disposed) return;
+      // Any other close ends the session: say so and offer a reconnect. A
+      // reload keeps the serial parameters, which live in sessionStorage.
+      terminal.writeln(`\r\n\x1b[31m${disconnected()}\x1b[0m`);
+      terminal.onKey(({ domEvent }) => {
+        if (domEvent.key === 'Enter') window.location.reload();
+      });
     });
 
     ws.onopen = () => {

@@ -29,7 +29,6 @@ function load(file, modules, globals = {}, jsx = false) {
 }
 
 const model = load('../src/lib/video-model.ts', {});
-const constants = { getQualityMap: () => new Map([[2, 3000], [7, 5000]]) };
 
 const caps = {
   input: { width: 1920, height: 1080, fps: 60, maxFps: 75 },
@@ -85,8 +84,7 @@ function applier() {
     '@/api/vm': {},
     '@/lib/encoder': {},
     '@/lib/localstorage': {},
-    '@/lib/video-model': model,
-    '../../screen/constants': constants
+    '@/lib/video-model': model
   });
   const deps = {
     applyVideoSettings: async (body, confirm) => {
@@ -104,12 +102,7 @@ function applier() {
     setEncoderCodec: (codec) => calls.local.push(['codec', codec]),
     storage: {
       setVideoMode: (value) => calls.local.push(['mode', value]),
-      setDirectPlayback: (value) => calls.local.push(['playback', value]),
-      setFrameDetect: () => assert.fail('viewer must not persist frame detection'),
-      setResolution: () => {},
-      setFps: () => {},
-      setGop: () => {},
-      setQuality: () => {}
+      setDirectPlayback: (value) => calls.local.push(['playback', value])
     },
     reload: () => calls.reloads++,
     clearPlaybackOverrides: () => {}

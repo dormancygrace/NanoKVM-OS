@@ -73,7 +73,6 @@ const zh = {
       scale: '缩放',
       title: '屏幕',
       video: '视频模式',
-      videoDirectTips: '该模式需启用 HTTPS，请前往「设置 - 设备」中开启',
       resolution: '分辨率',
       controlRegion: {
         title: '鼠标校准',
@@ -92,17 +91,13 @@ const zh = {
         duplicateResolution: '该分辨率已存在。',
         width: '宽度',
         height: '高度',
-        apply: '换算并应用',
         invalidResolution: '请在视频准备就绪后输入有效的原始分辨率。',
         select: '框选区域',
-        clear: '恢复自动裁切',
         saveFailed: '控制区域保存失败。',
         tooSmall: '选择区域过小。',
         previewUnavailable: '暂时无法预览',
-        clearConfirm: '恢复自动黑边检测？',
         dragHint: '拖拽框选远程桌面区域',
         finish: '完成',
-        confirm: '确定',
         cancel: '取消'
       },
       auto: '自动',
@@ -227,16 +222,7 @@ const zh = {
         dragTitle: '按住后移动进行拖动',
         dragDesc: '左键按住状态生效后继续移动手指，会变成按住鼠标左键的拖动。'
       },
-      resetHid: '重置 HID',
-      hidOnly: {
-        title: 'HID-Only 模式',
-        desc: '若使用过程中遇到鼠标键盘无响应，且重置 HID 无效，可能是 NanoKVM 与您的设备存在兼容性问题。建议尝试启用 HID-Only 模式以提升兼容性。',
-        tip1: '启用 HID-Only 模式会卸载虚拟 U 盘和虚拟网络',
-        tip2: 'HID-Only 模式下，镜像挂载将被禁用',
-        tip3: '切换模式后将自动重启 NanoKVM',
-        enable: '启用 HID-Only 模式',
-        disable: '关闭 HID-Only 模式'
-      }
+      resetHid: '重置 HID'
     },
     image: {
       title: '镜像',
@@ -360,22 +346,10 @@ const zh = {
       },
       about: {
         title: '关于 NanoKVM',
-        information: '信息',
         ip: 'IP',
-        mdns: 'mDNS',
-        application: '应用版本',
-        applicationTip: 'NanoKVM 网页应用版本',
         image: '镜像版本',
-        imageTip: 'NanoKVM 系统镜像版本',
-        deviceKey: '设备码',
-        community: '社区',
         hostname: '主机名',
-        hostnameUpdated: '主机名修改成功，重启后生效',
-        ipType: {
-          Wired: '有线',
-          Wireless: '无线',
-          Other: '其他'
-        }
+        hostnameUpdated: '主机名修改成功，重启后生效'
       },
       appearance: {
         title: '外观',
@@ -388,7 +362,6 @@ const zh = {
           title: '菜单栏',
           mode: '显示方式',
           modeDesc: '菜单栏在屏幕上的显示方式',
-          modeOff: '关闭',
           modeAuto: '自动隐藏',
           modeAlways: '始终显示',
           keyboardLedStatus: '键盘锁定状态指示灯',
@@ -425,17 +398,6 @@ const zh = {
           1800: '30分钟',
           3600: '1小时'
         },
-        ssh: {
-          description: '启用 SSH 远程访问',
-          tip: '启用前请务必设置强密码（帐号 - 修改密码）'
-        },
-        advanced: '高级设置',
-        swap: {
-          title: '交换',
-          disable: '禁用',
-          description: '设置交换文件大小',
-          tip: '启用该功能可能会减少SD卡使用寿命！'
-        },
         mouseJiggler: {
           title: '鼠标抖动',
           description: '防止远程主机休眠',
@@ -453,23 +415,6 @@ const zh = {
           idleTimeoutDescription: '没有活跃观看者后停止 HDMI 采集，0 表示永不停止',
           minutes: '分钟'
         },
-        autostart: {
-          title: '自动启动脚本设置',
-          description: '管理能够在 NanoKVM 启动时自动运行的脚本文件',
-          new: '创建新脚本',
-          deleteConfirm: '确定要删除该文件吗？',
-          yes: '是',
-          no: '否',
-          scriptName: '自动启动脚本名称',
-          scriptContent: '自动启动脚本内容',
-          settings: '设置'
-        },
-        hidOnly: 'HID-Only 模式',
-        hidOnlyDesc: '该模式下不再挂载虚拟设备，仅保留基础的 HID 控制功能。',
-        disk: '虚拟U盘',
-        diskDesc: '在远程主机中挂载虚拟U盘',
-        network: '虚拟网卡',
-        networkDesc: '在远程主机中挂载虚拟网卡',
         reboot: '重新启动',
         rebootDesc: '您确定要重新启动 NanoKVM 吗？',
         okBtn: '是',
@@ -513,21 +458,17 @@ const zh = {
           invalid: '请输入有效的 IPv4 地址、子网掩码和网关',
           save: '保存',
           unsaved: '未保存的更改',
-          savedStatic: '静态地址已保存。请通过 {{address}} 重新连接。',
-          savedDhcp: '已启用 DHCP。请使用路由器分配的地址重新连接。',
           saveFailed: '保存以太网设置失败',
           loadFailed: '加载以太网设置失败'
         },
         dns: {
           title: 'DNS',
           description: '配置 NanoKVM 使用的 DNS 服务器',
-          mode: '模式',
           dhcp: 'DHCP',
           manual: '手动',
           add: '添加 DNS',
           save: '保存',
           invalid: '请输入有效的 IP 地址',
-          noDhcp: '当前未获取到 DHCP DNS',
           saved: 'DNS 设置已保存',
           saveFailed: '保存 DNS 设置失败',
           unsaved: '有未保存的更改',
@@ -545,14 +486,6 @@ const zh = {
       },
       tailscale: {
         title: 'Tailscale',
-        memory: {
-          title: '内存优化',
-          tip: '当内存占用超过限制时，会更积极地执行垃圾回收来尝试释放内存。需重启 Tailscale 后生效。'
-        },
-        swap: {
-          title: '交换内存',
-          tip: '如果启用内存优化后依然存在问题，可以尝试开启交换内存。启用后会将交换文件设置为256MB，可以在「设置 - 设备」中修改该选项。'
-        },
         restart: '取定要重启 Tailscale 吗？',
         stop: '确定要停止 Tailscale 吗？',
         stopDesc: '退出 Tailscale 并禁用开机自动启动。',
@@ -562,12 +495,6 @@ const zh = {
         installing: '安装中',
         failed: '安装失败',
         retry: '请刷新后重试，或尝试手动安装',
-        download: '下载',
-        package: '安装包',
-        unzip: '并解压',
-        upTailscale: '将 tailscale 上传到 NanoKVM 的 /usr/bin/ 目录',
-        upTailscaled: '将 tailscaled 上传到 NanoKVM 的 /usr/sbin/ 目录',
-        refresh: '刷新页面',
         notRunning: 'Tailscale 尚未运行，请先执行启动操作',
         run: '启动',
         notLogin: '该设备尚未绑定，请点击登录并将这台设备绑定到您的账号。',

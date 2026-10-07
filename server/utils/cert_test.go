@@ -2,7 +2,9 @@ package utils
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/tls"
+	"crypto/x509"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,8 +17,15 @@ func TestFirstBootCertificateAndReuse(t *testing.T) {
 	if err := ensureGeneratedCertificate(cert, key); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tls.LoadX509KeyPair(cert, key); err != nil {
+	pair, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if _, ok := pair.PrivateKey.(*ecdsa.PrivateKey); !ok {
+		t.Fatalf("generated key is %T, want ECDSA", pair.PrivateKey)
+	}
+	if usage := pair.Leaf.KeyUsage; usage != x509.KeyUsageDigitalSignature {
+		t.Fatalf("key usage %v", usage)
 	}
 	before, _ := os.ReadFile(key)
 	info, _ := os.Stat(key)

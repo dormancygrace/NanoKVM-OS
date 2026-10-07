@@ -1,9 +1,9 @@
-import { useRef, useState } from "react";
-import { Modal } from "antd";
-import { Trash2Icon } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useRef, useState } from 'react';
+import { Alert, Modal } from 'antd';
+import { Trash2Icon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-import * as api from "@/api/extensions/netbird.ts";
+import * as api from '@/api/extensions/netbird.ts';
 
 type UninstallProps = {
   onSuccess: () => void;
@@ -14,7 +14,7 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [errMsg, setErrMsg] = useState("");
+  const [errMsg, setErrMsg] = useState('');
   // React state does not update synchronously. Keep the request lock in a ref
   // as well so a rapid second confirmation or a close event cannot slip
   // through before the loading render has committed.
@@ -23,13 +23,13 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
     if (uninstallInFlight.current) return;
     uninstallInFlight.current = true;
     setIsLoading(true);
-    setErrMsg("");
+    setErrMsg('');
 
     api
       .uninstall()
       .then((rsp) => {
         if (rsp.code !== 0) {
-          setErrMsg(rsp.msg || "Uninstall failed");
+          setErrMsg(rsp.msg || t('settings.netbird.error.uninstallFailed'));
           return;
         }
 
@@ -40,7 +40,7 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
         onSuccess();
       })
       .catch((err) => {
-        setErrMsg(err.message || "Uninstall failed");
+        setErrMsg(err.message || t('settings.netbird.error.uninstallFailed'));
       })
       .finally(() => {
         uninstallInFlight.current = false;
@@ -49,28 +49,29 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
   }
 
   const title = (
-    <div className="flex items-center space-x-1 text-red-500">
-      <Trash2Icon size={18} />
-      <span>{t("settings.netbird.uninstall")}</span>
+    <div className="text-danger flex items-center gap-1">
+      <Trash2Icon size={16} />
+      <span>{t('settings.netbird.uninstall')}</span>
     </div>
   );
 
   return (
     <>
-      <div
-        className="flex h-[30px] cursor-pointer items-center space-x-1 rounded px-2 py-1 text-neutral-300 hover:bg-neutral-700/70"
+      <button
+        type="button"
+        className="nanokvm-button-base text-fg hover:bg-surface-raised flex h-[30px] w-full cursor-pointer items-center space-x-1 rounded px-2 py-1"
         onClick={() => setIsModalOpen(true)}
       >
-        <span>{t("settings.netbird.uninstall")}</span>
-      </div>
+        <span>{t('settings.netbird.uninstall')}</span>
+      </button>
 
       <Modal
         title={title}
         open={isModalOpen}
         centered={true}
         okType="danger"
-        okText={t("settings.netbird.okBtn")}
-        cancelText={t("settings.netbird.cancelBtn")}
+        okText={t('settings.netbird.okBtn')}
+        cancelText={t('settings.netbird.cancelBtn')}
         onOk={uninstall}
         // A failed uninstall can leave a partial device state. Do not allow the
         // result to disappear into a closed modal while that request is still
@@ -85,11 +86,9 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
         maskClosable={!isLoading}
       >
         <div className="py-5">
-          <p className="text-base">{t("settings.netbird.uninstallDesc")}</p>
-          <p className="pt-2 text-sm text-neutral-400">
-            {t("settings.netbird.uninstallWarning")}
-          </p>
-          {errMsg && <p className="pt-3 text-sm text-red-500">{errMsg}</p>}
+          <p className="text-base">{t('settings.netbird.uninstallDesc')}</p>
+          <p className="text-fg-muted pt-2 text-sm">{t('settings.netbird.uninstallWarning')}</p>
+          {errMsg && <Alert className="mt-3" type="error" showIcon message={errMsg} />}
         </div>
       </Modal>
     </>

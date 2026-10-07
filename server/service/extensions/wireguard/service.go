@@ -222,6 +222,27 @@ func (s *Service) restore() {
 		s.mu.Unlock()
 	}
 }
+
+// parseDump reads wg show <interface> dump: an interface line, then per peer
+// public-key, preshared-key, endpoint, allowed-ips, latest-handshake,
+// transfer-rx, transfer-tx and persistent-keepalive, tab separated. It
+// returns the newest handshake and the summed transfer of all peers.
+func parseDump(text string) (lastHandshake int64, received, sent uint64) {
+	for _, line := range strings.Split(text, "\n") {
+		f := strings.Split(line, "\t")
+		if len(f) != 8 {
+			continue
+		}
+		n, _ := strconv.ParseInt(f[4], 10, 64)
+		lastHandshake = max(lastHandshake, n)
+		rx, _ := strconv.ParseUint(f[5], 10, 64)
+		tx, _ := strconv.ParseUint(f[6], 10, 64)
+		received += rx
+		sent += tx
+	}
+	return
+}
+
 func (s *Service) GetStatus(c *gin.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -251,35 +272,18 @@ func (s *Service) GetStatus(c *gin.Context) {
 			if iface, err := net.InterfaceByName(p.ID); err == nil {
 				st.MTU = iface.MTU
 			}
-			b, err := command(2*time.Second, "wg", "show", p.ID, "latest-handshakes")
+			// One wg run for handshakes and transfer: status is polled every 5 s.
+			b, err := command(2*time.Second, "wg", "show", p.ID, "dump")
 			if err != nil {
 				st.State = "error"
 				st.Error = "cannot read tunnel status"
 			} else {
-				for _, line := range strings.Split(string(b), "\n") {
-					f := strings.Fields(line)
-					if len(f) == 2 {
-						n, _ := strconv.ParseInt(f[1], 10, 64)
-						if n > st.LastHandshake {
-							st.LastHandshake = n
-						}
-					}
-				}
+				st.LastHandshake, st.Received, st.Sent = parseDump(string(b))
 				if st.LastHandshake > 0 {
 					st.State = "idle"
 					if time.Now().Unix()-st.LastHandshake < 180 {
 						st.State = "connected"
 					}
-				}
-			}
-			b, _ = command(2*time.Second, "wg", "show", p.ID, "transfer")
-			for _, line := range strings.Split(string(b), "\n") {
-				f := strings.Fields(line)
-				if len(f) == 3 {
-					rx, _ := strconv.ParseUint(f[1], 10, 64)
-					tx, _ := strconv.ParseUint(f[2], 10, 64)
-					st.Received += rx
-					st.Sent += tx
 				}
 			}
 		} else if st.Error != "" {

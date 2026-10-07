@@ -4,10 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func temporaryConfig(t *testing.T) {
@@ -150,6 +154,38 @@ func TestRemoteAccessPreparationFailurePreservesSettingsAndRunningService(t *tes
 	got, err := readConfig()
 	if err != nil || got.Enabled {
 		t.Fatal("failed preparation changed configuration")
+	}
+}
+
+func TestRestartsAndUnrelatedSavesKeepUserUSBComposition(t *testing.T) {
+	temporaryConfig(t)
+	current := defaultConfig()
+	current.Enabled = true
+	current.Password = "stored-pass"
+	if err := writeConfig(current); err != nil {
+		t.Fatal(err)
+	}
+	media, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer media.Close()
+	b := NewBridge()
+	b.media = media // already started: Configure must not open runtime sockets
+	s := NewService(b)
+	s.run = func(context.Context, string, ...string) ([]byte, error) { return nil, nil }
+	calls := 0
+	s.ensureUSB = func(bool) error { calls++; return nil }
+
+	// The daemon asks on every start, e.g. after boot or a package upgrade.
+	_ = s.PrepareUSB()
+	candidate := current
+	candidate.MaxClients = 2
+	if err := s.Configure(candidate); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatalf("USB composition changed %d times without turning RustDesk on", calls)
 	}
 }
 
@@ -449,6 +485,7 @@ func TestAudioCapabilityFollowsInstalledMetadataAndOptionalUSBState(t *testing.T
 	s := NewService(b)
 	s.upstreamFile = filepath.Join(t.TempDir(), "upstream.json")
 	installed := true
+	s.apkStamp = func() string { return fmt.Sprint(installed) }
 	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
 		if name == "apk" && strings.Join(args, " ") == "info -e "+Package && installed {
 			return nil, nil
@@ -473,5 +510,275 @@ func TestAudioCapabilityFollowsInstalledMetadataAndOptionalUSBState(t *testing.T
 		if err != nil || got.SupportsAudio != tc.support || got.USBAudioEnabled != tc.enabled {
 			t.Fatalf("audio status: %+v %v", got, err)
 		}
+	}
+}
+
+// fakeAPK answers status probes for an installed package and records them.
+type fakeAPK struct {
+	mu       sync.Mutex
+	stamp    int
+	version  string
+	update   string
+	fail     bool
+	gate     chan struct{} // blocks repository queries while set
+	commands []string
+}
+
+func (f *fakeAPK) install(s *Service) {
+	s.apkStamp = func() string { f.mu.Lock(); defer f.mu.Unlock(); return fmt.Sprint(f.stamp) }
+	s.run = func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		command := name + " " + strings.Join(args, " ")
+		f.mu.Lock()
+		f.commands = append(f.commands, command)
+		version, update, fail, gate := f.version, f.update, f.fail, f.gate
+		f.mu.Unlock()
+		switch {
+		case command == "apk info -e -v "+Package:
+			return []byte(Package + "-" + version + "\n"), nil
+		case strings.HasPrefix(command, "apk query"):
+			if deadline, ok := ctx.Deadline(); !ok || time.Until(deadline) < 30*time.Second {
+				return nil, errors.New("repository query cannot finish on the device")
+			}
+			if gate != nil {
+				<-gate
+			}
+			if fail {
+				return nil, errors.New("query failed")
+			}
+			if strings.Contains(command, "--upgradable") {
+				if update == "" {
+					return []byte("[]"), nil
+				}
+				return []byte(`[{"name":"nanokvm-rustdesk","version":"` + update + `"}]`), nil
+			}
+			return []byte(`[{"name":"nanokvm-rustdesk","version":"0.2.1-r0"}]`), nil
+		}
+		return nil, nil
+	}
+}
+func waitForRefresh(s *Service) {
+	for {
+		s.factsMu.Lock()
+		done := s.refreshing
+		s.factsMu.Unlock()
+		if done == nil {
+			return
+		}
+		<-done
+	}
+}
+func (f *fakeAPK) apkCommands() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n := 0
+	for _, command := range f.commands {
+		if strings.HasPrefix(command, "apk ") {
+			n++
+		}
+	}
+	f.commands = nil
+	return n
+}
+
+func TestStatusReusesPackageFactsUntilAPKChanges(t *testing.T) {
+	temporaryConfig(t)
+	s := NewService(NewBridge())
+	f := &fakeAPK{version: "0.2.0-r0", update: "0.2.1-r0"}
+	f.install(s)
+	check := func(version, update string, apk int) {
+		t.Helper()
+		status, err := s.Status()
+		if err != nil || !status.Installed || !status.Available || !status.Running || status.Version != version || status.UpdateVersion != update {
+			t.Fatalf("status: %+v %v", status, err)
+		}
+		if got := f.apkCommands(); got != apk {
+			t.Fatalf("%d apk commands, want %d", got, apk)
+		}
+	}
+	check("0.2.0-r0", "0.2.1-r0", 4)
+	check("0.2.0-r0", "0.2.1-r0", 0)
+	f.mu.Lock()
+	f.stamp++ // for example apk update in Software settings
+	f.mu.Unlock()
+	check("0.2.0-r0", "0.2.1-r0", 4)
+	// Package actions are noticed even when apk's files look unchanged.
+	if err := s.Action("upgrade"); err != nil {
+		t.Fatal(err)
+	}
+	f.mu.Lock()
+	f.version, f.update = "0.2.1-r0", ""
+	f.mu.Unlock()
+	f.apkCommands()
+	check("0.2.1-r0", "", 4)
+	check("0.2.1-r0", "", 0)
+}
+
+func TestSlowRepositoryQueryDoesNotDelayStatus(t *testing.T) {
+	temporaryConfig(t)
+	s := NewService(NewBridge())
+	s.repositoryWait = 10 * time.Millisecond
+	f := &fakeAPK{version: "0.2.0-r0", update: "0.2.1-r0", gate: make(chan struct{})}
+	f.install(s)
+	started := time.Now()
+	status, err := s.Status()
+	if err != nil || !status.Installed || status.Version != "0.2.0-r0" || status.Available || status.UpdateVersion != "" || time.Since(started) > time.Second {
+		t.Fatalf("status while the indexes load: %+v %v", status, err)
+	}
+	// Later polls do not wait for the refresh another request started.
+	s.repositoryWait = time.Minute
+	started = time.Now()
+	if status, err = s.Status(); err != nil || status.Available || time.Since(started) > time.Second {
+		t.Fatalf("second status while the indexes load: %+v %v", status, err)
+	}
+	close(f.gate)
+	waitForRefresh(s)
+	if status, err = s.Status(); err != nil || !status.Available || status.UpdateVersion != "0.2.1-r0" {
+		t.Fatalf("status after the indexes loaded: %+v %v", status, err)
+	}
+	// After an upgrade the previous candidate no longer applies; until the
+	// indexes are read again only the availability is reused.
+	f.mu.Lock()
+	f.version, f.update, f.gate = "0.2.1-r0", "", make(chan struct{})
+	f.stamp++
+	f.mu.Unlock()
+	s.repositoryWait = 10 * time.Millisecond
+	if status, err = s.Status(); err != nil || status.Version != "0.2.1-r0" || !status.Available || status.UpdateVersion != "" {
+		t.Fatalf("status after upgrade: %+v %v", status, err)
+	}
+	close(f.gate)
+}
+
+func TestFailedRepositoryQueryIsRetriedLater(t *testing.T) {
+	temporaryConfig(t)
+	s := NewService(NewBridge())
+	f := &fakeAPK{version: "0.2.0-r0", update: "0.2.1-r0", fail: true}
+	f.install(s)
+	for range 2 {
+		if status, err := s.Status(); err != nil || status.Available || status.UpdateVersion != "" {
+			t.Fatalf("failed query: %+v %v", status, err)
+		}
+	}
+	if got := f.apkCommands(); got != 4 {
+		t.Fatalf("failed query repeated immediately: %d apk commands", got)
+	}
+	f.mu.Lock()
+	f.fail = false
+	f.mu.Unlock()
+	s.factsMu.Lock()
+	s.retryAt = time.Now().Add(-time.Second)
+	s.factsMu.Unlock()
+	if status, err := s.Status(); err != nil || !status.Available || status.UpdateVersion != "0.2.1-r0" {
+		t.Fatalf("retried query: %+v %v", status, err)
+	}
+}
+
+func TestRepositoryQueriesNeverOverlapPackageTransactions(t *testing.T) {
+	temporaryConfig(t)
+	s := NewService(NewBridge())
+	s.repositoryWait = 0
+	s.apkStamp = func() string { return "unchanged" }
+	var active, overlaps, queries int
+	var mu sync.Mutex
+	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if name != "apk" || args[0] == "info" {
+			return nil, nil
+		}
+		mu.Lock()
+		active++
+		overlaps += active - 1
+		if args[0] == "query" {
+			queries++
+		}
+		mu.Unlock()
+		time.Sleep(20 * time.Millisecond)
+		mu.Lock()
+		active--
+		mu.Unlock()
+		return []byte("[]"), nil
+	}
+	if _, err := s.Status(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Action("upgrade"); err != nil {
+		t.Fatal(err)
+	}
+	waitForRefresh(s)
+	s.repositoryWait = time.Minute
+	if _, err := s.Status(); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if overlaps != 0 || queries == 0 {
+		t.Fatalf("%d overlapping apk runs, %d queries", overlaps, queries)
+	}
+}
+
+func TestStoppedServiceStatusNeedsNoRCService(t *testing.T) {
+	temporaryConfig(t)
+	s := NewService(NewBridge())
+	f := &fakeAPK{version: "0.2.0-r0"}
+	f.install(s)
+	s.startedFile = filepath.Join(t.TempDir(), Package)
+	rcService := func() int {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		n := 0
+		for _, command := range f.commands {
+			if strings.HasPrefix(command, "rc-service ") {
+				n++
+			}
+		}
+		f.commands = nil
+		return n
+	}
+	if status, err := s.Status(); err != nil || status.Running || rcService() != 0 {
+		t.Fatalf("stopped service: %+v %v", status, err)
+	}
+	// A started service may have crashed; openrc decides.
+	if err := os.Symlink("/etc/init.d/"+Package, s.startedFile); err != nil {
+		t.Fatal(err)
+	}
+	if status, err := s.Status(); err != nil || !status.Running || rcService() != 1 {
+		t.Fatalf("started service: %+v %v", status, err)
+	}
+}
+
+func TestRepositoryQueriesRunAtIdlePriority(t *testing.T) {
+	// The shell reports its own nice value after runCommand lowered it.
+	data, err := runCommand(withIdlePriority(context.Background()), "sh", "-c", `sleep 0.2; cut -d" " -f19 /proc/$$/stat`)
+	if err != nil || strings.TrimSpace(string(data)) != "19" {
+		t.Fatalf("nice %q %v", data, err)
+	}
+}
+
+func TestAPKStampFollowsStateFiles(t *testing.T) {
+	dir := t.TempDir()
+	installed, cache := filepath.Join(dir, "installed"), filepath.Join(dir, "cache")
+	if err := os.WriteFile(installed, []byte("a"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(cache, 0755); err != nil {
+		t.Fatal(err)
+	}
+	paths := []string{installed, cache, filepath.Join(dir, "missing")}
+	stamp := apkStamp(paths)
+	if apkStamp(paths) != stamp {
+		t.Fatal("unchanged state changed the stamp")
+	}
+	index := filepath.Join(cache, "APKINDEX.0.tar.gz")
+	for _, change := range []func() error{
+		func() error { return os.WriteFile(index, []byte("index"), 0644) },
+		func() error { return os.Chtimes(index, time.Now(), time.Unix(1, 0)) },
+		func() error { return os.WriteFile(installed, []byte("ab"), 0644) },
+	} {
+		if err := change(); err != nil {
+			t.Fatal(err)
+		}
+		next := apkStamp(paths)
+		if next == stamp {
+			t.Fatal("apk state change kept the stamp")
+		}
+		stamp = next
 	}
 }

@@ -18,12 +18,13 @@ export const Tips = () => {
 
   return (
     <>
-      <span
-        className="cursor-pointer text-neutral-300 underline underline-offset-4"
+      <button
+        type="button"
+        className="nanokvm-button-base cursor-pointer text-neutral-300 underline underline-offset-4"
         onClick={showModal}
       >
         {t('auth.forgetPassword')}
-      </span>
+      </button>
 
       <Modal
         title={t('auth.forgetPassword')}

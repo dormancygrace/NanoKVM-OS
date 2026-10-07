@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { PauseCircleOutlined } from '@ant-design/icons';
-import { Button, Card, Result } from 'antd';
+import { Button, Result } from 'antd';
+import { CirclePauseIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/extensions/tailscale.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { Panel } from '@/components/ui/settings.tsx';
 
 type RunProps = {
   onSuccess: () => void;
@@ -13,7 +15,6 @@ export const Run = ({ onSuccess }: RunProps) => {
   const { t } = useTranslation();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [errMsg, setErrMsg] = useState('');
 
   function run() {
     if (isLoading) return;
@@ -23,24 +24,22 @@ export const Run = ({ onSuccess }: RunProps) => {
       .start()
       .then((rsp) => {
         if (rsp.code !== 0) {
-          setErrMsg(rsp.msg);
+          showRequestError(rsp, 'settings.tailscale.startFailed');
           return;
         }
 
         onSuccess();
       })
-      .catch((err) => {
-        setErrMsg(err?.message || 'Failed to run tailscale');
-      })
+      .catch((err) => showRequestError(err, 'settings.tailscale.startFailed'))
       .finally(() => {
         setIsLoading(false);
       });
   }
 
   return (
-    <Card>
+    <Panel>
       <Result
-        icon={<PauseCircleOutlined />}
+        icon={<CirclePauseIcon size={72} />}
         subTitle={t('settings.tailscale.notRunning')}
         extra={
           <Button key="install" type="primary" loading={isLoading} onClick={run}>
@@ -48,10 +47,6 @@ export const Run = ({ onSuccess }: RunProps) => {
           </Button>
         }
       />
-
-      <div className="flex justify-center">
-        {errMsg && <span className="text-red-500">{errMsg}</span>}
-      </div>
-    </Card>
+    </Panel>
   );
 };

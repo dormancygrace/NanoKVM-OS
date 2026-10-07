@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as storage from '@/lib/localstorage.ts';
 import { keyboardLedStatusVisibleAtom } from '@/jotai/settings.ts';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 export const KeyboardLedStatusSetting = () => {
   const { t } = useTranslation();
@@ -15,17 +16,17 @@ export const KeyboardLedStatusSetting = () => {
   }
 
   return (
-    <div className="mt-5 flex w-full items-center justify-between">
-      <div className="flex flex-col">
-        <span className="text-neutral-400">
-          {t('settings.appearance.menuBar.keyboardLedStatus')}
-        </span>
-        <span className="text-xs text-neutral-500">
-          {t('settings.appearance.menuBar.keyboardLedStatusDesc')}
-        </span>
-      </div>
-
-      <Switch checked={visible} onChange={update} />
-    </div>
+    <SettingRow
+      label={t('settings.appearance.menuBar.keyboardLedStatus')}
+      description={t('settings.appearance.menuBar.keyboardLedStatusDesc')}
+      htmlFor="appearance-keyboard-led-status"
+    >
+      <Switch
+        id="appearance-keyboard-led-status"
+        aria-describedby="appearance-keyboard-led-status-description"
+        checked={visible}
+        onChange={update}
+      />
+    </SettingRow>
   );
 };

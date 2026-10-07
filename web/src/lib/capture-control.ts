@@ -1,6 +1,7 @@
 import { getDefaultStore } from 'jotai';
 
 import { getHdmiState, setHdmiState } from '@/api/vm.ts';
+import type { LiveStatus } from '@/lib/live-status.ts';
 import { client } from '@/lib/websocket.ts';
 import {
   captureBusyAtom,
@@ -36,9 +37,22 @@ export async function refreshCapture() {
   store.set(videoSessionCountAtom, Number.isSafeInteger(count) && count >= 0 ? count : null);
   adopt(rsp.data.enabled);
 }
+// The shared live poll; data requested before the last change is stale.
+let changedAt = -Infinity;
+export function adoptLiveCapture(hdmi: LiveStatus['hdmi'] | null, startedAt: number) {
+  if (store.get(captureBusyAtom) || startedAt < changedAt) return;
+  if (!hdmi) {
+    store.set(videoSessionCountAtom, null);
+    return;
+  }
+  const count = hdmi.viewerCount;
+  store.set(videoSessionCountAtom, Number.isSafeInteger(count) && count >= 0 ? count : null);
+  adopt(hdmi.enabled);
+}
 export async function changeCapture(enabled: boolean) {
   if (store.get(captureBusyAtom)) return;
   ++revision;
+  changedAt = performance.now();
   store.set(captureBusyAtom, true);
   // Release held controls before the device stops capture.
   if (!enabled) client.setInputEnabled(false);
@@ -47,6 +61,7 @@ export async function changeCapture(enabled: boolean) {
     if (rsp.code !== 0) throw new Error(rsp.msg);
     adopt(enabled);
   } finally {
+    changedAt = performance.now();
     store.set(captureBusyAtom, false);
     // Read back even after an uncertain response; never replay the toggle.
     await refreshCapture().catch(() => undefined);

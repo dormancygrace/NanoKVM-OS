@@ -4,7 +4,9 @@ import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
 import { webTitleAtom } from '@/jotai/settings.ts';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 export const WebTitle = () => {
   const { t } = useTranslation();
@@ -22,6 +24,7 @@ export const WebTitle = () => {
           setWebTitle(rsp.data.title);
         }
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         setIsLoading(false);
       });
@@ -34,34 +37,31 @@ export const WebTitle = () => {
     api
       .setWebTitle(webTitle)
       .then((rsp) => {
-        if (rsp.code !== 0) {
-          console.log(rsp.msg);
-          return;
-        }
+        if (rsp.code !== 0) showRequestError(rsp);
       })
+      .catch((err) => showRequestError(err))
       .finally(() => {
         setIsLoading(false);
       });
   }
 
   return (
-    <div className="mt-8 flex items-center justify-between space-x-5">
-      <div className="flex flex-col">
-        <span>{t('settings.appearance.webTitle')}</span>
-        <span className="text-xs text-neutral-500">{t('settings.appearance.webTitleDesc')}</span>
-      </div>
-
-      <div>
-        <Input
-          disabled={isLoading}
-          style={{ width: 180 }}
-          value={webTitle}
-          onChange={(e) => setWebTitle(e.target.value)}
-          onPressEnter={submit}
-          onBlur={submit}
-          placeholder="NanoKVM OS"
-        />
-      </div>
-    </div>
+    <SettingRow
+      label={t('settings.appearance.webTitle')}
+      description={t('settings.appearance.webTitleDesc')}
+      htmlFor="appearance-web-title"
+    >
+      <Input
+        id="appearance-web-title"
+        aria-describedby="appearance-web-title-description"
+        disabled={isLoading}
+        style={{ width: 180 }}
+        value={webTitle}
+        onChange={(e) => setWebTitle(e.target.value)}
+        onPressEnter={submit}
+        onBlur={submit}
+        placeholder="NanoKVM OS"
+      />
+    </SettingRow>
   );
 };

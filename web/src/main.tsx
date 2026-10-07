@@ -9,6 +9,7 @@ import { RouterProvider } from 'react-router-dom';
 import { AppTheme } from './components/app-theme.tsx';
 import { MainError } from './components/main-error.tsx';
 import { i18nReady } from './i18n';
+import { removeLegacyKeys } from './lib/localstorage.ts';
 import { router } from './router';
 
 import './assets/styles/index.css';
@@ -41,6 +42,8 @@ if (import.meta.env.MODE === 'mocked') {
   const { worker } = await import('./mocks/browser');
   await worker.start();
 }
+
+removeLegacyKeys();
 
 await i18nReady;
 renderApp();

@@ -1,10 +1,11 @@
-import { LogoutOutlined } from '@ant-design/icons';
 import { Button, message, Popconfirm } from 'antd';
+import { LogOutIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import * as api from '@/api/auth.ts';
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 export const Logout = () => {
   const { t } = useTranslation();
@@ -28,18 +29,18 @@ export const Logout = () => {
   }
 
   return (
-    <div className="flex justify-center pt-3">
+    <SettingRow label={t('settings.account.logoutBtn')}>
       <Popconfirm
-        placement="bottom"
+        placement="bottomRight"
         title={t('settings.account.logoutDesc')}
         okText={t('settings.account.okBtn')}
         cancelText={t('settings.account.cancelBtn')}
         onConfirm={logout}
       >
-        <Button danger type="primary" size="large" shape="round" icon={<LogoutOutlined />}>
+        <Button danger icon={<LogOutIcon size={16} />}>
           {t('settings.account.logoutBtn')}
         </Button>
       </Popconfirm>
-    </div>
+    </SettingRow>
   );
 };

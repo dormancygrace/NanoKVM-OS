@@ -111,10 +111,12 @@ export const SidebarHistory = ({
                       size="small"
                       danger
                       disabled={isDeleting || isSwitching}
+                      aria-label={t('picoclaw.history.deleteConfirmTitle')}
+                      title={t('picoclaw.history.deleteConfirmTitle')}
                       icon={<Trash2Icon size={14} />}
                       className={[
                         '!mt-0.5 hidden! items-center! justify-center! !text-neutral-500 hover:!bg-red-500/10 hover:!text-red-300',
-                        isActive ? '' : 'group-hover:inline-flex!'
+                        isActive ? '' : 'group-focus-within:inline-flex! group-hover:inline-flex!'
                       ].join(' ')}
                       onClick={(event) => {
                         event.preventDefault();

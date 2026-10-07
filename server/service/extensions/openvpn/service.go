@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -19,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/extensions/apkpkg"
 	"github.com/gin-gonic/gin"
@@ -46,6 +48,11 @@ type Status struct {
 type Service struct {
 	mu       sync.Mutex
 	dir, run string
+	links    map[string]linkKind // DCO kind by interface name
+}
+type linkKind struct {
+	index int
+	dco   bool
 }
 
 func NewService() *Service {
@@ -227,6 +234,9 @@ func (s *Service) start(p Profile) error {
 	if e = cmd.Start(); e != nil {
 		return fmt.Errorf("OpenVPN could not start")
 	}
+	// openvpn runs in the foreground without scripts, so resetting the
+	// adjustment it inherited from the server right after start is enough.
+	_ = oomscore.Set(cmd.Process.Pid, oomscore.Normal)
 	go func() { _ = cmd.Wait() }()
 	if e = writePrivate(s.runtime(p.ID, ".pid"), []byte(strconv.Itoa(cmd.Process.Pid)+"\n")); e != nil {
 		_ = cmd.Process.Kill()
@@ -281,17 +291,20 @@ func readCounter(path string) uint64 {
 	return n
 }
 
-func interfaceAddress(name string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	b, e := exec.CommandContext(ctx, "ip", "-o", "-4", "addr", "show", "dev", name).Output()
+// interfaceAddress is the first IPv4 address, the local one on a
+// point-to-point link, as ip -o -4 addr show listed it.
+func interfaceAddress(iface *net.Interface) string {
+	addrs, e := iface.Addrs()
 	if e != nil {
 		return ""
 	}
-	fields := strings.Fields(string(b))
-	for i, field := range fields {
-		if field == "inet" && i+1 < len(fields) {
-			return strings.SplitN(fields[i+1], "/", 2)[0]
+	return firstIPv4(addrs)
+}
+
+func firstIPv4(addrs []net.Addr) string {
+	for _, addr := range addrs {
+		if ipNet, ok := addr.(*net.IPNet); ok && ipNet.IP.To4() != nil {
+			return ipNet.IP.String()
 		}
 	}
 	return ""
@@ -328,19 +341,39 @@ func (s *Service) liveStatus(id string) (state, address string, received, sent u
 	} else {
 		state = "connecting"
 	}
-	address = interfaceAddress(name)
 	base := filepath.Join("/sys/class/net", name, "statistics")
 	received = readCounter(filepath.Join(base, "rx_bytes"))
 	sent = readCounter(filepath.Join(base, "tx_bytes"))
-	dco = dcoInterface(name)
+	if iface, e := net.InterfaceByName(name); e == nil {
+		address = interfaceAddress(iface)
+		dco = s.dcoInterface(iface)
+	}
 	return
 }
 
-func dcoInterface(name string) bool {
+var linkDetail = func(name string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	detail, e := exec.CommandContext(ctx, "ip", "-j", "-d", "link", "show", "dev", name).Output()
-	return e == nil && dcoLinkJSON(detail)
+	return exec.CommandContext(ctx, "ip", "-j", "-d", "link", "show", "dev", name).Output()
+}
+
+// The link kind is fixed for the life of an interface, so ip runs once per
+// tunnel interface (a restarted tunnel has a new index), not on every
+// status poll. Callers hold s.mu.
+func (s *Service) dcoInterface(iface *net.Interface) bool {
+	if known, ok := s.links[iface.Name]; ok && known.index == iface.Index {
+		return known.dco
+	}
+	detail, e := linkDetail(iface.Name)
+	if e != nil {
+		return false
+	}
+	dco := dcoLinkJSON(detail)
+	if s.links == nil {
+		s.links = map[string]linkKind{}
+	}
+	s.links[iface.Name] = linkKind{index: iface.Index, dco: dco}
+	return dco
 }
 
 func dcoLinkJSON(data []byte) bool {

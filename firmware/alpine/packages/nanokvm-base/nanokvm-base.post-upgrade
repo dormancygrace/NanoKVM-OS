@@ -1,13 +1,19 @@
 #!/bin/sh
-# The matching kernel may activate only after reboot. nanokvm-policy retries
-# then, so a missing flow module must not fail the base package transaction.
+# Retire the earlier package-owned wildcard flowtable before enabling
+# interface-scoped USB sharing. Never flush foreign nftables policy.
 if [ -x /usr/libexec/nanokvm/legacy/S35flowoffload ]; then
     /usr/libexec/nanokvm/legacy/S35flowoffload start ||
-        echo "Software flow offload will be applied at the next boot with the matching kernel." >&2
+        echo "Could not retire the legacy NanoKVM flowtable; check the policy service." >&2
 fi
 set -eu
 # Alpine's standard loopback service is needed by local applications.
 rc-update add loopback boot
+if [ -x /etc/init.d/nanokvm-usb-internet ]; then
+    rc-update add nanokvm-usb-internet default
+    if [ -e /run/openrc/softlevel ] && rc-service nanokvm-usb status >/dev/null 2>&1; then
+        rc-service nanokvm-usb-internet start || echo "USB uplink watcher will start at the next boot." >&2
+    fi
+fi
 if [ -e /run/openrc/softlevel ] && ! rc-service loopback status >/dev/null 2>&1; then
     rc-service loopback start
 fi

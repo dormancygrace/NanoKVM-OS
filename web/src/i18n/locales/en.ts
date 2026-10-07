@@ -968,6 +968,9 @@ const en = {
         cancelBtn: 'Cancel'
       },
       about: {
+        applicationVersion: 'Applications',
+        imageVersion: 'Installed image',
+        bundledVersion: 'Applications bundled with image',
         title: 'About',
         description: 'Community firmware for NanoKVM.',
         specialThanksTitle: 'Special thanks',
@@ -1173,9 +1176,37 @@ const en = {
         cancelBtn: 'No'
       },
       usb: {
+        internet: {
+          title: 'Internet over USB',
+          description:
+            'Share the NanoKVM Ethernet or Wi-Fi connection with the managed computer over USB NCM. IPv4 only. USB network must be enabled separately.',
+          renew:
+            'After changing this setting or the USB subnet, reconnect USB or renew the computer’s DHCP lease. A short lease also refreshes automatically.',
+          updateFailed:
+            'Could not apply USB internet sharing. Refresh and check the device status.',
+          offload: 'Software flow offload enabled for eligible TCP/UDP connections.',
+          noOffload:
+            'Standard forwarding is active; software flow offload is unavailable or restricted by network policy.',
+          states: {
+            loading: 'Loading…',
+            disabled: 'Off · Local USB access only',
+            active:
+              'Sharing via {{uplink}} · USB gateway {{address}}. Internet availability depends on the uplink.',
+            'waiting-ncm': 'Saved as on · Enable USB network (NCM) to start sharing.',
+            'waiting-uplink':
+              'Saved as on · Waiting for an Ethernet or Wi-Fi route. VPN routes are not bypassed.',
+            'dhcp-disabled': 'Saved as on · USB DHCP is disabled in the device configuration.',
+            'subnet-conflict':
+              'USB subnet conflicts with another network. Internet sharing is paused.',
+            unavailable:
+              'USB network service is unavailable. Check the Alpine base package and service.',
+            error: 'USB network could not be applied. Check the device service logs.'
+          }
+        },
+
         confirmDisable: 'Turn off USB?',
         confirmDisableDescription:
-          'The computer loses the NanoKVM keyboard, mouse, storage and audio until USB is turned on again here. RustDesk loses keyboard and mouse control too.',
+          'The computer loses the NanoKVM keyboard, mouse, storage, audio and USB network until USB is turned on again here. Internet sharing over USB stops too. RustDesk loses keyboard and mouse control.',
         pointerProfile: 'Absolute pointer profile',
         pointerProfileHelp:
           'Windows binds the pointer to the captured monitor (Windows 10 1903 or newer). Applying reconnects USB and HDMI.',

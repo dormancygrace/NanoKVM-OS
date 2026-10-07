@@ -3,7 +3,7 @@
 
 Host fixture only: a miniature boot set in the compact layout, stub f2fs tools
 and the host's mtools/dosfstools. Checks the FAT boot partition's boot.sd."""
-import hashlib, shutil, subprocess, tarfile, tempfile, unittest
+import hashlib, json, shutil, subprocess, tarfile, tempfile, unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +31,8 @@ class SdImageBootTests(unittest.TestCase):
             (boot/'detect.sha256').write_text(hashlib.sha256(COMPOSED).hexdigest() + '  detect.sd\n')
             shutil.copyfile(COMPOSE, boot/'compose-fit')
             (root/'lib/modules/7.2.9-test').mkdir(parents=True)
+            (root/'kvmapp').mkdir()
+            (root/'kvmapp/version').write_text('2.5-a1\n')
             (root/'etc/kvm').mkdir(parents=True)
             (root/'etc/kvm/ssh_stop').write_text('')
             (root/'etc/fstab').write_text('/dev/mmcblk0p2 / f2fs rw 0 1\n')
@@ -47,7 +49,7 @@ class SdImageBootTests(unittest.TestCase):
             fip.write_bytes(b'fip')
             out = tmp/'out'
             result = subprocess.run(['python3', str(BUILDER), '--rootfs-archive', str(archive), '--fip', str(fip),
-                            '--f2fs-tools', str(f2fs), '--output', str(out)], capture_output=True, text=True)
+                            '--f2fs-tools', str(f2fs), '--output', str(out), '--version', 'v2.5-a1', '--image-version', 'v1.0-a1'], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr[-1500:])
             self.assertTrue((out/'boot-files/boot.sd').exists(), result.stderr[-1500:])
             self.assertEqual((out/'boot-files/boot.sd').read_bytes(), COMPOSED)
@@ -55,6 +57,14 @@ class SdImageBootTests(unittest.TestCase):
             extracted = tmp/'boot-from-fat.sd'
             subprocess.run(['mcopy', '-i', str(out/'boot-partition.img'), '::/boot.sd', str(extracted)], check=True)
             self.assertEqual(extracted.read_bytes(), COMPOSED)
+            metadata = tmp/'image.json'
+            subprocess.run(['mcopy', '-i', str(out/'boot-partition.img'), '::/image.json', str(metadata)], check=True)
+            expected = {'image_version':'v1.0-a1', 'bundled_application_version':'v2.5-a1'}
+            self.assertEqual(json.loads(metadata.read_text()), expected)
+            manifest = json.loads((out/'build-manifest.json').read_text())
+            for key, value in expected.items():
+                self.assertEqual(manifest[key], value)
+            self.assertTrue((out/'NanoKVM-OS-Image-v1.0-a1-apps-v2.5-a1.img.zip').is_file())
 
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -12,6 +13,23 @@ import (
 
 	"NanoKVM-Server/proto"
 )
+
+var imageMetadataPath = "/boot/image.json"
+var legacyImageVersionPath = "/boot/ver"
+
+type imageMetadata struct {
+	ImageVersion              string `json:"image_version"`
+	BundledApplicationVersion string `json:"bundled_application_version"`
+}
+
+func readImageMetadata() imageMetadata {
+	var metadata imageMetadata
+	content, err := os.ReadFile(imageMetadataPath)
+	if err != nil || json.Unmarshal(content, &metadata) != nil || strings.TrimSpace(metadata.ImageVersion) == "" {
+		return imageMetadata{}
+	}
+	return metadata
+}
 
 var imageVersionMap = map[string]string{
 	"2024-06-23-20-59-2d2bfb.img": "v1.0.0",
@@ -27,11 +45,12 @@ func (s *Service) GetInfo(c *gin.Context) {
 	var rsp proto.Response
 
 	data := &proto.GetInfoRsp{
-		IPs:         getIPs(),
-		Mdns:        getMdns(),
-		Image:       getImageVersion(),
-		Application: getApplicationVersion(),
-		DeviceKey:   getDeviceKey(),
+		IPs:                getIPs(),
+		Mdns:               getMdns(),
+		Image:              getImageVersion(),
+		Application:        getApplicationVersion(),
+		DeviceKey:          getDeviceKey(),
+		BundledApplication: readImageMetadata().BundledApplicationVersion,
 	}
 
 	rsp.OkRspWithData(c, data)
@@ -73,7 +92,10 @@ func getMdns() string {
 }
 
 func getImageVersion() string {
-	content, err := os.ReadFile("/boot/ver")
+	if metadata := readImageMetadata(); metadata.ImageVersion != "" {
+		return metadata.ImageVersion
+	}
+	content, err := os.ReadFile(legacyImageVersionPath)
 	if err != nil {
 		return ""
 	}

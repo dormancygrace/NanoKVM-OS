@@ -8,11 +8,12 @@ type IP struct {
 }
 
 type GetInfoRsp struct {
-	IPs         []IP   `json:"ips"`
-	Mdns        string `json:"mdns"`
-	Image       string `json:"image"`
-	Application string `json:"application"`
-	DeviceKey   string `json:"deviceKey"`
+	IPs                []IP   `json:"ips"`
+	Mdns               string `json:"mdns"`
+	Image              string `json:"image"`
+	Application        string `json:"application"`
+	BundledApplication string `json:"bundledApplication,omitempty"`
+	DeviceKey          string `json:"deviceKey"`
 }
 
 type GetHardwareRsp struct {
@@ -246,4 +247,10 @@ type GetInputRegionRsp struct {
 type GetInputResolutionRsp struct {
 	Width  int `json:"width"`
 	Height int `json:"height"`
+}
+
+// Explicit false is valid; omitted fields are rejected.
+type SetUSBInternetReq struct {
+	Enabled         *bool `json:"enabled" validate:"required"`
+	ExpectedEnabled *bool `json:"expectedEnabled" validate:"required"`
 }

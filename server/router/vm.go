@@ -56,6 +56,9 @@ func vmRouter(r *gin.Engine) {
 	admin.POST("/vm/device/virtual", service.UpdateVirtualDevice) // update virtual device
 	admin.PUT("/vm/device/virtual", service.SetUSBComposition)    // apply an entire composition
 
+	admin.GET("/vm/usb-internet", service.GetUSBInternet)
+	admin.PUT("/vm/usb-internet", service.SetUSBInternet)
+
 	admin.GET("/vm/memory/status", service.GetMemoryStatus)
 	admin.POST("/vm/memory/swap", service.SetMemorySwap)
 	admin.POST("/vm/memory/video", service.SetVideoMemory)

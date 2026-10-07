@@ -30,3 +30,25 @@ export async function setUsbComposition(composition: UsbComposition, revision: s
   if (response.code === 0) window.dispatchEvent(new Event(usbCompositionChangedEvent));
   return response;
 }
+
+export type UsbInternetStatus = {
+  enabled: boolean;
+  state: string;
+  uplink?: string;
+  address?: string;
+  flowOffload: boolean;
+  offloadReason?: string;
+  ipv6: false;
+};
+
+export function getUsbInternet() {
+  return http.get('/api/vm/usb-internet');
+}
+
+export function setUsbInternet(enabled: boolean, expectedEnabled: boolean) {
+  return http.request({
+    method: 'put',
+    url: '/api/vm/usb-internet',
+    data: { enabled, expectedEnabled }
+  });
+}

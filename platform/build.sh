@@ -16,7 +16,7 @@
 #   boot       board device trees and boot.sd images like nanokvm-kernel-sg2002
 #   native     SOPHGO media libraries, libkvm_mmf and libkvm
 #   system     kvm_system board service
-#   server     NanoKVM-Server, nkos-update and nkos-apply-updates
+#   server     NanoKVM-Server and update/USB internet helpers
 #   web        web UI
 #   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio
 #   firmware   Wi-Fi, regulatory and video codec firmware
@@ -96,6 +96,7 @@ export GIT_CEILING_DIRECTORIES=$out
 
 version=$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")
 # Official Alpine packages; the c906-scalar overlay is not built here.
+image_version=$(sed -n 's/^NANOKVM_IMAGE_VERSION=//p' "$repo/firmware/alpine/release.env")
 profile=stock
 release=7.2.9-nanokvm-os-r1
 # Build times recorded in the binaries. The kernel keeps the v2.0 value so
@@ -524,7 +525,7 @@ server() {
         "$host/python3" "$repo/scripts/build-server-existing-libs.py" --libraries "$img/native" \
         --buildroot-output "$bo" --go "$s/goroot/bin/go" --output "$s/out"
     cp "$s/out/NanoKVM-Server.stripped" "$img/server/NanoKVM-Server"
-    cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$img/server/"
+    cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" "$img/server/"
 }
 
 # Web UI. npm packages are checked against pnpm-lock.yaml.
@@ -910,7 +911,7 @@ rootfs() {
         '@edgecommunity https://dl-cdn.alpinelinux.org/alpine/edge/community' > "$r/etc/apk/repositories"
     rm -f "$r/etc/resolv.conf"
     # The settings APIs call these; refuse an incomplete root.
-    for path in usr/sbin/iw usr/sbin/nanokvm_update_edid etc/init.d/nanokvm-policy \
+    for path in usr/sbin/nkos-usb-internet etc/init.d/nanokvm-usb-internet usr/sbin/iw usr/sbin/nanokvm_update_edid etc/init.d/nanokvm-policy \
                 usr/libexec/nanokvm/legacy/S50sshd usr/libexec/nanokvm/legacy/S38memory \
                 usr/libexec/nanokvm/legacy/S34mssclamp kvmapp/system/bin/usb-audio-capture \
                 usr/sbin/nkos-board-probe usr/sbin/nkos-board-select; do
@@ -946,7 +947,7 @@ image() {
     rm -rf "${rel:?}/image"
     PATH=$bo/host/sbin:$host:$PATH "$host/python3" "$repo/scripts/build-alpine-sd-image.py" \
         --rootfs-archive "$rel/alpine-rootfs.tar.gz" --fip "$img/fip.bin" --f2fs-tools "$bo/host/sbin" \
-        --output "$rel/image" --version "$version"
+        --output "$rel/image" --version "$version" --image-version "$image_version"
 }
 
 verify() {

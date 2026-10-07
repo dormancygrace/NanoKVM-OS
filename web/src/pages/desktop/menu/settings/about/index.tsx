@@ -13,11 +13,17 @@ import { Credits } from './credits';
 export const About = () => {
   const { t } = useTranslation();
   const [version, setVersion] = useState('');
+  const [imageVersion, setImageVersion] = useState('');
+  const [bundledVersion, setBundledVersion] = useState('');
   useEffect(() => {
     let active = true;
     getInfo()
       .then((rsp) => {
-        if (active && rsp.code === 0) setVersion(rsp.data.application);
+        if (active && rsp.code === 0) {
+          setVersion(rsp.data.application);
+          setImageVersion(rsp.data.image || '');
+          setBundledVersion(rsp.data.bundledApplication || '');
+        }
       })
       .catch(() => {});
     return () => {
@@ -44,8 +50,23 @@ export const About = () => {
             className="text-fg-muted group-hover:text-fg absolute top-3 right-3 transition-colors"
           />
         </a>
-        <p className="text-fg-muted text-sm">{version ? `v${formatVersion(version)}` : '—'}</p>
-        <p className="text-fg max-w-xl text-sm leading-relaxed">
+        <div className="space-y-1 text-sm text-fg-muted">
+          <p>
+            {t('settings.about.applicationVersion')}:{' '}
+            {version ? `v${formatVersion(version.replace(/^v/, ''))}` : '—'}
+          </p>
+          {imageVersion && (
+            <p>
+              {t('settings.about.imageVersion')}: {imageVersion}
+            </p>
+          )}
+          {bundledVersion && (
+            <p>
+              {t('settings.about.bundledVersion')}: {bundledVersion}
+            </p>
+          )}
+        </div>
+        <p className="max-w-xl text-sm leading-relaxed text-fg">
           {t('settings.about.description')}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">

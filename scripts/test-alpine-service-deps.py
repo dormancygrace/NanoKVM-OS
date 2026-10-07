@@ -11,7 +11,7 @@ OPENRC = ROOT / "firmware/alpine/openrc"
 # Services the base package adds to the default runlevel. Alpine services
 # outside this repository (localmount, dbus, sshd, ...) are assumed to start.
 DEFAULT = ("nanokvm-storage nanokvm-modules nanokvm-board nanokvm-network "
-           "nanokvm-usb nanokvm-policy nanokvm-ssh nanokvm-app "
+           "nanokvm-usb nanokvm-usb-internet nanokvm-policy nanokvm-ssh nanokvm-app "
            "nanokvm-watchdog nanokvm-mdns").split()
 PROVIDES = {"net": "nanokvm-network"}
 REACHABLE = ("nanokvm-network", "nanokvm-ssh", "nanokvm-mdns")

@@ -34,6 +34,7 @@ for script in S02config S03usbdev S10uuid S15kvmhwd S25wifimod \
               S29qdisc S30eth S30wifi S30usbnet S95nanokvm; do
     copy_path "$ROOTFS/etc/init.d/$script" "$OUTPUT/base/etc/init.d/$script"
 done
+copy_path "$ROOTFS/usr/sbin/nkos-usb-internet" "$OUTPUT/base/usr/sbin/nkos-usb-internet"
 copy_path "$ROOTFS/usr/libexec/nanokvm" "$OUTPUT/base/usr/libexec/nanokvm"
 install -D -m 0755 "$ROOT/firmware/alpine/compat/nanokvm-stage-update" \
     "$OUTPUT/base/usr/sbin/nanokvm-stage-update"

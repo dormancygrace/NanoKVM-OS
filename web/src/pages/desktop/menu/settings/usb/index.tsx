@@ -19,6 +19,7 @@ import { confirmAction } from '@/components/ui/confirm.ts';
 import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
 import { MouseJiggler } from '../device/mouse-jiggler';
+import { UsbInternet } from './internet';
 
 const previousCompositionKey = 'nanokvm.usb.previous-composition';
 function readPreviousComposition(): UsbComposition | undefined {
@@ -207,6 +208,7 @@ export const Usb = () => {
           onChange={(next) => void toggleUsb(next)}
         />
       </SettingRow>
+      <UsbInternet usbBusy={loading} />
       {enabled && (
         <>
           <div className="space-y-4">

@@ -1,0 +1,16 @@
+#!/sbin/openrc-run
+# shellcheck shell=sh disable=SC2034
+description="NanoKVM USB internet uplink reconciliation"
+command="/usr/sbin/nkos-usb-internet"
+command_args="watch"
+supervisor="supervise-daemon"
+pidfile="/run/nanokvm-usb-internet-watch.pid"
+respawn_delay=5
+respawn_max=0
+
+depend() {
+    need localmount
+    use nanokvm-usb nanokvm-network
+    after nanokvm-usb nanokvm-network
+    before nanokvm-app
+}

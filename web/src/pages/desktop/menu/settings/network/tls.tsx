@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { message, Switch, Tooltip } from 'antd';
-import { CircleAlertIcon } from 'lucide-react';
+import { message, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+import { HelpTip } from '@/components/ui/settings.tsx';
 
 function restartInterruptedRequest(err: unknown): boolean {
   if (!axios.isAxiosError(err)) return false;
@@ -72,20 +72,12 @@ export const Tls = () => {
       <div className="flex flex-col space-y-1">
         <div className="flex items-center space-x-2">
           <span>HTTPS</span>
-
-          <Tooltip
-            title={t('settings.network.tls.tip')}
-            className="cursor-pointer"
-            placement="right"
-            styles={{ root: { maxWidth: '400px' } }}
-          >
-            <CircleAlertIcon className="text-neutral-500" size={14} />
-          </Tooltip>
+          <HelpTip title={t('settings.network.tls.tip')} />
         </div>
         <span className="text-xs text-neutral-500">{t('settings.network.tls.description')}</span>
       </div>
 
-      <Switch checked={isEnabled} loading={isLoading} onChange={update} />
+      <Switch aria-label="HTTPS" checked={isEnabled} loading={isLoading} onChange={update} />
     </div>
   );
 };

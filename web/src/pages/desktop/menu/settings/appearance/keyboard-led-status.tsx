@@ -25,7 +25,11 @@ export const KeyboardLedStatusSetting = () => {
         </span>
       </div>
 
-      <Switch checked={visible} onChange={update} />
+      <Switch
+        aria-label={t('settings.appearance.menuBar.keyboardLedStatus')}
+        checked={visible}
+        onChange={update}
+      />
     </div>
   );
 };

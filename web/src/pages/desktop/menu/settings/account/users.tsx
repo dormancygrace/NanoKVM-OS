@@ -185,6 +185,7 @@ export const Users = () => {
                 onChange={(role) => updateUser(user, { role })}
               />
               <Switch
+                aria-label={t('settings.account.users.enableUser', { username: user.username })}
                 checked={user.enabled}
                 disabled={isLoading || isProtected}
                 checkedChildren={t('settings.account.users.enabled')}

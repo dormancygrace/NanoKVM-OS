@@ -226,6 +226,7 @@ export const MCP = () => {
             <span className="text-xs text-neutral-500">{t('settings.mcp.serviceDesc')}</span>
           </div>
           <Switch
+            aria-label={t('settings.mcp.service')}
             checked={config.enabled}
             loading={isLoading || config.transitioning}
             disabled={config.transitioning}

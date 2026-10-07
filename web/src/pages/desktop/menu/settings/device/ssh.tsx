@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Button, Form, Input, Modal, Switch, Tooltip } from 'antd';
-import { CircleAlertIcon } from 'lucide-react';
+import { Button, Form, Input, Modal, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import { encrypt } from '@/lib/encrypt.ts';
+import { HelpTip } from '@/components/ui/settings.tsx';
 
 type PasswordForm = { password: string; confirmation: string };
 
@@ -63,18 +63,12 @@ export const Ssh = () => {
         <div className="flex flex-col space-y-1">
           <div className="flex items-center space-x-2">
             <span>SSH</span>
-            <Tooltip
-              title={t('settings.system.ssh.tip')}
-              className="cursor-pointer"
-              placement="right"
-              styles={{ root: { maxWidth: '400px' } }}
-            >
-              <CircleAlertIcon className="text-neutral-500" size={14} />
-            </Tooltip>
+            <HelpTip title={t('settings.system.ssh.tip')} />
           </div>
           <span className="text-xs text-neutral-500">{t('settings.system.ssh.description')}</span>
         </div>
         <Switch
+          aria-label="SSH"
           checked={isEnabled}
           loading={isLoading}
           onChange={(next) => (next ? setPasswordOpen(true) : void disable())}

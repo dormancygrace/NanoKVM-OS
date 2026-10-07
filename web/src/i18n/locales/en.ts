@@ -1611,6 +1611,7 @@ const en = {
           title: 'Users',
           create: 'Create user',
           enabled: 'Enabled',
+          enableUser: 'Enable {{username}}',
           disabled: 'Disabled',
           deviceOwner: 'Device owner',
           rename: 'Rename',

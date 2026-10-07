@@ -67,7 +67,12 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
     <div className="flex flex-col space-y-6 pt-5">
       <div className="flex justify-between">
         <span>{t('settings.tailscale.enable')}</span>
-        <Switch checked={isRunning} loading={isUpdating} onClick={update} />
+        <Switch
+          aria-label={t('settings.tailscale.enable')}
+          checked={isRunning}
+          loading={isUpdating}
+          onClick={update}
+        />
       </div>
 
       <div className="flex justify-between">

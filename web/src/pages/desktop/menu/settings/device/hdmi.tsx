@@ -112,7 +112,12 @@ export const Hdmi = () => {
               </span>
             </div>
 
-            <Switch checked={isHdmiEnabled} loading={isLoading} onChange={setHdmiState} />
+            <Switch
+              aria-label="HDMI"
+              checked={isHdmiEnabled}
+              loading={isLoading}
+              onChange={setHdmiState}
+            />
           </div>
 
           <div className="flex items-center justify-between">
@@ -124,6 +129,7 @@ export const Hdmi = () => {
             </div>
 
             <InputNumber
+              aria-label={t('settings.device.hdmi.idleTimeoutTitle')}
               style={{ width: 150 }}
               min={0}
               max={10080}

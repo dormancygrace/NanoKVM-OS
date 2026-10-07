@@ -1640,6 +1640,7 @@ const ru = {
           title: 'Пользователи',
           create: 'Создать пользователя',
           enabled: 'Включён',
+          enableUser: 'Включить {{username}}',
           disabled: 'Отключён',
           deviceOwner: 'Владелец устройства',
           rename: 'Переименовать',

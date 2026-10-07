@@ -96,6 +96,7 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
       <div className="flex justify-between">
         <span>{t("settings.netbird.enable")}</span>
         <Switch
+          aria-label={t("settings.netbird.enable")}
           checked={status.state === "running"}
           disabled={isDisconnecting}
           loading={isUpdating}

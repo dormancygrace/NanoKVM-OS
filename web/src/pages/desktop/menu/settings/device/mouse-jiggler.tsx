@@ -97,6 +97,7 @@ export const MouseJiggler = () => {
 
       {enabled ? (
         <Select
+          aria-label={t('settings.device.mouseJiggler.title')}
           style={{ width: 150 }}
           value={mode}
           options={options}
@@ -104,7 +105,12 @@ export const MouseJiggler = () => {
           onChange={updateMode}
         />
       ) : (
-        <Switch checked={enabled} loading={isLoading} onChange={enable} />
+        <Switch
+          aria-label={t('settings.device.mouseJiggler.title')}
+          checked={enabled}
+          loading={isLoading}
+          onChange={enable}
+        />
       )}
     </div>
   );

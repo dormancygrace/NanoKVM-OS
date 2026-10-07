@@ -50,7 +50,7 @@ type SettingRowProps = {
   label: ReactNode;
   description?: ReactNode;
   // Extra explanation behind a help icon, for details most people do not need.
-  help?: ReactNode;
+  help?: string;
   // id of the control. The description gets the id <htmlFor>-description;
   // pass it to the control as aria-describedby.
   htmlFor?: string;
@@ -78,11 +78,7 @@ export const SettingRow = ({
       <div className="min-w-0 space-y-0.5">
         <div className="text-fg flex items-center gap-1.5">
           {htmlFor ? <label htmlFor={htmlFor}>{label}</label> : <span>{label}</span>}
-          {help && (
-            <Tooltip title={help}>
-              <CircleHelpIcon size={14} className="text-fg-muted shrink-0" aria-hidden />
-            </Tooltip>
-          )}
+          {help && <HelpTip title={help} />}
         </div>
         {description && (
           <div id={descriptionId} className="text-fg-muted text-xs">
@@ -94,6 +90,25 @@ export const SettingRow = ({
     </div>
   );
 };
+
+// A help icon for neutral extra information. The tooltip text is also the
+// icon's accessible name, and the tooltip opens on keyboard focus too.
+export const HelpTip = ({ title }: { title: string }) => (
+  <Tooltip
+    title={title}
+    trigger={['hover', 'focus']}
+    placement="right"
+    styles={{ root: { maxWidth: 400 } }}
+  >
+    <button
+      type="button"
+      aria-label={title}
+      className="text-fg-muted inline-flex shrink-0 cursor-help items-center border-0 bg-transparent p-0"
+    >
+      <CircleHelpIcon size={14} aria-hidden />
+    </button>
+  </Tooltip>
+);
 
 type PanelProps = {
   className?: string;

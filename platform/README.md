@@ -12,13 +12,13 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 |---|---|
 | `images/Image` (Linux `7.2.9-nanokvm-os-r1`) | every `boot.sd` |
 | `images/lib/modules/7.2.9-nanokvm-os-r1/` (65 in-tree and 17 out-of-tree modules, `modules.*`) | `nanokvm-kmod-sg2002` |
-| `images/boot/*.sd`, `*.sha256`, `kernel.release` (5 boards × CMA/fixed video memory) | `nanokvm-kernel-sg2002`, `/usr/lib/nanokvm/boot` |
+| `images/boot/*.sd`, `*.sha256`, `kernel.release` (5 boards × CMA/fixed/UHD video memory) | `nanokvm-kernel-sg2002`, `/usr/lib/nanokvm/boot` |
 | `images/dtb/*.dtb`, `images/initramfs.cpio.zst` | inside the `boot.sd` images |
 | `images/u-boot.bin`, `images/fip.bin` | boot partition of the SD image |
 | `images/opensbi/*`, `images/fip-manifest.json` | host build provenance and loader checks |
 | `images/native/*.so` (19 libraries) | `nanokvm-app`, `/kvmapp/server/dl_lib` |
 | `images/system/kvm_system` | `nanokvm-app`, `/kvmapp/kvm_system` |
-| `images/server/NanoKVM-Server`, `nkos-update`, `nkos-apply-updates` | `nanokvm-app`, `nanokvm-base` |
+| `images/server/NanoKVM-Server`, `nkos-update`, `nkos-apply-updates`, `nkos-usb-internet` | `nanokvm-app`, `nanokvm-base` |
 | `images/web/` | `nanokvm-app`, `/kvmapp/server/web` |
 | `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm-app`, `nanokvm-firmware-sg2002` |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware-sg2002` |

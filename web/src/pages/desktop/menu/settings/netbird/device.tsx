@@ -1,13 +1,14 @@
-import { useState } from "react";
-import { Button, Divider, Popconfirm, Switch } from "antd";
-import { UnplugIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useState } from 'react';
+import { Button, Popconfirm, Switch } from 'antd';
+import { UnplugIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-import * as api from "@/api/extensions/netbird.ts";
+import * as api from '@/api/extensions/netbird.ts';
+import { SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
-import { ErrorHelp } from "./error-help.tsx";
-import { LoginUrl } from "./login-url.tsx";
-import { Status } from "./types.ts";
+import { ErrorHelp } from './error-help.tsx';
+import { LoginUrl } from './login-url.tsx';
+import { Status } from './types.ts';
 
 type DeviceProps = {
   status: Status;
@@ -19,8 +20,8 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
-  const [errMsg, setErrMsg] = useState("");
-  const [loginUrl, setLoginUrl] = useState("");
+  const [errMsg, setErrMsg] = useState('');
+  const [loginUrl, setLoginUrl] = useState('');
   const isBusy = isUpdating || isDisconnecting;
 
   async function update() {
@@ -28,7 +29,7 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
     setIsUpdating(true);
 
     try {
-      const isRunning = status.state === "running";
+      const isRunning = status.state === 'running';
       const rsp = isRunning ? await api.down() : await api.login();
       if (rsp.code !== 0) {
         setErrMsg(rsp.msg);
@@ -38,10 +39,10 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
       // Enabling an unbound device returns an interactive login URL. Showing it
       // is the whole point: flipping the switch instead would claim the tunnel
       // is up while the device waits for an authorization nobody opened.
-      const url = !isRunning ? rsp.data?.url : "";
+      const url = !isRunning ? rsp.data?.url : '';
       if (url) {
         setLoginUrl(url);
-        window.open(url, "_blank");
+        window.open(url, '_blank');
         return;
       }
 
@@ -50,7 +51,7 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
       // obtain a new observation instead of applying an optimistic toggle.
       onLogout();
     } catch (err: any) {
-      setErrMsg(err?.message || t("settings.netbird.error.requestFailed"));
+      setErrMsg(err?.message || t('settings.netbird.error.requestFailed'));
     } finally {
       setIsUpdating(false);
     }
@@ -71,7 +72,7 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
         onLogout();
       })
       .catch((err) => {
-        setErrMsg(err.message || t("settings.netbird.error.disconnectFailed"));
+        setErrMsg(err.message || t('settings.netbird.error.disconnectFailed'));
       })
       .finally(() => {
         setIsDisconnecting(false);
@@ -80,52 +81,45 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
 
   if (loginUrl) {
     return (
-      <div className="flex flex-col items-center justify-center space-y-10 pt-5">
-        <LoginUrl
-          url={loginUrl}
-          onConfirm={onLogout}
-          onCancel={() => setLoginUrl("")}
-        />
+      <div className="flex flex-col items-center justify-center space-y-6">
+        <LoginUrl url={loginUrl} onConfirm={onLogout} onCancel={() => setLoginUrl('')} />
         {errMsg && <ErrorHelp error={errMsg} onRefresh={onLogout} canRestart />}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col space-y-6 pt-5">
-      <div className="flex justify-between">
-        <span>{t("settings.netbird.enable")}</span>
-        <Switch
-          aria-label={t("settings.netbird.enable")}
-          checked={status.state === "running"}
-          disabled={isDisconnecting}
-          loading={isUpdating}
-          onClick={update}
-        />
-      </div>
+    <div className="space-y-6">
+      <SettingsSection>
+        <SettingRow label={t('settings.netbird.enable')} htmlFor="netbird-enable">
+          <Switch
+            id="netbird-enable"
+            checked={status.state === 'running'}
+            disabled={isDisconnecting}
+            loading={isUpdating}
+            onClick={update}
+          />
+        </SettingRow>
 
-      <div className="flex justify-between">
-        <span>{t("settings.netbird.deviceName")}</span>
-        <span>{status.name}</span>
-      </div>
+        <SettingRow label={t('settings.netbird.deviceName')}>
+          <span>{status.name}</span>
+        </SettingRow>
 
-      <div className="flex justify-between">
-        <span>{t("settings.netbird.deviceIP")}</span>
-        <span>{status.ip}</span>
-      </div>
+        <SettingRow label={t('settings.netbird.deviceIP')}>
+          <span>{status.ip}</span>
+        </SettingRow>
 
-      <div className="flex justify-between">
-        <span>{t("settings.netbird.version")}</span>
-        <span>{status.version}</span>
-      </div>
-      <Divider />
+        <SettingRow label={t('settings.netbird.version')}>
+          <span>{status.version}</span>
+        </SettingRow>
+      </SettingsSection>
 
-      <div className="flex justify-center pt-3">
+      <div className="flex justify-center">
         <Popconfirm
           placement="bottom"
-          title={t("settings.netbird.disconnectConfirm")}
-          okText={t("settings.netbird.okBtn")}
-          cancelText={t("settings.netbird.cancelBtn")}
+          title={t('settings.netbird.disconnectConfirm')}
+          okText={t('settings.netbird.okBtn')}
+          cancelText={t('settings.netbird.cancelBtn')}
           onConfirm={disconnect}
         >
           <Button
@@ -137,7 +131,7 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
             disabled={isUpdating}
             loading={isDisconnecting}
           >
-            {t("settings.netbird.disconnect")}
+            {t('settings.netbird.disconnect')}
           </Button>
         </Popconfirm>
       </div>

@@ -1,5 +1,4 @@
-export type State =
-  "notInstall" | "notRunning" | "notLogin" | "stopped" | "running";
+export type State = 'notInstall' | 'notRunning' | 'notLogin' | 'stopped' | 'running';
 
 export type Status = {
   state: State;

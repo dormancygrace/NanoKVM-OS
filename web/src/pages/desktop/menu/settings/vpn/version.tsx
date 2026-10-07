@@ -1,7 +1,7 @@
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useState } from 'react';
 
 import { http } from '@/lib/http.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 
 export function VPNVersion({ name }: { name: 'tailscale' | 'wireguard' | 'openvpn' }) {
   const [version, setVersion] = useState('');
@@ -21,7 +21,5 @@ export function VPNVersion({ name }: { name: 'tailscale' | 'wireguard' | 'openvp
       stopPolling();
     };
   }, [name]);
-  return version ? (
-    <div className="text-xs text-fg-muted">v{version}</div>
-  ) : null;
+  return version ? <div className="text-fg-muted text-xs">v{version}</div> : null;
 }

@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Button, Card } from 'antd';
+import { Button } from 'antd';
 import { LogInIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/extensions/tailscale.ts';
+import { showRequestError } from '@/lib/show-request-error.ts';
+import { Panel } from '@/components/ui/settings.tsx';
 
 type LoginProps = {
   onSuccess: () => void;
@@ -14,7 +16,6 @@ export const Login = ({ onSuccess }: LoginProps) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [loginUrl, setLoginUrl] = useState('');
-  const [errMsg, setErrMsg] = useState('');
 
   function login() {
     if (isLoading) return;
@@ -24,7 +25,7 @@ export const Login = ({ onSuccess }: LoginProps) => {
       .login()
       .then((rsp) => {
         if (rsp.code !== 0) {
-          setErrMsg(rsp.msg);
+          showRequestError(rsp, 'settings.tailscale.loginFailed');
           return;
         }
 
@@ -38,17 +39,15 @@ export const Login = ({ onSuccess }: LoginProps) => {
         window.open(url, '_blank');
         setTimeout(() => setLoginUrl(''), 10 * 60 * 1000);
       })
-      .catch((err) => {
-        setErrMsg(err?.message || t('settings.tailscale.loginFailed'));
-      })
+      .catch((err) => showRequestError(err, 'settings.tailscale.loginFailed'))
       .finally(() => {
         setIsLoading(false);
       });
   }
 
   return (
-    <div className="flex flex-col items-center justify-center space-y-10">
-      <Card>{t('settings.tailscale.notLogin')}</Card>
+    <div className="flex flex-col items-center justify-center space-y-6">
+      <Panel>{t('settings.tailscale.notLogin')}</Panel>
 
       {loginUrl === '' ? (
         <Button
@@ -62,7 +61,7 @@ export const Login = ({ onSuccess }: LoginProps) => {
           {t('settings.tailscale.login')}
         </Button>
       ) : (
-        <div className="flex w-full flex-col items-center justify-center space-y-5">
+        <div className="flex w-full flex-col items-center justify-center space-y-4">
           <Button type="link" href={loginUrl} target="_blank">
             {loginUrl}
           </Button>
@@ -74,8 +73,6 @@ export const Login = ({ onSuccess }: LoginProps) => {
           </Button>
         </div>
       )}
-
-      {errMsg && <span className="text-red-500">{errMsg}</span>}
     </div>
   );
 };

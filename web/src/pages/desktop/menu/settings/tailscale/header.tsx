@@ -59,7 +59,7 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
     <div className="flex items-center justify-between">
       <VPNVersion name="tailscale" />
 
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center gap-2">
         {state && ['notLogin', 'stopped', 'running'].includes(state) && (
           <>
             {/* restart button */}
@@ -73,7 +73,7 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
             >
               <IconButton
                 label={t('settings.tailscale.restartAction')}
-                className="text-green-500 hover:text-green-500/80"
+                className="text-success hover:text-success/80"
                 icon={
                   loading === 'restarting' ? (
                     <LoaderCircleIcon className="animate-spin" size={16} />
@@ -96,7 +96,7 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
             >
               <IconButton
                 label={t('settings.tailscale.stopAction')}
-                className="text-red-500 hover:text-red-500/80"
+                className="text-danger hover:text-danger/80"
                 icon={
                   loading === 'stopping' ? (
                     <LoaderCircleIcon className="animate-spin" size={16} />
@@ -122,7 +122,7 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
           >
             <IconButton
               label={t('settings.tailscale.moreActions')}
-              className="text-white"
+              className="text-fg"
               icon={<EllipsisIcon size={16} />}
             />
           </Popover>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert } from 'antd';
 import { LoaderCircleIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -56,11 +57,15 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
   }, [getStatus]);
 
   return (
-    <>
+    <div className="space-y-6">
+      {errMsg && (
+        <Alert type="error" showIcon message={errMsg === statusFailed ? t(statusFailed) : errMsg} />
+      )}
+
       <Header state={status?.state} onSuccess={getStatus} />
 
       {isLoading ? (
-        <div className="text-fg-muted flex w-full items-center justify-center space-x-2 pt-5">
+        <div className="text-fg-muted flex w-full items-center justify-center gap-2">
           <LoaderCircleIcon className="animate-spin" size={16} />
           <span>{t('settings.tailscale.loading')}</span>
         </div>
@@ -77,14 +82,8 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
           {(status?.state === 'stopped' || status?.state === 'running') && (
             <Device status={status} onLogout={getStatus} />
           )}
-
-          {errMsg && (
-            <div className="pt-5 text-red-500">
-              {errMsg === statusFailed ? t(statusFailed) : errMsg}
-            </div>
-          )}
         </>
       )}
-    </>
+    </div>
   );
 };

@@ -1,5 +1,5 @@
-import { Button } from "antd";
-import { useTranslation } from "react-i18next";
+import { Button } from 'antd';
+import { useTranslation } from 'react-i18next';
 
 type LoginUrlProps = {
   url: string;
@@ -19,17 +19,15 @@ export const LoginUrl = ({ url, onConfirm, onCancel }: LoginUrlProps) => {
         {url}
       </Button>
 
-      <span className="text-xs text-fg-muted">
-        {t("settings.netbird.urlPeriod")}
-      </span>
+      <span className="text-fg-muted text-xs">{t('settings.netbird.urlPeriod')}</span>
 
       <Button type="primary" size="large" shape="round" onClick={onConfirm}>
-        {t("settings.netbird.loginSuccess")}
+        {t('settings.netbird.loginSuccess')}
       </Button>
 
       {onCancel && (
         <Button type="text" size="small" onClick={onCancel}>
-          {t("settings.netbird.cancelBtn")}
+          {t('settings.netbird.cancelBtn')}
         </Button>
       )}
     </div>

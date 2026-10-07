@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from "react";
-import { Button, Card } from "antd";
-import { LogInIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useEffect, useRef, useState } from 'react';
+import { Button } from 'antd';
+import { LogInIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-import * as api from "@/api/extensions/netbird.ts";
+import * as api from '@/api/extensions/netbird.ts';
+import { Panel } from '@/components/ui/settings.tsx';
 
-import { ErrorHelp } from "./error-help.tsx";
-import { LoginUrl } from "./login-url.tsx";
+import { ErrorHelp } from './error-help.tsx';
+import { LoginUrl } from './login-url.tsx';
 
 type LoginProps = {
   onSuccess: () => void;
@@ -16,8 +17,8 @@ export const Login = ({ onSuccess }: LoginProps) => {
   const { t } = useTranslation();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [loginUrl, setLoginUrl] = useState("");
-  const [errMsg, setErrMsg] = useState("");
+  const [loginUrl, setLoginUrl] = useState('');
+  const [errMsg, setErrMsg] = useState('');
   const loginTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -45,11 +46,11 @@ export const Login = ({ onSuccess }: LoginProps) => {
         }
 
         setLoginUrl(url);
-        window.open(url, "_blank");
-        loginTimer.current = setTimeout(() => setLoginUrl(""), 10 * 60 * 1000);
+        window.open(url, '_blank');
+        loginTimer.current = setTimeout(() => setLoginUrl(''), 10 * 60 * 1000);
       })
       .catch((err) => {
-        setErrMsg(err.message || t("settings.netbird.error.loginFailed"));
+        setErrMsg(err.message || t('settings.netbird.error.loginFailed'));
       })
       .finally(() => {
         setIsLoading(false);
@@ -57,10 +58,10 @@ export const Login = ({ onSuccess }: LoginProps) => {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center space-y-10">
-      <Card>{t("settings.netbird.notLogin")}</Card>
+    <div className="flex flex-col items-center justify-center space-y-6">
+      <Panel>{t('settings.netbird.notLogin')}</Panel>
 
-      {loginUrl === "" ? (
+      {loginUrl === '' ? (
         <Button
           type="primary"
           size="large"
@@ -69,7 +70,7 @@ export const Login = ({ onSuccess }: LoginProps) => {
           loading={isLoading}
           onClick={login}
         >
-          {t("settings.netbird.login")}
+          {t('settings.netbird.login')}
         </Button>
       ) : (
         <LoginUrl url={loginUrl} onConfirm={onSuccess} />

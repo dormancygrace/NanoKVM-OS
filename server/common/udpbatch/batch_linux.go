@@ -389,19 +389,18 @@ func (c *Conn) batchAddrPort(addr netip.AddrPort) (netip.AddrPort, bool) {
 	return netip.AddrPortFrom(ip, addr.Port()), true
 }
 
+// isBatchableRTP accepts RTP packets whatever payload type the browser chose:
+// Chrome maps H.265 to 49 (from its 35-63 fallback range) rather than to the
+// 126 registered here, and the fixed list of 102 and 126 had sent every such
+// packet with its own syscall. Payload types 64-95 are left out: with RTP and
+// RTCP multiplexed (RFC 5761) that is where RTCP packet types 192-223 fall.
+// STUN and DTLS fail the version check.
 func isBatchableRTP(b []byte) bool {
-	if len(b) < 2 || len(b) > maxPacketBytes {
+	if len(b) < 12 || len(b) > maxPacketBytes || b[0]&0xc0 != 0x80 {
 		return false
 	}
-	if b[0]&0xc0 != 0x80 {
-		return false
-	}
-	switch b[1] & 0x7f {
-	case 102, 126:
-		return true
-	default:
-		return false
-	}
+	pt := b[1] & 0x7f
+	return pt < 64 || pt > 95
 }
 
 func (c *Conn) flushLocked() error {

@@ -39,6 +39,12 @@ const maxQueuedFrames = 1;
 const maxReconnectDelayMs = 5_000;
 const frameAckMessage = 2;
 const streamResyncMessage = 3;
+// ACKs go out as soon as a frame is handed to the decoder, so the window only
+// has to cover the round trip. They are withheld from decoderHighWatermark
+// queued chunks until the queue falls to decoderLowWatermark. Keep
+// decoderHighWatermark + flowControlWindow below maxPendingDecodes (the
+// unacknowledged frames still arrive while an ACK is held), and flowControlWindow
+// equal to maxFlowWindow of the server (service/stream/direct/client.go).
 const flowControlWindow = 8;
 const decoderHighWatermark = 6;
 const decoderLowWatermark = 3;

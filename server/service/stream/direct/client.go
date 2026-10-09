@@ -14,22 +14,43 @@ const (
 	frameAckMessage     byte = 2
 	streamResyncMessage byte = 3
 
+	// The pending queue holds about queueDelay of video, so a stall of a given
+	// length costs the same at any stream rate; the frame count only bounds
+	// it. defaultQueueFrames is the floor, which keeps low rates as tolerant
+	// as they were with a fixed depth.
 	defaultQueueFrames = 8
+	maxQueueFrames     = 24
+	queueDelay         = 150 * time.Millisecond
 	defaultQueueBytes  = 2 * 1024 * 1024
 	// A request is a coalesced flag on the capture owner, which applies it at
 	// most every 500 ms and the encoder then needs a frame or two to emit the
 	// IDR. Repeating more often than that would only provoke a second IDR for
 	// a request that is still being served.
 	keyframeRequestInterval = time.Second
-	maxFlowWindow           = 8
-	writeWait               = 2 * time.Second
-	pingPeriod              = 15 * time.Second
+	// Keep in step with the worker (direct.worker.ts): decoderHighWatermark +
+	// flowControlWindow must stay below maxPendingDecodes, or a held ACK
+	// could let the decoder reach the overload reset by itself.
+	maxFlowWindow = 8
+	writeWait     = 2 * time.Second
+	pingPeriod    = 15 * time.Second
 )
 
 type outboundFrame struct {
 	key       bool
 	timestamp int64
 	payload   []byte
+	// duration is one frame interval at the stream rate; zero if unknown.
+	duration time.Duration
+}
+
+// queueDepthFor is the number of pending frames that cover about queueDelay
+// at the rate of the given frame interval.
+func queueDepthFor(duration time.Duration) int {
+	if duration <= 0 {
+		return defaultQueueFrames
+	}
+	frames := int((queueDelay + duration/2) / duration)
+	return min(max(frames, defaultQueueFrames), maxQueueFrames)
 }
 
 type frameQueue struct {
@@ -43,6 +64,8 @@ type frameQueue struct {
 	maxFrames int
 	maxBytes  int
 	window    int
+	// timeBased lets the frame interval of offered frames set maxFrames.
+	timeBased bool
 
 	flowControlled     bool
 	waitingForKeyframe bool
@@ -181,6 +204,9 @@ func (q *frameQueue) offer(frame *outboundFrame) bool {
 
 	if q.closed {
 		return false
+	}
+	if q.timeBased && frame.duration > 0 {
+		q.maxFrames = queueDepthFor(frame.duration)
 	}
 
 	if frame.key {
@@ -355,9 +381,11 @@ type client struct {
 }
 
 func newClient(conn *websocket.Conn) *client {
+	queue := newFrameQueue(defaultQueueFrames, defaultQueueBytes)
+	queue.timeBased = true
 	return &client{
 		conn:       conn,
-		queue:      newFrameQueue(defaultQueueFrames, defaultQueueBytes),
+		queue:      queue,
 		done:       make(chan struct{}),
 		writerDone: make(chan struct{}),
 	}

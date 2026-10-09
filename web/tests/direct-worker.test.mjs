@@ -323,3 +323,27 @@ test('captures the already painted Direct canvas without restarting playback', a
   assert.deepEqual(h.paints, [0, 17000]);
   h.stop();
 });
+
+test('ACKs follow every decoded frame and are only held while the decoder queue is deep', () => {
+  const h = harness();
+  const acks = () =>
+    h.sockets[0].sent
+      .map((data) => new Uint8Array(data))
+      .filter((bytes) => bytes[0] === 2)
+      .map((bytes) => Number(new DataView(bytes.buffer).getBigUint64(1, true)));
+  h.send(0, true);
+  h.send(17000);
+  assert.deepEqual(acks(), [0, 17000], 'a healthy decoder is acknowledged on receive');
+  h.decoders[0].decodeQueueSize = 6; // high watermark: hold the ACK
+  h.send(34000);
+  h.send(51000);
+  assert.deepEqual(acks(), [0, 17000], 'ACKs wait while the decoder queue is deep');
+  h.decoders[0].decodeQueueSize = 4;
+  h.decoders[0].ondequeue();
+  assert.deepEqual(acks(), [0, 17000], 'still above the low watermark');
+  h.decoders[0].decodeQueueSize = 3;
+  h.decoders[0].ondequeue();
+  assert.deepEqual(acks(), [0, 17000, 51000], 'one cumulative ACK releases the whole window');
+  assert.equal(h.sockets[0].sent.filter((data) => new Uint8Array(data)[0] === 3).length, 0);
+  h.stop();
+});

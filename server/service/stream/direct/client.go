@@ -16,9 +16,14 @@ const (
 
 	defaultQueueFrames = 8
 	defaultQueueBytes  = 2 * 1024 * 1024
-	maxFlowWindow      = 8
-	writeWait          = 2 * time.Second
-	pingPeriod         = 15 * time.Second
+	// A request is a coalesced flag on the capture owner, which applies it at
+	// most every 500 ms and the encoder then needs a frame or two to emit the
+	// IDR. Repeating more often than that would only provoke a second IDR for
+	// a request that is still being served.
+	keyframeRequestInterval = time.Second
+	maxFlowWindow           = 8
+	writeWait               = 2 * time.Second
+	pingPeriod              = 15 * time.Second
 )
 
 type outboundFrame struct {
@@ -42,6 +47,15 @@ type frameQueue struct {
 	flowControlled     bool
 	waitingForKeyframe bool
 	closed             bool
+
+	// requestKeyframe asks the capture owner for an IDR. It must not block;
+	// it is called with the queue mutex held.
+	requestKeyframe     func()
+	now                 func() time.Time
+	lastKeyframeRequest time.Time
+	// A keyframe (or a delta) larger than maxBytes proves that an IDR cannot
+	// be queued either. Requesting more of them only wastes encoder time.
+	keyframeOversized bool
 }
 
 func newFrameQueue(maxFrames int, maxBytes int) *frameQueue {
@@ -50,7 +64,25 @@ func newFrameQueue(maxFrames int, maxBytes int) *frameQueue {
 		maxFrames:          maxFrames,
 		maxBytes:           maxBytes,
 		waitingForKeyframe: true,
+		requestKeyframe:    stream.RequestKeyframe,
+		now:                time.Now,
 	}
+}
+
+// requestKeyframeLocked starts or repeats the request for a recovery IDR.
+// Callers invoke it whenever the queue is (still) waiting for a keyframe;
+// the interval turns that into one request per drop sequence plus a repeat
+// while the stream stays stalled.
+func (q *frameQueue) requestKeyframeLocked() {
+	if q.keyframeOversized {
+		return
+	}
+	now := q.now()
+	if !q.lastKeyframeRequest.IsZero() && now.Sub(q.lastKeyframeRequest) < keyframeRequestInterval {
+		return
+	}
+	q.lastKeyframeRequest = now
+	q.requestKeyframe()
 }
 
 func (q *frameQueue) enableFlowControl(window int) {
@@ -67,6 +99,7 @@ func (q *frameQueue) enableFlowControl(window int) {
 	q.window = window
 	q.flowControlled = true
 	q.waitingForKeyframe = true
+	q.keyframeOversized = false
 	q.mutex.Unlock()
 }
 
@@ -111,27 +144,44 @@ func (q *frameQueue) offer(frame *outboundFrame) bool {
 		q.clearFramesLocked()
 		if len(frame.payload) > q.maxBytes {
 			q.waitingForKeyframe = true
+			q.keyframeOversized = true
 			return false
 		}
 		q.waitingForKeyframe = false
+		q.keyframeOversized = false
 		q.pushLocked(frame)
 		q.signalLocked()
 		return true
 	}
 
+	oversized := len(frame.payload) > q.maxBytes
 	if q.waitingForKeyframe {
+		// The browser decoder is still configured and cannot tell that frames
+		// stopped, so it never sends a resync. Keep asking for the IDR here.
+		q.dropDeltaLocked(oversized)
 		return false
 	}
 
 	if len(q.frames) >= q.maxFrames || q.queuedBytes+len(frame.payload) > q.maxBytes {
 		q.clearFramesLocked()
 		q.waitingForKeyframe = true
+		q.dropDeltaLocked(oversized)
 		return false
 	}
 
 	q.pushLocked(frame)
 	q.signalLocked()
 	return true
+}
+
+// dropDeltaLocked asks for a recovery IDR after a delta was refused, unless
+// that single frame already exceeds the byte limit: the IDR would too.
+func (q *frameQueue) dropDeltaLocked(oversized bool) {
+	if oversized {
+		q.keyframeOversized = true
+		return
+	}
+	q.requestKeyframeLocked()
 }
 
 func (q *frameQueue) popForWrite() *outboundFrame {
@@ -175,6 +225,10 @@ func (q *frameQueue) requestResync() {
 	q.clearFramesLocked()
 	q.inFlight = q.inFlight[:0]
 	q.waitingForKeyframe = true
+	q.keyframeOversized = false
+	// The caller forwards the browser request itself; do not repeat it for
+	// the deltas that are refused until that IDR arrives.
+	q.lastKeyframeRequest = q.now()
 	q.mutex.Unlock()
 }
 
@@ -182,6 +236,9 @@ func (q *frameQueue) markDiscontinuity() {
 	q.mutex.Lock()
 	q.clearFramesLocked()
 	q.waitingForKeyframe = true
+	// The shared source skipped a frame for this client, so only an IDR
+	// can resume it; do not wait for the natural GOP boundary.
+	q.requestKeyframeLocked()
 	q.mutex.Unlock()
 }
 

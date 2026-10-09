@@ -18,5 +18,18 @@ Its shared descriptor/buffer is serialized and disabled permanently after the
 first failure. The hook contract requires declined calls to preserve all inputs
 and destination so software fallback is safe.
 
+Frame batching (batch.go, plus small hooks in session_srtp.go and
+srtp_cipher_aes_cm_hmac_sha1.go): when a HMACSHA1Batcher factory is set,
+SessionSRTP gathers RTP packets of one SSRC that arrive in sequence and
+protects them together at the marker bit (the last packet of a video frame),
+at 32 packets, or 2 ms after the last one. Packets of other SSRCs and
+out-of-order packets are written at once; the latter flush the pending run
+first. Counters and rollover state are advanced per packet in order, exactly
+as encryptRTP does; payloads are encrypted per packet (through the optional
+AES-CTR accelerator) and the frame is authenticated in one batch call.
+Cryptex, MKI, RCC modes and other profiles take the per-packet path.
+batch_test.go checks byte equality with EncryptRTP across the sequence-number
+wrap and the session behaviour.
+
 When updating Pion, compare this small delta with the new upstream, refresh the
 base manifest, and retain the packet-level hook rather than an ioctl per block.

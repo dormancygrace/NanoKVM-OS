@@ -56,10 +56,14 @@ type frameQueue struct {
 	// A keyframe (or a delta) larger than maxBytes proves that an IDR cannot
 	// be queued either. Requesting more of them only wastes encoder time.
 	keyframeOversized bool
+
+	diag dropDiagnostics
+	// note is a Debug line produced under the mutex and logged after it.
+	note string
 }
 
 func newFrameQueue(maxFrames int, maxBytes int) *frameQueue {
-	return &frameQueue{
+	q := &frameQueue{
 		wake:               make(chan struct{}, 1),
 		maxFrames:          maxFrames,
 		maxBytes:           maxBytes,
@@ -67,6 +71,43 @@ func newFrameQueue(maxFrames int, maxBytes int) *frameQueue {
 		requestKeyframe:    stream.RequestKeyframe,
 		now:                time.Now,
 	}
+	q.diag.begin(dropJoin, q.now())
+	return q
+}
+
+// unlockAndLog releases the mutex before the line reaches the logger, so a
+// slow log sink never delays the writer or the ACK handler.
+func (q *frameQueue) unlockAndLog() {
+	note := q.note
+	q.note = ""
+	q.mutex.Unlock()
+	if note != "" {
+		log.Debug(note)
+	}
+}
+
+// startWaitLocked makes the queue wait for a keyframe. It reports whether this
+// began a new drop sequence; frames refused inside one are only counted.
+func (q *frameQueue) startWaitLocked(reason string) bool {
+	if q.waitingForKeyframe {
+		return false
+	}
+	q.waitingForKeyframe = true
+	q.diag.begin(reason, q.now())
+	return true
+}
+
+func (q *frameQueue) noteLocked(event dropEvent) {
+	if note := q.diag.note(q.now(), event, q); note != "" {
+		q.note = note
+	}
+}
+
+// summary describes the drops of this connection, or "" if there were none.
+func (q *frameQueue) summary() string {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	return q.diag.summary()
 }
 
 // requestKeyframeLocked starts or repeats the request for a recovery IDR.
@@ -82,6 +123,7 @@ func (q *frameQueue) requestKeyframeLocked() {
 		return
 	}
 	q.lastKeyframeRequest = now
+	q.diag.keyframeRequests++
 	q.requestKeyframe()
 }
 
@@ -99,6 +141,7 @@ func (q *frameQueue) enableFlowControl(window int) {
 	q.window = window
 	q.flowControlled = true
 	q.waitingForKeyframe = true
+	q.diag.begin(dropJoin, q.now())
 	q.keyframeOversized = false
 	q.mutex.Unlock()
 }
@@ -134,18 +177,24 @@ func (q *frameQueue) captureState() (active bool, flowControlled bool, canAdvanc
 
 func (q *frameQueue) offer(frame *outboundFrame) bool {
 	q.mutex.Lock()
-	defer q.mutex.Unlock()
+	defer q.unlockAndLog()
 
 	if q.closed {
 		return false
 	}
 
 	if frame.key {
+		queuedFrames, queuedBytes := len(q.frames), q.queuedBytes
 		q.clearFramesLocked()
 		if len(frame.payload) > q.maxBytes {
-			q.waitingForKeyframe = true
+			q.startWaitLocked(dropOversizedKeyframe)
 			q.keyframeOversized = true
+			q.diag.oversizedKeyframes++
+			q.noteLocked(dropEvent{dropOversizedKeyframe, queuedFrames, queuedBytes, len(frame.payload)})
 			return false
+		}
+		if q.waitingForKeyframe {
+			q.note = q.diag.recovered(q.now())
 		}
 		q.waitingForKeyframe = false
 		q.keyframeOversized = false
@@ -158,14 +207,33 @@ func (q *frameQueue) offer(frame *outboundFrame) bool {
 	if q.waitingForKeyframe {
 		// The browser decoder is still configured and cannot tell that frames
 		// stopped, so it never sends a resync. Keep asking for the IDR here.
+		q.diag.deltasRefused++
+		q.diag.sequenceDrops++
+		if oversized {
+			q.diag.oversizedDeltas++
+		}
 		q.dropDeltaLocked(oversized)
 		return false
 	}
 
 	if len(q.frames) >= q.maxFrames || q.queuedBytes+len(frame.payload) > q.maxBytes {
+		event := dropEvent{dropQueueFrames, len(q.frames), q.queuedBytes, len(frame.payload)}
+		if len(q.frames) < q.maxFrames {
+			event.reason = dropQueueBytes
+		}
+		if oversized {
+			event.reason = dropOversizedDelta
+		}
+		q.diag.overflows++
+		q.diag.overflowFrames += uint64(len(q.frames)) + 1
+		q.diag.overflowBytes += uint64(q.queuedBytes + len(frame.payload))
+		if oversized {
+			q.diag.oversizedDeltas++
+		}
 		q.clearFramesLocked()
-		q.waitingForKeyframe = true
+		q.startWaitLocked(event.reason)
 		q.dropDeltaLocked(oversized)
+		q.noteLocked(event)
 		return false
 	}
 
@@ -222,24 +290,33 @@ func (q *frameQueue) acknowledge(timestamp int64) {
 
 func (q *frameQueue) requestResync() {
 	q.mutex.Lock()
+	defer q.unlockAndLog()
+	queuedFrames, queuedBytes := len(q.frames), q.queuedBytes
 	q.clearFramesLocked()
 	q.inFlight = q.inFlight[:0]
-	q.waitingForKeyframe = true
+	if q.startWaitLocked(dropResync) {
+		q.diag.resyncs++
+		q.noteLocked(dropEvent{dropResync, queuedFrames, queuedBytes, 0})
+	}
 	q.keyframeOversized = false
 	// The caller forwards the browser request itself; do not repeat it for
 	// the deltas that are refused until that IDR arrives.
 	q.lastKeyframeRequest = q.now()
-	q.mutex.Unlock()
 }
 
 func (q *frameQueue) markDiscontinuity() {
 	q.mutex.Lock()
+	defer q.unlockAndLog()
+	queuedFrames, queuedBytes := len(q.frames), q.queuedBytes
 	q.clearFramesLocked()
-	q.waitingForKeyframe = true
+	if q.startWaitLocked(dropDiscontinuity) {
+		q.diag.discontinuities++
+		q.diag.discontinuityFrames += uint64(queuedFrames)
+		q.noteLocked(dropEvent{dropDiscontinuity, queuedFrames, queuedBytes, 0})
+	}
 	// The shared source skipped a frame for this client, so only an IDR
 	// can resume it; do not wait for the natural GOP boundary.
 	q.requestKeyframeLocked()
-	q.mutex.Unlock()
 }
 
 func (q *frameQueue) close() {

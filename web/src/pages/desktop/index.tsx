@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useMediaQuery } from 'react-responsive';
 
 import { getEncoderState } from '@/api/stream.ts';
-import { getInputRegion, getScreen, setControlRegionMode } from '@/api/vm.ts';
+import { getInputRegion, getScreen, getVideoCapabilities, setControlRegionMode } from '@/api/vm.ts';
 import { ControlRegionConfig, InputRegion } from '@/types';
 import { adoptLiveCapture } from '@/lib/capture-control.ts';
 import { getEncoderCodec, initializeEncoderCodec } from '@/lib/encoder.ts';
@@ -49,16 +49,32 @@ import { InputRegionOverlay } from './screen/input-region-overlay.tsx';
 import { ManualRegion } from './screen/manual-region.tsx';
 import { preloadPlayer } from './screen/players.ts';
 
+const isDirectSupported = () => window.isSecureContext && !!window.VideoDecoder;
+
+function getDefaultVideoMode() {
+  return isDirectSupported() ? 'direct' : window.RTCPeerConnection ? 'h264' : 'mjpeg';
+}
+
 function getVideoMode() {
-  const directSupported = window.isSecureContext && !!window.VideoDecoder;
-  const defaultVideoMode = directSupported ? 'direct' : window.RTCPeerConnection ? 'h264' : 'mjpeg';
+  const defaultVideoMode = getDefaultVideoMode();
 
   const cookieVideoMode = storage.getVideoMode();
-  if (!cookieVideoMode || (cookieVideoMode === 'direct' && !directSupported)) {
+  if (!cookieVideoMode || (cookieVideoMode === 'direct' && !isDirectSupported())) {
     return defaultVideoMode;
   }
 
   return ['direct', 'h264', 'mjpeg'].includes(cookieVideoMode) ? cookieVideoMode : defaultVideoMode;
+}
+
+// Whether the device refuses MJPEG now (it does at 3840x2160). An unreadable
+// answer is not a refusal: the stream decides.
+async function isMjpegRefused() {
+  try {
+    const rsp = await getVideoCapabilities();
+    return rsp.code === 0 && rsp.data?.stream?.mjpeg?.available === false;
+  } catch {
+    return false;
+  }
 }
 
 const PicoclawSidebar = lazy(() =>
@@ -99,7 +115,8 @@ export const Desktop = () => {
   // Load the device time format once for every displayed device time.
   useDeviceTime();
   const isBigScreen = useMediaQuery({ minWidth: 850 });
-  const [activeVideoMode] = useState(getVideoMode);
+  const [activeVideoMode, setActiveVideoMode] = useState(getVideoMode);
+  const [mjpegRefused, setMjpegRefused] = useState(false);
   const [encoderReady, setEncoderReady] = useState(false);
   const [encoderError, setEncoderError] = useState<string | null>(null);
   const [joinAttempt, setJoinAttempt] = useState(0);
@@ -141,10 +158,20 @@ export const Desktop = () => {
 
   useEffect(() => {
     let active = true;
+    let switching = false;
     setEncoderReady(false);
     setEncoderError(null);
     const join = async () => {
-      if (activeVideoMode === 'mjpeg') return;
+      if (activeVideoMode === 'mjpeg') {
+        // Show the video stream for now; the saved choice stays MJPEG.
+        const fallback = getDefaultVideoMode();
+        if (fallback !== 'mjpeg' && (await isMjpegRefused()) && active) {
+          switching = true;
+          setMjpegRefused(true);
+          setActiveVideoMode(fallback);
+        }
+        return;
+      }
       const rsp = await getEncoderState();
       if (!active) return;
       if (rsp.code !== 0) throw new Error('encoder-state-failed');
@@ -168,7 +195,7 @@ export const Desktop = () => {
       })
       .then(() => playerReady)
       .finally(() => {
-        if (!active) return;
+        if (!active || switching) return;
         setVideoMode(activeVideoMode);
         setEncoderReady(true);
       });
@@ -366,6 +393,15 @@ export const Desktop = () => {
                           {t('screen.retryJoin')}
                         </Button>
                       }
+                    />
+                  )}
+                  {captureEnabled && mjpegRefused && (
+                    <Alert
+                      className="absolute top-6 left-1/2 z-50 w-[min(90%,560px)] -translate-x-1/2"
+                      type="info"
+                      showIcon
+                      closable
+                      message={t('screen.mjpegFallback')}
                     />
                   )}
                   {captureEnabled ? (

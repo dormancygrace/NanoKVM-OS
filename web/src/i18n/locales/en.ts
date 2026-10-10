@@ -243,7 +243,8 @@ const en = {
         codec: 'not available with this transport',
         transport: 'not available with this transport',
         portrait: 'not supported by this portrait profile',
-        range: 'out of range'
+        range: 'out of range',
+        'mjpeg-4k': 'not available while the HDMI input is 3840 × 2160, use H.264 or H.265'
       },
       mjpegChroma: 'JPEG color sampling',
       mjpegChroma420: '4:2:0 — smaller frames',
@@ -456,6 +457,8 @@ const en = {
       activeEncoderUnsupported:
         'Another viewer is using {{codec}}, which this browser cannot play in the selected mode. Try another video mode or a compatible browser.',
       encoderStateFailed: 'Could not read the active stream settings. Retry to connect.',
+      mjpegFallback:
+        'MJPEG is unavailable while the HDMI input is 3840 × 2160, so the video stream is shown instead.',
       retryJoin: 'Retry',
       sessions: 'Active video sessions: {{count}}',
       encoderConflict:
@@ -477,6 +480,8 @@ const en = {
         updateFailed: 'Screen cannot update right now',
         videoError: 'Video display error',
         noHdmi: 'No HDMI signal detected',
+        mjpeg4k:
+          'MJPEG is unavailable while the HDMI input is 3840 × 2160. Use H.264 or H.265 in Settings → Video',
         unavailable: 'Screen cannot be displayed right now'
       }
     },

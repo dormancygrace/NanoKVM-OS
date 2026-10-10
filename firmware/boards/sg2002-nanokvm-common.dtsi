@@ -51,8 +51,11 @@
 		// U-Boot deduplicates this exact range and copies the upstream
 		// RW PMP region (0x80040000/0x10000) from the firmware DT.
 		mmode_resv0@80000000 { reg = <0x80000000 0x40000>; no-map; };
-		// Preserve the reservation used by the unchanged installed FIP.
-		c906l@8d000000 { reg = <0x8d000000 0x200000>; no-map; };
+		// No small-core reservation here: the FIP carries no BLCP/BLCP_2ND
+		// image, so the 700 MHz C906 never runs and its stock 2 MiB at
+		// 0x8d000000 would be wasted. U-Boot still copies that c906l node
+		// from the OpenSBI DT in the FIP (platform/opensbi/sg2002.dts), so
+		// the 2 MiB come back only with a new FIP.
 		/* 128 MiB CMA: 3840x2160 capture uses about 90 MiB. The pool
 		 * is reusable, so idle pages stay available to Linux; the
 		 * fixed-carveout boot variant shrinks it to 64 MiB. */
@@ -212,10 +215,8 @@
 		clock-names = "clk_disp", "clk_dsi", "clk_bt";
 	};
 
-	fast-image {
-		compatible = "cvitek,rtos_image";
-		ion-size = <0x1600000>;
-	};
+	/* No cvitek,rtos_image node: its ion-size kept the first 22 MiB of a
+	 * fixed carveout away from ION for a small-core RTOS that never runs. */
 };
 
 &cpu0 {

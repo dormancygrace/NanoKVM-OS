@@ -4,6 +4,7 @@
 #include <initializer_list>
 #include "stream_size.hpp"
 #include "mjpeg_policy.hpp"
+#include "geometry_gate.hpp"
 /**
  * 待解决的问题:
  * // 分辨率跟随输出
@@ -123,8 +124,7 @@ static char NanoKVM_edit[] = {
 static nanokvm::I2c LT6911_i2c(4);
 
 struct kvmv_cfg_t {
-	uint16_t vi_width = default_vi_width;
-	uint16_t vi_height = default_vi_height;
+	// The detected input size is not here: it is owned by vi_geometry (geometry_gate.hpp).
 	uint16_t vpss_width = default_vpss_width;
 	uint16_t vpss_height = default_vpss_height;
 	uint8_t venc_type;
@@ -133,7 +133,7 @@ struct kvmv_cfg_t {
 	uint8_t frame_detact = 0;
 	uint8_t display;
     uint8_t reinit_flag = 1;
-    uint8_t reopen_cam_flag = 0;
+    std::atomic<uint8_t> reopen_cam_flag{0};   // set by detection, taken by check_kvmv
     uint8_t hdmi_cable_state = 0;
     uint8_t try_exit_thread = 0;
     uint8_t thread_is_running = 0;
@@ -143,10 +143,10 @@ struct kvmv_cfg_t {
     uint8_t hdmi_stop_flag = 0;
     uint8_t hdmi_reading_flag = 0;
     uint8_t hdmi_mode = 0;
-    uint8_t hdmi_res_type = 0;
-    uint8_t hdmi_res_err = 0;
+    std::atomic<uint8_t> hdmi_res_type{0};     // written by detection, read by kvmv_read_img
+    std::atomic<uint8_t> hdmi_res_err{0};
     uint8_t hdmi_try_rounds = 0;
-    uint8_t vi_detect_state = 0;
+    std::atomic<uint8_t> vi_detect_state{0};
 #ifdef NANOKVM_ENHANCED
     // Separate bounded VPSS outputs retain JPEG and video encoders between
     // reads. Inactive outputs are retired before allocating their replacement.
@@ -176,6 +176,9 @@ static nanokvm::Capture capture(default_vpss_width, default_vpss_height);
 static nanokvm::Capture *const cam = &capture;
 
 kvmv_cfg_t kvmv_cfg;
+// Detected HDMI input size: published by the detection thread, snapshotted
+// once per pass by kvmv_read_img. See geometry_gate.hpp for the contract.
+static nanokvm::GeometryGate vi_geometry(default_vi_width, default_vi_height);
 
 kvmv_data_t kvmv_data_buffer[kvmv_data_buffer_size];
 
@@ -656,15 +659,9 @@ int get_manual_resolution(void)
         nanokvm::write_small_uint(vi_height_path, vi_max_height);
     }
 
-    // res change ?
-    if(kvmv_cfg.vi_width != tmp_width){
-        kvmv_cfg.vi_width = tmp_width;
-        printf("[kvmk] get new width = %d\n", kvmv_cfg.vi_width);
-        res = 1;
-    }
-    if(kvmv_cfg.vi_height != tmp_height){
-        kvmv_cfg.vi_height = tmp_height;
-        printf("[kvmk] get new height = %d\n", kvmv_cfg.vi_height);
+    // res change ? (against the last size published)
+    if(vi_geometry.publish(tmp_width, tmp_height)){
+        printf("[kvmk] get new resolution = %d x %d\n", tmp_width, tmp_height);
         res = 1;
     }
     return res;
@@ -706,8 +703,7 @@ uint8_t auto_try_res()
             nanokvm::write_small_uint(vi_width_path, hdmi_res_list[auto_trying_times][0]);
             nanokvm::write_small_uint(vi_height_path, hdmi_res_list[auto_trying_times][1]);
 
-            kvmv_cfg.vi_width = hdmi_res_list[auto_trying_times][0];
-            kvmv_cfg.vi_height = hdmi_res_list[auto_trying_times][1];
+            vi_geometry.publish(hdmi_res_list[auto_trying_times][0], hdmi_res_list[auto_trying_times][1]);
             printf("[kvmv] restart cam...\n");
             restart_capture();
             nanokvm::sleep_ms(50);
@@ -1087,6 +1083,19 @@ uint8_t lt6911_get_csi_res(uint16_t *p_width, uint16_t *p_height)
     }
 
 	return res_type;
+}
+
+/* The one place where the detection thread reports a new input size: it is
+   read into locals and published through the gate; the size files are already
+   written when lt6911_get_csi_res returns. Called by the detection thread, and
+   by kvmv_init before that thread exists. */
+static uint8_t detect_csi_res()
+{
+    uint16_t width = 0, height = 0;
+    const uint8_t res_type = lt6911_get_csi_res(&width, &height);
+    if (res_type == NEW_RES) vi_geometry.publish(width, height);
+    kvmv_cfg.hdmi_res_type = res_type;
+    return res_type;
 }
 
 void lt6911_write_reg(uint8_t reg, uint8_t val)
@@ -1477,7 +1486,7 @@ void* vi_subsystem_detection(void *)
                                     // hdmi get res
                                     debug("[hdmi] C HDMI cable insertion!\n");
                                     set_hdmi_detection_state(1);
-                                    kvmv_cfg.hdmi_res_type = lt6911_get_csi_res(&kvmv_cfg.vi_width, &kvmv_cfg.vi_height);
+                                    detect_csi_res();
                                     if (kvmv_cfg.hdmi_res_type == NEW_RES) kvmv_cfg.reopen_cam_flag = 1;
                                     else if (kvmv_cfg.hdmi_res_type == UNKNOWN_RES && !hdmi_poll_fallback){
                                         /* Move HDMI resolution modification directly
@@ -1502,7 +1511,7 @@ void* vi_subsystem_detection(void *)
                                     // hdmi get res
                                     debug("[hdmi] UXC HDMI cable insertion!\n");
                                     set_hdmi_detection_state(1);
-                                    kvmv_cfg.hdmi_res_type = lt6911_get_csi_res(&kvmv_cfg.vi_width, &kvmv_cfg.vi_height);
+                                    detect_csi_res();
                                     if (kvmv_cfg.hdmi_res_type == NEW_RES) kvmv_cfg.reopen_cam_flag = 1;
                                     else if (kvmv_cfg.hdmi_res_type == UNKNOWN_RES && !hdmi_poll_fallback){
                                         /* Move HDMI resolution modification directly
@@ -1527,7 +1536,7 @@ void* vi_subsystem_detection(void *)
                                     // hdmi get res
                                     debug("[hdmi] D HDMI cable insertion!\n");
                                     set_hdmi_detection_state(1);
-                                    kvmv_cfg.hdmi_res_type = lt6911_get_csi_res(&kvmv_cfg.vi_width, &kvmv_cfg.vi_height);
+                                    detect_csi_res();
                                     if (kvmv_cfg.hdmi_res_type == NEW_RES) kvmv_cfg.reopen_cam_flag = 1;
                                     else if (kvmv_cfg.hdmi_res_type == UNKNOWN_RES && !hdmi_poll_fallback){
                                         /* Move HDMI resolution modification directly
@@ -1665,58 +1674,6 @@ void* vi_subsystem_detection(void *)
     }
     kvmv_cfg.thread_is_running = 0;
     return NULL;
-}
-
-int sync_vi_res()
-{
-    int res = 0;
-    uint8_t RW_Data[35];
-    FILE *fp;
-    int file_size;
-    uint16_t tmp16;
-
-    // vi_width:
-    if (access(vi_width_path, F_OK) != 0){
-        kvmv_cfg.vi_width = default_vi_width;
-        kvmv_cfg.vi_height = default_vi_height;
-        res = -1;
-        return res;
-    } else {
-        fp = fopen(vi_width_path, "r");
-        fseek(fp, 0, SEEK_END);
-        file_size = ftell(fp);
-        fseek(fp, 0, SEEK_SET);
-        fread(RW_Data, sizeof(char), file_size, fp);
-        fclose(fp);
-        RW_Data[file_size] = 0;
-        tmp16 = atoi((char*)RW_Data);
-        if(tmp16 != kvmv_cfg.vi_width){
-            kvmv_cfg.vi_width = tmp16;
-            debug("[hdmi] Get new HDMI width = %d\r\n", kvmv_cfg.vi_width);
-            res = 1;
-        }
-    }
-    // vi_height:
-    if (access(vi_height_path, F_OK) != 0){
-        kvmv_cfg.vi_height = default_vi_height;
-        res = -1;
-        return res;
-    } else {
-        fp = fopen(vi_height_path, "r");
-        fseek(fp, 0, SEEK_END);
-        file_size = ftell(fp);
-        fseek(fp, 0, SEEK_SET);
-        fread(RW_Data, sizeof(char), file_size, fp);
-        fclose(fp);
-        RW_Data[file_size] = 0;
-        tmp16 = atoi((char*)RW_Data);
-        if(tmp16 != kvmv_cfg.vi_height){
-            kvmv_cfg.vi_height = tmp16;
-            debug("[hdmi] Get new HDMI height = %d\r\n", kvmv_cfg.vi_height);
-            res = 1;
-        }
-    }
-    return res;
 }
 
 uint8_t frame_changed(nanokvm::Nv21Frame *raw)
@@ -2093,23 +2050,24 @@ void kvmv_request_keyframe(void) {
  requested_keyframe.store(true, std::memory_order_relaxed);
 }
 
-static uint8_t video_output_fps(int width, int height, uint8_t fps)
+static uint8_t video_output_fps(const nanokvm::GeometrySnapshot &src, int width, int height, uint8_t fps)
 {
 #ifdef NANOKVM_ENHANCED
-    const int limit = nanokvm::capture_stream_rate_limit(
-        kvmv_cfg.vi_width, kvmv_cfg.vi_height, width, height);
+    const int limit = nanokvm::capture_stream_rate_limit(src.width, src.height, width, height);
     if (fps > limit) fps = limit;
+#else
+    (void)src;
 #endif
     return fps;
 }
 
-static bool video_encoder_matches(int width, int height, uint16_t bitrate, uint8_t codec,
-	uint8_t gop, uint8_t fps)
+static bool video_encoder_matches(const nanokvm::GeometrySnapshot &src, int width, int height,
+	uint16_t bitrate, uint8_t codec, uint8_t gop, uint8_t fps)
 {
 	return kvm_venc.enc_video_init == 1 && width == kvm_venc.kvm_venc_cfg.w &&
 		height == kvm_venc.kvm_venc_cfg.h && bitrate == kvm_venc.kvm_venc_cfg.bitrate &&
 		(codec == VENC_H265 ? 1 : 2) == kvm_venc.kvm_venc_cfg.type &&
-		gop == kvm_venc.kvm_venc_cfg.gop && video_output_fps(width, height, fps) == kvm_venc.kvm_venc_cfg.output_fps;
+		gop == kvm_venc.kvm_venc_cfg.gop && video_output_fps(src, width, height, fps) == kvm_venc.kvm_venc_cfg.output_fps;
 }
 
 /*
@@ -2131,14 +2089,14 @@ static void submit_next_video_frame(int vi_ch, int width, int height)
 		mmf_vi_frame_release(vi_ch);
 }
 
-int8_t frame_to_video(uint8_t *data, int width, int height, int format, int vi_ch,
-	kvmv_data_t *ret_stream, uint16_t bitrate, uint8_t codec, uint8_t gop, uint8_t fps,
-	bool submitted = false)
+int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int width, int height,
+	int format, int vi_ch, kvmv_data_t *ret_stream, uint16_t bitrate, uint8_t codec, uint8_t gop,
+	uint8_t fps, bool submitted = false)
 {
-	fps = video_output_fps(width, height, fps);
+	fps = video_output_fps(src, width, height, fps);
 	int8_t ret = 0;
 	mmf_stream_t stream = {};
-	if (!video_encoder_matches(width, height, bitrate, codec, gop, fps)) {
+	if (!video_encoder_matches(src, width, height, bitrate, codec, gop, fps)) {
 		debug("[kvmv]init video codec=%d %dx%d bitrate=%d gop=%d fps=%d gop_mode=%s\n",
 			codec, width, height, bitrate, gop, fps,
 			codec == VENC_H265 && kvmvenc_gop_mode == MMF_VENC_GOP_SMARTP
@@ -2197,7 +2155,7 @@ void kvmv_init(uint8_t _debug_info_en)
     if (kvmv_cfg.hdmi_version == 1) {
         lt6911_enable();
         if (lt6911_get_hdmi_res()) {
-            kvmv_cfg.hdmi_res_type = lt6911_get_csi_res(&kvmv_cfg.vi_width, &kvmv_cfg.vi_height);
+            detect_csi_res();
             set_hdmi_detection_state(1);
         }
         lt6911_disable();
@@ -2248,10 +2206,8 @@ uint8_t check_kvmv(uint8_t _try_num)
         debug("[kvmv]try_num >= KVMV_MAX_TRY_NUM!\n");
         return 0;
     }
-    // if(sync_vi_res() != 0){
-    if(kvmv_cfg.reopen_cam_flag == 1){
+    if(kvmv_cfg.reopen_cam_flag.exchange(0) == 1){
         // vi size changed
-        kvmv_cfg.reopen_cam_flag = 0;
         restart_capture();
         debug("[kvmv]vi size changed, try again\n");
         return 1;
@@ -2266,16 +2222,17 @@ void set_venc_auto_recyc(uint8_t _enable)
     else kvmv_cfg.venc_auto_recyc = 0;
 }
 
-/* The detected HDMI input size, read where it is used. The detection thread
-   updates vi_width and vi_height without vi_mutex, so a size is never cached
-   across a step that creates or submits to a channel; each read is atomic but
-   the pair is not, and the second check below narrows that window. */
-static bool mjpeg_input_blocked(uint8_t type)
+/* A step that creates, reconfigures or submits to the JPEG channel is admitted
+   against the pass snapshot and runs under a lease on it (geometry_gate.hpp):
+   the checked size stays valid until the lease is released, and a size that was
+   published after the snapshot makes the step stale. Other codecs do not reach
+   the JPEG encoder, whose wedge at a 4K input is what the gate prevents; they
+   use the snapshot as it is. */
+static nanokvm::JpegAdmission admit_capture_step(uint8_t type, const nanokvm::GeometrySnapshot &geometry)
 {
-    if (type != VENC_MJPEG) return false;
-    const uint16_t width = __atomic_load_n(&kvmv_cfg.vi_width, __ATOMIC_ACQUIRE);
-    const uint16_t height = __atomic_load_n(&kvmv_cfg.vi_height, __ATOMIC_ACQUIRE);
-    return !nanokvm::mjpeg_input_allowed(width, height);
+    if (type != VENC_MJPEG)
+        return {nanokvm::JpegVerdict::Allowed, nanokvm::GeometryGate::Lease()};
+    return nanokvm::admit_jpeg_step(vi_geometry, geometry);
 }
 
 /**********************************************************************************
@@ -2343,20 +2300,31 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
         return -4;
     }
     uint8_t try_num = 0;
+    // A pass whose geometry went stale starts again from a new snapshot; it does
+    // not count as a failed try (check_kvmv would restart the capture).
+    constexpr unsigned max_stale_passes = 4;
+    unsigned stale_passes = 0;
+    bool geometry_stale = false;
     do {
+        geometry_stale = false;
+        /* One snapshot of the detected input size per pass: everything below
+           (stream size, MJPEG allowed or not, the frame rate limit) derives from
+           it, nothing reads the live size again. */
+        const nanokvm::GeometrySnapshot geometry = vi_geometry.snapshot();
         /* Authoritative MJPEG gate (the server file check is only a fast path).
            It runs on every pass, before any VPSS/JPEG channel is configured:
-           a 4K input wedges the JPEG encoder. */
-        if (mjpeg_input_blocked(_type)) {
+           a 4K input wedges the JPEG encoder. The steps that create or submit to
+           the channel below are admitted again, under a lease on this snapshot. */
+        if (_type == VENC_MJPEG && !nanokvm::mjpeg_input_allowed(geometry.width, geometry.height)) {
             pthread_mutex_unlock(&vi_mutex);
             return IMG_MJPEG_INPUT_BLOCKED;
         }
         const uint64_t capture_now = mjpeg_monotonic_ms();
-        const auto requested_output = nanokvm::stream_size(kvmv_cfg.vi_width, kvmv_cfg.vi_height, _width, _height);
+        const auto requested_output = nanokvm::stream_size(geometry.width, geometry.height, _width, _height);
         const auto output = mjpeg_parallel_size(requested_output, _type, kvmv_cfg.frame_detact != 0, capture_now);
         // The H.264 hardware rejects the tall maximum portrait. Do not
         // repeatedly initialize a channel the device cannot encode.
-        if (kvmv_cfg.vi_width == 1440 && kvmv_cfg.vi_height == 2560
+        if (geometry.width == 1440 && geometry.height == 2560
                 && _type == VENC_H264 && output.height > 2304) {
             pthread_mutex_unlock(&vi_mutex);
             return IMG_VENC_ERROR;
@@ -2402,6 +2370,16 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
         }
         if (cam->get_channel() < 0 || kvmv_cfg.vpss_width != output.width ||
                 kvmv_cfg.vpss_height != output.height || cam->get_format() != capture_format) {
+            // The VPSS output the JPEG channel will use is configured under the lease.
+            nanokvm::JpegAdmission resize_step = admit_capture_step(_type, geometry);
+            if (resize_step.verdict == nanokvm::JpegVerdict::Blocked) {
+                pthread_mutex_unlock(&vi_mutex);
+                return IMG_MJPEG_INPUT_BLOCKED;
+            }
+            if (resize_step.verdict == nanokvm::JpegVerdict::Stale) {
+                geometry_stale = true;
+                continue;
+            }
             if (cam->set_resolution(output.width, output.height, capture_format) != 0) {
                 if (capture_format == nanokvm::nv16_format()) {
                     disable_mjpeg_422("VPSS configuration failed");
@@ -2469,7 +2447,7 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
             if ((_type == VENC_H264 || _type == VENC_H265) && _type == kvmv_cfg.venc_type
                     && pending_vi == cam->get_channel() && capture_format == nanokvm::nv21_format()
                     && kvmv_cfg.fresh_frame_count == 0
-                    && video_encoder_matches(output.width, output.height,
+                    && video_encoder_matches(geometry, output.width, output.height,
                         maxmin_data(20000, 500, (int)_qlty), _type, kvmvenc_gop, kvmvenc_fps)) {
                 submitted = true;
                 native_vi_ch = pending_vi;
@@ -2557,12 +2535,19 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
 
         // img exist
         // The input may have changed to 4K while the frame was prepared; the
-        // JPEG channel must not be created or submitted to at that size.
-        if (mjpeg_input_blocked(_type)) {
+        // JPEG channel must not be created or submitted to at that size. The
+        // lease stays held to the end of the pass, through frame_to_jpeg and
+        // to_jpeg, so the size checked here is the size they run at.
+        nanokvm::JpegAdmission encode_step = admit_capture_step(_type, geometry);
+        if (encode_step.verdict != nanokvm::JpegVerdict::Allowed) {
             if (native_vi_ch >= 0) mmf_vi_frame_release(native_vi_ch);
             else delete img;
-            pthread_mutex_unlock(&vi_mutex);
-            return IMG_MJPEG_INPUT_BLOCKED;
+            if (encode_step.verdict == nanokvm::JpegVerdict::Blocked) {
+                pthread_mutex_unlock(&vi_mutex);
+                return IMG_MJPEG_INPUT_BLOCKED;
+            }
+            geometry_stale = true;
+            continue;
         }
         // Encode
         if (kvmv_cfg.venc_type != _type && mmf_trim_idle_copy_buffers() != 0) {
@@ -2651,7 +2636,7 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
 			int frame_width = img == NULL ? native_width : img->width();
 			int frame_height = img == NULL ? native_height : img->height();
 			int frame_format = img == NULL ? native_format : img->format();
-			ret = frame_to_video(frame_data, frame_width, frame_height, frame_format,
+			ret = frame_to_video(geometry, frame_data, frame_width, frame_height, frame_format,
 				native_vi_ch, p_kvmv_data, maxmin_data(20000, 500, (int)_qlty),
 				kvmv_cfg.venc_type, kvmvenc_gop, kvmvenc_fps, submitted);
 			// debug("[kvmv]venc frame_to_video: %d \r\n", (int)(time::time_ms() - start_time));
@@ -2676,11 +2661,12 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
             pthread_mutex_unlock(&vi_mutex);
             return ret;
         }
-    } while (check_kvmv(try_num++));
+    } while (geometry_stale ? ++stale_passes <= max_stale_passes : check_kvmv(try_num++));
     // debug("[kvmv]return: %d \r\n", (int)(time::time_ms() - start_time));
     *_pp_kvm_data = NULL;
     pthread_mutex_unlock(&vi_mutex);
-    return IMG_NOT_EXIST;
+    // The input kept changing: report the resolution change, not a missing image.
+    return geometry_stale ? -4 : IMG_NOT_EXIST;
 }
 
 int kvmv_read_video(uint16_t _width, uint16_t _height, uint8_t _codec,
@@ -2694,7 +2680,7 @@ int kvmv_read_video(uint16_t _width, uint16_t _height, uint8_t _codec,
 	}
 
 	kvmvenc_gop = maxmin_data(100, 1, (int)_gop);
-    // Source geometry is checked under vi_mutex in frame_to_video.
+    // Source geometry comes from the pass snapshot in kvmv_read_img.
     const int fps_limit = nanokvm::capture_rate_limit(_width, _height);
 	kvmvenc_fps = maxmin_data(fps_limit, 10, (int)_fps);
 	if (_width != 0 && _height != 0) {

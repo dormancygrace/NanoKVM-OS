@@ -5,8 +5,9 @@
 
 namespace {
 struct Size { uint16_t width, height; };
-// kvmv_read_img applies the rule to the input size detected at the moment of
-// each gate, before a channel is created or submitted to.
+// kvmv_read_img applies the rule to the geometry snapshot of the pass, before a
+// channel is created or submitted to; geometry_gate_test.cpp covers the changes
+// that arrive between the snapshot and the step.
 bool gate_allows(const Size &detected) {
     return nanokvm::mjpeg_input_allowed(detected.width, detected.height);
 }

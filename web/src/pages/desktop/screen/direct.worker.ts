@@ -17,6 +17,8 @@ let reconnectDelayMs = 250;
 let stopped = false;
 let resyncRequested = false;
 let pendingAckTimestamp: number | null = null;
+// A keyframe (a stream start or resync) is acknowledged without batching.
+let pendingAckKeyFrame = false;
 let decodeBackpressured = false;
 let reportedFrameWidth = 0;
 let reportedFrameHeight = 0;
@@ -39,6 +41,12 @@ const maxQueuedFrames = 1;
 const maxReconnectDelayMs = 5_000;
 const frameAckMessage = 2;
 const streamResyncMessage = 3;
+// ACKs go out as soon as a frame is handed to the decoder, so the window only
+// has to cover the round trip. They are withheld from decoderHighWatermark
+// queued chunks until the queue falls to decoderLowWatermark. Keep
+// decoderHighWatermark + flowControlWindow below maxPendingDecodes (the
+// unacknowledged frames still arrive while an ACK is held), and flowControlWindow
+// equal to maxFlowWindow of the server (service/stream/direct/client.go).
 const flowControlWindow = 8;
 const decoderHighWatermark = 6;
 const decoderLowWatermark = 3;
@@ -175,6 +183,7 @@ function connect() {
       reconnectDelayMs = 250;
       resyncRequested = false;
       pendingAckTimestamp = null;
+      clearAcks();
       decodeBackpressured = false;
     };
 
@@ -200,6 +209,7 @@ function connect() {
       socket = null;
       resyncRequested = false;
       pendingAckTimestamp = null;
+      clearAcks();
       decodeBackpressured = false;
       resetDecoder();
 
@@ -397,6 +407,7 @@ function decode(target: VideoDecoder, isKeyFrame: boolean, timestamp: number, da
   try {
     target.decode(chunk);
     pendingAckTimestamp = timestamp;
+    pendingAckKeyFrame ||= isKeyFrame;
     if (target.decodeQueueSize >= decoderHighWatermark) {
       decodeBackpressured = true;
     }
@@ -519,6 +530,7 @@ function resetDecoder() {
 
   decoder = null;
   pendingAckTimestamp = null;
+  clearAcks();
   decodeBackpressured = false;
   rendering = false;
   flushScheduled = false;
@@ -535,13 +547,48 @@ function releaseDecodeBackpressure(source: VideoDecoder) {
     return;
   }
 
+  const released = decodeBackpressured;
   decodeBackpressured = false;
-  acknowledgeFrame(pendingAckTimestamp);
+  acknowledgeFrame(pendingAckTimestamp, released || pendingAckKeyFrame);
   pendingAckTimestamp = null;
+  pendingAckKeyFrame = false;
 }
 
-function acknowledgeFrame(timestamp: number) {
+// ACKs are cumulative and the window is flowControlWindow frames. Sending one
+// per frame costs the single-core device a TLS read and a writer wakeup per
+// frame, so acknowledge every ackBatch frames and at most ackDelayMs after the
+// first unacknowledged one; the device never runs out of credits on the way.
+// Releasing decoder backpressure acknowledges at once: the window may be full.
+const ackBatch = flowControlWindow / 2;
+const ackDelayMs = 40;
+let unackedFrames = 0;
+let unackedTimestamp = 0;
+let ackTimer: ReturnType<typeof setTimeout> | null = null;
+
+function acknowledgeFrame(timestamp: number, now = false) {
   if (!flowControl) return;
+  unackedTimestamp = timestamp;
+  unackedFrames++;
+  if (now || unackedFrames >= ackBatch) {
+    flushAck();
+  } else {
+    ackTimer ??= setTimeout(flushAck, ackDelayMs);
+  }
+}
+
+function clearAcks() {
+  if (ackTimer !== null) clearTimeout(ackTimer);
+  ackTimer = null;
+  unackedFrames = 0;
+}
+
+function flushAck() {
+  const pending = unackedFrames > 0;
+  clearAcks();
+  if (pending) sendAck(unackedTimestamp);
+}
+
+function sendAck(timestamp: number) {
   const currentSocket = socket;
   if (!currentSocket || currentSocket.readyState !== WebSocket.OPEN) {
     return;

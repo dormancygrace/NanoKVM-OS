@@ -18,7 +18,10 @@ import (
 const (
 	reasonVideoMemory = "video-memory"
 	reasonReceiver    = "receiver"
+	reasonMjpeg4K     = "mjpeg-4k"
 )
+
+var captureInput = common.CaptureInputSize
 
 type monitorModeCapability struct {
 	Height uint16 `json:"height"`
@@ -47,6 +50,22 @@ type streamLimitCapability struct {
 	Width     uint16 `json:"width"`
 	Available bool   `json:"available"`
 	Reason    string `json:"reason,omitempty"`
+}
+
+// mjpegCapability is MJPEG availability for the current capture; MaxSide is
+// the longest input side it can run with.
+type mjpegCapability struct {
+	Available bool   `json:"available"`
+	Reason    string `json:"reason,omitempty"`
+	MaxSide   int    `json:"maxSide"`
+}
+
+func mjpegCapabilities(inputWidth, inputHeight int) mjpegCapability {
+	m := mjpegCapability{Available: true, MaxSide: common.MjpegMaxLongSide}
+	if !common.MjpegAllowedFor(inputWidth, inputHeight) {
+		m.Available, m.Reason = false, reasonMjpeg4K
+	}
+	return m
 }
 
 // GetVideoCapabilities describes every video choice this device offers and
@@ -122,8 +141,7 @@ func videoCapabilities() gin.H {
 		limit(0, true), limit(2160, uhd), limit(1440, qhd), limit(1080, true), limit(720, true), limit(600, true),
 	}
 
-	inputWidth := common.ReadVideoValue("/run/nanokvm/width")
-	inputHeight := common.ReadVideoValue("/run/nanokvm/height")
+	inputWidth, inputHeight := captureInput()
 	return gin.H{
 		"input": gin.H{
 			"width": inputWidth, "height": inputHeight,
@@ -148,6 +166,7 @@ func videoCapabilities() gin.H {
 			"rateTiers": common.CaptureRateTiers,
 			"minFps":    10,
 			"maxFps":    120,
+			"mjpeg":     mjpegCapabilities(inputWidth, inputHeight),
 		},
 		// Every transport carries every codec; the browser checks its decoder.
 		"transports": gin.H{
@@ -243,7 +262,7 @@ func (s *Service) SetVideoSettings(c *gin.Context) {
 
 	settings := req.settings()
 	for _, setting := range settings {
-		if failure := validateScreenSetting(setting); failure != nil {
+		if failure := validateScreenSettingIn(setting, &req); failure != nil {
 			rsp.ErrRsp(c, failure.code, failure.msg)
 			return
 		}

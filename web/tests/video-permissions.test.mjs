@@ -58,7 +58,7 @@ const caps = {
     maxFps: 120
   },
   transports: { direct: ['h264', 'h265'], webrtc: ['h264', 'h265'], mjpeg: ['mjpeg'] },
-  videoMemoryMiB: 64
+  videoMemoryMiB: 56
 };
 const browser = { direct: true, webrtc: true, directH265: true, webrtcH265: true };
 const saved = {

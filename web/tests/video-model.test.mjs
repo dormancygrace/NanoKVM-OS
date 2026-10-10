@@ -22,7 +22,13 @@ const tiers = [
   { longSide: 0, shortSide: 0, fps: 30 }
 ];
 
-function caps({ uhd = true, input = [2560, 1440], follows = true, programmable = true } = {}) {
+function caps({
+  uhd = true,
+  input = [2560, 1440],
+  follows = true,
+  programmable = true,
+  mjpegMaxSide = 2560
+} = {}) {
   const mode = (height, width, rates, available = true, reason) => ({
     height,
     width,
@@ -66,10 +72,11 @@ function caps({ uhd = true, input = [2560, 1440], follows = true, programmable =
       ],
       rateTiers: tiers,
       minFps: 10,
-      maxFps: 120
+      maxFps: 120,
+      ...(mjpegMaxSide ? { mjpeg: { available: true, maxSide: mjpegMaxSide } } : {})
     },
     transports: { direct: ['h264', 'h265'], webrtc: ['h264', 'h265'], mjpeg: ['mjpeg'] },
-    videoMemoryMiB: uhd ? 128 : 64
+    videoMemoryMiB: uhd ? 128 : 72
   };
 }
 
@@ -241,4 +248,43 @@ test('presets derive the bitrate from what they stream', () => {
   assert.equal(responsive.bitRate, 10000);
   const sharp = model.buildPreset('sharp', caps(), everything, draft()).draft;
   assert.equal(sharp.bitRate, 20000);
+});
+
+test('MJPEG is blocked while the HDMI input is 3840x2160', () => {
+  const issue = (draftOver, capsOver) =>
+    model.draftIssues(draft({ transport: 'mjpeg', ...draftOver }), caps(capsOver), everything).transport;
+  const uhd = { input: [3840, 2160] };
+  // The stream limit does not matter: a limited 4K input produces no JPEG frames.
+  for (const height of [0, 2160, 1440, 1080, 720, 600]) assert.equal(issue({ height }, uhd), 'mjpeg-4k');
+  assert.equal(issue({}, { input: [2560, 1440] }), undefined);
+  assert.equal(issue({ height: 2160 }, { input: [1920, 1080] }), undefined);
+  assert.equal(issue({}, { input: [0, 0] }), undefined);
+  // The codecs are not affected, and an older server that reports nothing never blocks.
+  assert.equal(model.draftIssues(draft({ height: 0 }), caps(uhd), everything).transport, undefined);
+  assert.equal(issue({}, { ...uhd, mjpegMaxSide: 0 }), undefined);
+  assert.equal(model.mjpegBlocked(draft({ transport: 'direct' }), caps(uhd)), true);
+});
+
+test('MJPEG follows the monitor the draft writes', () => {
+  const c = caps({ input: [1920, 1080] });
+  assert.equal(model.mjpegBlocked(draft({ monitor: 2160 }), c), true);
+  assert.equal(model.mjpegBlocked(draft({ monitor: 2160, height: 1440 }), c), true);
+  assert.equal(model.mjpegBlocked(draft({ monitor: 1440 }), c), false);
+  // The current input counts while the monitor is not changed or cannot be.
+  const fourK = caps({ input: [3840, 2160] });
+  assert.equal(model.mjpegBlocked(draft({ monitor: 1080 }), fourK), false);
+  assert.equal(model.mjpegBlocked(draft({ monitor: 0 }), fourK), true);
+  assert.equal(model.mjpegBlocked(draft({ monitor: 1080 }), caps({ input: [3840, 2160], programmable: false })), true);
+  assert.equal(model.mjpegBlocked(draft({ monitor: 2160, portrait: 1920 }), c), false);
+});
+
+test('presets do not pick MJPEG at 3840x2160', () => {
+  const noDirect = { direct: false, webrtc: false, directH265: false, webrtcH265: false };
+  const fixed = caps({ input: [3840, 2160], programmable: false });
+  assert.equal(model.buildPreset('compatible', fixed, noDirect, draft()).reason, 'mjpeg-4k');
+  // Not even the saver preset, which limits the stream to 1080p.
+  assert.equal(model.buildPreset('saver', fixed, noDirect, draft()).reason, 'mjpeg-4k');
+  const lowRes = caps({ programmable: false });
+  assert.equal(model.buildPreset('compatible', lowRes, noDirect, draft()).draft.transport, 'mjpeg');
+  assert.equal(model.buildPreset('sharp', fixed, noDirect, draft()).reason, 'browser');
 });

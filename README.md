@@ -106,7 +106,7 @@ PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM AP
 | Area | Controls and information |
 | --- | --- |
 | **Dashboard** | CPU load, RAM, SoC temperature, CPU frequency, storage, network and VPN status |
-| **Memory** | CMA, fixed and UHD video-memory profiles; ZRAM with automatic sizing and optional ZSTD recompression; SD swap; application memory-limit setting |
+| **Memory** | video-memory modes by resolution (FHD by default, QHD, UHD; reusable CMA or fixed); ZRAM with automatic sizing and optional ZSTD recompression; SD swap; application memory-limit setting |
 | **CPU** | Frequency control, thermal protection and an explicit Apply at startup option; an incomplete overclocked startup triggers a 1000 MHz fallback on the next boot |
 | **Diagnostics** | Service, USB, firewall and package-operation status, plus system logs in the GUI |
 | **Terminal** | Browser shell and serial sessions, with shell command history |

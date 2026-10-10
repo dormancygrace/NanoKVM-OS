@@ -41,6 +41,8 @@ export function parseCaptureStatusMessage(message: { data: unknown }): CaptureSt
 
 export function getCaptureStatusMessageKey(result: number) {
   switch (result) {
+    case -8:
+      return 'screen.captureStatus.mjpeg4k';
     case -7:
       return 'screen.captureStatus.hdmiError';
     case -6:

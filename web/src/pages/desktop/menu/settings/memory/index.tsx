@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, message, Progress, Select, Spin, Switch } from 'antd';
+import { Alert, Checkbox, message, Progress, Select, Spin, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import type { MemoryStatus, MemorySwap } from '@/api/vm.ts';
 import { swapRequestSize } from '@/lib/swap-request.ts';
 import { themeTokens } from '@/lib/theme-tokens.ts';
+import {
+  canChooseFixed,
+  isFixedOnly,
+  parseVideoMemoryMode,
+  pickVideoMemoryMode,
+  videoMemoryResolutions,
+  type VideoMemoryResolution
+} from '@/lib/video-memory-mode.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
@@ -16,10 +24,18 @@ export const Memory = () => {
   const [data, setData] = useState<MemoryStatus>();
   const [busy, setBusy] = useState<'zram' | 'sd' | 'video' | ''>('');
   const [loadError, setLoadError] = useState('');
+  // The Fixed choice outlives UHD, which forces it on: UHD then QHD keeps it.
+  const [fixedChoice, setFixedChoice] = useState(false);
   const mounted = useRef(false);
   const generation = useRef(0);
   const mutating = useRef(false);
   const readInFlight = useRef<Promise<void> | null>(null);
+  const selectedVideoMode = data?.videoMemory?.selected;
+
+  useEffect(() => {
+    const parsed = selectedVideoMode ? parseVideoMemoryMode(selectedVideoMode) : undefined;
+    if (parsed && !isFixedOnly(parsed.resolution)) setFixedChoice(parsed.fixed);
+  }, [selectedVideoMode]);
 
   const refresh = useCallback(
     async function refresh(afterPending = false): Promise<void> {
@@ -132,6 +148,76 @@ export const Memory = () => {
         void refresh(true);
       }
     }
+  }
+
+  function videoLabel(mode: string) {
+    const parsed = parseVideoMemoryMode(mode);
+    if (!parsed) return t('settings.memory.videoUnknown');
+    const label = t(`settings.memory.videoRes_${parsed.resolution}`);
+    return parsed.fixed ? `${label} · ${t('settings.memory.videoFixed')}` : label;
+  }
+
+  function videoMemoryCard(video: MemoryStatus['videoMemory']) {
+    const installed: readonly string[] = video.modes ?? [];
+    const selected = parseVideoMemoryMode(video.selected);
+    const resolution = selected?.resolution ?? 'fhd';
+    const forced = isFixedOnly(resolution);
+    const disabled = !!busy || !video.available;
+    const select = (target: VideoMemoryResolution, fixed: boolean) => {
+      const mode = pickVideoMemoryMode(installed, target, fixed);
+      if (mode && mode !== video.selected) void changeVideo(mode);
+    };
+    return (
+      <Panel className="space-y-4">
+        <SettingRow
+          label={t('settings.memory.videoMode')}
+          description={t('settings.memory.videoModeDescription')}
+          htmlFor="video-memory-mode"
+          stacked
+        >
+          <Select
+            id="video-memory-mode"
+            aria-describedby="video-memory-mode-description"
+            className="w-full"
+            value={resolution}
+            loading={busy === 'video'}
+            disabled={disabled}
+            options={videoMemoryResolutions.map((value) => ({
+              value,
+              label: t(`settings.memory.videoRes_${value}`),
+              disabled: !installed.some((mode) => parseVideoMemoryMode(mode)?.resolution === value)
+            }))}
+            onChange={(value) => select(value, forced ? fixedChoice : !!selected?.fixed)}
+          />
+        </SettingRow>
+        <div className="space-y-1">
+          <Checkbox
+            id="video-memory-fixed"
+            aria-describedby="video-memory-fixed-hint"
+            checked={forced || !!selected?.fixed}
+            disabled={disabled || !canChooseFixed(installed, resolution)}
+            onChange={(event) => {
+              setFixedChoice(event.target.checked);
+              select(resolution, event.target.checked);
+            }}
+          >
+            {t('settings.memory.videoFixed')}
+          </Checkbox>
+          <p id="video-memory-fixed-hint" className="text-fg-muted m-0 text-xs">
+            {t(forced ? 'settings.memory.videoFixedUhd' : 'settings.memory.videoFixedHint')}
+          </p>
+        </div>
+        <p className="m-0 text-sm">
+          {t('settings.memory.videoActive')}: {videoLabel(video.active)}
+        </p>
+        {!video.available && (
+          <p className="text-warning m-0 text-sm">{t('settings.memory.videoModeUnavailable')}</p>
+        )}
+        {video.rebootRequired && (
+          <Alert type="info" showIcon message={t('settings.memory.videoReboot')} />
+        )}
+      </Panel>
+    );
   }
 
   function swapCard(kind: 'zram' | 'sd', swap: MemorySwap) {
@@ -249,44 +335,7 @@ export const Memory = () => {
             </div>
             <p className="text-fg-muted mt-3 mb-0 text-xs">{t('settings.memory.ramNote')}</p>
           </Panel>
-          {data.videoMemory && (
-            <Panel className="space-y-4">
-              <SettingRow
-                label={t('settings.memory.videoMode')}
-                description={t('settings.memory.videoModeDescription')}
-                htmlFor="video-memory-mode"
-                stacked
-              >
-                <Select
-                  id="video-memory-mode"
-                  aria-describedby="video-memory-mode-description"
-                  className="w-full"
-                  value={data.videoMemory.selected}
-                  loading={busy === 'video'}
-                  disabled={!!busy || !data.videoMemory.available}
-                  options={(data.videoMemory.modes ?? ['cma', 'fixed']).map((mode) => ({
-                    value: mode,
-                    label: t(`settings.memory.video_${mode}`)
-                  }))}
-                  onChange={(mode) => void changeVideo(mode)}
-                />
-              </SettingRow>
-              <p className="m-0 text-sm">
-                {t('settings.memory.videoActive')}:{' '}
-                {['cma', 'fixed', 'uhd'].includes(data.videoMemory.active)
-                  ? t(`settings.memory.video_${data.videoMemory.active}`)
-                  : t('settings.memory.videoUnknown')}
-              </p>
-              {!data.videoMemory.available && (
-                <p className="text-warning m-0 text-sm">
-                  {t('settings.memory.videoModeUnavailable')}
-                </p>
-              )}
-              {data.videoMemory.rebootRequired && (
-                <Alert type="info" showIcon message={t('settings.memory.videoReboot')} />
-              )}
-            </Panel>
-          )}
+          {data.videoMemory && videoMemoryCard(data.videoMemory)}
           {swapCard('zram', data.zram)}
           {swapCard('sd', data.sd)}
           <p className="text-fg-muted m-0 text-xs">{t('settings.memory.priorityNote')}</p>

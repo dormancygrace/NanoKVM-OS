@@ -3,6 +3,7 @@ package sg2002aes
 import (
 	"bytes"
 	"errors"
+	"syscall"
 	"testing"
 )
 
@@ -42,6 +43,37 @@ func TestFailedIOCTLPreservesInPlaceInputAndDisablesDevice(t *testing.T) {
 	}
 	if d.req.Key != [16]byte{} || d.req.IV != [16]byte{} || !bytes.Equal(d.req.Data[:len(plain)], make([]byte, len(plain))) {
 		t.Fatal("request material retained")
+	}
+}
+
+func TestInterruptedIOCTLFallsBackForOnePacket(t *testing.T) {
+	calls, closes, warnings := 0, 0, 0
+	d := &Device{
+		submit: func(r *request) error {
+			calls++
+			if calls == 1 {
+				return syscall.EINTR
+			}
+			r.Status = 1
+			return nil
+		},
+		closeFD: func() error { closes++; return nil },
+		onError: func(error) { warnings++ },
+	}
+	plain := bytes.Repeat([]byte{0x5a}, 1188)
+	before := bytes.Clone(plain)
+	key, iv := bytes.Repeat([]byte{1}, 16), bytes.Repeat([]byte{2}, 16)
+	if d.TryXORKeyStream(key, iv, plain, plain) {
+		t.Fatal("interrupted request accepted")
+	}
+	if !bytes.Equal(plain, before) {
+		t.Fatal("software fallback input corrupted")
+	}
+	if !d.TryXORKeyStream(key, iv, plain, plain) {
+		t.Fatal("an interrupted request disabled the device")
+	}
+	if calls != 2 || closes != 0 || warnings != 0 {
+		t.Fatalf("calls=%d closes=%d warnings=%d", calls, closes, warnings)
 	}
 }
 

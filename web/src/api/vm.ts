@@ -1,6 +1,7 @@
 import { ControlRegionMode, InputRegion, OriginalResolution } from '@/types';
 import { http } from '@/lib/http.ts';
 import { inputLeaseHeaders } from '@/lib/input-lease.ts';
+import type { VideoMemoryMode } from '@/lib/video-memory-mode.ts';
 
 // get NanoKVM information
 export function getInfo() {
@@ -253,7 +254,7 @@ export type MemorySwap = {
   auto?: boolean;
 };
 
-export type VideoMemoryMode = 'cma' | 'fixed' | 'uhd';
+export type { VideoMemoryMode };
 
 export type MemoryStatus = {
   videoMemory: {

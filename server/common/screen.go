@@ -1,7 +1,6 @@
 package common
 
 import (
-	"encoding/binary"
 	"math"
 	"os"
 	"strconv"
@@ -145,25 +144,15 @@ func setScreenValue(target *Screen, key string, value int) {
 	}
 }
 
-// QHD includes retained JPEG/H26x encoders and a lazy copy buffer. Keep at
-// least 2 MiB above their 59.914 MiB measured peak (see ION qualification).
-// Read the booted Device Tree, independently of debugfs being mounted.
+// SupportsQHD reports whether the booted video memory (see VideoPool) holds
+// 2560x1440 capture.
 func SupportsQHD() bool {
-	return ionAtLeast(62 * 1024 * 1024)
+	return BootedVideoPool().QHD()
 }
 
-// SupportsUHD reports the 128 MiB video pool that 3840x2160 needs: 117 MiB
-// with SmartP (see uhd_ion_mib in kvm_vision.cpp). It must be a fixed
-// carveout: with CMA the encoder's UHD buffers failed on 2 of 4 cold boots,
-// when Linux's borrowed pages could not be migrated back.
+// SupportsUHD reports whether the booted video memory holds 3840x2160 capture.
 func SupportsUHD() bool {
-	_, err := os.Stat("/proc/device-tree/reserved-memory/ion/reusable")
-	return ionAtLeast(128*1024*1024) && os.IsNotExist(err)
-}
-
-func ionAtLeast(bytes uint32) bool {
-	data, err := os.ReadFile("/proc/device-tree/reserved-memory/ion/size")
-	return err == nil && len(data) == 4 && binary.BigEndian.Uint32(data) >= bytes
+	return BootedVideoPool().UHD()
 }
 
 func CheckScreen() {

@@ -530,3 +530,33 @@ func TestConfiguredFlushIntervalPreservesFrameAndCloseSemantics(t *testing.T) {
 		t.Fatalf("unknown value interval=%s, want %s", fallback.flushInterval, defaultFlushInterval)
 	}
 }
+
+func TestBatchableRTPPayloadTypes(t *testing.T) {
+	packet := func(first, second byte) []byte {
+		b := make([]byte, 16)
+		b[0], b[1] = first, second
+		return b
+	}
+	for _, tc := range []struct {
+		name string
+		b    []byte
+		want bool
+	}{
+		{"H.264 102", packet(0x80, 102), true},
+		{"H.265 126", packet(0x80, 126), true},
+		{"H.265 as negotiated by Chrome (49)", packet(0x80, 49), true},
+		{"H.265 49 with marker", packet(0x80, 0x80|49), true},
+		{"Opus 111", packet(0x80, 111), true},
+		{"RTCP SR", packet(0x80, 200), false},
+		{"RTCP RR with count", packet(0x81, 201), false},
+		{"RTCP feedback", packet(0x81, 205), false},
+		{"RTCP XR", packet(0x80, 207), false},
+		{"STUN", packet(0x00, 0x01), false},
+		{"DTLS handshake", packet(22, 0xfe), false},
+		{"too short", []byte{0x80, 102}, false},
+	} {
+		if got := isBatchableRTP(tc.b); got != tc.want {
+			t.Errorf("%s: %v", tc.name, got)
+		}
+	}
+}

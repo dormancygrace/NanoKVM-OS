@@ -22,6 +22,15 @@ import (
 	"unsafe"
 )
 
+// The Go and native codes for a refused JPEG read must be the same number; a
+// difference stops the build (each line fails for one direction).
+const (
+	_ = uint(nativeMjpegBlocked - C.IMG_MJPEG_INPUT_BLOCKED)
+	_ = uint(C.IMG_MJPEG_INPUT_BLOCKED - nativeMjpegBlocked)
+	_ = uint(MjpegBlockedResult - C.IMG_MJPEG_INPUT_BLOCKED)
+	_ = uint(C.IMG_MJPEG_INPUT_BLOCKED - MjpegBlockedResult)
+)
+
 //export goVideoPack
 func goVideoPack(context C.uintptr_t, data unsafe.Pointer, size, offset, total C.uint32_t) C.int {
 	state := cgo.Handle(context).Value().(*videoPackStorage)
@@ -35,18 +44,13 @@ func goVideoPack(context C.uintptr_t, data unsafe.Pointer, size, offset, total C
 	return 0
 }
 
+// Go-paced path: the calling M waits inside cgo for the next access unit.
 func readVideoIntoOwnedStorage(width, height uint16, codec uint8, rate uint16, gop, fps uint8, headroom int) ([]byte, []byte, int) {
 	state := &videoPackStorage{headroom: headroom}
 	handle := cgo.NewHandle(state)
 	defer handle.Delete()
 	result := int(C.nkosReadVideo(C.uint16_t(width), C.uint16_t(height), C.uint8_t(codec), C.uint16_t(rate), C.uint8_t(gop), C.uint8_t(fps), C.uintptr_t(handle)))
-	if result < 0 {
-		return nil, nil, result
-	}
-	if !state.complete() {
-		return nil, nil, -2
-	}
-	return state.storage, state.storage[headroom:], result
+	return state.videoResult(result)
 }
 
 // JPEG is one borrowed pack. The returned bytes are owned by Go before the
@@ -56,11 +60,5 @@ func readMjpegIntoOwnedStorage(width, height, quality uint16) ([]byte, int) {
 	handle := cgo.NewHandle(state)
 	defer handle.Delete()
 	result := int(C.nkosReadMjpeg(C.uint16_t(width), C.uint16_t(height), C.uint16_t(quality), C.uintptr_t(handle)))
-	if result != 0 {
-		return nil, result
-	}
-	if !state.complete() {
-		return nil, -2
-	}
-	return state.storage, result
+	return state.mjpegResult(result)
 }

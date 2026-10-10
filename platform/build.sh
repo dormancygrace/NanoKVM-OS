@@ -424,7 +424,7 @@ initramfs() {
 }
 
 boot() {
-    local b=$out/boot profile mode name dtb
+    local b=$out/boot profile mode name dtb size
     rm -rf "$b" "${img:?}/boot" "${img:?}/dtb" "${img:?}/boot-fit"
     mkdir -p "$b" "$img/boot" "$img/dtb" "$img/boot-fit"
     "$host/zstd" -q -f -19 -T1 "$img/Image" -o "$b/Image.zst"
@@ -433,22 +433,40 @@ boot() {
             -I"$ksrc/arch/riscv/boot/dts/sophgo" -I"$ksrc/include" -I"$ksrc/scripts/dtc/include-prefixes" \
             "$repo/firmware/boards/sg2002-nanokvm-$profile.dts" > "$b/$profile.dts"
         "$host/dtc" -q -I dts -O dtb -o "$b/$profile.dtb" "$b/$profile.dts"
-        for mode in cma fixed uhd; do
+        # One boot image per video memory mode, named by the mode: fhd (the
+        # default) is NAME.dtb, the others NAME-MODE.dtb: NAME-fhd-fixed,
+        # NAME-qhd, NAME-qhd-fixed and NAME-uhd. activate-kernel, compose-fit,
+        # fit-layout.py and the server's status code use the same names.
+        for mode in fhd fhd-fixed qhd qhd-fixed uhd; do
             name=$profile
-            [ "$mode" = cma ] || name=$profile-$mode
+            [ "$mode" = fhd ] || name=$profile-$mode
             dtb=$img/dtb/$name.dtb
             cp "$b/$profile.dtb" "$dtb"
-            # Same kernel and modules; only the video pool differs: 128 MiB
-            # reusable CMA, a 64 MiB fixed carveout that Linux never uses, or
-            # a 128 MiB fixed carveout for 3840x2160 (CMA cannot always migrate
-            # borrowed pages back for the UHD encoder buffers).
-            [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 8000000 ]
-            if [ "$mode" != cma ]; then
-                [ "$mode" = uhd ] || "$host/fdtput" -t x "$dtb" /reserved-memory/ion size 4000000
-                "$host/fdtput" -t s "$dtb" /reserved-memory/ion compatible ion-region
-                "$host/fdtput" -d "$dtb" /reserved-memory/ion reusable
-                "$host/fdtput" -d "$dtb" /cvitek-ion/heap-carveout nanokvm,cma-backend
-            fi
+            # Same kernel and modules; only the video pool differs: 50 MiB
+            # (1920x1080), 66 MiB (2560x1440) or 118 MiB (3840x2160), as
+            # reusable CMA (idle pages stay available to Linux) or as a
+            # fixed carveout that Linux never uses. UHD is fixed only: CMA
+            # cannot always migrate borrowed pages back for the UHD encoder
+            # buffers (1 of 3 cold boots failed under memory pressure).
+            # The device tree template is the FHD CMA pool.
+            [ "$("$host/fdtget" -t s "$dtb" /reserved-memory/ion compatible)" = shared-dma-pool ]
+            [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 3400000 ]
+            case $mode in
+                # CMA regions must be a multiple of 4 MiB (the kernel refuses "incorrect
+                # alignment of CMA region"), so the CMA pools are rounded up to it.
+                fhd-fixed) size=3200000 ;;
+                fhd) size=3400000 ;;
+                qhd-fixed) size=4200000 ;;
+                qhd) size=4400000 ;;
+                uhd) size=7600000 ;;
+            esac
+            "$host/fdtput" -t x "$dtb" /reserved-memory/ion size "$size"
+            case $mode in
+                *-fixed|uhd)
+                    "$host/fdtput" -t s "$dtb" /reserved-memory/ion compatible ion-region
+                    "$host/fdtput" -d "$dtb" /reserved-memory/ion reusable
+                    "$host/fdtput" -d "$dtb" /cvitek-ion/heap-carveout nanokvm,cma-backend ;;
+            esac
             "$host/fdtput" -t s "$dtb" / nanokvm,video-memory-mode "$mode"
             # One size for every device tree, so the FIT images share a layout.
             "$host/dtc" -q -I dtb -O dtb -S 32768 -o "$dtb.pad" "$dtb"
@@ -464,7 +482,7 @@ boot() {
         done
     done
     # The package carries one FIT template and the device trees (about 10 MiB
-    # instead of 15 images of 9 MiB); compose-fit rebuilds an image on the
+    # instead of 25 images of 9 MiB); compose-fit rebuilds an image on the
     # device and checks it against the hash of the image built here.
     python3 "$here/boot/fit-layout.py" "$img/boot-fit" "$img/dtb" "$img/boot"
     install -m 0644 "$here/boot/compose-fit" "$img/boot/compose-fit"
@@ -513,7 +531,8 @@ system() {
     cp "$s/out/kvm_system" "$img/system/"
 }
 
-# NanoKVM-Server with the NanoKVM Go runtime (firmware/cpu/sysmon-runtime),
+# NanoKVM-Server with the NanoKVM Go runtime and C906 ChaCha20
+# (firmware/cpu/sysmon-runtime, firmware/cpu/go-crypto-c906),
 # and the static update helpers. Go modules are checked against go.sum.
 server() {
     local s=$out/server

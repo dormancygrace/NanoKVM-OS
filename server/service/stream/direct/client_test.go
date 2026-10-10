@@ -131,20 +131,24 @@ func TestAckStallPreservesQueuedPredictionChain(t *testing.T) {
 
 func TestAckStallStillBoundsPendingFramesAndBytes(t *testing.T) {
 	for _, limits := range []struct{ frames, bytes int }{{1, 1024}, {8, 16}} {
-		q := newFrameQueue(limits.frames, limits.bytes)
+		var probe keyframeProbe
+		q := probe.attach(newFrameQueue(limits.frames, limits.bytes))
 		q.enableFlowControl(1)
 		q.offer(newOutboundFrame(true, 10, nil, []byte("k")))
 		q.popForWrite()
 		if !q.offer(newOutboundFrame(false, 20, nil, []byte("d"))) {
 			t.Fatal("first delta rejected")
 		}
+		probe.expect(t, 0, "frames within the limit")
 		if q.offer(newOutboundFrame(false, 30, nil, []byte("d"))) {
 			t.Fatal("queue limit exceeded")
 		}
+		probe.expect(t, 1, "overflow starts the recovery")
 		q.acknowledge(10)
 		if q.offer(newOutboundFrame(false, 40, nil, []byte("d"))) {
 			t.Fatal("broken chain accepted")
 		}
+		probe.expect(t, 1, "delta refused right after the request")
 		key := newOutboundFrame(true, 50, nil, []byte("k"))
 		if !q.offer(key) || q.popForWrite() != key {
 			t.Fatal("keyframe recovery failed")

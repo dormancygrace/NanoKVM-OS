@@ -1,7 +1,6 @@
 package common
 
 import (
-	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -45,7 +44,7 @@ func MonitorPortraitEnabled() bool {
 
 // PortraitSupported reports whether the portrait monitor profile can be
 // applied on this device. The current native extended capture path requires
-// the same 62 MiB ION carveout used by QHD until a smaller allocation is
+// the QHD video memory (62 MiB, see VideoPool) until a smaller allocation is
 // qualified.
 func PortraitSupported() bool {
 	_, supported := MonitorPortraitStatus()
@@ -153,7 +152,7 @@ func portraitMaxSupportedLocked() bool {
 	if requireMonitorHardwareLocked() != nil {
 		return false
 	}
-	if !supportsIONAtLeast(64 * 1024 * 1024) {
+	if !BootedVideoPool().PortraitMax() {
 		return false
 	}
 	info, err := os.Stat(portraitMaxMonitorEDID)
@@ -273,9 +272,4 @@ func atomicWriteMonitorFile(path string, value []byte, pattern string) error {
 		return err
 	}
 	return nil
-}
-
-func supportsIONAtLeast(minimum uint32) bool {
-	data, err := os.ReadFile("/proc/device-tree/reserved-memory/ion/size")
-	return err == nil && len(data) == 4 && binary.BigEndian.Uint32(data) >= minimum
 }

@@ -26,6 +26,9 @@ type SessionSRTP struct {
 	// readHeader is reused by decrypt across packets to avoid a per-packet
 	// allocation and must only be used on the session read loop.
 	readHeader rtp.Header
+
+	// batch gathers a video frame for batch protection (NanoKVM, batch.go).
+	batch rtpBatch
 }
 
 // NewSessionSRTP creates a SRTP session using conn as the underlying transport.
@@ -116,7 +119,13 @@ func (s *SessionSRTP) AcceptStream() (*ReadStreamSRTP, uint32, error) {
 
 // Close ends the session.
 func (s *SessionSRTP) Close() error {
-	return s.session.close()
+	// Refuse new batched writes, close the transport (this releases a flush
+	// blocked in Write, which holds the batch mutex), then drop the queue.
+	s.closeBatch()
+	err := s.session.close()
+	s.discardBatch()
+
+	return err
 }
 
 func (s *SessionSRTP) write(b []byte) (int, error) {
@@ -148,6 +157,12 @@ var bufferpool = sync.Pool{ // nolint:gochecknoglobals
 func (s *SessionSRTP) writeRTP(header *rtp.Header, payload []byte) (int, error) {
 	if _, ok := <-s.session.started; ok {
 		return 0, errStartedChannelUsedIncorrectly
+	}
+
+	if rtpBatchingWanted() {
+		if n, handled, err := s.writeRTPBatched(header, payload); handled {
+			return n, err
+		}
 	}
 
 	// encryptRTP will either return our buffer, or, if it is too

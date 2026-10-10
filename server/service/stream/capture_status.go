@@ -4,6 +4,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"NanoKVM-Server/common"
 )
 
 const (
@@ -144,6 +146,8 @@ func newCaptureStatus(mode string, result int, updatedAt time.Time) CaptureStatu
 
 func captureResultMessage(result int) (string, string) {
 	switch result {
+	case common.MjpegBlockedResult:
+		return common.MjpegBlockedMessage, CaptureSeverityError
 	case -7:
 		return "HDMI input resolution error", CaptureSeverityError
 	case -6:

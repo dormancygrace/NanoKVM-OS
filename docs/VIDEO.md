@@ -45,19 +45,27 @@ Capture follows the actual HDMI dimensions when the BIOS, bootloader or operatin
 
 ## Stream resolution
 
-**Same as input** uses the actual source dimensions. **Up to 2160p / 1440p / 1080p / 720p / 600p** fits the source within the corresponding bounding box, preserves aspect ratio and never enlarges a smaller image. NV21 dimensions are rounded down to even pixels. 2160p needs the **4K video memory mode**; 1440p needs 62 MiB, which every mode provides.
+**Same as input** uses the actual source dimensions. **Up to 2160p / 1440p / 1080p / 720p / 600p** fits the source within the corresponding bounding box, preserves aspect ratio and never enlarges a smaller image. NV21 dimensions are rounded down to even pixels. 2160p needs the **UHD** video memory mode and 1440p needs **QHD** or UHD; the default FHD mode holds 1080p.
 
 ## Video memory modes
 
-**Settings → Memory → Video memory allocation** selects the boot image; a change applies after a restart.
+**Settings → Memory → Video memory allocation** selects the boot image; a change applies after a restart. Pick a resolution and, for FHD and QHD, whether the memory is **Fixed**.
 
 | Mode | Video memory | Largest size | Linux memory |
 |---|---|---|---|
-| CMA (default) | 128 MiB, lent to Linux while unused | 2560 × 1440 | about 230 MiB |
-| Fixed | 64 MiB, video only | 2560 × 1440 | about 170 MiB |
-| 4K | 128 MiB, video only | 3840 × 2160 | about 105 MiB |
+| FHD (default) | 52 MiB, lent to Linux while unused | 1920 × 1080 | up to 232 MiB |
+| FHD, Fixed | 50 MiB, video only | 1920 × 1080 | 182 MiB |
+| QHD | 68 MiB, lent to Linux while unused | 2560 × 1440, portrait | up to 232 MiB |
+| QHD, Fixed | 66 MiB, video only | 2560 × 1440, portrait | 166 MiB |
+| UHD (always Fixed) | 118 MiB, video only | 3840 × 2160 | 114 MiB |
 
-3840 × 2160 uses 117 MiB. With CMA the encoder could not always get its last reference buffers back from Linux on a cold boot (2 of 4 boots had no video), so the 4K monitor profile, the 2160p stream limit and 3840 × 2160 capture require the 4K mode; elsewhere they are shown as unavailable with the reason. In the 4K mode zram defaults to half of the Linux memory (**Half of RAM**, also selectable in the other modes) unless a size was chosen.
+Linux memory is the MemTotal that the kernel reports on the stand. Fixed memory is reserved for video: Linux can never use it. The Fixed pools are 2 MiB smaller than the CMA ones because the kernel accepts a CMA region only in multiples of 4 MiB. Without Fixed the memory is reusable CMA, whose idle pages stay available to Linux. Measured peaks of video memory: 49 MiB for 1080p H.265 with MJPEG running at the same time, 65 MiB at 1440p, about 111 MiB at 2160p. FHD at 56 MiB and QHD at 72 MiB passed cold boots under memory pressure as CMA.
+
+3840 × 2160 needs UHD, which has no CMA variant: as CMA the encoder could not always get its reference buffers back from Linux on a cold boot (1 of 3 boots had no video), so the 4K monitor profile, the 2160p stream limit and 3840 × 2160 capture require the UHD mode; elsewhere they are shown as unavailable with the reason. Portrait monitors and the 1440p monitor profile and stream limit need QHD or UHD. In the UHD mode zram defaults to half of the Linux memory (**Half of RAM**, also selectable in the other modes) unless a size was chosen.
+
+The device never advertises a monitor profile that its video memory cannot capture. A mode is refused while the saved monitor resolution or an enabled portrait monitor needs more memory (lower it in the video settings first), and a profile saved under a larger mode is lowered when the server starts.
+
+Devices upgraded from earlier releases keep what they had: the old CMA mode (128 MiB) becomes QHD, the old Fixed mode becomes QHD, Fixed, and UHD stays UHD.
 
 Examples:
 
@@ -75,9 +83,11 @@ Scaling occurs in VPSS before encoding. Browser scale only changes local present
 
 The frame rate is capped by the larger of the input and the encoded size, in either orientation: up to 1280×720 at 120 fps, up to 1920×1088 at 100 fps, up to 2560×1440 at 60 fps, larger sizes at 30 fps. With the video overclock the encoder sustains about 250 million pixels per second: 3840×2160 at 30 and 2560×1440 at 60 fps; at 1920×1080 a fixed per-frame cost limits it to about 109 fps, so 1080p is offered at 100. The server and the native capture library use one table (`server/common/video_status.go`, `kvm_mmf/include/internal/capture_rate.hpp`); a test keeps them equal. The saved request is retained across source changes and is restored when the source allows it again. Settings show the delivered rate when it is below the request.
 
+MJPEG is unavailable while the HDMI input is 3840×2160, whatever the stream limit is (next to a 4K stream the JPEG channel wedges the hardware encoder until reboot, and with the stream limited to 1440p it produces no frames): the MJPEG stream, MCP and screenshots, and selecting MJPEG are refused with a message, and `stream.mjpeg` in the capabilities is unavailable with the reason `mjpeg-4k`; use H.264 or H.265.
+
 ## API
 
-- `GET /api/vm/video/capabilities` lists every monitor mode with its refresh rates, the portrait profiles with the codecs and transports they need, the stream limits, the frame-rate table, the input size and rate, the codecs per transport and the video memory. Unavailable entries carry a reason: `video-memory` (3840 × 2160 outside the 4K video memory mode, or too little video memory) or `receiver`.
+- `GET /api/vm/video/capabilities` lists every monitor mode with its refresh rates, the portrait profiles with the codecs and transports they need, the stream limits, the frame-rate table, the input size and rate, the codecs per transport and the video memory. Unavailable entries carry a reason: `video-memory` (3840 × 2160 outside the UHD video memory mode, or 1440p and portrait with too little video memory) or `receiver`.
 - `POST /api/vm/video` (administrators) applies several settings together: `type`, `quality` (MJPEG), `bitRate`, `gop`, `gopMode`, `mjpegChroma`, `height`, `fps`, `portraitResolution`, `portrait`, `monitor`, `confirmPowerCycle`. Every setting is validated before any is applied; the EDID is written at most once, last, and follows `fps`. It returns the new capabilities.
 - `GET/POST /api/vm/screen` remain for single settings.
 

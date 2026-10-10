@@ -4,6 +4,7 @@ import test from 'node:test';
 import ts from 'typescript';
 
 import { swapRequestSize } from '../src/lib/swap-request.ts';
+import * as videoMemoryMode from '../src/lib/video-memory-mode.ts';
 
 const deferred = () => {
   let resolve, reject;
@@ -227,10 +228,12 @@ test('memory effect replay and locale changes discard stale reads and keep one p
     pollers = new Set();
   const h = harness('../src/pages/desktop/menu/settings/memory/index.tsx', 'Memory', {
     '@/lib/swap-request.ts': { swapRequestSize },
+    '@/lib/video-memory-mode.ts': videoMemoryMode,
     '@/lib/theme-tokens.ts': { themeTokens: { info: '#38bdf8' } },
     '@/components/ui/settings.tsx': { Panel: 'Panel', SettingRow: 'SettingRow' },
     antd: {
       Alert: 'Alert',
+      Checkbox: 'Checkbox',
       message: { error: noOp },
       Progress: 'Progress',
       Select: 'Select',
@@ -272,6 +275,100 @@ test('memory effect replay and locale changes discard stale reads and keep one p
   assert.equal(pollers.size, 0);
   requests[2].resolve({ code: 1, msg: 'after unmount' });
   await settle();
+});
+
+test('memory card composes the video memory mode from a resolution and the Fixed choice', async () => {
+  const sent = [];
+  const swap = { enabled: false, available: true, sizeMiB: 64, usedBytes: 0 };
+  const status = (selected, modes) => ({
+    code: 0,
+    data: {
+      totalBytes: 1,
+      usedBytes: 0,
+      availableBytes: 1,
+      cachedBytes: 0,
+      videoBytes: 0,
+      zram: swap,
+      sd: swap,
+      videoMemory: {
+        active: selected,
+        selected,
+        sizeMiB: 56,
+        modes,
+        available: modes.length > 1,
+        rebootRequired: false
+      }
+    }
+  });
+  const all = ['fhd', 'fhd-fixed', 'qhd', 'qhd-fixed', 'uhd'];
+  let current = status('qhd', all);
+  const h = harness('../src/pages/desktop/menu/settings/memory/index.tsx', 'Memory', {
+    '@/lib/swap-request.ts': { swapRequestSize },
+    '@/lib/video-memory-mode.ts': videoMemoryMode,
+    '@/lib/theme-tokens.ts': { themeTokens: { info: '#38bdf8' } },
+    '@/components/ui/settings.tsx': { Panel: 'Panel', SettingRow: 'SettingRow' },
+    antd: {
+      Alert: 'Alert',
+      Checkbox: 'Checkbox',
+      message: { error: noOp },
+      Progress: 'Progress',
+      Select: 'Select',
+      Spin: 'Spin',
+      Switch: 'Switch'
+    },
+    '@/lib/visible-poll.ts': { pollWhileVisible: () => noOp },
+    '@/api/vm.ts': {
+      getMemoryStatus: async () => current,
+      setVideoMemory: async (mode) => {
+        sent.push(mode);
+        current = status(mode, all);
+        return current;
+      }
+    }
+  });
+  const byId = (id) => {
+    const walk = (node) => {
+      if (!node || typeof node !== 'object') return;
+      if (node.props?.id === id) return node;
+      for (const child of [node.props?.children].flat(Infinity)) {
+        const found = walk(child);
+        if (found) return found;
+      }
+    };
+    return walk(h.output);
+  };
+  h.render();
+  await h.flush();
+  assert.equal(byId('video-memory-mode').props.value, 'qhd');
+  assert.deepEqual(
+    byId('video-memory-mode').props.options.map((option) => [option.value, option.disabled]),
+    [
+      ['fhd', false],
+      ['qhd', false],
+      ['uhd', false]
+    ]
+  );
+  assert.equal(byId('video-memory-fixed').props.checked, false);
+  // Fixed on the current resolution, then another resolution keeps it.
+  byId('video-memory-fixed').props.onChange({ target: { checked: true } });
+  await h.flush();
+  byId('video-memory-mode').props.onChange('fhd');
+  await h.flush();
+  // UHD forces Fixed on and cannot be unchecked; leaving UHD restores the choice.
+  byId('video-memory-mode').props.onChange('uhd');
+  await h.flush();
+  assert.equal(byId('video-memory-fixed').props.checked, true);
+  assert.equal(byId('video-memory-fixed').props.disabled, true);
+  byId('video-memory-mode').props.onChange('qhd');
+  await h.flush();
+  assert.deepEqual(sent, ['qhd-fixed', 'fhd-fixed', 'uhd', 'qhd-fixed']);
+  // Without a Fixed image the checkbox cannot change anything.
+  current = status('qhd', ['fhd', 'qhd', 'uhd']);
+  await h.flush();
+  h.locale('ru');
+  await h.flush();
+  assert.equal(byId('video-memory-fixed').props.disabled, true);
+  h.unmount();
 });
 
 test('changing the terminal language does not reconnect or dispose its session', () => {

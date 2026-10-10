@@ -15,7 +15,7 @@ func GetKvmVision() *KvmVision {
 func GetActiveGOPMode() uint8 { return GOPModeSmartP }
 
 func (k *KvmVision) ReadMjpeg(uint16, uint16, uint16) ([]byte, int) {
-	return nil, -1
+	return readMjpegChecked(func() ([]byte, int) { return nil, -1 })
 }
 
 func (k *KvmVision) ReadH264(uint16, uint16, uint16) ([]byte, int) {

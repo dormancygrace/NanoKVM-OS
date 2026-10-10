@@ -9,6 +9,7 @@ import {
   effectiveFps,
   FPS_CHOICES,
   matchPreset,
+  mjpegBlocked,
   monitorTarget,
   QUALITY_CHOICES,
   recommendedBitrate,
@@ -265,16 +266,17 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                       onChange={(value) => change('transport', value)}
                       options={(['direct', 'webrtc', 'mjpeg'] as const).map((value) => {
                         const blocked = value === draft.transport ? issues.transport : undefined;
-                        const unavailable =
+                        const noBrowser =
                           value !== 'mjpeg' &&
                           !(value === 'direct' ? browser.direct : browser.webrtc);
+                        const noMjpeg = value === 'mjpeg' && mjpegBlocked(draft, caps);
                         return {
                           value,
                           label: withReason(
                             { direct: 'Direct', webrtc: 'WebRTC', mjpeg: 'MJPEG' }[value],
-                            unavailable ? 'browser' : blocked
+                            noBrowser ? 'browser' : noMjpeg ? 'mjpeg-4k' : blocked
                           ),
-                          disabled: unavailable
+                          disabled: noBrowser || noMjpeg
                         };
                       })}
                     />,

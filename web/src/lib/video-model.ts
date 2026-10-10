@@ -3,7 +3,14 @@
 // Pure functions without imports, so tests can run them directly.
 
 export type Reason =
-  'video-memory' | 'receiver' | 'browser' | 'codec' | 'transport' | 'portrait' | 'range';
+  | 'video-memory'
+  | 'receiver'
+  | 'browser'
+  | 'codec'
+  | 'transport'
+  | 'portrait'
+  | 'range'
+  | 'mjpeg-4k';
 
 export type MonitorMode = {
   height: number;
@@ -28,6 +35,9 @@ export type PortraitProfile = {
 };
 
 export type StreamLimit = { height: number; width: number; available: boolean; reason?: Reason };
+// MJPEG for the current capture; maxSide is the longest input side it can run
+// with. Absent on a server that does not restrict it.
+export type MjpegCapability = { available: boolean; reason?: Reason; maxSide: number };
 export type RateTier = { longSide: number; shortSide: number; fps: number };
 
 export type VideoCapabilities = {
@@ -42,7 +52,13 @@ export type VideoCapabilities = {
     modes: MonitorMode[];
     portrait: { enabled: boolean; resolution: number; profiles: PortraitProfile[] };
   };
-  stream: { limits: StreamLimit[]; rateTiers: RateTier[]; minFps: number; maxFps: number };
+  stream: {
+    limits: StreamLimit[];
+    rateTiers: RateTier[];
+    minFps: number;
+    maxFps: number;
+    mjpeg?: MjpegCapability;
+  };
   transports: Record<Transport, string[]>;
   videoMemoryMiB: number;
 };
@@ -169,6 +185,21 @@ export function monitorTarget(draft: VideoDraft, caps: VideoCapabilities) {
     : { width: mode?.width ?? 0, height: draft.monitor, refresh };
 }
 
+// Whether MJPEG cannot run for a draft: its input (the monitor the draft
+// writes, else the current one) is longer than the server allows, whatever the
+// stream limit is. Mirrors the server, which refuses it.
+export function mjpegBlocked(draft: VideoDraft, caps: VideoCapabilities) {
+  const maxSide = caps.stream.mjpeg?.maxSide;
+  if (!maxSide) return false;
+  const changesMonitor =
+    !draft.portrait && caps.monitor.programmable && draft.monitor !== caps.monitor.selected;
+  const input =
+    changesMonitor && draft.monitor
+      ? { width: monitorMode(caps, draft.monitor)?.width ?? 0, height: draft.monitor }
+      : caps.input;
+  return Math.max(input.width, input.height) > maxSide;
+}
+
 export function codecPlayable(browser: BrowserSupport, transport: Transport, codec: Codec) {
   if (transport === 'mjpeg' || codec === 'h264') return true;
   return transport === 'direct' ? browser.directH265 : browser.webrtcH265;
@@ -210,6 +241,9 @@ export function draftIssues(
   }
   if (!issues.transport && !transportPlayable(browser, draft.transport)) {
     issues.transport = 'browser';
+  }
+  if (!issues.transport && draft.transport === 'mjpeg' && mjpegBlocked(draft, caps)) {
+    issues.transport = 'mjpeg-4k';
   }
   if (!issues.codec && draft.transport !== 'mjpeg') {
     if (!caps.transports[draft.transport]?.includes(draft.codec)) issues.codec = 'transport';
@@ -329,8 +363,9 @@ export function buildPreset(
     if (!mode) return { reason: monitorMode(caps, spec.monitor[0])?.reason ?? 'receiver' };
     draft.monitor = mode.height;
   }
-  const transport = spec.transports.find((t) => transportPlayable(browser, t));
-  if (!transport) return { reason: 'browser' };
+  const playable = spec.transports.filter((t) => transportPlayable(browser, t));
+  const transport = playable.find((t) => t !== 'mjpeg' || !mjpegBlocked(draft, caps));
+  if (!transport) return { reason: playable.length ? 'mjpeg-4k' : 'browser' };
   draft.transport = transport;
   draft.codec =
     spec.codec === 'best'

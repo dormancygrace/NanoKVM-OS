@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"NanoKVM-Server/common"
 	mcpservice "NanoKVM-Server/service/mcp"
 )
 
@@ -319,5 +320,16 @@ func TestCaptureReleasesLeaseAfterAcquisitionCancellation(t *testing.T) {
 	}
 	if acquired != 1 || released != 1 {
 		t.Fatalf("lease acquired=%d released=%d after cancellation during capture, want 1/1", acquired, released)
+	}
+}
+
+func TestCaptureStopsWhenMjpegIsBlocked(t *testing.T) {
+	vision := &fakeVision{responses: []visionResponse{{result: common.MjpegBlockedResult}}}
+	snapshotter := New(vision, func() (uint16, uint16) { return 0, 0 })
+	snapshotter.retryDelay = 0
+
+	snapshot, err := snapshotter.Capture(context.Background(), mcpservice.SnapshotRequest{})
+	if err != nil || snapshot.OK || vision.calls != 1 || snapshot.Message != common.MjpegBlockedMessage {
+		t.Fatalf("snapshot=%+v calls=%d err=%v", snapshot, vision.calls, err)
 	}
 }

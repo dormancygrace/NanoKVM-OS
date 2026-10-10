@@ -45,7 +45,7 @@ The source audit compares the pinned vendor OpenSBI tree with upstream v0.9 and 
 
 `images/opensbi/build-manifest.json` records the source/tree pin, patches/config/DT hashes, compiler, optimization, binary hash, ELF symbols and PMP extents. `images/fip-manifest.json` records component hashes and checks. Neither manifest establishes successful hardware boot.
 
-Reservation propagation can be checked using unchanged pinned U-Boot functions and libfdt with all ten Linux board DTBs:
+Reservation propagation can be checked using unchanged pinned U-Boot functions and libfdt with all 25 Linux board DTBs (five boards, five video memory modes):
 
 ```sh
 python3 scripts/test-opensbi-reservations.py \

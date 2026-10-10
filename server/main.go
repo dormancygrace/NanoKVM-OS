@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	cors "github.com/rs/cors/wrapper/gin"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -65,6 +66,19 @@ func initialize(stopMemory context.CancelFunc) {
 		vm.EnableHdmiCapture()
 	}
 	vm.SetHdmiViewerCount(0)
+
+	// The monitor profile is kept in the HDMI receiver across restarts; it
+	// must not exceed the video memory of this boot (a smaller mode may have
+	// been selected after it was saved). Programming can take a while.
+	go func() {
+		changed, err := common.FitMonitorToVideoMemory()
+		if err != nil {
+			logrus.Errorf("failed to fit the monitor profile to the video memory: %v", err)
+		} else if changed {
+			logrus.Info("lowered the saved monitor profile to the video memory of this boot")
+			restartAfterMonitorFit()
+		}
+	}()
 
 	// run mouse jiggler
 	jiggler.GetJiggler().Run()

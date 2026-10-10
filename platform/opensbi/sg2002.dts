@@ -29,7 +29,11 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
-		c906l@8d000000 { reg = <0x8d000000 0x200000>; no-map; };
+		// No static children. OpenSBI adds its mmode_resv* PMP regions at run
+		// time and U-Boot copies them into the Linux DT. The FIP carries no
+		// BLCP/BLCP_2ND image, so the small core never runs and its 2 MiB at
+		// 0x8d000000 are not reserved; scripts/nanokvm-fip.py rejects a FIP
+		// with a BLCP_2ND image.
 	};
 	cpus {
 		#address-cells = <1>;

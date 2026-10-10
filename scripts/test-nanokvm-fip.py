@@ -83,3 +83,17 @@ struct.pack_into("<I", out, field_offset(fip.P1_FIELDS, "BL2_IMG_CKSUM"),
 struct.pack_into("<I", out, 12, fip.crc(out[16:2048]))
 rejected("valid-CRC first-stage modification",
          lambda: fip.validate(base, bytes(out), monitor, uboot, manifest), "first-stage")
+real_inspect = fip.inspect
+
+
+def with_small_core(data):
+    p1, p2, parts, spans = real_inspect(data)
+    return p1, p2, {**parts, "BLCP_2ND": bytes(512)}, spans
+
+
+fip.inspect = with_small_core
+try:
+    rejected("small-core image without DT reservation",
+             lambda: fip.validate(base, candidate, monitor, uboot, manifest), "small-core reservation")
+finally:
+    fip.inspect = real_inspect

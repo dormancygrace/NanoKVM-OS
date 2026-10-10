@@ -4,6 +4,8 @@
 Native test adapters supply scalar address-cell decoding and logging; the copy,
 deduplication and libfdt implementations are taken unchanged from U-Boot source.
 The source firmware DT is a fixture of the two calculated OpenSBI PMP regions.
+Neither the shipped firmware DT nor any Linux board DT may reserve the unused
+small-core range 0x8d000000/2 MiB, and copying the firmware DT must not add one.
 """
 import argparse
 import subprocess
@@ -102,19 +104,34 @@ static int check(const void *fdt) {
             if (starts[i] < ends[j] && starts[j] < ends[i]) return 0;
     return 1;
 }
+/* Number of reserved-memory children overlapping the unused small-core range. */
+static int small_core(const void *fdt) {
+    int parent = fdt_path_offset(fdt, "/reserved-memory"), node, n = 0;
+    if (parent < 0) return 0;
+    fdt_for_each_subnode(node, fdt, parent) {
+        uint64_t size, addr = fdtdec_get_addr_size_auto_parent(fdt, parent, node, "reg", 0, &size, false);
+        if (addr != FDT_ADDR_T_NONE && addr < 0x8d200000 && 0x8d000000 < addr + size) n++;
+    }
+    return n;
+}
 int main(int argc, char **argv) {
     assert(argc >= 3);
     void *source = load(argv[1]);
+    /* The FIP carries no small-core image: its 2 MiB must not be reserved. */
+    assert(small_core(source) == 0);
     /* Region labels follow the size-sorted upstream domain order. */
     add(source, "mmode_resv1", 0x80000000, 0x40000);
     add(source, "mmode_resv0", 0x80040000, 0x10000);
     for (int i = 2; i < argc; i++) {
         void *target = load(argv[i]);
+        /* The board DT carries no small-core node of its own. */
+        assert(small_core(target) == 0);
         assert(!riscv_fdt_copy_resv_mem_node(source, target));
         assert(check(target));
+        assert(small_core(target) == 0);
         assert(!riscv_fdt_copy_resv_mem_node(source, target));
         assert(check(target));
-        printf("%s: split PMP copied, exact range deduplicated, repeated copy stable\n", argv[i]);
+        printf("%s: split PMP copied, exact range deduplicated, repeated copy stable, no small-core reservation\n", argv[i]);
         /* Reproduce the overlap that an oversized static reservation causes. */
         add(target, "oversized", 0x80000000, 0x80000);
         assert(!check(target));

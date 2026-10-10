@@ -17,9 +17,11 @@ The generic platform uses normal upstream `-O2`, no LTO, `rv64imac_zicsr_zifence
 | Firmware RW PMP including stack/heap | `0x80040000` / `0x10000` (64 KiB) |
 | Relocated M-mode DT handed to U-Boot | `0x80100000`, maximum 64 KiB including fixup room |
 | U-Boot loader header / entry | `0x801fffe0` / `0x80200000` |
-| Small-core reservation | `0x8d000000` / `0x200000` |
+| Small-core reservation | none (stock FSBL region `0x8d000000` / `0x200000` is not reserved) |
 
 The ELF manifest enforces the two PMP extents. Default upstream separates RX and RW firmware domains and denies S/U access to both. U-Boot copies these no-map reservations into the Linux DT. Its exact-address/size deduplication keeps the existing 256 KiB board reservation and adds the 64 KiB RW reservation. Do not replace the static Linux node with one overlapping 320/512 KiB node. The SD partition layout can remain unchanged.
+
+The M-mode DT has no static `reserved-memory` children. The stock FIP carries no BLCP/BLCP_2ND image (both sizes are zero), so the FSBL starts no small core (`No C906L image.`) and nothing uses the 2 MiB at `0x8d000000`; the earlier `c906l@8d000000` node in this DT only made U-Boot copy a useless `no-map` reservation into every Linux DT. Without it, and without the `c906l` node the board DTs used to carry, those 2 MiB are available to Linux. `scripts/nanokvm-fip.py` rejects a FIP that carries a BLCP_2ND image, because that image would run in an unreserved region. No OpenSBI or U-Boot code refers to `0x8d000000`.
 
 The FSBL passes `fw_dynamic_info` with U-Boot's entry and S-mode, so use FW_DYNAMIC. Its fixed FDT pointer `0x80011000` points inside a larger modern MONITOR. Patch `0001` adds optional `FW_DYNAMIC_FDT_ADDR`: the embedded DT initializes the generic platform and is relocated to the specified next-argument address. The default behavior of upstream FW_DYNAMIC remains unchanged when the option is absent.
 
@@ -41,7 +43,7 @@ The source audit compares the pinned vendor OpenSBI tree with upstream v0.9 and 
 
 ## Validation
 
-`scripts/nanokvm-fip.py` independently checks both parameter CRCs, component CRCs, 512-byte alignment, file overlaps, load/run addresses, first-stage/DDR/small-core preservation, exact MONITOR and decompressed U-Boot bytes. The vendor FIP generator includes zero padding in the compressed loader size; the validator accepts only zero trailing padding.
+`scripts/nanokvm-fip.py` independently checks both parameter CRCs, component CRCs, 512-byte alignment, file overlaps, load/run addresses, first-stage/DDR/small-core preservation and absence of a BLCP_2ND image, exact MONITOR and decompressed U-Boot bytes. The vendor FIP generator includes zero padding in the compressed loader size; the validator accepts only zero trailing padding.
 
 `images/opensbi/build-manifest.json` records the source/tree pin, patches/config/DT hashes, compiler, optimization, binary hash, ELF symbols and PMP extents. `images/fip-manifest.json` records component hashes and checks. Neither manifest establishes successful hardware boot.
 
@@ -54,13 +56,15 @@ python3 scripts/test-opensbi-reservations.py \
   --linux-dtbs build/platform/images/dtb
 ```
 
-This uses calculated PMP fixtures, native scalar cell-decoding adapters and the real U-Boot copy/deduplication code. It verifies exact-range deduplication, the additional RW range, stable repeated copies and detection of an oversized overlapping static range. It does not execute OpenSBI or simulate C906 hardware.
+This uses calculated PMP fixtures, native scalar cell-decoding adapters and the real U-Boot copy/deduplication code. It verifies exact-range deduplication, the additional RW range, stable repeated copies, detection of an oversized overlapping static range, that neither the firmware DT nor any of the 25 Linux DTBs has a reservation in the small-core range and that the copy adds none (the pre-change firmware DT, or a board DT with a `c906l` node, fails). It does not execute OpenSBI or simulate C906 hardware.
 
 ## SG2002 RAM hardware result (2026-10-05)
 
-FIP SHA-256 `76e50ecc3fab0da16f2ab750e6f79a67ec2dedeac9397c5f437343e6008e3692` passed ROM UART RAM loading on Sipeed NanoKVM PCIe. OpenSBI 1.9 handed off to the unchanged U-Boot and installed Linux 7.2.9 with normal bootcmd/bootargs. Runtime SBI version is 3.0, implementation version 0x10009. Linux imported both 256/64 KiB firmware reservations and the unchanged 2 MiB small-core reservation.
+FIP SHA-256 `76e50ecc3fab0da16f2ab750e6f79a67ec2dedeac9397c5f437343e6008e3692` passed ROM UART RAM loading on Sipeed NanoKVM PCIe. OpenSBI 1.9 handed off to the unchanged U-Boot and installed Linux 7.2.9 with normal bootcmd/bootargs. Runtime SBI version is 3.0, implementation version 0x10009. Linux imported both 256/64 KiB firmware reservations and the 2 MiB small-core reservation (the candidate DT then still carried it; it has since been removed).
 
 Timer and PLIC device interrupts progress, both application services start, and Chrome Main displays an advancing HDMI stopwatch. A bounded perf_event_open counting probe opened cycles and instructions together; both values increased (108515 to 921149 cycles, 71670 to 774880 instructions). No Oops/panic/overlap diagnostics appeared. This checks counting, not PMU overflow sampling, raw events, multicore IPI/RFENCE or vector context switching.
+
+That candidate still carried the small-core reservation. The FIP built without it differs from the tested one only in the embedded M-mode DT (the fw_dynamic.bin, FIP and manifest hashes in `../expected.sha256` changed) and has not been hardware-tested.
 
 The SD FIP was never replaced. Candidate cold boot from SD and persistent installation remain untested. Deterministic build manifests retain their build-time hardware_validation=pending field; a separate hardware report links measured results to the exact artifact hash.
 

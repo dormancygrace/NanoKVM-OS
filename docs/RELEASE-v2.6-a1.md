@@ -74,6 +74,8 @@ Board device trees remove unused small-core/RTOS reservations. The new full imag
 
 ## 🚀 Install or upgrade
 
+**Download sizes:** about **70.1 MB** for the full-image ZIP, or **38.4 MB** for the seven core APK packages. APK may also download updates to installed Alpine packages.
+
 ### ✨ Fresh SD card
 
 Extract **NanoKVM-OS-Image-v1.1-a1-apps-v2.6-a1.img.zip** and write the `.img` to an SD card of at least **2 GB**. The system root partition remains **768 MiB**.

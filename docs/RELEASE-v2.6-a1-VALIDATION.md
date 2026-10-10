@@ -22,9 +22,15 @@ Base: main de0e1dc0, PRs #65–#70 integrated. Image v1.1-a1 is the user-confirm
 - Shipped server contains the custom runtime hooks; 202 ChaCha20 and 1,439 SHA1 XTheadVector instructions match their source. The built web tree exactly matches the separately tested production build.
 - PR #71 CI and CodeQL pass at preparation commit 6b5f7c9d.
 
-## Packaging pending
+## Packages and image
 
-Signed APKs, rootfs/image, upgrade dependency resolution and the corresponding source archive are the remaining host checks.
+- Seven core APKs total 38,411,060 bytes (38.4 MB). Their signatures and the legacy APKINDEX signature pass verification.
+- The publication index retains optional RustDesk 0.5.3-r2. All eight packages verify; the combined Packages.adb verifies independently with the RSA and ECDSA public keys.
+- Using APK 3.0.8 from the v2.5-a1 image and a copy of its installed database, `apk update` followed by simulated `apk upgrade` resolves all seven NanoKVM upgrades plus Alpine zlib 1.3.2-r1, without dependency conflicts. This is a solver check, not an on-device installation or execution of package triggers.
+- Full-image ZIP: 70,140,001 bytes (70.1 MB). Uncompressed image: 872,415,744 bytes (832 MiB). MBR confirms a 64 MiB boot partition and a 768 MiB F2FS root partition.
+- ZIP CRC passes and its extracted image hash equals the raw image. Image identity is v1.1-a1 / bundled applications v2.6-a1; rootfs application version is 2.6-a1. USB Internet helper/service and NanoKVM server are present.
+- Public key directories contain no private keys. Temporary signing keys were removed from the package builder.
+- The corresponding source archive is assembled from the final preparation commit, with a per-file SHA256 manifest. Final source/archive verification and publication checksums are recorded alongside the artifacts in the host release directory.
 
 ## Device status
 

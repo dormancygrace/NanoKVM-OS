@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	cors "github.com/rs/cors/wrapper/gin"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -72,9 +73,9 @@ func initialize(stopMemory context.CancelFunc) {
 	go func() {
 		changed, err := common.FitMonitorToVideoMemory()
 		if err != nil {
-			log.Printf("failed to fit the monitor profile to the video memory: %v", err)
+			logrus.Errorf("failed to fit the monitor profile to the video memory: %v", err)
 		} else if changed {
-			log.Printf("lowered the saved monitor profile to the video memory of this boot")
+			logrus.Info("lowered the saved monitor profile to the video memory of this boot")
 		}
 	}()
 

@@ -53,13 +53,13 @@ Capture follows the actual HDMI dimensions when the BIOS, bootloader or operatin
 
 | Mode | Video memory | Largest size | Linux memory |
 |---|---|---|---|
-| FHD (default) | 56 MiB, lent to Linux while unused | 1920 × 1080 | up to about 230 MiB |
-| FHD, Fixed | 56 MiB, video only | 1920 × 1080 | about 177 MiB |
-| QHD | 72 MiB, lent to Linux while unused | 2560 × 1440, portrait | up to about 230 MiB |
-| QHD, Fixed | 72 MiB, video only | 2560 × 1440, portrait | about 161 MiB |
-| UHD (always Fixed) | 128 MiB, video only | 3840 × 2160 | about 105 MiB |
+| FHD (default) | 56 MiB, lent to Linux while unused | 1920 × 1080 | up to 232 MiB |
+| FHD, Fixed | 56 MiB, video only | 1920 × 1080 | 176 MiB |
+| QHD | 72 MiB, lent to Linux while unused | 2560 × 1440, portrait | up to 232 MiB |
+| QHD, Fixed | 72 MiB, video only | 2560 × 1440, portrait | 160 MiB |
+| UHD (always Fixed) | 128 MiB, video only | 3840 × 2160 | 104 MiB |
 
-Fixed memory is reserved for video: Linux can never use it. Without Fixed the memory is reusable CMA, whose idle pages stay available to Linux. Measured peaks of video memory: 49 MiB for 1080p H.265 with MJPEG running at the same time, 65 MiB at 1440p, about 111 MiB at 2160p. FHD at 56 MiB and QHD at 72 MiB passed cold boots under memory pressure as CMA.
+Linux memory is the MemTotal that the kernel reports on the stand. Fixed memory is reserved for video: Linux can never use it. Without Fixed the memory is reusable CMA, whose idle pages stay available to Linux. Measured peaks of video memory: 49 MiB for 1080p H.265 with MJPEG running at the same time, 65 MiB at 1440p, about 111 MiB at 2160p. FHD at 56 MiB and QHD at 72 MiB passed cold boots under memory pressure as CMA.
 
 3840 × 2160 needs UHD, which has no CMA variant: as CMA the encoder could not always get its reference buffers back from Linux on a cold boot (1 of 3 boots had no video), so the 4K monitor profile, the 2160p stream limit and 3840 × 2160 capture require the UHD mode; elsewhere they are shown as unavailable with the reason. Portrait monitors and the 1440p monitor profile and stream limit need QHD or UHD. In the UHD mode zram defaults to half of the Linux memory (**Half of RAM**, also selectable in the other modes) unless a size was chosen.
 

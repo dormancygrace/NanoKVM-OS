@@ -119,9 +119,13 @@ func (s *SessionSRTP) AcceptStream() (*ReadStreamSRTP, uint32, error) {
 
 // Close ends the session.
 func (s *SessionSRTP) Close() error {
+	// Refuse new batched writes, close the transport (this releases a flush
+	// blocked in Write, which holds the batch mutex), then drop the queue.
+	s.closeBatch()
+	err := s.session.close()
 	s.discardBatch()
 
-	return s.session.close()
+	return err
 }
 
 func (s *SessionSRTP) write(b []byte) (int, error) {

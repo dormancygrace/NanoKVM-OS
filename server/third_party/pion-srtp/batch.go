@@ -5,7 +5,10 @@ package srtp
 
 import (
 	"encoding/binary"
+	"errors"
+	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/rtp"
@@ -152,10 +155,21 @@ const (
 	batchMinPayload = 256
 )
 
+// Lock order and shutdown. mu guards items and timer and, to keep the packets
+// of a stream in order, is held across the encryption and the transport writes
+// of a flush, so a write blocked by transport backpressure keeps mu. Shutdown
+// must therefore not wait for mu before the transport is closed: Close sets
+// closed (atomic, never needs mu), closes the transport so a blocked write
+// returns and releases mu, and only then takes mu to drop what is queued.
+// Under mu the order is mu, then session.localContextMutex. closed is read
+// under mu by the enqueue path and by every flush, again before each
+// transport write, so after Close no enqueue, timer callback or flush starts
+// a write or arms the timer.
 type rtpBatch struct {
-	mu    sync.Mutex
-	items []rtpBatchItem
-	timer *time.Timer
+	closed atomic.Bool
+	mu     sync.Mutex
+	items  []rtpBatchItem
+	timer  *time.Timer
 }
 
 // writeRTPBatched returns handled=false when the packet should be written at
@@ -164,6 +178,9 @@ func (s *SessionSRTP) writeRTPBatched(header *rtp.Header, payload []byte) (n int
 	b := &s.batch
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.closed.Load() {
+		return 0, true, net.ErrClosed
+	}
 	if len(b.items) > 0 {
 		last := b.items[len(b.items)-1]
 		if header.SSRC != last.ssrc {
@@ -209,7 +226,7 @@ func (s *SessionSRTP) writeRTPBatched(header *rtp.Header, payload []byte) (n int
 func (s *SessionSRTP) flushBatchTimer() {
 	s.batch.mu.Lock()
 	defer s.batch.mu.Unlock()
-	if err := s.flushBatchLocked(); err != nil {
+	if err := s.flushBatchLocked(); err != nil && !errors.Is(err, net.ErrClosed) {
 		s.session.log.Debugf("srtp: delayed frame write failed: %v", err)
 	}
 }
@@ -230,10 +247,16 @@ func (s *SessionSRTP) flushBatchLocked() error {
 			items[i] = rtpBatchItem{}
 		}
 	}()
+	if b.closed.Load() {
+		return net.ErrClosed
+	}
 	s.session.localContextMutex.Lock()
 	packets, err := s.localContext.encryptRTPBatch(items)
 	s.session.localContextMutex.Unlock()
 	for _, packet := range packets {
+		if b.closed.Load() {
+			return net.ErrClosed
+		}
 		if _, werr := s.session.nextConn.Write(packet); werr != nil && err == nil {
 			err = werr
 		}
@@ -241,7 +264,14 @@ func (s *SessionSRTP) flushBatchLocked() error {
 	return err
 }
 
-// discardBatch drops a pending frame when the session closes.
+// closeBatch refuses further batched writes. It does not take mu, which a
+// flush blocked in the transport may hold.
+func (s *SessionSRTP) closeBatch() {
+	s.batch.closed.Store(true)
+}
+
+// discardBatch drops a pending frame when the session closes. It takes mu, so
+// it must run after the transport is closed (see the lock order above).
 func (s *SessionSRTP) discardBatch() {
 	b := &s.batch
 	b.mu.Lock()

@@ -28,6 +28,9 @@ first. Counters and rollover state are advanced per packet in order, exactly
 as encryptRTP does; payloads are encrypted per packet (through the optional
 AES-CTR accelerator) and the frame is authenticated in one batch call.
 Cryptex, MKI, RCC modes and other profiles take the per-packet path.
+Close marks the batch closed before it closes the transport and only then drops
+the queue, so a flush blocked in a transport write cannot hold up shutdown;
+after Close nothing is enqueued, flushed or written.
 batch_test.go checks byte equality with EncryptRTP across the sequence-number
 wrap and the session behaviour.
 

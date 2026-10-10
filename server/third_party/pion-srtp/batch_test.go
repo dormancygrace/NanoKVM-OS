@@ -9,7 +9,9 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/sha1" //nolint:gosec
+	"net"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -223,4 +225,112 @@ func TestSessionSRTPBatchesFramesAndKeepsOtherTraffic(t *testing.T) {
 			"ssrc %#x seq %d payload differs", e.ssrc, e.seq)
 	}
 	assert.Equal(t, 2, authCalls, "the frame and the timed-out tail")
+}
+
+// writeProbeConn reports every Write attempt, successful or not, and leaves
+// the wrapped conn (a net.Pipe nobody reads) to block it.
+type writeProbeConn struct {
+	net.Conn
+	writes  atomic.Int32
+	entered chan struct{}
+	once    sync.Once
+}
+
+func (c *writeProbeConn) Write(b []byte) (int, error) {
+	c.writes.Add(1)
+	c.once.Do(func() { close(c.entered) })
+	return c.Conn.Write(b)
+}
+
+// buildBatchingSession returns a session on a probe conn whose peer end is
+// never read, so a transport write blocks until the conn is closed.
+func buildBatchingSession(t *testing.T) (*SessionSRTP, *writeProbeConn) {
+	t.Helper()
+	SetHMACSHA1BatchFactory(func(k []byte) HMACSHA1Batcher {
+		return softwareHMAC{key: append([]byte(nil), k...), calls: new(int)}
+	})
+	t.Cleanup(func() { SetHMACSHA1BatchFactory(nil) })
+	aPipe, bPipe := net.Pipe()
+	t.Cleanup(func() { _ = bPipe.Close() })
+	probe := &writeProbeConn{Conn: aPipe, entered: make(chan struct{})}
+	key, salt := batchTestKeys()
+	session, err := NewSessionSRTP(probe, &Config{
+		Profile: ProtectionProfileAes128CmHmacSha1_80,
+		Keys:    SessionKeys{LocalMasterKey: key, LocalMasterSalt: salt, RemoteMasterKey: key, RemoteMasterSalt: salt},
+	})
+	assert.NoError(t, err)
+	t.Cleanup(func() { _ = aPipe.Close() })
+	return session, probe
+}
+
+// A batch write stuck in the transport must not keep Close from reaching the
+// conn close that releases it.
+func TestSessionSRTPCloseWithBlockedBatchWrite(t *testing.T) {
+	session, probe := buildBatchingSession(t)
+	writer, err := session.OpenWriteStream()
+	assert.NoError(t, err)
+
+	// The first packet of a two-packet frame: only the 2 ms timer flushes it.
+	first := frameBuffers(t, 2, 500)[0]
+	_, err = writer.WriteRTP(&first.Header, first.Payload)
+	assert.NoError(t, err)
+	select {
+	case <-probe.entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the batch timer never wrote the pending packet")
+	}
+
+	closed := make(chan error, 1)
+	go func() { closed <- session.Close() }()
+	select {
+	case err := <-closed:
+		assert.NoError(t, err)
+	case <-time.After(time.Second):
+		_ = probe.Conn.Close() // release the stuck goroutine
+		<-closed
+		t.Fatal("SessionSRTP.Close did not return while a batch write was blocked")
+	}
+}
+
+// Once closed, neither a late enqueue nor a late timer callback starts work.
+func TestSessionSRTPBatchIdleAfterClose(t *testing.T) {
+	session, probe := buildBatchingSession(t)
+	writer, err := session.OpenWriteStream()
+	assert.NoError(t, err)
+	frame := frameBuffers(t, 3, 701)
+
+	b := &session.batch
+	// Packets are queued by hand, so the real 2 ms timer cannot race with
+	// the test.
+	queue := func(seq uint16) {
+		b.mu.Lock()
+		defer b.mu.Unlock()
+		pbuf := bufferpool.Get().(*[]byte) //nolint:forcetypeassert
+		b.items = append(b.items, rtpBatchItem{pbuf: pbuf, buf: *pbuf, n: 12, ssrc: 0x1234, seq: seq})
+	}
+
+	// Close drops a pending frame without writing it.
+	queue(700)
+	assert.NoError(t, session.Close())
+	b.mu.Lock()
+	assert.Empty(t, b.items, "Close drops the pending packets")
+	b.mu.Unlock()
+
+	// Enqueue after Close: refused, nothing queued, no timer, no write.
+	_, err = writer.WriteRTP(&frame[0].Header, frame[0].Payload)
+	assert.ErrorIs(t, err, net.ErrClosed)
+	_, err = writer.WriteRTP(&frame[2].Header, frame[2].Payload) // marker: flush path
+	assert.ErrorIs(t, err, net.ErrClosed)
+
+	// A timer callback that was already running when Close came in finds a
+	// packet queued; it must drop it instead of writing.
+	queue(703)
+	session.flushBatchTimer()
+
+	time.Sleep(3 * batchFlushDelay) // a re-armed real timer would fire here
+	b.mu.Lock()
+	assert.Empty(t, b.items)
+	b.mu.Unlock()
+	assert.Zero(t, probe.writes.Load(), "no transport write after Close")
+	assert.NoError(t, session.Close(), "Close is idempotent")
 }

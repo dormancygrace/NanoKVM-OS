@@ -121,6 +121,9 @@ def validate(base, candidate, monitor, uboot, manifest):
     for key in ("DDR_PARAM_CKSUM", "DDR_PARAM_LOADADDR", "DDR_PARAM_SIZE", "DDR_PARAM_RESERVED",
                 "BLCP_2ND_CKSUM", "BLCP_2ND_LOADADDR", "BLCP_2ND_SIZE", "BLCP_2ND_RUNADDR"):
         require(old2[key] == new2[key], key + " changed")
+    # The M-mode DT reserves no memory at SMALL_CORE_ADDR (platform/opensbi/sg2002.dts),
+    # so a small-core image there would be overwritten by Linux.
+    require(not new["BLCP_2ND"], "BLCP_2ND image requires a small-core reservation in the OpenSBI DT")
     padded_monitor = monitor + bytes((-len(monitor)) % ALIGN)
     require(new["MONITOR"] == padded_monitor, "packaged MONITOR differs")
     require(sha(monitor) == manifest["binary_sha256"], "OpenSBI manifest hash mismatch")
@@ -150,7 +153,7 @@ def validate(base, candidate, monitor, uboot, manifest):
                        for name in sorted(new)},
         "file_spans": [{"name": n, "offset": start, "end": end} for n, start, end in spans],
         "checks": ["parameter CRCs", "all image CRCs", "512-byte alignment", "no file overlaps",
-                   "first-stage bytes", "DDR/small-core bytes", "monitor bytes", "U-Boot decompression",
+                   "first-stage bytes", "DDR/small-core bytes", "no small-core image", "monitor bytes", "U-Boot decompression",
                    "load/run addresses", "320 KiB split RO/RW PMP contract"],
         "hardware_validation": "pending",
         "apk_updates_fip": False

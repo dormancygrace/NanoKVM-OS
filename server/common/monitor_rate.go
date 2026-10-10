@@ -10,8 +10,9 @@ import (
 )
 
 // monitorRates lists the refresh rates of each ordinary monitor height,
-// fastest first: NanoKVM-monitor-<height>-<hz>.bin. A slower profile omits the
-// faster modes of its resolution, so the source cannot pick them.
+// fastest first: NanoKVM-monitor-<height>-<hz>.bin. Each profile lists no
+// mode at or above its resolution other than its own timing, so the source
+// cannot pick another rate.
 var monitorRates = map[uint16][]int{
 	720:  {120, 60, 30},
 	1080: {100, 75, 60, 30},

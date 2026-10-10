@@ -71,8 +71,17 @@ func edgeRecord(t *testing.T, age time.Duration) []byte {
 
 func TestEdgeLineDrainsQueuedEventsInOneRead(t *testing.T) {
 	line, writer := newPipeEdgeLine(t)
-	batch := append(edgeRecord(t, 300*time.Millisecond), edgeRecord(t, 100*time.Millisecond)...)
-	batch = append(batch, edgeRecord(t, 200*time.Millisecond)...)
+	// Use one deterministic clock mapping: CLOCK_MONOTONIC and time.Now
+	// are sampled separately at construction, so wall-clock age has skew.
+	line.monoBase = int64(10 * time.Second)
+	line.base = time.Now().Add(-time.Second)
+	record := func(offset time.Duration) []byte {
+		b := make([]byte, edgeEventSize)
+		binary.NativeEndian.PutUint64(b, uint64(line.monoBase+int64(offset)))
+		return b
+	}
+	batch := append(record(700*time.Millisecond), record(900*time.Millisecond)...)
+	batch = append(batch, record(800*time.Millisecond)...)
 	if _, err := writer.Write(batch); err != nil {
 		t.Fatal(err)
 	}
@@ -80,8 +89,8 @@ func TestEdgeLineDrainsQueuedEventsInOneRead(t *testing.T) {
 	if err != nil || events.Count != 3 {
 		t.Fatalf("events = %+v, err = %v", events, err)
 	}
-	if age := time.Since(events.Last); age < 100*time.Millisecond || age > 150*time.Millisecond {
-		t.Fatalf("newest event mapped to %v ago, want 100ms", age)
+	if want := line.base.Add(900 * time.Millisecond); !events.Last.Equal(want) {
+		t.Fatalf("newest event mapped to %v, want %v", events.Last, want)
 	}
 }
 

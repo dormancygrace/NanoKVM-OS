@@ -27,6 +27,13 @@ const (
 	// IDR. Repeating more often than that would only provoke a second IDR for
 	// a request that is still being served.
 	keyframeRequestInterval = time.Second
+	// A frame larger than the byte limit suggests that the next IDR will not
+	// fit either, so requests are held back for oversizedBackoffMin. That is
+	// a guess, not a proof: the scene or the bitrate can change. Each further
+	// oversized frame after a window has run out doubles the window up to
+	// oversizedBackoffMax, so the retries stay bounded but never stop.
+	oversizedBackoffMin = 2 * time.Second
+	oversizedBackoffMax = 30 * time.Second
 	// Keep in step with the worker (direct.worker.ts): decoderHighWatermark +
 	// flowControlWindow must stay below maxPendingDecodes, or a held ACK
 	// could let the decoder reach the overload reset by itself.
@@ -76,9 +83,14 @@ type frameQueue struct {
 	requestKeyframe     func()
 	now                 func() time.Time
 	lastKeyframeRequest time.Time
-	// A keyframe (or a delta) larger than maxBytes proves that an IDR cannot
-	// be queued either. Requesting more of them only wastes encoder time.
-	keyframeOversized bool
+	// A keyframe (or a delta) larger than maxBytes suggests that an IDR cannot
+	// be queued either, and requesting more of them wastes encoder time.
+	// Requests are suppressed for oversizedBackoff from oversizedAt; the window
+	// grows while oversized frames keep arriving after it ends and is forgotten
+	// by an accepted keyframe. oversizedBackoff == 0 means no oversized frame
+	// is being tracked.
+	oversizedAt      time.Time
+	oversizedBackoff time.Duration
 
 	diag dropDiagnostics
 	// note is a Debug line produced under the mutex and logged after it.
@@ -133,15 +145,48 @@ func (q *frameQueue) summary() string {
 	return q.diag.summary()
 }
 
+// beginOversizedLocked records that a frame exceeded the byte limit and opens
+// the window in which no recovery IDR is requested. A frame inside a running
+// window changes nothing, so a stream of oversized frames cannot push the
+// window out indefinitely or escalate it faster than it elapses. The first
+// frame after a window grows it (2 s, 4 s, ... up to 30 s), since the request
+// that was allowed meanwhile did not help. After a full oversizedBackoffMax
+// without any oversized frame the history is dropped and the window starts at
+// the minimum again.
+func (q *frameQueue) beginOversizedLocked(now time.Time) {
+	end := q.oversizedAt.Add(q.oversizedBackoff)
+	switch {
+	case q.oversizedBackoff == 0 || now.Sub(end) >= oversizedBackoffMax:
+		q.oversizedBackoff = oversizedBackoffMin
+	case now.Before(end):
+		return
+	default:
+		q.oversizedBackoff = min(q.oversizedBackoff*2, oversizedBackoffMax)
+	}
+	q.oversizedAt = now
+}
+
+// oversizedSuppressedLocked reports whether a recent oversized frame still
+// holds requests back.
+func (q *frameQueue) oversizedSuppressedLocked(now time.Time) bool {
+	return q.oversizedBackoff != 0 && now.Before(q.oversizedAt.Add(q.oversizedBackoff))
+}
+
+func (q *frameQueue) resetOversizedLocked() {
+	q.oversizedAt = time.Time{}
+	q.oversizedBackoff = 0
+}
+
 // requestKeyframeLocked starts or repeats the request for a recovery IDR.
 // Callers invoke it whenever the queue is (still) waiting for a keyframe;
 // the interval turns that into one request per drop sequence plus a repeat
-// while the stream stays stalled.
+// while the stream stays stalled. It does nothing while an oversized frame
+// holds requests back (see beginOversizedLocked).
 func (q *frameQueue) requestKeyframeLocked() {
-	if q.keyframeOversized {
+	now := q.now()
+	if q.oversizedSuppressedLocked(now) {
 		return
 	}
-	now := q.now()
 	if !q.lastKeyframeRequest.IsZero() && now.Sub(q.lastKeyframeRequest) < keyframeRequestInterval {
 		return
 	}
@@ -165,7 +210,7 @@ func (q *frameQueue) enableFlowControl(window int) {
 	q.flowControlled = true
 	q.waitingForKeyframe = true
 	q.diag.begin(dropJoin, q.now())
-	q.keyframeOversized = false
+	q.resetOversizedLocked()
 	q.mutex.Unlock()
 }
 
@@ -214,7 +259,7 @@ func (q *frameQueue) offer(frame *outboundFrame) bool {
 		q.clearFramesLocked()
 		if len(frame.payload) > q.maxBytes {
 			q.startWaitLocked(dropOversizedKeyframe)
-			q.keyframeOversized = true
+			q.beginOversizedLocked(q.now())
 			q.diag.oversizedKeyframes++
 			q.noteLocked(dropEvent{dropOversizedKeyframe, queuedFrames, queuedBytes, len(frame.payload)})
 			return false
@@ -223,7 +268,7 @@ func (q *frameQueue) offer(frame *outboundFrame) bool {
 			q.note = q.diag.recovered(q.now())
 		}
 		q.waitingForKeyframe = false
-		q.keyframeOversized = false
+		q.resetOversizedLocked()
 		q.pushLocked(frame)
 		q.signalLocked()
 		return true
@@ -268,11 +313,18 @@ func (q *frameQueue) offer(frame *outboundFrame) bool {
 	return true
 }
 
-// dropDeltaLocked asks for a recovery IDR after a delta was refused, unless
-// that single frame already exceeds the byte limit: the IDR would too.
+// dropDeltaLocked asks for a recovery IDR after a delta was refused. A delta
+// that alone exceeds the byte limit starts the suppression window
+// instead: the IDR would probably not fit either. When such a frame arrives
+// after the previous window ran out, the request that window held back is made
+// first, so a stream of oversized deltas still gets a bounded retry.
 func (q *frameQueue) dropDeltaLocked(oversized bool) {
 	if oversized {
-		q.keyframeOversized = true
+		now := q.now()
+		if q.oversizedBackoff != 0 && !q.oversizedSuppressedLocked(now) {
+			q.requestKeyframeLocked()
+		}
+		q.beginOversizedLocked(now)
 		return
 	}
 	q.requestKeyframeLocked()
@@ -324,7 +376,7 @@ func (q *frameQueue) requestResync() {
 		q.diag.resyncs++
 		q.noteLocked(dropEvent{dropResync, queuedFrames, queuedBytes, 0})
 	}
-	q.keyframeOversized = false
+	q.resetOversizedLocked()
 	// The caller forwards the browser request itself; do not repeat it for
 	// the deltas that are refused until that IDR arrives.
 	q.lastKeyframeRequest = q.now()

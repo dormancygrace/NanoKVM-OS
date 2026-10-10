@@ -17,8 +17,10 @@ import (
 //	queue-bytes        the pending bytes exceeded the limit; large frames
 //	discontinuity      no client could accept a frame, so the shared source
 //	                   advanced past this client; every ACK credit was in flight
-//	oversized-delta    one frame alone exceeded the byte limit
-//	oversized-keyframe the recovery IDR itself did not fit
+//	oversized-delta    one frame alone exceeded the byte limit; keyframe
+//	                   requests pause for oversized_backoff (2 s, doubling to
+//	                   30 s while oversized frames keep arriving)
+//	oversized-keyframe the recovery IDR itself did not fit (same pause)
 //	resync             the browser decoder asked for it (decode error/overload)
 //	join               a new viewer waiting for its first keyframe
 const (
@@ -79,10 +81,10 @@ func (d *dropDiagnostics) note(now time.Time, event dropEvent, q *frameQueue) st
 	}
 	d.lastLog = now
 	return fmt.Sprintf("direct stream drop: reason=%s frame_bytes=%d queued=%d/%d frames %d/%d bytes in_flight=%d/%d "+
-		"overflows=%d discontinuities=%d oversized=%d/%d refused_deltas=%d keyframe_requests=%d",
+		"overflows=%d discontinuities=%d oversized=%d/%d refused_deltas=%d keyframe_requests=%d oversized_backoff=%s",
 		event.reason, event.frameBytes, event.queuedFrames, q.maxFrames, event.queuedBytes, q.maxBytes,
 		len(q.inFlight), q.window, d.overflows, d.discontinuities, d.oversizedDeltas, d.oversizedKeyframes,
-		d.deltasRefused, d.keyframeRequests)
+		d.deltasRefused, d.keyframeRequests, q.oversizedBackoff)
 }
 
 // recovered closes the sequence; the line is not rate limited because a long

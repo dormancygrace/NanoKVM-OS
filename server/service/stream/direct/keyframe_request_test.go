@@ -81,7 +81,7 @@ func TestByteOverflowRequestsKeyframe(t *testing.T) {
 	probe.expect(t, 1, "combined size over the limit")
 }
 
-func TestOversizedFramesDoNotRequestKeyframes(t *testing.T) {
+func TestOversizedFramesDoNotRequestKeyframesInsideTheWindow(t *testing.T) {
 	var probe keyframeProbe
 	q := probe.attach(newFrameQueue(8, 100))
 	q.offer(keyOfSize(1, 20))
@@ -89,23 +89,155 @@ func TestOversizedFramesDoNotRequestKeyframes(t *testing.T) {
 		t.Fatal("delta above the byte limit was accepted")
 	}
 	probe.expect(t, 0, "single delta above the byte limit")
-	probe.advance(10 * keyframeRequestInterval)
+	probe.advance(oversizedBackoffMin - time.Millisecond)
 	q.offer(deltaOfSize(3, 10))
-	probe.expect(t, 0, "later deltas while an IDR cannot fit")
+	probe.expect(t, 0, "later deltas inside the suppression window")
 
 	if q.offer(keyOfSize(4, 100)) {
 		t.Fatal("keyframe above the byte limit was accepted")
 	}
-	probe.advance(10 * keyframeRequestInterval)
+	probe.advance(time.Millisecond)
 	q.offer(deltaOfSize(5, 10))
-	probe.expect(t, 0, "keyframe above the byte limit")
+	probe.expect(t, 1, "oversized keyframe inside the window does not extend it")
+	q.offer(deltaOfSize(6, 10))
+	probe.expect(t, 1, "second refused delta right after the request")
 
 	// A keyframe that fits proves requests are useful again.
-	if !q.offer(keyOfSize(6, 20)) {
+	if !q.offer(keyOfSize(7, 20)) {
 		t.Fatal("fitting keyframe rejected")
 	}
+	probe.advance(keyframeRequestInterval)
 	q.markDiscontinuity()
-	probe.expect(t, 1, "discontinuity after recovery")
+	probe.expect(t, 2, "discontinuity after recovery")
+}
+
+func TestRecoveryAfterTransientOversizedDelta(t *testing.T) {
+	var p keyframeProbe
+	q := p.attach(newFrameQueue(8, 100))
+	q.offer(keyOfSize(1, 20))
+	q.offer(deltaOfSize(2, 200))
+	p.advance(2 * time.Second)
+	q.offer(deltaOfSize(3, 10))
+	if p.requests == 0 {
+		t.Fatal("recovery requests remain disabled after a transient oversized frame")
+	}
+	p.expect(t, 1, "first request after the window")
+	if !q.offer(keyOfSize(4, 20)) {
+		t.Fatal("recovery keyframe rejected")
+	}
+}
+
+func TestOversizedKeyframeRequestsBackOff(t *testing.T) {
+	var p keyframeProbe
+	q := p.attach(newFrameQueue(8, 100))
+	// The encoder answers every request with an IDR that does not fit, one
+	// step later. The window after each oversized IDR is 2, 4, 8, 16 and then
+	// 30 s, so requests go out at ~2.0, ~6.1, ~14.2 and ~30.3 s; the next one
+	// is due at ~60.4 s, after the observed period.
+	const step = 100 * time.Millisecond
+	q.offer(keyOfSize(1, 200))
+	var times []time.Duration
+	var elapsed time.Duration
+	answered := p.requests
+	for ts := int64(2); elapsed < 60*time.Second; ts++ {
+		p.advance(step)
+		elapsed += step
+		if p.requests != answered {
+			answered = p.requests
+			q.offer(keyOfSize(ts, 200))
+			continue
+		}
+		q.offer(deltaOfSize(ts, 10))
+		if p.requests != answered {
+			times = append(times, elapsed)
+		}
+	}
+	want := []time.Duration{2 * time.Second, 6100 * time.Millisecond, 14200 * time.Millisecond, 30300 * time.Millisecond}
+	if len(times) != len(want) {
+		t.Fatalf("requests at %v, want at %v", times, want)
+	}
+	for i := range want {
+		if times[i] != want[i] {
+			t.Fatalf("requests at %v, want at %v", times, want)
+		}
+	}
+	if q.oversizedBackoff != oversizedBackoffMax {
+		t.Fatalf("window = %v, want the %v cap", q.oversizedBackoff, oversizedBackoffMax)
+	}
+}
+
+func TestOversizedBackoffIsCapped(t *testing.T) {
+	var p keyframeProbe
+	q := p.attach(newFrameQueue(8, 100))
+	q.offer(keyOfSize(1, 200))
+	for range 10 {
+		p.advance(oversizedBackoffMax)
+		q.offer(keyOfSize(2, 200)) // arrives right after the previous window
+	}
+	if q.oversizedBackoff != oversizedBackoffMax {
+		t.Fatalf("window = %v, want the %v cap", q.oversizedBackoff, oversizedBackoffMax)
+	}
+	before := p.requests
+	p.advance(oversizedBackoffMax)
+	q.offer(deltaOfSize(3, 10))
+	p.expect(t, before+1, "request after a capped window")
+}
+
+func TestSustainedOversizedDeltasStillRetry(t *testing.T) {
+	var p keyframeProbe
+	q := p.attach(newFrameQueue(8, 100))
+	q.offer(keyOfSize(1, 20))
+	// Every delta is too big and no IDR is ever produced: the retries stay
+	// bounded by the backoff instead of stopping for good.
+	for ts := int64(2); ts < 2+60*30; ts++ {
+		p.advance(time.Second / 30)
+		q.offer(deltaOfSize(ts, 200))
+	}
+	if p.requests < 3 || p.requests > 6 {
+		t.Fatalf("%d requests in 60 s of oversized deltas, want 3..6", p.requests)
+	}
+}
+
+func TestOversizedWindowIsForgottenAfterQuietPeriod(t *testing.T) {
+	var p keyframeProbe
+	q := p.attach(newFrameQueue(8, 100))
+	q.offer(keyOfSize(1, 200))
+	p.advance(oversizedBackoffMin)
+	q.offer(keyOfSize(2, 200))
+	if q.oversizedBackoff != 2*oversizedBackoffMin {
+		t.Fatalf("window = %v, want it doubled", q.oversizedBackoff)
+	}
+	p.advance(q.oversizedBackoff + oversizedBackoffMax)
+	q.offer(keyOfSize(3, 200))
+	if q.oversizedBackoff != oversizedBackoffMin {
+		t.Fatalf("window = %v after a quiet period, want %v", q.oversizedBackoff, oversizedBackoffMin)
+	}
+}
+
+func TestFittingKeyframeResetsTheBackoff(t *testing.T) {
+	var p keyframeProbe
+	q := p.attach(newFrameQueue(8, 100))
+	q.offer(keyOfSize(1, 200))
+	for range 2 {
+		p.advance(q.oversizedBackoff)
+		q.offer(keyOfSize(2, 200))
+	}
+	if q.oversizedBackoff != 4*oversizedBackoffMin {
+		t.Fatalf("window = %v, expected it to have grown to %v", q.oversizedBackoff, 4*oversizedBackoffMin)
+	}
+	if !q.offer(keyOfSize(3, 20)) {
+		t.Fatal("fitting keyframe rejected")
+	}
+	before := p.requests
+	q.markDiscontinuity()
+	p.expect(t, before+1, "discontinuity right after a fitting keyframe")
+
+	// The next oversized frame starts again at the minimum window.
+	p.advance(keyframeRequestInterval)
+	q.offer(deltaOfSize(4, 200))
+	p.advance(oversizedBackoffMin)
+	q.offer(deltaOfSize(5, 10))
+	p.expect(t, before+2, "request after one minimum window")
 }
 
 func TestMarkDiscontinuityRequestsKeyframe(t *testing.T) {

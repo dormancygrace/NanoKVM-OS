@@ -20,7 +20,7 @@ cd web && pnpm install --frozen-lockfile && pnpm dev
 cd server && CGO_ENABLED=0 go test -tags teststub ./...
 ```
 
-A release-equivalent server needs the NanoKVM Go runtime (`firmware/cpu/sysmon-runtime`) and the native libraries of the same build; `platform/build.sh native server` builds both. See [UPDATES.md](UPDATES.md) for the native APK update flow.
+A release-equivalent server needs the NanoKVM Go runtime (`firmware/cpu/sysmon-runtime`, which also adds the C906 ChaCha20 of `firmware/cpu/go-crypto-c906`) and the native libraries of the same build; `platform/build.sh native server` builds both. See [UPDATES.md](UPDATES.md) for the native APK update flow.
 
 ## Dependency maintenance
 

@@ -21,8 +21,10 @@ import (
 
 // Direction bits from enum gpio_v2_line_flag in linux/gpio.h.
 const (
-	flagInput  uint64 = 1 << 2
-	flagOutput uint64 = 1 << 3
+	flagInput       uint64 = 1 << 2
+	flagOutput      uint64 = 1 << 3
+	flagEdgeRising  uint64 = 1 << 4
+	flagEdgeFalling uint64 = 1 << 5
 )
 
 type Line interface {
@@ -111,28 +113,38 @@ func Open(device string, output bool) (Line, error) {
 		}
 		return &sysfsLine{path: device}, nil
 	}
+	fd, err := requestV2(device, func(offset uint32) unix.GPIOV2LineRequest { return request(offset, output) })
+	if err != nil {
+		return nil, err
+	}
+	return &cdevLine{fd: fd}, nil
+}
+
+// requestV2 finds the gpiochip labelled in a "gpio-v2:<label>:<offset>"
+// device and requests the line described by build, returning the line fd.
+func requestV2(device string, build func(offset uint32) unix.GPIOV2LineRequest) (int, error) {
 	parts := strings.Split(device, ":")
 	if len(parts) != 3 || parts[1] == "" {
-		return nil, fmt.Errorf("invalid GPIO-v2 device %q", device)
+		return -1, fmt.Errorf("invalid GPIO-v2 device %q", device)
 	}
 	offset, err := strconv.ParseUint(parts[2], 10, 32)
 	if err != nil {
-		return nil, err
+		return -1, err
 	}
 	paths, err := filepath.Glob("/dev/gpiochip*")
 	if err != nil {
-		return nil, err
+		return -1, err
 	}
 	for _, path := range paths {
 		fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 		if err != nil {
-			return nil, fmt.Errorf("open %s: %w", path, err)
+			return -1, fmt.Errorf("open %s: %w", path, err)
 		}
 		var info unix.GPIOChipInfo
 		err = ioctl(fd, unix.GPIO_GET_CHIPINFO_IOCTL, unsafe.Pointer(&info))
 		if err != nil {
 			unix.Close(fd)
-			return nil, err
+			return -1, err
 		}
 		if unix.ByteSliceToString(info.Label[:]) != parts[1] {
 			unix.Close(fd)
@@ -140,17 +152,17 @@ func Open(device string, output bool) (Line, error) {
 		}
 		if uint32(offset) >= info.Lines {
 			unix.Close(fd)
-			return nil, errors.New("GPIO line outside controller")
+			return -1, errors.New("GPIO line outside controller")
 		}
-		req := request(uint32(offset), output)
+		req := build(uint32(offset))
 		err = ioctl(fd, unix.GPIO_V2_GET_LINE_IOCTL, unsafe.Pointer(&req))
 		unix.Close(fd)
 		if err != nil {
-			return nil, fmt.Errorf("request %s: %w", device, err)
+			return -1, fmt.Errorf("request %s: %w", device, err)
 		}
-		return &cdevLine{fd: int(req.Fd)}, nil
+		return int(req.Fd), nil
 	}
-	return nil, fmt.Errorf("GPIO controller %q not found", parts[1])
+	return -1, fmt.Errorf("GPIO controller %q not found", parts[1])
 }
 
 func request(offset uint32, output bool) unix.GPIOV2LineRequest {

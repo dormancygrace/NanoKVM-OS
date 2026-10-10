@@ -1,0 +1,245 @@
+diff --git a/modules/venc/src/cvi_venc.c b/modules/venc/src/cvi_venc.c
+index 56e4a3c..11bcb82 100644
+--- a/modules/venc/src/cvi_venc.c
++++ b/modules/venc/src/cvi_venc.c
+@@ -2,6 +2,7 @@
+ #include <fcntl.h>
+ #include <unistd.h>
+ #include <sys/ioctl.h>
++#include <sys/mman.h>
+ #include <stdlib.h>
+ 
+ #include "devmem.h"
+@@ -41,8 +42,171 @@ static CVI_S32 s32DevmemFd = -1;
+ static CVI_U32 u32ChannelCreatedCnt;
+ 
+ CVI_S32 s32VencFd[VENC_MAX_CHN_NUM] = {0};
++/* Exported but no longer used: the pack bookkeeping is in stChnMap below. */
+ CVI_U8 *pStreamPackArray[VENC_MAX_CHN_NUM][8] = {NULL};
+ 
++/*
++ * Stream pack mappings.
++ *
++ * The driver returns every pack by physical address. GetStream used to mmap
++ * each pack through /dev/mem and ReleaseStream to munmap it: per frame two
++ * system calls, page-table setup and a TLB flush. A channel's packs lie in a
++ * few long-lived buffers (its bitstream buffer, the driver's header copies),
++ * so each channel keeps read-only windows over them and hands out pointers
++ * into those. A pack that fits no window and finds no idle slot is mapped
++ * alone, as before. NANOKVM_VENC_PACK_WINDOWS=0 restores the old mapping.
++ *
++ * The state is per channel and, like the vendor's pack array before it, is
++ * only used by GetStream, ReleaseStream and DestroyChn of that channel, which
++ * the caller does not run concurrently. No lock is taken.
++ *
++ * Cache coherence is unchanged. The windows use the same cached /dev/mem
++ * descriptor as the per-pack mappings did, and creating or removing a mapping
++ * does no cache maintenance, so a fresh mapping never hid stale lines. What
++ * makes the bytes current is the driver: it invalidates the range the encoder
++ * wrote by physical address before it publishes a pack, and packs the CPU
++ * wrote (headers, user data) are coherent in the physically tagged data cache.
++ * Read-only windows cannot create dirty lines over memory the kernel reuses.
++ *
++ * A window starts at the page of the pack that created it and ends at the
++ * next VENC_MAP_GRANULE boundary after it, so it never reaches below a pack
++ * or across a granule boundary that the pack itself does not cross.
++ */
++#define VENC_MAP_WINDOWS	4
++#define VENC_MAP_GRANULE	(1ULL << 20)
++#define VENC_MAP_PACKS		16
++
++typedef struct {
++	CVI_U64 u64Base;	/* page-aligned physical start */
++	CVI_U64 u64End;		/* physical end, exclusive */
++	CVI_U8 *pu8Virt;	/* NULL if the slot is free */
++	CVI_U32 u32Users;	/* packs of the current stream in it */
++	CVI_U64 u64Stamp;	/* last use */
++} VENC_MAP_WINDOW_S;
++
++typedef struct {
++	CVI_BOOL bMapped;	/* the pack had an address and a length */
++	CVI_U8 *pu8KernelAddr;	/* restored on release, as before */
++	CVI_U8 *pu8Single;	/* pack mapped alone, or NULL */
++	CVI_U32 u32Len;
++	CVI_S32 s32Window;	/* window holding the pack, or -1 */
++} VENC_PACK_MAP_S;
++
++typedef struct {
++	VENC_MAP_WINDOW_S stWindow[VENC_MAP_WINDOWS];
++	CVI_U64 u64Stamp;
++	VENC_PACK_MAP_S stPack[VENC_MAP_PACKS];
++	CVI_U32 u32Packs;	/* entries of stPack in use */
++} VENC_CHN_MAP_S;
++
++static VENC_CHN_MAP_S stChnMap[VENC_MAX_CHN_NUM];
++static CVI_S32 s32PackWindows = -1;	/* -1 until the environment is read */
++
++static CVI_U8 *vencMapPack(VENC_CHN_MAP_S *pstChn, CVI_U64 u64PhyAddr, CVI_U32 u32Len,
++			   VENC_PACK_MAP_S *pstMap)
++{
++	const CVI_U64 u64End = u64PhyAddr + u32Len;
++	VENC_MAP_WINDOW_S *pstWin;
++	CVI_S32 i, s32Slot = -1;
++
++	pstMap->pu8Single = NULL;
++	pstMap->u32Len = u32Len;
++	pstMap->s32Window = -1;
++	if (s32PackWindows < 0) {
++		const char *pszEnv = getenv("NANOKVM_VENC_PACK_WINDOWS");
++
++		s32PackWindows = !(pszEnv && pszEnv[0] == '0');
++	}
++	if (!s32PackWindows || s32DevmemFd < 0 || u64End <= u64PhyAddr)
++		goto single;
++	for (i = 0; i < VENC_MAP_WINDOWS; i++) {
++		pstWin = &pstChn->stWindow[i];
++		if (pstWin->pu8Virt && pstWin->u64Base <= u64PhyAddr && u64End <= pstWin->u64End) {
++			s32Slot = i;
++			goto found;
++		}
++	}
++	/* A free slot, else the least recently used idle window. */
++	for (i = 0; i < VENC_MAP_WINDOWS; i++) {
++		pstWin = &pstChn->stWindow[i];
++		if (!pstWin->pu8Virt) {
++			s32Slot = i;
++			break;
++		}
++		if (pstWin->u32Users == 0 &&
++		    (s32Slot < 0 || pstWin->u64Stamp < pstChn->stWindow[s32Slot].u64Stamp))
++			s32Slot = i;
++	}
++	if (s32Slot >= 0) {
++		const CVI_U64 u64Page = (CVI_U64)sysconf(_SC_PAGE_SIZE);
++		const CVI_U64 u64Base = u64PhyAddr & ~(u64Page - 1);
++		const CVI_U64 u64WinEnd = (u64End + VENC_MAP_GRANULE - 1) & ~(VENC_MAP_GRANULE - 1);
++		void *pVirt = mmap(NULL, u64WinEnd - u64Base, PROT_READ, MAP_SHARED,
++				   s32DevmemFd, (off_t)u64Base);
++
++		if (pVirt != MAP_FAILED) {
++			pstWin = &pstChn->stWindow[s32Slot];
++			if (pstWin->pu8Virt)
++				munmap(pstWin->pu8Virt, pstWin->u64End - pstWin->u64Base);
++			pstWin->u64Base = u64Base;
++			pstWin->u64End = u64WinEnd;
++			pstWin->pu8Virt = pVirt;
++			pstWin->u32Users = 0;
++			goto found;
++		}
++	}
++single:
++	pstMap->pu8Single = devm_map(s32DevmemFd, u64PhyAddr, u32Len);
++	return pstMap->pu8Single;
++
++found:
++	pstWin = &pstChn->stWindow[s32Slot];
++	pstWin->u32Users++;
++	pstWin->u64Stamp = ++pstChn->u64Stamp;
++	pstMap->s32Window = s32Slot;
++	return pstWin->pu8Virt + (u64PhyAddr - pstWin->u64Base);
++}
++
++/* Drop the packs of the channel's current stream; restore their kernel addresses. */
++static CVI_VOID vencUnmapPacks(VENC_CHN_MAP_S *pstChn, VENC_STREAM_S *pstStream)
++{
++	CVI_U32 i;
++
++	for (i = 0; i < pstChn->u32Packs; i++) {
++		VENC_PACK_MAP_S *pstMap = &pstChn->stPack[i];
++
++		if (!pstMap->bMapped)
++			continue;
++		if (pstMap->s32Window >= 0) {
++			if (pstChn->stWindow[pstMap->s32Window].u32Users > 0)
++				pstChn->stWindow[pstMap->s32Window].u32Users--;
++		} else if (pstMap->pu8Single) {
++			devm_unmap(pstMap->pu8Single, pstMap->u32Len);
++		}
++		if (pstStream && i < pstStream->u32PackCount)
++			pstStream->pstPack[i].pu8Addr = pstMap->pu8KernelAddr;
++		pstMap->bMapped = CVI_FALSE;
++		pstMap->pu8Single = NULL;
++		pstMap->s32Window = -1;
++	}
++	pstChn->u32Packs = 0;
++}
++
++/* Unmap every window of a channel whose stream is released. */
++static CVI_VOID vencUnmapWindows(VENC_CHN_MAP_S *pstChn)
++{
++	CVI_S32 i;
++
++	for (i = 0; i < VENC_MAP_WINDOWS; i++) {
++		VENC_MAP_WINDOW_S *pstWin = &pstChn->stWindow[i];
++
++		if (pstWin->pu8Virt)
++			munmap(pstWin->pu8Virt, pstWin->u64End - pstWin->u64Base);
++		pstWin->pu8Virt = NULL;
++		pstWin->u32Users = 0;
++	}
++}
++
+ static CVI_S32 cviGetEnv(CVI_CHAR *env, CVI_CHAR *fmt, CVI_VOID *param)
+ {
+ 	CVI_CHAR *debugEnv;
+@@ -163,6 +327,9 @@ CVI_S32 CVI_VENC_DestroyChn(VENC_CHN VeChn)
+ 		}
+ 		close(s32VencFd[VeChn]);
+ 		s32VencFd[VeChn] = 0;
++		/* The driver freed the channel's buffers: no pack pointer stays valid. */
++		vencUnmapPacks(&stChnMap[VeChn], NULL);
++		vencUnmapWindows(&stChnMap[VeChn]);
+ 	}
+ 
+ 	u32ChannelCreatedCnt -= 1;
+@@ -234,14 +401,29 @@ CVI_S32 CVI_VENC_GetStream(VENC_CHN VeChn, VENC_STREAM_S *pstStream, CVI_S32 S32
+ 		s32Ret = ioctl(s32VencFd[VeChn], CVI_VC_VENC_GET_STREAM, pstStreamEx);
+ 
+ 		if (s32Ret == CVI_SUCCESS) {
++			VENC_CHN_MAP_S *pstChn = &stChnMap[VeChn];
+ 			CVI_U32 i = 0;
+ 			VENC_PACK_S *ppack;
+ 
++			/* A stream that was not released: its pointers are invalid now. */
++			vencUnmapPacks(pstChn, NULL);
+ 			for (i = 0; i < pstStreamEx->pstStream->u32PackCount; i++) {
++				VENC_PACK_MAP_S *pstMap;
++
+ 				ppack = &pstStreamEx->pstStream->pstPack[i];
+-				if (ppack->u64PhyAddr && ppack->u32Len) {
+-					pStreamPackArray[VeChn][i] = ppack->pu8Addr;
+-					ppack->pu8Addr = devm_map(s32DevmemFd, ppack->u64PhyAddr, ppack->u32Len);
++				if (i >= VENC_MAP_PACKS) {
++					/* The driver returns at most MAX_NUM_PACKS (12). */
++					ppack->pu8Addr = NULL;
++					continue;
++				}
++				pstMap = &pstChn->stPack[i];
++				pstMap->bMapped = ppack->u64PhyAddr && ppack->u32Len;
++				pstMap->pu8Single = NULL;
++				pstMap->s32Window = -1;
++				pstChn->u32Packs = i + 1;
++				if (pstMap->bMapped) {
++					pstMap->pu8KernelAddr = ppack->pu8Addr;
++					ppack->pu8Addr = vencMapPack(pstChn, ppack->u64PhyAddr, ppack->u32Len, pstMap);
+ 				}
+ 			}
+ 		}
+@@ -253,16 +435,7 @@ CVI_S32 CVI_VENC_GetStream(VENC_CHN VeChn, VENC_STREAM_S *pstStream, CVI_S32 S32
+ CVI_S32 CVI_VENC_ReleaseStream(VENC_CHN VeChn, VENC_STREAM_S *pstStream)
+ {
+ 	if (s32VencFd[VeChn] > 0) {
+-		CVI_U32 i = 0;
+-		VENC_PACK_S *ppack;
+-
+-		for (i = 0; i < pstStream->u32PackCount; i++) {
+-			ppack = &pstStream->pstPack[i];
+-			if (ppack->u64PhyAddr && ppack->u32Len) {
+-				devm_unmap(ppack->pu8Addr, ppack->u32Len);
+-				ppack->pu8Addr = pStreamPackArray[VeChn][i];
+-			}
+-		}
++		vencUnmapPacks(&stChnMap[VeChn], pstStream);
+ 		return ioctl(s32VencFd[VeChn], CVI_VC_VENC_RELEASE_STREAM, pstStream);
+ 	}
+ 	return CVI_FAILURE;

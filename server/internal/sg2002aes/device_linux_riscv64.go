@@ -22,7 +22,12 @@ func Open(onError func(error)) (*Device, error) {
 		onError: onError,
 		closeFD: f.Close,
 		submit: func(r *request) error {
-			_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, fd, command, uintptr(unsafe.Pointer(r)))
+			// The module polls a ~20 us transfer and never sleeps on the device.
+			// A runtime-visible syscall that long lets sysmon hand the only P to
+			// another thread; on the C906 that doubled the CPU cost of a 1200-byte
+			// packet (64 to 30 us). Contention for the module lock (other Crypto
+			// API users) is bounded by their 4 KiB chunks.
+			_, _, errno := syscall.RawSyscall(syscall.SYS_IOCTL, fd, command, uintptr(unsafe.Pointer(r)))
 			runtime.KeepAlive(r)
 			if errno != 0 {
 				return errno

@@ -7,3 +7,6 @@ package runtime
 
 func nanokvmSysmonInit() {}
 func nanokvmThreadInit() {}
+
+//go:nosplit
+func nanokvmSysmonDelay(delay uint32) uint32 { return delay }

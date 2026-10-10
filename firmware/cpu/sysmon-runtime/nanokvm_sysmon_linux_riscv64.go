@@ -8,8 +8,17 @@ import "internal/runtime/atomic"
 var nanokvmSysmonSlack atomic.Uintptr
 var nanokvmInheritedSlack atomic.Uintptr
 
+// Minimum sysmon sleep in microseconds while GOMAXPROCS is 1; 0 disables it.
+// Only the sysmon thread writes (once, at startup) and reads this word.
+var nanokvmSysmonMinDelay uint32
+
 // These startup hooks run without a P. They must not allocate or block.
 func nanokvmSysmonInit() {
+	nanokvmSysmonSlackInit()
+	nanokvmSysmonMinDelayInit()
+}
+
+func nanokvmSysmonSlackInit() {
 	var requested uintptr
 	switch gogetenv("NANOKVM_SYSMON_TIMER_SLACK_NS") {
 	case "", "0":
@@ -31,6 +40,34 @@ func nanokvmSysmonInit() {
 	// before this startup hook returns.
 	nanokvmInheritedSlack.Store(uintptr(inherited))
 	nanokvmSysmonSlack.Store(requested)
+}
+
+func nanokvmSysmonMinDelayInit() {
+	switch gogetenv("NANOKVM_SYSMON_MIN_DELAY_US") {
+	case "", "0":
+	case "500":
+		nanokvmSysmonMinDelay = 500
+	case "1000":
+		nanokvmSysmonMinDelay = 1000
+	case "2000":
+		nanokvmSysmonMinDelay = 2000
+	default:
+		print("runtime: ignored invalid NanoKVM sysmon minimum delay\n")
+	}
+}
+
+// nanokvmSysmonDelay returns the sleep for one sysmon iteration. sysmon's own
+// delay/idle state is not modified, so its backoff is unchanged above the
+// floor. gomaxprocs is read on every iteration (racily, like sysmon itself),
+// so a runtime GOMAXPROCS change applies from the next iteration. Runs on
+// sysmon without a P: no allocation, no write barriers.
+//
+//go:nosplit
+func nanokvmSysmonDelay(delay uint32) uint32 {
+	if floor := nanokvmSysmonMinDelay; floor > delay && gomaxprocs == 1 {
+		return floor
+	}
+	return delay
 }
 
 func nanokvmThreadInit() {

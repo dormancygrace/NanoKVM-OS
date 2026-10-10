@@ -531,7 +531,8 @@ system() {
     cp "$s/out/kvm_system" "$img/system/"
 }
 
-# NanoKVM-Server with the NanoKVM Go runtime (firmware/cpu/sysmon-runtime),
+# NanoKVM-Server with the NanoKVM Go runtime and C906 ChaCha20
+# (firmware/cpu/sysmon-runtime, firmware/cpu/go-crypto-c906),
 # and the static update helpers. Go modules are checked against go.sum.
 server() {
     local s=$out/server

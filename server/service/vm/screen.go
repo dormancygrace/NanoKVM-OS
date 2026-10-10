@@ -3,6 +3,7 @@ package vm
 import (
 	"NanoKVM-Server/common"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -106,6 +107,25 @@ func settingFailure(code int, msg string) *settingError { return &settingError{c
 // validateScreenSetting checks a setting without changing anything, so a
 // batch can reject a request before applying any part of it.
 func validateScreenSetting(req proto.SetScreenReq) *settingError {
+	return validateScreenSettingIn(req, nil)
+}
+
+// mjpegSelectionFailure refuses MJPEG while the HDMI input is 3840x2160. Inside
+// a batch the monitor it also sets decides, as it changes the input.
+func mjpegSelectionFailure(batch *VideoSettingsReq) *settingError {
+	width, height := captureInput()
+	if batch != nil && batch.Monitor != nil && *batch.Monitor > 0 && *batch.Monitor <= math.MaxUint16 {
+		width, height = int(common.ResolutionMap[uint16(*batch.Monitor)]), *batch.Monitor
+	}
+	if !common.MjpegAllowedFor(width, height) {
+		return settingFailure(-3, common.MjpegBlockedMessage)
+	}
+	return nil
+}
+
+// validateScreenSettingIn is validateScreenSetting for a setting that is part
+// of a batch (nil for a single one).
+func validateScreenSettingIn(req proto.SetScreenReq, batch *VideoSettingsReq) *settingError {
 	switch req.Type {
 	case "mjpeg_chroma":
 		if req.Value != 420 && req.Value != 422 {
@@ -156,6 +176,9 @@ func validateScreenSetting(req proto.SetScreenReq) *settingError {
 	case "type":
 		if req.Value < 0 || req.Value > 2 {
 			return settingFailure(-1, "stream type must be MJPEG, H.264, or H.265")
+		}
+		if req.Value == 0 {
+			return mjpegSelectionFailure(batch)
 		}
 	case "gop":
 	case "gop_mode":

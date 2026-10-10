@@ -2,13 +2,35 @@ package mjpeg
 
 import (
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+
+	"NanoKVM-Server/common"
+	"NanoKVM-Server/proto"
 )
 
 var streamer = NewStreamer()
+
+var mjpegAllowed = common.MjpegAllowed
+
+// blockedLogged keeps the log to one line per blocked period.
+var blockedLogged atomic.Bool
+
+// mjpegBlocked reports whether MJPEG is unavailable now. It logs once at
+// Info when it becomes so, and again after it was available in between.
+func mjpegBlocked() bool {
+	if mjpegAllowed() {
+		blockedLogged.Store(false)
+		return false
+	}
+	if !blockedLogged.Swap(true) {
+		log.Info(common.MjpegBlockedMessage)
+	}
+	return true
+}
 
 type LatestFrame struct {
 	Data       []byte
@@ -18,6 +40,11 @@ type LatestFrame struct {
 }
 
 func Connect(c *gin.Context) {
+	if mjpegBlocked() {
+		c.AbortWithStatusJSON(http.StatusConflict, proto.Response{Code: -3, Msg: common.MjpegBlockedMessage})
+		return
+	}
+
 	c.Header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")

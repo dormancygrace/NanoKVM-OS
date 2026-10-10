@@ -74,6 +74,8 @@ func (s *Service) captureScreenshot(ctx context.Context, query ScreenshotQuery) 
 		}
 		data, result := s.vision.ReadMjpeg(width, height, quality)
 		switch {
+		case result == common.MjpegBlockedResult:
+			return nil, ScreenshotMeta{}, newPicoclawError(CodeScreenshotFailed, common.MjpegBlockedMessage)
 		case result == 5 || result == -3 || result == -4 || result == -5:
 			if attempt < screenshotRetryCount-1 {
 				timer := time.NewTimer(screenshotRetryDelay)

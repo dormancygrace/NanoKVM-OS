@@ -242,6 +242,13 @@ func (s *Streamer) run() {
 			continue
 		}
 
+		// The source may have become 3840x2160 since the viewers connected.
+		if mjpegBlocked() {
+			stream.UpdateCaptureStatus(stream.CaptureModeMJPEG, common.MjpegBlockedResult)
+			delivery.last = nil
+			continue
+		}
+
 		data, result := vision.ReadMjpeg(screen.Width, screen.Height, screen.Quality)
 		stream.UpdateCaptureStatus(stream.CaptureModeMJPEG, result)
 		if result < 0 || result == 5 || len(data) == 0 {

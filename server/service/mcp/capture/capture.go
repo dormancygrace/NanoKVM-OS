@@ -7,6 +7,7 @@ import (
 	"image/jpeg"
 	"time"
 
+	"NanoKVM-Server/common"
 	mcpservice "NanoKVM-Server/service/mcp"
 )
 
@@ -130,6 +131,10 @@ func (s *Snapshotter) capture(ctx context.Context, width uint16, height uint16, 
 			snapshot.OK = true
 			snapshot.Width = config.Width
 			snapshot.Height = config.Height
+			return snapshot, nil
+		case result == common.MjpegBlockedResult:
+			// Waiting cannot help: the stream has to change.
+			snapshot.Message = common.MjpegBlockedMessage
 			return snapshot, nil
 		case result == 5:
 			snapshot.Message = "no HDMI signal or frame unavailable"

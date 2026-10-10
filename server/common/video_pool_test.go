@@ -11,11 +11,11 @@ import (
 
 // The pools of the five video memory modes (platform/build.sh).
 var (
-	poolFHD      = VideoPool{MiB: 56, Reusable: true}
-	poolFHDFixed = VideoPool{MiB: 56}
-	poolQHD      = VideoPool{MiB: 72, Reusable: true}
-	poolQHDFixed = VideoPool{MiB: 72}
-	poolUHD      = VideoPool{MiB: 128}
+	poolFHD      = VideoPool{MiB: 52, Reusable: true}
+	poolFHDFixed = VideoPool{MiB: 50}
+	poolQHD      = VideoPool{MiB: 68, Reusable: true}
+	poolQHDFixed = VideoPool{MiB: 66}
+	poolUHD      = VideoPool{MiB: 118}
 )
 
 func TestVideoPoolGatesMatchTheModes(t *testing.T) {
@@ -49,7 +49,7 @@ func TestBootedVideoPoolReadsTheDeviceTree(t *testing.T) {
 	if p := BootedVideoPool(); p != (VideoPool{}) {
 		t.Fatalf("without a node: %+v", p)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x04, 0x80, 0x00, 0x00}, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x04, 0x40, 0x00, 0x00}, 0600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "reusable"), nil, 0600); err != nil {
@@ -64,7 +64,7 @@ func TestBootedVideoPoolReadsTheDeviceTree(t *testing.T) {
 	if err := os.Remove(filepath.Join(dir, "reusable")); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x08, 0x00, 0x00, 0x00}, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x07, 0x60, 0x00, 0x00}, 0600); err != nil {
 		t.Fatal(err)
 	}
 	if p := BootedVideoPool(); p != poolUHD || !SupportsUHD() {

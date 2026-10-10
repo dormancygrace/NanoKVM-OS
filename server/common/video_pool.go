@@ -37,12 +37,12 @@ func (p VideoPool) QHD() bool { return p.MiB >= 62 }
 // PortraitMax is the 1440x2560 portrait profile, separately gated at 64 MiB.
 func (p VideoPool) PortraitMax() bool { return p.MiB >= 64 }
 
-// UHD is the 128 MiB video pool that 3840x2160 needs: 117 MiB with SmartP
+// UHD is the 118 MiB video pool that 3840x2160 needs: 117 MiB with SmartP
 // (see uhd_ion_mib in kvm_vision.cpp). It must be a fixed carveout: as CMA
 // the encoder's UHD buffers failed on 1 of 3 cold boots under memory
 // pressure (28 cma_alloc failures), when Linux's borrowed pages could not be
 // migrated back.
-func (p VideoPool) UHD() bool { return p.MiB >= 128 && !p.Reusable }
+func (p VideoPool) UHD() bool { return p.MiB >= 118 && !p.Reusable }
 
 // MonitorFitsVideoPool reports why the saved HDMI monitor profile cannot be
 // captured with a video pool, or nil when it can: the EDID advertises the

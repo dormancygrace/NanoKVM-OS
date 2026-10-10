@@ -78,9 +78,9 @@
 #define ion_summary_path "/sys/kernel/debug/ion/cvi_carveout_heap_dump/summary"
 /* 3840x2160 H.265 takes 117 MiB of ION: two UYVY VI blocks (32), three NV21
  * VPSS buffers (36), three SmartP reconstruction frames (36), a 4 MiB
- * bitstream and codec tables. The UHD video memory mode provides 128 MiB
+ * bitstream and codec tables. The UHD video memory mode provides 118 MiB
  * as a fixed carveout. */
-#define uhd_ion_mib             128U
+#define uhd_ion_mib             118U
 
 /* Resolution-bounded opt-ins expose the accepted high-rate profiles while
  * retaining the normal 60-FPS ceiling for every other geometry. */

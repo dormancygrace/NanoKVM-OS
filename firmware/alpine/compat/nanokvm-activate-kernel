@@ -8,9 +8,9 @@ exec 9>/run/nanokvm-boot.lock
 flock -x 9
 payload=/usr/lib/nanokvm/boot
 selection=/etc/kvm/video-memory-mode
-# Video memory modes: fhd (1920x1080, 56 MiB reusable CMA, the default),
-# fhd-fixed, qhd (2560x1440, 72 MiB CMA), qhd-fixed and uhd (3840x2160, 128
-# MiB, always fixed). Earlier releases named them cma (128 MiB CMA), fixed and
+# Video memory modes: fhd (1920x1080, 52 MiB reusable CMA, the default),
+# fhd-fixed (50 MiB), qhd (2560x1440, 68 MiB CMA), qhd-fixed (66 MiB) and uhd
+# (3840x2160, 118 MiB, always fixed). Earlier releases named them cma (128 MiB CMA), fixed and
 # uhd; they keep their capability: cma -> qhd, fixed -> qhd-fixed.
 legacy_mode() { case "$1" in cma) echo qhd;; fixed) echo qhd-fixed;; *) echo "$1";; esac; }
 # The mode of the running boot image, for a device without a selection.

@@ -13,9 +13,18 @@ Base: main de0e1dc0, PRs #65–#70 integrated. Image v1.1-a1 is the user-confirm
 
 - Go build, vet and the complete teststub suite passed after those test fixes.
 
-## Build in progress
+## Fresh platform build completed
 
-Fresh platform output, with only downloaded source archives/caches reused. Output checksums require auditing against the preceding release before refreshing expected.sha256. Signed APKs, rootfs/image and source archive are still pending.
+- All components were built into a fresh output tree; only downloaded inputs and dependency caches were reused.
+- 596 output hashes audited. Linux Image, all 96 module files, U-Boot, initramfs, board service and firmware reproduce the preceding release byte-for-byte. Changed outputs follow #65–#70 and the expanded boot profile matrix.
+- All 25 board/memory profiles have the intended pool sizes and CMA/fixed properties. Each boot image composed from package inputs matches its independently built FIT byte-for-byte.
+- FIP structure, CRCs, preserved first-stage/DDR components and load addresses pass the build verifier. FIP and OpenSBI binaries match the merged-main pins; OpenSBI's provenance manifest changes to record the merged build script.
+- Shipped server contains the custom runtime hooks; 202 ChaCha20 and 1,439 SHA1 XTheadVector instructions match their source. The built web tree exactly matches the separately tested production build.
+- PR #71 CI and CodeQL pass at preparation commit 6b5f7c9d.
+
+## Packaging pending
+
+Signed APKs, rootfs/image, upgrade dependency resolution and the corresponding source archive are the remaining host checks.
 
 ## Device status
 

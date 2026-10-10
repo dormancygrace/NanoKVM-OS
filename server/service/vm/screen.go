@@ -137,10 +137,10 @@ func validateScreenSetting(req proto.SetScreenReq) *settingError {
 			return settingFailure(-1, "unsupported monitor profile")
 		}
 		if req.Value == 1440 && !common.SupportsQHD() {
-			return settingFailure(-3, "QHD requires at least 62 MiB of ION memory")
+			return settingFailure(-3, "2560x1440 requires the QHD or UHD video memory mode (Settings > Memory)")
 		}
 		if req.Value == 2160 && !common.SupportsUHD() {
-			return settingFailure(-3, "3840x2160 requires the 128 MiB CMA video memory")
+			return settingFailure(-3, "3840x2160 requires the UHD video memory mode (Settings > Memory)")
 		}
 	case "resolution":
 		if req.Value < 0 || req.Value > 2160 || (req.Value > 1440 && !common.SupportsUHD()) {

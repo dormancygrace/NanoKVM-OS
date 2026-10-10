@@ -66,6 +66,18 @@ func initialize(stopMemory context.CancelFunc) {
 	}
 	vm.SetHdmiViewerCount(0)
 
+	// The monitor profile is kept in the HDMI receiver across restarts; it
+	// must not exceed the video memory of this boot (a smaller mode may have
+	// been selected after it was saved). Programming can take a while.
+	go func() {
+		changed, err := common.FitMonitorToVideoMemory()
+		if err != nil {
+			log.Printf("failed to fit the monitor profile to the video memory: %v", err)
+		} else if changed {
+			log.Printf("lowered the saved monitor profile to the video memory of this boot")
+		}
+	}()
+
 	// run mouse jiggler
 	jiggler.GetJiggler().Run()
 

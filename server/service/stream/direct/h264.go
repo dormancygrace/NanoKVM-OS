@@ -63,6 +63,9 @@ func connect(c *gin.Context, config stream.EncoderConfig) {
 		streamer.removeClient(client)
 		client.close()
 		client.wait()
+		if summary := client.queue.summary(); summary != "" {
+			log.Infof("direct video client %s lost frames: %s", ws.RemoteAddr(), summary)
+		}
 		log.Debugf("direct video websocket disconnected: %s", ws.RemoteAddr())
 	}()
 	log.Debugf("direct video websocket connected: %s", ws.RemoteAddr())

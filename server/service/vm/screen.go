@@ -85,10 +85,27 @@ func (s *Service) SetScreen(c *gin.Context) {
 		rsp.ErrRsp(c, failure.code, failure.msg)
 		return
 	}
+	if req.Type == "fps" {
+		// The batch endpoint does the same after its stream settings; serialize
+		// with it so the EDID always follows the rate that was saved last.
+		videoSettingsMutex.Lock()
+		defer videoSettingsMutex.Unlock()
+	}
 	data, failure := applyScreenSetting(req)
 	if failure != nil {
 		rsp.ErrRsp(c, failure.code, failure.msg)
 		return
+	}
+	if req.Type == "fps" {
+		// The saved EDID refresh rate follows the stream rate. Without this, a
+		// client of this endpoint leaves the source at the previous rate (a
+		// 100 Hz source against a 60 fps stream judders). It reprograms the
+		// EDID, so the HDMI link renegotiates and blanks briefly, but only when
+		// the rate selects another profile.
+		if err := applyVideoMonitorSettings(common.MonitorSettings{SyncRefresh: true}); err != nil {
+			rsp.ErrRsp(c, -4, err.Error())
+			return
+		}
 	}
 	if data == nil {
 		rsp.OkRsp(c)

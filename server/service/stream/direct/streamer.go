@@ -149,6 +149,7 @@ func (s *Streamer) run(subscription *stream.VideoSubscription) {
 		}
 
 		outbound := newOutboundFrame(frame.Result == 3, frame.Timestamp, frame.Storage, frame.Data)
+		outbound.duration = frame.Duration
 		for _, client := range clients {
 			client.offer(outbound)
 		}

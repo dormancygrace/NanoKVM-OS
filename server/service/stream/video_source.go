@@ -46,7 +46,10 @@ type VideoSource struct {
 	subscriberSnapshot []*VideoSubscription
 	session            *videoSession
 	captureFrame       func(EncoderConfig) ([]byte, []byte, int)
-	keyframeRequested  atomic.Bool
+	// startStream returns nil when the native capture thread cannot pace the
+	// session; captureFrame then serves the Go-paced loop.
+	startStream       func(common.VideoCaptureParams) common.VideoStream
+	keyframeRequested atomic.Bool
 }
 
 type EncoderConfigConflictError struct {
@@ -58,7 +61,18 @@ func (e *EncoderConfigConflictError) Error() string {
 	return fmt.Sprintf("video encoder is already in use with %+v; requested %+v", e.Active, e.Requested)
 }
 
-var defaultVideoSource = newVideoSource(captureVideoFrame)
+var defaultVideoSource = func() *VideoSource {
+	source := newVideoSource(captureVideoFrame)
+	source.startStream = startNativeVideoStream
+	return source
+}()
+
+// Bytes reserved before each access unit for the transports' framing.
+const videoHeadroom = 9
+
+// Screen snapshots are immutable, so a changed pointer is a changed setting.
+// Source-dependent rate limits are reread at this interval, not per frame.
+const captureParamsRefresh = 500 * time.Millisecond
 
 // Feedback from all viewers is coalesced by the single capture owner.
 func RequestKeyframe() { defaultVideoSource.keyframeRequested.Store(true) }
@@ -248,6 +262,98 @@ func (s *VideoSource) run(session *videoSession) {
 	}()
 
 	common.CheckScreen()
+	if s.startStream != nil && s.runStream(session) {
+		return
+	}
+	s.runPaced(session)
+}
+
+// runStream lets the native capture thread own the cadence: per frame this
+// goroutine waits once in the netpoller, copies and fans out, with no Go timer
+// or yield. It returns false when no stream started or the stream ended for
+// another reason than the session stopping; the Go-paced loop then continues.
+func (s *VideoSource) runStream(session *videoSession) bool {
+	current := common.GetScreen()
+	params := videoCaptureParams(session.config, common.GetCaptureScreen())
+	stream := s.startStream(params)
+	if stream == nil {
+		return false
+	}
+	// Close waits for the read in flight before session.done is closed.
+	defer stream.Close()
+	ended := make(chan struct{})
+	defer close(ended)
+	go func() {
+		select {
+		case <-session.stop:
+			stream.Stop()
+		case <-ended:
+		}
+	}()
+
+	startTime := time.Now()
+	refreshed := startTime
+	var lastKeyframeRequest time.Time
+	for {
+		storage, data, result, ok := stream.Next(videoHeadroom)
+		if !ok {
+			select {
+			case <-session.stop:
+				return true
+			default:
+				return false
+			}
+		}
+		now := time.Now()
+		if s.takeKeyframeRequest(now, &lastKeyframeRequest) {
+			common.GetKvmVision().RequestKeyframe()
+		}
+		if next := common.GetScreen(); next != current || now.Sub(refreshed) >= captureParamsRefresh {
+			current, refreshed = next, now
+			params = videoCaptureParams(session.config, common.GetCaptureScreen())
+			stream.Update(params)
+		}
+		s.publish(session, storage, data, result, time.Second/time.Duration(params.FPS), now.Sub(startTime))
+	}
+}
+
+func videoCaptureParams(config EncoderConfig, screen *common.Screen) common.VideoCaptureParams {
+	return common.VideoCaptureParams{
+		Width:   screen.Width,
+		Height:  screen.Height,
+		Codec:   uint8(config.Codec.NativeCodec()),
+		BitRate: screen.BitRate,
+		GOP:     screen.GOP,
+		FPS:     uint8(normalizedFPS(screen.FPS)),
+	}
+}
+
+func startNativeVideoStream(params common.VideoCaptureParams) common.VideoStream {
+	return common.GetKvmVision().StartVideoCapture(params)
+}
+
+func (s *VideoSource) publish(session *videoSession, storage, data []byte, result int, duration, elapsed time.Duration) {
+	frame := VideoFrame{Result: result}
+	if result >= 0 {
+		if len(data) == 0 {
+			return
+		}
+		frame.Storage = storage
+		frame.Data = data
+		frame.Duration = duration
+		frame.Timestamp = elapsed.Microseconds()
+	}
+
+	for _, subscription := range s.snapshot(session) {
+		subscription.send(frame)
+	}
+	if result >= 0 {
+		GetFrameRateCounter().Update()
+	}
+}
+
+// runPaced is the Go-paced loop: a timer per frame and a blocking native read.
+func (s *VideoSource) runPaced(session *videoSession) {
 	screen := common.GetCaptureScreen()
 	fps := normalizedFPS(screen.FPS)
 	period := time.Second / time.Duration(fps)
@@ -291,23 +397,7 @@ func (s *VideoSource) run(session *videoSession) {
 		// boundary so CGO return/callback traffic cannot starve queued input on
 		// the single Go processor used by the device runtime.
 		runtime.Gosched()
-		frame := VideoFrame{Result: result}
-		if result >= 0 {
-			if len(data) == 0 {
-				continue
-			}
-			frame.Storage = storage
-			frame.Data = data
-			frame.Duration = time.Second / time.Duration(fps)
-			frame.Timestamp = time.Since(startTime).Microseconds()
-		}
-
-		for _, subscription := range s.snapshot(session) {
-			subscription.send(frame)
-		}
-		if result >= 0 {
-			GetFrameRateCounter().Update()
-		}
+		s.publish(session, storage, data, result, time.Second/time.Duration(fps), time.Since(startTime))
 	}
 }
 
@@ -327,7 +417,7 @@ func captureVideoFrame(config EncoderConfig) ([]byte, []byte, int) {
 		screen.BitRate,
 		screen.GOP,
 		uint8(normalizedFPS(screen.FPS)),
-		9,
+		videoHeadroom,
 	)
 }
 

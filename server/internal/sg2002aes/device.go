@@ -5,6 +5,7 @@ import (
 	"errors"
 	"runtime"
 	"sync"
+	"syscall"
 )
 
 const MaxPayload = 4096
@@ -56,8 +57,13 @@ func (d *Device) TryXORKeyStream(key, iv, dst, src []byte) bool {
 	if err == nil && r.Status != 1 {
 		err = errCompletion
 	}
+	interrupted := errors.Is(err, syscall.EINTR)
 	if err == nil {
 		copy(dst, r.Data[:len(src)])
+	} else if interrupted {
+		// The module takes its lock interruptibly and submits nothing when a
+		// signal arrives first: this packet uses software, the device stays.
+		err = nil
 	} else {
 		d.disabled = true
 		if d.closeFD != nil {
@@ -74,7 +80,7 @@ func (d *Device) TryXORKeyStream(key, iv, dst, src []byte) bool {
 	if err != nil && onError != nil {
 		onError(err)
 	}
-	return err == nil
+	return err == nil && !interrupted
 }
 
 // Close releases the process's descriptor and disables further requests.

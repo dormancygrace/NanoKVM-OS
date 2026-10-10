@@ -18,10 +18,16 @@ func ReadVideoValue(path string) int {
 	return v
 }
 
+// Board and HDMI chip identifiers; variables so tests can select a board.
+var (
+	monitorBoardFile    = "/etc/kvm/hw"
+	monitorHDMIChipFile = "/etc/kvm/hdmi_version"
+)
+
 // MonitorProfileSupported describes EDID programming, not capture timings.
 func MonitorProfileSupported() bool {
-	board, _ := os.ReadFile("/etc/kvm/hw")
-	chip, _ := os.ReadFile("/etc/kvm/hdmi_version")
+	board, _ := os.ReadFile(monitorBoardFile)
+	chip, _ := os.ReadFile(monitorHDMIChipFile)
 	return monitorHardwareSupported(strings.TrimSpace(string(board)), strings.TrimSpace(string(chip)))
 }
 func monitorHardwareSupported(board, chip string) bool {
@@ -31,7 +37,7 @@ func monitorHardwareSupported(board, chip string) bool {
 	return (board == "alpha" || board == "beta") && (chip == "c" || chip == "ux" || chip == "d")
 }
 func MonitorRequiresPowerCycle() bool {
-	board, _ := os.ReadFile("/etc/kvm/hw")
+	board, _ := os.ReadFile(monitorBoardFile)
 	value := strings.TrimSpace(string(board))
 	return value == "alpha" || value == "beta"
 }

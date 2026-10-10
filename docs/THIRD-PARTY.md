@@ -6,7 +6,7 @@ This is a derivative firmware project, not an original implementation of every c
 - Linux and applicable drivers: their upstream licenses, including GPL-2.0; kernel patches retain source notices.
 - Pion SRTP local adaptation: MIT, with the upstream license in `server/third_party/pion-srtp/LICENSE`. Other Go modules remain pinned in `go.mod`/`go.sum` and retain their own licenses.
 - Web dependencies retain their package licenses; versions are pinned in `web/pnpm-lock.yaml`.
-- Go runtime additions retain the Go license in `firmware/cpu/sysmon-runtime/LICENSE`.
+- Go runtime additions retain the Go license in `firmware/cpu/sysmon-runtime/LICENSE`; the additions to Go's vendored x/crypto in `firmware/cpu/go-crypto-c906/LICENSE`.
 - SOPHGO/CVITEK MPI, ISP, drivers and sensor dependencies have component-specific terms. Some ISP/3A algorithm objects remain vendor supplied; this repository does not claim a completely open-source replacement for those objects.
 - OpenVPN, Tailscale, Buildroot packages, Wi-Fi firmware and toolchain components retain their individual licenses. Building or distributing a full image requires corresponding source and firmware notices beyond the application license.
 

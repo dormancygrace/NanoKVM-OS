@@ -1446,8 +1446,9 @@ int mmf_vi_frame_pop_nv21(int ch, mmf_nv21_view_t *view)
 
 int mmf_vi_drop_pending(int ch) {
     if (ch < 0 || ch >= MMF_VI_MAX_CHN || !mmf_vi_chn_is_open(ch)) return CVI_FAILURE;
-    // Never replace a DMA lease still referenced by an encoder.
-    if (priv.vi_frame_valid[ch]) return CVI_ERR_VENC_BUSY;
+    // Never replace a DMA lease still referenced by an encoder. That is not a
+    // failure: the leasing consumer is mid-frame and releases it itself.
+    if (priv.vi_frame_valid[ch]) return MMF_VI_OUTPUT_LEASED;
     VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[ch];
     const int result = CVI_VPSS_GetChnFrame(0, ch, frame, 0);
     if (result == CVI_ERR_VPSS_BUF_EMPTY) return CVI_SUCCESS;

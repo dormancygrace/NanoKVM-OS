@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
+	"runtime/trace"
 	"strconv"
 	"time"
 )
@@ -14,6 +15,7 @@ import (
 // Diagnostic builds can capture one bounded CPU profile without an HTTP
 // listener. The root-controlled path is opt-in; ordinary builds omit this code.
 func startDiagnosticCPUProfile() {
+	startDiagnosticTrace()
 	path := os.Getenv("NANOKVM_CPU_PROFILE_PATH")
 	if path == "" {
 		return
@@ -44,6 +46,37 @@ func startDiagnosticCPUProfile() {
 		log.Printf("CPU profile complete: duration=%s allocated_bytes=%d allocations=%d gc_cycles=%d gc_pause_ns=%d",
 			duration, after.TotalAlloc-before.TotalAlloc, after.Mallocs-before.Mallocs,
 			after.NumGC-before.NumGC, after.PauseTotalNs-before.PauseTotalNs)
+	}()
+}
+
+// An execution trace shows every goroutine wakeup, syscall and preemption with
+// its stack, which a CPU profile cannot attribute on riscv64 (no frame
+// pointers for perf). Keep it short: traces grow quickly.
+func startDiagnosticTrace() {
+	path := os.Getenv("NANOKVM_TRACE_PATH")
+	if path == "" {
+		return
+	}
+	duration := diagnosticSeconds("NANOKVM_TRACE_SECONDS", 5, 30)
+	delay := diagnosticSeconds("NANOKVM_TRACE_DELAY_SECONDS", 15, 120)
+	go func() {
+		time.Sleep(delay)
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		if err != nil {
+			log.Printf("trace: %v", err)
+			return
+		}
+		if err = trace.Start(f); err != nil {
+			f.Close()
+			os.Remove(path)
+			log.Printf("trace: %v", err)
+			return
+		}
+		time.Sleep(duration)
+		trace.Stop()
+		if err = f.Close(); err != nil {
+			log.Printf("trace close: %v", err)
+		}
 	}()
 }
 

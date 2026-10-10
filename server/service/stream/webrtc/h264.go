@@ -202,6 +202,7 @@ func createMediaEngine(config stream.EncoderConfig) (*webrtc.MediaEngine, error)
 
 func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.MediaEngine, budgets ...*peerPathMTU) (*webrtc.PeerConnection, error) {
 	initializeHardwareAES()
+	initializeHMACBatch()
 	settingEngine := webrtc.SettingEngine{}
 	configureDiagnosticICEInterface(&settingEngine)
 	// Keep a fixed-budget override for controlled comparisons and recovery.

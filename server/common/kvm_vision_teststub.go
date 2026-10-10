@@ -30,6 +30,9 @@ func (k *KvmVision) ReadVideoWithHeadroom(uint16, uint16, uint8, uint16, uint8, 
 	return nil, nil, -1
 }
 
+// Tests use the Go-paced loop unless they inject a VideoStream.
+func (k *KvmVision) StartVideoCapture(VideoCaptureParams) VideoStream { return nil }
+
 func (k *KvmVision) SetHDMI(bool) int {
 	return 0
 }

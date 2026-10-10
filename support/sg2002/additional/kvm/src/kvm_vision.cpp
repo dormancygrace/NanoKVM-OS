@@ -3,6 +3,7 @@
 #include <atomic>
 #include <initializer_list>
 #include "stream_size.hpp"
+#include "capture_pacing.hpp"
 #include "mjpeg_policy.hpp"
 #include "geometry_gate.hpp"
 /**
@@ -190,10 +191,18 @@ uint32_t last_vi_state_refresh_ms = 0;
 uint8_t hdmi_capture_enabled = 0;
 uint8_t hdmi_signal_active = 0;
 
+// The experiments are fixed for the life of the process; the request path
+// runs per frame, so read the environment once.
+static bool env_opt_in(const char *name)
+{
+    const char *value = std::getenv(name);
+    return value != NULL && std::strcmp(value, "1") == 0;
+}
+
 static bool native120_experiment_enabled()
 {
-    const char *value = std::getenv(native120_opt_in_env);
-    return value != NULL && std::strcmp(value, "1") == 0;
+    static const bool enabled = env_opt_in(native120_opt_in_env);
+    return enabled;
 }
 
 static bool native120_size_allowed(uint16_t width, uint16_t height)
@@ -209,16 +218,14 @@ static bool native120_request_allowed(uint16_t width, uint16_t height)
 
 static bool qhd60_request_allowed(uint16_t width, uint16_t height)
 {
-    const char *value = std::getenv(qhd60_opt_in_env);
-    return value != NULL && std::strcmp(value, "1") == 0
-        && width == qhd60_width && height == qhd60_height;
+    static const bool enabled = env_opt_in(qhd60_opt_in_env);
+    return enabled && width == qhd60_width && height == qhd60_height;
 }
 
 static bool fhd75_request_allowed(uint16_t width, uint16_t height)
 {
-    const char *value = std::getenv(fhd75_opt_in_env);
-    return value != NULL && std::strcmp(value, "1") == 0
-        && width == fhd75_width && height == fhd75_height;
+    static const bool enabled = env_opt_in(fhd75_opt_in_env);
+    return enabled && width == fhd75_width && height == fhd75_height;
 }
 
 static void high_rate_log_request(uint16_t width, uint16_t height, uint8_t requested_fps,
@@ -1730,8 +1737,11 @@ static bool mjpeg_422_requested()
 }
 static bool mjpeg_video_reader_active(uint64_t now_ms)
 {
-    return mjpeg_last_video_ms && now_ms >= mjpeg_last_video_ms
-        && now_ms - mjpeg_last_video_ms < 2000;
+    return nanokvm::reader_active(mjpeg_last_video_ms, now_ms);
+}
+static bool mjpeg_jpeg_reader_active(uint64_t now_ms)
+{
+    return nanokvm::reader_active(mjpeg_last_jpeg_ms, now_ms);
 }
 static bool mjpeg_force_copy()
 {
@@ -1894,7 +1904,12 @@ int init_venc_video(uint16_t width, uint16_t height, uint16_t bitrate, uint8_t c
 	return 0;
 }
 
-static bool annexb_contains_keyframe(const uint8_t *data, int size, uint8_t codec)
+// Classifies a pack by its first VCL NAL unit: 1 for an IDR/IRAP picture, 0
+// for any other picture, -1 when the pack holds only parameter sets or SEI.
+// All slices of a picture share the IDR/IRAP type, so the scan stops at the
+// first slice header instead of walking the whole slice payload for the
+// start codes that emulation prevention guarantees are absent.
+static int annexb_picture_type(const uint8_t *data, int size, uint8_t codec)
 {
 	for (int i = 0; i + 3 < size;) {
 		int prefix_size = 0;
@@ -1912,18 +1927,21 @@ static bool annexb_contains_keyframe(const uint8_t *data, int size, uint8_t code
 		if (nal >= size) {
 			break;
 		}
-		if (codec == VENC_H264 && (data[nal] & 0x1f) == 5) {
-			return true;
+		if (codec == VENC_H264) {
+			uint8_t nal_type = data[nal] & 0x1f;
+			if (nal_type >= 1 && nal_type <= 5) {
+				return nal_type == 5;
+			}
 		}
 		if (codec == VENC_H265) {
 			uint8_t nal_type = (data[nal] >> 1) & 0x3f;
-			if (nal_type >= 16 && nal_type <= 21) {
-				return true;
+			if (nal_type < 32) {
+				return nal_type >= 16 && nal_type <= 21;
 			}
 		}
 		i = nal + 1;
 	}
-	return false;
+	return -1;
 }
 
 int video_stream_dump(kvmv_data_t *dump_to, mmf_stream_t *dump_from, uint8_t codec)
@@ -1934,7 +1952,7 @@ int video_stream_dump(kvmv_data_t *dump_to, mmf_stream_t *dump_from, uint8_t cod
 	}
 
 	uint32_t total_size = 0;
-	bool keyframe = false;
+	int picture = -1;
 	for (int i = 0; i < dump_from->count; i++) {
 		if (dump_from->data[i] == NULL || dump_from->data_size[i] <= 0) {
 			debug("[kvmv]invalid venc pack %d\n", i);
@@ -1945,8 +1963,11 @@ int video_stream_dump(kvmv_data_t *dump_to, mmf_stream_t *dump_from, uint8_t cod
 			return IMG_VENC_ERROR;
 		}
 		total_size += dump_from->data_size[i];
-		keyframe = keyframe || annexb_contains_keyframe(dump_from->data[i], dump_from->data_size[i], codec);
+		if (picture < 0) {
+			picture = annexb_picture_type(dump_from->data[i], dump_from->data_size[i], codec);
+		}
 	}
+	bool keyframe = picture == 1;
 
 	// CVITEK normally emits SPS/PPS/IDR as three H.264 packs and
 	// VPS/SPS/PPS/IDR as four H.265 packs. Keep that as a fallback for SDK
@@ -2077,11 +2098,13 @@ static bool video_encoder_matches(const nanokvm::GeometrySnapshot &src, int widt
  * the hardware encodes it while frame N is copied and delivered; the next read
  * collects it (see kvmv_read_img). Wait briefly for a frame that VPSS is about
  * to finish, so it does not wait for the caller instead; otherwise the next
- * read acquires one as usual.
+ * read acquires one as usual. Not while a JPEG reader is active: the lease
+ * would block its reads (see nanokvm::presubmit_next_video_frame).
  */
 static void submit_next_video_frame(int vi_ch, int width, int height)
 {
-	if ((long)width * height * kvm_venc.kvm_venc_cfg.output_fps <= nanokvm::fast_pixel_rate) return;
+	if (!nanokvm::presubmit_next_video_frame((long)width * height * kvm_venc.kvm_venc_cfg.output_fps,
+			nanokvm::fast_pixel_rate, mjpeg_jpeg_reader_active(mjpeg_monotonic_ms()))) return;
 	int len = 0, w = 0, h = 0, format = 0;
 	if (mmf_vi_frame_try_pop_native(vi_ch, 5, &len, &w, &h, &format) != 0) return;
 	if (w != width || h != height || format != nanokvm::nv21_format()
@@ -2342,8 +2365,7 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
             retired = kvm_venc.enc_video_init ? mmf_del_venc_channel(kvm_venc.mmf_venc_chn) : 0;
             if (!retired) { kvm_venc.enc_video_init = 0; retired = cam->close_format(nanokvm::nv21_format()); }
         }
-        const bool jpeg_active = mjpeg_last_jpeg_ms && capture_now >= mjpeg_last_jpeg_ms
-            && capture_now - mjpeg_last_jpeg_ms < 2000;
+        const bool jpeg_active = mjpeg_jpeg_reader_active(capture_now);
         const bool remove_nv16 = !mjpeg_422_requested() || mjpeg_422_disabled
             || kvmv_cfg.frame_detact != 0 || mjpeg_force_copy()
             || (_type == VENC_MJPEG && capture_format == nanokvm::nv21_format())

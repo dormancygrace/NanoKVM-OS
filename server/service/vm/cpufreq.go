@@ -24,7 +24,8 @@ var cpuThermalRoot = "/sys/class/thermal"
 
 // With the boot flag the saved preference may hold an overclock, applied
 // when the application starts after boot. The pending marker lives until
-// the overclocked start has run for cpuFreqBootSettle; finding it at the
+// the boot has run for cpuFreqBootSettle since the overclocked start, which
+// a restarted application also observes by the marker's age; finding it at the
 // next boot means that start froze, so that boot falls back to 1000 MHz,
 // clears the flag and leaves the failed marker for the settings page.
 var cpuFreqBootFlag = "/etc/kvm/cpufreq.boot"
@@ -255,6 +256,14 @@ func applyCPUFreq(mhz int, persist, applyAtBoot bool) error {
 // ApplySavedCPUFrequency runs only after the matching kernel has exposed a
 // qualified driver. A missing driver leaves stock hardware configuration alone.
 // The first start after boot has no runtime preference yet.
+func settleBootPending(delay time.Duration) {
+	pending := cpuFreqBootPending
+	go func() {
+		time.Sleep(max(delay, 0))
+		os.Remove(pending)
+	}()
+}
+
 func ApplySavedCPUFrequency() {
 	state := cpuFrequencyState()
 	if !state.Supported {
@@ -279,11 +288,14 @@ func ApplySavedCPUFrequency() {
 			log.Errorf("mark overclocked start, staying at 1000 MHz: %v", err)
 			state.Target = 1000
 		} else {
-			settle, pending := cpuFreqBootSettle, cpuFreqBootPending
-			go func() {
-				time.Sleep(settle)
-				os.Remove(pending)
-			}()
+			settleBootPending(cpuFreqBootSettle)
+		}
+	} else if !firstStart {
+		// The start that marked this boot may have been restarted before it
+		// settled. The marker dates that start, so this boot has survived once
+		// the settle period has passed since then, whatever process sees it.
+		if info, err := os.Stat(cpuFreqBootPending); err == nil {
+			settleBootPending(cpuFreqBootSettle - time.Since(info.ModTime()))
 		}
 	}
 	if err := applyCPUFreq(state.Target, false, false); err != nil {

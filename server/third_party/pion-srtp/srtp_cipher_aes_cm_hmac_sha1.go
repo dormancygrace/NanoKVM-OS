@@ -27,6 +27,9 @@ type srtpCipherAesCmHmacSha1 struct {
 	srtcpBlock       cipher.Block
 	srtcpEncrypted   bool
 
+	// srtpAuthBatch authenticates whole frames when a batcher is registered.
+	srtpAuthBatch HMACSHA1Batcher
+
 	mki []byte
 
 	useCryptex bool
@@ -106,6 +109,7 @@ func newSrtpCipherAesCmHmacSha1(
 
 	srtpCipher.srtcpSessionAuth = hmac.New(sha1.New, srtcpSessionAuthTag)
 	srtpCipher.srtpSessionAuth = hmac.New(sha1.New, srtpSessionAuthTag)
+	srtpCipher.srtpAuthBatch = newHMACSHA1Batcher(srtpSessionAuthTag)
 
 	mkiLen := len(mki)
 	if mkiLen > 0 {

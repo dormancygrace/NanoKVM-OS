@@ -10,7 +10,8 @@ if ! flock -n 9; then
     echo 'Another memory operation is in progress.' >&2; exit 1
 fi
 ZRAM_ENABLED=0 ZRAM_SIZE=64 ZRAM_RECOMPRESS=0 SD_ENABLED=0 SD_SIZE=256
-# The 4K video memory mode leaves Linux about 100 MiB: default to zram there.
+# The UHD video memory mode (128 MiB, 3840x2160) leaves Linux about 100 MiB:
+# default to zram there only. The value is the same in the earlier releases.
 if [ "$(tr -d '\000' < /proc/device-tree/nanokvm,video-memory-mode 2>/dev/null)" = uhd ]; then
     ZRAM_ENABLED=1 ZRAM_SIZE=auto
 fi

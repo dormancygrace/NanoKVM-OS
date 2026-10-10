@@ -26,9 +26,11 @@ includes = [args.sensor / 'common', args.mpi / 'include', args.mpi / 'include/is
             repo / 'support/sg2002/additional/kvm/include',
             repo / 'support/sg2002/additional/kvm_mmf/include', repo / 'firmware/mpi']
 flags += ['-I' + str(path.resolve()) for path in includes]
-for case in ['quality', 'sink', 'capture']:
+for case in ['quality', 'sink', 'capture', 'pacing']:
     binary = args.output.resolve() / case
     sources = [repo / f'firmware/probes/mjpeg-{case}-contract.cpp']
+    if case == 'pacing':
+        sources = [repo / 'support/sg2002/additional/kvm/tests/capture_pacing_test.cpp']
     if case == 'capture':
         sources = [repo / 'firmware/probes/capture-contract.cpp',
                    repo / 'support/sg2002/additional/kvm/src/kvm_capture.cpp']

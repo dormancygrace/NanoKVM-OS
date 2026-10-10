@@ -14,7 +14,7 @@ repo = Path(__file__).resolve().parents[1]
 args.output.mkdir(parents=True, exist_ok=False)
 # Match musl target char signedness. Glibc fortify is unrelated to these host
 # lifetime tests; target production builds keep their normal compiler flags.
-flags = ['g++', '-std=gnu++17', '-O1', '-g', '-funsigned-char',
+flags = ['g++', '-std=gnu++17', '-pthread', '-O1', '-g', '-funsigned-char',
          '-U_FORTIFY_SOURCE', '-D_FORTIFY_SOURCE=0', '-Wall', '-Wextra', '-Werror',
          '-ffunction-sections', '-fdata-sections', '-Wl,--gc-sections',
          '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_ENHANCED', '-DSENSOR_LONTIUM_LT6911']
@@ -50,7 +50,7 @@ def check_read_img_gates():
 
 check_read_img_gates()
 
-for case in ['quality', 'sink', 'capture', 'policy']:
+for case in ['quality', 'sink', 'capture', 'policy', 'gate']:
     binary = args.output.resolve() / case
     sources = [repo / f'firmware/probes/mjpeg-{case}-contract.cpp']
     if case == 'capture':
@@ -58,6 +58,8 @@ for case in ['quality', 'sink', 'capture', 'policy']:
                    repo / 'support/sg2002/additional/kvm/src/kvm_capture.cpp']
     elif case == 'policy':
         sources = [repo / 'support/sg2002/additional/kvm/tests/mjpeg_policy_test.cpp']
+    elif case == 'gate':
+        sources = [repo / 'support/sg2002/additional/kvm/tests/geometry_gate_test.cpp']
     subprocess.run(flags + [str(path) for path in sources] + ['-o', str(binary)], check=True)
     result = subprocess.run([str(binary)], capture_output=True, text=True)
     (args.output / (case + '.txt')).write_text(

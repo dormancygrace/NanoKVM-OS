@@ -56,12 +56,17 @@
 		// 0x8d000000 would be wasted. U-Boot still copies that c906l node
 		// from the OpenSBI DT in the FIP (platform/opensbi/sg2002.dts), so
 		// the 2 MiB come back only with a new FIP.
-		/* 128 MiB CMA: 3840x2160 capture uses about 90 MiB. The pool
-		 * is reusable, so idle pages stay available to Linux; the
-		 * fixed-carveout boot variant shrinks it to 64 MiB. */
+		/* Video memory, as the default FHD boot image: 56 MiB of
+		 * reusable CMA, so idle pages stay available to Linux. 1080p
+		 * H.265 with MJPEG peaks at 49 MiB. platform/build.sh derives
+		 * the other boot images from this node: QHD 72 MiB (1440p
+		 * peaks at 65 MiB), UHD 128 MiB (2160p about 111 MiB), and
+		 * the fixed variants, a carveout without reusable and
+		 * nanokvm,cma-backend. UHD is fixed only: as CMA it failed
+		 * to get its buffers on a cold boot under memory pressure. */
 		ion_region: ion {
 			compatible = "shared-dma-pool";
-			size = <0x08000000>;
+			size = <0x03800000>;
 			alignment = <0x00400000>;
 			reusable;
 		};

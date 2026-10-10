@@ -32,8 +32,8 @@ bool mmf_vi_chn_is_open(int ch) { assert(ch >= 0 && ch < 2); return opened[ch]; 
 int mmf_add_vi_channel_configured(int ch, int w, int h, int fmt, int count, int depth) {
     assert(count == 2 && depth == 1); return mmf_add_vi_channel(ch,w,h,fmt);
 }
-static int discarded;
-int mmf_vi_drop_pending(int ch) { assert(ch >= 0 && ch < 2 && opened[ch]); ++discarded; return 0; }
+static int discarded, drop_result;
+int mmf_vi_drop_pending(int ch) { assert(ch >= 0 && ch < 2 && opened[ch]); ++discarded; return drop_result; }
 int mmf_reset_vi_channel(int ch, int w, int h, int fmt) {
     const int result=mmf_del_vi_channel(ch); if(result)return result; return mmf_add_vi_channel(ch, w, h, fmt);
 }
@@ -80,6 +80,13 @@ int main() {
     assert(capture.get_channel() == 1 && capture.has_format(nanokvm::nv21_format()));
     assert(configured_format == nanokvm::nv16_format() && !capture.read());
     assert(capture.discard_other_pending() == 0 && discarded == 1);
+    // The other output holds a lease (wide video pre-submitted its next
+    // frame): that is not a failure of this read, the output is left alone.
+    drop_result = MMF_VI_OUTPUT_LEASED;
+    assert(capture.discard_other_pending() == 0 && discarded == 2);
+    drop_result = -5; // Any other failure still aborts the read.
+    assert(capture.discard_other_pending() == -5 && discarded == 3);
+    drop_result = 0;
     assert(capture.set_resolution(8, 4, nanokvm::nv21_format()) == 0);
     assert(capture.get_channel() == 0 && adds == previous_adds + 1);
     assert(capture.has_format(nanokvm::nv16_format()));

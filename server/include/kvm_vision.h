@@ -15,6 +15,7 @@ extern "C" {
 #include <pthread.h>
 #include <time.h>
 
+#define IMG_MJPEG_INPUT_BLOCKED		-8
 #define IMG_BUFFER_FULL			-3
 #define IMG_VENC_ERROR			-2
 #define IMG_NOT_EXIST			-1
@@ -67,6 +68,8 @@ int kvmv_read_mjpeg_sink(uint16_t width, uint16_t height, uint16_t quality,
  * @param	_pp_kvm_data		@output: 	Encode data
  * @param	_p_kvmv_data_size	@output: 	Encode data size
  * @return
+        -8: MJPEG refused: the HDMI input is larger than 2560 on its long side
+            (3840x2160); no JPEG channel is created or submitted to
         -7: HDMI INPUT RES ERROR
         -6: Unsupported resolution, please modify it in the host settings.
         -5: Retrieving image, please wait

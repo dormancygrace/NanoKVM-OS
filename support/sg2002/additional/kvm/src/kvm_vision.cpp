@@ -3,6 +3,7 @@
 #include <atomic>
 #include <initializer_list>
 #include "stream_size.hpp"
+#include "mjpeg_policy.hpp"
 /**
  * 待解决的问题:
  * // 分辨率跟随输出
@@ -2265,6 +2266,18 @@ void set_venc_auto_recyc(uint8_t _enable)
     else kvmv_cfg.venc_auto_recyc = 0;
 }
 
+/* The detected HDMI input size, read where it is used. The detection thread
+   updates vi_width and vi_height without vi_mutex, so a size is never cached
+   across a step that creates or submits to a channel; each read is atomic but
+   the pair is not, and the second check below narrows that window. */
+static bool mjpeg_input_blocked(uint8_t type)
+{
+    if (type != VENC_MJPEG) return false;
+    const uint16_t width = __atomic_load_n(&kvmv_cfg.vi_width, __ATOMIC_ACQUIRE);
+    const uint16_t height = __atomic_load_n(&kvmv_cfg.vi_height, __ATOMIC_ACQUIRE);
+    return !nanokvm::mjpeg_input_allowed(width, height);
+}
+
 /**********************************************************************************
  * @name    kvmv_read_img
  * @author  Sipeed BuGu
@@ -2278,6 +2291,8 @@ void set_venc_auto_recyc(uint8_t _enable)
  * @param	_pp_kvm_data		@output: 	Encode data
  * @param	_p_kvmv_data_size	@output: 	Encode data size
  * @return
+        -8: MJPEG refused: the HDMI input is larger than 2560 on its long side
+            (3840x2160); no JPEG channel is created or submitted to
         -7: HDMI INPUT RES ERROR
         -6: Unsupported resolution, please modify it in the host settings.
         -5: Retrieving image, please wait
@@ -2329,6 +2344,13 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
     }
     uint8_t try_num = 0;
     do {
+        /* Authoritative MJPEG gate (the server file check is only a fast path).
+           It runs on every pass, before any VPSS/JPEG channel is configured:
+           a 4K input wedges the JPEG encoder. */
+        if (mjpeg_input_blocked(_type)) {
+            pthread_mutex_unlock(&vi_mutex);
+            return IMG_MJPEG_INPUT_BLOCKED;
+        }
         const uint64_t capture_now = mjpeg_monotonic_ms();
         const auto requested_output = nanokvm::stream_size(kvmv_cfg.vi_width, kvmv_cfg.vi_height, _width, _height);
         const auto output = mjpeg_parallel_size(requested_output, _type, kvmv_cfg.frame_detact != 0, capture_now);
@@ -2534,6 +2556,14 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
         // debug("[kvmv]cheak img null?: %d \r\n", (int)(time::time_ms() - start_time));
 
         // img exist
+        // The input may have changed to 4K while the frame was prepared; the
+        // JPEG channel must not be created or submitted to at that size.
+        if (mjpeg_input_blocked(_type)) {
+            if (native_vi_ch >= 0) mmf_vi_frame_release(native_vi_ch);
+            else delete img;
+            pthread_mutex_unlock(&vi_mutex);
+            return IMG_MJPEG_INPUT_BLOCKED;
+        }
         // Encode
         if (kvmv_cfg.venc_type != _type && mmf_trim_idle_copy_buffers() != 0) {
             if (native_vi_ch >= 0) mmf_vi_frame_release(native_vi_ch);

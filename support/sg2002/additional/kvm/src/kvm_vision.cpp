@@ -457,7 +457,8 @@ uint16_t hdmi_unsupported_res_list[][2] = {
  * return 2 : unsupport res;
  * return 3 : unknow res;
  */
-uint8_t check_res(uint16_t _width, uint16_t _height)
+/* Whether the video memory of this boot holds a capture of this size. */
+static bool res_fits_video_memory(uint16_t _width, uint16_t _height)
 {
 #ifdef NANOKVM_ENHANCED
     if (_width > 1920 || _height > 1080) {
@@ -470,13 +471,19 @@ uint8_t check_res(uint16_t _width, uint16_t _height)
             | ((uint32_t)ion_size[2] << 8) | ion_size[3];
         const uint32_t required_mib = (_width > 2560 || _height > 2560) ? uhd_ion_mib
             : (_width == 1440 && _height == 2560) ? 64U : 62U;
-        if (count != sizeof(ion_size) || bytes < required_mib * 1024U * 1024U) return UNSUPPORT_RES;
+        if (count != sizeof(ion_size) || bytes < required_mib * 1024U * 1024U) return false;
         // UHD needs a fixed carveout: CMA cannot always return Linux's borrowed
         // pages for the encoder's reference buffers (video memory mode "uhd").
         if (required_mib == uhd_ion_mib && access("/proc/device-tree/reserved-memory/ion/reusable", F_OK) == 0)
-            return UNSUPPORT_RES;
+            return false;
     }
 #endif
+    return true;
+}
+
+uint8_t check_res(uint16_t _width, uint16_t _height)
+{
+    if (!res_fits_video_memory(_width, _height)) return UNSUPPORT_RES;
     uint8_t i;
     for(i = 0; i < sizeof(hdmi_res_list)/4; i++){
         if(_width == hdmi_res_list[i][0] && _height == hdmi_res_list[i][1]) return NORMAL_RES;
@@ -625,6 +632,16 @@ int get_manual_resolution(void)
         tmp_width = vi_max_width;
         nanokvm::write_small_uint(vi_width_path, vi_max_width);
     }
+    // A size that the video memory cannot hold (3840x2160 on a pool under
+    // 118 MiB) fails the capture start with "Out of memory" and ends the
+    // process; the file can still ask for it after the computer switched to
+    // such a mode. Start at the default size and let detection report it.
+    if(!res_fits_video_memory(tmp_width, tmp_height)){
+        tmp_width = default_vi_width;
+        tmp_height = default_vi_height;
+        nanokvm::write_small_uint(vi_width_path, tmp_width);
+        nanokvm::write_small_uint(vi_height_path, tmp_height);
+    }
     bool portrait = false;
 #ifdef NANOKVM_ENHANCED
     portrait = (tmp_width == 720 && tmp_height == 1280)
@@ -681,6 +698,9 @@ uint8_t auto_try_res()
         case 6: // height too large
             // CSI abnormal due to resolution error
             // The test list is short; sequential testing can be performed
+            // Not with a size the video memory cannot hold: starting the
+            // capture at it fails with "Out of memory" and ends the process.
+            if (!res_fits_video_memory(hdmi_res_list[auto_trying_times][0], hdmi_res_list[auto_trying_times][1])) break;
             printf("[kvmv] Trying %d * %d res ..\n", hdmi_res_list[auto_trying_times][0], hdmi_res_list[auto_trying_times][1]);
             nanokvm::write_small_uint(vi_width_path, hdmi_res_list[auto_trying_times][0]);
             nanokvm::write_small_uint(vi_height_path, hdmi_res_list[auto_trying_times][1]);

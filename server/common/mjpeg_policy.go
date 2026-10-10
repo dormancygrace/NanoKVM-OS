@@ -8,8 +8,36 @@ package common
 const MjpegMaxLongSide = 2560
 
 // MjpegBlockedResult is the ReadMjpeg result of a capture that was refused
-// because the HDMI input is 3840x2160. It is not a native code.
+// because the HDMI input is 3840x2160. Native capture returns the same value
+// (IMG_MJPEG_INPUT_BLOCKED in kvm_vision.h) from kvmv_read_img.
 const MjpegBlockedResult = -8
+
+// nativeMjpegBlocked mirrors IMG_MJPEG_INPUT_BLOCKED. The cgo build asserts at
+// compile time that the two are equal; a test compares it with the header.
+const nativeMjpegBlocked = -8
+
+// normalizeNativeMjpegResult maps a native JPEG read result to a ReadMjpeg
+// result, so that the stream, MCP and screenshot paths treat a refusal by
+// native capture and one by the file check below the same.
+func normalizeNativeMjpegResult(native int) int {
+	if native == nativeMjpegBlocked {
+		return MjpegBlockedResult
+	}
+	return native
+}
+
+// readMjpegChecked is the body of KvmVision.ReadMjpeg: the file check is a fast
+// path that avoids taking the capture lock, and read does the native capture.
+// The check below can be stale or fail open (the files are missing, or the
+// input changed after they were read), so the native check under vi_mutex,
+// made against the input size it has detected, is the authoritative one.
+func readMjpegChecked(read func() ([]byte, int)) ([]byte, int) {
+	if !MjpegAllowed() {
+		return nil, MjpegBlockedResult
+	}
+	data, result := read()
+	return data, normalizeNativeMjpegResult(result)
+}
 
 // MjpegBlockedMessage tells the user the rule and the way out.
 const MjpegBlockedMessage = "MJPEG is unavailable while the HDMI input is 3840x2160: use H.264 or H.265"

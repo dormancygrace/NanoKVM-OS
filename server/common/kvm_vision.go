@@ -79,18 +79,18 @@ func GetActiveGOPMode() uint8 {
 
 func (k *KvmVision) ReadMjpeg(width uint16, height uint16, quality uint16) (data []byte, result int) {
 	// Every JPEG capture passes here: the stream, MCP and the screenshots. The
-	// check stays out of the lock, which the video reader shares.
-	if !MjpegAllowed() {
-		return nil, MjpegBlockedResult
-	}
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-	if k.closed {
-		return nil, -1
-	}
-
-	data, result = readMjpegIntoOwnedStorage(width, height, quality)
-	if result < 0 {
+	// file check in readMjpegChecked stays out of the lock, which the video
+	// reader shares; native capture repeats the check under its own mutex.
+	data, result = readMjpegChecked(func() ([]byte, int) {
+		k.mutex.Lock()
+		defer k.mutex.Unlock()
+		if k.closed {
+			return nil, -1
+		}
+		return readMjpegIntoOwnedStorage(width, height, quality)
+	})
+	// A refusal repeats on every tick while the input is 3840x2160.
+	if result < 0 && result != MjpegBlockedResult {
 		log.Errorf("failed to read kvm image: %v", result)
 	}
 	return

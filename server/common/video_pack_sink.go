@@ -22,6 +22,15 @@ import (
 	"unsafe"
 )
 
+// The Go and native codes for a refused JPEG read must be the same number; a
+// difference stops the build (each line fails for one direction).
+const (
+	_ = uint(nativeMjpegBlocked - C.IMG_MJPEG_INPUT_BLOCKED)
+	_ = uint(C.IMG_MJPEG_INPUT_BLOCKED - nativeMjpegBlocked)
+	_ = uint(MjpegBlockedResult - C.IMG_MJPEG_INPUT_BLOCKED)
+	_ = uint(C.IMG_MJPEG_INPUT_BLOCKED - MjpegBlockedResult)
+)
+
 //export goVideoPack
 func goVideoPack(context C.uintptr_t, data unsafe.Pointer, size, offset, total C.uint32_t) C.int {
 	state := cgo.Handle(context).Value().(*videoPackStorage)

@@ -237,7 +237,7 @@ const en = {
         saverHint: '1080p at 30 fps, 1 Mbit/s; the computer renders 30 Hz'
       },
       reason: {
-        'video-memory': 'needs the 4K video memory mode (Settings → Memory, restart)',
+        'video-memory': 'needs a larger video memory mode, QHD or UHD (Settings → Memory, restart)',
         receiver: 'not supported by this HDMI receiver',
         browser: 'this browser cannot play it',
         codec: 'not available with this transport',
@@ -796,10 +796,15 @@ const en = {
       memory: {
         videoMode: 'Video memory allocation',
         videoModeDescription:
-          'CMA lends unused video memory to Linux. The fixed modes reserve it for video only. 3840 × 2160 needs the 4K mode, because with CMA the encoder cannot always get its memory back. Changes apply after reboot.',
-        video_cma: 'CMA — 128 MiB, up to 2560 × 1440 (default)',
-        video_fixed: 'Fixed — 64 MiB, up to 2560 × 1440',
-        video_uhd: '4K — 128 MiB fixed, up to 3840 × 2160',
+          'FHD is the default and is enough for 1920 × 1080. Portrait mode and 2560 × 1440 need QHD, 3840 × 2160 needs UHD. Changes apply after reboot.',
+        videoRes_fhd: 'FHD — 1920 × 1080 · 56 MiB',
+        videoRes_qhd: 'QHD — 2560 × 1440 · 72 MiB',
+        videoRes_uhd: 'UHD — 3840 × 2160 · 128 MiB',
+        videoFixed: 'Fixed',
+        videoFixedHint:
+          'Reserves the video memory for video only: Linux can never use it. Without it, Linux borrows the memory while video does not need it. UHD is always fixed.',
+        videoFixedUhd:
+          'UHD is always fixed: its 128 MiB are reserved for video only, and Linux can never use them.',
         zramAuto: 'Half of RAM ({{size}} MiB)',
         videoActive: 'Currently active',
         videoUnknown: 'Unknown',

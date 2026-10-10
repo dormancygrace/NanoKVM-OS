@@ -69,7 +69,7 @@ function caps({ uhd = true, input = [2560, 1440], follows = true, programmable =
       maxFps: 120
     },
     transports: { direct: ['h264', 'h265'], webrtc: ['h264', 'h265'], mjpeg: ['mjpeg'] },
-    videoMemoryMiB: uhd ? 128 : 64
+    videoMemoryMiB: uhd ? 128 : 72
   };
 }
 

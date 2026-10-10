@@ -76,6 +76,7 @@ func initialize(stopMemory context.CancelFunc) {
 			logrus.Errorf("failed to fit the monitor profile to the video memory: %v", err)
 		} else if changed {
 			logrus.Info("lowered the saved monitor profile to the video memory of this boot")
+			restartAfterMonitorFit()
 		}
 	}()
 

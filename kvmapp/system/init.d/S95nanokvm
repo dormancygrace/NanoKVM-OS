@@ -52,7 +52,9 @@ start_background() {
        grep -q 'flavour=enhanced' /etc/nanokvm-buildroot 2>/dev/null; then
         # Preserve the currently tested Go sysmon policy; 0 explicitly disables it.
         : "${NANOKVM_SYSMON_TIMER_SLACK_NS:=250000}"
-        export NANOKVM_SYSMON_TIMER_SLACK_NS
+        # Sysmon sleep floor while GOMAXPROCS=1; 0 explicitly disables it.
+        : "${NANOKVM_SYSMON_MIN_DELAY_US:=1000}"
+        export NANOKVM_SYSMON_TIMER_SLACK_NS NANOKVM_SYSMON_MIN_DELAY_US
         # Measured WebRTC packet sender settings; explicit overrides are kept.
         : "${NANOKVM_WEBRTC_QUEUE_FRAMES:=32}"
         : "${NANOKVM_WEBRTC_UDP_BATCH:=1}"

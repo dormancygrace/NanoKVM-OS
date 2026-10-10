@@ -66,6 +66,43 @@ access-unit interface still accepts at most eight packs and rejects larger
 vendor results after releasing them. This prevents the previous fixed-size
 vendor buffer from being overrun before its returned count could be checked.
 
+## Frame pacing
+
+A native capture thread, `nkos-capture` (`server/common/capture_worker.c`),
+paces H.264/H.265 sessions. On one P, every syscall or cgo call that the kernel
+deschedules lets sysmon hand the P to another thread, so the Go side avoids
+waiting in either:
+
+- The thread keeps the absolute cadence of the Go loop it replaces: the same
+  bounded catch-up after a late read, and a restart of the cadence when the
+  rate changes. It runs the existing `kvmv_read_video_sink` read and copies the
+  packs of the access unit into one of two C buffers before the vendor stream
+  is released.
+- It signals an eventfd only when the consumer has announced that it waits.
+  The session goroutine waits there through the netpoller, copies the buffer
+  into Go-owned storage with headroom, frees it with an atomic store and fans
+  the frame out. It uses no timer, yield or cgo call per frame. If both buffers
+  are full, freeing one wakes the thread with a raw write that keeps the P.
+- Bitrate, GOP, size and rate changes are published under the thread's mutex
+  and apply from its next read. Unchanged parameters cost nothing. The session
+  rereads the capture settings when the Screen snapshot changes, and every
+  0.5 s for source-dependent limits.
+- Other native operations (MJPEG reads, HDMI, GOP, frame detection, chroma and
+  monitor profiles) pause the thread and wait for its read in flight, as
+  `KvmVision.mutex` excluded them from Go-paced reads. Stopping a session
+  interrupts the wait at once. Closing it waits for the read in flight and drops
+  unconsumed frames before another profile can start.
+
+Result codes, key/delta classification and headroom are unchanged, and no
+native library change is required. MJPEG keeps its blocking read.
+
+`NANOKVM_NATIVE_CAPTURE_WORKER=0` selects the previous Go-paced blocking loop
+for this release. The server also falls back to it, and logs the reason, when
+the thread cannot be started or its eventfd fails.
+`NANOKVM_CAPTURE_DEBUG=1` logs the handoffs every 10 s: frames, native reads,
+eventfd signals, Go waits, producer wakeups and waits, parameter updates and
+pauses.
+
 ## Building and testing
 
 `libkvm.so` and `libkvm_mmf.so` must be rebuilt and deployed together with the

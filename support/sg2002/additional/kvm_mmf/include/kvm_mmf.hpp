@@ -78,6 +78,11 @@ int mmf_invert_format_to_mmf(int maix_format);
 extern "C" {
 #endif
 // Explicit VB count/depth for independently consumed VPSS outputs.
+// mmf_vi_drop_pending returns 0 when the output holds no queued frame or one
+// was dropped, and MMF_VI_OUTPUT_LEASED (nothing dropped) while a frame of the
+// output is leased to an encoder, e.g. the next video frame that was
+// pre-submitted between two reads. Any other value is an error.
+#define MMF_VI_OUTPUT_LEASED 1
 int mmf_vi_drop_pending(int ch);
 int mmf_add_vi_channel_configured(int ch, int width, int height, int format, int buffers, int queue_depth);
 int mmf_set_venc_gop_mode(uint8_t mode);

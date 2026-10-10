@@ -84,6 +84,17 @@ int Capture::discard_other_pending() {
     for (const auto &output : outputs_) {
         if (output.channel >= 0 && output.channel != channel_) {
             const int result = mmf_vi_drop_pending(output.channel);
+            // A leased output has a consumer mid-frame: wide video pre-submits
+            // its next frame to the encoder between reads
+            // (submit_next_video_frame). Skip it instead of failing the read;
+            // that failure made every MJPEG read return IMG_VENC_ERROR while a
+            // 2560x1440 video stream ran. The skip alone is not enough: the
+            // leased output may have only two buffers (see open_output: three
+            // only when fast and the output is up to 1920x1088 or the video
+            // pool is 96 MiB or more), and VPSS fails the whole group when one
+            // output has no free buffer. kvmv_read_img therefore also stops
+            // pre-submitting while a JPEG reader is active.
+            if (result == MMF_VI_OUTPUT_LEASED) continue;
             if (result) return result;
         }
     }

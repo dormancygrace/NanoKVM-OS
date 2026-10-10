@@ -3,6 +3,7 @@
 #include <atomic>
 #include <initializer_list>
 #include "stream_size.hpp"
+#include "capture_pacing.hpp"
 #include "mjpeg_policy.hpp"
 #include "geometry_gate.hpp"
 /**
@@ -1736,8 +1737,11 @@ static bool mjpeg_422_requested()
 }
 static bool mjpeg_video_reader_active(uint64_t now_ms)
 {
-    return mjpeg_last_video_ms && now_ms >= mjpeg_last_video_ms
-        && now_ms - mjpeg_last_video_ms < 2000;
+    return nanokvm::reader_active(mjpeg_last_video_ms, now_ms);
+}
+static bool mjpeg_jpeg_reader_active(uint64_t now_ms)
+{
+    return nanokvm::reader_active(mjpeg_last_jpeg_ms, now_ms);
 }
 static bool mjpeg_force_copy()
 {
@@ -2094,11 +2098,13 @@ static bool video_encoder_matches(const nanokvm::GeometrySnapshot &src, int widt
  * the hardware encodes it while frame N is copied and delivered; the next read
  * collects it (see kvmv_read_img). Wait briefly for a frame that VPSS is about
  * to finish, so it does not wait for the caller instead; otherwise the next
- * read acquires one as usual.
+ * read acquires one as usual. Not while a JPEG reader is active: the lease
+ * would block its reads (see nanokvm::presubmit_next_video_frame).
  */
 static void submit_next_video_frame(int vi_ch, int width, int height)
 {
-	if ((long)width * height * kvm_venc.kvm_venc_cfg.output_fps <= nanokvm::fast_pixel_rate) return;
+	if (!nanokvm::presubmit_next_video_frame((long)width * height * kvm_venc.kvm_venc_cfg.output_fps,
+			nanokvm::fast_pixel_rate, mjpeg_jpeg_reader_active(mjpeg_monotonic_ms()))) return;
 	int len = 0, w = 0, h = 0, format = 0;
 	if (mmf_vi_frame_try_pop_native(vi_ch, 5, &len, &w, &h, &format) != 0) return;
 	if (w != width || h != height || format != nanokvm::nv21_format()
@@ -2359,8 +2365,7 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
             retired = kvm_venc.enc_video_init ? mmf_del_venc_channel(kvm_venc.mmf_venc_chn) : 0;
             if (!retired) { kvm_venc.enc_video_init = 0; retired = cam->close_format(nanokvm::nv21_format()); }
         }
-        const bool jpeg_active = mjpeg_last_jpeg_ms && capture_now >= mjpeg_last_jpeg_ms
-            && capture_now - mjpeg_last_jpeg_ms < 2000;
+        const bool jpeg_active = mjpeg_jpeg_reader_active(capture_now);
         const bool remove_nv16 = !mjpeg_422_requested() || mjpeg_422_disabled
             || kvmv_cfg.frame_detact != 0 || mjpeg_force_copy()
             || (_type == VENC_MJPEG && capture_format == nanokvm::nv21_format())

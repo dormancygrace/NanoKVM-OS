@@ -29,10 +29,10 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 ## Image and application versions
 
 Starting with applications **v2.5-a1**, full SD images have their own version.
-**Image v1.0-a1** includes applications **v2.5-a1**; both are alpha releases.
+The current **Image v1.1-a1** includes applications **v2.6-a1**; both are alpha releases.
 `firmware/alpine/release.env` is the source of truth: `NANOKVM_IMAGE_VERSION`
 identifies the image, `NANOKVM_VERSION` the applications, and
-`NANOKVM_APK_VERSION` their APK-comparable version (`2.5_alpha1`).
+`NANOKVM_APK_VERSION` their APK-comparable version (`2.6_alpha1`).
 
 The image filename and `build-manifest.json` record both versions. The image
 builder also checks `/kvmapp/version` against the requested bundle version.
@@ -83,7 +83,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`). Re
 | `kernel/` | `config` and patches for kernel.org Linux 7.2.9 |
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi and cryptodev; `sg2002-aes/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.07 |
-| `fip/base-fip.bin` | First-stage boot firmware; the build replaces only U-Boot in it |
+| `fip/base-fip.bin` | First-stage boot firmware; the build replaces OpenSBI and U-Boot while retaining the vendor first-stage loader |
 | `boot/` | FIT template, initramfs file list and `init`; `stock-init` is the stock Sipeed initramfs init, and `stock-init.diff` turns it into `init` |
 | `native/cvi_mpi/` | Patches for the SOPHGO media libraries (`cvi_mpi`) |
 | `native/maixcdk/` | Patches for the MaixCDK sources of `kvm_system` |

@@ -154,7 +154,7 @@ the packages need no ECDSA signature.
 
 1. Set the application and APK versions in `firmware/alpine/release.env`;
    retain the independently versioned image value unless releasing a new image.
-   For this release: applications `v2.5-a1`, APK `2.5_alpha1`, image `v1.0-a1`.
+   For this release: applications `v2.6-a1`, APK `2.6_alpha1`, image `v1.1-a1`.
    Keep both private keys outside the source tree, each with its public key
    next to it: `dgrace-6aaddbb6.rsa` / `dgrace-6aaddbb6.rsa.pub` and
    `nkos-release-ec-b8e89b66.key` / `nkos-release-ec-b8e89b66.pub`.

@@ -202,6 +202,45 @@ class MonitorProfilesTest(unittest.TestCase):
             self.assertEqual(profiles.build_rate_profile(self.source, height, int(rate))[0],
                              profiles.build_profile(self.source, height)[0])
 
+    def test_static_auto_profile_is_strict_1080p100(self):
+        """Policy: the generated static Automatic profile stays single-rate.
+        It prefers 1080p100 and deliberately has no 1080p60 fallback: with one
+        it, the Windows GPU driver tested here would output the fallback
+        instead of 100 Hz on every path that applies this file (install,
+        Windows-pointer USB switch, missing rate profile). A source that
+        cannot drive 100 Hz falls to 720p until a slower profile is chosen
+        or the stream rate lowers the runtime-selected profile."""
+        data, timing = profiles.build_auto_profile(self.source)
+        self.assertEqual((timing.width, timing.height), (1920, 1080))
+        self.assertAlmostEqual(timing.refresh_hz, 100, delta=0.1)
+        self.assertEqual(data, profiles.build_rate_profile(self.source, 1080, 100)[0])
+        modes = advertised(data)
+        # No 1080p60 in any form: not as CTA VIC 16 (nor 20/31), not as a DTD.
+        codes = {v & 0x7F for tag, payload in cta_layout(data)[0] if tag == 2 for v in payload}
+        self.assertFalse(codes & {16, 20, 31, 32, 33, 34})
+        self.assertFalse([m for m in modes if m[2] == 1080 and round(m[3]) == 60])
+        # 1920x1080@100 is the only mode at or above 1080 lines or 1920 pixels.
+        above = [m for m in modes if m[1] >= 1920 or m[2] >= 1080]
+        self.assertTrue(above)
+        for kind, w, h, hz, *code in above:
+            self.assertEqual((kind in ("base-dtd", "cta-dtd"), w, h, round(hz)),
+                             (True, 1920, 1080, 100))
+        # The lower fallbacks stay: 720p60 and 720p120 (VIC 4, 19, 47 and DTDs).
+        self.assertEqual([m[4] for m in modes if m[0] == "vic"], [4, 19, 1, 47])
+        self.assertTrue({(1280, 720, 60), (1280, 720, 120)}
+                        <= {(m[1], m[2], round(m[3])) for m in modes if m[0] == "cta-dtd"})
+
+    def test_generated_auto_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            (tmp / "source.bin").write_bytes(self.source)
+            subprocess.run([sys.executable, str(HERE / "build_final_monitor_profiles.py"),
+                            "--input", str(tmp / "source.bin"), "--output", str(tmp / "out")],
+                           check=True, stdout=subprocess.DEVNULL)
+            auto = (tmp / "out/NanoKVM-monitor-auto.bin").read_bytes()
+            self.assertEqual(auto, (tmp / "out/NanoKVM-monitor-1080-100.bin").read_bytes())
+            self.assertEqual(auto, profiles.build_auto_profile(self.source)[0])
+
     def test_uhd_profile(self):
         data, timing = profiles.build_uhd_profile(self.source)
         self.assertEqual(len(data), 256)

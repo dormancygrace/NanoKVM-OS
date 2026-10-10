@@ -446,6 +446,25 @@ def build_rate_profile(source: bytes, height: int, rate: int) -> tuple[bytes, ob
     return candidate, timing
 
 
+# The static Automatic profile (NanoKVM-monitor-auto.bin, installed as
+# NanoKVM-final-video-profiles.bin) is the 1080p100 rate profile.
+AUTO_HEIGHT, AUTO_RATE = 1080, 100
+
+
+def build_auto_profile(source: bytes) -> tuple[bytes, object]:
+    """The static Automatic profile: strict single-rate, like every other
+    profile. It advertises no 1080p60 (or any other 1080-or-larger mode)
+    beside 1080p100 on purpose. Boards that write the EDID live apply this
+    file at install, on a Windows-pointer USB switch and when a rate profile
+    is missing, and the Windows GPU driver tested here picks a fallback
+    (1080p50/60, 2560x1440@50) whenever more than the preferred mode is
+    listed at or above the resolution. A 60 Hz fallback would therefore
+    make the default Automatic output 60 Hz instead of 100 Hz. While
+    Automatic runs, the server replaces this file by the rate profile
+    NanoKVM-monitor-1080-<hz>.bin of the stream rate."""
+    return build_rate_profile(source, AUTO_HEIGHT, AUTO_RATE)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
@@ -505,7 +524,7 @@ def main() -> int:
     # The runtime already resolves monitor value 0 to
     # NanoKVM-final-video-profiles.bin; the package install step maps this
     # generated Auto file to that stable runtime name.
-    auto_data, auto_timing = build_rate_profile(source, 1080, 100)
+    auto_data, auto_timing = build_auto_profile(source)
     auto_target = args.output / "NanoKVM-monitor-auto.bin"
     auto_target.write_bytes(auto_data)
     manifest.append(

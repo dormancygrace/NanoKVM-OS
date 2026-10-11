@@ -403,6 +403,14 @@ const en = {
       }
     },
     screen: {
+      recoveryReports: 'Crash reports',
+      recoveryReportsFailed: 'Could not load crash reports.',
+      recoveryTitle: 'Video recovery mode',
+      recoveryDescription:
+        'Video stopped after repeated crashes. Management remains available. You can change settings or retry video.',
+      recoveryRetry: 'Retry video',
+      recoveryRetryFailed: 'Could not restart video. Try again.',
+
       monitorApplying: 'Changing HDMI monitor resolution… Video will reconnect.',
       monitorHint: 'Changes the HDMI monitor seen by your computer. Video briefly disconnects.',
       monitorFailed: 'Could not change the HDMI monitor resolution',

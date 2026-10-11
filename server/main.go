@@ -17,6 +17,7 @@ import (
 	"NanoKVM-Server/logs"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/router"
+	"NanoKVM-Server/service/failsafe"
 	"NanoKVM-Server/service/network"
 	"NanoKVM-Server/service/vm"
 	"NanoKVM-Server/service/vm/jiggler"
@@ -45,6 +46,22 @@ func initialize(stopMemory context.CancelFunc) {
 	}
 
 	logger.Init()
+	recovering, recoveryErr := failsafe.Init(func() error {
+		executable, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		err = syscall.Exec(executable, os.Args, os.Environ())
+		logrus.Errorf("video recovery restart failed: %v", err)
+		return err
+	})
+	if recoveryErr != nil {
+		logrus.Errorf("video crash guard: %v", recoveryErr)
+	}
+	if recovering {
+		common.DisableVideo()
+		logrus.Warn("video recovery active; management remains available")
+	}
 	utils.InitGoMemLimit()
 	// The server owns video capture; let the OOM killer take other processes
 	// first. Set here rather than by the init script so that every way of
@@ -57,21 +74,34 @@ func initialize(stopMemory context.CancelFunc) {
 		log.Printf("failed to initialize IPv6 policy: %v", err)
 	}
 
+	if !recovering {
+		if err := failsafe.VideoPhase("initializing"); err != nil {
+			logrus.Warnf("video phase: %v", err)
+		}
+	}
 	// init screen parameters
 	_ = common.GetScreen()
 
 	// init HDMI
-	if utils.IsHdmiDisabled() {
+	if recovering || utils.IsHdmiDisabled() {
 		vm.DisableHdmiCapture()
 	} else {
 		vm.EnableHdmiCapture()
 	}
 	vm.SetHdmiViewerCount(0)
+	if !recovering {
+		if err := failsafe.VideoPhase("ready"); err != nil {
+			logrus.Warnf("video phase: %v", err)
+		}
+	}
 
 	// The monitor profile is kept in the HDMI receiver across restarts; it
 	// must not exceed the video memory of this boot (a smaller mode may have
 	// been selected after it was saved). Programming can take a while.
 	go func() {
+		if recovering {
+			return
+		}
 		changed, err := common.FitMonitorToVideoMemory()
 		if err != nil {
 			logrus.Errorf("failed to fit the monitor profile to the video memory: %v", err)

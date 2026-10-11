@@ -60,6 +60,13 @@ function fixture() {
     },
     clearTimeout: (i) => timers.delete(i)
   };
+  const holdSource = readFileSync(new URL('../src/lib/hold-keepalive.ts', import.meta.url), 'utf8');
+  const holdCode = ts.transpileModule(holdSource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+  }).outputText;
+  vm.runInNewContext(holdCode, sandbox);
+  sandbox.HoldKeepalive = sandbox.exports.HoldKeepalive;
+  sandbox.KEEPALIVE_MESSAGE = sandbox.exports.KEEPALIVE_MESSAGE;
   vm.runInNewContext(code, sandbox);
   return {
     client: new sandbox.exports.WsClient({ heartbeatInterval: 100 }),
@@ -149,7 +156,14 @@ test('connection feedback resolves in both shipped locales and fallback', async 
       compilerOptions: { module: ts.ModuleKind.CommonJS }
     }).outputText;
     const sandbox = { exports: {} };
-    vm.runInNewContext(code, sandbox);
+    const holdSource = readFileSync(new URL('../src/lib/hold-keepalive.ts', import.meta.url), 'utf8');
+  const holdCode = ts.transpileModule(holdSource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+  }).outputText;
+  vm.runInNewContext(holdCode, sandbox);
+  sandbox.HoldKeepalive = sandbox.exports.HoldKeepalive;
+  sandbox.KEEPALIVE_MESSAGE = sandbox.exports.KEEPALIVE_MESSAGE;
+  vm.runInNewContext(code, sandbox);
     resources[language] = sandbox.exports.default;
   }
   const translator = i18next.createInstance();
@@ -162,4 +176,28 @@ test('connection feedback resolves in both shipped locales and fallback', async 
       assert.ok(translator.t(key).length > 5);
     }
   }
+});
+
+test('socket opts in once, sends hold keepalive only while held, and resets on disconnect', () => {
+  const f = fixture(), c = f.client;
+  c.connect();
+  const socket = f.sockets[0];
+  socket.open();
+  assert.deepEqual(socket.sent.map(x => Array.from(x)), [[4], [0]]);
+  c.setInputEnabled(true);
+  c.setControlEnabled(true);
+  c.send(new Uint8Array([1,0,0,4,0,0,0,0,0]));
+  assert.equal(f.timers.size, 2);
+  f.tick(50);
+  assert.ok(socket.sent.some((x, i) => i > 1 && x.length === 1 && x[0] === 4));
+  c.setControlEnabled(false);
+  assert.equal(f.timers.size, 1);
+  assert.deepEqual(Array.from(socket.sent.at(-1)), [1,0,0,0,0,0,0,0,0]);
+  c.setControlEnabled(true);
+  c.send(new Uint8Array([2,1,0,0,0]));
+  assert.equal(f.timers.size, 2);
+  socket.close();
+  assert.equal(f.timers.size, 1); // reconnect only
+  c.close();
+  assert.equal(f.timers.size, 0);
 });

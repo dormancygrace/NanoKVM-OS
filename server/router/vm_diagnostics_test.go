@@ -38,7 +38,7 @@ func TestDiagnosticsEndpointsRequireAdministrator(t *testing.T) {
 	}
 	r := gin.New()
 	vmRouter(r)
-	for _, path := range []string{"/api/vm/diagnostics", "/api/vm/diagnostics/report", "/api/vm/logs", "/api/vm/logs/boots"} {
+	for _, path := range []string{"/api/vm/diagnostics", "/api/vm/video/crashes", "/api/vm/diagnostics/report", "/api/vm/logs", "/api/vm/logs/boots"} {
 		if status := diagnosticsRequest(r, path, ""); status != http.StatusUnauthorized {
 			t.Fatalf("unauthenticated %s = %d, want 401", path, status)
 		}

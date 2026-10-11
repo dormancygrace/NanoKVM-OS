@@ -1,3 +1,4 @@
+#include "net_probe.h"
 #include "config.h"
 #include "system_state.h"
 #include "vi_state_shared.hpp"
@@ -281,6 +282,14 @@ int chack_net_state(ip_addr_t use_ip_type)
 	} else {
 		return -1;
 	}
+
+    // The normal numeric-gateway path stays in this process. Keep the
+    // established ping fallback for names and kernels without raw sockets.
+    struct in_addr destination;
+    if (parse_gateway(gateway, INET_ADDRSTRLEN, &destination)) {
+        const int reachable = icmp_probe(interface_name, destination, 1000);
+        if (reachable >= 0) return reachable;
+    }
 
 	const pid_t pid = fork();
 	if (pid < 0) {

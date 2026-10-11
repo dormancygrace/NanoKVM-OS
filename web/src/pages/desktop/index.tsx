@@ -48,6 +48,7 @@ import {
 import { InputRegionOverlay } from './screen/input-region-overlay.tsx';
 import { ManualRegion } from './screen/manual-region.tsx';
 import { preloadPlayer } from './screen/players.ts';
+import { VideoRecovery } from './video-recovery.tsx';
 
 const isDirectSupported = () => window.isSecureContext && !!window.VideoDecoder;
 
@@ -133,12 +134,14 @@ export const Desktop = () => {
   }, []);
   const [picoclawSidebarWidth, setPicoclawSidebarWidth] = useState(420);
   const captureStatus = useCaptureStatus(activeVideoMode);
-  const captureEnabled = useAtomValue(isHdmiEnabledAtom);
+  const [recovery, setRecovery] = useState({ active: false, retrying: false });
+  const captureEnabled = useAtomValue(isHdmiEnabledAtom) && !recovery.active;
   useEffect(() => {
     const refresh = () => void refreshLiveStatus({ force: true });
-    const unsubscribe = subscribeLiveStatus((status, startedAt) =>
-      adoptLiveCapture(status?.hdmi ?? null, startedAt)
-    );
+    const unsubscribe = subscribeLiveStatus((status, startedAt) => {
+      adoptLiveCapture(status?.hdmi ?? null, startedAt);
+      if (status?.recovery) setRecovery(status.recovery);
+    });
     window.addEventListener('focus', refresh);
     return () => {
       unsubscribe();
@@ -359,6 +362,7 @@ export const Desktop = () => {
 
       <H264ModeNotification />
       <ControlNotice />
+      {recovery.active && <VideoRecovery retrying={recovery.retrying} />}
 
       {encoderReady && videoMode && resolution && (
         <div className="relative flex h-full min-h-0 w-full min-w-0">

@@ -1,12 +1,9 @@
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
+import { HoldKeepalive, KEEPALIVE_MESSAGE } from '@/lib/hold-keepalive.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 
 export type InputConnectionStatus =
-  | 'idle'
-  | 'connecting'
-  | 'connected'
-  | 'reconnecting'
-  | 'disconnected';
+  'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
 
 // The exported MessageEvent enum below shadows the DOM type of the same name.
 type SocketMessageEvent = globalThis.MessageEvent;
@@ -50,6 +47,9 @@ export class WsClient {
   private readonly controlListeners = new Set<() => void>();
   private lastResponseAt = 0;
   private heartbeatAcknowledged = false;
+  private readonly holdKeepalive = new HoldKeepalive(() => {
+    this.send(new Uint8Array([KEEPALIVE_MESSAGE]));
+  });
 
   public readonly getConnectionStatus = (): InputConnectionStatus => this.connectionStatus;
   public readonly subscribeConnectionStatus = (listener: () => void): (() => void) => {
@@ -165,6 +165,7 @@ export class WsClient {
         this.send(release);
       }
       this.inputReports.clear();
+      this.holdKeepalive.reset();
     }
     this.effectiveInputEnabled = enabled;
   }
@@ -186,6 +187,7 @@ export class WsClient {
       this.instance.send(JSON.stringify(data));
     }
 
+    this.holdKeepalive.observe(bytes);
     return true;
   }
 
@@ -222,6 +224,7 @@ export class WsClient {
     this.reconnectAttempts = 0;
     this.lastResponseAt = Date.now();
     this.heartbeatAcknowledged = false;
+    this.send(new Uint8Array([KEEPALIVE_MESSAGE]));
     this.updateConnectionStatus('connected');
     this.startHeartbeat();
   }
@@ -292,6 +295,7 @@ export class WsClient {
   }
 
   private stopHeartbeat(): void {
+    this.holdKeepalive.reset();
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;

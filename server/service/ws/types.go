@@ -44,6 +44,8 @@ type Client struct {
 	// input control it is sent only to this browser tab, which presents it
 	// on HTTP input routes (paste, ATX) to prove it is the controller.
 	inputLease string
+	inputMutex sync.Mutex
+	hold       holdLease
 }
 
 type Message struct {

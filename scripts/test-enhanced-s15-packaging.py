@@ -78,6 +78,9 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
     resolved = output / 'app' / str(target).lstrip('/')
     assert resolved == app_s95
     assert resolved.read_bytes() == (root / 'kvmapp/system/init.d/S95nanokvm').read_bytes()
+    supervisor = output / 'app/kvmapp/system/init.d/nanokvm-server-supervisor'
+    assert supervisor.read_bytes() == (root / 'kvmapp/system/init.d/nanokvm-server-supervisor').read_bytes()
+    assert supervisor.stat().st_mode & 0o111
     app_s95.write_bytes(b'updated application startup policy\n')
     assert resolved.read_bytes() == b'updated application startup policy\n'
 

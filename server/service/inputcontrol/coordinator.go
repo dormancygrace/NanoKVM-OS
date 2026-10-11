@@ -360,13 +360,17 @@ func (r *ManualReservation) Execute(write func() error) error {
 	if r == nil || r.session == nil {
 		return ErrManualInputBlocked
 	}
-	r.session.mu.Lock()
-	valid := r.session.active && !r.session.closed && r.generation == r.session.generation
-	r.session.mu.Unlock()
-	if !valid {
-		return ErrManualInputBlocked
-	}
-	return r.session.Execute(write)
+	return r.session.Execute(func() error {
+		// Check after taking the write lane: an expiry may have invalidated
+		// this reservation while it was waiting behind another HID write.
+		r.session.mu.Lock()
+		valid := r.session.active && !r.session.closed && r.generation == r.session.generation
+		r.session.mu.Unlock()
+		if !valid {
+			return ErrManualInputBlocked
+		}
+		return write()
+	})
 }
 
 func (s *ManualSession) Execute(write func() error) error {
@@ -502,4 +506,31 @@ func (s *ManualSession) finish(releaseControl func(), end bool, startCooldown bo
 		releaseControl()
 	}
 	s.coordinator.endManual(startCooldown)
+}
+
+// ReleaseHeld retires queued reports and releases this session's hardware
+// state while it still owns the manual lane. Callers serialize admission of
+// new reports and control transfers. Inactive sessions cannot release another
+// input producer's state.
+func (s *ManualSession) ReleaseHeld(write func() error) error {
+	if s == nil || s.coordinator == nil {
+		return nil
+	}
+	return s.coordinator.executeManual(func() error {
+		s.mu.Lock()
+		if !s.active || s.closed {
+			s.mu.Unlock()
+			return nil
+		}
+		s.generation++
+		s.pending = 0
+		s.keyboardHeld, s.relativeMouseHeld, s.absoluteMouseHeld = false, false, false
+		s.mu.Unlock()
+		var err error
+		if write != nil {
+			err = write()
+		}
+		s.Revoke()
+		return err
+	})
 }

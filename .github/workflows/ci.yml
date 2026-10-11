@@ -30,6 +30,8 @@ jobs:
           cache-dependency-path: server/go.sum
       - name: Build
         run: go build -tags teststub,nomsgpack ./...
+      - name: Video recovery native-call guard
+        run: python3 ../scripts/test-video-recovery-native.py
       - name: Vet
         run: go vet -tags teststub,nomsgpack $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
       - name: Test
@@ -86,7 +88,7 @@ jobs:
           for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-sd-image-boot alpine-network \
                    alpine-recovery-password alpine-service-deps board-selection enhanced-fs \
                    enhanced-s15-packaging hdmi-detection-cache hdmi-receiver-start \
-                   mmf-light-link monitor-edids nanokvm-service-stop oled-ip-window platform-build \
+                   mmf-light-link monitor-edids nanokvm-service-stop net-probe server-supervisor oled-ip-window platform-build \
                    portrait-edid serial-console-disk startup-aes-policy wifi-selector upstream-watch; do
             echo "::group::scripts/test-$t.py"; python3 "scripts/test-$t.py"; echo "::endgroup::"
           done

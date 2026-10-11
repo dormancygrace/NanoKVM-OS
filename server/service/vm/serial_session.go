@@ -159,33 +159,6 @@ func (s *serialSettings) termios(base *unix.Termios) *unix.Termios {
 	return &t
 }
 
-// One session per device within the server; the probe asks this too.
-var serialPorts = struct {
-	sync.Mutex
-	open map[string]struct{}
-}{open: map[string]struct{}{}}
-
-func claimSerialPort(device string) (release func(), ok bool) {
-	serialPorts.Lock()
-	defer serialPorts.Unlock()
-	if _, taken := serialPorts.open[device]; taken {
-		return nil, false
-	}
-	serialPorts.open[device] = struct{}{}
-	return func() {
-		serialPorts.Lock()
-		delete(serialPorts.open, device)
-		serialPorts.Unlock()
-	}, true
-}
-
-func serialPortOpen(device string) bool {
-	serialPorts.Lock()
-	defer serialPorts.Unlock()
-	_, open := serialPorts.open[device]
-	return open
-}
-
 var errSerialBusy = errors.New("serial port is in use")
 
 // openSerial opens the device with exclusive access and the line settings.

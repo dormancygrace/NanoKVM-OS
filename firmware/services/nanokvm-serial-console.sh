@@ -212,6 +212,25 @@ if exists "$RULE_FILE"; then
 	rule_present=yes
 	rule_serial=$(readfile "$RULE_FILE" | sed -n 's/.*ATTRS{serial}=="\([^"]*\)".*/\1/p' | head -n 1)
 fi
+# A login set up another way (by hand, after the docs): a udev rule of
+# someone else's that starts a getty for this NanoKVM, or a getty already
+# running on its port. That setup is theirs; this script leaves it alone.
+foreign_rule=
+foreign_getty=
+for f in "$ROOT"/etc/udev/rules.d/*.rules "$ROOT"/lib/udev/rules.d/*.rules "$ROOT"/usr/lib/udev/rules.d/*.rules; do
+	[ -r "$f" ] || continue
+	[ "${f#"$ROOT"}" = "$RULE_FILE" ] && continue
+	if grep -q 'serial-getty@' "$f" && grep -qE "idVendor\"?\}?==\"$VID\"" "$f" && grep -qE "idProduct\"?\}?==\"$PID\"" "$f"; then
+		if [ -z "$serial" ] || ! grep -q 'ATTRS{serial}==' "$f" || grep -q "ATTRS{serial}==\"$serial\"" "$f"; then
+			foreign_rule=${f#"$ROOT"}
+			break
+		fi
+	fi
+done
+# systemd keeps this symlink while the unit is active
+if [ -n "$dev_tty" ] && [ -L "$ROOT/run/systemd/units/invocation:serial-getty@$dev_tty.service" ]; then
+	foreign_getty="serial-getty@$dev_tty.service"
+fi
 inittab_present=
 if exists /etc/inittab && readfile /etc/inittab | grep -qF "$INITTAB_TAG"; then
 	inittab_present=yes
@@ -246,7 +265,17 @@ report() {
 	loaded) ok "cdc_acm driver is loaded" ;;
 	builtin) ok "cdc_acm is built into the kernel" ;;
 	module) ok "cdc_acm module is available for $krel (loads when the device appears)" ;;
-	*) refuse "no cdc_acm driver for kernel $krel: the port cannot appear on this host" ;;
+	*)
+		refuse "no cdc_acm driver for kernel $krel: the port cannot appear on this host"
+		# the usual reasons: a cloud kernel without USB drivers
+		case "$distro_id:$krel" in
+		ubuntu:*)
+			info "Ubuntu cloud images leave it out: apt install linux-modules-extra-$krel, then modprobe cdc_acm"
+			info "when the archive no longer has that version: apt install linux-generic, then reboot"
+			;;
+		debian:*cloud*) info "Debian's cloud kernel has no USB drivers: apt install linux-image-amd64 and boot it" ;;
+		esac
+		;;
 	esac
 	case $init in
 	systemd)
@@ -282,6 +311,8 @@ report() {
 		fi
 	fi
 	[ -n "$inittab_present" ] && ok "/etc/inittab has the console line"
+	[ -n "$foreign_rule" ] && ok "a login for this NanoKVM is already set up by $foreign_rule (not by this script)"
+	[ -n "$foreign_getty" ] && ok "$foreign_getty is running on /dev/$dev_tty"
 }
 
 manual_steps() {
@@ -388,7 +419,21 @@ apply_systemd() {
 			# match flags, not a device path: old udevadm has no positional argument
 			run udevadm trigger --subsystem-match=tty "--sysname-match=$dev_tty" --action=add
 			sleep 1
-			if have systemctl && systemctl is-active --quiet "serial-getty@$dev_tty.service"; then
+			active=
+			if have systemctl; then
+				if systemctl is-active --quiet "serial-getty@$dev_tty.service"; then
+					active=yes
+				else
+					# Older systemd (Debian 11) does not start the wanted unit
+					# on a repeated add event for a device that is already
+					# there; the rule covers the next plug and boot, so start
+					# it now.
+					run systemctl start "serial-getty@$dev_tty.service"
+					sleep 1
+					systemctl is-active --quiet "serial-getty@$dev_tty.service" && active=yes
+				fi
+			fi
+			if [ -n "$active" ]; then
 				ok "serial-getty@$dev_tty.service is running: open the USB serial console on the NanoKVM and press Enter"
 			else
 				warn "serial-getty@$dev_tty.service is not active yet; check: systemctl status serial-getty@$dev_tty.service"
@@ -426,6 +471,10 @@ do_apply() {
 	if [ "$refusals" -gt 0 ]; then
 		manual_steps
 		refusal_exit
+	fi
+	if [ -n "$foreign_rule" ] && [ -z "$rule_present" ] && [ "$init" = systemd ]; then
+		say "nothing to do: the login is set up by $foreign_rule; this script adds no second rule (remove that one first if this script should own the setup)"
+		exit 0
 	fi
 	if [ -z "$ROOT" ] && [ "$(id -u)" != 0 ]; then
 		fail "apply needs root (sudo)"
@@ -510,6 +559,10 @@ plan)
 	fi
 	if [ -n "$rule_present" ] && [ "$init" = systemd ] && { [ -z "$serial" ] || [ "$rule_serial" = "$serial" ]; }; then
 		say "nothing to do: already set up"
+		exit 0
+	fi
+	if [ -n "$foreign_rule" ] && [ "$init" = systemd ]; then
+		say "nothing to do: already set up by $foreign_rule"
 		exit 0
 	fi
 	if [ -n "$inittab_present" ] && [ "$init" = inittab ]; then

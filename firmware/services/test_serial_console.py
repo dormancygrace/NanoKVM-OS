@@ -198,6 +198,20 @@ class ScriptTest(unittest.TestCase):
                 self.assertEqual(r.returncode, 0)
                 self.assertIn('nothing to undo', r.stdout)
 
+    def test_getty_started_when_the_add_event_does_not(self):
+        # Debian 11's systemd ignores a repeated add event for a present device
+        h = self.host()
+        stub = h.bin / 'systemctl'
+        stub.write_text('#!/bin/sh\necho "systemctl $*" >> "$NANOKVM_TEST_LOG"\ncase "$1" in is-active) grep -q "systemctl start" "$NANOKVM_TEST_LOG" || exit 3;; esac\nexit 0\n')
+        r = h.run(SHELLS[0], 'apply', '--yes')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(h.calls(), ['udevadm control --reload',
+                                     'udevadm trigger --subsystem-match=tty --sysname-match=ttyACM0 --action=add',
+                                     'systemctl is-active --quiet serial-getty@ttyACM0.service',
+                                     'systemctl start serial-getty@ttyACM0.service',
+                                     'systemctl is-active --quiet serial-getty@ttyACM0.service'])
+        self.assertIn('is running', r.stdout)
+
     def test_apply_needs_a_terminal_or_yes(self):
         h = self.host()
         r = self.assertReadOnly(h, SHELLS[0], 'apply', code=0)
@@ -259,6 +273,20 @@ class ScriptTest(unittest.TestCase):
                     self.assertIn('Manual setup', r.stdout)
                 r = self.assertReadOnly(h, SHELLS[0], 'status', code=2)
 
+    def test_missing_cdc_acm_hints(self):
+        # seen on the Proxmox matrix: Ubuntu cloud images lack linux-modules-extra,
+        # Debian genericcloud images run a cloud kernel without USB drivers
+        r = self.host(cdc=None, os_release='ID=ubuntu\nPRETTY_NAME="Ubuntu 24.04.5 LTS"\n').run(SHELLS[0])
+        self.assertEqual(r.returncode, 2)
+        self.assertIn('apt install linux-modules-extra-' + KERNEL, r.stdout)
+        # the running kernel's package can be gone from the archive (Ubuntu 26.04 at first boot)
+        self.assertIn('apt install linux-generic, then reboot', r.stdout)
+        env = dict(os.environ, NANOKVM_KERNEL='6.12.0-cloud-amd64')
+        h = self.host(cdc=None)
+        r = subprocess.run(SHELLS[0] + [str(SCRIPT)], capture_output=True, text=True,
+                           env=dict(env, NANOKVM_ROOT=str(h.root), NANOKVM_TEST_LOG=str(h.log), PATH=str(h.bin) + ':/usr/bin:/bin'))
+        self.assertIn("Debian's cloud kernel has no USB drivers", r.stdout)
+
     def test_cdc_variants_and_notes(self):
         for cdc, text in (('loaded', 'driver is loaded'), ('builtin', 'built into the kernel'),
                           ('module', 'module is available')):
@@ -290,6 +318,32 @@ class ScriptTest(unittest.TestCase):
         self.assertEqual((manifest.parent / '90-nanokvm-serial-console.rules.before').read_text(), 'ATTRS{serial}=="old"\n')
         h.run(SHELLS[0], 'undo')
         self.assertEqual((h.root / 'etc/udev/rules.d/90-nanokvm-serial-console.rules').read_text(), 'ATTRS{serial}=="old"\n')
+
+    def test_a_login_set_up_by_hand_is_left_alone(self):
+        # the Proxmox host on 2026-10-11: the rule from the docs, under another
+        # name, and its getty running (systemd keeps the invocation link)
+        h = self.host()
+        (h.root / 'etc/udev/rules.d').mkdir(parents=True)
+        docs_rule = ('ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}=="3346", ATTRS{idProduct}=="1009", '
+                     'ATTRS{serial}=="%s", TAG+="systemd", ENV{SYSTEMD_WANTS}+="serial-getty@%%k.service"\n' % SERIAL)
+        (h.root / 'etc/udev/rules.d/70-nanokvm-serial-console.rules').write_text(docs_rule)
+        (h.root / 'run/systemd/units').mkdir(parents=True)
+        (h.root / 'run/systemd/units/invocation:serial-getty@ttyACM0.service').symlink_to('/x')
+        for shell in SHELLS:
+            with self.subTest(shell=shell[0]):
+                r = self.assertReadOnly(h, shell, code=0)
+                self.assertIn('already set up by /etc/udev/rules.d/70-nanokvm-serial-console.rules', r.stdout)
+                self.assertIn('serial-getty@ttyACM0.service is running on /dev/ttyACM0', r.stdout)
+                self.assertNotIn('plan:    write', r.stdout)
+                r = self.assertReadOnly(h, shell, 'apply', '--yes', code=0)
+                self.assertIn('adds no second rule', r.stdout)
+                self.assertFalse((h.root / 'etc/udev/rules.d/90-nanokvm-serial-console.rules').exists())
+        # a rule for another NanoKVM is not this one's setup
+        (h.root / 'etc/udev/rules.d/70-nanokvm-serial-console.rules').write_text(docs_rule.replace(SERIAL, 'other'))
+        os.remove(h.root / 'run/systemd/units/invocation:serial-getty@ttyACM0.service')
+        r = self.assertReadOnly(h, SHELLS[0], code=0)
+        self.assertNotIn('already set up', r.stdout)
+        self.assertIn('plan:    write', r.stdout)
 
     def test_inittab_init(self):
         alpine = 'ID=alpine\nPRETTY_NAME="Alpine Linux v3.21"\n'

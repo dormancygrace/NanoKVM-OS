@@ -16,7 +16,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/dtb/*.dtb`, `images/initramfs.cpio.zst` | inside the `boot.sd` images |
 | `images/u-boot.bin`, `images/fip.bin` | boot partition of the SD image |
 | `images/opensbi/*`, `images/fip-manifest.json` | host build provenance and loader checks |
-| `images/native/*.so` (19 libraries) | `nanokvm-app`, `/kvmapp/server/dl_lib` |
+| `images/native/*.so` (6 HDMI-light libraries) | `nanokvm-app`, `/kvmapp/server/dl_lib` |
 | `images/system/kvm_system` | `nanokvm-app`, `/kvmapp/kvm_system` |
 | `images/server/NanoKVM-Server`, `nkos-update`, `nkos-apply-updates`, `nkos-usb-internet` | `nanokvm-app`, `nanokvm-base` |
 | `images/web/` | `nanokvm-app`, `/kvmapp/server/web` |
@@ -179,3 +179,11 @@ uses scalar `-O2`. USB audio explicitly selects float Opus with the
 `audio` profile. Handwritten vendor RVV/assembly remains available.
 See [component profiles](../docs/component-build-profiles.md) for the optional
 RustDesk performance build, measurement limits and release checksum policy.
+
+## HDMI-light media runtime
+
+The standard build and `nanokvm-app` ship the complete six-library HDMI-light bundle. Open MPI components are linked into `libkvm_mmf.so`; the four vendor algorithm DSOs remain separate. `platform/build.sh native` always selects this bundle. `NANOKVM_MMF_PROFILE=full` is retained only for explicit comparison builds through the lower-level MMF script.
+
+APK owns the old MPI library paths and removes files no longer shipped when upgrading `nanokvm-app`; the existing transaction hook restarts the application after the update. Do not overlay individual libraries in a running process or retain old MPI DSOs alongside the new set. Native license notices are included in the application package.
+
+See the [build description](../docs/hdmi-light-experiment-20261011.md) and [scoped hardware measurements](../docs/hdmi-light-hardware-20261011.md): about 0.63 MiB lower server PSS in the measured mode, no demonstrated CPU improvement; wider hardware qualification remains outstanding.

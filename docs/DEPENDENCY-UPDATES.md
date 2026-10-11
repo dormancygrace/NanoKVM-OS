@@ -1,6 +1,6 @@
 # Dependency maintenance
 
-NanoKVM OS uses two complementary daily checks: Dependabot creates dependency PRs, and **Upstream dependency watch** maintains one bot-owned issue with current pins, available versions and check errors. Standard GitHub-hosted runners suffice for this public repository. Neither service deploys to devices or automatically merges changes.
+NanoKVM OS uses two complementary daily checks: Dependabot creates dependency PRs, and **Upstream dependency watch** checks current pins, available versions and errors in its Actions log and job summary only; it never creates or updates issues. Standard GitHub-hosted runners suffice for this public repository. Neither service deploys to devices or automatically merges changes.
 
 ## Dependabot
 
@@ -12,22 +12,22 @@ NanoKVM OS uses two complementary daily checks: Dependabot creates dependency PR
 - `addons/rustdesk/Cargo.toml` and `Cargo.lock`.
 - Both Pion Dockerfiles.
 
-Minor/patch updates are grouped; major npm/Go/Cargo upgrades remain separate candidates. Security updates have separate groups and are enabled in repository settings. The explicit **three-day cooldown** delays normal update PRs, not the dashboard's visibility of new releases. Daily checks avoid adding a full week after that waiting period. Open-PR limits limit queued PRs, not inventory coverage.
+Minor/patch updates are grouped; major npm/Go/Cargo upgrades remain separate candidates. Security updates have separate groups and are enabled in repository settings. The explicit **three-day cooldown** delays normal update PRs, not the check's visibility of new releases. Daily checks avoid adding a full week after that waiting period. Open-PR limits limit queued PRs, not inventory coverage.
 
 Intentional exceptions have separate monitoring:
 
 | Dependabot exception | Independent check / reason |
 |---|---|
-| Major `@types/node` bumps | Dashboard reports latest; types stay aligned with the selected Node 24 runtime until a deliberate migration. |
-| `pion/dtls/v3`, `pion/ice/v4`, `pion/srtp/v3` | Dashboard checks upstream tags. Local replacements contain patches; changing `require` alone would not update their implementation. |
-| `github.com/rs/cors/wrapper/gin` | Dashboard checks the Go module proxy's actual nested-module release. Dependabot previously tried a parent tag that contains no such package. |
-| `github.com/mervick/aes-bridge-go` | Dashboard checks the Go proxy for the actual module. Upstream tagged `v2.0.0` without the required `/v2` module path, so the valid latest pseudo-version is pinned instead. This dependency is used only by compatibility/auth tests; normal server builds do not import it. |
+| Major `@types/node` bumps | The watcher reports latest; types stay aligned with the selected Node 24 runtime until a deliberate migration. |
+| `pion/dtls/v3`, `pion/ice/v4`, `pion/srtp/v3` | The watcher checks upstream tags. Local replacements contain patches; changing `require` alone would not update their implementation. |
+| `github.com/rs/cors/wrapper/gin` | The watcher checks the Go module proxy's actual nested-module release. Dependabot previously tried a parent tag that contains no such package. |
+| `github.com/mervick/aes-bridge-go` | The watcher checks the Go proxy for the actual module. Upstream tagged `v2.0.0` without the required `/v2` module path, so the valid latest pseudo-version is pinned instead. This dependency is used only by compatibility/auth tests; normal server builds do not import it. |
 
 The last two are intentionally handled as manual update candidates, not silently treated as current. Dependabot does not generate updates for ignored module paths, including security updates; these exceptions therefore still need maintainer security review.
 
 The Go, frontend, script and additional-Go-module CI suites remain mandatory. RustDesk now has a host `cargo test --locked` job so Cargo dependency PRs are actually exercised. Existing device-only RustDesk tests stay explicitly ignored without a coordinated device; host CI does not claim hardware qualification.
 
-## Independent daily dashboard
+## Independent daily check
 
 `Upstream dependency watch` runs daily at 05:23 UTC and supports manual dispatch. It reads pins from repository files without executing downloaded package code. It reports:
 
@@ -38,7 +38,7 @@ The Go, frontend, script and additional-Go-module CI suites remain mandatory. Ru
 - **RustDesk protocol/reference sources**, hbb_common and OneKVM; **PicoClaw's latest-release channel** and presence of the required riscv64 archive.
 - Patched Pion versions, the vendor kernel reference, the nested CORS module and AES Bridge Go described above.
 
-Errors fail the workflow and remain explicit in the report. A closed dashboard is reopened when actionable results remain, even if the text did not change. Unchanged open reports produce no edits or comments. GitHub tag listing is paginated; exceeding its bounded scan is an error rather than an incomplete claim of the latest version. Pinned-ahead results never trigger a downgrade.
+Errors fail the workflow and remain explicit in the report. Issue publication has been removed, including write permissions and the publication CLI. GitHub tag listing is paginated; exceeding its bounded scan is an error rather than an incomplete claim of the latest version. Pinned-ahead results never trigger a downgrade.
 
 ## Which BusyBox and QEMU?
 
@@ -63,9 +63,9 @@ This is comprehensive coverage of the declared inputs above, **not a claim to di
 
 ## Validation and integration
 
-Run `python3 scripts/test-upstream-watch.py` for offline contracts, or `python3 scripts/check-upstream.py --output report.md` for a live read-only report. `--publish` uses a GitHub Actions token with `issues: write`; the default command performs no remote writes.
+Run `python3 scripts/test-upstream-watch.py` for offline contracts, or `python3 scripts/check-upstream.py --output report.md` for a live read-only report. The command is read-only: GitHub credentials are used only for API reads, and the workflow has only `contents: read` permission.
 
-Dependency availability does not prove compatibility. Native changes need matching hashes, preservation of local patches, rebuilds and relevant validation. Node major changes, Alpine branch migrations, firmware and module ABI changes remain explicit decisions. Actual package installation verifies APK signatures; the dashboard only reads metadata over HTTPS.
+Dependency availability does not prove compatibility. Native changes need matching hashes, preservation of local patches, rebuilds and relevant validation. Node major changes, Alpine branch migrations, firmware and module ABI changes remain explicit decisions. Actual package installation verifies APK signatures; the watcher only reads metadata over HTTPS.
 
 References: [Dependabot configuration](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference), [supported ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories), [default cooldown](https://github.blog/changelog/2026-07-14-dependabot-version-updates-introduce-default-package-cooldown/).
 

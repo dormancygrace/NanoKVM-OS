@@ -7,6 +7,8 @@ in `platform/sources.lock`. `platform/build.sh` does this before configuring
 - `0006-components-refresh.patch`: retained updates for the actual platform
   dependency graph (compiler/binutils support, host build tools and util-linux).
 - `0008-meson-target-o2-only.patch`: preserve the selected target optimization.
+- `0009-host-tools-refresh.patch`: CMake 4.4.4, Python 3.14.8 and U-Boot tools
+  2026.10; the latter uses the same checksummed Git tag archive as the bootloader.
 
 The former rootfs package updates (OpenVPN, OpenSSL 4, Chrony, Nano, netfilter,
 json-c and unrelated utilities) no longer apply here. The operating system uses

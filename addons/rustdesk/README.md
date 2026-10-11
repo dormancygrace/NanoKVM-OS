@@ -311,3 +311,8 @@ For a fresh private package revision, the packaging builder also accepts
 `--package-revision N`. Run its ownership stage under `fakeroot`, keep each
 output directory separate, and retain the matching source archive with the
 private APK.
+
+The 2026-10-12 hbb_common reference refresh to `94ec710894ec` changes only its
+standalone Cargo patches. Its protobuf files are identical to the previous
+reference; the add-on does not import that Cargo manifest or require a protocol
+migration.

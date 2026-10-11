@@ -20,13 +20,11 @@ index b108990a..f3d9ba1e 100644
 +&sdhci0 {
 +	max-frequency = <25000000>;
 +};
-diff --git a/drivers/mmc/cv1800b_sdhci.c b/drivers/mmc/cv1800b_sdhci.c
-index 8ff55565..c42b8676 100644
 --- a/drivers/mmc/cv1800b_sdhci.c
 +++ b/drivers/mmc/cv1800b_sdhci.c
-@@ -121,11 +121,12 @@ static int cv1800b_sdhci_probe(struct udevice *dev)
- 	host->ops = &cv1800b_sdhci_sd_ops;
- 	host->max_clk = MMC_MAX_CLOCK;
+@@ -124,11 +124,12 @@
+ 	if (dev_read_bool(dev, "no-1-8-v"))
+ 		host->quirks |= SDHCI_QUIRK_NO_1_8_V;
  
 -	ret = mmc_of_parse(dev, &plat->cfg);
 +	ret = sdhci_setup_cfg(&plat->cfg, host, 0, 200000);
@@ -39,6 +37,3 @@ index 8ff55565..c42b8676 100644
  	if (ret)
  		return ret;
  
--- 
-2.43.0
-

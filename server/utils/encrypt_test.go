@@ -2,7 +2,10 @@ package utils
 
 import (
 	"net/url"
+	"strings"
 	"testing"
+
+	aesbridge "github.com/mervick/aes-bridge-go"
 )
 
 const opensslCiphertextWithPlus = "U2FsdGVkX18zLUxaLNGy7jL96oMO4tq6wDYwVzUMO3XfTY2Zy/ipO4LDEqtBT+fx"
@@ -73,5 +76,22 @@ func TestDecryptRejectsMalformedCiphertextWithoutPanic(t *testing.T) {
 				t.Fatal("DecodeDecrypt accepted malformed ciphertext")
 			}
 		})
+	}
+}
+
+// The replacement test dependency must still produce the browser's existing
+// OpenSSL/CryptoJS representation, including CBC block and UTF-8 boundaries.
+func TestAESBridgeLegacyCompatibility(t *testing.T) {
+	for _, plaintext := range []string{"", "short", strings.Repeat("x", 15), strings.Repeat("x", 16), strings.Repeat("x", 17), "пароль🔒+ %", strings.Repeat("long", 256)} {
+		ciphertext, err := aesbridge.EncryptLegacy(plaintext, SecretKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, encoded := range []string{ciphertext, url.QueryEscape(ciphertext)} {
+			got, err := DecodeDecrypt(encoded)
+			if err != nil || got != plaintext {
+				t.Fatalf("legacy compatibility for %d-byte input: plaintext matches=%v error=%v", len(plaintext), got == plaintext, err)
+			}
+		}
 	}
 }

@@ -21,7 +21,7 @@ Intentional exceptions have separate monitoring:
 | Major `@types/node` bumps | Dashboard reports latest; types stay aligned with the selected Node 24 runtime until a deliberate migration. |
 | `pion/dtls/v3`, `pion/ice/v4`, `pion/srtp/v3` | Dashboard checks upstream tags. Local replacements contain patches; changing `require` alone would not update their implementation. |
 | `github.com/rs/cors/wrapper/gin` | Dashboard checks the Go module proxy's actual nested-module release. Dependabot previously tried a parent tag that contains no such package. |
-| `github.com/mervick/aes-everywhere/go/aes256` | Dashboard checks its pinned pseudo-version commit and the current head of the canonical upstream `mervick/aes-bridge` repository (renamed from aes-everywhere). This nested module has no usable proxy `@latest`; parent tags also broke Dependabot. Integration requires manual review, potentially a module-path migration. |
+| `github.com/mervick/aes-bridge-go` | Dashboard checks the Go proxy for the actual module. Upstream tagged `v2.0.0` without the required `/v2` module path, so the valid latest pseudo-version is pinned instead. This dependency is used only by compatibility/auth tests; normal server builds do not import it. |
 
 The last two are intentionally handled as manual update candidates, not silently treated as current. Dependabot does not generate updates for ignored module paths, including security updates; these exceptions therefore still need maintainer security review.
 
@@ -36,7 +36,7 @@ The Go, frontend, script and additional-Go-module CI suites remain mandatory. Ru
 - **Selected Buildroot recipes** against the pinned release and current Buildroot master: compiler selection (GCC/binutils), musl, initramfs BusyBox, filesystem tools and selected host build tools. GCC stable releases also have their own check. Recipe changes are review candidates, not automatically compatible upgrades.
 - **All stock Alpine dependencies named in local APKBUILD `depends`/`makedepends`**, plus optional VPN packages and core BusyBox/OpenSSL/APK tools. Stable main/community availability is checked; optional VPN packages may use the configured edge/community fallback. Installed device versions are not inspected.
 - **RustDesk protocol/reference sources**, hbb_common and OneKVM; **PicoClaw's latest-release channel** and presence of the required riscv64 archive.
-- Patched Pion versions, the vendor kernel reference, and the two nested Go modules described above.
+- Patched Pion versions, the vendor kernel reference, the nested CORS module and AES Bridge Go described above.
 
 Errors fail the workflow and remain explicit in the report. A closed dashboard is reopened when actionable results remain, even if the text did not change. Unchanged open reports produce no edits or comments. GitHub tag listing is paginated; exceeding its bounded scan is an error rather than an incomplete claim of the latest version. Pinned-ahead results never trigger a downgrade.
 
@@ -73,5 +73,5 @@ References: [Dependabot configuration](https://docs.github.com/en/code-security/
 
 - ESLint 10.12.0 is visible independently of the three-day PR cooldown (the previous October 5 run occurred before that waiting period elapsed).
 - U-Boot 2026.10 is reported from stable tags; the archive index still advertised 2026.07 during this audit.
-- The CORS wrapper candidate `v0.0.0-20261008204034-5d834403882d` changes the wrapper's dependency files, not its Go implementation. An isolated alternative go.mod passed server build and middleware/router/auth tests. The production dependency pin is not changed by this monitoring update.
-- The AES reference needs manual migration review: the canonical upstream has unrelated main history and no old `go/aes256` directory. It is reported as `review upstream replacement`, not as a normal version bump.
+- The CORS wrapper was updated to `v0.0.0-20261008204034-5d834403882d` after isolated and integrated validation. The upstream diff changes the wrapper's dependency files, not its Go implementation.
+- Follow-up AES migration: the old module moved to `aes-everywhere-legacy`; its successor is the separate `aes-bridge-go` repository. Tests now use its `EncryptLegacy` API at `v0.0.0-20250728011030-7e095cdac2f2` (the latest Go-resolvable commit; Go source matches upstream v2.0.0). The old dependency was removed. Fixed OpenSSL vectors, form/JSON login coverage, malformed-ciphertext rejection and UTF-8/block-boundary compatibility are retained. Production decryption stays in the validated standard-library implementation; this change does not alter the wire format or switch clients to GCM.

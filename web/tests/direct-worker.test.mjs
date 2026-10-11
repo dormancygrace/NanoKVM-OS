@@ -17,7 +17,8 @@ function harness(options = {}) {
     decoders = [],
     paints = [],
     reports = [],
-    timers = new Map();
+    timers = new Map(),
+    timeouts = new Map();
   let nextTimer = 1,
     animation;
   const screenshotConversions = [];
@@ -104,12 +105,16 @@ function harness(options = {}) {
       return id;
     },
     clearInterval: (id) => timers.delete(id),
-    setTimeout: (f) => {
+    setTimeout: (f, delay) => {
       const id = nextTimer++;
       timers.set(id, f);
+      timeouts.set(id, { callback: f, delay });
       return id;
     },
-    clearTimeout: (id) => timers.delete(id),
+    clearTimeout: (id) => {
+      timers.delete(id);
+      timeouts.delete(id);
+    },
     postMessage(message) {
       reports.push(message);
     }
@@ -150,6 +155,14 @@ function harness(options = {}) {
     paints,
     reports,
     timers,
+    fireTimeouts: (delay) => {
+      for (const [id, entry] of [...timeouts]) {
+        if (entry.delay !== delay) continue;
+        timeouts.delete(id);
+        timers.delete(id);
+        entry.callback();
+      }
+    },
     send,
     advance: (time) => {
       now = time;
@@ -350,7 +363,7 @@ test('captures the already painted Direct canvas without restarting playback', a
   h.stop();
 });
 
-test('ACKs follow every decoded frame and are only held while the decoder queue is deep', () => {
+test('batched ACKs remain held until decoder backpressure is released', () => {
   const h = harness();
   const acks = () =>
     h.sockets[0].sent
@@ -359,17 +372,41 @@ test('ACKs follow every decoded frame and are only held while the decoder queue 
       .map((bytes) => Number(new DataView(bytes.buffer).getBigUint64(1, true)));
   h.send(0, true);
   h.send(17000);
-  assert.deepEqual(acks(), [0, 17000], 'a healthy decoder is acknowledged on receive');
+  assert.deepEqual(acks(), [0], 'keyframes acknowledge immediately; deltas are batched');
   h.decoders[0].decodeQueueSize = 6; // high watermark: hold the ACK
   h.send(34000);
   h.send(51000);
-  assert.deepEqual(acks(), [0, 17000], 'ACKs wait while the decoder queue is deep');
+  assert.deepEqual(acks(), [0], 'ACKs wait while the decoder queue is deep');
   h.decoders[0].decodeQueueSize = 4;
   h.decoders[0].ondequeue();
-  assert.deepEqual(acks(), [0, 17000], 'still above the low watermark');
+  assert.deepEqual(acks(), [0], 'still above the low watermark');
   h.decoders[0].decodeQueueSize = 3;
   h.decoders[0].ondequeue();
-  assert.deepEqual(acks(), [0, 17000, 51000], 'one cumulative ACK releases the whole window');
+  assert.deepEqual(acks(), [0, 51000], 'one immediate cumulative ACK releases the whole window');
   assert.equal(h.sockets[0].sent.filter((data) => new Uint8Array(data)[0] === 3).length, 0);
   h.stop();
+});
+
+test('healthy Direct ACKs batch four frames, flush at 40 ms and cancel on stop', () => {
+  const h = harness();
+  const acks = () => h.sockets[0].sent
+    .map((data) => new Uint8Array(data))
+    .filter((bytes) => bytes[0] === 2)
+    .map((bytes) => Number(new DataView(bytes.buffer).getBigUint64(1, true)));
+  h.send(0, true);
+  for (const timestamp of [17000, 34000, 51000]) h.send(timestamp);
+  assert.deepEqual(acks(), [0], 'three deltas wait for the batch threshold');
+  h.send(68000);
+  assert.deepEqual(acks(), [0, 68000], 'four deltas produce one cumulative ACK');
+  h.fireTimeouts(40);
+  assert.deepEqual(acks(), [0, 68000], 'the flushed batch cancels its timer');
+  h.send(85000);
+  h.fireTimeouts(39);
+  assert.deepEqual(acks(), [0, 68000]);
+  h.fireTimeouts(40);
+  assert.deepEqual(acks(), [0, 68000, 85000], 'a short batch cannot wait indefinitely');
+  h.send(102000);
+  h.stop();
+  h.fireTimeouts(40);
+  assert.deepEqual(acks(), [0, 68000, 85000], 'stop cancels the pending ACK');
 });

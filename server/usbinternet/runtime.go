@@ -71,15 +71,40 @@ func (r Runtime) status(s Status) error {
 	s.UpdatedAt = time.Now().Unix()
 	return r.save("status.json", s)
 }
+
+// WatchNeeded is true only while the gadget provides a DHCP-managed USB
+// network. Local-only NCM still needs reconciliation; HID-only mode does not.
+func (r Runtime) WatchNeeded() bool {
+	return r.bound() && !exists(filepath.Join(r.Boot, "rndis.nodhcpd"))
+}
+
 func (r Runtime) ReadStatus() Status {
-	s := Status{Enabled: r.Enabled(), State: "disabled"}
+	enabled := r.Enabled()
+	var saved Status
 	data, err := os.ReadFile(filepath.Join(r.Run, "status.json"))
-	if err != nil || json.Unmarshal(data, &s) != nil || time.Now().Unix()-s.UpdatedAt > 20 {
-		s = Status{State: "unavailable"}
+	valid := err == nil && json.Unmarshal(data, &saved) == nil
+	if !r.WatchNeeded() {
+		// Without a watcher idle status does not expire. Keep cleanup failures
+		// visible until a successful apply, even if they are older than 20s.
+		if valid && saved.State == "error" && saved.Enabled == enabled {
+			saved.IPv6 = false
+			return saved
+		}
+		s := Status{Enabled: enabled, State: "disabled"}
+		if enabled {
+			s.State = "waiting-ncm"
+			if exists(filepath.Join(r.Boot, "rndis.nodhcpd")) {
+				s.State = "dhcp-disabled"
+			}
+		}
+		return s
 	}
-	s.Enabled = r.Enabled()
-	s.IPv6 = false
-	return s
+	if !valid || time.Now().Unix()-saved.UpdatedAt > 20 {
+		saved = Status{State: "unavailable"}
+	}
+	saved.Enabled = enabled
+	saved.IPv6 = false
+	return saved
 }
 
 type applied struct {

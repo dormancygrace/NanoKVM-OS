@@ -8,6 +8,7 @@ set -eu
 : "${NANOKVM_USB_NET_UID:=/sys/class/cvi-base/base_uid}"
 : "${NANOKVM_USB_NET_PID:=/run/udhcpd.usb0.pid}"
 : "${NANOKVM_USB_INTERNET_HELPER:=/usr/sbin/nkos-usb-internet}"
+: "${NANOKVM_USB_WATCH_SERVICE:=/etc/init.d/nanokvm-usb-internet}"
 
 conf=$NANOKVM_USB_NET_RUN/udhcpd.conf
 
@@ -125,6 +126,13 @@ EOF
 
 mkdir -p "$NANOKVM_USB_NET_RUN"
 chmod 700 "$NANOKVM_USB_NET_RUN"
+# Stop the producer before taking its reconciliation lock. Otherwise it can
+# queue another apply between our cleanup and the supervisor stop.
+if [ "${NANOKVM_USB_NET_WATCHER:-0}" != 1 ] && [ -x "$NANOKVM_USB_WATCH_SERVICE" ]; then
+    case "${1:-}" in
+        stop|restart|reload) "$NANOKVM_USB_WATCH_SERVICE" stop ;;
+    esac
+fi
 exec 9> "$NANOKVM_USB_NET_RUN/lock"
 flock -x 9
 case "${1:-}" in
@@ -133,3 +141,13 @@ case "${1:-}" in
     restart|reload) stop; start ;;
     *) echo "Usage: $0 {start|stop|restart|reload}" >&2; exit 1 ;;
 esac
+# The child watcher also reconciles through this script. Release the lock
+# before supervisor changes and never let that child stop/restart itself.
+flock -u 9
+exec 9>&-
+if [ "${NANOKVM_USB_NET_WATCHER:-0}" != 1 ] && [ -x "$NANOKVM_USB_WATCH_SERVICE" ]; then
+    case "${1:-}" in
+        stop) ;;
+        *) "$NANOKVM_USB_WATCH_SERVICE" reload ;;
+    esac
+fi

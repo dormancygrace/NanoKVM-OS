@@ -116,12 +116,12 @@ func TestOnlyExactMSSPolicyIsCompatible(t *testing.T) {
 }
 
 func TestDaemonOwnershipAndStatus(t *testing.T) {
-	dir := t.TempDir()
-	r := Runtime{Boot: dir, Run: dir, Proc: filepath.Join(dir, "proc")}
+	r := activeTestRuntime(t)
+	dir := r.Run
 	if r.Enabled() {
 		t.Fatal("sharing defaults on")
 	}
-	if err := os.WriteFile(filepath.Join(dir, "usb.internet"), nil, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(r.Boot, "usb.internet"), nil, 0600); err != nil {
 		t.Fatal(err)
 	}
 	if s := r.ReadStatus(); !s.Enabled || s.State != "unavailable" || s.IPv6 {

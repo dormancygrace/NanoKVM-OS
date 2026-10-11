@@ -31,7 +31,7 @@ env.update(GOROOT=str(go_root), GOTOOLCHAIN='local')
 version = subprocess.check_output([go,'version'],env=env,text=True).strip()
 record_cpu_profile(out/'cpu-profile-cgo.json', cross+'gcc')
 compiler = subprocess.check_output([cross+'gcc','-dumpfullversion'],text=True).strip()
-subprocess.run([go,'build','-buildvcs=false','-trimpath','-o',str(out/'NanoKVM-Server'),'.'],cwd=repo/'server',env=env,check=True)
+subprocess.run([go,'build','-tags=nomsgpack','-buildvcs=false','-trimpath','-o',str(out/'NanoKVM-Server'),'.'],cwd=repo/'server',env=env,check=True)
 # Set RUNPATH at link time: post-link program-header reordering can break
 # Go build-info readers even when the binary still loads correctly.
 info = subprocess.check_output([go,'version','-m',str(out/'NanoKVM-Server')],env=env,text=True,stderr=subprocess.STDOUT)

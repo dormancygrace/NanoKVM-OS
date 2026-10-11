@@ -21,7 +21,12 @@ if out.exists():
     p.error('Use a new output directory')
 names = ['kvm', 'kvm_mmf', 'sys', 'vi', 'vpss', 'vo', 'rgn', 'gdc', 'venc', 'vdec',
          'misc', 'cvi_ive', 'isp', 'isp_algo', 'ae', 'awb', 'af', 'cvi_bin', 'cvi_bin_isp']
-sources = {f'lib{name}.so': a.libraries.resolve()/f'lib{name}.so' for name in names}
+full_names = {f'lib{name}.so' for name in names}
+light_names = {f'lib{name}.so' for name in ('kvm', 'kvm_mmf', 'ae', 'awb', 'af', 'isp_algo')}
+actual_names = {path.name for path in a.libraries.resolve().glob('*.so')}
+if actual_names not in (full_names, light_names):
+    p.error('Native bundle must contain exactly the six HDMI-light or nineteen full libraries; mixed bundles are unsupported')
+sources = {name: a.libraries.resolve()/name for name in sorted(actual_names)}
 for source in sources.values():
     if not source.is_file():
         p.error('Missing native library: '+str(source))
@@ -71,7 +76,7 @@ if Path(selected_root).resolve() != go_root:
 custom_runtime_expected = (go_root/'src/runtime/nanokvm_sysmon_linux_riscv64.go').is_file()
 # Go action IDs include the output-specific CGO library search path.
 # Omit the Go build ID; manifest SHA-256 values identify the exact binaries.
-subprocess.run([go, 'build', '-trimpath', '-buildvcs=false', '-ldflags=-linkmode=external -buildid=', '-o',
+subprocess.run([go, 'build', '-tags=nomsgpack', '-trimpath', '-buildvcs=false', '-ldflags=-linkmode=external -buildid=', '-o',
                 str(out/'NanoKVM-Server'), '.'], cwd=repo/'server', env=env, check=True)
 info = subprocess.check_output([go, 'version', '-m', str(out/'NanoKVM-Server')], env=env, text=True)
 symbols = subprocess.check_output([go, 'tool', 'nm', str(out/'NanoKVM-Server')], env=env, text=True)

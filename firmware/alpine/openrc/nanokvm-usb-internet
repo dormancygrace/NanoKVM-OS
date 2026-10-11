@@ -1,16 +1,53 @@
 #!/sbin/openrc-run
-# shellcheck shell=sh disable=SC2034
-description="NanoKVM USB internet uplink reconciliation"
-command="/usr/sbin/nkos-usb-internet"
-command_args="watch"
-supervisor="supervise-daemon"
+# shellcheck shell=sh
+description="NanoKVM USB network reconciliation, while NCM is active"
+extra_commands="reload"
+description_reload="Synchronize the watcher with the active USB composition"
 pidfile="/run/nanokvm-usb-internet-watch.pid"
-respawn_delay=5
-respawn_max=0
+command="/usr/sbin/nkos-usb-internet"
 
 depend() {
     need localmount
     use nanokvm-usb nanokvm-network
     after nanokvm-usb nanokvm-network
     before nanokvm-app
+}
+
+stop() {
+    if supervise-daemon "$RC_SVCNAME" --signal 0 --pidfile "$pidfile" >/dev/null 2>&1; then
+        # Upgrading replaces the binary on disk, but the old watcher is still
+        # running. It may exit before reaping ip/nft. Capture only its verified
+        # private process group so that first stop also cleans those children.
+        watch_group=
+        child=$(service_get_value child_pid)
+        case "$child" in
+            ''|*[!0-9]*) ;;
+            *)
+                if [ "$child" -gt 1 ] && [ -r "/proc/$child/cmdline" ] &&
+                   [ "$(tr '\000' ' ' < "/proc/$child/cmdline")" = "$command watch " ] &&
+                   [ "$(awk '{print $5}' "/proc/$child/stat")" = "$child" ]; then
+                    watch_group=$child
+                fi ;;
+        esac
+        supervise-daemon "$RC_SVCNAME" --stop --pidfile "$pidfile" || return 1
+        if [ -n "$watch_group" ]; then
+            kill -TERM -- "-$watch_group" 2>/dev/null || true
+        fi
+    fi
+}
+
+reload() {
+    if ! "$command" watch-needed; then
+        stop
+        return
+    fi
+    if ! supervise-daemon "$RC_SVCNAME" --signal 0 --pidfile "$pidfile" >/dev/null 2>&1; then
+        supervise-daemon "$RC_SVCNAME" --start --pidfile "$pidfile" \
+            --respawn-delay 5 --respawn-max 0 --respawn-period 1800 \
+            "$command" -- watch
+    fi
+}
+
+start() {
+    reload
 }

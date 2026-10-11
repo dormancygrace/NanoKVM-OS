@@ -50,7 +50,7 @@ jobs:
       - if: matrix.language == 'go'
         name: Build Go server (teststub)
         working-directory: server
-        run: go build -tags teststub ./...
+        run: go build -tags teststub,nomsgpack ./...
       - uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.language }}

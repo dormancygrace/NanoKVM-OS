@@ -1,0 +1,29 @@
+#!/bin/sh
+# Retire only Alpine's six stock virtual consoles; preserve custom and serial entries.
+set -eu
+file=${1:-/etc/inittab}
+[ -f "$file" ] || exit 0
+tmp=$(mktemp "${file}.XXXXXX")
+trap 'rm -f "$tmp"' EXIT HUP INT TERM
+cp -p "$file" "$tmp"
+awk -F: '!($1 ~ /^tty[1-6]$/ && $2 == "" && $3 == "respawn" && $4 == "/sbin/getty 38400 " $1)' "$file" > "$tmp"
+if ! cmp -s "$tmp" "$file"; then
+    mv "$tmp" "$file"
+fi
+if [ "$file" = /etc/inittab ] && [ -e /run/openrc/softlevel ] && [ "$(cat /proc/1/comm)" = init ]; then
+    kill -HUP 1
+    # BusyBox init may keep a removed action running until it exits. Stop only
+    # the exact stock getty commands, never the serial console or custom lines.
+    for proc in /proc/[0-9]*; do
+        [ -r "$proc/cmdline" ] || continue
+        args=$(tr '\000' ' ' < "$proc/cmdline" 2>/dev/null) || continue
+        case "$args" in
+             '/sbin/getty 38400 tty'[1-6]' ')
+                # A custom action may intentionally run the same command.
+                if awk -F: -v wanted="${args% }" '$4 == wanted { found=1 } END { exit !found }' "$file"; then
+                    continue
+                fi
+                kill -TERM "${proc##*/}" 2>/dev/null || true ;;
+        esac
+    done
+fi

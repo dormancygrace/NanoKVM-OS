@@ -1240,26 +1240,40 @@ const en = {
         serverUpdateRequired: 'Update the NanoKVM server to apply complete compositions.',
         reconnectNotice: 'Applying briefly reconnects the USB devices.',
         presets: {
+          kvm: {
+            title: 'KVM',
+            description:
+              'Keyboard, both mouse modes and the virtual disk: what a new device starts with. No network adapter appears on the computer.'
+          },
           standard: {
-            title: 'KVM + USB network + disk',
-            description: 'Keyboard, both mouse modes, network adapter and virtual disk.'
+            title: 'KVM + USB network',
+            description:
+              'Keyboard, both mouse modes, virtual disk and the USB network adapter. Leaves no room for the serial console.'
           },
           console: {
-            title: 'KVM + serial + disk',
-            description: 'Keyboard, both mouse modes, serial console and virtual disk.'
+            title: 'KVM + serial console',
+            description:
+              'Keyboard, both mouse modes, virtual disk and the serial console with its helper disk. Leaves no room for the USB network.'
           },
           headless: {
-            title: 'Headless: network + serial + disk',
-            description: 'USB network, serial console and virtual disk, without keyboard or mouse.'
+            title: 'Headless server',
+            description:
+              'The serial console only, for a server whose serial login is already set up (with "KVM + serial console" and its helper disk, or over the network). No keyboard, mouse or storage appears on the computer; the remote desktop adds keyboard, mice and audio back when it is enabled.'
+          },
+          remote: {
+            title: 'Remote desktop',
+            description:
+              'Keyboard, both mouse modes, virtual disk and USB audio: what RustDesk uses. The computer gets a second speaker.'
           },
           control: {
             title: 'Keyboard and mouse only',
-            description: 'Keyboard, relative mouse and absolute pointer.'
-          },
-          compatibility: {
-            title: 'HID compatibility (USB 1.1)',
-            description: 'Keyboard and both mouse modes using the HID-only compatibility profile.'
+            description: 'Keyboard, relative mouse and absolute pointer, nothing else.'
           }
+        },
+        compatibilityProfile: {
+          title: 'HID-only compatibility profile (USB 1.1)',
+          description:
+            'Older descriptors for firmware and hosts that reject the composite device: keyboard and pointers only, without network, disk, serial helper disk or audio.'
         },
         updateFailed: 'Failed to update the USB composition.',
         devices: {

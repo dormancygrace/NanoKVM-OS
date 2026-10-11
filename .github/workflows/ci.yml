@@ -80,6 +80,8 @@ jobs:
         run: git ls-files -z '*.py' | xargs -0 python3 -m py_compile
       - name: Platform Buildroot configuration
         run: python3 scripts/test-platform-config.py
+      - name: Serial console helper for Proxmox VE Helper-Scripts is assembled from the source
+        run: python3 scripts/build-community-script.py --check
       - name: Script tests
         run: |
           set -e

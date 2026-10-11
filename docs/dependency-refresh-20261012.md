@@ -30,10 +30,11 @@ CORS and the AES Bridge test-fixture migration were already integrated in [PR #9
 
 ## Compatibility work
 
-- U-Boot is pinned to the official `v2026.10` Git tag archive, SHA-256 `f943a88389c8fd70a6b0d061a88267465e143c7ca6ea2b75837ab20f5b60c739`, commit `5508406582f6f7120dce0c4b3059819a41788db2`. The FTP release URL returned 404 during this refresh. The SD board-limit patch was rebased around upstream's new `no-1-8-v` handling, preserving that handling and our 25 MHz limit. Other local boot patches remain intact.
+- U-Boot is pinned to the official `v2026.10` Git tag archive, SHA-256 `f943a88389c8fd70a6b0d061a88267465e143c7ca6ea2b75837ab20f5b60c739`, commit `5508406582f6f7120dce0c4b3059819a41788db2`. The FTP release URL returned 404 during this refresh. The SD board-limit patch was rebased around upstream's new `no-1-8-v` handling, preserving that handling and our 25 MHz limit. Other local boot patches remain intact. Buildroot's boardless host/target-tool configuration explicitly sets `CONFIG_ENV_FLAGS_LIST_STATIC` to U-Boot's empty-string default; 2026.10 otherwise fails to compile `envtools`.
 - Go's pinned runtime/proc.go and all five patched std-vendored crypto files have exactly the same hashes in 1.27.2. The runtime preparation still checks them before applying the C906 crypto/sysmon changes. Both binary and source archive checksums are updated.
 - ICE upstream changes preserve listener-created UDP mux connections during initial agent construction and specify the configured relay address family for TURN. The four changed files were merged against the previous upstream base; local PMTU and TURN metadata support and upstream regression tests are retained.
 - miniz is pinned by commit and Git tree ID in the platform lock and the companion native-source manifest. Both BIN and ISP_BIN are rebuilt against it for link compatibility.
+- QEMU extraction is invalidated by its pinned package checksum, so an existing build directory cannot silently keep the previous emulator. Cold extraction, unchanged-cache reuse and replacement of a stale cached executable were checked.
 - MSW's checked-in service worker is regenerated from the selected package; it matches its runtime rather than retaining the previous generated file.
 - hbb_common's upstream diff changes only standalone Cargo patches. Its protobuf files are unchanged; no protocol code or Cargo dependency is substituted merely to update reference metadata.
 
@@ -59,12 +60,12 @@ Completed locally:
 - Web build, lint and all 184 frontend tests; the Node types follow-up also passes build/lint.
 - Patched Go 1.27.2 server build and race tests for auth, utilities, middleware, router, all stream services and RustDesk.
 - Full Pion ICE module tests, including upstream and local tests.
-- Production RISC-V NanoKVM-Server cross-build with the prepared runtime, plus runtime smoke-test binaries.
+- Production RISC-V NanoKVM-Server cross-build with the prepared runtime, plus runtime smoke-test binaries. Disassembly confirms all 202 XTheadVector instructions in the linked ChaCha20 kernel match the source.
 - Vendored ChaCha20, ChaCha20-Poly1305 and Poly1305 upstream/local test overlays pass under the updated riscv64 QEMU. C906-only vector cases skip when the emulator does not expose XTheadVector; this is not a device performance test.
 - U-Boot 2026.10 RISC-V build with all local patches; standalone devmem builds with exactly one applet.
 - miniz upstream tests with AddressSanitizer/UndefinedBehaviorSanitizer; RISC-V BIN/ISP_BIN static/shared library builds.
 - All numbered Buildroot patches apply to a fresh pinned source archive; platform/config/CPU/light-link/dependency-check tests pass.
 
-The clean Buildroot host CMake/Python/U-Boot tools build is in progress while this PR is prepared; its final result must be recorded before review completion.
+The clean Buildroot host CMake 4.4.4, Python 3.14.8 and U-Boot 2026.10 tools build passed, including their host dependencies. Version checks and FIT creation/listing/payload-extraction round-trip passed. Upstream source and license hashes matched.
 
 No new image is claimed to be device-qualified. The existing `platform/expected.sha256` remains the previous qualified-output baseline; a full platform rebuild, boot qualification and new output hashes are still required before releasing an image from these inputs. The kernel exclusion also applies during that qualification.

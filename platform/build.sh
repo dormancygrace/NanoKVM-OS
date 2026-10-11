@@ -772,15 +772,22 @@ in_userns() (
 )
 
 qemu=$out/qemu/qemu-riscv64-static
-register_qemu() {
-    local bfm
-    if [ ! -x "$qemu" ]; then
+prepare_qemu() {
+    local pin
+    pin=$(lock qemu | awk '{ print $3 }')
+    if [ ! -x "$qemu" ] || [ "$(cat "$out/qemu/.source-sha256" 2>/dev/null)" != "$pin" ]; then
         rm -rf "$out/qemu"
         mkdir -p "$out/qemu"
         (cd "$out/qemu" && "${cross}ar" x "$dl/qemu-user-static_8.2.2+ds-0ubuntu1.19_amd64.deb" &&
             "$host/zstd" -q -d -c data.tar.zst | tar -x ./usr/bin/qemu-riscv64-static)
         mv "$out/qemu/usr/bin/qemu-riscv64-static" "$qemu"
+        printf '%s\n' "$pin" > "$out/qemu/.source-sha256"
     fi
+}
+
+register_qemu() {
+    local bfm
+    prepare_qemu
     # The mounts of the chroot steps stay in this namespace.
     mount --make-rprivate /
     bfm=$(mktemp -d)

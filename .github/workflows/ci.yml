@@ -124,3 +124,16 @@ jobs:
       - run: go build ./...
       - name: Test
         run: go test -timeout 5m ./...
+
+  rustdesk:
+    name: RustDesk host tests
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: addons/rustdesk
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select Rust stable
+        run: rustup toolchain install stable --profile minimal
+      - name: Test locked Rust dependencies
+        run: cargo +stable test --locked

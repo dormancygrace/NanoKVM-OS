@@ -1,52 +1,77 @@
 # Dependency maintenance
 
-The public repository uses Dependabot for supported manifests and a weekly upstream watch for native sources and patched forks. Both use standard GitHub-hosted runners. No paid service, personal access token, VM or new artifact storage is required. Security updates remain enabled in repository settings.
+NanoKVM OS uses two complementary daily checks: Dependabot creates dependency PRs, and **Upstream dependency watch** maintains one bot-owned issue with current pins, available versions and check errors. Standard GitHub-hosted runners suffice for this public repository. Neither service deploys to devices or automatically merges changes.
 
-## Automatic dependency pull requests
+## Dependabot
 
-`.github/dependabot.yml` checks weekly on Monday:
+`.github/dependabot.yml` checks these manifests daily at 06:00 UTC:
 
-- GitHub Actions used by the repository workflows;
-- `web/package.json` and `web/pnpm-lock.yaml`, including development and indirect dependencies;
-- all five Go module directories, including dependencies of the three patched Pion trees;
-- the two Dockerfiles used by Pion examples/tests.
+- All repository GitHub Actions.
+- `web/package.json` and `web/pnpm-lock.yaml`, including development and indirect dependencies.
+- All five Go modules, including dependencies inside the patched Pion trees.
+- `addons/rustdesk/Cargo.toml` and `Cargo.lock`.
+- Both Pion Dockerfiles.
 
-Minor and patch updates are grouped by ecosystem; major Go/npm upgrades remain separate PRs. Security updates have their own groups and are not tied to the weekly version-update schedule. Limits cap the number of open version PRs, not the set of eligible versions. Nothing enables automatic merging or device deployment.
+Minor/patch updates are grouped; major npm/Go/Cargo upgrades remain separate candidates. Security updates have separate groups and are enabled in repository settings. The explicit **three-day cooldown** delays normal update PRs, not the dashboard's visibility of new releases. Daily checks avoid adding a full week after that waiting period. Open-PR limits limit queued PRs, not inventory coverage.
 
-The three locally replaced Pion modules are deliberately excluded from manifest-only bumps. Dependabot cannot rebase our modified source trees. Their upstream tags are tracked in the native dashboard, while ordinary dependencies inside those trees remain eligible for Dependabot PRs. Changing only the `require` version would not install the corresponding upstream implementation.
+Intentional exceptions have separate monitoring:
 
-Existing server/web CI remains in place. Additional Go modules now have their own build/test matrix; the native watcher has offline contract tests in the script CI job.
+| Dependabot exception | Independent check / reason |
+|---|---|
+| Major `@types/node` bumps | Dashboard reports latest; types stay aligned with the selected Node 24 runtime until a deliberate migration. |
+| `pion/dtls/v3`, `pion/ice/v4`, `pion/srtp/v3` | Dashboard checks upstream tags. Local replacements contain patches; changing `require` alone would not update their implementation. |
+| `github.com/rs/cors/wrapper/gin` | Dashboard checks the Go module proxy's actual nested-module release. Dependabot previously tried a parent tag that contains no such package. |
+| `github.com/mervick/aes-everywhere/go/aes256` | Dashboard checks its pinned pseudo-version commit and the current head of the canonical upstream `mervick/aes-bridge` repository (renamed from aes-everywhere). This nested module has no usable proxy `@latest`; parent tags also broke Dependabot. Integration requires manual review, potentially a module-path migration. |
 
-All additional Go module suites are mandatory. DTLS test fixtures were repaired for Go 1.27: the handshake harness now creates separate mutable cipher-suite instances for each endpoint, the certificate fixture includes the new DER signature-algorithm field when available, and the entropy-failure test explicitly opts into the custom-reader test path. ICE port-exhaustion tests retain and close every socket so GC cannot free ports before the assertion. No production cryptographic checks are bypassed.
+The last two are intentionally handled as manual update candidates, not silently treated as current. Dependabot does not generate updates for ignored module paths, including security updates; these exceptions therefore still need maintainer security review.
 
-## Native sources and patched forks
+The Go, frontend, script and additional-Go-module CI suites remain mandatory. RustDesk now has a host `cargo test --locked` job so Cargo dependency PRs are actually exercised. Existing device-only RustDesk tests stay explicitly ignored without a coordinated device; host CI does not claim hardware qualification.
 
-`Upstream dependency watch` runs every Monday at 05:23 UTC and supports manual dispatch. `scripts/check-upstream.py` reads current pins directly from the files listed in `.github/upstream-watch.json`, checks public upstream metadata, and maintains one bot-owned GitHub issue named **Upstream dependency update dashboard**. Unchanged reports produce no issue edits or comments. Failed checks remain visible and fail the workflow; they are never reported as current.
+## Independent daily dashboard
 
-The initial catalog covers 24 entries: Linux, Buildroot, U-Boot, platform drivers/SDK sources, CVI MPI, sensors, MaixCDK, json-c, miniz, inih, Go runtime, Alpine OpenSSL/C906 baseline, Alpine stable branch, Opus, tinyalsa, AIC firmware, codec firmware, and the three patched Pion modules. The selected platform pins come from `platform/sources.lock`; older duplicate Linux/Buildroot entries in `firmware/sources.json` are not treated as the current platform.
+`Upstream dependency watch` runs daily at 05:23 UTC and supports manual dispatch. It reads pins from repository files without executing downloaded package code. It reports:
 
-Version checks use stable numeric releases; commit checks compare the selected vendor branch (or explicitly reported repository default branch) against the pinned revision. New vendor commits can concern other boards. A dashboard entry is a candidate for review, not proof that an update is compatible. Tag-based checks examine the first 100 tags returned by the upstream API; errors, divergent history and a pin ahead of the queried upstream need maintainer review.
+- **Every entry in `platform/sources.lock`**: Linux, Buildroot, U-Boot, OpenSBI, Sophgo SDK/drivers/media/sensors, AIC8800, cryptodev, MaixCDK, json-c, miniz, inih, tinyalsa, Opus, BusyBox devmem source, wireless-regdb, Go, Node, pnpm, Alpine minirootfs and the QEMU build helper.
+- **All direct frontend dependencies**, including dev dependencies and npm aliases, against registry `latest`, independently of cooldown or whether Dependabot can produce a lockfile update. Indirect frontend packages remain owned by Dependabot/security alerts. Unrecognized version ranges fail visibly instead of being skipped.
+- **Selected Buildroot recipes** against the pinned release and current Buildroot master: compiler selection (GCC/binutils), musl, initramfs BusyBox, filesystem tools and selected host build tools. GCC stable releases also have their own check. Recipe changes are review candidates, not automatically compatible upgrades.
+- **All stock Alpine dependencies named in local APKBUILD `depends`/`makedepends`**, plus optional VPN packages and core BusyBox/OpenSSL/APK tools. Stable main/community availability is checked; optional VPN packages may use the configured edge/community fallback. Installed device versions are not inspected.
+- **RustDesk protocol/reference sources**, hbb_common and OneKVM; **PicoClaw's latest-release channel** and presence of the required riscv64 archive.
+- Patched Pion versions, the vendor kernel reference, and the two nested Go modules described above.
 
-Native changes require updating related hashes, preserving local patches, rebuilding and validating platform outputs, and testing affected hardware paths. The watcher deliberately does not rewrite lock files, archive hashes, firmware binaries or `platform/expected.sha256`.
+Errors fail the workflow and remain explicit in the report. A closed dashboard is reopened when actionable results remain, even if the text did not change. Unchanged open reports produce no edits or comments. GitHub tag listing is paginated; exceeding its bounded scan is an error rather than an incomplete claim of the latest version. Pinned-ahead results never trigger a downgrade.
 
-## Alpine OpenSSL and the C906 rebuild
+## Which BusyBox and QEMU?
 
-The system uses Alpine `openssl`, `libssl3` and `libcrypto3`, with a C906 rebuild of the Alpine recipe in the default overlay. The historical Buildroot OpenSSL 4 patch is not the current system baseline and is excluded from this check.
+The installed operating system uses **stock Alpine BusyBox** and OpenSSL, updated through signed APK repositories. The optional C906 rebuild scripts are retained for research and are not the production baseline.
 
-The OpenSSL watcher reads `APORTS_COMMIT` from `scripts/build-alpine-tuned-packages.sh`, fetches the pinned `main/openssl/APKBUILD` as text (never executes it), and compares its original `pkgver`/`pkgrel` with all three packages in the official stable `riscv64` APK index. The Alpine branch comes from `scripts/build-alpine-packages.sh`. A newer Alpine version or revision is reported as **C906 rebuild required**. The local revision increment does not hide upstream fixes: Alpine `3.5.8-r1` requires a rebuild even if our old `3.5.8-r0` recipe produced a locally named `3.5.8-r1`.
+There are two separate build inputs: Buildroot's BusyBox for the early-boot initramfs, and the standalone BusyBox source used to build only `devmem` for the vendor media library. They do not replace Alpine's BusyBox.
 
-The report distinguishes the Alpine recipe baseline, the C906 version derived by the build script, and the published Alpine version. It does not claim to inspect installed packages or the published C906 overlay. Updating the aports pin, rebuilding, choosing an appropriate package revision, testing and publishing the overlay remain separate actions. This check supports stable numeric OpenSSL versions and numeric APK revisions; unfamiliar version syntax, missing subpackages and fetch failures are explicit errors. APK index signatures are not verified by this metadata-only HTTPS monitor; actual installation remains subject to APK signature verification.
+`qemu-riscv64-static` runs riscv64 Alpine programs and package-install scripts on the x86-64 build host. It is not installed on NanoKVM. The watcher checks published versions in the pinned Ubuntu series; a changed Debian/Ubuntu revision is a review candidate, never a lexicographically selected automatic upgrade.
 
-## Coverage limits
+## Preventing coverage drift
 
-Historical Buildroot OpenVPN 3/Asio, Superfile, private apk-tools, nkos-addons and the unused named vendor-libc loader recipes were removed together with the old rootfs profiles. The Alpine release explicitly conflicts with `openvpn3` and uses stock Alpine OpenVPN when installed. Buildroot now has a dedicated platform-only profile; Alpine recipes define installed system and optional package versions.
+`python3 scripts/check-upstream.py --inventory` validates that:
 
-- Dependabot supports specific manifest formats, not arbitrary shell variables or patches. The first frontend updater produced PR #26 with a version-9 lockfile that passed frozen installation, build, lint and tests under our pnpm 12 CI. Future updater and lockfile failures still require review.
-- Buildroot updates cover its upstream recipe collection; the dashboard does not independently audit every transitive C library or locally overridden Buildroot package for new versions/CVEs.
-- Alpine branch updates are reported. Installed APKs still update through APK, and our package rebuilds/releases are a separate process. A new branch is not automatically substituted into device repositories.
-- Base FIP/OpenSBI blobs and local hardware patches have no generic version updater. They require provenance and hardware qualification.
-- This configuration does not turn archived experiments or upstream example workflows into production firmware dependencies.
+1. Every tracked npm, Go, Cargo and Docker manifest has a Dependabot directory.
+2. Every platform source-lock entry has exactly one monitor owner.
+3. Every explicitly selected Buildroot package has a monitored recipe or a declared feature relationship.
+4. Source-pin expressions resolve unambiguously; frontend dependency syntax is understood.
 
-Run `python3 scripts/check-upstream.py --inventory` to validate local pins without networking, `python3 scripts/test-upstream-watch.py` for offline tests, or `python3 scripts/check-upstream.py --output report.md` for a read-only live report. `--publish` requires a GitHub Actions token with `issues: write`; the default invocation never writes remotely.
+The same contracts run in CI. Adding a new input without its monitor fails CI. New Python/Ruby/PHP/Maven manifest families also fail visibly until coverage is implemented.
 
-References: [Dependabot configuration](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference), [supported ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories), [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
+This is comprehensive coverage of the declared inputs above, **not a claim to discover every upstream vulnerability or unversioned binary**. Transitive native recipes are maintained through Buildroot; the watcher does not independently audit every C library's upstream/CVEs. Opaque base FIP and vendor blobs follow their SDK source pins; local patches require review. Historical experiments that are not active manifests/build inputs are not production dependencies. Additions must be reflected in the coverage contracts.
+
+## Validation and integration
+
+Run `python3 scripts/test-upstream-watch.py` for offline contracts, or `python3 scripts/check-upstream.py --output report.md` for a live read-only report. `--publish` uses a GitHub Actions token with `issues: write`; the default command performs no remote writes.
+
+Dependency availability does not prove compatibility. Native changes need matching hashes, preservation of local patches, rebuilds and relevant validation. Node major changes, Alpine branch migrations, firmware and module ABI changes remain explicit decisions. Actual package installation verifies APK signatures; the dashboard only reads metadata over HTTPS.
+
+References: [Dependabot configuration](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference), [supported ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories), [default cooldown](https://github.blog/changelog/2026-07-14-dependabot-version-updates-introduce-default-package-cooldown/).
+
+### Audit on 2026-10-12
+
+- ESLint 10.12.0 is visible independently of the three-day PR cooldown (the previous October 5 run occurred before that waiting period elapsed).
+- U-Boot 2026.10 is reported from stable tags; the archive index still advertised 2026.07 during this audit.
+- The CORS wrapper candidate `v0.0.0-20261008204034-5d834403882d` changes the wrapper's dependency files, not its Go implementation. An isolated alternative go.mod passed server build and middleware/router/auth tests. The production dependency pin is not changed by this monitoring update.
+- The AES reference needs manual migration review: the canonical upstream has unrelated main history and no old `go/aes256` directory. It is reported as `review upstream replacement`, not as a normal version bump.

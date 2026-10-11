@@ -5,8 +5,10 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: daily
+      time: "06:00"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     groups:
       actions:
@@ -15,8 +17,10 @@ updates:
   - package-ecosystem: npm
     directory: /web
     schedule:
-      interval: weekly
-      day: monday
+      interval: daily
+      time: "06:00"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 10
     allow:
       - dependency-type: all
@@ -41,8 +45,10 @@ updates:
       - /server/third_party/pion-srtp
       - /firmware/crypto/experimental/sg2002-crypto-all/ghash-go
     schedule:
-      interval: weekly
-      day: monday
+      interval: daily
+      time: "06:00"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 10
     allow:
       - dependency-type: all
@@ -59,15 +65,39 @@ updates:
       - dependency-name: github.com/pion/dtls/v3
       - dependency-name: github.com/pion/ice/v4
       - dependency-name: github.com/pion/srtp/v3
+      # These nested modules are misresolved against parent-repository tags by
+      # Dependabot. The dashboard checks the Go proxy / actual source commit.
+      - dependency-name: github.com/rs/cors/wrapper/gin
+      - dependency-name: github.com/mervick/aes-everywhere/go/aes256
 
   - package-ecosystem: docker
     directories:
       - /server/third_party/pion-dtls/e2e
       - /server/third_party/pion-ice/examples/nat-rules
     schedule:
-      interval: weekly
-      day: monday
+      interval: daily
+      time: "06:00"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     groups:
       test-images:
+        patterns: ['*']
+
+  - package-ecosystem: cargo
+    directory: /addons/rustdesk
+    schedule:
+      interval: daily
+      time: "06:00"
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 10
+    allow:
+      - dependency-type: all
+    groups:
+      rust-compatible:
+        patterns: ['*']
+        update-types: [minor, patch]
+      rust-security:
+        applies-to: security-updates
         patterns: ['*']

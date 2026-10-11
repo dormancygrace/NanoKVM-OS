@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Offline contracts for upstream monitoring; no real remote writes."""
 import importlib.util
+import sys
 import io
 import json
 import tarfile
@@ -10,6 +11,7 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'scripts'))
 spec = importlib.util.spec_from_file_location('upstream', ROOT / 'scripts/check-upstream.py')
 u = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(u)
@@ -162,6 +164,105 @@ class WatchTests(unittest.TestCase):
                 result=u.check(source,root)
                 self.assertEqual(result['latest'],'b'*40)
                 self.assertEqual(result['status'],'upstream changes')
+
+
+class CoverageTests(unittest.TestCase):
+    def test_all_tracked_manifests_and_platform_pins_have_owners(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        u.validate_coverage(ROOT, sources)
+        with self.assertRaisesRegex(ValueError, 'Unmonitored dependency inputs'):
+            u.validate_coverage(ROOT, [s for s in sources if s.get('lock_entry') != 'opensbi'])
+
+    def test_new_manifest_breaks_coverage(self):
+        import dependency_coverage as c
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        files = c.tracked_files(ROOT)
+        with patch.object(c, 'tracked_files', return_value=files + ['new-addon/Cargo.toml']):
+            with self.assertRaisesRegex(ValueError, 'new-addon/Cargo.toml'):
+                c.validate_coverage(ROOT, sources)
+
+    def test_new_buildroot_selection_is_not_silent(self):
+        import dependency_coverage as c
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / 'firmware/buildroot/configs/nanokvm_platform_defconfig'
+            path.parent.mkdir(parents=True)
+            path.write_text('BR2_PACKAGE_NEW_LIBRARY=y\n')
+            with self.assertRaisesRegex(ValueError, 'NEW_LIBRARY'):
+                c.buildroot_recipes(root)
+
+    def test_npm_inventory_follows_aliases_and_keeps_node_policy_visible(self):
+        sources = u.npm_sources(ROOT)
+        alias = next(s for s in sources if s['name'] == 'npm: typescript')
+        self.assertEqual(alias['package'], '@typescript/typescript6')
+        self.assertEqual(u.current_pin(ROOT, alias), json.loads((ROOT / 'web/package.json').read_text())['devDependencies']['typescript'].rsplit('@', 1)[1])
+        self.assertIn('policy', next(s for s in sources if s['name'] == 'npm: @types/node'))
+        eslint = next(s for s in sources if s['name'] == 'npm: eslint')
+        parts = list(u.version(u.current_pin(ROOT, eslint))[:3]); parts[2] += 1
+        latest = '.'.join(map(str, parts))
+        with patch.object(u, 'request', return_value=json.dumps({'version': latest})):
+            self.assertEqual(u.check(eslint)['status'], 'update available')
+        with patch.object(u, 'request', side_effect=OSError('registry down')):
+            self.assertEqual(u.check(eslint)['status'], 'error')
+
+    def test_npm_ranges_cannot_be_silently_skipped(self):
+        import dependency_coverage as c
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); (root / 'package.json').write_text('{"dependencies":{"example":"^1.0.0"}}')
+            with patch.object(c, 'tracked_files', return_value=['package.json']):
+                with self.assertRaisesRegex(ValueError, 'Unsupported npm pin'):
+                    c.npm_sources(root)
+
+    def test_tag_scan_reads_later_pages(self):
+        with patch.object(u, 'github', side_effect=[[{'name': 'v1.0.0'}] * 100, [{'name': 'v2.0.0'}]]) as api:
+            self.assertEqual(u.github_tags('org/repo')[-1]['name'], 'v2.0.0')
+            self.assertIn('page=2', api.call_args.args[0])
+        with patch.object(u, 'github', return_value=[{'name': 'v1.0.0'}] * 100):
+            with self.assertRaisesRegex(ValueError, 'incomplete'):
+                u.github_tags('org/repo')
+
+    def test_opensbi_release_does_not_suggest_downgrade(self):
+        source = next(s for s in json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources'] if s['name'] == 'OpenSBI')
+        with patch.object(u, 'github', side_effect=[{'tag_name': 'v1.8', 'html_url': 'https://example.test'}, {'sha': 'b' * 40}, {'status': 'behind'}]):
+            self.assertEqual(u.check(source)['status'], 'pinned ahead')
+
+    def test_uboot_checks_stable_tags_not_archive_lag(self):
+        source = next(s for s in json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources'] if s['name'] == 'U-Boot')
+        with patch.object(u, 'github', return_value=[{'name': 'v2026.10'}, {'name': 'v2027.01-rc1'}]):
+            self.assertEqual(u.check(source)['latest'], '2026.10')
+
+    def test_nested_go_pseudo_version_is_not_truncated(self):
+        source = next(s for s in json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources'] if s['name'] == 'Go CORS nested module')
+        current = u.current_pin(ROOT, source)
+        self.assertRegex(current, r'^v0\.0\.0-[0-9]+-[a-f0-9]+$')
+        with patch.object(u, 'request', return_value=json.dumps({'Version': current})):
+            self.assertEqual(u.check(source)['status'], 'current')
+
+    def test_node_keeps_selected_major(self):
+        source = next(s for s in json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources'] if s['name'] == 'Node (selected LTS)')
+        major, minor, _ = u.version(u.current_pin(ROOT, source))[:3]
+        latest = f'{major}.{minor + 1}.0'
+        with patch.object(u, 'request', return_value=json.dumps([{'version': f'v{major + 2}.0.0'}, {'version': 'v' + latest}])):
+            result = u.check(source)
+            self.assertEqual(result['latest'], latest)
+            self.assertEqual(result['status'], 'update available')
+
+    def test_picoclaw_missing_asset_is_error(self):
+        source = next(s for s in json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources'] if s['name'] == 'PicoClaw download channel')
+        with patch.object(u, 'github', return_value={'assets': []}):
+            self.assertEqual(u.check(source)['status'], 'error')
+
+    def test_alpine_fetch_failure_is_error(self):
+        with patch.object(u, 'request_bytes', side_effect=OSError('mirror down')):
+            results = u.check_alpine_inventory(ROOT)
+            self.assertEqual(results[0]['status'], 'error')
+            self.assertIn('mirror down', results[0]['detail'])
+
+    def test_closed_actionable_dashboard_reopens_even_when_unchanged(self):
+        issue = dict(number=7, title=u.TITLE, body=u.MARKER + '\nreport', state='closed', html_url='test')
+        with patch.object(u, 'github', side_effect=[[issue], {}]) as api:
+            u.publish('owner/repo', issue['body'], True)
+            self.assertEqual(api.call_args.args[1], {'state': 'open'})
 
 
 if __name__ == '__main__':

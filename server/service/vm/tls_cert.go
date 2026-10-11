@@ -20,22 +20,18 @@ import (
 	"NanoKVM-Server/utils"
 )
 
-// The pair uploaded from the settings page. The configuration points here
-// while a custom certificate is in use; the generated pair stays in place for
-// the way back.
-const (
-	customCertFile = "/etc/kvm/tls/custom.crt"
-	customKeyFile  = "/etc/kvm/tls/custom.key"
-
-	// A chain of a few certificates and a key fit in a few KiB.
-	maxCertificateUpload = 256 * 1024
-)
+// A chain of a few certificates and a key fit in a few KiB.
+const maxCertificateUpload = 256 * 1024
 
 var (
 	tlsCertMu sync.Mutex
 
-	customCertPath    = customCertFile
-	customKeyPath     = customKeyFile
+	// The uploaded pair; the configuration points here while a custom
+	// certificate is in use, the generated pair stays for the way back.
+	customCertPath    = config.CustomCertFile
+	customKeyPath     = config.CustomKeyFile
+	acmeCertPath      = config.AcmeCertFile
+	acmeKeyPath       = config.AcmeKeyFile
 	defaultCertPath   = config.DefaultCertFile
 	defaultKeyPath    = config.DefaultKeyFile
 	readTLSConfig     = config.Read
@@ -62,8 +58,14 @@ func tlsStatus(conf *config.Config) proto.TLSStatusRsp {
 	status := proto.TLSStatusRsp{
 		Enabled:  conf.Proto == "https",
 		Custom:   cert.Crt != defaultCertPath || cert.Key != defaultKeyPath,
+		Source:   "custom",
 		CertFile: cert.Crt,
 		KeyFile:  cert.Key,
+	}
+	if !status.Custom {
+		status.Source = "generated"
+	} else if cert.Crt == acmeCertPath && cert.Key == acmeKeyPath {
+		status.Source = "acme"
 	}
 	pair, err := utils.LoadCertificatePair(cert.Crt, cert.Key)
 	if err != nil {

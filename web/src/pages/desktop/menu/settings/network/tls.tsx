@@ -15,6 +15,8 @@ import {
 import { confirmAction } from '@/components/ui/confirm.ts';
 import { Panel, SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
 
+import { Acme } from './acme.tsx';
+
 function restartInterruptedRequest(err: unknown): boolean {
   if (!axios.isAxiosError(err)) return false;
   const status = err.response?.status;
@@ -120,6 +122,7 @@ export const Tls = () => {
         />
       </SettingRow>
       <Certificate status={status} onChange={setStatus} />
+      <Acme onChange={() => void load()} />
     </>
   );
 };
@@ -277,7 +280,7 @@ const Certificate = ({
         >
           {t('settings.network.tls.certificate.upload')}
         </Button>
-        {status?.custom && (
+        {status?.custom && status.source !== 'acme' && (
           <Button danger disabled={busy} onClick={remove}>
             {t('settings.network.tls.certificate.remove')}
           </Button>

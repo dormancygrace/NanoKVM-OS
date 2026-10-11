@@ -265,8 +265,10 @@ type SetTlsReq struct {
 // Served is the pair the listener presents while HTTPS is on; Pending says
 // the two differ.
 type TLSStatusRsp struct {
-	Enabled     bool                   `json:"enabled"`
-	Custom      bool                   `json:"custom"`
+	Enabled bool `json:"enabled"`
+	Custom  bool `json:"custom"`
+	// Source: generated, custom (uploaded) or acme (issued by acme.sh).
+	Source      string                 `json:"source"`
 	CertFile    string                 `json:"certFile"`
 	KeyFile     string                 `json:"keyFile"`
 	Certificate *utils.CertificateInfo `json:"certificate,omitempty"`

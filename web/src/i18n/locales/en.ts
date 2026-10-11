@@ -1511,6 +1511,7 @@ const en = {
           tip: 'Be aware: Using HTTPS can increase latency, especially with MJPEG video mode.',
           failed: 'Failed to change HTTPS. The current setting is unchanged.',
           certificate: {
+            acme: 'ACME certificate, renewed automatically',
             title: 'Certificate',
             description:
               'The certificate the device presents over HTTPS. One from your own CA or a public one removes the browser warning.',
@@ -1539,6 +1540,80 @@ const en = {
             offNote: 'HTTPS is off; the certificate is used once it is turned on.',
             failed: 'The certificate was not changed.'
           }
+        },
+        acme: {
+          title: "Let's Encrypt / ACME",
+          description:
+            'A certificate from a public certificate authority, issued and renewed by acme.sh on the device.',
+          notInstalled: 'acme.sh is not installed',
+          install: 'Install acme.sh',
+          installHint: 'Downloads the latest stable release from GitHub (about 1 MB).',
+          installTitle: 'Install acme.sh?',
+          updateTitle: 'Update acme.sh to {{version}}?',
+          installConfirm:
+            'The latest stable release is downloaded from github.com/acmesh-official/acme.sh. The account and the issued certificate are kept.',
+          installed: 'acme.sh installed',
+          update: 'Update to {{version}}',
+          check: 'Check for updates',
+          latest: 'latest release {{version}}',
+          updateFound: 'acme.sh {{version}} is available',
+          upToDate: 'acme.sh is up to date ({{version}})',
+          inUse: 'In use for HTTPS',
+          issued: 'Issued, not in use',
+          validUntil: 'valid until',
+          renewsAfter: 'renews after',
+          renew: 'Renew now',
+          remove: 'Remove certificate',
+          removeTitle: 'Remove the ACME certificate?',
+          removeConfirm:
+            'Renewal stops and the certificate and key are deleted from the device. HTTPS returns to the generated certificate. acme.sh and the account stay.',
+          removed: 'The ACME certificate was removed',
+          issue: 'Issue a certificate',
+          reissue: 'Issue again with other settings',
+          domains: 'Domain names',
+          domainsHint:
+            'The names the certificate is for; the first one is the main name. Wildcards (*.example.org) need the DNS challenge.',
+          email: 'E-mail',
+          emailHint: 'For the CA account: expiry notices. ZeroSSL requires it.',
+          ca: 'Certificate authority',
+          challenge: 'Validation',
+          challengeHttp: 'HTTP (port 80)',
+          challengeDns: 'DNS (provider API)',
+          challengeHttpHint:
+            'The CA fetches a token from http://<domain>/.well-known/acme-challenge/ on this device: port 80 must be reachable from the Internet at that name.',
+          challengeDnsHint:
+            'acme.sh adds a TXT record through the provider API. The credentials are stored by acme.sh for renewals (0600) and are never shown again.',
+          wildcardNeedsDns: 'A wildcard name needs the DNS challenge.',
+          provider: 'DNS provider',
+          providerPlaceholder: 'Search by name',
+          providerDocs: 'How to get the credentials for {{name}}',
+          altCredentials: 'Alternative credentials',
+          dnsSleep: 'DNS wait (seconds)',
+          dnsSleepHint:
+            'Empty: acme.sh checks the record itself. Set when the provider is slow to publish.',
+          issueButton: 'Issue certificate',
+          issueTitle: 'Issue the certificate?',
+          issueConfirmHttp:
+            'acme.sh asks the CA to fetch a token over port 80. The result appears below in a minute; the certificate is used for HTTPS at once, without a restart. Issuing again for the same names counts against the CA rate limits (Let’s Encrypt: 5 per week).',
+          issueConfirmDns:
+            'acme.sh adds a TXT record at the provider and waits for it. The result appears below within a few minutes; the certificate is used for HTTPS at once, without a restart. Issuing again for the same names counts against the CA rate limits (Let’s Encrypt: 5 per week).',
+          issueHint: 'Runs in the background; the page shows the result.',
+          run: {
+            issue: 'Issue',
+            renew: 'Renewal',
+            cron: 'Scheduled check',
+            running: 'running',
+            ok: 'done',
+            notDue: 'nothing due',
+            failed: 'failed'
+          },
+          noOutput: 'No output.',
+          uninstall: 'Uninstall acme.sh',
+          uninstallTitle: 'Uninstall acme.sh?',
+          uninstallConfirm:
+            'acme.sh, the CA account, the issued certificate and the settings are deleted. HTTPS returns to the generated certificate.',
+          uninstalled: 'acme.sh removed',
+          failed: 'The operation failed.'
         },
         ipv6: {
           description: 'Disabled by default. Changes are saved across reboots.',

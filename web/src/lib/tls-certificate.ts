@@ -17,6 +17,8 @@ export type CertificateInfo = {
 export type TlsStatus = {
   enabled: boolean;
   custom: boolean;
+  // generated (self-signed), custom (uploaded) or acme (issued by acme.sh).
+  source: 'generated' | 'custom' | 'acme';
   certFile: string;
   keyFile: string;
   // The pair named by the configuration; absent with `error` when it cannot be read.
@@ -29,13 +31,14 @@ export type TlsStatus = {
   error?: string;
 };
 
-export type CertificateState = 'error' | 'pending' | 'expired' | 'custom' | 'generated';
+export type CertificateState = 'error' | 'pending' | 'expired' | 'acme' | 'custom' | 'generated';
 
 // One word for the badge; the first that applies wins.
 export function certificateState(status: TlsStatus): CertificateState {
   if (status.error) return 'error';
   if (status.enabled && status.pending) return 'pending';
   if (status.certificate?.expired) return 'expired';
+  if (status.source === 'acme') return 'acme';
   return status.custom ? 'custom' : 'generated';
 }
 
@@ -46,6 +49,7 @@ export const certificateTone: Record<
   error: 'danger',
   pending: 'warning',
   expired: 'danger',
+  acme: 'success',
   custom: 'success',
   generated: 'neutral'
 };

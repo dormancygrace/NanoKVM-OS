@@ -181,7 +181,7 @@ func TestSerialSessionIsExclusiveAndSeenByTheProbe(t *testing.T) {
 		t.Fatalf("probe while the terminal is open: %+v", r)
 	}
 	second, secondDone := serialTestSession(t, settings)
-	if got := terminalReadUntil(t, second, "in use"); !strings.Contains(got, "another terminal session") {
+	if got := terminalReadUntil(t, second, "in use"); !strings.Contains(got, "another session") {
 		t.Fatalf("second session: %q", got)
 	}
 	terminalWaitDone(t, secondDone)
@@ -198,6 +198,111 @@ func TestSerialSessionIsExclusiveAndSeenByTheProbe(t *testing.T) {
 	// and the device is free again, for the probe too
 	if r := probeSerialConsole(device, 300*time.Millisecond); r.State == "busy" {
 		t.Fatalf("still busy: %+v", r)
+	}
+}
+
+// The probe holds the lease too: a terminal started while the console test
+// runs is refused, and the test's restoration of the line settings never
+// lands on a terminal's raw line.
+func TestSerialSessionRefusedWhileTheProbeHoldsTheDevice(t *testing.T) {
+	serialLockDir = t.TempDir()
+	device, received := fakeHost(t, "")
+	settings := &serialSettings{Device: device, Baud: 9600, Parity: "none", Flow: "none", DataBits: 8, StopBits: 1}
+	probeDone := make(chan probeResult, 1)
+	go func() { probeDone <- probeSerialConsole(device, 800*time.Millisecond) }()
+	received() // the probe has the device open and waits for the answer
+	ws, done := serialTestSession(t, settings)
+	if got := terminalReadUntil(t, ws, "in use"); !strings.Contains(got, "another session") {
+		t.Fatalf("terminal while the probe runs: %q", got)
+	}
+	terminalWaitDone(t, done)
+	select {
+	case r := <-probeDone:
+		if r.State != "silent" {
+			t.Fatalf("probe: %+v", r)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("the probe did not finish")
+	}
+	// afterwards the terminal gets the device
+	ws2, done2 := serialTestSession(t, settings)
+	defer ws2.Close()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) && !serialPortOpen(device) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if !serialPortOpen(device) {
+		t.Fatal("the terminal did not take the device after the probe")
+	}
+	ws2.Close()
+	terminalWaitDone(t, done2)
+}
+
+// A big browser write that the device does not take, while the device
+// side sends and then goes away: both ends write notices to the WebSocket
+// at once. One writer, so no "concurrent write to websocket connection".
+func TestSerialSessionDisconnectDuringTraffic(t *testing.T) {
+	master, device := serialTestDevice(t)
+	ws, done := serialTestSession(t, &serialSettings{Device: device, Baud: 9600, Parity: "none", Flow: "none", DataBits: 8, StopBits: 1})
+	waitRaw(t, master)
+	// the device side talks the whole time
+	talking := make(chan struct{})
+	go func() {
+		defer close(talking)
+		for i := 0; i < 200; i++ {
+			if _, err := master.Write([]byte("chatter from the device side\r\n")); err != nil {
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
+	// the browser pastes more than the pty takes while the master does not read
+	if err := ws.WriteMessage(websocket.TextMessage, bytes.Repeat([]byte("x"), maxReadSize)); err != nil {
+		t.Fatal(err)
+	}
+	// the browser keeps reading what comes back
+	go func() {
+		for {
+			if _, _, err := ws.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}()
+	time.Sleep(100 * time.Millisecond)
+	master.Close() // the device goes while the write is still blocked
+	<-talking
+	terminalWaitDone(t, done)
+	if serialPortOpen(device) {
+		t.Fatal("the lease outlived the session")
+	}
+}
+
+// The browser closes while the device does not take data: the WebSocket
+// reader is not the one waiting on the tty, so the close is seen, the
+// write is cancelled and the device is released.
+func TestSerialSessionReleasesTheDeviceWhenTheBrowserGoesDuringABlockedWrite(t *testing.T) {
+	saved := serialPingInterval
+	serialPingInterval = 50 * time.Millisecond
+	t.Cleanup(func() { serialPingInterval = saved })
+	master, device := serialTestDevice(t)
+	ws, done := serialTestSession(t, &serialSettings{Device: device, Baud: 9600, Parity: "none", Flow: "none", DataBits: 8, StopBits: 1})
+	waitRaw(t, master)
+	// the master never reads: the tty's output queue fills and the write blocks
+	if err := ws.WriteMessage(websocket.TextMessage, bytes.Repeat([]byte("y"), maxReadSize)); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(300 * time.Millisecond)
+	if !serialPortOpen(device) {
+		t.Fatal("the session ended on its own")
+	}
+	ws.Close()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the session did not end after the browser closed")
+	}
+	if serialPortOpen(device) {
+		t.Fatal("the device is still claimed after the browser closed")
 	}
 }
 

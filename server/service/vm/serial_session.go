@@ -190,36 +190,74 @@ func serialGone(err error) bool {
 	return errors.Is(err, unix.EIO) || errors.Is(err, unix.ENXIO) || errors.Is(err, unix.ENODEV)
 }
 
-// writeAllSerial writes data to the non-blocking fd, waiting for room.
-func writeAllSerial(fd int, data []byte) error {
+var errSessionEnded = errors.New("serial session ended")
+
+// writeAllSerial writes data to the non-blocking fd, waiting for room in
+// short slices so the wait ends with the session: a line that does not take
+// data (flow control asserted, nothing at the other end) must not keep the
+// device open after the browser has gone.
+func writeAllSerial(fd int, data []byte, stop <-chan struct{}) error {
 	for len(data) > 0 {
+		select {
+		case <-stop:
+			return errSessionEnded
+		default:
+		}
 		n, err := unix.Write(fd, data)
 		if n > 0 {
 			data = data[n:]
 			continue
 		}
-		if err != nil && !errors.Is(err, unix.EAGAIN) {
+		if err != nil && !errors.Is(err, unix.EAGAIN) && !errors.Is(err, unix.EINTR) {
 			return err
 		}
-		if _, err := unix.Poll([]unix.PollFd{{Fd: int32(fd), Events: unix.POLLOUT}}, 1000); err != nil && !errors.Is(err, unix.EINTR) {
+		if _, err := unix.Poll([]unix.PollFd{{Fd: int32(fd), Events: unix.POLLOUT}}, 200); err != nil && !errors.Is(err, unix.EINTR) {
 			return err
 		}
 	}
 	return nil
 }
 
-func serialNotice(ws *websocket.Conn, text string) {
-	_ = ws.SetWriteDeadline(time.Now().Add(messageWait))
-	_ = ws.WriteMessage(websocket.BinaryMessage, []byte("\r\n\x1b[31m"+text+"\x1b[0m\r\n"))
+// wsWriter serialises the data writes to the WebSocket: the device side
+// and the input side both send bytes and notices, and gorilla allows one
+// writer at a time. Control frames (the pings) are safe alongside and stay
+// outside.
+type wsWriter struct {
+	mu sync.Mutex
+	ws *websocket.Conn
 }
+
+func (w *wsWriter) write(data []byte) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	_ = w.ws.SetWriteDeadline(time.Now().Add(messageWait))
+	return w.ws.WriteMessage(websocket.BinaryMessage, data)
+}
+
+func (w *wsWriter) notice(text string) {
+	_ = w.write([]byte("\r\n\x1b[31m" + text + "\x1b[0m\r\n"))
+}
+
+const serialDisconnectedNotice = "The serial device was disconnected."
+
+// serialPingInterval is how often the session pings the browser. A ping to
+// a browser that has gone fails, which ends the session even while the
+// input side is waiting on the device; tests shorten it.
+var serialPingInterval = 10 * time.Second
+
+// serialInputQueue is how many browser messages may wait for the device
+// (each at most maxReadSize): the WebSocket reader never blocks on the tty,
+// so it keeps seeing the browser; beyond that it waits for the session's end.
+const serialInputQueue = 32
 
 // runSerialSession bridges the WebSocket and the serial device until either
 // side goes away. Resize messages (JSON) have no meaning for a serial line
 // and are dropped; the browser's OSC 777 size reply is ordinary input.
 func runSerialSession(ws *websocket.Conn, s *serialSettings) error {
+	out := &wsWriter{ws: ws}
 	release, ok := claimSerialPort(s.Device)
 	if !ok {
-		serialNotice(ws, "The serial port is in use by another terminal session.")
+		out.notice("The serial port is in use by another session (a terminal or the console test).")
 		return nil
 	}
 	defer release()
@@ -227,15 +265,20 @@ func runSerialSession(ws *websocket.Conn, s *serialSettings) error {
 	if err != nil {
 		switch {
 		case errors.Is(err, errSerialBusy):
-			serialNotice(ws, "The serial port is in use by another program.")
+			out.notice("The serial port is in use by another program.")
 		case errors.Is(err, os.ErrNotExist), serialGone(err):
-			serialNotice(ws, "The serial port is not available.")
+			out.notice("The serial port is not available.")
 		default:
-			serialNotice(ws, "The serial port could not be opened.")
+			out.notice("The serial port could not be opened.")
 		}
 		return err
 	}
+	// Closed after every goroutine that uses it has returned, and released
+	// only then: a new session must not open the device while an old
+	// goroutine still polls a reused descriptor number.
+	var wg sync.WaitGroup
 	defer unix.Close(fd)
+	defer wg.Wait()
 
 	_ = ws.SetReadDeadline(time.Now().Add(terminalPongWait))
 	ws.SetPongHandler(func(string) error { return ws.SetReadDeadline(time.Now().Add(terminalPongWait)) })
@@ -243,8 +286,12 @@ func runSerialSession(ws *websocket.Conn, s *serialSettings) error {
 	var stopOnce sync.Once
 	finish := func() { stopOnce.Do(func() { close(stop) }) }
 	defer finish()
+
+	// Pings, and with them the watch on the connection's life.
+	wg.Add(1)
 	go func() {
-		ticker := time.NewTicker(10 * time.Second)
+		defer wg.Done()
+		ticker := time.NewTicker(serialPingInterval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -252,6 +299,7 @@ func runSerialSession(ws *websocket.Conn, s *serialSettings) error {
 				return
 			case <-ticker.C:
 				if ws.WriteControl(websocket.PingMessage, nil, time.Now().Add(messageWait)) != nil {
+					finish()
 					_ = ws.Close()
 					return
 				}
@@ -259,10 +307,12 @@ func runSerialSession(ws *websocket.Conn, s *serialSettings) error {
 		}
 	}()
 
-	done := make(chan struct{})
+	// Device to browser.
+	wg.Add(1)
 	go func() {
-		defer close(done)
+		defer wg.Done()
 		defer ws.Close()
+		defer finish()
 		buf := make([]byte, maxMessageSize)
 		for {
 			select {
@@ -279,8 +329,7 @@ func runSerialSession(ws *websocket.Conn, s *serialSettings) error {
 			}
 			n, err = unix.Read(fd, buf)
 			if n > 0 {
-				_ = ws.SetWriteDeadline(time.Now().Add(messageWait))
-				if ws.WriteMessage(websocket.BinaryMessage, buf[:n]) != nil {
+				if out.write(buf[:n]) != nil {
 					return
 				}
 				continue
@@ -288,15 +337,38 @@ func runSerialSession(ws *websocket.Conn, s *serialSettings) error {
 			if err == nil || errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EINTR) {
 				if err == nil {
 					// end of file on a tty: the other side hung up
-					serialNotice(ws, "The serial device was disconnected.")
+					out.notice(serialDisconnectedNotice)
 					return
 				}
 				continue
 			}
 			if serialGone(err) {
-				serialNotice(ws, "The serial device was disconnected.")
+				out.notice(serialDisconnectedNotice)
 			}
 			return
+		}
+	}()
+
+	// Browser to device, from a queue: the WebSocket reader below never
+	// waits on the tty itself, so a browser that goes is seen as it goes.
+	in := make(chan []byte, serialInputQueue)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer ws.Close()
+		defer finish()
+		for {
+			select {
+			case <-stop:
+				return
+			case data := <-in:
+				if err := writeAllSerial(fd, data, stop); err != nil {
+					if serialGone(err) {
+						out.notice(serialDisconnectedNotice)
+					}
+					return
+				}
+			}
 		}
 	}()
 
@@ -312,15 +384,12 @@ func runSerialSession(ws *websocket.Conn, s *serialSettings) error {
 				continue
 			}
 		}
-		if err := writeAllSerial(fd, data); err != nil {
-			if serialGone(err) {
-				serialNotice(ws, "The serial device was disconnected.")
-			}
-			break
+		select {
+		case in <- data:
+		case <-stop:
 		}
 	}
 	finish()
 	_ = ws.Close()
-	<-done
 	return nil
 }

@@ -60,8 +60,9 @@
 		 * reusable CMA, so idle pages stay available to Linux. 1080p
 		 * H.265 with MJPEG peaks at 49 MiB. platform/build.sh derives
 		 * the other boot images from this node: QHD 68 MiB (1440p
-		 * peaks at 65 MiB), UHD 118 MiB (2160p about 111 MiB; 117
-		 * counted), and the fixed variants, a carveout without
+		 * peaks at 65 MiB), UHD 112 MiB (2160p H.265 SmartP holds
+		 * 111.8 MiB; MJPEG is not available at 2160p), and the
+		 * fixed variants, a carveout without
 		 * reusable and nanokvm,cma-backend, which are 2 MiB smaller
 		 * (50 and 66 MiB) because a CMA region must be a multiple
 		 * of 4 MiB. UHD is fixed only: as CMA it failed

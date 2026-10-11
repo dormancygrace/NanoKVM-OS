@@ -31,7 +31,9 @@ required_native_symbols = {
     'libkvm_mmf.so': {'mmf_set_venc_gop_mode', 'mmf_get_venc_gop_mode', 'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
 }
 required_native_dependencies = {
-    'libkvm.so': {'mmf_set_venc_gop_mode', 'mmf_get_venc_gop_mode', 'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
+    # libkvm keeps the requested GOP mode itself and passes it to MMF when it
+    # creates the channel; libkvm_mmf still exports the getter.
+    'libkvm.so': {'mmf_set_venc_gop_mode', 'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
 }
 for library, required in required_native_symbols.items():
     output = subprocess.check_output(

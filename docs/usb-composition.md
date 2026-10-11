@@ -35,15 +35,47 @@ USB network and serial are **not mutually exclusive**. For example, keyboard +
 network + storage + serial uses 6 IN / 4 OUT. The interface no longer tells the
 user to disable USB network as a prerequisite for serial.
 
+### USB identity
+
+Below the manual section, **USB identity** is what the computer reads from the
+device descriptor: vendor ID, product ID, manufacturer and product strings.
+Hosts with a USB allow-list, or endpoint security that objects to a device
+called "NanoKVM", need something else there. Two presets, **NanoKVM (factory)**
+(`0x3346:0x1009`, `sipeed` / `NanoKVM`) and **Generic composite device**
+(the factory IDs with the names `Generic` / `USB Composite Device`), and a
+**Custom** choice with the four fields by hand. No preset carries another
+vendor's ID: a custom vendor or product ID is the user's own, and the page says
+so. The serial number stays the chip UID and is shown read-only, because the
+Linux console helper's udev rule is bound to it; `bcdDevice` stays the mode
+flag the server reads.
+
+The identity is part of the composition: Apply writes it with the rest and
+reconnects USB, and it is in the `revision`. `S03usbdev` and `S03usbhid` read
+`/boot/usb.vid`, `/boot/usb.pid`, `/boot/usb.manufacturer` and
+`/boot/usb.product` at every start (a missing file is the factory value). The
+recovery init (inside the initramfs, so changed only with a platform build)
+reads the same manufacturer and product files, but takes the IDs from its own
+`usb.idVendor` / `usb.idProduct`: a recovery boot presents the factory IDs
+unless those two files are set by hand. A vendor or product ID
+other than the factory one stops the serial console helper's udev rule on
+Linux hosts from matching (it names the IDs); the Windows pointer profile's
+ContainerID is a separate UUID and is unaffected.
+
 The admin-only `PUT /api/vm/device/virtual` requires all seven explicit boolean
-fields, `mode` (`normal` or `hid-only`) and the `revision` returned by GET.
+fields, `mode` (`normal` or `hid-only`) and the `revision` returned by GET; an
+optional `identity` object (`vendorId`, `productId`, `manufacturer`,
+`product`; an empty field is the factory value) sets the identity, and a
+request without it keeps the one in place. IDs are `0x0001`–`0xffff`, names
+1–126 printable ASCII characters. GET reports the identity with the serial
+number and whether it is the factory one.
 Missing fields, invalid budgets, empty drafts and stale revisions are rejected
 before changing flags. Revision comparison and application hold both HID locks.
 The legacy POST toggle endpoint remains available for older clients.
 
-Application snapshots the ten boot flags and installed profile, performs one
-stop/start, checks the bound controller and selected configfs links, and restores
-the previous files and composition on failure. Existing disk-image paths and NCM
+Application snapshots the ten boot flags, the four identity files and the
+installed profile, performs one stop/start, checks the bound controller, the
+selected configfs links and the identity the gadget presents, and restores the
+previous files and composition on failure. Existing disk-image paths and NCM
 selection are preserved when those functions remain enabled. Unchanged drafts
 do not rebind. This is runtime failure recovery, not a power-loss-atomic
 transaction across multiple files. A lost HTTP response is read back rather than

@@ -7,6 +7,7 @@ import {
   canToggleDevice,
   endpointUsage,
   fitsBudget,
+  identityProblem,
   matchingPreset,
   normalizeUsbStatus,
   sameComposition,
@@ -20,6 +21,7 @@ import { confirmAction } from '@/components/ui/confirm.ts';
 import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
 import { MouseJiggler } from '../device/mouse-jiggler';
+import { UsbIdentitySection } from './identity';
 import { UsbInternet } from './internet';
 import { SerialConsole } from './serial-console';
 
@@ -197,6 +199,7 @@ export const Usb = () => {
   const enabled = Boolean(status && usbDevices.some((name) => status[name]));
   const empty = Boolean(draft && !usbDevices.some((name) => draft[name]));
   const withinBudget = Boolean(draft && status && fitsBudget(draft, status));
+  const identityOk = !draft?.identity || !identityProblem(draft.identity);
 
   return (
     <div className="space-y-6">
@@ -343,6 +346,18 @@ export const Usb = () => {
                 />
               </SettingRow>
             )}
+            {status?.identity && draft && (
+              <UsbIdentitySection
+                status={status}
+                identity={draft.identity ?? status.identity}
+                disabled={loading}
+                onChange={(identity) => {
+                  if (busy.current) return;
+                  setDraft({ ...draft, identity });
+                  setError('');
+                }}
+              />
+            )}
             {empty && <div className="text-fg-muted text-sm">{t('settings.usb.empty')}</div>}
             {status && !status.revision && (
               <div className="text-warning text-sm">{t('settings.usb.serverUpdateRequired')}</div>
@@ -351,7 +366,7 @@ export const Usb = () => {
               <Button
                 type="primary"
                 loading={loading}
-                disabled={!dirty || !withinBudget || !status?.revision}
+                disabled={!dirty || !withinBudget || !identityOk || !status?.revision}
                 onClick={apply}
               >
                 {t('settings.usb.apply')}

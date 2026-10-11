@@ -97,8 +97,20 @@ start_usb_dev(){
         fi
         echo "$_serial" > strings/0x409/serialnumber
     fi
-    echo 'sipeed' > strings/0x409/manufacturer
-    echo 'NanoKVM' > strings/0x409/product
+    # The identity files are written by the USB settings page; a missing
+    # file is the factory value.
+    if [ -s /boot/usb.manufacturer ]
+    then
+        head -n 1 /boot/usb.manufacturer > strings/0x409/manufacturer
+    else
+        echo 'sipeed' > strings/0x409/manufacturer
+    fi
+    if [ -s /boot/usb.product ]
+    then
+        head -n 1 /boot/usb.product > strings/0x409/product
+    else
+        echo 'NanoKVM' > strings/0x409/product
+    fi
 
     mkdir -p configs/c.1
     echo 0xA0 > configs/c.1/bmAttributes

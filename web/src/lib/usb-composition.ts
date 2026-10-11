@@ -11,15 +11,82 @@ export type UsbDevice = (typeof usbDevices)[number];
 export type UsbComposition = Record<UsbDevice, boolean> & {
   mode: 'normal' | 'hid-only';
   pointerProfile?: 'default' | 'windows';
+  identity?: UsbIdentity;
 };
 export type EndpointCost = { in: number; out: number };
+// What the connected computer sees in the device descriptor. The serial number
+// is the chip UID and cannot be changed.
+export type UsbIdentity = {
+  vendorId: string;
+  productId: string;
+  manufacturer: string;
+  product: string;
+};
 export type UsbStatus = UsbComposition & {
   hid: boolean;
   windowsPointerSupported?: boolean;
   revision?: string;
   budget: { inUsed: number; outUsed: number; inLimit: number; outLimit: number };
   costs: Record<UsbDevice, EndpointCost>;
+  identity?: UsbIdentity & { serialNumber?: string; default?: boolean };
 };
+
+export const defaultUsbIdentity: UsbIdentity = {
+  vendorId: '0x3346',
+  productId: '0x1009',
+  manufacturer: 'sipeed',
+  product: 'NanoKVM'
+};
+
+// Identity presets: the factory one, and a neutral name for hosts whose
+// endpoint security flags "NanoKVM". No preset carries another vendor's ID;
+// a custom VID/PID is typed by hand.
+export const usbIdentityPresets: { id: string; identity: UsbIdentity }[] = [
+  { id: 'nanokvm', identity: defaultUsbIdentity },
+  {
+    id: 'generic',
+    identity: { ...defaultUsbIdentity, manufacturer: 'Generic', product: 'USB Composite Device' }
+  }
+];
+
+export function normalizeUsbId(value: string) {
+  const match = /^\s*0[xX]([0-9a-fA-F]{1,4})\s*$/.exec(value);
+  return match ? `0x${match[1].toLowerCase().padStart(4, '0')}` : value.trim();
+}
+
+export function sameIdentity(a?: UsbIdentity, b?: UsbIdentity) {
+  const x = { ...defaultUsbIdentity, ...a };
+  const y = { ...defaultUsbIdentity, ...b };
+  return (
+    normalizeUsbId(x.vendorId) === normalizeUsbId(y.vendorId) &&
+    normalizeUsbId(x.productId) === normalizeUsbId(y.productId) &&
+    x.manufacturer === y.manufacturer &&
+    x.product === y.product
+  );
+}
+
+export function matchingIdentityPreset(identity?: UsbIdentity) {
+  return (
+    usbIdentityPresets.find((preset) => sameIdentity(preset.identity, identity))?.id ?? 'custom'
+  );
+}
+
+// Mirrors the server: 0x0001–0xffff, printable ASCII strings of 1–126 characters.
+export function identityProblem(identity: UsbIdentity): 'id' | 'string' | undefined {
+  for (const id of [identity.vendorId, identity.productId]) {
+    const normalized = normalizeUsbId(id);
+    if (!/^0x[0-9a-f]{4}$/.test(normalized) || normalized === '0x0000') return 'id';
+  }
+  for (const s of [identity.manufacturer, identity.product]) {
+    if (
+      s.length < 1 ||
+      s.length > 126 ||
+      !/^[\x21-\x7e][\x20-\x7e]*[\x21-\x7e]$|^[\x21-\x7e]$/.test(s)
+    )
+      return 'string';
+  }
+  return undefined;
+}
 
 const hid = { keyboard: true, relative: true, absolute: true };
 const none = { network: false, disk: false, serial: false, audio: false };
@@ -68,6 +135,7 @@ export function sameComposition(a: UsbComposition, b: UsbComposition) {
   return (
     a.mode === b.mode &&
     (a.pointerProfile ?? 'default') === (b.pointerProfile ?? 'default') &&
+    sameIdentity(a.identity, b.identity) &&
     usbDevices.every((name) => a[name] === b[name])
   );
 }
@@ -76,7 +144,11 @@ export function matchingPreset(composition: UsbComposition) {
   return (
     usbPresets.find((preset) =>
       sameComposition(
-        { ...preset.composition, pointerProfile: composition.pointerProfile },
+        {
+          ...preset.composition,
+          pointerProfile: composition.pointerProfile,
+          identity: composition.identity
+        },
         composition
       )
     )?.id ?? 'custom'

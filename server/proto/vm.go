@@ -82,6 +82,27 @@ type GetVirtualDeviceRsp struct {
 	Mode                    string                     `json:"mode"`
 	Budget                  USBEndpointBudget          `json:"budget"`
 	Costs                   map[string]USBEndpointCost `json:"costs"`
+	Identity                USBIdentity                `json:"identity"`
+}
+
+// USBIdentity is what the connected computer sees in the device descriptor.
+// The serial number is the chip UID and read-only; Default says whether the
+// four writable fields are the factory ones.
+type USBIdentity struct {
+	VendorID     string `json:"vendorId"`
+	ProductID    string `json:"productId"`
+	Manufacturer string `json:"manufacturer"`
+	Product      string `json:"product"`
+	SerialNumber string `json:"serialNumber,omitempty"`
+	Default      bool   `json:"default"`
+}
+
+// USBIdentityReq sets the identity; an empty field keeps the factory value.
+type USBIdentityReq struct {
+	VendorID     string `json:"vendorId"`
+	ProductID    string `json:"productId"`
+	Manufacturer string `json:"manufacturer"`
+	Product      string `json:"product"`
 }
 
 // SerialConsoleRsp describes the headless-Linux console helper: the USB
@@ -145,6 +166,8 @@ type SetUSBCompositionReq struct {
 	Audio          *bool  `json:"audio" validate:"required"`
 	Mode           string `json:"mode" validate:"required,oneof=normal hid-only"`
 	Revision       string `json:"revision" validate:"required"`
+	// nil keeps the identity in place (older clients send none)
+	Identity *USBIdentityReq `json:"identity"`
 }
 
 type UpdateVirtualDeviceRsp struct {

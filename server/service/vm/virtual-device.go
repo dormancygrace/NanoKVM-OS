@@ -51,6 +51,8 @@ type usbComposition struct {
 	disk           bool
 	serial         bool
 	audio          bool
+	// the zero value is the default identity (usb_identity.go)
+	identity usbIdentity
 }
 
 func (s *Service) GetVirtualDevice(c *gin.Context) {
@@ -71,6 +73,7 @@ func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 	if s.windowsPointer {
 		profile = "windows"
 	}
+	identity := s.identity.normalized()
 	return &proto.GetVirtualDeviceRsp{
 		PointerProfile: profile, WindowsPointerSupported: common.WindowsPointerSupported(),
 		Keyboard: s.keyboard, Relative: s.relative, Absolute: s.absolute,
@@ -79,11 +82,19 @@ func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 		Revision: s.revision(),
 		Budget:   proto.USBEndpointBudget{InUsed: inUsed, OutUsed: outUsed, InLimit: usbInEndpointLimit, OutLimit: usbOutEndpointLimit},
 		Costs:    usbEndpointCosts,
+		Identity: proto.USBIdentity{
+			VendorID: identity.VendorID, ProductID: identity.ProductID,
+			Manufacturer: identity.Manufacturer, Product: identity.Product,
+			SerialNumber: gadgetSerialNumberAt(gadgetRoot), Default: s.identity.isDefault(),
+		},
 	}
 }
 
 func (s usbComposition) revision() string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%t:%t:%t:%t:%t:%t:%t:%t", s.mode, s.keyboard, s.relative, s.absolute, s.network, s.disk, s.serial, s.audio, s.windowsPointer))))
+	identity := s.identity.normalized()
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%t:%t:%t:%t:%t:%t:%t:%t:%s:%s:%s:%s",
+		s.mode, s.keyboard, s.relative, s.absolute, s.network, s.disk, s.serial, s.audio, s.windowsPointer,
+		identity.VendorID, identity.ProductID, identity.Manufacturer, identity.Product))))
 }
 
 func (s *Service) SetUSBComposition(c *gin.Context) {
@@ -94,6 +105,12 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 		return
 	}
 	candidate := usbComposition{windowsPointer: req.PointerProfile == "windows", mode: req.Mode, keyboard: *req.Keyboard, relative: *req.Relative, absolute: *req.Absolute, network: *req.Network, disk: *req.Disk, serial: *req.Serial, audio: *req.Audio}
+	identity, err := identityFromRequest(req.Identity)
+	if err != nil {
+		rsp.ErrRsp(c, -4, err.Error())
+		return
+	}
+	candidate.identity = identity
 	if err := candidate.validate(); err != nil {
 		rsp.ErrRsp(c, -4, err.Error())
 		return
@@ -104,6 +121,10 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 	current := getUSBComposition()
 	if req.PointerProfile == "" {
 		candidate.windowsPointer = current.windowsPointer
+	}
+	// An older client sends no identity: it keeps the one in place.
+	if req.Identity == nil {
+		candidate.identity = current.identity
 	}
 	if current.revision() != req.Revision {
 		rsp.ErrRsp(c, -5, "USB composition changed; refresh and try again")
@@ -233,6 +254,7 @@ func getUSBComposition() usbComposition {
 		disk:           diskEnabled,
 		serial:         deviceExists(virtualSerial),
 		audio:          mode != hid.ModeHidOnly && deviceExists(virtualAudio),
+		identity:       readUSBIdentity("/boot"),
 	}
 }
 

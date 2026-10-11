@@ -208,6 +208,64 @@ func TestAudioBudgetAndRevision(t *testing.T) {
 	}
 }
 
+// The identity files carry a value, are written only when they differ from
+// the factory one, and go away when the identity returns to the default; a
+// failed apply puts the previous ones back.
+func TestCompositionWritesAndRestoresIdentityFiles(t *testing.T) {
+	dir := t.TempDir()
+	noop := usbCompositionStore{bootDir: dir, scriptPath: filepath.Join(dir, "S03usbdev"),
+		install: func(string) error { return nil },
+		run:     func(string) error { return nil },
+		verify:  func(usbComposition) error { return nil },
+	}
+	base := usbComposition{mode: hid.ModeNormal, keyboard: true, relative: true, absolute: true, disk: true}
+	custom := base
+	custom.identity = usbIdentity{VendorID: "0X46D", Manufacturer: "Generic", Product: "USB Composite Device"}
+	if err := noop.apply(base, custom); err != nil {
+		t.Fatal(err)
+	}
+	read := func(name string) string {
+		data, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			return "<absent>"
+		}
+		return string(data)
+	}
+	if read("usb.vid") != "0x046d\n" || read("usb.pid") != "<absent>" || read("usb.manufacturer") != "Generic\n" || read("usb.product") != "USB Composite Device\n" {
+		t.Fatalf("identity files: %q %q %q %q", read("usb.vid"), read("usb.pid"), read("usb.manufacturer"), read("usb.product"))
+	}
+	// the flags of the composition itself are untouched
+	if _, err := os.Stat(filepath.Join(dir, "usb.disk0")); err != nil {
+		t.Fatal("the disk flag went")
+	}
+
+	// a failed apply back to the default keeps the custom files
+	failing := noop
+	failing.verify = func(usbComposition) error { return errors.New("injected verify") }
+	if err := failing.apply(custom, base); err == nil || !strings.Contains(err.Error(), "injected") {
+		t.Fatalf("err %v", err)
+	}
+	if read("usb.vid") != "0x046d\n" || read("usb.product") != "USB Composite Device\n" {
+		t.Fatal("rollback lost the identity files")
+	}
+
+	// back to the default removes them
+	if err := noop.apply(custom, base); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"usb.vid", "usb.pid", "usb.manufacturer", "usb.product"} {
+		if read(name) != "<absent>" {
+			t.Fatalf("%s is still there", name)
+		}
+	}
+	if base.revision() == custom.revision() {
+		t.Fatal("the identity is not part of the revision")
+	}
+	if (usbComposition{mode: hid.ModeNormal, keyboard: true, identity: usbIdentity{VendorID: "nope"}}).validate() == nil {
+		t.Fatal("a bad identity validated")
+	}
+}
+
 func TestEmptyCompositionRequiresUnboundController(t *testing.T) {
 	root := t.TempDir()
 	empty := usbComposition{mode: hid.ModeNormal}

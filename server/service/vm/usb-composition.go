@@ -25,7 +25,7 @@ func (s usbComposition) validate() error {
 	if !s.fitsEndpointBudget() {
 		return errors.New("USB endpoint budget exceeded")
 	}
-	return nil
+	return s.identity.validate()
 }
 
 // EnsureRemoteAccessUSB applies the same validated, serialized composition as
@@ -128,12 +128,25 @@ func verifyUSBCompositionAt(root string, s usbComposition) error {
 			return errors.New("Windows pointer descriptor was not applied")
 		}
 	}
+	if bound {
+		presented, err := gadgetIdentityAt(root)
+		if err != nil {
+			return fmt.Errorf("read the USB identity: %w", err)
+		}
+		if presented != s.identity.normalized() {
+			return errors.New("USB identity does not match the requested one")
+		}
+	}
 	return nil
 }
 
+// The boot files one apply may change, snapshotted and restored together.
+// The first ten are flags (present or absent); the identity files carry a
+// value and are absent for the default.
 var usbCompositionFlags = []string{
 	"usb.rndis0", "usb.ncm", "usb.disk0", "usb.acm", "usb.audio", "disable_hid",
 	"usb.disable_keyboard", "usb.disable_relative", "usb.disable_absolute", "usb.pointer_windows",
+	"usb.vid", "usb.pid", "usb.manufacturer", "usb.product",
 }
 
 type usbFileSnapshot struct {
@@ -266,8 +279,24 @@ func (store usbCompositionStore) apply(current, candidate usbComposition) error 
 		"usb.disable_absolute": !candidate.absolute,
 		"usb.pointer_windows":  candidate.windowsPointer,
 	}
+	identity := candidate.identity.files()
 	for _, name := range usbCompositionFlags {
 		path := filepath.Join(store.bootDir, name)
+		if value, isIdentity := identity[name]; isIdentity {
+			// a value, compared by content; absent for the factory identity
+			want := usbFileSnapshot{}
+			if value != nil {
+				want = usbFileSnapshot{exists: true, mode: 0644, data: []byte(*value + "\n")}
+			}
+			if want.exists == before[path].exists && (!want.exists || string(want.data) == string(before[path].data)) {
+				continue
+			}
+			if err := writeUSBFile(path, want); err != nil {
+				return rollback(err)
+			}
+			continue
+		}
+		// a flag, by presence; its content (an image path, say) is kept
 		if flags[name] == before[path].exists {
 			continue
 		}

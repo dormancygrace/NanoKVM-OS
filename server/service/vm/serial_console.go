@@ -212,6 +212,7 @@ func probeSerialConsole(device string, timeout time.Duration) probeResult {
 	var data []byte
 	deadline := time.Now().Add(timeout)
 	quietSince := time.Time{}
+	answered := 0
 	for time.Now().Before(deadline) && len(data) < 4096 {
 		fds := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
 		if n, _ := unix.Poll(fds, 100); n > 0 {
@@ -220,6 +221,14 @@ func probeSerialConsole(device string, timeout time.Duration) probeResult {
 			if n > 0 {
 				data = append(data, buf[:n]...)
 				quietSince = time.Now()
+				// Some gettys (seen on Arch and Ubuntu 26.04) reset the terminal
+				// and ask where the cursor is before they print the prompt, and
+				// wait for the answer. The browser terminal answers; so does this.
+				for queries := bytes.Count(data, cursorPositionQuery); answered < queries; answered++ {
+					if _, err := unix.Write(fd, cursorPositionReply); err != nil {
+						return probeResult{State: "error", Err: err}
+					}
+				}
 				switch state, _ := classifySerialResponse(data); state {
 				case "login", "password":
 					return finishProbe(data)
@@ -246,13 +255,19 @@ func finishProbe(data []byte) probeResult {
 var (
 	ansiCSI = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 	ansiOSC = regexp.MustCompile(`\x1b\][^\x07\x1b]*(\x07|\x1b\\)`)
+	// what is left after CSI and OSC: ESC with one character (save and
+	// restore cursor, reset, character sets)
+	ansiESC = regexp.MustCompile(`\x1b[^\[\]]`)
 	spaces  = regexp.MustCompile(`[ \t]+`)
+
+	cursorPositionQuery = []byte("\x1b[6n")
+	cursorPositionReply = []byte("\x1b[24;80R")
 )
 
 // classifySerialResponse reads the host's answer: a login prompt, a password
 // prompt, an open shell (its prompt ends the text), other text, or nothing.
 func classifySerialResponse(data []byte) (string, string) {
-	clean := ansiOSC.ReplaceAll(ansiCSI.ReplaceAll(data, nil), nil)
+	clean := ansiESC.ReplaceAll(ansiOSC.ReplaceAll(ansiCSI.ReplaceAll(data, nil), nil), nil)
 	clean = bytes.Map(func(r rune) rune {
 		switch {
 		case r == '\n' || r == '\r' || r == '\t':

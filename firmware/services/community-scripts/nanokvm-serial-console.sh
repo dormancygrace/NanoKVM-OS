@@ -339,7 +339,10 @@ report() {
 		refuse "no cdc_acm driver for kernel $krel: the port cannot appear on this host"
 		# the usual reasons: a cloud kernel without USB drivers
 		case "$distro_id:$krel" in
-		ubuntu:*) info "Ubuntu cloud images leave it out: apt install linux-modules-extra-$krel, then modprobe cdc_acm" ;;
+		ubuntu:*)
+			info "Ubuntu cloud images leave it out: apt install linux-modules-extra-$krel, then modprobe cdc_acm"
+			info "when the archive no longer has that version: apt install linux-generic, then reboot"
+			;;
 		debian:*cloud*) info "Debian's cloud kernel has no USB drivers: apt install linux-image-amd64 and boot it" ;;
 		esac
 		;;

@@ -279,6 +279,8 @@ class ScriptTest(unittest.TestCase):
         r = self.host(cdc=None, os_release='ID=ubuntu\nPRETTY_NAME="Ubuntu 24.04.5 LTS"\n').run(SHELLS[0])
         self.assertEqual(r.returncode, 2)
         self.assertIn('apt install linux-modules-extra-' + KERNEL, r.stdout)
+        # the running kernel's package can be gone from the archive (Ubuntu 26.04 at first boot)
+        self.assertIn('apt install linux-generic, then reboot', r.stdout)
         env = dict(os.environ, NANOKVM_KERNEL='6.12.0-cloud-amd64')
         h = self.host(cdc=None)
         r = subprocess.run(SHELLS[0] + [str(SCRIPT)], capture_output=True, text=True,

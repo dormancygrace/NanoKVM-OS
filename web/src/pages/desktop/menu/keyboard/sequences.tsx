@@ -54,10 +54,18 @@ export const Sequences = () => {
   const [busy, setBusy] = useState<'' | Sequence>('');
   const [progress, setProgress] = useState<SequenceStatus | null>(null);
   const pollTimer = useRef<number | null>(null);
+  // This modal started the running sequence and reports how it ended.
+  const following = useRef(false);
 
   function afterOpenChange(open: boolean) {
     setKeyboardLock({ source: 'key-sequences', locked: open });
-    if (!open) stopPolling();
+    if (open) {
+      // A detached REISUB runs on while the modal is closed, and another tab
+      // may have started one: ask the server and follow it from here.
+      void followSequence();
+    } else {
+      stopPolling();
+    }
   }
 
   function stopPolling() {
@@ -69,24 +77,31 @@ export const Sequences = () => {
 
   useEffect(() => stopPolling, []);
 
-  // Follow a detached REISUB until the server says it ended.
+  // Follow a detached sequence until the server says it ended. Only the
+  // modal that started it announces the result.
   async function followSequence() {
+    stopPolling();
     try {
       const rsp = await api.getKeySequenceStatus();
       if (rsp.code !== 0) return;
       const status = rsp.data as SequenceStatus;
-      setProgress(status);
       if (status.running) {
+        setProgress(status);
+        setBusy((status.sequence as Sequence | undefined) ?? 'reisub');
         pollTimer.current = window.setTimeout(followSequence, statusPollMs);
         return;
       }
+      setProgress(null);
       setBusy('');
+      if (!following.current) return;
+      following.current = false;
       if (status.lastResult?.ok) {
         void message.success(t('keyboard.sequences.sent'));
       } else {
         void message.error(t('keyboard.sequences.failed'));
       }
     } catch {
+      following.current = false;
       setBusy('');
       setProgress(null);
     }
@@ -109,6 +124,8 @@ export const Sequences = () => {
           durationMs: rsp.data?.durationMs,
           remainingMs: rsp.data?.durationMs
         });
+        following.current = true;
+        stopPolling();
         pollTimer.current = window.setTimeout(followSequence, statusPollMs);
         return;
       } else {

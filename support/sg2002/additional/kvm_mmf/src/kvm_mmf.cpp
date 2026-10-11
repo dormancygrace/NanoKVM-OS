@@ -2096,7 +2096,8 @@ int mmf_set_venc_gop_mode(uint8_t mode)
 		return -1;
 	}
 	// Read when an H.265 channel is created; a running channel keeps the
-	// mode it was created with until it is deleted.
+	// mode it was created with until it is deleted. libkvm sets it right
+	// before it creates the video channel; the MJPEG channel may exist.
 	venc_gop_mode = mode;
 	return 0;
 }

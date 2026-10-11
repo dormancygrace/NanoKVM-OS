@@ -7,7 +7,7 @@ use std::{
 };
 
 use prost::Message as _;
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{distr::Alphanumeric, RngExt};
 use tokio::{
     net::{lookup_host, TcpStream, UdpSocket},
     sync::watch,
@@ -280,7 +280,7 @@ pub(crate) fn spawn_fallback_relay(
     limits: server::ClientLimits,
 ) {
     tokio::spawn(async move {
-        let uuid: String = rand::thread_rng()
+        let uuid: String = rand::rng()
             .sample_iter(Alphanumeric)
             .take(32)
             .map(char::from)
@@ -474,7 +474,7 @@ mod tests {
     };
     use ed25519_dalek::{Signature, Verifier, VerifyingKey};
     use prost::Message as _;
-    use rand::RngCore;
+    use rand::Rng;
     use sha2::{Digest, Sha256};
     use tokio::time;
 
@@ -606,8 +606,8 @@ mod tests {
 
         let mut secret_bytes = [0_u8; 32];
         let mut session_bytes = [0_u8; 32];
-        rand::thread_rng().fill_bytes(&mut secret_bytes);
-        rand::thread_rng().fill_bytes(&mut session_bytes);
+        rand::rng().fill_bytes(&mut secret_bytes);
+        rand::rng().fill_bytes(&mut session_bytes);
         let secret = BoxSecretKey::from(secret_bytes);
         let public = secret.public_key();
         let remote_public: [u8; 32] = ephemeral.pk.try_into().unwrap();

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-use rand::{rngs::OsRng, RngCore};
+use rand::{rngs::SysRng, TryRng};
 use std::{
     fs::{self, OpenOptions},
     io::{self, Write},
@@ -13,7 +13,7 @@ pub const PATH: &str = "/run/nanokvm-rustdesk/temporary-password";
 
 pub fn generate() -> io::Result<String> {
     let mut random = [0_u8; 10];
-    OsRng
+    SysRng
         .try_fill_bytes(&mut random)
         .map_err(io::Error::other)?;
     Ok(random

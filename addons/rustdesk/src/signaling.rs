@@ -8,7 +8,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use crypto_box::{aead::Aead, Nonce, PublicKey, SalsaBox, SecretKey};
 use ed25519_dalek::{Signature, VerifyingKey};
 use prost::Message as _;
-use rand::{rngs::OsRng, RngCore};
+use rand::{rngs::SysRng, TryRng};
 use std::{io, time::Duration};
 use tokio::{
     io::{ReadHalf, WriteHalf},
@@ -87,11 +87,13 @@ pub async fn secure(mut stream: TcpStream, server_key: &str) -> io::Result<Signa
     let signed_pk = verified_exchange(&ex, &verifier)?;
     let picked = ex.version.min(1);
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    SysRng.try_fill_bytes(&mut seed).map_err(io::Error::other)?;
     let secret = SecretKey::from(seed);
     let public = secret.public_key();
     let mut symmetric = [0u8; 32];
-    OsRng.fill_bytes(&mut symmetric);
+    SysRng
+        .try_fill_bytes(&mut symmetric)
+        .map_err(io::Error::other)?;
     // The signed high bit is a marker; X25519 ignores it.
     let mut x25519_pk = signed_pk;
     x25519_pk[31] &= 0x7f;

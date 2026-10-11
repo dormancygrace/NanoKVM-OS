@@ -73,9 +73,6 @@ require_riscv64() {
 require_file "$ROOT/server/NanoKVM-Server" "run: make app"
 require_file "$ROOT/kvmapp/kvm_system/kvm_system" "run: make support"
 require_file "$ROOT/web/dist/index.html" "run: make web"
-require_file "$ROOT/kvmapp/system/bin/picocom" "run: sh scripts/build-picocom.sh"
-require_file "$ROOT/kvmapp/system/share/picocom/picocom-3.1.tar.gz" "run: sh scripts/build-picocom.sh"
-require_file "$ROOT/kvmapp/system/share/picocom/LICENSE.txt" "run: sh scripts/build-picocom.sh"
 # libkvm.so is the one runtime library that must come from the build: the copy
 # tracked in server/dl_lib/ exists for cgo link time and lags far behind. If it
 # were optional here, "make package" on its own would quietly ship the stale one.
@@ -88,7 +85,6 @@ for tool in bin/curl bin/openssl sbin/sshd sbin/wpa_supplicant libexec/sshd-sess
 done
 
 require_riscv64 "$ROOT/server/NanoKVM-Server"
-require_riscv64 "$ROOT/kvmapp/system/bin/picocom"
 require_riscv64 "$ROOT/kvmapp/kvm_system/kvm_system"
 require_riscv64 "$ROOT/kvmapp/server/dl_lib/libkvm.so"
 

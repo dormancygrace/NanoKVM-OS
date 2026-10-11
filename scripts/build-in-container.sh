@@ -80,8 +80,7 @@ cd "$NANOKVM_PATH/server"
 GOFLAGS="-ldflags=-s" ./build.sh
 echo "::endgroup::"
 
-echo "::group::serial: cross-compile picocom"
-sh "$NANOKVM_PATH/scripts/build-picocom.sh"
+echo "::group::system components"
 sh "$NANOKVM_PATH/scripts/build-system-components.sh"
 echo "::endgroup::"
 

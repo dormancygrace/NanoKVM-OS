@@ -139,7 +139,8 @@ type probeResult struct {
 	Err      error
 }
 
-// picocom (the web terminal) holds a UUCP lock while it has the port open.
+// Other serial programs hold a UUCP lock while they have the port open; the
+// server's own sessions and probes hold the lease in serial_lease.go.
 var serialLockDir = "/var/lock"
 
 func serialLockFile(device string) string {

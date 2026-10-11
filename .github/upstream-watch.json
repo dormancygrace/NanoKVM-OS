@@ -6,7 +6,8 @@
       "pattern": "linux-([0-9.]+)\\.tar",
       "kind": "index",
       "url": "https://www.kernel.org/releases.json",
-      "upstream_pattern": "\"version\"\\s*:\\s*\"([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\""
+      "upstream_pattern": "\"version\"\\s*:\\s*\"([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"",
+      "lock_entry": "linux"
     },
     {
       "name": "Buildroot",
@@ -14,15 +15,17 @@
       "pattern": "buildroot-([0-9.]+)\\.tar",
       "kind": "index",
       "url": "https://buildroot.org/downloads/",
-      "upstream_pattern": "buildroot-([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\\.tar"
+      "upstream_pattern": "buildroot-([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\\.tar",
+      "lock_entry": "buildroot"
     },
     {
       "name": "U-Boot",
       "path": "platform/sources.lock",
       "pattern": "u-boot-([0-9.]+)\\.tar",
-      "kind": "index",
-      "url": "https://ftp.denx.de/pub/u-boot/",
-      "upstream_pattern": "u-boot-([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\\.tar"
+      "kind": "github-tags",
+      "upstream_pattern": "^v([0-9]{4}\\.[0-9]{2}(?:\\.[0-9]+)?)$",
+      "lock_entry": "u-boot",
+      "repo": "u-boot/u-boot"
     },
     {
       "name": "osdrv",
@@ -30,7 +33,8 @@
       "pattern": "^osdrv\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "sophgo/osdrv",
-      "branch": "sg200x-dev"
+      "branch": "sg200x-dev",
+      "lock_entry": "osdrv"
     },
     {
       "name": "aic8800",
@@ -38,7 +42,8 @@
       "pattern": "^aic8800\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "radxa-pkg/aic8800",
-      "branch": null
+      "branch": null,
+      "lock_entry": "aic8800"
     },
     {
       "name": "cryptodev",
@@ -46,7 +51,8 @@
       "pattern": "^cryptodev\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "cryptodev-linux/cryptodev-linux",
-      "branch": null
+      "branch": null,
+      "lock_entry": "cryptodev"
     },
     {
       "name": "sipeed-sdk",
@@ -54,7 +60,8 @@
       "pattern": "^sipeed-sdk\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "sipeed/LicheeRV-Nano-Build",
-      "branch": null
+      "branch": null,
+      "lock_entry": "sipeed-sdk"
     },
     {
       "name": "sophgo_cvi_mpi",
@@ -62,7 +69,8 @@
       "pattern": "^cvi-mpi\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "sophgo/cvi_mpi",
-      "branch": "sg200x-dev"
+      "branch": "sg200x-dev",
+      "lock_entry": "cvi-mpi"
     },
     {
       "name": "sophgo_kernel_port_reference",
@@ -78,7 +86,8 @@
       "pattern": "\"json_c\"\\s*:\\s*\\{[^}]*\"version\"\\s*:\\s*\"([0-9.]+)\"",
       "kind": "github-tags",
       "repo": "json-c/json-c",
-      "upstream_pattern": "^json-c-([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)-[0-9]{8}$"
+      "upstream_pattern": "^json-c-([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)-[0-9]{8}$",
+      "lock_entry": "json-c"
     },
     {
       "name": "miniz",
@@ -86,7 +95,8 @@
       "pattern": "^miniz\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "richgel999/miniz",
-      "branch": null
+      "branch": null,
+      "lock_entry": "miniz"
     },
     {
       "name": "inih",
@@ -94,7 +104,8 @@
       "pattern": "^inih\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "benhoyt/inih",
-      "branch": null
+      "branch": null,
+      "lock_entry": "inih"
     },
     {
       "name": "sophgo_sensors",
@@ -102,7 +113,8 @@
       "pattern": "^sensors\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "sophgo/SensorSupportList",
-      "branch": "sg200x-dev"
+      "branch": "sg200x-dev",
+      "lock_entry": "sensors"
     },
     {
       "name": "maixcdk",
@@ -110,7 +122,8 @@
       "pattern": "^maixcdk\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "sipeed/MaixCDK",
-      "branch": null
+      "branch": null,
+      "lock_entry": "maixcdk"
     },
     {
       "name": "Go runtime",
@@ -118,7 +131,8 @@
       "pattern": "\"go_version\":\\s*\"go([0-9.]+)\"",
       "kind": "index",
       "url": "https://go.dev/dl/?mode=json",
-      "upstream_pattern": "\"version\"\\s*:\\s*\"go([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\""
+      "upstream_pattern": "\"version\"\\s*:\\s*\"go([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"",
+      "lock_entry": "go"
     },
     {
       "name": "OpenSSL (stock Alpine)",
@@ -147,7 +161,8 @@
       "pattern": "opus-([0-9.]+)\\.tar",
       "kind": "github-tags",
       "repo": "xiph/opus",
-      "upstream_pattern": "^v([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)$"
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)$",
+      "lock_entry": "opus"
     },
     {
       "name": "tinyalsa",
@@ -155,7 +170,8 @@
       "pattern": "^tinyalsa\\s+\\S+\\s+([0-9a-f]{40})",
       "kind": "github-commit",
       "repo": "tinyalsa/tinyalsa",
-      "branch": null
+      "branch": null,
+      "lock_entry": "tinyalsa"
     },
     {
       "name": "Patched Pion dtls/v3",
@@ -180,6 +196,119 @@
       "kind": "github-tags",
       "repo": "pion/srtp",
       "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$"
+    },
+    {
+      "name": "OpenSBI",
+      "lock_entry": "opensbi",
+      "path": "platform/sources.lock",
+      "pattern": "^opensbi\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-release-commit",
+      "repo": "riscv-software-src/opensbi"
+    },
+    {
+      "name": "BusyBox devmem applet",
+      "lock_entry": "busybox",
+      "path": "platform/sources.lock",
+      "pattern": "busybox-([0-9.]+)\\.tar",
+      "kind": "index",
+      "url": "https://busybox.net/downloads/",
+      "upstream_pattern": "busybox-([0-9]+\\.[0-9]+\\.[0-9]+)\\.tar"
+    },
+    {
+      "name": "wireless-regdb",
+      "lock_entry": "regdb",
+      "path": "platform/sources.lock",
+      "pattern": "wireless-regdb-([0-9.]+)\\.tar",
+      "kind": "index",
+      "url": "https://mirrors.edge.kernel.org/pub/software/network/wireless-regdb/",
+      "upstream_pattern": "wireless-regdb-([0-9]+\\.[0-9]+\\.[0-9]+)\\.tar"
+    },
+    {
+      "name": "Node (selected LTS)",
+      "lock_entry": "node",
+      "path": "platform/sources.lock",
+      "pattern": "^node\\s+\\S*/node-v([0-9.]+)-linux",
+      "kind": "index",
+      "url": "https://nodejs.org/dist/index.json",
+      "upstream_pattern": "\"version\"\\s*:\\s*\"v([0-9]+\\.[0-9]+\\.[0-9]+)\"",
+      "same_major": true
+    },
+    {
+      "name": "pnpm",
+      "lock_entry": "pnpm",
+      "path": "platform/sources.lock",
+      "pattern": "exe\\.linux-x64-([0-9.]+)\\.tgz",
+      "kind": "npm",
+      "package": "@pnpm/exe.linux-x64"
+    },
+    {
+      "name": "Alpine minirootfs",
+      "lock_entry": "alpine",
+      "path": "platform/sources.lock",
+      "pattern": "alpine-minirootfs-([0-9.]+)-riscv64",
+      "kind": "alpine-rootfs"
+    },
+    {
+      "name": "QEMU Ubuntu build helper",
+      "lock_entry": "qemu",
+      "path": "platform/sources.lock",
+      "pattern": "qemu-user-static_([^/]+)_amd64\\.deb",
+      "kind": "launchpad-binary",
+      "package": "qemu-user-static",
+      "series": "noble"
+    },
+    {
+      "name": "RustDesk protocol reference",
+      "path": "addons/rustdesk/upstream.json",
+      "pattern": "\"rustdesk_version\":\\s*\"([0-9.]+)\"",
+      "kind": "github-tags",
+      "repo": "rustdesk/rustdesk",
+      "upstream_pattern": "^([0-9]+\\.[0-9]+\\.[0-9]+)$"
+    },
+    {
+      "name": "RustDesk hbb_common reference",
+      "path": "addons/rustdesk/upstream.json",
+      "pattern": "\"hbb_common_commit\":\\s*\"([a-f0-9]{40})\"",
+      "kind": "github-commit",
+      "repo": "rustdesk/hbb_common"
+    },
+    {
+      "name": "OneKVM RustDesk reference",
+      "path": "addons/rustdesk/upstream.json",
+      "pattern": "\"onekvm_commit\":\\s*\"([a-f0-9]{40})\"",
+      "kind": "github-commit",
+      "repo": "onekvm/onekvm-extension-rustdesk"
+    },
+    {
+      "name": "PicoClaw download channel",
+      "path": "server/service/picoclaw/runtime_constants.go",
+      "pattern": "\"(https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw_Linux_riscv64.tar.gz)\"",
+      "kind": "github-channel",
+      "repo": "sipeed/picoclaw",
+      "asset": "picoclaw_Linux_riscv64.tar.gz"
+    },
+    {
+      "name": "Go CORS nested module",
+      "path": "server/go.mod",
+      "pattern": "github.com/rs/cors/wrapper/gin\\s+(v[^\\s]+)",
+      "kind": "go-proxy",
+      "module": "github.com/rs/cors/wrapper/gin"
+    },
+    {
+      "name": "Go AES nested module",
+      "path": "server/go.mod",
+      "pattern": "github.com/mervick/aes-everywhere/go/aes256\\s+v0\\.0\\.0-[0-9]+-([a-f0-9]{12})",
+      "kind": "github-reference",
+      "repo": "mervick/aes-bridge",
+      "detail": "Upstream renamed/replaced its history and removed the old Go module path; manual compatibility/security review required"
+    },
+    {
+      "name": "GCC compiler",
+      "path": "platform/build.sh",
+      "pattern": "gcc\" -dumpfullversion\\)\" = ([0-9.]+)",
+      "kind": "index",
+      "url": "https://ftp.gnu.org/gnu/gcc/",
+      "upstream_pattern": "href=\"gcc-([0-9]+\\.[0-9]+\\.[0-9]+)/\""
     }
   ]
 }

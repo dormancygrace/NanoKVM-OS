@@ -1,7 +1,7 @@
 name: Upstream dependency watch
 on:
   schedule:
-    - cron: '23 5 * * 1'
+    - cron: '23 5 * * *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Check native and patched upstreams
+      - name: Check dependency coverage and upstreams
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/check-upstream.py --publish

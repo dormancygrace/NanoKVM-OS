@@ -15,7 +15,7 @@ name = "nanokvm-rustdesk"
 path = "src/main.rs"
 
 [dependencies]
-base64 = "0.22"
+base64 = "0.23"
 blake2 = "0.10"
 bytes = "1.10"
 crypto_box = "0.9"

@@ -11,7 +11,7 @@ use crypto_box::{
     aead::Aead as _, Nonce as BoxNonce, PublicKey as BoxPublicKey, SalsaBox,
     SecretKey as BoxSecretKey,
 };
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{distr::Alphanumeric, RngExt};
 use sha2::{Digest, Sha256};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
@@ -1047,7 +1047,7 @@ fn constant_time_eq(expected: &[u8], actual: &[u8]) -> bool {
 }
 
 fn random_string(length: usize) -> String {
-    rand::thread_rng()
+    rand::rng()
         .sample_iter(Alphanumeric)
         .take(length)
         .map(char::from)
@@ -1091,7 +1091,7 @@ async fn identity_handshake<S: AsyncRead + AsyncWrite + Unpin>(
     fingerprint: &str,
 ) -> io::Result<Option<SessionKey>> {
     let mut ephemeral_secret = [0_u8; 32];
-    rand::thread_rng().fill(&mut ephemeral_secret);
+    rand::rng().fill(&mut ephemeral_secret);
     let ephemeral_secret = BoxSecretKey::from(ephemeral_secret);
     let ephemeral_public = ephemeral_secret.public_key();
     let id_pk = IdPk {

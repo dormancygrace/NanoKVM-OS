@@ -332,7 +332,7 @@ mod tests {
         use crypto_box::{aead::Aead as _, Nonce, PublicKey as BoxPublic, SalsaBox, SecretKey};
         use ed25519_dalek::{Signature, Verifier, VerifyingKey};
         use prost::Message as _;
-        use rand::RngCore;
+        use rand::Rng;
         use sha2::{Digest, Sha256};
         let audio_output = std::env::var("RUSTDESK_TEST_AUDIO_OUTPUT").ok();
         let h265 = std::env::var("RUSTDESK_TEST_CODEC").as_deref() == Ok("h265");
@@ -407,8 +407,8 @@ mod tests {
         let remote_key: [u8; 32] = identity.pk.try_into().unwrap();
         let mut seed = [0; 32];
         let mut symmetric = [0; 32];
-        rand::thread_rng().fill_bytes(&mut seed);
-        rand::thread_rng().fill_bytes(&mut symmetric);
+        rand::rng().fill_bytes(&mut seed);
+        rand::rng().fill_bytes(&mut symmetric);
         let secret = SecretKey::from(seed);
         let public = secret.public_key();
         let sealed = SalsaBox::new(&BoxPublic::from(remote_key), &secret)

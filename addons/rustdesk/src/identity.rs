@@ -7,7 +7,7 @@ use std::{
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ed25519_dalek::{Signer, SigningKey};
-use rand::{distributions::Alphanumeric, Rng, RngCore};
+use rand::{distr::Alphanumeric, Rng, RngExt};
 use serde::{Deserialize, Serialize};
 
 const IDENTITY_FILE: &str = "identity.json";
@@ -89,7 +89,7 @@ impl RustDeskIdentity {
     }
 
     fn generate() -> Self {
-        let mut random = rand::thread_rng();
+        let mut random = rand::rng();
         let id = random
             .next_u32()
             .wrapping_rem(1_000_000_000)
@@ -156,7 +156,7 @@ impl RustDeskIdentity {
 }
 
 fn random_password_salt() -> String {
-    rand::thread_rng()
+    rand::rng()
         .sample_iter(Alphanumeric)
         .take(16)
         .map(char::from)

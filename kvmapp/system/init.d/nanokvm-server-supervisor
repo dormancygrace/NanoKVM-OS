@@ -1,0 +1,85 @@
+#!/bin/sh
+# One sleeping shell waits for the server; no periodic health poll.
+state=${NANOKVM_RECOVERY_DIR:-/run/nanokvm/recovery}
+umask 077
+mkdir -p "$state" || exit 1
+
+owner_alive() {
+    owner=$(cat "$state/supervisor.pid" 2>/dev/null) || return 1
+    case "$owner" in ''|*[!0-9]*) return 1 ;; esac
+    kill -0 "$owner" 2>/dev/null || return 1
+    # A stale PID must never signal a different service after PID reuse.
+    tr '\000' '\n' < "/proc/$owner/cmdline" 2>/dev/null |
+        grep -Fxq "$0"
+}
+
+case "$1" in
+    stop)
+        : > "$state/stop"
+        if owner_alive; then kill -TERM "$owner" 2>/dev/null || true; fi
+        exit 0 ;;
+    wait)
+        n=0
+        while owner_alive; do
+            [ "$n" -lt 3 ] || { echo 'Cannot stop server supervisor' >&2; exit 1; }
+            sleep 1
+            n=$((n + 1))
+        done
+        exit 0 ;;
+    run) ;;
+    *) echo "Usage: $0 {run executable|stop|wait}" >&2; exit 1 ;;
+esac
+
+owner_alive && exit 0
+# Init service actions are serialized. The directory also prevents accidental
+# duplicate starts; a stale lock is only removed after checking its owner.
+if ! mkdir "$state/lock" 2>/dev/null; then
+    sleep 1
+    owner_alive && exit 0
+    rmdir "$state/lock" 2>/dev/null || exit 1
+    mkdir "$state/lock" || exit 1
+fi
+printf '%s\n' "$$" > "$state/supervisor.pid"
+rm -f "$state/stop"
+child=
+stopping=0
+stop_child() {
+    stopping=1
+    : > "$state/stop"
+    [ -z "$child" ] || kill -TERM "$child" 2>/dev/null || true
+}
+trap stop_child TERM INT
+trap 'rm -f "$state/supervisor.pid"; rmdir "$state/lock" 2>/dev/null || true' EXIT
+slot=0
+delay=1
+while [ "$stopping" = 0 ] && [ ! -e "$state/stop" ]; do
+    : > "$state/crash.txt"
+    rm -f "$state/video-phase"
+    "$2" &
+    child=$!
+    # A stop can arrive between the loop condition and the fork.
+    [ "$stopping" = 0 ] && [ ! -e "$state/stop" ] || stop_child
+    wait "$child"
+    status=$?
+    if [ "$stopping" != 0 ] || [ -e "$state/stop" ]; then
+        # wait may have been interrupted by our signal handler.
+        wait "$child" 2>/dev/null || true
+        break
+    fi
+    child=
+    [ "$status" -ne 0 ] || break
+    # Eight bounded records in tmpfs, never on the SD card. Keep the beginning
+    # of the crash (the failing stack), not the unrelated goroutine dump tail.
+    slot=$((slot % 8 + 1))
+    {
+        read -r uptime rest < /proc/uptime
+        printf '%s %s %s\n' "${uptime%%.*}" "$status" "$(cat "$state/video-phase" 2>/dev/null)"
+        head -c 16384 "$state/crash.txt"
+    } > "$state/exit-$slot.txt.tmp"
+    mv "$state/exit-$slot.txt.tmp" "$state/exit-$slot.txt"
+    sleep "$delay" &
+    child=$!
+    wait "$child" || true
+    child=
+    [ "$delay" -ge 5 ] || delay=$((delay + 1))
+done

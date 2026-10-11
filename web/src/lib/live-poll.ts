@@ -4,6 +4,7 @@ import { browserPollEnv, pollWhileVisible, type PollEnv } from '@/lib/visible-po
 // (vm/hdmi, vm/gpio, hid/input-status, stream/audio/status, vm/device/virtual).
 // usb is null for non-administrators; gpio is null when the LEDs cannot be read.
 export type LiveStatus = {
+  recovery?: { active: boolean; crashes: number; retrying: boolean };
   hdmi: { enabled: boolean; viewerCount: number; signal: boolean; idleTimeout: number };
   gpio: { pwr: boolean; hdd: boolean } | null;
   input: unknown;

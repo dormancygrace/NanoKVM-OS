@@ -16,6 +16,7 @@ args = parser.parse_args()
 source = args.script.read_text()
 definitions, dispatch = source.split('case "$1" in\n', 1)
 mock = r'''
+server_supervisor() { printf 'supervisor %s\n' "$1" >> "$log"; }
 server_up=1
 system_up=1
 slept=0
@@ -51,18 +52,18 @@ rm() { printf 'remove runtime paths\n' >> "$log"; }
 start_services() { printf 'start services\n' >> "$log"; }
 sync() { printf 'sync\n' >> "$log"; }
 '''
-normal = ['-TERM NanoKVM-Server', '-TERM kvm_system', 'remove runtime paths']
+normal = ['-TERM NanoKVM-Server', 'supervisor wait', '-TERM kvm_system', 'remove runtime paths']
 stuck = ['-TERM NanoKVM-Server', '-KILL NanoKVM-Server']
 cases = [
     ('normal', 'restart', 0, normal + ['start services', 'sync']),
     ('normal', 'stop', 0, normal),
-    ('absent', 'restart', 0, ['remove runtime paths', 'start services', 'sync']),
+    ('absent', 'restart', 0, ['supervisor wait', 'remove runtime paths', 'start services', 'sync']),
     ('delayed', 'restart', 0, normal + ['start services', 'sync']),
-    ('kill-needed', 'restart', 0, stuck + ['-TERM kvm_system', 'remove runtime paths', 'start services', 'sync']),
+    ('kill-needed', 'restart', 0, stuck + ['supervisor wait', '-TERM kvm_system', 'remove runtime paths', 'start services', 'sync']),
     ('server-stuck', 'restart', 1, stuck),
     ('server-stuck', 'stop', 1, stuck),
     ('signal-denied', 'restart', 1, stuck),
-    ('system-stuck', 'restart', 1, ['-TERM NanoKVM-Server', '-TERM kvm_system', '-KILL kvm_system']),
+    ('system-stuck', 'restart', 1, ['-TERM NanoKVM-Server', 'supervisor wait', '-TERM kvm_system', '-KILL kvm_system']),
 ]
 fixture = '''#!/bin/sh
 set -u
@@ -72,7 +73,7 @@ log="$testdir/calls"
 run_case() (
 '''+definitions+'\n'+mock+'\ncase "$1" in\n'+dispatch+'\n)\n'
 for scenario, action, status, calls in cases:
-    expected = shlex.quote('\n'.join(calls))
+    expected = shlex.quote('\n'.join(['supervisor stop', *calls]))
     fixture += f'''
 scenario={scenario}
 : > "$log"

@@ -19,17 +19,17 @@ func streamRouter(r *gin.Engine) {
 		middleware.RequireRole(authn.RoleAdmin),
 	)
 
-	api.GET("/stream/mjpeg", mjpeg.Connect)                      // mjpeg stream
-	admin.POST("/stream/mjpeg/detect", mjpeg.UpdateFrameDetect)  // update frame detect (device-wide)
-	api.POST("/stream/mjpeg/detect/stop", mjpeg.StopFrameDetect) // temporary stop frame detect
+	api.GET("/stream/mjpeg", middleware.RequireVideo, mjpeg.Connect) // mjpeg stream
+	admin.POST("/stream/mjpeg/detect", mjpeg.UpdateFrameDetect)      // update frame detect (device-wide)
+	api.POST("/stream/mjpeg/detect/stop", mjpeg.StopFrameDetect)     // temporary stop frame detect
 
 	api.GET("/stream/state", stream.GetEncoderState)
 	api.POST("/stream/state", stream.SetEncoderState)
 	api.GET("/stream/audio", audio.Connect)
 	api.GET("/stream/audio/status", audio.Status)
 
-	api.GET("/stream/video", webrtc.Connect)             // configurable video stream (webrtc)
-	api.GET("/stream/video/direct", direct.Connect)      // configurable video stream (direct)
-	api.GET("/stream/h264", webrtc.ConnectLegacy)        // legacy h264 stream (webrtc)
-	api.GET("/stream/h264/direct", direct.ConnectLegacy) // legacy h264 stream (direct)
+	api.GET("/stream/video", middleware.RequireVideo, webrtc.Connect)             // configurable video stream (webrtc)
+	api.GET("/stream/video/direct", middleware.RequireVideo, direct.Connect)      // configurable video stream (direct)
+	api.GET("/stream/h264", middleware.RequireVideo, webrtc.ConnectLegacy)        // legacy h264 stream (webrtc)
+	api.GET("/stream/h264/direct", middleware.RequireVideo, direct.ConnectLegacy) // legacy h264 stream (direct)
 }

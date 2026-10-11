@@ -24,6 +24,7 @@ const (
 	KeyboardEvent
 	MouseEvent
 	ControlEvent
+	HoldKeepaliveEvent
 )
 
 const (
@@ -102,6 +103,10 @@ func (c *Client) Read() error {
 			if err := c.Write("heartbeat", ""); err != nil {
 				return err
 			}
+		case HoldKeepaliveEvent:
+			if len(data) == 1 {
+				c.keepHeldInputAlive()
+			}
 		case KeyboardEvent:
 			if !GetManager().CanControl(c) {
 				continue
@@ -137,6 +142,11 @@ func (c *Client) Read() error {
 }
 
 func (c *Client) queueManualReport(queue chan hid.QueuedReport, kind inputcontrol.ManualReportKind, report []byte, held bool, startCooldown bool) {
+	c.inputMutex.Lock()
+	defer c.inputMutex.Unlock()
+	if c.hold.closed {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), manualPreemptTimeout)
 	defer cancel()
 
@@ -169,6 +179,7 @@ func (c *Client) queueManualReport(queue chan hid.QueuedReport, kind inputcontro
 	if !writeQueue(queue, queued) {
 		return
 	}
+	c.noteHeldInputLocked(kind, held)
 	jiggler.GetJiggler().Update()
 }
 
@@ -232,6 +243,7 @@ func (c *Client) UpdateHeartbeat() error {
 
 func (c *Client) Close() {
 	c.closeOnce.Do(func() {
+		c.stopHeldInputWatch()
 		if c.ws != nil {
 			_ = c.ws.Close()
 		}

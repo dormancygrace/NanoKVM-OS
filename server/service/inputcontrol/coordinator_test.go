@@ -472,3 +472,44 @@ func TestManualWritesAreSerialized(t *testing.T) {
 	close(releaseFirst)
 	wg.Wait()
 }
+
+func TestReleaseHeldKeepsLaneUntilHardwareRelease(t *testing.T) {
+	c := newCoordinator(defaultManualCooldown, time.Now)
+	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeMCP)
+	s := NewManualSession(control, c)
+	defer s.Close()
+	old, err := s.Reserve(context.Background(), ManualKeyboard, true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entered, finish := make(chan struct{}), make(chan struct{})
+	done := make(chan error, 1)
+	go func() { done <- s.ReleaseHeld(func() error { close(entered); <-finish; return nil }) }()
+	<-entered
+	if _, release, err := c.BeginMCP(context.Background(), OperationHID); !errors.Is(err, ErrManualControlActive) {
+		if release != nil {
+			release()
+		}
+		t.Fatalf("MCP entered before release: %v", err)
+	}
+	// An already queued write waits for the hardware lane. Its generation must
+	// be checked after that wait, not before it.
+	writeDone := make(chan error, 1)
+	go func() { writeDone <- old.Execute(func() error { return errors.New("stale write ran") }) }()
+	close(finish)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-writeDone; !errors.Is(err, ErrManualInputBlocked) {
+		t.Fatal(err)
+	}
+	old.Complete(false)
+	_, release, err := c.BeginMCP(context.Background(), OperationHID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	if err := s.ReleaseHeld(func() error { t.Fatal("inactive session released another owner"); return nil }); err != nil {
+		t.Fatal(err)
+	}
+}

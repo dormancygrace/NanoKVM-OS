@@ -39,9 +39,15 @@ stop_process() {
     return 1
 }
 
+server_supervisor() {
+    /kvmapp/system/init.d/nanokvm-server-supervisor "$@"
+}
+
 stop_services() {
+    server_supervisor stop || return 1
     # The server owns VI/VPSS. Let it release MMF before stopping kvm_system.
     stop_process NanoKVM-Server || return 1
+    server_supervisor wait || return 1
     stop_process kvm_system || return 1
     rm -rf /tmp/kvm_system /tmp/server
 }
@@ -77,7 +83,11 @@ start_background() {
         export NANOKVM_FHD75_EXPERIMENT
         export LD_LIBRARY_PATH
     fi
-    nohup "$executable" </dev/null >/dev/null 2>&1 &
+    if [ "$executable" = /tmp/server/NanoKVM-Server ]; then
+        nohup /kvmapp/system/init.d/nanokvm-server-supervisor run "$executable" </dev/null >/dev/null 2>&1 &
+    else
+        nohup "$executable" </dev/null >/dev/null 2>&1 &
+    fi
     if [ "$executable" = /tmp/kvm_system/kvm_system ]; then
         # Let the OOM killer take helpers such as apk before the hardware
         # daemon. NanoKVM-Server sets the same value for itself at start.

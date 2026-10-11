@@ -5,6 +5,8 @@ import (
 
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/middleware"
+	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/failsafe"
 	"NanoKVM-Server/service/vm"
 )
 
@@ -17,6 +19,18 @@ func vmRouter(r *gin.Engine) {
 		middleware.RequireRole(authn.RoleAdmin),
 	)
 
+	admin.GET("/vm/video/crashes", func(c *gin.Context) {
+		var rsp proto.Response
+		rsp.OkRspWithData(c, failsafe.Crashes())
+	})
+	admin.POST("/vm/video/retry", func(c *gin.Context) {
+		var rsp proto.Response
+		if err := failsafe.Retry(); err != nil {
+			rsp.ErrRsp(c, 1, err.Error())
+			return
+		}
+		rsp.OkRsp(c)
+	})
 	api.GET("/vm/date-time", service.GetDateTime)
 	admin.POST("/vm/date-time", service.SetDateTime)
 
@@ -34,12 +48,12 @@ func vmRouter(r *gin.Engine) {
 		service.GetLiveStatus(c, principal.Role == authn.RoleAdmin)
 	})
 
-	api.POST("/vm/gpio", requireInputOwner(), service.SetGpio)      // update gpio
-	api.GET("/vm/gpio", service.GetGpio)                            // get gpio
-	admin.POST("/vm/screen", service.SetScreen)                     // update screen
-	api.GET("/vm/screen", service.GetScreen)                        // read shared screen settings
-	api.GET("/vm/video/capabilities", service.GetVideoCapabilities) // video choices and limits
-	admin.POST("/vm/video", service.SetVideoSettings)               // apply video settings together
+	api.POST("/vm/gpio", requireInputOwner(), service.SetGpio)                 // update gpio
+	api.GET("/vm/gpio", service.GetGpio)                                       // get gpio
+	admin.POST("/vm/screen", middleware.RequireVideo, service.SetScreen)       // update screen
+	api.GET("/vm/screen", service.GetScreen)                                   // read shared screen settings
+	api.GET("/vm/video/capabilities", service.GetVideoCapabilities)            // video choices and limits
+	admin.POST("/vm/video", middleware.RequireVideo, service.SetVideoSettings) // apply video settings together
 
 	api.GET("/vm/input-region", service.GetInputRegion)
 	api.POST("/vm/input-region", service.SetInputRegion)
@@ -78,10 +92,10 @@ func vmRouter(r *gin.Engine) {
 	admin.POST("/vm/oled", service.SetOLED) // set OLED configuration
 
 	// Only supported by PCIe version
-	api.GET("/vm/hdmi", service.GetHdmiState)           // get HDMI state
-	api.POST("/vm/hdmi/reset", service.ResetHdmi)       // reset hdmi
-	admin.POST("/vm/hdmi/enable", service.EnableHdmi)   // enable hdmi
-	admin.POST("/vm/hdmi/disable", service.DisableHdmi) // disable hdmi
+	api.GET("/vm/hdmi", service.GetHdmiState)                                  // get HDMI state
+	api.POST("/vm/hdmi/reset", middleware.RequireVideo, service.ResetHdmi)     // reset hdmi
+	admin.POST("/vm/hdmi/enable", middleware.RequireVideo, service.EnableHdmi) // enable hdmi
+	admin.POST("/vm/hdmi/disable", service.DisableHdmi)                        // disable hdmi
 	admin.POST("/vm/hdmi/timeout", service.SetHdmiIdleTimeout)
 
 	admin.GET("/vm/ssh", service.GetSSHState)         // get SSH state

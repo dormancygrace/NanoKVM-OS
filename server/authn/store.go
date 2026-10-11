@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"NanoKVM-Server/utils"
 
@@ -80,6 +82,9 @@ type legacyAccount struct {
 type Store struct {
 	path  string
 	mutex sync.RWMutex
+
+	// Immutable parsed accounts; readers receive their own copy.
+	cache atomic.Pointer[cachedDatabase]
 
 	// The account file can be temporarily absent after a BOOT reset. Token
 	// validation must still fail closed in that state, but it must not spend a
@@ -405,30 +410,26 @@ func (s *Store) Revoke(username string) (*User, error) {
 }
 
 func (s *Store) loadLocked(migrate bool) (*database, error) {
-	data, err := os.ReadFile(s.path)
-	if errors.Is(err, os.ErrNotExist) {
-		db, defaultErr := s.defaultDatabase()
-		if defaultErr != nil {
-			return nil, defaultErr
+	cached, data, err := s.readLocked()
+	if err != nil {
+		return nil, err
+	}
+	if cached != nil {
+		return cached, nil
+	}
+	if data == nil {
+		db, err := s.defaultDatabase()
+		if err != nil {
+			return nil, err
 		}
 		if migrate {
-			if saveErr := s.saveLocked(db); saveErr != nil {
-				return nil, saveErr
+			if err = s.saveLocked(db); err != nil {
+				return nil, err
 			}
 		}
 		return db, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-
 	var db database
-	if err = json.Unmarshal(data, &db); err == nil && db.Version != 0 {
-		if err = validateDatabase(&db); err != nil {
-			return nil, err
-		}
-		return &db, nil
-	}
 
 	var legacy legacyAccount
 	if err = json.Unmarshal(data, &legacy); err != nil || legacy.Username == "" || legacy.Password == "" {
@@ -462,6 +463,7 @@ func (s *Store) loadLocked(migrate bool) (*database, error) {
 }
 
 func (s *Store) saveLocked(db *database) error {
+	defer s.cache.Store(nil)
 	if err := validateDatabase(db); err != nil {
 		return err
 	}
@@ -653,4 +655,54 @@ func syncLegacyAccount(db *database) {
 		db.LegacyUsername = fallback.Username
 		db.LegacyPassword = fallback.PasswordHash
 	}
+}
+
+// readLocked returns a copy of the account file's database when the file is
+// in the current format. Otherwise db is nil and data is the file's raw
+// content for loadLocked to migrate, or nil when there is no file.
+//
+// A file that parsed before and still has the same identity (size,
+// modification time, and on Linux inode, device and change time) is not read
+// again. A shell edit or a reset that removes the file changes that identity,
+// so it is still seen on the next call. A file modified in the last few
+// seconds is never cached, because two writes inside one tick of the
+// filesystem's clock can leave the same size and time behind.
+func (s *Store) readLocked() (*database, []byte, error) {
+	info, err := os.Stat(s.path)
+	if errors.Is(err, os.ErrNotExist) {
+		s.cache.Store(nil)
+		return nil, nil, nil
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	if cached := s.cache.Load(); cached != nil && cached.stamp.settled(time.Now()) && cached.stamp.equal(stampOf(info)) {
+		return cached.db.clone(), nil, nil
+	}
+
+	data, info, err := readAccountFile(s.path)
+	if errors.Is(err, os.ErrNotExist) {
+		s.cache.Store(nil)
+		return nil, nil, nil
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var db database
+	if err = json.Unmarshal(data, &db); err != nil || db.Version == 0 {
+		s.cache.Store(nil)
+		return nil, data, nil
+	}
+	if err = validateDatabase(&db); err != nil {
+		s.cache.Store(nil)
+		return nil, nil, err
+	}
+	stamp := stampOf(info)
+	if stamp.settled(time.Now()) {
+		s.cache.Store(&cachedDatabase{stamp: stamp, db: db.clone()})
+	} else {
+		s.cache.Store(nil)
+	}
+	return &db, nil, nil
 }

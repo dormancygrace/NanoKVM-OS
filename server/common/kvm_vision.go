@@ -47,11 +47,19 @@ type KvmVision struct {
 
 func init() {
 	// Older native libraries lack the symbol; they process every input frame.
-	applyCaptureFPS = func(fps int) { C.set_capture_fps(C.uchar(fps)) }
+	applyCaptureFPS = func(fps int) {
+		if !VideoDisabled() {
+			C.set_capture_fps(C.uchar(fps))
+		}
+	}
 }
 
 func GetKvmVision() *KvmVision {
 	kvmVisionOnce.Do(func() {
+		if VideoDisabled() {
+			kvmVision = &KvmVision{closed: true}
+			return
+		}
 		kvmVision = &KvmVision{captureWorkerEnabled: os.Getenv("NANOKVM_NATIVE_CAPTURE_WORKER") != "0"}
 		if !kvmVision.captureWorkerEnabled {
 			log.Info("native capture worker disabled; using Go-paced blocking frame reads")
@@ -82,6 +90,9 @@ func GetKvmVision() *KvmVision {
 // saved Screen preference: they differ only when SetGOPMode failed, and then
 // a restart applies the saved mode.
 func GetActiveGOPMode() uint8 {
+	if VideoDisabled() {
+		return GetScreen().GOPMode
+	}
 	return uint8(C.get_h265_gop_mode())
 }
 
@@ -350,6 +361,9 @@ func boolToInt(value bool) uint8 {
 
 // Reports the actual VPSS producer and any temporary or latched fallback.
 func GetMjpegChromaStatus() (uint16, string) {
+	if VideoDisabled() {
+		return 420, "recovery"
+	}
 	state := uint8(C.get_mjpeg_chroma_status())
 	active := uint16(420)
 	if state&uint8(C.MJPEG_CHROMA_ACTIVE_422) != 0 {

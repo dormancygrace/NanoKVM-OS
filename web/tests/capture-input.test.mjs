@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import * as holdKeepalive from '../src/lib/hold-keepalive.ts';
 
 const sent = [];
 class Socket {
@@ -16,6 +17,7 @@ const exports = {};
 new Function('exports', 'require', 'WebSocket', js)(exports, name => {
   if (name.endsWith('service.ts')) return { getBaseUrl: () => 'ws://test' };
   if (name.endsWith('auth-events.ts')) return { notifyAuthExpired() {} };
+  if (name.endsWith('hold-keepalive.ts')) return holdKeepalive;
   throw new Error(name);
 }, Socket);
 

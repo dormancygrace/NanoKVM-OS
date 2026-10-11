@@ -47,7 +47,7 @@ func Init() {
 		}
 	}
 
-	logrus.SetReportCaller(true)
+	logrus.SetReportCaller(level >= logrus.DebugLevel)
 	logrus.SetFormatter(&formatter{})
 
 	if err := logs.InitArchives(); err != nil {

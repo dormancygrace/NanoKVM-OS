@@ -64,9 +64,9 @@ Capture follows the actual HDMI dimensions when the BIOS, bootloader or operatin
 | FHD, Fixed | 50 MiB, video only | 1920 × 1080 | 182 MiB |
 | QHD | 68 MiB, lent to Linux while unused | 2560 × 1440, portrait | up to 232 MiB |
 | QHD, Fixed | 66 MiB, video only | 2560 × 1440, portrait | 166 MiB |
-| UHD (always Fixed) | 118 MiB, video only | 3840 × 2160 | 114 MiB |
+| UHD (always Fixed) | 112 MiB, video only | 3840 × 2160 | 122 MiB |
 
-Linux memory is the MemTotal that the kernel reports on the stand. Fixed memory is reserved for video: Linux can never use it. The Fixed pools are 2 MiB smaller than the CMA ones because the kernel accepts a CMA region only in multiples of 4 MiB. Without Fixed the memory is reusable CMA, whose idle pages stay available to Linux. Measured peaks of video memory: 49 MiB for 1080p H.265 with MJPEG running at the same time, 65 MiB at 1440p, about 111 MiB at 2160p. FHD at 56 MiB and QHD at 72 MiB passed cold boots under memory pressure as CMA.
+Linux memory is the MemTotal that the kernel reports on the stand. Fixed memory is reserved for video: Linux can never use it. The Fixed pools are 2 MiB smaller than the CMA ones because the kernel accepts a CMA region only in multiples of 4 MiB. Without Fixed the memory is reusable CMA, whose idle pages stay available to Linux. Measured peaks of video memory: 49 MiB for 1080p H.265 with MJPEG running at the same time, 65 MiB at 1440p, and 111.8 MiB at 2160p (H.265 in SmartP; H.264 takes 96.7 MiB, and MJPEG is not available at 2160p). FHD at 56 MiB and QHD at 72 MiB passed cold boots under memory pressure as CMA.
 
 3840 × 2160 needs UHD, which has no CMA variant: as CMA the encoder could not always get its reference buffers back from Linux on a cold boot (1 of 3 boots had no video), so the 4K monitor profile, the 2160p stream limit and 3840 × 2160 capture require the UHD mode; elsewhere they are shown as unavailable with the reason. Portrait monitors and the 1440p monitor profile and stream limit need QHD or UHD. In the UHD mode zram defaults to half of the Linux memory (**Half of RAM**, also selectable in the other modes) unless a size was chosen.
 

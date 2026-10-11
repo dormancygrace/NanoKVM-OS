@@ -15,7 +15,7 @@ var (
 	poolFHDFixed = VideoPool{MiB: 50}
 	poolQHD      = VideoPool{MiB: 68, Reusable: true}
 	poolQHDFixed = VideoPool{MiB: 66}
-	poolUHD      = VideoPool{MiB: 118}
+	poolUHD      = VideoPool{MiB: 112}
 )
 
 func TestVideoPoolGatesMatchTheModes(t *testing.T) {
@@ -64,11 +64,24 @@ func TestBootedVideoPoolReadsTheDeviceTree(t *testing.T) {
 	if err := os.Remove(filepath.Join(dir, "reusable")); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x07, 0x60, 0x00, 0x00}, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x07, 0x00, 0x00, 0x00}, 0600); err != nil {
 		t.Fatal(err)
 	}
 	if p := BootedVideoPool(); p != poolUHD || !SupportsUHD() {
 		t.Fatalf("uhd: %+v", p)
+	}
+	// The 118 MiB UHD image of the previous release still captures 2160p;
+	// a fixed pool below 112 MiB does not.
+	for _, tc := range []struct {
+		size []byte
+		uhd  bool
+	}{{[]byte{0x07, 0x60, 0x00, 0x00}, true}, {[]byte{0x06, 0xf0, 0x00, 0x00}, false}} {
+		if err := os.WriteFile(filepath.Join(dir, "size"), tc.size, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if SupportsUHD() != tc.uhd {
+			t.Fatalf("fixed %+v: UHD %t", BootedVideoPool(), !tc.uhd)
+		}
 	}
 	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x08, 0x00}, 0600); err != nil {
 		t.Fatal(err)

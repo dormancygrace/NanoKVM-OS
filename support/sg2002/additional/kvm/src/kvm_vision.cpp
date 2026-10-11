@@ -79,11 +79,12 @@
 #define vi_detection_idle_poll_ms 100U
 #define hdmi_mode_max_age_ms 1000U
 #define ion_summary_path "/sys/kernel/debug/ion/cvi_carveout_heap_dump/summary"
-/* 3840x2160 H.265 takes 117 MiB of ION: two UYVY VI blocks (32), three NV21
- * VPSS buffers (36), three SmartP reconstruction frames (36), a 4 MiB
- * bitstream and codec tables. The UHD video memory mode provides 118 MiB
- * as a fixed carveout. */
-#define uhd_ion_mib             118U
+/* 3840x2160 H.265 in SmartP holds 111.8 MiB of ION on the stand (NormalP
+ * 98.8, H.264 96.7), the same after GOP, GOP mode, bitrate, fps and codec
+ * changes: the VI blocks, the NV21 VPSS buffers, the reconstruction frames,
+ * a 4 MiB bitstream and codec tables. MJPEG is not available at 2160p. The
+ * UHD video memory mode provides 112 MiB as a fixed carveout. */
+#define uhd_ion_mib             112U
 
 /* Resolution-bounded opt-ins expose the accepted high-rate profiles while
  * retaining the normal 60-FPS ceiling for every other geometry. */
@@ -645,7 +646,7 @@ int get_manual_resolution(void)
         nanokvm::write_small_uint(vi_width_path, vi_max_width);
     }
     // A size that the video memory cannot hold (3840x2160 on a pool under
-    // 118 MiB) fails the capture start with "Out of memory" and ends the
+    // 112 MiB) fails the capture start with "Out of memory" and ends the
     // process; the file can still ask for it after the computer switched to
     // such a mode. Start at the default size and let detection report it.
     if(!res_fits_video_memory(tmp_width, tmp_height)){

@@ -443,7 +443,7 @@ boot() {
             dtb=$img/dtb/$name.dtb
             cp "$b/$profile.dtb" "$dtb"
             # Same kernel and modules; only the video pool differs: 50 MiB
-            # (1920x1080), 66 MiB (2560x1440) or 118 MiB (3840x2160), as
+            # (1920x1080), 66 MiB (2560x1440) or 112 MiB (3840x2160), as
             # reusable CMA (idle pages stay available to Linux) or as a
             # fixed carveout that Linux never uses. UHD is fixed only: CMA
             # cannot always migrate borrowed pages back for the UHD encoder
@@ -458,7 +458,7 @@ boot() {
                 fhd) size=3400000 ;;
                 qhd-fixed) size=4200000 ;;
                 qhd) size=4400000 ;;
-                uhd) size=7600000 ;;
+                uhd) size=7000000 ;;
             esac
             "$host/fdtput" -t x "$dtb" /reserved-memory/ion size "$size"
             case $mode in

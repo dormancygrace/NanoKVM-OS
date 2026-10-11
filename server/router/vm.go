@@ -104,7 +104,11 @@ func vmRouter(r *gin.Engine) {
 	admin.POST("/vm/mdns/enable", service.EnableMdns)   // enable mDNS
 	admin.POST("/vm/mdns/disable", service.DisableMdns) // disable mDNS
 
-	admin.POST("/vm/tls", service.SetTls) // enable/disable TLS
+	admin.POST("/vm/tls", service.SetTls)                                  // enable/disable TLS
+	admin.GET("/vm/tls", service.GetTls)                                   // HTTPS and certificate status
+	admin.POST("/vm/tls/certificate", service.UploadTlsCertificate)        // install a custom certificate
+	admin.POST("/vm/tls/certificate/delete", service.DeleteTlsCertificate) // back to the generated certificate
+	admin.POST("/vm/tls/reload", service.ReloadTls)                        // serve the pair on disk
 
 	admin.GET("/vm/autostart", service.GetAutostart)              // get autostart list
 	admin.GET("/vm/autostart/:name", service.GetAutostartContent) // get autostart content

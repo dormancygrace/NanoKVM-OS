@@ -1,11 +1,19 @@
-import { useEffect, useState } from 'react';
-import { message, Switch } from 'antd';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Button, message, Switch } from 'antd';
 import axios from 'axios';
+import { FileUpIcon, RefreshCwIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+import {
+  certificateNames,
+  certificateState,
+  certificateTone,
+  reloadAvailable,
+  TlsStatus
+} from '@/lib/tls-certificate.ts';
 import { confirmAction } from '@/components/ui/confirm.ts';
-import { SettingRow } from '@/components/ui/settings.tsx';
+import { Panel, SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
 
 function restartInterruptedRequest(err: unknown): boolean {
   if (!axios.isAxiosError(err)) return false;
@@ -16,12 +24,26 @@ function restartInterruptedRequest(err: unknown): boolean {
 export const Tls = () => {
   const { t } = useTranslation();
 
+  const [status, setStatus] = useState<TlsStatus>();
   const [isEnabled, setIsEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const load = useCallback(async () => {
+    try {
+      const rsp = await api.getTLS();
+      if (rsp.code === 0) {
+        setStatus(rsp.data as TlsStatus);
+        setIsEnabled((rsp.data as TlsStatus).enabled);
+      }
+    } catch {
+      /* the switch keeps following the page protocol */
+    }
+  }, []);
+
   useEffect(() => {
     setIsEnabled(window.location.protocol === 'https:');
-  }, []);
+    void load();
+  }, [load]);
 
   async function update() {
     if (isLoading) return;
@@ -81,20 +103,194 @@ export const Tls = () => {
   }
 
   return (
-    <SettingRow
-      label="HTTPS"
-      description={t('settings.network.tls.description')}
-      help={t('settings.network.tls.tip')}
-      htmlFor="network-tls"
-    >
-      <Switch
-        id="network-tls"
-        aria-label="HTTPS"
-        aria-describedby="network-tls-description"
-        checked={isEnabled}
-        loading={isLoading}
-        onChange={update}
+    <>
+      <SettingRow
+        label="HTTPS"
+        description={t('settings.network.tls.description')}
+        help={t('settings.network.tls.tip')}
+        htmlFor="network-tls"
+      >
+        <Switch
+          id="network-tls"
+          aria-label="HTTPS"
+          aria-describedby="network-tls-description"
+          checked={isEnabled}
+          loading={isLoading}
+          onChange={update}
+        />
+      </SettingRow>
+      <Certificate status={status} onChange={setStatus} />
+    </>
+  );
+};
+
+/*
+ * The certificate HTTPS presents. Uploading a pair or returning to the
+ * generated one applies to new connections at once; the server does not
+ * restart and the video keeps running.
+ */
+const Certificate = ({
+  status,
+  onChange
+}: {
+  status?: TlsStatus;
+  onChange: (status: TlsStatus) => void;
+}) => {
+  const { t, i18n } = useTranslation();
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  const info = status?.certificate;
+  const state = status ? certificateState(status) : undefined;
+  const date = (iso: string) =>
+    new Date(iso).toLocaleDateString(i18n.language, { dateStyle: 'medium' });
+
+  async function upload(files: FileList | null) {
+    if (!files?.length || busy) return;
+    // One combined PEM or the certificate and key as separate files: the
+    // server picks the certificate blocks and the key block out of the text.
+    const texts = await Promise.all(Array.from(files).map((file) => file.text()));
+    const ok = await confirmAction({
+      title: t('settings.network.tls.certificate.uploadTitle'),
+      content: t('settings.network.tls.certificate.uploadConfirm')
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const data = new FormData();
+      data.append(
+        'cert',
+        new Blob([texts.join('\n')], { type: 'application/x-pem-file' }),
+        'cert.pem'
+      );
+      const rsp = await api.uploadTLSCertificate(data);
+      if (rsp.code === 0) {
+        onChange(rsp.data as TlsStatus);
+        message.success(t('settings.network.tls.certificate.uploaded'));
+      } else {
+        message.error(rsp.msg || t('settings.network.tls.certificate.failed'));
+      }
+    } catch {
+      message.error(t('settings.network.tls.certificate.failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    const ok = await confirmAction({
+      title: t('settings.network.tls.certificate.removeTitle'),
+      content: t('settings.network.tls.certificate.removeConfirm'),
+      okText: t('settings.network.tls.certificate.remove'),
+      danger: true
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const rsp = await api.deleteTLSCertificate();
+      if (rsp.code === 0) {
+        onChange(rsp.data as TlsStatus);
+        message.success(t('settings.network.tls.certificate.removed'));
+      } else {
+        message.error(rsp.msg || t('settings.network.tls.certificate.failed'));
+      }
+    } catch {
+      message.error(t('settings.network.tls.certificate.failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reload() {
+    setBusy(true);
+    try {
+      const rsp = await api.reloadTLS();
+      if (rsp.code === 0) {
+        onChange(rsp.data as TlsStatus);
+        message.success(t('settings.network.tls.certificate.reloaded'));
+      } else {
+        message.error(rsp.msg || t('settings.network.tls.certificate.failed'));
+      }
+    } catch {
+      message.error(t('settings.network.tls.certificate.failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Panel className="space-y-3">
+      <SettingRow
+        label={t('settings.network.tls.certificate.title')}
+        description={t('settings.network.tls.certificate.description')}
+      >
+        {state && (
+          <StatusBadge tone={certificateTone[state]}>
+            {state === 'error' ? status?.error : t(`settings.network.tls.certificate.${state}`)}
+          </StatusBadge>
+        )}
+      </SettingRow>
+      {info && (
+        <dl className="text-fg-muted m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+          <dt className="m-0">{t('settings.network.tls.certificate.subject')}</dt>
+          <dd className="text-fg m-0 break-all">{info.subject}</dd>
+          <dt className="m-0">{t('settings.network.tls.certificate.issuer')}</dt>
+          <dd className="m-0 break-all">
+            {info.issuer}
+            {info.selfSigned && ` · ${t('settings.network.tls.certificate.selfSigned')}`}
+          </dd>
+          {certificateNames(info).length > 0 && (
+            <>
+              <dt className="m-0">{t('settings.network.tls.certificate.names')}</dt>
+              <dd className="m-0 break-all">{certificateNames(info).join(', ')}</dd>
+            </>
+          )}
+          <dt className="m-0">{t('settings.network.tls.certificate.validity')}</dt>
+          <dd className={info.expired ? 'text-danger m-0' : 'm-0'}>
+            {date(info.notBefore)} – {date(info.notAfter)} · {info.keyType}
+          </dd>
+          <dt className="m-0">SHA-256</dt>
+          <dd className="m-0 font-mono break-all">{info.fingerprint}</dd>
+        </dl>
+      )}
+      {status && !status.enabled && (
+        <p className="text-fg-muted m-0 text-xs">{t('settings.network.tls.certificate.offNote')}</p>
+      )}
+      <input
+        ref={input}
+        type="file"
+        multiple
+        hidden
+        accept=".pem,.crt,.cer,.key,.txt"
+        aria-label={t('settings.network.tls.certificate.upload')}
+        onChange={(e) => {
+          void upload(e.target.files);
+          e.target.value = '';
+        }}
       />
-    </SettingRow>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          icon={<FileUpIcon size={16} />}
+          loading={busy}
+          disabled={!status}
+          onClick={() => input.current?.click()}
+        >
+          {t('settings.network.tls.certificate.upload')}
+        </Button>
+        {status?.custom && (
+          <Button danger disabled={busy} onClick={remove}>
+            {t('settings.network.tls.certificate.remove')}
+          </Button>
+        )}
+        {status && reloadAvailable(status) && (
+          <Button icon={<RefreshCwIcon size={16} />} disabled={busy} onClick={reload}>
+            {t('settings.network.tls.certificate.reload')}
+          </Button>
+        )}
+      </div>
+      <p className="text-fg-muted m-0 text-xs">
+        {t('settings.network.tls.certificate.uploadHint')}
+      </p>
+    </Panel>
   );
 };

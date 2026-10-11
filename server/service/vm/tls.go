@@ -64,12 +64,7 @@ func writeTLSConfig(conf *config.Config) error {
 }
 
 func enableTlsConfig(conf *config.Config, writeConfig func(*config.Config) error, ensureCertificate func(string, string) error) error {
-	if conf.Cert.Crt == "" {
-		conf.Cert.Crt = "/etc/kvm/server.crt"
-	}
-	if conf.Cert.Key == "" {
-		conf.Cert.Key = "/etc/kvm/server.key"
-	}
+	conf.Cert = conf.Cert.WithDefaults()
 	if err := ensureCertificate(conf.Cert.Crt, conf.Cert.Key); err != nil {
 		return err
 	}

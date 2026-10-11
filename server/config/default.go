@@ -10,8 +10,8 @@ var defaultConfig = &Config{
 		Https: 443,
 	},
 	Cert: Cert{
-		Crt: "/etc/kvm/server.crt",
-		Key: "/etc/kvm/server.key",
+		Crt: DefaultCertFile,
+		Key: DefaultKeyFile,
 	},
 	Logger: Logger{
 		Level: "info",

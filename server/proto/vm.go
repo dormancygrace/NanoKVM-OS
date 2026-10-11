@@ -1,5 +1,7 @@
 package proto
 
+import "NanoKVM-Server/utils"
+
 type IP struct {
 	Name    string `json:"name"`
 	Addr    string `json:"addr"`
@@ -229,6 +231,21 @@ type GetWebTitleRsp struct {
 
 type SetTlsReq struct {
 	Enabled bool `validate:"omitempty"`
+}
+
+// TLSStatusRsp describes HTTPS and the certificate pair. Certificate is the
+// pair named by the configuration (nil with Error when it cannot be read);
+// Served is the pair the listener presents while HTTPS is on; Pending says
+// the two differ.
+type TLSStatusRsp struct {
+	Enabled     bool                   `json:"enabled"`
+	Custom      bool                   `json:"custom"`
+	CertFile    string                 `json:"certFile"`
+	KeyFile     string                 `json:"keyFile"`
+	Certificate *utils.CertificateInfo `json:"certificate,omitempty"`
+	Served      *utils.CertificateInfo `json:"served,omitempty"`
+	Pending     bool                   `json:"pending"`
+	Error       string                 `json:"error,omitempty"`
 }
 
 type InputRegion struct {

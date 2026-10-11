@@ -1404,7 +1404,36 @@ const en = {
             'The web server restarts and this page reloads at the new address. Other open sessions disconnect.',
           description: 'Enable HTTPS protocol',
           tip: 'Be aware: Using HTTPS can increase latency, especially with MJPEG video mode.',
-          failed: 'Failed to change HTTPS. The current setting is unchanged.'
+          failed: 'Failed to change HTTPS. The current setting is unchanged.',
+          certificate: {
+            title: 'Certificate',
+            description:
+              'The certificate the device presents over HTTPS. One from your own CA or a public one removes the browser warning.',
+            generated: 'Generated self-signed certificate',
+            custom: 'Custom certificate',
+            pending: 'The certificate on disk is not the one served yet',
+            expired: 'Expired',
+            subject: 'Subject',
+            issuer: 'Issuer',
+            selfSigned: 'self-signed',
+            names: 'Names',
+            validity: 'Valid',
+            upload: 'Upload certificate',
+            uploadHint:
+              'PEM files: the certificate with its chain and the unencrypted private key, as one file or two. New connections use it at once; HTTPS does not restart.',
+            uploadTitle: 'Use this certificate?',
+            uploadConfirm:
+              'New connections get it at once. If the browser does not trust it, the next page load shows a warning; the generated certificate can be restored here.',
+            uploaded: 'Certificate installed',
+            remove: 'Remove',
+            removeTitle: 'Return to the generated certificate?',
+            removeConfirm: 'The uploaded certificate and private key are deleted from the device.',
+            removed: 'The generated certificate is in use',
+            reload: 'Reload',
+            reloaded: 'Certificate reloaded',
+            offNote: 'HTTPS is off; the certificate is used once it is turned on.',
+            failed: 'The certificate was not changed.'
+          }
         },
         ipv6: {
           description: 'Disabled by default. Changes are saved across reboots.',

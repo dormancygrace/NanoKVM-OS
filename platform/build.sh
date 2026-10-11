@@ -508,7 +508,7 @@ native() {
     env "${env[@]}" NANOKVM_JSON_C_SOURCE="$n/src/json-c" NANOKVM_MINIZ_SOURCE="$n/src/miniz" \
         NANOKVM_MPI_THIRDPARTY_OUTPUT="$n/bin" "$host/python3" "$repo/scripts/build-enhanced-mpi-bin.py"
     env "${env[@]}" NANOKVM_SENSOR_SOURCE="$n/src/sensors" NANOKVM_INIH_SOURCE="$n/src/inih" \
-        NANOKVM_MMF_OUTPUT="$n/mmf" "$host/python3" "$repo/scripts/build-enhanced-mmf.py"
+        NANOKVM_MMF_PROFILE=full NANOKVM_MMF_OUTPUT="$n/mmf" "$host/python3" "$repo/scripts/build-enhanced-mmf.py"
     env "${env[@]}" NANOKVM_MMF_OUTPUT="$n/mmf" NANOKVM_CAPTURE_OUTPUT="$n/capture" \
         "$host/python3" "$repo/scripts/build-enhanced-capture.py"
     # The vendor makefiles always compile with -g; ship the libraries without it.

@@ -57,7 +57,7 @@ stage.mkdir()
 for expected in [f"nanokvm-rustdesk-{version}-source.tar.gz",f"nanokvm-rustdesk-{package_version}.apk","APKBUILD"]:
     if (output/expected).exists():
         raise SystemExit(f"refusing to overwrite artifact: {output/expected}")
-for name in ["src","tests","Cargo.toml","Cargo.lock","LICENSE","NOTICE","README.md","upstream.json","performance.toml"]:
+for name in ["src","tests","Cargo.toml","Cargo.lock","LICENSE","NOTICE","README.md","upstream.json","performance.toml","rust-toolchain.toml"]:
     p=source/name
     if p.is_dir():shutil.copytree(p,stage/name,dirs_exist_ok=True)
     elif p.exists():shutil.copyfile(p,stage/name)
@@ -79,7 +79,7 @@ build_profile={
     "target":target,
     "rustflags":rust_flags,
     "cargo_profile":tomllib.loads((source/"Cargo.toml").read_text()).get("profile",{}).get(args.build_profile,{}),
-    "rustc":subprocess.check_output(["rustc","-vV"],text=True),
+    "rustc":subprocess.check_output(["rustc","-vV"],cwd=source,text=True),
     "binary_sha256":hashlib.sha256(binary.read_bytes()).hexdigest(),
     "scope":"T-Head scalar extensions; no RVV 0.7.1 code generation in this Rust backend"
 }

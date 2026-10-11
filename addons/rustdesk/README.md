@@ -95,8 +95,19 @@ NANOKVM_RUSTDESK_DATA overrides the identity directory for isolated tests.
 ## Build and source
 
 Cargo.lock pins the Rust dependencies; no native codec or crypto library is
-required. Host tests run with cargo test --locked. Exported archives include
-vendor/ and .cargo/config.toml and support --locked --offline builds and tests.
+required. `rust-toolchain.toml` pins the release compiler and the RISC-V musl
+target. Run Cargo from this directory with rustup on PATH: local builds and CI
+then use the same compiler. Dependabot checks this toolchain pin daily,
+separately from the crate updates. `Cargo.toml`'s `rust-version` remains the
+minimum supported compiler, checked separately in CI; it is not the release pin.
+
+Host tests run with `cargo test --locked`. CI also checks all binaries and
+features for `riscv64gc-unknown-linux-musl`. The packaging builder records the
+compiler selected in this directory. Exported archives include the toolchain
+file, vendor/ and .cargo/config.toml and support `--locked --offline` builds and
+tests once the pinned compiler and target have been installed. Native Alpine
+APKBUILDs continue to use Alpine's Cargo/Rust packages (at least the declared
+minimum version); rustup is not required for those distribution builds.
 
 For an unsigned local test package from the repository root, with cargo,
 fakeroot, a riscv64 musl GCC and apk-tools 3 mkpkg available:

@@ -27,13 +27,14 @@ def validate_coverage(root, sources):
     buildroot_recipes(root)
     files = tracked_files(root)
     configured = dependabot_directories((root / '.github/dependabot.yml').read_text())
-    manifests = {'package.json': 'npm', 'go.mod': 'gomod', 'Cargo.toml': 'cargo', 'Dockerfile': 'docker'}
+    manifests = {'package.json': 'npm', 'go.mod': 'gomod', 'Cargo.toml': 'cargo', 'Dockerfile': 'docker',
+                 'rust-toolchain.toml': 'rust-toolchain', 'rust-toolchain': 'rust-toolchain'}
     missing = []
     for path in files:
         ecosystem = manifests.get(Path(path).name)
         if ecosystem and ('/' if str(Path(path).parent) == '.' else '/' + str(Path(path).parent)) not in configured.get(ecosystem, set()):
             missing.append(path)
-        # Fail visibly when a new ecosystem needs configuration, not just the four known ones.
+        # Fail visibly when a new ecosystem needs configuration, not just the known ones.
         if Path(path).name in {'pyproject.toml', 'requirements.txt', 'Gemfile', 'composer.json', 'pom.xml'}:
             missing.append(path + ' (new ecosystem: add coverage)')
     if '/' not in configured.get('github-actions', set()):

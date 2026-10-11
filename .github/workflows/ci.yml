@@ -133,15 +133,18 @@ jobs:
         working-directory: addons/rustdesk
     steps:
       - uses: actions/checkout@v7
-      - name: Select Rust stable
-        run: rustup toolchain install stable --profile minimal --target riscv64gc-unknown-linux-musl
+      - name: Select pinned Rust toolchain
+        # rustup reads addons/rustdesk/rust-toolchain.toml, including the target.
+        run: |
+          rustc --version
+          cargo --version
       - name: Test locked Rust dependencies
-        run: cargo +stable test --locked
+        run: cargo test --locked
       # The device build (scripts/build-rustdesk-addon.py) cross-compiles for
       # this target; check compiles it without the cross linker. All features
       # include the c906-crypto-perf probe binary, which the tests skip.
       - name: Check the device target and the probe binary
-        run: cargo +stable check --locked --target riscv64gc-unknown-linux-musl --all-features --bins
+        run: cargo check --locked --target riscv64gc-unknown-linux-musl --all-features --bins
       - name: Check the declared minimum Rust version
         run: |
           msrv=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)

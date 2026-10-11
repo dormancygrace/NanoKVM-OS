@@ -47,11 +47,22 @@ Enter: the login prompt of this computer appears.
 """
 
 
+# The same stub mkfs.fat writes: a BIOS that tries to boot from this disk
+# (a USB drive first in its boot order) prints the message, waits for a key
+# and goes on with the next device, instead of running the zeros after the
+# BPB. The jump at byte 0 lands on it at 0x3E; the text follows at 0x5B.
+BOOT_CODE = (b'\x0e\x1f\xbe\x5b\x7c\xac\x22\xc0\x74\x0b\x56\xb4\x0e\xbb\x07\x00\xcd\x10'
+             b'\x5e\xeb\xf0\x32\xe4\xcd\x16\xcd\x19\xeb\xfe'
+             b'This is not a bootable disk. It holds the NanoKVM serial console\r\n'
+             b'helper. Remove it from the boot order and press any key ...\r\n')
+
+
 def boot_sector():
     bpb = struct.pack('<3s8sHBHBHHBHHHII', b'\xEB\x3C\x90', b'NANOKVM ', SECTOR, 1, RESERVED_SECTORS,
                       FATS, ROOT_ENTRIES, TOTAL_SECTORS, MEDIA, SECTORS_PER_FAT, 18, 2, 0, 0)
     ebpb = struct.pack('<BBBI11s8s', 0, 0, 0x29, VOLUME_ID, LABEL, b'FAT12   ')
-    return (bpb + ebpb).ljust(SECTOR - 2, b'\0') + b'\x55\xAA'
+    assert len(bpb + ebpb) == 0x3E
+    return (bpb + ebpb + BOOT_CODE).ljust(SECTOR - 2, b'\0') + b'\x55\xAA'
 
 
 def fat12(entries):

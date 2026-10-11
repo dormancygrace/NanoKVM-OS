@@ -32,6 +32,10 @@ class DiskTest(unittest.TestCase):
         self.assertEqual(len(data), 1474560)
         self.assertEqual(data[510:512], b'\x55\xAA')
         self.assertEqual(data[54:62], b'FAT12   ')
+        # not bootable: the jump at byte 0 reaches the message stub, not zeros
+        self.assertEqual(data[0:3], b'\xEB\x3C\x90')
+        self.assertEqual(data[0x3E:0x3E + 4], b'\x0e\x1f\xbe\x5b')
+        self.assertIn(b'This is not a bootable disk', data[0x5B:510])
         self.assertEqual(data[43:54], b'NANOKVM    ')
         # both FATs equal, media descriptor first
         fat1 = data[512:512 + 9 * 512]

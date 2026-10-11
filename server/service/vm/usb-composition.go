@@ -57,9 +57,24 @@ func (s usbComposition) remoteAccessDefaults(withAudio bool) usbComposition {
 	return s
 }
 
+// errUserDiskMissing: the image was deleted between the request and the apply.
+var errUserDiskMissing = errors.New("create the user disk first")
+
 func applyLiveUSBComposition(h *hid.Hid, current, candidate usbComposition) error {
 	if current == candidate {
 		return nil
+	}
+	// Attaching or detaching the user disk excludes creating or deleting
+	// the image for the whole apply (storage.LockUserDiskForComposition).
+	if current.userDisk || candidate.userDisk {
+		unlock, err := storage.LockUserDiskForComposition()
+		if err != nil {
+			return err
+		}
+		defer unlock()
+		if candidate.userDisk && !storage.UserDiskExists() {
+			return errUserDiskMissing
+		}
 	}
 	if err := audio.Stop(); err != nil {
 		return err

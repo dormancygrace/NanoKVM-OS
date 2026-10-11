@@ -386,3 +386,23 @@ func TestCompositionPreservesAlpineScriptLink(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyRefusesTheUserDiskWhileTheImageIsBeingMade(t *testing.T) {
+	unlock, err := storage.LockUserDiskForComposition()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Stands in for a create or delete holding the lock.
+	defer unlock()
+	current := usbComposition{mode: hid.ModeNormal, keyboard: true, disk: true}
+	for _, candidate := range []usbComposition{
+		{mode: hid.ModeNormal, keyboard: true, disk: true, userDisk: true},
+	} {
+		if err := applyLiveUSBComposition(nil, current, candidate); !errors.Is(err, storage.ErrUserDiskBusy) {
+			t.Fatalf("attach during a format: %v", err)
+		}
+		if err := applyLiveUSBComposition(nil, candidate, current); !errors.Is(err, storage.ErrUserDiskBusy) {
+			t.Fatalf("detach during a format: %v", err)
+		}
+	}
+}

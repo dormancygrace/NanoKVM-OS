@@ -148,7 +148,14 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 	}
 	if err := applyLiveUSBComposition(h, current, candidate); err != nil {
 		log.Errorf("apply USB composition: %v", err)
-		rsp.ErrRsp(c, -3, "failed to apply USB composition")
+		switch {
+		case errors.Is(err, storage.ErrUserDiskBusy):
+			rsp.ErrRsp(c, -6, err.Error())
+		case errors.Is(err, errUserDiskMissing):
+			rsp.ErrRsp(c, -4, err.Error())
+		default:
+			rsp.ErrRsp(c, -3, "failed to apply USB composition")
+		}
 		return
 	}
 	rsp.OkRspWithData(c, getUSBComposition().response())

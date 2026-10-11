@@ -1290,6 +1290,8 @@ const en = {
             'Eject the drive on the computer first, so nothing is left half-written; then the USB devices reconnect.',
           created: 'User disk created',
           turnOffFirst: 'Turn the user disk off first.',
+          busy: 'The user disk is being created or deleted. Try again when it is done.',
+          missing: 'The user disk image is gone. Create it again.',
           failed: 'The user disk request failed.',
           notice:
             'Mounting or ejecting a CD/disk image reconnects the USB devices too; the computer sees the user disk again afterwards with what it wrote. The whole image is allocated on the SD card at creation, so the large sizes take a while.'

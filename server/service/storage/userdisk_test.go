@@ -1,11 +1,18 @@
 package storage
 
 import (
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 func setupUserDisk(t *testing.T) string {
@@ -118,5 +125,82 @@ func TestCreateUserDiskWithRealFormatter(t *testing.T) {
 		if err != nil || !strings.Contains(string(out), userDiskLabel) {
 			t.Fatalf("mdir: %v %s", err, out)
 		}
+	}
+}
+
+// The review's race: with the disk off, a re-format in one tab and turning
+// the disk on in another. The composition must not attach while the image
+// is being replaced, and a re-format must not run while it is attached.
+func TestCompositionLockExcludesAConcurrentFormat(t *testing.T) {
+	setupUserDisk(t)
+	userDiskFormat = func(string, int) error { return nil }
+	if err := createUserDisk(64); err != nil {
+		t.Fatal(err)
+	}
+	formatting := make(chan struct{})
+	release := make(chan struct{})
+	userDiskFormat = func(string, int) error {
+		close(formatting)
+		<-release
+		return nil
+	}
+	gin.SetMode(gin.TestMode)
+	s := &Service{}
+	done := make(chan int)
+	go func() {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"sizeMiB":128}`))
+		c.Request.Header.Set("Content-Type", "application/json")
+		s.CreateUserDisk(c)
+		var rsp struct{ Code int }
+		_ = json.Unmarshal(rec.Body.Bytes(), &rsp)
+		done <- rsp.Code
+	}()
+	<-formatting
+	if _, err := LockUserDiskForComposition(); !errors.Is(err, ErrUserDiskBusy) {
+		t.Fatalf("composition lock taken during a format: %v", err)
+	}
+	close(release)
+	if code := <-done; code != 0 {
+		t.Fatalf("create returned %d", code)
+	}
+	unlock, err := LockUserDiskForComposition()
+	if err != nil {
+		t.Fatalf("composition lock after the format: %v", err)
+	}
+
+	// The composition holds the lock and turns the disk on; a re-format
+	// started meanwhile waits and then refuses, the image untouched.
+	before, _ := os.Stat(userDiskImage)
+	userDiskFormat = func(string, int) error {
+		t.Error("formatted while the composition was attaching the disk")
+		return nil
+	}
+	go func() {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"sizeMiB":64}`))
+		c.Request.Header.Set("Content-Type", "application/json")
+		s.CreateUserDisk(c)
+		var rsp struct{ Code int }
+		_ = json.Unmarshal(rec.Body.Bytes(), &rsp)
+		done <- rsp.Code
+	}()
+	select {
+	case code := <-done:
+		t.Fatalf("create did not wait for the composition: %d", code)
+	case <-time.After(100 * time.Millisecond):
+	}
+	if err := os.WriteFile(userDiskFlag, []byte(userDiskImage+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	unlock()
+	if code := <-done; code != -2 {
+		t.Fatalf("create while enabled returned %d, want -2", code)
+	}
+	after, _ := os.Stat(userDiskImage)
+	if !os.SameFile(before, after) {
+		t.Fatal("the attached image was replaced")
 	}
 }

@@ -159,7 +159,15 @@ export const Usb = () => {
         adopt(normalizeUsbStatus(rsp.data));
       } else {
         adopt(await fetchStatus());
-        const reason = t(rsp.code === -5 ? 'settings.usb.changed' : 'settings.usb.updateFailed');
+        const reason = t(
+          rsp.code === -5
+            ? 'settings.usb.changed'
+            : rsp.code === -6
+              ? 'settings.usb.userDisk.busy'
+              : rsp.code === -4 && requested.userDisk
+                ? 'settings.usb.userDisk.missing'
+                : 'settings.usb.updateFailed'
+        );
         setError(reason);
         message.error(reason);
       }

@@ -2,7 +2,7 @@
 name = "nanokvm-rustdesk"
 version = "0.5.3"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.85"
 description = "RustDesk HDMI and USB HID endpoint for NanoKVM OS"
 license = "AGPL-3.0-only"
 publish = false

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"os"
@@ -112,14 +113,18 @@ func run() {
 	needsLoopbackHTTP := utils.NeedsDedicatedLoopbackListener(conf.Host)
 
 	if conf.Proto == "https" {
-		if err := utils.EnsureServerCertificate(conf.Cert.Crt, conf.Cert.Key); err != nil {
+		cert := conf.Cert.WithDefaults()
+		if err := utils.PrepareServerCertificate(cert.Crt, cert.Key); err != nil {
 			panic(fmt.Sprintf("prepare HTTPS certificate: %v", err))
 		}
 		httpsPortStr := strconv.Itoa(conf.Port.Https)
 
 		go func() {
 			server := utils.NewHTTPServer(utils.ListenAddr(conf.Host, httpsPortStr), r, os.Getenv("NANOKVM_HTTP2") != "off")
-			err := server.ListenAndServeTLS(conf.Cert.Crt, conf.Cert.Key)
+			// The pair comes from ServerCertificate, so an uploaded or renewed
+			// certificate applies to new connections without a restart.
+			server.TLSConfig = &tls.Config{GetCertificate: utils.ServerCertificate.GetCertificate}
+			err := server.ListenAndServeTLS("", "")
 			if err != nil {
 				panic("start https server failed")
 			}

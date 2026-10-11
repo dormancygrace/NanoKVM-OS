@@ -233,6 +233,34 @@ export function setTLS(enabled: boolean) {
   return http.post('/api/vm/tls', { enabled });
 }
 
+// HTTPS and certificate status
+export function getTLS() {
+  return http.get('/api/vm/tls');
+}
+
+// install a custom certificate: form field "cert" (PEM, chain and key
+// allowed in one text) and optionally "key"
+export function uploadTLSCertificate(formData: FormData) {
+  return http.request({
+    url: '/api/vm/tls/certificate',
+    method: 'post',
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    },
+    data: formData
+  });
+}
+
+// back to the generated certificate
+export function deleteTLSCertificate() {
+  return http.post('/api/vm/tls/certificate/delete');
+}
+
+// serve the certificate pair as it is on disk now
+export function reloadTLS() {
+  return http.post('/api/vm/tls/reload');
+}
+
 // reboot
 export function reboot() {
   return http.post('/api/vm/system/reboot');

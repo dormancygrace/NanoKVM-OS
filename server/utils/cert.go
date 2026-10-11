@@ -17,6 +17,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"NanoKVM-Server/config"
 	"NanoKVM-Server/internal/atomicfile"
 )
 
@@ -26,10 +27,37 @@ func EnsureServerCertificate(certFile, keyFile string) error {
 	if _, err := tls.LoadX509KeyPair(certFile, keyFile); err == nil {
 		return nil
 	}
-	if certFile != "/etc/kvm/server.crt" || keyFile != "/etc/kvm/server.key" {
+	if certFile != defaultCertFile || keyFile != defaultKeyFile {
 		return fmt.Errorf("custom TLS certificate is missing or invalid")
 	}
 	return ensureGeneratedCertificate(certFile, keyFile)
+}
+
+// PrepareServerCertificate loads the configured pair into ServerCertificate
+// for the HTTPS listener. A custom pair that cannot be used is logged and the
+// generated pair stands in for this run, so a bad file never leaves the
+// device unreachable; the configuration keeps naming the custom pair and the
+// settings page shows the error.
+func PrepareServerCertificate(certFile, keyFile string) error {
+	if certFile == defaultCertFile && keyFile == defaultKeyFile {
+		if err := ensureGeneratedCertificate(certFile, keyFile); err != nil {
+			return err
+		}
+		return ServerCertificate.Load(certFile, keyFile)
+	}
+	customErr := ServerCertificate.Load(certFile, keyFile)
+	if customErr == nil {
+		return nil
+	}
+	log.Errorf("the configured HTTPS certificate %s cannot be used (%v); serving the generated certificate instead", certFile, customErr)
+	if err := ensureGeneratedCertificate(defaultCertFile, defaultKeyFile); err != nil {
+		return err
+	}
+	if err := ServerCertificate.Load(defaultCertFile, defaultKeyFile); err != nil {
+		return err
+	}
+	ServerCertificate.MarkFallback(fmt.Errorf("%s cannot be used (%v); the generated certificate is served", certFile, customErr))
+	return nil
 }
 
 func ensureGeneratedCertificate(certFile, keyFile string) error {
@@ -50,8 +78,19 @@ func ensureGeneratedCertificate(certFile, keyFile string) error {
 }
 
 func GenerateCert() error {
-	return generateCertFiles("/etc/kvm/server.crt", "/etc/kvm/server.key")
+	return generateCertFiles(defaultCertFile, defaultKeyFile)
 }
+
+// GenerateCertificateFiles writes a fresh self-signed pair.
+func GenerateCertificateFiles(certFile, keyFile string) error {
+	return generateCertFiles(certFile, keyFile)
+}
+
+// The generated pair; variables so tests can point them at a directory.
+var (
+	defaultCertFile = config.DefaultCertFile
+	defaultKeyFile  = config.DefaultKeyFile
+)
 
 func generateCertFiles(certFile, keyFile string) error {
 	var (

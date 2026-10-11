@@ -1258,7 +1258,7 @@ const en = {
           headless: {
             title: 'Headless server',
             description:
-              'Serial console and its helper disk only, no keyboard or mouse. USB network and audio can be added by hand; the remote desktop adds keyboard, mice and audio back when it is enabled.'
+              'The serial console only, for a server whose serial login is already set up (with "KVM + serial console" and its helper disk, or over the network). No keyboard, mouse or storage appears on the computer; the remote desktop adds keyboard, mice and audio back when it is enabled.'
           },
           remote: {
             title: 'Remote desktop',

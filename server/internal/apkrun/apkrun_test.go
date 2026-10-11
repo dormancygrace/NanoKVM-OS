@@ -185,16 +185,26 @@ func TestLockWaitEndsWithBusy(t *testing.T) {
 }
 
 func TestQueuedRunGetsItsOwnTimeout(t *testing.T) {
-	f := newFixture(t, "")
+	// Only the queued wait is significant here. Avoid the overlap fixture's
+	// sleep and helper processes, which compete with parallel CI builds.
+	f := newFixture(t, `echo "ran $*"`)
 	held, err := acquire(context.Background(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	time.AfterFunc(300*time.Millisecond, func() { held.Close() })
+	defer held.Close()
+	const runTimeout = time.Second
+	const queuedWait = 1200 * time.Millisecond
+	started := time.Now()
+	timer := time.AfterFunc(queuedWait, func() { held.Close() })
+	defer timer.Stop()
 	cmd := Command(context.Background(), f.apk, "search", "x")
-	cmd.Timeout = 250 * time.Millisecond // shorter than the wait, longer than the run
-	if output, err := cmd.CombinedOutput(); err != nil {
+	cmd.Timeout = runTimeout // waiting must not consume the execution budget
+	if output, err := cmd.CombinedOutput(); err != nil || string(output) != "ran search x\n" {
 		t.Fatalf("%q %v", output, err)
+	}
+	if elapsed := time.Since(started); elapsed < queuedWait {
+		t.Fatalf("command bypassed the lock: waited %s, want at least %s", elapsed, queuedWait)
 	}
 }
 

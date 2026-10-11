@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -78,19 +79,39 @@ func TestCPUFrequencyErrorsDoNotPersistTarget(t *testing.T) {
 func TestCPUFrequencyWaitsForEffectiveLimit(t *testing.T) {
 	cpuFixture(t)
 	baseWrite := cpuFreqWrite
-	done := make(chan struct{})
+	var updates sync.WaitGroup
+	t.Cleanup(updates.Wait)
+	limitPath := filepath.Join(cpuFreqPolicy, "scaling_max_freq")
 	cpuFreqWrite = func(path string, data []byte, mode os.FileMode) error {
 		if filepath.Base(path) == "scaling_max_freq" && string(data) == "1000000" {
 			if err := os.WriteFile(path, []byte("850000"), mode); err != nil {
 				return err
 			}
-			go func() { time.Sleep(40 * time.Millisecond); _ = os.WriteFile(path, data, mode); close(done) }()
+			// Real sysfs reads return a complete value. Replace the fixture file
+			// atomically so polling cannot observe a truncated regular file.
+			updates.Add(1)
+			go func() {
+				defer updates.Done()
+				time.Sleep(40 * time.Millisecond)
+				next := path + ".next"
+				if err := os.WriteFile(next, data, mode); err != nil {
+					t.Errorf("write effective limit: %v", err)
+					return
+				}
+				if err := os.Rename(next, path); err != nil {
+					t.Errorf("publish effective limit: %v", err)
+				}
+			}()
 			return nil
 		}
 		if filepath.Base(path) == "scaling_setspeed" {
-			select {
-			case <-done:
-			default:
+			// Assert against the effective limit itself, not a notification
+			// that may arrive after the production poll already read it.
+			limit, err := os.ReadFile(limitPath)
+			if err != nil {
+				return err
+			}
+			if string(limit) != "1000000" {
 				return errors.New("setspeed before effective limit")
 			}
 		}

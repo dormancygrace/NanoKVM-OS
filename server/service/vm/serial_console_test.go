@@ -138,6 +138,34 @@ func TestProbeSerialConsoleAnswersCursorPositionQuery(t *testing.T) {
 	}
 }
 
+func TestProbeSerialConsoleHoldsTheDeviceForItsWholeRun(t *testing.T) {
+	serialLockDir = t.TempDir()
+	device, received := fakeHost(t, "")
+	first := make(chan probeResult, 1)
+	go func() { first <- probeSerialConsole(device, 600*time.Millisecond) }()
+	received() // the first probe has the device open and is waiting for an answer
+	if r := probeSerialConsole(device, 200*time.Millisecond); r.State != "busy" {
+		t.Fatalf("overlapping probe: %+v", r)
+	}
+	if serialPortOpen(device) != true {
+		t.Fatal("the running probe holds no lease")
+	}
+	select {
+	case r := <-first:
+		if r.State != "silent" {
+			t.Fatalf("first probe: %+v", r)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("the first probe did not finish")
+	}
+	if serialPortOpen(device) {
+		t.Fatal("the lease outlived the probe")
+	}
+	if r := probeSerialConsole(device, 200*time.Millisecond); r.State != "silent" {
+		t.Fatalf("after the first probe: %+v", r)
+	}
+}
+
 func TestProbeSerialConsoleShellPrompt(t *testing.T) {
 	serialLockDir = t.TempDir()
 	device, _ := fakeHost(t, "\r\n\x1b[01;32muser@host\x1b[00m:~$ ")

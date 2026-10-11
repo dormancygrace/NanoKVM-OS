@@ -165,6 +165,15 @@ func deviceInUse(device string) bool {
 // probeSerialConsole sends one carriage return on the gadget port and reads
 // what the host sends back, as the browser terminal's first Enter would.
 func probeSerialConsole(device string, timeout time.Duration) probeResult {
+	// The lease covers everything below, the restoration of the line
+	// settings included: a second probe, or a terminal session, waits for
+	// it rather than reading this probe's answer or restoring stale settings
+	// over it.
+	release, ok := claimSerialPort(device)
+	if !ok {
+		return probeResult{State: "busy"}
+	}
+	defer release()
 	if _, err := os.Stat(serialLockFile(device)); err == nil || deviceInUse(device) {
 		return probeResult{State: "busy"}
 	}

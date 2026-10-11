@@ -55,6 +55,10 @@ func listImages() ([]string, error) {
 		if err != nil {
 			return err
 		}
+		// hidden directories hold the device's own images (the user disk)
+		if info.IsDir() && path != imageDirectory && strings.HasPrefix(info.Name(), ".") {
+			return filepath.SkipDir
+		}
 		if !info.IsDir() {
 			if _, err := imageFile(path); err == nil {
 				images = append(images, path)
@@ -322,6 +326,12 @@ func imageFile(name string) (string, error) {
 	if !strings.HasPrefix(path, imageDirectory+string(filepath.Separator)) ||
 		!(strings.HasSuffix(lower, ".iso") || strings.HasSuffix(lower, ".img")) {
 		return "", errInvalidImage
+	}
+	// the hidden directories are the device's own (the user disk)
+	for _, part := range strings.Split(strings.TrimPrefix(path, imageDirectory), string(filepath.Separator)) {
+		if strings.HasPrefix(part, ".") {
+			return "", errInvalidImage
+		}
 	}
 	if resolved, err := filepath.EvalSymlinks(path); err != nil || resolved != path {
 		return "", errInvalidImage

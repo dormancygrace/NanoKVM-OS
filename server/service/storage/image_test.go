@@ -156,6 +156,7 @@ func TestImageFileAcceptsOnlyListedImages(t *testing.T) {
 		filepath.Join(root, "dir.iso"),
 		filepath.Join(root, "missing.iso"),
 		root + "/../" + filepath.Base(outside) + "/secret.img",
+		filepath.Join(root, ".nanokvm", "user-disk.img"),
 		"/dev/mmcblk0",
 		"",
 	} {
@@ -197,7 +198,8 @@ func TestGetImagesListsOnlyMountableImages(t *testing.T) {
 
 // imageFixture points imageDirectory at a new directory with two images and
 // entries that are not mountable images: a text file, a symbolic link to an
-// image outside the directory and a directory with an image suffix.
+// image outside the directory, a directory with an image suffix, and the
+// user disk in its hidden directory.
 func imageFixture(t *testing.T) (root, outside string) {
 	t.Helper()
 	root = t.TempDir()
@@ -205,7 +207,7 @@ func imageFixture(t *testing.T) (root, outside string) {
 	imageDirectory = root
 	t.Cleanup(func() { imageDirectory = original })
 	outside = t.TempDir()
-	for _, name := range []string{"disk.iso", "sub/disk.IMG", "notes.txt"} {
+	for _, name := range []string{"disk.iso", "sub/disk.IMG", "notes.txt", ".nanokvm/user-disk.img"} {
 		path := filepath.Join(root, name)
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)

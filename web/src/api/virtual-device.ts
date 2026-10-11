@@ -19,7 +19,8 @@ export async function setUsbComposition(composition: UsbComposition, revision: s
     audio,
     mode,
     pointerProfile,
-    identity
+    identity,
+    userDisk
   } = composition;
   const response = await http.request({
     method: 'put',
@@ -35,8 +36,9 @@ export async function setUsbComposition(composition: UsbComposition, revision: s
       mode,
       pointerProfile,
       revision,
-      // omitted keeps the identity in place on the server
-      ...(identity ? { identity } : {})
+      // omitted keeps the identity and the user disk in place on the server
+      ...(identity ? { identity } : {}),
+      ...(userDisk === undefined ? {} : { userDisk })
     }
   });
   if (response.code === 0) window.dispatchEvent(new Event(usbCompositionChangedEvent));

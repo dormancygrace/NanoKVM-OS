@@ -12,6 +12,7 @@ import (
 
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/service/hid"
+	"NanoKVM-Server/service/storage"
 	"NanoKVM-Server/service/stream/audio"
 )
 
@@ -24,6 +25,9 @@ func (s usbComposition) validate() error {
 	}
 	if !s.fitsEndpointBudget() {
 		return errors.New("USB endpoint budget exceeded")
+	}
+	if s.userDisk && !s.disk {
+		return errors.New("the user disk needs the virtual disk")
 	}
 	return s.identity.validate()
 }
@@ -122,6 +126,13 @@ func verifyUSBCompositionAt(root string, s usbComposition) error {
 		linked("acm.GS0") != s.serial || linked("uac1.audio0") != s.audio || (linked("rndis.usb0") || linked("ncm.usb0")) != s.network {
 		return errors.New("USB functions do not match the requested composition")
 	}
+	if s.disk {
+		// the user disk is the third LUN of the storage function
+		_, err := os.Stat(filepath.Join(root, "functions/mass_storage.disk0/lun.2"))
+		if (err == nil) != s.userDisk {
+			return errors.New("the user disk LUN does not match the requested composition")
+		}
+	}
 	if s.windowsPointer {
 		descriptor, err := os.ReadFile(filepath.Join(root, "functions/hid.GS2/report_desc"))
 		if err != nil || len(descriptor) < 2 || descriptor[1] != 0x0d {
@@ -141,12 +152,24 @@ func verifyUSBCompositionAt(root string, s usbComposition) error {
 }
 
 // The boot files one apply may change, snapshotted and restored together.
-// The first ten are flags (present or absent); the identity files carry a
-// value and are absent for the default.
+// The first ten are flags (present or absent); the identity files and the
+// user disk marker carry a value and are absent when not in use.
 var usbCompositionFlags = []string{
 	"usb.rndis0", "usb.ncm", "usb.disk0", "usb.acm", "usb.audio", "disable_hid",
 	"usb.disable_keyboard", "usb.disable_relative", "usb.disable_absolute", "usb.pointer_windows",
-	"usb.vid", "usb.pid", "usb.manufacturer", "usb.product",
+	"usb.vid", "usb.pid", "usb.manufacturer", "usb.product", "usb.userdisk",
+}
+
+// contentFiles is what the value-bearing boot files should hold for a
+// composition: the identity files, and the user disk marker naming the image.
+func (s usbComposition) contentFiles() map[string]*string {
+	files := s.identity.files()
+	files["usb.userdisk"] = nil
+	if s.userDisk {
+		image := storage.UserDiskImagePath()
+		files["usb.userdisk"] = &image
+	}
+	return files
 }
 
 type usbFileSnapshot struct {
@@ -279,11 +302,11 @@ func (store usbCompositionStore) apply(current, candidate usbComposition) error 
 		"usb.disable_absolute": !candidate.absolute,
 		"usb.pointer_windows":  candidate.windowsPointer,
 	}
-	identity := candidate.identity.files()
+	contents := candidate.contentFiles()
 	for _, name := range usbCompositionFlags {
 		path := filepath.Join(store.bootDir, name)
-		if value, isIdentity := identity[name]; isIdentity {
-			// a value, compared by content; absent for the factory identity
+		if value, hasContent := contents[name]; hasContent {
+			// a value, compared by content; absent when not in use
 			want := usbFileSnapshot{}
 			if value != nil {
 				want = usbFileSnapshot{exists: true, mode: 0644, data: []byte(*value + "\n")}

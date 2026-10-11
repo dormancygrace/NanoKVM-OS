@@ -32,6 +32,17 @@ export function deleteImage(file: string) {
   return http.post('/api/storage/image/delete', data);
 }
 
+// The writable FAT32 user disk (a third LUN of the virtual storage).
+export function getUserDisk() {
+  return http.get('/api/storage/user-disk');
+}
+export function createUserDisk(sizeMiB: number) {
+  return http.post('/api/storage/user-disk/create', { sizeMiB });
+}
+export function deleteUserDisk() {
+  return http.post('/api/storage/user-disk/delete');
+}
+
 export function getRemoteMedia() {
   return http.get('/api/storage/remote');
 }

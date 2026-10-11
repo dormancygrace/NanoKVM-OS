@@ -20,4 +20,7 @@ func storageRouter(r *gin.Engine) {
 	api.POST("/storage/image/mount", service.MountImage)       // mount image
 	api.GET("/storage/cdrom", service.GetCdRom)                // get CD-ROM flag
 	api.POST("/storage/image/delete", service.DeleteImage)     // delete image
+	api.GET("/storage/user-disk", service.GetUserDisk)         // the writable FAT32 user disk
+	api.POST("/storage/user-disk/create", service.CreateUserDisk)
+	api.POST("/storage/user-disk/delete", service.DeleteUserDisk)
 }

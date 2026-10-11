@@ -1263,6 +1263,37 @@ const en = {
           idWarning:
             'A vendor or product ID other than the factory one is yours to answer for. Linux hosts set up with the serial console helper no longer match the NanoKVM (its udev rule names the IDs); the Windows pointer profile is unaffected.'
         },
+        userDisk: {
+          title: 'User disk',
+          description:
+            'A writable FAT32 drive the computer sees next to the virtual CD/disk: BIOS update files, profiles, logs. Stored on the SD card.',
+          needsDisk:
+            'Enable the virtual disk to get the user disk; it is a third drive of the same USB device.',
+          states: {
+            none: 'No image yet',
+            off: 'Image ready, drive off',
+            pending: 'On; appears on the computer once the USB devices reconnect',
+            attached: 'Attached to the computer'
+          },
+          create: 'Create',
+          recreate: 'Format anew',
+          recreateTitle: 'Format the user disk anew?',
+          recreateConfirm: 'Everything on it is erased.',
+          delete: 'Delete',
+          deleteTitle: 'Delete the user disk?',
+          deleteConfirm: 'The image and everything on it are removed from the SD card.',
+          enableTitle: 'Turn the user disk on?',
+          reconnect:
+            'The USB devices reconnect, so the computer loses and regains the NanoKVM drives for a moment.',
+          disableTitle: 'Turn the user disk off?',
+          ejectFirst:
+            'Eject the drive on the computer first, so nothing is left half-written; then the USB devices reconnect.',
+          created: 'User disk created',
+          turnOffFirst: 'Turn the user disk off first.',
+          failed: 'The user disk request failed.',
+          notice:
+            'Mounting or ejecting a CD/disk image reconnects the USB devices too; the computer sees the user disk again afterwards with what it wrote. The whole image is allocated on the SD card at creation, so the large sizes take a while.'
+        },
         serialConsole: {
           title: 'Headless Linux console',
           description:

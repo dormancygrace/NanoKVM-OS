@@ -15,6 +15,7 @@ import (
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/hid"
+	"NanoKVM-Server/service/storage"
 )
 
 const (
@@ -53,6 +54,8 @@ type usbComposition struct {
 	audio          bool
 	// the zero value is the default identity (usb_identity.go)
 	identity usbIdentity
+	// the writable FAT32 user disk as a third LUN of the virtual storage
+	userDisk bool
 }
 
 func (s *Service) GetVirtualDevice(c *gin.Context) {
@@ -78,7 +81,8 @@ func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 		PointerProfile: profile, WindowsPointerSupported: common.WindowsPointerSupported(),
 		Keyboard: s.keyboard, Relative: s.relative, Absolute: s.absolute,
 		Network: s.network, Disk: s.disk, Serial: s.serial, Audio: s.audio,
-		HID: s.keyboard || s.relative || s.absolute, Mode: s.mode,
+		UserDisk: s.userDisk,
+		HID:      s.keyboard || s.relative || s.absolute, Mode: s.mode,
 		Revision: s.revision(),
 		Budget:   proto.USBEndpointBudget{InUsed: inUsed, OutUsed: outUsed, InLimit: usbInEndpointLimit, OutLimit: usbOutEndpointLimit},
 		Costs:    usbEndpointCosts,
@@ -92,9 +96,9 @@ func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 
 func (s usbComposition) revision() string {
 	identity := s.identity.normalized()
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%t:%t:%t:%t:%t:%t:%t:%t:%s:%s:%s:%s",
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%t:%t:%t:%t:%t:%t:%t:%t:%s:%s:%s:%s:%t",
 		s.mode, s.keyboard, s.relative, s.absolute, s.network, s.disk, s.serial, s.audio, s.windowsPointer,
-		identity.VendorID, identity.ProductID, identity.Manufacturer, identity.Product))))
+		identity.VendorID, identity.ProductID, identity.Manufacturer, identity.Product, s.userDisk))))
 }
 
 func (s *Service) SetUSBComposition(c *gin.Context) {
@@ -125,6 +129,18 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 	// An older client sends no identity: it keeps the one in place.
 	if req.Identity == nil {
 		candidate.identity = current.identity
+	}
+	// The same for the user disk; it needs the disk function and an image.
+	candidate.userDisk = current.userDisk
+	if req.UserDisk != nil {
+		candidate.userDisk = *req.UserDisk
+	}
+	if candidate.userDisk && !candidate.disk {
+		candidate.userDisk = false
+	}
+	if candidate.userDisk && !storage.UserDiskExists() {
+		rsp.ErrRsp(c, -4, "create the user disk first")
+		return
 	}
 	if current.revision() != req.Revision {
 		rsp.ErrRsp(c, -5, "USB composition changed; refresh and try again")
@@ -255,7 +271,14 @@ func getUSBComposition() usbComposition {
 		serial:         deviceExists(virtualSerial),
 		audio:          mode != hid.ModeHidOnly && deviceExists(virtualAudio),
 		identity:       readUSBIdentity("/boot"),
+		userDisk:       diskEnabled && userDiskFlagged("/boot"),
 	}
+}
+
+// userDiskFlagged says whether /boot/usb.userdisk names the user disk image.
+func userDiskFlagged(bootDir string) bool {
+	data, err := os.ReadFile(filepath.Join(bootDir, "usb.userdisk"))
+	return err == nil && strings.TrimSpace(string(data)) == storage.UserDiskImagePath()
 }
 
 func (s usbComposition) endpointUsage() (int, int) {

@@ -2000,9 +2000,26 @@ int video_stream_dump(kvmv_data_t *dump_to, mmf_stream_t *dump_from, uint8_t cod
 
 void set_h264_gop(uint8_t _gop)
 {
-	kvm_venc.enc_video_init = 0;
-    kvmvenc_gop = maxmin_data(100, 1, (int)_gop);
-    debug("[kvmv] set_h264_gop = %d\n", kvmvenc_gop);
+	const uint8_t gop = maxmin_data(100, 1, (int)_gop);
+	if (gop == kvmvenc_gop) {
+		return;
+	}
+	// Retire the running encoder (the caller has paused capture). Clearing
+	// enc_video_init alone hid a frame that the previous read had already
+	// submitted (see submit_next_video_frame): the next read neither
+	// collected nor released it, and with the two NV21 VPSS buffers of a
+	// fast stream held, capture stalled until the server restarted.
+	if (kvm_venc.enc_video_init != 0) {
+		const int ret = mmf_del_venc_channel(kvm_venc.mmf_venc_chn);
+		if (ret == 0) {
+			kvm_venc.enc_video_init = 0;
+		} else {
+			// The read path retires it: the GOP no longer matches.
+			debug("[kvmv] VENC teardown for a GOP change failed: %#x\n", ret);
+		}
+	}
+	kvmvenc_gop = gop;
+	debug("[kvmv] set_h264_gop = %d\n", kvmvenc_gop);
 }
 
 int8_t set_h265_gop_mode(uint8_t _mode)

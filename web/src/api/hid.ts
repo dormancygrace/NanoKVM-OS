@@ -6,6 +6,19 @@ export function paste(content: string, langue: string) {
   return http.post('/api/hid/paste', { content, langue }, { headers: inputLeaseHeaders() });
 }
 
+// press a fixed key sequence on the host: Ctrl+Alt+Del, one SysRq key, REISUB
+export function sendKeySequence(
+  sequence: 'ctrl-alt-del' | 'sysrq' | 'reisub',
+  options: { key?: string; delayMs?: number } = {}
+) {
+  return http.post('/api/hid/sequence', { sequence, ...options }, { headers: inputLeaseHeaders() });
+}
+
+// the running key sequence (REISUB goes on after its request) and the last result
+export function getKeySequenceStatus() {
+  return http.get('/api/hid/sequence');
+}
+
 // reset hid
 export function reset() {
   return http.post('/api/hid/reset');

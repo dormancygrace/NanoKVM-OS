@@ -501,6 +501,46 @@ const en = {
       dropdownFrench: 'French',
       dropdownRussian: 'Russian',
       dropdownSpanish: 'Spanish',
+      sequences: {
+        title: 'Key sequences',
+        tips: 'Pressed by the NanoKVM with fixed timing; this tab must hold input control.',
+        send: 'Send',
+        sent: 'Sent',
+        failed: 'The key sequence failed',
+        notController: 'Another session holds input control',
+        ctrlAltDel: 'Secure attention: Windows lock screen, Linux console restart',
+        sysrq: {
+          title: 'Magic SysRq',
+          desc: 'Alt + SysRq + key on a Linux host; kernel.sysrq must allow the command.',
+          keys: {
+            h: 'help: list the commands on the console',
+            r: 'raw: take the keyboard back from X',
+            e: 'SIGTERM to all processes except init',
+            i: 'SIGKILL to all processes except init',
+            s: 'sync all filesystems',
+            u: 'remount all filesystems read-only',
+            b: 'reboot immediately',
+            o: 'power off',
+            k: 'secure attention key: kill the programs on the console',
+            f: 'run the OOM killer once',
+            c: 'crash: kernel panic (crash dump)',
+            t: 'list the tasks',
+            w: 'list the blocked tasks',
+            m: 'memory report',
+            l: 'backtrace of every CPU'
+          }
+        },
+        reisub: {
+          title: 'REISUB: clean restart of a hung Linux host',
+          desc: 'Alt + SysRq + R, E, I, S, U, B with a pause after each step; takes about five pauses.',
+          delay: 'Pause',
+          send: 'Restart the host',
+          running: 'Running, {{seconds}} s left',
+          confirmTitle: 'Restart the host with REISUB?',
+          confirm:
+            'Every process gets SIGTERM, then SIGKILL, filesystems are synced and remounted read-only, then the host reboots. {{seconds}} s between the steps.'
+        }
+      },
       shortcut: {
         title: 'Shortcuts',
         custom: 'Custom',

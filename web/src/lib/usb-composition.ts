@@ -12,6 +12,8 @@ export type UsbComposition = Record<UsbDevice, boolean> & {
   mode: 'normal' | 'hid-only';
   pointerProfile?: 'default' | 'windows';
   identity?: UsbIdentity;
+  // the writable FAT32 user disk, a third LUN of the virtual storage
+  userDisk?: boolean;
 };
 export type EndpointCost = { in: number; out: number };
 // What the connected computer sees in the device descriptor. The serial number
@@ -136,6 +138,7 @@ export function sameComposition(a: UsbComposition, b: UsbComposition) {
     a.mode === b.mode &&
     (a.pointerProfile ?? 'default') === (b.pointerProfile ?? 'default') &&
     sameIdentity(a.identity, b.identity) &&
+    Boolean(a.userDisk) === Boolean(b.userDisk) &&
     usbDevices.every((name) => a[name] === b[name])
   );
 }
@@ -147,7 +150,8 @@ export function matchingPreset(composition: UsbComposition) {
         {
           ...preset.composition,
           pointerProfile: composition.pointerProfile,
-          identity: composition.identity
+          identity: composition.identity,
+          userDisk: composition.userDisk
         },
         composition
       )

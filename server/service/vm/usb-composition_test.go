@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"NanoKVM-Server/service/hid"
+	"NanoKVM-Server/service/storage"
 )
 
 func TestCompositionTransaction(t *testing.T) {
@@ -266,6 +267,64 @@ func TestCompositionWritesAndRestoresIdentityFiles(t *testing.T) {
 	}
 }
 
+// The user disk marker names the image while the disk is on, goes away when
+// it is off, and needs the virtual disk; verification wants the third LUN
+// to match.
+func TestCompositionUserDiskMarkerAndLun(t *testing.T) {
+	dir := t.TempDir()
+	noop := usbCompositionStore{bootDir: dir, scriptPath: filepath.Join(dir, "S03usbdev"),
+		install: func(string) error { return nil },
+		run:     func(string) error { return nil },
+		verify:  func(usbComposition) error { return nil },
+	}
+	base := usbComposition{mode: hid.ModeNormal, keyboard: true, disk: true}
+	withDisk := base
+	withDisk.userDisk = true
+	if err := noop.apply(base, withDisk); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "usb.userdisk"))
+	if err != nil || strings.TrimSpace(string(data)) != storage.UserDiskImagePath() {
+		t.Fatalf("marker %q %v", data, err)
+	}
+	if !userDiskFlagged(dir) {
+		t.Fatal("the marker is not read back")
+	}
+	if err := noop.apply(withDisk, base); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "usb.userdisk")); !os.IsNotExist(err) {
+		t.Fatal("the marker stayed")
+	}
+	if (usbComposition{mode: hid.ModeNormal, keyboard: true, userDisk: true}).validate() == nil {
+		t.Fatal("a user disk without the virtual disk validated")
+	}
+	if base.revision() == withDisk.revision() {
+		t.Fatal("the user disk is not in the revision")
+	}
+
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, "configs/c.1"), 0755)
+	os.MkdirAll(filepath.Join(root, "functions/mass_storage.disk0"), 0755)
+	os.WriteFile(filepath.Join(root, "UDC"), []byte("4340000.usb\n"), 0644)
+	os.Symlink("../../functions/hid.GS0", filepath.Join(root, "configs/c.1/hid.GS0"))
+	os.Symlink("../../functions/mass_storage.disk0", filepath.Join(root, "configs/c.1/mass_storage.disk0"))
+	writeGadgetIdentity(t, root, defaultUSBIdentity)
+	if err := verifyUSBCompositionAt(root, base); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyUSBCompositionAt(root, withDisk); err == nil {
+		t.Fatal("no lun.2, yet the user disk verified")
+	}
+	os.MkdirAll(filepath.Join(root, "functions/mass_storage.disk0/lun.2"), 0755)
+	if err := verifyUSBCompositionAt(root, withDisk); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyUSBCompositionAt(root, base); err == nil {
+		t.Fatal("lun.2 present, yet no user disk verified")
+	}
+}
+
 func TestEmptyCompositionRequiresUnboundController(t *testing.T) {
 	root := t.TempDir()
 	empty := usbComposition{mode: hid.ModeNormal}
@@ -325,5 +384,25 @@ func TestCompositionPreservesAlpineScriptLink(t *testing.T) {
 				t.Fatalf("wrong script: %q %v", got, err)
 			}
 		})
+	}
+}
+
+func TestApplyRefusesTheUserDiskWhileTheImageIsBeingMade(t *testing.T) {
+	unlock, err := storage.LockUserDiskForComposition()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Stands in for a create or delete holding the lock.
+	defer unlock()
+	current := usbComposition{mode: hid.ModeNormal, keyboard: true, disk: true}
+	for _, candidate := range []usbComposition{
+		{mode: hid.ModeNormal, keyboard: true, disk: true, userDisk: true},
+	} {
+		if err := applyLiveUSBComposition(nil, current, candidate); !errors.Is(err, storage.ErrUserDiskBusy) {
+			t.Fatalf("attach during a format: %v", err)
+		}
+		if err := applyLiveUSBComposition(nil, candidate, current); !errors.Is(err, storage.ErrUserDiskBusy) {
+			t.Fatalf("detach during a format: %v", err)
+		}
 	}
 }

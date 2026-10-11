@@ -83,6 +83,8 @@ type GetVirtualDeviceRsp struct {
 	Budget                  USBEndpointBudget          `json:"budget"`
 	Costs                   map[string]USBEndpointCost `json:"costs"`
 	Identity                USBIdentity                `json:"identity"`
+	// the writable FAT32 user disk, a third LUN of the virtual storage
+	UserDisk bool `json:"userDisk"`
 }
 
 // USBIdentity is what the connected computer sees in the device descriptor.
@@ -168,6 +170,8 @@ type SetUSBCompositionReq struct {
 	Revision       string `json:"revision" validate:"required"`
 	// nil keeps the identity in place (older clients send none)
 	Identity *USBIdentityReq `json:"identity"`
+	// nil keeps the user disk as it is; true needs the disk function and an image
+	UserDisk *bool `json:"userDisk"`
 }
 
 type UpdateVirtualDeviceRsp struct {

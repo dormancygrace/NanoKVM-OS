@@ -24,6 +24,7 @@ import { MouseJiggler } from '../device/mouse-jiggler';
 import { UsbIdentitySection } from './identity';
 import { UsbInternet } from './internet';
 import { SerialConsole } from './serial-console';
+import { UserDisk } from './user-disk';
 
 const previousCompositionKey = 'nanokvm.usb.previous-composition';
 function readPreviousComposition(): UsbComposition | undefined {
@@ -158,7 +159,15 @@ export const Usb = () => {
         adopt(normalizeUsbStatus(rsp.data));
       } else {
         adopt(await fetchStatus());
-        const reason = t(rsp.code === -5 ? 'settings.usb.changed' : 'settings.usb.updateFailed');
+        const reason = t(
+          rsp.code === -5
+            ? 'settings.usb.changed'
+            : rsp.code === -6
+              ? 'settings.usb.userDisk.busy'
+              : rsp.code === -4 && requested.userDisk
+                ? 'settings.usb.userDisk.missing'
+                : 'settings.usb.updateFailed'
+        );
         setError(reason);
         message.error(reason);
       }
@@ -387,6 +396,14 @@ export const Usb = () => {
             </div>
             <p className="text-fg-muted m-0 text-xs">{t('settings.usb.reconnectNotice')}</p>
           </div>
+          {status && (
+            <UserDisk
+              disk={Boolean(status.disk)}
+              enabled={Boolean(status.userDisk)}
+              busy={loading}
+              onToggle={(next) => saveComposition({ ...status, userDisk: next })}
+            />
+          )}
           <SerialConsole serial={Boolean(status?.serial)} disk={Boolean(status?.disk)} />
           {(status?.relative || status?.absolute) && <MouseJiggler />}
         </>

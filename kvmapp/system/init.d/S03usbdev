@@ -236,9 +236,44 @@ start_usb_dev(){
                     echo '' > functions/mass_storage.disk0/lun.1/file
                     rmdir functions/mass_storage.disk0/lun.1
             fi
+            # The user disk: a writable FAT32 image on the data partition
+            # (BIOS updates, profiles), a third LUN while /boot/usb.userdisk
+            # names an existing image. Same rule: added or removed only
+            # before the link.
+            # Only the image the server makes: the marker must not be able
+            # to put any file on the card on a writable USB drive.
+            _userdisk=
+            if [ -s /boot/usb.userdisk ]
+            then
+                    _userdisk=$(head -n 1 /boot/usb.userdisk)
+                    if [ "$_userdisk" != /data/.nanokvm/user-disk.img ] || [ ! -f "$_userdisk" ]
+                    then
+                            _userdisk=
+                    fi
+            fi
+            if [ -n "$_userdisk" ]
+            then
+                    mkdir -p functions/mass_storage.disk0/lun.2
+            elif [ -d functions/mass_storage.disk0/lun.2 ]
+            then
+                    echo '' > functions/mass_storage.disk0/lun.2/file
+                    rmdir functions/mass_storage.disk0/lun.2
+            fi
             ln -s functions/mass_storage.disk0 configs/c.1/
+            if [ -d functions/mass_storage.disk0/lun.2 ]
+            then
+                    # ro and cdrom are refused (EBUSY) while a file is set:
+                    # a LUN kept from the previous start still has one
+                    echo '' > functions/mass_storage.disk0/lun.2/file 2>/dev/null
+                    echo 1 > functions/mass_storage.disk0/lun.2/removable
+                    echo 0 > functions/mass_storage.disk0/lun.2/ro
+                    echo 0 > functions/mass_storage.disk0/lun.2/cdrom
+                    echo "NanoKVM User Disk" > functions/mass_storage.disk0/lun.2/inquiry_string
+                    echo "$_userdisk" > functions/mass_storage.disk0/lun.2/file
+            fi
             if [ -d functions/mass_storage.disk0/lun.1 ]
             then
+                    echo '' > functions/mass_storage.disk0/lun.1/file 2>/dev/null
                     echo 1 > functions/mass_storage.disk0/lun.1/removable
                     echo 1 > functions/mass_storage.disk0/lun.1/ro
                     echo 0 > functions/mass_storage.disk0/lun.1/cdrom

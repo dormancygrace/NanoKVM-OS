@@ -61,9 +61,30 @@ other than the factory one stops the serial console helper's udev rule on
 Linux hosts from matching (it names the IDs); the Windows pointer profile's
 ContainerID is a separate UUID and is unaffected.
 
+### User disk
+
+**User disk**, a card below the composition: a writable FAT32 image on the
+data partition (`/data/.nanokvm/user-disk.img`, label `NKVMDATA`) that the
+computer sees as a third drive of the virtual storage device, for BIOS update
+files, profiles and logs. Create it at one of the offered sizes (64 MiB to
+4 GiB; the whole image is allocated on the card at once, the data partition
+is exFAT; BusyBox `mkfs.vfat -F 32 -s 1|8` lays it out as FAT32 with one
+512-byte sector per cluster up to 256 MiB and 4 KiB clusters from 512 MiB,
+checked on the device at 64, 256, 512 and 1024 MiB), then turn it on: that is a composition change
+(`/boot/usb.userdisk` names the image, `S03usbdev` adds `lun.2`, removable,
+writable, inquiry string "NanoKVM User Disk"), so the USB devices reconnect.
+Formatting anew and deleting are refused while the disk is on. It needs the
+virtual disk function (it is another LUN of the same function, so it costs
+no endpoints), and the Images menu never lists it: hidden directories under
+`/data` are the device's own. Mounting or ejecting a CD/disk image rebinds
+the gadget too, so the computer loses and regains the user disk for a
+moment; what it wrote is on the image, which the NanoKVM does not touch
+while the disk is on.
+
 The admin-only `PUT /api/vm/device/virtual` requires all seven explicit boolean
 fields, `mode` (`normal` or `hid-only`) and the `revision` returned by GET; an
-optional `identity` object (`vendorId`, `productId`, `manufacturer`,
+optional `userDisk` boolean turns the user disk on or off (omitted keeps it; on
+needs the virtual disk and an existing image); an optional `identity` object (`vendorId`, `productId`, `manufacturer`,
 `product`; an empty field is the factory value) sets the identity, and a
 request without it keeps the one in place. IDs are `0x0001`–`0xffff`, names
 1–126 printable ASCII characters. GET reports the identity with the serial
@@ -72,10 +93,11 @@ Missing fields, invalid budgets, empty drafts and stale revisions are rejected
 before changing flags. Revision comparison and application hold both HID locks.
 The legacy POST toggle endpoint remains available for older clients.
 
-Application snapshots the ten boot flags, the four identity files and the
-installed profile, performs one stop/start, checks the bound controller, the
-selected configfs links and the identity the gadget presents, and restores the
-previous files and composition on failure. Existing disk-image paths and NCM
+Application snapshots the ten boot flags, the four identity files, the user
+disk marker and the installed profile, performs one stop/start, checks the
+bound controller, the selected configfs links, the third LUN and the identity
+the gadget presents, and restores the previous files and composition on
+failure. Existing disk-image paths and NCM
 selection are preserved when those functions remain enabled. Unchanged drafts
 do not rebind. This is runtime failure recovery, not a power-loss-atomic
 transaction across multiple files. A lost HTTP response is read back rather than

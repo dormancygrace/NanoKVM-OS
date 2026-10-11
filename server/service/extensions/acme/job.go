@@ -94,12 +94,13 @@ func baseArgs() []string {
 	return []string{"--home", binDir(), "--config-home", dataDir(), "--log", filepath.Join(dataDir(), logName)}
 }
 
-// command runs acme.sh with an explicit environment: only PATH, HOME and the
-// acme.sh directories plus the provider variables, under umask 077 so the
-// files it creates are private.
+// command runs the installed acme.sh directly (no shell between: every
+// value is one argv entry) with an explicit environment: only PATH, HOME and
+// the acme.sh directories plus the provider variables. What it writes stays
+// private through the directories: data/ and the TLS directory are 0700,
+// and acme.sh makes account.conf and the keys 0600 itself.
 func command(ctx context.Context, env []string, args ...string) *exec.Cmd {
-	full := append([]string{"-c", `umask 077; exec "$0" "$@"`, script()}, args...)
-	cmd := exec.CommandContext(ctx, "sh", full...)
+	cmd := exec.CommandContext(ctx, script(), args...)
 	cmd.Dir = dataDir()
 	cmd.Env = append([]string{
 		"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
@@ -132,13 +133,15 @@ func startJob(action string, env, secrets []string, steps []step, after func(j *
 
 	go func() {
 		result := runSteps(job, env, secrets, steps)
+		// The follow-up (serving the new pair) belongs to the job: the
+		// page sees it finished only once the certificate is in use.
+		if after != nil {
+			after(result)
+		}
 		jobMu.Lock()
 		lastJob = result
 		jobActive = false
 		jobMu.Unlock()
-		if after != nil {
-			after(result)
-		}
 	}()
 	return nil
 }
@@ -173,6 +176,9 @@ func runSteps(job *Job, env, secrets []string, steps []step) *Job {
 }
 
 func runStep(ctx context.Context, out *tailBuffer, env []string, st step) (int, error) {
+	if err := ensurePrivateDirs(); err != nil {
+		return -1, err
+	}
 	cmd := command(ctx, env, append(baseArgs(), st.args...)...)
 	cmd.Stdout, cmd.Stderr = out, out
 	err := cmd.Run()
@@ -215,10 +221,27 @@ func itoa(i int) string {
 	return b.String()
 }
 
+// ensurePrivateDirs keeps data/ and the TLS directory 0700, also when they
+// exist from an earlier version with a wider mode.
+func ensurePrivateDirs() error {
+	for _, dir := range []string{dataDir(), certDir()} {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return err
+		}
+		if err := os.Chmod(dir, 0o700); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // runSync runs one short acme.sh command in the foreground (remove).
 func runSync(env []string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
+	if err := ensurePrivateDirs(); err != nil {
+		return "", err
+	}
 	cmd := command(ctx, env, append(baseArgs(), args...)...)
 	out := &tailBuffer{}
 	cmd.Stdout, cmd.Stderr = out, out

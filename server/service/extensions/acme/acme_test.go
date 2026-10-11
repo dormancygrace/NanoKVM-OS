@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -347,7 +348,9 @@ func fakeAcme(t *testing.T, exitCode string) (argsFile, envFile string) {
 		"printf -- '----\\n' >> '" + argsFile + "'\n" +
 		"env | sort > '" + envFile + "'\n" +
 		"echo \"running with token=$CF_Token\"\n" +
-		"umask > '" + filepath.Join(root, "umask.txt") + "'\n" +
+		"ps -o comm= -p $$ > '" + filepath.Join(root, "comm.txt") + "' 2>/dev/null || true\n" +
+		"stat -c %a '" + dataDir() + "' > '" + filepath.Join(root, "datamode.txt") + "'\n" +
+		"stat -c %a \"$(dirname '" + certFile + "')\" > '" + filepath.Join(root, "certmode.txt") + "'\n" +
 		"full=''; key=''\n" +
 		"while [ $# -gt 0 ]; do case \"$1\" in --fullchain-file) full=$2; shift;; --key-file) key=$2; shift;; esac; shift; done\n" +
 		"if [ -n \"$full\" ]; then mkdir -p \"$(dirname \"$full\")\"; printf '%s' '" + string(certPEM) + "' > \"$full\"; printf '%s' '" + string(keyPEM) + "' > \"$key\"; fi\n" +
@@ -386,8 +389,22 @@ func stubConfig(t *testing.T, proto string) (*config.Config, *utils.CertificateS
 	conf := &config.Config{Proto: proto, Port: config.Port{Http: 80, Https: 443}, Cert: config.Cert{Crt: defaultCertFile, Key: defaultKeyFile}}
 	store := &utils.CertificateStore{}
 	origRead, origUpdate, origStore := readConfig, updateTLS, serverCertificate
-	readConfig = func() (*config.Config, error) { c := *conf; return &c, nil }
-	updateTLS = func(p string, cert config.Cert) error { conf.Proto, conf.Cert = p, cert; return nil }
+	// The real configuration is a file replaced atomically; the in-memory
+	// stand-in needs a lock for the handler and the job reading and writing
+	// it at the same time.
+	var mu sync.Mutex
+	readConfig = func() (*config.Config, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		c := *conf
+		return &c, nil
+	}
+	updateTLS = func(p string, cert config.Cert) error {
+		mu.Lock()
+		defer mu.Unlock()
+		conf.Proto, conf.Cert = p, cert
+		return nil
+	}
 	serverCertificate = func() *utils.CertificateStore { return store }
 	t.Cleanup(func() {
 		readConfig, updateTLS, serverCertificate = origRead, origUpdate, origStore
@@ -479,8 +496,14 @@ func TestIssueRunsAcmeInstallsThePairAndServesIt(t *testing.T) {
 	if !strings.Contains(string(env), "CF_Token=tok-secret-123") || !strings.Contains(string(env), "LE_CONFIG_HOME="+dataDir()) || strings.Contains(string(env), "GOPATH") {
 		t.Fatalf("environment:\n%s", env)
 	}
-	if umask, _ := os.ReadFile(filepath.Join(root, "umask.txt")); strings.TrimSpace(string(umask)) != "0077" {
-		t.Fatalf("umask = %q", umask)
+	for _, name := range []string{"datamode.txt", "certmode.txt"} {
+		if mode, _ := os.ReadFile(filepath.Join(root, name)); strings.TrimSpace(string(mode)) != "700" {
+			t.Fatalf("%s = %q", name, mode)
+		}
+	}
+	cmd := command(context.Background(), nil, "--version")
+	if cmd.Path != script() || len(cmd.Args) != 2 || cmd.Args[1] != "--version" {
+		t.Fatalf("acme.sh not run directly: %q %q", cmd.Path, cmd.Args)
 	}
 	if conf.Cert.Crt != certFile || conf.Cert.Key != keyFile || conf.Proto != "https" {
 		t.Fatalf("configuration = %+v", conf)

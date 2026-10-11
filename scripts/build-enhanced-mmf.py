@@ -20,7 +20,7 @@ sensor = Path(os.environ['NANOKVM_SENSOR_SOURCE']).resolve()
 inih = Path(os.environ['NANOKVM_INIH_SOURCE']).resolve()
 output = Path(os.environ['NANOKVM_MMF_OUTPUT']).resolve()
 cross = str(Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve() / 'host/bin/riscv64-buildroot-linux-musl-')
-profile = os.environ.get('NANOKVM_MMF_PROFILE', 'full')
+profile = os.environ.get('NANOKVM_MMF_PROFILE', 'hdmi-light')
 if profile not in ('full', 'hdmi-light'):
     raise SystemExit('Unknown NANOKVM_MMF_PROFILE: ' + profile)
 # platform/build.sh checks the source trees against platform/sources.lock.
@@ -32,9 +32,10 @@ includes = [mpi / 'include', mpi / 'include/isp/cv181x', mpi / 'sample/common',
 flags = ['-Wall', '-Wextra', '-Werror', '-fPIC', '-ffunction-sections', '-fdata-sections',
          *cpu_flags(),
          '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_ENHANCED', '-DSENSOR_LONTIUM_LT6911']
+# GCC uses the last matching map: specific inputs override the enclosing checkout.
 flags += [f'-ffile-prefix-map={src}={name}' for src, name in [
-    (mpi, './cvi_mpi'), (sensor, './sensor-support'), (inih, './inih'),
     (repo, './nanokvm-os'),
+    (mpi, './cvi_mpi'), (sensor, './sensor-support'), (inih, './inih'),
     (Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve(), './toolchain')]]
 flags += ['-DSENSOR' + str(i) + '_TYPE=LONTIUM_LT6911_2M_60FPS_8BIT' for i in range(3)]
 flags += ['-I' + str(path) for path in includes]

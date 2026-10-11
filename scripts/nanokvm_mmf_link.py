@@ -1,4 +1,4 @@
-"""Opt-in compact linkage of the existing LT6911 MMF source set.
+"""Compact linkage of the existing LT6911 MMF source set.
 
 Open MPI is linked from archives and localized. Vendor GCC10 ISP algorithms
 remain shared: their legacy vector attributes cannot be merged with GCC16

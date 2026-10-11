@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Build a separate experimental media bundle; never install or edit a device.
+"""Build the complete HDMI-light media bundle; never install or edit a device.
 
 Requires prepared NANOKVM_MPI_SOURCE, NANOKVM_SENSOR_SOURCE,
 NANOKVM_INIH_SOURCE, NANOKVM_BUILDROOT_OUTPUT and an empty or new
 NANOKVM_HDMI_LIGHT_OUTPUT directory. NANOKVM_MPI_THIRDPARTY_OUTPUT supplies
 the prepared BIN build's json-c/miniz license notices. Production builds
-retain the full profile.
+use this same six-library bundle.
 """
 from pathlib import Path
 import hashlib
@@ -57,9 +57,9 @@ manifest = {
                      'sha256': hashlib.sha256(p.read_bytes()).hexdigest()}
               for p in sorted(bundle.glob('*.so'))},
     'elf_dependencies': closure,
-    'note': 'Experimental complete media set, not an overlay for a running process. '
+    'note': 'Complete HDMI-light media set, not an overlay for a running process. '
             'No algorithm removal, ISA rewriting, RTOS dependency or device installation.',
 }
 manifest['total_bytes'] = sum(p['bytes'] for p in manifest['files'].values())
 (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-print('Experimental media bundle:', manifest['total_bytes'], 'bytes; hardware qualification pending.')
+print('HDMI-light media bundle:', manifest['total_bytes'], 'bytes; hardware qualification is separate.')

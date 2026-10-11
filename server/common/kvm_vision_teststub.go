@@ -43,6 +43,8 @@ func (k *KvmVision) HasHDMISignal() bool {
 
 func (k *KvmVision) SetGop(uint8) {}
 
+func (k *KvmVision) SetGOPMode(uint8) int { return 0 }
+
 func (k *KvmVision) SetFrameDetect(uint8) {}
 
 func (k *KvmVision) Close() {}

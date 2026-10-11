@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
 
@@ -90,14 +91,16 @@ func TestStreamTypePersistsCodecForOLED(t *testing.T) {
 
 func TestGOPModePendingTracksActiveMode(t *testing.T) {
 	oldFile := screenFileMap["gop_mode"]
-	oldReader := readActiveGOPMode
+	oldReader, oldApply := readActiveGOPMode, applyGOPMode
 	oldMode := common.GetScreen().GOPMode
 	temp := t.TempDir()
 	screenFileMap["gop_mode"] = filepath.Join(temp, "gop_mode")
+	// The native switch fails here, so the saved mode waits for a restart.
 	readActiveGOPMode = func() uint8 { return common.GOPModeSmartP }
+	applyGOPMode = func(uint8) int { return -1 }
 	defer func() {
 		screenFileMap["gop_mode"] = oldFile
-		readActiveGOPMode = oldReader
+		readActiveGOPMode, applyGOPMode = oldReader, oldApply
 		common.SetScreen("gop_mode", int(oldMode))
 	}()
 
@@ -153,6 +156,51 @@ func TestGOPModePendingTracksActiveMode(t *testing.T) {
 	repeated := setMode(common.GOPModeSmartP)
 	if repeated.Data.GOPModeRestartRequired {
 		t.Fatalf("rewriting the active mode created a false pending state: %+v", repeated.Data)
+	}
+}
+
+func TestGOPModeSwitchesAtRunTime(t *testing.T) {
+	oldFile := screenFileMap["gop_mode"]
+	oldReader, oldApply := readActiveGOPMode, applyGOPMode
+	oldMode := common.GetScreen().GOPMode
+	screenFileMap["gop_mode"] = filepath.Join(t.TempDir(), "gop_mode")
+	active := common.GOPModeSmartP
+	var applied []uint8
+	readActiveGOPMode = func() uint8 { return active }
+	applyGOPMode = func(mode uint8) int { applied = append(applied, mode); active = mode; return 0 }
+	defer func() {
+		screenFileMap["gop_mode"] = oldFile
+		readActiveGOPMode, applyGOPMode = oldReader, oldApply
+		common.SetScreen("gop_mode", int(oldMode))
+	}()
+
+	for _, mode := range []uint8{common.GOPModeNormalP, common.GOPModeSmartP} {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		body := fmt.Sprintf(`{"type":"gop_mode","value":%d}`, mode)
+		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		setScreenAs(c, authn.RoleAdmin)
+		var result struct {
+			Code int `json:"code"`
+			Data struct {
+				GOPMode                uint8 `json:"gopMode"`
+				GOPModeActive          uint8 `json:"gopModeActive"`
+				GOPModeRestartRequired bool  `json:"gopModeRestartRequired"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code != 0 {
+			t.Fatalf("response %s, error %v", recorder.Body.String(), err)
+		}
+		if result.Data.GOPModeRestartRequired || result.Data.GOPModeActive != mode || result.Data.GOPMode != mode {
+			t.Fatalf("mode %d was not applied at run time: %+v", mode, result.Data)
+		}
+		if value, err := os.ReadFile(screenFileMap["gop_mode"]); err != nil || string(value) != strconv.Itoa(int(mode)) {
+			t.Fatalf("saved mode %q, error %v", value, err)
+		}
+	}
+	if len(applied) != 2 || applied[0] != common.GOPModeNormalP || applied[1] != common.GOPModeSmartP {
+		t.Fatalf("native switch calls %v", applied)
 	}
 }
 

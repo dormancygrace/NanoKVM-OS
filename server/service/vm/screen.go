@@ -27,6 +27,7 @@ var screenFileMap = map[string]string{
 }
 
 var readActiveGOPMode = common.GetActiveGOPMode
+var applyGOPMode = func(mode uint8) int { return common.GetKvmVision().SetGOPMode(mode) }
 var mjpegChromaMutex sync.Mutex
 var readMjpegChromaStatus = common.GetMjpegChromaStatus
 var applyMjpegChroma = func(value uint16) int { return common.GetKvmVision().SetMjpegChroma(value) }
@@ -251,8 +252,15 @@ func applyScreenSetting(req proto.SetScreenReq) (gin.H, *settingError) {
 			return nil, settingFailure(-4, err.Error())
 		}
 		return nil, nil
-	case "resolution", "fps", "gop_mode", "quality":
+	case "resolution", "fps", "quality":
 		err = writeScreen(req.Type, strconv.Itoa(req.Value))
+	case "gop_mode":
+		if err = writeScreen(req.Type, strconv.Itoa(req.Value)); err == nil {
+			if result := applyGOPMode(uint8(req.Value)); result != 0 {
+				// Saved: the encoder takes it at the next server start.
+				log.Warnf("failed to switch the H.265 GOP mode to %d at run time: %d", req.Value, result)
+			}
+		}
 	case "type":
 		err = writeScreen("type", []string{"mjpeg", "h264", "h265"}[req.Value])
 	case "gop":

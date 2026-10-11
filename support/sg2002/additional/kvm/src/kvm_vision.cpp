@@ -2010,9 +2010,19 @@ int8_t set_h265_gop_mode(uint8_t _mode)
 	if (_mode != MMF_VENC_GOP_NORMALP && _mode != MMF_VENC_GOP_SMARTP) {
 		return -1;
 	}
-	if (_mode != kvmvenc_gop_mode && kvm_venc.enc_video_init != 0) {
-		debug("[kvmv] H.265 GOP mode change requires a process restart\n");
-		return -1;
+	if (_mode == kvmvenc_gop_mode) {
+		return 0;
+	}
+	// The GOP mode is fixed when the channel is created. Retire the running
+	// encoder (the caller has paused capture, as for set_h264_gop); the next
+	// video read creates it again in the new mode and starts with an IDR.
+	if (kvm_venc.enc_video_init != 0) {
+		const int ret = mmf_del_venc_channel(kvm_venc.mmf_venc_chn);
+		if (ret != 0) {
+			debug("[kvmv] VENC teardown for a GOP mode change failed: %#x\n", ret);
+			return -1;
+		}
+		kvm_venc.enc_video_init = 0;
 	}
 	if (mmf_set_venc_gop_mode(_mode) != 0) {
 		debug("[kvmv] MMF refused H.265 GOP mode change\n");

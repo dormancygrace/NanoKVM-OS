@@ -78,8 +78,8 @@ func GetKvmVision() *KvmVision {
 }
 
 // GetActiveGOPMode reports the mode accepted by the native capture stack.
-// It intentionally does not return the saved Screen preference: their
-// difference is what tells the UI that a restart is still required.
+// It intentionally does not return the saved Screen preference: they differ
+// only when SetGOPMode failed, and then a restart applies the saved mode.
 func GetActiveGOPMode() uint8 {
 	return uint8(C.get_h265_gop_mode())
 }
@@ -237,6 +237,20 @@ func (k *KvmVision) SetGop(gop uint8) {
 
 	_gop := C.uint8_t(gop)
 	C.set_h264_gop(_gop)
+}
+
+// SetGOPMode switches the H.265 GOP mode at run time: the native side
+// retires the running encoder, and the next video read creates it in the new
+// mode, starting with an IDR.
+func (k *KvmVision) SetGOPMode(mode uint8) int {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+	if k.closed {
+		return -1
+	}
+	defer k.pauseCaptureLocked()()
+
+	return int(C.set_h265_gop_mode(C.uint8_t(mode)))
 }
 
 func (k *KvmVision) SetFrameDetect(frame uint8) {

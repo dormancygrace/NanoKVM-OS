@@ -1,6 +1,30 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canToggleDevice, endpointUsage, fitsBudget, matchingPreset, sameComposition, setCompatibilityProfile, toggleDevice, usbDevices, usbPresets } from '../src/lib/usb-composition.ts';
+import { canToggleDevice, defaultUsbIdentity, endpointUsage, fitsBudget, identityProblem, matchingIdentityPreset, matchingPreset, normalizeUsbId, sameComposition, sameIdentity, setCompatibilityProfile, toggleDevice, usbDevices, usbIdentityPresets, usbPresets } from '../src/lib/usb-composition.ts';
+
+test('the identity is part of the composition and has its own presets', () => {
+  const kvm = usbPresets[0].composition;
+  // a server without an identity field, and one at the factory identity, are the same preset
+  assert.equal(matchingPreset({ ...kvm, identity: defaultUsbIdentity }), 'kvm');
+  assert.equal(sameComposition(kvm, { ...kvm, identity: { ...defaultUsbIdentity, vendorId: '0X3346' } }), true);
+  const generic = usbIdentityPresets.find((item) => item.id === 'generic').identity;
+  assert.equal(sameComposition(kvm, { ...kvm, identity: generic }), false);
+  assert.equal(matchingPreset({ ...kvm, identity: generic }), 'kvm', 'the composition preset ignores the identity');
+  assert.equal(matchingIdentityPreset(undefined), 'nanokvm');
+  assert.equal(matchingIdentityPreset(generic), 'generic');
+  assert.equal(matchingIdentityPreset({ ...generic, vendorId: '0x046d' }), 'custom');
+  // no preset carries another vendor's ID
+  for (const { identity } of usbIdentityPresets) assert.equal(identity.vendorId, '0x3346');
+  assert.equal(normalizeUsbId(' 0X46D '), '0x046d');
+  assert.equal(sameIdentity({ ...generic, productId: '0x1009' }, { ...generic, productId: '0X1009' }), true);
+  assert.equal(identityProblem(generic), undefined);
+  assert.equal(identityProblem({ ...generic, vendorId: '046d' }), 'id');
+  assert.equal(identityProblem({ ...generic, productId: '0x0000' }), 'id');
+  assert.equal(identityProblem({ ...generic, product: '' }), 'string');
+  assert.equal(identityProblem({ ...generic, product: ' padded' }), 'string');
+  assert.equal(identityProblem({ ...generic, manufacturer: 'ünïcode' }), 'string');
+  assert.equal(identityProblem({ ...generic, manufacturer: 'x'.repeat(127) }), 'string');
+});
 
 const status = {
   budget: { inLimit: 6, outLimit: 7 },

@@ -1279,6 +1279,30 @@ const en = {
         reconnectFailed: 'Connection interrupted. Reconnect to NanoKVM and refresh its status.',
         serverUpdateRequired: 'Update the NanoKVM server to apply complete compositions.',
         reconnectNotice: 'Applying briefly reconnects the USB devices.',
+        identity: {
+          title: 'USB identity',
+          description:
+            'What the computer sees in the device descriptor: vendor and product IDs, manufacturer and product names. For hosts whose USB policy or endpoint security objects to "NanoKVM".',
+          presets: {
+            nanokvm: 'NanoKVM (factory)',
+            generic: 'Generic composite device (names only)',
+            custom: 'Custom'
+          },
+          fields: {
+            vendorId: 'Vendor ID',
+            productId: 'Product ID',
+            manufacturer: 'Manufacturer',
+            product: 'Product',
+            serialNumber: 'Serial number (chip UID, fixed)'
+          },
+          invalid: {
+            id: 'IDs are four hexadecimal digits like 0x1234, not 0x0000.',
+            string:
+              'Names are 1 to 126 printable ASCII characters without leading or trailing spaces.'
+          },
+          idWarning:
+            'A vendor or product ID other than the factory one is yours to answer for. Linux hosts set up with the serial console helper no longer match the NanoKVM (its udev rule names the IDs); the Windows pointer profile is unaffected.'
+        },
         serialConsole: {
           title: 'Headless Linux console',
           description:

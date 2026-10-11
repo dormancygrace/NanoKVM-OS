@@ -2095,14 +2095,9 @@ int mmf_set_venc_gop_mode(uint8_t mode)
 	if (mode != MMF_VENC_GOP_NORMALP && mode != MMF_VENC_GOP_SMARTP) {
 		return -1;
 	}
-	if (mode == venc_gop_mode) {
-		return 0;
-	}
-	for (int ch = 0; ch < MMF_VENC_MAX_CHN; ++ch) {
-		if (priv.venc[ch].is_used) {
-			return -1;
-		}
-	}
+	// Read when an H.265 channel is created; a running channel keeps the
+	// mode it was created with until it is deleted. libkvm sets it right
+	// before it creates the video channel; the MJPEG channel may exist.
 	venc_gop_mode = mode;
 	return 0;
 }

@@ -38,7 +38,6 @@ export const defaultApplyDeps: ApplyDeps = {
 export type ApplyResult = {
   // Shared settings were saved; null when only this browser changed.
   capabilities: VideoCapabilities | null;
-  gopModeRestartRequired: boolean;
   monitorRewritten: boolean;
   reloading: boolean;
 };
@@ -62,7 +61,6 @@ export async function applyVideoDraft(
   const changes = draftChanges(saved, draft, caps);
   const result: ApplyResult = {
     capabilities: null,
-    gopModeRestartRequired: false,
     monitorRewritten: false,
     reloading: false
   };
@@ -73,7 +71,6 @@ export async function applyVideoDraft(
       if (rsp.code !== 0) throw new Error(rsp.msg || 'video-settings-failed');
       result.capabilities = rsp.data ?? null;
       result.monitorRewritten = changes.monitorRewrite;
-      result.gopModeRestartRequired = 'gopMode' in body;
     }
     if (draft.frameDetect !== saved.frameDetect) {
       const rsp = await deps.updateFrameDetect(draft.frameDetect);

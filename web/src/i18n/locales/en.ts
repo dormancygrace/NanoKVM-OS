@@ -317,9 +317,9 @@ const en = {
       advanced: 'Advanced and recovery',
       gopMode: 'H.265 GOP mode',
       gopModeHint:
-        'NormalP uses less video memory. SmartP can reduce traffic on static scenes but keeps an additional background-reference frame. The saved selection takes effect after a device reboot.',
-      gopModeRebootRequired: 'GOP mode saved. Reboot the device to apply it.',
-      gopModePendingReboot: 'A saved H.265 GOP mode change is waiting for a device reboot.',
+        'NormalP uses less video memory. SmartP can reduce traffic on static scenes but keeps an additional background-reference frame. Changing it restarts the encoder; the picture continues from the next keyframe.',
+      gopModePendingReboot:
+        'The saved H.265 GOP mode could not be applied while running; it takes effect after a device reboot.',
       gopModePendingRebootHint: 'Active: {{active}}. Selected: {{selected}}.',
       gopHint:
         'GOP is the interval between keyframes. HDMI recovery restarts capture if the source stops responding.',

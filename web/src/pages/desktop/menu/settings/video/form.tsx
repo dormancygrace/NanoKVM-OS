@@ -113,13 +113,7 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
       if (admin) syncAtoms(next, caps);
       if (!result.reloading) {
         message.success(
-          t(
-            result.gopModeRestartRequired
-              ? 'videoSettings.gopModeRebootRequired'
-              : powerCycle
-                ? 'videoSettings.powerCycleWritten'
-                : 'videoSettings.applied'
-          )
+          t(powerCycle ? 'videoSettings.powerCycleWritten' : 'videoSettings.applied')
         );
       }
     } catch (error) {

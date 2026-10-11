@@ -182,25 +182,37 @@ func (s *Service) Issue(c *gin.Context) {
 		rsp.ErrRsp(c, -2, "cannot prepare the certificate directory")
 		return
 	}
+	// The certificate in place, if any, keeps its settings (they name the
+	// record renewals and Remove act on) until the new one is installed.
+	previous := ""
+	if saved, err := loadSettings(); err == nil {
+		previous = saved.primary()
+	}
 	steps := []step{{args: args}, {args: installCertArgs(settings.primary())}}
-	err = startJob("issue", env, secrets, steps, func(j *Job) {
+	err = startJob("issue", env, secrets, steps, func(j *Job) error {
 		if !j.OK {
-			return
+			if settings.primary() != previous {
+				retire(settings.primary())
+			}
+			return nil
 		}
+		// --install-cert has written the new pair: from here on the new
+		// record owns acme.crt/acme.key.
 		settings.IssuedAt = time.Now().UTC().Format(time.RFC3339)
 		if err := saveSettings(&settings); err != nil {
-			log.Errorf("failed to save the ACME settings: %v", err)
+			return fmt.Errorf("the certificate was issued but its settings could not be saved: %w", err)
+		}
+		if previous != "" && previous != settings.primary() {
+			retire(previous)
 		}
 		if err := activate(); err != nil {
-			log.Errorf("failed to serve the ACME certificate: %v", err)
+			return fmt.Errorf("the certificate was issued but could not be put in use: %w", err)
 		}
+		return nil
 	})
 	if err != nil {
 		rsp.ErrRsp(c, -1, err.Error())
 		return
-	}
-	if err := saveSettings(&settings); err != nil {
-		log.Errorf("failed to save the ACME settings: %v", err)
 	}
 	rsp.OkRspWithData(c, status())
 }
@@ -261,10 +273,11 @@ func (s *Service) Renew(c *gin.Context) {
 	opMu.Lock()
 	defer opMu.Unlock()
 	steps := []step{{args: []string{"--renew", "-d", settings.primary(), "--ecc", "--force"}}}
-	err = startJob("renew", nil, nil, steps, func(j *Job) {
-		if j.OK {
-			reloadIfInUse()
+	err = startJob("renew", nil, nil, steps, func(j *Job) error {
+		if !j.OK {
+			return nil
 		}
+		return reloadIfInUse()
 	})
 	if err != nil {
 		rsp.ErrRsp(c, -1, err.Error())
@@ -290,9 +303,7 @@ func (s *Service) Remove(c *gin.Context) {
 		return
 	}
 	if settings, err := loadSettings(); err == nil && Installed() {
-		if out, err := runSync(nil, "--remove", "-d", settings.primary(), "--ecc"); err != nil {
-			log.Warnf("acme.sh --remove %s: %v: %s", settings.primary(), err, strings.TrimSpace(out))
-		}
+		retire(settings.primary())
 	}
 	removePair()
 	if err := os.Remove(settingsFile()); err != nil && !os.IsNotExist(err) {

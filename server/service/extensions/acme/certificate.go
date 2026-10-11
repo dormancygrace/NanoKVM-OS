@@ -2,6 +2,7 @@ package acme
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -54,24 +55,43 @@ func activate() error {
 }
 
 // reloadIfInUse serves the pair on disk after a renewal.
-func reloadIfInUse() {
+func reloadIfInUse() error {
 	conf, err := readConfig()
-	if err != nil || conf.Proto != "https" || !inUse(conf) {
-		return
+	if err != nil {
+		return fmt.Errorf("the renewed certificate could not be checked: %w", err)
+	}
+	if conf.Proto != "https" || !inUse(conf) {
+		return nil
 	}
 	served := serverCertificate().Current()
 	if served.Cert != nil {
 		if pair, err := utils.LoadCertificatePair(certFile, keyFile); err == nil &&
 			len(pair.Certificate) > 0 && len(served.Cert.Certificate) > 0 &&
 			string(pair.Certificate[0]) == string(served.Cert.Certificate[0]) {
-			return
+			return nil
 		}
 	}
 	if err := serverCertificate().Load(certFile, keyFile); err != nil {
-		log.Errorf("failed to serve the renewed ACME certificate: %v", err)
-		return
+		return fmt.Errorf("the renewed certificate could not be put in use: %w", err)
 	}
 	log.Info("renewed ACME certificate in use")
+	return nil
+}
+
+// retire makes acme.sh forget a domain record and deletes its keys: the
+// record of a replaced certificate (every record installs to the same
+// acme.crt/acme.key, so a stale one would overwrite the pair in use when it
+// renews) and the record a failed issue for a new name leaves behind.
+func retire(primary string) {
+	if primary == "" || !domainRe.MatchString(primary) {
+		return
+	}
+	if out, err := runSync(nil, "--remove", "-d", primary, "--ecc"); err != nil {
+		log.Warnf("acme.sh --remove %s: %v: %s", primary, err, strings.TrimSpace(out))
+	}
+	if err := os.RemoveAll(filepath.Join(dataDir(), primary+"_ecc")); err != nil {
+		log.Errorf("failed to remove the acme.sh record of %s: %v", primary, err)
+	}
 }
 
 // deactivate returns to the generated pair when the ACME one is in use.

@@ -120,7 +120,9 @@ type step struct {
 
 // startJob runs the steps in the background, one job at a time, then calls
 // after with the result. It returns at once; the page polls the status.
-func startJob(action string, env, secrets []string, steps []step, after func(j *Job)) error {
+// after runs once the steps are done, also when they failed; an error it
+// returns fails the job, so "done" means the certificate is in use.
+func startJob(action string, env, secrets []string, steps []step, after func(j *Job) error) error {
 	jobMu.Lock()
 	if jobActive {
 		jobMu.Unlock()
@@ -136,7 +138,12 @@ func startJob(action string, env, secrets []string, steps []step, after func(j *
 		// The follow-up (serving the new pair) belongs to the job: the
 		// page sees it finished only once the certificate is in use.
 		if after != nil {
-			after(result)
+			if err := after(result); err != nil {
+				log.Errorf("acme.sh %s: %v", action, err)
+				result.OK = false
+				result.NotDue = false
+				result.Error = err.Error()
+			}
 		}
 		jobMu.Lock()
 		lastJob = result

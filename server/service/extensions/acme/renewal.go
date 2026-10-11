@@ -7,16 +7,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Renewal cadence: acme.sh --cron renews only what is due (30 days before
-// expiry), so a check twice a day costs nothing when nothing is due and a
-// missed check is caught by the next one.
+// Renewal cadence: acme.sh --renew without --force renews only when due (30
+// days before expiry; exit code 2 otherwise), so a check twice a day costs
+// nothing when nothing is due and a missed check is caught by the next one.
 var (
 	renewalFirstDelay = 10 * time.Minute
 	renewalInterval   = 12 * time.Hour
 )
 
-// RunRenewal runs acme.sh --cron on a schedule while a certificate is set up
-// and serves the renewed pair.
+// RunRenewal renews the selected certificate on a schedule while one is set
+// up and serves the renewed pair.
 func RunRenewal(ctx context.Context) {
 	timer := time.NewTimer(renewalFirstDelay)
 	defer timer.Stop()
@@ -31,19 +31,28 @@ func RunRenewal(ctx context.Context) {
 	}
 }
 
-// renewDue starts the cron job when acme.sh is installed with a certificate
-// and nothing else is running.
+// renewDue renews the selected certificate when it is due. Only that one:
+// acme.sh --cron would renew every record it knows and reinstall each to the
+// shared acme.crt/acme.key. It takes the same admission lock as the
+// administrative operations and skips the round when one is in progress.
 func renewDue() {
+	if !opMu.TryLock() {
+		return
+	}
+	defer opMu.Unlock()
 	if !Installed() {
 		return
 	}
-	if _, err := loadSettings(); err != nil {
+	settings, err := loadSettings()
+	if err != nil {
 		return
 	}
-	err := startJob("cron", nil, nil, []step{{args: []string{"--cron"}, okCodes: []int{renewSkip}}}, func(j *Job) {
-		if j.OK {
-			reloadIfInUse()
+	steps := []step{{args: []string{"--renew", "-d", settings.primary(), "--ecc"}, okCodes: []int{renewSkip}}}
+	err = startJob("cron", nil, nil, steps, func(j *Job) error {
+		if !j.OK || j.NotDue {
+			return nil
 		}
+		return reloadIfInUse()
 	})
 	if err != nil {
 		log.Debugf("acme.sh renewal skipped: %v", err)

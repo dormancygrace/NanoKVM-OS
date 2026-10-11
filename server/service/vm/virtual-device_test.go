@@ -37,6 +37,16 @@ func TestUSBEndpointBudget(t *testing.T) {
 			state: usbComposition{mode: hid.ModeHidOnly, keyboard: true, relative: true, absolute: true, serial: true},
 			in:    5, out: 4, fits: true,
 		},
+		{
+			name:  "remote desktop: HID, disk and audio",
+			state: usbComposition{mode: hid.ModeNormal, keyboard: true, relative: true, absolute: true, disk: true, audio: true},
+			in:    4, out: 5, fits: true,
+		},
+		{
+			name:  "headless server: serial and disk",
+			state: usbComposition{mode: hid.ModeNormal, disk: true, serial: true},
+			in:    3, out: 2, fits: true,
+		},
 	}
 
 	for _, test := range tests {

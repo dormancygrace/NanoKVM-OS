@@ -64,13 +64,13 @@ Viewers share the device's encoder and video settings. Multiple sessions do not 
 
 ### 🔌 One USB connection, several jobs
 
-Configure the USB gadget through presets or individual switches for the keyboard, relative mouse, absolute pointer, network, virtual storage and serial console. The interface checks the controller's endpoint budget before applying a combination. USB can also be disabled entirely.
+Configure the USB gadget through presets (KVM, with USB network, with the serial console, a headless server, remote desktop, keyboard and mouse only) or individual switches for the keyboard, relative mouse, absolute pointer, network, virtual storage, serial console and audio. The interface checks the controller's endpoint budget before applying a combination and says what each preset gives up. USB can also be disabled entirely.
 
 | Function | What it provides |
 | --- | --- |
 | **Keyboard and pointers** | Browser control, with normal and HID compatibility profiles |
 | **Virtual media** | SD-backed images or direct ISO mounting from your computer without first copying the ISO to the card; CD/DVD images up to 31.625 GiB |
-| **USB network** | Local access to NanoKVM through NCM/RNDIS configurations |
+| **USB network** | Local access to NanoKVM through the USB NCM adapter |
 | **Internet over USB NCM** | Share the NanoKVM Ethernet/Wi-Fi uplink with the managed computer |
 | **USB Serial / CDC ACM** | Reach a configured host serial console through the browser terminal |
 

@@ -22,51 +22,46 @@ export type UsbStatus = UsbComposition & {
 };
 
 const hid = { keyboard: true, relative: true, absolute: true };
+const none = { network: false, disk: false, serial: false, audio: false };
+/*
+ * Starting points, in the order shown. The first one is what a fresh install
+ * runs (three HID functions and the virtual disk without media), so a new
+ * device starts on a preset. The budget is 6 IN / 7 OUT: everything at once
+ * (HID + network + disk + serial = 8 IN) does not fit, so each preset gives
+ * something up, and its description says what.
+ */
 export const usbPresets: { id: string; composition: UsbComposition }[] = [
-  {
-    id: 'standard',
-    composition: { ...hid, network: true, disk: true, serial: false, audio: false, mode: 'normal' }
-  },
-  {
-    id: 'console',
-    composition: { ...hid, network: false, disk: true, serial: true, audio: false, mode: 'normal' }
-  },
+  // the fresh-install composition; no network adapter appears on the computer
+  { id: 'kvm', composition: { ...hid, ...none, disk: true, mode: 'normal' } },
+  { id: 'standard', composition: { ...hid, ...none, network: true, disk: true, mode: 'normal' } },
+  { id: 'console', composition: { ...hid, ...none, serial: true, disk: true, mode: 'normal' } },
+  // a server without keyboard or mouse: the serial console and the helper disk
   {
     id: 'headless',
     composition: {
       keyboard: false,
       relative: false,
       absolute: false,
-      network: true,
-      disk: true,
+      ...none,
       serial: true,
-      audio: false,
+      disk: true,
       mode: 'normal'
     }
   },
-  {
-    id: 'control',
-    composition: {
-      ...hid,
-      network: false,
-      disk: false,
-      serial: false,
-      audio: false,
-      mode: 'normal'
-    }
-  },
-  {
-    id: 'compatibility',
-    composition: {
-      ...hid,
-      network: false,
-      disk: false,
-      serial: false,
-      audio: false,
-      mode: 'hid-only'
-    }
-  }
+  // what RustDesk needs: input and the speaker, so it matches a preset
+  { id: 'remote', composition: { ...hid, ...none, disk: true, audio: true, mode: 'normal' } },
+  { id: 'control', composition: { ...hid, ...none, mode: 'normal' } }
 ];
+
+// The HID-only compatibility profile (USB 1.1 descriptors) has no network,
+// disk or audio; it is a property of a composition, not a preset.
+export function setCompatibilityProfile(
+  composition: UsbComposition,
+  enabled: boolean
+): UsbComposition {
+  if (!enabled) return { ...composition, mode: 'normal' };
+  return { ...composition, mode: 'hid-only', network: false, disk: false, audio: false };
+}
 
 export function sameComposition(a: UsbComposition, b: UsbComposition) {
   return (

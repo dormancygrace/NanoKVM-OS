@@ -10,6 +10,7 @@ import {
   matchingPreset,
   normalizeUsbStatus,
   sameComposition,
+  setCompatibilityProfile,
   toggleDevice,
   usbDevices,
   usbPresets
@@ -296,6 +297,22 @@ export const Usb = () => {
                           </SettingRow>
                         );
                       })}
+                      <SettingRow
+                        label={t('settings.usb.compatibilityProfile.title')}
+                        description={t('settings.usb.compatibilityProfile.description')}
+                      >
+                        <Switch
+                          aria-label={t('settings.usb.compatibilityProfile.title')}
+                          checked={draft?.mode === 'hid-only'}
+                          disabled={!status || loading}
+                          onChange={(enabled) => {
+                            if (!draft || busy.current) return;
+                            setDraft(setCompatibilityProfile(draft, enabled));
+                            setSelection('custom');
+                            setError('');
+                          }}
+                        />
+                      </SettingRow>
                     </div>
                   )
                 }
@@ -356,7 +373,7 @@ export const Usb = () => {
             <p className="text-fg-muted m-0 text-xs">{t('settings.usb.reconnectNotice')}</p>
           </div>
           <SerialConsole serial={Boolean(status?.serial)} disk={Boolean(status?.disk)} />
-          <MouseJiggler />
+          {(status?.relative || status?.absolute) && <MouseJiggler />}
         </>
       )}
     </div>

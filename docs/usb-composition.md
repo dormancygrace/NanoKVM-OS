@@ -8,31 +8,40 @@ sends the complete composition; **Discard changes** restores the active values.
 
 ## Presets and manual selection
 
-| Preset | Functions | IN / OUT |
-| --- | --- | --- |
-| KVM + USB network + disk | Three HID functions, network, storage | 6 / 5 |
-| KVM + serial + disk | Three HID functions, ACM, storage | 6 / 5 |
-| Headless: network + serial + disk | Network, ACM, storage | 5 / 3 |
-| Keyboard and mouse only | Three HID functions, normal USB profile | 3 / 3 |
-| HID compatibility (USB 1.1) | Three HID functions, compatibility profile | 3 / 3 |
+| Preset | Functions | IN / OUT | Gives up |
+| --- | --- | --- | --- |
+| KVM (a new device starts here) | Three HID functions, storage | 4 / 4 | no network adapter on the computer |
+| KVM + USB network | Three HID functions, network, storage | 6 / 5 | the serial console |
+| KVM + serial console | Three HID functions, ACM, storage (with the helper disk) | 6 / 5 | the USB network |
+| Headless server | ACM only, for a serial login set up before | 2 / 1 | keyboard, mouse and storage: nothing but the console appears on the server (RustDesk adds HID and audio back: 5 / 5) |
+| Remote desktop | Three HID functions, storage, audio | 4 / 5 | what RustDesk enables; a second speaker on the computer |
+| Keyboard and mouse only | Three HID functions | 3 / 3 | everything else |
+
+The budget is 6 IN / 7 OUT, so everything at once (HID + network + storage +
+ACM, 8 IN) does not fit: every preset gives something up, and its description
+says what. A fresh install (`usb.dev` and an empty `usb.disk0`) runs the first
+preset. RustDesk adds the three HID functions and audio to the composition,
+which from the first preset is the remote desktop one.
 
 The expandable manual section controls keyboard, relative mouse, absolute
-pointer, network, storage and ACM individually. Budget usage follows the draft.
-Only additions that exceed either limit are disabled; already-selected functions
-can always be removed. Empty or over-budget drafts cannot be applied. Selecting
-network or storage manually leaves the HID-only compatibility profile.
+pointer, network, storage, ACM and audio individually, and the **HID-only
+compatibility profile (USB 1.1)** switch: older descriptors for firmware and
+hosts that reject the composite device, without network, storage or audio
+(turning one of those on leaves the profile again). Budget usage follows the
+draft. Only additions that exceed either limit are disabled; already-selected
+functions can always be removed. Empty or over-budget drafts cannot be applied.
 
 USB network and serial are **not mutually exclusive**. For example, keyboard +
 network + storage + serial uses 6 IN / 4 OUT. The interface no longer tells the
 user to disable USB network as a prerequisite for serial.
 
-The admin-only `PUT /api/vm/device/virtual` requires all six explicit boolean
+The admin-only `PUT /api/vm/device/virtual` requires all seven explicit boolean
 fields, `mode` (`normal` or `hid-only`) and the `revision` returned by GET.
 Missing fields, invalid budgets, empty drafts and stale revisions are rejected
 before changing flags. Revision comparison and application hold both HID locks.
 The legacy POST toggle endpoint remains available for older clients.
 
-Application snapshots the eight boot flags and installed profile, performs one
+Application snapshots the ten boot flags and installed profile, performs one
 stop/start, checks the bound controller and selected configfs links, and restores
 the previous files and composition on failure. Existing disk-image paths and NCM
 selection are preserved when those functions remain enabled. Unchanged drafts
@@ -61,6 +70,7 @@ not included below.
 | RNDIS or NCM network | 2 | 1 | Bulk data plus notification IN endpoint |
 | Mass storage | 1 | 1 | Bulk-only transport |
 | CDC ACM serial | 2 | 1 | Bulk data plus notification IN endpoint |
+| USB audio (UAC1) | 0 | 1 | Adaptive speaker, no feature-unit interrupt endpoint |
 
 The normal HID + network + disk composition consumes `6 IN / 5 OUT` and is
 already at the configured IN-FIFO limit. HID + disk + serial also consumes
@@ -198,7 +208,7 @@ both ACM directions and COM-port reopening; simultaneous USB-network pings had
 no loss. No reboot or Windows driver installation was needed. Cold-boot and a
 physical Linux-host login remain outside this test. Unit tests cover file
 rollback (including a second rollback failure), explicit false/missing fields,
-all 64 manual selections and both budget directions; browser tests cover draft
+all 128 manual selections and both budget directions; browser tests cover draft
 editing, cancellation, conflict and error recovery.
 
 `bcdDevice` is a profile hint. If it says HID-only while configured RNDIS, NCM or

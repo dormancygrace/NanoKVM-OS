@@ -16,6 +16,7 @@ func TestCrashClassification(t *testing.T) {
 	}{
 		{"video-cgo", "950 2 ready\nSIGSEGV\ngoroutine 17 [syscall]:\n_Cfunc_kvmv_read()\n", true},
 		{"native-thread", "950 139 ready\n", true},
+		{"video-status", "950 2 ready\nfatal error: signal\ngoroutine 1 [syscall]:\n_Cfunc_get_mjpeg_chroma_status()\n", true},
 		{"init-native-thread", "950 134 initializing\n", true},
 		{"unrelated-panic", "950 2 ready\npanic: foo\ngoroutine 1 [running]:\nmain.run()\n\ngoroutine 17 [syscall]:\n_Cfunc_kvmv_read()\n", false},
 		{"oom", "950 137 ready\n", false},

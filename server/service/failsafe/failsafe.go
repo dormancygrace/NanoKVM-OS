@@ -130,7 +130,7 @@ func recentVideoCrash(record string, now int64) bool {
 			report = report[:start+1+end]
 		}
 	}
-	for _, token := range []string{"_Cfunc_kvmv_", "_Cfunc_nkosRead", "_Cfunc_nk_capture_", "_Cfunc_set_h264_", "_Cfunc_set_h265_", "_Cfunc_set_mjpeg_", "_Cfunc_set_frame_detact", "_Cfunc_set_capture_fps", "common.(*KvmVision)."} {
+	for _, token := range []string{"_Cfunc_kvmv_", "_Cfunc_nkosRead", "_Cfunc_nk_capture_", "_Cfunc_set_h264_", "_Cfunc_set_h265_", "_Cfunc_get_h265_", "_Cfunc_get_mjpeg_", "_Cfunc_set_mjpeg_", "_Cfunc_set_frame_detact", "_Cfunc_set_capture_fps", "common.(*KvmVision)."} {
 		if strings.Contains(report, token) {
 			return true
 		}

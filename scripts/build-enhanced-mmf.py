@@ -20,6 +20,9 @@ sensor = Path(os.environ['NANOKVM_SENSOR_SOURCE']).resolve()
 inih = Path(os.environ['NANOKVM_INIH_SOURCE']).resolve()
 output = Path(os.environ['NANOKVM_MMF_OUTPUT']).resolve()
 cross = str(Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve() / 'host/bin/riscv64-buildroot-linux-musl-')
+profile = os.environ.get('NANOKVM_MMF_PROFILE', 'hdmi-light')
+if profile not in ('full', 'hdmi-light'):
+    raise SystemExit('Unknown NANOKVM_MMF_PROFILE: ' + profile)
 # platform/build.sh checks the source trees against platform/sources.lock.
 if subprocess.check_output([cross + 'gcc', '-dumpfullversion'], text=True).strip() != '16.2.0':
     raise SystemExit('Expected Enhanced GCC16.2')
@@ -29,9 +32,10 @@ includes = [mpi / 'include', mpi / 'include/isp/cv181x', mpi / 'sample/common',
 flags = ['-Wall', '-Wextra', '-Werror', '-fPIC', '-ffunction-sections', '-fdata-sections',
          *cpu_flags(),
          '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_ENHANCED', '-DSENSOR_LONTIUM_LT6911']
+# GCC uses the last matching map: specific inputs override the enclosing checkout.
 flags += [f'-ffile-prefix-map={src}={name}' for src, name in [
-    (mpi, './cvi_mpi'), (sensor, './sensor-support'), (inih, './inih'),
     (repo, './nanokvm-os'),
+    (mpi, './cvi_mpi'), (sensor, './sensor-support'), (inih, './inih'),
     (Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve(), './toolchain')]]
 flags += ['-DSENSOR' + str(i) + '_TYPE=LONTIUM_LT6911_2M_60FPS_8BIT' for i in range(3)]
 flags += ['-I' + str(path) for path in includes]
@@ -57,10 +61,15 @@ with tempfile.TemporaryDirectory(prefix='mmf-objects-', dir=output) as temp:
                         *flags, '-c', str(source), '-o', str(obj)], check=True)
         objects.append(obj)
     shared = temp / 'libkvm_mmf.so'
-    subprocess.run([cross + 'g++', '-shared', '-Wl,-z,defs', '-Wl,-soname,libkvm_mmf.so',
-                    '-L' + str(mpi / 'lib'), '-Wl,--no-as-needed', '-Wl,--start-group',
-                    *map(str, objects), *['-l' + name for name in names],
-                    '-Wl,--end-group', '-Wl,--as-needed', '-o', str(shared)], check=True)
+    if profile == 'hdmi-light':
+        from nanokvm_mmf_link import link_hdmi_light
+        link_hdmi_light(cross, mpi, objects, shared, output)
+    else:
+        subprocess.run([cross + 'g++', '-shared', '-Wl,-z,defs', '-Wl,-soname,libkvm_mmf.so',
+                        '-L' + str(mpi / 'lib'), '-Wl,--no-as-needed', '-Wl,--start-group',
+                        *map(str, objects), *['-l' + name for name in names],
+                        '-Wl,--end-group', '-Wl,--as-needed', '-o', str(shared)], check=True)
+        (output / 'link-profile.json').write_text(json.dumps({'profile': 'full'}) + '\n')
     shutil.copy2(shared, output / shared.name)
 subprocess.run([cross + 'gcc', '-std=gnu11', *flags, str(repo / 'firmware/probes/mmf-config.c'),
                 '-L' + str(output), '-lkvm_mmf', '-Wl,-rpath-link,' + str(mpi / 'lib'),

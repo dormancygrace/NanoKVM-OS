@@ -490,10 +490,10 @@ boot() {
 }
 
 # SOPHGO media libraries (cvi_mpi with native/cvi_mpi/*.patch), the MMF
-# wrapper and the capture library: the 19 libraries of /kvmapp/server/dl_lib.
+# wrapper and capture library: the six-file HDMI-light runtime bundle.
 native() {
     local n=$out/native lib
-    rm -rf "$n" "${img:?}/native"
+    rm -rf "$n" "${img:?}/native" "$img/native-licenses"
     mkdir -p "$n/src" "$img/native"
     unpack_git cvi-mpi . "$n/src/cvi_mpi"
     for lib in sensors json-c miniz inih; do unpack_git "$lib" . "$n/src/$lib"; done
@@ -507,16 +507,16 @@ native() {
     env "${env[@]}" "$host/python3" "$repo/scripts/build-enhanced-isp-vendor.py"
     env "${env[@]}" NANOKVM_JSON_C_SOURCE="$n/src/json-c" NANOKVM_MINIZ_SOURCE="$n/src/miniz" \
         NANOKVM_MPI_THIRDPARTY_OUTPUT="$n/bin" "$host/python3" "$repo/scripts/build-enhanced-mpi-bin.py"
+    # Always ship one coherent HDMI-light bundle, regardless of inherited profile.
     env "${env[@]}" NANOKVM_SENSOR_SOURCE="$n/src/sensors" NANOKVM_INIH_SOURCE="$n/src/inih" \
-        NANOKVM_MMF_OUTPUT="$n/mmf" "$host/python3" "$repo/scripts/build-enhanced-mmf.py"
-    env "${env[@]}" NANOKVM_MMF_OUTPUT="$n/mmf" NANOKVM_CAPTURE_OUTPUT="$n/capture" \
-        "$host/python3" "$repo/scripts/build-enhanced-capture.py"
-    # The vendor makefiles always compile with -g; ship the libraries without it.
-    for lib in "$n"/src/cvi_mpi/lib/*.so; do
-        "${cross}strip" --strip-debug -o "$img/native/${lib##*/}" "$lib"
+        NANOKVM_MPI_THIRDPARTY_OUTPUT="$n/bin" NANOKVM_HDMI_LIGHT_OUTPUT="$n/hdmi-light" \
+        "$host/python3" "$repo/scripts/build-hdmi-light.py"
+    cp "$n/hdmi-light/dl_lib/"*.so "$img/native/"
+    cp -r "$n/hdmi-light/licenses" "$img/native-licenses"
+    for lib in "$n/hdmi-light"/cvi-mpi-*; do
+        [ ! -f "$lib" ] || cp "$lib" "$img/native-licenses/"
     done
-    cp "$n/mmf/libkvm_mmf.so" "$n/capture/libkvm.so" "$img/native/"
-    [ "$(find "$img/native" -name '*.so' | wc -l)" = 19 ]
+    [ "$(find "$img/native" -name '*.so' | wc -l)" = 6 ]
 }
 
 # kvm_system board service from MaixCDK with native/maixcdk/*.patch.

@@ -6,6 +6,7 @@ import { MenuItem } from '@/components/menu-item.tsx';
 
 import { LeaderKey } from './leader-key.tsx';
 import { Paste } from './paste.tsx';
+import { Sequences } from './sequences.tsx';
 import { Shortcuts } from './shortcuts';
 import { VirtualKeyboard } from './virtual-keyboard.tsx';
 
@@ -18,6 +19,7 @@ export const Keyboard = () => {
       <Paste />
       <VirtualKeyboard />
       <Shortcuts />
+      <Sequences />
       {account.role === 'admin' && <LeaderKey />}
     </div>
   );

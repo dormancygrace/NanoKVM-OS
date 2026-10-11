@@ -2,7 +2,7 @@
 
 **📦 Applications v2.6-a1 · 💾 Image v1.1-a1 · 🧪 Alpha**
 
-One C906 core. A small RAM budget. This release makes more of both: **lower streaming CPU use, faster encrypted traffic, Direct playback that actively recovers after dropped frames, and video-memory profiles sized for the picture you actually need.**
+One C906 core. A small RAM budget. This release makes more of both: **lower streaming CPU use, faster encrypted traffic, smoother SmartP H.265 in Chrome, Direct playback that actively recovers after dropped frames, and video-memory profiles sized for the picture you actually need.**
 
 > ⚡ **Less overhead behind the scenes. More headroom for your next session.**
 
@@ -39,6 +39,14 @@ When Direct drops frames, it now **requests a fresh keyframe** instead of waitin
 The pending-frame queue follows the selected frame rate, and new viewers request the keyframe they need to join an existing stream. Diagnostics report why frames were dropped and how long recovery took. Changing FPS through the single-setting API now updates the corresponding monitor timing too.
 
 This improves recovery; it does not remove bandwidth, decoder or CPU limits.
+
+## 🎞️ SmartP H.265 without the decoder restart loop
+
+SmartP can now keep decoding in Chrome instead of freezing shortly after playback starts or repeatedly requesting fresh keyframes. The SG2002 encoder advertised too small a decoded-picture buffer for its lower temporal layer. NanoKVM corrects that declaration in the H.265 VPS/SPS headers before distributing a keyframe to Direct, WebRTC or RustDesk; the encoded picture data stays unchanged.
+
+In the QHD@60 SmartP test, Chrome WebRTC went from stopping after 30 frames to **2,373 decoded frames out of 2,374 received over 40 seconds**, with no dropped frames or keyframe requests. Direct reached **60 received / 60 decoded frames per second**, with no decoder resets or resync requests during the measured interval. NormalP remains unchanged.
+
+This fixes a Chrome decoder compatibility problem. It is separate from the CryptoDMA/SPACC system-hang investigation and does not establish that hardware-accelerator issue as resolved. Other browser decoders and SG2002 FHD/UHD SmartP modes still need broader coverage.
 
 ## 🧠 Spend video memory where it matters
 
@@ -96,4 +104,4 @@ For local APK pins or the older experimental C906 overlay, follow the [upgrade a
 
 ## 🧪 Alpha status
 
-Both **v2.6-a1** and **Image v1.1-a1** are alpha releases. Development measurements and host tests do not replace hardware acceptance of this exact combined release. The new full-image FIP and physical HDMI mode transitions still require device qualification; no installation was performed during release preparation.
+Both **v2.6-a1** and **Image v1.1-a1** are alpha releases. PCIe hardware testing covered full-image installation, settings restoration, OpenSBI 1.9 boot, networking and QHD H.265 Direct playback. The SmartP correction was tested separately on the device with Chrome. The final combined rebuild has host/CI verification; a physical cold power cycle, all HDMI transitions and an exhaustive browser/video-mode matrix have not been qualified.

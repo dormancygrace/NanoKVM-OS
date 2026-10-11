@@ -1,6 +1,6 @@
 # v2.6-a1 preparation and validation
 
-Base: main de0e1dc0, PRs #65–#70 integrated. Image v1.1-a1 is the user-confirmed separate image version.
+Base: main 9cbbdcaa, PRs #65–#70 and #72 integrated. Image v1.1-a1 is the user-confirmed separate image version.
 
 ## Host checks completed
 
@@ -34,4 +34,10 @@ Base: main de0e1dc0, PRs #65–#70 integrated. Image v1.1-a1 is the user-confirm
 
 ## Device status
 
-No access, install or reboot. Existing user prohibition remains in effect. New FIP cold boot and physical HDMI transitions are not qualified by these host checks.
+The user authorized a complete Image v1.1-a1 installation with settings preserved and /data discarded. The pre-#72 image at a58ee643 was installed on the PCIe stand: the complete SD image passed read-back SHA256 verification before settings were restored. UART confirmed OpenSBI 1.9 and its split RX/RW PMP regions, automatic PCIe selection and QHD CMA boot. FIP, selected FIT and server hashes matched the artifacts. Thirteen selected configuration/credential checks passed. Wi-Fi, WireGuard, SSH and the existing Chrome Main web session returned. Signed RustDesk 0.5.3-r2 was restored with its identity/configuration. Current and two previous boot-log archives remain available.
+
+Chrome Main displayed applications 2.6-a1 / Image v1.1-a1 and Direct H.265 2560x1440 at 57–60/60 FPS. The browser console showed no errors; OpenRC default services started. /data was recreated at sector 1705984. Root free space after the RustDesk install was approximately 560 MiB. USB gadget was subsequently disabled at the user's request.
+
+PR #72 was reviewed at adc02fd18. Local `go test -race -tags teststub ./service/stream/...`, `go vet -tags teststub ./service/stream/...` and `git diff --check` passed. Its failed Web UI CI job was the existing contradictory ACK test already corrected in this release branch. The author separately qualified QHD SmartP and NormalP in Chrome on the stand; these results are not an independent retest of the combined release.
+
+The final #72 rebuild changes the application, packages and image contents. The prior installation acceptance is not a claim that those final bytes were installed. Physical cold power cycling, exhaustive HDMI/browser transitions and Internet sharing with the managed PC were not tested.

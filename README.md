@@ -76,7 +76,7 @@ Configure the USB gadget through presets (KVM, with USB network, with the serial
 
 **Internet over USB** has its own switch in **Settings → USB**, off by default. It provides IPv4 DHCP, DNS and NAT, with software flow offload for eligible TCP/UDP connections. Turning sharing off keeps local USB access. Existing VPN routing and firewall policies are respected; conflicting routes can leave sharing waiting for a usable uplink. See [USB Internet sharing](docs/usb-internet-sharing.md).
 
-For a **headless Linux login**, enable USB Serial and configure a serial login service on the managed host. This works after its USB stack loads; it does not provide pre-USB BIOS/UEFI output. See [USB composition and serial setup](docs/usb-composition.md#host-serial-console).
+For a **headless Linux login**, enable USB Serial and set the login up on the managed host with the console helper from the USB settings page: a script that reads the host first, refuses when it cannot work safely, keeps backups and can undo; it also comes on a read-only helper disk for hosts without a network. This works after the host USB stack loads; it does not provide pre-USB BIOS/UEFI output. See [USB composition and serial setup](docs/usb-composition.md#host-serial-console).
 
 ATX power/reset controls are available on supported boards. **Wake-on-LAN** includes a saved list of named MAC addresses for frequently used machines.
 

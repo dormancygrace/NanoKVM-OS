@@ -56,6 +56,11 @@ func vmRouter(r *gin.Engine) {
 	admin.POST("/vm/device/virtual", service.UpdateVirtualDevice) // update virtual device
 	admin.PUT("/vm/device/virtual", service.SetUSBComposition)    // apply an entire composition
 
+	admin.GET("/vm/serial-console", service.GetSerialConsole)        // headless-Linux console helper
+	admin.POST("/vm/serial-console/test", service.TestSerialConsole) // Enter on ttyGS0, read the prompt
+	// Public: the host fetches the script with curl/wget and has no credentials.
+	r.GET(vm.SerialConsoleScriptPath, service.ServeSerialConsoleScript)
+
 	admin.GET("/vm/usb-internet", service.GetUSBInternet)
 	admin.PUT("/vm/usb-internet", service.SetUSBInternet)
 

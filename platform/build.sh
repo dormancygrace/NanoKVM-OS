@@ -576,6 +576,14 @@ tools() {
         sh "$repo/scripts/build-busybox-devmem.sh" "$t/devmem"
     cp "$t/devmem/devmem" "$t/devmem/busybox-LICENSE" "$img/tools/"
 
+    # The headless-Linux console helper: the script, and the read-only FAT
+    # disk that S03usbdev attaches next to the virtual drive with USB serial.
+    mkdir -p "$img/tools/serial-console"
+    cp "$repo/firmware/services/nanokvm-serial-console.sh" "$img/tools/serial-console/"
+    "$py" "$repo/scripts/build-serial-console-disk.py" \
+        --script "$repo/firmware/services/nanokvm-serial-console.sh" \
+        --output "$img/tools/serial-console/nanokvm-serial-console.img"
+
     # As Buildroot builds a target package: TARGET_CFLAGS, then its strip.
     e=$t/edid
     cp -r "$repo/tools/nanokvm_update_edid" "$e"

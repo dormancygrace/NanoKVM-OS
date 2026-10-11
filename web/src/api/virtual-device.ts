@@ -31,6 +31,16 @@ export async function setUsbComposition(composition: UsbComposition, revision: s
   return response;
 }
 
+// The headless-Linux console helper: serial number, script and helper disk.
+export function getSerialConsole() {
+  return http.get('/api/vm/serial-console');
+}
+
+// Sends Enter on the NanoKVM's serial port and reports what the computer answered.
+export function testSerialConsole() {
+  return http.post('/api/vm/serial-console/test');
+}
+
 export type UsbInternetStatus = {
   enabled: boolean;
   state: string;

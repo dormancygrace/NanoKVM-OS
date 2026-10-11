@@ -139,7 +139,8 @@ type probeResult struct {
 	Err      error
 }
 
-// picocom (the web terminal) holds a UUCP lock while it has the port open.
+// Other serial programs hold a UUCP lock while they have the port open; the
+// server's own terminal sessions are known to serialPortOpen.
 var serialLockDir = "/var/lock"
 
 func serialLockFile(device string) string {
@@ -165,7 +166,7 @@ func deviceInUse(device string) bool {
 // probeSerialConsole sends one carriage return on the gadget port and reads
 // what the host sends back, as the browser terminal's first Enter would.
 func probeSerialConsole(device string, timeout time.Duration) probeResult {
-	if _, err := os.Stat(serialLockFile(device)); err == nil || deviceInUse(device) {
+	if _, err := os.Stat(serialLockFile(device)); err == nil || serialPortOpen(device) || deviceInUse(device) {
 		return probeResult{State: "busy"}
 	}
 	f, err := os.OpenFile(device, os.O_RDWR|unix.O_NOCTTY|unix.O_NONBLOCK, 0)

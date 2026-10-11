@@ -81,12 +81,13 @@ NanoKVM. The USB device briefly disconnects and re-enumerates. Linux normally
 creates `/dev/ttyACM0` on the managed host; Windows creates a COM port. The
 NanoKVM side is `/dev/ttyGS0` and can be selected from the web Terminal menu.
 
-Application packages now include `/kvmapp/system/bin/picocom`, so this also works
-on base images without a system picocom. The browser prefers the bundled binary
-and falls back to a system installation for compatibility. The bundled build
-uses static musl, a 64 KiB input-to-serial queue, and picocom 3.1. Its verified
-upstream source archive and license are included in `system/share/picocom/`;
-`sh scripts/build-picocom.sh` reproduces the build with a RISC-V musl compiler.
+The server bridges the browser and the port itself: it opens the device with
+exclusive access (one session per port, and other programs are refused), sets
+the line raw with the chosen speed, parity, data bits, stop bits and flow
+control (`ttyGS0` is nominal 9600 8N1), and copies bytes both ways. No PTY and
+no external program are involved, so there are no terminal-program key
+sequences; a second session on the same port, or an unplugged device, ends
+with a message. Pastes of any length arrive in order.
 
 To expose a Linux login after the host kernel has enumerated the USB
 device, configure a getty for the resulting `ttyACM` device. Use a persistent
@@ -164,7 +165,7 @@ nothing. It refuses while the web terminal holds the port.
 
 The 2026-09-05 runtime audit verified 65,536 bytes in each direction (including
 all byte values), reopening the Windows COM port, and the full terminal
-WebSocket / picocom / CDC ACM path. The managed host was Windows; Linux's CDC
+WebSocket / serial bridge / CDC ACM path (then through picocom). The managed host was Windows; Linux's CDC
 driver, getty authentication, unplug/replug rules and boot behavior remain
 explicit follow-up checks on a real Linux host. Virtual ACM is a USB byte
 stream: its baud setting is not a measurement of physical UART throughput.

@@ -22,10 +22,12 @@ func (s *Service) Terminal(c *gin.Context) {
 		c.String(http.StatusBadRequest, "invalid terminal parameters")
 		return
 	}
-	cmd, err := terminalCommand(query)
-	if err != nil {
-		c.String(http.StatusBadRequest, "%s", err.Error())
-		return
+	var serial *serialSettings
+	if query.Has("port") {
+		if serial, err = serialSettingsFromQuery(query); err != nil {
+			c.String(http.StatusBadRequest, "%s", err.Error())
+			return
+		}
 	}
 	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -38,6 +40,13 @@ func (s *Service) Terminal(c *gin.Context) {
 		_ = ws.Close()
 	}()
 
+	if serial != nil {
+		if err := runSerialSession(ws, serial); err != nil {
+			log.Errorf("serial terminal %s: %s", serial.Device, err)
+		}
+		return
+	}
+	cmd := terminalCommand()
 	cmd.Dir = "/root"
 	cmd.Env = append(cmd.Environ(), "HOME=/root")
 	if err := runTerminalSession(ws, cmd); err != nil {

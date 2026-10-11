@@ -51,8 +51,7 @@ over the air: `nanokvm_<version>.tar.gz` plus its `latest.json` manifest.
 
 | Script | Purpose |
 |---|---|
-| `build-in-container.sh` | Builds every riscv64 artifact (`kvm_system`, `libkvm.so`, `NanoKVM-Server`, `picocom`). Runs inside the `nanokvm-builder` image only. |
-| `build-picocom.sh` | Builds the static musl serial terminal from a SHA-256-pinned upstream archive; accepts `CC`. Includes corresponding source and license in the package. |
+| `build-in-container.sh` | Builds every riscv64 artifact (`kvm_system`, `libkvm.so`, `NanoKVM-Server`). Runs inside the `nanokvm-builder` image only. |
 | `package.sh` | Stages the package tree, creates the tarball, and writes `latest.json`. |
 | `compare-release.sh` | Diffs a freshly built package against the currently published one. Informational. |
 | `verify-release-assets.sh` | Checks the three GitHub Release assets before publishing or promotion. |
@@ -94,7 +93,7 @@ make release VERSION=2.4.4
 That is equivalent to:
 
 ```bash
-make release-build         # native artifacts + NanoKVM-Server + picocom, in Docker
+make release-build         # native artifacts + NanoKVM-Server, in Docker
 make web                   # web/dist
 make package VERSION=2.4.4 # build/release/{nanokvm_2.4.4.tar.gz,latest.json}
 ```

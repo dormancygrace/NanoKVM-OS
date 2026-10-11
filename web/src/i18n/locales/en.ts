@@ -1258,7 +1258,7 @@ const en = {
           headless: {
             title: 'Headless server',
             description:
-              'Serial console and its helper disk only. No keyboard or mouse, so no remote desktop; USB network and audio can be added by hand.'
+              'Serial console and its helper disk only, no keyboard or mouse. USB network and audio can be added by hand; the remote desktop adds keyboard, mice and audio back when it is enabled.'
           },
           remote: {
             title: 'Remote desktop',

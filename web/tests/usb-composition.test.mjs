@@ -38,6 +38,8 @@ test('the presets say what they give up', () => {
   assert.equal(canToggleDevice(preset('headless'), 'network', status), true);
   assert.equal(canToggleDevice(preset('headless'), 'audio', status), true);
   for (const name of ['keyboard', 'relative', 'absolute']) assert.equal(preset('headless')[name], false);
+  // RustDesk adds the three HID functions and audio to it: 6 IN / 6 OUT, still fits
+  assert.equal(fitsBudget({ ...preset('headless'), keyboard: true, relative: true, absolute: true, audio: true }, status), true);
   // audio fits on top of the two full KVM presets
   assert.equal(canToggleDevice(preset('standard'), 'audio', status), true);
   assert.equal(canToggleDevice(preset('console'), 'audio', status), true);

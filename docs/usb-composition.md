@@ -13,7 +13,7 @@ sends the complete composition; **Discard changes** restores the active values.
 | KVM (a new device starts here) | Three HID functions, storage | 4 / 4 | no network adapter on the computer |
 | KVM + USB network | Three HID functions, network, storage | 6 / 5 | the serial console |
 | KVM + serial console | Three HID functions, ACM, storage (with the helper disk) | 6 / 5 | the USB network |
-| Headless server | ACM, storage (with the helper disk) | 3 / 2 | keyboard and mouse, so the remote desktop |
+| Headless server | ACM, storage (with the helper disk) | 3 / 2 | keyboard and mouse (RustDesk adds them and audio back: 6 / 6) |
 | Remote desktop | Three HID functions, storage, audio | 4 / 5 | what RustDesk enables; a second speaker on the computer |
 | Keyboard and mouse only | Three HID functions | 3 / 3 | everything else |
 

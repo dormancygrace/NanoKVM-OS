@@ -49,6 +49,26 @@ Buildroot stays on stable 2026.08 with the existing platform patches and the new
 - Node remains **24.21.0**. Its types move to the latest 24.x release, not the incompatible 26.x major advertised by registry latest.
 - Stock Alpine packages and PicoClaw use their existing signed repository/latest-download channels. The availability rows were not proof that installed device packages were old; no on-device package upgrade is performed here.
 
+## Source selection and remaining release checks
+
+- BusyBox 1.38.0 is labelled **unstable** by upstream. This PR updates only the
+  separately built `devmem` applet; it does not replace Alpine's `/bin/busybox`.
+  The initramfs already selected 1.38.0 before this PR. The standalone build
+  passes, but its use by Sophgo `CVI_SYS_Init` still needs device qualification
+  as part of the next image release.
+- U-Boot uses the official `v2026.10` tag archive from GitHub because the DENX
+  2026.10 release archive was unavailable (404, rechecked 2026-10-12). The pinned
+  SHA-256 checks the downloaded bytes; it is not an upstream signature. This is
+  an explicit source-authentication limitation, not a claim that the tarball
+  was verified against a signed release.
+- miniz is an upstream snapshot after 3.1.2, not a newer tagged release. Both
+  commit and tree IDs are pinned. The changes include ZIP write-error and EOCD
+  scan-underflow fixes; sanitizer tests and RISC-V BIN/ISP_BIN links passed.
+- The matching BusyBox 1.38.0 archive is included by `platform/build.sh source`
+  and must be published with the release. The checked-in 1.36.1 archive remains
+  historical corresponding source for the v2.0-b4 devmem executable. It is not
+  used by the new builder.
+
 ## Automated report removal
 
 The public dashboard issue was deleted on request. The watcher no longer contains the issue publication function or `--publish` option; HTTP helpers support reads only and the workflow has no `issues: write` permission. Dependabot and read-only checks remain. The existing scheduled workflow was disabled before deleting the issue so old main cannot recreate it. Re-enable `upstream-watch.yml` **after this PR is merged**, when main contains the read-only implementation.

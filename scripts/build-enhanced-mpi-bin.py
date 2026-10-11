@@ -25,7 +25,7 @@ cmake = os.environ.get('NANOKVM_CMAKE', 'cmake')
 jobs = os.environ.get('JOBS', '8')
 flags = ' '.join(cpu_flags()) + ' -fPIC'
 path_flags = ' '.join(f'-ffile-prefix-map={Path(src).resolve()}={name}' for src, name in [
-    (mpi, './cvi_mpi'), (out, './build/mpi-bin'), (repo, './nanokvm-os'),
+    (repo, './nanokvm-os'), (mpi, './cvi_mpi'), (out, './build/mpi-bin'),
     (os.environ['NANOKVM_OSDRV_SOURCE'], './osdrv'),
     (os.environ['NANOKVM_KERNEL_SOURCE'], './linux'),
     (os.environ['NANOKVM_JSON_C_SOURCE'], './json-c'),

@@ -198,6 +198,20 @@ class ScriptTest(unittest.TestCase):
                 self.assertEqual(r.returncode, 0)
                 self.assertIn('nothing to undo', r.stdout)
 
+    def test_getty_started_when_the_add_event_does_not(self):
+        # Debian 11's systemd ignores a repeated add event for a present device
+        h = self.host()
+        stub = h.bin / 'systemctl'
+        stub.write_text('#!/bin/sh\necho "systemctl $*" >> "$NANOKVM_TEST_LOG"\ncase "$1" in is-active) grep -q "systemctl start" "$NANOKVM_TEST_LOG" || exit 3;; esac\nexit 0\n')
+        r = h.run(SHELLS[0], 'apply', '--yes')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(h.calls(), ['udevadm control --reload',
+                                     'udevadm trigger --subsystem-match=tty --sysname-match=ttyACM0 --action=add',
+                                     'systemctl is-active --quiet serial-getty@ttyACM0.service',
+                                     'systemctl start serial-getty@ttyACM0.service',
+                                     'systemctl is-active --quiet serial-getty@ttyACM0.service'])
+        self.assertIn('is running', r.stdout)
+
     def test_apply_needs_a_terminal_or_yes(self):
         h = self.host()
         r = self.assertReadOnly(h, SHELLS[0], 'apply', code=0)

@@ -416,7 +416,21 @@ apply_systemd() {
 			# match flags, not a device path: old udevadm has no positional argument
 			run udevadm trigger --subsystem-match=tty "--sysname-match=$dev_tty" --action=add
 			sleep 1
-			if have systemctl && systemctl is-active --quiet "serial-getty@$dev_tty.service"; then
+			active=
+			if have systemctl; then
+				if systemctl is-active --quiet "serial-getty@$dev_tty.service"; then
+					active=yes
+				else
+					# Older systemd (Debian 11) does not start the wanted unit
+					# on a repeated add event for a device that is already
+					# there; the rule covers the next plug and boot, so start
+					# it now.
+					run systemctl start "serial-getty@$dev_tty.service"
+					sleep 1
+					systemctl is-active --quiet "serial-getty@$dev_tty.service" && active=yes
+				fi
+			fi
+			if [ -n "$active" ]; then
 				ok "serial-getty@$dev_tty.service is running: open the USB serial console on the NanoKVM and press Enter"
 			else
 				warn "serial-getty@$dev_tty.service is not active yet; check: systemctl status serial-getty@$dev_tty.service"

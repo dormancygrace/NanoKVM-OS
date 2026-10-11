@@ -84,6 +84,39 @@ type GetVirtualDeviceRsp struct {
 	Costs                   map[string]USBEndpointCost `json:"costs"`
 }
 
+// SerialConsoleRsp describes the headless-Linux console helper: the USB
+// serial number the host matches, the script URL and the helper disk image.
+type SerialConsoleRsp struct {
+	SerialNumber string            `json:"serialNumber"`
+	Port         string            `json:"port"`
+	Script       SerialConsoleFile `json:"script"`
+	Disk         SerialConsoleDisk `json:"disk"`
+}
+
+type SerialConsoleFile struct {
+	Path      string `json:"path"`
+	Available bool   `json:"available"`
+	Sha256    string `json:"sha256,omitempty"`
+	Size      int64  `json:"size,omitempty"`
+}
+
+// SerialConsoleDisk is the helper disk: shipped with the firmware, and
+// attached as a read-only second LUN of the virtual drive by S03usbdev while
+// USB serial and the virtual disk are enabled.
+type SerialConsoleDisk struct {
+	File      string `json:"file"`
+	Available bool   `json:"available"`
+	Attached  bool   `json:"attached"`
+	// Stale: attached, but to a replaced image; refreshed at the next USB reconnect.
+	Stale bool `json:"stale"`
+}
+
+type SerialConsoleTestRsp struct {
+	Ok       bool   `json:"ok"`
+	State    string `json:"state"`
+	Response string `json:"response,omitempty"`
+}
+
 type USBEndpointBudget struct {
 	InUsed   int `json:"inUsed"`
 	InLimit  int `json:"inLimit"`

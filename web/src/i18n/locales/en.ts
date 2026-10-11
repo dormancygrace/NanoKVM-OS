@@ -1239,6 +1239,37 @@ const en = {
         reconnectFailed: 'Connection interrupted. Reconnect to NanoKVM and refresh its status.',
         serverUpdateRequired: 'Update the NanoKVM server to apply complete compositions.',
         reconnectNotice: 'Applying briefly reconnects the USB devices.',
+        serialConsole: {
+          title: 'Headless Linux console',
+          description:
+            'A script on this NanoKVM sets up a login on its USB serial port on the connected computer. It reads the system first, refuses when it cannot do that safely, keeps backups and can undo its changes.',
+          fromNetwork: 'Over the network, in a shell on the computer, as root:',
+          fromUsbNetwork: 'Over the USB network, when the computer has no other network:',
+          withWget: 'With wget instead of curl (Alpine, busybox):',
+          diskAttached:
+            'The helper disk "NanoKVM Setup Disk" is attached to the computer as a read-only drive. Without a network:',
+          diskPending: 'The helper disk appears on the computer once the USB devices reconnect.',
+          diskStale:
+            'The helper disk was updated; the computer sees the new one once the USB devices reconnect.',
+          diskNeedsDisk:
+            'Enable the virtual disk as well to get the helper disk: a read-only drive with the script, for a computer without a network.',
+          applyHint:
+            'The command only reports. Add "apply" to make the changes and "undo" to remove them again.',
+          test: 'Test the console',
+          download: 'Download the script',
+          testFailed: 'The console test could not run.',
+          states: {
+            login: 'A login prompt answers on the serial port.',
+            password: 'A password prompt answers: a login is in progress on the serial port.',
+            shell: 'A shell session is open on the serial port.',
+            text: 'The computer sent something, but no login prompt.',
+            silent:
+              'No answer within 5 seconds: the computer has no login on the serial port yet, or USB serial is not connected.',
+            busy: 'The USB serial console is open in the terminal. Close it and try again.',
+            unavailable: 'USB serial is not enabled on this NanoKVM.',
+            error: 'The serial port could not be read.'
+          }
+        },
         presets: {
           standard: {
             title: 'KVM + USB network + disk',

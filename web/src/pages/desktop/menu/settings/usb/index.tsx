@@ -20,6 +20,7 @@ import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
 import { MouseJiggler } from '../device/mouse-jiggler';
 import { UsbInternet } from './internet';
+import { SerialConsole } from './serial-console';
 
 const previousCompositionKey = 'nanokvm.usb.previous-composition';
 function readPreviousComposition(): UsbComposition | undefined {
@@ -354,6 +355,7 @@ export const Usb = () => {
             </div>
             <p className="text-fg-muted m-0 text-xs">{t('settings.usb.reconnectNotice')}</p>
           </div>
+          <SerialConsole serial={Boolean(status?.serial)} disk={Boolean(status?.disk)} />
           <MouseJiggler />
         </>
       )}

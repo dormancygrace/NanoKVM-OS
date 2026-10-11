@@ -208,7 +208,31 @@ start_usb_dev(){
     if [ -e /boot/usb.disk0 ]
     then
             mkdir -p functions/mass_storage.disk0
+            # With USB serial, a second read-only LUN carries the headless
+            # Linux console helper (setup.sh), so the computer can set up a
+            # login on the serial port without any network. The LUN goes
+            # away with serial, so the drives match the composition. A LUN
+            # can be added or removed only while the function is not linked
+            # into the configuration (the kernel answers "Resource busy"
+            # otherwise), so this comes before the link.
+            _helper=/kvmapp/system/share/serial-console/nanokvm-serial-console.img
+            if [ -e /boot/usb.acm ] && [ -f "$_helper" ]
+            then
+                    mkdir -p functions/mass_storage.disk0/lun.1
+            elif [ -d functions/mass_storage.disk0/lun.1 ]
+            then
+                    echo '' > functions/mass_storage.disk0/lun.1/file
+                    rmdir functions/mass_storage.disk0/lun.1
+            fi
             ln -s functions/mass_storage.disk0 configs/c.1/
+            if [ -d functions/mass_storage.disk0/lun.1 ]
+            then
+                    echo 1 > functions/mass_storage.disk0/lun.1/removable
+                    echo 1 > functions/mass_storage.disk0/lun.1/ro
+                    echo 0 > functions/mass_storage.disk0/lun.1/cdrom
+                    echo "NanoKVM Setup Disk" > functions/mass_storage.disk0/lun.1/inquiry_string
+                    echo "$_helper" > functions/mass_storage.disk0/lun.1/file
+            fi
             echo 1 > functions/mass_storage.disk0/lun.0/removable
             if [ -e /boot/usb.disk0.ro ]
             then

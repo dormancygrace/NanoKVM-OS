@@ -99,26 +99,50 @@ would compete with the browser terminal for the same gadget-side port. The
 downstream image removes it, and the application performs the same one-time
 inittab migration when serial is first enabled on an older image.
 
-## Linux host setup and verification boundary
+## Linux host setup: the console helper
 
-On the **managed Linux host**, identify the new port after enabling ACM:
+The NanoKVM carries a script that sets the login up on the **managed Linux
+host**: `nanokvm-serial-console.sh` (source: `firmware/services/`). The USB
+settings page shows, while USB serial is enabled, the command that fetches
+and runs it, the NanoKVM's USB serial number, and a **Test the console**
+button. The host gets the script in one of two ways:
 
-```sh
-ls -l /dev/serial/by-id/
-udevadm info --attribute-walk --name=/dev/ttyACM0
-sudo systemctl start serial-getty@ttyACM0.service
-```
+- over the network, from the NanoKVM's web server (`https://<nanokvm>/nanokvm-serial-console.sh`,
+  public, `-k` for the self-signed certificate; the page shows its SHA-256), or
+- from the **helper disk**: with USB serial and the virtual disk enabled,
+  `S03usbdev` attaches a second, read-only LUN to the virtual drive, a 1440 KiB
+  FAT image labelled `NANOKVM` ("NanoKVM Setup Disk") with the script as
+  `setup.sh` and a `readme.txt`. `mount -o ro /dev/disk/by-label/NANOKVM /mnt`
+  then `sh /mnt/setup.sh`. No network is needed.
 
-Replace `ttyACM0` with the actual port. Select `/dev/ttyGS0`, 115200, 8N1,
-no flow control in NanoKVM's terminal and press Enter. Configure a login service
-on the managed host, not another getty on NanoKVM's `/dev/ttyGS0`.
+The script, in POSIX sh (dash, busybox ash):
 
-For reconnects and reboots, an administrator can install a host udev rule that
-starts the getty for the matching USB serial number. Example for the audited
-unit, in `/etc/udev/rules.d/99-nanokvm-console.rules`:
+- `plan` (default) and `status` only read. They report the distribution,
+  the init system, the kernel's `cdc_acm` driver, the getty, and the NanoKVM
+  on the USB bus (by `3346:1009`, with its serial number and `ttyACM` name),
+  and print what `apply` would change.
+- `apply` writes `/etc/udev/rules.d/90-nanokvm-serial-console.rules` on
+  systemd hosts: a rule that matches the vendor, product **and serial number**,
+  marks the port for ModemManager to ignore, and starts
+  `serial-getty@<port>.service` for whichever `ttyACMn` the NanoKVM becomes,
+  only while it is present. On sysvinit and busybox init (Alpine) it appends
+  one respawn line to `/etc/inittab`. Every change goes into a manifest with
+  backups under `/var/backups/nanokvm-serial-console/`, a second `apply`
+  changes nothing, and `undo` reverts the last change.
+- It refuses, and prints the manual steps, in a container, on an immutable or
+  read-only system (OSTree, NixOS), without a `cdc_acm` driver or a getty,
+  and on init systems it does not handle (runit, OpenRC as PID 1).
+- The bootloader's `console=` is out of its scope: CDC ACM cannot carry early
+  boot output anyway.
+- `--serial SERIAL` binds the rule when the NanoKVM is not plugged in yet; the
+  USB page's command includes it.
+
+Hosts without the script: configure a login service on the managed host, not
+another getty on NanoKVM's `/dev/ttyGS0`, for example the rule above's
+equivalent in `/etc/udev/rules.d/`:
 
 ```udev
-ACTION=="add", SUBSYSTEM=="tty", KERNEL=="ttyACM*", ATTRS{idVendor}=="3346", ATTRS{idProduct}=="1009", ATTRS{serial}=="d19506b31359c372", TAG+="systemd", ENV{SYSTEMD_WANTS}+="serial-getty@%k.service"
+ACTION=="add", SUBSYSTEM=="tty", KERNEL=="ttyACM[0-9]*", ATTRS{idVendor}=="3346", ATTRS{idProduct}=="1009", ATTRS{serial}=="d19506b31359c372", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="systemd", ENV{SYSTEMD_WANTS}+="serial-getty@%k.service"
 ```
 
 Use the unit's actual identifiers, reload udev rules, then reconnect the USB
@@ -126,6 +150,17 @@ device during a maintenance window. Do not assume numbering stays `ttyACM0`
 when other serial devices exist. The USB serial number comes from the chip UID;
 `0123456789ABCDEF` is only the normal profile's fallback when no usable UID is
 available. The audited unit reports `d19506b31359c372` on both sides of USB.
+
+Select `/dev/ttyGS0` in NanoKVM's terminal and press Enter. The line settings
+there are nominal: the terminal opens the gadget port at 9600 8N1 without flow
+control, and CDC ACM carries bytes at USB speed whatever the rate.
+
+**Test the console** sends one carriage return on `/dev/ttyGS0` from the
+NanoKVM and reads the answer for up to five seconds: a login prompt, a
+password prompt, an open shell (its prompt ends the text), other text, or
+nothing. It refuses while the web terminal holds the port.
+
+## Verification boundary
 
 The 2026-09-05 runtime audit verified 65,536 bytes in each direction (including
 all byte values), reopening the Windows COM port, and the full terminal

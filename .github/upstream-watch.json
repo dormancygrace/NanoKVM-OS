@@ -295,12 +295,11 @@
       "module": "github.com/rs/cors/wrapper/gin"
     },
     {
-      "name": "Go AES nested module",
+      "name": "AES Bridge Go (test compatibility)",
       "path": "server/go.mod",
-      "pattern": "github.com/mervick/aes-everywhere/go/aes256\\s+v0\\.0\\.0-[0-9]+-([a-f0-9]{12})",
-      "kind": "github-reference",
-      "repo": "mervick/aes-bridge",
-      "detail": "Upstream renamed/replaced its history and removed the old Go module path; manual compatibility/security review required"
+      "pattern": "github.com/mervick/aes-bridge-go\\s+(v[^\\s]+)",
+      "kind": "go-proxy",
+      "module": "github.com/mervick/aes-bridge-go"
     },
     {
       "name": "GCC compiler",

@@ -20,7 +20,7 @@ import (
 	"NanoKVM-Server/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mervick/aes-everywhere/go/aes256"
+	aesbridge "github.com/mervick/aes-bridge-go"
 )
 
 const formOpenSSLCiphertext = "U2FsdGVkX18zLUxaLNGy7jL96oMO4tq6wDYwVzUMO3XfTY2Zy/ipO4LDEqtBT+fx"
@@ -50,7 +50,7 @@ func TestLoginCookieAndUserAuthorizationLifecycle(t *testing.T) {
 
 	createBody := map[string]any{
 		"username": "alice",
-		"password": encryptForRequest("valid-password"),
+		"password": encryptForRequest(t, "valid-password"),
 		"role":     "user",
 	}
 	if code := requestJSON(router, http.MethodPost, "/users", createBody, adminCookie); code != http.StatusOK {
@@ -244,7 +244,7 @@ func TestLoginReturnsTokenOnlyWhenExplicitlyRequested(t *testing.T) {
 	router.POST("/login", service.Login)
 
 	request := jsonRequest(http.MethodPost, "/login", map[string]any{
-		"username": "admin", "password": encryptForRequest("admin"),
+		"username": "admin", "password": encryptForRequest(t, "admin"),
 	})
 	request.Header.Set(ReturnTokenHeader, "true")
 	recorder := httptest.NewRecorder()
@@ -393,7 +393,7 @@ func TestNormalUserPasswordNeverChangesSystemPassword(t *testing.T) {
 	}
 	defer func() { systemPasswordUpdater = originalUpdater }()
 
-	if err := changeUserPassword("alice", encryptForRequest("new-password")); err != nil {
+	if err := changeUserPassword("alice", encryptForRequest(t, "new-password")); err != nil {
 		t.Fatal(err)
 	}
 	if updates != 0 {
@@ -424,8 +424,8 @@ func TestSelfPasswordChangeRequiresCurrentPassword(t *testing.T) {
 	cookie := loginCookie(t, router, "alice", "alice-password")
 
 	recorder := requestJSONRecorder(router, http.MethodPost, "/password", map[string]any{
-		"currentPassword": encryptForRequest("wrong-password"),
-		"password":        encryptForRequest("new-password"),
+		"currentPassword": encryptForRequest(t, "wrong-password"),
+		"password":        encryptForRequest(t, "new-password"),
 	}, cookie)
 	var response proto.Response
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
@@ -439,8 +439,8 @@ func TestSelfPasswordChangeRequiresCurrentPassword(t *testing.T) {
 	}
 
 	requestJSON(router, http.MethodPost, "/password", map[string]any{
-		"currentPassword": encryptForRequest("alice-password"),
-		"password":        encryptForRequest("new-password"),
+		"currentPassword": encryptForRequest(t, "alice-password"),
+		"password":        encryptForRequest(t, "new-password"),
 	}, cookie)
 	if _, ok, err := store.Authenticate("alice", "new-password"); err != nil || !ok {
 		t.Fatalf("valid password change failed: ok=%v err=%v", ok, err)
@@ -474,7 +474,7 @@ func TestAdministratorCannotResetDeviceOwnerPassword(t *testing.T) {
 	admin.POST("/users/:username/password", service.ChangeUserPassword)
 	cookie := loginCookie(t, router, "second-admin", "second-password")
 	requestJSON(router, http.MethodPost, "/users/admin/password", map[string]any{
-		"password": encryptForRequest("new-password"),
+		"password": encryptForRequest(t, "new-password"),
 	}, cookie)
 
 	if updates != 0 {
@@ -500,7 +500,7 @@ func TestSystemPasswordFailureRollsBackWebPassword(t *testing.T) {
 	systemPasswordUpdater = func(string) error { return errors.New("passwd failed") }
 	defer func() { systemPasswordUpdater = originalUpdater }()
 
-	if err := changeUserPassword("admin", encryptForRequest("new-password")); err == nil {
+	if err := changeUserPassword("admin", encryptForRequest(t, "new-password")); err == nil {
 		t.Fatal("system password failure was ignored")
 	}
 	if _, ok, err := store.Authenticate("admin", "admin"); err != nil || !ok {
@@ -513,7 +513,7 @@ func TestSystemPasswordFailureRollsBackWebPassword(t *testing.T) {
 
 func loginCookie(t *testing.T, handler http.Handler, username, password string) *http.Cookie {
 	t.Helper()
-	body := map[string]any{"username": username, "password": encryptForRequest(password)}
+	body := map[string]any{"username": username, "password": encryptForRequest(t, password)}
 	recorder := httptest.NewRecorder()
 	request := jsonRequest(http.MethodPost, "/login", body)
 	handler.ServeHTTP(recorder, request)
@@ -571,8 +571,14 @@ func jsonRequest(method, path string, body any) *http.Request {
 	return request
 }
 
-func encryptForRequest(password string) string {
-	return url.QueryEscape(aes256.Encrypt(password, utils.SecretKey))
+func encryptForRequest(t *testing.T, password string) string {
+	t.Helper()
+	// Keep exercising the CryptoJS/OpenSSL wire format used by existing clients.
+	ciphertext, err := aesbridge.EncryptLegacy(password, utils.SecretKey)
+	if err != nil {
+		t.Fatalf("encrypt request fixture: %v", err)
+	}
+	return url.QueryEscape(ciphertext)
 }
 
 func useTestStore(store *authn.Store) func() {
@@ -623,7 +629,7 @@ func TestFactoryPasswordOnlyAllowsPasswordChangeRoutes(t *testing.T) {
 	admin := router.Group("/api").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
 	admin.GET("/auth/users", service.ListUsers)
 
-	body := map[string]any{"username": "admin", "password": encryptForRequest("admin")}
+	body := map[string]any{"username": "admin", "password": encryptForRequest(t, "admin")}
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, jsonRequest(http.MethodPost, "/api/auth/login", body))
 	var cookie *http.Cookie

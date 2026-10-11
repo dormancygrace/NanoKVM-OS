@@ -291,6 +291,32 @@ class ScriptTest(unittest.TestCase):
         h.run(SHELLS[0], 'undo')
         self.assertEqual((h.root / 'etc/udev/rules.d/90-nanokvm-serial-console.rules').read_text(), 'ATTRS{serial}=="old"\n')
 
+    def test_a_login_set_up_by_hand_is_left_alone(self):
+        # the Proxmox host on 2026-10-11: the rule from the docs, under another
+        # name, and its getty running (systemd keeps the invocation link)
+        h = self.host()
+        (h.root / 'etc/udev/rules.d').mkdir(parents=True)
+        docs_rule = ('ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}=="3346", ATTRS{idProduct}=="1009", '
+                     'ATTRS{serial}=="%s", TAG+="systemd", ENV{SYSTEMD_WANTS}+="serial-getty@%%k.service"\n' % SERIAL)
+        (h.root / 'etc/udev/rules.d/70-nanokvm-serial-console.rules').write_text(docs_rule)
+        (h.root / 'run/systemd/units').mkdir(parents=True)
+        (h.root / 'run/systemd/units/invocation:serial-getty@ttyACM0.service').symlink_to('/x')
+        for shell in SHELLS:
+            with self.subTest(shell=shell[0]):
+                r = self.assertReadOnly(h, shell, code=0)
+                self.assertIn('already set up by /etc/udev/rules.d/70-nanokvm-serial-console.rules', r.stdout)
+                self.assertIn('serial-getty@ttyACM0.service is running on /dev/ttyACM0', r.stdout)
+                self.assertNotIn('plan:    write', r.stdout)
+                r = self.assertReadOnly(h, shell, 'apply', '--yes', code=0)
+                self.assertIn('adds no second rule', r.stdout)
+                self.assertFalse((h.root / 'etc/udev/rules.d/90-nanokvm-serial-console.rules').exists())
+        # a rule for another NanoKVM is not this one's setup
+        (h.root / 'etc/udev/rules.d/70-nanokvm-serial-console.rules').write_text(docs_rule.replace(SERIAL, 'other'))
+        os.remove(h.root / 'run/systemd/units/invocation:serial-getty@ttyACM0.service')
+        r = self.assertReadOnly(h, SHELLS[0], code=0)
+        self.assertNotIn('already set up', r.stdout)
+        self.assertIn('plan:    write', r.stdout)
+
     def test_inittab_init(self):
         alpine = 'ID=alpine\nPRETTY_NAME="Alpine Linux v3.21"\n'
         for shell in SHELLS:

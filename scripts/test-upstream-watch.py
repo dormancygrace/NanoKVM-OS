@@ -181,6 +181,20 @@ class CoverageTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'new-addon/Cargo.toml'):
                 c.validate_coverage(ROOT, sources)
 
+    def test_rust_toolchains_require_separate_dependabot_coverage(self):
+        import dependency_coverage as c
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        files = c.tracked_files(ROOT)
+        configured = c.dependabot_directories((ROOT / '.github/dependabot.yml').read_text())
+        without_toolchain = {k: v for k, v in configured.items() if k != 'rust-toolchain'}
+        with patch.object(c, 'dependabot_directories', return_value=without_toolchain):
+            with self.assertRaisesRegex(ValueError, 'addons/rustdesk/rust-toolchain.toml'):
+                c.validate_coverage(ROOT, sources)
+        for filename in ('rust-toolchain', 'rust-toolchain.toml'):
+            with self.subTest(filename=filename), patch.object(c, 'tracked_files', return_value=files + ['new-addon/' + filename]):
+                with self.assertRaisesRegex(ValueError, 'new-addon/' + filename):
+                    c.validate_coverage(ROOT, sources)
+
     def test_new_buildroot_selection_is_not_silent(self):
         import dependency_coverage as c
         with tempfile.TemporaryDirectory() as tmp:

@@ -17,6 +17,7 @@ import (
 	"NanoKVM-Server/logs"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/router"
+	"NanoKVM-Server/service/extensions/acme"
 	"NanoKVM-Server/service/network"
 	"NanoKVM-Server/service/vm"
 	"NanoKVM-Server/service/vm/jiggler"
@@ -34,6 +35,7 @@ func main() {
 	startDiagnosticCPUProfile()
 	go vm.RunMemoryMaintenance(ctx)
 	go logs.RunArchive(ctx)
+	go acme.RunRenewal(ctx)
 	defer func() { stopMemory(); dispose() }()
 
 	run()
@@ -136,6 +138,8 @@ func run() {
 					loopbackHTTPAddr,
 					httpsPortStr,
 					r,
+					nil,
+					"",
 					router.LoopbackHTTPAllowedPaths()...,
 				); err != nil {
 					panic("start loopback http server failed")
@@ -147,6 +151,8 @@ func run() {
 			httpAddr,
 			httpsPortStr,
 			r,
+			acme.ChallengeHandler(),
+			acme.ChallengePrefix,
 			router.LoopbackHTTPAllowedPaths()...,
 		); err != nil {
 			panic("start http server failed")

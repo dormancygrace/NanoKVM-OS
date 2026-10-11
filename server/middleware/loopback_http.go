@@ -10,10 +10,17 @@ import (
 	"NanoKVM-Server/utils"
 )
 
+// ListenAndServeLoopbackHTTPRedirect serves the plain-HTTP port while HTTPS
+// is on: loopback callers with the internal token reach the allowed paths,
+// challenge (when set) answers requests under its prefix without
+// authentication (ACME HTTP-01 tokens, fetched by the CA over port 80), and
+// everything else is redirected to HTTPS.
 func ListenAndServeLoopbackHTTPRedirect(
 	httpAddr string,
 	httpsPort string,
 	handler http.Handler,
+	challenge http.Handler,
+	challengePrefix string,
 	allowedPaths ...string,
 ) error {
 	allowlist := make(map[string]struct{}, len(allowedPaths))
@@ -32,6 +39,10 @@ func ListenAndServeLoopbackHTTPRedirect(
 			}
 
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if challenge != nil && challengePrefix != "" && strings.HasPrefix(req.URL.Path, challengePrefix) {
+			challenge.ServeHTTP(w, req)
 			return
 		}
 

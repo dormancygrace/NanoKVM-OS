@@ -21,6 +21,7 @@ const info = (overrides = {}) => ({
 const status = (overrides = {}) => ({
   enabled: true,
   custom: false,
+  source: 'generated',
   certFile: '/etc/kvm/server.crt',
   keyFile: '/etc/kvm/server.key',
   certificate: info(),
@@ -31,7 +32,8 @@ const status = (overrides = {}) => ({
 
 test('the badge state follows error, pending, expired, custom, generated', () => {
   assert.equal(certificateState(status()), 'generated');
-  assert.equal(certificateState(status({ custom: true })), 'custom');
+  assert.equal(certificateState(status({ custom: true, source: 'custom' })), 'custom');
+  assert.equal(certificateState(status({ custom: true, source: 'acme' })), 'acme');
   assert.equal(certificateState(status({ certificate: info({ expired: true }) })), 'expired');
   assert.equal(certificateState(status({ pending: true })), 'pending');
   assert.equal(certificateState(status({ error: 'read certificate: no such file' })), 'error');

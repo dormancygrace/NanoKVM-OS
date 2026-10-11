@@ -265,7 +265,14 @@ report() {
 	loaded) ok "cdc_acm driver is loaded" ;;
 	builtin) ok "cdc_acm is built into the kernel" ;;
 	module) ok "cdc_acm module is available for $krel (loads when the device appears)" ;;
-	*) refuse "no cdc_acm driver for kernel $krel: the port cannot appear on this host" ;;
+	*)
+		refuse "no cdc_acm driver for kernel $krel: the port cannot appear on this host"
+		# the usual reasons: a cloud kernel without USB drivers
+		case "$distro_id:$krel" in
+		ubuntu:*) info "Ubuntu cloud images leave it out: apt install linux-modules-extra-$krel, then modprobe cdc_acm" ;;
+		debian:*cloud*) info "Debian's cloud kernel has no USB drivers: apt install linux-image-amd64 and boot it" ;;
+		esac
+		;;
 	esac
 	case $init in
 	systemd)

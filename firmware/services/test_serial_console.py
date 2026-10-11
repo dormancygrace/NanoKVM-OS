@@ -259,6 +259,18 @@ class ScriptTest(unittest.TestCase):
                     self.assertIn('Manual setup', r.stdout)
                 r = self.assertReadOnly(h, SHELLS[0], 'status', code=2)
 
+    def test_missing_cdc_acm_hints(self):
+        # seen on the Proxmox matrix: Ubuntu cloud images lack linux-modules-extra,
+        # Debian genericcloud images run a cloud kernel without USB drivers
+        r = self.host(cdc=None, os_release='ID=ubuntu\nPRETTY_NAME="Ubuntu 24.04.5 LTS"\n').run(SHELLS[0])
+        self.assertEqual(r.returncode, 2)
+        self.assertIn('apt install linux-modules-extra-' + KERNEL, r.stdout)
+        env = dict(os.environ, NANOKVM_KERNEL='6.12.0-cloud-amd64')
+        h = self.host(cdc=None)
+        r = subprocess.run(SHELLS[0] + [str(SCRIPT)], capture_output=True, text=True,
+                           env=dict(env, NANOKVM_ROOT=str(h.root), NANOKVM_TEST_LOG=str(h.log), PATH=str(h.bin) + ':/usr/bin:/bin'))
+        self.assertIn("Debian's cloud kernel has no USB drivers", r.stdout)
+
     def test_cdc_variants_and_notes(self):
         for cdc, text in (('loaded', 'driver is loaded'), ('builtin', 'built into the kernel'),
                           ('module', 'module is available')):

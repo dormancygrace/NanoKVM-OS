@@ -36,6 +36,7 @@ base  file  /etc/init.d/nanokvm-storage                   0755  firmware/alpine/
 base  file  /etc/init.d/nanokvm-usb                       0755  firmware/alpine/openrc/nanokvm-usb
 base  file  /etc/init.d/nanokvm-watchdog                  0755  firmware/alpine/openrc/nanokvm-watchdog
 base  dir   /usr/libexec/nanokvm                          0700
+base  file  /usr/libexec/nanokvm/console-policy            0755  firmware/alpine/compat/nanokvm-console-policy
 base  file  /usr/libexec/nanokvm/activate-kernel          0755  firmware/alpine/compat/nanokvm-activate-kernel
 base  file  /usr/libexec/nanokvm/firstboot-storage        0755  firmware/alpine/compat/nanokvm-firstboot-storage
 base  file  /usr/libexec/nanokvm/wpa-passphrase-compat    0755  firmware/alpine/compat/wpa-passphrase-compat

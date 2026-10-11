@@ -160,7 +160,15 @@ with tempfile.TemporaryDirectory(prefix='usb-internet-netns-', dir=ROOT / 'work'
         wait_state('waiting-uplink')
         ns(router, 'ip', 'route', 'add', 'default', 'via', '192.0.2.1', 'dev', 'eth0')
         wait_state('active')
+        monitors = []
+        for pid in cmd('ip', 'netns', 'pids', router).split():
+            proc = pathlib.Path('/proc') / pid
+            args = (proc / 'cmdline').read_bytes().split(b'\0')
+            if len(args) > 1 and args[1] == b'monitor' and args[0] in (b'ip', b'nft'):
+                monitors.append(proc)
+        assert len(monitors) == 2, 'watcher did not start both monitors'
         watcher.terminate();watcher.wait(timeout=3);processes.remove(watcher)
+        assert not any(proc.exists() for proc in monitors), 'watcher left an orphan monitor'
         print('PASS: DHCP local/active, DNS, NAT, no uplink, idempotence, restart/persistence, disable/local access, foreign rules, uplink change/loss, VPN route, subnet conflict/selection, gadget removal, event-driven watcher')
     finally:
         for process in processes:

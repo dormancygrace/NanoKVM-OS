@@ -1,5 +1,8 @@
 #!/bin/sh
 set -eu
+if [ -x /usr/libexec/nanokvm/console-policy ]; then
+    /usr/libexec/nanokvm/console-policy
+fi
 
 # Make a clean Alpine minirootfs bootable on NanoKVM. rc-update is idempotent.
 for service in devfs dmesg procfs sysfs; do

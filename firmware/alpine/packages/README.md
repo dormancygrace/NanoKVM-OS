@@ -47,7 +47,7 @@ python3 scripts/prepare-alpine-release-payloads.py \
   --output /path/to/release-payloads
 ```
 
-The build pins upstream BusyBox 1.36.1 and its source checksum, enables only
+The build pins upstream BusyBox 1.38.0 and its source checksum, enables only
 the `devmem` applet, and compiles it with `-O2` for RV64GC/musl. The base APK
 owns `/usr/sbin/devmem` and carries the BusyBox GPL-2.0 license. It does not
 replace Alpine's `/bin/busybox`. The missing command is a confirmed dependency;
@@ -92,4 +92,4 @@ keeping them in one APK transaction. It does not update the partition table,
 filesystem, FIP or bootloader. Those changes continue to use a complete image or
 the recovery installer.
 
-The exact BusyBox source archive for the shipped devmem executable is available at `firmware/sources/busybox-1.36.1.tar.bz2`; use `scripts/build-busybox-devmem.sh` to reproduce it.
+The exact BusyBox source archive for the shipped devmem executable is available at the checksum-pinned URL in `platform/sources.lock`; use `scripts/build-busybox-devmem.sh` to reproduce it.

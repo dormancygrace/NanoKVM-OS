@@ -5,7 +5,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-  issues: write
 concurrency:
   group: upstream-dependency-watch
   cancel-in-progress: false
@@ -21,4 +20,4 @@ jobs:
       - name: Check dependency coverage and upstreams
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/check-upstream.py --publish
+        run: python3 scripts/check-upstream.py

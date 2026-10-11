@@ -137,25 +137,6 @@ class WatchTests(unittest.TestCase):
             self.assertEqual(result['status'], 'error')
             self.assertIn('exactly one', result['detail'])
 
-    def test_unchanged_dashboard_no_write(self):
-        issue = dict(number=7, title=u.TITLE, body=u.MARKER + '\nreport', state='open', html_url='test')
-        with patch.object(u, 'github', return_value=[issue]) as api:
-            u.publish('owner/repo', issue['body'], True)
-            self.assertEqual(api.call_count, 1)
-
-    def test_changed_dashboard_updates_existing(self):
-        issue = dict(number=7, title=u.TITLE, body=u.MARKER + '\nold', state='open', html_url='test')
-        with patch.object(u, 'github', side_effect=[[issue], {}]) as api:
-            u.publish('owner/repo', u.MARKER + '\nnew', True)
-            self.assertEqual(api.call_args.args[0], 'repos/owner/repo/issues/7')
-            self.assertEqual(api.call_args.args[2], 'PATCH')
-
-    def test_foreign_issue_not_edited(self):
-        issue = dict(number=1, title=u.TITLE, body='not our marker', state='open', html_url='test')
-        with patch.object(u, 'github', side_effect=[[issue], {'html_url':'new'}]) as api:
-            u.publish('owner/repo', u.MARKER + '\nnew', True)
-            self.assertEqual(api.call_args.args[2], 'POST')
-
     def test_commit_uses_actual_head_not_truncated_commit_list(self):
         source = dict(name='driver',path='pin',pattern=r'([a-f0-9]{40})',kind='github-commit',repo='org/driver',branch='stable')
         with tempfile.TemporaryDirectory() as tmp:
@@ -257,12 +238,6 @@ class CoverageTests(unittest.TestCase):
             results = u.check_alpine_inventory(ROOT)
             self.assertEqual(results[0]['status'], 'error')
             self.assertIn('mirror down', results[0]['detail'])
-
-    def test_closed_actionable_dashboard_reopens_even_when_unchanged(self):
-        issue = dict(number=7, title=u.TITLE, body=u.MARKER + '\nreport', state='closed', html_url='test')
-        with patch.object(u, 'github', side_effect=[[issue], {}]) as api:
-            u.publish('owner/repo', issue['body'], True)
-            self.assertEqual(api.call_args.args[1], {'state': 'open'})
 
 
 if __name__ == '__main__':

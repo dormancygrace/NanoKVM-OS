@@ -9,7 +9,7 @@
 #   toolchain  Buildroot 2026.08: cross toolchain, host tools, initramfs userland
 #   kernel     Linux 7.2.9 with kernel/*.patch and kernel/config
 #   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod-sg2002
-#   uboot      U-Boot 2026.07 with uboot/*.patch and uboot/defconfig
+#   uboot      U-Boot 2026.10 with uboot/*.patch and uboot/defconfig
 #   opensbi    OpenSBI 1.9: SG2002 FW_DYNAMIC with embedded M-mode DT
 #   fip        fip.bin: stock FSBL/DDR with new OpenSBI and U-Boot
 #   initramfs  initramfs from boot/initramfs.list and the Buildroot userland
@@ -329,8 +329,8 @@ uboot() {
     local u=$out/uboot
     rm -rf "$u"
     mkdir -p "$u/build" "$img"
-    tar -xjf "$dl/u-boot-2026.07.tar.bz2" -C "$u"
-    mv "$u/u-boot-2026.07" "$u/src"
+    tar -xzf "$dl/v2026.10.tar.gz" -C "$u"
+    mv "$u/u-boot-2026.10" "$u/src"
     apply_patches "$u/src" "$here/uboot"
     cp "$here/uboot/defconfig" "$u/build/.config"
     local boot_flags boot_isa boot_abi flag
@@ -538,7 +538,7 @@ server() {
     local s=$out/server
     rm -rf "$s" "${img:?}/server"
     mkdir -p "$s" "$img/server" "$dl/go-mod"
-    tar -xzf "$dl/go1.27.1.linux-amd64.tar.gz" -C "$s"
+    tar -xzf "$dl/go1.27.2.linux-amd64.tar.gz" -C "$s"
     "$host/python3" "$repo/firmware/cpu/sysmon-runtime/prepare.py" --base "$s/go" --output "$s/goroot" > /dev/null
     GOMODCACHE=$dl/go-mod GOPATH=$s/gopath GOCACHE=$s/gocache GOFLAGS=-mod=readonly GOTOOLCHAIN=local \
         "$host/python3" "$repo/scripts/build-server-existing-libs.py" --libraries "$img/native" \
@@ -572,7 +572,7 @@ tools() {
     local t=$out/tools e py=$host/python3
     rm -rf "$t" "${img:?}/tools"
     mkdir -p "$t" "$img/tools/edid" "$img/tools/usb-audio"
-    NANOKVM_BUILDROOT_OUTPUT=$bo BUSYBOX_SOURCE_ARCHIVE=$dl/busybox-1.36.1.tar.bz2 JOBS=$jobs \
+    NANOKVM_BUILDROOT_OUTPUT=$bo BUSYBOX_SOURCE_ARCHIVE=$dl/busybox-1.38.0.tar.bz2 JOBS=$jobs \
         sh "$repo/scripts/build-busybox-devmem.sh" "$t/devmem"
     cp "$t/devmem/devmem" "$t/devmem/busybox-LICENSE" "$img/tools/"
 
@@ -777,7 +777,7 @@ register_qemu() {
     if [ ! -x "$qemu" ]; then
         rm -rf "$out/qemu"
         mkdir -p "$out/qemu"
-        (cd "$out/qemu" && "${cross}ar" x "$dl/qemu-user-static_8.2.2+ds-0ubuntu1.18_amd64.deb" &&
+        (cd "$out/qemu" && "${cross}ar" x "$dl/qemu-user-static_8.2.2+ds-0ubuntu1.19_amd64.deb" &&
             "$host/zstd" -q -d -c data.tar.zst | tar -x ./usr/bin/qemu-riscv64-static)
         mv "$out/qemu/usr/bin/qemu-riscv64-static" "$qemu"
     fi

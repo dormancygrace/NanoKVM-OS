@@ -21,7 +21,7 @@
     {
       "name": "U-Boot",
       "path": "platform/sources.lock",
-      "pattern": "u-boot-([0-9.]+)\\.tar",
+      "pattern": "(?m)^u-boot\\s+\\S*/v([0-9.]+)\\.tar\\.gz",
       "kind": "github-tags",
       "upstream_pattern": "^v([0-9]{4}\\.[0-9]{2}(?:\\.[0-9]+)?)$",
       "lock_entry": "u-boot",

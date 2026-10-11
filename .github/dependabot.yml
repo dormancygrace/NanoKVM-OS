@@ -66,7 +66,7 @@ updates:
       - dependency-name: github.com/pion/ice/v4
       - dependency-name: github.com/pion/srtp/v3
       # CORS nested-module tags are misresolved against the parent repository.
-      # The dashboard checks the actual Go module proxy versions.
+      # The read-only Actions watcher checks the actual Go module proxy versions.
       - dependency-name: github.com/rs/cors/wrapper/gin
       # Upstream v2.0.0 lacks a /v2 module path; use the pinned Go-resolvable
       # pseudo-version and independent proxy check until upstream fixes tags.

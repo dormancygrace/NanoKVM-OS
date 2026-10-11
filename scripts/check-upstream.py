@@ -14,8 +14,6 @@ import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-MARKER = '<!-- nanokvm-upstream-watch -->'
-TITLE = 'Upstream dependency update dashboard'
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -24,7 +22,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def request_bytes(url, payload=None, method=None):
+def request_bytes(url):
     if urllib.parse.urlparse(url).scheme != 'https':
         raise ValueError('Only HTTPS sources are supported')
     headers = {'User-Agent': 'NanoKVM-OS-upstream-watch'}
@@ -32,8 +30,7 @@ def request_bytes(url, payload=None, method=None):
         headers['Accept'] = 'application/vnd.github+json'
         if os.environ.get('GH_TOKEN'):
             headers['Authorization'] = 'Bearer ' + os.environ['GH_TOKEN']
-    data = None if payload is None else json.dumps(payload).encode()
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    req = urllib.request.Request(url, headers=headers)
     with urllib.request.build_opener(NoRedirect).open(req, timeout=25) as response:
         raw = response.read(4 * 1024 * 1024 + 1)
     if len(raw) > 4 * 1024 * 1024:
@@ -41,12 +38,12 @@ def request_bytes(url, payload=None, method=None):
     return raw
 
 
-def request(url, payload=None, method=None):
-    return request_bytes(url, payload, method).decode('utf-8')
+def request(url):
+    return request_bytes(url).decode('utf-8')
 
 
-def github(path, payload=None, method=None):
-    return json.loads(request('https://api.github.com/' + path, payload, method))
+def github(path):
+    return json.loads(request('https://api.github.com/' + path))
 
 
 def github_tags(repo):
@@ -326,7 +323,7 @@ def check(source, root=ROOT):
 def render(results):
     def cell(value):
         return html.escape(str(value)).replace('|', '&#124;').replace('\n', ' ')
-    lines = [MARKER, '# Upstream dependency updates', '',
+    lines = ['# Upstream dependency updates', '',
              'Daily coverage audit: Dependabot handles manifest PRs; this report independently checks direct npm versions, native pins, patched references and Alpine package availability. Latest releases are shown even during Dependabot cooldown.', '',
              '| Component | Pinned | Upstream | Result | Pin file |',
              '|---|---|---|---|---|']
@@ -354,38 +351,9 @@ def render(results):
     return '\n'.join(lines)
 
 
-def publish(repo, body, actionable):
-    if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repo):
-        raise ValueError('Invalid GitHub repository')
-    # Only touch our own bot-owned dashboard, never an issue supplied by a third party.
-    for page in range(1, 11):
-        issues = github(f'repos/{repo}/issues?state=all&creator=github-actions%5Bbot%5D&per_page=100&page={page}')
-        for issue in issues:
-            if (not issue.get('pull_request') and issue['title'] == TITLE and
-                    (issue.get('body') or '').startswith(MARKER)):
-                update = {}
-                if issue.get('body') != body:
-                    update['body'] = body
-                if actionable and issue['state'] != 'open':
-                    update['state'] = 'open'
-                if not actionable and issue['state'] == 'open':
-                    update['state'] = 'closed'
-                if update:
-                    github(f'repos/{repo}/issues/{issue["number"]}', update, 'PATCH')
-                print('Dashboard:', issue['html_url'])
-                return
-        if len(issues) < 100:
-            if actionable:
-                issue = github(f'repos/{repo}/issues', {'title': TITLE, 'body': body}, 'POST')
-                print('Dashboard:', issue['html_url'])
-            return
-    raise RuntimeError('Dashboard search exceeded pagination limit; refusing to create a duplicate')
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--inventory', action='store_true', help='Validate and list local pins without network access')
-    parser.add_argument('--publish', action='store_true', help='Maintain one issue dashboard in GITHUB_REPOSITORY')
     parser.add_argument('--output', type=Path, help='Write Markdown report')
     args = parser.parse_args()
     sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
@@ -407,9 +375,6 @@ def main():
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         Path(os.environ['GITHUB_STEP_SUMMARY']).write_text(body)
     print(body)
-    if args.publish:
-        publish(os.environ['GITHUB_REPOSITORY'], body,
-                any(x['status'] not in ('current', 'repository-managed') for x in results))
     if any(x['status'] == 'error' for x in results):
         raise SystemExit('One or more upstream checks failed; see the report')
 

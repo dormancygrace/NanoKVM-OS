@@ -23,8 +23,8 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 version = run(str(mkimage), '-V').strip()
-if version != 'mkimage version 2026.07':
-    raise SystemExit('Expected current pinned host mkimage 2026.07')
+if version != 'mkimage version 2026.10':
+    raise SystemExit('Expected current pinned host mkimage 2026.10')
 data = (kernel / 'arch/riscv/boot/Image').read_bytes()
 release = (kernel / 'include/config/kernel.release').read_text().strip()
 if release != '7.2.5-nanokvm-os-r3':

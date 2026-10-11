@@ -47,10 +47,9 @@
     "scope": "MPI BIN/ISP_BIN source build; independent of Alpine and the platform Buildroot profile"
   },
   "miniz": {
-    "version": "3.1.2",
+    "version": "3.1.2+git2948eeb",
     "url": "https://github.com/richgel999/miniz.git",
-    "tag": "3.1.2",
-    "commit": "77d0dce8627735138c51770d1799a1ef48f2117d",
+    "commit": "2948eebafc5b9f1c69bebed80333e403a09bd62d",
     "scope": "MPI BIN/ISP_BIN source build"
   },
   "inih": {

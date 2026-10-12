@@ -189,8 +189,8 @@ static CVI_U32 venc_pack_capacity[MMF_VENC_MAX_CHN];
 struct venc_tuning_t {
 	int idr_seconds = 10;
 	int h264_high = 1;    // 8x8 transform (Main already uses CABAC)
-	int min_qp = 14;      // quality ceiling of P frames on static content
-	int min_iqp = 12;
+	int min_qp = 20;      // quality ceiling of P frames on static content
+	int min_iqp = 20;
 	int max_qp = 51;
 	int max_iqp = 51;
 	int max_iprop = 10;   // I-frame bits at most this many average frames

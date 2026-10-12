@@ -36,11 +36,22 @@ def rate_mode(width, height, rate):
     clock_khz = htotal * vtotal * rate // 250 * 250 // 1000
     return (width, height, clock_khz, 160, 48, 32, vtotal - height, 3, 10, 0x1a)
 
-def profile(source, mode=MODE):
+def profile(source, mode=MODE, rate=None):
+    """The portrait profile of mode; rate gives it the monitor identity of its
+    rate profile (see with_identity in build_final_monitor_profiles.py:
+    Windows reapplies the mode last used with an identity), by default the
+    rate of the established profile of that size."""
     data = bytearray(builder.profile(source, mode))
     height_mm = 530
     data[21:23] = bytes((30, height_mm // 10))
     data[66:69] = bytes((300 & 255, height_mm & 255, (300 >> 8) << 4 | (height_mm >> 8)))
+    width, height = mode[0], mode[1]
+    if rate is None:
+        rate = LEGACY[(width, height)][0]
+    data[12:16] = (height * 100 + rate).to_bytes(4, "little")
+    for pos in range(54, 126, 18):
+        if data[pos:pos + 4] == b"\0\0\0\xff":
+            data[pos + 5:pos + 18] = f"NKVM{height}P{rate}\n".encode("ascii").ljust(13, b" ")
     data[127] = (-sum(data[:127])) & 255
     return bytes(data)
 
@@ -58,7 +69,7 @@ def main():
         for height, rates in RATES.items():
             for rate in rates:
                 width = WIDTHS[height]
-                data = profile(source, rate_mode(width, height, rate))
+                data = profile(source, rate_mode(width, height, rate), rate)
                 target = args.output / f"NanoKVM-portrait-{width}x{height}-{rate}.bin"
                 target.write_bytes(data)
                 print(f"{hashlib.sha256(data).hexdigest()}  {target}")

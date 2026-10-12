@@ -51,7 +51,11 @@ class PortraitEdidTests(unittest.TestCase):
         self.assertEqual(int.from_bytes(d[:2], "little"), 18368)
         self.assertEqual(d[10] & 15, 10)
         self.assertEqual(data[21:23], bytes((30, 53)))
-        self.assertEqual(data[8:18], source[8:18])
+        # Vendor and product as the source; the serial number is the identity
+        # of the 1080x1920@75 rate profile.
+        self.assertEqual(data[8:12], source[8:12])
+        self.assertEqual(int.from_bytes(data[12:16], "little"), 1920 * 100 + 75)
+        self.assertEqual(data[16:18], source[16:18])
         self.assertEqual(data[35:54], source[35:54])
         end = 128 + data[130]
         pos = 132
@@ -62,6 +66,31 @@ class PortraitEdidTests(unittest.TestCase):
         self.assertEqual(fallback[2] | ((fallback[4] >> 4) << 8), 800)
         self.assertEqual(fallback[5] | ((fallback[7] >> 4) << 8), 600)
         self.assertFalse(any(data[end+18:255]))
+
+class PortraitRateIdentityTests(unittest.TestCase):
+    def test_rate_profiles_have_own_identity(self):
+        """Windows reapplies the mode last used with a monitor identity; each
+        portrait rate profile is a monitor of its own."""
+        source = (HERE.parent / "tools/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
+        seen = set()
+        for height, rates in g.RATES.items():
+            width = g.WIDTHS[height]
+            for rate in rates:
+                data = g.profile(source, g.rate_mode(width, height, rate), rate)
+                serial = int.from_bytes(data[12:16], "little")
+                texts = [data[pos + 5:pos + 18].split(b"\n")[0].decode()
+                         for pos in range(54, 126, 18) if data[pos:pos + 4] == b"\0\0\0\xff"]
+                with self.subTest(height=height, rate=rate):
+                    self.assertEqual(serial, height * 100 + rate)
+                    self.assertEqual(texts, [f"NKVM{height}P{rate}"])
+                    self.assertEqual(sum(data[:128]) % 256, 0)
+                    self.assertNotIn(serial, seen)
+                seen.add(serial)
+            # The single-rate profile is the rate profile of its legacy rate.
+            legacy_rate, legacy_mode = g.LEGACY[(width, height)]
+            self.assertEqual(g.profile(source, legacy_mode),
+                             g.profile(source, g.rate_mode(width, height, legacy_rate), legacy_rate))
+
 
 if __name__ == "__main__":
     unittest.main()

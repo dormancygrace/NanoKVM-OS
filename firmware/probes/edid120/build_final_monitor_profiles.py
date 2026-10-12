@@ -286,6 +286,34 @@ def with_preferred(data: bytes, raw: bytes) -> bytes:
     return bytes(out)
 
 
+def with_identity(data: bytes, serial: int, text: str) -> bytes:
+    """data with its own monitor identity: the numeric serial number and the
+    text of the serial number descriptor, when the profile has one.
+
+    Windows keeps the display mode it last used per monitor identity and
+    reapplies it whenever the EDID offers that mode. All rate profiles of a
+    size used to share one identity, and the NVIDIA driver also offers
+    timings the EDID does not list but its range limits admit (2560x1440@50
+    under the 60 Hz profile), so a mode chosen once at 50 Hz came back after
+    every switch to the 60 Hz profile. With an identity per rate profile,
+    Windows meets each profile as its own monitor and starts from its
+    preferred timing."""
+    if len(text) > 12:
+        raise ValueError("serial text longer than 12 characters")
+    out = bytearray(data)
+    out[12:16] = serial.to_bytes(4, "little")
+    for pos in range(54, 126, 18):
+        if out[pos:pos + 4] == b"\0\0\0\xff":
+            out[pos + 5:pos + 18] = (text + "\n").encode("ascii").ljust(13, b" ")
+    out[127] = (-sum(out[:127])) & 0xFF
+    return bytes(out)
+
+
+def rate_identity(data: bytes, height: int, rate: int) -> bytes:
+    """The identity of NanoKVM-monitor-<height>-<rate>.bin."""
+    return with_identity(data, height * 100 + rate, f"NKVM{height}-{rate}")
+
+
 def full_profile(source: bytes, height: int) -> tuple[bytes, object]:
     """The profile of a height with every fallback timing still listed."""
     candidate, dtds = accepted_full_edid(source)
@@ -310,7 +338,7 @@ def full_profile(source: bytes, height: int) -> tuple[bytes, object]:
 
 def build_profile(source: bytes, height: int) -> tuple[bytes, object]:
     candidate, _ = full_profile(source, height)
-    data = prune_to_preferred(candidate)
+    data = rate_identity(prune_to_preferred(candidate), height, int(PREFERRED[height][2]))
     return data, PRIMARY.decode_dtd(data[54:72], label="preferred")
 
 
@@ -435,7 +463,7 @@ def build_rate_profile(source: bytes, height: int, rate: int) -> tuple[bytes, ob
     if len(listed) > 1:
         raise ValueError(f"duplicate {width}x{height}@{rate} DTDs")
     raw = listed[0] if listed else encode_dtd(EXTRA_TIMINGS[(width, height, rate)], full[66:71])
-    candidate = prune_to_preferred(with_preferred(full, raw))
+    candidate = rate_identity(prune_to_preferred(with_preferred(full, raw)), height, rate)
     PRIMARY.check_basic_edid(candidate, label=f"monitor-{height}-{rate}")
     timing = PRIMARY.decode_dtd(candidate[54:72], label="preferred")
     if (timing.width, timing.height) != (width, height) or abs(timing.refresh_hz - rate) > 0.1:

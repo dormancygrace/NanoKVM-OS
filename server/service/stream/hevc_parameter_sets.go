@@ -20,28 +20,59 @@ const (
 	hevcNALSPS = 33
 )
 
-// fixHEVCSubLayerOrdering rewrites the VPS and SPS of an Annex B access unit
-// that signal ordering info per temporal sub-layer. storage is the frame
-// allocation with headroom bytes before data (the Direct framing reuses it);
-// the rewrite only shrinks the parameter sets, so it is done in place and
-// both slices start later by the saved bytes. An access unit without such
-// parameter sets is returned unchanged.
-func fixHEVCSubLayerOrdering(storage, data []byte, headroom int) ([]byte, []byte) {
+// fixParameterSets rewrites the parameter sets of an Annex B key frame: the
+// H.265 VPS and SPS that signal ordering info per temporal sub-layer, and,
+// when colour is set, the SPS of either codec to describe its colour coding
+// (video_colour.go). storage is the frame allocation with headroom bytes
+// before data (the Direct framing reuses it). Parameter sets that shrink are
+// rewritten in place and both slices start later by the saved bytes; when
+// they grow (the colour description adds a few bytes) the frame is copied
+// into a new allocation with the same headroom. An access unit that needs no
+// rewrite is returned unchanged.
+func fixParameterSets(codec VideoCodec, colour bool, storage, data []byte, headroom int) ([]byte, []byte) {
+	if codec == VideoCodecH264 {
+		if !colour {
+			return storage, data
+		}
+		return rewriteParameterSets(storage, data, headroom, isH264Slice, func(nal []byte) ([]byte, bool) {
+			if len(nal) < 2 || nal[0]&31 != h264NALSPS {
+				return nil, false
+			}
+			return h264SPSWithColour(nal)
+		})
+	}
+	return rewriteParameterSets(storage, data, headroom, isHEVCSlice, func(nal []byte) ([]byte, bool) {
+		if len(nal) < 3 {
+			return nil, false
+		}
+		typ := int(nal[0]>>1) & 63
+		if typ != hevcNALVPS && typ != hevcNALSPS {
+			return nil, false
+		}
+		fixed, changed := hevcSingleOrderingSet(nal, typ)
+		if !changed {
+			fixed = nal
+		}
+		if colour && typ == hevcNALSPS {
+			if described, ok := hevcSPSWithColour(fixed); ok {
+				fixed, changed = described, true
+			}
+		}
+		return fixed, changed
+	})
+}
+
+// rewriteParameterSets replaces the NAL units before the first slice for
+// which rewrite returns true.
+func rewriteParameterSets(storage, data []byte, headroom int, isSlice func(byte) bool, rewrite func([]byte) ([]byte, bool)) ([]byte, []byte) {
 	type replacement struct {
 		start, end int
 		nal        []byte
 	}
 	var replacements []replacement
-	scanHEVCParameterSets(data, func(start, end int) {
-		nal := data[start:end]
-		if len(nal) < 2 {
-			return
-		}
-		typ := int(nal[0]>>1) & 63
-		if typ == hevcNALVPS || typ == hevcNALSPS {
-			if fixed, ok := hevcSingleOrderingSet(nal, typ); ok {
-				replacements = append(replacements, replacement{start, end, fixed})
-			}
+	scanParameterSets(data, isSlice, func(start, end int) {
+		if fixed, ok := rewrite(data[start:end]); ok {
+			replacements = append(replacements, replacement{start, end, fixed})
 		}
 	})
 	if len(replacements) == 0 {
@@ -49,7 +80,7 @@ func fixHEVCSubLayerOrdering(storage, data []byte, headroom int) ([]byte, []byte
 	}
 
 	prefixEnd := replacements[len(replacements)-1].end
-	prefix := make([]byte, 0, prefixEnd)
+	prefix := make([]byte, 0, prefixEnd+64)
 	last := 0
 	for _, r := range replacements {
 		prefix = append(prefix, data[last:r.start]...)
@@ -60,8 +91,6 @@ func fixHEVCSubLayerOrdering(storage, data []byte, headroom int) ([]byte, []byte
 
 	shift := prefixEnd - len(prefix)
 	if shift < 0 {
-		// Not expected (the flag rewrite removes bits), but emulation
-		// prevention could in principle add a byte: copy the frame.
 		out := make([]byte, headroom+len(prefix)+len(data)-prefixEnd)
 		copy(out[headroom:], prefix)
 		copy(out[headroom+len(prefix):], data[prefixEnd:])
@@ -76,15 +105,24 @@ func fixHEVCSubLayerOrdering(storage, data []byte, headroom int) ([]byte, []byte
 	return storage, data
 }
 
-// scanHEVCParameterSets calls visit with the bounds of each NAL unit
-// (without start code) before the first slice; parameter sets precede it, so
-// the slice data of a frame is never searched.
-func scanHEVCParameterSets(data []byte, visit func(start, end int)) {
+func isHEVCSlice(header byte) bool { return int(header>>1)&63 < hevcNALVPS }
+
+// isH264Slice reports coded slices (types 1-5); SEI, SPS, PPS and access
+// unit delimiters precede them.
+func isH264Slice(header byte) bool {
+	typ := header & 31
+	return typ >= 1 && typ <= 5
+}
+
+// scanParameterSets calls visit with the bounds of each NAL unit (without
+// start code) before the first slice; parameter sets precede it, so the slice
+// data of a frame is never searched.
+func scanParameterSets(data []byte, isSlice func(byte) bool, visit func(start, end int)) {
 	startCode := []byte{0, 0, 1}
 	i := bytes.Index(data, startCode)
 	for i >= 0 {
 		start := i + 3
-		if start >= len(data) || int(data[start]>>1)&63 < hevcNALVPS {
+		if start >= len(data) || isSlice(data[start]) {
 			return
 		}
 		next := bytes.Index(data[start:], startCode)

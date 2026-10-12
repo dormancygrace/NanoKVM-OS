@@ -338,8 +338,8 @@ func (s *VideoSource) publish(session *videoSession, storage, data []byte, resul
 		if len(data) == 0 {
 			return
 		}
-		if session.config.Codec == VideoCodecH265 && result == keyFrameResult {
-			storage, data = fixHEVCSubLayerOrdering(storage, data, videoHeadroom)
+		if result == keyFrameResult {
+			storage, data = fixParameterSets(session.config.Codec, videoColourRewrite, storage, data, videoHeadroom)
 		}
 		frame.Storage = storage
 		frame.Data = data

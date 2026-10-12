@@ -171,7 +171,6 @@ struct kvm_venc_t {
     uint8_t mmf_venc_chn;
 	uint8_t enc_video_running;
 	uint8_t enc_video_init;
-	uint8_t gop_mode; // H.265 GOP mode the running channel was created with
     mmf_venc_cfg_t kvm_venc_cfg;
 };
 
@@ -1865,12 +1864,6 @@ static int8_t frame_to_jpeg(int vi_ch, kvmv_data_t* dump_to, uint16_t quality)
 
 uint8_t kvmvenc_gop = default_h264_gop;
 uint8_t kvmvenc_fps = default_h264_fps;
-// The H.265 GOP mode requested by the server. Only the video reader, which
-// owns the encoder channel, applies it: video_encoder_matches() compares it
-// with the mode of the running channel, and init_venc_video() creates the
-// next channel with it. The setter never touches the channel, so it cannot
-// race the reader or the detection thread's restart_capture().
-static std::atomic<uint8_t> requested_gop_mode{MMF_VENC_GOP_SMARTP};
 mmf_venc_cfg_t cfg;
 
 int init_venc_video(uint16_t width, uint16_t height, uint16_t bitrate, uint8_t codec,
@@ -1889,7 +1882,6 @@ int init_venc_video(uint16_t width, uint16_t height, uint16_t bitrate, uint8_t c
     kvm_venc.mmf_venc_chn = default_venc_chn;
 	kvm_venc.enc_video_init = 0;
     kvm_venc.kvm_venc_cfg = cfg;
-	const uint8_t gop_mode = requested_gop_mode.load(std::memory_order_relaxed);
 
 	int ret = mmf_del_venc_channel(kvm_venc.mmf_venc_chn);
 	if (ret != 0) {
@@ -1899,8 +1891,6 @@ int init_venc_video(uint16_t width, uint16_t height, uint16_t bitrate, uint8_t c
 		fflush(stderr);
 		return ret;
 	}
-	// Read by mmf_add_venc_channel for an H.265 channel.
-	mmf_set_venc_gop_mode(gop_mode);
 	ret = mmf_add_venc_channel(kvm_venc.mmf_venc_chn, &kvm_venc.kvm_venc_cfg);
 	if (ret != 0) {
 		fprintf(stderr,
@@ -1910,7 +1900,6 @@ int init_venc_video(uint16_t width, uint16_t height, uint16_t bitrate, uint8_t c
 		fflush(stderr);
 		return ret;
 	}
-	kvm_venc.gop_mode = gop_mode;
 	kvm_venc.enc_video_init = 1;
 	return 0;
 }
@@ -2009,35 +1998,22 @@ int video_stream_dump(kvmv_data_t *dump_to, mmf_stream_t *dump_from, uint8_t cod
 	return dump_to->img_data_type;
 }
 
+// The GOP is no longer a setting: kvm_mmf sends an IDR on request and a
+// safety IDR every few seconds (venc_tuning_t), in NormalP only. These stay
+// for the ABI of older servers and change nothing.
 void set_h264_gop(uint8_t _gop)
 {
-	// The next read sees a GOP that no longer matches the running channel and
-	// retires it, including a frame the previous read already submitted (see
-	// submit_next_video_frame). Marking the channel uninitialised here, as before, hid
-	// that frame from the read path: it was neither collected nor released,
-	// and with both NV21 VPSS buffers held capture stalled until the server
-	// restarted.
     kvmvenc_gop = maxmin_data(100, 1, (int)_gop);
-    debug("[kvmv] set_h264_gop = %d\n", kvmvenc_gop);
 }
 
 int8_t set_h265_gop_mode(uint8_t _mode)
 {
-	if (_mode != MMF_VENC_GOP_NORMALP && _mode != MMF_VENC_GOP_SMARTP) {
-		return -1;
-	}
-	// Only a request: the next H.265 read retires the running channel (the
-	// mode is fixed at creation) and creates it in this mode, starting with an
-	// IDR. An H.264 channel is left alone. Also valid before kvmv_init.
-	requested_gop_mode.store(_mode, std::memory_order_relaxed);
-	debug("[kvmv] set_h265_gop_mode = %s\n",
-		_mode == MMF_VENC_GOP_SMARTP ? "SmartP" : "NormalP");
-	return 0;
+	return _mode == MMF_VENC_GOP_NORMALP ? 0 : -1;
 }
 
 uint8_t get_h265_gop_mode(void)
 {
-	return requested_gop_mode.load(std::memory_order_relaxed);
+	return MMF_VENC_GOP_NORMALP;
 }
 
 void set_frame_detact(uint8_t _frame_detact)
@@ -2094,13 +2070,12 @@ static uint8_t video_output_fps(const nanokvm::GeometrySnapshot &src, int width,
 }
 
 static bool video_encoder_matches(const nanokvm::GeometrySnapshot &src, int width, int height,
-	uint16_t bitrate, uint8_t codec, uint8_t gop, uint8_t fps)
+	uint16_t bitrate, uint8_t codec, uint8_t fps)
 {
 	return kvm_venc.enc_video_init == 1 && width == kvm_venc.kvm_venc_cfg.w &&
 		height == kvm_venc.kvm_venc_cfg.h && bitrate == kvm_venc.kvm_venc_cfg.bitrate &&
 		(codec == VENC_H265 ? 1 : 2) == kvm_venc.kvm_venc_cfg.type &&
-		gop == kvm_venc.kvm_venc_cfg.gop && video_output_fps(src, width, height, fps) == kvm_venc.kvm_venc_cfg.output_fps &&
-		(codec != VENC_H265 || kvm_venc.gop_mode == requested_gop_mode.load(std::memory_order_relaxed));
+		video_output_fps(src, width, height, fps) == kvm_venc.kvm_venc_cfg.output_fps;
 }
 
 /*
@@ -2131,11 +2106,9 @@ int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int w
 	fps = video_output_fps(src, width, height, fps);
 	int8_t ret = 0;
 	mmf_stream_t stream = {};
-	if (!video_encoder_matches(src, width, height, bitrate, codec, gop, fps)) {
-		debug("[kvmv]init video codec=%d %dx%d bitrate=%d gop=%d fps=%d gop_mode=%s\n",
-			codec, width, height, bitrate, gop, fps,
-			codec == VENC_H265 && requested_gop_mode.load(std::memory_order_relaxed) == MMF_VENC_GOP_SMARTP
-				? "SmartP" : "NormalP");
+	if (!video_encoder_matches(src, width, height, bitrate, codec, fps)) {
+		debug("[kvmv]init video codec=%d %dx%d bitrate=%d fps=%d\n",
+			codec, width, height, bitrate, fps);
 		if (init_venc_video(width, height, bitrate, codec, gop, fps) != 0) {
 			return -1;
 		}
@@ -2482,7 +2455,7 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
                     && pending_vi == cam->get_channel() && capture_format == nanokvm::nv21_format()
                     && kvmv_cfg.fresh_frame_count == 0
                     && video_encoder_matches(geometry, output.width, output.height,
-                        maxmin_data(20000, 500, (int)_qlty), _type, kvmvenc_gop, kvmvenc_fps)) {
+                        maxmin_data(20000, 500, (int)_qlty), _type, kvmvenc_fps)) {
                 submitted = true;
                 native_vi_ch = pending_vi;
                 native_width = output.width;

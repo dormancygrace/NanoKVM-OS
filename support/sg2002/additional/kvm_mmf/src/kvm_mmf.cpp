@@ -174,7 +174,126 @@ static priv_t priv;
 static g_priv_t g_priv;
 static VENC_PACK_S *venc_pack_storage[MMF_VENC_MAX_CHN];
 static CVI_U32 venc_pack_capacity[MMF_VENC_MAX_CHN];
-static uint8_t venc_gop_mode = MMF_VENC_GOP_SMARTP;
+
+/*
+ * H.26x encoder tuning. The defaults are the measured choice (see
+ * docs/venc-tuning-*.md); /run/nanokvm-venc-tune, a volatile key=value file,
+ * overrides them for A/B measurements and is read when a channel is created.
+ *
+ * Every viewer asks for an IDR when it needs one (a new subscriber, WebRTC
+ * PLI, Direct and RustDesk recovery), so periodic IDRs only cost bits and
+ * delay: at 2560x1440 an IDR is a few hundred KB in one frame period. One
+ * every idr_seconds is kept as a safety net; a requested IDR restarts the
+ * count (the driver resets its GOP counter).
+ */
+struct venc_tuning_t {
+	int idr_seconds = 10;
+	int h264_high = 1;    // 8x8 transform (Main already uses CABAC)
+	int min_qp = 20;      // quality ceiling of P frames on static content
+	int min_iqp = 20;
+	int max_qp = 51;
+	int max_iqp = 51;
+	int max_iprop = 10;   // I-frame bits at most this many average frames
+	int ip_qp_delta = 2;
+	int row_qp_delta = -1; // -1: driver default
+	int thrd_lv = -1;
+	int stats = 0;        // 1: per-second statistics in /run/nanokvm-venc-stats
+};
+
+static venc_tuning_t venc_tuning;
+
+static venc_tuning_t load_venc_tuning(void)
+{
+	venc_tuning_t t;
+	FILE *f = fopen("/run/nanokvm-venc-tune", "r");
+	if (!f) return t;
+	char key[64];
+	int value;
+	while (fscanf(f, " %63[a-z0-9_] = %d", key, &value) == 2) {
+		if (!strcmp(key, "idr_seconds")) t.idr_seconds = value;
+		else if (!strcmp(key, "h264_high")) t.h264_high = value;
+		else if (!strcmp(key, "min_qp")) t.min_qp = value;
+		else if (!strcmp(key, "min_iqp")) t.min_iqp = value;
+		else if (!strcmp(key, "max_qp")) t.max_qp = value;
+		else if (!strcmp(key, "max_iqp")) t.max_iqp = value;
+		else if (!strcmp(key, "max_iprop")) t.max_iprop = value;
+		else if (!strcmp(key, "ip_qp_delta")) t.ip_qp_delta = value;
+		else if (!strcmp(key, "row_qp_delta")) t.row_qp_delta = value;
+		else if (!strcmp(key, "thrd_lv")) t.thrd_lv = value;
+		else if (!strcmp(key, "stats")) t.stats = value;
+	}
+	fclose(f);
+	fprintf(stderr, "[kvm_mmf] VENC tuning override: idr_seconds=%d h264_high=%d qp=%d..%d iqp=%d..%d "
+		"max_iprop=%d ip_qp_delta=%d row_qp_delta=%d thrd_lv=%d stats=%d\n",
+		t.idr_seconds, t.h264_high, t.min_qp, t.max_qp, t.min_iqp, t.max_iqp,
+		t.max_iprop, t.ip_qp_delta, t.row_qp_delta, t.thrd_lv, t.stats);
+	fflush(stderr);
+	return t;
+}
+
+// Per-second encoder statistics for measurements (venc_tuning.stats).
+struct venc_stats_t {
+	uint64_t start_us;
+	unsigned frames, keyframes;
+	uint64_t bytes, key_bytes, max_bytes;
+	uint64_t qp_sum, key_qp_sum, mse_sum;
+};
+
+static venc_stats_t venc_stats;
+
+static uint64_t venc_now_us(void)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (uint64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+}
+
+static void venc_stats_frame(const VENC_STREAM_S *stream, const VENC_CHN_STATUS_S *status, int type)
+{
+	uint64_t bytes = 0;
+	bool key = false;
+	for (CVI_U32 i = 0; i < stream->u32PackCount; i++) {
+		const VENC_PACK_S *pack = &stream->pstPack[i];
+		bytes += pack->u32Len - pack->u32Offset;
+		if (type == 1 ? (pack->DataType.enH265EType == H265E_NALU_IDRSLICE ||
+				pack->DataType.enH265EType == H265E_NALU_ISLICE)
+			: (pack->DataType.enH264EType == H264E_NALU_IDRSLICE ||
+				pack->DataType.enH264EType == H264E_NALU_ISLICE))
+			key = true;
+	}
+	venc_stats_t &s = venc_stats;
+	const uint64_t now = venc_now_us();
+	if (s.start_us == 0) s.start_us = now;
+	s.frames++;
+	s.bytes += bytes;
+	s.max_bytes = MAX(s.max_bytes, bytes);
+	s.qp_sum += status->stVencStrmInfo.u32MeanQp;
+	s.mse_sum += status->stVencStrmInfo.u32MseSum;
+	if (key) {
+		s.keyframes++;
+		s.key_bytes += bytes;
+		s.key_qp_sum += status->stVencStrmInfo.u32MeanQp;
+	}
+	if (now - s.start_us < 1000000) return;
+	FILE *f = fopen("/run/nanokvm-venc-stats.tmp", "w");
+	if (f) {
+		const unsigned deltas = s.frames - s.keyframes;
+		fprintf(f, "frames=%u keyframes=%u kbps=%llu key_kb=%llu max_kb=%llu "
+			"delta_kb=%.2f qp=%.2f delta_qp=%.2f key_qp=%.2f mse_sum=%llu\n",
+			s.frames, s.keyframes,
+			(unsigned long long)(s.bytes * 8 * 1000 / (now - s.start_us)),
+			(unsigned long long)(s.keyframes ? s.key_bytes / s.keyframes / 1024 : 0),
+			(unsigned long long)(s.max_bytes / 1024),
+			deltas ? (double)(s.bytes - s.key_bytes) / deltas / 1024 : 0.0,
+			(double)s.qp_sum / s.frames,
+			deltas ? (double)(s.qp_sum - s.key_qp_sum) / deltas : 0.0,
+			s.keyframes ? (double)s.key_qp_sum / s.keyframes : 0.0,
+			(unsigned long long)(s.mse_sum / s.frames));
+		fclose(f);
+		rename("/run/nanokvm-venc-stats.tmp", "/run/nanokvm-venc-stats");
+	}
+	s = venc_stats_t{};
+}
 
 static int native120_vpss_rate(int width, int height)
 {
@@ -2033,10 +2152,18 @@ void mmf_get_vi_vflip(int ch, bool *en)
 	*en = (bool)g_priv.vi_vflip[ch];
 }
 
+// The IDR interval in frames: venc_tuning.idr_seconds at the output rate.
+static CVI_U32 venc_idr_interval(const mmf_venc_cfg_t *cfg)
+{
+	const int fps = cfg->output_fps > 0 ? cfg->output_fps : 30;
+	const int seconds = venc_tuning.idr_seconds > 0 ? venc_tuning.idr_seconds : 10;
+	return (CVI_U32)MIN(fps * seconds, 65535);
+}
+
 template <typename T>
 static void _set_h26x_rate_timing(T &rate, const mmf_venc_cfg_t *cfg)
 {
-	rate.u32Gop = cfg->gop;
+	rate.u32Gop = venc_idr_interval(cfg);
 	rate.u32StatTime = 2;
 	rate.u32SrcFrameRate = cfg->intput_fps;
 	rate.fr32DstFrameRate = cfg->output_fps;
@@ -2059,12 +2186,13 @@ static void _set_h26x_rc_attr(VENC_CHN_ATTR_S *attr, const mmf_venc_cfg_t *cfg)
 template <typename T>
 static void _set_h26x_rc_limits(T &param)
 {
+	const venc_tuning_t &t = venc_tuning;
 	param.u32MinIprop = 1;
-	param.u32MaxIprop = 10;
-	param.u32MaxQp = 51;
-	param.u32MinQp = 20;
-	param.u32MaxIQp = 51;
-	param.u32MinIQp = 20;
+	param.u32MaxIprop = t.max_iprop;
+	param.u32MaxQp = t.max_qp;
+	param.u32MinQp = t.min_qp;
+	param.u32MaxIQp = t.max_iqp;
+	param.u32MinIQp = t.min_iqp;
 	param.bQpMapEn = CVI_FALSE;
 }
 
@@ -2090,21 +2218,16 @@ static int _venc_init_failed(int ch, const char *stage, CVI_S32 error)
 	return error == CVI_SUCCESS ? CVI_FAILURE : error;
 }
 
+// Only NormalP remains: SmartP's virtual I frames and background IDRs cost
+// bits and HW time that IDRs on request make unnecessary (see venc_tuning_t).
 int mmf_set_venc_gop_mode(uint8_t mode)
 {
-	if (mode != MMF_VENC_GOP_NORMALP && mode != MMF_VENC_GOP_SMARTP) {
-		return -1;
-	}
-	// Read when an H.265 channel is created; a running channel keeps the
-	// mode it was created with until it is deleted. libkvm sets it right
-	// before it creates the video channel; the MJPEG channel may exist.
-	venc_gop_mode = mode;
-	return 0;
+	return mode == MMF_VENC_GOP_NORMALP ? 0 : -1;
 }
 
 uint8_t mmf_get_venc_gop_mode(void)
 {
-	return venc_gop_mode;
+	return MMF_VENC_GOP_NORMALP;
 }
 
 int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
@@ -2131,16 +2254,13 @@ int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 	stVencChnAttr.stVencAttr.u32PicHeight = cfg->h;
 	stVencChnAttr.stVencAttr.bEsBufQueueEn = CVI_TRUE;
 	stVencChnAttr.stVencAttr.bIsoSendFrmEn = CVI_TRUE;
-	const bool smartp = cfg->type == 1 && venc_gop_mode == MMF_VENC_GOP_SMARTP;
-	if (smartp) {
-		stVencChnAttr.stGopAttr.enGopMode = VENC_GOPMODE_SMARTP;
-		stVencChnAttr.stGopAttr.stSmartP.u32BgInterval = cfg->gop * 5;
-		stVencChnAttr.stGopAttr.stSmartP.s32BgQpDelta = 4;
-		stVencChnAttr.stGopAttr.stSmartP.s32ViQpDelta = 0;
-	} else {
-		stVencChnAttr.stGopAttr.enGopMode = VENC_GOPMODE_NORMALP;
-		stVencChnAttr.stGopAttr.stNormalP.s32IPQpDelta = 2;
+	venc_tuning = load_venc_tuning();
+	if (cfg->type == 2 && venc_tuning.h264_high) {
+		// The stream is Main with CABAC today; High adds the 8x8 transform.
+		stVencChnAttr.stVencAttr.u32Profile = H264E_PROFILE_HIGH;
 	}
+	stVencChnAttr.stGopAttr.enGopMode = VENC_GOPMODE_NORMALP;
+	stVencChnAttr.stGopAttr.stNormalP.s32IPQpDelta = venc_tuning.ip_qp_delta;
 	_set_h26x_rc_attr(&stVencChnAttr, cfg);
 	s32Ret = CVI_VENC_CreateChn(ch, &stVencChnAttr);
 	if (s32Ret != CVI_SUCCESS) {
@@ -2167,13 +2287,10 @@ int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 	info->is_inited = 1;
 	priv.h265_or_h264_is_used = 1;
 
-	VENC_RECV_PIC_PARAM_S stRecvParam = {0};
-	stRecvParam.s32RecvPicNum = -1;
-	s32Ret = CVI_VENC_StartRecvFrame(ch, &stRecvParam);
-	if (s32Ret != CVI_SUCCESS) {
-		return _venc_init_failed(ch, "CVI_VENC_StartRecvFrame", s32Ret);
-	}
-
+	// The encoder is opened by StartRecvFrame and reads the QP limits, the
+	// I-frame proportion and the start QP only then; set later, they were
+	// stored but never used (the stream ran on the driver defaults: QP down
+	// to 1, I frames unbounded).
 	VENC_RC_PARAM_S stRcParam;
 	s32Ret = CVI_VENC_GetRcParam(ch, &stRcParam);
 	if (s32Ret != CVI_SUCCESS) {
@@ -2181,10 +2298,19 @@ int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 	}
 	stRcParam.s32FirstFrameStartQp = 35;
 	stRcParam.s32InitialDelay = 1000;
+	if (venc_tuning.row_qp_delta >= 0) stRcParam.u32RowQpDelta = venc_tuning.row_qp_delta;
+	if (venc_tuning.thrd_lv >= 0) stRcParam.u32ThrdLv = venc_tuning.thrd_lv;
 	_set_h26x_cbr_limits(&stRcParam, cfg);
 	s32Ret = CVI_VENC_SetRcParam(ch, &stRcParam);
 	if (s32Ret != CVI_SUCCESS) {
 		return _venc_init_failed(ch, "CVI_VENC_SetRcParam", s32Ret);
+	}
+
+	VENC_RECV_PIC_PARAM_S stRecvParam = {0};
+	stRecvParam.s32RecvPicNum = -1;
+	s32Ret = CVI_VENC_StartRecvFrame(ch, &stRecvParam);
+	if (s32Ret != CVI_SUCCESS) {
+		return _venc_init_failed(ch, "CVI_VENC_StartRecvFrame", s32Ret);
 	}
 
 	VENC_FRAMELOST_S stFL;
@@ -2213,10 +2339,9 @@ int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 	// on a codec change, and teardown releases any remaining allocation.
 	fprintf(stderr,
 		"[kvm_mmf] VENC channel %d initialized: codec=%d rc=cbr size=%ux%u "
-		"bitrate=%u gop=%u gop_mode=%s src_fps=%d dst_fps=%d "
+		"bitrate=%u idr_interval=%u src_fps=%d dst_fps=%d "
 		"(rate metadata; wall pacing unmeasured)\n",
-		ch, cfg->type, cfg->w, cfg->h, cfg->bitrate, cfg->gop,
-		smartp ? "SmartP" : "NormalP",
+		ch, cfg->type, cfg->w, cfg->h, cfg->bitrate, venc_idr_interval(cfg),
 		cfg->intput_fps, cfg->output_fps);
 	fflush(stderr);
 
@@ -2553,6 +2678,9 @@ int mmf_venc_pop(int ch, mmf_stream_t *stream) {
 			return s32Ret;
 		}
 		priv.venc_stream_acquired[ch] = true;
+		if (venc_tuning.stats && info->type != 0) {
+			venc_stats_frame(venc_stream, &stStatus, info->type);
+		}
 	} else {
 		printf("CVI_VENC_QueryStatus find not pack\r\n");
 		return -1;

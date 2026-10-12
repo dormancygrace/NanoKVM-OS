@@ -247,9 +247,9 @@ captured NanoKVM display primary. OS monitor enumeration and capture switching
 require a host helper and additional capture/selection support; they are not
 implemented in this version.
 
-## C906 performance build
+## C906 build
 
-Use cargo --config performance.toml build --locked --offline --profile performance --target riscv64gc-unknown-linux-musl with the existing cross-linker environment. The named profile selects optimization level 3, full LTO and one codegen unit; the config enables the qualified scalar T-Head extensions and static CRT. The generic release remains available. The repository packaging builder accepts --build-profile performance and records exact flags and compiler identity in build-profile.json. Use a separate output directory for each profile. This Rust backend does not implement RVV 0.7.1; this is a scalar optimized variant.
+The release build is the qualified C906 build: `cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl` with the existing cross-linker environment (the native Alpine recipe uses `--target riscv64-alpine-linux-musl`). The release profile selects optimization level 3, full LTO and one codegen unit; `.cargo/config.toml` enables static CRT and the scalar T-Head extensions every C906 implements for both targets, so no extra option is needed. Keep the explicit `--target`: it confines the flags to target code (build scripts and proc-macros are built for the host). These are the settings the `performance` profile of 0.5.3-r2 used, byte for byte; the separate generic profile is gone. The packaging builder records the exact flags and compiler identity in build-profile.json. This Rust backend does not implement RVV 0.7.1; the build is scalar.
 
 Local unpublished APK/source pairs can be built with --local-only instead of --source-url; source.json records the local archive digest and publication state. This avoids claiming a public download exists before publication.
 
@@ -268,10 +268,10 @@ eight VXRM/VXSAT control pairs. CPU measurements showed mostly slower
 encryption than the scalar in-place path. Production uses RustCrypto scalar
 XSalsa20-Poly1305; no vector feature or extra assembly compiler is required.
 
-With a static musl linker and the qualified scalar performance profile:
+With a static musl linker and the release profile:
 
 ```sh
-cargo --config performance.toml build --locked --profile performance \
+cargo build --locked --release \
   --target riscv64gc-unknown-linux-musl --features performance-probes \
   --bin c906-crypto-perf
 ```
@@ -285,7 +285,7 @@ time, wall time and heap allocations. Run measurements in a coordinated slot;
 raw results and device access belong outside the public repository. These
 measurements do not include the encoder, network or client video decoder.
 
-On the qualified C906 performance build, the actual writer benchmark measured
+On the qualified C906 build (then the `performance` profile), the actual writer benchmark measured
 34–37% less process CPU time for 16–256 KiB messages than the previous
 protobuf-plus-allocating-secretbox writer. After buffer warm-up, payload
 allocations fell from two per message to zero for retained sizes. These

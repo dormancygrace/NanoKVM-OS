@@ -20,7 +20,6 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--linker",type=Path,required=True,help="riscv64 musl GCC")
 parser.add_argument("--apk",type=Path,required=True,help="host apk-tools 3 with mkpkg")
 parser.add_argument("--output",type=Path,required=True)
-parser.add_argument("--build-profile", choices=("release", "performance"), default="release")
 parser.add_argument("--package-revision", type=int, help="package revision for this fresh source/build; defaults to the recipe")
 source_group=parser.add_mutually_exclusive_group(required=True)
 source_group.add_argument("--source-url",help="immutable public URL for this package revision source archive")
@@ -57,28 +56,32 @@ stage.mkdir()
 for expected in [f"nanokvm-rustdesk-{version}-source.tar.gz",f"nanokvm-rustdesk-{package_version}.apk","APKBUILD"]:
     if (output/expected).exists():
         raise SystemExit(f"refusing to overwrite artifact: {output/expected}")
-for name in ["src","tests","Cargo.toml","Cargo.lock","LICENSE","NOTICE","README.md","upstream.json","performance.toml","rust-toolchain.toml"]:
+for name in ["src","tests","Cargo.toml","Cargo.lock","LICENSE","NOTICE","README.md","upstream.json","rust-toolchain.toml"]:
     p=source/name
     if p.is_dir():shutil.copytree(p,stage/name,dirs_exist_ok=True)
     elif p.exists():shutil.copyfile(p,stage/name)
 with (build/"cargo-vendor.log").open("w") as vendor_log:
     vendor=subprocess.check_output(["cargo","vendor","--locked","--offline","--versioned-dirs",str(stage/"vendor")],cwd=source,text=True,stderr=vendor_log)
-# Cargo vendor prints an absolute path; make the archive relocatable.
+# The source's .cargo/config.toml carries the C906 code generation flags;
+# append the vendored-source settings (cargo vendor prints an absolute path,
+# made relative so the archive is relocatable).
+cargo_config=(source/".cargo/config.toml").read_text()
 (stage/".cargo").mkdir(exist_ok=True)
-(stage/".cargo/config.toml").write_text(vendor.replace(str(stage/"vendor"),"vendor"))
+(stage/".cargo/config.toml").write_text(cargo_config.rstrip()+"\n\n"+vendor.replace(str(stage/"vendor"),"vendor"))
+tomllib.loads((stage/".cargo/config.toml").read_text())
 target="riscv64gc-unknown-linux-musl"
-target_dir=root/"work"/("rust-target" if args.build_profile == "release" else "rust-target-performance")
-rust_flags=["-C", "target-feature=+crt-static"]
-if args.build_profile == "performance":
-    rust_flags=tomllib.loads((source/"performance.toml").read_text())["target"][target]["rustflags"]
-env=dict(os.environ,CARGO_TARGET_DIR=str(target_dir),CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=str(args.linker.absolute()),RUSTFLAGS=" ".join(rust_flags))
-subprocess.run(["cargo","build","--locked","--profile",args.build_profile,"--target",target],cwd=source,env=env,check=True)
-binary=target_dir/target/args.build_profile/"nanokvm-rustdesk"
+target_dir=root/"work"/"rust-target"
+rust_flags=tomllib.loads(cargo_config)["target"][target]["rustflags"]
+# No RUSTFLAGS: it would override the flags of .cargo/config.toml.
+env={k:v for k,v in os.environ.items() if k not in ("RUSTFLAGS","CARGO_ENCODED_RUSTFLAGS")}
+env.update(CARGO_TARGET_DIR=str(target_dir),CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=str(args.linker.absolute()))
+subprocess.run(["cargo","build","--locked","--release","--target",target],cwd=source,env=env,check=True)
+binary=target_dir/target/"release"/"nanokvm-rustdesk"
 build_profile={
-    "profile":args.build_profile,
+    "profile":"release",
     "target":target,
     "rustflags":rust_flags,
-    "cargo_profile":tomllib.loads((source/"Cargo.toml").read_text()).get("profile",{}).get(args.build_profile,{}),
+    "cargo_profile":tomllib.loads((source/"Cargo.toml").read_text()).get("profile",{}).get("release",{}),
     "rustc":subprocess.check_output(["rustc","-vV"],cwd=source,text=True),
     "binary_sha256":hashlib.sha256(binary.read_bytes()).hexdigest(),
     "scope":"T-Head scalar extensions; no RVV 0.7.1 code generation in this Rust backend"
@@ -97,7 +100,7 @@ shutil.copyfile(Path(__file__),stage/"packaging/build-rustdesk-addon.py")
 The source root builds and tests with cargo --locked --offline using the
 vendored crates. See the source README for the exact static RISC-V target.
 For a native riscv64 Alpine build, use the checksummed APKBUILD distributed
-beside this immutable source archive, and copy nanokvm-rustdesk.* from this
+beside this immutable source archive, and copy nanokvm-rustdesk* from this
 directory into its recipe directory. APKBUILD.in here records the recipe shape,
 not a production download checksum (an archive cannot contain its own digest). The standalone builder here is
 preserved as a record of the NanoKVM firmware repository's packaging script;
@@ -198,14 +201,12 @@ shutil.copyfile(root/"server/service/rustdesk/webrtc_socket_test.go",go_transpor
 archive=output/f"nanokvm-rustdesk-{version}-source.tar.gz"
 with tarfile.open(archive,"w:gz") as tar:tar.add(stage,arcname=stage.name)
 # Publish/commit this external production recipe after computing the archive.
-checksum_block="sha512sums=\""+hashlib.sha512(archive.read_bytes()).hexdigest()+"  "+archive.name+"\n"+hashlib.sha512((pkg/"nanokvm-rustdesk.initd").read_bytes()).hexdigest()+"  nanokvm-rustdesk.initd\"\n"
+checksum_block="sha512sums=\""+hashlib.sha512(archive.read_bytes()).hexdigest()+"  "+archive.name+"\n"+"\n".join(hashlib.sha512((pkg/name).read_bytes()).hexdigest()+"  "+name for name in ["nanokvm-rustdesk.initd","nanokvm-rustdesk-c906.toml"])+"\"\n"
 production_recipe_input=re.sub(
     r"(?m)^sourceurl=.*$",
     lambda _: "sourceurl="+shlex.quote(archive.name if args.local_only else args.source_url),
     recipe,
 )
-if args.build_profile == "performance":
-    production_recipe_input=production_recipe_input.replace("cargo build --locked --offline --release", "cargo --config performance.toml build --locked --offline --profile performance").replace("target/release/nanokvm-rustdesk", "target/performance/nanokvm-rustdesk")
 production_recipe=re.sub(r"(?ms)^sha512sums=.*\Z", "",production_recipe_input).rstrip()+"\n\n"+checksum_block
 (output/"APKBUILD").write_text(production_recipe)
 payload=staging_root/"payload"
@@ -219,7 +220,7 @@ install(pkg/"nanokvm-rustdesk.initd","etc/init.d/nanokvm-rustdesk",0o755)
 install(source/"LICENSE","usr/share/licenses/nanokvm-rustdesk/LICENSE")
 install(source/"NOTICE","usr/share/licenses/nanokvm-rustdesk/NOTICE")
 source_record=staging_root/"source.json"
-source_record.write_text(json.dumps({"url":args.source_url,"archive":archive.name,"publication":"local-unpublished" if args.local_only else "external-immutable-url","sha256":hashlib.sha256(archive.read_bytes()).hexdigest(),"package_version":package_version,"build_profile":args.build_profile},indent=2)+"\n")
+source_record.write_text(json.dumps({"url":args.source_url,"archive":archive.name,"publication":"local-unpublished" if args.local_only else "external-immutable-url","sha256":hashlib.sha256(archive.read_bytes()).hexdigest(),"package_version":package_version,"build_profile":"release"},indent=2)+"\n")
 install(source_record,"usr/share/nanokvm-rustdesk/source.json")
 install(source/"upstream.json","usr/share/nanokvm-rustdesk/upstream.json")
 install(stage/"build-profile.json","usr/share/nanokvm-rustdesk/build-profile.json")

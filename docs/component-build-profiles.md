@@ -31,24 +31,26 @@ the incoming FCSR. This preserves the hardware-observed VXRM/VXSAT aliasing
 across task switches; handwritten RVV still requires correct kernel context
 handling.
 
-## RustDesk selection
+## RustDesk build
 
-Use the existing packaging builder with --build-profile performance, together
-with its required --linker, --apk, --output and corresponding-source selection.
-Use --build-profile release for the generic alternative. Separate output
-directories prevent either artifact from overwriting the other.
+There is one build: the release profile is the qualified C906 build (the
+former `performance` profile, which 0.5.3-r2 was published with). Use the
+existing packaging builder with its required --linker, --apk, --output and
+corresponding-source selection.
 
 For a direct cross build from addons/rustdesk:
 
 ```sh
-cargo --config performance.toml build --locked --offline \
-  --profile performance --target riscv64gc-unknown-linux-musl
+cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl
 ```
 
 The matching musl linker must be supplied through Cargo's target linker
-setting. The packaging builder does this through --linker. performance.toml
-contains the scalar T-Head target features and static CRT setting; this Rust
-backend does not emit legacy RVV 0.7.1.
+setting. The packaging builder does this through --linker. The release profile
+selects -O3, full LTO and one codegen unit; addons/rustdesk/.cargo/config.toml
+carries the scalar T-Head target features and static CRT for this target and
+for the native Alpine target riscv64-alpine-linux-musl. Keep the explicit
+--target, which confines the flags to target code. This Rust backend does not
+emit legacy RVV 0.7.1.
 
 ## Evidence and limits
 

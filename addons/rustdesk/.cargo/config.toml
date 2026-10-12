@@ -1,0 +1,11 @@
+# Code generation for the NanoKVM SoC (SG2002/SG2000, T-Head C906): static CRT
+# and the scalar T-Head extensions every C906 implements. Cargo applies these
+# to every build for these targets, so the cross build and the native Alpine
+# recipe both produce the qualified binary. No RVV 0.7.1 code is generated;
+# host builds and tests are unaffected. Build with an explicit --target, so the
+# flags reach only target code and not build scripts or proc-macros.
+[target.riscv64gc-unknown-linux-musl]
+rustflags = ["-C", "target-feature=+crt-static,+xtheadba,+xtheadbb,+xtheadbs,+xtheadcmo,+xtheadcondmov,+xtheadfmemidx,+xtheadmac,+xtheadmemidx,+xtheadmempair,+xtheadsync"]
+
+[target.riscv64-alpine-linux-musl]
+rustflags = ["-C", "target-feature=+crt-static,+xtheadba,+xtheadbb,+xtheadbs,+xtheadcmo,+xtheadcondmov,+xtheadfmemidx,+xtheadmac,+xtheadmemidx,+xtheadmempair,+xtheadsync"]

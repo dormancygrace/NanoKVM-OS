@@ -3,6 +3,7 @@ package audio
 import (
 	"NanoKVM-Server/config"
 	"NanoKVM-Server/middleware"
+	"NanoKVM-Server/service/stream/srtpaccel"
 	"NanoKVM-Server/service/stream/webrtcdtls"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
@@ -44,6 +45,7 @@ func iceServers() []webrtc.ICEServer {
 
 func createPeerConnection(servers []webrtc.ICEServer) (*webrtc.PeerConnection, error) {
 	settings := webrtc.SettingEngine{}
+	srtpaccel.Configure(&settings)
 	if err := webrtcdtls.Configure(&settings); err != nil {
 		return nil, err
 	}

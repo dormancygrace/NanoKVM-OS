@@ -1,4 +1,4 @@
-package webrtc
+package srtpaccel
 
 import (
 	"NanoKVM-Server/internal/sg2002aes"

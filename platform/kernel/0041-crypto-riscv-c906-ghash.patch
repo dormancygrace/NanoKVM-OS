@@ -1,39 +1,49 @@
 From: Gleb Pesin <dormancygrace@gmail.com>
-Subject: [PATCH] crypto: riscv - scalar GHASH for the T-Head C906
+Subject: [PATCH] crypto: riscv - GHASH for the T-Head C906
 
 GHASH for lib/crypto on T-Head cores (detected by XTheadVector), such as the
-C906 of the SG2002, in scalar code. The C906 multiplier takes about four
-cycles per mul/mulhu, unpipelined, once an operand has bits above 31, and one
-pipelined cycle when both fit in 32 bits; the generic code multiplies 64-bit
-operands. Here the 128x128 carryless product is nine 32x32 ones (two levels
-of Karatsuba), each sixteen multiplies of operands with their bits four apart,
+C906 of the SG2002. The C906 multiplier takes about four cycles per
+mul/mulhu, unpipelined, once an operand has bits above 31, and one pipelined
+cycle when both fit in 32 bits; the generic code multiplies 64-bit operands.
+Here the 128x128 carryless product is nine 32x32 ones (two levels of
+Karatsuba), each sixteen multiplies of operands with their bits four apart,
 all below 2^32, which also makes the multiply timing independent of the data.
-ghash_preparekey() precomputes the key operands in struct ghash_key. The
-assembly is generated and self-tested by
+
+Two functions: a scalar one, and one that hashes five blocks per group, four
+in XTheadVector lanes (e32, vmul/vmulhu for the two halves of each product,
+key powers H^5 to H^2) and the fifth in scalar registers, the two instruction
+streams interleaved, with one reduction per group. ghash_preparekey()
+precomputes the key operands in struct ghash_key. The vector function runs
+between kernel_vector_begin() and kernel_vector_end() for at least five
+blocks where may_use_simd(); the rest, and other contexts, use the scalar
+one. The assembly is generated, executed against a bit-serial GHASH and its
+vector encodings checked against GNU as by
 firmware/cpu/go-crypto-c906/gen_ghash_linux.py.
 
-No vector state is used, so it also runs where may_use_simd() is false.
 CRYPTO_LIB_GF128HASH_ARCH now also defaults to y with RISCV_ISA_XTHEADVECTOR;
 the Zvkg backend keeps its previous conditions and takes precedence.
 
- include/crypto/gf128hash.h            |   4 +
- lib/crypto/Kconfig                    |   1 +
- lib/crypto/Makefile                   |   7 +-
- lib/crypto/riscv/gf128hash.h          |  73 ++++-
- lib/crypto/riscv/ghash-riscv64-c906.S | 558 ++++++++++++++++++++++++++++++++++
- 5 files changed, 640 insertions(+), 3 deletions(-)
+ include/crypto/gf128hash.h            |    7 +
+ lib/crypto/Kconfig                    |    1 +
+ lib/crypto/Makefile                   |    7 +-
+ lib/crypto/riscv/gf128hash.h          |  118 +-
+ lib/crypto/riscv/ghash-riscv64-c906.S | 1978 +++++++++++++++++++++++++++++++++
+ 5 files changed, 2108 insertions(+), 3 deletions(-)
 
 diff --git a/include/crypto/gf128hash.h b/include/crypto/gf128hash.h
-index 41c557d55..fd1922938 100644
+index 41c557d55..236b3cd52 100644
 --- a/include/crypto/gf128hash.h
 +++ b/include/crypto/gf128hash.h
-@@ -47,6 +47,10 @@ struct ghash_key {
+@@ -47,6 +47,13 @@ struct ghash_key {
  	(defined(CONFIG_RISCV) || defined(CONFIG_S390))
  	/** @h_raw: The hash key H, in GHASH format */
  	u8 h_raw[GHASH_BLOCK_SIZE];
 +#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR
-+	/** @c906_kp: H split for the T-Head C906 scalar code */
-+	u64 c906_kp[40];
++	/**
++	 * @c906_kp: H split for the T-Head C906 code: 40 words for the scalar
++	 * function, then H^5 to H^2 for the four XTheadVector lanes
++	 */
++	u64 c906_kp[112];
 +#endif
  #endif
  	/** @h: The hash key H, in POLYVAL format */
@@ -69,15 +79,15 @@ index 59ce24025..1b3c4d2a2 100644
  			      x86/polyval-pclmul-avx.o
  endif # CONFIG_CRYPTO_LIB_GF128HASH_ARCH
 diff --git a/lib/crypto/riscv/gf128hash.h b/lib/crypto/riscv/gf128hash.h
-index 4301a0384..7ef2adb7b 100644
+index 4301a0384..39a780533 100644
 --- a/lib/crypto/riscv/gf128hash.h
 +++ b/lib/crypto/riscv/gf128hash.h
-@@ -5,16 +5,63 @@
+@@ -5,16 +5,104 @@
   * Copyright (C) 2023 VRULL GmbH
   * Copyright (C) 2023 SiFive, Inc.
   * Copyright 2026 Google LLC
 + *
-+ * T-Head C906 scalar backend: NanoKVM OS.
++ * T-Head C906 backend: NanoKVM OS.
   */
  
  #include <asm/simd.h>
@@ -100,43 +110,84 @@ index 4301a0384..7ef2adb7b 100644
 +
 +#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR
 +static __ro_after_init DEFINE_STATIC_KEY_FALSE(have_c906);
++static __ro_after_init DEFINE_STATIC_KEY_FALSE(have_c906_vector);
 +
 +/*
-+ * Scalar code, no vector state: usable in any context. Multiply operands are
-+ * kept below 2^32, where the C906 multiplier is fast and its timing does not
-+ * depend on the data.
++ * Multiply operands are kept below 2^32, where the C906 multiplier is fast
++ * and its timing does not depend on the data. The scalar function uses no
++ * vector state; the five-block one runs four blocks in XTheadVector lanes and
++ * the fifth in scalar registers, and needs kernel_vector_begin().
 + */
 +asmlinkage void ghash_blocks_c906(struct polyval_elem *acc, const u64 kp[40],
 +				  const u8 *data, size_t nblocks);
++asmlinkage void ghash_blocks_c906_v(struct polyval_elem *acc, const u64 kp[112],
++				    const u8 *data, size_t ngroups);
 +
-+/* The key operands of ghash_blocks_c906(), see ghash-riscv64-c906.S. */
-+static void ghash_c906_preparekey(u64 kp[40], const struct polyval_elem *h)
++#define GHASH_C906_GROUP	5
++
++/*
++ * The key operands of the assembly, see ghash-riscv64-c906.S: 32-bit operands
++ * of H (scalar words) and of H^5 to H^2 (lane l holds H^(5-l)), each split
++ * into its four hole classes.
++ */
++static void ghash_c906_preparekey(u64 kp[112], const struct polyval_elem *h)
 +{
 +	static const u64 holes[4] = {
 +		0x1111111111111111ULL, 0x2222222222222222ULL,
 +		0x4444444444444444ULL, 0x8888888888888888ULL,
 +	};
-+	u64 lo = le64_to_cpu(h->lo), hi = le64_to_cpu(h->hi);
-+	u64 parts[3] = { lo, hi, lo ^ hi };
-+	int p, r, j;
++	struct polyval_elem pw[6];
++	u32 *lanes = (u32 *)&kp[40];
++	int p, r, j, l;
 +
++	pw[1] = *h;
++	for (p = 2; p <= 5; p++) {
++		pw[p] = pw[p - 1];
++		polyval_mul_generic(&pw[p], h);
++	}
 +	for (j = 0; j < 4; j++)
 +		kp[j] = holes[j];
 +	for (p = 0; p < 3; p++) {
-+		u64 x0 = (u32)parts[p], x1 = parts[p] >> 32;
-+		u64 ops[3] = { x0, x1, x0 ^ x1 };
++		for (l = 0; l <= 4; l++) {
++			/* l = 4: H for the scalar words; l = 0..3: H^(5-l) in lane l. */
++			const struct polyval_elem *x = &pw[l == 4 ? 1 : 5 - l];
++			u64 lo = le64_to_cpu(x->lo), hi = le64_to_cpu(x->hi);
++			u64 part = p == 0 ? lo : p == 1 ? hi : lo ^ hi;
++			u64 ops[3] = { (u32)part, part >> 32, (u32)part ^ (part >> 32) };
 +
-+		for (r = 0; r < 3; r++)
-+			for (j = 0; j < 4; j++)
-+				kp[4 + 4 * (3 * p + r) + j] = ops[r] & holes[j];
++			for (r = 0; r < 3; r++)
++				for (j = 0; j < 4; j++) {
++					if (l == 4)
++						kp[4 + 4 * (3 * p + r) + j] = ops[r] & holes[j];
++					else
++						lanes[16 * (3 * p + r) + 4 * j + l] =
++							ops[r] & (u32)holes[j];
++				}
++		}
 +	}
-+	memzero_explicit(parts, sizeof(parts));
++	memzero_explicit(pw, sizeof(pw));
++}
++
++static void ghash_blocks_c906_any(struct polyval_elem *acc, const u64 kp[112],
++				  const u8 *data, size_t nblocks)
++{
++	if (static_branch_likely(&have_c906_vector) &&
++	    nblocks >= GHASH_C906_GROUP && likely(may_use_simd())) {
++		size_t groups = nblocks / GHASH_C906_GROUP;
++
++		kernel_vector_begin();
++		ghash_blocks_c906_v(acc, kp, data, groups);
++		kernel_vector_end();
++		data += groups * GHASH_C906_GROUP * GHASH_BLOCK_SIZE;
++		nblocks -= groups * GHASH_C906_GROUP;
++	}
++	ghash_blocks_c906(acc, kp, data, nblocks);	/* nblocks may be 0 */
 +}
 +#endif
  
  #define ghash_preparekey_arch ghash_preparekey_arch
  static void ghash_preparekey_arch(struct ghash_key *key,
-@@ -25,6 +72,10 @@ static void ghash_preparekey_arch(struct ghash_key *key,
+@@ -25,6 +113,10 @@ static void ghash_preparekey_arch(struct ghash_key *key,
  
  	/* Save key in GHASH format for zvkg */
  	memcpy(key->h_raw, raw_key, GHASH_BLOCK_SIZE);
@@ -147,7 +198,7 @@ index 4301a0384..7ef2adb7b 100644
  }
  
  #define ghash_blocks_arch ghash_blocks_arch
-@@ -32,6 +83,7 @@ static void ghash_blocks_arch(struct polyval_elem *acc,
+@@ -32,6 +124,7 @@ static void ghash_blocks_arch(struct polyval_elem *acc,
  			      const struct ghash_key *key,
  			      const u8 *data, size_t nblocks)
  {
@@ -155,7 +206,7 @@ index 4301a0384..7ef2adb7b 100644
  	if (static_branch_likely(&have_zvkg) && likely(may_use_simd())) {
  		u8 ghash_acc[GHASH_BLOCK_SIZE];
  
-@@ -43,15 +95,32 @@ static void ghash_blocks_arch(struct polyval_elem *acc,
+@@ -43,15 +136,36 @@ static void ghash_blocks_arch(struct polyval_elem *acc,
  
  		ghash_acc_to_polyval(ghash_acc, acc);
  		memzero_explicit(ghash_acc, sizeof(ghash_acc));
@@ -166,7 +217,7 @@ index 4301a0384..7ef2adb7b 100644
 +#endif
 +#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR
 +	if (static_branch_likely(&have_c906)) {
-+		ghash_blocks_c906(acc, key->c906_kp, data, nblocks);
++		ghash_blocks_c906_any(acc, key->c906_kp, data, nblocks);
 +		return;
  	}
 +#endif
@@ -184,18 +235,22 @@ index 4301a0384..7ef2adb7b 100644
 +#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR
 +	/*
 +	 * XTheadVector stands for a T-Head core here (C906, C910, C920): all
-+	 * of them implement XTheadBb, whose th.rev the assembly uses.
++	 * of them implement XTheadBb, whose th.rev the assembly uses. The
++	 * vector function sets vl to 4 and needs VLEN >= 128.
 +	 */
-+	if (has_xtheadvector())
++	if (has_xtheadvector()) {
 +		static_branch_enable(&have_c906);
++		if (riscv_vector_vlen() >= 128)
++			static_branch_enable(&have_c906_vector);
++	}
 +#endif
  }
 diff --git a/lib/crypto/riscv/ghash-riscv64-c906.S b/lib/crypto/riscv/ghash-riscv64-c906.S
 new file mode 100644
-index 000000000..f49d89a31
+index 000000000..0776f0cab
 --- /dev/null
 +++ b/lib/crypto/riscv/ghash-riscv64-c906.S
-@@ -0,0 +1,558 @@
+@@ -0,0 +1,1978 @@
 +/* SPDX-License-Identifier: GPL-2.0-only OR BSD-3-Clause */
 +/*
 + * Generated by firmware/cpu/go-crypto-c906/gen_ghash_linux.py
@@ -753,4 +808,1424 @@ index 000000000..f49d89a31
 +.Lnone:
 +	ret
 +SYM_FUNC_END(ghash_blocks_c906)
++
++SYM_FUNC_START(ghash_blocks_c906_v)
++	beqz	a3, .Lvnone
++	addi	sp, sp, -208
++	sd	ra, 0(sp)
++	sd	s0, 8(sp)
++	sd	s1, 16(sp)
++	sd	s2, 24(sp)
++	sd	s3, 32(sp)
++	sd	s4, 40(sp)
++	sd	s5, 48(sp)
++	sd	s6, 56(sp)
++	sd	s7, 64(sp)
++	sd	s8, 72(sp)
++	sd	s9, 80(sp)
++	sd	s10, 88(sp)
++	sd	s11, 96(sp)
++	sd	a0, 104(sp)
++	slli	t3, a3, 4
++	slli	a3, a3, 6
++	add	a3, a3, t3
++	add	a3, a3, a2
++	ld	t0, 0(a0)
++	ld	t1, 8(a0)
++	ld	a4, 0(a1)
++	ld	a5, 8(a1)
++	ld	a6, 16(a1)
++	ld	a7, 24(a1)
++	li	t3, 4
++	.4byte	0x008e7057	/* th.vsetvli zero,t3,e32,m1,d1 */
++.Lvgroup:
++	ld	t4, 8(a2)
++	ld	t5, 0(a2)
++	th.rev	t4, t4
++	th.rev	t5, t5
++	xor	t4, t4, t0
++	xor	t5, t5, t1
++	sd	t4, 144(sp)
++	sd	t5, 152(sp)
++	ld	t4, 24(a2)
++	ld	t5, 16(a2)
++	th.rev	t4, t4
++	th.rev	t5, t5
++	sd	t4, 160(sp)
++	sd	t5, 168(sp)
++	ld	t4, 40(a2)
++	ld	t5, 32(a2)
++	th.rev	t4, t4
++	th.rev	t5, t5
++	sd	t4, 176(sp)
++	sd	t5, 184(sp)
++	ld	t4, 56(a2)
++	ld	t5, 48(a2)
++	th.rev	t4, t4
++	th.rev	t5, t5
++	sd	t4, 192(sp)
++	sd	t5, 200(sp)
++	li	t3, 16
++	addi	a0, sp, 144
++	.4byte	0x0bc57087	/* th.vlse.v v1,(a0),t3 */
++	addi	a0, sp, 148
++	.4byte	0x0bc57107	/* th.vlse.v v2,(a0),t3 */
++	addi	a0, sp, 152
++	.4byte	0x0bc57187	/* th.vlse.v v3,(a0),t3 */
++	addi	a0, sp, 156
++	.4byte	0x0bc57207	/* th.vlse.v v4,(a0),t3 */
++	addi	a0, a1, 320
++	.4byte	0x02057507	/* th.vle.v v10,(a0) */
++	ld	t4, 72(a2)
++	addi	a0, a1, 368
++	.4byte	0x02057687	/* th.vle.v v13,(a0) */
++	ld	t5, 64(a2)
++	addi	a0, a1, 352
++	.4byte	0x02057607	/* th.vle.v v12,(a0) */
++	ld	s7, 224(a1)
++	.4byte	0x26174357	/* th.vand.vx v6,v1,a4 */
++	th.rev	t0, t4
++	.4byte	0x2617c3d7	/* th.vand.vx v7,v1,a5 */
++	th.rev	t1, t5
++	.4byte	0x26184457	/* th.vand.vx v8,v1,a6 */
++	ld	s10, 248(a1)
++	.4byte	0x96652957	/* th.vmul.vv v18,v6,v10 */
++	xor	t2, t0, t1
++	.4byte	0x926529d7	/* th.vmulhu.vv v19,v6,v10 */
++	slli	s0, t2, 32
++	.4byte	0x9676a757	/* th.vmul.vv v14,v7,v13 */
++	srli	s0, s0, 32
++	.4byte	0x9276a7d7	/* th.vmulhu.vv v15,v7,v13 */
++	ld	s9, 240(a1)
++	addi	a0, a1, 336
++	.4byte	0x02057587	/* th.vle.v v11,(a0) */
++	and	s3, s0, a4
++	.4byte	0x96862857	/* th.vmul.vv v16,v8,v12 */
++	and	s4, s0, a5
++	.4byte	0x928628d7	/* th.vmulhu.vv v17,v8,v12 */
++	ld	s8, 232(a1)
++	.4byte	0x2618c4d7	/* th.vand.vx v9,v1,a7 */
++	and	s5, s0, a6
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	mul	t4, s3, s7
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	mul	t5, s4, s10
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	and	s6, s0, a7
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	mul	t6, s5, s9
++	.4byte	0x9695a757	/* th.vmul.vv v14,v9,v11 */
++	mul	ra, s6, s8
++	.4byte	0x9295a7d7	/* th.vmulhu.vv v15,v9,v11 */
++	xor	s11, t4, t5
++	.4byte	0x9665aa57	/* th.vmul.vv v20,v6,v11 */
++	xor	s11, s11, t6
++	.4byte	0x9265aad7	/* th.vmulhu.vv v21,v6,v11 */
++	mul	t4, s3, s8
++	.4byte	0x96752857	/* th.vmul.vv v16,v7,v10 */
++	mul	t5, s4, s7
++	.4byte	0x927528d7	/* th.vmulhu.vv v17,v7,v10 */
++	xor	s11, s11, ra
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	mul	t6, s5, s10
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	and	s1, s11, a4
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	mul	ra, s6, s9
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	xor	s11, t4, t5
++	.4byte	0x9686a757	/* th.vmul.vv v14,v8,v13 */
++	xor	s11, s11, t6
++	.4byte	0x9286a7d7	/* th.vmulhu.vv v15,v8,v13 */
++	xor	s11, s11, ra
++	.4byte	0x96962857	/* th.vmul.vv v16,v9,v12 */
++	mul	t4, s3, s9
++	.4byte	0x929628d7	/* th.vmulhu.vv v17,v9,v12 */
++	mul	t5, s4, s8
++	.4byte	0x27274b57	/* th.vand.vx v22,v18,a4 */
++	and	s11, s11, a5
++	.4byte	0x27374bd7	/* th.vand.vx v23,v19,a4 */
++	mul	t6, s5, s7
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	xor	s1, s1, s11
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	mul	ra, s6, s10
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	xor	s11, t4, t5
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	xor	s11, s11, t6
++	.4byte	0x96662957	/* th.vmul.vv v18,v6,v12 */
++	xor	s11, s11, ra
++	.4byte	0x926629d7	/* th.vmulhu.vv v19,v6,v12 */
++	mul	t4, s3, s10
++	.4byte	0x9675a757	/* th.vmul.vv v14,v7,v11 */
++	mul	ra, s6, s7
++	.4byte	0x9275a7d7	/* th.vmulhu.vv v15,v7,v11 */
++	mul	t5, s4, s9
++	.4byte	0x96852857	/* th.vmul.vv v16,v8,v10 */
++	and	s11, s11, a6
++	.4byte	0x928528d7	/* th.vmulhu.vv v17,v8,v10 */
++	mul	t6, s5, s8
++	.4byte	0x2747ca57	/* th.vand.vx v20,v20,a5 */
++	xor	s1, s1, s11
++	.4byte	0x2757cad7	/* th.vand.vx v21,v21,a5 */
++	ld	s7, 256(a1)
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	ld	s10, 280(a1)
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	xor	s11, t4, t5
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	srli	s0, t2, 32
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	ld	s9, 272(a1)
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	xor	s11, s11, t6
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	and	s3, s0, a4
++	.4byte	0x9666aa57	/* th.vmul.vv v20,v6,v13 */
++	and	s4, s0, a5
++	.4byte	0x9266aad7	/* th.vmulhu.vv v21,v6,v13 */
++	ld	s8, 264(a1)
++	.4byte	0x96762857	/* th.vmul.vv v16,v7,v12 */
++	xor	s11, s11, ra
++	.4byte	0x927628d7	/* th.vmulhu.vv v17,v7,v12 */
++	and	s5, s0, a6
++	.4byte	0x9696a757	/* th.vmul.vv v14,v9,v13 */
++	mul	t4, s3, s7
++	.4byte	0x9296a7d7	/* th.vmulhu.vv v15,v9,v13 */
++	mul	t5, s4, s10
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	and	s11, s11, a7
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	and	s6, s0, a7
++	.4byte	0x96952857	/* th.vmul.vv v16,v9,v10 */
++	mul	t6, s5, s9
++	.4byte	0x929528d7	/* th.vmulhu.vv v17,v9,v10 */
++	xor	s1, s1, s11
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	mul	ra, s6, s8
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	xor	s11, t4, t5
++	.4byte	0x9685a757	/* th.vmul.vv v14,v8,v11 */
++	xor	s11, s11, t6
++	.4byte	0x9285a7d7	/* th.vmulhu.vv v15,v8,v11 */
++	mul	t4, s3, s8
++	addi	a0, a1, 384
++	.4byte	0x02057507	/* th.vle.v v10,(a0) */
++	mul	t5, s4, s7
++	addi	a0, a1, 432
++	.4byte	0x02057687	/* th.vle.v v13,(a0) */
++	xor	s11, s11, ra
++	.4byte	0x27284957	/* th.vand.vx v18,v18,a6 */
++	mul	t6, s5, s10
++	.4byte	0x273849d7	/* th.vand.vx v19,v19,a6 */
++	and	s2, s11, a4
++	addi	a0, a1, 416
++	.4byte	0x02057607	/* th.vle.v v12,(a0) */
++	mul	ra, s6, s9
++	.4byte	0x2f690b57	/* th.vxor.vv v22,v22,v18 */
++	xor	s11, t4, t5
++	.4byte	0x2f798bd7	/* th.vxor.vv v23,v23,v19 */
++	xor	s11, s11, t6
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	xor	s11, s11, ra
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	mul	t4, s3, s9
++	.4byte	0x26274357	/* th.vand.vx v6,v2,a4 */
++	mul	t5, s4, s8
++	.4byte	0x2627c3d7	/* th.vand.vx v7,v2,a5 */
++	and	s11, s11, a5
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	mul	t6, s5, s7
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	xor	s2, s2, s11
++	.4byte	0x26284457	/* th.vand.vx v8,v2,a6 */
++	mul	ra, s6, s10
++	.4byte	0x96652957	/* th.vmul.vv v18,v6,v10 */
++	xor	s11, t4, t5
++	.4byte	0x926529d7	/* th.vmulhu.vv v19,v6,v10 */
++	xor	s11, s11, t6
++	.4byte	0x9676a757	/* th.vmul.vv v14,v7,v13 */
++	xor	s11, s11, ra
++	.4byte	0x9276a7d7	/* th.vmulhu.vv v15,v7,v13 */
++	mul	t4, s3, s10
++	addi	a0, a1, 400
++	.4byte	0x02057587	/* th.vle.v v11,(a0) */
++	mul	ra, s6, s7
++	.4byte	0x96862857	/* th.vmul.vv v16,v8,v12 */
++	mul	t5, s4, s9
++	.4byte	0x928628d7	/* th.vmulhu.vv v17,v8,v12 */
++	and	s11, s11, a6
++	.4byte	0x2748ca57	/* th.vand.vx v20,v20,a7 */
++	mul	t6, s5, s8
++	.4byte	0x2758cad7	/* th.vand.vx v21,v21,a7 */
++	slli	t3, t2, 32
++	.4byte	0x2628c4d7	/* th.vand.vx v9,v2,a7 */
++	xor	s2, s2, s11
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	srli	t3, t3, 32
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	ld	s7, 288(a1)
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	ld	s10, 312(a1)
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	xor	s11, t4, t5
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	xor	s0, s0, t3
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	ld	s9, 304(a1)
++	.4byte	0x9695a757	/* th.vmul.vv v14,v9,v11 */
++	xor	s11, s11, t6
++	.4byte	0x9295a7d7	/* th.vmulhu.vv v15,v9,v11 */
++	and	s3, s0, a4
++	.4byte	0x9665aa57	/* th.vmul.vv v20,v6,v11 */
++	and	s4, s0, a5
++	.4byte	0x9265aad7	/* th.vmulhu.vv v21,v6,v11 */
++	ld	s8, 296(a1)
++	.4byte	0x96752857	/* th.vmul.vv v16,v7,v10 */
++	xor	s11, s11, ra
++	.4byte	0x927528d7	/* th.vmulhu.vv v17,v7,v10 */
++	and	s5, s0, a6
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	mul	t4, s3, s7
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	mul	t5, s4, s10
++	.4byte	0x5e003cd7	/* th.vmv.v.i v25,0 */
++	and	s11, s11, a7
++	.4byte	0x5e003d57	/* th.vmv.v.i v26,0 */
++	and	s6, s0, a7
++	.4byte	0x5e003dd7	/* th.vmv.v.i v27,0 */
++	mul	t6, s5, s9
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	xor	s2, s2, s11
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	mul	ra, s6, s8
++	.4byte	0x9686a757	/* th.vmul.vv v14,v8,v13 */
++	xor	s11, t4, t5
++	.4byte	0x9286a7d7	/* th.vmulhu.vv v15,v8,v13 */
++	xor	s11, s11, t6
++	.4byte	0x5e003c57	/* th.vmv.v.i v24,0 */
++	mul	t4, s3, s8
++	.4byte	0x5e003e57	/* th.vmv.v.i v28,0 */
++	mul	t5, s4, s7
++	.4byte	0x2f9b8cd7	/* th.vxor.vv v25,v25,v23 */
++	xor	s11, s11, ra
++	.4byte	0x2fab8d57	/* th.vxor.vv v26,v26,v23 */
++	mul	t6, s5, s10
++	.4byte	0x2fbb8dd7	/* th.vxor.vv v27,v27,v23 */
++	and	t3, s11, a4
++	.4byte	0x96962857	/* th.vmul.vv v16,v9,v12 */
++	mul	ra, s6, s9
++	.4byte	0x929628d7	/* th.vmulhu.vv v17,v9,v12 */
++	xor	s11, t4, t5
++	.4byte	0x2f8b0c57	/* th.vxor.vv v24,v24,v22 */
++	xor	s11, s11, t6
++	.4byte	0x2f9b0cd7	/* th.vxor.vv v25,v25,v22 */
++	xor	s11, s11, ra
++	.4byte	0x2fab0d57	/* th.vxor.vv v26,v26,v22 */
++	mul	t4, s3, s9
++	.4byte	0x2fbb0dd7	/* th.vxor.vv v27,v27,v22 */
++	mul	t5, s4, s8
++	.4byte	0x2fcb8e57	/* th.vxor.vv v28,v28,v23 */
++	and	s11, s11, a5
++	.4byte	0x27274b57	/* th.vand.vx v22,v18,a4 */
++	mul	t6, s5, s7
++	.4byte	0x27374bd7	/* th.vand.vx v23,v19,a4 */
++	xor	t3, t3, s11
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	mul	ra, s6, s10
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	xor	s11, t4, t5
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	xor	s11, s11, t6
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	xor	s11, s11, ra
++	.4byte	0x96662957	/* th.vmul.vv v18,v6,v12 */
++	mul	t4, s3, s10
++	.4byte	0x926629d7	/* th.vmulhu.vv v19,v6,v12 */
++	mul	t5, s4, s9
++	.4byte	0x9675a757	/* th.vmul.vv v14,v7,v11 */
++	and	s11, s11, a6
++	.4byte	0x9275a7d7	/* th.vmulhu.vv v15,v7,v11 */
++	mul	t6, s5, s8
++	.4byte	0x96852857	/* th.vmul.vv v16,v8,v10 */
++	xor	t3, t3, s11
++	.4byte	0x928528d7	/* th.vmulhu.vv v17,v8,v10 */
++	mul	ra, s6, s7
++	.4byte	0x2747ca57	/* th.vand.vx v20,v20,a5 */
++	xor	s11, t4, t5
++	.4byte	0x2757cad7	/* th.vand.vx v21,v21,a5 */
++	xor	s11, s11, t6
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	xor	s11, s11, ra
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	and	s11, s11, a7
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	xor	t3, t3, s11
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	xor	t3, t3, s1
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	slli	s0, t0, 32
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	ld	s7, 32(a1)
++	.4byte	0x9666aa57	/* th.vmul.vv v20,v6,v13 */
++	ld	s10, 56(a1)
++	.4byte	0x9266aad7	/* th.vmulhu.vv v21,v6,v13 */
++	xor	t3, t3, s2
++	.4byte	0x96762857	/* th.vmul.vv v16,v7,v12 */
++	srli	s0, s0, 32
++	.4byte	0x927628d7	/* th.vmulhu.vv v17,v7,v12 */
++	ld	s9, 48(a1)
++	.4byte	0x9696a757	/* th.vmul.vv v14,v9,v13 */
++	slli	t4, t3, 32
++	.4byte	0x9296a7d7	/* th.vmulhu.vv v15,v9,v13 */
++	and	s3, s0, a4
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	and	s4, s0, a5
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	ld	s8, 40(a1)
++	.4byte	0x96952857	/* th.vmul.vv v16,v9,v10 */
++	xor	s1, s1, t4
++	.4byte	0x929528d7	/* th.vmulhu.vv v17,v9,v10 */
++	srli	t5, t3, 32
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	and	s5, s0, a6
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	mul	t6, s3, s7
++	.4byte	0x9685a757	/* th.vmul.vv v14,v8,v11 */
++	mul	ra, s4, s10
++	.4byte	0x9285a7d7	/* th.vmulhu.vv v15,v8,v11 */
++	xor	s2, s2, t5
++	addi	a0, a1, 448
++	.4byte	0x02057507	/* th.vle.v v10,(a0) */
++	and	s6, s0, a7
++	addi	a0, a1, 496
++	.4byte	0x02057687	/* th.vle.v v13,(a0) */
++	mul	t4, s5, s9
++	.4byte	0x27284957	/* th.vand.vx v18,v18,a6 */
++	mul	t5, s6, s8
++	.4byte	0x273849d7	/* th.vand.vx v19,v19,a6 */
++	xor	s11, t6, ra
++	.4byte	0x2e1102d7	/* th.vxor.vv v5,v1,v2 */
++	xor	s11, s11, t4
++	addi	a0, a1, 480
++	.4byte	0x02057607	/* th.vle.v v12,(a0) */
++	mul	t6, s3, s8
++	.4byte	0x2f690b57	/* th.vxor.vv v22,v22,v18 */
++	mul	ra, s4, s7
++	.4byte	0x2f798bd7	/* th.vxor.vv v23,v23,v19 */
++	sd	s1, 120(sp)
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	xor	s11, s11, t5
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	mul	t4, s5, s10
++	.4byte	0x26574357	/* th.vand.vx v6,v5,a4 */
++	and	s1, s11, a4
++	.4byte	0x2657c3d7	/* th.vand.vx v7,v5,a5 */
++	mul	t5, s6, s9
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	xor	s11, t6, ra
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	xor	s11, s11, t4
++	.4byte	0x26584457	/* th.vand.vx v8,v5,a6 */
++	xor	s11, s11, t5
++	.4byte	0x96652957	/* th.vmul.vv v18,v6,v10 */
++	mul	t6, s3, s9
++	.4byte	0x926529d7	/* th.vmulhu.vv v19,v6,v10 */
++	mul	ra, s4, s8
++	.4byte	0x9676a757	/* th.vmul.vv v14,v7,v13 */
++	and	s11, s11, a5
++	.4byte	0x9276a7d7	/* th.vmulhu.vv v15,v7,v13 */
++	mul	t4, s5, s7
++	addi	a0, a1, 464
++	.4byte	0x02057587	/* th.vle.v v11,(a0) */
++	xor	s1, s1, s11
++	.4byte	0x96862857	/* th.vmul.vv v16,v8,v12 */
++	mul	t5, s6, s10
++	.4byte	0x928628d7	/* th.vmulhu.vv v17,v8,v12 */
++	xor	s11, t6, ra
++	.4byte	0x2748ca57	/* th.vand.vx v20,v20,a7 */
++	xor	s11, s11, t4
++	.4byte	0x2758cad7	/* th.vand.vx v21,v21,a7 */
++	xor	s11, s11, t5
++	.4byte	0x2658c4d7	/* th.vand.vx v9,v5,a7 */
++	mul	t6, s3, s10
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	mul	t5, s6, s7
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	mul	ra, s4, s9
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	and	s11, s11, a6
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	mul	t4, s5, s8
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	xor	s1, s1, s11
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	ld	s7, 64(a1)
++	.4byte	0x9695a757	/* th.vmul.vv v14,v9,v11 */
++	ld	s10, 88(a1)
++	.4byte	0x9295a7d7	/* th.vmulhu.vv v15,v9,v11 */
++	xor	s11, t6, ra
++	.4byte	0x9665aa57	/* th.vmul.vv v20,v6,v11 */
++	srli	s0, t0, 32
++	.4byte	0x9265aad7	/* th.vmulhu.vv v21,v6,v11 */
++	ld	s9, 80(a1)
++	.4byte	0x96752857	/* th.vmul.vv v16,v7,v10 */
++	xor	s11, s11, t4
++	.4byte	0x927528d7	/* th.vmulhu.vv v17,v7,v10 */
++	and	s3, s0, a4
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	and	s4, s0, a5
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	ld	s8, 72(a1)
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	xor	s11, s11, t5
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	and	s5, s0, a6
++	.4byte	0x9686a757	/* th.vmul.vv v14,v8,v13 */
++	mul	t6, s3, s7
++	.4byte	0x9286a7d7	/* th.vmulhu.vv v15,v8,v13 */
++	mul	ra, s4, s10
++	.4byte	0x5e003ed7	/* th.vmv.v.i v29,0 */
++	and	s11, s11, a7
++	.4byte	0x2fab0d57	/* th.vxor.vv v26,v26,v22 */
++	and	s6, s0, a7
++	.4byte	0x2fbb8dd7	/* th.vxor.vv v27,v27,v23 */
++	mul	t4, s5, s9
++	.4byte	0x2fcb0e57	/* th.vxor.vv v28,v28,v22 */
++	xor	s1, s1, s11
++	.4byte	0x96962857	/* th.vmul.vv v16,v9,v12 */
++	mul	t5, s6, s8
++	.4byte	0x929628d7	/* th.vmulhu.vv v17,v9,v12 */
++	xor	s11, t6, ra
++	.4byte	0x2f9b0cd7	/* th.vxor.vv v25,v25,v22 */
++	xor	s11, s11, t4
++	.4byte	0x2fab8d57	/* th.vxor.vv v26,v26,v23 */
++	mul	t6, s3, s8
++	.4byte	0x2fdb8ed7	/* th.vxor.vv v29,v29,v23 */
++	mul	ra, s4, s7
++	.4byte	0x2fbb0dd7	/* th.vxor.vv v27,v27,v22 */
++	sd	s2, 128(sp)
++	.4byte	0x2fcb8e57	/* th.vxor.vv v28,v28,v23 */
++	xor	s11, s11, t5
++	.4byte	0x27274b57	/* th.vand.vx v22,v18,a4 */
++	mul	t4, s5, s10
++	.4byte	0x27374bd7	/* th.vand.vx v23,v19,a4 */
++	and	s2, s11, a4
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	mul	t5, s6, s9
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	xor	s11, t6, ra
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	xor	s11, s11, t4
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	xor	s11, s11, t5
++	.4byte	0x96662957	/* th.vmul.vv v18,v6,v12 */
++	mul	t6, s3, s9
++	.4byte	0x926629d7	/* th.vmulhu.vv v19,v6,v12 */
++	mul	ra, s4, s8
++	.4byte	0x9675a757	/* th.vmul.vv v14,v7,v11 */
++	and	s11, s11, a5
++	.4byte	0x9275a7d7	/* th.vmulhu.vv v15,v7,v11 */
++	mul	t4, s5, s7
++	.4byte	0x96852857	/* th.vmul.vv v16,v8,v10 */
++	xor	s2, s2, s11
++	.4byte	0x928528d7	/* th.vmulhu.vv v17,v8,v10 */
++	mul	t5, s6, s10
++	.4byte	0x2747ca57	/* th.vand.vx v20,v20,a5 */
++	xor	s11, t6, ra
++	.4byte	0x2757cad7	/* th.vand.vx v21,v21,a5 */
++	xor	s11, s11, t4
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	xor	s11, s11, t5
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	mul	t6, s3, s10
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	mul	t5, s6, s7
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	mul	ra, s4, s9
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	and	s11, s11, a6
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	mul	t4, s5, s8
++	.4byte	0x9666aa57	/* th.vmul.vv v20,v6,v13 */
++	slli	t3, t0, 32
++	.4byte	0x9266aad7	/* th.vmulhu.vv v21,v6,v13 */
++	xor	s2, s2, s11
++	.4byte	0x96762857	/* th.vmul.vv v16,v7,v12 */
++	srli	t3, t3, 32
++	.4byte	0x927628d7	/* th.vmulhu.vv v17,v7,v12 */
++	ld	s7, 96(a1)
++	.4byte	0x9696a757	/* th.vmul.vv v14,v9,v13 */
++	ld	s10, 120(a1)
++	.4byte	0x9296a7d7	/* th.vmulhu.vv v15,v9,v13 */
++	xor	s11, t6, ra
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	xor	s0, s0, t3
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	ld	s9, 112(a1)
++	.4byte	0x96952857	/* th.vmul.vv v16,v9,v10 */
++	xor	s11, s11, t4
++	.4byte	0x929528d7	/* th.vmulhu.vv v17,v9,v10 */
++	and	s3, s0, a4
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	and	s4, s0, a5
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	ld	s8, 104(a1)
++	.4byte	0x9685a757	/* th.vmul.vv v14,v8,v11 */
++	xor	s11, s11, t5
++	.4byte	0x9285a7d7	/* th.vmulhu.vv v15,v8,v11 */
++	and	s5, s0, a6
++	addi	a0, a1, 512
++	.4byte	0x02057507	/* th.vle.v v10,(a0) */
++	mul	t6, s3, s7
++	addi	a0, a1, 560
++	.4byte	0x02057687	/* th.vle.v v13,(a0) */
++	mul	ra, s4, s10
++	.4byte	0x27284957	/* th.vand.vx v18,v18,a6 */
++	and	s11, s11, a7
++	.4byte	0x273849d7	/* th.vand.vx v19,v19,a6 */
++	and	s6, s0, a7
++	addi	a0, a1, 544
++	.4byte	0x02057607	/* th.vle.v v12,(a0) */
++	mul	t4, s5, s9
++	.4byte	0x2f690b57	/* th.vxor.vv v22,v22,v18 */
++	xor	s2, s2, s11
++	.4byte	0x2f798bd7	/* th.vxor.vv v23,v23,v19 */
++	mul	t5, s6, s8
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	xor	s11, t6, ra
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	xor	s11, s11, t4
++	.4byte	0x26374357	/* th.vand.vx v6,v3,a4 */
++	mul	t6, s3, s8
++	.4byte	0x2637c3d7	/* th.vand.vx v7,v3,a5 */
++	mul	ra, s4, s7
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	xor	s11, s11, t5
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	mul	t4, s5, s10
++	.4byte	0x26384457	/* th.vand.vx v8,v3,a6 */
++	and	t3, s11, a4
++	.4byte	0x96652957	/* th.vmul.vv v18,v6,v10 */
++	mul	t5, s6, s9
++	.4byte	0x926529d7	/* th.vmulhu.vv v19,v6,v10 */
++	xor	s11, t6, ra
++	.4byte	0x9676a757	/* th.vmul.vv v14,v7,v13 */
++	xor	s11, s11, t4
++	.4byte	0x9276a7d7	/* th.vmulhu.vv v15,v7,v13 */
++	xor	s11, s11, t5
++	addi	a0, a1, 528
++	.4byte	0x02057587	/* th.vle.v v11,(a0) */
++	mul	t6, s3, s9
++	.4byte	0x96862857	/* th.vmul.vv v16,v8,v12 */
++	mul	ra, s4, s8
++	.4byte	0x928628d7	/* th.vmulhu.vv v17,v8,v12 */
++	and	s11, s11, a5
++	.4byte	0x2748ca57	/* th.vand.vx v20,v20,a7 */
++	mul	t4, s5, s7
++	.4byte	0x2758cad7	/* th.vand.vx v21,v21,a7 */
++	xor	t3, t3, s11
++	.4byte	0x2638c4d7	/* th.vand.vx v9,v3,a7 */
++	mul	t5, s6, s10
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	xor	s11, t6, ra
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	xor	s11, s11, t4
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	xor	s11, s11, t5
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	mul	t6, s3, s10
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	mul	ra, s4, s9
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	and	s11, s11, a6
++	.4byte	0x9695a757	/* th.vmul.vv v14,v9,v11 */
++	mul	t4, s5, s8
++	.4byte	0x9295a7d7	/* th.vmulhu.vv v15,v9,v11 */
++	xor	t3, t3, s11
++	.4byte	0x9665aa57	/* th.vmul.vv v20,v6,v11 */
++	mul	t5, s6, s7
++	.4byte	0x9265aad7	/* th.vmulhu.vv v21,v6,v11 */
++	xor	s11, t6, ra
++	.4byte	0x96752857	/* th.vmul.vv v16,v7,v10 */
++	xor	s11, s11, t4
++	.4byte	0x927528d7	/* th.vmulhu.vv v17,v7,v10 */
++	xor	s11, s11, t5
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	and	s11, s11, a7
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	xor	t3, t3, s11
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	xor	t3, t3, s1
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	xor	t3, t3, s2
++	.4byte	0x9686a757	/* th.vmul.vv v14,v8,v13 */
++	ld	t4, 120(sp)
++	.4byte	0x9286a7d7	/* th.vmulhu.vv v15,v8,v13 */
++	slli	t6, t3, 32
++	.4byte	0x96962857	/* th.vmul.vv v16,v9,v12 */
++	xor	s1, s1, t6
++	.4byte	0x929628d7	/* th.vmulhu.vv v17,v9,v12 */
++	xor	t4, t4, s1
++	.4byte	0x2f9b0cd7	/* th.vxor.vv v25,v25,v22 */
++	sd	t4, 120(sp)
++	.4byte	0x2fab8d57	/* th.vxor.vv v26,v26,v23 */
++	ld	t5, 120(sp)
++	.4byte	0x2fbb0dd7	/* th.vxor.vv v27,v27,v22 */
++	srli	ra, t3, 32
++	.4byte	0x2fcb8e57	/* th.vxor.vv v28,v28,v23 */
++	ld	t6, 128(sp)
++	.4byte	0x27274b57	/* th.vand.vx v22,v18,a4 */
++	slli	s0, t1, 32
++	.4byte	0x27374bd7	/* th.vand.vx v23,v19,a4 */
++	ld	s7, 128(a1)
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	ld	s10, 152(a1)
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	xor	s2, s2, ra
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	srli	s0, s0, 32
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	ld	s9, 144(a1)
++	.4byte	0x96662957	/* th.vmul.vv v18,v6,v12 */
++	xor	t5, t5, s2
++	.4byte	0x926629d7	/* th.vmulhu.vv v19,v6,v12 */
++	and	s3, s0, a4
++	.4byte	0x9675a757	/* th.vmul.vv v14,v7,v11 */
++	and	s4, s0, a5
++	.4byte	0x9275a7d7	/* th.vmulhu.vv v15,v7,v11 */
++	ld	s8, 136(a1)
++	.4byte	0x96852857	/* th.vmul.vv v16,v8,v10 */
++	sd	t5, 120(sp)
++	.4byte	0x928528d7	/* th.vmulhu.vv v17,v8,v10 */
++	xor	t6, t6, s2
++	.4byte	0x2747ca57	/* th.vand.vx v20,v20,a5 */
++	and	s5, s0, a6
++	.4byte	0x2757cad7	/* th.vand.vx v21,v21,a5 */
++	mul	ra, s3, s7
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	mul	t4, s4, s10
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	sd	t6, 128(sp)
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	and	s6, s0, a7
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	mul	t5, s5, s9
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	mul	t6, s6, s8
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	xor	s11, ra, t4
++	.4byte	0x9666aa57	/* th.vmul.vv v20,v6,v13 */
++	xor	s11, s11, t5
++	.4byte	0x9266aad7	/* th.vmulhu.vv v21,v6,v13 */
++	mul	ra, s3, s8
++	.4byte	0x96762857	/* th.vmul.vv v16,v7,v12 */
++	mul	t4, s4, s7
++	.4byte	0x927628d7	/* th.vmulhu.vv v17,v7,v12 */
++	sd	s1, 112(sp)
++	.4byte	0x9696a757	/* th.vmul.vv v14,v9,v13 */
++	xor	s11, s11, t6
++	.4byte	0x9296a7d7	/* th.vmulhu.vv v15,v9,v13 */
++	mul	t5, s5, s10
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	and	s1, s11, a4
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	mul	t6, s6, s9
++	.4byte	0x96952857	/* th.vmul.vv v16,v9,v10 */
++	xor	s11, ra, t4
++	.4byte	0x929528d7	/* th.vmulhu.vv v17,v9,v10 */
++	xor	s11, s11, t5
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	xor	s11, s11, t6
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	mul	ra, s3, s9
++	.4byte	0x9685a757	/* th.vmul.vv v14,v8,v11 */
++	mul	t4, s4, s8
++	.4byte	0x9285a7d7	/* th.vmulhu.vv v15,v8,v11 */
++	and	s11, s11, a5
++	addi	a0, a1, 576
++	.4byte	0x02057507	/* th.vle.v v10,(a0) */
++	mul	t5, s5, s7
++	addi	a0, a1, 624
++	.4byte	0x02057687	/* th.vle.v v13,(a0) */
++	xor	s1, s1, s11
++	.4byte	0x27284957	/* th.vand.vx v18,v18,a6 */
++	mul	t6, s6, s10
++	.4byte	0x273849d7	/* th.vand.vx v19,v19,a6 */
++	xor	s11, ra, t4
++	addi	a0, a1, 608
++	.4byte	0x02057607	/* th.vle.v v12,(a0) */
++	xor	s11, s11, t5
++	.4byte	0x2f690b57	/* th.vxor.vv v22,v22,v18 */
++	xor	s11, s11, t6
++	.4byte	0x2f798bd7	/* th.vxor.vv v23,v23,v19 */
++	mul	ra, s3, s10
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	mul	t6, s6, s7
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	mul	t4, s4, s9
++	.4byte	0x26474357	/* th.vand.vx v6,v4,a4 */
++	and	s11, s11, a6
++	.4byte	0x2647c3d7	/* th.vand.vx v7,v4,a5 */
++	mul	t5, s5, s8
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	xor	s1, s1, s11
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	ld	s7, 160(a1)
++	.4byte	0x26484457	/* th.vand.vx v8,v4,a6 */
++	ld	s10, 184(a1)
++	.4byte	0x96652957	/* th.vmul.vv v18,v6,v10 */
++	xor	s11, ra, t4
++	.4byte	0x926529d7	/* th.vmulhu.vv v19,v6,v10 */
++	srli	s0, t1, 32
++	.4byte	0x9676a757	/* th.vmul.vv v14,v7,v13 */
++	ld	s9, 176(a1)
++	.4byte	0x9276a7d7	/* th.vmulhu.vv v15,v7,v13 */
++	xor	s11, s11, t5
++	addi	a0, a1, 592
++	.4byte	0x02057587	/* th.vle.v v11,(a0) */
++	and	s3, s0, a4
++	.4byte	0x96862857	/* th.vmul.vv v16,v8,v12 */
++	and	s4, s0, a5
++	.4byte	0x928628d7	/* th.vmulhu.vv v17,v8,v12 */
++	ld	s8, 168(a1)
++	.4byte	0x2748ca57	/* th.vand.vx v20,v20,a7 */
++	xor	s11, s11, t6
++	.4byte	0x2758cad7	/* th.vand.vx v21,v21,a7 */
++	and	s5, s0, a6
++	.4byte	0x2648c4d7	/* th.vand.vx v9,v4,a7 */
++	mul	ra, s3, s7
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	mul	t4, s4, s10
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	and	s11, s11, a7
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	and	s6, s0, a7
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	mul	t5, s5, s9
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	xor	s1, s1, s11
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	mul	t6, s6, s8
++	.4byte	0x9695a757	/* th.vmul.vv v14,v9,v11 */
++	xor	s11, ra, t4
++	.4byte	0x9295a7d7	/* th.vmulhu.vv v15,v9,v11 */
++	xor	s11, s11, t5
++	.4byte	0x9665aa57	/* th.vmul.vv v20,v6,v11 */
++	mul	ra, s3, s8
++	.4byte	0x9265aad7	/* th.vmulhu.vv v21,v6,v11 */
++	mul	t4, s4, s7
++	.4byte	0x96752857	/* th.vmul.vv v16,v7,v10 */
++	xor	s11, s11, t6
++	.4byte	0x927528d7	/* th.vmulhu.vv v17,v7,v10 */
++	mul	t5, s5, s10
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	and	s2, s11, a4
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	mul	t6, s6, s9
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	xor	s11, ra, t4
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	xor	s11, s11, t5
++	.4byte	0x9686a757	/* th.vmul.vv v14,v8,v13 */
++	xor	s11, s11, t6
++	.4byte	0x9286a7d7	/* th.vmulhu.vv v15,v8,v13 */
++	mul	ra, s3, s9
++	.4byte	0x5e003f57	/* th.vmv.v.i v30,0 */
++	mul	t4, s4, s8
++	.4byte	0x2fcb0e57	/* th.vxor.vv v28,v28,v22 */
++	and	s11, s11, a5
++	.4byte	0x2fdb8ed7	/* th.vxor.vv v29,v29,v23 */
++	mul	t5, s5, s7
++	.4byte	0x2fbb8dd7	/* th.vxor.vv v27,v27,v23 */
++	xor	s2, s2, s11
++	.4byte	0x96962857	/* th.vmul.vv v16,v9,v12 */
++	mul	t6, s6, s10
++	.4byte	0x929628d7	/* th.vmulhu.vv v17,v9,v12 */
++	xor	s11, ra, t4
++	.4byte	0x2fdb0ed7	/* th.vxor.vv v29,v29,v22 */
++	xor	s11, s11, t5
++	.4byte	0x2feb8f57	/* th.vxor.vv v30,v30,v23 */
++	xor	s11, s11, t6
++	.4byte	0x2fab0d57	/* th.vxor.vv v26,v26,v22 */
++	mul	ra, s3, s10
++	.4byte	0x2fbb0dd7	/* th.vxor.vv v27,v27,v22 */
++	mul	t6, s6, s7
++	.4byte	0x2fcb8e57	/* th.vxor.vv v28,v28,v23 */
++	mul	t4, s4, s9
++	.4byte	0x27274b57	/* th.vand.vx v22,v18,a4 */
++	and	s11, s11, a6
++	.4byte	0x27374bd7	/* th.vand.vx v23,v19,a4 */
++	mul	t5, s5, s8
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	slli	t3, t1, 32
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	xor	s2, s2, s11
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	srli	t3, t3, 32
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	ld	s7, 192(a1)
++	.4byte	0x96662957	/* th.vmul.vv v18,v6,v12 */
++	ld	s10, 216(a1)
++	.4byte	0x926629d7	/* th.vmulhu.vv v19,v6,v12 */
++	xor	s11, ra, t4
++	.4byte	0x9675a757	/* th.vmul.vv v14,v7,v11 */
++	xor	s0, s0, t3
++	.4byte	0x9275a7d7	/* th.vmulhu.vv v15,v7,v11 */
++	ld	s9, 208(a1)
++	.4byte	0x96852857	/* th.vmul.vv v16,v8,v10 */
++	xor	s11, s11, t5
++	.4byte	0x928528d7	/* th.vmulhu.vv v17,v8,v10 */
++	and	s3, s0, a4
++	.4byte	0x2747ca57	/* th.vand.vx v20,v20,a5 */
++	and	s4, s0, a5
++	.4byte	0x2757cad7	/* th.vand.vx v21,v21,a5 */
++	ld	s8, 200(a1)
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	xor	s11, s11, t6
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	and	s5, s0, a6
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	mul	ra, s3, s7
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	mul	t4, s4, s10
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	and	s11, s11, a7
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	and	s6, s0, a7
++	.4byte	0x9666aa57	/* th.vmul.vv v20,v6,v13 */
++	mul	t5, s5, s9
++	.4byte	0x9266aad7	/* th.vmulhu.vv v21,v6,v13 */
++	xor	s2, s2, s11
++	.4byte	0x96762857	/* th.vmul.vv v16,v7,v12 */
++	mul	t6, s6, s8
++	.4byte	0x927628d7	/* th.vmulhu.vv v17,v7,v12 */
++	xor	s11, ra, t4
++	.4byte	0x9696a757	/* th.vmul.vv v14,v9,v13 */
++	xor	s11, s11, t5
++	.4byte	0x9296a7d7	/* th.vmulhu.vv v15,v9,v13 */
++	mul	ra, s3, s8
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	mul	t4, s4, s7
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	xor	s11, s11, t6
++	.4byte	0x96952857	/* th.vmul.vv v16,v9,v10 */
++	mul	t5, s5, s10
++	.4byte	0x929528d7	/* th.vmulhu.vv v17,v9,v10 */
++	and	t3, s11, a4
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	mul	t6, s6, s9
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	xor	s11, ra, t4
++	.4byte	0x9685a757	/* th.vmul.vv v14,v8,v11 */
++	xor	s11, s11, t5
++	.4byte	0x9285a7d7	/* th.vmulhu.vv v15,v8,v11 */
++	xor	s11, s11, t6
++	addi	a0, a1, 640
++	.4byte	0x02057507	/* th.vle.v v10,(a0) */
++	mul	ra, s3, s9
++	addi	a0, a1, 688
++	.4byte	0x02057687	/* th.vle.v v13,(a0) */
++	mul	t4, s4, s8
++	.4byte	0x27284957	/* th.vand.vx v18,v18,a6 */
++	and	s11, s11, a5
++	.4byte	0x273849d7	/* th.vand.vx v19,v19,a6 */
++	mul	t5, s5, s7
++	.4byte	0x2e3202d7	/* th.vxor.vv v5,v3,v4 */
++	xor	t3, t3, s11
++	addi	a0, a1, 672
++	.4byte	0x02057607	/* th.vle.v v12,(a0) */
++	mul	t6, s6, s10
++	.4byte	0x2f690b57	/* th.vxor.vv v22,v22,v18 */
++	xor	s11, ra, t4
++	.4byte	0x2f798bd7	/* th.vxor.vv v23,v23,v19 */
++	xor	s11, s11, t5
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	xor	s11, s11, t6
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	mul	ra, s3, s10
++	.4byte	0x26574357	/* th.vand.vx v6,v5,a4 */
++	mul	t4, s4, s9
++	.4byte	0x2657c3d7	/* th.vand.vx v7,v5,a5 */
++	and	s11, s11, a6
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	mul	t5, s5, s8
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	xor	t3, t3, s11
++	.4byte	0x26584457	/* th.vand.vx v8,v5,a6 */
++	mul	t6, s6, s7
++	.4byte	0x96652957	/* th.vmul.vv v18,v6,v10 */
++	xor	s11, ra, t4
++	.4byte	0x926529d7	/* th.vmulhu.vv v19,v6,v10 */
++	xor	s11, s11, t5
++	.4byte	0x9676a757	/* th.vmul.vv v14,v7,v13 */
++	xor	s11, s11, t6
++	.4byte	0x9276a7d7	/* th.vmulhu.vv v15,v7,v13 */
++	and	s11, s11, a7
++	addi	a0, a1, 656
++	.4byte	0x02057587	/* th.vle.v v11,(a0) */
++	xor	t3, t3, s11
++	.4byte	0x96862857	/* th.vmul.vv v16,v8,v12 */
++	xor	t3, t3, s1
++	.4byte	0x928628d7	/* th.vmulhu.vv v17,v8,v12 */
++	xor	t3, t3, s2
++	.4byte	0x2748ca57	/* th.vand.vx v20,v20,a7 */
++	ld	t6, 128(sp)
++	.4byte	0x2758cad7	/* th.vand.vx v21,v21,a7 */
++	slli	ra, t3, 32
++	.4byte	0x2658c4d7	/* th.vand.vx v9,v5,a7 */
++	xor	s1, s1, ra
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	xor	t6, t6, s1
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	sd	t6, 128(sp)
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	ld	t5, 120(sp)
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	ld	ra, 128(sp)
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	srli	t4, t3, 32
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	xor	s2, s2, t4
++	.4byte	0x9695a757	/* th.vmul.vv v14,v9,v11 */
++	xor	t5, t5, s1
++	.4byte	0x9295a7d7	/* th.vmulhu.vv v15,v9,v11 */
++	xor	ra, ra, s2
++	.4byte	0x9665aa57	/* th.vmul.vv v20,v6,v11 */
++	sd	s2, 136(sp)
++	.4byte	0x9265aad7	/* th.vmulhu.vv v21,v6,v11 */
++	sd	t5, 120(sp)
++	.4byte	0x96752857	/* th.vmul.vv v16,v7,v10 */
++	sd	ra, 128(sp)
++	.4byte	0x927528d7	/* th.vmulhu.vv v17,v7,v10 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x9686a757	/* th.vmul.vv v14,v8,v13 */
++	.4byte	0x9286a7d7	/* th.vmulhu.vv v15,v8,v13 */
++	.4byte	0x5e003fd7	/* th.vmv.v.i v31,0 */
++	.4byte	0x2feb0f57	/* th.vxor.vv v30,v30,v22 */
++	.4byte	0x2fdb0ed7	/* th.vxor.vv v29,v29,v22 */
++	.4byte	0x2fcb0e57	/* th.vxor.vv v28,v28,v22 */
++	.4byte	0x96962857	/* th.vmul.vv v16,v9,v12 */
++	.4byte	0x929628d7	/* th.vmulhu.vv v17,v9,v12 */
++	.4byte	0x2ffb8fd7	/* th.vxor.vv v31,v31,v23 */
++	.4byte	0x2feb8f57	/* th.vxor.vv v30,v30,v23 */
++	.4byte	0x2fdb8ed7	/* th.vxor.vv v29,v29,v23 */
++	.4byte	0x2fbb0dd7	/* th.vxor.vv v27,v27,v22 */
++	.4byte	0x2fcb8e57	/* th.vxor.vv v28,v28,v23 */
++	.4byte	0x27274b57	/* th.vand.vx v22,v18,a4 */
++	.4byte	0x27374bd7	/* th.vand.vx v23,v19,a4 */
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x96662957	/* th.vmul.vv v18,v6,v12 */
++	.4byte	0x926629d7	/* th.vmulhu.vv v19,v6,v12 */
++	.4byte	0x9675a757	/* th.vmul.vv v14,v7,v11 */
++	.4byte	0x9275a7d7	/* th.vmulhu.vv v15,v7,v11 */
++	.4byte	0x96852857	/* th.vmul.vv v16,v8,v10 */
++	.4byte	0x928528d7	/* th.vmulhu.vv v17,v8,v10 */
++	.4byte	0x2747ca57	/* th.vand.vx v20,v20,a5 */
++	.4byte	0x2757cad7	/* th.vand.vx v21,v21,a5 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	.4byte	0x9666aa57	/* th.vmul.vv v20,v6,v13 */
++	.4byte	0x9266aad7	/* th.vmulhu.vv v21,v6,v13 */
++	.4byte	0x96762857	/* th.vmul.vv v16,v7,v12 */
++	.4byte	0x927628d7	/* th.vmulhu.vv v17,v7,v12 */
++	.4byte	0x9696a757	/* th.vmul.vv v14,v9,v13 */
++	.4byte	0x9296a7d7	/* th.vmulhu.vv v15,v9,v13 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x96952857	/* th.vmul.vv v16,v9,v10 */
++	.4byte	0x929528d7	/* th.vmulhu.vv v17,v9,v10 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x9685a757	/* th.vmul.vv v14,v8,v11 */
++	.4byte	0x9285a7d7	/* th.vmulhu.vv v15,v8,v11 */
++	addi	a0, a1, 704
++	.4byte	0x02057507	/* th.vle.v v10,(a0) */
++	addi	a0, a1, 752
++	.4byte	0x02057687	/* th.vle.v v13,(a0) */
++	.4byte	0x27284957	/* th.vand.vx v18,v18,a6 */
++	.4byte	0x273849d7	/* th.vand.vx v19,v19,a6 */
++	.4byte	0x2e1182d7	/* th.vxor.vv v5,v1,v3 */
++	addi	a0, a1, 736
++	.4byte	0x02057607	/* th.vle.v v12,(a0) */
++	.4byte	0x2f690b57	/* th.vxor.vv v22,v22,v18 */
++	.4byte	0x2f798bd7	/* th.vxor.vv v23,v23,v19 */
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	.4byte	0x26574357	/* th.vand.vx v6,v5,a4 */
++	.4byte	0x2657c3d7	/* th.vand.vx v7,v5,a5 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x26584457	/* th.vand.vx v8,v5,a6 */
++	.4byte	0x96652957	/* th.vmul.vv v18,v6,v10 */
++	.4byte	0x926529d7	/* th.vmulhu.vv v19,v6,v10 */
++	.4byte	0x9676a757	/* th.vmul.vv v14,v7,v13 */
++	.4byte	0x9276a7d7	/* th.vmulhu.vv v15,v7,v13 */
++	addi	a0, a1, 720
++	.4byte	0x02057587	/* th.vle.v v11,(a0) */
++	.4byte	0x96862857	/* th.vmul.vv v16,v8,v12 */
++	.4byte	0x928628d7	/* th.vmulhu.vv v17,v8,v12 */
++	.4byte	0x2748ca57	/* th.vand.vx v20,v20,a7 */
++	.4byte	0x2758cad7	/* th.vand.vx v21,v21,a7 */
++	.4byte	0x2658c4d7	/* th.vand.vx v9,v5,a7 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	.4byte	0x9695a757	/* th.vmul.vv v14,v9,v11 */
++	.4byte	0x9295a7d7	/* th.vmulhu.vv v15,v9,v11 */
++	.4byte	0x9665aa57	/* th.vmul.vv v20,v6,v11 */
++	.4byte	0x9265aad7	/* th.vmulhu.vv v21,v6,v11 */
++	.4byte	0x96752857	/* th.vmul.vv v16,v7,v10 */
++	.4byte	0x927528d7	/* th.vmulhu.vv v17,v7,v10 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x9686a757	/* th.vmul.vv v14,v8,v13 */
++	.4byte	0x9286a7d7	/* th.vmulhu.vv v15,v8,v13 */
++	.4byte	0x96962857	/* th.vmul.vv v16,v9,v12 */
++	.4byte	0x929628d7	/* th.vmulhu.vv v17,v9,v12 */
++	.4byte	0x2fdb0ed7	/* th.vxor.vv v29,v29,v22 */
++	.4byte	0x2feb8f57	/* th.vxor.vv v30,v30,v23 */
++	.4byte	0x2fbb0dd7	/* th.vxor.vv v27,v27,v22 */
++	.4byte	0x2fcb8e57	/* th.vxor.vv v28,v28,v23 */
++	.4byte	0x27274b57	/* th.vand.vx v22,v18,a4 */
++	.4byte	0x27374bd7	/* th.vand.vx v23,v19,a4 */
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x96662957	/* th.vmul.vv v18,v6,v12 */
++	.4byte	0x926629d7	/* th.vmulhu.vv v19,v6,v12 */
++	.4byte	0x9675a757	/* th.vmul.vv v14,v7,v11 */
++	.4byte	0x9275a7d7	/* th.vmulhu.vv v15,v7,v11 */
++	.4byte	0x96852857	/* th.vmul.vv v16,v8,v10 */
++	.4byte	0x928528d7	/* th.vmulhu.vv v17,v8,v10 */
++	.4byte	0x2747ca57	/* th.vand.vx v20,v20,a5 */
++	.4byte	0x2757cad7	/* th.vand.vx v21,v21,a5 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	.4byte	0x9666aa57	/* th.vmul.vv v20,v6,v13 */
++	.4byte	0x9266aad7	/* th.vmulhu.vv v21,v6,v13 */
++	.4byte	0x96762857	/* th.vmul.vv v16,v7,v12 */
++	.4byte	0x927628d7	/* th.vmulhu.vv v17,v7,v12 */
++	.4byte	0x9696a757	/* th.vmul.vv v14,v9,v13 */
++	.4byte	0x9296a7d7	/* th.vmulhu.vv v15,v9,v13 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x96952857	/* th.vmul.vv v16,v9,v10 */
++	.4byte	0x929528d7	/* th.vmulhu.vv v17,v9,v10 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x9685a757	/* th.vmul.vv v14,v8,v11 */
++	.4byte	0x9285a7d7	/* th.vmulhu.vv v15,v8,v11 */
++	addi	a0, a1, 768
++	.4byte	0x02057507	/* th.vle.v v10,(a0) */
++	addi	a0, a1, 816
++	.4byte	0x02057687	/* th.vle.v v13,(a0) */
++	.4byte	0x27284957	/* th.vand.vx v18,v18,a6 */
++	.4byte	0x273849d7	/* th.vand.vx v19,v19,a6 */
++	.4byte	0x2e2202d7	/* th.vxor.vv v5,v2,v4 */
++	addi	a0, a1, 800
++	.4byte	0x02057607	/* th.vle.v v12,(a0) */
++	.4byte	0x2f690b57	/* th.vxor.vv v22,v22,v18 */
++	.4byte	0x2f798bd7	/* th.vxor.vv v23,v23,v19 */
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	.4byte	0x26574357	/* th.vand.vx v6,v5,a4 */
++	.4byte	0x2657c3d7	/* th.vand.vx v7,v5,a5 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x26584457	/* th.vand.vx v8,v5,a6 */
++	.4byte	0x96652957	/* th.vmul.vv v18,v6,v10 */
++	.4byte	0x926529d7	/* th.vmulhu.vv v19,v6,v10 */
++	.4byte	0x9676a757	/* th.vmul.vv v14,v7,v13 */
++	.4byte	0x9276a7d7	/* th.vmulhu.vv v15,v7,v13 */
++	addi	a0, a1, 784
++	.4byte	0x02057587	/* th.vle.v v11,(a0) */
++	.4byte	0x96862857	/* th.vmul.vv v16,v8,v12 */
++	.4byte	0x928628d7	/* th.vmulhu.vv v17,v8,v12 */
++	.4byte	0x2748ca57	/* th.vand.vx v20,v20,a7 */
++	.4byte	0x2758cad7	/* th.vand.vx v21,v21,a7 */
++	.4byte	0x2658c4d7	/* th.vand.vx v9,v5,a7 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	.4byte	0x9695a757	/* th.vmul.vv v14,v9,v11 */
++	.4byte	0x9295a7d7	/* th.vmulhu.vv v15,v9,v11 */
++	.4byte	0x9665aa57	/* th.vmul.vv v20,v6,v11 */
++	.4byte	0x9265aad7	/* th.vmulhu.vv v21,v6,v11 */
++	.4byte	0x96752857	/* th.vmul.vv v16,v7,v10 */
++	.4byte	0x927528d7	/* th.vmulhu.vv v17,v7,v10 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x9686a757	/* th.vmul.vv v14,v8,v13 */
++	.4byte	0x9286a7d7	/* th.vmulhu.vv v15,v8,v13 */
++	.4byte	0x2fbb8dd7	/* th.vxor.vv v27,v27,v23 */
++	.4byte	0x96962857	/* th.vmul.vv v16,v9,v12 */
++	.4byte	0x929628d7	/* th.vmulhu.vv v17,v9,v12 */
++	.4byte	0x2fab0d57	/* th.vxor.vv v26,v26,v22 */
++	.4byte	0x2fbb0dd7	/* th.vxor.vv v27,v27,v22 */
++	.4byte	0x2fcb8e57	/* th.vxor.vv v28,v28,v23 */
++	.4byte	0x27274b57	/* th.vand.vx v22,v18,a4 */
++	.4byte	0x27374bd7	/* th.vand.vx v23,v19,a4 */
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x96662957	/* th.vmul.vv v18,v6,v12 */
++	.4byte	0x926629d7	/* th.vmulhu.vv v19,v6,v12 */
++	.4byte	0x9675a757	/* th.vmul.vv v14,v7,v11 */
++	.4byte	0x9275a7d7	/* th.vmulhu.vv v15,v7,v11 */
++	.4byte	0x96852857	/* th.vmul.vv v16,v8,v10 */
++	.4byte	0x928528d7	/* th.vmulhu.vv v17,v8,v10 */
++	.4byte	0x2747ca57	/* th.vand.vx v20,v20,a5 */
++	.4byte	0x2757cad7	/* th.vand.vx v21,v21,a5 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	.4byte	0x9666aa57	/* th.vmul.vv v20,v6,v13 */
++	.4byte	0x9266aad7	/* th.vmulhu.vv v21,v6,v13 */
++	.4byte	0x96762857	/* th.vmul.vv v16,v7,v12 */
++	.4byte	0x927628d7	/* th.vmulhu.vv v17,v7,v12 */
++	.4byte	0x9696a757	/* th.vmul.vv v14,v9,v13 */
++	.4byte	0x9296a7d7	/* th.vmulhu.vv v15,v9,v13 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x96952857	/* th.vmul.vv v16,v9,v10 */
++	.4byte	0x929528d7	/* th.vmulhu.vv v17,v9,v10 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x9685a757	/* th.vmul.vv v14,v8,v11 */
++	.4byte	0x9285a7d7	/* th.vmulhu.vv v15,v8,v11 */
++	.4byte	0x2e1102d7	/* th.vxor.vv v5,v1,v2 */
++	.4byte	0x2e5182d7	/* th.vxor.vv v5,v5,v3 */
++	addi	a0, a1, 832
++	.4byte	0x02057507	/* th.vle.v v10,(a0) */
++	addi	a0, a1, 880
++	.4byte	0x02057687	/* th.vle.v v13,(a0) */
++	.4byte	0x27284957	/* th.vand.vx v18,v18,a6 */
++	.4byte	0x273849d7	/* th.vand.vx v19,v19,a6 */
++	.4byte	0x2e5202d7	/* th.vxor.vv v5,v5,v4 */
++	addi	a0, a1, 864
++	.4byte	0x02057607	/* th.vle.v v12,(a0) */
++	.4byte	0x2f690b57	/* th.vxor.vv v22,v22,v18 */
++	.4byte	0x2f798bd7	/* th.vxor.vv v23,v23,v19 */
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	.4byte	0x26574357	/* th.vand.vx v6,v5,a4 */
++	.4byte	0x2657c3d7	/* th.vand.vx v7,v5,a5 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x26584457	/* th.vand.vx v8,v5,a6 */
++	.4byte	0x96652957	/* th.vmul.vv v18,v6,v10 */
++	.4byte	0x926529d7	/* th.vmulhu.vv v19,v6,v10 */
++	.4byte	0x9676a757	/* th.vmul.vv v14,v7,v13 */
++	.4byte	0x9276a7d7	/* th.vmulhu.vv v15,v7,v13 */
++	addi	a0, a1, 848
++	.4byte	0x02057587	/* th.vle.v v11,(a0) */
++	.4byte	0x96862857	/* th.vmul.vv v16,v8,v12 */
++	.4byte	0x928628d7	/* th.vmulhu.vv v17,v8,v12 */
++	.4byte	0x2748ca57	/* th.vand.vx v20,v20,a7 */
++	.4byte	0x2758cad7	/* th.vand.vx v21,v21,a7 */
++	.4byte	0x2658c4d7	/* th.vand.vx v9,v5,a7 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	.4byte	0x9695a757	/* th.vmul.vv v14,v9,v11 */
++	.4byte	0x9295a7d7	/* th.vmulhu.vv v15,v9,v11 */
++	.4byte	0x9665aa57	/* th.vmul.vv v20,v6,v11 */
++	.4byte	0x9265aad7	/* th.vmulhu.vv v21,v6,v11 */
++	.4byte	0x96752857	/* th.vmul.vv v16,v7,v10 */
++	.4byte	0x927528d7	/* th.vmulhu.vv v17,v7,v10 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x9686a757	/* th.vmul.vv v14,v8,v13 */
++	.4byte	0x9286a7d7	/* th.vmulhu.vv v15,v8,v13 */
++	.4byte	0x2fcb0e57	/* th.vxor.vv v28,v28,v22 */
++	.4byte	0x96962857	/* th.vmul.vv v16,v9,v12 */
++	.4byte	0x929628d7	/* th.vmulhu.vv v17,v9,v12 */
++	.4byte	0x2fdb8ed7	/* th.vxor.vv v29,v29,v23 */
++	.4byte	0x2fbb0dd7	/* th.vxor.vv v27,v27,v22 */
++	.4byte	0x2fcb8e57	/* th.vxor.vv v28,v28,v23 */
++	.4byte	0x27274b57	/* th.vand.vx v22,v18,a4 */
++	.4byte	0x27374bd7	/* th.vand.vx v23,v19,a4 */
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x96662957	/* th.vmul.vv v18,v6,v12 */
++	.4byte	0x926629d7	/* th.vmulhu.vv v19,v6,v12 */
++	.4byte	0x9675a757	/* th.vmul.vv v14,v7,v11 */
++	.4byte	0x9275a7d7	/* th.vmulhu.vv v15,v7,v11 */
++	.4byte	0x96852857	/* th.vmul.vv v16,v8,v10 */
++	.4byte	0x928528d7	/* th.vmulhu.vv v17,v8,v10 */
++	.4byte	0x2747ca57	/* th.vand.vx v20,v20,a5 */
++	.4byte	0x2757cad7	/* th.vand.vx v21,v21,a5 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	.4byte	0x2f280957	/* th.vxor.vv v18,v18,v16 */
++	.4byte	0x2f3889d7	/* th.vxor.vv v19,v19,v17 */
++	.4byte	0x9696a757	/* th.vmul.vv v14,v9,v13 */
++	.4byte	0x9296a7d7	/* th.vmulhu.vv v15,v9,v13 */
++	.4byte	0x9666aa57	/* th.vmul.vv v20,v6,v13 */
++	.4byte	0x9266aad7	/* th.vmulhu.vv v21,v6,v13 */
++	.4byte	0x96762857	/* th.vmul.vv v16,v7,v12 */
++	.4byte	0x927628d7	/* th.vmulhu.vv v17,v7,v12 */
++	.4byte	0x2f270957	/* th.vxor.vv v18,v18,v14 */
++	.4byte	0x2f3789d7	/* th.vxor.vv v19,v19,v15 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x9685a757	/* th.vmul.vv v14,v8,v11 */
++	.4byte	0x9285a7d7	/* th.vmulhu.vv v15,v8,v11 */
++	.4byte	0x96952857	/* th.vmul.vv v16,v9,v10 */
++	.4byte	0x929528d7	/* th.vmulhu.vv v17,v9,v10 */
++	.4byte	0x2f470a57	/* th.vxor.vv v20,v20,v14 */
++	.4byte	0x2f578ad7	/* th.vxor.vv v21,v21,v15 */
++	.4byte	0x27284957	/* th.vand.vx v18,v18,a6 */
++	.4byte	0x273849d7	/* th.vand.vx v19,v19,a6 */
++	.4byte	0x2f480a57	/* th.vxor.vv v20,v20,v16 */
++	.4byte	0x2f588ad7	/* th.vxor.vv v21,v21,v17 */
++	.4byte	0x2f690b57	/* th.vxor.vv v22,v22,v18 */
++	.4byte	0x2f798bd7	/* th.vxor.vv v23,v23,v19 */
++	.4byte	0x2748ca57	/* th.vand.vx v20,v20,a7 */
++	.4byte	0x2758cad7	/* th.vand.vx v21,v21,a7 */
++	.4byte	0x2f6a0b57	/* th.vxor.vv v22,v22,v20 */
++	.4byte	0x2f7a8bd7	/* th.vxor.vv v23,v23,v21 */
++	.4byte	0x2fbb0dd7	/* th.vxor.vv v27,v27,v22 */
++	.4byte	0x2fcb8e57	/* th.vxor.vv v28,v28,v23 */
++	.4byte	0x5e0032d7	/* th.vmv.v.i v5,0 */
++	.4byte	0x0f82a357	/* th.vredxor.vs v6,v24,v5 */
++	.4byte	0x0f92a3d7	/* th.vredxor.vs v7,v25,v5 */
++	.4byte	0x0fa2a457	/* th.vredxor.vs v8,v26,v5 */
++	.4byte	0x0fb2a4d7	/* th.vredxor.vs v9,v27,v5 */
++	.4byte	0x0fc2a557	/* th.vredxor.vs v10,v28,v5 */
++	.4byte	0x0fd2a5d7	/* th.vredxor.vs v11,v29,v5 */
++	.4byte	0x0fe2a657	/* th.vredxor.vs v12,v30,v5 */
++	.4byte	0x0ff2a6d7	/* th.vredxor.vs v13,v31,v5 */
++	.4byte	0x32602ed7	/* th.vmv.x.s t4,v6 */
++	.4byte	0x32702f57	/* th.vmv.x.s t5,v7 */
++	slli	t4, t4, 32
++	srli	t4, t4, 32
++	slli	t5, t5, 32
++	or	t2, t4, t5
++	ld	t6, 112(sp)
++	xor	t2, t2, t6
++	.4byte	0x32802ed7	/* th.vmv.x.s t4,v8 */
++	.4byte	0x32902f57	/* th.vmv.x.s t5,v9 */
++	slli	t4, t4, 32
++	srli	t4, t4, 32
++	slli	t5, t5, 32
++	or	s2, t4, t5
++	ld	t6, 120(sp)
++	xor	s2, s2, t6
++	.4byte	0x32a02ed7	/* th.vmv.x.s t4,v10 */
++	.4byte	0x32b02f57	/* th.vmv.x.s t5,v11 */
++	slli	t4, t4, 32
++	srli	t4, t4, 32
++	slli	t5, t5, 32
++	or	t0, t4, t5
++	ld	t6, 128(sp)
++	xor	t0, t0, t6
++	.4byte	0x32c02ed7	/* th.vmv.x.s t4,v12 */
++	.4byte	0x32d02f57	/* th.vmv.x.s t5,v13 */
++	slli	t4, t4, 32
++	srli	t4, t4, 32
++	slli	t5, t5, 32
++	or	t1, t4, t5
++	ld	t6, 136(sp)
++	xor	t1, t1, t6
++	slli	t4, t2, 63
++	xor	s2, s2, t4
++	slli	t5, t2, 62
++	xor	t0, t0, t2
++	srli	ra, t2, 1
++	xor	s2, s2, t5
++	slli	t6, t2, 57
++	xor	t0, t0, ra
++	srli	t4, t2, 2
++	xor	s2, s2, t6
++	xor	t0, t0, t4
++	srli	t5, t2, 7
++	xor	t0, t0, t5
++	slli	t6, s2, 63
++	xor	t0, t0, t6
++	slli	ra, s2, 62
++	xor	t1, t1, s2
++	srli	t5, s2, 1
++	xor	t0, t0, ra
++	xor	t1, t1, t5
++	srli	t6, s2, 2
++	slli	t4, s2, 57
++	xor	t1, t1, t6
++	srli	ra, s2, 7
++	xor	t0, t0, t4
++	xor	t1, t1, ra
++	addi	a2, a2, 80
++	bltu	a2, a3, .Lvgroup
++	ld	a0, 104(sp)
++	sd	t0, 0(a0)
++	sd	t1, 8(a0)
++	ld	ra, 0(sp)
++	ld	s0, 8(sp)
++	ld	s1, 16(sp)
++	ld	s2, 24(sp)
++	ld	s3, 32(sp)
++	ld	s4, 40(sp)
++	ld	s5, 48(sp)
++	ld	s6, 56(sp)
++	ld	s7, 64(sp)
++	ld	s8, 72(sp)
++	ld	s9, 80(sp)
++	ld	s10, 88(sp)
++	ld	s11, 96(sp)
++	sd	zero, 112(sp)
++	sd	zero, 120(sp)
++	sd	zero, 128(sp)
++	sd	zero, 136(sp)
++	sd	zero, 144(sp)
++	sd	zero, 152(sp)
++	sd	zero, 160(sp)
++	sd	zero, 168(sp)
++	sd	zero, 176(sp)
++	sd	zero, 184(sp)
++	sd	zero, 192(sp)
++	sd	zero, 200(sp)
++	addi	sp, sp, 208
++.Lvnone:
++	ret
++SYM_FUNC_END(ghash_blocks_c906_v)
 +	.option pop

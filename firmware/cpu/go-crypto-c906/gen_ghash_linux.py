@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Generate ghash-riscv64-c906.S, scalar GHASH for the Linux kernel on the C906.
+"""Generate ghash-riscv64-c906.S, GHASH for the Linux kernel on the C906.
 
     void ghash_blocks_c906(struct polyval_elem *acc, const u64 kp[40],
                            const u8 *data, size_t nblocks);
+    void ghash_blocks_c906_v(struct polyval_elem *acc, const u64 kp[112],
+                             const u8 *data, size_t ngroups);
 
 acc is the POLYVAL-form accumulator of lib/crypto/gf128hash.c (lo, hi as
 little-endian u64), data the GHASH blocks, any alignment. Per block, as
 ghash_blocks_generic(): acc ^= the byte-swapped block; acc = acc * H * x^-128.
-nblocks may be 0.
+nblocks and ngroups may be 0. The second function hashes groups of five
+blocks, four in XTheadVector lanes and one in scalar registers (see the
+section "Five blocks per group" below); the caller holds kernel_vector_begin().
 
 The C906 multiplier takes about four cycles per mul/mulhu, unpipelined, when an
 operand has bits above 31, and one pipelined cycle when both fit in 32 bits.
@@ -28,11 +32,15 @@ lookups. The instructions of a block are list-scheduled for the C906's
 latencies on fixed registers. Byte swaps use XTheadBb th.rev, which every
 T-Head core with XTheadVector implements (C906, C910, C920).
 
-The generator executes the whole generated function (prologue, block loop,
-epilogue) on random keys and messages against a bit-serial GHASH, checks that
-every multiply operand is below 2^32 and that sp, ra and s0-s11 are preserved.
+The generator executes both generated functions (prologue, loop, epilogue) on
+random keys and messages against a bit-serial GHASH, checks that every scalar
+multiply operand is below 2^32, that sp, ra and s0-s11 are preserved and that
+the stack slots holding products and blocks are wiped; th.vmv.x.s is run both
+sign- and zero-extending. Vector instructions are .4byte words with their
+mnemonics in comments, so the kernel needs no assembler support for
+XTheadVector; each encoding is checked against GNU as/objdump.
 
-Usage: gen_ghash_linux.py (--output FILE | --check FILE) [--cases N]
+Usage: gen_ghash_linux.py --binutils PREFIX (--output FILE | --check FILE) [--cases N]
 For --check, FILE may also be platform/kernel/0041-*.patch.
 """
 from pathlib import Path
@@ -248,6 +256,314 @@ def build():
     return lines, len(body), cycles
 
 
+# --- Five blocks per group: four in XTheadVector lanes, one scalar ------------
+#
+# acc' = (acc ^ B0) H^5 + B1 H^4 + B2 H^3 + B3 H^2 + B4 H, products in the
+# POLYVAL dot sense, summed unreduced and reduced once. Lane l (e32, vl = 4)
+# multiplies its block by H^(5-l) with the same nine 32x32 hole products as the
+# scalar code, using vmul.vv and vmulhu.vv for the low and high halves of each
+# 32x32 integer product (two cycles each on the C906, whatever the values).
+# The scalar block B4 * H runs the scalar code, its instructions interleaved one
+# to one with the vector ones: the C906 issues a scalar instruction in the
+# second cycle of a vector one at no cost. kp continues after the 40 scalar
+# words with the lane key parts:
+#
+#     byte 320 + 16 (4q + j) + 4l   key operand q of H^(5-l), 32 bits, & O_(2^j)
+#
+# Byte swaps and acc ^ B0 are done by the scalar unit into a stack buffer that
+# four strided vector loads read as one 32-bit word of all four blocks each.
+
+VNAME = 'ghash_blocks_c906_v'
+GROUP = 5 * 16
+PV = ['t4', 't5', 't6', 'ra']               # scalar temporaries; a0 addresses vector loads
+VADDR, VSTRIDE = 'a0', 't3'
+VD = [1, 2, 3, 4]                           # data words w0..w3 of the four lanes
+VXC = 5                                     # current 32-bit operand
+VA = [6, 7, 8, 9]                           # its hole parts
+VB = [10, 11, 12, 13]                       # key hole parts
+VT = [14, 15, 16, 17]                       # products
+VZ = [(18, 19), (20, 21)]                   # one hole class, low and high halves
+VLO, VHI = 22, 23                           # one 32x32 product
+VR = list(range(24, 32))                    # the 256-bit sum, eight 32-bit words
+VFRAME_BUF = FRAME                          # staging buffer, 64 bytes, after the scalar frame
+VFRAME = FRAME + 64
+VLAT = {'th.vmul.vv': 6, 'th.vmulhu.vv': 6, 'th.vle.v': 6, 'th.vlse.v': 6}
+# Word offsets of a 32x32 product inside the 256-bit one: Karatsuba levels
+# (64-bit: low, high, middle; 128-bit: low, high, middle).
+OFF64 = {0: (0, 1), 1: (2, 1), 2: (1,)}
+OFF128 = {0: (0, 2), 1: (4, 2), 2: (2,)}
+
+_G = None
+
+
+def encoder():
+    """The XTheadVector encoder of gen_chacha_riscv64.py, plus the operations used here."""
+    global _G
+    if _G is None:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import gen_chacha_riscv64 as G
+        G.ABI.update({0: 'zero', 1: 'ra', 2: 'sp', 27: 's11', 31: 't6'})
+        _G = G
+    return _G
+
+
+def vreg(name):
+    return {v: k for k, v in encoder().ABI.items()}[name]
+
+
+def V(op, vd, *args):
+    """A vector instruction as a schedulable Ins carrying its encoding."""
+    G = encoder()
+    if op in ('vmul', 'vmulhu', 'vredxor'):
+        f6 = {'vmul': 0b100101, 'vmulhu': 0b100100, 'vredxor': 0b000011}[op]
+        sfx = 'vs' if op == 'vredxor' else 'vv'
+        vs2, vs1 = args
+        v = G.V(f'th.{op}.{sfx} v{vd},v{vs2},v{vs1}', G.opv(f6, 1, vs2, vs1, G.OPMVV, vd))
+        dst, srcs = f'v{vd}', [f'v{vs2}', f'v{vs1}']
+    elif op == 'vxor':
+        vs2, vs1 = args
+        v = G.vv('vxor', vd, vs2, vs1)
+        dst, srcs = f'v{vd}', [f'v{vs2}', f'v{vs1}']
+    elif op == 'vand.vx':
+        vs2, rs1 = args
+        v = G.vx('vand', vd, vs2, vreg(rs1))
+        dst, srcs = f'v{vd}', [f'v{vs2}', rs1]
+    elif op == 'vmv.v.i':
+        (imm,) = args
+        v = G.V(f'th.vmv.v.i v{vd},{imm}', G.opv(0b010111, 1, 0, imm & 31, G.OPIVI, vd))
+        dst, srcs = f'v{vd}', []
+    elif op == 'vle':
+        (rs1,) = args
+        v = G.vle(vd, vreg(rs1))
+        dst, srcs = f'v{vd}', [rs1]
+    elif op == 'vlse':
+        rs1, rs2 = args
+        v = G.V(f'th.vlse.v v{vd},({rs1}),{rs2}', G.mem(G.LOAD_FP, 1, 0b010, vd, vreg(rs1), vreg(rs2)))
+        dst, srcs = f'v{vd}', [rs1, rs2]
+    elif op == 'vmv.x.s':
+        (vs2,) = args             # vd is the scalar destination here
+        v = G.V(f'th.vmv.x.s {vd},v{vs2}', G.opv(0b001100, 1, vs2, 0, G.OPMVV, vreg(vd)))
+        dst, srcs = vd, [f'v{vs2}']
+    elif op == 'vsetvli':
+        rs1, = args
+        v = G.vsetvli(vreg(vd), vreg(rs1), 32, 1)
+        dst, srcs = None, [rs1]
+    else:
+        raise ValueError(op)
+    ins = Ins(v.text.split()[0], dst, srcs, f'.4byte\t0x{v.word:08x}\t/* {v.text} */')
+    ins.v = v
+    return ins
+
+
+def key_load(vd, q, j):
+    """vd = lane key parts (q, j): the address through a0, then the load."""
+    ins = V('vle', vd, VADDR)
+    ins.pre = alui('addi', VADDR, KP, 320 + 16 * (4 * q + j))
+    ins.srcs = [KP]
+    return ins
+
+
+def vschedule(block):
+    """List scheduling of the vector stream: one issue every two cycles."""
+    n = len(block)
+    deps = [[] for _ in range(n)]
+    last_w, reads = {}, {}
+    for i, ins in enumerate(block):
+        for r in ins.srcs:
+            if r in last_w:
+                deps[i].append((last_w[r], VLAT.get(block[last_w[r]].op, 2)))
+        if ins.dst:
+            for j in reads.get(ins.dst, []):
+                deps[i].append((j, 0))
+            if ins.dst in last_w:
+                deps[i].append((last_w[ins.dst], 2))
+        for r in ins.srcs:
+            reads.setdefault(r, []).append(i)
+        if ins.dst:
+            last_w[ins.dst] = i
+            reads[ins.dst] = []
+    succ = [[] for _ in range(n)]
+    for i in range(n):
+        for p, lat in deps[i]:
+            succ[p].append((i, lat))
+    prio = [0] * n
+    for i in reversed(range(n)):
+        prio[i] = VLAT.get(block[i].op, 2) + max((prio[s] for s, _ in succ[i]), default=0)
+    done_at, order, remaining, cycle = {}, [], set(range(n)), 0
+    while remaining:
+        ready = [i for i in remaining
+                 if all(p in done_at and done_at[p] + lat <= cycle for p, lat in deps[i])]
+        if ready:
+            pick = max(ready, key=lambda i: (prio[i], -i))
+            done_at[pick] = cycle
+            order.append(block[pick])
+            remaining.remove(pick)
+            cycle += 2
+        else:
+            cycle += 1
+    return order, cycle
+
+
+def vclmul32(op_reg, q, z):
+    """(VLO, VHI) = clmul32(lanes of op_reg, lane key operand q)."""
+    out = [V('vand.vx', VA[i], op_reg, O[i]) for i in range(4)]
+    out += [key_load(VB[j], q, j) for j in range(4)]
+    t = 0
+    for k in range(4):
+        zl, zh = VZ[k % 2]
+        for n, (i, j) in enumerate(PAIRS[k]):
+            for half, zr in (('vmul', zl), ('vmulhu', zh)):
+                if n == 0:
+                    out.append(V(half, zr, VA[i], VB[j]))
+                else:
+                    out.append(V(half, VT[t % 4], VA[i], VB[j]))
+                    out.append(V('vxor', zr, zr, VT[t % 4]))
+                    t += 1
+        if k == 0:
+            out += [V('vand.vx', VLO, zl, O[0]), V('vand.vx', VHI, zh, O[0])]
+        else:
+            out += [V('vand.vx', zl, zl, O[k]), V('vand.vx', zh, zh, O[k]),
+                    V('vxor', VLO, VLO, zl), V('vxor', VHI, VHI, zh)]
+    return out
+
+
+def vbody():
+    """The four lane products, summed into VR[0..7] (not reduced)."""
+    out = [V('vmv.v.i', r, 0) for r in VR]
+    d = VD
+    # Operand words for (Karatsuba half p, word r): low, high, middle.
+    srcs = {(0, 0): [d[0]], (0, 1): [d[1]], (0, 2): [d[0], d[1]],
+            (1, 0): [d[2]], (1, 1): [d[3]], (1, 2): [d[2], d[3]],
+            (2, 0): [d[0], d[2]], (2, 1): [d[1], d[3]], (2, 2): [d[0], d[1], d[2], d[3]]}
+    for p in (0, 1, 2):
+        for r in (0, 1, 2):
+            s = srcs[(p, r)]
+            if len(s) == 1:
+                op_reg = s[0]
+            else:
+                op_reg = VXC
+                out.append(V('vxor', VXC, s[0], s[1]))
+                for extra in s[2:]:
+                    out.append(V('vxor', VXC, VXC, extra))
+            out += vclmul32(op_reg, 3 * p + r, None)
+            for o128 in OFF128[p]:
+                for o64 in OFF64[r]:
+                    o = o128 + o64
+                    out += [V('vxor', VR[o], VR[o], VLO), V('vxor', VR[o + 1], VR[o + 1], VHI)]
+    return out
+
+
+def scalar_product(off):
+    """c0..c3 slots = block at DATA + off times H, not reduced (as block())."""
+    b = []
+    ptmp = iter(PV * 1000)
+    b += [ld(PV[0], off + 8, DATA), ld(PV[1], off, DATA), rev(ALO, PV[0]), rev(AHI, PV[1])]
+    b.append(alu('xor', X, ALO, AHI))
+    b += clmul64(X, 2, ptmp)
+    b += [sd(R0, C_SLOT[1], 'sp', 'c1'), sd(R1, C_SLOT[2], 'sp', 'c2')]
+    b += clmul64(ALO, 0, ptmp)
+    b.append(sd(R0, C_SLOT[0], 'sp', 'c0'))
+    b += fold(ptmp, [(1, R0), (1, R1), (2, R1)])
+    b += clmul64(AHI, 1, ptmp)
+    b.append(sd(R1, C_SLOT[3], 'sp', 'c3'))
+    b += fold(ptmp, [(1, R0), (2, R0), (2, R1)])
+    return b
+
+
+def staging():
+    """Byte-swapped blocks B0..B3 (B0 ^ acc) to the buffer, then the four word loads."""
+    s = []
+    for l in range(4):
+        lo, hi = PV[0], PV[1]
+        s += [ld(lo, 16 * l + 8, DATA), ld(hi, 16 * l, DATA), rev(lo, lo), rev(hi, hi)]
+        if l == 0:
+            s += [alu('xor', lo, lo, ALO), alu('xor', hi, hi, AHI)]
+        s += [sd(lo, VFRAME_BUF + 16 * l, 'sp', f'b{l}'), sd(hi, VFRAME_BUF + 16 * l + 8, 'sp', f'b{l}h')]
+    s, _ = schedule(s)
+    lines = ['\t' + i.text for i in s]
+    lines.append(f'\tli\t{VSTRIDE}, 16')
+    for k in range(4):
+        lines.append(f'\taddi\t{VADDR}, sp, {VFRAME_BUF + 4 * k}')
+        lines.append('\t' + V('vlse', VD[k], VADDR, VSTRIDE).text)
+    return lines, [V('vlse', VD[k], VADDR, VSTRIDE) for k in range(4)]
+
+
+def tail():
+    """Lane sums, the scalar product added, one reduction into ALO, AHI."""
+    lines, vec = [], []
+
+    def emit(x):
+        if hasattr(x, 'v'):
+            vec.append(x)
+        lines.append('\t' + x.text)
+    emit(V('vmv.v.i', VXC, 0))
+    for k in range(8):
+        emit(V('vredxor', VA[0] + k, VR[k], VXC))
+    c = [X, R1, ALO, AHI]
+    for m in range(4):
+        e, o, t = PV[0], PV[1], PV[2]
+        emit(V('vmv.x.s', e, VA[0] + 2 * m))
+        emit(V('vmv.x.s', o, VA[0] + 2 * m + 1))
+        # vmv.x.s may sign-extend the 32-bit element: keep the low word only.
+        for ins in (alui('slli', e, e, 32), alui('srli', e, e, 32), alui('slli', o, o, 32),
+                    alu('or', c[m], e, o), ld(t, C_SLOT[m], 'sp'), alu('xor', c[m], c[m], t)):
+            emit(ins)
+    ptmp = iter(PV * 1000)
+    red = []
+    for lo_c, mid, hi_c in ((c[0], c[1], c[2]), (c[1], c[2], c[3])):
+        for s in (63, 62, 57):
+            r = next(ptmp)
+            red += [alui('slli', r, lo_c, s), alu('xor', mid, mid, r)]
+        red.append(alu('xor', hi_c, hi_c, lo_c))
+        for s in (1, 2, 7):
+            r = next(ptmp)
+            red += [alui('srli', r, lo_c, s), alu('xor', hi_c, hi_c, r)]
+    red, _ = schedule(red)
+    for ins in red:
+        emit(ins)
+    return lines, vec
+
+
+def vbuild():
+    vb, vcycles = vschedule(vbody())
+    sb, _ = schedule(scalar_product(64))
+    stage_lines, stage_vec = staging()
+    tail_lines, tail_vec = tail()
+    vectors = [i.v for i in vb] + [i.v for i in stage_vec] + [i.v for i in tail_vec]
+    setvl = V('vsetvli', 'zero', VSTRIDE)
+    vectors.append(setvl.v)
+    body = []
+    for k in range(max(len(vb), len(sb))):
+        if k < len(vb):
+            if hasattr(vb[k], 'pre'):
+                body.append('\t' + vb[k].pre.text)
+            body.append('\t' + vb[k].text)
+        if k < len(sb):
+            body.append('\t' + sb[k].text)
+    lines = [f'SYM_FUNC_START({VNAME})',
+             '\tbeqz\ta3, .Lvnone',
+             f'\taddi\tsp, sp, -{VFRAME}']
+    lines += [f'\tsd\t{r}, {8 * k}(sp)' for k, r in enumerate(SAVED)]
+    lines += [f'\tsd\ta0, {ACC_SLOT}(sp)',
+              f'\tslli\t{VSTRIDE}, a3, 4', f'\tslli\t{END}, a3, 6', f'\tadd\t{END}, {END}, {VSTRIDE}',
+              f'\tadd\t{END}, {END}, {DATA}',
+              f'\tld\t{ALO}, 0(a0)', f'\tld\t{AHI}, 8(a0)']
+    lines += [f'\tld\t{O[i]}, {8 * i}({KP})' for i in range(4)]
+    lines += [f'\tli\t{VSTRIDE}, 4', '\t' + setvl.text]
+    lines += ['.Lvgroup:'] + stage_lines + body + tail_lines
+    lines += [f'\taddi\t{DATA}, {DATA}, {GROUP}',
+              f'\tbltu\t{DATA}, {END}, .Lvgroup',
+              f'\tld\ta0, {ACC_SLOT}(sp)',
+              f'\tsd\t{ALO}, 0(a0)', f'\tsd\t{AHI}, 8(a0)']
+    lines += [f'\tld\t{r}, {8 * k}(sp)' for k, r in enumerate(SAVED)]
+    # Products of key and data, and the byte-swapped blocks: wipe them.
+    lines += [f'\tsd\tzero, {s}(sp)' for s in C_SLOT]
+    lines += [f'\tsd\tzero, {VFRAME_BUF + 8 * k}(sp)' for k in range(8)]
+    lines += [f'\taddi\tsp, sp, {VFRAME}', '.Lvnone:', '\tret', f'SYM_FUNC_END({VNAME})']
+    stats = (len(vb), len(sb), len(stage_lines), len(tail_lines), vcycles)
+    return lines, vectors, stats
+
+
 HEADER = '''\
 /* SPDX-License-Identifier: GPL-2.0-only OR BSD-3-Clause */
 /*
@@ -278,7 +594,9 @@ FOOTER = '\t.option pop\n'
 
 def render():
     lines, n, cycles = build()
-    return HEADER + '\n'.join(lines) + '\n' + FOOTER, n, cycles
+    vlines, vectors, vstats = vbuild()
+    text = HEADER + '\n'.join(lines) + '\n\n' + '\n'.join(vlines) + '\n' + FOOTER
+    return text, (n, cycles), vectors, vstats
 
 
 # --- Self-test: run the generated function ------------------------------------
@@ -322,10 +640,23 @@ def kp_table(lo, hi):
     return kp
 
 
-def execute(text, regs, mem):
-    """Run the function in text; mem maps byte addresses to byte values."""
+def execute(text, regs, mem, entry=NAME, vregs=None, vmv_sign=True):
+    """Run the function entry in text; mem maps byte addresses to byte values.
+
+    Vector instructions are executed from the mnemonics in the comments of
+    their .4byte words (the encodings are checked against GNU as separately).
+    vmv_sign: th.vmv.x.s sign-extends (True) or zero-extends the element."""
     prog, labels = [], {}
     for line in text.splitlines():
+        line = line.strip()
+        if line.startswith('SYM_FUNC_START('):
+            labels[line[len('SYM_FUNC_START('):-1]] = len(prog)
+            continue
+        if line.startswith('.4byte'):
+            line = line.split('/*')[1].split('*/')[0].strip()
+            op, _, args = line.partition(' ')
+            prog.append((op, [x.strip() for x in args.split(',')]))
+            continue
         line = line.split('/*')[0].strip()
         if not line or line.startswith(('#', '.option', '.text', 'SYM_FUNC', '*')):
             continue
@@ -333,7 +664,9 @@ def execute(text, regs, mem):
             labels[line[:-1]] = len(prog)
             continue
         op, _, args = line.partition('\t')
-        prog.append((op, [a.strip() for a in args.split(',')] if args else []))
+        prog.append((op, [x.strip() for x in args.split(',')] if args else []))
+    vregs = vregs if vregs is not None else {}
+    vl = None
 
     def r(x):
         return 0 if x == 'zero' else regs[x]
@@ -344,15 +677,49 @@ def execute(text, regs, mem):
 
     def addr(m):
         off, base = m.rstrip(')').split('(')
-        return (r(base) + int(off)) & M64
+        return (r(base) + int(off or 0)) & M64
 
-    pc, steps = 0, 0
+    def load32(p):
+        return int.from_bytes(bytes(mem[p + i] for i in range(4)), 'little')
+
+    pc, steps = labels[entry], 0
     while True:
         op, a = prog[pc]
         pc += 1
         steps += 1
         if op == 'ret':
             return steps
+        if op.startswith('th.v'):
+            if op == 'th.vsetvli':
+                assert a[2:] == ['e32', 'm1', 'd1'] and r(a[1]) == 4, a
+                vl = 4
+                continue
+            assert vl == 4, 'vector instruction before vsetvli'
+            if op == 'th.vle.v':
+                p = addr(a[1])
+                vregs[a[0]] = [load32(p + 4 * i) for i in range(4)]
+            elif op == 'th.vlse.v':
+                p, stride = addr(a[1]), r(a[2])
+                vregs[a[0]] = [load32(p + stride * i) for i in range(4)]
+            elif op == 'th.vmv.v.i':
+                vregs[a[0]] = [int(a[1]) & M32] * 4
+            elif op == 'th.vand.vx':
+                vregs[a[0]] = [x & r(a[2]) & M32 for x in vregs[a[1]]]
+            elif op in ('th.vxor.vv', 'th.vmul.vv', 'th.vmulhu.vv'):
+                f = {'th.vxor.vv': lambda x, y: x ^ y, 'th.vmul.vv': lambda x, y: (x * y) & M32,
+                     'th.vmulhu.vv': lambda x, y: (x * y) >> 32}[op]
+                vregs[a[0]] = [f(x, y) for x, y in zip(vregs[a[1]], vregs[a[2]])]
+            elif op == 'th.vredxor.vs':
+                acc = vregs[a[2]][0]
+                for x in vregs[a[1]]:
+                    acc ^= x
+                vregs[a[0]] = [acc] + [0xdeadbeef] * 3      # the other elements are not used
+            elif op == 'th.vmv.x.s':
+                x = vregs[a[1]][0]
+                w(a[0], x - (1 << 32) if vmv_sign and x >> 31 else x)
+            else:
+                raise ValueError(op)
+            continue
         if op == 'ld':
             p = addr(a[1])
             w(a[0], int.from_bytes(bytes(mem[p + i] for i in range(8)), 'little'))
@@ -362,6 +729,8 @@ def execute(text, regs, mem):
                 mem[p + i] = byte
         elif op == 'th.rev':
             w(a[0], int.from_bytes(r(a[1]).to_bytes(8, 'little'), 'big'))
+        elif op == 'li':
+            w(a[0], int(a[1], 0))
         elif op in ('slli', 'srli', 'addi'):
             x, imm = r(a[1]), int(a[2])
             w(a[0], x + imm if op == 'addi' else x << imm if op == 'slli' else x >> imm)
@@ -384,36 +753,85 @@ ABI = ['zero', 'ra', 'sp', 'gp', 'tp', 't0', 't1', 't2', 's0', 's1', 'a0', 'a1',
        's10', 's11', 't3', 't4', 't5', 't6']
 
 
+def clmul(a, b):
+    r = 0
+    while b:
+        if b & 1:
+            r ^= a
+        a <<= 1
+        b >>= 1
+    return r
+
+
+def polyval_dot(a, b):
+    """a * b * x^-128 in POLYVAL's field, as polyval_mul_generic()."""
+    p = clmul(a[0] | a[1] << 64, b[0] | b[1] << 64)
+    c = [(p >> (64 * k)) & M64 for k in range(4)]
+    for lo, mid, hi in ((0, 1, 2), (1, 2, 3)):
+        x = c[lo]
+        c[mid] ^= ((x << 63) ^ (x << 62) ^ (x << 57)) & M64
+        c[hi] ^= x ^ (x >> 1) ^ (x >> 2) ^ (x >> 7)
+    return c[2], c[3]
+
+
+def kp_vector_table(lo, hi):
+    """ghash_preparekey_arch()'s kp with the lane key parts: 112 words."""
+    powers = [None, (lo, hi)]
+    for _ in range(4):
+        powers.append(polyval_dot(powers[-1], (lo, hi)))
+    out = bytearray()
+    for q in range(9):
+        p, r = divmod(q, 3)
+        for j in range(4):
+            for lane in range(4):
+                plo, phi = powers[5 - lane]
+                part = (plo, phi, plo ^ phi)[p]
+                op = (part & M32, part >> 32, (part & M32) ^ (part >> 32))[r]
+                out += (op & OM[j] & M32).to_bytes(4, 'little')
+    return kp_table(lo, hi) + [int.from_bytes(out[i:i + 8], 'little') for i in range(0, len(out), 8)]
+
+
+def run_case(text, entry, rnd, raw, acc0, data, units, kp, frame, wipe):
+    ACC, KPB, DB, SP = 0x1000, 0x2000, 0x8003, 0x20000      # data misaligned
+    mem = {}
+    for base, words in ((ACC, [acc0 & M64, acc0 >> 64]), (KPB, kp)):
+        for i, v in enumerate(words):
+            for k, byte in enumerate(v.to_bytes(8, 'little')):
+                mem[base + 8 * i + k] = byte
+    for i, byte in enumerate(data):
+        mem[DB + i] = byte
+    regs = {name: rnd.getrandbits(64) for name in ABI[1:]}
+    regs.update({'sp': SP, 'a0': ACC, 'a1': KPB, 'a2': DB, 'a3': units})
+    vregs = {f'v{i}': [rnd.getrandbits(32) for _ in range(4)] for i in range(32)}
+    before = dict(regs)
+    execute(text, regs, mem, entry, vregs, vmv_sign=rnd.random() < 0.5)
+    for name in ['sp', 'ra'] + [f's{i}' for i in range(12)]:
+        assert regs[name] == before[name], f'{entry}: {name} not preserved'
+    got = int.from_bytes(bytes(mem[ACC + i] for i in range(16)), 'little')
+    want = ghash_ref(int.from_bytes(raw, 'big'), acc0, data)
+    if got != want:
+        sys.exit(f'self-test {entry}, {units} units: got {got:032x}, want {want:032x}')
+    if units:
+        left = [p for p in range(SP - frame + wipe[0], SP - frame + wipe[1]) if mem.get(p)]
+        assert not left, f'{entry}: products or blocks left on the stack'
+
+
 def selftest(text, cases):
     rnd = random.Random(20261012)
     for case in range(cases):
         raw = b'\xff' * 16 if case % 7 == 0 else rnd.randbytes(16)
-        nblocks = case % 5 if case < 10 else 1 + rnd.randrange(6)
-        data = rnd.randbytes(16 * nblocks)
-        if case % 11 == 0:
-            data = b'\xff' * len(data)
-        acc0 = rnd.getrandbits(128)
         lo, hi = polyval_key(raw)
-        ACC, KPB, DB, SP = 0x1000, 0x2000, 0x8003, 0x20000      # data misaligned
-        mem = {}
-        for base, words in ((ACC, [acc0 & M64, acc0 >> 64]), (KPB, kp_table(lo, hi))):
-            for i, v in enumerate(words):
-                for k, byte in enumerate(v.to_bytes(8, 'little')):
-                    mem[base + 8 * i + k] = byte
-        for i, byte in enumerate(data):
-            mem[DB + i] = byte
-        regs = {name: rnd.getrandbits(64) for name in ABI[1:]}
-        regs.update({'sp': SP, 'a0': ACC, 'a1': KPB, 'a2': DB, 'a3': nblocks})
-        before = dict(regs)
-        execute(text, regs, mem)
-        for name in ['sp', 'ra'] + [f's{i}' for i in range(12)]:
-            assert regs[name] == before[name], f'case {case}: {name} not preserved'
-        got = int.from_bytes(bytes(mem[ACC + i] for i in range(16)), 'little')
-        want = ghash_ref(int.from_bytes(raw, 'big'), acc0, data)
-        if got != want:
-            sys.exit(f'self-test case {case}: got {got:032x}, want {want:032x}')
-        leftovers = [p for p in mem if SP - FRAME <= p < SP and SP - FRAME + C_SLOT[0] <= p and mem[p]]
-        assert nblocks == 0 or not leftovers, f'case {case}: product slots not wiped'
+        acc0 = rnd.getrandbits(128)
+        # Scalar: blocks of 16 bytes.
+        nblocks = case % 5 if case < 10 else 1 + rnd.randrange(6)
+        data = b'\xff' * (16 * nblocks) if case % 11 == 0 else rnd.randbytes(16 * nblocks)
+        run_case(text, NAME, rnd, raw, acc0, data, nblocks, kp_table(lo, hi), FRAME,
+                 (C_SLOT[0], FRAME))
+        # Vector: groups of five blocks.
+        ngroups = case % 3 if case < 6 else 1 + rnd.randrange(3)
+        data = b'\xff' * (GROUP * ngroups) if case % 11 == 0 else rnd.randbytes(GROUP * ngroups)
+        run_case(text, VNAME, rnd, raw, acc0, data, ngroups, kp_vector_table(lo, hi), VFRAME,
+                 (C_SLOT[0], VFRAME))
     return cases
 
 
@@ -427,24 +845,30 @@ def from_patch(patch):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument('--binutils', required=True, help='GNU binutils prefix with XTheadVector support')
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument('--output', type=Path)
     g.add_argument('--check', type=Path)
     p.add_argument('--cases', type=int, default=200, help='self-test cases (default 200)')
     args = p.parse_args()
-    text, n, cycles = render()
+    text, (n, cycles), vectors, vstats = render()
+    encodings = encoder().verify(args.binutils, vectors)
     cases = selftest(text, args.cases)
+    done = (f'{cases} self-test cases of each function against a bit-serial GHASH, '
+            f'{encodings} distinct vector encodings verified')
     if args.check:
         current = args.check.read_text()
         if args.check.suffix == '.patch':
             current = from_patch(current)
         if current != text:
             sys.exit(f'{args.check} is not up to date')
-        print(f'{args.check}: up to date; {cases} self-test cases against a bit-serial GHASH')
+        print(f'{args.check}: up to date; {done}')
     else:
         args.output.write_text(text)
-        print(f'{args.output}: {n} instructions per block, {cycles} scheduled cycles; '
-              f'{cases} self-test cases against a bit-serial GHASH')
+        nv, ns, nstage, ntail, vcycles = vstats
+        print(f'{args.output}: scalar {n} instructions per block ({cycles} scheduled cycles); '
+              f'per group of five blocks {nv} vector and {ns} scalar body instructions '
+              f'({vcycles} vector cycles), {nstage} staging and {ntail} tail lines; {done}')
 
 
 if __name__ == '__main__':

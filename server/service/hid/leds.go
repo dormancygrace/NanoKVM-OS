@@ -238,12 +238,24 @@ func waitForKeyboardLedReaderChange(notifierFD int) error {
 	if notifierFD < 0 {
 		return fmt.Errorf("keyboard LED reader notifier is nil")
 	}
-	_, err := unix.Poll([]unix.PollFd{{Fd: int32(notifierFD), Events: unix.POLLIN}}, -1)
-	if err != nil {
+	if err := pollRestarting([]unix.PollFd{{Fd: int32(notifierFD), Events: unix.POLLIN}}); err != nil {
 		return err
 	}
 	drainKeyboardLedReaderNotifier(notifierFD)
 	return nil
+}
+
+// pollRestarting waits without a timeout. poll(2) is not restarted after a
+// signal handler, and the Go runtime signals threads (SIGURG for preemption),
+// so EINTR is not an error here: an early return made the LED reader reopen
+// /dev/hidg0 for nothing.
+func pollRestarting(fds []unix.PollFd) error {
+	for {
+		_, err := unix.Poll(fds, -1)
+		if !errors.Is(err, unix.EINTR) {
+			return err
+		}
+	}
 }
 
 // waitForKeyboardLedReportOrChange blocks until a HID output report arrives or
@@ -257,8 +269,7 @@ func waitForKeyboardLedReportOrChange(file *os.File, notifierFD int) (bool, erro
 		{Fd: int32(file.Fd()), Events: unix.POLLIN},
 		{Fd: int32(notifierFD), Events: unix.POLLIN},
 	}
-	_, err := unix.Poll(fds, -1)
-	if err != nil {
+	if err := pollRestarting(fds); err != nil {
 		return false, err
 	}
 	if fds[1].Revents&unix.POLLIN != 0 {

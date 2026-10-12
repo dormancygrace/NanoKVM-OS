@@ -2279,7 +2279,7 @@ static nanokvm::JpegAdmission admit_capture_step(uint8_t type, const nanokvm::Ge
  * @param	_width				@input: 	Output image width
  * @param	_height				@input: 	Output image height
  * @param	_type				@input: 	Encode type
- * @param	_qlty				@input: 	MJPEG: (50-100) | H264:  (500-20000)
+ * @param	_qlty				@input: 	MJPEG: (20-100) | H264:  (500-20000)
  * @param	_pp_kvm_data		@output: 	Encode data
  * @param	_p_kvmv_data_size	@output: 	Encode data size
  * @return
@@ -2623,7 +2623,7 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
             }
             if (native_vi_ch >= 0) {
                 int ret = frame_to_jpeg(native_vi_ch, p_kvmv_data,
-                    maxmin_data(99, 51, (int)_qlty));
+                    maxmin_data(99, 20, (int)_qlty));
                 if (ret < 0) {
                     if (native_format == nanokvm::nv16_format() && ret == IMG_VENC_ERROR)
                         disable_mjpeg_422("native JPEG encoding failed");
@@ -2636,7 +2636,7 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
                 pthread_mutex_unlock(&vi_mutex);
                 return ret;
             }
-            nanokvm::JpegBuffer *jpg = img->to_jpeg(maxmin_data(99, 51, (int)_qlty));
+            nanokvm::JpegBuffer *jpg = img->to_jpeg(maxmin_data(99, 20, (int)_qlty));
             if(jpg == NULL || !jpg_dump(p_kvmv_data, jpg)){
                 delete jpg;
 			    delete img;

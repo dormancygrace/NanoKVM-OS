@@ -15,13 +15,14 @@ builddir="$srcdir/$pkgname-$pkgver"
 options="!strip !tracedeps"
 
 build() {
-    cargo build --locked --offline --release
+    # .cargo/config.toml carries the C906 flags for this target.
+    cargo build --locked --offline --release --target riscv64-alpine-linux-musl
 }
 check() {
     cargo test --locked --offline
 }
 package() {
-    install -Dm755 target/release/nanokvm-rustdesk "$pkgdir/usr/bin/nanokvm-rustdesk"
+    install -Dm755 target/riscv64-alpine-linux-musl/release/nanokvm-rustdesk "$pkgdir/usr/bin/nanokvm-rustdesk"
     install -Dm755 "$srcdir/$pkgname.initd" "$pkgdir/etc/init.d/$pkgname"
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
     install -Dm644 NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"

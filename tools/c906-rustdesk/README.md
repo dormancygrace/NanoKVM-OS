@@ -8,10 +8,11 @@ It neither decrypts nor changes the application frames.
 
 In a coordinated test slot, cross-build `loopback-relay.c` with the target
 compiler, `-static -O2 -Wall -Wextra -Werror`. Cross-build the existing ignored
-interop test with the same scalar profile and static musl linker:
+interop test with the release profile (the C906 flags come from
+addons/rustdesk/.cargo/config.toml) and the static musl linker:
 
 ```sh
-cargo --config performance.toml test --locked --no-run --profile performance \
+cargo test --locked --no-run --release \
   --target riscv64gc-unknown-linux-musl --bin nanokvm-rustdesk
 ```
 

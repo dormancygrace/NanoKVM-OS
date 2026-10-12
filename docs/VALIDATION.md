@@ -4,6 +4,7 @@ Validation applies to the exact source, artifacts and hardware named in each
 record. A successful build or an older device test does not qualify a newer image.
 
 - [v2.5-a1 / Image v1.0-a1](RELEASE-v2.5-a1-VALIDATION.md): published-release build and hardware records.
+- [Linux 7.2.10 and build cleanup](kernel-7.2.10-20261012.md): source pins, component checks and their scope.
 - [Current platform checks](../platform/README.md#verification): compiler audits, output verification and hardware acceptance requirements.
 - [Dependency refresh](dependency-refresh-20261012.md): host/component checks and remaining full-image release work.
 - [HDMI-light device results](hdmi-light-hardware-20261011.md): the tested media profile and its limits.

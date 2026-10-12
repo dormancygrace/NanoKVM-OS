@@ -25,6 +25,24 @@ const opusPayloadType = 111
 // maxAudioDelay bounds NANOKVM_WEBRTC_AUDIO_DELAY_MS.
 const maxAudioDelay = 500 * time.Millisecond
 
+// audioFrame is the duration of one encoded Opus packet.
+const audioFrame = 20 * time.Millisecond
+
+// packetSource is the shared capture as seen by one listener.
+type packetSource interface {
+	Read(ctx context.Context) (audio.Packet, error)
+	Close()
+}
+
+// subscribeAudio is replaced in tests.
+var subscribeAudio = func() (packetSource, error) {
+	sub, err := audio.Subscribe()
+	if err != nil {
+		return nil, err
+	}
+	return sub, nil
+}
+
 var (
 	errAudioNotNegotiated = errors.New("audio was not negotiated on this connection")
 	errAudioBusy          = errors.New("too many audio sessions")
@@ -36,11 +54,17 @@ var (
 // remote marks it inactive). Listening is separate: audio-start subscribes
 // to the shared capture and encoder, audio-stop unsubscribes, so a viewer
 // with the speaker off does not keep the Opus encoder running.
+//
+// The RTP clock of the track must keep pace with real time across pauses
+// (RFC 3550 5.1): receivers and RTCP sender reports map it to wall-clock
+// time for lip sync. lastSent records when the last packet was written, and
+// the next listening period first advances the clock by the muted interval.
 type peerAudio struct {
-	mu     sync.Mutex
-	track  *webrtc.TrackLocalStaticSample
-	cancel context.CancelFunc
-	done   chan struct{}
+	mu       sync.Mutex
+	track    *webrtc.TrackLocalStaticSample
+	cancel   context.CancelFunc
+	done     chan struct{}
+	lastSent time.Time
 }
 
 // audioDelay holds audio back before sending, to line it up with video when
@@ -124,7 +148,7 @@ func (c *Client) startAudio() error {
 	if !audio.AcquireSession() {
 		return errAudioBusy
 	}
-	sub, err := audio.Subscribe()
+	sub, err := subscribeAudio()
 	if err != nil {
 		audio.ReleaseSession()
 		return err
@@ -153,7 +177,22 @@ type timedPacket struct {
 	packet audio.Packet
 }
 
-func (c *Client) runAudio(ctx context.Context, sub *audio.Subscription, track *webrtc.TrackLocalStaticSample, done chan struct{}) {
+// advanceTimeline moves the RTP clock of track over a muted interval without
+// sending anything: for an empty payload Pion's packetizer only skips the
+// samples, and no sequence numbers are used, so receivers see no loss. Steps
+// of an hour keep each skip far inside the 32-bit timestamp.
+func advanceTimeline(track *webrtc.TrackLocalStaticSample, gap time.Duration) error {
+	for gap > 0 {
+		step := min(gap, time.Hour)
+		if err := track.WriteSample(media.Sample{Duration: step}); err != nil {
+			return err
+		}
+		gap -= step
+	}
+	return nil
+}
+
+func (c *Client) runAudio(ctx context.Context, sub packetSource, track *webrtc.TrackLocalStaticSample, done chan struct{}) {
 	defer close(done)
 	defer audio.ReleaseSession()
 	defer sub.Close()
@@ -178,6 +217,7 @@ func (c *Client) runAudio(ctx context.Context, sub *audio.Subscription, track *w
 	}()
 	var last uint64
 	haveLast := false
+	first := true
 	for tp := range packets {
 		if wait := time.Until(tp.due); wait > 0 {
 			select {
@@ -188,15 +228,32 @@ func (c *Client) runAudio(ctx context.Context, sub *audio.Subscription, track *w
 		if ctx.Err() != nil {
 			break
 		}
+		if first {
+			// The capture may have restarted since the last period (its index
+			// too), so the muted interval comes from the clock, not the index.
+			first = false
+			c.audio.mu.Lock()
+			prev := c.audio.lastSent
+			c.audio.mu.Unlock()
+			if !prev.IsZero() {
+				if err := advanceTimeline(track, time.Since(prev)-audioFrame); err != nil {
+					log.Debugf("audio timeline: %v", err)
+					break
+				}
+			}
+		}
 		dropped := uint64(0)
 		if haveLast && tp.packet.Index > last+1 {
 			dropped = min(tp.packet.Index-last-1, 65535)
 		}
-		if err := track.WriteSample(media.Sample{Data: tp.packet.Data, Duration: 20 * time.Millisecond,
+		if err := track.WriteSample(media.Sample{Data: tp.packet.Data, Duration: audioFrame,
 			PrevDroppedPackets: uint16(dropped)}); err != nil {
 			log.Debugf("audio track write: %v", err)
 			break
 		}
+		c.audio.mu.Lock()
+		c.audio.lastSent = time.Now()
+		c.audio.mu.Unlock()
 		last, haveLast = tp.packet.Index, true
 	}
 	if ctx.Err() == nil {

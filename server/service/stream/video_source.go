@@ -352,6 +352,7 @@ func (s *VideoSource) publish(session *videoSession, storage, data []byte, resul
 	}
 	if result >= 0 {
 		GetFrameRateCounter().Update()
+		GetFrameRateCounter().AddBytes(len(frame.Data))
 	}
 }
 

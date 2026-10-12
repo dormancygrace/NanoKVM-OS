@@ -65,6 +65,7 @@ func (s *Service) GetScreen(c *gin.Context) {
 		"videoOutputWidth":  common.ReadVideoValue("/run/nanokvm/video_width"),
 		"videoOutputHeight": common.ReadVideoValue("/run/nanokvm/video_height"),
 		"measuredFps":       common.ReadVideoValue("/run/nanokvm/now_fps"),
+		"measuredKbps":      common.ReadVideoValue("/run/nanokvm/now_kbps"),
 		"frameDetect":       common.FrameDetectEnabled(),
 		"effectiveFps":      common.GetCaptureScreen().FPS})
 }
@@ -255,6 +256,8 @@ func applyScreenSetting(req proto.SetScreenReq) (gin.H, *settingError) {
 	case "resolution", "fps", "quality":
 		err = writeScreen(req.Type, strconv.Itoa(req.Value))
 	case "gop_mode":
+		// SmartP was retired (common.Screen); old clients may still ask for it.
+		req.Value = int(common.GOPModeNormalP)
 		if err = writeScreen(req.Type, strconv.Itoa(req.Value)); err == nil {
 			if result := applyGOPMode(uint8(req.Value)); result != 0 {
 				// Saved: the encoder takes it at the next server start.

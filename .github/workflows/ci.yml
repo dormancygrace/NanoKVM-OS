@@ -80,6 +80,15 @@ jobs:
           xargs -0 shellcheck -S error < "$RUNNER_TEMP/shell-scripts"
       - name: Python syntax
         run: git ls-files -z '*.py' | xargs -0 python3 -m py_compile
+      # The C906 vector kernels are generated with .4byte/WORD encodings; each
+      # generator checks its output against GNU as/objdump for XTheadVector.
+      - name: Generated C906 assembly is up to date
+        run: |
+          sudo apt-get install -y binutils-riscv64-linux-gnu
+          cd firmware/cpu/go-crypto-c906
+          python3 gen_chacha_riscv64.py --binutils riscv64-linux-gnu- --check chacha_riscv64.s
+          python3 gen_sha1mb_riscv64.py --binutils riscv64-linux-gnu- --check ../../../server/internal/sha1mb/sha1mb_riscv64.s
+          python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
       - name: Platform Buildroot configuration
         run: python3 scripts/test-platform-config.py
       - name: Script tests

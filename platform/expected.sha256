@@ -264,7 +264,7 @@ d828233fd93c4eb18442ddf21f72e65a44ed6442facf89875c041d2140ca274e  lib/modules/7.
 89885240e7a50d96c59a41b83ca4626d930b4b82ec68aa2a2f6504f079002fd3  lib/modules/7.2.10-nanokvm-os-r2/kernel/drivers/net/wireguard/wireguard.ko
 86f81c348b9b7b362b4338691aade0c016a1df72cc8f1ebe7bbde896e55b5a98  lib/modules/7.2.10-nanokvm-os-r2/kernel/fs/overlayfs/overlay.ko
 ec44330ecf0a83416c539d09944fc9718b5bcacd841099ea6024553e51f10bcb  lib/modules/7.2.10-nanokvm-os-r2/kernel/lib/crypto/libaes.ko
-d35a05cde482fa0e3b6ae34697f5dc81a784a69df395ba705db12e19fe37c261  lib/modules/7.2.10-nanokvm-os-r2/kernel/lib/crypto/libchacha.ko
+9d93bcacb107d41cdec33255ff016fa3a677e987cf27442da3a6604a2f9f3a85  lib/modules/7.2.10-nanokvm-os-r2/kernel/lib/crypto/libchacha.ko
 613ca6f3f64fe7aaab5abb4ea66a7465c6b54165fc56ab7c0aa5705b43b0b54f  lib/modules/7.2.10-nanokvm-os-r2/kernel/lib/crypto/libchacha20poly1305.ko
 161e4d03e45def9377a5cfee3e99eeca5be2c6f1fbce6ca94d22a305efcf770e  lib/modules/7.2.10-nanokvm-os-r2/kernel/lib/crypto/libcurve25519.ko
 ecddddee947dd6fd07c09bd4f8812c15ac700129acbf2bf61d6acaa22df10c99  lib/modules/7.2.10-nanokvm-os-r2/kernel/lib/crypto/libgf128hash.ko

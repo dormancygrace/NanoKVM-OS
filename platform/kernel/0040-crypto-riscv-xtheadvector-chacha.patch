@@ -558,7 +558,7 @@ index 0000000..9c437e2
 +	ret
 +SYM_FUNC_END(chacha_xtheadvector)
 diff --git a/lib/crypto/riscv/chacha.h b/lib/crypto/riscv/chacha.h
-index 5c000c6..4615b1d 100644
+index 5c000c6..204459a 100644
 --- a/lib/crypto/riscv/chacha.h
 +++ b/lib/crypto/riscv/chacha.h
 @@ -4,30 +4,37 @@
@@ -605,7 +605,7 @@ index 5c000c6..4615b1d 100644
  	kernel_vector_begin();
  	if (full_blocks) {
  		chacha_zvkb(state, src, dst, full_blocks, nrounds);
-@@ -41,11 +48,79 @@ static void chacha_crypt_arch(struct chacha_state *state, u8 *dst,
+@@ -41,11 +48,80 @@ static void chacha_crypt_arch(struct chacha_state *state, u8 *dst,
  	}
  	kernel_vector_end();
  }
@@ -651,7 +651,8 @@ index 5c000c6..4615b1d 100644
 +		chacha_xtheadvector(state, buffer, buffer, 1, nrounds);
 +		memcpy(dst, buffer, tail);
 +		state->x[12] = counter + DIV_ROUND_UP(tail, CHACHA_BLOCK_SIZE);
-+		memzero_explicit(buffer, tail);
++		/* The rest of the group is key stream for blocks not yet used. */
++		memzero_explicit(buffer, sizeof(buffer));
 +	}
 +	kernel_vector_end();
 +}

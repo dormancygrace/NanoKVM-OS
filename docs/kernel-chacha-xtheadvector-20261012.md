@@ -37,29 +37,38 @@ scalar `mul`/`mulhu`.
 
 `firmware/cpu/go-crypto-c906/linux-test/` builds a module against the running
 kernel that carries the same assembly and glue. On the stand (SG2002 C906,
-1 GHz, `7.2.10-nanokvm-os-r1`, idle video), loading it:
+`7.2.10-nanokvm-os-r1`, idle video), loading it:
 
 - RFC 8439 2.4.2 vector: ok.
-- 20,000 random cases in process context and 5,000 with bottom halves
-  disabled against `chacha_block_generic()`: lengths 1–4096, source and
-  destination offsets 0–63, in place and out of place, ChaCha20 and ChaCha12,
-  counters across the 32-bit wrap; output and final state identical.
+- Against `chacha_block_generic()`, output and final state identical in all
+  cases: 20,000 random cases of the vector glue in process context and 5,000
+  with bottom halves disabled; 10,000 and 5,000 through `chacha_crypt()`.
+  Lengths 1–4096, source and destination offsets 0–63, in place and out of
+  place, ChaCha20 and ChaCha12, counters across the 32-bit wrap.
+- Preemption inside the vector section: a kernel thread that never yields
+  competes with a thread encrypting 64 KiB per call (about 0.7 ms, nearly all
+  of it in the assembly), each result compared with a precomputed reference,
+  for 4 s: 1,429 calls, 238 involuntary context switches of that thread,
+  0 mismatches; 3,000 random cases in the loading thread meanwhile, 0
+  failures, 55 involuntary switches. No warning or oops in the log.
 
 | bytes | generic MB/s | XTheadVector MB/s | Poly1305 MB/s |
 | ---: | ---: | ---: | ---: |
-| 64 | 36 | 14 | 109 |
-| 128 | 38 | 29 | 122 |
-| 129 | 24 | 29 | 107 |
-| 192 | 37 | 42 | 165 |
-| 320 | 39 | 77 | 184 |
-| 1420 (WireGuard packet) | 37 | 73 | 211 |
-| 4096 | 39 | 84 | 223 |
-| 16384 | 37 | 85 | 224 |
+| 64 | 41 | 15 | 120 |
+| 128 | 42 | 32 | 163 |
+| 129 | 29 | 32 | 129 |
+| 192 | 43 | 47 | 182 |
+| 320 | 42 | 86 | 207 |
+| 1420 (WireGuard packet) | 42 | 81 | 235 |
+| 4096 | 43 | 92 | 248 |
+| 16384 | 43 | 93 | 249 |
 
-Wall time, 300 ms per cell. From 129 bytes the vector path is ahead; below
-it stays generic. With ChaCha20 at 73 MB/s instead of 37 and Poly1305 at
-211 MB/s, ChaCha20-Poly1305 on a 1420-byte packet goes from about 31 to about
-54 MB/s of crypto per core.
+Wall time, 300 ms per cell, the final run; an earlier run the same day
+measured all three columns about 10% lower (37 / 73 / 211 MB/s at 1420
+bytes), the ratio was the same. From 129 bytes the vector path is ahead;
+below it stays generic. With ChaCha20 at about twice the generic rate and
+Poly1305 at 235 MB/s, ChaCha20-Poly1305 on a 1420-byte packet goes from about
+36 to about 60 MB/s of crypto per core.
 
 ## Build
 

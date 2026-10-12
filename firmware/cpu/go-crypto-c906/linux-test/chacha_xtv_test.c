@@ -3,8 +3,9 @@
  * Device qualification of the XTheadVector ChaCha backend (NanoKVM OS).
  * Carries the same assembly and glue as lib/crypto/riscv/chacha.h and checks
  * them against chacha_block_generic(), also through the library entry point
- * chacha_crypt() of whichever libchacha is loaded, then times chacha_crypt(),
- * the vector backend and the kernel's Poly1305. Loading prints the results and fails with
+ * chacha_crypt() of whichever libchacha is loaded, and under forced
+ * preemption (a CPU hog against a thread inside the vector section), then
+ * times chacha_crypt(), the vector backend and the kernel's Poly1305. Loading prints the results and fails with
  * -EAGAIN on purpose, so nothing stays loaded.
  */
 #include <asm/simd.h>
@@ -14,6 +15,7 @@
 #include <crypto/poly1305.h>
 #include <crypto/utils.h>
 #include <linux/bottom_half.h>
+#include <linux/hex.h>
 #include <linux/kernel.h>
 #include <linux/ktime.h>
 #include <linux/module.h>
@@ -21,11 +23,16 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/vmalloc.h>
+#include <linux/completion.h>
+#include <linux/kthread.h>
+#include <linux/sched.h>
 
 static int min_bytes = 2 * CHACHA_BLOCK_SIZE + 1;
 module_param(min_bytes, int, 0444);
 static int bench_ms = 300;
 module_param(bench_ms, int, 0444);
+static int preempt_ms = 4000;
+module_param(preempt_ms, int, 0444);
 
 #define GROUP (5 * CHACHA_BLOCK_SIZE)
 
@@ -52,7 +59,7 @@ static void xtv_crypt(struct chacha_state *state, u8 *dst, const u8 *src,
 		chacha_xtheadvector(state, buffer, buffer, 1, nrounds);
 		memcpy(dst, buffer, tail);
 		state->x[12] = counter + DIV_ROUND_UP(tail, CHACHA_BLOCK_SIZE);
-		memzero_explicit(buffer, tail);
+		memzero_explicit(buffer, sizeof(buffer));
 	}
 	kernel_vector_end();
 }
@@ -164,7 +171,8 @@ static int check_random(int cases, bool bh, bool lib)
 		if (n % 256 == 0)
 			cond_resched();
 	}
-	pr_info("chacha_xtv: %d random cases (%s): %d failures\n", cases,
+	pr_info("chacha_xtv: %d random cases (%s, %s): %d failures\n", cases,
+		lib ? "chacha_crypt" : "xtheadvector",
 		bh ? "bh disabled" : "process", fails);
 out:
 	kfree(a);
@@ -230,15 +238,115 @@ static void bench(void)
 	if (!buf)
 		return;
 	memset(buf, 0x5a, 16384);
-	pr_info("chacha_xtv: %6s %10s %10s %10s  (MB/s)\n", "bytes", "generic", "xtheadvec", "poly1305");
+	/* chacha_crypt is whichever libchacha is loaded: generic before 0040. */
+	pr_info("chacha_xtv: %6s %12s %10s %10s  (MB/s)\n", "bytes", "chacha_crypt", "xtheadvec", "poly1305");
 	for (i = 0; i < ARRAY_SIZE(sizes); i++) {
 		u64 g = rate(chacha_crypt, buf, sizes[i]);
 		u64 v = rate(xtv_crypt, buf, sizes[i]);
 		u64 p = poly_rate(buf, sizes[i]);
 
-		pr_info("chacha_xtv: %6u %10llu %10llu %10llu\n", sizes[i], g, v, p);
+		pr_info("chacha_xtv: %6u %12llu %10llu %10llu\n", sizes[i], g, v, p);
 	}
 	vfree(buf);
+}
+
+/*
+ * Preemption inside the vector section: a CPU hog that never yields makes
+ * the scheduler preempt the victim at ticks, mostly inside the 64 KiB
+ * assembly calls; every result is compared with a precomputed reference.
+ */
+struct preempt_job {
+	u8 *in, *out, *want;
+	unsigned int len;
+	u64 deadline;
+	unsigned long calls, mismatches, nivcsw;
+	struct completion done;
+};
+
+static void preempt_state(struct chacha_state *st)
+{
+	u32 key[8] = { 11, 12, 13, 14, 15, 16, 17, 18 };
+	u8 iv[16] = { 0xf0, 0xff, 0xff, 0xff, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+
+	chacha_init(st, key, iv);	/* counter wraps inside the buffer */
+}
+
+static int victim_fn(void *arg)
+{
+	struct preempt_job *j = arg;
+	unsigned long sw = current->nivcsw;
+
+	while (ktime_get_ns() < j->deadline) {
+		struct chacha_state st;
+
+		preempt_state(&st);
+		xtv_crypt(&st, j->out, j->in, j->len, 20);
+		if (memcmp(j->out, j->want, j->len))
+			j->mismatches++;
+		j->calls++;
+	}
+	j->nivcsw = current->nivcsw - sw;
+	complete(&j->done);
+	return 0;
+}
+
+struct hog_job {
+	u64 deadline;
+	struct completion done;
+};
+
+static int hog_fn(void *arg)
+{
+	struct hog_job *h = arg;
+	volatile u64 spin = 0;
+
+	while (ktime_get_ns() < h->deadline)
+		spin++;
+	complete(&h->done);
+	return 0;
+}
+
+static int check_preemption(void)
+{
+	struct preempt_job j = { .len = 65536 };
+	struct hog_job h;
+	struct chacha_state st;
+	unsigned long sw = current->nivcsw;
+	int fails = 0, rnd;
+
+	j.in = vmalloc(j.len);
+	j.out = vmalloc(j.len);
+	j.want = vmalloc(j.len);
+	if (!j.in || !j.out || !j.want) {
+		fails = -ENOMEM;
+		goto out;
+	}
+	get_random_bytes(j.in, j.len);
+	preempt_state(&st);
+	ref_crypt(&st, j.want, j.in, j.len, 20);
+	init_completion(&j.done);
+	init_completion(&h.done);
+	h.deadline = j.deadline = ktime_get_ns() + (u64)preempt_ms * NSEC_PER_MSEC;
+	if (IS_ERR(kthread_run(hog_fn, &h, "chacha_xtv_hog")) ||
+	    IS_ERR(kthread_run(victim_fn, &j, "chacha_xtv_victim"))) {
+		fails = -ECHILD;
+		goto out;
+	}
+	/* This thread competes too: random cases while both run. */
+	rnd = check_random(3000, false, false);
+	wait_for_completion(&j.done);
+	wait_for_completion(&h.done);
+	pr_info("chacha_xtv: preemption: victim %lu calls of %u bytes, %lu involuntary switches, %lu mismatches; random cases under load: %d failures, %lu involuntary switches\n",
+		j.calls, j.len, j.nivcsw, j.mismatches, rnd, current->nivcsw - sw);
+	if (j.mismatches || rnd)
+		fails = 1;
+	if (!j.nivcsw)
+		pr_warn("chacha_xtv: preemption: no involuntary switch observed\n");
+out:
+	vfree(j.in);
+	vfree(j.out);
+	vfree(j.want);
+	return fails;
 }
 
 static int __init chacha_xtv_init(void)
@@ -255,6 +363,7 @@ static int __init chacha_xtv_init(void)
 	fails += check_random(5000, true, false);
 	fails += check_random(10000, false, true);
 	fails += check_random(5000, true, true);
+	fails += check_preemption();
 	if (fails) {
 		pr_err("chacha_xtv: FAILED\n");
 		return -EINVAL;

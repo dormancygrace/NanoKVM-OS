@@ -162,7 +162,7 @@ python3 gen_chacha_linux.py --binutils $B --check ../../../platform/kernel/0040-
 `linux-test/` is a module that carries the same assembly and glue, checks
 them against `chacha_block_generic()` and times them on the device. Results
 and the kernel-side selection are in `docs/kernel-chacha-xtheadvector-20261012.md`:
-73 MB/s for a 1420-byte WireGuard packet and 85 MB/s for 16 KiB, against 37
+81 MB/s for a 1420-byte WireGuard packet and 93 MB/s for 16 KiB, against 42
 for the generic kernel code.
 
 ## Multi-buffer HMAC-SHA1 (`server/internal/sha1mb`)

@@ -64,6 +64,22 @@ static_assert(offsetof(struct aes_scratch, key) == offsetof(struct sg2002_aes_re
 static_assert(offsetof(struct aes_scratch, iv) == offsetof(struct sg2002_aes_request, iv));
 static_assert(offsetof(struct aes_scratch, status) == offsetof(struct sg2002_aes_request, status));
 
+/*
+ * Wait for the completion status of the engine. A 4 KiB request takes about
+ * 35 us. With the 1 us sleep of readl_poll_timeout(), a loop of 1216-byte
+ * ioctls took 46.6 us each, 31 us of it in the poll; spinning, 19.0 us. In
+ * the server, with other threads runnable, an 1188-byte SRTP packet went from
+ * 128 to 125 us. Sleep only if the engine takes longer than ENGINE_SPIN_US.
+ */
+#define ENGINE_SPIN_US 200
+static int engine_wait(u32 *status)
+{
+ int err = readl_poll_timeout(regs + STATUS, *status, *status != 0, 0, ENGINE_SPIN_US);
+ if (err == -ETIMEDOUT)
+  err = readl_poll_timeout(regs + STATUS, *status, *status != 0, 10, 20000);
+ return err;
+}
+
 #include "crypto_algorithms.inc"
 #include "crypto_linux_api.inc"
 
@@ -116,7 +132,7 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  writel(lower_32_bits(desc_dma), regs + DESC_LO);
  writel(upper_32_bits(desc_dma), regs + DESC_HI);
  writel(DMA_CTRL_VALUE, regs + CTRL);
- err = readl_poll_timeout(regs + STATUS, status, status != 0, 1, 20000);
+ err = engine_wait(&status);
  if (err || status != 1) {
   /* Completion/error bits beyond bit0 are not assumed to prove DMA idle.
    * Retain mappings, buffers and module code until reset on any uncertainty. */

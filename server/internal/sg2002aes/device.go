@@ -10,9 +10,12 @@ import (
 
 const MaxPayload = 4096
 
-// Small payloads use software to avoid fixed ioctl/DMA costs. This conservative
-// initial threshold is not a measured crossover for all packet sizes.
-const MinPayload = 512
+// Smaller payloads use software: the fixed ioctl and request copy costs win
+// below this. srtp-aes-qualify on the C906, CPU time per protected RTP packet
+// (software against hardware): 192 bytes 54.0 against 55.1 us, 256 bytes 65.9
+// against 58.5 us, 384 bytes 88.1 against 69.9 us, 1188 bytes 231 against
+// 125 us. Audio (Opus, about 100-200 bytes) stays in software.
+const MinPayload = 256
 
 var ErrUnavailable = errors.New("SG2002 AES device unavailable on this platform")
 var errCompletion = errors.New("SG2002 AES returned an invalid completion status")

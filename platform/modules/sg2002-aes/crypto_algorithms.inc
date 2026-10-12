@@ -160,7 +160,7 @@ static int crypto_run_locked(struct sg2002_crypto_request *r)
  writel(lower_32_bits(desc_dma), regs + DESC_LO); writel(upper_32_bits(desc_dma), regs + DESC_HI);
  crypto_submitted[r->algorithm]++;
  writel(DMA_CTRL_VALUE, regs + CTRL);
- err = readl_poll_timeout(regs + STATUS, status, status != 0, 1, 20000);
+ err = engine_wait(&status);
  r->status = status;
  // SG2002 TRM 22.3: bit0 is encryption completion, bit1 hash completion.
  // A hash has no ciphertext write and completes with 2, not AES's 1.

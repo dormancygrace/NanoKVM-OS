@@ -6,7 +6,7 @@ module; it does not start a video or browser session.
 
 For a short packet-size comparison:
 
-    srtp-aes-qualify -payloads=512,768,1188 -packets=500 -rounds=3
+    srtp-aes-qualify -payloads=256,512,1188 -packets=500 -rounds=3
 
 Use UART/network observation and the existing recovery setup. Inputs are
 validated before device open. Hardware exposure, including warmups and a

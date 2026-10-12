@@ -2032,7 +2032,7 @@ static int _mmf_release_jpg_copy(void) {
         priv.enc_jpg_frame = NULL;
         if (released != CVI_SUCCESS) return released;
     }
-    if (priv.enc_jpg_input_pool_id != VB_INVALID_POOLID) {
+    if (priv.enc_jpg_input_pool_id != (int)VB_INVALID_POOLID) {
         const int released = _destroy_vb_pool(priv.enc_jpg_input_pool_id);
         if (released != CVI_SUCCESS) return released;
         priv.enc_jpg_input_pool_id = VB_INVALID_POOLID;

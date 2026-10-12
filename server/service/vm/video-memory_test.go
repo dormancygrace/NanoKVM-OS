@@ -187,11 +187,11 @@ func TestVideoMemoryPoolsMatchTheGates(t *testing.T) {
 		qhd, portraitMax bool
 		uhd              bool
 	}{
-		{"fhd", 52, true, false, false, false},
-		{"fhd-fixed", 50, false, false, false, false},
-		{"qhd", 68, true, true, true, false},
-		{"qhd-fixed", 66, false, true, true, false},
-		{"uhd", 112, false, true, true, true},
+		{"fhd", 40, true, false, false, false},
+		{"fhd-fixed", 40, false, false, false, false},
+		{"qhd", 56, true, true, true, false},
+		{"qhd-fixed", 54, false, true, true, false},
+		{"uhd", 104, false, true, true, true},
 	} {
 		pool, ok := videoMemoryPool(tc.mode)
 		if !ok || pool.MiB != tc.mib || pool.Reusable != tc.reusable ||

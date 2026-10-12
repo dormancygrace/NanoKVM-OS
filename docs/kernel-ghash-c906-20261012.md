@@ -17,6 +17,13 @@ Measured with probe modules on the stand:
 | `mul`, both operands below 2^32 | 1 cycle each, pipelined, latency about 3 |
 | `mulw` | 1 cycle |
 
+Below 2^32 the value does not matter. Eight operand pairs were timed: 0, 1,
+3 x 5, sparse (0x11111111 x 0x1111, 0x88888888 squared), 0x80000000 squared,
+all ones, and 0x7fffffff x 0x55555555. Each gave 1.03-1.06 ns per
+independent `mul`, and 5.61-5.62 ns per step of a dependent
+`mul`/`and`/`or` chain with constant operands. A pair with 64-bit operands
+gave 3.78 and 8.39 ns.
+
 The generic GHASH (`polyval_mul_generic()`) multiplies 64-bit operands, so it
 pays the slow case. Its timing therefore also depends on whether an operand's
 high word is zero. That is a formal leak of key and data bits on this core,

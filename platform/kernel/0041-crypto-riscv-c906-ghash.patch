@@ -1,0 +1,756 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] crypto: riscv - scalar GHASH for the T-Head C906
+
+GHASH for lib/crypto on T-Head cores (detected by XTheadVector), such as the
+C906 of the SG2002, in scalar code. The C906 multiplier takes about four
+cycles per mul/mulhu, unpipelined, once an operand has bits above 31, and one
+pipelined cycle when both fit in 32 bits; the generic code multiplies 64-bit
+operands. Here the 128x128 carryless product is nine 32x32 ones (two levels
+of Karatsuba), each sixteen multiplies of operands with their bits four apart,
+all below 2^32, which also makes the multiply timing independent of the data.
+ghash_preparekey() precomputes the key operands in struct ghash_key. The
+assembly is generated and self-tested by
+firmware/cpu/go-crypto-c906/gen_ghash_linux.py.
+
+No vector state is used, so it also runs where may_use_simd() is false.
+CRYPTO_LIB_GF128HASH_ARCH now also defaults to y with RISCV_ISA_XTHEADVECTOR;
+the Zvkg backend keeps its previous conditions and takes precedence.
+
+ include/crypto/gf128hash.h            |   4 +
+ lib/crypto/Kconfig                    |   1 +
+ lib/crypto/Makefile                   |   7 +-
+ lib/crypto/riscv/gf128hash.h          |  73 ++++-
+ lib/crypto/riscv/ghash-riscv64-c906.S | 558 ++++++++++++++++++++++++++++++++++
+ 5 files changed, 640 insertions(+), 3 deletions(-)
+
+diff --git a/include/crypto/gf128hash.h b/include/crypto/gf128hash.h
+index 41c557d55..fd1922938 100644
+--- a/include/crypto/gf128hash.h
++++ b/include/crypto/gf128hash.h
+@@ -47,6 +47,10 @@ struct ghash_key {
+ 	(defined(CONFIG_RISCV) || defined(CONFIG_S390))
+ 	/** @h_raw: The hash key H, in GHASH format */
+ 	u8 h_raw[GHASH_BLOCK_SIZE];
++#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR
++	/** @c906_kp: H split for the T-Head C906 scalar code */
++	u64 c906_kp[40];
++#endif
+ #endif
+ 	/** @h: The hash key H, in POLYVAL format */
+ 	struct polyval_elem h;
+diff --git a/lib/crypto/Kconfig b/lib/crypto/Kconfig
+index 9d8ba6f5c..976cd8495 100644
+--- a/lib/crypto/Kconfig
++++ b/lib/crypto/Kconfig
+@@ -122,6 +122,7 @@ config CRYPTO_LIB_GF128HASH_ARCH
+ 	default y if PPC64 && VSX
+ 	default y if RISCV && 64BIT && TOOLCHAIN_HAS_VECTOR_CRYPTO && \
+ 		     RISCV_EFFICIENT_VECTOR_UNALIGNED_ACCESS
++	default y if RISCV && 64BIT && RISCV_ISA_XTHEADVECTOR
+ 	default y if S390
+ 	default y if X86_64
+ 
+diff --git a/lib/crypto/Makefile b/lib/crypto/Makefile
+index 59ce24025..1b3c4d2a2 100644
+--- a/lib/crypto/Makefile
++++ b/lib/crypto/Makefile
+@@ -180,7 +180,12 @@ targets += powerpc/ghashp8-ppc.S
+ OBJECT_FILES_NON_STANDARD_powerpc/ghashp8-ppc.o := y
+ endif
+ 
+-libgf128hash-$(CONFIG_RISCV) += riscv/ghash-riscv64-zvkg.o
++ifeq ($(CONFIG_RISCV),y)
++ifeq ($(CONFIG_TOOLCHAIN_HAS_VECTOR_CRYPTO)$(CONFIG_RISCV_EFFICIENT_VECTOR_UNALIGNED_ACCESS),yy)
++libgf128hash-y += riscv/ghash-riscv64-zvkg.o
++endif
++libgf128hash-$(CONFIG_RISCV_ISA_XTHEADVECTOR) += riscv/ghash-riscv64-c906.o
++endif
+ libgf128hash-$(CONFIG_X86) += x86/ghash-pclmul.o \
+ 			      x86/polyval-pclmul-avx.o
+ endif # CONFIG_CRYPTO_LIB_GF128HASH_ARCH
+diff --git a/lib/crypto/riscv/gf128hash.h b/lib/crypto/riscv/gf128hash.h
+index 4301a0384..7ef2adb7b 100644
+--- a/lib/crypto/riscv/gf128hash.h
++++ b/lib/crypto/riscv/gf128hash.h
+@@ -5,16 +5,63 @@
+  * Copyright (C) 2023 VRULL GmbH
+  * Copyright (C) 2023 SiFive, Inc.
+  * Copyright 2026 Google LLC
++ *
++ * T-Head C906 scalar backend: NanoKVM OS.
+  */
+ 
+ #include <asm/simd.h>
+ #include <asm/vector.h>
++#include <linux/linkage.h>
++
++/* Zvkg under the same conditions as before the C906 backend. */
++#if defined(CONFIG_TOOLCHAIN_HAS_VECTOR_CRYPTO) && \
++	defined(CONFIG_RISCV_EFFICIENT_VECTOR_UNALIGNED_ACCESS)
++#define GHASH_RISCV_ZVKG
++#endif
+ 
++#ifdef GHASH_RISCV_ZVKG
+ static __ro_after_init DEFINE_STATIC_KEY_FALSE(have_zvkg);
+ 
+ asmlinkage void ghash_zvkg(u8 accumulator[GHASH_BLOCK_SIZE],
+ 			   const u8 key[GHASH_BLOCK_SIZE],
+ 			   const u8 *data, size_t nblocks);
++#endif
++
++#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR
++static __ro_after_init DEFINE_STATIC_KEY_FALSE(have_c906);
++
++/*
++ * Scalar code, no vector state: usable in any context. Multiply operands are
++ * kept below 2^32, where the C906 multiplier is fast and its timing does not
++ * depend on the data.
++ */
++asmlinkage void ghash_blocks_c906(struct polyval_elem *acc, const u64 kp[40],
++				  const u8 *data, size_t nblocks);
++
++/* The key operands of ghash_blocks_c906(), see ghash-riscv64-c906.S. */
++static void ghash_c906_preparekey(u64 kp[40], const struct polyval_elem *h)
++{
++	static const u64 holes[4] = {
++		0x1111111111111111ULL, 0x2222222222222222ULL,
++		0x4444444444444444ULL, 0x8888888888888888ULL,
++	};
++	u64 lo = le64_to_cpu(h->lo), hi = le64_to_cpu(h->hi);
++	u64 parts[3] = { lo, hi, lo ^ hi };
++	int p, r, j;
++
++	for (j = 0; j < 4; j++)
++		kp[j] = holes[j];
++	for (p = 0; p < 3; p++) {
++		u64 x0 = (u32)parts[p], x1 = parts[p] >> 32;
++		u64 ops[3] = { x0, x1, x0 ^ x1 };
++
++		for (r = 0; r < 3; r++)
++			for (j = 0; j < 4; j++)
++				kp[4 + 4 * (3 * p + r) + j] = ops[r] & holes[j];
++	}
++	memzero_explicit(parts, sizeof(parts));
++}
++#endif
+ 
+ #define ghash_preparekey_arch ghash_preparekey_arch
+ static void ghash_preparekey_arch(struct ghash_key *key,
+@@ -25,6 +72,10 @@ static void ghash_preparekey_arch(struct ghash_key *key,
+ 
+ 	/* Save key in GHASH format for zvkg */
+ 	memcpy(key->h_raw, raw_key, GHASH_BLOCK_SIZE);
++
++#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR
++	ghash_c906_preparekey(key->c906_kp, &key->h);
++#endif
+ }
+ 
+ #define ghash_blocks_arch ghash_blocks_arch
+@@ -32,6 +83,7 @@ static void ghash_blocks_arch(struct polyval_elem *acc,
+ 			      const struct ghash_key *key,
+ 			      const u8 *data, size_t nblocks)
+ {
++#ifdef GHASH_RISCV_ZVKG
+ 	if (static_branch_likely(&have_zvkg) && likely(may_use_simd())) {
+ 		u8 ghash_acc[GHASH_BLOCK_SIZE];
+ 
+@@ -43,15 +95,32 @@ static void ghash_blocks_arch(struct polyval_elem *acc,
+ 
+ 		ghash_acc_to_polyval(ghash_acc, acc);
+ 		memzero_explicit(ghash_acc, sizeof(ghash_acc));
+-	} else {
+-		ghash_blocks_generic(acc, &key->h, data, nblocks);
++		return;
++	}
++#endif
++#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR
++	if (static_branch_likely(&have_c906)) {
++		ghash_blocks_c906(acc, key->c906_kp, data, nblocks);
++		return;
+ 	}
++#endif
++	ghash_blocks_generic(acc, &key->h, data, nblocks);
+ }
+ 
+ #define gf128hash_mod_init_arch gf128hash_mod_init_arch
+ static void gf128hash_mod_init_arch(void)
+ {
++#ifdef GHASH_RISCV_ZVKG
+ 	if (riscv_isa_extension_available(NULL, ZVKG) &&
+ 	    riscv_vector_vlen() >= 128)
+ 		static_branch_enable(&have_zvkg);
++#endif
++#ifdef CONFIG_RISCV_ISA_XTHEADVECTOR
++	/*
++	 * XTheadVector stands for a T-Head core here (C906, C910, C920): all
++	 * of them implement XTheadBb, whose th.rev the assembly uses.
++	 */
++	if (has_xtheadvector())
++		static_branch_enable(&have_c906);
++#endif
+ }
+diff --git a/lib/crypto/riscv/ghash-riscv64-c906.S b/lib/crypto/riscv/ghash-riscv64-c906.S
+new file mode 100644
+index 000000000..f49d89a31
+--- /dev/null
++++ b/lib/crypto/riscv/ghash-riscv64-c906.S
+@@ -0,0 +1,558 @@
++/* SPDX-License-Identifier: GPL-2.0-only OR BSD-3-Clause */
++/*
++ * Generated by firmware/cpu/go-crypto-c906/gen_ghash_linux.py
++ * (NanoKVM OS). Do not edit.
++ *
++ * GHASH for the T-Head C906 in scalar code. The 128x128 carryless product is
++ * nine 32x32 ones (two levels of Karatsuba), each sixteen integer multiplies
++ * of operands with their bits four apart, all below 2^32: one cycle each on
++ * the C906 instead of about four for wider operands, and data-independent
++ * timing. Reduction as in polyval_mul_generic().
++ *
++ * void ghash_blocks_c906(struct polyval_elem *acc, const u64 kp[40],
++ *                        const u8 *data, size_t nblocks);
++ *
++ * kp is the key split by ghash_preparekey_arch(), see the generator.
++ * Byte swaps use XTheadBb th.rev.
++ */
++
++#include <linux/linkage.h>
++
++	.text
++	.option push
++	.option arch, +xtheadbb
++SYM_FUNC_START(ghash_blocks_c906)
++	beqz	a3, .Lnone
++	addi	sp, sp, -144
++	sd	ra, 0(sp)
++	sd	s0, 8(sp)
++	sd	s1, 16(sp)
++	sd	s2, 24(sp)
++	sd	s3, 32(sp)
++	sd	s4, 40(sp)
++	sd	s5, 48(sp)
++	sd	s6, 56(sp)
++	sd	s7, 64(sp)
++	sd	s8, 72(sp)
++	sd	s9, 80(sp)
++	sd	s10, 88(sp)
++	sd	s11, 96(sp)
++	sd	a0, 104(sp)
++	slli	a3, a3, 4
++	add	a3, a3, a2
++	ld	t0, 0(a0)
++	ld	t1, 8(a0)
++	ld	a4, 0(a1)
++	ld	a5, 8(a1)
++	ld	a6, 16(a1)
++	ld	a7, 24(a1)
++.Lblock:
++	ld	t4, 8(a2)
++	ld	t5, 0(a2)
++	ld	s7, 224(a1)
++	th.rev	t4, t4
++	th.rev	t5, t5
++	xor	t0, t0, t4
++	xor	t1, t1, t5
++	xor	t2, t0, t1
++	slli	s0, t2, 32
++	ld	s10, 248(a1)
++	srli	s0, s0, 32
++	ld	s9, 240(a1)
++	and	s3, s0, a4
++	and	s4, s0, a5
++	ld	s8, 232(a1)
++	and	s5, s0, a6
++	mul	t4, s3, s7
++	mul	t5, s4, s10
++	and	s6, s0, a7
++	mul	t6, s5, s9
++	mul	ra, s6, s8
++	xor	s11, t4, t5
++	xor	s11, s11, t6
++	mul	a0, s3, s8
++	mul	t4, s4, s7
++	xor	s11, s11, ra
++	mul	t5, s5, s10
++	and	s1, s11, a4
++	mul	t6, s6, s9
++	xor	s11, a0, t4
++	xor	s11, s11, t5
++	xor	s11, s11, t6
++	mul	ra, s3, s9
++	mul	a0, s4, s8
++	and	s11, s11, a5
++	mul	t4, s5, s7
++	xor	s1, s1, s11
++	xor	s11, ra, a0
++	mul	t5, s6, s10
++	xor	s11, s11, t4
++	mul	t6, s3, s10
++	mul	t4, s6, s7
++	xor	s11, s11, t5
++	mul	ra, s4, s9
++	and	s11, s11, a6
++	mul	a0, s5, s8
++	xor	s1, s1, s11
++	ld	s7, 256(a1)
++	ld	s10, 280(a1)
++	xor	s11, t6, ra
++	srli	s0, t2, 32
++	ld	s9, 272(a1)
++	xor	s11, s11, a0
++	and	s3, s0, a4
++	and	s4, s0, a5
++	ld	s8, 264(a1)
++	xor	s11, s11, t4
++	and	s5, s0, a6
++	mul	t5, s3, s7
++	mul	t6, s4, s10
++	and	s11, s11, a7
++	and	s6, s0, a7
++	mul	ra, s5, s9
++	xor	s1, s1, s11
++	mul	a0, s6, s8
++	xor	s11, t5, t6
++	xor	s11, s11, ra
++	mul	t4, s3, s8
++	mul	t5, s4, s7
++	xor	s11, s11, a0
++	mul	t6, s5, s10
++	and	s2, s11, a4
++	mul	ra, s6, s9
++	xor	s11, t4, t5
++	xor	s11, s11, t6
++	xor	s11, s11, ra
++	mul	a0, s3, s9
++	mul	t4, s4, s8
++	and	s11, s11, a5
++	mul	t5, s5, s7
++	xor	s2, s2, s11
++	xor	s11, a0, t4
++	mul	t6, s6, s10
++	xor	s11, s11, t5
++	mul	ra, s3, s10
++	mul	t5, s6, s7
++	xor	s11, s11, t6
++	mul	a0, s4, s9
++	and	s11, s11, a6
++	mul	t4, s5, s8
++	slli	t3, t2, 32
++	xor	s2, s2, s11
++	srli	t3, t3, 32
++	ld	s7, 288(a1)
++	ld	s10, 312(a1)
++	xor	s11, ra, a0
++	xor	s0, s0, t3
++	ld	s9, 304(a1)
++	xor	s11, s11, t4
++	and	s3, s0, a4
++	and	s4, s0, a5
++	ld	s8, 296(a1)
++	xor	s11, s11, t5
++	and	s5, s0, a6
++	mul	t6, s3, s7
++	mul	ra, s4, s10
++	and	s11, s11, a7
++	and	s6, s0, a7
++	mul	a0, s5, s9
++	xor	s2, s2, s11
++	mul	t4, s6, s8
++	xor	s11, t6, ra
++	xor	s11, s11, a0
++	mul	t5, s3, s8
++	mul	t6, s4, s7
++	xor	s11, s11, t4
++	mul	ra, s5, s10
++	and	t3, s11, a4
++	mul	a0, s6, s9
++	xor	s11, t5, t6
++	xor	s11, s11, ra
++	xor	s11, s11, a0
++	mul	t4, s3, s9
++	mul	t5, s4, s8
++	and	s11, s11, a5
++	mul	t6, s5, s7
++	xor	t3, t3, s11
++	mul	ra, s6, s10
++	xor	s11, t4, t5
++	xor	s11, s11, t6
++	xor	s11, s11, ra
++	mul	a0, s3, s10
++	mul	t4, s4, s9
++	and	s11, s11, a6
++	mul	t5, s5, s8
++	xor	t3, t3, s11
++	mul	t6, s6, s7
++	xor	s11, a0, t4
++	xor	s11, s11, t5
++	xor	s11, s11, t6
++	and	s11, s11, a7
++	xor	t3, t3, s11
++	slli	s0, t0, 32
++	ld	s7, 32(a1)
++	ld	s10, 56(a1)
++	xor	t3, t3, s1
++	srli	s0, s0, 32
++	ld	s9, 48(a1)
++	xor	t3, t3, s2
++	and	s3, s0, a4
++	and	s4, s0, a5
++	ld	s8, 40(a1)
++	slli	ra, t3, 32
++	and	s5, s0, a6
++	mul	t4, s3, s7
++	mul	t5, s4, s10
++	xor	s1, s1, ra
++	and	s6, s0, a7
++	mul	t6, s5, s9
++	srli	a0, t3, 32
++	mul	ra, s6, s8
++	xor	s2, s2, a0
++	xor	s11, t4, t5
++	xor	s11, s11, t6
++	mul	a0, s3, s8
++	mul	t4, s4, s7
++	sd	s1, 120(sp)
++	xor	s11, s11, ra
++	mul	t5, s5, s10
++	and	s1, s11, a4
++	mul	t6, s6, s9
++	xor	s11, a0, t4
++	xor	s11, s11, t5
++	xor	s11, s11, t6
++	mul	ra, s3, s9
++	mul	a0, s4, s8
++	and	s11, s11, a5
++	mul	t4, s5, s7
++	xor	s1, s1, s11
++	xor	s11, ra, a0
++	mul	t5, s6, s10
++	xor	s11, s11, t4
++	mul	t6, s3, s10
++	mul	t4, s6, s7
++	xor	s11, s11, t5
++	mul	ra, s4, s9
++	and	s11, s11, a6
++	mul	a0, s5, s8
++	xor	s1, s1, s11
++	ld	s7, 64(a1)
++	ld	s10, 88(a1)
++	xor	s11, t6, ra
++	srli	s0, t0, 32
++	ld	s9, 80(a1)
++	xor	s11, s11, a0
++	and	s3, s0, a4
++	and	s4, s0, a5
++	ld	s8, 72(a1)
++	xor	s11, s11, t4
++	and	s5, s0, a6
++	mul	t5, s3, s7
++	mul	t6, s4, s10
++	and	s11, s11, a7
++	and	s6, s0, a7
++	mul	ra, s5, s9
++	xor	s1, s1, s11
++	mul	a0, s6, s8
++	xor	s11, t5, t6
++	xor	s11, s11, ra
++	mul	t4, s3, s8
++	mul	t5, s4, s7
++	sd	s2, 128(sp)
++	xor	s11, s11, a0
++	mul	t6, s5, s10
++	and	s2, s11, a4
++	mul	ra, s6, s9
++	xor	s11, t4, t5
++	xor	s11, s11, t6
++	xor	s11, s11, ra
++	mul	a0, s3, s9
++	mul	t4, s4, s8
++	and	s11, s11, a5
++	mul	t5, s5, s7
++	xor	s2, s2, s11
++	xor	s11, a0, t4
++	mul	t6, s6, s10
++	xor	s11, s11, t5
++	mul	ra, s3, s10
++	mul	t5, s6, s7
++	xor	s11, s11, t6
++	mul	a0, s4, s9
++	and	s11, s11, a6
++	mul	t4, s5, s8
++	slli	t3, t0, 32
++	xor	s2, s2, s11
++	srli	t3, t3, 32
++	ld	s7, 96(a1)
++	ld	s10, 120(a1)
++	xor	s11, ra, a0
++	xor	s0, s0, t3
++	ld	s9, 112(a1)
++	xor	s11, s11, t4
++	and	s3, s0, a4
++	and	s4, s0, a5
++	ld	s8, 104(a1)
++	xor	s11, s11, t5
++	and	s5, s0, a6
++	mul	t6, s3, s7
++	mul	ra, s4, s10
++	and	s11, s11, a7
++	and	s6, s0, a7
++	mul	a0, s5, s9
++	xor	s2, s2, s11
++	mul	t4, s6, s8
++	xor	s11, t6, ra
++	xor	s11, s11, a0
++	mul	t5, s3, s8
++	mul	t6, s4, s7
++	xor	s11, s11, t4
++	mul	ra, s5, s10
++	and	t3, s11, a4
++	mul	a0, s6, s9
++	xor	s11, t5, t6
++	xor	s11, s11, ra
++	xor	s11, s11, a0
++	mul	t4, s3, s9
++	mul	t5, s4, s8
++	and	s11, s11, a5
++	mul	t6, s5, s7
++	xor	t3, t3, s11
++	mul	ra, s6, s10
++	xor	s11, t4, t5
++	xor	s11, s11, t6
++	xor	s11, s11, ra
++	mul	a0, s3, s10
++	mul	t4, s4, s9
++	and	s11, s11, a6
++	mul	t5, s5, s8
++	xor	t3, t3, s11
++	mul	t6, s6, s7
++	xor	s11, a0, t4
++	xor	s11, s11, t5
++	xor	s11, s11, t6
++	and	s11, s11, a7
++	xor	t3, t3, s11
++	xor	t3, t3, s1
++	xor	t3, t3, s2
++	ld	t4, 120(sp)
++	slli	ra, t3, 32
++	xor	s1, s1, ra
++	xor	t4, t4, s1
++	sd	t4, 120(sp)
++	ld	t5, 120(sp)
++	slli	s0, t1, 32
++	ld	s7, 128(a1)
++	ld	s10, 152(a1)
++	srli	a0, t3, 32
++	srli	s0, s0, 32
++	ld	s9, 144(a1)
++	xor	s2, s2, a0
++	ld	t6, 128(sp)
++	and	s3, s0, a4
++	and	s4, s0, a5
++	ld	s8, 136(a1)
++	xor	t5, t5, s2
++	and	s5, s0, a6
++	mul	ra, s3, s7
++	mul	a0, s4, s10
++	sd	t5, 120(sp)
++	and	s6, s0, a7
++	mul	t4, s5, s9
++	xor	t6, t6, s2
++	mul	t5, s6, s8
++	sd	t6, 128(sp)
++	xor	s11, ra, a0
++	xor	s11, s11, t4
++	mul	t6, s3, s8
++	mul	ra, s4, s7
++	sd	s1, 112(sp)
++	xor	s11, s11, t5
++	mul	a0, s5, s10
++	and	s1, s11, a4
++	mul	t4, s6, s9
++	xor	s11, t6, ra
++	xor	s11, s11, a0
++	xor	s11, s11, t4
++	mul	t5, s3, s9
++	mul	t6, s4, s8
++	and	s11, s11, a5
++	mul	ra, s5, s7
++	xor	s1, s1, s11
++	xor	s11, t5, t6
++	mul	a0, s6, s10
++	xor	s11, s11, ra
++	mul	t4, s3, s10
++	mul	ra, s6, s7
++	xor	s11, s11, a0
++	mul	t5, s4, s9
++	and	s11, s11, a6
++	mul	t6, s5, s8
++	xor	s1, s1, s11
++	ld	s7, 160(a1)
++	ld	s10, 184(a1)
++	xor	s11, t4, t5
++	srli	s0, t1, 32
++	ld	s9, 176(a1)
++	xor	s11, s11, t6
++	and	s3, s0, a4
++	and	s4, s0, a5
++	ld	s8, 168(a1)
++	xor	s11, s11, ra
++	and	s5, s0, a6
++	mul	a0, s3, s7
++	mul	t4, s4, s10
++	and	s11, s11, a7
++	and	s6, s0, a7
++	mul	t5, s5, s9
++	xor	s1, s1, s11
++	mul	t6, s6, s8
++	xor	s11, a0, t4
++	xor	s11, s11, t5
++	mul	ra, s3, s8
++	mul	a0, s4, s7
++	xor	s11, s11, t6
++	mul	t4, s5, s10
++	and	s2, s11, a4
++	mul	t5, s6, s9
++	xor	s11, ra, a0
++	xor	s11, s11, t4
++	xor	s11, s11, t5
++	mul	t6, s3, s9
++	mul	ra, s4, s8
++	and	s11, s11, a5
++	mul	a0, s5, s7
++	xor	s2, s2, s11
++	xor	s11, t6, ra
++	mul	t4, s6, s10
++	xor	s11, s11, a0
++	mul	t5, s3, s10
++	mul	a0, s6, s7
++	xor	s11, s11, t4
++	mul	t6, s4, s9
++	and	s11, s11, a6
++	mul	ra, s5, s8
++	slli	t3, t1, 32
++	xor	s2, s2, s11
++	srli	t3, t3, 32
++	ld	s7, 192(a1)
++	ld	s10, 216(a1)
++	xor	s11, t5, t6
++	xor	s0, s0, t3
++	ld	s9, 208(a1)
++	xor	s11, s11, ra
++	and	s3, s0, a4
++	and	s4, s0, a5
++	ld	s8, 200(a1)
++	xor	s11, s11, a0
++	and	s5, s0, a6
++	mul	t4, s3, s7
++	mul	t5, s4, s10
++	and	s11, s11, a7
++	and	s6, s0, a7
++	mul	t6, s5, s9
++	xor	s2, s2, s11
++	mul	ra, s6, s8
++	xor	s11, t4, t5
++	xor	s11, s11, t6
++	mul	a0, s3, s8
++	mul	t4, s4, s7
++	xor	s11, s11, ra
++	mul	t5, s5, s10
++	and	t3, s11, a4
++	mul	t6, s6, s9
++	xor	s11, a0, t4
++	xor	s11, s11, t5
++	xor	s11, s11, t6
++	mul	ra, s3, s9
++	mul	a0, s4, s8
++	and	s11, s11, a5
++	mul	t4, s5, s7
++	xor	t3, t3, s11
++	mul	t5, s6, s10
++	xor	s11, ra, a0
++	xor	s11, s11, t4
++	xor	s11, s11, t5
++	mul	t6, s3, s10
++	mul	ra, s4, s9
++	and	s11, s11, a6
++	mul	a0, s5, s8
++	xor	t3, t3, s11
++	mul	t4, s6, s7
++	xor	s11, t6, ra
++	xor	s11, s11, a0
++	xor	s11, s11, t4
++	and	s11, s11, a7
++	xor	t3, t3, s11
++	xor	t3, t3, s1
++	xor	t3, t3, s2
++	ld	a0, 128(sp)
++	slli	t5, t3, 32
++	xor	s1, s1, t5
++	xor	a0, a0, s1
++	sd	a0, 128(sp)
++	ld	ra, 120(sp)
++	ld	t4, 128(sp)
++	srli	t6, t3, 32
++	xor	s2, s2, t6
++	xor	ra, ra, s1
++	xor	t4, t4, s2
++	sd	s2, 136(sp)
++	sd	ra, 120(sp)
++	sd	t4, 128(sp)
++	ld	t2, 112(sp)
++	ld	s2, 120(sp)
++	ld	t0, 128(sp)
++	slli	t5, t2, 63
++	ld	t1, 136(sp)
++	xor	s2, s2, t5
++	slli	t6, t2, 62
++	xor	t0, t0, t2
++	srli	a0, t2, 1
++	xor	s2, s2, t6
++	slli	ra, t2, 57
++	xor	t0, t0, a0
++	srli	t4, t2, 2
++	xor	s2, s2, ra
++	xor	t0, t0, t4
++	srli	t5, t2, 7
++	xor	t0, t0, t5
++	slli	t6, s2, 63
++	xor	t1, t1, s2
++	srli	t4, s2, 1
++	xor	t0, t0, t6
++	slli	ra, s2, 62
++	xor	t1, t1, t4
++	srli	t5, s2, 2
++	xor	t0, t0, ra
++	slli	a0, s2, 57
++	xor	t1, t1, t5
++	srli	t6, s2, 7
++	xor	t0, t0, a0
++	xor	t1, t1, t6
++	addi	a2, a2, 16
++	bltu	a2, a3, .Lblock
++	ld	a0, 104(sp)
++	sd	t0, 0(a0)
++	sd	t1, 8(a0)
++	ld	ra, 0(sp)
++	ld	s0, 8(sp)
++	ld	s1, 16(sp)
++	ld	s2, 24(sp)
++	ld	s3, 32(sp)
++	ld	s4, 40(sp)
++	ld	s5, 48(sp)
++	ld	s6, 56(sp)
++	ld	s7, 64(sp)
++	ld	s8, 72(sp)
++	ld	s9, 80(sp)
++	ld	s10, 88(sp)
++	ld	s11, 96(sp)
++	sd	zero, 112(sp)
++	sd	zero, 120(sp)
++	sd	zero, 128(sp)
++	sd	zero, 136(sp)
++	addi	sp, sp, 144
++.Lnone:
++	ret
++SYM_FUNC_END(ghash_blocks_c906)
++	.option pop

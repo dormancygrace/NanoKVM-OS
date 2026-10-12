@@ -165,6 +165,25 @@ and the kernel-side selection are in `docs/kernel-chacha-xtheadvector-20261012.m
 81 MB/s for a 1420-byte WireGuard packet and 93 MB/s for 16 KiB, against 42
 for the generic kernel code.
 
+## Scalar GHASH in the Linux kernel
+
+`gen_ghash_linux.py` emits `lib/crypto/riscv/ghash-riscv64-c906.S` for
+`platform/kernel/0041-crypto-riscv-c906-ghash.patch`. It needs no vector unit.
+The C906 multiplies operands below 2^32 in one pipelined cycle and wider ones
+in about four unpipelined cycles. So the 128x128 carryless product is nine
+32x32 ones, each sixteen multiplies of operands with their bits four apart, all
+below 2^32. The generator executes the generated function on random inputs
+against a bit-serial GHASH before writing or checking it:
+
+```sh
+python3 gen_ghash_linux.py --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
+```
+
+`linux-test/ghash_c906_test.c` carries the same assembly and key preparation
+and checks them on the device. Results are in
+`docs/kernel-ghash-c906-20261012.md`: 28-29 MB/s against 15 for the kernel's
+generic GHASH, which limits `gcm(aes)` on the SG2002.
+
 ## Multi-buffer HMAC-SHA1 (`server/internal/sha1mb`)
 
 SRTP authenticates every packet with HMAC-SHA1 (AES128_CM_HMAC_SHA1_80).

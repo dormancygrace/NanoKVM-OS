@@ -32,8 +32,8 @@ func TestVideoPoolGatesMatchTheModes(t *testing.T) {
 		// There is no UHD image as CMA: it failed to get its buffers.
 		{"uhd as CMA", VideoPool{MiB: 128, Reusable: true}, true, true, false},
 		{"no node", VideoPool{}, false, false, false},
-		{"just below QHD", VideoPool{MiB: 61}, false, false, false},
-		{"between QHD and portrait", VideoPool{MiB: 63}, true, false, false},
+		{"just below QHD", VideoPool{MiB: 53}, false, false, false},
+		{"just below UHD", VideoPool{MiB: 103}, true, true, false},
 	} {
 		if tc.pool.QHD() != tc.qhd || tc.pool.PortraitMax() != tc.portraitMax || tc.pool.UHD() != tc.uhd {
 			t.Errorf("%s: QHD %v portrait %v UHD %v", tc.name, tc.pool.QHD(), tc.pool.PortraitMax(), tc.pool.UHD())
@@ -49,7 +49,7 @@ func TestBootedVideoPoolReadsTheDeviceTree(t *testing.T) {
 	if p := BootedVideoPool(); p != (VideoPool{}) {
 		t.Fatalf("without a node: %+v", p)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x04, 0x40, 0x00, 0x00}, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x03, 0x80, 0x00, 0x00}, 0600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "reusable"), nil, 0600); err != nil {
@@ -64,7 +64,7 @@ func TestBootedVideoPoolReadsTheDeviceTree(t *testing.T) {
 	if err := os.Remove(filepath.Join(dir, "reusable")); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x07, 0x00, 0x00, 0x00}, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x06, 0x80, 0x00, 0x00}, 0600); err != nil {
 		t.Fatal(err)
 	}
 	if p := BootedVideoPool(); p != poolUHD || !SupportsUHD() {

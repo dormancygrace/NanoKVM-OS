@@ -132,7 +132,7 @@ int Capture::open_output(int index, int width, int height) {
     mmf_set_vi_vflip(ch, flip_);
     // When the encoder holds one buffer for about a whole frame period, VPSS
     // needs a third one or it drops input frames (3840x2160: 25 of 30 fps).
-    // QHD keeps two buffers in a 64 MiB pool, where a third does not fit.
+    // QHD keeps two buffers in its 54 MiB pool, where a third does not fit.
     const bool fast = (long)width * height * capture_rate_limit(width, height) > fast_pixel_rate;
     const bool room = width * height <= 1920 * 1088 || video_pool_mib() >= 96;
     const int buffers = fast && room ? 3 : 2;

@@ -56,20 +56,20 @@
 		// 0x8d000000 would be wasted. The OpenSBI DT in the FIP
 		// (platform/opensbi/sg2002.dts), whose reservations U-Boot copies,
 		// has none either, so Linux can use those 2 MiB.
-		/* Video memory, as the default FHD boot image: 52 MiB of
-		 * reusable CMA, so idle pages stay available to Linux. 1080p
-		 * H.265 with MJPEG peaks at 49 MiB. platform/build.sh derives
-		 * the other boot images from this node: QHD 68 MiB (1440p
-		 * peaks at 65 MiB), UHD 112 MiB (2160p H.265 SmartP holds
-		 * 111.8 MiB; MJPEG is not available at 2160p), and the
-		 * fixed variants, a carveout without
-		 * reusable and nanokvm,cma-backend, which are 2 MiB smaller
-		 * (50 and 66 MiB) because a CMA region must be a multiple
-		 * of 4 MiB. UHD is fixed only: as CMA it failed
-		 * to get its buffers on a cold boot under memory pressure. */
+		/* Video memory, as the default FHD boot image: 40 MiB of
+		 * reusable CMA, so idle pages stay available to Linux. Its
+		 * largest use is 39.8 MiB (1080x1920 at 100 Hz with MJPEG).
+		 * platform/build.sh derives the other boot images from this
+		 * node: QHD 54 MiB (1440p60 H.265 with MJPEG holds 53.9 MiB),
+		 * UHD 104 MiB (2160p30 H.265 holds 102.7 MiB; MJPEG is not
+		 * available at 2160p), and the fixed variants, a carveout
+		 * without reusable and nanokvm,cma-backend. The QHD CMA pool
+		 * is 56 MiB because a CMA region must be a multiple of 4 MiB.
+		 * UHD is fixed only: as CMA it failed to get its buffers on a
+		 * cold boot under memory pressure. */
 		ion_region: ion {
 			compatible = "shared-dma-pool";
-			size = <0x03400000>;
+			size = <0x02800000>;
 			alignment = <0x00400000>;
 			reusable;
 		};

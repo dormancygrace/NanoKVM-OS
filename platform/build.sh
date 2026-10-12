@@ -442,23 +442,22 @@ boot() {
             [ "$mode" = fhd ] || name=$profile-$mode
             dtb=$img/dtb/$name.dtb
             cp "$b/$profile.dtb" "$dtb"
-            # Same kernel and modules; only the video pool differs: 50 MiB
-            # (1920x1080), 66 MiB (2560x1440) or 112 MiB (3840x2160), as
+            # Same kernel and modules; only the video pool differs: 40 MiB
+            # (1920x1080), 54 MiB (2560x1440) or 104 MiB (3840x2160), as
             # reusable CMA (idle pages stay available to Linux) or as a
             # fixed carveout that Linux never uses. UHD is fixed only: CMA
             # cannot always migrate borrowed pages back for the UHD encoder
             # buffers (1 of 3 cold boots failed under memory pressure).
             # The device tree template is the FHD CMA pool.
             [ "$("$host/fdtget" -t s "$dtb" /reserved-memory/ion compatible)" = shared-dma-pool ]
-            [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 3400000 ]
+            [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 2800000 ]
             case $mode in
                 # CMA regions must be a multiple of 4 MiB (the kernel refuses "incorrect
                 # alignment of CMA region"), so the CMA pools are rounded up to it.
-                fhd-fixed) size=3200000 ;;
-                fhd) size=3400000 ;;
-                qhd-fixed) size=4200000 ;;
-                qhd) size=4400000 ;;
-                uhd) size=7000000 ;;
+                fhd-fixed|fhd) size=2800000 ;;
+                qhd-fixed) size=3600000 ;;
+                qhd) size=3800000 ;;
+                uhd) size=6800000 ;;
             esac
             "$host/fdtput" -t x "$dtb" /reserved-memory/ion size "$size"
             case $mode in

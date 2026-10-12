@@ -11,11 +11,11 @@ import (
 
 // The pools of the five video memory modes (platform/build.sh).
 var (
-	poolFHD      = VideoPool{MiB: 52, Reusable: true}
-	poolFHDFixed = VideoPool{MiB: 50}
-	poolQHD      = VideoPool{MiB: 68, Reusable: true}
-	poolQHDFixed = VideoPool{MiB: 66}
-	poolUHD      = VideoPool{MiB: 112}
+	poolFHD      = VideoPool{MiB: 40, Reusable: true}
+	poolFHDFixed = VideoPool{MiB: 40}
+	poolQHD      = VideoPool{MiB: 56, Reusable: true}
+	poolQHDFixed = VideoPool{MiB: 54}
+	poolUHD      = VideoPool{MiB: 104}
 )
 
 func TestVideoPoolGatesMatchTheModes(t *testing.T) {
@@ -70,12 +70,12 @@ func TestBootedVideoPoolReadsTheDeviceTree(t *testing.T) {
 	if p := BootedVideoPool(); p != poolUHD || !SupportsUHD() {
 		t.Fatalf("uhd: %+v", p)
 	}
-	// The 118 MiB UHD image of the previous release still captures 2160p;
-	// a fixed pool below 112 MiB does not.
+	// The 118 MiB UHD image of an earlier release still captures 2160p;
+	// a fixed pool below 104 MiB does not.
 	for _, tc := range []struct {
 		size []byte
 		uhd  bool
-	}{{[]byte{0x07, 0x60, 0x00, 0x00}, true}, {[]byte{0x06, 0xf0, 0x00, 0x00}, false}} {
+	}{{[]byte{0x07, 0x60, 0x00, 0x00}, true}, {[]byte{0x06, 0x70, 0x00, 0x00}, false}} {
 		if err := os.WriteFile(filepath.Join(dir, "size"), tc.size, 0600); err != nil {
 			t.Fatal(err)
 		}
@@ -172,7 +172,7 @@ func TestFitMonitorToVideoPool(t *testing.T) {
 		{"2160p as 128 MiB CMA", VideoPool{MiB: 128, Reusable: true}, 2160, false, 1920, 1440, false, 1, true},
 		{"portrait under FHD", poolFHD, 1080, true, 1920, 1080, false, 1, true},
 		{"portrait and 1440p under FHD in one write", poolFHD, 1440, true, 2560, 1080, false, 1, true},
-		{"maximum portrait below 64 MiB", VideoPool{MiB: 63}, 1080, true, 2560, 1080, false, 1, true},
+		{"maximum portrait below 54 MiB", VideoPool{MiB: 53}, 1080, true, 2560, 1080, false, 1, true},
 		{"no programmable EDID", poolFHD, 1440, true, 1920, 1440, true, 0, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

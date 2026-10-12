@@ -28,22 +28,23 @@ func BootedVideoPool() VideoPool {
 	return VideoPool{MiB: int(binary.BigEndian.Uint32(data) >> 20), Reusable: !os.IsNotExist(err)}
 }
 
-// QHD includes retained JPEG/H26x encoders and a lazy copy buffer. Keep at
-// least 2 MiB above their 59.914 MiB measured peak (see ION qualification).
-// The current native extended capture path requires the same pool for every
-// portrait profile except the maximum one.
-func (p VideoPool) QHD() bool { return p.MiB >= 62 }
+// QHD is the 54 MiB video pool of 2560x1440 and the portrait profiles:
+// 1440p60 H.265 with MJPEG holds 53.9 MiB (see kvm_vision.cpp). Copied-frame
+// fallback buffers are released as soon as native frames flow again, so
+// they are not part of the steady peak.
+func (p VideoPool) QHD() bool { return p.MiB >= 54 }
 
-// PortraitMax is the 1440x2560 portrait profile, separately gated at 64 MiB.
-func (p VideoPool) PortraitMax() bool { return p.MiB >= 64 }
+// PortraitMax is the 1440x2560 portrait profile (H.265 only, no MJPEG:
+// 41.3 MiB); it needs the QHD pool like the other portrait profiles.
+func (p VideoPool) PortraitMax() bool { return p.MiB >= 54 }
 
-// UHD is the 112 MiB video pool that 3840x2160 needs: H.265 SmartP holds
-// 111.8 MiB (see uhd_ion_mib in kvm_vision.cpp). Pools of earlier releases
-// (118 and 128 MiB) pass too. It must be a fixed carveout: as CMA
+// UHD is the 104 MiB video pool that 3840x2160 needs: H.265 holds 102.7 MiB
+// (see uhd_ion_mib in kvm_vision.cpp). Pools of earlier releases (112, 118
+// and 128 MiB) pass too. It must be a fixed carveout: as CMA
 // the encoder's UHD buffers failed on 1 of 3 cold boots under memory
 // pressure (28 cma_alloc failures), when Linux's borrowed pages could not be
 // migrated back.
-func (p VideoPool) UHD() bool { return p.MiB >= 112 && !p.Reusable }
+func (p VideoPool) UHD() bool { return p.MiB >= 104 && !p.Reusable }
 
 // MonitorFitsVideoPool reports why the saved HDMI monitor profile cannot be
 // captured with a video pool, or nil when it can: the EDID advertises the

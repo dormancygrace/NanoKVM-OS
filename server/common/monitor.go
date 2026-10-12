@@ -43,9 +43,8 @@ func MonitorPortraitEnabled() bool {
 }
 
 // PortraitSupported reports whether the portrait monitor profile can be
-// applied on this device. The current native extended capture path requires
-// the QHD video memory (62 MiB, see VideoPool) until a smaller allocation is
-// qualified.
+// applied on this device. The native extended capture path requires the
+// QHD video memory (54 MiB, see VideoPool).
 func PortraitSupported() bool {
 	_, supported := MonitorPortraitStatus()
 	return supported
@@ -61,7 +60,7 @@ func PortraitResolution() uint16 {
 }
 
 // PortraitMaxSupported reports whether the maximum portrait profile can be
-// applied on this device. The max profile is separately gated at 64 MiB ION.
+// applied on this device. It needs the QHD video memory like the others.
 func PortraitMaxSupported() bool {
 	monitorMutex.Lock()
 	defer monitorMutex.Unlock()

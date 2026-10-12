@@ -5,6 +5,18 @@ import { DIRECT_H264_CODEC, DIRECT_H265_CODEC } from '@/lib/encoder.ts';
 import { DirectMetrics } from './direct-metrics.ts';
 import { DirectPlayout } from './direct-playout.ts';
 
+// The encoder writes no VUI, so the stream does not say how its YUV is coded.
+// The HDMI receiver delivers limited-range (16-235) BT.709 video; WebRTC's
+// decoders assume that, while WebCodecs drew it as full range on the canvas:
+// greyish black, dull colours. The config's colorSpace overrides the missing
+// in-band description.
+const DIRECT_COLOR_SPACE: VideoColorSpaceInit = {
+  primaries: 'bt709',
+  transfer: 'bt709',
+  matrix: 'bt709',
+  fullRange: false
+};
+
 let canvas: OffscreenCanvas | null = null;
 let ctx: OffscreenCanvasRenderingContext2D | null = null;
 let rendering: boolean = false;
@@ -334,6 +346,7 @@ function createDecoder(): VideoDecoder | null {
     };
     instance.configure({
       codec: codec === 'h265' ? DIRECT_H265_CODEC : DIRECT_H264_CODEC,
+      colorSpace: DIRECT_COLOR_SPACE,
       hardwareAcceleration: decoderPreference,
       optimizeForLatency: true
     });

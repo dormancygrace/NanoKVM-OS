@@ -198,9 +198,11 @@ struct venc_tuning_t {
 	int row_qp_delta = -1; // -1: driver default
 	int thrd_lv = -1;
 	int stats = 0;        // 1: per-second statistics in /run/nanokvm-venc-stats
+	int buf_kb = 0;       // stream buffer; 0: sized from the picture (venc_stream_buffer)
 };
 
 static venc_tuning_t venc_tuning;
+static constexpr uint64_t venc_pending_limit_ms = 3000;
 
 static venc_tuning_t load_venc_tuning(void)
 {
@@ -221,12 +223,13 @@ static venc_tuning_t load_venc_tuning(void)
 		else if (!strcmp(key, "row_qp_delta")) t.row_qp_delta = value;
 		else if (!strcmp(key, "thrd_lv")) t.thrd_lv = value;
 		else if (!strcmp(key, "stats")) t.stats = value;
+		else if (!strcmp(key, "buf_kb")) t.buf_kb = value;
 	}
 	fclose(f);
 	fprintf(stderr, "[kvm_mmf] VENC tuning override: idr_seconds=%d h264_high=%d qp=%d..%d iqp=%d..%d "
-		"max_iprop=%d ip_qp_delta=%d row_qp_delta=%d thrd_lv=%d stats=%d\n",
+		"max_iprop=%d ip_qp_delta=%d row_qp_delta=%d thrd_lv=%d stats=%d buf_kb=%d\n",
 		t.idr_seconds, t.h264_high, t.min_qp, t.max_qp, t.min_iqp, t.max_iqp,
-		t.max_iprop, t.ip_qp_delta, t.row_qp_delta, t.thrd_lv, t.stats);
+		t.max_iprop, t.ip_qp_delta, t.row_qp_delta, t.thrd_lv, t.stats, t.buf_kb);
 	fflush(stderr);
 	return t;
 }
@@ -2152,6 +2155,22 @@ void mmf_get_vi_vflip(int ch, bool *en)
 	*en = (bool)g_priv.vi_vflip[ch];
 }
 
+/*
+ * The stream buffer holds the encoded frames until they are fetched. A frame
+ * that does not fit is dropped by the driver, which then halves the bitrate
+ * and forces an IDR; 1 MiB was too small for 2560x1440 at 20 Mbit/s (IDRs of
+ * 650 KB plus queued deltas). One byte per pixel (3.5 MiB at 2560x1440, 8 MiB
+ * at 3840x2160) holds the largest IDR seen with room for the queue.
+ */
+static CVI_U32 venc_stream_buffer(const mmf_venc_cfg_t *cfg)
+{
+	CVI_U32 bytes = venc_tuning.buf_kb > 0 ? (CVI_U32)venc_tuning.buf_kb << 10
+		: (CVI_U32)cfg->w * (CVI_U32)cfg->h;
+	bytes = MAX(bytes, 1u << 20);
+	bytes = MIN(bytes, 8u << 20);
+	return (bytes + 0xffff) & ~0xffffu;
+}
+
 // The IDR interval in frames: venc_tuning.idr_seconds at the output rate.
 static CVI_U32 venc_idr_interval(const mmf_venc_cfg_t *cfg)
 {
@@ -2247,14 +2266,13 @@ int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 	stVencChnAttr.stVencAttr.enType = cfg->type == 1 ? PT_H265 : PT_H264;
 	stVencChnAttr.stVencAttr.u32MaxPicWidth = cfg->w;
 	stVencChnAttr.stVencAttr.u32MaxPicHeight = cfg->h;
-	// 1 MiB up to QHD; 4 MiB for 3840x2160, whose I-frames exceed 1 MiB.
-	stVencChnAttr.stVencAttr.u32BufSize = cfg->w * cfg->h > 2560 * 1440 ? 4 << 20 : 1 << 20;
+	venc_tuning = load_venc_tuning();
+	stVencChnAttr.stVencAttr.u32BufSize = venc_stream_buffer(cfg);
 	stVencChnAttr.stVencAttr.bByFrame = CVI_TRUE;
 	stVencChnAttr.stVencAttr.u32PicWidth = cfg->w;
 	stVencChnAttr.stVencAttr.u32PicHeight = cfg->h;
 	stVencChnAttr.stVencAttr.bEsBufQueueEn = CVI_TRUE;
 	stVencChnAttr.stVencAttr.bIsoSendFrmEn = CVI_TRUE;
-	venc_tuning = load_venc_tuning();
 	if (cfg->type == 2 && venc_tuning.h264_high) {
 		// The stream is Main with CABAC today; High adds the 8x8 transform.
 		stVencChnAttr.stVencAttr.u32Profile = H264E_PROFILE_HIGH;
@@ -2339,9 +2357,10 @@ int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 	// on a codec change, and teardown releases any remaining allocation.
 	fprintf(stderr,
 		"[kvm_mmf] VENC channel %d initialized: codec=%d rc=cbr size=%ux%u "
-		"bitrate=%u idr_interval=%u src_fps=%d dst_fps=%d "
+		"bitrate=%u idr_interval=%u stream_buffer=%uKiB src_fps=%d dst_fps=%d "
 		"(rate metadata; wall pacing unmeasured)\n",
 		ch, cfg->type, cfg->w, cfg->h, cfg->bitrate, venc_idr_interval(cfg),
+		stVencChnAttr.stVencAttr.u32BufSize >> 10,
 		cfg->intput_fps, cfg->output_fps);
 	fflush(stderr);
 
@@ -2360,14 +2379,27 @@ int mmf_del_venc_channel(int ch) {
 		ch, info->cfg.type, info->is_running);
 	fflush(stderr);
 
+	// A submitted frame that never completes leaves the input lease held:
+	// with both VPSS buffers taken, capture stops for good. Reset the channel
+	// and release the lease instead (wedged_vi below).
+	int wedged_vi = -1;
 	if (info->is_running || priv.venc_stream_acquired[ch]) {
 		mmf_stream_t stream = {};
+		int drained = CVI_SUCCESS;
 		if (!priv.venc_stream_acquired[ch]) {
-			const int drained = mmf_venc_pop(ch, &stream);
-			if (drained != CVI_SUCCESS) return drained;
+			drained = mmf_venc_pop(ch, &stream);
+			if (drained != CVI_SUCCESS && drained != CVI_ERR_VENC_BUSY) return drained;
 		}
-		const int released = mmf_venc_free(ch);
-		if (released != CVI_SUCCESS) return released;
+		if (drained == CVI_ERR_VENC_BUSY) {
+			fprintf(stderr, "[kvm_mmf] VENC channel %d is wedged; resetting it and releasing its input\n", ch);
+			fflush(stderr);
+			wedged_vi = priv.venc_input_vi_ch[ch];
+			info->is_running = 0;
+			priv.venc_input_vi_ch[ch] = -1;
+		} else {
+			const int released = mmf_venc_free(ch);
+			if (released != CVI_SUCCESS) return released;
+		}
 	}
 
 	CVI_S32 s32Ret = CVI_SUCCESS;
@@ -2394,6 +2426,12 @@ int mmf_del_venc_channel(int ch) {
 		}
 		fprintf(stderr, "[kvm_mmf] CVI_VENC_DestroyChn(%d) attempt %d failed with %#x\n",
 			ch, attempt + 1, destroyRet);
+		fflush(stderr);
+	}
+	if (wedged_vi >= 0) {
+		const int released = _mmf_release_vi_frame(wedged_vi);
+		fprintf(stderr, "[kvm_mmf] released input %d of wedged VENC channel %d: %#x\n",
+			wedged_vi, ch, released);
 		fflush(stderr);
 	}
 	if (destroyRet != CVI_SUCCESS) {
@@ -2665,14 +2703,29 @@ int mmf_venc_pop(int ch, mmf_stream_t *stream) {
 	}
 
 	if (stStatus.u32CurPacks > 0) {
+		// A frame takes at most one frame period in the hardware. One that is
+		// still pending after venc_pending_limit_ms never completes (the
+		// channel is wedged); report it so teardown can reset the channel
+		// instead of every read waiting forever.
+		const uint64_t started = venc_now_us();
 		unsigned pending_waits = 0;
 		do {
 			s32Ret = CVI_VENC_GetStream(ch, venc_stream, 1000);
-			if (s32Ret == CVI_ERR_VENC_BUSY && (++pending_waits == 1 || pending_waits % 5 == 0)) {
-				fprintf(stderr, "[kvm_mmf] VENC channel %d frame still pending after %u waits; retaining input\n", ch, pending_waits);
+			if (s32Ret != CVI_ERR_VENC_BUSY) break;
+			const uint64_t waited_ms = (venc_now_us() - started) / 1000;
+			if (++pending_waits == 1 || pending_waits % 1000 == 0) {
+				fprintf(stderr, "[kvm_mmf] VENC channel %d frame still pending after %llu ms; retaining input\n",
+					ch, (unsigned long long)waited_ms);
+				fflush(stderr);
 			}
-			if (s32Ret == CVI_ERR_VENC_BUSY) usleep(1000);
-		} while (s32Ret == CVI_ERR_VENC_BUSY);
+			if (waited_ms >= venc_pending_limit_ms) {
+				fprintf(stderr, "[kvm_mmf] VENC channel %d frame did not complete in %llu ms\n",
+					ch, (unsigned long long)waited_ms);
+				fflush(stderr);
+				return CVI_ERR_VENC_BUSY;
+			}
+			usleep(1000);
+		} while (true);
 		if (s32Ret != CVI_SUCCESS) {
 			printf("CVI_VENC_GetStream failed with %#x\n", s32Ret);
 			return s32Ret;

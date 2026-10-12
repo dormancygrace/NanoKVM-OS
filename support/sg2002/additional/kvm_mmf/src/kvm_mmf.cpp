@@ -202,6 +202,7 @@ struct venc_tuning_t {
 	int thrd_lv = -1;
 	int stats = 0;        // 1: per-second statistics in /run/nanokvm-venc-stats
 	int buf_kb = 0;       // stream buffer; 0: sized from the picture (venc_stream_buffer)
+	int jpeg_buf_kb = 0;  // JPEG bitstream buffer; 0: sized from the picture (jpeg_stream_buffer)
 };
 
 static venc_tuning_t venc_tuning;
@@ -227,12 +228,13 @@ static venc_tuning_t load_venc_tuning(void)
 		else if (!strcmp(key, "thrd_lv")) t.thrd_lv = value;
 		else if (!strcmp(key, "stats")) t.stats = value;
 		else if (!strcmp(key, "buf_kb")) t.buf_kb = value;
+		else if (!strcmp(key, "jpeg_buf_kb")) t.jpeg_buf_kb = value;
 	}
 	fclose(f);
 	fprintf(stderr, "[kvm_mmf] VENC tuning override: idr_seconds=%d h264_high=%d qp=%d..%d iqp=%d..%d "
-		"max_iprop=%d ip_qp_delta=%d row_qp_delta=%d thrd_lv=%d stats=%d buf_kb=%d\n",
+		"max_iprop=%d ip_qp_delta=%d row_qp_delta=%d thrd_lv=%d stats=%d buf_kb=%d jpeg_buf_kb=%d\n",
 		t.idr_seconds, t.h264_high, t.min_qp, t.max_qp, t.min_iqp, t.max_iqp,
-		t.max_iprop, t.ip_qp_delta, t.row_qp_delta, t.thrd_lv, t.stats, t.buf_kb);
+		t.max_iprop, t.ip_qp_delta, t.row_qp_delta, t.thrd_lv, t.stats, t.buf_kb, t.jpeg_buf_kb);
 	fflush(stderr);
 	return t;
 }
@@ -1668,6 +1670,22 @@ int mmf_region_frame_push(int ch, void *data, int len)
 	return s32Ret;
 }
 
+/*
+ * The JPEG bitstream buffer. Without a size the driver allocates 9 MiB of
+ * the video heap for any picture (LARGE_STREAM_BUF_SIZE, 4096x2304), while
+ * a 2560x1440 frame of a desktop is well under 1 MiB. Half a byte per pixel
+ * (1.76 MiB at 2560x1440, 1 MiB at 1920x1080) holds every frame seen; a
+ * larger one is not lost: on INT_JPU_BIT_BUF_FULL the driver saves the
+ * filled part and continues (cviJpgEncBufFullSaveStream).
+ */
+static CVI_U32 jpeg_stream_buffer(int w, int h)
+{
+	const venc_tuning_t t = load_venc_tuning();
+	CVI_U32 bytes = t.jpeg_buf_kb > 0 ? (CVI_U32)t.jpeg_buf_kb << 10 : (CVI_U32)w * (CVI_U32)h / 2;
+	if (t.jpeg_buf_kb <= 0) bytes = MAX(bytes, 512u << 10);
+	return (bytes + 0x3ff) & ~0x3ffu; // the driver needs a multiple of 1 KiB
+}
+
 int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 {
 	if (priv.enc_jpg_is_init)
@@ -1696,6 +1714,7 @@ int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 	VENC_CHN_ATTR_S stVencChnAttr;
 	memset(&stVencChnAttr, 0, sizeof(VENC_CHN_ATTR_S));
 	stVencChnAttr.stVencAttr.enType = PT_JPEG;
+	stVencChnAttr.stVencAttr.u32BufSize = jpeg_stream_buffer(w, h);
 	stVencChnAttr.stVencAttr.u32MaxPicWidth = w;
 	stVencChnAttr.stVencAttr.u32MaxPicHeight = h;
 	stVencChnAttr.stVencAttr.u32PicWidth = w;
@@ -1981,6 +2000,46 @@ static bool diagnostic_force_copy()
     return value && strcmp(value, "1") == 0;
 }
 
+/*
+ * The copied-frame fallbacks (_mmf_venc_push_copy, _mmf_jpg_push_copy) take a
+ * whole picture of the video pool: 5.3 MiB at 2560x1440, 11.9 MiB at
+ * 3840x2160. The pools are sized for the native path, so a copy buffer is
+ * released as soon as the native path sends a frame again; one that stayed
+ * would leave no room for MJPEG next to the video encoder. Both helpers run
+ * only while the encoder does not hold the copied frame: the JPEG one is
+ * called when the encoder is idle or has just taken a native frame.
+ */
+static int _mmf_release_venc_copy(int ch) {
+    venc_info_t *info = &priv.venc[ch];
+    if (!info->is_inited || info->is_running || priv.venc_stream_acquired[ch]) return CVI_SUCCESS;
+    if (info->capture_frame) {
+        const int released = _mmf_free_frame(info->capture_frame);
+        info->capture_frame = NULL;
+        if (released != CVI_SUCCESS) return released;
+    }
+    if (info->pool_id != VB_INVALID_POOLID) {
+        const int released = _destroy_vb_pool(info->pool_id);
+        if (released != CVI_SUCCESS) return released;
+        info->pool_id = VB_INVALID_POOLID;
+    }
+    return CVI_SUCCESS;
+}
+
+static int _mmf_release_jpg_copy(void) {
+    if (!priv.enc_jpg_is_init || priv.enc_jpg_frame_fmt != PIXEL_FORMAT_NV21) return CVI_SUCCESS;
+    if (priv.enc_jpg_frame) {
+        const int released = _mmf_free_frame(priv.enc_jpg_frame);
+        priv.enc_jpg_frame = NULL;
+        if (released != CVI_SUCCESS) return released;
+    }
+    if (priv.enc_jpg_input_pool_id != VB_INVALID_POOLID) {
+        const int released = _destroy_vb_pool(priv.enc_jpg_input_pool_id);
+        if (released != CVI_SUCCESS) return released;
+        priv.enc_jpg_input_pool_id = VB_INVALID_POOLID;
+    }
+    return CVI_SUCCESS;
+}
+
 int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality)
 {
 	if (ch < 0 || ch >= MMF_VENC_MAX_CHN || vi_ch < 0 || vi_ch >= MMF_VI_MAX_CHN
@@ -2025,6 +2084,9 @@ int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality)
 	}
 
 	priv.enc_jpg_running = 1;
+	// The native frame is with the encoder: a copy buffer left from a
+	// fallback is idle now (see _mmf_release_jpg_copy).
+	if (priv.enc_jpg_frame) _mmf_release_jpg_copy();
 	return s32Ret;
 }
 
@@ -2553,31 +2615,10 @@ int mmf_trim_idle_copy_buffers(void) {
     // Called under the capture owner's serialization when changing codec.
     // Keep encoders alive for mixed clients, but not unused copy reserves.
     for (int ch = 0; ch < MMF_VENC_MAX_CHN; ++ch) {
-        venc_info_t *info = &priv.venc[ch];
-        if (!info->is_inited || info->is_running || priv.venc_stream_acquired[ch]) continue;
-        if (info->capture_frame) {
-            const int released = _mmf_free_frame(info->capture_frame);
-            info->capture_frame = NULL;
-            if (released != CVI_SUCCESS) return released;
-        }
-        if (info->pool_id != VB_INVALID_POOLID) {
-            const int released = _destroy_vb_pool(info->pool_id);
-            if (released != CVI_SUCCESS) return released;
-            info->pool_id = VB_INVALID_POOLID;
-        }
-    }
-    if (priv.enc_jpg_is_init && !priv.enc_jpg_running
-        && priv.enc_jpg_frame_fmt == PIXEL_FORMAT_NV21) {
-        if (priv.enc_jpg_frame) {
-            const int released = _mmf_free_frame(priv.enc_jpg_frame);
-            priv.enc_jpg_frame = NULL;
-            if (released != CVI_SUCCESS) return released;
-        }
-        const int released = _destroy_vb_pool(priv.enc_jpg_input_pool_id);
+        const int released = _mmf_release_venc_copy(ch);
         if (released != CVI_SUCCESS) return released;
-        priv.enc_jpg_input_pool_id = VB_INVALID_POOLID;
     }
-    return CVI_SUCCESS;
+    return priv.enc_jpg_running ? CVI_SUCCESS : _mmf_release_jpg_copy();
 }
 
 int mmf_venc_push_vi(int ch, int vi_ch) {
@@ -2599,6 +2640,9 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
 
 	CVI_S32 ret = diagnostic_force_copy() ? CVI_FAILURE : CVI_VENC_SendFrame(ch, frame, 1000);
 	if (ret == CVI_SUCCESS) {
+		// A copy buffer left from a fallback is idle: the encoder finished
+		// with it before this frame (see _mmf_release_venc_copy).
+		if (info->capture_frame) _mmf_release_venc_copy(ch);
 		info->is_running = 1;
 		priv.venc_input_vi_ch[ch] = vi_ch;
 		return 0;

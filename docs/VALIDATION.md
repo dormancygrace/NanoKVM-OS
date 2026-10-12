@@ -1,6 +1,19 @@
-# Current release
+# Validation records
 
-See [beta-13 acceptance](BETA13-ACCEPTANCE.md). The records below are historical.
+Validation applies to the exact source, artifacts and hardware named in each
+record. A successful build or an older device test does not qualify a newer image.
+
+- [v2.5-a1 / Image v1.0-a1](RELEASE-v2.5-a1-VALIDATION.md): published-release build and hardware records.
+- [Current platform checks](../platform/README.md#verification): compiler audits, output verification and hardware acceptance requirements.
+- [Dependency refresh](dependency-refresh-20261012.md): host/component checks and remaining full-image release work.
+- [HDMI-light device results](hdmi-light-hardware-20261011.md): the tested media profile and its limits.
+
+## Historical beta-1 through beta-4 record
+
+Everything below describes the original releases. Their frame-rate limits,
+update formats, OpenVPN implementation and CryptoDMA findings are not a
+specification of current main. Use [VIDEO.md](VIDEO.md), [UPDATES.md](UPDATES.md)
+and [VPN.md](VPN.md) for current behavior.
 
 # Beta-4 validation and known issues
 

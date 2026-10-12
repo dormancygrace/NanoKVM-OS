@@ -34,7 +34,7 @@ support/sg2002/additional/original
 kvmapp/server/dl_lib
 kvmapp/kvm_system/kvm_system
 
-# Release packages assembled by scripts/package.sh
+# Generated platform, component and release artifacts
 /build/
 # Generated serial terminal and corresponding source/license bundle.
 /kvmapp/system/bin/picocom

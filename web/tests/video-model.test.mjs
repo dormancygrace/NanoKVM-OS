@@ -90,8 +90,6 @@ const draft = (over = {}) => ({
   codec: 'h265',
   bitRate: 3000,
   quality: 80,
-  gop: 30,
-  gopMode: 1,
   mjpegChroma: 422,
   directPlayback: 'paced',
   frameDetect: false,
@@ -143,46 +141,52 @@ test('unavailable choices carry their reason', () => {
   assert.equal(model.draftIssues(draft({ fps: 5 }), c, everything).fps, 'range');
 });
 
-test('presets build coherent drafts', () => {
-  const sharp = model.buildPreset('sharp', caps(), everything, draft()).draft;
-  assert.equal(sharp.monitor, 2160);
-  assert.equal(sharp.fps, 30);
-  assert.equal(sharp.codec, 'h265');
-  const sharpQhd = model.buildPreset('sharp', caps({ uhd: false }), everything, draft()).draft;
-  assert.equal(sharpQhd.monitor, 1440);
-  assert.equal(sharpQhd.fps, 60);
-  const responsive = model.buildPreset('responsive', caps(), everything, draft()).draft;
-  assert.deepEqual([responsive.monitor, responsive.fps, responsive.directPlayback], [720, 120, 'immediate']);
-  const compatible = model.buildPreset('compatible', caps(), everything, draft()).draft;
-  assert.deepEqual([compatible.transport, compatible.codec, compatible.fps], ['webrtc', 'h264', 60]);
-  const saver = model.buildPreset('saver', caps(), everything, draft()).draft;
-  assert.equal(model.monitorTarget(saver, caps()).refresh, 30);
-  assert.equal(saver.height, 1080);
+test('modes list every monitor size at its refresh rates, then portrait', () => {
+  const keys = model.videoModes(caps()).map((m) => m.key);
+  assert.deepEqual([...keys.slice(0, 5)], ['m2160@30', 'm1440@60', 'm1440@50', 'm1440@40', 'm1440@30']);
+  assert.ok(keys.includes('m720@120'));
+  assert.ok(!keys.some((k) => k.startsWith('m0@')), 'Auto is not a mode of its own');
+  assert.deepEqual([...keys.slice(-3)], ['p2560@60', 'p2560@50', 'p2560@30']);
+  const uhd = model.videoModes(caps({ uhd: false })).find((m) => m.key === 'm2160@30');
+  assert.deepEqual([uhd.available, uhd.reason], [false, 'video-memory']);
 });
 
-test('presets fall back to what the browser plays', () => {
-  const noDirect = { direct: false, webrtc: true, directH265: false, webrtcH265: false };
-  const auto = model.buildPreset('auto', caps(), noDirect, draft()).draft;
-  assert.deepEqual([auto.transport, auto.codec], ['webrtc', 'h264']);
-  const nothing = { direct: false, webrtc: false, directH265: false, webrtcH265: false };
-  assert.equal(model.buildPreset('sharp', caps(), nothing, draft()).reason, 'browser');
-  assert.equal(model.buildPreset('compatible', caps(), nothing, draft()).draft.transport, 'mjpeg');
+test('a fixed receiver offers the input size at the stream rates', () => {
+  const modes = model.videoModes(caps({ programmable: false }));
+  assert.deepEqual([...modes.map((m) => m.key)], ['i1440@60', 'i1440@50', 'i1440@40', 'i1440@30']);
+  assert.equal(model.modeOf(draft({ fps: 50 }), caps({ programmable: false })).key, 'i1440@50');
 });
 
-test('presets keep a portrait monitor and a fixed receiver', () => {
-  const portrait = model.buildPreset('balanced', caps(), everything, draft({ portrait: 1920 })).draft;
-  assert.equal(portrait.portrait, 1920);
-  assert.equal(portrait.monitor, 0);
-  const fixed = model.buildPreset('sharp', caps({ programmable: false }), everything, draft()).draft;
-  assert.equal(fixed.monitor, 0);
+test('the recommended mode is 1440p60, else 1080p60', () => {
+  assert.equal(model.recommendedMode(caps()).key, 'm1440@60');
+  const noQhd = caps();
+  noQhd.monitor.modes = noQhd.monitor.modes.map((m) =>
+    m.height === 1440 ? { ...m, available: false, reason: 'video-memory' } : m
+  );
+  assert.equal(model.recommendedMode(noQhd).key, 'm1080@60');
 });
 
-test('a preset is recognized after it is applied', () => {
-  for (const id of model.PRESETS) {
-    const built = model.buildPreset(id, caps(), everything, draft());
-    assert.equal(model.matchPreset(built.draft, caps(), everything), id);
-  }
-  assert.equal(model.matchPreset(draft({ bitRate: 15000, gop: 7 }), caps(), everything), 'custom');
+test('a draft is in the mode of its monitor and rate', () => {
+  const c = caps();
+  assert.equal(model.modeOf(draft({ monitor: 1440, fps: 60 }), c).key, 'm1440@60');
+  // Auto stands for 1920x1080.
+  assert.equal(model.modeOf(draft({ monitor: 0, fps: 100 }), c).key, 'm1080@100');
+  assert.equal(model.modeOf(draft({ portrait: 1920, fps: 75 }), c).key, 'p1920@75');
+  assert.equal(model.modeOf(draft({ monitor: 1440, fps: 45 }), c), undefined);
+});
+
+test('applying a mode sets the monitor and the rate, and fits portrait limits', () => {
+  const c = caps();
+  const mode = (key) => model.videoModes(c).find((m) => m.key === key);
+  const qhd = model.withMode(draft({ portrait: 1920 }), mode('m1440@60'), c);
+  assert.deepEqual([qhd.monitor, qhd.portrait, qhd.fps], [1440, 0, 60]);
+  const tall = model.withMode(draft({ transport: 'mjpeg', codec: 'h264' }), mode('p2560@50'), c);
+  assert.deepEqual([tall.portrait, tall.fps, tall.transport, tall.codec], [2560, 50, 'direct', 'h265']);
+  assert.deepEqual({ ...model.draftIssues(tall, c, everything) }, {});
+  // A fixed receiver keeps its monitor.
+  const fixed = caps({ programmable: false });
+  const rate = model.withMode(draft({ monitor: 1080 }), model.videoModes(fixed)[0], fixed);
+  assert.deepEqual([rate.monitor, rate.fps], [1080, 60]);
 });
 
 test('a slower stream rate rewrites the monitor only when it follows the rate', () => {
@@ -224,30 +228,22 @@ test('portrait refresh follows the frame rate like landscape', () => {
   assert.equal(model.draftChanges(saved, { ...saved, fps: 60 }, c).monitorRewrite, true);
 });
 
-test('the bitrate follows the size and rate for every resolution', () => {
-  assert.equal(model.recommendedBitrate(1280, 720, 120, 'h265'), 8000);
-  assert.equal(model.recommendedBitrate(1920, 1080, 100, 'h265'), 12000);
-  assert.equal(model.recommendedBitrate(1920, 1080, 60, 'h265'), 8000);
-  assert.equal(model.recommendedBitrate(1920, 1080, 30, 'h265'), 5000);
-  assert.equal(model.recommendedBitrate(2560, 1440, 60, 'h265'), 12000);
-  assert.equal(model.recommendedBitrate(3840, 2160, 30, 'h265'), 15000);
-  assert.equal(model.recommendedBitrate(1920, 1080, 100, 'h264'), 20000);
-  assert.equal(model.recommendedBitrate(1920, 1080, 60, 'h264'), 10000);
+test('the automatic bitrate follows the size and rate', () => {
+  assert.equal(model.autoBitrate(2560, 1440, 60, 'h265'), 20000);
+  assert.equal(model.autoBitrate(3840, 2160, 30, 'h265'), 20000);
+  assert.equal(model.autoBitrate(1920, 1080, 100, 'h265'), 20000);
+  assert.equal(model.autoBitrate(1920, 1080, 60, 'h265'), 12000);
+  assert.equal(model.autoBitrate(1920, 1080, 30, 'h265'), 8000);
+  assert.equal(model.autoBitrate(1280, 720, 120, 'h265'), 10000);
+  assert.equal(model.autoBitrate(1920, 1080, 60, 'h264'), 15000);
+  assert.equal(model.autoBitrate(2560, 1440, 60, 'h264'), 20000);
 });
 
-test('presets derive the bitrate from what they stream', () => {
-  const auto = model.buildPreset('auto', caps(), everything, draft()).draft;
-  assert.deepEqual([auto.monitor, auto.fps, auto.codec, auto.bitRate], [0, 100, 'h265', 12000]);
-  const noHevc = { ...everything, directH265: false, webrtcH265: false };
-  const h264 = model.buildPreset('auto', caps(), noHevc, draft()).draft;
-  assert.deepEqual([h264.codec, h264.bitRate], ['h264', 20000]);
-  const balanced = model.buildPreset('balanced', caps(), everything, draft()).draft;
-  assert.deepEqual([balanced.monitor, balanced.fps, balanced.bitRate], [1440, 60, 12000]);
-  // Lowest latency streams H.264: 1280x720 at 120 fps.
-  const responsive = model.buildPreset('responsive', caps(), everything, draft()).draft;
-  assert.equal(responsive.bitRate, 10000);
-  const sharp = model.buildPreset('sharp', caps(), everything, draft()).draft;
-  assert.equal(sharp.bitRate, 20000);
+test('the automatic bitrate of a draft uses the monitor it writes', () => {
+  const c = caps({ input: [1920, 1080] });
+  assert.equal(model.draftAutoBitrate(draft({ monitor: 1440, fps: 60 }), c), 20000);
+  assert.equal(model.draftAutoBitrate(draft({ monitor: 1440, fps: 60, height: 720 }), c), 5000);
+  assert.equal(model.draftAutoBitrate(draft({ monitor: 720, fps: 120 }), c), 10000);
 });
 
 test('MJPEG is blocked while the HDMI input is 3840x2160', () => {
@@ -276,15 +272,4 @@ test('MJPEG follows the monitor the draft writes', () => {
   assert.equal(model.mjpegBlocked(draft({ monitor: 0 }), fourK), true);
   assert.equal(model.mjpegBlocked(draft({ monitor: 1080 }), caps({ input: [3840, 2160], programmable: false })), true);
   assert.equal(model.mjpegBlocked(draft({ monitor: 2160, portrait: 1920 }), c), false);
-});
-
-test('presets do not pick MJPEG at 3840x2160', () => {
-  const noDirect = { direct: false, webrtc: false, directH265: false, webrtcH265: false };
-  const fixed = caps({ input: [3840, 2160], programmable: false });
-  assert.equal(model.buildPreset('compatible', fixed, noDirect, draft()).reason, 'mjpeg-4k');
-  // Not even the saver preset, which limits the stream to 1080p.
-  assert.equal(model.buildPreset('saver', fixed, noDirect, draft()).reason, 'mjpeg-4k');
-  const lowRes = caps({ programmable: false });
-  assert.equal(model.buildPreset('compatible', lowRes, noDirect, draft()).draft.transport, 'mjpeg');
-  assert.equal(model.buildPreset('sharp', fixed, noDirect, draft()).reason, 'browser');
 });

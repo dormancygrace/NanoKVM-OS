@@ -90,7 +90,6 @@ type Video = {
   effectiveFps: number;
   bitRate: number;
   quality: number;
-  gop: number;
 };
 type Profile = {
   id: string;

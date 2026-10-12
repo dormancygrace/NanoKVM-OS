@@ -199,11 +199,33 @@ const en = {
     },
     videoSettings: {
       hz: '{{value}} Hz',
-      upToHz: 'up to {{value}} Hz',
       fpsValue: '{{value}} fps',
       mbps: '{{value}} Mbit/s',
+      image: 'Picture',
+      imageHint: 'Shared by every viewer.',
+      mode: 'Mode',
+      modeRecommended: 'recommended',
+      modeCustom: 'Custom: {{value}}',
+      modeHint: 'The resolution and refresh rate the computer renders, advertised by the NanoKVM monitor; the stream carries the same rate. Changing it briefly reconnects HDMI.',
+      uhdNeedsMemory: '3840 × 2160 needs the UHD video memory mode',
+      uhdNeedsMemoryHint: 'The memory mode applies after a reboot. Choose this mode again once the device has restarted.',
+      uhdSwitch: 'Switch to UHD and reboot',
+      uhdTitle: 'Switch the video memory to UHD?',
+      uhdConfirm: 'The device reboots now: video and remote input stop for about a minute.',
+      uhdRebooting: 'Rebooting with the UHD video memory…',
+      uhdUnavailable: 'The UHD video memory mode is not installed on this device.',
+      bitrateAuto: 'Auto · {{value}} Mbit/s',
+      bitrateEconomy: 'Economy · {{value}} Mbit/s',
+      bitrateCeiling: 'A ceiling for motion (video, scrolling); a still screen sends far less. Auto follows the mode; Economy suits remote and mobile connections.',
+      bitrateLimit: 'limit {{value}} Mbit/s',
+      measuredBitrate: '≈ {{value}} Mbit/s',
+      codecHint: 'H.265 needs about a third less traffic for the same picture; H.264 plays in more browsers.',
+      browserSection: 'This browser',
+      browserSectionHint: 'Saved in this browser; other viewers keep their own.',
+      player: 'Player',
+      fpsOverride: 'Stream frame rate',
+      fpsOverrideHint: 'Set by the mode; change it only for a rate the modes do not offer.',
       landscape: 'Landscape monitor',
-      refreshFollows: 'Refresh follows the frame rate: {{value}} Hz',
       transport: 'Transport',
       transportHint: {
         direct: 'H.264/H.265 over HTTPS, decoded by the browser. Lowest latency.',
@@ -212,30 +234,12 @@ const en = {
       },
       streamSize: 'Encoded at {{value}}',
       fpsDelivered: 'Delivered: up to {{fps}} fps at {{size}}',
-      bitrateHint: 'With motion (video, scrolling) about {{value}} Mbit/s fits this size and rate.',
-      manual: 'Manual settings',
       userHint:
         'An administrator sets the shared video settings. You can choose how this browser receives and plays the video.',
       invalid: 'Some selected options are unavailable',
       changeMonitor:
         'The monitor switches to {{monitor}}: the connected computer detects it again and the picture blinks.',
       changeReload: 'The page reloads to switch the player.',
-      preset: {
-        title: 'Profile',
-        custom: 'Custom',
-        auto: 'Recommended',
-        autoHint: '1920 × 1080 up to 100 fps, bitrate for motion',
-        sharp: 'Sharpest',
-        sharpHint: 'Largest monitor: 4K at 30 or 2K at 60 fps, 20 Mbit/s',
-        balanced: 'Balanced',
-        balancedHint: '2560 × 1440 at 60 fps, bitrate for motion',
-        responsive: 'Lowest latency',
-        responsiveHint: '1280 × 720 at 120 fps without a playback buffer',
-        compatible: 'Compatible',
-        compatibleHint: 'WebRTC H.264, 1080p60, any browser',
-        saver: 'Low traffic',
-        saverHint: '1080p at 30 fps, 1 Mbit/s; the computer renders 30 Hz'
-      },
       reason: {
         'video-memory': 'needs a larger video memory mode, QHD or UHD (Settings → Memory, restart)',
         receiver: 'not supported by this HDMI receiver',
@@ -277,15 +281,12 @@ const en = {
       powerCycleAckConfirm:
         'Confirm that you physically disconnected all power sources and reconnected the NanoKVM. This only dismisses the reminder; it does not restart the device.',
 
-      directPlayback: 'Direct playback',
       directSmooth: 'Smooth picture',
       directImmediate: 'Lowest latency',
       directSmoothHint:
         'Adaptively buffers frames to smooth uneven delivery, adding a small delay.',
       directImmediateHint:
         'Displays frames as soon as they are decoded. Uneven delivery can cause visible stutter.',
-      directPlaybackLocal: 'Saved in this browser. Applies to H.264 and H.265 Direct.',
-
       apply: 'Apply',
       discard: 'Discard changes',
       pending: 'Changes have not been applied',
@@ -304,25 +305,11 @@ const en = {
       input: 'HDMI input',
       output: 'Encoded stream',
       monitor: 'HDMI monitor',
-      monitorProfile: 'Virtual monitor profile',
       portrait: 'Portrait monitor',
       automatic: 'Automatic (recommended)',
-      monitorHint:
-        'Advertises a preferred mode and fallback timings. BIOS and the operating system may choose different resolutions; capture follows the actual signal automatically. Changing this profile briefly reconnects HDMI.',
       monitorUnavailable:
         'Changing the virtual monitor profile is unavailable on this device. Input detection remains automatic.',
-      stream: 'Video stream',
-      streamHint:
-        'Resolution, frame rate and bitrate affect all viewers. Changing stream resolution does not change the computer’s desktop. New viewers automatically use the active encoder codec; transport and display scale remain individual.',
       advanced: 'Advanced and recovery',
-      gopMode: 'H.265 GOP mode',
-      gopModeHint:
-        'NormalP uses less video memory. SmartP can reduce traffic on static scenes but keeps an additional background-reference frame. Changing it restarts the encoder; the picture continues from the next keyframe.',
-      gopModePendingReboot:
-        'The saved H.265 GOP mode could not be applied while running; it takes effect after a device reboot.',
-      gopModePendingRebootHint: 'Active: {{active}}. Selected: {{selected}}.',
-      gopHint:
-        'GOP is the interval between keyframes. HDMI recovery restarts capture if the source stops responding.',
       fpsLimited:
         'The current input limits capture to {{fps}} fps. The saved request is kept for the next source mode.',
       statusFailed: 'Could not refresh video status.',

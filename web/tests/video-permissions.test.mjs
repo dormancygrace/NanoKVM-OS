@@ -163,7 +163,7 @@ function renderForm(role) {
   let stateIndex = 0;
   const element = (type, props) => ({ type, props: props ?? {} });
   const components = Object.fromEntries(
-    ['Button', 'Collapse', 'InputNumber', 'Modal', 'Select', 'Switch'].map((n) => [n, n])
+    ['Alert', 'Button', 'Collapse', 'InputNumber', 'Modal', 'Select', 'Switch'].map((n) => [n, n])
   );
   const form = load(
     '../src/pages/desktop/menu/settings/video/form.tsx',
@@ -176,10 +176,11 @@ function renderForm(role) {
       'react/jsx-runtime': { jsx: element, jsxs: element, Fragment: 'Fragment' },
       'react-i18next': { useTranslation: () => ({ t: (key) => key }) },
       antd: { ...components, message: { success: () => {}, error: () => {} } },
+      '@/api/vm': { getMemoryStatus: async () => ({}), reboot: async () => ({}), setVideoMemory: async () => ({}) },
+      '@/lib/video-memory-mode': { pickVideoMemoryMode: () => undefined },
       '@/lib/video-model': model,
       '../../screen/reset': { Reset: 'Reset' },
       './apply': { applyVideoDraft: async () => ({}) },
-      './presets': { PresetPicker: 'PresetPicker' },
       './use-video-settings': { useSyncStreamAtoms: () => () => {} }
     },
     {},
@@ -200,21 +201,22 @@ function renderForm(role) {
 
 test('users choose transport and playback; shared settings are read-only', () => {
   const nodes = renderForm('user');
-  const select = (label) =>
-    nodes.find((n) => n.type === 'Select' && n.props['aria-label'] === label);
-  assert.equal(select('screen.codec').props.disabled, true);
-  assert.equal(select('screen.fps').props.disabled, true);
-  assert.equal(select('videoSettings.monitorProfile').props.disabled, true);
-  assert.equal(select('screen.video').props.disabled, false);
-  assert.equal(select('videoSettings.directPlayback').props.disabled, false);
-  assert.equal(nodes.some((n) => n.type === 'PresetPicker'), false);
+  const control = (type, label) =>
+    nodes.find((n) => n.type === type && n.props['aria-label'] === label);
+  assert.equal(control('Select', 'videoSettings.mode').props.disabled, true);
+  assert.equal(control('Select', 'videoSettings.bitrate').props.disabled, true);
+  assert.equal(control('Select', 'screen.codec').props.disabled, true);
+  assert.equal(control('InputNumber', 'videoSettings.fpsOverride').props.disabled, true);
+  assert.equal(control('Select', 'screen.video').props.disabled, false);
+  assert.equal(control('Select', 'videoSettings.player').props.disabled, false);
 });
 
-test('administrators see presets and editable shared settings', () => {
+test('administrators edit the shared picture', () => {
   const nodes = renderForm('admin');
-  const select = (label) =>
-    nodes.find((n) => n.type === 'Select' && n.props['aria-label'] === label);
-  assert.equal(select('screen.codec').props.disabled, false);
-  assert.equal(select('screen.fps').props.disabled, false);
-  assert.ok(nodes.some((n) => n.type === 'PresetPicker'));
+  const control = (type, label) =>
+    nodes.find((n) => n.type === type && n.props['aria-label'] === label);
+  assert.equal(control('Select', 'videoSettings.mode').props.disabled, false);
+  assert.equal(control('Select', 'videoSettings.bitrate').props.disabled, false);
+  assert.equal(control('Select', 'screen.codec').props.disabled, false);
+  assert.equal(control('InputNumber', 'videoSettings.fpsOverride').props.disabled, false);
 });

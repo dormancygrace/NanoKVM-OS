@@ -16,10 +16,6 @@ export type ScreenStatus = {
   fps: number;
   quality: number;
   bitRate: number;
-  gop: number;
-  gopMode: number;
-  gopModeActive: number;
-  gopModeRestartRequired: boolean;
   mjpegChroma: number;
   mjpegChromaActive: number;
   mjpegChromaFallback: string;
@@ -36,6 +32,7 @@ export type ScreenStatus = {
   videoOutputHeight: number;
   effectiveFps: number;
   measuredFps: number;
+  measuredKbps: number;
   // Device-wide MJPEG frame detection, saved by the server.
   frameDetect: boolean;
 };
@@ -53,8 +50,6 @@ export function savedDraft(status: ScreenStatus, mode: string): VideoDraft {
     codec: getEncoderCodec(),
     bitRate: status.bitRate,
     quality: status.quality,
-    gop: status.gop,
-    gopMode: status.gopMode,
     mjpegChroma: status.mjpegChroma === 422 ? 422 : 420,
     directPlayback: storage.getDirectPlayback(),
     frameDetect: status.frameDetect === true

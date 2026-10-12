@@ -78,17 +78,6 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
           }
         />
       )}
-      {status?.gopModeRestartRequired && (
-        <Alert
-          type="warning"
-          showIcon
-          message={t('videoSettings.gopModePendingReboot')}
-          description={t('videoSettings.gopModePendingRebootHint', {
-            active: status.gopModeActive === 1 ? 'SmartP' : 'NormalP',
-            selected: status.gopMode === 1 ? 'SmartP' : 'NormalP'
-          })}
-        />
-      )}
       {mjpeg &&
         status?.mjpegChroma === 422 &&
         (status.mjpegChromaActive !== 422 || status.mjpegChromaFallback === 'resolution') && (
@@ -144,6 +133,13 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
               ? `${size(outputWidth || status.outputWidth, outputHeight || status.outputHeight)} · ${[codec, transport].filter(Boolean).join(' ')} · ${t('videoSettings.fpsValue', { value: status.measuredFps })}`
               : '—'
           )}
+          {!mjpeg &&
+            line(
+              t('videoSettings.bitrate'),
+              enabled && status
+                ? `${t('videoSettings.measuredBitrate', { value: ((status.measuredKbps || 0) / 1000).toFixed(1) })} · ${t('videoSettings.bitrateLimit', { value: (saved?.bitRate ?? 0) / 1000 })}`
+                : '—'
+            )}
           {caps?.monitor.programmable &&
             monitor &&
             line(

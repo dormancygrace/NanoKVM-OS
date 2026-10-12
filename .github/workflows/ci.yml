@@ -82,7 +82,7 @@ jobs:
         run: git ls-files -z '*.py' | xargs -0 python3 -m py_compile
       # The C906 vector kernels are generated with .4byte/WORD encodings; each
       # generator checks its output against GNU as/objdump for XTheadVector.
-      # The scalar GHASH generator runs its output against a bit-serial GHASH.
+      # The GHASH generator also runs its output against a bit-serial GHASH.
       - name: Generated C906 assembly is up to date
         run: |
           sudo apt-get install -y binutils-riscv64-linux-gnu
@@ -90,7 +90,7 @@ jobs:
           python3 gen_chacha_riscv64.py --binutils riscv64-linux-gnu- --check chacha_riscv64.s
           python3 gen_sha1mb_riscv64.py --binutils riscv64-linux-gnu- --check ../../../server/internal/sha1mb/sha1mb_riscv64.s
           python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
-          python3 gen_ghash_linux.py --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
+          python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
       - name: Platform Buildroot configuration
         run: python3 scripts/test-platform-config.py
       - name: Script tests

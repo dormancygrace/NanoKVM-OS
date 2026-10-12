@@ -92,6 +92,14 @@ func (s *SignalingHandler) HandleMessage(message *Message) error {
 		return s.handleVideoCandidate(message.Data)
 	case "heartbeat":
 		return s.handleHeartbeat()
+	case "audio-start":
+		if err := s.client.startAudio(); err != nil {
+			return s.client.WriteMessage("audio-error", err.Error())
+		}
+		return s.client.WriteMessage("audio-started", "")
+	case "audio-stop":
+		s.client.stopAudio()
+		return s.client.WriteMessage("audio-stopped", "")
 	default:
 		log.Debugf("Unhandled message event: %s", message.Event)
 		return nil
@@ -114,6 +122,9 @@ func (s *SignalingHandler) handleVideoOffer(data string) error {
 	if err := s.client.video.SetRemoteDescription(offer); err != nil {
 		log.Errorf("failed to set remote description: %s", err)
 		return err
+	}
+	if err := s.client.attachAudioTrack(); err != nil {
+		log.Warnf("audio not attached to the video connection: %s", err)
 	}
 
 	answer, err := s.client.video.CreateAnswer(nil)

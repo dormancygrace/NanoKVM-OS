@@ -7,6 +7,7 @@ import (
 	"NanoKVM-Server/config"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/service/stream"
+	"NanoKVM-Server/service/stream/srtpaccel"
 	"NanoKVM-Server/service/stream/webrtcdtls"
 	"encoding/json"
 	"net/http"
@@ -196,13 +197,18 @@ func createMediaEngine(config stream.EncoderConfig) (*webrtc.MediaEngine, error)
 		log.Errorf("failed to register %s codec: %s", config.Codec, err)
 		return nil, err
 	}
+	// USB audio rides on the same connection when the browser offers an audio
+	// m-line; without one, nothing changes.
+	opus := webrtc.RTPCodecParameters{RTPCodecCapability: opusCapability(), PayloadType: opusPayloadType}
+	if err := mediaEngine.RegisterCodec(opus, webrtc.RTPCodecTypeAudio); err != nil {
+		log.Errorf("failed to register opus codec: %s", err)
+		return nil, err
+	}
 
 	return mediaEngine, nil
 }
 
 func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.MediaEngine, budgets ...*peerPathMTU) (*webrtc.PeerConnection, error) {
-	initializeHardwareAES()
-	initializeHMACBatch()
 	settingEngine := webrtc.SettingEngine{}
 	configureDiagnosticICEInterface(&settingEngine)
 	// Keep a fixed-budget override for controlled comparisons and recovery.
@@ -223,7 +229,7 @@ func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.Med
 		}
 		settingEngine.SetNet(network)
 	}
-	settingEngine.SetSRTPProtectionProfiles(srtpProtectionProfiles()...)
+	srtpaccel.Configure(&settingEngine)
 	if err := webrtcdtls.Configure(&settingEngine); err != nil {
 		return nil, err
 	}

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usbCompositionChangedEvent } from '@/api/virtual-device.ts';
 import { stereoOffer } from '@/lib/audio-sdp.ts';
 import { refreshLiveStatus, subscribeLiveStatus } from '@/lib/live-status.ts';
+import { getVideoAudio, watchVideoAudio, type VideoAudioChannel } from '@/lib/video-audio.ts';
 
 type Playback = {
   context: AudioContext;
@@ -12,6 +13,9 @@ type Playback = {
   statsTimer?: number;
   peer?: RTCPeerConnection;
   socket?: WebSocket;
+  // Set when listening through the WebRTC video connection.
+  channel?: VideoAudioChannel;
+  unsubscribe?: () => void;
   timer?: number;
 };
 
@@ -51,6 +55,8 @@ export const useUsbAudio = () => {
   const playback = useRef<Playback | undefined>(undefined);
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
+  const wantedRef = useRef(wanted);
+  wantedRef.current = wanted;
   const disconnect = useCallback(() => {
     const old = playback.current;
     playback.current = undefined;
@@ -61,6 +67,8 @@ export const useUsbAudio = () => {
       old.renderer.srcObject = null;
     }
     setReceiving(false);
+    old?.unsubscribe?.();
+    old?.channel?.stop();
     old?.socket?.close();
     old?.peer?.close();
     old?.source?.disconnect();
@@ -89,6 +97,19 @@ export const useUsbAudio = () => {
       disconnect();
     };
   }, [disconnect]);
+
+  // Prefer the video connection: when it publishes an audio channel while
+  // audio plays over the standalone connection, reconnect through it (the
+  // retry below restarts playback). Same MediaStream as the video, so the
+  // browser keeps lip sync.
+  useEffect(
+    () =>
+      watchVideoAudio((channel) => {
+        const active = playback.current;
+        if (channel && active && !active.channel && wantedRef.current) disconnect();
+      }),
+    [disconnect]
+  );
 
   const stop = useCallback(() => {
     setWanted(false);
@@ -143,6 +164,11 @@ export const useUsbAudio = () => {
       await resumed;
       setBlocked(false);
       if (playback.current !== active) return;
+      const channel = getVideoAudio();
+      if (channel) {
+        listenThroughVideo(active, channel, fail);
+        return;
+      }
       const url = new URL('/api/stream/audio', window.location.href);
       url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const socket = new WebSocket(url);
@@ -241,6 +267,56 @@ export const useUsbAudio = () => {
         disconnect();
       }
     }
+  }
+
+  function listenThroughVideo(
+    active: Playback,
+    channel: VideoAudioChannel,
+    fail: (reason?: string) => void
+  ) {
+    active.channel = channel;
+    active.unsubscribe = channel.subscribe((event) => {
+      if (playback.current !== active) return;
+      if (event === 'started') {
+        window.clearTimeout(active.timer);
+        setPlaying(true);
+        setBusy(false);
+      } else fail(event === 'closed' ? 'closed' : 'capture');
+    });
+    let lastPackets = 0;
+    active.statsTimer = window.setInterval(() => {
+      void channel.peer
+        .getStats()
+        .then((reports) => {
+          if (playback.current !== active) return;
+          let packets = 0;
+          reports.forEach((report) => {
+            if (
+              report.type === 'inbound-rtp' &&
+              report.kind === 'audio' &&
+              report.packetsReceived > 0
+            )
+              packets += report.packetsReceived;
+          });
+          setReceiving(packets > lastPackets);
+          lastPackets = packets;
+        })
+        .catch(() => {});
+    }, 1000);
+    void channel.stream().then((stream) => {
+      if (playback.current !== active) return;
+      // Keep Chromium's remote audio renderer active when Web Audio owns the output.
+      const renderer = active.renderer ?? new Audio();
+      renderer.autoplay = true;
+      renderer.muted = true;
+      renderer.srcObject = stream;
+      active.renderer = renderer;
+      void renderer.play().catch(() => fail('playback'));
+      active.source?.disconnect();
+      active.source = active.context.createMediaStreamSource(stream);
+      active.source.connect(active.gain);
+    });
+    channel.start();
   }
 
   startRef.current = start;

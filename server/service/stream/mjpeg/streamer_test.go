@@ -18,6 +18,7 @@ import (
 type controlledResponseWriter struct {
 	header    http.Header
 	deadline  time.Time
+	deadlines []time.Time
 	flushErr  error
 	writeSize int
 }
@@ -35,6 +36,7 @@ func (w *controlledResponseWriter) WriteHeader(_ int) {}
 
 func (w *controlledResponseWriter) SetWriteDeadline(deadline time.Time) error {
 	w.deadline = deadline
+	w.deadlines = append(w.deadlines, deadline)
 	return nil
 }
 
@@ -152,5 +154,77 @@ func TestWriteFrameAdvancesHeadersBeforeNextImage(t *testing.T) {
 		if !bytes.Equal(got, want) {
 			t.Fatalf("parsed JPEG %x, want %x", got, want)
 		}
+	}
+}
+
+// Deduplication may leave the connection idle longer than a frame's write
+// deadline. HTTP/2 must not reset the stream before another image arrives.
+func TestWriteFrameHTTP2SurvivesIdleBetweenFrames(t *testing.T) {
+	frames := [][]byte{{0xff, 0xd8, 1, 0xff, 0xd9}, {0xff, 0xd8, 2, 0xff, 0xd9}}
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, _ := gin.CreateTestContext(w)
+		c.Request = r
+		c.Header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+		controller := newResponseController(c.Writer)
+		if err := writeFrame(c, controller, frames[0], true); err != nil {
+			t.Errorf("first frame: %v", err)
+			return
+		}
+		timer := time.NewTimer(clientWriteTimeout + 250*time.Millisecond)
+		defer timer.Stop()
+		select {
+		case <-r.Context().Done():
+			return
+		case <-timer.C:
+		}
+		if err := writeFrame(c, controller, frames[1], false); err != nil {
+			t.Errorf("second frame after idle: %v", err)
+		}
+	}))
+	server.EnableHTTP2 = true
+	server.StartTLS()
+	defer server.Close()
+	client := server.Client()
+	client.Timeout = 3 * clientWriteTimeout
+	response, err := client.Get(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.ProtoMajor != 2 {
+		t.Fatalf("negotiated %s, want HTTP/2", response.Proto)
+	}
+	reader := multipart.NewReader(response.Body, "frame")
+	for i, want := range frames {
+		part, err := reader.NextPart()
+		if err != nil {
+			t.Fatalf("frame %d headers: %v", i, err)
+		}
+		got, err := io.ReadAll(part)
+		if err != nil {
+			t.Fatalf("frame %d body: %v", i, err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("frame %d = %x, want %x", i, got, want)
+		}
+	}
+}
+
+func TestWriteFrameClearsDeadlineAfterFlush(t *testing.T) {
+	underlying := &controlledResponseWriter{header: make(http.Header)}
+	c, _ := gin.CreateTestContext(underlying)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/stream/mjpeg", nil)
+	started := time.Now()
+	if err := writeFrame(c, newResponseController(c.Writer), []byte("frame"), true); err != nil {
+		t.Fatal(err)
+	}
+	if len(underlying.deadlines) != 2 {
+		t.Fatalf("deadline changes = %v, want bounded write then clear", underlying.deadlines)
+	}
+	if deadline := underlying.deadlines[0]; deadline.Before(started.Add(clientWriteTimeout)) || deadline.After(time.Now().Add(clientWriteTimeout)) {
+		t.Fatalf("write deadline = %v, want a %v write budget", deadline, clientWriteTimeout)
+	}
+	if !underlying.deadlines[1].IsZero() {
+		t.Fatal("deadline remained active while waiting for another image")
 	}
 }

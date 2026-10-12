@@ -374,5 +374,14 @@ func writeFrame(c *gin.Context, controller *http.ResponseController, data []byte
 		return err
 	}
 
-	return controller.Flush()
+	if err = controller.Flush(); err != nil {
+		return err
+	}
+
+	// Bound slow writes, not the idle wait for the next distinct image. An
+	// armed HTTP/2 deadline resets the stream even when no write is pending.
+	if err = controller.SetWriteDeadline(time.Time{}); err != nil && !errors.Is(err, http.ErrNotSupported) {
+		return err
+	}
+	return nil
 }

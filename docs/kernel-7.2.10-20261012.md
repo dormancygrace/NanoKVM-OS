@@ -52,7 +52,7 @@ PR #103 web build is byte-identical to the 201-file platform web output.
 Seven signed APKs, version `2.6_alpha2-r0`, and Image `v1.1-a2` with applications
 `v2.6-a2` were built. Both the RSA and ECDSA keys independently verify the v3
 package index. The image ZIP passes its CRC test. Its root partition remains
-768 MiB; the full 832 MiB image compresses to 68,068,766 bytes.
+768 MiB; the full 832 MiB image compresses to 68,068,876 bytes.
 
 The external vendor modules emit compiler warnings, mainly missing prototypes;
 this update does not hide or claim to fix them. The initial build recorded
@@ -68,9 +68,63 @@ a normal second boot that preserves user files, and a reflash that removes the
 partition table entry but leaves the previous exFAT signature in place.
 
 The one-off host installer also failed to preserve the absence of the SSH-stop
-flag; its restoration procedure is being corrected. Neither failure changes
-the user's password. The corrected full image and runtime acceptance remain
-pending; video and application success are not yet claimed.
+flag. Its restoration procedure was corrected, and UART access recovered the
+first installation without changing the user's password.
+
+The corrected full image was then written in full and its SD read-back hash
+matched `ba561bb513678874fd014c5ac0be06fd493916741fc4217530156d0ea635a5c2`.
+Firstboot formatting and all default OpenRC services succeeded. SSH, Wi-Fi and
+the existing WireGuard connection returned; the root password and 102 saved-file
+hashes matched. The two USB-function markers were intentionally removed to keep
+the gadget disabled. RustDesk 0.5.3-r2 was reinstalled from the signed repository
+with its settings intact and service stopped. Root uses about 202 MiB of its
+768 MiB partition; the data filesystem is empty apart from filesystem metadata.
+
+Chrome Main displayed the actual desktop in FHD WebRTC H.264 and Direct H.264
+at about 60 fps, and FHD MJPEG 4:2:2 at about 41 fps. QHD initially failed with
+the restored legacy manual HDMI-detection mode (`hdmi_mode=2`). A bounded A/B
+check using the preserved 7.2.9 kernel/modules and then 7.2.10, with identical
+userspace and the new U-Boot, displayed QHD H.264 on both at about 59 fps.
+After returning HDMI detection to automatic (`hdmi_mode=0`), live FHD-to-QHD
+switching also succeeded without rebooting. QHD WebRTC H.264 and Direct H.264
+both displayed the desktop at about 60 fps. This comparison did not reproduce
+a 7.2.10-specific video regression. HEVC playback was not qualified: Chrome
+reported it unsupported. These are bounded functional checks, not a long soak
+or an exhaustive board/codec matrix.
+
+A separate MJPEG problem was reproduced independently of the kernel: the
+five-second per-frame HTTP write deadline stayed armed during deduplication's
+five-second idle interval. HTTP/2 then reset the stream with `INTERNAL_ERROR`.
+The server now clears the deadline after a successful flush, while retaining
+bounded writes and error propagation. A real TLS HTTP/2 regression test fails
+on the previous implementation and passes with the fix; the MJPEG race tests,
+all server tests and `go vet` pass.
+
+The updated signed application APK was installed on the already-flashed device.
+Chrome Main then displayed QHD MJPEG 4:2:2 over HTTP/2 on one sustained request,
+including over a minute of a mostly static desktop with continued data and no
+reset or reconnection. The inactive Chrome tab briefly rendered black in
+automation screenshots; bringing it to the foreground immediately painted the
+correct desktop without resetting the stream. A direct API capture also decoded
+as 2560x1440. Rebuilding
+the 12 media modules without the new inline-memset flag produced byte-identical
+modules; those diagnostic copies were not deployed.
+
+The final full image includes this server fix; its SHA-256 is
+`b525cee901de2ab0b8a98af7466d473d99d93fe6e3bc40441c0d6fa1434c11a0`.
+The final image was assembled and CRC checked, while device qualification used
+the complete image installation above followed by the signed application update.
+All seven APK signatures, the RSA legacy index, and both RSA and ECDSA signatures
+of the v3 index verify after the final rebuild.
+
+The temporary 7.2.9 module tree was removed after returning to 7.2.10. MGLRU
+is enabled, the running QHD profile has 68 MiB CMA, and nf_flow_table loads.
+No kernel panic, Oops, OOM-kill or lockup was found in the final dmesg. Vendor
+VPSS buffer-pressure messages remain visible during capture; this bounded check
+does not establish that they are absent or harmless in every workload.
+The USB gadget finishes disabled. USB internet forwarding through the managed
+computer was not exercised, per the user's instruction. Exactly the current
+and two previous boot-log archives are retained; no test backup is left on SD.
 
 ## Repository cleanup
 

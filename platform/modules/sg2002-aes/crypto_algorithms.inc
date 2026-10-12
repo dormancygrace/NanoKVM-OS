@@ -173,7 +173,7 @@ static int crypto_finish_locked(struct sg2002_crypto_request *r, const struct cr
 {
  u32 input_size = s->input, output_size = s->output, result_size = s->result, status = 0, i;
  int err;
- err = readl_poll_timeout(regs + STATUS, status, status != 0, 1, 20000);
+ err = engine_wait(&status);
  r->status = status;
  // SG2002 TRM 22.3: bit0 is encryption completion, bit1 hash completion.
  // A hash has no ciphertext write and completes with 2, not AES's 1.

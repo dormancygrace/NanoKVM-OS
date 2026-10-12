@@ -112,7 +112,7 @@ func main() {
 	defer d.Close()
 	hw := &counted{device: d}
 	soft, acc, dec := context(nil), context(hw), context(nil)
-	sizes := []int{0, 1, 15, 16, 511, 512, 513, 1188, 1200, 4095, 4096, 4097}
+	sizes := []int{0, 1, 15, 16, 255, 256, 257, 511, 512, 513, 1188, 1200, 4095, 4096, 4097}
 	for i, size := range sizes {
 		raw := packet(size, uint16(65530+i))
 		want, e := soft.EncryptRTP(nil, raw, nil)

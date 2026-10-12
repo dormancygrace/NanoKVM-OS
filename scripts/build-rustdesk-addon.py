@@ -201,7 +201,7 @@ shutil.copyfile(root/"server/service/rustdesk/webrtc_socket_test.go",go_transpor
 archive=output/f"nanokvm-rustdesk-{version}-source.tar.gz"
 with tarfile.open(archive,"w:gz") as tar:tar.add(stage,arcname=stage.name)
 # Publish/commit this external production recipe after computing the archive.
-checksum_block="sha512sums=\""+hashlib.sha512(archive.read_bytes()).hexdigest()+"  "+archive.name+"\n"+hashlib.sha512((pkg/"nanokvm-rustdesk.initd").read_bytes()).hexdigest()+"  nanokvm-rustdesk.initd\"\n"
+checksum_block="sha512sums=\""+hashlib.sha512(archive.read_bytes()).hexdigest()+"  "+archive.name+"\n"+"\n".join(hashlib.sha512((pkg/name).read_bytes()).hexdigest()+"  "+name for name in ["nanokvm-rustdesk.initd","nanokvm-rustdesk-c906.toml"])+"\"\n"
 production_recipe_input=re.sub(
     r"(?m)^sourceurl=.*$",
     lambda _: "sourceurl="+shlex.quote(archive.name if args.local_only else args.source_url),

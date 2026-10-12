@@ -25,11 +25,12 @@ func CaptureNativeStderr(w io.Writer) error {
 		return err
 	}
 	if err := syscall.Dup3(int(pipe.Fd()), 2, 0); err != nil {
-		r.Close()
-		pipe.Close()
+		_ = r.Close()
+		_ = pipe.Close()
 		return err
 	}
-	pipe.Close()
+	// Descriptor 2 now holds the pipe; this copy is not needed.
+	_ = pipe.Close()
 	lines := make(chan string, nativeQueueLines)
 	go readNativeStderr(r, lines)
 	go writeNativeStderr(lines, w, time.Now)
@@ -55,7 +56,7 @@ func writeNativeStderr(lines <-chan string, w io.Writer, now func() time.Time) {
 		t := now()
 		if t.Sub(window) >= time.Second {
 			if dropped > 0 {
-				fmt.Fprintf(w, "[%s] [native] %d more lines dropped\n", t.Format("2006-01-02 15:04:05.000"), dropped)
+				_, _ = fmt.Fprintf(w, "[%s] [native] %d more lines dropped\n", t.Format("2006-01-02 15:04:05.000"), dropped)
 			}
 			window, written, dropped = t, 0, 0
 		}
@@ -64,6 +65,6 @@ func writeNativeStderr(lines <-chan string, w io.Writer, now func() time.Time) {
 			continue
 		}
 		written++
-		fmt.Fprintf(w, "[%s] [native] %s\n", t.Format("2006-01-02 15:04:05.000"), line)
+		_, _ = fmt.Fprintf(w, "[%s] [native] %s\n", t.Format("2006-01-02 15:04:05.000"), line)
 	}
 }

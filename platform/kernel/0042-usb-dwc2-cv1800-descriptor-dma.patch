@@ -1,0 +1,30 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] usb: dwc2: descriptor DMA for the gadget on Sophgo CV18XX/SG200X
+
+The upstream parameters for sophgo,cv1800b-usb disable DMA, so the gadget
+runs in slave mode: the CPU moves every packet through the FIFOs in the
+interrupt handler. With HID and UAC1 audio that is 5,000-10,000 interrupts
+per second, 5-10 % of the C906. The SoC vendor kernel (cv182x params)
+enables g_dma and g_dma_desc for the same controller, and GHWCFG2/4 report
+internal and descriptor DMA. Host mode keeps host_dma off.
+
+diff --git a/drivers/usb/dwc2/params.c b/drivers/usb/dwc2/params.c
+index 091bfcfef..a95a53384 100644
+--- a/drivers/usb/dwc2/params.c
++++ b/drivers/usb/dwc2/params.c
+@@ -225,7 +225,14 @@ static void dwc2_set_cv1800_params(struct dwc2_hsotg *hsotg)
+ 	p->otg_caps.hnp_support = false;
+ 	p->otg_caps.srp_support = false;
+ 	p->host_dma = false;
+-	p->g_dma = false;
++	/*
++	 * Gadget transfers by descriptor DMA, as in the SoC vendor kernel
++	 * (cv182x params: g_dma, g_dma_desc). In slave mode the CPU moves every
++	 * packet through the FIFOs in the interrupt handler: with HID and UAC1
++	 * audio that was 5,000-10,000 interrupts per second on the C906.
++	 */
++	p->g_dma = true;
++	p->g_dma_desc = true;
+ 	p->speed = DWC2_SPEED_PARAM_HIGH;
+ 	p->phy_type = DWC2_PHY_TYPE_PARAM_UTMI;
+ 	p->phy_utmi_width = 16;

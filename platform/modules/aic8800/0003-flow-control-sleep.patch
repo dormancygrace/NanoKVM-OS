@@ -1,0 +1,32 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: sleep instead of spinning while the firmware TX buffers are full
+
+When the chip reports no free TX buffers, the flow-control loops polled it
+30 times with udelay(200) before sleeping: up to 6 ms of busy waiting per
+wait. During WebRTC video over Wi-Fi this was about 4 % of the C906 (udelay
+in aicwf_bustx_thread). Both loops run in process context: the TX thread,
+after down_interruptible(), and they issue SDIO reads, which may sleep. The
+first 30 polls now use usleep_range(200, 300).
+
+diff --git a/aic8800_fdrv/aicwf_sdio.c b/aic8800_fdrv/aicwf_sdio.c
+index ddcd1f5..3dc081c 100644
+--- a/aic8800_fdrv/aicwf_sdio.c
++++ b/aic8800_fdrv/aicwf_sdio.c
+@@ -340,7 +340,7 @@ int aicwf_sdio_flow_ctrl_msg(struct aic_sdio_dev *sdiodev)
+             }
+             count++;
+             if (count < 30)
+-                udelay(200);
++                usleep_range(200, 300);
+             else if(count < 40)
+                 msleep(2);
+             else
+@@ -383,7 +383,7 @@ int aicwf_sdio_flow_ctrl(struct aic_sdio_dev *sdiodev)
+             }
+             count++;
+             if (count < 30)
+-                udelay(200);
++                usleep_range(200, 300);
+             else if(count < 40)
+                 msleep(2);
+             else

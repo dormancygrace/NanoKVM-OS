@@ -58,11 +58,39 @@ sets the rate. Encryption of a message in one chunk (up to 4,080 bytes) can
 only overlap the associated data, since its ciphertext comes out of that
 chunk. Decryption overlaps every chunk.
 
+## With the vector GHASH
+
+After a reboot of the stand (r1 kernel), one boot measured three states in
+turn, with the server running (about 15 % system time). First the stock
+modules. Then `libgf128hash.ko` and `gcm.ko` from the vector patch, built
+against r1. Then also this `sg2002_aes_probe.ko`. The original modules were
+loaded back afterwards.
+
+- Before the measurements, with the patched library: 5,000 random GHASH
+  cases through the scalar function, the vector path and `ghash_update()`,
+  and 1,250 with bottom halves disabled, 0 failures. A preemption run of 475
+  calls with 136 involuntary switches had 0 mismatches. The driver test ran
+  3,000 cases with 0 failures.
+- Library GHASH: 17 MB/s stock, 46-49 MB/s patched.
+
+| bytes | stock template (MB/s) | template + vector GHASH (MB/s) | driver + vector GHASH, encrypt (MB/s) | driver + vector GHASH, decrypt (MB/s) |
+| ---: | ---: | ---: | ---: | ---: |
+| 64 | 2 | 2 | 2 | 3 |
+| 512 | 8 | 10 | 11 | 11 |
+| 1420 | 11 | 19 | 18 | 20 |
+| 4096 | 12 | 22 | 22 | 28 |
+| 16384 | 12 | 24 | 30 | 33 |
+| 65536 | 13 | 24 | 33 | 33 |
+
+`gcm(aes)` goes from 11 to 18-20 MB/s at 1420 bytes and from 13 to 33 MB/s
+at 64 KiB. Below about 4 KiB the driver gains little over the template with
+the same GHASH: a message in one chunk overlaps only its associated data on
+encryption.
+
 ## Not covered
 
-- Not measured with the C906 GHASH of patch 0041, which needs the r3 kernel
-  on the stand. GHASH runs at 27 MB/s scalar and 42-53 MB/s vector there,
-  against 15, so the driver should gain more there.
+- The r3 Image itself was not booted. The modules above are the same sources,
+  built against r1.
 - The engine mutex is now held during the GHASH of a chunk, up to about
   0.1 ms with the vector GHASH. Hardware SRTP requests wait that long behind a
   `gcm(aes)` request.

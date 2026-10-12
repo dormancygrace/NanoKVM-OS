@@ -100,7 +100,7 @@ shutil.copyfile(Path(__file__),stage/"packaging/build-rustdesk-addon.py")
 The source root builds and tests with cargo --locked --offline using the
 vendored crates. See the source README for the exact static RISC-V target.
 For a native riscv64 Alpine build, use the checksummed APKBUILD distributed
-beside this immutable source archive, and copy nanokvm-rustdesk.* from this
+beside this immutable source archive, and copy nanokvm-rustdesk* from this
 directory into its recipe directory. APKBUILD.in here records the recipe shape,
 not a production download checksum (an archive cannot contain its own digest). The standalone builder here is
 preserved as a record of the NanoKVM firmware repository's packaging script;

@@ -58,8 +58,19 @@ The external vendor modules emit compiler warnings, mainly missing prototypes;
 this update does not hide or claim to fix them. The initial build recorded
 1,075 warning lines and no depmod errors.
 
-Device installation and runtime checks are in progress. Host checks alone do
-not establish SD boot, video, Wi-Fi or USB runtime acceptance.
+The first full-image installation passed the complete SD read-back hash check.
+UART confirmed U-Boot 2026.10, OpenSBI 1.9 and Linux 7.2.10. First boot then
+exposed an exfatprogs 1.4.1 change: mkfs refuses an old filesystem signature on
+a reused card. Storage initialization failed, preventing dependent services
+from starting. The marker-gated firstboot formatter now explicitly uses `-F`.
+A loop-disk regression with the exact image's exfatprogs passes fresh allocation,
+a normal second boot that preserves user files, and a reflash that removes the
+partition table entry but leaves the previous exFAT signature in place.
+
+The one-off host installer also failed to preserve the absence of the SSH-stop
+flag; its restoration procedure is being corrected. Neither failure changes
+the user's password. The corrected full image and runtime acceptance remain
+pending; video and application success are not yet claimed.
 
 ## Repository cleanup
 

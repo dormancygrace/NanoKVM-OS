@@ -142,24 +142,37 @@ static int crypto_prepare_descriptor(struct sg2002_crypto_request *r,
  return 0;
 }
 
-/* One bounded DMA transaction. Caller owns lock and CPU-owned buffer.
+/* Sizes of a transaction between crypto_start_locked() and crypto_finish_locked(). */
+struct crypto_sizes { u32 input, output, result; };
+
+/* Start one bounded DMA transaction. Caller owns lock and CPU-owned buffer;
+ * until crypto_finish_locked() the engine owns buffer, crypto_output and desc,
+ * and the caller may only do work that touches none of them.
  * No userspace pointers are dereferenced here; Crypto API and ioctl share this.
  */
-static int crypto_run_locked(struct sg2002_crypto_request *r)
+static int crypto_start_locked(struct sg2002_crypto_request *r, struct crypto_sizes *s)
 {
- u32 input_size = 0, output_size = 0, result_size = 0, status = 0, i;
  int err;
  if (poisoned) return -EIO;
- err = crypto_prepare_descriptor(r, &input_size, &output_size, &result_size);
+ err = crypto_prepare_descriptor(r, &s->input, &s->output, &s->result);
  if (err) return err;
- dma_sync_single_for_device(&pdev->dev, buffer_dma, input_size, DMA_BIDIRECTIONAL);
- if (output_size) dma_sync_single_for_device(&pdev->dev, crypto_output_dma, output_size, DMA_BIDIRECTIONAL);
+ dma_sync_single_for_device(&pdev->dev, buffer_dma, s->input, DMA_BIDIRECTIONAL);
+ if (s->output) dma_sync_single_for_device(&pdev->dev, crypto_output_dma, s->output, DMA_BIDIRECTIONAL);
  dma_sync_single_for_device(&pdev->dev, desc_dma, DESC_BYTES, DMA_BIDIRECTIONAL);
  dma_wmb();
  writel(7, regs + MASK); writel(7, regs + STATUS);
  writel(lower_32_bits(desc_dma), regs + DESC_LO); writel(upper_32_bits(desc_dma), regs + DESC_HI);
  crypto_submitted[r->algorithm]++;
  writel(DMA_CTRL_VALUE, regs + CTRL);
+ return 0;
+}
+
+/* Wait for the transaction started by crypto_start_locked() and take the
+ * buffers back for the CPU. */
+static int crypto_finish_locked(struct sg2002_crypto_request *r, const struct crypto_sizes *s)
+{
+ u32 input_size = s->input, output_size = s->output, result_size = s->result, status = 0, i;
+ int err;
  err = readl_poll_timeout(regs + STATUS, status, status != 0, 1, 20000);
  r->status = status;
  // SG2002 TRM 22.3: bit0 is encryption completion, bit1 hash completion.
@@ -183,6 +196,14 @@ static int crypto_run_locked(struct sg2002_crypto_request *r)
  r->output_length = result_size;
  writel(7, regs + STATUS); writel(initial_mask, regs + MASK);
  return 0;
+}
+
+/* One bounded DMA transaction. Caller owns lock and CPU-owned buffer. */
+static int crypto_run_locked(struct sg2002_crypto_request *r)
+{
+ struct crypto_sizes s = {};
+ int err = crypto_start_locked(r, &s);
+ return err ? err : crypto_finish_locked(r, &s);
 }
 static void crypto_clean_locked(const struct sg2002_crypto_request *r)
 {

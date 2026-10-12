@@ -144,6 +144,27 @@ wrap inside a call, unaligned and in-place buffers, guard bytes around dst),
 `SetCounter`, the end of the counter space) and a stress run with a CPU
 profile, GC and four goroutines.
 
+## The same ChaCha20 in the Linux kernel
+
+`gen_chacha_linux.py` emits the same five-block kernel for `lib/crypto`
+(`lib/crypto/riscv/chacha-riscv64-xtheadvector.S` in
+`platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch`): kernel C
+calling convention (s0-s11 saved, the key stream buffer on the stack and wiped
+before returning), constants, key and nonce read from `struct chacha_state`,
+any even round count, the counter advanced in the state. It reuses the
+encoder, the vector round schedule and the GNU as/objdump check of
+`gen_chacha_riscv64.py`; `--check` accepts the patch itself:
+
+```sh
+python3 gen_chacha_linux.py --binutils $B --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
+```
+
+`linux-test/` is a module that carries the same assembly and glue, checks
+them against `chacha_block_generic()` and times them on the device. Results
+and the kernel-side selection are in `docs/kernel-chacha-xtheadvector-20261012.md`:
+73 MB/s for a 1420-byte WireGuard packet and 85 MB/s for 16 KiB, against 37
+for the generic kernel code.
+
 ## Multi-buffer HMAC-SHA1 (`server/internal/sha1mb`)
 
 SRTP authenticates every packet with HMAC-SHA1 (AES128_CM_HMAC_SHA1_80).

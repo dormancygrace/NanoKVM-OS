@@ -34,6 +34,11 @@ func annexB(t *testing.T, nals ...string) []byte {
 	return out
 }
 
+// fixHEVCSubLayerOrdering applies only the sub-layer ordering rewrite.
+func fixHEVCSubLayerOrdering(storage, data []byte, headroom int) ([]byte, []byte) {
+	return fixParameterSets(VideoCodecH265, false, storage, data, headroom)
+}
+
 func withHeadroom(data []byte) ([]byte, []byte) {
 	storage := make([]byte, videoHeadroom+len(data))
 	copy(storage[videoHeadroom:], data)
@@ -145,20 +150,23 @@ func TestHEVCSubLayerOrderingWithoutFramingStorage(t *testing.T) {
 	}
 }
 
-func TestVideoSourceFixesH265KeyframeParameterSets(t *testing.T) {
+func TestVideoSourceFixesKeyframeParameterSets(t *testing.T) {
 	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
 	h265 := DefaultEncoderConfig()
 	h264 := h265
 	h264.Codec = VideoCodecH264
+	h265Frame := annexB(t, smartPVPS, smartPSPS, smartPPPS, idrSliceStub)
+	h264Frame := annexB(t, standH264SPS, standH264PPS, h264IDRStub)
 
 	for _, tc := range []struct {
-		config EncoderConfig
-		result int
-		fixed  bool
+		config   EncoderConfig
+		result   int
+		in, want []byte
 	}{
-		{h265, keyFrameResult, true},
-		{h265, 2, false},
-		{h264, keyFrameResult, false},
+		{h265, keyFrameResult, h265Frame, annexB(t, smartPFixedVPS, smartPColourSPS, smartPPPS, idrSliceStub)},
+		{h265, 2, h265Frame, h265Frame},
+		{h264, keyFrameResult, h264Frame, annexB(t, standH264ColourSPS, standH264PPS, h264IDRStub)},
+		{h264, 2, h264Frame, h264Frame},
 	} {
 		session := &videoSession{config: tc.config}
 		subscription := &VideoSubscription{source: source, session: session, frames: make(chan VideoFrame, 1), done: make(chan struct{})}
@@ -168,14 +176,10 @@ func TestVideoSourceFixesH265KeyframeParameterSets(t *testing.T) {
 		source.refreshSnapshotLocked()
 		source.mutex.Unlock()
 
-		storage, data := withHeadroom(annexB(t, smartPVPS, smartPSPS, smartPPPS, idrSliceStub))
+		storage, data := withHeadroom(bytes.Clone(tc.in))
 		source.publish(session, storage, data, tc.result, 0, 0)
 		frame := <-subscription.frames
-		want := annexB(t, smartPVPS, smartPSPS, smartPPPS, idrSliceStub)
-		if tc.fixed {
-			want = annexB(t, smartPFixedVPS, smartPFixedSPS, smartPPPS, idrSliceStub)
-		}
-		if !bytes.Equal(frame.Data, want) {
+		if !bytes.Equal(frame.Data, tc.want) {
 			t.Fatalf("%s result %d: got %x", tc.config.Codec, tc.result, frame.Data)
 		}
 		if len(frame.Storage) != videoHeadroom+len(frame.Data) || &frame.Storage[videoHeadroom] != &frame.Data[0] {

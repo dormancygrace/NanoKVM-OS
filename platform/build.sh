@@ -7,7 +7,7 @@
 # Steps, in order (default: all of them):
 #   fetch      download and verify every input in sources.lock
 #   toolchain  Buildroot 2026.08: cross toolchain, host tools, initramfs userland
-#   kernel     Linux 7.2.9 with kernel/*.patch and kernel/config
+#   kernel     Linux 7.2.10 with kernel/*.patch and kernel/config
 #   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod-sg2002
 #   uboot      U-Boot 2026.10 with uboot/*.patch and uboot/defconfig
 #   opensbi    OpenSBI 1.9: SG2002 FW_DYNAMIC with embedded M-mode DT
@@ -98,10 +98,10 @@ version=$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")
 # Official Alpine packages; the c906-scalar overlay is not built here.
 image_version=$(sed -n 's/^NANOKVM_IMAGE_VERSION=//p' "$repo/firmware/alpine/release.env")
 profile=stock
-release=7.2.9-nanokvm-os-r1
-# Build times recorded in the binaries. The kernel keeps the v2.0 value so
-# that it stays identical to the released kernel.
-kernel_timestamp='Sat Sep 19 13:51:57 UTC 2026'
+release=7.2.10-nanokvm-os-r1
+# Fixed build times keep identical inputs reproducible. The kernel timestamp
+# is the upstream Linux 7.2.10 release time.
+kernel_timestamp='Sun Oct 11 13:27:50 UTC 2026'
 uboot_epoch=1788737047
 rtl8733bs_epoch=1788607804
 isa=$(python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel)
@@ -252,8 +252,8 @@ toolchain() {
 kernel() {
     rm -rf "$out/kernel"
     mkdir -p "$out/kernel" "$kbuild"
-    tar -xf "$dl/linux-7.2.9.tar.xz" -C "$out/kernel"
-    mv "$out/kernel/linux-7.2.9" "$ksrc"
+    tar -xf "$dl/linux-7.2.10.tar.xz" -C "$out/kernel"
+    mv "$out/kernel/linux-7.2.10" "$ksrc"
     apply_patches "$ksrc" "$here/kernel"
     python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel --record "$out/kernel/cpu-profile.json" --compiler "${cross}gcc"
     cp "$here/kernel/config" "$kbuild/.config"

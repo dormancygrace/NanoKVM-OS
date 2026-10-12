@@ -194,7 +194,7 @@ platform/build.sh -d
 
 `-d` generates **local test signing keys**. Official release builds require the maintainer's RSA and ECDSA keys; test-signed packages are not official updates. See [build and signing instructions](platform/README.md).
 
-The platform uses **Linux 7.2.9**, **U-Boot 2026.10**, **OpenSBI 1.9** and a **GCC 16.2 / T-Head C906** toolchain. Kernel/modules use `-O3` without LTO; native userspace uses the reviewed scalar `-O2` profile. Web builds use **Node.js 24 LTS**. Ordinary userspace, including OpenSSL, comes from official Alpine repositories; the optional C906 package profile is retained for experiments.
+The platform uses **Linux 7.2.10**, **U-Boot 2026.10**, **OpenSBI 1.9** and a **GCC 16.2 / T-Head C906** toolchain. Kernel/modules use `-O3` without LTO; native userspace uses the reviewed scalar `-O2` profile. Web builds use **Node.js 24 LTS**. Ordinary userspace, including OpenSSL, comes from official Alpine repositories; the optional C906 package profile is retained for experiments.
 
 Pinned platform inputs, Go modules and the web lockfile fix their respective source versions. Alpine 3.24 repositories continue receiving updates, so later builds can install newer Alpine packages; the build records them in `release/installed-packages.txt`.
 

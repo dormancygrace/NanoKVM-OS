@@ -159,7 +159,9 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
           if (restart.code !== 0) throw new Error(restart.msg);
           message.info(t('videoSettings.uhdRebooting'));
         } catch (error) {
-          message.error(error instanceof Error && error.message ? error.message : t('videoSettings.failed'));
+          message.error(
+            error instanceof Error && error.message ? error.message : t('videoSettings.failed')
+          );
           throw error;
         }
       }

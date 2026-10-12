@@ -206,9 +206,11 @@ const en = {
       mode: 'Mode',
       modeRecommended: 'recommended',
       modeCustom: 'Custom: {{value}}',
-      modeHint: 'The resolution and refresh rate the computer renders, advertised by the NanoKVM monitor; the stream carries the same rate. Changing it briefly reconnects HDMI.',
+      modeHint:
+        'The resolution and refresh rate the computer renders, advertised by the NanoKVM monitor; the stream carries the same rate. Changing it briefly reconnects HDMI.',
       uhdNeedsMemory: '3840 × 2160 needs the UHD video memory mode',
-      uhdNeedsMemoryHint: 'The memory mode applies after a reboot. Choose this mode again once the device has restarted.',
+      uhdNeedsMemoryHint:
+        'The memory mode applies after a reboot. Choose this mode again once the device has restarted.',
       uhdSwitch: 'Switch to UHD and reboot',
       uhdTitle: 'Switch the video memory to UHD?',
       uhdConfirm: 'The device reboots now: video and remote input stop for about a minute.',
@@ -216,10 +218,12 @@ const en = {
       uhdUnavailable: 'The UHD video memory mode is not installed on this device.',
       bitrateAuto: 'Auto · {{value}} Mbit/s',
       bitrateEconomy: 'Economy · {{value}} Mbit/s',
-      bitrateCeiling: 'A ceiling for motion (video, scrolling); a still screen sends far less. Auto follows the mode; Economy suits remote and mobile connections.',
+      bitrateCeiling:
+        'A ceiling for motion (video, scrolling); a still screen sends far less. Auto follows the mode; Economy suits remote and mobile connections.',
       bitrateLimit: 'limit {{value}} Mbit/s',
       measuredBitrate: '≈ {{value}} Mbit/s',
-      codecHint: 'H.265 needs about a third less traffic for the same picture; H.264 plays in more browsers.',
+      codecHint:
+        'H.265 needs about a third less traffic for the same picture; H.264 plays in more browsers.',
       browserSection: 'This browser',
       browserSectionHint: 'Saved in this browser; other viewers keep their own.',
       player: 'Player',

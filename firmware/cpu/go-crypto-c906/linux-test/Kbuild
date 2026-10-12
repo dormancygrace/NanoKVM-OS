@@ -1,0 +1,4 @@
+# Build against the running kernel's tree; copy the generated assembly next to this file:
+#   gen_chacha_linux.py --binutils PREFIX --output linux-test/chacha-riscv64-xtheadvector.S
+obj-m += chacha_xtv.o
+chacha_xtv-y := chacha_xtv_test.o chacha-riscv64-xtheadvector.o

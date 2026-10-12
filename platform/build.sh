@@ -98,7 +98,7 @@ version=$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")
 # Official Alpine packages; the c906-scalar overlay is not built here.
 image_version=$(sed -n 's/^NANOKVM_IMAGE_VERSION=//p' "$repo/firmware/alpine/release.env")
 profile=stock
-release=7.2.10-nanokvm-os-r1
+release=7.2.10-nanokvm-os-r2
 # Fixed build times keep identical inputs reproducible. The kernel timestamp
 # is the upstream Linux 7.2.10 release time.
 kernel_timestamp='Sun Oct 11 13:27:50 UTC 2026'

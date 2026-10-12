@@ -197,6 +197,13 @@ func createMediaEngine(config stream.EncoderConfig) (*webrtc.MediaEngine, error)
 		log.Errorf("failed to register %s codec: %s", config.Codec, err)
 		return nil, err
 	}
+	// USB audio rides on the same connection when the browser offers an audio
+	// m-line; without one, nothing changes.
+	opus := webrtc.RTPCodecParameters{RTPCodecCapability: opusCapability(), PayloadType: opusPayloadType}
+	if err := mediaEngine.RegisterCodec(opus, webrtc.RTPCodecTypeAudio); err != nil {
+		log.Errorf("failed to register opus codec: %s", err)
+		return nil, err
+	}
 
 	return mediaEngine, nil
 }

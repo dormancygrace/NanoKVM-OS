@@ -4,9 +4,11 @@ import clsx from 'clsx';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
+import { stereoOffer } from '@/lib/audio-sdp.ts';
 import { encoderCodecQuery, getEncoderCodec, supportsWebRTCH265 } from '@/lib/encoder.ts';
 import { captureMediaElement } from '@/lib/screenshot.ts';
 import { getBaseUrl } from '@/lib/service.ts';
+import { createVideoAudioChannel, getVideoAudio, publishVideoAudio } from '@/lib/video-audio.ts';
 import { mouseStyleAtom } from '@/jotai/mouse.ts';
 import { screenshotSourceAtom } from '@/jotai/screen.ts';
 
@@ -71,6 +73,16 @@ export const H264Webrtc = ({
     const videoElement = videoRef.current;
 
     let video: RTCPeerConnection | null = null;
+    // USB audio rides on this connection; see lib/video-audio.ts.
+    let audioChannel: ReturnType<typeof createVideoAudioChannel> | null = null;
+    let audioTransceiver: RTCRtpTransceiver | null = null;
+    const closeAudioChannel = () => {
+      if (!audioChannel) return;
+      if (getVideoAudio() === audioChannel) publishVideoAudio(null);
+      audioChannel.emit('closed');
+      audioChannel = null;
+      audioTransceiver = null;
+    };
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let stopDiagnostics: (() => void) | null = null;
@@ -149,10 +161,10 @@ export const H264Webrtc = ({
 
         try {
           videoOfferSent.current = true;
-          const offer = await peer.createOffer({
-            offerToReceiveVideo: true,
-            offerToReceiveAudio: false
-          });
+          // Explicit transceivers: legacy offerToReceive* options would turn
+          // the audio transceiver inactive, which the server stops for good.
+          const offer = await peer.createOffer();
+          offer.sdp = stereoOffer(offer.sdp ?? '');
 
           await peer.setLocalDescription(offer);
 
@@ -180,6 +192,8 @@ export const H264Webrtc = ({
       peer.ontrack = (event) => {
         if (videoElement && event.track.kind === 'video') {
           videoElement.srcObject = new MediaStream([event.track]);
+        } else if (event.track.kind === 'audio') {
+          audioChannel?.setStream(event.streams[0] ?? new MediaStream([event.track]));
         }
       };
 
@@ -190,6 +204,10 @@ export const H264Webrtc = ({
       };
 
       peer.addTransceiver('video', { direction: 'recvonly' });
+      // Always offered, so USB audio enabled later needs no renegotiation;
+      // the server sends nothing until audio-start.
+      audioChannel = createVideoAudioChannel(peer, (event) => sendMsg(event, ''));
+      audioTransceiver = peer.addTransceiver('audio', { direction: 'recvonly' });
     };
 
     const handleVideoAnswer = (data: RTCSessionDescriptionInit) => {
@@ -208,6 +226,8 @@ export const H264Webrtc = ({
         .setRemoteDescription(new RTCSessionDescription(data))
         .then(() => {
           videoOfferSent.current = false;
+          if (peer === video && audioChannel && audioTransceiver?.currentDirection === 'recvonly')
+            publishVideoAudio(audioChannel);
           videoIceCandidates.current.forEach((candidate) => {
             peer
               .addIceCandidate(candidate)
@@ -298,11 +318,21 @@ export const H264Webrtc = ({
                 duration: 0
               });
             stopDiagnostics?.();
+            closeAudioChannel();
             video?.close();
             video = null;
             ws.close();
             break;
           }
+          case 'audio-started':
+            audioChannel?.emit('started');
+            break;
+          case 'audio-stopped':
+            audioChannel?.emit('stopped');
+            break;
+          case 'audio-error':
+            audioChannel?.emit('error', msg.data);
+            break;
           case 'heartbeat':
             break;
           default:
@@ -334,6 +364,7 @@ export const H264Webrtc = ({
       setScreenshotSource(null);
       stopDiagnostics?.();
       cancelReconnect();
+      closeAudioChannel();
 
       if (ws.readyState !== WebSocket.CLOSING && ws.readyState !== WebSocket.CLOSED) {
         ws.close();

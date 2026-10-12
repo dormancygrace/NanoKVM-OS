@@ -22,6 +22,26 @@ type signal struct {
 
 var sessions atomic.Int32
 
+// MaxSessions bounds browser listeners, standalone and bundled together.
+const MaxSessions = 8
+
+// OpusFmtpLine is the Opus format of the shared encoder, for every WebRTC
+// audio track.
+const OpusFmtpLine = "minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1;maxaveragebitrate=192000"
+
+// AcquireSession reserves one of MaxSessions listener slots; ReleaseSession
+// returns it. The audio track of a video peer connection uses the same slots
+// as the standalone audio connection.
+func AcquireSession() bool {
+	if sessions.Add(1) > MaxSessions {
+		sessions.Add(-1)
+		return false
+	}
+	return true
+}
+
+func ReleaseSession() { sessions.Add(-1) }
+
 func Status(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": StatusData()})
 }
@@ -57,12 +77,11 @@ func Connect(c *gin.Context) {
 		c.String(http.StatusConflict, "USB audio is disabled")
 		return
 	}
-	if sessions.Add(1) > 8 {
-		sessions.Add(-1)
+	if !AcquireSession() {
 		c.String(http.StatusServiceUnavailable, "too many audio sessions")
 		return
 	}
-	defer sessions.Add(-1)
+	defer ReleaseSession()
 	upgrade := websocket.Upgrader{CheckOrigin: middleware.CheckWebSocketOrigin}
 	ws, err := upgrade.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -79,7 +98,7 @@ func Connect(c *gin.Context) {
 	defer peer.Close()
 	track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{
 		MimeType: webrtc.MimeTypeOpus, ClockRate: 48000, Channels: 2,
-		SDPFmtpLine: "minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1;maxaveragebitrate=192000",
+		SDPFmtpLine: OpusFmtpLine,
 	}, "audio", "nanokvm-usb-audio")
 	if err != nil {
 		return

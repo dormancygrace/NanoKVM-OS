@@ -29,6 +29,7 @@ func NewClient(ws *websocket.Conn, videoConn *webrtc.PeerConnection, config stre
 }
 
 func (c *Client) Close() {
+	c.stopAudio()
 	if c.video != nil {
 		if err := c.video.Close(); err != nil {
 			log.Debugf("failed to close video peer connection: %s", err)
@@ -92,7 +93,7 @@ func (c *Client) AddTrack() error {
 			SDPFmtpLine: sdpFmtpLine,
 		},
 		"video",
-		"pion-video",
+		mediaStreamID,
 	)
 	if err != nil {
 		log.Errorf("failed to create video track: %s", err)

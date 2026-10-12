@@ -29,6 +29,7 @@ type Client struct {
 	video           *webrtc.PeerConnection
 	track           *Track
 	config          stream.EncoderConfig
+	audio           peerAudio
 	mutex           sync.Mutex
 }
 

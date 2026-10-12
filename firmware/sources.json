@@ -8,9 +8,9 @@
     "sha256": "87aaca4164ea9d5c8085854953018263f7963f07c22e73a2a2185cc98c581c34"
   },
   "linux": {
-    "version": "7.2.9",
-    "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.9.tar.xz",
-    "sha256": "b4c5dfbe51a364a6c7f03869200f88c8e1f77403539005f14b7fc6bc91b8d8ba"
+    "version": "7.2.10",
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.10.tar.xz",
+    "sha256": "2feaa70453e91f541be6a5c9078d8168e081af45a3d9718054850538cff2ebf3"
   },
   "gcc": {
     "version": "16.2.0",

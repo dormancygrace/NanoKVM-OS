@@ -8,6 +8,10 @@
 
 Host requirements, the steps, the outputs and how they are checked are described in [platform/README.md](../platform/README.md). Buildroot (`firmware/buildroot/configs/nanokvm_platform_defconfig`) builds only the toolchain, host tools and initramfs utilities; the installed OS and optional software are Alpine APKs.
 
+The root Makefile uses the same builder: `make platform PLATFORM_ARGS=-d`
+creates a local test image, and `make help` lists the component targets.
+`OUT` and `JOBS` override the output directory and build parallelism.
+
 ## Working on one component
 
 The web UI and the server can be developed without the full build. The web UI needs Node.js 24 LTS and pnpm 11 or newer (CI uses pnpm 12); the root `.nvmrc` selects Node 24, so with nvm run `nvm install` and `nvm use` from the repository root:
@@ -17,7 +21,7 @@ cd web && pnpm install --frozen-lockfile && pnpm dev
 ```
 
 ```sh
-cd server && CGO_ENABLED=0 go test -tags teststub ./...
+cd server && CGO_ENABLED=0 go test -tags teststub,nomsgpack ./...
 ```
 
 A release-equivalent server needs the NanoKVM Go runtime (`firmware/cpu/sysmon-runtime`, which also adds the C906 ChaCha20 of `firmware/cpu/go-crypto-c906`) and the native libraries of the same build; `platform/build.sh native server` builds both. See [UPDATES.md](UPDATES.md) for the native APK update flow.
@@ -31,8 +35,9 @@ See [DEPENDENCY-UPDATES.md](DEPENDENCY-UPDATES.md) for automatic dependency PRs,
 
 `platform/cpu-profile.json` defines the CPU policy for our own C/C++ components.
 `scripts/nanokvm_cpu_profile.py` supplies the flags to the native library, board
-service, USB audio, CGO and platform builders. Production optimization is `-O2`,
-with C906 scheduling and `-mno-fence-tso`. Official Alpine packages and prebuilt
+service, USB audio, CGO and platform builders. Source-owned userspace uses
+`-O2`; kernel and modules use `-O3` without LTO. Both use C906 scheduling
+and `-mno-fence-tso`. Official Alpine packages and prebuilt
 SOPHGO algorithm objects are not recompiled by this policy; Go retains its own
 compiler and `GORISCV64` baseline.
 
@@ -71,4 +76,4 @@ To inspect the effective compiler commands after a kernel or module build, run
 For U-Boot, use `--kind bootloader OUTPUT/uboot/build`. The audit reads Kbuild's
 saved commands and checks the final optimization, ISA, ABI and tuning options.
 The vDSO and CFI-vDSO retain Kbuild's explicit userspace ABI instruction sets;
-these are reported separately, while still requiring `-O2` and C906 tuning.
+these are reported separately, while still requiring the kernel optimization level (`-O3`) and C906 tuning.

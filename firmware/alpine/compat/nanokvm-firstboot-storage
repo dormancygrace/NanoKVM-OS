@@ -24,7 +24,7 @@ fi
 [ "$(cat /sys/class/block/mmcblk0p3/start)" = 1705984 ]
 # The marker belongs only to a fresh full SD installation. Old signatures on
 # a reused card must not prevent creating its new data filesystem.
-mkfs.exfat -L NANOKVM /dev/mmcblk0p3
+mkfs.exfat -F -L NANOKVM /dev/mmcblk0p3
 mkdir -p /data
 mountpoint -q /data || mount /data
 rm /etc/nanokvm-firstboot-storage

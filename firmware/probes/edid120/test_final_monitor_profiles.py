@@ -108,14 +108,19 @@ class MonitorProfilesTest(unittest.TestCase):
                 self.assertEqual(data[126], 1)
                 self.assertEqual([sum(data[i:i + 128]) % 256 for i in (0, 128)], [0, 0])
                 # Identity, name/serial/range descriptors and preferred-mode
-                # bit logic: only the preferred DTD (and the bit) change.
-                self.assertEqual(data[:24], self.source[:24])
+                # bit logic: only the preferred DTD (and the bit) change, and
+                # rate profiles carry their own numeric and text serial.
+                ref = bytearray(self.source)
+                if data[77:81] == b"NKVM":
+                    ref[12:16] = data[12:16]
+                    ref[77:90] = data[77:90]
+                self.assertEqual(data[:24], ref[:24])
                 self.assertEqual(data[24] & 3, 2)
-                self.assertEqual(data[25:35], self.source[25:35])
+                self.assertEqual(data[25:35], ref[25:35])
                 # (UHD30 raises the pixel clock limit of the range descriptor.)
-                self.assertEqual(data[72:108], self.source[72:108])
-                self.assertEqual(data[108:117], self.source[108:117])
-                self.assertEqual(data[118:126], self.source[118:126])
+                self.assertEqual(data[72:108], ref[72:108])
+                self.assertEqual(data[108:117], ref[108:117])
+                self.assertEqual(data[118:126], ref[118:126])
                 self.assertEqual(data[128:130], bytes([2, 3]))
                 self.assertEqual(data[131], self.source[131])
                 # The HDMI vendor block survives (UHD30 appends Max_TMDS_Clock).
@@ -201,6 +206,25 @@ class MonitorProfilesTest(unittest.TestCase):
         for height, (_, _, rate) in profiles.PREFERRED.items():
             self.assertEqual(profiles.build_rate_profile(self.source, height, int(rate))[0],
                              profiles.build_profile(self.source, height)[0])
+
+    def test_rate_profiles_have_own_identity(self):
+        """Windows reapplies the mode last used with a monitor identity; each
+        rate profile is a monitor of its own (numeric and text serial)."""
+        seen = set()
+        for height, rates in profiles.RATES.items():
+            if height == 2160:
+                continue
+            for rate in rates:
+                data, _ = profiles.build_rate_profile(self.source, height, rate)
+                serial = int.from_bytes(data[12:16], "little")
+                texts = [data[pos + 5:pos + 18].split(b"\n")[0].decode()
+                         for pos in range(54, 126, 18) if data[pos:pos + 4] == b"\0\0\0\xff"]
+                with self.subTest(height=height, rate=rate):
+                    self.assertEqual(serial, height * 100 + rate)
+                    self.assertEqual(texts, [f"NKVM{height}-{rate}"])
+                    self.assertEqual(sum(data[:128]) % 256, 0)
+                    self.assertNotIn(serial, seen)
+                seen.add(serial)
 
     def test_static_auto_profile_is_strict_1080p100(self):
         """Policy: the generated static Automatic profile stays single-rate.

@@ -81,30 +81,28 @@ def check_read_img_gates():
 
 
 def check_gop_setters():
-    """The GOP setters run on server threads, outside vi_mutex and alongside the detection thread's restart_capture(): they must only record a request for the video reader, which owns the encoder channel."""
+    """The GOP setters run on server threads, outside vi_mutex and alongside the detection thread's restart_capture(). The encoder runs NormalP with IDRs on request only, so they stay for the ABI of older servers and must not touch the channel."""
     source = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
     for signature in ['void set_h264_gop(uint8_t _gop)', 'int8_t set_h265_gop_mode(uint8_t _mode)']:
         body = function_body(source, signature)
         assert 'mmf_' not in body, signature + ' calls MMF'
         assert 'enc_video_init' not in body, signature + ' changes the channel state'
-    assert 'requested_gop_mode.store(' in function_body(source, 'int8_t set_h265_gop_mode(uint8_t _mode)')
-    # The reader applies it: a running H.265 channel of another mode does not match ...
+    assert 'MMF_VENC_GOP_NORMALP ? 0 : -1' in function_body(source, 'int8_t set_h265_gop_mode(uint8_t _mode)')
+    # A GOP or mode request never retires the running channel.
     matches = function_body(source, 'static bool video_encoder_matches(')
-    assert 'kvm_venc.gop_mode == requested_gop_mode.load(' in matches
-    # ... and the next one is created with the requested mode, which it records.
-    init = function_body(source, 'int init_venc_video(')
-    assert init.index('mmf_set_venc_gop_mode(gop_mode)') < init.index('mmf_add_venc_channel(')
-    assert init.index('mmf_add_venc_channel(') < init.index('kvm_venc.gop_mode = gop_mode')
-    assert source.count('mmf_set_venc_gop_mode(') == 1
+    assert 'gop' not in matches
+    assert 'mmf_set_venc_gop_mode(' not in source
     print('gop setters ok')
 
 
 check_read_img_gates()
 check_gop_setters()
 
-for case in ['quality', 'sink', 'capture', 'policy', 'gate', 'pacing']:
+for case in ['quality', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown']:
     binary = args.output.resolve() / case
     sources = [repo / f'firmware/probes/mjpeg-{case}-contract.cpp']
+    if case == 'teardown':
+        sources = [repo / 'firmware/probes/venc-teardown-contract.cpp']
     if case == 'pacing':
         sources = [repo / 'support/sg2002/additional/kvm/tests/capture_pacing_test.cpp']
     if case == 'capture':

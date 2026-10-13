@@ -48,12 +48,15 @@ func initialize(stopMemory context.CancelFunc) {
 	}
 
 	logger.Init()
+	// The native video libraries report failures on stderr, which the service
+	// discards; standard log output already reaches the application log.
+	if err := common.CaptureNativeStderr(logs.Application); err != nil {
+		logrus.Warnf("native stderr is not logged: %v", err)
+	} else {
+		log.SetOutput(logs.Application)
+	}
 	recovering, recoveryErr := failsafe.Init(func() error {
-		executable, err := os.Executable()
-		if err != nil {
-			return err
-		}
-		err = syscall.Exec(executable, os.Args, os.Environ())
+		err := execSelf(os.Environ())
 		logrus.Errorf("video recovery restart failed: %v", err)
 		return err
 	})

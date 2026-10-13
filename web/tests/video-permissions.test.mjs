@@ -163,7 +163,7 @@ function renderForm(role) {
   let stateIndex = 0;
   const element = (type, props) => ({ type, props: props ?? {} });
   const components = Object.fromEntries(
-    ['Button', 'Collapse', 'InputNumber', 'Modal', 'Select', 'Switch'].map((n) => [n, n])
+    ['Alert', 'Button', 'Collapse', 'InputNumber', 'Modal', 'Select', 'Switch'].map((n) => [n, n])
   );
   const form = load(
     '../src/pages/desktop/menu/settings/video/form.tsx',
@@ -176,10 +176,11 @@ function renderForm(role) {
       'react/jsx-runtime': { jsx: element, jsxs: element, Fragment: 'Fragment' },
       'react-i18next': { useTranslation: () => ({ t: (key) => key }) },
       antd: { ...components, message: { success: () => {}, error: () => {} } },
+      '@/api/vm': { getMemoryStatus: async () => ({}), reboot: async () => ({}), setVideoMemory: async () => ({}) },
+      '@/lib/video-memory-mode': { pickVideoMemoryMode: () => undefined },
       '@/lib/video-model': model,
       '../../screen/reset': { Reset: 'Reset' },
       './apply': { applyVideoDraft: async () => ({}) },
-      './presets': { PresetPicker: 'PresetPicker' },
       './use-video-settings': { useSyncStreamAtoms: () => () => {} }
     },
     {},
@@ -200,21 +201,90 @@ function renderForm(role) {
 
 test('users choose transport and playback; shared settings are read-only', () => {
   const nodes = renderForm('user');
-  const select = (label) =>
-    nodes.find((n) => n.type === 'Select' && n.props['aria-label'] === label);
-  assert.equal(select('screen.codec').props.disabled, true);
-  assert.equal(select('screen.fps').props.disabled, true);
-  assert.equal(select('videoSettings.monitorProfile').props.disabled, true);
-  assert.equal(select('screen.video').props.disabled, false);
-  assert.equal(select('videoSettings.directPlayback').props.disabled, false);
-  assert.equal(nodes.some((n) => n.type === 'PresetPicker'), false);
+  const control = (type, label) =>
+    nodes.find((n) => n.type === type && n.props['aria-label'] === label);
+  assert.equal(control('Select', 'videoSettings.mode').props.disabled, true);
+  assert.equal(control('Select', 'videoSettings.bitrate').props.disabled, true);
+  assert.equal(control('Select', 'screen.codec').props.disabled, true);
+  assert.equal(control('InputNumber', 'videoSettings.fpsOverride').props.disabled, true);
+  assert.equal(control('Select', 'screen.video').props.disabled, false);
+  assert.equal(control('Select', 'videoSettings.player').props.disabled, false);
 });
 
-test('administrators see presets and editable shared settings', () => {
+test('administrators edit the shared picture', () => {
   const nodes = renderForm('admin');
-  const select = (label) =>
-    nodes.find((n) => n.type === 'Select' && n.props['aria-label'] === label);
-  assert.equal(select('screen.codec').props.disabled, false);
-  assert.equal(select('screen.fps').props.disabled, false);
-  assert.ok(nodes.some((n) => n.type === 'PresetPicker'));
+  const control = (type, label) =>
+    nodes.find((n) => n.type === type && n.props['aria-label'] === label);
+  assert.equal(control('Select', 'videoSettings.mode').props.disabled, false);
+  assert.equal(control('Select', 'videoSettings.bitrate').props.disabled, false);
+  assert.equal(control('Select', 'screen.codec').props.disabled, false);
+  assert.equal(control('InputNumber', 'videoSettings.fpsOverride').props.disabled, false);
+});
+
+function renderQuickVideo(role, session) {
+  const applied = [];
+  const element = (type, props) => ({ type, props: props ?? {} });
+  const quick = load(
+    '../src/pages/desktop/menu/screen/quick-video.tsx',
+    {
+      react: { useState: (initial) => [initial, () => {}] },
+      'react/jsx-runtime': { jsx: element, jsxs: element, Fragment: 'Fragment' },
+      'react-i18next': { useTranslation: () => ({ t: (key) => key }) },
+      antd: { message: { success: () => {}, error: () => {}, info: () => {} } },
+      'lucide-react': { CheckIcon: 'CheckIcon', GaugeIcon: 'GaugeIcon', MonitorIcon: 'MonitorIcon', RadioTowerIcon: 'RadioTowerIcon' },
+      '@/lib/video-model': model,
+      '@/components/menu-item.tsx': { MenuSubmenu: 'MenuSubmenu' },
+      '../settings/video/apply': {
+        applyVideoDraft: async (before, draft, _caps, options) => {
+          applied.push({ draft, admin: options.admin });
+          return { reloading: true };
+        }
+      },
+      '../settings/video/use-video-settings': {
+        useSyncStreamAtoms: () => () => {},
+        useVideoSettings: () => ({
+          admin: role === 'admin',
+          caps,
+          browser: session.browser,
+          saved: session.saved,
+          status: { measuredFps: 60, measuredKbps: 3000, outputWidth: 1920, outputHeight: 1080 },
+          refresh: async () => {}
+        })
+      }
+    },
+    {},
+    true
+  );
+  const tree = quick.QuickVideo();
+  const nodes = (n) => (!n || typeof n !== 'object' ? [] : [n, ...Object.values(n).flatMap(nodes)]);
+  const row = nodes(tree).find(
+    (n) => typeof n.type === 'function' && n.props.title === 'videoSettings.transport'
+  );
+  return { items: row.props.items, applied };
+}
+
+test('a user is not offered a transport that needs another shared codec', async () => {
+  // Direct/H.265 in a browser without WebRTC H.265.
+  const session = {
+    browser: { ...browser, webrtcH265: false },
+    saved: { ...saved, transport: 'direct', codec: 'h265' }
+  };
+  const user = renderQuickVideo('user', session);
+  const webrtc = user.items.find((item) => item.key === 'webrtc');
+  assert.equal(webrtc.disabled, true);
+  assert.equal(webrtc.label, 'WebRTC');
+  webrtc.pick();
+  await Promise.resolve();
+  assert.deepEqual(user.applied, []);
+
+  // An administrator gets WebRTC with H.264, which changes the shared codec.
+  const admin = renderQuickVideo('admin', session);
+  const fallback = admin.items.find((item) => item.key === 'webrtc');
+  assert.equal(fallback.disabled, false);
+  assert.equal(fallback.label, 'WebRTC · H.264');
+  fallback.pick();
+  await Promise.resolve();
+  assert.equal(admin.applied.length, 1);
+  assert.equal(admin.applied[0].draft.transport, 'webrtc');
+  assert.equal(admin.applied[0].draft.codec, 'h264');
 });

@@ -135,12 +135,9 @@ func setScreenValue(target *Screen, key string, value int) {
 		}
 
 	case "gop_mode":
-		switch value {
-		case int(GOPModeNormalP):
-			target.GOPMode = GOPModeNormalP
-		case int(GOPModeSmartP):
-			target.GOPMode = GOPModeSmartP
-		}
+		// SmartP was retired: the encoder runs NormalP and sends an IDR when
+		// a viewer asks for one. A saved SmartP reads as NormalP.
+		target.GOPMode = GOPModeNormalP
 	}
 }
 
@@ -184,9 +181,7 @@ func checkScreen(target *Screen) {
 		target.BitRate = 12000
 	}
 
-	if target.GOPMode != GOPModeNormalP && target.GOPMode != GOPModeSmartP {
-		target.GOPMode = GOPModeSmartP
-	}
+	target.GOPMode = GOPModeNormalP
 }
 
 func loadScreen(readFile func(string) ([]byte, error)) *Screen {
@@ -197,7 +192,7 @@ func loadScreen(readFile func(string) ([]byte, error)) *Screen {
 		FPS:         100,
 		BitRate:     12000, // recommended for 1080p100 H.265 with motion
 		GOP:         30,
-		GOPMode:     GOPModeSmartP,
+		GOPMode:     GOPModeNormalP,
 		MjpegChroma: 422,
 	}
 

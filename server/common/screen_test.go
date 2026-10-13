@@ -78,20 +78,22 @@ func TestLoadScreenKeepsDefaultsForMissingOrInvalidSettings(t *testing.T) {
 	if got.Width != 0 || got.Height != 0 {
 		t.Fatalf("resolution = %dx%d, want default 0x0", got.Width, got.Height)
 	}
-	if got.GOPMode != GOPModeSmartP {
-		t.Fatalf("GOPMode = %d, want default SmartP", got.GOPMode)
+	if got.GOPMode != GOPModeNormalP {
+		t.Fatalf("GOPMode = %d, want NormalP", got.GOPMode)
 	}
 }
 
-func TestLoadScreenRejectsInvalidGOPMode(t *testing.T) {
-	got := loadScreen(func(path string) ([]byte, error) {
-		if path == "/kvmapp/kvm/gop_mode" {
-			return []byte("2"), nil
+func TestLoadScreenReadsEveryGOPModeAsNormalP(t *testing.T) {
+	for _, saved := range []string{"1", "2"} {
+		got := loadScreen(func(path string) ([]byte, error) {
+			if path == "/kvmapp/kvm/gop_mode" {
+				return []byte(saved), nil
+			}
+			return nil, errors.New("not found")
+		})
+		if got.GOPMode != GOPModeNormalP {
+			t.Fatalf("saved %q: GOPMode = %d, want NormalP", saved, got.GOPMode)
 		}
-		return nil, errors.New("not found")
-	})
-	if got.GOPMode != GOPModeSmartP {
-		t.Fatalf("GOPMode = %d, want default SmartP", got.GOPMode)
 	}
 }
 

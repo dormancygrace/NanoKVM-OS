@@ -1,5 +1,5 @@
-// Video settings model: device capabilities, the draft a user edits,
-// presets, validation with reasons, and what applying a draft changes.
+// Video settings model: device capabilities, the draft a user edits, video
+// modes, validation with reasons, and what applying a draft changes.
 // Pure functions without imports, so tests can run them directly.
 
 export type Reason =
@@ -84,8 +84,6 @@ export type VideoDraft = {
   codec: Codec;
   bitRate: number; // kbit/s, H.264/H.265
   quality: number; // percent, MJPEG
-  gop: number;
-  gopMode: number; // 0 NormalP, 1 SmartP
   mjpegChroma: number;
   directPlayback: DirectPlayback;
   frameDetect: boolean;
@@ -94,13 +92,19 @@ export type VideoDraft = {
 export const FPS_CHOICES = [120, 75, 60, 50, 40, 30];
 export const BITRATE_CHOICES = [20000, 15000, 12000, 10000, 8000, 5000, 3000, 2000, 1000];
 
-// Bitrate for a stream with motion (video, scrolling): about 0.05 bit per
-// pixel for H.265 and 1.5 times that for H.264, rounded up to an offered
-// value. 1080p100 H.265: 12 Mbit/s; 3840x2160@30: 15 Mbit/s.
-export function recommendedBitrate(width: number, height: number, fps: number, codec: Codec) {
-  const kbps = (width * height * fps * 0.05 * (codec === 'h264' ? 1.5 : 1)) / 1000;
+// The automatic bitrate: a ceiling for motion (video, scrolling), about 0.09
+// bit per pixel for H.265 and 1.3 times that for H.264, rounded up to an
+// offered value. A still screen sends far less whatever the ceiling: the
+// encoder stops at its quality floor. 2560x1440@60 and 3840x2160@30: 20
+// Mbit/s; 1920x1080@60: 12; 1280x720@120: 10. Measured on the SG2002 at
+// 2560x1440@60, 20 Mbit/s keeps the encoder within its frame time.
+export function autoBitrate(width: number, height: number, fps: number, codec: Codec) {
+  const kbps = (width * height * fps * 0.09 * (codec === 'h264' ? 1.3 : 1)) / 1000;
   return [...BITRATE_CHOICES].reverse().find((b) => b >= kbps) ?? BITRATE_CHOICES[0];
 }
+
+// The economy bitrate: remote access and mobile connections.
+export const ECONOMY_BITRATE = 3000;
 
 // The size a monitor setting stands for (Auto included).
 export function monitorSize(mode: MonitorMode | undefined) {
@@ -252,199 +256,161 @@ export function draftIssues(
   return issues;
 }
 
-export type PresetId = 'auto' | 'sharp' | 'balanced' | 'responsive' | 'compatible' | 'saver';
-export const PRESETS: PresetId[] = [
-  'auto',
-  'sharp',
-  'balanced',
-  'responsive',
-  'compatible',
-  'saver'
-];
-
-type PresetSpec = {
-  monitor: number[]; // preferred monitor settings, first available wins
-  height: number;
-  fps: number | 'max';
-  transports: Transport[];
-  codec: Codec | 'best';
-  bitRate: number | 'motion'; // 'motion': recommendedBitrate for the result
-  gop: number;
-  gopMode: number;
-  directPlayback: DirectPlayback;
-};
-
-const PRESET_SPECS: Record<PresetId, PresetSpec> = {
-  auto: {
-    monitor: [0],
-    height: 0,
-    fps: 'max',
-    transports: ['direct', 'webrtc', 'mjpeg'],
-    codec: 'best',
-    bitRate: 'motion',
-    gop: 30,
-    gopMode: 1,
-    directPlayback: 'paced'
-  },
-  sharp: {
-    monitor: [2160, 1440, 1080],
-    height: 0,
-    fps: 'max',
-    transports: ['direct', 'webrtc'],
-    codec: 'best',
-    bitRate: 20000,
-    gop: 60,
-    gopMode: 1,
-    directPlayback: 'paced'
-  },
-  balanced: {
-    monitor: [1440],
-    height: 0,
-    fps: 'max',
-    transports: ['direct', 'webrtc'],
-    codec: 'best',
-    bitRate: 'motion',
-    gop: 60,
-    gopMode: 1,
-    directPlayback: 'paced'
-  },
-  responsive: {
-    monitor: [720],
-    height: 0,
-    fps: 120,
-    transports: ['direct', 'webrtc'],
-    codec: 'h264',
-    bitRate: 'motion',
-    gop: 120,
-    gopMode: 1,
-    directPlayback: 'immediate'
-  },
-  compatible: {
-    monitor: [1080],
-    height: 0,
-    fps: 60,
-    transports: ['webrtc', 'mjpeg'],
-    codec: 'h264',
-    bitRate: 'motion',
-    gop: 60,
-    gopMode: 1,
-    directPlayback: 'paced'
-  },
-  saver: {
-    monitor: [1080],
-    height: 1080,
-    fps: 30,
-    transports: ['direct', 'webrtc', 'mjpeg'],
-    codec: 'best',
-    bitRate: 1000,
-    gop: 60,
-    gopMode: 1,
-    directPlayback: 'paced'
-  }
-};
-
-// Whether presets may change the monitor: it must be writable without a
-// power cycle, and a portrait monitor stays as the user chose it.
-export function presetsSetMonitor(caps: VideoCapabilities, current: VideoDraft) {
-  return caps.monitor.programmable && !caps.monitor.requiresPowerCycle && !current.portrait;
+// Whether a draft plays here: the browser, the transport's codecs and the
+// portrait profile accept it (what the settings form checks for these).
+export function draftPlayable(draft: VideoDraft, caps: VideoCapabilities, browser: BrowserSupport) {
+  const issues = draftIssues(draft, caps, browser);
+  return !issues.transport && !issues.codec && !issues.portrait;
 }
 
-// The draft a preset produces from the current one, or why it cannot apply.
-export function buildPreset(
-  id: PresetId,
+// The draft that switches to a transport: with the current codec where it
+// plays, else (administrators, who set the shared codec) with the other codec,
+// else none (the choice is unavailable). A user cannot change the codec:
+// applyVideoDraft keeps theirs, so only the current codec is a choice.
+export function transportChoice(
+  saved: VideoDraft,
+  transport: Transport,
   caps: VideoCapabilities,
   browser: BrowserSupport,
-  current: VideoDraft
-): { draft: VideoDraft } | { reason: Reason } {
-  const spec = PRESET_SPECS[id];
-  const draft: VideoDraft = { ...current, height: spec.height };
-  if (presetsSetMonitor(caps, current)) {
-    const mode = spec.monitor.map((height) => monitorMode(caps, height)).find((m) => m?.available);
-    if (!mode) return { reason: monitorMode(caps, spec.monitor[0])?.reason ?? 'receiver' };
-    draft.monitor = mode.height;
-  }
-  const playable = spec.transports.filter((t) => transportPlayable(browser, t));
-  const transport = playable.find((t) => t !== 'mjpeg' || !mjpegBlocked(draft, caps));
-  if (!transport) return { reason: playable.length ? 'mjpeg-4k' : 'browser' };
-  draft.transport = transport;
-  draft.codec =
-    spec.codec === 'best'
-      ? caps.transports[transport]?.includes('h265') && codecPlayable(browser, transport, 'h265')
-        ? 'h265'
-        : 'h264'
-      : spec.codec;
-  if (draft.portrait) {
-    const profile = portraitProfile(caps, draft.portrait);
-    if (profile && !profile.transports.includes(transport)) return { reason: 'portrait' };
-    if (profile && transport !== 'mjpeg' && !profile.codecs.includes(draft.codec)) {
-      if (!profile.codecs.some((c) => codecPlayable(browser, transport, c as Codec))) {
-        return { reason: 'portrait' };
-      }
-      draft.codec = profile.codecs[0] as Codec;
-    }
-  }
-  // The highest rate the new monitor (or the current input) and the stream
-  // limit allow.
-  draft.fps = 120;
-  let ceiling = effectiveFps(draft, caps);
-  const mode = monitorMode(caps, draft.monitor);
-  if (presetsSetMonitor(caps, current) && mode) {
-    const tiers = caps.stream.rateTiers;
-    const limit = caps.stream.limits.find((l) => l.height === draft.height);
-    const size = monitorSize(mode);
-    ceiling = Math.min(
-      mode.rates[0] ?? 120,
-      size.width ? rateLimit(tiers, size.width, size.height) : ceiling,
-      limit && limit.height ? rateLimit(tiers, limit.width, limit.height) : 120
-    );
-  }
-  draft.fps = spec.fps === 'max' ? ceiling : Math.min(spec.fps, ceiling);
-  if (spec.bitRate === 'motion') {
-    // The size the source will send: the new monitor, else the current input,
-    // within the stream limit.
-    const size = presetsSetMonitor(caps, current)
-      ? monitorSize(monitorMode(caps, draft.monitor))
-      : { width: caps.input.width, height: caps.input.height };
-    const out = size.width
-      ? streamSize(draft, { ...caps, input: { ...caps.input, ...size } })
-      : streamSize(draft, caps);
-    draft.bitRate = recommendedBitrate(out.width, out.height, draft.fps, draft.codec);
-  } else {
-    draft.bitRate = spec.bitRate;
-  }
-  draft.gop = spec.gop;
-  draft.gopMode = spec.gopMode;
-  draft.directPlayback = spec.directPlayback;
-  draft.frameDetect = false;
-  const issues = draftIssues(draft, caps, browser);
-  const reason = Object.values(issues)[0];
-  return reason ? { reason } : { draft };
+  admin: boolean
+): VideoDraft | undefined {
+  const codecs: Codec[] =
+    transport === 'mjpeg' || !admin
+      ? [saved.codec]
+      : [saved.codec, saved.codec === 'h265' ? 'h264' : 'h265'];
+  return codecs
+    .map((codec) => ({ ...saved, transport, codec }))
+    .find((draft) => draftPlayable(draft, caps, browser));
 }
 
-const PRESET_FIELDS: (keyof VideoDraft)[] = [
-  'monitor',
-  'height',
-  'fps',
-  'transport',
-  'codec',
-  'bitRate',
-  'gop',
-  'directPlayback'
-];
+// A video mode: the monitor the computer renders and the rate the stream
+// carries, as one choice. Landscape modes come from the programmable monitor
+// profiles and their refresh rates, portrait modes from the portrait profiles;
+// with a fixed receiver the mode is the current input at a stream rate.
+export type VideoMode = {
+  key: string;
+  monitor: number; // the draft's monitor setting; ignored for portrait modes
+  portrait: number;
+  width: number;
+  height: number;
+  fps: number;
+  available: boolean;
+  reason?: Reason;
+};
 
-// The preset a draft equals, or 'custom'.
-export function matchPreset(
-  draft: VideoDraft,
-  caps: VideoCapabilities,
-  browser: BrowserSupport
-): PresetId | 'custom' {
-  for (const id of PRESETS) {
-    const built = buildPreset(id, caps, browser, draft);
-    if ('draft' in built && PRESET_FIELDS.every((key) => built.draft[key] === draft[key])) {
-      return id;
+export function modeKey(kind: 'm' | 'p' | 'i', height: number, fps: number) {
+  return `${kind}${height}@${fps}`;
+}
+
+export function videoModes(caps: VideoCapabilities): VideoMode[] {
+  if (!caps.monitor.programmable) {
+    const { width, height } = caps.input;
+    const ceiling = rateLimit(caps.stream.rateTiers, width, height);
+    return FPS_CHOICES.filter((fps) => fps <= ceiling && fps >= caps.stream.minFps).map((fps) => ({
+      key: modeKey('i', height, fps),
+      monitor: caps.monitor.selected,
+      portrait: 0,
+      width,
+      height,
+      fps,
+      available: true
+    }));
+  }
+  const modes: VideoMode[] = [];
+  for (const mode of caps.monitor.modes) {
+    if (!mode.height) continue; // Auto stands for one of the sizes listed
+    for (const fps of mode.rates) {
+      modes.push({
+        key: modeKey('m', mode.height, fps),
+        monitor: mode.height,
+        portrait: 0,
+        width: mode.width,
+        height: mode.height,
+        fps,
+        available: mode.available,
+        reason: mode.reason
+      });
     }
   }
-  return 'custom';
+  for (const profile of caps.monitor.portrait.profiles) {
+    for (const fps of profile.rates ?? [profile.rate]) {
+      modes.push({
+        key: modeKey('p', profile.resolution, fps),
+        monitor: caps.monitor.selected,
+        portrait: profile.resolution,
+        width: profile.width,
+        height: profile.resolution,
+        fps,
+        available: profile.available,
+        reason: profile.reason
+      });
+    }
+  }
+  return modes;
+}
+
+// The mode a draft is in; undefined when it uses a rate no mode offers.
+export function modeOf(draft: VideoDraft, caps: VideoCapabilities) {
+  let key: string;
+  if (!caps.monitor.programmable) key = modeKey('i', caps.input.height, draft.fps);
+  else if (draft.portrait) key = modeKey('p', draft.portrait, draft.fps);
+  else {
+    const height = draft.monitor || monitorSize(monitorMode(caps, 0)).height;
+    key = modeKey('m', height, draft.fps);
+  }
+  return videoModes(caps).find((m) => m.key === key);
+}
+
+// The mode to suggest: 2560x1440 at 60 fps, else 1920x1080 at 60 fps.
+export function recommendedMode(caps: VideoCapabilities) {
+  const modes = videoModes(caps).filter((m) => m.available && !m.portrait);
+  for (const [width, height] of [
+    [2560, 1440],
+    [1920, 1080]
+  ]) {
+    const mode = modes.find((m) => m.width === width && m.height === height && m.fps === 60);
+    if (mode) return mode;
+  }
+  return modes[0];
+}
+
+// The draft with a mode applied. A portrait profile only plays some transports
+// and codecs; the draft keeps its own where they fit.
+export function withMode(draft: VideoDraft, mode: VideoMode, caps: VideoCapabilities): VideoDraft {
+  const next = { ...draft, fps: mode.fps, portrait: mode.portrait };
+  if (caps.monitor.programmable && !mode.portrait) next.monitor = mode.monitor;
+  const profile = mode.portrait ? portraitProfile(caps, mode.portrait) : undefined;
+  if (profile) {
+    if (!profile.transports.includes(next.transport)) next.transport = 'direct';
+    if (next.transport !== 'mjpeg' && !profile.codecs.includes(next.codec)) {
+      next.codec = profile.codecs.includes('h265') ? 'h265' : 'h264';
+    }
+  }
+  return next;
+}
+
+// The capabilities as the draft's mode will see them: the input becomes the
+// monitor the draft writes, else stays the current input.
+function prospectiveCaps(draft: VideoDraft, caps: VideoCapabilities): VideoCapabilities {
+  const mode = modeOf(draft, caps);
+  return mode
+    ? { ...caps, input: { ...caps.input, width: mode.width, height: mode.height } }
+    : caps;
+}
+
+// The size a draft streams: its mode (the monitor it writes), else the current
+// input, within the stream limit.
+export function draftSize(draft: VideoDraft, caps: VideoCapabilities) {
+  return streamSize(draft, prospectiveCaps(draft, caps));
+}
+
+// The automatic bitrate of a draft (autoBitrate of what it streams). Size and
+// frame-rate limit both come from the mode the draft switches to, not from the
+// current input (a 3840x2160 input would cap a 1440p60 draft at 30 fps).
+export function draftAutoBitrate(draft: VideoDraft, caps: VideoCapabilities) {
+  const prospective = prospectiveCaps(draft, caps);
+  const out = streamSize(draft, prospective);
+  return autoBitrate(out.width, out.height, effectiveFps(draft, prospective), draft.codec);
 }
 
 export type DraftChange = {
@@ -481,8 +447,6 @@ export function settingsRequest(saved: VideoDraft, draft: VideoDraft) {
   if (streamType(draft) !== streamType(saved)) body.type = streamType(draft);
   if (draft.bitRate !== saved.bitRate) body.bitRate = draft.bitRate;
   if (draft.quality !== saved.quality) body.quality = draft.quality;
-  if (draft.gop !== saved.gop) body.gop = draft.gop;
-  if (draft.gopMode !== saved.gopMode) body.gopMode = draft.gopMode;
   if (draft.mjpegChroma !== saved.mjpegChroma) body.mjpegChroma = draft.mjpegChroma;
   if (draft.height !== saved.height) body.height = draft.height;
   if (draft.fps !== saved.fps) body.fps = draft.fps;

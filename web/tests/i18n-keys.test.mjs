@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import languages from '../src/i18n/languages.ts';
@@ -17,13 +17,12 @@ function flatten(object, prefix = '', out = new Map()) {
 }
 
 const names = readdirSync(localesDir)
-  .filter((file) => file.endsWith('.ts'))
-  .map((file) => file.slice(0, -3))
+  .filter((file) => file.endsWith('.json'))
+  .map((file) => file.slice(0, -'.json'.length))
   .sort();
 const locales = new Map();
 for (const name of names) {
-  const module = await import(new URL(`${name}.ts`, localesDir));
-  locales.set(name, flatten(module.default.translation));
+  locales.set(name, flatten(JSON.parse(readFileSync(new URL(`${name}.json`, localesDir), 'utf8'))));
 }
 const en = locales.get('en');
 // Plural forms differ between languages: a locale may use any CLDR suffix
@@ -39,7 +38,7 @@ test('the language list and locale files match', () => {
   assert.deepEqual(languages.map(({ key }) => key).sort(), names);
 });
 
-test('locales contain only keys that exist in en.ts', () => {
+test('locales contain only keys that exist in en.json', () => {
   const orphans = [];
   for (const [name, keys] of locales) {
     for (const key of keys.keys()) {
@@ -48,10 +47,10 @@ test('locales contain only keys that exist in en.ts', () => {
       }
     }
   }
-  assert.deepEqual(orphans, [], 'remove these keys or add them to en.ts');
+  assert.deepEqual(orphans, [], 'remove these keys or add them to en.json');
 });
 
-test('complete languages translate every key in en.ts', () => {
+test('complete languages translate every key in en.json', () => {
   const missing = [];
   for (const { key: name, partial } of languages) {
     if (partial) continue;

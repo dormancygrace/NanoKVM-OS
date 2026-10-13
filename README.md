@@ -205,6 +205,10 @@ Pinned platform inputs, Go modules and the web lockfile fix their respective sou
 | `firmware/` | Alpine recipes, OpenRC integration, retained SDK inputs and board support |
 | `platform/`, `scripts/` | Pinned platform build, patches, packaging and image generation |
 
+## 🌍 Translations
+
+The interface is available in 24 languages. Translations are maintained on [Hosted Weblate](https://hosted.weblate.org/engage/nanokvm-os/): anyone can fix or add strings in the browser, without git. See [TRANSLATING.md](TRANSLATING.md).
+
 ## ❤️ Credits and licenses
 
 Built on the work of [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), Alpine, Linux, Buildroot, Go, [Pion](https://github.com/pion) and [OneKVM](https://github.com/onekvm), with thanks to the contributors and hardware testers.

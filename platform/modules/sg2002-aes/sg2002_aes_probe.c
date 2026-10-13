@@ -161,8 +161,12 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  }
  err = 0;
 clear_scratch:
+ /* The output is not cleared: for SRTP it is the ciphertext that goes on the
+  * wire. CTR decrypts with the same operation, but only payloads of at least
+  * 256 bytes come here (sg2002aes.MinPayload) and the server receives none
+  * that large: video is send-only, Opus frames and RTCP are smaller. The
+  * plaintext input and the descriptor holding the key are cleared. */
  memzero_explicit(buffer, size);
- memzero_explicit(crypto_output, size);
  memzero_explicit(desc, DESC_BYTES);
  writel(7, regs + STATUS);
  writel(initial_mask, regs + MASK);

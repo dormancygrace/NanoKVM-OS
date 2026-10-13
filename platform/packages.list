@@ -177,4 +177,5 @@ firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.beta  0644
 
 # nanokvm-kernel-sg2002 and nanokvm-kmod-sg2002: the platform outputs
 kernel-sg2002 tree /usr/lib/nanokvm/boot                  0644  @boot
+kernel-sg2002 tree /usr/share/licenses/nanokvm-kernel-sg2002/initramfs 0644 @licenses/initramfs
 kmod-sg2002   tree /lib/modules                           0644  @lib/modules

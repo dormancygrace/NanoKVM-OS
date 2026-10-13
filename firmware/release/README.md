@@ -2,8 +2,6 @@
 
 - `v2.0-*/`: release notes, `SHA256SUMS`, validation and build manifests of
   the published v2.0 alphas and betas.
-- `licenses/`: license manifest and texts, referenced by
-  [third-party notices](../../docs/THIRD-PARTY.md).
 
 The build tooling of earlier releases (the Buildroot betas and their build and
 acceptance notes) is kept at their tags, for example `v1.0.0-beta.14`. Current

@@ -26,4 +26,4 @@ The SD image contains the binaries built from them, as the Sipeed images do. The
 
 ## Corresponding source
 
-`platform/build.sh source` writes the corresponding-source archive of a release: the GPL-licensed upstream inputs, the Buildroot downloads of the initramfs userland and this repository at the release commit. Alpine Linux publishes the source of its packages; the installed versions are listed in `/lib/apk/db/installed` of each image and in `release/installed-packages.txt` of the build.
+`platform/build.sh source` writes the corresponding-source archive of a release: the GPL-licensed upstream inputs, the Buildroot downloads of the initramfs userland and this repository at the release commit. Alpine Linux publishes the source of its packages; the installed versions are listed in `/lib/apk/db/installed` of each image and in `release/installed-packages.txt` of the build, their declared licenses in `release/installed-licenses.txt`. The license texts of the initramfs userland are in `/usr/share/licenses/nanokvm-kernel-sg2002/initramfs` and in the source archive.

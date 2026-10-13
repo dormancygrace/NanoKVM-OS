@@ -14,6 +14,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/lib/modules/7.2.10-nanokvm-os-r4/` (65 in-tree and 17 out-of-tree modules, `modules.*`) | `nanokvm-kmod-sg2002` |
 | `images/boot/*.sd`, `*.sha256`, `kernel.release` (5 boards × 3 video memory modes: FHD as `NAME.dtb`, then `NAME-qhd`, `NAME-uhd`) | `nanokvm-kernel-sg2002`, `/usr/lib/nanokvm/boot` |
 | `images/dtb/*.dtb`, `images/initramfs.cpio.zst` | inside the `boot.sd` images |
+| `images/licenses/initramfs/` (Buildroot `legal-info`: `manifest.csv` and the license texts of the initramfs userland and C library) | `nanokvm-kernel-sg2002`, `/usr/share/licenses/nanokvm-kernel-sg2002/initramfs` |
 | `images/u-boot.bin`, `images/fip.bin` | boot partition of the SD image |
 | `images/opensbi/*`, `images/fip-manifest.json` | host build provenance and loader checks |
 | `images/native/*.so` (6 HDMI-light libraries) | `nanokvm-app`, `/kvmapp/server/dl_lib` |
@@ -23,7 +24,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm-app`, `nanokvm-firmware-sg2002` |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware-sg2002` |
 | `release/apk/` | the signed APK repository of the seven packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
-| `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt` | the root file system and its package versions |
+| `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt`, `release/installed-licenses.txt` | the root file system, its package versions and their declared licenses |
 | `release/image/NanoKVM-OS-Image-<image-version>-apps-<application-version>.img.zip`, `SHA256SUMS` | the SD card image |
 
 ## Image and application versions

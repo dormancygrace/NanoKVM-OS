@@ -1,8 +1,11 @@
 #!/bin/sh
 
 # Keep DHCP-installed default routes consistent with the management-uplink
-# preference. The main udhcpc script invokes this after every bound/renew.
-ACTION="$1"
+# preference after every DHCP bound/renew.
+# Alpine's udhcpc script runs this from /etc/udhcpc/post-bound/ and
+# post-renew/ without arguments: the event is the directory name then.
+ACTION="${1:-$(basename "$(dirname "$0")")}"
+ACTION="${ACTION#post-}"
 PREFERENCE_FILE=/etc/kvm/network/gateway.preferred
 
 [ "$ACTION" = bound ] || [ "$ACTION" = renew ] || exit 0

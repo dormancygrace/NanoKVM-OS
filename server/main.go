@@ -78,6 +78,9 @@ func initialize(stopMemory context.CancelFunc) {
 	if err := network.InitializeIPv6(); err != nil {
 		log.Printf("failed to initialize IPv6 policy: %v", err)
 	}
+	if err := network.EnsureDHCPIntegration(); err != nil {
+		log.Printf("failed to set up the DHCP DNS and gateway hooks: %v", err)
+	}
 
 	if !recovering {
 		if err := failsafe.VideoPhase("initializing"); err != nil {

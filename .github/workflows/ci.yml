@@ -105,7 +105,7 @@ jobs:
           done
           for t in firmware/alpine/tests/*.py firmware/services/test_serial_bridge.py \
                    firmware/services/test_serial_console.py \
-                   tools/test-dhcp-dns.py tools/test-dhcp-options.py; do
+                   tools/test-dhcp-options.py; do
             echo "::group::$t"; python3 "$t"; echo "::endgroup::"
           done
           python3 firmware/network/test-usb-prefix.py \

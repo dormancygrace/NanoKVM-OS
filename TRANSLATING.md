@@ -73,23 +73,23 @@ hosting for open-source projects).
 
 **Component**
 
-| Setting                        | Value                                                                       |
-| ------------------------------ | --------------------------------------------------------------------------- |
-| Name                           | Web interface                                                               |
-| URL slug                       | `web`                                                                       |
-| Source code repository         | `https://github.com/dormancygrace/NanoKVM-OS.git`                           |
-| Repository branch              | `main`                                                                      |
-| Version control system         | GitHub pull requests (Weblate pushes the `weblate` branch and opens the PR) |
-| File format                    | i18next JSON file v4                                                        |
-| File mask                      | `web/src/i18n/locales/*.json`                                               |
-| Monolingual base language file | `web/src/i18n/locales/en.json`                                              |
-| Template for new translations  | Leave empty                                                               |
-| Source language                | English                                                                     |
-| Edit base file                 | off (English strings change only with the code)                             |
-| JSON indentation               | 2 spaces                                                                    |
-| Sort JSON keys                 | off (Prettier formats these files the same way)                             |
-| Language code style            | POSIX style using underscore as a separator, lower case                     |
-| Add-ons                        | Cleanup translation files (removes keys that `en.json` no longer has)       |
+| Setting                        | Value                                                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Name                           | Web interface                                                                                                |
+| URL slug                       | `web`                                                                                                        |
+| Source code repository         | `https://github.com/dormancygrace/NanoKVM-OS.git`                                                            |
+| Repository branch              | `main`                                                                                                       |
+| Version control system         | GitHub App (the Weblate app, installed on this repository only, receives pushes and opens the pull requests) |
+| File format                    | i18next JSON file v4                                                                                         |
+| File mask                      | `web/src/i18n/locales/*.json`                                                                                |
+| Monolingual base language file | `web/src/i18n/locales/en.json`                                                                               |
+| Template for new translations  | Leave empty                                                                                                  |
+| Source language                | English                                                                                                      |
+| Edit base file                 | off (English strings change only with the code)                                                              |
+| JSON indentation               | 2 spaces                                                                                                     |
+| Sort JSON keys                 | off (Prettier formats these files the same way)                                                              |
+| Language code style            | POSIX style using underscore as a separator, lower case                                                      |
+| Add-ons                        | Cleanup translation files (removes keys that `en.json` no longer has)                                        |
 
 Leave the template field empty for i18next JSON so new translations contain only
 translated keys. The monolingual base file above still supplies English source

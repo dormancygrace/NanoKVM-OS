@@ -1,5 +1,349 @@
 const de = {
   translation: {
+    audio: {
+      receiving: 'Audiopakete werden empfangen',
+      waiting: 'Warten auf Audio',
+      errors: {
+        connection:
+          'Audioverbindung verloren. Aktivieren Sie „Anhören“, um die Verbindung wiederherzustellen.',
+        timeout:
+          'Zeitüberschreitung der Audioverbindung. Überprüfen Sie das Netzwerk und versuchen Sie es erneut.',
+        playback:
+          'Der Browser konnte die Audiowiedergabe nicht starten. Tippen Sie auf „Anhören“, um es erneut zu versuchen.',
+        signaling:
+          'Die Audioverbindung konnte nicht ausgehandelt werden. Laden Sie die Seite neu und versuchen Sie es erneut.',
+        capture: 'USB-Audioaufnahme gestoppt. Aktivieren Sie „Anhören“, um es erneut zu versuchen.',
+        session: 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.',
+        closed:
+          'Audioverbindung geschlossen. Aktivieren Sie „Anhören“, um die Verbindung wiederherzustellen.'
+      },
+      title: 'USB-Audio',
+      listen: 'Anhören',
+      resume: 'Audio fortsetzen',
+      volume: 'Lautstärke',
+      failed:
+        'Audio nicht verfügbar. Überprüfen Sie die USB-Verbindung und versuchen Sie es erneut.'
+    },
+
+    inputConnection: {
+      idle: 'Steuerkanal im Leerlauf',
+      connecting: 'Verbindung zum Steuerkanal wird hergestellt',
+      connected: 'Steuerkanal verbunden',
+      reconnecting: 'Steuerverbindung verloren. Verbindung wird wiederhergestellt…',
+      disconnected:
+        'Steuerung nicht verfügbar. Verbindung wird wiederhergestellt… Das Video funktioniert möglicherweise weiterhin.'
+    },
+
+    sessionControl: {
+      active: 'Diese Browsersitzung steuert Tastatur und Maus',
+      locked:
+        'Die Eingabe ist in dieser Sitzung deaktiviert. Wählen Sie „Steuerung übernehmen“, um sie zu aktivieren.',
+      viewOnly: 'Nur ansehen',
+      take: 'Steuerung übernehmen',
+      release: 'Diese Sitzung sperren'
+    },
+
+    dateTime: {
+      title: 'Datum & Uhrzeit',
+      deviceTime: 'Gerätezeit',
+      timezone: 'Zeitzone',
+      format: 'Zeitformat',
+      hour24: '24 Stunden (14:30)',
+      hour12: '12 Stunden (2:30 PM)',
+      preview: 'Vorschau',
+      servers: 'NTP-Server',
+      serversHelp:
+        'Wählen Sie 1–6 Hostnamen oder IP-Adressen aus oder geben Sie sie ein. Eine Änderung der Server startet die Zeitsynchronisierung neu.',
+      scope:
+        'Die Zeitzone gilt für das Gerät. Das Zeitformat gilt für die gesamte Oberfläche, einschließlich der VPN-Handshake-Zeiten.',
+      synchronized: 'Synchronisiert',
+      waiting: 'Synchronisierung nicht bestätigt',
+      save: 'Speichern',
+      saved: 'Datums- und Uhrzeiteinstellungen gespeichert',
+      loadFailed: 'Gerätezeit kann nicht gelesen werden. Überprüfen Sie die Verbindung.',
+      saveFailed:
+        'Einstellungen konnten nicht übernommen werden. Überprüfen Sie die Serveradressen und die Geräteverbindung.'
+    },
+    recorder: {
+      title: 'Videoaufzeichnung',
+      start: 'Aufzeichnung starten',
+      stop: 'Aufzeichnung stoppen',
+      saving: 'Aufzeichnung wird gespeichert…',
+      saved: 'Aufzeichnung gespeichert',
+      unsupported:
+        'Die Aufzeichnung erfordert HTTPS und einen Browser mit Unterstützung zum Speichern von Dateien, z. B. Chrome oder Edge',
+      captureDisabled: 'Aktivieren Sie die Aufnahme, um Video aufzuzeichnen',
+      noVideo: 'Warten Sie vor der Aufzeichnung auf das Video',
+      failed:
+        'Die Aufzeichnung konnte nicht gespeichert werden. Überprüfen Sie den freien Speicherplatz und die Browserunterstützung.'
+    },
+    screenshot: {
+      take: 'Bildschirmfoto aufnehmen',
+      saving: 'Bildschirmfoto wird gespeichert…',
+      saved: 'Bildschirmfoto gespeichert ({{width}}×{{height}})',
+      captureDisabled: 'Aktivieren Sie die Aufnahme, um ein Bildschirmfoto zu erstellen',
+      noVideo: 'Warten Sie auf ein Videobild, bevor Sie ein Bildschirmfoto erstellen',
+      failed: 'Bildschirmfoto konnte nicht gespeichert werden'
+    },
+    vpn: {
+      rename: 'Umbenennen',
+      profileName: 'Profilname',
+      cancelRename: 'Umbenennen abbrechen',
+      openvpnDescription:
+        'Importieren Sie .ovpn-Profile. Wählen Sie alle referenzierten Zertifikats- und Schlüsseldateien im selben Upload aus.',
+      openvpnImport: 'OpenVPN-Dateien importieren',
+      openvpnEmpty: 'Keine OpenVPN-Profile',
+      openvpnLimit: 'Maximal 16 Profile; 256 KiB pro Datei und für das kombinierte Profil.',
+      openvpnNotInstalled: 'OpenVPN ist nicht installiert.',
+      openvpnInstallDescription:
+        'Installieren Sie OpenVPN bei Bedarf. Vorhandene Profile bleiben erhalten.',
+      openvpnInstall: 'OpenVPN installieren',
+      openvpnInstalled: 'OpenVPN ist installiert',
+      openvpnUninstall: 'OpenVPN deinstallieren',
+      openvpnUninstallWarning:
+        'OpenVPN wird gestoppt und entfernt. Vorhandene Profile und Einstellungen bleiben auf dem Gerät erhalten.',
+      confirm: 'Ja',
+      cancel: 'Nein',
+      openvpnNote:
+        'Es kann jeweils nur ein OpenVPN-Profil aktiviert sein. Aktivierte Profile verbinden sich nach einem Neustart erneut. Geroutete TUN-Profile werden unterstützt; TAP, Skripte und interaktives SSO/MFA nicht. Der DNS des Servers gilt während der Verbindung für das gesamte Gerät.',
+      credentials: 'Anmeldedaten',
+      credentialsRequired: 'Anmeldedaten erforderlich',
+      username: 'Benutzername',
+      password: 'Passwort',
+      passphrase: 'Passphrase des privaten Schlüssels',
+      save: 'Speichern',
+      description:
+        'Importieren Sie WireGuard-Profile und aktivieren Sie das benötigte. Das aktivierte Profil verbindet sich nach einem Neustart erneut.',
+      import: '.conf-Dateien importieren',
+      empty: 'Keine WireGuard-Profile',
+      enable: 'Aktivieren',
+      delete: 'Löschen',
+      deleteConfirm: 'Dieses Profil löschen?',
+      handshake: 'Handshake',
+      loadFailed: 'VPN-Status konnte nicht gelesen werden.',
+      requestFailed:
+        'Verbindung unterbrochen. Verbinden Sie sich erneut mit dem NanoKVM und überprüfen Sie den Tunnelstatus, bevor Sie es erneut versuchen.',
+      uploadLimit: 'Maximal 16 Profile, 64 KiB pro Datei.',
+      systemRequired:
+        'Die WireGuard-Systemtools fehlen. Installieren Sie ein Systemabbild mit WireGuard-Unterstützung.',
+      routingNote:
+        'Standardmäßig wird nur das Subnetz der Schnittstelle geroutet. Aktivieren Sie „Erlaubte IPs routen“, um die Peer-Routen hinzuzufügen.',
+      routeAllowedIPs: 'Erlaubte IPs routen',
+      routingHelp:
+        'Routen aus AllowedIPs hinzufügen, einschließlich einer Standardroute für 0.0.0.0/0 oder ::/0.',
+      routingDisableFirst: 'Deaktivieren Sie dieses Profil, bevor Sie das Routing ändern.',
+      note: 'Es kann jeweils nur ein WireGuard-Profil aktiviert sein. Der Import stellt keine automatische Verbindung her. DNS akzeptiert IP-Adressen; ausführbare Hooks und SaveConfig werden nicht unterstützt. „Leerlauf“ bedeutet, dass der Tunnel keinen aktuellen Handshake hat, nicht unbedingt einen Verbindungsfehler.',
+      states: {
+        connecting: 'Verbinden',
+        reconnecting: 'Erneut verbinden',
+        authenticating: 'Authentifizierung',
+        off: 'Aus',
+        waiting: 'Warten auf Peer',
+        connected: 'Verbunden',
+        idle: 'Leerlauf',
+        error: 'Fehler'
+      }
+    },
+
+    dashboard: {
+      title: 'Dashboard',
+      live: 'Wird aktualisiert, solange diese Seite geöffnet ist',
+      stale:
+        'Einige Informationen konnten nicht aktualisiert werden. Die zuletzt verfügbaren Werte werden angezeigt.',
+      duration: '{{days}} T {{hours}} Std {{minutes}} Min',
+      open: '{{name}}-Einstellungen öffnen',
+      of: 'von {{total}}',
+      freeStorage: 'Freier Speicher',
+      uptime: 'Betriebszeit',
+      device: 'Gerät',
+      application: 'NanoKVM OS',
+      kernel: 'Kernel',
+      load: 'Durchschnittslast · 1 / 5 / 15 Min',
+      capture: 'Aufnahme',
+      fps: 'Ausgabe / angefordert',
+      sessions: 'Videositzungen',
+      memory: 'Arbeitsspeicher',
+      available: 'Verfügbarer RAM',
+      cache: 'Cache',
+      zram: 'ZRAM',
+      sdSwap: 'SD-Swap',
+      swapUsage: '{{used}} / {{size}} MiB',
+      compression: 'Komprimierung',
+      storage: 'Speicher',
+      systemStorage: 'System',
+      dataStorage: 'Daten',
+      bootStorage: 'Boot',
+      readOnly: 'Schreibgeschützt',
+      diskSpace: '{{free}} frei von {{total}}',
+      unavailable: 'Nicht eingebunden oder nicht verfügbar',
+      connected: 'Verbunden',
+      disconnected: 'Keine Verbindung',
+      deviceTime: 'Gerätezeit',
+      timezone: 'Zeitzone',
+      synchronization: 'Synchronisierung',
+      synchronized: 'Synchronisiert',
+      notSynchronized: 'Synchronisierung nicht bestätigt',
+      timeService: 'Zeitdienst',
+      ntpServers: 'NTP-Server',
+      handshake: 'Letzter Handshake',
+      noProfiles: 'Keine Profile',
+      noVpn: 'Kein VPN installiert',
+      states: {
+        off: 'Aus',
+        waiting: 'Wartet',
+        connected: 'Verbunden',
+        idle: 'Leerlauf',
+        error: 'Fehler',
+        running: 'Verbunden',
+        stopped: 'Gestoppt',
+        notInstall: 'Nicht installiert',
+        notRunning: 'Gestoppt',
+        notLogin: 'Nicht angemeldet',
+        connecting: 'Verbinden',
+        auth: 'Authentifizierung erforderlich'
+      }
+    },
+    videoSettings: {
+      hz: '{{value}} Hz',
+      fpsValue: '{{value}} fps',
+      mbps: '{{value}} Mbit/s',
+      image: 'Bild',
+      imageHint: 'Gilt für alle Zuschauer.',
+      mode: 'Modus',
+      modeRecommended: 'empfohlen',
+      modeCustom: 'Benutzerdefiniert: {{value}}',
+      modeHint:
+        'Die Auflösung und Bildwiederholrate, die der Computer ausgibt und die der NanoKVM-Monitor meldet; der Stream verwendet dieselbe Rate. Eine Änderung verbindet HDMI kurz neu.',
+      uhdNeedsMemory: '3840 × 2160 erfordert den UHD-Videospeichermodus',
+      uhdNeedsMemoryHint:
+        'Der Speichermodus wird nach einem Neustart wirksam. Wählen Sie diesen Modus erneut, sobald das Gerät neu gestartet ist.',
+      uhdSwitch: 'Zu UHD wechseln und neu starten',
+      uhdTitle: 'Videospeicher auf UHD umstellen?',
+      uhdConfirm:
+        'Das Gerät startet jetzt neu: Video und Remote-Eingabe sind etwa eine Minute lang unterbrochen.',
+      uhdRebooting: 'Neustart mit UHD-Videospeicher…',
+      uhdUnavailable: 'Der UHD-Videospeichermodus ist auf diesem Gerät nicht installiert.',
+      bitrateAuto: 'Automatisch · {{value}} Mbit/s',
+      bitrateEconomy: 'Sparsam · {{value}} Mbit/s',
+      bitrateCeiling:
+        'Eine Obergrenze für Bewegung (Video, Scrollen); ein statischer Bildschirm sendet deutlich weniger. „Automatisch“ richtet sich nach dem Modus; „Sparsam“ eignet sich für Fern- und Mobilverbindungen.',
+      bitrateLimit: 'Limit {{value}} Mbit/s',
+      measuredBitrate: '≈ {{value}} Mbit/s',
+      codecHint:
+        'H.265 benötigt für dasselbe Bild etwa ein Drittel weniger Datenverkehr; H.264 wird in mehr Browsern abgespielt.',
+      browserSection: 'Dieser Browser',
+      browserSectionHint:
+        'In diesem Browser gespeichert; andere Zuschauer behalten ihre eigenen Einstellungen.',
+      player: 'Player',
+      fpsOverride: 'Bildrate des Streams',
+      fpsOverrideHint:
+        'Wird durch den Modus festgelegt; ändern Sie sie nur für eine Rate, die die Modi nicht anbieten.',
+      landscape: 'Monitor im Querformat',
+      transport: 'Übertragung',
+      transportHint: {
+        direct: 'H.264/H.265 über HTTPS, vom Browser dekodiert. Geringste Latenz.',
+        webrtc:
+          'Funktioniert in den meisten Browsern und netzwerkübergreifend; mit SRTP verschlüsselt.',
+        mjpeg: 'Ein JPEG-Bild pro Frame: am kompatibelsten, der meiste Datenverkehr.'
+      },
+      streamSize: 'Kodiert mit {{value}}',
+      fpsDelivered: 'Geliefert: bis zu {{fps}} fps bei {{size}}',
+      userHint:
+        'Ein Administrator legt die gemeinsamen Videoeinstellungen fest. Sie können wählen, wie dieser Browser das Video empfängt und wiedergibt.',
+      invalid: 'Einige ausgewählte Optionen sind nicht verfügbar',
+      changeMonitor:
+        'Der Monitor wechselt zu {{monitor}}: Der angeschlossene Computer erkennt ihn erneut und das Bild flackert kurz.',
+      changeReload: 'Die Seite wird neu geladen, um den Player zu wechseln.',
+      reason: {
+        'video-memory':
+          'erfordert einen größeren Videospeichermodus, QHD oder UHD (Einstellungen → Arbeitsspeicher, Neustart)',
+        receiver: 'von diesem HDMI-Empfänger nicht unterstützt',
+        browser: 'dieser Browser kann es nicht abspielen',
+        codec: 'mit dieser Übertragung nicht verfügbar',
+        transport: 'mit dieser Übertragung nicht verfügbar',
+        portrait: 'von diesem Hochformatprofil nicht unterstützt',
+        range: 'außerhalb des Bereichs',
+        'mjpeg-4k':
+          'nicht verfügbar, solange der HDMI-Eingang 3840 × 2160 ist, verwenden Sie H.264 oder H.265'
+      },
+      mjpegChroma: 'JPEG-Farbabtastung',
+      mjpegChroma420: '4:2:0 — kleinere Frames',
+      mjpegChroma422: '4:2:2 — schärfere Farbkanten',
+      mjpegChromaHint:
+        '4:2:2 bewahrt mehr Farbdetails und kann die Framegröße erhöhen. Die Auswahl wird gespeichert und ohne Neustart übernommen.',
+      mjpegChromaFallback_resolution:
+        'MJPEG ist auf 1920 Pixel Breite begrenzt, um 4:2:2 beizubehalten, während H.264/H.265 eine breitere Ausgabe verwendet. Die gewählte Auflösung wird wiederhergestellt, sobald dieser Videostream endet.',
+      mjpegChromaFallback_video:
+        'Nur ein Aufnahmeausgang unterstützt Breiten über 1920 Pixel. MJPEG verwendet 4:2:0, solange beide Streams breiter sind; 4:2:2 wird wiederhergestellt, sobald der Videostream endet oder einer der Streams verkleinert wird.',
+      mjpegChromaFallback_frameDetection:
+        'Deaktivieren Sie die Bilderkennung, um 4:2:2 zu verwenden.',
+      mjpegChromaFallback_diagnostic: '4:2:2 ist im aktuellen Aufnahmemodus nicht verfügbar.',
+      mjpegChromaFallback_hardware:
+        'Die Aufnahme ist nach einem Fehler auf 4:2:0 zurückgefallen. Versuchen Sie 4:2:2 erneut, wenn das Signal stabil ist.',
+      mjpegChromaFallback_pending: '4:2:2 wird ab dem nächsten aufgenommenen Frame angewendet.',
+      cubeMonitorHint:
+        'Cube/Lite: schreibt und überprüft die EDID. Trennen Sie physisch alle Stromquellen und schließen Sie sie wieder an, um sie zu übernehmen. Ein Software-Neustart reicht nicht aus. „Automatisch“ verwendet das konservative 1080p/60-Profil.',
+      powerCycleTitle: 'Physischer Stromzyklus erforderlich',
+      powerCycleConfirm:
+        'Fahren Sie nur fort, wenn Sie nach dem Schreiben alle Stromquellen physisch vom NanoKVM trennen können. Das Video kann bis dahin unterbrochen sein. Ein Neustart per Software übernimmt diese Änderung nicht.',
+      powerCycleWrite: 'EDID schreiben',
+      powerCycleCancel: 'Abbrechen',
+      powerCycleWritten:
+        'EDID geschrieben und überprüft. Trennen Sie die Stromversorgung des NanoKVM und schließen Sie sie wieder an, um sie zu übernehmen.',
+      powerCyclePending: 'EDID-Wartung: Stromzyklus erforderlich',
+      powerCyclePendingHint:
+        'Es wurde versucht, die EDID zu schreiben. Trennen Sie alle Stromquellen und schließen Sie den NanoKVM wieder an. Diese Erinnerung bleibt auch nach Software-Neustarts bestehen; schließen Sie sie erst nach dem physischen Stromzyklus.',
+      powerCycleAck: 'Ich habe das Gerät vom Strom getrennt und wieder angeschlossen',
+      powerCycleAckConfirm:
+        'Bestätigen Sie, dass Sie alle Stromquellen physisch getrennt und den NanoKVM wieder angeschlossen haben. Dadurch wird nur die Erinnerung geschlossen; das Gerät wird nicht neu gestartet.',
+      directSmooth: 'Flüssiges Bild',
+      directImmediate: 'Geringste Latenz',
+      directSmoothHint:
+        'Puffert Frames adaptiv, um ungleichmäßige Lieferung auszugleichen, mit einer kleinen zusätzlichen Verzögerung.',
+      directImmediateHint:
+        'Zeigt Frames an, sobald sie dekodiert sind. Ungleichmäßige Lieferung kann sichtbares Ruckeln verursachen.',
+      apply: 'Übernehmen',
+      discard: 'Änderungen verwerfen',
+      pending: 'Änderungen wurden nicht übernommen',
+      applied: 'Videoeinstellungen übernommen',
+      title: 'Video',
+      open: 'Videoeinstellungen…',
+      description:
+        'Konfigurieren Sie den HDMI-Monitor unabhängig von dem Video, das an Ihren Browser gesendet wird.',
+      sameAsInput: 'Wie Eingang',
+      atMost: 'Bis zu {{value}}',
+      streamResolution: 'Stream-Auflösung',
+      failed: 'Videoeinstellungen konnten nicht übernommen werden.',
+      bitrate: 'Bitrate',
+      current: 'Aktuelles Video',
+      captureOn: 'Aufnahme aktiviert',
+      captureOff: 'Aufnahme deaktiviert',
+      input: 'HDMI-Eingang',
+      output: 'Kodierter Stream',
+      monitor: 'HDMI-Monitor',
+      portrait: 'Monitor im Hochformat',
+      automatic: 'Automatisch (empfohlen)',
+      monitorUnavailable:
+        'Das Ändern des virtuellen Monitorprofils ist auf diesem Gerät nicht verfügbar. Die Eingangserkennung bleibt automatisch.',
+      advanced: 'Erweitert und Wiederherstellung',
+      fpsLimited:
+        'Der aktuelle Eingang begrenzt die Aufnahme auf {{fps}} fps. Die gespeicherte Anforderung bleibt für den nächsten Quellmodus erhalten.',
+      statusFailed: 'Videostatus konnte nicht aktualisiert werden.',
+      retry: 'Erneut versuchen'
+    },
+    capture: {
+      downloadStatusFailed:
+        'Download-Status konnte nicht aktualisiert werden. Verbindung wird wiederhergestellt…',
+      start: 'Aufnahme aktivieren',
+      stop: 'Aufnahme deaktivieren',
+      off: 'Aufnahme deaktiviert',
+      checking: 'Gerätestatus wird überprüft…',
+      failed: 'Aufnahme konnte nicht geändert werden. Versuchen Sie es erneut.',
+      storageCheckFailed:
+        'Image-Speicher konnte nicht überprüft werden. Versuchen Sie es nach dem erneuten Verbinden noch einmal.',
+      storageUnavailable:
+        'Der Image-Speicher ist nicht beschreibbar. Überprüfen Sie den freien Speicherplatz und den Speicherstatus.'
+    },
     head: {
       desktop: 'Entfernter Desktop',
       login: 'Anmelden',
@@ -10,15 +354,20 @@ const de = {
     auth: {
       placeholderUsername: 'Benutzername',
       placeholderPassword: 'Passwort',
+      placeholderCurrentPassword: 'Aktuelles Passwort',
       placeholderPassword2: 'Bitte Passwort erneut eingeben',
       noEmptyUsername: 'Benutzername benötigt',
       noEmptyPassword: 'Passwort benötigt',
+      passwordLength: 'Das Passwort muss zwischen 8 und 72 Zeichen lang sein',
       invalidUser: 'Falscher Benutzername oder falsches Passwort',
       locked: 'Zu viele Anmeldungen, bitte versuchen Sie es später noch einmal',
       globalLocked: 'System wird geschützt, bitte versuchen Sie es später erneut',
       error: 'Unerwarteter Fehler',
+      invalidCurrentPassword: 'Das aktuelle Passwort ist falsch',
       changePassword: 'Passwort ändern',
       changePasswordDesc: 'Für die Sicherheit Ihres Geräts ändern Sie bitte das Passwort!',
+      passwordChanged: 'Passwort geändert. Melden Sie sich mit dem neuen Passwort an.',
+      cancelAndLogout: 'Abbrechen und abmelden',
       differentPassword: 'Passwörter stimmen nicht überein',
       illegalUsername: 'Benutzername enthält ungültige Zeichen',
       forgetPassword: 'Passwort vergessen',
@@ -44,6 +393,8 @@ const de = {
       success:
         'Bitte überprüfen Sie den Netzwerk-Status des NanoKVM und greifen Sie über die neue IP Adresse darauf zu.',
       failed: 'Aktion fehlgeschlagen, bitte erneut versuchen.',
+      pending:
+        'Verbindung zum Netzwerk wird hergestellt. Der NanoKVM-Hotspot kann getrennt werden; überprüfen Sie den Netzwerkstatus am Gerät.',
       invalidMode:
         'Der aktuelle Modus unterstützt keine Netzwerkeinrichtung. Bitte gehen Sie zu Ihrem Gerät und aktivieren Sie den Wi-Fi-Konfigurationsmodus.',
       confirmBtn: 'Ok',
@@ -56,9 +407,17 @@ const de = {
       }
     },
     screen: {
+      recoveryReports: 'Absturzberichte',
+      recoveryReportsFailed: 'Absturzberichte konnten nicht geladen werden.',
+      recoveryTitle: 'Video-Wiederherstellungsmodus',
+      recoveryDescription:
+        'Das Video wurde nach wiederholten Abstürzen gestoppt. Die Verwaltung bleibt verfügbar. Sie können Einstellungen ändern oder das Video erneut starten.',
+      recoveryRetry: 'Video erneut starten',
+      recoveryRetryFailed: 'Video konnte nicht neu gestartet werden. Versuchen Sie es erneut.',
       scale: 'Skala',
       title: 'Bildschirm',
       video: 'Video Modus',
+      codec: 'Codec',
       controlRegion: {
         title: 'Mauskalibrierung',
         description:
@@ -92,6 +451,19 @@ const de = {
       frameDetectTip:
         'Berechnet den Unterschied zwischen den Einzelbildern. Beendet die Liveübertragung des Videostreams wenn keine Änderungen auf dem Bildschirm des Hosts festgestellt werden kann.',
       resetHdmi: 'HDMI zurücksetzen',
+      encoderError: 'Fehler des Video-Encoders',
+      encoderUnsupported:
+        'Der ausgewählte Codec wird von diesem Browser in diesem Modus nicht unterstützt.',
+      activeEncoderUnsupported:
+        'Ein anderer Zuschauer verwendet {{codec}}, das dieser Browser im ausgewählten Modus nicht abspielen kann. Versuchen Sie einen anderen Videomodus oder einen kompatiblen Browser.',
+      encoderStateFailed:
+        'Die Einstellungen des aktiven Streams konnten nicht gelesen werden. Versuchen Sie erneut, sich zu verbinden.',
+      mjpegFallback:
+        'MJPEG ist nicht verfügbar, solange der HDMI-Eingang 3840 × 2160 ist; daher wird stattdessen der Videostream angezeigt.',
+      retryJoin: 'Erneut versuchen',
+      sessions: 'Aktive Videositzungen: {{count}}',
+      encoderConflict:
+        'Ein anderer Zuschauer verwendet andere Encoder-Einstellungen. Schließen Sie diesen oder wählen Sie dieselben Einstellungen.',
       mixedH264: {
         title: 'H.264-Streamkonflikt',
         description:
@@ -109,6 +481,8 @@ const de = {
         updateFailed: 'Der Bildschirm kann derzeit nicht aktualisiert werden',
         videoError: 'Fehler bei der Videoanzeige',
         noHdmi: 'Kein HDMI-Signal erkannt',
+        mjpeg4k:
+          'MJPEG ist nicht verfügbar, solange der HDMI-Eingang 3840 × 2160 ist. Verwenden Sie H.264 oder H.265 unter Einstellungen → Video',
         unavailable: 'Der Bildschirm kann derzeit nicht angezeigt werden'
       }
     },
@@ -128,6 +502,46 @@ const de = {
       dropdownFrench: 'Französisch',
       dropdownRussian: 'Russisch',
       dropdownSpanish: 'Spanisch',
+      sequences: {
+        title: 'Tastenfolgen',
+        tips: 'Wird vom NanoKVM mit festem Timing gedrückt; dieser Tab muss die Eingabesteuerung besitzen.',
+        send: 'Senden',
+        sent: 'Gesendet',
+        failed: 'Die Tastenfolge ist fehlgeschlagen',
+        notController: 'Eine andere Sitzung besitzt die Eingabesteuerung',
+        ctrlAltDel: 'Secure Attention: Windows-Sperrbildschirm, Neustart der Linux-Konsole',
+        sysrq: {
+          title: 'Magic SysRq',
+          desc: 'Alt + SysRq + Taste auf einem Linux-Host; kernel.sysrq muss den Befehl erlauben.',
+          keys: {
+            h: 'Hilfe: Befehle auf der Konsole auflisten',
+            r: 'Raw: Tastatur von X zurückholen',
+            e: 'SIGTERM an alle Prozesse außer init',
+            i: 'SIGKILL an alle Prozesse außer init',
+            s: 'alle Dateisysteme synchronisieren',
+            u: 'alle Dateisysteme schreibgeschützt neu einbinden',
+            b: 'sofort neu starten',
+            o: 'ausschalten',
+            k: 'Secure Attention Key: Programme auf der Konsole beenden',
+            f: 'OOM-Killer einmal ausführen',
+            c: 'Absturz: Kernel-Panic (Crash-Dump)',
+            t: 'Tasks auflisten',
+            w: 'blockierte Tasks auflisten',
+            m: 'Speicherbericht',
+            l: 'Backtrace jeder CPU'
+          }
+        },
+        reisub: {
+          title: 'REISUB: sauberer Neustart eines hängenden Linux-Hosts',
+          desc: 'Alt + SysRq + R, E, I, S, U, B mit einer Pause nach jedem Schritt; dauert etwa fünf Pausen.',
+          delay: 'Pause',
+          send: 'Host neu starten',
+          running: 'Läuft, noch {{seconds}} s',
+          confirmTitle: 'Host mit REISUB neu starten?',
+          confirm:
+            'Jeder Prozess erhält SIGTERM, dann SIGKILL, die Dateisysteme werden synchronisiert und schreibgeschützt neu eingebunden, dann startet der Host neu. {{seconds}} s zwischen den Schritten.'
+        }
+      },
       shortcut: {
         title: 'Verknüpfungen',
         custom: 'Benutzerdefiniert',
@@ -195,6 +609,7 @@ const de = {
       touchpadGuide: {
         title: 'Touchpad-Anleitung',
         scope: 'Gilt, wenn der Eingabeadapter Touchpad ist und der Mausmodus relativ ist.',
+        screen: 'Bildschirm',
         swipeTitle: 'Wischen zum Bewegen',
         swipeDesc:
           'Wischen Sie innerhalb des aktiven Bildschirmbereichs, um den Remote-Zeiger zu bewegen.',
@@ -210,16 +625,37 @@ const de = {
       resetHid: 'HID zurücksetzen'
     },
     image: {
+      remote: {
+        device: 'Von SD',
+        browser: 'Von diesem Computer',
+        hint: 'Binden Sie eine ISO von diesem Computer als schreibgeschützte CD/DVD ein. Es werden nur angeforderte Blöcke übertragen. Lassen Sie diesen Tab geöffnet, während Sie das Image verwenden.',
+        select: 'ISO-Datei auswählen',
+        connect: 'ISO verbinden',
+        connecting: 'Verbinden…',
+        mounted: 'Verbunden · Schreibgeschützt',
+        read: 'gelesen',
+        disconnect: 'ISO trennen',
+        readFailed:
+          'Die ausgewählte ISO konnte nicht gelesen werden. Verbinden Sie die Datei erneut, um es noch einmal zu versuchen.',
+        connectFailed:
+          'Die ISO konnte nicht verbunden werden. Überprüfen Sie die Geräteverbindung und versuchen Sie es erneut.',
+        disconnectFailed: 'Die ISO konnte nicht getrennt werden. Versuchen Sie es erneut.'
+      },
       title: 'Bilder',
       loading: 'Lädt...',
       empty: 'Nichts gefunden',
       mountMode: 'Mount-Modus',
+      massStorage: 'Massenspeicher',
+      cdrom: 'CD/DVD',
       mountFailed: 'Einbinden fehlgeschlagen',
       mountDesc:
         'In einigen Systemen ist es notwendig, die virtuelle Festplatte auf dem entfernten Host auszuwerfen, bevor das Image eingebunden werden kann.',
       unmountFailed: 'Das Aufheben der Bereitstellung ist fehlgeschlagen',
       unmountDesc:
         'Auf einigen Systemen müssen Sie das Image manuell vom Remote-Host auswerfen, bevor Sie die Bereitstellung aufheben.',
+      forceEject: 'Auswerfen erzwingen',
+      forceEjectDesc:
+        'Der Remote-Host verwendet dieses Image noch. Erzwungenes Auswerfen kann ausstehende Lese- oder Schreibvorgänge unterbrechen. Fortfahren?',
       attention: 'Achtung',
       deleteConfirm: 'Sind Sie sicher, dass Sie dieses Bild löschen möchten?',
       okBtn: 'Ja',
@@ -256,6 +692,10 @@ const de = {
     terminal: {
       title: 'Terminal',
       nanokvm: 'NanoKVM Terminal',
+      usbSerial: 'Serielle USB-Konsole',
+      invalidParameters: 'Ungültige serielle Parameter.',
+      disconnected:
+        'Verbindung geschlossen. Drücken Sie die Eingabetaste, um die Verbindung wiederherzustellen.',
       serial: 'Serieller Anschluss Terminal',
       serialPort: 'Serieller Anschluss',
       baudrate: 'Baudrate',
@@ -276,9 +716,19 @@ const de = {
       sending: 'Sende Befehl...',
       sent: 'Befehl gesendet',
       input: 'Bitte MAC Adresse eingeben',
-      ok: 'Ok'
+      interface: 'Schnittstelle',
+      ok: 'Ok',
+      name: 'Gerätename',
+      save: 'Namen speichern',
+      cancel: 'Abbrechen',
+      send: 'Wake-on-LAN senden',
+      remove: 'Aus dem Verlauf entfernen'
     },
     download: {
+      progress: 'Übertragungsfortschritt',
+      downloading: 'Wird heruntergeladen',
+      uploading: 'Wird hochgeladen',
+      finishing: 'Wird abgeschlossen…',
       title: 'Systemabbild Downloader',
       input: 'Bitte geben Sie die URL für das Remote-Systemabbild ein',
       ok: 'Ok',
@@ -301,12 +751,262 @@ const de = {
       reset: 'Zurücksetzen',
       powerShort: 'Power (Kurzer Klick)',
       powerLong: 'Power (Langer Klick)',
+      hddLed: 'HDD-LED',
       resetConfirm: 'Reset-Aktion durchführen?',
       powerConfirm: 'Power-Aktion durchführen?',
       okBtn: 'Ja',
-      cancelBtn: 'Nein'
+      cancelBtn: 'Nein',
+      controlRequired:
+        'Eine andere Sitzung steuert die Eingabe. Übernehmen Sie zuerst die Steuerung.'
     },
     settings: {
+      vpn: {
+        title: 'VPN',
+        description:
+          'Verbinden Sie den NanoKVM mit einem privaten Netzwerk. Wählen Sie ein VPN aus, um es einzurichten.'
+      },
+      software: {
+        indexSchedule: {
+          enabled: 'Paketindizes täglich automatisch aktualisieren',
+          hint: 'Es wird nur die Liste der verfügbaren Pakete aktualisiert. Installation und Upgrades erfordern weiterhin Ihr Eingreifen. Das Gerät muss zur gewählten Zeit eingeschaltet sein.',
+          time: 'Täglich um',
+          timezone: 'Zeitzone des Geräts: {{timezone}}',
+          save: 'Speichern',
+          saved: 'Zeitplan für die Indexaktualisierung gespeichert',
+          failed:
+            'Der Zeitplan für die Indexaktualisierung konnte nicht geladen oder gespeichert werden'
+        },
+        addons: {
+          title: 'Add-ons',
+          packages: 'Pakete',
+          open: 'PicoClaw öffnen',
+          source: 'Offizielle Releases',
+          picoclawDescription:
+            'KI-Assistent mit optionaler Fernsteuerung. Installiert das neueste stabile Release von der offiziellen PicoClaw-Website.'
+        },
+        title: 'Software',
+        description:
+          'Verwalten Sie Pakete aus den konfigurierten Alpine-Repositorys. Paketänderungen verwenden dieselbe APK-Datenbank und dieselben Dienste wie SSH.',
+        refresh: 'Indizes aktualisieren',
+        upgrade: 'Alle aktualisieren',
+        upgradeConfirm:
+          'Alle installierten Pakete aktualisieren? Video und Steuerung können kurz unterbrochen werden.',
+        available: 'Verfügbare Pakete',
+        updatesTab: 'Updates',
+        updateAvailable: 'Pakete mit verfügbaren Updates',
+        upToDate: 'Alle installierten Pakete sind auf dem neuesten Stand.',
+        searchPlaceholder: 'Paketname suchen',
+        search: 'Suchen',
+        searchHint: 'Die Suche startet automatisch, sobald Sie mit dem Tippen pausieren.',
+        noResults: 'Keine passenden Pakete',
+        indexMissing:
+          'Keine Paketindizes verfügbar. Aktualisieren Sie die Indizes, bevor Sie suchen oder installieren.',
+        indexStale:
+          'Die Paketindizes sind möglicherweise veraltet (zuletzt aktualisiert {{updated}}). Aktualisieren Sie sie vor der Installation.',
+        indexUnknown: 'unbekannt',
+        install: 'Installieren',
+        installed: 'Installierte Pakete',
+        remove: 'Entfernen',
+        removeTitle: '{{package}} entfernen?',
+        removeDescription:
+          'APK führt diese Entfernung und die zugehörigen Abhängigkeitsänderungen genau wie unten gezeigt aus. Dies kann nicht automatisch rückgängig gemacht werden.',
+        started: 'APK-Vorgang gestartet',
+        running: 'APK: {{action}} {{package}}',
+        succeeded: 'APK-Vorgang abgeschlossen',
+        failed: 'APK-Vorgang fehlgeschlagen',
+        requestFailed:
+          'Die Software-Anfrage ist fehlgeschlagen. Überprüfen Sie die Verbindung zum Gerät und versuchen Sie es erneut.'
+      },
+      updates: {
+        apk: {
+          title: 'Paket-Updates',
+          description:
+            'Aktualisieren Sie installierte Pakete aus den konfigurierten Repositorys. Einstellungen bleiben erhalten. Dienste starten automatisch neu; ein Kernel-Update erfordert einen Neustart.',
+          kernel: 'Laufender Kernel',
+          check: 'Nach Updates suchen',
+          install: 'Updates installieren',
+          confirm:
+            'Diese Paket-Updates installieren? Video und Steuerung können kurz unterbrochen werden.',
+          installed: 'Paket-Updates installiert',
+          current: 'Alle installierten Pakete sind auf dem neuesten Stand',
+          failed: 'Paket-Update fehlgeschlagen',
+          rebootRequired:
+            'Die Updates sind installiert. Starten Sie das Gerät neu, um den neuen Kernel oder die neuen Systemkomponenten zu verwenden.',
+          reboot: 'Gerät neu starten',
+          rebootConfirm: 'Gerät jetzt neu starten?',
+          log: 'Update-Protokoll'
+        },
+        title: 'Updates',
+        description:
+          'Aktualisieren Sie NanoKVM OS mit signierten Paketen. System-Updates starten das Gerät neu; Anwendungs-Updates unterbrechen Video und Steuerung kurz.',
+        installed: 'Installiert',
+        alpineOptions: 'Image-Optionen',
+        alpineTitle: 'System neu installieren',
+        alpineDisclaimer:
+          'Ersetzen Sie das System durch ein neu erstelltes Image. Gespeicherte Einstellungen werden wiederhergestellt und ausgewählte Pakete werden einbezogen. Andere Dateien auf der Systempartition werden entfernt. Das Gerät wird neu gestartet.',
+        alpineProfile: 'Build-Profil',
+        alpinePackages: 'Einzubeziehende Pakete',
+        alpineBuild: 'Image erstellen',
+        alpineStage: 'Image herunterladen',
+        alpineInstall: 'Neu installieren und neu starten',
+        alpineConfirm:
+          'Systempartition formatieren, dieses Alpine-Image installieren und jetzt neu starten?',
+        alpineBuilderMissing:
+          'Der Attended Image Builder ist nicht konfiguriert. Legen Sie alpine.builderURL fest oder verwenden Sie ein manuell überprüftes Wiederherstellungspaket.',
+        requestFailed:
+          'Die Update-Anfrage ist fehlgeschlagen. Überprüfen Sie die Verbindung zum Gerät und versuchen Sie es erneut.',
+        reconnecting: 'Warten, bis sich das Gerät wieder verbindet…'
+      },
+      memory: {
+        videoMode: 'Videospeicherzuweisung',
+        videoModeDescription:
+          'Ausschließlich für Video reservierter Speicher; Linux verwendet ihn nie. FHD ist die Standardeinstellung und reicht für 1920 × 1080. Hochformat und 2560 × 1440 erfordern QHD, 3840 × 2160 erfordert UHD. Änderungen werden nach einem Neustart wirksam.',
+        videoRes_fhd: 'FHD — 1920 × 1080 · 40 MiB',
+        videoRes_qhd: 'QHD — 2560 × 1440 · 54 MiB',
+        videoRes_uhd: 'UHD — 3840 × 2160 · 104 MiB',
+        zramAuto: 'Hälfte des RAM ({{size}} MiB)',
+        videoActive: 'Derzeit aktiv',
+        videoUnknown: 'Unbekannt',
+        videoModeUnavailable:
+          'Aktualisieren Sie das Kernel-Paket, um das Umschalten zu ermöglichen.',
+        videoReboot:
+          'Starten Sie das Gerät neu, um den ausgewählten Videospeichermodus zu übernehmen.',
+        recompressTitle: 'Kalte Seiten mit ZSTD neu komprimieren',
+        recompressDescription:
+          'Schnelles LZ4 für neue Seiten beibehalten. Alle 15 Sekunden bis zu 1 MiB an Seiten verarbeiten, die eine Minute lang nicht verwendet wurden. Benötigt zusätzliche CPU-Leistung und Kompressorspeicher; das Lesen dieser Seiten kann langsamer sein. Eine Änderung dieses Modus erstellt ZRAM neu und erfordert ausreichend freien RAM.',
+        recompressNotReady:
+          'Der gespeicherte Modus ist nicht aktiv. Wenden Sie ihn erneut an, wenn ausreichend RAM verfügbar ist.',
+        applicationTitle: 'Speicherbedarf der Anwendung reduzieren',
+        title: 'Arbeitsspeicher',
+        ram: 'Belegter RAM',
+        available: 'Verfügbar',
+        cache: 'Freigebbarer Cache',
+        video: 'Videopuffer (ION)',
+        ramNote:
+          'Der verfügbare Speicher umfasst den freigebbaren Cache. Videopuffer verwenden einen separaten reservierten Bereich.',
+        zramTitle: 'ZRAM-Swap aktivieren',
+        sdTitle: 'SD-Swap aktivieren',
+        zramDescription:
+          'Inaktive Speicherseiten im RAM komprimieren. Die Kapazität wird vor der Komprimierung gemessen; RAM wird bei Bedarf zugewiesen.',
+        sdDescription:
+          'Eine Swap-Datei auf der SD-Karte verwenden, wenn der Speicher knapp ist. SD-Zugriffe sind langsamer als RAM.',
+        size: 'Kapazität',
+        used: 'Belegt',
+        algorithm: 'Komprimierung',
+        actualRam: 'Seitenspeicher im RAM',
+        priorityNote:
+          'ZRAM wird vor SD-Swap verwendet. Änderungen gelten sofort und bleiben nach einem Neustart erhalten.',
+        unavailable: 'Erfordert einen Enhanced-Firmware-Build mit dieser Funktion.',
+        loadError: 'Speicherstatus konnte nicht gelesen werden',
+        changeError: 'Swap-Einstellungen konnten nicht geändert werden'
+      },
+      system: {
+        title: 'System',
+        general: 'Allgemein',
+        logs: {
+          title: 'Protokolle',
+          description:
+            'Bis zu 1 MiB pro Quelle. Archive der letzten beiden Gerätestarts werden einmal pro Minute und beim regulären Herunterfahren des Servers gespeichert.',
+          source: 'Protokollquelle',
+          sources: {
+            system: 'System und Dienste',
+            kernel: 'Kernel',
+            application: 'NanoKVM'
+          },
+          boot: 'Gerätestart',
+          boots: {
+            current: 'Aktueller Start',
+            previous: 'Vorheriger Start',
+            older: 'Vorletzter Start'
+          },
+          search: 'Dieses Protokoll durchsuchen',
+          onlyMatches: 'Nur passende Zeilen',
+          previousMatch: 'Vorherige passende Zeile',
+          nextMatch: 'Nächste passende Zeile',
+          refresh: 'Aktualisieren',
+          follow: 'Automatisch aktualisieren (5 s)',
+          loading: 'Protokolle werden geladen…',
+          empty: 'Keine Protokolleinträge vorhanden.',
+          unavailable: 'Diese Protokollquelle ist für den ausgewählten Start nicht verfügbar.',
+          archiveUnavailable:
+            'Dauerhafte Protokollarchive sind nicht verfügbar. Aktuelle Protokolle können weiterhin angezeigt werden.',
+          noHistory: 'Frühere Starts sind nach dem nächsten Neustart des Geräts verfügbar.',
+          loadError: 'Protokolle konnten nicht gelesen werden.',
+          collected: 'Gelesen um {{time}} · {{count}} Zeilen',
+          truncated: 'Ältere oder zu große Einträge wurden ausgelassen.',
+          privacy:
+            'Einträge mit erkannten Anmeldedaten werden ausgeblendet. Protokolle können dennoch Geräte- und Netzwerkdetails enthalten.'
+        },
+        diagnostics: {
+          overview: 'Status',
+          title: 'Diagnose',
+          description:
+            'Schreibgeschützter Support-Status. Die Erfassung wird zwischengespeichert und verändert das Gerät nie.',
+          refresh: 'Aktualisieren',
+          download: 'Bericht herunterladen',
+          loadError: 'Diagnosedaten konnten nicht erfasst werden',
+          downloadError: 'Der Diagnosebericht konnte nicht heruntergeladen werden',
+          collected: 'Erfasst: {{time}}',
+          versions: 'Versionen und Kompatibilität',
+          application: 'Anwendung',
+          image: 'Image',
+          alpine: 'Alpine',
+          kernel: 'Laufender Kernel',
+          systemBase: 'Systembasis',
+          modules: 'Kernel-Module',
+          boot: 'Boot-Komponenten',
+          video: 'HDMI und Videoaufnahme',
+          capture: 'Aufnahme',
+          edid: 'EDID-Programmierung',
+          operationFailed:
+            'Der letzte Vorgang ist fehlgeschlagen; der Bericht lässt dessen Rohprotokoll absichtlich weg.',
+          profile: 'EDID-Profil',
+          input: 'Eingang',
+          output: 'Ausgang',
+          fps: 'Gemessene fps',
+          usb: 'USB-Gadget',
+          binding: 'Controller-Bindung',
+          selected: 'Ausgewählte Funktionen',
+          firewall: 'nftables',
+          services: 'OpenRC-Dienste',
+          optional: 'optional',
+          apk: 'APK',
+          states: {
+            ok: 'OK',
+            running: 'läuft',
+            stopped: 'gestoppt',
+            absent: 'nicht installiert',
+            unavailable: 'nicht verfügbar',
+            error: 'Fehler',
+            disabled: 'deaktiviert',
+            'no-signal': 'kein Signal',
+            checking: 'wird geprüft',
+            installing: 'wird installiert',
+            ready: 'bereit',
+            'up-to-date': 'aktuell',
+            installed: 'installiert',
+            configured: 'konfiguriert',
+            'saved-profile': 'gespeichertes Profil',
+            'power-cycle-pending': 'physischer Stromzyklus ausstehend',
+            'pending-reboot': 'Neustart ausstehend'
+          }
+        },
+        services: 'Dienste',
+        device: 'Gerät',
+        performance: 'Leistung',
+        ssh: {
+          description: 'SSH-Fernzugriff aktivieren',
+          tip: 'SSH wird erst aktiviert, nachdem Sie ein neues Passwort für das Linux-root-Konto festgelegt haben.',
+          passwordTitle: 'SSH-root-Passwort festlegen',
+          passwordDescription:
+            'Legen Sie vor dem Aktivieren von SSH ein sicheres Passwort für das Linux-root-Konto fest. Es wird für die Anmeldung über SSH verwendet.',
+          password: 'Neues root-Passwort',
+          confirmation: 'root-Passwort bestätigen',
+          rootForbidden: 'Das Passwort darf nicht „root“ lauten.',
+          enable: 'Passwort festlegen und SSH aktivieren',
+          failed: 'Das root-Passwort konnte nicht festgelegt oder SSH nicht aktiviert werden.'
+        }
+      },
       title: 'Einstellungen',
       back: 'Zurück',
       close: 'Schliessen',
@@ -319,6 +1019,10 @@ const de = {
           'Jeder mit diesem API-Schlüssel kann den entfernten Host steuern und dessen Bildschirm sehen. Verwenden Sie HTTPS und aktivieren Sie den Dienst nur in vertrauenswürdigen Netzwerken.',
         endpoint: 'Endpunkt',
         apiKey: 'API-Schlüssel',
+        showKey: 'API-Schlüssel anzeigen',
+        hideKey: 'API-Schlüssel ausblenden',
+        regenerateKey: 'API-Schlüssel neu generieren',
+        copyValue: '{{label}} kopieren',
         regenerateConfirmTitle: 'MCP-API-Schlüssel neu generieren?',
         regenerateConfirmDesc: 'Der aktuelle Schlüssel funktioniert dann sofort nicht mehr.',
         enableConfirmTitle: 'Externe MCP-Steuerung aktivieren?',
@@ -330,17 +1034,124 @@ const de = {
         cancelBtn: 'Abbrechen'
       },
       about: {
+        applicationVersion: 'Anwendungen',
+        imageVersion: 'Installiertes Image',
+        bundledVersion: 'Mit dem Image ausgelieferte Anwendungen',
         title: 'Über NanoKVM',
+        description: 'Community-Firmware für NanoKVM.',
+        specialThanksTitle: 'Besonderer Dank',
+        specialThanksWife:
+          'An meine Frau — für ihre Geduld, ihre Unterstützung und dafür, dass sie meine Abwesenheit in der intensivsten Phase der Entwicklung ertragen hat.',
+        credits: {
+          button: 'Mitwirkende',
+          title: 'Mitwirkende',
+          pause: 'Pause',
+          resume: 'Fortsetzen',
+          close: 'Schließen',
+          madePossibleBy: 'Ermöglicht durch',
+          projectLead:
+            'Konzept, Architektur, Entwicklung von NanoKVM OS, Systemintegration, Gerätevalidierung und Release-Engineering.',
+          wenjie:
+            'Betreuung der ursprünglichen NanoKVM-Anwendung; Direct H.264, Korrekturen für den Tailscale-Start und das Netzwerk; sowie Integration von Oberfläche und Lokalisierung.',
+          z2zGuGu:
+            'Native KVM-, MMF- und Vision-Komponenten; Build-Werkzeuge, Watchdog, EDID- und USB-PID/VID-Tools; sowie Grundlagen für die Geräteanpassung.',
+          alexanderGerReich:
+            'Anwendungs-, Update- und Download-Abläufe; Verbesserungen an HID, Einfügen und virtueller Tastatur; sowie Pflege der deutschen und englischen Oberfläche.',
+          andrewMoryakov:
+            'Integration von NetBird-Client und -Einstellungen, gehärteter VPN-Lebenszyklus und Wiederherstellung, Artefaktverifizierung und Regressions-CI.',
+          watermeko:
+            'Verifizierte und abbrechbare Downloads und OTA, H.264 mit geringer Latenz und Zero-Copy, konfigurierbare Eingabebereiche und Mauskorrekturen.',
+          scpcom:
+            'Zuverlässigkeit von virtuellen Medien, Downloads und Speicher; HID-Sperren; Korrekturen für Hostname und Netzwerk; sowie Bereinigung des nativen MMF.',
+          lingkongSky:
+            'Mouse Jiggler, Bearbeitung von Hostname und Web-Titel, benannte Wake-on-LAN-Einträge, Power-Bestätigungen und Swap-Steuerung.',
+          polyzium:
+            'Russische Lokalisierung, die generische virtuelle 104-Tasten-Tastatur, Anpassung an die Fenstergröße und Korrekturen der Übersetzung.',
+          yuryPekishev:
+            'Russisches Layout der virtuellen Tastatur und Russisch-Englisch-Umwandlung für eingefügte Tastatureingaben.',
+          thomasPressnell:
+            'Dauerhaftes Aktivieren und Deaktivieren von HDMI sowie Trennung der Steuerung von USB-Gadget, Datenanbindung und virtuellen Medien.',
+          s33g: 'Branding und Text der Anmeldeseite, Tooltips der Symbolleiste, lokalisierbare Fehlermeldungen und Entwicklungs-Mocks ohne Gerät.',
+          gxcreator:
+            'Detaillierte Fehlerberichte und beharrliches Feedback, die Regressionen aufgedeckt und Korrekturen direkt geprägt haben.',
+          rockymtngeek:
+            'LT6911D-Hardwaretests, detaillierte Diagnoseprotokolle und Bestätigung der Aufnahme-Korrektur.',
+          yuziCo:
+            'MJPEG-Duplikatunterdrückung und Aufnahme-Backpressure sowie Konzepte für Broadcast-Erfassung und DHCP-Option 121, übernommen aus IronKVM.',
+          sipeed: 'Die ursprüngliche NanoKVM-Hardwareplattform und die Upstream-Anwendungsbasis.',
+          silicon: 'Die SG2002-Medienplattform, SDK-Grundlagen und hardwarenahe Unterstützung.',
+          systemStack:
+            'Das Betriebssystem, die Build-Infrastruktur, die Paketverwaltung und unzählige Upstream-Korrekturen.',
+          appStack:
+            'Die Anwendung, die Browser-Oberfläche, der sichere Transport und die Bausteine für Echtzeitmedien.',
+          projects:
+            'Ideen, Vorarbeiten, Interoperabilität und Inspiration aus der gesamten offenen KVM-Community.',
+          contributorsTitle: 'Open-Source-Mitwirkende',
+          contributors:
+            'Code, Übersetzungen, Tests, Fehlerberichte, Reviews, Dokumentation und geduldiges Feedback.',
+          closing: 'Danke, dass Sie NanoKVM OS möglich gemacht haben.'
+        },
+        documentation: 'Dokumentation',
+        reportIssue: 'Problem melden',
+        upstreamCredit:
+          'Basiert auf dem ursprünglichen Sipeed-NanoKVM-Projekt. Vielen Dank an dessen Autoren und Mitwirkende.',
         ip: 'IP',
         image: 'Systemabbild-Version',
         hostname: 'Hostname',
+        hostnameEdit: 'Hostname bearbeiten',
+        hostnameSave: 'Hostname speichern',
+        hostnameCancel: 'Bearbeitung abbrechen',
         hostnameUpdated: 'Hostname aktualisiert. Neustarten um zu übernehmen.'
       },
       appearance: {
+        branding: {
+          title: 'Branding',
+          description:
+            'Passen Sie das Anmeldelogo und das Browser-Favicon unabhängig voneinander an. Die integrierten Bilder bleiben als Standard verfügbar.',
+          logoTitle: 'Anmeldelogo',
+          logoDescription: 'Das Hauptlogo über dem Anmeldeformular.',
+          logoPreview: 'Vorschau des Anmeldelogos',
+          logoUpload: 'Anmeldelogo hochladen',
+          faviconTitle: 'Favicon',
+          faviconDescription: 'Das kleine Symbol im Browser-Tab.',
+          faviconPreview: 'Favicon-Vorschau',
+          faviconUpload: 'Favicon hochladen',
+          defaultActive: 'Integrierter Standard',
+          customActive: 'Benutzerdefiniertes Bild',
+          restoreDefault: 'Standard wiederherstellen',
+          formats:
+            'PNG oder JPEG, bis zu 2 MiB und 1024 × 1024 Pixel. Ein quadratisches transparentes PNG eignet sich am besten.',
+          failed: 'Branding konnte nicht gespeichert werden.'
+        },
+        buttonColor: {
+          title: 'Schaltflächenfarbe',
+          description:
+            'Wählen Sie die Akzentfarbe für primäre Schaltflächen in der gesamten Oberfläche.',
+          accentTitle: 'Primäre Schaltflächen',
+          accentDescription: 'Hover- und Gedrückt-Zustände werden automatisch erzeugt.',
+          preview: 'Vorschau-Schaltfläche',
+          inputLabel: 'Schaltflächenfarbe im Hexadezimalformat',
+          defaultActive: 'Integriertes Logo-Grün (#45E9A0)',
+          customActive: 'Benutzerdefinierte Farbe',
+          save: 'Übernehmen',
+          restoreDefault: 'Standard wiederherstellen',
+          failed: 'Die Schaltflächenfarbe konnte nicht gespeichert werden.'
+        },
+        bannerStyle: {
+          title: 'SSH-Banner',
+          description:
+            'Wählen Sie das Banner, das beim Start einer neuen interaktiven SSH-Sitzung angezeigt wird.',
+          default: 'Standard',
+          rainbow: 'Regenbogen',
+          failed: 'Der Stil des SSH-Banners konnte nicht gespeichert werden.'
+        },
         title: 'Erscheinungsbild',
         display: 'Bildschirm',
+        customize: 'Anpassen',
         language: 'Sprache',
         languageDesc: 'Wählen Sie die Sprache für die Benutzeroberfläche aus',
+        languagePartial: 'teilweise',
+        languagePartialHint: 'Teilweise übersetzt. Fehlende Texte werden auf Englisch angezeigt.',
         webTitle: 'Web Titel',
         webTitleDesc: 'Passen Sie den Web-Seite Titel an',
         menuBar: {
@@ -367,13 +1178,37 @@ const de = {
         scrollLockShort: 'Roll',
         on: 'Ein',
         off: 'Aus',
-        unknown: 'Unbekannt'
+        unknown: 'Unbekannt',
+        keyboardDisabled: 'Die USB-Tastatur ist in der USB-Zusammenstellung deaktiviert'
       },
       device: {
         title: 'Gerät',
+        cpuFrequency: {
+          confirmOverclock: 'CPU auf {{mhz}} MHz übertakten?',
+          confirmBoot: 'CPU-Frequenz bei jedem Start anwenden?',
+          applyAtBoot: 'Ausgewählte Frequenz beim Start anwenden',
+          bootWarning:
+            'Gefährlich beim Übertakten: Wenn der NanoKVM mit dieser Frequenz nicht laufen kann, startet er möglicherweise nicht mehr und das System muss eventuell neu geflasht werden. Friert ein Start innerhalb der ersten 2 Minuten ein, läuft der nächste Start mit 1000 MHz und diese Option wird deaktiviert.',
+          bootFallback:
+            'Der letzte Start mit Übertaktung wurde nicht abgeschlossen. Daher ist der NanoKVM mit 1000 MHz gestartet und wendet die Frequenz beim Start nicht mehr an.',
+          descriptionAtBoot:
+            'Wird sofort und bei jedem Start erneut angewendet, einschließlich Übertaktung. Prüfen Sie die SoC-Temperatur im Dashboard.',
+          eco: 'Energiesparen',
+          stock: 'Standard',
+          moderate: 'Moderate Übertaktung',
+          sampleDependent: 'Abhängig vom einzelnen Chip',
+          warning:
+            'Übertakten kann zu Einfrieren, Neustarts, Datenverlust oder Hardwareschäden führen. Bei keiner übertakteten Frequenz ist Stabilität garantiert. Der Überhitzungsschutz begrenzt sie bei 75°C auf 850 MHz.',
+          throttled:
+            'Temperaturgrenze aktiv. Die ausgewählte Frequenz wird nach dem Abkühlen wiederhergestellt.',
+          title: 'CPU-Frequenz & Übertaktung',
+          running: 'Aktuell: {{mhz}} MHz',
+          unavailable: 'Die Frequenzsteuerung ist mit diesem Kernel nicht verfügbar',
+          description:
+            'Wird sofort angewendet. Standard- und Energiespareinstellungen werden gespeichert; eine Übertaktung gilt bis zum nächsten Neustart des Geräts. Prüfen Sie die SoC-Temperatur im Dashboard.',
+          failed: 'CPU-Frequenz konnte nicht aktualisiert werden'
+        },
         oled: {
-          title: 'OLED',
-          description: 'Schalte OLED Bildschirm aus nach',
           0: 'Nie',
           15: '15 Sek',
           30: '30 Sek',
@@ -382,7 +1217,11 @@ const de = {
           300: '5 Min',
           600: '10 Min',
           1800: '30 Min',
-          3600: '1 Stunde'
+          3600: '1 Stunde',
+          failed: 'OLED-Einstellungen konnten nicht aktualisiert werden',
+          '-1': 'Anzeige aus',
+          title: 'OLED',
+          description: 'Schalte OLED Bildschirm aus nach'
         },
         mouseJiggler: {
           title: 'Mausaktivitäts-Simulator',
@@ -407,9 +1246,270 @@ const de = {
         okBtn: 'Ja',
         cancelBtn: 'Nein'
       },
+      usb: {
+        internet: {
+          title: 'Internet über USB',
+          description:
+            'Teilen Sie die Ethernet- oder Wi-Fi-Verbindung des NanoKVM über USB NCM mit dem verwalteten Computer. Nur IPv4. Das USB-Netzwerk muss separat aktiviert werden.',
+          renew:
+            'Verbinden Sie nach einer Änderung dieser Einstellung oder des USB-Subnetzes USB neu oder erneuern Sie die DHCP-Lease des Computers. Eine kurze Lease wird auch automatisch erneuert.',
+          updateFailed:
+            'Die USB-Internetfreigabe konnte nicht übernommen werden. Aktualisieren Sie die Seite und überprüfen Sie den Gerätestatus.',
+          offload: 'Software-Flow-Offload für geeignete TCP/UDP-Verbindungen aktiviert.',
+          noOffload:
+            'Standardweiterleitung ist aktiv; Software-Flow-Offload ist nicht verfügbar oder durch die Netzwerkrichtlinie eingeschränkt.',
+          states: {
+            loading: 'Lädt…',
+            disabled: 'Aus · Nur lokaler USB-Zugriff',
+            active:
+              'Freigabe über {{uplink}} · USB-Gateway {{address}}. Die Internetverfügbarkeit hängt vom Uplink ab.',
+            'waiting-ncm':
+              'Als „Ein“ gespeichert · Aktivieren Sie das USB-Netzwerk (NCM), um die Freigabe zu starten.',
+            'waiting-uplink':
+              'Als „Ein“ gespeichert · Warten auf eine Ethernet- oder Wi-Fi-Route. VPN-Routen werden nicht umgangen.',
+            'dhcp-disabled':
+              'Als „Ein“ gespeichert · USB-DHCP ist in der Gerätekonfiguration deaktiviert.',
+            'subnet-conflict':
+              'Das USB-Subnetz steht in Konflikt mit einem anderen Netzwerk. Die Internetfreigabe ist pausiert.',
+            unavailable:
+              'Der USB-Netzwerkdienst ist nicht verfügbar. Überprüfen Sie das Alpine-Basispaket und den Dienst.',
+            error:
+              'Das USB-Netzwerk konnte nicht übernommen werden. Überprüfen Sie die Dienstprotokolle des Geräts.'
+          }
+        },
+        confirmDisable: 'USB ausschalten?',
+        confirmDisableDescription:
+          'Der Computer verliert Tastatur, Maus, Speicher, Audio und USB-Netzwerk des NanoKVM, bis USB hier wieder eingeschaltet wird. Auch die Internetfreigabe über USB wird beendet. RustDesk verliert die Tastatur- und Maussteuerung.',
+        pointerProfile: 'Profil des absoluten Zeigers',
+        pointerProfileHelp:
+          'Windows bindet den Zeiger an den erfassten Monitor (Windows 10 1903 oder neuer). Das Übernehmen verbindet USB und HDMI neu.',
+        pointerProfileDefault: 'Standard',
+        off: 'Aus',
+        title: 'USB-Zusammenstellung',
+        enabled: 'USB-Geräte',
+        budgetTitle: 'Endpunkt-Budget',
+        budgetExceeded: 'Diese Auswahl überschreitet das USB-Endpunkt-Budget.',
+        presetLabel: 'Zusammenstellung',
+        custom: 'Benutzerdefinierte Zusammenstellung',
+        customDescription: 'Wählen Sie unten die benötigten USB-Funktionen aus.',
+        manual: 'Manuell konfigurieren',
+        apply: 'Übernehmen',
+        cancel: 'Änderungen verwerfen',
+        reload: 'Status aktualisieren',
+        empty: 'Alle USB-Funktionen werden vom angeschlossenen Computer getrennt.',
+        loadFailed: 'Die USB-Zusammenstellung konnte nicht geladen werden.',
+        changed:
+          'Die Zusammenstellung wurde in einer anderen Sitzung geändert. Die aktuellen Einstellungen wurden neu geladen.',
+        reconnectFailed:
+          'Verbindung unterbrochen. Verbinden Sie sich erneut mit dem NanoKVM und aktualisieren Sie dessen Status.',
+        serverUpdateRequired:
+          'Aktualisieren Sie den NanoKVM-Server, um vollständige Zusammenstellungen anzuwenden.',
+        reconnectNotice: 'Beim Übernehmen werden die USB-Geräte kurz neu verbunden.',
+        identity: {
+          title: 'USB-Identität',
+          description:
+            'Was der Computer im Gerätedeskriptor sieht: Hersteller- und Produkt-IDs, Hersteller- und Produktnamen. Für Hosts, deren USB-Richtlinie oder Endpoint-Security „NanoKVM“ beanstandet.',
+          presets: {
+            nanokvm: 'NanoKVM (Werkseinstellung)',
+            generic: 'Generisches Verbundgerät (nur Namen)',
+            custom: 'Benutzerdefiniert'
+          },
+          fields: {
+            vendorId: 'Hersteller-ID',
+            productId: 'Produkt-ID',
+            manufacturer: 'Hersteller',
+            product: 'Produkt',
+            serialNumber: 'Seriennummer (Chip-UID, fest)'
+          },
+          invalid: {
+            id: 'IDs bestehen aus vier Hexadezimalziffern wie 0x1234, nicht 0x0000.',
+            string:
+              'Namen bestehen aus 1 bis 126 druckbaren ASCII-Zeichen ohne führende oder nachgestellte Leerzeichen.'
+          },
+          idWarning:
+            'Für eine andere Hersteller- oder Produkt-ID als die werkseitige sind Sie selbst verantwortlich. Linux-Hosts, die mit dem Helfer für die serielle Konsole eingerichtet wurden, erkennen den NanoKVM nicht mehr (seine udev-Regel nennt die IDs); das Windows-Zeigerprofil ist nicht betroffen.'
+        },
+        userDisk: {
+          title: 'Benutzerlaufwerk',
+          description:
+            'Ein beschreibbares FAT32-Laufwerk, das der Computer neben der virtuellen CD/Festplatte sieht: BIOS-Updatedateien, Profile, Protokolle. Auf der SD-Karte gespeichert.',
+          needsDisk:
+            'Aktivieren Sie die virtuelle Festplatte, um das Benutzerlaufwerk zu erhalten; es ist ein drittes Laufwerk desselben USB-Geräts.',
+          states: {
+            none: 'Noch kein Image',
+            off: 'Image bereit, Laufwerk aus',
+            pending: 'Ein; erscheint auf dem Computer, sobald die USB-Geräte neu verbunden sind',
+            attached: 'Mit dem Computer verbunden'
+          },
+          create: 'Erstellen',
+          recreate: 'Neu formatieren',
+          recreateTitle: 'Benutzerlaufwerk neu formatieren?',
+          recreateConfirm: 'Alle darauf gespeicherten Daten werden gelöscht.',
+          delete: 'Löschen',
+          deleteTitle: 'Benutzerlaufwerk löschen?',
+          deleteConfirm:
+            'Das Image und alle darauf gespeicherten Daten werden von der SD-Karte entfernt.',
+          enableTitle: 'Benutzerlaufwerk einschalten?',
+          reconnect:
+            'Die USB-Geräte werden neu verbunden, daher verliert der Computer die NanoKVM-Laufwerke kurzzeitig und erhält sie dann zurück.',
+          disableTitle: 'Benutzerlaufwerk ausschalten?',
+          ejectFirst:
+            'Werfen Sie das Laufwerk zuerst auf dem Computer aus, damit nichts halb geschrieben bleibt; danach werden die USB-Geräte neu verbunden.',
+          created: 'Benutzerlaufwerk erstellt',
+          turnOffFirst: 'Schalten Sie zuerst das Benutzerlaufwerk aus.',
+          busy: 'Das Benutzerlaufwerk wird gerade erstellt oder gelöscht. Versuchen Sie es erneut, wenn der Vorgang abgeschlossen ist.',
+          missing: 'Das Image des Benutzerlaufwerks fehlt. Erstellen Sie es erneut.',
+          failed: 'Die Anfrage für das Benutzerlaufwerk ist fehlgeschlagen.',
+          notice:
+            'Auch das Einbinden oder Auswerfen eines CD-/Festplatten-Images verbindet die USB-Geräte neu; danach sieht der Computer das Benutzerlaufwerk wieder mit dem, was er geschrieben hat. Das gesamte Image wird beim Erstellen auf der SD-Karte reserviert, daher dauern große Größen eine Weile.'
+        },
+        serialConsole: {
+          title: 'Headless-Linux-Konsole',
+          description:
+            'Ein Skript auf diesem NanoKVM richtet auf dem angeschlossenen Computer eine Anmeldung über dessen seriellen USB-Port ein. Es liest zuerst das System aus, verweigert die Ausführung, wenn dies nicht sicher möglich ist, legt Sicherungen an und kann seine Änderungen rückgängig machen.',
+          fromNetwork: 'Über das Netzwerk, in einer Shell auf dem Computer, als root:',
+          fromUsbNetwork: 'Über das USB-Netzwerk, wenn der Computer kein anderes Netzwerk hat:',
+          withWget: 'Mit wget statt curl (Alpine, busybox):',
+          diskAttached:
+            'Das Hilfslaufwerk „NanoKVM Setup Disk“ ist als schreibgeschütztes Laufwerk mit dem Computer verbunden. Ohne Netzwerk:',
+          diskPending:
+            'Das Hilfslaufwerk erscheint auf dem Computer, sobald die USB-Geräte neu verbunden sind.',
+          diskStale:
+            'Das Hilfslaufwerk wurde aktualisiert; der Computer sieht das neue, sobald die USB-Geräte neu verbunden sind.',
+          diskNeedsDisk:
+            'Aktivieren Sie zusätzlich die virtuelle Festplatte, um das Hilfslaufwerk zu erhalten: ein schreibgeschütztes Laufwerk mit dem Skript, für einen Computer ohne Netzwerk.',
+          applyHint:
+            'Der Befehl erstellt nur einen Bericht. Fügen Sie „apply“ hinzu, um die Änderungen vorzunehmen, und „undo“, um sie wieder zu entfernen.',
+          test: 'Konsole testen',
+          download: 'Skript herunterladen',
+          testFailed: 'Der Konsolentest konnte nicht ausgeführt werden.',
+          states: {
+            login: 'Am seriellen Port antwortet eine Anmeldeaufforderung.',
+            password:
+              'Eine Passwortabfrage antwortet: Am seriellen Port läuft gerade eine Anmeldung.',
+            shell: 'Am seriellen Port ist eine Shell-Sitzung geöffnet.',
+            text: 'Der Computer hat etwas gesendet, aber keine Anmeldeaufforderung.',
+            silent:
+              'Keine Antwort innerhalb von 5 Sekunden: Der Computer hat noch keine Anmeldung am seriellen Port, oder USB-Seriell ist nicht verbunden.',
+            busy: 'Die serielle USB-Konsole ist im Terminal geöffnet. Schließen Sie sie und versuchen Sie es erneut.',
+            unavailable: 'USB-Seriell ist auf diesem NanoKVM nicht aktiviert.',
+            error: 'Der serielle Port konnte nicht gelesen werden.'
+          }
+        },
+        presets: {
+          kvm: {
+            title: 'KVM',
+            description:
+              'Tastatur, beide Mausmodi und die virtuelle Festplatte: die Ausstattung eines neuen Geräts. Auf dem Computer erscheint kein Netzwerkadapter.'
+          },
+          standard: {
+            title: 'KVM + USB-Netzwerk',
+            description:
+              'Tastatur, beide Mausmodi, virtuelle Festplatte und der USB-Netzwerkadapter. Lässt keinen Platz für die serielle Konsole.'
+          },
+          console: {
+            title: 'KVM + serielle Konsole',
+            description:
+              'Tastatur, beide Mausmodi, virtuelle Festplatte und die serielle Konsole mit ihrem Hilfslaufwerk. Lässt keinen Platz für das USB-Netzwerk.'
+          },
+          headless: {
+            title: 'Headless-Server',
+            description:
+              'Nur die serielle Konsole, für einen Server, dessen serielle Anmeldung bereits eingerichtet ist (mit „KVM + serielle Konsole“ und ihrem Hilfslaufwerk oder über das Netzwerk). Auf dem Computer erscheinen weder Tastatur, Maus noch Speicher; der Remote-Desktop fügt Tastatur, Mäuse und Audio wieder hinzu, wenn er aktiviert ist.'
+          },
+          remote: {
+            title: 'Remote-Desktop',
+            description:
+              'Tastatur, beide Mausmodi, virtuelle Festplatte und USB-Audio: das, was RustDesk verwendet. Der Computer erhält einen zweiten Lautsprecher.'
+          },
+          control: {
+            title: 'Nur Tastatur und Maus',
+            description: 'Tastatur, relative Maus und absoluter Zeiger, sonst nichts.'
+          }
+        },
+        compatibilityProfile: {
+          title: 'Reines HID-Kompatibilitätsprofil (USB 1.1)',
+          description:
+            'Ältere Deskriptoren für Firmware und Hosts, die das Verbundgerät ablehnen: nur Tastatur und Zeiger, ohne Netzwerk, Festplatte, serielles Hilfslaufwerk oder Audio.'
+        },
+        updateFailed: 'Die USB-Zusammenstellung konnte nicht aktualisiert werden.',
+        devices: {
+          keyboard: {
+            title: 'Tastatur',
+            description: 'Boot-kompatible Tastatur und LED-Berichte'
+          },
+          relative: {
+            title: 'Relative Maus',
+            description: 'Pointer-Lock-Maus für Firmware, Installationsprogramme und Spiele'
+          },
+          absolute: {
+            title: 'Absoluter Zeiger',
+            description: 'Direkte Zuordnung von Bildschirmkoordinaten ohne Zeigerdrift'
+          },
+          network: {
+            title: 'Virtuelles Netzwerk',
+            description: 'NCM-Netzwerkadapter auf dem Remote-Host'
+          },
+          disk: {
+            title: 'Virtuelle Festplatte',
+            description: 'Ein eingebundenes Image als USB-Laufwerk bereitstellen'
+          },
+          audio: {
+            title: 'USB-Audio',
+            description: 'Stereo-Audioausgang für den angeschlossenen Computer (48 kHz, 16 Bit)'
+          },
+          serial: {
+            title: 'Serielle USB-Konsole',
+            description: 'Serieller CDC-ACM-Port für den angeschlossenen Computer'
+          }
+        }
+      },
       network: {
         title: 'Netzwerk',
+        general: 'Allgemein',
+        gateway: {
+          title: 'Bevorzugtes Gateway',
+          description:
+            'Wenn sowohl Ethernet als auch Wi-Fi ein Internet-Gateway haben, wählen Sie, welche Verbindung der NanoKVM standardmäßig verwendet.',
+          auto: 'Automatisch',
+          none: 'Verbinden Sie Ethernet oder Wi-Fi, um ein bevorzugtes Gateway auszuwählen.',
+          metric: 'Routenpriorität {{value}}',
+          loadFailed: 'Gateway-Routen konnten nicht gelesen werden.',
+          saveFailed: 'Das bevorzugte Gateway konnte nicht gespeichert werden.'
+        },
         wifi: {
+          confirmDisable: 'Wi-Fi ausschalten?',
+          confirmDisableDescription:
+            'Ohne Ethernet verlässt der NanoKVM das Netzwerk und diese Seite verliert ihre Verbindung.',
+          loading: 'Lädt…',
+          noAdapter: 'Kein Wi-Fi-Adapter erkannt',
+          notDetected: 'nicht erkannt',
+          disabled: 'Aus',
+          band: 'Frequenzband',
+          band24: '2,4 GHz',
+          band5: '5 GHz',
+          preferredBand: 'Bevorzugtes Frequenzband',
+          preferredBandHint:
+            'Wird für die nächste Wi-Fi-Verbindung verwendet. Das andere Band bleibt als Ausweichoption verfügbar.',
+          scan: 'Netzwerke suchen',
+          scanFailed: 'Netzwerke konnten nicht gesucht werden. Versuchen Sie es erneut.',
+          availableNetworks: 'Verfügbare Netzwerke',
+          bandsUnavailable: 'Die Frequenzbänder des Adapters konnten nicht gelesen werden.',
+          noNetworks: 'Keine Netzwerke in diesem Band gefunden.',
+          manual: 'Manuell verbinden',
+          hidden: 'Verborgenes Netzwerk',
+          security: 'Sicherheit',
+          open: 'Offenes Netzwerk',
+          unsupported: 'Nicht unterstützte Sicherheit',
+          reconnect: 'Erneut verbinden',
+          applying:
+            'Wird übernommen… Die Verbindung zu diesem Gerät kann kurz unterbrochen werden.',
+          operationFailed:
+            'Wi-Fi-Einstellungen konnten nicht übernommen werden. Versuchen Sie es erneut.',
+          statusFailed: 'Wi-Fi-Status konnte nicht gelesen werden.',
+          connectionTimeout:
+            'Die Verbindung konnte nicht bestätigt werden. Überprüfen Sie das Netzwerk und verbinden Sie sich erneut mit dem Gerät, falls sich seine Adresse geändert hat.',
+          passwordHint: '8–63 Bytes (mindestens 8 Zeichen bei einem ASCII-Passwort).',
           title: 'Wi-Fi',
           description: 'Wi-Fi konfigurieren',
           apMode: 'AP-Modus ist aktiviert, verbinden Sie sich per QR-Code mit dem Wi-Fi',
@@ -425,12 +1525,147 @@ const de = {
           cancelBtn: 'Abbrechen'
         },
         tls: {
+          confirmEnable: 'HTTPS einschalten?',
+          confirmDisable: 'HTTPS ausschalten?',
+          confirmRestart:
+            'Der Webserver startet neu und diese Seite wird unter der neuen Adresse neu geladen. Andere offene Sitzungen werden getrennt.',
           description: 'HTTPS-Protokoll aktivieren',
-          tip: 'Hinweis: Die Verwendung von HTTPS kann die Latenz erhöhen, besonders im MJPEG-Videomodus.'
+          tip: 'Hinweis: Die Verwendung von HTTPS kann die Latenz erhöhen, besonders im MJPEG-Videomodus.',
+          failed:
+            'HTTPS konnte nicht geändert werden. Die aktuelle Einstellung bleibt unverändert.',
+          certificate: {
+            acme: 'ACME-Zertifikat, wird automatisch erneuert',
+            title: 'Zertifikat',
+            description:
+              'Das Zertifikat, das das Gerät über HTTPS vorlegt. Ein Zertifikat Ihrer eigenen CA oder ein öffentliches beseitigt die Browserwarnung.',
+            generated: 'Generiertes selbstsigniertes Zertifikat',
+            custom: 'Benutzerdefiniertes Zertifikat',
+            pending: 'Das Zertifikat auf dem Datenträger wird noch nicht ausgeliefert',
+            expired: 'Abgelaufen',
+            subject: 'Antragsteller',
+            issuer: 'Aussteller',
+            selfSigned: 'selbstsigniert',
+            names: 'Namen',
+            validity: 'Gültig',
+            upload: 'Zertifikat hochladen',
+            uploadHint:
+              'PEM-Dateien: das Zertifikat mit seiner Kette und der unverschlüsselte private Schlüssel, als eine oder zwei Dateien. Neue Verbindungen verwenden es sofort; HTTPS wird nicht neu gestartet.',
+            uploadTitle: 'Dieses Zertifikat verwenden?',
+            uploadConfirm:
+              'Neue Verbindungen erhalten es sofort. Wenn der Browser ihm nicht vertraut, zeigt das nächste Laden der Seite eine Warnung; das generierte Zertifikat kann hier wiederhergestellt werden.',
+            uploaded: 'Zertifikat installiert',
+            remove: 'Entfernen',
+            removeTitle: 'Zum generierten Zertifikat zurückkehren?',
+            removeConfirm:
+              'Das hochgeladene Zertifikat und der private Schlüssel werden vom Gerät gelöscht.',
+            removed: 'Das generierte Zertifikat wird verwendet',
+            reload: 'Neu laden',
+            reloaded: 'Zertifikat neu geladen',
+            offNote:
+              'HTTPS ist ausgeschaltet; das Zertifikat wird verwendet, sobald es eingeschaltet ist.',
+            failed: 'Das Zertifikat wurde nicht geändert.'
+          }
+        },
+        acme: {
+          title: "Let's Encrypt / ACME",
+          description:
+            'Ein Zertifikat einer öffentlichen Zertifizierungsstelle, ausgestellt und erneuert von acme.sh auf dem Gerät.',
+          notInstalled: 'acme.sh ist nicht installiert',
+          install: 'acme.sh installieren',
+          installHint: 'Lädt das neueste stabile Release von GitHub herunter (etwa 1 MB).',
+          installTitle: 'acme.sh installieren?',
+          updateTitle: 'acme.sh auf {{version}} aktualisieren?',
+          installConfirm:
+            'Das neueste stabile Release wird von github.com/acmesh-official/acme.sh heruntergeladen. Das Konto und das ausgestellte Zertifikat bleiben erhalten.',
+          installed: 'acme.sh installiert',
+          update: 'Auf {{version}} aktualisieren',
+          check: 'Nach Updates suchen',
+          latest: 'neuestes Release {{version}}',
+          updateFound: 'acme.sh {{version}} ist verfügbar',
+          upToDate: 'acme.sh ist aktuell ({{version}})',
+          inUse: 'Für HTTPS in Verwendung',
+          issued: 'Ausgestellt, nicht in Verwendung',
+          validUntil: 'gültig bis',
+          renewsAfter: 'erneuert nach',
+          renew: 'Jetzt erneuern',
+          remove: 'Zertifikat entfernen',
+          removeTitle: 'ACME-Zertifikat entfernen?',
+          removeConfirm:
+            'Die Erneuerung wird beendet und Zertifikat und Schlüssel werden vom Gerät gelöscht. HTTPS kehrt zum generierten Zertifikat zurück. acme.sh und das Konto bleiben erhalten.',
+          removed: 'Das ACME-Zertifikat wurde entfernt',
+          issue: 'Zertifikat ausstellen',
+          reissue: 'Mit anderen Einstellungen erneut ausstellen',
+          domains: 'Domainnamen',
+          domainsHint:
+            'Die Namen, für die das Zertifikat gilt; der erste ist der Hauptname. Wildcards (*.example.org) erfordern die DNS-Challenge.',
+          email: 'E-Mail',
+          emailHint: 'Für das CA-Konto: Hinweise zum Ablauf. ZeroSSL erfordert sie.',
+          ca: 'Zertifizierungsstelle',
+          challenge: 'Validierung',
+          challengeHttp: 'HTTP (Port 80)',
+          challengeDns: 'DNS (Anbieter-API)',
+          challengeHttpHint:
+            'Die CA ruft ein Token von http://<domain>/.well-known/acme-challenge/ auf diesem Gerät ab: Port 80 muss unter diesem Namen aus dem Internet erreichbar sein.',
+          challengeDnsHint:
+            'acme.sh fügt über die Anbieter-API einen TXT-Eintrag hinzu. Die Anmeldedaten werden von acme.sh für Erneuerungen gespeichert (0600) und nie wieder angezeigt.',
+          wildcardNeedsDns: 'Ein Wildcard-Name erfordert die DNS-Challenge.',
+          provider: 'DNS-Anbieter',
+          providerPlaceholder: 'Nach Namen suchen',
+          providerDocs: 'So erhalten Sie die Anmeldedaten für {{name}}',
+          altCredentials: 'Alternative Anmeldedaten',
+          dnsSleep: 'DNS-Wartezeit (Sekunden)',
+          dnsSleepHint:
+            'Leer: acme.sh prüft den Eintrag selbst. Festlegen, wenn der Anbieter langsam veröffentlicht.',
+          issueButton: 'Zertifikat ausstellen',
+          issueTitle: 'Zertifikat ausstellen?',
+          issueConfirmHttp:
+            'acme.sh bittet die CA, ein Token über Port 80 abzurufen. Das Ergebnis erscheint in etwa einer Minute unten; das Zertifikat wird sofort ohne Neustart für HTTPS verwendet. Erneutes Ausstellen für dieselben Namen zählt zu den Ratenlimits der CA (Let’s Encrypt: 5 pro Woche).',
+          issueConfirmDns:
+            'acme.sh fügt beim Anbieter einen TXT-Eintrag hinzu und wartet darauf. Das Ergebnis erscheint innerhalb weniger Minuten unten; das Zertifikat wird sofort ohne Neustart für HTTPS verwendet. Erneutes Ausstellen für dieselben Namen zählt zu den Ratenlimits der CA (Let’s Encrypt: 5 pro Woche).',
+          issueHint: 'Läuft im Hintergrund; die Seite zeigt das Ergebnis an.',
+          run: {
+            issue: 'Ausstellung',
+            renew: 'Erneuerung',
+            cron: 'Geplante Prüfung',
+            running: 'läuft',
+            ok: 'erledigt',
+            notDue: 'nichts fällig',
+            failed: 'fehlgeschlagen'
+          },
+          noOutput: 'Keine Ausgabe.',
+          uninstall: 'acme.sh deinstallieren',
+          uninstallTitle: 'acme.sh deinstallieren?',
+          uninstallConfirm:
+            'acme.sh, das CA-Konto, das ausgestellte Zertifikat und die Einstellungen werden gelöscht. HTTPS kehrt zum generierten Zertifikat zurück.',
+          uninstalled: 'acme.sh entfernt',
+          failed: 'Der Vorgang ist fehlgeschlagen.'
+        },
+        ipv6: {
+          description:
+            'Standardmäßig deaktiviert. Änderungen bleiben nach einem Neustart erhalten.',
+          enable: 'IPv6 aktivieren',
+          unsupported: 'IPv6 ist in diesem Kernel nicht verfügbar.',
+          waiting: 'Warten auf eine IPv6-Adresse…',
+          global: 'Globale Adresse',
+          linkLocal: 'Nur Link-lokal',
+          private: 'Private Adresse',
+          disconnectHint:
+            'Das Deaktivieren von IPv6 schließt IPv6-Verbindungen. Sie können sich über die IPv4-Adresse erneut verbinden.',
+          loadFailed: 'IPv6-Status konnte nicht gelesen werden.',
+          saveFailed:
+            'IPv6 konnte nicht geändert werden. Wenn Sie über IPv6 verbunden sind, verbinden Sie sich über IPv4 erneut.'
         },
         ethernet: {
           title: 'Ethernet IPv4',
+          name: 'Ethernet',
           description: 'Ethernet-IPv4-Verbindung konfigurieren.',
+          enable: 'Ethernet',
+          disabled: 'Deaktiviert',
+          interfaceDown: 'In den Einstellungen aktiviert · Schnittstelle ist derzeit inaktiv',
+          linkUp: 'Aktiviert · Kabel verbunden',
+          noCable: 'Aktiviert · Kabel getrennt',
+          disconnectWarning:
+            'Durch das Speichern werden Verbindungen über Ethernet sofort beendet. Stellen Sie sicher, dass eine andere Verwaltungsverbindung verfügbar ist.',
           dhcp: 'DHCP',
           static: 'Statisch',
           ipv4: 'IPv4',
@@ -443,6 +1678,15 @@ const de = {
           gateway: 'Gateway',
           gatewayPlaceholder: '192.168.10.1',
           invalid: 'Ungültige IP-Adresse',
+          vlan: 'VLAN',
+          vlanDescription:
+            'Die ausgewählte DHCP- oder statische IPv4-Konfiguration auf eth0.<ID> verwenden',
+          vlanWarning:
+            'Eine Änderung des VLAN kann diese Ethernet-Sitzung trennen. Stellen Sie sicher, dass der Switch-Port das ausgewählte getaggte VLAN zulässt.',
+          vlanId: 'VLAN-ID',
+          invalidVlan: 'Die VLAN-ID muss zwischen 1 und 4094 liegen',
+          saved:
+            'Ethernet-Einstellungen gespeichert. Die Netzwerkschnittstellen werden neu gestartet.',
           save: 'Speichern',
           unsaved: 'Ungespeicherte Änderungen',
           saveFailed: 'Konfiguration konnte nicht gespeichert werden.',
@@ -468,16 +1712,24 @@ const de = {
           ipAddress: 'IP-Adresse',
           subnetMask: 'Subnetzmaske',
           router: 'Router',
-          none: 'Keine'
+          none: 'Keine',
+          server: 'DNS-Server {{index}}',
+          remove: 'DNS-Server {{index}} entfernen'
         }
       },
       tailscale: {
         title: 'Tailscale',
         restart: 'Tailscale neu starten?',
+        restartAction: 'Tailscale neu starten',
+        stopAction: 'Tailscale stoppen',
+        moreActions: 'Weitere Aktionen',
         stop: 'Tailscale stoppen?',
         stopDesc: 'Von Tailscale abmelden und automatischen Start beim Booten deaktivieren.',
         loading: 'Lädt...',
+        statusFailed: 'Tailscale-Status konnte nicht abgerufen werden',
         notInstall: 'Tailscale nicht gefunden! Bitte installieren.',
+        installDescription:
+          'Installieren Sie Tailscale bei Bedarf. Vorhandene Einstellungen bleiben erhalten.',
         install: 'Installieren',
         installing: 'Installiere',
         failed: 'Installation fehlgeschlagen',
@@ -498,20 +1750,179 @@ const de = {
         uninstall: 'Tailscale deinstallieren',
         uninstallDesc: 'Sind Sie sicher, dass Sie Tailscale deinstallieren möchten?',
         okBtn: 'Ja',
-        cancelBtn: 'Nein'
+        cancelBtn: 'Nein',
+        startFailed: 'Tailscale konnte nicht gestartet werden',
+        loginFailed: 'Anmeldung fehlgeschlagen',
+        logoutFailed: 'Abmeldung fehlgeschlagen'
+      },
+      netbird: {
+        title: 'NetBird',
+        restart: 'NetBird neu starten?',
+        restartAction: 'NetBird neu starten',
+        stopAction: 'NetBird stoppen',
+        moreActions: 'Weitere Aktionen',
+        stop: 'NetBird stoppen?',
+        stopDesc: 'Den NetBird-Dienst stoppen.',
+        loading: 'Lädt…',
+        statusUnknown: 'NetBird-Status ist unbekannt',
+        statusStale: 'Der zuletzt bestätigte NetBird-Status wird angezeigt',
+        notInstall: 'NetBird ist nicht installiert.',
+        installDescription:
+          'Installieren Sie NetBird bei Bedarf. Vorhandene Einstellungen bleiben erhalten.',
+        install: 'NetBird installieren',
+        installing: 'NetBird wird installiert',
+        notRunning: 'Der NetBird-Dienst läuft nicht.',
+        run: 'Starten',
+        notLogin:
+          'Das Gerät wurde noch nicht verknüpft. Bitte melden Sie sich an und verknüpfen Sie dieses Gerät mit Ihrem Konto.',
+        urlPeriod: 'Diese URL ist für 10 Minuten gültig',
+        login: 'Anmelden',
+        loginSuccess: 'Anmeldung erfolgreich',
+        enable: 'NetBird aktivieren',
+        deviceName: 'Gerätename',
+        deviceIP: 'Geräte-IP',
+        uninstall: 'NetBird deinstallieren',
+        uninstallDesc: 'Möchten Sie NetBird wirklich deinstallieren?',
+        uninstallWarning:
+          'Wenn Sie über NetBird verbunden sind, wird diese Verbindung beendet. Vorhandene Geräteeinstellungen bleiben erhalten.',
+        version: 'Version',
+        disconnect: 'Trennen',
+        disconnectConfirm: 'Möchten Sie die Verbindung wirklich trennen?',
+        okBtn: 'Ja',
+        cancelBtn: 'Nein',
+        error: {
+          title: 'NetBird-Vorgang fehlgeschlagen',
+          intro: 'Fehlerdetails:',
+          stepWait: '1. Warten Sie 10-15 Sekunden und wiederholen Sie die Aktion.',
+          stepRestartUI: '2. Klicken Sie unten auf „Dienst neu starten“.',
+          stepRestartSSH: '3. Führen Sie bei Bedarf aus: /etc/init.d/S99netbird restart',
+          stepReboot: '4. Starten Sie den NanoKVM nur neu, wenn die obigen Schritte nicht helfen.',
+          restartButton: 'Dienst neu starten',
+          refreshButton: 'Status aktualisieren',
+          restartFailed: 'Neustart fehlgeschlagen',
+          stopFailed: 'Stoppen fehlgeschlagen',
+          statusFailed: 'NetBird-Status konnte nicht abgerufen werden',
+          requestFailed: 'Anfrage fehlgeschlagen',
+          installFailed: 'Installation fehlgeschlagen',
+          startFailed: 'Start fehlgeschlagen',
+          loginFailed: 'Anmeldung fehlgeschlagen',
+          disconnectFailed: 'Trennen fehlgeschlagen',
+          uninstallFailed: 'Deinstallation fehlgeschlagen'
+        }
+      },
+      rustdesk: {
+        checkUpdates: 'Nach Updates suchen',
+        absent: 'Nicht installiert',
+        running: 'Läuft',
+        stopped: 'Gestoppt',
+        registered: 'Registriert',
+        registering: 'Warten auf ID-Server',
+        install: 'Installieren',
+        remove: 'Entfernen',
+        upgrade: 'Auf {{version}} aktualisieren',
+        addonVersion: 'Add-on-Version',
+        rustdeskVersion: 'RustDesk-Protokollbasis',
+        unknownVersion: 'Unbekannt',
+        save: 'Einstellungen speichern',
+        enabled: 'Fernzugriff aktivieren',
+        server: 'Server',
+        public: 'Offizielle öffentliche Server',
+        custom: 'Benutzerdefinierter Server',
+        idServer: 'ID-/Rendezvous-Server',
+        relay: 'Relay-Server (optional)',
+        key: 'Öffentlicher Schlüssel des Servers (optional)',
+        password: 'Zugangspasswort',
+        passwordMode: 'Passwort',
+        temporary: 'Temporär (automatisch)',
+        permanent: 'Dauerhaft',
+        temporaryPassword: 'Temporäres Passwort',
+        newPassword: 'Neues Passwort',
+        temporaryHint:
+          'Geben Sie diese ID und dieses Passwort weiter. Das Passwort ändert sich, wenn RustDesk startet oder wenn Sie ein neues anfordern.',
+        rotatingTemporaryHint:
+          'Geben Sie diese ID und das aktuelle Passwort weiter. Jede neue erfolgreiche Anmeldung erzeugt ein neues Passwort, ohne aktive Sitzungen zu schließen. RustDesk ersetzt es außerdem beim Start oder wenn Sie ein neues anfordern.',
+        startForPassword:
+          'Aktivieren Sie RustDesk und speichern Sie die Einstellungen, um ein Passwort zu erzeugen.',
+        waitingForPassword: 'Temporäres Passwort wird erzeugt…',
+        regenerateConfirm:
+          'Neues Passwort erzeugen? Aktuelle RustDesk-Verbindungen werden geschlossen.',
+        advanced: 'Erweiterte Einstellungen',
+        audioEnabled:
+          'USB-Audio ist aktiviert. Wählen Sie auf dem angeschlossenen Computer NanoKVM als Audioausgabe. Der Ton kann im RustDesk-Client stummgeschaltet werden.',
+        audioDisabled:
+          'Um den Ton des Computers zu übertragen, aktivieren Sie USB-Audio in den USB-Einstellungen des Geräts und wählen Sie auf dem Computer NanoKVM als Audioausgabe.',
+        webrtc: 'WebRTC-Verbindungen zulassen',
+        transportHint:
+          'Standardmäßig werden TCP und Relay verwendet. WebRTC kann die Bildrate auf dem NanoKVM verringern. Um sich per TCP über eine ID zu verbinden, schalten Sie WebRTC auch im RustDesk-Client aus.',
+        open: 'Verwaltung öffnen',
+        settings: 'RustDesk',
+        keepPassword: 'Leer lassen, um das aktuelle Passwort beizubehalten',
+        inputDefaults:
+          'Das Aktivieren des Fernzugriffs aktiviert automatisch die USB-Tastatur und die absolute/relative Maus.',
+        transmitAudio: 'Ton übertragen',
+        audioHint:
+          'Aktiviert USB-Audio automatisch. Wählen Sie auf dem angeschlossenen Computer NanoKVM als Tonausgabe.',
+        audioMuted: 'Die Tonübertragung über RustDesk ist deaktiviert.',
+        clients: 'Maximale Anzahl Zuschauer',
+        unavailable:
+          'RustDesk ist in den konfigurierten APK-Repositorys nicht verfügbar. Fügen Sie das Repository mit nanokvm-rustdesk hinzu oder installieren Sie dessen APK über „Pakete“.',
+        explain:
+          'Verbinden Sie einen RustDesk-Client mit dieser ID, um HDMI anzuzeigen und USB-Tastatur und -Maus zu steuern.',
+        video:
+          'Das Video verwendet automatisch den in den NanoKVM-Videoeinstellungen gewählten Codec. H.265 erfordert Client-Unterstützung. Verbinden Sie sich nach einer Änderung des Geräte-Codecs neu. Eine Übernahme im Browser gibt die RustDesk-Eingabe frei.',
+        deletion: 'Paket entfernen? Servereinstellungen, Passwort und Geräte-ID bleiben erhalten.',
+        failed: 'Die Anfrage ist fehlgeschlagen',
+        saved: 'Einstellungen gespeichert',
+        passwordUpdated: 'Passwort aktualisiert',
+        description: 'Fernzugriff auf den mit dem NanoKVM verbundenen Computer über RustDesk.',
+        done: 'Paketvorgang abgeschlossen',
+        id: 'RustDesk-ID',
+        source: 'Quellcode und Lizenz',
+        passwordRequired: 'Geben Sie ein Passwort mit 8 bis 64 Bytes ein',
+        sameServer:
+          'Konfigurieren Sie im RustDesk-Client denselben benutzerdefinierten ID-Server und öffentlichen Schlüssel.'
       },
       account: {
         title: 'Konto',
         webAccount: 'Web Konto Name',
+        role: 'Rolle',
+        roles: {
+          admin: 'Administrator',
+          user: 'Benutzer'
+        },
         password: 'Passwort',
         updateBtn: 'Ändern',
         logoutBtn: 'Abmelden',
         logoutDesc: 'Möchten Sie sich wirklich abmelden?',
+        logoutFailed: 'Abmeldung fehlgeschlagen; diese Sitzung ist weiterhin angemeldet.',
         okBtn: 'Ja',
-        cancelBtn: 'Nein'
+        cancelBtn: 'Nein',
+        users: {
+          title: 'Benutzer',
+          create: 'Benutzer erstellen',
+          enabled: 'Aktiviert',
+          enableUser: '{{username}} aktivieren',
+          disabled: 'Deaktiviert',
+          deviceOwner: 'Gerätebesitzer',
+          rename: 'Umbenennen',
+          resetPassword: 'Passwort zurücksetzen',
+          delete: 'Löschen',
+          deleteConfirm: 'Diesen Benutzer löschen und alle seine Sitzungen widerrufen?',
+          created: 'Benutzer erstellt',
+          deleted: 'Benutzer gelöscht',
+          passwordUpdated: 'Passwort aktualisiert',
+          usernameUpdated: 'Benutzername aktualisiert',
+          loadFailed: 'Benutzer konnten nicht geladen werden',
+          saveFailed: 'Benutzer konnte nicht gespeichert werden',
+          deleteFailed: 'Benutzer konnte nicht gelöscht werden'
+        }
+      },
+      extensions: {
+        title: 'Erweiterungen'
       }
     },
     picoclaw: {
+      moreActions: 'Weitere Aktionen',
       title: 'PicoClaw Assistent',
       empty: 'Öffnen Sie das Bedienfeld und starten Sie eine Aufgabe.',
       inputPlaceholder: 'Beschreiben Sie, was der PicoClaw tun soll',
@@ -523,7 +1934,8 @@ const de = {
         kvmTitle: 'Fernsteuerung',
         kvmDescription: 'Betreiben Sie den Remote-Host über NanoKVM.',
         switched: 'Agentenrolle gewechselt',
-        switchFailed: 'Agentenrolle konnte nicht gewechselt werden'
+        switchFailed: 'Agentenrolle konnte nicht gewechselt werden',
+        label: 'Agentenrolle'
       },
       send: 'Senden',
       cancel: 'Abbrechen',
@@ -632,10 +2044,12 @@ const de = {
         apiBasePlaceholder: 'https://api.example.com/v1',
         apiKey: 'API-Schlüssel',
         apiKeyPlaceholder: 'API-Schlüssel des Modells eingeben',
+        apiKeyOptionalPlaceholder: 'Optional für diesen lokalen Anbieter',
         save: 'Speichern',
         saving: 'Speichern',
         saved: 'Modellkonfiguration gespeichert',
         saveFailed: 'Modellkonfiguration konnte nicht gespeichert werden',
+        invalidNoKey: 'Modellkennung und API Base URL sind erforderlich',
         invalid: 'Modellkennung, API Base URL und API-Schlüssel sind erforderlich'
       },
       uninstall: {
@@ -679,7 +2093,9 @@ const de = {
     },
     error: {
       title: 'Wir sind auf ein Problem gestossen',
-      refresh: 'Neuladen'
+      refresh: 'Neuladen',
+      requestFailed:
+        'Die Anfrage ist fehlgeschlagen. Überprüfen Sie die Verbindung und versuchen Sie es erneut.'
     },
     fullscreen: {
       toggle: 'Vollbild ein/aus'

@@ -151,7 +151,7 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
         try {
           const status = await getMemoryStatus();
           if (status.code !== 0) throw new Error(status.msg);
-          const mode = pickVideoMemoryMode(status.data.videoMemory.modes ?? [], 'uhd', true);
+          const mode = pickVideoMemoryMode(status.data.videoMemory.modes ?? [], 'uhd');
           if (!mode) throw new Error(t('videoSettings.uhdUnavailable'));
           const set = await setVideoMemory(mode);
           if (set.code !== 0) throw new Error(set.msg);

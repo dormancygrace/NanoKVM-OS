@@ -79,12 +79,15 @@
 #define vi_detection_idle_poll_ms 100U
 #define hdmi_mode_max_age_ms 1000U
 #define ion_summary_path "/sys/kernel/debug/ion/cvi_carveout_heap_dump/summary"
-/* 3840x2160 H.265 in SmartP holds 111.8 MiB of ION on the stand (NormalP
- * 98.8, H.264 96.7), the same after GOP, GOP mode, bitrate, fps and codec
- * changes: the VI blocks, the NV21 VPSS buffers, the reconstruction frames,
- * a 4 MiB bitstream and codec tables. MJPEG is not available at 2160p. The
- * UHD video memory mode provides 112 MiB as a fixed carveout. */
-#define uhd_ion_mib             112U
+/* 3840x2160 H.265 holds 102.7 MiB of ION on the stand, H.264 no more, the
+ * same after bitrate, fps and codec changes: the VI blocks, three NV21 VPSS
+ * buffers, the reconstruction frames, an 8 MiB bitstream and codec tables.
+ * MJPEG is not available at 2160p. The UHD video memory mode provides
+ * 104 MiB as a fixed carveout. */
+#define uhd_ion_mib             104U
+/* 2560x1440 at 60 Hz H.265 with MJPEG holds 53.9 MiB; the portrait profiles
+ * need less (no MJPEG at 1440x2560). The QHD modes provide 54 or 56 MiB. */
+#define qhd_ion_mib             54U
 
 /* Resolution-bounded opt-ins expose the accepted high-rate profiles while
  * retaining the normal 60-FPS ceiling for every other geometry. */
@@ -482,7 +485,7 @@ static bool res_fits_video_memory(uint16_t _width, uint16_t _height)
         uint32_t bytes = ((uint32_t)ion_size[0] << 24) | ((uint32_t)ion_size[1] << 16)
             | ((uint32_t)ion_size[2] << 8) | ion_size[3];
         const uint32_t required_mib = (_width > 2560 || _height > 2560) ? uhd_ion_mib
-            : (_width == 1440 && _height == 2560) ? 64U : 62U;
+            : qhd_ion_mib;
         if (count != sizeof(ion_size) || bytes < required_mib * 1024U * 1024U) return false;
         // UHD needs a fixed carveout: CMA cannot always return Linux's borrowed
         // pages for the encoder's reference buffers (video memory mode "uhd").
@@ -645,9 +648,9 @@ int get_manual_resolution(void)
         nanokvm::write_small_uint(vi_width_path, vi_max_width);
     }
     // A size that the video memory cannot hold (3840x2160 on a pool under
-    // 112 MiB) fails the capture start with "Out of memory" and ends the
-    // process; the file can still ask for it after the computer switched to
-    // such a mode. Start at the default size and let detection report it.
+    // 104 MiB) fails the capture start with "Out of memory"; the file can
+    // still ask for it after the computer switched to such a mode. Start at
+    // the default size and let detection report it.
     if(!res_fits_video_memory(tmp_width, tmp_height)){
         tmp_width = default_vi_width;
         tmp_height = default_vi_height;
@@ -735,9 +738,12 @@ uint8_t chack_ion()
 {
     const int rate = nanokvm::ion_usage_rate_from_file(ion_summary_path);
     // Unavailable, malformed or failed reads retain the watchdog's error
-    // result; only a valid percentage at the existing threshold may reboot.
+    // result. A valid reading is not judged by its percentage: the video
+    // pools are sized to the measured peak and run near 100 % (53.9 of
+    // 54 MiB at 1440p60 with MJPEG). Out of memory is a pipeline that has
+    // not been able to get its buffers for 30 s (mmf_video_memory_short_ms).
     if (rate < 0) return 0;
-    return rate >= 95 ? 1 : 2;
+    return mmf_video_memory_short_ms() >= 30000U ? 1 : 2;
 }
 
 void lt6911_enable()

@@ -18,34 +18,30 @@ type videoMemoryStatus struct {
 	Active   string `json:"active"`
 	Selected string `json:"selected"`
 	SizeMiB  int    `json:"sizeMiB"`
-	// Modes whose boot image is installed: fhd (1920x1080, 52 MiB), qhd
-	// (2560x1440, 68 MiB) and each as a fixed carveout that Linux never
-	// uses (2 MiB smaller: a CMA region is a multiple of 4 MiB), and uhd
-	// (3840x2160, 112 MiB, fixed only).
+	// Modes whose boot image is installed: fhd (1920x1080, 40 MiB), qhd
+	// (2560x1440, 54 MiB) and uhd (3840x2160, 104 MiB), each a fixed
+	// carveout that Linux never uses.
 	Modes          []string `json:"modes"`
 	Available      bool     `json:"available"`
 	RebootRequired bool     `json:"rebootRequired"`
 }
 
-// videoMemoryMode is the ION pool of one boot image. fhd and qhd are
-// reusable CMA, whose idle pages stay available to Linux, unless fixed; uhd
-// has no CMA image (see common.VideoPool).
+// videoMemoryMode is the ION pool of one boot image, a fixed carveout sized
+// to the largest use measured in the mode (see common.VideoPool). There are
+// no CMA images any more: the encoders keep their buffers between viewers, so
+// a reusable pool lent Linux almost nothing once video had been watched, and
+// took the risk of migrating borrowed pages back when video starts.
 type videoMemoryMode struct {
-	name  string
-	mib   int
-	fixed bool
+	name string
+	mib  int
 }
 
-var videoMemoryModes = []videoMemoryMode{
-	{"fhd", 52, false}, {"fhd-fixed", 50, true},
-	{"qhd", 68, false}, {"qhd-fixed", 66, true},
-	{"uhd", 112, true},
-}
+var videoMemoryModes = []videoMemoryMode{{"fhd", 40}, {"qhd", 54}, {"uhd", 104}}
 
 func videoMemoryPool(mode string) (common.VideoPool, bool) {
 	for _, m := range videoMemoryModes {
 		if m.name == mode {
-			return common.VideoPool{MiB: m.mib, Reusable: !m.fixed}, true
+			return common.VideoPool{MiB: m.mib}, true
 		}
 	}
 	return common.VideoPool{}, false
@@ -57,14 +53,14 @@ func validVideoMemoryMode(mode string) bool {
 }
 
 // normalizeVideoMemoryMode accepts the names of earlier releases, which keep
-// their capability: cma (128 MiB CMA) is qhd and fixed is qhd-fixed. legacy
-// says that the name was one of them.
+// their capability: cma (128 MiB CMA), fixed and qhd-fixed are qhd, fhd-fixed
+// is fhd. legacy says that the name was one of them.
 func normalizeVideoMemoryMode(mode string) (normalized string, legacy bool) {
 	switch mode {
-	case "cma":
+	case "cma", "fixed", "qhd-fixed":
 		return "qhd", true
-	case "fixed":
-		return "qhd-fixed", true
+	case "fhd-fixed":
+		return "fhd", true
 	}
 	if validVideoMemoryMode(mode) {
 		return mode, false
@@ -100,7 +96,7 @@ func runningVideoMemoryMode(root string) (mode string, legacy bool) {
 		if ionSizeMiB(root) >= 128 {
 			return "uhd", false
 		}
-		return "qhd-fixed", true
+		return "qhd", true
 	}
 	return "unknown", false
 }

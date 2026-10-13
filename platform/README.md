@@ -12,7 +12,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 |---|---|
 | `images/Image` (Linux `7.2.10-nanokvm-os-r4`) | every `boot.sd` |
 | `images/lib/modules/7.2.10-nanokvm-os-r4/` (65 in-tree and 17 out-of-tree modules, `modules.*`) | `nanokvm-kmod-sg2002` |
-| `images/boot/*.sd`, `*.sha256`, `kernel.release` (5 boards × 5 video memory modes: FHD as `NAME.dtb`, then `NAME-fhd-fixed`, `NAME-qhd`, `NAME-qhd-fixed`, `NAME-uhd`) | `nanokvm-kernel-sg2002`, `/usr/lib/nanokvm/boot` |
+| `images/boot/*.sd`, `*.sha256`, `kernel.release` (5 boards × 3 video memory modes: FHD as `NAME.dtb`, then `NAME-qhd`, `NAME-uhd`) | `nanokvm-kernel-sg2002`, `/usr/lib/nanokvm/boot` |
 | `images/dtb/*.dtb`, `images/initramfs.cpio.zst` | inside the `boot.sd` images |
 | `images/u-boot.bin`, `images/fip.bin` | boot partition of the SD image |
 | `images/opensbi/*`, `images/fip-manifest.json` | host build provenance and loader checks |

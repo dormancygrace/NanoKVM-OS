@@ -34,33 +34,33 @@ func putImages(put func(path, value string), names ...string) {
 
 func TestVideoMemoryNewDeviceDefaultsToFHD(t *testing.T) {
 	root, put := videoMemoryRoot(t)
-	putImages(put, "pcie", "pcie-fhd-fixed", "pcie-qhd", "pcie-qhd-fixed", "pcie-uhd")
+	putImages(put, "pcie", "pcie-qhd", "pcie-uhd")
 	put(dtBase+"nanokvm,video-memory-mode", "fhd\x00")
-	put(dtBase+"reserved-memory/ion/size", "\x03\x80\x00\x00")
+	put(dtBase+"reserved-memory/ion/size", "\x02\x80\x00\x00")
 	s := readVideoMemoryStatus(root)
-	if s.Active != "fhd" || s.Selected != "fhd" || s.SizeMiB != 56 || s.RebootRequired || !s.Available ||
-		!slices.Equal(s.Modes, []string{"fhd", "fhd-fixed", "qhd", "qhd-fixed", "uhd"}) {
+	if s.Active != "fhd" || s.Selected != "fhd" || s.SizeMiB != 40 || s.RebootRequired || !s.Available ||
+		!slices.Equal(s.Modes, []string{"fhd", "qhd", "uhd"}) {
 		t.Fatalf("new device: %+v", s)
 	}
 }
 
 func TestVideoMemorySeparatesActiveAndSelected(t *testing.T) {
 	root, put := videoMemoryRoot(t)
-	putImages(put, "pcie", "pcie-fhd-fixed", "pcie-qhd", "pcie-qhd-fixed", "pcie-uhd")
+	putImages(put, "pcie", "pcie-qhd", "pcie-uhd")
 	put(dtBase+"nanokvm,video-memory-mode", "fhd\x00")
-	put("etc/kvm/video-memory-mode", "qhd-fixed\n")
+	put("etc/kvm/video-memory-mode", "qhd\n")
 	s := readVideoMemoryStatus(root)
-	if !s.Available || !s.RebootRequired || s.Active != "fhd" || s.Selected != "qhd-fixed" {
+	if !s.Available || !s.RebootRequired || s.Active != "fhd" || s.Selected != "qhd" {
 		t.Fatalf("pending: %+v", s)
 	}
-	put(dtBase+"nanokvm,video-memory-mode", "qhd-fixed\x00")
+	put(dtBase+"nanokvm,video-memory-mode", "qhd\x00")
 	s = readVideoMemoryStatus(root)
-	if s.RebootRequired || s.Active != "qhd-fixed" || s.Selected != "qhd-fixed" {
+	if s.RebootRequired || s.Active != "qhd" || s.Selected != "qhd" {
 		t.Fatalf("booted: %+v", s)
 	}
 	// The saved selection wins over a running image that lost its file.
 	put("etc/kvm/video-memory-mode", "bad\n")
-	if s = readVideoMemoryStatus(root); s.Selected != "qhd-fixed" || s.RebootRequired {
+	if s = readVideoMemoryStatus(root); s.Selected != "qhd" || s.RebootRequired {
 		t.Fatalf("invalid selection: %+v", s)
 	}
 }
@@ -73,20 +73,25 @@ func TestVideoMemoryKeepsLegacyCapability(t *testing.T) {
 	}{
 		// An upgraded device that has not run activation yet: no file, no change.
 		{"cma", "qhd", "qhd", "", false},
-		{"fixed", "qhd-fixed", "qhd-fixed", "", false},
+		{"fixed", "qhd", "qhd", "", false},
+		{"qhd-fixed", "qhd", "qhd", "", false},
+		{"fhd-fixed", "fhd", "fhd", "", false},
 		{"uhd", "uhd", "uhd", "", false},
 		// Legacy selections are read as the same capability.
 		{"cma", "qhd", "qhd", "cma\n", false},
-		{"fixed", "qhd-fixed", "qhd-fixed", "fixed\n", false},
+		{"fixed", "qhd", "qhd", "fixed\n", false},
+		{"qhd-fixed", "qhd", "qhd", "qhd-fixed\n", false},
+		{"fhd-fixed", "fhd", "fhd", "fhd-fixed\n", false},
 		// Activation wrote the new name: the image changes at the next boot.
 		{"cma", "qhd", "qhd", "qhd\n", true},
-		{"fixed", "qhd-fixed", "qhd-fixed", "qhd-fixed\n", true},
-		{"cma", "qhd", "qhd-fixed", "fixed\n", true},
+		{"fixed", "qhd", "qhd", "qhd\n", true},
+		{"qhd-fixed", "qhd", "qhd", "qhd\n", true},
+		{"fhd-fixed", "fhd", "fhd", "fhd\n", true},
 		{"cma", "qhd", "fhd", "fhd\n", true},
 		{"uhd", "uhd", "uhd", "uhd\n", false},
 	} {
 		root, put := videoMemoryRoot(t)
-		putImages(put, "pcie", "pcie-fhd-fixed", "pcie-qhd", "pcie-qhd-fixed", "pcie-uhd")
+		putImages(put, "pcie", "pcie-qhd", "pcie-uhd")
 		put(dtBase+"nanokvm,video-memory-mode", tc.running+"\x00")
 		put(dtBase+"reserved-memory/ion/size", "\x08\x00\x00\x00")
 		if tc.file != "" {
@@ -101,7 +106,7 @@ func TestVideoMemoryKeepsLegacyCapability(t *testing.T) {
 
 func TestVideoMemoryBootImagesWithoutTheProperty(t *testing.T) {
 	root, put := videoMemoryRoot(t)
-	putImages(put, "pcie", "pcie-fhd-fixed", "pcie-qhd", "pcie-qhd-fixed", "pcie-uhd")
+	putImages(put, "pcie", "pcie-qhd", "pcie-uhd")
 	if s := readVideoMemoryStatus(root); s.Active != "unknown" || s.Selected != "fhd" || s.RebootRequired {
 		t.Fatalf("nothing known: %+v", s)
 	}
@@ -119,7 +124,7 @@ func TestVideoMemoryBootImagesWithoutTheProperty(t *testing.T) {
 		t.Fatalf("128 MiB fixed: %+v", s)
 	}
 	put(dtBase+"reserved-memory/ion/size", "\x04\x00\x00\x00")
-	if s := readVideoMemoryStatus(root); s.Active != "qhd-fixed" || s.SizeMiB != 64 || !s.RebootRequired {
+	if s := readVideoMemoryStatus(root); s.Active != "qhd" || s.SizeMiB != 64 || !s.RebootRequired {
 		t.Fatalf("64 MiB fixed: %+v", s)
 	}
 }
@@ -159,18 +164,18 @@ func TestVideoMemoryPreviousKernelPackageOffersNothing(t *testing.T) {
 }
 
 func TestVideoMemoryModeNames(t *testing.T) {
-	for mode, want := range map[string]string{"fhd": "pcie.dtb", "fhd-fixed": "pcie-fhd-fixed.dtb", "qhd": "pcie-qhd.dtb",
-		"qhd-fixed": "pcie-qhd-fixed.dtb", "uhd": "pcie-uhd.dtb"} {
+	for mode, want := range map[string]string{"fhd": "pcie.dtb", "qhd": "pcie-qhd.dtb", "uhd": "pcie-uhd.dtb"} {
 		if !validVideoMemoryMode(mode) || videoMemoryImageName("pcie", mode) != want {
 			t.Errorf("%s: %s", mode, videoMemoryImageName("pcie", mode))
 		}
 	}
-	for _, mode := range []string{"", "auto", "cma", "fixed", "../fhd", "FHD", "uhd-fixed"} {
+	for _, mode := range []string{"", "auto", "cma", "fixed", "fhd-fixed", "qhd-fixed", "../fhd", "FHD", "uhd-fixed"} {
 		if validVideoMemoryMode(mode) {
 			t.Errorf("%q is not a mode", mode)
 		}
 	}
-	for old, want := range map[string]string{"cma": "qhd", "fixed": "qhd-fixed", "uhd": "uhd", "fhd": "fhd", "qhd-fixed": "qhd-fixed", "auto": ""} {
+	for old, want := range map[string]string{"cma": "qhd", "fixed": "qhd", "uhd": "uhd", "fhd": "fhd", "qhd-fixed": "qhd",
+		"fhd-fixed": "fhd", "auto": ""} {
 		if got, _ := normalizeVideoMemoryMode(old); got != want {
 			t.Errorf("%s -> %q, want %q", old, got, want)
 		}
@@ -187,11 +192,9 @@ func TestVideoMemoryPoolsMatchTheGates(t *testing.T) {
 		qhd, portraitMax bool
 		uhd              bool
 	}{
-		{"fhd", 52, true, false, false, false},
-		{"fhd-fixed", 50, false, false, false, false},
-		{"qhd", 68, true, true, true, false},
-		{"qhd-fixed", 66, false, true, true, false},
-		{"uhd", 112, false, true, true, true},
+		{"fhd", 40, false, false, false, false},
+		{"qhd", 54, false, true, true, false},
+		{"uhd", 104, false, true, true, true},
 	} {
 		pool, ok := videoMemoryPool(tc.mode)
 		if !ok || pool.MiB != tc.mib || pool.Reusable != tc.reusable ||

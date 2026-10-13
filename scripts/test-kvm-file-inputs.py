@@ -55,6 +55,8 @@ static FILE *mode_fopen(const char *path, const char *mode) {
     return std::fopen(path, mode);
 }
 static void debug(const char *, ...) {}
+static uint32_t fake_short_ms = 0;
+static uint32_t mmf_video_memory_short_ms(void) { return fake_short_ms; }
 #define fopen mode_fopen
 '''
 functions = "\n\n".join(function(signature) for signature in (

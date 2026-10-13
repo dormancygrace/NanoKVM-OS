@@ -434,39 +434,26 @@ boot() {
             "$repo/firmware/boards/sg2002-nanokvm-$profile.dts" > "$b/$profile.dts"
         "$host/dtc" -q -I dts -O dtb -o "$b/$profile.dtb" "$b/$profile.dts"
         # One boot image per video memory mode, named by the mode: fhd (the
-        # default) is NAME.dtb, the others NAME-MODE.dtb: NAME-fhd-fixed,
-        # NAME-qhd, NAME-qhd-fixed and NAME-uhd. activate-kernel, compose-fit,
-        # fit-layout.py and the server's status code use the same names.
-        for mode in fhd fhd-fixed qhd qhd-fixed uhd; do
+        # default) is NAME.dtb, the others NAME-qhd and NAME-uhd.
+        # activate-kernel, compose-fit, fit-layout.py and the server's status
+        # code use the same names.
+        for mode in fhd qhd uhd; do
             name=$profile
             [ "$mode" = fhd ] || name=$profile-$mode
             dtb=$img/dtb/$name.dtb
             cp "$b/$profile.dtb" "$dtb"
-            # Same kernel and modules; only the video pool differs: 50 MiB
-            # (1920x1080), 66 MiB (2560x1440) or 112 MiB (3840x2160), as
-            # reusable CMA (idle pages stay available to Linux) or as a
-            # fixed carveout that Linux never uses. UHD is fixed only: CMA
-            # cannot always migrate borrowed pages back for the UHD encoder
-            # buffers (1 of 3 cold boots failed under memory pressure).
-            # The device tree template is the FHD CMA pool.
-            [ "$("$host/fdtget" -t s "$dtb" /reserved-memory/ion compatible)" = shared-dma-pool ]
-            [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 3400000 ]
+            # Same kernel and modules; only the video pool differs: a fixed
+            # carveout of 40 MiB (1920x1080), 54 MiB (2560x1440) or 104 MiB
+            # (3840x2160) that Linux never uses. The device tree template is
+            # the FHD pool.
+            [ "$("$host/fdtget" -t s "$dtb" /reserved-memory/ion compatible)" = ion-region ]
+            [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 2800000 ]
             case $mode in
-                # CMA regions must be a multiple of 4 MiB (the kernel refuses "incorrect
-                # alignment of CMA region"), so the CMA pools are rounded up to it.
-                fhd-fixed) size=3200000 ;;
-                fhd) size=3400000 ;;
-                qhd-fixed) size=4200000 ;;
-                qhd) size=4400000 ;;
-                uhd) size=7000000 ;;
+                fhd) size=2800000 ;;
+                qhd) size=3600000 ;;
+                uhd) size=6800000 ;;
             esac
             "$host/fdtput" -t x "$dtb" /reserved-memory/ion size "$size"
-            case $mode in
-                *-fixed|uhd)
-                    "$host/fdtput" -t s "$dtb" /reserved-memory/ion compatible ion-region
-                    "$host/fdtput" -d "$dtb" /reserved-memory/ion reusable
-                    "$host/fdtput" -d "$dtb" /cvitek-ion/heap-carveout nanokvm,cma-backend ;;
-            esac
             "$host/fdtput" -t s "$dtb" / nanokvm,video-memory-mode "$mode"
             # One size for every device tree, so the FIT images share a layout.
             "$host/dtc" -q -I dtb -O dtb -S 32768 -o "$dtb.pad" "$dtb"

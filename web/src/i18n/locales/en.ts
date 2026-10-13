@@ -840,15 +840,10 @@ const en = {
       memory: {
         videoMode: 'Video memory allocation',
         videoModeDescription:
-          'FHD is the default and is enough for 1920 × 1080. Portrait mode and 2560 × 1440 need QHD, 3840 × 2160 needs UHD. Changes apply after reboot.',
-        videoRes_fhd: 'FHD — 1920 × 1080 · 50 MiB',
-        videoRes_qhd: 'QHD — 2560 × 1440 · 66 MiB',
-        videoRes_uhd: 'UHD — 3840 × 2160 · 112 MiB',
-        videoFixed: 'Fixed',
-        videoFixedHint:
-          'Reserves the video memory for video only: Linux can never use it. Without it, Linux borrows the memory while video does not need it, and the pool is 2 MiB larger (52 and 68 MiB), because CMA comes in multiples of 4 MiB. UHD is always fixed.',
-        videoFixedUhd:
-          'UHD is always fixed: its 112 MiB are reserved for video only, and Linux can never use them.',
+          'Memory reserved for video only; Linux never uses it. FHD is the default and is enough for 1920 × 1080. Portrait mode and 2560 × 1440 need QHD, 3840 × 2160 needs UHD. Changes apply after reboot.',
+        videoRes_fhd: 'FHD — 1920 × 1080 · 40 MiB',
+        videoRes_qhd: 'QHD — 2560 × 1440 · 54 MiB',
+        videoRes_uhd: 'UHD — 3840 × 2160 · 104 MiB',
         zramAuto: 'Half of RAM ({{size}} MiB)',
         videoActive: 'Currently active',
         videoUnknown: 'Unknown',

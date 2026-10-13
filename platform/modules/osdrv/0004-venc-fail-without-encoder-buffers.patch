@@ -1,0 +1,33 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] interdrv: cvi_vc_drv: fail SendFrame without encoder buffers
+
+The first H.264/H.265 frame registers the reconstruction buffers
+(CVI_H26X_OP_REG_VB_BUFFER) but its result was ignored: when the video
+heap could not hold them, encoding went on and cviEncode265Header faulted
+in __memcpy on the missing bitstream buffer (kernel Oops in the capture
+thread; the heap stays allocated until a reboot). Return
+CVI_ERR_VENC_NOBUF instead, so the caller can destroy the channel.
+
+---
+diff --git a/interdrv/cvi_vc_drv/module/src/cvi_venc.c b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
+index ee54c4c..5945b08 100644
+--- a/interdrv/cvi_vc_drv/module/src/cvi_venc.c
++++ b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
+@@ -2414,7 +2414,16 @@ CVI_S32 CVI_VENC_SendFrame(VENC_CHN VeChn, const VIDEO_FRAME_INFO_S *pstFrame,
+ 
+ 		if (pChnHandle->pChnAttr->stVencAttr.enType == PT_H264 ||
+ 		    pChnHandle->pChnAttr->stVencAttr.enType == PT_H265) {
+-			_cviVencRegVbBuf(VeChn);
++			/* Without its reconstruction buffers (or the bitstream
++			 * buffer allocated before them) the encoder must not
++			 * run: encoding the headers reads the missing
++			 * bitstream buffer and faults in __memcpy. Report the
++			 * shortage; the caller destroys the channel. */
++			s32Ret = _cviVencRegVbBuf(VeChn);
++			if (s32Ret != CVI_SUCCESS) {
++				CVI_VENC_ERR("_cviVencRegVbBuf, %d\n", s32Ret);
++				return CVI_ERR_VENC_NOBUF;
++			}
+ 		}
+ 
+ 		pChnVars->u32FirstPixelFormat =

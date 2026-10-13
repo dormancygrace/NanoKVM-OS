@@ -63,7 +63,7 @@ The layout is 64 MiB FAT boot, 1488 MiB ext4 system and remaining card space
 for exFAT data. S01fs creates the absent data partition when USB disk support
 is enabled. Fresh-card creation remains outside hardware qualification.
 There is no A/B rollback. See [release notes](RELEASE-beta-13.md),
-[acceptance](BETA13-ACCEPTANCE.md) and [layout](SD-LAYOUT-v2.md).
+[acceptance](https://github.com/dormancygrace/NanoKVM-OS/blob/v1.0.0-beta.13/docs/BETA13-ACCEPTANCE.md) and [layout](SD-LAYOUT-v2.md).
 
 Moving a configured card between different board revisions requires reflashing
 to repeat board selection. See [detection limits](../firmware/boards/README.md).

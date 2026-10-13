@@ -1,6 +1,11 @@
-# Historical release tooling
+# Release records
 
-Release-specific beta directories describe their original source revisions.
-Retired Buildroot rootfs and private addon recipes are no longer available on
-main. Use the matching release revision for historical procedures. Current
-build/update entry points are documented in `docs/BUILD.md` and `docs/UPDATES.md`.
+- `v2.0-*/`: release notes, `SHA256SUMS`, validation and build manifests of
+  the published v2.0 alphas and betas.
+- `licenses/`: license manifest and texts, referenced by
+  [third-party notices](../../docs/THIRD-PARTY.md).
+
+The build tooling of earlier releases (the Buildroot betas and their build and
+acceptance notes) is kept at their tags, for example `v1.0.0-beta.14`. Current
+build and update entry points are [docs/BUILD.md](../../docs/BUILD.md) and
+[docs/UPDATES.md](../../docs/UPDATES.md).

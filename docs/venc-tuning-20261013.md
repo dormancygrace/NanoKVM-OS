@@ -21,7 +21,7 @@ Measured on the stand: SG2002, kernel r1, 2560x1440@60 from a Windows PC with an
   - RC parameters are set before `StartRecvFrame`.
   - The encoder runs NormalP only, with IDRs on request plus a safety IDR every 10 s; a requested IDR restarts the count.
   - QP floor 20 for P and I frames, chosen visually against 16/14 and 14/12.
-  - H.264 uses the High profile (8x8 transform; Main already used CABAC).
+  - H.264 stays Main (CABAC). High (8x8 transform) is only a tuning option: the WebRTC offer and the Direct decoder configuration declare Main, and a decoder that accepts Main need not decode High.
   - The stream buffer is one byte per pixel (3.5 MiB at 1440p, 8 MiB at 2160p) instead of 1 MiB. At 20 Mbit/s, 1440p IDRs reached 650 KB plus queued deltas.
   - A frame that does not complete within 3 s resets the encoder channel and releases its input lease. Before, both VPSS buffers stayed held and capture stopped for good.
 - **Tuning override** for measurements: `/run/nanokvm-venc-tune` (volatile, `key=value`), read when a channel is created. Keys:
@@ -77,7 +77,7 @@ Bitrate against HW time on motion, 60 s per step:
 
 The HW time is set by the resolution and rate, not the bitrate. The limit for the bitrate is server CPU and the network: about 19 % CPU at 12 Mbit/s and 26 % at 20 Mbit/s.
 
-H.264 High against Main: same HW time (15.3 against 15.4–15.6 ms). Chrome plays High in Direct and in WebRTC, although the SDP still advertises `4d402a`. The QP difference was below the scene variance of the test video.
+H.264 High against Main: same HW time (15.3 against 15.4–15.6 ms). Chrome plays High in Direct and in WebRTC, although the SDP still advertises `4d402a`. The QP difference was below the scene variance of the test video. Since the gain is within the noise and the declarations say Main, the default is Main; declaring High needs its own negotiation work (RFC 6184 section 8.2, the WebCodecs AVC codec string) with a Main fallback.
 
 ## Not done, and why
 

@@ -98,9 +98,11 @@ def check_gop_setters():
 check_read_img_gates()
 check_gop_setters()
 
-for case in ['quality', 'sink', 'capture', 'policy', 'gate', 'pacing']:
+for case in ['quality', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown']:
     binary = args.output.resolve() / case
     sources = [repo / f'firmware/probes/mjpeg-{case}-contract.cpp']
+    if case == 'teardown':
+        sources = [repo / 'firmware/probes/venc-teardown-contract.cpp']
     if case == 'pacing':
         sources = [repo / 'support/sg2002/additional/kvm/tests/capture_pacing_test.cpp']
     if case == 'capture':

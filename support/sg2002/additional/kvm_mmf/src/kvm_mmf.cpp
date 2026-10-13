@@ -188,7 +188,10 @@ static CVI_U32 venc_pack_capacity[MMF_VENC_MAX_CHN];
  */
 struct venc_tuning_t {
 	int idr_seconds = 10;
-	int h264_high = 1;    // 8x8 transform (Main already uses CABAC)
+	// High (8x8 transform) only on request: the WebRTC offer and the Direct
+	// decoder configuration declare Main (profile-level-id 4d402a, avc1.4D402A),
+	// and a decoder that accepts Main need not decode High.
+	int h264_high = 0;
 	int min_qp = 20;      // quality ceiling of P frames on static content
 	int min_iqp = 20;
 	int max_qp = 51;
@@ -2381,8 +2384,10 @@ int mmf_del_venc_channel(int ch) {
 
 	// A submitted frame that never completes leaves the input lease held:
 	// with both VPSS buffers taken, capture stops for good. Reset the channel
-	// and release the lease instead (wedged_vi below).
-	int wedged_vi = -1;
+	// and release the lease instead (wedged below), but only once the channel
+	// is destroyed: until then the encoder may still read that buffer, and the
+	// lease and its bookkeeping stay for the next attempt.
+	bool wedged = false;
 	if (info->is_running || priv.venc_stream_acquired[ch]) {
 		mmf_stream_t stream = {};
 		int drained = CVI_SUCCESS;
@@ -2393,9 +2398,7 @@ int mmf_del_venc_channel(int ch) {
 		if (drained == CVI_ERR_VENC_BUSY) {
 			fprintf(stderr, "[kvm_mmf] VENC channel %d is wedged; resetting it and releasing its input\n", ch);
 			fflush(stderr);
-			wedged_vi = priv.venc_input_vi_ch[ch];
-			info->is_running = 0;
-			priv.venc_input_vi_ch[ch] = -1;
+			wedged = true;
 		} else {
 			const int released = mmf_venc_free(ch);
 			if (released != CVI_SUCCESS) return released;
@@ -2428,16 +2431,22 @@ int mmf_del_venc_channel(int ch) {
 			ch, attempt + 1, destroyRet);
 		fflush(stderr);
 	}
-	if (wedged_vi >= 0) {
-		const int released = _mmf_release_vi_frame(wedged_vi);
-		fprintf(stderr, "[kvm_mmf] released input %d of wedged VENC channel %d: %#x\n",
-			wedged_vi, ch, released);
-		fflush(stderr);
-	}
 	if (destroyRet != CVI_SUCCESS) {
 		// Preserve the bookkeeping so the next frame can retry teardown.  In
-		// particular, never claim that a still-existing vendor channel is free.
+		// particular, never claim that a still-existing vendor channel is free,
+		// and keep a wedged channel's input lease: it may still read it.
 		return destroyRet;
+	}
+	if (wedged) {
+		const int wedged_vi = priv.venc_input_vi_ch[ch];
+		info->is_running = 0;
+		priv.venc_input_vi_ch[ch] = -1;
+		if (wedged_vi >= 0) {
+			const int released = _mmf_release_vi_frame(wedged_vi);
+			fprintf(stderr, "[kvm_mmf] released input %d of wedged VENC channel %d: %#x\n",
+				wedged_vi, ch, released);
+			fflush(stderr);
+		}
 	}
 
 	if (info->capture_frame) {

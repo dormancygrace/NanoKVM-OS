@@ -6,10 +6,15 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-loader = Path(__file__).resolve().parents[1] / 'firmware/buildroot/board/enhanced/init.d/S25wifimod'
+loader = Path(__file__).resolve().parents[1] / 'kvmapp/system/init.d/S25wifimod'
 cases = [
     ('aic-primary', ['sdio:c07v5449d0145'], ['aic8800_fdrv']),
     ('aic-secondary', ['sdio:c07v544Ad0146'], ['aic8800_fdrv']),
+    ('aic-func2', ['sdio:c07v5449d0146'], ['aic8800_fdrv']),
+    ('aic8800dc', ['sdio:c07vC8A1dC08D'], ['aic8800_fdrv']),
+    ('d80n', ['sdio:c07vC8A1d9081'], ['aic8800_fdrv']),
+    ('d40wn', ['sdio:c07vC8A1d9086'], ['aic8800_fdrv']),
+    ('d80x2', ['sdio:c07vC8A1d2082'], ['aic8800_fdrv']),
     ('d80-primary', ['sdio:c07vC8A1d0082'], ['aic8800_fdrv']),
     ('d80-secondary', ['sdio:c07vC8A1d0182'], ['aic8800_fdrv']),
     ('d80-functions', ['sdio:c07vC8A1d0082', 'sdio:c07vC8A1d0182'], ['aic8800_fdrv']),
@@ -17,6 +22,7 @@ cases = [
     ('rtl-b73a', ['sdio:c07v024CdB73A'], ['8733bs']),
     ('mixed-duplicate', ['sdio:c07v024CdB733', 'sdio:c07v024CdB73A', 'sdio:c07v5449d0145'], ['8733bs', 'aic8800_fdrv']),
     ('unknown', ['sdio:c07v0001d0001'], []),
+    ('unknown-aic-device', ['sdio:c07vC8A1d9087'], []),
     ('absent', [], []),
 ]
 for name, aliases, expected in cases:

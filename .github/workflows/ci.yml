@@ -113,7 +113,7 @@ jobs:
             echo "::group::$t"; python3 "$t"; echo "::endgroup::"
           done
           python3 firmware/network/test-usb-prefix.py \
-            --script firmware/buildroot/board/enhanced/init.d/S30usbnet
+            --script firmware/alpine/compat/S30usbnet
           for t in firmware/alpine/tests/*.sh tools/test-*.sh; do
             echo "::group::$t"; sh "$t"; echo "::endgroup::"
           done

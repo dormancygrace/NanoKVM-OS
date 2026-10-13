@@ -86,7 +86,7 @@ Certificates can be replaced for new connections without restarting the applicat
 ## 🧩 Add-ons and package updates
 
 - **acme.sh can also be installed from Software → Add-ons**, with a shortcut to its HTTPS settings.
-- **RustDesk stays a separate optional APK**, outside the full image and main release archive. Check for updates and install newer versions directly from the signed package repository.
+- **RustDesk stays a separate optional APK**, outside the full image and main release archive. Check for updates and install newer versions directly from the signed package repository, including installations pinned to an older add-on version. Failed or unchanged upgrades now show an error instead of reporting success.
 - **Daily package-index refresh**, off by default: enable the checkbox in Software → Packages and choose a time in the device timezone. Only the available-package lists are refreshed; installing or upgrading packages remains manual.
 
 ## 🐧 A refreshed foundation

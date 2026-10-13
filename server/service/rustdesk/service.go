@@ -344,6 +344,49 @@ func (s *Service) packageCommand(args ...string) error {
 	_, err := s.command("apk", args...)
 	return err
 }
+
+// Explicitly requesting an add-on update replaces its old world constraint.
+// apk upgrade respects an exact-version pin and can report success without
+// changing anything. apk add --upgrade unpins this add-on in the transaction
+// while preserving the other world constraints.
+func (s *Service) upgradePackage() error {
+	s.apkMu.Lock()
+	defer s.apkMu.Unlock()
+	defer s.forgetPackageFacts()
+	before, err := s.installedVersion()
+	if err != nil {
+		return err
+	}
+	if _, err = s.command("apk", "add", "--upgrade", Package); err != nil {
+		return err
+	}
+	after, err := s.installedVersion()
+	if err != nil {
+		return fmt.Errorf("cannot verify RustDesk update: %w", err)
+	}
+	comparison, err := s.command("apk", "version", "--test", before, after)
+	if err != nil {
+		return fmt.Errorf("cannot verify RustDesk update: %w", err)
+	}
+	if strings.TrimSpace(string(comparison)) != "<" {
+		return fmt.Errorf("RustDesk was not updated (installed: %s). Refresh the package indexes and try again", after)
+	}
+	return nil
+}
+
+func (s *Service) installedVersion() (string, error) {
+	data, err := s.command("apk", "info", "-e", "-v", Package)
+	if err != nil {
+		return "", fmt.Errorf("cannot read installed RustDesk version: %w", err)
+	}
+	value := strings.TrimSpace(string(data))
+	version, found := strings.CutPrefix(value, Package+"-")
+	if !found || version == "" || strings.ContainsAny(version, " \t\r\n") {
+		return "", errors.New("cannot read installed RustDesk version")
+	}
+	return version, nil
+}
+
 func defaultConfig() Config {
 	return Config{Official: true, Codec: "auto", MaxClients: 1, PasswordMode: "temporary"}
 }
@@ -694,7 +737,7 @@ func (s *Service) Action(action string) error {
 	case "install":
 		return s.packageCommand("add", Package)
 	case "upgrade":
-		return s.packageCommand("upgrade", Package)
+		return s.upgradePackage()
 	case "remove":
 		if err := s.packageCommand("del", Package); err != nil {
 			return err

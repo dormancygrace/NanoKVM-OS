@@ -197,13 +197,65 @@ func TestPackageActionsUseFixedArgv(t *testing.T) {
 		}
 		return nil, nil
 	}
-	for _, action := range []string{"install", "upgrade", "remove"} {
+	for _, action := range []string{"install", "remove"} {
 		if err := s.Action(action); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if s.Action("install another-package") == nil {
 		t.Fatal("unknown action accepted")
+	}
+}
+
+func TestUpgradeReplacesPinAndVerifiesVersion(t *testing.T) {
+	tests := []struct {
+		name, after, comparison, wantError string
+		failCommand                        int
+	}{
+		{name: "new version", after: "0.5.3-r3", comparison: "<"},
+		{name: "successful no-op", after: "0.5.3-r2", comparison: "=", wantError: "was not updated"},
+		{name: "downgrade is not success", after: "0.5.3-r1", comparison: ">", wantError: "was not updated"},
+		{name: "transaction failed", failCommand: 2, wantError: "command failed"},
+		{name: "initial query failed", failCommand: 1, wantError: "cannot read installed"},
+		{name: "verification failed", failCommand: 3, wantError: "cannot verify"},
+		{name: "comparison failed", after: "0.5.3-r3", failCommand: 4, wantError: "cannot verify"},
+		{name: "malformed installed version", after: "", wantError: "cannot verify"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewService(NewBridge())
+			commands := [][]string{
+				{"info", "-e", "-v", Package},
+				{"add", "--upgrade", Package},
+				{"info", "-e", "-v", Package},
+				{"version", "--test", "0.5.3-r2", tt.after},
+			}
+			outputs := []string{Package + "-0.5.3-r2\n", "", Package + "-" + tt.after + "\n", tt.comparison + "\n"}
+			calls := 0
+			s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+				if calls >= len(commands) || name != "apk" || strings.Join(args, "|") != strings.Join(commands[calls], "|") {
+					t.Fatalf("unexpected command %s %v at %d", name, args, calls)
+				}
+				calls++
+				if calls == tt.failCommand {
+					return nil, errors.New("command failed")
+				}
+				return []byte(outputs[calls-1]), nil
+			}
+			err := s.Action("upgrade")
+			if tt.wantError == "" && err != nil || tt.wantError != "" && (err == nil || !strings.Contains(err.Error(), tt.wantError)) {
+				t.Fatalf("error = %v, want %q", err, tt.wantError)
+			}
+			expectedCalls := 4
+			if tt.failCommand > 0 {
+				expectedCalls = tt.failCommand
+			} else if tt.after == "" {
+				expectedCalls = 3
+			}
+			if calls != expectedCalls || s.generation != 1 {
+				t.Fatalf("calls=%d, generation=%d", calls, s.generation)
+			}
+		})
 	}
 }
 
@@ -551,6 +603,13 @@ func (f *fakeAPK) install(s *Service) {
 		version, update, fail, gate := f.version, f.update, f.fail, f.gate
 		f.mu.Unlock()
 		switch {
+		case command == "apk add --upgrade "+Package:
+			f.mu.Lock()
+			f.version, f.update = f.update, ""
+			f.mu.Unlock()
+			return nil, nil
+		case strings.HasPrefix(command, "apk version --test "):
+			return []byte("<"), nil
 		case command == "apk info -e -v "+Package:
 			return []byte(Package + "-" + version + "\n"), nil
 		case strings.HasPrefix(command, "apk query"):
@@ -696,10 +755,16 @@ func TestRepositoryQueriesNeverOverlapPackageTransactions(t *testing.T) {
 	s.repositoryWait = 0
 	s.apkStamp = func() string { return "unchanged" }
 	var active, overlaps, queries int
+	installedVersion := "0.5.3-r2"
 	var mu sync.Mutex
 	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
-		if name != "apk" || args[0] == "info" {
+		if name != "apk" {
 			return nil, nil
+		}
+		if args[0] == "info" {
+			mu.Lock()
+			defer mu.Unlock()
+			return []byte(Package + "-" + installedVersion), nil
 		}
 		mu.Lock()
 		active++
@@ -711,7 +776,13 @@ func TestRepositoryQueriesNeverOverlapPackageTransactions(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 		mu.Lock()
 		active--
+		if args[0] == "add" {
+			installedVersion = "0.5.3-r3"
+		}
 		mu.Unlock()
+		if args[0] == "version" {
+			return []byte("<"), nil
+		}
 		return []byte("[]"), nil
 	}
 	if _, err := s.Status(); err != nil {

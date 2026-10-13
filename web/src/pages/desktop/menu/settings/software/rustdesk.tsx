@@ -5,6 +5,7 @@ import { DownloadIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { getRustDeskStatus, rustDeskPackageAction, type RustDeskStatus } from '@/api/rustdesk';
+import { requestErrorText } from '@/lib/request-error.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk';
@@ -18,6 +19,7 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
   const { t } = useTranslation('translation', { keyPrefix: 'settings.rustdesk' });
   const [status, setStatus] = useAtom(rustDeskStatusAtom);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [busy, setBusy] = useState(false);
   const mounted = useRef(false);
   const working = useRef(false);
@@ -69,18 +71,22 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
     pending.current = false;
     working.current = true;
     setBusy(true);
+    setActionError('');
     try {
       const response = await rustDeskPackageAction(action);
       if (!mounted.current || started !== generation.current) return;
       if (response.code !== 0) {
+        setActionError(requestErrorText(response, t('failed')) ?? '');
         showRequestError(response, 'settings.rustdesk.failed');
         return;
       }
       if (action !== 'check') message.success(t('done'));
       setError('');
     } catch (err) {
-      if (mounted.current && started === generation.current)
+      if (mounted.current && started === generation.current) {
+        setActionError(requestErrorText(err, t('failed')) ?? '');
         showRequestError(err, 'settings.rustdesk.failed');
+      }
     } finally {
       working.current = false;
       if (mounted.current) {
@@ -95,7 +101,7 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
         <Spin size="small" />
       ) : (
         <>
-          {error && <Alert type="error" title={error} showIcon />}
+          {(actionError || error) && <Alert type="error" title={actionError || error} showIcon />}
           {status &&
             (status.installed ? (
               <RustDeskVersions status={status} />

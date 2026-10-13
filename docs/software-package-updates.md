@@ -19,3 +19,21 @@ The acme.sh card in Software > Add-ons uses the same optional installer as Netwo
 ## Verification
 
 Go tests cover default-off behavior, invalid times, preservation of unrelated cron entries, idempotent saves, disabling while retaining the selected time, command failures, and an index refresh that calls only `apk update`. Frontend type/lint checks and translation-key checks cover the new controls. Actual cron execution and repository discovery must additionally be verified on Alpine.
+
+## Explicit RustDesk upgrades
+
+The Update button uses `apk add --upgrade nanokvm-rustdesk`. Older
+installations may have an exact version or local-file constraint in APK's
+world file. Plain `apk upgrade nanokvm-rustdesk` keeps that constraint and
+can exit successfully without installing the offered update. The add command
+replaces only this add-on's world constraint as part of APK's transaction.
+
+The server reads the installed version before and after the transaction and
+checks that APK considers the new version newer. An unchanged version,
+unreadable result or failed transaction is an error, retained on the Add-ons
+card until the next action instead of cleared by status polling.
+
+Regression coverage includes the service's error/no-op paths and
+`scripts/test-addon-apk-upgrade.py --apk /path/to/native/apk`, which runs
+the real APK solver in a disposable root and verifies that an unrelated pinned
+package remains unchanged.

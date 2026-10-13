@@ -90,6 +90,36 @@ edit(f'{poly}/sum_riscv64.s', '\tAND\t$7, X6, X28\n',
      '\n'
      'alignment_checked:\n')
 vendor_files += [f'{poly}/mac_noasm.go', f'{poly}/sum_asm.go', f'{poly}/sum_riscv64.s', f'{poly}/sum_misaligned_riscv64.go']
+# Short substring search without Rabin-Karp (go-bytes-index): where Index
+# falls back to Rabin-Karp, a sep of at most 255 bytes uses Horspool.
+index = source.parent / 'go-bytes-index'
+for pkg, name in [('bytes', 'index_bytes.go'), ('internal/stringslite', 'index_stringslite.go')]:
+    materialize(pkg)
+    shutil.copyfile(index / name, out / 'src' / pkg / 'index_nanokvm.go')
+    vendor_files.append(f'{pkg}/index_nanokvm.go')
+edit('bytes/bytes.go', '''			// This code does not take that effect into account.
+			j := bytealg.IndexRabinKarp(s[i:], sep)
+''', '''			// This code does not take that effect into account.
+			if n <= horspoolMaxLen { // NanoKVM: index_nanokvm.go
+				if j := indexHorspool(s[i:], sep); j >= 0 {
+					return i + j
+				}
+				return -1
+			}
+			j := bytealg.IndexRabinKarp(s[i:], sep)
+''')
+edit('internal/stringslite/strings.go', '''			// See comment in ../bytes/bytes.go.
+			j := bytealg.IndexRabinKarp(s[i:], substr)
+''', '''			// See comment in ../bytes/bytes.go.
+			if n <= horspoolMaxLen { // NanoKVM: index_nanokvm.go
+				if j := indexHorspool(s[i:], substr); j >= 0 {
+					return i + j
+				}
+				return -1
+			}
+			j := bytealg.IndexRabinKarp(s[i:], substr)
+''')
+vendor_files += ['bytes/bytes.go', 'internal/stringslite/strings.go']
 text = original.decode()
 anchor = 'func sysmon() {\n'
 assert text.count(anchor) == 1

@@ -629,8 +629,7 @@
       "deleteConfirmCancel": "Anuluj",
       "messageCount_one": "{{count}} wiadomość",
       "messageCount_few": "{{count}} wiadomości",
-      "messageCount_many": "{{count}} wiadomości",
-      "messageCount_other": "{{count}} wiadomości"
+      "messageCount_many": "{{count}} wiadomości"
     },
     "config": {
       "startRuntime": "Uruchom PicoClaw",

@@ -80,14 +80,24 @@ test('translations use only interpolation values that English provides', () => {
   assert.deepEqual(unknown, []);
 });
 
-// A plural key carries exactly the CLDR forms of its language (Russian
-// one/few/many/other, Japanese other only) and no plain key with the same
-// name: i18next would fall back to that plain text for a missing form ('5
-// сообщения'), and Weblate rejects the pair as a duplicated string.
-test('plural keys use exactly the forms of their language', () => {
+// A plural key carries exactly the CLDR forms that whole numbers use in its
+// language (Russian one/few/many, French one/many/other, Japanese other) and
+// no plain key with the same name. Weblate stores and writes those forms (it
+// drops the ones only fractions use, such as Russian `other`), so its pull
+// requests keep passing. A plain key beside them would supply the text for a
+// missing form ('5 сообщения'), and Weblate rejects it as a duplicated string.
+const integerForms = (name) => {
+  const rules = new Intl.PluralRules(localeTag(name));
+  const forms = new Set();
+  for (let n = 0; n <= 1000; n++) forms.add(rules.select(n));
+  for (const n of [1e4, 1e5, 1e6, 1e7, 1e9]) forms.add(rules.select(n));
+  return [...forms].sort().join('/');
+};
+
+test('plural keys use exactly the whole-number forms of their language', () => {
   const problems = [];
   for (const [name, keys] of locales) {
-    const categories = new Intl.PluralRules(localeTag(name)).resolvedOptions().pluralCategories;
+    const want = integerForms(name);
     const groups = new Map();
     for (const key of keys.keys()) {
       const form = key.match(pluralSuffix)?.[1];
@@ -95,7 +105,6 @@ test('plural keys use exactly the forms of their language', () => {
     }
     for (const [key, forms] of groups) {
       if (keys.has(key)) problems.push(`${name}: ${key} is both a plain and a plural key`);
-      const want = [...categories].sort().join('/');
       const got = [...forms].sort().join('/');
       if (want !== got) problems.push(`${name}: ${key} has ${got}, the language uses ${want}`);
     }

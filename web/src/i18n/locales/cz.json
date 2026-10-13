@@ -629,7 +629,6 @@
       "deleteConfirmCancel": "Zrušit",
       "messageCount_one": "{{count}} zpráva",
       "messageCount_few": "{{count}} zprávy",
-      "messageCount_many": "{{count}} zprávy",
       "messageCount_other": "{{count}} zpráv"
     },
     "config": {

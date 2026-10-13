@@ -8,14 +8,11 @@ const nb = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Logg inn',
       placeholderUsername: 'Brukernavn',
       placeholderPassword: 'Passord',
       placeholderPassword2: 'Oppgi passord igjen',
       noEmptyUsername: 'Brukernavn påkrevd',
       noEmptyPassword: 'Passord påkrevd',
-      noAccount:
-        'Kunne ikke hente brukerinformasjon. Vennligst last inn siden på nytt eller gjenopprett passord',
       invalidUser: 'Ugyldig brukernavn eller passord',
       locked: 'For mange pålogginger, vennligst prøv igjen senere',
       globalLocked: 'System under beskyttelse, prøv igjen senere',
@@ -25,7 +22,6 @@ const nb = {
         'For sikkerheten til enheten, vennligst endre passordet ditt for web-innlogging.',
       differentPassword: 'Passordene er ikke like',
       illegalUsername: 'Brukernavn inneholder tegn som ikke er tillat',
-      illegalPassword: 'Passord inneholder tegn som ikke er tillat',
       forgetPassword: 'Glemt passord',
       ok: 'Ok',
       cancel: 'Avbryt',
@@ -50,7 +46,6 @@ const nb = {
       invalidMode:
         'Gjeldende modus støtter ikke nettverksoppsett. Gå til enheten din og aktiver Wi-Fi konfigurasjonsmodus.',
       confirmBtn: 'Ok',
-      finishBtn: 'Ferdig',
       ap: {
         authTitle: 'Autentisering kreves',
         authDescription: 'Vennligst skriv inn AP passordet for å fortsette',
@@ -63,7 +58,6 @@ const nb = {
       scale: 'Skala',
       title: 'Skjerm',
       video: 'Video-kodek',
-      resolution: 'Oppløsning',
       controlRegion: {
         title: 'Musekalibrering',
         description:
@@ -91,16 +85,7 @@ const nb = {
         finish: 'Ferdig',
         cancel: 'Avbryt'
       },
-      auto: 'Automatisk',
-      autoTips:
-        'Skjermriving eller peker-forskyvning kan oppstå ved enkelte oppløsninger. Prøv å justere den eksterne vertens oppløsning eller skru av automatisk modus.',
-      fps: 'FPS',
-      customizeFps: 'Tilpass',
       quality: 'Kvalitet',
-      qualityLossless: 'Tapsfri',
-      qualityHigh: 'Høy',
-      qualityMedium: 'Middels',
-      qualityLow: 'Lav',
       frameDetect: 'Bildefrekvensoppdagelse',
       frameDetectTip:
         'Kalkuler forskjellen mellom bilder. Stopper overføring av video når det ikke oppdages forskjell på den eksterne vertens skjerm.',
@@ -184,7 +169,6 @@ const nb = {
       title: 'Mus',
       cursor: 'Markørstil',
       default: 'Vanlig',
-      pointer: 'Hånd',
       cell: 'Celle',
       text: 'Tekst',
       grab: 'Grip',
@@ -231,7 +215,6 @@ const nb = {
       unmountFailed: 'Avmontering mislyktes',
       unmountDesc:
         'På noen systemer må du manuelt løse ut fra den eksterne verten før du demonterer bildet.',
-      refresh: 'Oppdater bildelisten',
       attention: 'Merknad',
       deleteConfirm: 'Er du sikker på at du vil slette dette bildet?',
       okBtn: 'Ja',
@@ -270,7 +253,6 @@ const nb = {
       nanokvm: 'NanoKVM',
       serial: 'Seriell port',
       serialPort: 'Seriell port',
-      serialPortPlaceholder: 'Vennligst angi den serielle porten',
       baudrate: 'Baud-rate',
       parity: 'Paritet',
       parityNone: 'Ingen',
@@ -295,7 +277,6 @@ const nb = {
       title: 'Bildedaster',
       input: 'Vennligst skriv inn et eksternt bilde URL',
       ok: 'Ok',
-      disabled: '/data partisjonen er RO, så vi kan ikke laste ned bildet',
       uploadbox: 'Slipp filen her eller klikk for å velge',
       inputfile: 'Vennligst skriv inn bildefilen',
       NoISO: 'Ingen ISO',
@@ -313,7 +294,6 @@ const nb = {
       showConfirm: 'Bekreftelse',
       showConfirmTip: 'Strømdrift krever en ekstra bekreftelse',
       reset: 'Reset-knapp',
-      power: 'På-knapp',
       powerShort: 'På-knapp (kort trykk)',
       powerLong: 'På-knapp (langt trykk)',
       resetConfirm: 'Fortsette tilbakestilling?',

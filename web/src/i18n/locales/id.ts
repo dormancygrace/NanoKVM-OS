@@ -8,14 +8,11 @@ const id = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Masuk',
       placeholderUsername: 'Silahkan masukkan username',
       placeholderPassword: 'Silahkan masukkan password',
       placeholderPassword2: 'Silahkan masukkan password again',
       noEmptyUsername: 'nama user tidak boleh kosong',
       noEmptyPassword: 'sandi  tidak boleh kosong',
-      noAccount:
-        'Gagal mendapatkan informasi user, silahkan segarkan halaman atau atur ulang sandi',
       invalidUser: 'invalid username or password',
       locked: 'Terlalu banyak login, silakan coba lagi nanti',
       globalLocked: 'Sistem dalam perlindungan, silakan coba lagi nanti',
@@ -24,7 +21,6 @@ const id = {
       changePasswordDesc: 'Untuk keamanan perangkat Anda, silakan ubah kata sandi masuk web.',
       differentPassword: 'sandi tidak sesuai',
       illegalUsername: 'ada karakter ilegal pada nama user',
-      illegalPassword: 'ada karakter ilegal pada sandi',
       forgetPassword: 'Lupa Sandi',
       ok: 'Ok',
       cancel: 'Batalkan',
@@ -49,7 +45,6 @@ const id = {
       invalidMode:
         'Mode saat ini tidak mendukung pengaturan jaringan. Silakan buka perangkat Anda dan aktifkan mode konfigurasi Wi-Fi.',
       confirmBtn: 'Ok',
-      finishBtn: 'Selesai',
       ap: {
         authTitle: 'Otentikasi Diperlukan',
         authDescription: 'Silakan masukkan kata sandi AP untuk melanjutkan',
@@ -62,7 +57,6 @@ const id = {
       scale: 'Skala',
       title: 'Layar',
       video: 'Mode Video',
-      resolution: 'Resolusi',
       controlRegion: {
         title: 'Kalibrasi Tetikus',
         description:
@@ -90,16 +84,7 @@ const id = {
         finish: 'Selesai',
         cancel: 'Batal'
       },
-      auto: 'Otomatis',
-      autoTips:
-        'Tearing layar atau offset tetikus dapat terjadi pada resolusi tertentu. Pertimbangkan untuk menyesuaikan resolusi host jarak jauh atau menonaktifkan mode otomatis.',
-      fps: 'FPS',
-      customizeFps: 'Sesuaikan',
       quality: 'Kualitas',
-      qualityLossless: 'Tanpa Kehilangan',
-      qualityHigh: 'Tinggi',
-      qualityMedium: 'Sedang',
-      qualityLow: 'Rendah',
       frameDetect: 'Deteksi bingkai',
       frameDetectTip:
         'Hitung selisih antar frame. Hentikan transmisi aliran video saat tidak ada perubahan yang terdeteksi di layar host jarak jauh.',
@@ -183,7 +168,6 @@ const id = {
       title: 'Tikus',
       cursor: 'Gaya kursor',
       default: 'Kursor bawaan',
-      pointer: 'Kursor penunjuk',
       cell: 'Kursor cell',
       text: 'Kursor teks',
       grab: 'Kursor ambil',
@@ -231,7 +215,6 @@ const id = {
       unmountFailed: 'Pelepasan gagal',
       unmountDesc:
         'Pada beberapa sistem, Anda perlu mengeluarkan secara manual dari host jarak jauh sebelum melepas gambar.',
-      refresh: 'Segarkan daftar gambar',
       attention: 'Perhatian',
       deleteConfirm: 'Apakah Anda yakin ingin menghapus gambar ini?',
       okBtn: 'Ya',
@@ -270,7 +253,6 @@ const id = {
       nanokvm: 'Terminal NanoKVM',
       serial: 'Terminal Port Serial',
       serialPort: 'Port Serial',
-      serialPortPlaceholder: 'Silahkan masukkan port serial',
       baudrate: 'Baud rate',
       parity: 'Paritas',
       parityNone: 'Tidak ada',
@@ -295,7 +277,6 @@ const id = {
       title: 'Pengunduh Gambar',
       input: 'Silakan masukkan gambar jarak jauh URL',
       ok: 'Ok',
-      disabled: 'Partisi /data adalah RO, jadi kami tidak dapat mengunduh gambarnya',
       uploadbox: 'Letakkan file di sini atau klik untuk memilih',
       inputfile: 'Silakan masukkan File gambar',
       NoISO: 'Tidak ada ISO',
@@ -313,7 +294,6 @@ const id = {
       showConfirm: 'Konfirmasi',
       showConfirmTip: 'Pengoperasian listrik memerlukan konfirmasi tambahan',
       reset: 'Mulai Ulang',
-      power: 'Daya',
       powerShort: 'Data (tekan sebentar)',
       powerLong: 'Power (tekan lama)',
       resetConfirm: 'Lanjutkan operasi penyetelan ulang?',

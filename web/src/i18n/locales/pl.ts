@@ -8,14 +8,11 @@ const pl = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Logowanie',
       placeholderUsername: 'Wprowadź nazwę użykownika',
       placeholderPassword: 'wprowadź hasło',
       placeholderPassword2: 'wprowadź hasło ponownie',
       noEmptyUsername: 'nazwa użykownika nie może być pusta',
       noEmptyPassword: 'hasło nie może być puste',
-      noAccount:
-        'Nie udało się uzyskać informacji o użytkowniku, odśwież stronę lub zresetuj hasło',
       invalidUser: 'Błędne hasło lub nazwa użykownika',
       locked: 'Zbyt wiele loginów, spróbuj ponownie później',
       globalLocked: 'System chroniony, spróbuj ponownie później',
@@ -25,7 +22,6 @@ const pl = {
         'Dla bezpieczeństwa Twojego urządzenia, proszę zmień hasło do logowania w sieci.',
       differentPassword: 'hasła nie zgadzają się',
       illegalUsername: 'nazwa użytkownika zawiera niedozwolone znaki',
-      illegalPassword: 'hasło zawiera niedozwolone znaki',
       forgetPassword: 'Zapomiałeś hasła?',
       ok: 'Ok',
       cancel: 'Anuluj',
@@ -50,7 +46,6 @@ const pl = {
       invalidMode:
         'Bieżący tryb nie obsługuje konfiguracji sieci. Przejdź do swojego urządzenia i włącz tryb konfiguracji Wi-Fi.',
       confirmBtn: 'Ok',
-      finishBtn: 'Zakończono',
       ap: {
         authTitle: 'Wymagane uwierzytelnienie',
         authDescription: 'Aby kontynuować, wprowadź AP hasło',
@@ -63,7 +58,6 @@ const pl = {
       scale: 'Skala',
       title: 'Ekran',
       video: 'Tryb wideo',
-      resolution: 'Rozdzielczość',
       controlRegion: {
         title: 'Kalibracja myszy',
         description:
@@ -91,16 +85,7 @@ const pl = {
         finish: 'Gotowe',
         cancel: 'Anuluj'
       },
-      auto: 'Automatyczny',
-      autoTips:
-        'W określonych rozdzielczościach może wystąpić rozrywanie ekranu lub przesunięcie myszy. Rozważ dostosowanie rozdzielczości zdalnego hosta lub wyłącz tryb automatyczny.',
-      fps: 'FPS',
-      customizeFps: 'Personalizuj',
       quality: 'Jakość',
-      qualityLossless: 'Bezstratny',
-      qualityHigh: 'Wysoki',
-      qualityMedium: 'Średni',
-      qualityLow: 'Niski',
       frameDetect: 'Wykrywanie klatek',
       frameDetectTip:
         'Obliczanie różnicy między klatkami. Zatrzymaj transmisję strumienia wideo, gdy na ekranie zdalnego hosta nie zostaną wykryte żadne zmiany.',
@@ -185,7 +170,6 @@ const pl = {
       title: 'Mysz',
       cursor: 'Styl kursora',
       default: 'Domyślny kursor',
-      pointer: 'Wskazujący kursor',
       cell: 'Kursor komórki',
       text: 'Kursor tekstowy',
       grab: 'Kursor chwytania',
@@ -233,7 +217,6 @@ const pl = {
       unmountFailed: 'Odmontowanie nie powiodło się',
       unmountDesc:
         'W niektórych systemach należy ręcznie wysunąć obraz ze zdalnego hosta przed odmontowaniem obrazu.',
-      refresh: 'Odśwież listę obrazów',
       attention: 'Uwaga',
       deleteConfirm: 'Czy na pewno chcesz usunąć to zdjęcie?',
       okBtn: 'Tak',
@@ -272,7 +255,6 @@ const pl = {
       nanokvm: 'Terminal NanoKVM',
       serial: 'Terminal portu szeregowego',
       serialPort: 'Port szeregowy',
-      serialPortPlaceholder: 'Wprowadź port szeregowy',
       baudrate: 'Szybkość transmisji',
       parity: 'Kontrola parzystości',
       parityNone: 'Brak kontroli',
@@ -297,7 +279,6 @@ const pl = {
       title: 'Narzędzie do pobierania obrazów',
       input: 'Proszę wprowadzić zdalny obraz URL',
       ok: 'Ok',
-      disabled: '/data partycja to RO, więc nie możemy pobrać obrazu',
       uploadbox: 'Upuść plik tutaj lub kliknij, aby wybrać',
       inputfile: 'Proszę wprowadzić plik obrazu',
       NoISO: 'Brak ISO',
@@ -315,7 +296,6 @@ const pl = {
       showConfirm: 'Potwierdzenie',
       showConfirmTip: 'Operacje zasilania wymagają dodatkowego potwierdzenia',
       reset: 'Resetuj',
-      power: 'Zasilanie',
       powerShort: 'Zasilanie (krótkie kliknięcie)',
       powerLong: 'Zasilanie (długie kliknięcie)',
       resetConfirm: 'Kontynuować operację resetowania?',

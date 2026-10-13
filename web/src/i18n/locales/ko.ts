@@ -8,14 +8,11 @@ const ko = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: '로그인',
       placeholderUsername: '사용자 이름을 입력하세요.',
       placeholderPassword: '비밀번호를 입력하세요.',
       placeholderPassword2: '비밀번호를 다시 입력하세요.',
       noEmptyUsername: '사용자 이름은 비어있을 수 없습니다.',
       noEmptyPassword: '비밀번호는 비어있을 수 없습니다.',
-      noAccount:
-        '사용자 정보를 불러오는 데 실패했습니다. 페이지를 새로고침하거나 비밀번호를 초기화하세요.',
       invalidUser: '사용자 이름이나 비밀번호가 틀렸습니다.',
       locked: '로그인 횟수가 너무 많습니다. 나중에 다시 시도해 주세요.',
       globalLocked: '시스템이 보호 중입니다. 나중에 다시 시도해 주세요.',
@@ -24,7 +21,6 @@ const ko = {
       changePasswordDesc: '보안을 위해 웹 로그인 비밀번호를 변경하세요.',
       differentPassword: '비밀번호가 서로 일치하지 않습니다.',
       illegalUsername: '사용자 이름에 사용할 수 없는 문자가 있습니다.',
-      illegalPassword: '비밀번호에 사용할 수 없는 문자가 있습니다.',
       forgetPassword: '비밀번호 분실',
       ok: '확인',
       cancel: '취소',
@@ -48,7 +44,6 @@ const ko = {
       invalidMode:
         '현재 모드는 네트워크 설정을 지원하지 않습니다. 장치로 이동하여 Wi-Fi 구성 모드를 활성화하십시오.',
       confirmBtn: '확인',
-      finishBtn: '완료',
       ap: {
         authTitle: '인증 필요',
         authDescription: '계속하려면 AP 비밀번호를 입력하세요',
@@ -61,7 +56,6 @@ const ko = {
       scale: '규모',
       title: '화면',
       video: '비디오 모드',
-      resolution: '해상도',
       controlRegion: {
         title: '마우스 보정',
         description:
@@ -88,16 +82,7 @@ const ko = {
         finish: '완료',
         cancel: '취소'
       },
-      auto: '자동 설정',
-      autoTips:
-        '일부 해상도에서는 화면이 왜곡되거나 마우스 동작이 비정상적으로 나타날 수 있습니다. 원격 컴퓨터의 해상도를 변경하거나 자동 설정 대신 수동 설정을 사용해 보세요.',
-      fps: 'FPS',
-      customizeFps: '사용자 지정',
       quality: '품질',
-      qualityLossless: '무손실',
-      qualityHigh: '높음',
-      qualityMedium: '중간',
-      qualityLow: '낮음',
       frameDetect: '프레임 탐지',
       frameDetectTip:
         '프레임 간의 차이를 계산합니다. 원격 호스트 화면에 변경 사항이 감지되지 않으면 비디오 스트림 전송을 중지합니다.',
@@ -179,7 +164,6 @@ const ko = {
       title: '마우스',
       cursor: '커서 스타일',
       default: '기본 커서',
-      pointer: '포인터 커서',
       cell: '셀 커서',
       text: '텍스트 커서',
       grab: '잡기 커서',
@@ -227,7 +211,6 @@ const ko = {
       unmountFailed: '언마운트 실패',
       unmountDesc:
         '일부 시스템에서는 이미지를 언마운트하기 전에 원격 호스트에서 수동으로 제거하여야 합니다.',
-      refresh: '이미지 목록 새로고침',
       attention: '주의',
       deleteConfirm: '이 이미지를 제거하시겠습니까?',
       okBtn: '네',
@@ -266,7 +249,6 @@ const ko = {
       nanokvm: 'NanoKVM 터미널',
       serial: '시리얼 포트 터미널',
       serialPort: '시리얼 포트',
-      serialPortPlaceholder: '시리얼 포트를 입력하세요',
       baudrate: '전송 속도',
       parity: '패리티',
       parityNone: '없음',
@@ -291,7 +273,6 @@ const ko = {
       title: '이미지 다운로드',
       input: '원격 이미지 URL을 입력하세요.',
       ok: '확인',
-      disabled: '/data 파티션이 읽기 전용(RO) 상태이므로 이미지를 다운로드할 수 없습니다.',
       uploadbox: '여기에 파일을 놓거나 클릭하여 선택하세요.',
       inputfile: '이미지 파일을 입력해주세요',
       NoISO: 'ISO 없음',
@@ -309,7 +290,6 @@ const ko = {
       showConfirm: '확인',
       showConfirmTip: '전원 작업에는 추가 확인이 필요합니다',
       reset: '리셋',
-      power: '전원',
       powerShort: '전원 (짧게 누르기)',
       powerLong: '전원 (길게 누르기)',
       resetConfirm: '리셋 작업을 진행하시겠습니까?',

@@ -8,14 +8,11 @@ const it = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Accesso',
       placeholderUsername: 'Inserisci il nome utente',
       placeholderPassword: 'Inserisci la password',
       placeholderPassword2: 'Inserisci nuovamente la password',
       noEmptyUsername: 'Il nome utente non può essere vuoto',
       noEmptyPassword: 'La password non può essere vuota',
-      noAccount:
-        'Impossibile ottenere informazioni utente, aggiorna la pagina o reimposta la password',
       invalidUser: 'Nome utente o password non validi',
       locked: 'Troppi accessi, riprova più tardi',
       globalLocked: 'Sistema sotto protezione, riprova più tardi',
@@ -25,7 +22,6 @@ const it = {
         'Per la sicurezza del tuo dispositivo, modifica la password di accesso web.',
       differentPassword: 'Le password non corrispondono',
       illegalUsername: 'Il nome utente contiene caratteri non validi',
-      illegalPassword: 'La password contiene caratteri non validi',
       forgetPassword: 'Hai dimenticato la password',
       ok: 'Ok',
       cancel: 'Annulla',
@@ -50,7 +46,6 @@ const it = {
       invalidMode:
         'La modalità corrente non supporta la configurazione di rete. Vai al tuo dispositivo e abilita la modalità di configurazione Wi-Fi.',
       confirmBtn: 'Ok',
-      finishBtn: 'Completato',
       ap: {
         authTitle: 'Autenticazione richiesta',
         authDescription: 'Inserisci la password AP per continuare',
@@ -63,7 +58,6 @@ const it = {
       scale: 'Scala',
       title: 'Schermo',
       video: 'Modalità video',
-      resolution: 'Risoluzione',
       controlRegion: {
         title: 'Calibrazione del mouse',
         description:
@@ -91,16 +85,7 @@ const it = {
         finish: 'Fine',
         cancel: 'Annulla'
       },
-      auto: 'Automatico',
-      autoTips:
-        'Potrebbero verificarsi tearing dello schermo o spostamento del mouse a risoluzioni specifiche. Considera di regolare la risoluzione del dispositivo remoto o disabilitare la modalità automatica.',
-      fps: 'FPS',
-      customizeFps: 'Personalizza',
       quality: 'Qualità',
-      qualityLossless: 'Senza perdita',
-      qualityHigh: 'Alto',
-      qualityMedium: 'Medio',
-      qualityLow: 'Basso',
       frameDetect: 'Rilevamento Frame',
       frameDetectTip:
         'Calcola la differenza tra i frame. Interrompe la trasmissione del flusso video quando non vengono rilevate modifiche sullo schermo del dispositivo remoto.',
@@ -184,7 +169,6 @@ const it = {
       title: 'Mouse',
       cursor: 'Stile cursore',
       default: 'Cursore predefinito',
-      pointer: 'Cursore a puntatore',
       cell: 'Cursore a cella',
       text: 'Cursore testo',
       grab: 'Cursore di presa',
@@ -233,7 +217,6 @@ const it = {
       unmountFailed: 'Smontaggio non riuscito',
       unmountDesc:
         "Su alcuni sistemi, è necessario espellere manualmente l'host remoto prima di smontare l'immagine.",
-      refresh: "Aggiorna l'elenco delle immagini",
       attention: 'Attenzione',
       deleteConfirm: 'Sei sicuro di voler eliminare questa immagine?',
       okBtn: 'Sì',
@@ -272,7 +255,6 @@ const it = {
       nanokvm: 'Terminale NanoKVM',
       serial: 'Terminale Porta Seriale',
       serialPort: 'Porta Seriale',
-      serialPortPlaceholder: 'Inserisci la porta seriale',
       baudrate: 'Baud rate',
       parity: 'Parità',
       parityNone: 'Nessuno',
@@ -297,7 +279,6 @@ const it = {
       title: 'Scaricatore di immagini',
       input: "Inserisci un'immagine remota URL",
       ok: 'Ok',
-      disabled: "La partizione /data è RO, quindi non possiamo scaricare l'immagine",
       uploadbox: 'Rilascia il file qui o fai clic per selezionarlo',
       inputfile: 'Inserisci il file immagine',
       NoISO: 'Nessuna ISO',
@@ -315,7 +296,6 @@ const it = {
       showConfirm: 'Conferma',
       showConfirmTip: 'Le operazioni di alimentazione richiedono una conferma aggiuntiva',
       reset: 'Reimposta',
-      power: 'Accensione',
       powerShort: 'Accensione (clic breve)',
       powerLong: 'Accensione (clic lungo)',
       resetConfirm: "Procedere con l'operazione di ripristino?",

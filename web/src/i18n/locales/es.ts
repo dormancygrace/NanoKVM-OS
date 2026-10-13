@@ -8,14 +8,11 @@ const es = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Iniciar sesión',
       placeholderUsername: 'Introduce tu nombre de usuario',
       placeholderPassword: 'Introduce tu contraseña',
       placeholderPassword2: 'Introduce tu contraseña de nuevo',
       noEmptyUsername: 'El nombre de usuario no puede estar vacío',
       noEmptyPassword: 'La contraseña no puede estar vacía',
-      noAccount:
-        'No se ha encontrado la cuenta. Por favor, recarga la página o recupera tu contraseña.',
       invalidUser: 'Nombre de usuario o contraseña incorrectos',
       locked: 'Demasiados inicios de sesión, inténtalo de nuevo más tarde',
       globalLocked: 'Sistema bajo protección, inténtelo nuevamente más tarde',
@@ -25,7 +22,6 @@ const es = {
         'Para la seguridad de su dispositivo, por favor, modifique la contraseña de inicio de sesión en la web.',
       differentPassword: 'Las contraseñas no coinciden',
       illegalUsername: 'El  nombre de usuario contiene caracteres no permitidos',
-      illegalPassword: 'La contraseña contiene caracteres no permitidos',
       forgetPassword: 'Contraseña olvidada',
       ok: 'Aceptar',
       cancel: 'Cancelar',
@@ -50,7 +46,6 @@ const es = {
       invalidMode:
         'El modo actual no admite la configuración de red. Vaya a su dispositivo y habilite el modo de configuración Wi-Fi.',
       confirmBtn: 'Aceptar',
-      finishBtn: 'Finalizado',
       ap: {
         authTitle: 'Autenticación requerida',
         authDescription: 'Por favor ingrese la contraseña AP para continuar',
@@ -63,7 +58,6 @@ const es = {
       scale: 'Escala',
       title: 'Pantalla',
       video: 'Modo de vídeo',
-      resolution: 'Resolución',
       controlRegion: {
         title: 'Calibración del ratón',
         description:
@@ -91,16 +85,7 @@ const es = {
         finish: 'Listo',
         cancel: 'Cancelar'
       },
-      auto: 'Automático',
-      autoTips:
-        'En determinadas resoluciones pueden producirse rasgado de imagen (tearing) o desplazamiento del ratón. Prueba a ajustar la resolución del host remoto o desactiva el modo automático.',
-      fps: 'FPS',
-      customizeFps: 'Personalizar',
       quality: 'Calidad',
-      qualityLossless: 'Sin pérdida',
-      qualityHigh: 'Alto',
-      qualityMedium: 'Medio',
-      qualityLow: 'Bajo',
       frameDetect: 'Detectar fotogramas',
       frameDetectTip:
         'Calcula la diferencia entre fotogramas. Para de transmitir vídeo cuando no se detectan cambios en la pantalla del host remoto.',
@@ -184,7 +169,6 @@ const es = {
       title: 'Ratón',
       cursor: 'Estilo de cursor',
       default: 'Cursor por defecto',
-      pointer: 'Cursor de puntero',
       cell: 'Cursor de celda',
       text: 'Cursor de texto',
       grab: 'Cursor de agarre',
@@ -234,7 +218,6 @@ const es = {
       unmountFailed: 'Fallo al desmontar',
       unmountDesc:
         'En algunos sistemas, es necesario expulsar manualmente el disco virtual desde el host remoto antes de desmontar la imagen.',
-      refresh: 'Actualizar la lista de imágenes',
       attention: 'Atención',
       deleteConfirm: '¿Estás seguro de que deseas eliminar esta imagen?',
       okBtn: 'Sí',
@@ -273,7 +256,6 @@ const es = {
       nanokvm: 'Consola del NanoKVM',
       serial: 'Consola del Puerto Serie',
       serialPort: 'Puerto Serie',
-      serialPortPlaceholder: 'Por favor, introduce el puerto serie',
       baudrate: 'Tasa de baudios',
       parity: 'Paridad',
       parityNone: 'Ninguna',
@@ -298,7 +280,6 @@ const es = {
       title: 'Descargador de imágenes',
       input: 'Por favor, introduce la URL de una imagen remota',
       ok: 'Aceptar',
-      disabled: 'La partición /data es de sólo lectura, no se puede descargar la imagen',
       uploadbox: 'Suelte el archivo aquí o haga clic para seleccionar',
       inputfile: 'Por favor ingrese el archivo de imagen',
       NoISO: 'Sin ISO',
@@ -316,7 +297,6 @@ const es = {
       showConfirm: 'Confirmación',
       showConfirmTip: 'Las operaciones de encendido requieren confirmación adicional',
       reset: 'Reiniciar',
-      power: 'Encender / Apagar',
       powerShort: 'Encender / Apagar (pulsación corta)',
       powerLong: 'Encendido/Apagado (pulsación larga)',
       resetConfirm: '¿Desea proceder con la operación de reinicio?',

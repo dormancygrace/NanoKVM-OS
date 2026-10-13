@@ -8,14 +8,11 @@ const cz = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Přihlášení',
       placeholderUsername: 'Zadejte prosím uživatelské jméno',
       placeholderPassword: 'Zadejte prosím heslo',
       placeholderPassword2: 'Zadejte prosím heslo znovu',
       noEmptyUsername: 'Uživatelské jméno nesmí být prázdné',
       noEmptyPassword: 'Heslo nesmí být prázdné',
-      noAccount:
-        'Nepodařilo se získat informace o uživateli, prosím obnovte stránku nebo resetujte heslo',
       invalidUser: 'Neplatné uživatelské jméno nebo heslo',
       locked: 'Příliš mnoho přihlášení, zkuste to znovu později',
       globalLocked: 'Systém je chráněn, zkuste to znovu později',
@@ -25,7 +22,6 @@ const cz = {
         'Pro bezpečnost vašeho zařízení prosím změňte heslo pro přihlášení na webu.',
       differentPassword: 'Hesla se neshodují',
       illegalUsername: 'Uživatelské jméno obsahuje nepovolené znaky',
-      illegalPassword: 'Heslo obsahuje nepovolené znaky',
       forgetPassword: 'Zapomenuté heslo',
       ok: 'OK',
       cancel: 'Zrušit',
@@ -50,7 +46,6 @@ const cz = {
       invalidMode:
         'Aktuální režim nepodporuje nastavení sítě. Přejděte do svého zařízení a povolte konfigurační režim Wi-Fi.',
       confirmBtn: 'Ok',
-      finishBtn: 'Dokončeno',
       ap: {
         authTitle: 'Vyžaduje se ověření',
         authDescription: 'Pokračujte zadáním hesla AP',
@@ -63,7 +58,6 @@ const cz = {
       scale: 'Měřítko',
       title: 'Obrazovka',
       video: 'Režim videa',
-      resolution: 'Rozlišení',
       controlRegion: {
         title: 'Kalibrace myši',
         description:
@@ -90,16 +84,7 @@ const cz = {
         finish: 'Hotovo',
         cancel: 'Zrušit'
       },
-      auto: 'Automatické',
-      autoTips:
-        'Může docházet k trhání obrazu nebo posunu myši při určitých rozlišeních. Zvažte úpravu rozlišení vzdáleného hostitele nebo vypněte automatický režim.',
-      fps: 'FPS',
-      customizeFps: 'Přizpůsobit',
       quality: 'Kvalita',
-      qualityLossless: 'Bezeztrátový',
-      qualityHigh: 'Vysoký',
-      qualityMedium: 'Střední',
-      qualityLow: 'Nízký',
       frameDetect: 'Detekce snímků',
       frameDetectTip:
         'Vypočítá rozdíl mezi snímky. Přenos video streamu se zastaví, pokud nejsou detekovány změny na obrazovce vzdáleného hostitele.',
@@ -183,7 +168,6 @@ const cz = {
       title: 'Myš',
       cursor: 'Styl kurzoru',
       default: 'Výchozí kurzor',
-      pointer: 'Ukazovací kurzor',
       cell: 'Kurzor buňky',
       text: 'Textový kurzor',
       grab: 'Chytnout kurzor',
@@ -232,7 +216,6 @@ const cz = {
       unmountFailed: 'Odpojení se nezdařilo',
       unmountDesc:
         'Na některých systémech se musíte před odpojením obrazu ručně vysunout ze vzdáleného hostitele.',
-      refresh: 'Obnovte seznam obrázků',
       attention: 'Pozor',
       deleteConfirm: 'Opravdu chcete smazat tento obrázek?',
       okBtn: 'Ano',
@@ -271,7 +254,6 @@ const cz = {
       nanokvm: 'Terminál NanoKVM',
       serial: 'Terminál sériového portu',
       serialPort: 'Sériový port',
-      serialPortPlaceholder: 'Zadejte prosím sériový port',
       baudrate: 'Přenosová rychlost',
       parity: 'Parita',
       parityNone: 'Žádné',
@@ -296,7 +278,6 @@ const cz = {
       title: 'Stahovač obrazů',
       input: 'Zadejte prosím vzdálený obrázek URL',
       ok: 'OK',
-      disabled: 'Oddíl /data je RO, takže obrázek nelze stáhnout',
       uploadbox: 'Přetáhněte soubor sem nebo kliknutím vyberte',
       inputfile: 'Zadejte soubor obrázku',
       NoISO: 'Žádné ISO',
@@ -314,7 +295,6 @@ const cz = {
       showConfirm: 'Potvrzení',
       showConfirmTip: 'Výkonové operace vyžadují další potvrzení',
       reset: 'Resetovat',
-      power: 'Napájení',
       powerShort: 'Napájení (krátký stisk)',
       powerLong: 'Napájení (dlouhý stisk)',
       resetConfirm: 'Pokračovat v operaci resetování?',

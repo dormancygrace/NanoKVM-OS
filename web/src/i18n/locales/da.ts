@@ -8,14 +8,11 @@ const da = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Log ind',
       placeholderUsername: 'Indtast brugernavn',
       placeholderPassword: 'indtast adgangskode',
       placeholderPassword2: 'indtast adgangskode igen',
       noEmptyUsername: 'brugernavn kan ikke være tom',
       noEmptyPassword: 'adgangskode kan ikke være tom',
-      noAccount:
-        'Kunne ikke hente brugeroplysninger. Prøv at opdater siden eller nulstil adgangskoden',
       invalidUser: 'ugyldigt brugernavn eller adgangskode',
       locked: 'For mange logins, prøv venligst igen senere',
       globalLocked: 'System under beskyttelse, prøv venligst igen senere',
@@ -24,7 +21,6 @@ const da = {
       changePasswordDesc: 'For sikkerheden af din enhed, bedes du ændre web-login adgangskoden.',
       differentPassword: 'Adgangskoder er ikke ens',
       illegalUsername: 'brugernavn indeholder ugyldige tegn',
-      illegalPassword: 'adgangskode indeholder ugyldige tegn',
       forgetPassword: 'Glem adgangskode',
       ok: 'OK',
       cancel: 'Annuller',
@@ -49,7 +45,6 @@ const da = {
       invalidMode:
         'Den aktuelle tilstand understøtter ikke netværksopsætning. Gå til din enhed og aktiver Wi-Fi konfigurationstilstand.',
       confirmBtn: 'Ok',
-      finishBtn: 'Færdig',
       ap: {
         authTitle: 'Godkendelse påkrævet',
         authDescription: 'Indtast venligst AP adgangskoden for at fortsætte',
@@ -62,7 +57,6 @@ const da = {
       scale: 'Skala',
       title: 'Skærm',
       video: 'Videotilstand',
-      resolution: 'Opløsning',
       controlRegion: {
         title: 'Musekalibrering',
         description:
@@ -90,16 +84,7 @@ const da = {
         finish: 'Færdig',
         cancel: 'Annuller'
       },
-      auto: 'Automatisk',
-      autoTips:
-        'Screen-tearing eller mouse-offset kan opstå ved enkelte opløsninger. Hvis du oplever dette, kan du prøve at justere fjerncomputerens skærmopløsning eller deaktivere automatisk tilstand.',
-      fps: 'FPS',
-      customizeFps: 'Tilpas',
       quality: 'Kvalitet',
-      qualityLossless: 'Tabsfri',
-      qualityHigh: 'Høj',
-      qualityMedium: 'Mellem',
-      qualityLow: 'Lav',
       frameDetect: 'Beregn frames',
       frameDetectTip:
         'Beregner forskellen mellem hver frame. Stopper med at sende et video stream hvis der ikke registreres ændringer på fjerncomputerens skærm.',
@@ -183,7 +168,6 @@ const da = {
       title: 'Mus',
       cursor: 'Markørstil',
       default: 'Standard-markør',
-      pointer: 'Peger-markør',
       cell: 'Celle-markør',
       text: 'Tekst-markør',
       grab: 'Grib-markør',
@@ -229,7 +213,6 @@ const da = {
       unmountFailed: 'Afmontering mislykkedes',
       unmountDesc:
         'På nogle systemer skal du manuelt skubbe ud fra fjernværten, før du afmonterer billedet.',
-      refresh: 'Opdater billedlisten',
       attention: 'Opmærksomhed påkrævet',
       deleteConfirm: 'Er du sikker på, at du vil slette dette billede?',
       okBtn: 'Ja',
@@ -268,7 +251,6 @@ const da = {
       nanokvm: 'Terminal til NanoKVM',
       serial: 'Terminal til seriel port',
       serialPort: 'Serial port',
-      serialPortPlaceholder: 'Angiv seriel port',
       baudrate: 'Baud-hastighed',
       parity: 'Paritet',
       parityNone: 'Ingen',
@@ -293,7 +275,6 @@ const da = {
       title: 'Billedhenter',
       input: 'Indtast venligst et fjernbillede URL',
       ok: 'OK',
-      disabled: '/data partitionen er RO, så vi kan ikke downloade billedet',
       uploadbox: 'Slip filen her, eller klik for at vælge',
       inputfile: 'Indtast venligst billedfilen',
       NoISO: 'Ingen ISO',
@@ -311,7 +292,6 @@ const da = {
       showConfirm: 'Bekræftelse',
       showConfirmTip: 'Strømdrift kræver en ekstra bekræftelse',
       reset: 'Nulstillingsknap',
-      power: 'Tænd/sluk-knap',
       powerShort: 'Tænd/sluk-knap (kort tryk)',
       powerLong: 'Tænd/sluk-knap (langt tryk)',
       resetConfirm: 'Fortsæt med nulstilling?',

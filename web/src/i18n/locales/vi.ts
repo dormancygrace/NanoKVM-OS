@@ -8,14 +8,11 @@ const vi = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Đăng nhập',
       placeholderUsername: 'Vui lòng nhập tên người dùng',
       placeholderPassword: 'vui lòng nhập mật khẩu',
       placeholderPassword2: 'vui lòng nhập lại mật khẩu',
       noEmptyUsername: 'tên người dùng không được để trống',
       noEmptyPassword: 'mật khẩu không được để trống',
-      noAccount:
-        'Không thể lấy thông tin người dùng, vui lòng làm mới trang web hoặc đặt lại mật khẩu',
       invalidUser: 'tên người dùng hoặc mật khẩu không hợp lệ',
       locked: 'Đăng nhập quá nhiều, vui lòng thử lại sau',
       globalLocked: 'Hệ thống đang được bảo vệ, vui lòng thử lại sau',
@@ -24,7 +21,6 @@ const vi = {
       changePasswordDesc: 'Để bảo mật thiết bị của bạn, vui lòng thay đổi mật khẩu đăng nhập web.',
       differentPassword: 'mật khẩu không khớp',
       illegalUsername: 'tên người dùng chứa ký tự không hợp lệ',
-      illegalPassword: 'mật khẩu chứa ký tự không hợp lệ',
       forgetPassword: 'Quên mật khẩu',
       ok: 'OK',
       cancel: 'Hủy',
@@ -49,7 +45,6 @@ const vi = {
       invalidMode:
         'Chế độ hiện tại không hỗ trợ thiết lập mạng. Vui lòng truy cập thiết bị của bạn và bật chế độ cấu hình Wi-Fi.',
       confirmBtn: 'Ok',
-      finishBtn: 'Hoàn tất',
       ap: {
         authTitle: 'Yêu cầu xác thực',
         authDescription: 'Vui lòng nhập mật khẩu AP để tiếp tục',
@@ -62,7 +57,6 @@ const vi = {
       scale: 'Quy mô',
       title: 'Màn hình',
       video: 'Chế độ video',
-      resolution: 'Độ phân giải',
       controlRegion: {
         title: 'Hiệu chỉnh chuột',
         description:
@@ -90,16 +84,7 @@ const vi = {
         finish: 'Xong',
         cancel: 'Hủy'
       },
-      auto: 'Tự động',
-      autoTips:
-        'Màn hình bị xé hoặc lệch chuột có thể xảy ra ở các độ phân giải nhất định. Hãy xem xét điều chỉnh độ phân giải của máy remote hoặc tắt chế độ tự động.',
-      fps: 'FPS',
-      customizeFps: 'Tùy chỉnh',
       quality: 'Chất lượng',
-      qualityLossless: 'Không mất dữ liệu',
-      qualityHigh: 'Cao',
-      qualityMedium: 'Trung bình',
-      qualityLow: 'Thấp',
       frameDetect: 'Phát hiện khung hình',
       frameDetectTip:
         'Tính toán sự khác biệt giữa các khung hình. Dừng truyền video khi không có thay đổi trên màn hình máy chủ từ xa.',
@@ -182,7 +167,6 @@ const vi = {
       title: 'Chuột',
       cursor: 'Kiểu con trỏ',
       default: 'Con trỏ mặc định',
-      pointer: 'Con trỏ trỏ',
       cell: 'Con trỏ ô',
       text: 'Con trỏ văn bản',
       grab: 'Con trỏ nắm',
@@ -228,7 +212,6 @@ const vi = {
       unmountFailed: 'Tháo lắp không thành công',
       unmountDesc:
         'Trên một số hệ thống, bạn cần đẩy hình ảnh ra khỏi máy chủ từ xa theo cách thủ công trước khi ngắt kết nối hình ảnh.',
-      refresh: 'Làm mới danh sách hình ảnh',
       attention: 'Chú ý',
       deleteConfirm: 'Bạn có chắc chắn muốn xóa hình ảnh này không?',
       okBtn: 'Có',
@@ -267,7 +250,6 @@ const vi = {
       nanokvm: 'Terminal NanoKVM',
       serial: 'Terminal Cổng Nối Tiếp',
       serialPort: 'Cổng Nối Tiếp',
-      serialPortPlaceholder: 'Vui lòng nhập cổng nối tiếp',
       baudrate: 'Tốc độ Baud',
       parity: 'Tính chẵn lẻ',
       parityNone: 'Không có',
@@ -292,7 +274,6 @@ const vi = {
       title: 'Trình tải xuống hình ảnh',
       input: 'Vui lòng nhập hình ảnh từ xa URL',
       ok: 'OK',
-      disabled: '/data phân vùng là RO nên không tải được image',
       uploadbox: 'Thả file vào đây hoặc bấm vào để chọn',
       inputfile: 'Vui lòng nhập File hình ảnh',
       NoISO: 'Không có ISO',
@@ -310,7 +291,6 @@ const vi = {
       showConfirm: 'Xác nhận',
       showConfirmTip: 'Hoạt động cấp nguồn yêu cầu xác nhận bổ sung',
       reset: 'Đặt lại',
-      power: 'Nguồn',
       powerShort: 'Nguồn (nhấp ngắn)',
       powerLong: 'Nguồn (nhấp dài)',
       resetConfirm: 'Tiến hành thao tác đặt lại?',

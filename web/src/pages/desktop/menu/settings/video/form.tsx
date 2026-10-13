@@ -456,7 +456,8 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                       checked={draft.frameDetect}
                       disabled={busy || !admin}
                       onChange={(value) => change('frameDetect', value)}
-                    />
+                    />,
+                    t('screen.frameDetectTip')
                   )}
                 {admin && (
                   <div className={busy ? 'pointer-events-none opacity-40' : ''}>

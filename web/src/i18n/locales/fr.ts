@@ -8,14 +8,11 @@ const fr = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Connexion',
       placeholderUsername: "Veuillez entrer votre nom d'utilisateur",
       placeholderPassword: 'Veuillez entrer votre mot de passe',
       placeholderPassword2: 'Veuillez entrer votre mot de passe à nouveau',
       noEmptyUsername: "Le nom d'utilisateur ne peut pas être vide",
       noEmptyPassword: 'Le mot de passe ne peut pas être vide',
-      noAccount:
-        "Impossible de récupérer les informations de l'utilisateur, veuillez rafraîchir la page ou réinitialiser le mot de passe",
       invalidUser: "Nom d'utilisateur ou mot de passe invalide",
       locked: 'Trop de connexions, veuillez réessayer plus tard',
       globalLocked: 'Système sous protection, veuillez réessayer plus tard',
@@ -25,7 +22,6 @@ const fr = {
         'Pour la sécurité de votre appareil, veuillez modifier le mot de passe de connexion Web.',
       differentPassword: 'Les mots de passe ne correspondent pas',
       illegalUsername: "Le nom d'utilisateur contient des caractères illégaux",
-      illegalPassword: 'Le mot de passe contient des caractères illégaux',
       forgetPassword: 'Mot de passe oublié',
       ok: 'Se connecter',
       cancel: 'Annuler',
@@ -52,7 +48,6 @@ const fr = {
       invalidMode:
         'Le mode actuel ne prend pas en charge la configuration réseau. Veuillez accéder à votre appareil et activer le mode de configuration Wi-Fi.',
       confirmBtn: 'Ok',
-      finishBtn: 'Terminé',
       ap: {
         authTitle: 'Authentification requise',
         authDescription: 'Veuillez saisir le mot de passe AP pour continuer',
@@ -65,7 +60,6 @@ const fr = {
       scale: 'Échelle',
       title: 'Écran',
       video: 'Mode vidéo',
-      resolution: 'Résolution',
       controlRegion: {
         title: 'Étalonnage de la souris',
         description:
@@ -93,16 +87,7 @@ const fr = {
         finish: 'Terminé',
         cancel: 'Annuler'
       },
-      auto: 'Automatique',
-      autoTips:
-        "Sous certaines résolutions, il peut y avoir des artefacts visuels ou un décalage de la souris. Veuillez ajuster la résolution de l'hôte distant ou désactiver le mode automatique.",
-      fps: 'FPS',
-      customizeFps: 'Personnaliser',
       quality: 'Qualité',
-      qualityLossless: 'Sans perte',
-      qualityHigh: 'Élevé',
-      qualityMedium: 'Moyen',
-      qualityLow: 'Bas',
       frameDetect: 'Détection de trame',
       frameDetectTip:
         "Calcule la différence entre les images. Arrête la transmission du flux vidéo lorsqu'aucun changement n'est détecté sur l'écran de l'hôte distant",
@@ -186,7 +171,6 @@ const fr = {
       title: 'Souris',
       cursor: 'Style de curseur',
       default: 'Curseur par défaut',
-      pointer: 'Curseur de la souris',
       cell: 'Curseur de cellule',
       text: 'Curseur de texte',
       grab: 'Curseur de poignée',
@@ -236,7 +220,6 @@ const fr = {
       unmountFailed: 'Échec du démontage',
       unmountDesc:
         "Sur certains systèmes, vous devez l'éjecter manuellement de l'hôte distant avant de démonter l'image.",
-      refresh: 'Actualiser la liste des images',
       attention: 'Attention',
       deleteConfirm: 'Etes-vous sûr de vouloir supprimer cette image?',
       okBtn: 'Oui',
@@ -275,7 +258,6 @@ const fr = {
       nanokvm: 'Terminal NanoKVM',
       serial: 'Terminal Port Série',
       serialPort: 'Port série',
-      serialPortPlaceholder: 'Veuillez entrer le port série',
       baudrate: 'Débit en bauds',
       parity: 'Parité',
       parityNone: 'Aucun',
@@ -300,7 +282,6 @@ const fr = {
       title: 'Télécharger l’image',
       input: 'Veuillez entrer l’URL d’une image distante',
       ok: 'Ok',
-      disabled: 'La partition /data est en lecture seule, impossible de télécharger l’image',
       uploadbox: 'Déposez le fichier ici ou cliquez pour sélectionner',
       inputfile: 'Veuillez saisir le fichier image',
       NoISO: 'Aucun ISO',
@@ -318,7 +299,6 @@ const fr = {
       showConfirm: 'Confirmation',
       showConfirmTip: 'Les opérations électriques nécessitent une confirmation supplémentaire',
       reset: 'Réinitialiser',
-      power: 'Power',
       powerShort: 'Power (appui court)',
       powerLong: 'Power (appui long)',
       resetConfirm: "Procéder à l'opération de réinitialisation?",

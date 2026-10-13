@@ -8,14 +8,11 @@ const hu = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Bejelentkezés',
       placeholderUsername: 'Adja meg a felhasználónevet',
       placeholderPassword: 'Adja meg a jelszót',
       placeholderPassword2: 'Adja meg újra a jelszót',
       noEmptyUsername: 'A felhasználónév nem lehet üres',
       noEmptyPassword: 'A jelszó nem lehet üres',
-      noAccount:
-        'Nem sikerült megszerezni a felhasználói információkat, frissítse az oldalt vagy állítsa vissza a jelszót',
       invalidUser: 'Érvénytelen felhasználónév vagy jelszó',
       locked: 'Túl sok bejelentkezés, kérjük, próbálja újra később',
       globalLocked: 'A rendszer védelem alatt áll, próbálkozzon újra később',
@@ -25,7 +22,6 @@ const hu = {
         'Az eszköz biztonsága érdekében módosítsa a webes bejelentkezési jelszót.',
       differentPassword: 'A jelszavak nem egyeznek',
       illegalUsername: 'A felhasználónév illegális karaktereket tartalmaz',
-      illegalPassword: 'A jelszó illegális karaktereket tartalmaz',
       forgetPassword: 'Jelszó-emlékeztető',
       ok: 'Ok',
       cancel: 'Mégse',
@@ -50,7 +46,6 @@ const hu = {
       invalidMode:
         'Az aktuális mód nem támogatja a hálózat beállítását. Kérjük, lépjen az eszközére, és engedélyezze a Wi-Fi konfigurációs módot.',
       confirmBtn: 'Ok',
-      finishBtn: 'Kész',
       ap: {
         authTitle: 'Hitelesítés szükséges',
         authDescription: 'A folytatáshoz adja meg a AP jelszót',
@@ -63,7 +58,6 @@ const hu = {
       scale: 'Skála',
       title: 'Képernyő',
       video: 'Videó mód',
-      resolution: 'Felbontás',
       controlRegion: {
         title: 'Egérkalibrálás',
         description:
@@ -91,16 +85,7 @@ const hu = {
         finish: 'Kész',
         cancel: 'Mégse'
       },
-      auto: 'Automatikus',
-      autoTips:
-        'Bizonyos felbontások esetén képernyőszakadás vagy egéreltolódás léphet fel. Fontolja meg a távoli gép felbontásának módosítását vagy az automatikus mód kikapcsolását.',
-      fps: 'FPS',
-      customizeFps: 'Testreszabás',
       quality: 'Minőség',
-      qualityLossless: 'Veszteségmentes',
-      qualityHigh: 'Magas',
-      qualityMedium: 'Közepes',
-      qualityLow: 'Alacsony',
       frameDetect: 'Képkocka-figyelés',
       frameDetectTip:
         'Elemzi a képkockák közötti különbségeket. A videó stream küldése leáll, ha a távoli gép képernyőjén nem történik változás.',
@@ -184,7 +169,6 @@ const hu = {
       title: 'Egér',
       cursor: 'Kurzorstílus',
       default: 'Alapértelmezett kurzor',
-      pointer: 'Mutató kurzor',
       cell: 'Cella kurzor',
       text: 'Szöveg kurzor',
       grab: 'Markoló kurzor',
@@ -233,7 +217,6 @@ const hu = {
       unmountFailed: 'A leválasztás nem sikerült',
       unmountDesc:
         'Egyes rendszereken manuálisan kell kiadnia a távoli gazdagépről a kép leválasztása előtt.',
-      refresh: 'Frissítse a képlistát',
       attention: 'Figyelem',
       deleteConfirm: 'Biztosan törli ezt a képet?',
       okBtn: 'Igen',
@@ -272,7 +255,6 @@ const hu = {
       nanokvm: 'NanoKVM Terminál',
       serial: 'Soros port terminál',
       serialPort: 'Soros port',
-      serialPortPlaceholder: 'Adja meg a soros portot',
       baudrate: 'Baudráta',
       parity: 'Paritás',
       parityNone: 'Nincs',
@@ -297,7 +279,6 @@ const hu = {
       title: 'Képletöltő',
       input: 'Adjon meg egy távoli képet URL',
       ok: 'Ok',
-      disabled: '/data partíció RO, ezért nem tudjuk letölteni a képet',
       uploadbox: 'Dobja ide a fájlt, vagy kattintson a kiválasztáshoz',
       inputfile: 'Kérjük, írja be a képfájlt',
       NoISO: 'Nincs ISO',
@@ -315,7 +296,6 @@ const hu = {
       showConfirm: 'Megerősítés',
       showConfirmTip: 'Az áramellátási műveletekhez külön megerősítés szükséges',
       reset: 'Újraindítás',
-      power: 'Bekapcsolás',
       powerShort: 'Bekapcsolás (rövid kattintás)',
       powerLong: 'Bekapcsolás (hosszú kattintás)',
       resetConfirm: 'Folytatja a visszaállítási műveletet?',

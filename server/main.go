@@ -56,11 +56,7 @@ func initialize(stopMemory context.CancelFunc) {
 		log.SetOutput(logs.Application)
 	}
 	recovering, recoveryErr := failsafe.Init(func() error {
-		executable, err := os.Executable()
-		if err != nil {
-			return err
-		}
-		err = syscall.Exec(executable, os.Args, os.Environ())
+		err := execSelf(os.Environ())
 		logrus.Errorf("video recovery restart failed: %v", err)
 		return err
 	})

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -17,6 +18,7 @@ import (
 const (
 	nativeLinesPerSecond = 20
 	nativeQueueLines     = 256
+	nativeLineBytes      = 4096 // longer lines are cut, the rest is read and dropped
 )
 
 // originalStderr is descriptor 2 as the service started it (close-on-exec),
@@ -45,21 +47,49 @@ func CaptureNativeStderr(w io.Writer) error {
 	// Descriptor 2 now holds the pipe; this copy is not needed.
 	_ = pipe.Close()
 	lines := make(chan string, nativeQueueLines)
-	go readNativeStderr(r, lines)
+	go func() {
+		readNativeStderr(r, lines)
+		// The pipe has no reader any more: writes to it would block the
+		// native code, so descriptor 2 goes back to the service's stderr.
+		RestoreNativeStderr()
+	}()
 	go writeNativeStderr(lines, w, time.Now)
 	return nil
 }
 
+// readNativeStderr queues the lines of r until it ends or fails. It never
+// stops on its own: a line longer than nativeLineBytes is cut (and marked),
+// the rest of it is read and dropped, and reading goes on.
 func readNativeStderr(r io.Reader, lines chan<- string) {
-	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, 4096), 64<<10)
-	for scanner.Scan() {
-		select {
-		case lines <- scanner.Text():
-		default: // the log is behind: drop rather than block a video thread
+	defer close(lines)
+	reader := bufio.NewReaderSize(r, nativeLineBytes)
+	var line []byte
+	cut := false
+	for {
+		chunk, err := reader.ReadSlice('\n')
+		if room := nativeLineBytes - len(line); len(chunk) > room {
+			line, cut = append(line, chunk[:room]...), true
+		} else {
+			line = append(line, chunk...)
+		}
+		if err == bufio.ErrBufferFull {
+			continue
+		}
+		if len(line) > 0 {
+			text := strings.TrimRight(string(line), "\r\n")
+			if cut {
+				text += " [cut]"
+			}
+			select {
+			case lines <- text:
+			default: // the log is behind: drop rather than block a video thread
+			}
+		}
+		line, cut = line[:0], false
+		if err != nil {
+			return
 		}
 	}
-	close(lines)
 }
 
 func writeNativeStderr(lines <-chan string, w io.Writer, now func() time.Time) {

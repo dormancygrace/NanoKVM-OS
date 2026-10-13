@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -25,12 +24,7 @@ func restartAfterMonitorFit() {
 		return
 	}
 	time.Sleep(monitorFitSettle)
-	executable, err := os.Executable()
-	if err != nil {
-		logrus.Errorf("cannot restart after lowering the monitor profile: %v", err)
-		return
-	}
 	logrus.Info("restarting to re-detect the HDMI input after lowering the monitor profile")
-	err = syscall.Exec(executable, os.Args, append(os.Environ(), monitorFitMarker+"=1"))
+	err := execSelf(append(os.Environ(), monitorFitMarker+"=1"))
 	logrus.Errorf("restart after lowering the monitor profile failed: %v", err)
 }

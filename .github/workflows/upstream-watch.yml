@@ -21,3 +21,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/check-upstream.py
+
+  kernel-pr:
+    if: github.repository == 'dormancygrace/NanoKVM-OS' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Propose a Linux point-release update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/propose-kernel-update.py --publish

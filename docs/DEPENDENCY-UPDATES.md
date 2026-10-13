@@ -1,6 +1,6 @@
 # Dependency maintenance
 
-NanoKVM OS uses two complementary daily checks: Dependabot creates dependency PRs, and **Upstream dependency watch** checks current pins, available versions and errors in its Actions log and job summary only; it never creates or updates issues. Standard GitHub-hosted runners suffice for this public repository. Neither service deploys to devices or automatically merges changes.
+NanoKVM OS uses two complementary daily checks: Dependabot creates dependency PRs, and **Upstream dependency watch** checks current pins, available versions and errors in its Actions log and job summary. A separate job proposes eligible Linux updates as draft PRs. Neither job creates or updates issues. Standard GitHub-hosted runners suffice for this public repository. Neither service deploys to devices or automatically merges changes.
 
 ## Dependabot
 
@@ -38,9 +38,21 @@ The Go, frontend, script and additional-Go-module CI suites remain mandatory. Ru
 - **RustDesk protocol/reference sources**, hbb_common and OneKVM; **PicoClaw's latest-release channel** and presence of the required riscv64 archive.
 - Patched Pion versions, the vendor kernel reference, the nested CORS module and AES Bridge Go described above.
 
-**Linux release policy:** the kernel.org feed is filtered to point releases `X.Y.Z` with `Z >= 1`. Initial series releases (both `X.Y` and `X.Y.0`) and release candidates are skipped. For example, `7.3` / `7.3.0` do not replace `7.2.11` as an update candidate, but `7.3.1` does. This filter applies only to Linux; other components retain their own release policies. Kernel candidates appear in the Actions log and job summary, not in Dependabot PRs or issues.
+**Linux release policy:** the kernel.org feed is filtered to point releases `X.Y.Z` with `Z >= 1`. Initial series releases (both `X.Y` and `X.Y.0`) and release candidates are skipped. For example, `7.3` / `7.3.0` do not replace `7.2.11` as an update candidate, but `7.3.1` does. This filter applies only to Linux; other components retain their own release policies. Kernel candidates also produce draft PRs through the separate kernel publisher described below, rather than native Dependabot.
 
-Errors fail the workflow and remain explicit in the report. Issue publication has been removed, including write permissions and the publication CLI. GitHub tag listing is paginated; exceeding its bounded scan is an error rather than an incomplete claim of the latest version. Pinned-ahead results never trigger a downgrade.
+Errors fail the workflow and remain explicit in the report. Issue publication and its CLI have been removed; the report job has no write permissions. GitHub tag listing is paginated; exceeding its bounded scan is an error rather than an incomplete claim of the latest version. Pinned-ahead results never trigger a downgrade.
+
+## Automatic kernel PRs
+
+The independent kernel job runs on main with the same daily schedule, even if an unrelated upstream check fails. It uses the same Linux version filter and creates a draft PR for each eligible newer version. It updates the archive URL/SHA-256 from kernel.org's HTTPS checksum list, both source manifests, build version/extraction paths, fixed build date, config heading and current README versions. It does not modify main.
+
+A version has a dedicated branch and at most one PR. Later runs leave open or closed PRs and maintainer edits alone; closing a proposal rejects that version. A newer version can create a new proposal. A retry after branch creation can finish opening the missing PR without rewriting the branch.
+
+These are source-update proposals: kernel patches, olddefconfig changes, drivers and device behavior still require review and a coordinated build/test. The publisher keeps the qualified output hashes in platform/expected.sha256 unchanged; they must be regenerated from validated outputs before merging. No kernel build, signature verification, automatic merge or deployment is claimed.
+
+The kernel job alone has contents/pull-requests write permissions. Repository Actions settings must allow GitHub Actions to create pull requests; default token permissions remain read-only. It uses GITHUB_TOKEN without a personal token. GitHub can require a maintainer to select **Approve workflows to run** on these PRs before CI starts ([GitHub behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)).
+
+Run `python3 scripts/propose-kernel-update.py` for a read-only preview; `--publish` explicitly enables draft PR creation. Offline tests are in `scripts/test-kernel-update-pr.py` and run in CI.
 
 ## Which BusyBox and QEMU?
 
@@ -65,7 +77,7 @@ This is comprehensive coverage of the declared inputs above, **not a claim to di
 
 ## Validation and integration
 
-Run `python3 scripts/test-upstream-watch.py` for offline contracts, or `python3 scripts/check-upstream.py --output report.md` for a live read-only report. The command is read-only: GitHub credentials are used only for API reads, and the workflow has only `contents: read` permission.
+Run `python3 scripts/test-upstream-watch.py` for offline contracts, or `python3 scripts/check-upstream.py --output report.md` for a live read-only report. The command is read-only: GitHub credentials are used only for API reads, and the report job has only `contents: read` permission. The separate kernel publisher has narrowly scoped write permissions.
 
 Dependency availability does not prove compatibility. Native changes need matching hashes, preservation of local patches, rebuilds and relevant validation. Node major changes, Alpine branch migrations, firmware and module ABI changes remain explicit decisions. Actual package installation verifies APK signatures; the watcher only reads metadata over HTTPS.
 

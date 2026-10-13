@@ -1,0 +1,13 @@
+{
+  "component": "Buildroot: uboot-tools",
+  "current": "2026.08",
+  "candidate": "acbcc911b71f",
+  "candidate_key": "8155a67cd16f3563e1af653d68d70e4b7184c72adcda49d43d9d6ee09df245b2",
+  "status": "pending-review",
+  "upstream": "https://github.com/buildroot/buildroot/compare/2026.08...acbcc911b71f93bb7ea9400aa19713f3464c8e69",
+  "source_path": "firmware/buildroot/configs/nanokvm_platform_defconfig",
+  "strategy": "review",
+  "evidence": {},
+  "upstream_commit": "acbcc911b71f93bb7ea9400aa19713f3464c8e69",
+  "pin_files_updated": []
+}

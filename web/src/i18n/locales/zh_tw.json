@@ -627,9 +627,7 @@
       "deleteConfirmContent": "您確定要刪除「{{title}}」嗎？",
       "deleteConfirmOk": "刪除",
       "deleteConfirmCancel": "取消",
-      "messageCount_one": "{{count}} 則訊息",
-      "messageCount_other": "{{count}} 則訊息",
-      "messageCount": "{{count}} 則訊息"
+      "messageCount_other": "{{count}} 則訊息"
     },
     "config": {
       "startRuntime": "啟動 PicoClaw",

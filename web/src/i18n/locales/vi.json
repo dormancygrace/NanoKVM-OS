@@ -627,9 +627,7 @@
       "deleteConfirmContent": "Bạn có chắc chắn muốn xóa \"{{title}}\" không?",
       "deleteConfirmOk": "Xóa",
       "deleteConfirmCancel": "Hủy",
-      "messageCount_one": "{{count}} tin nhắn",
-      "messageCount_other": "{{count}} tin nhắn",
-      "messageCount": "{{count}} tin nhắn"
+      "messageCount_other": "{{count}} tin nhắn"
     },
     "config": {
       "startRuntime": "Bắt đầu PicoClaw",

@@ -628,8 +628,9 @@
       "deleteConfirmOk": "Smazat",
       "deleteConfirmCancel": "Zrušit",
       "messageCount_one": "{{count}} zpráva",
-      "messageCount_other": "{{count}} zpráv",
-      "messageCount": "{{count}} zpráv"
+      "messageCount_few": "{{count}} zprávy",
+      "messageCount_many": "{{count}} zprávy",
+      "messageCount_other": "{{count}} zpráv"
     },
     "config": {
       "startRuntime": "Spustit PicoClaw",

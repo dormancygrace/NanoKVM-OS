@@ -627,9 +627,7 @@
       "deleteConfirmContent": "คุณแน่ใจหรือไม่ว่าต้องการลบ \"{{title}}\"",
       "deleteConfirmOk": "ลบ",
       "deleteConfirmCancel": "ยกเลิก",
-      "messageCount_one": "{{count}} ข้อความ",
-      "messageCount_other": "{{count}} ข้อความ",
-      "messageCount": "{{count}} ข้อความ"
+      "messageCount_other": "{{count}} ข้อความ"
     },
     "config": {
       "startRuntime": "เริ่ม PicoClaw",

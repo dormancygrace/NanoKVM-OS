@@ -1823,8 +1823,9 @@
       "deleteConfirmOk": "Удалить",
       "deleteConfirmCancel": "Отмена",
       "messageCount_one": "{{count}} сообщение",
-      "messageCount_other": "{{count}} сообщения",
-      "messageCount": "{{count}} сообщения"
+      "messageCount_few": "{{count}} сообщения",
+      "messageCount_many": "{{count}} сообщений",
+      "messageCount_other": "{{count}} сообщения"
     },
     "config": {
       "startRuntime": "Запустить PicoClaw",

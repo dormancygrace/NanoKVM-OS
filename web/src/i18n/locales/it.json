@@ -628,8 +628,8 @@
       "deleteConfirmOk": "Elimina",
       "deleteConfirmCancel": "Annulla",
       "messageCount_one": "{{count}} messaggio",
-      "messageCount_other": "{{count}} messaggi",
-      "messageCount": "{{count}} messaggi"
+      "messageCount_many": "{{count}} messaggi",
+      "messageCount_other": "{{count}} messaggi"
     },
     "config": {
       "startRuntime": "Avvia PicoClaw",

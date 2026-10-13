@@ -1823,8 +1823,7 @@
       "deleteConfirmOk": "Delete",
       "deleteConfirmCancel": "Cancel",
       "messageCount_one": "{{count}} message",
-      "messageCount_other": "{{count}} messages",
-      "messageCount": "{{count}} messages"
+      "messageCount_other": "{{count}} messages"
     },
     "config": {
       "startRuntime": "Start PicoClaw",

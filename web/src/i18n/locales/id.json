@@ -627,9 +627,7 @@
       "deleteConfirmContent": "Apakah Anda yakin ingin menghapus \"{{title}}\"?",
       "deleteConfirmOk": "Hapus",
       "deleteConfirmCancel": "Batalkan",
-      "messageCount_one": "{{count}} pesan",
-      "messageCount_other": "{{count}} pesan",
-      "messageCount": "{{count}} pesan"
+      "messageCount_other": "{{count}} pesan"
     },
     "config": {
       "startRuntime": "Mulai PicoClaw",

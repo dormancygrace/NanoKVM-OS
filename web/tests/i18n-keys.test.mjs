@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import languages from '../src/i18n/languages.ts';
+import { localeTag } from '../src/i18n/locale-loader.ts';
 
 const localesDir = new URL('../src/i18n/locales/', import.meta.url);
 const pluralSuffix = /_(zero|one|two|few|many|other)$/;
@@ -77,4 +78,27 @@ test('translations use only interpolation values that English provides', () => {
     }
   }
   assert.deepEqual(unknown, []);
+});
+
+// A plural key carries exactly the CLDR forms of its language (Russian
+// one/few/many/other, Japanese other only) and no plain key with the same
+// name: i18next would fall back to that plain text for a missing form ('5
+// сообщения'), and Weblate rejects the pair as a duplicated string.
+test('plural keys use exactly the forms of their language', () => {
+  const problems = [];
+  for (const [name, keys] of locales) {
+    const categories = new Intl.PluralRules(localeTag(name)).resolvedOptions().pluralCategories;
+    const groups = new Map();
+    for (const key of keys.keys()) {
+      const form = key.match(pluralSuffix)?.[1];
+      if (form) groups.set(base(key), [...(groups.get(base(key)) ?? []), form]);
+    }
+    for (const [key, forms] of groups) {
+      if (keys.has(key)) problems.push(`${name}: ${key} is both a plain and a plural key`);
+      const want = [...categories].sort().join('/');
+      const got = [...forms].sort().join('/');
+      if (want !== got) problems.push(`${name}: ${key} has ${got}, the language uses ${want}`);
+    }
+  }
+  assert.deepEqual(problems, []);
 });

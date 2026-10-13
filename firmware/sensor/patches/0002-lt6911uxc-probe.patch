@@ -150,7 +150,7 @@ index c88fb37..1af0ff8 100644
 -	if ((((nVal & 0xFF) << 8) | (nVal2 & 0xFF)) != LT6911_CHIP_ID) {
 -		CVI_TRACE_SNS(CVI_DBG_ERR, "Sensor ID Mismatch! Use the wrong sensor??\n");
 -		return CVI_FAILURE;
-+#ifdef NANOKVM_ENHANCED
++#ifdef NANOKVM_OS
 +	int uxc_id = legacy_id < 0 ? CVI_FAILURE : lt6911_read_id(ViPipe, 0x8100);
 +	if (uxc_id == 0x1704) {
 +		printf("LT6911UXC ID: %04x\n", uxc_id);

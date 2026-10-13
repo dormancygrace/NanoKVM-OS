@@ -330,7 +330,7 @@ The optional unused RGB-to-NV21 helper is explicitly marked maybe_unused.
 Crash recovery and interactions with the boot-time media owner still need real
 initialization/teardown tests; removing unsafe recovery is not proof of those.
 
-Current MPI's LT6911 defaults to fixed1080p. Under NANOKVM_ENHANCED, it now maps
+Current MPI's LT6911 defaults to fixed1080p. Under NANOKVM_OS, it now maps
 to PIC_CUSTOMIZE and reads /run/nanokvm/{width,height}, preserving NanoKVM's
 existing dynamic capture contract. The new parser bounds reads/conversions,
 rejects malformed and partial pairs without updating output, and uses1080p only

@@ -44,7 +44,7 @@
 #define KVMV_MAX_TRY_NUM	   	2
 #define vi_min_width            32
 #define vi_min_height           3
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
 #define vi_max_width            3840
 #define vi_max_height           2160
 #else
@@ -153,7 +153,7 @@ struct kvmv_cfg_t {
     std::atomic<uint8_t> hdmi_res_err{0};
     uint8_t hdmi_try_rounds = 0;
     std::atomic<uint8_t> vi_detect_state{0};
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
     // Separate bounded VPSS outputs retain JPEG and video encoders between
     // reads. Inactive outputs are retired before allocating their replacement.
     uint8_t venc_auto_recyc = 0;
@@ -455,7 +455,7 @@ static bool reserve_save_buffer(kvmv_data_t* buffer, uint32_t size)
 
 uint16_t hdmi_res_list[][2] = {
     {1920, 1080},
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
     {3840, 2160},
     {2560, 1440},
     {720, 1280},
@@ -494,7 +494,7 @@ uint16_t hdmi_unsupported_res_list[][2] = {
 /* Whether the video memory of this boot holds a capture of this size. */
 static bool res_fits_video_memory(uint16_t _width, uint16_t _height)
 {
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
     if (_width > 1920 || _height > 1080) {
         // Extended capture profiles require the qualified carveout, including Auto.
         uint8_t ion_size[4] = {};
@@ -677,7 +677,7 @@ int get_manual_resolution(void)
         nanokvm::write_small_uint(vi_height_path, tmp_height);
     }
     bool portrait = false;
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
     portrait = (tmp_width == 720 && tmp_height == 1280)
         || (tmp_width == 1296 && tmp_height == 2304)
         || (tmp_width == 1080 && tmp_height == 1920)
@@ -1438,7 +1438,7 @@ void* vi_subsystem_detection(void *)
 
     // Refresh on elapsed time, not loop iterations whose work varies widely.
     last_vi_state_refresh_ms = vi_state_shared::monotonic_ms() - vi_state_publish_interval_ms;
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
     uint64_t last_hdmi_poll_ms = vi_state_shared::monotonic_ms() - 1000U;
 #endif
     while(true)
@@ -1490,7 +1490,7 @@ void* vi_subsystem_detection(void *)
                 if (tmp8 != 0) fputs("0", fp);
                 fclose(fp);
             }
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
             else if (access(hdmi_state_path, F_OK) != 0) {
                 // Mainline kernels do not provide the vendor /proc/lt_int
                 // edge counter. Re-read bridge geometry at a bounded rate;
@@ -2085,7 +2085,7 @@ void kvmv_request_keyframe(void) {
 
 static uint8_t video_output_fps(const nanokvm::GeometrySnapshot &src, int width, int height, uint8_t fps)
 {
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
     const int limit = nanokvm::capture_stream_rate_limit(src.width, src.height, width, height);
     if (fps > limit) fps = limit;
 #else
@@ -2179,7 +2179,7 @@ void kvmv_init(uint8_t _debug_info_en)
 
     // debug("[kvmv]kvmv_init - 1\r\n");
 
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
     // The HDMI source may already be stable before the detection thread starts.
     // Read UXC dimensions before MMF allocates VI pools; waiting for a new edge
     // can leave the provisional FHD sensor geometry active on a QHD input.
@@ -2819,7 +2819,7 @@ void kvmv_deinit()
     pthread_mutex_destroy(&vi_mutex);
 }
 
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
 static int set_owned_hdmi_reset(bool asserted)
 {
     const char *path = "/sys/bus/platform/devices/hdmi-reset/asserted";
@@ -2891,7 +2891,7 @@ int kvmv_hdmi_control(uint8_t _en)
         }
         return -1;
     }
-#ifndef NANOKVM_ENHANCED
+#ifndef NANOKVM_OS
     if(access("/sys/class/gpio/gpio451/value", F_OK) != 0){
         nanokvm::write_small_file("/sys/class/gpio/export", "451\n");
         nanokvm::write_small_file("/sys/class/gpio/gpio451/direction", "out\n");
@@ -2900,14 +2900,14 @@ int kvmv_hdmi_control(uint8_t _en)
     if(_en == 0){
         kvmv_cfg.hdmi_stop_flag = 1;
         while(kvmv_cfg.hdmi_reading_flag == 1) nanokvm::sleep_ms(10);
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
         if (set_owned_hdmi_reset(true) != 0) return -1;
 #else
         nanokvm::write_small_file("/sys/class/gpio/gpio451/value", "0\n");
 #endif
         return 0;
     } else {
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
         if (set_owned_hdmi_reset(false) != 0) return -1;
 #else
         nanokvm::write_small_file("/sys/class/gpio/gpio451/value", "1\n");

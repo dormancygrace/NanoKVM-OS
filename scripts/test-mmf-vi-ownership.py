@@ -15,7 +15,7 @@ r = Path(__file__).resolve().parents[1]
 a.output.mkdir(parents=True, exist_ok=False)
 flags = ['g++', '-std=gnu++17', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
          '-ffunction-sections', '-fdata-sections', '-Wl,--gc-sections',
-         '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_ENHANCED', '-DSENSOR_LONTIUM_LT6911']
+         '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_OS', '-DSENSOR_LONTIUM_LT6911']
 flags += ['-DSENSOR'+str(i)+'_TYPE=LONTIUM_LT6911_2M_60FPS_8BIT' for i in range(3)]
 flags += ['-I'+str(x.resolve()) for x in [a.sensor/'common', a.mpi/'include',
           a.mpi/'include/isp/cv181x', a.mpi/'sample/common', a.mpi/'component/panel/cv181x',

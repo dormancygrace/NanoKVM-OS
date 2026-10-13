@@ -17,7 +17,7 @@ args.output.mkdir(parents=True, exist_ok=False)
 flags = ['g++', '-std=gnu++17', '-pthread', '-O1', '-g', '-funsigned-char',
          '-U_FORTIFY_SOURCE', '-D_FORTIFY_SOURCE=0', '-Wall', '-Wextra', '-Werror',
          '-ffunction-sections', '-fdata-sections', '-Wl,--gc-sections',
-         '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_ENHANCED', '-DSENSOR_LONTIUM_LT6911']
+         '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_OS', '-DSENSOR_LONTIUM_LT6911']
 if args.sanitize:
     flags += ['-fsanitize=address,undefined', '-fno-omit-frame-pointer']
 flags += [f'-DSENSOR{i}_TYPE=LONTIUM_LT6911_2M_60FPS_8BIT' for i in range(3)]

@@ -20,7 +20,7 @@ includes = [mpi/'include', mpi/'include/isp/cv181x', mpi/'sample/common',
             mpi/'component/panel/cv181x', sensor/'common', inih,
             repo/'support/sg2002/additional/kvm_mmf/include', repo/'firmware/mpi']
 flags = ['-std=gnu++17', '-O1', '-ffunction-sections', '-fdata-sections',
-         '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_ENHANCED', '-DSENSOR_LONTIUM_LT6911']
+         '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_OS', '-DSENSOR_LONTIUM_LT6911']
 flags += ['-DSENSOR'+str(i)+'_TYPE=LONTIUM_LT6911_2M_60FPS_8BIT' for i in range(3)]
 flags += ['-I'+str(p) for p in includes]
 out = args.output.resolve()

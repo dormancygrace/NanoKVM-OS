@@ -37,12 +37,23 @@ class ProposalTests(unittest.TestCase):
                     latest=latest, status=status, path=source['path'],
                     link='https://github.com/example/project')
 
+    def test_collection_only_checks_configured_sources_not_buildroot_master(self):
+        def check(source, root):
+            return dict(name=source['name'], status='current')
+        with patch.object(p.upstream, 'check', side_effect=check) as checked, \
+                patch.object(p.upstream, 'github', side_effect=AssertionError('Unexpected master scan')):
+            collected = p.collect(self.root)
+        self.assertEqual(len(collected), len(self.sources))
+        self.assertEqual({s['name'] for s, _ in collected}, {s['name'] for s in self.sources})
+        self.assertFalse(any(s['name'].startswith('Buildroot: ') for s, _ in collected))
+        self.assertEqual(checked.call_count, len(self.sources))
+
     def test_all_requested_sources_have_an_explicit_policy(self):
         names = {s['name'] for s in self.sources}
         all_names = {s['name'] for s in json.loads((self.root / '.github/upstream-watch.json').read_text())['sources']}
         self.assertEqual(all_names - names, {'Linux', 'OpenSSL (stock Alpine)',
                                            'QEMU Ubuntu build helper', 'OneKVM RustDesk reference'})
-        self.assertEqual(len(names), 32)
+        self.assertEqual(len(names), 31)
         self.assertEqual(self.source('aic8800')['repo'], 'radxa-pkg/aic8800')
         for name in ('Go runtime', 'Patched Pion dtls/v3', 'Patched Pion ice/v4',
                      'Patched Pion srtp/v3', 'GCC compiler', 'Alpine stable branch'):
@@ -93,15 +104,6 @@ class ProposalTests(unittest.TestCase):
         result['latest'] = '17.2.0'
         self.assertIsNotNone(p.proposal(source, result, self.root))
 
-    def test_recipe_identity_depends_on_content_not_unrelated_master_commits(self):
-        source = dict(name='Buildroot: musl', pull_request={'id': 'buildroot-recipe-musl', 'mode': 'review'})
-        result = dict(name=source['name'], path='defconfig', current='2026.08', latest='abc',
-                      status='recipe changes', link='https://example.test', candidate_key='same-content')
-        first = p.proposal(source, result, self.root)
-        result.update(latest='def')
-        second = p.proposal(source, result, self.root)
-        self.assertEqual(first['branch'], second['branch'])
-
     def test_git_pins_include_selected_object_hashes(self):
         source = self.source('aic8800')
         result = self.result(source, 'a' * 40, 'upstream changes')
@@ -132,19 +134,6 @@ class ProposalTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Missing'):
                 p.git_paths('example/repo', sha('e'), ['missing'])
 
-    def test_local_buildroot_overlays_are_applied_before_comparison(self):
-        folder = self.root / 'firmware/buildroot/source-patches'
-        folder.mkdir(parents=True)
-        (folder / '0001.patch').write_text(
-            'diff --git a/package/test/test.mk b/package/test/test.mk\n'
-            '--- a/package/test/test.mk\n+++ b/package/test/test.mk\n'
-            '@@ -1 +1 @@\n-VERSION = 1\n+VERSION = 2\n')
-        paths = ['package/test/test.mk']
-        self.assertEqual(p.upstream.patched_buildroot_recipe(self.root, paths, ['VERSION = 1\n']),
-                         ['VERSION = 2\n'])
-        with self.assertRaisesRegex(ValueError, 'Cannot apply'):
-            p.upstream.patched_buildroot_recipe(self.root, paths, ['VERSION = 3\n'])
-
     def test_job_keeps_processing_after_discovery_error_and_reports_failure(self):
         source = self.source('GCC compiler')
         good = self.result(source, '17.1.0')
@@ -165,15 +154,28 @@ class ProposalTests(unittest.TestCase):
             p.main()
         prepare.assert_not_called()
 
-    def test_picoclaw_channel_is_a_release_notification(self):
-        source = self.source('PicoClaw download channel')
-        result = dict(name=source['name'], current='latest release channel', latest='v1.0.0',
-                      path=source['path'], status='repository-managed', link='https://github.com/sipeed/picoclaw')
-        with patch.object(p, 'collect', return_value=[(source, result)]), \
-                patch.object(p, 'proposal', return_value=dict(files={'candidate': '{}'})) as prepare, \
-                patch.object(sys, 'argv', ['propose-upstream-updates.py']):
+    def test_picoclaw_monitoring_and_proposals_are_disabled(self):
+        sources = json.loads((self.root / '.github/upstream-watch.json').read_text())['sources']
+        self.assertFalse(any('picoclaw' in json.dumps(s).lower() for s in sources))
+
+    def test_cadence_filters_before_proposal_discovery(self):
+        for cadence in ('daily', 'quarterly', 'all'):
+            with self.subTest(cadence=cadence), patch.object(p.upstream, 'check', return_value={}) as check:
+                collected = p.collect(self.root, cadence)
+            names = {s['name'] for s, _ in collected}
+            if cadence == 'quarterly':
+                self.assertEqual(names, {'tinyalsa'})
+            elif cadence == 'daily':
+                self.assertEqual(names, {s['name'] for s in self.sources} - {'tinyalsa'})
+            else:
+                self.assertEqual(names, {s['name'] for s in self.sources})
+            self.assertEqual(check.call_count, len(names))
+
+    def test_publisher_cli_passes_cadence_to_discovery(self):
+        with patch.object(p, 'collect', return_value=[]) as collect, \
+                patch.object(sys, 'argv', ['propose-upstream-updates.py', '--cadence', 'quarterly']):
             p.main()
-        prepare.assert_called_once_with(source, result)
+        collect.assert_called_once_with(cadence='quarterly')
 
     def test_generic_publisher_accepts_only_candidate_new_files(self):
         plan = dict(latest='2.0', branch='codex/upstream-example-1234', title='review: example',

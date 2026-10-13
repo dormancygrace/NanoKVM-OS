@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
 """Report upstream changes without rewriting qualified source pins or executing downloads."""
 import argparse
-import difflib
-from dependency_coverage import validate_coverage, npm_sources, buildroot_recipes
+from dependency_coverage import validate_coverage, npm_sources
 from concurrent.futures import ThreadPoolExecutor
 import html
-import hashlib
-import subprocess
-import tempfile
 import io
 import json
 import os
@@ -66,6 +62,16 @@ def version(value, separator='.'):
         raise ValueError('Not a stable numeric version: ' + value)
     parts = tuple(int(x) for x in value.split('.'))
     return parts + (0,) * max(0, 4 - len(parts))
+
+
+def select_sources(sources, cadence='all'):
+    """Filter before network requests; manual checks default to all cadences."""
+    if cadence not in ('all', 'daily', 'quarterly'):
+        raise ValueError('Unknown check cadence: ' + cadence)
+    for source in sources:
+        if source.get('cadence', 'daily') not in ('daily', 'quarterly'):
+            raise ValueError('Unknown source cadence: ' + source['name'])
+    return [s for s in sources if cadence == 'all' or s.get('cadence', 'daily') == cadence]
 
 
 def current_pin(root, source):
@@ -156,55 +162,6 @@ def check_alpine_inventory(root=ROOT):
                 for name in sorted(packages)]
     except Exception as error:
         return [dict(name='Alpine package inventory', path=path, current='?', latest='?', link='', status='error', detail=str(error))]
-
-
-def patched_buildroot_recipe(root, paths, contents):
-    """Apply only selected recipe files; never execute downloaded Makefiles."""
-    with tempfile.TemporaryDirectory(prefix='nkos-upstream-recipe-') as directory:
-        work = Path(directory)
-        for path, text in zip(paths, contents):
-            file = work / path
-            file.parent.mkdir(parents=True, exist_ok=True)
-            file.write_text(text)
-        for patch in sorted((root / 'firmware/buildroot/source-patches').glob('*.patch')):
-            result = subprocess.run(['git', 'apply', '--no-index',
-                                     *['--include=' + path for path in paths], str(patch.resolve())],
-                                    cwd=work, capture_output=True, text=True)
-            if result.returncode:
-                raise ValueError('Cannot apply local recipe patch ' + patch.name + ': ' + result.stderr.strip())
-        return [(work / path).read_text() if (work / path).exists() else '' for path in paths]
-
-
-def check_buildroot_recipes(root=ROOT):
-    pin = current_pin(root, dict(path='platform/sources.lock', pattern=r'buildroot-([0-9.]+)\.tar'))
-    try:
-        head = github('repos/buildroot/buildroot/commits/master')['sha']
-    except Exception as error:
-        return [dict(name='Buildroot recipe inventory', path='platform/sources.lock', current=pin,
-                     latest='?', status='error', link='', detail=str(error))]
-    def recipe(name):
-        result = dict(name='Buildroot: ' + name, path='firmware/buildroot/configs/nanokvm_platform_defconfig',
-                      current=pin, latest=head[:12], status='error', link='https://github.com/buildroot/buildroot/compare/' + pin + '...' + head)
-        try:
-            paths = ['package/' + name + '/' + name + '.mk', 'package/' + name + '/' + name + '.hash']
-            if name in ('gcc', 'binutils'):
-                paths.append('package/' + name + '/Config.in.host')
-            before = [request('https://raw.githubusercontent.com/buildroot/buildroot/' + pin + '/' + path) for path in paths]
-            after = [request('https://raw.githubusercontent.com/buildroot/buildroot/' + head + '/' + path) for path in paths]
-            before = patched_buildroot_recipe(root, paths, before)
-            result['candidate_key'] = hashlib.sha256(json.dumps(dict(zip(paths, after)), sort_keys=True).encode()).hexdigest()
-            result['upstream_commit'] = head
-            result['recipe_diff'] = ''.join(
-                ''.join(difflib.unified_diff(local.splitlines(keepends=True), remote.splitlines(keepends=True),
-                                            fromfile='local-patched/' + path, tofile='upstream/' + path))
-                for path, local, remote in zip(paths, before, after))
-            result.update(status='current' if before == after else 'recipe changes',
-                          detail='Selected build/recovery dependency; compare locally patched Buildroot recipe with upstream master, including hashes and compiler selection. Transitive recipes remain owned by Buildroot')
-        except Exception as error:
-            result['detail'] = str(error)
-        return result
-    with ThreadPoolExecutor(max_workers=4) as workers:
-        return list(workers.map(recipe, buildroot_recipes(root)))
 
 
 def check_alpine(source, root, commit, result):
@@ -352,7 +309,7 @@ def render(results):
     def cell(value):
         return html.escape(str(value)).replace('|', '&#124;').replace('\n', ' ')
     lines = ['# Upstream dependency updates', '',
-             'Daily coverage audit: Dependabot handles manifest PRs; this report independently checks direct npm versions, native pins, patched references and Alpine package availability. Latest releases are shown even during Dependabot cooldown.', '',
+             'Coverage audit for the selected cadence (tinyalsa: quarterly; other sources: daily): Dependabot handles manifest PRs; this report independently checks direct npm versions, native pins, patched references and Alpine package availability. Latest releases are shown even during Dependabot cooldown.', '',
              '| Component | Pinned | Upstream | Result | Pin file |',
              '|---|---|---|---|---|']
     for item in results:
@@ -368,7 +325,7 @@ def render(results):
               '- Review upstream changes and preserve NanoKVM patches; a newer commit on a vendor branch is a review candidate, not a qualified release.',
               '- Update related source/archive hashes, Go runtime patches, module ABI and platform output manifest together after rebuilding and testing.',
               '- Do not overwrite patched Pion sources by only bumping go.mod versions.',
-              '- Every explicitly selected Buildroot package and compiler/libc recipe is compared with upstream Buildroot master. Transitive recipes inherit the Buildroot pin; this is not a complete CVE audit.',
+              '- Selected Buildroot packages and compiler/libc recipes follow the stable Buildroot release pin. Development-branch recipe changes do not produce reports or PRs; GCC stable releases are checked separately.',
               '- Production OpenSSL uses the stock signed Alpine riscv64 repository. Repository-managed rows show availability, not the installed device version.',
               '- The optional C906 rebuild recipe is retained for research and is not a production update requirement. This watcher does not run apk upgrade or change devices.',
               '- Retired Buildroot OpenVPN 3/Asio, Superfile, private apk-tools and vendor-libc loader recipes are excluded; they do not describe the current Alpine package set.',
@@ -383,6 +340,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--inventory', action='store_true', help='Validate and list local pins without network access')
     parser.add_argument('--output', type=Path, help='Write Markdown report')
+    parser.add_argument('--cadence', choices=('all', 'daily', 'quarterly'), default='all')
     args = parser.parse_args()
     sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
     validate_coverage(ROOT, sources)
@@ -393,10 +351,11 @@ def main():
         for source in sources:
             print(source['name'], current_pin(ROOT, source), source['path'])
         return
+    sources = select_sources(sources, args.cadence)
     with ThreadPoolExecutor(max_workers=4) as workers:
         results = list(workers.map(check, sources))
-    results += check_alpine_inventory()
-    results += check_buildroot_recipes()
+    if args.cadence != 'quarterly':
+        results += check_alpine_inventory()
     body = render(results)
     if args.output:
         args.output.write_text(body)

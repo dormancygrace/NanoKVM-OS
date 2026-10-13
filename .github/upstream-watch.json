@@ -15,7 +15,7 @@
       "pattern": "buildroot-([0-9.]+)\\.tar",
       "kind": "index",
       "url": "https://buildroot.org/downloads/",
-      "upstream_pattern": "buildroot-([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\\.tar",
+      "upstream_pattern": "href=\"buildroot-([0-9]{4}\\.[0-9]{2}(?:\\.[0-9]+)?)\\.tar\\.(?:gz|xz)\"",
       "lock_entry": "buildroot",
       "pull_request": {
         "id": "buildroot",
@@ -239,7 +239,8 @@
       "pull_request": {
         "id": "tinyalsa",
         "mode": "git-pin"
-      }
+      },
+      "cadence": "quarterly"
     },
     {
       "name": "Patched Pion dtls/v3",
@@ -390,18 +391,6 @@
       "pattern": "\"onekvm_commit\":\\s*\"([a-f0-9]{40})\"",
       "kind": "github-commit",
       "repo": "onekvm/onekvm-extension-rustdesk"
-    },
-    {
-      "name": "PicoClaw download channel",
-      "path": "server/service/picoclaw/runtime_constants.go",
-      "pattern": "\"(https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw_Linux_riscv64.tar.gz)\"",
-      "kind": "github-channel",
-      "repo": "sipeed/picoclaw",
-      "asset": "picoclaw_Linux_riscv64.tar.gz",
-      "pull_request": {
-        "id": "picoclaw-download-channel",
-        "mode": "review"
-      }
     },
     {
       "name": "Go CORS nested module",

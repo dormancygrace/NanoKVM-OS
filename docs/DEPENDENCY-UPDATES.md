@@ -1,6 +1,6 @@
 # Dependency maintenance
 
-NanoKVM OS uses two complementary daily checks: Dependabot creates dependency PRs, and **Upstream dependency watch** checks current pins, available versions and errors in its Actions log and job summary. Separate jobs propose eligible Linux updates and the configured native/platform dependencies as draft PRs. Neither job creates or updates issues. Standard GitHub-hosted runners suffice for this public repository. Neither service deploys to devices or automatically merges changes.
+NanoKVM OS uses two complementary update checks: Dependabot creates dependency PRs, and **Upstream dependency watch** checks current pins, available versions and errors in its Actions log and job summary. Separate jobs propose eligible Linux updates and the configured native/platform dependencies as draft PRs. Neither job creates or updates issues. Standard GitHub-hosted runners suffice for this public repository. Neither service deploys to devices or automatically merges changes.
 
 ## Dependabot
 
@@ -27,16 +27,20 @@ The last two are intentionally handled as manual update candidates, not silently
 
 The Go, frontend, script and additional-Go-module CI suites remain mandatory. RustDesk now has a host `cargo test --locked` job so Cargo dependency PRs are actually exercised. Existing device-only RustDesk tests stay explicitly ignored without a coordinated device; host CI does not claim hardware qualification.
 
-## Independent daily check
+## Independent upstream checks
 
 `Upstream dependency watch` runs daily at 05:23 UTC and supports manual dispatch. It reads pins from repository files without executing downloaded package code. It reports:
 
 - **Every entry in `platform/sources.lock`**: Linux, Buildroot, U-Boot, OpenSBI, Sophgo SDK/drivers/media/sensors, AIC8800, cryptodev, MaixCDK, json-c, miniz, inih, tinyalsa, Opus, BusyBox devmem source, wireless-regdb, Go, Node, pnpm, Alpine minirootfs and the QEMU build helper.
 - **All direct frontend dependencies**, including dev dependencies and npm aliases, against registry `latest`, independently of cooldown or whether Dependabot can produce a lockfile update. Indirect frontend packages remain owned by Dependabot/security alerts. Unrecognized version ranges fail visibly instead of being skipped.
-- **Selected Buildroot recipes** against the pinned release and current Buildroot master: compiler selection (GCC/binutils), musl, initramfs BusyBox, filesystem tools and selected host build tools. GCC stable releases also have their own check. Recipe changes are review candidates, not automatically compatible upgrades.
+- **Buildroot stable releases only**, including stable point releases. Selected recipes (binutils, musl, initramfs BusyBox, filesystem and host tools) follow that Buildroot release; master snapshots, release candidates and per-recipe development changes are not reported or proposed separately. GCC stable releases retain their independent check.
 - **All stock Alpine dependencies named in local APKBUILD `depends`/`makedepends`**, plus optional VPN packages and core BusyBox/OpenSSL/APK tools. Stable main/community availability is checked; optional VPN packages may use the configured edge/community fallback. Installed device versions are not inspected.
-- **RustDesk protocol/reference sources**, hbb_common and OneKVM; **PicoClaw's latest-release channel** and presence of the required riscv64 archive.
+- **RustDesk protocol/reference sources**, hbb_common and OneKVM.
 - Patched Pion versions, the vendor kernel reference, the nested CORS module and AES Bridge Go described above.
+
+**tinyalsa cadence:** monitor commits on the upstream default branch quarterly, at 05:41 UTC on January 1, April 1, July 1 and October 1. Both reports and draft PR discovery skip tinyalsa in daily runs; the quarterly run checks only tinyalsa. Manual dispatch and CLI runs default to all sources; use --cadence daily or --cadence quarterly to select a group. The existing tinyalsa PR remains available for review. Upstream still publishes releases, but the latest is [v2.0.0 (February 8, 2021)](https://github.com/tinyalsa/tinyalsa/releases/tag/v2.0.0), so commit tracking is retained.
+
+**PicoClaw monitoring is disabled:** neither the report nor the PR publisher queries its release channel. On-demand installation and updates through the application's latest-download URL remain unchanged.
 
 **Linux release policy:** the kernel.org feed is filtered to point releases `X.Y.Z` with `Z >= 1`. Initial series releases (both `X.Y` and `X.Y.0`) and release candidates are skipped. For example, `7.3` / `7.3.0` do not replace `7.2.11` as an update candidate, but `7.3.1` does. This filter applies only to Linux; other components retain their own release policies. Kernel candidates also produce draft PRs through the separate kernel publisher described below, rather than native Dependabot.
 
@@ -56,7 +60,7 @@ Run `python3 scripts/propose-kernel-update.py` for a read-only preview; `--publi
 
 ## Native dependencies and integration notifications
 
-The dependency publisher runs daily at 05:23 UTC on main, independently of the report and kernel jobs. Explicit pull_request policies in .github/upstream-watch.json cover all 32 requested sources:
+The dependency publisher runs daily at 05:23 UTC on main, independently of the report and kernel jobs; tinyalsa uses the quarterly schedule described above. Explicit pull_request policies in .github/upstream-watch.json cover 31 configured sources:
 
 | Sources | Draft PR behavior |
 |---|---|
@@ -66,9 +70,9 @@ The dependency publisher runs daily at 05:23 UTC on main, independently of the r
 | Node.js, pnpm, Alpine minirootfs | Update archive pins; Node stays in the selected major and minirootfs in the selected Alpine branch. |
 | Patched Go runtime, GCC, Alpine branch migrations | Open an integration notification: version guards, local patches and system migrations need deliberate work. |
 | Patched Pion DTLS/ICE/SRTP, CORS wrapper, AES Bridge | Open an integration notification without pretending that a version bump rebases local code or fixes upstream module paths. |
-| RustDesk, hbb_common, Sophgo kernel reference, PicoClaw channel | Open an integration notification for the new reference/release. PicoClaw keeps its latest-download URL; the first observation also creates a PR because the installed version is unknown. |
+| RustDesk, hbb_common, Sophgo kernel reference | Open an integration notification for the new reference/release. |
 
-All selected Buildroot recipes are covered automatically, including binutils, musl, BusyBox and host tools. The comparison includes recipe hashes/compiler selection and applies our local source patches before comparing. Each recipe's candidate identity hashes its relevant file contents, so unrelated commits on Buildroot master do not produce duplicate notifications.
+**Buildroot policy:** only newer stable release archives create PRs, for example 2026.08.1 or 2026.11. RCs, snapshots, master commits and individual recipe diffs are excluded from both reports and PR creation. Selected recipes inherit the Buildroot pin and are reviewed with the release upgrade. The offline inventory still checks that all selected recipes are accounted for; this policy does not disable that coverage check. GCC remains independently monitored for stable releases.
 
 Pin-update PRs hash downloaded archive bytes over HTTPS without extracting or executing them; this does not claim upstream signature verification. Git inputs resolve full commits and selected object IDs. If preparation cannot complete, the bot creates a review-only notification carrying the error, with no partial pin changes, and the job reports failure. Failed upstream discovery remains an error rather than “up to date”; other components continue to be processed.
 

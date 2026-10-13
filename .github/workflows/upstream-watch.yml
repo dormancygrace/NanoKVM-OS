@@ -2,7 +2,10 @@ name: Upstream dependency watch
 on:
   schedule:
     - cron: '23 5 * * *'
+    - cron: '41 5 1 1,4,7,10 *'
   workflow_dispatch:
+env:
+  UPSTREAM_CADENCE: ${{ github.event_name != 'schedule' && 'all' || (github.event.schedule == '41 5 1 1,4,7,10 *' && 'quarterly' || 'daily') }}
 permissions:
   contents: read
 concurrency:
@@ -20,10 +23,10 @@ jobs:
       - name: Check dependency coverage and upstreams
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/check-upstream.py
+        run: python3 scripts/check-upstream.py --cadence "$UPSTREAM_CADENCE"
 
   kernel-pr:
-    if: github.repository == 'dormancygrace/NanoKVM-OS' && github.ref == 'refs/heads/main'
+    if: github.repository == 'dormancygrace/NanoKVM-OS' && github.ref == 'refs/heads/main' && github.event.schedule != '41 5 1 1,4,7,10 *'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -54,4 +57,4 @@ jobs:
       - name: Propose configured upstream updates
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/propose-upstream-updates.py --publish
+        run: python3 scripts/propose-upstream-updates.py --publish --cadence "$UPSTREAM_CADENCE"

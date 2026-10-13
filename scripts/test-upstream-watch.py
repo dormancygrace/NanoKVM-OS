@@ -31,6 +31,31 @@ class WatchTests(unittest.TestCase):
         with patch.object(u, 'github', return_value=tags + [{'name': 'json-c-0.20-20270101'}]):
             self.assertEqual(u.check(source)['status'], 'update available')
 
+    def test_buildroot_reports_only_new_stable_archive_releases(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        source = next(s for s in sources if s['name'] == 'Buildroot')
+        fixtures = [
+            ('buildroot-2026.08.tar.xz buildroot-2026.11-rc1.tar.xz buildroot-master.tar.gz',
+             '2026.08', 'current'),
+            ('buildroot-2026.08.tar.xz buildroot-2026.08.1.tar.xz buildroot-2026.11-rc2.tar.gz',
+             '2026.08.1', 'update available'),
+            ('buildroot-2026.08.tar.xz buildroot-2026.11.tar.gz buildroot-2027.02-rc1.tar.xz',
+             '2026.11', 'update available'),
+            ('buildroot-2025.02.10.tar.xz', '2025.02.10', 'pinned ahead'),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'platform').mkdir()
+            (root / source['path']).write_text('buildroot https://example.test/buildroot-2026.08.tar.xz hash\n')
+            for archives, latest, status in fixtures:
+                index = '\n'.join('<a href="' + name + '">' + name + '</a>' for name in archives.split())
+                with self.subTest(archives=archives), patch.object(u, 'request', return_value=index):
+                    result = u.check(source, root)
+                    self.assertEqual(result['latest'], latest)
+                    self.assertEqual(result['status'], status)
+            with patch.object(u, 'request', return_value='<a href="buildroot-2026.11-rc1.tar.xz">RC</a>'):
+                self.assertEqual(u.check(source, root)['status'], 'error')
+
     def test_linux_waits_for_first_point_release(self):
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
         source = next(s for s in sources if s['name'] == 'Linux')
@@ -269,10 +294,39 @@ class CoverageTests(unittest.TestCase):
             self.assertEqual(result['latest'], latest)
             self.assertEqual(result['status'], 'update available')
 
-    def test_picoclaw_missing_asset_is_error(self):
-        source = next(s for s in json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources'] if s['name'] == 'PicoClaw download channel')
-        with patch.object(u, 'github', return_value={'assets': []}):
+    def test_download_channel_missing_asset_is_error(self):
+        source = dict(name='Example channel', path='unused', kind='github-channel',
+                      repo='example/project', asset='required.tar.gz')
+        with patch.object(u, 'current_pin', return_value='latest'), \
+                patch.object(u, 'github', return_value={'assets': []}):
             self.assertEqual(u.check(source)['status'], 'error')
+
+    def test_report_respects_cadence_before_network_requests(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        all_names = {s['name'] for s in sources + u.npm_sources(ROOT)}
+        for cadence in ('daily', 'quarterly', 'all'):
+            def result(source):
+                return dict(name=source['name'], path=source['path'], current='x',
+                            latest='x', status='current', link='')
+            with self.subTest(cadence=cadence), \
+                    patch.object(sys, 'argv', ['check-upstream.py', '--cadence', cadence]), \
+                    patch.object(u, 'check', side_effect=result) as check, \
+                    patch.object(u, 'check_alpine_inventory', return_value=[]) as alpine, \
+                    patch.object(sys, 'stdout', io.StringIO()), \
+                    patch.dict(u.os.environ, {'GITHUB_STEP_SUMMARY': ''}):
+                u.main()
+            names = {c.args[0]['name'] for c in check.call_args_list}
+            expected = {'tinyalsa'} if cadence == 'quarterly' else all_names - ({'tinyalsa'} if cadence == 'daily' else set())
+            self.assertEqual(names, expected)
+            self.assertEqual(alpine.call_count, int(cadence != 'quarterly'))
+            self.assertFalse(any('picoclaw' in name.lower() for name in names))
+
+    def test_unknown_cadence_fails_visibly(self):
+        with self.assertRaisesRegex(ValueError, 'Unknown check cadence'):
+            u.select_sources([], 'monthly')
+        for cadence in ('all', 'daily', 'quarterly'):
+            with self.subTest(cadence=cadence), self.assertRaisesRegex(ValueError, 'Unknown source cadence'):
+                u.select_sources([dict(name='bad', cadence='quartery')], cadence)
 
     def test_alpine_fetch_failure_is_error(self):
         with patch.object(u, 'request_bytes', side_effect=OSError('mirror down')):

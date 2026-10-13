@@ -17,7 +17,7 @@ spec.loader.exec_module(publisher)
 upstream = publisher.upstream
 MODES = {'archive-pin', 'git-pin', 'review'}
 CHANGED = {'update available', 'upstream changes', 'review module release',
-           'review branch divergence', 'review upstream replacement', 'recipe changes'}
+           'review branch divergence', 'review upstream replacement'}
 
 
 def branch_for(identifier, target):
@@ -234,12 +234,6 @@ def proposal(source, result, root=ROOT):
         body += '**Automatic pin preparation needs attention:** ' + error + '\n\n'
     if result.get('detail'):
         body += result['detail'] + '\n\n'
-    if result.get('recipe_diff'):
-        fence = chr(96) * 3
-        body += 'Recipe differences against our locally patched baseline:\n\n' + fence + 'diff\n'
-        body += result['recipe_diff'][:16000] + '\n' + fence + '\n\n'
-        if len(result['recipe_diff']) > 16000:
-            body += 'Diff truncated; use the upstream comparison for the remaining changes.\n\n'
     body += """Before marking ready:
 - Review the upstream changes and preserve NanoKVM patches, generated code and protocol compatibility.
 - Update remaining version guards, companion metadata, source hashes and configuration as needed.
@@ -252,26 +246,22 @@ No automatic merge or device installation is enabled. For GITHUB_TOKEN-created P
                 body=body, files=files, preparation_error=error)
 
 
-def collect(root=ROOT):
-    sources = policies(root)
+def collect(root=ROOT, cadence='all'):
+    sources = upstream.select_sources(policies(root), cadence)
     with ThreadPoolExecutor(max_workers=4) as workers:
         results = list(workers.map(lambda source: upstream.check(source, root), sources))
-    pairs = list(zip(sources, results))
-    for result in upstream.check_buildroot_recipes(root):
-        name = result['name'].removeprefix('Buildroot: ')
-        policy = {'id': 'buildroot-recipe-' + name, 'mode': 'review'}
-        pairs.append((dict(name=result['name'], pull_request=policy), result))
-    return pairs
+    return list(zip(sources, results))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--publish', action='store_true')
+    parser.add_argument('--cadence', choices=('all', 'daily', 'quarterly'), default='all')
     parser.add_argument('--output', type=Path, help='save candidate/error summary as JSON')
     args = parser.parse_args()
     summary = []
     failures = []
-    for source, result in collect():
+    for source, result in collect(cadence=args.cadence):
         status = result['status']
         item = dict(name=source['name'], status=status, current=result['current'], latest=result['latest'])
         try:

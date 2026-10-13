@@ -1,0 +1,12 @@
+{
+  "component": "PicoClaw download channel",
+  "current": "latest release channel",
+  "candidate": "v0.3.1",
+  "candidate_key": "v0.3.1",
+  "status": "pending-review",
+  "upstream": "https://github.com/sipeed/picoclaw/releases/tag/v0.3.1",
+  "source_path": "server/service/picoclaw/runtime_constants.go",
+  "strategy": "review",
+  "evidence": {},
+  "pin_files_updated": []
+}

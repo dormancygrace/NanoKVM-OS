@@ -629,8 +629,7 @@
       "deleteConfirmCancel": "Скасувати",
       "messageCount_one": "{{count}} повідомлення",
       "messageCount_few": "{{count}} повідомлення",
-      "messageCount_many": "{{count}} повідомлень",
-      "messageCount_other": "{{count}} повідомлення"
+      "messageCount_many": "{{count}} повідомлень"
     },
     "config": {
       "startRuntime": "Запустити PicoClaw",

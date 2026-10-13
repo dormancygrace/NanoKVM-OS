@@ -8,11 +8,11 @@ exec 9>/run/nanokvm-boot.lock
 flock -x 9
 payload=/usr/lib/nanokvm/boot
 selection=/etc/kvm/video-memory-mode
-# Video memory modes: fhd (1920x1080, 40 MiB reusable CMA, the default),
-# fhd-fixed (40 MiB), qhd (2560x1440, 56 MiB CMA), qhd-fixed (54 MiB) and uhd
-# (3840x2160, 104 MiB, always fixed). Earlier releases named them cma (128 MiB CMA), fixed and
-# uhd; they keep their capability: cma -> qhd, fixed -> qhd-fixed.
-legacy_mode() { case "$1" in cma) echo qhd;; fixed) echo qhd-fixed;; *) echo "$1";; esac; }
+# Video memory modes, each a fixed carveout: fhd (1920x1080, 40 MiB, the
+# default), qhd (2560x1440, 54 MiB) and uhd (3840x2160, 104 MiB). Earlier
+# releases also had cma (128 MiB CMA), fixed, fhd-fixed and qhd-fixed; they
+# keep their capability: cma, fixed and qhd-fixed -> qhd, fhd-fixed -> fhd.
+legacy_mode() { case "$1" in cma|fixed|qhd-fixed) echo qhd;; fhd-fixed) echo fhd;; *) echo "$1";; esac; }
 # The mode of the running boot image, for a device without a selection.
 running_mode() {
     dt=/sys/firmware/devicetree/base
@@ -26,7 +26,7 @@ running_mode() {
         echo qhd
     elif [ "$(tr -d '\000' < "$dt/reserved-memory/ion/compatible" 2>/dev/null || true)" = ion-region ]; then
         set -- $(od -An -tu1 -N4 "$dt/reserved-memory/ion/size" 2>/dev/null || echo 0)
-        if [ "$1" -ge 8 ]; then echo uhd; else echo qhd-fixed; fi
+        if [ "$1" -ge 8 ]; then echo uhd; else echo qhd; fi
     else
         echo fhd
     fi
@@ -39,7 +39,7 @@ else
     mode=$(running_mode)
 fi
 mode=$(legacy_mode "$mode")
-case "$mode" in fhd|fhd-fixed|qhd|qhd-fixed|uhd) ;; *) echo 'Invalid video memory mode' >&2; exit 1;; esac
+case "$mode" in fhd|qhd|uhd) ;; *) echo 'Invalid video memory mode' >&2; exit 1;; esac
 profile=${1:-$(tr -d '\000' < /sys/firmware/devicetree/base/sipeed,board-revision)}
 case "$profile" in alpha|beta|pcie|lite) ;; *) echo "Unsupported board profile: $profile" >&2; exit 1;; esac
 # The default mode is the board's own image, the others add the mode.

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Checkbox, message, Progress, Select, Spin, Switch } from 'antd';
+import { Alert, message, Progress, Select, Spin, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
@@ -7,8 +7,6 @@ import type { MemoryStatus, MemorySwap } from '@/api/vm.ts';
 import { swapRequestSize } from '@/lib/swap-request.ts';
 import { themeTokens } from '@/lib/theme-tokens.ts';
 import {
-  canChooseFixed,
-  isFixedOnly,
   parseVideoMemoryMode,
   pickVideoMemoryMode,
   videoMemoryResolutions,
@@ -24,18 +22,10 @@ export const Memory = () => {
   const [data, setData] = useState<MemoryStatus>();
   const [busy, setBusy] = useState<'zram' | 'sd' | 'video' | ''>('');
   const [loadError, setLoadError] = useState('');
-  // The Fixed choice outlives UHD, which forces it on: UHD then QHD keeps it.
-  const [fixedChoice, setFixedChoice] = useState(false);
   const mounted = useRef(false);
   const generation = useRef(0);
   const mutating = useRef(false);
   const readInFlight = useRef<Promise<void> | null>(null);
-  const selectedVideoMode = data?.videoMemory?.selected;
-
-  useEffect(() => {
-    const parsed = selectedVideoMode ? parseVideoMemoryMode(selectedVideoMode) : undefined;
-    if (parsed && !isFixedOnly(parsed.resolution)) setFixedChoice(parsed.fixed);
-  }, [selectedVideoMode]);
 
   const refresh = useCallback(
     async function refresh(afterPending = false): Promise<void> {
@@ -151,20 +141,18 @@ export const Memory = () => {
   }
 
   function videoLabel(mode: string) {
-    const parsed = parseVideoMemoryMode(mode);
-    if (!parsed) return t('settings.memory.videoUnknown');
-    const label = t(`settings.memory.videoRes_${parsed.resolution}`);
-    return parsed.fixed ? `${label} · ${t('settings.memory.videoFixed')}` : label;
+    const resolution = parseVideoMemoryMode(mode);
+    return resolution
+      ? t(`settings.memory.videoRes_${resolution}`)
+      : t('settings.memory.videoUnknown');
   }
 
   function videoMemoryCard(video: MemoryStatus['videoMemory']) {
     const installed: readonly string[] = video.modes ?? [];
-    const selected = parseVideoMemoryMode(video.selected);
-    const resolution = selected?.resolution ?? 'fhd';
-    const forced = isFixedOnly(resolution);
+    const resolution = parseVideoMemoryMode(video.selected) ?? 'fhd';
     const disabled = !!busy || !video.available;
-    const select = (target: VideoMemoryResolution, fixed: boolean) => {
-      const mode = pickVideoMemoryMode(installed, target, fixed);
+    const select = (target: VideoMemoryResolution) => {
+      const mode = pickVideoMemoryMode(installed, target);
       if (mode && mode !== video.selected) void changeVideo(mode);
     };
     return (
@@ -185,28 +173,11 @@ export const Memory = () => {
             options={videoMemoryResolutions.map((value) => ({
               value,
               label: t(`settings.memory.videoRes_${value}`),
-              disabled: !installed.some((mode) => parseVideoMemoryMode(mode)?.resolution === value)
+              disabled: !pickVideoMemoryMode(installed, value)
             }))}
-            onChange={(value) => select(value, forced ? fixedChoice : !!selected?.fixed)}
+            onChange={(value) => select(value)}
           />
         </SettingRow>
-        <div className="space-y-1">
-          <Checkbox
-            id="video-memory-fixed"
-            aria-describedby="video-memory-fixed-hint"
-            checked={forced || !!selected?.fixed}
-            disabled={disabled || !canChooseFixed(installed, resolution)}
-            onChange={(event) => {
-              setFixedChoice(event.target.checked);
-              select(resolution, event.target.checked);
-            }}
-          >
-            {t('settings.memory.videoFixed')}
-          </Checkbox>
-          <p id="video-memory-fixed-hint" className="text-fg-muted m-0 text-xs">
-            {t(forced ? 'settings.memory.videoFixedUhd' : 'settings.memory.videoFixedHint')}
-          </p>
-        </div>
         <p className="m-0 text-sm">
           {t('settings.memory.videoActive')}: {videoLabel(video.active)}
         </p>

@@ -9,13 +9,11 @@ import (
 	"testing"
 )
 
-// The pools of the five video memory modes (platform/build.sh).
+// The pools of the three video memory modes (platform/build.sh).
 var (
-	poolFHD      = VideoPool{MiB: 40, Reusable: true}
-	poolFHDFixed = VideoPool{MiB: 40}
-	poolQHD      = VideoPool{MiB: 56, Reusable: true}
-	poolQHDFixed = VideoPool{MiB: 54}
-	poolUHD      = VideoPool{MiB: 104}
+	poolFHD = VideoPool{MiB: 40}
+	poolQHD = VideoPool{MiB: 54}
+	poolUHD = VideoPool{MiB: 104}
 )
 
 func TestVideoPoolGatesMatchTheModes(t *testing.T) {
@@ -25,11 +23,10 @@ func TestVideoPoolGatesMatchTheModes(t *testing.T) {
 		qhd, portraitMax, uhd bool
 	}{
 		{"fhd", poolFHD, false, false, false},
-		{"fhd-fixed", poolFHDFixed, false, false, false},
 		{"qhd", poolQHD, true, true, false},
-		{"qhd-fixed", poolQHDFixed, true, true, false},
 		{"uhd", poolUHD, true, true, true},
-		// There is no UHD image as CMA: it failed to get its buffers.
+		// The CMA images of earlier releases: UHD as CMA failed to get its buffers.
+		{"qhd as CMA", VideoPool{MiB: 56, Reusable: true}, true, true, false},
 		{"uhd as CMA", VideoPool{MiB: 128, Reusable: true}, true, true, false},
 		{"no node", VideoPool{}, false, false, false},
 		{"just below QHD", VideoPool{MiB: 53}, false, false, false},
@@ -55,8 +52,8 @@ func TestBootedVideoPoolReadsTheDeviceTree(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "reusable"), nil, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if p := BootedVideoPool(); p != poolQHD {
-		t.Fatalf("qhd: %+v", p)
+	if p := BootedVideoPool(); p != (VideoPool{MiB: 56, Reusable: true}) {
+		t.Fatalf("qhd as CMA: %+v", p)
 	}
 	if !SupportsQHD() || SupportsUHD() {
 		t.Fatal("QHD pool: wrong capabilities")
@@ -123,20 +120,20 @@ func TestMonitorFitsVideoPool(t *testing.T) {
 		portraitResolution int
 		fits               map[string]bool
 	}{
-		{"auto", 0, false, 1920, map[string]bool{"fhd": true, "fhd-fixed": true, "qhd": true, "qhd-fixed": true, "uhd": true}},
-		{"1080p", 1080, false, 1920, map[string]bool{"fhd": true, "fhd-fixed": true, "qhd": true, "qhd-fixed": true, "uhd": true}},
-		{"1440p", 1440, false, 1920, map[string]bool{"fhd": false, "fhd-fixed": false, "qhd": true, "qhd-fixed": true, "uhd": true}},
-		{"2160p", 2160, false, 1920, map[string]bool{"fhd": false, "fhd-fixed": false, "qhd": false, "qhd-fixed": false, "uhd": true}},
-		{"portrait 1080x1920", 1080, true, 1920, map[string]bool{"fhd": false, "fhd-fixed": false, "qhd": true, "qhd-fixed": true, "uhd": true}},
-		{"portrait 1440x2560", 1080, true, 2560, map[string]bool{"fhd": false, "fhd-fixed": false, "qhd": true, "qhd-fixed": true, "uhd": true}},
+		{"auto", 0, false, 1920, map[string]bool{"fhd": true, "qhd": true, "uhd": true}},
+		{"1080p", 1080, false, 1920, map[string]bool{"fhd": true, "qhd": true, "uhd": true}},
+		{"1440p", 1440, false, 1920, map[string]bool{"fhd": false, "qhd": true, "uhd": true}},
+		{"2160p", 2160, false, 1920, map[string]bool{"fhd": false, "qhd": false, "uhd": true}},
+		{"portrait 1080x1920", 1080, true, 1920, map[string]bool{"fhd": false, "qhd": true, "uhd": true}},
+		{"portrait 1440x2560", 1080, true, 2560, map[string]bool{"fhd": false, "qhd": true, "uhd": true}},
 		// Turning portrait off restores the landscape profile.
-		{"portrait over 2160p", 2160, true, 1920, map[string]bool{"fhd": false, "fhd-fixed": false, "qhd": false, "qhd-fixed": false, "uhd": true}},
+		{"portrait over 2160p", 2160, true, 1920, map[string]bool{"fhd": false, "qhd": false, "uhd": true}},
 		// An inactive portrait choice advertises nothing.
-		{"saved portrait size, portrait off", 1080, false, 2560, map[string]bool{"fhd": true, "fhd-fixed": true, "qhd": true, "qhd-fixed": true, "uhd": true}},
+		{"saved portrait size, portrait off", 1080, false, 2560, map[string]bool{"fhd": true, "qhd": true, "uhd": true}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			monitorState(t, tc.height, tc.portrait, tc.portraitResolution)
-			pools := map[string]VideoPool{"fhd": poolFHD, "fhd-fixed": poolFHDFixed, "qhd": poolQHD, "qhd-fixed": poolQHDFixed, "uhd": poolUHD}
+			pools := map[string]VideoPool{"fhd": poolFHD, "qhd": poolQHD, "uhd": poolUHD}
 			for mode, want := range tc.fits {
 				err := MonitorFitsVideoPool(pools[mode])
 				if (err == nil) != want {
@@ -165,7 +162,6 @@ func TestFitMonitorToVideoPool(t *testing.T) {
 		{"fits", poolQHD, 1440, false, 1920, 1440, false, 0, true},
 		{"uhd stays", poolUHD, 2160, true, 2560, 2160, true, 0, true},
 		{"1440p under FHD", poolFHD, 1440, false, 1920, 1080, false, 1, true},
-		{"1440p under fixed FHD", poolFHDFixed, 1440, false, 1920, 1080, false, 1, true},
 		{"2160p under QHD", poolQHD, 2160, false, 1920, 1440, false, 1, true},
 		{"2160p under QHD with portrait", poolQHD, 2160, true, 1920, 1440, true, 1, true},
 		{"2160p under FHD", poolFHD, 2160, false, 1920, 1080, false, 1, true},

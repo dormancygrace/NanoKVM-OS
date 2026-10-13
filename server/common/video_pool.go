@@ -10,7 +10,8 @@ import (
 var ionNodeDir = "/proc/device-tree/reserved-memory/ion"
 
 // VideoPool is the ION video memory of a boot image: its size in whole MiB
-// and whether it is reusable CMA, whose idle pages Linux may borrow.
+// and whether it is reusable CMA, whose idle pages Linux may borrow (boot
+// images of earlier releases; the current ones are fixed carveouts).
 type VideoPool struct {
 	MiB      int
 	Reusable bool

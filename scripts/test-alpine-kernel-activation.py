@@ -9,7 +9,7 @@ COMPOSE = ROOT/'platform/boot/compose-fit'
 # A miniature FIT: 4 bytes, the 8-byte device tree, its 32-byte SHA-256, 4 bytes.
 TEMPLATE = b'HEAD' + bytes(8) + bytes(32) + b'TAIL'
 # One 8-byte device tree per video memory mode, as the layout below expects.
-DTBS = {'fhd': b'pcie-fhd', 'fhd-fixed': b'pcie-ffx', 'qhd': b'pcie-qhd', 'qhd-fixed': b'pcie-qfx', 'uhd': b'pcie-uhd'}
+DTBS = {'fhd': b'pcie-fhd', 'qhd': b'pcie-qhd', 'uhd': b'pcie-uhd'}
 def composed(dtb):
     return b'HEAD' + dtb + hashlib.sha256(dtb).digest() + b'TAIL'
 class ActivationTests(unittest.TestCase):
@@ -73,7 +73,7 @@ class ActivationTests(unittest.TestCase):
         self.assertEqual((self.boot/'boot.sd').read_bytes(),composed(fit))
         self.assertEqual((self.boot/'video-memory-mode').read_text(),self.selected())
     def test_resolution_selections_survive_kernel_update(self):
-        for mode in ('fhd-fixed','qhd','qhd-fixed','uhd'):
+        for mode in ('qhd','uhd'):
             with self.subTest(mode=mode):
                 self.image(mode)
                 self.select(mode)
@@ -91,7 +91,7 @@ class ActivationTests(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertEqual(self.selected(),'fhd\n')
     def test_legacy_selection_keeps_its_capability(self):
-        for legacy,mode in {'cma':'qhd','fixed':'qhd-fixed','uhd':'uhd'}.items():
+        for legacy,mode in {'cma':'qhd','fixed':'qhd','qhd-fixed':'qhd','fhd-fixed':'fhd','uhd':'uhd'}.items():
             with self.subTest(legacy=legacy):
                 self.image(mode)
                 self.select(legacy)
@@ -100,7 +100,7 @@ class ActivationTests(unittest.TestCase):
                 self.booted(DTBS[mode])
                 self.assertEqual(self.selected(),mode+'\n')
     def test_no_selection_follows_the_running_image(self):
-        for raw,mode in {'cma':'qhd','fixed':'qhd-fixed','uhd':'uhd','qhd':'qhd','fhd-fixed':'fhd-fixed','fhd':'fhd'}.items():
+        for raw,mode in {'cma':'qhd','fixed':'qhd','qhd-fixed':'qhd','uhd':'uhd','qhd':'qhd','fhd-fixed':'fhd','fhd':'fhd'}.items():
             with self.subTest(running=raw):
                 (self.root/'etc/kvm/video-memory-mode').unlink(missing_ok=True)
                 self.image(mode)
@@ -110,7 +110,7 @@ class ActivationTests(unittest.TestCase):
     def test_no_selection_follows_a_running_image_without_the_property(self):
         ion=self.dt/'reserved-memory/ion'
         backend=self.dt/'cvitek-ion/heap-carveout/nanokvm,cma-backend'
-        for layout,mode in (('cma','qhd'),('fixed','qhd-fixed'),('uhd','uhd')):
+        for layout,mode in (('cma','qhd'),('fixed','qhd'),('uhd','uhd')):
             with self.subTest(layout=layout):
                 (self.root/'etc/kvm/video-memory-mode').unlink(missing_ok=True)
                 self.image(mode)
@@ -123,8 +123,8 @@ class ActivationTests(unittest.TestCase):
                     (ion/'size').write_bytes(bytes([8 if layout=='uhd' else 4,0,0,0]))
                 self.assertEqual(self.run_activation().returncode,0)
                 self.booted(DTBS[mode])
-    def test_missing_fixed_payload_does_not_silently_switch_to_cma(self):
-        self.select('qhd-fixed')
+    def test_missing_payload_does_not_silently_switch(self):
+        self.select('qhd')
         self.assertNotEqual(self.run_activation().returncode,0)
         self.assertEqual((self.boot/'boot.sd').read_bytes(),b'old FIT')
     def test_missing_legacy_mapped_payload_does_not_silently_switch(self):

@@ -1,0 +1,19 @@
+{
+  "component": "tinyalsa",
+  "current": "961babfe962e71d952ae734074cc89576b28a9e7",
+  "candidate": "37c7b00e1008c451d5910303322422f7b82331be",
+  "candidate_key": "37c7b00e1008c451d5910303322422f7b82331be",
+  "status": "pending-review",
+  "upstream": "https://github.com/tinyalsa/tinyalsa/compare/961babfe962e71d952ae734074cc89576b28a9e7...37c7b00e1008c451d5910303322422f7b82331be",
+  "source_path": "platform/sources.lock",
+  "strategy": "git-pin",
+  "evidence": {
+    "commit": "37c7b00e1008c451d5910303322422f7b82331be",
+    "objects": {
+      ".": "895ec8d639636ebc9bcbc61f3ebd2201a741d8e1"
+    }
+  },
+  "pin_files_updated": [
+    "platform/sources.lock"
+  ]
+}

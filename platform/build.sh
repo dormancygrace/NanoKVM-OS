@@ -968,6 +968,9 @@ rootfs() {
     done
     awk -F: '/^P:/ { p = substr($0, 3) } /^V:/ { print p "=" substr($0, 3) }' "$r/lib/apk/db/installed" |
         LC_ALL=C sort > "$rel/installed-packages.txt"
+    # The license each Alpine package declares (its SPDX expression).
+    awk '/^P:/ { p = substr($0, 3) } /^V:/ { v = substr($0, 3) } /^L:/ { print p "=" v "\t" substr($0, 3) }' \
+        "$r/lib/apk/db/installed" | LC_ALL=C sort > "$rel/installed-licenses.txt"
     tar --numeric-owner -czf "$rel/alpine-rootfs.tar.gz" --exclude='./boot/*' --exclude='./data/*' \
         --exclude='./dev/*' --exclude='./proc/*' --exclude='./sys/*' --exclude='./run/*' --exclude='./tmp/*' \
         -C "$r" .

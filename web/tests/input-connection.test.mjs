@@ -148,23 +148,10 @@ test('intentional close while connecting cannot reconnect or report a late open'
 test('connection feedback resolves in both shipped locales and fallback', async () => {
   const resources = {};
   for (const language of ['en', 'ru']) {
-    const source = readFileSync(
-      new URL(`../src/i18n/locales/${language}.ts`, import.meta.url),
-      'utf8'
+    const translation = JSON.parse(
+      readFileSync(new URL(`../src/i18n/locales/${language}.json`, import.meta.url), 'utf8')
     );
-    const code = ts.transpileModule(source, {
-      compilerOptions: { module: ts.ModuleKind.CommonJS }
-    }).outputText;
-    const sandbox = { exports: {} };
-    const holdSource = readFileSync(new URL('../src/lib/hold-keepalive.ts', import.meta.url), 'utf8');
-  const holdCode = ts.transpileModule(holdSource, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
-  }).outputText;
-  vm.runInNewContext(holdCode, sandbox);
-  sandbox.HoldKeepalive = sandbox.exports.HoldKeepalive;
-  sandbox.KEEPALIVE_MESSAGE = sandbox.exports.KEEPALIVE_MESSAGE;
-  vm.runInNewContext(code, sandbox);
-    resources[language] = sandbox.exports.default;
+    resources[language] = { translation };
   }
   const translator = i18next.createInstance();
   await translator.init({ resources, lng: 'en', fallbackLng: 'en' });
@@ -179,22 +166,26 @@ test('connection feedback resolves in both shipped locales and fallback', async 
 });
 
 test('socket opts in once, sends hold keepalive only while held, and resets on disconnect', () => {
-  const f = fixture(), c = f.client;
+  const f = fixture(),
+    c = f.client;
   c.connect();
   const socket = f.sockets[0];
   socket.open();
-  assert.deepEqual(socket.sent.map(x => Array.from(x)), [[4], [0]]);
+  assert.deepEqual(
+    socket.sent.map((x) => Array.from(x)),
+    [[4], [0]]
+  );
   c.setInputEnabled(true);
   c.setControlEnabled(true);
-  c.send(new Uint8Array([1,0,0,4,0,0,0,0,0]));
+  c.send(new Uint8Array([1, 0, 0, 4, 0, 0, 0, 0, 0]));
   assert.equal(f.timers.size, 2);
   f.tick(50);
   assert.ok(socket.sent.some((x, i) => i > 1 && x.length === 1 && x[0] === 4));
   c.setControlEnabled(false);
   assert.equal(f.timers.size, 1);
-  assert.deepEqual(Array.from(socket.sent.at(-1)), [1,0,0,0,0,0,0,0,0]);
+  assert.deepEqual(Array.from(socket.sent.at(-1)), [1, 0, 0, 0, 0, 0, 0, 0, 0]);
   c.setControlEnabled(true);
-  c.send(new Uint8Array([2,1,0,0,0]));
+  c.send(new Uint8Array([2, 1, 0, 0, 0]));
   assert.equal(f.timers.size, 2);
   socket.close();
   assert.equal(f.timers.size, 1); // reconnect only

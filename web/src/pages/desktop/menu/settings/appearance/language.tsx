@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import languages from '@/i18n/languages.ts';
 import { changeLoadedLanguage, localeTag } from '@/i18n/locale-loader.ts';
+import { translateUrl } from '@/i18n/weblate.ts';
 import { setLanguage } from '@/lib/localstorage.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
 
@@ -40,7 +41,14 @@ export const Language = () => {
   return (
     <SettingRow
       label={t('settings.appearance.language')}
-      description={t('settings.appearance.languageDesc')}
+      description={
+        <>
+          {t('settings.appearance.languageDesc')} ·{' '}
+          <a href={translateUrl(i18n.language)} target="_blank" rel="noreferrer">
+            {t('settings.appearance.helpTranslate')}
+          </a>
+        </>
+      }
       htmlFor="appearance-language"
     >
       <Select

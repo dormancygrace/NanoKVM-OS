@@ -16,6 +16,10 @@ package common
         int (*fn)(unsigned char) = (int (*)(unsigned char))dlsym(RTLD_DEFAULT, "kvmv_set_capture_fps");
         return fn ? fn(fps) : -1;
     }
+    static int set_capture_parked(unsigned char parked) {
+        int (*fn)(unsigned char) = (int (*)(unsigned char))dlsym(RTLD_DEFAULT, "kvmv_set_capture_parked");
+        return fn ? fn(parked) : -1;
+    }
 */
 import "C"
 import (
@@ -227,6 +231,19 @@ func (k *KvmVision) SetHDMI(enable bool) int {
 	}
 
 	return result
+}
+
+// SetCaptureParked disables the VPSS outputs while nobody reads frames and
+// enables them again; a frame read also resumes them. -1 means the library
+// cannot park.
+func (k *KvmVision) SetCaptureParked(parked bool) int {
+	k.mutex.RLock()
+	defer k.mutex.RUnlock()
+	if k.closed {
+		return -1
+	}
+	defer k.pauseCaptureLocked()()
+	return int(C.set_capture_parked(C.uchar(boolToInt(parked))))
 }
 
 func (k *KvmVision) HasHDMISignal() bool {

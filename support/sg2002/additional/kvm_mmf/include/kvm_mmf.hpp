@@ -84,6 +84,9 @@ extern "C" {
 // pre-submitted between two reads. Any other value is an error.
 #define MMF_VI_OUTPUT_LEASED 1
 int mmf_vi_drop_pending(int ch);
+// Enables or disables an open output's VPSS channel without touching its
+// pool, queue or leases.
+int mmf_vi_chn_set_enabled(int ch, int enable);
 int mmf_add_vi_channel_configured(int ch, int width, int height, int format, int buffers, int queue_depth);
 int mmf_set_venc_gop_mode(uint8_t mode);
 uint8_t mmf_get_venc_gop_mode(void);

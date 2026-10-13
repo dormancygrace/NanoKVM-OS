@@ -16,6 +16,10 @@ import (
 
 const hdmiCaptureWarmupDuration = time.Second
 
+// Without viewers the VPSS outputs are parked after this delay, so a page
+// reload does not park and resume them.
+var hdmiCaptureParkDelay = 20 * time.Second
+
 var (
 	hdmiMutex           sync.Mutex
 	hdmiCaptureReadSlot = make(chan struct{}, 1)
@@ -23,11 +27,15 @@ var (
 	hdmiIdleGeneration  uint64
 	hdmiDemand          = hdmistate.New()
 	hdmiStoppedForIdle  bool
+	hdmiParkTimer       *time.Timer
+	hdmiCaptureParked   bool
 
-	setHDMI            = func(enabled bool) { common.GetKvmVision().SetHDMI(enabled) }
-	isHdmiDisabled     = utils.IsHdmiDisabled
-	getHdmiIdleTimeout = utils.GetHDMIIdleTimeout
-	getHdmiSignal      = func() bool { return common.GetKvmVision().HasHDMISignal() }
+	setHDMI                = func(enabled bool) { common.GetKvmVision().SetHDMI(enabled) }
+	isHdmiDisabled         = utils.IsHdmiDisabled
+	getHdmiIdleTimeout     = utils.GetHDMIIdleTimeout
+	persistHdmiIdleTimeout = utils.PersistHDMIIdleTimeout
+	getHdmiSignal          = func() bool { return common.GetKvmVision().HasHDMISignal() }
+	setCaptureParked       = func(parked bool) bool { return common.GetKvmVision().SetCaptureParked(parked) == 0 }
 )
 
 func (s *Service) ResetHdmi(c *gin.Context) {
@@ -97,6 +105,8 @@ func EnableHdmiCapture() {
 	hdmiStoppedForIdle = false
 	hdmiIdleGeneration++
 	stopHdmiIdleTimerLocked()
+	stopHdmiParkTimerLocked()
+	scheduleHdmiParkTimerLocked()
 	scheduleHdmiIdleTimerLocked()
 }
 
@@ -109,6 +119,7 @@ func DisableHdmiCapture() {
 	hdmiStoppedForIdle = false
 	hdmiIdleGeneration++
 	stopHdmiIdleTimerLocked()
+	stopHdmiParkTimerLocked()
 }
 
 func (s *Service) SetHdmiIdleTimeout(c *gin.Context) {
@@ -129,13 +140,14 @@ func SetHdmiIdleTimeout(minutes int) {
 		return
 	}
 
-	utils.PersistHDMIIdleTimeout(minutes)
+	persistHdmiIdleTimeout(minutes)
 
 	hdmiMutex.Lock()
 	defer hdmiMutex.Unlock()
 
 	hdmiIdleGeneration++
 	stopHdmiIdleTimerLocked()
+	stopHdmiParkTimerLocked()
 	if hdmiStoppedForIdle && !isHdmiDisabled() {
 		resumeHdmiCaptureLocked()
 		hdmiStoppedForIdle = false
@@ -143,6 +155,7 @@ func SetHdmiIdleTimeout(minutes int) {
 	if !hdmiDemand.HasDemand() && !hdmiStoppedForIdle {
 		scheduleHdmiIdleTimerLocked()
 	}
+	scheduleHdmiParkTimerLocked()
 }
 
 func SetHdmiViewerCount(count int) {
@@ -259,8 +272,10 @@ func acquireHdmiCaptureLease() (func(), time.Time) {
 func reconcileHdmiCaptureDemandLocked() {
 	hdmiIdleGeneration++
 	stopHdmiIdleTimerLocked()
+	stopHdmiParkTimerLocked()
 
 	if hdmiHasCaptureDemandLocked() {
+		resumeParkedCaptureLocked()
 		if hdmiStoppedForIdle && !isHdmiDisabled() {
 			resumeHdmiCaptureLocked()
 		}
@@ -268,7 +283,53 @@ func reconcileHdmiCaptureDemandLocked() {
 		return
 	}
 
+	scheduleHdmiParkTimerLocked()
 	scheduleHdmiIdleTimerLocked()
+}
+
+func stopHdmiParkTimerLocked() {
+	if hdmiParkTimer != nil {
+		hdmiParkTimer.Stop()
+		hdmiParkTimer = nil
+	}
+}
+
+// With no viewer, VPSS still converted every input frame for nobody. Parking
+// disables its outputs and keeps their memory; the HDMI idle timeout below is
+// a separate, user-configured stop of the input.
+func scheduleHdmiParkTimerLocked() {
+	if hdmiHasCaptureDemandLocked() || hdmiCaptureParked || isHdmiDisabled() {
+		return
+	}
+
+	generation := hdmiIdleGeneration
+	hdmiParkTimer = time.AfterFunc(hdmiCaptureParkDelay, func() {
+		hdmiMutex.Lock()
+		defer hdmiMutex.Unlock()
+
+		if generation != hdmiIdleGeneration || hdmiHasCaptureDemandLocked() || hdmiCaptureParked || isHdmiDisabled() {
+			return
+		}
+		hdmiParkTimer = nil
+		if !setCaptureParked(true) {
+			log.Info("video capture not parked; it keeps converting frames without viewers")
+			return
+		}
+		hdmiCaptureParked = true
+		log.Debug("parked video capture without viewers")
+	})
+}
+
+// A frame read resumes parked outputs by itself; resuming here first keeps
+// the first read of a new viewer from paying for it.
+func resumeParkedCaptureLocked() {
+	if !hdmiCaptureParked {
+		return
+	}
+	hdmiCaptureParked = false
+	if !setCaptureParked(false) {
+		log.Warn("failed to resume parked video capture; the next read retries")
+	}
 }
 
 func hdmiHasCaptureDemandLocked() bool {

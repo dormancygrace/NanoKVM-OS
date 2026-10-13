@@ -266,6 +266,14 @@ void debug(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 kvm_venc_t kvm_venc;
 
+/* With no reader, VPSS kept converting every input frame into outputs that
+   nobody took ("Can't acquire VB BLK" once both buffers were held). Parked
+   outputs stay configured but disabled: their pools stay allocated, so
+   resuming needs no video memory; reopening a channel after idle can
+   exhaust the carveout (see kvmv_hdmi_control). */
+static std::atomic<bool> capture_parked{false};
+static int set_capture_parked_locked(bool parked);
+
 static bool restart_capture()
 {
     // A pipelined frame leases a VPSS buffer; retire it before the restart.
@@ -282,6 +290,8 @@ static bool restart_capture()
     kvmv_cfg.vpss_height = default_vpss_height;
     kvmv_cfg.Auto_res = 0;
     kvmv_cfg.reinit_flag = 1;
+    // The detector restarts capture on its own; keep idle outputs parked.
+    if (capture_parked.load()) cam->set_enabled(false);
     return true;
 }
 
@@ -2293,6 +2303,10 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
     if(mutex_res != 0){
         return -5;
     }
+    if (set_capture_parked_locked(false) != 0) {
+        pthread_mutex_unlock(&vi_mutex);
+        return IMG_VENC_ERROR;
+    }
     /* Auto-detection remains in vi_detect_state == 1 while HDMI is absent so
        that a newly connected source is discovered.  Report the cable state
        before that transient state; otherwise callers see an endless -4
@@ -2899,6 +2913,45 @@ int kvmv_hdmi_control(uint8_t _en)
         return 0;
     }
     return -1;
+}
+
+/* Caller holds vi_mutex. Parking deletes the video and JPEG encoder
+   channels: a frame pre-submitted to the video encoder leases a VPSS buffer
+   until collected, the next viewer starts with a new channel and an IDR
+   anyway, and the encoder memory is free while nobody watches. */
+static int set_capture_parked_locked(bool parked)
+{
+    if (capture_parked.load() == parked) return 0;
+    if (parked) {
+        if (kvm_venc.enc_video_init) {
+            const int retired = mmf_del_venc_channel(kvm_venc.mmf_venc_chn);
+            if (retired != 0) return retired;
+            kvm_venc.enc_video_init = 0;
+        }
+        const int jpeg = mmf_enc_jpg_deinit(0);
+        if (jpeg != 0) return jpeg;
+        const int result = cam->set_enabled(false);
+        if (result != 0) {
+            cam->set_enabled(true);
+            return result;
+        }
+        capture_parked.store(true);
+        return 0;
+    }
+    const int result = cam->set_enabled(true);
+    if (result != 0) return result;
+    // Disabling released the queued frames, so the next one is fresh.
+    capture_parked.store(false);
+    return 0;
+}
+
+int kvmv_set_capture_parked(uint8_t parked)
+{
+    pthread_mutex_lock(&vi_mutex);
+    const int result = set_capture_parked_locked(parked != 0);
+    pthread_mutex_unlock(&vi_mutex);
+    if (result != 0) debug("[kvmv]capture %s failed: %d\n", parked ? "park" : "resume", result);
+    return result;
 }
 
 uint8_t kvmv_hdmi_signal_active()

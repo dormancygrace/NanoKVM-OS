@@ -29,7 +29,7 @@ def link(target,dst):
     if dst.is_symlink() or dst.is_file(): dst.unlink()
     dst.symlink_to(target)
 base=out/'base'; app=out/'app'; fw=out/'firmware-sg2002'
-enhanced_s15=r/'firmware/buildroot/board/enhanced/init.d/S15kvmhwd'
+enhanced_s15=r/'firmware/alpine/compat/S15kvmhwd'
 copy(r/'firmware/alpine/compat/nanokvm-firstboot-storage',base/'usr/libexec/nanokvm/firstboot-storage')
 copy(r/'firmware/alpine/compat/nanokvm-activate-kernel',base/'usr/libexec/nanokvm/activate-kernel')
 copy(r/'firmware/alpine/compat/nkos-board-select',base/'usr/sbin/nkos-board-select')

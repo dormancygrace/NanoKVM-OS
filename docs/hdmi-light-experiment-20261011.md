@@ -28,7 +28,7 @@ Dummy-функций, зависимости от малого ядра и из�
 
 ## Изменения в репозитории
 
-- `scripts/build-enhanced-mmf.py`: выбор `NANOKVM_MMF_PROFILE=full|hdmi-light`; по умолчанию hdmi-light; full оставлен для явно запрошенных сравнительных сборок.
+- `scripts/build-mmf.py`: выбор `NANOKVM_MMF_PROFILE=full|hdmi-light`; по умолчанию hdmi-light; full оставлен для явно запрошенных сравнительных сборок.
 - `scripts/nanokvm_mmf_link.py`: компактная линковка, сохранение MMF API и vendor callbacks, проверка ELF-зависимостей.
 - `scripts/build-hdmi-light.py`: сборка MMF/capture и отдельного комплекта с хешами, размерами и уведомлениями о лицензиях.
 - `scripts/test-mmf-light-link.py`: проверки C/C++ API, отказа при пустом API и обнаружения неразрешённых сильных ссылок.

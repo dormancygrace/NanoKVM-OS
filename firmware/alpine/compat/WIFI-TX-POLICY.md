@@ -45,4 +45,4 @@ removed afterward. A full boot/module-startup test with the option still needs
 qualification on the release image. Do not treat the parser
 test as a successful reboot or browser-decoding test.
 
-See [qualification and remaining limits](../../../../docs/VALIDATION.md).
+See [qualification and remaining limits](../../../docs/VALIDATION.md).

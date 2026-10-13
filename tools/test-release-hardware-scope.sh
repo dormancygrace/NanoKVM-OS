@@ -3,7 +3,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-HWD="$ROOT/firmware/buildroot/board/enhanced/init.d/S15kvmhwd"
+HWD="$ROOT/firmware/alpine/compat/S15kvmhwd"
 
 # Historical beta10/beta11 artifacts are PCIe-only.  The next source tree
 # detects board type from the OLED address, retaining the PCIe branch without

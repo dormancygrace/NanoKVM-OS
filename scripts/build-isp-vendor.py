@@ -2,7 +2,7 @@
 """Relink pinned Sophgo ISP/3A objects, then compile open ISP sources.
 
 The vendor algorithms remain Xuantie GCC10 binaries, not GCC16 source builds.
-Requires the same NANOKVM_* environment variables as build-enhanced-mpi.sh.
+Requires the same NANOKVM_* environment variables as build-mpi.sh.
 """
 from nanokvm_cpu_profile import flags as cpu_flags, record as record_cpu_profile
 from pathlib import Path

@@ -490,10 +490,10 @@ native() {
     local env=(NANOKVM_MPI_SOURCE="$n/src/cvi_mpi" NANOKVM_OSDRV_SOURCE="$out/modules/sources/osdrv"
                NANOKVM_KERNEL_SOURCE="$ksrc" NANOKVM_BUILDROOT_OUTPUT="$bo" NANOKVM_CMAKE="$host/cmake"
                JOBS="$jobs")
-    env "${env[@]}" bash "$repo/scripts/build-enhanced-mpi.sh"
-    env "${env[@]}" "$host/python3" "$repo/scripts/build-enhanced-isp-vendor.py"
+    env "${env[@]}" bash "$repo/scripts/build-mpi.sh"
+    env "${env[@]}" "$host/python3" "$repo/scripts/build-isp-vendor.py"
     env "${env[@]}" NANOKVM_JSON_C_SOURCE="$n/src/json-c" NANOKVM_MINIZ_SOURCE="$n/src/miniz" \
-        NANOKVM_MPI_THIRDPARTY_OUTPUT="$n/bin" "$host/python3" "$repo/scripts/build-enhanced-mpi-bin.py"
+        NANOKVM_MPI_THIRDPARTY_OUTPUT="$n/bin" "$host/python3" "$repo/scripts/build-mpi-bin.py"
     # Always ship one coherent HDMI-light bundle, regardless of inherited profile.
     env "${env[@]}" NANOKVM_SENSOR_SOURCE="$n/src/sensors" NANOKVM_INIH_SOURCE="$n/src/inih" \
         NANOKVM_MPI_THIRDPARTY_OUTPUT="$n/bin" NANOKVM_HDMI_LIGHT_OUTPUT="$n/hdmi-light" \
@@ -514,7 +514,7 @@ system() {
     unpack_git maixcdk . "$s/maixcdk"
     apply_patches "$s/maixcdk" "$here/native/maixcdk"
     NANOKVM_MAIXCDK_SOURCE=$s/maixcdk NANOKVM_BUILDROOT_OUTPUT=$bo NANOKVM_SYSTEM_OUTPUT=$s/out \
-        "$host/python3" "$repo/scripts/build-enhanced-system.py"
+        "$host/python3" "$repo/scripts/build-system.py"
     cp "$s/out/kvm_system" "$img/system/"
 }
 

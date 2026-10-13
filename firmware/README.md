@@ -206,7 +206,7 @@ module remove/error unwind, and complete board integration remain unqualified.
 
 Apply mpi/patches in order to the pinned cvi_mpi source. Set
 NANOKVM_MPI_SOURCE, NANOKVM_OSDRV_SOURCE, NANOKVM_KERNEL_SOURCE and
-NANOKVM_BUILDROOT_OUTPUT, then run scripts/build-enhanced-mpi.sh. It builds
+NANOKVM_BUILDROOT_OUTPUT, then run scripts/build-mpi.sh. It builds
 SYS/VI/VPSS/VO/RGN/GDC/VENC/VDEC/MISC/IVE static and shared libraries for CV181X
 with GCC16.2 and fresh musl. It checks that headers select CV181X without also
 selecting CV180X. The compiler triple now receives explicit C906/XTheadVector
@@ -242,7 +242,7 @@ PROT_NONE pages. Removing just the new load guard causes SIGSEGV (exit139).
 This standalone fresh-musl probe ran on the original 5.10.4 kernel; it does not
 qualify ISP hardware or the new kernel. Existing video service was not changed.
 
-scripts/build-enhanced-isp-vendor.py verifies all 53 pinned vendor object hashes,
+scripts/build-isp-vendor.py verifies all 53 pinned vendor object hashes,
 checks their names against the Makefile source list, and relinks four libraries
 (ISP algorithms, AE, AWB, AF) before building open ISP. Set the same NANOKVM_*
 variables as for core MPI, then run it with python3. No ISA/ABI attributes are
@@ -270,7 +270,7 @@ the new build. miniz's three compression APIs are mapped to mz_ equivalents.
 These adapters cover the internal BIN sources, not a promise of compatibility
 for arbitrary external users of the former cvi_json-c library.
 
-After applying MPI patches, run scripts/build-enhanced-mpi-bin.py with the four
+After applying MPI patches, run scripts/build-mpi-bin.py with the four
 core NANOKVM_* variables, plus NANOKVM_JSON_C_SOURCE, NANOKVM_MINIZ_SOURCE and a
 dedicated NANOKVM_MPI_THIRDPARTY_OUTPUT. It verifies both upstream Git pins and
 rejects tracked source edits. Both dependencies build with GCC16.2/C906 flags
@@ -311,7 +311,7 @@ and https://github.com/richgel999/miniz/releases/tag/3.1.2 (checked 2026-09-05).
 
 ## MMF wrapper and capture configuration milestone
 
-scripts/build-enhanced-mmf.py builds 20 current source files into libkvm_mmf.so:
+scripts/build-mmf.py builds 20 current source files into libkvm_mmf.so:
 our C++ wrapper, current MPI sample/common, pinned SensorSupportList LT6911
 and sensor list, upstream inih r62, and the NanoKVM capture-size adapter.
 Use NANOKVM_MPI_SOURCE, NANOKVM_SENSOR_SOURCE, NANOKVM_INIH_SOURCE,
@@ -365,7 +365,7 @@ and currentinih release: https://github.com/benhoyt/inih/releases/tag/r62.
 
 ## Native capture build and limited runtime qualification
 
-Run `scripts/build-enhanced-capture.py` after the MMF build, with
+Run `scripts/build-capture.py` after the MMF build, with
 `NANOKVM_BUILDROOT_OUTPUT`, `NANOKVM_MPI_SOURCE`, `NANOKVM_MMF_OUTPUT` and
 `NANOKVM_CAPTURE_OUTPUT`. It builds all four kvm sources with GCC16.2, C906
 flags and `-Wall -Wextra -Werror`, then links `libkvm.so` with `-z defs`.

@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 root = Path(__file__).resolve().parents[1]
-enhanced = root / 'firmware/buildroot/board/enhanced/init.d/S15kvmhwd'
+enhanced = root / 'firmware/alpine/compat/S15kvmhwd'
 
 
 def write(path: Path, data: bytes = b'x\n') -> None:

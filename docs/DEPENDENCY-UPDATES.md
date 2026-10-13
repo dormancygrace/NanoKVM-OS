@@ -1,6 +1,6 @@
 # Dependency maintenance
 
-NanoKVM OS uses two complementary daily checks: Dependabot creates dependency PRs, and **Upstream dependency watch** checks current pins, available versions and errors in its Actions log and job summary. A separate job proposes eligible Linux updates as draft PRs. Neither job creates or updates issues. Standard GitHub-hosted runners suffice for this public repository. Neither service deploys to devices or automatically merges changes.
+NanoKVM OS uses two complementary daily checks: Dependabot creates dependency PRs, and **Upstream dependency watch** checks current pins, available versions and errors in its Actions log and job summary. Separate jobs propose eligible Linux updates and the configured native/platform dependencies as draft PRs. Neither job creates or updates issues. Standard GitHub-hosted runners suffice for this public repository. Neither service deploys to devices or automatically merges changes.
 
 ## Dependabot
 
@@ -50,9 +50,35 @@ A version has a dedicated branch and at most one PR. Later runs leave open or cl
 
 These are source-update proposals: kernel patches, olddefconfig changes, drivers and device behavior still require review and a coordinated build/test. The publisher keeps the qualified output hashes in platform/expected.sha256 unchanged; they must be regenerated from validated outputs before merging. No kernel build, signature verification, automatic merge or deployment is claimed.
 
-The kernel job alone has contents/pull-requests write permissions. Repository Actions settings must allow GitHub Actions to create pull requests; default token permissions remain read-only. It uses GITHUB_TOKEN without a personal token. GitHub can require a maintainer to select **Approve workflows to run** on these PRs before CI starts ([GitHub behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)).
+The publisher jobs have contents/pull-requests write permissions; the report job remains read-only. Repository Actions settings must allow GitHub Actions to create pull requests; default token permissions remain read-only. It uses GITHUB_TOKEN without a personal token. GitHub can require a maintainer to select **Approve workflows to run** on these PRs before CI starts ([GitHub behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)).
 
 Run `python3 scripts/propose-kernel-update.py` for a read-only preview; `--publish` explicitly enables draft PR creation. Offline tests are in `scripts/test-kernel-update-pr.py` and run in CI.
+
+## Native dependencies and integration notifications
+
+The dependency publisher runs daily at 05:23 UTC on main, independently of the report and kernel jobs. Explicit pull_request policies in .github/upstream-watch.json cover all 32 requested sources:
+
+| Sources | Draft PR behavior |
+|---|---|
+| U-Boot, OpenSBI, Buildroot | Update source pins; local patches/configuration and output hashes still require qualification. |
+| AIC8800, cryptodev, Sophgo osdrv/cvi_mpi/sensors, Sipeed SDK, MaixCDK | Update the commit and the exact selected Git tree/blob IDs. **AIC8800 tracks radxa-pkg/aic8800.** Commits with unchanged selected paths do not create a PR. |
+| json-c, miniz, inih, Opus, tinyalsa, wireless-regdb, BusyBox devmem | Update source commits or archive URLs and SHA-256, plus companion metadata and archive/extraction paths where applicable. |
+| Node.js, pnpm, Alpine minirootfs | Update archive pins; Node stays in the selected major and minirootfs in the selected Alpine branch. |
+| Patched Go runtime, GCC, Alpine branch migrations | Open an integration notification: version guards, local patches and system migrations need deliberate work. |
+| Patched Pion DTLS/ICE/SRTP, CORS wrapper, AES Bridge | Open an integration notification without pretending that a version bump rebases local code or fixes upstream module paths. |
+| RustDesk, hbb_common, Sophgo kernel reference, PicoClaw channel | Open an integration notification for the new reference/release. PicoClaw keeps its latest-download URL; the first observation also creates a PR because the installed version is unknown. |
+
+All selected Buildroot recipes are covered automatically, including binutils, musl, BusyBox and host tools. The comparison includes recipe hashes/compiler selection and applies our local source patches before comparing. Each recipe's candidate identity hashes its relevant file contents, so unrelated commits on Buildroot master do not produce duplicate notifications.
+
+Pin-update PRs hash downloaded archive bytes over HTTPS without extracting or executing them; this does not claim upstream signature verification. Git inputs resolve full commits and selected object IDs. If preparation cannot complete, the bot creates a review-only notification carrying the error, with no partial pin changes, and the job reports failure. Failed upstream discovery remains an error rather than “up to date”; other components continue to be processed.
+
+Every proposal includes a small .github/upstream-candidates/<component>.json record and is a draft. **Review-only PRs do not change an active dependency.** Their record preserves the candidate, links and integration work; merging it acknowledges the notification, not completion of an upgrade. Active pins must be updated and validated separately before calling the dependency upgraded.
+
+Each component/candidate has a deterministic branch. A rerun preserves open PRs and manual edits; closed proposals are not recreated. Changed candidates may create new PRs. Merged candidate records also suppress repeated notifications. Neither publisher rewrites existing proposal branches, enables auto-merge, installs software, nor changes qualified output hashes.
+
+QEMU, stock Alpine APK updates and the OneKVM reference remain report-only; they were outside the requested PR scope. Dependabot continues owning normal npm/Go/Cargo/Docker/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
+
+Run python3 scripts/propose-upstream-updates.py for a read-only preview (including archive hashing). Add --publish to create PRs, and optionally --output /tmp/upstream-candidates.json to save the result summary. scripts/test-upstream-update-prs.py checks policy coverage, pin preparation, notification deduplication and publication; it runs in CI.
 
 ## Which BusyBox and QEMU?
 
@@ -77,7 +103,7 @@ This is comprehensive coverage of the declared inputs above, **not a claim to di
 
 ## Validation and integration
 
-Run `python3 scripts/test-upstream-watch.py` for offline contracts, or `python3 scripts/check-upstream.py --output report.md` for a live read-only report. The command is read-only: GitHub credentials are used only for API reads, and the report job has only `contents: read` permission. The separate kernel publisher has narrowly scoped write permissions.
+Run `python3 scripts/test-upstream-watch.py` for offline contracts, or `python3 scripts/check-upstream.py --output report.md` for a live read-only report. The command is read-only: GitHub credentials are used only for API reads, and the report job has only `contents: read` permission. The separate publisher jobs have narrowly scoped write permissions.
 
 Dependency availability does not prove compatibility. Native changes need matching hashes, preservation of local patches, rebuilds and relevant validation. Node major changes, Alpine branch migrations, firmware and module ABI changes remain explicit decisions. Actual package installation verifies APK signatures; the watcher only reads metadata over HTTPS.
 

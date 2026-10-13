@@ -123,7 +123,7 @@ GitHub may show Approve workflows to run for this GITHUB_TOKEN-created PR. Appro
 
 
 def publish(plan, root=ROOT):
-    branch = 'codex/upstream-linux-' + plan['latest']
+    branch = plan.get('branch', 'codex/upstream-linux-' + plan['latest'])
     owner = REPOSITORY.split('/')[0]
     # Keep closed PRs closed and never overwrite a maintainer's work on a PR.
     existing = api('pulls?state=all&head=' + owner + ':' + branch + '&base=main&per_page=100')
@@ -144,7 +144,11 @@ def publish(plan, root=ROOT):
             ['git', 'ls-files', '--stage', '-z', '--', *plan['files']], cwd=root)
         modes = {entry.split(b'\t', 1)[1].decode(): entry.split(b' ', 1)[0].decode()
                  for entry in entries.split(b'\0') if entry}
-        if set(modes) != set(plan['files']) or any(m not in ('100644', '100755') for m in modes.values()):
+        for name in set(plan['files']) - modes.keys():
+            if not re.fullmatch(r'\.github/upstream-candidates/[a-z0-9-]+\.json', name):
+                raise ValueError('Unexpected new proposal file: ' + name)
+            modes[name] = '100644'
+        if any(m not in ('100644', '100755') for m in modes.values()):
             raise ValueError('Expected tracked regular files only')
         tree = api('git/trees', 'POST', {
             'base_tree': parent['tree']['sha'],
@@ -152,14 +156,14 @@ def publish(plan, root=ROOT):
                      for name, text in plan['files'].items()],
         })
         commit = api('git/commits', 'POST', {
-            'message': 'build: propose Linux ' + plan['latest'],
+            'message': plan.get('title', 'build: propose Linux ' + plan['latest']),
             'tree': tree['sha'], 'parents': [base],
             'author': IDENTITY, 'committer': IDENTITY,
         })
         api('git/refs', 'POST', {'ref': 'refs/heads/' + branch, 'sha': commit['sha']})
     pr = api('pulls', 'POST', {
-        'title': 'build: update Linux to ' + plan['latest'], 'head': branch,
-        'base': 'main', 'body': pull_body(plan), 'draft': True,
+        'title': plan.get('title', 'build: update Linux to ' + plan['latest']), 'head': branch,
+        'base': 'main', 'body': plan['body'] if 'body' in plan else pull_body(plan), 'draft': True,
     })
     print('Created draft PR: ' + pr['html_url'])
     return pr['html_url']

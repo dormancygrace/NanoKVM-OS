@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Report upstream changes without rewriting qualified source pins or executing downloads."""
 import argparse
+import difflib
 from dependency_coverage import validate_coverage, npm_sources, buildroot_recipes
 from concurrent.futures import ThreadPoolExecutor
 import html
+import hashlib
+import subprocess
+import tempfile
 import io
 import json
 import os
@@ -154,6 +158,23 @@ def check_alpine_inventory(root=ROOT):
         return [dict(name='Alpine package inventory', path=path, current='?', latest='?', link='', status='error', detail=str(error))]
 
 
+def patched_buildroot_recipe(root, paths, contents):
+    """Apply only selected recipe files; never execute downloaded Makefiles."""
+    with tempfile.TemporaryDirectory(prefix='nkos-upstream-recipe-') as directory:
+        work = Path(directory)
+        for path, text in zip(paths, contents):
+            file = work / path
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text(text)
+        for patch in sorted((root / 'firmware/buildroot/source-patches').glob('*.patch')):
+            result = subprocess.run(['git', 'apply', '--no-index',
+                                     *['--include=' + path for path in paths], str(patch.resolve())],
+                                    cwd=work, capture_output=True, text=True)
+            if result.returncode:
+                raise ValueError('Cannot apply local recipe patch ' + patch.name + ': ' + result.stderr.strip())
+        return [(work / path).read_text() if (work / path).exists() else '' for path in paths]
+
+
 def check_buildroot_recipes(root=ROOT):
     pin = current_pin(root, dict(path='platform/sources.lock', pattern=r'buildroot-([0-9.]+)\.tar'))
     try:
@@ -165,13 +186,20 @@ def check_buildroot_recipes(root=ROOT):
         result = dict(name='Buildroot: ' + name, path='firmware/buildroot/configs/nanokvm_platform_defconfig',
                       current=pin, latest=head[:12], status='error', link='https://github.com/buildroot/buildroot/compare/' + pin + '...' + head)
         try:
-            paths = ['package/' + name + '/' + name + '.mk']
+            paths = ['package/' + name + '/' + name + '.mk', 'package/' + name + '/' + name + '.hash']
             if name in ('gcc', 'binutils'):
                 paths.append('package/' + name + '/Config.in.host')
             before = [request('https://raw.githubusercontent.com/buildroot/buildroot/' + pin + '/' + path) for path in paths]
             after = [request('https://raw.githubusercontent.com/buildroot/buildroot/' + head + '/' + path) for path in paths]
+            before = patched_buildroot_recipe(root, paths, before)
+            result['candidate_key'] = hashlib.sha256(json.dumps(dict(zip(paths, after)), sort_keys=True).encode()).hexdigest()
+            result['upstream_commit'] = head
+            result['recipe_diff'] = ''.join(
+                ''.join(difflib.unified_diff(local.splitlines(keepends=True), remote.splitlines(keepends=True),
+                                            fromfile='local-patched/' + path, tofile='upstream/' + path))
+                for path, local, remote in zip(paths, before, after))
             result.update(status='current' if before == after else 'recipe changes',
-                          detail='Selected build/recovery dependency; compare pinned Buildroot recipe with upstream master, including compiler selection. Transitive recipes remain owned by Buildroot')
+                          detail='Selected build/recovery dependency; compare locally patched Buildroot recipe with upstream master, including hashes and compiler selection. Transitive recipes remain owned by Buildroot')
         except Exception as error:
             result['detail'] = str(error)
         return result

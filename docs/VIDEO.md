@@ -60,13 +60,17 @@ Capture follows the actual HDMI dimensions when the BIOS, bootloader or operatin
 
 | Mode | Video memory | Largest size | Linux memory |
 |---|---|---|---|
-| FHD (default) | 52 MiB, lent to Linux while unused | 1920 × 1080 | up to 232 MiB |
-| FHD, Fixed | 50 MiB, video only | 1920 × 1080 | 182 MiB |
-| QHD | 68 MiB, lent to Linux while unused | 2560 × 1440, portrait | up to 232 MiB |
-| QHD, Fixed | 66 MiB, video only | 2560 × 1440, portrait | 166 MiB |
-| UHD (always Fixed) | 112 MiB, video only | 3840 × 2160 | 122 MiB |
+| FHD (default) | 40 MiB, lent to Linux while unused | 1920 × 1080 | up to 234 MiB |
+| FHD, Fixed | 40 MiB, video only | 1920 × 1080 | 194 MiB |
+| QHD | 56 MiB, lent to Linux while unused | 2560 × 1440, portrait | up to 234 MiB |
+| QHD, Fixed | 54 MiB, video only | 2560 × 1440, portrait | 180 MiB |
+| UHD (always Fixed) | 104 MiB, video only | 3840 × 2160 | 130 MiB |
 
-Linux memory is the MemTotal that the kernel reports on the stand. Fixed memory is reserved for video: Linux can never use it. The Fixed pools are 2 MiB smaller than the CMA ones because the kernel accepts a CMA region only in multiples of 4 MiB. Without Fixed the memory is reusable CMA, whose idle pages stay available to Linux. Measured peaks of video memory: 49 MiB for 1080p H.265 with MJPEG running at the same time, 65 MiB at 1440p, and 111.8 MiB at 2160p (H.265 in SmartP; H.264 takes 96.7 MiB, and MJPEG is not available at 2160p). FHD at 56 MiB and QHD at 72 MiB passed cold boots under memory pressure as CMA.
+Linux memory is the MemTotal that the kernel reports on the stand. Fixed memory is reserved for video: Linux can never use it. The QHD Fixed pool is 2 MiB smaller than the CMA one because the kernel accepts a CMA region only in multiples of 4 MiB. Without Fixed the memory is reusable CMA, whose idle pages stay available to Linux.
+
+The pools are sized to the largest use measured on the stand, with any codec, transport and order of clients: 39.6 MiB at 1920 × 1080 and 100 Hz with MJPEG running at the same time (39.8 MiB for the 1080 × 1920 portrait), 53.9 MiB at 2560 × 1440 and 60 Hz with MJPEG (the 1440 × 2560 portrait has no MJPEG and takes 41.3 MiB), and 102.7 MiB at 3840 × 2160 (H.265; H.264 takes no more, and MJPEG is not available at 2160p). The encoder runs NormalP only, and the JPEG encoder's bitstream buffer is sized from the picture instead of the driver's 9 MiB default. Each mode passed H.264 and H.265 alone, MJPEG started before and after the video, MJPEG switched on and off under video and bitrate changes, the CMA modes under memory pressure.
+
+The pools run near 100 % in use, so a fault does not show as use but as an allocation that fails: the encoder then refuses the frame (it no longer encodes without its buffers), the channel is recreated, the log says "video memory exhausted", and video resumes once memory is free. With the watchdog enabled, a shortage that lasts 30 s reboots the device.
 
 3840 × 2160 needs UHD, which has no CMA variant: as CMA the encoder could not always get its reference buffers back from Linux on a cold boot (1 of 3 boots had no video), so the 4K monitor profile, the 2160p stream limit and 3840 × 2160 capture require the UHD mode; elsewhere they are shown as unavailable with the reason. Portrait monitors and the 1440p monitor profile and stream limit need QHD or UHD. In the UHD mode zram defaults to half of the Linux memory (**Half of RAM**, also selectable in the other modes) unless a size was chosen.
 

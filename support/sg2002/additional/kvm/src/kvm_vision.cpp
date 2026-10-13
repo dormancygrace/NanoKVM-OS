@@ -648,9 +648,9 @@ int get_manual_resolution(void)
         nanokvm::write_small_uint(vi_width_path, vi_max_width);
     }
     // A size that the video memory cannot hold (3840x2160 on a pool under
-    // 104 MiB) fails the capture start with "Out of memory" and ends the
-    // process; the file can still ask for it after the computer switched to
-    // such a mode. Start at the default size and let detection report it.
+    // 104 MiB) fails the capture start with "Out of memory"; the file can
+    // still ask for it after the computer switched to such a mode. Start at
+    // the default size and let detection report it.
     if(!res_fits_video_memory(tmp_width, tmp_height)){
         tmp_width = default_vi_width;
         tmp_height = default_vi_height;

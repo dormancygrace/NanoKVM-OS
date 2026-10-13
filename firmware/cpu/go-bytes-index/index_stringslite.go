@@ -4,12 +4,17 @@
 
 package stringslite
 
+import "internal/bytealg"
+
 // NanoKVM: the string form of bytes.indexHorspool (index_nanokvm.go in
 // package bytes), used where Index would fall back to Rabin-Karp; strings.Index
 // is this Index.
 
 // horspoolMaxLen bounds substr for indexHorspool: its shifts are bytes.
 const horspoolMaxLen = 255
+
+// horspoolAllowance: see package bytes.
+const horspoolAllowance = 256
 
 // indexHorspool returns the index of the first instance of substr in s, or
 // -1. It requires 2 <= len(substr) <= horspoolMaxLen.
@@ -24,10 +29,21 @@ func indexHorspool(s, substr string) int {
 	}
 	last := substr[n-1]
 	head := substr[:n-1]
+	work := 0
 	for i := 0; i <= len(s)-n; {
 		c := s[i+n-1]
-		if c == last && s[i:i+n-1] == head {
-			return i
+		if c == last {
+			if s[i:i+n-1] == head {
+				return i
+			}
+			// See bytes.indexHorspool: repeated prefixes go to Rabin-Karp.
+			if work += n; work > i+horspoolAllowance {
+				j := bytealg.IndexRabinKarp(s[i:], substr)
+				if j < 0 {
+					return -1
+				}
+				return i + j
+			}
 		}
 		i += int(shift[c])
 	}

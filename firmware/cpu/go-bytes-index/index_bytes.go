@@ -4,6 +4,8 @@
 
 package bytes
 
+import "internal/bytealg"
+
 // NanoKVM: Index falls back to Rabin-Karp when IndexByte keeps stopping at
 // the first byte of sep. On riscv64 (bytealg.MaxLen is 0) that is every
 // search whose first byte is frequent in s, such as the Annex-B start code
@@ -14,11 +16,16 @@ package bytes
 // horspoolMaxLen bounds sep for indexHorspool: its shifts are bytes.
 const horspoolMaxLen = 255
 
+// horspoolAllowance is the comparing work indexHorspool may do beyond the
+// bytes it has skipped before it hands the search to Rabin-Karp.
+const horspoolAllowance = 256
+
 // indexHorspool returns the index of the first instance of sep in s, or -1.
 // It requires 2 <= len(sep) <= horspoolMaxLen. Boyer-Moore-Horspool: the
 // window is compared when its last byte matches, then moves by the distance
 // from that byte's last occurrence in sep[:n-1] to the end of sep, which
-// never skips a match.
+// never skips a match. When the comparisons cost more than the skips, the
+// rest goes to Rabin-Karp, so the search stays linear.
 func indexHorspool(s, sep []byte) int {
 	n := len(sep)
 	var shift [256]uint8
@@ -30,10 +37,25 @@ func indexHorspool(s, sep []byte) int {
 	}
 	last := sep[n-1]
 	head := sep[:n-1]
+	work := 0
 	for i := 0; i <= len(s)-n; {
 		c := s[i+n-1]
-		if c == last && Equal(s[i:i+n-1], head) {
-			return i
+		if c == last {
+			if Equal(s[i:i+n-1], head) {
+				return i
+			}
+			// A window whose last byte matches costs up to n-1 compared
+			// bytes. Once comparing outweighs the bytes skipped (repeated
+			// prefixes: a long run of "a" against "aa...aba" compares
+			// almost all of sep for a shift of two), Rabin-Karp is faster:
+			// it finishes the search from here.
+			if work += n; work > i+horspoolAllowance {
+				j := bytealg.IndexRabinKarp(s[i:], sep)
+				if j < 0 {
+					return -1
+				}
+				return i + j
+			}
 		}
 		i += int(shift[c])
 	}

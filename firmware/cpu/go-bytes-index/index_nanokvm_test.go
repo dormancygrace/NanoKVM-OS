@@ -107,3 +107,42 @@ func BenchmarkIndexStartCodeRabinKarp(b *testing.B) {
 		}
 	}
 }
+
+// The repeated-prefix case from review: every window matches its last byte
+// and compares almost all of sep for a shift of two.
+func repeatedPrefix() ([]byte, []byte) {
+	s := Repeat([]byte("a"), 1<<20)
+	sep := append(Repeat([]byte("a"), 253), 'b', 'a')
+	return s, sep
+}
+
+func BenchmarkIndexRepeatedPrefix(b *testing.B) {
+	s, sep := repeatedPrefix()
+	b.SetBytes(int64(len(s)))
+	for b.Loop() {
+		if Index(s, sep) != -1 {
+			b.Fatal("unexpected match")
+		}
+	}
+}
+
+func BenchmarkIndexRepeatedPrefixRabinKarp(b *testing.B) {
+	s, sep := repeatedPrefix()
+	b.SetBytes(int64(len(s)))
+	for b.Loop() {
+		if bytealg.IndexRabinKarp(s, sep) != -1 {
+			b.Fatal("unexpected match")
+		}
+	}
+}
+
+func TestIndexRepeatedPrefix(t *testing.T) {
+	s, sep := repeatedPrefix()
+	if got := Index(s, sep); got != -1 {
+		t.Fatalf("Index = %d, want -1", got)
+	}
+	copy(s[len(s)-len(sep):], sep)
+	if got, want := Index(s, sep), len(s)-len(sep); got != want {
+		t.Fatalf("Index = %d, want %d", got, want)
+	}
+}

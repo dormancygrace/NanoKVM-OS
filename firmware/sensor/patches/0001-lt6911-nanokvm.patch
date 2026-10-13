@@ -18,7 +18,7 @@ index b879490..9aaeaf4 100644
  #define LT6911_SENSOR_RESET_CTX(dev)         (g_pastLt6911[dev] = CVI_NULL)
  
  ISP_SNS_COMMBUS_U g_aunLt6911_BusInfo[VI_MAX_PIPE_NUM] = {
-+	#ifdef NANOKVM_ENHANCED
++	#ifdef NANOKVM_OS
 +	[0] = { .s8I2cDev = 4},
 +#else
  	[0] = { .s8I2cDev = 0},
@@ -31,7 +31,7 @@ index b879490..9aaeaf4 100644
  
  	u8SensorImageMode = LT6911_MODE_NORMAL;
 -
-+#ifdef NANOKVM_ENHANCED
++#ifdef NANOKVM_OS
 +	if (!pstSensorImageMode->u16Width || !pstSensorImageMode->u16Height)
 +		return CVI_FAILURE;
 +	ISP_WDR_SIZE_S *image = &g_astLt6911_mode[u8SensorImageMode].astImg[0];
@@ -83,7 +83,7 @@ index ef2d0ba..7475109 100644
  	.mipi_attr = {
  		.raw_data_type = YUV422_8BIT,
 -		.lane_id = {2, 0, 1, 3, 4}, //3, 0, 1, 2, 4  ;   1, 4, 3, 2, 0  2, 0, 1, 3, 4   3, 1, 2, 4, 0
-+#ifdef NANOKVM_ENHANCED
++#ifdef NANOKVM_OS
 +		.lane_id = {2, 4, 3, 1, 0},
 +		.pn_swap = {0, 0, 0, 0, 0},
 +#else
@@ -97,7 +97,7 @@ index ef2d0ba..7475109 100644
  		.cam = 0,
  		.freq = CAMPLL_FREQ_NONE,
  	},
-+#ifdef NANOKVM_ENHANCED
++#ifdef NANOKVM_OS
 +	.devno = 0,
 +#else
  	.devno = 1,

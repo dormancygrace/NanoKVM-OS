@@ -29,12 +29,12 @@ sources=maix_sources+sorted(p for p in main.rglob('*.c') if p.name != 'qrcmd.c')
 sources += [repo/'support/sg2002/additional/kvm/src/vi_state_shared.cpp']
 flags=['-g','-Wall','-Wextra','-ffunction-sections','-fdata-sections',
        *cpu_flags(),
-       '-DPLATFORM_MAIXCAM','-DNANOKVM_ENHANCED','-Werror=return-type','-Werror=uninitialized','-Werror=maybe-uninitialized']
+       '-DPLATFORM_MAIXCAM','-DNANOKVM_OS','-Werror=return-type','-Werror=uninitialized','-Werror=maybe-uninitialized']
 output.mkdir(parents=True,exist_ok=True)
 record_cpu_profile(output/'cpu-profile.json', cross+'gcc', effective_flags=flags)
 with tempfile.TemporaryDirectory(prefix='system-',dir=output) as directory:
     tmp=Path(directory)
-    (tmp/'global_config.h').write_text('#pragma once\n#define PROJECT_ID "nanokvm-enhanced"\n')
+    (tmp/'global_config.h').write_text('#pragma once\n#define PROJECT_ID "nanokvm-os"\n')
     (tmp/'global_build_info_version.h').write_text('#pragma once\n')
     includes=[tmp,basic/'include',peripheral/'include',third/'yaml/yaml-cpp/include',
               third/'ntp_client/ntp_client',third/'ini/inifile2/src',main/'include',

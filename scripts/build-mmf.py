@@ -31,7 +31,7 @@ includes = [mpi / 'include', mpi / 'include/isp/cv181x', mpi / 'sample/common',
             repo / 'support/sg2002/additional/kvm_mmf/include', repo / 'firmware/mpi']
 flags = ['-Wall', '-Wextra', '-Werror', '-fPIC', '-ffunction-sections', '-fdata-sections',
          *cpu_flags(),
-         '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_ENHANCED', '-DSENSOR_LONTIUM_LT6911']
+         '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_OS', '-DSENSOR_LONTIUM_LT6911']
 # GCC uses the last matching map: specific inputs override the enclosing checkout.
 flags += [f'-ffile-prefix-map={src}={name}' for src, name in [
     (repo, './nanokvm-os'),

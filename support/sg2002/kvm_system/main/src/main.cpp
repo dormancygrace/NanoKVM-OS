@@ -191,9 +191,9 @@ void* thread_sys_handle(void * arg)
 
 int main(int argc, char* argv[])
 {
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
     if (argc == 2 && !strcmp(argv[1], "--version")) {
-        puts("NanoKVM Enhanced kvm_system / MaixCDK 4.11.3 / GCC " __VERSION__);
+        puts("NanoKVM OS kvm_system / MaixCDK 4.11.3 / GCC " __VERSION__);
         return 0;
     }
     if (argc == 2 && !strcmp(argv[1], "--self-test")) {

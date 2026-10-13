@@ -22,7 +22,7 @@ cross = str(Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve() / 'host/bin/r
 if subprocess.check_output([cross+'gcc', '-dumpfullversion'], text=True).strip() != '16.2.0':
     raise SystemExit('Expected GCC 16.2')
 flags = ['-std=gnu++17', '-Wall', '-Wextra', '-Werror', '-fPIC',
-         '-ffunction-sections', '-fdata-sections', *cpu_flags(), '-D__CV181X__', '-DNANOKVM_ENHANCED']
+         '-ffunction-sections', '-fdata-sections', *cpu_flags(), '-D__CV181X__', '-DNANOKVM_OS']
 flags += ['-I'+str(p) for p in [base/'include', repo/'support/sg2002/additional/kvm_mmf/include', mpi/'include']]
 sources = sorted((base/'src').glob('*.cpp'))
 if {p.name for p in sources} != {'kvm_vision.cpp', 'vi_state_shared.cpp', 'kvm_capture.cpp', 'kvm_i2c.cpp'}:

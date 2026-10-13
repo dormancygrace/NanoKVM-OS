@@ -749,7 +749,7 @@ static CVI_S32 _mmf_sys_init(SIZE_S stSize)
 	stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkSize	= u32BlkSize;
 	// The pipeline serializes encoder leases. Two source surfaces
     // retain producer/VPSS overlap and leave room for SmartP reference frames.
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
     stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt = 2;
 #else
     stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt = 3;
@@ -1354,7 +1354,7 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
   if (priv.vi_chn_stopping[i]) return CVI_ERR_VENC_BUSY;
 	uint32_t pool_size_out = 0;
 	int pool_id = -1;
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
 	// VI has one source channel. The index here selects a VPSS output, not VI.
 	bool another_output = false;
 	for (int i = 0; i < MMF_VI_MAX_CHN; ++i) another_output |= priv.vi_chn_is_inited[i];
@@ -1428,7 +1428,7 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
  priv.vi_chn_stopping[ch] = true;
  priv.vi_chn_disabled[ch] = false;
  priv.vi_chn_pool_id[ch] = VB_INVALID_POOLID;
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
  s32Ret = another_output ? CVI_SUCCESS : SAMPLE_COMM_VI_Bind_VPSS(0, 0, 0);
  if (s32Ret == CVI_SUCCESS) priv.vi_source_bound[0] = true;
 #else
@@ -1501,7 +1501,7 @@ int mmf_del_vi_channel(int ch) {
  priv.vi_chn_stopping[ch] = true;
  int result = _mmf_release_vi_frame(ch);
  if (result != CVI_SUCCESS) return result;
-#ifdef NANOKVM_ENHANCED
+#ifdef NANOKVM_OS
  bool another_output = false;
  for (int i = 0; i < MMF_VI_MAX_CHN; ++i)
   if (i != ch) another_output |= priv.vi_chn_is_inited[i];

@@ -268,5 +268,5 @@
     }
   ],
   "compiler_origin": "Xuantie-900 linux-5.10.4 musl gcc Toolchain V2.6.1 B-20220906, GCC 10.2.0",
-  "qualification": "Object hashes checked; relinked with Enhanced binutils, retaining ISA/ABI attributes. Full ISP runtime qualification pending."
+  "qualification": "Object hashes checked; relinked with the project binutils, retaining ISA/ABI attributes. Full ISP runtime qualification pending."
 }

@@ -780,7 +780,7 @@
       "algorithm": "压缩算法",
       "actualRam": "实际占用内存",
       "priorityNote": "ZRAM 优先于 SD 交换使用。更改立即生效，重启后仍保留。",
-      "unavailable": "需要包含此功能的 Enhanced 固件版本。",
+      "unavailable": "需要包含此功能的 NanoKVM OS 版本。",
       "loadError": "无法读取内存状态",
       "changeError": "无法更改交换设置"
     },

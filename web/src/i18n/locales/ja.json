@@ -780,7 +780,7 @@
       "algorithm": "圧縮方式",
       "actualRam": "RAM 上のページ格納量",
       "priorityNote": "ZRAM は SD スワップより先に使用されます。変更はすぐに適用され、再起動後も保持されます。",
-      "unavailable": "この機能を含む Enhanced ファームウェアビルドが必要です。",
+      "unavailable": "この機能を含む NanoKVM OS ビルドが必要です。",
       "loadError": "メモリの状態を読み取れませんでした",
       "changeError": "スワップ設定を変更できませんでした"
     },

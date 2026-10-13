@@ -18,7 +18,7 @@ index 41e1e87..ae08e36 100644
  #include "cvi_comm_isp.h"
  #include "sample_comm.h"
  #include "ini.h"
-+#ifdef NANOKVM_ENHANCED
++#ifdef NANOKVM_OS
 +#include "nanokvm_capture_size.h"
 +#endif
  #define INI_FILE_PATH	"/mnt/data/sensor_cfg.ini"
@@ -28,7 +28,7 @@ index 41e1e87..ae08e36 100644
  	case VIVO_MM308M2_2M_25FPS_8BIT:
  	case IMGDS_MIS2008_MIPI_2M_1080P_30FPS_12BIT:
  	case IMGDS_MIS2008_1L_MIPI_2M_1080P_30FPS_12BIT:
-+#ifndef NANOKVM_ENHANCED
++#ifndef NANOKVM_OS
  	case LONTIUM_LT6911_2M_60FPS_8BIT:
 +#endif
  	case LONTIUM_LT7911_2M_60FPS_8BIT:
@@ -38,7 +38,7 @@ index 41e1e87..ae08e36 100644
  	case CVSENS_CV2003_1L_SLAVE1_MIPI_2M_1080P_30FPS_10BIT:
  		*penSize = PIC_1080P;
  		break;
-+#ifdef NANOKVM_ENHANCED
++#ifdef NANOKVM_OS
 +	case LONTIUM_LT6911_2M_60FPS_8BIT:
 +		*penSize = PIC_CUSTOMIZE;
 +		break;
@@ -59,7 +59,7 @@ index 41e1e87..ae08e36 100644
  		pstSize->u32Width = 1024;
  		pstSize->u32Height = 1280;
  		break;
-+#ifdef NANOKVM_ENHANCED
++#ifdef NANOKVM_OS
 +	case PIC_CUSTOMIZE:
 +		return nanokvm_read_capture_size("/run/nanokvm",
 +			&pstSize->u32Width, &pstSize->u32Height) ? CVI_FAILURE : CVI_SUCCESS;

@@ -13,7 +13,7 @@ diff --git a/interdrv/cvi_vc_drv/module/src/cvi_venc.c b/interdrv/cvi_vc_drv/mod
 index ee54c4c..5945b08 100644
 --- a/interdrv/cvi_vc_drv/module/src/cvi_venc.c
 +++ b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
-@@ -2414,7 +2414,17 @@ CVI_S32 CVI_VENC_SendFrame(VENC_CHN VeChn, const VIDEO_FRAME_INFO_S *pstFrame,
+@@ -2414,7 +2414,16 @@ CVI_S32 CVI_VENC_SendFrame(VENC_CHN VeChn, const VIDEO_FRAME_INFO_S *pstFrame,
  
  		if (pChnHandle->pChnAttr->stVencAttr.enType == PT_H264 ||
  		    pChnHandle->pChnAttr->stVencAttr.enType == PT_H265) {
@@ -25,8 +25,7 @@ index ee54c4c..5945b08 100644
 +			 * shortage; the caller destroys the channel. */
 +			s32Ret = _cviVencRegVbBuf(VeChn);
 +			if (s32Ret != CVI_SUCCESS) {
-+				CVI_VENC_ERR("_cviVencRegVbBuf, %d
-+", s32Ret);
++				CVI_VENC_ERR("_cviVencRegVbBuf, %d\n", s32Ret);
 +				return CVI_ERR_VENC_NOBUF;
 +			}
  		}

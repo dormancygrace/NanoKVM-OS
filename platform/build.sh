@@ -651,8 +651,11 @@ payloads() {
     rm -rf "$gen"
     mkdir -p "$gen/kvm"
     # Written below once the application payload is complete.
-    : > "$gen/enhanced-stage-manifest.json"
+    : > "$gen/build-manifest.json"
     printf '+kvmapp/kvm\n' > "$gen/protected-paths"
+    # No longer read by this tree. Applications up to v2.6-a3 check it to pick
+    # the GPIO ABI v2, HDMI reset driver and runtime defaults; drop it once
+    # those applications are out of support.
     printf 'Alpine 3.24; SG2002/C906; flavour=%s\n' enhanced > "$gen/nanokvm-buildroot"
     printf '%s\n' "${version#v}" > "$gen/version"
     printf '%s' 50 > "$gen/kvm/fps"
@@ -694,7 +697,7 @@ payloads() {
 import hashlib, json, sys
 from pathlib import Path
 root, version, commit, dirty = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4] == 'true'
-manifest = root / 'enhanced-stage-manifest.json'
+manifest = root / 'build-manifest.json'
 files = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
          for p in sorted(root.rglob('*')) if p.is_file() and not p.is_symlink() and p != manifest}
 manifest.write_text(json.dumps({'version': version, 'source_dirty': dirty, 'source_base_commit': commit,

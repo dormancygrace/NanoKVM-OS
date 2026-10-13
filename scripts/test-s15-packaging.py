@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import hashlib
+import json
 import subprocess
 import tempfile
 from pathlib import Path
@@ -26,6 +28,7 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
     write(port / 'base/usr/libexec/nanokvm/legacy/S15kvmhwd', b'vendor base\n')
     write(port / 'app/kvmapp/system/init.d/S15kvmhwd', b'vendor app\n')
     write(port / 'app/kvmapp/server/web/old.html')
+    write(port / 'app/kvmapp/enhanced-stage-manifest.json', b'{"version":"old-release","files":{}}\n')
     write(port / 'base/usr/libexec/nanokvm/legacy/S95nanokvm', b'stale base startup\n')
     write(port / 'app/kvmapp/system/init.d/S95nanokvm', b'stale app startup\n')
 
@@ -59,6 +62,14 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
     assert (output / 'base/usr/sbin/nkos-usb-internet').is_file()
     assert (output / 'base/etc/init.d/nanokvm-usb-internet').is_file()
     assert (output / 'base/usr/libexec/nanokvm/legacy/S30usbnet').read_bytes() == (root / 'firmware/alpine/compat/S30usbnet').read_bytes()
+    app_root = output / 'app/kvmapp'
+    assert not (app_root / 'enhanced-stage-manifest.json').exists(), 'obsolete manifest retained in the new APK payload'
+    manifest = json.loads((app_root / 'build-manifest.json').read_text())
+    assert 'enhanced-stage-manifest.json' not in manifest['files']
+    assert 'build-manifest.json' not in manifest['files']
+    assert manifest['version'].removeprefix('v') == (app_root / 'version').read_text().strip()
+    assert manifest['files']['server/NanoKVM-Server'] == hashlib.sha256((app_root / 'server/NanoKVM-Server').read_bytes()).hexdigest()
+
     expected = shipped.read_bytes()
     base_s15 = output / 'base/usr/libexec/nanokvm/legacy/S15kvmhwd'
     app_s15 = output / 'app/kvmapp/system/init.d/S15kvmhwd'

@@ -95,17 +95,14 @@ func getHardware() (h Hardware) {
 
 	// NanoKVM OS uses GPIO ABI v2; controller-local offsets are
 	// stable even when the kernel assigns different gpiochip/global numbers.
-	if image, err := os.ReadFile("/etc/nanokvm-buildroot"); err == nil && strings.Contains(string(image), "flavour=enhanced") {
-		declared, err := os.ReadFile(HWVersionFile)
-		if err != nil {
-			log.Errorf("ATX requires board revision: %s", err)
-		}
-		if profile, profileErr := os.ReadFile("/etc/kvm/board-profile"); profileErr == nil {
-			declared = profile
-		}
-		h = gpioV2Hardware(h, string(declared))
+	declared, err := os.ReadFile(HWVersionFile)
+	if err != nil {
+		log.Errorf("ATX requires board revision: %s", err)
 	}
-	return
+	if profile, profileErr := os.ReadFile("/etc/kvm/board-profile"); profileErr == nil {
+		declared = profile
+	}
+	return gpioV2Hardware(h, string(declared))
 }
 
 // Never guess an ATX pin assignment when board detection is missing.

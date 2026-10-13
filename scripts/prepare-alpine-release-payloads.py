@@ -100,6 +100,8 @@ for path in (base/'usr/libexec/nanokvm/legacy/S15kvmhwd',app/'kvmapp/system/init
 protected=base/'etc/apk/protected_paths.d/nanokvm.list'
 protected.parent.mkdir(parents=True,exist_ok=True)
 protected.write_text('+kvmapp/kvm\n')
-manifest=app/'kvmapp/enhanced-stage-manifest.json'
+# Do not repackage stale build metadata inherited from an older payload.
+(app/'kvmapp/enhanced-stage-manifest.json').unlink(missing_ok=True)
+manifest=app/'kvmapp/build-manifest.json'
 manifest.write_text(json.dumps({'version':version,'source_dirty':bool(subprocess.check_output(['git','-C',str(r),'status','--porcelain'],text=True).strip()),'source_base_commit':subprocess.check_output(['git','-C',str(r),'rev-parse','HEAD'],text=True).strip(),'files':{str(p.relative_to(app/'kvmapp')):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((app/'kvmapp').rglob('*')) if p.is_file() and p!=manifest}},indent=2)+'\n')
 print(out)

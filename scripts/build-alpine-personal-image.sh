@@ -372,8 +372,6 @@ for path in usr/sbin/iw usr/sbin/nanokvm_update_edid etc/init.d/nanokvm-policy \
             usr/libexec/nanokvm/legacy/S34mssclamp kvmapp/system/bin/usb-audio-capture; do
     [ -x "$STAGE_ROOT/$path" ] || die "missing required runtime entry point: $path"
 done
-grep -q 'flavour=enhanced' "$STAGE_ROOT/etc/nanokvm-buildroot" ||
-    die "accepted video runtime policy marker is missing"
 python3 - "$STAGE_ROOT/usr/share/nanokvm/edid" <<'PY'
 from pathlib import Path
 import sys

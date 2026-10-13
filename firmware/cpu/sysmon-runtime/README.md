@@ -73,7 +73,7 @@ inactive whenever gomaxprocs is greater than 1.
 
 To disable it, set `NANOKVM_SYSMON_MIN_DELAY_US=0` (or empty) in the
 environment of the server; kvmapp/system/init.d/S95nanokvm keeps an explicit
-value and only defaults it to 1000 on the enhanced flavour. Alpine's OpenRC
+value and otherwise defaults it to 1000. Alpine's OpenRC
 nanokvm-app service starts the server through the same script.
 
 The policies may delay sysmon's scheduler duties. A CPU saving does not establish

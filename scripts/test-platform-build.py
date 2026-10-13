@@ -122,7 +122,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     assert supervisor.is_file() and not supervisor.is_symlink(), "supervisor missing from app payload"
     assert supervisor.stat().st_mode & 0o7777 == 0o755, "supervisor must be installed with mode 0755"
     assert supervisor.read_bytes() == (REPO / "kvmapp" / supervisor_path).read_bytes()
-    manifest = json.loads((app / "enhanced-stage-manifest.json").read_text())
+    manifest = json.loads((app / "build-manifest.json").read_text())
     assert manifest["files"][supervisor_path] == hashlib.sha256(supervisor.read_bytes()).hexdigest()
     # Execute the installed file directly: this checks its shebang and mode as
     # well as its presence, without starting target binaries or touching /run.

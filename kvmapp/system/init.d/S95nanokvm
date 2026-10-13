@@ -54,8 +54,7 @@ stop_services() {
 
 start_background() {
     executable="$1"
-    if [ "$executable" = /tmp/server/NanoKVM-Server ] &&
-       grep -q 'flavour=enhanced' /etc/nanokvm-buildroot 2>/dev/null; then
+    if [ "$executable" = /tmp/server/NanoKVM-Server ]; then
         # Preserve the currently tested Go sysmon policy; 0 explicitly disables it.
         : "${NANOKVM_SYSMON_TIMER_SLACK_NS:=250000}"
         # Sysmon sleep floor while GOMAXPROCS=1; 0 explicitly disables it.
@@ -98,14 +97,9 @@ start_background() {
 prepare_runtime_directory() {
     directory="$1"
     rm -rf "/tmp/$directory"
-    if grep -q 'flavour=enhanced' /etc/nanokvm-buildroot 2>/dev/null; then
-        # Executables and libraries use reclaimable file-backed page cache.
-        # Keep the established /tmp paths without duplicating the app in tmpfs.
-        ln -s "/kvmapp/$directory" "/tmp/$directory"
-    else
-        # Compatibility path for older root filesystems.
-        cp -r "/kvmapp/$directory" /tmp/
-    fi
+    # Executables and libraries use reclaimable file-backed page cache.
+    # Keep the established /tmp paths without duplicating the app in tmpfs.
+    ln -s "/kvmapp/$directory" "/tmp/$directory"
 }
 
 prepare_hdmi_receiver() {

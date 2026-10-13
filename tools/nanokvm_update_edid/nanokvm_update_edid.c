@@ -13,8 +13,6 @@
 #include <sys/file.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <time.h>
 
 #include "nanokvm_update_edid.h"
 
@@ -90,15 +88,6 @@ int check_edid(uint8_t *edid_data, uint16_t edid_size)
 
 // =======================================================================================================
 
-static int wait_reset_interval(void)
-{
-    struct timespec left = { .tv_sec = 0, .tv_nsec = 100000000 };
-    while (nanosleep(&left, &left) != 0) {
-        if (errno != EINTR) return -1;
-    }
-    return 0;
-}
-
 static int reset_write(int fd, const char *value)
 {
     if (lseek(fd, 0, SEEK_SET) < 0) return -1;
@@ -106,21 +95,6 @@ static int reset_write(int fd, const char *value)
     do { n = write(fd, value, 1); } while (n < 0 && errno == EINTR);
     if (n == 1) return 0;
     if (n >= 0) errno = EIO;
-    return -1;
-}
-
-static int enhanced_image(void)
-{
-    char marker[256];
-    FILE *file = fopen("/etc/nanokvm-buildroot", "r");
-    if (!file) return errno == ENOENT ? 0 : -1;
-    if (!fgets(marker, sizeof(marker), file)) {
-        fclose(file); errno = EIO; return -1;
-    }
-    if (fclose(file) != 0) return -1;
-    if (strstr(marker, "flavour=enhanced")) return 1;
-    if (strstr(marker, "flavour=compatibility")) return 0;
-    errno = EINVAL;
     return -1;
 }
 
@@ -136,21 +110,11 @@ static int maintenance_lock(void)
 
 int NanoKVM_PCIe_HDMI_Reset(void)
 {
-    /* An Enhanced image must use the owning driver; no global-number fallback. */
-    int enhanced = enhanced_image();
-    if (enhanced < 0) return -1;
-    const char *path = enhanced ? "/sys/bus/platform/devices/hdmi-reset/pulse"
-                                : "/sys/class/gpio/gpio451/value";
-    int fd = open(path, O_WRONLY | O_CLOEXEC);
+    /* The nanokvm-hdmi-reset driver owns the line; no global GPIO fallback. */
+    int fd = open("/sys/bus/platform/devices/hdmi-reset/pulse", O_WRONLY | O_CLOEXEC);
     if (fd < 0) return -1;
-    int ret = reset_write(fd, enhanced ? "1" : "0");
+    int ret = reset_write(fd, "1");
     int saved = ret ? errno : 0;
-    if (!enhanced) {
-        if (!ret && wait_reset_interval() < 0) { ret = -1; saved = errno; }
-        /* Release even if assertion/wait failed. */
-        if (reset_write(fd, "1") < 0) { ret = -1; saved = errno; }
-        else if (wait_reset_interval() < 0) { ret = -1; saved = errno; }
-    }
     if (close(fd) < 0 && !ret) { ret = -1; saved = errno; }
     if (ret) errno = saved;
     return ret;

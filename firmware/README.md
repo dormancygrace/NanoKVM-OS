@@ -281,7 +281,7 @@ checks and normal platform defines remain enabled. System CMake 3.28.3 was used.
 
 The first actual loader/JSON test exposed a Sophgo bug: CVI_U64_JSON clamps reads
 to CVI_U32_MAX. Patch 0003 changes the limit to CVI_U64_MAX, preserving round trips
-through UINT64_MAX. scripts/build-enhanced-mpi-probe.py packages all 17 libraries,
+through UINT64_MAX. The retired MPI probe builder packaged all 17 libraries,
 a fresh libc and probes/mpi-load-json.c. Use the same environment plus a dedicated
 NANOKVM_MPI_PROBE_OUTPUT. Invoke the copied loader explicitly:
 
@@ -372,7 +372,7 @@ flags and `-Wall -Wextra -Werror`, then links `libkvm.so` with `-z defs`.
 Compiler dependency files and the link map reject OpenCV/MaixCDK inputs.
 The board service is separate and still needs its new-toolchain build.
 
-`build-enhanced-capture-probes.py` builds and packages two probes, the real
+The retired capture probe builder packaged two probes, the real
 capture/MMF/MPI libraries and current compiler runtimes. It audits all 25 ELF
 artifacts for fence.tso and records their SHA256 hashes. Execute probes with
 the packaged musl loader (`./libc.so --library-path . ./capture-load`, and

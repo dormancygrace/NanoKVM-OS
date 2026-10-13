@@ -55,6 +55,9 @@ test('complete languages translate every key in en.json', () => {
   for (const { key: name, partial } of languages) {
     if (partial) continue;
     const keys = locales.get(name);
+    for (const [key, value] of keys) {
+      if (typeof value !== 'string' || !value.trim()) missing.push(name + ': ' + key + ' is empty');
+    }
     for (const key of en.keys()) if (!has(keys, key)) missing.push(`${name}: ${key}`);
   }
   assert.deepEqual(missing, [], 'translate these keys or mark the language as partial');

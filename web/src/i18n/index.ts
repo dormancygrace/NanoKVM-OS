@@ -5,7 +5,7 @@ import { initReactI18next } from 'react-i18next';
 import { getLanguage } from '@/lib/localstorage.ts';
 
 import languages from './languages.ts';
-import { createLocaleBackend, localeTag, selectLanguage } from './locale-loader.ts';
+import { createLocaleBackend, localeOptions, localeTag, selectLanguage } from './locale-loader.ts';
 import en from './locales/en.json';
 
 // English stays bundled as the fallback. Other languages are separate chunks,
@@ -28,13 +28,12 @@ export const i18nReady = i18n
   .use(initReactI18next)
   .init({
     resources: { en: { translation: en } },
-    partialBundledLanguages: true,
+    ...localeOptions,
     lng: selectLanguage(
       getLanguage(),
       navigator.language,
       languages.map(({ key }) => key)
     ),
-    fallbackLng: 'en',
     interpolation: {
       escapeValue: false
     }

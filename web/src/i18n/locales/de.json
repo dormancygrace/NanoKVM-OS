@@ -593,7 +593,7 @@
     "upload": "Hochladen",
     "run": "Ausführen",
     "runBackground": "Im Hintergrund ausführen",
-    "runFailed": "",
+    "runFailed": "Ausführung fehlgeschlagen",
     "attention": "Achtung",
     "delDesc": "Möchten Sie diese Datei wirklich löschen?",
     "confirm": "Ja",

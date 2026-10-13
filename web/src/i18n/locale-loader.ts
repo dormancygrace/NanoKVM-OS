@@ -1,4 +1,11 @@
-import type { BackendModule, i18n, ResourceLanguage } from 'i18next';
+import type { BackendModule, i18n, InitOptions, ResourceLanguage } from 'i18next';
+
+export const localeOptions = {
+  partialBundledLanguages: true,
+  fallbackLng: 'en',
+  // Weblate may leave an untranslated value empty; keep its English label visible.
+  returnEmptyString: false
+} satisfies InitOptions;
 
 // Keep old saved locale names readable while giving i18next real language tags
 // for regional detection, plural rules and Intl consumers.

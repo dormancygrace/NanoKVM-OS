@@ -5,6 +5,7 @@ import { createInstance } from 'i18next';
 import {
   changeLoadedLanguage,
   createLocaleBackend,
+  localeOptions,
   localeTag,
   selectLanguage
 } from '../src/i18n/locale-loader.ts';
@@ -15,9 +16,8 @@ function initialize(loaders, language = 'en') {
   const instance = createInstance().use(createLocaleBackend(loaders));
   const ready = instance.init({
     resources: { en: english },
-    partialBundledLanguages: true,
+    ...localeOptions,
     lng: language,
-    fallbackLng: 'en',
     initAsync: false
   });
   return { instance, ready };
@@ -151,4 +151,19 @@ test('canonical Czech locale tag preserves the few plural form', async () => {
   assert.equal(instance.t('count', { count: 1 }), 'one');
   assert.equal(instance.t('count', { count: 2 }), 'few');
   assert.equal(instance.t('count', { count: 5 }), 'other');
+});
+
+test('empty Weblate translations fall back to English on initial load and language changes', async () => {
+  const loaders = {
+    fr: async () => ({ translation: { greeting: 'Bonjour', fallback: '' } })
+  };
+  const { instance, ready } = initialize(loaders, 'fr');
+  await ready;
+  assert.equal(instance.t('greeting'), 'Bonjour');
+  assert.equal(instance.t('fallback'), 'English fallback');
+
+  await changeLoadedLanguage(instance, 'en');
+  await changeLoadedLanguage(instance, 'fr');
+  assert.equal(instance.t('greeting'), 'Bonjour');
+  assert.equal(instance.t('fallback'), 'English fallback');
 });

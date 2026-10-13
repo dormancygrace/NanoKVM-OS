@@ -38,9 +38,10 @@ them all.
 
 `web/src/i18n/languages.ts` marks a language `partial: true` while it
 translates well under 90 % of the English keys. The language menu shows it as
-partial, and missing strings fall back to English.
+partial, and missing or empty strings fall back to English.
 
-A language without the flag must translate every key: `tests/i18n-keys.test.mjs`
+A language without the flag must provide a non-empty translation for every key.
+`tests/i18n-keys.test.mjs`
 fails otherwise. When a partial language reaches 100 % on Weblate, a
 maintainer removes its flag. From then on CI keeps it complete: a new English
 string must be translated before the change can merge.
@@ -82,13 +83,18 @@ hosting for open-source projects).
 | File format                    | i18next JSON file v4                                                        |
 | File mask                      | `web/src/i18n/locales/*.json`                                               |
 | Monolingual base language file | `web/src/i18n/locales/en.json`                                              |
-| Template for new translations  | `web/src/i18n/locales/en.json`                                              |
+| Template for new translations  | Leave empty                                                               |
 | Source language                | English                                                                     |
 | Edit base file                 | off (English strings change only with the code)                             |
 | JSON indentation               | 2 spaces                                                                    |
 | Sort JSON keys                 | off (Prettier formats these files the same way)                             |
 | Language code style            | POSIX style using underscore as a separator, lower case                     |
 | Add-ons                        | Cleanup translation files (removes keys that `en.json` no longer has)       |
+
+Leave the template field empty for i18next JSON so new translations contain only
+translated keys. The monolingual base file above still supplies English source
+strings to Weblate. The interface also falls back to English for empty values
+that arrive from existing translation files.
 
 **Language aliases** (project settings). Locale file names predate Weblate
 and are kept, because the interface stores the chosen language by these names:

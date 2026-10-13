@@ -119,7 +119,10 @@ func TestDHCPHooksActWithoutArguments(t *testing.T) {
 		"/etc/kvm/network/dns.mode", filepath.Join(root, "dns.mode"),
 		"/boot/resolv.conf", filepath.Join(root, "boot.resolv"),
 	).Replace(udhcpcDNSHook)
-	gateway := strings.ReplaceAll(udhcpcGatewayHook, gatewayPreferenceFile, preference)
+	gateway := strings.NewReplacer(
+		gatewayPreferenceFile, preference,
+		"/etc/udhcpc/udhcpc.conf", filepath.Join(root, "udhcpc.conf"),
+	).Replace(udhcpcGatewayHook)
 	env := append(os.Environ(), "PATH="+bin+":/usr/bin:/bin", "CALLS="+calls,
 		"interface=wlan0", "dns=192.0.2.53", "search=example.test", "router=192.0.2.1")
 

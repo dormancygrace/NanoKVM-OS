@@ -66,8 +66,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - name: Install SD image test tools
-        run: sudo apt-get update && sudo apt-get install -y dosfstools mtools
+      - name: Install system test tools
+        run: sudo apt-get update && sudo apt-get install -y dosfstools mtools iproute2
       - name: Shellcheck (errors only; parses each script per its shebang)
         run: |
           git ls-files -z | while IFS= read -r -d '' f; do
@@ -93,6 +93,10 @@ jobs:
           python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
       - name: Platform Buildroot configuration
         run: python3 scripts/test-platform-config.py
+      - name: Alpine DHCP gateway integration
+        # Only the disposable network namespace is changed; Ubuntu restricts
+        # unprivileged user namespaces, so let the test create it as root.
+        run: sudo python3 tools/test-dhcp-gateway.py
       - name: Script tests
         run: |
           set -e

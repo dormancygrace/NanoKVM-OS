@@ -79,7 +79,7 @@ type Conn struct {
 	flushInterval time.Duration
 	sticky        error
 	sendmmsg      sendmmsgFunc
-	gsoBuffer     *[maxBatchPackets * maxPacketBytes]byte
+	gso           bool
 	gsoStats      *gsoDiagnostics
 }
 
@@ -115,7 +115,7 @@ func Wrap(c *net.UDPConn, fast bool, onClose func()) (*Conn, bool) {
 		sendmmsg:      syscallSendmmsg,
 	}
 	if os.Getenv("NANOKVM_WEBRTC_UDP_GSO") == "1" {
-		wrapped.gsoBuffer = new([maxBatchPackets * maxPacketBytes]byte)
+		wrapped.gso = true
 		if os.Getenv("NANOKVM_WEBRTC_DIAGNOSTICS") == "1" {
 			wrapped.gsoStats = &gsoDiagnostics{}
 		}
@@ -321,9 +321,6 @@ func (c *Conn) Close() error {
 		c.sticky = net.ErrClosed
 		if s := c.gsoStats; s != nil && s.attempts != 0 {
 			log.Infof("WebRTC UDP GSO close: attempts=%d bundles=%d datagrams=%d fallbacks=%d", s.attempts, s.bundles, s.datagrams, s.fallbacks)
-		}
-		if c.gsoBuffer != nil {
-			clear(c.gsoBuffer[:])
 		}
 		for i := range c.slots {
 			c.slots[i] = packetSlot{}

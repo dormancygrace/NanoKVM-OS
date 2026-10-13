@@ -18,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/pion/interceptor"
+	"github.com/pion/interceptor/pkg/nack"
 	"github.com/pion/webrtc/v4"
 	log "github.com/sirupsen/logrus"
 )
@@ -243,7 +244,12 @@ func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.Med
 		if len(budgets) > 0 && budgets[0] != nil {
 			registry.Add(&rtpmtu.Factory{Budget: budgets[0].size})
 		}
-		if err := webrtc.ConfigureNack(mediaEngine, registry); err != nil {
+		// The responder keeps the sent packets for retransmission by reference:
+		// packetize hands out fresh payload memory for every frame and SRTP
+		// encrypts a marshalled copy, so nothing writes them again
+		// (TestPacketizedPayloadsAreNeverReused). Copying every video packet
+		// cost about 1 % CPU at 20 Mbit/s.
+		if err := webrtc.ConfigureNackWithOptions(mediaEngine, registry, nil, nack.DisableCopy()); err != nil {
 			return nil, err
 		}
 		if err := webrtc.ConfigureRTCPReports(registry); err != nil {

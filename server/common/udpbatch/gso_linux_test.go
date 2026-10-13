@@ -67,11 +67,8 @@ func TestGSOLoopbackWireEquality(t *testing.T) {
 					t.Fatalf("datagram%d changed", i)
 				}
 			}
-			if gsos.Load() != 1 || sender.gsoBuffer == nil {
+			if gsos.Load() != 1 || !sender.gso {
 				t.Fatal("GSO was not used successfully")
-			}
-			if !bytes.Equal(sender.gsoBuffer[:], make([]byte, len(sender.gsoBuffer))) {
-				t.Fatal("GSO scratch retained bytes")
 			}
 		})
 	}
@@ -103,7 +100,7 @@ func TestGSOUnsupportedFallbackWithoutDuplicates(t *testing.T) {
 					}
 				}
 			}
-			if attempts.Load() != 1 || sender.gsoBuffer != nil {
+			if attempts.Load() != 1 || sender.gso {
 				t.Fatal("unsupported GSO was not disabled")
 			}
 			receiver.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
@@ -135,7 +132,7 @@ func TestGSOUnknownErrorPropagatesWithoutFallback(t *testing.T) {
 				if err := sender.EndFrame(); !errors.Is(err, errno) {
 					t.Fatalf("expected %v, got %v", errno, err)
 				}
-				if sender.gsoBuffer == nil {
+				if !sender.gso {
 					t.Fatal("unknown GSO error disabled the path")
 				}
 			}

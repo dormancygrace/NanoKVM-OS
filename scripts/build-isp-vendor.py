@@ -52,7 +52,7 @@ common = ['OPT_LEVEL=' + opt_flags, 'CROSS_COMPILE=' + cross, 'CHIP_ARCH=CV181X'
 (mpi / 'lib/3rd').mkdir(parents=True, exist_ok=True)
 # Fresh output archives cannot retain members from a different toolchain.
 # Explicit targets bypass destructive vendor sdk_release/prepare recipes.
-with tempfile.TemporaryDirectory(prefix='enhanced-isp-', dir=mpi / 'lib') as stage:
+with tempfile.TemporaryDirectory(prefix='isp-vendor-', dir=mpi / 'lib') as stage:
     for module, name in modules.items():
         archive = str(Path(stage) / ('lib' + name + '.a'))
         shared = str(Path(stage) / ('lib' + name + '.so'))

@@ -747,7 +747,7 @@ static CVI_S32 _mmf_sys_init(SIZE_S stSize)
 		DATA_BITWIDTH_8, enCompressMode, DEFAULT_ALIGN);
 	u32BlkSize = MAX(u32BlkSize, u32BlkRotSize);
 	stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkSize	= u32BlkSize;
-	// The enhanced pipeline serializes encoder leases. Two source surfaces
+	// The pipeline serializes encoder leases. Two source surfaces
     // retain producer/VPSS overlap and leave room for SmartP reference frames.
 #ifdef NANOKVM_ENHANCED
     stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt = 2;

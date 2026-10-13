@@ -1,5 +1,5 @@
 #!/bin/sh
-# Keep release guidance aligned with the PCIe-only Enhanced boot assets.
+# Keep release guidance aligned with the PCIe-only boot assets.
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)

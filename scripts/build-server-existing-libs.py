@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the Enhanced server against an explicitly selected existing native set."""
+"""Build the server against an explicitly selected existing native set."""
 from nanokvm_cpu_profile import flags as cpu_flags, record as record_cpu_profile
 import argparse
 import hashlib

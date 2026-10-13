@@ -5,7 +5,7 @@ set -eu
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 OUTPUT=${1:-"$ROOT/work/devmem"}
-BUILDROOT_OUTPUT=${NANOKVM_BUILDROOT_OUTPUT:?Set NANOKVM_BUILDROOT_OUTPUT to the Enhanced Buildroot output}
+BUILDROOT_OUTPUT=${NANOKVM_BUILDROOT_OUTPUT:?Set NANOKVM_BUILDROOT_OUTPUT to the Buildroot output}
 BUILDROOT_OUTPUT=$(CDPATH='' cd -- "$BUILDROOT_OUTPUT" && pwd)
 CROSS="$BUILDROOT_OUTPUT/host/bin/riscv64-buildroot-linux-musl-"
 CPU_FLAGS=$(python3 "$ROOT/scripts/nanokvm_cpu_profile.py" userspace)

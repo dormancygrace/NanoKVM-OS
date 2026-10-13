@@ -1,4 +1,4 @@
-# NanoKVM Enhanced packet AES hook
+# NanoKVM OS packet AES hook
 
 Base: github.com/pion/srtp/v3 v3.1.3 (release tag).
 Upstream files and MIT license are retained. UPSTREAM-SHA256.json records the

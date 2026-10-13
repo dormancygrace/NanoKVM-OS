@@ -1,4 +1,4 @@
-// Package sg2002aes adapts the Enhanced SG2002 AES-CTR miscdevice to Pion SRTP.
+// Package sg2002aes adapts the SG2002 AES-CTR miscdevice to Pion SRTP.
 package sg2002aes
 
 import (

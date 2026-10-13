@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 NanoKVM Enhanced contributors
+// SPDX-FileCopyrightText: 2026 NanoKVM OS contributors
 // SPDX-License-Identifier: MIT
 
 package srtp

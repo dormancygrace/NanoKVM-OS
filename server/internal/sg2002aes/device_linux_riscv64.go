@@ -9,7 +9,7 @@ import (
 	"unsafe"
 )
 
-// Open opens the root-only Enhanced module. onError runs once if a request
+// Open opens the root-only sg2002-aes-probe device. onError runs once if a request
 // fails; subsequent packets use software without retrying poisoned hardware.
 func Open(onError func(error)) (*Device, error) {
 	f, err := os.OpenFile("/dev/sg2002-aes-probe", os.O_RDWR, 0)

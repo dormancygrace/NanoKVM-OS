@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pion/dtls/v3/pkg/crypto/elliptic"
 	dtlsnet "github.com/pion/dtls/v3/pkg/net"
 	"github.com/pion/transport/v5/dpipe"
 )
@@ -86,4 +87,29 @@ func runNanoKVMHandshake(t *testing.T, clientSuites, serverSuites []CipherSuiteI
 	}, true)
 	client := <-clientResult
 	return client.conn, server, client.err, serverErr
+}
+
+func TestNanoKVMNonECDHEFallbackUsesServerPreference(t *testing.T) {
+	// No shared curve: the non-ECDHE fallback must also walk the server's
+	// configured order, like the primary selection.
+	suites := func(ids ...CipherSuiteID) []CipherSuite {
+		out := make([]CipherSuite, 0, len(ids))
+		for _, id := range ids {
+			out = append(out, cipherSuiteForID(id, nil))
+		}
+
+		return out
+	}
+	cfg := &handshakeConfig{
+		localCipherSuites: suites(TLS_PSK_WITH_AES_128_CCM_8, TLS_PSK_WITH_AES_128_GCM_SHA256),
+		ellipticCurves:    []elliptic.Curve{elliptic.P256},
+	}
+	client := suites(TLS_PSK_WITH_AES_128_GCM_SHA256, TLS_PSK_WITH_AES_128_CCM_8)
+	got := selectNonECDHEFallback(cfg, client, []elliptic.Curve{elliptic.X25519}, true)
+	if got == nil || got.ID() != TLS_PSK_WITH_AES_128_CCM_8 {
+		t.Fatalf("fallback = %v, want %s", got, TLS_PSK_WITH_AES_128_CCM_8)
+	}
+	if got := selectNonECDHEFallback(cfg, client, []elliptic.Curve{elliptic.P256}, true); got != nil {
+		t.Fatalf("shared curve must not fall back, got %s", got.ID())
+	}
 }

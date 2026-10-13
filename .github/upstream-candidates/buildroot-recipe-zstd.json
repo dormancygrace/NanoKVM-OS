@@ -1,0 +1,13 @@
+{
+  "component": "Buildroot: zstd",
+  "current": "2026.08",
+  "candidate": "acbcc911b71f",
+  "candidate_key": "c43687fff3a3fee179e8c9fd63d8978178e766a3cc2ed2792f99273ad7f0304c",
+  "status": "pending-review",
+  "upstream": "https://github.com/buildroot/buildroot/compare/2026.08...acbcc911b71f93bb7ea9400aa19713f3464c8e69",
+  "source_path": "firmware/buildroot/configs/nanokvm_platform_defconfig",
+  "strategy": "review",
+  "evidence": {},
+  "upstream_commit": "acbcc911b71f93bb7ea9400aa19713f3464c8e69",
+  "pin_files_updated": []
+}

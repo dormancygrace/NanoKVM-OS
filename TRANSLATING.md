@@ -29,10 +29,15 @@ them in the glossary and in the "Other occurrences" and "Machinery" panels.
 
 ### Plural forms
 
-A key with `_one`/`_other` in English, such as `coreCount_one` and
-`coreCount_other`, has the plural forms of your language in Weblate (for
-example Russian `one/few/many/other`, and only `other` for Japanese). Fill
-them all.
+The message counter, `picoclaw.history.messageCount`, counts whole messages.
+Its English forms are `messageCount_one` and `messageCount_other`. Weblate
+uses the forms needed for whole numbers in each language: for example,
+`one/few/many` for Russian, `one/few/other` for Czech, and only `other`
+for Japanese. Translate every form shown in Weblate.
+
+For this integer counter, do not add fraction-only forms such as Russian
+`messageCount_other` or Czech `messageCount_many`. The plural test checks
+that the files contain exactly the whole-number forms used by each language.
 
 ## Complete and partial languages
 

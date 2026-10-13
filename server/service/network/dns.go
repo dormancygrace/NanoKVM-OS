@@ -2,7 +2,6 @@ package network
 
 import (
 	"bufio"
-	"context"
 	_ "embed"
 	"fmt"
 	"net"
@@ -11,7 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"NanoKVM-Server/proto"
 
@@ -23,15 +21,15 @@ const (
 	dnsModeManual = "manual"
 	dnsModeDHCP   = "dhcp"
 
-	dnsConfigDir     = "/etc/kvm/network"
-	dnsModeFile      = "/etc/kvm/network/dns.mode"
-	dnsServersFile   = "/etc/kvm/network/dns.servers"
-	bootResolvFile   = "/boot/resolv.conf"
-	bootResolvBackup = "/boot/resolv.conf.manual.bak"
-	etcResolvFile    = "/etc/resolv.conf"
-	dhcpResolvFile   = "/etc/resolv.conf.dhcp"
-	tmpResolvFile    = "/tmp/resolv.conf"
-	udhcpcHookFile   = "/usr/share/udhcpc/default.script.d/99-nanokvm-dns"
+	dnsConfigDir      = "/etc/kvm/network"
+	dnsModeFile       = "/etc/kvm/network/dns.mode"
+	dnsServersFile    = "/etc/kvm/network/dns.servers"
+	bootResolvFile    = "/boot/resolv.conf"
+	bootResolvBackup  = "/boot/resolv.conf.manual.bak"
+	etcResolvFile     = "/etc/resolv.conf"
+	dhcpResolvFile    = "/etc/resolv.conf.dhcp"
+	tmpResolvFile     = "/tmp/resolv.conf"
+	udhcpcDNSHookName = "99-nanokvm-dns"
 
 	maxDNSServers = 6
 )
@@ -530,11 +528,7 @@ func renderResolvConfig(path string, config resolvConfig) error {
 	// restores the latest network settings, including DHCP renewals.
 	if path == etcResolvFile {
 		if tool, err := exec.LookPath("resolvconf"); err == nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			cmd := exec.CommandContext(ctx, tool, "-a", "nkos.base")
-			cmd.Stdin = strings.NewReader(builder.String())
-			if err := cmd.Run(); err != nil {
+			if err := publishBaseResolver(tool, builder.String()); err != nil {
 				return fmt.Errorf("failed to update resolver: %w", err)
 			}
 			return nil
@@ -646,13 +640,9 @@ func backupAndRemoveBootResolv() error {
 }
 
 func installUDHCPCDNSHook() error {
-	if err := os.MkdirAll(filepath.Dir(udhcpcHookFile), 0o755); err != nil {
-		return fmt.Errorf("failed to create udhcpc hook directory: %w", err)
+	if err := installUDHCPCHook(udhcpcDNSHookName, udhcpcDNSHook); err != nil {
+		return err
 	}
 
-	if err := os.WriteFile(udhcpcHookFile, []byte(udhcpcDNSHook), 0o755); err != nil {
-		return fmt.Errorf("failed to install udhcpc dns hook: %w", err)
-	}
-
-	return nil
+	return ensureUDHCPCLeavesResolvConf()
 }

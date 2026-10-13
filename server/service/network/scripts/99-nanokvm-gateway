@@ -1,12 +1,22 @@
 #!/bin/sh
 
 # Keep DHCP-installed default routes consistent with the management-uplink
-# preference. The main udhcpc script invokes this after every bound/renew.
-ACTION="$1"
+# preference after every DHCP bound/renew.
+# Alpine's udhcpc script runs this from /etc/udhcpc/post-bound/ and
+# post-renew/ without arguments: the event is the directory name then.
+ACTION="${1:-$(basename "$(dirname "$0")")}"
+ACTION="${ACTION#post-}"
 PREFERENCE_FILE=/etc/kvm/network/gateway.preferred
+UDHCPC_CONF=/etc/udhcpc/udhcpc.conf
 
 [ "$ACTION" = bound ] || [ "$ACTION" = renew ] || exit 0
-[ -n "$router" ] || exit 0
+
+# Alpine sources this file without exporting NO_GATEWAY to its post hooks.
+# Read the same policy before adding any preferred default route.
+[ ! -f "$UDHCPC_CONF" ] || . "$UDHCPC_CONF"
+for excluded in $NO_GATEWAY; do
+    [ "$excluded" = "$interface" ] && exit 0
+done
 
 preference=$(cat "$PREFERENCE_FILE" 2>/dev/null)
 case "$preference:$interface" in
@@ -16,7 +26,22 @@ case "$preference:$interface" in
     *) exit 0 ;;
 esac
 
-for gateway in $router; do
+# RFC3442: when option 121 is present, ignore option 3 entirely, even if
+# option 121 contains no default route. Match Alpine's zero-gateway filter.
+gateways=
+if [ -n "$staticroutes" ]; then
+    set -- $staticroutes
+    while [ "$#" -ge 2 ]; do
+        if [ "$1" = "0.0.0.0/0" ] && [ "$2" != "0.0.0.0" ]; then
+            gateways="$gateways $2"
+        fi
+        shift 2
+    done
+else
+    gateways="$router"
+fi
+
+for gateway in $gateways; do
     ip -4 route replace default via "$gateway" dev "$interface" proto dhcp metric "$metric"
     metric=$((metric + 1))
 done

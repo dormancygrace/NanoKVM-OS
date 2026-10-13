@@ -15,7 +15,7 @@ import (
 )
 
 const gatewayPreferenceFile = "/etc/kvm/network/gateway.preferred"
-const udhcpcGatewayHookFile = "/usr/share/udhcpc/default.script.d/99-nanokvm-gateway"
+const udhcpcGatewayHookName = "99-nanokvm-gateway"
 
 //go:embed scripts/99-nanokvm-gateway
 var udhcpcGatewayHook string
@@ -56,13 +56,7 @@ func (s *Service) SetGatewayPreference(c *gin.Context) {
 }
 
 func installGatewayHook() error {
-	if err := os.MkdirAll(filepath.Dir(udhcpcGatewayHookFile), 0o755); err != nil {
-		return fmt.Errorf("create DHCP hook directory: %w", err)
-	}
-	if err := os.WriteFile(udhcpcGatewayHookFile, []byte(udhcpcGatewayHook), 0o755); err != nil {
-		return fmt.Errorf("install gateway DHCP hook: %w", err)
-	}
-	return nil
+	return installUDHCPCHook(udhcpcGatewayHookName, udhcpcGatewayHook)
 }
 
 func readGatewayPreference() string {

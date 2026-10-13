@@ -1,6 +1,9 @@
 #!/bin/sh
 
-ACTION="$1"
+# Alpine's udhcpc script runs this from /etc/udhcpc/post-bound/ and
+# post-renew/ without arguments: the event is the directory name then.
+ACTION="${1:-$(basename "$(dirname "$0")")}"
+ACTION="${ACTION#post-}"
 CACHE="/etc/resolv.conf.dhcp"
 ACTIVE="/etc/resolv.conf"
 MODE="/etc/kvm/network/dns.mode"

@@ -780,7 +780,7 @@
       "algorithm": "Komprimierung",
       "actualRam": "Seitenspeicher im RAM",
       "priorityNote": "ZRAM wird vor SD-Swap verwendet. Änderungen gelten sofort und bleiben nach einem Neustart erhalten.",
-      "unavailable": "Erfordert einen Enhanced-Firmware-Build mit dieser Funktion.",
+      "unavailable": "Erfordert einen NanoKVM-OS-Build mit dieser Funktion.",
       "loadError": "Speicherstatus konnte nicht gelesen werden",
       "changeError": "Swap-Einstellungen konnten nicht geändert werden"
     },

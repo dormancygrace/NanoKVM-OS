@@ -780,7 +780,7 @@
       "algorithm": "Compresión",
       "actualRam": "Almacenamiento de páginas en RAM",
       "priorityNote": "ZRAM se usa antes que el swap en SD. Los cambios se aplican de inmediato y se conservan tras reiniciar.",
-      "unavailable": "Requiere una compilación de firmware Enhanced con esta función.",
+      "unavailable": "Requiere una compilación de NanoKVM OS con esta función.",
       "loadError": "No se pudo leer el estado de la memoria",
       "changeError": "No se pudo cambiar la configuración de swap"
     },

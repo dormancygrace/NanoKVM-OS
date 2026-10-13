@@ -1674,7 +1674,7 @@ int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 		return 0;
 
     if (ch < 0 || ch >= MMF_VENC_MAX_CHN || w <= 0 || h <= 0
-        || w > UINT16_MAX || h > UINT16_MAX || quality <= 50 || quality > 99
+        || w > UINT16_MAX || h > UINT16_MAX || quality < 20 || quality > 99
         || (format != PIXEL_FORMAT_NV21 && format != PIXEL_FORMAT_NV16 && format != PIXEL_FORMAT_RGB_888)
         || ((format == PIXEL_FORMAT_NV21 || format == PIXEL_FORMAT_NV16) && (w % 2 || h % 2))) {
         printf("Invalid JPEG channel, size, format or quality\n");
@@ -1910,7 +1910,7 @@ int mmf_enc_jpg_deinit(int ch)
 static int _mmf_jpg_update_quality(int ch, int quality)
 {
     if (!priv.enc_jpg_is_init || priv.enc_jpg_running || ch < 0 || ch >= MMF_VENC_MAX_CHN
-        || quality <= 50 || quality > 99) return CVI_FAILURE;
+        || quality < 20 || quality > 99) return CVI_FAILURE;
     if (priv.enc_jpg_quality == quality) return CVI_SUCCESS;
     VENC_JPEG_PARAM_S params{};
     int ret = CVI_VENC_GetJpegParam(ch, &params);

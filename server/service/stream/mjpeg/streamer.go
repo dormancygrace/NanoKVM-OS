@@ -220,6 +220,7 @@ func (s *Streamer) run() {
 	ticker := time.NewTicker(time.Second / time.Duration(fps))
 	defer ticker.Stop()
 	delivery := frameDelivery{}
+	var adaptive adaptiveQuality
 
 	for range ticker.C {
 		screen = common.GetCaptureScreen()
@@ -238,7 +239,9 @@ func (s *Streamer) run() {
 		}
 		// Snapshot consumers still need fresh captures even when browser
 		// writers are backed up. Otherwise avoid captures nobody can use.
-		if !s.frameCacheEnabled() && !viewersReady(clients) {
+		busy := !viewersReady(clients)
+		quality := adaptive.next(int(screen.Quality), busy, time.Now())
+		if !s.frameCacheEnabled() && busy {
 			continue
 		}
 
@@ -249,7 +252,7 @@ func (s *Streamer) run() {
 			continue
 		}
 
-		data, result := vision.ReadMjpeg(screen.Width, screen.Height, screen.Quality)
+		data, result := vision.ReadMjpeg(screen.Width, screen.Height, uint16(quality))
 		stream.UpdateCaptureStatus(stream.CaptureModeMJPEG, result)
 		if result < 0 || result == 5 || len(data) == 0 {
 			// Signal loss/recovery must force a fresh delivery, even when

@@ -246,6 +246,14 @@ toolchain() {
         host-dosfstools busybox e2fsprogs f2fs-tools
     [ "$("${cross}gcc" -dumpfullversion)" = 16.2.0 ]
     python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace --record "$bo/cpu-profile.json" --compiler "${cross}gcc"
+    # License texts and manifest of the target packages (the initramfs
+    # userland and C library), collected while the build directories exist.
+    rm -rf "$bo/legal-info" "$bo/nanokvm-licenses"
+    BR2_DL_DIR=$dl/buildroot "${make[@]}" legal-info
+    mkdir -p "$bo/nanokvm-licenses"
+    cp "$bo/legal-info/manifest.csv" "$bo/nanokvm-licenses/"
+    cp -r "$bo/legal-info/licenses/." "$bo/nanokvm-licenses/"
+    rm -rf "$bo/legal-info"
     echo "$id" > "$bo/.platform-toolchain"
 }
 
@@ -421,6 +429,10 @@ initramfs() {
     done
     "$kbuild/usr/gen_init_cpio" -t 0 "$i/initramfs.list" > "$i/initramfs.cpio"
     "$host/zstd" -q -f -19 -T1 "$i/initramfs.cpio" -o "$img/initramfs.cpio.zst"
+    # Their licenses, from the toolchain step; nanokvm-kernel-sg2002 installs them.
+    rm -rf "${img:?}/licenses/initramfs"
+    mkdir -p "$img/licenses"
+    cp -r "$bo/nanokvm-licenses" "$img/licenses/initramfs"
 }
 
 boot() {
@@ -1006,6 +1018,7 @@ source_archive() {
     for pkg in busybox e2fsprogs util-linux f2fs-tools; do
         cp -r "$dl/buildroot/$pkg" "$stage/$name/upstream/buildroot-packages/"
     done
+    cp -r "$img/licenses" "$stage/$name/licenses"
     # This repository: the application (GPL-3.0) and every build recipe.
     git -C "$repo" archive HEAD | tar -x -C "$stage/$name/NanoKVM-OS"
     git -C "$repo" rev-parse HEAD > "$stage/$name/SOURCE-COMMIT"

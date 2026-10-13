@@ -14,6 +14,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/lib/modules/7.2.10-nanokvm-os-r4/` (65 in-tree and 17 out-of-tree modules, `modules.*`) | `nanokvm-kmod-sg2002` |
 | `images/boot/*.sd`, `*.sha256`, `kernel.release` (5 boards × 3 video memory modes: FHD as `NAME.dtb`, then `NAME-qhd`, `NAME-uhd`) | `nanokvm-kernel-sg2002`, `/usr/lib/nanokvm/boot` |
 | `images/dtb/*.dtb`, `images/initramfs.cpio.zst` | inside the `boot.sd` images |
+| `images/licenses/initramfs/` (Buildroot `legal-info`: `manifest.csv` and the license texts of the initramfs userland and C library) | `nanokvm-kernel-sg2002`, `/usr/share/licenses/nanokvm-kernel-sg2002/initramfs` |
 | `images/u-boot.bin`, `images/fip.bin` | boot partition of the SD image |
 | `images/opensbi/*`, `images/fip-manifest.json` | host build provenance and loader checks |
 | `images/native/*.so` (6 HDMI-light libraries) | `nanokvm-app`, `/kvmapp/server/dl_lib` |

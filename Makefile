@@ -7,7 +7,7 @@ PLATFORM_ARGS ?=
 PLATFORM = bash platform/build.sh -o "$(OUT)" -j "$(JOBS)" $(PLATFORM_ARGS)
 
 .PHONY: help all platform app support vision web release-build package release clean \
-        test-wifi-modules test-enhanced-wifi test-alpine-network test-wifi-runtime \
+        test-wifi-modules test-alpine-network test-wifi-runtime \
         test-ethernet-runtime test-partition-layout test-usb-profiles test-runtime-state
 
 help:
@@ -52,9 +52,6 @@ clean:
 	@$(PLATFORM) clean
 
 test-wifi-modules:
-	@sh tools/test-s25wifimod.sh
-
-test-enhanced-wifi:
 	@python3 scripts/test-wifi-selector.py
 	@python3 scripts/test-aic-firmware-path.py
 

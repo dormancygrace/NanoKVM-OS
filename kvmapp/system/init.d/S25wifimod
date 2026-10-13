@@ -1,56 +1,26 @@
 #!/bin/sh
-
-KO_DIR="${NANOKVM_KO_DIR:-/mnt/system/ko}"
-SDIO_DEVICES_DIR="${NANOKVM_SDIO_DEVICES_DIR:-/sys/bus/sdio/devices}"
-INSMOD="${NANOKVM_INSMOD:-insmod}"
-
-load_aic8800() {
-	"$INSMOD" "$KO_DIR/3rd/aic8800_bsp.ko"
-	"$INSMOD" "$KO_DIR/3rd/aic8800_fdrv.ko"
-}
-
-load_rtl8733bs() {
-	"$INSMOD" "$KO_DIR/3rd/8733bs.ko"
-}
-
-if [ "$1" = "start" ]
-then
-	. /etc/profile
-	printf "load wifi kernel module: "
-	"$INSMOD" "$KO_DIR/cfg80211.ko"
-
-	sdio_aliases=""
-	for alias_file in "$SDIO_DEVICES_DIR"/*/modalias
-	do
-		[ -r "$alias_file" ] || continue
-		sdio_aliases="$sdio_aliases $(cat "$alias_file")"
-	done
-
-	load_aic=0
-	load_rtl=0
-	case "$sdio_aliases" in
-		*v5449d0145*|*v544Ad0146*|*vC8A1d0082*|*vC8A1dC08D*)
-			load_aic=1
-			;;
-	esac
-	case "$sdio_aliases" in
-		*v024CdB73A*|*v024CdB733*)
-			load_rtl=1
-			;;
-	esac
-
-	# Preserve support for new or unrecognised boards. This is the old boot
-	# behaviour, but known boards avoid retaining an unused multi-megabyte
-	# driver for the lifetime of the system.
-	if [ "$load_aic" -eq 0 ] && [ "$load_rtl" -eq 0 ]
-	then
-		load_aic=1
-		load_rtl=1
-	fi
-
-	[ "$load_aic" -eq 0 ] || load_aic8800
-	[ "$load_rtl" -eq 0 ] || load_rtl8733bs
-
-	echo "OK"
-	exit 0
+# Load the Wi-Fi driver for the SDIO card on this board. The kernel normally
+# autoloads it by modalias; nanokvm-network runs this only when wlan0 is
+# missing. The IDs follow the AIC8800 (aicbsp_sdio_ids.h) and 8733bs drivers.
+set -eu
+[ "${1:-}" = start ] || exit 0
+SDIO_DEVICES_DIR=${NANOKVM_SDIO_DEVICES_DIR:-/sys/bus/sdio/devices}
+MODULES_DIR=${NANOKVM_MODULES_DIR:-/sys/module}
+MODPROBE=${NANOKVM_MODPROBE:-modprobe}
+loaded_aic=0
+loaded_rtl=0
+load_module() { module=$1; [ ! -d "$MODULES_DIR/$module" ] || return 0; "$MODPROBE" "$module"; }
+for alias in "$SDIO_DEVICES_DIR"/*/modalias; do
+    [ -r "$alias" ] || continue
+    case "$(cat "$alias")" in
+        sdio:c*v5449d0145*|sdio:c*v5449d0146*|sdio:c*v544Ad0146*|\
+        sdio:c*vC8A1dC08D*|sdio:c*vC8A1d0082*|sdio:c*vC8A1d0182*|\
+        sdio:c*vC8A1d908[1-6]*|sdio:c*vC8A1d2082*)
+            if [ "$loaded_aic" = 0 ]; then load_module aic8800_fdrv; loaded_aic=1; fi ;;
+        sdio:c*v024CdB733*|sdio:c*v024CdB73A*)
+            if [ "$loaded_rtl" = 0 ]; then load_module 8733bs; loaded_rtl=1; fi ;;
+    esac
+done
+if [ "$loaded_aic" = 0 ] && [ "$loaded_rtl" = 0 ]; then
+    echo 'NanoKVM OS: supported SDIO Wi-Fi device not present' >&2
 fi

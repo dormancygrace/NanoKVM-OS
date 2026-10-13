@@ -83,6 +83,12 @@ Upload your own certificate and key in Network settings, or use the optional **a
 
 Certificates can be replaced for new connections without restarting the application. Invalid custom certificates leave the generated certificate available, and ACME operations expose their status and errors in the interface.
 
+## 🧩 Add-ons and package updates
+
+- **acme.sh can also be installed from Software → Add-ons**, with a shortcut to its HTTPS settings.
+- **RustDesk stays a separate optional APK**, outside the full image and main release archive. Check for updates and install newer versions directly from the signed package repository.
+- **Daily package-index refresh**, off by default: enable the checkbox in Software → Packages and choose a time in the device timezone. Only the available-package lists are refreshed; installing or upgrading packages remains manual.
+
 ## 🐧 A refreshed foundation
 
 - **Linux 7.2.10-nanokvm-os-r4**, with matching kernel modules.
@@ -118,4 +124,4 @@ For locally pinned APKs or the older experimental C906 overlay, follow the [upgr
 
 Both **v2.6-a3** and **Image v1.1-a3** are alpha builds. Host build, artifact and signature verification results are recorded with the release candidate.
 
-The development measurements above come from the individual changes' documented tests. **This combined a3 image has not been installed or tested on the device in this rebuild.** Cube/Lite, all receiver/browser combinations and prolonged concurrent workloads are not covered by those measurements.
+The development measurements above come from the individual changes' documented tests. The a3 core packages have been installed and boot-tested on the PCIe development device. The complete SD image has passed host-side verification; it has not been reflashed in this round. Cube/Lite, all receiver/browser combinations and prolonged concurrent workloads are not covered by those measurements.

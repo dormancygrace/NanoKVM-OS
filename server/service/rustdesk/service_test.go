@@ -207,6 +207,24 @@ func TestPackageActionsUseFixedArgv(t *testing.T) {
 	}
 }
 
+func TestCheckRefreshesRepositoryWithoutInstalling(t *testing.T) {
+	s := NewService(NewBridge())
+	calls := 0
+	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		calls++
+		if name != "apk" || len(args) != 1 || args[0] != "update" {
+			t.Fatalf("check must only refresh repository indexes: %s %v", name, args)
+		}
+		return nil, errors.New("repository unavailable")
+	}
+	if err := s.Action("check"); err == nil || !strings.Contains(err.Error(), "repository unavailable") {
+		t.Fatalf("repository failure must reach the caller: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("got %d package commands, want one index refresh", calls)
+	}
+}
+
 func TestPasswordModeDefaultsAndLegacyMigration(t *testing.T) {
 	temporaryConfig(t)
 	fresh, err := readConfig()

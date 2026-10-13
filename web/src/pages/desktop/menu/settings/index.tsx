@@ -204,6 +204,7 @@ export const Settings = ({
             component: (
               <Addons
                 onOpenRustDesk={() => changeTab('software-rustdesk')}
+                onOpenAcme={() => changeTab('network-general')}
                 onOpen={() => {
                   closeModal();
                   setPicoclawOpen(true);

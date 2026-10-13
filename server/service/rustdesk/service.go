@@ -689,6 +689,8 @@ func (s *Service) Action(action string) error {
 		}
 		_, err = s.command("rc-service", Package, "restart")
 		return err
+	case "check":
+		return s.packageCommand("update")
 	case "install":
 		return s.packageCommand("add", Package)
 	case "upgrade":

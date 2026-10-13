@@ -9,12 +9,19 @@ import (
 	"syscall"
 )
 
-const usage = "usage: nkos-update apk-inherited ACTION | software-inherited ACTION PACKAGE"
+const usage = "usage: nkos-update apk-inherited ACTION | software-inherited ACTION PACKAGE | refresh-indexes"
 
 func main() {
 	if os.Geteuid() != 0 {
 		fmt.Fprintln(os.Stderr, "root required")
 		os.Exit(1)
+	}
+	if len(os.Args) == 2 && os.Args[1] == "refresh-indexes" {
+		if err := osupdate.RunScheduledIndexRefresh(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
 	}
 	apk := len(os.Args) == 3 && os.Args[1] == "apk-inherited"
 	software := len(os.Args) == 4 && os.Args[1] == "software-inherited"

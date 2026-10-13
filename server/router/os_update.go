@@ -38,6 +38,18 @@ func osUpdateRouter(r *gin.Engine) {
 	api.GET("/software/status", func(c *gin.Context) {
 		updateReply(c, gin.H{"operation": osupdate.GetSoftwareStatus(), "indexes": osupdate.GetSoftwareIndexStatus()}, nil)
 	})
+	api.GET("/software/index-schedule", func(c *gin.Context) {
+		schedule, err := osupdate.GetIndexSchedule()
+		updateReply(c, gin.H{"schedule": schedule, "timezone": osupdate.IndexScheduleTimezone()}, err)
+	})
+	api.PUT("/software/index-schedule", func(c *gin.Context) {
+		var schedule osupdate.IndexSchedule
+		if err := c.ShouldBindJSON(&schedule); err != nil {
+			updateReply(c, nil, err)
+			return
+		}
+		updateReply(c, nil, osupdate.SetIndexSchedule(schedule))
+	})
 	api.GET("/software/search", func(c *gin.Context) {
 		packages, err := osupdate.SearchSoftware(c.Query("query"))
 		updateReply(c, gin.H{"packages": packages}, err)

@@ -9,15 +9,18 @@ import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { Robot } from '@/components/icons/robot.tsx';
 
+import { AcmeAddon } from './acme';
 import { AddonCard } from './addon-card';
 import { RustDeskAddon } from './rustdesk';
 
 export const Addons = ({
   onOpen,
-  onOpenRustDesk
+  onOpenRustDesk,
+  onOpenAcme
 }: {
   onOpen: () => void;
   onOpenRustDesk: () => void;
+  onOpenAcme: () => void;
 }) => {
   const { t } = useTranslation();
   const [status, setStatus] = useAtom(picoclawRuntimeStatusAtom);
@@ -130,6 +133,7 @@ export const Addons = ({
         )}
       </AddonCard>
       <RustDeskAddon onOpen={onOpenRustDesk} />
+      <AcmeAddon onOpen={onOpenAcme} />
     </div>
   );
 };

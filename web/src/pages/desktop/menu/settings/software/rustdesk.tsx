@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, message, Popconfirm, Spin } from 'antd';
 import { useAtom } from 'jotai';
-import { DownloadIcon, Trash2Icon } from 'lucide-react';
+import { DownloadIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { getRustDeskStatus, rustDeskPackageAction, type RustDeskStatus } from '@/api/rustdesk';
@@ -60,7 +60,7 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
       stop();
     };
   }, [refresh]);
-  const operation = async (action: 'install' | 'upgrade' | 'remove') => {
+  const operation = async (action: 'install' | 'upgrade' | 'remove' | 'check') => {
     if (!mounted.current || working.current) return;
     const entered = generation.current;
     if (!mounted.current || entered !== generation.current) return;
@@ -76,7 +76,7 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
         showRequestError(response, 'settings.rustdesk.failed');
         return;
       }
-      message.success(t('done'));
+      if (action !== 'check') message.success(t('done'));
       setError('');
     } catch (err) {
       if (mounted.current && started === generation.current)
@@ -107,6 +107,13 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
             <Alert type="info" title={t('unavailable')} />
           )}
           <div className="flex flex-wrap gap-2">
+            <Button
+              icon={<RefreshCwIcon size={16} />}
+              loading={busy}
+              onClick={() => void operation('check')}
+            >
+              {t('checkUpdates')}
+            </Button>
             {status?.installed ? (
               <>
                 <Button type="primary" disabled={busy} onClick={onOpen}>

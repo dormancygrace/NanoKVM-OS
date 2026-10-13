@@ -761,6 +761,15 @@ const en = {
         description: 'Connect NanoKVM to a private network. Select a VPN to set it up.'
       },
       software: {
+        indexSchedule: {
+          enabled: 'Update package indexes automatically every day',
+          hint: 'Only the list of available packages is refreshed. Installation and upgrades still require your action. The device must be on at the selected time.',
+          time: 'Daily at',
+          timezone: 'Device timezone: {{timezone}}',
+          save: 'Save',
+          saved: 'Index refresh schedule saved',
+          failed: 'Could not load or save the index refresh schedule'
+        },
         addons: {
           title: 'Add-ons',
           packages: 'Packages',
@@ -1766,6 +1775,7 @@ const en = {
         }
       },
       rustdesk: {
+        checkUpdates: 'Check for updates',
         absent: 'Not installed',
         running: 'Running',
         stopped: 'Stopped',

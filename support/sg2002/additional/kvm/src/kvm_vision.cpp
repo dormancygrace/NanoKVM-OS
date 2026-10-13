@@ -738,9 +738,12 @@ uint8_t chack_ion()
 {
     const int rate = nanokvm::ion_usage_rate_from_file(ion_summary_path);
     // Unavailable, malformed or failed reads retain the watchdog's error
-    // result; only a valid percentage at the existing threshold may reboot.
+    // result. A valid reading is not judged by its percentage: the video
+    // pools are sized to the measured peak and run near 100 % (53.9 of
+    // 54 MiB at 1440p60 with MJPEG). Out of memory is a pipeline that has
+    // not been able to get its buffers for 30 s (mmf_video_memory_short_ms).
     if (rate < 0) return 0;
-    return rate >= 95 ? 1 : 2;
+    return mmf_video_memory_short_ms() >= 30000U ? 1 : 2;
 }
 
 void lt6911_enable()

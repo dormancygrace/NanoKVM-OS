@@ -30,14 +30,21 @@ static ssize_t partial_read_error(void *cookie, char *buffer, size_t size) {
 }
 
 static void test_ion(const std::string &path, const std::string &directory) {
-    // Exercise all valid percentages, including the 94/95 threshold and 100.
+    // Every valid percentage is normal, 100 included: only a video memory
+    // shortage of 30 s reboots.
     for (int rate = 0; rate <= 100; ++rate) {
         const std::string text = "Summary:\n[0] carveout heap size:78643200 bytes, used:31010816 bytes\n  usage rate:"
             + std::to_string(rate) + "%, memory usage peak 31010816 bytes\n";
         expect(nanokvm::ion_usage_rate_from_summary(text.c_str()) == rate, "parse percentage");
         write_file(path, text);
-        expect(chack_ion() == (rate >= 95 ? 1 : 2), "watchdog threshold");
+        fake_short_ms = 0;
+        expect(chack_ion() == 2, "full pool is normal");
+        fake_short_ms = 29999;
+        expect(chack_ion() == 2, "short shortage is normal");
+        fake_short_ms = 30000;
+        expect(chack_ion() == 1, "lasting shortage reboots");
     }
+    fake_short_ms = 30000;
     for (const char *text : {"", "Summary:\n", "usage rate:%", "usage rate:-1%", "usage rate:+95%",
         "usage rate:101%", "usage rate:99999999999999999999999999%", "usage rate:100",
         "usage rate:100junk%", "usage rate:95.5%", "usage rate:\n95%", "not usage rate:100%"}) {

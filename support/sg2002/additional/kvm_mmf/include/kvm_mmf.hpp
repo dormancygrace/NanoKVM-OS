@@ -104,6 +104,9 @@ int mmf_venc_push(int ch, uint8_t *data, int w, int h, int format);
 int mmf_venc_push_vi(int ch, int vi_ch);
 // Capture owner must serialize calls; busy encoder storage is retained.
 int mmf_trim_idle_copy_buffers(void);
+// How long the encoder or the capture has been failing to get video memory
+// without a frame encoded since, in milliseconds; 0 when it is not.
+uint32_t mmf_video_memory_short_ms(void);
 int mmf_venc_pop(int ch, mmf_stream_t *stream);
 int mmf_venc_free(int ch);
 // Input rate measured by VI, in frames per second; 0 when unknown.

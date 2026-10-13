@@ -10,6 +10,8 @@
 #include <sys/param.h>
 #include "math.h"
 #include <inttypes.h>
+#include <pthread.h>
+#include <time.h>
 
 #include <fcntl.h>		/* low-level i/o */
 #include "cvi_buffer.h"
@@ -237,6 +239,53 @@ static venc_tuning_t load_venc_tuning(void)
 		t.max_iprop, t.ip_qp_delta, t.row_qp_delta, t.thrd_lv, t.stats, t.buf_kb, t.jpeg_buf_kb);
 	fflush(stderr);
 	return t;
+}
+
+/*
+ * Video memory shortage. The pools are sized to the measured peak, so their
+ * use is near 100 % in normal operation and says nothing about a fault. A
+ * shortage shows as failed allocations instead: a VPSS pool that cannot be
+ * created or an encoder without its buffers (CVI_ERR_VENC_NOBUF from
+ * SendFrame, see platform/modules/osdrv/0004). The watchdog reboots only
+ * after it has lasted (chack_ion); a gap of 2 s without failures, or one
+ * encoded frame, ends it.
+ */
+static uint64_t video_memory_short_first_ms, video_memory_short_last_ms;
+static pthread_mutex_t video_memory_short_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static uint64_t video_memory_now_ms(void)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (uint64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+static void note_video_memory(bool short_now)
+{
+	const uint64_t now = video_memory_now_ms();
+	pthread_mutex_lock(&video_memory_short_lock);
+	if (!short_now) {
+		video_memory_short_first_ms = video_memory_short_last_ms = 0;
+	} else {
+		if (!video_memory_short_first_ms || now - video_memory_short_last_ms > 2000) {
+			video_memory_short_first_ms = now;
+			fprintf(stderr, "[kvm_mmf] video memory exhausted: a buffer of the video pipeline cannot be allocated\n");
+			fflush(stderr);
+		}
+		video_memory_short_last_ms = now;
+	}
+	pthread_mutex_unlock(&video_memory_short_lock);
+}
+
+uint32_t mmf_video_memory_short_ms(void)
+{
+	const uint64_t now = video_memory_now_ms();
+	pthread_mutex_lock(&video_memory_short_lock);
+	uint64_t span = 0;
+	if (video_memory_short_first_ms && now - video_memory_short_last_ms <= 2000)
+		span = now - video_memory_short_first_ms;
+	pthread_mutex_unlock(&video_memory_short_lock);
+	return span > UINT32_MAX ? UINT32_MAX : (uint32_t)span;
 }
 
 // Per-second encoder statistics for measurements (venc_tuning.stats).
@@ -1405,6 +1454,7 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
 	}
 	if (pool_id < 0) {
 		printf("[%s][%d]_create_vb_pool failed, id %d\n", __func__, __LINE__, pool_id);
+		note_video_memory(true);
 		goto _need_deinit_vpss_chn;
 	}
 
@@ -2561,7 +2611,10 @@ static int _mmf_venc_push_copy(int ch, uint8_t *data, int w, int h, int format,
         const uint32_t size = VDEC_GetPicBufferSize((PAYLOAD_TYPE_E)info->cfg.type,
             w, h, (PIXEL_FORMAT_E)format, DATA_BITWIDTH_8, COMPRESS_MODE_NONE);
         const int pool = _create_vb_pool(name, MMF_MOD_VENC, size, 1);
-        if (pool < 0) return CVI_FAILURE;
+        if (pool < 0) {
+            note_video_memory(true);
+            return CVI_FAILURE;
+        }
         VIDEO_FRAME_INFO_S *frame = _mmf_alloc_frame(pool,
             (SIZE_S){(CVI_U32)w, (CVI_U32)h}, (PIXEL_FORMAT_E)format);
         if (!frame) {
@@ -2580,6 +2633,7 @@ static int _mmf_venc_push_copy(int ch, uint8_t *data, int w, int h, int format,
     if (copied != CVI_SUCCESS) return copied;
     const int sent = CVI_VENC_SendFrame(ch, info->capture_frame, 1000);
     if (sent == CVI_SUCCESS) info->is_running = 1;
+    if (sent == CVI_SUCCESS || sent == CVI_ERR_VENC_NOBUF) note_video_memory(sent != CVI_SUCCESS);
     return sent;
 }
 
@@ -2639,6 +2693,12 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
 	}
 
 	CVI_S32 ret = diagnostic_force_copy() ? CVI_FAILURE : CVI_VENC_SendFrame(ch, frame, 1000);
+	if (ret == CVI_SUCCESS || ret == CVI_ERR_VENC_NOBUF) note_video_memory(ret != CVI_SUCCESS);
+	if (ret == CVI_ERR_VENC_NOBUF) {
+		// Without its buffers the channel cannot encode; a copy would not
+		// help and needs more of the same memory. The caller recreates it.
+		return ret;
+	}
 	if (ret == CVI_SUCCESS) {
 		// A copy buffer left from a fallback is idle: the encoder finished
 		// with it before this frame (see _mmf_release_venc_copy).

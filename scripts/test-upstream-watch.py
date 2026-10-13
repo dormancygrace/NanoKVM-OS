@@ -31,6 +31,33 @@ class WatchTests(unittest.TestCase):
         with patch.object(u, 'github', return_value=tags + [{'name': 'json-c-0.20-20270101'}]):
             self.assertEqual(u.check(source)['status'], 'update available')
 
+    def test_linux_waits_for_first_point_release(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        source = next(s for s in sources if s['name'] == 'Linux')
+        cases = [
+            (['7.3', '7.2.10'], '7.2.10', 'current'),
+            (['7.3.0', '7.2.10'], '7.2.10', 'current'),
+            (['8.0', '8.0.0', '7.3-rc7', '7.3.1-rc1', '7.2.10'], '7.2.10', 'current'),
+            (['7.3.0', '7.2.11', '7.2.10'], '7.2.11', 'update available'),
+            (['7.3.1', '7.2.10'], '7.3.1', 'update available'),
+            (['7.3.9', '7.3.10', '7.2.10'], '7.3.10', 'update available'),
+            (['8.0.1', '7.3.10', '7.2.10'], '8.0.1', 'update available'),
+            (['7.3', '7.2.9'], '7.2.9', 'pinned ahead'),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pin = root / source['path']
+            pin.parent.mkdir(parents=True)
+            pin.write_text('linux https://example.test/linux-7.2.10.tar.xz\n')
+            for versions, latest, status in cases:
+                feed = json.dumps({'releases': [{'version': v} for v in versions],
+                                   'latest_stable': {'version': versions[0]}})
+                with self.subTest(versions=versions), patch.object(u, 'request', return_value=feed) as request:
+                    result = u.check(source, root)
+                    request.assert_called_once_with('https://www.kernel.org/releases.json')
+                    self.assertEqual(result['latest'], latest)
+                    self.assertEqual(result['status'], status)
+
     def test_inventory_matches_sources(self):
         import json
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']

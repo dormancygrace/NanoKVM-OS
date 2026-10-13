@@ -38,6 +38,8 @@ The Go, frontend, script and additional-Go-module CI suites remain mandatory. Ru
 - **RustDesk protocol/reference sources**, hbb_common and OneKVM; **PicoClaw's latest-release channel** and presence of the required riscv64 archive.
 - Patched Pion versions, the vendor kernel reference, the nested CORS module and AES Bridge Go described above.
 
+**Linux release policy:** the kernel.org feed is filtered to point releases `X.Y.Z` with `Z >= 1`. Initial series releases (both `X.Y` and `X.Y.0`) and release candidates are skipped. For example, `7.3` / `7.3.0` do not replace `7.2.11` as an update candidate, but `7.3.1` does. This filter applies only to Linux; other components retain their own release policies. Kernel candidates appear in the Actions log and job summary, not in Dependabot PRs or issues.
+
 Errors fail the workflow and remain explicit in the report. Issue publication has been removed, including write permissions and the publication CLI. GitHub tag listing is paginated; exceeding its bounded scan is an error rather than an incomplete claim of the latest version. Pinned-ahead results never trigger a downgrade.
 
 ## Which BusyBox and QEMU?

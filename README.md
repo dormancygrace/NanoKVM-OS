@@ -42,9 +42,9 @@ Underneath the interface is **Alpine Linux 3.24 on a writable F2FS root**, with 
 These are targets, not guaranteed delivered rates. Available modes depend on the HDMI receiver, video-memory profile, source timing, codec and browser. The interface reports the input and encoded stream separately and explains unavailable choices.
 
 - **H.264 and H.265 over Direct or WebRTC**, plus **MJPEG**. H.265 WebRTC is available again in v2.5-a1; older releases' QHD restriction no longer describes the current release.
-- **Hardware video encoding**, bitrate and GOP controls, H.265 NormalP/SmartP, and Direct playback options for responsiveness or a smoother picture. Bitrate is an encoder target; actual traffic depends on the image and operating conditions.
+- **Hardware video encoding**, automatic/economy/manual bitrate controls, measured bitrate, and Direct playback options for responsiveness or a smoother picture. NormalP keyframes are requested as needed, with a periodic safety interval. Bitrate is an encoder ceiling; actual traffic depends on the image and operating conditions.
 - **MJPEG quality and JPEG colour sampling:** choose **4:2:2** (default) or **4:2:0**, with the selection saved across reboots.
-- **Virtual monitor / EDID controls:** choose the resolution, refresh and orientation seen by the managed computer independently from the stream-size limit. Presets apply related settings together; **Same as input** preserves the input dimensions.
+- **Virtual monitor / EDID controls:** choose the resolution, refresh and orientation seen by the managed computer independently from the stream-size limit. Video modes apply monitor resolution and frame rate together; **Same as input** preserves the input dimensions.
 - **Portrait profiles:** 720 × 1280, 1080 × 1920, 1296 × 2304 for H.264, and 1440 × 2560 for H.265, subject to the reported device and browser capabilities.
 - **PNG screenshots and browser-side recording**, plus USB audio playback in the browser through a shared Opus encoder.
 - **HDMI enable/disable and capture idle timeout**, so capture can stop when no viewer is watching.

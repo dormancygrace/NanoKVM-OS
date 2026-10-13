@@ -146,7 +146,15 @@ code = header + function(fdtdec, "static int fdtdec_init_reserved_memory(")
 code += function(fdtdec, "int fdtdec_add_reserved_memory(")
 code += function(uboot / "arch/riscv/lib/fdt_fixup.c", "int riscv_fdt_copy_resv_mem_node(") + body
 dtbs = sorted(a.linux_dtbs.resolve().glob("*.dtb"))
-assert len(dtbs) == 25, "expected five board variants with five video memory modes"
+expected_dtbs = {
+    board + suffix + ".dtb"
+    for board in ("alpha", "beta", "detect", "lite", "pcie")
+    for suffix in ("", "-qhd", "-uhd")
+}
+assert {dtb.name for dtb in dtbs} == expected_dtbs, (
+    "expected exactly five board variants with FHD, QHD and UHD video memory modes",
+    sorted(dtb.name for dtb in dtbs),
+)
 libfdt = uboot / "scripts/dtc/libfdt"
 with tempfile.TemporaryDirectory(prefix="nkos-reservations-") as directory:
     root = Path(directory)

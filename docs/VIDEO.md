@@ -4,24 +4,15 @@ Fresh-browser default: **H.265 Direct** over HTTPS. Existing browser preferences
 
 H.265 is available over WebRTC again. It was disabled in v2.1-b1 because the device could freeze while CryptoDMA encrypted SRTP; the AES driver now runs ciphers out of place, which removed the freeze.
 
-The quick video menu shows what is streamed now (size, measured frame rate, bitrate) and switches between the profiles below with one click; browser scale and a link to **Settings → Video** stay there. The capture button is green while capture is enabled and amber while disabled; its tooltip names the next action.
+The quick video menu shows the measured stream size, frame rate and bitrate. Its Mode, Bitrate and Transport rows change the corresponding settings; browser scale and a link to **Settings → Video** remain available.
 
-## Profiles
+## Video modes and bitrate
 
-A profile sets the monitor, the stream and the player together, adapted to the device and the browser. A profile that cannot apply says why (for example: not enough video memory, or the browser cannot play it).
+Video modes combine the monitor resolution and stream frame rate. The page separates shared picture settings from this browser's transport and playback settings. Unavailable choices explain the hardware, memory, permission or browser limitation. A UHD selection can offer the required memory-mode change and reboot.
 
-| Profile | Monitor | Stream |
-|---|---|---|
-| Recommended | Automatic: 1920×1080 at up to 100 Hz | Same as input, 100 fps, H.265 when the browser plays it, bitrate for motion |
-| Sharpest | The largest available: 3840×2160 at 30 Hz, else 2560×1440 at 60 Hz | Same as input, the highest rate, 20 Mbit/s |
-| Balanced | 2560×1440 at 60 Hz | 60 fps, bitrate for motion |
-| Lowest latency | 1280×720 at 120 Hz | H.264, 120 fps, Direct without a playback buffer |
-| Compatible | 1920×1080 | WebRTC H.264, 60 fps, bitrate for motion |
-| Low traffic | 1920×1080 at 30 Hz | Up to 1080p, 30 fps, 1 Mbit/s |
+**Auto bitrate** selects a ceiling for motion from the prospective stream dimensions, frame rate and codec: about 0.09 bit per pixel for H.265 and 1.3 times that for H.264, rounded up to an offered value, capped at 20 Mbit/s. H.265 examples: 1280×720@120 selects 10 Mbit/s, 1920×1080@60 selects 12 Mbit/s, and QHD@60 or UHD@30 selects 20 Mbit/s. **Economy** selects 3 Mbit/s. Manual bitrate remains available. A still desktop normally sends much less than the ceiling.
 
-**Bitrate for motion** is about 0.05 bit per pixel for H.265 (video playback, scrolling) and 1.5 times that for H.264, rounded up to an offered value: 1280×720@120 8, 1920×1080@60 8, 1920×1080@100 12, 2560×1440@60 12, 3840×2160@30 15 Mbit/s with H.265. A static desktop needs much less; the manual settings show the recommendation for the chosen size and rate. Factory defaults match Recommended: 100 fps, 12 Mbit/s.
-
-Profiles keep a portrait monitor as it is, and do not change the monitor on boards whose receiver needs a power cycle after an EDID write (Cube/Lite). Settings that match no profile are shown as **Custom**. **Manual settings** contains every individual choice; unavailable choices stay visible, disabled, with the reason.
+The encoder applies rate-control limits before capture starts and uses NormalP, with keyframes on viewer request plus a ten-second safety interval. GOP and SmartP controls have been removed; saved SmartP selections are treated as NormalP. H.264 remains Main. Native encoder diagnostics are included in the application log.
 
 ## HDMI monitor and automatic input detection
 
@@ -86,7 +77,7 @@ Examples:
 | 1024×768 | 720p | 960×720 |
 | 800×600 | 720p | 800×600 |
 
-Scaling occurs in VPSS before encoding. Browser scale only changes local presentation. Stream resolution, FPS and bitrate are device-wide; transport and codec preferences belong to the viewing browser (concurrent encoder constraints still apply).
+Scaling occurs in VPSS before encoding. Browser scale only changes local presentation. Stream resolution, FPS, bitrate and the active encoder codec are device-wide; transport and playback preferences belong to the viewing browser. A transport fallback that changes the shared codec requires administrator permission.
 
 ## Frame rate limits
 
@@ -102,4 +93,4 @@ MJPEG is unavailable while the HDMI input is 3840×2160, whatever the stream lim
 
 ## Advanced settings
 
-Direct playback (smooth or lowest latency), GOP, H.265 GOP mode, JPEG color sampling, frame-change detection and HDMI recovery are under **Advanced and recovery** in the manual settings. Opening the menu or page reads device settings rather than overwriting them from stale browser storage.
+Direct playback (smooth or lowest latency), JPEG color sampling, frame-change detection and HDMI recovery remain available in Video settings. MJPEG adapts quality to viewer delivery pressure and recovers up to the selected quality ceiling. Opening the menu or page reads device settings rather than overwriting them from stale browser storage.

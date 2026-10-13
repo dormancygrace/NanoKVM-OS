@@ -167,11 +167,11 @@ The audio socket accepts a bounded newline JSON request, version=1 and
 payload size u16be, two zero reserved bytes. Format headers have no payload.
 Opus packets are 48 kHz stereo, 20 ms, at most 1275 bytes; all subscribers use
 one capture helper. Client EOF releases only that subscription. The existing
-native/usb-audio capture source and build script are included as integration
+The usb-audio capture source and build script are included as integration
 references; their dependencies remain pinned by the script. The native helper
 belongs to the NanoKVM application package and is not duplicated by the add-on.
 """)
-shutil.copytree(root/"native/usb-audio",go_transport/"native/usb-audio")
+shutil.copytree(root/"server/service/stream/audio/capture",go_transport/"native/usb-audio")
 shutil.copyfile(root/"scripts/build-usb-audio.py",go_transport/"build-usb-audio.py.integration")
 shutil.copyfile(root/"scripts/nanokvm_cpu_profile.py",go_transport/"nanokvm_cpu_profile.py.integration")
 

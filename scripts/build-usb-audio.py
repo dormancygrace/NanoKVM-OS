@@ -50,7 +50,7 @@ if not audio_builtin:
         subprocess.run(['make','-C',str(args.kernel_source),'O='+str(args.kernel_output),'ARCH=riscv','CROSS_COMPILE='+cross,'CC='+cross+'gcc','KCFLAGS='+flags,'M='+str(module),'modules','-j'+args.jobs],stdout=log,stderr=subprocess.STDOUT,check=True)
     module_artifacts=[module/'u_audio.ko',module/'usb_f_uac1.ko']
 helper=out/'usb-audio-capture'
-cmd=[cross+'gcc',*cpu_flags('audio'),'-Wall','-Wextra','-Werror','-static',*maps.split(),'-I'+str(tiny/'include'),'-I'+str(tiny/'src'),'-I'+str(opus/'include'),str(repo/'native/usb-audio/capture.c')]+[str(tiny/'src'/f) for f in ('pcm.c','pcm_hw.c','limits.c','snd_card_plugin.c')]+[str(opus_build/'.libs/libopus.a'),'-lm','-o',str(helper)]
+cmd=[cross+'gcc',*cpu_flags('audio'),'-Wall','-Wextra','-Werror','-static',*maps.split(),'-I'+str(tiny/'include'),'-I'+str(tiny/'src'),'-I'+str(opus/'include'),str(repo/'server/service/stream/audio/capture/capture.c')]+[str(tiny/'src'/f) for f in ('pcm.c','pcm_hw.c','limits.c','snd_card_plugin.c')]+[str(opus_build/'.libs/libopus.a'),'-lm','-o',str(helper)]
 with (out/'helper-build.log').open('w') as log:subprocess.run(cmd,cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True)
 subprocess.run([cross+'strip',str(helper)],check=True)
 license_dir=out/'share/usb-audio';license_dir.mkdir(parents=True,exist_ok=True)

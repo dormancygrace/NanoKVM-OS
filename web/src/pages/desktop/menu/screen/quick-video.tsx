@@ -6,14 +6,15 @@ import { useTranslation } from 'react-i18next';
 import {
   BITRATE_CHOICES,
   draftAutoBitrate,
+  draftPlayable,
   ECONOMY_BITRATE,
-  mjpegBlocked,
   modeOf,
   QUALITY_CHOICES,
   recommendedMode,
-  transportPlayable,
+  transportChoice,
   videoModes,
   withMode,
+  type Codec,
   type Transport,
   type VideoDraft
 } from '@/lib/video-model';
@@ -104,7 +105,13 @@ export const QuickVideo = () => {
   const mbps = (kbps: number) => t('videoSettings.mbps', { value: kbps / 1000 });
 
   async function apply(draft: VideoDraft) {
-    if (busy || !caps || !saved) return;
+    if (busy || !caps || !browser || !saved) return;
+    // A choice the settings form would refuse is never applied: the page
+    // would reload into a stream this browser or the monitor cannot play.
+    if (!draftPlayable(draft, caps, browser)) {
+      message.error(t('videoSettings.failed'));
+      return;
+    }
     setBusy(true);
     try {
       const result = await applyVideoDraft(saved, draft, caps, { admin, confirmPowerCycle: false });
@@ -194,17 +201,20 @@ export const QuickVideo = () => {
         : mbps(saved.bitRate);
 
   const names: Record<Transport, string> = { direct: 'Direct', webrtc: 'WebRTC', mjpeg: 'MJPEG' };
+  const codecNames: Record<Codec, string> = { h264: 'H.264', h265: 'H.265' };
+  // Each transport with a codec it plays here and in the monitor profile: the
+  // current codec where it can, else the other one, named in the item.
   const transportItems: Item[] = (['direct', 'webrtc', 'mjpeg'] as const).map((transport) => {
-    const next = { ...saved, transport };
+    const next = transportChoice(saved, transport, caps, browser);
+    const switchesCodec = !!next && transport !== 'mjpeg' && next.codec !== saved.codec;
     return {
       key: transport,
       checked: saved.transport === transport,
-      disabled:
-        busy ||
-        !transportPlayable(browser, transport) ||
-        (transport === 'mjpeg' && mjpegBlocked(next, caps)),
-      label: names[transport],
-      pick: () => void apply(next)
+      disabled: busy || !next,
+      label: switchesCodec ? `${names[transport]} · ${codecNames[next.codec]}` : names[transport],
+      pick: () => {
+        if (next) void apply(next);
+      }
     };
   });
 

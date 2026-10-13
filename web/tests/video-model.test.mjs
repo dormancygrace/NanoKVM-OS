@@ -56,8 +56,24 @@ function caps({
         enabled: false,
         resolution: 1920,
         profiles: [
-          { resolution: 1920, width: 1080, rate: 100, rates: [100, 75, 60, 30], codecs: ['mjpeg', 'h264', 'h265'], transports: ['direct', 'webrtc', 'mjpeg'], available: true },
-          { resolution: 2560, width: 1440, rate: 60, rates: [60, 50, 30], codecs: ['h265'], transports: ['direct', 'webrtc'], available: true }
+          {
+            resolution: 1920,
+            width: 1080,
+            rate: 100,
+            rates: [100, 75, 60, 30],
+            codecs: ['mjpeg', 'h264', 'h265'],
+            transports: ['direct', 'webrtc', 'mjpeg'],
+            available: true
+          },
+          {
+            resolution: 2560,
+            width: 1440,
+            rate: 60,
+            rates: [60, 50, 30],
+            codecs: ['h265'],
+            transports: ['direct', 'webrtc'],
+            available: true
+          }
         ]
       }
     },
@@ -105,7 +121,10 @@ test('rate tiers follow the server table in either orientation', () => {
 
 test('effective rate is limited by the input size', () => {
   assert.equal(model.effectiveFps(draft({ fps: 60 }), caps({ input: [3840, 2160] })), 30);
-  assert.equal(model.effectiveFps(draft({ fps: 60, height: 1080 }), caps({ input: [3840, 2160] })), 30);
+  assert.equal(
+    model.effectiveFps(draft({ fps: 60, height: 1080 }), caps({ input: [3840, 2160] })),
+    30
+  );
   assert.equal(model.effectiveFps(draft({ fps: 120 }), caps({ input: [1280, 720] })), 120);
 });
 
@@ -114,23 +133,36 @@ test('monitor refresh follows the stream rate', () => {
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 30 }), c).refresh, 30);
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 50 }), c).refresh, 60);
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 120 }), c).refresh, 100);
-  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 30 }), caps({ follows: false })).refresh, 100);
+  assert.equal(
+    model.monitorTarget(draft({ monitor: 1080, fps: 30 }), caps({ follows: false })).refresh,
+    100
+  );
 });
 
 test('H.265 over WebRTC is allowed when the browser decodes it', () => {
   const c = caps();
   assert.deepEqual({ ...model.draftIssues(draft({ transport: 'webrtc' }), c, everything) }, {});
   assert.equal(
-    model.draftIssues(draft({ transport: 'webrtc' }), c, { ...everything, webrtcH265: false }).codec,
+    model.draftIssues(draft({ transport: 'webrtc' }), c, { ...everything, webrtcH265: false })
+      .codec,
     'browser'
   );
 });
 
 test('the tallest portrait profile needs H.265, over Direct or WebRTC', () => {
   const c = caps();
-  assert.equal(model.draftIssues(draft({ portrait: 2560, transport: 'mjpeg' }), c, everything).transport, 'portrait');
-  assert.equal(model.draftIssues(draft({ portrait: 2560, codec: 'h264' }), c, everything).codec, 'portrait');
-  assert.deepEqual({ ...model.draftIssues(draft({ portrait: 2560, transport: 'webrtc' }), c, everything) }, {});
+  assert.equal(
+    model.draftIssues(draft({ portrait: 2560, transport: 'mjpeg' }), c, everything).transport,
+    'portrait'
+  );
+  assert.equal(
+    model.draftIssues(draft({ portrait: 2560, codec: 'h264' }), c, everything).codec,
+    'portrait'
+  );
+  assert.deepEqual(
+    { ...model.draftIssues(draft({ portrait: 2560, transport: 'webrtc' }), c, everything) },
+    {}
+  );
   assert.deepEqual({ ...model.draftIssues(draft({ portrait: 2560 }), c, everything) }, {});
 });
 
@@ -143,7 +175,10 @@ test('unavailable choices carry their reason', () => {
 
 test('modes list every monitor size at its refresh rates, then portrait', () => {
   const keys = model.videoModes(caps()).map((m) => m.key);
-  assert.deepEqual([...keys.slice(0, 5)], ['m2160@30', 'm1440@60', 'm1440@50', 'm1440@40', 'm1440@30']);
+  assert.deepEqual(
+    [...keys.slice(0, 5)],
+    ['m2160@30', 'm1440@60', 'm1440@50', 'm1440@40', 'm1440@30']
+  );
   assert.ok(keys.includes('m720@120'));
   assert.ok(!keys.some((k) => k.startsWith('m0@')), 'Auto is not a mode of its own');
   assert.deepEqual([...keys.slice(-3)], ['p2560@60', 'p2560@50', 'p2560@30']);
@@ -181,7 +216,10 @@ test('applying a mode sets the monitor and the rate, and fits portrait limits', 
   const qhd = model.withMode(draft({ portrait: 1920 }), mode('m1440@60'), c);
   assert.deepEqual([qhd.monitor, qhd.portrait, qhd.fps], [1440, 0, 60]);
   const tall = model.withMode(draft({ transport: 'mjpeg', codec: 'h264' }), mode('p2560@50'), c);
-  assert.deepEqual([tall.portrait, tall.fps, tall.transport, tall.codec], [2560, 50, 'direct', 'h265']);
+  assert.deepEqual(
+    [tall.portrait, tall.fps, tall.transport, tall.codec],
+    [2560, 50, 'direct', 'h265']
+  );
   assert.deepEqual({ ...model.draftIssues(tall, c, everything) }, {});
   // A fixed receiver keeps its monitor.
   const fixed = caps({ programmable: false });
@@ -193,13 +231,19 @@ test('a slower stream rate rewrites the monitor only when it follows the rate', 
   const saved = draft({ monitor: 1080, fps: 60 });
   assert.equal(model.draftChanges(saved, { ...saved, fps: 30 }, caps()).monitorRewrite, true);
   assert.equal(model.draftChanges(saved, { ...saved, fps: 50 }, caps()).monitorRewrite, false);
-  assert.equal(model.draftChanges(saved, { ...saved, fps: 30 }, caps({ follows: false })).monitorRewrite, false);
+  assert.equal(
+    model.draftChanges(saved, { ...saved, fps: 30 }, caps({ follows: false })).monitorRewrite,
+    false
+  );
   assert.equal(model.draftChanges(saved, { ...saved, codec: 'h264' }, caps()).reconnect, true);
 });
 
 test('the request carries changed shared settings only', () => {
   const saved = draft();
-  assert.deepEqual({ ...model.settingsRequest(saved, { ...saved, fps: 30, directPlayback: 'immediate' }) }, { fps: 30 });
+  assert.deepEqual(
+    { ...model.settingsRequest(saved, { ...saved, fps: 30, directPlayback: 'immediate' }) },
+    { fps: 30 }
+  );
   assert.deepEqual({ ...model.settingsRequest(saved, { ...saved, codec: 'h264' }) }, { type: 1 });
   assert.deepEqual(
     { ...model.settingsRequest(saved, { ...saved, portrait: 2560 }) },
@@ -209,7 +253,10 @@ test('the request carries changed shared settings only', () => {
     { ...model.settingsRequest({ ...saved, portrait: 1920 }, { ...saved, portrait: 2560 }) },
     { portraitResolution: 2560 }
   );
-  assert.deepEqual({ ...model.settingsRequest({ ...saved, portrait: 1920 }, saved) }, { portrait: false });
+  assert.deepEqual(
+    { ...model.settingsRequest({ ...saved, portrait: 1920 }, saved) },
+    { portrait: false }
+  );
 });
 
 test('the measured input rate is shown as its nominal rate', () => {
@@ -246,12 +293,43 @@ test('the automatic bitrate of a draft uses the monitor it writes', () => {
   assert.equal(model.draftAutoBitrate(draft({ monitor: 720, fps: 120 }), c), 10000);
 });
 
+test('the automatic bitrate of a draft uses the frame rate of the mode it switches to', () => {
+  // From a 3840x2160 input (30 fps) to 2560x1440 at 60 fps: the QHD rate.
+  const c = caps({ input: [3840, 2160] });
+  assert.equal(model.draftAutoBitrate(draft({ monitor: 1440, fps: 60 }), c), 20000);
+  assert.equal(model.draftAutoBitrate(draft({ monitor: 1440, fps: 60, codec: 'h264' }), c), 20000);
+});
+
+test('a transport is offered with a codec that plays, or not at all', () => {
+  const c = caps();
+  const noWebrtcH265 = { ...everything, webrtcH265: false };
+  // Direct H.265 to WebRTC without WebRTC H.265 here: WebRTC with H.264.
+  const webrtc = model.transportChoice(draft(), 'webrtc', c, noWebrtcH265);
+  assert.equal(webrtc.transport, 'webrtc');
+  assert.equal(webrtc.codec, 'h264');
+  assert.equal(model.transportChoice(draft(), 'webrtc', c, everything).codec, 'h265');
+  // The 1440x2560 portrait profile plays H.265 only: no H.264 fallback.
+  assert.equal(
+    model.transportChoice(draft({ portrait: 2560 }), 'webrtc', c, noWebrtcH265),
+    undefined
+  );
+  // Nor MJPEG.
+  assert.equal(model.transportChoice(draft({ portrait: 2560 }), 'mjpeg', c, everything), undefined);
+  assert.equal(model.transportChoice(draft(), 'mjpeg', c, everything).transport, 'mjpeg');
+  assert.equal(
+    model.transportChoice(draft(), 'direct', c, { ...everything, direct: false }),
+    undefined
+  );
+});
+
 test('MJPEG is blocked while the HDMI input is 3840x2160', () => {
   const issue = (draftOver, capsOver) =>
-    model.draftIssues(draft({ transport: 'mjpeg', ...draftOver }), caps(capsOver), everything).transport;
+    model.draftIssues(draft({ transport: 'mjpeg', ...draftOver }), caps(capsOver), everything)
+      .transport;
   const uhd = { input: [3840, 2160] };
   // The stream limit does not matter: a limited 4K input produces no JPEG frames.
-  for (const height of [0, 2160, 1440, 1080, 720, 600]) assert.equal(issue({ height }, uhd), 'mjpeg-4k');
+  for (const height of [0, 2160, 1440, 1080, 720, 600])
+    assert.equal(issue({ height }, uhd), 'mjpeg-4k');
   assert.equal(issue({}, { input: [2560, 1440] }), undefined);
   assert.equal(issue({ height: 2160 }, { input: [1920, 1080] }), undefined);
   assert.equal(issue({}, { input: [0, 0] }), undefined);
@@ -270,6 +348,12 @@ test('MJPEG follows the monitor the draft writes', () => {
   const fourK = caps({ input: [3840, 2160] });
   assert.equal(model.mjpegBlocked(draft({ monitor: 1080 }), fourK), false);
   assert.equal(model.mjpegBlocked(draft({ monitor: 0 }), fourK), true);
-  assert.equal(model.mjpegBlocked(draft({ monitor: 1080 }), caps({ input: [3840, 2160], programmable: false })), true);
+  assert.equal(
+    model.mjpegBlocked(
+      draft({ monitor: 1080 }),
+      caps({ input: [3840, 2160], programmable: false })
+    ),
+    true
+  );
   assert.equal(model.mjpegBlocked(draft({ monitor: 2160, portrait: 1920 }), c), false);
 });

@@ -256,6 +256,28 @@ export function draftIssues(
   return issues;
 }
 
+// Whether a draft plays here: the browser, the transport's codecs and the
+// portrait profile accept it (what the settings form checks for these).
+export function draftPlayable(draft: VideoDraft, caps: VideoCapabilities, browser: BrowserSupport) {
+  const issues = draftIssues(draft, caps, browser);
+  return !issues.transport && !issues.codec && !issues.portrait;
+}
+
+// The draft that switches to a transport: with the current codec where it
+// plays, else with the other codec, else none (the choice is unavailable).
+export function transportChoice(
+  saved: VideoDraft,
+  transport: Transport,
+  caps: VideoCapabilities,
+  browser: BrowserSupport
+): VideoDraft | undefined {
+  const codecs: Codec[] =
+    transport === 'mjpeg' ? [saved.codec] : [saved.codec, saved.codec === 'h265' ? 'h264' : 'h265'];
+  return codecs
+    .map((codec) => ({ ...saved, transport, codec }))
+    .find((draft) => draftPlayable(draft, caps, browser));
+}
+
 // A video mode: the monitor the computer renders and the rate the stream
 // carries, as one choice. Landscape modes come from the programmable monitor
 // profiles and their refresh rates, portrait modes from the portrait profiles;
@@ -362,18 +384,28 @@ export function withMode(draft: VideoDraft, mode: VideoMode, caps: VideoCapabili
   return next;
 }
 
+// The capabilities as the draft's mode will see them: the input becomes the
+// monitor the draft writes, else stays the current input.
+function prospectiveCaps(draft: VideoDraft, caps: VideoCapabilities): VideoCapabilities {
+  const mode = modeOf(draft, caps);
+  return mode
+    ? { ...caps, input: { ...caps.input, width: mode.width, height: mode.height } }
+    : caps;
+}
+
 // The size a draft streams: its mode (the monitor it writes), else the current
 // input, within the stream limit.
 export function draftSize(draft: VideoDraft, caps: VideoCapabilities) {
-  const mode = modeOf(draft, caps);
-  const input = mode ? { ...caps.input, width: mode.width, height: mode.height } : caps.input;
-  return streamSize(draft, { ...caps, input });
+  return streamSize(draft, prospectiveCaps(draft, caps));
 }
 
-// The automatic bitrate of a draft (autoBitrate of what it streams).
+// The automatic bitrate of a draft (autoBitrate of what it streams). Size and
+// frame-rate limit both come from the mode the draft switches to, not from the
+// current input (a 3840x2160 input would cap a 1440p60 draft at 30 fps).
 export function draftAutoBitrate(draft: VideoDraft, caps: VideoCapabilities) {
-  const out = draftSize(draft, caps);
-  return autoBitrate(out.width, out.height, effectiveFps(draft, caps), draft.codec);
+  const prospective = prospectiveCaps(draft, caps);
+  const out = streamSize(draft, prospective);
+  return autoBitrate(out.width, out.height, effectiveFps(draft, prospective), draft.codec);
 }
 
 export type DraftChange = {

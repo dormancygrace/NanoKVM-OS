@@ -277,8 +277,9 @@ test('memory effect replay and locale changes discard stale reads and keep one p
   await settle();
 });
 
-test('memory card composes the video memory mode from a resolution and the Fixed choice', async () => {
+test('memory card selects a video memory resolution and sends its mode once', async () => {
   const sent = [];
+  const errors = [];
   const swap = { enabled: false, available: true, sizeMiB: 64, usedBytes: 0 };
   const status = (selected, modes) => ({
     code: 0,
@@ -293,15 +294,16 @@ test('memory card composes the video memory mode from a resolution and the Fixed
       videoMemory: {
         active: selected,
         selected,
-        sizeMiB: 56,
+        sizeMiB: 54,
         modes,
         available: modes.length > 1,
         rebootRequired: false
       }
     }
   });
-  const all = ['fhd', 'fhd-fixed', 'qhd', 'qhd-fixed', 'uhd'];
+  const all = ['fhd', 'qhd', 'uhd'];
   let current = status('qhd', all);
+  let pending;
   const h = harness('../src/pages/desktop/menu/settings/memory/index.tsx', 'Memory', {
     '@/lib/swap-request.ts': { swapRequestSize },
     '@/lib/video-memory-mode.ts': videoMemoryMode,
@@ -309,8 +311,7 @@ test('memory card composes the video memory mode from a resolution and the Fixed
     '@/components/ui/settings.tsx': { Panel: 'Panel', SettingRow: 'SettingRow' },
     antd: {
       Alert: 'Alert',
-      Checkbox: 'Checkbox',
-      message: { error: noOp },
+      message: { error: (text) => errors.push(text) },
       Progress: 'Progress',
       Select: 'Select',
       Spin: 'Spin',
@@ -319,10 +320,14 @@ test('memory card composes the video memory mode from a resolution and the Fixed
     '@/lib/visible-poll.ts': { pollWhileVisible: () => noOp },
     '@/api/vm.ts': {
       getMemoryStatus: async () => current,
-      setVideoMemory: async (mode) => {
+      setVideoMemory: (mode) => {
         sent.push(mode);
-        current = status(mode, all);
-        return current;
+        return new Promise((resolve) => {
+          pending = (response) => {
+            if (response.code === 0) current = response;
+            resolve(response);
+          };
+        });
       }
     }
   });
@@ -337,37 +342,69 @@ test('memory card composes the video memory mode from a resolution and the Fixed
     };
     return walk(h.output);
   };
+  const select = () => byId('video-memory-mode');
   h.render();
   await h.flush();
-  assert.equal(byId('video-memory-mode').props.value, 'qhd');
+  assert.equal(select().props.value, 'qhd');
+  assert.equal(select().props.disabled, false);
   assert.deepEqual(
-    byId('video-memory-mode').props.options.map((option) => [option.value, option.disabled]),
+    select().props.options.map((option) => [option.value, option.disabled]),
     [
       ['fhd', false],
       ['qhd', false],
       ['uhd', false]
     ]
   );
-  assert.equal(byId('video-memory-fixed').props.checked, false);
-  // Fixed on the current resolution, then another resolution keeps it.
-  byId('video-memory-fixed').props.onChange({ target: { checked: true } });
+  // There is no Fixed choice any more.
+  assert.equal(byId('video-memory-fixed'), undefined);
+  assert.equal(find(h.output, 'Checkbox'), undefined);
+
+  // The selected resolution sends nothing.
+  select().props.onChange('qhd');
   await h.flush();
-  byId('video-memory-mode').props.onChange('fhd');
+  assert.deepEqual(sent, []);
+
+  // A change is busy until the server answers; a second one meanwhile is ignored.
+  select().props.onChange('fhd');
   await h.flush();
-  // UHD forces Fixed on and cannot be unchecked; leaving UHD restores the choice.
-  byId('video-memory-mode').props.onChange('uhd');
+  assert.deepEqual(sent, ['fhd']);
+  assert.equal(select().props.disabled, true);
+  assert.equal(select().props.loading, true);
+  select().props.onChange('uhd');
   await h.flush();
-  assert.equal(byId('video-memory-fixed').props.checked, true);
-  assert.equal(byId('video-memory-fixed').props.disabled, true);
-  byId('video-memory-mode').props.onChange('qhd');
+  assert.deepEqual(sent, ['fhd']);
+  pending(status('fhd', all));
   await h.flush();
-  assert.deepEqual(sent, ['qhd-fixed', 'fhd-fixed', 'uhd', 'qhd-fixed']);
-  // Without a Fixed image the checkbox cannot change anything.
-  current = status('qhd', ['fhd', 'qhd', 'uhd']);
+  assert.equal(select().props.value, 'fhd');
+  assert.equal(select().props.disabled, false);
+  assert.equal(select().props.loading, false);
+
+  // A refused change keeps the selection and reports the error.
+  select().props.onChange('uhd');
   await h.flush();
+  pending({ code: -3, msg: 'Lower the monitor setting first' });
+  await h.flush();
+  assert.deepEqual(sent, ['fhd', 'uhd']);
+  assert.equal(select().props.value, 'fhd');
+  assert.equal(errors.length, 1);
+
+  // A resolution without its installed image cannot be chosen; with one
+  // image there is nothing to switch to.
+  current = status('fhd', ['fhd', 'qhd']);
   h.locale('ru');
   await h.flush();
-  assert.equal(byId('video-memory-fixed').props.disabled, true);
+  assert.deepEqual(
+    select().props.options.map((option) => [option.value, option.disabled]),
+    [
+      ['fhd', false],
+      ['qhd', false],
+      ['uhd', true]
+    ]
+  );
+  current = status('fhd', ['fhd']);
+  h.locale('en');
+  await h.flush();
+  assert.equal(select().props.disabled, true);
   h.unmount();
 });
 

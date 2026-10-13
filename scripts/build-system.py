@@ -14,7 +14,7 @@ maix=Path(os.environ['NANOKVM_MAIXCDK_SOURCE']).resolve()
 output=Path(os.environ['NANOKVM_SYSTEM_OUTPUT']).resolve()
 cross=str(Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve()/'host/bin/riscv64-buildroot-linux-musl-')
 if subprocess.check_output([cross+'gcc','-dumpfullversion'],text=True).strip()!='16.2.0':
-    raise SystemExit('Expected Enhanced GCC 16.2')
+    raise SystemExit('Expected GCC 16.2')
 # The debug data records the compiler's working directory; -ffile-prefix-map
 # turns the repository into ./nanokvm-os, so the output does not depend on it.
 os.chdir(repo)

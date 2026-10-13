@@ -101,8 +101,8 @@ jobs:
         run: |
           set -e
           for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-sd-image-boot alpine-network \
-                   alpine-recovery-password alpine-service-deps board-selection enhanced-fs \
-                   enhanced-s15-packaging hdmi-detection-cache hdmi-receiver-start \
+                   alpine-recovery-password alpine-service-deps board-selection firstboot-data \
+                   s15-packaging hdmi-detection-cache hdmi-receiver-start \
                    mmf-light-link monitor-edids nanokvm-service-stop net-probe server-supervisor oled-ip-window platform-build \
                    portrait-edid serial-console-disk startup-aes-policy wifi-selector upstream-watch; do
             echo "::group::scripts/test-$t.py"; python3 "scripts/test-$t.py"; echo "::endgroup::"

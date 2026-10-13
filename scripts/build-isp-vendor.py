@@ -2,7 +2,7 @@
 """Relink pinned Sophgo ISP/3A objects, then compile open ISP sources.
 
 The vendor algorithms remain Xuantie GCC10 binaries, not GCC16 source builds.
-Requires the same NANOKVM_* environment variables as build-enhanced-mpi.sh.
+Requires the same NANOKVM_* environment variables as build-mpi.sh.
 """
 from nanokvm_cpu_profile import flags as cpu_flags, record as record_cpu_profile
 from pathlib import Path
@@ -52,7 +52,7 @@ common = ['OPT_LEVEL=' + opt_flags, 'CROSS_COMPILE=' + cross, 'CHIP_ARCH=CV181X'
 (mpi / 'lib/3rd').mkdir(parents=True, exist_ok=True)
 # Fresh output archives cannot retain members from a different toolchain.
 # Explicit targets bypass destructive vendor sdk_release/prepare recipes.
-with tempfile.TemporaryDirectory(prefix='enhanced-isp-', dir=mpi / 'lib') as stage:
+with tempfile.TemporaryDirectory(prefix='isp-vendor-', dir=mpi / 'lib') as stage:
     for module, name in modules.items():
         archive = str(Path(stage) / ('lib' + name + '.a'))
         shared = str(Path(stage) / ('lib' + name + '.so'))

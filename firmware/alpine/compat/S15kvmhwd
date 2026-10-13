@@ -1,8 +1,8 @@
 #!/bin/sh
-# Enhanced counterpart of the stock S15kvmhwd. Pinmux and board reset/enable
+# NanoKVM OS counterpart of the stock S15kvmhwd. Pinmux and board reset/enable
 # ownership are in DT; do not export global GPIOs or reload i2c-gpio here.
 #
-# A previously published Enhanced image declared `pcie` in its DT even when it
+# A previously published image declared `pcie` in its DT even when it
 # had been installed on a Cube.  The OLED address is the authoritative runtime
 # discriminator: alpha is 0x3d on I2C1, beta/Cube is 0x3d on I2C5, and PCIe is
 # 0x3c on I2C5.  Do not let a copied PCIe DT make the native OLED service probe
@@ -87,7 +87,7 @@ case "${1:-}" in
     check)
         check_board
         detect_board
-        echo "NanoKVM Enhanced: detected board=$board"
+        echo "NanoKVM OS: detected board=$board"
         ;;
     start|re-init|re-detect)
         check_board
@@ -96,7 +96,7 @@ case "${1:-}" in
         publish hw "$board"
         if [ "$profiled" = 1 ]; then publish board-profile "$declared_board"; fi
         publish hdmi_version "$hdmi"
-        echo "NanoKVM Enhanced: board=$board HDMI=$hdmi"
+        echo "NanoKVM OS: board=$board HDMI=$hdmi"
         ;;
     get_hdmi_version)
         check_board

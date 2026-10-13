@@ -25,7 +25,7 @@ if profile not in ('full', 'hdmi-light'):
     raise SystemExit('Unknown NANOKVM_MMF_PROFILE: ' + profile)
 # platform/build.sh checks the source trees against platform/sources.lock.
 if subprocess.check_output([cross + 'gcc', '-dumpfullversion'], text=True).strip() != '16.2.0':
-    raise SystemExit('Expected Enhanced GCC16.2')
+    raise SystemExit('Expected GCC 16.2')
 includes = [mpi / 'include', mpi / 'include/isp/cv181x', mpi / 'sample/common',
             mpi / 'component/panel/cv181x', sensor / 'common', inih,
             repo / 'support/sg2002/additional/kvm_mmf/include', repo / 'firmware/mpi']

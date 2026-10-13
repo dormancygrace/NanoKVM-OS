@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 root = Path(__file__).resolve().parents[1]
-enhanced = root / 'firmware/buildroot/board/enhanced/init.d/S15kvmhwd'
+shipped = root / 'firmware/alpine/compat/S15kvmhwd'
 
 
 def write(path: Path, data: bytes = b'x\n') -> None:
@@ -59,7 +59,7 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
     assert (output / 'base/usr/sbin/nkos-usb-internet').is_file()
     assert (output / 'base/etc/init.d/nanokvm-usb-internet').is_file()
     assert (output / 'base/usr/libexec/nanokvm/legacy/S30usbnet').read_bytes() == (root / 'firmware/alpine/compat/S30usbnet').read_bytes()
-    expected = enhanced.read_bytes()
+    expected = shipped.read_bytes()
     base_s15 = output / 'base/usr/libexec/nanokvm/legacy/S15kvmhwd'
     app_s15 = output / 'app/kvmapp/system/init.d/S15kvmhwd'
     assert base_s15.read_bytes() == expected
@@ -85,4 +85,4 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
     assert resolved.read_bytes() == b'updated application startup policy\n'
 
 
-print('Enhanced S15 packaging test passed')
+print('S15 packaging test passed')

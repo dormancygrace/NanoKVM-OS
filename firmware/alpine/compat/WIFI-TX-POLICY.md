@@ -1,6 +1,6 @@
 # AIC8800 TX startup profile
 
-Enhanced ships `nanokvm-wifi-tx-policy` in `/usr/sbin`. The image enables no
+NanoKVM OS ships `nanokvm-wifi-tx-policy` in `/usr/sbin`. The image enables no
 override by default. The tool manages only
 `/etc/modprobe.d/nanokvm-wifi-tx.conf` and never loads/unloads modules or changes
 the scheduling of running threads.
@@ -12,7 +12,7 @@ nanokvm-wifi-tx-policy driver-default
 ```
 
 `normal` writes `options aic8800_fdrv bustx_thread_prio=0` atomically. It takes
-effect on the next module load through `modprobe`, including the Enhanced
+effect on the next module load through `modprobe`, including the
 `S25wifimod` startup path. Other existing module/kernel-command-line options can
 affect the final parameter list; inspect the actual `modprobe -D aic8800_fdrv`
 output. BusyBox `-D` displays dependencies and options without loading modules.
@@ -34,7 +34,7 @@ For an offline image root:
 NANOKVM_SYSROOT=/absolute/image/root nanokvm-wifi-tx-policy normal
 ```
 
-The post-build hook installs the tool only for Enhanced. It does not select
+The base package installs the tool (platform/packages.list). It does not select
 `normal` automatically. The compatibility/vendor init script remains unchanged.
 
 Qualification: repeated live temporary scheduling trials showed improvement
@@ -45,4 +45,4 @@ removed afterward. A full boot/module-startup test with the option still needs
 qualification on the release image. Do not treat the parser
 test as a successful reboot or browser-decoding test.
 
-See [qualification and remaining limits](../../../../docs/VALIDATION.md).
+See [qualification and remaining limits](../../../docs/VALIDATION.md).

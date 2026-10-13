@@ -29,7 +29,7 @@ def link(target,dst):
     if dst.is_symlink() or dst.is_file(): dst.unlink()
     dst.symlink_to(target)
 base=out/'base'; app=out/'app'; fw=out/'firmware-sg2002'
-enhanced_s15=r/'firmware/buildroot/board/enhanced/init.d/S15kvmhwd'
+hwd_s15=r/'firmware/alpine/compat/S15kvmhwd'
 copy(r/'firmware/alpine/compat/nanokvm-firstboot-storage',base/'usr/libexec/nanokvm/firstboot-storage')
 copy(r/'firmware/alpine/compat/nanokvm-activate-kernel',base/'usr/libexec/nanokvm/activate-kernel')
 copy(r/'firmware/alpine/compat/nkos-board-select',base/'usr/sbin/nkos-board-select')
@@ -41,9 +41,9 @@ copy(args.devmem,base/'usr/sbin/devmem')
 copy(args.devmem.parent/'busybox-LICENSE',base/'usr/share/licenses/nanokvm-base/busybox-LICENSE')
 copy(r/'firmware/alpine/compat/50-nanokvm-apply',base/'etc/apk/commit_hooks.d/50-nanokvm-apply')
 for src in (r/'firmware/alpine/openrc').iterdir(): copy(src,base/'etc/init.d'/src.name)
-copy(enhanced_s15,base/'usr/libexec/nanokvm/legacy/S15kvmhwd')
+copy(hwd_s15,base/'usr/libexec/nanokvm/legacy/S15kvmhwd')
 link('/usr/libexec/nanokvm/legacy/S15kvmhwd',base/'etc/init.d/S15kvmhwd')
-copy(enhanced_s15,app/'kvmapp/system/init.d/S15kvmhwd')
+copy(hwd_s15,app/'kvmapp/system/init.d/S15kvmhwd')
 for name in ('S95nanokvm', 'nanokvm-server-supervisor', 'S30eth', 'S30wifi'):
     copy(r/'kvmapp/system/init.d'/name,app/'kvmapp/system/init.d'/name)
 copy(r/'firmware/alpine/compat/S30usbnet',base/'usr/libexec/nanokvm/legacy/S30usbnet')
@@ -96,7 +96,7 @@ for name in required:
     path=out/name
     if not (path.is_file() or path.is_symlink()): p.error('Missing payload: '+name)
 for path in (base/'usr/libexec/nanokvm/legacy/S15kvmhwd',app/'kvmapp/system/init.d/S15kvmhwd'):
-    if path.read_bytes() != enhanced_s15.read_bytes(): p.error('Enhanced S15kvmhwd was replaced: '+str(path))
+    if path.read_bytes() != hwd_s15.read_bytes(): p.error('S15kvmhwd was replaced: '+str(path))
 protected=base/'etc/apk/protected_paths.d/nanokvm.list'
 protected.parent.mkdir(parents=True,exist_ok=True)
 protected.write_text('+kvmapp/kvm\n')

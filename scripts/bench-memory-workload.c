@@ -28,7 +28,7 @@ static void fill(unsigned char *p, size_t n) {
             state ^= state << 13; state ^= state >> 17; state ^= state << 5;
             memset(p + page + offset, ' ', 128);
             snprintf((char *)p + page + offset, 128,
-                     "{\"device\":\"NanoKVM Enhanced\",\"page\":%zu,\"sample\":%08x,\"offset\":%zu,\"status\":\"connected\",\"fps\":30}",
+                     "{\"device\":\"NanoKVM OS\",\"page\":%zu,\"sample\":%08x,\"offset\":%zu,\"status\":\"connected\",\"fps\":30}",
                      page / 4096, state, offset);
         }
     }

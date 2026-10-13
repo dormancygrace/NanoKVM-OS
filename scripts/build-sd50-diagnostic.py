@@ -93,7 +93,7 @@ def main():
     assert recorded == new_hash
     (out / 'legacy-reader.txt').write_text(run(dumpimage, '-l', fit) + '\n')
     report = {
-        'purpose': 'SD-only diagnostic on current RC4 kernel; not Enhanced release',
+        'purpose': 'SD-only diagnostic on current RC4 kernel; not a release',
         'source_sha256': SOURCE_SHA,
         'candidate_sha256': hashlib.sha256(candidate).hexdigest(),
         'bytes': len(candidate),

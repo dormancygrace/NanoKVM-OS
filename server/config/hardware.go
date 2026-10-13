@@ -93,12 +93,12 @@ func getHardware() (h Hardware) {
 		log.Errorf("Unsupported hardware version: %s", version)
 	}
 
-	// The Enhanced image uses GPIO ABI v2; controller-local offsets are
+	// NanoKVM OS uses GPIO ABI v2; controller-local offsets are
 	// stable even when the kernel assigns different gpiochip/global numbers.
 	if image, err := os.ReadFile("/etc/nanokvm-buildroot"); err == nil && strings.Contains(string(image), "flavour=enhanced") {
 		declared, err := os.ReadFile(HWVersionFile)
 		if err != nil {
-			log.Errorf("Enhanced ATX requires board revision: %s", err)
+			log.Errorf("ATX requires board revision: %s", err)
 		}
 		if profile, profileErr := os.ReadFile("/etc/kvm/board-profile"); profileErr == nil {
 			declared = profile
@@ -108,7 +108,7 @@ func getHardware() (h Hardware) {
 	return
 }
 
-// Never guess an Enhanced ATX pin assignment when board detection is missing.
+// Never guess an ATX pin assignment when board detection is missing.
 func gpioV2Hardware(h Hardware, declared string) Hardware {
 	h.GPIOPower, h.GPIOReset, h.GPIOPowerLED, h.GPIOHDDLed = "", "", "", ""
 	switch strings.TrimSpace(declared) {
@@ -129,7 +129,7 @@ func gpioV2Hardware(h Hardware, declared string) Hardware {
 		h.GPIOReset = gpioio.Path("3020000.gpio", 25)
 		h.GPIOHDDLed = gpioio.Path("5021000.gpio", 3)
 	default:
-		log.Error("Enhanced ATX disabled: no recognized board revision")
+		log.Error("ATX disabled: no recognized board revision")
 		return h
 	}
 	h.GPIOPower = gpioio.Path("3020000.gpio", 23)

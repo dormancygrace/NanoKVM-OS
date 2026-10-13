@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-source = (Path(__file__).resolve().parents[1] / "firmware/buildroot/board/enhanced/init.d/S15kvmhwd").read_text()
+source = (Path(__file__).resolve().parents[1] / "firmware/alpine/compat/S15kvmhwd").read_text()
 with tempfile.TemporaryDirectory() as name:
     root = Path(name)
     script = root / "detect.sh"
@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory() as name:
     # A missing 0x2c response is expected for LT6911D/UX hardware. It must
     # fall through to 0x2b (and then 0x44), whereas a failed i2cdetect command
     # remains fatal instead of being mistaken for a missing receiver.
-    source = (Path(__file__).resolve().parents[1] / "firmware/buildroot/board/enhanced/init.d/S15kvmhwd").read_text()
+    source = (Path(__file__).resolve().parents[1] / "firmware/alpine/compat/S15kvmhwd").read_text()
     source = source.replace("/etc/kvm", str(root))
     position = source.index('case "${1:-}" in')
     fallback = root / "fallback"
@@ -90,7 +90,7 @@ publish() {{ printf '%s\\n' "$2" > "{pcie_fallback}/$1"; }}
     # A copied PCIe DT must not force a Cube to use the PCIe OLED address.
     # The actual marker follows the probed address: I2C1/0x3d is alpha,
     # I2C5/0x3d is beta/Cube, and I2C5/0x3c is PCIe.
-    source = (Path(__file__).resolve().parents[1] / "firmware/buildroot/board/enhanced/init.d/S15kvmhwd").read_text()
+    source = (Path(__file__).resolve().parents[1] / "firmware/alpine/compat/S15kvmhwd").read_text()
     source = source.replace("/etc/kvm", str(root))
     position = source.index('case "${1:-}" in')
     for expected, addresses in (

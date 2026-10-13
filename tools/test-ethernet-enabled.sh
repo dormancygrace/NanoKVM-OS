@@ -151,7 +151,7 @@ NANOKVM_ID_HOSTNAME=$work/bin/hostname \
 NANOKVM_ID_IP=$work/bin/ip \
 NANOKVM_TEST_IP_CALLS=$work/ip.calls \
 NANOKVM_TEST_HOSTNAME_CALL=$work/hostname.call \
-    sh "$repo/firmware/buildroot/board/enhanced/init.d/S10uuid" start
+    sh "$repo/firmware/alpine/compat/S10uuid" start
 grep -Fqx 'link set dev eth0 down' "$work/ip.calls"
 grep -q '^link set dev eth0 address ' "$work/ip.calls"
 ! grep -Fqx 'link set dev eth0 up' "$work/ip.calls"
@@ -165,7 +165,7 @@ NANOKVM_ID_HOSTNAME=$work/bin/hostname \
 NANOKVM_ID_IP=$work/bin/ip \
 NANOKVM_TEST_IP_CALLS=$work/ip.calls \
 NANOKVM_TEST_HOSTNAME_CALL=$work/hostname.call \
-    sh "$repo/firmware/buildroot/board/enhanced/init.d/S10uuid" start
+    sh "$repo/firmware/alpine/compat/S10uuid" start
 grep -Fqx 'link set dev eth0 up' "$work/ip.calls"
 
 echo 'PASS: Ethernet disable preference controls boot and runtime administrative state'

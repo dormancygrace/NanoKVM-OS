@@ -33,9 +33,9 @@ if not patch.exists():
     patch = ROOT/'firmware/mpi/patches/0005-baseline-isa.patch'
 assert '+  OPT_LEVEL := ' + ' '.join(user) + ' -mcmodel=medany' in patch.read_text()
 # Source builds must consume the profile instead of keeping a local ISA copy.
-for name in ('build-enhanced-capture.py', 'build-enhanced-mmf.py', 'build-enhanced-system.py',
-             'build-enhanced-mpi-bin.py', 'build-enhanced-isp-vendor.py',
-             'build-server-existing-libs.py', 'build-enhanced-server.py', 'build-usb-audio.py'):
+for name in ('build-capture.py', 'build-mmf.py', 'build-system.py',
+             'build-mpi-bin.py', 'build-isp-vendor.py',
+             'build-server-existing-libs.py', 'build-usb-audio.py'):
     text = (ROOT/'scripts'/name).read_text()
     assert 'from nanokvm_cpu_profile import' in text, name
     assert '-march=rv64' not in text, name

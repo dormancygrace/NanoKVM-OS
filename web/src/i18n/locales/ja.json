@@ -1822,9 +1822,7 @@
       "deleteConfirmContent": "「{{title}}」を削除してもよろしいですか?",
       "deleteConfirmOk": "削除",
       "deleteConfirmCancel": "キャンセル",
-      "messageCount_one": "{{count}} メッセージ",
-      "messageCount_other": "{{count}} メッセージ",
-      "messageCount": "{{count}} メッセージ"
+      "messageCount_other": "{{count}} メッセージ"
     },
     "config": {
       "startRuntime": "PicoClaw を開始",

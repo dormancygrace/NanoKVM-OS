@@ -627,9 +627,7 @@
       "deleteConfirmContent": "정말로 \"{{title}}\"를 삭제할까요?",
       "deleteConfirmOk": "삭제",
       "deleteConfirmCancel": "취소",
-      "messageCount_one": "{{count}}개의 메시지",
-      "messageCount_other": "{{count}}개의 메시지",
-      "messageCount": "{{count}}개의 메시지"
+      "messageCount_other": "{{count}}개의 메시지"
     },
     "config": {
       "startRuntime": "PicoClaw 시작",

@@ -1822,9 +1822,7 @@
       "deleteConfirmContent": "确定要删除“{{title}}”吗？",
       "deleteConfirmOk": "删除",
       "deleteConfirmCancel": "取消",
-      "messageCount_one": "{{count}} 条消息",
-      "messageCount_other": "{{count}} 条消息",
-      "messageCount": "{{count}} 条消息"
+      "messageCount_other": "{{count}} 条消息"
     },
     "config": {
       "startRuntime": "启动 PicoClaw",

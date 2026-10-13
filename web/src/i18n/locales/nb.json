@@ -628,8 +628,7 @@
       "deleteConfirmOk": "Slett",
       "deleteConfirmCancel": "Avbryt",
       "messageCount_one": "{{count}} melding",
-      "messageCount_other": "{{count}} meldinger",
-      "messageCount": "{{count}} meldinger"
+      "messageCount_other": "{{count}} meldinger"
     },
     "config": {
       "startRuntime": "Start PicoClaw",

@@ -1,0 +1,13 @@
+{
+  "component": "Buildroot: python3",
+  "current": "2026.08",
+  "candidate": "acbcc911b71f",
+  "candidate_key": "b969d388e482744e3af07ef8593d23eaa0562c26bfab731129725b9f4f260490",
+  "status": "pending-review",
+  "upstream": "https://github.com/buildroot/buildroot/compare/2026.08...acbcc911b71f93bb7ea9400aa19713f3464c8e69",
+  "source_path": "firmware/buildroot/configs/nanokvm_platform_defconfig",
+  "strategy": "review",
+  "evidence": {},
+  "upstream_commit": "acbcc911b71f93bb7ea9400aa19713f3464c8e69",
+  "pin_files_updated": []
+}

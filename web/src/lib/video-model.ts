@@ -264,15 +264,20 @@ export function draftPlayable(draft: VideoDraft, caps: VideoCapabilities, browse
 }
 
 // The draft that switches to a transport: with the current codec where it
-// plays, else with the other codec, else none (the choice is unavailable).
+// plays, else (administrators, who set the shared codec) with the other codec,
+// else none (the choice is unavailable). A user cannot change the codec:
+// applyVideoDraft keeps theirs, so only the current codec is a choice.
 export function transportChoice(
   saved: VideoDraft,
   transport: Transport,
   caps: VideoCapabilities,
-  browser: BrowserSupport
+  browser: BrowserSupport,
+  admin: boolean
 ): VideoDraft | undefined {
   const codecs: Codec[] =
-    transport === 'mjpeg' ? [saved.codec] : [saved.codec, saved.codec === 'h265' ? 'h264' : 'h265'];
+    transport === 'mjpeg' || !admin
+      ? [saved.codec]
+      : [saved.codec, saved.codec === 'h265' ? 'h264' : 'h265'];
   return codecs
     .map((codec) => ({ ...saved, transport, codec }))
     .find((draft) => draftPlayable(draft, caps, browser));

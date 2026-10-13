@@ -220,3 +220,71 @@ test('administrators edit the shared picture', () => {
   assert.equal(control('Select', 'screen.codec').props.disabled, false);
   assert.equal(control('InputNumber', 'videoSettings.fpsOverride').props.disabled, false);
 });
+
+function renderQuickVideo(role, session) {
+  const applied = [];
+  const element = (type, props) => ({ type, props: props ?? {} });
+  const quick = load(
+    '../src/pages/desktop/menu/screen/quick-video.tsx',
+    {
+      react: { useState: (initial) => [initial, () => {}] },
+      'react/jsx-runtime': { jsx: element, jsxs: element, Fragment: 'Fragment' },
+      'react-i18next': { useTranslation: () => ({ t: (key) => key }) },
+      antd: { message: { success: () => {}, error: () => {}, info: () => {} } },
+      'lucide-react': { CheckIcon: 'CheckIcon', GaugeIcon: 'GaugeIcon', MonitorIcon: 'MonitorIcon', RadioTowerIcon: 'RadioTowerIcon' },
+      '@/lib/video-model': model,
+      '@/components/menu-item.tsx': { MenuSubmenu: 'MenuSubmenu' },
+      '../settings/video/apply': {
+        applyVideoDraft: async (before, draft, _caps, options) => {
+          applied.push({ draft, admin: options.admin });
+          return { reloading: true };
+        }
+      },
+      '../settings/video/use-video-settings': {
+        useSyncStreamAtoms: () => () => {},
+        useVideoSettings: () => ({
+          admin: role === 'admin',
+          caps,
+          browser: session.browser,
+          saved: session.saved,
+          status: { measuredFps: 60, measuredKbps: 3000, outputWidth: 1920, outputHeight: 1080 },
+          refresh: async () => {}
+        })
+      }
+    },
+    {},
+    true
+  );
+  const tree = quick.QuickVideo();
+  const nodes = (n) => (!n || typeof n !== 'object' ? [] : [n, ...Object.values(n).flatMap(nodes)]);
+  const row = nodes(tree).find(
+    (n) => typeof n.type === 'function' && n.props.title === 'videoSettings.transport'
+  );
+  return { items: row.props.items, applied };
+}
+
+test('a user is not offered a transport that needs another shared codec', async () => {
+  // Direct/H.265 in a browser without WebRTC H.265.
+  const session = {
+    browser: { ...browser, webrtcH265: false },
+    saved: { ...saved, transport: 'direct', codec: 'h265' }
+  };
+  const user = renderQuickVideo('user', session);
+  const webrtc = user.items.find((item) => item.key === 'webrtc');
+  assert.equal(webrtc.disabled, true);
+  assert.equal(webrtc.label, 'WebRTC');
+  webrtc.pick();
+  await Promise.resolve();
+  assert.deepEqual(user.applied, []);
+
+  // An administrator gets WebRTC with H.264, which changes the shared codec.
+  const admin = renderQuickVideo('admin', session);
+  const fallback = admin.items.find((item) => item.key === 'webrtc');
+  assert.equal(fallback.disabled, false);
+  assert.equal(fallback.label, 'WebRTC · H.264');
+  fallback.pick();
+  await Promise.resolve();
+  assert.equal(admin.applied.length, 1);
+  assert.equal(admin.applied[0].draft.transport, 'webrtc');
+  assert.equal(admin.applied[0].draft.codec, 'h264');
+});

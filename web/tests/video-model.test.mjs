@@ -303,23 +303,39 @@ test('the automatic bitrate of a draft uses the frame rate of the mode it switch
 test('a transport is offered with a codec that plays, or not at all', () => {
   const c = caps();
   const noWebrtcH265 = { ...everything, webrtcH265: false };
-  // Direct H.265 to WebRTC without WebRTC H.265 here: WebRTC with H.264.
-  const webrtc = model.transportChoice(draft(), 'webrtc', c, noWebrtcH265);
+  // Direct H.265 to WebRTC without WebRTC H.265 here: an administrator gets
+  // WebRTC with H.264.
+  const webrtc = model.transportChoice(draft(), 'webrtc', c, noWebrtcH265, true);
   assert.equal(webrtc.transport, 'webrtc');
   assert.equal(webrtc.codec, 'h264');
-  assert.equal(model.transportChoice(draft(), 'webrtc', c, everything).codec, 'h265');
+  assert.equal(model.transportChoice(draft(), 'webrtc', c, everything, true).codec, 'h265');
   // The 1440x2560 portrait profile plays H.265 only: no H.264 fallback.
   assert.equal(
-    model.transportChoice(draft({ portrait: 2560 }), 'webrtc', c, noWebrtcH265),
+    model.transportChoice(draft({ portrait: 2560 }), 'webrtc', c, noWebrtcH265, true),
     undefined
   );
   // Nor MJPEG.
-  assert.equal(model.transportChoice(draft({ portrait: 2560 }), 'mjpeg', c, everything), undefined);
-  assert.equal(model.transportChoice(draft(), 'mjpeg', c, everything).transport, 'mjpeg');
   assert.equal(
-    model.transportChoice(draft(), 'direct', c, { ...everything, direct: false }),
+    model.transportChoice(draft({ portrait: 2560 }), 'mjpeg', c, everything, true),
     undefined
   );
+  assert.equal(model.transportChoice(draft(), 'mjpeg', c, everything, true).transport, 'mjpeg');
+  assert.equal(
+    model.transportChoice(draft(), 'direct', c, { ...everything, direct: false }, true),
+    undefined
+  );
+});
+
+test('a user, who cannot change the shared codec, gets no codec fallback', () => {
+  const c = caps();
+  const noWebrtcH265 = { ...everything, webrtcH265: false };
+  assert.equal(model.transportChoice(draft(), 'webrtc', c, noWebrtcH265, false), undefined);
+  assert.equal(model.transportChoice(draft(), 'webrtc', c, everything, false).codec, 'h265');
+  assert.equal(
+    model.transportChoice(draft({ codec: 'h264' }), 'webrtc', c, noWebrtcH265, false).codec,
+    'h264'
+  );
+  assert.equal(model.transportChoice(draft(), 'mjpeg', c, noWebrtcH265, false).transport, 'mjpeg');
 });
 
 test('MJPEG is blocked while the HDMI input is 3840x2160', () => {

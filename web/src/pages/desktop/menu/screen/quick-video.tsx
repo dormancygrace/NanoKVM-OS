@@ -107,8 +107,10 @@ export const QuickVideo = () => {
   async function apply(draft: VideoDraft) {
     if (busy || !caps || !browser || !saved) return;
     // A choice the settings form would refuse is never applied: the page
-    // would reload into a stream this browser or the monitor cannot play.
-    if (!draftPlayable(draft, caps, browser)) {
+    // would reload into a stream this browser or the monitor cannot play. A
+    // user keeps the shared codec (applyVideoDraft), so that is what plays.
+    const effective = admin ? draft : { ...draft, codec: saved.codec };
+    if (!draftPlayable(effective, caps, browser)) {
       message.error(t('videoSettings.failed'));
       return;
     }
@@ -205,7 +207,7 @@ export const QuickVideo = () => {
   // Each transport with a codec it plays here and in the monitor profile: the
   // current codec where it can, else the other one, named in the item.
   const transportItems: Item[] = (['direct', 'webrtc', 'mjpeg'] as const).map((transport) => {
-    const next = transportChoice(saved, transport, caps, browser);
+    const next = transportChoice(saved, transport, caps, browser, admin);
     const switchesCodec = !!next && transport !== 'mjpeg' && next.codec !== saved.codec;
     return {
       key: transport,

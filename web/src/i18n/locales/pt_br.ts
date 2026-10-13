@@ -8,14 +8,11 @@ const pt_br = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Login',
       placeholderUsername: 'Nome de usuário',
       placeholderPassword: 'Senha',
       placeholderPassword2: 'Por favor, digite a senha novamente',
       noEmptyUsername: 'Nome de usuário é obrigatório',
       noEmptyPassword: 'Senha é obrigatória',
-      noAccount:
-        'Falha ao obter informações do usuário, por favor atualize a página ou redefina a senha',
       invalidUser: 'Nome de usuário ou senha inválidos',
       locked: 'Muitos logins, tente novamente mais tarde',
       globalLocked: 'Sistema sob proteção, tente novamente mais tarde',
@@ -24,7 +21,6 @@ const pt_br = {
       changePasswordDesc: 'Para a segurança do seu dispositivo, por favor, mude a senha!',
       differentPassword: 'Senhas não conferem',
       illegalUsername: 'Nome de usuário contém caracteres inválidos',
-      illegalPassword: 'Senha contém caracteres inválidos',
       forgetPassword: 'Esqueci a senha',
       ok: 'Ok',
       cancel: 'Cancelar',
@@ -49,7 +45,6 @@ const pt_br = {
       invalidMode:
         'O modo atual não suporta configuração de rede. Vá para o seu dispositivo e ative o modo de configuração Wi-Fi.',
       confirmBtn: 'Ok',
-      finishBtn: 'Finalizado',
       ap: {
         authTitle: 'Autenticação necessária',
         authDescription: 'Por favor, digite a senha AP para continuar',
@@ -62,7 +57,6 @@ const pt_br = {
       scale: 'Escala',
       title: 'Tela',
       video: 'Modo de Vídeo',
-      resolution: 'Resolução',
       controlRegion: {
         title: 'Calibração do mouse',
         description:
@@ -90,16 +84,7 @@ const pt_br = {
         finish: 'Concluir',
         cancel: 'Cancelar'
       },
-      auto: 'Automático',
-      autoTips:
-        'Rasgos na tela ou desvio do mouse podem ocorrer em resoluções específicas. Considere ajustar a resolução do host remoto ou desativar o modo automático.',
-      fps: 'FPS',
-      customizeFps: 'Personalizar',
       quality: 'Qualidade',
-      qualityLossless: 'Sem perdas',
-      qualityHigh: 'Alta',
-      qualityMedium: 'Média',
-      qualityLow: 'Baixa',
       frameDetect: 'Detecção de Quadros',
       frameDetectTip:
         'Calcular a diferença entre os quadros. Parar a transmissão de vídeo quando nenhuma alteração for detectada na tela do host remoto.',
@@ -183,7 +168,6 @@ const pt_br = {
       title: 'Mouse',
       cursor: 'Estilo do cursor',
       default: 'Cursor padrão',
-      pointer: 'Cursor de ponteiro',
       cell: 'Cursor de célula',
       text: 'Cursor de texto',
       grab: 'Cursor de arrastar',
@@ -233,7 +217,6 @@ const pt_br = {
       unmountFailed: 'Falha na desmontagem',
       unmountDesc:
         'Em alguns sistemas, é necessário ejetar manualmente do host remoto antes de desmontar a imagem.',
-      refresh: 'Atualizar a lista de imagens',
       attention: 'Atenção',
       deleteConfirm: 'Tem certeza que deseja excluir esta imagem?',
       okBtn: 'Sim',
@@ -272,7 +255,6 @@ const pt_br = {
       nanokvm: 'Terminal NanoKVM',
       serial: 'Terminal de Porta Serial',
       serialPort: 'Porta Serial',
-      serialPortPlaceholder: 'Por favor, digite a porta serial',
       baudrate: 'Taxa de transmissão',
       parity: 'Paridade',
       parityNone: 'Nenhum',
@@ -297,7 +279,6 @@ const pt_br = {
       title: 'Baixador de Imagens',
       input: 'Por favor, digite uma URL de imagem remota',
       ok: 'Ok',
-      disabled: 'A partição /data é RO, então não podemos baixar a imagem',
       uploadbox: 'Solte o arquivo aqui ou clique para selecionar',
       inputfile: 'Por favor insira o arquivo de imagem',
       NoISO: 'Sem ISO',
@@ -315,7 +296,6 @@ const pt_br = {
       showConfirm: 'Confirmação',
       showConfirmTip: 'Operações de energia requerem uma confirmação extra',
       reset: 'Redefinir',
-      power: 'Energia',
       powerShort: 'Energia (clique curto)',
       powerLong: 'Energia (clique longo)',
       resetConfirm: 'Prosseguir com a operação de redefinição?',

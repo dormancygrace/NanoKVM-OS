@@ -8,14 +8,11 @@ const ca = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Inici de sessió',
       placeholderUsername: "Nom d'usuari",
       placeholderPassword: 'Contrasenya',
       placeholderPassword2: 'Torna a introduir la contrasenya',
       noEmptyUsername: "Cal introduir el nom d'usuari",
       noEmptyPassword: 'Cal introduir la contrasenya',
-      noAccount:
-        "No s'ha pogut obtenir la informació de l'usuari, actualitza la pàgina web o restableix la contrasenya",
       invalidUser: "Nom d'usuari o contrasenya invàlids",
       locked: 'Massa inicis de sessió, si us plau, torna-ho a provar més tard',
       globalLocked: 'Sistema sota protecció, torneu-ho a provar més tard',
@@ -24,7 +21,6 @@ const ca = {
       changePasswordDesc: 'Per a la seguretat del dispositiu, canvia la contrasenya!',
       differentPassword: 'Les contrasenyes no coincideixen',
       illegalUsername: "El nom d'usuari conté caràcters no permesos",
-      illegalPassword: 'La contrasenya conté caràcters no permesos',
       forgetPassword: 'Has oblidat la contrasenya',
       ok: "D'acord",
       cancel: 'Cancel·la',
@@ -49,7 +45,6 @@ const ca = {
       invalidMode:
         'El mode actual no admet la configuració de xarxa. Aneu al vostre dispositiu i activeu el mode de configuració Wi-Fi.',
       confirmBtn: "D'acord",
-      finishBtn: 'Fet',
       ap: {
         authTitle: 'Es requereix autenticació',
         authDescription: 'Introduïu la contrasenya AP per continuar',
@@ -62,7 +57,6 @@ const ca = {
       scale: 'Escala',
       title: 'Pantalla',
       video: 'Mode de vídeo',
-      resolution: 'Resolució',
       controlRegion: {
         title: 'Calibratge del ratolí',
         description:
@@ -90,16 +84,7 @@ const ca = {
         finish: 'Fet',
         cancel: 'Cancel·la'
       },
-      auto: 'Automàtic',
-      autoTips:
-        "Poden aparèixer talls o desajustos del ratolí en certes resolucions. Prova a canviar la resolució de l'amfitrió remot o desactiva el mode automàtic.",
-      fps: 'FPS',
-      customizeFps: 'Personalitzat',
       quality: 'Qualitat',
-      qualityLossless: 'Sense pèrdua',
-      qualityHigh: 'Alta',
-      qualityMedium: 'Mitjana',
-      qualityLow: 'Baixa',
       frameDetect: 'Detecció de fotogrames',
       frameDetectTip:
         "Calcula la diferència entre fotogrames. S'atura la transmissió si no hi ha canvis a la pantalla de l'amfitrió remot.",
@@ -183,7 +168,6 @@ const ca = {
       title: 'Ratolí',
       cursor: 'Estil del cursor',
       default: 'Cursor per defecte',
-      pointer: 'Cursor punter',
       cell: 'Cursor de cel·la',
       text: 'Cursor de text',
       grab: 'Cursor de mà',
@@ -231,7 +215,6 @@ const ca = {
       unmountFailed: "No s'ha pogut desmuntar",
       unmountDesc:
         "En alguns sistemes, cal expulsar manualment de l'amfitrió remot abans de desmuntar la imatge.",
-      refresh: 'Actualitza la llista',
       attention: 'Atenció',
       deleteConfirm: 'Esteu segur que voleu suprimir aquesta imatge?',
       okBtn: 'Sí',
@@ -270,7 +253,6 @@ const ca = {
       nanokvm: 'Terminal NanoKVM',
       serial: 'Terminal de port sèrie',
       serialPort: 'Port sèrie',
-      serialPortPlaceholder: 'Introdueix el port sèrie',
       baudrate: 'Velocitat (baudrate)',
       parity: 'Paritat',
       parityNone: 'Cap',
@@ -295,7 +277,6 @@ const ca = {
       title: "Descarregador d'imatges",
       input: 'Introdueix la URL de la imatge',
       ok: "D'acord",
-      disabled: 'La partició /data és només lectura. No es pot descarregar la imatge.',
       uploadbox: 'Deixeu anar el fitxer aquí o feu clic per seleccionar-lo',
       inputfile: "Introduïu el fitxer d'imatge",
       NoISO: 'Cap ISO',
@@ -313,7 +294,6 @@ const ca = {
       showConfirm: 'Confirmació',
       showConfirmTip: "Les operacions d'alimentació requereixen confirmació",
       reset: 'Reinicia',
-      power: 'Encén',
       powerShort: 'Clic curt',
       powerLong: 'Clic llarg',
       resetConfirm: 'Vols realment reiniciar?',

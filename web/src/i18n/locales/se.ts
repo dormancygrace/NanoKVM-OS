@@ -8,13 +8,11 @@ const se = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Logga in',
       placeholderUsername: 'Användarnamn',
       placeholderPassword: 'Lösenord',
       placeholderPassword2: 'Vänligen ange lösenordet igen',
       noEmptyUsername: 'Användarnamn krävs',
       noEmptyPassword: 'Lösenord krävs',
-      noAccount: 'Kunde inte hämta användarinformation, uppdatera sidan eller återställ lösenordet',
       invalidUser: 'Ogiltigt användarnamn eller lösenord',
       locked: 'För många inloggningar, försök igen senare',
       globalLocked: 'System under skydd, försök igen senare',
@@ -23,7 +21,6 @@ const se = {
       changePasswordDesc: 'För din enhets säkerhet, byt lösenord!',
       differentPassword: 'Lösenorden matchar inte',
       illegalUsername: 'Användarnamnet innehåller ogiltiga tecken',
-      illegalPassword: 'Lösenordet innehåller ogiltiga tecken',
       forgetPassword: 'Glömt lösenord',
       ok: 'Ok',
       cancel: 'Avbryt',
@@ -47,7 +44,6 @@ const se = {
       invalidMode:
         'Det aktuella läget stöder inte nätverksinstallation. Gå till din enhet och aktivera Wi-Fi konfigurationsläge.',
       confirmBtn: 'Ok',
-      finishBtn: 'Färdig',
       ap: {
         authTitle: 'Autentisering krävs',
         authDescription: 'Ange lösenordet AP för att fortsätta',
@@ -60,7 +56,6 @@ const se = {
       scale: 'Skala',
       title: 'Skärm',
       video: 'Videoläge',
-      resolution: 'Upplösning',
       controlRegion: {
         title: 'Muskalibrering',
         description:
@@ -87,16 +82,7 @@ const se = {
         finish: 'Klar',
         cancel: 'Avbryt'
       },
-      auto: 'Automatisk',
-      autoTips:
-        'Skärmtear eller musförskjutning kan förekomma vid vissa upplösningar. Överväg att justera fjärrvärdens upplösning eller inaktivera automatiskt läge.',
-      fps: 'FPS',
-      customizeFps: 'Anpassa',
       quality: 'Kvalitet',
-      qualityLossless: 'Förlustfri',
-      qualityHigh: 'Hög',
-      qualityMedium: 'Medel',
-      qualityLow: 'Låg',
       frameDetect: 'Ramdetection',
       frameDetectTip:
         'Beräkna skillnaden mellan ramar. Sluta skicka videoström när inga förändringar upptäcks på fjärrvärdens skärm.',
@@ -180,7 +166,6 @@ const se = {
       title: 'Mus',
       cursor: 'Markörstil',
       default: 'Standardmarkör',
-      pointer: 'Pekmarkör',
       cell: 'Cellmarkör',
       text: 'Textmarkör',
       grab: 'Greppmarkör',
@@ -228,7 +213,6 @@ const se = {
       unmountFailed: 'Avmontering misslyckades',
       unmountDesc:
         'I vissa system måste du manuellt mata ut från fjärrvärden innan du avmonterar avbildningen.',
-      refresh: 'Uppdatera avbildningslistan',
       attention: 'Observera',
       deleteConfirm: 'Är du säker på att du vill ta bort denna avbildning?',
       okBtn: 'Ja',
@@ -267,7 +251,6 @@ const se = {
       nanokvm: 'NanoKVM Terminal',
       serial: 'Serieport-terminal',
       serialPort: 'Serieport',
-      serialPortPlaceholder: 'Ange serieport',
       baudrate: 'Baudhastighet',
       parity: 'Paritet',
       parityNone: 'Ingen',
@@ -292,7 +275,6 @@ const se = {
       title: 'Avbildningshämtare',
       input: 'Ange en fjärravbildnings-URL',
       ok: 'Ok',
-      disabled: '/data partitionen är skrivskyddad, kan inte hämta avbildning',
       uploadbox: 'Släpp filen här eller klicka för att välja',
       inputfile: 'Vänligen ange bildfilen',
       NoISO: 'Ingen ISO',
@@ -310,7 +292,6 @@ const se = {
       showConfirm: 'Bekräftelse',
       showConfirmTip: 'Strömätgärder kräver extra bekräftelse',
       reset: 'Starta om',
-      power: 'Ström',
       powerShort: 'Ström (kort tryck)',
       powerLong: 'Ström (långt tryck)',
       resetConfirm: 'Utföra omstart?',

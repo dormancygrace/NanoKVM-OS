@@ -8,14 +8,11 @@ const nl = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Inloggen',
       placeholderUsername: 'Voer gebruikersnaam in',
       placeholderPassword: 'Voer wachtwoord in',
       placeholderPassword2: 'Voer wachtwoord nogmaals in',
       noEmptyUsername: 'Gebruikersnaam mag niet leeg zijn',
       noEmptyPassword: 'Wachtwoord mag niet leeg zijn',
-      noAccount:
-        'Ophalen van gebruikersinformatie mislukt, vernieuw de webpagina of reset het wachtwoord',
       invalidUser: 'Ongeldige gebruikersnaam of wachtwoord',
       locked: 'Te veel aanmeldingen, probeer het later opnieuw',
       globalLocked: 'Systeem wordt beveiligd. Probeer het later opnieuw',
@@ -25,7 +22,6 @@ const nl = {
         'Voor de veiligheid van uw apparaat, wijzig alstublieft het webaanmeldingswachtwoord.',
       differentPassword: 'Wachtwoorden komen niet overeen',
       illegalUsername: 'Gebruikersnaam bevat ongeldige tekens',
-      illegalPassword: 'Wachtwoord bevat ongeldige tekens',
       forgetPassword: 'Wachtwoord vergeten',
       ok: 'Ok',
       cancel: 'Annuleren',
@@ -51,7 +47,6 @@ const nl = {
       invalidMode:
         'De huidige modus ondersteunt geen netwerkconfiguratie. Ga naar uw apparaat en schakel de configuratiemodus Wi-Fi in.',
       confirmBtn: 'Ok',
-      finishBtn: 'Gereed',
       ap: {
         authTitle: 'Authenticatie vereist',
         authDescription: 'Voer het wachtwoord AP in om door te gaan',
@@ -64,7 +59,6 @@ const nl = {
       scale: 'Schaal',
       title: 'Scherm',
       video: 'Videomodus',
-      resolution: 'Resolutie',
       controlRegion: {
         title: 'Muiskalibratie',
         description:
@@ -93,16 +87,7 @@ const nl = {
         finish: 'Gereed',
         cancel: 'Annuleren'
       },
-      auto: 'Automatisch',
-      autoTips:
-        'Bij bepaalde resoluties kunnen schermverscheuringen of muisverplaatsingen optreden. Overweeg de resolutie van de externe host aan te passen of schakel de automatische modus uit.',
-      fps: 'FPS',
-      customizeFps: 'Aanpassen',
       quality: 'Kwaliteit',
-      qualityLossless: 'Verliesvrij',
-      qualityHigh: 'Hoog',
-      qualityMedium: 'Gemiddeld',
-      qualityLow: 'Laag',
       frameDetect: 'Frame detectie',
       frameDetectTip:
         'Berekent het verschil tussen frames. Stopt met het verzenden van de videostream wanneer er geen veranderingen worden gedetecteerd op het scherm van de externe host.',
@@ -186,7 +171,6 @@ const nl = {
       title: 'Muis',
       cursor: 'Cursorstijl',
       default: 'Standaard cursor',
-      pointer: 'Aanwijzer cursor',
       cell: 'Cel cursor',
       text: 'Tekst cursor',
       grab: 'Grijp cursor',
@@ -235,7 +219,6 @@ const nl = {
       unmountFailed: 'Ontkoppelen mislukt',
       unmountDesc:
         'Op sommige systemen moet u de image handmatig uitwerpen van de externe host voordat u de image ontkoppelt.',
-      refresh: 'Vernieuw de afbeeldingenlijst',
       attention: 'Let op',
       deleteConfirm: 'Weet u zeker dat u deze afbeelding wilt verwijderen?',
       okBtn: 'Ja',
@@ -274,7 +257,6 @@ const nl = {
       nanokvm: 'NanoKVM Terminal',
       serial: 'Seriële poort terminal',
       serialPort: 'Seriële poort',
-      serialPortPlaceholder: 'Voer de seriële poort in',
       baudrate: 'Baudrate',
       parity: 'Pariteit',
       parityNone: 'Geen',
@@ -299,7 +281,6 @@ const nl = {
       title: 'Afbeeldingdownloader',
       input: 'Voer een externe afbeelding in URL',
       ok: 'Ok',
-      disabled: '/data partitie is RO, dus we kunnen de afbeelding niet downloaden',
       uploadbox: 'Zet het bestand hier neer of klik om te selecteren',
       inputfile: 'Voer het afbeeldingsbestand in',
       NoISO: 'Geen ISO',
@@ -317,7 +298,6 @@ const nl = {
       showConfirm: 'Bevestiging',
       showConfirmTip: 'Stroombedieningen vereisen een extra bevestiging',
       reset: 'Resetten',
-      power: 'Aan/uit',
       powerShort: 'Aan/uit (kort indrukken)',
       powerLong: 'Aan/uit (lang indrukken)',
       resetConfirm: 'Doorgaan met resetten?',

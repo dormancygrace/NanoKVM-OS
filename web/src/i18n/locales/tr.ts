@@ -8,14 +8,11 @@ const tr = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Giriş',
       placeholderUsername: 'Kullanıcı Adı',
       placeholderPassword: 'Şifre',
       placeholderPassword2: 'Şifrenizi tekrar deneyiniz',
       noEmptyUsername: 'Kullanıcı adı gereklidir',
       noEmptyPassword: 'Şifre gereklidir',
-      noAccount:
-        'Kullanıcı verileri alınırken hata yaşandı, lütfen sayfayı yenileyiniz ya da şifrenizi sıfırlayınız',
       invalidUser: 'Yanlış kullanıcı adı ya da şifre',
       locked: 'Çok fazla giriş yapıldı, lütfen daha sonra tekrar deneyin',
       globalLocked: 'Sistem koruma altında, lütfen daha sonra tekrar deneyin',
@@ -24,7 +21,6 @@ const tr = {
       changePasswordDesc: 'Güvenlik sebebiyle lütfen şifrenizi değiştiriniz!',
       differentPassword: 'Şifreler eşleşmemektedir',
       illegalUsername: 'Kullanıcı adı istenmeyen karakterler içermektedir',
-      illegalPassword: 'Şifre istenmeyen karakterler içermektedir',
       forgetPassword: 'Şifremi unuttum',
       ok: 'Tamam',
       cancel: 'İptal',
@@ -50,7 +46,6 @@ const tr = {
       invalidMode:
         'Geçerli mod ağ kurulumunu desteklemiyor. Lütfen cihazınıza gidin ve Wi-Fi yapılandırma modunu etkinleştirin.',
       confirmBtn: 'Tamam',
-      finishBtn: 'Bitti',
       ap: {
         authTitle: 'Kimlik Doğrulaması Gerekli',
         authDescription: 'Devam etmek için lütfen AP şifresini girin',
@@ -63,7 +58,6 @@ const tr = {
       scale: 'Ölçek',
       title: 'Ekran',
       video: 'Görüntü modu',
-      resolution: 'Çözünürlük',
       controlRegion: {
         title: 'Fare Kalibrasyonu',
         description:
@@ -91,16 +85,7 @@ const tr = {
         finish: 'Bitti',
         cancel: 'İptal'
       },
-      auto: 'Otomatik',
-      autoTips:
-        'Belirli çözünürlüklerde ekran yırtılması veya fare kayması meydana gelebilir. Bu durumda uzak ana bilgisayarın çözünürlüğünü ayarlamayı ya da otomatik modu devre dışı bırakmayı deneyin.',
-      fps: 'Saniyedeki kare sayısı',
-      customizeFps: 'Kişiselleştir',
       quality: 'Kalite',
-      qualityLossless: 'Kayıpsız',
-      qualityHigh: 'Yüksek',
-      qualityMedium: 'Orta',
-      qualityLow: 'Düşük',
       frameDetect: 'Kareleri algıla',
       frameDetectTip:
         'Gönderilen kareler arasındaki farkı hesaplar. Uzak ana bilgisayardan gönderilen yayında bir değişiklik yoksa görüntü yayınını durdurur.',
@@ -183,7 +168,6 @@ const tr = {
       title: 'Fare',
       cursor: 'İmleç sitili',
       default: 'Varsayılan imleç',
-      pointer: 'Nokta imleç',
       cell: 'Artı imleç',
       text: 'Yazı imleç',
       grab: 'El imleç',
@@ -233,7 +217,6 @@ const tr = {
       unmountFailed: 'Bağlantıyı kesme işlemi başarısız oldu',
       unmountDesc:
         'Bazı sistemlerde, görüntünün bağlantısını kesmeden önce uzak ana bilgisayardan manuel olarak çıkarmanız gerekir.',
-      refresh: 'Disk imajı listesini yenile',
       attention: 'Dikkat',
       deleteConfirm: 'Bu resmi silmek istediğinizden emin misiniz?',
       okBtn: 'Evet',
@@ -272,7 +255,6 @@ const tr = {
       nanokvm: 'NanoKVM Uçbirimi',
       serial: 'Serial Port Uçbirimi',
       serialPort: 'Seri port',
-      serialPortPlaceholder: 'Lütfen serial portunu giriniz',
       baudrate: 'Baud hızı',
       parity: 'Eşlik kontrolü',
       parityNone: 'Yok',
@@ -297,7 +279,6 @@ const tr = {
       title: 'Disk İmajı İndirici',
       input: 'Uzak imaj URL’sini girin',
       ok: 'Tamam',
-      disabled: '/data bölüntüsü salt okunur modda, disk imajı indirilemiyor.',
       uploadbox: 'Dosyayı buraya bırakın veya seçmek için tıklayın',
       inputfile: 'Lütfen resim dosyasını giriniz',
       NoISO: 'ISO yok',
@@ -315,7 +296,6 @@ const tr = {
       showConfirm: 'Doğrulama',
       showConfirmTip: 'Güç ile ilgili işlemler fazladan doğrulama gerektirir',
       reset: 'Sıfırla',
-      power: 'Güç',
       powerShort: 'Güç tuşu (bas-çek)',
       powerLong: 'Güç tuşu (uzun bas)',
       resetConfirm: 'Sıfırlama işlemine devam etmek istediğinizden emin misiniz?',

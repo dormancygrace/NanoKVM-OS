@@ -8,14 +8,11 @@ const ja = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'ログイン',
       placeholderUsername: 'ユーザー名を入力してください',
       placeholderPassword: 'パスワードを入力してください',
       placeholderPassword2: 'パスワードをもう一度入力してください',
       noEmptyUsername: 'ユーザー名は空にできません',
       noEmptyPassword: 'パスワードは空にできません',
-      noAccount:
-        'ユーザー情報の取得に失敗しました。ページを更新してもう一度お試しいただくか、パスワードをリセットしてください。',
       invalidUser: 'ユーザー名またはパスワードが正しくありません',
       locked: 'ログインが多すぎます。後でもう一度お試しください。',
       globalLocked: 'システムは保護されています。後でもう一度試してください。',
@@ -24,7 +21,6 @@ const ja = {
       changePasswordDesc: 'デバイスのセキュリティのために、パスワードを変更してください！',
       differentPassword: 'パスワードが一致しません',
       illegalUsername: 'ユーザー名に不正な文字が含まれています',
-      illegalPassword: 'パスワードに不正な文字が含まれています',
       forgetPassword: 'パスワードを忘れた',
       ok: 'OK',
       cancel: 'キャンセル',
@@ -49,7 +45,6 @@ const ja = {
       invalidMode:
         '現在のモードではネットワーク設定はサポートされていません。デバイスで Wi-Fi 設定モードを有効にしてください。',
       confirmBtn: 'OK',
-      finishBtn: '完了',
       ap: {
         authTitle: '認証が必要です',
         authDescription: '続行するには、AP パスワードを入力してください',
@@ -62,7 +57,6 @@ const ja = {
       scale: '倍率',
       title: '画面',
       video: 'ビデオモード',
-      resolution: '解像度',
       controlRegion: {
         title: 'マウス位置補正',
         description:
@@ -90,16 +84,7 @@ const ja = {
         finish: '完了',
         cancel: 'キャンセル'
       },
-      auto: '自動',
-      autoTips:
-        '特定の解像度で画面のちらつきやマウスカーソルのずれが発生する場合があります。リモートホストの解像度を調整するか、自動モードを無効にしてください。',
-      fps: 'フレームレート',
-      customizeFps: 'カスタマイズ',
       quality: '画質',
-      qualityLossless: 'ロスレス',
-      qualityHigh: '高',
-      qualityMedium: '中',
-      qualityLow: '低',
       frameDetect: 'フレーム差分検出',
       frameDetectTip:
         'フレーム間の差異を計算し、リモートホストの画面が変更されない場合はビデオストリームの送信を停止します',
@@ -183,7 +168,6 @@ const ja = {
       title: 'マウス',
       cursor: 'ポインター形状',
       default: 'デフォルトポインター',
-      pointer: 'ポインターカーソル',
       cell: 'セルポインター',
       text: 'テキストカーソル',
       grab: 'つかむポインター',
@@ -230,7 +214,6 @@ const ja = {
       unmountFailed: 'アンマウントに失敗しました',
       unmountDesc:
         '一部のシステムでは、イメージをアンマウントする前にリモートホストから手動で取り出す必要があります。',
-      refresh: 'イメージリストを更新',
       attention: '注意',
       deleteConfirm: 'このイメージを削除してもよろしいですか？',
       okBtn: 'はい',
@@ -269,7 +252,6 @@ const ja = {
       nanokvm: 'NanoKVM ターミナル',
       serial: 'シリアルポートターミナル',
       serialPort: 'シリアルポート',
-      serialPortPlaceholder: 'シリアルポートを入力してください',
       baudrate: 'ボーレート',
       parity: 'パリティ',
       parityNone: 'なし',
@@ -294,8 +276,6 @@ const ja = {
       title: 'イメージダウンローダー',
       input: 'リモートイメージの URL を入力してください',
       ok: 'OK',
-      disabled:
-        '/data パーティションは読み取り専用であり、イメージのダウンロードには使用できません',
       uploadbox: 'ここにファイルをドロップするか、クリックして選択してください',
       inputfile: '画像ファイルを入力してください',
       NoISO: 'ISO なし',
@@ -313,7 +293,6 @@ const ja = {
       showConfirm: '確認メッセージ',
       showConfirmTip: '電源操作の確認メッセージを表示する',
       reset: 'リセット',
-      power: '電源',
       powerShort: '電源（クリック）',
       powerLong: '電源（長押し）',
       resetConfirm: '再起動を実行しますか？',

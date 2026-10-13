@@ -8,14 +8,11 @@ const de = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Anmelden',
       placeholderUsername: 'Benutzername',
       placeholderPassword: 'Passwort',
       placeholderPassword2: 'Bitte Passwort erneut eingeben',
       noEmptyUsername: 'Benutzername benötigt',
       noEmptyPassword: 'Passwort benötigt',
-      noAccount:
-        'Abfragen der Benutzerdaten fehlgeschlagen, bitte die Seite neu laden oder Passwort zurücksetzen',
       invalidUser: 'Falscher Benutzername oder falsches Passwort',
       locked: 'Zu viele Anmeldungen, bitte versuchen Sie es später noch einmal',
       globalLocked: 'System wird geschützt, bitte versuchen Sie es später erneut',
@@ -24,7 +21,6 @@ const de = {
       changePasswordDesc: 'Für die Sicherheit Ihres Geräts ändern Sie bitte das Passwort!',
       differentPassword: 'Passwörter stimmen nicht überein',
       illegalUsername: 'Benutzername enthält ungültige Zeichen',
-      illegalPassword: 'Passwort enthält ungültige Zeichen',
       forgetPassword: 'Passwort vergessen',
       ok: 'Ok',
       cancel: 'Abbrechen',
@@ -51,7 +47,6 @@ const de = {
       invalidMode:
         'Der aktuelle Modus unterstützt keine Netzwerkeinrichtung. Bitte gehen Sie zu Ihrem Gerät und aktivieren Sie den Wi-Fi-Konfigurationsmodus.',
       confirmBtn: 'Ok',
-      finishBtn: 'Fertig',
       ap: {
         authTitle: 'Authentifizierung erforderlich',
         authDescription: 'Bitte geben Sie das Passwort AP ein, um fortzufahren',
@@ -64,7 +59,6 @@ const de = {
       scale: 'Skala',
       title: 'Bildschirm',
       video: 'Video Modus',
-      resolution: 'Auflösung',
       controlRegion: {
         title: 'Mauskalibrierung',
         description:
@@ -93,16 +87,7 @@ const de = {
         finish: 'Fertig',
         cancel: 'Abbrechen'
       },
-      auto: 'Automatisch',
-      autoTips:
-        'Bildverzerrungen oder ein versetzter Mauszeiger können bei bestimmten Auflösungen auftreten. Versuchen Sie, die Auflösung des entfernten Hosts anzupassen oder den automatischen Modus zu deaktivieren.',
-      fps: 'FPS',
-      customizeFps: 'Anpassen',
       quality: 'Qualität',
-      qualityLossless: 'Verlustfrei',
-      qualityHigh: 'Hoch',
-      qualityMedium: 'Mittel',
-      qualityLow: 'Niedrig',
       frameDetect: 'Bilderkennung',
       frameDetectTip:
         'Berechnet den Unterschied zwischen den Einzelbildern. Beendet die Liveübertragung des Videostreams wenn keine Änderungen auf dem Bildschirm des Hosts festgestellt werden kann.',
@@ -186,7 +171,6 @@ const de = {
       title: 'Maus',
       cursor: 'Cursor',
       default: 'Standard Cursor',
-      pointer: 'Zeiger Cursor',
       cell: 'Zellen Cursor',
       text: 'Text Cursor',
       grab: 'Greif Cursor',
@@ -236,7 +220,6 @@ const de = {
       unmountFailed: 'Das Aufheben der Bereitstellung ist fehlgeschlagen',
       unmountDesc:
         'Auf einigen Systemen müssen Sie das Image manuell vom Remote-Host auswerfen, bevor Sie die Bereitstellung aufheben.',
-      refresh: 'Bilder aktualisieren',
       attention: 'Achtung',
       deleteConfirm: 'Sind Sie sicher, dass Sie dieses Bild löschen möchten?',
       okBtn: 'Ja',
@@ -275,7 +258,6 @@ const de = {
       nanokvm: 'NanoKVM Terminal',
       serial: 'Serieller Anschluss Terminal',
       serialPort: 'Serieller Anschluss',
-      serialPortPlaceholder: 'Bitte seriellen Anschluss angeben',
       baudrate: 'Baudrate',
       parity: 'Parität',
       parityNone: 'Keine',
@@ -300,8 +282,6 @@ const de = {
       title: 'Systemabbild Downloader',
       input: 'Bitte geben Sie die URL für das Remote-Systemabbild ein',
       ok: 'Ok',
-      disabled:
-        '/data Partition ist nur-lesbar, daher kann das Systemabbild nicht heruntergeladen werden',
       uploadbox: 'Datei hier ablegen oder klicken zum Auswählen',
       inputfile: 'Bitte geben Sie die Datei für das Systemabbild an',
       NoISO: 'Keine ISO',
@@ -319,7 +299,6 @@ const de = {
       showConfirm: 'Bestätigung',
       showConfirmTip: 'Diese Aktionen benötigen eine zusätzliche Bestätigung',
       reset: 'Zurücksetzen',
-      power: 'Power',
       powerShort: 'Power (Kurzer Klick)',
       powerLong: 'Power (Langer Klick)',
       resetConfirm: 'Reset-Aktion durchführen?',

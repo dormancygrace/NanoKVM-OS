@@ -84,7 +84,6 @@ const en = {
       openvpnImport: 'Import OpenVPN files',
       openvpnEmpty: 'No OpenVPN profiles',
       openvpnLimit: 'Maximum 16 profiles; 256 KiB per file and combined profile.',
-      openvpnRequired: 'OpenVPN is not installed in this system image.',
       openvpnNotInstalled: 'OpenVPN is not installed.',
       openvpnInstallDescription: 'Install OpenVPN on demand. Existing profiles are preserved.',
       openvpnInstall: 'Install OpenVPN',
@@ -137,8 +136,6 @@ const en = {
     },
 
     dashboard: {
-      coreCount_one: '{{count}} core',
-      coreCount_other: '{{count}} cores',
       title: 'Dashboard',
       live: 'Updates while this page is open',
       stale: 'Some information could not be refreshed. Showing the last available values.',
@@ -150,8 +147,6 @@ const en = {
       device: 'Device',
       application: 'NanoKVM OS',
       kernel: 'Kernel',
-      processor: 'Processor',
-      cores: 'cores',
       load: 'Load average · 1 / 5 / 15 min',
       capture: 'Capture',
       fps: 'Output / requested',
@@ -259,7 +254,6 @@ const en = {
       mjpegChroma422: '4:2:2 — sharper color edges',
       mjpegChromaHint:
         '4:2:2 preserves more color detail and can increase frame size. The choice is saved and applies without a restart.',
-      mjpegChromaActive: 'Active JPEG color sampling',
       mjpegChromaFallback_resolution:
         'MJPEG is limited to 1920 pixels in width to preserve 4:2:2 while H.264/H.265 uses a wider output. The selected resolution resumes when that video stream ends.',
       mjpegChromaFallback_video:
@@ -337,7 +331,6 @@ const en = {
       wifi: 'Wi-Fi'
     },
     auth: {
-      login: 'Sign in',
       placeholderUsername: 'Username',
       placeholderPassword: 'Password',
       placeholderCurrentPassword: 'Current password',
@@ -345,7 +338,6 @@ const en = {
       noEmptyUsername: 'Username required',
       noEmptyPassword: 'Password required',
       passwordLength: 'Password must be between 8 and 72 characters',
-      noAccount: 'Failed to get user information, please refresh web page or reset password',
       invalidUser: 'Invalid username or password',
       locked: 'Too many sign-in attempts, please try again later',
       globalLocked: 'System under protection, please try again later',
@@ -357,7 +349,6 @@ const en = {
       cancelAndLogout: 'Cancel and log out',
       differentPassword: 'Passwords do not match',
       illegalUsername: 'Username contains illegal characters',
-      illegalPassword: 'Password contains illegal characters',
       forgetPassword: 'Forgot password',
       ok: 'OK',
       cancel: 'Cancel',
@@ -384,7 +375,6 @@ const en = {
       invalidMode:
         'The current mode does not support network setup. Please go to your device and enable Wi-Fi configuration mode.',
       confirmBtn: 'OK',
-      finishBtn: 'Finished',
       ap: {
         authTitle: 'Authentication required',
         authDescription: 'Please enter the AP password to continue',
@@ -401,16 +391,10 @@ const en = {
         'Video stopped after repeated crashes. Management remains available. You can change settings or retry video.',
       recoveryRetry: 'Retry video',
       recoveryRetryFailed: 'Could not restart video. Try again.',
-
-      monitorApplying: 'Changing HDMI monitor resolution… Video will reconnect.',
-      monitorHint: 'Changes the HDMI monitor seen by your computer. Video briefly disconnects.',
-      monitorFailed: 'Could not change the HDMI monitor resolution',
       scale: 'Scale',
       title: 'Screen',
       video: 'Video mode',
       codec: 'Codec',
-      unsupported: 'unsupported',
-      resolution: 'Resolution',
       controlRegion: {
         title: 'Mouse calibration',
         description:
@@ -437,16 +421,7 @@ const en = {
         finish: 'Done',
         cancel: 'Cancel'
       },
-      auto: 'Automatic',
-      autoTips:
-        'Restores the default monitor profile and lets the connected computer choose its resolution.',
-      fps: 'Frame rate',
-      customizeFps: 'Customize',
       quality: 'Quality',
-      qualityLossless: 'Lossless',
-      qualityHigh: 'High',
-      qualityMedium: 'Medium',
-      qualityLow: 'Low',
       frameDetect: 'Frame detection',
       frameDetectTip:
         "Calculate the difference between frames. Stop transmitting video stream when no changes are detected on the remote host's screen.",
@@ -583,7 +558,6 @@ const en = {
       title: 'Mouse',
       cursor: 'Cursor style',
       default: 'Default cursor',
-      pointer: 'Pointer cursor',
       cell: 'Cell cursor',
       text: 'Text cursor',
       grab: 'Grab cursor',
@@ -649,7 +623,6 @@ const en = {
       forceEject: 'Force eject',
       forceEjectDesc:
         'The remote host is still using this image. Force eject may interrupt pending reads or writes. Continue?',
-      refresh: 'Refresh the image list',
       attention: 'Attention',
       deleteConfirm: 'Are you sure you want to delete this image?',
       okBtn: 'Yes',
@@ -687,12 +660,10 @@ const en = {
       title: 'Terminal',
       nanokvm: 'NanoKVM terminal',
       usbSerial: 'USB serial console',
-      usbSpeed: 'Virtual USB serial — baud rate does not limit transfer speed.',
       invalidParameters: 'Invalid serial parameters.',
       disconnected: 'Connection closed. Press Enter to reconnect.',
       serial: 'Serial port terminal',
       serialPort: 'Serial port',
-      serialPortPlaceholder: 'Please enter the serial port',
       baudrate: 'Baud rate',
       parity: 'Parity',
       parityNone: 'None',
@@ -727,7 +698,6 @@ const en = {
       title: 'Image downloader',
       input: 'Please enter a remote image URL',
       ok: 'OK',
-      disabled: '/data partition is RO, so we cannot download the image',
       uploadbox: 'Drop file here or click to select',
       inputfile: 'Please enter the image file',
       NoISO: 'No ISO',
@@ -745,7 +715,6 @@ const en = {
       showConfirm: 'Confirmation',
       showConfirmTip: 'Power operations require an extra confirmation',
       reset: 'Reset',
-      power: 'Power',
       powerShort: 'Power (short press)',
       powerLong: 'Power (long press)',
       hddLed: 'HDD LED',

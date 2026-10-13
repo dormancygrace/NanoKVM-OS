@@ -1,0 +1,48 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] interdrv: cvi_vc_drv: no full bitstream invalidate per frame
+
+cviEncodeOneFrame invalidated the cache over the whole H.264/H.265
+bitstream buffer before every frame. The CPU never leaves dirty lines
+there (the bitstream rotations flush what they write), and every read of
+the encoded output invalidates exactly the range it reads first
+(cviCopyStreamToBuf, the rotations). With the stream buffer at one byte
+per pixel (3.5 MiB at 1440p, 8 MiB at 2160p) the full invalidate cost
+about 1 % CPU at 1440p60.
+
+---
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+index 5868468..fa30d43 100644
+--- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+@@ -1154,7 +1154,7 @@ static int cviEncodeOneFrame(stTestEncoder *pTestEnc)
+ 	void *pYuvFeeder = pTestEnc->yuvFeeder;
+ #endif
+ 	int coreIdx = pTestEnc->coreIdx;
+-	int ret = 0, i;
++	int ret = 0;
+ 	feederYuvaddr *pYuvAddr;
+ 	CodecInst *pCodecInst;
+ 
+@@ -1232,13 +1232,15 @@ RETRY:
+ 		return RETCODE_FAILURE;
+ 	}
+ 
+-#if (defined CVI_H26X_USE_ION_MEM && defined BITSTREAM_ION_CACHED_MEM)
+-	for (i = 0; i < (int)pTestEnc->bsBufferCount; i++) {
+-		if (pTestEnc->vbStream[i].size != 0)
+-			vdi_invalidate_ion_cache(pTestEnc->vbStream[i].phys_addr,
+-			pTestEnc->vbStream[i].virt_addr, pTestEnc->vbStream[i].size);
+-	}
+-#endif
++	/*
++	 * NanoKVM: no invalidate of the whole bitstream buffer before every
++	 * frame. The CPU never leaves dirty lines there (the bitstream rotations
++	 * flush what they write), and every read of the encoded output
++	 * invalidates exactly the range it reads first (cviCopyStreamToBuf,
++	 * the rotations). The full invalidate cost about 1 % CPU at 1440p60
++	 * with a 3.5 MiB buffer (8 MiB at 2160p): about 210 MB/s of cache
++	 * maintenance per channel for nothing.
++	 */
+ 
+ #if REPEAT_SPS
+ 	if (pEncParam->is_idr_frame == TRUE) {

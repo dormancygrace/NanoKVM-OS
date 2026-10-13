@@ -6,7 +6,9 @@
     "vendor/golang.org/x/crypto/chacha20/chacha_noasm.go": "bbdb67ceb30ef13efc54e17935f47e00744b96754e03364e606d4f1f8f9085c1",
     "vendor/golang.org/x/crypto/internal/poly1305/mac_noasm.go": "f5308cd6f14bab1b00963eeae8137d63fc5452db7f7d49276a56f457bfd89d2d",
     "vendor/golang.org/x/crypto/internal/poly1305/sum_asm.go": "ce5f94aedd0ce3349a8a8655607bd0159d354902e3298169cf9350fe235382b7",
-    "vendor/golang.org/x/crypto/internal/poly1305/sum_generic.go": "b0094a2895d5bda42dcaaf57c0b31fc914c3b6c6aa6237aab0100a6d78346933"
+    "vendor/golang.org/x/crypto/internal/poly1305/sum_generic.go": "b0094a2895d5bda42dcaaf57c0b31fc914c3b6c6aa6237aab0100a6d78346933",
+    "bytes/bytes.go": "e0695206833688b57e9d26014dcd28e3379fc09aafb4c702a82b90563cc11b23",
+    "internal/stringslite/strings.go": "3ed7df2eeabb5427d44b95e6cfe66ef03e13f1c969ad08050a4a0e89d43b8af2"
   },
   "x_crypto_v0.57.0_sum_riscv64_s_sha256": "59299b25f5a080916c28d81de3cfd78804a6744e9d908b052f6d9495f6fdc84b",
   "target": "linux/riscv64",

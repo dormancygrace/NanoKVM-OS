@@ -6,6 +6,7 @@
 #include "capture_pacing.hpp"
 #include "mjpeg_policy.hpp"
 #include "geometry_gate.hpp"
+#include "capture_park.hpp"
 /**
  * 待解决的问题:
  * // 分辨率跟随输出
@@ -266,7 +267,15 @@ void debug(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 kvm_venc_t kvm_venc;
 
-static bool restart_capture()
+/* With no reader, VPSS kept converting every input frame into outputs that
+   nobody took ("Can't acquire VB BLK" once both buffers were held). Parked
+   outputs stay configured but disabled: their pools stay allocated, so
+   resuming needs no video memory; reopening a channel after idle can
+   exhaust the carveout (see kvmv_hdmi_control). */
+static nanokvm::CapturePark capture_park;
+static int set_capture_parked_locked(bool parked);
+
+static bool restart_capture_now()
 {
     // A pipelined frame leases a VPSS buffer; retire it before the restart.
     if (kvm_venc.enc_video_init && mmf_venc_pending_vi(kvm_venc.mmf_venc_chn) >= 0)
@@ -283,6 +292,16 @@ static bool restart_capture()
     kvmv_cfg.Auto_res = 0;
     kvmv_cfg.reinit_flag = 1;
     return true;
+}
+
+// The detector restarts capture without vi_mutex. CapturePark orders the
+// restart with park and resume and keeps idle outputs parked after it.
+static bool restart_capture()
+{
+    bool restarted = false;
+    capture_park.restart([&] { restarted = restart_capture_now(); return restarted ? 0 : -1; },
+                         [](bool enabled) { return cam->set_enabled(enabled); });
+    return restarted;
 }
 
 
@@ -2293,6 +2312,10 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
     if(mutex_res != 0){
         return -5;
     }
+    if (set_capture_parked_locked(false) != 0) {
+        pthread_mutex_unlock(&vi_mutex);
+        return IMG_VENC_ERROR;
+    }
     /* Auto-detection remains in vi_detect_state == 1 while HDMI is absent so
        that a newly connected source is discovered.  Report the cable state
        before that transient state; otherwise callers see an endless -4
@@ -2899,6 +2922,32 @@ int kvmv_hdmi_control(uint8_t _en)
         return 0;
     }
     return -1;
+}
+
+/* Caller holds vi_mutex. Parking deletes the video and JPEG encoder
+   channels: a frame pre-submitted to the video encoder leases a VPSS buffer
+   until collected, the next viewer starts with a new channel and an IDR
+   anyway, and the encoder memory is free while nobody watches. Disabling
+   releases the queued frames, so the first frame after resuming is fresh. */
+static int set_capture_parked_locked(bool parked)
+{
+    return capture_park.set(parked, [] {
+        if (kvm_venc.enc_video_init) {
+            const int retired = mmf_del_venc_channel(kvm_venc.mmf_venc_chn);
+            if (retired != 0) return retired;
+            kvm_venc.enc_video_init = 0;
+        }
+        return mmf_enc_jpg_deinit(0);
+    }, [](bool enabled) { return cam->set_enabled(enabled); });
+}
+
+int kvmv_set_capture_parked(uint8_t parked)
+{
+    pthread_mutex_lock(&vi_mutex);
+    const int result = set_capture_parked_locked(parked != 0);
+    pthread_mutex_unlock(&vi_mutex);
+    if (result != 0) debug("[kvmv]capture %s failed: %d\n", parked ? "park" : "resume", result);
+    return result;
 }
 
 uint8_t kvmv_hdmi_signal_active()

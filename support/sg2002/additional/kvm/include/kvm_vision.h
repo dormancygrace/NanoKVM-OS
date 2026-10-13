@@ -108,6 +108,9 @@ int kvmv_edid_maintenance(uint8_t pause);
 /* Stream rate the server will request; VPSS drops surplus input frames. */
 int kvmv_set_capture_fps(uint8_t fps);
 uint8_t kvmv_hdmi_signal_active(void);
+/* Parks (1) or resumes (0) the VPSS outputs while nobody reads frames. A
+   read resumes them by itself. */
+int kvmv_set_capture_parked(uint8_t parked);
 
 #ifdef __cplusplus
 }

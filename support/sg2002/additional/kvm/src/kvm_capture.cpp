@@ -60,6 +60,15 @@ int Capture::get_channel() const {
     return channel_ >= 0 && mmf_vi_chn_is_open(channel_) ? channel_ : -1;
 }
 int Capture::output_index(int format) const { return format == nv16_format() ? 1 : 0; }
+int Capture::set_enabled(bool enable) {
+    int result = 0;
+    for (const auto &output : outputs_) {
+        if (output.channel < 0 || !mmf_vi_chn_is_open(output.channel)) continue;
+        const int status = mmf_vi_chn_set_enabled(output.channel, enable ? 1 : 0);
+        if (status != 0 && result == 0) result = status;
+    }
+    return result;
+}
 bool Capture::has_format(int format) const {
     const auto &output = outputs_[output_index(format)];
     return output.channel >= 0 && mmf_vi_chn_is_open(output.channel);

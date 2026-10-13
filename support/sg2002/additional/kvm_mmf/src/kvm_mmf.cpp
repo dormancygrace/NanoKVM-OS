@@ -1621,6 +1621,11 @@ int mmf_vi_frame_pop_nv21(int ch, mmf_nv21_view_t *view)
     return 0;
 }
 
+int mmf_vi_chn_set_enabled(int ch, int enable) {
+    if (!mmf_vi_chn_is_open(ch)) return CVI_FAILURE;
+    return enable ? CVI_VPSS_EnableChn(0, ch) : CVI_VPSS_DisableChn(0, ch);
+}
+
 int mmf_vi_drop_pending(int ch) {
     if (ch < 0 || ch >= MMF_VI_MAX_CHN || !mmf_vi_chn_is_open(ch)) return CVI_FAILURE;
     // Never replace a DMA lease still referenced by an encoder. That is not a

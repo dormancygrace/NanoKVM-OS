@@ -37,6 +37,8 @@ func (k *KvmVision) SetHDMI(bool) int {
 	return 0
 }
 
+func (k *KvmVision) SetCaptureParked(bool) int { return 0 }
+
 func (k *KvmVision) HasHDMISignal() bool {
 	return false
 }

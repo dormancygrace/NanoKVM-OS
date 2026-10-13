@@ -57,6 +57,8 @@ public:
     bool matches_output(int format, int width, int height) const;
     int close_format(int format);
     int discard_other_pending();
+    // Disabled outputs keep their channels, pools and leases.
+    int set_enabled(bool enable);
     // Preserve ownership and report errors until MMF confirms teardown.
     int shutdown();
     int hmirror(int enable);

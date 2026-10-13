@@ -98,7 +98,7 @@ def check_gop_setters():
 check_read_img_gates()
 check_gop_setters()
 
-for case in ['quality', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown']:
+for case in ['quality', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown', 'park']:
     binary = args.output.resolve() / case
     sources = [repo / f'firmware/probes/mjpeg-{case}-contract.cpp']
     if case == 'teardown':
@@ -112,6 +112,8 @@ for case in ['quality', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown
         sources = [repo / 'support/sg2002/additional/kvm/tests/mjpeg_policy_test.cpp']
     elif case == 'gate':
         sources = [repo / 'support/sg2002/additional/kvm/tests/geometry_gate_test.cpp']
+    elif case == 'park':
+        sources = [repo / 'support/sg2002/additional/kvm/tests/capture_park_test.cpp']
     subprocess.run(flags + [str(path) for path in sources] + ['-o', str(binary)], check=True)
     result = subprocess.run([str(binary)], capture_output=True, text=True)
     (args.output / (case + '.txt')).write_text(

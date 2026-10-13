@@ -6,6 +6,7 @@
 #include "capture_pacing.hpp"
 #include "mjpeg_policy.hpp"
 #include "geometry_gate.hpp"
+#include "capture_park.hpp"
 /**
  * 待解决的问题:
  * // 分辨率跟随输出
@@ -271,10 +272,10 @@ kvm_venc_t kvm_venc;
    outputs stay configured but disabled: their pools stay allocated, so
    resuming needs no video memory; reopening a channel after idle can
    exhaust the carveout (see kvmv_hdmi_control). */
-static std::atomic<bool> capture_parked{false};
+static nanokvm::CapturePark capture_park;
 static int set_capture_parked_locked(bool parked);
 
-static bool restart_capture()
+static bool restart_capture_now()
 {
     // A pipelined frame leases a VPSS buffer; retire it before the restart.
     if (kvm_venc.enc_video_init && mmf_venc_pending_vi(kvm_venc.mmf_venc_chn) >= 0)
@@ -290,9 +291,17 @@ static bool restart_capture()
     kvmv_cfg.vpss_height = default_vpss_height;
     kvmv_cfg.Auto_res = 0;
     kvmv_cfg.reinit_flag = 1;
-    // The detector restarts capture on its own; keep idle outputs parked.
-    if (capture_parked.load()) cam->set_enabled(false);
     return true;
+}
+
+// The detector restarts capture without vi_mutex. CapturePark orders the
+// restart with park and resume and keeps idle outputs parked after it.
+static bool restart_capture()
+{
+    bool restarted = false;
+    capture_park.restart([&] { restarted = restart_capture_now(); return restarted ? 0 : -1; },
+                         [](bool enabled) { return cam->set_enabled(enabled); });
+    return restarted;
 }
 
 
@@ -2918,31 +2927,18 @@ int kvmv_hdmi_control(uint8_t _en)
 /* Caller holds vi_mutex. Parking deletes the video and JPEG encoder
    channels: a frame pre-submitted to the video encoder leases a VPSS buffer
    until collected, the next viewer starts with a new channel and an IDR
-   anyway, and the encoder memory is free while nobody watches. */
+   anyway, and the encoder memory is free while nobody watches. Disabling
+   releases the queued frames, so the first frame after resuming is fresh. */
 static int set_capture_parked_locked(bool parked)
 {
-    if (capture_parked.load() == parked) return 0;
-    if (parked) {
+    return capture_park.set(parked, [] {
         if (kvm_venc.enc_video_init) {
             const int retired = mmf_del_venc_channel(kvm_venc.mmf_venc_chn);
             if (retired != 0) return retired;
             kvm_venc.enc_video_init = 0;
         }
-        const int jpeg = mmf_enc_jpg_deinit(0);
-        if (jpeg != 0) return jpeg;
-        const int result = cam->set_enabled(false);
-        if (result != 0) {
-            cam->set_enabled(true);
-            return result;
-        }
-        capture_parked.store(true);
-        return 0;
-    }
-    const int result = cam->set_enabled(true);
-    if (result != 0) return result;
-    // Disabling released the queued frames, so the next one is fresh.
-    capture_parked.store(false);
-    return 0;
+        return mmf_enc_jpg_deinit(0);
+    }, [](bool enabled) { return cam->set_enabled(enabled); });
 }
 
 int kvmv_set_capture_parked(uint8_t parked)

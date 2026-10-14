@@ -2057,19 +2057,7 @@ static int _venc_init_failed(int ch, const char *stage, CVI_S32 error)
 	return error == CVI_SUCCESS ? CVI_FAILURE : error;
 }
 
-// Only NormalP remains: SmartP's virtual I frames and background IDRs cost
-// bits and HW time that IDRs on request make unnecessary (see venc_tuning_t).
-int mmf_set_venc_gop_mode(uint8_t mode)
-{
-	return mode == MMF_VENC_GOP_NORMALP ? 0 : -1;
-}
-
-uint8_t mmf_get_venc_gop_mode(void)
-{
-	return MMF_VENC_GOP_NORMALP;
-}
-
-int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
+int mmf_add_venc_channel_v2(int ch, mmf_venc_cfg_t *cfg) {
 	CVI_S32 s32Ret = CVI_SUCCESS;
 	if (ch < 0 || ch >= MMF_VENC_MAX_CHN || priv.venc[ch].is_used) {
 		fprintf(stderr, "[kvm_mmf] invalid or busy VENC channel %d\n", ch);
@@ -2104,8 +2092,8 @@ int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 	if (s32Ret != CVI_SUCCESS) {
 		fprintf(stderr,
 			"[kvm_mmf] CVI_VENC_CreateChn failed: channel=%d codec=%d "
-			"size=%ux%u bitrate=%u gop=%u error=%#x\n",
-			ch, cfg->type, cfg->w, cfg->h, cfg->bitrate, cfg->gop, s32Ret);
+			"size=%ux%u bitrate=%u error=%#x\n",
+			ch, cfg->type, cfg->w, cfg->h, cfg->bitrate, s32Ret);
 		fflush(stderr);
 		return s32Ret;
 	}

@@ -12,21 +12,11 @@ func GetKvmVision() *KvmVision {
 	return testKvmVision
 }
 
-func GetActiveGOPMode() uint8 { return GOPModeSmartP }
-
 func (k *KvmVision) ReadMjpeg(uint16, uint16, uint16) ([]byte, int) {
 	return readMjpegChecked(func() ([]byte, int) { return nil, -1 })
 }
 
-func (k *KvmVision) ReadH264(uint16, uint16, uint16) ([]byte, int) {
-	return nil, -1
-}
-
-func (k *KvmVision) ReadVideo(uint16, uint16, uint8, uint16, uint8, uint8) ([]byte, int) {
-	return nil, -1
-}
-
-func (k *KvmVision) ReadVideoWithHeadroom(uint16, uint16, uint8, uint16, uint8, uint8, int) ([]byte, []byte, int) {
+func (k *KvmVision) ReadVideoWithHeadroom(uint16, uint16, uint8, uint16, uint8, int) ([]byte, []byte, int) {
 	return nil, nil, -1
 }
 
@@ -42,10 +32,6 @@ func (k *KvmVision) SetCaptureParked(bool) int { return 0 }
 func (k *KvmVision) HasHDMISignal() bool {
 	return false
 }
-
-func (k *KvmVision) SetGop(uint8) {}
-
-func (k *KvmVision) SetGOPMode(uint8) int { return 0 }
 
 func (k *KvmVision) SetFrameDetect(uint8) {}
 

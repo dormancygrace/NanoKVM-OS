@@ -36,14 +36,14 @@ func setVideoAs(t *testing.T, body string, role authn.Role) (code int, raw strin
 }
 
 func TestVideoSettingsOrderWritesMonitorLast(t *testing.T) {
-	fps, monitor, height, gop := 30, 1080, 720, 60
+	fps, monitor, height, bitrate := 30, 1080, 720, 5000
 	portrait := false
-	req := VideoSettingsReq{Monitor: &monitor, FPS: &fps, Height: &height, GOP: &gop, Portrait: &portrait}
+	req := VideoSettingsReq{Monitor: &monitor, FPS: &fps, Height: &height, BitRate: &bitrate, Portrait: &portrait}
 	var order []string
 	for _, setting := range req.settings() {
 		order = append(order, setting.Type)
 	}
-	want := []string{"gop", "resolution", "fps", "portrait", "monitor"}
+	want := []string{"quality", "resolution", "fps", "portrait", "monitor"}
 	if len(order) != len(want) {
 		t.Fatalf("order %v", order)
 	}

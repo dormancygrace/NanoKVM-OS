@@ -77,39 +77,33 @@ int main() {
     mjpeg_last_video_ms = 0;
     unsetenv("NANOKVM_MJPEG_422");
     kvmv_data_t frame{};
-    reset();frame.in_use=1;video_sink=sink;video_sink_context=123;
+    reset();video_sink=sink;video_sink_context=123;
     assert(frame_to_jpeg(0,&frame,80)==IMG_MJPEG_TYPE);
     assert(copied[2]==0x11 && encoded[2]==0x99 && frees==1 && released==1);
-    assert(frame.p_img_data==nullptr && frame.img_data_capacity==0);
-    release_save_buffer(&frame);
+    assert(frame.img_data_type==VENC_MJPEG && frame.img_data_size==sizeof(encoded));
 
-    reset();frame.in_use=1;video_sink=sink;video_sink_context=123;sink_error=-1;
+    reset();video_sink=sink;video_sink_context=123;sink_error=-1;
     assert(frame_to_jpeg(0,&frame,80)==IMG_BUFFER_FULL);
-    assert(frees==1 && released==1 && !frame.in_use);
+    assert(frees==1 && released==1);
 
-    reset();frame.in_use=1;video_sink=sink;video_sink_context=123;free_error=-2;
+    reset();video_sink=sink;video_sink_context=123;free_error=-2;
     assert(frame_to_jpeg(0,&frame,80)==IMG_VENC_ERROR);
-    assert(deinit_count==1 && released==1 && !frame.in_use);
+    assert(deinit_count==1 && released==1 && frame.img_data_size==0);
 
-    reset();frame.in_use=1;video_sink=sink;video_sink_context=123;pop_error=-2;
+    reset();video_sink=sink;video_sink_context=123;pop_error=-2;
     assert(frame_to_jpeg(0,&frame,80)==IMG_VENC_ERROR);
-    assert(copied.empty() && deinit_count==1 && released==1 && !frame.in_use);
+    assert(copied.empty() && deinit_count==1 && released==1);
 
-    reset();frame.in_use=1;video_sink=sink;video_sink_context=123;push_error=-2;
+    reset();video_sink=sink;video_sink_context=123;push_error=-2;
     assert(frame_to_jpeg(0,&frame,80)==IMG_VENC_ERROR);
-    assert(pops==0 && frees==0 && released==1 && !frame.in_use);
-
-    // Legacy callers still receive an independent C savebuffer.
-    reset();frame.in_use=1;
-    assert(frame_to_jpeg(0,&frame,80)==IMG_MJPEG_TYPE);
-    assert(frame.p_img_data && frame.p_img_data[2]==0x11 && encoded[2]==0x99);
-    release_save_buffer(&frame);free(frame.p_img_data);frame={};
+    assert(pops==0 && frees==0 && released==1);
 
     // Frame-detect/copied capture also bypasses the second native JPEG copy.
-    reset();frame.in_use=1;video_sink=owned_sink;video_sink_context=123;
+    reset();video_sink=owned_sink;video_sink_context=123;
     auto *data=static_cast<uint8_t *>(malloc(sizeof(encoded)));memcpy(data,encoded,sizeof(encoded));
     nanokvm::JpegBuffer jpg(data,sizeof(encoded));
-    assert(jpg_dump(&frame,&jpg) && copied[2]==0x11 && frame.p_img_data==nullptr);
-    sink_error=-1;assert(!jpg_dump(&frame,&jpg));release_save_buffer(&frame);
-    puts("PASS real JPEG sink: callback before release, owned bytes, no savebuffer allocation, legacy path, callback/encoder failures, frame-detect path.");
+    assert(jpg_dump(&frame,&jpg) && copied[2]==0x11);
+    sink_error=-1;assert(!jpg_dump(&frame,&jpg));
+    reset();assert(!jpg_dump(&frame,&jpg));
+    puts("PASS real JPEG sink: callback before release, owned bytes, sink required, callback/encoder failures, frame-detect path.");
 }

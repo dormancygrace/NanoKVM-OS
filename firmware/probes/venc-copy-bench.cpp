@@ -1,7 +1,7 @@
 // VENC access-unit copy benchmark through the public libkvm API.
 //
-//   venc-copy-bench [frames [width height [codec [kbps [gop [fps [out.h26x]]]]]]]
-//   defaults:        600     2560  1440   h265   4500  60    60
+//   venc-copy-bench [frames [width height [codec [kbps [fps [out.h26x]]]]]]
+//   defaults:        600     2560  1440   h265   4500  60
 //
 // Needs the capture to itself: stop NanoKVM-Server first. Per access unit it
 // reports the CPU copy of the borrowed VENC packs (first copy, then the same
@@ -174,12 +174,11 @@ int main(int argc, char **argv)
 	const int width = argc > 3 ? atoi(argv[2]) : 2560, height = argc > 3 ? atoi(argv[3]) : 1440;
 	const int codec = argc > 4 && !strcmp(argv[4], "h264") ? 1 : 2;
 	const int kbps = argc > 5 ? atoi(argv[5]) : 4500;
-	const int gop = argc > 6 ? atoi(argv[6]) : 60;
-	const int fps = argc > 7 ? atoi(argv[7]) : 60;
-	const char *out_path = argc > 8 ? argv[8] : nullptr;
-	if (frames <= 0 || width <= 0 || height <= 0 || kbps < 500 || kbps > 20000 || gop < 1 || gop > 100
+	const int fps = argc > 6 ? atoi(argv[6]) : 60;
+	const char *out_path = argc > 7 ? argv[7] : nullptr;
+	if (frames <= 0 || width <= 0 || height <= 0 || kbps < 500 || kbps > 20000
 		|| fps < 1 || fps > 120) {
-		fprintf(stderr, "usage: %s [frames [width height [h264|h265 [kbps [gop [fps [out]]]]]]]\n", argv[0]);
+		fprintf(stderr, "usage: %s [frames [width height [h264|h265 [kbps [fps [out]]]]]]\n", argv[0]);
 		return 2;
 	}
 	setvbuf(stdout, nullptr, _IOLBF, 0);
@@ -207,15 +206,15 @@ int main(int argc, char **argv)
 	mark("kvmv_hdmi_control");
 	kvmv_hdmi_control(1);
 	const char *windows_env = getenv("NANOKVM_VENC_PACK_WINDOWS");
-	printf("venc-copy-bench %dx%d %s %d kbit/s gop %d fps %d, %d access units, NANOKVM_VENC_PACK_WINDOWS=%s\n",
-		width, height, codec == 2 ? "h265" : "h264", kbps, gop, fps, frames, windows_env ? windows_env : "(unset)");
+	printf("venc-copy-bench %dx%d %s %d kbit/s fps %d, %d access units, NANOKVM_VENC_PACK_WINDOWS=%s\n",
+		width, height, codec == 2 ? "h265" : "h264", kbps, fps, frames, windows_env ? windows_env : "(unset)");
 
 	// Warm up: encoder creation, first IDR and the first pack mappings.
 	int warm = 0, errors = 0;
 	mark("warm-up");
 	for (uint64_t start = now_ns(); warm < 2 * fps && now_ns() - start < 20000000000ull;) {
 		s.total = 0;
-		if (kvmv_read_video_sink(width, height, codec, kbps, gop, fps, sink, reinterpret_cast<uintptr_t>(&s)) >= 0
+		if (kvmv_read_video_sink_v2(width, height, codec, kbps, fps, sink, reinterpret_cast<uintptr_t>(&s)) >= 0
 			&& s.total) {
 			if (!warm) mark("first access unit");
 			progress_ns = now_ns();
@@ -242,7 +241,7 @@ int main(int argc, char **argv)
 		s.total = 0;
 		s.bad = false;
 		const uint64_t t0 = now_ns();
-		const int ret = kvmv_read_video_sink(width, height, codec, kbps, gop, fps, sink,
+		const int ret = kvmv_read_video_sink_v2(width, height, codec, kbps, fps, sink,
 			reinterpret_cast<uintptr_t>(&s));
 		read_ns += now_ns() - t0;
 		if (ret < 0 || !s.total || s.bad) {
@@ -275,7 +274,7 @@ int main(int argc, char **argv)
 		rate(s.bytes, s.copy2_ns));
 	printf("heap   %8.2f us/AU  %8.1f MB/s   (heap to heap, same size, reference)\n", ref_ns / n / 1e3,
 		rate(s.bytes, ref_ns));
-	printf("read   %8.2f ms/AU  (kvmv_read_video_sink wall time, includes waiting for the encoder)\n",
+	printf("read   %8.2f ms/AU  (kvmv_read_video_sink_v2 wall time, includes waiting for the encoder)\n",
 		read_ns / n / 1e6);
 	printf("cpu    %8.1f us/AU user, %8.1f us/AU system\n", (cpu_us(r1, false) - cpu_us(r0, false)) / n,
 		(cpu_us(r1, true) - cpu_us(r0, true)) / n);

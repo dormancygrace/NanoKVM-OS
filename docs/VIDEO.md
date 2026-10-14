@@ -12,7 +12,7 @@ Video modes combine the monitor resolution and stream frame rate. The page separ
 
 **Auto bitrate** selects a ceiling for motion from the prospective stream dimensions, frame rate and codec: about 0.09 bit per pixel for H.265 and 1.3 times that for H.264, rounded up to an offered value, capped at 20 Mbit/s. H.265 examples: 1280×720@120 selects 10 Mbit/s, 1920×1080@60 selects 12 Mbit/s, and QHD@60 or UHD@30 selects 20 Mbit/s. **Economy** selects 3 Mbit/s. Manual bitrate remains available. A still desktop normally sends much less than the ceiling.
 
-The encoder applies rate-control limits before capture starts and uses NormalP, with keyframes on viewer request plus a ten-second safety interval. GOP and SmartP controls have been removed; saved SmartP selections are treated as NormalP. H.264 remains Main. Native encoder diagnostics are included in the application log.
+The encoder applies rate-control limits before capture starts and uses NormalP, with keyframes on viewer request plus a ten-second safety interval. There are no GOP or SmartP settings, and the screen API no longer accepts them. H.264 remains Main. Native encoder diagnostics are included in the application log.
 
 ## HDMI monitor and automatic input detection
 
@@ -88,7 +88,7 @@ MJPEG is unavailable while the HDMI input is 3840×2160, whatever the stream lim
 ## API
 
 - `GET /api/vm/video/capabilities` lists every monitor mode with its refresh rates, the portrait profiles with the codecs and transports they need, the stream limits, the frame-rate table, the input size and rate, the codecs per transport and the video memory. Unavailable entries carry a reason: `video-memory` (3840 × 2160 outside the UHD video memory mode, or 1440p and portrait with too little video memory) or `receiver`.
-- `POST /api/vm/video` (administrators) applies several settings together: `type`, `quality` (MJPEG), `bitRate`, `gop`, `gopMode`, `mjpegChroma`, `height`, `fps`, `portraitResolution`, `portrait`, `monitor`, `confirmPowerCycle`. Every setting is validated before any is applied; the EDID is written at most once, last, and follows `fps`. It returns the new capabilities.
+- `POST /api/vm/video` (administrators) applies several settings together: `type`, `quality` (MJPEG), `bitRate`, `mjpegChroma`, `height`, `fps`, `portraitResolution`, `portrait`, `monitor`, `confirmPowerCycle`. Every setting is validated before any is applied; the EDID is written at most once, last, and follows `fps`. It returns the new capabilities.
 - `GET/POST /api/vm/screen` remain for single settings.
 
 ## Advanced settings

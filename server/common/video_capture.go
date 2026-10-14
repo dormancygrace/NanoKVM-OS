@@ -5,7 +5,6 @@ type VideoCaptureParams struct {
 	Width, Height uint16
 	Codec         uint8
 	BitRate       uint16
-	GOP           uint8
 	FPS           uint8
 }
 

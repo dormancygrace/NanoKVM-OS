@@ -20,14 +20,11 @@ import (
 var screenFileMap = map[string]string{
 	"type":         "/kvmapp/kvm/type",
 	"fps":          "/kvmapp/kvm/fps",
-	"gop_mode":     "/kvmapp/kvm/gop_mode",
 	"mjpeg_chroma": "/kvmapp/kvm/mjpeg_chroma",
 	"quality":      "/kvmapp/kvm/qlty",
 	"resolution":   "/kvmapp/kvm/res",
 }
 
-var readActiveGOPMode = common.GetActiveGOPMode
-var applyGOPMode = func(mode uint8) int { return common.GetKvmVision().SetGOPMode(mode) }
 var mjpegChromaMutex sync.Mutex
 var readMjpegChromaStatus = common.GetMjpegChromaStatus
 var applyMjpegChroma = func(value uint16) int { return common.GetKvmVision().SetMjpegChroma(value) }
@@ -38,17 +35,14 @@ const maxQualityValue = common.MaxQualityValue
 
 func (s *Service) GetScreen(c *gin.Context) {
 	current := common.GetScreen()
-	activeGOPMode := readActiveGOPMode()
 	activeChroma, chromaFallback := readMjpegChromaStatus()
 	portrait, portraitSupported := common.MonitorPortraitStatus()
 	portraitResolution := common.PortraitResolution()
 	portraitMaxSupported := common.PortraitMaxSupported()
 	var rsp proto.Response
 	rsp.OkRspWithData(c, gin.H{"width": current.Width, "height": current.Height, "fps": current.FPS,
-		"quality": current.Quality, "bitRate": current.BitRate, "gop": current.GOP,
+		"quality": current.Quality, "bitRate": current.BitRate,
 		"mjpegChroma": current.MjpegChroma, "mjpegChromaActive": activeChroma, "mjpegChromaFallback": chromaFallback,
-		"gopMode": current.GOPMode, "gopModeActive": activeGOPMode,
-		"gopModeRestartRequired":      current.GOPMode != activeGOPMode,
 		"monitor":                     common.ReadVideoValue("/etc/kvm/monitor_resolution"),
 		"monitorRequiresPowerCycle":   common.MonitorRequiresPowerCycle(),
 		"monitorPowerCyclePending":    common.MonitorPowerCyclePending(),
@@ -199,11 +193,6 @@ func validateScreenSettingIn(req proto.SetScreenReq, batch *VideoSettingsReq) *s
 		if req.Value == 0 {
 			return mjpegSelectionFailure(batch)
 		}
-	case "gop":
-	case "gop_mode":
-		if req.Value != int(common.GOPModeNormalP) && req.Value != int(common.GOPModeSmartP) {
-			return settingFailure(-1, "GOP mode must be NormalP or SmartP")
-		}
 	case "quality":
 		if req.Value < 1 || req.Value > maxQualityValue {
 			return settingFailure(-1, "quality must be 1-100, or a bitrate up to 20000 kbit/s")
@@ -255,25 +244,8 @@ func applyScreenSetting(req proto.SetScreenReq) (gin.H, *settingError) {
 		return nil, nil
 	case "resolution", "fps", "quality":
 		err = writeScreen(req.Type, strconv.Itoa(req.Value))
-	case "gop_mode":
-		// SmartP was retired (common.Screen); old clients may still ask for it.
-		req.Value = int(common.GOPModeNormalP)
-		if err = writeScreen(req.Type, strconv.Itoa(req.Value)); err == nil {
-			if result := applyGOPMode(uint8(req.Value)); result != 0 {
-				// Saved: the encoder takes it at the next server start.
-				log.Warnf("failed to switch the H.265 GOP mode to %d at run time: %d", req.Value, result)
-			}
-		}
 	case "type":
 		err = writeScreen("type", []string{"mjpeg", "h264", "h265"}[req.Value])
-	case "gop":
-		gop := 30
-		if req.Value >= 1 && req.Value <= 100 {
-			gop = req.Value
-		}
-		common.GetKvmVision().SetGop(uint8(gop))
-		// Store the value the encoder actually uses, not the raw request.
-		req.Value = gop
 	}
 	if err != nil {
 		return nil, settingFailure(-2, "update screen failed")
@@ -285,13 +257,6 @@ func applyScreenSetting(req proto.SetScreenReq) (gin.H, *settingError) {
 	switch req.Type {
 	case "fps":
 		return gin.H{"fps": common.GetScreen().FPS}, nil
-	case "gop_mode":
-		selected := common.GetScreen().GOPMode
-		active := readActiveGOPMode()
-		return gin.H{
-			"gopMode": selected, "gopModeActive": active,
-			"gopModeRestartRequired": selected != active,
-		}, nil
 	}
 	return nil, nil
 }

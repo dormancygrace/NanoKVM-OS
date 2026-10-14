@@ -319,7 +319,6 @@ func videoCaptureParams(config EncoderConfig, screen *common.Screen) common.Vide
 		Height:  screen.Height,
 		Codec:   uint8(config.Codec.NativeCodec()),
 		BitRate: screen.BitRate,
-		GOP:     screen.GOP,
 		FPS:     uint8(normalizedFPS(screen.FPS)),
 	}
 }
@@ -415,7 +414,6 @@ func captureVideoFrame(config EncoderConfig) ([]byte, []byte, int) {
 		screen.Height,
 		uint8(config.Codec.NativeCodec()),
 		screen.BitRate,
-		screen.GOP,
 		uint8(normalizedFPS(screen.FPS)),
 		videoHeadroom,
 	)

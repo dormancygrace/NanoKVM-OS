@@ -12,6 +12,7 @@ TIME=${TIME:-/usr/bin/time}
 
 [ "$(id -u)" -eq 0 ] || { echo "run as root" >&2; exit 1; }
 [ -x "$TIME" ] || { echo "install Alpine package 'time'" >&2; exit 1; }
+command -v lz4 >/dev/null 2>&1 || { echo "install Alpine package 'lz4' for this benchmark" >&2; exit 1; }
 mkdir -p "$CORPUS_DIR"
 [ ! -e "$OUTPUT" ] || { echo "output already exists: $OUTPUT" >&2; exit 1; }
 mkdir "$OUTPUT"

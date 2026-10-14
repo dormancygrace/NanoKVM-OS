@@ -33,8 +33,11 @@ path_flags = ' '.join(f'-ffile-prefix-map={Path(src).resolve()}={name}' for src,
     (os.environ['NANOKVM_BUILDROOT_OUTPUT'], './toolchain')])
 flags += ' ' + path_flags
 sources = [
-    ('json_c', 'NANOKVM_JSON_C_SOURCE', ['-DBUILD_TESTING=OFF', '-DBUILD_APPS=OFF', '-DDISABLE_EXTRA_LIBS=ON']),
-    ('miniz', 'NANOKVM_MINIZ_SOURCE', ['-DBUILD_EXAMPLES=OFF', '-DBUILD_TESTS=OFF']),
+    # CMP0219 OLD keeps how json-c's configure checks are parsed today, without
+    # the policy warning; miniz still declares a CMake minimum below 3.10.
+    ('json_c', 'NANOKVM_JSON_C_SOURCE', ['-DBUILD_TESTING=OFF', '-DBUILD_APPS=OFF', '-DDISABLE_EXTRA_LIBS=ON',
+                                          '-DCMAKE_POLICY_DEFAULT_CMP0219=OLD']),
+    ('miniz', 'NANOKVM_MINIZ_SOURCE', ['-DBUILD_EXAMPLES=OFF', '-DBUILD_TESTS=OFF', '-Wno-deprecated']),
 ]
 if subprocess.check_output([cross + 'gcc', '-dumpfullversion'], text=True).strip() != '16.2.0':
     raise SystemExit('Expected the qualified GCC16.2 toolchain')

@@ -14,8 +14,8 @@ Subject: [PATCH] rtl8733bs: build without warnings
     NULL" tested psta. With -fno-delete-null-pointer-checks it stayed in
     the code; it now reads "psta";
   - the debug command parsers tested rows of char input[][16], which
-    are never NULL, and now test for an empty argument (sscanf of an
-    empty string assigned nothing either).
+    are never NULL. Remove those checks and keep the existing scans
+    unconditional, including when strsep produces empty fields.
 - 3 -Wmisleading-indentation (rtw_recv.c, rtw_efuse.c, phydm_dfs.c): the
   statements already ran once after the loop or the if; only the
   indentation is corrected.
@@ -124,58 +124,68 @@ index c2e27b9..abf3d4b 100644
  
  	_rtw_free_sta_xmit_priv_lock(&psta->sta_xmitpriv);
 diff --git a/hal/phydm/halrf/halrf.c b/hal/phydm/halrf/halrf.c
-index 57c2c30..8a91315 100644
+index 57c2c30..7c43412 100644
 --- a/hal/phydm/halrf/halrf.c
 +++ b/hal/phydm/halrf/halrf.c
-@@ -865,7 +865,7 @@ void halrf_support_ability_debug(void *dm_void, char input[][16], u32 *_used,
+@@ -865,8 +865,7 @@ void halrf_support_ability_debug(void *dm_void, char input[][16], u32 *_used,
  	u8 i;
  
  	for (i = 0; i < 5; i++)
 -		if (input[i + 1])
-+		if (input[i + 1][0])
- 			PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &dm_value[i]);
+-			PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &dm_value[i]);
++		PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &dm_value[i]);
  
  	if (dm_value[0] == 100) {
-@@ -4656,7 +4656,7 @@ void halrf_dump_rfk_reg(void *dm_void, char input[][16], u32 *_used,
+ 		PDM_SNPF(out_len, used, output + used, out_len - used,
+@@ -4656,8 +4655,7 @@ void halrf_dump_rfk_reg(void *dm_void, char input[][16], u32 *_used,
  
  	reg_1b00 = odm_get_bb_reg(dm, R_0x1b00, MASKDWORD);
  
 -	if (input[2])
-+	if (input[2][0])
- 		PHYDM_SSCANF(input[2], DCMD_DECIMAL, &var1[0]);
+-		PHYDM_SSCANF(input[2], DCMD_DECIMAL, &var1[0]);
++	PHYDM_SSCANF(input[2], DCMD_DECIMAL, &var1[0]);
  
  	if ((strcmp(input[2], help) == 0))
+ 		PDM_SNPF(out_len, used, output + used, out_len - used,
 diff --git a/hal/phydm/halrf/halrf_debug.c b/hal/phydm/halrf/halrf_debug.c
-index 3f2d142..822ba62 100644
+index 3f2d142..c59bae9 100644
 --- a/hal/phydm/halrf/halrf_debug.c
 +++ b/hal/phydm/halrf/halrf_debug.c
-@@ -151,7 +151,7 @@ void halrf_debug_trace(void *dm_void, char input[][16], u32 *_used,
+@@ -151,8 +151,7 @@ void halrf_debug_trace(void *dm_void, char input[][16], u32 *_used,
  	u8 i;
  
  	for (i = 0; i < 5; i++)
 -		if (input[i + 1])
-+		if (input[i + 1][0])
- 			PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &rf_var[i]);
+-			PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &rf_var[i]);
++		PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &rf_var[i]);
  
  	if (rf_var[0] == 100) {
-@@ -211,7 +211,7 @@ void halrf_dack_debug_cmd(void *dm_void, char input[][16])
+ 		PDM_SNPF(out_len, used, output + used, out_len - used,
+@@ -211,8 +210,7 @@ void halrf_dack_debug_cmd(void *dm_void, char input[][16])
  	u8 i;
  
  	for (i = 0; i < 7; i++)
 -		if (input[i + 1])
-+		if (input[i + 1][0])
- 			PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &dm_value[i]);
+-			PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &dm_value[i]);
++		PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &dm_value[i]);
  
  	if (dm_value[0] == 1)
-@@ -329,7 +329,7 @@ void halrf_cmd_parser(void *dm_void, char input[][16], u32 *_used, char *output,
+ 		halrf_dack_trigger(dm, true);
+@@ -329,11 +327,9 @@ void halrf_cmd_parser(void *dm_void, char input[][16], u32 *_used, char *output,
  		PDM_SNPF(out_len, used, output + used, out_len - used,
  			 "IQK DEBUG!!!!!\n");
  		for (i = 0; i < 5; i++) {
 -			if (input[i + 1]) {
-+			if (input[i + 1][0]) {
- 				PHYDM_SSCANF(input[i + 2], DCMD_HEX,
- 					     &rf_var[i]);
- 				input_idx++;
+-				PHYDM_SSCANF(input[i + 2], DCMD_HEX,
+-					     &rf_var[i]);
+-				input_idx++;
+-			}
++			PHYDM_SSCANF(input[i + 2], DCMD_HEX,
++				     &rf_var[i]);
++			input_idx++;
+ 		}
+ 
+ 		if (input_idx >= 1) {
 diff --git a/hal/phydm/halrf/halrf_debug.h b/hal/phydm/halrf/halrf_debug.h
 index c13f3c5..46475bd 100644
 --- a/hal/phydm/halrf/halrf_debug.h
@@ -190,27 +200,31 @@ index c13f3c5..46475bd 100644
  
  #endif /*#if DBG*/
 diff --git a/hal/phydm/phydm_ccx.c b/hal/phydm/phydm_ccx.c
-index 07ba457..1a1eaa6 100644
+index 07ba457..5b633ef 100644
 --- a/hal/phydm/phydm_ccx.c
 +++ b/hal/phydm/phydm_ccx.c
-@@ -2997,7 +2997,7 @@ void phydm_ifs_clm_dbg(void *dm_void, char input[][16], u32 *_used,
+@@ -2997,9 +2997,8 @@ void phydm_ifs_clm_dbg(void *dm_void, char input[][16], u32 *_used,
  		return;
  
  	for (i = 0; i < 5; i++) {
 -		if (input[i + 1])
-+		if (input[i + 1][0])
- 			PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL,
- 				     &var1[i]);
+-			PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL,
+-				     &var1[i]);
++		PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL,
++			     &var1[i]);
  	}
-@@ -3601,7 +3601,7 @@ void phydm_edcca_clm_dbg(void *dm_void, char input[][16], u32 *_used,
+ 
+ 	if ((strcmp(input[1], help) == 0)) {
+@@ -3601,8 +3600,7 @@ void phydm_edcca_clm_dbg(void *dm_void, char input[][16], u32 *_used,
  		return;
  
  	for (i = 0; i < 4; i++) {
 -		if (input[i + 1])
-+		if (input[i + 1][0])
- 			PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL, &var1[i]);
+-			PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL, &var1[i]);
++		PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL, &var1[i]);
  	}
  
+ 	if ((strcmp(input[1], help) == 0)) {
 diff --git a/hal/phydm/phydm_debug.h b/hal/phydm/phydm_debug.h
 index 40fdb6a..0cc0efd 100644
 --- a/hal/phydm/phydm_debug.h
@@ -258,18 +272,22 @@ index ecff4b5..1ef5a61 100644
  			PHYDM_DBG(dm, DBG_DFS, "- PW/PRI-J Failure\n");
  		if (!(dfs->loct_flag))
 diff --git a/hal/phydm/phydm_pmac_tx_setting.c b/hal/phydm/phydm_pmac_tx_setting.c
-index c11f326..62b6785 100644
+index c11f326..e0b389a 100644
 --- a/hal/phydm/phydm_pmac_tx_setting.c
 +++ b/hal/phydm/phydm_pmac_tx_setting.c
-@@ -493,7 +493,7 @@ void phydm_pmac_tx_dbg(void *dm_void, char input[][16], u32 *_used,
+@@ -493,10 +493,8 @@ void phydm_pmac_tx_dbg(void *dm_void, char input[][16], u32 *_used,
  			 "[pmac_tx] basic : {1} {rate_idx}(only 1M & 6M) {count}\n");
  	} else {
  		for (i = 1; i < 7; i++) {
 -			if (input[i + 1]) {
-+			if (input[i + 1][0]) {
- 				PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL,
- 					     &var[i]);
- 			}
+-				PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL,
+-					     &var[i]);
+-			}
++			PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL,
++				     &var[i]);
+ 		}
+ 
+ 		odm_memory_set(dm, &tx_info, 0, sizeof(struct phydm_pmac_info));
 diff --git a/hal/rtl8733b/sdio/rtl8733bs_ops.c b/hal/rtl8733b/sdio/rtl8733bs_ops.c
 index 9090897..80771f2 100644
 --- a/hal/rtl8733b/sdio/rtl8733bs_ops.c

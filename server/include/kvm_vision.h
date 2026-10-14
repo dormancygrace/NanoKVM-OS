@@ -42,7 +42,6 @@ int kvmv_read_video_sink(uint16_t width, uint16_t height, uint8_t codec,
     kvmv_video_sink sink, uintptr_t context);
 
 void kvmv_init(uint8_t _debug_info_en);
-void set_venc_auto_recyc(uint8_t _enable);
 // Runtime JPEG chroma intent (0 NV21/4:2:0, 1 NV16/4:2:2), serialized with capture.
 int set_mjpeg_chroma(uint8_t enable_422);
 #define MJPEG_CHROMA_ACTIVE_422 1

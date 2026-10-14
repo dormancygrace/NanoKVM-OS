@@ -286,17 +286,13 @@ fatload mmc 0:1 0x81800000 boot-alpine-test.sd
 bootm 0x81800000#config-sg2002_licheervnano_sd_minimal
 ```
 
-Export the tested runtime into package payloads and build the signed
-repository on an Alpine builder with a configured `abuild` key:
+The package payloads come from the `payloads` step of `platform/build.sh`,
+which writes `OUTPUT/payloads` from `platform/packages.list`. To build a
+signed repository from them on an Alpine builder with a configured `abuild`
+key:
 
 ```sh
-ROOTFS=/path/to/tested-root \
-  PROFILE=stock \
-  OUTPUT=work/alpine/payloads/stock \
-  KERNEL_RELEASE=7.2.10-nanokvm-os-r4 \
-  ./scripts/export-alpine-payloads.sh
-
-PAYLOAD_ROOT=work/alpine/payloads \
+PAYLOAD_ROOT=OUTPUT/payloads \
   REPODEST=work/alpine/repo \
   ./scripts/build-alpine-packages.sh stock
 ```

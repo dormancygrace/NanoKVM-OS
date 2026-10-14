@@ -23,8 +23,8 @@ log() {
 
 leave_card() {
     log "$1; the card is left unchanged and no data partition is created"
-    rm -f "$marker"
-    sync
+    rm -f "$marker" || retry_later "cannot remove the first-boot marker"
+    sync || retry_later "cannot persist first-boot completion"
     exit 0
 }
 
@@ -71,8 +71,8 @@ fi
 # a reused card must not prevent creating its new data filesystem.
 mkfs.exfat -F -L NANOKVM /dev/mmcblk0p3 || retry_later "cannot format the data partition"
 # Formatting happens once: from here on, data may be written to p3.
-rm -f "$marker"
-sync
+rm -f "$marker" || retry_later "cannot remove the first-boot marker"
+sync || retry_later "cannot persist first-boot completion"
 mkdir -p /data
 if mountpoint -q /data || mount /data; then
     echo 'NanoKVM SD data partition ready'

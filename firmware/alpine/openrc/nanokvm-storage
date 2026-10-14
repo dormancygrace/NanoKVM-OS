@@ -10,10 +10,16 @@ depend() {
 start() {
     ebegin "Preparing NanoKVM storage"
     mkdir -p /boot /data /mnt /sys/kernel/config
-    # A failed first-boot data partition must not keep the device from booting.
-    /usr/libexec/nanokvm/firstboot-storage || ewarn "SD data partition not ready; retrying at the next boot"
+    # Keep booting on failure, but do not expose data still due for formatting.
+    data_ready=0
+    if /usr/libexec/nanokvm/firstboot-storage; then
+        if mountpoint -q /data || mount /data; then
+            data_ready=1
+        fi
+    else
+        ewarn "SD data partition not ready; retrying at the next boot"
+    fi
     mountpoint -q /boot || mount /boot
-    mountpoint -q /data || mount /data
     mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config
     # f2fs background GC compacts the root partition whenever the device is
     # idle, and wrote the SD card by megabytes per minute on an idle stand.
@@ -26,10 +32,12 @@ start() {
 
     rm -rf /mnt/data
     ln -s /data /mnt/data
-    for source in /usr/share/nanokvm/board-defaults/*; do
-        [ -f "$source" ] || continue
-        [ -e "/data/${source##*/}" ] || cp "$source" "/data/${source##*/}"
-    done
+    if [ "$data_ready" = 1 ]; then
+        for source in /usr/share/nanokvm/board-defaults/*; do
+            [ -f "$source" ] || continue
+            [ -e "/data/${source##*/}" ] || cp "$source" "/data/${source##*/}"
+        done
+    fi
     mkdir -p /mnt/system
     rm -rf /mnt/system/ko
     ln -s "/lib/modules/$(uname -r)/extra" /mnt/system/ko

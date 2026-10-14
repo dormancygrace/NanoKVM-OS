@@ -9,6 +9,7 @@ test-alpine-firstboot-storage.py.
 """
 from pathlib import Path
 import os
+import re
 import subprocess
 import tempfile
 
@@ -26,7 +27,8 @@ def stub(bin_dir, name, body):
 
 
 def run_case(partitions=FRESH, card=CARD, marker=True, sfdisk_rc=0, mkfs_rc=0,
-             mount_rc=0, p3=None, runs=1, between=None, created_start=1705984):
+             mount_rc=0, p3=None, runs=1, between=None, created_start=1705984,
+             rm_rc=0, sync_rc=0, p3_appears=True):
     with tempfile.TemporaryDirectory(prefix='nkos-firstboot-') as temp:
         t = Path(temp)
         sys_block, dev, data, bin_dir = t / "sysfs", t / "blockdev", t / "data", t / "bin"
@@ -51,13 +53,15 @@ def run_case(partitions=FRESH, card=CARD, marker=True, sfdisk_rc=0, mkfs_rc=0,
         stub(bin_dir, 'sfdisk', f'{log}\ncat >/dev/null\n'
              f'[ "${{SFDISK_RC:-0}}" = 0 ] || exit "$SFDISK_RC"\n'
              f'mkdir -p {sys_block}/mmcblk0p3\necho {created_start} > {sys_block}/mmcblk0p3/start\n'
-             f'echo $(({card} - 1705984)) > {sys_block}/mmcblk0p3/size\ntouch {dev}/mmcblk0p3')
+             f'echo $(({card} - 1705984)) > {sys_block}/mmcblk0p3/size\n'
+             + (f'touch {dev}/mmcblk0p3' if p3_appears else ':'))
         stub(bin_dir, 'partx', log)
         stub(bin_dir, 'mkfs.exfat', f'{log}\nexit "${{MKFS_RC:-0}}"')
         stub(bin_dir, 'mount', f'{log}\nexit "${{MOUNT_RC:-0}}"')
         stub(bin_dir, 'mountpoint', 'exit 1')
         stub(bin_dir, 'logger', log)
-        stub(bin_dir, 'sync', 'exit 0')
+        stub(bin_dir, 'rm', f'{log}\n[ "${{RM_RC:-0}}" = 0 ] || exit "$RM_RC"\nexec /bin/rm "$@"')
+        stub(bin_dir, 'sync', 'exit "${SYNC_RC:-0}"')
         stub(bin_dir, 'sleep', 'exit 0')
         script = (source
                   .replace('export PATH=/usr/sbin:/usr/bin:/sbin:/bin', f'export PATH={bin_dir}:$PATH')
@@ -72,7 +76,7 @@ def run_case(partitions=FRESH, card=CARD, marker=True, sfdisk_rc=0, mkfs_rc=0,
         script_path.write_text(script)
         results = []
         for index in range(runs):
-            env = dict(os.environ, SFDISK_RC=str(sfdisk_rc), MKFS_RC=str(mkfs_rc), MOUNT_RC=str(mount_rc))
+            env = dict(os.environ, SFDISK_RC=str(sfdisk_rc), MKFS_RC=str(mkfs_rc), MOUNT_RC=str(mount_rc), RM_RC=str(rm_rc), SYNC_RC=str(sync_rc))
             if between and index > 0:
                 env.update(between)
             result = subprocess.run(['sh', str(script_path)], text=True, capture_output=True, env=env)
@@ -111,6 +115,8 @@ check('reason recorded', 'too small' in calls, calls)
 # Transient failures keep the marker for the next boot and report status 1.
 results, marker, calls = run_case(sfdisk_rc=1)
 check('partitioning fails', results[0][0] == 1 and marker and 'mkfs' not in calls, (results, calls))
+results, marker, calls = run_case(p3_appears=False)
+check('partition device never appears', results[0][0] == 1 and marker and 'mkfs' not in calls, (results, calls))
 results, marker, calls = run_case(mkfs_rc=1, runs=2, between={'MKFS_RC': '0'})
 check('format fails, then succeeds at the next boot',
       [r[0] for r in results] == [1, 0] and not marker and calls.count('mkfs.exfat') == 2, (results, calls))
@@ -123,8 +129,54 @@ check('new partition reads back wrong', results[0][0] == 1 and marker and 'mkfs.
 results, marker, calls = run_case(mount_rc=1, runs=2)
 check('mount fails after format', [r[0] for r in results] == [0, 0] and not marker and calls.count('mkfs.exfat') == 1, (results, calls))
 
-# nanokvm-storage keeps booting when the first-boot step fails.
-service = (repo / 'firmware/alpine/openrc/nanokvm-storage').read_text()
-line = next(l for l in service.splitlines() if 'firstboot-storage' in l)
-check('storage service continues', 'return 1' not in line and 'ewarn' in line, line)
-print('PASS first-boot storage: fresh card, foreign layouts left alone, retries, no double format, boot continues')
+# A failed marker retirement must not expose a filesystem scheduled for mkfs.
+results, marker, calls = run_case(rm_rc=1)
+check('marker removal failure keeps data unavailable',
+      results[0][0] == 1 and marker and 'mount ' not in calls, (results, calls))
+results, marker, calls = run_case(p3=(1705984, CARD - 1705984), sync_rc=1)
+check('marker sync failure keeps data unavailable',
+      results[0][0] == 1 and 'mount ' not in calls, (results, calls))
+
+
+def run_service(firstboot_rc=0, mount_rc=0):
+    with tempfile.TemporaryDirectory(prefix='nkos-storage-service-') as temp:
+        t = Path(temp)
+        bin_dir = t / 'bin'
+        bin_dir.mkdir()
+        defaults = t / 'board-defaults'
+        defaults.mkdir()
+        (defaults / 'wifi.sta').write_text('default')
+        (t / 'mounts').write_text('')
+        calls = t / 'calls'
+        calls.touch()
+        log = f'echo "$(basename "$0") $*" >> {calls}'
+        stub(bin_dir, 'firstboot', f'{log}\nexit {firstboot_rc}')
+        stub(bin_dir, 'mount', f'{log}\nif [ "$1" = {t}/data ]; then\n'
+             f'  [ {mount_rc} = 0 ] || exit {mount_rc}\n  touch {t}/data-mounted\nfi')
+        stub(bin_dir, 'mountpoint', f'[ "$2" = {t}/data ] && [ -e {t}/data-mounted ]')
+        script = (repo / 'firmware/alpine/openrc/nanokvm-storage').read_text()
+        replacements = dict([('/usr/libexec/nanokvm/firstboot-storage', str(bin_dir / 'firstboot')),
+                         ('/usr/share/nanokvm/board-defaults', str(defaults)),
+                         ('/sys/kernel/config', str(t / 'configfs')),
+                         ('/proc/mounts', str(t / 'mounts')),
+                         ('/mnt/data', str(t / 'mnt/data')),
+                         ('/mnt', str(t / 'mnt')), ('/boot', str(t / 'boot')),
+                         ('/data', str(t / 'data'))])
+        pattern = '|'.join(re.escape(path) for path in sorted(replacements, key=len, reverse=True))
+        script = re.sub(pattern, lambda match: replacements[match[0]], script)
+        script += '\nebegin() { :; }; ewarn() { echo "$*" >&2; }; eend() { return "$1"; }; start\n'
+        result = subprocess.run(['sh', '-c', script], capture_output=True, text=True,
+                                env=dict(os.environ, PATH=str(bin_dir) + ':' + os.environ['PATH']))
+        log = calls.read_text()
+        assert (t / 'mnt/data').is_symlink(), result
+        return result, f'mount {t}/data\n' in log, (t / 'data/wifi.sta').exists(), log
+
+
+for name, firstboot_rc, mount_rc, mounts_data, copies_defaults in [
+        ('normal storage service', 0, 0, True, True),
+        ('failed firstboot service', 1, 0, False, False),
+        ('unavailable data mount', 0, 1, True, False)]:
+    result, mounted, copied, calls = run_service(firstboot_rc, mount_rc)
+    check(name, result.returncode == 0 and mounted == mounts_data and copied == copies_defaults,
+          (result, calls))
+print('PASS first-boot storage: safe layouts, retries, one-shot format, failed storage stays unavailable and boot continues')

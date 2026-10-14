@@ -214,7 +214,7 @@ int main(int argc, char **argv)
 	mark("warm-up");
 	for (uint64_t start = now_ns(); warm < 2 * fps && now_ns() - start < 20000000000ull;) {
 		s.total = 0;
-		if (kvmv_read_video_sink(width, height, codec, kbps, fps, sink, reinterpret_cast<uintptr_t>(&s)) >= 0
+		if (kvmv_read_video_sink_v2(width, height, codec, kbps, fps, sink, reinterpret_cast<uintptr_t>(&s)) >= 0
 			&& s.total) {
 			if (!warm) mark("first access unit");
 			progress_ns = now_ns();
@@ -241,7 +241,7 @@ int main(int argc, char **argv)
 		s.total = 0;
 		s.bad = false;
 		const uint64_t t0 = now_ns();
-		const int ret = kvmv_read_video_sink(width, height, codec, kbps, fps, sink,
+		const int ret = kvmv_read_video_sink_v2(width, height, codec, kbps, fps, sink,
 			reinterpret_cast<uintptr_t>(&s));
 		read_ns += now_ns() - t0;
 		if (ret < 0 || !s.total || s.bad) {
@@ -274,7 +274,7 @@ int main(int argc, char **argv)
 		rate(s.bytes, s.copy2_ns));
 	printf("heap   %8.2f us/AU  %8.1f MB/s   (heap to heap, same size, reference)\n", ref_ns / n / 1e3,
 		rate(s.bytes, ref_ns));
-	printf("read   %8.2f ms/AU  (kvmv_read_video_sink wall time, includes waiting for the encoder)\n",
+	printf("read   %8.2f ms/AU  (kvmv_read_video_sink_v2 wall time, includes waiting for the encoder)\n",
 		read_ns / n / 1e6);
 	printf("cpu    %8.1f us/AU user, %8.1f us/AU system\n", (cpu_us(r1, false) - cpu_us(r0, false)) / n,
 		(cpu_us(r1, true) - cpu_us(r0, true)) / n);

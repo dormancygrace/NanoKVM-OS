@@ -1432,7 +1432,7 @@ int init_venc_video(uint16_t width, uint16_t height, uint16_t bitrate, uint8_t c
 		fflush(stderr);
 		return ret;
 	}
-	ret = mmf_add_venc_channel(kvm_venc.mmf_venc_chn, &kvm_venc.kvm_venc_cfg);
+	ret = mmf_add_venc_channel_v2(kvm_venc.mmf_venc_chn, &kvm_venc.kvm_venc_cfg);
 	if (ret != 0) {
 		fprintf(stderr,
 			"[kvmv] VENC initialization failed: channel=%d codec=%d "
@@ -1741,7 +1741,7 @@ static nanokvm::JpegAdmission admit_capture_step(uint8_t type, const nanokvm::Ge
 
 /*
  * One capture pass: encode the frame for the requested size and codec and hand
- * the bytes to the calling thread's sink (kvmv_read_video_sink or
+ * the bytes to the calling thread's sink (kvmv_read_video_sink_v2 or
  * kvmv_read_mjpeg_sink). _qlty is the MJPEG quality (20-99) or the H.264/H.265
  * bitrate (500-20000 Kbit/s). Return codes are listed in kvm_vision.h.
  */
@@ -2104,7 +2104,7 @@ static int kvmv_read_video(uint16_t _width, uint16_t _height, uint8_t _codec,
 		maxmin_data(20000, 500, (int)_bitrate));
 }
 
-int kvmv_read_video_sink(uint16_t width, uint16_t height, uint8_t codec,
+int kvmv_read_video_sink_v2(uint16_t width, uint16_t height, uint8_t codec,
     uint16_t bitrate, uint8_t fps, kvmv_video_sink sink, uintptr_t context)
 {
     if (sink == nullptr || video_sink != nullptr) return IMG_VENC_ERROR;

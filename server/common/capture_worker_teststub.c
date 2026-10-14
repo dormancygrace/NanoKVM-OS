@@ -2,7 +2,7 @@
 
 #include "kvm_vision.h"
 
-/* Scripted stand-in for kvmv_read_video_sink used by the worker tests. Reads
+/* Scripted stand-in for kvmv_read_video_sink_v2 used by the worker tests. Reads
    take queued frames in order; with blocking set, an empty queue waits like a
    VPSS frame wait, otherwise it reports IMG_NOT_EXIST. Each pack is lent from
    a scratch "vendor" buffer overwritten as soon as the sink returns, as
@@ -73,7 +73,7 @@ int nk_fake_capture_reads(uint16_t *args, int64_t *times, int max, int *waiting)
     return reads;
 }
 
-int kvmv_read_video_sink(uint16_t width, uint16_t height, uint8_t codec,
+int kvmv_read_video_sink_v2(uint16_t width, uint16_t height, uint8_t codec,
         uint16_t bitrate, uint8_t fps, kvmv_video_sink sink, uintptr_t context) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);

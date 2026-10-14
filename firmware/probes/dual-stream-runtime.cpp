@@ -60,7 +60,7 @@ int main() {
             int sample=sampling(jpeg,actual_jw,actual_jh);
             if(pairs>2 && sample!=t.sample){printf("BAD JPEG case=%s pair=%d sample=%#x expected=%#x\n",t.name,pairs,sample,t.sample);status=1;break;}
             if(pairs==0) kvmv_request_keyframe();
-            video.clear();int vr=kvmv_read_video_sink(t.vw,t.vh,t.codec,10000,50,collect,reinterpret_cast<uintptr_t>(&video));
+            video.clear();int vr=kvmv_read_video_sink_v2(t.vw,t.vh,t.codec,10000,50,collect,reinterpret_cast<uintptr_t>(&video));
             if(vr<0 || video.empty()){++errors;if(errors<6)printf("RETRY video=%d bytes=%zu\n",vr,video.size());usleep(50000);continue;}
             if(fwrite(video.data(),1,video.size(),file)!=video.size()){status=1;break;}
             if(pairs==10) {
@@ -81,7 +81,7 @@ int main() {
     if(!failed) {
         double start=now();int frames=0;
         while(frames<150 && now()-start<12) {
-            video.clear();int r=kvmv_read_video_sink(1920,1080,VENC_H265,10000,50,collect,reinterpret_cast<uintptr_t>(&video));
+            video.clear();int r=kvmv_read_video_sink_v2(1920,1080,VENC_H265,10000,50,collect,reinterpret_cast<uintptr_t>(&video));
             if(r>=0 && !video.empty())++frames;else usleep(20000);
         }
         printf("IDLE jpeg-stopped video=%d seconds=%.3f status=%d\n",frames,now()-start,frames==150?0:1);

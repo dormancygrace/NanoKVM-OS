@@ -58,7 +58,8 @@ typedef int (*kvmv_video_sink)(uintptr_t context, const uint8_t *data,
  * Video: one CBR Annex-B H.264/H.265 access unit. codec: 1 H.264, 2 H.265;
  * bitrate: 500..20000 Kbit/s.
  */
-int kvmv_read_video_sink(uint16_t width, uint16_t height, uint8_t codec,
+// v2 removes the GOP argument; a distinct symbol rejects the old calling convention.
+int kvmv_read_video_sink_v2(uint16_t width, uint16_t height, uint8_t codec,
     uint16_t bitrate, uint8_t fps, kvmv_video_sink sink, uintptr_t context);
 
 #ifdef __cplusplus

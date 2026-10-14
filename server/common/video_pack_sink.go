@@ -10,7 +10,7 @@ static inline int nkosVideoPack(uintptr_t context, const uint8_t *data, uint32_t
  return goVideoPack(context, (void *)data, size, offset, total);
 }
 static inline int nkosReadVideo(uint16_t w, uint16_t h, uint8_t codec, uint16_t rate, uint8_t fps, uintptr_t context) {
- return kvmv_read_video_sink(w, h, codec, rate, fps, nkosVideoPack, context);
+ return kvmv_read_video_sink_v2(w, h, codec, rate, fps, nkosVideoPack, context);
 }
 static inline int nkosReadMjpeg(uint16_t w, uint16_t h, uint16_t quality, uintptr_t context) {
  return kvmv_read_mjpeg_sink(w, h, quality, nkosVideoPack, context);

@@ -32,11 +32,11 @@ for source in sources.values():
         p.error('Missing native library: '+str(source))
 cross = str(a.buildroot_output.resolve()/'host/bin/riscv64-buildroot-linux-musl-')
 required_native_symbols = {
-    'libkvm.so': {'kvmv_read_video_sink', 'kvmv_read_mjpeg_sink', 'set_mjpeg_chroma', 'get_mjpeg_chroma_status'},
-    'libkvm_mmf.so': {'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
+    'libkvm.so': {'kvmv_read_video_sink_v2', 'kvmv_read_mjpeg_sink', 'set_mjpeg_chroma', 'get_mjpeg_chroma_status'},
+    'libkvm_mmf.so': {'mmf_add_venc_channel_v2', 'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
 }
 required_native_dependencies = {
-    'libkvm.so': {'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
+    'libkvm.so': {'mmf_add_venc_channel_v2', 'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
 }
 for library, required in required_native_symbols.items():
     output = subprocess.check_output(
@@ -106,7 +106,7 @@ manifest = {'qualification': 'cross-build only',
             'custom_runtime_expected': custom_runtime_expected,
             'custom_runtime_present': custom_runtime_present,
             'native_bundle_contract': {
-                'id': 'dual-vpss-mjpeg-chroma-v4',
+                'id': 'sink-only-no-gop-v5',
                 'activation': 'stage server, libkvm.so, and libkvm_mmf.so together; activate only by tested device reboot',
                 'required_symbols': {name: sorted(symbols)
                                      for name, symbols in required_native_symbols.items()},

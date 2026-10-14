@@ -22,7 +22,7 @@ func main(){
  fmt.Println("PASS real native bindings: recovery touches no video ABI")
 }
 ''')
-symbols=['kvmv_init','kvmv_deinit','kvmv_hdmi_control','kvmv_hdmi_signal_active','kvmv_request_keyframe','kvmv_read_mjpeg_sink','kvmv_read_video_sink','kvmv_set_capture_fps','set_frame_detact','set_mjpeg_chroma','get_mjpeg_chroma_status']
+symbols=['kvmv_init','kvmv_deinit','kvmv_hdmi_control','kvmv_hdmi_signal_active','kvmv_request_keyframe','kvmv_read_mjpeg_sink','kvmv_read_video_sink_v2','kvmv_set_capture_fps','set_frame_detact','set_mjpeg_chroma','get_mjpeg_chroma_status']
 (o/'trap.c').write_text('#include <unistd.h>\n'+''.join('void '+s+'(void){_exit(99);}\n' for s in symbols))
 subprocess.run(['gcc','-shared','-fPIC',str(o/'trap.c'),'-o',str(o/'libkvm.so')],check=True)
 go=os.environ.get('GO','go')

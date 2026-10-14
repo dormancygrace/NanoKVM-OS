@@ -2057,7 +2057,7 @@ static int _venc_init_failed(int ch, const char *stage, CVI_S32 error)
 	return error == CVI_SUCCESS ? CVI_FAILURE : error;
 }
 
-int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
+int mmf_add_venc_channel_v2(int ch, mmf_venc_cfg_t *cfg) {
 	CVI_S32 s32Ret = CVI_SUCCESS;
 	if (ch < 0 || ch >= MMF_VENC_MAX_CHN || priv.venc[ch].is_used) {
 		fprintf(stderr, "[kvm_mmf] invalid or busy VENC channel %d\n", ch);

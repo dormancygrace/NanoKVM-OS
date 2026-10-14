@@ -1,0 +1,329 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] rtl8733bs: build without warnings
+
+- 889 -Wmissing-prototypes: the vendor shares global functions between
+  files without header declarations. The Makefile turns that warning
+  and -Wmissing-declarations off. (This driver's Makefile passes
+  EXTRA_CFLAGS to ccflags-y, so the flag takes effect.)
+- 61 -Wempty-body: PHYDM_DBG, PHYDM_DBG_F, PHYDM_PRINT_ADDR, RF_DBG and
+  DBG_COUNTER expand to nothing in this build, which leaves
+  "if (x) MACRO(...);" with an empty body. They now expand to
+  do {} while (0).
+- 9 -Waddress:
+  - lock is the first member of struct sta_info, so "&psta->lock !=
+    NULL" tested psta. With -fno-delete-null-pointer-checks it stayed in
+    the code; it now reads "psta";
+  - the debug command parsers tested rows of char input[][16], which
+    are never NULL. Remove those checks and keep the existing scans
+    unconditional, including when strsep produces empty fields.
+- 3 -Wmisleading-indentation (rtw_recv.c, rtw_efuse.c, phydm_dfs.c): the
+  statements already ran once after the loop or the if; only the
+  indentation is corrected.
+- -Wenum-conversion: rxagg_mode gets RX_AGG_DMA instead of
+  HALMAC_RX_AGG_MODE_DMA; both are 1.
+- 3 -Wempty-body on explicit empty statements: braces instead.
+- -Wunused-function: nl80211_chan_width_str() is only used by debug
+  output that this build compiles out; it is marked __maybe_unused.
+
+diff --git a/Makefile b/Makefile
+index 74bf739..cee469c 100644
+--- a/Makefile
++++ b/Makefile
+@@ -8,6 +8,8 @@ EXTRA_CFLAGS += $(USER_EXTRA_CFLAGS)
+ #EXTRA_CFLAGS += -Wshadow -Wpointer-arith -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes
+ 
+ EXTRA_CFLAGS += -Wno-unused-variable
++# Vendor functions are shared between files without header declarations.
++EXTRA_CFLAGS += -Wno-missing-prototypes -Wno-missing-declarations
+ #EXTRA_CFLAGS += -Wno-unused-value
+ #EXTRA_CFLAGS += -Wno-unused-label
+ #EXTRA_CFLAGS += -Wno-unused-parameter
+diff --git a/core/efuse/rtw_efuse.c b/core/efuse/rtw_efuse.c
+index 42b3bb0..774088e 100644
+--- a/core/efuse/rtw_efuse.c
++++ b/core/efuse/rtw_efuse.c
+@@ -970,10 +970,10 @@ void rtw_efuse_analyze(PADAPTER	padapter, u8 Type, u8 Fake)
+ 	for (i = 0; i < mapLen; i++) {
+ 		if (i % 16 == 0)
+ 			RTW_PRINT_SEL(RTW_DBGDUMP, "0x%03x: ", i);
+-			_RTW_PRINT_SEL(RTW_DBGDUMP, "%02X%s"
+-				, pEfuseHal->fakeEfuseInitMap[i]
+-				, ((i + 1) % 16 == 0) ? "\n" : (((i + 1) % 8 == 0) ? "	  " : " ")
+-			);
++		_RTW_PRINT_SEL(RTW_DBGDUMP, "%02X%s"
++			, pEfuseHal->fakeEfuseInitMap[i]
++			, ((i + 1) % 16 == 0) ? "\n" : (((i + 1) % 8 == 0) ? "	  " : " ")
++		);
+ 		}
+ 	_RTW_PRINT_SEL(RTW_DBGDUMP, "\n");
+ 
+diff --git a/core/rtw_ap.c b/core/rtw_ap.c
+index 7d9ca37..b10b1e5 100755
+--- a/core/rtw_ap.c
++++ b/core/rtw_ap.c
+@@ -6128,7 +6128,7 @@ fwd_chk:
+ 			goto exit;
+ 	} else
+ #endif
+-	;
++	{}
+ 
+ 	xframe = rtw_alloc_xmitframe(&adapter->xmitpriv, os_qid);
+ 	if (!xframe) {
+diff --git a/core/rtw_mlme_ext.c b/core/rtw_mlme_ext.c
+index 6a46997..7b498a8 100755
+--- a/core/rtw_mlme_ext.c
++++ b/core/rtw_mlme_ext.c
+@@ -2948,12 +2948,12 @@ unsigned int OnAuth(_adapter *padapter, union recv_frame *precv_frame)
+ 					pstapriv->tbtx_asoc_list_cnt--;
+ 				#endif
+ 				if (pstat->expire_to > 0)
+-					;/* TODO: STA re_auth within expire_to */
++					{ /* TODO: STA re_auth within expire_to */ }
+ 			}
+ 			_exit_critical_bh(&pstapriv->asoc_list_lock, &irqL);
+ 
+ 			if (seq == 1)
+-				; /* TODO: STA re_auth and auth timeout */
++				{ /* TODO: STA re_auth and auth timeout */ }
+ 
+ 		}
+ 	}
+diff --git a/core/rtw_recv.c b/core/rtw_recv.c
+index aa9e333..fc858d6 100755
+--- a/core/rtw_recv.c
++++ b/core/rtw_recv.c
+@@ -3891,11 +3891,11 @@ int validate_mp_recv_frame(_adapter *adapter, union recv_frame *precv_frame)
+ 			for (i = 0; i < precv_frame->u.hdr.len; i = i + 8)
+ 				RTW_INFO("%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:\n", *(ptr + i),
+ 					*(ptr + i + 1), *(ptr + i + 2) , *(ptr + i + 3) , *(ptr + i + 4), *(ptr + i + 5), *(ptr + i + 6), *(ptr + i + 7));
+-				RTW_INFO("#############################\n");
+-				_rtw_memset(pmppriv->mplink_buf, '\0' , sizeof(pmppriv->mplink_buf));
+-				_rtw_memcpy(pmppriv->mplink_buf, ptr, precv_frame->u.hdr.len);
+-				pmppriv->mplink_rx_len = precv_frame->u.hdr.len;
+-				pmppriv->mplink_brx =_TRUE;
++			RTW_INFO("#############################\n");
++			_rtw_memset(pmppriv->mplink_buf, '\0' , sizeof(pmppriv->mplink_buf));
++			_rtw_memcpy(pmppriv->mplink_buf, ptr, precv_frame->u.hdr.len);
++			pmppriv->mplink_rx_len = precv_frame->u.hdr.len;
++			pmppriv->mplink_brx =_TRUE;
+ 		}
+ 	}
+ 	if (pmppriv->bloopback) {
+diff --git a/core/rtw_sta_mgt.c b/core/rtw_sta_mgt.c
+index c2e27b9..abf3d4b 100644
+--- a/core/rtw_sta_mgt.c
++++ b/core/rtw_sta_mgt.c
+@@ -388,7 +388,7 @@ void rtw_mfree_stainfo(struct sta_info *psta);
+ void rtw_mfree_stainfo(struct sta_info *psta)
+ {
+ 
+-	if (&psta->lock != NULL)
++	if (psta)
+ 		_rtw_spinlock_free(&psta->lock);
+ 
+ 	_rtw_free_sta_xmit_priv_lock(&psta->sta_xmitpriv);
+diff --git a/hal/phydm/halrf/halrf.c b/hal/phydm/halrf/halrf.c
+index 57c2c30..7c43412 100644
+--- a/hal/phydm/halrf/halrf.c
++++ b/hal/phydm/halrf/halrf.c
+@@ -865,8 +865,7 @@ void halrf_support_ability_debug(void *dm_void, char input[][16], u32 *_used,
+ 	u8 i;
+ 
+ 	for (i = 0; i < 5; i++)
+-		if (input[i + 1])
+-			PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &dm_value[i]);
++		PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &dm_value[i]);
+ 
+ 	if (dm_value[0] == 100) {
+ 		PDM_SNPF(out_len, used, output + used, out_len - used,
+@@ -4656,8 +4655,7 @@ void halrf_dump_rfk_reg(void *dm_void, char input[][16], u32 *_used,
+ 
+ 	reg_1b00 = odm_get_bb_reg(dm, R_0x1b00, MASKDWORD);
+ 
+-	if (input[2])
+-		PHYDM_SSCANF(input[2], DCMD_DECIMAL, &var1[0]);
++	PHYDM_SSCANF(input[2], DCMD_DECIMAL, &var1[0]);
+ 
+ 	if ((strcmp(input[2], help) == 0))
+ 		PDM_SNPF(out_len, used, output + used, out_len - used,
+diff --git a/hal/phydm/halrf/halrf_debug.c b/hal/phydm/halrf/halrf_debug.c
+index 3f2d142..c59bae9 100644
+--- a/hal/phydm/halrf/halrf_debug.c
++++ b/hal/phydm/halrf/halrf_debug.c
+@@ -151,8 +151,7 @@ void halrf_debug_trace(void *dm_void, char input[][16], u32 *_used,
+ 	u8 i;
+ 
+ 	for (i = 0; i < 5; i++)
+-		if (input[i + 1])
+-			PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &rf_var[i]);
++		PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &rf_var[i]);
+ 
+ 	if (rf_var[0] == 100) {
+ 		PDM_SNPF(out_len, used, output + used, out_len - used,
+@@ -211,8 +210,7 @@ void halrf_dack_debug_cmd(void *dm_void, char input[][16])
+ 	u8 i;
+ 
+ 	for (i = 0; i < 7; i++)
+-		if (input[i + 1])
+-			PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &dm_value[i]);
++		PHYDM_SSCANF(input[i + 2], DCMD_DECIMAL, &dm_value[i]);
+ 
+ 	if (dm_value[0] == 1)
+ 		halrf_dack_trigger(dm, true);
+@@ -329,11 +327,9 @@ void halrf_cmd_parser(void *dm_void, char input[][16], u32 *_used, char *output,
+ 		PDM_SNPF(out_len, used, output + used, out_len - used,
+ 			 "IQK DEBUG!!!!!\n");
+ 		for (i = 0; i < 5; i++) {
+-			if (input[i + 1]) {
+-				PHYDM_SSCANF(input[i + 2], DCMD_HEX,
+-					     &rf_var[i]);
+-				input_idx++;
+-			}
++			PHYDM_SSCANF(input[i + 2], DCMD_HEX,
++				     &rf_var[i]);
++			input_idx++;
+ 		}
+ 
+ 		if (input_idx >= 1) {
+diff --git a/hal/phydm/halrf/halrf_debug.h b/hal/phydm/halrf/halrf_debug.h
+index c13f3c5..46475bd 100644
+--- a/hal/phydm/halrf/halrf_debug.h
++++ b/hal/phydm/halrf/halrf_debug.h
+@@ -115,7 +115,7 @@ static __inline void RF_DBG(struct dm_struct *dm, int comp, char *fmt, ...)
+ #endif
+ }
+ #else
+-#define RF_DBG(dm, comp, fmt, args...)
++#define RF_DBG(dm, comp, fmt, args...) do {} while (0)
+ #endif
+ 
+ #endif /*#if DBG*/
+diff --git a/hal/phydm/phydm_ccx.c b/hal/phydm/phydm_ccx.c
+index 07ba457..5b633ef 100644
+--- a/hal/phydm/phydm_ccx.c
++++ b/hal/phydm/phydm_ccx.c
+@@ -2997,9 +2997,8 @@ void phydm_ifs_clm_dbg(void *dm_void, char input[][16], u32 *_used,
+ 		return;
+ 
+ 	for (i = 0; i < 5; i++) {
+-		if (input[i + 1])
+-			PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL,
+-				     &var1[i]);
++		PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL,
++			     &var1[i]);
+ 	}
+ 
+ 	if ((strcmp(input[1], help) == 0)) {
+@@ -3601,8 +3600,7 @@ void phydm_edcca_clm_dbg(void *dm_void, char input[][16], u32 *_used,
+ 		return;
+ 
+ 	for (i = 0; i < 4; i++) {
+-		if (input[i + 1])
+-			PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL, &var1[i]);
++		PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL, &var1[i]);
+ 	}
+ 
+ 	if ((strcmp(input[1], help) == 0)) {
+diff --git a/hal/phydm/phydm_debug.h b/hal/phydm/phydm_debug.h
+index 40fdb6a..0cc0efd 100644
+--- a/hal/phydm/phydm_debug.h
++++ b/hal/phydm/phydm_debug.h
+@@ -242,9 +242,9 @@ static __inline void PHYDM_DBG_F(PDM_ODM_T dm, int comp, char *fmt, ...)
+ 
+ #elif defined(DM_ODM_CE_MAC80211_V2)
+ 
+-#define PHYDM_DBG(dm, comp, fmt, args...)
+-#define PHYDM_DBG_F(dm, comp, fmt, args...)
+-#define PHYDM_PRINT_ADDR(dm, comp, title_str, addr)
++#define PHYDM_DBG(dm, comp, fmt, args...) do {} while (0)
++#define PHYDM_DBG_F(dm, comp, fmt, args...) do {} while (0)
++#define PHYDM_PRINT_ADDR(dm, comp, title_str, addr) do {} while (0)
+ 
+ #else
+ 
+@@ -307,10 +307,10 @@ static __inline void PHYDM_DBG_F(struct dm_struct *dm, int comp, char *fmt, ...)
+ {
+ }
+ #else
+-#define PHYDM_DBG(dm, comp, fmt, args...)
+-#define PHYDM_DBG_F(dm, comp, fmt, args...)
++#define PHYDM_DBG(dm, comp, fmt, args...) do {} while (0)
++#define PHYDM_DBG_F(dm, comp, fmt, args...) do {} while (0)
+ #endif
+-#define PHYDM_PRINT_ADDR(dm, comp, title_str, ptr)
++#define PHYDM_PRINT_ADDR(dm, comp, title_str, ptr) do {} while (0)
+ 
+ #endif
+ 
+diff --git a/hal/phydm/phydm_dfs.c b/hal/phydm/phydm_dfs.c
+index ecff4b5..1ef5a61 100644
+--- a/hal/phydm/phydm_dfs.c
++++ b/hal/phydm/phydm_dfs.c
+@@ -1694,8 +1694,8 @@ void phydm_dfs_rpt_distinguish(void *dm_void)
+ 			PHYDM_DBG(dm, DBG_DFS, "Anti-FRD Rdr Drop\n");
+ 		if (!(dfs->pw_flag_en) || !(dfs->loct_flag_en) || !(dfs->pri_flag_en))
+ 			PHYDM_DBG(dm, DBG_DFS, "Byps flag scenario\n");
+-	       if (dc_cnt > dfs->dc_cnt_th)
+-		   	PHYDM_DBG(dm, DBG_DFS, "Radar is near DC\n");
++		if (dc_cnt > dfs->dc_cnt_th)
++			PHYDM_DBG(dm, DBG_DFS, "Radar is near DC\n");
+ 		if (!(dfs->pw_flag))
+ 			PHYDM_DBG(dm, DBG_DFS, "- PW/PRI-J Failure\n");
+ 		if (!(dfs->loct_flag))
+diff --git a/hal/phydm/phydm_pmac_tx_setting.c b/hal/phydm/phydm_pmac_tx_setting.c
+index c11f326..e0b389a 100644
+--- a/hal/phydm/phydm_pmac_tx_setting.c
++++ b/hal/phydm/phydm_pmac_tx_setting.c
+@@ -493,10 +493,8 @@ void phydm_pmac_tx_dbg(void *dm_void, char input[][16], u32 *_used,
+ 			 "[pmac_tx] basic : {1} {rate_idx}(only 1M & 6M) {count}\n");
+ 	} else {
+ 		for (i = 1; i < 7; i++) {
+-			if (input[i + 1]) {
+-				PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL,
+-					     &var[i]);
+-			}
++			PHYDM_SSCANF(input[i + 1], DCMD_DECIMAL,
++				     &var[i]);
+ 		}
+ 
+ 		odm_memory_set(dm, &tx_info, 0, sizeof(struct phydm_pmac_info));
+diff --git a/hal/rtl8733b/sdio/rtl8733bs_ops.c b/hal/rtl8733b/sdio/rtl8733bs_ops.c
+index 9090897..80771f2 100644
+--- a/hal/rtl8733b/sdio/rtl8733bs_ops.c
++++ b/hal/rtl8733b/sdio/rtl8733bs_ops.c
+@@ -27,7 +27,7 @@ static void intf_chip_configure(PADAPTER adapter)
+ 	phal = GET_HAL_DATA(adapter);
+ 
+ #ifdef RTW_RX_AGGREGATION
+-	phal->rxagg_mode = HALMAC_RX_AGG_MODE_DMA;
++	phal->rxagg_mode = RX_AGG_DMA;
+ 	phal->rxagg_dma_size = 0xff;
+ 	phal->rxagg_dma_timeout= 0x03;
+ #endif
+diff --git a/include/rtw_debug.h b/include/rtw_debug.h
+index b8de51b..c66c43b 100755
+--- a/include/rtw_debug.h
++++ b/include/rtw_debug.h
+@@ -279,7 +279,7 @@ extern uint rtw_drv_log_level;
+ #ifdef CONFIG_DBG_COUNTER
+ 	#define DBG_COUNTER(counter) counter++
+ #else
+-	#define DBG_COUNTER(counter)
++	#define DBG_COUNTER(counter) do {} while (0)
+ #endif
+ 
+ void dump_drv_version(void *sel);
+diff --git a/os_dep/linux/ioctl_cfg80211.c b/os_dep/linux/ioctl_cfg80211.c
+index 84ed512..56441d0 100755
+--- a/os_dep/linux/ioctl_cfg80211.c
++++ b/os_dep/linux/ioctl_cfg80211.c
+@@ -290,7 +290,7 @@ exit:
+ 	return ret;
+ }
+ 
+-static const char *nl80211_chan_width_str(enum nl80211_chan_width cwidth)
++static __maybe_unused const char *nl80211_chan_width_str(enum nl80211_chan_width cwidth)
+ {
+ 	switch (cwidth) {
+ 	case NL80211_CHAN_WIDTH_20_NOHT:

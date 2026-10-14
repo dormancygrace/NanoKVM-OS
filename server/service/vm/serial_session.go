@@ -254,6 +254,11 @@ const serialInputQueue = 32
 // side goes away. Resize messages (JSON) have no meaning for a serial line
 // and are dropped; the browser's OSC 777 size reply is ordinary input.
 func runSerialSession(ws *websocket.Conn, s *serialSettings) error {
+	return runSerialSessionWithPoll(ws, s, unix.Poll)
+}
+
+// Inject the device-read poll so interrupted waits can be tested deterministically.
+func runSerialSessionWithPoll(ws *websocket.Conn, s *serialSettings, poll func([]unix.PollFd, int) (int, error)) error {
 	out := &wsWriter{ws: ws}
 	release, ok := claimSerialPort(s.Device)
 	if !ok {
@@ -320,8 +325,11 @@ func runSerialSession(ws *websocket.Conn, s *serialSettings) error {
 				return
 			default:
 			}
-			n, err := unix.Poll([]unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}, 200)
-			if err != nil && !errors.Is(err, unix.EINTR) {
+			n, err := poll([]unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}, 200)
+			if err != nil {
+				if errors.Is(err, unix.EINTR) {
+					continue
+				}
 				return
 			}
 			if n == 0 {

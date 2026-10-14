@@ -10,7 +10,8 @@ depend() {
 start() {
     ebegin "Preparing NanoKVM storage"
     mkdir -p /boot /data /mnt /sys/kernel/config
-    /usr/libexec/nanokvm/firstboot-storage || return 1
+    # A failed first-boot data partition must not keep the device from booting.
+    /usr/libexec/nanokvm/firstboot-storage || ewarn "SD data partition not ready; retrying at the next boot"
     mountpoint -q /boot || mount /boot
     mountpoint -q /data || mount /data
     mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config

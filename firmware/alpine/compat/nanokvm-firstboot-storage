@@ -1,32 +1,82 @@
 #!/bin/sh
 # A clean SD image contains p1+p2. Allocate the remainder once for user data.
-set -eu
+#
+# This runs before every NanoKVM service. Whatever happens here, the device
+# must still boot: a failure only means no data partition this time.
+#   - A card that is not a fresh image (other partitions, a p3 elsewhere, too
+#     small) is never formatted. The marker is removed, so the next boot does
+#     not try again.
+#   - A failed partition or format step keeps the marker and is retried at the
+#     next boot. Exit status 1 tells nanokvm-storage to warn.
+set -u
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-[ -e /etc/nanokvm-firstboot-storage ] || exit 0
-[ "$(cat /sys/class/block/mmcblk0p1/start)" = 1 ]
-[ "$(cat /sys/class/block/mmcblk0p1/size)" = 131072 ]
-[ "$(cat /sys/class/block/mmcblk0p2/start)" = 131073 ]
-[ "$(cat /sys/class/block/mmcblk0p2/size)" = 1572864 ]
+marker=/etc/nanokvm-firstboot-storage
+# syslog may not run yet this early; the reason must survive to be read later.
+reasons=/var/log/nanokvm-firstboot-storage.log
+[ -e "$marker" ] || exit 0
+
+log() {
+    echo "nanokvm-firstboot-storage: $*" >&2
+    logger -t nanokvm-firstboot-storage "$*" 2>/dev/null || true
+    echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') $*" >> "$reasons" 2>/dev/null || true
+}
+
+leave_card() {
+    log "$1; the card is left unchanged and no data partition is created"
+    rm -f "$marker"
+    sync
+    exit 0
+}
+
+retry_later() {
+    log "$1; retrying at the next boot"
+    exit 1
+}
+
+geometry_is() {
+    [ "$(cat "$1/$2" 2>/dev/null)" = "$3" ]
+}
+
+geometry_is /sys/class/block/mmcblk0p1 start 1 && geometry_is /sys/class/block/mmcblk0p1 size 131072 &&
+    geometry_is /sys/class/block/mmcblk0p2 start 131073 && geometry_is /sys/class/block/mmcblk0p2 size 1572864 ||
+    leave_card "partitions 1 and 2 are not the fresh image layout"
+
+created=0
 if [ ! -b /dev/mmcblk0p3 ]; then
     start=1705984
-    total=$(cat /sys/class/block/mmcblk0/size)
+    total=$(cat /sys/class/block/mmcblk0/size 2>/dev/null) ||
+        retry_later "cannot read the card size"
     size=$((total - start))
-    [ "$size" -ge 262144 ] || { echo 'SD card is too small' >&2; exit 1; }
+    [ "$size" -ge 262144 ] || leave_card "the SD card is too small for a data partition"
     printf 'start=%s, size=%s, type=7\n' "$start" "$size" |
-        sfdisk --no-reread --no-tell-kernel -N 3 /dev/mmcblk0
+        sfdisk --no-reread --no-tell-kernel -N 3 /dev/mmcblk0 ||
+        retry_later "cannot create partition 3"
     sync
     partx -a -n 3 /dev/mmcblk0 || [ -b /dev/mmcblk0p3 ]
-    for attempt in 1 2 3 4 5; do
+    for _ in 1 2 3 4 5; do
         [ -b /dev/mmcblk0p3 ] && break
         sleep 1
     done
+    [ -b /dev/mmcblk0p3 ] || retry_later "partition 3 did not appear"
+    created=1
 fi
-[ "$(cat /sys/class/block/mmcblk0p3/start)" = 1705984 ]
+# A p3 somewhere else was made by someone else: never format it. One just
+# created here that does not read back as written is a retry, not a foreign
+# layout.
+if ! geometry_is /sys/class/block/mmcblk0p3 start 1705984; then
+    [ "$created" = 1 ] && retry_later "the new partition 3 does not read back at its start"
+    leave_card "partition 3 is not where the image puts it"
+fi
 # The marker belongs only to a fresh full SD installation. Old signatures on
 # a reused card must not prevent creating its new data filesystem.
-mkfs.exfat -F -L NANOKVM /dev/mmcblk0p3
-mkdir -p /data
-mountpoint -q /data || mount /data
-rm /etc/nanokvm-firstboot-storage
+mkfs.exfat -F -L NANOKVM /dev/mmcblk0p3 || retry_later "cannot format the data partition"
+# Formatting happens once: from here on, data may be written to p3.
+rm -f "$marker"
 sync
-echo 'NanoKVM SD data partition ready'
+mkdir -p /data
+if mountpoint -q /data || mount /data; then
+    echo 'NanoKVM SD data partition ready'
+else
+    log "the data partition was formatted but cannot be mounted"
+fi
+exit 0

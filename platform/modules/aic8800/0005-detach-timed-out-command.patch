@@ -1,6 +1,30 @@
---- a/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/rwnx_cmds.c
-+++ b/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/rwnx_cmds.c
-@@ -123,6 +123,31 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: detach a timed-out command before its caller returns
+
+A synchronous firmware command waits for its confirmation with a timeout.
+On timeout, cmd_mgr_queue() marked the manager crashed and completed the
+command, but left it on the queue with e2a_msg pointing into the caller's
+response buffer. A confirmation that arrived later was copied into that
+buffer after the caller had returned and freed it: a use-after-free write.
+The host contract reproduces it under ASan.
+
+- cmd_detach_waiter() runs under the manager lock, which the RX path also
+  holds while copying a confirmation. It records the timeout unless the
+  confirmation already arrived, clears e2a_msg and takes the command off
+  the queue.
+- A confirmation that arrives at the deadline is used, not reported as a
+  timeout.
+- cmd_mgr_queue() returns the command result. The sender frees a timed-out
+  or failed command, and frees its message only while the command still
+  owns it.
+- cmd_mgr_drain() clears e2a_msg and uses list_del_init(), so a drained
+  command is never removed twice.
+
+diff --git a/aic8800_fdrv/rwnx_cmds.c b/aic8800_fdrv/rwnx_cmds.c
+index 36e2cb4..001c661 100644
+--- a/aic8800_fdrv/rwnx_cmds.c
++++ b/aic8800_fdrv/rwnx_cmds.c
+@@ -123,6 +123,31 @@ static void aic8800_start_system_reset_flow(struct aic_sdio_dev *aic)
  }
  #endif
  
@@ -32,7 +56,7 @@
  static int cmd_mgr_queue(struct rwnx_cmd_mgr *cmd_mgr, struct rwnx_cmd *cmd)
  {
  #ifdef AICWF_SDIO_SUPPORT
-@@ -132,6 +157,7 @@
+@@ -132,6 +157,7 @@ static int cmd_mgr_queue(struct rwnx_cmd_mgr *cmd_mgr, struct rwnx_cmd *cmd)
  #ifdef AICWF_USB_SUPPORT
  	struct aic_usb_dev *usbdev = container_of(cmd_mgr, struct aic_usb_dev, cmd_mgr);
  #endif
@@ -40,7 +64,7 @@
  	bool defer_push = false;
  	u8_l empty = 0;
  
-@@ -234,6 +260,7 @@
+@@ -234,6 +260,7 @@ static int cmd_mgr_queue(struct rwnx_cmd_mgr *cmd_mgr, struct rwnx_cmd *cmd)
  		//rwnx_ipc_msg_push(rwnx_hw, cmd, RWNX_CMD_A2EMSG_LEN(cmd->a2e_msg));
  
  		kfree(cmd->a2e_msg);
@@ -48,7 +72,7 @@
  	} else {
          if(cmd_mgr->queue_sz <= 1) {
  			spin_unlock_bh(&cmd_mgr->lock);
-@@ -255,40 +282,31 @@
+@@ -255,40 +282,31 @@ static int cmd_mgr_queue(struct rwnx_cmd_mgr *cmd_mgr, struct rwnx_cmd *cmd)
  		}
  		#else
  		unsigned long tout = msecs_to_jiffies(RWNX_80211_CMD_TIMEOUT_MS * cmd_mgr->queue_sz);
@@ -102,7 +126,7 @@
  }
  
  /**
-@@ -506,7 +524,8 @@
+@@ -506,7 +524,8 @@ static void cmd_mgr_drain(struct rwnx_cmd_mgr *cmd_mgr)
  
  	spin_lock_bh(&cmd_mgr->lock);
  	list_for_each_entry_safe(cur, nxt, &cmd_mgr->cmds, list) {
@@ -112,9 +136,11 @@
  		cmd_mgr->queue_sz--;
  		if (!(cur->flags & RWNX_CMD_FLAG_NONBLOCK))
  			complete(&cur->complete);
---- a/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/rwnx_msg_tx.c
-+++ b/src/SDIO/driver_fw/driver/aic8800/aic8800_fdrv/rwnx_msg_tx.c
-@@ -408,10 +408,11 @@
+diff --git a/aic8800_fdrv/rwnx_msg_tx.c b/aic8800_fdrv/rwnx_msg_tx.c
+index 54f1040..80517a9 100644
+--- a/aic8800_fdrv/rwnx_msg_tx.c
++++ b/aic8800_fdrv/rwnx_msg_tx.c
+@@ -408,10 +408,11 @@ static int rwnx_send_msg(struct rwnx_hw *rwnx_hw, const void *msg_params,
  	}
  
  	if (!reqcfm || ret) {

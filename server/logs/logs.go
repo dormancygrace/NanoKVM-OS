@@ -110,10 +110,6 @@ func NewCollector() *Collector {
 
 var Default = NewCollector()
 
-func (c *Collector) Read(source string) (Snapshot, error) {
-	return c.ReadBoot(source, "current")
-}
-
 func (c *Collector) ReadBoot(source, boot string) (Snapshot, error) {
 	return c.read(source, boot, false)
 }

@@ -72,7 +72,7 @@ func (v *fakeVision) ReadMjpeg(width uint16, height uint16, quality uint16) ([]b
 
 func TestCaptureSuccessAndQualityBounds(t *testing.T) {
 	vision := &fakeVision{responses: []visionResponse{{data: testJPEG(t, 1920, 1080), result: 0}}}
-	snapshotter := New(vision, func() (uint16, uint16) { return 1920, 1080 })
+	snapshotter := NewWithCaptureLease(vision, func() (uint16, uint16) { return 1920, 1080 }, nil)
 
 	snapshot, err := snapshotter.Capture(context.Background(), mcpservice.SnapshotRequest{})
 	if err != nil {
@@ -90,7 +90,7 @@ func TestCaptureSuccessAndQualityBounds(t *testing.T) {
 
 func TestCaptureRetriesNoSignal(t *testing.T) {
 	vision := &fakeVision{responses: []visionResponse{{result: 5}, {result: -5}, {data: testJPEG(t, 1280, 720), result: 0}}}
-	snapshotter := New(vision, func() (uint16, uint16) { return 1280, 720 })
+	snapshotter := NewWithCaptureLease(vision, func() (uint16, uint16) { return 1280, 720 }, nil)
 	snapshotter.retryDelay = 0
 
 	snapshot, err := snapshotter.Capture(context.Background(), mcpservice.SnapshotRequest{})
@@ -100,7 +100,7 @@ func TestCaptureRetriesNoSignal(t *testing.T) {
 
 	timeout := 0
 	vision = &fakeVision{responses: []visionResponse{{result: 5}}}
-	snapshotter = New(vision, func() (uint16, uint16) { return 1280, 720 })
+	snapshotter = NewWithCaptureLease(vision, func() (uint16, uint16) { return 1280, 720 }, nil)
 	snapshot, err = snapshotter.Capture(context.Background(), mcpservice.SnapshotRequest{TimeoutMS: &timeout})
 	if err != nil || snapshot.RetCode != 5 || vision.calls != 1 {
 		t.Fatalf("timeout snapshot=%+v calls=%d err=%v", snapshot, vision.calls, err)
@@ -112,7 +112,7 @@ func TestCaptureRetriesInitialReadFailure(t *testing.T) {
 		{result: -1},
 		{data: testJPEG(t, 1280, 720), result: 0},
 	}}
-	snapshotter := New(vision, func() (uint16, uint16) { return 1280, 720 })
+	snapshotter := NewWithCaptureLease(vision, func() (uint16, uint16) { return 1280, 720 }, nil)
 	snapshotter.retryDelay = 0
 
 	snapshot, err := snapshotter.Capture(context.Background(), mcpservice.SnapshotRequest{})
@@ -126,7 +126,7 @@ func TestCaptureRetriesInvalidJPEG(t *testing.T) {
 		{data: []byte("partial jpeg"), result: 0},
 		{data: testJPEG(t, 1280, 720), result: 0},
 	}}
-	snapshotter := New(vision, func() (uint16, uint16) { return 1280, 720 })
+	snapshotter := NewWithCaptureLease(vision, func() (uint16, uint16) { return 1280, 720 }, nil)
 	snapshotter.retryDelay = 0
 
 	snapshot, err := snapshotter.Capture(context.Background(), mcpservice.SnapshotRequest{})
@@ -137,7 +137,7 @@ func TestCaptureRetriesInvalidJPEG(t *testing.T) {
 
 func TestCaptureRejectsCropAndEmptyData(t *testing.T) {
 	vision := &fakeVision{responses: []visionResponse{{result: 0}}}
-	snapshotter := New(vision, func() (uint16, uint16) { return 800, 600 })
+	snapshotter := NewWithCaptureLease(vision, func() (uint16, uint16) { return 800, 600 }, nil)
 	if _, err := snapshotter.Capture(context.Background(), mcpservice.SnapshotRequest{W: 10}); err == nil {
 		t.Fatal("expected crop error")
 	}
@@ -156,7 +156,7 @@ func TestCaptureSerializesConcurrentCalls(t *testing.T) {
 		responses: []visionResponse{{data: testJPEG(t, 800, 600), result: 0}},
 		delay:     10 * time.Millisecond,
 	}
-	snapshotter := New(vision, func() (uint16, uint16) { return 800, 600 })
+	snapshotter := NewWithCaptureLease(vision, func() (uint16, uint16) { return 800, 600 }, nil)
 
 	var wg sync.WaitGroup
 	for i := 0; i < 2; i++ {
@@ -174,7 +174,7 @@ func TestCaptureSerializesConcurrentCalls(t *testing.T) {
 
 func TestCapturePassesThroughAutomaticResolution(t *testing.T) {
 	vision := &fakeVision{responses: []visionResponse{{data: testJPEG(t, 640, 480), result: 0}}}
-	snapshotter := New(vision, func() (uint16, uint16) { return 0, 0 })
+	snapshotter := NewWithCaptureLease(vision, func() (uint16, uint16) { return 0, 0 }, nil)
 
 	snapshot, err := snapshotter.Capture(context.Background(), mcpservice.SnapshotRequest{})
 	if err != nil {
@@ -209,7 +209,7 @@ func TestCaptureDropsClaimedFirstFreshFrame(t *testing.T) {
 func TestCaptureRejectsOversizedJPEG(t *testing.T) {
 	data := make([]byte, maximumJPEGBytes+1)
 	vision := &fakeVision{responses: []visionResponse{{data: data, result: 0}}}
-	snapshotter := New(vision, func() (uint16, uint16) { return 960, 540 })
+	snapshotter := NewWithCaptureLease(vision, func() (uint16, uint16) { return 960, 540 }, nil)
 
 	snapshot, err := snapshotter.Capture(context.Background(), mcpservice.SnapshotRequest{})
 	if err != nil || snapshot.OK || len(snapshot.JPEG) != 0 || snapshot.Message == "" {
@@ -218,7 +218,7 @@ func TestCaptureRejectsOversizedJPEG(t *testing.T) {
 }
 
 func TestCaptureCancellationWhileWaitingForSlot(t *testing.T) {
-	snapshotter := New(&fakeVision{}, func() (uint16, uint16) { return 0, 0 })
+	snapshotter := NewWithCaptureLease(&fakeVision{}, func() (uint16, uint16) { return 0, 0 }, nil)
 	snapshotter.captureSlot <- struct{}{}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -232,7 +232,7 @@ func TestCaptureCancellationWhileWaitingForSlot(t *testing.T) {
 
 func TestCaptureTimeoutStartsAfterSlotIsAcquired(t *testing.T) {
 	vision := &fakeVision{responses: []visionResponse{{data: testJPEG(t, 320, 240), result: 0}}}
-	snapshotter := New(vision, func() (uint16, uint16) { return 320, 240 })
+	snapshotter := NewWithCaptureLease(vision, func() (uint16, uint16) { return 320, 240 }, nil)
 	snapshotter.captureSlot <- struct{}{}
 
 	timeout := 1
@@ -325,7 +325,7 @@ func TestCaptureReleasesLeaseAfterAcquisitionCancellation(t *testing.T) {
 
 func TestCaptureStopsWhenMjpegIsBlocked(t *testing.T) {
 	vision := &fakeVision{responses: []visionResponse{{result: common.MjpegBlockedResult}}}
-	snapshotter := New(vision, func() (uint16, uint16) { return 0, 0 })
+	snapshotter := NewWithCaptureLease(vision, func() (uint16, uint16) { return 0, 0 }, nil)
 	snapshotter.retryDelay = 0
 
 	snapshot, err := snapshotter.Capture(context.Background(), mcpservice.SnapshotRequest{})

@@ -214,22 +214,6 @@ func (q *frameQueue) enableFlowControl(window int) {
 	q.mutex.Unlock()
 }
 
-func (q *frameQueue) canAdvanceStream() bool {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
-
-	if q.closed {
-		return false
-	}
-	if !q.flowControlled {
-		return true
-	}
-
-	// ACK credits bound socket writes, not the pending capture queue. Brief
-	// network jitter must not discard a valid inter-frame prediction chain.
-	return q.waitingForKeyframe || (len(q.frames) < q.maxFrames && q.queuedBytes < q.maxBytes)
-}
-
 func (q *frameQueue) captureState() (active bool, flowControlled bool, canAdvance bool) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()

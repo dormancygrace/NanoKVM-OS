@@ -26,17 +26,6 @@ func ValidateRequest(req interface{}) error {
 	return nil
 }
 
-// ParseQueryRequest Validates GET requests.
-func ParseQueryRequest(c *gin.Context, req interface{}) error {
-	var err error
-	if err = c.ShouldBindQuery(req); err != nil {
-		log.Errorf("parse request failed, err: %s", err)
-		return err
-	}
-
-	return ValidateRequest(req)
-}
-
 // ParseFormRequest Validates POST Requests.
 func ParseFormRequest(c *gin.Context, req interface{}) error {
 	var err error

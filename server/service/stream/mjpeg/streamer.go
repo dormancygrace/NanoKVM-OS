@@ -285,7 +285,7 @@ func (s *Streamer) stopIfIdle() bool {
 
 func (s *Streamer) setLatestFrame(data []byte, width uint16, height uint16) {
 	// Capture owns an immutable Go buffer shared with delivery queues. Retain
-	// it here; exported snapshots still get their own copy in getLatestFrame.
+	// it here without a copy.
 
 	s.frameMutex.Lock()
 	defer s.frameMutex.Unlock()
@@ -327,26 +327,6 @@ func (s *Streamer) disableLatestFrameCache() {
 
 func (s *Streamer) frameCacheEnabled() bool {
 	return atomic.LoadInt32(&s.cacheRefs) > 0
-}
-
-func (s *Streamer) getLatestFrame() (LatestFrame, bool) {
-	if !s.frameCacheEnabled() {
-		return LatestFrame{}, false
-	}
-
-	s.frameMutex.RLock()
-	defer s.frameMutex.RUnlock()
-
-	if len(s.latestFrame.Data) == 0 {
-		return LatestFrame{}, false
-	}
-
-	return LatestFrame{
-		Data:       append([]byte(nil), s.latestFrame.Data...),
-		Width:      s.latestFrame.Width,
-		Height:     s.latestFrame.Height,
-		CapturedAt: s.latestFrame.CapturedAt,
-	}, true
 }
 
 func writeFrame(c *gin.Context, controller *http.ResponseController, data []byte, first bool) (err error) {

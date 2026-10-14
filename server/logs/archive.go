@@ -149,8 +149,6 @@ func NewArchive(directory, bootID string, startedAt int64) (*Archive, error) {
 	return a, nil
 }
 
-func (a *Archive) Close() error { return a.root.Close() }
-
 func (a *Archive) loadRecord(slot string) (bootRecord, error) {
 	var record bootRecord
 	info, err := a.root.Lstat(slot)

@@ -17,13 +17,13 @@ func TestMarkDiscontinuityWaitsForNextKeyframe(t *testing.T) {
 	if got := queue.popForWrite(); got != firstKey {
 		t.Fatalf("popped frame = %p, want %p", got, firstKey)
 	}
-	if !queue.canAdvanceStream() {
+	if _, _, canAdvance := queue.captureState(); !canAdvance {
 		t.Fatal("full ACK window must leave room for bounded pending capture")
 	}
 
 	queue.markDiscontinuity()
 	queue.acknowledge(firstKey.timestamp)
-	if !queue.canAdvanceStream() {
+	if _, _, canAdvance := queue.captureState(); !canAdvance {
 		t.Fatal("acknowledged discontinuity did not let the stream seek a keyframe")
 	}
 	if queue.offer(newOutboundFrame(false, 20, nil, []byte("delta"))) {

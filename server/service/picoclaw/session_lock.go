@@ -131,16 +131,6 @@ func (l *SessionLock) ReleaseOwned(sessionID string) bool {
 	return true
 }
 
-func (l *SessionLock) ForceTakeover(sessionID string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	now := time.Now()
-	l.ownerSessionID = sessionID
-	l.acquiredAt = now
-	l.expiresAt = now.Add(sessionLockDuration)
-}
-
 func (l *SessionLock) Owner() string {
 	l.mu.Lock()
 	defer l.mu.Unlock()

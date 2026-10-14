@@ -14,8 +14,20 @@ func TestAdaptiveMTUPreservesSequenceAndCaptureClock(t *testing.T) {
 		}
 		var origin uint32
 		var next uint16
-		for index, mtu := range []uint16{1216, 1456, 1152, 1216, 1456} {
-			micros := int64(index) * 2033333
+		// Preserve fractional 60 Hz intervals, dropped delivery time, a long
+		// session and the 32-bit RTP-clock wrap while changing the path MTU.
+		for index, sample := range []struct {
+			micros int64
+			mtu    uint16
+		}{
+			{0, 1216},
+			{16666, 1456},
+			{33333, 1152},
+			{2033333, 1216},
+			{3600000000, 1456},
+			{47721859000, 1216},
+		} {
+			micros, mtu := sample.micros, sample.mtu
 			packets := packetizer.packetize(data, micros, mtu)
 			if len(packets) < 2 {
 				t.Fatal("frame not fragmented")

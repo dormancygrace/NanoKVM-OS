@@ -21,7 +21,7 @@ func TestVideoSRTPFitsIPv6MinimumMTU(t *testing.T) {
 			if codec == stream.VideoCodecH265 {
 				data = append([]byte{0, 0, 0, 1, 19 << 1, 1}, make([]byte, 5000)...)
 			}
-			packets := newVideoPacketizer(codec).Packetize(data, 3000)
+			packets := newAdaptiveVideoPacketizer(codec).packetize(data, 0, videoRTPMTU)
 			if len(packets) < 2 {
 				t.Fatal("expected fragmented frame")
 			}

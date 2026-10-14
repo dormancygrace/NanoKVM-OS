@@ -5,8 +5,6 @@ import (
 	"NanoKVM-Server/service/vm"
 
 	"github.com/gorilla/websocket"
-	"github.com/pion/rtp"
-	"github.com/pion/rtp/codecs"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -188,19 +186,4 @@ func (m *WebRTCManager) sendVideoStream(subscription *stream.VideoSubscription) 
 		}
 		m.mutex.Unlock()
 	}
-}
-
-func newVideoPacketizer(codec stream.VideoCodec) rtp.Packetizer {
-	payloader := rtp.Payloader(&codecs.H264Payloader{})
-	if codec == stream.VideoCodecH265 {
-		payloader = &h265Payloader{}
-	}
-	return rtp.NewPacketizer(
-		videoRTPMTU,
-		100,
-		0x1234ABCD,
-		payloader,
-		rtp.NewRandomSequencer(),
-		90000,
-	)
 }

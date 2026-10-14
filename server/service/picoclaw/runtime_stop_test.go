@@ -122,7 +122,9 @@ func TestStopRuntimeCloseSessionsDoesNotRequireHIDRelease(t *testing.T) {
 func TestStopRuntimeCloseSessionsReleasesStaleLock(t *testing.T) {
 	t.Setenv("PICOCLAW_HOME", t.TempDir())
 	lock := &SessionLock{}
-	lock.ForceTakeover("stale-session")
+	if err := lock.Ensure("stale-session"); err != nil {
+		t.Fatal(err)
+	}
 	service := &Service{
 		lock:    lock,
 		runtime: getRuntimeStore(),
@@ -144,7 +146,9 @@ func TestPreemptControlLeasesForMCPDoesNotStopRuntimeOrChangeIntent(t *testing.T
 	}
 
 	lock := &SessionLock{}
-	lock.ForceTakeover("session-1")
+	if err := lock.Ensure("session-1"); err != nil {
+		t.Fatal(err)
+	}
 	service := &Service{
 		lock:          lock,
 		runtime:       &RuntimeStore{status: RuntimeStatus{Ready: true, Status: "ready"}},

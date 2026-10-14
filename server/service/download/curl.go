@@ -34,10 +34,6 @@ func curlImageArgs(rawURL, headers string, preferChaCha bool) []string {
 	return append(args, "--url", rawURL)
 }
 
-func downloadCurlImage(ctx context.Context, rawURL string, dst *os.File, expected []byte, progress func(transferProgress)) error {
-	return downloadCurlTransfer(ctx, rawURL, dst, expected, progress, nil)
-}
-
 func downloadCurlTransfer(ctx context.Context, rawURL string, dst *os.File, expected []byte, progress func(transferProgress), resume *imageResume) error {
 	offset, err := dst.Seek(0, io.SeekCurrent)
 	if err != nil {

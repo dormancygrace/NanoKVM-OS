@@ -467,13 +467,6 @@ func readRustDeskPayloadBounded(c net.Conn, timeout time.Duration) ([]byte, erro
 	defer c.SetReadDeadline(time.Time{})
 	return readRustDeskPayloadAfterHead(c, first[0])
 }
-func readRustDeskPayload(r io.Reader) ([]byte, error) {
-	var first [1]byte
-	if _, err := io.ReadFull(r, first[:]); err != nil {
-		return nil, err
-	}
-	return readRustDeskPayloadAfterHead(r, first[0])
-}
 func readRustDeskPayloadAfterHead(r io.Reader, first byte) ([]byte, error) {
 	var head [4]byte
 	head[0] = first

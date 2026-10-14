@@ -75,7 +75,7 @@ func TestCurlProgressWithoutContentLength(t *testing.T) {
 	defer server.Close()
 	samples := make(chan transferProgress, 8)
 	dst := curlDestination(t)
-	err := downloadCurlImage(context.Background(), server.URL, dst, nil, func(p transferProgress) { samples <- p })
+	err := downloadCurlTransfer(context.Background(), server.URL, dst, nil, func(p transferProgress) { samples <- p }, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

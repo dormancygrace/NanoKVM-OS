@@ -533,3 +533,7 @@ func TestLateVideoCaptureAllowsNewInputWorkersToRun(t *testing.T) {
 		}
 	}
 }
+
+func (s *VideoSource) subscribe(config EncoderConfig) (*VideoSubscription, error) {
+	return s.subscribeValidated(config, nil)
+}

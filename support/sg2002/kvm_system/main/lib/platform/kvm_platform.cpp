@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <ifaddrs.h>
 #include <linux/i2c-dev.h>
+#include <linux/i2c.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -56,17 +57,31 @@ I2C::~I2C()
         close(fd_);
 }
 
-int I2C::writeto(int addr, const uint8_t *data, int len)
+bool I2C::open_bus()
 {
-    if (addr < 0 || addr > 0x7f || len < 0 || (len && !data))
-        return -EINVAL;
     if (!tried_) {
         tried_ = true;
         char path[32];
         snprintf(path, sizeof(path), "/dev/i2c-%d", bus_);
         fd_ = open(path, O_RDWR | O_CLOEXEC);
     }
-    if (fd_ < 0)
+    return fd_ >= 0;
+}
+
+bool I2C::answers(int addr)
+{
+    if (addr < 0 || addr > 0x7f || !open_bus() || ioctl(fd_, I2C_SLAVE, addr) != 0)
+        return false;
+    union i2c_smbus_data data;
+    struct i2c_smbus_ioctl_data request = {I2C_SMBUS_READ, 0, I2C_SMBUS_BYTE, &data};
+    return ioctl(fd_, I2C_SMBUS, &request) == 0;
+}
+
+int I2C::writeto(int addr, const uint8_t *data, int len)
+{
+    if (addr < 0 || addr > 0x7f || len < 0 || (len && !data))
+        return -EINVAL;
+    if (!open_bus())
         return -ENODEV;
     if (ioctl(fd_, I2C_SLAVE, addr) != 0)
         return -errno;

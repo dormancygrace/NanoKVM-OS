@@ -10,8 +10,6 @@
 
 #define OLED_DISABLE 	0
 #define OLED_ENABLE		1
-#define OLED_ADDR		0x3D
-#define OLED_PCIe_ADDR  0x3C
 #define OLED_CMD		0x00
 #define OLED_DATA		0x40
 

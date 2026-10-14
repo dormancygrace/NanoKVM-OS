@@ -1,20 +1,16 @@
 #include "oled_ctrl.h"
 #include "kvm_platform.h"
+#include "oled_detect.h"
+
+#include <string>
 
 // oled_ctrl deliberately knows only whether the preference is persistent.
 // oled_ui owns the short-lived network-address override and its synchronization.
 bool OLED_IPWindowActive(void);
 
-static kvms::I2C &oled_alpha()
-{
-    static kvms::I2C bus(1);
-    return bus;
-}
-static kvms::I2C &oled_beta()
-{
-    static kvms::I2C bus(5);
-    return bus;
-}
+// Chosen by oled_exist(); the board has one OLED bus.
+static kvms::I2C *oled_i2c = nullptr;
+static int oled_address = 0;
 
 uint8_t OLED_state = 0;
 uint8_t kvm_hw_ver = 0;
@@ -23,65 +19,51 @@ uint8_t kvm_hw_ver = 0;
  * 		= OLED_DATA         */
 void oled_write_register(uint8_t mode, uint8_t data)
 {
-	if(OLED_state){
-		uint8_t buf[2];
-
-		buf[0] = mode;
-		buf[1] = data;
-		if(kvm_hw_ver == 0){
-			if(oled_alpha().writeto(OLED_ADDR, buf, 2) < 0){
-				return;
-			}
-		} else if(kvm_hw_ver == 1){
-			if(oled_beta().writeto(OLED_ADDR, buf, 2) < 0){
-				return;
-			}
-		} else if(kvm_hw_ver == 2){
-			if(oled_beta().writeto(OLED_PCIe_ADDR, buf, 2) < 0){
-				return;
-			}
-		}
-		return;
+	if(OLED_state && oled_i2c){
+		uint8_t buf[2] = {mode, data};
+		(void)oled_i2c->writeto(oled_address, buf, 2);
 	}
-	return;
+}
+
+// File content up to its first NUL (device tree strings end with one), or
+// "" when it cannot be read.
+static std::string read_text(const char *path, bool *present = nullptr)
+{
+	std::string text;
+	FILE *fp = fopen(path, "r");
+	if (present) *present = fp != NULL;
+	if (!fp) return text;
+	char buf[256];
+	size_t n;
+	while ((n = fread(buf, 1, sizeof(buf), fp)) > 0 && text.size() < 4096) text.append(buf, n);
+	fclose(fp);
+	return text.substr(0, text.find('\0'));
+}
+
+static bool oled_answers(int bus, int address, void *)
+{
+	if (!oled_i2c) oled_i2c = new kvms::I2C(bus);
+	return oled_i2c->answers(address);
 }
 
 int oled_exist(void)
 {
-    // gpio::GPIO oled_rst("GPIOP19", gpio::Mode::OUT, gpio::Pull::PULL_UP);
-    // oled_rst.high();
-	// system("devmem 0x030010D4 32 0x3");
-    // system("devmem 0x030010D0 32 0x2");
-    // system("devmem 0x030010DC 32 0x2");
+	const std::string revision = read_text("/proc/device-tree/sipeed,board-revision");
+	const std::string hw = read_text("/etc/kvm/hw");
+	bool manual = false;
+	const std::string override_text = read_text("/etc/kvm/oled", &manual);
+	const OledBoard board = oled_board(revision.empty() ? NULL : revision.c_str(), hw.c_str());
+	kvm_hw_ver = board == OledBoard::Pcie ? 2 : board == OledBoard::Alpha ? 0 : 1;
 
-	if(access("/etc/kvm/hw", F_OK) == 0){
-		uint8_t RW_Data[2];
-		FILE *fp = fopen("/etc/kvm/hw", "r");
-		fread(RW_Data, sizeof(char), 2, fp);
-		fclose(fp);
-		if(RW_Data[0] == 'b') kvm_hw_ver = 1;
-		else if(RW_Data[0] == 'p') kvm_hw_ver = 2;
+	OledTarget target;
+	if (!oled_detect(board, manual ? override_text.c_str() : NULL, oled_answers, NULL, &target)) {
+		printf("OLED: none found\r\n");
+		return 0;
 	}
-
-	uint8_t buf[2];
-
-	buf[0] = OLED_CMD;
-	buf[1] = 0xAE;
-	if(kvm_hw_ver == 0){
-		if(oled_alpha().writeto(OLED_ADDR, buf, 2) < 0){
-			return 0;
-		}
-	} else if(kvm_hw_ver == 1){
-		printf("beta\r\n");
-		if(oled_beta().writeto(OLED_ADDR, buf, 2) < 0){
-			return 0;
-		}
-	} else if(kvm_hw_ver == 2){
-		printf("PCIe\r\n");
-		if(oled_beta().writeto(OLED_PCIe_ADDR, buf, 2) < 0){
-			return 0;
-		}
-	}
+	oled_address = target.address;
+	// The layout follows the board (or the override), not the address.
+	kvm_hw_ver = target.narrow ? 2 : target.bus == 1 ? 0 : 1;
+	printf("OLED: i2c-%d 0x%02x %s\r\n", target.bus, target.address, target.narrow ? "narrow" : "wide");
 	return 1;
 }
 

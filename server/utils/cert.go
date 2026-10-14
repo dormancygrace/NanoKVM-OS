@@ -77,10 +77,6 @@ func ensureGeneratedCertificate(certFile, keyFile string) error {
 	return generateCertFiles(certFile, keyFile)
 }
 
-func GenerateCert() error {
-	return generateCertFiles(defaultCertFile, defaultKeyFile)
-}
-
 // GenerateCertificateFiles writes a fresh self-signed pair.
 func GenerateCertificateFiles(certFile, keyFile string) error {
 	return generateCertFiles(certFile, keyFile)

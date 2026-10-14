@@ -122,10 +122,6 @@ func (m *WebRTCManager) removeClient(ws *websocket.Conn, expected *peerVideoWrit
 	return true
 }
 
-func (m *WebRTCManager) GetClientCount() int {
-	return len(m.getClients())
-}
-
 func (m *WebRTCManager) updateClientSnapshotLocked() int {
 	clients := make([]*Client, 0, len(m.clients))
 	for _, client := range m.clients {
@@ -134,15 +130,6 @@ func (m *WebRTCManager) updateClientSnapshotLocked() int {
 	m.clientSnapshot.Store(&clients)
 
 	return len(clients)
-}
-
-func (m *WebRTCManager) getClients() []*Client {
-	clients := m.clientSnapshot.Load()
-	if clients == nil {
-		return nil
-	}
-
-	return *clients
 }
 
 func (m *WebRTCManager) getClientsFor(subscription *stream.VideoSubscription) []*Client {

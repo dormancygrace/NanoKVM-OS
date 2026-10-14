@@ -379,11 +379,3 @@ func writeInputRegion(path string, region proto.InputRegion) error {
 	}
 	return os.Rename(tmpPath, path)
 }
-
-func removeInputRegion(path string) error {
-	err := os.Remove(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	return err
-}

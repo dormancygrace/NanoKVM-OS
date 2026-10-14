@@ -24,7 +24,6 @@ type Client struct {
 	videoWriteMutex sync.Mutex
 	pathMTU         *peerPathMTU
 	packetizer      *adaptiveVideoPacketizer
-	videoStart      videoStartGate
 	ws              *websocket.Conn
 	video           *webrtc.PeerConnection
 	track           *Track

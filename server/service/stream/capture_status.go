@@ -98,14 +98,6 @@ func (s *store) update(next CaptureStatus) []CaptureStatusSubscriber {
 	return subscribers
 }
 
-func (s *store) LatestCaptureStatus(mode string) (CaptureStatus, bool) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	status, ok := s.latestByMode[mode]
-	return status, ok
-}
-
 func (s *store) LatestCaptureStatuses() []CaptureStatus {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

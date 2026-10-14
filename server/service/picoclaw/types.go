@@ -216,13 +216,6 @@ type ActionResult struct {
 	ExecutedActions int    `json:"executed_actions,omitempty"`
 }
 
-type cachedFrame struct {
-	data       []byte
-	width      uint16
-	height     uint16
-	capturedAt time.Time
-}
-
 type SessionState string
 
 const (

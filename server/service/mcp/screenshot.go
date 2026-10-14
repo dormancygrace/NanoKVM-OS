@@ -2,8 +2,6 @@ package mcpservice
 
 import "context"
 
-const snapshotTimeoutMaxMS = 30_000
-
 type SnapshotRequest struct {
 	Quality   int
 	TimeoutMS *int

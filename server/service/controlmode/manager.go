@@ -106,17 +106,6 @@ func (m *Manager) Require(expected Mode) error {
 	return m.RequireWrite(expected)
 }
 
-func (m *Manager) RequireMode(expected Mode) error {
-	status, err := m.Status()
-	if err != nil {
-		return err
-	}
-	if status.Mode != expected {
-		return fmt.Errorf("%w: current=%s expected=%s", ErrModeConflict, status.Mode, expected)
-	}
-	return nil
-}
-
 func (m *Manager) AcquireWrite(expected Mode) (func(), error) {
 	if err := m.RequireWrite(expected); err != nil {
 		return nil, err
@@ -339,28 +328,8 @@ func (m *Manager) SwitchToMCP(preempt func() error) error {
 	return m.Switch(ModeMCP, preempt)
 }
 
-func (m *Manager) SwitchToMCPWithPreempt(preempt func() error) error {
-	return m.Switch(ModeMCP, preempt)
-}
-
 func (m *Manager) SwitchToPicoclaw(preempt func() error) error {
 	return m.Switch(ModePicoclaw, preempt)
-}
-
-func (m *Manager) SwitchToPicoclawWithPreempt(preempt func() error) error {
-	return m.Switch(ModePicoclaw, preempt)
-}
-
-func (m *Manager) SwitchOff(preempt func() error) error {
-	return m.Switch(ModeOff, preempt)
-}
-
-func (m *Manager) SwitchOffIf(expected Mode, preempt func() error) (bool, error) {
-	return m.SwitchIf(expected, ModeOff, preempt)
-}
-
-func (m *Manager) SwitchOffIfWithPreempt(expected Mode, preempt func() error) (bool, error) {
-	return m.SwitchIf(expected, ModeOff, preempt)
 }
 
 func callModeTransitionHook(hook func() error) (err error) {

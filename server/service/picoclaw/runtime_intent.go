@@ -168,10 +168,6 @@ func (s *Service) setRuntimeIntentDesired(desired bool, updatedBy string) {
 	}
 }
 
-func (s *Service) SetRuntimeIntentDesired(desired bool, updatedBy string) {
-	s.setRuntimeIntentDesired(desired, updatedBy)
-}
-
 func (s *Service) setRuntimeIntentError(message string) {
 	if s == nil || message == "" {
 		return

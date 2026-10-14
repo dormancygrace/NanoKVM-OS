@@ -186,10 +186,6 @@ func currentDNSMode() string {
 	return mode
 }
 
-func readDNSMode() string {
-	return readRawDNSMode()
-}
-
 func readRawDNSMode() string {
 	data, err := os.ReadFile(dnsModeFile)
 	if err != nil {

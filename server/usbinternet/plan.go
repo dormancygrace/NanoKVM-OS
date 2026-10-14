@@ -8,14 +8,11 @@ import (
 	"fmt"
 	"net/netip"
 	"reflect"
-	"regexp"
 	"strings"
 )
 
 const Table = "nkos_usb_internet"
 const owner = "NanoKVM USB internet"
-
-var interfaceName = regexp.MustCompile(`^[a-zA-Z0-9_.-]{1,15}$`)
 
 type Status struct {
 	Enabled       bool   `json:"enabled"`

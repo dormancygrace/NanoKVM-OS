@@ -352,14 +352,6 @@ func (h *Hid) WriteAbsoluteMouseReport(data []byte) error {
 	return h.writeHID(h.absoluteMouseDevice(HID2), data)
 }
 
-func (h *Hid) writeHIDReport(device hidDevice, data []byte) bool {
-	if err := h.writeHID(device, data); err != nil {
-		log.Errorf("write to %s failed: %s", device.path, err)
-		return false
-	}
-	return true
-}
-
 func (h *Hid) writeHID(device hidDevice, data []byte) error {
 	device.mu.Lock()
 	defer device.mu.Unlock()

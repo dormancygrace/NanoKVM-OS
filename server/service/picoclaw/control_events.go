@@ -6,10 +6,6 @@ import (
 	"NanoKVM-Server/service/controlmode"
 )
 
-func (s *Service) PublishControlModeChanged(status controlmode.Status) {
-	s.PublishControlModeChangedFrom(status, "")
-}
-
 func (s *Service) PublishControlModeChangedFrom(status controlmode.Status, source string) {
 	if s == nil {
 		return

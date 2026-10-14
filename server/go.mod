@@ -27,7 +27,6 @@ require (
 	github.com/rs/cors/wrapper/gin v0.0.0-20261008204034-5d834403882d
 	github.com/sirupsen/logrus v1.10.2
 	github.com/spf13/viper v1.21.0
-	github.com/unrolled/secure v1.17.0
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.61.0
 	golang.org/x/sys v0.49.0

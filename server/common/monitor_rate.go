@@ -129,25 +129,6 @@ func monitorProfilePathAt(height uint16, fps int) string {
 	return monitorProfilePath(height)
 }
 
-// SyncMonitorRefresh rewrites the ordinary monitor profile when the stream
-// rate selects another refresh rate. It reports whether the EDID changed.
-func SyncMonitorRefresh(fps int) (bool, error) {
-	if !MonitorRefreshFollowsStream() {
-		return false, nil
-	}
-	monitorMutex.Lock()
-	defer monitorMutex.Unlock()
-	height := savedMonitorResolutionLocked()
-	target := monitorProfilePathAt(height, fps)
-	if monitorPortraitEnabledLocked() {
-		target = portraitProfilePathAt(savedPortraitResolutionLocked(), fps)
-	}
-	if programmedMonitorProfileLocked(target, height) {
-		return false, nil
-	}
-	return true, applyMonitorProfileLocked(target)
-}
-
 // MonitorRefreshHz is the refresh rate of the programmed ordinary profile,
 // or 0 when it is not one of the rate profiles.
 func MonitorRefreshHz() int {

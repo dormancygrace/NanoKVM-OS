@@ -165,19 +165,6 @@
       }
     },
     {
-      "name": "maixcdk",
-      "path": "platform/sources.lock",
-      "pattern": "^maixcdk\\s+\\S+\\s+([0-9a-f]{40})",
-      "kind": "github-commit",
-      "repo": "sipeed/MaixCDK",
-      "branch": null,
-      "lock_entry": "maixcdk",
-      "pull_request": {
-        "id": "maixcdk",
-        "mode": "git-pin"
-      }
-    },
-    {
       "name": "Go runtime",
       "path": "firmware/cpu/sysmon-runtime/go-source-pin.json",
       "pattern": "\"go_version\":\\s*\"go([0-9.]+)\"",

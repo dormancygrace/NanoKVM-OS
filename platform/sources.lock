@@ -28,7 +28,6 @@ sensors    https://github.com/sophgo/SensorSupportList.git   e2824e1d07f516c4123
 json-c     https://github.com/json-c/json-c.git              aa716cd8d663c976b99b0f30f102ee1d8ef63146  .=00e916a56cc3170c16771cc1f97d6eaef92fc578
 miniz      https://github.com/richgel999/miniz.git           2948eebafc5b9f1c69bebed80333e403a09bd62d  .=be9a59fa5e9ee793ea209ceb8843991e7515c83b
 inih  https://github.com/benhoyt/inih.git  2bbdec4a366c8c39746ee0982e7ca0febbb044b6  .=4d8c619037d693583d9d0f3eea6182c20a903a01
-maixcdk https://github.com/sipeed/MaixCDK.git 30f4b8b7e3f66ded9cfa64fb081b46e30bc27248 components/basic=39af60bda2e9804dd5f98805b6bfc6dc375b7fc8 components/peripheral=e57aeba1e41a53a635d7ca3bc16f100b6ba2e83f components/3rd_party/yaml/yaml-cpp/include=cfefff42ba655cca6373e660e771b28a50405d36 components/3rd_party/ntp_client/ntp_client=6df721fc088f2607e6a4db5ea7f595292cf8fd9a components/3rd_party/ini/inifile2=7e55b8a92fffcd96a3fa58d02a1ed78cd272e7fc LICENSE=39395f16b674a1d81cb61d23f81985af554cb64e
 tinyalsa  https://github.com/tinyalsa/tinyalsa.git  961babfe962e71d952ae734074cc89576b28a9e7  .=e29fec8d370c2ad180def31024c4ebe30bc00637
 opus       https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz          6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1
 busybox    https://busybox.net/downloads/busybox-1.38.0.tar.bz2                34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31c53bb2

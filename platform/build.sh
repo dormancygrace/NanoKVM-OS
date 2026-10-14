@@ -518,14 +518,12 @@ native() {
     [ "$(find "$img/native" -name '*.so' | wc -l)" = 6 ]
 }
 
-# kvm_system board service from MaixCDK with native/maixcdk/*.patch.
+# kvm_system board service, from support/sg2002/kvm_system alone.
 system() {
     local s=$out/system
     rm -rf "$s" "${img:?}/system"
     mkdir -p "$s" "$img/system"
-    unpack_git maixcdk . "$s/maixcdk"
-    apply_patches "$s/maixcdk" "$here/native/maixcdk"
-    NANOKVM_MAIXCDK_SOURCE=$s/maixcdk NANOKVM_BUILDROOT_OUTPUT=$bo NANOKVM_SYSTEM_OUTPUT=$s/out \
+    NANOKVM_BUILDROOT_OUTPUT=$bo NANOKVM_SYSTEM_OUTPUT=$s/out \
         "$host/python3" "$repo/scripts/build-system.py"
     cp "$s/out/kvm_system" "$img/system/"
 }

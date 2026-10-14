@@ -1,20 +1,18 @@
 #include "oled_ctrl.h"
+#include "kvm_platform.h"
 
 // oled_ctrl deliberately knows only whether the preference is persistent.
 // oled_ui owns the short-lived network-address override and its synchronization.
 bool OLED_IPWindowActive(void);
 
-using namespace maix;
-using namespace maix::sys;
-using namespace maix::peripheral;
-static i2c::I2C &oled_alpha()
+static kvms::I2C &oled_alpha()
 {
-    static i2c::I2C bus(1, i2c::Mode::MASTER);
+    static kvms::I2C bus(1);
     return bus;
 }
-static i2c::I2C &oled_beta()
+static kvms::I2C &oled_beta()
 {
-    static i2c::I2C bus(5, i2c::Mode::MASTER);
+    static kvms::I2C bus(5);
     return bus;
 }
 
@@ -31,15 +29,15 @@ void oled_write_register(uint8_t mode, uint8_t data)
 		buf[0] = mode;
 		buf[1] = data;
 		if(kvm_hw_ver == 0){
-			if(oled_alpha().writeto(OLED_ADDR, buf, 2) == (int)-err::Err::ERR_IO){
+			if(oled_alpha().writeto(OLED_ADDR, buf, 2) < 0){
 				return;
 			}
 		} else if(kvm_hw_ver == 1){
-			if(oled_beta().writeto(OLED_ADDR, buf, 2) == (int)-err::Err::ERR_IO){
+			if(oled_beta().writeto(OLED_ADDR, buf, 2) < 0){
 				return;
 			}
 		} else if(kvm_hw_ver == 2){
-			if(oled_beta().writeto(OLED_PCIe_ADDR, buf, 2) == (int)-err::Err::ERR_IO){
+			if(oled_beta().writeto(OLED_PCIe_ADDR, buf, 2) < 0){
 				return;
 			}
 		}
@@ -70,17 +68,17 @@ int oled_exist(void)
 	buf[0] = OLED_CMD;
 	buf[1] = 0xAE;
 	if(kvm_hw_ver == 0){
-		if(oled_alpha().writeto(OLED_ADDR, buf, 2) == (int)-err::Err::ERR_IO){
+		if(oled_alpha().writeto(OLED_ADDR, buf, 2) < 0){
 			return 0;
 		}
 	} else if(kvm_hw_ver == 1){
 		printf("beta\r\n");
-		if(oled_beta().writeto(OLED_ADDR, buf, 2) == (int)-err::Err::ERR_IO){
+		if(oled_beta().writeto(OLED_ADDR, buf, 2) < 0){
 			return 0;
 		}
 	} else if(kvm_hw_ver == 2){
 		printf("PCIe\r\n");
-		if(oled_beta().writeto(OLED_PCIe_ADDR, buf, 2) == (int)-err::Err::ERR_IO){
+		if(oled_beta().writeto(OLED_PCIe_ADDR, buf, 2) < 0){
 			return 0;
 		}
 	}

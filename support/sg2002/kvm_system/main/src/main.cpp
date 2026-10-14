@@ -1,8 +1,5 @@
 #include "config.h"
 
-using namespace maix;
-using namespace maix::sys;
-using namespace maix::peripheral;
 
 kvm_sys_state_t kvm_sys_state;
 kvm_oled_state_t kvm_oled_state;
@@ -33,7 +30,7 @@ void* thread_oled_handle(void * arg)
 		kvm_show_UE();
 		while(kvm_sys_state.oled_thread_running){
             oled_auto_sleep();
-			time::sleep_ms(100);
+			kvms::sleep_ms(100);
 		}
 		OLED_Clear();
 	}
@@ -41,7 +38,7 @@ void* thread_oled_handle(void * arg)
     while(kvm_sys_state.oled_thread_running)
     {
 		oled_auto_sleep();
-        if (OLED_IsDisabled() && !OLED_IPWindowActive()) { time::sleep_ms(OLED_DELAY); continue; }
+        if (OLED_IsDisabled() && !OLED_IPWindowActive()) { kvms::sleep_ms(OLED_DELAY); continue; }
 		// printf("[kvmd]thread_oled_handle - while\n");
 		uint8_t page_changed = (kvm_oled_state.page == kvm_sys_state.page)? 0:1;
 		uint8_t subpage_changed = (kvm_oled_state.sub_page == kvm_sys_state.sub_page)? 0:1;
@@ -62,7 +59,7 @@ void* thread_oled_handle(void * arg)
 			default:
 				OLED_Clear();
 		}
-		time::sleep_ms(OLED_DELAY);
+		kvms::sleep_ms(OLED_DELAY);
     }
 	OLED_Clear();
 	kvm_sys_state.oled_thread_running = -1;
@@ -86,14 +83,14 @@ void* thread_key_handle(void * arg)
 		if (event.type == EV_KEY) {
 			if (event.value == 1){
 				// printf ("[kvmk]按键按下\n");
-				press_time = time::ticks_ms();
+				press_time = kvms::ticks_ms();
                 key_pressed = true;
 			} else if (event.value == 0){
                 if (!key_pressed) continue;
                 key_pressed = false;
 				oled_auto_sleep_time_update();
 				// printf ("[kvmk]按键抬起\n");
-				press_cycle = time::ticks_ms() - press_time;
+				press_cycle = kvms::ticks_ms() - press_time;
 				if(press_cycle >= KEY_LONGLONG_PRESS){
 					kvm_reset_password();
 				} else if (press_cycle >= KEY_LONG_PRESS && press_cycle < KEY_LONGLONG_PRESS){
@@ -147,7 +144,7 @@ void* thread_key_handle(void * arg)
 				}
 			}
 		}
-		time::sleep_ms(KEY_DELAY);
+		kvms::sleep_ms(KEY_DELAY);
     }
 	kvm_sys_state.key_thread_running = 0;
     if (fd >= 0) close(fd);
@@ -182,7 +179,7 @@ void* thread_sys_handle(void * arg)
 			kvm_wifi_config_process();
 		}
 
-		time::sleep_ms(STATE_DELAY);
+		kvms::sleep_ms(STATE_DELAY);
 		auto_remove_temp_watchdog();
     }
 	kvm_sys_state.sys_thread_running = 0;
@@ -193,24 +190,20 @@ int main(int argc, char* argv[])
 {
 #ifdef NANOKVM_OS
     if (argc == 2 && !strcmp(argv[1], "--version")) {
-        puts("NanoKVM OS kvm_system / MaixCDK 4.11.3 / GCC " __VERSION__);
+        puts("NanoKVM OS kvm_system / GCC " __VERSION__);
         return 0;
     }
     if (argc == 2 && !strcmp(argv[1], "--self-test")) {
-        const uint64_t start = time::ticks_ms();
-        time::sleep_ms(20);
-        const uint64_t elapsed = time::ticks_ms() - start;
-        uint8_t raw[] = { 0, 0xff, 0x69, 0x11 };
-        maix::Bytes bytes(raw, sizeof(raw));
-        if (elapsed < 15 || bytes.size() != sizeof(raw) ||
-            memcmp(bytes.data, raw, sizeof(raw)) ||
-            err::to_str(err::ERR_IO).empty()) return 1;
-        const auto addresses = sys::ip_address();
+        const uint64_t start = kvms::ticks_ms();
+        kvms::sleep_ms(20);
+        const uint64_t elapsed = kvms::ticks_ms() - start;
+        if (elapsed < 15) return 1;
+        const auto addresses = kvms::ip_address();
         const auto wlan = addresses.find("wlan0");
         const std::string expected = wlan == addresses.end() ? "" : wlan->second;
         if (get_ip_addr(WiFi_IP) != static_cast<int>(!expected.empty()) ||
             strcmp(reinterpret_cast<char *>(kvm_sys_state.wifi_addr), expected.c_str())) return 1;
-        log::info("PASS MaixCDK 4.11.3: timer, Bytes, errors, logging, IPv4 lookup/copy; no board control");
+        puts("PASS kvm_system: timer, IPv4 lookup/copy; no board control");
         return 0;
     }
 
@@ -220,8 +213,10 @@ int main(int argc, char* argv[])
 	kvm_sys_state.oled_thread_running = 0;
 	kvm_sys_state.key_thread_running = 0;
 	kvm_sys_state.sys_thread_running = 0;
-	app::set_exit_flag(true); 
-	log::info("[kvms]Prepare to exit\n");
+	// Only async-signal-safe calls here.
+	static const char msg[] = "[kvms]Prepare to exit\n";
+	ssize_t written = write(STDOUT_FILENO, msg, sizeof(msg) - 1);
+	(void)written;
 	});	
 
 	pthread_t sys_state_thread;
@@ -271,7 +266,7 @@ int main(int argc, char* argv[])
 	uint8_t kvm_wd_count = 0;
 	int kvm_wd_state = 0;
 	while(kvm_sys_state.sys_thread_running){
-		time::sleep_ms(1000);
+		kvms::sleep_ms(1000);
 		if(watchdog_sf_is_open()){
 			kvm_wd_state = check_watchdog();
 			if(kvm_wd_state == 1) kvm_wd_count = 0;
@@ -290,6 +285,6 @@ int main(int argc, char* argv[])
 	kvm_sys_state.sys_thread_running = 0;
 	kvm_sys_state.oled_thread_running = 0;
 	kvm_sys_state.key_thread_running = 0;
-	while(kvm_sys_state.oled_thread_running != -1) time::sleep_ms(100);
+	while(kvm_sys_state.oled_thread_running != -1) kvms::sleep_ms(100);
 }
 

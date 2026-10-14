@@ -116,8 +116,6 @@ static uint64_t oled_monotonic_ms() {
     return uint64_t(ts.tv_sec) * 1000 + ts.tv_nsec / 1000000;
 }
 
-using namespace maix;
-using namespace maix::sys;
 
 extern kvm_sys_state_t kvm_sys_state;
 extern kvm_oled_state_t kvm_oled_state;

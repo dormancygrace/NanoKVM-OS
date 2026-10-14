@@ -4,8 +4,6 @@
 #include <errno.h>
 #include <sys/stat.h>
 
-using namespace maix;
-using namespace maix::sys;
 
 extern kvm_sys_state_t kvm_sys_state;
 extern kvm_oled_state_t kvm_oled_state;

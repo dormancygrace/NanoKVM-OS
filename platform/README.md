@@ -87,7 +87,6 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`). Re
 | `fip/base-fip.bin` | First-stage boot firmware; the build replaces OpenSBI and U-Boot while retaining the vendor first-stage loader |
 | `boot/` | FIT template, initramfs file list and `init`; `stock-init` is the stock Sipeed initramfs init, and `stock-init.diff` turns it into `init` |
 | `native/cvi_mpi/` | Patches for the SOPHGO media libraries (`cvi_mpi`) |
-| `native/maixcdk/` | Patches for the MaixCDK sources of `kvm_system` |
 
 The build also uses these parts of the repository:
 - `firmware/buildroot/`: platform-only source patches and `configs/nanokvm_platform_defconfig` for the toolchain, host tools and initramfs userland;

@@ -1,11 +1,7 @@
 #ifndef OLED_CTRL_H_
 #define OLED_CTRL_H_
 
-#include "maix_basic.hpp"
-#include "maix_time.hpp"
-#include "maix_gpio.hpp"
-#include "maix_pinmap.hpp"
-#include "maix_i2c.hpp"
+#include <stdint.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>

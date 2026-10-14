@@ -118,9 +118,12 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     expect(build(tree, out, "payloads"), True, "primary package payload assembly")
     app = out / "payloads/app/kvmapp"
     assert {path.name for path in (app / "system/init.d").iterdir()} == {
-        "S03usbdev", "S03usbhid", "S15kvmhwd", "S50avahi-daemon",
+        "S03usbdev", "S03usbhid", "S15kvmhwd",
         "S95nanokvm", "S96picoclaw", "nanokvm-server-supervisor",
     }, "app payload must contain only its supported init scripts"
+    base = out / "payloads/base"
+    assert (base / "usr/libexec/nanokvm/legacy/S50avahi-daemon").read_bytes() == (REPO / "firmware/alpine/compat/S50avahi-daemon").read_bytes()
+    assert (base / "etc/init.d/S50avahi-daemon").readlink() == Path("/usr/libexec/nanokvm/legacy/S50avahi-daemon")
     supervisor_path = "system/init.d/nanokvm-server-supervisor"
     supervisor = app / supervisor_path
     assert supervisor.is_file() and not supervisor.is_symlink(), "supervisor missing from app payload"

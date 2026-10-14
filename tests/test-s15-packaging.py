@@ -12,10 +12,10 @@ removed_init_scripts = (
     'S00kmod S01fs S02config S10uuid S12temperature S13cpufreq '
     'S13nanokvm-watchdog S25wifimod S29qdisc S30eth S30usbnet S30wifi '
     'S34mssclamp S35flowoffload S38memory S49persistent-cron S50ssdpd '
-    'S50sshd S80dnsmasq S94sg2002aes S98tailscaled'
+    'S50sshd S80dnsmasq S94sg2002aes S98tailscaled S50avahi-daemon'
 ).split()
 kept_init_scripts = {
-    'S03usbdev', 'S03usbhid', 'S15kvmhwd', 'S50avahi-daemon',
+    'S03usbdev', 'S03usbhid', 'S15kvmhwd',
     'S95nanokvm', 'S96picoclaw', 'nanokvm-server-supervisor',
 }
 
@@ -82,6 +82,8 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
     assert (output / 'base/usr/sbin/nkos-usb-internet').is_file()
     assert (output / 'base/etc/init.d/nanokvm-usb-internet').is_file()
     assert (output / 'base/usr/libexec/nanokvm/legacy/S30usbnet').read_bytes() == (root / 'firmware/alpine/compat/S30usbnet').read_bytes()
+    assert (output / 'base/usr/libexec/nanokvm/legacy/S50avahi-daemon').read_bytes() == (root / 'firmware/alpine/compat/S50avahi-daemon').read_bytes()
+    assert (output / 'base/etc/init.d/S50avahi-daemon').readlink() == Path('/usr/libexec/nanokvm/legacy/S50avahi-daemon')
     app_root = output / 'app/kvmapp'
     assert not (app_root / 'enhanced-stage-manifest.json').exists(), 'obsolete manifest retained in the new APK payload'
     app_init = app_root / 'system/init.d'

@@ -88,7 +88,7 @@ func TestArchiveRejectsInvalidPathsAndReappliesRedaction(t *testing.T) {
 	if err = archive.Save([]Snapshot{{Boot: "current", Source: "system", State: "ready", Content: "safe line", CollectedAt: 2}}); err != nil {
 		t.Fatal(err)
 	}
-	if err = os.WriteFile(filepath.Join(directory, "current/system.log"), []byte("password=must-not-escape\nsafe line"), 0600); err != nil {
+	if err = os.WriteFile(filepath.Join(directory, "current/system.log"), []byte("password=must-not-escape\nsafe line\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	snapshot, err := archive.Read("current", "system")
@@ -169,7 +169,7 @@ func TestArchivedReadsShareCache(t *testing.T) {
 	if err != nil || snapshot.Content != "first" {
 		t.Fatal(snapshot, err)
 	}
-	os.WriteFile(filepath.Join(directory, "previous/system.log"), []byte("changed"), 0600)
+	os.WriteFile(filepath.Join(directory, "previous/system.log"), []byte("changed\n"), 0600)
 	cached, _ := collector.ReadBoot("system", "previous")
 	if cached.Content != "first" {
 		t.Fatal("old CollectedAt bypassed cache")

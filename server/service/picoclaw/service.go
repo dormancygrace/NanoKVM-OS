@@ -212,18 +212,6 @@ func applyControlModeStatus(status RuntimeStatus, modeStatus controlmode.Status)
 	return status
 }
 
-func (s *Service) requireControlMode() *PicoclawError {
-	s.ensureDependencies()
-	if err := s.control.RequireWrite(controlmode.ModePicoclaw); err != nil {
-		return s.controlWriteError(controlmode.ModePicoclaw, err)
-	}
-	return nil
-}
-
-func (s *Service) requireControlModeForBootstrap() *PicoclawError {
-	return nil
-}
-
 func (s *Service) acquireControlMode() (func(), *PicoclawError) {
 	s.ensureDependencies()
 	release, err := s.control.AcquireWrite(controlmode.ModePicoclaw)

@@ -21,7 +21,7 @@ type AgentProfileUpdateRequest struct {
 }
 
 func resolveAgentProfileSourcePath(profile string) (string, error) {
-	fileName := agentProfileFile
+	var fileName string
 	switch profile {
 	case agentProfileDefault:
 		fileName = "AGENT.md"

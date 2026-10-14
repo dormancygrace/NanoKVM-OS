@@ -22,23 +22,6 @@ type DownloadInfo struct {
 	Written       int64
 }
 
-func NewAuthenticatedRequest(method string, rawURL string, body io.Reader) (*http.Request, error) {
-	req, err := http.NewRequest(method, rawURL, body)
-	if err != nil {
-		return nil, err
-	}
-
-	if req.URL.User != nil {
-		username := req.URL.User.Username()
-		password, _ := req.URL.User.Password()
-		req.SetBasicAuth(username, password)
-		// Keep credentials out of the request URL after copying them to the header.
-		req.URL.User = nil
-	}
-
-	return req, nil
-}
-
 func NewUpdateHTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{
 		Timeout:       timeout,

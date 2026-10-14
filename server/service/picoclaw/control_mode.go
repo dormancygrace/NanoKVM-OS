@@ -8,13 +8,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (s *Service) PreemptForMCP() error {
-	if err := s.PreemptControlLeasesForMCP(); err != nil {
-		return err
-	}
-	return s.StopRuntimeForMCP()
-}
-
 func (s *Service) PreemptControlLeasesForMCP() error {
 	startedAt := time.Now()
 	if s == nil {
@@ -91,19 +84,6 @@ func (s *Service) StopRuntimeForMCP() error {
 		"elapsed_ms": time.Since(startedAt).Milliseconds(),
 	}).Info("picoclaw runtime stopped for MCP")
 	return nil
-}
-
-func (s *Service) CompleteControlRelease(source string, closeCode int, closeReason string) int {
-	if s == nil {
-		return 0
-	}
-	s.ensureDependencies()
-	unlockLifecycle := s.lockRuntimeLifecycle()
-	defer unlockLifecycle()
-
-	s.CancelActiveControlOperations()
-	s.setRuntimeIntentDesired(false, source)
-	return s.ReleaseControlSessions(closeCode, closeReason)
 }
 
 func (s *Service) PreserveRuntimeForChatOnly(source string) {

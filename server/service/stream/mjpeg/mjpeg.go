@@ -78,10 +78,6 @@ func newResponseController(writer http.ResponseWriter) *http.ResponseController 
 	return http.NewResponseController(writer)
 }
 
-func GetLatestFrame() (LatestFrame, bool) {
-	return streamer.getLatestFrame()
-}
-
 func EnableLatestFrameCache() {
 	streamer.enableLatestFrameCache()
 }

@@ -220,7 +220,7 @@ func (s *Service) executeAction(ctx context.Context, action Action) (int, *Picoc
 			return 0, newPicoclawError(CodeInvalidAction, "scroll amount must be > 0")
 		}
 
-		wheel := 1
+		var wheel int
 		switch strings.ToLower(strings.TrimSpace(action.Direction)) {
 		case "", "up":
 			wheel = 1

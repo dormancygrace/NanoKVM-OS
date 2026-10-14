@@ -219,10 +219,6 @@ func (s *Service) stopRuntime() (string, string, *PicoclawError) {
 	return command, trimmedOutput, nil
 }
 
-func (s *Service) waitForRuntimeReady(timeout time.Duration) *PicoclawError {
-	return s.waitForRuntimeReadyContext(context.Background(), timeout)
-}
-
 func (s *Service) waitForRuntimeReadyContext(ctx context.Context, timeout time.Duration) *PicoclawError {
 	if ctx == nil {
 		ctx = context.Background()

@@ -57,7 +57,3 @@ func (f *FrameRateCounter) Update() {
 func (f *FrameRateCounter) AddBytes(n int) {
 	f.bytes.Add(int64(n))
 }
-
-func (f *FrameRateCounter) GetFPS() int32 {
-	return f.fps.Load()
-}

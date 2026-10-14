@@ -29,9 +29,65 @@ const (
 
 var (
 	loginAttempts = make(map[string]*loginAttempt)
-	loginMutex    sync.Mutex
-	cleanupOnce   sync.Once
+	// loginsInFlight holds the addresses with a password check running. One
+	// check at a time per address: parallel guesses would otherwise all pass
+	// CheckLoginAttempt before the first failure is recorded.
+	loginsInFlight = make(map[string]struct{})
+	loginMutex     sync.Mutex
+	loginSlotFreed = sync.NewCond(&loginMutex)
+	cleanupOnce    sync.Once
 )
+
+// loginSlotWait bounds how long an attempt waits for the one before it from
+// the same address (a double-click, or a queue of guesses).
+var loginSlotWait = 10 * time.Second
+
+const loginInFlightMessage = "Another login attempt is in progress, please try again"
+
+// BeginLoginAttempt admits one password check at a time for clientIP. A
+// second attempt from the same address waits for the first to finish, then
+// sees its recorded failure, so queued guesses still meet the lockout. It
+// returns false with an error code and message when the address is locked
+// out or the wait timed out; otherwise the caller must call the returned
+// release once the attempt, including its failure delay, is over.
+func BeginLoginAttempt(clientIP string) (func(), bool, int, string) {
+	deadline := time.Now().Add(loginSlotWait)
+	wake := time.AfterFunc(loginSlotWait, func() {
+		loginMutex.Lock()
+		loginSlotFreed.Broadcast()
+		loginMutex.Unlock()
+	})
+	defer wake.Stop()
+
+	loginMutex.Lock()
+	for {
+		if _, busy := loginsInFlight[clientIP]; !busy {
+			break
+		}
+		if !time.Now().Before(deadline) {
+			loginMutex.Unlock()
+			return nil, false, -5, loginInFlightMessage
+		}
+		loginSlotFreed.Wait()
+	}
+	loginsInFlight[clientIP] = struct{}{}
+	loginMutex.Unlock()
+
+	var once sync.Once
+	release := func() {
+		once.Do(func() {
+			loginMutex.Lock()
+			delete(loginsInFlight, clientIP)
+			loginSlotFreed.Broadcast()
+			loginMutex.Unlock()
+		})
+	}
+	if locked, code, msg := CheckLoginAttempt(clientIP); locked {
+		release()
+		return nil, false, code, msg
+	}
+	return release, true, 0, ""
+}
 
 // startCleanupRoutine starts a background routine to clean up memory
 func startCleanupRoutine() {

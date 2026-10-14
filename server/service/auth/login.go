@@ -47,6 +47,15 @@ func (s *Service) Login(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid parameters")
 		return
 	}
+	// Reading a slow body must not reserve this address's password slot.
+	// Recheck lockout on admission: failures can arrive while parsing.
+	release, admitted, code, msg := BeginLoginAttempt(clientIP)
+	if !admitted {
+		time.Sleep(3 * time.Second)
+		rsp.ErrRsp(c, code, msg)
+		return
+	}
+	defer release()
 	password, err := utils.DecodeDecrypt(req.Password)
 	if err != nil || password == "" {
 		s.loginFailed(c, clientIP, &rsp)
@@ -80,9 +89,12 @@ func (s *Service) Login(c *gin.Context) {
 	log.Infof("user logged in: %s", user.Username)
 }
 
+// loginFailed records the failure before the delay, so the lockout counts it
+// at once; the caller still holds the address's attempt slot during the delay.
 func (s *Service) loginFailed(c *gin.Context, clientIP string, rsp *proto.Response) {
+	locked, code, msg := RecordLoginFailure(clientIP)
 	time.Sleep(2 * time.Second)
-	if locked, code, msg := RecordLoginFailure(clientIP); locked {
+	if locked {
 		rsp.ErrRsp(c, code, msg)
 		return
 	}

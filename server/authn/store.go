@@ -157,17 +157,22 @@ func (s *Store) Get(username string) (*User, error) {
 	return findUser(db.Users, username)
 }
 
+// Authenticate checks a password. bcrypt takes about a second on the device,
+// so it runs outside the store lock: holding the lock across it would stall
+// every token check (ValidateToken) behind each login attempt.
 func (s *Store) Authenticate(username, password string) (*User, bool, error) {
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	db, err := s.loadLocked(true)
+	var user *User
+	if err == nil {
+		user, err = findUser(db.Users, username)
+	}
+	s.mutex.Unlock()
+	if errors.Is(err, ErrUserNotFound) || (err == nil && !user.Enabled) {
+		return nil, false, nil
+	}
 	if err != nil {
 		return nil, false, err
-	}
-	user, err := findUser(db.Users, username)
-	if err != nil || !user.Enabled {
-		return nil, false, nil
 	}
 
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)) == nil {
@@ -185,16 +190,24 @@ func (s *Store) Authenticate(username, password string) (*User, bool, error) {
 	if hashErr != nil {
 		return nil, false, hashErr
 	}
-	for index := range db.Users {
-		if db.Users[index].Username == username {
-			db.Users[index].PasswordHash = string(hash)
-			if db.Users[index].TokenVersion == 0 {
-				db.Users[index].TokenVersion = 1
-			}
-			user = cloneUser(&db.Users[index])
-			break
-		}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if db, err = s.loadLocked(true); err != nil {
+		return nil, false, err
 	}
+	index := userIndex(db.Users, username)
+	// The account may have changed while the hash was computed: a new
+	// password, a disabled user or a rename. Upgrade only the record that was
+	// checked; anything else is a failed login.
+	if index < 0 || !db.Users[index].Enabled || db.Users[index].PasswordHash != user.PasswordHash {
+		return nil, false, nil
+	}
+	db.Users[index].PasswordHash = string(hash)
+	if db.Users[index].TokenVersion == 0 {
+		db.Users[index].TokenVersion = 1
+	}
+	user = cloneUser(&db.Users[index])
 	if err = s.saveLocked(db); err != nil {
 		return nil, false, err
 	}

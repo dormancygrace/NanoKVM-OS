@@ -54,9 +54,11 @@ PAYLOAD_ROOT=/path/to/payloads \
   ./scripts/build-alpine-packages.sh stock
 ```
 
-Release payload preparation and APK packaging both default to `stock`. For an
-experimental tuned build, pass `--profile c906-scalar` to payload preparation
-and `c906-scalar` to the package builder. Mismatched metadata is rejected.
+`platform/build.sh payloads` produces `stock` payloads, and the package builder
+defaults to the same profile. The package builder also accepts `c906-scalar`
+for separately supplied payloads with matching release metadata; the platform
+assembler does not produce that experimental profile. Mismatched metadata is
+rejected.
 
 The APK repository URL is `REPODEST/stock/recipes`; package files and the
 signed index are below its `riscv64` architecture directory. A C906 repository

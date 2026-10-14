@@ -1,3 +1,5 @@
+import type { DirectPlayback } from './video-model.ts';
+
 const LANGUAGE_KEY = 'nano-kvm-language';
 const VIDEO_MODE_KEY = 'nano-kvm-vide-mode';
 const VIDEO_SCALE_KEY = 'nano-kvm-video-scale';
@@ -13,24 +15,6 @@ const MENU_AUTO_HIDE_KEY = 'nano-kvm-menu-auto-hide';
 const MOBILE_MENU_PLACEMENT_KEY = 'nano-kvm-mobile-menu-placement';
 const KEYBOARD_LED_STATUS_VISIBLE_KEY = 'nano-kvm-keyboard-led-status-visible';
 const POWER_CONFIRM_KEY = 'nano-kvm-power-confirm';
-
-// Keys older versions wrote but nothing reads any more.
-const LEGACY_KEYS = [
-  'nano-kvm-web-resolution',
-  'nano-kvm-fps',
-  'nano-kvm-quality',
-  'nano-kvm-gop',
-  'nano-kvm-skip-modify-password',
-  'nano-kvm-frame-detect'
-];
-
-export function removeLegacyKeys() {
-  try {
-    for (const key of LEGACY_KEYS) localStorage.removeItem(key);
-  } catch {
-    // Storage may be unavailable (blocked site data); nothing to clean up.
-  }
-}
 
 export function getLanguage() {
   return localStorage.getItem(LANGUAGE_KEY);
@@ -140,8 +124,7 @@ export function getMenuDisabledItems(): string[] {
 }
 
 export function getMenuDisplayMode(): string {
-  const value = localStorage.getItem(MENU_AUTO_HIDE_KEY);
-  return value || 'auto';
+  return localStorage.getItem(MENU_AUTO_HIDE_KEY) === 'always' ? 'always' : 'auto';
 }
 
 export function setMenuDisplayMode(mode: string) {
@@ -180,9 +163,6 @@ export function getPowerConfirm() {
 export function setPowerConfirm(enabled: boolean) {
   localStorage.setItem(POWER_CONFIRM_KEY, String(enabled));
 }
-
-
-export type DirectPlayback = 'paced' | 'immediate';
 
 export function getDirectPlayback(): DirectPlayback {
   return localStorage.getItem('direct-playback') === 'immediate' ? 'immediate' : 'paced';

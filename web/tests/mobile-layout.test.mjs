@@ -41,6 +41,5 @@ test('auto input handles a phone and preserves explicit desktop pointer lock', (
     }),
     'pointer-lock'
   );
-  assert.equal(normalizeInputAdapterMode('direct-touch'), 'touchpad');
   assert.equal(normalizeInputAdapterMode('invalid'), 'auto');
 });

@@ -1,5 +1,7 @@
 # OpenSBI 1.9 candidate validation (2026-10-05)
 
+> **Historical record.** This is the first hardware test of the OpenSBI 1.9 port, a RAM boot on 2026-10-05. The full image has carried OpenSBI 1.9 since v2.5-a1, and the SD cold boot result is in [README.md](README.md); the return to OpenSBI 0.9 below refers to the test device on that day.
+
 **RAM hardware validation passed; candidate persistent installation and SD cold boot remain untested.** The device has returned to original SD OpenSBI 0.9. See [port and hardware scope](README.md) and [machine-readable evidence](RAM-VALIDATION.json).
 
 - Public upstream pin `cbf9f6734dd85a982c63e3cb5db7ffe09da839ca`, tree `d6a4747810533f9da9e17428cab821ccc8b1594c`; tested source commit `ce36bfc9185e4fc2aefa96bb7d44f01de94a2f41` before an unchanged cherry-pick onto the v3 development line.

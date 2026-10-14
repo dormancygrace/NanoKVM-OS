@@ -174,8 +174,8 @@ d9e164c90fd76f767bb7f5d5041a1e0f7b69096d7a408ff605920f909207ee14  firmware/lib/f
 678b0df753c86198fc496d1f1033429bbd57f101472132ee7eaaf9f5e0a7fae1  firmware/licenses/wireless-regdb-LICENSE
 aba1d1d437a2b91cb8c9c9edbe5c17125c0f509367e88904577f559c99f92654  initramfs.cpio.zst
 3dd2200686079905f42401e22fac40c634e0831b30f2ca21fae1fa5cb38aea83  lib/modules/7.2.10-nanokvm-os-r4/extra/8733bs.ko
-72581620d732c638177dd308053db1685874c696b7816a76aecb5da769da7c59  lib/modules/7.2.10-nanokvm-os-r4/extra/aic8800_bsp.ko
-43c76170a16d5b51d52424a51b78d7d10b647f6705913e8be408dbec500b1bfa  lib/modules/7.2.10-nanokvm-os-r4/extra/aic8800_fdrv.ko
+01c65557ee7ba33f6be7182530b354c2b0d381a0b5e368732303a896d8b7d738  lib/modules/7.2.10-nanokvm-os-r4/extra/aic8800_bsp.ko
+400403a17b7fc3b9a5f5808b675df69ce156224f5b31ca30f296039de17393cb  lib/modules/7.2.10-nanokvm-os-r4/extra/aic8800_fdrv.ko
 61d1b19045d12b01dc1811deb96cd4d3d7e7ba05278f5ee16d8c6b1514be8294  lib/modules/7.2.10-nanokvm-os-r4/extra/cryptodev.ko
 54f8d31fc351ece4cfdec37ee987bbe1bef8ecccecedca564cb067300c1a4d77  lib/modules/7.2.10-nanokvm-os-r4/extra/cv181x_base.ko
 3d7088732cc25235cf3d23d37924beaafe77fdef7e08c131f87579ce5080a103  lib/modules/7.2.10-nanokvm-os-r4/extra/cv181x_dwa.ko

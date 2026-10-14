@@ -1,0 +1,125 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: report command send failures instead of hiding them
+
+rwnx_send_msg() returned 0 when the SDIO bus was down and when the
+command queue rejected a request, so callers treated failed firmware
+commands as accepted. It also dereferenced a NULL command when the
+command pool was exhausted. rwnx_cmd_malloc() waited 100 ms with
+mdelay() at the high-water mark; it runs with interrupts disabled.
+
+- The bus-down path returns -ENETDOWN, and a queue rejection returns its
+  error.
+- An exhausted pool returns -ENOMEM before the command is used.
+- A request that is rejected, or that needs no confirmation, frees its
+  message.
+- The high-water message stays, without the 100 ms busy wait.
+- Runtime power-save switching was never implemented. It returned 0, so
+  cfg80211 cached a state the radio never took. It now returns
+  -EOPNOTSUPP; the ps_on/dpsm module parameters still apply at startup.
+
+diff --git a/aic8800_fdrv/rwnx_main.c b/aic8800_fdrv/rwnx_main.c
+index f57638b..a4451e4 100644
+--- a/aic8800_fdrv/rwnx_main.c
++++ b/aic8800_fdrv/rwnx_main.c
+@@ -3898,41 +3898,15 @@ static int rwnx_cfg80211_get_tx_power(struct wiphy *wiphy,
+     return res;
+ }
+ 
+-/**
+- * @set_power_mgmt: set the power save to one of those two modes:
+- *  Power-save off
+- *  Power-save on - Dynamic mode
++/* Runtime power-save switching is not implemented by this firmware path.
++ * Do not update cfg80211's cached state as though the radio accepted a change.
++ * ME_CONFIG still applies the startup ps_on/dpsm module parameters.
+  */
+ static int rwnx_cfg80211_set_power_mgmt(struct wiphy *wiphy,
+-										struct net_device *dev,
+-										bool enabled, int timeout)
++                                     struct net_device *dev,
++                                     bool enabled, int timeout)
+ {
+-#if 0
+-	struct rwnx_hw *rwnx_hw = wiphy_priv(wiphy);
+-	u8 ps_mode;
+-
+-	RWNX_DBG(RWNX_FN_ENTRY_STR);
+-	if (timeout >= 0)
+-		netdev_info(dev, "Ignore timeout value %d", timeout);
+-
+-	if (!(rwnx_hw->version_cfm.features & BIT(MM_FEAT_PS_BIT)))
+-		enabled = false;
+-
+-	if (enabled) {
+-		/* Switch to Dynamic Power Save */
+-		ps_mode = MM_PS_MODE_ON_DYN;
+-	} else {
+-		/* Exit Power Save */
+-		ps_mode = MM_PS_MODE_OFF;
+-	}
+-
+-	return rwnx_send_me_set_ps_mode(rwnx_hw, ps_mode);
+-#else
+-	/* TODO
+-	 * Add handle in the feature!
+-	 */
+-	return 0;
+-#endif
++    return -EOPNOTSUPP;
+ }
+ 
+ static int rwnx_cfg80211_set_txq_params(struct wiphy *wiphy, struct net_device *dev,
+diff --git a/aic8800_fdrv/rwnx_msg_tx.c b/aic8800_fdrv/rwnx_msg_tx.c
+index a87f21b..54f1040 100644
+--- a/aic8800_fdrv/rwnx_msg_tx.c
++++ b/aic8800_fdrv/rwnx_msg_tx.c
+@@ -178,7 +178,7 @@ struct rwnx_cmd *rwnx_cmd_malloc(void){
+ 
+ 	if(cmd_array_index >= RWNX_CMD_HIGH_WATER_SIZE){
+ 		AICWFDBG(LOGERROR, "%s cmd(%d) was pending...\r\n", __func__, cmd_array_index);
+-		mdelay(100);
++		/* Do not stall for 100 ms while IRQs are disabled. */
+ 	}
+ 
+ 	if(!cmd){
+@@ -328,7 +328,7 @@ static int rwnx_send_msg(struct rwnx_hw *rwnx_hw, const void *msg_params,
+ 		rwnx_msg_free(rwnx_hw, msg_params);
+ 		sdio_err("bus is down\n");
+ 		rwnx_wakeup_unlock(rwnx_hw->ws_tx);
+-		return 0;
++		return -ENETDOWN;
+ 	}
+ #endif
+ 
+@@ -360,6 +360,11 @@ static int rwnx_send_msg(struct rwnx_hw *rwnx_hw, const void *msg_params,
+ 	//nonblock = is_non_blocking_msg(msg->id);
+ 	nonblock = 0;
+ 	cmd = rwnx_cmd_malloc();//kzalloc(sizeof(struct rwnx_cmd), nonblock ? GFP_ATOMIC : GFP_KERNEL);
++	if (!cmd) {
++		rwnx_msg_free(rwnx_hw, msg_params);
++		rwnx_wakeup_unlock(rwnx_hw->ws_tx);
++		return -ENOMEM;
++	}
+ 	cmd->result  = -EINTR;
+ 	cmd->id      = msg->id;
+ 	cmd->reqid   = reqid;
+@@ -402,11 +407,16 @@ static int rwnx_send_msg(struct rwnx_hw *rwnx_hw, const void *msg_params,
+ #endif
+ 	}
+ 
+-	if (!reqcfm || ret)
+-		rwnx_cmd_free(cmd);//kfree(cmd);
++	if (!reqcfm || ret) {
++		/* The queue rejects before ownership transfer; the no-CFM sender
++		 * copies into the bus buffer synchronously and keeps no message.
++		 */
++		rwnx_msg_free(rwnx_hw, msg_params);
++		rwnx_cmd_free(cmd);
++	}
+ 
+ 	rwnx_wakeup_unlock(rwnx_hw->ws_tx);
+-	return 0;
++	return ret;
+ }
+ 
+ #if 0

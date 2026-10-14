@@ -37,7 +37,13 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
   - the native contract tests (`test-mjpeg-native-contracts.py`, `test-venc-*.py`, `test-vi-yuv-stride.py`, …);
   - `test-nanokvm-fip.py` and `test-opensbi-reservations.py` (platform images);
   - `test-addon-apk-upgrade.py` and `test-rustdesk-apk.py` (APKs).
+  - `test-aic8800-command.py` and `test-aic8800-timeout.py`. Their `--driver`
+    is the patched `aic8800_fdrv` source, as `platform/build.sh modules`
+    prepares it.
 
   Each test's `--help` lists what it needs.
 - **`test-usb-prefix.py`** takes the S30usbnet script to test: `--script firmware/alpine/compat/S30usbnet`.
 - **`test-video-recovery-native.py`** needs `go`; CI runs it in the Go job.
+- **`test-aic8800-bt-rx.c`** is a standalone contract of the AIC8800
+  Bluetooth RX path:
+  `gcc -fsanitize=address,undefined tests/test-aic8800-bt-rx.c && ./a.out`.

@@ -1,5 +1,5 @@
 import { ComponentProps, ReactNode } from 'react';
-import { Button, Divider, Tooltip } from 'antd';
+import { Button, Tooltip } from 'antd';
 import clsx from 'clsx';
 import { CircleHelpIcon } from 'lucide-react';
 
@@ -7,26 +7,6 @@ import { CircleHelpIcon } from 'lucide-react';
 // related settings = SettingsSection; one setting = SettingRow (label and
 // description on the left, the control on the right); bordered groups and
 // lists = Panel. Colours come from the semantic tokens (lib/theme-tokens.ts).
-
-type SettingsPageProps = {
-  title: ReactNode;
-  description?: ReactNode;
-  // Page-level actions (for example a refresh button) next to the title.
-  actions?: ReactNode;
-  children: ReactNode;
-};
-
-export const SettingsPage = ({ title, description, actions, children }: SettingsPageProps) => (
-  <div className="pb-6">
-    <div className="flex items-center justify-between gap-3">
-      <h2 className="text-fg m-0 text-base font-medium">{title}</h2>
-      {actions && <div className="flex shrink-0 items-center gap-1">{actions}</div>}
-    </div>
-    {description && <p className="text-fg-muted mt-1 mb-0 text-sm">{description}</p>}
-    <Divider className="my-4! opacity-50" />
-    <div className="space-y-6">{children}</div>
-  </div>
-);
 
 type SettingsSectionProps = {
   title?: ReactNode;
@@ -105,7 +85,7 @@ export const SettingRow = ({
 
 // A help icon for neutral extra information. The tooltip text is also the
 // icon's accessible name, and the tooltip opens on keyboard focus too.
-export const HelpTip = ({ title }: { title: string }) => (
+const HelpTip = ({ title }: { title: string }) => (
   <Tooltip
     title={title}
     trigger={['hover', 'focus']}

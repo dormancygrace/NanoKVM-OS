@@ -46,21 +46,6 @@ export type PicoclawRuntimeStatus = {
   };
 };
 
-export type PicoclawRuntimeStartResult = {
-  started: boolean;
-  command: string;
-  output?: string;
-  status: PicoclawRuntimeStatus;
-};
-
-export type PicoclawRuntimeInstallResult = {
-  installed: boolean;
-  binary: string;
-  download: string;
-  output?: string;
-  status: PicoclawRuntimeStatus;
-};
-
 export type PicoclawMessageKind =
   | 'user'
   | 'assistant'

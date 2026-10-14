@@ -11,8 +11,8 @@ export const settingsGroupOf = (id: string): SettingsGroup | undefined =>
 // A collection is one navigation entry whose page lists its items; an item
 // page "<collection>-<item>" opens from that list and is not in the menu, so
 // adding VPN providers does not grow the navigation.
-export const settingsCollections = ['vpn'] as const;
-export type SettingsCollection = (typeof settingsCollections)[number];
+const settingsCollections = ['vpn'] as const;
+type SettingsCollection = (typeof settingsCollections)[number];
 
 export const settingsCollectionOf = (id: string): SettingsCollection | undefined =>
   settingsCollections.find((collection) => id.startsWith(`${collection}-`));

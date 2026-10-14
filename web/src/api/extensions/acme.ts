@@ -25,7 +25,7 @@ export function uninstall() {
   return http.post('/api/extensions/acme/uninstall');
 }
 
-export type IssueRequest = {
+type IssueRequest = {
   domains: string[];
   email: string;
   ca: string;

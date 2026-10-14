@@ -10,7 +10,7 @@ import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { resolutionAtom, streamFpsAtom, videoModeAtom } from '@/jotai/screen';
 
 // Shared settings and status returned by GET /api/vm/screen.
-export type ScreenStatus = {
+type ScreenStatus = {
   width: number;
   height: number;
   fps: number;
@@ -40,7 +40,7 @@ export type ScreenStatus = {
 const transportOf = (mode: string): Transport =>
   mode === 'h264' ? 'webrtc' : mode === 'mjpeg' ? 'mjpeg' : 'direct';
 
-export function savedDraft(status: ScreenStatus, mode: string): VideoDraft {
+function savedDraft(status: ScreenStatus, mode: string): VideoDraft {
   return {
     monitor: status.monitor,
     portrait: status.portrait ? status.portraitResolution : 0,
@@ -59,7 +59,7 @@ export function savedDraft(status: ScreenStatus, mode: string): VideoDraft {
 let browserSupport: Promise<BrowserSupport> | undefined;
 
 // What this browser plays; probed once per page.
-export function probeBrowserSupport() {
+function probeBrowserSupport() {
   return (browserSupport ??= (async () => ({
     direct: window.isSecureContext && !!window.VideoDecoder,
     webrtc: !!window.RTCPeerConnection,

@@ -19,19 +19,6 @@ export type PicoclawSessionListItem = {
   updated: string;
 };
 
-export type PicoclawSessionDetailMessage = {
-  role: 'user' | 'assistant';
-  content: string;
-};
-
-export type PicoclawSessionDetail = {
-  id: string;
-  messages: PicoclawSessionDetailMessage[];
-  summary?: string;
-  created: string;
-  updated: string;
-};
-
 export function setPicoclawModelConfig(data: ModelConfigRequest) {
   return http.post('/api/picoclaw/model/config', data);
 }

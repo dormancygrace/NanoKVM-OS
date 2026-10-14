@@ -1,4 +1,4 @@
-export type UsbInputStatus = {
+type UsbInputStatus = {
   available: boolean;
   keyboard: boolean;
   relative: boolean;

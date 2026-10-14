@@ -5,7 +5,7 @@ export type MobileMenuPlacement = {
   top: number;
 };
 
-export type ResponsiveDeviceInput = {
+type ResponsiveDeviceInput = {
   width: number;
   height: number;
   hasTouch: boolean;

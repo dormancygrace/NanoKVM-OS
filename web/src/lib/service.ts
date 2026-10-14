@@ -1,9 +1,9 @@
-export function getHostname(): string {
+function getHostname(): string {
   const ip = import.meta.env.VITE_SERVER_IP as string;
   return ip ? ip : window.location.hostname;
 }
 
-export function getPort(): string {
+function getPort(): string {
   if (import.meta.env.VITE_SERVER_PORT) {
     return import.meta.env.VITE_SERVER_PORT;
   }

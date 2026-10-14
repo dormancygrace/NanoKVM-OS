@@ -1,4 +1,4 @@
-export type System = 'Windows' | 'macOS' | 'Linux' | 'Unknown';
+type System = 'Windows' | 'macOS' | 'Linux' | 'Unknown';
 
 export function getOperatingSystem(): System {
   if (typeof window === 'undefined') {

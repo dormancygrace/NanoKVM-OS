@@ -26,7 +26,6 @@ import {
 import {
   ControlRegionConfig,
   ControlRegionMode,
-  InputRegion,
   OriginalResolution as ResolutionPreset
 } from '@/types';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
@@ -34,20 +33,17 @@ import {
   controlRegionModeAtom,
   inputRegionAtom,
   inputRegionSelectingAtom,
-  manualInputRegionAtom,
   manualRegionsAtom,
   selectedManualRegionAtom,
   selectedOriginalResolutionAtom
 } from '@/jotai/screen.ts';
 import { menuCloseSignalAtom } from '@/jotai/settings.ts';
-import { isValidInputRegion } from '@/pages/desktop/screen/geometry.ts';
 
 const resolutionKey = ({ width, height }: ResolutionPreset) => `${width}x${height}`;
 
 export const OriginalResolution = () => {
   const { t } = useTranslation();
   const setInputRegion = useSetAtom(inputRegionAtom);
-  const setManualInputRegion = useSetAtom(manualInputRegionAtom);
   const [manualRegions, setManualRegions] = useAtom(manualRegionsAtom);
   const [selectedManualRegion, setSelectedManualRegion] = useAtom(selectedManualRegionAtom);
   const [selectedOriginalResolution, setSelectedOriginalResolutionState] = useAtom(
@@ -83,9 +79,6 @@ export const OriginalResolution = () => {
       setManualRegions(config?.regions || []);
       setSelectedManualRegion(config?.selectedRegion || '');
       setSelectedOriginalResolutionState(config?.selectedResolution || '');
-      setManualInputRegion(
-        isValidInputRegion(config as InputRegion) ? (config as InputRegion) : null
-      );
     }
     return rsp;
   }
@@ -193,13 +186,9 @@ export const OriginalResolution = () => {
     setMode(nextMode);
     if (nextMode === 'manual') {
       const config = await loadConfig();
-      const manualRegion = isValidInputRegion(config.data as InputRegion)
-        ? (config.data as InputRegion)
-        : null;
       const selectedRegion = (config.data as ControlRegionConfig)?.selectedRegion || '';
       const selectedResolution = (config.data as ControlRegionConfig)?.selectedResolution || '';
       const regions = (config.data as ControlRegionConfig)?.regions || [];
-      setManualInputRegion(manualRegion);
       setInputRegion(
         selectedResolution
           ? null

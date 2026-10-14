@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react';
 
 import { Account } from '@/api/auth.ts';
 
-export type AuthState = {
+type AuthState = {
   account: Account;
 };
 

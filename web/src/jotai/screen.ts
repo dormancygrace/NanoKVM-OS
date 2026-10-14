@@ -24,7 +24,6 @@ export const resolutionAtom = atom<Resolution | null>(null);
 
 // currently effective absolute mouse input region
 export const inputRegionAtom = atom<InputRegion | null>(null);
-export const manualInputRegionAtom = atom<InputRegion | null>(null);
 export const manualRegionsAtom = atom<InputRegion[]>([]);
 export const selectedManualRegionAtom = atom<string>('');
 export const selectedOriginalResolutionAtom = atom<string>('');

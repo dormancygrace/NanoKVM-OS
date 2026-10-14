@@ -31,7 +31,7 @@ export type TlsStatus = {
   error?: string;
 };
 
-export type CertificateState = 'error' | 'pending' | 'expired' | 'acme' | 'custom' | 'generated';
+type CertificateState = 'error' | 'pending' | 'expired' | 'acme' | 'custom' | 'generated';
 
 // One word for the badge; the first that applies wins.
 export function certificateState(status: TlsStatus): CertificateState {

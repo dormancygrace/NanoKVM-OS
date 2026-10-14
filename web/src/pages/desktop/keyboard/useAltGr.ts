@@ -7,7 +7,7 @@ interface AltGrState {
   ctrlLeftTimestamp: number;
 }
 
-export interface AltGrHandlers {
+interface AltGrHandlers {
   handleKeyDown: (code: string, timestamp: number) => void;
   handleKeyUp: (code: string) => boolean;
   reset: () => void;

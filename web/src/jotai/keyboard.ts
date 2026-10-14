@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
 
-export type KeyboardLockSource = string;
+type KeyboardLockSource = string;
 
 type KeyboardLockAction = {
   source: KeyboardLockSource;

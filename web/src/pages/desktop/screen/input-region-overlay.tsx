@@ -11,7 +11,6 @@ import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import {
   inputRegionAtom,
   inputRegionSelectingAtom,
-  manualInputRegionAtom,
   manualRegionsAtom,
   resolutionAtom,
   selectedManualRegionAtom,
@@ -91,7 +90,6 @@ export const InputRegionOverlay = () => {
   const { token } = theme.useToken();
   const [selecting, setSelecting] = useAtom(inputRegionSelectingAtom);
   const [, setInputRegionState] = useAtom(inputRegionAtom);
-  const setManualInputRegion = useSetAtom(manualInputRegionAtom);
   const [manualRegions, setManualRegions] = useAtom(manualRegionsAtom);
   const resolution = useAtomValue(resolutionAtom);
   const setSelectedManualRegion = useSetAtom(selectedManualRegionAtom);
@@ -596,7 +594,6 @@ export const InputRegionOverlay = () => {
       return;
     }
 
-    setManualInputRegion(region);
     setManualRegions(regions);
     setSelectedManualRegion(key);
     setSelectedOriginalResolution('');

@@ -84,7 +84,7 @@ export function providerFields(provider: AcmeProvider | undefined, alt: boolean)
   return provider.options;
 }
 
-export type JobState = 'running' | 'ok' | 'notDue' | 'failed';
+type JobState = 'running' | 'ok' | 'notDue' | 'failed';
 
 // What the last run came to, for the badge.
 export function jobState(status: AcmeStatus): JobState | undefined {

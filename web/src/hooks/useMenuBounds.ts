@@ -3,7 +3,7 @@ import { useAtomValue } from 'jotai';
 
 import { menuDisabledItemsAtom } from '@/jotai/settings.ts';
 
-export interface MenuBounds {
+interface MenuBounds {
   left: number;
   right: number;
   top: number;

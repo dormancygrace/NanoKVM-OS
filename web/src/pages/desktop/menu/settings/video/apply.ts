@@ -9,7 +9,7 @@ import {
   type VideoDraft
 } from '@/lib/video-model';
 
-export type ApplyDeps = {
+type ApplyDeps = {
   applyVideoSettings: typeof applyVideoSettings;
   selectEncoderCodec: typeof selectEncoderCodec;
   updateFrameDetect: typeof updateFrameDetect;
@@ -19,7 +19,7 @@ export type ApplyDeps = {
   clearPlaybackOverrides: () => void;
 };
 
-export const defaultApplyDeps: ApplyDeps = {
+const defaultApplyDeps: ApplyDeps = {
   applyVideoSettings,
   selectEncoderCodec,
   updateFrameDetect,
@@ -35,7 +35,7 @@ export const defaultApplyDeps: ApplyDeps = {
   }
 };
 
-export type ApplyResult = {
+type ApplyResult = {
   // Shared settings were saved; null when only this browser changed.
   capabilities: VideoCapabilities | null;
   monitorRewritten: boolean;
@@ -43,7 +43,7 @@ export type ApplyResult = {
 };
 
 // Storage names the WebRTC transport after its original H.264 player.
-export const storedMode = (transport: VideoDraft['transport']) =>
+const storedMode = (transport: VideoDraft['transport']) =>
   transport === 'webrtc' ? 'h264' : transport;
 
 /*

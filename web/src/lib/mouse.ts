@@ -136,7 +136,3 @@ export class MouseReportAbsolute {
     return Math.max(min, Math.min(max, value));
   }
 }
-
-// Singleton instances
-export const mouseRelative = new MouseReportRelative();
-export const mouseAbsolute = new MouseReportAbsolute();

@@ -9,7 +9,7 @@ export function connectGateway(sessionId?: string) {
   return picoclawGateway.connect({ sessionId });
 }
 
-export function releaseRuntimeSession(sessionId?: string) {
+function releaseRuntimeSession(sessionId?: string) {
   const activeSessionId = sessionId || picoclawGateway.getSessionId();
   if (!activeSessionId) {
     return Promise.resolve(null);

@@ -207,6 +207,7 @@ int main(int argc, char* argv[])
 
 	pthread_t sys_state_thread;
 	pthread_t display_thread;
+	bool display_thread_started = false;
 	pthread_t key_thread;
 
 	// only for production testing
@@ -238,6 +239,8 @@ int main(int argc, char* argv[])
 		if (0 != pthread_create(&display_thread, NULL, thread_oled_handle, NULL)) {
 			kvm_sys_state.oled_thread_running = 0;
 			printf("[kvms]create thread failed!\r\n");
+		} else {
+			display_thread_started = true;
 		}
 	}
 	if(kvm_sys_state.key_thread_running == 0){
@@ -271,6 +274,7 @@ int main(int argc, char* argv[])
 	kvm_sys_state.sys_thread_running = 0;
 	kvm_sys_state.oled_thread_running = 0;
 	kvm_sys_state.key_thread_running = 0;
-	while(kvm_sys_state.oled_thread_running != -1) kvms::sleep_ms(100);
+	// No OLED (or a failed pthread_create) means there is no display to join.
+	if (display_thread_started) pthread_join(display_thread, nullptr);
 }
 

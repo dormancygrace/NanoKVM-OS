@@ -46,7 +46,10 @@ grep -qx 'CONFIG_DEVMEM=y' "$BUILD/.config"
 grep -qx 'CONFIG_SHOW_USAGE=y' "$BUILD/.config"
 grep -qx 'CONFIG_FEATURE_VERBOSE_USAGE=y' "$BUILD/.config"
 grep -qxF "CONFIG_EXTRA_CFLAGS=\"$CPU_FLAGS\"" "$BUILD/.config"
-make -s -C "$SRC" O="$BUILD" CROSS_COMPILE="$CROSS" -j "${JOBS:-4}" busybox
+# HOSTCFLAGS on the command line replaces BusyBox's own: keep them and silence
+# the unchecked write() in its host-only usage generator, applets/usage.c.
+make -s -C "$SRC" O="$BUILD" CROSS_COMPILE="$CROSS" -j "${JOBS:-4}" \
+    HOSTCFLAGS="-Wall -Wstrict-prototypes -O2 -fomit-frame-pointer -Wno-unused-result" busybox
 grep -q '"devmem"' "$BUILD/include/applet_tables.h"
 grep -qx '#define NUM_APPLETS 1' "$BUILD/include/NUM_APPLETS.h"
 readelf -h "$BUILD/busybox" | grep -q 'Machine:.*RISC-V'

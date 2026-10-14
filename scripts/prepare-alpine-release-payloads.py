@@ -29,6 +29,16 @@ def link(target,dst):
     if dst.is_symlink() or dst.is_file(): dst.unlink()
     dst.symlink_to(target)
 base=out/'base'; app=out/'app'; fw=out/'firmware-sg2002'
+# Old port payloads can still contain init copies no longer owned by the app.
+# Follow the primary package manifest before hashing or repackaging that tree.
+app_init_paths = set()
+for line in (r/'platform/packages.list').read_text().splitlines():
+    fields = line.split()
+    if len(fields) == 5 and fields[0] == 'app' and Path(fields[2]).parent == Path('/kvmapp/system/init.d'):
+        app_init_paths.add(fields[2])
+for path in (app/'kvmapp/system/init.d').glob('*'):
+    if '/' + str(path.relative_to(app)) not in app_init_paths:
+        path.unlink()
 hwd_s15=r/'firmware/alpine/compat/S15kvmhwd'
 copy(r/'firmware/alpine/compat/nanokvm-firstboot-storage',base/'usr/libexec/nanokvm/firstboot-storage')
 copy(r/'firmware/alpine/compat/nanokvm-activate-kernel',base/'usr/libexec/nanokvm/activate-kernel')

@@ -10,7 +10,7 @@ spec.loader.exec_module(g)
 
 class PortraitEdidTests(unittest.TestCase):
     def test_standard_hd_profile(self):
-        source = (HERE.parent / "tools/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
+        source = (HERE.parent / "support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
         data = g.profile(source, g.HD_MODE)
         self.assertEqual([sum(data[i:i+128]) % 256 for i in (0, 128)], [0, 0])
         d = data[54:72]
@@ -21,7 +21,7 @@ class PortraitEdidTests(unittest.TestCase):
         self.assertAlmostEqual(139080000 / (880 * 1317), 120, places=2)
 
     def test_h265_maximum_profile(self):
-        source = (HERE.parent / "tools/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
+        source = (HERE.parent / "support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
         data = g.profile(source, g.MAX_MODE)
         self.assertEqual([sum(data[i:i+128]) % 256 for i in (0, 128)], [0, 0])
         self.assertEqual(data[54:56], (20840).to_bytes(2, "little"))
@@ -32,7 +32,7 @@ class PortraitEdidTests(unittest.TestCase):
         self.assertEqual(data[21:23], bytes((30, 53)))
 
     def test_h264_maximum_50hz_profile(self):
-        source = (HERE.parent / "tools/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
+        source = (HERE.parent / "support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
         data = g.profile(source, g.AVC_MODE)
         self.assertEqual([sum(data[i:i+128]) % 256 for i in (0, 128)], [0, 0])
         d = data[54:72]
@@ -41,7 +41,7 @@ class PortraitEdidTests(unittest.TestCase):
         self.assertAlmostEqual(int.from_bytes(d[:2], "little") * 10000 / (1456 * 2349), 50, places=2)
 
     def test_qualified_timing_and_fallback(self):
-        source = (HERE.parent / "tools/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
+        source = (HERE.parent / "support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
         data = g.profile(source)
         self.assertEqual(len(data), 256)
         self.assertEqual([sum(data[i:i+128]) % 256 for i in (0, 128)], [0, 0])
@@ -71,7 +71,7 @@ class PortraitRateIdentityTests(unittest.TestCase):
     def test_rate_profiles_have_own_identity(self):
         """Windows reapplies the mode last used with a monitor identity; each
         portrait rate profile is a monitor of its own."""
-        source = (HERE.parent / "tools/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
+        source = (HERE.parent / "support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
         seen = set()
         for height, rates in g.RATES.items():
             width = g.WIDTHS[height]

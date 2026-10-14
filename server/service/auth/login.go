@@ -37,11 +37,13 @@ func (s *Service) Login(c *gin.Context) {
 	}
 
 	clientIP := GetClientIP(c)
-	if locked, code, msg := CheckLoginAttempt(clientIP); locked {
+	release, admitted, code, msg := BeginLoginAttempt(clientIP)
+	if !admitted {
 		time.Sleep(3 * time.Second)
 		rsp.ErrRsp(c, code, msg)
 		return
 	}
+	defer release()
 	if err := proto.ParseFormRequest(c, &req); err != nil {
 		time.Sleep(3 * time.Second)
 		rsp.ErrRsp(c, -1, "invalid parameters")
@@ -80,9 +82,12 @@ func (s *Service) Login(c *gin.Context) {
 	log.Infof("user logged in: %s", user.Username)
 }
 
+// loginFailed records the failure before the delay, so the lockout counts it
+// at once; the caller still holds the address's attempt slot during the delay.
 func (s *Service) loginFailed(c *gin.Context, clientIP string, rsp *proto.Response) {
+	locked, code, msg := RecordLoginFailure(clientIP)
 	time.Sleep(2 * time.Second)
-	if locked, code, msg := RecordLoginFailure(clientIP); locked {
+	if locked {
 		rsp.ErrRsp(c, code, msg)
 		return
 	}

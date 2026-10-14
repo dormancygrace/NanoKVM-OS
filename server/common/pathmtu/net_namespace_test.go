@@ -12,7 +12,7 @@ import (
 	"github.com/pion/ice/v4"
 )
 
-// Run only through scripts/test-pmtu-netns.sh, in its disposable network namespace.
+// Run only through tests/test-pmtu-netns.sh, in its disposable network namespace.
 func TestRouteBudgetChangesInNamespace(t *testing.T) {
 	if os.Getenv("NANOKVM_PMTU_NETNS_TEST") != "1" {
 		t.Skip("requires isolated namespace harness")

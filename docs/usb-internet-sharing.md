@@ -122,7 +122,7 @@ Namespace test command (root only; uses disposable namespaces, never the device)
 cd server
 go build -o ../work/nkos-usb-internet ./cmd/nkos-usb-internet
 cd ..
-sudo python3 scripts/test-usb-internet-netns.py
+sudo python3 tests/test-usb-internet-netns.py
 ```
 
 The WSL kernel lacks flowtable support; its tests cover normal-forwarding fallback.

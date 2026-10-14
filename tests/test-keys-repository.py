@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import unittest
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "firmware/alpine/packages/nanokvm-keys/nanokvm-keys.post-install"
 V3 = "https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb"
 ALPINE = ("https://dl-cdn.alpinelinux.org/alpine/v3.24/main\n"

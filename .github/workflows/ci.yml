@@ -31,7 +31,7 @@ jobs:
       - name: Build
         run: go build -tags teststub,nomsgpack ./...
       - name: Video recovery native-call guard
-        run: python3 ../scripts/test-video-recovery-native.py
+        run: python3 ../tests/test-video-recovery-native.py
       - name: Vet
         run: go vet -tags teststub,nomsgpack $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
       - name: Test
@@ -92,11 +92,11 @@ jobs:
           python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
           python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
       - name: Platform Buildroot configuration
-        run: python3 scripts/test-platform-config.py
+        run: python3 tests/test-platform-config.py
       - name: Alpine DHCP gateway integration
         # Only the disposable network namespace is changed; Ubuntu restricts
         # unprivileged user namespaces, so let the test create it as root.
-        run: sudo python3 tools/test-dhcp-gateway.py
+        run: sudo python3 tests/test-dhcp-gateway.py
       - name: Script tests
         run: |
           set -e
@@ -104,17 +104,18 @@ jobs:
                    alpine-recovery-password alpine-service-deps board-selection firstboot-data \
                    s15-packaging hdmi-detection-cache hdmi-receiver-start \
                    mmf-light-link monitor-edids nanokvm-service-stop net-probe server-supervisor oled-ip-window platform-build \
-                   portrait-edid serial-console-disk startup-aes-policy wifi-selector upstream-watch kernel-update-pr upstream-update-prs; do
-            echo "::group::scripts/test-$t.py"; python3 "scripts/test-$t.py"; echo "::endgroup::"
+                   portrait-edid serial-console-disk startup-aes-policy wifi-selector upstream-watch kernel-update-pr upstream-update-prs \
+                   app-trigger keys-repository resource-trim rustdesk-c906-config stock-profile dhcp-options; do
+            echo "::group::tests/test-$t.py"; python3 "tests/test-$t.py"; echo "::endgroup::"
           done
-          for t in firmware/alpine/tests/*.py firmware/services/test_serial_bridge.py \
-                   firmware/services/test_serial_console.py \
-                   tools/test-dhcp-options.py; do
+          for t in firmware/services/test_serial_bridge.py firmware/services/test_serial_console.py; do
             echo "::group::$t"; python3 "$t"; echo "::endgroup::"
           done
-          python3 firmware/network/test-usb-prefix.py \
+          python3 tests/test-usb-prefix.py \
             --script firmware/alpine/compat/S30usbnet
-          for t in firmware/alpine/tests/*.sh tools/test-*.sh; do
+          for t in tests/test-*.sh; do
+            # Needs root for its network namespace; run it by hand (tests/README.md).
+            [ "$t" = tests/test-pmtu-netns.sh ] && continue
             echo "::group::$t"; sh "$t"; echo "::endgroup::"
           done
 

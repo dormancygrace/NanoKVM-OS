@@ -56,7 +56,7 @@ These are source-update proposals: kernel patches, olddefconfig changes, drivers
 
 The publisher jobs have contents/pull-requests write permissions; the report job remains read-only. Repository Actions settings must allow GitHub Actions to create pull requests; default token permissions remain read-only. It uses GITHUB_TOKEN without a personal token. GitHub can require a maintainer to select **Approve workflows to run** on these PRs before CI starts ([GitHub behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)).
 
-Run `python3 scripts/propose-kernel-update.py` for a read-only preview; `--publish` explicitly enables draft PR creation. Offline tests are in `scripts/test-kernel-update-pr.py` and run in CI.
+Run `python3 scripts/propose-kernel-update.py` for a read-only preview; `--publish` explicitly enables draft PR creation. Offline tests are in `tests/test-kernel-update-pr.py` and run in CI.
 
 ## Native dependencies and integration notifications
 
@@ -82,7 +82,7 @@ Each component/candidate has a deterministic branch. A rerun preserves open PRs 
 
 QEMU, stock Alpine APK updates and the OneKVM reference remain report-only; they were outside the requested PR scope. Dependabot continues owning normal npm/Go/Cargo/Docker/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
 
-Run python3 scripts/propose-upstream-updates.py for a read-only preview (including archive hashing). Add --publish to create PRs, and optionally --output /tmp/upstream-candidates.json to save the result summary. scripts/test-upstream-update-prs.py checks policy coverage, pin preparation, notification deduplication and publication; it runs in CI.
+Run python3 scripts/propose-upstream-updates.py for a read-only preview (including archive hashing). Add --publish to create PRs, and optionally --output /tmp/upstream-candidates.json to save the result summary. tests/test-upstream-update-prs.py checks policy coverage, pin preparation, notification deduplication and publication; it runs in CI.
 
 ## Which BusyBox and QEMU?
 
@@ -107,7 +107,7 @@ This is comprehensive coverage of the declared inputs above, **not a claim to di
 
 ## Validation and integration
 
-Run `python3 scripts/test-upstream-watch.py` for offline contracts, or `python3 scripts/check-upstream.py --output report.md` for a live read-only report. The command is read-only: GitHub credentials are used only for API reads, and the report job has only `contents: read` permission. The separate publisher jobs have narrowly scoped write permissions.
+Run `python3 tests/test-upstream-watch.py` for offline contracts, or `python3 scripts/check-upstream.py --output report.md` for a live read-only report. The command is read-only: GitHub credentials are used only for API reads, and the report job has only `contents: read` permission. The separate publisher jobs have narrowly scoped write permissions.
 
 Dependency availability does not prove compatibility. Native changes need matching hashes, preservation of local patches, rebuilds and relevant validation. Node major changes, Alpine branch migrations, firmware and module ABI changes remain explicit decisions. Actual package installation verifies APK signatures; the watcher only reads metadata over HTTPS.
 

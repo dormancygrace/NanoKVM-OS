@@ -4,7 +4,7 @@ set -eu
 ROOT=$(mktemp -d)
 trap 'rm -rf "$ROOT"' EXIT INT TERM HUP
 
-STAGER=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)/compat/nanokvm-stage-update
+STAGER=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)/firmware/alpine/compat/nanokvm-stage-update
 DATA=$ROOT/data
 BOOT=$ROOT/boot
 mkdir -p "$DATA" "$BOOT"

@@ -1,6 +1,6 @@
 from pathlib import Path
 import os, subprocess, tempfile
-source=(Path(__file__).resolve().parents[1]/'packages/nanokvm-app/nanokvm-app.trigger').read_text()
+source=(Path(__file__).resolve().parents[1]/'firmware/alpine/packages/nanokvm-app/nanokvm-app.trigger').read_text()
 with tempfile.TemporaryDirectory() as d:
     root=Path(d); live=root/'softlevel'; log=root/'calls'
     trigger=root/'trigger'; trigger.write_text(source.replace('/run/openrc/softlevel',str(live)))

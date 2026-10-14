@@ -64,7 +64,7 @@ functions = "\n\n".join(function(signature) for signature in (
     "int get_hdmi_mode(void)",
     "uint8_t chack_ion()",
 ))
-harness = (repo / "scripts/test-kvm-file-inputs.cpp").read_text()
+harness = (repo / "tests/test-kvm-file-inputs.cpp").read_text()
 with tempfile.TemporaryDirectory(prefix="kvm-file-inputs-") as directory:
     directory = Path(directory)
     translation_unit = directory / "test.cpp"

@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
-from nanokvm_cpu_profile import ROOT, PROFILE, flags, record, validate_flags
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+from nanokvm_cpu_profile import ROOT, PROFILE, flags, record, validate_flags  # noqa: E402
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--compiler')

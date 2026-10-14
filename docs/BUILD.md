@@ -50,7 +50,7 @@ architecture-specific optimized routines retain their own context handling.
 
 Buildroot's target defaults and the MPI Makefile patch mirror the profile so
 standalone builds do not fall back to a different optimization level. Update
-those generated values alongside the JSON; `scripts/test-cpu-profile.py` rejects
+those generated values alongside the JSON; `tests/test-cpu-profile.py` rejects
 drift. It can also exercise the real cross-compiler with `--compiler PATH`.
 Component output directories contain `cpu-profile*.json` with the policy hash,
 compiler identity and flags used by the build script. These files describe only

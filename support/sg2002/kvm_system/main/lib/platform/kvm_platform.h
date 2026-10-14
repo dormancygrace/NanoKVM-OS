@@ -28,8 +28,12 @@ public:
     I2C &operator=(const I2C &) = delete;
     // Returns len, or a negative errno.
     int writeto(int addr, const uint8_t *data, int len);
+    // Whether a device acknowledges addr: one SMBus receive-byte, which
+    // changes nothing on the OLED controller.
+    bool answers(int addr);
 
 private:
+    bool open_bus();
     int bus_;
     int fd_ = -1;
     bool tried_ = false;

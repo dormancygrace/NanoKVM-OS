@@ -37,6 +37,18 @@ func (s *Service) Login(c *gin.Context) {
 	}
 
 	clientIP := GetClientIP(c)
+	if locked, code, msg := CheckLoginAttempt(clientIP); locked {
+		time.Sleep(3 * time.Second)
+		rsp.ErrRsp(c, code, msg)
+		return
+	}
+	if err := proto.ParseFormRequest(c, &req); err != nil {
+		time.Sleep(3 * time.Second)
+		rsp.ErrRsp(c, -1, "invalid parameters")
+		return
+	}
+	// Reading a slow body must not reserve this address's password slot.
+	// Recheck lockout on admission: failures can arrive while parsing.
 	release, admitted, code, msg := BeginLoginAttempt(clientIP)
 	if !admitted {
 		time.Sleep(3 * time.Second)
@@ -44,11 +56,6 @@ func (s *Service) Login(c *gin.Context) {
 		return
 	}
 	defer release()
-	if err := proto.ParseFormRequest(c, &req); err != nil {
-		time.Sleep(3 * time.Second)
-		rsp.ErrRsp(c, -1, "invalid parameters")
-		return
-	}
 	password, err := utils.DecodeDecrypt(req.Password)
 	if err != nil || password == "" {
 		s.loginFailed(c, clientIP, &rsp)

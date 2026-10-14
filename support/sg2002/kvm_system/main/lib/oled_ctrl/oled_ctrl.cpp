@@ -239,7 +239,7 @@ void OLED_ShowNum(uint8_t x, uint8_t y, uint8_t num, uint8_t len, uint8_t sizey)
 }
 
 //显示一个字符号串
-void OLED_ShowString(uint8_t x, uint8_t y, char *chr, uint8_t sizey)
+void OLED_ShowString(uint8_t x, uint8_t y, const char *chr, uint8_t sizey)
 {
 	uint8_t j=0;
 	while (chr[j]!='\0')
@@ -251,7 +251,7 @@ void OLED_ShowString(uint8_t x, uint8_t y, char *chr, uint8_t sizey)
 	}
 }
 //反显一个字符号串
-void OLED_ShowStringTurn(uint8_t x, uint8_t y, char *chr, uint8_t sizey)
+void OLED_ShowStringTurn(uint8_t x, uint8_t y, const char *chr, uint8_t sizey)
 {
 	uint8_t j=0;
 	while (chr[j]!='\0')
@@ -331,7 +331,7 @@ void OLED_Init(void)
     else OLED_Display_On(); // respects persistent display-off before first frame
 }
 
-void OLED_ShowStringtoend(uint8_t x, uint8_t y, char *chr, uint8_t sizey, uint8_t end)
+void OLED_ShowStringtoend(uint8_t x, uint8_t y, const char *chr, uint8_t sizey, uint8_t end)
 {
 	uint8_t j=0;
 	while (chr[j] != end)
@@ -468,7 +468,7 @@ void OLED_Showline()
     }
 }
 
-void OLED_ShowString_AlignRight(uint8_t x_end, uint8_t y, char *chr, uint8_t size)
+void OLED_ShowString_AlignRight(uint8_t x_end, uint8_t y, const char *chr, uint8_t size)
 {
 	uint8_t j = 0;
 	uint8_t x = x_end;
@@ -490,7 +490,7 @@ void OLED_Revolve(void)
 	oled_write_register(OLED_CMD, 0xC0);
 }
 
-void OLED_ShowIMG(uint8_t x,uint8_t y,char *chr,uint8_t width,uint8_t height)
+void OLED_ShowIMG(uint8_t x,uint8_t y,const char *chr,uint8_t width,uint8_t height)
 {
 	uint16_t size = width * height;
 	for(int count = 0; count < size; count++){

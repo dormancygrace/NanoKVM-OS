@@ -1,23 +1,9 @@
 #include "config.h"
 
-
 kvm_sys_state_t kvm_sys_state;
 kvm_oled_state_t kvm_oled_state;
 
-void build_recovery(void)
-{
-	uint8_t need_recovery = 0;
-	if (access("/recovery", F_OK) != 0) {
-		printf("unexist /recovery\n");
-		mkdir("/recovery", 0777);
-		need_recovery = 1;
-	} else {
-		printf("exist /recovery\n");
-
-	}
-}
-
-void* thread_oled_handle(void * arg)
+void* thread_oled_handle(void *)
 {
 	OLED_Init();
 	OLED_ColorTurn(0);		//0正常显示 1 反色显示
@@ -66,7 +52,7 @@ void* thread_oled_handle(void * arg)
 	return nullptr;
 }
 
-void* thread_key_handle(void * arg)
+void* thread_key_handle(void *)
 {
 	uint64_t press_time = 0;
 	bool key_pressed = false;
@@ -151,7 +137,7 @@ void* thread_key_handle(void * arg)
     return nullptr;
 }
 
-void* thread_sys_handle(void * arg)
+void* thread_sys_handle(void *)
 {
 	get_ping_allow_state();
     while(kvm_sys_state.sys_thread_running)
@@ -209,7 +195,7 @@ int main(int argc, char* argv[])
 
 #endif
     // Catch SIGINT signal(e.g. Ctrl + C), and set exit flag to true.
-    signal(SIGINT, [](int sig){ 
+    signal(SIGINT, [](int){ 
 	kvm_sys_state.oled_thread_running = 0;
 	kvm_sys_state.key_thread_running = 0;
 	kvm_sys_state.sys_thread_running = 0;

@@ -248,6 +248,8 @@ int get_ip_addr(ip_addr_t ip_type)
 		case WiFi_ROUTE: // wifi_route
 			return read_default_gateway("wlan0", kvm_sys_state.wifi_route,
 					sizeof(kvm_sys_state.wifi_route));
+		case NULL_IP:
+			break;
 	}
 	return 0;
 }
@@ -561,7 +563,7 @@ void kvm_update_wifi_state(void)
 				system("rm /etc/kvm/wifi_exist");
 				return;
 			}
-			// break;	// Start checking the connection directly.
+			[[fallthrough]];	// Start checking the connection directly.
 		case 0:
 		// WiFi is available but not connected.
 			publish_wifi_state(0);

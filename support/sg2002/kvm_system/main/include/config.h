@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <fstream>
 #include <linux/input.h>
 

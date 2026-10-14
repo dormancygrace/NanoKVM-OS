@@ -18,7 +18,7 @@ preamble = r"""
 kvm_sys_state_t kvm_sys_state;
 kvm_oled_state_t kvm_oled_state;
 uint8_t OLED_state = 0, kvm_hw_ver = 0;
-static int mode, joins, sleeps;
+static int mode, joins, sleeps, unlinks;
 static bool display_started;
 void *thread_sys_handle(void *) { return nullptr; }
 void *thread_oled_handle(void *) { return nullptr; }
@@ -31,9 +31,15 @@ __attribute__((constructor)) static void setup() {
     mode = atoi(getenv("NKOS_LIFECYCLE_MODE"));
     atexit([] {
         assert(joins == (display_started ? 1 : 0));
+        assert(unlinks == (mode == 0 ? 1 : 0));
     });
 }
 static int fake_system(const char *) { return 0; }
+static int fake_unlink(const char *path) {
+    assert(strcmp(path, "/etc/kvm/oled_exist") == 0);
+    ++unlinks;
+    return 0;
+}
 static int fake_access(const char *, int) { return -1; }
 static int fake_create(pthread_t *id, const pthread_attr_t *,
                        void *(*start)(void *), void *) {
@@ -67,6 +73,7 @@ void sleep_ms(uint64_t ms) {
 }
 #define system fake_system
 #define access fake_access
+#define unlink fake_unlink
 #define pthread_create fake_create
 #define pthread_join fake_join
 """

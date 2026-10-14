@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -36,6 +37,28 @@ func serialTestDevice(t *testing.T) (*os.File, string) {
 
 func serialTestSession(t *testing.T, s *serialSettings) (*websocket.Conn, <-chan error) {
 	t.Helper()
+	// Raw termios alone does not mean startup is finished: openSerial flushes
+	// the tty afterwards. Send test traffic only once that flush has completed.
+	ready := make(chan struct{})
+	var once sync.Once
+	markReady := func() { once.Do(func() { close(ready) }) }
+	ws, done := serialTestSessionWithRunner(t, s, func(ws *websocket.Conn, s *serialSettings) error {
+		defer markReady() // missing/busy devices finish without entering poll
+		return runSerialSessionWithPoll(ws, s, func(fds []unix.PollFd, timeout int) (int, error) {
+			markReady()
+			return unix.Poll(fds, timeout)
+		})
+	})
+	select {
+	case <-ready:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the serial session did not finish opening the device")
+	}
+	return ws, done
+}
+
+func serialTestSessionWithRunner(t *testing.T, s *serialSettings, run func(*websocket.Conn, *serialSettings) error) (*websocket.Conn, <-chan error) {
+	t.Helper()
 	done := make(chan error, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ws, err := (&websocket.Upgrader{}).Upgrade(w, r, nil)
@@ -44,7 +67,7 @@ func serialTestSession(t *testing.T, s *serialSettings) (*websocket.Conn, <-chan
 			return
 		}
 		defer ws.Close()
-		done <- runSerialSession(ws, s)
+		done <- run(ws, s)
 	}))
 	t.Cleanup(server.Close)
 	ws, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
@@ -342,4 +365,53 @@ func TestSerialSessionRefusesAMissingDevice(t *testing.T) {
 		t.Fatal("session did not finish")
 	}
 	_ = io.EOF
+}
+
+// An interrupted wait is not a readable tty. With VMIN=0 a premature read
+// can return zero bytes, which would falsely report that the device vanished.
+func TestSerialSessionRetriesInterruptedDevicePoll(t *testing.T) {
+	master, device := serialTestDevice(t)
+	retried := make(chan struct{})
+	calls := 0
+	poll := func(fds []unix.PollFd, timeout int) (int, error) {
+		calls++
+		if calls == 1 {
+			return -1, unix.EINTR
+		}
+		if calls == 2 {
+			close(retried)
+		}
+		return unix.Poll(fds, timeout)
+	}
+	ws, done := serialTestSessionWithRunner(t,
+		&serialSettings{Device: device, Baud: 9600, Parity: "none", Flow: "none", DataBits: 8, StopBits: 1},
+		func(ws *websocket.Conn, s *serialSettings) error { return runSerialSessionWithPoll(ws, s, poll) })
+	defer ws.Close()
+	select {
+	case <-retried:
+	case err := <-done:
+		t.Fatalf("the session ended after EINTR instead of retrying: %v", err)
+	case <-time.After(3 * time.Second):
+		t.Fatal("the device poll was not retried after EINTR")
+	}
+	if !serialPortOpen(device) {
+		t.Fatal("the interrupted wait released the device")
+	}
+	if _, err := master.Write([]byte("device after EINTR")); err != nil {
+		t.Fatal(err)
+	}
+	if got := terminalReadUntil(t, ws, "device after EINTR"); got != "device after EINTR" {
+		t.Fatalf("device output after EINTR: %q", got)
+	}
+	if err := ws.WriteMessage(websocket.TextMessage, []byte("browser after EINTR")); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(readMaster(t, master, len("browser after EINTR"))); got != "browser after EINTR" {
+		t.Fatalf("browser input after EINTR: %q", got)
+	}
+	ws.Close()
+	terminalWaitDone(t, done)
+	if serialPortOpen(device) {
+		t.Fatal("the device is still claimed after the browser closed")
+	}
 }

@@ -38,6 +38,31 @@ readback, backup image or automatic rollback. The selected FIT contains the
 same accepted kernel/initramfs and the appropriate DT. Normal init trusts this
 DT profile, while `/etc/kvm/hw` retains legacy naming for native application
 compatibility. `/etc/kvm/board-profile` controls the server's ATX mapping.
+
+## OLED at runtime
+
+`kvm_system` finds the OLED again on every start, independently of the
+first-boot choice:
+
+- The board comes from the DT `sipeed,board-revision`; images without it fall
+  back to the first letter of `/etc/kvm/hw`.
+- Alpha: I2C1, address 0x3d only. Beta and Lite: the GPIO bus, 0x3d, then
+  0x3c. PCIe: the GPIO bus, 0x3c, then 0x3d.
+- The presence test is one SMBus receive-byte. It changes nothing on a panel
+  that is already showing something.
+- The layout follows the board, never the address. Only PCIe uses the 64x32
+  window; a module added to a Lite stays 128x64 at either address.
+- Without an answer the service runs without an OLED.
+
+`/etc/kvm/oled` overrides this, for example for a module added to a Lite.
+The file holds `off`, or lines of `bus=N`, `address=0xNN` and
+`layout=wide|narrow`; a given address is the only one tried. A malformed
+file is ignored as a whole, including files containing NUL bytes, exceeding
+4096 bytes, or failing to read completely.
+
+Known limit: first boot cannot tell a Lite with a 0x3c module from a PCIe
+board. No second signal for PCIe is known. Such a Lite gets the PCIe profile
+(and its ATX mapping) until the card is reflashed without the module.
 Moving the SD card between board revisions requires rerunning first boot by
 flashing the full image. Runtime peripherals do not continuously redefine
 electrical identity.

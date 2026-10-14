@@ -189,8 +189,8 @@ func TestNativePacedSessionFallsBackToGoPacedReads(t *testing.T) {
 }
 
 func TestNativePacedSessionPublishesScreenChanges(t *testing.T) {
-	previous := common.GetScreen().GOP
-	defer common.SetScreen("gop", int(previous))
+	previous := common.GetScreen().BitRate
+	defer common.SetScreen("quality", int(previous))
 	stream := newFakeVideoStream()
 	source, started := newStreamVideoSource(t, stream, nil)
 	subscription, err := source.subscribe(DefaultEncoderConfig())
@@ -200,16 +200,16 @@ func TestNativePacedSessionPublishesScreenChanges(t *testing.T) {
 	defer subscription.Close()
 	<-started
 
-	gop := 7
-	if previous == 7 {
-		gop = 8
+	bitrate := 3000
+	if previous == 3000 {
+		bitrate = 4000
 	}
-	common.SetScreen("gop", gop)
+	common.SetScreen("quality", bitrate)
 	stream.frames <- VideoFrame{Result: -1}
 	select {
 	case params := <-stream.updates:
-		if params.GOP != uint8(gop) {
-			t.Fatalf("published GOP %d", params.GOP)
+		if params.BitRate != uint16(bitrate) {
+			t.Fatalf("published bitrate %d", params.BitRate)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("screen change was not published")

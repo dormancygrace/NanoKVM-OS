@@ -45,21 +45,21 @@ func fakeCapturePush(packs [][]byte, result int, totalSkew uint32, offsetSkew in
 func fakeCaptureUnblock() { C.nk_fake_capture_unblock() }
 
 type fakeCaptureRead struct {
-	args [6]uint16 // width, height, codec, bitrate, gop, fps
+	args [5]uint16 // width, height, codec, bitrate, fps
 	at   time.Duration
 }
 
 // fakeCaptureReads lists the reads started so far and whether one waits
 // for a frame.
 func fakeCaptureReads() ([]fakeCaptureRead, bool) {
-	var args [64 * 6]C.uint16_t
+	var args [64 * 5]C.uint16_t
 	var times [64]C.int64_t
 	var waiting C.int
 	count := int(C.nk_fake_capture_reads(&args[0], &times[0], 64, &waiting))
 	reads := make([]fakeCaptureRead, min(count, 64))
 	for i := range reads {
-		for j := range 6 {
-			reads[i].args[j] = uint16(args[6*i+j])
+		for j := range 5 {
+			reads[i].args[j] = uint16(args[5*i+j])
 		}
 		reads[i].at = time.Duration(times[i])
 	}

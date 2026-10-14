@@ -86,7 +86,7 @@ static void read_access_unit(nk_capture_worker *w, nk_capture_slot *s, const nk_
     w->failed = 0;
     s->size = s->total = 0;
     s->result = kvmv_read_video_sink(p->width, p->height, p->codec, p->bitrate,
-        p->gop, p->fps, assemble_pack, (uintptr_t)w);
+        p->fps, assemble_pack, (uintptr_t)w);
     if (w->failed) s->size = 0;
     w->filling = NULL;
 }

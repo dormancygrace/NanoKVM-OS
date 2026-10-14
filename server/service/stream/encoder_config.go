@@ -42,8 +42,8 @@ func ParseEncoderConfig(values url.Values, fallback EncoderConfig) (EncoderConfi
 	}
 
 	// Keep accepting an explicit CBR marker for early development clients, but
-	// reject every other mode. Bitrate and GOP remain the device-wide Screen
-	// settings controlled by the existing Quality and GOP menu items.
+	// reject every other mode. Bitrate remains the device-wide Screen setting
+	// controlled by the existing Quality menu item.
 	if value := values.Get("rc"); value != "" && value != "cbr" {
 		return EncoderConfig{}, fmt.Errorf("invalid rate control %q: only cbr is supported", value)
 	}

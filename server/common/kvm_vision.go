@@ -3,7 +3,7 @@
 package common
 
 /*
-	#cgo CFLAGS: -I../include
+	#cgo CFLAGS: -I../../support/sg2002/additional/kvm/include
 	#cgo LDFLAGS: -L../dl_lib -lkvm
 	#include "kvm_vision.h"
 	#include <string.h>
@@ -69,13 +69,6 @@ func GetKvmVision() *KvmVision {
 			log.Info("native capture worker disabled; using Go-paced blocking frame reads")
 		}
 
-		// initialize() loads Screen before it enables or disables HDMI, and both
-		// HDMI paths call GetKvmVision. Select the saved H.265 GOP mode before
-		// kvmv_init can start capture threads or create an encoder channel.
-		selectedGOPMode := C.uint8_t(GetScreen().GOPMode)
-		if C.set_h265_gop_mode(selectedGOPMode) != 0 {
-			log.Errorf("failed to select saved H.265 GOP mode %d", selectedGOPMode)
-		}
 		logLevel := C.uint8_t(0)
 		C.kvmv_init(logLevel)
 		// Native VI mutex is ready; apply intent before HDMI readers start.
@@ -87,17 +80,6 @@ func GetKvmVision() *KvmVision {
 	})
 
 	return kvmVision
-}
-
-// GetActiveGOPMode reports the mode accepted by the native capture stack,
-// which the next H.265 read applies. It intentionally does not return the
-// saved Screen preference: they differ only when SetGOPMode failed, and then
-// a restart applies the saved mode.
-func GetActiveGOPMode() uint8 {
-	if VideoDisabled() {
-		return GetScreen().GOPMode
-	}
-	return uint8(C.get_h265_gop_mode())
 }
 
 func (k *KvmVision) ReadMjpeg(width uint16, height uint16, quality uint16) (data []byte, result int) {
@@ -120,19 +102,9 @@ func (k *KvmVision) ReadMjpeg(width uint16, height uint16, quality uint16) (data
 	return
 }
 
-func (k *KvmVision) ReadH264(width uint16, height uint16, bitRate uint16) (data []byte, result int) {
-	screen := GetScreen()
-	return k.ReadVideo(width, height, 1, bitRate, screen.GOP, uint8(screen.FPS))
-}
-
-func (k *KvmVision) ReadVideo(width uint16, height uint16, codec uint8, bitRate uint16, gop uint8, fps uint8) (data []byte, result int) {
-	_, data, result = k.ReadVideoWithHeadroom(width, height, codec, bitRate, gop, fps, 0)
-	return
-}
-
 // ReadVideoWithHeadroom is the Go-paced blocking read: the calling M waits
 // inside cgo for the next access unit.
-func (k *KvmVision) ReadVideoWithHeadroom(width uint16, height uint16, codec uint8, bitRate uint16, gop uint8, fps uint8, headroom int) (storage []byte, data []byte, result int) {
+func (k *KvmVision) ReadVideoWithHeadroom(width uint16, height uint16, codec uint8, bitRate uint16, fps uint8, headroom int) (storage []byte, data []byte, result int) {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 	if k.closed || headroom < 0 {
@@ -140,7 +112,7 @@ func (k *KvmVision) ReadVideoWithHeadroom(width uint16, height uint16, codec uin
 	}
 	defer k.pauseCaptureLocked()()
 
-	return readVideoIntoOwnedStorage(width, height, codec, bitRate, gop, fps, headroom)
+	return readVideoIntoOwnedStorage(width, height, codec, bitRate, fps, headroom)
 }
 
 // StartVideoCapture starts a stream paced by the native capture thread. nil
@@ -254,31 +226,6 @@ func (k *KvmVision) HasHDMISignal() bool {
 	}
 
 	return C.kvmv_hdmi_signal_active() != 0
-}
-
-func (k *KvmVision) SetGop(gop uint8) {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-	if k.closed {
-		return
-	}
-	defer k.pauseCaptureLocked()()
-
-	_gop := C.uint8_t(gop)
-	C.set_h264_gop(_gop)
-}
-
-// SetGOPMode switches the H.265 GOP mode at run time. libkvm only records
-// it: the next video read, which owns the encoder channel, retires the
-// running H.265 encoder and creates it in the new mode, starting with an IDR.
-// Nothing to pause: the call does not touch the channel.
-func (k *KvmVision) SetGOPMode(mode uint8) int {
-	k.mutex.RLock()
-	defer k.mutex.RUnlock()
-	if k.closed {
-		return -1
-	}
-	return int(C.set_h265_gop_mode(C.uint8_t(mode)))
 }
 
 func (k *KvmVision) SetFrameDetect(frame uint8) {

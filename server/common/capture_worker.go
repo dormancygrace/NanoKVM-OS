@@ -3,7 +3,7 @@
 package common
 
 /*
-#cgo CFLAGS: -I../include
+#cgo CFLAGS: -I../../support/sg2002/additional/kvm/include
 #cgo LDFLAGS: -lpthread
 #include "capture_worker.h"
 */
@@ -119,7 +119,7 @@ func (w *videoCaptureWorker) discard() {
 
 func captureParams(p VideoCaptureParams) C.nk_capture_params {
 	return C.nk_capture_params{width: C.uint16_t(p.Width), height: C.uint16_t(p.Height),
-		bitrate: C.uint16_t(p.BitRate), codec: C.uint8_t(p.Codec), gop: C.uint8_t(p.GOP), fps: C.uint8_t(p.FPS)}
+		bitrate: C.uint16_t(p.BitRate), codec: C.uint8_t(p.Codec), fps: C.uint8_t(p.FPS)}
 }
 
 func (w *videoCaptureWorker) pause() {

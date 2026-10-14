@@ -32,12 +32,10 @@ for source in sources.values():
         p.error('Missing native library: '+str(source))
 cross = str(a.buildroot_output.resolve()/'host/bin/riscv64-buildroot-linux-musl-')
 required_native_symbols = {
-    'libkvm.so': {'set_h265_gop_mode', 'get_h265_gop_mode', 'kvmv_read_mjpeg_sink', 'set_mjpeg_chroma', 'get_mjpeg_chroma_status'},
-    'libkvm_mmf.so': {'mmf_set_venc_gop_mode', 'mmf_get_venc_gop_mode', 'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
+    'libkvm.so': {'kvmv_read_video_sink', 'kvmv_read_mjpeg_sink', 'set_mjpeg_chroma', 'get_mjpeg_chroma_status'},
+    'libkvm_mmf.so': {'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
 }
 required_native_dependencies = {
-    # The GOP mode setters remain exported for older servers but are no-ops:
-    # the encoder runs NormalP only, so libkvm no longer passes a mode to MMF.
     'libkvm.so': {'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
 }
 for library, required in required_native_symbols.items():

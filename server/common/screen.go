@@ -19,15 +19,8 @@ type Screen struct {
 	FPS         int
 	Quality     uint16
 	BitRate     uint16
-	GOP         uint8
-	GOPMode     uint8
 	MjpegChroma uint16
 }
-
-const (
-	GOPModeNormalP uint8 = iota
-	GOPModeSmartP
-)
 
 var (
 	screen      atomic.Pointer[Screen]
@@ -37,7 +30,6 @@ var (
 
 var screenFileMap = map[string]string{
 	"fps":          "/kvmapp/kvm/fps",
-	"gop_mode":     "/kvmapp/kvm/gop_mode",
 	"mjpeg_chroma": "/kvmapp/kvm/mjpeg_chroma",
 	"quality":      "/kvmapp/kvm/qlty",
 	"resolution":   "/kvmapp/kvm/res",
@@ -129,15 +121,6 @@ func setScreenValue(target *Screen, key string, value int) {
 	case "fps":
 		target.FPS = validateFPS(value)
 
-	case "gop":
-		if value >= 1 && value <= 100 {
-			target.GOP = uint8(value)
-		}
-
-	case "gop_mode":
-		// SmartP was retired: the encoder runs NormalP and sends an IDR when
-		// a viewer asks for one. A saved SmartP reads as NormalP.
-		target.GOPMode = GOPModeNormalP
 	}
 }
 
@@ -181,7 +164,6 @@ func checkScreen(target *Screen) {
 		target.BitRate = 12000
 	}
 
-	target.GOPMode = GOPModeNormalP
 }
 
 func loadScreen(readFile func(string) ([]byte, error)) *Screen {
@@ -191,8 +173,6 @@ func loadScreen(readFile func(string) ([]byte, error)) *Screen {
 		Quality:     80,
 		FPS:         100,
 		BitRate:     12000, // recommended for 1080p100 H.265 with motion
-		GOP:         30,
-		GOPMode:     GOPModeNormalP,
 		MjpegChroma: 422,
 	}
 

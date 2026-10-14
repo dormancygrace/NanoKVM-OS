@@ -15,13 +15,11 @@ typedef struct {
 	int h;
 	int fmt;
 	uint8_t jpg_quality;	// jpeg
-	int gop;				// h264/h265
 	int intput_fps;			// h264/h265
 	int output_fps;			// h264/h265
 	int bitrate;			// h264/h265
 } mmf_venc_cfg_t;
 
-static constexpr uint8_t MMF_VENC_GOP_NORMALP = 0;
 static constexpr uint8_t MMF_VENC_GOP_SMARTP = 1;
 
 // init sys
@@ -85,8 +83,6 @@ int mmf_vi_drop_pending(int ch);
 // pool, queue or leases.
 int mmf_vi_chn_set_enabled(int ch, int enable);
 int mmf_add_vi_channel_configured(int ch, int width, int height, int format, int buffers, int queue_depth);
-int mmf_set_venc_gop_mode(uint8_t mode);
-uint8_t mmf_get_venc_gop_mode(void);
 #ifdef __cplusplus
 }
 #endif

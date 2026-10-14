@@ -38,11 +38,34 @@ extern "C" {
 // neither side retains the other's memory. Nonzero callback result aborts the frame.
 typedef int (*kvmv_video_sink)(uintptr_t context, const uint8_t *data,
     uint32_t size, uint32_t offset, uint32_t total);
+/*
+ * Capture one frame and pass it to sink, which may be called several times
+ * for one frame (offset/total). Return values of both readers:
+ *     -8: MJPEG refused: the HDMI input is larger than 2560 on its long side
+ *         (3840x2160); no JPEG channel is created or submitted to
+ *     -7: HDMI input resolution error
+ *     -6: unsupported resolution, change it in the host settings
+ *     -5: retrieving the image, please wait
+ *     -4: changing the image resolution, please wait
+ *     -3: the sink refused the frame
+ *     -2: encoder error
+ *     -1: no image was acquired
+ *      0: MJPEG image
+ *      3: H.264/H.265 key frame (parameter sets and random-access frame)
+ *      4: H.264/H.265 delta frame
+ *      5: image not changed
+ *
+ * Video: one CBR Annex-B H.264/H.265 access unit. codec: 1 H.264, 2 H.265;
+ * bitrate: 500..20000 Kbit/s.
+ */
 int kvmv_read_video_sink(uint16_t width, uint16_t height, uint8_t codec,
-    uint16_t bitrate, uint8_t gop, uint8_t fps,
-    kvmv_video_sink sink, uintptr_t context);
+    uint16_t bitrate, uint8_t fps, kvmv_video_sink sink, uintptr_t context);
 
+#ifdef __cplusplus
 void kvmv_init(uint8_t _debug_info_en = 0);
+#else
+void kvmv_init(uint8_t _debug_info_en);
+#endif
 // Runtime JPEG chroma intent (0 NV21/4:2:0, 1 NV16/4:2:2), serialized with capture.
 int set_mjpeg_chroma(uint8_t enable_422);
 #define MJPEG_CHROMA_ACTIVE_422 1
@@ -55,49 +78,7 @@ uint8_t get_mjpeg_chroma_status(void);
 // JPEG callback runs before ReleaseStream/VI release; it must copy synchronously.
 int kvmv_read_mjpeg_sink(uint16_t width, uint16_t height, uint16_t quality,
     kvmv_video_sink sink, uintptr_t context);
-/**********************************************************************************
- * @name    kvmv_read_img
- * @author  Sipeed BuGu
- * @date    2024/10/25
- * @version R1.0
- * @brief   Acquire the encoded image with auto init
- * @param	_width				@input: 	Output image width
- * @param	_height				@input: 	Output image height
- * @param	_type				@input: 	Encode type: 0 MJPEG, 1 H264, 2 H265
- * @param	_qlty				@input: 	MJPEG: (50-100) | H264/H265: (500-20000 Kbit/s)
- * @param	_pp_kvm_data		@output: 	Encode data
- * @param	_p_kvmv_data_size	@output: 	Encode data size
- * @return
-        -8: MJPEG refused: the HDMI input is larger than 2560 on its long side
-            (3840x2160); no JPEG channel is created or submitted to
-        -7: HDMI INPUT RES ERROR
-        -6: Unsupported resolution, please modify it in the host settings.
-        -5: Retrieving image, please wait
-        -4: Modifying image resolution, please wait
-        -3: img buffer full
-        -2: VENC Errorl
-        -1: No images were acquired
-         0: Acquire MJPEG encoded images
-         1: Acquire H264 encoded images(SPS)[Deprecated]
-         2: Acquire H264 encoded images(PPS)[Deprecated]
-         3: Acquire H264/H265 key image (parameter sets and random-access frame)
-         4: Acquire H264/H265 delta image
-         5: IMG not changed
- **********************************************************************************/
-int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _qlty, uint8_t** _pp_kvm_data, uint32_t* _p_kvmv_data_size);
-/*
- * Read one CBR Annex-B H264/H265 access unit. codec: 1 H264, 2 H265;
- * bitrate: 500..20000 Kbit/s; gop: 1..100.
- * Return values are the same as kvmv_read_img; successful video frames use
- * IMG_VIDEO_TYPE_KEY or IMG_VIDEO_TYPE_DELTA.
- */
 void kvmv_request_keyframe(void);
-int kvmv_read_video(uint16_t _width, uint16_t _height, uint8_t _codec, uint16_t _bitrate, uint8_t _gop, uint8_t _fps, uint8_t** _pp_kvm_data, uint32_t* _p_kvmv_data_size);
-int free_kvmv_data(uint8_t ** _pp_kvm_data);
-void free_all_kvmv_data();
-void set_h264_gop(uint8_t _gop);
-int8_t set_h265_gop_mode(uint8_t _mode);
-uint8_t get_h265_gop_mode(void);
 void set_frame_detact(uint8_t _frame_detact);
 void kvmv_deinit();
 int kvmv_hdmi_control(uint8_t _en);

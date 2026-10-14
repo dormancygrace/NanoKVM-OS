@@ -75,28 +75,24 @@ def check_read_img_gates():
     assert body.count('IMG_MJPEG_INPUT_BLOCKED') == 3   # the early gate and the two steps
     assert 'nanokvm::admit_jpeg_step(vi_geometry, geometry)' in function_body(source, 'static nanokvm::JpegAdmission admit_capture_step')
     # kvmv_read_mjpeg_sink must reach the gated function, not a channel directly.
-    sink = source[source.index('int kvmv_read_mjpeg_sink('):]
-    assert 'kvmv_read_img(width, height, VENC_MJPEG' in sink[:sink.index('free_kvmv_data')]
+    sink = function_body(source, 'int kvmv_read_mjpeg_sink(')
+    assert 'kvmv_read_img(width, height, VENC_MJPEG' in sink
     print('read_img gates ok')
 
 
-def check_gop_setters():
-    """The GOP setters run on server threads, outside vi_mutex and alongside the detection thread's restart_capture(). The encoder runs NormalP with IDRs on request only, so they stay for the ABI of older servers and must not touch the channel."""
+def check_no_gop_setting():
+    """The encoder runs NormalP with IDRs on request and a periodic safety IDR (venc_tuning_t); no GOP length or mode reaches libkvm or MMF."""
     source = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
-    for signature in ['void set_h264_gop(uint8_t _gop)', 'int8_t set_h265_gop_mode(uint8_t _mode)']:
-        body = function_body(source, signature)
-        assert 'mmf_' not in body, signature + ' calls MMF'
-        assert 'enc_video_init' not in body, signature + ' changes the channel state'
-    assert 'MMF_VENC_GOP_NORMALP ? 0 : -1' in function_body(source, 'int8_t set_h265_gop_mode(uint8_t _mode)')
-    # A GOP or mode request never retires the running channel.
-    matches = function_body(source, 'static bool video_encoder_matches(')
-    assert 'gop' not in matches
-    assert 'mmf_set_venc_gop_mode(' not in source
-    print('gop setters ok')
+    for name in ['set_h264_gop', 'gop_mode', 'kvmvenc_gop']:
+        assert name not in source, name
+    assert 'gop' not in function_body(source, 'static bool video_encoder_matches(')
+    mmf = (repo / 'support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp').read_text()
+    assert 'gop_mode' not in mmf and 'cfg->gop' not in mmf
+    print('no gop setting ok')
 
 
 check_read_img_gates()
-check_gop_setters()
+check_no_gop_setting()
 
 for case in ['quality', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown', 'park']:
     binary = args.output.resolve() / case

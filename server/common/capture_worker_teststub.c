@@ -18,7 +18,7 @@ static pthread_mutex_t fake_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t fake_changed = PTHREAD_COND_INITIALIZER;
 static fake_frame fake_queue[FAKE_FRAMES];
 static int fake_head, fake_tail, fake_block, fake_waiting, fake_reads;
-static uint16_t fake_args[FAKE_READS][6];
+static uint16_t fake_args[FAKE_READS][5];
 static int64_t fake_times[FAKE_READS];
 
 void nk_fake_capture_reset(int block) {
@@ -60,12 +60,12 @@ void nk_fake_capture_unblock(void) {
 }
 
 /* Number of reads started; copies the parameters (width, height, codec, rate,
-   gop, fps) and CLOCK_MONOTONIC start of the first max of them. */
+   fps) and CLOCK_MONOTONIC start of the first max of them. */
 int nk_fake_capture_reads(uint16_t *args, int64_t *times, int max, int *waiting) {
     pthread_mutex_lock(&fake_lock);
     int reads = fake_reads;
     for (int i = 0; i < reads && i < max && i < FAKE_READS; i++) {
-        memcpy(args + 6 * i, fake_args[i], sizeof(fake_args[i]));
+        memcpy(args + 5 * i, fake_args[i], sizeof(fake_args[i]));
         times[i] = fake_times[i];
     }
     *waiting = fake_waiting;
@@ -74,12 +74,12 @@ int nk_fake_capture_reads(uint16_t *args, int64_t *times, int max, int *waiting)
 }
 
 int kvmv_read_video_sink(uint16_t width, uint16_t height, uint8_t codec,
-        uint16_t bitrate, uint8_t gop, uint8_t fps, kvmv_video_sink sink, uintptr_t context) {
+        uint16_t bitrate, uint8_t fps, kvmv_video_sink sink, uintptr_t context) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
     pthread_mutex_lock(&fake_lock);
     if (fake_reads < FAKE_READS) {
-        const uint16_t args[6] = {width, height, codec, bitrate, gop, fps};
+        const uint16_t args[5] = {width, height, codec, bitrate, fps};
         memcpy(fake_args[fake_reads], args, sizeof(args));
         fake_times[fake_reads] = (int64_t)now.tv_sec * 1000000000 + now.tv_nsec;
     }

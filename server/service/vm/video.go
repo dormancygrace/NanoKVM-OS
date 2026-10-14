@@ -193,8 +193,6 @@ type VideoSettingsReq struct {
 	Type               *int  `json:"type"`
 	Quality            *int  `json:"quality"`
 	BitRate            *int  `json:"bitRate"`
-	GOP                *int  `json:"gop"`
-	GOPMode            *int  `json:"gopMode"`
 	MjpegChroma        *int  `json:"mjpegChroma"`
 	Height             *int  `json:"height"`
 	FPS                *int  `json:"fps"`
@@ -215,8 +213,6 @@ func (r VideoSettingsReq) settings() []proto.SetScreenReq {
 	add("type", r.Type)
 	add("quality", r.Quality)
 	add("quality", r.BitRate)
-	add("gop", r.GOP)
-	add("gop_mode", r.GOPMode)
 	add("mjpeg_chroma", r.MjpegChroma)
 	add("resolution", r.Height)
 	add("fps", r.FPS)

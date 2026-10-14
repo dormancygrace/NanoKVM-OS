@@ -36,7 +36,6 @@ func isolateScreenSettings(t *testing.T, keys ...string) {
 	t.Cleanup(func() {
 		common.SetScreen("fps", before.FPS)
 		common.SetScreen("quality", int(before.BitRate))
-		common.SetScreen("gop", int(before.GOP))
 	})
 	for _, key := range keys {
 		old := screenFileMap[key]
@@ -92,7 +91,7 @@ func TestSingleFPSSettingReportsRefreshSyncFailure(t *testing.T) {
 func TestOtherSingleSettingsAndRejectedRatesDoNotTouchTheMonitor(t *testing.T) {
 	isolateScreenSettings(t, "fps", "quality")
 	calls := recordMonitorSettings(t, nil)
-	for _, body := range []string{`{"type":"quality","value":5000}`, `{"type":"gop","value":10}`, `{"type":"fps","value":121}`} {
+	for _, body := range []string{`{"type":"quality","value":5000}`, `{"type":"fps","value":121}`} {
 		postScreenSetting(t, body)
 	}
 	if len(*calls) != 0 {

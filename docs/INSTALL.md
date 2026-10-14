@@ -59,11 +59,11 @@ The factory Web account is `admin` / `admin`; change its password when prompted.
 SSH is disabled by default and can be enabled in Web settings. Compatible Wi-Fi
 adapters support 2.4 GHz and 5 GHz.
 
-The layout is 64 MiB FAT boot, 1488 MiB ext4 system and remaining card space
-for exFAT data. S01fs creates the absent data partition when USB disk support
-is enabled. Fresh-card creation remains outside hardware qualification.
-There is no A/B rollback. See [release notes](RELEASE-beta-13.md),
-[acceptance](https://github.com/dormancygrace/NanoKVM-OS/blob/v1.0.0-beta.13/docs/BETA13-ACCEPTANCE.md) and [layout](SD-LAYOUT-v2.md).
+The card holds a 64 MiB FAT boot partition, a 768 MiB ext4 system partition
+and an exFAT data partition. On the first boot of a freshly written card,
+`nanokvm-firstboot-storage` creates the data partition from the remaining
+space (at least 128 MiB) and formats it. This is tested on a loop device; it
+is not qualified on every card and board. There is no A/B rollback.
 
 Moving a configured card between different board revisions requires reflashing
 to repeat board selection. See [detection limits](../firmware/boards/README.md).

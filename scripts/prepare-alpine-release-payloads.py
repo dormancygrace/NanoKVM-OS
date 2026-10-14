@@ -44,7 +44,7 @@ for src in (r/'firmware/alpine/openrc').iterdir(): copy(src,base/'etc/init.d'/sr
 copy(hwd_s15,base/'usr/libexec/nanokvm/legacy/S15kvmhwd')
 link('/usr/libexec/nanokvm/legacy/S15kvmhwd',base/'etc/init.d/S15kvmhwd')
 copy(hwd_s15,app/'kvmapp/system/init.d/S15kvmhwd')
-for name in ('S95nanokvm', 'nanokvm-server-supervisor', 'S30eth', 'S30wifi'):
+for name in ('S95nanokvm', 'nanokvm-server-supervisor'):
     copy(r/'kvmapp/system/init.d'/name,app/'kvmapp/system/init.d'/name)
 copy(r/'firmware/alpine/compat/S30usbnet',base/'usr/libexec/nanokvm/legacy/S30usbnet')
 link('/usr/libexec/nanokvm/legacy/S30usbnet',base/'etc/init.d/S30usbnet')

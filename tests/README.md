@@ -26,6 +26,8 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
 
 ## Tests with extra requirements
 
+- **Root, on a disposable loop disk:** `test-alpine-firstboot-storage.py --image IMAGE`
+  (the first-boot data partition).
 - **Root, in a disposable network namespace:**
   - `test-dhcp-gateway.py` (CI runs it with `sudo`);
   - `test-mss-clamp.py`;

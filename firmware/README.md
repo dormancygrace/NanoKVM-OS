@@ -32,15 +32,14 @@ reproducible artifacts and local commits are required. No push or UAC requests.
 
 ## Application dependency selection
 
-Needed MaixCDK basic/peripheral components are restored at 4.11.3. The user
-explicitly asked to retain useful components and exercise engineering judgment.
-OpenCV and Maix vision are not needed by the current native capture path; the
-exploratory OpenCV checkout is not built or selected. Reconsider optional parts
-only for a demonstrated function, rather than applying an absolute library ban.
+The release build uses the repository's native capture and board-service
+sources without MaixCDK or OpenCV. The legacy MaixCDK developer helper, vision
+component and component CMake/Kconfig files have been removed. The current
+entry point is `platform/build.sh`; optional dependencies need a demonstrated
+function and explicit integration into that build.
 
 The NanoKVM capture library now builds from its own MMF capture/frame and Linux
-I2C code, without MaixCDK or OpenCV. The unused legacy vision component remains
-in the source tree; it is no longer a dependency of the kvm component. JPEG,
+I2C code, without MaixCDK or OpenCV. The legacy vision component is removed; JPEG,
 frame sampling and direct H.264/H.265 code paths are retained in the new code.
 The full board application/rootfs still need rebuilding and hardware testing.
 Checking the final dependency graph, link inputs and rootfs for OpenCV remains
@@ -357,8 +356,9 @@ sensor image/RX callbacks at640x480/1280x720/1920x1080/2560x1440, lane defaults,
 and read-only parsing of the real sensor_cfg.ini and1920x1080 runtime geometry.
 The library has no fence.tso. Evidence is mpi/mmf-runtime-audit.json. The running
 video service was not replaced. The full vision/system/application build and
-new-kernel video qualification remain pending. The old MaixCDK CMake path is
-still present for the comparison build; Enhanced uses the standalone script.
+new-kernel video qualification were pending in this historical audit. The
+MaixCDK CMake comparison path has since been removed; use the `native` step of
+`platform/build.sh` for the current build.
 
 Sensor source reference: https://github.com/sophgo/SensorSupportList/tree/e2824e1d07f516c41238e123fefbab71a34843bc
 and currentinih release: https://github.com/benhoyt/inih/releases/tag/r62.
@@ -370,7 +370,7 @@ Run `scripts/build-capture.py` after the MMF build, with
 `NANOKVM_CAPTURE_OUTPUT`. It builds all four kvm sources with GCC16.2, C906
 flags and `-Wall -Wextra -Werror`, then links `libkvm.so` with `-z defs`.
 Compiler dependency files and the link map reject OpenCV/MaixCDK inputs.
-The board service is separate and still needs its new-toolchain build.
+The board service is built separately by `platform/build.sh system`.
 
 The retired capture probe builder packaged two probes, the real
 capture/MMF/MPI libraries and current compiler runtimes. It audits all 25 ELF
@@ -442,11 +442,14 @@ complete VI/VPSS/VENC teardown qualification, physical DMA/cache experiments,
 LT6911UXC integration and new-kernel video boot. The working service was not
 replaced and the old kernel boot ID is unchanged.
 
-## Updated MaixCDK board service
+## Board service
 
-MaixCDK 4.11.3 basic/peripheral components now build into the Enhanced board
-service with GCC 16.2. C906 self-tests pass; production board operation remains
-pending. See `maixcdk/README.md` for pins, patches, build commands and evidence.
+`platform/build.sh system` builds `kvm_system` from
+`support/sg2002/kvm_system` with the pinned GCC 16.2 toolchain.
+`scripts/build-system.py` compiles those sources and the shared video-state
+helper; `lib/platform/kvm_platform.{h,cpp}` provides clocks, IPv4 lookup and I2C
+writes through Linux APIs. No MaixCDK checkout or component CMake build is
+needed. See [BUILD.md](../docs/BUILD.md) for the current build entry point.
 
 ## Boot staging and recovery
 

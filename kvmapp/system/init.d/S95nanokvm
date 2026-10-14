@@ -71,15 +71,7 @@ start_background() {
         export NANOKVM_WEBRTC_QUEUE_FRAMES NANOKVM_WEBRTC_UDP_BATCH
         export NANOKVM_WEBRTC_UDP_BATCH_FLUSH_US NANOKVM_WEBRTC_UDP_GSO
         export NANOKVM_SRTP_AES GOMAXPROCS
-        # Enable the accepted resolution-bounded high-rate native paths. The
-        # saved FPS setting still selects the active request.
-        : "${NANOKVM_NATIVE120_EXPERIMENT:=1}"
-        : "${NANOKVM_QHD60_MAX_EXPERIMENT:=1}"
-        : "${NANOKVM_FHD75_EXPERIMENT:=1}"
         : "${LD_LIBRARY_PATH:=/kvmapp/server/dl_lib}"
-        export NANOKVM_NATIVE120_EXPERIMENT
-        export NANOKVM_QHD60_MAX_EXPERIMENT
-        export NANOKVM_FHD75_EXPERIMENT
         export LD_LIBRARY_PATH
     fi
     if [ "$executable" = /tmp/server/NanoKVM-Server ]; then

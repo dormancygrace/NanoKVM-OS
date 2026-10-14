@@ -27,10 +27,9 @@ func TestCheckScreenRejectsUnknownVideoBitRate(t *testing.T) {
 
 func TestLoadScreenReadsPersistedSettings(t *testing.T) {
 	files := map[string][]byte{
-		"/kvmapp/kvm/fps":      []byte("60\n"),
-		"/kvmapp/kvm/gop_mode": []byte("0\n"),
-		"/kvmapp/kvm/qlty":     []byte("5000"),
-		"/kvmapp/kvm/res":      []byte("720"),
+		"/kvmapp/kvm/fps":  []byte("60\n"),
+		"/kvmapp/kvm/qlty": []byte("5000"),
+		"/kvmapp/kvm/res":  []byte("720"),
 	}
 
 	got := loadScreen(func(path string) ([]byte, error) {
@@ -49,9 +48,6 @@ func TestLoadScreenReadsPersistedSettings(t *testing.T) {
 	}
 	if got.Width != 1280 || got.Height != 720 {
 		t.Fatalf("resolution = %dx%d, want 1280x720", got.Width, got.Height)
-	}
-	if got.GOPMode != GOPModeNormalP {
-		t.Fatalf("GOPMode = %d, want NormalP", got.GOPMode)
 	}
 }
 
@@ -77,23 +73,6 @@ func TestLoadScreenKeepsDefaultsForMissingOrInvalidSettings(t *testing.T) {
 	}
 	if got.Width != 0 || got.Height != 0 {
 		t.Fatalf("resolution = %dx%d, want default 0x0", got.Width, got.Height)
-	}
-	if got.GOPMode != GOPModeNormalP {
-		t.Fatalf("GOPMode = %d, want NormalP", got.GOPMode)
-	}
-}
-
-func TestLoadScreenReadsEveryGOPModeAsNormalP(t *testing.T) {
-	for _, saved := range []string{"1", "2"} {
-		got := loadScreen(func(path string) ([]byte, error) {
-			if path == "/kvmapp/kvm/gop_mode" {
-				return []byte(saved), nil
-			}
-			return nil, errors.New("not found")
-		})
-		if got.GOPMode != GOPModeNormalP {
-			t.Fatalf("saved %q: GOPMode = %d, want NormalP", saved, got.GOPMode)
-		}
 	}
 }
 
@@ -173,13 +152,13 @@ func TestMjpegChromaPreference(t *testing.T) {
 }
 
 func TestSetScreenValueIgnoresOutOfRangeValues(t *testing.T) {
-	base := Screen{Width: 1920, Height: 1080, Quality: 80, BitRate: 3000, GOP: 30}
+	base := Screen{Width: 1920, Height: 1080, Quality: 80, BitRate: 3000}
 	for _, tc := range []struct {
 		key   string
 		value int
 	}{
 		{"resolution", 1080 + 65536}, {"resolution", -1}, {"quality", 0},
-		{"quality", MaxQualityValue + 1}, {"quality", 65536 + 50}, {"gop", 0}, {"gop", 300},
+		{"quality", MaxQualityValue + 1}, {"quality", 65536 + 50}, {"gop", 10}, {"gop_mode", 1},
 	} {
 		got := base
 		setScreenValue(&got, tc.key, tc.value)
@@ -190,8 +169,7 @@ func TestSetScreenValueIgnoresOutOfRangeValues(t *testing.T) {
 	got := base
 	setScreenValue(&got, "quality", 50)
 	setScreenValue(&got, "quality", 5000)
-	setScreenValue(&got, "gop", 100)
-	if got.Quality != 50 || got.BitRate != 5000 || got.GOP != 100 {
+	if got.Quality != 50 || got.BitRate != 5000 {
 		t.Errorf("valid values were not applied: %+v", got)
 	}
 }

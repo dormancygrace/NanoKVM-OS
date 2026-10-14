@@ -57,11 +57,9 @@
 #define default_vi_height       1080
 #define default_vpss_width      1920
 #define default_vpss_height     1080
-#define default_h264_gop        30
 #define default_h264_fps        60
 #define fresh_frame_discard_count 5
 
-#define kvmv_data_buffer_size   4
 #define Try_rounds_HDMI_err_res 5
 
 #define vi_width_path           "/run/nanokvm/width"
@@ -123,12 +121,10 @@ struct kvmv_cfg_t {
     uint8_t fresh_frame_count = 0;
 };
 
+// What one read produced; the bytes went to the caller's sink.
 struct kvmv_data_t {
-	uint8_t* p_img_data = NULL;
     uint8_t img_data_type = 0;
     uint32_t img_data_size = 0;
-    uint32_t img_data_capacity = 0;
-    uint8_t in_use = 0;
 };
 
 struct kvm_venc_t {
@@ -144,10 +140,6 @@ kvmv_cfg_t kvmv_cfg;
 // Detected HDMI input size: published by the detection thread, snapshotted
 // once per pass by kvmv_read_img. See geometry_gate.hpp for the contract.
 static nanokvm::GeometryGate vi_geometry(default_vi_width, default_vi_height);
-
-kvmv_data_t kvmv_data_buffer[kvmv_data_buffer_size];
-
-uint8_t kvmv_data_buffer_index = 0;
 
 uint8_t debug_en = 0;
 uint8_t last_vi_state_code = 0;
@@ -322,58 +314,11 @@ uint8_t refresh_vi_state()
     return last_vi_state_code;
 }
 
-uint8_t to_roll(int8_t _input)
-{
-    if(_input <                      0) return _input + kvmv_data_buffer_size;
-    if(_input >= kvmv_data_buffer_size) return _input - kvmv_data_buffer_size;
-    return _input;
-}
-
 int maxmin_data(int _max, int _min, int _data)
 {
 	if(_data > _max) return _max;
 	if(_data < _min) return _min;
 	return _data;
-}
-
-kvmv_data_t* get_save_buffer()
-{
-    for(int i = 0; i < kvmv_data_buffer_size; i++){
-        kvmv_data_buffer_index = to_roll(kvmv_data_buffer_index + 1);
-        kvmv_data_t* buffer = &kvmv_data_buffer[kvmv_data_buffer_index];
-        if(buffer->in_use == 0){
-            buffer->in_use = 1;
-            buffer->img_data_type = 0;
-            buffer->img_data_size = 0;
-            return buffer;
-        }
-    }
-    return NULL;
-}
-
-static void release_save_buffer(kvmv_data_t* buffer)
-{
-    if(buffer != NULL){
-        buffer->in_use = 0;
-    }
-}
-
-static bool reserve_save_buffer(kvmv_data_t* buffer, uint32_t size)
-{
-    if(buffer == NULL || size == 0){
-        return false;
-    }
-    if(buffer->p_img_data != NULL && buffer->img_data_capacity >= size){
-        return true;
-    }
-
-    uint8_t* data = (uint8_t *)realloc(buffer->p_img_data, size);
-    if(data == NULL){
-        return false;
-    }
-    buffer->p_img_data = data;
-    buffer->img_data_capacity = size;
-    return true;
 }
 
 // ====HDMI RES==================================================
@@ -1335,24 +1280,14 @@ static thread_local uintptr_t video_sink_context = 0;
 
 bool jpg_dump(kvmv_data_t* dump_to, nanokvm::JpegBuffer *raw)
 {
-    if(dump_to == NULL || raw == NULL || raw->data() == NULL || raw->data_size() == 0){
-        return false;
-    }
-    if(raw->data_size() > UINT32_MAX || (video_sink == nullptr
-            && !reserve_save_buffer(dump_to, (uint32_t)raw->data_size()))){
-        dump_to->img_data_size = 0;
-        dump_to->img_data_type = 0;
+    if(dump_to == NULL || raw == NULL || raw->data() == NULL || raw->data_size() == 0
+            || raw->data_size() > UINT32_MAX || video_sink == nullptr){
         return false;
     }
     dump_to->img_data_size = raw->data_size();
     dump_to->img_data_type = VENC_MJPEG;
-    if (video_sink != nullptr) {
-        if (video_sink(video_sink_context, raw->data(), dump_to->img_data_size,
-                       0, dump_to->img_data_size) != 0) return false;
-    } else {
-        memcpy(dump_to->p_img_data, raw->data(), raw->data_size());
-    }
-    return true;
+    return video_sink(video_sink_context, raw->data(), dump_to->img_data_size,
+                      0, dump_to->img_data_size) == 0;
 }
 
 // Protected by vi_mutex; GUI intent is applied by the next capture, never by
@@ -1451,7 +1386,6 @@ static int8_t frame_to_jpeg(int vi_ch, kvmv_data_t* dump_to, uint16_t quality)
 {
     int ret = mmf_enc_jpg_push_vi_with_quality(0, vi_ch, quality);
     if (ret != 0) {
-        release_save_buffer(dump_to);
         mmf_vi_frame_release(vi_ch);
         return IMG_VENC_ERROR;
     }
@@ -1461,59 +1395,36 @@ static int8_t frame_to_jpeg(int vi_ch, kvmv_data_t* dump_to, uint16_t quality)
     ret = mmf_enc_jpg_pop(0, &data, &data_size);
     if (ret != 0 || data == NULL || data_size <= 0) {
         mmf_enc_jpg_deinit(0);
-        release_save_buffer(dump_to);
         mmf_vi_frame_release(vi_ch);
         return IMG_VENC_ERROR;
     }
 
-    if (video_sink == nullptr && !reserve_save_buffer(dump_to, static_cast<uint32_t>(data_size))) {
-        dump_to->img_data_size = 0;
-        dump_to->img_data_type = 0;
-        if (mmf_enc_jpg_free(0) != 0) {
-            mmf_enc_jpg_deinit(0);
-        }
-        release_save_buffer(dump_to);
-        mmf_vi_frame_release(vi_ch);
-        return IMG_BUFFER_FULL;
-    }
-
-    int copied = 0;
-    if (video_sink != nullptr) {
-        copied = video_sink(video_sink_context, data, data_size, 0, data_size);
-    } else {
-        memcpy(dump_to->p_img_data, data, data_size);
-    }
+    // The sink copies before the encoder buffer is returned.
+    int copied = video_sink(video_sink_context, data, data_size, 0, data_size);
     dump_to->img_data_size = data_size;
     dump_to->img_data_type = VENC_MJPEG;
     if (mmf_enc_jpg_free(0) != 0) {
         mmf_enc_jpg_deinit(0);
         dump_to->img_data_size = 0;
         dump_to->img_data_type = 0;
-        release_save_buffer(dump_to);
         mmf_vi_frame_release(vi_ch);
         return IMG_VENC_ERROR;
     }
     mmf_vi_frame_release(vi_ch);
-    if (copied != 0) {
-        release_save_buffer(dump_to);
-        return IMG_BUFFER_FULL;
-    }
-    return IMG_MJPEG_TYPE;
+    return copied != 0 ? IMG_BUFFER_FULL : IMG_MJPEG_TYPE;
 }
 
-uint8_t kvmvenc_gop = default_h264_gop;
 uint8_t kvmvenc_fps = default_h264_fps;
 mmf_venc_cfg_t cfg;
 
 int init_venc_video(uint16_t width, uint16_t height, uint16_t bitrate, uint8_t codec,
-	uint8_t gop, uint8_t fps)
+	uint8_t fps)
 {
 	cfg.type = codec == VENC_H265 ? 1 : 2; // MMF/PAYLOAD_TYPE_E: 1 h265, 2 h264
     cfg.w = width;
     cfg.h = height;
     cfg.fmt = nanokvm::nv21_format();
     cfg.jpg_quality = 0;       // unused
-	cfg.gop = gop;
 	cfg.intput_fps = fps;
 	cfg.output_fps = fps;
 	cfg.bitrate = bitrate;
@@ -1525,17 +1436,17 @@ int init_venc_video(uint16_t width, uint16_t height, uint16_t bitrate, uint8_t c
 	int ret = mmf_del_venc_channel(kvm_venc.mmf_venc_chn);
 	if (ret != 0) {
 		fprintf(stderr,
-			"[kvmv] VENC teardown failed: channel=%d codec=%d bitrate=%u gop=%u error=%#x\n",
-			kvm_venc.mmf_venc_chn, codec, bitrate, gop, ret);
+			"[kvmv] VENC teardown failed: channel=%d codec=%d bitrate=%u error=%#x\n",
+			kvm_venc.mmf_venc_chn, codec, bitrate, ret);
 		fflush(stderr);
 		return ret;
 	}
-	ret = mmf_add_venc_channel(kvm_venc.mmf_venc_chn, &kvm_venc.kvm_venc_cfg);
+	ret = mmf_add_venc_channel_v2(kvm_venc.mmf_venc_chn, &kvm_venc.kvm_venc_cfg);
 	if (ret != 0) {
 		fprintf(stderr,
 			"[kvmv] VENC initialization failed: channel=%d codec=%d "
-			"size=%ux%u bitrate=%u gop=%u error=%#x\n",
-			kvm_venc.mmf_venc_chn, codec, width, height, bitrate, gop, ret);
+			"size=%ux%u bitrate=%u error=%#x\n",
+			kvm_venc.mmf_venc_chn, codec, width, height, bitrate, ret);
 		fflush(stderr);
 		return ret;
 	}
@@ -1614,45 +1525,18 @@ int video_stream_dump(kvmv_data_t *dump_to, mmf_stream_t *dump_from, uint8_t cod
 	keyframe = keyframe || (codec == VENC_H264 && dump_from->count >= 3) ||
 		(codec == VENC_H265 && dump_from->count >= 4);
 
-	if (video_sink == nullptr && !reserve_save_buffer(dump_to, total_size)) {
-		dump_to->img_data_size = 0;
-		return IMG_BUFFER_FULL;
-	}
-
 	uint32_t offset = 0;
 	for (int i = 0; i < dump_from->count; i++) {
-		if (video_sink != nullptr) {
-            if (video_sink(video_sink_context, dump_from->data[i],
-                           dump_from->data_size[i], offset, total_size) != 0) {
-                dump_to->img_data_size = 0;
-                return IMG_BUFFER_FULL;
-            }
-        } else {
-            memcpy(dump_to->p_img_data + offset, dump_from->data[i], dump_from->data_size[i]);
-        }
+		if (video_sink(video_sink_context, dump_from->data[i],
+		               dump_from->data_size[i], offset, total_size) != 0) {
+			dump_to->img_data_size = 0;
+			return IMG_BUFFER_FULL;
+		}
 		offset += dump_from->data_size[i];
 	}
 	dump_to->img_data_size = total_size;
 	dump_to->img_data_type = keyframe ? IMG_H264_TYPE_IF : IMG_H264_TYPE_PF;
 	return dump_to->img_data_type;
-}
-
-// The GOP is no longer a setting: kvm_mmf sends an IDR on request and a
-// safety IDR every few seconds (venc_tuning_t), in NormalP only. These stay
-// for the ABI of older servers and change nothing.
-void set_h264_gop(uint8_t _gop)
-{
-    kvmvenc_gop = maxmin_data(100, 1, (int)_gop);
-}
-
-int8_t set_h265_gop_mode(uint8_t _mode)
-{
-	return _mode == MMF_VENC_GOP_NORMALP ? 0 : -1;
-}
-
-uint8_t get_h265_gop_mode(void)
-{
-	return MMF_VENC_GOP_NORMALP;
 }
 
 void set_frame_detact(uint8_t _frame_detact)
@@ -1739,7 +1623,7 @@ static void submit_next_video_frame(int vi_ch, int width, int height)
 }
 
 int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int width, int height,
-	int format, int vi_ch, kvmv_data_t *ret_stream, uint16_t bitrate, uint8_t codec, uint8_t gop,
+	int format, int vi_ch, kvmv_data_t *ret_stream, uint16_t bitrate, uint8_t codec,
 	uint8_t fps, bool submitted = false)
 {
 	fps = video_output_fps(src, width, height, fps);
@@ -1748,7 +1632,7 @@ int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int w
 	if (!video_encoder_matches(src, width, height, bitrate, codec, fps)) {
 		debug("[kvmv]init video codec=%d %dx%d bitrate=%d fps=%d\n",
 			codec, width, height, bitrate, fps);
-		if (init_venc_video(width, height, bitrate, codec, gop, fps) != 0) {
+		if (init_venc_video(width, height, bitrate, codec, fps) != 0) {
 			return -1;
 		}
 	}
@@ -1810,12 +1694,6 @@ void kvmv_init(uint8_t _debug_info_en)
     cam->hmirror(1);
     cam->vflip(1);
     restart_capture();
-    for(int i = 0; i < kvmv_data_buffer_size; i++){
-        kvmv_data_buffer[i].p_img_data = NULL;
-        kvmv_data_buffer[i].img_data_capacity = 0;
-        kvmv_data_buffer[i].in_use = 0;
-    }
-
     __atomic_store_n(&kvmv_cfg.try_exit_thread, 0, __ATOMIC_RELEASE);
 
     if(kvmv_cfg.thread_is_running == 1 || vi_detection_thread_started == 1){
@@ -1870,39 +1748,15 @@ static nanokvm::JpegAdmission admit_capture_step(uint8_t type, const nanokvm::Ge
     return nanokvm::admit_jpeg_step(vi_geometry, geometry);
 }
 
-/**********************************************************************************
- * @name    kvmv_read_img
- * @author  Sipeed BuGu
- * @date    2024/10/25
- * @version R1.0
- * @brief   Acquire the encoded image with auto init
- * @param	_width				@input: 	Output image width
- * @param	_height				@input: 	Output image height
- * @param	_type				@input: 	Encode type
- * @param	_qlty				@input: 	MJPEG: (20-100) | H264:  (500-20000)
- * @param	_pp_kvm_data		@output: 	Encode data
- * @param	_p_kvmv_data_size	@output: 	Encode data size
- * @return
-        -8: MJPEG refused: the HDMI input is larger than 2560 on its long side
-            (3840x2160); no JPEG channel is created or submitted to
-        -7: HDMI INPUT RES ERROR
-        -6: Unsupported resolution, please modify it in the host settings.
-        -5: Retrieving image, please wait
-        -4: Modifying image resolution, please wait
-        -3: img buffer full
-        -2: VENC Errorl
-        -1: No images were acquired
-         0: Acquire MJPEG encoded images
-         1: Acquire H264 encoded images(SPS)[Deprecated]
-         2: Acquire H264 encoded images(PPS)[Deprecated]
-         3: Acquire H264 encoded images(I)
-         4: Acquire H264 encoded images(P)
-         5: IMG not changed
- **********************************************************************************/
-int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _qlty, uint8_t** _pp_kvm_data, uint32_t* _p_kvmv_data_size)
+/*
+ * One capture pass: encode the frame for the requested size and codec and hand
+ * the bytes to the calling thread's sink (kvmv_read_video_sink_v2 or
+ * kvmv_read_mjpeg_sink). _qlty is the MJPEG quality (20-99) or the H.264/H.265
+ * bitrate (500-20000 Kbit/s). Return codes are listed in kvm_vision.h.
+ */
+static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _qlty)
 {
-    *_pp_kvm_data = NULL;
-    *_p_kvmv_data_size = 0;
+    if (video_sink == nullptr) return IMG_VENC_ERROR;
     static uint8_t frame_undetact_count = 0;
     debug("[kvmv]kvmv_read_img type = %d...\n", _type);
     struct timespec ts;
@@ -2190,69 +2044,37 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
         kvmv_cfg.venc_type = _type;
 
         if(kvmv_cfg.venc_type == VENC_MJPEG){
-            kvmv_data_t* p_kvmv_data = get_save_buffer();
-            if(p_kvmv_data == NULL){
-                // buffer full
-                if (native_vi_ch >= 0) {
-                    mmf_vi_frame_release(native_vi_ch);
-                } else {
-			        delete img;
-                }
-                debug("[kvmv]jpg buffer full\n");
-                pthread_mutex_unlock(&vi_mutex);
-                return IMG_BUFFER_FULL;
-            }
+            kvmv_data_t frame;
             if (native_vi_ch >= 0) {
-                int ret = frame_to_jpeg(native_vi_ch, p_kvmv_data,
+                int ret = frame_to_jpeg(native_vi_ch, &frame,
                     maxmin_data(99, 20, (int)_qlty));
-                if (ret < 0) {
-                    if (native_format == nanokvm::nv16_format() && ret == IMG_VENC_ERROR)
-                        disable_mjpeg_422("native JPEG encoding failed");
-                    pthread_mutex_unlock(&vi_mutex);
-                    return ret;
-                }
-                *_pp_kvm_data = video_sink ? nullptr : p_kvmv_data->p_img_data;
-                *_p_kvmv_data_size = p_kvmv_data->img_data_size;
-                if (video_sink) release_save_buffer(p_kvmv_data);
+                if (ret < 0 && native_format == nanokvm::nv16_format() && ret == IMG_VENC_ERROR)
+                    disable_mjpeg_422("native JPEG encoding failed");
                 pthread_mutex_unlock(&vi_mutex);
                 return ret;
             }
             nanokvm::JpegBuffer *jpg = img->to_jpeg(maxmin_data(99, 20, (int)_qlty));
-            if(jpg == NULL || !jpg_dump(p_kvmv_data, jpg)){
+            if(jpg == NULL || !jpg_dump(&frame, jpg)){
                 delete jpg;
 			    delete img;
-                release_save_buffer(p_kvmv_data);
-                debug("[kvmv]failed to allocate jpg buffer\n");
+                debug("[kvmv]JPEG encoding or the sink failed\n");
                 pthread_mutex_unlock(&vi_mutex);
                 return IMG_BUFFER_FULL;
             }
             delete jpg;
 			delete img;
-            *_pp_kvm_data = video_sink ? nullptr : p_kvmv_data->p_img_data;
-            *_p_kvmv_data_size = p_kvmv_data->img_data_size;
-            if (video_sink) release_save_buffer(p_kvmv_data);
             pthread_mutex_unlock(&vi_mutex);
             return IMG_MJPEG_TYPE;
 		} else if (kvmv_cfg.venc_type == VENC_H264 || kvmv_cfg.venc_type == VENC_H265){
             int ret;
-            kvmv_data_t* p_kvmv_data = get_save_buffer();
-            if(p_kvmv_data == NULL){
-                // buffer full
-			    delete img;
-                if(native_vi_ch >= 0){
-                    mmf_vi_frame_release(native_vi_ch);
-                }
-                *_pp_kvm_data = NULL;
-                pthread_mutex_unlock(&vi_mutex);
-                return IMG_BUFFER_FULL;
-            }
+            kvmv_data_t frame;
 			uint8_t *frame_data = img == NULL ? NULL : (uint8_t *)img->data();
 			int frame_width = img == NULL ? native_width : img->width();
 			int frame_height = img == NULL ? native_height : img->height();
 			int frame_format = img == NULL ? native_format : img->format();
 			ret = frame_to_video(geometry, frame_data, frame_width, frame_height, frame_format,
-				native_vi_ch, p_kvmv_data, maxmin_data(20000, 500, (int)_qlty),
-				kvmv_cfg.venc_type, kvmvenc_gop, kvmvenc_fps, submitted);
+				native_vi_ch, &frame, maxmin_data(20000, 500, (int)_qlty),
+				kvmv_cfg.venc_type, kvmvenc_fps, submitted);
 			delete img;
             if(ret < 0){
                 if (native_vi_ch >= 0) mmf_vi_frame_release(native_vi_ch);
@@ -2262,36 +2084,25 @@ int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _ql
                     // Never close a producer until its JPEG lease is retired.
                     if (mmf_enc_jpg_deinit(0) == 0) cam->close_format(nanokvm::nv16_format());
                 }
-                release_save_buffer(p_kvmv_data);
-                *_pp_kvm_data = NULL;
-                *_p_kvmv_data_size = 0;
                 pthread_mutex_unlock(&vi_mutex);
                 return ret;
             }
-            *_pp_kvm_data = video_sink ? nullptr : p_kvmv_data->p_img_data;
-            *_p_kvmv_data_size = p_kvmv_data->img_data_size;
-            if (video_sink) release_save_buffer(p_kvmv_data);
             pthread_mutex_unlock(&vi_mutex);
             return ret;
         }
     } while (geometry_stale ? ++stale_passes <= max_stale_passes : check_kvmv(try_num++));
-    *_pp_kvm_data = NULL;
     pthread_mutex_unlock(&vi_mutex);
     // The input kept changing: report the resolution change, not a missing image.
     return geometry_stale ? -4 : IMG_NOT_EXIST;
 }
 
-int kvmv_read_video(uint16_t _width, uint16_t _height, uint8_t _codec,
-	uint16_t _bitrate, uint8_t _gop, uint8_t _fps,
-	uint8_t **_pp_kvm_data, uint32_t *_p_kvmv_data_size)
+static int kvmv_read_video(uint16_t _width, uint16_t _height, uint8_t _codec,
+	uint16_t _bitrate, uint8_t _fps)
 {
 	if (_codec != VENC_H264 && _codec != VENC_H265) {
-		*_pp_kvm_data = NULL;
-		*_p_kvmv_data_size = 0;
 		return IMG_VENC_ERROR;
 	}
 
-	kvmvenc_gop = maxmin_data(100, 1, (int)_gop);
     // Source geometry comes from the pass snapshot in kvmv_read_img.
     const int fps_limit = nanokvm::capture_rate_limit(_width, _height);
 	kvmvenc_fps = maxmin_data(fps_limit, 10, (int)_fps);
@@ -2299,19 +2110,16 @@ int kvmv_read_video(uint16_t _width, uint16_t _height, uint8_t _codec,
 		high_rate_log_request(_width, _height, _fps, kvmvenc_fps);
 	}
 	return kvmv_read_img(_width, _height, _codec,
-		maxmin_data(20000, 500, (int)_bitrate), _pp_kvm_data, _p_kvmv_data_size);
+		maxmin_data(20000, 500, (int)_bitrate));
 }
 
-int kvmv_read_video_sink(uint16_t width, uint16_t height, uint8_t codec,
-    uint16_t bitrate, uint8_t gop, uint8_t fps,
-    kvmv_video_sink sink, uintptr_t context)
+int kvmv_read_video_sink_v2(uint16_t width, uint16_t height, uint8_t codec,
+    uint16_t bitrate, uint8_t fps, kvmv_video_sink sink, uintptr_t context)
 {
     if (sink == nullptr || video_sink != nullptr) return IMG_VENC_ERROR;
     video_sink = sink;
     video_sink_context = context;
-    uint8_t *unused = nullptr;
-    uint32_t size = 0;
-    int result = kvmv_read_video(width, height, codec, bitrate, gop, fps, &unused, &size);
+    int result = kvmv_read_video(width, height, codec, bitrate, fps);
     video_sink = nullptr;
     video_sink_context = 0;
     return result;
@@ -2323,48 +2131,10 @@ int kvmv_read_mjpeg_sink(uint16_t width, uint16_t height, uint16_t quality,
     if (sink == nullptr || video_sink != nullptr) return IMG_VENC_ERROR;
     video_sink = sink;
     video_sink_context = context;
-    uint8_t *unused = nullptr;
-    uint32_t size = 0;
-    int result = kvmv_read_img(width, height, VENC_MJPEG, quality, &unused, &size);
+    int result = kvmv_read_img(width, height, VENC_MJPEG, quality);
     video_sink = nullptr;
     video_sink_context = 0;
     return result;
-}
-
-int free_kvmv_data(uint8_t ** _pp_kvm_data)
-{
-    if(_pp_kvm_data == NULL){
-        return IMG_NOT_EXIST;
-    }
-
-    pthread_mutex_lock(&vi_mutex);
-    for(int i = 0; i < kvmv_data_buffer_size; i++){
-        if(*_pp_kvm_data == kvmv_data_buffer[i].p_img_data){
-            if (*_pp_kvm_data != NULL){
-                kvmv_data_buffer[i].in_use = 0;
-                uint8_t _type = kvmv_data_buffer[i].img_data_type;
-                pthread_mutex_unlock(&vi_mutex);
-                return _type;
-            } else {
-                pthread_mutex_unlock(&vi_mutex);
-                return IMG_NOT_EXIST;
-            }
-        }
-    }
-    pthread_mutex_unlock(&vi_mutex);
-    return IMG_NOT_EXIST;
-}
-
-void free_all_kvmv_data()
-{
-    for(int i = 0; i < kvmv_data_buffer_size; i++){
-        if(kvmv_data_buffer[i].p_img_data != NULL){
-            free(kvmv_data_buffer[i].p_img_data);
-            kvmv_data_buffer[i].p_img_data = NULL;
-            kvmv_data_buffer[i].img_data_capacity = 0;
-            kvmv_data_buffer[i].in_use = 0;
-        }
-    }
 }
 
 void kvmv_deinit()
@@ -2389,7 +2159,6 @@ void kvmv_deinit()
      * frame whose VI producer has already been destroyed.
      */
     cam->shutdown();
-    free_all_kvmv_data();
     pthread_mutex_destroy(&vi_mutex);
 }
 

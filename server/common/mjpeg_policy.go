@@ -9,7 +9,7 @@ const MjpegMaxLongSide = 2560
 
 // MjpegBlockedResult is the ReadMjpeg result of a capture that was refused
 // because the HDMI input is 3840x2160. Native capture returns the same value
-// (IMG_MJPEG_INPUT_BLOCKED in kvm_vision.h) from kvmv_read_img.
+// (IMG_MJPEG_INPUT_BLOCKED in kvm_vision.h) from kvmv_read_mjpeg_sink.
 const MjpegBlockedResult = -8
 
 // nativeMjpegBlocked mirrors IMG_MJPEG_INPUT_BLOCKED. The cgo build asserts at

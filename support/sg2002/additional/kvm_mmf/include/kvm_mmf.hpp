@@ -15,13 +15,11 @@ typedef struct {
 	int h;
 	int fmt;
 	uint8_t jpg_quality;	// jpeg
-	int gop;				// h264/h265
 	int intput_fps;			// h264/h265
 	int output_fps;			// h264/h265
 	int bitrate;			// h264/h265
 } mmf_venc_cfg_t;
 
-static constexpr uint8_t MMF_VENC_GOP_NORMALP = 0;
 static constexpr uint8_t MMF_VENC_GOP_SMARTP = 1;
 
 // init sys
@@ -69,8 +67,6 @@ void mmf_vi_frame_release(int ch);
 int mmf_invert_format_to_mmf(int maix_format);
 
 // venc
-// The GOP selector is an additive ABI so the public mmf_venc_cfg_t layout
-// remains compatible with existing native probes and callers.
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -85,8 +81,6 @@ int mmf_vi_drop_pending(int ch);
 // pool, queue or leases.
 int mmf_vi_chn_set_enabled(int ch, int enable);
 int mmf_add_vi_channel_configured(int ch, int width, int height, int format, int buffers, int queue_depth);
-int mmf_set_venc_gop_mode(uint8_t mode);
-uint8_t mmf_get_venc_gop_mode(void);
 #ifdef __cplusplus
 }
 #endif
@@ -96,7 +90,8 @@ int mmf_enc_jpg_push_with_quality(int ch, uint8_t *data, int w, int h, int forma
 int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality);
 int mmf_enc_jpg_pop(int ch, uint8_t **data, int *size);
 int mmf_enc_jpg_free(int ch);
-int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg);
+// v2 removes the GOP field from mmf_venc_cfg_t; old libraries must not bind.
+extern "C" int mmf_add_venc_channel_v2(int ch, mmf_venc_cfg_t *cfg);
 int mmf_del_venc_channel(int ch);
 int mmf_del_venc_channel_all();
 int mmf_venc_push(int ch, uint8_t *data, int w, int h, int format);

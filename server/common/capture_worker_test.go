@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var testCaptureParams = VideoCaptureParams{Width: 2560, Height: 1440, Codec: 2, BitRate: 3000, GOP: 60, FPS: 120}
+var testCaptureParams = VideoCaptureParams{Width: 2560, Height: 1440, Codec: 2, BitRate: 3000, FPS: 120}
 
 // The worker paces a fake native reader; block makes an empty queue wait like
 // a VPSS frame wait.
@@ -87,7 +87,7 @@ func TestVideoCaptureAssemblesAccessUnits(t *testing.T) {
 	if _, data, result, ok = capture.Next(0); !ok || result != 4 || !bytes.Equal(data, []byte{0, 0, 1, 2, 5}) {
 		t.Fatalf("delta frame: ok %t result %d data %x", ok, result, data)
 	}
-	if reads, _ := fakeCaptureReads(); reads[0].args != [6]uint16{2560, 1440, 2, 3000, 60, 120} {
+	if reads, _ := fakeCaptureReads(); reads[0].args != [5]uint16{2560, 1440, 2, 3000, 120} {
 		t.Fatalf("parameters %v", reads[0].args)
 	}
 }
@@ -134,7 +134,7 @@ func TestVideoCaptureUpdateAppliesToNextRead(t *testing.T) {
 	// The thread already waits in its next read with the old parameters.
 	waitUntil(t, "read ahead", readerWaiting)
 	updated := testCaptureParams
-	updated.Width, updated.Height, updated.BitRate, updated.GOP = 1920, 1080, 2000, 30
+	updated.Width, updated.Height, updated.BitRate = 1920, 1080, 2000
 	capture.Update(updated)
 	fakeCapturePush([][]byte{{2}}, 4, 0, 0)
 	fakeCapturePush([][]byte{{3}}, 4, 0, 0)
@@ -144,7 +144,7 @@ func TestVideoCaptureUpdateAppliesToNextRead(t *testing.T) {
 		}
 	}
 	reads, _ := fakeCaptureReads()
-	if reads[1].args != [6]uint16{2560, 1440, 2, 3000, 60, 120} || reads[2].args != [6]uint16{1920, 1080, 2, 2000, 30, 120} {
+	if reads[1].args != [5]uint16{2560, 1440, 2, 3000, 120} || reads[2].args != [5]uint16{1920, 1080, 2, 2000, 120} {
 		t.Fatalf("parameters %v %v", reads[1].args, reads[2].args)
 	}
 }

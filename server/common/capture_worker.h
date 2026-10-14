@@ -22,7 +22,7 @@ typedef struct {
 } nk_capture_shared;
 typedef struct {
     uint16_t width, height, bitrate;
-    uint8_t codec, gop, fps;
+    uint8_t codec, fps;
 } nk_capture_params;
 
 /* Caller owns ready_fd; the worker owns the doorbell, which the consumer may

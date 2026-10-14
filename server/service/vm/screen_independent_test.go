@@ -88,69 +88,6 @@ func TestStreamTypePersistsCodecForOLED(t *testing.T) {
 	}
 }
 
-// SmartP was retired: a request for it is saved and applied as NormalP, so the
-// selected and active modes never differ and no restart is pending.
-func TestGOPModeRequestsApplyNormalP(t *testing.T) {
-	oldFile := screenFileMap["gop_mode"]
-	oldReader, oldApply := readActiveGOPMode, applyGOPMode
-	oldMode := common.GetScreen().GOPMode
-	screenFileMap["gop_mode"] = filepath.Join(t.TempDir(), "gop_mode")
-	active := common.GOPModeNormalP
-	var applied []uint8
-	readActiveGOPMode = func() uint8 { return active }
-	applyGOPMode = func(mode uint8) int { applied = append(applied, mode); active = mode; return 0 }
-	defer func() {
-		screenFileMap["gop_mode"] = oldFile
-		readActiveGOPMode, applyGOPMode = oldReader, oldApply
-		common.SetScreen("gop_mode", int(oldMode))
-	}()
-
-	for _, mode := range []uint8{common.GOPModeSmartP, common.GOPModeNormalP} {
-		recorder := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(recorder)
-		body := fmt.Sprintf(`{"type":"gop_mode","value":%d}`, mode)
-		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		setScreenAs(c, authn.RoleAdmin)
-		var result struct {
-			Code int `json:"code"`
-			Data struct {
-				GOPMode                uint8 `json:"gopMode"`
-				GOPModeActive          uint8 `json:"gopModeActive"`
-				GOPModeRestartRequired bool  `json:"gopModeRestartRequired"`
-			} `json:"data"`
-		}
-		if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code != 0 {
-			t.Fatalf("response %s, error %v", recorder.Body.String(), err)
-		}
-		if result.Data.GOPModeRestartRequired || result.Data.GOPMode != common.GOPModeNormalP ||
-			result.Data.GOPModeActive != common.GOPModeNormalP {
-			t.Fatalf("request for mode %d: %+v", mode, result.Data)
-		}
-		if value, err := os.ReadFile(screenFileMap["gop_mode"]); err != nil || string(value) != "0" {
-			t.Fatalf("saved mode %q, error %v", value, err)
-		}
-	}
-	if len(applied) != 2 || applied[0] != common.GOPModeNormalP || applied[1] != common.GOPModeNormalP {
-		t.Fatalf("native switch calls %v", applied)
-	}
-}
-
-func TestGOPModeRejectsInvalidValue(t *testing.T) {
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"type":"gop_mode","value":2}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	setScreenAs(c, authn.RoleAdmin)
-
-	var result struct {
-		Code int `json:"code"`
-	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code == 0 {
-		t.Fatalf("invalid GOP mode accepted: %s", recorder.Body.String())
-	}
-}
-
 func TestHDMonitorProfileReachesHardwareValidation(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -194,8 +131,6 @@ func TestScreenWritesRequireAdministratorBeforeSideEffects(t *testing.T) {
 		`{"type":"resolution","value":720}`,
 		`{"type":"quality","value":5000}`,
 		`{"type":"type","value":2}`,
-		`{"type":"gop","value":10}`,
-		`{"type":"gop_mode","value":0}`,
 		`{"type":"mjpeg_chroma","value":420}`,
 		`{"type":"monitor","value":720}`,
 		`{"type":"portrait","value":1}`,
@@ -239,13 +174,12 @@ func TestScreenWritesRequireAdministratorBeforeSideEffects(t *testing.T) {
 	}
 }
 
-func TestAdministratorCanApplySharedFPSBitrateAndGOP(t *testing.T) {
+func TestAdministratorCanApplySharedFPSAndBitrate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	before := *common.GetScreen()
 	t.Cleanup(func() {
 		common.SetScreen("fps", before.FPS)
 		common.SetScreen("quality", int(before.BitRate))
-		common.SetScreen("gop", int(before.GOP))
 	})
 	for _, key := range []string{"fps", "quality"} {
 		oldPath := screenFileMap[key]
@@ -258,7 +192,6 @@ func TestAdministratorCanApplySharedFPSBitrateAndGOP(t *testing.T) {
 	}{
 		{key: "fps", value: 75},
 		{key: "quality", value: 5000},
-		{key: "gop", value: 10},
 	} {
 		t.Run(setting.key, func(t *testing.T) {
 			recorder := httptest.NewRecorder()
@@ -280,7 +213,7 @@ func TestAdministratorCanApplySharedFPSBitrateAndGOP(t *testing.T) {
 			}
 		})
 	}
-	if current := common.GetScreen(); current.FPS != 75 || current.BitRate != 5000 || current.GOP != 10 {
+	if current := common.GetScreen(); current.FPS != 75 || current.BitRate != 5000 {
 		t.Fatalf("admin settings not published: %+v", current)
 	}
 }
@@ -326,5 +259,24 @@ func TestQualityRejectsValuesNativeReadersCannotHold(t *testing.T) {
 	}
 	if _, err := os.Stat(screenFileMap["quality"]); !os.IsNotExist(err) {
 		t.Fatal("rejected quality values were written")
+	}
+}
+
+// The GOP length and mode settings were retired: the encoder runs NormalP with
+// an IDR on request and a periodic safety IDR.
+func TestRetiredGOPSettingsAreRejected(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, body := range []string{`{"type":"gop","value":10}`, `{"type":"gop_mode","value":0}`} {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		setScreenAs(c, authn.RoleAdmin)
+		var result struct {
+			Code int `json:"code"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code != -1 {
+			t.Fatalf("%s accepted: %s", body, recorder.Body.String())
+		}
 	}
 }

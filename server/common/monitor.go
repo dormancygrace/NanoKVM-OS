@@ -38,7 +38,7 @@ func MonitorPortraitStatus() (enabled bool, supported bool) {
 
 // PortraitSupported reports whether the portrait monitor profile can be
 // applied on this device. The native extended capture path requires the
-// QHD video memory (54 MiB, see VideoPool).
+// QHD video memory (at least 54 MiB, see VideoPool).
 func PortraitSupported() bool {
 	_, supported := MonitorPortraitStatus()
 	return supported

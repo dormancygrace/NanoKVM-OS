@@ -39,7 +39,7 @@ Three fixed allocations replace the CMA/Fixed combinations:
 | Mode | Reserved video memory |
 | --- | --- |
 | **FHD** | **40 MiB** |
-| **QHD / QHD portrait** | **54 MiB** |
+| **QHD / QHD portrait** | **56 MiB** |
 | **UHD** | **104 MiB** |
 
 New installations default to FHD. Older CMA/Fixed/QHD Fixed selections migrate to QHD, FHD Fixed to FHD, and UHD stays UHD. Changing the mode requires a reboot.

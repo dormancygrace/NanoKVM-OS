@@ -9,7 +9,7 @@ flock -x 9
 payload=/usr/lib/nanokvm/boot
 selection=/etc/kvm/video-memory-mode
 # Video memory modes, each a fixed carveout: fhd (1920x1080, 40 MiB, the
-# default), qhd (2560x1440, 54 MiB) and uhd (3840x2160, 104 MiB). Earlier
+# default), qhd (2560x1440, 56 MiB) and uhd (3840x2160, 104 MiB). Earlier
 # releases also had cma (128 MiB CMA), fixed, fhd-fixed and qhd-fixed; they
 # keep their capability: cma, fixed and qhd-fixed -> qhd, fhd-fixed -> fhd.
 legacy_mode() { case "$1" in cma|fixed|qhd-fixed) echo qhd;; fhd-fixed) echo fhd;; *) echo "$1";; esac; }

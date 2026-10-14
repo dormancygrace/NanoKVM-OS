@@ -754,7 +754,7 @@
       "videoMode": "ビデオメモリの割り当て",
       "videoModeDescription": "ビデオ専用に予約されるメモリで、Linux では使用されません。FHD がデフォルトで、1920 × 1080 には十分です。縦向きモードと 2560 × 1440 には QHD、3840 × 2160 には UHD が必要です。変更は再起動後に適用されます。",
       "videoRes_fhd": "FHD — 1920 × 1080 · 40 MiB",
-      "videoRes_qhd": "QHD — 2560 × 1440 · 54 MiB",
+      "videoRes_qhd": "QHD — 2560 × 1440 · 56 MiB",
       "videoRes_uhd": "UHD — 3840 × 2160 · 104 MiB",
       "zramAuto": "RAM の半分（{{size}} MiB）",
       "videoActive": "現在有効",

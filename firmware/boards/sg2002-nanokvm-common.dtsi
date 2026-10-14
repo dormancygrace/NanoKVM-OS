@@ -59,8 +59,9 @@
 		/* Video memory, as the default FHD boot image: a 40 MiB
 		 * carveout that Linux never uses. Its largest use is 39.8 MiB
 		 * (1080x1920 at 100 Hz with MJPEG). platform/build.sh derives
-		 * the other boot images from this node: QHD 54 MiB (1440p60
-		 * H.265 with MJPEG holds 53.9 MiB) and UHD 104 MiB (2160p30
+		 * the other boot images from this node: QHD 56 MiB (1440p60
+		 * H.265 with MJPEG holds 53.9 MiB; the rest absorbs carveout
+		 * fragmentation when the codec changes) and UHD 104 MiB (2160p30
 		 * H.265 holds 102.7 MiB; MJPEG is not available at 2160p).
 		 * There is no reusable CMA variant any more: the encoders keep
 		 * their buffers between viewers, so it lent Linux almost

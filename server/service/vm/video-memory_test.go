@@ -193,7 +193,7 @@ func TestVideoMemoryPoolsMatchTheGates(t *testing.T) {
 		uhd              bool
 	}{
 		{"fhd", 40, false, false, false, false},
-		{"qhd", 54, false, true, true, false},
+		{"qhd", 56, false, true, true, false},
 		{"uhd", 104, false, true, true, true},
 	} {
 		pool, ok := videoMemoryPool(tc.mode)

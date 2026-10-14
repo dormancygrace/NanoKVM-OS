@@ -754,7 +754,7 @@
       "videoMode": "Videospeicherzuweisung",
       "videoModeDescription": "Ausschließlich für Video reservierter Speicher; Linux verwendet ihn nie. FHD ist die Standardeinstellung und reicht für 1920 × 1080. Hochformat und 2560 × 1440 erfordern QHD, 3840 × 2160 erfordert UHD. Änderungen werden nach einem Neustart wirksam.",
       "videoRes_fhd": "FHD — 1920 × 1080 · 40 MiB",
-      "videoRes_qhd": "QHD — 2560 × 1440 · 54 MiB",
+      "videoRes_qhd": "QHD — 2560 × 1440 · 56 MiB",
       "videoRes_uhd": "UHD — 3840 × 2160 · 104 MiB",
       "zramAuto": "Hälfte des RAM ({{size}} MiB)",
       "videoActive": "Derzeit aktiv",

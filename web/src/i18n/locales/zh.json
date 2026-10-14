@@ -754,7 +754,7 @@
       "videoMode": "视频内存分配",
       "videoModeDescription": "仅供视频使用的预留内存，Linux 不会使用。默认为 FHD，足以支持 1920 × 1080。纵向模式和 2560 × 1440 需要 QHD，3840 × 2160 需要 UHD。更改在重启后生效。",
       "videoRes_fhd": "FHD — 1920 × 1080 · 40 MiB",
-      "videoRes_qhd": "QHD — 2560 × 1440 · 54 MiB",
+      "videoRes_qhd": "QHD — 2560 × 1440 · 56 MiB",
       "videoRes_uhd": "UHD — 3840 × 2160 · 104 MiB",
       "zramAuto": "内存的一半（{{size}} MiB）",
       "videoActive": "当前生效",

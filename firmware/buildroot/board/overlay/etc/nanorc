@@ -1,2 +1,0 @@
-# NanoKVM OS: bundled syntax definitions and normal UTF-8 terminal behavior.
-include "/usr/share/nano/*.nanorc"

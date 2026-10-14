@@ -21,8 +21,8 @@ base  file  /etc/init.d/nanokvm-usb-internet             0755  firmware/alpine/o
 base  file  /usr/sbin/nkos-usb-internet                  0755  @server/nkos-usb-internet
 base  file  /etc/apk/commit_hooks.d/50-nanokvm-apply      0755  firmware/alpine/compat/50-nanokvm-apply
 base  file  /etc/apk/protected_paths.d/nanokvm.list       0644  %protected-paths
-base  file  /etc/chrony.conf                              0644  firmware/buildroot/board/overlay/etc/chrony.conf
-base  file  /etc/console_handler.sh                       0755  firmware/buildroot/board/overlay/etc/console_handler.sh
+base  file  /etc/chrony.conf                              0644  firmware/alpine/etc/chrony.conf
+base  file  /etc/console_handler.sh                       0755  firmware/alpine/etc/console_handler.sh
 base  file  /etc/nanokvm-buildroot                        0644  %nanokvm-buildroot
 # /etc/profile.d/nanokvm-banner.sh is added by the nanokvm-base APKBUILD.
 base  file  /etc/init.d/nanokvm-app                       0755  firmware/alpine/openrc/nanokvm-app
@@ -168,12 +168,12 @@ firmware-sg2002 tree /lib/firmware                        0644  @firmware/lib/fi
 firmware-sg2002 tree /usr/share/fw_vcodec                 0644  @firmware/fw_vcodec
 firmware-sg2002 tree /usr/share/nanokvm/edid              0644  @tools/edid
 firmware-sg2002 tree /usr/share/licenses/nanokvm-firmware-sg2002 0644 @firmware/licenses
-firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini       0644 firmware/buildroot/board/sensor-data/sensor_cfg.ini
-firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.LT    0644 firmware/buildroot/board/sensor-data/sensor_cfg.ini
-firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.OA    0644 firmware/buildroot/board/sensor-data/sensor_cfg.ini.OA
-firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.SC035 0644 firmware/buildroot/board/sensor-data/sensor_cfg.ini.SC035
-firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.alpha 0644 firmware/buildroot/board/overlay/mnt/data/sensor_cfg.ini.alpha
-firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.beta  0644 firmware/buildroot/board/overlay/mnt/data/sensor_cfg.ini.beta
+firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini       0644 firmware/boards/sensor-defaults/sensor_cfg.ini
+firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.LT    0644 firmware/boards/sensor-defaults/sensor_cfg.ini
+firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.OA    0644 firmware/boards/sensor-defaults/sensor_cfg.ini.OA
+firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.SC035 0644 firmware/boards/sensor-defaults/sensor_cfg.ini.SC035
+firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.alpha 0644 firmware/boards/sensor-defaults/sensor_cfg.ini.alpha
+firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.beta  0644 firmware/boards/sensor-defaults/sensor_cfg.ini.beta
 
 # nanokvm-kernel-sg2002 and nanokvm-kmod-sg2002: the platform outputs
 kernel-sg2002 tree /usr/lib/nanokvm/boot                  0644  @boot

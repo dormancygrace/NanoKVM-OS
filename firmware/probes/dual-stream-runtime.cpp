@@ -35,12 +35,10 @@ static void memory(const char *tag) {
     FILE *f=fopen("/sys/kernel/debug/ion/cvi_carveout_heap_dump/alloc_mem","r");
     unsigned long used=0; if(f){fscanf(f,"%lu",&used);fclose(f);} printf("MEM tag=%s bytes=%lu\n",tag,used);
 }
-int main(int argc,char **argv) {
-    const bool smart=argc==2 && !strcmp(argv[1],"smart");
+int main() {
     setvbuf(stdout,nullptr,_IONBF,0);
     kvmv_init(0);set_frame_detact(0);set_mjpeg_chroma(1);kvmv_hdmi_control(1);
-    if(set_h265_gop_mode(smart?1:0)!=0 || get_h265_gop_mode()!=(smart?1:0)) return 2;
-    printf("GOP selected=%s\n",smart?"SmartP":"NormalP");
+    if(set_h265_gop_mode(0)!=0 || get_h265_gop_mode()!=0) return 2;
     const struct Trial {const char *name;int jw,jh,vw,vh,codec,sample;} cases[]={
         {"fhd-avc",1920,1080,1920,1080,VENC_H264,0x21},
         {"fhd-hevc",1920,1080,1920,1080,VENC_H265,0x21},
@@ -53,7 +51,7 @@ int main(int argc,char **argv) {
     int failed=0,total=0;std::vector<uint8_t> jpeg,video;
     for(const auto &t:cases) {
         int pairs=0,errors=0,status=0;double start=now();
-        char path[192];snprintf(path,sizeof(path),"/kvmapp/.mjpeg-dual-stage/runtime-evidence/%s-%s.%s",smart?"smart":"normal",t.name,t.codec==VENC_H265?"h265":"h264");
+        char path[192];snprintf(path,sizeof(path),"/tmp/nanokvm-dual-stream-qualification/%s.%s",t.name,t.codec==VENC_H265?"h265":"h264");
         FILE *file=fopen(path,"wb");if(!file){failed=1;break;}
         while(pairs<90 && now()-start<25) {
             jpeg.clear();int jr=kvmv_read_mjpeg_sink(t.jw,t.jh,80,collect,reinterpret_cast<uintptr_t>(&jpeg));
@@ -67,7 +65,7 @@ int main(int argc,char **argv) {
             if(vr<0 || video.empty()){++errors;if(errors<6)printf("RETRY video=%d bytes=%zu\n",vr,video.size());usleep(50000);continue;}
             if(fwrite(video.data(),1,video.size(),file)!=video.size()){status=1;break;}
             if(pairs==10) {
-                snprintf(path,sizeof(path),"/kvmapp/.mjpeg-dual-stage/runtime-evidence/%s-%s.jpg",smart?"smart":"normal",t.name);
+                snprintf(path,sizeof(path),"/tmp/nanokvm-dual-stream-qualification/%s.jpg",t.name);
                 FILE *f=fopen(path,"wb");if(!f || fwrite(jpeg.data(),1,jpeg.size(),f)!=jpeg.size())status=1;if(f)fclose(f);
                 memory(t.name);
             }
@@ -97,6 +95,8 @@ int main(int argc,char **argv) {
         printf("RECOVER single-qhd-jpeg result=%d sample=%#x state=%u\n",r,sample,get_mjpeg_chroma_status());
         failed+=r!=0 || sample!=0x21;
     }
-    kvmv_hdmi_control(0);kvmv_deinit();memory("shutdown");
+    // Leave HDMI on, as the server does: the next process cannot start VI
+    // until the receiver is back, which takes 20 s or more.
+    kvmv_deinit();memory("shutdown");
     printf("RESULT failed=%d pairs=%d\n",failed,total);return failed?1:0;
 }

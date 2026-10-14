@@ -1,8 +1,8 @@
-// Bounded device qualification of the real borrowed JPEG path and live Qfactor.
+// Bounded device qualification of the real borrowed JPEG path and its quality.
+// The vendor encoder API is internal to libkvm_mmf, so each quality is checked
+// through the JPEG itself: its DQT tables stay the same for one quality and
+// differ between qualities.
 #include "kvm_vision.h"
-extern "C" {
-#include "cvi_venc.h"
-}
 #include <cerrno>
 #include <cstdint>
 #include <cstdio>
@@ -55,20 +55,25 @@ int main(int argc,char **argv) {
       nv16=trial.nv16;width=trial.width;height=trial.height;
       if(set_mjpeg_chroma(nv16?1:0)) {status=1;break;}
       const char *mode=nv16?"nv16":"nv21";
-      int frames=0;const double trial_start=now();
+      int frames=0;const double trial_start=now();uint64_t quality_tables[4]{};
       while(frames<48 && now()-trial_start<20) {
         jpeg.clear();int q=qualities[frames/12];double before=now();
         int result=kvmv_read_mjpeg_sink(width,height,q,copy_frame,reinterpret_cast<uintptr_t>(&jpeg));
         if(result) {++errors;usleep(20000);continue;}
         unsigned actual_w=0,actual_h=0,sampling=0;uint64_t tables=0;
-        VENC_JPEG_PARAM_S params{};int queried=CVI_VENC_GetJpegParam(0,&params);
+        const int group=frames/12;bool tables_ok=true;
         if(!inspect(jpeg,&actual_w,&actual_h,&sampling,&tables) || sampling!=(nv16?0x21U:0x22U)
-            || actual_w!=width || actual_h!=height || queried || params.u32Qfactor!=static_cast<unsigned>(q)) {
-            printf("FAIL mode=%s frame=%d sampling=%#x q=%d actual_q=%u query=%#x\n",mode,frames,sampling,q,params.u32Qfactor,queried);status=1;break;
+            || actual_w!=width || actual_h!=height) tables_ok=false;
+        else if(frames%12==0) {
+            for(int previous=0;previous<group;++previous) if(quality_tables[previous]==tables) tables_ok=false;
+            quality_tables[group]=tables;
+        } else if(quality_tables[group]!=tables) tables_ok=false;
+        if(!tables_ok) {
+            printf("FAIL mode=%s frame=%d sampling=%#x q=%d dqt=%016llx\n",mode,frames,sampling,q,static_cast<unsigned long long>(tables));status=1;break;
         }
         if(((get_mjpeg_chroma_status() & MJPEG_CHROMA_ACTIVE_422)!=0)!=nv16) {status=1;break;}
-        printf("JPEG mode=%s frame=%d size=%zu width=%u height=%u sampling=%#x q=%d actual_q=%u dqt=%016llx ms=%.3f\n",
-            mode,frames,jpeg.size(),actual_w,actual_h,sampling,q,params.u32Qfactor,static_cast<unsigned long long>(tables),(now()-before)*1000);
+        printf("JPEG mode=%s frame=%d size=%zu width=%u height=%u sampling=%#x q=%d dqt=%016llx ms=%.3f\n",
+            mode,frames,jpeg.size(),actual_w,actual_h,sampling,q,static_cast<unsigned long long>(tables),(now()-before)*1000);
         if(frames%12==0) {
             char name[160];snprintf(name,sizeof(name),"/run/nanokvm-mjpeg-qualification/%s-%ux%u-q%d.jpg",mode,width,height,q);
             FILE *file=fopen(name,"wb");if(!file || fwrite(jpeg.data(),1,jpeg.size(),file)!=jpeg.size())status=1;
@@ -81,7 +86,8 @@ int main(int argc,char **argv) {
       printf("TRIAL mode=%s width=%u height=%u frames=%d status=%d\n",mode,width,height,frames,status);
       if(status)break;
     }
-    kvmv_hdmi_control(0);kvmv_deinit();
+    // Leave HDMI on, as the server does (see dual-stream-runtime.cpp).
+    kvmv_deinit();
     printf("RESULT mode=%s frames=%d startup_or_capture_errors=%d elapsed=%.3f status=%d\n",argv[1],total_frames,errors,now()-start,status);
     return status;
 }

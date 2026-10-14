@@ -1,6 +1,6 @@
 // Timestamps are sender-relative microseconds. Map them to the receiver clock;
 // no synchronization between the two machines is assumed.
-export type TimedFrame = { timestamp: number; close(): void };
+type TimedFrame = { timestamp: number; close(): void };
 
 export class DirectPlayout<T extends TimedFrame> {
   private frames: T[] = [];

@@ -67,11 +67,6 @@ export function getInputRegion() {
   return http.get('/api/vm/input-region');
 }
 
-// save the device-level absolute mouse input region
-export function setInputRegion(region: InputRegion) {
-  return http.post('/api/vm/input-region', { mode: 'manual', ...region });
-}
-
 export function setInputRegionConfig(
   region: InputRegion,
   regions: InputRegion[],
@@ -145,12 +140,12 @@ export function getHdmiState() {
 }
 
 // enable HDMI
-export function enableHdmi() {
+function enableHdmi() {
   return http.post('/api/vm/hdmi/enable');
 }
 
 // disable HDMI
-export function disableHdmi() {
+function disableHdmi() {
   return http.post('/api/vm/hdmi/disable');
 }
 

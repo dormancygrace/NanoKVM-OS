@@ -61,5 +61,3 @@ export class KeyboardReport {
     return this.pressedKeys.size;
   }
 }
-
-export const keyboard = new KeyboardReport();

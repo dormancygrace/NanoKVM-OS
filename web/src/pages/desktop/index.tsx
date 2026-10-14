@@ -6,7 +6,7 @@ import { useMediaQuery } from 'react-responsive';
 
 import { getEncoderState } from '@/api/stream.ts';
 import { getInputRegion, getScreen, getVideoCapabilities, setControlRegionMode } from '@/api/vm.ts';
-import { ControlRegionConfig, InputRegion } from '@/types';
+import { ControlRegionConfig } from '@/types';
 import { adoptLiveCapture } from '@/lib/capture-control.ts';
 import { getEncoderCodec, initializeEncoderCodec } from '@/lib/encoder.ts';
 import { refreshLiveStatus, subscribeLiveStatus } from '@/lib/live-status.ts';
@@ -18,7 +18,6 @@ import {
   controlRegionModeAtom,
   inputRegionAtom,
   isHdmiEnabledAtom,
-  manualInputRegionAtom,
   manualRegionsAtom,
   resolutionAtom,
   selectedManualRegionAtom,
@@ -42,8 +41,7 @@ import { AutoRegion } from './screen/auto-region.tsx';
 import {
   getMediaSize,
   isInputRegionCompatible,
-  isMediaReady,
-  isValidInputRegion
+  isMediaReady
 } from './screen/geometry.ts';
 import { InputRegionOverlay } from './screen/input-region-overlay.tsx';
 import { ManualRegion } from './screen/manual-region.tsx';
@@ -153,7 +151,6 @@ export const Desktop = () => {
   const [resolution, setResolution] = useAtom(resolutionAtom);
   const [inputRegion, setInputRegion] = useAtom(inputRegionAtom);
   const [controlRegionMode, setControlRegionModeState] = useAtom(controlRegionModeAtom);
-  const setManualInputRegion = useSetAtom(manualInputRegionAtom);
   const setManualRegions = useSetAtom(manualRegionsAtom);
   const setSelectedManualRegion = useSetAtom(selectedManualRegionAtom);
   const setSelectedOriginalResolution = useSetAtom(selectedOriginalResolutionAtom);
@@ -228,7 +225,6 @@ export const Desktop = () => {
         if (active) setResolution({ width: 0, height: 0 });
       });
     setInputRegion(null);
-    setManualInputRegion(null);
     setManualRegions([]);
     setSelectedManualRegion('');
     setSelectedOriginalResolution('');
@@ -238,16 +234,12 @@ export const Desktop = () => {
       .then((rsp) => {
         const config = rsp.data as ControlRegionConfig | null;
         const mode = config?.mode || 'off';
-        const manualRegion = isValidInputRegion(config as InputRegion)
-          ? (config as InputRegion)
-          : null;
         const selectedResolution = config?.selectedResolution || '';
         const regions = config?.regions || [];
         const selectedRegion = config?.selectedRegion || '';
         const selectedManualRegion = regions.find(
           (region) => `${region.width}x${region.height}` === selectedRegion
         );
-        setManualInputRegion(manualRegion);
         setManualRegions(regions);
         setSelectedManualRegion(selectedRegion);
         setSelectedOriginalResolution(selectedResolution);
@@ -257,7 +249,6 @@ export const Desktop = () => {
       .catch(() => {
         setControlRegionModeState('off');
         setInputRegion(null);
-        setManualInputRegion(null);
         setManualRegions([]);
         setSelectedManualRegion('');
         setSelectedOriginalResolution('');
@@ -271,7 +262,6 @@ export const Desktop = () => {
     activeVideoMode,
     setControlRegionModeState,
     setInputRegion,
-    setManualInputRegion,
     setManualRegions,
     setResolution,
     setSelectedManualRegion,

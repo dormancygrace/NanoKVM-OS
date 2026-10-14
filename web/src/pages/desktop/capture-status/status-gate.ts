@@ -2,7 +2,7 @@ import type { CaptureStatus } from './model';
 
 // A single failed encode is not a persistent display failure. Keep the last
 // picture while it recovers, but show an outage even if no further status arrives.
-export const TRANSIENT_CAPTURE_ERROR_DELAY_MS = 500;
+const TRANSIENT_CAPTURE_ERROR_DELAY_MS = 500;
 
 export function createCaptureStatusGate(
   publish: (status: CaptureStatus | null) => void,

@@ -15,7 +15,7 @@ import {
 
 const HIDE_TIMEOUT = 5000;
 
-export interface MenuVisibilityState {
+interface MenuVisibilityState {
   isInitialized: boolean;
   isMenuExpanded: boolean;
   isMenuHidden: boolean;

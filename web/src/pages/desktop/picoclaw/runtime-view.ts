@@ -7,11 +7,11 @@ import type {
   PicoclawTransportState
 } from '@/jotai/picoclaw.ts';
 
-export type PicoclawSidebarMode = 'loading' | 'install' | 'model' | 'chat';
+type PicoclawSidebarMode = 'loading' | 'install' | 'model' | 'chat';
 
-export type PicoclawControlPrimaryAction = 'grant' | 'release' | 'none';
+type PicoclawControlPrimaryAction = 'grant' | 'release' | 'none';
 
-export type PicoclawControlViewModel = {
+type PicoclawControlViewModel = {
   mode: AIControlMode;
   label: string;
   description: string;

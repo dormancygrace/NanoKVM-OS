@@ -14,7 +14,7 @@ export type LiveStatus = {
 
 // status is null when the request failed. startedAt (performance.now() when
 // the request was sent) lets a listener drop data older than its own change.
-export type LiveStatusListener = (status: LiveStatus | null, startedAt: number) => void;
+type LiveStatusListener = (status: LiveStatus | null, startedAt: number) => void;
 
 export const liveStatusInterval = 3000;
 

@@ -1,8 +1,8 @@
 export type InputAdapterMode = 'auto' | 'pointer-lock' | 'touchpad';
 
-export type MouseModeValue = 'absolute' | 'relative';
+type MouseModeValue = 'absolute' | 'relative';
 
-export type PointerCapabilities = {
+type PointerCapabilities = {
   hasTouch: boolean;
   coarsePointer: boolean;
   finePointer: boolean;

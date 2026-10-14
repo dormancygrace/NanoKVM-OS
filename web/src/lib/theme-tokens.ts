@@ -12,5 +12,3 @@ export const themeTokens = {
   danger: '#f87171',
   info: '#38bdf8'
 } as const;
-
-export type ThemeToken = keyof typeof themeTokens;

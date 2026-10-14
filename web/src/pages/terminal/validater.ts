@@ -46,7 +46,7 @@ const ALLOWED_STOP_BITS = ['1', '2'];
 
 const PROHIBITED_PORT_CHARS_REGEX = /[;&|`$()<>!*?"'\s\\]/;
 
-export function validatePicocomParameters(params: PicocomParameters) {
+function validatePicocomParameters(params: PicocomParameters) {
   if (!params.port || params.port.trim() === '') {
     return false;
   }

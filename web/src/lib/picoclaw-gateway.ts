@@ -1,35 +1,11 @@
 import { clearPicoclawSessionId, setPicoclawSessionId } from '@/lib/picoclaw-storage.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 
-export type GatewayTransportState = 'disconnected' | 'connecting' | 'connected' | 'error';
+type GatewayTransportState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
-export type GatewayRunState = 'idle' | 'busy';
+type GatewayRunState = 'idle' | 'busy';
 
-export type GatewayRuntimeStatus = {
-  ready: boolean;
-  installed: boolean;
-  installing: boolean;
-  install_progress?: number;
-  install_stage?: string;
-  install_path?: string;
-  model_configured: boolean;
-  model_name?: string;
-  status: string;
-  config_error?: string;
-  last_error?: string;
-  checked_at?: string;
-  current_session?: string;
-  control_mode: 'off' | 'mcp' | 'picoclaw';
-  transitioning?: boolean;
-  control?: GatewayControlStatus;
-  capabilities?: {
-    chat: boolean;
-    read_only_tools: boolean;
-    device_write: boolean;
-  };
-};
-
-export type GatewayControlStatus = {
+type GatewayControlStatus = {
   mode: 'off' | 'mcp' | 'picoclaw';
   transitioning: boolean;
   can_control: boolean;
@@ -65,7 +41,7 @@ export type GatewayError = {
   raw?: unknown;
 };
 
-export type GatewayClose = {
+type GatewayClose = {
   code: number;
   reason: string;
 };

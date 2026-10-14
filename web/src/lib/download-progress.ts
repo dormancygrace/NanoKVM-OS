@@ -1,4 +1,4 @@
-export type TransferProgress = {
+type TransferProgress = {
   percent: number | null;
   bytes: number | null;
   total: number | null;

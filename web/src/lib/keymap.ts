@@ -1,5 +1,5 @@
 // Modifier key bit positions
-export const ModifierBits = {
+const ModifierBits = {
   LeftCtrl: 1 << 0,
   LeftShift: 1 << 1,
   LeftAlt: 1 << 2,
@@ -11,7 +11,7 @@ export const ModifierBits = {
 } as const;
 
 // Map event.code to HID modifier bit
-export const ModifierMap: Record<string, number> = {
+const ModifierMap: Record<string, number> = {
   ControlLeft: ModifierBits.LeftCtrl,
   ShiftLeft: ModifierBits.LeftShift,
   AltLeft: ModifierBits.LeftAlt,
@@ -23,7 +23,7 @@ export const ModifierMap: Record<string, number> = {
 };
 
 // Map event.code to HID keycode
-export const KeycodeMap: Record<string, number> = {
+const KeycodeMap: Record<string, number> = {
   // Letters
   KeyA: 0x04,
   KeyB: 0x05,

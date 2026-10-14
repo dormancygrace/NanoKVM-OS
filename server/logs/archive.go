@@ -20,6 +20,15 @@ import (
 
 const ArchiveInterval = time.Minute
 
+// A source file grows by appended lines up to archiveFileLimit and is then
+// rewritten with the current snapshot. Reads still return at most MaxBytes
+// and MaxLines, the newest ones, exactly as from a rewritten file.
+const archiveFileLimit = 2 * MaxBytes
+
+// The end of the last written snapshot. Finding it again in the next
+// snapshot gives the lines to append.
+const appendAnchorBytes = 4096
+
 var sources = []string{"system", "kernel", "application"}
 var bootSlots = []string{"current", "previous", "older"}
 var validBootID = regexp.MustCompile(`^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$`)
@@ -44,13 +53,17 @@ type bootRecord struct {
 }
 
 // Archive owns three fixed directories on the persistent Alpine filesystem.
-// Only sanitized snapshots reach disk. Each source occupies at most one MiB.
+// Only sanitized snapshots reach disk. Each source occupies at most two MiB.
 type Archive struct {
 	mu      sync.Mutex
 	flushMu sync.Mutex
 	root    *os.Root
 	record  bootRecord
 	digests map[string][32]byte
+	// anchors holds the tail of what each current/<source>.log ends with.
+	// Empty until this process has written the file, so the first save
+	// after a start rewrites it.
+	anchors map[string]string
 	failed  bool
 }
 
@@ -82,7 +95,7 @@ func NewArchive(directory, bootID string, startedAt int64) (*Archive, error) {
 	if err = root.Chmod(".", 0700); err != nil {
 		return nil, err
 	}
-	a := &Archive{root: root, digests: map[string][32]byte{}}
+	a := &Archive{root: root, digests: map[string][32]byte{}, anchors: map[string]string{}}
 	current, err := a.loadRecord("current")
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
@@ -216,6 +229,81 @@ func (a *Archive) atomicWrite(name string, data []byte) error {
 	return directory.Sync()
 }
 
+// writeSource brings current/<source>.log up to date with content. Usually
+// that appends the lines after the previous snapshot's end, so a busy log
+// does not rewrite up to a MiB of the SD card every minute. Anything else
+// (first save of this process, no overlap, the file limit) rewrites it.
+func (a *Archive) writeSource(source, content string) error {
+	name := "current/" + source + ".log"
+	if anchor := a.anchors[source]; anchor != "" {
+		// The anchor must occur exactly once: repeated lines (for example a run
+		// of redacted entries) could otherwise match too late and drop lines.
+		if at := strings.LastIndex(content, anchor); at >= 0 && strings.Index(content, anchor) == at {
+			appended, err := a.appendFile(name, content[at+len(anchor):])
+			if err != nil {
+				// The file may now hold part of the text: rewrite it next time.
+				delete(a.anchors, source)
+				return err
+			}
+			if appended {
+				a.anchors[source] = appendAnchor(content)
+				return nil
+			}
+		}
+	}
+	// Forget the old end before touching the file: if the rewrite fails,
+	// the next save must not append to an unknown state.
+	delete(a.anchors, source)
+	if err := a.atomicWrite(name, []byte(content)); err != nil {
+		return err
+	}
+	a.anchors[source] = appendAnchor(content)
+	return nil
+}
+
+func appendAnchor(content string) string {
+	return content[max(0, len(content)-appendAnchorBytes):]
+}
+
+// appendFile adds text to an existing archive file and syncs it. It returns
+// false, writing nothing, when the file would exceed archiveFileLimit.
+func (a *Archive) appendFile(name, text string) (bool, error) {
+	if text == "" {
+		return true, nil
+	}
+	before, err := a.root.Lstat(name)
+	if err != nil {
+		return false, err
+	}
+	if !before.Mode().IsRegular() {
+		return false, errors.New("invalid archive file")
+	}
+	if before.Size()+int64(len(text)) > archiveFileLimit {
+		return false, nil
+	}
+	file, err := a.root.OpenFile(name, os.O_WRONLY|os.O_APPEND|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return false, err
+	}
+	info, err := file.Stat()
+	if err == nil && !os.SameFile(before, info) {
+		err = errors.New("archive file changed")
+	}
+	if err == nil {
+		_, err = file.WriteString(text)
+	}
+	if err == nil {
+		err = file.Sync()
+	}
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func readArchiveFile(root *os.Root, name string, limit int64) ([]byte, error) {
 	before, err := root.Lstat(name)
 	if err != nil {
@@ -275,7 +363,7 @@ func (a *Archive) Read(slot, source string) (Snapshot, error) {
 	if !ok {
 		return Snapshot{}, os.ErrNotExist
 	}
-	data, err := readArchiveFile(a.root, slot+"/"+source+".log", MaxBytes)
+	data, err := readArchiveFile(a.root, slot+"/"+source+".log", archiveFileLimit)
 	if err != nil {
 		return Snapshot{}, err
 	}
@@ -322,7 +410,7 @@ func (a *Archive) Save(snapshots []Snapshot) (saveErr error) {
 		if previous, ok := a.digests[snapshot.Source]; ok && previous == digest {
 			continue
 		}
-		if err := a.atomicWrite("current/"+snapshot.Source+".log", []byte(snapshot.Content)); err != nil {
+		if err := a.writeSource(snapshot.Source, snapshot.Content); err != nil {
 			return err
 		}
 		digests[snapshot.Source] = digest

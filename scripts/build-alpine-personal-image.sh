@@ -99,16 +99,55 @@ KEYS_RAW=$PARSE_TMP/keys.raw
 : > "$KEYS_RAW"
 BUILD_TMP=
 
+# Fail closed if mount information is unavailable. mountinfo escapes whitespace
+# and backslashes; encode the canonical directory before comparing field 5.
+# Check every descendant, including mounts created by package install scripts.
+tree_is_unmounted() {
+	CLEANUP_TREE=$1 awk '
+		BEGIN {
+			path = ENVIRON["CLEANUP_TREE"]
+			for (i = 1; i <= length(path); i++) {
+				c = substr(path, i, 1)
+				if (c == " ") c = "\\040"
+				else if (c == "\t") c = "\\011"
+				else if (c == "\n") c = "\\012"
+				else if (c == "\\") c = "\\134"
+				target = target c
+			}
+		}
+		{ seen = 1 }
+		$5 == target || index($5, target "/") == 1 { mounted = 1 }
+		END { exit (!seen || mounted) ? 1 : 0 }
+	' /proc/self/mountinfo
+}
+
+remove_unmounted_tree() {
+	[ -n "$1" ] || return 0
+	# Resolve relative paths and symlinked parents exactly as the kernel does.
+	tree=$(CDPATH='' cd -P -- "$1" && pwd -P) || return 1
+	if ! tree_is_unmounted "$tree"; then
+		echo "$PROGRAM: retaining $tree: mounts remain or mount inspection failed" >&2
+		return 1
+	fi
+	rm -rf -- "$tree"
+}
+
 cleanup() {
+	cleanup_status=$?
+	trap - EXIT INT TERM HUP
 	if [ -n "${STAGE_ROOT:-}" ]; then
 		umount "$STAGE_ROOT/sys" 2>/dev/null || true
 		umount "$STAGE_ROOT/proc" 2>/dev/null || true
 		umount "$STAGE_ROOT/dev" 2>/dev/null || true
 	fi
-	[ -z "$BUILD_TMP" ] || rm -rf "$BUILD_TMP"
-	rm -rf "$PARSE_TMP"
+	remove_unmounted_tree "$BUILD_TMP" || cleanup_status=1
+	remove_unmounted_tree "$PARSE_TMP" || cleanup_status=1
+	exit "$cleanup_status"
 }
-trap cleanup EXIT INT TERM HUP
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in

@@ -335,18 +335,18 @@ int kvm_wifi_exist()
 void kvm_update_usb_state()
 {
 	// usb_state, hid_state, rndis_state, udisk_state
-	FILE *fp;
-	int file_size;
-	uint8_t RW_Data[10];		
-	fp = fopen("/sys/class/udc/4340000.usb/state", "r");
-	fseek(fp, 0, SEEK_END);
-	file_size = ftell(fp); 
-	fseek(fp, 0, SEEK_SET);
-	fread(RW_Data, sizeof(char), file_size, fp);
-	fclose(fp);
-	if(RW_Data[0] == 'n') kvm_sys_state.usb_state = 0;
-	else if(RW_Data[0] == 'c') kvm_sys_state.usb_state = 1;
-	else kvm_sys_state.usb_state = -1;
+	// sysfs reports a nominal size, not the length of its current value.
+	// Only the first character is needed; never seek or trust st_size/ftell.
+	kvm_sys_state.usb_state = -1;
+	FILE *fp = fopen("/sys/class/udc/4340000.usb/state", "r");
+	if (fp != NULL) {
+		const int state = fgetc(fp);
+		if (!ferror(fp)) {
+			if (state == 'n') kvm_sys_state.usb_state = 0;
+			else if (state == 'c') kvm_sys_state.usb_state = 1;
+		}
+		fclose(fp);
+	}
 	// hid_state & udisk_state (rndis_state单独处理)
 	if(kvm_sys_state.usb_state == 1){
 		kvm_sys_state.hid_state =

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -36,7 +37,24 @@ func serialTestDevice(t *testing.T) (*os.File, string) {
 
 func serialTestSession(t *testing.T, s *serialSettings) (*websocket.Conn, <-chan error) {
 	t.Helper()
-	return serialTestSessionWithRunner(t, s, runSerialSession)
+	// Raw termios alone does not mean startup is finished: openSerial flushes
+	// the tty afterwards. Send test traffic only once that flush has completed.
+	ready := make(chan struct{})
+	var once sync.Once
+	markReady := func() { once.Do(func() { close(ready) }) }
+	ws, done := serialTestSessionWithRunner(t, s, func(ws *websocket.Conn, s *serialSettings) error {
+		defer markReady() // missing/busy devices finish without entering poll
+		return runSerialSessionWithPoll(ws, s, func(fds []unix.PollFd, timeout int) (int, error) {
+			markReady()
+			return unix.Poll(fds, timeout)
+		})
+	})
+	select {
+	case <-ready:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the serial session did not finish opening the device")
+	}
+	return ws, done
 }
 
 func serialTestSessionWithRunner(t *testing.T, s *serialSettings, run func(*websocket.Conn, *serialSettings) error) (*websocket.Conn, <-chan error) {

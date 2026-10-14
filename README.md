@@ -205,7 +205,6 @@ Pinned platform inputs, Go modules and the web lockfile fix their respective sou
 | `firmware/` | Alpine recipes, OpenRC integration, retained SDK inputs and board support |
 | `platform/`, `scripts/` | Pinned platform build, patches, packaging and image generation |
 | `tests/` | Host-side tests of the init scripts, build, packaging and update tooling |
-| `tools/` | Host utilities |
 
 ## 🌍 Translations
 

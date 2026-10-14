@@ -184,7 +184,7 @@ e86e9ce0e2969425a6d275c61021beaf84a306b234471ca8f89a5aa7ebd5f22f  lib/modules/7.
 c8fa6bda8a8b3772d1550eceb835942b74c6634519c96fca6895283a1a2c91bb  lib/modules/7.2.10-nanokvm-os-r4/extra/cv181x_rgn.ko
 9658aceb09e4ab068e6bccc1ead1bea3bb8b2ee34e32a2a9b5f158a5ade4771b  lib/modules/7.2.10-nanokvm-os-r4/extra/cv181x_sys.ko
 36a7ebb0fe73fa6d11bd8276d7922cacad235a725945a9ae65be18acb0fbd683  lib/modules/7.2.10-nanokvm-os-r4/extra/cv181x_vcodec.ko
-cae843691cc7d1ad700f19512d2ba00e26556732b7bf5133bdb592e0bc4e2d86  lib/modules/7.2.10-nanokvm-os-r4/extra/cv181x_vi.ko
+8afde74144a2c20e13f92b981021126b48c91e831323eff240df550528b86714  lib/modules/7.2.10-nanokvm-os-r4/extra/cv181x_vi.ko
 95ec7692de2963fb2ac9ba8467cc40e97d1bacf4acb58f7ce1407ae93f99c8bb  lib/modules/7.2.10-nanokvm-os-r4/extra/cv181x_vpss.ko
 31e97d4ef93db59088ea5de18089c27ecb0f2cd80d23604b9b133cc818fae724  lib/modules/7.2.10-nanokvm-os-r4/extra/cvi_mipi_rx.ko
 6bbf20f5dafff4f0ba925b2a92606ba54784d27d48484a5228744d574ab59595  lib/modules/7.2.10-nanokvm-os-r4/extra/cvi_vc_driver.ko

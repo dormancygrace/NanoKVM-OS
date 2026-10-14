@@ -1,0 +1,73 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] vi: no developer log by default
+
+vi_log_lv defaulted to every level, INFO and DBG included. The event
+thread prints "VI duration(ms)" at INFO every 100 frames, about every
+1.7 s at 60 Hz. That line was 646 of 1141 kernel log lines on the
+stand. The server archives the kernel log to the SD card whenever it
+changes, checking every minute, so this one line forced a full rewrite
+each minute.
+
+vi_log_lv now defaults to ERR, WARN and NOTICE. INFO and DBG remain
+available at run time:
+echo 31 > /sys/module/cv181x_vi/parameters/vi_log_lv
+
+vi_start_streaming() logged "+" at DBG, and that line served as a
+timeline mark when matching resets against server restarts. It is now
+"start streaming" at NOTICE, printed once per stream start.
+
+VI_PROFILE stays defined. Besides the timing it also guards
+_vi_update_chnRealFrameRate(), which fills u32FrameRate. libkvm reads
+that every second (mmf_vi_input_fps) to set the VPSS rate and publish
+/run/nanokvm/input_fps.
+
+Both chip variants change alike; only cv181x is built.
+
+diff --git a/interdrv/vi/chip/cv180x/vi.c b/interdrv/vi/chip/cv180x/vi.c
+index 9501c42..d7285c6 100644
+--- a/interdrv/vi/chip/cv180x/vi.c
++++ b/interdrv/vi/chip/cv180x/vi.c
+@@ -53,7 +53,8 @@
+ /*******************************************************
+  *  Global variables
+  ******************************************************/
+-u32 vi_log_lv = VI_ERR | VI_WARN | VI_NOTICE | VI_INFO | VI_DBG;
++/* INFO and DBG are developer chatter; set vi_log_lv to 31 to see them. */
++u32 vi_log_lv = VI_ERR | VI_WARN | VI_NOTICE;
+ module_param(vi_log_lv, int, 0644);
+ 
+ #ifdef PORTING_TEST //test only
+@@ -2944,7 +2945,8 @@ int vi_start_streaming(struct cvi_vi_dev *vdev)
+ 	enum cvi_isp_raw raw_max = ISP_PRERAW_MAX - 1;
+ 	int rc = 0;
+ 
+-	vi_pr(VI_DBG, "+\n");
++	/* A timeline mark for logs: NOTICE stays on by default. */
++	vi_pr(VI_NOTICE, "start streaming\n");
+ 
+ 	_vi_mempool_reset();
+ 
+diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
+index 9501c42..d7285c6 100644
+--- a/interdrv/vi/chip/cv181x/vi.c
++++ b/interdrv/vi/chip/cv181x/vi.c
+@@ -53,7 +53,8 @@
+ /*******************************************************
+  *  Global variables
+  ******************************************************/
+-u32 vi_log_lv = VI_ERR | VI_WARN | VI_NOTICE | VI_INFO | VI_DBG;
++/* INFO and DBG are developer chatter; set vi_log_lv to 31 to see them. */
++u32 vi_log_lv = VI_ERR | VI_WARN | VI_NOTICE;
+ module_param(vi_log_lv, int, 0644);
+ 
+ #ifdef PORTING_TEST //test only
+@@ -2944,7 +2945,8 @@ int vi_start_streaming(struct cvi_vi_dev *vdev)
+ 	enum cvi_isp_raw raw_max = ISP_PRERAW_MAX - 1;
+ 	int rc = 0;
+ 
+-	vi_pr(VI_DBG, "+\n");
++	/* A timeline mark for logs: NOTICE stays on by default. */
++	vi_pr(VI_NOTICE, "start streaming\n");
+ 
+ 	_vi_mempool_reset();
+ 

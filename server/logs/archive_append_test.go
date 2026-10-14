@@ -52,7 +52,7 @@ func TestArchiveAppendsNewLines(t *testing.T) {
 	if inode(t, file) != written {
 		t.Fatal("growth rewrote the file instead of appending")
 	}
-	if data, _ := os.ReadFile(file); string(data) != second {
+	if data, _ := os.ReadFile(file); string(data) != second+"\n" {
 		t.Fatal("appended file differs from the snapshot")
 	}
 
@@ -63,14 +63,14 @@ func TestArchiveAppendsNewLines(t *testing.T) {
 	if inode(t, file) != written {
 		t.Fatal("a sliding window rewrote the file")
 	}
-	if data, _ := os.ReadFile(file); string(data) != numberedLines(0, 250) {
+	if data, _ := os.ReadFile(file); string(data) != numberedLines(0, 250)+"\n" {
 		t.Fatal("sliding window did not append exactly the new lines")
 	}
 
 	// Content without the previous end is rewritten.
 	unrelated := numberedLines(900000, 10)
 	saveSystem(t, archive, unrelated)
-	if data, _ := os.ReadFile(file); string(data) != unrelated {
+	if data, _ := os.ReadFile(file); string(data) != unrelated+"\n" {
 		t.Fatal("unrelated content was not rewritten")
 	}
 	archive.Close()
@@ -106,8 +106,8 @@ func TestArchiveRewritesAtTheFileLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 	file := filepath.Join(directory, "current", "system.log")
-	// Each entry is 53 bytes with its newline: a 1 MiB window holds about
-	// 19800 of them. Advance the window until the file passes the limit.
+	// Each entry is 55 bytes with its newline: a 1 MiB window holds about
+	// 19000 of them. Advance the window until it forces compaction.
 	const window = 19000
 	var last string
 	rewrites := 0
@@ -137,7 +137,7 @@ func TestArchiveRewritesAtTheFileLimit(t *testing.T) {
 	}
 	defer next.Close()
 	previous, err := next.Read("previous", "system")
-	if err != nil || !strings.HasSuffix(previous.Content, last[len(last)-appendAnchorBytes:]) {
+	if err != nil || previous.Content != last {
 		t.Fatal("previous boot lost the newest lines", err)
 	}
 	if len(previous.Content) > MaxBytes || previous.Lines > MaxLines {
@@ -162,7 +162,7 @@ func TestArchiveRewritesWhenTheAnchorRepeats(t *testing.T) {
 	saveSystem(t, archive, first)
 	second := first + "\n" + redacted(150)
 	saveSystem(t, archive, second)
-	if data, _ := os.ReadFile(file); string(data) != second {
+	if data, _ := os.ReadFile(file); string(data) != second+"\n" {
 		t.Fatal("a repeated anchor lost lines")
 	}
 }

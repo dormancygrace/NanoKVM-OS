@@ -39,10 +39,20 @@ type BootInfo struct {
 	SavedAt   int64  `json:"savedAt"`
 }
 
+// A window is committed with boot.json only after its newline-terminated
+// source data is synced. Bytes after it may belong to an interrupted append.
+// The digest distinguishes an atomic replacement whose metadata was not saved.
+type archiveWindow struct {
+	Offset int64  `json:"offset"`
+	Length int    `json:"length"`
+	Digest string `json:"sha256"`
+}
+
 type archiveSource struct {
-	Lines       int   `json:"lines"`
-	Truncated   bool  `json:"truncated"`
-	CollectedAt int64 `json:"collectedAt"`
+	Lines       int            `json:"lines"`
+	Truncated   bool           `json:"truncated"`
+	CollectedAt int64          `json:"collectedAt"`
+	Window      *archiveWindow `json:"window,omitempty"`
 }
 
 type bootRecord struct {
@@ -60,11 +70,11 @@ type Archive struct {
 	root    *os.Root
 	record  bootRecord
 	digests map[string][32]byte
-	// anchors holds the tail of what each current/<source>.log ends with.
-	// Empty until this process has written the file, so the first save
-	// after a start rewrites it.
-	anchors map[string]string
-	failed  bool
+	// Retain the complete last snapshot to verify overlap, not just its
+	// anchor. Slicing a 4 KiB anchor already kept this backing string alive.
+	// Empty after a restart or failed save, forcing an atomic rewrite.
+	snapshots map[string]string
+	failed    bool
 }
 
 func NewArchive(directory, bootID string, startedAt int64) (*Archive, error) {
@@ -95,7 +105,7 @@ func NewArchive(directory, bootID string, startedAt int64) (*Archive, error) {
 	if err = root.Chmod(".", 0700); err != nil {
 		return nil, err
 	}
-	a := &Archive{root: root, digests: map[string][32]byte{}, anchors: map[string]string{}}
+	a := &Archive{root: root, digests: map[string][32]byte{}, snapshots: map[string]string{}}
 	current, err := a.loadRecord("current")
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
@@ -233,75 +243,109 @@ func (a *Archive) atomicWrite(name string, data []byte) error {
 // that appends the lines after the previous snapshot's end, so a busy log
 // does not rewrite up to a MiB of the SD card every minute. Anything else
 // (first save of this process, no overlap, the file limit) rewrites it.
-func (a *Archive) writeSource(source, content string) error {
+func (a *Archive) writeSource(source, content string) (int64, error) {
 	name := "current/" + source + ".log"
-	if anchor := a.anchors[source]; anchor != "" {
-		// The anchor must occur exactly once: repeated lines (for example a run
-		// of redacted entries) could otherwise match too late and drop lines.
-		if at := strings.LastIndex(content, anchor); at >= 0 && strings.Index(content, anchor) == at {
-			appended, err := a.appendFile(name, content[at+len(anchor):])
-			if err != nil {
-				// The file may now hold part of the text: rewrite it next time.
-				delete(a.anchors, source)
-				return err
-			}
-			if appended {
-				a.anchors[source] = appendAnchor(content)
-				return nil
+	if previous := a.snapshots[source]; previous != "" {
+		anchor := appendAnchor(previous)
+		// Repeated anchors are ambiguous. A unique match still needs the
+		// complete overlap and both line boundaries checked: text before or
+		// within the matched line may have changed after rotation/truncation.
+		at := strings.LastIndex(content, anchor)
+		if at >= 0 && strings.Index(content, anchor) == at {
+			end := at + len(anchor)
+			overlap := content[:end]
+			begins := len(previous) - len(overlap)
+			if strings.HasSuffix(previous, overlap) &&
+				(begins == 0 || previous[begins-1] == '\n') &&
+				(end == len(content) || content[end] == '\n') {
+				delta := ""
+				if end < len(content) {
+					// The existing file already ends with the separator.
+					delta = content[end+1:] + "\n"
+				}
+				size, appended, err := a.appendFile(name, delta)
+				if err != nil {
+					delete(a.snapshots, source)
+					return 0, err
+				}
+				if appended {
+					a.snapshots[source] = content
+					return size - int64(len(content)+1), nil
+				}
 			}
 		}
 	}
-	// Forget the old end before touching the file: if the rewrite fails,
-	// the next save must not append to an unknown state.
-	delete(a.anchors, source)
-	if err := a.atomicWrite(name, []byte(content)); err != nil {
-		return err
+	delete(a.snapshots, source)
+	if err := a.atomicWrite(name, []byte(content+"\n")); err != nil {
+		return 0, err
 	}
-	a.anchors[source] = appendAnchor(content)
-	return nil
+	a.snapshots[source] = content
+	return 0, nil
 }
 
 func appendAnchor(content string) string {
 	return content[max(0, len(content)-appendAnchorBytes):]
 }
 
-// appendFile adds text to an existing archive file and syncs it. It returns
-// false, writing nothing, when the file would exceed archiveFileLimit.
-func (a *Archive) appendFile(name, text string) (bool, error) {
-	if text == "" {
-		return true, nil
-	}
+// appendFile returns the resulting size. It writes nothing and returns false
+// when the file would exceed the bound. Even an empty delta validates the file.
+func (a *Archive) appendFile(name, text string) (int64, bool, error) {
 	before, err := a.root.Lstat(name)
 	if err != nil {
-		return false, err
+		return 0, false, err
 	}
 	if !before.Mode().IsRegular() {
-		return false, errors.New("invalid archive file")
+		return 0, false, errors.New("invalid archive file")
 	}
-	if before.Size()+int64(len(text)) > archiveFileLimit {
-		return false, nil
-	}
-	file, err := a.root.OpenFile(name, os.O_WRONLY|os.O_APPEND|unix.O_NOFOLLOW, 0)
+	file, err := a.root.OpenFile(name, os.O_WRONLY|os.O_APPEND|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
 	if err != nil {
-		return false, err
+		return 0, false, err
 	}
 	info, err := file.Stat()
-	if err == nil && !os.SameFile(before, info) {
+	if err == nil && (!info.Mode().IsRegular() || !os.SameFile(before, info)) {
 		err = errors.New("archive file changed")
 	}
-	if err == nil {
-		_, err = file.WriteString(text)
+	if err != nil {
+		file.Close()
+		return 0, false, err
 	}
-	if err == nil {
-		err = file.Sync()
+	size := info.Size() + int64(len(text))
+	if size > archiveFileLimit {
+		return 0, false, file.Close()
+	}
+	if text != "" {
+		_, err = file.WriteString(text)
+		if err == nil {
+			err = file.Sync()
+		}
 	}
 	if closeErr := file.Close(); err == nil {
 		err = closeErr
 	}
-	if err != nil {
-		return false, err
+	return size, err == nil, err
+}
+
+// committedSource selects the latest committed snapshot, excluding both older
+// accumulated lines and an uncommitted suffix. An atomic rewrite may precede
+// its metadata update; if the old window no longer matches, recover complete
+// lines from that file and mark the result truncated. Legacy files have no
+// window and their last saved entry was not newline-terminated.
+func committedSource(data []byte, window *archiveWindow) ([]byte, bool) {
+	if window == nil {
+		return append(data, '\n'), false
 	}
-	return true, nil
+	if window.Offset >= 0 && window.Offset <= int64(len(data)) &&
+		window.Length > 0 && window.Length <= MaxBytes+1 &&
+		int64(window.Length) <= int64(len(data))-window.Offset {
+		candidate := data[window.Offset : window.Offset+int64(window.Length)]
+		if candidate[len(candidate)-1] == '\n' &&
+			fmt.Sprintf("%x", sha256.Sum256(candidate[:len(candidate)-1])) == window.Digest {
+			return candidate, false
+		}
+	}
+	// sanitizeTail will discard an incomplete final entry; never synthesize
+	// a newline for a file written in the new format.
+	return data, true
 }
 
 func readArchiveFile(root *os.Root, name string, limit int64) ([]byte, error) {
@@ -368,18 +412,27 @@ func (a *Archive) Read(slot, source string) (Snapshot, error) {
 		return Snapshot{}, err
 	}
 	// Apply the same output policy again to defend against modified archives.
-	content, lines, clipped := sanitizeTail(append(data, '\n'), false)
+	data, recovered := committedSource(data, meta.Window)
+	content, lines, clipped := sanitizeTail(data, false)
 	state := "ready"
 	if content == "" {
 		state = "empty"
 	}
-	return Snapshot{Source: source, Boot: slot, State: state, Content: content, Lines: lines, Truncated: meta.Truncated || clipped, CollectedAt: meta.CollectedAt}, nil
+	return Snapshot{Source: source, Boot: slot, State: state, Content: content, Lines: lines, Truncated: meta.Truncated || clipped || recovered, CollectedAt: meta.CollectedAt}, nil
 }
 
 func (a *Archive) Save(snapshots []Snapshot) (saveErr error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	defer func() { a.failed = saveErr != nil }()
+	defer func() {
+		a.failed = saveErr != nil
+		if saveErr != nil {
+			// A source may have changed before another write or boot.json
+			// failed. Never skip/reuse that uncommitted state on the retry.
+			clear(a.digests)
+			clear(a.snapshots)
+		}
+	}()
 	record := a.record
 	record.Sources = make(map[string]archiveSource)
 	for source, meta := range a.record.Sources {
@@ -410,11 +463,15 @@ func (a *Archive) Save(snapshots []Snapshot) (saveErr error) {
 		if previous, ok := a.digests[snapshot.Source]; ok && previous == digest {
 			continue
 		}
-		if err := a.writeSource(snapshot.Source, snapshot.Content); err != nil {
+		offset, err := a.writeSource(snapshot.Source, snapshot.Content)
+		if err != nil {
 			return err
 		}
 		digests[snapshot.Source] = digest
-		record.Sources[snapshot.Source] = archiveSource{snapshot.Lines, snapshot.Truncated, snapshot.CollectedAt}
+		record.Sources[snapshot.Source] = archiveSource{
+			Lines: snapshot.Lines, Truncated: snapshot.Truncated, CollectedAt: snapshot.CollectedAt,
+			Window: &archiveWindow{Offset: offset, Length: len(snapshot.Content) + 1, Digest: fmt.Sprintf("%x", digest)},
+		}
 		record.SavedAt = snapshot.CollectedAt
 		changed = true
 	}

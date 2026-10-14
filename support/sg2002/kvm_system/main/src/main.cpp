@@ -224,7 +224,7 @@ int main(int argc, char* argv[])
 		system("touch /etc/kvm/oled_exist");
 	} else {
 		printf("oled not exist\r\n");
-		system("rm /etc/kvm/oled_exist");
+		unlink("/etc/kvm/oled_exist");
 	}
 
 	if(kvm_sys_state.sys_thread_running == 0){

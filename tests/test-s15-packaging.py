@@ -8,6 +8,16 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 shipped = root / 'firmware/alpine/compat/S15kvmhwd'
+removed_init_scripts = (
+    'S00kmod S01fs S02config S10uuid S12temperature S13cpufreq '
+    'S13nanokvm-watchdog S25wifimod S29qdisc S30eth S30usbnet S30wifi '
+    'S34mssclamp S35flowoffload S38memory S49persistent-cron S50ssdpd '
+    'S50sshd S80dnsmasq S94sg2002aes S98tailscaled'
+).split()
+kept_init_scripts = {
+    'S03usbdev', 'S03usbhid', 'S15kvmhwd', 'S50avahi-daemon',
+    'S95nanokvm', 'S96picoclaw', 'nanokvm-server-supervisor',
+}
 
 
 def write(path: Path, data: bytes = b'x\n') -> None:
@@ -26,6 +36,16 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
     for directory in ('base', 'app', 'firmware-sg2002', 'release'):
         (port / directory).mkdir(parents=True)
     write(port / 'base/usr/libexec/nanokvm/legacy/S15kvmhwd', b'vendor base\n')
+    for name in removed_init_scripts:
+        write(port / 'app/kvmapp/system/init.d' / name, b'obsolete app copy\n')
+    for name in kept_init_scripts:
+        write(port / 'app/kvmapp/system/init.d' / name, b'kept app copy\n')
+    # An inherited symlink must be unlinked without touching its target.
+    wifi_target = work / 'wifi-target'
+    write(wifi_target, b'outside the copied payload\n')
+    wifi_link = port / 'app/kvmapp/system/init.d/S30wifi'
+    wifi_link.unlink()
+    wifi_link.symlink_to(wifi_target)
     write(port / 'app/kvmapp/system/init.d/S15kvmhwd', b'vendor app\n')
     write(port / 'app/kvmapp/server/web/old.html')
     write(port / 'app/kvmapp/enhanced-stage-manifest.json', b'{"version":"old-release","files":{}}\n')
@@ -64,7 +84,14 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
     assert (output / 'base/usr/libexec/nanokvm/legacy/S30usbnet').read_bytes() == (root / 'firmware/alpine/compat/S30usbnet').read_bytes()
     app_root = output / 'app/kvmapp'
     assert not (app_root / 'enhanced-stage-manifest.json').exists(), 'obsolete manifest retained in the new APK payload'
+    app_init = app_root / 'system/init.d'
+    assert {path.name for path in app_init.iterdir()} == kept_init_scripts, 'obsolete init scripts retained in the app payload'
+    assert wifi_target.read_bytes() == b'outside the copied payload\n'
+    assert wifi_link.is_symlink(), 'source payload must remain unchanged'
     manifest = json.loads((app_root / 'build-manifest.json').read_text())
+    for name in removed_init_scripts:
+        assert 'system/init.d/' + name not in manifest['files']
+
     assert 'enhanced-stage-manifest.json' not in manifest['files']
     assert 'build-manifest.json' not in manifest['files']
     assert manifest['version'].removeprefix('v') == (app_root / 'version').read_text().strip()

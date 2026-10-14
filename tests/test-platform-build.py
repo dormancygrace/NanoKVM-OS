@@ -117,6 +117,10 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     host_python.symlink_to(sys.executable)
     expect(build(tree, out, "payloads"), True, "primary package payload assembly")
     app = out / "payloads/app/kvmapp"
+    assert {path.name for path in (app / "system/init.d").iterdir()} == {
+        "S03usbdev", "S03usbhid", "S15kvmhwd", "S50avahi-daemon",
+        "S95nanokvm", "S96picoclaw", "nanokvm-server-supervisor",
+    }, "app payload must contain only its supported init scripts"
     supervisor_path = "system/init.d/nanokvm-server-supervisor"
     supervisor = app / supervisor_path
     assert supervisor.is_file() and not supervisor.is_symlink(), "supervisor missing from app payload"

@@ -299,7 +299,7 @@ view-only login plus 120 real HDMI video messages through a finite local relay.
 Both client and relay ran on C906; the complete test took 4.92 seconds including
 setup and forwarded 2,147,489 video-direction bytes. The exact production
 scalar-profile test executable also passed all 59 non-ignored tests on C906.
-See `tools/c906-rustdesk` for the finite relay fixture and reproduction steps.
+See `tests/relay` for the finite relay fixture and reproduction steps.
 
 The external-relay version of the 120-message test ends in EOF after 10–11
 messages on both the previous binary and the new candidate. Its cause remains

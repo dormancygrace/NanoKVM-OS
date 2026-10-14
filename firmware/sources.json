@@ -69,11 +69,5 @@
     "commit": "30f4b8b7e3f66ded9cfa64fb081b46e30bc27248",
     "scope": "required basic/peripheral source subset in kvm_system; platform/native/maixcdk patches applied",
     "qualification": "C906 T-Head/-O2 cross-build and host ASan/UBSan I2C/system contracts passed; physical board-service qualification deferred to v2.1-b1"
-  },
-  "sophgo_sdk42_candidate": {
-    "version": "4.2.2",
-    "lock": "firmware/sdk42/sources.lock.json",
-    "status": "source reference for selective porting; Dual OS/AliOS client builder preserved on alios branch; current Linux media drivers not migrated",
-    "qualification": "firmware/sdk42/README.md"
   }
 }

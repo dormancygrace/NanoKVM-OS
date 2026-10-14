@@ -1,5 +1,9 @@
 # Alpine C906 scalar package overlay
 
+The optional `scripts/benchmark-alpine-c906.sh` comparison requires `time` and
+`lz4` (`apk add time lz4`). The default image does not include the LZ4 CLI;
+ZRAM compression uses the kernel implementation and does not need it.
+
 This is an optional experimental profile retained for future work. Production
 images default to official Alpine packages (`stock`); no tuned repository or
 C906 package rebuild is required. See `../README.md` for existing-device migration.

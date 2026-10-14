@@ -300,7 +300,7 @@ modules() {
         (cd "$dir" && PWD=$dir make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" CC="${cross}gcc" \
             "KCFLAGS=$isa $maps" M="$dir" "$@" -j"$jobs" modules)
     }
-    for name in sys base cif vi vpss vcodec jpeg cvi_vc_drv ive dwa rgn snsr_i2c; do
+    for name in sys base cif vi vpss vcodec jpeg cvi_vc_drv dwa rgn snsr_i2c; do
         module=$src/osdrv/interdrv/$name
         build "$module" CVIARCH=CV181X CVIARCH_L=cv181x "KBUILD_EXTRA_SYMBOLS=${symbols[*]}"
         symbols+=("$module/Module.symvers")

@@ -13,7 +13,7 @@ start() {
     for module in \
         cv181x_sys cv181x_base cvi_mipi_rx snsr_i2c cv181x_vi \
         cv181x_vpss cv181x_dwa cv181x_rgn cv181x_vcodec \
-        cv181x_jpeg cv181x_ive
+        cv181x_jpeg
     do
         modprobe "$module" || return 1
     done

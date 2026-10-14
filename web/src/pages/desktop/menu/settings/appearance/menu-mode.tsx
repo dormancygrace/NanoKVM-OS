@@ -12,7 +12,6 @@ export const MenuMode = () => {
   const [menuDisplayMode, setMenuDisplayMode] = useAtom(menuDisplayModeAtom);
 
   const options = [
-    // { value: 'off', label: t('settings.appearance.menuBar.modeOff') },
     { value: 'auto', label: t('settings.appearance.menuBar.modeAuto') },
     { value: 'always', label: t('settings.appearance.menuBar.modeAlways') }
   ];

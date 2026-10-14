@@ -64,9 +64,9 @@ FIP SHA-256 `76e50ecc3fab0da16f2ab750e6f79a67ec2dedeac9397c5f437343e6008e3692` p
 
 Timer and PLIC device interrupts progress, both application services start, and Chrome Main displays an advancing HDMI stopwatch. A bounded perf_event_open counting probe opened cycles and instructions together; both values increased (108515 to 921149 cycles, 71670 to 774880 instructions). No Oops/panic/overlap diagnostics appeared. This checks counting, not PMU overflow sampling, raw events, multicore IPI/RFENCE or vector context switching.
 
-That candidate still carried the small-core reservation. The FIP built without it differs from the tested one only in the embedded M-mode DT (the fw_dynamic.bin, FIP and manifest hashes in `../expected.sha256` changed) and has not been hardware-tested.
+That candidate still carried the small-core reservation. The FIP built without it differs from the tested one only in the embedded M-mode DT (the fw_dynamic.bin, FIP and manifest hashes in `../expected.sha256` changed) and was not part of the RAM test; the SD result below covers it.
 
-The SD FIP was never replaced. Candidate cold boot from SD and persistent installation remain untested. Deterministic build manifests retain their build-time hardware_validation=pending field; a separate hardware report links measured results to the exact artifact hash.
+During the RAM test the SD FIP was not replaced. Since then the full image installs the built FIP on the SD card: on 2026-10-14 the test stand (NanoKVM PCIe) had `fip.bin` SHA-256 `38cbdbf32a25fbfa1d7a0a1197f7b4cfa0ed145fb8ffc2197e257f0575713db1`, the value in `../expected.sha256`, and cold-booted from it after a power cycle. Deterministic build manifests retain their build-time hardware_validation=pending field; a separate hardware report links measured results to the exact artifact hash.
 
 ROM UART bypasses SD ROM pad initialization. RAM U-Boot needs volatile SD0 settings before mmc rescan: SD0_PWR_EN mux 0x03001038=0, SD power 0x030001f4=0x1209, and CMD/D0-D3 pads 0x03001a04..0x03001a14=0x44. These are register changes, not SD writes. The ROM-only host adapter uses an empty partition/program list and excludes the persistent programming stage. Loading the original host FIP into RAM and booting the unchanged SD Linux was verified first. This does not by itself prove that a damaged SD FIP can be repaired.
 

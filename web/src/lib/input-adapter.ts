@@ -23,8 +23,6 @@ export function getPointerCapabilities(): PointerCapabilities {
 }
 
 export function normalizeInputAdapterMode(value: string | null | undefined): InputAdapterMode {
-  // Keep the original experimental preference compatible with its replacement.
-  if (value === 'direct-touch') return 'touchpad';
   if (value === 'auto' || value === 'pointer-lock' || value === 'touchpad') return value;
   return 'auto';
 }

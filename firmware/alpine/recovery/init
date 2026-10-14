@@ -113,6 +113,38 @@ backup_settings() {
 	umount /oldroot || fail "cannot release existing root"
 }
 
+# Exercise settings extraction and record exactly what must survive before p2
+# is formatted. Optional SSH files are not a schema: absence is legitimate.
+validate_settings() {
+	[ -f "$SETTINGS_BACKUP" ] || return 0
+	/busybox tar -tf "$SETTINGS_BACKUP" > /settings.paths ||
+		fail "cannot list preserved settings"
+	while IFS= read -r path; do
+		case "$path" in
+			/*|../*|*/../*|*/..|..) fail "unsafe settings path: $path" ;;
+		esac
+		case "$path" in
+			kvmapp/kvm|kvmapp/kvm/*|etc/kvm|etc/kvm/*|etc/ssh|etc/ssh/*|etc/hosts|root/.ssh|root/.ssh/*|etc/localtime|etc/timezone|etc/chrony.conf|etc/hostname|etc/wireguard|etc/wireguard/*|var/lib/tailscale|var/lib/tailscale/*|root/.picoclaw|root/.picoclaw/*) ;;
+			*) fail "unexpected settings path: $path" ;;
+		esac
+	done < /settings.paths
+	mkdir -p /settings-check
+	/busybox tar --numeric-owner -xf "$SETTINGS_BACKUP" -C /settings-check ||
+		fail "cannot validate preserved settings"
+	for path in root/.ssh etc/ssh etc/kvm; do
+		if [ -e "/settings-check/$path" ] || [ -L "/settings-check/$path" ]; then
+			[ -d "/settings-check/$path" ] && [ ! -L "/settings-check/$path" ] ||
+				fail "settings path must be a directory: $path"
+		fi
+	done
+	# The '+' form makes find fail if any sha256sum invocation fails.
+	(cd /settings-check && /busybox find . -type f -exec /busybox sha256sum '{}' +) > /settings.sha256 ||
+		fail "cannot hash preserved settings"
+	SETTINGS_SHA256=$(/busybox sha256sum "$SETTINGS_BACKUP") || fail "cannot hash settings archive"
+	SETTINGS_SHA256=${SETTINGS_SHA256%% *}
+	/busybox rm -rf /settings-check || fail "cannot release settings validation tree"
+}
+
 restore_settings() {
 	if [ -s /root-shadow.saved ]; then
 		/busybox awk -F: 'NR == FNR { saved=$0; next } $1 == "root" { print saved; next } { print }' \
@@ -121,37 +153,32 @@ restore_settings() {
 		/busybox cat /realroot/etc/shadow.new > /realroot/etc/shadow || fail "cannot write root password"
 		/busybox rm -f /realroot/etc/shadow.new /root-shadow.saved
 	fi
+	# Never inherit operator access or a host identity from the image. If no
+	# host key was preserved, Alpine sshd generates unique keys on first start.
+	/busybox rm -rf /realroot/root/.ssh || fail "cannot remove image SSH client state"
+	/busybox rm -f /realroot/etc/ssh/ssh_host_*_key /realroot/etc/ssh/ssh_host_*_key.pub ||
+		fail "cannot remove image SSH server identity"
 	[ -f "$SETTINGS_BACKUP" ] || return 0
-	RESTORE_KVM=0
-	RESTORE_SSH=0
-	RESTORE_SSHD=0
-	RESTORE_HOSTS=0
-	if /busybox tar -tf "$SETTINGS_BACKUP" | /busybox grep -q '^etc/kvm'; then
-		RESTORE_KVM=1
+	verify_sha256 "$SETTINGS_SHA256" "$SETTINGS_BACKUP" settings-archive
+	if /busybox grep -Eq '^etc/kvm(/|$)' /settings.paths; then
 		/busybox rm -rf /realroot/etc/kvm || fail "cannot replace image settings directory"
 	fi
-	if /busybox tar -tf "$SETTINGS_BACKUP" | /busybox grep -q '^root/.ssh'; then
-		RESTORE_SSH=1
-		/busybox rm -rf /realroot/root/.ssh || fail "cannot replace image SSH keys"
-	fi
-	if /busybox tar -tf "$SETTINGS_BACKUP" | /busybox grep -q '^etc/ssh'; then
-		RESTORE_SSHD=1
+	if /busybox grep -Eq '^etc/ssh(/|$)' /settings.paths; then
 		/busybox rm -rf /realroot/etc/ssh || fail "cannot replace image SSH server identity"
 	fi
-	if /busybox tar -tf "$SETTINGS_BACKUP" | /busybox grep -q '^etc/hosts$'; then
-		RESTORE_HOSTS=1
+	if /busybox grep -qx 'etc/hosts' /settings.paths; then
 		/busybox rm -f /realroot/etc/hosts || fail "cannot replace image hosts file"
 	fi
 	/busybox tar --numeric-owner -xf "$SETTINGS_BACKUP" -C /realroot ||
 		fail "cannot restore settings and SSH keys"
-	[ "$RESTORE_KVM" -eq 0 ] || [ -d /realroot/etc/kvm ] ||
-		fail "settings archive did not restore /etc/kvm"
-	[ "$RESTORE_SSH" -eq 0 ] || [ -f /realroot/root/.ssh/authorized_keys ] ||
-		fail "settings archive did not restore SSH authorized keys"
-	[ "$RESTORE_SSHD" -eq 0 ] || [ -f /realroot/etc/ssh/ssh_host_ed25519_key ] ||
-		fail "settings archive did not restore SSH server identity"
-	[ "$RESTORE_HOSTS" -eq 0 ] || [ -f /realroot/etc/hosts ] ||
-		fail "settings archive did not restore /etc/hosts"
+	while IFS= read -r path; do
+		[ -e "/realroot/$path" ] || [ -L "/realroot/${path%/}" ] ||
+			fail "settings archive did not restore $path"
+	done < /settings.paths
+	if [ -s /settings.sha256 ]; then
+		(cd /realroot && /busybox sha256sum -c /settings.sha256) ||
+			fail "restored settings differ from preserved files"
+	fi
 }
 
 validate_root() {
@@ -178,6 +205,7 @@ mount_payloads
 verify_sha256 "$ROOTFS_SHA256" "$ROOTFS_TAR" alpine-rootfs.tar.gz
 verify_sha256 "$BOOT_SHA256" "$BOOT_FIT" boot-alpine.sd
 backup_settings
+validate_settings
 
 mkdir -p /realroot
 # This is the only block device formatted by recovery. p3 remains exFAT and

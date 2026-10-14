@@ -17,6 +17,9 @@ start() {
             return 0
         fi
     fi
+    # Recovery may legitimately preserve configuration without any host key.
+    # -A creates only missing keys and never replaces a preserved identity.
+    ssh-keygen -A || return $?
     rc-service sshd start
 }
 stop() { rc-service sshd stop; }

@@ -3,7 +3,6 @@ package vm
 import (
 	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
-	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -12,11 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const (
-	AvahiDaemonPid          = "/run/avahi-daemon/pid"
-	AvahiDaemonScript       = "/etc/init.d/S50avahi-daemon"
-	AvahiDaemonBackupScript = "/kvmapp/system/init.d/S50avahi-daemon"
-)
+const AvahiDaemonPid = "/run/avahi-daemon/pid"
 
 func (s *Service) GetMdnsState(c *gin.Context) {
 	var rsp proto.Response
@@ -29,61 +24,11 @@ func (s *Service) GetMdnsState(c *gin.Context) {
 }
 
 func (s *Service) EnableMdns(c *gin.Context) {
-	if _, err := os.Stat("/etc/alpine-release"); err == nil {
-		setAlpineMdns(c, true)
-		return
-	}
-	var rsp proto.Response
-
-	pid := getAvahiDaemonPid()
-	if pid != "" {
-		rsp.OkRsp(c)
-		return
-	}
-
-	commands := []string{
-		fmt.Sprintf("cp -f %s %s", AvahiDaemonBackupScript, AvahiDaemonScript),
-		fmt.Sprintf("%s start", AvahiDaemonScript),
-	}
-
-	command := oomscore.ResetPrefix + strings.Join(commands, " && ")
-	err := exec.Command("sh", "-c", command).Run()
-	if err != nil {
-		log.Errorf("failed to start avahi-daemon: %s", err)
-		rsp.ErrRsp(c, -1, "failed to enable mdns")
-		return
-	}
-
-	rsp.OkRsp(c)
-	log.Debugf("avahi-daemon started")
+	setMdns(c, true)
 }
 
 func (s *Service) DisableMdns(c *gin.Context) {
-	if _, err := os.Stat("/etc/alpine-release"); err == nil {
-		setAlpineMdns(c, false)
-		return
-	}
-	var rsp proto.Response
-
-	pid := getAvahiDaemonPid()
-	if pid == "" {
-		rsp.OkRsp(c)
-		return
-	}
-
-	command := fmt.Sprintf("kill -9 %s", pid)
-	err := exec.Command("sh", "-c", command).Run()
-	if err != nil {
-		log.Errorf("failed to stop avahi-daemon: %s", err)
-		rsp.ErrRsp(c, -1, "failed to disable mdns")
-		return
-	}
-
-	_ = os.Remove(AvahiDaemonPid)
-	_ = os.Remove(AvahiDaemonScript)
-
-	rsp.OkRsp(c)
-	log.Debugf("avahi-daemon stopped")
+	setMdns(c, false)
 }
 
 func getAvahiDaemonPid() string {
@@ -101,7 +46,7 @@ func getAvahiDaemonPid() string {
 }
 
 // Keep persistent policy separate from APK-owned OpenRC service files.
-func setAlpineMdns(c *gin.Context, enabled bool) {
+func setMdns(c *gin.Context, enabled bool) {
 	var rsp proto.Response
 	action := "stop"
 	marker := "/etc/kvm/mdns_disabled"

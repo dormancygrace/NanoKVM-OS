@@ -126,7 +126,6 @@ app   file  /kvmapp/system/bin/usb-audio-capture          0755  @tools/usb-audio
 app   file  /kvmapp/system/init.d/S03usbdev               0755  kvmapp/system/init.d/S03usbdev
 app   file  /kvmapp/system/init.d/S03usbhid               0755  kvmapp/system/init.d/S03usbhid
 app   file  /kvmapp/system/init.d/S15kvmhwd               0755  firmware/alpine/compat/S15kvmhwd
-app   file  /kvmapp/system/init.d/S50avahi-daemon         0755  kvmapp/system/init.d/S50avahi-daemon
 app   file  /kvmapp/system/init.d/S95nanokvm              0755  kvmapp/system/init.d/S95nanokvm
 app   file  /kvmapp/system/init.d/S96picoclaw             0755  kvmapp/system/init.d/S96picoclaw
 app   file  /kvmapp/system/init.d/nanokvm-server-supervisor 0755 kvmapp/system/init.d/nanokvm-server-supervisor

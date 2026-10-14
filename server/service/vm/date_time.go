@@ -2,7 +2,6 @@ package vm
 
 import (
 	"context"
-	"os"
 	"os/exec"
 	"time"
 
@@ -15,15 +14,9 @@ import (
 var deviceTime = timeconfig.Store{Dir: "/etc", Restart: func() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer cancel()
-	script := "/etc/init.d/S49ntp"
-	if deviceUsesChrony() {
-		script = "/etc/init.d/S49chronyd"
-	}
-	argv := oomscore.Unprotected(script, "restart")
+	argv := oomscore.Unprotected("/etc/init.d/S49chronyd", "restart")
 	return exec.CommandContext(ctx, argv[0], argv[1:]...).Run()
 }}
-
-func deviceUsesChrony() bool { _, err := os.Stat("/etc/chrony.conf"); return err == nil }
 
 func (s *Service) GetDateTime(c *gin.Context) {
 	var rsp proto.Response
@@ -32,16 +25,9 @@ func (s *Service) GetDateTime(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "Cannot read date and time settings")
 		return
 	}
-	var synced bool
-	daemon := "ntpd"
-	if deviceUsesChrony() {
-		daemon = "chrony"
-		synced, err = timeconfig.ChronySynchronized()
-	} else {
-		synced, err = timeconfig.NTPSynchronized()
-	}
+	synced, err := timeconfig.ChronySynchronized()
 	rsp.OkRspWithData(c, gin.H{"config": cfg, "zones": timeconfig.Zones(), "now": time.Now().UnixMilli(),
-		"synchronized": err == nil && synced, "daemon": daemon})
+		"synchronized": err == nil && synced, "daemon": "chrony"})
 }
 
 func (s *Service) SetDateTime(c *gin.Context) {

@@ -42,7 +42,4 @@ func TestChronyConfigPreservesPolicy(t *testing.T) {
 	if calls != 1 || strings.Contains(string(data), "old.example") || !strings.Contains(string(data), "server new.example iburst") || !strings.Contains(string(data), "cmdport 0") || !strings.Contains(string(data), "makestep 1.0 3") {
 		t.Fatal(string(data), calls)
 	}
-	if _, err = os.Stat(filepath.Join(dir, "ntp.conf")); !os.IsNotExist(err) {
-		t.Fatal("wrote ntpd config")
-	}
 }

@@ -201,9 +201,11 @@ Pinned platform inputs, Go modules and the web lockfile fix their respective sou
 | Source directory | Contents |
 | --- | --- |
 | `server/`, `web/` | Go application, streaming/API services and React/TypeScript interface |
-| `support/`, `native/`, `tools/` | Native media/board integration, USB audio and device tools |
+| `support/` | Native media/board integration and device tools (`kvm_system`, MMF, `nanokvm_update_edid`) |
 | `firmware/` | Alpine recipes, OpenRC integration, retained SDK inputs and board support |
 | `platform/`, `scripts/` | Pinned platform build, patches, packaging and image generation |
+| `tests/` | Host-side tests of the init scripts, build, packaging and update tooling |
+| `tools/` | Host utilities |
 
 ## 🌍 Translations
 

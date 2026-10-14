@@ -34,6 +34,6 @@ unreadable result or failed transaction is an error, retained on the Add-ons
 card until the next action instead of cleared by status polling.
 
 Regression coverage includes the service's error/no-op paths and
-`scripts/test-addon-apk-upgrade.py --apk /path/to/native/apk`, which runs
+`tests/test-addon-apk-upgrade.py --apk /path/to/native/apk`, which runs
 the real APK solver in a disposable root and verifies that an unrelated pinned
 package remains unchanged.

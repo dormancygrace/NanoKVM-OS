@@ -4,7 +4,9 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from nanokvm_mmf_link import audit_bundle, mmf_symbols, symbols
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+from nanokvm_mmf_link import audit_bundle, mmf_symbols, symbols  # noqa: E402
 
 
 class LinkBoundaryTests(unittest.TestCase):

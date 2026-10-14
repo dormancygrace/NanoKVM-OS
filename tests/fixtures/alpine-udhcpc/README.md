@@ -13,8 +13,8 @@ namespace. Keep the upstream copyright notice in the script.
 
 The test creates a disposable network namespace automatically:
 
-    python3 tools/test-dhcp-gateway.py
+    python3 tests/test-dhcp-gateway.py
 
 On hosts that restrict unprivileged namespaces:
 
-    sudo python3 tools/test-dhcp-gateway.py
+    sudo python3 tests/test-dhcp-gateway.py

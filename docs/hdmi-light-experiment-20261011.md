@@ -31,7 +31,7 @@ Dummy-функций, зависимости от малого ядра и из�
 - `scripts/build-mmf.py`: выбор `NANOKVM_MMF_PROFILE=full|hdmi-light`; по умолчанию hdmi-light; full оставлен для явно запрошенных сравнительных сборок.
 - `scripts/nanokvm_mmf_link.py`: компактная линковка, сохранение MMF API и vendor callbacks, проверка ELF-зависимостей.
 - `scripts/build-hdmi-light.py`: сборка MMF/capture и отдельного комплекта с хешами, размерами и уведомлениями о лицензиях.
-- `scripts/test-mmf-light-link.py`: проверки C/C++ API, отказа при пустом API и обнаружения неразрешённых сильных ссылок.
+- `tests/test-mmf-light-link.py`: проверки C/C++ API, отказа при пустом API и обнаружения неразрешённых сильных ссылок.
 - `firmware/probes/mmf-light-load.c`: проверка загрузки и наличия API без обращения к аппаратуре.
 - `platform/build.sh`: штатно собирает полный комплект HDMI-light из шести библиотек и включает его в APK/образ; унаследованная переменная профиля не меняет этот выбор. Старые MPI DSO не входят в новый пакет.
 
@@ -59,7 +59,7 @@ export NANOKVM_INIH_SOURCE=/path/to/platform/native/src/inih
 export NANOKVM_MPI_THIRDPARTY_OUTPUT=/path/to/platform/native/bin
 export NANOKVM_BUILDROOT_OUTPUT=/path/to/platform/buildroot-output
 export NANOKVM_HDMI_LIGHT_OUTPUT=/path/to/new/hdmi-light
-python3 scripts/test-mmf-light-link.py
+python3 tests/test-mmf-light-link.py
 python3 scripts/build-hdmi-light.py
 ```
 

@@ -6,7 +6,7 @@ The platform builds upstream [OpenSBI v1.9](https://github.com/riscv-software-sr
 
 ```sh
 platform/build.sh -o build/platform -j8 fetch toolchain uboot opensbi fip
-python3 scripts/test-nanokvm-fip.py --images build/platform/images
+python3 tests/test-nanokvm-fip.py --images build/platform/images
 ```
 
 The generic platform uses normal upstream `-O2`, no LTO, `rv64imac_zicsr_zifencei` and soft-float `lp64`. C906 has a proprietary draft vector ISA: do not advertise standard V/RVV 1.0 in this M-mode DT. Linux retains its own board DT. The DT selects one application hart and 40 KiB aligned heap; the upstream platform default supplies an 8 KiB stack. Unsupported SUSP, CPPC, DBTR, SSE and MPXY facilities are disabled; other extensions retain upstream probing.
@@ -50,7 +50,7 @@ The source audit compares the pinned vendor OpenSBI tree with upstream v0.9 and 
 Reservation propagation can be checked using unchanged pinned U-Boot functions and libfdt with all 25 Linux board DTBs (five boards, five video memory modes):
 
 ```sh
-python3 scripts/test-opensbi-reservations.py \
+python3 tests/test-opensbi-reservations.py \
   --uboot-source build/platform/uboot/src \
   --firmware-dtb build/platform/images/opensbi/sg2002.dtb \
   --linux-dtbs build/platform/images/dtb

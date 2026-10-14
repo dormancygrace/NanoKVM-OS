@@ -1,6 +1,6 @@
 // Host contract test of libvenc's stream pack mappings (cvi_venc.c and
 // devmem.c compiled for the host) against a fake encoder driver and a fake
-// /dev/mem. Run by scripts/test-venc-pack-map.py.
+// /dev/mem. Run by tests/test-venc-pack-map.py.
 //
 //   venc-pack-map-contract windows   default mode: persistent pack windows
 //   venc-pack-map-contract single    with NANOKVM_VENC_PACK_WINDOWS=0

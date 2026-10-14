@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/../../.." && pwd)
+ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 S95="$ROOT/kvmapp/system/init.d/S95nanokvm"
 BASE="$ROOT/firmware/alpine/packages/nanokvm-base"
 

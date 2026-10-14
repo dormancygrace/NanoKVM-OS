@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the Alpine DHCP script and NanoKVM gateway hook with real routes.
 
-Creates a disposable network namespace (see tools/fixtures/alpine-udhcpc).
+Creates a disposable network namespace (see tests/fixtures/alpine-udhcpc).
 No network access, device, privileges outside that namespace, or DHCP server
 is needed.
 """
@@ -44,7 +44,7 @@ class GatewayHookTest(unittest.TestCase):
             path.write_text(hook)
             path.chmod(0o755)
 
-        alpine = (ROOT / "tools/fixtures/alpine-udhcpc/default.script").read_text()
+        alpine = (ROOT / "tests/fixtures/alpine-udhcpc/default.script").read_text()
         alpine = alpine.replace('UDHCPC="/etc/udhcpc"', 'UDHCPC="' + str(self.config) + '"')
         self.script = self.root / "default.script"
         self.script.write_text(alpine)

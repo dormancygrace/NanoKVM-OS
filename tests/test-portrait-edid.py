@@ -4,7 +4,7 @@ import importlib.util
 from pathlib import Path
 import unittest
 HERE = Path(__file__).resolve().parent
-spec = importlib.util.spec_from_file_location("portrait_edid", HERE / "build-portrait-edid.py")
+spec = importlib.util.spec_from_file_location("portrait_edid", HERE.parent / "scripts/build-portrait-edid.py")
 g = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(g)
 

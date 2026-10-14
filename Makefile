@@ -52,28 +52,28 @@ clean:
 	@$(PLATFORM) clean
 
 test-wifi-modules:
-	@python3 scripts/test-wifi-selector.py
-	@python3 scripts/test-aic-firmware-path.py
+	@python3 tests/test-wifi-selector.py
+	@python3 tests/test-aic-firmware-path.py
 
 test-alpine-network:
-	@python3 scripts/test-alpine-network.py
-	@python3 scripts/test-alpine-service-deps.py
+	@python3 tests/test-alpine-network.py
+	@python3 tests/test-alpine-service-deps.py
 
 test-wifi-runtime:
-	@sh tools/test-s30wifi-runtime.sh
+	@sh tests/test-s30wifi-runtime.sh
 	@cd server && go test -tags teststub,nomsgpack ./service/network
 
 test-ethernet-runtime:
-	@sh tools/test-ethernet-enabled.sh
+	@sh tests/test-ethernet-enabled.sh
 	@cd server && go test -tags teststub,nomsgpack ./service/network
 
 test-partition-layout:
-	@sh tools/test-s01fs-partition-layout.sh
-	@sh tools/test-s01fs-data-lifecycle.sh
+	@sh tests/test-s01fs-partition-layout.sh
+	@sh tests/test-s01fs-data-lifecycle.sh
 
 test-usb-profiles:
-	@sh tools/test-usb-profiles.sh
-	@sh tools/test-usb-rebind.sh
+	@sh tests/test-usb-profiles.sh
+	@sh tests/test-usb-rebind.sh
 
 test-runtime-state:
-	@sh tools/test-runtime-state.sh
+	@sh tests/test-runtime-state.sh

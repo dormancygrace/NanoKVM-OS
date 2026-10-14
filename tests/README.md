@@ -58,15 +58,22 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
   Windows host attached to that console. It logs every serial line and pings
   the device, and writes `events.jsonl`, so the moment the heartbeat stops
   can be matched against the network.
-  `uart-private.jsonl` in that directory holds the raw console text,
-  login prompts included, so treat it as private.
+  `uart-private.jsonl` in the chosen output directory holds the raw console
+  text, login prompts included, so treat it as private.
 
-  1. Copy `heartbeat.sh` and `start-heartbeat.sh` to the device.
-  2. Start the watcher on the host:
-     `.\watch-hang.ps1 -OutputDirectory DIR -DeviceHost IP [-Port COM3] [-Seconds 300]`.
-  3. On the device, run
+  1. Copy `heartbeat.sh` and `start-heartbeat.sh` to the same device directory.
+  2. From the repository root on Windows, start the watcher:
+
+     ```powershell
+     .\tests\manual\hang-recorder\watch-hang.ps1 -OutputDirectory DIR -DeviceHost IP -HeartbeatToken TOKEN -Seconds SECONDS
+     ```
+
+     Use a new output directory. The serial port defaults to COM3; pass
+     `-Port COM4` (for example) to select another port.
+  3. In the device directory containing the copied scripts, run
      `sh start-heartbeat.sh ./heartbeat.sh TOKEN SECONDS`.
-     The token is matched by `-HeartbeatToken`, which defaults to `diagnostic`.
+     Use the same `TOKEN` in both commands: 1–48 letters, digits or hyphens.
+     `SECONDS` must be between 5 and 3600.
 
   `-AllowSysRq` and `-AutoDumpOnLoss` send Magic SysRq keys. These options
   need a diagnostic kernel: the release kernel is built without

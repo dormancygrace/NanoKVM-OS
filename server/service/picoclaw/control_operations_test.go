@@ -38,10 +38,10 @@ func TestControlModeSwitchCancelsActiveWait(t *testing.T) {
 
 	switchDone := make(chan error, 1)
 	go func() {
-		switchDone <- control.Switch(controlmode.ModeMCP, func() error {
+		switchDone <- control.SwitchWithCleanup(controlmode.ModeMCP, func() error {
 			service.CancelActiveControlOperations()
 			return nil
-		})
+		}, nil)
 	}()
 
 	select {
@@ -91,10 +91,10 @@ func TestControlModeSwitchCancelsRuntimeLifecycle(t *testing.T) {
 
 	switchDone := make(chan error, 1)
 	go func() {
-		switchDone <- control.Switch(controlmode.ModeMCP, func() error {
+		switchDone <- control.SwitchWithCleanup(controlmode.ModeMCP, func() error {
 			service.CancelActiveControlOperations()
 			return nil
-		})
+		}, nil)
 	}()
 
 	select {

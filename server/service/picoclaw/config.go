@@ -1,7 +1,6 @@
 package picoclaw
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -98,53 +97,6 @@ func (s *Service) syncConfigFromPicoclaw() *PicoclawError {
 		status.ConfigError = ""
 		if status.Status == "config_error" && status.Ready {
 			status.Status = "ready"
-		}
-		status.CheckedAt = time.Now()
-	})
-
-	return nil
-}
-
-// syncRuntimeConfigMetadataFromPicoclaw refreshes the model metadata exposed
-// by RuntimeStatus without changing PicoClaw's config or probing its gateway.
-// This is used while PicoClaw does not own the control mode.
-func (s *Service) syncRuntimeConfigMetadataFromPicoclaw() *PicoclawError {
-	doc, err := loadPicoclawConfigDocument()
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			s.runtime.Update(func(status *RuntimeStatus) {
-				status.ModelConfigured = false
-				status.ModelName = ""
-				status.ConfigError = ""
-				if status.Status == "config_error" {
-					status.Status = "checking"
-					status.LastError = ""
-				}
-				status.CheckedAt = time.Now()
-			})
-			return nil
-		}
-
-		s.runtime.Update(func(status *RuntimeStatus) {
-			status.ModelConfigured = false
-			status.ModelName = ""
-			status.Status = "config_error"
-			status.ConfigError = err.Error()
-			status.LastError = err.Error()
-			status.CheckedAt = time.Now()
-		})
-		return newPicoclawError(CodeRuntimeUnavailable, err.Error())
-	}
-
-	modelName := resolvePicoclawTargetModelName(doc.config)
-	modelConfigured := isPicoclawModelConfigured(doc.config, doc.security, modelName)
-	s.runtime.Update(func(status *RuntimeStatus) {
-		status.ModelConfigured = modelConfigured
-		status.ModelName = modelName
-		status.ConfigError = ""
-		if status.Status == "config_error" || (modelConfigured && status.Status == "model_not_configured") {
-			status.Status = "checking"
-			status.LastError = ""
 		}
 		status.CheckedAt = time.Now()
 	})

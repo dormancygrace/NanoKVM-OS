@@ -35,10 +35,6 @@ type Snapshotter struct {
 	acquireLease CaptureLeaseAcquirer
 }
 
-func New(vision VisionReader, readScreen ScreenReader) *Snapshotter {
-	return NewWithCaptureLease(vision, readScreen, nil)
-}
-
 func NewWithCaptureLease(vision VisionReader, readScreen ScreenReader, acquireLease CaptureLeaseAcquirer) *Snapshotter {
 	return &Snapshotter{
 		vision:       vision,

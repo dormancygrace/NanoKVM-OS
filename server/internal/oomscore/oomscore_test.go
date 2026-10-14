@@ -1,7 +1,10 @@
 package oomscore
 
 import (
+	"os"
 	"os/exec"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -11,18 +14,18 @@ func TestSetAndGetChild(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }()
-	own, err := Get(0)
+	own, err := get(0)
 	if err != nil {
 		t.Skip(err)
 	}
-	if got, err := Get(cmd.Process.Pid); err != nil || got != own {
+	if got, err := get(cmd.Process.Pid); err != nil || got != own {
 		t.Fatalf("child inherited %d %v, want %d", got, err, own)
 	}
 	// Raising needs no privilege.
 	if err = Set(cmd.Process.Pid, Expendable); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := Get(cmd.Process.Pid); err != nil || got != Expendable {
+	if got, err := get(cmd.Process.Pid); err != nil || got != Expendable {
 		t.Fatalf("got %d %v", got, err)
 	}
 }
@@ -39,4 +42,17 @@ func TestUnprotectedResetsBeforeExec(t *testing.T) {
 	if got := string(out); got != "0\n" {
 		t.Fatalf("program ran with oom_score_adj %q, want 0", got)
 	}
+}
+
+// get reads the adjustment for pid; pid 0 means the calling process.
+func get(pid int) (int, error) {
+	target := "self"
+	if pid != 0 {
+		target = strconv.Itoa(pid)
+	}
+	data, err := os.ReadFile(procRoot + "/" + target + "/oom_score_adj")
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(strings.TrimSpace(string(data)))
 }

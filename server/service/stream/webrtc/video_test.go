@@ -78,7 +78,7 @@ func TestVideoPacketizersAcceptAnnexB(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			packets := newVideoPacketizer(test.codec).Packetize(test.annexB, 3000)
+			packets := newAdaptiveVideoPacketizer(test.codec).packetize(test.annexB, 0, videoRTPMTU)
 			if len(packets) != 1 || len(packets[0].Payload) == 0 {
 				t.Fatalf("Packetize() produced %d packet(s)", len(packets))
 			}
@@ -96,7 +96,7 @@ func TestH265PacketizerFragmentsWithinMTU(t *testing.T) {
 		annexB[i] = byte(i)
 	}
 
-	packets := newVideoPacketizer(stream.VideoCodecH265).Packetize(annexB, 3000)
+	packets := newAdaptiveVideoPacketizer(stream.VideoCodecH265).packetize(annexB, 0, videoRTPMTU)
 	if len(packets) < 2 {
 		t.Fatalf("Packetize() produced %d packet(s), want fragmented H.265", len(packets))
 	}

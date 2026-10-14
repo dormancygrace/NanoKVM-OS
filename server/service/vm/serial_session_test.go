@@ -415,3 +415,10 @@ func TestSerialSessionRetriesInterruptedDevicePoll(t *testing.T) {
 		t.Fatal("the device is still claimed after the browser closed")
 	}
 }
+
+func serialPortOpen(device string) bool {
+	serialPorts.Lock()
+	defer serialPorts.Unlock()
+	_, open := serialPorts.open[device]
+	return open
+}

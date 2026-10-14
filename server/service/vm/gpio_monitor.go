@@ -110,11 +110,6 @@ func (m *gpioInputMonitor) Current(ctx context.Context) (gpioInputStatus, error)
 	return m.status, m.err
 }
 
-func (m *gpioInputMonitor) Close() {
-	m.stopOnce.Do(func() { close(m.stop) })
-	<-m.stopped
-}
-
 func (m *gpioInputMonitor) run() {
 	defer close(m.stopped)
 	for {

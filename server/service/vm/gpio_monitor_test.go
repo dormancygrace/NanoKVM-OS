@@ -377,3 +377,8 @@ func waitGPIOStatus(t *testing.T, monitor *gpioInputMonitor, accept func(gpioInp
 	}
 	t.Fatal("timed out waiting for GPIO status")
 }
+
+func (m *gpioInputMonitor) Close() {
+	m.stopOnce.Do(func() { close(m.stop) })
+	<-m.stopped
+}

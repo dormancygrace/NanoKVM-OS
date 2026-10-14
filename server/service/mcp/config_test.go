@@ -95,7 +95,7 @@ func TestAPIKeyMiddleware(t *testing.T) {
 	if got := request("Bearer secret").Code; got != http.StatusForbidden {
 		t.Fatalf("disabled status = %d", got)
 	}
-	if err := control.SwitchToMCP(nil); err != nil {
+	if err := control.SwitchWithCleanup(controlmode.ModeMCP, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, header := range []string{"", "secret", "Basic secret", "Bearer wrong"} {
@@ -244,7 +244,7 @@ func TestSetConfigEnableCleanupFailureFailsClosed(t *testing.T) {
 func TestSetConfigEnableReleaseFailureFailsClosed(t *testing.T) {
 	useTestConfig(t)
 	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModePicoclaw)
-	service := NewService(control, func() error { return errors.New("release failed") })
+	service := NewServiceWithPreempt(control, nil, nil, func() error { return errors.New("release failed") }, nil)
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)

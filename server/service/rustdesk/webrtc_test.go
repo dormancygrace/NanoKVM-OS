@@ -390,3 +390,11 @@ func TestRustDeskRTCSessionAndConnectionCaps(t *testing.T) {
 		p.Close()
 	}
 }
+
+func readRustDeskPayload(r io.Reader) ([]byte, error) {
+	var first [1]byte
+	if _, err := io.ReadFull(r, first[:]); err != nil {
+		return nil, err
+	}
+	return readRustDeskPayloadAfterHead(r, first[0])
+}

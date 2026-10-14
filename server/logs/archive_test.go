@@ -180,3 +180,5 @@ func TestArchivedReadsShareCache(t *testing.T) {
 		t.Fatal(fresh)
 	}
 }
+
+func (a *Archive) Close() error { return a.root.Close() }

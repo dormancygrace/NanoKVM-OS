@@ -74,12 +74,7 @@ func ensureGeneratedCertificate(certFile, keyFile string) error {
 	if err := os.MkdirAll(filepath.Dir(certFile), 0755); err != nil {
 		return err
 	}
-	return generateCertFiles(certFile, keyFile)
-}
-
-// GenerateCertificateFiles writes a fresh self-signed pair.
-func GenerateCertificateFiles(certFile, keyFile string) error {
-	return generateCertFiles(certFile, keyFile)
+	return GenerateCertificateFiles(certFile, keyFile)
 }
 
 // The generated pair; variables so tests can point them at a directory.
@@ -88,7 +83,8 @@ var (
 	defaultKeyFile  = config.DefaultKeyFile
 )
 
-func generateCertFiles(certFile, keyFile string) error {
+// GenerateCertificateFiles writes a fresh self-signed pair.
+func GenerateCertificateFiles(certFile, keyFile string) error {
 	var (
 		host      = "localhost"
 		ipAddress = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}

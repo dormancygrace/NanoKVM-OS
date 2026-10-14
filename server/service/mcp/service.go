@@ -20,10 +20,6 @@ type Service struct {
 	onControlChange       func(controlmode.Status)
 }
 
-func NewService(control *controlmode.Manager, releaseHID func() error) *Service {
-	return NewServiceWithPreempt(control, nil, nil, releaseHID, nil)
-}
-
 func NewServiceWithPreempt(
 	control *controlmode.Manager,
 	preemptPicoclawLeases func() error,

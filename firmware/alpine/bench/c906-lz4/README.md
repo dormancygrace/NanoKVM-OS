@@ -32,7 +32,7 @@ Build with paths to the source, completed kernel build, the production cross
 compiler and exact production KCFLAGS:
 
 ```sh
-python3 tools/c906-lz4/build.py --kernel KERNEL_SOURCE \
+python3 firmware/alpine/bench/c906-lz4/build.py --kernel KERNEL_SOURCE \
   --kernel-build KERNEL_BUILD --output PRIVATE_FRESH_DIRECTORY \
   --cross CROSS_COMPILER_PREFIX --cflags 'EXACT_PRODUCTION_KCFLAGS'
 ```
@@ -50,7 +50,7 @@ PRIVATE_FRESH_DIRECTORY/lz4-client /dev/c906-lz4 qualify
 PRIVATE_FRESH_DIRECTORY/lz4-client /dev/c906-lz4 bench > PRIVATE_FULL.csv
 PRIVATE_FRESH_DIRECTORY/lz4-client /dev/c906-lz4 page-bench > PRIVATE_PAGES.csv
 rmmod c906_lz4
-python3 tools/c906-lz4/analyze.py PRIVATE_PAGES.csv --output PRIVATE_SUMMARY.json
+python3 firmware/alpine/bench/c906-lz4/analyze.py PRIVATE_PAGES.csv --output PRIVATE_SUMMARY.json
 ```
 
 `qualify` covers 45,056 valid-input cases: 32 lengths (0–64 KiB), 11 variants,

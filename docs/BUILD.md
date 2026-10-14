@@ -63,7 +63,7 @@ optimization, ISA, tuning or ABI options are rejected. This validates the option
 supplied by the builder, not every option subsequently added by an upstream
 Makefile. A complete build and device qualification remain necessary.
 
-For CPU comparisons, `tools/c906-profile-bench.c` is a small integer/float test,
+For CPU comparisons, `firmware/alpine/bench/c906-profile-bench.c` is a small integer/float test,
 not a video benchmark. Compile it with the same compiler, `-O2`, C906 tuning,
 `-mno-fence-tso`, `-mabi=lp64d` and `-ffp-contract=off`, varying only `-march`.
 Interleave repeated runs on the same device and compare checksums as well as

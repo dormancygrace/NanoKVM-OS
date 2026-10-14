@@ -29,6 +29,16 @@ def link(target,dst):
     if dst.is_symlink() or dst.is_file(): dst.unlink()
     dst.symlink_to(target)
 base=out/'base'; app=out/'app'; fw=out/'firmware-sg2002'
+# Old port payloads can still contain init copies no longer owned by the app.
+# Follow the primary package manifest before hashing or repackaging that tree.
+app_init_paths = set()
+for line in (r/'platform/packages.list').read_text().splitlines():
+    fields = line.split()
+    if len(fields) == 5 and fields[0] == 'app' and Path(fields[2]).parent == Path('/kvmapp/system/init.d'):
+        app_init_paths.add(fields[2])
+for path in (app/'kvmapp/system/init.d').glob('*'):
+    if '/' + str(path.relative_to(app)) not in app_init_paths:
+        path.unlink()
 hwd_s15=r/'firmware/alpine/compat/S15kvmhwd'
 copy(r/'firmware/alpine/compat/nanokvm-firstboot-storage',base/'usr/libexec/nanokvm/firstboot-storage')
 copy(r/'firmware/alpine/compat/nanokvm-activate-kernel',base/'usr/libexec/nanokvm/activate-kernel')
@@ -44,7 +54,7 @@ for src in (r/'firmware/alpine/openrc').iterdir(): copy(src,base/'etc/init.d'/sr
 copy(hwd_s15,base/'usr/libexec/nanokvm/legacy/S15kvmhwd')
 link('/usr/libexec/nanokvm/legacy/S15kvmhwd',base/'etc/init.d/S15kvmhwd')
 copy(hwd_s15,app/'kvmapp/system/init.d/S15kvmhwd')
-for name in ('S95nanokvm', 'nanokvm-server-supervisor', 'S30eth', 'S30wifi'):
+for name in ('S95nanokvm', 'nanokvm-server-supervisor'):
     copy(r/'kvmapp/system/init.d'/name,app/'kvmapp/system/init.d'/name)
 copy(r/'firmware/alpine/compat/S30usbnet',base/'usr/libexec/nanokvm/legacy/S30usbnet')
 link('/usr/libexec/nanokvm/legacy/S30usbnet',base/'etc/init.d/S30usbnet')

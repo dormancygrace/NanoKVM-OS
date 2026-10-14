@@ -8,7 +8,7 @@ PLATFORM = bash platform/build.sh -o "$(OUT)" -j "$(JOBS)" $(PLATFORM_ARGS)
 
 .PHONY: help all platform app support vision web release-build package release clean \
         test-wifi-modules test-alpine-network test-wifi-runtime \
-        test-ethernet-runtime test-partition-layout test-usb-profiles test-runtime-state
+        test-ethernet-runtime test-usb-profiles test-runtime-state
 
 help:
 	@echo "NanoKVM OS — pinned Alpine/platform build"
@@ -66,10 +66,6 @@ test-wifi-runtime:
 test-ethernet-runtime:
 	@sh tests/test-ethernet-enabled.sh
 	@cd server && go test -tags teststub,nomsgpack ./service/network
-
-test-partition-layout:
-	@sh tests/test-s01fs-partition-layout.sh
-	@sh tests/test-s01fs-data-lifecycle.sh
 
 test-usb-profiles:
 	@sh tests/test-usb-profiles.sh

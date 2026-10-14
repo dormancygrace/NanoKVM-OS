@@ -19,30 +19,6 @@ const (
 	HWVersionFile = "/etc/kvm/hw"
 )
 
-var HWAlpha = Hardware{
-	Version:      HWVersionAlpha,
-	GPIOReset:    "/sys/class/gpio/gpio507/value",
-	GPIOPower:    "/sys/class/gpio/gpio503/value",
-	GPIOPowerLED: "/sys/class/gpio/gpio504/value",
-	GPIOHDDLed:   "/sys/class/gpio/gpio505/value",
-}
-
-var HWBeta = Hardware{
-	Version:      HWVersionBeta,
-	GPIOReset:    "/sys/class/gpio/gpio505/value",
-	GPIOPower:    "/sys/class/gpio/gpio503/value",
-	GPIOPowerLED: "/sys/class/gpio/gpio504/value",
-	GPIOHDDLed:   "",
-}
-
-var HWPcie = Hardware{
-	Version:      HWVersionPcie,
-	GPIOReset:    "/sys/class/gpio/gpio505/value",
-	GPIOPower:    "/sys/class/gpio/gpio503/value",
-	GPIOPowerLED: "/sys/class/gpio/gpio504/value",
-	GPIOHDDLed:   "",
-}
-
 func (h HWVersion) String() string {
 	switch h {
 	case HWVersionAlpha:
@@ -75,24 +51,7 @@ func GetHwVersion() HWVersion {
 	}
 }
 
-func getHardware() (h Hardware) {
-	version := GetHwVersion()
-
-	switch version {
-	case HWVersionAlpha:
-		h = HWAlpha
-
-	case HWVersionBeta:
-		h = HWBeta
-
-	case HWVersionPcie:
-		h = HWPcie
-
-	default:
-		h = HWAlpha
-		log.Errorf("Unsupported hardware version: %s", version)
-	}
-
+func getHardware() Hardware {
 	// NanoKVM OS uses GPIO ABI v2; controller-local offsets are
 	// stable even when the kernel assigns different gpiochip/global numbers.
 	declared, err := os.ReadFile(HWVersionFile)
@@ -102,12 +61,12 @@ func getHardware() (h Hardware) {
 	if profile, profileErr := os.ReadFile("/etc/kvm/board-profile"); profileErr == nil {
 		declared = profile
 	}
-	return gpioV2Hardware(h, string(declared))
+	return gpioV2Hardware(GetHwVersion(), string(declared))
 }
 
 // Never guess an ATX pin assignment when board detection is missing.
-func gpioV2Hardware(h Hardware, declared string) Hardware {
-	h.GPIOPower, h.GPIOReset, h.GPIOPowerLED, h.GPIOHDDLed = "", "", "", ""
+func gpioV2Hardware(version HWVersion, declared string) Hardware {
+	h := Hardware{Version: version}
 	switch strings.TrimSpace(declared) {
 	case "lite":
 		// Base/Lite has no positively identified ATX daughterboard. Native

@@ -8,13 +8,16 @@ stand. The server archives the kernel log to the SD card whenever it
 changes, checking every minute, so this one line forced a full rewrite
 each minute.
 
-vi_log_lv now defaults to ERR, WARN and NOTICE. INFO and DBG remain
-available at run time:
-echo 31 > /sys/module/cv181x_vi/parameters/vi_log_lv
+vi_log_lv now defaults to ERR, WARN and NOTICE. INFO remains available
+at run time:
+echo 15 > /sys/module/cv181x_vi/parameters/vi_log_lv
 
-vi_start_streaming() logged "+" at DBG, and that line served as a
-timeline mark when matching resets against server restarts. It is now
-"start streaming" at NOTICE, printed once per stream start.
+DBG uses pr_debug(), which is compiled out in the shipping kernel.
+Enabling bit 16 alone does not restore it; a debug-enabled build is also
+required.
+
+Promote vi_start_streaming()'s DBG-only "+" marker to "start streaming"
+at NOTICE, so each stream start remains visible with the quiet mask.
 
 VI_PROFILE stays defined. Besides the timing it also guards
 _vi_update_chnRealFrameRate(), which fills u32FrameRate. libkvm reads
@@ -32,7 +35,7 @@ index 9501c42..d7285c6 100644
   *  Global variables
   ******************************************************/
 -u32 vi_log_lv = VI_ERR | VI_WARN | VI_NOTICE | VI_INFO | VI_DBG;
-+/* INFO and DBG are developer chatter; set vi_log_lv to 31 to see them. */
++/* Enable INFO at runtime with vi_log_lv=15; DBG also needs a debug build. */
 +u32 vi_log_lv = VI_ERR | VI_WARN | VI_NOTICE;
  module_param(vi_log_lv, int, 0644);
  
@@ -56,7 +59,7 @@ index 9501c42..d7285c6 100644
   *  Global variables
   ******************************************************/
 -u32 vi_log_lv = VI_ERR | VI_WARN | VI_NOTICE | VI_INFO | VI_DBG;
-+/* INFO and DBG are developer chatter; set vi_log_lv to 31 to see them. */
++/* Enable INFO at runtime with vi_log_lv=15; DBG also needs a debug build. */
 +u32 vi_log_lv = VI_ERR | VI_WARN | VI_NOTICE;
  module_param(vi_log_lv, int, 0644);
  

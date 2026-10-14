@@ -67,8 +67,6 @@ void mmf_vi_frame_release(int ch);
 int mmf_invert_format_to_mmf(int maix_format);
 
 // venc
-// The GOP selector is an additive ABI so the public mmf_venc_cfg_t layout
-// remains compatible with existing native probes and callers.
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -92,7 +90,8 @@ int mmf_enc_jpg_push_with_quality(int ch, uint8_t *data, int w, int h, int forma
 int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality);
 int mmf_enc_jpg_pop(int ch, uint8_t **data, int *size);
 int mmf_enc_jpg_free(int ch);
-int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg);
+// v2 removes the GOP field from mmf_venc_cfg_t; old libraries must not bind.
+extern "C" int mmf_add_venc_channel_v2(int ch, mmf_venc_cfg_t *cfg);
 int mmf_del_venc_channel(int ch);
 int mmf_del_venc_channel_all();
 int mmf_venc_push(int ch, uint8_t *data, int w, int h, int format);

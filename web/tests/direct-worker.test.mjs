@@ -60,6 +60,7 @@ function harness(options = {}) {
         timestamp: chunk.timestamp,
         displayWidth: 1920,
         displayHeight: 1080,
+        ...options.frameGeometry,
         closed: 0,
         close() {
           this.closed++;
@@ -78,6 +79,15 @@ function harness(options = {}) {
     URL,
     WebSocket: Socket,
     VideoDecoder: Decoder,
+    VideoFrame: class {
+      constructor(source, init) {
+        Object.assign(this, init, { timestamp: source.timestamp, closed: 0, wraps: source });
+        frames.push(this);
+      }
+      close() {
+        this.closed++;
+      }
+    },
     EncodedVideoChunk: class {
       constructor(args) {
         Object.assign(this, args);
@@ -409,4 +419,25 @@ test('healthy Direct ACKs batch four frames, flush at 40 ms and cancel on stop',
   h.stop();
   h.fireTimeouts(40);
   assert.deepEqual(acks(), [0, 68000, 85000], 'stop cancels the pending ACK');
+});
+
+test('Edge frames with a halved visible rectangle are drawn and reported at full size', () => {
+  const h = harness({
+    frameGeometry: {
+      codedWidth: 2560,
+      codedHeight: 1440,
+      visibleRect: { x: 0, y: 0, width: 1280, height: 720 },
+      displayWidth: 1280,
+      displayHeight: 720
+    }
+  });
+  h.send(0, true);
+  h.advance(109);
+  h.advance(110);
+  const size = h.reports.find((r) => r.type === 'frame-size');
+  assert.deepEqual([size.width, size.height], [2560, 1440]);
+  const wrapper = h.frames.find((f) => f.wraps);
+  assert.equal(JSON.stringify(wrapper.visibleRect), JSON.stringify({ x: 0, y: 0, width: 2560, height: 1440 }));
+  assert.equal(wrapper.closed, 1);
+  assert.equal(wrapper.wraps.closed, 1);
 });

@@ -20,10 +20,6 @@ case "${1:-}" in
     start)
         copy_config "$NANOKVM_CONFIG_BOOT/sshd_config" "$NANOKVM_CONFIG_ETC/ssh/sshd_config" 600
         copy_config "$NANOKVM_CONFIG_BOOT/resolv.conf" "$NANOKVM_CONFIG_ETC/resolv.conf" 644
-        # Preserve explicit user-provided handlers; importing does not run them.
-        for name in rc.local ttyGS0_handler.sh; do
-            copy_config "$NANOKVM_CONFIG_BOOT/$name" "$NANOKVM_CONFIG_ETC/$name" 755
-        done
         # NanoKVM OS is a NanoKVM receiver, not an Alpha/Beta camera.
         # Keep a populated sensor configuration, seed a missing/empty one from LT.
         if [ ! -s "$NANOKVM_CONFIG_DATA/sensor_cfg.ini" ]; then

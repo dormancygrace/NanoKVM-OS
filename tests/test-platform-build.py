@@ -129,8 +129,18 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     assert supervisor.is_file() and not supervisor.is_symlink(), "supervisor missing from app payload"
     assert supervisor.stat().st_mode & 0o7777 == 0o755, "supervisor must be installed with mode 0755"
     assert supervisor.read_bytes() == (REPO / "kvmapp" / supervisor_path).read_bytes()
-    manifest = json.loads((app / "build-manifest.json").read_text())
-    assert manifest["files"][supervisor_path] == hashlib.sha256(supervisor.read_bytes()).hexdigest()
+    manifest_path = app / "build-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    release_values = dict(line.split("=", 1) for line in
+                          (tree / "firmware/alpine/release.env").read_text().splitlines()
+                          if line and not line.startswith("#"))
+    assert manifest["version"] == release_values["NANOKVM_VERSION"], "manifest release version is stale"
+    assert (app / "version").read_text().strip() == manifest["version"].removeprefix("v")
+    expected_files = {str(path.relative_to(app)): hashlib.sha256(path.read_bytes()).hexdigest()
+                      for path in app.rglob("*")
+                      if path.is_file() and not path.is_symlink() and path != manifest_path}
+    assert manifest["files"] == expected_files, "manifest must hash every payload file, excluding itself and symlinks"
+    assert not (app / "enhanced-stage-manifest.json").exists(), "obsolete stage manifest retained"
     # Execute the installed file directly: this checks its shebang and mode as
     # well as its presence, without starting target binaries or touching /run.
     expect(subprocess.run([str(supervisor), "wait"], capture_output=True, text=True,

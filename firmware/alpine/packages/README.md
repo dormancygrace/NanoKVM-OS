@@ -33,19 +33,9 @@ payloads; `nanokvm-keys` refuses anything but public keys in `/etc/apk/keys`.
 ## Sophgo `devmem` dependency
 
 Sophgo `libsys.so` invokes `devmem ADDRESS 32 VALUE` during `CVI_SYS_Init`.
-Alpine's BusyBox and busybox-extras do not supply this applet, so build the
-single-applet BusyBox executable before preparing release payloads:
-
-```sh
-NANOKVM_BUILDROOT_OUTPUT=/path/to/buildroot-output \
-  ./scripts/build-busybox-devmem.sh /path/to/devmem-output
-python3 scripts/prepare-alpine-release-payloads.py \
-  --port-payloads /path/to/port-payloads \
-  --accepted-root /path/to/accepted-root \
-  --server /path/to/server-final --web /path/to/web \
-  --devmem /path/to/devmem-output/devmem \
-  --output /path/to/release-payloads
-```
+Alpine's BusyBox and busybox-extras do not supply this applet, so the `tools`
+step of `platform/build.sh` builds a single-applet BusyBox executable with
+`scripts/build-busybox-devmem.sh`.
 
 The build pins upstream BusyBox 1.38.0 (labelled unstable by upstream) and its
 source checksum, enables only
@@ -64,9 +54,11 @@ PAYLOAD_ROOT=/path/to/payloads \
   ./scripts/build-alpine-packages.sh stock
 ```
 
-Release payload preparation and APK packaging both default to `stock`. For an
-experimental tuned build, pass `--profile c906-scalar` to payload preparation
-and `c906-scalar` to the package builder. Mismatched metadata is rejected.
+`platform/build.sh payloads` produces `stock` payloads, and the package builder
+defaults to the same profile. The package builder also accepts `c906-scalar`
+for separately supplied payloads with matching release metadata; the platform
+assembler does not produce that experimental profile. Mismatched metadata is
+rejected.
 
 The APK repository URL is `REPODEST/stock/recipes`; package files and the
 signed index are below its `riscv64` architecture directory. A C906 repository

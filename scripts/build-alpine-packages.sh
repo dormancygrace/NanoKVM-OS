@@ -80,7 +80,7 @@ make_release_payload() {
 	if [ -d "$release_dir" ]; then
 		if [ "$(cat "$release_dir/etc/nanokvm-build-profile")" != "$PROFILE" ] ||
 		   ! grep -qxF "BUILD_PROFILE=\"$PROFILE\"" "$release_dir/etc/nanokvm-release"; then
-			echo "build-alpine-packages: release metadata does not match $PROFILE; prepare payloads with --profile $PROFILE" >&2
+			echo "build-alpine-packages: release metadata does not match $PROFILE; supply matching payloads or select their recorded profile" >&2
 			exit 1
 		fi
 		echo "$release_dir"

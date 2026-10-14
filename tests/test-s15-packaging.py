@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
-import hashlib
-import json
-import subprocess
-import tempfile
+"""Init-script layout of the base and app packages in platform/packages.list."""
 from pathlib import Path
 
 
 root = Path(__file__).resolve().parents[1]
-shipped = root / 'firmware/alpine/compat/S15kvmhwd'
 removed_init_scripts = (
     'S00kmod S01fs S02config S10uuid S12temperature S13cpufreq '
     'S13nanokvm-watchdog S25wifimod S29qdisc S30eth S30usbnet S30wifi '
@@ -18,111 +14,64 @@ kept_init_scripts = {
     'S03usbdev', 'S03usbhid', 'S15kvmhwd',
     'S95nanokvm', 'S96picoclaw', 'nanokvm-server-supervisor',
 }
+legacy = '/usr/libexec/nanokvm/legacy/'
+app_init = '/kvmapp/system/init.d/'
+
+entries = {}
+for line in (root / 'platform/packages.list').read_text().splitlines():
+    fields = line.split()
+    if not fields or fields[0].startswith('#'):
+        continue
+    package, kind, path = fields[:3]
+    assert (package, path) not in entries, 'duplicate entry: ' + path
+    entries[package, path] = (kind, *fields[3:])
 
 
-def write(path: Path, data: bytes = b'x\n') -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
+def file_entry(package, path, source, mode='0755'):
+    assert entries.get((package, path)) == ('file', mode, source), (package, path, entries.get((package, path)))
 
 
-with tempfile.TemporaryDirectory(prefix='nanokvm-s15-package-') as temporary:
-    work = Path(temporary)
-    port = work / 'port'
-    accepted = work / 'accepted'
-    server = work / 'server'
-    web = work / 'web'
-    output = work / 'output'
+def link_entry(package, path, target):
+    assert entries.get((package, path)) == ('link', '-', target), (package, path, entries.get((package, path)))
 
-    for directory in ('base', 'app', 'firmware-sg2002', 'release'):
-        (port / directory).mkdir(parents=True)
-    write(port / 'base/usr/libexec/nanokvm/legacy/S15kvmhwd', b'vendor base\n')
-    for name in removed_init_scripts:
-        write(port / 'app/kvmapp/system/init.d' / name, b'obsolete app copy\n')
-    for name in kept_init_scripts:
-        write(port / 'app/kvmapp/system/init.d' / name, b'kept app copy\n')
-    # An inherited symlink must be unlinked without touching its target.
-    wifi_target = work / 'wifi-target'
-    write(wifi_target, b'outside the copied payload\n')
-    wifi_link = port / 'app/kvmapp/system/init.d/S30wifi'
-    wifi_link.unlink()
-    wifi_link.symlink_to(wifi_target)
-    write(port / 'app/kvmapp/system/init.d/S15kvmhwd', b'vendor app\n')
-    write(port / 'app/kvmapp/server/web/old.html')
-    write(port / 'app/kvmapp/enhanced-stage-manifest.json', b'{"version":"old-release","files":{}}\n')
-    write(port / 'base/usr/libexec/nanokvm/legacy/S95nanokvm', b'stale base startup\n')
-    write(port / 'app/kvmapp/system/init.d/S95nanokvm', b'stale app startup\n')
 
-    for name in ('nkos-board-probe', 'nanokvm_update_edid',
-                 'nanokvm-wifi-tx-live', 'nanokvm-wifi-tx-policy'):
-        write(accepted / 'usr/sbin' / name)
-    for name in ('nanokvm-buildroot', 'chrony.conf', 'console_handler.sh'):
-        write(accepted / 'etc' / name)
-    write(accepted / 'mnt/data/sensor_cfg.ini.LT')
+# The app ships only the init copies something still runs.
+shipped = {Path(path).name for package, path in entries if package == 'app' and path.startswith(app_init)}
+assert shipped == kept_init_scripts, 'app init copies: ' + ', '.join(sorted(shipped ^ kept_init_scripts))
+assert not shipped & set(removed_init_scripts)
 
-    for name in ('nkos-update', 'nkos-apply-updates', 'nkos-usb-internet', 'NanoKVM-Server.stripped'):
-        write(server / name)
-    write(server / 'dl_lib/libsys.so')
-    write(web / 'index.html', b'<!doctype html>\n')
-    devmem = work / 'devmem' / 'devmem'
-    write(devmem, b'devmem applet\n')
-    devmem.chmod(0o755)
-    write(devmem.parent / 'busybox-LICENSE', b'BusyBox GPL-2.0-only\n')
+# S15kvmhwd: the compat version in both places, never the stock Sipeed copy.
+file_entry('base', legacy + 'S15kvmhwd', 'firmware/alpine/compat/S15kvmhwd')
+file_entry('app', app_init + 'S15kvmhwd', 'firmware/alpine/compat/S15kvmhwd')
+link_entry('base', '/etc/init.d/S15kvmhwd', legacy + 'S15kvmhwd')
 
-    subprocess.run([
-        str(root / 'scripts/prepare-alpine-release-payloads.py'),
-        '--port-payloads', str(port),
-        '--accepted-root', str(accepted),
-        '--server', str(server),
-        '--web', str(web),
-        '--devmem', str(devmem),
-        '--output', str(output),
-    ], check=True)
+# A later app-only update must change the startup policy seen through the base
+# entry point, so the base links to the app's S95 instead of carrying a copy.
+link_entry('base', legacy + 'S95nanokvm', app_init + 'S95nanokvm')
+link_entry('base', '/etc/init.d/S95nanokvm', legacy + 'S95nanokvm')
+file_entry('app', app_init + 'S95nanokvm', 'kvmapp/system/init.d/S95nanokvm')
+file_entry('app', app_init + 'nanokvm-server-supervisor', 'kvmapp/system/init.d/nanokvm-server-supervisor')
 
-    assert '"$s/out/nkos-usb-internet"' in (root / 'platform/build.sh').read_text()
-    assert (output / 'base/usr/sbin/nkos-usb-internet').is_file()
-    assert (output / 'base/etc/init.d/nanokvm-usb-internet').is_file()
-    assert (output / 'base/usr/libexec/nanokvm/legacy/S30usbnet').read_bytes() == (root / 'firmware/alpine/compat/S30usbnet').read_bytes()
-    assert (output / 'base/usr/libexec/nanokvm/legacy/S50avahi-daemon').read_bytes() == (root / 'firmware/alpine/compat/S50avahi-daemon').read_bytes()
-    assert (output / 'base/etc/init.d/S50avahi-daemon').readlink() == Path('/usr/libexec/nanokvm/legacy/S50avahi-daemon')
-    app_root = output / 'app/kvmapp'
-    assert not (app_root / 'enhanced-stage-manifest.json').exists(), 'obsolete manifest retained in the new APK payload'
-    app_init = app_root / 'system/init.d'
-    assert {path.name for path in app_init.iterdir()} == kept_init_scripts, 'obsolete init scripts retained in the app payload'
-    assert wifi_target.read_bytes() == b'outside the copied payload\n'
-    assert wifi_link.is_symlink(), 'source payload must remain unchanged'
-    manifest = json.loads((app_root / 'build-manifest.json').read_text())
-    for name in removed_init_scripts:
-        assert 'system/init.d/' + name not in manifest['files']
+# Sophgo libsys.so runs `devmem`, which Alpine's BusyBox does not provide.
+file_entry('base', '/usr/sbin/devmem', '@tools/devmem')
+file_entry('base', '/usr/share/licenses/nanokvm-base/busybox-LICENSE', '@tools/busybox-LICENSE', '0644')
+assert 'scripts/build-busybox-devmem.sh' in (root / 'platform/build.sh').read_text()
 
-    assert 'enhanced-stage-manifest.json' not in manifest['files']
-    assert 'build-manifest.json' not in manifest['files']
-    assert manifest['version'].removeprefix('v') == (app_root / 'version').read_text().strip()
-    assert manifest['files']['server/NanoKVM-Server'] == hashlib.sha256((app_root / 'server/NanoKVM-Server').read_bytes()).hexdigest()
+file_entry('base', '/usr/sbin/nkos-usb-internet', '@server/nkos-usb-internet')
+file_entry('base', '/etc/init.d/nanokvm-usb-internet', 'firmware/alpine/openrc/nanokvm-usb-internet')
+assert '"$s/out/nkos-usb-internet"' in (root / 'platform/build.sh').read_text()
+file_entry('base', legacy + 'S30usbnet', 'firmware/alpine/compat/S30usbnet')
+file_entry('base', legacy + 'S50avahi-daemon', 'firmware/alpine/compat/S50avahi-daemon')
+link_entry('base', '/etc/init.d/S50avahi-daemon', legacy + 'S50avahi-daemon')
 
-    expected = shipped.read_bytes()
-    base_s15 = output / 'base/usr/libexec/nanokvm/legacy/S15kvmhwd'
-    app_s15 = output / 'app/kvmapp/system/init.d/S15kvmhwd'
-    assert base_s15.read_bytes() == expected
-    assert app_s15.read_bytes() == expected
-    assert (output / 'base/etc/init.d/S15kvmhwd').readlink() == Path(
-        '/usr/libexec/nanokvm/legacy/S15kvmhwd')
-    assert (output / 'base/usr/sbin/devmem').read_bytes() == devmem.read_bytes()
-    assert (output / 'base/usr/sbin/devmem').stat().st_mode & 0o111
-    assert (output / 'base/usr/share/licenses/nanokvm-base/busybox-LICENSE').is_file()
-    # A subsequent app-only update must change the startup policy seen through
-    # the base compatibility entry point; retaining a copied S95 fails this.
-    base_s95 = output / 'base/usr/libexec/nanokvm/legacy/S95nanokvm'
-    app_s95 = output / 'app/kvmapp/system/init.d/S95nanokvm'
-    assert base_s95.is_symlink(), 'base retains a stale independent S95'
-    target = base_s95.readlink()
-    resolved = output / 'app' / str(target).lstrip('/')
-    assert resolved == app_s95
-    assert resolved.read_bytes() == (root / 'kvmapp/system/init.d/S95nanokvm').read_bytes()
-    supervisor = output / 'app/kvmapp/system/init.d/nanokvm-server-supervisor'
-    assert supervisor.read_bytes() == (root / 'kvmapp/system/init.d/nanokvm-server-supervisor').read_bytes()
-    assert supervisor.stat().st_mode & 0o111
-    app_s95.write_bytes(b'updated application startup policy\n')
-    assert resolved.read_bytes() == b'updated application startup policy\n'
-
+# Every /etc/init.d link of the base resolves to a legacy script it ships.
+for (package, path), (kind, *rest) in entries.items():
+    if package == 'base' and kind == 'link' and path.startswith('/etc/init.d/'):
+        target = rest[1]
+        assert target.startswith(legacy), (path, target)
+        assert ('base', target) in entries, 'dangling init link: ' + path
+for (package, path), (kind, *rest) in entries.items():
+    if kind in ('file', 'tree') and not rest[1].startswith(('@', '%')):
+        assert (root / rest[1]).exists(), 'missing source: ' + rest[1]
 
 print('S15 packaging test passed')

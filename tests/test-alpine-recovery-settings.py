@@ -2,6 +2,7 @@
 """Run real recovery functions and BusyBox tar, without mounts or devices."""
 from pathlib import Path
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -38,7 +39,18 @@ def check(name, files, directories=(), damage=None, no_archive=False):
         if not no_archive:
             paths = [p for p in ('root/.ssh', 'etc/ssh', 'etc/hosts') if (old / p).exists()]
             subprocess.run([busybox, 'tar', '--numeric-owner', '-cf', str(archive), '-C', str(old), *paths], check=True)
-        func = functions.replace('/busybox', busybox)
+        recovery_busybox = busybox
+        if damage == 'hash-failure':
+            # find -exec with a semicolon can hide failed child commands.
+            # Fail only per-file hashing; the archive hash still succeeds.
+            wrapper = t / 'fault-busybox'
+            wrapper.write_text('#!/bin/sh\n'
+                               'if [ "$1" = sha256sum ]; then\n'
+                               '    case "$2" in ./*) exit 23 ;; esac\n'
+                               'fi\nexec ' + shlex.quote(busybox) + ' "$@"\n')
+            wrapper.chmod(0o755)
+            recovery_busybox = str(wrapper)
+        func = functions.replace('/busybox', shlex.quote(recovery_busybox))
         for path in ('/realroot', '/root-shadow.saved', '/settings-check', '/settings.paths', '/settings.sha256'):
             func = func.replace(path, str(t) + path)
         # For missing-restored-file coverage, inject loss after successful tar
@@ -57,6 +69,9 @@ def check(name, files, directories=(), damage=None, no_archive=False):
         result = subprocess.run(['sh', '-c', script], text=True, capture_output=True, timeout=20)
         if damage:
             assert result.returncode == 17, (name, result)
+            if damage == 'hash-failure':
+                assert 'cannot hash preserved settings' in result.stderr, result
+                assert (root / 'root/.ssh/authorized_keys').read_text() == 'IMAGE KEY MUST NOT SURVIVE'
             print('PASS:', name, '(failure detected)')
             return
         assert result.returncode == 0, (name, result)
@@ -86,6 +101,7 @@ check('no archive', {}, no_archive=True)
 check('missing expected restored file', complete, damage='missing-file')
 check('archive changed after validation', complete, damage='archive-changed')
 check('invalid archive before formatting', complete, damage='corrupt-before')
+check('per-file hash failure before formatting', complete, damage='hash-failure')
 
 # Exercise the real service with a rooted ssh-keygen invocation. -A creates
 # missing keys once and leaves existing private/public keys byte-for-byte intact.

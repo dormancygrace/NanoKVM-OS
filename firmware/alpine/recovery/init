@@ -137,7 +137,8 @@ validate_settings() {
 				fail "settings path must be a directory: $path"
 		fi
 	done
-	(cd /settings-check && /busybox find . -type f -exec /busybox sha256sum '{}' ';') > /settings.sha256 ||
+	# The '+' form makes find fail if any sha256sum invocation fails.
+	(cd /settings-check && /busybox find . -type f -exec /busybox sha256sum '{}' +) > /settings.sha256 ||
 		fail "cannot hash preserved settings"
 	SETTINGS_SHA256=$(/busybox sha256sum "$SETTINGS_BACKUP") || fail "cannot hash settings archive"
 	SETTINGS_SHA256=${SETTINGS_SHA256%% *}

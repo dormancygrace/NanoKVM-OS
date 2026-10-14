@@ -585,7 +585,7 @@ tools() {
 
     # As Buildroot builds a target package: TARGET_CFLAGS, then its strip.
     e=$t/edid
-    cp -r "$repo/tools/nanokvm_update_edid" "$e"
+    cp -r "$repo/support/sg2002/nanokvm_update_edid" "$e"
     make -C "$e" CC="${cross}gcc" RISCV_FLAGS= LDFLAGS=-ztext \
         CFLAGS="$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace) -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -g0 -Wall -Wextra -Werror"
     "${cross}strip" --remove-section=.comment --remove-section=.note \

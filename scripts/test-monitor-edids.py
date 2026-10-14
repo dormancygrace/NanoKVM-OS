@@ -12,7 +12,7 @@ HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location('monitor_edids', HERE / 'build-monitor-edids.py')
 generator = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(generator)
-ORIGINAL = (HERE.parent / 'tools/nanokvm_update_edid/E21_NanoKVM.bin').read_bytes()
+ORIGINAL = (HERE.parent / 'support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin').read_bytes()
 
 
 class MonitorEdids(unittest.TestCase):
@@ -57,7 +57,7 @@ class MonitorEdids(unittest.TestCase):
     def test_cube_profiles_are_packaged_separately_at_60_hz(self):
         with tempfile.TemporaryDirectory() as directory:
             subprocess.run([sys.executable, str(HERE/'build-monitor-edids.py'),
-                            '--input', str(HERE.parent/'tools/nanokvm_update_edid/E21_NanoKVM.bin'),
+                            '--input', str(HERE.parent/'support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin'),
                             '--output', directory], check=True)
             for height in (720, 1080):
                 data = (Path(directory)/f'NanoKVM-cube-monitor-{height}.bin').read_bytes()

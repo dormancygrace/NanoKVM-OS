@@ -156,7 +156,7 @@ app   file  /kvmapp/system/share/usb-audio/opus-COPYING   0644  @tools/usb-audio
 app   file  /kvmapp/system/share/usb-audio/tinyalsa-LICENSE 0644 @tools/usb-audio/tinyalsa-LICENSE
 app   file  /kvmapp/system/share/serial-console/nanokvm-serial-console.sh  0755 @tools/serial-console/nanokvm-serial-console.sh
 app   file  /kvmapp/system/share/serial-console/nanokvm-serial-console.img 0644 @tools/serial-console/nanokvm-serial-console.img
-app   file  /kvmapp/system/tool/E21_NanoKVM.bin           0644  tools/nanokvm_update_edid/E21_NanoKVM.bin
+app   file  /kvmapp/system/tool/E21_NanoKVM.bin           0644  support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin
 app   link  /kvmapp/system/tool/nanokvm_update_edid       -     /usr/sbin/nanokvm_update_edid
 
 # nanokvm-release: the release marker that depends on the tested package set

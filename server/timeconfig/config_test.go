@@ -43,8 +43,8 @@ func TestValidation(t *testing.T) {
 
 func TestPersistAndRestartOnlyForServers(t *testing.T) {
 	dir := t.TempDir()
-	ntp := "server old.example iburst\nrestrict default nomodify noquery\ndriftfile /var/lib/ntp/ntp.drift\n"
-	os.WriteFile(filepath.Join(dir, "ntp.conf"), []byte(ntp), 0644)
+	conf := "server old.example iburst\ncmdport 0\ndriftfile /var/lib/chrony/drift\n"
+	os.WriteFile(filepath.Join(dir, "chrony.conf"), []byte(conf), 0644)
 	calls := 0
 	s := Store{Dir: dir, Restart: func() error { calls++; return nil }}
 	c, err := s.Read()
@@ -80,16 +80,16 @@ func TestPersistAndRestartOnlyForServers(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(actual, c) {
 		t.Fatal(actual, err)
 	}
-	newNTP, _ := os.ReadFile(filepath.Join(dir, "ntp.conf"))
-	if strings.Contains(string(newNTP), "old.example") || !strings.Contains(string(newNTP), "restrict default nomodify noquery") || !strings.Contains(string(newNTP), "driftfile") {
-		t.Fatal(string(newNTP))
+	newConf, _ := os.ReadFile(filepath.Join(dir, "chrony.conf"))
+	if strings.Contains(string(newConf), "old.example") || !strings.Contains(string(newConf), "cmdport 0") || !strings.Contains(string(newConf), "driftfile") {
+		t.Fatal(string(newConf))
 	}
 }
 
 func TestRestartFailureRollsBack(t *testing.T) {
 	dir := t.TempDir()
-	old := []byte("server old.example iburst\nrestrict default noquery\n")
-	os.WriteFile(filepath.Join(dir, "ntp.conf"), old, 0644)
+	old := []byte("server old.example iburst\ncmdport 0\n")
+	os.WriteFile(filepath.Join(dir, "chrony.conf"), old, 0644)
 	calls := 0
 	s := Store{Dir: dir, Restart: func() error {
 		calls++
@@ -101,9 +101,9 @@ func TestRestartFailureRollsBack(t *testing.T) {
 	if s.Save(Config{[]string{"new.example"}, "UTC", "12"}) == nil {
 		t.Fatal("reported success")
 	}
-	actual, _ := os.ReadFile(filepath.Join(dir, "ntp.conf"))
+	actual, _ := os.ReadFile(filepath.Join(dir, "chrony.conf"))
 	if string(actual) != string(old) {
-		t.Fatal("NTP was not restored")
+		t.Fatal("chrony configuration was not restored")
 	}
 	if _, err := os.Stat(s.configPath()); !os.IsNotExist(err) {
 		t.Fatal("failed config persisted")

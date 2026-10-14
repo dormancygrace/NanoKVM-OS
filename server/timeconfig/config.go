@@ -97,18 +97,7 @@ func Validate(c Config) error {
 	return nil
 }
 
-// Keep application updates compatible with older ntpd-based system images.
-func (s *Store) Chrony() bool {
-	_, err := os.Stat(filepath.Join(s.Dir, "chrony.conf"))
-	return err == nil
-}
-func (s *Store) daemonConfigPath() string {
-	name := "ntp.conf"
-	if s.Chrony() {
-		name = "chrony.conf"
-	}
-	return filepath.Join(s.Dir, name)
-}
+func (s *Store) daemonConfigPath() string { return filepath.Join(s.Dir, "chrony.conf") }
 
 func (s *Store) configPath() string { return filepath.Join(s.Dir, "kvm/date-time.json") }
 
@@ -146,21 +135,13 @@ func (s *Store) read() (Config, error) {
 
 func (s *Store) Read() (Config, error) { s.mu.Lock(); defer s.mu.Unlock(); return s.read() }
 
-func ntpConfig(old []byte, servers []string) []byte {
-	return serverConfig(old, servers, false)
-}
-
-func serverConfig(old []byte, servers []string, chrony bool) []byte {
+func serverConfig(old []byte, servers []string) []byte {
 	lines := []string{}
 	for _, host := range servers {
 		lines = append(lines, "server "+host+" iburst")
 	}
 	if len(old) == 0 {
-		if chrony {
-			old = []byte("driftfile /var/lib/chrony/drift\nmakestep 1.0 3\nrtcsync\nport 0\ncmdport 0\nbindcmdaddress /run/chrony/chronyd.sock\n")
-		} else {
-			old = []byte("restrict default nomodify nopeer noquery limited kod\nrestrict 127.0.0.1\nrestrict [::1]\n")
-		}
+		old = []byte("driftfile /var/lib/chrony/drift\nmakestep 1.0 3\nrtcsync\nport 0\ncmdport 0\nbindcmdaddress /run/chrony/chronyd.sock\n")
 	}
 	for _, line := range strings.Split(strings.TrimRight(string(old), "\n"), "\n") {
 		f := strings.Fields(line)
@@ -237,7 +218,7 @@ func (s *Store) Save(c Config) error {
 		files = append(files, struct {
 			path string
 			data []byte
-		}{ntpPath, serverConfig(ntp, c.Servers, s.Chrony())})
+		}{ntpPath, serverConfig(ntp, c.Servers)})
 	}
 	type backup struct {
 		path    string

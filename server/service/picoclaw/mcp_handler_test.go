@@ -42,7 +42,7 @@ func TestMCPBootstrapAllowedDuringControlTransition(t *testing.T) {
 	manager := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff)
 	service := &Service{control: manager}
 
-	err := manager.Switch(controlmode.ModePicoclaw, func() error {
+	err := manager.SwitchWithCleanup(controlmode.ModePicoclaw, func() error {
 		response := performMCPRequest(service, jsonRPCBody("initialize"))
 		if response.Code != http.StatusOK {
 			t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
@@ -51,7 +51,7 @@ func TestMCPBootstrapAllowedDuringControlTransition(t *testing.T) {
 			t.Fatalf("bootstrap method returned error: %s", response.Body.String())
 		}
 		return nil
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestMCPActionsRejectedDuringControlTransition(t *testing.T) {
 	manager := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModePicoclaw)
 	service := &Service{control: manager}
 
-	err := manager.Switch(controlmode.ModeMCP, func() error {
+	err := manager.SwitchWithCleanup(controlmode.ModeMCP, func() error {
 		response := performMCPRequest(
 			service,
 			`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"kvm_actions","arguments":{"actions":[]}}}`,
@@ -106,7 +106,7 @@ func TestMCPActionsRejectedDuringControlTransition(t *testing.T) {
 			t.Fatalf("body = %s, want transitioning control error", body)
 		}
 		return nil
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

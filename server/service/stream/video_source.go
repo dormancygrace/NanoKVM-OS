@@ -143,10 +143,6 @@ func validateVideoConfig(config EncoderConfig) error {
 	return nil
 }
 
-func (s *VideoSource) subscribe(config EncoderConfig) (*VideoSubscription, error) {
-	return s.subscribeValidated(config, nil)
-}
-
 func (s *VideoSource) subscribeValidated(requested EncoderConfig, validate func(EncoderConfig) error) (*VideoSubscription, error) {
 	for {
 		s.mutex.Lock()

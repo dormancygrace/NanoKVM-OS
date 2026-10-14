@@ -24,10 +24,6 @@ func NewRemote() *Remote {
 	return &Remote{hid: hid.GetHid()}
 }
 
-func newRemoteWithHID(writer HIDWriter) *Remote {
-	return &Remote{hid: writer}
-}
-
 func (r *Remote) TypeText(ctx context.Context, text string, delay time.Duration) ([]rune, error) {
 	reports, skipped := buildTypeReports(text)
 	r.hidMu.Lock()

@@ -26,10 +26,10 @@ func TestSwitchPreemptsBeforeWaitingForActiveWrite(t *testing.T) {
 	preempted := make(chan struct{})
 	done := make(chan error, 1)
 	go func() {
-		done <- manager.Switch(ModePicoclaw, func() error {
+		done <- manager.SwitchWithCleanup(ModePicoclaw, func() error {
 			close(preempted)
 			return nil
-		})
+		}, nil)
 	}()
 
 	select {
@@ -115,7 +115,7 @@ func TestSwitchCleanupFailureFailsClosed(t *testing.T) {
 
 func TestSwitchIfKeepsDifferentMode(t *testing.T) {
 	manager := NewManager(filepath.Join(t.TempDir(), "mode"), ModePicoclaw)
-	switched, err := manager.SwitchIf(ModeMCP, ModeOff, nil)
+	switched, err := manager.SwitchIfWithCleanup(ModeMCP, ModeOff, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func TestSwitchTimeoutDoesNotLeaveManagerTransitioning(t *testing.T) {
 	}
 
 	release()
-	if err := manager.Switch(ModePicoclaw, nil); err != nil {
+	if err := manager.SwitchWithCleanup(ModePicoclaw, nil, nil); err != nil {
 		t.Fatalf("switch after lease release failed: %v", err)
 	}
 }

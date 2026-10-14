@@ -96,3 +96,12 @@ func TestConcurrentSourceReportsLeaveLatestSnapshot(t *testing.T) {
 		t.Fatalf("version=%d exists=%t, want 100/true", version, ok)
 	}
 }
+
+func (s *State) LeaseCount() int {
+	return s.leaseCount
+}
+
+func (s *State) Viewer(source string) (count int, version uint64, ok bool) {
+	value, ok := s.sources[source]
+	return value.count, value.version, ok
+}

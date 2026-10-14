@@ -317,10 +317,10 @@ func TestModeSwitchCancelsActiveMCPTool(t *testing.T) {
 		t.Fatal("MCP tool did not start")
 	}
 
-	switched, err := control.SwitchIf(controlmode.ModeMCP, controlmode.ModeOff, func() error {
+	switched, err := control.SwitchIfWithCleanup(controlmode.ModeMCP, controlmode.ModeOff, func() error {
 		coordinator.CancelMCP()
 		return nil
-	})
+	}, nil)
 	if err != nil || !switched {
 		t.Fatalf("switched=%v err=%v", switched, err)
 	}

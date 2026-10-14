@@ -25,12 +25,8 @@ func TestHTTPBindingFormats(t *testing.T) {
 				Name    string `json:"name" form:"name" validate:"required"`
 				Enabled *bool  `json:"enabled" form:"enabled" validate:"required"`
 			}
-			var err error
-			if tc.method == "GET" {
-				err = ParseQueryRequest(c, &req)
-			} else {
-				err = ParseFormRequest(c, &req)
-			}
+			// Gin binds the query string of a GET request as form values.
+			err := ParseFormRequest(c, &req)
 			if err != nil || req.Name != "test" || req.Enabled == nil || *req.Enabled {
 				t.Fatalf("%+v: %v", req, err)
 			}

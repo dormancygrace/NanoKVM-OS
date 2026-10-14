@@ -58,7 +58,7 @@ func TestCurlTransferIntegrity(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := curlDestination(t)
-			err := downloadCurlImage(context.Background(), server.URL+tc.path, f, tc.expected, nil)
+			err := downloadCurlTransfer(context.Background(), server.URL+tc.path, f, tc.expected, nil, nil)
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("error = %v", err)
 			}
@@ -76,7 +76,7 @@ func TestCurlRejectsUntrustedTLS(t *testing.T) {
 	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("secret")) }))
 	defer s.Close()
 	f := curlDestination(t)
-	if err := downloadCurlImage(context.Background(), s.URL, f, nil, nil); err == nil {
+	if err := downloadCurlTransfer(context.Background(), s.URL, f, nil, nil, nil); err == nil {
 		t.Fatal("accepted untrusted certificate")
 	}
 	info, _ := f.Stat()
@@ -96,7 +96,7 @@ func TestCurlAESOnlyFallbackStillVerifiesTLS(t *testing.T) {
 	}
 	t.Setenv("CURL_CA_BUNDLE", ca)
 	f := curlDestination(t)
-	if err := downloadCurlImage(context.Background(), s.URL, f, nil, nil); err != nil {
+	if err := downloadCurlTransfer(context.Background(), s.URL, f, nil, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	body, _ := os.ReadFile(f.Name())
@@ -118,7 +118,7 @@ func TestCurlCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan error, 1)
-	go func() { done <- downloadCurlImage(ctx, s.URL, f, nil, nil) }()
+	go func() { done <- downloadCurlTransfer(ctx, s.URL, f, nil, nil, nil) }()
 	select {
 	case <-started:
 	case <-time.After(5 * time.Second):

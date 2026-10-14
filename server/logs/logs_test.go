@@ -114,7 +114,7 @@ func TestCollectorCachesSuccessAndFailureForAllClients(t *testing.T) {
 	var wait sync.WaitGroup
 	for i := 0; i < 20; i++ {
 		wait.Go(func() {
-			snapshot, err := collector.Read("kernel")
+			snapshot, err := collector.ReadBoot("kernel", "current")
 			if err != nil || snapshot.Content != "kernel event" {
 				t.Errorf("kernel: %+v %v", snapshot, err)
 			}
@@ -124,28 +124,28 @@ func TestCollectorCachesSuccessAndFailureForAllClients(t *testing.T) {
 	if calls != 1 {
 		t.Fatalf("%d reads instead of one", calls)
 	}
-	absent, _ := collector.Read("system")
+	absent, _ := collector.ReadBoot("system", "current")
 	if absent.State != "unavailable" {
 		t.Fatal(absent)
 	}
 	if err := os.WriteFile(filepath.Join(collector.logDir, "messages"), []byte("new log\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	cached, _ := collector.Read("system")
+	cached, _ := collector.ReadBoot("system", "current")
 	if cached.State != "unavailable" {
 		t.Fatal("failure was not cached")
 	}
 	now = now.Add(RefreshInterval)
-	fresh, _ := collector.Read("system")
+	fresh, _ := collector.ReadBoot("system", "current")
 	if fresh.Content != "new log" {
 		t.Fatal(fresh)
 	}
-	_, _ = collector.Read("kernel")
+	_, _ = collector.ReadBoot("kernel", "current")
 	if calls != 2 {
 		t.Fatal(calls)
 	}
 	for _, source := range []string{"../../etc/shadow", "/var/log/messages", "kernel;id", "system\x00"} {
-		if _, err := collector.Read(source); err != ErrSource {
+		if _, err := collector.ReadBoot(source, "current"); err != ErrSource {
 			t.Fatalf("source %q was accepted", source)
 		}
 	}
@@ -225,7 +225,7 @@ func TestCollectorCurrentDigestCacheHandlesFreshFlushAndChanges(t *testing.T) {
 	now := time.Unix(1000, 0)
 	collector.now = func() time.Time { return now }
 
-	first, err := collector.Read("system")
+	first, err := collector.ReadBoot("system", "current")
 	if err != nil || first.Content != "safe line" {
 		t.Fatalf("initial current read: %+v %v", first, err)
 	}
@@ -285,7 +285,7 @@ func TestCollectorCurrentDigestCacheTracksTruncation(t *testing.T) {
 	}
 	collector.now = func() time.Time { return time.Unix(1000, 0) }
 
-	first, err := collector.Read("kernel")
+	first, err := collector.ReadBoot("kernel", "current")
 	if err != nil || first.Content != "" || !first.Truncated {
 		t.Fatalf("initial kernel read: %+v %v", first, err)
 	}

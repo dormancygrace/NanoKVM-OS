@@ -28,10 +28,3 @@ func claimSerialPort(device string) (release func(), ok bool) {
 		serialPorts.Unlock()
 	}, true
 }
-
-func serialPortOpen(device string) bool {
-	serialPorts.Lock()
-	defer serialPorts.Unlock()
-	_, open := serialPorts.open[device]
-	return open
-}

@@ -118,10 +118,6 @@ func (m *Manager) AcquireWrite(expected Mode) (func(), error) {
 	return release, nil
 }
 
-func (m *Manager) Acquire(expected Mode) (func(), error) {
-	return m.AcquireWrite(expected)
-}
-
 // AcquireStable holds the current control mode stable while a non-AI input
 // operation is in flight. Mode transitions take the exclusive side of the
 // activity gate, so they wait until the returned release function is called.
@@ -146,10 +142,6 @@ func (m *Manager) AcquireStable() (Status, func(), error) {
 	}
 
 	return status, release, nil
-}
-
-func (m *Manager) Switch(next Mode, preempt func() error) error {
-	return m.SwitchWithCleanup(next, preempt, nil)
 }
 
 func (m *Manager) SwitchWithCleanup(next Mode, preempt func() error, cleanup func() error) error {
@@ -229,10 +221,6 @@ func (m *Manager) SwitchWithCleanup(next Mode, preempt func() error, cleanup fun
 	timings["total_ms"] = elapsedMilliseconds(startedAt)
 	log.WithFields(timings).Info("AI control mode switch completed")
 	return nil
-}
-
-func (m *Manager) SwitchIf(expected Mode, next Mode, preempt func() error) (bool, error) {
-	return m.SwitchIfWithCleanup(expected, next, preempt, nil)
 }
 
 func (m *Manager) SwitchIfWithCleanup(expected Mode, next Mode, preempt func() error, cleanup func() error) (bool, error) {
@@ -322,14 +310,6 @@ func (m *Manager) SwitchIfWithCleanup(expected Mode, next Mode, preempt func() e
 	timings["total_ms"] = elapsedMilliseconds(startedAt)
 	log.WithFields(timings).Info("conditional AI control mode switch completed")
 	return true, nil
-}
-
-func (m *Manager) SwitchToMCP(preempt func() error) error {
-	return m.Switch(ModeMCP, preempt)
-}
-
-func (m *Manager) SwitchToPicoclaw(preempt func() error) error {
-	return m.Switch(ModePicoclaw, preempt)
 }
 
 func callModeTransitionHook(hook func() error) (err error) {

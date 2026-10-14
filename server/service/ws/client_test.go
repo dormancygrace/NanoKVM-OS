@@ -65,7 +65,7 @@ func TestHeartbeatTimeoutReleasesManualLease(t *testing.T) {
 
 	switchDone := make(chan error, 1)
 	go func() {
-		switchDone <- control.SwitchToPicoclaw(nil)
+		switchDone <- control.SwitchWithCleanup(controlmode.ModePicoclaw, nil, nil)
 	}()
 
 	select {

@@ -113,3 +113,7 @@ func TestRemoteTypeTextCancellationReleasesKeyboard(t *testing.T) {
 		t.Fatalf("keyboard was not released after cancellation: %v", hid.keyboard)
 	}
 }
+
+func newRemoteWithHID(writer HIDWriter) *Remote {
+	return &Remote{hid: writer}
+}

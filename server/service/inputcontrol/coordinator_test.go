@@ -51,7 +51,7 @@ func TestManualInputPreemptsMCPWithoutSwitchingMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	releaseMode, err := control.Acquire(controlmode.ModeMCP)
+	releaseMode, err := control.AcquireWrite(controlmode.ModeMCP)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -16,7 +16,6 @@ package oomscore
 import (
 	"os"
 	"strconv"
-	"strings"
 )
 
 const (
@@ -49,17 +48,4 @@ func Set(pid, value int) error {
 		target = strconv.Itoa(pid)
 	}
 	return os.WriteFile(procRoot+"/"+target+"/oom_score_adj", []byte(strconv.Itoa(value)), 0)
-}
-
-// Get reads the adjustment for pid; pid 0 means the calling process.
-func Get(pid int) (int, error) {
-	target := "self"
-	if pid != 0 {
-		target = strconv.Itoa(pid)
-	}
-	data, err := os.ReadFile(procRoot + "/" + target + "/oom_score_adj")
-	if err != nil {
-		return 0, err
-	}
-	return strconv.Atoi(strings.TrimSpace(string(data)))
 }

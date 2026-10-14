@@ -47,3 +47,27 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
 - **`test-aic8800-bt-rx.c`** is a standalone contract of the AIC8800
   Bluetooth RX path:
   `gcc -fsanitize=address,undefined tests/test-aic8800-bt-rx.c && ./a.out`.
+
+## Manual tools
+
+`manual/` holds tools that are run by hand and never by CI.
+
+- **`manual/hang-recorder/`** records the last moments before a device hang.
+  `heartbeat.sh` prints one `NKHB` line per second, with uptime and
+  `/run/nanokvm/now_fps`, to the serial console. `watch-hang.ps1` runs on a
+  Windows host attached to that console. It logs every serial line and pings
+  the device, and writes `events.jsonl`, so the moment the heartbeat stops
+  can be matched against the network.
+  `uart-private.jsonl` in that directory holds the raw console text,
+  login prompts included, so treat it as private.
+
+  1. Copy `heartbeat.sh` and `start-heartbeat.sh` to the device.
+  2. Start the watcher on the host:
+     `.\watch-hang.ps1 -OutputDirectory DIR -DeviceHost IP [-Port COM3] [-Seconds 300]`.
+  3. On the device, run
+     `sh start-heartbeat.sh ./heartbeat.sh TOKEN SECONDS`.
+     The token is matched by `-HeartbeatToken`, which defaults to `diagnostic`.
+
+  `-AllowSysRq` and `-AutoDumpOnLoss` send Magic SysRq keys. These options
+  need a diagnostic kernel: the release kernel is built without
+  `CONFIG_MAGIC_SYSRQ`.

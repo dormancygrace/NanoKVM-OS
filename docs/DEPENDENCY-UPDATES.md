@@ -31,7 +31,7 @@ The Go, frontend, script and additional-Go-module CI suites remain mandatory. Ru
 
 `Upstream dependency watch` runs daily at 05:23 UTC and supports manual dispatch. It reads pins from repository files without executing downloaded package code. It reports:
 
-- **Every entry in `platform/sources.lock`**: Linux, Buildroot, U-Boot, OpenSBI, Sophgo SDK/drivers/media/sensors, AIC8800, cryptodev, MaixCDK, json-c, miniz, inih, tinyalsa, Opus, BusyBox devmem source, wireless-regdb, Go, Node, pnpm, Alpine minirootfs and the QEMU build helper.
+- **Every entry in `platform/sources.lock`**: Linux, Buildroot, U-Boot, OpenSBI, Sophgo SDK/drivers/media/sensors, AIC8800, cryptodev, json-c, miniz, inih, tinyalsa, Opus, BusyBox devmem source, wireless-regdb, Go, Node, pnpm, Alpine minirootfs and the QEMU build helper.
 - **All direct frontend dependencies**, including dev dependencies and npm aliases, against registry `latest`, independently of cooldown or whether Dependabot can produce a lockfile update. Indirect frontend packages remain owned by Dependabot/security alerts. Unrecognized version ranges fail visibly instead of being skipped.
 - **Buildroot stable releases only**, including stable point releases. Selected recipes (binutils, musl, initramfs BusyBox, filesystem and host tools) follow that Buildroot release; master snapshots, release candidates and per-recipe development changes are not reported or proposed separately. GCC stable releases retain their independent check.
 - **All stock Alpine dependencies named in local APKBUILD `depends`/`makedepends`**, plus optional VPN packages and core BusyBox/OpenSSL/APK tools. Stable main/community availability is checked; optional VPN packages may use the configured edge/community fallback. Installed device versions are not inspected.
@@ -65,7 +65,7 @@ The dependency publisher runs daily at 05:23 UTC on main, independently of the r
 | Sources | Draft PR behavior |
 |---|---|
 | U-Boot, OpenSBI, Buildroot | Update source pins; local patches/configuration and output hashes still require qualification. |
-| AIC8800, cryptodev, Sophgo osdrv/cvi_mpi/sensors, Sipeed SDK, MaixCDK | Update the commit and the exact selected Git tree/blob IDs. **AIC8800 tracks radxa-pkg/aic8800.** Commits with unchanged selected paths do not create a PR. |
+| AIC8800, cryptodev, Sophgo osdrv/cvi_mpi/sensors, Sipeed SDK | Update the commit and the exact selected Git tree/blob IDs. **AIC8800 tracks radxa-pkg/aic8800.** Commits with unchanged selected paths do not create a PR. |
 | json-c, miniz, inih, Opus, tinyalsa, wireless-regdb, BusyBox devmem | Update source commits or archive URLs and SHA-256, plus companion metadata and archive/extraction paths where applicable. |
 | Node.js, pnpm, Alpine minirootfs | Update archive pins; Node stays in the selected major and minirootfs in the selected Alpine branch. |
 | Patched Go runtime, GCC, Alpine branch migrations | Open an integration notification: version guards, local patches and system migrations need deliberate work. |

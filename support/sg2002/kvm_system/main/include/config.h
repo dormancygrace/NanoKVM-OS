@@ -1,15 +1,8 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
-#include "maix_app.hpp"
-#include "maix_log.hpp"
-#include "maix_sys.hpp"
+#include "kvm_platform.h"
 #include <signal.h>
-#include "maix_time.hpp"
-#include "maix_gpio.hpp"
-#include "maix_pinmap.hpp"
-#include "maix_i2c.hpp"
-#include "maix_uart.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
@@ -17,7 +10,7 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <fstream>
 #include <linux/input.h>
 
@@ -27,7 +20,6 @@
 #include "system_init.h"
 #include "oled_ctrl.h"
 #include "oled_ui.h"
-#include "hdmi.h"
 
 #define IP_Change_time 				5000
 #define QR_Change_time 				5000

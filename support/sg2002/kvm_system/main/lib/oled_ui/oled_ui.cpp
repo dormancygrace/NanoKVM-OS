@@ -116,8 +116,6 @@ static uint64_t oled_monotonic_ms() {
     return uint64_t(ts.tv_sec) * 1000 + ts.tv_nsec / 1000000;
 }
 
-using namespace maix;
-using namespace maix::sys;
 
 extern kvm_sys_state_t kvm_sys_state;
 extern kvm_oled_state_t kvm_oled_state;
@@ -160,7 +158,6 @@ void oled_ip_window_observe(const char *eth_addr, const char *wifi_addr)
 void kvm_init_cube_ui(void)
 {
 	uint8_t temp;
-	char* str_temp = "192.168.1.243";
 
 	OLED_Clear();
 	// OLED_Revolve();
@@ -218,8 +215,6 @@ void kvm_init_ui(void)
 void qrcode_to_oled(QRCode *qr)
 {
 	char *p_oled_data;
-	uint16_t count = 0;
-	uint8_t bit;
 	uint8_t begin_x = 2;
 	uint8_t begin_y = 2;
 	p_oled_data = (char *)malloc( 132 * sizeof(char));
@@ -384,9 +379,8 @@ void kvm_eth_state_disp(ip_addr_t _ip_type, uint8_t first_disp)
 					OLED_ShowKVMStreamState(KVM_ETH_IP, &temp);
 				break;
 			case  2:
-				OLED_Show_Network_Error(1);
 			case  3:
-				OLED_Show_Network_Error(0);
+				OLED_Show_Network_Error(kvm_oled_state.eth_state == 2);
 				OLED_ShowKVMState(ETH_STATE, 	1);
 				if(_ip_type == ETH_IP)
 					OLED_ShowKVMStreamState(KVM_ETH_IP, kvm_sys_state.eth_addr);

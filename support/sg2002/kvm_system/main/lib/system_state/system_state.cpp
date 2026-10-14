@@ -12,8 +12,6 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-using namespace maix;
-using namespace maix::sys;
 
 extern kvm_sys_state_t kvm_sys_state;
 extern kvm_oled_state_t kvm_oled_state;
@@ -153,7 +151,7 @@ bool usable_ipv4_for_oled(const char *interface_name, char *output, size_t outpu
 {
 	if (interface_name == NULL || output == NULL || output_size < 16U) return false;
 	output[0] = 0;
-	const auto addresses = ip_address();
+	const auto addresses = kvms::ip_address();
 	const auto found = addresses.find(interface_name);
 	if (found == addresses.end() || found->second.empty() || found->second.size() >= output_size) return false;
 
@@ -221,7 +219,7 @@ int get_ip_addr(ip_addr_t ip_type)
             uint8_t *destination = ip_type == ETH_IP ? kvm_sys_state.eth_addr :
                 ip_type == WiFi_IP ? kvm_sys_state.wifi_addr :
                 ip_type == Tailscale_IP ? kvm_sys_state.tail_addr : kvm_sys_state.rndis_addr;
-            const auto addresses = ip_address();
+            const auto addresses = kvms::ip_address();
             const auto found = addresses.find(interface);
             memset(destination, 0, 16);
             if (found == addresses.end() || found->second.empty() || found->second.size() >= 16)
@@ -250,6 +248,8 @@ int get_ip_addr(ip_addr_t ip_type)
 		case WiFi_ROUTE: // wifi_route
 			return read_default_gateway("wlan0", kvm_sys_state.wifi_route,
 					sizeof(kvm_sys_state.wifi_route));
+		case NULL_IP:
+			break;
 	}
 	return 0;
 }
@@ -513,7 +513,7 @@ void kvm_update_eth_state(void)
 
 	if(nic_state == NIC_STATE_RUNNING){
 		// Get IP
-		if(strcmp(ip_address()[eth_interface].c_str(), (char*)kvm_sys_state.eth_addr) != 0){
+		if(strcmp(kvms::ip_address()[eth_interface].c_str(), (char*)kvm_sys_state.eth_addr) != 0){
 			if(get_ip_addr(ETH_IP)){
 				kvm_sys_state.eth_state = 2;
 			} else {
@@ -563,7 +563,7 @@ void kvm_update_wifi_state(void)
 				system("rm /etc/kvm/wifi_exist");
 				return;
 			}
-			// break;	// Start checking the connection directly.
+			[[fallthrough]];	// Start checking the connection directly.
 		case 0:
 		// WiFi is available but not connected.
 			publish_wifi_state(0);

@@ -62,12 +62,5 @@
     "branch": "sg200x-dev",
     "commit": "e2824e1d07f516c41238e123fefbab71a34843bc",
     "qualification": "LT6911 callbacks tested; UXC hardware probe integration pending"
-  },
-  "maixcdk": {
-    "version": "upstream snapshot 2026-10-04",
-    "url": "https://github.com/sipeed/MaixCDK.git",
-    "commit": "30f4b8b7e3f66ded9cfa64fb081b46e30bc27248",
-    "scope": "required basic/peripheral source subset in kvm_system; platform/native/maixcdk patches applied",
-    "qualification": "C906 T-Head/-O2 cross-build and host ASan/UBSan I2C/system contracts passed; physical board-service qualification deferred to v2.1-b1"
   }
 }

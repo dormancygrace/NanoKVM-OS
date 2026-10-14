@@ -1,7 +1,5 @@
 #include "system_ctrl.h"
 
-using namespace maix;
-using namespace maix::sys;
 
 extern kvm_sys_state_t kvm_sys_state;
 extern kvm_oled_state_t kvm_oled_state;
@@ -82,7 +80,7 @@ void kvm_wifi_web_config_process()
 		kvm_sys_state.wifi_config_process = 3;
 		// 尝试连接wifi
 		if(kvm_sys_state.wifi_config_process == 3){
-			// time::sleep_ms(WIFI_CONNECTION_DELAY);
+			// kvms::sleep_ms(WIFI_CONNECTION_DELAY);
 			if(wifi_connected()){
 				// 连上了
 				kvm_sys_state.wifi_config_process = -1;
@@ -104,7 +102,7 @@ void kvm_wifi_config_process()
 			// printf("[kvms]Not in the process of configuring WiFi\n");
 			break;
 		case 0: // 启动wifi
-			srand((unsigned)time::time_ms());
+			srand((unsigned)kvms::time_ms());
 			for(temp = 0; temp < 4; temp++){
 				do{
 					ran_num = (char)rand()%10 + '0';
@@ -138,7 +136,7 @@ void kvm_wifi_config_process()
 			}
 			break;
 		case 3: // 尝试连接wifi
-			time::sleep_ms(WIFI_CONNECTION_DELAY);
+			kvms::sleep_ms(WIFI_CONNECTION_DELAY);
 			if(wifi_connected()){
 				// 连上了
 				kvm_sys_state.wifi_config_process = -1;
@@ -162,15 +160,15 @@ uint8_t kvm_reset_password(void)
     }
 
     fputs("passwd root\n", fp);
-	time::sleep_ms(10);
+	kvms::sleep_ms(10);
     fputs("root\n", fp);
-	time::sleep_ms(10);
+	kvms::sleep_ms(10);
     fputs("root\n", fp);
-	time::sleep_ms(10);
+	kvms::sleep_ms(10);
     fputs("rm /etc/kvm/pwd\n", fp);
-	time::sleep_ms(10);
+	kvms::sleep_ms(10);
     fputs("sync\n", fp);
-	time::sleep_ms(10);
+	kvms::sleep_ms(10);
     fputs("exit\n", fp); // 退出 bash
 
     if (pclose(fp) == -1) {

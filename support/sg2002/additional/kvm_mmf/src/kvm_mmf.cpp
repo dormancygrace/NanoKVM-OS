@@ -23,32 +23,15 @@
 #include "cvi_awb.h"
 #include "cvi_isp.h"
 #include "cvi_sns_ctrl.h"
-#include "cvi_ive.h"
 #include "cvi_sys.h"
 #include "sample_comm.h"
 #include "kvm_mmf.hpp"
 #include "internal/frame_buffer.hpp"
 
 #define MMF_VI_MAX_CHN            2       // Qualified VPSS outputs; VI still has one source.
-#define MMF_RGN_MAX_NUM			16
 #define MMF_VENC_MAX_CHN		4
 
 #define MMF_VB_VI_ID			0
-
-/* Resolution-bounded opt-ins expose the accepted high-rate profiles while
- * retaining the normal 60-FPS channel rate for every other geometry. */
-#define native120_opt_in_env    "NANOKVM_NATIVE120_EXPERIMENT"
-#define native120_max_width     1280
-#define native120_max_height    720
-#define native120_vpss_fps      120
-#define qhd60_opt_in_env        "NANOKVM_QHD60_MAX_EXPERIMENT"
-#define qhd60_width             2560
-#define qhd60_height            1440
-#define qhd60_vpss_fps          60
-#define fhd75_opt_in_env        "NANOKVM_FHD75_EXPERIMENT"
-#define fhd75_width             1920
-#define fhd75_height            1080
-#define fhd75_vpss_fps          75
 
 #if VPSS_MAX_PHY_CHN_NUM < MMF_VI_MAX_CHN
 #error "VPSS_MAX_PHY_CHN_NUM < MMF_VI_MAX_CHN"
@@ -56,28 +39,13 @@
 
 typedef struct {
 	uint8_t ch;
-	SIZE_S input;
-	SIZE_S output;
-	int fps;
-	uint8_t depth;
-	uint8_t fit; 	// fit = 0, width to new width, height to new height, may be stretch
-					// fit = 1, keep aspect ratio, fill blank area with black color
-					// fit = 2, keep aspect ratio, crop image to fit new size
-	int input_fmt;
-	int output_fmt;
-} vpss_info_t;
-
-typedef struct {
-	uint8_t ch;
 	uint8_t type;	// 0, jpg; 1, h265; 2, h264
 	uint8_t is_inited;
 	uint8_t is_used;
 	uint8_t is_running;
-	uint8_t use_vpss;
 	VIDEO_FRAME_INFO_S *capture_frame;
 	VENC_STREAM_S capture_stream;
 	mmf_venc_cfg_t cfg;
-	vpss_info_t vpss;
 	uint32_t pool_id;
 } venc_info_t;
 
@@ -87,7 +55,6 @@ typedef enum {
 	MMF_MOD_VPSS,
 	MMF_MOD_VENC,
 	MMF_MOD_VDEC,
-	MMF_MOD_REGION,
 } mmf_mod_type_t;
 
 typedef struct {
@@ -112,25 +79,6 @@ typedef struct {
 	VIDEO_FRAME_INFO_S vi_frame[MMF_VI_MAX_CHN];
 	VB_CONFIG_S vb_conf;
 
-	int ive_is_init;
-	IVE_HANDLE ive_handle;
-	IVE_IMAGE_S ive_rgb2yuv_rgb_img;
-	IVE_IMAGE_S ive_rgb2yuv_yuv_img;
-	int ive_rgb2yuv_w;
-	int ive_rgb2yuv_h;
-
-	bool rgn_is_init[MMF_RGN_MAX_NUM];
-	bool rgn_is_bind[MMF_RGN_MAX_NUM];
-	RGN_TYPE_E rgn_type[MMF_RGN_MAX_NUM];
-	int rgn_id[MMF_RGN_MAX_NUM];
-	MOD_ID_E rgn_mod_id[MMF_RGN_MAX_NUM];
-	CVI_S32 rgn_dev_id[MMF_RGN_MAX_NUM];
-	CVI_S32 rgn_chn_id[MMF_RGN_MAX_NUM];
-	uint8_t* rgn_canvas_data[MMF_RGN_MAX_NUM];
-	int rgn_canvas_w[MMF_RGN_MAX_NUM];
-	int rgn_canvas_h[MMF_RGN_MAX_NUM];
-	int rgn_canvas_format[MMF_RGN_MAX_NUM];
-
 	int enc_jpg_is_init;
 	VENC_STREAM_S enc_jpeg_frame;
 	int enc_jpg_frame_w;
@@ -142,23 +90,11 @@ typedef struct {
 	int enc_jpg_input_pool_id;
 	int enc_jpg_output_pool_id;
 
-	int vb_of_vi_is_config : 1;
-	int vb_of_private_is_config : 1;
-	int vb_size_of_vi;
-	int vb_count_of_vi;
-	int vb_size_of_private;
-	int vb_count_of_private;
-
-
-	SAMPLE_SNS_TYPE_E sensor_type;
-
 	venc_info_t venc[MMF_VENC_MAX_CHN];
-	uint8_t h265_or_h264_is_used;
 
 	mmf_vb_pool_t vb_pool[VB_MAX_COMM_POOLS];
 
-	// Keep all existing member offsets stable for compatibility with the
-	// vendor middleware; zero-copy state is appended at the end.
+	// Zero-copy state: VI frame leases and the VENC streams and inputs.
 	bool vi_frame_valid[MMF_VI_MAX_CHN];
 	bool vi_frame_mapped[MMF_VI_MAX_CHN];
 	bool vi_frame_deferred[MMF_VI_MAX_CHN];
@@ -167,7 +103,6 @@ typedef struct {
 } priv_t;
 
 typedef struct {
-	int enc_jpg_enable : 1;
 	bool vi_hmirror[MMF_VI_MAX_CHN];
 	bool vi_vflip[MMF_VI_MAX_CHN];
 } g_priv_t;
@@ -352,13 +287,6 @@ static void venc_stats_frame(const VENC_STREAM_S *stream, const VENC_CHN_STATUS_
 	s = venc_stats_t{};
 }
 
-static int native120_vpss_rate(int width, int height)
-{
-    return nanokvm::capture_rate_limit(width, height);
-}
-
-#define MODULE_NAME "soph_vi"
-
 /*
  * Keep the former zero-copy hook's frame lifetime in the MMF implementation.
  * A frame released by the image path stays leased until VENC has consumed it.
@@ -520,20 +448,7 @@ static int _destroy_vb_pool(uint32_t pool_id)
 	return 0;
 }
 
-__attribute__((unused)) static void _list_vb_pool(void)
-{
-	printf("====== VB POOL =======\r\n");
-	for (int pool_id = 0; pool_id < VB_MAX_COMM_POOLS; pool_id ++) {
-		mmf_vb_pool_t *info = (mmf_vb_pool_t *)&priv.vb_pool[pool_id];
-		if (info->is_used) {
-			printf("[%d] name:%s size:%d num:%d\r\n", pool_id, info->name, info->size, info->max_num);
-		}
-	}
-	printf("\r\n");
-}
-
 static SAMPLE_VI_CONFIG_S g_stViConfig;
-static SAMPLE_INI_CFG_S g_stIniCfg;
 static CVI_S32 _mmf_vpss_deinit_new(VPSS_GRP VpssGrp);
 
 static inline CVI_VOID VENC_GetPicBufferConfig2(CVI_U32 u32Width, CVI_U32 u32Height,
@@ -563,95 +478,6 @@ static CVI_S32 _mmf_free_frame(VIDEO_FRAME_INFO_S *frame)
     return nanokvm::media::release(frame);
 }
 
-static int cvi_ive_init(void)
-{
-	CVI_S32 s32Ret;
-	if (priv.ive_is_init)
-		return 0;
-
-	priv.ive_rgb2yuv_w = 640;
-	priv.ive_rgb2yuv_h = 480;
-	priv.ive_handle = CVI_IVE_CreateHandle();
-	if (priv.ive_handle == NULL) {
-		printf("CVI_IVE_CreateHandle failed!\n");
-		return -1;
-	}
-
-	s32Ret = CVI_IVE_CreateImage_Cached(priv.ive_handle, &priv.ive_rgb2yuv_rgb_img, IVE_IMAGE_TYPE_U8C3_PACKAGE, priv.ive_rgb2yuv_w, priv.ive_rgb2yuv_h);
-	if (s32Ret != CVI_SUCCESS) {
-		printf("Create src image failed!\n");
-		CVI_IVE_DestroyHandle(priv.ive_handle);
-		return -1;
-	}
-
-	s32Ret = CVI_IVE_CreateImage_Cached(priv.ive_handle, &priv.ive_rgb2yuv_yuv_img, IVE_IMAGE_TYPE_YUV420SP, priv.ive_rgb2yuv_w, priv.ive_rgb2yuv_h);
-	if (s32Ret != CVI_SUCCESS) {
-		printf("Create src image failed!\n");
-		CVI_IVE_DestroyHandle(priv.ive_handle);
-		return -1;
-	}
-
-	priv.ive_is_init = 1;
-	return 0;
-}
-
-static int cvi_ive_deinit(void)
-{
-	if (priv.ive_is_init == 0)
-		return 0;
-
-	CVI_SYS_FreeI(priv.ive_handle, &priv.ive_rgb2yuv_rgb_img);
-	CVI_SYS_FreeI(priv.ive_handle, &priv.ive_rgb2yuv_yuv_img);
-	CVI_IVE_DestroyHandle(priv.ive_handle);
-
-	priv.ive_is_init = 0;
-	return 0;
-}
-
-[[maybe_unused]] static int cvi_rgb2nv21(uint8_t *src, int input_w, int input_h)
-{
-	CVI_S32 s32Ret;
-
-	int width = ALIGN(input_w, DEFAULT_ALIGN);
-	int height = input_h;
-
-	if (width != priv.ive_rgb2yuv_w || height != priv.ive_rgb2yuv_h) {
-		CVI_SYS_FreeI(priv.ive_handle, &priv.ive_rgb2yuv_rgb_img);
-		CVI_SYS_FreeI(priv.ive_handle, &priv.ive_rgb2yuv_yuv_img);
-		priv.ive_rgb2yuv_w = width;
-		priv.ive_rgb2yuv_h = height;
-		printf("reinit rgb2nv21 buffer, buff w:%d h:%d\n", priv.ive_rgb2yuv_w, priv.ive_rgb2yuv_h);
-		s32Ret = CVI_IVE_CreateImage_Cached(priv.ive_handle, &priv.ive_rgb2yuv_rgb_img, IVE_IMAGE_TYPE_U8C3_PACKAGE, priv.ive_rgb2yuv_w, priv.ive_rgb2yuv_h);
-		if (s32Ret != CVI_SUCCESS) {
-			printf("Create src image failed!\n");
-			return -1;
-		}
-
-		s32Ret = CVI_IVE_CreateImage_Cached(priv.ive_handle, &priv.ive_rgb2yuv_yuv_img, IVE_IMAGE_TYPE_YUV420SP, priv.ive_rgb2yuv_w, priv.ive_rgb2yuv_h);
-		if (s32Ret != CVI_SUCCESS) {
-			printf("Create src image failed!\n");
-			return -1;
-		}
-	}
-
-	if (width != input_w) {
-		for (int h = 0; h < height; h++) {
-			memcpy((uint8_t *)priv.ive_rgb2yuv_rgb_img.u64VirAddr[0] + width * h * 3, (uint8_t *)src + input_w * h * 3, input_w * 3);
-		}
-	} else {
-		memcpy((uint8_t *)priv.ive_rgb2yuv_rgb_img.u64VirAddr[0], (uint8_t *)src, width * height * 3);
-	}
-
-	IVE_CSC_CTRL_S stCtrl;
-	stCtrl.enMode = IVE_CSC_MODE_VIDEO_BT601_RGB2YUV;
-	s32Ret = CVI_IVE_CSC(priv.ive_handle, &priv.ive_rgb2yuv_rgb_img, &priv.ive_rgb2yuv_yuv_img, &stCtrl, 1);
-	if (s32Ret != CVI_SUCCESS) {
-		printf("Run HW IVE CSC YUV2RGB failed!\n");
-		return -1;
-	}
-	return 0;
-}
-
 static int _try_release_sys(void)
 {
 	CVI_S32 s32Ret = CVI_FAILURE;
@@ -661,8 +487,6 @@ static int _try_release_sys(void)
 		SAMPLE_PRT("Parse complete\n");
 		return s32Ret;
 	}
-
-	priv.sensor_type = stIniCfg.enSnsType[0];
 
 	s32Ret = CVI_VI_SetDevNum(stIniCfg.devNum);
 	if (s32Ret != CVI_SUCCESS) {
@@ -967,7 +791,6 @@ static CVI_S32 _mmf_init(void)
 		return s32Ret;
 
 	memcpy(&g_stViConfig, &stViConfig, sizeof(SAMPLE_VI_CONFIG_S));
-	memcpy(&g_stIniCfg, &stIniCfg, sizeof(SAMPLE_INI_CFG_S));
 
 	/************************************************
 	 * step2:  Get input size
@@ -1016,7 +839,6 @@ _need_exit_sys_and_deinit_vi:
 
 static int _mmf_deinit(void)
 {
-	UNUSED(cvi_ive_deinit);
 	/*
 	 * Encoders can still own input frames from VI. Tear them down before VI so
 	 * those frames are returned while their producer is still alive. JPEG also
@@ -1032,7 +854,6 @@ static int _mmf_deinit(void)
 	_try_release_venc_all();
 	_try_release_vpss_all();
 	mmf_vi_deinit();
-	// mmf_del_region_channel_all();		// need not release
 	_mmf_sys_exit();
 	return CVI_SUCCESS;
 }
@@ -1050,7 +871,6 @@ int mmf_init(void)
 {
     if (priv.mmf_used_cnt) {
 		priv.mmf_used_cnt ++;
-        // printf("maix multi-media already inited(cnt:%d)\n", priv.mmf_used_cnt);
         return 0;
     }
 
@@ -1080,7 +900,6 @@ int mmf_init(void)
 		printf("maix multi-media init ok\n");
 	}
 
-	UNUSED(cvi_ive_init);
 	priv.mmf_used_cnt = 1;
 
 	if (_try_release_vi() != CVI_SUCCESS) {
@@ -1091,11 +910,6 @@ int mmf_init(void)
 	}
 
     return 0;
-}
-
-bool mmf_is_init(void)
-{
-    return priv.mmf_used_cnt > 0 ? true : false;
 }
 
 int mmf_try_deinit(bool force) {
@@ -1126,7 +940,6 @@ int mmf_get_vi_unused_channel(void) {
 
 static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width, int height, PIXEL_FORMAT_E format, int fps, int depth, bool mirror, bool flip, int fit)
 {
-#if 1
 	VPSS_GRP_ATTR_S stGrpAttr;
 	VPSS_CROP_INFO_S   stChnCropInfo;
 	VPSS_CHN_ATTR_S chn_attr = {};
@@ -1226,41 +1039,6 @@ static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width,
 	}
 
 	return s32Ret;
-#else
-	CVI_S32 s32Ret;
-	VPSS_CHN_ATTR_S chn_attr = {};
-	chn_attr.u32Width                    = width;
-	chn_attr.u32Height                   = height;
-	chn_attr.enVideoFormat               = VIDEO_FORMAT_LINEAR;
-	chn_attr.enPixelFormat               = format;
-	chn_attr.stFrameRate.s32SrcFrameRate = fps;
-	chn_attr.stFrameRate.s32DstFrameRate = fps;
-	chn_attr.u32Depth                    = depth;
-	chn_attr.bMirror                     = mirror;
-	chn_attr.bFlip                       = flip;
-	chn_attr.stAspectRatio.enMode        = ASPECT_RATIO_MANUAL;
-	chn_attr.stAspectRatio.stVideoRect.s32X       = 0;
-	chn_attr.stAspectRatio.stVideoRect.s32Y       = 0;
-	chn_attr.stAspectRatio.stVideoRect.u32Width   = width;
-	chn_attr.stAspectRatio.stVideoRect.u32Height  = height;
-	chn_attr.stAspectRatio.bEnableBgColor = CVI_TRUE;
-	chn_attr.stAspectRatio.u32BgColor    = COLOR_RGB_BLACK;
-	chn_attr.stNormalize.bEnable         = CVI_FALSE;
-
-	s32Ret = CVI_VPSS_SetChnAttr(VpssGrp, VpssChn, &chn_attr);
-	if (s32Ret != CVI_SUCCESS) {
-		SAMPLE_PRT("CVI_VPSS_SetChnAttr failed with %#x\n", s32Ret);
-		return CVI_FAILURE;
-	}
-
-	s32Ret = CVI_VPSS_EnableChn(VpssGrp, VpssChn);
-	if (s32Ret != CVI_SUCCESS) {
-		SAMPLE_PRT("CVI_VPSS_EnableChn failed with %#x\n", s32Ret);
-		return CVI_FAILURE;
-	}
-
-	return CVI_SUCCESS;
-#endif
 }
 
 static CVI_S32 _mmf_vpss_chn_deinit(VPSS_GRP VpssGrp, VPSS_CHN VpssChn)
@@ -1383,12 +1161,6 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
 		return -1;
 	}
 
-	// if ((format == PIXEL_FORMAT_RGB_888 && width * height * 3 > 640 * 640 * 3)
-	// 	|| (format == PIXEL_FORMAT_RGB_888 && width * height * 3 / 2 > 2560 * 1440 * 3 / 2)) {
-	// 	printf("camera size is too large, for NV21, maximum resolution 2560x1440, for RGB888, maximum resolution 640x640!\n");
-	// 	return -1;
-	// }
-
 	if (priv.vi_chn_is_inited[ch]) {
 		printf("vi ch %d already open\n", ch);
 		return -1;
@@ -1398,7 +1170,7 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
 	// Keep active geometry exact; VB allocation and VIDEO_FRAME strides own padding.
 	const int width_out = width;
 	const int height_out = height;
-	const int fps = native120_vpss_rate(width_out, height_out);
+	const int fps = nanokvm::capture_rate_limit(width_out, height_out);
 	int depth = queue_depth;
 	PIXEL_FORMAT_E format_out = (PIXEL_FORMAT_E)format;
 	bool mirror = !g_priv.vi_hmirror[ch];
@@ -1413,13 +1185,6 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("_mmf_vpss_chn_init failed with %#x!\n", s32Ret);
 		return CVI_FAILURE;
-	}
-	if (fps != 60) {
-		fprintf(stderr,
-			"[kvm_mmf] TEMP experimental VPSS ch=%d size=%dx%d src_fps=%d dst_fps=%d "
-			"group_src_dst=-1 (passthrough); wall pacing unmeasured\n",
-			ch, width_out, height_out, fps, fps);
-		fflush(stderr);
 	}
 
  // Channel initialization succeeded: retain ownership even if binding,
@@ -1464,16 +1229,6 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
 		SAMPLE_PRT("CVI_VPSS_AttachVbPool failed. s32Ret: 0x%x !\n", s32Ret);
 		goto _need_deinit_vpss_chn;
 	}
-
-	// VIDEO_FRAME_INFO_S frame;
-	// if ((s32Ret = CVI_VPSS_GetChnFrame(0, ch, &frame, 3000)) != CVI_SUCCESS) {
-	// 	SAMPLE_PRT("vi get frame failed: 0x%x !\n", s32Ret);
-	// 	if ((s32Ret = SAMPLE_COMM_VI_UnBind_VPSS(0, ch, 0)) != CVI_SUCCESS) {
-	// 		SAMPLE_PRT("vi unbind vpss failed. s32Ret: 0x%x !\n", s32Ret);
-	// 	}
-	// 	goto _need_deinit_vpss_chn;
-	// }
-	// CVI_VPSS_ReleaseChnFrame(0, ch, &frame);
 
  priv.vi_chn_stopping[ch] = false;
  return CVI_SUCCESS;
@@ -1568,7 +1323,6 @@ int mmf_vi_frame_pop(int ch, void **data, int *len, int *width, int *height, int
 		return -1;
 	}
 	if (!priv.vi_chn_is_inited[ch] || priv.vi_chn_stopping[ch]) {
-        // printf("vi ch %d not open\n", ch);
         return -1;
     }
     if (ch < 0 || ch >= MMF_VI_MAX_CHN) {
@@ -1682,49 +1436,6 @@ void mmf_vi_frame_release(int ch) {
 	_mmf_release_vi_frame(ch);
 }
 
-int mmf_region_frame_push(int ch, void *data, int len)
-{
-	CVI_S32 s32Ret;
-	RGN_CANVAS_INFO_S stCanvasInfo;
-
-	if (ch < 0 || ch >= MMF_RGN_MAX_NUM) {
-		SAMPLE_PRT("Handle ch is illegal %d!\n", ch);
-		return CVI_FAILURE;
-	}
-
-	if (!priv.rgn_is_init[ch]) {
-		return 0;
-	}
-
-	if (!priv.rgn_is_bind[ch]) {
-		return 0;
-	}
-
-	s32Ret = CVI_RGN_GetCanvasInfo(ch, &stCanvasInfo);
-	if (s32Ret != CVI_SUCCESS) {
-		SAMPLE_PRT("CVI_RGN_GetCanvasInfo failed with %#x!\n", s32Ret);
-		return CVI_FAILURE;
-	}
-
-	if (stCanvasInfo.enPixelFormat == PIXEL_FORMAT_ARGB_8888) {
-		if (!data || (CVI_U32)len != stCanvasInfo.stSize.u32Width * stCanvasInfo.stSize.u32Height * 4) {
-			printf("Param is error!\r\n");
-			return CVI_FAILURE;
-		}
-		memcpy(stCanvasInfo.pu8VirtAddr, data, len);
-	} else {
-		printf("Not support format!\r\n");
-		return CVI_FAILURE;
-	}
-
-	s32Ret = CVI_RGN_UpdateCanvas(ch);
-	if (s32Ret != CVI_SUCCESS) {
-		SAMPLE_PRT("CVI_RGN_UpdateCanvas failed with %#x!\n", s32Ret);
-		return CVI_FAILURE;
-	}
-	return s32Ret;
-}
-
 /*
  * The JPEG bitstream buffer. Without a size the driver allocates 9 MiB of
  * the video heap for any picture (LARGE_STREAM_BUF_SIZE, 4096x2304), while
@@ -1757,12 +1468,6 @@ int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 	if (mmf_init()) {
 		return -1;
 	}
-
-	// if ((format == PIXEL_FORMAT_RGB_888 && w * h * 3 > 640 * 640 * 3)
-	// 	|| (format == PIXEL_FORMAT_RGB_888 && w * h * 3 / 2 > 2560 * 1440 * 3 / 2)) {
-	// 	printf("image size is too large, for NV21, maximum resolution 2560x1440, for RGB888, maximum resolution 640x640!\n");
-	// 	return -1;
-	// }
 
 	CVI_S32 s32Ret = CVI_SUCCESS;
 
@@ -2145,11 +1850,6 @@ int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality)
 	return s32Ret;
 }
 
-int mmf_enc_jpg_push(int ch, uint8_t *data, int w, int h, int format)
-{
-    return mmf_enc_jpg_push_with_quality(ch, data, w, h, format, 80);
-}
-
 // Keep JPEG-specific storage beside the JPEG stream path. Besides making the
 // ownership clearer, this avoids colliding with unrelated global VENC storage.
 static VENC_PACK_S jpeg_pack_storage;
@@ -2423,7 +2123,6 @@ int mmf_add_venc_channel(int ch, mmf_venc_cfg_t *cfg) {
 	memcpy(&info->cfg, cfg, sizeof(mmf_venc_cfg_t));
 	info->is_used = 1;
 	info->is_inited = 1;
-	priv.h265_or_h264_is_used = 1;
 
 	// The encoder is opened by StartRecvFrame and reads the QP limits, the
 	// I-frame proportion and the start QP only then; set later, they were
@@ -2584,9 +2283,6 @@ int mmf_del_venc_channel(int ch) {
 	venc_pack_storage[ch] = NULL;
 	venc_pack_capacity[ch] = 0;
 
-	if (info->type == 2 || info->type == 1) {
-		priv.h265_or_h264_is_used = 0;
-	}
 	memset(info, 0, sizeof(venc_info_t));
 	priv.venc_stream_acquired[ch] = false;
 	priv.venc_input_vi_ch[ch] = -1;

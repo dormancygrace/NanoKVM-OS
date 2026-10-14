@@ -28,13 +28,11 @@ static constexpr uint8_t MMF_VENC_GOP_SMARTP = 1;
 int mmf_init(void);
 int mmf_deinit(void);
 int mmf_try_deinit(bool force);
-bool mmf_is_init(void);
 
 // manage vi channels(vi->vpssgroup->vpss->frame)
 int mmf_get_vi_unused_channel(void);
 int mmf_vi_init(void);
 int mmf_vi_deinit(void);
-int mmf_add_vi_channel_with_enc(int ch, int width, int height, int format);
 int mmf_add_vi_channel(int ch, int width, int height, int format);
 int mmf_del_vi_channel(int ch);
 int mmf_del_vi_channel_all(void);
@@ -68,7 +66,6 @@ void mmf_vi_frame_free(int ch);
 void mmf_vi_frame_release(int ch);
 
 // invert format
-int mmf_invert_format_to_maix(int mmf_format);
 int mmf_invert_format_to_mmf(int maix_format);
 
 // venc
@@ -95,7 +92,6 @@ uint8_t mmf_get_venc_gop_mode(void);
 #endif
 int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality);
 int mmf_enc_jpg_deinit(int ch);
-int mmf_enc_jpg_push(int ch, uint8_t *data, int w, int h, int format);
 int mmf_enc_jpg_push_with_quality(int ch, uint8_t *data, int w, int h, int format, int quality);
 int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality);
 int mmf_enc_jpg_pop(int ch, uint8_t **data, int *size);

@@ -57,7 +57,8 @@ first-boot choice:
 `/etc/kvm/oled` overrides this, for example for a module added to a Lite.
 The file holds `off`, or lines of `bus=N`, `address=0xNN` and
 `layout=wide|narrow`; a given address is the only one tried. A malformed
-file is ignored.
+file is ignored as a whole, including files containing NUL bytes, exceeding
+4096 bytes, or failing to read completely.
 
 Known limit: first boot cannot tell a Lite with a 0x3c module from a PCIe
 board. No second signal for PCIe is known. Such a Lite gets the PCIe profile

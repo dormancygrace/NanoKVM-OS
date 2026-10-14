@@ -25,19 +25,30 @@ void oled_write_register(uint8_t mode, uint8_t data)
 	}
 }
 
-// File content up to its first NUL (device tree strings end with one), or
-// "" when it cannot be read.
-static std::string read_text(const char *path, bool *present = nullptr)
+// Read a complete, bounded text file. Only DT strings may end with a NUL;
+// a malformed or partially read override must never apply just its prefix.
+static bool read_text(const char *path, std::string *result, bool device_tree = false)
 {
-	std::string text;
+	result->clear();
 	FILE *fp = fopen(path, "r");
-	if (present) *present = fp != NULL;
-	if (!fp) return text;
+	if (!fp) return false;
+	std::string text;
 	char buf[256];
 	size_t n;
-	while ((n = fread(buf, 1, sizeof(buf), fp)) > 0 && text.size() < 4096) text.append(buf, n);
+	while ((n = fread(buf, 1, sizeof(buf), fp)) > 0) {
+		if (text.size() + n > 4096) {
+			fclose(fp);
+			return false;
+		}
+		text.append(buf, n);
+	}
+	const bool failed = ferror(fp);
 	fclose(fp);
-	return text.substr(0, text.find('\0'));
+	if (failed) return false;
+	if (device_tree && !text.empty() && text.back() == '\0') text.pop_back();
+	if (text.find('\0') != std::string::npos) return false;
+	*result = text;
+	return true;
 }
 
 static bool oled_answers(int bus, int address, void *)
@@ -48,10 +59,10 @@ static bool oled_answers(int bus, int address, void *)
 
 int oled_exist(void)
 {
-	const std::string revision = read_text("/proc/device-tree/sipeed,board-revision");
-	const std::string hw = read_text("/etc/kvm/hw");
-	bool manual = false;
-	const std::string override_text = read_text("/etc/kvm/oled", &manual);
+	std::string revision, hw, override_text;
+	read_text("/proc/device-tree/sipeed,board-revision", &revision, true);
+	read_text("/etc/kvm/hw", &hw);
+	const bool manual = read_text("/etc/kvm/oled", &override_text);
 	const OledBoard board = oled_board(revision.empty() ? NULL : revision.c_str(), hw.c_str());
 	kvm_hw_ver = board == OledBoard::Pcie ? 2 : board == OledBoard::Alpha ? 0 : 1;
 

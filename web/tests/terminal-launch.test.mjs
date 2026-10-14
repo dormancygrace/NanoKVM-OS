@@ -10,10 +10,10 @@ test('serial launch keeps parameters in isolated tab storage and removes opener'
  assert.notEqual(tabs[0].sessionStorage.get('nanokvm.serial-session'),tabs[1].sessionStorage.get('nanokvm.serial-session'));
  delete globalThis.window;
 });
-test('old bookmarks are cleaned and reload retains serial settings', () => {
- const storage=new Map();let replaced;
- globalThis.window={location:{href:'https://kvm/#terminal?port=%2Fdev%2FttyGS0&baud=9600'},sessionStorage:{setItem:(k,v)=>storage.set(k,v),getItem:k=>storage.get(k)},history:{replaceState:(_,__,url)=>{replaced=url}}};
- assert.equal(readSerialSession().get('port'),'/dev/ttyGS0');assert.equal(replaced,'/#terminal');
- window.location.href='https://kvm/#terminal';assert.equal(readSerialSession().get('port'),'/dev/ttyGS0');
+test('reload reads serial settings from tab storage, not from the address', () => {
+ const storage=new Map([['nanokvm.serial-session','port=%2Fdev%2FttyGS0&baud=9600']]);
+ globalThis.window={location:{href:'https://kvm/#terminal?port=%2Fdev%2FttyS1'},sessionStorage:{getItem:k=>storage.get(k)}};
+ assert.equal(readSerialSession().get('port'),'/dev/ttyGS0');
+ storage.clear();assert.equal(readSerialSession().get('port'),null);
  delete globalThis.window;
 });

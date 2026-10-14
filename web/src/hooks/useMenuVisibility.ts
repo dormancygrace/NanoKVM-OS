@@ -70,10 +70,6 @@ export function useMenuVisibility(): MenuVisibilityState {
 
     setKeyboardLedStatusVisible(getKeyboardLedStatusVisible());
 
-    if (displayMode === 'off') {
-      setIsMenuExpanded(false);
-    }
-
     setIsInitialized(true);
 
     return () => {

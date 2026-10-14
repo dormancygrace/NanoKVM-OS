@@ -4,18 +4,18 @@ import "testing"
 
 func TestATXRequiresKnownBoard(t *testing.T) {
 	for _, name := range []string{"", "unknown", "Alpha", "lite"} {
-		h := gpioV2Hardware(HWAlpha, name)
+		h := gpioV2Hardware(HWVersionAlpha, name)
 		if h.GPIOPower != "" || h.GPIOReset != "" || h.GPIOPowerLED != "" || h.GPIOHDDLed != "" {
 			t.Fatalf("unknown board retained GPIO access: %+v", h)
 		}
 	}
 }
 func TestATXPCIeAndAlphaMapping(t *testing.T) {
-	p := gpioV2Hardware(HWAlpha, "pcie\n")
+	p := gpioV2Hardware(HWVersionAlpha, "pcie\n")
 	if p.Version != HWVersionPcie || p.GPIOPower != "gpio-v2:3020000.gpio:23" || p.GPIOReset != "gpio-v2:3020000.gpio:25" || p.GPIOPowerLED != "gpio-v2:3020000.gpio:24" || p.GPIOHDDLed != "gpio-v2:5021000.gpio:3" {
 		t.Fatalf("PCIe mapping: %+v", p)
 	}
-	a := gpioV2Hardware(HWPcie, "alpha")
+	a := gpioV2Hardware(HWVersionPcie, "alpha")
 	if a.GPIOReset != "gpio-v2:3020000.gpio:27" || a.GPIOHDDLed != "gpio-v2:3020000.gpio:25" {
 		t.Fatalf("Alpha mapping: %+v", a)
 	}

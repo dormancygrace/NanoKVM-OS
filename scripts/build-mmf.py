@@ -46,7 +46,7 @@ sources += [inih / 'ini.c', repo / 'firmware/mpi/nanokvm_capture_size.c',
             repo / 'support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp']
 if len(sources) != 20 or len({path.stem for path in sources}) != len(sources):
     raise SystemExit('Unexpected MMF source set; review before updating the build')
-names = ['sys', 'vi', 'vpss', 'vo', 'rgn', 'gdc', 'venc', 'vdec', 'misc', 'cvi_ive',
+names = ['sys', 'vi', 'vpss', 'vo', 'rgn', 'gdc', 'venc', 'vdec', 'misc',
          'isp', 'isp_algo', 'ae', 'awb', 'af', 'cvi_bin', 'cvi_bin_isp']
 output.mkdir(parents=True, exist_ok=True)
 record_cpu_profile(output/'cpu-profile.json', cross+'gcc', effective_flags=flags)

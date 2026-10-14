@@ -175,18 +175,6 @@ case "$1" in
 
     # Firewall policy is configured separately; app startup adds no rules.
 
-    # Logo selection
-    if [ -f /boot/logo.ico ]; then
-        if [ ! -f /kvmapp/server/web/original.ico ]; then
-            mv /kvmapp/server/web/sipeed.ico /kvmapp/server/web/original.ico
-            cp /boot/logo.ico /kvmapp/server/web/sipeed.ico
-        fi
-    else
-        if [ -f /kvmapp/server/web/original.ico ]; then
-            mv /kvmapp/server/web/original.ico /kvmapp/server/web/sipeed.ico
-        fi
-    fi
-
     # Start services
     start_services
    ;;

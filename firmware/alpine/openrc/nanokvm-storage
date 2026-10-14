@@ -10,9 +10,33 @@ depend() {
 start() {
     ebegin "Preparing NanoKVM storage"
     mkdir -p /boot /data /mnt /sys/kernel/config
-    /usr/libexec/nanokvm/firstboot-storage || return 1
+    # A previous failed start may have installed the read-only placeholder.
+    if grep -q '^nanokvm-data-unavailable /data tmpfs ' /proc/mounts; then
+        umount /data || { eend 1 "Cannot release unavailable data placeholder"; return 1; }
+    fi
+    # Keep booting on failure, but do not expose data still due for formatting.
+    data_ready=0
+    if /usr/libexec/nanokvm/firstboot-storage; then
+        if mountpoint -q /data || mount /data; then
+            data_ready=1
+        fi
+    else
+        ewarn "SD data partition not ready; retrying at the next boot"
+    fi
+    compatibility_data=/data
+    if [ "$data_ready" = 0 ]; then
+        # The web upload probe checks writability. An ordinary /data directory
+        # would expose the small root filesystem as usable image storage.
+        mount -t tmpfs -o ro,nosuid,nodev,noexec,size=4k,mode=0555 nanokvm-data-unavailable /data || {
+            eend 1 "Cannot protect unavailable data storage"
+            return 1
+        }
+        # Board initialization and capture still need writable sensor defaults.
+        # Keep these small runtime files separate from unavailable image storage.
+        compatibility_data=/run/nanokvm/board-data
+        mkdir -p "$compatibility_data" || { eend 1; return 1; }
+    fi
     mountpoint -q /boot || mount /boot
-    mountpoint -q /data || mount /data
     mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config
     # f2fs background GC compacts the root partition whenever the device is
     # idle, and wrote the SD card by megabytes per minute on an idle stand.
@@ -24,10 +48,11 @@ start() {
     fi
 
     rm -rf /mnt/data
-    ln -s /data /mnt/data
+    ln -s "$compatibility_data" /mnt/data
     for source in /usr/share/nanokvm/board-defaults/*; do
         [ -f "$source" ] || continue
-        [ -e "/data/${source##*/}" ] || cp "$source" "/data/${source##*/}"
+        [ -e "$compatibility_data/${source##*/}" ] ||
+            cp "$source" "$compatibility_data/${source##*/}" || { eend 1; return 1; }
     done
     mkdir -p /mnt/system
     rm -rf /mnt/system/ko

@@ -26,8 +26,11 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
 
 ## Tests with extra requirements
 
-- **Root, on a disposable loop disk:** `test-alpine-firstboot-storage.py --image IMAGE`
-  (the first-boot data partition).
+- **Root, on a disposable loop disk:** `test-alpine-firstboot-storage.py [--image IMAGE]`
+  (the first-boot data partition). Without `--image` it writes the fresh image
+  partition table itself. `--mkfs-exfat` takes a wrapper when the host
+  mkfs.exfat lacks the image version's options. The error paths run without
+  root in CI: `test-alpine-firstboot-storage-errors.py`.
 - **Root, in a disposable network namespace:**
   - `test-dhcp-gateway.py` (CI runs it with `sudo`);
   - `test-mss-clamp.py`;

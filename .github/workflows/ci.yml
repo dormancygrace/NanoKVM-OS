@@ -101,7 +101,7 @@ jobs:
         run: |
           set -e
           for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-sd-image-boot alpine-network \
-                   alpine-recovery-password alpine-recovery-settings alpine-builder-cleanup alpine-service-deps board-selection usb-state capture-restart \
+                   alpine-recovery-password alpine-recovery-settings alpine-builder-cleanup alpine-firstboot-storage-errors alpine-service-deps board-selection usb-state capture-restart \
                    s15-packaging kvm-system-lifecycle hdmi-detection-cache hdmi-receiver-start \
                    mmf-light-link native-bundle-abi monitor-edids nanokvm-service-stop net-probe server-supervisor oled-detect oled-ip-window platform-build \
                    portrait-edid serial-console-disk startup-aes-policy wifi-selector upstream-watch kernel-update-pr upstream-update-prs \

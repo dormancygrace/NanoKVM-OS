@@ -4,6 +4,7 @@ import { DIRECT_H264_CODEC, DIRECT_H265_CODEC } from '@/lib/encoder.ts';
 
 import { DirectMetrics } from './direct-metrics.ts';
 import { DirectPlayout } from './direct-playout.ts';
+import { halvedVisibleRect } from './visible-rect.ts';
 
 let canvas: OffscreenCanvas | null = null;
 let ctx: OffscreenCanvasRenderingContext2D | null = null;
@@ -487,12 +488,29 @@ function onAnimation() {
   startAnimation();
 }
 
-function renderFrame(frame: VideoFrame) {
+// Edge reports half the visible rectangle of its hardware HEVC frames
+// (visible-rect.ts). The corrected frame shares the decoded pixels.
+function withFullVisibleRect(frame: VideoFrame): VideoFrame {
+  const rect = halvedVisibleRect(frame);
+  if (!rect) return frame;
+  try {
+    return new VideoFrame(frame, {
+      visibleRect: rect,
+      displayWidth: rect.width,
+      displayHeight: rect.height
+    });
+  } catch {
+    return frame;
+  }
+}
+
+function renderFrame(decoded: VideoFrame) {
   if (!canvas || !ctx) {
-    frame.close();
+    decoded.close();
     return;
   }
 
+  const frame = withFullVisibleRect(decoded);
   try {
     if (canvas.width !== frame.displayWidth || canvas.height !== frame.displayHeight) {
       canvas.width = frame.displayWidth;
@@ -513,7 +531,8 @@ function renderFrame(frame: VideoFrame) {
       });
     }
   } finally {
-    frame.close();
+    if (frame !== decoded) frame.close();
+    decoded.close();
   }
 }
 

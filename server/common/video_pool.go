@@ -29,8 +29,10 @@ func BootedVideoPool() VideoPool {
 	return VideoPool{MiB: int(binary.BigEndian.Uint32(data) >> 20), Reusable: !os.IsNotExist(err)}
 }
 
-// QHD is the 54 MiB video pool of 2560x1440 and the portrait profiles:
-// 1440p60 H.265 with MJPEG holds 53.9 MiB (see kvm_vision.cpp). Copied-frame
+// QHD is the video pool of 2560x1440 and the portrait profiles: 56 MiB, 54 in
+// earlier releases. 1440p60 H.265 with MJPEG holds 53.9 MiB (see
+// kvm_vision.cpp); on 54 MiB a codec change under MJPEG could find the
+// carveout too fragmented and fall back to 4:2:0. Copied-frame
 // fallback buffers are released as soon as native frames flow again, so
 // they are not part of the steady peak.
 func (p VideoPool) QHD() bool { return p.MiB >= 54 }

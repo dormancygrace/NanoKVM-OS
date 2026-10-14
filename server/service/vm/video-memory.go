@@ -19,7 +19,7 @@ type videoMemoryStatus struct {
 	Selected string `json:"selected"`
 	SizeMiB  int    `json:"sizeMiB"`
 	// Modes whose boot image is installed: fhd (1920x1080, 40 MiB), qhd
-	// (2560x1440, 54 MiB) and uhd (3840x2160, 104 MiB), each a fixed
+	// (2560x1440, 56 MiB) and uhd (3840x2160, 104 MiB), each a fixed
 	// carveout that Linux never uses.
 	Modes          []string `json:"modes"`
 	Available      bool     `json:"available"`
@@ -36,7 +36,7 @@ type videoMemoryMode struct {
 	mib  int
 }
 
-var videoMemoryModes = []videoMemoryMode{{"fhd", 40}, {"qhd", 54}, {"uhd", 104}}
+var videoMemoryModes = []videoMemoryMode{{"fhd", 40}, {"qhd", 56}, {"uhd", 104}}
 
 func videoMemoryPool(mode string) (common.VideoPool, bool) {
 	for _, m := range videoMemoryModes {

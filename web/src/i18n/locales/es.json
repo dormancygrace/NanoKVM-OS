@@ -754,7 +754,7 @@
       "videoMode": "Asignación de memoria de vídeo",
       "videoModeDescription": "Memoria reservada solo para vídeo; Linux nunca la usa. FHD es el valor predeterminado y basta para 1920 × 1080. El modo vertical y 2560 × 1440 requieren QHD; 3840 × 2160 requiere UHD. Los cambios se aplican tras reiniciar.",
       "videoRes_fhd": "FHD — 1920 × 1080 · 40 MiB",
-      "videoRes_qhd": "QHD — 2560 × 1440 · 54 MiB",
+      "videoRes_qhd": "QHD — 2560 × 1440 · 56 MiB",
       "videoRes_uhd": "UHD — 3840 × 2160 · 104 MiB",
       "zramAuto": "Mitad de la RAM ({{size}} MiB)",
       "videoActive": "Activo actualmente",

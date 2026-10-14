@@ -455,14 +455,14 @@ boot() {
             dtb=$img/dtb/$name.dtb
             cp "$b/$profile.dtb" "$dtb"
             # Same kernel and modules; only the video pool differs: a fixed
-            # carveout of 40 MiB (1920x1080), 54 MiB (2560x1440) or 104 MiB
+            # carveout of 40 MiB (1920x1080), 56 MiB (2560x1440) or 104 MiB
             # (3840x2160) that Linux never uses. The device tree template is
             # the FHD pool.
             [ "$("$host/fdtget" -t s "$dtb" /reserved-memory/ion compatible)" = ion-region ]
             [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 2800000 ]
             case $mode in
                 fhd) size=2800000 ;;
-                qhd) size=3600000 ;;
+                qhd) size=3800000 ;;
                 uhd) size=6800000 ;;
             esac
             "$host/fdtput" -t x "$dtb" /reserved-memory/ion size "$size"

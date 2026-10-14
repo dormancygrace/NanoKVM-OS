@@ -293,7 +293,7 @@ repository on an Alpine builder with a configured `abuild` key:
 ROOTFS=/path/to/tested-root \
   PROFILE=stock \
   OUTPUT=work/alpine/payloads/stock \
-  KERNEL_RELEASE=7.2.5-nanokvm-os-r4 \
+  KERNEL_RELEASE=7.2.10-nanokvm-os-r4 \
   ./scripts/export-alpine-payloads.sh
 
 PAYLOAD_ROOT=work/alpine/payloads \

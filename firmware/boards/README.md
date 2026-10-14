@@ -6,6 +6,11 @@ identified OLED selects an electrical profile. No responding OLED selects a
 restricted base/Lite profile, not a claim about a commercial model. Bus errors
 and contradictory responses stop selection instead of guessing.
 
+`sensor-defaults/` holds the board-default `sensor_cfg.ini` variants. The
+firmware package installs them in `/usr/share/nanokvm/board-defaults`, and
+`S02config` seeds `/mnt/data/sensor_cfg.ini` from the LT variant when it is
+missing.
+
 | Probe | Selected DT | Native compatibility name | ATX |
 | --- | --- | --- | --- |
 | I2C1:0x3d | alpha | alpha | Alpha mapping |

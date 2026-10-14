@@ -8,15 +8,10 @@
 //  * The parked flag and every enable/disable of the outputs change only under
 //    this mutex: park and resume (set), and a capture restart (restart), which
 //    recreates the outputs enabled and parks them again if parking is in
-//    force. Without it, a restart by the HDMI detector, which does not take
-//    vi_mutex, could disable the outputs after a viewer had resumed them, and
-//    leave them disabled with the flag saying resumed: every later resume
-//    would then return early and never enable them.
-//  * Lock order: vi_mutex (when the caller holds it), then this mutex. Nothing
-//    takes vi_mutex inside it. The callbacks run MMF operations and must not
-//    call back into CapturePark.
-//  * A reader waits here at most for a restart in progress, which it could not
-//    read through anyway. The detector waits at most for one park or resume.
+//    force. The caller also holds vi_mutex across every mutation and frame
+//    operation; this mutex alone does not protect outstanding frame lifetimes.
+//  * Lock order: vi_mutex, then this mutex. Nothing takes vi_mutex inside it.
+//    The callbacks run MMF operations and must not call back into CapturePark.
 namespace nanokvm {
 class CapturePark {
 public:

@@ -210,13 +210,22 @@ static bool restart_capture_now()
     return true;
 }
 
-// The detector restarts capture without vi_mutex. CapturePark orders the
-// restart with park and resume and keeps idle outputs parked after it.
-static bool restart_capture()
+// Caller holds vi_mutex, which protects frame and encoder lifetimes.
+// CapturePark preserves the idle state when the outputs are recreated.
+static bool restart_capture_locked()
 {
     bool restarted = false;
     capture_park.restart([&] { restarted = restart_capture_now(); return restarted ? 0 : -1; },
                          [](bool enabled) { return cam->set_enabled(enabled); });
+    return restarted;
+}
+
+// Detector and initialization entry point. Lock order: vi_mutex -> CapturePark.
+static bool restart_capture()
+{
+    pthread_mutex_lock(&vi_mutex);
+    const bool restarted = restart_capture_locked();
+    pthread_mutex_unlock(&vi_mutex);
     return restarted;
 }
 
@@ -1839,8 +1848,8 @@ uint8_t check_kvmv(uint8_t _try_num)
         return 0;
     }
     if(kvmv_cfg.reopen_cam_flag.exchange(0) == 1){
-        // vi size changed
-        restart_capture();
+        // Called by kvmv_read_img with vi_mutex already held.
+        restart_capture_locked();
         debug("[kvmv]vi size changed, try again\n");
         return 1;
     }

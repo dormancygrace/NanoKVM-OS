@@ -25,8 +25,8 @@
 //    would leave a window between the check and the call; the lease closes it.
 //
 // Why a lease and not vi_mutex (publish under vi_mutex)
-//  * The detector never takes vi_mutex, and kvmv_read_img holds it for the
-//    whole call, including waits for frames and the encoder. Publishing under
+//  * Geometry publication does not take vi_mutex; mutating capture restarts
+//    do. kvmv_read_img holds it across waits for frames and the encoder. Publishing under
 //    it would delay detection by a full read and, if a reader sleeps with it
 //    held, indefinitely; the detector must keep reporting.
 //  * Here the mutex is a leaf lock held for a few instructions and never

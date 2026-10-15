@@ -1,5 +1,11 @@
 package common
 
+import (
+	"os"
+	"strconv"
+	"strings"
+)
+
 // MjpegMaxLongSide is the longest side of the HDMI input MJPEG may run with.
 // At a 3840x2160 input MJPEG is not usable whatever the stream limit is: next
 // to a 4K stream the JPEG channel wedges the hardware encoder ("cviGetEncodedInfo
@@ -49,6 +55,34 @@ var nativeStateDir = "/run/nanokvm"
 // on every call: a cached size could let a JPEG channel start at the new size.
 func CaptureInputSize() (width, height int) {
 	return ReadVideoValue(nativeStateDir + "/width"), ReadVideoValue(nativeStateDir + "/height")
+}
+
+// RejectedInput is an HDMI input that native capture refused because the
+// video memory of this boot cannot hold it, with the video memory mode that
+// can ("qhd" up to 2560 on either side, else "uhd", as native capture
+// decides). It is empty when no input is refused for that reason.
+func RejectedInput() (width, height int, mode string) {
+	data, err := os.ReadFile(nativeStateDir + "/rejected_input")
+	if err != nil {
+		return 0, 0, ""
+	}
+	fields := strings.Fields(string(data))
+	if len(fields) != 2 {
+		return 0, 0, ""
+	}
+	w, widthErr := strconv.ParseUint(fields[0], 10, 16)
+	h, heightErr := strconv.ParseUint(fields[1], 10, 16)
+	if widthErr != nil || heightErr != nil {
+		return 0, 0, ""
+	}
+	width, height = int(w), int(h)
+	if width <= 0 || height <= 0 {
+		return 0, 0, ""
+	}
+	if width > 2560 || height > 2560 {
+		return width, height, "uhd"
+	}
+	return width, height, "qhd"
 }
 
 // MjpegAllowedFor reports whether MJPEG may run with a capture size. The stream

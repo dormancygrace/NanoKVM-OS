@@ -408,7 +408,12 @@
       "videoError": "映像表示エラー",
       "noHdmi": "HDMI 信号が検出されません",
       "mjpeg4k": "HDMI 入力が 3840 × 2160 の間は MJPEG を利用できません。設定 → ビデオで H.264 または H.265 を使用してください",
-      "unavailable": "現在、画面を表示できません"
+      "unavailable": "現在、画面を表示できません",
+      "needsVideoMemory": "HDMI 入力 {{size}} には {{mode}} ビデオメモリモードが必要です",
+      "switchVideoMemory": "{{mode}} に切り替えて再起動",
+      "switchVideoMemoryTitle": "ビデオメモリを {{mode}} に切り替えますか？",
+      "videoMemoryRebooting": "{{mode}} ビデオメモリで再起動中…",
+      "videoMemoryUnavailable": "このデバイスには {{mode}} ビデオメモリモードがインストールされていません。"
     }
   },
   "keyboard": {
@@ -945,7 +950,10 @@
         "projects": "オープンな KVM コミュニティ全体からのアイデア、先行事例、相互運用性への取り組み、そしてインスピレーション。",
         "contributorsTitle": "オープンソースのコントリビューター",
         "contributors": "コード、翻訳、テスト、不具合報告、レビュー、ドキュメント、そして辛抱強いフィードバック。",
-        "closing": "NanoKVM OS を実現してくださった皆さまに感謝します。"
+        "closing": "NanoKVM OS を実現してくださった皆さまに感謝します。",
+        "translationTitle": "翻訳の協力者",
+        "translationThanks": "翻訳、校正、文章の改善を通じて NanoKVM OS をより使いやすくしてくださる皆さんに感謝します。",
+        "translationPlatform": "コミュニティの貢献をつなぐ翻訳プラットフォームです。NanoKVM OS の翻訳にご参加ください。"
       },
       "documentation": "ドキュメント",
       "reportIssue": "問題を報告",
@@ -1472,7 +1480,8 @@
         "enable": "イーサネット",
         "disabled": "無効",
         "interfaceDown": "設定で有効 · インターフェースは現在ダウンしています",
-        "linkUp": "有効 · ケーブル接続済み",
+        "linkUpAddress": "有効 · ケーブル接続済み · {{address}}",
+        "linkUpNoAddress": "有効 · ケーブル接続済み · IPv4 アドレスなし",
         "noCable": "有効 · ケーブル未接続",
         "disconnectWarning": "保存するとイーサネットを使用している接続がすぐに終了します。別の管理用接続が利用できることを確認してください。",
         "dhcp": "DHCP",
@@ -1481,11 +1490,11 @@
         "dhcpDescription": "DHCP を使用して IP アドレスを自動的に取得します。",
         "staticDescription": "IP アドレスを手動で設定します。",
         "ipAddress": "IP アドレス",
-        "addressPlaceholder": "192.168.10.32",
+        "addressPlaceholder": "192.168.10.32/24",
         "subnetMask": "サブネットマスク",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "ゲートウェイ",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "192.168.10.1（任意）",
         "invalid": "無効な IP アドレスです",
         "vlan": "VLAN",
         "vlanDescription": "選択した DHCP または固定 IPv4 の設定を eth0.<ID> で使用します",

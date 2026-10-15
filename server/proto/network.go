@@ -80,6 +80,8 @@ type EthernetConfig struct {
 	Gateway     string `json:"gateway"`
 	VLANEnabled bool   `json:"vlanEnabled"`
 	VLANID      int    `json:"vlanId"`
+	// IPv4 address (CIDR) now on eth0, or on its VLAN; empty without one.
+	CurrentAddress string `json:"currentAddress,omitempty"`
 }
 
 type SetEthernetReq struct {

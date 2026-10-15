@@ -16,6 +16,12 @@ func TestValidateStaticEthernet(t *testing.T) {
 	if prefix.String() != "192.168.10.32/24" || gateway.String() != "192.168.10.1" {
 		t.Fatalf("unexpected normalized configuration: %s %s", prefix, gateway)
 	}
+	for _, mask := range []string{"", "255.255.255.0"} {
+		prefix, gateway, err = validateStaticEthernet(" 192.168.10.32/24 ", mask, "192.168.10.1")
+		if err != nil || prefix.String() != "192.168.10.32/24" || gateway.String() != "192.168.10.1" {
+			t.Fatalf("CIDR with mask %q: %s %s %v", mask, prefix, gateway, err)
+		}
+	}
 
 	for _, test := range []struct {
 		name, address, mask, gateway string
@@ -29,6 +35,14 @@ func TestValidateStaticEthernet(t *testing.T) {
 		{"same address gateway", "192.168.10.32", "255.255.255.0", "192.168.10.32"},
 		{"broadcast gateway", "192.168.10.32", "255.255.255.0", "192.168.10.255"},
 		{"broadcast gateway small subnet", "10.0.0.5", "255.255.255.252", "10.0.0.7"},
+		{"CIDR zero prefix", "192.168.10.32/0", "", ""},
+		{"CIDR point to point prefix", "192.168.10.32/31", "", ""},
+		{"CIDR host prefix", "192.168.10.32/32", "", ""},
+		{"invalid CIDR prefix", "192.168.10.32/33", "", "192.168.10.1"},
+		{"CIDR network address", "192.168.10.0/24", "", "192.168.10.1"},
+		{"CIDR with a different mask", "192.168.10.32/24", "255.255.0.0", "192.168.10.1"},
+		{"CIDR gateway outside", "192.168.10.32/24", "", "192.168.11.1"},
+		{"IPv6 CIDR", "fd00::5/64", "", "192.168.10.1"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if _, _, err := validateStaticEthernet(test.address, test.mask, test.gateway); err == nil {
@@ -195,5 +209,71 @@ func TestReadEthernetConfigRejectsExtraFieldsAfterCommentRemoval(t *testing.T) {
 	}
 	if _, err := readEthernetConfig(); err == nil {
 		t.Fatal("expected extra field to be rejected")
+	}
+}
+
+func TestReadEthernetConfigReportsTheAddressOfTheActiveInterface(t *testing.T) {
+	tempDir := t.TempDir()
+	originalFile, originalDisabledFile, originalVLANFile := ethernetConfigFile, ethernetDisabledFile, ethernetVLANFile
+	originalIPv4 := ethernetIPv4
+	ethernetConfigFile = filepath.Join(tempDir, "eth.nodhcp")
+	ethernetDisabledFile = filepath.Join(tempDir, "eth.disabled")
+	ethernetVLANFile = filepath.Join(tempDir, "eth.vlan")
+	addresses := map[string]string{"eth0": "192.168.4.50/24", "eth0.12": "10.12.0.7/16"}
+	ethernetIPv4 = func(name string) string { return addresses[name] }
+	t.Cleanup(func() {
+		ethernetConfigFile, ethernetDisabledFile, ethernetVLANFile = originalFile, originalDisabledFile, originalVLANFile
+		ethernetIPv4 = originalIPv4
+	})
+
+	got, err := readEthernetConfig()
+	if err != nil || got.CurrentAddress != "192.168.4.50/24" {
+		t.Fatalf("without VLAN: %q, %v", got.CurrentAddress, err)
+	}
+	if err := writeEthernetVLAN(true, 12); err != nil {
+		t.Fatal(err)
+	}
+	got, err = readEthernetConfig()
+	if err != nil || got.CurrentAddress != "10.12.0.7/16" {
+		t.Fatalf("with VLAN 12: %q, %v", got.CurrentAddress, err)
+	}
+	delete(addresses, "eth0.12")
+	got, err = readEthernetConfig()
+	if err != nil || got.CurrentAddress != "" {
+		t.Fatalf("no lease yet: %q, %v", got.CurrentAddress, err)
+	}
+}
+
+func TestEthernetIPv4OfMissingInterface(t *testing.T) {
+	if got := ethernetIPv4("nk-missing-if0"); got != "" {
+		t.Fatalf("missing interface: %q", got)
+	}
+	// Loopback may be down or absent in a build container.
+	if got := ethernetIPv4("lo"); got != "" && got != "127.0.0.1/8" {
+		t.Fatalf("loopback: %q", got)
+	}
+}
+
+func TestWriteEthernetConfigRejectsUnsupportedCIDR(t *testing.T) {
+	original := ethernetConfigFile
+	ethernetConfigFile = filepath.Join(t.TempDir(), "eth.nodhcp")
+	t.Cleanup(func() { ethernetConfigFile = original })
+	const previous = "192.168.10.32/24 none\n"
+	if err := os.WriteFile(ethernetConfigFile, []byte(previous), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, address := range []string{"192.168.10.32/0", "192.168.10.32/31", "192.168.10.32/32"} {
+		if err := writeEthernetConfig(proto.EthernetConfig{Mode: ethernetModeStatic, Address: address}); err == nil {
+			t.Fatalf("accepted unsupported CIDR %s", address)
+		}
+		got, err := os.ReadFile(ethernetConfigFile)
+		if err != nil || string(got) != previous {
+			t.Fatalf("invalid request changed saved config: %q, %v", got, err)
+		}
+	}
+	for _, address := range []string{"10.0.0.5/1", "10.0.0.5/30"} {
+		if _, gateway, err := validateStaticEthernet(address, "", ""); err != nil || gateway.IsValid() {
+			t.Fatalf("valid boundary %s without gateway: %v, %v", address, gateway, err)
+		}
 	}
 }

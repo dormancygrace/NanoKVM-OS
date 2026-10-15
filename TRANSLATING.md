@@ -116,3 +116,31 @@ When a new language starts on Weblate, it creates
 `locales/<language>.json`. The language appears in the menu only after a
 maintainer adds it to `languages.ts`, with `partial: true` while it is
 incomplete.
+
+## Translation credits
+
+Thank you to the people behind the words, including contributors whose work
+came through upstream NanoKVM:
+
+| Contributor | Contribution | Attribution |
+| --- | --- | --- |
+| [Pavel Borecki (pavelbo)](https://hosted.weblate.org/user/pavelbo/) | Czech translation | [PR #207](https://github.com/dormancygrace/NanoKVM-OS/pull/207), human co-author in the Weblate commit |
+| [Alexander-Ger-Reich](https://github.com/Alexander-Ger-Reich) | German and English UI maintenance | Upstream contribution acknowledged in the application Credits |
+| [polyzium](https://github.com/polyzium) | Russian localization | Upstream contribution acknowledged in the application Credits |
+
+**Hosted Weblate** is credited separately as our translation platform and
+hosting provider, not as the person who wrote a translation.
+
+Maintainers: read both authors and co-authors when reviewing translation PRs.
+A Weblate bot may submit the work on someone's behalf. Keep this list, the
+README, and the application's Credits in sync; thank new contributors in the
+release that includes their work. Use public names or handles and verified
+profile links, never email addresses. Suggestions and review contributions
+deserve credit too when their authors can be identified.
+
+### Hebrew starter
+
+Hebrew (עברית, he) has an empty locales/he.json starter and is marked
+partial. Weblate uses the English source strings; do not copy English values
+into the Hebrew file as if they were translated. Untranslated strings fall
+back to English. This starter does not introduce a full right-to-left layout.

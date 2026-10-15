@@ -408,7 +408,12 @@
       "videoError": "Error de visualización de video",
       "noHdmi": "No se detectó señal HDMI",
       "mjpeg4k": "MJPEG no está disponible mientras la entrada HDMI es 3840 × 2160. Usa H.264 o H.265 en Ajustes → Vídeo",
-      "unavailable": "La pantalla no puede mostrarse ahora"
+      "unavailable": "La pantalla no puede mostrarse ahora",
+      "needsVideoMemory": "La entrada HDMI {{size}} requiere el modo de memoria de vídeo {{mode}}",
+      "switchVideoMemory": "Cambiar a {{mode}} y reiniciar",
+      "switchVideoMemoryTitle": "¿Cambiar la memoria de vídeo a {{mode}}?",
+      "videoMemoryRebooting": "Reiniciando con la memoria de vídeo {{mode}}…",
+      "videoMemoryUnavailable": "El modo de memoria de vídeo {{mode}} no está instalado en este dispositivo."
     }
   },
   "keyboard": {
@@ -945,7 +950,10 @@
         "projects": "Ideas, trabajos previos, interoperabilidad e inspiración en toda la comunidad KVM abierta.",
         "contributorsTitle": "Colaboradores de código abierto",
         "contributors": "Código, traducciones, pruebas, informes de problemas, revisiones, documentación y comentarios pacientes.",
-        "closing": "Gracias por hacer posible NanoKVM OS."
+        "closing": "Gracias por hacer posible NanoKVM OS.",
+        "translationTitle": "Colaboradores de traducción",
+        "translationThanks": "Gracias a quienes traducen, revisan y mejoran nuestros textos para que NanoKVM OS sea más accesible.",
+        "translationPlatform": "Nuestra plataforma de traducción reúne las aportaciones de la comunidad. Únete y ayuda a traducir NanoKVM OS."
       },
       "documentation": "Documentación",
       "reportIssue": "Informar de un problema",
@@ -1472,7 +1480,8 @@
         "enable": "Ethernet",
         "disabled": "Desactivado",
         "interfaceDown": "Activado en la configuración · la interfaz está inactiva",
-        "linkUp": "Activado · cable conectado",
+        "linkUpAddress": "Activado · cable conectado · {{address}}",
+        "linkUpNoAddress": "Activado · cable conectado · sin dirección IPv4",
         "noCable": "Activado · cable desconectado",
         "disconnectWarning": "Al guardar se cerrarán de inmediato las conexiones que usan Ethernet. Asegúrate de que haya otra conexión de administración disponible.",
         "dhcp": "DHCP",
@@ -1481,11 +1490,11 @@
         "dhcpDescription": "Obtenga automáticamente una dirección IP mediante DHCP.",
         "staticDescription": "Configure manualmente la dirección IP.",
         "ipAddress": "Dirección IP",
-        "addressPlaceholder": "192.168.10.32",
+        "addressPlaceholder": "192.168.10.32/24",
         "subnetMask": "Máscara de subred",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Puerta de enlace",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "192.168.10.1 (opcional)",
         "invalid": "Dirección IP no válida",
         "vlan": "VLAN",
         "vlanDescription": "Usar la configuración IPv4 DHCP o estática seleccionada en eth0.<ID>",

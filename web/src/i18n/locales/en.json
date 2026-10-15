@@ -408,7 +408,12 @@
       "videoError": "Video display error",
       "noHdmi": "No HDMI signal detected",
       "mjpeg4k": "MJPEG is unavailable while the HDMI input is 3840 × 2160. Use H.264 or H.265 in Settings → Video",
-      "unavailable": "Screen cannot be displayed right now"
+      "unavailable": "Screen cannot be displayed right now",
+      "needsVideoMemory": "The HDMI input {{size}} needs the {{mode}} video memory mode",
+      "switchVideoMemory": "Switch to {{mode}} and reboot",
+      "switchVideoMemoryTitle": "Switch the video memory to {{mode}}?",
+      "videoMemoryRebooting": "Rebooting with the {{mode}} video memory…",
+      "videoMemoryUnavailable": "The {{mode}} video memory mode is not installed on this device."
     }
   },
   "keyboard": {
@@ -945,7 +950,10 @@
         "projects": "Ideas, prior art, interoperability work, and inspiration across the open KVM community.",
         "contributorsTitle": "Open-source contributors",
         "contributors": "Code, translations, testing, issue reports, reviews, documentation, and patient feedback.",
-        "closing": "Thank you for making NanoKVM OS possible."
+        "closing": "Thank you for making NanoKVM OS possible.",
+        "translationTitle": "Translation contributors",
+        "translationThanks": "Made welcoming by people who translate, review, and improve our words. Thank you.",
+        "translationPlatform": "Our translation platform — bringing community contributions together. Join us and help translate NanoKVM OS."
       },
       "documentation": "Documentation",
       "reportIssue": "Report an issue",
@@ -1323,7 +1331,7 @@
         "band24": "2.4 GHz",
         "band5": "5 GHz",
         "preferredBand": "Preferred frequency band",
-        "preferredBandHint": "Used for the next Wi-Fi connection. The other band remains available as a fallback.",
+        "preferredBandHint": "Applied to the current connection when supported; switching bands may briefly interrupt it. The other band remains available as a fallback.",
         "scan": "Scan networks",
         "scanFailed": "Could not scan networks. Try again.",
         "availableNetworks": "Available networks",
@@ -1472,7 +1480,8 @@
         "enable": "Ethernet",
         "disabled": "Disabled",
         "interfaceDown": "Enabled in settings · interface is currently down",
-        "linkUp": "Enabled · cable connected",
+        "linkUpAddress": "Enabled · cable connected · {{address}}",
+        "linkUpNoAddress": "Enabled · cable connected · no IPv4 address",
         "noCable": "Enabled · cable disconnected",
         "disconnectWarning": "Saving will immediately end connections using Ethernet. Make sure another management connection is available.",
         "dhcp": "DHCP",
@@ -1481,11 +1490,11 @@
         "dhcpDescription": "IP address and gateway are obtained automatically from DHCP",
         "staticDescription": "Settings are applied immediately and retained after a reboot",
         "ipAddress": "IP address",
-        "addressPlaceholder": "192.168.10.32",
+        "addressPlaceholder": "192.168.10.32/24",
         "subnetMask": "Subnet mask",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Gateway",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "192.168.10.1 (optional)",
         "invalid": "Enter a valid IPv4 address, subnet mask, and gateway",
         "vlan": "VLAN",
         "vlanDescription": "Use the selected DHCP or static IPv4 configuration on eth0.<ID>",

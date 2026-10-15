@@ -124,6 +124,7 @@ body {
 }
 
 .nanokvm-credits-roll:hover,
+.nanokvm-credits-roll:focus-within,
 .nanokvm-credits-roll.is-paused {
   animation-play-state: paused;
 }

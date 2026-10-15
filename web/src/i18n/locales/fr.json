@@ -408,7 +408,12 @@
       "videoError": "Erreur d’affichage vidéo",
       "noHdmi": "Aucun signal HDMI détecté",
       "mjpeg4k": "MJPEG n'est pas disponible tant que l'entrée HDMI est en 3840 × 2160. Utilisez H.264 ou H.265 dans Paramètres → Vidéo",
-      "unavailable": "L’image ne peut pas être affichée pour le moment"
+      "unavailable": "L’image ne peut pas être affichée pour le moment",
+      "needsVideoMemory": "L'entrée HDMI {{size}} nécessite le mode de mémoire vidéo {{mode}}",
+      "switchVideoMemory": "Passer en {{mode}} et redémarrer",
+      "switchVideoMemoryTitle": "Passer la mémoire vidéo en {{mode}} ?",
+      "videoMemoryRebooting": "Redémarrage avec la mémoire vidéo {{mode}}…",
+      "videoMemoryUnavailable": "Le mode de mémoire vidéo {{mode}} n'est pas installé sur cet appareil."
     }
   },
   "keyboard": {
@@ -945,7 +950,10 @@
         "projects": "Idées, travaux antérieurs, interopérabilité et inspiration au sein de la communauté KVM ouverte.",
         "contributorsTitle": "Contributeurs open source",
         "contributors": "Code, traductions, tests, rapports de bogues, relectures, documentation et retours patients.",
-        "closing": "Merci d'avoir rendu NanoKVM OS possible."
+        "closing": "Merci d'avoir rendu NanoKVM OS possible.",
+        "translationTitle": "Contributeurs aux traductions",
+        "translationThanks": "Merci à toutes les personnes qui traduisent, relisent et améliorent nos textes pour rendre NanoKVM OS plus accessible.",
+        "translationPlatform": "Notre plateforme de traduction rassemble les contributions de la communauté. Rejoignez-nous pour traduire NanoKVM OS."
       },
       "documentation": "Documentation",
       "reportIssue": "Signaler un problème",
@@ -1472,7 +1480,8 @@
         "enable": "Ethernet",
         "disabled": "Désactivé",
         "interfaceDown": "Activé dans les paramètres · l'interface est actuellement inactive",
-        "linkUp": "Activé · câble connecté",
+        "linkUpAddress": "Activé · câble connecté · {{address}}",
+        "linkUpNoAddress": "Activé · câble connecté · aucune adresse IPv4",
         "noCable": "Activé · câble déconnecté",
         "disconnectWarning": "L'enregistrement mettra immédiatement fin aux connexions utilisant l'Ethernet. Assurez-vous qu'une autre connexion d'administration est disponible.",
         "dhcp": "DHCP",
@@ -1481,11 +1490,11 @@
         "dhcpDescription": "Obtenez automatiquement une adresse IP via DHCP.",
         "staticDescription": "Configurez manuellement l'adresse IP.",
         "ipAddress": "Adresse IP",
-        "addressPlaceholder": "192.168.10.32",
+        "addressPlaceholder": "192.168.10.32/24",
         "subnetMask": "Masque de sous-réseau",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Passerelle",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "192.168.10.1 (facultatif)",
         "invalid": "Adresse IP non valide",
         "vlan": "VLAN",
         "vlanDescription": "Utiliser la configuration IPv4 DHCP ou statique sélectionnée sur eth0.<ID>",

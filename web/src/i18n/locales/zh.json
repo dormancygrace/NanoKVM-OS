@@ -408,7 +408,12 @@
       "videoError": "视频显示异常",
       "noHdmi": "未检测到 HDMI 信号",
       "mjpeg4k": "HDMI 输入为 3840 × 2160 时 MJPEG 不可用。请在“设置 → 视频”中使用 H.264 或 H.265",
-      "unavailable": "画面暂时无法显示"
+      "unavailable": "画面暂时无法显示",
+      "needsVideoMemory": "HDMI 输入 {{size}} 需要 {{mode}} 视频内存模式",
+      "switchVideoMemory": "切换到 {{mode}} 并重启",
+      "switchVideoMemoryTitle": "将视频内存切换为 {{mode}}？",
+      "videoMemoryRebooting": "正在以 {{mode}} 视频内存模式重启…",
+      "videoMemoryUnavailable": "此设备未安装 {{mode}} 视频内存模式。"
     }
   },
   "keyboard": {
@@ -945,7 +950,10 @@
         "projects": "来自开源 KVM 社区的创意、先前成果、互操作工作与灵感。",
         "contributorsTitle": "开源贡献者",
         "contributors": "代码、翻译、测试、问题报告、评审、文档以及耐心的反馈。",
-        "closing": "感谢你们让 NanoKVM OS 成为可能。"
+        "closing": "感谢你们让 NanoKVM OS 成为可能。",
+        "translationTitle": "翻译贡献者",
+        "translationThanks": "感谢所有参与翻译、审校和改进文字的贡献者，让 NanoKVM OS 更易于理解和使用。",
+        "translationPlatform": "我们的翻译平台汇集了社区的贡献。欢迎加入，帮助翻译 NanoKVM OS。"
       },
       "documentation": "文档",
       "reportIssue": "报告问题",
@@ -1472,7 +1480,8 @@
         "enable": "以太网",
         "disabled": "已禁用",
         "interfaceDown": "已在设置中启用 · 接口当前未启动",
-        "linkUp": "已启用 · 网线已连接",
+        "linkUpAddress": "已启用 · 网线已连接 · {{address}}",
+        "linkUpNoAddress": "已启用 · 网线已连接 · 无 IPv4 地址",
         "noCable": "已启用 · 网线未连接",
         "disconnectWarning": "保存后将立即断开使用以太网的连接。请确保有其他可用的管理连接。",
         "dhcp": "DHCP",
@@ -1481,11 +1490,11 @@
         "dhcpDescription": "IP 地址和网关将通过 DHCP 自动获取",
         "staticDescription": "设置会立即应用，并在重启后保留",
         "ipAddress": "IP 地址",
-        "addressPlaceholder": "192.168.10.32",
+        "addressPlaceholder": "192.168.10.32/24",
         "subnetMask": "子网掩码",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "网关",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "192.168.10.1（可选）",
         "invalid": "请输入有效的 IPv4 地址、子网掩码和网关",
         "vlan": "VLAN",
         "vlanDescription": "在 eth0.<ID> 上使用所选的 DHCP 或静态 IPv4 配置",

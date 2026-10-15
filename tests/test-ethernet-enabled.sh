@@ -58,7 +58,11 @@ run_eth start
 test ! -e "$work/udhcpc.call"
 grep -Fqx 'addr flush dev eth0' "$work/ip.calls"
 grep -Fqx 'link set dev eth0 down' "$work/ip.calls"
-! grep -Fqx 'link set dev eth0 up' "$work/ip.calls"
+# `! cmd` never stops a set -e script, so fail explicitly.
+if grep -Fqx 'link set dev eth0 up' "$work/ip.calls"; then
+    echo 'Disabled Ethernet start brought eth0 up' >&2
+    exit 1
+fi
 
 : > "$work/ip.calls"
 rm "$work/boot/eth.disabled"
@@ -85,7 +89,10 @@ grep -Fqx 'link add link eth0 name eth0.100 type vlan id 100' "$work/ip.calls"
 grep -Fqx '8021q' "$work/modprobe.calls"
 grep -Fqx 'link set dev eth0.100 up' "$work/ip.calls"
 grep -Fqx 'addr flush dev eth0.100' "$work/ip.calls"
-! grep -Fqx 'addr flush dev eth0' "$work/ip.calls"
+if grep -Fqx 'addr flush dev eth0' "$work/ip.calls"; then
+    echo 'VLAN start flushed the eth0 address' >&2
+    exit 1
+fi
 attempts=0
 while ! grep -q -- '-i eth0.100' "$work/udhcpc.call"; do
     attempts=$((attempts + 1))
@@ -108,13 +115,28 @@ grep -Fqx 'a add 10.20.0.2/24 brd + dev eth0.100' "$work/ip.calls"
 grep -Fqx 'r add default via 10.20.0.1 dev eth0.100 metric 100' "$work/ip.calls"
 test "$(wc -l < "$work/udhcpc.call")" -eq "$dhcp_calls_before"
 run_eth stop
+
+# Without a gateway: the address only, no default route and no DNS server.
+printf '%s\n' '10.20.0.2/24 none' > "$work/boot/eth.nodhcp"
+: > "$work/ip.calls"
+: > "$work/etc/resolv.conf"
+NANOKVM_TEST_IP_SHOW_INET=1 run_eth start
+grep -Fqx 'a add 10.20.0.2/24 brd + dev eth0.100' "$work/ip.calls"
+if grep -q 'r add default' "$work/ip.calls" || grep -q nameserver "$work/etc/resolv.conf"; then
+    echo 'A gateway was configured for "none"' >&2
+    exit 1
+fi
+run_eth stop
 rm "$work/boot/eth.nodhcp"
 
 rm "$work/boot/eth.vlan"
 : > "$work/ip.calls"
 : > "$work/udhcpc.call"
 run_eth start
-! grep -q 'link add link eth0' "$work/ip.calls"
+if grep -q 'link add link eth0' "$work/ip.calls"; then
+    echo 'VLAN created without eth.vlan' >&2
+    exit 1
+fi
 grep -Fqx 'addr flush dev eth0' "$work/ip.calls"
 attempts=0
 while ! grep -q -- '-i eth0 ' "$work/udhcpc.call"; do
@@ -130,14 +152,22 @@ if run_eth start; then
     echo 'Invalid VLAN ID unexpectedly succeeded' >&2
     exit 1
 fi
-! grep -q 'link add link eth0' "$work/ip.calls"
-rm "$work/boot/eth.vlan"
+if grep -q 'link add link eth0' "$work/ip.calls"; then
+    echo 'VLAN created for invalid ID 4095' >&2
+    exit 1
+fi
+# A valid VLAN must remain configured while Ethernet is disabled.
+printf '%s\n' '100' > "$work/boot/eth.vlan"
 
 touch "$work/boot/eth.disabled"
 : > "$work/ip.calls"
 run_eth start
-! grep -q 'link add link eth0' "$work/ip.calls"
+if grep -q 'link add link eth0' "$work/ip.calls"; then
+    echo 'VLAN created while Ethernet is disabled' >&2
+    exit 1
+fi
 rm "$work/boot/eth.disabled"
+rm "$work/boot/eth.vlan"
 
 printf '%s\n' 'old-host' > "$work/etc/hostname"
 printf '%s\n' '127.0.0.1 localhost' '127.0.1.1 old-host' > "$work/etc/hosts"
@@ -154,7 +184,10 @@ NANOKVM_TEST_HOSTNAME_CALL=$work/hostname.call \
     sh "$repo/firmware/alpine/compat/S10uuid" start
 grep -Fqx 'link set dev eth0 down' "$work/ip.calls"
 grep -q '^link set dev eth0 address ' "$work/ip.calls"
-! grep -Fqx 'link set dev eth0 up' "$work/ip.calls"
+if grep -Fqx 'link set dev eth0 up' "$work/ip.calls"; then
+    echo 'S10uuid brought disabled eth0 up' >&2
+    exit 1
+fi
 
 rm "$work/boot/eth.disabled"
 : > "$work/ip.calls"

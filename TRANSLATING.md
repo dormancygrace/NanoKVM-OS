@@ -140,7 +140,8 @@ deserve credit too when their authors can be identified.
 
 ### Hebrew starter
 
-Hebrew (עברית, he) has an empty locales/he.json starter and is marked
-partial. Weblate uses the English source strings; do not copy English values
-into the Hebrew file as if they were translated. Untranslated strings fall
-back to English. This starter does not introduce a full right-to-left layout.
+Hebrew (עברית, he) has a partial translation of common interface labels and
+PicoClaw control messages in `locales/he.json`. Weblate uses the English source
+strings; do not copy English values into the Hebrew file as if they were
+translated. Untranslated strings fall back to English. This translation does
+not introduce a full right-to-left layout.

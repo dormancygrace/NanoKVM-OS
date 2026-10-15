@@ -29,11 +29,12 @@
       "reset2": "För detaljerade steg, se detta dokument:",
       "reset3": "Standardkonto för webben:",
       "reset4": "Standardkonto för SSH:",
-      "change1": "Observera att denna åtgärd ändrar följande lösenord:",
+      "change1": "För det inbyggda administratörskontot ändrar den här åtgärden följande lösenord:",
       "change2": "Webbinloggningslösenord",
       "change3": "Systemets root-lösenord (SSH-lösenord)",
       "change4": "För att återställa lösenordet, håll in BOOT-knappen på NanoKVM."
-    }
+    },
+    "placeholderCurrentPassword": "Nuvarande lösenord"
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -51,7 +52,7 @@
     }
   },
   "screen": {
-    "scale": "Skala",
+    "scale": "Skalning",
     "title": "Skärm",
     "video": "Videoläge",
     "controlRegion": {
@@ -100,7 +101,9 @@
       "videoError": "Videovisningsfel",
       "noHdmi": "Ingen HDMI-signal upptäcktes",
       "unavailable": "Skärmen kan inte visas just nu"
-    }
+    },
+    "codec": "Kodek",
+    "retryJoin": "Försök igen"
   },
   "keyboard": {
     "title": "Tangentbord",
@@ -118,7 +121,7 @@
     "dropdownRussian": "ryska",
     "dropdownSpanish": "Spanska",
     "shortcut": {
-      "title": "Genvägar",
+      "title": "Kortkommandon",
       "custom": "Anpassad",
       "capture": "Klicka här för att fånga genväg",
       "clear": "Rensa",
@@ -152,6 +155,10 @@
         "activate": "Aktivera tangenter",
         "input": "Vänligen tryck på genvägen..."
       }
+    },
+    "sequences": {
+      "title": "Tangentsekvenser",
+      "sent": "Skickat"
     }
   },
   "mouse": {
@@ -250,14 +257,17 @@
     "flowControlHard": "Hårdvara",
     "dataBits": "Databitar",
     "stopBits": "Stoppbitar",
-    "confirm": "Ok"
+    "confirm": "Ok",
+    "usbSerial": "Seriell USB-konsol"
   },
   "wol": {
     "title": "Wake-on-LAN",
     "sending": "Skickar kommando...",
     "sent": "Kommando skickat",
     "input": "Ange MAC-adress",
-    "ok": "Ok"
+    "ok": "Ok",
+    "name": "Enhetsnamn",
+    "cancel": "Avbryt"
   },
   "download": {
     "title": "Avbildningshämtare",
@@ -273,7 +283,8 @@
     "success": "Nedlasting fullført",
     "checksumFailed": "Nedlasting mislyktes: SHA-256-verifisering mislyktes",
     "cancel": "Avbryt",
-    "cancelFailed": "Kunne ikke avbryte nedlastingen"
+    "cancelFailed": "Kunne ikke avbryte nedlastingen",
+    "downloading": "Laddar ner"
   },
   "power": {
     "title": "Ström",
@@ -312,7 +323,13 @@
       "ip": "IP",
       "image": "Systemversion",
       "hostname": "Värdnamn",
-      "hostnameUpdated": "Värdnamn uppdaterat. Starta om för att tillämpa."
+      "hostnameUpdated": "Värdnamn uppdaterat. Starta om för att tillämpa.",
+      "credits": {
+        "button": "Medverkande",
+        "title": "Medverkande",
+        "close": "Stäng"
+      },
+      "documentation": "Dokumentation"
     },
     "appearance": {
       "title": "Utseende",
@@ -332,6 +349,9 @@
         "keyboardLedStatusDesc": "Visa Num Lock-, Caps Lock- och Scroll Lock-status för fjärrdatorn",
         "icons": "Undermenyikoner",
         "iconsDesc": "Visa undermenyikoner i menyraden"
+      },
+      "buttonColor": {
+        "save": "Verkställ"
       }
     },
     "keyboardLedStatus": {
@@ -382,7 +402,10 @@
       "reboot": "Starta om",
       "rebootDesc": "Är du säker på att du vill starta om NanoKVM?",
       "okBtn": "Ja",
-      "cancelBtn": "Nej"
+      "cancelBtn": "Nej",
+      "cpuFrequency": {
+        "title": "CPU-frekvens och överklockning"
+      }
     },
     "network": {
       "title": "Nätverk",
@@ -399,11 +422,22 @@
         "password": "Lösenord",
         "joinBtn": "Anslut",
         "confirmBtn": "OK",
-        "cancelBtn": "Avbryt"
+        "cancelBtn": "Avbryt",
+        "band": "Frekvensband",
+        "manual": "Anslut manuellt",
+        "hidden": "Dolt nätverk",
+        "security": "Säkerhet",
+        "open": "Öppet nätverk",
+        "loading": "Laddar...",
+        "reconnect": "Anslut igen"
       },
       "tls": {
         "description": "Aktivera HTTPS-protokoll",
-        "tip": "Observera: Användning av HTTPS kan öka fördröjningen, särskilt med MJPEG-läge."
+        "tip": "Observera: Användning av HTTPS kan öka fördröjningen, särskilt med MJPEG-läge.",
+        "certificate": {
+          "title": "Certifikat",
+          "remove": "Ta bort"
+        }
       },
       "ethernet": {
         "title": "Ethernet IPv4",
@@ -423,7 +457,8 @@
         "save": "Spara",
         "unsaved": "Osparade ändringar",
         "saveFailed": "Det gick inte att spara Ethernet-inställningarna",
-        "loadFailed": "Det gick inte att läsa in Ethernet-inställningarna"
+        "loadFailed": "Det gick inte att läsa in Ethernet-inställningarna",
+        "disabled": "Inaktiverad"
       },
       "dns": {
         "title": "DNS",
@@ -446,6 +481,11 @@
         "subnetMask": "Subnätmask",
         "router": "Router",
         "none": "Ingen"
+      },
+      "general": "Allmänt",
+      "gateway": {
+        "title": "Föredragen gateway",
+        "auto": "Automatiskt"
       }
     },
     "tailscale": {
@@ -458,7 +498,7 @@
       "install": "Installera",
       "installing": "Installerar",
       "failed": "Installationen misslyckades",
-      "retry": "Uppdatera sidan och försök igen. Eller installera manuellt",
+      "retry": "Försök installera igen.",
       "notRunning": "Tailscale körs inte. Starta den för att fortsätta.",
       "run": "Start",
       "notLogin": "Enheten är ännu inte bunden. Logga in och bind enheten till ditt konto.",
@@ -474,17 +514,168 @@
       "uninstall": "Avinstallera Tailscale",
       "uninstallDesc": "Är du säker på att du vill avinstallera Tailscale?",
       "okBtn": "Ja",
-      "cancelBtn": "Nej"
+      "cancelBtn": "Nej",
+      "moreActions": "Fler åtgärder"
     },
     "account": {
-      "title": "Konto",
+      "title": "Användare",
       "webAccount": "Webbkonto-namn",
       "password": "Lösenord",
       "updateBtn": "Byt",
       "logoutBtn": "Logga ut",
       "logoutDesc": "Är du säker på att du vill logga ut?",
       "okBtn": "Ja",
-      "cancelBtn": "Nej"
+      "cancelBtn": "Nej",
+      "role": "Roll",
+      "roles": {
+        "admin": "Administratör",
+        "user": "Användare"
+      },
+      "users": {
+        "title": "Användare",
+        "create": "Skapa användare",
+        "enabled": "Aktiverad",
+        "disabled": "Inaktiverad",
+        "deviceOwner": "Enhetens ägare",
+        "rename": "Byt namn",
+        "resetPassword": "Återställ lösenord",
+        "delete": "Ta bort"
+      }
+    },
+    "software": {
+      "indexSchedule": {
+        "save": "Spara"
+      },
+      "addons": {
+        "title": "Tilläggspaket",
+        "packages": "Paket"
+      },
+      "title": "Programvara",
+      "available": "Tillgängliga paket",
+      "updatesTab": "Uppdateringar",
+      "search": "Sök",
+      "install": "Installera",
+      "installed": "Installerade paket",
+      "remove": "Ta bort"
+    },
+    "updates": {
+      "apk": {
+        "title": "Paketuppdateringar",
+        "log": "Uppdateringslogg"
+      },
+      "title": "Uppdateringar",
+      "installed": "Installerad"
+    },
+    "memory": {
+      "title": "Minne",
+      "available": "Tillgängligt",
+      "size": "Kapacitet",
+      "used": "Använt",
+      "algorithm": "Komprimering",
+      "videoUnknown": "Okänd"
+    },
+    "system": {
+      "general": "Allmänt",
+      "logs": {
+        "title": "Loggar",
+        "sources": {
+          "kernel": "Kärna"
+        },
+        "refresh": "Uppdatera"
+      },
+      "diagnostics": {
+        "overview": "Status",
+        "title": "Diagnostik",
+        "refresh": "Uppdatera",
+        "application": "Program"
+      },
+      "services": "Tjänster",
+      "device": "Enhet"
+    },
+    "usb": {
+      "internet": {
+        "title": "Internet via USB",
+        "states": {
+          "loading": "Laddar..."
+        }
+      },
+      "title": "USB-funktioner",
+      "apply": "Verkställ",
+      "cancel": "Förkasta ändringar",
+      "identity": {
+        "title": "USB-identitet"
+      },
+      "userDisk": {
+        "title": "Användardisk",
+        "create": "Skapa",
+        "delete": "Ta bort",
+        "files": {
+          "title": "Filer på användardisken",
+          "refresh": "Uppdatera",
+          "browse": "Bläddra bland filer",
+          "up": "Överordnad mapp",
+          "upload": "Ladda upp filer",
+          "cancel": "Avbryt",
+          "folderName": "Namn på ny mapp",
+          "mkdir": "Skapa mapp",
+          "download": "Ladda ned",
+          "delete": "Ta bort",
+          "empty": "Den här mappen är tom.",
+          "errors": {
+            "notEmpty": "Mappen är inte tom."
+          },
+          "previous": "Föregående sida",
+          "next": "Nästa sida"
+        }
+      },
+      "serialConsole": {
+        "title": "Linux-konsol utan skärm"
+      },
+      "devices": {
+        "network": {
+          "title": "Virtuellt nätverk"
+        },
+        "disk": {
+          "title": "Virtuell disk"
+        },
+        "serial": {
+          "title": "Seriell USB-konsol"
+        },
+        "keyboard": {
+          "title": "Tangentbord"
+        }
+      }
+    },
+    "netbird": {
+      "moreActions": "Fler åtgärder",
+      "loginSuccess": "Jag har loggat in",
+      "deviceName": "Enhetsnamn",
+      "version": "Version",
+      "loading": "Laddar...",
+      "login": "Logga in",
+      "deviceIP": "Enhets-IP",
+      "okBtn": "Ja",
+      "cancelBtn": "Nej",
+      "error": {
+        "installFailed": "Installationen misslyckades"
+      }
+    },
+    "rustdesk": {
+      "absent": "Inte installerad",
+      "stopped": "Stoppad",
+      "install": "Installera",
+      "remove": "Ta bort",
+      "save": "Spara inställningar",
+      "server": "Server",
+      "passwordMode": "Lösenord",
+      "temporaryPassword": "Tillfälligt lösenord",
+      "newPassword": "Nytt lösenord",
+      "advanced": "Avancerade inställningar",
+      "saved": "Inställningarna har sparats",
+      "unknownVersion": "Okänd"
+    },
+    "extensions": {
+      "title": "Tillägg"
     }
   },
   "picoclaw": {
@@ -499,7 +690,8 @@
       "kvmTitle": "Fjärrstyrning",
       "kvmDescription": "Manövrera fjärrvärden genom NanoKVM.",
       "switched": "Agentroll bytte",
-      "switchFailed": "Det gick inte att byta agentroll"
+      "switchFailed": "Det gick inte att byta agentroll",
+      "label": "Agentroll"
     },
     "send": "Skicka",
     "cancel": "Avbryt",
@@ -517,22 +709,22 @@
     "connection": {
       "runtime": {
         "checking": "Kontrollerar",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "Återställer PicoClaw",
         "ready": "Runtime klar",
         "stopped": "Runtime stoppad",
         "blockedByMCP": "Extern MCP-styrning är aktiv",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "Körmiljön är igång, men extern MCP styr för närvarande enhetens inmatning.",
+        "readyWithoutControl": "Körmiljön är igång. Ge PicoClaw kontroll över enheten innan du ansluter igen.",
         "unavailable": "Runtime inte tillgänglig",
         "configError": "Konfigurationsfel"
       },
       "transport": {
         "connecting": "Ansluter",
         "connected": "Ansluten",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "Frånkopplad",
+        "reconnect": "Anslut igen",
+        "reconnectDescription": "Anslut till den pågående PicoClaw-sessionen igen.",
+        "reconnectBlocked": "PicoClaw behöver kontroll över enheten innan du kan ansluta igen."
       },
       "run": {
         "idle": "Inaktiv",
@@ -549,19 +741,19 @@
     },
     "control": {
       "picoclaw": "Enhetsstyrning: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw kan skicka tangentbords- och musinmatning. Manuell inmatning kan pausas.",
       "mcp": "Enhetsstyrning: extern MCP",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "Enhetsstyrning: av",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "Extern MCP kan skicka inmatning till enheten. PicoClaw tar inte över inmatningen.",
+      "off": "Enhetsstyrning: manuell / utan AI",
+      "offDescription": "AI skickar ingen tangentbords- eller musinmatning. Manuell styrning är fortfarande tillgänglig.",
+      "transitioning": "Enhetsstyrning: byter",
+      "transitioningDescription": "Enhetsstyrningen synkroniseras. Vänta.",
       "grant": "Ge styrning",
       "release": "Släpp",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "Enhetsstyrning: lämnar tillbaka kontrollen",
+      "releasingDescription": "Kontrollen över enheten lämnas tillbaka. PicoClaw har stoppat pågående inmatning.",
       "granted": "PicoClaw-styrning beviljad",
       "released": "PicoClaw-styrning släppt",
       "grantFailed": "Det gick inte att ge PicoClaw styrning",
@@ -643,7 +835,8 @@
       "description": "Starta runtime för att börja använda PicoClaw-assistenten.",
       "switchFromMCP": "Switch to PicoClaw and start",
       "takeoverAndStart": "Take over and start"
-    }
+    },
+    "moreActions": "Fler åtgärder"
   },
   "error": {
     "title": "Vi stötte på ett problem",
@@ -655,5 +848,111 @@
   "menu": {
     "collapse": "Fäll ihop menyn",
     "expand": "Expandera menyn"
+  },
+  "audio": {
+    "listen": "Lyssna",
+    "resume": "Återuppta ljud",
+    "volume": "Volym"
+  },
+  "sessionControl": {
+    "viewOnly": "Endast visning",
+    "take": "Ta kontroll",
+    "release": "Lås den här sessionen"
+  },
+  "dateTime": {
+    "title": "Datum och tid",
+    "deviceTime": "Enhetens tid",
+    "timezone": "Tidszon",
+    "format": "Tidsformat",
+    "preview": "Förhandsvisning",
+    "synchronized": "Synkroniserad",
+    "waiting": "Synkronisering inte bekräftad",
+    "save": "Spara"
+  },
+  "recorder": {
+    "title": "Videoinspelning",
+    "start": "Starta inspelning",
+    "stop": "Stoppa inspelning"
+  },
+  "screenshot": {
+    "take": "Ta skärmbild"
+  },
+  "vpn": {
+    "rename": "Byt namn",
+    "profileName": "Profilnamn",
+    "credentials": "Inloggningsuppgifter",
+    "username": "Användarnamn",
+    "password": "Lösenord",
+    "save": "Spara",
+    "enable": "Aktivera",
+    "delete": "Ta bort",
+    "states": {
+      "reconnecting": "Ansluter igen",
+      "error": "Fel",
+      "connecting": "Ansluter",
+      "connected": "Ansluten",
+      "idle": "Inaktiv"
+    },
+    "confirm": "Ja",
+    "cancel": "Nej"
+  },
+  "dashboard": {
+    "title": "Översikt",
+    "freeStorage": "Ledigt utrymme",
+    "uptime": "Drifttid",
+    "kernel": "Kärna",
+    "memory": "Minne",
+    "cache": "Cache",
+    "compression": "Komprimering",
+    "storage": "Lagring",
+    "dataStorage": "Data",
+    "bootStorage": "Uppstart",
+    "readOnly": "Skrivskyddad",
+    "disconnected": "Ingen anslutning",
+    "deviceTime": "Enhetens tid",
+    "timezone": "Tidszon",
+    "synchronization": "Synkronisering",
+    "synchronized": "Synkroniserad",
+    "notSynchronized": "Synkronisering inte bekräftad",
+    "noProfiles": "Inga profiler",
+    "states": {
+      "waiting": "Väntar",
+      "error": "Fel",
+      "stopped": "Stoppad",
+      "notInstall": "Inte installerad",
+      "notRunning": "Stoppad",
+      "notLogin": "Inte inloggad",
+      "connected": "Ansluten",
+      "idle": "Inaktiv",
+      "running": "Ansluten",
+      "connecting": "Ansluter",
+      "auth": "Autentisering krävs"
+    },
+    "device": "Enhet",
+    "connected": "Ansluten"
+  },
+  "videoSettings": {
+    "image": "Bild",
+    "mode": "Läge",
+    "browserSection": "Den här webbläsaren",
+    "player": "Spelare",
+    "landscape": "Liggande skärm",
+    "transport": "Transport",
+    "powerCycleCancel": "Avbryt",
+    "apply": "Verkställ",
+    "discard": "Förkasta ändringar",
+    "bitrate": "Bithastighet",
+    "captureOn": "Bildinsamling aktiverad",
+    "captureOff": "Bildinsamling inaktiverad",
+    "input": "HDMI-ingång",
+    "output": "Kodad ström",
+    "monitor": "HDMI-skärm",
+    "portrait": "Stående skärm",
+    "retry": "Försök igen"
+  },
+  "capture": {
+    "start": "Aktivera bildinsamling",
+    "stop": "Inaktivera bildinsamling",
+    "off": "Bildinsamling inaktiverad"
   }
 }

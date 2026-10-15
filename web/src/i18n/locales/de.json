@@ -321,7 +321,7 @@
       "reset2": "Für detailliertere Anweisungen lesen Sie folgendes Dokument:",
       "reset3": "Web Standard-Account:",
       "reset4": "SSH Standard-Account:",
-      "change1": "Bitte beachten Sie, dass diese Aktion folgende Passwörter ändert:",
+      "change1": "Beim integrierten Administratorkonto ändert diese Aktion die folgenden Passwörter:",
       "change2": "Web Anmelde-Passwort",
       "change3": "System root Passwort (SSH Anmelde-Passwort)",
       "change4": "Um die Passwörter zurückzusetzen, drücken und halten Sie den BOOT Knopf auf dem NanoKVM."
@@ -350,7 +350,7 @@
     "recoveryDescription": "Das Video wurde nach wiederholten Abstürzen gestoppt. Die Verwaltung bleibt verfügbar. Sie können Einstellungen ändern oder das Video erneut starten.",
     "recoveryRetry": "Video erneut starten",
     "recoveryRetryFailed": "Video konnte nicht neu gestartet werden. Versuchen Sie es erneut.",
-    "scale": "Skala",
+    "scale": "Skalierung",
     "title": "Bildschirm",
     "video": "Video Modus",
     "codec": "Codec",
@@ -419,7 +419,7 @@
   "keyboard": {
     "title": "Tastatur",
     "paste": "Einfügen",
-    "tips": "Server Tastaturbelegung",
+    "tips": "Es werden nur Standardbuchstaben und -symbole der Tastatur unterstützt.",
     "placeholder": "Bitte eingeben",
     "submit": "Senden",
     "virtual": "Tastatur",
@@ -471,22 +471,22 @@
       }
     },
     "shortcut": {
-      "title": "Verknüpfungen",
+      "title": "Tastenkürzel",
       "custom": "Benutzerdefiniert",
-      "capture": "Klicken Sie hier, um die Verknüpfung zu erfassen",
-      "clear": "Klar",
+      "capture": "Klicken Sie hier, um die Tastenkombination aufzuzeichnen",
+      "clear": "Leeren",
       "save": "Speichern",
       "captureTips": "Das Erfassen systemweiter Tasten (z. B. der Windows-Taste) erfordert die Vollbildberechtigung.",
       "enterFullScreen": "Vollbildmodus umschalten."
     },
     "leaderKey": {
       "title": "Leader-Taste",
-      "desc": "Browserbeschränkungen umgehen und Systemverknüpfungen direkt an den Remote-Host senden.",
+      "desc": "Browserbeschränkungen umgehen und Systemtastenkombinationen direkt an den Remote-Host senden.",
       "howToUse": "Verwendung",
       "simultaneous": {
         "title": "Simultanmodus",
         "desc1": "Halten Sie die Leader-Taste gedrückt und drücken Sie dann die Tastenkombination.",
-        "desc2": "Intuitiv, kann jedoch zu Konflikten mit Systemverknüpfungen führen."
+        "desc2": "Intuitiv, kann jedoch zu Konflikten mit Systemtastenkombinationen führen."
       },
       "sequential": {
         "title": "Sequenzieller Modus",
@@ -1547,7 +1547,7 @@
       "install": "Installieren",
       "installing": "Installiere",
       "failed": "Installation fehlgeschlagen",
-      "retry": "Bitte Seite neu laden und erneut versuchen oder manuelle Installation versuchen.",
+      "retry": "Bitte versuchen Sie die Installation erneut.",
       "notRunning": "Tailscale läuft nicht. Bitte starten Sie es, um fortzufahren.",
       "run": "Start",
       "notLogin": "Das Gerät konnte noch nicht gefunden werden. Bitte melden Sie sich an und verknüpfen Sie dieses Gerät mit Ihrem Konto.",
@@ -1680,7 +1680,7 @@
       "sameServer": "Konfigurieren Sie im RustDesk-Client denselben benutzerdefinierten ID-Server und öffentlichen Schlüssel."
     },
     "account": {
-      "title": "Konto",
+      "title": "Benutzer",
       "webAccount": "Web Konto Name",
       "role": "Rolle",
       "roles": {
@@ -1750,22 +1750,22 @@
     "connection": {
       "runtime": {
         "checking": "Überprüfung",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "PicoClaw wird wiederhergestellt",
         "ready": "Runtime bereit",
         "stopped": "Runtime gestoppt",
         "blockedByMCP": "Externe MCP-Steuerung ist aktiv",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "Die Laufzeitumgebung läuft, aber die Geräteeingabe wird derzeit über externes MCP gesteuert.",
+        "readyWithoutControl": "Die Laufzeitumgebung läuft. Erteilen Sie PicoClaw vor dem erneuten Verbinden die Gerätesteuerung.",
         "unavailable": "Runtime nicht verfügbar",
         "configError": "Konfigurationsfehler"
       },
       "transport": {
         "connecting": "Verbinden",
         "connected": "Verbunden",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "Nicht verbunden",
+        "reconnect": "Erneut verbinden",
+        "reconnectDescription": "Erneut mit der laufenden PicoClaw-Sitzung verbinden.",
+        "reconnectBlocked": "PicoClaw benötigt vor dem erneuten Verbinden die Gerätesteuerung."
       },
       "run": {
         "idle": "Leerlauf",
@@ -1782,19 +1782,19 @@
     },
     "control": {
       "picoclaw": "Gerätesteuerung: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw kann Tastatur- und Mauseingaben senden. Manuelle Eingaben können vorübergehend ausgesetzt werden.",
       "mcp": "Gerätesteuerung: externes MCP",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "Gerätesteuerung: aus",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "Externes MCP kann Eingaben an das Gerät senden. PicoClaw übernimmt die Eingabesteuerung nicht.",
+      "off": "Gerätesteuerung: manuell / ohne KI",
+      "offDescription": "Die KI sendet keine Tastatur- oder Mauseingaben. Die manuelle Steuerung bleibt verfügbar.",
+      "transitioning": "Gerätesteuerung: Wechsel läuft",
+      "transitioningDescription": "Die Gerätesteuerung wird synchronisiert. Bitte warten.",
       "grant": "Steuerung erteilen",
       "release": "Freigeben",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "Gerätesteuerung: Rückgabe läuft",
+      "releasingDescription": "Die Gerätesteuerung wird zurückgegeben. PicoClaw hat die laufenden Eingaben beendet.",
       "granted": "PicoClaw-Steuerung erteilt",
       "released": "PicoClaw-Steuerung freigegeben",
       "grantFailed": "PicoClaw-Steuerung konnte nicht erteilt werden",

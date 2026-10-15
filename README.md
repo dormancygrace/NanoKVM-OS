@@ -94,8 +94,9 @@ ATX power/reset controls are available on supported boards. **Wake-on-LAN** incl
 
 | Add-on | Installation and capabilities |
 | --- | --- |
-| **RustDesk** | Optional signed APK, managed from Software. Share the captured HDMI display and USB input using the official RustDesk servers or your own; temporary/permanent passwords, H.264/H.265, direct/relay TCP and optional WebRTC. Based on the RustDesk 1.5 protocol. |
-| **PicoClaw** | Install, update or remove the official latest RISC-V release from Software → Add-ons. Configure the model, API key and endpoint for remote-control or general-assistant use. Its navigation entry appears only while installed. |
+| **[RustDesk](https://github.com/rustdesk/rustdesk)** | Optional signed APK, managed from Software. Share the captured HDMI display and USB input using the official RustDesk servers or your own; temporary/permanent passwords, H.264/H.265, direct/relay TCP and optional WebRTC. Based on the RustDesk 1.5 protocol. |
+| **[PicoClaw](https://github.com/sipeed/picoclaw)** | Install, update or remove the official latest RISC-V release from Software → Add-ons. Configure the model, API key and endpoint for remote-control or general-assistant use. Its navigation entry appears only while installed. |
+| **[acme.sh](https://github.com/acmesh-official/acme.sh)** | Install on demand from Software → Add-ons, then configure HTTPS certificates in Settings → Network. Issue and renew certificates through ACME using HTTP-01 or DNS-01 with supported DNS providers; renewed certificates take effect without restarting the service. |
 
 RustDesk can forward USB audio; its integration does not include clipboard, file transfer, terminal, chat or ATX control. Its [signed package and corresponding source](https://github.com/dormancygrace/NanoKVM-OS-packages/releases/tag/nanokvm-rustdesk-0.5.3-r2) are published separately from the base image.
 

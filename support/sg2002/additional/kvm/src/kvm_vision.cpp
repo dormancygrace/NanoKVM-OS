@@ -64,8 +64,8 @@
 
 #define vi_width_path           "/run/nanokvm/width"
 #define vi_height_path          "/run/nanokvm/height"
-#define rejected_width_path     "/run/nanokvm/rejected_width"
-#define rejected_height_path    "/run/nanokvm/rejected_height"
+#define rejected_input_path     "/run/nanokvm/rejected_input"
+#define rejected_input_tmp_path "/run/nanokvm/rejected_input.tmp"
 #define hdmi_mode_path          "/etc/kvm/hdmi_mode"
 #define hdmi_state_path         "/proc/lt_int"
 #define hdmi_signal_file_path   "/run/nanokvm/state"
@@ -411,18 +411,25 @@ static bool listed_res(uint16_t _width, uint16_t _height)
 
 /* An input that the video memory of this boot cannot hold is refused without
    publishing its size, so the server only saw "unsupported resolution". Its
-   size is published here instead (0x0 removes the files) for a message that
+   size is published here instead (0x0 removes the record) for a message that
    names the video memory mode it needs. Only the detection path calls this. */
 static void publish_rejected_input(uint16_t _width, uint16_t _height)
 {
+    // One writer: detection thread (or init before that thread starts).
+    // Readers must see both dimensions from the same detection, never a
+    // truncated record or one side of the preceding input.
     static int published_width = -1, published_height = -1;
     if (published_width == _width && published_height == _height) return;
     if (_width && _height) {
-        nanokvm::write_small_uint(rejected_height_path, _height);
-        nanokvm::write_small_uint(rejected_width_path, _width);
-    } else {
-        unlink(rejected_width_path);
-        unlink(rejected_height_path);
+        char text[32];
+        std::snprintf(text, sizeof(text), "%u %u\n", _width, _height);
+        if (!nanokvm::write_small_file(rejected_input_tmp_path, text) ||
+            rename(rejected_input_tmp_path, rejected_input_path) != 0) {
+            unlink(rejected_input_tmp_path);
+            return; // Retry this same size on the next detection.
+        }
+    } else if (unlink(rejected_input_path) != 0 && errno != ENOENT) {
+        return;
     }
     published_width = _width;
     published_height = _height;

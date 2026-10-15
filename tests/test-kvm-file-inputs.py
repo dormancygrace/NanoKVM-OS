@@ -39,6 +39,8 @@ prefix = r'''#include "internal/file_stamp.hpp"
 #include <cstdint>
 #include <unistd.h>
 static const char *hdmi_mode_path;
+static const char *rejected_input_path;
+static const char *rejected_input_tmp_path;
 static const char *ion_summary_path;
 static constexpr uint32_t hdmi_mode_max_age_ms = 1000U;
 static nanokvm::FileStamp hdmi_mode_stamp;
@@ -60,6 +62,7 @@ static uint32_t mmf_video_memory_short_ms(void) { return fake_short_ms; }
 #define fopen mode_fopen
 '''
 functions = "\n\n".join(function(signature) for signature in (
+    "static void publish_rejected_input(uint16_t _width, uint16_t _height)",
     "int set_hdmi_mode(uint8_t _hdmi_mode)",
     "int get_hdmi_mode(void)",
     "uint8_t chack_ion()",

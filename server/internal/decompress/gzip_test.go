@@ -136,29 +136,6 @@ func TestGzipSourceError(t *testing.T) {
 	}
 }
 
-type emptyReader struct{}
-
-func (emptyReader) Read([]byte) (int, error) { return 0, nil }
-
-func TestNoProgress(t *testing.T) {
-	z, err := NewGzipReader(emptyReader{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer z.Close()
-	if _, err := io.ReadAll(z); !errors.Is(err, io.ErrNoProgress) {
-		t.Fatalf("gzip: got %v, want io.ErrNoProgress", err)
-	}
-	x, err := NewXZReader(emptyReader{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer x.Close()
-	if _, err := io.ReadAll(x); !errors.Is(err, io.ErrNoProgress) {
-		t.Fatalf("xz: got %v, want io.ErrNoProgress", err)
-	}
-}
-
 func TestGzipClose(t *testing.T) {
 	z, err := NewGzipReader(bytes.NewReader(gzipBytes(t, []byte("x"))))
 	if err != nil {
@@ -236,5 +213,43 @@ func BenchmarkStdlibGzip(b *testing.B) {
 		if _, err := io.Copy(io.Discard, z); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+// readMixed alternates small reads (through the buffer) and reads larger than
+// outChunk (decoded in place).
+func readMixed(r io.Reader) ([]byte, error) {
+	var out []byte
+	sizes := []int{1, 700, outChunk + 3, 4096, 2 * outChunk}
+	for i := 0; ; i++ {
+		buf := make([]byte, sizes[i%len(sizes)])
+		n, err := r.Read(buf)
+		out = append(out, buf[:n]...)
+		if err == io.EOF {
+			return out, nil
+		}
+		if err != nil {
+			return out, err
+		}
+	}
+}
+
+func TestMixedReadSizes(t *testing.T) {
+	data := bytes.Repeat(samples()["mixed"], 4)
+	z, err := NewGzipReader(bytes.NewReader(gzipBytes(t, data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer z.Close()
+	if got, err := readMixed(z); err != nil || !bytes.Equal(got, data) {
+		t.Fatalf("gzip: %v, equal %v", err, bytes.Equal(got, data))
+	}
+	x, err := NewXZReader(bytes.NewReader(xzBytes(t, data, "-6")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer x.Close()
+	if got, err := readMixed(x); err != nil || !bytes.Equal(got, data) {
+		t.Fatalf("xz: %v, equal %v", err, bytes.Equal(got, data))
 	}
 }

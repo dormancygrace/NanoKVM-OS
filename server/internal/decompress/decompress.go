@@ -27,9 +27,30 @@ var (
 	ErrClosed = errors.New("decompress: reader closed")
 )
 
-// Input and output chunk sizes: large enough that the cost of a cgo call is
-// lost in the decoding work.
-const chunk = 64 << 10
+// Input is read in pieces of inChunk. Output is decoded into a buffer of
+// outChunk per cgo call and copied out by Read: callers read in small pieces
+// (tar in 512 bytes, io.Copy in 32 KiB). On the C906 reads of 8 KiB, one cgo
+// call each, inflated 30 MB/s; through the buffer 40 MB/s. Reads of at least
+// outChunk are decoded in place, saving the copy.
+const (
+	inChunk  = 256 << 10
+	outChunk = 256 << 10
+)
+
+// output holds decoded data that Read has not returned yet.
+type output struct {
+	buf      []byte
+	pos, end int
+}
+
+// take copies buffered data into p.
+func (o *output) take(p []byte) int {
+	n := copy(p, o.buf[o.pos:o.end])
+	o.pos += n
+	return n
+}
+
+func (o *output) empty() bool { return o.pos == o.end }
 
 // source buffers the compressed input. Both decoders read it the same way.
 type source struct {
@@ -42,7 +63,7 @@ type source struct {
 	empty int // consecutive reads that returned nothing
 }
 
-func newSource(r io.Reader) *source { return &source{r: r, buf: make([]byte, chunk)} }
+func newSource(r io.Reader) *source { return &source{r: r, buf: make([]byte, inChunk)} }
 
 // fill makes input available unless the reader is exhausted. A reader error
 // other than io.EOF is kept and reported by the decoder.

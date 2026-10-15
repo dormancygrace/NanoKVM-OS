@@ -60,6 +60,7 @@ const DefaultXZMemoryLimit = 128 << 20
 type XZReader struct {
 	src    *source
 	stream *C.lzma_stream
+	out    output
 	err    error
 }
 
@@ -75,33 +76,50 @@ func NewXZReaderLimit(r io.Reader, memlimit uint64) (*XZReader, error) {
 	if stream == nil {
 		return nil, fmt.Errorf("decompress: cannot initialise liblzma (%d)", int(ret))
 	}
-	x := &XZReader{src: newSource(r), stream: stream}
+	x := &XZReader{src: newSource(r), stream: stream, out: output{buf: make([]byte, outChunk)}}
 	runtime.SetFinalizer(x, (*XZReader).Close)
 	return x, nil
 }
 
-// Read implements io.Reader.
+// Read implements io.Reader. Data decoded before an error is returned
+// first; the error follows.
 func (x *XZReader) Read(p []byte) (int, error) {
-	if x.err != nil {
-		return 0, x.err
-	}
 	if x.stream == nil {
 		return 0, ErrClosed
 	}
 	if len(p) == 0 {
 		return 0, nil
 	}
+	if x.out.empty() {
+		if x.err != nil {
+			return 0, x.err
+		}
+		// A large read takes the data directly, without a copy.
+		if len(p) >= outChunk {
+			if n := x.decode(p); n > 0 {
+				return n, nil
+			}
+			return 0, x.err
+		}
+		x.out.pos, x.out.end = 0, x.decode(x.out.buf)
+		if x.out.end == 0 {
+			return 0, x.err
+		}
+	}
+	return x.out.take(p), nil
+}
+
+// decode fills out with at least one byte, or sets x.err; it may also
+// return data and set x.err when the data ends in an error.
+func (x *XZReader) decode(p []byte) int {
 	for {
 		finish := x.src.exhausted()
 		if finish && x.src.err != nil {
 			x.err = x.src.err
-			return 0, x.err
+			return 0
 		}
 		in := x.src.pending()
 		out := p
-		if len(out) > chunk {
-			out = out[:chunk]
-		}
 		var inUsed, outUsed C.size_t
 		var inPtr *C.uint8_t
 		if len(in) > 0 {
@@ -121,37 +139,34 @@ func (x *XZReader) Read(p []byte) (int, error) {
 		case C.LZMA_OK:
 		case C.LZMA_STREAM_END:
 			x.err = io.EOF
-			if n > 0 {
-				return n, nil
-			}
-			return 0, io.EOF
+			return n
 		case C.LZMA_BUF_ERROR:
 			// No progress although LZMA_FINISH was given: truncated input.
 			if finish {
 				x.err = io.ErrUnexpectedEOF
-				return n, x.err
+				return n
 			}
 		case C.LZMA_FORMAT_ERROR:
 			x.err = ErrHeader
-			return n, x.err
+			return n
 		case C.LZMA_DATA_ERROR:
 			x.err = fmt.Errorf("%w: xz data error", ErrCorrupt)
-			return n, x.err
+			return n
 		case C.LZMA_MEMLIMIT_ERROR:
 			x.err = ErrMemoryLimit
-			return n, x.err
+			return n
 		case C.LZMA_OPTIONS_ERROR:
 			x.err = errors.New("decompress: unsupported xz options")
-			return n, x.err
+			return n
 		case C.LZMA_MEM_ERROR:
 			x.err = errors.New("decompress: liblzma out of memory")
-			return n, x.err
+			return n
 		default:
 			x.err = fmt.Errorf("decompress: liblzma error %d", int(r))
-			return n, x.err
+			return n
 		}
 		if n > 0 {
-			return n, nil
+			return n
 		}
 	}
 }
@@ -162,6 +177,7 @@ func (x *XZReader) Close() error {
 	if x.stream != nil {
 		C.nkos_xz_free(x.stream)
 		x.stream = nil
+		x.out.pos, x.out.end = 0, 0
 		runtime.SetFinalizer(x, nil)
 	}
 	return nil

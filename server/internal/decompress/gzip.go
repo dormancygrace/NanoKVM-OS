@@ -64,6 +64,7 @@ import (
 type GzipReader struct {
 	src    *source
 	stream *C.z_stream
+	out    output
 	member bool // a member has started and not yet ended
 	err    error
 }
@@ -75,22 +76,42 @@ func NewGzipReader(r io.Reader) (*GzipReader, error) {
 	if stream == nil {
 		return nil, errors.New("decompress: cannot initialise zlib")
 	}
-	z := &GzipReader{src: newSource(r), stream: stream}
+	z := &GzipReader{src: newSource(r), stream: stream, out: output{buf: make([]byte, outChunk)}}
 	runtime.SetFinalizer(z, (*GzipReader).Close)
 	return z, nil
 }
 
-// Read implements io.Reader.
+// Read implements io.Reader. Data decoded before an error is returned
+// first; the error follows.
 func (z *GzipReader) Read(p []byte) (int, error) {
-	if z.err != nil {
-		return 0, z.err
-	}
 	if z.stream == nil {
 		return 0, ErrClosed
 	}
 	if len(p) == 0 {
 		return 0, nil
 	}
+	if z.out.empty() {
+		if z.err != nil {
+			return 0, z.err
+		}
+		// A large read takes the data directly, without a copy.
+		if len(p) >= outChunk {
+			if n := z.decode(p); n > 0 {
+				return n, nil
+			}
+			return 0, z.err
+		}
+		z.out.pos, z.out.end = 0, z.decode(z.out.buf)
+		if z.out.end == 0 {
+			return 0, z.err
+		}
+	}
+	return z.out.take(p), nil
+}
+
+// decode fills out with at least one byte, or sets z.err; it may also
+// return data and set z.err when the data ends in an error.
+func (z *GzipReader) decode(p []byte) int {
 	for {
 		if !z.member && z.src.exhausted() {
 			// Between members: a clean end, or nothing at all.
@@ -99,14 +120,11 @@ func (z *GzipReader) Read(p []byte) (int, error) {
 			} else {
 				z.err = io.EOF
 			}
-			return 0, z.err
+			return 0
 		}
 		z.src.fill()
 		in := z.src.pending()
 		out := p
-		if len(out) > chunk {
-			out = out[:chunk]
-		}
 		var inUsed, outUsed C.uint
 		var inPtr *C.uchar
 		if len(in) > 0 {
@@ -125,7 +143,7 @@ func (z *GzipReader) Read(p []byte) (int, error) {
 			z.member = false
 			if C.inflateReset(z.stream) != C.Z_OK {
 				z.err = errors.New("decompress: cannot reset zlib")
-				return n, z.err
+				return n
 			}
 		case C.Z_BUF_ERROR:
 			// No progress possible: the input ended inside a member.
@@ -135,7 +153,7 @@ func (z *GzipReader) Read(p []byte) (int, error) {
 				} else {
 					z.err = io.ErrUnexpectedEOF
 				}
-				return n, z.err
+				return n
 			}
 		case C.Z_DATA_ERROR:
 			switch C.nkos_gzip_error_kind(z.stream) {
@@ -146,16 +164,16 @@ func (z *GzipReader) Read(p []byte) (int, error) {
 			default:
 				z.err = fmt.Errorf("%w: %s", ErrCorrupt, C.GoString(z.stream.msg))
 			}
-			return n, z.err
+			return n
 		case C.Z_MEM_ERROR:
 			z.err = errors.New("decompress: zlib out of memory")
-			return n, z.err
+			return n
 		default:
 			z.err = fmt.Errorf("decompress: zlib error %d", int(r))
-			return n, z.err
+			return n
 		}
 		if n > 0 {
-			return n, nil
+			return n
 		}
 	}
 }
@@ -166,6 +184,7 @@ func (z *GzipReader) Close() error {
 	if z.stream != nil {
 		C.nkos_gzip_free(z.stream)
 		z.stream = nil
+		z.out.pos, z.out.end = 0, 0
 		runtime.SetFinalizer(z, nil)
 	}
 	return nil

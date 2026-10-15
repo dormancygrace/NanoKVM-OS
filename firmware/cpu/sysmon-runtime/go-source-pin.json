@@ -8,7 +8,15 @@
     "vendor/golang.org/x/crypto/internal/poly1305/sum_asm.go": "ce5f94aedd0ce3349a8a8655607bd0159d354902e3298169cf9350fe235382b7",
     "vendor/golang.org/x/crypto/internal/poly1305/sum_generic.go": "b0094a2895d5bda42dcaaf57c0b31fc914c3b6c6aa6237aab0100a6d78346933",
     "bytes/bytes.go": "e0695206833688b57e9d26014dcd28e3379fc09aafb4c702a82b90563cc11b23",
-    "internal/stringslite/strings.go": "3ed7df2eeabb5427d44b95e6cfe66ef03e13f1c969ad08050a4a0e89d43b8af2"
+    "internal/stringslite/strings.go": "3ed7df2eeabb5427d44b95e6cfe66ef03e13f1c969ad08050a4a0e89d43b8af2",
+    "internal/cpu/cpu.go": "9af4310772f84d92f2a98e9f16e6553fdbefc4ce6286e0f508121e6c8819faf7",
+    "internal/cpu/cpu_riscv64.go": "d127180a261f61f485eb6448ab95575bd4a2b8a8f27ff60e6ad7ecc4d28ae3a3",
+    "internal/cpu/cpu_riscv64_linux.go": "26a08d2184a041108c255d1df2afe84c34a0c8798aa379356ad94f9af034ec1c",
+    "crypto/internal/fips140deps/cpu/cpu.go": "9bd633442701bff75ff7c7b4453eb806da6066ac70003571df65939c3df29543",
+    "crypto/internal/fips140/sha256/sha256block_asm.go": "a5a1bf5a54e487fc513a5a5b9fe6de1c54caf96a50e4c22db43380554bd2e98c",
+    "crypto/internal/fips140/sha256/sha256block_riscv64.s": "5b2d828f24ef41d7de1da4d6debdacaf5f30711d490199e815172851588f58e7",
+    "crypto/sha1/sha1block_decl.go": "c49529cceac26a33b3e5cc465adbe947d6f90f8064fdc4bb2bec070df3d6b814",
+    "crypto/sha1/sha1block_riscv64.s": "e9df4ca88dde841f54225a0c10b7efd245e543e122e4b6392a818a8f0cf24bb5"
   },
   "x_crypto_v0.57.0_sum_riscv64_s_sha256": "59299b25f5a080916c28d81de3cfd78804a6744e9d908b052f6d9495f6fdc84b",
   "target": "linux/riscv64",

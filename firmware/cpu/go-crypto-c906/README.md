@@ -248,3 +248,44 @@ python3 ../firmware/cpu/go-crypto-c906/check-binary.py --binutils $B \
 ./sha1mb.test -test.run Stress -sha1mb.stress=90s &   # twice, concurrently
 ./sha1mb.test -test.run Measure -test.v -sha1mb.measure=7
 ```
+
+## SHA-1 and SHA-256 blocks (`gen_sha_c906.py`)
+
+Go builds riscv64 for rva20u64. As a result, each `RORW` in its riscv64 SHA-1 and SHA-256 assembly becomes three instructions (`srliw`, `slliw`, `or`), and each message word is assembled from four byte loads.
+
+`gen_sha_c906.py` expands the macros of Go's `sha1block_riscv64.s` and `sha256block_riscv64.s` from the pinned GOROOT. It writes `blockC906` copies that use:
+
+- `th.srriw` (XTheadBb) for every `RORW`: 224 per SHA-1 block and 576 per SHA-256 block;
+- `lwu` + `th.revw` for each message word, because misaligned loads are fast on the C906.
+
+Each instruction is a `WORD` that GNU as produced from the mnemonic, and objdump must decode it back. `--check` regenerates the file and compares. A SHA-256 block goes from 3848 to 2568 instructions.
+
+`prepare.py` renames Go's block to `blockRV64` and adds `sha256block_riscv64.go` and `sha1block_riscv64.go`, which choose `blockC906` when `cpu.RISCV64.HasXTheadBb` is set.
+
+- Linux reports XTheadBb neither in `riscv_hwprobe` nor in `/proc/cpuinfo`. `internal/cpu` therefore sets it from the `mvendorid` that `riscv_hwprobe` returns: every T-Head RISC-V core (0x5b7) implements XTheadBb.
+- `GODEBUG=cpu.xtheadbb=off` selects Go's block.
+- Both blocks are registered with `crypto/internal/impl`, so the crypto tests run each of them.
+
+Measured on the device with `go test -bench`: 1 s per benchmark, median of 3 interleaved runs, the same binary with and without `GODEBUG=cpu.xtheadbb=off`. Rates are in MB/s.
+
+| | Go's block | C906 block | |
+| --- | ---: | ---: | ---: |
+| SHA-256, 8 bytes | 1.35 | 2.01 | 1.49x |
+| SHA-256, 1 KiB | 14.34 | 21.48 | 1.50x |
+| SHA-256, 8 KiB | 15.30 | 23.08 | 1.51x |
+| SHA-1, 8 bytes | 1.97 | 3.45 | 1.75x |
+| SHA-1, 1 KiB | 29.00 | 40.26 | 1.39x |
+| SHA-1, 8 KiB | 30.62 | 42.80 | 1.40x |
+
+SRTP keeps the multi-buffer HMAC-SHA1 described above. crypto/sha1 covers single messages, RTCP and the other callers.
+
+```sh
+B=.../buildroot-output/host/bin/riscv64-buildroot-linux-musl-
+python3 gen_sha_c906.py --binutils $B --goroot $BASE_GOROOT --algo sha256 --check sha256block_c906_riscv64.s
+python3 gen_sha_c906.py --binutils $B --goroot $BASE_GOROOT --algo sha1 --check sha1block_c906_riscv64.s
+# Also build test binaries for crypto/sha1, crypto/hmac, crypto/tls (needs its testdata) and internal/cpu.
+GOROOT=$PREPARED GOOS=linux GOARCH=riscv64 go test -c -o sha256.test crypto/sha256
+# on the device:
+./sha256.test -test.v -test.short | grep XTheadBb
+GODEBUG=cpu.xtheadbb=off ./sha256.test -test.run XXX -test.bench Hash
+```

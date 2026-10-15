@@ -58,7 +58,11 @@ run_eth start
 test ! -e "$work/udhcpc.call"
 grep -Fqx 'addr flush dev eth0' "$work/ip.calls"
 grep -Fqx 'link set dev eth0 down' "$work/ip.calls"
-! grep -Fqx 'link set dev eth0 up' "$work/ip.calls"
+# `! cmd` never stops a set -e script, so fail explicitly.
+if grep -Fqx 'link set dev eth0 up' "$work/ip.calls"; then
+    echo 'Disabled Ethernet start brought eth0 up' >&2
+    exit 1
+fi
 
 : > "$work/ip.calls"
 rm "$work/boot/eth.disabled"
@@ -85,7 +89,10 @@ grep -Fqx 'link add link eth0 name eth0.100 type vlan id 100' "$work/ip.calls"
 grep -Fqx '8021q' "$work/modprobe.calls"
 grep -Fqx 'link set dev eth0.100 up' "$work/ip.calls"
 grep -Fqx 'addr flush dev eth0.100' "$work/ip.calls"
-! grep -Fqx 'addr flush dev eth0' "$work/ip.calls"
+if grep -Fqx 'addr flush dev eth0' "$work/ip.calls"; then
+    echo 'VLAN start flushed the eth0 address' >&2
+    exit 1
+fi
 attempts=0
 while ! grep -q -- '-i eth0.100' "$work/udhcpc.call"; do
     attempts=$((attempts + 1))
@@ -114,7 +121,10 @@ rm "$work/boot/eth.vlan"
 : > "$work/ip.calls"
 : > "$work/udhcpc.call"
 run_eth start
-! grep -q 'link add link eth0' "$work/ip.calls"
+if grep -q 'link add link eth0' "$work/ip.calls"; then
+    echo 'VLAN created without eth.vlan' >&2
+    exit 1
+fi
 grep -Fqx 'addr flush dev eth0' "$work/ip.calls"
 attempts=0
 while ! grep -q -- '-i eth0 ' "$work/udhcpc.call"; do
@@ -130,13 +140,19 @@ if run_eth start; then
     echo 'Invalid VLAN ID unexpectedly succeeded' >&2
     exit 1
 fi
-! grep -q 'link add link eth0' "$work/ip.calls"
+if grep -q 'link add link eth0' "$work/ip.calls"; then
+    echo 'VLAN created for invalid ID 4095' >&2
+    exit 1
+fi
 rm "$work/boot/eth.vlan"
 
 touch "$work/boot/eth.disabled"
 : > "$work/ip.calls"
 run_eth start
-! grep -q 'link add link eth0' "$work/ip.calls"
+if grep -q 'link add link eth0' "$work/ip.calls"; then
+    echo 'VLAN created while Ethernet is disabled' >&2
+    exit 1
+fi
 rm "$work/boot/eth.disabled"
 
 printf '%s\n' 'old-host' > "$work/etc/hostname"
@@ -154,7 +170,10 @@ NANOKVM_TEST_HOSTNAME_CALL=$work/hostname.call \
     sh "$repo/firmware/alpine/compat/S10uuid" start
 grep -Fqx 'link set dev eth0 down' "$work/ip.calls"
 grep -q '^link set dev eth0 address ' "$work/ip.calls"
-! grep -Fqx 'link set dev eth0 up' "$work/ip.calls"
+if grep -Fqx 'link set dev eth0 up' "$work/ip.calls"; then
+    echo 'S10uuid brought disabled eth0 up' >&2
+    exit 1
+fi
 
 rm "$work/boot/eth.disabled"
 : > "$work/ip.calls"

@@ -252,7 +252,7 @@ c21338162665a6358cfab093c29e65756b828baf65d12d3c53191957921cc707  lib/modules/7.
 c431fa17734dd03ee88d4401a728c8a833e446d4ea8d6bccffb493494d276958  lib/modules/7.2.10-nanokvm-os-r5/kernel/net/netfilter/xt_mark.ko
 fd0c7c8e90d869c95d87bfcbd06de36eaca783d678070a980f9041c90608bcf4  lib/modules/7.2.10-nanokvm-os-r5/kernel/net/netfilter/xt_state.ko
 a23eb24cce7661500876012cec0f7811e0b67a11355077260fe5891572265efa  lib/modules/7.2.10-nanokvm-os-r5/kernel/net/netfilter/xt_tcpudp.ko
-cebb023d438f9aa945f207b1d423a81a19364c91434e1f1a697e2b5d1acff277  lib/modules/7.2.10-nanokvm-os-r5/kernel/net/wireless/cfg80211.ko
+992f7cd15c09107497bd304c48e754a67190a7faf390f1c69eab89a8083f30f1  lib/modules/7.2.10-nanokvm-os-r5/kernel/net/wireless/cfg80211.ko
 ebaff8988a1167bda5723695d9669ecfc1e1cfaac51e0bc5668851ced76fd8d4  lib/modules/7.2.10-nanokvm-os-r5/modules.alias
 1d60dfb721e8d51cd8ec3f679208ab4bc1dc6bceeaf77c6530f5a83a1c6971ef  lib/modules/7.2.10-nanokvm-os-r5/modules.alias.bin
 444090151db67502bad34ac574d881a8bae2882ddf873926ac8b2932c893e4f1  lib/modules/7.2.10-nanokvm-os-r5/modules.builtin

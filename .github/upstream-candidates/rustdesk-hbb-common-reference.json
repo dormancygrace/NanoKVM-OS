@@ -1,0 +1,19 @@
+{
+  "component": "RustDesk hbb_common reference",
+  "current": "94ec710894ecd548b4fe174ef781eca5c1a318c0",
+  "candidate": "5d52530b636fb296a324260b074780cf559e0093",
+  "candidate_key": "5d52530b636fb296a324260b074780cf559e0093",
+  "status": "reviewed",
+  "upstream": "https://github.com/rustdesk/hbb_common/compare/94ec710894ecd548b4fe174ef781eca5c1a318c0...5d52530b636fb296a324260b074780cf559e0093",
+  "source_path": "addons/rustdesk/upstream.json",
+  "strategy": "review",
+  "evidence": {},
+  "pin_files_updated": [],
+  "review": {
+    "disposition": "notification acknowledged; active protocol reference remains unchanged",
+    "protocol_change": "ControlPermissions.Permission.usb = 13 is additive; existing field tags and permission indices are unchanged. NanoKVM does not implement remote USB forwarding.",
+    "transport_changes": "WebSocket proxy implementation and API changes are not used by the standalone NanoKVM addon; hbb_common is not a linked Cargo dependency.",
+    "active_reference": "94ec710894ecd548b4fe174ef781eca5c1a318c0",
+    "integration": "No runtime source, generated protocol code, dependency pin, or output hash is changed by this notification."
+  }
+}

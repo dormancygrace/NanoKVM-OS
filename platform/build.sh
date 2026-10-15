@@ -668,7 +668,7 @@ payloads() {
     # those applications are out of support.
     printf 'Alpine 3.24; SG2002/C906; flavour=%s\n' enhanced > "$gen/nanokvm-buildroot"
     printf '%s\n' "${version#v}" > "$gen/version"
-    printf '%s' 50 > "$gen/kvm/fps"
+    printf '%s' 100 > "$gen/kvm/fps"
     printf '%s' 15000 > "$gen/kvm/qlty"
     printf '%s' 0 > "$gen/kvm/res"
     printf '%s' h265 > "$gen/kvm/type"

@@ -161,7 +161,9 @@ func MonitorRefreshHz() int {
 
 // programmedMonitorProfileLocked compares a profile with the last one
 // written. Before the first write, the single-rate profile of the saved
-// setting is assumed, which matches the profile installs programmed.
+// setting is assumed; the first start programs the saved profile
+// (ProgramMonitorProfileOnFirstStart), except on boards without programmable
+// EDID or that need a power cycle (Cube).
 func programmedMonitorProfileLocked(path string, height uint16) bool {
 	want, err := fileSHA256(path)
 	if err != nil {

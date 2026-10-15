@@ -103,9 +103,10 @@ func initialize(stopMemory context.CancelFunc) {
 		}
 	}
 
-	// The monitor profile is kept in the HDMI receiver across restarts; it
-	// must not exceed the video memory of this boot (a smaller mode may have
-	// been selected after it was saved). Programming can take a while.
+	// The monitor profile is kept in the HDMI receiver across restarts and
+	// reinstalls; it must not exceed the video memory of this boot (a smaller
+	// mode may have been selected after it was saved), and after an
+	// installation it must be the saved one. Programming can take a while.
 	go func() {
 		if recovering {
 			return
@@ -113,9 +114,16 @@ func initialize(stopMemory context.CancelFunc) {
 		changed, err := common.FitMonitorToVideoMemory()
 		if err != nil {
 			logrus.Errorf("failed to fit the monitor profile to the video memory: %v", err)
+			return
 		} else if changed {
 			logrus.Info("lowered the saved monitor profile to the video memory of this boot")
 			restartAfterMonitorFit()
+		}
+		// After a fit the profile is recorded and this does nothing.
+		if path, err := common.ProgramMonitorProfileOnFirstStart(); err != nil {
+			logrus.Errorf("failed to program the monitor profile on the first start: %v", err)
+		} else if path != "" {
+			logrus.Infof("programmed the monitor profile %s on the first start", path)
 		}
 	}()
 

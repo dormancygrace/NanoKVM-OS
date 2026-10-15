@@ -140,6 +140,16 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
                       for path in app.rglob("*")
                       if path.is_file() and not path.is_symlink() and path != manifest_path}
     assert manifest["files"] == expected_files, "manifest must hash every payload file, excluding itself and symlinks"
+    web = out / "payloads/web/kvmapp"
+    web_manifest_path = web / "web-build-manifest.json"
+    web_manifest = json.loads(web_manifest_path.read_text())
+    assert not (app / "server/web").exists(), "backend must not own browser assets"
+    assert not any(name.startswith("server/web/") for name in manifest["files"])
+    assert web_manifest["files"] == {
+        str(path.relative_to(web)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in web.rglob("*") if path.is_file() and path != web_manifest_path
+    }
+    assert (web / "server/web/fixture").exists(), "web package must own browser assets"
     assert not (app / "enhanced-stage-manifest.json").exists(), "obsolete stage manifest retained"
     # Execute the installed file directly: this checks its shebang and mode as
     # well as its presence, without starting target binaries or touching /run.

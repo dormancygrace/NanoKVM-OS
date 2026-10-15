@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 
 	"NanoKVM-Server/proto"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
 // One lock covers radio operations, including the legacy provisioning API.
@@ -164,6 +166,68 @@ func (w radioControl) savePreferredBand(band string) error {
 		return errors.New("invalid preferred band")
 	}
 	return writePrivateFile(filepath.Join(w.etc, wifiBandPreferenceFile), []byte(band))
+}
+
+// bandFrequencies is the channel list S30wifi gives the preferred block: the
+// saved per-band list, else the adapter's channels in that band.
+func (w radioControl) bandFrequencies(band string) []string {
+	if value, err := os.ReadFile(filepath.Join(w.etc, "wifi.freq_list_"+band)); err == nil {
+		fields := strings.Fields(string(value))
+		for _, field := range fields {
+			if _, err := strconv.Atoi(field); err != nil {
+				return nil
+			}
+		}
+		return fields
+	}
+	return w.frequencies()[band]
+}
+
+// applyPreferredBand moves the running wpa_supplicant to a new preferred band
+// without restarting it. S30wifi writes the preferred block with priority 2
+// and an unrestricted fallback with priority 1; changing the preferred block's
+// channels keeps the current association, and the scan that follows lets
+// wpa_supplicant move to the higher-priority block when the new band is in
+// range (one reassociation). Without a preferred block, or without channels
+// in the band, the saved preference applies at the next start as before.
+func (w radioControl) applyPreferredBand(band string) error {
+	if w.request == nil {
+		return nil
+	}
+	frequencies := w.bandFrequencies(band)
+	if len(frequencies) == 0 {
+		return nil
+	}
+	networks, err := w.request("LIST_NETWORKS")
+	if err != nil {
+		return err
+	}
+	preferred := ""
+	for _, line := range strings.Split(networks, "\n")[1:] {
+		id, _, _ := strings.Cut(line, "\t")
+		if _, err := strconv.Atoi(id); err != nil {
+			continue
+		}
+		if priority, err := w.request("GET_NETWORK " + id + " priority"); err == nil && strings.TrimSpace(priority) == "2" {
+			preferred = id
+			break
+		}
+	}
+	if preferred == "" {
+		return nil
+	}
+	if reply, err := w.request("SET_NETWORK " + preferred + " freq_list " + strings.Join(frequencies, " ")); err != nil {
+		return err
+	} else if strings.TrimSpace(reply) != "OK" {
+		return fmt.Errorf("wpa_supplicant refused the channel list: %s", strings.TrimSpace(reply))
+	}
+	// A scan already in progress (FAIL-BUSY) delivers results all the same.
+	if reply, err := w.request("SCAN"); err != nil {
+		return err
+	} else if reply = strings.TrimSpace(reply); reply != "OK" && reply != "FAIL-BUSY" {
+		return fmt.Errorf("wpa_supplicant refused to scan: %s", reply)
+	}
+	return nil
 }
 
 type wifiNetwork struct {
@@ -523,13 +587,18 @@ func (s *Service) SetWifiBandPreference(c *gin.Context) {
 	if !checkRadio(c, false) {
 		return
 	}
-	// Do not restart wpa_supplicant here. The setting is intentionally safe to
-	// change while managing the device over Wi-Fi and takes effect on the next
-	// connect or ordinary service restart.
+	// Do not restart wpa_supplicant here: the device may be managed over this
+	// Wi-Fi. The running configuration follows the preference instead, and at
+	// worst the link reassociates once on the preferred band.
 	if err := wifiControl.savePreferredBand(req.PreferredBand); err != nil {
 		finishWifi(err)
 		rsp.ErrRsp(c, -1, "failed to save Wi-Fi preference")
 		return
+	}
+	// The saved preference stands even if the running supplicant cannot follow
+	// it now; S30wifi applies it at the next start.
+	if err := wifiControl.applyPreferredBand(req.PreferredBand); err != nil {
+		log.Warnf("Wi-Fi band preference saved; applying it now failed: %v", err)
 	}
 	finishWifi(nil)
 	rsp.OkRsp(c)

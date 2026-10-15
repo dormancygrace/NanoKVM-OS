@@ -79,7 +79,9 @@ export const UserDisk = ({
         message.error(
           rsp.code === -2
             ? t('settings.usb.userDisk.turnOffFirst')
-            : t('settings.usb.userDisk.failed')
+            : rsp.code === -6
+              ? t('settings.usb.userDisk.busy')
+              : t('settings.usb.userDisk.failed')
         );
       }
     } catch {
@@ -105,7 +107,9 @@ export const UserDisk = ({
         message.error(
           rsp.code === -2
             ? t('settings.usb.userDisk.turnOffFirst')
-            : t('settings.usb.userDisk.failed')
+            : rsp.code === -6
+              ? t('settings.usb.userDisk.busy')
+              : t('settings.usb.userDisk.failed')
         );
     } catch {
       message.error(t('settings.usb.userDisk.failed'));

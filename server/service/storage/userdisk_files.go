@@ -236,6 +236,8 @@ func (s *Service) userDiskFiles(c *gin.Context, writable bool, action func(*os.R
 	if err != nil {
 		if !c.Writer.Written() {
 			fileError(c, err)
+		} else if errors.Is(err, os.ErrDeadlineExceeded) {
+			log.Warnf("user disk transfer stalled: %v", err)
 		} else {
 			log.Errorf("user disk transfer: %v", err)
 		}
@@ -256,9 +258,59 @@ func (s *Service) ListUserDiskFiles(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	s.userDiskFiles(c, false, func(root *os.Root, name string) (any, error) { return listUserDisk(root, name, offset) })
 }
+
+// A transfer holds userDiskMu and the mount for as long as the client keeps
+// it open, and the server sets no read or write timeout. A paused download or
+// a vanished uploader would keep the disk from the computer, so each chunk
+// renews a connection deadline: a transfer that keeps moving is never cut,
+// one with no progress for userDiskStall fails and releases the disk.
+var userDiskStall = 30 * time.Second
+
+type stallReader struct {
+	io.Reader
+	rc *http.ResponseController
+}
+
+func (r stallReader) Read(p []byte) (int, error) {
+	_ = r.rc.SetReadDeadline(time.Now().Add(userDiskStall))
+	return r.Reader.Read(p)
+}
+
+type stallWriter struct {
+	io.Writer
+	rc *http.ResponseController
+}
+
+func (w stallWriter) Write(p []byte) (int, error) {
+	_ = w.rc.SetWriteDeadline(time.Now().Add(userDiskStall))
+	return w.Writer.Write(p)
+}
+
+// A writer wrapper without Unwrap() between gin and net/http would make the
+// deadlines unsupported; say so rather than lose the guard silently.
+func newStallReader(c *gin.Context) io.Reader {
+	rc := http.NewResponseController(c.Writer)
+	if err := rc.SetReadDeadline(time.Now().Add(userDiskStall)); err != nil {
+		log.Warnf("user disk upload without a stall deadline: %v", err)
+		return c.Request.Body
+	}
+	return stallReader{c.Request.Body, rc}
+}
+
+func newStallWriter(c *gin.Context) io.Writer {
+	rc := http.NewResponseController(c.Writer)
+	if err := rc.SetWriteDeadline(time.Now().Add(userDiskStall)); err != nil {
+		log.Warnf("user disk download without a stall deadline: %v", err)
+		return c.Writer
+	}
+	return stallWriter{c.Writer, rc}
+}
+
 func (s *Service) UploadUserDiskFile(c *gin.Context) {
+	// The next request on the connection resets the read deadline.
+	body := newStallReader(c)
 	s.userDiskFiles(c, true, func(root *os.Root, name string) (any, error) {
-		return nil, uploadUserDisk(root, name, c.Request.Body, c.Request.ContentLength)
+		return nil, uploadUserDisk(root, name, body, c.Request.ContentLength)
 	})
 }
 func (s *Service) MakeUserDiskDirectory(c *gin.Context) {
@@ -298,7 +350,8 @@ func (s *Service) DownloadUserDiskFile(c *gin.Context) {
 		c.Header("Content-Length", fmt.Sprint(info.Size()))
 		c.Status(http.StatusOK)
 		c.Writer.WriteHeaderNow()
-		_, err = io.Copy(c.Writer, file)
+		// net/http clears the write deadline once the response is finished.
+		_, err = io.Copy(newStallWriter(c), file)
 		return nil, err
 	})
 }

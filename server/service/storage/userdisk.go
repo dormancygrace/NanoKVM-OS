@@ -46,7 +46,10 @@ var (
 // the host writing to an unlinked inode. Create and delete hold it while
 // they check the state and replace the file; the composition takes it with
 // TryLock (it runs under the HID lock, which must not wait for a format of
-// several GiB) and refuses while the image is being accessed.
+// several GiB) and refuses while the image is being accessed. Create and
+// delete take it with TryLock as well: a file transfer holds it for as long
+// as the client keeps it moving, and they hold s.mu, which the image and
+// remote media handlers need.
 var userDiskMu sync.Mutex
 
 // ErrUserDiskBusy: another operation owns the image, or a private mount remains.
@@ -164,7 +167,10 @@ func (s *Service) CreateUserDisk(c *gin.Context) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	userDiskMu.Lock()
+	if !userDiskMu.TryLock() {
+		rsp.ErrRsp(c, -6, ErrUserDiskBusy.Error())
+		return
+	}
 	defer userDiskMu.Unlock()
 	if err := userDiskUnmounted(); err != nil {
 		rsp.ErrRsp(c, -6, "the user disk is mounted locally")
@@ -187,7 +193,10 @@ func (s *Service) DeleteUserDisk(c *gin.Context) {
 	var rsp proto.Response
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	userDiskMu.Lock()
+	if !userDiskMu.TryLock() {
+		rsp.ErrRsp(c, -6, ErrUserDiskBusy.Error())
+		return
+	}
 	defer userDiskMu.Unlock()
 	if err := userDiskUnmounted(); err != nil {
 		rsp.ErrRsp(c, -6, "the user disk is mounted locally")

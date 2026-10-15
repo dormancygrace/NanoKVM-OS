@@ -96,3 +96,12 @@ reporter confirmed that the profile was correctly selected as beta and the OLED
 worked on beta13: [confirmation in issue #2](https://github.com/dormancygrace/NanoKVM-OS/issues/2#issuecomment-5694454091).
 This records the tested board, functions, and release rather than treating Cube
 validation as pending.
+
+**NanoKVM Lite** has been tested by
+[Korenchkin](https://github.com/Korenchkin), who reported successful boot,
+1080p60 video and KVM control after upgrading from v2.5 to v3:
+[hardware report #215](https://github.com/dormancygrace/NanoKVM-OS/issues/215).
+The board revision and HDMI receiver were not identified. USB networking and
+advanced features such as WireGuard were not tested. The report also describes
+Enter reopening the menu after selecting an image; that UI issue remains
+separate from the confirmed basic hardware functionality.

@@ -337,6 +337,7 @@ func TestWifiControlAPI(t *testing.T) {
 	if request("POST", "/band-preference", `{"preferredBand":"2.4"}`) != 0 {
 		t.Fatal("preference rejected")
 	}
+	wait()
 	if restarts != beforePreference {
 		t.Fatal("preference change restarted Wi-Fi")
 	}

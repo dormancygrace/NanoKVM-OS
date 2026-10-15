@@ -1297,7 +1297,7 @@
         "band24": "2.4 GHz",
         "band5": "5 GHz",
         "preferredBand": "Preferred frequency band",
-        "preferredBandHint": "Used for the next Wi-Fi connection. The other band remains available as a fallback.",
+        "preferredBandHint": "Applied to the current connection when supported; switching bands may briefly interrupt it. The other band remains available as a fallback.",
         "scan": "Scan networks",
         "scanFailed": "Could not scan networks. Try again.",
         "availableNetworks": "Available networks",

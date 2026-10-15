@@ -74,7 +74,7 @@ func readJSON(name string, v any) error {
 	return json.Unmarshal(b, v)
 }
 
-// InstalledVersion reports the application release recorded by nanokvm-app.
+// InstalledVersion reports the application release recorded by nanokvm.
 func InstalledVersion() string {
 	v, _ := os.ReadFile(versionFile)
 	return strings.TrimSpace(string(v))

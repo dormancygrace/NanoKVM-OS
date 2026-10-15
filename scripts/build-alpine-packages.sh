@@ -7,8 +7,8 @@
 #
 # The payload tree is prepared by the NanoKVM image staging step. It may either
 # contain package directories directly or contain one directory per profile:
-#   PAYLOAD_ROOT/stock/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,app,release}
-#   PAYLOAD_ROOT/c906-scalar/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,app,release}
+#   PAYLOAD_ROOT/stock/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,app,web,release}
+#   PAYLOAD_ROOT/c906-scalar/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,app,web,release}
 # Without keys/, nanokvm-keys holds firmware/alpine/keys; without release/,
 # a release marker is generated.
 #
@@ -63,7 +63,7 @@ else
 	PROFILE_ROOT=$PAYLOAD_ROOT
 fi
 
-for required in base kernel-sg2002 kmod-sg2002 firmware-sg2002 app; do
+for required in base kernel-sg2002 kmod-sg2002 firmware-sg2002 app web; do
 	if [ ! -d "$PROFILE_ROOT/$required" ]; then
 		echo "build-alpine-packages: missing payload $PROFILE_ROOT/$required" >&2
 		exit 1
@@ -127,7 +127,8 @@ archive_payload nanokvm-base "$PROFILE_ROOT/base"
 archive_payload nanokvm-kernel-sg2002 "$PROFILE_ROOT/kernel-sg2002"
 archive_payload nanokvm-kmod-sg2002 "$PROFILE_ROOT/kmod-sg2002"
 archive_payload nanokvm-firmware-sg2002 "$PROFILE_ROOT/firmware-sg2002"
-archive_payload nanokvm-app "$PROFILE_ROOT/app"
+archive_payload nanokvm "$PROFILE_ROOT/app"
+archive_payload nanokvm-web "$PROFILE_ROOT/web"
 release_payload=$(make_release_payload)
 archive_payload nanokvm-release "$release_payload"
 
@@ -162,6 +163,7 @@ prepare_recipe() {
 	recipe_dir=$WORK/recipes/$pkg
 	mkdir -p "$recipe_dir"
 	cp -a "$ROOT/firmware/alpine/packages/$pkg/." "$recipe_dir/"
+	[ "$pkg" != nanokvm-app ] || return 0
 	# A source name without an URL is local to the APKBUILD directory. Keep the
 	# generated archive there so both `abuild checksum` and the actual build read
 	# the same bytes; SRCDEST remains the persistent archive cache/output.
@@ -182,7 +184,7 @@ prepare_recipe() {
 }
 
 for pkg in nanokvm-keys nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 \
-	 nanokvm-app nanokvm-release; do
+	 nanokvm nanokvm-web nanokvm-app nanokvm-release; do
 	echo "building $pkg ($PROFILE)"
 	prepare_recipe "$pkg"
 	(
@@ -205,8 +207,8 @@ tar -tzf "$index" | grep -qE '(^|/)\.SIGN\.RSA256\.' || {
 	exit 1
 }
 apk_count=$(find "$REPODEST" -type f -name '*.apk' | wc -l)
-[ "$apk_count" -ge 7 ] || {
-	echo "build-alpine-packages: expected seven APKs, found $apk_count" >&2
+[ "$apk_count" -ge 9 ] || {
+	echo "build-alpine-packages: expected at least nine APKs, found $apk_count" >&2
 	exit 1
 }
 find "$REPODEST" -type f -name '*.apk' -print | while IFS= read -r apk; do

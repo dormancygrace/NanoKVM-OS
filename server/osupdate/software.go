@@ -112,6 +112,8 @@ var protectedPackages = map[string]bool{
 	"musl":                    true,
 	"openrc":                  true,
 	"nanokvm-app":             true,
+	"nanokvm":                 true,
+	"nanokvm-web":             true,
 	"nanokvm-base":            true,
 	"nanokvm-release":         true,
 	"nanokvm-kernel-sg2002":   true,

@@ -81,3 +81,14 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
   `-AllowSysRq` and `-AutoDumpOnLoss` send Magic SysRq keys. These options
   need a diagnostic kernel: the release kernel is built without
   `CONFIG_MAGIC_SYSRQ`.
+
+### Split application packages
+
+Run `python3 tests/test-split-app-packages.py --apk /path/to/native/apk` with
+apk-tools 3. It uses disposable roots and fixture files with the production
+recipes' dependencies, replaces and provides metadata. It checks migration from
+the combined package, file ownership, preservation of modified settings, fresh
+installation, independent web upgrades and rejection of an incompatible API.
+External Alpine libraries are represented by a fixture provider; service restart
+behavior is tested separately in `server/cmd/nkos-apply-updates`. CI runs the
+APK migration test inside an Alpine container.

@@ -59,6 +59,8 @@ export const Updates = () => {
                 ![
                   'nanokvm-release',
                   'nanokvm-app',
+                  'nanokvm',
+                  'nanokvm-web',
                   'nanokvm-base',
                   'nanokvm-kernel-sg2002',
                   'nanokvm-kmod-sg2002',

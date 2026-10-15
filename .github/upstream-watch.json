@@ -290,6 +290,18 @@
       }
     },
     {
+      "name": "xz (liblzma)",
+      "lock_entry": "xz",
+      "path": "platform/sources.lock",
+      "pattern": "^xz\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-release-commit",
+      "repo": "tukaani-project/xz",
+      "pull_request": {
+        "id": "xz",
+        "mode": "git-pin"
+      }
+    },
+    {
       "name": "BusyBox devmem applet",
       "lock_entry": "busybox",
       "path": "platform/sources.lock",

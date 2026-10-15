@@ -31,6 +31,8 @@ inih  https://github.com/benhoyt/inih.git  2bbdec4a366c8c39746ee0982e7ca0febbb04
 tinyalsa  https://github.com/tinyalsa/tinyalsa.git  961babfe962e71d952ae734074cc89576b28a9e7  .=e29fec8d370c2ad180def31024c4ebe30bc00637
 # A zlib-ng release commit; libz.so.1 of the image (nanokvm-zlib) in place of Alpine's zlib.
 zlib-ng    https://github.com/zlib-ng/zlib-ng.git            12731092979c6d07f42da27da673a9f6c7b13586  .=c4c72cdcda4cfbb1a92d6781a3d2d89cf6d8df49
+# An xz release commit (Git, not a release tarball); liblzma in the server.
+xz         https://github.com/tukaani-project/xz.git         d3e650e63c110e830fd5391e7f8b45df0b91d3da  .=e19bc9622e52690e60dbc516d473fe0b90b4e63a
 opus       https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz          6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1
 busybox    https://busybox.net/downloads/busybox-1.38.0.tar.bz2                34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31c53bb2
 regdb      https://mirrors.edge.kernel.org/pub/software/network/wireless-regdb/wireless-regdb-2026.09.03.tar.xz  b22e0901227b820cd1c280abe681a15b773a5103a5e10dc442e94ebb34cbf58d

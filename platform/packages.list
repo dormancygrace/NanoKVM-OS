@@ -126,6 +126,9 @@ app   file  /kvmapp/picoclaw/skills/kvm-control/scripts/nanokvm-bridge.sh 0755 k
 app   file  /kvmapp/server/NanoKVM-Server                 0755  @server/NanoKVM-Server
 app   tree  /kvmapp/server/dl_lib                         0644  @native
 app   tree  /usr/share/licenses/nanokvm-app/native           0644  @native-licenses
+# Linked statically into NanoKVM-Server (server/internal/decompress).
+app   file  /usr/share/licenses/nanokvm-app/zlib-ng-LICENSE.md 0644 @tools/zlib-ng/LICENSE.md
+app   file  /usr/share/licenses/nanokvm-app/liblzma-COPYING.0BSD 0644 @tools/xz/COPYING.0BSD
 app   tree  /kvmapp/server/web                            0644  @web
 app   file  /kvmapp/system/bin/usb-audio-capture          0755  @tools/usb-audio-capture
 app   file  /kvmapp/system/init.d/S03usbdev               0755  kvmapp/system/init.d/S03usbdev

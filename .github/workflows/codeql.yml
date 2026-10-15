@@ -48,6 +48,9 @@ jobs:
             paths-ignore:
               - server/third_party
       - if: matrix.language == 'go'
+        name: Compression headers
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev liblzma-dev
+      - if: matrix.language == 'go'
         name: Build Go server (teststub)
         working-directory: server
         run: go build -tags teststub,nomsgpack ./...

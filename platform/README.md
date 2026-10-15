@@ -23,6 +23,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/web/` | `nanokvm-app`, `/kvmapp/server/web` |
 | `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm-app`, `nanokvm-firmware-sg2002` |
 | `images/tools/zlib-ng/` (zlib-ng as `libz.so.1`, its license) | `nanokvm-zlib`, in place of Alpine's `zlib` |
+| `images/tools/xz/COPYING.0BSD` (liblzma license; zlib-ng and liblzma are also linked statically into NanoKVM-Server for its gzip and xz readers) | `nanokvm-app`, `/usr/share/licenses/nanokvm-app` |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware-sg2002` |
 | `release/apk/` | the signed APK repository of the eight packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
 | `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt`, `release/installed-licenses.txt` | the root file system, its package versions and their declared licenses |

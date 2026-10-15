@@ -11,6 +11,8 @@ import subprocess
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--libraries', type=Path, required=True)
+p.add_argument('--compression', type=Path, required=True,
+               help='zlib-ng and liblzma headers (include/) and static libraries (lib/) from the tools step')
 p.add_argument('--buildroot-output', type=Path, required=True)
 p.add_argument('--go', type=Path, required=True)
 p.add_argument('--output', type=Path, required=True)
@@ -52,6 +54,14 @@ for library, required in required_native_dependencies.items():
     missing = sorted(required - dependencies)
     if missing:
         p.error(f'Native bundle mismatch: {library} does not require {", ".join(missing)}')
+# server/internal/decompress links zlib-ng and liblzma statically: only the
+# .a files are in this lib directory, so -lz and -llzma cannot pick a .so.
+compression = a.compression.resolve()
+for name in ('include/zlib.h', 'include/lzma.h', 'lib/libz.a', 'lib/liblzma.a'):
+    if not (compression/name).is_file():
+        p.error(f'Missing {name} in {compression}; run the tools step first')
+if any(compression.glob('lib/*.so*')):
+    p.error(f'{compression}/lib must hold only static libraries')
 lib = out/'dl_lib'
 lib.mkdir(parents=True)
 record_cpu_profile(out/'cpu-profile-cgo.json', cross+'gcc')
@@ -59,8 +69,8 @@ for name, source in sources.items():
     shutil.copyfile(source, lib/name)
 env = dict(os.environ, GOOS='linux', GOARCH='riscv64', GORISCV64='rva20u64', CGO_ENABLED='1',
            GOEXPERIMENT='boringcrypto', CC=cross+'gcc',
-           CGO_CFLAGS=' '.join(cpu_flags()), CGO_CXXFLAGS=' '.join(cpu_flags()),
-           CGO_LDFLAGS=f'-L{lib} -Wl,-rpath-link,{lib} -Wl,--enable-new-dtags -Wl,-rpath,$ORIGIN/dl_lib')
+           CGO_CFLAGS=' '.join(cpu_flags() + [f'-I{compression}/include']), CGO_CXXFLAGS=' '.join(cpu_flags()),
+           CGO_LDFLAGS=f'-L{lib} -L{compression}/lib -Wl,-rpath-link,{lib} -Wl,--enable-new-dtags -Wl,-rpath,$ORIGIN/dl_lib')
 # Resolve the GOROOT directory, not bin/go: prepared runtimes symlink bin/ to
 # the official toolchain. Resolving the executable alone silently loses the
 # selected runtime source tree when GOROOT is not explicitly inherited.

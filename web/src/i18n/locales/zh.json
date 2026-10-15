@@ -408,7 +408,12 @@
       "videoError": "视频显示异常",
       "noHdmi": "未检测到 HDMI 信号",
       "mjpeg4k": "HDMI 输入为 3840 × 2160 时 MJPEG 不可用。请在“设置 → 视频”中使用 H.264 或 H.265",
-      "unavailable": "画面暂时无法显示"
+      "unavailable": "画面暂时无法显示",
+      "needsVideoMemory": "HDMI 输入 {{size}} 需要 {{mode}} 视频内存模式",
+      "switchVideoMemory": "切换到 {{mode}} 并重启",
+      "switchVideoMemoryTitle": "将视频内存切换为 {{mode}}？",
+      "videoMemoryRebooting": "正在以 {{mode}} 视频内存模式重启…",
+      "videoMemoryUnavailable": "此设备未安装 {{mode}} 视频内存模式。"
     }
   },
   "keyboard": {

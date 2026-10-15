@@ -408,7 +408,12 @@
       "videoError": "Video display error",
       "noHdmi": "No HDMI signal detected",
       "mjpeg4k": "MJPEG is unavailable while the HDMI input is 3840 × 2160. Use H.264 or H.265 in Settings → Video",
-      "unavailable": "Screen cannot be displayed right now"
+      "unavailable": "Screen cannot be displayed right now",
+      "needsVideoMemory": "The HDMI input {{size}} needs the {{mode}} video memory mode",
+      "switchVideoMemory": "Switch to {{mode}} and reboot",
+      "switchVideoMemoryTitle": "Switch the video memory to {{mode}}?",
+      "videoMemoryRebooting": "Rebooting with the {{mode}} video memory…",
+      "videoMemoryUnavailable": "The {{mode}} video memory mode is not installed on this device."
     }
   },
   "keyboard": {

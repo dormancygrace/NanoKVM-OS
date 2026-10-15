@@ -51,6 +51,22 @@ func CaptureInputSize() (width, height int) {
 	return ReadVideoValue(nativeStateDir + "/width"), ReadVideoValue(nativeStateDir + "/height")
 }
 
+// RejectedInput is an HDMI input that native capture refused because the
+// video memory of this boot cannot hold it, with the video memory mode that
+// can ("qhd" up to 2560 on either side, else "uhd", as native capture
+// decides). It is empty when no input is refused for that reason.
+func RejectedInput() (width, height int, mode string) {
+	width = ReadVideoValue(nativeStateDir + "/rejected_width")
+	height = ReadVideoValue(nativeStateDir + "/rejected_height")
+	if width <= 0 || height <= 0 {
+		return 0, 0, ""
+	}
+	if width > 2560 || height > 2560 {
+		return width, height, "uhd"
+	}
+	return width, height, "qhd"
+}
+
 // MjpegAllowedFor reports whether MJPEG may run with a capture size. The stream
 // limit does not matter. An unknown input (0x0) is allowed: nothing is encoded
 // until it is known, and it is checked again.

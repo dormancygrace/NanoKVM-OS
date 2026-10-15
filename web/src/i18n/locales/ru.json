@@ -408,7 +408,12 @@
       "videoError": "Ошибка отображения видео",
       "noHdmi": "Сигнал HDMI не обнаружен",
       "mjpeg4k": "MJPEG недоступен, пока вход HDMI 3840 × 2160. Выберите H.264 или H.265 в Настройки → Видео",
-      "unavailable": "Сейчас невозможно отобразить изображение"
+      "unavailable": "Сейчас невозможно отобразить изображение",
+      "needsVideoMemory": "Для HDMI-входа {{size}} нужен режим видеопамяти {{mode}}",
+      "switchVideoMemory": "Включить {{mode}} и перезагрузить",
+      "switchVideoMemoryTitle": "Переключить видеопамять на {{mode}}?",
+      "videoMemoryRebooting": "Перезагрузка с видеопамятью {{mode}}…",
+      "videoMemoryUnavailable": "Режим видеопамяти {{mode}} на этом устройстве не установлен."
     }
   },
   "keyboard": {

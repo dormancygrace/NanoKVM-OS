@@ -29,3 +29,32 @@ func TestNativeMjpegRefusalReadsLikeTheFileCheckRefusal(t *testing.T) {
 		t.Fatalf("native %+v differs from file check %+v", native, file)
 	}
 }
+
+func TestUnsupportedInputNamesTheVideoMemoryItNeeds(t *testing.T) {
+	previous := rejectedInput
+	t.Cleanup(func() { rejectedInput = previous })
+
+	rejectedInput = func() (int, int, string) { return 2560, 1440, "qhd" }
+	status := newCaptureStatus(CaptureModeH264, -6, time.Now())
+	if status.InputWidth != 2560 || status.InputHeight != 1440 || status.VideoMemory != "qhd" ||
+		status.Message != "The HDMI input 2560x1440 needs the QHD video memory mode" {
+		t.Fatalf("status %+v", status)
+	}
+	// A different refused size is a new status for subscribers.
+	rejectedInput = func() (int, int, string) { return 3840, 2160, "uhd" }
+	if samePublicStatus(status, newCaptureStatus(CaptureModeH264, -6, time.Now())) {
+		t.Fatal("a new refused size was treated as the same status")
+	}
+
+	// Without a refused size, -6 keeps the generic message.
+	rejectedInput = func() (int, int, string) { return 0, 0, "" }
+	status = newCaptureStatus(CaptureModeH264, -6, time.Now())
+	if status.VideoMemory != "" || status.Message != "Unsupported HDMI resolution" {
+		t.Fatalf("status %+v", status)
+	}
+	// Other results never carry an input.
+	rejectedInput = func() (int, int, string) { return 2560, 1440, "qhd" }
+	if status = newCaptureStatus(CaptureModeH264, -1, time.Now()); status.VideoMemory != "" {
+		t.Fatalf("status %+v", status)
+	}
+}

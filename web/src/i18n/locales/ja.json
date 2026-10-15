@@ -408,7 +408,12 @@
       "videoError": "映像表示エラー",
       "noHdmi": "HDMI 信号が検出されません",
       "mjpeg4k": "HDMI 入力が 3840 × 2160 の間は MJPEG を利用できません。設定 → ビデオで H.264 または H.265 を使用してください",
-      "unavailable": "現在、画面を表示できません"
+      "unavailable": "現在、画面を表示できません",
+      "needsVideoMemory": "HDMI 入力 {{size}} には {{mode}} ビデオメモリモードが必要です",
+      "switchVideoMemory": "{{mode}} に切り替えて再起動",
+      "switchVideoMemoryTitle": "ビデオメモリを {{mode}} に切り替えますか？",
+      "videoMemoryRebooting": "{{mode}} ビデオメモリで再起動中…",
+      "videoMemoryUnavailable": "このデバイスには {{mode}} ビデオメモリモードがインストールされていません。"
     }
   },
   "keyboard": {

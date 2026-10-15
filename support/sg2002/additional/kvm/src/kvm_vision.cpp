@@ -64,6 +64,8 @@
 
 #define vi_width_path           "/run/nanokvm/width"
 #define vi_height_path          "/run/nanokvm/height"
+#define rejected_width_path     "/run/nanokvm/rejected_width"
+#define rejected_height_path    "/run/nanokvm/rejected_height"
 #define hdmi_mode_path          "/etc/kvm/hdmi_mode"
 #define hdmi_state_path         "/proc/lt_int"
 #define hdmi_signal_file_path   "/run/nanokvm/state"
@@ -396,6 +398,34 @@ uint8_t check_res(uint16_t _width, uint16_t _height)
         if(_width == hdmi_unsupported_res_list[i][0] && _height == hdmi_unsupported_res_list[i][1]) return UNSUPPORT_RES;
     }
     return UNKNOWN_RES;
+}
+
+/* A size capture supports with enough video memory (the list check_res uses). */
+static bool listed_res(uint16_t _width, uint16_t _height)
+{
+    for (size_t i = 0; i < sizeof(hdmi_res_list) / sizeof(hdmi_res_list[0]); i++) {
+        if (_width == hdmi_res_list[i][0] && _height == hdmi_res_list[i][1]) return true;
+    }
+    return false;
+}
+
+/* An input that the video memory of this boot cannot hold is refused without
+   publishing its size, so the server only saw "unsupported resolution". Its
+   size is published here instead (0x0 removes the files) for a message that
+   names the video memory mode it needs. Only the detection path calls this. */
+static void publish_rejected_input(uint16_t _width, uint16_t _height)
+{
+    static int published_width = -1, published_height = -1;
+    if (published_width == _width && published_height == _height) return;
+    if (_width && _height) {
+        nanokvm::write_small_uint(rejected_height_path, _height);
+        nanokvm::write_small_uint(rejected_width_path, _width);
+    } else {
+        unlink(rejected_width_path);
+        unlink(rejected_height_path);
+    }
+    published_width = _width;
+    published_height = _height;
 }
 
 void write_res_to_file(uint16_t _width, uint16_t _height)
@@ -895,13 +925,20 @@ uint8_t lt6911_get_csi_res(uint16_t *p_width, uint16_t *p_height)
     {
     case NORMAL_RES:
         debug("[hdmi] get res : %d * %d\n", Hactive, Vactive);
+        publish_rejected_input(0, 0);
         break;
     case NEW_RES:
         printf("[hdmi] get new res : %d * %d\n", Hactive, Vactive);
         write_res_to_file(Hactive, Vactive);
+        publish_rejected_input(0, 0);
         break;
     case UNSUPPORT_RES:
         printf("[hdmi] get unsupport res : %d * %d\n", Hactive, Vactive);
+        // Only a listed size: another mode would not help an unlisted one.
+        if (!res_fits_video_memory(Hactive, Vactive) && listed_res(Hactive, Vactive))
+            publish_rejected_input(Hactive, Vactive);
+        else
+            publish_rejected_input(0, 0);
         break;
     case UNKNOWN_RES:
         printf("[hdmi] get unknown res : %d * %d\n", Hactive, Vactive);

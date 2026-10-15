@@ -188,14 +188,15 @@ func fileError(c *gin.Context, err error) {
 		code, reason = -6, "busy"
 	case errors.Is(err, errUserDiskPath):
 		code, reason = -1, "path"
+	// ENOTEMPTY also matches os.ErrExist on Unix; keep the specific reason first.
+	case errors.Is(err, unix.ENOTEMPTY):
+		reason = "notEmpty"
 	case errors.Is(err, os.ErrExist):
 		reason = "exists"
 	case errors.Is(err, os.ErrNotExist):
 		reason = "missing"
 	case errors.Is(err, errUserDiskSpace), errors.Is(err, unix.ENOSPC):
 		reason = "space"
-	case errors.Is(err, unix.ENOTEMPTY):
-		reason = "notEmpty"
 	}
 	log.Warnf("user disk files (%s): %v", reason, err)
 	c.JSON(http.StatusOK, proto.Response{Code: code, Msg: reason})

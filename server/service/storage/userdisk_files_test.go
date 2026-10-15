@@ -371,3 +371,30 @@ func TestUserDiskDirectoryPagination(t *testing.T) {
 type zeroUpload struct{}
 
 func (zeroUpload) Read(p []byte) (int, error) { clear(p); return len(p), nil }
+
+func TestFileErrorDistinguishesNonEmptyDirectoryFromCollision(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		err    error
+		reason string
+	}{
+		{"nonempty directory", &os.PathError{Op: "remove", Path: "folder", Err: unix.ENOTEMPTY}, "notEmpty"},
+		{"existing file", &os.PathError{Op: "open", Path: "file", Err: unix.EEXIST}, "exists"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			fileError(c, errors.Join(tc.err, nil))
+			var rsp struct {
+				Code int
+				Msg  string
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &rsp); err != nil {
+				t.Fatal(err)
+			}
+			if rsp.Code != -3 || rsp.Msg != tc.reason {
+				t.Fatalf("response: %s", rec.Body.String())
+			}
+		})
+	}
+}

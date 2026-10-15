@@ -120,6 +120,45 @@ edit('internal/stringslite/strings.go', '''			// See comment in ../bytes/bytes.g
 			j := bytealg.IndexRabinKarp(s[i:], substr)
 ''')
 vendor_files += ['bytes/bytes.go', 'internal/stringslite/strings.go']
+# SHA-1 and SHA-256 blocks for T-Head cores (go-crypto-c906/gen_sha_c906.py),
+# chosen by cpu.RISCV64.HasXTheadBb, which riscv_hwprobe's mvendorid sets.
+for pkg in ['internal/cpu', 'crypto/internal/fips140deps/cpu', 'crypto/internal/fips140/sha256', 'crypto/sha1']:
+    materialize(pkg)
+edit('internal/cpu/cpu.go', '\tHasZvkt           bool // Vector Data-Independent Execution Latency\n',
+     '\tHasZvkt           bool // Vector Data-Independent Execution Latency\n'
+     '\tHasXTheadBb       bool // T-Head XTheadBb (NanoKVM: mvendorid of a T-Head core)\n')
+edit('internal/cpu/cpu_riscv64.go', '\t\t{Name: "zvkt", Feature: &RISCV64.HasZvkt},\n',
+     '\t\t{Name: "zvkt", Feature: &RISCV64.HasZvkt},\n'
+     '\t\t{Name: "xtheadbb", Feature: &RISCV64.HasXTheadBb},\n')
+edit('internal/cpu/cpu_riscv64_linux.go', '\t\t{riscv_HWPROBE_KEY_CPUPERF_0, 0},\n\t}\n',
+     '\t\t{riscv_HWPROBE_KEY_CPUPERF_0, 0},\n'
+     '\t\t{0, 0}, // NanoKVM: RISCV_HWPROBE_KEY_MVENDORID\n\t}\n')
+edit('internal/cpu/cpu_riscv64_linux.go', '\tif pairs[1].key != -1 {\n',
+     '\t// Every T-Head RISC-V core (vendor ID 0x5b7) implements XTheadBb, which\n'
+     '\t// Linux reports neither in hwprobe nor in /proc/cpuinfo.\n'
+     '\tif pairs[2].key != -1 {\n'
+     '\t\tRISCV64.HasXTheadBb = pairs[2].value == 0x5b7\n'
+     '\t}\n'
+     '\tif pairs[1].key != -1 {\n')
+edit('crypto/internal/fips140deps/cpu/cpu.go', '\tRISCV64HasV = cpu.RISCV64.HasV\n',
+     '\tRISCV64HasV        = cpu.RISCV64.HasV\n'
+     '\tRISCV64HasXTheadBb = cpu.RISCV64.HasXTheadBb\n')
+sha = 'crypto/internal/fips140/sha256'
+edit(f'{sha}/sha256block_asm.go', '//go:build (386 || loong64 || riscv64) && !purego\n',
+     '//go:build (386 || loong64) && !purego\n')
+edit(f'{sha}/sha256block_riscv64.s', 'TEXT ·block(SB),0,$64-32\n', 'TEXT ·blockRV64(SB),0,$64-32\n')
+for name in ['sha256block_riscv64.go', 'sha256block_c906_riscv64.s']:
+    shutil.copyfile(crypto / name, out / 'src' / sha / name)
+edit('crypto/sha1/sha1block_decl.go', '//go:build (386 || arm || loong64 || riscv64) && !purego\n',
+     '//go:build (386 || arm || loong64) && !purego\n')
+edit('crypto/sha1/sha1block_riscv64.s', 'TEXT ·block(SB),NOSPLIT,$64-32\n', 'TEXT ·blockRV64(SB),NOSPLIT,$64-32\n')
+for name in ['sha1block_riscv64.go', 'sha1block_c906_riscv64.s']:
+    shutil.copyfile(crypto / name, out / 'src/crypto/sha1' / name)
+vendor_files += ['internal/cpu/cpu.go', 'internal/cpu/cpu_riscv64.go', 'internal/cpu/cpu_riscv64_linux.go',
+                 'crypto/internal/fips140deps/cpu/cpu.go', f'{sha}/sha256block_asm.go', f'{sha}/sha256block_riscv64.s',
+                 f'{sha}/sha256block_riscv64.go', f'{sha}/sha256block_c906_riscv64.s',
+                 'crypto/sha1/sha1block_decl.go', 'crypto/sha1/sha1block_riscv64.s',
+                 'crypto/sha1/sha1block_riscv64.go', 'crypto/sha1/sha1block_c906_riscv64.s']
 text = original.decode()
 anchor = 'func sysmon() {\n'
 assert text.count(anchor) == 1

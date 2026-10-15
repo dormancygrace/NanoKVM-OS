@@ -38,6 +38,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
 import { getAddonInventory, type AddonInventory } from '@/api/addons';
+import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { addonInventoryAtom } from '@/jotai/addons';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
@@ -431,7 +432,10 @@ export const Settings = ({
             }
           }}
           className="flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded hover:bg-neutral-700/80"
-          onClick={openModal}
+          onClick={(event) => {
+            releasePointerMenuFocus(event);
+            openModal();
+          }}
         >
           <div className="flex items-center justify-center text-neutral-300 hover:text-white">
             <SettingsIcon size={18} className="block" />

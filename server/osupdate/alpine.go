@@ -4,7 +4,6 @@ package osupdate
 // hands the verified directory to nanokvm-stage-update.
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -20,6 +19,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"NanoKVM-Server/internal/sg2002aes"
 )
 
 const AlpineStateDir = "/data/.nanokvm-alpine"
@@ -263,7 +264,7 @@ func downloadAlpineFile(ctx context.Context, client *http.Client, base *url.URL,
 		return err
 	}
 	defer func() { f.Close() }()
-	h := sha256.New()
+	h := sg2002aes.NewSHA256()
 	n, err := io.Copy(io.MultiWriter(f, h), io.LimitReader(resp.Body, limit+1))
 	if err != nil {
 		return err

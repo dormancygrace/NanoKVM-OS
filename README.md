@@ -11,7 +11,7 @@
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
-[🚀 Install](#install) · [✨ Features](#features) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Hardware](#compatibility) · [🔄 Update](#updates) · [💻 Build](#build) · [🐛 Issues](https://github.com/dormancygrace/NanoKVM-OS/issues)
+[🚀 Install](#install) · [✨ Features](#features) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Hardware](#compatibility) · [🔄 Update](#updates) · [💻 Build](#build) · [🧪 Help test](#help-test) · [🐛 Issues](https://github.com/dormancygrace/NanoKVM-OS/issues)
 
 </div>
 
@@ -24,6 +24,10 @@
 Underneath the interface is **Alpine Linux 3.24 on a writable F2FS root**, with ordinary APK packages, OpenRC services and official Alpine userspace. You can install software, update individual components and retain your settings without rebuilding or reflashing the entire card.
 
 **Current alpha: applications v3.0-a1, bundled in Image v1.2-a1 — Massive Overhaul.** This release collects the changes since v2.5-a1, including the unpublished v2.6 alpha series: reworked video controls and memory modes, recovery and performance improvements, USB storage and serial tools, Wi-Fi preferences, HTTPS/ACME, add-on updates, and community translations. See the [complete release notes](docs/RELEASE-v3.0-a1.md).
+
+> [!IMPORTANT]
+> **Help wanted — NanoKVM Cube, Lite and PCIe testers!**
+> More real devices make NanoKVM OS better. We need owners to try releases and report what works, as well as what does not. **No coding required.** Even a short “works on my board” report helps us confirm support and catch regressions. [Help test your NanoKVM →](#help-test)
 
 <a id="features"></a>
 <a id="comparison"></a>
@@ -41,20 +45,22 @@ Underneath the interface is **Alpine Linux 3.24 on a writable F2FS root**, with 
 
 These are targets, not guaranteed delivered rates. Available modes depend on the HDMI receiver, video-memory profile, source timing, codec and browser. The interface reports the input and encoded stream separately and explains unavailable choices.
 
-- **H.264 and H.265 over Direct or WebRTC**, plus **MJPEG**. H.265 WebRTC is available again in v2.5-a1; older releases' QHD restriction no longer describes the current release.
+- **H.264 and H.265 over Direct or WebRTC**, plus **MJPEG**. Each browser chooses its transport and player; viewers share the device’s codec, picture settings and hardware budget.
 - **Hardware video encoding**, automatic/economy/manual bitrate controls, measured bitrate, and Direct playback options for responsiveness or a smoother picture. NormalP keyframes are requested as needed, with a periodic safety interval. Bitrate is an encoder ceiling; actual traffic depends on the image and operating conditions.
-- **MJPEG quality and JPEG colour sampling:** choose **4:2:2** (default) or **4:2:0**, with the selection saved across reboots.
+- **Adaptive MJPEG quality and JPEG colour sampling:** quality falls when all viewers lag and recovers up to your selected limit. Choose **4:2:2** (default) or **4:2:0**, with the selection saved across reboots.
 - **Virtual monitor / EDID controls:** choose the resolution, refresh and orientation seen by the managed computer independently from the stream-size limit. Video modes apply monitor resolution and frame rate together; **Same as input** preserves the input dimensions.
 - **Portrait profiles:** 720 × 1280, 1080 × 1920, 1296 × 2304 for H.264, and 1440 × 2560 for H.265, subject to the reported device and browser capabilities.
 - **PNG screenshots and browser-side recording**, plus USB audio playback in the browser through a shared Opus encoder.
+- **Playback recovery:** Direct requests fresh keyframes after dropped frames; stalled capture has a bounded recovery path. H.264/H.265 streams carry BT.709 colour information.
 - **HDMI enable/disable and capture idle timeout**, so capture can stop when no viewer is watching.
 
-H.265 requires a browser and platform with a compatible decoder. Direct playback uses WebCodecs in a secure context. The device does not transcode a shared H.265 stream separately for a browser that only supports H.264.
+H.265 requires a browser and platform with a compatible decoder. Direct playback uses WebCodecs in a secure context. The device does not transcode a shared H.265 stream separately for a browser that only supports H.264. MJPEG and JPEG-based screenshots are unavailable with a 4K HDMI input; concurrent MJPEG and H.264/H.265 viewers share capture resources and can reduce delivered FPS.
 
 ### 📱 Control from a desktop or phone
 
 - A movable, collapsible toolbar and responsive settings with reachable **Apply** controls.
 - Relative mouse and absolute pointer modes, touchpad gestures, scrolling and IME input. **Hold one finger and tap with another to right-click.**
+- **One-click keyboard sequences:** Ctrl+Alt+Del, Magic SysRq and REISUB, with timing handled by the device.
 - An optional **Windows absolute-pointer profile** for USB/EDID display association on multi-monitor hosts.
 - Multiple viewers with server-enforced input ownership. Additional sessions start with control locked; control can be transferred explicitly, and the sole remaining viewer receives it automatically when the owner disconnects.
 - Controls follow the USB composition: disabled input functions are hidden, and the control lock is shown only when USB input is enabled.
@@ -64,12 +70,13 @@ Viewers share the device's encoder and video settings. Multiple sessions do not 
 
 ### 🔌 One USB connection, several jobs
 
-Configure the USB gadget through presets (KVM, with USB network, with the serial console, a headless server, remote desktop, keyboard and mouse only) or individual switches for the keyboard, relative mouse, absolute pointer, network, virtual storage, serial console and audio. The interface checks the controller's endpoint budget before applying a combination and says what each preset gives up. USB can also be disabled entirely.
+Configure the USB gadget through presets (KVM, with USB network, with the serial console, a headless server, remote desktop, keyboard and mouse only) or individual switches for the keyboard, relative mouse, absolute pointer, network, virtual storage, serial console and audio. The interface checks the controller's endpoint budget before applying a combination and says what each preset gives up. USB can also be disabled entirely. You can also configure the USB device identity (VID, PID and identifying strings).
 
 | Function | What it provides |
 | --- | --- |
 | **Keyboard and pointers** | Browser control, with normal and HID compatibility profiles |
 | **Virtual media** | SD-backed images or direct ISO mounting from your computer without first copying the ISO to the card; CD/DVD images up to 31.625 GiB |
+| **User disk** | A writable FAT32 USB drive backed by an image on the SD card, for BIOS update files, profiles and logs; selectable sizes from 64 MiB to 4 GiB |
 | **USB network** | Local access to NanoKVM through the USB NCM adapter |
 | **Internet over USB NCM** | Share the NanoKVM Ethernet/Wi-Fi uplink with the managed computer |
 | **USB Serial / CDC ACM** | Reach a configured host serial console through the browser terminal |
@@ -82,7 +89,7 @@ ATX power/reset controls are available on supported boards. **Wake-on-LAN** incl
 
 ### 🌐 Network and remote access
 
-- **Ethernet and Wi-Fi controls**, hostname, DNS, gateway, IPv6 and mDNS settings.
+- **Ethernet and Wi-Fi controls**, hostname, DNS, gateway, IPv6 and mDNS settings. Ethernet shows live link status and the current address; static IPv4 accepts CIDR notation and an optional gateway for direct computer connections.
 - **2.4 / 5 GHz Wi-Fi** on compatible adapters: automatic scanning across both bands, grouped network entries, signal-strength icons, hidden-network setup and a preferred band. **5 GHz is preferred by default**, with fallback to 2.4 GHz.
 - A single **VPN overview** for **WireGuard, OpenVPN 2, Tailscale and NetBird**, with installation state, version and connection/profile controls. OpenVPN, Tailscale and NetBird are optional APK installations.
 - **WireGuard `.conf` profiles** with an explicit Route Allowed IPs option; **OpenVPN routed TUN `.ovpn` profiles**, including referenced certificate/key files in the same upload.
@@ -92,13 +99,15 @@ ATX power/reset controls are available on supported boards. **Wake-on-LAN** incl
 
 **Software is a top-level settings section.** Its package manager searches repositories and installs, removes or updates packages using the same APK database as the terminal. Install tools such as `nano`, `htop`, `mc` or Python as needed.
 
+**Daily package-index refresh** is optional and off by default. Enable it in Software → Packages and choose a time in the device timezone. It refreshes the available-package lists; it does **not** automatically install updates. Manage optional software in Software → Add-ons. RustDesk updates are discovered from the signed repository, including for older file-pinned installations.
+
 | Add-on | Installation and capabilities |
 | --- | --- |
 | **[RustDesk](https://github.com/rustdesk/rustdesk)** | Optional signed APK, managed from Software. Share the captured HDMI display and USB input using the official RustDesk servers or your own; temporary/permanent passwords, H.264/H.265, direct/relay TCP and optional WebRTC. Based on the RustDesk 1.5 protocol. |
 | **[PicoClaw](https://github.com/sipeed/picoclaw)** | Install, update or remove the official latest RISC-V release from Software → Add-ons. Configure the model, API key and endpoint for remote-control or general-assistant use. Its navigation entry appears only while installed. |
 | **[acme.sh](https://github.com/acmesh-official/acme.sh)** | Install on demand from Software → Add-ons, then configure HTTPS certificates in Settings → Network. Issue and renew certificates through ACME using HTTP-01 or DNS-01 with supported DNS providers; renewed certificates take effect without restarting the service. |
 
-RustDesk can forward USB audio; its integration does not include clipboard, file transfer, terminal, chat or ATX control. Its [signed package and corresponding source](https://github.com/dormancygrace/NanoKVM-OS-packages/releases/tag/nanokvm-rustdesk-0.5.3-r2) are published separately from the base image.
+RustDesk can forward USB audio; its integration does not include clipboard, file transfer, terminal, chat or ATX control. Its [signed packages and corresponding sources](https://github.com/dormancygrace/NanoKVM-OS-packages/releases) are published separately from the base image.
 
 PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM APK**. An **MCP endpoint** with enable/disable and API-key controls is also available under System for external AI clients.
 
@@ -107,7 +116,7 @@ PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM AP
 | Area | Controls and information |
 | --- | --- |
 | **Dashboard** | CPU load, RAM, SoC temperature, CPU frequency, storage, network and VPN status |
-| **Memory** | video-memory modes by resolution (FHD by default, QHD, UHD); ZRAM with automatic sizing and optional ZSTD recompression; SD swap; application memory-limit setting |
+| **Memory** | Fixed video-memory modes: **FHD 40 MiB** (default), **QHD 56 MiB**, **UHD 104 MiB**, changed with a reboot; ZRAM with automatic sizing and optional ZSTD recompression; SD swap; application memory-limit setting |
 | **CPU** | Frequency control, thermal protection and an explicit Apply at startup option; an incomplete overclocked startup triggers a 1000 MHz fallback on the next boot |
 | **Diagnostics** | Service, USB, firewall and package-operation status, plus system logs in the GUI |
 | **Terminal** | Browser shell and serial sessions, with shell command history |
@@ -125,12 +134,24 @@ NanoKVM OS targets the **SG2002 RISC-V NanoKVM family**. The full image includes
 | Device | Included support | Physical validation |
 | --- | --- | --- |
 | **NanoKVM Cube Full** | Alpha and serial-production board profiles | Community-tested: serial-production board detection and OLED confirmed on beta13 ([#2](https://github.com/dormancygrace/NanoKVM-OS/issues/2#issuecomment-5694454091)) |
-| **NanoKVM Lite** | Base profile, without ATX | Pending |
-| **NanoKVM PCIe** | Board profile and receiver detection | PCIe/UXC is the active development test platform |
+| **NanoKVM Lite** | Base profile, without ATX | Community-tested on v3 after upgrading from v2.5: boot, 1080p60 video and KVM control confirmed ([#215](https://github.com/dormancygrace/NanoKVM-OS/issues/215)) |
+| **NanoKVM PCIe** | Board profile and receiver detection | PCIe/UXC development bench; LT6911D video confirmed by a community tester on v2.0-b5 ([#8](https://github.com/dormancygrace/NanoKVM-OS/issues/8#issuecomment-5825067894)) |
 | **NanoKVM Pro** | Not supported | Different hardware platform |
 | **NanoKVM USB** | Not supported | Different product; not an SG2002 IP-KVM target |
 
 Receiver-specific features, including higher resolutions and programmable EDID, vary by board. Included profiles are not a claim of physical qualification on every revision. See [board support](firmware/boards/README.md).
+
+<a id="help-test"></a>
+
+## 🧪 Help wanted: test on Cube, Lite and PCIe
+
+**Hardware testing is one of the most valuable ways to help this project.** The development bench cannot cover every board revision, HDMI receiver, computer and browser. Cube and Lite owners are especially welcome; additional PCIe units and receivers are just as useful.
+
+1. Try the [current release](https://github.com/dormancygrace/NanoKVM-OS/releases/latest) using the [installation](#install) or [update](#updates) instructions.
+2. Check what you normally use: boot and network access, video and audio, keyboard/mouse, USB media, and OLED or ATX controls where your board has them. A desktop or phone session and reconnecting after a reboot are useful checks. **You do not need to test every feature.**
+3. [Share a test report](https://github.com/dormancygrace/NanoKVM-OS/issues/new?title=Hardware%20test%20report%3A%20) — a successful test is worth reporting too. Include your **board/revision**, HDMI receiver if known, **application and image versions** from About, fresh install or upgrade, browser/OS, and the resolution/FPS, codec and transport you tried. Say what worked and what failed; for a failure, add reproduction steps and relevant GUI logs.
+
+Already helping with an issue? Add your results there instead of opening a duplicate. Please remove passwords, tokens and private screen contents from reports. **Thank you — each real-device report helps us fix regressions and make the compatibility table more useful.**
 
 <a id="install"></a>
 
@@ -164,7 +185,7 @@ Updates retain settings, user data and independently installed packages. The sev
 - **Local `.apk` installations:** file-pinned packages may require an `apk add` step before upgrading; see [update instructions](docs/UPDATES.md).
 - **Signing transition:** `nanokvm-keys` installs the public keys and moves the official repository to the RSA/ECDSA-signed v3 index automatically. The RSA-signed legacy index remains available for older installations.
 - **C906 overlay installations:** follow the [stock Alpine migration instructions](firmware/alpine/README.md#existing-c906-installations). Updating NanoKVM alone does not remove the overlay.
-- **Stock firmware or pre-v2 releases:** install the full SD image. Legacy `.nkos` updates do not migrate the system to Alpine.
+- **Stock firmware, pre-v2 releases or the original v2.0-a1:** install the full SD image. Legacy `.nkos` updates do not migrate the system to Alpine.
 
 Component updates preserve the installed bootloader. A full image includes the rebuilt bootloader as well as the applications and system packages.
 

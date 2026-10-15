@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Checkbox, Input, InputNumber, Segmented, Switch } from 'antd';
 import { CheckIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -58,6 +58,30 @@ export const Ethernet = () => {
     void getEthernet();
   }, [getEthernet]);
 
+  // The cable, the interface and the DHCP address change on their own; refresh
+  // them while the panel is visible, leaving unsaved edits alone.
+  // One refresh at a time: while the interface restarts, a request can hang.
+  const refreshing = useRef(false);
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      if (document.visibilityState !== 'visible' || refreshing.current) return;
+      refreshing.current = true;
+      try {
+        const rsp = await api.getEthernet();
+        if (rsp.code !== 0) return;
+        const { adminUp, linkUp, currentAddress } = rsp.data as EthernetConfig;
+        const status = { adminUp, linkUp, currentAddress };
+        setConfig((current) => ({ ...current, ...status }));
+        setOriginal((current) => current && { ...current, ...status });
+      } catch {
+        // The next refresh tries again.
+      } finally {
+        refreshing.current = false;
+      }
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
   function update(fields: Partial<EthernetConfig>) {
     setMessage('');
     setConfig((current) => ({ ...current, ...fields }));
@@ -102,7 +126,11 @@ export const Ethernet = () => {
   ) : !config.adminUp ? (
     <StatusBadge tone="warning">{t('settings.network.ethernet.interfaceDown')}</StatusBadge>
   ) : config.linkUp ? (
-    <StatusBadge tone="success">{t('settings.network.ethernet.linkUp')}</StatusBadge>
+    <StatusBadge tone="success">
+      {config.currentAddress
+        ? t('settings.network.ethernet.linkUpAddress', { address: config.currentAddress })
+        : t('settings.network.ethernet.linkUpNoAddress')}
+    </StatusBadge>
   ) : (
     <StatusBadge tone="warning">{t('settings.network.ethernet.noCable')}</StatusBadge>
   );

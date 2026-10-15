@@ -122,7 +122,6 @@ printf '%s\n' '10.20.0.2/24 none' > "$work/boot/eth.nodhcp"
 : > "$work/etc/resolv.conf"
 NANOKVM_TEST_IP_SHOW_INET=1 run_eth start
 grep -Fqx 'a add 10.20.0.2/24 brd + dev eth0.100' "$work/ip.calls"
-# `! cmd` never stops a set -e script, so fail explicitly.
 if grep -q 'r add default' "$work/ip.calls" || grep -q nameserver "$work/etc/resolv.conf"; then
     echo 'A gateway was configured for "none"' >&2
     exit 1
@@ -157,7 +156,8 @@ if grep -q 'link add link eth0' "$work/ip.calls"; then
     echo 'VLAN created for invalid ID 4095' >&2
     exit 1
 fi
-rm "$work/boot/eth.vlan"
+# A valid VLAN must remain configured while Ethernet is disabled.
+printf '%s\n' '100' > "$work/boot/eth.vlan"
 
 touch "$work/boot/eth.disabled"
 : > "$work/ip.calls"
@@ -167,6 +167,7 @@ if grep -q 'link add link eth0' "$work/ip.calls"; then
     exit 1
 fi
 rm "$work/boot/eth.disabled"
+rm "$work/boot/eth.vlan"
 
 printf '%s\n' 'old-host' > "$work/etc/hostname"
 printf '%s\n' '127.0.0.1 localhost' '127.0.1.1 old-host' > "$work/etc/hosts"

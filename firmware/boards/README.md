@@ -86,3 +86,13 @@ Sources:
 Host fixtures exercise all selection outcomes, errors, ambiguous responses
 and the Alpha no-beta-pin-access invariant. Device acceptance must identify
 the exact artifact and board; local PCIe success does not qualify Cube/Lite.
+
+
+## Community hardware validation
+
+**NanoKVM Cube Full (serial-production / beta profile)** has been tested by
+[gxcreator](https://github.com/gxcreator). After the board-detection fix, the
+reporter confirmed that the profile was correctly selected as beta and the OLED
+worked on beta13: [confirmation in issue #2](https://github.com/dormancygrace/NanoKVM-OS/issues/2#issuecomment-5694454091).
+This records the tested board, functions, and release rather than treating Cube
+validation as pending.

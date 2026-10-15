@@ -17,6 +17,7 @@ import (
 // ownBodyLimitRoutes stream their uploads or set their own MaxBytesReader.
 var ownBodyLimitRoutes = []string{
 	"/api/download/file",
+	"/api/storage/user-disk/files/upload",
 	"/api/branding/logo",
 	"/api/branding/favicon",
 	"/api/extensions/openvpn/import",

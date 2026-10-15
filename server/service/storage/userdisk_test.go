@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -171,13 +170,14 @@ func TestCompositionLockExcludesAConcurrentFormat(t *testing.T) {
 	}
 
 	// The composition holds the lock and turns the disk on; a re-format
-	// started meanwhile waits and then refuses, the image untouched.
+	// started meanwhile is refused at once as busy, and after the apply as
+	// enabled, the image untouched both times.
 	before, _ := os.Stat(userDiskImage)
 	userDiskFormat = func(string, int) error {
 		t.Error("formatted while the composition was attaching the disk")
 		return nil
 	}
-	go func() {
+	create := func() int {
 		rec := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(rec)
 		c.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"sizeMiB":64}`))
@@ -185,18 +185,16 @@ func TestCompositionLockExcludesAConcurrentFormat(t *testing.T) {
 		s.CreateUserDisk(c)
 		var rsp struct{ Code int }
 		_ = json.Unmarshal(rec.Body.Bytes(), &rsp)
-		done <- rsp.Code
-	}()
-	select {
-	case code := <-done:
-		t.Fatalf("create did not wait for the composition: %d", code)
-	case <-time.After(100 * time.Millisecond):
+		return rsp.Code
+	}
+	if code := create(); code != -6 {
+		t.Fatalf("create during the composition returned %d, want -6", code)
 	}
 	if err := os.WriteFile(userDiskFlag, []byte(userDiskImage+"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	unlock()
-	if code := <-done; code != -2 {
+	if code := create(); code != -2 {
 		t.Fatalf("create while enabled returned %d, want -2", code)
 	}
 	after, _ := os.Stat(userDiskImage)

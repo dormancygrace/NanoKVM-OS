@@ -1185,10 +1185,41 @@
         "ejectFirst": "Éjectez d'abord le lecteur sur l'ordinateur pour qu'aucune écriture ne reste inachevée ; les périphériques USB se reconnectent ensuite.",
         "created": "Disque utilisateur créé",
         "turnOffFirst": "Désactivez d'abord le disque utilisateur.",
-        "busy": "Le disque utilisateur est en cours de création ou de suppression. Réessayez une fois l'opération terminée.",
+        "busy": "Le disque est occupé. Attendez puis réessayez.",
         "missing": "L'image du disque utilisateur a disparu. Créez-la à nouveau.",
         "failed": "La requête du disque utilisateur a échoué.",
-        "notice": "Monter ou éjecter une image de CD/disque reconnecte aussi les périphériques USB ; l'ordinateur revoit ensuite le disque utilisateur avec ce qu'il y a écrit. L'image entière est allouée sur la carte SD à sa création, les grandes tailles prennent donc un certain temps."
+        "notice": "Monter ou éjecter une image de CD/disque reconnecte aussi les périphériques USB ; l'ordinateur revoit ensuite le disque utilisateur avec ce qu'il y a écrit. L'image entière est allouée sur la carte SD à sa création, les grandes tailles prennent donc un certain temps.",
+        "files": {
+          "title": "Fichiers du disque utilisateur",
+          "host": "Éjectez le disque sur l’ordinateur, puis désactivez le disque utilisateur ci-dessus pour gérer ses fichiers.",
+          "hint": "Une fois terminé, activez le disque utilisateur ci-dessus pour rendre les fichiers accessibles à l’ordinateur. Les fichiers existants ne sont jamais écrasés.",
+          "refresh": "Actualiser",
+          "browse": "Parcourir les fichiers",
+          "up": "Dossier parent",
+          "upload": "Envoyer des fichiers",
+          "transferring": "Transfert et enregistrement… Attendez la fin avant de connecter le disque.",
+          "cancel": "Annuler",
+          "space": "{{free}} libres sur {{total}}",
+          "folderName": "Nom du nouveau dossier",
+          "mkdir": "Créer un dossier",
+          "download": "Télécharger",
+          "delete": "Supprimer",
+          "empty": "Ce dossier est vide.",
+          "deleteTitle": "Supprimer cet élément ?",
+          "deleteConfirm": "Supprimer {{name}} ? Seuls les dossiers vides peuvent être supprimés.",
+          "errors": {
+            "host": "L’ordinateur utilise le disque. Éjectez-le et désactivez-le ci-dessus.",
+            "busy": "Le disque est occupé. Attendez puis réessayez.",
+            "path": "Nom de fichier ou de dossier invalide.",
+            "exists": "Un fichier ou dossier portant ce nom existe déjà.",
+            "missing": "Le disque, fichier ou dossier n’existe plus. Actualisez ou remontez.",
+            "space": "Espace insuffisant ou fichier dépassant la limite FAT32 de 4 Gio moins 1 octet.",
+            "notEmpty": "Le dossier n’est pas vide.",
+            "io": "L’opération a échoué. Vérifiez le disque et les journaux système, puis actualisez."
+          },
+          "previous": "Page précédente",
+          "next": "Page suivante"
+        }
       },
       "serialConsole": {
         "title": "Console Linux sans écran",

@@ -1185,10 +1185,41 @@
         "ejectFirst": "Eject the drive on the computer first, so nothing is left half-written; then the USB devices reconnect.",
         "created": "User disk created",
         "turnOffFirst": "Turn the user disk off first.",
-        "busy": "The user disk is being created or deleted. Try again when it is done.",
+        "busy": "The disk is busy. Wait for the current operation and try again.",
         "missing": "The user disk image is gone. Create it again.",
         "failed": "The user disk request failed.",
-        "notice": "Mounting or ejecting a CD/disk image reconnects the USB devices too; the computer sees the user disk again afterwards with what it wrote. The whole image is allocated on the SD card at creation, so the large sizes take a while."
+        "notice": "Mounting or ejecting a CD/disk image reconnects the USB devices too; the computer sees the user disk again afterwards with what it wrote. The whole image is allocated on the SD card at creation, so the large sizes take a while.",
+        "files": {
+          "title": "Files on the user disk",
+          "host": "Eject this drive on the computer, then turn the user disk off above to manage its files.",
+          "hint": "Turn the user disk on above when finished to make the files available to the computer. Existing files are never overwritten.",
+          "refresh": "Refresh",
+          "browse": "Browse files",
+          "up": "Up",
+          "upload": "Upload files",
+          "transferring": "Transferring and saving… Wait for completion before connecting the disk.",
+          "cancel": "Cancel",
+          "space": "{{free}} free of {{total}}",
+          "folderName": "New folder name",
+          "mkdir": "Create folder",
+          "download": "Download",
+          "delete": "Delete",
+          "empty": "This folder is empty.",
+          "deleteTitle": "Delete this item?",
+          "deleteConfirm": "Delete {{name}}? Only empty folders can be deleted.",
+          "errors": {
+            "host": "The computer owns the disk. Eject it and turn it off above.",
+            "busy": "The disk is busy. Wait for the current operation and try again.",
+            "path": "Invalid file or folder name.",
+            "exists": "A file or folder with this name already exists.",
+            "missing": "The disk, file or folder no longer exists. Refresh or go up.",
+            "space": "Not enough free space, or the file exceeds FAT32’s 4 GiB minus 1 byte limit.",
+            "notEmpty": "The folder is not empty.",
+            "io": "The operation failed. Check the disk and system logs, then refresh."
+          },
+          "previous": "Previous page",
+          "next": "Next page"
+        }
       },
       "serialConsole": {
         "title": "Headless Linux console",

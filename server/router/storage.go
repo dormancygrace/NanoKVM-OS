@@ -23,4 +23,9 @@ func storageRouter(r *gin.Engine) {
 	api.GET("/storage/user-disk", service.GetUserDisk)         // the writable FAT32 user disk
 	api.POST("/storage/user-disk/create", service.CreateUserDisk)
 	api.POST("/storage/user-disk/delete", service.DeleteUserDisk)
+	api.GET("/storage/user-disk/files", service.ListUserDiskFiles)
+	api.GET("/storage/user-disk/files/download", service.DownloadUserDiskFile)
+	api.POST("/storage/user-disk/files/upload", service.UploadUserDiskFile)
+	api.POST("/storage/user-disk/files/mkdir", service.MakeUserDiskDirectory)
+	api.POST("/storage/user-disk/files/delete", service.DeleteUserDiskFile)
 }

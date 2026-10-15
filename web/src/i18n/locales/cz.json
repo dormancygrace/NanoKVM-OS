@@ -848,7 +848,7 @@
       "performance": "Výkon",
       "device": "Zařízení",
       "ssh": {
-        "confirmation": "Potvrzení heslo pro správce (root)",
+        "confirmation": "Potvrdit heslo správce (root)",
         "password": "Nové heslo správce (root)",
         "description": "Povolit vzdálený přístup přes SSH",
         "passwordTitle": "Nastavit heslo správce (root) pro SSH",
@@ -1074,7 +1074,7 @@
       "settings": "RustDesk",
       "transmitAudio": "Přenášet zvuk",
       "temporaryPassword": "Dočasné heslo",
-      "absent": "Nenaistalováno",
+      "absent": "Nenainstalováno",
       "save": "Uložit nastavení",
       "saved": "Nastavení uložena",
       "password": "Přístupové heslo",
@@ -1099,7 +1099,7 @@
       "source": "Zdrojové kódy a licence",
       "waitingForPassword": "Vytváření dočasného hesla…",
       "key": "Veřejný klíč serveru (volitelné)",
-      "registering": "Čeká se na server pro identifikátry",
+      "registering": "Čeká se na server pro identifikátory",
       "audioMuted": "Přenos zvuku prostřednictvím RustDesk je vypnutý."
     },
     "updates": {
@@ -1336,7 +1336,7 @@
     "powerCycleWrite": "Zapsat EDID",
     "applied": "Nastavení pro video uplatněna",
     "sameAsInput": "Stejné jako vstup",
-    "atMost": "Až{{value}}",
+    "atMost": "Až {{value}}",
     "advanced": "Pokročilé a zotavení",
     "measuredBitrate": "≈ {{value}} Mbit/s",
     "mjpegChroma": "JPEG vzorkování barev",
@@ -1374,7 +1374,7 @@
       "connecting": "Připojování",
       "off": "Vypnuto",
       "stopped": "Zastaveno",
-      "notInstall": "Nenaistalováno",
+      "notInstall": "Nenainstalováno",
       "auth": "Je vyžadováno ověření se",
       "notLogin": "Nepřihlášeni"
     },

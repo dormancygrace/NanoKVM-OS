@@ -314,6 +314,9 @@ func validateStaticEthernet(address string, subnetMask string, gateway string) (
 	if !ip.Is4() || !ip.IsValid() || ip.IsUnspecified() || ip.IsLoopback() || ip.IsMulticast() {
 		return netip.Prefix{}, netip.Addr{}, fmt.Errorf("invalid static IP address")
 	}
+	if prefixBits < 1 || prefixBits > 30 {
+		return netip.Prefix{}, netip.Addr{}, fmt.Errorf("static IPv4 prefix length must be between 1 and 30")
+	}
 	prefix := netip.PrefixFrom(ip, prefixBits)
 	if ip == prefix.Masked().Addr() || ip == ipv4Broadcast(prefix) {
 		return netip.Prefix{}, netip.Addr{}, fmt.Errorf("invalid static IP address")

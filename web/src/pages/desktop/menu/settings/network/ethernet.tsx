@@ -253,6 +253,7 @@ export const Ethernet = () => {
         {config.mode === 'static' && (
           <Panel className="space-y-3">
             <Input
+              disabled={isLoading || isSaving}
               value={config.address}
               status={config.address && invalidAddress ? 'error' : undefined}
               placeholder={t('settings.network.ethernet.addressPlaceholder')}
@@ -261,12 +262,13 @@ export const Ethernet = () => {
             />
             <Input
               value={cidr ? cidr.subnetMask : config.subnetMask}
-              disabled={!!cidr}
+              disabled={isLoading || isSaving || !!cidr}
               placeholder={t('settings.network.ethernet.subnetMaskPlaceholder')}
               addonBefore={t('settings.network.ethernet.subnetMask')}
               onChange={(event) => update({ subnetMask: event.target.value })}
             />
             <Input
+              disabled={isLoading || isSaving}
               value={config.gateway}
               status={invalidGateway ? 'error' : undefined}
               placeholder={t('settings.network.ethernet.gatewayPlaceholder')}

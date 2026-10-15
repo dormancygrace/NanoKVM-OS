@@ -2,7 +2,6 @@ package picoclaw
 
 import (
 	"archive/tar"
-	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/klauspost/compress/gzip"
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/internal/sg2002aes"

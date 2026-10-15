@@ -2,7 +2,6 @@ package acme
 
 import (
 	"archive/tar"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/klauspost/compress/gzip"
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/utils"

@@ -11,6 +11,7 @@ require (
 	github.com/google/jsonschema-go v0.4.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/klauspost/compress v1.20.3
 	github.com/mervick/aes-bridge-go v0.0.0-20250728011030-7e095cdac2f2
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/pion/dtls/v3 v3.1.12

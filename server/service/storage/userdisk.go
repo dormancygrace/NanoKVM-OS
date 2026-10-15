@@ -41,22 +41,26 @@ var (
 )
 
 // userDiskMu covers every change to the image and every composition change
-// that attaches or detaches it, for the whole operation: a format renaming
+// that attaches or detaches it, including mounted file transfers. A format renaming
 // a new image over the one a concurrent apply has just attached would leave
 // the host writing to an unlinked inode. Create and delete hold it while
 // they check the state and replace the file; the composition takes it with
 // TryLock (it runs under the HID lock, which must not wait for a format of
-// several GiB) and refuses while the image is being made.
+// several GiB) and refuses while the image is being accessed.
 var userDiskMu sync.Mutex
 
-// ErrUserDiskBusy: the image is being created or removed.
-var ErrUserDiskBusy = errors.New("the user disk is being created or removed; try again when it is done")
+// ErrUserDiskBusy: another operation owns the image, or a private mount remains.
+var ErrUserDiskBusy = errors.New("the user disk is busy; wait for the current operation to finish")
 
 // LockUserDiskForComposition is taken by a composition change that attaches
 // or detaches the image, for the whole apply. It does not wait.
 func LockUserDiskForComposition() (unlock func(), err error) {
 	if !userDiskMu.TryLock() {
 		return nil, ErrUserDiskBusy
+	}
+	if err := userDiskUnmounted(); err != nil {
+		userDiskMu.Unlock()
+		return nil, err
 	}
 	return userDiskMu.Unlock, nil
 }
@@ -162,7 +166,11 @@ func (s *Service) CreateUserDisk(c *gin.Context) {
 	defer s.mu.Unlock()
 	userDiskMu.Lock()
 	defer userDiskMu.Unlock()
-	if userDiskEnabled() || userDiskAttached() {
+	if err := userDiskUnmounted(); err != nil {
+		rsp.ErrRsp(c, -6, "the user disk is mounted locally")
+		return
+	}
+	if err := userDiskAvailable(); err != nil {
 		rsp.ErrRsp(c, -2, "turn the user disk off before creating it anew")
 		return
 	}
@@ -181,7 +189,11 @@ func (s *Service) DeleteUserDisk(c *gin.Context) {
 	defer s.mu.Unlock()
 	userDiskMu.Lock()
 	defer userDiskMu.Unlock()
-	if userDiskEnabled() || userDiskAttached() {
+	if err := userDiskUnmounted(); err != nil {
+		rsp.ErrRsp(c, -6, "the user disk is mounted locally")
+		return
+	}
+	if err := userDiskAvailable(); err != nil {
 		rsp.ErrRsp(c, -2, "turn the user disk off before deleting it")
 		return
 	}

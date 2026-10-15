@@ -6,6 +6,8 @@ import * as storage from '@/api/storage.ts';
 import { confirmAction } from '@/components/ui/confirm.ts';
 import { Panel, SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
 
+import { UserDiskFiles } from './user-disk-files.tsx';
+
 type UserDiskStatus = {
   file: string;
   label: string;
@@ -40,6 +42,8 @@ export const UserDisk = ({
   const [status, setStatus] = useState<UserDiskStatus>();
   const [size, setSize] = useState(256);
   const [working, setWorking] = useState(false);
+  const [filesBusy, setFilesBusy] = useState(false);
+  const locked = busy || working || filesBusy || Boolean(status?.attached);
 
   const load = useCallback(async () => {
     try {
@@ -142,7 +146,7 @@ export const UserDisk = ({
         <Switch
           id="usb-user-disk"
           checked={enabled}
-          disabled={busy || working || !disk || !status?.exists}
+          disabled={busy || working || filesBusy || !disk || !status?.exists}
           loading={busy}
           onChange={(next) => void toggle(next)}
         />
@@ -166,22 +170,30 @@ export const UserDisk = ({
         <Select
           className="w-32"
           value={size}
-          disabled={working || enabled}
+          disabled={locked || enabled}
           onChange={(value) => setSize(value)}
           options={(status?.sizes ?? [64, 128, 256, 512, 1024]).map((mib) => ({
             value: mib,
             label: sizeLabel(mib)
           }))}
         />
-        <Button loading={working} disabled={enabled || !status} onClick={create}>
+        <Button loading={working} disabled={locked || enabled || !status} onClick={create}>
           {t(status?.exists ? 'settings.usb.userDisk.recreate' : 'settings.usb.userDisk.create')}
         </Button>
         {status?.exists && (
-          <Button danger disabled={working || enabled} onClick={remove}>
+          <Button danger disabled={locked || enabled} onClick={remove}>
             {t('settings.usb.userDisk.delete')}
           </Button>
         )}
       </div>
+      {status?.exists && (
+        <UserDiskFiles
+          key={status.modifiedAt}
+          host={enabled || status.enabled || status.attached}
+          busy={busy || working || filesBusy}
+          onBusy={setFilesBusy}
+        />
+      )}
       <p className="text-fg-muted m-0 text-xs">{t('settings.usb.userDisk.notice')}</p>
     </Panel>
   );

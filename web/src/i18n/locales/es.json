@@ -1177,10 +1177,41 @@
         "ejectFirst": "Expulsa primero la unidad en el equipo para que nada quede a medio escribir; después los dispositivos USB se reconectan.",
         "created": "Disco de usuario creado",
         "turnOffFirst": "Desactiva primero el disco de usuario.",
-        "busy": "El disco de usuario se está creando o eliminando. Vuelve a intentarlo cuando termine.",
+        "busy": "El disco está ocupado. Espera y vuelve a intentarlo.",
         "missing": "La imagen del disco de usuario ya no existe. Vuelve a crearla.",
         "failed": "La solicitud del disco de usuario falló.",
-        "notice": "Montar o expulsar una imagen de CD/disco también reconecta los dispositivos USB; después el equipo vuelve a ver el disco de usuario con lo que escribió. Toda la imagen se asigna en la tarjeta SD al crearla, por lo que los tamaños grandes tardan un poco."
+        "notice": "Montar o expulsar una imagen de CD/disco también reconecta los dispositivos USB; después el equipo vuelve a ver el disco de usuario con lo que escribió. Toda la imagen se asigna en la tarjeta SD al crearla, por lo que los tamaños grandes tardan un poco.",
+        "files": {
+          "title": "Archivos del disco de usuario",
+          "host": "Expulsa la unidad en el ordenador y desactiva el disco de usuario arriba para gestionar sus archivos.",
+          "hint": "Al terminar, activa el disco de usuario arriba para acceder a los archivos desde el ordenador. Los archivos existentes no se sobrescriben.",
+          "refresh": "Actualizar",
+          "browse": "Ver archivos",
+          "up": "Subir",
+          "upload": "Subir archivos",
+          "transferring": "Transfiriendo y guardando… Espera a que termine antes de conectar el disco.",
+          "cancel": "Cancelar",
+          "space": "{{free}} libres de {{total}}",
+          "folderName": "Nombre de la carpeta nueva",
+          "mkdir": "Crear carpeta",
+          "download": "Descargar",
+          "delete": "Eliminar",
+          "empty": "Esta carpeta está vacía.",
+          "deleteTitle": "¿Eliminar este elemento?",
+          "deleteConfirm": "¿Eliminar {{name}}? Solo se pueden eliminar carpetas vacías.",
+          "errors": {
+            "host": "El ordenador está usando el disco. Expúlsalo y desactívalo arriba.",
+            "busy": "El disco está ocupado. Espera y vuelve a intentarlo.",
+            "path": "Nombre de archivo o carpeta no válido.",
+            "exists": "Ya existe un archivo o carpeta con ese nombre.",
+            "missing": "El disco, archivo o carpeta ya no existe. Actualiza o sube un nivel.",
+            "space": "No hay espacio suficiente o el archivo supera el límite de FAT32 de 4 GiB menos 1 byte.",
+            "notEmpty": "La carpeta no está vacía.",
+            "io": "La operación falló. Comprueba el disco y los registros del sistema y actualiza."
+          },
+          "previous": "Página anterior",
+          "next": "Página siguiente"
+        }
       },
       "serialConsole": {
         "title": "Consola Linux sin monitor",

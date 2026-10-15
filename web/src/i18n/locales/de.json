@@ -1177,10 +1177,41 @@
         "ejectFirst": "Werfen Sie das Laufwerk zuerst auf dem Computer aus, damit nichts halb geschrieben bleibt; danach werden die USB-Geräte neu verbunden.",
         "created": "Benutzerlaufwerk erstellt",
         "turnOffFirst": "Schalten Sie zuerst das Benutzerlaufwerk aus.",
-        "busy": "Das Benutzerlaufwerk wird gerade erstellt oder gelöscht. Versuchen Sie es erneut, wenn der Vorgang abgeschlossen ist.",
+        "busy": "Der Datenträger ist beschäftigt. Warten Sie und versuchen Sie es erneut.",
         "missing": "Das Image des Benutzerlaufwerks fehlt. Erstellen Sie es erneut.",
         "failed": "Die Anfrage für das Benutzerlaufwerk ist fehlgeschlagen.",
-        "notice": "Auch das Einbinden oder Auswerfen eines CD-/Festplatten-Images verbindet die USB-Geräte neu; danach sieht der Computer das Benutzerlaufwerk wieder mit dem, was er geschrieben hat. Das gesamte Image wird beim Erstellen auf der SD-Karte reserviert, daher dauern große Größen eine Weile."
+        "notice": "Auch das Einbinden oder Auswerfen eines CD-/Festplatten-Images verbindet die USB-Geräte neu; danach sieht der Computer das Benutzerlaufwerk wieder mit dem, was er geschrieben hat. Das gesamte Image wird beim Erstellen auf der SD-Karte reserviert, daher dauern große Größen eine Weile.",
+        "files": {
+          "title": "Dateien auf dem Benutzerdatenträger",
+          "host": "Werfen Sie das Laufwerk am Computer aus und schalten Sie den Benutzerdatenträger oben aus, um seine Dateien zu verwalten.",
+          "hint": "Schalten Sie danach den Benutzerdatenträger oben ein, um die Dateien am Computer zu nutzen. Vorhandene Dateien werden nicht überschrieben.",
+          "refresh": "Aktualisieren",
+          "browse": "Dateien öffnen",
+          "up": "Nach oben",
+          "upload": "Dateien hochladen",
+          "transferring": "Übertragen und speichern… Warten Sie bis zum Abschluss, bevor Sie den Datenträger verbinden.",
+          "cancel": "Abbrechen",
+          "space": "{{free}} frei von {{total}}",
+          "folderName": "Name des neuen Ordners",
+          "mkdir": "Ordner erstellen",
+          "download": "Herunterladen",
+          "delete": "Löschen",
+          "empty": "Dieser Ordner ist leer.",
+          "deleteTitle": "Dieses Element löschen?",
+          "deleteConfirm": "{{name}} löschen? Nur leere Ordner können gelöscht werden.",
+          "errors": {
+            "host": "Der Computer verwendet den Datenträger. Werfen Sie ihn aus und schalten Sie ihn oben aus.",
+            "busy": "Der Datenträger ist beschäftigt. Warten Sie und versuchen Sie es erneut.",
+            "path": "Ungültiger Datei- oder Ordnername.",
+            "exists": "Eine Datei oder ein Ordner mit diesem Namen ist bereits vorhanden.",
+            "missing": "Datenträger, Datei oder Ordner nicht mehr vorhanden. Aktualisieren Sie oder gehen Sie nach oben.",
+            "space": "Nicht genug Speicherplatz oder die Datei überschreitet das FAT32-Limit von 4 GiB minus 1 Byte.",
+            "notEmpty": "Der Ordner ist nicht leer.",
+            "io": "Der Vorgang ist fehlgeschlagen. Prüfen Sie den Datenträger und die Systemprotokolle und aktualisieren Sie."
+          },
+          "previous": "Vorherige Seite",
+          "next": "Nächste Seite"
+        }
       },
       "serialConsole": {
         "title": "Headless-Linux-Konsole",

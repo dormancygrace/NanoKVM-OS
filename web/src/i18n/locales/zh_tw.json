@@ -29,11 +29,12 @@
       "reset2": "詳細操作方法可參閱本文件：",
       "reset3": "網頁預設帳號：",
       "reset4": "SSH 預設帳號：",
-      "change1": "請注意，此操作將同時更新下列密碼：",
+      "change1": "對於內建的管理員帳號，此操作會變更下列密碼：",
       "change2": "網頁登入密碼",
       "change3": "root user 密碼 (SSH登入密碼)",
       "change4": "如果您忘記密碼，需要長按 NanoKVM 上的 BOOT 按鍵來重設密碼。"
-    }
+    },
+    "placeholderCurrentPassword": "目前的密碼"
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -51,7 +52,7 @@
     }
   },
   "screen": {
-    "scale": "缩放",
+    "scale": "縮放",
     "title": "螢幕",
     "video": "編碼格式",
     "controlRegion": {
@@ -100,7 +101,9 @@
       "videoError": "影片顯示異常",
       "noHdmi": "未偵測到 HDMI 訊號",
       "unavailable": "畫面暫時無法顯示"
-    }
+    },
+    "codec": "編解碼器",
+    "retryJoin": "重試"
   },
   "keyboard": {
     "title": "鍵盤",
@@ -118,10 +121,10 @@
     "dropdownRussian": "俄語",
     "dropdownSpanish": "西班牙語",
     "shortcut": {
-      "title": "快捷鍵",
-      "custom": "自定義",
+      "title": "鍵盤快捷鍵",
+      "custom": "自訂",
       "capture": "點選此處錄製快捷鍵",
-      "clear": "清空",
+      "clear": "清除",
       "save": "儲存",
       "captureTips": "擷取系統級按鍵（如 Windows 鍵）需要全螢幕權限。",
       "enterFullScreen": "切換全螢幕模式。"
@@ -152,6 +155,10 @@
         "activate": "啟用按鍵",
         "input": "請按快捷鍵..."
       }
+    },
+    "sequences": {
+      "title": "按鍵序列",
+      "sent": "已傳送"
     }
   },
   "mouse": {
@@ -250,14 +257,17 @@
     "flowControlHard": "硬體",
     "dataBits": "資料位元",
     "stopBits": "停止位元",
-    "confirm": "確定"
+    "confirm": "確定",
+    "usbSerial": "USB 序列主控台"
   },
   "wol": {
     "title": "Wake-on-LAN",
     "sending": "發送指令中...",
     "sent": "指令已發送",
     "input": "請輸入 MAC 位址",
-    "ok": "確定"
+    "ok": "確定",
+    "name": "裝置名稱",
+    "cancel": "取消"
   },
   "download": {
     "title": "下载映像檔",
@@ -273,7 +283,8 @@
     "success": "下載成功",
     "checksumFailed": "下載失敗：SHA-256 校驗失敗",
     "cancel": "取消",
-    "cancelFailed": "取消下載失敗"
+    "cancelFailed": "取消下載失敗",
+    "downloading": "下載中"
   },
   "power": {
     "title": "電源控制",
@@ -312,7 +323,13 @@
       "ip": "IP",
       "image": "韌體版本",
       "hostname": "主機名稱",
-      "hostnameUpdated": "已更新主機名稱. 請重新啟動以生效"
+      "hostnameUpdated": "已更新主機名稱. 請重新啟動以生效",
+      "credits": {
+        "button": "致謝",
+        "title": "致謝",
+        "close": "關閉"
+      },
+      "documentation": "文件"
     },
     "appearance": {
       "title": "外觀",
@@ -332,6 +349,9 @@
         "keyboardLedStatusDesc": "顯示遠端電腦的 Num Lock、Caps Lock 與 Scroll Lock 狀態",
         "icons": "選單圖示",
         "iconsDesc": "是否在選單欄中顯示子選單圖示"
+      },
+      "buttonColor": {
+        "save": "套用"
       }
     },
     "keyboardLedStatus": {
@@ -382,7 +402,10 @@
       "reboot": "重新啟動",
       "rebootDesc": "您確定要重新啟動 NanoKVM?",
       "okBtn": "確定",
-      "cancelBtn": "取消"
+      "cancelBtn": "取消",
+      "cpuFrequency": {
+        "title": "CPU 頻率與超頻"
+      }
     },
     "network": {
       "title": "網路",
@@ -399,11 +422,22 @@
         "password": "密碼",
         "joinBtn": "加入",
         "confirmBtn": "確定",
-        "cancelBtn": "取消"
+        "cancelBtn": "取消",
+        "band": "頻段",
+        "manual": "手動連線",
+        "hidden": "隱藏網路",
+        "security": "安全性",
+        "open": "開放網路",
+        "loading": "載入中...",
+        "reconnect": "重新連線"
       },
       "tls": {
         "description": "啟用 HTTPS 協議",
-        "tip": "啟用 HTTPS 可以提高安全性，但可能會增加傳輸延遲，特別是使用 MJPEG 格式傳輸時。"
+        "tip": "啟用 HTTPS 可以提高安全性，但可能會增加傳輸延遲，特別是使用 MJPEG 格式傳輸時。",
+        "certificate": {
+          "title": "憑證",
+          "remove": "移除"
+        }
       },
       "ethernet": {
         "title": "有線網路 IPv4",
@@ -423,7 +457,8 @@
         "save": "儲存",
         "unsaved": "有未儲存的變更",
         "saveFailed": "儲存有線網路設定失敗",
-        "loadFailed": "讀取有線網路設定失敗"
+        "loadFailed": "讀取有線網路設定失敗",
+        "disabled": "已停用"
       },
       "dns": {
         "title": "DNS",
@@ -446,6 +481,11 @@
         "subnetMask": "子網路遮罩",
         "router": "路由器",
         "none": "無"
+      },
+      "general": "一般",
+      "gateway": {
+        "title": "偏好的閘道",
+        "auto": "自動"
       }
     },
     "tailscale": {
@@ -458,7 +498,7 @@
       "install": "安裝",
       "installing": "安裝中",
       "failed": "安裝失敗",
-      "retry": "請重新整理並重試。或嘗試手動安裝",
+      "retry": "請重試安裝。",
       "notRunning": "Tailscale 尚未執行",
       "run": "啟動",
       "notLogin": "設備尚未綁定。請登入並將該裝置綁定到您的帳戶。",
@@ -474,17 +514,165 @@
       "uninstall": "移除 Tailscale",
       "uninstallDesc": "確定要解除安裝 Tailscale 嗎？",
       "okBtn": "確認",
-      "cancelBtn": "取消"
+      "cancelBtn": "取消",
+      "moreActions": "更多操作"
     },
     "account": {
-      "title": "帳號",
+      "title": "使用者",
       "webAccount": "網頁帳號",
       "password": "密碼",
       "updateBtn": "修改",
       "logoutBtn": "登出",
       "logoutDesc": "您確定要登出嗎?",
       "okBtn": "確定",
-      "cancelBtn": "取消"
+      "cancelBtn": "取消",
+      "role": "角色",
+      "roles": {
+        "admin": "管理員",
+        "user": "使用者"
+      },
+      "users": {
+        "title": "使用者",
+        "create": "建立使用者",
+        "enabled": "已啟用",
+        "disabled": "已停用",
+        "deviceOwner": "裝置擁有者",
+        "rename": "重新命名",
+        "resetPassword": "重設密碼",
+        "delete": "刪除"
+      }
+    },
+    "software": {
+      "indexSchedule": {
+        "save": "儲存"
+      },
+      "addons": {
+        "title": "附加元件",
+        "packages": "套件"
+      },
+      "title": "軟體",
+      "available": "可用套件",
+      "updatesTab": "更新",
+      "search": "搜尋",
+      "install": "安裝",
+      "installed": "已安裝套件",
+      "remove": "移除"
+    },
+    "updates": {
+      "apk": {
+        "title": "套件更新",
+        "log": "更新日誌"
+      },
+      "title": "更新",
+      "installed": "已安裝"
+    },
+    "memory": {
+      "title": "記憶體",
+      "available": "可用",
+      "size": "容量",
+      "used": "已使用",
+      "algorithm": "壓縮",
+      "videoUnknown": "未知"
+    },
+    "system": {
+      "general": "一般",
+      "logs": {
+        "title": "日誌",
+        "sources": {
+          "kernel": "核心"
+        },
+        "refresh": "重新整理"
+      },
+      "diagnostics": {
+        "overview": "狀態",
+        "title": "診斷",
+        "refresh": "重新整理",
+        "application": "應用程式"
+      },
+      "services": "服務",
+      "device": "設備"
+    },
+    "usb": {
+      "internet": {
+        "title": "透過 USB 共用網際網路",
+        "states": {
+          "loading": "載入中..."
+        }
+      },
+      "title": "USB 功能組合",
+      "apply": "套用",
+      "cancel": "捨棄變更",
+      "identity": {
+        "title": "USB 識別資訊"
+      },
+      "userDisk": {
+        "title": "使用者磁碟",
+        "create": "建立",
+        "delete": "刪除",
+        "files": {
+          "title": "使用者磁碟中的檔案",
+          "refresh": "重新整理",
+          "browse": "瀏覽檔案",
+          "up": "上一層資料夾",
+          "upload": "上傳檔案",
+          "cancel": "取消",
+          "folderName": "新資料夾名稱",
+          "mkdir": "建立資料夾",
+          "download": "下載",
+          "delete": "刪除",
+          "empty": "此資料夾是空的。",
+          "errors": {
+            "notEmpty": "資料夾不是空的。"
+          },
+          "previous": "上一頁",
+          "next": "下一頁"
+        }
+      },
+      "serialConsole": {
+        "title": "無螢幕 Linux 主控台"
+      },
+      "devices": {
+        "network": {
+          "title": "虛擬網路"
+        },
+        "disk": {
+          "title": "虛擬磁碟"
+        },
+        "serial": {
+          "title": "USB 序列主控台"
+        }
+      }
+    },
+    "netbird": {
+      "moreActions": "更多操作",
+      "loginSuccess": "我已登入",
+      "deviceName": "裝置名稱",
+      "version": "版本",
+      "loading": "載入中...",
+      "run": "啟動",
+      "login": "登入",
+      "deviceIP": "裝置 IP",
+      "cancelBtn": "取消",
+      "error": {
+        "installFailed": "安裝失敗"
+      }
+    },
+    "rustdesk": {
+      "absent": "尚未安裝",
+      "stopped": "已停止",
+      "install": "安裝",
+      "remove": "移除",
+      "save": "儲存設定",
+      "server": "伺服器",
+      "passwordMode": "密碼",
+      "temporaryPassword": "臨時密碼",
+      "newPassword": "新密碼",
+      "advanced": "進階設定",
+      "saved": "設定已儲存",
+      "unknownVersion": "未知"
+    },
+    "extensions": {
+      "title": "擴充功能"
     }
   },
   "picoclaw": {
@@ -499,7 +687,8 @@
       "kvmTitle": "遠端控制",
       "kvmDescription": "透過 NanoKVM 操作遠端主機。",
       "switched": "代理角色已切換",
-      "switchFailed": "代理角色切換失敗"
+      "switchFailed": "代理角色切換失敗",
+      "label": "代理角色"
     },
     "send": "發送",
     "cancel": "取消",
@@ -552,7 +741,7 @@
       "picoclawDescription": "PicoClaw 可以寫入鍵鼠，手動輸入可能會被暫停。",
       "mcp": "設備控制：外部 MCP",
       "mcpDescription": "外部 MCP 可以寫入裝置，PicoClaw 不會接管鍵鼠。",
-      "off": "設備控制：關閉",
+      "off": "裝置控制：手動 / 不使用 AI",
       "offDescription": "AI 不會寫入鍵鼠，手動控制保持可用。",
       "transitioning": "裝置控制：正在切換",
       "transitioningDescription": "正在同步裝置控制權，請稍候。",
@@ -642,7 +831,8 @@
       "description": "啟動 Runtime 後即可開始使用 PicoClaw 助理。",
       "switchFromMCP": "切換到 PicoClaw 並啟動",
       "takeoverAndStart": "接管並啟動"
-    }
+    },
+    "moreActions": "更多操作"
   },
   "error": {
     "title": "我們遇到了一些問題",
@@ -654,5 +844,110 @@
   "menu": {
     "collapse": "收起選單",
     "expand": "展開選單"
+  },
+  "audio": {
+    "listen": "聆聽",
+    "resume": "恢復音訊",
+    "volume": "音量"
+  },
+  "sessionControl": {
+    "viewOnly": "僅檢視",
+    "take": "接管控制",
+    "release": "鎖定此工作階段"
+  },
+  "dateTime": {
+    "title": "日期與時間",
+    "deviceTime": "裝置時間",
+    "timezone": "時區",
+    "format": "時間格式",
+    "preview": "預覽",
+    "synchronized": "已同步",
+    "waiting": "同步尚未確認",
+    "save": "儲存"
+  },
+  "recorder": {
+    "title": "影片錄製",
+    "start": "開始錄製",
+    "stop": "停止錄製"
+  },
+  "screenshot": {
+    "take": "擷取螢幕畫面"
+  },
+  "vpn": {
+    "rename": "重新命名",
+    "profileName": "設定檔名稱",
+    "credentials": "認證資訊",
+    "username": "使用者名稱",
+    "password": "密碼",
+    "save": "儲存",
+    "enable": "啟用",
+    "delete": "刪除",
+    "states": {
+      "reconnecting": "正在重新連線",
+      "error": "錯誤",
+      "connecting": "連接中",
+      "connected": "已連接",
+      "idle": "空閒"
+    },
+    "cancel": "取消"
+  },
+  "dashboard": {
+    "title": "儀表板",
+    "freeStorage": "可用空間",
+    "uptime": "運作時間",
+    "kernel": "核心",
+    "memory": "記憶體",
+    "cache": "快取",
+    "compression": "壓縮",
+    "storage": "儲存空間",
+    "dataStorage": "資料",
+    "bootStorage": "開機",
+    "readOnly": "唯讀",
+    "disconnected": "未連線",
+    "deviceTime": "裝置時間",
+    "timezone": "時區",
+    "synchronization": "同步",
+    "synchronized": "已同步",
+    "notSynchronized": "同步尚未確認",
+    "noProfiles": "沒有設定檔",
+    "states": {
+      "waiting": "等待中",
+      "error": "錯誤",
+      "stopped": "已停止",
+      "notInstall": "尚未安裝",
+      "notRunning": "已停止",
+      "notLogin": "尚未登入",
+      "connected": "已連接",
+      "idle": "空閒",
+      "running": "已連接",
+      "connecting": "連接中",
+      "auth": "需要身份驗證"
+    },
+    "device": "設備",
+    "connected": "已連接"
+  },
+  "videoSettings": {
+    "image": "畫面",
+    "mode": "模式",
+    "browserSection": "此瀏覽器",
+    "player": "播放器",
+    "landscape": "橫向螢幕",
+    "transport": "傳輸方式",
+    "powerCycleCancel": "取消",
+    "apply": "套用",
+    "discard": "捨棄變更",
+    "bitrate": "位元率",
+    "captureOn": "已啟用擷取",
+    "captureOff": "已停用擷取",
+    "input": "HDMI 輸入",
+    "output": "編碼後的串流",
+    "monitor": "HDMI 螢幕",
+    "portrait": "直向螢幕",
+    "retry": "重試"
+  },
+  "capture": {
+    "start": "啟用擷取",
+    "stop": "停用擷取",
+    "off": "已停用擷取"
   }
 }

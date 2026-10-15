@@ -29,11 +29,12 @@
       "reset2": "Щоб отримати детальні кроки, зверніться до цього документа:",
       "reset3": "Обліковий запис вебінтерфейс за замовчуванням:",
       "reset4": "Обліковий запис SSH за замовчуванням:",
-      "change1": "Зверніть увагу, що ця дія змінить наступні паролі:",
+      "change1": "Для вбудованого облікового запису адміністратора ця дія змінює такі паролі:",
       "change2": "Пароль для входу у веб-інтерфейс",
       "change3": "Системний root пароль (пароль для входу в систему по SSH)",
       "change4": "Щоб скинути паролі, натисніть і утримуйте кнопку BOOT на NanoKVM."
-    }
+    },
+    "placeholderCurrentPassword": "Поточний пароль"
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -100,7 +101,9 @@
       "videoError": "Помилка відображення відео",
       "noHdmi": "Сигнал HDMI не виявлено",
       "unavailable": "Зараз неможливо показати зображення"
-    }
+    },
+    "codec": "Кодек",
+    "retryJoin": "Спробувати знову"
   },
   "keyboard": {
     "title": "Клавіатура",
@@ -112,36 +115,36 @@
     "readClipboard": "Читання з буфера обміну",
     "clipboardPermissionDenied": "Відмовлено в дозволі буфера обміну. Будь ласка, дозвольте доступ до буфера обміну у вашому браузері.",
     "clipboardReadError": "Не вдалося прочитати буфер обміну",
-    "dropdownEnglish": "англійська",
-    "dropdownGerman": "нім",
-    "dropdownFrench": "французька",
-    "dropdownRussian": "рос",
+    "dropdownEnglish": "Англійська",
+    "dropdownGerman": "Німецька",
+    "dropdownFrench": "Французька",
+    "dropdownRussian": "Російська",
     "dropdownSpanish": "Іспанська",
     "shortcut": {
-      "title": "Ярлики",
-      "custom": "Custom",
-      "capture": "Натисніть тут, щоб захопити ярлик",
-      "clear": "Ясно",
+      "title": "Сполучення клавіш",
+      "custom": "Власні",
+      "capture": "Натисніть тут, щоб записати сполучення клавіш",
+      "clear": "Очистити",
       "save": "Зберегти",
       "captureTips": "Для захоплення системних клавіш (наприклад, клавіші Windows) потрібен дозвіл повноекранного режиму.",
       "enterFullScreen": "Перемкнути повноекранний режим."
     },
     "leaderKey": {
       "title": "Клавіша Leader",
-      "desc": "Обійти обмеження браузера та надсилати системні ярлики безпосередньо на віддалений хост.",
+      "desc": "Обхід обмежень браузера та надсилання системних сполучень клавіш безпосередньо на віддалений комп’ютер.",
       "howToUse": "Як використовувати",
       "simultaneous": {
         "title": "Одночасний режим",
-        "desc1": "Натисніть і утримуйте клавішу Leader, потім натисніть клавішу швидкого доступу.",
-        "desc2": "Інтуїтивно зрозумілий, але може конфліктувати з системними ярликами."
+        "desc1": "Натисніть і утримуйте клавішу Leader, потім натисніть сполучення клавіш.",
+        "desc2": "Інтуїтивно зрозумілий, але може конфліктувати із системними сполученнями клавіш."
       },
       "sequential": {
         "title": "Послідовний режим",
-        "desc1": "Натисніть клавішу Leader → послідовно натисніть клавішу швидкого доступу → знову натисніть клавішу Leader.",
+        "desc1": "Натисніть клавішу Leader → послідовно натисніть сполучення клавіш → знову натисніть клавішу Leader.",
         "desc2": "Вимагає більше кроків, але повністю уникає системних конфліктів."
       },
       "enable": "Увімкнути клавішу Leader",
-      "tip": "Якщо її призначити клавішею Leader, ця клавіша працює лише як тригер швидкого доступу та втрачає поведінку за замовчуванням.",
+      "tip": "Якщо призначити цю клавішу клавішею Leader, вона слугуватиме лише для запуску сполучень клавіш і втратить свою звичайну функцію.",
       "placeholder": "Натисніть клавішу Leader",
       "shiftRight": "Правий Shift",
       "ctrlRight": "Правий Ctrl",
@@ -150,8 +153,12 @@
       "recorder": {
         "rec": "REC",
         "activate": "Активувати клавіші",
-        "input": "Будь ласка, натисніть клавішу швидкого доступу..."
+        "input": "Натисніть сполучення клавіш…"
       }
+    },
+    "sequences": {
+      "title": "Послідовності клавіш",
+      "sent": "Надіслано"
     }
   },
   "mouse": {
@@ -250,14 +257,17 @@
     "flowControlHard": "Апаратне",
     "dataBits": "Біти даних",
     "stopBits": "Стопові біти",
-    "confirm": "Ок"
+    "confirm": "Ок",
+    "usbSerial": "Послідовна консоль USB"
   },
   "wol": {
     "title": "Wake-on-LAN",
     "sending": "Посилання команди...",
     "sent": "Команду відправлено",
     "input": "Будь ласка, введіть MAC",
-    "ok": "Ок"
+    "ok": "Ок",
+    "name": "Назва пристрою",
+    "cancel": "Скасувати"
   },
   "download": {
     "title": "Завантажувач образів",
@@ -273,7 +283,8 @@
     "success": "Завантаження успішне",
     "checksumFailed": "Помилка завантаження: перевірка SHA-256 не пройдена",
     "cancel": "Скасувати",
-    "cancelFailed": "Не вдалося скасувати завантаження"
+    "cancelFailed": "Не вдалося скасувати завантаження",
+    "downloading": "Завантаження"
   },
   "power": {
     "title": "Живлення",
@@ -312,7 +323,13 @@
       "ip": "IP",
       "image": "Версія образу",
       "hostname": "Ім'я вузла",
-      "hostnameUpdated": "Ім'я вузла оновлено. Перезавантажте систему, щоб застосувати зміни."
+      "hostnameUpdated": "Ім'я вузла оновлено. Перезавантажте систему, щоб застосувати зміни.",
+      "credits": {
+        "button": "Подяки",
+        "title": "Подяки",
+        "close": "Закрити"
+      },
+      "documentation": "Документація"
     },
     "appearance": {
       "title": "Зовнішній вигляд",
@@ -332,6 +349,9 @@
         "keyboardLedStatusDesc": "Показувати стан Num Lock, Caps Lock і Scroll Lock віддаленого комп’ютера",
         "icons": "Значки підменю",
         "iconsDesc": "Відображення значків підменю на панелі меню"
+      },
+      "buttonColor": {
+        "save": "Застосувати"
       }
     },
     "keyboardLedStatus": {
@@ -382,7 +402,10 @@
       "reboot": "Перезавантажити",
       "rebootDesc": "Ви впевнені, що хочете перезавантажити NanoKVM?",
       "okBtn": "Так",
-      "cancelBtn": "Ні"
+      "cancelBtn": "Ні",
+      "cpuFrequency": {
+        "title": "Частота процесора й розгін"
+      }
     },
     "network": {
       "title": "Мережа",
@@ -399,11 +422,22 @@
         "password": "Пароль",
         "joinBtn": "Підключити",
         "confirmBtn": "OK",
-        "cancelBtn": "Скасувати"
+        "cancelBtn": "Скасувати",
+        "band": "Частотний діапазон",
+        "manual": "Підключитися вручну",
+        "hidden": "Прихована мережа",
+        "security": "Безпека",
+        "open": "Відкрита мережа",
+        "loading": "Завантаження...",
+        "reconnect": "Підключитися знову"
       },
       "tls": {
         "description": "Увімкнути протокол HTTPS",
-        "tip": "Будьте в курсі: Використання HTTPS може збільшити затримку, особливо в режимі відео MJPEG."
+        "tip": "Будьте в курсі: Використання HTTPS може збільшити затримку, особливо в режимі відео MJPEG.",
+        "certificate": {
+          "title": "Сертифікат",
+          "remove": "Видалити"
+        }
       },
       "ethernet": {
         "title": "Ethernet IPv4",
@@ -423,7 +457,8 @@
         "save": "Зберегти",
         "unsaved": "Незбережені зміни",
         "saveFailed": "Не вдалося зберегти налаштування Ethernet",
-        "loadFailed": "Не вдалося завантажити налаштування Ethernet"
+        "loadFailed": "Не вдалося завантажити налаштування Ethernet",
+        "disabled": "Вимкнено"
       },
       "dns": {
         "title": "DNS",
@@ -446,6 +481,11 @@
         "subnetMask": "Маска підмережі",
         "router": "Маршрутизатор",
         "none": "Немає"
+      },
+      "general": "Загальні",
+      "gateway": {
+        "title": "Бажаний шлюз",
+        "auto": "Автоматично"
       }
     },
     "tailscale": {
@@ -458,7 +498,7 @@
       "install": "Встановити",
       "installing": "Встановлення",
       "failed": "Не вдалося встановити",
-      "retry": "Будь ласка, оновіть сторінку та спробуйте ще раз. Або спробуйте встановити вручну",
+      "retry": "Спробуйте встановити знову.",
       "notRunning": "Tailscale не працює. Щоб продовжити, запустіть його.",
       "run": "Початок",
       "notLogin": "Пристрій ще не прив'язаний. Будь ласка, увійдіть і прив'яжіть цей пристрій до вашого облікового запису.",
@@ -474,17 +514,168 @@
       "uninstall": "Видалити Tailscale",
       "uninstallDesc": "Ви впевнені, що хочете видалити Tailscale?",
       "okBtn": "Так",
-      "cancelBtn": "Ні"
+      "cancelBtn": "Ні",
+      "moreActions": "Інші дії"
     },
     "account": {
-      "title": "Обліковий запис",
+      "title": "Користувачі",
       "webAccount": "Ім'я облыкового запису у веб-інтерфейсі",
       "password": "Пароль",
       "updateBtn": "Зміна",
       "logoutBtn": "Вийти",
       "logoutDesc": "Ви впевнені, що хочете вийти?",
       "okBtn": "Так",
-      "cancelBtn": "Ні"
+      "cancelBtn": "Ні",
+      "role": "Роль",
+      "roles": {
+        "admin": "Адміністратор",
+        "user": "Користувач"
+      },
+      "users": {
+        "title": "Користувачі",
+        "create": "Створити користувача",
+        "enabled": "Увімкнено",
+        "disabled": "Вимкнено",
+        "deviceOwner": "Власник пристрою",
+        "rename": "Перейменувати",
+        "resetPassword": "Скинути пароль",
+        "delete": "Видалити"
+      }
+    },
+    "software": {
+      "indexSchedule": {
+        "save": "Зберегти"
+      },
+      "addons": {
+        "title": "Доповнення",
+        "packages": "Пакунки"
+      },
+      "title": "Програмне забезпечення",
+      "available": "Доступні пакунки",
+      "updatesTab": "Оновлення",
+      "search": "Пошук",
+      "install": "Встановити",
+      "installed": "Встановлені пакунки",
+      "remove": "Видалити"
+    },
+    "updates": {
+      "apk": {
+        "title": "Оновлення пакунків",
+        "log": "Журнал оновлення"
+      },
+      "title": "Оновлення",
+      "installed": "Встановлено"
+    },
+    "memory": {
+      "title": "Пам’ять",
+      "available": "Доступно",
+      "size": "Місткість",
+      "used": "Використано",
+      "algorithm": "Стиснення",
+      "videoUnknown": "Невідомо"
+    },
+    "system": {
+      "general": "Загальні",
+      "logs": {
+        "title": "Журнали",
+        "sources": {
+          "kernel": "Ядро"
+        },
+        "refresh": "Оновити"
+      },
+      "diagnostics": {
+        "overview": "Стан",
+        "title": "Діагностика",
+        "refresh": "Оновити",
+        "application": "Застосунок"
+      },
+      "services": "Служби",
+      "device": "Пристрій"
+    },
+    "usb": {
+      "internet": {
+        "title": "Інтернет через USB",
+        "states": {
+          "loading": "Завантаження..."
+        }
+      },
+      "title": "Функції USB",
+      "apply": "Застосувати",
+      "cancel": "Відкинути зміни",
+      "identity": {
+        "title": "Ідентифікація USB"
+      },
+      "userDisk": {
+        "title": "Диск користувача",
+        "create": "Створити",
+        "delete": "Видалити",
+        "files": {
+          "title": "Файли на диску користувача",
+          "refresh": "Оновити",
+          "browse": "Переглянути файли",
+          "up": "Батьківська папка",
+          "upload": "Завантажити файли на пристрій",
+          "cancel": "Скасувати",
+          "folderName": "Назва нової папки",
+          "mkdir": "Створити папку",
+          "download": "Завантажити",
+          "delete": "Видалити",
+          "empty": "Ця папка порожня.",
+          "errors": {
+            "notEmpty": "Папка не порожня."
+          },
+          "previous": "Попередня сторінка",
+          "next": "Наступна сторінка"
+        }
+      },
+      "serialConsole": {
+        "title": "Консоль Linux без монітора"
+      },
+      "devices": {
+        "network": {
+          "title": "Віртуальна мережа"
+        },
+        "disk": {
+          "title": "Віртуальний диск"
+        },
+        "serial": {
+          "title": "Послідовна консоль USB"
+        },
+        "keyboard": {
+          "title": "Клавіатура"
+        }
+      }
+    },
+    "netbird": {
+      "moreActions": "Інші дії",
+      "loginSuccess": "Я вже ввійшов у систему",
+      "deviceName": "Назва пристрою",
+      "version": "Версія",
+      "loading": "Завантаження...",
+      "run": "Початок",
+      "deviceIP": "IP пристрою",
+      "okBtn": "Так",
+      "cancelBtn": "Ні",
+      "error": {
+        "installFailed": "Не вдалося встановити"
+      }
+    },
+    "rustdesk": {
+      "absent": "Не встановлено",
+      "stopped": "Зупинено",
+      "install": "Встановити",
+      "remove": "Видалити",
+      "save": "Зберегти налаштування",
+      "server": "Сервер",
+      "passwordMode": "Пароль",
+      "temporaryPassword": "Тимчасовий пароль",
+      "newPassword": "Новий пароль",
+      "advanced": "Розширені налаштування",
+      "saved": "Налаштування збережено",
+      "unknownVersion": "Невідомо"
+    },
+    "extensions": {
+      "title": "Розширення"
     }
   },
   "picoclaw": {
@@ -499,7 +690,8 @@
       "kvmTitle": "Віддалене керування",
       "kvmDescription": "Керуйте віддаленим хостом через NanoKVM.",
       "switched": "Роль агента змінена",
-      "switchFailed": "Не вдалося змінити роль агента"
+      "switchFailed": "Не вдалося змінити роль агента",
+      "label": "Роль агента"
     },
     "send": "Надіслати",
     "cancel": "Скасувати",
@@ -517,22 +709,22 @@
     "connection": {
       "runtime": {
         "checking": "Перевірка",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "Відновлення PicoClaw",
         "ready": "Runtime готовий",
         "stopped": "Runtime зупинено",
         "blockedByMCP": "Зовнішнє керування MCP активне",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "Середовище виконання працює, але введенням на пристрої зараз керує зовнішній MCP.",
+        "readyWithoutControl": "Середовище виконання працює. Перед повторним підключенням надайте PicoClaw керування пристроєм.",
         "unavailable": "Runtime недоступний",
         "configError": "Помилка конфігурації"
       },
       "transport": {
         "connecting": "Підключення",
         "connected": "Підключено",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "Від’єднано",
+        "reconnect": "Підключитися знову",
+        "reconnectDescription": "Знову підключитися до активного сеансу PicoClaw.",
+        "reconnectBlocked": "Для повторного підключення PicoClaw потрібне керування пристроєм."
       },
       "run": {
         "idle": "Бездіяльність",
@@ -549,19 +741,19 @@
     },
     "control": {
       "picoclaw": "Керування пристроєм: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw може надсилати введення з клавіатури та миші. Ручне введення може призупинятися.",
       "mcp": "Керування пристроєм: зовнішній MCP",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "Керування пристроєм: вимкнено",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "Зовнішній MCP може надсилати введення на пристрій. PicoClaw не перехоплюватиме керування введенням.",
+      "off": "Керування пристроєм: вручну / без ШІ",
+      "offDescription": "ШІ не надсилатиме введення з клавіатури та миші. Ручне керування залишиться доступним.",
+      "transitioning": "Керування пристроєм: перемикання",
+      "transitioningDescription": "Триває синхронізація керування пристроєм. Зачекайте.",
       "grant": "Надати керування",
       "release": "Звільнити",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "Керування пристроєм: повернення",
+      "releasingDescription": "Керування пристроєм повертається. PicoClaw припинив надсилання введення.",
       "granted": "Керування PicoClaw надано",
       "released": "Керування PicoClaw звільнено",
       "grantFailed": "Не вдалося надати керування PicoClaw",
@@ -644,7 +836,8 @@
       "description": "Запустіть runtime, щоб почати використовувати помічника PicoClaw.",
       "switchFromMCP": "Switch to PicoClaw and start",
       "takeoverAndStart": "Take over and start"
-    }
+    },
+    "moreActions": "Інші дії"
   },
   "error": {
     "title": "Ми зіткнулися з проблемою",
@@ -656,5 +849,111 @@
   "menu": {
     "collapse": "Згорнути меню",
     "expand": "Розгорнути меню"
+  },
+  "audio": {
+    "listen": "Слухати",
+    "resume": "Відновити звук",
+    "volume": "Гучність"
+  },
+  "sessionControl": {
+    "viewOnly": "Лише перегляд",
+    "take": "Перебрати керування",
+    "release": "Заблокувати цей сеанс"
+  },
+  "dateTime": {
+    "title": "Дата й час",
+    "deviceTime": "Час пристрою",
+    "timezone": "Часовий пояс",
+    "format": "Формат часу",
+    "preview": "Попередній перегляд",
+    "synchronized": "Синхронізовано",
+    "waiting": "Синхронізацію не підтверджено",
+    "save": "Зберегти"
+  },
+  "recorder": {
+    "title": "Запис відео",
+    "start": "Почати запис",
+    "stop": "Зупинити запис"
+  },
+  "screenshot": {
+    "take": "Зробити знімок екрана"
+  },
+  "vpn": {
+    "rename": "Перейменувати",
+    "profileName": "Назва профілю",
+    "credentials": "Облікові дані",
+    "username": "Ім’я користувача",
+    "password": "Пароль",
+    "save": "Зберегти",
+    "enable": "Увімкнути",
+    "delete": "Видалити",
+    "states": {
+      "reconnecting": "Повторне підключення",
+      "error": "Помилка",
+      "connecting": "Підключення",
+      "connected": "Підключено",
+      "idle": "Бездіяльність"
+    },
+    "confirm": "Так",
+    "cancel": "Ні"
+  },
+  "dashboard": {
+    "title": "Огляд",
+    "freeStorage": "Вільне місце",
+    "uptime": "Час роботи",
+    "kernel": "Ядро",
+    "memory": "Пам’ять",
+    "cache": "Кеш",
+    "compression": "Стиснення",
+    "storage": "Сховище",
+    "dataStorage": "Дані",
+    "bootStorage": "Завантаження",
+    "readOnly": "Лише читання",
+    "disconnected": "Немає з’єднання",
+    "deviceTime": "Час пристрою",
+    "timezone": "Часовий пояс",
+    "synchronization": "Синхронізація",
+    "synchronized": "Синхронізовано",
+    "notSynchronized": "Синхронізацію не підтверджено",
+    "noProfiles": "Немає профілів",
+    "states": {
+      "waiting": "Очікування",
+      "error": "Помилка",
+      "stopped": "Зупинено",
+      "notInstall": "Не встановлено",
+      "notRunning": "Зупинено",
+      "notLogin": "Вхід не виконано",
+      "connected": "Підключено",
+      "idle": "Бездіяльність",
+      "running": "Підключено",
+      "connecting": "Підключення",
+      "auth": "Потрібна автентифікація"
+    },
+    "device": "Пристрій",
+    "connected": "Підключено"
+  },
+  "videoSettings": {
+    "image": "Зображення",
+    "mode": "Режим",
+    "browserSection": "Цей браузер",
+    "player": "Програвач",
+    "landscape": "Монітор в альбомній орієнтації",
+    "transport": "Транспорт",
+    "powerCycleCancel": "Скасувати",
+    "apply": "Застосувати",
+    "discard": "Відкинути зміни",
+    "bitrate": "Бітрейт",
+    "captureOn": "Захоплення ввімкнено",
+    "captureOff": "Захоплення вимкнено",
+    "input": "Вхід HDMI",
+    "output": "Закодований потік",
+    "monitor": "Монітор HDMI",
+    "portrait": "Монітор у книжковій орієнтації",
+    "retry": "Спробувати знову"
+  },
+  "capture": {
+    "start": "Увімкнути захоплення",
+    "stop": "Вимкнути захоплення",
+    "off": "Захоплення вимкнено"
   }
 }

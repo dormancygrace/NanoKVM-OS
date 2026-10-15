@@ -321,7 +321,7 @@
       "reset2": "Pour les étapes détaillées, veuillez consulter ce document :",
       "reset3": "Compte Web par défaut :",
       "reset4": "Compte SSH par défaut :",
-      "change1": "Veuillez noter que cette action modifiera les mots de passe suivants :",
+      "change1": "Pour le compte administrateur intégré, cette action modifie les mots de passe suivants :",
       "change2": "Mot de passe de connexion Web",
       "change3": "Mot de passe racine du système (mot de passe de connexion SSH)",
       "change4": "Pour réinitialiser les mots de passe, appuyez et maintenez enfoncé le bouton BOOT sur le NanoKVM."
@@ -471,7 +471,7 @@
       }
     },
     "shortcut": {
-      "title": "Raccourcis",
+      "title": "Raccourcis clavier",
       "custom": "Personnalisé",
       "capture": "Cliquez ici pour capturer le raccourci",
       "clear": "Effacer",
@@ -1547,7 +1547,7 @@
       "install": "Installer",
       "installing": "Installation",
       "failed": "Installation échouée",
-      "retry": "Veuillez rafraîchir et réessayer. Ou essayez d'installer manuellement",
+      "retry": "Veuillez réessayer l’installation.",
       "notRunning": "Tailscale n'est pas en cours d'exécution. Veuillez le démarrer pour continuer.",
       "run": "Début",
       "notLogin": "L'appareil n'est pas relié. Connectez-vous et liez cet appareil à votre compte.",
@@ -1680,7 +1680,7 @@
       "sameServer": "Configurez le même serveur d'ID personnalisé et la même clé publique dans le client RustDesk."
     },
     "account": {
-      "title": "Compte",
+      "title": "Utilisateurs",
       "webAccount": "Nom du compte Web",
       "role": "Rôle",
       "roles": {
@@ -1750,22 +1750,22 @@
     "connection": {
       "runtime": {
         "checking": "Vérification",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "Restauration de PicoClaw",
         "ready": "Runtime prêt",
         "stopped": "Runtime arrêté",
         "blockedByMCP": "Le contrôle MCP externe est actif",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "L’environnement d’exécution fonctionne, mais le MCP externe contrôle actuellement les entrées de l’appareil.",
+        "readyWithoutControl": "L’environnement d’exécution fonctionne. Accordez le contrôle de l’appareil à PicoClaw avant de vous reconnecter.",
         "unavailable": "Runtime indisponible",
         "configError": "Erreur de configuration"
       },
       "transport": {
         "connecting": "Connexion",
         "connected": "Connecté",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "Déconnecté",
+        "reconnect": "Reconnecter",
+        "reconnectDescription": "Se reconnecter à la session PicoClaw en cours.",
+        "reconnectBlocked": "PicoClaw doit contrôler l’appareil pour pouvoir se reconnecter."
       },
       "run": {
         "idle": "Inactif",
@@ -1782,19 +1782,19 @@
     },
     "control": {
       "picoclaw": "Contrôle de l'appareil : PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw peut envoyer des commandes au clavier et à la souris. La saisie manuelle peut être suspendue.",
       "mcp": "Contrôle de l'appareil : MCP externe",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "Contrôle de l'appareil : désactivé",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "Le MCP externe peut envoyer des commandes à l’appareil. PicoClaw ne prendra pas le contrôle des entrées.",
+      "off": "Contrôle de l’appareil : manuel / sans IA",
+      "offDescription": "L’IA n’enverra aucune commande au clavier ni à la souris. Le contrôle manuel reste disponible.",
+      "transitioning": "Contrôle de l’appareil : changement en cours",
+      "transitioningDescription": "Synchronisation du contrôle de l’appareil. Veuillez patienter.",
       "grant": "Accorder le contrôle",
       "release": "Libérer",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "Contrôle de l’appareil : restitution en cours",
+      "releasingDescription": "Le contrôle de l’appareil est en cours de restitution. PicoClaw a cessé d’envoyer des commandes.",
       "granted": "Contrôle PicoClaw accordé",
       "released": "Contrôle PicoClaw libéré",
       "grantFailed": "Échec de l'octroi du contrôle PicoClaw",

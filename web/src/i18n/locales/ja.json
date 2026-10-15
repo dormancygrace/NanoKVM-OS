@@ -321,7 +321,7 @@
       "reset2": "詳細な手順については、次のドキュメントを参照してください：",
       "reset3": "ウェブデフォルトアカウント：",
       "reset4": "SSH デフォルトアカウント：",
-      "change1": "この操作により、以下のパスワードも更新されることに注意してください：",
+      "change1": "組み込みの管理者アカウントでは、この操作により次のパスワードが変更されます:",
       "change2": "ウェブログインパスワード",
       "change3": "システム root パスワード（SSH ログインパスワード）",
       "change4": "パスワードを忘れた場合は、NanoKVM の BOOT ボタンを長押ししてパスワードをリセットする必要があります。"
@@ -471,7 +471,7 @@
       }
     },
     "shortcut": {
-      "title": "ショートカット",
+      "title": "キーボードショートカット",
       "custom": "カスタム",
       "capture": "ショートカットをキャプチャするにはここをクリックしてください",
       "clear": "クリア",
@@ -1547,7 +1547,7 @@
       "install": "インストール",
       "installing": "インストール中",
       "failed": "インストールに失敗しました",
-      "retry": "ページを更新してもう一度お試しいただくか、手動でインストールしてください",
+      "retry": "インストールをもう一度お試しください。",
       "notRunning": "Tailscale はまだ実行されていません。起動操作を実行してください",
       "run": "起動",
       "notLogin": "このデバイスはまだバインドされていません。ログインしてデバイスをアカウントにバインドしてください。",
@@ -1680,7 +1680,7 @@
       "sameServer": "RustDesk クライアントにも同じカスタム ID サーバーと公開鍵を設定してください。"
     },
     "account": {
-      "title": "アカウント",
+      "title": "ユーザー",
       "webAccount": "ウェブアカウント名",
       "role": "役割",
       "roles": {
@@ -1750,22 +1750,22 @@
     "connection": {
       "runtime": {
         "checking": "チェック中",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "PicoClaw を復元中",
         "ready": "ランタイムの準備が完了しました",
         "stopped": "ランタイムが停止しました",
         "blockedByMCP": "外部 MCP 制御が有効です",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "実行環境は動作していますが、現在は外部 MCP がデバイスへの入力を制御しています。",
+        "readyWithoutControl": "実行環境は動作しています。再接続する前に PicoClaw にデバイスの制御権を与えてください。",
         "unavailable": "ランタイムが使用できません",
         "configError": "構成エラー"
       },
       "transport": {
         "connecting": "接続中",
         "connected": "接続されました",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "未接続",
+        "reconnect": "再接続",
+        "reconnectDescription": "実行中の PicoClaw セッションに再接続します。",
+        "reconnectBlocked": "再接続するには、PicoClaw にデバイスの制御権を与える必要があります。"
       },
       "run": {
         "idle": "アイドル状態",
@@ -1782,19 +1782,19 @@
     },
     "control": {
       "picoclaw": "デバイス制御: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw はキーボードとマウスの入力を送信できます。手動入力が一時停止する場合があります。",
       "mcp": "デバイス制御: 外部 MCP",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "デバイス制御: オフ",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "外部 MCP がデバイスに入力を送信できます。PicoClaw は入力の制御を引き継ぎません。",
+      "off": "デバイス制御: 手動 / AI なし",
+      "offDescription": "AI はキーボードやマウスの入力を送信しません。手動操作は引き続き利用できます。",
+      "transitioning": "デバイス制御: 切り替え中",
+      "transitioningDescription": "デバイスの制御状態を同期しています。しばらくお待ちください。",
       "grant": "制御を付与",
       "release": "解除",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "デバイス制御: 制御権を返却中",
+      "releasingDescription": "デバイスの制御権を返却しています。PicoClaw は入力の送信を停止しました。",
       "granted": "PicoClaw 制御を付与しました",
       "released": "PicoClaw 制御を解除しました",
       "grantFailed": "PicoClaw 制御の付与に失敗しました",

@@ -1,7 +1,9 @@
 package stream
 
 import (
+	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,7 +26,15 @@ type CaptureStatus struct {
 	Mode      string    `json:"mode"`
 	Severity  string    `json:"severity"`
 	UpdatedAt time.Time `json:"updatedAt"`
+	// With -6, an input refused for the video memory of this boot and the
+	// video memory mode it needs.
+	InputWidth  int    `json:"inputWidth,omitempty"`
+	InputHeight int    `json:"inputHeight,omitempty"`
+	VideoMemory string `json:"videoMemory,omitempty"`
 }
+
+// rejectedInput is replaced in tests.
+var rejectedInput = common.RejectedInput
 
 type CaptureStatusSubscriber func(CaptureStatus)
 
@@ -121,12 +131,13 @@ func samePublicStatus(a CaptureStatus, b CaptureStatus) bool {
 		return true
 	}
 
-	return a.Ok == b.Ok && a.Result == b.Result && a.Mode == b.Mode
+	return a.Ok == b.Ok && a.Result == b.Result && a.Mode == b.Mode &&
+		a.InputWidth == b.InputWidth && a.InputHeight == b.InputHeight && a.VideoMemory == b.VideoMemory
 }
 
 func newCaptureStatus(mode string, result int, updatedAt time.Time) CaptureStatus {
 	message, severity := captureResultMessage(result)
-	return CaptureStatus{
+	status := CaptureStatus{
 		Ok:        result >= 0,
 		Result:    result,
 		Message:   message,
@@ -134,6 +145,14 @@ func newCaptureStatus(mode string, result int, updatedAt time.Time) CaptureStatu
 		Severity:  severity,
 		UpdatedAt: updatedAt,
 	}
+	if result == -6 {
+		status.InputWidth, status.InputHeight, status.VideoMemory = rejectedInput()
+		if status.VideoMemory != "" {
+			status.Message = fmt.Sprintf("The HDMI input %dx%d needs the %s video memory mode",
+				status.InputWidth, status.InputHeight, strings.ToUpper(status.VideoMemory))
+		}
+	}
+	return status
 }
 
 func captureResultMessage(result int) (string, string) {

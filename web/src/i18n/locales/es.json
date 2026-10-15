@@ -408,7 +408,12 @@
       "videoError": "Error de visualización de video",
       "noHdmi": "No se detectó señal HDMI",
       "mjpeg4k": "MJPEG no está disponible mientras la entrada HDMI es 3840 × 2160. Usa H.264 o H.265 en Ajustes → Vídeo",
-      "unavailable": "La pantalla no puede mostrarse ahora"
+      "unavailable": "La pantalla no puede mostrarse ahora",
+      "needsVideoMemory": "La entrada HDMI {{size}} requiere el modo de memoria de vídeo {{mode}}",
+      "switchVideoMemory": "Cambiar a {{mode}} y reiniciar",
+      "switchVideoMemoryTitle": "¿Cambiar la memoria de vídeo a {{mode}}?",
+      "videoMemoryRebooting": "Reiniciando con la memoria de vídeo {{mode}}…",
+      "videoMemoryUnavailable": "El modo de memoria de vídeo {{mode}} no está instalado en este dispositivo."
     }
   },
   "keyboard": {

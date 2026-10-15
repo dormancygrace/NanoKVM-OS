@@ -408,7 +408,12 @@
       "videoError": "Fehler bei der Videoanzeige",
       "noHdmi": "Kein HDMI-Signal erkannt",
       "mjpeg4k": "MJPEG ist nicht verfügbar, solange der HDMI-Eingang 3840 × 2160 ist. Verwenden Sie H.264 oder H.265 unter Einstellungen → Video",
-      "unavailable": "Der Bildschirm kann derzeit nicht angezeigt werden"
+      "unavailable": "Der Bildschirm kann derzeit nicht angezeigt werden",
+      "needsVideoMemory": "Der HDMI-Eingang {{size}} erfordert den {{mode}}-Videospeichermodus",
+      "switchVideoMemory": "Zu {{mode}} wechseln und neu starten",
+      "switchVideoMemoryTitle": "Videospeicher auf {{mode}} umstellen?",
+      "videoMemoryRebooting": "Neustart mit {{mode}}-Videospeicher…",
+      "videoMemoryUnavailable": "Der {{mode}}-Videospeichermodus ist auf diesem Gerät nicht installiert."
     }
   },
   "keyboard": {

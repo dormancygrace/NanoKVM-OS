@@ -7,6 +7,10 @@ export type CaptureStatus = {
   mode: string;
   severity: 'error' | 'warning' | '';
   updatedAt: string;
+  // With -6: an input refused for the video memory of this boot.
+  inputWidth?: number;
+  inputHeight?: number;
+  videoMemory?: 'qhd' | 'uhd';
 };
 
 export function parseCaptureStatusMessage(message: { data: unknown }): CaptureStatus | null {
@@ -31,12 +35,38 @@ export function parseCaptureStatusMessage(message: { data: unknown }): CaptureSt
       message: typeof status.message === 'string' ? status.message : '',
       mode: typeof status.mode === 'string' ? status.mode : '',
       severity: status.severity === 'warning' ? 'warning' : status.ok ? '' : 'error',
-      updatedAt: typeof status.updatedAt === 'string' ? status.updatedAt : ''
+      updatedAt: typeof status.updatedAt === 'string' ? status.updatedAt : '',
+      ...rejectedInput(status)
     };
   } catch (error) {
     console.log(error);
     return null;
   }
+}
+
+function rejectedInput(status: Partial<CaptureStatus>) {
+  const { inputWidth, inputHeight, videoMemory } = status;
+  if (
+    (videoMemory !== 'qhd' && videoMemory !== 'uhd') ||
+    typeof inputWidth !== 'number' ||
+    typeof inputHeight !== 'number' ||
+    inputWidth <= 0 ||
+    inputHeight <= 0
+  ) {
+    return {};
+  }
+  return { inputWidth, inputHeight, videoMemory };
+}
+
+// An input refused for the video memory: the size and the mode it needs.
+export function getVideoMemoryNeed(status: CaptureStatus | null) {
+  if (!status || status.ok || status.result !== -6 || !status.videoMemory) {
+    return null;
+  }
+  return {
+    size: `${status.inputWidth} × ${status.inputHeight}`,
+    mode: status.videoMemory
+  };
 }
 
 export function getCaptureStatusMessageKey(result: number) {

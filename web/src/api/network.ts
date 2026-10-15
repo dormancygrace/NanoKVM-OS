@@ -14,6 +14,8 @@ export type EthernetConfig = {
   gateway: string;
   vlanEnabled: boolean;
   vlanId: number;
+  // IPv4 address (CIDR) now on eth0 or its VLAN; absent without one.
+  currentAddress?: string;
 };
 
 // wake on lan

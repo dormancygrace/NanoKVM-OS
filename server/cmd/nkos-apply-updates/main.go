@@ -161,6 +161,13 @@ func managedVPN(pid int) bool {
 	return false
 }
 
+// Web assets are read from disk per request; changing them does not require
+// restarting the video server. Track server binaries and libraries explicitly.
+func appRuntimePaths(root string) (paths, trees []string) {
+	return []string{filepath.Join(root, "server/NanoKVM-Server")},
+		[]string{filepath.Join(root, "server/dl_lib"), filepath.Join(root, "kvm_system"), filepath.Join(root, "system/init.d")}
+}
+
 func gather() snapshot {
 	all := processes()
 	s := snapshot{Created: time.Now()}
@@ -191,7 +198,9 @@ func gather() snapshot {
 		}
 		switch name {
 		case "nanokvm-app":
-			t.Trees = []string{"/kvmapp/server", "/kvmapp/kvm_system", "/usr/share/nanokvm/edid"}
+			paths, trees := appRuntimePaths("/kvmapp")
+			t.Paths = append(t.Paths, paths...)
+			t.Trees = append(trees, "/usr/share/nanokvm/edid")
 			t.Paths = append(t.Paths, "/usr/libexec/nanokvm/legacy/S95nanokvm", "/usr/sbin/nanokvm_update_edid")
 			for _, p := range all {
 				if p.Name == "NanoKVM-Server" || p.Name == "kvm_system" {

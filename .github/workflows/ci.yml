@@ -97,6 +97,12 @@ jobs:
         # Only the disposable network namespace is changed; Ubuntu restricts
         # unprivileged user namespaces, so let the test create it as root.
         run: sudo python3 tests/test-dhcp-gateway.py
+      - name: APK application split migration
+        run: |
+          docker run --rm --volume "$PWD:/src:ro" --workdir /src alpine:3.24 sh -ec '
+            apk add --no-cache python3
+            python3 tests/test-split-app-packages.py --apk /sbin/apk
+          '
       - name: Script tests
         run: |
           set -e

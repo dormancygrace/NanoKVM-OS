@@ -50,3 +50,11 @@ func TestRunSoftware(t *testing.T) {
 		t.Fatalf("unexpected status: %#v", status)
 	}
 }
+
+func TestSplitApplicationPackagesProtected(t *testing.T) {
+	for _, name := range []string{"nanokvm", "nanokvm-web", "nanokvm-app"} {
+		if err := checkRemovable(name); err == nil {
+			t.Fatalf("%s must remain protected", name)
+		}
+	}
+}

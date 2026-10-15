@@ -34,6 +34,8 @@ const protectedPackages = new Set([
   'musl',
   'openrc',
   'nanokvm-app',
+  'nanokvm',
+  'nanokvm-web',
   'nanokvm-base',
   'nanokvm-release',
   'nanokvm-kernel-sg2002',

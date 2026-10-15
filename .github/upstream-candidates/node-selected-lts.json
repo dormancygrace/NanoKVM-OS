@@ -3,7 +3,7 @@
   "current": "24.21.0",
   "candidate": "24.22.0",
   "candidate_key": "24.22.0",
-  "status": "pending-review",
+  "status": "qualified",
   "upstream": "https://nodejs.org/dist/index.json",
   "source_path": "platform/sources.lock",
   "strategy": "archive-pin",
@@ -13,5 +13,15 @@
   },
   "pin_files_updated": [
     "platform/sources.lock"
-  ]
+  ],
+  "verification": {
+    "node": "24.22.0",
+    "pnpm": "12.8.1",
+    "official_archive_sha256_verified": true,
+    "canonical_web_build": "passed",
+    "web_files_matching_expected_sha256": 203,
+    "web_tests_passed": 203,
+    "web_lint": "passed",
+    "output_pins_changed": false
+  }
 }

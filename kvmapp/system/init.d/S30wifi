@@ -35,6 +35,7 @@ WIFI_PASS_FILE=$NANOKVM_WIFI_ETC_DIR/wifi.pass
 BOOT_SSID_FILE=$NANOKVM_WIFI_BOOT_DIR/wifi.ssid
 BOOT_PASS_FILE=$NANOKVM_WIFI_BOOT_DIR/wifi.pass
 WPA_CONFIG=$NANOKVM_WIFI_RUN_DIR/wpa_supplicant.conf
+FALLBACK_BGSCAN=simple:30:-70:120
 HOSTAPD_CONFIG=$NANOKVM_WIFI_RUN_DIR/hostapd.conf
 UDHCPD_CONFIG=$NANOKVM_WIFI_RUN_DIR/udhcpd.conf
 UDHCPD_PID=$NANOKVM_WIFI_RUN_DIR/udhcpd.pid
@@ -161,6 +162,7 @@ band_frequencies() {
 emit_network() {
     frequencies=$1
     priority=$2
+    background_scan=${3:-}
     echo 'network={'
     # Hex encoding prevents quotes/backslashes in SSIDs becoming config.
     printf '    ssid=%s\n' "$(printf '%s' "$ssid" | od -An -tx1 | tr -d ' \n')"
@@ -199,6 +201,7 @@ emit_network() {
         echo '    scan_ssid=1'
     fi
     [ -z "$frequencies" ] || echo "    freq_list=$frequencies"
+    [ -z "$background_scan" ] || echo "    bgscan=\"$background_scan\""
     echo "    priority=$priority"
     echo '}'
 }
@@ -229,8 +232,17 @@ write_wpa_config() {
         # wpa_supplicant selects the higher-priority block when both match.
         # The unrestricted lower-priority block preserves a usable fallback on
         # another band (and on a 2.4 GHz-only adapter).
-        [ -z "$preferred_frequencies" ] || emit_network "$preferred_frequencies" 2
-        emit_network "" 1
+        if [ -n "$preferred_frequencies" ]; then
+            emit_network "$preferred_frequencies" 2
+            # A connected station never reselects by itself, so a fallback
+            # taken while the preferred band was away (a router restart, one
+            # failed SAE exchange) would last until the next reconnect. Only
+            # the fallback scans in the background: every 30 s below -70 dBm,
+            # otherwise every 120 s. The preferred block never scans.
+            emit_network "" 1 "$FALLBACK_BGSCAN"
+        else
+            emit_network "" 1
+        fi
     } > "$config_tmp" || {
         rm -f "$config_tmp"
         return 1

@@ -247,6 +247,12 @@ assert_count 'network={' 2 "$RUN_DIR/wpa_supplicant.conf"
 assert_contains 'freq_list=5180 5200' "$RUN_DIR/wpa_supplicant.conf"
 assert_contains 'priority=2' "$RUN_DIR/wpa_supplicant.conf"
 assert_contains 'priority=1' "$RUN_DIR/wpa_supplicant.conf"
+# Only the unrestricted fallback scans in the background, to return to the
+# preferred band once it is back.
+assert_count 'bgscan=' 1 "$RUN_DIR/wpa_supplicant.conf"
+fallback=$(awk '/^network=\{/ { block = "" } { block = block $0 "\n" } /^}/ && block ~ /priority=1/ { printf "%s", block }' "$RUN_DIR/wpa_supplicant.conf")
+case "$fallback" in *'bgscan="simple:30:-70:120"'*) ;; *) fail 'fallback block has no bgscan' ;; esac
+case "$fallback" in *freq_list=*) fail 'fallback block is restricted' ;; esac
 
 # Existing profiles have no preference field. Capability discovery makes their
 # default preference 5 GHz without persisting or reconnecting during a read.
@@ -270,6 +276,8 @@ run_action start
 assert_count 'network={' 1 "$RUN_DIR/wpa_supplicant.conf"
 assert_not_contains 'freq_list=' "$RUN_DIR/wpa_supplicant.conf"
 assert_contains 'priority=1' "$RUN_DIR/wpa_supplicant.conf"
+# Without a preferred block there is nothing to return to: no scanning.
+assert_not_contains 'bgscan=' "$RUN_DIR/wpa_supplicant.conf"
 
 new_case invalid_frequencies
 printf 'Office' > "$ETC_DIR/wifi.ssid"

@@ -1,6 +1,10 @@
 package common
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+	"os"
+)
 
 // MonitorSettings describes one final HDMI monitor state. Nil fields retain
 // their saved values. SyncRefresh follows the already-saved stream FPS.
@@ -30,6 +34,42 @@ func ApplyMonitorSettings(update MonitorSettings) error {
 		requireMonitorHardwareLocked, portraitResolutionSupportedLocked,
 		MonitorRequiresPowerCycle, MonitorRefreshFollowsStream, applyMonitorProfileLocked,
 	})
+}
+
+// ProgramMonitorProfileOnFirstStart programs the saved monitor profile once
+// after an installation. The HDMI receiver keeps its EDID in its own flash,
+// which survives a reinstall: a receiver that advertised 2560x1440 kept doing
+// so under a new system in the FHD video memory mode, and the capture refused
+// the input. Until a profile is recorded, which profile the receiver holds is
+// unknown. nanokvm_update_edid reads the EDID first and skips the flash write
+// when the profile is already installed. It returns the programmed profile, or
+// "" when a profile is recorded, EDID is not programmable, or the board needs
+// a power cycle (Cube).
+func ProgramMonitorProfileOnFirstStart() (string, error) {
+	monitorMutex.Lock()
+	defer monitorMutex.Unlock()
+	return programMonitorProfileOnFirstStartLocked(monitorSettingsBackend{
+		requireMonitorHardwareLocked, portraitResolutionSupportedLocked,
+		MonitorRequiresPowerCycle, MonitorRefreshFollowsStream, applyMonitorProfileLocked,
+	})
+}
+
+func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend) (string, error) {
+	if _, err := os.Stat(monitorEDIDHashFile); !errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if hw.requireHardware() != nil || hw.powerCycle() {
+		return "", nil
+	}
+	path := monitorProfilePathAt(savedMonitorResolutionLocked(), GetScreen().FPS)
+	if monitorPortraitEnabledLocked() {
+		path = portraitProfilePathAt(savedPortraitResolutionLocked(), GetScreen().FPS)
+	}
+	// On failure no profile is recorded, so the next start tries again.
+	if err := hw.apply(path); err != nil {
+		return "", err
+	}
+	return path, nil
 }
 
 func applyMonitorSettingsLocked(update MonitorSettings, hw monitorSettingsBackend) error {

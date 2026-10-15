@@ -1,0 +1,88 @@
+package common
+
+import (
+	"errors"
+	"os"
+	"testing"
+)
+
+func firstStartBackend(hardware, powerCycle bool, applied *[]string, fail error) monitorSettingsBackend {
+	return monitorSettingsBackend{
+		requireHardware: func() error {
+			if !hardware {
+				return errors.New("EDID programming is unsupported")
+			}
+			return nil
+		},
+		portraitSupported: func(uint16) bool { return true },
+		powerCycle:        func() bool { return powerCycle },
+		followsRefresh:    func() bool { return false },
+		apply: func(path string) error {
+			*applied = append(*applied, path)
+			return fail
+		},
+	}
+}
+
+func TestProgramMonitorProfileOnFirstStart(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		recorded   bool
+		hardware   bool
+		powerCycle bool
+		writes     int
+	}{
+		{"after an installation", false, true, false, 1},
+		{"profile recorded", true, true, false, 0},
+		{"no programmable EDID", false, false, false, 0},
+		{"Cube needs a power cycle", false, true, true, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			monitorState(t, 1080, false, 1920)
+			if tc.recorded {
+				if err := os.WriteFile(monitorEDIDHashFile, []byte("0\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var applied []string
+			path, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(tc.hardware, tc.powerCycle, &applied, nil))
+			if err != nil || len(applied) != tc.writes {
+				t.Fatalf("error %v, applied %v", err, applied)
+			}
+			if tc.writes == 0 && path != "" {
+				t.Fatalf("reported %q without programming", path)
+			}
+			if tc.writes == 1 && (path != applied[0] || path != monitorProfilePathAt(1080, GetScreen().FPS)) {
+				t.Fatalf("reported %q, applied %v", path, applied)
+			}
+		})
+	}
+}
+
+// The saved portrait profile is the one advertised, as in applyMonitorSettings.
+func TestProgramMonitorProfileOnFirstStartPortrait(t *testing.T) {
+	monitorState(t, 1080, true, 1920)
+	var applied []string
+	if _, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(true, false, &applied, nil)); err != nil {
+		t.Fatal(err)
+	}
+	if len(applied) != 1 || applied[0] != portraitProfilePathAt(1920, GetScreen().FPS) {
+		t.Fatalf("applied %v", applied)
+	}
+}
+
+// A failed write records nothing, so the next start tries again.
+func TestProgramMonitorProfileOnFirstStartRetriesAfterFailure(t *testing.T) {
+	monitorState(t, 1080, false, 1920)
+	var applied []string
+	path, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(true, false, &applied, errors.New("EDID write failed")))
+	if err == nil || path != "" {
+		t.Fatalf("path %q, error %v", path, err)
+	}
+	if _, err := os.Stat(monitorEDIDHashFile); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("a profile is recorded after a failed write: %v", err)
+	}
+	if _, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(true, false, &applied, nil)); err != nil || len(applied) != 2 {
+		t.Fatalf("error %v, applied %v", err, applied)
+	}
+}

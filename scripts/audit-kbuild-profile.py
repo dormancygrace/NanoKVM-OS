@@ -41,6 +41,10 @@ for path in sorted(a.root.rglob('.*.cmd')):
     fence = [f for f in args if f in ('-mfence-tso', '-mno-fence-tso')]
     if not fence or fence[-1] != '-mno-fence-tso':
         mismatch['fence_tso'] = fence
+    if '-mno-strict-align' in expected:
+        align = [f for f in args if f in ('-mstrict-align', '-mno-strict-align')]
+        if not align or align[-1] != '-mno-strict-align':
+            mismatch['strict_align'] = align
     for enable, disable in (('-ftree-vectorize', '-fno-tree-vectorize'),
                             ('-ftree-slp-vectorize', '-fno-tree-slp-vectorize')):
         options = [f for f in args if f in (enable, disable)]

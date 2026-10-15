@@ -28,6 +28,11 @@ def flags(kind='userspace'):
               '-mtune=' + PROFILE['tune'], '-mabi=' + PROFILE[isa_kind + '_abi']]
     if not PROFILE['fence_tso']:
         result.append('-mno-fence-tso')
+    # The C906 performs misaligned loads and stores in hardware (the kernel's
+    # boot probe measures them 4.3x faster than byte access). Kbuild adds
+    # -mstrict-align for portable kernels; KCFLAGS come last and override it.
+    if kind == 'kernel' and not PROFILE.get('kernel_strict_align', True):
+        result.append('-mno-strict-align')
     # Keep handwritten/vendor RVV assembly; disable compiler autovectorization.
     result += ['-fno-tree-vectorize', '-fno-tree-slp-vectorize']
     return result
@@ -45,6 +50,8 @@ def validate_flags(actual, kind='userspace'):
         if option not in actual:
             raise ValueError(f'{kind}: missing {option}')
     forbidden = {'-mfence-tso'}
+    if '-mno-strict-align' in expected:
+        forbidden.add('-mstrict-align')
     forbidden |= {'-ftree-vectorize', '-ftree-loop-vectorize', '-ftree-slp-vectorize'}
     if any(f.startswith('-flto') for f in actual):
         raise ValueError(f'{kind}: LTO is outside the GCC production profile')

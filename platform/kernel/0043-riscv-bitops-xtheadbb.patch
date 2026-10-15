@@ -1,0 +1,29 @@
+diff --git a/arch/riscv/include/asm/bitops.h b/arch/riscv/include/asm/bitops.h
+index 3c1a15b..d51386b 100644
+--- a/arch/riscv/include/asm/bitops.h
++++ b/arch/riscv/include/asm/bitops.h
+@@ -14,7 +14,23 @@
+ #include <asm/barrier.h>
+ #include <asm/bitsperlong.h>
+ 
+-#if !(defined(CONFIG_RISCV_ISA_ZBB) && defined(CONFIG_TOOLCHAIN_HAS_ZBB)) || defined(NO_ALTERNATIVE)
++#if defined(__riscv_xtheadbb)
++/*
++ * XTheadBb has no ctz, but th.ff1 counts leading zeros and GCC derives
++ * ctz from it (x & -x). The Zbb alternatives below would fall back to the
++ * generic C code on these cores, which have no Zbb.
++ */
++#include <asm-generic/bitops/builtin-__ffs.h>
++#include <asm-generic/bitops/builtin-__fls.h>
++#include <asm-generic/bitops/builtin-fls.h>
++
++/* GCC turns __builtin_ffs() into a call to ffs() here; use ctz instead. */
++static __always_inline int ffs(int x)
++{
++	return x ? __builtin_ctz(x) + 1 : 0;
++}
++
++#elif !(defined(CONFIG_RISCV_ISA_ZBB) && defined(CONFIG_TOOLCHAIN_HAS_ZBB)) || defined(NO_ALTERNATIVE)
+ #include <asm-generic/bitops/__ffs.h>
+ #include <asm-generic/bitops/__fls.h>
+ #include <asm-generic/bitops/ffs.h>

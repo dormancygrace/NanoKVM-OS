@@ -1,0 +1,17 @@
+{
+  "component": "Node (selected LTS)",
+  "current": "24.21.0",
+  "candidate": "24.22.0",
+  "candidate_key": "24.22.0",
+  "status": "pending-review",
+  "upstream": "https://nodejs.org/dist/index.json",
+  "source_path": "platform/sources.lock",
+  "strategy": "archive-pin",
+  "evidence": {
+    "archive": "https://nodejs.org/dist/v24.22.0/node-v24.22.0-linux-x64.tar.xz",
+    "sha256": "cc2f601cee82d9a5a233302fe307abc600727035fd7d2c3a3571755989e95008"
+  },
+  "pin_files_updated": [
+    "platform/sources.lock"
+  ]
+}

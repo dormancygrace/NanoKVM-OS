@@ -369,7 +369,7 @@ func rebootRequired() bool {
 	return err == nil
 }
 
-var diagnosticPackages = []string{"nanokvm-app", "nanokvm-base", "nanokvm-release", "nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002", "nanokvm-firmware-sg2002"}
+var diagnosticPackages = []string{"nanokvm-app", "nanokvm-base", "nanokvm-release", "nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002", "nanokvm-firmware-sg2002", "nanokvm-zlib"}
 
 func installedPackageVersions() []DiagnosticPackage {
 	result := make([]DiagnosticPackage, 0, len(diagnosticPackages))

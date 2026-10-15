@@ -18,11 +18,12 @@
 #   system     kvm_system board service
 #   server     NanoKVM-Server and update/USB internet helpers
 #   web        web UI
-#   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio
+#   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
+#              zlib-ng
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   verify     compare the outputs with expected.sha256
-#   payloads   contents of the seven nanokvm-* packages, from packages.list
-#   packages   signed APK repository of the seven packages
+#   payloads   contents of the eight nanokvm-* packages, from packages.list
+#   packages   signed APK repository of the eight packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -49,7 +50,7 @@ jobs=$(nproc)
 key=
 eckey=
 devkey=
-usage() { sed -n '2,41p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '2,42p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 while getopts o:j:k:e:dh opt; do
     case $opt in
         o) out=$OPTARG ;; j) jobs=$OPTARG ;; k) key=$(realpath "$OPTARG") ;; e) eckey=$(realpath "$OPTARG") ;;
@@ -564,7 +565,7 @@ web() {
 }
 
 # Board tools: BusyBox devmem, nanokvm_update_edid and the EDID profiles,
-# nkos-board-probe and usb-audio-capture.
+# nkos-board-probe, usb-audio-capture and zlib-ng.
 tools() {
     local t=$out/tools e py=$host/python3
     rm -rf "$t" "${img:?}/tools"
@@ -620,6 +621,24 @@ tools() {
         --opus-archive "$dl/opus-1.6.1.tar.gz" --jobs "$jobs"
     cp "$t/usb-audio/usb-audio-capture" "$img/tools/"
     cp "$t/usb-audio/share/usb-audio/"* "$img/tools/usb-audio/"
+
+    # zlib-ng as libz.so.1 for apk, curl and ssh (nanokvm-zlib replaces
+    # Alpine's zlib). Its chunked copies use misaligned words, which the C906
+    # handles in hardware; -mtune=thead-c906 already allows them, and
+    # -mno-strict-align states it for this library. The C906 has neither
+    # RVV 1.0 nor Zbc. Without XTheadVector, which GCC would use for
+    # inline copies, so that the many processes loading this library keep no
+    # vector state.
+    unpack_git zlib-ng . "$t/zlib-ng"
+    "$host/cmake" -S "$t/zlib-ng" -B "$t/zlib-ng/build" -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=riscv64 \
+        -DCMAKE_C_COMPILER="${cross}gcc" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG \
+        -DCMAKE_C_FLAGS="${cpu_flags[*]/_xtheadvector/} -mno-strict-align -ffile-prefix-map=$t/zlib-ng=zlib-ng" \
+        -DZLIB_COMPAT=ON -DWITH_RVV=OFF -DWITH_RISCV_ZBC=OFF -DWITH_GTEST=OFF -DBUILD_TESTING=OFF
+    "$host/cmake" --build "$t/zlib-ng/build" -j "$jobs"
+    mkdir -p "$img/tools/zlib-ng"
+    "${cross}strip" --strip-unneeded --remove-section=.comment --remove-section=.note \
+        -o "$img/tools/zlib-ng/libz.so.1.3.1.zlib-ng" "$t/zlib-ng/build/libz.so.1.3.1.zlib-ng"
+    cp "$t/zlib-ng/LICENSE.md" "$img/tools/zlib-ng/"
 }
 
 # Firmware files: AIC8800 Wi-Fi firmware from the Radxa package that the
@@ -653,7 +672,7 @@ firmware() {
     cp "$out/firmware/wireless-regdb-2026.09.03/LICENSE" "$f/licenses/wireless-regdb-LICENSE"
 }
 
-# Assemble the seven package payloads from packages.list.
+# Assemble the eight package payloads from packages.list.
 payloads() {
     local p=$out/payloads gen pkg type path mode src dest file
     rm -rf "$p"
@@ -869,7 +888,7 @@ signing_key() {
     keyname=$(basename "$keyfile" .rsa)
 }
 
-# Build the seven packages with abuild in an Alpine riscv64 tree.
+# Build the eight packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu
@@ -953,6 +972,9 @@ rootfs() {
     done
     [ -d "$r/lib/modules/$(cat "$r/usr/lib/nanokvm/boot/kernel.release")" ] || {
         echo "rootfs: boot.sd and modules differ" >&2; exit 1; }
+    # nanokvm-zlib replaces Alpine's zlib; both installed would share libz.so.1.
+    ! grep -qx 'P:zlib' "$r/lib/apk/db/installed" && [ "$(readlink "$r/usr/lib/libz.so.1")" = libz.so.1.3.1.zlib-ng ] || {
+        echo "rootfs: libz.so.1 is not nanokvm-zlib's" >&2; exit 1; }
     # Every trusted key belongs to a package (nanokvm-keys, alpine-keys), so
     # that updates can add and remove keys; this also catches an .apk-new.
     for pub in "$r"/etc/apk/keys/*; do

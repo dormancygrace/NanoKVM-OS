@@ -1,0 +1,177 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: enable SDIO High Speed before raising the clock
+
+Both modules raise the SDIO clock themselves (feature.sdio_clock, limited
+by the host's f_max: 50 MHz on NanoKVM) through host->ops->set_ios(),
+after the MMC core finished card initialisation. The core had left the
+card in default speed: the AIC8800D80 sets SHS in CCCR_SPEED (0x01) but
+reports CCCR revision 1.10 (0x11), and the core reads SHS only from
+revision 1.20 on. So the bus ran at 50 MHz with default-speed timing,
+which SD/SDIO specify up to 25 MHz.
+
+Before a clock above 25 MHz, the drivers now enable High Speed the
+standard way when the card has SHS and the host MMC_CAP_SD_HIGHSPEED:
+EHS in CCCR_SPEED with a CMD52 (sdio_f0_writeb() refuses function 0
+registers below 0xF0), then MMC_TIMING_SD_HS in the host, then the
+clock. Without High Speed the previous behaviour stays, with a warning.
+
+diff --git a/aic8800_bsp/aicsdio.c b/aic8800_bsp/aicsdio.c
+index 17a544b..368d415 100644
+--- a/aic8800_bsp/aicsdio.c
++++ b/aic8800_bsp/aicsdio.c
+@@ -1775,6 +1775,55 @@ void aicwf_sdio_reg_init(struct aic_sdio_dev *sdiodev)
+     }
+ }
+ 
++/*
++ * The bus clock above 25 MHz needs High Speed timing. The AIC8800D80
++ * advertises SHS in CCCR_SPEED but reports CCCR revision 1.10, and the MMC
++ * core reads SHS only from revision 1.20 on, so the card is left in default
++ * speed. Enable High Speed the standard way (EHS in the card, then SD_HS
++ * timing in the host) before the clock goes above 25 MHz. A card or host
++ * without High Speed keeps the previous behaviour, the vendor clock in default
++ * speed, rather than a slower bus on hardware this was not tested on.
++ */
++static int aicwf_sdio_cccr_writeb(struct mmc_card *card, u8 addr, u8 val)
++{
++	struct mmc_command cmd = {};
++	int err;
++
++	cmd.opcode = SD_IO_RW_DIRECT;
++	cmd.arg = 0x80000000 | (addr << 9) | val;	/* write, function 0 */
++	cmd.flags = MMC_RSP_SPI_R5 | MMC_RSP_R5 | MMC_CMD_AC;
++	err = mmc_wait_for_cmd(card->host, &cmd, 0);
++	if (err)
++		return err;
++	if (cmd.resp[0] & (R5_ERROR | R5_FUNCTION_NUMBER | R5_OUT_OF_RANGE))
++		return -EIO;
++	return 0;
++}
++
++static void aicwf_sdio_set_clock(struct sdio_func *func, unsigned int clock)
++{
++	struct mmc_host *host = func->card->host;
++	unsigned int target = min_t(unsigned int, clock, host->f_max);
++	int err = 0;
++	u8 speed;
++
++	if (target > 25000000 && host->ios.timing == MMC_TIMING_LEGACY) {
++		speed = sdio_f0_readb(func, SDIO_CCCR_SPEED, &err);
++		if (!err && !((speed & SDIO_SPEED_SHS) && (host->caps & MMC_CAP_SD_HIGHSPEED)))
++			err = -EOPNOTSUPP;
++		if (!err)
++			err = aicwf_sdio_cccr_writeb(func->card, SDIO_CCCR_SPEED, speed | SDIO_SPEED_EHS);
++		if (err) {
++			pr_warn("aic8800: SDIO High Speed unavailable (%d); %u Hz in default speed\n",
++				err, target);
++		} else {
++			host->ios.timing = MMC_TIMING_SD_HS;
++		}
++	}
++	host->ios.clock = target;
++	host->ops->set_ios(host, &host->ios);
++}
++
+ int aicwf_sdio_func_init(struct aic_sdio_dev *sdiodev)
+ {
+ 	struct mmc_host *host;
+@@ -1815,8 +1864,7 @@ int aicwf_sdio_func_init(struct aic_sdio_dev *sdiodev)
+ #if 1//SDIO CLOCK SETTING
+ 	if (feature.sdio_clock > 0) {
+ 		/* Respect the MMC host limit, including DT max-frequency. */
+-		host->ios.clock = min_t(unsigned int, feature.sdio_clock, host->f_max);
+-		host->ops->set_ios(host, &host->ios);
++		aicwf_sdio_set_clock(sdiodev->func, feature.sdio_clock);
+ 		sdio_dbg("Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
+ 	}
+ #endif
+@@ -1936,8 +1984,7 @@ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
+ #if 1//SDIO CLOCK SETTING
+ 	if ((feature.sdio_clock > 0) && (host->ios.timing != MMC_TIMING_UHS_DDR50)) {
+ 		/* Respect the MMC host limit, including DT max-frequency. */
+-		host->ios.clock = min_t(unsigned int, feature.sdio_clock, host->f_max);
+-		host->ops->set_ios(host, &host->ios);
++		aicwf_sdio_set_clock(sdiodev->func, feature.sdio_clock);
+ 		sdio_dbg("Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
+ 	}
+ #endif
+diff --git a/aic8800_fdrv/aicwf_sdio.c b/aic8800_fdrv/aicwf_sdio.c
+index 3dc081c..6f86bad 100644
+--- a/aic8800_fdrv/aicwf_sdio.c
++++ b/aic8800_fdrv/aicwf_sdio.c
+@@ -3111,6 +3111,55 @@ void aicwf_sdio_reg_init(struct aic_sdio_dev *sdiodev)
+     }
+ }
+ 
++/*
++ * The bus clock above 25 MHz needs High Speed timing. The AIC8800D80
++ * advertises SHS in CCCR_SPEED but reports CCCR revision 1.10, and the MMC
++ * core reads SHS only from revision 1.20 on, so the card is left in default
++ * speed. Enable High Speed the standard way (EHS in the card, then SD_HS
++ * timing in the host) before the clock goes above 25 MHz. A card or host
++ * without High Speed keeps the previous behaviour, the vendor clock in default
++ * speed, rather than a slower bus on hardware this was not tested on.
++ */
++static int aicwf_sdio_cccr_writeb(struct mmc_card *card, u8 addr, u8 val)
++{
++	struct mmc_command cmd = {};
++	int err;
++
++	cmd.opcode = SD_IO_RW_DIRECT;
++	cmd.arg = 0x80000000 | (addr << 9) | val;	/* write, function 0 */
++	cmd.flags = MMC_RSP_SPI_R5 | MMC_RSP_R5 | MMC_CMD_AC;
++	err = mmc_wait_for_cmd(card->host, &cmd, 0);
++	if (err)
++		return err;
++	if (cmd.resp[0] & (R5_ERROR | R5_FUNCTION_NUMBER | R5_OUT_OF_RANGE))
++		return -EIO;
++	return 0;
++}
++
++static void aicwf_sdio_set_clock(struct sdio_func *func, unsigned int clock)
++{
++	struct mmc_host *host = func->card->host;
++	unsigned int target = min_t(unsigned int, clock, host->f_max);
++	int err = 0;
++	u8 speed;
++
++	if (target > 25000000 && host->ios.timing == MMC_TIMING_LEGACY) {
++		speed = sdio_f0_readb(func, SDIO_CCCR_SPEED, &err);
++		if (!err && !((speed & SDIO_SPEED_SHS) && (host->caps & MMC_CAP_SD_HIGHSPEED)))
++			err = -EOPNOTSUPP;
++		if (!err)
++			err = aicwf_sdio_cccr_writeb(func->card, SDIO_CCCR_SPEED, speed | SDIO_SPEED_EHS);
++		if (err) {
++			pr_warn("aic8800: SDIO High Speed unavailable (%d); %u Hz in default speed\n",
++				err, target);
++		} else {
++			host->ios.timing = MMC_TIMING_SD_HS;
++		}
++	}
++	host->ios.clock = target;
++	host->ops->set_ios(host, &host->ios);
++}
++
+ int aicwf_sdio_func_init(struct aic_sdio_dev *sdiodev)
+ {
+ 	struct mmc_host *host;
+@@ -3151,8 +3200,7 @@ int aicwf_sdio_func_init(struct aic_sdio_dev *sdiodev)
+ #if 1//SDIO CLOCK SETTING
+ 	if (feature.sdio_clock > 0) {
+ 		/* Respect the MMC host limit, including DT max-frequency. */
+-		host->ios.clock = min_t(unsigned int, feature.sdio_clock, host->f_max);
+-		host->ops->set_ios(host, &host->ios);
++		aicwf_sdio_set_clock(sdiodev->func, feature.sdio_clock);
+ 		AICWFDBG(LOGINFO, "Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
+ 	}
+ #endif
+@@ -3297,8 +3345,7 @@ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
+ #if 1//SDIO CLOCK SETTING
+ 	if ((feature.sdio_clock > 0) && (host->ios.timing != MMC_TIMING_UHS_DDR50)) {
+ 		/* Respect the MMC host limit, including DT max-frequency. */
+-		host->ios.clock = min_t(unsigned int, feature.sdio_clock, host->f_max);
+-		host->ops->set_ios(host, &host->ios);
++		aicwf_sdio_set_clock(sdiodev->func, feature.sdio_clock);
+ 		AICWFDBG(LOGINFO, "Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
+ 	}
+ #endif

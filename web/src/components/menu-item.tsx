@@ -21,6 +21,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useMediaQuery } from 'react-responsive';
 
+import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
 import { menuCloseSignalAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
 
 import {
@@ -329,6 +330,7 @@ export const MenuItem = ({
       <div
         role="button"
         aria-label={title}
+        onClick={releasePointerMenuFocus}
         tabIndex={disabled ? -1 : 0}
         onKeyDown={(event) => {
           if (!disabled && (event.key === 'Enter' || event.key === ' ')) {

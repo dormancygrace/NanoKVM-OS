@@ -6,6 +6,7 @@ import { DiscIcon, HardDriveIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/storage.ts';
+import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
 import { submenuOpenCountAtom } from '@/jotai/settings.ts';
 import { useVirtualDisk } from '@/hooks/useVirtualDisk.ts';
 import { useDismissMobileMenu } from '@/components/mobile-menu-context.ts';
@@ -129,7 +130,10 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
                     : 'text-neutral-300 hover:text-white'
                 ]
           )}
-          onClick={openModal}
+          onClick={(event) => {
+            releasePointerMenuFocus(event);
+            openModal();
+          }}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault();

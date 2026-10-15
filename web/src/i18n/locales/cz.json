@@ -17,7 +17,7 @@
     "globalLocked": "Systém je chráněn, zkuste to znovu později",
     "error": "Neočekávaná chyba",
     "changePassword": "Změnit heslo",
-    "changePasswordDesc": "Pro bezpečnost vašeho zařízení prosím změňte heslo pro přihlášení na webu.",
+    "changePasswordDesc": "Pro zabezpečení vašeho zařízení prosím změňte heslo!",
     "differentPassword": "Hesla se neshodují",
     "illegalUsername": "Uživatelské jméno obsahuje nepovolené znaky",
     "forgetPassword": "Zapomenuté heslo",
@@ -33,7 +33,10 @@
       "change2": "Heslo pro webové přihlášení",
       "change3": "Heslo systémového uživatele root (heslo pro přihlášení SSH)",
       "change4": "Chcete-li hesla resetovat, podržte tlačítko BOOT na NanoKVM."
-    }
+    },
+    "placeholderCurrentPassword": "Stávající heslo",
+    "invalidCurrentPassword": "Stávající heslo není správné",
+    "cancelAndLogout": "Zrušit a odhlásit se"
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -94,13 +97,25 @@
     "captureStatus": {
       "hdmiError": "Chyba obrazu HDMI",
       "unsupportedResolution": "Aktuální rozlišení není podporováno",
-      "retrieving": "Načítá se obraz...",
-      "changingResolution": "Přepíná se rozlišení...",
+      "retrieving": "Načítání obrazovky…",
+      "changingResolution": "Přepínání rozlišení…",
       "updateFailed": "Obraz se teď nemůže aktualizovat",
       "videoError": "Chyba zobrazení videa",
       "noHdmi": "Nebyl zjištěn signál HDMI",
-      "unavailable": "Obraz teď nelze zobrazit"
-    }
+      "unavailable": "Obraz teď nelze zobrazit",
+      "switchVideoMemory": "Přepnout na {{mode}} a restartovat",
+      "switchVideoMemoryTitle": "Přepnout videopaměť na {{mode}}?",
+      "videoMemoryRebooting": "Restartování s videopamětí {{mode}}…"
+    },
+    "retryJoin": "Zkusit znovu",
+    "codec": "Kodek",
+    "recoveryReports": "Hlášení o pádech",
+    "recoveryRetry": "Znovu zkusit video",
+    "encoderError": "Chyba enkódéru videa",
+    "recoveryTitle": "Režim zotavení videa",
+    "sessions": "Aktivní videorelace: {{count}}",
+    "recoveryReportsFailed": "Nebylo možné načíst hlášení pádů.",
+    "recoveryRetryFailed": "Nebylo možné restartovat video. Zkuste to znovu."
   },
   "keyboard": {
     "title": "Klávesnice",
@@ -150,8 +165,35 @@
       "recorder": {
         "rec": "REC",
         "activate": "Aktivovat klávesy",
-        "input": "Stiskněte prosím zkratku..."
+        "input": "Stiskněte zkratku…"
       }
+    },
+    "sequences": {
+      "sent": "Odesláno",
+      "send": "Odeslat",
+      "reisub": {
+        "delay": "Pozastavit",
+        "send": "Restartovat hostitele",
+        "running": "Spuštěné, zbývá {{seconds}} s",
+        "confirmTitle": "Restartovat hostitele s REISUB?"
+      },
+      "sysrq": {
+        "keys": {
+          "b": "ihned restartovat",
+          "m": "zpráva o paměti",
+          "o": "vypnout",
+          "t": "seznam úloh",
+          "s": "synchronizace všech souborových systémů",
+          "u": "přepřipojit všechny souborové systémy jako pouze pro čtení",
+          "w": "seznam blokovaných úloh",
+          "l": "backtrace každého z jader procesoru",
+          "c": "pád: zpanikaření jádra systému (výpis pádu)",
+          "e": "zaslat SIGTERM všem procesům kromě init",
+          "i": "zaslat SIGKILL všem procesům kromě init",
+          "h": "help: vypsat příkazy na konzoli"
+        }
+      },
+      "title": "Klávesové sekvence"
     }
   },
   "mouse": {
@@ -188,13 +230,14 @@
       "holdTitle": "Podržením stisknete levé tlačítko",
       "holdDesc": "Dotkněte se a držte prst v klidu asi 1 sekundu, aby levé tlačítko myši zůstalo stisknuté.",
       "dragTitle": "Po podržení pohybem přetáhnete",
-      "dragDesc": "Jakmile je podržení aktivní, pohybem prstu přetáhnete se stisknutým levým tlačítkem."
+      "dragDesc": "Jakmile je podržení aktivní, pohybem prstu přetáhnete se stisknutým levým tlačítkem.",
+      "screen": "Obrazovka"
     },
     "resetHid": "Resetovat HID"
   },
   "image": {
     "title": "Obrázky",
-    "loading": "Načítání...",
+    "loading": "Načítání…",
     "empty": "Nic nenalezeno",
     "mountMode": "Režim připojení",
     "mountFailed": "Připojení se nezdařilo",
@@ -219,7 +262,20 @@
       "tf3": "Vložte SD kartu do čtečky karet a připojte ji k vašemu počítači.",
       "tf4": "Zkopírujte soubor s obrazem do adresáře /data na SD kartě.",
       "tf5": "Vložte SD kartu zpět do NanoKVM."
-    }
+    },
+    "remote": {
+      "connecting": "Připojování…",
+      "read": "číst",
+      "disconnect": "Odpojit ISO",
+      "device": "Z SD karty",
+      "connect": "Připojit ISO",
+      "mounted": "Připojeno · Pouze pro čtení",
+      "select": "Vyberte soubor ISO",
+      "browser": "Z tohoto počítače",
+      "disconnectFailed": "Nebylo možné odpojit ISO. Zkuste to znovu."
+    },
+    "cdrom": "CD/DVD",
+    "forceEject": "Vynutit vysunutí"
   },
   "script": {
     "title": "Skript",
@@ -250,14 +306,23 @@
     "flowControlHard": "Hardwarové",
     "dataBits": "Datové bity",
     "stopBits": "Stop bity",
-    "confirm": "OK"
+    "confirm": "OK",
+    "usbSerial": "USB sériová konzole",
+    "invalidParameters": "Neplatné parametry pro sériovou linku.",
+    "disconnected": "Spojení zavřeno. Pro opětovné připojení stiskněte Enter."
   },
   "wol": {
     "title": "Wake-on-LAN",
-    "sending": "Odesílání příkazu...",
-    "sent": "Příkaz odeslán",
+    "sending": "Odesílání příkazu…",
+    "sent": "Probouzecí paket odeslán. Může se stát, že cíl i tak může zůstat vypnutý nebo nedostupný.",
     "input": "Zadejte prosím MAC adresu",
-    "ok": "OK"
+    "ok": "OK",
+    "interface": "Rozhraní",
+    "cancel": "Zrušit",
+    "save": "Uložit název",
+    "name": "Název zařízení",
+    "send": "Odeslat probuzení po síti (WoL)",
+    "remove": "Odebrat z historie"
   },
   "download": {
     "title": "Stahovač obrazů",
@@ -273,7 +338,11 @@
     "success": "Stažení proběhlo úspěšně",
     "checksumFailed": "Stažení se nezdařilo: ověření SHA-256 selhalo",
     "cancel": "Zrušit",
-    "cancelFailed": "Stažení se nepodařilo zrušit"
+    "cancelFailed": "Stažení se nepodařilo zrušit",
+    "downloading": "Stahování",
+    "finishing": "Dokončování…",
+    "uploading": "Nahrávání",
+    "progress": "Stav postupu přenosu"
   },
   "power": {
     "title": "Napájení",
@@ -305,14 +374,38 @@
       "failed": "Operace MCP se nezdařila",
       "copyFailed": "Kopírování se nezdařilo. Zkopírujte ručně.",
       "okBtn": "Potvrdit",
-      "cancelBtn": "Zrušit"
+      "cancelBtn": "Zrušit",
+      "copyValue": "Zkopírovat {{label}}",
+      "regenerateKey": "Nechat znovu vytvořit klíč k API",
+      "hideKey": "Skrýt klíč k API",
+      "showKey": "Zobrazit klíč k API"
     },
     "about": {
       "title": "O NanoKVM",
       "ip": "IP",
       "image": "Verze obrazu",
       "hostname": "Název hostitele",
-      "hostnameUpdated": "Název hostitele byl aktualizován. Pro použití restartujte."
+      "hostnameUpdated": "Název hostitele byl aktualizován. Pro použití restartujte.",
+      "credits": {
+        "close": "Zavřít",
+        "pause": "Pozastavit",
+        "button": "Zásluhy",
+        "resume": "Navázat v chodu",
+        "title": "Zásluhy",
+        "contributorsTitle": "Přispěvatelé do open-source",
+        "madePossibleBy": "Možné jen díky",
+        "closing": "Děkujeme, že NanoKVM OS vzniká i Vaší zásluhou."
+      },
+      "applicationVersion": "Aplikace",
+      "documentation": "Dokumentace",
+      "specialThanksTitle": "Zvláštní poděkování",
+      "hostnameEdit": "Upravit název hostitele",
+      "hostnameCancel": "Zrušit upravování",
+      "hostnameSave": "Uložit název hostitele",
+      "imageVersion": "Nainstalovaný obraz",
+      "reportIssue": "Nahlásit problém",
+      "bundledVersion": "Aplikace obsažené v tomto obrazu",
+      "description": "Komunitní firmware pro NanoKVM."
     },
     "appearance": {
       "title": "Vzhled",
@@ -332,7 +425,36 @@
         "keyboardLedStatusDesc": "Zobrazit stav Num Lock, Caps Lock a Scroll Lock vzdáleného počítače",
         "icons": "Ikony podnabídky",
         "iconsDesc": "Zobrazení ikon podnabídky na liště nabídek"
-      }
+      },
+      "branding": {
+        "title": "Opatření vlastní značkou",
+        "faviconTitle": "Ikona webu",
+        "logoTitle": "Logo na přihlašovací obrazovce",
+        "restoreDefault": "Obnovit výchozí",
+        "customActive": "Uživatelsky určený obraz",
+        "faviconUpload": "Nahrát ikonu webu",
+        "defaultActive": "Vestavěný výchozí",
+        "faviconPreview": "Náhled ikony webu",
+        "logoPreview": "Náhled loga na přihlašovací obrazovce",
+        "logoUpload": "Nahrát logo na přihlašovací obrazovku",
+        "failed": "Opatření vlastním logem nebylo možné uložit."
+      },
+      "customize": "Přizpůsobit",
+      "bannerStyle": {
+        "rainbow": "Duha",
+        "default": "Výchozí"
+      },
+      "buttonColor": {
+        "save": "Použít",
+        "title": "Barva tlačítka",
+        "preview": "Tlačítko náhledu",
+        "accentTitle": "Hlavní tlačítka",
+        "customActive": "Uživatelsky určená barva",
+        "restoreDefault": "Obnovit výchozí",
+        "inputLabel": "Barva tlačítka v šestnáctkovém (hex) formátu",
+        "failed": "Nebylo možné uložit barvu tlačítka."
+      },
+      "languagePartial": "částečné"
     },
     "keyboardLedStatus": {
       "groupLabel": "Stav zámků vzdálené klávesnice",
@@ -351,8 +473,8 @@
       "title": "Zařízení",
       "oled": {
         "0": "Nikdy",
-        "15": "15 sec",
-        "30": "30 sec",
+        "15": "15 sek",
+        "30": "30 sek",
         "60": "1 min",
         "180": "3 min",
         "300": "5 min",
@@ -360,7 +482,9 @@
         "1800": "30 min",
         "3600": "1 hodina",
         "title": "OLED",
-        "description": "OLED screen automatically sleep"
+        "description": "OLED screen automatically sleep",
+        "-1": "Displej vypnut",
+        "failed": "Nebylo možné zaktualizovat nastavení OLED"
       },
       "mouseJiggler": {
         "title": "Mouse Jiggler",
@@ -382,7 +506,19 @@
       "reboot": "Restartujte",
       "rebootDesc": "Opravdu chcete restartovat NanoKVM?",
       "okBtn": "Ano",
-      "cancelBtn": "Ne"
+      "cancelBtn": "Ne",
+      "cpuFrequency": {
+        "stock": "Standardní",
+        "eco": "Úspora napájení",
+        "moderate": "Lehké přetaktování",
+        "title": "Frekvence procesoru a přetaktování",
+        "sampleDependent": "Závisí na konkrétním kusu čipu",
+        "failed": "Nebylo možné zaktualizovat frekvenci procesoru",
+        "confirmOverclock": "Přetaktovat procesor na {{mhz}} MHz?",
+        "applyAtBoot": "Použít vybranou frekvenci při spouštění",
+        "confirmBoot": "Použít frekvenci procesoru při každém spuštění?",
+        "unavailable": "V případě tohoto jádra systému není ovládání frekvence k dispozici"
+      }
     },
     "network": {
       "title": "Síť",
@@ -399,20 +535,65 @@
         "password": "Heslo",
         "joinBtn": "Připojit",
         "confirmBtn": "OK",
-        "cancelBtn": "Zrušit"
+        "cancelBtn": "Zrušit",
+        "disabled": "Vypnuto",
+        "reconnect": "Znovu připojit",
+        "security": "Zabezpečení",
+        "loading": "Načítání…",
+        "availableNetworks": "Sítě k dispozici",
+        "band24": "2.4 GHz",
+        "scan": "Skenovat sítě",
+        "manual": "Připojit ručně",
+        "band": "Frekvenční pásmo",
+        "notDetected": "nezjištěno",
+        "hidden": "Skrytá síť",
+        "open": "Otevřená síť",
+        "unsupported": "Nepodporované zabezpečení",
+        "band5": "5 GHz",
+        "confirmDisable": "Vypnout Wi-Fi?",
+        "preferredBand": "Upřednostňované frekvenční pásmo",
+        "noAdapter": "Wi-Fi adaptér nezjištěn",
+        "statusFailed": "Nebylo možné číst stav Wi-Fi.",
+        "scanFailed": "Nebylo možné skenovat sítě. Zkuste to znovu.",
+        "noNetworks": "V tomto pásmu nebyly nalezeny žádné sítě.",
+        "bandsUnavailable": "Nebylo možné číst frekvenční pásma adaptéru.",
+        "operationFailed": "Nebylo možné uplatnit nastavení Wi-Fi. Zkuste to znovu."
       },
       "tls": {
         "description": "Povolit protokol HTTPS",
-        "tip": "Upozornění: Použití HTTPS může zvýšit latenci, zejména v režimu videa MJPEG."
+        "tip": "Upozornění: Použití HTTPS může zvýšit latenci, zejména v režimu videa MJPEG.",
+        "certificate": {
+          "names": "Názvy",
+          "validity": "Platné",
+          "reload": "Znovunačíst",
+          "title": "Certifikát",
+          "remove": "Odebrat",
+          "issuer": "Vydavatel",
+          "expired": "Platnost skončila",
+          "subject": "Předmět",
+          "selfSigned": "sám sebou podepsaný",
+          "reloaded": "Certifikát načten znovu",
+          "custom": "Uživatelsky určený certifikát",
+          "uploaded": "Certifikát nainstalován",
+          "upload": "Nahrát certifikát",
+          "uploadTitle": "Použít tento certifikát?",
+          "generated": "Vytvořený sám sebou podepsaný certifikát",
+          "acme": "ACME certifikát, obnovován automaticky",
+          "removeTitle": "Vrátit se k vytvořenému certifikátu?",
+          "failed": "Certifikát nebyl změněn.",
+          "removed": "Vytvořený certifikát je používán"
+        },
+        "confirmDisable": "Vypnout HTTPS?",
+        "confirmEnable": "Zapnout HTTPS?"
       },
       "ethernet": {
         "title": "Ethernet IPv4",
-        "description": "Nakonfigurujte připojení Ethernet IPv4.",
+        "description": "Zvolte DHCP nebo nastavte statickou IPv4 adresu",
         "dhcp": "DHCP",
         "static": "Statická",
         "ipv4": "IPv4",
-        "dhcpDescription": "Automaticky získat IP adresu pomocí DHCP.",
-        "staticDescription": "Nakonfigurujte IP adresu ručně.",
+        "dhcpDescription": "IP adresa a brána jsou obdrženy automaticky z DHCP",
+        "staticDescription": "Nastavení jsou uplatněna okamžitě a zachováno i po restartu",
         "ipAddress": "IP adresa",
         "addressPlaceholder": "192.168.10.32",
         "subnetMask": "Maska podsítě",
@@ -422,8 +603,14 @@
         "invalid": "Neplatná IP adresa",
         "save": "Uložit",
         "unsaved": "Neuložené změny",
-        "saveFailed": "Konfiguraci se nepodařilo uložit.",
-        "loadFailed": "Konfiguraci se nepodařilo načíst."
+        "saveFailed": "Nastavení pro ethernetové rozhraní se nepodařilo uložit",
+        "loadFailed": "Nastavení pro ethernetové rozhraní se nepodařilo načíst",
+        "enable": "Ethernet",
+        "disabled": "Zakázáno",
+        "vlan": "VLAN",
+        "name": "Ethernet",
+        "vlanId": "Identif. VLAN sítě",
+        "noCable": "Povoleno · kabel odpojen"
       },
       "dns": {
         "title": "DNS",
@@ -444,8 +631,74 @@
         "interface": "Rozhraní",
         "ipAddress": "IP adresa",
         "subnetMask": "Maska podsítě",
-        "router": "Router",
-        "none": "Žádné"
+        "router": "Směrovač",
+        "none": "Žádné",
+        "server": "DNS server {{index}}",
+        "remove": "Odebrat DNS server {{index}}"
+      },
+      "acme": {
+        "run": {
+          "issue": "Vydání certifikátu",
+          "ok": "dokončeno",
+          "failed": "nezdařilo se",
+          "running": "spuštěné",
+          "renew": "Obnova",
+          "notDue": "nic čekajícího",
+          "cron": "Plánovaná kontrola"
+        },
+        "email": "E-mail",
+        "challenge": "Ověřování",
+        "ca": "Certifikační autorita",
+        "remove": "Odebrat certifikát",
+        "uninstalled": "acme.sh odebráno",
+        "validUntil": "platné do",
+        "installTitle": "Nainstalovat acme.sh?",
+        "altCredentials": "Alternativní přihlašovací údaje",
+        "uninstall": "Odinstalovat acme.sh",
+        "install": "Nainstalovat acme.sh",
+        "provider": "Poskytovatel DNS",
+        "installed": "acme.sh nainstalováno",
+        "renewsAfter": "obnoví se po",
+        "renew": "Obnovit nyní",
+        "issueButton": "Vydat certifikát",
+        "noOutput": "Žádný výstup.",
+        "uninstallTitle": "Odinstalovat acme.sh?",
+        "domains": "Doménové názvy",
+        "failed": "Operace se nezdařila.",
+        "issueTitle": "Vydat certifikát?",
+        "dnsSleep": "Čekání na DNS (sekundy)",
+        "providerPlaceholder": "Hledat podle názvu",
+        "challengeDns": "DNS (API poskytovatele)",
+        "challengeHttp": "HTTP (port 80)",
+        "issue": "Vydat certifikát",
+        "latest": "nejnovější vydání {{version}}",
+        "check": "Zjistit dostupnost případných aktualizací",
+        "update": "Aktualizovat na {{version}}",
+        "title": "Let's Encrypt / ACME",
+        "notInstalled": "acme.sh není nainstalováno",
+        "updateTitle": "Aktualizovat acme.sh na {{version}}?",
+        "updateFound": "je k dispozici acme.sh {{version}}",
+        "inUse": "Používáno pro HTTPS",
+        "issued": "Vydáno, ale nepoužíváno",
+        "removeTitle": "Odebrat ACME certifikát?",
+        "removed": "ACME certifikát byl odebrán",
+        "reissue": "vydat znovu s jinými nastaveními",
+        "upToDate": "acme.sh je aktuální ({{version}})"
+      },
+      "general": "Obecné",
+      "gateway": {
+        "auto": "Automaticky",
+        "title": "Upřednostňovaná brána",
+        "metric": "priorita trasy {{value}}",
+        "saveFailed": "Nebylo možné uložit upřednostňovanou bránu."
+      },
+      "ipv6": {
+        "global": "Globální adresa",
+        "private": "Adresa z privátního rozsahu",
+        "enable": "Povolit IPv6",
+        "waiting": "Čekání na IPv6 adresu…",
+        "loadFailed": "Nepodařilo se načíst stav IPv6.",
+        "unsupported": "V případě tohoto jádra systému není IPv6 k dispozici."
       }
     },
     "tailscale": {
@@ -453,12 +706,12 @@
       "restart": "Are you sure to restart Tailscale?",
       "stop": "Are you sure to stop Tailscale?",
       "stopDesc": "Log out Tailscale and disable its automatic startup on boot.",
-      "loading": "Načítání...",
+      "loading": "Načítání…",
       "notInstall": "Tailscale nebyl nalezen! Prosím nainstalujte.",
-      "install": "Nainstalovat",
+      "install": "Nainstalovat Tailscale",
       "installing": "Instalace probíhá",
       "failed": "Instalace se nezdařila",
-      "retry": "Obnovte stránku a zkuste to znovu. Nebo zkuste instalaci manuálně",
+      "retry": "Prosím zkuste instalaci znovu.",
       "notRunning": "Tailscale neběží. Chcete-li pokračovat, spusťte jej.",
       "run": "Spustit",
       "notLogin": "Zařízení nebylo dosud spárováno. Přihlaste se prosím a spárujte toto zařízení s vaším účtem.",
@@ -473,8 +726,15 @@
       "logoutDesc": "Opravdu se chcete odhlásit?",
       "uninstall": "Odinstalovat Tailscale",
       "uninstallDesc": "Opravdu chcete odinstalovat Tailscale?",
-      "okBtn": "Yes",
-      "cancelBtn": "No"
+      "okBtn": "Ano",
+      "cancelBtn": "No",
+      "restartAction": "Restartovat Tailscale",
+      "loginFailed": "Přihlášení se nezdařilo",
+      "stopAction": "Zastavit Tailscale",
+      "moreActions": "Další akce",
+      "logoutFailed": "Odhlášení se nezdařilo",
+      "startFailed": "Nepodařilo se spustit Tailscale",
+      "statusFailed": "Nebylo možné získat stav Tailscale"
     },
     "account": {
       "title": "Účet",
@@ -484,7 +744,390 @@
       "logoutBtn": "Odhlásit",
       "logoutDesc": "Opravdu se chcete odhlásit?",
       "okBtn": "Ano",
-      "cancelBtn": "Ne"
+      "cancelBtn": "Ne",
+      "users": {
+        "disabled": "Zakázáno",
+        "title": "Uživatelé",
+        "enabled": "Povoleno",
+        "rename": "Přejmenovat",
+        "delete": "Smazat",
+        "passwordUpdated": "Heslo aktualizováno",
+        "resetPassword": "Resetovat heslo",
+        "usernameUpdated": "Uživatelské jméno aktualizováno",
+        "deleted": "Uživatel smazán",
+        "create": "Vytvořit uživatele",
+        "enableUser": "Povolit {{username}}",
+        "deviceOwner": "Vlastník zařízení",
+        "created": "Uživatel vytvořen",
+        "loadFailed": "Nepodařilo se načíst uživatele",
+        "saveFailed": "Nepodařilo se uložit uživatele",
+        "deleteFailed": "Nepodařilo se smazat uživatele"
+      },
+      "roles": {
+        "admin": "Správce",
+        "user": "Uživatel"
+      },
+      "role": "Role"
+    },
+    "system": {
+      "diagnostics": {
+        "apk": "APK",
+        "states": {
+          "checking": "kontrolování",
+          "installed": "nainstalováno",
+          "error": "chyba",
+          "configured": "nastavené",
+          "disabled": "zakázáno",
+          "ok": "OK",
+          "running": "spuštěné",
+          "stopped": "zastaveno",
+          "ready": "připraveno",
+          "unavailable": "není k dispozici",
+          "installing": "instalování",
+          "pending-reboot": "čeká na restart",
+          "saved-profile": "uložený profil",
+          "absent": "nenainstalováno",
+          "no-signal": "žádný signál",
+          "up-to-date": "aktuální",
+          "power-cycle-pending": "čeká se na fyzické odpojení a znovupřipojení napájení"
+        },
+        "refresh": "Znovu načíst",
+        "input": "Vstup",
+        "title": "Diagnostika",
+        "alpine": "Alpine",
+        "optional": "volitelné",
+        "application": "Aplikace",
+        "output": "Výstup",
+        "overview": "Stav",
+        "capture": "Zachytit",
+        "image": "Obraz",
+        "firewall": "nftables",
+        "collected": "Shromážděno: {{time}}",
+        "kernel": "Spuštěné jádro systému",
+        "boot": "Součástí zavádění systému",
+        "systemBase": "Základ systému",
+        "modules": "Moduly jádra systému",
+        "download": "Stáhnout si hlášení",
+        "fps": "Naměřený počet snímků/s",
+        "edid": "Naprogramování EDID",
+        "profile": "EDID profil",
+        "services": "OpenRC služby",
+        "selected": "Vybrané funkce",
+        "versions": "Verze a kompatibilita",
+        "loadError": "Nebylo možné shromáždit diagnostiky",
+        "downloadError": "Nebylo možné si stáhnout diagnostické hlášení"
+      },
+      "logs": {
+        "sources": {
+          "application": "NanoKVM",
+          "kernel": "Jádro systému",
+          "system": "Systém a služby"
+        },
+        "title": "Záznamy událostí",
+        "refresh": "Znovu načíst",
+        "boot": "Zavedení systému zařízení",
+        "boots": {
+          "previous": "Předchozí zavedení systému",
+          "current": "Stávající zavedení systému",
+          "older": "Před dvěma zavedeními systému"
+        },
+        "loading": "Načítání záznamů událostí…",
+        "source": "Zdroj záznamu událostí",
+        "search": "Prohledat tento záznam událostí",
+        "onlyMatches": "Pouze odpovídající řádky",
+        "previousMatch": "Předchozí odpovídající řádek",
+        "nextMatch": "Následující odpovídající řádek",
+        "follow": "Automatické znovunačítání (5s)",
+        "loadError": "Nebylo možné číst záznamy událostí.",
+        "empty": "Žádné položky záznamu událostí k zobrazení.",
+        "truncated": "Dřívější nebo přespříliš velké položky byly vynechány."
+      },
+      "general": "Obecné",
+      "services": "Služby",
+      "title": "Systém",
+      "performance": "Výkon",
+      "device": "Zařízení",
+      "ssh": {
+        "confirmation": "Potvrdit heslo správce (root)",
+        "password": "Nové heslo správce (root)",
+        "description": "Povolit vzdálený přístup přes SSH",
+        "passwordTitle": "Nastavit heslo správce (root) pro SSH",
+        "rootForbidden": "Heslo nemůže být „root“."
+      }
+    },
+    "software": {
+      "search": "Hledat",
+      "addons": {
+        "packages": "Balíčky",
+        "title": "Doplňky",
+        "open": "Otevřít PicoClaw",
+        "source": "Oficiální vydání"
+      },
+      "updatesTab": "Aktualizace",
+      "remove": "Odebrat",
+      "title": "Software",
+      "indexSchedule": {
+        "save": "Uložit",
+        "time": "Denně v",
+        "timezone": "Časové pásmo zařízení: {{timezone}}",
+        "saved": "Plán znovunačítání rejstříku uložen",
+        "enabled": "Aktualizovat rejstříky balíčků každý den"
+      },
+      "install": "Nainstalovat",
+      "indexUnknown": "neznámý čas",
+      "removeTitle": "Odebrat {{package}}?",
+      "installed": "Nainstalované balíčky",
+      "upgrade": "Přejít na novější verze u všeho",
+      "refresh": "Znovunačíst rejstříky",
+      "available": "Balíčky k dispozici",
+      "noResults": "Žádné odpovídající balíčky",
+      "failed": "Operace s APK se nezdařila",
+      "succeeded": "Operace s APK dokončena",
+      "started": "Operace s APK zahájena",
+      "searchPlaceholder": "Hledat název balíčku",
+      "updateAvailable": "Balíčky pro které jsou k dispozici aktualizace",
+      "running": "APK je {{action}} {{package}}",
+      "upToDate": "Všechny nainstalované balíčky jsou aktuální.",
+      "searchHint": "Hledání bude zahájeno automaticky, jakmile přestanete psát."
+    },
+    "netbird": {
+      "disconnect": "Odpojit",
+      "title": "NetBird",
+      "okBtn": "Ano",
+      "cancelBtn": "Ne",
+      "loading": "Načítání…",
+      "version": "Verze",
+      "run": "Spustit",
+      "error": {
+        "startFailed": "Spouštění se nezdařilo",
+        "stopFailed": "Zastavování se nezdařilo",
+        "intro": "Podrobnosti chyby:",
+        "restartButton": "Restartovat službu",
+        "installFailed": "Instalace se nezdařila",
+        "disconnectFailed": "Odpojení se nezdařilo",
+        "requestFailed": "Požadavek se nezdařil",
+        "refreshButton": "Znovunačíst stav",
+        "uninstallFailed": "Odinstalace se nezdařila",
+        "loginFailed": "Přihlášení se nezdařilo",
+        "restartFailed": "Restart se nezdařil",
+        "title": "Operace ohledně NetBird se nezdařila",
+        "stepRestartUI": "2. Níže klikněte na „Restartovat službu“.",
+        "statusFailed": "Nebylo možné získat stav NetBird",
+        "stepRestartSSH": "3. Pokud je třeba, spusťte: /etc/init.d/S99netbird restart"
+      },
+      "installing": "Instalování NetBird",
+      "install": "Nainstalovat NetBird",
+      "uninstall": "Odinstalovat NetBird",
+      "deviceIP": "IP adresa zařízení",
+      "stopAction": "Zastavit NetBird",
+      "enable": "Povolit NetBird",
+      "restartAction": "Restartovat NetBird",
+      "stop": "Zastavit NetBird?",
+      "login": "Přihlásit se",
+      "moreActions": "Další akce",
+      "deviceName": "Název zařízení",
+      "restart": "Restartovat NetBird?",
+      "stopDesc": "Zastavit službu NetBird.",
+      "statusUnknown": "Stav NetBird není znám",
+      "notInstall": "NetBird není nainstalováno.",
+      "notRunning": "Služba NetBird není spuštěná.",
+      "statusStale": "Zobrazuje se poslední potvrzený stav NetBird"
+    },
+    "memory": {
+      "videoUnknown": "Neznámé",
+      "used": "Použito",
+      "algorithm": "Komprese",
+      "title": "Paměť",
+      "size": "Kapacita",
+      "available": "K dispozici",
+      "videoActive": "Nyní aktivní",
+      "cache": "Uvolnitelná mezipaměť",
+      "videoMode": "Přidělení videopaměti",
+      "ram": "Využitá operační paměť",
+      "video": "Vyrovnávací paměti videa (ION)",
+      "zramTitle": "Zapnout ZRAM swap",
+      "actualRam": "Úložiště stránek v operační paměti",
+      "zramAuto": "Polovina operační paměti ({{size}} MiB)",
+      "recompressTitle": "Znovu zkomprimovat zřídka používané stránky pomocí ZSTD",
+      "loadError": "Nebylo možné číst stav paměti",
+      "changeError": "Nebylo možné změnit nastavení odkládání stránek",
+      "videoModeUnavailable": "Aby bylo možné povolit přepínání, zaktualizujte balíček obsahující jádro systému."
+    },
+    "usb": {
+      "identity": {
+        "presets": {
+          "custom": "Uživatelsky určené",
+          "nanokvm": "NanoKVM (z výroby)"
+        },
+        "fields": {
+          "product": "Produkt",
+          "manufacturer": "Výrobce",
+          "productId": "Identif. produktu",
+          "vendorId": "Identif. výrobce",
+          "serialNumber": "Sériové číslo (UID čipu, neměnné)"
+        },
+        "title": "USB identita"
+      },
+      "off": "Vypnuto",
+      "apply": "Použít",
+      "presetLabel": "Složení",
+      "userDisk": {
+        "delete": "Smazat",
+        "create": "Vytvořit",
+        "title": "Uživatelský disk",
+        "created": "Uživatelský disk vytvořen",
+        "states": {
+          "none": "Zatím ještě žádný obraz",
+          "attached": "Připojeno k počítači"
+        },
+        "deleteTitle": "Smazat uživatelský disk?",
+        "recreateTitle": "Odznovu naformátovat uživatelský disk?",
+        "recreateConfirm": "Vše na něm bude vymazáno.",
+        "enableTitle": "Zapnout uživatelský disk?",
+        "disableTitle": "Vypnout uživatelský disk?",
+        "failed": "Požadavek na uživatelský disk se nezdařil.",
+        "turnOffFirst": "Nejprve uživatelský disk vypněte."
+      },
+      "pointerProfileDefault": "Výchozí",
+      "presets": {
+        "kvm": {
+          "title": "KVM"
+        },
+        "remote": {
+          "title": "Vzdálená plocha"
+        },
+        "headless": {
+          "title": "Server bez videovýstupu"
+        },
+        "console": {
+          "title": "KVM + sériová konzole"
+        },
+        "control": {
+          "title": "Pouze klávesnice a myš"
+        }
+      },
+      "devices": {
+        "keyboard": {
+          "title": "Klávesnice"
+        },
+        "disk": {
+          "title": "Virtuální disk"
+        },
+        "absolute": {
+          "title": "Absolutní ukazatel"
+        },
+        "relative": {
+          "title": "Relativní souřadnice myši"
+        },
+        "network": {
+          "title": "Virtuální síť"
+        },
+        "audio": {
+          "title": "USB zvuk"
+        },
+        "serial": {
+          "title": "USB sériová konzole"
+        }
+      },
+      "internet": {
+        "states": {
+          "loading": "Načítání…",
+          "disabled": "Vypnuto · Přístup pouze přes lokální USB"
+        },
+        "title": "Internet přes USB"
+      },
+      "manual": "Nastavit ručně",
+      "budgetTitle": "Limit počtu koncových bodů",
+      "reload": "Znovunačíst stav",
+      "custom": "Uživatelsky určené složení",
+      "title": "Složení USB",
+      "cancel": "Zahodit změny",
+      "enabled": "USB zařízení",
+      "confirmDisable": "Vypnout USB?",
+      "serialConsole": {
+        "test": "Vyzkoušet konzoli",
+        "download": "Stáhnout si skript",
+        "testFailed": "Zkoušku konzole nebylo možné spustit.",
+        "withWget": "S použitím wget namísto curl (Alpine, busybox):",
+        "states": {
+          "error": "Ze sériového portu nebylo možné číst."
+        }
+      },
+      "pointerProfile": "Profil absolutně polohovaného ukazatele",
+      "reconnectNotice": "Uplatnění krátce odpojí a opět připojí USB zařízení.",
+      "budgetExceeded": "Tento výběr překračuje limit počtu USB koncových bodů.",
+      "customDescription": "Níže vyberte USB funkce, které potřebujete."
+    },
+    "vpn": {
+      "title": "VPN"
+    },
+    "rustdesk": {
+      "stopped": "Zastaveno",
+      "server": "Server",
+      "passwordMode": "Heslo",
+      "running": "Spuštěné",
+      "registered": "Zaregistrováno",
+      "remove": "Odebrat",
+      "unknownVersion": "Neznámé",
+      "install": "Nainstalovat",
+      "permanent": "Trvalé",
+      "settings": "RustDesk",
+      "transmitAudio": "Přenášet zvuk",
+      "temporaryPassword": "Dočasné heslo",
+      "absent": "Nenainstalováno",
+      "save": "Uložit nastavení",
+      "saved": "Nastavení uložena",
+      "password": "Přístupové heslo",
+      "temporary": "Dočasné (automatické)",
+      "addonVersion": "Verze doplňku",
+      "custom": "Uživatelsky určený server",
+      "advanced": "Pokročilá nastavení",
+      "open": "Otevřít správu",
+      "clients": "Nejvýše zobrazujících",
+      "passwordUpdated": "Heslo aktualizováno",
+      "id": "RustDesk identif.",
+      "newPassword": "Nové heslo",
+      "relay": "Předávací server (volitelné)",
+      "public": "Oficiální veřejné servery",
+      "enabled": "Povolit vzdálený přístup",
+      "rustdeskVersion": "Základ RustDesk protokolu",
+      "upgrade": "Aktualizovat na {{version}}",
+      "checkUpdates": "Zjistit dostupnost případných aktualizací",
+      "webrtc": "Povolit WebRTC připojení",
+      "failed": "Požadavek se nezdařil",
+      "done": "Operace s balíčkem dokončena",
+      "source": "Zdrojové kódy a licence",
+      "waitingForPassword": "Vytváření dočasného hesla…",
+      "key": "Veřejný klíč serveru (volitelné)",
+      "registering": "Čeká se na server pro identifikátory",
+      "audioMuted": "Přenos zvuku prostřednictvím RustDesk je vypnutý."
+    },
+    "updates": {
+      "installed": "Nainstalováno",
+      "title": "Aktualizace",
+      "apk": {
+        "title": "Aktualizace balíčků",
+        "kernel": "Spuštěné jádro systému",
+        "log": "Záznam událostí z aktualizace",
+        "reboot": "Restartovat zařízení",
+        "install": "Nainstalovat aktualizace",
+        "failed": "Aktualizace balíčku se nezdařila",
+        "installed": "Aktualizace balíčků nainstalovány",
+        "check": "Zjistit dostupnost případných aktualizací",
+        "rebootConfirm": "Restartovat zařízení nyní?",
+        "current": "Všechny nainstalované balíčky jsou aktuální"
+      },
+      "alpineTitle": "Přeinstalovat systém",
+      "alpineProfile": "Profil sestavení",
+      "alpineStage": "Stáhnout si obraz",
+      "alpineOptions": "Předvolby obrazu",
+      "alpineBuild": "Sestavit obraz",
+      "alpineInstall": "Přeinstalovat a restartovat",
+      "alpinePackages": "Balíčky k zahrnutí",
+      "reconnecting": "Čeká se na opětovné připojení zařízení…"
+    },
+    "extensions": {
+      "title": "Rozšíření"
     }
   },
   "picoclaw": {
@@ -492,19 +1135,20 @@
     "empty": "Otevřete panel a spusťte úlohu.",
     "inputPlaceholder": "Popište, co chcete, aby PicoClaw dělal",
     "newConversation": "Nová konverzace",
-    "processing": "Zpracovává se...",
+    "processing": "Zpracovávání…",
     "agent": {
       "defaultTitle": "Obecný asistent",
       "defaultDescription": "Obecná nápověda pro chat, vyhledávání a pracovní prostor.",
       "kvmTitle": "Vzdálené ovládání",
       "kvmDescription": "Ovládejte vzdáleného hostitele prostřednictvím NanoKVM.",
       "switched": "Role agenta změněna",
-      "switchFailed": "Přepnutí role agenta se nezdařilo"
+      "switchFailed": "Přepnutí role agenta se nezdařilo",
+      "label": "Role agenta"
     },
     "send": "Odeslat",
     "cancel": "Zrušit",
     "status": {
-      "connecting": "Připojování k bráně...",
+      "connecting": "Připojování k bráně…",
       "connected": "Relace PicoClaw připojena",
       "disconnected": "Relace PicoClaw uzavřena",
       "stopped": "Požadavek na zastavení byl odeslán",
@@ -517,22 +1161,22 @@
     "connection": {
       "runtime": {
         "checking": "Kontrola",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "Obnovování PicoClaw",
         "ready": "Běhové prostředí připraveno",
         "stopped": "Běhové prostředí zastaveno",
         "blockedByMCP": "Externí ovládání MCP je aktivní",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "Běhové prostředí je spuštěné, ale vstup zařízení v tuto chvíli ovládá externí MCP.",
+        "readyWithoutControl": "Běhové prostředí je spuštěné. Před opětovným připojením udělte PicoClaw řízení zařízení.",
         "unavailable": "Běhové prostředí není k dispozici",
         "configError": "Chyba konfigurace"
       },
       "transport": {
         "connecting": "Připojování",
         "connected": "Připojeno",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "Odpojeno",
+        "reconnect": "Znovu připojit",
+        "reconnectDescription": "Znovu připojit ke spuštěné relaci PicoClaw.",
+        "reconnectBlocked": "Před opětovným připojením PicoClaw potřebuje řízení zařízení."
       },
       "run": {
         "idle": "Nečinný",
@@ -549,19 +1193,19 @@
     },
     "control": {
       "picoclaw": "Ovládání zařízení: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw může psát na klávesnici a hýbat myší. Může se stát, že ruční vstup bude pozastaven.",
       "mcp": "Ovládání zařízení: externí MCP",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
+      "mcpDescription": "Do zařízení může zapisovat externí MCP. PicoClaw nepřevezme řízení vstupu.",
       "off": "Ovládání zařízení: vypnuto",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "offDescription": "AI nebude psát na klávesnici či hýbat myší. Ruční ovládání zůstává k dispozici.",
+      "transitioning": "Ovládání zařízení: přepínání",
+      "transitioningDescription": "Ovládání zařízení se synchronizuje. Vyčkejte prosím.",
       "grant": "Předat ovládání",
       "release": "Uvolnit",
-      "releasing": "Releasing...",
-      "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasing": "Uvolňování…",
+      "switching": "Přepínání…",
+      "releasingLabel": "Ovládání zařízení: uvolňování",
+      "releasingDescription": "Ovládání zařízení je vraceno nazpět. PicoClaw zastavilo stávající zápisy.",
       "granted": "Ovládání PicoClaw povoleno",
       "released": "Ovládání PicoClaw uvolněno",
       "grantFailed": "Nepodařilo se předat ovládání PicoClaw",
@@ -574,7 +1218,7 @@
       "installing": "Instalace PicoClaw",
       "success": "PicoClaw úspěšně nainstalováno",
       "failed": "Nepodařilo se nainstalovat PicoClaw",
-      "uninstalling": "Odinstalování běhového prostředí...",
+      "uninstalling": "Odinstalovávání běhového prostředí…",
       "uninstalled": "Běhové prostředí bylo úspěšně odinstalováno.",
       "uninstallFailed": "Odinstalace se nezdařila.",
       "requiredTitle": "PicoClaw není nainstalováno",
@@ -607,7 +1251,8 @@
       "saving": "Ukládání",
       "saved": "Konfigurace modelu uložena",
       "saveFailed": "Nepodařilo se uložit konfiguraci modelu",
-      "invalid": "Identifikátor modelu, API Base URL a klíč API jsou povinné"
+      "invalid": "Identifikátor modelu, API Base URL a klíč API jsou povinné",
+      "apiKeyOptionalPlaceholder": "Volitelné pro tohoto lokálního poskytovatele"
     },
     "uninstall": {
       "menuLabel": "Odinstalovat",
@@ -618,7 +1263,7 @@
     },
     "history": {
       "title": "Historie",
-      "loading": "Načítání relací...",
+      "loading": "Načítání relací…",
       "emptyTitle": "Zatím žádná historie",
       "emptyDescription": "Zde se zobrazí předchozí relace PicoClaw.",
       "loadFailed": "Nepodařilo se načíst historii relace",
@@ -642,9 +1287,10 @@
       "enableConfirmCancel": "Zrušit",
       "title": "Spustit PicoClaw",
       "description": "Spusťte běhové prostředí a začněte používat asistenta PicoClaw.",
-      "switchFromMCP": "Switch to PicoClaw and start",
-      "takeoverAndStart": "Take over and start"
-    }
+      "switchFromMCP": "Přepnout na PicoClaw a spustit",
+      "takeoverAndStart": "Převzít řízení a spustit"
+    },
+    "moreActions": "Další akce"
   },
   "error": {
     "title": "Narazili jsme na problém",
@@ -656,5 +1302,214 @@
   "menu": {
     "collapse": "Sbalit nabídku",
     "expand": "Rozbalte nabídku"
+  },
+  "videoSettings": {
+    "powerCycleCancel": "Zrušit",
+    "title": "Video",
+    "transport": "Transport",
+    "modeRecommended": "doporučeno",
+    "player": "Přehrávač",
+    "image": "Obrázek",
+    "retry": "Zkusit znovu",
+    "mode": "Režim",
+    "apply": "Použít",
+    "bitrate": "Bitová rychlost",
+    "discard": "Zahodit změny",
+    "captureOff": "Zachycování zakázáno",
+    "input": "HDMI vstup",
+    "captureOn": "Zachycování povoleno",
+    "output": "Enkódovaný proud",
+    "fpsValue": "{{value}} snímků/s",
+    "open": "Nastavení videa…",
+    "current": "Stávající video",
+    "directImmediate": "Nejnižší latence",
+    "automatic": "Automatické (doporučeno)",
+    "monitor": "HDMI monitor",
+    "portrait": "Monitor na výšku",
+    "modeCustom": "Uživatelsky určené: {{value}}",
+    "directSmooth": "Vyhladit obraz",
+    "browserSection": "Tento prohlížeč",
+    "landscape": "Monitor na šířku",
+    "hz": "{{value}} Hz",
+    "mbps": "{{value}} Mbit/s",
+    "streamResolution": "Rozlišení proudu",
+    "powerCycleWrite": "Zapsat EDID",
+    "applied": "Nastavení pro video uplatněna",
+    "sameAsInput": "Stejné jako vstup",
+    "atMost": "Až {{value}}",
+    "advanced": "Pokročilé a zotavení",
+    "measuredBitrate": "≈ {{value}} Mbit/s",
+    "mjpegChroma": "JPEG vzorkování barev",
+    "fpsOverride": "Snímková frekvence proudu",
+    "reason": {
+      "range": "mimo rozsah",
+      "browser": "tento prohlížeč ho nedokáže přehrát",
+      "codec": "v případě tohoto transportu není k dispozici",
+      "transport": "v případě tohoto transportu není k dispozici",
+      "receiver": "nepodporováno tímto HDMI přijímačem",
+      "portrait": "nepodporováno tímto profilem na výšku"
+    },
+    "bitrateAuto": "Automaticky · {{value}} Mbit/s",
+    "bitrateEconomy": "Úsporné · {{value}} Mbit/s",
+    "mjpegChroma420": "4:2:0 – méně objemné snímky",
+    "powerCycleTitle": "Je zapotřebí fyzicky odpojit od napájení a poté znovu připojit",
+    "uhdSwitch": "Přepnout na UHD a restartovat",
+    "invalid": "Některé z vybraných předvoleb nejsou k dispozici",
+    "pending": "Změny nebyly uplatněny",
+    "failed": "Nastavení pro video nebylo možné uplatnit.",
+    "statusFailed": "Nebylo možné znovu načíst stav videa.",
+    "uhdTitle": "Přepnout videopaměť na UHD?",
+    "uhdRebooting": "Restartování s UHD videopamětí…",
+    "changeReload": "Pro přepnutí přehrávače se stránka znovu načte.",
+    "mjpegChromaFallback_frameDetection": "Pro použití 4:2:2 vypněte zjišťování snímků."
+  },
+  "dashboard": {
+    "states": {
+      "running": "Připojeno",
+      "error": "Chyba",
+      "notRunning": "Zastaveno",
+      "idle": "Nečinné",
+      "connected": "Připojeno",
+      "waiting": "Čekání",
+      "connecting": "Připojování",
+      "off": "Vypnuto",
+      "stopped": "Zastaveno",
+      "notInstall": "Nenainstalováno",
+      "auth": "Je vyžadováno ověření se",
+      "notLogin": "Nepřihlášeni"
+    },
+    "capture": "Zachytit",
+    "connected": "Připojeno",
+    "synchronized": "Synchronizováno",
+    "memory": "Paměť",
+    "zram": "ZRAM",
+    "uptime": "Doba chodu",
+    "dataStorage": "Data",
+    "storage": "Úložiště",
+    "readOnly": "Pouze pro čtení",
+    "synchronization": "Synchronizace",
+    "cache": "Mezipaměť",
+    "systemStorage": "Systémové",
+    "device": "Zařízení",
+    "compression": "Komprese",
+    "kernel": "Jádro systému",
+    "title": "Rychlý přehled",
+    "freeStorage": "Volné místo",
+    "ntpServers": "NTP servery",
+    "timezone": "Časové pásmo",
+    "of": "z {{total}}",
+    "deviceTime": "Čas v zařízení",
+    "sessions": "Videorelace",
+    "timeService": "Služba času",
+    "handshake": "Poslední ustavení spojení",
+    "noProfiles": "Žádné profily",
+    "available": "Operační paměť k dispozici",
+    "application": "NanoKVM OS",
+    "notSynchronized": "Synchronizace nepotvrzena",
+    "open": "Otevřít nastavení {{name}}",
+    "duration": "{{days}}d {{hours}}h {{minutes}}m",
+    "noVpn": "Není nainstalovaná žádná VPN",
+    "swapUsage": "{{used}} / {{size}} MiB",
+    "diskSpace": "{{free}} volné z {{total}}",
+    "unavailable": "Nepřipojeno nebo není k dispozici",
+    "live": "Aktualizuje se když je tato stránka otevřená"
+  },
+  "audio": {
+    "volume": "Hlasitost",
+    "listen": "Poslouchat",
+    "resume": "Znovu spustit zvuk",
+    "title": "USB zvuk",
+    "receiving": "Obdrženo paketů se zvukem",
+    "waiting": "Čeká se na zvuk",
+    "errors": {
+      "session": "Platnost vaší relace skončila. Přihlaste se znovu."
+    }
+  },
+  "vpn": {
+    "enable": "Povolit",
+    "states": {
+      "error": "Chyba",
+      "reconnecting": "Opětovné navazování spojení",
+      "authenticating": "Ověřování se",
+      "connecting": "Připojování",
+      "idle": "Nečinné",
+      "connected": "Připojeno",
+      "off": "Vypnuto",
+      "waiting": "Čeká se na protějšek"
+    },
+    "confirm": "Ano",
+    "username": "Uživatelské jméno",
+    "handshake": "Navázání spojení",
+    "delete": "Smazat",
+    "rename": "Přejmenovat",
+    "credentials": "Přihlašovací údaje",
+    "password": "Heslo",
+    "cancel": "Ne",
+    "save": "Uložit",
+    "credentialsRequired": "Jsou vyžadovány přihlašovací údaje",
+    "profileName": "Název profilu",
+    "openvpnUninstall": "Odinstalovat OpenVPN",
+    "openvpnInstall": "Nainstalovat OpenVPN",
+    "cancelRename": "Zrušit přejmenování",
+    "passphrase": "Heslová fráze k soukromému klíči",
+    "openvpnImport": "Naimportovat OpenVPN soubory",
+    "openvpnEmpty": "Žádné profily OpenVPN",
+    "openvpnInstalled": "OpenVPN je nainstalováno",
+    "import": "Naimportovat .conf soubory",
+    "empty": "Žádné WireGuard profily",
+    "deleteConfirm": "Smazat tento profil?",
+    "openvpnNotInstalled": "OpenVPN není nainstalováno.",
+    "loadFailed": "Stav VPN nebylo možné načíst.",
+    "routingDisableFirst": "Před měněním směrování tento profil zakažte.",
+    "uploadLimit": "Nejvýše 16 profilů (64 KiB na soubor)."
+  },
+  "dateTime": {
+    "save": "Uložit",
+    "preview": "Náhled",
+    "synchronized": "Synchronizováno",
+    "deviceTime": "Čas v zařízení",
+    "servers": "NTP servery",
+    "timezone": "Časové pásmo",
+    "format": "Formát času",
+    "title": "Datum a čas",
+    "hour24": "24 hodinový (14:30)",
+    "waiting": "Synchronizace nepotvrzena",
+    "hour12": "12 hodinový (2:30 PM)",
+    "saved": "Nastavení data a času uložena",
+    "loadFailed": "Nebylo možné číst čas v zařízení. Zkontrolujte připojení."
+  },
+  "sessionControl": {
+    "take": "Převzít kontrolu",
+    "viewOnly": "Pouze zobrazovat",
+    "release": "Uzamknout tuto relaci",
+    "active": "Tato relace prohlížeče ovládá klávesnici a myš"
+  },
+  "recorder": {
+    "saved": "Nahrávka uložena",
+    "saving": "Ukládání nahrávky…",
+    "start": "Zahájit nahrávání",
+    "stop": "Zastavit nahrávání",
+    "title": "Záznam videa",
+    "captureDisabled": "Aby bylo možné nahrávat video, povolte zachytávání",
+    "noVideo": "Před zahájením nahrávání čekat na video"
+  },
+  "capture": {
+    "off": "Zachytávání zakázáno",
+    "stop": "Zakázat zachytávání",
+    "start": "Povolit zachytávání",
+    "checking": "Kontrola stavu zařízení…",
+    "downloadStatusFailed": "Nebylo možné znovunačíst stav stahování. Opětovné připojování…",
+    "failed": "Nebylo možné změnit zachytávání. Zkuste to znovu."
+  },
+  "screenshot": {
+    "take": "Pořídit snímek obrazovky",
+    "saving": "Ukládání snímku obrazovky…",
+    "saved": "Snímek obrazovky uložen ({{width}}×{{height}})",
+    "failed": "Snímek obrazovky nebylo možné uložit",
+    "captureDisabled": "Aby bylo možné pořídit snímek obrazovky, zapněte zachytávání"
+  },
+  "inputConnection": {
+    "connecting": "Připojování k řídícímu kanálu",
+    "reconnecting": "Řídící spojení ztraceno. Opětovné připojování…"
   }
 }

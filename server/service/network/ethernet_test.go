@@ -197,3 +197,45 @@ func TestReadEthernetConfigRejectsExtraFieldsAfterCommentRemoval(t *testing.T) {
 		t.Fatal("expected extra field to be rejected")
 	}
 }
+
+func TestReadEthernetConfigReportsTheAddressOfTheActiveInterface(t *testing.T) {
+	tempDir := t.TempDir()
+	originalFile, originalDisabledFile, originalVLANFile := ethernetConfigFile, ethernetDisabledFile, ethernetVLANFile
+	originalIPv4 := ethernetIPv4
+	ethernetConfigFile = filepath.Join(tempDir, "eth.nodhcp")
+	ethernetDisabledFile = filepath.Join(tempDir, "eth.disabled")
+	ethernetVLANFile = filepath.Join(tempDir, "eth.vlan")
+	addresses := map[string]string{"eth0": "192.168.4.50/24", "eth0.12": "10.12.0.7/16"}
+	ethernetIPv4 = func(name string) string { return addresses[name] }
+	t.Cleanup(func() {
+		ethernetConfigFile, ethernetDisabledFile, ethernetVLANFile = originalFile, originalDisabledFile, originalVLANFile
+		ethernetIPv4 = originalIPv4
+	})
+
+	got, err := readEthernetConfig()
+	if err != nil || got.CurrentAddress != "192.168.4.50/24" {
+		t.Fatalf("without VLAN: %q, %v", got.CurrentAddress, err)
+	}
+	if err := writeEthernetVLAN(true, 12); err != nil {
+		t.Fatal(err)
+	}
+	got, err = readEthernetConfig()
+	if err != nil || got.CurrentAddress != "10.12.0.7/16" {
+		t.Fatalf("with VLAN 12: %q, %v", got.CurrentAddress, err)
+	}
+	delete(addresses, "eth0.12")
+	got, err = readEthernetConfig()
+	if err != nil || got.CurrentAddress != "" {
+		t.Fatalf("no lease yet: %q, %v", got.CurrentAddress, err)
+	}
+}
+
+func TestEthernetIPv4OfMissingInterface(t *testing.T) {
+	if got := ethernetIPv4("nk-missing-if0"); got != "" {
+		t.Fatalf("missing interface: %q", got)
+	}
+	// Loopback may be down or absent in a build container.
+	if got := ethernetIPv4("lo"); got != "" && got != "127.0.0.1/8" {
+		t.Fatalf("loopback: %q", got)
+	}
+}

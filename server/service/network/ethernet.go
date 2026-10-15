@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"net"
 	"net/netip"
 	"os"
 	"os/exec"
@@ -115,6 +116,11 @@ func readEthernetConfig() (proto.EthernetConfig, error) {
 	if err != nil {
 		return config, err
 	}
+	name := ethernetInterface
+	if config.VLANEnabled {
+		name = fmt.Sprintf("%s.%d", ethernetInterface, config.VLANID)
+	}
+	config.CurrentAddress = ethernetIPv4(name)
 	file, err := os.Open(ethernetConfigFile)
 	if os.IsNotExist(err) {
 		return config, nil
@@ -176,6 +182,24 @@ func readEthernetEnabled() (bool, error) {
 		return true, nil
 	}
 	return false, fmt.Errorf("failed to read ethernet enabled state: %w", err)
+}
+
+// ethernetIPv4 returns the first IPv4 address on the interface, in CIDR form.
+var ethernetIPv4 = func(name string) string {
+	iface, err := net.InterfaceByName(name)
+	if err != nil {
+		return ""
+	}
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return ""
+	}
+	for _, addr := range addrs {
+		if ip, ok := addr.(*net.IPNet); ok && ip.IP.To4() != nil {
+			return ip.String()
+		}
+	}
+	return ""
 }
 
 func readEthernetCarrier() bool {

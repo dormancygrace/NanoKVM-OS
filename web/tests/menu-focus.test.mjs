@@ -36,16 +36,21 @@ async function renderComponent(path, exportName) {
     if (name === 'react') return {
       useState: value => [value, () => {}], useRef: value => ({ current: value }),
       useCallback: fn => fn, useEffect() {}, useContext: () => ({}),
-      useMemo: fn => fn(), useId: () => 'test'
+      useMemo: fn => fn(), useId: () => 'test', lazy: () => () => null
     };
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'fragment' };
-    if (name === 'jotai') return { useAtomValue: () => 0, useSetAtom: () => () => {} };
+    if (name === 'jotai') return {
+      useAtom: () => [undefined, () => {}], useAtomValue: () => 0, useSetAtom: () => () => {}
+    };
     if (name === 'react-i18next') return { useTranslation: () => ({ t: key => key }) };
     if (name === 'react-responsive') return { useMediaQuery: () => true };
     if (name === 'clsx') return { __esModule: true, default: () => '' };
     if (name.includes('menu-focus')) return { releasePointerMenuFocus };
     if (name.includes('useVirtualDisk')) return { useVirtualDisk: () => true };
     if (name.includes('mobile-menu-context')) return { useDismissMobileMenu: () => () => {} };
+    if (name.includes('useResponsiveDevice')) return { useResponsiveDevice: () => ({}) };
+    if (name.includes('contexts/auth')) return { useAuth: () => ({ account: { role: 'user' } }) };
+    if (name === './tabs.ts') return new Proxy({}, { get: () => () => undefined });
     return {};
   });
   return exports[exportName]({ title: 'test-menu', icon: null, content: null });
@@ -63,7 +68,9 @@ function findTrigger(node, label) {
 
 for (const [path, component, label] of [
   ['../src/components/menu-item.tsx', 'MenuItem', 'test-menu'],
-  ['../src/pages/desktop/menu/image/index.tsx', 'Image', 'image.title']
+  ['../src/pages/desktop/menu/image/index.tsx', 'Image', 'image.title'],
+  ['../src/pages/desktop/menu/picoclaw/index.tsx', 'Picoclaw', 'picoclaw.title'],
+  ['../src/pages/desktop/menu/settings/index.tsx', 'Settings', 'settings.title']
 ]) {
   test(component + ' pointer clicks release focus while keyboard clicks retain it', async () => {
     const tree = await renderComponent(path, component);

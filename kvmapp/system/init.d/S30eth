@@ -127,9 +127,13 @@ start() {
             [ -z "$gw" ] && gw=$(calc_gw "$addr" "$netid")
             "$NANOKVM_ARPING" -Dqc2 "-I$eth_iface" "$addr" || continue
             "$NANOKVM_IP" a add "$inet" brd + dev "$eth_iface"
-            "$NANOKVM_IP" r add default via "$gw" dev "$eth_iface" metric "$(default_route_metric)"
-            if [ "$(cat "$NANOKVM_DNS_MODE_FILE" 2>/dev/null)" != "manual" ]; then
-                printf 'nameserver %s\n' "$gw" >> "$NANOKVM_RESOLV_CONF"
+            # "none": a link without a router, such as a cable straight to a
+            # computer; no default route or DNS server through it.
+            if [ "$gw" != none ]; then
+                "$NANOKVM_IP" r add default via "$gw" dev "$eth_iface" metric "$(default_route_metric)"
+                if [ "$(cat "$NANOKVM_DNS_MODE_FILE" 2>/dev/null)" != "manual" ]; then
+                    printf 'nameserver %s\n' "$gw" >> "$NANOKVM_RESOLV_CONF"
+                fi
             fi
             break
         done < "$NANOKVM_ETH_CONFIG"

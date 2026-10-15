@@ -16,6 +16,12 @@ func TestValidateStaticEthernet(t *testing.T) {
 	if prefix.String() != "192.168.10.32/24" || gateway.String() != "192.168.10.1" {
 		t.Fatalf("unexpected normalized configuration: %s %s", prefix, gateway)
 	}
+	for _, mask := range []string{"", "255.255.255.0"} {
+		prefix, gateway, err = validateStaticEthernet(" 192.168.10.32/24 ", mask, "192.168.10.1")
+		if err != nil || prefix.String() != "192.168.10.32/24" || gateway.String() != "192.168.10.1" {
+			t.Fatalf("CIDR with mask %q: %s %s %v", mask, prefix, gateway, err)
+		}
+	}
 
 	for _, test := range []struct {
 		name, address, mask, gateway string
@@ -29,6 +35,11 @@ func TestValidateStaticEthernet(t *testing.T) {
 		{"same address gateway", "192.168.10.32", "255.255.255.0", "192.168.10.32"},
 		{"broadcast gateway", "192.168.10.32", "255.255.255.0", "192.168.10.255"},
 		{"broadcast gateway small subnet", "10.0.0.5", "255.255.255.252", "10.0.0.7"},
+		{"invalid CIDR prefix", "192.168.10.32/33", "", "192.168.10.1"},
+		{"CIDR network address", "192.168.10.0/24", "", "192.168.10.1"},
+		{"CIDR with a different mask", "192.168.10.32/24", "255.255.0.0", "192.168.10.1"},
+		{"CIDR gateway outside", "192.168.10.32/24", "", "192.168.11.1"},
+		{"IPv6 CIDR", "fd00::5/64", "", "192.168.10.1"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if _, _, err := validateStaticEthernet(test.address, test.mask, test.gateway); err == nil {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Checkbox, Input, InputNumber, Segmented, Switch } from 'antd';
 import { CheckIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,19 @@ function isIPv4(value: string) {
     parts.length === 4 &&
     parts.every((part) => /^\d+$/.test(part) && Number(part) >= 0 && Number(part) <= 255)
   );
+}
+
+// "192.168.1.20/24": the address and the subnet mask of its prefix length
+// (1-30, as the server accepts).
+function parseCIDR(value: string) {
+  const match = /^([^/]+)\/(\d{1,2})$/.exec(value.trim());
+  const bits = match ? Number(match[2]) : -1;
+  if (!match || !isIPv4(match[1]) || bits < 1 || bits > 30) return null;
+  const mask = (0xffffffff << (32 - bits)) >>> 0;
+  return {
+    address: match[1].trim(),
+    subnetMask: [24, 16, 8, 0].map((shift) => (mask >>> shift) & 255).join('.')
+  };
 }
 
 export const Ethernet = () => {
@@ -58,14 +71,52 @@ export const Ethernet = () => {
     void getEthernet();
   }, [getEthernet]);
 
+  // The cable, the interface and the DHCP address change on their own; refresh
+  // them while the panel is visible, leaving unsaved edits alone.
+  // One refresh at a time: while the interface restarts, a request can hang.
+  const refreshing = useRef(false);
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      if (document.visibilityState !== 'visible' || refreshing.current) return;
+      refreshing.current = true;
+      try {
+        const rsp = await api.getEthernet();
+        if (rsp.code !== 0) return;
+        const { adminUp, linkUp, currentAddress } = rsp.data as EthernetConfig;
+        const status = { adminUp, linkUp, currentAddress };
+        setConfig((current) => ({ ...current, ...status }));
+        setOriginal((current) => current && { ...current, ...status });
+      } catch {
+        // The next refresh tries again.
+      } finally {
+        refreshing.current = false;
+      }
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
   function update(fields: Partial<EthernetConfig>) {
     setMessage('');
     setConfig((current) => ({ ...current, ...fields }));
   }
 
-  const hasChanges = JSON.stringify(config) !== JSON.stringify(original);
-  const invalidStatic =
-    config.mode === 'static' && (!isIPv4(config.address) || !isIPv4(config.gateway));
+  // Link/address polling is runtime status, not an editable setting. In
+  // particular, a save response may arrive after the next status refresh.
+  const editableFields = [
+    'enabled',
+    'mode',
+    'address',
+    'subnetMask',
+    'gateway',
+    'vlanEnabled',
+    'vlanId'
+  ] as const;
+  const hasChanges = !original || editableFields.some((key) => config[key] !== original[key]);
+  const cidr = config.mode === 'static' ? parseCIDR(config.address) : null;
+  const invalidAddress = !isIPv4(config.address) && !cidr;
+  // No gateway: a link without a router, such as a cable straight to a computer.
+  const invalidGateway = config.gateway.trim() !== '' && !isIPv4(config.gateway);
+  const invalidStatic = config.mode === 'static' && (invalidAddress || invalidGateway);
   const invalidVLAN =
     config.vlanEnabled &&
     (!Number.isInteger(config.vlanId) || config.vlanId < 1 || config.vlanId > 4094);
@@ -78,8 +129,8 @@ export const Ethernet = () => {
       const rsp = await api.setEthernet({
         enabled: config.enabled,
         mode: config.mode,
-        address: config.mode === 'static' ? config.address.trim() : '',
-        subnetMask: config.mode === 'static' ? config.subnetMask.trim() : '',
+        address: config.mode === 'static' ? (cidr?.address ?? config.address.trim()) : '',
+        subnetMask: config.mode === 'static' ? (cidr?.subnetMask ?? config.subnetMask.trim()) : '',
         gateway: config.mode === 'static' ? config.gateway.trim() : '',
         vlanEnabled: config.vlanEnabled,
         vlanId: config.vlanId
@@ -88,7 +139,9 @@ export const Ethernet = () => {
         showRequestError(rsp, 'settings.network.ethernet.saveFailed');
         return;
       }
-      setOriginal(config);
+      const saved = cidr ? { ...config, ...cidr } : config;
+      setConfig(saved);
+      setOriginal(saved);
       setMessage(t('settings.network.ethernet.saved'));
     } catch (err) {
       showRequestError(err, 'settings.network.ethernet.saveFailed');
@@ -102,7 +155,11 @@ export const Ethernet = () => {
   ) : !config.adminUp ? (
     <StatusBadge tone="warning">{t('settings.network.ethernet.interfaceDown')}</StatusBadge>
   ) : config.linkUp ? (
-    <StatusBadge tone="success">{t('settings.network.ethernet.linkUp')}</StatusBadge>
+    <StatusBadge tone="success">
+      {config.currentAddress
+        ? t('settings.network.ethernet.linkUpAddress', { address: config.currentAddress })
+        : t('settings.network.ethernet.linkUpNoAddress')}
+    </StatusBadge>
   ) : (
     <StatusBadge tone="warning">{t('settings.network.ethernet.noCable')}</StatusBadge>
   );
@@ -196,21 +253,24 @@ export const Ethernet = () => {
         {config.mode === 'static' && (
           <Panel className="space-y-3">
             <Input
+              disabled={isLoading || isSaving}
               value={config.address}
-              status={config.address && !isIPv4(config.address) ? 'error' : undefined}
+              status={config.address && invalidAddress ? 'error' : undefined}
               placeholder={t('settings.network.ethernet.addressPlaceholder')}
               addonBefore={t('settings.network.ethernet.ipAddress')}
               onChange={(event) => update({ address: event.target.value })}
             />
             <Input
-              value={config.subnetMask}
+              value={cidr ? cidr.subnetMask : config.subnetMask}
+              disabled={isLoading || isSaving || !!cidr}
               placeholder={t('settings.network.ethernet.subnetMaskPlaceholder')}
               addonBefore={t('settings.network.ethernet.subnetMask')}
               onChange={(event) => update({ subnetMask: event.target.value })}
             />
             <Input
+              disabled={isLoading || isSaving}
               value={config.gateway}
-              status={config.gateway && !isIPv4(config.gateway) ? 'error' : undefined}
+              status={invalidGateway ? 'error' : undefined}
               placeholder={t('settings.network.ethernet.gatewayPlaceholder')}
               addonBefore={t('settings.network.ethernet.gateway')}
               onChange={(event) => update({ gateway: event.target.value })}

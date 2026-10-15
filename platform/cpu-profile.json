@@ -12,5 +12,6 @@
   "bootloader_abi": "lp64",
   "kernel_optimization": "-O3",
   "audio_optimization": "-O2",
-  "kernel_lto": "none"
+  "kernel_lto": "none",
+  "kernel_strict_align": false
 }

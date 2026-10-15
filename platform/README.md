@@ -116,7 +116,7 @@ A changed kernel also needs a new release name: update `CONFIG_LOCALVERSION` in 
 
 ## Verification
 
-`build.sh verify` compares every output in `images/` with `expected.sha256` and rejects missing, changed or unlisted files. The release uses GCC 16.2 / Binutils 2.47 and the component profiles in `cpu-profile.json`: kernel and modules use `-O3` without LTO, while source-owned userspace uses scalar `-O2`.
+`build.sh verify` compares every output in `images/` with `expected.sha256` and rejects missing, changed or unlisted files. The release uses GCC 16.2 / Binutils 2.47 and the component profiles in `cpu-profile.json`: kernel and modules use `-O3` without LTO and with `-mno-strict-align` (the C906 handles misaligned access in hardware), while source-owned userspace uses scalar `-O2`.
 
 Kernel, device trees and modules change with the reviewed C906 vector-context, video-clock and memory-profile updates. The AIC8800 driver includes the cfg80211 compatibility patch. U-Boot, the initramfs, FIT images, native media libraries, system service and native tools are built from the pinned inputs. Closed SOPHGO ISP/3A objects remain pinned binary inputs: relinking does not recompile those objects. Go uses its own compiler; the profile applies to its C/C++ interoperability code.
 

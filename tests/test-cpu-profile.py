@@ -18,6 +18,9 @@ for actual, optimization in ((user, '-O2'), (kernel, '-O3'), (flags('audio'), '-
     assert [f for f in actual if f.startswith('-O')] == [optimization], actual
     assert '-mtune=thead-c906' in actual and '-mno-fence-tso' in actual
 assert '-mabi=lp64d' in user and '-mabi=lp64' in kernel
+# Only the kernel and its modules drop -mstrict-align; userspace never had it.
+assert '-mno-strict-align' in kernel and '-mno-strict-align' not in user
+assert '-mno-strict-align' not in flags('bootloader') and '-mno-strict-align' not in flags('audio')
 for actual in (user, kernel, flags('audio')):
     assert '-fno-tree-vectorize' in actual and '-fno-tree-slp-vectorize' in actual
 assert flags('audio') == user
@@ -46,7 +49,10 @@ assert '+EXTRA_CFLAGS += -O2' in (ROOT/'platform/modules/rtl8733bs/0002-o2-build
 assert 'nanokvm_cpu_profile.py" kernel' in (ROOT/'platform/build.sh').read_text()
 for kind in ('userspace', 'kernel', 'bootloader', 'audio'):
     validate_flags(flags(kind), kind)
-    for override in ('-Os', '-O2' if kind == 'kernel' else '-O3', '-flto', '-march=rv64gc', '-mtune=generic', '-mabi=ilp32', '-mfence-tso'):
+    overrides = ['-Os', '-O2' if kind == 'kernel' else '-O3', '-flto', '-march=rv64gc', '-mtune=generic', '-mabi=ilp32', '-mfence-tso']
+    if kind == 'kernel':
+        overrides.append('-mstrict-align')
+    for override in overrides:
         try:
             validate_flags([*flags(kind), override], kind)
         except ValueError:
@@ -65,7 +71,7 @@ for override in ('-ftree-vectorize', '-ftree-loop-vectorize', '-ftree-slp-vector
 with tempfile.TemporaryDirectory(prefix='nkos-kbuild-flags-') as tmp:
     root = Path(tmp)
     command = root/'.probe.o.cmd'
-    for extra, success in (('', True), ('-O1', False), ('-march=rv64gc', False),
+    for extra, success in (('', True), ('-O1', False), ('-march=rv64gc', False), ('-mstrict-align', False),
                            ('-ftree-loop-vectorize', False), ('-flto=auto', False)):
         command.write_text('savedcmd_probe.o := riscv64-buildroot-linux-musl-gcc -Os '
                            + ' '.join(kernel) + ' ' + extra + ' -c probe.c -o probe.o\n')

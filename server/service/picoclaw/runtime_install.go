@@ -16,6 +16,8 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+
+	"NanoKVM-Server/internal/sg2002aes"
 )
 
 func (s *Service) installRuntime() (string, *PicoclawError) {
@@ -356,7 +358,7 @@ func verifyFileSHA256(filePath string, expectedDigest string) error {
 	}
 	defer file.Close()
 
-	hasher := sha256.New()
+	hasher := sg2002aes.NewSHA256()
 	if _, err := io.Copy(hasher, file); err != nil {
 		return fmt.Errorf("failed to hash file for sha256 verification: %w", err)
 	}

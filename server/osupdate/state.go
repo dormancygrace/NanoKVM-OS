@@ -1,7 +1,6 @@
 package osupdate
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -10,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"NanoKVM-Server/internal/sg2002aes"
 )
 
 // Base holds the shared update lock. APK, software, VPN, attended-image and
@@ -86,7 +87,7 @@ func HashFile(name string) (string, error) {
 		return "", err
 	}
 	defer f.Close()
-	h := sha256.New()
+	h := sg2002aes.NewSHA256()
 	if _, err = io.Copy(h, f); err != nil {
 		return "", err
 	}

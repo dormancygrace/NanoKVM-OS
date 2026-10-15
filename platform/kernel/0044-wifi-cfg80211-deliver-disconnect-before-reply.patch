@@ -1,0 +1,24 @@
+diff --git a/net/wireless/sme.c b/net/wireless/sme.c
+index 2a719b5..341539d 100644
+--- a/net/wireless/sme.c
++++ b/net/wireless/sme.c
+@@ -1563,6 +1563,19 @@ int cfg80211_disconnect(struct cfg80211_registered_device *rdev,
+ 	else if (wdev->u.client.ssid_len)
+ 		err = rdev_disconnect(rdev, dev, reason);
+ 
++	/*
++	 * A driver may report the disconnection while handling the request,
++	 * but cfg80211_disconnected() only queues it for the event work,
++	 * which needs the wiphy lock held here. Deliver it now, before the
++	 * reply to this request: wpa_supplicant ignores the event for its own
++	 * disconnect by matching it against a marker on its event socket sent
++	 * after the reply. When the queued event lost that race, it reached
++	 * userspace after the next connect request and was taken as the end
++	 * of that attempt (SAE then had no network and timed out).
++	 */
++	if (!err)
++		cfg80211_process_wdev_events(wdev);
++
+ 	/*
+ 	 * Clear ssid_len unless we actually were fully connected,
+ 	 * in which case cfg80211_disconnected() will take care of

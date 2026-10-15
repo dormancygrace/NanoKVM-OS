@@ -950,7 +950,10 @@
         "projects": "Ideas, trabajos previos, interoperabilidad e inspiración en toda la comunidad KVM abierta.",
         "contributorsTitle": "Colaboradores de código abierto",
         "contributors": "Código, traducciones, pruebas, informes de problemas, revisiones, documentación y comentarios pacientes.",
-        "closing": "Gracias por hacer posible NanoKVM OS."
+        "closing": "Gracias por hacer posible NanoKVM OS.",
+        "translationTitle": "Colaboradores de traducción",
+        "translationThanks": "Gracias a quienes traducen, revisan y mejoran nuestros textos para que NanoKVM OS sea más accesible.",
+        "translationPlatform": "Nuestra plataforma de traducción reúne las aportaciones de la comunidad. Únete y ayuda a traducir NanoKVM OS."
       },
       "documentation": "Documentación",
       "reportIssue": "Informar de un problema",

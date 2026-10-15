@@ -208,11 +208,17 @@ Pinned platform inputs, Go modules and the web lockfile fix their respective sou
 
 ## 🌍 Translations
 
-The interface is available in 24 languages. Translations are maintained on [Hosted Weblate](https://hosted.weblate.org/engage/nanokvm-os/): anyone can fix or add strings in the browser, without git. See [TRANSLATING.md](TRANSLATING.md).
+The language menu includes 25 languages, with partial translations falling back to English. Hebrew is available as a translation starter. Translations are maintained on [Hosted Weblate](https://hosted.weblate.org/engage/nanokvm-os/): anyone can fix or add strings in the browser, without git. See [TRANSLATING.md](TRANSLATING.md).
 
 ## ❤️ Credits and licenses
 
 Built on the work of [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), Alpine, Linux, Buildroot, Go, [Pion](https://github.com/pion) and [OneKVM](https://github.com/onekvm), with thanks to the contributors and hardware testers.
+
+### 🌍 Made welcoming by our translators
+
+Thank you to **[Pavel Borecki](https://hosted.weblate.org/user/pavelbo/)** for Czech, **[Alexander-Ger-Reich](https://github.com/Alexander-Ger-Reich)** for German and English UI maintenance, and **[polyzium](https://github.com/polyzium)** for Russian localization — and to everyone who translates, reviews, and improves the words on screen. See the [translation credits and contribution guide](TRANSLATING.md#translation-credits).
+
+**[Hosted Weblate](https://hosted.weblate.org/engage/nanokvm-os/)** is our community translation platform. Thank you to the Weblate project for the tools and hosting that let people contribute directly from their browser. [Help translate NanoKVM OS](https://hosted.weblate.org/engage/nanokvm-os/).
 
 NanoKVM application changes retain the upstream [GPL-3.0 license](LICENSE). Other components retain their own licenses and notices. See [third-party notices](docs/THIRD-PARTY.md), [distribution status](docs/DISTRIBUTION.md) and the [corresponding-source build](platform/README.md#corresponding-source). Release downloads include the corresponding-source archive; RustDesk has its own source release.
 

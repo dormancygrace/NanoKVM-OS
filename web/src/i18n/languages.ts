@@ -7,6 +7,7 @@ const languages = [
   { key: 'da', name: 'Dansk', partial: true },
   { key: 'de', name: 'Deutsch' },
   { key: 'en', name: 'English' },
+  { key: 'he', name: 'עברית', partial: true },
   { key: 'es', name: 'Español' },
   { key: 'fr', name: 'Français' },
   { key: 'id', name: 'Bahasa Indonesia', partial: true },

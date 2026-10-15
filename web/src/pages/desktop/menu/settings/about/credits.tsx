@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Modal } from 'antd';
 import clsx from 'clsx';
-import { ClapperboardIcon, PauseIcon, PlayIcon } from 'lucide-react';
+import { ClapperboardIcon, LanguagesIcon, PauseIcon, PlayIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export const Credits = () => {
@@ -32,6 +32,16 @@ export const Credits = () => {
     { name: 'Go · Pion · React · Ant Design · OpenSSL · Opus', contribution: tr('appStack') },
     { name: 'Radxa · PiKVM · OneKVM', contribution: tr('projects') },
     { name: tr('contributorsTitle'), contribution: tr('contributors') }
+  ];
+
+  const translators = [
+    { name: 'Pavel Borecki', language: 'Česky', url: 'https://hosted.weblate.org/user/pavelbo/' },
+    {
+      name: 'Alexander-Ger-Reich',
+      language: 'Deutsch · English',
+      url: 'https://github.com/Alexander-Ger-Reich'
+    },
+    { name: 'polyzium', language: 'Русский', url: 'https://github.com/polyzium' }
   ];
 
   function show() {
@@ -78,6 +88,42 @@ export const Credits = () => {
             />
             <h2 className="text-fg mt-5 text-center text-2xl font-semibold">NanoKVM OS</h2>
             <p className="text-fg-muted mt-2 text-center text-sm">{tr('madePossibleBy')}</p>
+
+            <section className="border-line mt-12 rounded-xl border p-5 text-center">
+              <LanguagesIcon aria-hidden="true" size={28} className="text-info mx-auto" />
+              <h3 className="text-fg mt-3 text-lg font-semibold">{tr('translationTitle')}</h3>
+              <p className="text-fg-muted mt-2 text-sm leading-relaxed">
+                {tr('translationThanks')}
+              </p>
+              <ul className="mt-6 list-none space-y-4 p-0">
+                {translators.map((person) => (
+                  <li key={person.url}>
+                    <a
+                      href={person.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-info rounded underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2"
+                    >
+                      {person.name}
+                    </a>
+                    <p className="text-fg-muted mt-1 text-sm">{person.language}</p>
+                  </li>
+                ))}
+              </ul>
+              <div className="border-line mt-6 border-t pt-5">
+                <a
+                  href="https://hosted.weblate.org/engage/nanokvm-os/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-info rounded font-medium underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2"
+                >
+                  Hosted Weblate
+                </a>
+                <p className="text-fg-muted mt-2 text-sm leading-relaxed">
+                  {tr('translationPlatform')}
+                </p>
+              </div>
+            </section>
 
             <div className="mt-14 space-y-12">
               {entries.map((entry) => (

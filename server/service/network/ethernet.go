@@ -25,6 +25,7 @@ const (
 
 	ethernetInterface  = "eth0"
 	ethernetInitScript = "/etc/init.d/S30eth"
+	ethernetNoGateway  = "none"
 )
 
 var ethernetConfigFile = "/boot/eth.nodhcp"
@@ -63,7 +64,9 @@ func (s *Service) SetEthernet(c *gin.Context) {
 		}
 		config.Address = address.Addr().String()
 		config.SubnetMask = prefixToSubnetMask(address.Bits())
-		config.Gateway = gateway.String()
+		if gateway.IsValid() {
+			config.Gateway = gateway.String()
+		}
 	}
 	if req.VLANEnabled != nil {
 		config.VLANEnabled = *req.VLANEnabled
@@ -153,7 +156,9 @@ func readEthernetConfig() (proto.EthernetConfig, error) {
 		}
 
 		gateway := prefix.Masked().Addr().Next()
-		if len(fields) == 2 {
+		if len(fields) == 2 && fields[1] == ethernetNoGateway {
+			gateway = netip.Addr{}
+		} else if len(fields) == 2 {
 			gateway, err = netip.ParseAddr(fields[1])
 			if err != nil || !gateway.Is4() {
 				return config, fmt.Errorf("invalid ethernet configuration")
@@ -163,7 +168,9 @@ func readEthernetConfig() (proto.EthernetConfig, error) {
 		config.Mode = ethernetModeStatic
 		config.Address = prefix.Addr().String()
 		config.SubnetMask = prefixToSubnetMask(prefix.Bits())
-		config.Gateway = gateway.String()
+		if gateway.IsValid() {
+			config.Gateway = gateway.String()
+		}
 		return config, nil
 	}
 
@@ -250,7 +257,13 @@ func writeEthernetConfig(config proto.EthernetConfig) error {
 			return err
 		}
 
-		contents := fmt.Sprintf("%s %s\n", prefix.String(), gateway.String())
+		// A missing second field means network+1 to S30eth (the Sipeed
+		// format), so "none" records that there is no gateway.
+		gatewayField := ethernetNoGateway
+		if gateway.IsValid() {
+			gatewayField = gateway.String()
+		}
+		contents := fmt.Sprintf("%s %s\n", prefix.String(), gatewayField)
 		tmpFile := ethernetConfigFile + ".tmp"
 		if err := os.MkdirAll(filepath.Dir(ethernetConfigFile), 0o755); err != nil {
 			return fmt.Errorf("failed to create ethernet configuration directory: %w", err)
@@ -267,20 +280,52 @@ func writeEthernetConfig(config proto.EthernetConfig) error {
 	}
 }
 
+// validateStaticEthernet takes the address alone with a subnet mask, or in
+// CIDR form (192.168.1.20/24); with CIDR the mask may be empty, and a mask
+// that is given must agree with the prefix length.
 func validateStaticEthernet(address string, subnetMask string, gateway string) (netip.Prefix, netip.Addr, error) {
-	ip, err := netip.ParseAddr(strings.TrimSpace(address))
-	if err != nil || !ip.Is4() || !ip.IsValid() || ip.IsUnspecified() || ip.IsLoopback() || ip.IsMulticast() {
+	address = strings.TrimSpace(address)
+	var ip netip.Addr
+	var prefixBits int
+	var err error
+	if strings.Contains(address, "/") {
+		var cidr netip.Prefix
+		if cidr, err = netip.ParsePrefix(address); err != nil {
+			return netip.Prefix{}, netip.Addr{}, fmt.Errorf("invalid static IP address")
+		}
+		ip, prefixBits = cidr.Addr(), cidr.Bits()
+		if strings.TrimSpace(subnetMask) != "" {
+			bits, err := subnetMaskToPrefix(subnetMask)
+			if err != nil {
+				return netip.Prefix{}, netip.Addr{}, err
+			}
+			if bits != prefixBits {
+				return netip.Prefix{}, netip.Addr{}, fmt.Errorf("subnet mask does not match the prefix length")
+			}
+		}
+	} else {
+		if ip, err = netip.ParseAddr(address); err != nil {
+			return netip.Prefix{}, netip.Addr{}, fmt.Errorf("invalid static IP address")
+		}
+		if prefixBits, err = subnetMaskToPrefix(subnetMask); err != nil {
+			return netip.Prefix{}, netip.Addr{}, err
+		}
+	}
+	if !ip.Is4() || !ip.IsValid() || ip.IsUnspecified() || ip.IsLoopback() || ip.IsMulticast() {
 		return netip.Prefix{}, netip.Addr{}, fmt.Errorf("invalid static IP address")
 	}
-	prefixBits, err := subnetMaskToPrefix(subnetMask)
-	if err != nil {
-		return netip.Prefix{}, netip.Addr{}, err
+	if prefixBits < 1 || prefixBits > 30 {
+		return netip.Prefix{}, netip.Addr{}, fmt.Errorf("static IPv4 prefix length must be between 1 and 30")
 	}
 	prefix := netip.PrefixFrom(ip, prefixBits)
 	if ip == prefix.Masked().Addr() || ip == ipv4Broadcast(prefix) {
 		return netip.Prefix{}, netip.Addr{}, fmt.Errorf("invalid static IP address")
 	}
 
+	// No gateway: a link without a router; S30eth adds no default route.
+	if strings.TrimSpace(gateway) == "" {
+		return prefix, netip.Addr{}, nil
+	}
 	gw, err := netip.ParseAddr(strings.TrimSpace(gateway))
 	if err != nil || !gw.Is4() || !gw.IsValid() || gw.IsUnspecified() || gw.IsLoopback() || gw.IsMulticast() {
 		return netip.Prefix{}, netip.Addr{}, fmt.Errorf("invalid gateway")

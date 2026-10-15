@@ -16,6 +16,19 @@ function isIPv4(value: string) {
   );
 }
 
+// "192.168.1.20/24": the address and the subnet mask of its prefix length
+// (1-30, as the server accepts).
+function parseCIDR(value: string) {
+  const match = /^([^/]+)\/(\d{1,2})$/.exec(value.trim());
+  const bits = match ? Number(match[2]) : -1;
+  if (!match || !isIPv4(match[1]) || bits < 1 || bits > 30) return null;
+  const mask = (0xffffffff << (32 - bits)) >>> 0;
+  return {
+    address: match[1].trim(),
+    subnetMask: [24, 16, 8, 0].map((shift) => (mask >>> shift) & 255).join('.')
+  };
+}
+
 export const Ethernet = () => {
   const { t } = useTranslation();
   const [config, setConfig] = useState<EthernetConfig>({
@@ -99,8 +112,11 @@ export const Ethernet = () => {
     'vlanId'
   ] as const;
   const hasChanges = !original || editableFields.some((key) => config[key] !== original[key]);
-  const invalidStatic =
-    config.mode === 'static' && (!isIPv4(config.address) || !isIPv4(config.gateway));
+  const cidr = config.mode === 'static' ? parseCIDR(config.address) : null;
+  const invalidAddress = !isIPv4(config.address) && !cidr;
+  // No gateway: a link without a router, such as a cable straight to a computer.
+  const invalidGateway = config.gateway.trim() !== '' && !isIPv4(config.gateway);
+  const invalidStatic = config.mode === 'static' && (invalidAddress || invalidGateway);
   const invalidVLAN =
     config.vlanEnabled &&
     (!Number.isInteger(config.vlanId) || config.vlanId < 1 || config.vlanId > 4094);
@@ -113,8 +129,8 @@ export const Ethernet = () => {
       const rsp = await api.setEthernet({
         enabled: config.enabled,
         mode: config.mode,
-        address: config.mode === 'static' ? config.address.trim() : '',
-        subnetMask: config.mode === 'static' ? config.subnetMask.trim() : '',
+        address: config.mode === 'static' ? (cidr?.address ?? config.address.trim()) : '',
+        subnetMask: config.mode === 'static' ? (cidr?.subnetMask ?? config.subnetMask.trim()) : '',
         gateway: config.mode === 'static' ? config.gateway.trim() : '',
         vlanEnabled: config.vlanEnabled,
         vlanId: config.vlanId
@@ -123,7 +139,9 @@ export const Ethernet = () => {
         showRequestError(rsp, 'settings.network.ethernet.saveFailed');
         return;
       }
-      setOriginal(config);
+      const saved = cidr ? { ...config, ...cidr } : config;
+      setConfig(saved);
+      setOriginal(saved);
       setMessage(t('settings.network.ethernet.saved'));
     } catch (err) {
       showRequestError(err, 'settings.network.ethernet.saveFailed');
@@ -235,21 +253,24 @@ export const Ethernet = () => {
         {config.mode === 'static' && (
           <Panel className="space-y-3">
             <Input
+              disabled={isLoading || isSaving}
               value={config.address}
-              status={config.address && !isIPv4(config.address) ? 'error' : undefined}
+              status={config.address && invalidAddress ? 'error' : undefined}
               placeholder={t('settings.network.ethernet.addressPlaceholder')}
               addonBefore={t('settings.network.ethernet.ipAddress')}
               onChange={(event) => update({ address: event.target.value })}
             />
             <Input
-              value={config.subnetMask}
+              value={cidr ? cidr.subnetMask : config.subnetMask}
+              disabled={isLoading || isSaving || !!cidr}
               placeholder={t('settings.network.ethernet.subnetMaskPlaceholder')}
               addonBefore={t('settings.network.ethernet.subnetMask')}
               onChange={(event) => update({ subnetMask: event.target.value })}
             />
             <Input
+              disabled={isLoading || isSaving}
               value={config.gateway}
-              status={config.gateway && !isIPv4(config.gateway) ? 'error' : undefined}
+              status={invalidGateway ? 'error' : undefined}
               placeholder={t('settings.network.ethernet.gatewayPlaceholder')}
               addonBefore={t('settings.network.ethernet.gateway')}
               onChange={(event) => update({ gateway: event.target.value })}

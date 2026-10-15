@@ -108,6 +108,19 @@ grep -Fqx 'a add 10.20.0.2/24 brd + dev eth0.100' "$work/ip.calls"
 grep -Fqx 'r add default via 10.20.0.1 dev eth0.100 metric 100' "$work/ip.calls"
 test "$(wc -l < "$work/udhcpc.call")" -eq "$dhcp_calls_before"
 run_eth stop
+
+# Without a gateway: the address only, no default route and no DNS server.
+printf '%s\n' '10.20.0.2/24 none' > "$work/boot/eth.nodhcp"
+: > "$work/ip.calls"
+: > "$work/etc/resolv.conf"
+NANOKVM_TEST_IP_SHOW_INET=1 run_eth start
+grep -Fqx 'a add 10.20.0.2/24 brd + dev eth0.100' "$work/ip.calls"
+# `! cmd` never stops a set -e script, so fail explicitly.
+if grep -q 'r add default' "$work/ip.calls" || grep -q nameserver "$work/etc/resolv.conf"; then
+    echo 'A gateway was configured for "none"' >&2
+    exit 1
+fi
+run_eth stop
 rm "$work/boot/eth.nodhcp"
 
 rm "$work/boot/eth.vlan"

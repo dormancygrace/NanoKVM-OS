@@ -45,7 +45,7 @@ func TestProgramMonitorProfileOnFirstStart(t *testing.T) {
 				}
 			}
 			var applied []string
-			path, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(tc.hardware, tc.powerCycle, &applied, nil))
+			path, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(tc.hardware, tc.powerCycle, &applied, nil), poolUHD)
 			if err != nil || len(applied) != tc.writes {
 				t.Fatalf("error %v, applied %v", err, applied)
 			}
@@ -63,7 +63,7 @@ func TestProgramMonitorProfileOnFirstStart(t *testing.T) {
 func TestProgramMonitorProfileOnFirstStartPortrait(t *testing.T) {
 	monitorState(t, 1080, true, 1920)
 	var applied []string
-	if _, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(true, false, &applied, nil)); err != nil {
+	if _, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(true, false, &applied, nil), poolUHD); err != nil {
 		t.Fatal(err)
 	}
 	if len(applied) != 1 || applied[0] != portraitProfilePathAt(1920, GetScreen().FPS) {
@@ -75,14 +75,58 @@ func TestProgramMonitorProfileOnFirstStartPortrait(t *testing.T) {
 func TestProgramMonitorProfileOnFirstStartRetriesAfterFailure(t *testing.T) {
 	monitorState(t, 1080, false, 1920)
 	var applied []string
-	path, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(true, false, &applied, errors.New("EDID write failed")))
+	path, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(true, false, &applied, errors.New("EDID write failed")), poolUHD)
 	if err == nil || path != "" {
 		t.Fatalf("path %q, error %v", path, err)
 	}
 	if _, err := os.Stat(monitorEDIDHashFile); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("a profile is recorded after a failed write: %v", err)
 	}
-	if _, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(true, false, &applied, nil)); err != nil || len(applied) != 2 {
+	if _, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(true, false, &applied, nil), poolUHD); err != nil || len(applied) != 2 {
 		t.Fatalf("error %v, applied %v", err, applied)
+	}
+}
+
+// A failed fit leaves the oversized saved setting intact; first-start sync
+// must not turn it back into an advertised HDMI mode.
+func TestProgramMonitorProfileOnFirstStartRejectsIncompatibleState(t *testing.T) {
+	for _, tc := range []struct {
+		name              string
+		height            int
+		portrait          bool
+		size              int
+		pool              VideoPool
+		portraitSupported bool
+	}{
+		{"QHD under FHD", 1440, false, 1920, poolFHD, true},
+		{"UHD under QHD", 2160, false, 1920, poolQHD, true},
+		{"portrait under FHD", 1080, true, 1920, poolFHD, true},
+		{"portrait hardware unavailable", 1080, true, 1920, poolQHD, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			monitorState(t, tc.height, tc.portrait, tc.size)
+			var applied []string
+			hw := firstStartBackend(true, false, &applied, nil)
+			hw.portraitSupported = func(uint16) bool { return tc.portraitSupported }
+			path, err := programMonitorProfileOnFirstStartLocked(hw, tc.pool)
+			if err == nil || path != "" || len(applied) != 0 {
+				t.Fatalf("path %q, error %v, applied %v", path, err, applied)
+			}
+		})
+	}
+}
+
+func TestProgramMonitorProfileOnFirstStartStopsAfterRecordedSuccess(t *testing.T) {
+	monitorState(t, 1080, false, 1920)
+	writes := 0
+	hw := firstStartBackend(true, false, new([]string), nil)
+	hw.apply = func(string) error { writes++; return os.WriteFile(monitorEDIDHashFile, []byte("recorded\n"), 0600) }
+	for i := 0; i < 2; i++ {
+		if _, err := programMonitorProfileOnFirstStartLocked(hw, poolFHD); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if writes != 1 {
+		t.Fatalf("programmed %d times", writes)
 	}
 }

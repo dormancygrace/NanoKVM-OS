@@ -51,15 +51,23 @@ func ProgramMonitorProfileOnFirstStart() (string, error) {
 	return programMonitorProfileOnFirstStartLocked(monitorSettingsBackend{
 		requireMonitorHardwareLocked, portraitResolutionSupportedLocked,
 		MonitorRequiresPowerCycle, MonitorRefreshFollowsStream, applyMonitorProfileLocked,
-	})
+	}, BootedVideoPool())
 }
 
-func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend) (string, error) {
+func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool VideoPool) (string, error) {
 	if _, err := os.Stat(monitorEDIDHashFile); !errors.Is(err, os.ErrNotExist) {
 		return "", nil
 	}
 	if hw.requireHardware() != nil || hw.powerCycle() {
 		return "", nil
+	}
+	// Fitting may have failed, or the saved state may have changed since it ran.
+	// Never advertise a profile this boot cannot capture.
+	if err := monitorFitsVideoPoolLocked(pool); err != nil {
+		return "", err
+	}
+	if monitorPortraitEnabledLocked() && !hw.portraitSupported(savedPortraitResolutionLocked()) {
+		return "", fmt.Errorf("portrait monitor profile is unavailable")
 	}
 	path := monitorProfilePathAt(savedMonitorResolutionLocked(), GetScreen().FPS)
 	if monitorPortraitEnabledLocked() {

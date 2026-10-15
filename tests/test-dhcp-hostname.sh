@@ -79,9 +79,22 @@ printf '%s\n' 'bad hostname' > "$work/hostname"
 rm -f "$work/eth.args" "$work/wifi.args"
 run_eth
 run_wifi
-! grep -Fqx -- '-x' "$work/eth.args"
-! grep -Fqx -- '-F' "$work/eth.args"
-! grep -Fqx -- '-x' "$work/wifi.args"
-! grep -Fqx -- '-F' "$work/wifi.args"
+# `! cmd` never stops a set -e script, so fail explicitly.
+if grep -Fqx -- '-x' "$work/eth.args"; then
+    echo 'Ethernet DHCP sent option 12 for an invalid hostname' >&2
+    exit 1
+fi
+if grep -Fqx -- '-F' "$work/eth.args"; then
+    echo 'Ethernet DHCP sent option 81 for an invalid hostname' >&2
+    exit 1
+fi
+if grep -Fqx -- '-x' "$work/wifi.args"; then
+    echo 'Wi-Fi DHCP sent option 12 for an invalid hostname' >&2
+    exit 1
+fi
+if grep -Fqx -- '-F' "$work/wifi.args"; then
+    echo 'Wi-Fi DHCP sent option 81 for an invalid hostname' >&2
+    exit 1
+fi
 
 echo 'PASS: Ethernet and Wi-Fi advertise valid DHCP option 12/81 hostnames only'

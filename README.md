@@ -6,8 +6,8 @@
 
 **Browser KVM, Internet over USB, remote access and a full Alpine system — on SG2002 NanoKVM hardware.**
 
-[![Applications: v2.5-a1 Alpha](https://img.shields.io/badge/applications-v2.5--a1%20Alpha-orange)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v2.5-a1)
-[![Image: v1.0-a1 Alpha](https://img.shields.io/badge/SD%20image-v1.0--a1%20Alpha-orange)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v2.5-a1)
+[![Applications: v3.0-a1 Alpha](https://img.shields.io/badge/applications-v3.0--a1%20Alpha-orange)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.0-a1)
+[![Image: v1.2-a1 Alpha](https://img.shields.io/badge/SD%20image-v1.2--a1%20Alpha-orange)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.0-a1)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
@@ -23,7 +23,7 @@
 
 Underneath the interface is **Alpine Linux 3.24 on a writable F2FS root**, with ordinary APK packages, OpenRC services and official Alpine userspace. You can install software, update individual components and retain your settings without rebuilding or reflashing the entire card.
 
-**Current alpha: applications v2.5-a1, bundled in Image v1.0-a1.** This release brings together the changes since v2.0-b7, including 4K support, restored H.265 WebRTC with a CryptoDMA fix, USB Internet sharing, RustDesk and the mobile-control improvements. See the [complete release notes](docs/RELEASE-v2.5-a1.md).
+**Current alpha: applications v3.0-a1, bundled in Image v1.2-a1 — Massive Overhaul.** This release collects the changes since v2.5-a1, including the unpublished v2.6 alpha series: reworked video controls and memory modes, recovery and performance improvements, USB storage and serial tools, Wi-Fi preferences, HTTPS/ACME, add-on updates, and community translations. See the [complete release notes](docs/RELEASE-v3.0-a1.md).
 
 <a id="features"></a>
 <a id="comparison"></a>
@@ -133,16 +133,16 @@ Receiver-specific features, including higher resolutions and programmable EDID, 
 
 <a id="install"></a>
 
-## 🚀 Install: Image v1.0-a1
+## 🚀 Install: Image v1.2-a1
 
-**Image v1.0-a1 bundles applications v2.5-a1. Both are alpha releases.**
+**Image v1.2-a1 bundles applications v3.0-a1. Both are alpha releases.**
 
-1. Download the [full SD image](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.5-a1/NanoKVM-OS-Image-v1.0-a1-apps-v2.5-a1.img.zip) and [SHA256SUMS](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v2.5-a1/SHA256SUMS).
+1. Download the [full SD image](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.0-a1/NanoKVM-OS-Image-v1.2-a1-apps-v3.0-a1.img.zip) and [SHA256SUMS](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.0-a1/SHA256SUMS).
 2. Verify the ZIP checksum, extract the `.img` and flash it to an SD card of at least **2 GB**. Flashing replaces the card's existing installation and data.
 3. Boot NanoKVM, allow automatic board selection and its restart to finish, then open `https://DEVICE-IP/`.
 4. Sign in with **admin / admin** and set a new password when prompted. For the administrator, this also sets the Linux root password used by SSH. SSH is disabled by default.
 
-The ZIP is **66.8 MiB**. The image uses a **64 MiB boot partition** and **768 MiB F2FS root**; first boot creates an exFAT data partition in the remaining space. See [installation details](docs/INSTALL.md).
+The ZIP is **64.0 MiB**. The image uses a **64 MiB boot partition** and **768 MiB F2FS root**; first boot creates an exFAT data partition in the remaining space. See [installation details](docs/INSTALL.md).
 
 Image and application versions are independent: later APK updates preserve the original image identity. **About** shows the installed image, its bundled applications and the current application version.
 
@@ -158,7 +158,7 @@ apk upgrade
 reboot
 ```
 
-Updates retain settings, user data and independently installed packages. The seven core v2.5-a1 packages total **36.5 MiB**; add-ons and Alpine dependency updates are additional. The kernel and matching modules update to **7.2.9-nanokvm-os-r1** and need a reboot. Application service updates use OpenRC automatically; no separate apply command is needed.
+Updates retain settings, user data and independently installed packages. The seven core v3.0-a1 packages total **34.3 MiB**; add-ons and Alpine dependency updates are additional. The kernel and matching modules update to **7.2.10-nanokvm-os-r5** and need a reboot. Application service updates use OpenRC automatically; no separate apply command is needed.
 
 - **Local `.apk` installations:** file-pinned packages may require an `apk add` step before upgrading; see [update instructions](docs/UPDATES.md).
 - **Signing transition:** `nanokvm-keys` installs the public keys and moves the official repository to the RSA/ECDSA-signed v3 index automatically. The RSA-signed legacy index remains available for older installations.
@@ -171,7 +171,7 @@ Component updates preserve the installed bootloader. A full image includes the r
 
 ## 🧪 Release status and limits
 
-- **v2.5-a1 / Image v1.0-a1 is alpha.** The final combined artifacts passed host builds, tests, signature and integrity checks; installation of this exact set and persistent full-image SD cold boot remain unqualified. Earlier component tests do not replace final hardware acceptance. See [validation](docs/RELEASE-v2.5-a1-VALIDATION.md).
+- **v3.0-a1 / Image v1.2-a1 is alpha.** The rebuilt artifacts passed host tests, source and image integrity checks, and signature verification. An earlier candidate was tested on hardware; the final refresh was not installed on the test device. See the [release notes](docs/RELEASE-v3.0-a1.md).
 - Frame-rate targets, portrait modes and H.265 decoding depend on the source, receiver, memory profile and client. Viewers share the active codec and encoder settings.
 - USB functions share a limited endpoint budget; not every combination can be enabled together. Internet sharing is IPv4-only.
 - OpenVPN supports routed TUN profiles; TAP, scripts and interactive SSO/MFA are not supported.
@@ -188,7 +188,7 @@ For a local test build, after installing the [host prerequisites](platform/READM
 ```sh
 git clone https://github.com/dormancygrace/NanoKVM-OS.git
 cd NanoKVM-OS
-git checkout v2.5-a1
+git checkout v3.0-a1
 platform/build.sh -d
 ```
 

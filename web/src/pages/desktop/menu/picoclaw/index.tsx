@@ -2,6 +2,7 @@ import { Tooltip } from 'antd';
 import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
+import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
 import { picoclawChatOpenAtom } from '@/jotai/picoclaw.ts';
 import { Robot } from '@/components/icons/robot.tsx';
 import { useDismissMobileMenu } from '@/components/mobile-menu-context.ts';
@@ -29,7 +30,8 @@ export const Picoclaw = ({ tooltipPlacement = 'bottom' }: PicoclawProps) => {
         }}
         aria-label={t('picoclaw.title')}
         className="flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 hover:text-white"
-        onClick={() => {
+        onClick={(event) => {
+          releasePointerMenuFocus(event);
           dismissMobileMenu();
           setIsChatOpen((open) => !open);
         }}

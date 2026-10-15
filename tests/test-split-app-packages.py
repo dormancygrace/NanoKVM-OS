@@ -3,6 +3,7 @@
 Payloads and external Alpine dependencies are fixtures; no service is executed.
 """
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -12,6 +13,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--apk", type=Path, required=True)
 args = parser.parse_args()
 apk = str(args.apk.resolve())
+usermode = [] if os.geteuid() == 0 else ["--usermode"]
 
 def run(*cmd, ok=True):
     p = subprocess.run([apk, *map(str, cmd)], text=True, capture_output=True)
@@ -61,7 +63,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-split-app-") as directory:
     (root / "etc/apk/protected_paths.d/nanokvm.list").write_text("+kvmapp/kvm\n")
     (root / "etc/apk/repositories").write_text(str(repository / "Packages.adb") + "\n")
     base = ["--root", root, "--arch", "riscv64", "--allow-untrusted"]
-    run(*base, "add", "--initdb", "--usermode", "--no-scripts", "nanokvm-app", "runtime-fixture", "rustdesk-fixture")
+    run(*base, "add", "--initdb", *usermode, "--no-scripts", "nanokvm-app", "runtime-fixture", "rustdesk-fixture")
     (root / config).write_text("75")
     for name, files in [
         ("nanokvm", {binary: "new server", library: "new lib", config: "60"}),
@@ -93,7 +95,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-split-app-") as directory:
     (fresh / "etc/apk").mkdir(parents=True)
     (fresh / "etc/apk/repositories").write_text(str(repository / "Packages.adb") + "\n")
     freshbase = ["--root", fresh, "--arch", "riscv64", "--allow-untrusted"]
-    run(*freshbase, "add", "--initdb", "--usermode", "--no-scripts", "nanokvm-app", "runtime-fixture", "rustdesk-fixture")
+    run(*freshbase, "add", "--initdb", *usermode, "--no-scripts", "nanokvm-app", "runtime-fixture", "rustdesk-fixture")
     assert (fresh / binary).read_text() == "new server"
     assert (fresh / asset).read_text() == "web-only fix"
     # An incompatible browser API must be rejected rather than silently installed.

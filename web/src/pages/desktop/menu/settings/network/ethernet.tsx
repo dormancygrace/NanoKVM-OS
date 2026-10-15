@@ -87,7 +87,18 @@ export const Ethernet = () => {
     setConfig((current) => ({ ...current, ...fields }));
   }
 
-  const hasChanges = JSON.stringify(config) !== JSON.stringify(original);
+  // Link/address polling is runtime status, not an editable setting. In
+  // particular, a save response may arrive after the next status refresh.
+  const editableFields = [
+    'enabled',
+    'mode',
+    'address',
+    'subnetMask',
+    'gateway',
+    'vlanEnabled',
+    'vlanId'
+  ] as const;
+  const hasChanges = !original || editableFields.some((key) => config[key] !== original[key]);
   const invalidStatic =
     config.mode === 'static' && (!isIPv4(config.address) || !isIPv4(config.gateway));
   const invalidVLAN =

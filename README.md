@@ -134,7 +134,7 @@ NanoKVM OS targets the **SG2002 RISC-V NanoKVM family**. The full image includes
 | Device | Included support | Physical validation |
 | --- | --- | --- |
 | **NanoKVM Cube Full** | Alpha and serial-production board profiles | Community-tested: serial-production board detection and OLED confirmed on beta13 ([#2](https://github.com/dormancygrace/NanoKVM-OS/issues/2#issuecomment-5694454091)) |
-| **NanoKVM Lite** | Base profile, without ATX | Pending |
+| **NanoKVM Lite** | Base profile, without ATX | Community-tested on v3 after upgrading from v2.5: boot, 1080p60 video and KVM control confirmed ([#215](https://github.com/dormancygrace/NanoKVM-OS/issues/215)) |
 | **NanoKVM PCIe** | Board profile and receiver detection | PCIe/UXC development bench; LT6911D video confirmed by a community tester on v2.0-b5 ([#8](https://github.com/dormancygrace/NanoKVM-OS/issues/8#issuecomment-5825067894)) |
 | **NanoKVM Pro** | Not supported | Different hardware platform |
 | **NanoKVM USB** | Not supported | Different product; not an SG2002 IP-KVM target |

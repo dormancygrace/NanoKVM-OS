@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -142,6 +143,8 @@ func TestNoticeDue(t *testing.T) {
 		{"a day old", UpdateNotice{Enabled: true, CheckedAt: at(25 * time.Hour), AttemptAt: at(25 * time.Hour)}, true},
 		{"failed just now", UpdateNotice{Enabled: true, AttemptAt: at(10 * time.Minute)}, false},
 		{"failed an hour ago", UpdateNotice{Enabled: true, AttemptAt: at(61 * time.Minute)}, true},
+		{"comparison failed after fresh index", UpdateNotice{Enabled: true, State: "failed", CheckedAt: at(61 * time.Minute), AttemptAt: at(61 * time.Minute)}, true},
+		{"recent failure after success", UpdateNotice{Enabled: true, State: "failed", CheckedAt: at(3 * time.Hour), AttemptAt: at(10 * time.Minute)}, false},
 	} {
 		if got := noticeDue(c.n, now); got != c.due {
 			t.Errorf("%s: due=%v", c.name, got)
@@ -200,5 +203,45 @@ func TestComponents(t *testing.T) {
 	}
 	if p := GetComponents().Packages; len(p) != 1 || p[0].Installed != "3.1.1-r0" {
 		t.Fatalf("stale cache: %+v", p)
+	}
+}
+
+// The web server and detached nkos-update helper have separate Go mutexes.
+// An independently opened flock models the other process owning the notice.
+func TestNoticeLockAcrossProcesses(t *testing.T) {
+	calls := noticeFixture(t, noticeRepositories)
+	if err := saveNotice(UpdateNotice{State: "ok", CheckedAt: 1}); err != nil {
+		t.Fatal(err)
+	}
+	lock, err := os.OpenFile(filepath.Join(apkStateDir, "notice.lock"), os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Close()
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		t.Fatal(err)
+	}
+	if err := CheckUpdates(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 0 {
+		t.Fatal("network check overlapped another notice operation")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	if err := CheckUpdates(ctx, false); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("offline comparison did not wait for other process: %v", err)
+	}
+	if len(*calls) != 0 {
+		t.Fatal("offline comparison overlapped another notice operation")
+	}
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_UN); err != nil {
+		t.Fatal(err)
+	}
+	if err := CheckUpdates(context.Background(), false); err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 1 {
+		t.Fatalf("comparison after lock release: %q", *calls)
 	}
 }

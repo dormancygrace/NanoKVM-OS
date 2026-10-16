@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"NanoKVM-Server/internal/apkrun"
@@ -44,7 +45,6 @@ var (
 	noticeNow          = time.Now
 	noticeApk          = runNoticeAPK
 
-	noticeMu       sync.Mutex
 	noticeChecking atomic.Bool
 )
 
@@ -143,15 +143,63 @@ func runNoticeAPK(ctx context.Context, args ...string) (string, error) {
 	return string(b), err
 }
 
+// The server and detached update helpers must serialize the whole notice
+// transaction, not just each apk child command. Offline post-upgrade checks
+// wait for the current check so their newer installed state wins.
+func lockNotice(ctx context.Context, wait bool) (*os.File, error) {
+	if err := os.MkdirAll(apkStateDir, 0700); err != nil {
+		return nil, err
+	}
+	fd, err := syscall.Open(filepath.Join(apkStateDir, "notice.lock"), syscall.O_CREAT|syscall.O_RDWR|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0600)
+	if err != nil {
+		return nil, err
+	}
+	lock := os.NewFile(uintptr(fd), "notice-lock")
+	if info, err := lock.Stat(); err != nil || !info.Mode().IsRegular() {
+		lock.Close()
+		return nil, errors.New("unsafe notice lock")
+	}
+	for {
+		if err := ctx.Err(); err != nil {
+			lock.Close()
+			return nil, err
+		}
+		err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB)
+		if err == nil {
+			return lock, nil
+		}
+		if !errors.Is(err, syscall.EWOULDBLOCK) && !errors.Is(err, syscall.EINTR) {
+			lock.Close()
+			return nil, err
+		}
+		if !wait {
+			lock.Close()
+			return nil, nil
+		}
+		timer := time.NewTimer(50 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			lock.Close()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
 // CheckUpdates refreshes the NanoKVM index when network is true, then
 // compares it with the installed packages. Without network it only compares,
 // which is how a finished package operation clears the notice. A check that
-// is already running makes a second one return at once.
+// is already running makes a second network check return at once; an offline
+// comparison waits so a completed package transaction cannot leave stale notices.
 func CheckUpdates(ctx context.Context, network bool) error {
-	if !noticeMu.TryLock() {
-		return nil
+	ctx, cancel := context.WithTimeout(ctx, 2*noticeTimeout+10*time.Second)
+	defer cancel()
+	lock, err := lockNotice(ctx, !network)
+	if err != nil || lock == nil {
+		return err
 	}
-	defer noticeMu.Unlock()
+	defer lock.Close()
 	if network {
 		noticeChecking.Store(true)
 		defer noticeChecking.Store(false)
@@ -207,7 +255,7 @@ func noticeDue(n UpdateNotice, now time.Time) bool {
 	if n.AttemptAt != 0 && now.Sub(time.Unix(n.AttemptAt, 0)) < noticeRetry {
 		return false
 	}
-	return n.CheckedAt == 0 || now.Sub(time.Unix(n.CheckedAt, 0)) >= noticeInterval
+	return n.State == "failed" || n.CheckedAt == 0 || now.Sub(time.Unix(n.CheckedAt, 0)) >= noticeInterval
 }
 
 // RunNoticeSchedule checks for updates a while after the server starts and

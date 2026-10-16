@@ -116,7 +116,7 @@ Before marking ready and merging:
 - [ ] Review/rebase NanoKVM kernel and out-of-tree driver patches.
 - [ ] Regenerate and review the kernel config with olddefconfig.
 - [ ] Build the kernel, modules and full image; test on a coordinated device.
-- [ ] Regenerate platform/expected.sha256 from the validated outputs. The bot deliberately preserves the previous hashes, so verification continues to fail until qualification is complete.
+- [ ] Check the Release build comment: it lists the outputs this PR changes. Qualify them on a device before merging.
 
 GitHub may show Approve workflows to run for this GITHUB_TOKEN-created PR. Approve those checks in the PR before review. No automatic merge or deployment is enabled.
 """

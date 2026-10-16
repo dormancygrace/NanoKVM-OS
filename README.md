@@ -205,7 +205,7 @@ Component updates preserve the installed bootloader. A full image includes the r
 
 ## 💻 Build from the public repository
 
-The repository contains the application, browser UI, native integration, kernel/driver patches and complete image build. It fetches upstream sources at the revisions and hashes recorded in [`platform/sources.lock`](platform/sources.lock), then checks build outputs against [`platform/expected.sha256`](platform/expected.sha256). Separate private SDK checkouts are not required.
+The repository contains the application, browser UI, native integration, kernel/driver patches and complete image build. It fetches upstream sources at the revisions and hashes recorded in [`platform/sources.lock`](platform/sources.lock). Two builds of the same tree give identical outputs, and CI publishes their hashes for every build of main. Separate private SDK checkouts are not required.
 
 For a local test build, after installing the [host prerequisites](platform/README.md#build):
 

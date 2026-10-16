@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check platform verification, toolchain inputs and package payload assembly."""
+"""Check platform output hashes, toolchain inputs and package payload assembly."""
 
 import hashlib
 import json
@@ -47,22 +47,15 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     for name, data in outputs.items():
         (images / name).parent.mkdir(parents=True, exist_ok=True)
         (images / name).write_bytes(data)
-    (tree / "platform/expected.sha256").write_text(
-        "# Test outputs\n\n" + "".join(f"{hashlib.sha256(data).hexdigest()}  {name}\n"
-                                       for name, data in outputs.items()))
-    expect(build(tree, out, "verify"), True, "complete matching outputs", "All 3 outputs match")
-    expect(build(tree, out, "verify"), True, "verify ignores its own SHA256SUMS")
-
-    (images / "boot/alpha.sd").write_bytes(b"changed")
-    expect(build(tree, out, "verify"), False, "modified boot image fails")
-    (images / "boot/alpha.sd").write_bytes(outputs["boot/alpha.sd"])
-    (images / "u-boot.bin").unlink()
-    expect(build(tree, out, "verify"), False, "missing U-Boot fails")
-    (images / "u-boot.bin").write_bytes(outputs["u-boot.bin"])
-    (images / "fip.bin").write_bytes(b"unverified")
-    expect(build(tree, out, "verify"), False, "unlisted output fails", "fip.bin")
+    listed = "".join(f"{hashlib.sha256(outputs[name]).hexdigest()}  {name}\n" for name in sorted(outputs))
+    expect(build(tree, out, "hashes"), True, "hashes of every output", "3 outputs")
+    assert (images / "SHA256SUMS").read_text() == listed, (images / "SHA256SUMS").read_text()
+    expect(build(tree, out, "hashes"), True, "hashes leave out their own SHA256SUMS", "3 outputs")
+    assert (images / "SHA256SUMS").read_text() == listed
+    (images / "fip.bin").write_bytes(b"new")
+    expect(build(tree, out, "hashes"), True, "a new output is listed", "4 outputs")
+    assert "fip.bin" in (images / "SHA256SUMS").read_text()
     (images / "fip.bin").unlink()
-    expect(build(tree, out, "verify"), True, "restored outputs pass")
 
     # The toolchain is reused only if it was built from the current inputs.
     stamp = out / "buildroot-output/.platform-toolchain"

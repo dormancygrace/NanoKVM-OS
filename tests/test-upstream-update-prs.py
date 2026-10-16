@@ -70,7 +70,6 @@ class ProposalTests(unittest.TestCase):
         self.assertIn('$u/u-boot-2027.01', plan['files']['platform/build.sh'])
         self.assertIn('U-Boot 2027.01', plan['files']['README.md'])
         self.assertEqual(before, (self.root / 'platform/sources.lock').read_text())
-        self.assertNotIn('platform/expected.sha256', plan['files'])
 
     def test_archive_failure_generates_review_without_partial_pin_changes(self):
         source = self.source('Buildroot')

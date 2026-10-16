@@ -21,7 +21,7 @@
 #   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
 #              exfatprogs, i2c-tools, zlib-ng
 #   firmware   Wi-Fi, regulatory and video codec firmware
-#   verify     compare the outputs with expected.sha256
+#   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
 #   payloads   contents of the twelve NanoKVM packages, from packages.list
 #   packages   signed APK repository of the twelve packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
@@ -32,7 +32,7 @@
 #              to subordinate IDs (see packages)
 #   toolchain-id  print the identity of the toolchain inputs (a cache key)
 #
-# Checked outputs are in OUTPUT/images (default: build/platform/images), the
+# Outputs are in OUTPUT/images (default: build/platform/images), the
 # APK repository and the SD card image in OUTPUT/release. The packages step
 # signs the packages and APKINDEX.tar.gz (RSA256) with -k KEY, an abuild .rsa
 # private key with its .rsa.pub next to it, and the apk v3 index Packages.adb
@@ -65,7 +65,7 @@ shift $((OPTIND - 1))
 out=$(realpath -m "$out")
 steps=("$@")
 [ "${#steps[@]}" -gt 0 ] || steps=(fetch toolchain kernel modules uboot opensbi fip initramfs boot
-    native system server web tools firmware verify payloads packages rootfs image)
+    native system server web tools firmware hashes payloads packages rootfs image)
 # Fail before a long build, not at the signing steps.
 case " ${steps[*]} " in
     *" packages "* | *" rootfs "*)
@@ -1060,20 +1060,12 @@ image() {
         --output "$rel/image" --version "$version" --image-version "$image_version"
 }
 
-verify() {
-    local unlisted
-    # Every listed output must exist and match, and every output must be listed.
-    (cd "$img" && sha256sum --quiet --strict -c "$here/expected.sha256") || {
-        echo "Outputs are missing or differ from expected.sha256" >&2; exit 1; }
-    unlisted=$(cd "$img" && find . -type f ! -name SHA256SUMS | sed 's|^\./||' | LC_ALL=C sort |
-        LC_ALL=C comm -23 - <(awk '$1 !~ /^#/ && NF { print $2 }' "$here/expected.sha256" | LC_ALL=C sort))
-    if [ -n "$unlisted" ]; then
-        printf 'Outputs not in expected.sha256:\n%s\n' "$unlisted" >&2
-        exit 1
-    fi
-    echo "All $(awk '$1 !~ /^#/ && NF' "$here/expected.sha256" | wc -l) outputs match expected.sha256."
-    (cd "$img" && find . -type f ! -name SHA256SUMS -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > SHA256SUMS)
-    echo "Checksums of every output: $img/SHA256SUMS"
+# The hash of every output. CI publishes them for each build of main and
+# lists the outputs a pull request changes (scripts/compare-outputs.py).
+hashes() {
+    (cd "$img" && find . -type f ! -name SHA256SUMS -print0 | LC_ALL=C sort -z | xargs -0 sha256sum |
+        sed 's|  \./|  |' > SHA256SUMS)
+    echo "$(wc -l < "$img/SHA256SUMS") outputs: $img/SHA256SUMS"
 }
 
 source_archive() {
@@ -1106,7 +1098,7 @@ source_archive() {
 
 for step in "${steps[@]}"; do
     case $step in
-        fetch|toolchain|kernel|modules|uboot|opensbi|fip|initramfs|boot|native|system|server|web|tools|firmware|verify|payloads)
+        fetch|toolchain|kernel|modules|uboot|opensbi|fip|initramfs|boot|native|system|server|web|tools|firmware|hashes|payloads)
             log "$step"; "$step" ;;
         packages|rootfs|image|clean)
             if [ "${NANOKVM_USERNS:-0}" = 1 ]; then log "$step"; "$step"; else in_userns "$step"; fi ;;

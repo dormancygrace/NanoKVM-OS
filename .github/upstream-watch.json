@@ -216,6 +216,32 @@
       }
     },
     {
+      "name": "exfatprogs",
+      "path": "platform/sources.lock",
+      "pattern": "exfatprogs-([0-9.]+)\\.tar",
+      "kind": "github-tags",
+      "repo": "exfatprogs/exfatprogs",
+      "upstream_pattern": "^([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "lock_entry": "exfatprogs",
+      "pull_request": {
+        "id": "exfatprogs",
+        "mode": "archive-pin"
+      }
+    },
+    {
+      "name": "i2c-tools",
+      "lock_entry": "i2c-tools",
+      "path": "platform/sources.lock",
+      "pattern": "i2c-tools-([0-9.]+)\\.tar",
+      "kind": "index",
+      "url": "https://www.kernel.org/pub/software/utils/i2c-tools/",
+      "upstream_pattern": "i2c-tools-([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\\.tar",
+      "pull_request": {
+        "id": "i2c-tools",
+        "mode": "archive-pin"
+      }
+    },
+    {
       "name": "tinyalsa",
       "path": "platform/sources.lock",
       "pattern": "^tinyalsa\\s+\\S+\\s+([0-9a-f]{40})",
@@ -274,6 +300,18 @@
       "repo": "riscv-software-src/opensbi",
       "pull_request": {
         "id": "opensbi",
+        "mode": "git-pin"
+      }
+    },
+    {
+      "name": "zlib-ng",
+      "lock_entry": "zlib-ng",
+      "path": "platform/sources.lock",
+      "pattern": "^zlib-ng\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-release-commit",
+      "repo": "zlib-ng/zlib-ng",
+      "pull_request": {
+        "id": "zlib-ng",
         "mode": "git-pin"
       }
     },

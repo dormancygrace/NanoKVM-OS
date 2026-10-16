@@ -18,11 +18,12 @@
 #   system     kvm_system board service
 #   server     NanoKVM-Server and update/USB internet helpers
 #   web        web UI
-#   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio
+#   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
+#              exfatprogs, i2c-tools, zlib-ng
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   verify     compare the outputs with expected.sha256
-#   payloads   contents of the nine NanoKVM packages, from packages.list
-#   packages   signed APK repository of the nine packages
+#   payloads   contents of the twelve NanoKVM packages, from packages.list
+#   packages   signed APK repository of the twelve packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -567,7 +568,7 @@ web() {
 }
 
 # Board tools: BusyBox devmem, nanokvm_update_edid and the EDID profiles,
-# nkos-board-probe and usb-audio-capture.
+# nkos-board-probe, usb-audio-capture and zlib-ng.
 tools() {
     local t=$out/tools e py=$host/python3
     rm -rf "$t" "${img:?}/tools"
@@ -617,12 +618,68 @@ tools() {
     "${cross}gcc" "${cpu_flags[@]}" -static -Wall -Wextra -Werror "$repo/firmware/boards/nkos-board-probe.c" -o "$t/nkos-board-probe"
     "${cross}strip" -o "$img/tools/nkos-board-probe" "$t/nkos-board-probe"
 
+    # exfatprogs and i2c-tools in place of Alpine's community packages
+    # (nanokvm-exfatprogs, nanokvm-i2c-tools). mkfs.exfat needs libblkid, which
+    # the toolchain has only as a shared library: exfatprogs links it and the C
+    # library dynamically (Alpine's libblkid on the device); i2c-tools is static.
+    local b exf i2c
+    exf=$(lock exfatprogs | awk '{ print $2 }'); exf=${exf##*/}
+    i2c=$(lock i2c-tools | awk '{ print $2 }'); i2c=${i2c##*/}
+    tar -xJf "$dl/$exf" -C "$t"
+    exf=$t/${exf%.tar.xz} i2c=$t/${i2c%.tar.gz}
+    (cd "$exf" &&
+        ./configure --host=riscv64-buildroot-linux-musl --prefix=/usr CC="${cross}gcc" AR="${cross}ar" \
+            RANLIB="${cross}ranlib" STRIP="${cross}strip" PKG_CONFIG="$host/pkg-config" \
+            CFLAGS="${cpu_flags[*]} -g0" > "$t/exfatprogs-configure.log" &&
+        make -j"$jobs" > "$t/exfatprogs-make.log")
+    mkdir -p "$img/tools/exfatprogs" "$img/tools/i2c-tools"
+    for b in mkfs/mkfs.exfat fsck/fsck.exfat tune/tune.exfat label/exfatlabel dump/dump.exfat exfat2img/exfat2img; do
+        "${cross}strip" --remove-section=.comment --remove-section=.note \
+            -o "$img/tools/exfatprogs/${b##*/}" "$exf/$b"
+        # libtool records the toolchain's library directory, a build-host path.
+        "$host/patchelf" --remove-rpath "$img/tools/exfatprogs/${b##*/}"
+    done
+    cp "$exf/COPYING" "$img/tools/exfatprogs/"
+    tar -xzf "$dl/${i2c##*/}.tar.gz" -C "$t"
+    make -C "$i2c" -j"$jobs" CC="${cross}gcc" AR="${cross}ar" CFLAGS="${cpu_flags[*]} -g0 -Wall" \
+        LDFLAGS=-static BUILD_DYNAMIC_LIB=0 BUILD_STATIC_LIB=1 USE_STATIC_LIB=1 > "$t/i2c-tools-make.log"
+    for b in i2cdetect i2cget i2cset i2cdump i2ctransfer; do
+        "${cross}strip" --remove-section=.comment --remove-section=.note \
+            -o "$img/tools/i2c-tools/$b" "$i2c/tools/$b"
+    done
+    cp "$i2c/COPYING" "$i2c/COPYING.LGPL" "$img/tools/i2c-tools/"
+
     unpack_git tinyalsa . "$t/tinyalsa"
     "$py" "$repo/scripts/build-usb-audio.py" --output "$t/usb-audio" --buildroot-output "$bo" \
         --kernel-source "$ksrc" --kernel-output "$kbuild" --tinyalsa "$t/tinyalsa" \
         --opus-archive "$dl/opus-1.6.1.tar.gz" --jobs "$jobs"
     cp "$t/usb-audio/usb-audio-capture" "$img/tools/"
     cp "$t/usb-audio/share/usb-audio/"* "$img/tools/usb-audio/"
+
+    # zlib-ng as libz.so.1 for apk, curl and ssh (nanokvm-zlib replaces
+    # Alpine's zlib). Its chunked copies use misaligned words, which the C906
+    # handles in hardware; -mtune=thead-c906 already allows them, and
+    # -mno-strict-align states it for this library. The C906 has neither
+    # RVV 1.0 nor Zbc. Without XTheadVector, which GCC would use for
+    # inline copies, so that the many processes loading this library keep no
+    # vector state.
+    unpack_git zlib-ng . "$t/zlib-ng"
+    "$host/cmake" -S "$t/zlib-ng" -B "$t/zlib-ng/build" -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=riscv64 \
+        -DCMAKE_C_COMPILER="${cross}gcc" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG \
+        -DCMAKE_C_FLAGS="${cpu_flags[*]/_xtheadvector/} -mno-strict-align -ffile-prefix-map=$t/zlib-ng=zlib-ng" \
+        -DZLIB_COMPAT=ON -DWITH_RVV=OFF -DWITH_RISCV_ZBC=OFF -DWITH_GTEST=OFF -DBUILD_TESTING=OFF
+    "$host/cmake" --build "$t/zlib-ng/build" -j "$jobs"
+    mkdir -p "$img/tools/zlib-ng"
+    "${cross}strip" --strip-unneeded --remove-section=.comment --remove-section=.note \
+        -o "$img/tools/zlib-ng/libz.so.1.3.2.zlib-ng" "$t/zlib-ng/build/libz.so.1.3.2.zlib-ng"
+    # nanokvm-zlib provides zlib 1.3.2 and so:libz.so.1: it must export every
+    # symbol, with its version node, that Alpine's libz.so.1.3.2 exports.
+    "${cross}readelf" --dyn-syms -W "$img/tools/zlib-ng/libz.so.1.3.2.zlib-ng" |
+        awk '$7 != "UND" && $5 != "LOCAL" && $8 ~ /@/ { print $8 }' | sed 's/@@/@/' | LC_ALL=C sort -u > "$t/zlib-ng/symbols"
+    local missing
+    missing=$(LC_ALL=C comm -23 "$repo/firmware/alpine/packages/nanokvm-zlib/zlib-1.3.2.symbols" "$t/zlib-ng/symbols")
+    [ -z "$missing" ] || { echo "zlib-ng does not export these zlib 1.3.2 symbols:" $missing >&2; exit 1; }
+    cp "$t/zlib-ng/LICENSE.md" "$img/tools/zlib-ng/"
 }
 
 # Firmware files: AIC8800 Wi-Fi firmware from the Radxa package that the
@@ -656,7 +713,7 @@ firmware() {
     cp "$out/firmware/wireless-regdb-2026.09.03/LICENSE" "$f/licenses/wireless-regdb-LICENSE"
 }
 
-# Assemble the nine package payloads from packages.list.
+# Assemble the twelve package payloads from packages.list.
 payloads() {
     local p=$out/payloads gen pkg type path mode src dest file
     rm -rf "$p"
@@ -778,6 +835,12 @@ in_userns() (
 )
 
 qemu=$out/qemu/qemu-riscv64-static
+# Our userspace code uses the C906's T-Head extensions (cpu-profile.json), which
+# qemu's default RISC-V CPU lacks, and the chroot steps run some of it: zlib-ng
+# as libz.so.1 in apk and kmod. qemu has no XTheadVector, which nothing loaded
+# there uses. (-cpu thead-c906 would warn on every program about zfa.)
+qemu_cpu=rv64,xtheadba=true,xtheadbb=true,xtheadbs=true,xtheadcmo=true,xtheadcondmov=true,xtheadfmemidx=true
+qemu_cpu=$qemu_cpu,xtheadmac=true,xtheadmemidx=true,xtheadmempair=true,xtheadsync=true
 prepare_qemu() {
     local pin
     pin=$(lock qemu | awk '{ print $3 }')
@@ -827,7 +890,7 @@ in_chroot() (
     trap 'rc=$?; umount -l "$root/dev"; umount -l "$root/proc"; umount -l "$root/sys"
           [ -z "${BIND:-}" ] || umount -l "$root${BIND#*:}"; exit $rc' EXIT
     cp -L /etc/resolv.conf "$root/etc/resolv.conf"
-    chroot "$root" "$@"
+    QEMU_CPU=$qemu_cpu chroot "$root" "$@"
 )
 
 # The APK signing keys: -k KEY and -e ECKEY, or with -d local test keys created
@@ -875,7 +938,7 @@ signing_key() {
     keyname=$(basename "$keyfile" .rsa)
 }
 
-# Build the nine packages with abuild in an Alpine riscv64 tree.
+# Build the twelve packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu
@@ -941,14 +1004,15 @@ rootfs() {
     for pub in "$repo"/firmware/alpine/keys/*.pub; do install -m 0644 "$pub" "$r/etc/apk/keys/"; done
     # The v3 index, as on the device.
     printf '%s\n' /mnt/nanokvm-apk/recipes/riscv64/Packages.adb https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
-        https://dl-cdn.alpinelinux.org/alpine/v3.24/community > "$r/etc/apk/repositories"
-    BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache add nanokvm-release
+        > "$r/etc/apk/repositories"
+    # --preserve-env keeps QEMU_CPU for the package scripts and triggers, which
+    # load the new libz.so.1 (kmod's depmod, for one).
+    BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache --preserve-env add nanokvm-release
     rmdir "$r/mnt/nanokvm-apk"
     # The repositories of the device: the v3 index of NanoKVM OS releases
     # (nanokvm-keys switches older devices to it) and Alpine.
     printf '%s\n' https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
-        https://dl-cdn.alpinelinux.org/alpine/v3.24/community \
-        '@edgecommunity https://dl-cdn.alpinelinux.org/alpine/edge/community' > "$r/etc/apk/repositories"
+        https://dl-cdn.alpinelinux.org/alpine/v3.24/community > "$r/etc/apk/repositories"
     rm -f "$r/etc/resolv.conf"
     # The settings APIs call these; refuse an incomplete root.
     for path in usr/sbin/nkos-usb-internet etc/init.d/nanokvm-usb-internet usr/sbin/iw usr/sbin/nanokvm_update_edid etc/init.d/nanokvm-policy \
@@ -959,6 +1023,9 @@ rootfs() {
     done
     [ -d "$r/lib/modules/$(cat "$r/usr/lib/nanokvm/boot/kernel.release")" ] || {
         echo "rootfs: boot.sd and modules differ" >&2; exit 1; }
+    # nanokvm-zlib replaces Alpine's zlib; both installed would share libz.so.1.
+    ! grep -qx 'P:zlib' "$r/lib/apk/db/installed" && [ "$(readlink "$r/usr/lib/libz.so.1")" = libz.so.1.3.2.zlib-ng ] || {
+        echo "rootfs: libz.so.1 is not nanokvm-zlib's" >&2; exit 1; }
     # Every trusted key belongs to a package (nanokvm-keys, alpine-keys), so
     # that updates can add and remove keys; this also catches an .apk-new.
     for pub in "$r"/etc/apk/keys/*; do
@@ -1016,7 +1083,7 @@ source_archive() {
     mkdir -p "$stage/$name/upstream/buildroot-packages" "$stage/$name/NanoKVM-OS"
     # The GPL-licensed inputs of the image. The rest of sources.lock is
     # fetched from its upstream by build.sh and is not redistributed here.
-    for pkg in buildroot linux u-boot osdrv aic8800 cryptodev sipeed-sdk opensbi busybox; do
+    for pkg in buildroot linux u-boot osdrv aic8800 cryptodev sipeed-sdk opensbi busybox exfatprogs i2c-tools; do
         url=$(lock "$pkg" | awk '{ print $2 }')
         if [[ $url == *.git ]]; then cp "$dl/$pkg.tar" "$stage/$name/upstream/"
         else cp "$dl/${url##*/}" "$stage/$name/upstream/"; fi

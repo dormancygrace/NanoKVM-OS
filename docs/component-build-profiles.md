@@ -11,9 +11,10 @@ optimization level. These defaults follow the C906 measurements made on
 | Go server/updater C/CGO objects | GCC -O2 source profile | Go compiler/runtime selection stays separate |
 | Source-owned network tools and private musl | GCC -O2 source profile | Compiler vectorization off; stale -Os objects rebuilt |
 | Opus, tinyalsa and usb-audio-capture | GCC -O2 audio profile, float Opus | Compiler vectorization off |
+| zlib-ng (nanokvm-zlib, libz.so.1) | GCC -O2, thead-c906, lp64d, -mno-strict-align, without xtheadvector | Compiler vectorization off; RVV and Zbc code off |
 | Optional RustDesk performance build | Rust opt-level=3, scalar XTHead | fat LTO; codegen-units=1 |
 | RustDesk generic release | Existing Rust release profile | Remains available |
-| U-Boot/FIP and official Alpine packages | Existing policies | Outside this optimization change |
+| U-Boot/FIP and official Alpine packages (except zlib) | Existing policies | Outside this optimization change |
 
 Both C loop vectorization and SLP are explicitly disabled. The userspace ISA
 still includes xtheadvector: existing vendor/intrinsic/assembly implementations

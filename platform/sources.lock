@@ -29,7 +29,13 @@ json-c     https://github.com/json-c/json-c.git              aa716cd8d663c976b99
 miniz      https://github.com/richgel999/miniz.git           2948eebafc5b9f1c69bebed80333e403a09bd62d  .=be9a59fa5e9ee793ea209ceb8843991e7515c83b
 inih  https://github.com/benhoyt/inih.git  2bbdec4a366c8c39746ee0982e7ca0febbb044b6  .=4d8c619037d693583d9d0f3eea6182c20a903a01
 tinyalsa  https://github.com/tinyalsa/tinyalsa.git  961babfe962e71d952ae734074cc89576b28a9e7  .=e29fec8d370c2ad180def31024c4ebe30bc00637
+# A zlib-ng develop commit (2.3.90, 2026-10-09; upstream CI green for RISC-V and the
+# compat builds): no release has the zlib 1.3.2 API yet, which nanokvm-zlib must
+# export in place of Alpine's zlib. Move to the next release once it has it.
+zlib-ng    https://github.com/zlib-ng/zlib-ng.git            1ab945a841245634cc770b9c3d0e0150734ad013  .=8528d417a2c71d921a39c3ea63c1ed36de64e0a9
 opus       https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz          6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1
+exfatprogs https://github.com/exfatprogs/exfatprogs/releases/download/1.4.3/exfatprogs-1.4.3.tar.xz  57226a8ec1bfbce06d68a42cde8cd980414a9457882e691fbce4a4f86c8d5f08
+i2c-tools  https://www.kernel.org/pub/software/utils/i2c-tools/i2c-tools-4.4.tar.gz  04d1e3b0cd88df8fb96e7709f374dd0b3561191b4c0363eaf873a074b8b7cb22
 busybox    https://busybox.net/downloads/busybox-1.38.0.tar.bz2                34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31c53bb2
 regdb      https://mirrors.edge.kernel.org/pub/software/network/wireless-regdb/wireless-regdb-2026.09.03.tar.xz  b22e0901227b820cd1c280abe681a15b773a5103a5e10dc442e94ebb34cbf58d
 go         https://go.dev/dl/go1.27.2.linux-amd64.tar.gz                       ecbadb99091a3f46e31f5f934b068b1864eafa7995211b39eaddf76996045fe5

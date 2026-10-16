@@ -1,0 +1,28 @@
+pkgname=nanokvm-zlib
+pkgver=${PKGVER:-0.1.0}
+pkgrel=0
+pkgdesc="zlib-ng in zlib-compatible mode, built for the C906"
+url="https://github.com/zlib-ng/zlib-ng"
+arch="riscv64"
+license="Zlib"
+# In place of Alpine's zlib: installing this package removes zlib. Its
+# dependents ask for so:libz.so.1; zlib-dev, which wants an exact zlib, cannot
+# be installed next to it.
+provides="zlib=1.3.2-r100 so:libz.so.1=1.3.2"
+replaces="zlib"
+provider_priority=100
+source="$pkgname-$pkgver.tar.gz"
+# The library comes from build.sh (tools step), built with the image's
+# toolchain; its only dependency is the C library.
+options="!check !strip !tracedeps"
+
+build() {
+	:
+}
+
+package() {
+	mkdir -p "$pkgdir"
+	cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
+}
+
+sha256sums=""

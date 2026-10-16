@@ -321,6 +321,7 @@ export const MenuItem = ({
   const triggerNode = (
     <Tooltip
       title={title}
+      trigger={['hover', 'focus']}
       mouseEnterDelay={0.6}
       placement={tooltipPlacement}
       classNames={{ root: overlay }}

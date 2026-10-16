@@ -9,6 +9,9 @@ import subprocess
 import tempfile
 
 REPO = Path(__file__).resolve().parents[1]
+APK_VERSION = next(line.split("=", 1)[1] for line in
+                   (REPO / "firmware/alpine/release.env").read_text().splitlines()
+                   if line.startswith("NANOKVM_APK_VERSION="))
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--apk", type=Path, required=True)
 args = parser.parse_args()
@@ -24,7 +27,7 @@ def metadata(name):
     recipe = REPO / "firmware/alpine/packages" / name / "APKBUILD"
     p = subprocess.run(["sh", "-c",
         '. "$1"; printf "%s\n" "$pkgver-r$pkgrel" "$depends" "$provides" "$replaces"',
-        "sh", str(recipe)], env={"PATH": "/usr/bin:/bin", "PKGVER": "3.0_alpha1"},
+        "sh", str(recipe)], env={"PATH": "/usr/bin:/bin", "PKGVER": APK_VERSION},
         text=True, capture_output=True, check=True)
     return p.stdout.splitlines()
 
@@ -65,31 +68,36 @@ with tempfile.TemporaryDirectory(prefix="nkos-split-app-") as directory:
     base = ["--root", root, "--arch", "riscv64", "--allow-untrusted"]
     run(*base, "add", "--initdb", *usermode, "--no-scripts", "nanokvm-app", "runtime-fixture", "rustdesk-fixture")
     (root / config).write_text("75")
+    versions = {}
     for name, files in [
         ("nanokvm", {binary: "new server", library: "new lib", config: "60"}),
         ("nanokvm-web", {asset: "new web"}),
         ("nanokvm-app", {})
     ]:
         version, depends, provides, replaces = metadata(name)
+        versions[name] = version
         package(name, version, files, depends, provides, replaces)
     index()
     run(*base, "upgrade", "--no-scripts")
-    assert run(*base, "info", "-e", "-v", "nanokvm-app").strip() == "nanokvm-app-3.0_alpha1-r2"
+    assert run(*base, "info", "-e", "-v", "nanokvm-app").strip() == "nanokvm-app-" + versions["nanokvm-app"]
     assert run(*base, "info", "-e", "rustdesk-fixture")
     assert (root / binary).read_text() == "new server"
     assert (root / asset).read_text() == "new web"
     assert (root / library).read_text() == "new lib"
     assert (root / config).read_text() == "75", "user configuration must survive ownership transfer"
-    for path, owner in [(binary, "nanokvm-3.0_alpha1-r0"), (asset, "nanokvm-web-3.0_alpha1-r0")]:
+    for path, owner in [(binary, "nanokvm-" + versions["nanokvm"]), (asset, "nanokvm-web-" + versions["nanokvm-web"])]:
         assert owner in run(*base, "info", "--who-owns", "/" + path)
     # A compatible web revision must not upgrade or overwrite the backend.
     version, depends, provides, replaces = metadata("nanokvm-web")
-    package("nanokvm-web", "3.0_alpha1-r1", {asset: "web-only fix"}, depends, provides, replaces)
+    upstream, _, revision = version.rpartition("-r")
+    web_update = f"{upstream}-r{int(revision) + 1}"
+    incompatible_update = f"{upstream}-r{int(revision) + 2}"
+    package("nanokvm-web", web_update, {asset: "web-only fix"}, depends, provides, replaces)
     index()
     run(*base, "upgrade", "--no-scripts", "nanokvm-web")
     assert (root / asset).read_text() == "web-only fix"
     assert (root / binary).read_text() == "new server"
-    assert run(*base, "info", "-e", "-v", "nanokvm").strip() == "nanokvm-3.0_alpha1-r0"
+    assert run(*base, "info", "-e", "-v", "nanokvm").strip() == "nanokvm-" + versions["nanokvm"]
     # A fresh installation follows the same metapackage dependency graph.
     fresh = work / "fresh"
     (fresh / "etc/apk").mkdir(parents=True)
@@ -99,8 +107,8 @@ with tempfile.TemporaryDirectory(prefix="nkos-split-app-") as directory:
     assert (fresh / binary).read_text() == "new server"
     assert (fresh / asset).read_text() == "web-only fix"
     # An incompatible browser API must be rejected rather than silently installed.
-    package("nanokvm-web", "3.0_alpha1-r2", {asset: "incompatible"}, "nanokvm-web-api=2", replaces=replaces)
+    package("nanokvm-web", incompatible_update, {asset: "incompatible"}, "nanokvm-web-api=2", replaces=replaces)
     index()
-    run(*base, "add", "--no-scripts", "nanokvm-web=3.0_alpha1-r2", ok=False)
+    run(*base, "add", "--no-scripts", "nanokvm-web=" + incompatible_update, ok=False)
     assert (root / asset).read_text() == "web-only fix"
 print("PASS: migration, file ownership, protected settings, independent web upgrade and API rejection")

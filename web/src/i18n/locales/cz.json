@@ -301,7 +301,30 @@
     "cdrom": "CD/DVD",
     "forceEject": "Vynutit vysunutí",
     "massStorage": "Mass storage",
-    "forceEjectDesc": "Tento obraz je pořád ještě využíván vzdáleným hostitelem. Vynucení vysunutí může přerušit čekající čtení nebo zápisy. Pokračovat?"
+    "forceEjectDesc": "Tento obraz je pořád ještě využíván vzdáleným hostitelem. Vynucení vysunutí může přerušit čekající čtení nebo zápisy. Pokračovat?",
+    "netboot": {
+      "tab": "Zavedení ze sítě",
+      "hint": "Zavést systém tohoto počítače z nabídek netboot.xyz: instalátory, systémy spouštěné bez instalace a nástroje jsou načítány z Internetu prostřednictvím NanoKVM. Na něm je uložen pouze iPXE obraz.",
+      "versions": "iPXE {{ipxe}} · netboot.xyz {{netbootxyz}}",
+      "notDownloaded": "Zatím ještě nestaženo. Zapnutí zavádění ze sítě povede ke stažení nejnovějšího iPXE (přibližně 13 MB) a výběru nejnovějšího vydání netboot.xyz.",
+      "checked": "Zkontrolováno {{date}}",
+      "update": "Zjistit dostupnost případných aktualizací",
+      "updating": "Aktualizování…",
+      "secureBoot": "UEFI Secure Boot",
+      "secureBootHint": "Použije iPXE obraz podepsaný pro Secure Boot (pouze UEFI na X86-64). Při zapnutém Secure Boot, je z netboot.xyz možné instalovat Debian, Devuan a Kali – pro fungování ostatních položek je třeba Secure Boot vypnout (v rozhraní nastavení firmwaru počítače).",
+      "needComposition": "Nejprve v nastaveních USB zapněte USB síť a virtuální disk.",
+      "browserMedia": "Nejprve ISO odpojte od tohoto počítače.",
+      "enableNote": "Nahradí připojený obraz a zapne sdílení připojení k Internetu přes USB. Sdílení zůstane zapnuté, dokud zavádění ze sítě nevypnete.",
+      "enable": "Zapnout zavádění ze sítě",
+      "enabling": "Zapínání…",
+      "disable": "Vypnout zavádění ze sítě",
+      "on": "Zapnuto: spouštět počítač z CD/DVD jednotky, poskytované NanoKVM.",
+      "waiting": "Čeká se až počítač načte nabídku.",
+      "fetched": "Počítač načetl nabídku (požadavků: {{n}}, poslední v {{time}}).",
+      "noUplink": "NanoKVM nemá žádné připojení k Internetu, které by mohlo sdílet – netboot.xyz nebude načteno.",
+      "inUse": "Je zapnuté zavádění ze sítě. Pokud chcete připojit jiný obraz, je třeba toto vypnout.",
+      "failed": "Zavádění ze sítě se nezdařilo. Zkuste to znovu."
+    }
   },
   "script": {
     "title": "Skript",
@@ -425,7 +448,19 @@
         "closing": "Děkujeme, že NanoKVM OS vzniká i Vaší zásluhou.",
         "polyzium": "Překlad do ruštiny, obecná 104 klávesová virtuální klávesnice, chování přizpůsobit oknu a opravy překladů v uživatelském rozhraní.",
         "gxcreator": "Podrobná hlášení o problémech a průběžná zpětná vazba, která odhalila regrese a přímo utvářela opravy.",
-        "translationThanks": "Uživatelsky přívětivější díky lidem, kteří překládají, kontrolují a vylepšují texty v rozhraní. Děkujeme."
+        "translationThanks": "Uživatelsky přívětivější díky lidem, kteří překládají, kontrolují a vylepšují texty v rozhraní. Děkujeme.",
+        "projectLead": "Koncept, architektura, vývoj NanoKVM OS, systémová integrace, ověřování zařízení a řízení vydávání.",
+        "wenjie": "Správcovství původní aplikace NanoKVM; přímé H.264, opravy spouštění a síťování v Tailscale; a začlenění lokalizace do uživatelského rozhraní.",
+        "z2zGuGu": "Nativní komponenty KVM, MMF a vidění; nástroje pro sestavování, resetátor, nástroje pro práci s EDID a USB PID/VID; a základy pro přizpůsobování si zařízení.",
+        "alexanderGerReich": "Toky aplikací, aktualizací a stahování; vylepšení HID, vkládání a virtuální klávesnice; a údržba textů uživatelského rozhraní v němčině a angličtině.",
+        "andrewMoryakov": "Začlenění NetBird klienta a nastavení, posílené zabezpečení životního cyklu VPN a obsluha zotavování, ověřování artefaktů a regresní CI.",
+        "watermeko": "Ověřovaná a zrušitelná stahování a OTA aktualizace, práce na nízkých latencích a zero-copy pro H.264, nastavitelné oblasti vstupu a opravy myši.",
+        "scpcom": "Virtuální médium, spolehlivost stahování a ukládání; uzamykání HID; opravy názvu hostitele a sítě; a pročištění nativního MMF.",
+        "lingkongSky": "Automatizované hýbání myší, upravování názvu hostitele a titulku webu, pojmenované položky v rámci probouzení po síti (WoL), potvrzování napájení a ovládání stránkování paměti.",
+        "yuryPekishev": "Ruské rozložení virtuální klávesnice a převádění z ruštiny do angličtiny pro vkládaný vstup z klávesnice.",
+        "thomasPressnell": "Podpora pro trvalé povolení či zakázání HDMI a rozdělení ovládacích prvků pro USB gadget, datové připojení a virtuální médium.",
+        "s33g": "Logo a text na přihlašovací obrazovce, popisky nástrojů v jejich pruhu, lokalizovatelná chybová hlášení a vývojářské makety, nevyžadující fyzické zařízení.",
+        "rockymtngeek": "Testování hardwaru LT6911D, podrobné diagnostické záznamy událostí a potvrzení funkčnosti opravy zachytávání."
       },
       "applicationVersion": "Aplikace",
       "documentation": "Dokumentace",
@@ -437,7 +472,8 @@
       "reportIssue": "Nahlásit problém",
       "bundledVersion": "Aplikace obsažené v tomto obrazu",
       "description": "Komunitní firmware pro NanoKVM.",
-      "upstreamCredit": "Založeno na původním projektu NanoKVM od Sipeed. Děkujeme jeho autorům a přispěvatelům."
+      "upstreamCredit": "Založeno na původním projektu NanoKVM od Sipeed. Děkujeme jeho autorům a přispěvatelům.",
+      "specialThanksWife": "Mé ženě – za její trpělivost, podporu a za to, že snášela mou nepřítomnost během nejintenzivnější fáze vývoje."
     },
     "appearance": {
       "title": "Vzhled",
@@ -872,7 +908,11 @@
         "selected": "Vybrané funkce",
         "versions": "Verze a kompatibilita",
         "loadError": "Nebylo možné shromáždit diagnostiky",
-        "downloadError": "Nebylo možné si stáhnout diagnostické hlášení"
+        "downloadError": "Nebylo možné si stáhnout diagnostické hlášení",
+        "description": "Stav pro podporu (pouze pro čtení). Sběr je umístěn do mezipaměti a nikdy neprovede změny na zařízení.",
+        "video": "HDMI a zachytávání videa",
+        "operationFailed": "Poslední operace se nezdařila; hlášení úmyslně vynechává nezpracovaný záznam této operace.",
+        "usb": "USB gadget"
       },
       "logs": {
         "sources": {
@@ -898,7 +938,12 @@
         "loadError": "Nebylo možné číst záznamy událostí.",
         "empty": "Žádné položky záznamu událostí k zobrazení.",
         "truncated": "Dřívější nebo přespříliš velké položky byly vynechány.",
-        "privacy": "Položky, ve kterých byly rozpoznány přihlašovací údaje, jsou skryty. Záznamy událostí ale stále ještě mohou obsahovat podrobnosti o zařízení a síti."
+        "privacy": "Položky, ve kterých byly rozpoznány přihlašovací údaje, jsou skryty. Záznamy událostí ale stále ještě mohou obsahovat podrobnosti o zařízení a síti.",
+        "description": "Až 1 MiB pro každý zdroj. Ukládány jsou archivy ze dvou posledních zavedení zařízení (jednou za minutu) a při normálním vypínání serveru.",
+        "unavailable": "Zdroj tohoto záznamu událostí není pro zvolené zavedení systému k dispozici.",
+        "archiveUnavailable": "Trvalé archivy záznamu událostí nejsou k dispozici. I tak je ale možné si prohlížet stávající záznam.",
+        "noHistory": "Dřívější zavádění budou k dispozici po příštím restartu zařízení.",
+        "collected": "Načteno v {{time}} · Počet řádků: {{count}}"
       },
       "general": "Obecné",
       "services": "Služby",
@@ -910,7 +955,11 @@
         "password": "Nové heslo správce (root)",
         "description": "Povolit vzdálený přístup přes SSH",
         "passwordTitle": "Nastavit heslo správce (root) pro SSH",
-        "rootForbidden": "Heslo nemůže být „root“."
+        "rootForbidden": "Heslo nemůže být „root“.",
+        "tip": "SSH bude povoleno teprve až nastavíte nové heslo pro účet root (v Linuxu).",
+        "passwordDescription": "Než budete zapínat SSH, nastavte odolné heslo pro linuxový účet root. Ten je používán pro přihlašování se přes SSH.",
+        "enable": "Nastavit heslo a povolit SSH",
+        "failed": "Nebylo možné nastavit heslo pro root nebo povolit SSH."
       }
     },
     "software": {
@@ -919,7 +968,8 @@
         "packages": "Balíčky",
         "title": "Doplňky",
         "open": "Otevřít PicoClaw",
-        "source": "Oficiální vydání"
+        "source": "Oficiální vydání",
+        "picoclawDescription": "AI asistent s volitelným ovládáním na dálku. Nainstaluje nejnovější stabilní vydání z oficiálních stránek PicoClaw."
       },
       "updatesTab": "Aktualizace",
       "remove": "Odebrat",
@@ -948,7 +998,13 @@
       "updateAvailable": "Balíčky pro které jsou k dispozici aktualizace",
       "running": "APK je {{action}} {{package}}",
       "upToDate": "Všechny nainstalované balíčky jsou aktuální.",
-      "searchHint": "Hledání bude zahájeno automaticky, jakmile přestanete psát."
+      "searchHint": "Hledání bude zahájeno automaticky, jakmile přestanete psát.",
+      "description": "Spravovat balíčky z nastavených repozitářů distribuce Alpine. Změny balíčků používají stejnou databázi APK a služby, jako SSH.",
+      "upgradeConfirm": "Přejít na novější verzi u všech nainstalovaných balíčků? Může se stát, že video a ovládání bude nakrátko odpojeno.",
+      "indexMissing": "Nejsou k dispozici žádné rejstříky balíčků. Než se budete pokoušet vyhledávat či instalovat, nechte tyto rejstříky načíst znovu.",
+      "indexStale": "Je možné, že rejstříky balíčků jsou zastaralé (naposledy znovunačteno {{updated}}). Než budete provádět instalace, nechte rejstříky načíst znovu.",
+      "removeDescription": "APK provede toto odebrání (a změny jeho závislostí) přesně tak, jak zobrazeno níže. Tuto akci pak nelze vzít nějak automaticky zpět.",
+      "requestFailed": "Požadavek softwaru se nezdařil. Zkontrolujte připojení zařízení a zkuste znovu."
     },
     "netbird": {
       "disconnect": "Odpojit",
@@ -1019,7 +1075,20 @@
       "recompressTitle": "Znovu zkomprimovat zřídka používané stránky pomocí ZSTD",
       "loadError": "Nebylo možné číst stav paměti",
       "changeError": "Nebylo možné změnit nastavení odkládání stránek",
-      "videoModeUnavailable": "Aby bylo možné povolit přepínání, zaktualizujte balíček obsahující jádro systému."
+      "videoModeUnavailable": "Aby bylo možné povolit přepínání, zaktualizujte balíček obsahující jádro systému.",
+      "videoModeDescription": "Paměť je vyhrazena pouze pro video; Linux ji nikdy nepoužije. FHD je výchozí a postačí na 1920 × 1080. Režim na výšku a rozlišení 2560 × 1440 vyžadují QHD, rozlišení 3840 × 2160 vyžaduje UHD. Změny se projeví po restartu.",
+      "videoRes_fhd": "FHD – 1920 × 1080 · 40 MiB",
+      "videoRes_qhd": "QHD – 2560 × 1440 · 56 MiB",
+      "videoRes_uhd": "UHD – 3840 × 2160 · 104 MiB",
+      "videoReboot": "Aby byl zvolený režim videopaměti uplatněn, zařízení restartujte.",
+      "recompressNotReady": "Uložený režim není aktivní. Znovu ho použijte až bude k dispozici dostatek operační paměti.",
+      "applicationTitle": "Snížit využití operační paměti aplikacemi",
+      "ramNote": "Paměť, která je k dispozici, zahrnuje i mezipaměť, kterou lze uvolnit. Vyrovnávací paměti videa používají vyhrazenou oblast.",
+      "sdTitle": "Zapnout stránkování na SD kartu",
+      "zramDescription": "Komprimovat neaktivní stránky v operační paměti. Kapacita je měřena před kompresí; operační paměť je přidělována dle potřeby.",
+      "sdDescription": "Pokud nastane nedostatek paměti, použít swap soubor na SD kartě. Přístup do ní je pomalejší než do RAM.",
+      "priorityNote": "Ještě než bude využito stránkování na SD kartu, je použito ZRAM. Změny jsou uplatněny okamžitě a přetrvají po restartu.",
+      "unavailable": "Vyžaduje sestavení NanoKVM OS, obsahující tuto funkci."
     },
     "usb": {
       "identity": {
@@ -1227,9 +1296,13 @@
         "check": "Zjistit dostupnost případných aktualizací",
         "rebootConfirm": "Restartovat zařízení nyní?",
         "current": "Všechny nainstalované balíčky jsou aktuální",
-        "rebootRequired": "Aktualizace jsou nainstalované. Aby začalo být používáno nové jádro nebo součásti systému, zařízení restartujte."
+        "rebootRequired": "Aktualizace jsou nainstalované. Aby začalo být používáno nové jádro nebo součásti systému, zařízení restartujte.",
+        "description": "Zaktualizovat nainstalované balíčky z nastavených repozitářů. Nastavení jsou zachována. Služby jsou automaticky zrestartovány, ale aktualizace jádra systému vyžadují restart.",
+        "confirm": "Nainstalovat tyto aktualizace balíčků? Může se stát, že video a ovládání se nakrátko odpojí."
       },
-      "reconnecting": "Čeká se na opětovné připojení zařízení…"
+      "reconnecting": "Čeká se na opětovné připojení zařízení…",
+      "description": "Zaktualizovat NanoKVM OS (použitím podepsaných balíčků). Aktualizace systému zařízení povede k restartu zařízení, aktualizace aplikací jen k krátkému odpojení videa a ovládání.",
+      "requestFailed": "Požadavek na aktualizaci se nezdařil. Zkontrolujte konektivitu zařízení a zkuste znovu."
     },
     "extensions": {
       "title": "Rozšíření"

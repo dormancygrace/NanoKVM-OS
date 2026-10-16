@@ -56,15 +56,13 @@ export const Screen = () => {
   );
   return (
     <MenuItem
-      title={t('screen.title')}
+      title={
+        sessions === null
+          ? t('screen.title')
+          : `${t('screen.title')} · ${t('screen.sessions', { count: sessions })}`
+      }
       icon={
-        <span
-          className="relative inline-flex"
-          role="img"
-          aria-label={
-            sessions === null ? t('screen.title') : t('screen.sessions', { count: sessions })
-          }
-        >
+        <span className="relative inline-flex" aria-hidden="true">
           <MonitorIcon size={18} />
           {sessions !== null && (
             <span

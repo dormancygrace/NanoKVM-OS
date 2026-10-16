@@ -674,6 +674,7 @@
     "uploadbox": "将文件拖放到此处或单击选择",
     "inputfile": "请输入镜像文件",
     "NoISO": "无 ISO",
+    "imageFileRequired": "请选择 ISO 或 IMG 镜像文件",
     "sha256": "SHA-256（可选）",
     "sha256Placeholder": "请输入 64 位 SHA-256 校验和",
     "invalidSHA256": "SHA-256 必须是 64 位十六进制字符串",

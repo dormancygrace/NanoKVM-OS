@@ -6,6 +6,7 @@ package dtls
 import (
 	"bytes"
 	"context"
+	"slices"
 
 	"github.com/pion/dtls/v3/internal/ciphersuite/types"
 	"github.com/pion/dtls/v3/pkg/crypto/elliptic"
@@ -160,7 +161,7 @@ func flight3Parse(
 	}
 
 	if h, ok := msgs[handshake.TypeServerKeyExchange].(*handshake.MessageServerKeyExchange); ok {
-		alertPtr, err := handleServerKeyExchange(conn, state, cfg, h)
+		alertPtr, err := handleServerKeyExchange(cache, state, cfg, h)
 		if err != nil {
 			return 0, alertPtr, err
 		}
@@ -223,7 +224,7 @@ func handleResumption(
 
 //nolint:cyclop
 func handleServerKeyExchange(
-	_ flightConn,
+	cache *handshakeCache,
 	state *State,
 	cfg *handshakeConfig,
 	keyExchangeMessage *handshake.MessageServerKeyExchange,
@@ -231,6 +232,11 @@ func handleServerKeyExchange(
 	var err error
 	if state.cipherSuite == nil {
 		return &alert.Alert{Level: alert.Fatal, Description: alert.InsufficientSecurity}, errInvalidCipherSuite
+	}
+	if state.cipherSuite.KeyExchangeAlgorithm().Has(types.KeyExchangeAlgorithmEcdhe) {
+		if err = validateServerSelectedCurve(cache, cfg.initialEpoch, keyExchangeMessage.NamedCurve); err != nil {
+			return &alert.Alert{Level: alert.Fatal, Description: alert.IllegalParameter}, err
+		}
 	}
 	if cfg.localPSKCallback != nil { //nolint:nestif
 		var psk []byte
@@ -274,6 +280,30 @@ func handleServerKeyExchange(
 	return nil, nil //nolint:nilnil
 }
 
+func validateServerSelectedCurve(cache *handshakeCache, epoch uint16, curve elliptic.Curve) error {
+	// Use the latest ClientHello's wire bytes, including hook changes and retries.
+	items := cache.pull(handshakeCachePullRule{handshake.TypeClientHello, epoch, true, false})
+	if items[0] == nil {
+		return errLengthMismatch
+	}
+	message := &handshake.Handshake{}
+	if err := message.Unmarshal(items[0].data); err != nil {
+		return err
+	}
+	hello, ok := message.Message.(*handshake.MessageClientHello)
+	if !ok {
+		return errLengthMismatch
+	}
+	for _, ext := range hello.Extensions {
+		if groups, ok := ext.(*extension.SupportedEllipticCurves); ok && !slices.Contains(groups.EllipticCurves, curve) {
+			return errServerSelectedUnofferedCurve
+		}
+	}
+
+	// Without supported_groups, the server may choose any supported curve.
+	return nil
+}
+
 func flight3Generate(
 	_ flightConn,
 	state *State,
@@ -295,7 +325,8 @@ func flight3Generate(
 		})
 	}
 
-	if state.namedCurve != 0 {
+	// Match flight1Generate: plain PSK must not add curve extensions on retry.
+	if slices.ContainsFunc(cfg.localCipherSuites, func(suite CipherSuite) bool { return suite.ECC() }) {
 		extensions = append(extensions, []extension.Extension{
 			&extension.SupportedEllipticCurves{
 				EllipticCurves: cfg.ellipticCurves,

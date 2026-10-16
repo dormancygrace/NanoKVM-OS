@@ -5,6 +5,7 @@ package dtls
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/gob"
 	"errors"
 	"sync/atomic"
@@ -67,6 +68,13 @@ type State struct {
 	localVerifyData            []byte                    // cached VerifyData
 	localKeySignature          []byte                    // cached keySignature
 	peerCertificatesVerified   bool
+
+	// Server-side client flight progress, reset when starting a handshake.
+	clientKeyExchange     *handshake.MessageClientKeyExchange
+	clientFlightProcessed bool
+
+	// Binds the core ClientHello parameters across HelloVerifyRequest (RFC 6347).
+	initialClientHelloHash [sha256.Size]byte
 
 	replayDetector []replaydetector.ReplayDetector
 

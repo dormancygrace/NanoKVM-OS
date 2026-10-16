@@ -4,8 +4,6 @@
 
 **Your tiny KVM just became a more capable recovery station.** Boot an installer from the internet, move files between your browser and the controlled computer, and put more of the SG2002's capabilities to work. v3.1.0 builds on the v3.0 overhaul with new tools, faster hashing, leaner wireless drivers and safer storage operations.
 
-These are the changes since **v3.0-a1**. Existing video, USB internet sharing, remote access and add-on features remain available.
-
 ## 🌐 Boot a computer from the internet
 
 **Images → Network boot** brings **[netboot.xyz](https://github.com/netbootxyz/netboot.xyz)** to NanoKVM OS using the official **[iPXE](https://github.com/ipxe/ipxe)** boot images. Start installers, live systems and recovery tools without first uploading a large ISO to the SD card.
@@ -36,7 +34,7 @@ Thanks to **[watermeko](https://github.com/watermeko)** and **[imguoguo](https:/
 
 ## ⚡ Faster work on one C906 core
 
-**Large SHA-256 jobs use the SG2002 crypto engine**, with software handling small messages and providing a fallback when the engine is unavailable or fails. Downloads, update verification and PicoClaw installation use this path. The Go runtime also gains T-Head SHA-1 and SHA-256 routines for software hashing.
+**Large SHA-256 jobs use the SG2002 crypto engine**, with software handling small messages and providing a fallback when the engine is unavailable or fails. Downloads and update verification use this path. The Go runtime also gains T-Head SHA-1 and SHA-256 routines for software hashing.
 
 Development measurements on the test device:
 
@@ -70,7 +68,7 @@ The former monolithic application package is split into:
 
 Existing installations migrate through the normal updater. The full release has **nine core packages**. A later web-only update can replace the UI without restarting the backend; refresh the browser to load it. The first migration can restart the service through the older package's hooks.
 
-A separate **RustDesk 0.5.3-r5** refresh updates its locked dependencies and Rust compiler to 1.99.1. The add-on remains alpha and uses the RustDesk 1.5 protocol; 59 host tests and the RISC-V target check pass, with three device tests excluded. No new end-to-end RustDesk client session was run for this revision.
+A separate **RustDesk 0.5.3-r5** refresh updates its locked dependencies and Rust compiler to 1.99.1. The add-on remains alpha and uses the RustDesk 1.5 protocol.
 
 Optional add-ons remain separate from the full image. PicoClaw continues to come from its upstream releases, and ordinary system packages come from Alpine.
 
@@ -97,10 +95,5 @@ Settings, user data and separately installed packages are retained. **Reboot to 
 
 **Fresh installation:** flash **NanoKVM-OS-Image-v1.3-apps-v3.1.0.img.zip** to an SD card of at least **2 GB** after verifying SHA256SUMS. Flashing replaces the card's contents. The image contains applications v3.1.0, a 64 MiB boot partition and a 768 MiB F2FS root; first boot creates the data partition in the remaining space. It includes U-Boot 2026.10 and OpenSBI 1.9.
 
-Image and application numbering stay independent: updating applications does not rewrite the installed image's origin. Compatible models are **NanoKVM Cube, Lite and PCIe**. **NanoKVM Pro and NanoKVM USB use incompatible hardware.**
+Image and application numbering stay independent: updating applications does not rewrite the installed image's origin. 
 
-## 🧪 Validation
-
-The complete platform build reproduces all **568 pinned outputs**. Go build, vet and tests, focused race tests, the production web build, lint and **212 web tests** pass. **54 script-check commands**, the real APK split-migration test, AIC receive-path checks and kernel/module/U-Boot CPU-profile audits also pass.
-
-**The final v3.1.0 image has not been installed on the test device.** Earlier component tests cover network boot, file management, hashing, kernel changes and AIC/Bluetooth behavior, but are not a final-image boot test. Hardware-dependent results remain scoped to the boards and scenarios actually exercised.

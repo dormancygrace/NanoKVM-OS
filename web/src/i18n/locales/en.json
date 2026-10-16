@@ -591,6 +591,29 @@
       "tf3": "Insert the TF card into a card reader and connect it to your computer.",
       "tf4": "Copy the image file to the /data directory on the TF card.",
       "tf5": "Insert the TF card into the NanoKVM."
+    },
+    "netboot": {
+      "tab": "Network boot",
+      "hint": "Boot this computer from the netboot.xyz menus: installers, live systems and tools load from the internet through the NanoKVM. Only the iPXE image is stored on the NanoKVM.",
+      "versions": "iPXE {{ipxe}} · netboot.xyz {{netbootxyz}}",
+      "notDownloaded": "Not downloaded yet. Turning network boot on downloads the latest iPXE (about 13 MB) and selects the latest netboot.xyz release.",
+      "checked": "Checked {{date}}",
+      "update": "Check for updates",
+      "updating": "Updating…",
+      "secureBoot": "UEFI Secure Boot",
+      "secureBootHint": "Uses the iPXE image signed for Secure Boot (x86-64 UEFI only). With Secure Boot on, netboot.xyz installs Debian, Devuan and Kali; other entries need Secure Boot turned off in the computer's firmware.",
+      "needComposition": "Turn on USB network and the virtual disk in the USB settings first.",
+      "browserMedia": "Disconnect the ISO from this computer first.",
+      "enableNote": "Replaces the mounted image and turns on USB internet sharing until network boot is turned off.",
+      "enable": "Turn on network boot",
+      "enabling": "Turning on…",
+      "disable": "Turn off network boot",
+      "on": "On: boot the computer from the NanoKVM CD/DVD drive.",
+      "waiting": "Waiting for the computer to load the menu.",
+      "fetched": "The computer loaded the menu (requests: {{n}}, last at {{time}}).",
+      "noUplink": "The NanoKVM has no internet connection to share; netboot.xyz will not load.",
+      "inUse": "Network boot is on. Turn it off to mount another image.",
+      "failed": "Network boot failed. Try again."
     }
   },
   "script": {

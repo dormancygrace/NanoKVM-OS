@@ -591,6 +591,29 @@
       "tf3": "将 TF 卡插入读卡器并连接到你的电脑；",
       "tf4": "从电脑上拷贝镜像文件到 TF 卡的 /data 目录下；",
       "tf5": "将 TF 卡重新插入 NanoKVM。"
+    },
+    "netboot": {
+      "tab": "网络启动",
+      "hint": "从 netboot.xyz 菜单启动这台电脑：安装程序、Live 系统和工具通过 NanoKVM 从互联网加载。NanoKVM 上只保存 iPXE 镜像。",
+      "versions": "iPXE {{ipxe}} · netboot.xyz {{netbootxyz}}",
+      "notDownloaded": "尚未下载。开启网络启动时会下载最新的 iPXE（约 13 MB），并选择最新的 netboot.xyz 版本。",
+      "checked": "检查于 {{date}}",
+      "update": "检查更新",
+      "updating": "正在更新…",
+      "secureBoot": "UEFI 安全启动",
+      "secureBootHint": "使用为安全启动签名的 iPXE 镜像（仅限 x86-64 UEFI）。开启安全启动时，netboot.xyz 可安装 Debian、Devuan 和 Kali；其他条目需要在电脑固件中关闭安全启动。",
+      "needComposition": "请先在 USB 设置中开启 USB 网络和虚拟磁盘。",
+      "browserMedia": "请先断开来自这台电脑的 ISO。",
+      "enableNote": "替换已挂载的镜像，并在网络启动开启期间开启 USB 互联网共享。",
+      "enable": "开启网络启动",
+      "enabling": "正在开启…",
+      "disable": "关闭网络启动",
+      "on": "已开启：请让电脑从 NanoKVM 的 CD/DVD 驱动器启动。",
+      "waiting": "正在等待电脑加载菜单。",
+      "fetched": "电脑已加载菜单（请求次数：{{n}}，最近一次：{{time}}）。",
+      "noUplink": "NanoKVM 没有可共享的互联网连接，netboot.xyz 将无法加载。",
+      "inUse": "网络启动已开启。请先关闭它再挂载其他镜像。",
+      "failed": "网络启动失败，请重试。"
     }
   },
   "script": {

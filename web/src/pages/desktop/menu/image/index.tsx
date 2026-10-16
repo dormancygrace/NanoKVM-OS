@@ -12,6 +12,7 @@ import { useVirtualDisk } from '@/hooks/useVirtualDisk.ts';
 import { useDismissMobileMenu } from '@/components/mobile-menu-context.ts';
 
 import { Images } from './images.tsx';
+import { Netboot } from './netboot.tsx';
 import { RemoteImage } from './remote.tsx';
 import { Tips } from './tips.tsx';
 
@@ -31,6 +32,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
   const [isMounted, setIsMounted] = useState(false);
   const [source, setSource] = useState('device');
   const [remoteConnected, setRemoteConnected] = useState(false);
+  const [netbootEnabled, setNetbootEnabled] = useState(false);
   const [mode, setMode] = useState('cd-rom');
 
   const modes = [
@@ -125,7 +127,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
               ? 'cursor-not-allowed text-neutral-600 opacity-45'
               : [
                   'cursor-pointer hover:bg-neutral-700',
-                  isMounted || remoteConnected
+                  isMounted || remoteConnected || netbootEnabled
                     ? 'text-blue-500'
                     : 'text-neutral-300 hover:text-white'
                 ]
@@ -161,7 +163,8 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
             onChange={setSource}
             options={[
               { value: 'device', label: t('image.remote.device') },
-              { value: 'browser', label: t('image.remote.browser') }
+              { value: 'browser', label: t('image.remote.browser') },
+              { value: 'network', label: t('image.netboot.tab') }
             ]}
           />
           <div
@@ -173,13 +176,19 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
               className="[&_.ant-segmented-group]:gap-2"
               value={mode}
               options={modes}
-              disabled={isMounted || remoteConnected}
+              disabled={isMounted || remoteConnected || netbootEnabled}
               onChange={setMode}
             />
           </div>
           <div style={{ display: source === 'browser' ? undefined : 'none' }}>
             <RemoteImage isOpen={isModalOpen} onConnected={setRemoteConnected} />
           </div>
+          <div style={{ display: source === 'network' ? undefined : 'none' }}>
+            <Netboot isOpen={isModalOpen && source === 'network'} onEnabled={setNetbootEnabled} />
+          </div>
+          {netbootEnabled && source !== 'network' && (
+            <span className="text-sm text-neutral-400">{t('image.netboot.inUse')}</span>
+          )}
           <div
             style={{ display: source === 'device' ? undefined : 'none' }}
             className="flex flex-col gap-6"
@@ -187,7 +196,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
             <Divider style={{ margin: '24px 0 0 0' }} />
 
             <Images
-              disabled={remoteConnected}
+              disabled={remoteConnected || netbootEnabled}
               isOpen={isModalOpen}
               cdrom={mode === 'cd-rom'}
               setIsMounted={setIsMounted}

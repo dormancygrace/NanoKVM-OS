@@ -591,6 +591,29 @@
       "tf3": "Stecken Sie die TF-Karte in einen Kartenleser und verbinden Sie diesen mit Ihrem Computer.",
       "tf4": "Kopieren Sie die Image-Datei in das Verzeichnis /data auf der TF-Karte.",
       "tf5": "Setzen Sie die TF-Karte wieder in den NanoKVM ein."
+    },
+    "netboot": {
+      "tab": "Netzwerkstart",
+      "hint": "Starten Sie diesen Computer aus den netboot.xyz-Menüs: Installer, Live-Systeme und Werkzeuge werden über den NanoKVM aus dem Internet geladen. Auf dem NanoKVM wird nur das iPXE-Image gespeichert.",
+      "versions": "iPXE {{ipxe}} · netboot.xyz {{netbootxyz}}",
+      "notDownloaded": "Noch nicht heruntergeladen. Beim Einschalten des Netzwerkstarts wird das neueste iPXE (etwa 13 MB) heruntergeladen und die neueste netboot.xyz-Version gewählt.",
+      "checked": "Geprüft {{date}}",
+      "update": "Nach Updates suchen",
+      "updating": "Wird aktualisiert…",
+      "secureBoot": "UEFI Secure Boot",
+      "secureBootHint": "Verwendet das für Secure Boot signierte iPXE-Image (nur x86-64 UEFI). Mit Secure Boot installiert netboot.xyz Debian, Devuan und Kali; für andere Einträge muss Secure Boot in der Firmware des Computers ausgeschaltet werden.",
+      "needComposition": "Schalten Sie zuerst USB-Netzwerk und virtuelle Festplatte in den USB-Einstellungen ein.",
+      "browserMedia": "Trennen Sie zuerst die ISO von diesem Computer.",
+      "enableNote": "Ersetzt das eingehängte Image und schaltet die Internetfreigabe über USB ein, bis der Netzwerkstart ausgeschaltet wird.",
+      "enable": "Netzwerkstart einschalten",
+      "enabling": "Wird eingeschaltet…",
+      "disable": "Netzwerkstart ausschalten",
+      "on": "Ein: Starten Sie den Computer vom CD/DVD-Laufwerk des NanoKVM.",
+      "waiting": "Warten, bis der Computer das Menü lädt.",
+      "fetched": "Der Computer hat das Menü geladen (Anfragen: {{n}}, zuletzt um {{time}}).",
+      "noUplink": "Der NanoKVM hat keine Internetverbindung zum Freigeben; netboot.xyz wird nicht geladen.",
+      "inUse": "Der Netzwerkstart ist eingeschaltet. Schalten Sie ihn aus, um ein anderes Image einzuhängen.",
+      "failed": "Netzwerkstart fehlgeschlagen. Versuchen Sie es erneut."
     }
   },
   "script": {

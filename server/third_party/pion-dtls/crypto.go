@@ -26,6 +26,21 @@ type ecdsaSignature struct {
 	R, S *big.Int
 }
 
+// Match crypto/tls's default limit to bound peer-controlled RSA verification work.
+const maxPeerRSAKeyBits = 8192
+
+func parsePeerCertificate(raw []byte) (*x509.Certificate, error) {
+	cert, err := x509.ParseCertificate(raw)
+	if err != nil {
+		return nil, err
+	}
+	if key, ok := cert.PublicKey.(*rsa.PublicKey); ok && key.N.BitLen() > maxPeerRSAKeyBits {
+		return nil, errPeerRSAKeyTooLarge
+	}
+
+	return cert, nil
+}
+
 func valueKeyMessage(clientRandom, serverRandom, publicKey []byte, namedCurve elliptic.Curve) []byte {
 	serverECDHParams := make([]byte, 4)
 	serverECDHParams[0] = 3 // named curve
@@ -91,6 +106,40 @@ func validateSignatureAlgOID(cert *x509.Certificate, sigAlg signature.Algorithm)
 	}
 }
 
+// validateHandshakeSignatureScheme binds the wire scheme to the key and hash.
+// RSA and ECDSA must never sign or verify a digest-less handshake.
+func validateHandshakeSignatureScheme(
+	publicKey crypto.PublicKey,
+	hashAlgorithm hash.Algorithm,
+	signatureAlgorithm signature.Algorithm,
+) error {
+	if _, ok := publicKey.(ed25519.PublicKey); ok {
+		if signatureAlgorithm == signature.Ed25519 && hashAlgorithm == hash.Ed25519 {
+			return nil
+		}
+
+		return errInvalidSignatureAlgorithm
+	}
+	if hashAlgorithm.CryptoHash() == 0 {
+		return errInvalidSignatureAlgorithm
+	}
+	switch publicKey.(type) {
+	case *ecdsa.PublicKey:
+		if signatureAlgorithm == signature.ECDSA {
+			return nil
+		}
+	case *rsa.PublicKey:
+		// GetPSSHash returns hash.None for non-PSS schemes, which the
+		// nonzero hash check above already excludes.
+		if signatureAlgorithm == signature.RSA ||
+			signatureAlgorithm.GetPSSHash() == hashAlgorithm {
+			return nil
+		}
+	}
+
+	return errInvalidSignatureAlgorithm
+}
+
 // If the client provided a "signature_algorithms" extension, then all
 // certificates provided by the server MUST be signed by a
 // hash/signature algorithm pair that appears in that extension
@@ -103,6 +152,9 @@ func generateKeySignature(
 	hashAlgorithm hash.Algorithm,
 	signatureAlgorithm signature.Algorithm,
 ) ([]byte, error) {
+	if err := validateHandshakeSignatureScheme(signer.Public(), hashAlgorithm, signatureAlgorithm); err != nil {
+		return nil, err
+	}
 	msg := valueKeyMessage(clientRandom, serverRandom, publicKey, namedCurve)
 	switch signer.Public().(type) {
 	case ed25519.PublicKey:
@@ -142,13 +194,16 @@ func verifyKeySignature(
 	if len(rawCertificates) == 0 {
 		return errLengthMismatch
 	}
-	certificate, err := x509.ParseCertificate(rawCertificates[0])
+	certificate, err := parsePeerCertificate(rawCertificates[0])
 	if err != nil {
 		return err
 	}
 
 	// Validate that the signature algorithm matches the certificate's OID
 	if err := validateSignatureAlgOID(certificate, signatureAlgorithm); err != nil {
+		return err
+	}
+	if err := validateHandshakeSignatureScheme(certificate.PublicKey, hashAlgorithm, signatureAlgorithm); err != nil {
 		return err
 	}
 
@@ -214,6 +269,9 @@ func generateCertificateVerify(
 	hashAlgorithm hash.Algorithm,
 	signatureAlgorithm signature.Algorithm,
 ) ([]byte, error) {
+	if err := validateHandshakeSignatureScheme(signer.Public(), hashAlgorithm, signatureAlgorithm); err != nil {
+		return nil, err
+	}
 	if _, ok := signer.Public().(ed25519.PublicKey); ok {
 		// https://pkg.go.dev/crypto/ed25519#PrivateKey.Sign
 		// Sign signs the given message with priv. Ed25519 performs two passes over
@@ -255,13 +313,16 @@ func verifyCertificateVerify(
 	if len(rawCertificates) == 0 {
 		return errLengthMismatch
 	}
-	certificate, err := x509.ParseCertificate(rawCertificates[0])
+	certificate, err := parsePeerCertificate(rawCertificates[0])
 	if err != nil {
 		return err
 	}
 
 	// Validate that the signature algorithm matches the certificate's OID
 	if err := validateSignatureAlgOID(certificate, signatureAlgorithm); err != nil {
+		return err
+	}
+	if err := validateHandshakeSignatureScheme(certificate.PublicKey, hashAlgorithm, signatureAlgorithm); err != nil {
 		return err
 	}
 
@@ -320,7 +381,7 @@ func loadCerts(rawCertificates [][]byte) ([]*x509.Certificate, error) {
 
 	certs := make([]*x509.Certificate, 0, len(rawCertificates))
 	for _, rawCert := range rawCertificates {
-		cert, err := x509.ParseCertificate(rawCert)
+		cert, err := parsePeerCertificate(rawCert)
 		if err != nil {
 			return nil, err
 		}

@@ -366,7 +366,9 @@ func parseScan(output, band string) []wifiNetwork {
 }
 
 func (w radioControl) status() *proto.GetWifiRsp {
-	d := &proto.GetWifiRsp{Supported: w.present(), Enabled: w.enabled(), Bands: []string{}, ApMode: isAPMode(), PreferredBand: w.preferredBand()}
+	// Without a radio Wi-Fi is not on, whatever the saved preference says.
+	present := w.present()
+	d := &proto.GetWifiRsp{Supported: present, Enabled: present && w.enabled(), Bands: []string{}, ApMode: isAPMode(), PreferredBand: w.preferredBand()}
 	wifiMu.Lock()
 	d.Busy = wifiBusy
 	d.Error = wifiError

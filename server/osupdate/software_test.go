@@ -32,6 +32,17 @@ func TestSoftwareValidationAndParsing(t *testing.T) {
 	if len(updates) != 2 || updates[0] != (SoftwareUpdate{Name: "alpha", Installed: "1.0-r0", Available: "1.1-r0"}) || updates[1] != (SoftwareUpdate{Name: "beta", Installed: "2.0-r0", Available: "2.1-r0"}) {
 		t.Fatalf("unexpected package updates: %#v", updates)
 	}
+	// apk-tools 3.0.8 as it prints on the device: the available version alone.
+	updates = parseSoftwareUpdates("Installed:                                Available:\n" +
+		"nanokvm-app-3.0_alpha1-r0               < 3.1.0-r0 \nzlib-1.3.2-r0                           < 1.3.2-r1 \n")
+	if len(updates) != 2 || updates[0] != (SoftwareUpdate{Name: "nanokvm-app", Installed: "3.0_alpha1-r0", Available: "3.1.0-r0"}) ||
+		updates[1] != (SoftwareUpdate{Name: "zlib", Installed: "1.3.2-r0", Available: "1.3.2-r1"}) {
+		t.Fatalf("unexpected apk 3 package updates: %#v", updates)
+	}
+	// Another package's name-version is not this package's update.
+	if updates = parseSoftwareUpdates("alpha-1.0-r0 < beta-1.1-r0\n"); len(updates) != 0 {
+		t.Fatalf("took another package's version: %#v", updates)
+	}
 }
 
 func TestRunSoftware(t *testing.T) {
@@ -48,5 +59,13 @@ func TestRunSoftware(t *testing.T) {
 	status := GetSoftwareStatus()
 	if status.State != "succeeded" || status.Action != "install" || status.Package != "tailscale" {
 		t.Fatalf("unexpected status: %#v", status)
+	}
+}
+
+func TestSplitApplicationPackagesProtected(t *testing.T) {
+	for _, name := range []string{"nanokvm", "nanokvm-web", "nanokvm-app"} {
+		if err := checkRemovable(name); err == nil {
+			t.Fatalf("%s must remain protected", name)
+		}
 	}
 }

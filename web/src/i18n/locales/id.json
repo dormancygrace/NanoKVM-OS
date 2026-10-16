@@ -29,11 +29,12 @@
       "reset2": "Untuk langkah-langkah rinci, lihat dokumen ini:",
       "reset3": "Akun web default:",
       "reset4": "Akun SSH default:",
-      "change1": "Perhatikan bahwa tindakan ini akan mengubah kata sandi berikut:",
+      "change1": "Untuk akun administrator bawaan, tindakan ini mengubah kata sandi berikut:",
       "change2": "Kata sandi login web",
       "change3": "Kata sandi root sistem (kata sandi login SSH)",
       "change4": "Untuk mengatur ulang kata sandi, tekan dan tahan tombol BOOT pada NanoKVM."
-    }
+    },
+    "placeholderCurrentPassword": "Kata sandi saat ini"
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -100,7 +101,9 @@
       "videoError": "Kesalahan tampilan video",
       "noHdmi": "Sinyal HDMI tidak terdeteksi",
       "unavailable": "Layar tidak dapat ditampilkan saat ini"
-    }
+    },
+    "codec": "Kodek",
+    "retryJoin": "Coba lagi"
   },
   "keyboard": {
     "title": "Keyboard",
@@ -118,10 +121,10 @@
     "dropdownRussian": "Rusia",
     "dropdownSpanish": "Bahasa Spanyol",
     "shortcut": {
-      "title": "Pintasan",
-      "custom": "Adat",
-      "capture": "Klik di sini untuk mengambil pintasan",
-      "clear": "Jelas",
+      "title": "Pintasan papan ketik",
+      "custom": "Kustom",
+      "capture": "Klik di sini untuk merekam pintasan papan ketik",
+      "clear": "Bersihkan",
       "save": "Simpan",
       "captureTips": "Menangkap tombol tingkat sistem (seperti tombol Windows) memerlukan izin layar penuh.",
       "enterFullScreen": "Beralih ke mode layar penuh."
@@ -152,6 +155,10 @@
         "activate": "Aktifkan tombol",
         "input": "Silakan tekan pintasan..."
       }
+    },
+    "sequences": {
+      "title": "Urutan tombol",
+      "sent": "Terkirim"
     }
   },
   "mouse": {
@@ -250,14 +257,17 @@
     "flowControlHard": "Perangkat keras",
     "dataBits": "Bit data",
     "stopBits": "Hentikan bit",
-    "confirm": "Ok"
+    "confirm": "Ok",
+    "usbSerial": "Konsol serial USB"
   },
   "wol": {
     "title": "Wake-on-LAN",
     "sending": "Kirim perintah...",
     "sent": "Perintah terkirim",
     "input": "Silahkan masukkan MAC",
-    "ok": "Ok"
+    "ok": "Ok",
+    "name": "Nama perangkat",
+    "cancel": "Batal"
   },
   "download": {
     "title": "Pengunduh Gambar",
@@ -273,7 +283,8 @@
     "success": "Unduhan berhasil",
     "checksumFailed": "Unduhan gagal: verifikasi SHA-256 gagal",
     "cancel": "Batal",
-    "cancelFailed": "Gagal membatalkan unduhan"
+    "cancelFailed": "Gagal membatalkan unduhan",
+    "downloading": "Mengunduh"
   },
   "power": {
     "title": "Daya",
@@ -312,7 +323,13 @@
       "ip": "IP",
       "image": "Version Gambar",
       "hostname": "Nama Host",
-      "hostnameUpdated": "Nama host diperbarui. Nyalakan ulang untuk menerapkan."
+      "hostnameUpdated": "Nama host diperbarui. Nyalakan ulang untuk menerapkan.",
+      "credits": {
+        "button": "Kontributor",
+        "title": "Kontributor",
+        "close": "Tutup"
+      },
+      "documentation": "Dokumentasi"
     },
     "appearance": {
       "title": "Tampilan",
@@ -332,6 +349,9 @@
         "keyboardLedStatusDesc": "Tampilkan status Num Lock, Caps Lock, dan Scroll Lock komputer jarak jauh",
         "icons": "Ikon Submenu",
         "iconsDesc": "Menampilkan ikon submenu di bilah menu"
+      },
+      "buttonColor": {
+        "save": "Terapkan"
       }
     },
     "keyboardLedStatus": {
@@ -382,7 +402,10 @@
       "reboot": "Mulai ulang",
       "rebootDesc": "Apakah Anda yakin ingin me-reboot NanoKVM?",
       "okBtn": "Ya",
-      "cancelBtn": "Tidak"
+      "cancelBtn": "Tidak",
+      "cpuFrequency": {
+        "title": "Frekuensi CPU dan overclock"
+      }
     },
     "network": {
       "title": "Jaringan",
@@ -399,11 +422,22 @@
         "password": "Kata sandi",
         "joinBtn": "Gabung",
         "confirmBtn": "OK",
-        "cancelBtn": "Batal"
+        "cancelBtn": "Batal",
+        "band": "Pita frekuensi",
+        "manual": "Hubungkan secara manual",
+        "hidden": "Jaringan tersembunyi",
+        "security": "Keamanan",
+        "open": "Jaringan terbuka",
+        "loading": "Memuat...",
+        "reconnect": "Hubungkan kembali"
       },
       "tls": {
         "description": "Aktifkan protokol HTTPS",
-        "tip": "Perhatian: Menggunakan HTTPS dapat meningkatkan latensi, terutama pada mode video MJPEG."
+        "tip": "Perhatian: Menggunakan HTTPS dapat meningkatkan latensi, terutama pada mode video MJPEG.",
+        "certificate": {
+          "title": "Sertifikat",
+          "remove": "Hapus"
+        }
       },
       "ethernet": {
         "title": "Ethernet IPv4",
@@ -423,7 +457,8 @@
         "save": "Simpan",
         "unsaved": "Perubahan belum disimpan",
         "saveFailed": "Gagal menyimpan konfigurasi.",
-        "loadFailed": "Gagal memuat konfigurasi."
+        "loadFailed": "Gagal memuat konfigurasi.",
+        "disabled": "Nonaktif"
       },
       "dns": {
         "title": "DNS",
@@ -446,6 +481,11 @@
         "subnetMask": "Subnet mask",
         "router": "Router",
         "none": "Tidak ada"
+      },
+      "general": "Umum",
+      "gateway": {
+        "title": "Gateway pilihan",
+        "auto": "Otomatis"
       }
     },
     "tailscale": {
@@ -458,7 +498,7 @@
       "install": "Memasang",
       "installing": "Memasangkan",
       "failed": "Gagal memasangkan",
-      "retry": "Harap segarkan dan coba lagi. Atau coba instal secara manual",
+      "retry": "Silakan coba instalasi lagi.",
       "notRunning": "Tailscale tidak berjalan. Silakan mulai untuk melanjutkan.",
       "run": "Mulai",
       "notLogin": "Perangkat belum ditautkan. Silakan masuk dan tautkan perangkat ini ke akun Anda.",
@@ -474,17 +514,166 @@
       "uninstall": "Copot pemasangan Tailscale",
       "uninstallDesc": "Apakah Anda yakin ingin menghapus instalan Tailscale?",
       "okBtn": "Yes",
-      "cancelBtn": "No"
+      "cancelBtn": "No",
+      "moreActions": "Tindakan lainnya"
     },
     "account": {
-      "title": "Akun",
+      "title": "Pengguna",
       "webAccount": "Nama akun web",
       "password": "Kata sandi",
       "updateBtn": "Update",
       "logoutBtn": "Keluar",
       "logoutDesc": "Apakah Anda yakin ingin logout?",
       "okBtn": "Ya",
-      "cancelBtn": "Tidak"
+      "cancelBtn": "Tidak",
+      "role": "Peran",
+      "roles": {
+        "admin": "Administrator",
+        "user": "Pengguna"
+      },
+      "users": {
+        "title": "Pengguna",
+        "create": "Buat pengguna",
+        "enabled": "Aktif",
+        "disabled": "Nonaktif",
+        "deviceOwner": "Pemilik perangkat",
+        "rename": "Ganti nama",
+        "resetPassword": "Atur ulang kata sandi",
+        "delete": "Hapus"
+      }
+    },
+    "software": {
+      "indexSchedule": {
+        "save": "Simpan"
+      },
+      "addons": {
+        "title": "Pengaya",
+        "packages": "Paket"
+      },
+      "title": "Perangkat lunak",
+      "available": "Paket tersedia",
+      "updatesTab": "Pembaruan",
+      "search": "Cari",
+      "install": "Instal",
+      "installed": "Paket terinstal",
+      "remove": "Hapus"
+    },
+    "updates": {
+      "apk": {
+        "title": "Pembaruan paket",
+        "log": "Log pembaruan"
+      },
+      "title": "Pembaruan",
+      "installed": "Terinstal"
+    },
+    "memory": {
+      "title": "Memori",
+      "available": "Tersedia",
+      "size": "Kapasitas",
+      "used": "Terpakai",
+      "algorithm": "Kompresi",
+      "videoUnknown": "Tidak diketahui"
+    },
+    "system": {
+      "general": "Umum",
+      "logs": {
+        "title": "Log",
+        "sources": {
+          "kernel": "Kernel"
+        },
+        "refresh": "Segarkan"
+      },
+      "diagnostics": {
+        "overview": "Status",
+        "title": "Diagnostik",
+        "refresh": "Segarkan",
+        "application": "Aplikasi"
+      },
+      "services": "Layanan",
+      "device": "Perangkat"
+    },
+    "usb": {
+      "internet": {
+        "title": "Internet melalui USB",
+        "states": {
+          "loading": "Memuat..."
+        }
+      },
+      "title": "Fungsi USB",
+      "apply": "Terapkan",
+      "cancel": "Buang perubahan",
+      "identity": {
+        "title": "Identitas USB"
+      },
+      "userDisk": {
+        "title": "Disk pengguna",
+        "create": "Buat",
+        "delete": "Hapus",
+        "files": {
+          "title": "Berkas pada disk pengguna",
+          "refresh": "Segarkan",
+          "browse": "Jelajahi berkas",
+          "up": "Folder induk",
+          "upload": "Unggah berkas",
+          "cancel": "Batal",
+          "folderName": "Nama folder baru",
+          "mkdir": "Buat folder",
+          "download": "Unduh",
+          "delete": "Hapus",
+          "empty": "Folder ini kosong.",
+          "errors": {
+            "notEmpty": "Folder tidak kosong."
+          },
+          "previous": "Halaman sebelumnya",
+          "next": "Halaman berikutnya"
+        }
+      },
+      "serialConsole": {
+        "title": "Konsol Linux tanpa monitor"
+      },
+      "devices": {
+        "network": {
+          "title": "Jaringan virtual"
+        },
+        "disk": {
+          "title": "Disk virtual"
+        },
+        "serial": {
+          "title": "Konsol serial USB"
+        }
+      }
+    },
+    "netbird": {
+      "moreActions": "Tindakan lainnya",
+      "loginSuccess": "Saya sudah masuk",
+      "deviceName": "Nama perangkat",
+      "version": "Versi",
+      "loading": "Memuat...",
+      "run": "Mulai",
+      "login": "Masuk",
+      "deviceIP": "IP Perangkat",
+      "okBtn": "Ya",
+      "cancelBtn": "Tidak",
+      "error": {
+        "installFailed": "Gagal memasangkan"
+      }
+    },
+    "rustdesk": {
+      "absent": "Belum terinstal",
+      "stopped": "Berhenti",
+      "install": "Instal",
+      "remove": "Hapus",
+      "save": "Simpan pengaturan",
+      "server": "Server",
+      "passwordMode": "Kata sandi",
+      "temporaryPassword": "Kata sandi sementara",
+      "newPassword": "Kata sandi baru",
+      "advanced": "Pengaturan lanjutan",
+      "saved": "Pengaturan disimpan",
+      "unknownVersion": "Tidak diketahui"
+    },
+    "extensions": {
+      "title": "Ekstensi"
     }
   },
   "picoclaw": {
@@ -499,7 +688,8 @@
       "kvmTitle": "Kontrol jarak jauh",
       "kvmDescription": "Operasikan host jarak jauh melalui NanoKVM.",
       "switched": "Peran agen dialihkan",
-      "switchFailed": "Gagal mengganti peran agen"
+      "switchFailed": "Gagal mengganti peran agen",
+      "label": "Peran agen"
     },
     "send": "Kirim",
     "cancel": "Batalkan",
@@ -517,22 +707,22 @@
     "connection": {
       "runtime": {
         "checking": "Memeriksa",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "Memulihkan PicoClaw",
         "ready": "Runtime siap",
         "stopped": "Runtime dihentikan",
         "blockedByMCP": "Kontrol MCP eksternal sedang aktif",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "Lingkungan eksekusi sedang berjalan, tetapi MCP eksternal saat ini mengendalikan input perangkat.",
+        "readyWithoutControl": "Lingkungan eksekusi sedang berjalan. Berikan kendali perangkat kepada PicoClaw sebelum menghubungkan kembali.",
         "unavailable": "Runtime tidak tersedia",
         "configError": "Kesalahan konfigurasi"
       },
       "transport": {
         "connecting": "Menghubungkan",
         "connected": "Terhubung",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "Terputus",
+        "reconnect": "Hubungkan kembali",
+        "reconnectDescription": "Hubungkan kembali ke sesi PicoClaw yang sedang berjalan.",
+        "reconnectBlocked": "PicoClaw memerlukan kendali perangkat sebelum dapat terhubung kembali."
       },
       "run": {
         "idle": "Menganggur",
@@ -549,19 +739,19 @@
     },
     "control": {
       "picoclaw": "Kontrol perangkat: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw dapat mengirim input papan ketik dan tetikus. Input manual dapat dijeda.",
       "mcp": "Kontrol perangkat: MCP eksternal",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "Kontrol perangkat: nonaktif",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "MCP eksternal dapat mengirim input ke perangkat. PicoClaw tidak akan mengambil alih kendali input.",
+      "off": "Kendali perangkat: manual / tanpa AI",
+      "offDescription": "AI tidak akan mengirim input papan ketik atau tetikus. Kendali manual tetap tersedia.",
+      "transitioning": "Kendali perangkat: beralih",
+      "transitioningDescription": "Kendali perangkat sedang disinkronkan. Harap tunggu.",
       "grant": "Berikan kontrol",
       "release": "Lepaskan",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "Kendali perangkat: mengembalikan kendali",
+      "releasingDescription": "Kendali perangkat sedang dikembalikan. PicoClaw telah berhenti mengirim input.",
       "granted": "Kontrol PicoClaw diberikan",
       "released": "Kontrol PicoClaw dilepaskan",
       "grantFailed": "Gagal memberikan kontrol PicoClaw",
@@ -642,7 +832,8 @@
       "description": "Mulai runtime untuk mulai menggunakan asisten PicoClaw.",
       "switchFromMCP": "Switch to PicoClaw and start",
       "takeoverAndStart": "Take over and start"
-    }
+    },
+    "moreActions": "Tindakan lainnya"
   },
   "error": {
     "title": "Kami mengalami masalah",
@@ -654,5 +845,111 @@
   "menu": {
     "collapse": "Tutup Menu",
     "expand": "Perluas Menu"
+  },
+  "audio": {
+    "listen": "Dengarkan",
+    "resume": "Lanjutkan audio",
+    "volume": "Volume"
+  },
+  "sessionControl": {
+    "viewOnly": "Hanya lihat",
+    "take": "Ambil kendali",
+    "release": "Kunci sesi ini"
+  },
+  "dateTime": {
+    "title": "Tanggal dan waktu",
+    "deviceTime": "Waktu perangkat",
+    "timezone": "Zona waktu",
+    "format": "Format waktu",
+    "preview": "Pratinjau",
+    "synchronized": "Tersinkron",
+    "waiting": "Sinkronisasi belum dikonfirmasi",
+    "save": "Simpan"
+  },
+  "recorder": {
+    "title": "Perekaman video",
+    "start": "Mulai merekam",
+    "stop": "Hentikan perekaman"
+  },
+  "screenshot": {
+    "take": "Ambil tangkapan layar"
+  },
+  "vpn": {
+    "rename": "Ganti nama",
+    "profileName": "Nama profil",
+    "credentials": "Kredensial",
+    "username": "Nama pengguna",
+    "password": "Kata sandi",
+    "save": "Simpan",
+    "enable": "Aktifkan",
+    "delete": "Hapus",
+    "states": {
+      "reconnecting": "Menghubungkan kembali",
+      "error": "Kesalahan",
+      "connecting": "Menghubungkan",
+      "connected": "Terhubung",
+      "idle": "Menganggur"
+    },
+    "confirm": "Ya",
+    "cancel": "Tidak"
+  },
+  "dashboard": {
+    "title": "Dasbor",
+    "freeStorage": "Ruang kosong",
+    "uptime": "Waktu aktif",
+    "kernel": "Kernel",
+    "memory": "Memori",
+    "cache": "Cache",
+    "compression": "Kompresi",
+    "storage": "Penyimpanan",
+    "dataStorage": "Data",
+    "bootStorage": "Boot",
+    "readOnly": "Hanya baca",
+    "disconnected": "Tidak ada koneksi",
+    "deviceTime": "Waktu perangkat",
+    "timezone": "Zona waktu",
+    "synchronization": "Sinkronisasi",
+    "synchronized": "Tersinkron",
+    "notSynchronized": "Sinkronisasi belum dikonfirmasi",
+    "noProfiles": "Tidak ada profil",
+    "states": {
+      "waiting": "Menunggu",
+      "error": "Kesalahan",
+      "stopped": "Berhenti",
+      "notInstall": "Belum terinstal",
+      "notRunning": "Berhenti",
+      "notLogin": "Belum masuk",
+      "connected": "Terhubung",
+      "idle": "Menganggur",
+      "running": "Terhubung",
+      "connecting": "Menghubungkan",
+      "auth": "Otentikasi Diperlukan"
+    },
+    "device": "Perangkat",
+    "connected": "Terhubung"
+  },
+  "videoSettings": {
+    "image": "Gambar",
+    "mode": "Mode",
+    "browserSection": "Peramban ini",
+    "player": "Pemutar",
+    "landscape": "Monitor lanskap",
+    "transport": "Transport",
+    "powerCycleCancel": "Batal",
+    "apply": "Terapkan",
+    "discard": "Buang perubahan",
+    "bitrate": "Laju bit",
+    "captureOn": "Penangkapan video aktif",
+    "captureOff": "Penangkapan video nonaktif",
+    "input": "Input HDMI",
+    "output": "Aliran terenkode",
+    "monitor": "Monitor HDMI",
+    "portrait": "Monitor potret",
+    "retry": "Coba lagi"
+  },
+  "capture": {
+    "start": "Aktifkan penangkapan video",
+    "stop": "Nonaktifkan penangkapan video",
+    "off": "Penangkapan video nonaktif"
   }
 }

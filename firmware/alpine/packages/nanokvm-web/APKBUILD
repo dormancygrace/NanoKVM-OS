@@ -1,0 +1,22 @@
+pkgname=nanokvm-web
+pkgver=${PKGVER:-0.1.0}
+pkgrel=0
+pkgdesc="NanoKVM browser interface"
+url="https://github.com/dormancygrace/NanoKVM-OS"
+arch="riscv64"
+license="GPL-3.0-only"
+depends="nanokvm-web-api=1"
+replaces="nanokvm-app"
+source="$pkgname-$pkgver.tar.gz"
+options="!check !strip !tracedeps"
+
+build() {
+	:
+}
+
+package() {
+	mkdir -p "$pkgdir"
+	cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
+}
+
+sha256sums=""

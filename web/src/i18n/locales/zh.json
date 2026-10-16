@@ -321,7 +321,7 @@
       "reset2": "详细操作步骤可参考此文档：",
       "reset3": "网页默认帐号：",
       "reset4": "SSH 默认帐号：",
-      "change1": "请注意，此操作将同时更新以下密码：",
+      "change1": "对于内置管理员账户，此操作会更改以下密码：",
       "change2": "网页的登录密码",
       "change3": "系统 root 用户的密码（SSH 登录密码）",
       "change4": "如果您忘记了密码，需要长按 NanoKVM 上的 BOOT 按键来重置密码。"
@@ -471,10 +471,10 @@
       }
     },
     "shortcut": {
-      "title": "快捷键",
+      "title": "键盘快捷键",
       "custom": "自定义",
       "capture": "点击此处捕获快捷键",
-      "clear": "清空",
+      "clear": "清除",
       "save": "保存",
       "captureTips": "捕获系统级按键（如 Windows 键）需要全屏权限。",
       "enterFullScreen": "切换全屏模式。"
@@ -591,6 +591,29 @@
       "tf3": "将 TF 卡插入读卡器并连接到你的电脑；",
       "tf4": "从电脑上拷贝镜像文件到 TF 卡的 /data 目录下；",
       "tf5": "将 TF 卡重新插入 NanoKVM。"
+    },
+    "netboot": {
+      "tab": "网络启动",
+      "hint": "从 netboot.xyz 菜单启动这台电脑：安装程序、Live 系统和工具通过 NanoKVM 从互联网加载。NanoKVM 上只保存 iPXE 镜像。",
+      "versions": "iPXE {{ipxe}} · netboot.xyz {{netbootxyz}}",
+      "notDownloaded": "尚未下载。开启网络启动时会下载最新的 iPXE（约 13 MB），并选择最新的 netboot.xyz 版本。",
+      "checked": "检查于 {{date}}",
+      "update": "检查更新",
+      "updating": "正在更新…",
+      "secureBoot": "UEFI 安全启动",
+      "secureBootHint": "使用为安全启动签名的 iPXE 镜像（仅限 x86-64 UEFI）。开启安全启动时，netboot.xyz 可安装 Debian、Devuan 和 Kali；其他条目需要在电脑固件中关闭安全启动。",
+      "needComposition": "请先在 USB 设置中开启 USB 网络和虚拟磁盘。",
+      "browserMedia": "请先断开来自这台电脑的 ISO。",
+      "enableNote": "替换已挂载的镜像，并在网络启动开启期间开启 USB 互联网共享。",
+      "enable": "开启网络启动",
+      "enabling": "正在开启…",
+      "disable": "关闭网络启动",
+      "on": "已开启：请让电脑从 NanoKVM 的 CD/DVD 驱动器启动。",
+      "waiting": "正在等待电脑加载菜单。",
+      "fetched": "电脑已加载菜单（请求次数：{{n}}，最近一次：{{time}}）。",
+      "noUplink": "NanoKVM 没有可共享的互联网连接，netboot.xyz 将无法加载。",
+      "inUse": "网络启动已开启。请先关闭它再挂载其他镜像。",
+      "failed": "网络启动失败，请重试。"
     }
   },
   "script": {
@@ -651,6 +674,7 @@
     "uploadbox": "将文件拖放到此处或单击选择",
     "inputfile": "请输入镜像文件",
     "NoISO": "无 ISO",
+    "imageFileRequired": "请选择 ISO 或 IMG 镜像文件",
     "sha256": "SHA-256（可选）",
     "sha256Placeholder": "请输入 64 位 SHA-256 校验和",
     "invalidSHA256": "SHA-256 必须是 64 位十六进制字符串",
@@ -742,18 +766,40 @@
       "title": "更新",
       "description": "使用签名软件包更新 NanoKVM OS。系统更新会重启设备；应用更新会短暂断开视频和控制。",
       "installed": "已安装",
-      "alpineOptions": "镜像选项",
-      "alpineTitle": "重新安装系统",
-      "alpineDisclaimer": "用新构建的镜像替换系统。已保存的设置会被恢复，所选软件包会包含在内。系统分区上的其他文件将被删除。设备将重启。",
-      "alpineProfile": "构建配置",
-      "alpinePackages": "包含的软件包",
-      "alpineBuild": "构建镜像",
-      "alpineStage": "下载镜像",
-      "alpineInstall": "重新安装并重启",
-      "alpineConfirm": "立即格式化系统分区、安装此 Alpine 镜像并重启？",
-      "alpineBuilderMissing": "未配置在线镜像构建器。请设置 alpine.builderURL，或使用经手动验证的恢复包。",
       "requestFailed": "更新请求失败。请检查设备连接后重试。",
-      "reconnecting": "正在等待设备重新连接…"
+      "reconnecting": "正在等待设备重新连接…",
+      "components": {
+        "title": "组件",
+        "description": "已安装的 NanoKVM OS 软件包。如果上次检查发现了更新的版本，会显示在已安装版本旁边。",
+        "available": "可用 {{version}}",
+        "alpine": "Alpine Linux",
+        "kernel": "运行中的内核",
+        "kernelNext": "重启后为 {{version}}",
+        "names": {
+          "system": "NanoKVM OS",
+          "release": "版本信息",
+          "app": "应用程序",
+          "web": "网页界面",
+          "base": "系统基础",
+          "kernel": "内核",
+          "modules": "内核模块",
+          "firmware": "板载固件",
+          "keys": "签名密钥",
+          "rustdesk": "RustDesk"
+        }
+      },
+      "notice": {
+        "title": "NanoKVM OS 有可用更新",
+        "open": "打开更新",
+        "auto": "每天检查更新",
+        "autoDescription": "每天检查一次 NanoKVM OS 软件仓库，有新版本时显示通知。不会自动安装任何内容。",
+        "check": "立即检查",
+        "checked": "上次检查：{{time}}",
+        "never": "尚未检查",
+        "failed": "上次检查失败：{{message}}",
+        "unavailable": "未配置 NanoKVM OS 软件仓库。",
+        "upToDate": "NanoKVM OS 已是最新"
+      }
     },
     "memory": {
       "videoMode": "视频内存分配",
@@ -1185,10 +1231,41 @@
         "ejectFirst": "请先在电脑上弹出该驱动器，以免数据写入不完整；之后 USB 设备将重新连接。",
         "created": "用户磁盘已创建",
         "turnOffFirst": "请先关闭用户磁盘。",
-        "busy": "正在创建或删除用户磁盘，请在完成后重试。",
+        "busy": "磁盘正忙。请等待操作完成后重试。",
         "missing": "用户磁盘镜像已丢失，请重新创建。",
         "failed": "用户磁盘请求失败。",
-        "notice": "挂载或弹出光盘/硬盘镜像也会使 USB 设备重新连接；之后电脑会重新看到用户磁盘及其已写入的内容。创建时会在 SD 卡上分配整个镜像空间，因此较大的容量需要一些时间。"
+        "notice": "挂载或弹出光盘/硬盘镜像也会使 USB 设备重新连接；之后电脑会重新看到用户磁盘及其已写入的内容。创建时会在 SD 卡上分配整个镜像空间，因此较大的容量需要一些时间。",
+        "files": {
+          "title": "用户磁盘文件",
+          "host": "请先在电脑上弹出此磁盘，再关闭上方的用户磁盘开关以管理文件。",
+          "hint": "完成后开启上方的用户磁盘开关，电脑即可访问文件。不会覆盖已有文件。",
+          "refresh": "刷新",
+          "browse": "浏览文件",
+          "up": "上一级",
+          "upload": "上传文件",
+          "transferring": "正在传输和保存… 请等待完成后再连接磁盘。",
+          "cancel": "取消",
+          "space": "可用 {{free}}，共 {{total}}",
+          "folderName": "新文件夹名称",
+          "mkdir": "创建文件夹",
+          "download": "下载",
+          "delete": "删除",
+          "empty": "文件夹为空。",
+          "deleteTitle": "删除此项目？",
+          "deleteConfirm": "删除 {{name}}？只能删除空文件夹。",
+          "errors": {
+            "host": "电脑正在使用磁盘。请弹出并关闭上方开关。",
+            "busy": "磁盘正忙。请等待操作完成后重试。",
+            "path": "文件或文件夹名称无效。",
+            "exists": "同名文件或文件夹已存在。",
+            "missing": "磁盘、文件或文件夹已不存在。请刷新或返回上一级。",
+            "space": "空间不足，或文件超过 FAT32 的 4 GiB 减 1 字节限制。",
+            "notEmpty": "文件夹不为空。",
+            "io": "操作失败。请检查磁盘和系统日志，然后刷新。"
+          },
+          "previous": "上一页",
+          "next": "下一页"
+        }
       },
       "serialConsole": {
         "title": "无显示器 Linux 控制台",
@@ -1499,6 +1576,13 @@
         "none": "无",
         "server": "DNS 服务器 {{index}}",
         "remove": "移除 DNS 服务器 {{index}}"
+      },
+      "bluetooth": {
+        "off": "关闭：不加载蓝牙驱动。",
+        "on": "开启：已加载蓝牙驱动。",
+        "tip": "NanoKVM 目前还没有蓝牙功能：开启只会加载驱动。设置立即生效，并在每次启动时生效。",
+        "version": "蓝牙版本",
+        "unavailable": "此设备没有 NanoKVM OS 支持的蓝牙。"
       }
     },
     "tailscale": {
@@ -1516,7 +1600,7 @@
       "install": "安装",
       "installing": "安装中",
       "failed": "安装失败",
-      "retry": "请刷新后重试，或尝试手动安装",
+      "retry": "请重试安装。",
       "notRunning": "Tailscale 尚未运行，请先执行启动操作",
       "run": "启动",
       "notLogin": "该设备尚未绑定，请点击登录并将这台设备绑定到您的账号。",
@@ -1649,7 +1733,7 @@
       "sameServer": "请在 RustDesk 客户端中配置相同的自定义 ID 服务器和公钥。"
     },
     "account": {
-      "title": "帐号",
+      "title": "用户",
       "webAccount": "网页帐号",
       "role": "角色",
       "roles": {
@@ -1754,7 +1838,7 @@
       "picoclawDescription": "PicoClaw 可以写入键鼠，手动输入可能会被暂停。",
       "mcp": "设备控制：外部 MCP",
       "mcpDescription": "外部 MCP 可以写入设备，PicoClaw 不会接管键鼠。",
-      "off": "设备控制：手动/无 AI",
+      "off": "设备控制：手动 / 不使用 AI",
       "offDescription": "AI 不会写入键鼠，手动控制保持可用。",
       "transitioning": "设备控制：正在切换",
       "transitioningDescription": "正在同步设备控制权，请稍候。",

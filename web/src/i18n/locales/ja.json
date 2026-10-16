@@ -321,7 +321,7 @@
       "reset2": "詳細な手順については、次のドキュメントを参照してください：",
       "reset3": "ウェブデフォルトアカウント：",
       "reset4": "SSH デフォルトアカウント：",
-      "change1": "この操作により、以下のパスワードも更新されることに注意してください：",
+      "change1": "組み込みの管理者アカウントでは、この操作により次のパスワードが変更されます:",
       "change2": "ウェブログインパスワード",
       "change3": "システム root パスワード（SSH ログインパスワード）",
       "change4": "パスワードを忘れた場合は、NanoKVM の BOOT ボタンを長押ししてパスワードをリセットする必要があります。"
@@ -471,7 +471,7 @@
       }
     },
     "shortcut": {
-      "title": "ショートカット",
+      "title": "キーボードショートカット",
       "custom": "カスタム",
       "capture": "ショートカットをキャプチャするにはここをクリックしてください",
       "clear": "クリア",
@@ -591,6 +591,29 @@
       "tf3": "TF カードをカードリーダーに挿入してコンピュータに接続します；",
       "tf4": "コンピューターから TF カードの /data ディレクトリにイメージファイルをコピーします；",
       "tf5": "TF カードを NanoKVM に挿入します。"
+    },
+    "netboot": {
+      "tab": "ネットワークブート",
+      "hint": "このコンピューターを netboot.xyz のメニューから起動します。インストーラー、ライブシステム、ツールは NanoKVM を経由してインターネットから読み込まれます。NanoKVM に保存されるのは iPXE イメージだけです。",
+      "versions": "iPXE {{ipxe}} · netboot.xyz {{netbootxyz}}",
+      "notDownloaded": "まだダウンロードされていません。ネットワークブートをオンにすると最新の iPXE（約 13 MB）をダウンロードし、最新の netboot.xyz リリースを選びます。",
+      "checked": "確認日時 {{date}}",
+      "update": "アップデートを確認",
+      "updating": "更新中…",
+      "secureBoot": "UEFI セキュアブート",
+      "secureBootHint": "セキュアブート用に署名された iPXE イメージを使います（x86-64 UEFI のみ）。セキュアブートがオンの場合、netboot.xyz でインストールできるのは Debian、Devuan、Kali です。その他の項目にはコンピューターのファームウェアでセキュアブートをオフにする必要があります。",
+      "needComposition": "先に USB 設定で USB ネットワークと仮想ディスクをオンにしてください。",
+      "browserMedia": "先にこのコンピューターからの ISO を切断してください。",
+      "enableNote": "マウント中のイメージを置き換え、ネットワークブートがオンの間は USB インターネット共有をオンにします。",
+      "enable": "ネットワークブートをオン",
+      "enabling": "オンにしています…",
+      "disable": "ネットワークブートをオフ",
+      "on": "オン：コンピューターを NanoKVM の CD/DVD ドライブから起動してください。",
+      "waiting": "コンピューターがメニューを読み込むのを待っています。",
+      "fetched": "コンピューターがメニューを読み込みました（リクエスト：{{n}} 回、最終：{{time}}）。",
+      "noUplink": "NanoKVM に共有できるインターネット接続がないため、netboot.xyz は読み込まれません。",
+      "inUse": "ネットワークブートがオンです。別のイメージをマウントするにはオフにしてください。",
+      "failed": "ネットワークブートに失敗しました。もう一度お試しください。"
     }
   },
   "script": {
@@ -651,6 +674,7 @@
     "uploadbox": "ここにファイルをドロップするか、クリックして選択してください",
     "inputfile": "画像ファイルを入力してください",
     "NoISO": "ISO なし",
+    "imageFileRequired": "ISO または IMG イメージファイルを選択してください",
     "sha256": "SHA-256（任意）",
     "sha256Placeholder": "64 文字の SHA-256 チェックサムを入力してください",
     "invalidSHA256": "SHA-256 は 64 文字の 16 進数文字列である必要があります",
@@ -742,18 +766,40 @@
       "title": "アップデート",
       "description": "署名済みパッケージを使用して NanoKVM OS を更新します。システムの更新ではデバイスが再起動し、アプリケーションの更新では映像と操作が一時的に切断されます。",
       "installed": "インストール済み",
-      "alpineOptions": "イメージのオプション",
-      "alpineTitle": "システムの再インストール",
-      "alpineDisclaimer": "システムを新しくビルドしたイメージに置き換えます。保存済みの設定は復元され、選択したパッケージが含まれます。システムパーティション上のその他のファイルは削除されます。デバイスは再起動します。",
-      "alpineProfile": "ビルドプロファイル",
-      "alpinePackages": "含めるパッケージ",
-      "alpineBuild": "イメージをビルド",
-      "alpineStage": "イメージをダウンロード",
-      "alpineInstall": "再インストールして再起動",
-      "alpineConfirm": "システムパーティションをフォーマットし、この Alpine イメージをインストールして、今すぐ再起動しますか？",
-      "alpineBuilderMissing": "Attended イメージビルダーが設定されていません。alpine.builderURL を設定するか、手動で検証済みのリカバリーバンドルを使用してください。",
       "requestFailed": "アップデートのリクエストに失敗しました。デバイスの接続を確認して再試行してください。",
-      "reconnecting": "デバイスの再接続を待機中…"
+      "reconnecting": "デバイスの再接続を待機中…",
+      "components": {
+        "title": "コンポーネント",
+        "description": "インストール済みの NanoKVM OS パッケージです。前回の確認で新しいバージョンが見つかった場合は、インストール済みバージョンの横に表示されます。",
+        "available": "{{version}} が利用可能",
+        "alpine": "Alpine Linux",
+        "kernel": "実行中のカーネル",
+        "kernelNext": "再起動後は {{version}}",
+        "names": {
+          "system": "NanoKVM OS",
+          "release": "リリース情報",
+          "app": "アプリケーション",
+          "web": "Web インターフェース",
+          "base": "システムベース",
+          "kernel": "カーネル",
+          "modules": "カーネルモジュール",
+          "firmware": "ボードファームウェア",
+          "keys": "署名鍵",
+          "rustdesk": "RustDesk"
+        }
+      },
+      "notice": {
+        "title": "NanoKVM OS のアップデートがあります",
+        "open": "アップデートを開く",
+        "auto": "毎日アップデートを確認",
+        "autoDescription": "1 日 1 回 NanoKVM OS リポジトリを確認し、新しいバージョンがあれば通知します。自動ではインストールしません。",
+        "check": "今すぐ確認",
+        "checked": "最終確認：{{time}}",
+        "never": "まだ確認していません",
+        "failed": "前回の確認に失敗しました：{{message}}",
+        "unavailable": "NanoKVM OS リポジトリが設定されていません。",
+        "upToDate": "NanoKVM OS は最新です"
+      }
     },
     "memory": {
       "videoMode": "ビデオメモリの割り当て",
@@ -1185,10 +1231,41 @@
         "ejectFirst": "書き込み途中のデータが残らないよう、先にコンピューターでドライブを取り出してください。その後 USB デバイスが再接続されます。",
         "created": "ユーザーディスクを作成しました",
         "turnOffFirst": "先にユーザーディスクをオフにしてください。",
-        "busy": "ユーザーディスクを作成中または削除中です。完了してから再試行してください。",
+        "busy": "ディスクは使用中です。操作が完了してから再試行してください。",
         "missing": "ユーザーディスクのイメージが見つかりません。もう一度作成してください。",
         "failed": "ユーザーディスクのリクエストに失敗しました。",
-        "notice": "CD/ディスクイメージをマウントまたは取り出すと USB デバイスも再接続されます。その後、コンピューターは書き込んだ内容を保持したままユーザーディスクを再認識します。イメージ全体は作成時に SD カード上に確保されるため、サイズが大きいと時間がかかります。"
+        "notice": "CD/ディスクイメージをマウントまたは取り出すと USB デバイスも再接続されます。その後、コンピューターは書き込んだ内容を保持したままユーザーディスクを再認識します。イメージ全体は作成時に SD カード上に確保されるため、サイズが大きいと時間がかかります。",
+        "files": {
+          "title": "ユーザーディスクのファイル",
+          "host": "コンピューターでディスクを取り出してから、上のユーザーディスクをオフにしてファイルを管理してください。",
+          "hint": "完了後に上のユーザーディスクをオンにすると、コンピューターからファイルにアクセスできます。既存のファイルは上書きしません。",
+          "refresh": "更新",
+          "browse": "ファイルを表示",
+          "up": "上へ",
+          "upload": "ファイルをアップロード",
+          "transferring": "転送・保存中… 完了してからディスクを接続してください。",
+          "cancel": "キャンセル",
+          "space": "{{total}} 中 {{free}} 空き",
+          "folderName": "新しいフォルダー名",
+          "mkdir": "フォルダーを作成",
+          "download": "ダウンロード",
+          "delete": "削除",
+          "empty": "このフォルダーは空です。",
+          "deleteTitle": "この項目を削除しますか？",
+          "deleteConfirm": "{{name}} を削除しますか？空のフォルダーのみ削除できます。",
+          "errors": {
+            "host": "コンピューターがディスクを使用中です。取り出して上でオフにしてください。",
+            "busy": "ディスクは使用中です。操作が完了してから再試行してください。",
+            "path": "ファイル名またはフォルダー名が無効です。",
+            "exists": "同じ名前のファイルまたはフォルダーが存在します。",
+            "missing": "ディスク、ファイルまたはフォルダーがありません。更新するか上の階層に移動してください。",
+            "space": "空き容量が不足しているか、FAT32 の上限（4 GiB − 1 バイト）を超えています。",
+            "notEmpty": "フォルダーは空ではありません。",
+            "io": "操作に失敗しました。ディスクとシステムログを確認して更新してください。"
+          },
+          "previous": "前のページ",
+          "next": "次のページ"
+        }
       },
       "serialConsole": {
         "title": "ヘッドレス Linux コンソール",
@@ -1499,6 +1576,13 @@
         "none": "なし",
         "server": "DNS サーバー {{index}}",
         "remove": "DNS サーバー {{index}} を削除"
+      },
+      "bluetooth": {
+        "off": "オフ：Bluetooth ドライバーを読み込みません。",
+        "on": "オン：Bluetooth ドライバーを読み込んでいます。",
+        "tip": "NanoKVM にはまだ Bluetooth の機能がありません。オンにしてもドライバーを読み込むだけです。設定はすぐに、また起動のたびに適用されます。",
+        "version": "Bluetooth バージョン",
+        "unavailable": "このデバイスには NanoKVM OS が対応する Bluetooth がありません。"
       }
     },
     "tailscale": {
@@ -1516,7 +1600,7 @@
       "install": "インストール",
       "installing": "インストール中",
       "failed": "インストールに失敗しました",
-      "retry": "ページを更新してもう一度お試しいただくか、手動でインストールしてください",
+      "retry": "インストールをもう一度お試しください。",
       "notRunning": "Tailscale はまだ実行されていません。起動操作を実行してください",
       "run": "起動",
       "notLogin": "このデバイスはまだバインドされていません。ログインしてデバイスをアカウントにバインドしてください。",
@@ -1649,7 +1733,7 @@
       "sameServer": "RustDesk クライアントにも同じカスタム ID サーバーと公開鍵を設定してください。"
     },
     "account": {
-      "title": "アカウント",
+      "title": "ユーザー",
       "webAccount": "ウェブアカウント名",
       "role": "役割",
       "roles": {
@@ -1719,22 +1803,22 @@
     "connection": {
       "runtime": {
         "checking": "チェック中",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "PicoClaw を復元中",
         "ready": "ランタイムの準備が完了しました",
         "stopped": "ランタイムが停止しました",
         "blockedByMCP": "外部 MCP 制御が有効です",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "実行環境は動作していますが、現在は外部 MCP がデバイスへの入力を制御しています。",
+        "readyWithoutControl": "実行環境は動作しています。再接続する前に PicoClaw にデバイスの制御権を与えてください。",
         "unavailable": "ランタイムが使用できません",
         "configError": "構成エラー"
       },
       "transport": {
         "connecting": "接続中",
         "connected": "接続されました",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "未接続",
+        "reconnect": "再接続",
+        "reconnectDescription": "実行中の PicoClaw セッションに再接続します。",
+        "reconnectBlocked": "再接続するには、PicoClaw にデバイスの制御権を与える必要があります。"
       },
       "run": {
         "idle": "アイドル状態",
@@ -1751,19 +1835,19 @@
     },
     "control": {
       "picoclaw": "デバイス制御: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw はキーボードとマウスの入力を送信できます。手動入力が一時停止する場合があります。",
       "mcp": "デバイス制御: 外部 MCP",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "デバイス制御: オフ",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "外部 MCP がデバイスに入力を送信できます。PicoClaw は入力の制御を引き継ぎません。",
+      "off": "デバイス制御: 手動 / AI なし",
+      "offDescription": "AI はキーボードやマウスの入力を送信しません。手動操作は引き続き利用できます。",
+      "transitioning": "デバイス制御: 切り替え中",
+      "transitioningDescription": "デバイスの制御状態を同期しています。しばらくお待ちください。",
       "grant": "制御を付与",
       "release": "解除",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "デバイス制御: 制御権を返却中",
+      "releasingDescription": "デバイスの制御権を返却しています。PicoClaw は入力の送信を停止しました。",
       "granted": "PicoClaw 制御を付与しました",
       "released": "PicoClaw 制御を解除しました",
       "grantFailed": "PicoClaw 制御の付与に失敗しました",

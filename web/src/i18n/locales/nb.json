@@ -29,11 +29,12 @@
       "reset2": "Se dette dokumentet for detaljerte trinn:",
       "reset3": "Standard webkonto:",
       "reset4": "Standard SSH-konto:",
-      "change1": "Merk at denne handlingen endrer følgende passord:",
+      "change1": "For den innebygde administratorkontoen endrer denne handlingen følgende passord:",
       "change2": "Passord for webinnlogging",
       "change3": "Systemets root-passord (SSH-innloggingspassord)",
       "change4": "For å tilbakestille passordene holder du BOOT-knappen på NanoKVM inne."
-    }
+    },
+    "placeholderCurrentPassword": "Gjeldende passord"
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -51,7 +52,7 @@
     }
   },
   "screen": {
-    "scale": "Skala",
+    "scale": "Skalering",
     "title": "Skjerm",
     "video": "Video-kodek",
     "controlRegion": {
@@ -100,7 +101,9 @@
       "videoError": "Feil ved videovisning",
       "noHdmi": "Ingen HDMI-signal oppdaget",
       "unavailable": "Skjermen kan ikke vises akkurat nå"
-    }
+    },
+    "codec": "Kodek",
+    "retryJoin": "Prøv igjen"
   },
   "keyboard": {
     "title": "Åpne tastatur",
@@ -118,7 +121,7 @@
     "dropdownRussian": "russisk",
     "dropdownSpanish": "Spansk",
     "shortcut": {
-      "title": "Snarveier",
+      "title": "Hurtigtaster",
       "custom": "Egendefinert",
       "capture": "Klikk her for å ta en snarvei",
       "clear": "Tøm",
@@ -152,6 +155,10 @@
         "activate": "Aktiver taster",
         "input": "Trykk snarveien..."
       }
+    },
+    "sequences": {
+      "title": "Tastesekvenser",
+      "sent": "Sendt"
     }
   },
   "mouse": {
@@ -250,14 +257,17 @@
     "flowControlHard": "Maskinvare",
     "dataBits": "Databiter",
     "stopBits": "Stoppbiter",
-    "confirm": "Ok"
+    "confirm": "Ok",
+    "usbSerial": "Seriell USB-konsoll"
   },
   "wol": {
     "title": "Wake-on-LAN",
     "sending": "Sender kommando...",
     "sent": "Kommando sendt",
     "input": "Vennligst angi MAC-adressen",
-    "ok": "Ok"
+    "ok": "Ok",
+    "name": "Enhetsnavn",
+    "cancel": "Avbryt"
   },
   "download": {
     "title": "Bildedaster",
@@ -273,7 +283,8 @@
     "success": "Nedlasting fullført",
     "checksumFailed": "Nedlasting mislyktes: SHA-256-verifisering mislyktes",
     "cancel": "Avbryt",
-    "cancelFailed": "Kunne ikke avbryte nedlastingen"
+    "cancelFailed": "Kunne ikke avbryte nedlastingen",
+    "downloading": "Laster ned"
   },
   "power": {
     "title": "På-knapp",
@@ -312,7 +323,13 @@
       "ip": "IP",
       "image": "Arkivfil-versjon",
       "hostname": "Vertsnavn",
-      "hostnameUpdated": "Vertsnavn oppdatert. Start på nytt for å søke."
+      "hostnameUpdated": "Vertsnavn oppdatert. Start på nytt for å søke.",
+      "credits": {
+        "button": "Bidragsytere",
+        "title": "Bidragsytere",
+        "close": "Lukk"
+      },
+      "documentation": "Dokumentasjon"
     },
     "appearance": {
       "title": "Utseende",
@@ -332,6 +349,9 @@
         "keyboardLedStatusDesc": "Vis Num Lock-, Caps Lock- og Scroll Lock-status for den eksterne datamaskinen",
         "icons": "Undermenyikoner",
         "iconsDesc": "Vis undermenyikoner i menylinjen"
+      },
+      "buttonColor": {
+        "save": "Bruk"
       }
     },
     "keyboardLedStatus": {
@@ -382,7 +402,10 @@
       "reboot": "Start på nytt",
       "rebootDesc": "Er du sikker på at du vil starte NanoKVM på nytt?",
       "okBtn": "Ja",
-      "cancelBtn": "Nei"
+      "cancelBtn": "Nei",
+      "cpuFrequency": {
+        "title": "CPU-frekvens og overklokking"
+      }
     },
     "network": {
       "title": "Nettverk",
@@ -399,11 +422,22 @@
         "password": "Passord",
         "joinBtn": "Koble til",
         "confirmBtn": "OK",
-        "cancelBtn": "Avbryt"
+        "cancelBtn": "Avbryt",
+        "band": "Frekvensbånd",
+        "manual": "Koble til manuelt",
+        "hidden": "Skjult nettverk",
+        "security": "Sikkerhet",
+        "open": "Åpent nettverk",
+        "loading": "Laster...",
+        "reconnect": "Koble til på nytt"
       },
       "tls": {
         "description": "Aktiver HTTPS-protokoll",
-        "tip": "Merk: Bruk av HTTPS kan øke forsinkelsen, spesielt i MJPEG-videomodus."
+        "tip": "Merk: Bruk av HTTPS kan øke forsinkelsen, spesielt i MJPEG-videomodus.",
+        "certificate": {
+          "title": "Sertifikat",
+          "remove": "Fjern"
+        }
       },
       "ethernet": {
         "title": "Ethernet IPv4",
@@ -423,7 +457,8 @@
         "save": "Lagre",
         "unsaved": "Ulagrede endringer",
         "saveFailed": "Kunne ikke lagre Ethernet-innstillinger",
-        "loadFailed": "Kunne ikke laste inn Ethernet-innstillinger"
+        "loadFailed": "Kunne ikke laste inn Ethernet-innstillinger",
+        "disabled": "Deaktivert"
       },
       "dns": {
         "title": "DNS",
@@ -446,6 +481,11 @@
         "subnetMask": "Subnettmaske",
         "router": "Ruter",
         "none": "Ingen"
+      },
+      "general": "Generelt",
+      "gateway": {
+        "title": "Foretrukket gateway",
+        "auto": "Automatisk"
       }
     },
     "tailscale": {
@@ -458,7 +498,7 @@
       "install": "Installér",
       "installing": "Installerer",
       "failed": "Installering feilet",
-      "retry": "Vennligst last inn siden på nytt og forsøk igjen eller installer manuelt",
+      "retry": "Prøv installasjonen på nytt.",
       "notRunning": "Tailscale kjører ikke. Start den for å fortsette.",
       "run": "Start",
       "notLogin": "Denne enheten er ikke knyttet til din konto enda. Vennligst logg inn og knytt den til kontoen din..",
@@ -474,17 +514,168 @@
       "uninstall": "Avinstaller Tailscale",
       "uninstallDesc": "Er du sikker på at du vil avinstallere Tailscale?",
       "okBtn": "Yes",
-      "cancelBtn": "No"
+      "cancelBtn": "No",
+      "moreActions": "Flere handlinger"
     },
     "account": {
-      "title": "Konto",
+      "title": "Brukere",
       "webAccount": "Navn på webkonto",
       "password": "Passord",
       "updateBtn": "Update",
       "logoutBtn": "Logg ut",
       "logoutDesc": "Er du sikker på at du vil logge ut?",
       "okBtn": "Ja",
-      "cancelBtn": "Nei"
+      "cancelBtn": "Nei",
+      "role": "Rolle",
+      "roles": {
+        "admin": "Administrator",
+        "user": "Bruker"
+      },
+      "users": {
+        "title": "Brukere",
+        "create": "Opprett bruker",
+        "enabled": "Aktivert",
+        "disabled": "Deaktivert",
+        "deviceOwner": "Enhetseier",
+        "rename": "Gi nytt navn",
+        "resetPassword": "Tilbakestill passord",
+        "delete": "Slett"
+      }
+    },
+    "software": {
+      "indexSchedule": {
+        "save": "Lagre"
+      },
+      "addons": {
+        "title": "Tillegg",
+        "packages": "Pakker"
+      },
+      "title": "Programvare",
+      "available": "Tilgjengelige pakker",
+      "updatesTab": "Oppdateringer",
+      "search": "Søk",
+      "install": "Installer",
+      "installed": "Installerte pakker",
+      "remove": "Fjern"
+    },
+    "updates": {
+      "apk": {
+        "title": "Pakkeoppdateringer",
+        "log": "Oppdateringslogg"
+      },
+      "title": "Oppdateringer",
+      "installed": "Installert"
+    },
+    "memory": {
+      "title": "Minne",
+      "available": "Tilgjengelig",
+      "size": "Kapasitet",
+      "used": "Brukt",
+      "algorithm": "Komprimering",
+      "videoUnknown": "Ukjent"
+    },
+    "system": {
+      "general": "Generelt",
+      "logs": {
+        "title": "Logger",
+        "sources": {
+          "kernel": "Kjerne"
+        },
+        "refresh": "Oppdater"
+      },
+      "diagnostics": {
+        "overview": "Status",
+        "title": "Diagnostikk",
+        "refresh": "Oppdater",
+        "application": "Program"
+      },
+      "services": "Tjenester",
+      "device": "Enhet"
+    },
+    "usb": {
+      "internet": {
+        "title": "Internett via USB",
+        "states": {
+          "loading": "Laster..."
+        }
+      },
+      "title": "USB-funksjoner",
+      "apply": "Bruk",
+      "cancel": "Forkast endringer",
+      "identity": {
+        "title": "USB-identitet"
+      },
+      "userDisk": {
+        "title": "Brukerdisk",
+        "create": "Opprett",
+        "delete": "Slett",
+        "files": {
+          "title": "Filer på brukerdisken",
+          "refresh": "Oppdater",
+          "browse": "Bla gjennom filer",
+          "up": "Ett nivå opp",
+          "upload": "Last opp filer",
+          "cancel": "Avbryt",
+          "folderName": "Navn på ny mappe",
+          "mkdir": "Opprett mappe",
+          "download": "Last ned",
+          "delete": "Slett",
+          "empty": "Denne mappen er tom.",
+          "errors": {
+            "notEmpty": "Mappen er ikke tom."
+          },
+          "previous": "Forrige side",
+          "next": "Neste side"
+        }
+      },
+      "serialConsole": {
+        "title": "Linux-konsoll uten skjerm"
+      },
+      "devices": {
+        "network": {
+          "title": "Virtuelt nettverk"
+        },
+        "disk": {
+          "title": "Virtuell disk"
+        },
+        "serial": {
+          "title": "Seriell USB-konsoll"
+        },
+        "keyboard": {
+          "title": "Åpne tastatur"
+        }
+      }
+    },
+    "netbird": {
+      "moreActions": "Flere handlinger",
+      "loginSuccess": "Jeg har logget inn",
+      "deviceName": "Enhetsnavn",
+      "version": "Versjon",
+      "loading": "Laster...",
+      "login": "Logg inn",
+      "deviceIP": "Enhetens IP",
+      "okBtn": "Ja",
+      "cancelBtn": "Nei",
+      "error": {
+        "installFailed": "Installering feilet"
+      }
+    },
+    "rustdesk": {
+      "absent": "Ikke installert",
+      "stopped": "Stoppet",
+      "install": "Installer",
+      "remove": "Fjern",
+      "save": "Lagre innstillinger",
+      "server": "Server",
+      "passwordMode": "Passord",
+      "temporaryPassword": "Midlertidig passord",
+      "newPassword": "Nytt passord",
+      "advanced": "Avanserte innstillinger",
+      "saved": "Innstillingene er lagret",
+      "unknownVersion": "Ukjent"
+    },
+    "extensions": {
+      "title": "Utvidelser"
     }
   },
   "picoclaw": {
@@ -499,7 +690,8 @@
       "kvmTitle": "Fjernstyring",
       "kvmDescription": "Betjen den eksterne verten gjennom NanoKVM.",
       "switched": "Agentrolle byttet",
-      "switchFailed": "Kunne ikke bytte agentrolle"
+      "switchFailed": "Kunne ikke bytte agentrolle",
+      "label": "Agentrolle"
     },
     "send": "Send",
     "cancel": "Avbryt",
@@ -517,22 +709,22 @@
     "connection": {
       "runtime": {
         "checking": "Kontrollerer",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "Gjenoppretter PicoClaw",
         "ready": "Runtime klar",
         "stopped": "Runtime stoppet",
         "blockedByMCP": "Ekstern MCP-styring er aktiv",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "Kjøremiljøet kjører, men ekstern MCP styrer for øyeblikket inndata til enheten.",
+        "readyWithoutControl": "Kjøremiljøet kjører. Gi PicoClaw kontroll over enheten før du kobler til på nytt.",
         "unavailable": "Runtime utilgjengelig",
         "configError": "Konfigurasjonsfeil"
       },
       "transport": {
         "connecting": "Kobler til",
         "connected": "Tilkoblet",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "Frakoblet",
+        "reconnect": "Koble til på nytt",
+        "reconnectDescription": "Koble til den aktive PicoClaw-økten på nytt.",
+        "reconnectBlocked": "PicoClaw må ha kontroll over enheten før du kan koble til på nytt."
       },
       "run": {
         "idle": "Inaktiv",
@@ -549,19 +741,19 @@
     },
     "control": {
       "picoclaw": "Enhetsstyring: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw kan sende tastatur- og museinndata. Manuelle inndata kan bli satt på pause.",
       "mcp": "Enhetsstyring: ekstern MCP",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "Enhetsstyring: av",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "Ekstern MCP kan sende inndata til enheten. PicoClaw overtar ikke inndatastyringen.",
+      "off": "Enhetsstyring: manuell / uten KI",
+      "offDescription": "KI sender ikke tastatur- eller museinndata. Manuell styring er fortsatt tilgjengelig.",
+      "transitioning": "Enhetsstyring: bytter",
+      "transitioningDescription": "Enhetsstyringen synkroniseres. Vent litt.",
       "grant": "Gi styring",
       "release": "Frigi",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "Enhetsstyring: gir tilbake kontrollen",
+      "releasingDescription": "Kontrollen over enheten gis tilbake. PicoClaw har stoppet pågående inndata.",
       "granted": "PicoClaw-styring gitt",
       "released": "PicoClaw-styring frigitt",
       "grantFailed": "Kunne ikke gi PicoClaw styring",
@@ -643,7 +835,8 @@
       "description": "Start runtime for å begynne å bruke PicoClaw-assistenten.",
       "switchFromMCP": "Switch to PicoClaw and start",
       "takeoverAndStart": "Take over and start"
-    }
+    },
+    "moreActions": "Flere handlinger"
   },
   "error": {
     "title": "Vi har hatt et problem",
@@ -655,5 +848,111 @@
   "menu": {
     "collapse": "Skjul meny",
     "expand": "Utvid menyen"
+  },
+  "audio": {
+    "listen": "Lytt",
+    "resume": "Gjenoppta lyd",
+    "volume": "Volum"
+  },
+  "sessionControl": {
+    "viewOnly": "Bare visning",
+    "take": "Ta kontroll",
+    "release": "Lås denne økten"
+  },
+  "dateTime": {
+    "title": "Dato og klokkeslett",
+    "deviceTime": "Enhetens klokkeslett",
+    "timezone": "Tidssone",
+    "format": "Tidsformat",
+    "preview": "Forhåndsvisning",
+    "synchronized": "Synkronisert",
+    "waiting": "Synkronisering ikke bekreftet",
+    "save": "Lagre"
+  },
+  "recorder": {
+    "title": "Videoopptak",
+    "start": "Start opptak",
+    "stop": "Stopp opptak"
+  },
+  "screenshot": {
+    "take": "Ta skjermbilde"
+  },
+  "vpn": {
+    "rename": "Gi nytt navn",
+    "profileName": "Profilnavn",
+    "credentials": "Påloggingsinformasjon",
+    "username": "Brukernavn",
+    "password": "Passord",
+    "save": "Lagre",
+    "enable": "Aktiver",
+    "delete": "Slett",
+    "states": {
+      "reconnecting": "Kobler til på nytt",
+      "error": "Feil",
+      "connecting": "Kobler til",
+      "connected": "Tilkoblet",
+      "idle": "Inaktiv"
+    },
+    "confirm": "Ja",
+    "cancel": "Nei"
+  },
+  "dashboard": {
+    "title": "Oversikt",
+    "freeStorage": "Ledig plass",
+    "uptime": "Oppetid",
+    "kernel": "Kjerne",
+    "memory": "Minne",
+    "cache": "Hurtigbuffer",
+    "compression": "Komprimering",
+    "storage": "Lagring",
+    "dataStorage": "Data",
+    "bootStorage": "Oppstart",
+    "readOnly": "Skrivebeskyttet",
+    "disconnected": "Ingen forbindelse",
+    "deviceTime": "Enhetens klokkeslett",
+    "timezone": "Tidssone",
+    "synchronization": "Synkronisering",
+    "synchronized": "Synkronisert",
+    "notSynchronized": "Synkronisering ikke bekreftet",
+    "noProfiles": "Ingen profiler",
+    "states": {
+      "waiting": "Venter",
+      "error": "Feil",
+      "stopped": "Stoppet",
+      "notInstall": "Ikke installert",
+      "notRunning": "Stoppet",
+      "notLogin": "Ikke pålogget",
+      "connected": "Tilkoblet",
+      "idle": "Inaktiv",
+      "running": "Tilkoblet",
+      "connecting": "Kobler til",
+      "auth": "Autentisering kreves"
+    },
+    "device": "Enhet",
+    "connected": "Tilkoblet"
+  },
+  "videoSettings": {
+    "image": "Bilde",
+    "mode": "Modus",
+    "browserSection": "Denne nettleseren",
+    "player": "Avspiller",
+    "landscape": "Liggende skjerm",
+    "transport": "Transport",
+    "powerCycleCancel": "Avbryt",
+    "apply": "Bruk",
+    "discard": "Forkast endringer",
+    "bitrate": "Bitrate",
+    "captureOn": "Bildeinnhenting aktivert",
+    "captureOff": "Bildeinnhenting deaktivert",
+    "input": "HDMI-inngang",
+    "output": "Kodet strøm",
+    "monitor": "HDMI-skjerm",
+    "portrait": "Stående skjerm",
+    "retry": "Prøv igjen"
+  },
+  "capture": {
+    "start": "Aktiver bildeinnhenting",
+    "stop": "Deaktiver bildeinnhenting",
+    "off": "Bildeinnhenting deaktivert"
   }
 }

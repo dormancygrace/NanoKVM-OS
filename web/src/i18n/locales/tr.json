@@ -29,11 +29,12 @@
       "reset2": "Ayrıntılı adımlar için dökümana göz atın:",
       "reset3": "Arayüz varsayılan hesap:",
       "reset4": "Güvenli Kabuk Bağlantısı (SSH) varsayılan hesap:",
-      "change1": "Bu işlem şu şifreleri değiştiricektir:",
+      "change1": "Yerleşik yönetici hesabı için bu işlem aşağıdaki parolaları değiştirir:",
       "change2": "Arayüz giriş şifresi",
       "change3": "Sistem yöneticisi şifresi (Güvenli Kabuk Bağlantısı (SSH) giriş şifresi)",
       "change4": "Şifreleri sıfırlamak için NanoKVM üzerinde bulunan BOOT tuşuna 10 saniye boyunca basılı tutun."
-    }
+    },
+    "placeholderCurrentPassword": "Geçerli parola"
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -100,7 +101,9 @@
       "videoError": "Video görüntüleme hatası",
       "noHdmi": "HDMI sinyali algılanmadı",
       "unavailable": "Ekran şu anda gösterilemiyor"
-    }
+    },
+    "codec": "Kodek",
+    "retryJoin": "Yeniden dene"
   },
   "keyboard": {
     "title": "Klavye",
@@ -118,7 +121,7 @@
     "dropdownRussian": "Rusça",
     "dropdownSpanish": "İspanyolca",
     "shortcut": {
-      "title": "Kısayollar",
+      "title": "Klavye kısayolları",
       "custom": "Özel",
       "capture": "Kısayolu yakalamak için burayı tıklayın",
       "clear": "Temizle",
@@ -152,6 +155,10 @@
         "activate": "Tuşları etkinleştir",
         "input": "Lütfen kısayola basın..."
       }
+    },
+    "sequences": {
+      "title": "Tuş dizileri",
+      "sent": "Gönderildi"
     }
   },
   "mouse": {
@@ -250,14 +257,17 @@
     "flowControlHard": "Donanımsal",
     "dataBits": "Veri bitleri",
     "stopBits": "Dur bitleri",
-    "confirm": "Tamam"
+    "confirm": "Tamam",
+    "usbSerial": "USB seri konsolu"
   },
   "wol": {
     "title": "Ağ Üzerinden Uyandırma (WOL)",
     "sending": "Komut gönderiliyor...",
     "sent": "Komut gönderildi",
     "input": "MAC adresi girin",
-    "ok": "Tamam"
+    "ok": "Tamam",
+    "name": "Cihaz adı",
+    "cancel": "İptal"
   },
   "download": {
     "title": "Disk İmajı İndirici",
@@ -273,7 +283,8 @@
     "success": "İndirme başarılı",
     "checksumFailed": "İndirme başarısız: SHA-256 doğrulaması başarısız",
     "cancel": "İptal",
-    "cancelFailed": "İndirme iptal edilemedi"
+    "cancelFailed": "İndirme iptal edilemedi",
+    "downloading": "İndiriliyor"
   },
   "power": {
     "title": "Güç",
@@ -312,7 +323,13 @@
       "ip": "IP",
       "image": "İmaj Sürümü",
       "hostname": "Ana makine adı",
-      "hostnameUpdated": "Hostname güncellendi. Uygulamak için yeniden başlatın."
+      "hostnameUpdated": "Hostname güncellendi. Uygulamak için yeniden başlatın.",
+      "credits": {
+        "button": "Katkıda bulunanlar",
+        "title": "Katkıda bulunanlar",
+        "close": "Kapat"
+      },
+      "documentation": "Belgeler"
     },
     "appearance": {
       "title": "Görünüm",
@@ -332,6 +349,9 @@
         "keyboardLedStatusDesc": "Uzak bilgisayarın Num Lock, Caps Lock ve Scroll Lock durumunu göster",
         "icons": "Alt Menü Simgeleri",
         "iconsDesc": "Menü çubuğunda alt menü simgelerini görüntüle"
+      },
+      "buttonColor": {
+        "save": "Uygula"
       }
     },
     "keyboardLedStatus": {
@@ -382,7 +402,10 @@
       "reboot": "Yeniden Başlat",
       "rebootDesc": "NanoKVM'i yeniden başlatmak istediğinizden emin misiniz?",
       "okBtn": "Evet",
-      "cancelBtn": "Hayır"
+      "cancelBtn": "Hayır",
+      "cpuFrequency": {
+        "title": "CPU frekansı ve hız aşırtma"
+      }
     },
     "network": {
       "title": "Ağ",
@@ -399,11 +422,22 @@
         "password": "Parola",
         "joinBtn": "Katıl",
         "confirmBtn": "Tamam",
-        "cancelBtn": "İptal"
+        "cancelBtn": "İptal",
+        "band": "Frekans bandı",
+        "manual": "Elle bağlan",
+        "hidden": "Gizli ağ",
+        "security": "Güvenlik",
+        "open": "Açık ağ",
+        "loading": "Yükleniyor...",
+        "reconnect": "Yeniden bağlan"
       },
       "tls": {
         "description": "HTTPS protokolünü etkinleştir",
-        "tip": "HTTPS protokolü bağlantıda gecikmeye sebep olabilir, özellikle MJPEG görüntü modu ile."
+        "tip": "HTTPS protokolü bağlantıda gecikmeye sebep olabilir, özellikle MJPEG görüntü modu ile.",
+        "certificate": {
+          "title": "Sertifika",
+          "remove": "Kaldır"
+        }
       },
       "ethernet": {
         "title": "Ethernet IPv4",
@@ -423,7 +457,8 @@
         "save": "Kaydet",
         "unsaved": "Kaydedilmemiş değişiklikler",
         "saveFailed": "Ethernet ayarları kaydedilemedi",
-        "loadFailed": "Ethernet ayarları yüklenemedi"
+        "loadFailed": "Ethernet ayarları yüklenemedi",
+        "disabled": "Devre dışı"
       },
       "dns": {
         "title": "DNS",
@@ -446,6 +481,11 @@
         "subnetMask": "Alt Ağ Maskesi",
         "router": "Yönlendirici",
         "none": "Yok"
+      },
+      "general": "Genel",
+      "gateway": {
+        "title": "Tercih edilen ağ geçidi",
+        "auto": "Otomatik"
       }
     },
     "tailscale": {
@@ -458,7 +498,7 @@
       "install": "İndir",
       "installing": "İndiriliyor",
       "failed": "İndirme başarısız oldu",
-      "retry": "Lütfen sayfayı yenileyin ve tekrar deneyin, ya da manuel indirin",
+      "retry": "Lütfen kurulumu yeniden deneyin.",
       "notRunning": "Tailscale çalışmıyor. Devam etmek için lütfen başlatın.",
       "run": "Başlat",
       "notLogin": "Cihaz bağlı değil. Lütfen giriş yapıp cihazınızı hesabınıza bağlayın.",
@@ -474,17 +514,168 @@
       "uninstall": "Tailscale'i kaldır",
       "uninstallDesc": "Tailscale'i kaldırmak istediğinizden emin misiniz?",
       "okBtn": "Evet",
-      "cancelBtn": "Hayır"
+      "cancelBtn": "Hayır",
+      "moreActions": "Diğer işlemler"
     },
     "account": {
-      "title": "Hesap",
+      "title": "Kullanıcılar",
       "webAccount": "Web Hesap Adı",
       "password": "Şifre",
       "updateBtn": "Değiştir",
       "logoutBtn": "Çıkış  yap",
       "logoutDesc": "Çıkış yapmak istediğinizden emin misiniz?",
       "okBtn": "Evet",
-      "cancelBtn": "Hayır"
+      "cancelBtn": "Hayır",
+      "role": "Rol",
+      "roles": {
+        "admin": "Yönetici",
+        "user": "Kullanıcı"
+      },
+      "users": {
+        "title": "Kullanıcılar",
+        "create": "Kullanıcı oluştur",
+        "enabled": "Etkin",
+        "disabled": "Devre dışı",
+        "deviceOwner": "Cihaz sahibi",
+        "rename": "Yeniden adlandır",
+        "resetPassword": "Parolayı sıfırla",
+        "delete": "Sil"
+      }
+    },
+    "software": {
+      "indexSchedule": {
+        "save": "Kaydet"
+      },
+      "addons": {
+        "title": "Eklentiler",
+        "packages": "Paketler"
+      },
+      "title": "Yazılım",
+      "available": "Kullanılabilir paketler",
+      "updatesTab": "Güncellemeler",
+      "search": "Ara",
+      "install": "Kur",
+      "installed": "Kurulu paketler",
+      "remove": "Kaldır"
+    },
+    "updates": {
+      "apk": {
+        "title": "Paket güncellemeleri",
+        "log": "Güncelleme günlüğü"
+      },
+      "title": "Güncellemeler",
+      "installed": "Kurulu"
+    },
+    "memory": {
+      "title": "Bellek",
+      "available": "Kullanılabilir",
+      "size": "Kapasite",
+      "used": "Kullanılan",
+      "algorithm": "Sıkıştırma",
+      "videoUnknown": "Bilinmiyor"
+    },
+    "system": {
+      "general": "Genel",
+      "logs": {
+        "title": "Günlükler",
+        "sources": {
+          "kernel": "Çekirdek"
+        },
+        "refresh": "Yenile"
+      },
+      "diagnostics": {
+        "overview": "Durum",
+        "title": "Tanılama",
+        "refresh": "Yenile",
+        "application": "Uygulama"
+      },
+      "services": "Hizmetler",
+      "device": "Cihaz"
+    },
+    "usb": {
+      "internet": {
+        "title": "USB üzerinden internet",
+        "states": {
+          "loading": "Yükleniyor..."
+        }
+      },
+      "title": "USB işlevleri",
+      "apply": "Uygula",
+      "cancel": "Değişiklikleri iptal et",
+      "identity": {
+        "title": "USB kimliği"
+      },
+      "userDisk": {
+        "title": "Kullanıcı diski",
+        "create": "Oluştur",
+        "delete": "Sil",
+        "files": {
+          "title": "Kullanıcı diskindeki dosyalar",
+          "refresh": "Yenile",
+          "browse": "Dosyalara göz at",
+          "up": "Üst klasör",
+          "upload": "Dosya yükle",
+          "cancel": "İptal",
+          "folderName": "Yeni klasör adı",
+          "mkdir": "Klasör oluştur",
+          "download": "İndir",
+          "delete": "Sil",
+          "empty": "Bu klasör boş.",
+          "errors": {
+            "notEmpty": "Klasör boş değil."
+          },
+          "previous": "Önceki sayfa",
+          "next": "Sonraki sayfa"
+        }
+      },
+      "serialConsole": {
+        "title": "Monitörsüz Linux konsolu"
+      },
+      "devices": {
+        "network": {
+          "title": "Sanal ağ"
+        },
+        "disk": {
+          "title": "Sanal disk"
+        },
+        "serial": {
+          "title": "USB seri konsolu"
+        },
+        "keyboard": {
+          "title": "Klavye"
+        }
+      }
+    },
+    "netbird": {
+      "moreActions": "Diğer işlemler",
+      "loginSuccess": "Oturum açtım",
+      "deviceName": "Cihaz adı",
+      "version": "Sürüm",
+      "loading": "Yükleniyor...",
+      "run": "Başlat",
+      "deviceIP": "Cihaz IP adresi",
+      "okBtn": "Evet",
+      "cancelBtn": "Hayır",
+      "error": {
+        "installFailed": "İndirme başarısız oldu"
+      }
+    },
+    "rustdesk": {
+      "absent": "Kurulu değil",
+      "stopped": "Durduruldu",
+      "install": "Kur",
+      "remove": "Kaldır",
+      "save": "Ayarları kaydet",
+      "server": "Sunucu",
+      "passwordMode": "Parola",
+      "temporaryPassword": "Geçici parola",
+      "newPassword": "Yeni parola",
+      "advanced": "Gelişmiş ayarlar",
+      "saved": "Ayarlar kaydedildi",
+      "unknownVersion": "Bilinmiyor"
+    },
+    "extensions": {
+      "title": "Uzantılar"
     }
   },
   "picoclaw": {
@@ -499,7 +690,8 @@
       "kvmTitle": "Uzaktan Kontrol",
       "kvmDescription": "Uzak ana bilgisayarı NanoKVM aracılığıyla çalıştırın.",
       "switched": "Temsilci rolü değiştirildi",
-      "switchFailed": "Temsilci rolü değiştirilemedi"
+      "switchFailed": "Temsilci rolü değiştirilemedi",
+      "label": "Ajan rolü"
     },
     "send": "Gönder",
     "cancel": "İptal",
@@ -517,22 +709,22 @@
     "connection": {
       "runtime": {
         "checking": "Kontrol ediliyor",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "PicoClaw geri yükleniyor",
         "ready": "Runtime hazır",
         "stopped": "Runtime durduruldu",
         "blockedByMCP": "Harici MCP kontrolü etkin",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "Çalışma ortamı çalışıyor, ancak cihazın girişlerini şu anda harici MCP kontrol ediyor.",
+        "readyWithoutControl": "Çalışma ortamı çalışıyor. Yeniden bağlanmadan önce PicoClaw'a cihaz kontrolünü verin.",
         "unavailable": "Runtime mevcut değil",
         "configError": "Yapılandırma hatası"
       },
       "transport": {
         "connecting": "Bağlanıyor",
         "connected": "Bağlandı",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "Bağlantı kesildi",
+        "reconnect": "Yeniden bağlan",
+        "reconnectDescription": "Çalışan PicoClaw oturumuna yeniden bağlanın.",
+        "reconnectBlocked": "Yeniden bağlanmak için PicoClaw'ın cihaz kontrolüne sahip olması gerekir."
       },
       "run": {
         "idle": "Boşta",
@@ -549,19 +741,19 @@
     },
     "control": {
       "picoclaw": "Cihaz kontrolü: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw klavye ve fare girdileri gönderebilir. Elle giriş geçici olarak duraklatılabilir.",
       "mcp": "Cihaz kontrolü: harici MCP",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "Cihaz kontrolü: kapalı",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "Harici MCP cihaza girdi gönderebilir. PicoClaw giriş kontrolünü devralmaz.",
+      "off": "Cihaz kontrolü: elle / yapay zekâ olmadan",
+      "offDescription": "Yapay zekâ klavye veya fare girdisi göndermez. Elle kontrol kullanılabilir durumda kalır.",
+      "transitioning": "Cihaz kontrolü: değiştiriliyor",
+      "transitioningDescription": "Cihaz kontrolü eşitleniyor. Lütfen bekleyin.",
       "grant": "Kontrol ver",
       "release": "Bırak",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "Cihaz kontrolü: geri veriliyor",
+      "releasingDescription": "Cihaz kontrolü geri veriliyor. PicoClaw girdi göndermeyi durdurdu.",
       "granted": "PicoClaw kontrolü verildi",
       "released": "PicoClaw kontrolü bırakıldı",
       "grantFailed": "PicoClaw kontrolü verilemedi",
@@ -643,7 +835,8 @@
       "description": "PicoClaw yardımcısını kullanmaya başlamak için runtime'ı başlatın.",
       "switchFromMCP": "Switch to PicoClaw and start",
       "takeoverAndStart": "Take over and start"
-    }
+    },
+    "moreActions": "Diğer işlemler"
   },
   "error": {
     "title": "Bir hata oldu!",
@@ -655,5 +848,111 @@
   "menu": {
     "collapse": "Menüyü küçült",
     "expand": "Menüyü genişlet"
+  },
+  "audio": {
+    "listen": "Dinle",
+    "resume": "Sesi sürdür",
+    "volume": "Ses düzeyi"
+  },
+  "sessionControl": {
+    "viewOnly": "Yalnızca görüntüle",
+    "take": "Kontrolü devral",
+    "release": "Bu oturumu kilitle"
+  },
+  "dateTime": {
+    "title": "Tarih ve saat",
+    "deviceTime": "Cihaz saati",
+    "timezone": "Saat dilimi",
+    "format": "Saat biçimi",
+    "preview": "Önizleme",
+    "synchronized": "Eşitlendi",
+    "waiting": "Eşitleme doğrulanmadı",
+    "save": "Kaydet"
+  },
+  "recorder": {
+    "title": "Video kaydı",
+    "start": "Kaydı başlat",
+    "stop": "Kaydı durdur"
+  },
+  "screenshot": {
+    "take": "Ekran görüntüsü al"
+  },
+  "vpn": {
+    "rename": "Yeniden adlandır",
+    "profileName": "Profil adı",
+    "credentials": "Kimlik bilgileri",
+    "username": "Kullanıcı adı",
+    "password": "Parola",
+    "save": "Kaydet",
+    "enable": "Etkinleştir",
+    "delete": "Sil",
+    "states": {
+      "reconnecting": "Yeniden bağlanıyor",
+      "error": "Hata",
+      "connecting": "Bağlanıyor",
+      "connected": "Bağlandı",
+      "idle": "Boşta"
+    },
+    "confirm": "Evet",
+    "cancel": "Hayır"
+  },
+  "dashboard": {
+    "title": "Genel bakış",
+    "freeStorage": "Boş alan",
+    "uptime": "Çalışma süresi",
+    "kernel": "Çekirdek",
+    "memory": "Bellek",
+    "cache": "Önbellek",
+    "compression": "Sıkıştırma",
+    "storage": "Depolama",
+    "dataStorage": "Veri",
+    "bootStorage": "Önyükleme",
+    "readOnly": "Salt okunur",
+    "disconnected": "Bağlantı yok",
+    "deviceTime": "Cihaz saati",
+    "timezone": "Saat dilimi",
+    "synchronization": "Eşitleme",
+    "synchronized": "Eşitlendi",
+    "notSynchronized": "Eşitleme doğrulanmadı",
+    "noProfiles": "Profil yok",
+    "states": {
+      "waiting": "Bekleniyor",
+      "error": "Hata",
+      "stopped": "Durduruldu",
+      "notInstall": "Kurulu değil",
+      "notRunning": "Durduruldu",
+      "notLogin": "Oturum açılmadı",
+      "connected": "Bağlandı",
+      "idle": "Boşta",
+      "running": "Bağlandı",
+      "connecting": "Bağlanıyor",
+      "auth": "Kimlik Doğrulaması Gerekli"
+    },
+    "device": "Cihaz",
+    "connected": "Bağlandı"
+  },
+  "videoSettings": {
+    "image": "Görüntü",
+    "mode": "Mod",
+    "browserSection": "Bu tarayıcı",
+    "player": "Oynatıcı",
+    "landscape": "Yatay monitör",
+    "transport": "Aktarım yöntemi",
+    "powerCycleCancel": "İptal",
+    "apply": "Uygula",
+    "discard": "Değişiklikleri iptal et",
+    "bitrate": "Bit hızı",
+    "captureOn": "Yakalama etkin",
+    "captureOff": "Yakalama devre dışı",
+    "input": "HDMI girişi",
+    "output": "Kodlanmış akış",
+    "monitor": "HDMI monitörü",
+    "portrait": "Dikey monitör",
+    "retry": "Yeniden dene"
+  },
+  "capture": {
+    "start": "Yakalamayı etkinleştir",
+    "stop": "Yakalamayı devre dışı bırak",
+    "off": "Yakalama devre dışı"
   }
 }

@@ -242,16 +242,33 @@ func TestLowMemoryRefusesIndexLoads(t *testing.T) {
 	}
 }
 
+// A run that loads one small index states its smaller need.
+func TestMemoryOverride(t *testing.T) {
+	f := newFixture(t, "")
+	writeMemInfo(t, 20*1024, 40*1024, 14*1024) // 27 MiB budget
+	cmd := Command(context.Background(), f.apk, "--repositories-file=/dev/null", "version")
+	cmd.MemoryKiB = 12 * 1024
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("small run refused: %q %v", output, err)
+	}
+	cmd = Command(context.Background(), f.apk, "version")
+	cmd.MemoryKiB = 40 * 1024
+	var low *LowMemoryError
+	if _, err := cmd.CombinedOutput(); !errors.As(err, &low) || low.RequiredKiB != 40*1024 {
+		t.Fatalf("err %v", err)
+	}
+}
+
 func TestMeasuredDeviceMemoryAllowsOneRun(t *testing.T) {
 	newFixture(t, "")
 	// /proc/meminfo on the device with the server idle (2026-10-07).
 	writeMemInfo(t, 50452, 47048, 13712)
-	if err := checkMemory(); err != nil {
+	if err := checkMemory(requiredKiB); err != nil {
 		t.Fatal(err)
 	}
 	// The same device while another index load was at its peak.
 	writeMemInfo(t, 9204, 44332, 13712+34164)
-	if err := checkMemory(); err == nil {
+	if err := checkMemory(requiredKiB); err == nil {
 		t.Fatal("a second index load was allowed during the first one's peak")
 	}
 }

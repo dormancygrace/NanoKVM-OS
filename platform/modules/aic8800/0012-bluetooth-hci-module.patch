@@ -1,0 +1,300 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: Bluetooth HCI as a module of its own
+
+The Bluetooth HCI driver (btsdio.c) was built into aic8800_fdrv, so the
+Wi-Fi module needed bluetooth.ko and pulled it in at every boot, with or
+without any Bluetooth user.
+
+It is now a module of its own, aic8800_btsdio, which depends on
+aic8800_fdrv and bluetooth. aic8800_fdrv keeps a small link (aicwf_bt.c):
+the firmware's HCI indications go to the receive function the HCI module
+attached, or are dropped when it is not loaded; sends go through
+aicwf_bt_send(), which fails with -ENODEV while the Wi-Fi side is down
+(set where btsdio_init()/btsdio_remove() used to be called). Receive calls
+run under a spinlock that detaching takes, so the module cannot go away in
+the middle of one.
+
+The HCI module attaches its receive function before registering hci0, as
+the HCI init's replies arrive through it, and detaches after removing it.
+aic_btsdio.c is no longer built: with CONFIG_BLUEDROID 0 it defined
+nothing. Loading aic8800_fdrv alone now leaves Bluetooth off; loading
+aic8800_btsdio after it turns Bluetooth on.
+
+diff --git a/aic8800_fdrv/Makefile b/aic8800_fdrv/Makefile
+index 13dee31..5a91ae1 100644
+--- a/aic8800_fdrv/Makefile
++++ b/aic8800_fdrv/Makefile
+@@ -172,6 +172,12 @@ CONFIG_RWNX_DBG ?= y
+ CONFIG_DEBUG_FS ?= n
+ 
+ obj-$(CONFIG_AIC8800_WLAN_SUPPORT) := $(MODULE_NAME).o
++# Bluetooth HCI over SDIO is a module of its own, so that bluetooth.ko is
++# loaded only when Bluetooth is wanted. obj-m: CONFIG_SDIO_BT is y.
++ifeq ($(CONFIG_SDIO_BT), y)
++obj-m += aic8800_btsdio.o
++aic8800_btsdio-y := btsdio.o
++endif
+ $(MODULE_NAME)-y := \
+ 	rwnx_msg_tx.o          \
+ 	rwnx_msg_rx.o          \
+@@ -212,8 +218,7 @@ $(MODULE_NAME)-$(CONFIG_SDIO_SUPPORT)     += sdio_host.o
+ $(MODULE_NAME)-$(CONFIG_SDIO_SUPPORT)     += aicwf_txrxif.o
+ $(MODULE_NAME)-$(CONFIG_SDIO_SUPPORT)     += aicwf_sdio.o
+ $(MODULE_NAME)-$(CONFIG_FILTER_TCP_ACK)   += aicwf_tcp_ack.o
+-$(MODULE_NAME)-$(CONFIG_SDIO_BT)   += aic_btsdio.o
+-$(MODULE_NAME)-$(CONFIG_SDIO_BT)   += btsdio.o
++$(MODULE_NAME)-$(CONFIG_SDIO_BT)   += aicwf_bt.o
+ 
+ $(MODULE_NAME)-$(CONFIG_USB_SUPPORT)     += usb_host.o
+ $(MODULE_NAME)-$(CONFIG_USB_SUPPORT)     += aicwf_txrxif.o
+diff --git a/aic8800_fdrv/aicwf_bt.c b/aic8800_fdrv/aicwf_bt.c
+new file mode 100644
+index 0000000..aef3f3a
+--- /dev/null
++++ b/aic8800_fdrv/aicwf_bt.c
+@@ -0,0 +1,93 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Link between aic8800_fdrv and the optional Bluetooth HCI module,
++ * aic8800_btsdio. Without that module, HCI packets from the firmware are
++ * dropped here and nothing needs bluetooth.ko.
++ */
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/skbuff.h>
++#include <linux/spinlock.h>
++
++#include "rwnx_defs.h"
++#include "rwnx_msg_tx.h"
++#include "aicwf_bt.h"
++
++/* The Wi-Fi side, while it is up; sends may sleep, hence a mutex. */
++static DEFINE_MUTEX(aicwf_bt_hw_lock);
++static struct rwnx_hw *aicwf_bt_hw;
++
++/* The HCI module's receive function, called under the lock so that
++ * detaching waits for a running call. */
++static DEFINE_SPINLOCK(aicwf_bt_recv_lock);
++static aicwf_bt_recv_fn aicwf_bt_recv;
++
++void aicwf_bt_platform_up(struct rwnx_hw *rwnx_hw)
++{
++	mutex_lock(&aicwf_bt_hw_lock);
++	aicwf_bt_hw = rwnx_hw;
++	mutex_unlock(&aicwf_bt_hw_lock);
++}
++
++void aicwf_bt_platform_down(void)
++{
++	mutex_lock(&aicwf_bt_hw_lock);
++	aicwf_bt_hw = NULL;
++	mutex_unlock(&aicwf_bt_hw_lock);
++}
++
++int aicwf_bt_attach(aicwf_bt_recv_fn recv)
++{
++	unsigned long flags;
++	int ret = 0;
++
++	mutex_lock(&aicwf_bt_hw_lock);
++	if (!aicwf_bt_hw)
++		ret = -ENODEV;
++	mutex_unlock(&aicwf_bt_hw_lock);
++	if (ret)
++		return ret;
++
++	spin_lock_irqsave(&aicwf_bt_recv_lock, flags);
++	if (aicwf_bt_recv)
++		ret = -EBUSY;
++	else
++		aicwf_bt_recv = recv;
++	spin_unlock_irqrestore(&aicwf_bt_recv_lock, flags);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(aicwf_bt_attach);
++
++void aicwf_bt_detach(void)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&aicwf_bt_recv_lock, flags);
++	aicwf_bt_recv = NULL;
++	spin_unlock_irqrestore(&aicwf_bt_recv_lock, flags);
++}
++EXPORT_SYMBOL_GPL(aicwf_bt_detach);
++
++int aicwf_bt_send(struct sk_buff *skb)
++{
++	int ret = -ENODEV;
++
++	mutex_lock(&aicwf_bt_hw_lock);
++	if (aicwf_bt_hw)
++		ret = rwnx_sdio_bt_send_req(aicwf_bt_hw, skb->len, skb);
++	mutex_unlock(&aicwf_bt_hw_lock);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(aicwf_bt_send);
++
++int aicwf_bt_deliver(u8 *data, u32 len)
++{
++	unsigned long flags;
++	int ret = 0;
++
++	spin_lock_irqsave(&aicwf_bt_recv_lock, flags);
++	if (aicwf_bt_recv)
++		ret = aicwf_bt_recv(data, len);
++	spin_unlock_irqrestore(&aicwf_bt_recv_lock, flags);
++	return ret;
++}
+diff --git a/aic8800_fdrv/aicwf_bt.h b/aic8800_fdrv/aicwf_bt.h
+new file mode 100644
+index 0000000..ab4ebba
+--- /dev/null
++++ b/aic8800_fdrv/aicwf_bt.h
+@@ -0,0 +1,26 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * Link between aic8800_fdrv and the optional Bluetooth HCI module,
++ * aic8800_btsdio. The firmware carries HCI packets inside Wi-Fi messages.
++ */
++#ifndef _AICWF_BT_H_
++#define _AICWF_BT_H_
++
++#include <linux/types.h>
++
++struct sk_buff;
++struct rwnx_hw;
++
++typedef int (*aicwf_bt_recv_fn)(u8 *data, u32 len);
++
++/* For aic8800_btsdio. */
++int aicwf_bt_attach(aicwf_bt_recv_fn recv);
++void aicwf_bt_detach(void);
++int aicwf_bt_send(struct sk_buff *skb);
++
++/* For aic8800_fdrv itself. */
++int aicwf_bt_deliver(u8 *data, u32 len);
++void aicwf_bt_platform_up(struct rwnx_hw *rwnx_hw);
++void aicwf_bt_platform_down(void);
++
++#endif
+diff --git a/aic8800_fdrv/btsdio.c b/aic8800_fdrv/btsdio.c
+index 8e8d57b..865e2b6 100644
+--- a/aic8800_fdrv/btsdio.c
++++ b/aic8800_fdrv/btsdio.c
+@@ -39,7 +39,7 @@
+ 
+ 
+ #include "aic_btsdio.h"
+-#include "rwnx_msg_tx.h"
++#include "aicwf_bt.h"
+ 
+ #include <net/bluetooth/hci_core.h>
+ 
+@@ -97,7 +97,7 @@ static int btsdio_tx_packet(struct btsdio_data *data, struct sk_buff *skb)
+ 	skb->data[0] = hci_skb_pkt_type(skb);
+ 
+ 	//bt_data_dump("btwrite", skb->data, skb->len);
+-	err = rwnx_sdio_bt_send_req(g_rwnx_plat->sdiodev->rwnx_hw, skb->len, skb);
++	err = aicwf_bt_send(skb);
+ 	if(err<0){
+ 		skb_pull(skb, 1);
+ 		printk("%s rwnx_sdio_bt_send_req error %d",__func__,err);
+@@ -302,4 +302,33 @@ void btsdio_remove(void)
+     hci_free_dev(hdev);
+     kfree(data);
+ }
++
++/*
++ * Receive first, then hci0: registering starts the HCI init, whose replies
++ * come back through aicwf_bt_deliver(). Removal in the opposite order.
++ */
++static int __init aic8800_btsdio_init(void)
++{
++	int err = aicwf_bt_attach(bt_sdio_recv);
++
++	if (err) {
++		AICBT_ERR("Wi-Fi side not ready: %d", err);
++		return err;
++	}
++	err = btsdio_init();
++	if (err)
++		aicwf_bt_detach();
++	return err;
++}
++
++static void __exit aic8800_btsdio_exit(void)
++{
++	btsdio_remove();
++	aicwf_bt_detach();
++}
++
++module_init(aic8800_btsdio_init);
++module_exit(aic8800_btsdio_exit);
++MODULE_DESCRIPTION("AIC8800 Bluetooth HCI over SDIO");
++MODULE_LICENSE("GPL");
+ #endif
+diff --git a/aic8800_fdrv/rwnx_main.c b/aic8800_fdrv/rwnx_main.c
+index 7913a1b..9bd9808 100644
+--- a/aic8800_fdrv/rwnx_main.c
++++ b/aic8800_fdrv/rwnx_main.c
+@@ -53,7 +53,7 @@
+ #include "aicwf_compat_8800d80.h"
+ #include "rwnx_wakelock.h"
+ #ifdef CONFIG_SDIO_BT
+-#include "aic_btsdio.h"
++#include "aicwf_bt.h"
+ #endif
+ #ifdef CONFIG_AIC_PRIV_CMD
+ #include "aic_priv_cmd.h"
+@@ -6384,12 +6384,8 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
+ 	AICWFDBG(LOGINFO, "New interface create %s \r\n", vif->ndev->name);
+ 
+ #ifdef CONFIG_SDIO_BT
+-#if CONFIG_BLUEDROID
+-	btchr_init();
+-	hdev_init();
+-#else
+-	btsdio_init();
+-#endif
++	/* aic8800_btsdio, when loaded, registers hci0 through this. */
++	aicwf_bt_platform_up(rwnx_hw);
+ #endif
+ 
+ #ifdef  CONFIG_USE_P2P0
+@@ -6518,12 +6514,7 @@ void rwnx_cfg80211_deinit(struct rwnx_hw *rwnx_hw)
+ 	rwnx_hw->fwlog_en = 0;
+ 
+ #ifdef CONFIG_SDIO_BT
+-#if CONFIG_BLUEDROID
+-	btchr_exit();
+-	hdev_exit();
+-#else
+-	btsdio_remove();
+-#endif
++	aicwf_bt_platform_down();
+ #endif
+ 
+ 	flush_workqueue(rwnx_hw->apmStaloss_wq);
+diff --git a/aic8800_fdrv/rwnx_msg_rx.c b/aic8800_fdrv/rwnx_msg_rx.c
+index ca6c578..536dc6d 100644
+--- a/aic8800_fdrv/rwnx_msg_rx.c
++++ b/aic8800_fdrv/rwnx_msg_rx.c
+@@ -28,7 +28,7 @@
+ #include "aicwf_txrxif.h"
+ #include "rwnx_msg_rx.h"
+ #ifdef CONFIG_SDIO_BT
+-#include "aic_btsdio.h"
++#include "aicwf_bt.h"
+ #endif
+ void rwnx_cfg80211_unlink_bss(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif);
+ 
+@@ -479,7 +479,7 @@ static inline int rwnx_bt_recv_ind(struct rwnx_hw *rwnx_hw,
+         ind->data_len > sizeof(ind->bt_data) ||
+         ind->data_len > msg->param_len - offsetof(struct mm_bt_recv_ind, bt_data))
+         return -EINVAL;
+-    return bt_sdio_recv(ind->bt_data, ind->data_len);
++    return aicwf_bt_deliver(ind->bt_data, ind->data_len);
+ }
+ #endif
+ 

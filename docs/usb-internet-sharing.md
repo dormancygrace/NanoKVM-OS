@@ -36,6 +36,9 @@ options until renewing.
   The Alpine compatibility script lives in `firmware/alpine/compat/S30usbnet`.
   Legacy Buildroot sources remain unchanged; this feature ships in Alpine packages.
 - The helper owns one usb0 IPv4 address and one isolated dnsmasq process.
+  While [network boot](netboot.md) is on, `netboot.port` in the runtime
+  directory makes dnsmasq hand iPXE clients (DHCP option 175 only) the boot
+  script on `<usb0 address>:<port>`; other clients never get a boot file.
   DNS listens only on the USB address/interface while active. No other DNS or
   DHCP process is stopped. An existing wildcard DNS listener can prevent
   activation; the API rolls back the switch on a runtime error.

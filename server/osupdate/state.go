@@ -13,8 +13,8 @@ import (
 	"NanoKVM-Server/internal/sg2002aes"
 )
 
-// Base holds the shared update lock. APK, software, VPN, attended-image and
-// add-on operations all serialise on Base/lock, so the path must stay stable.
+// Base holds the shared update lock. APK, software, VPN and add-on
+// operations all serialise on Base/lock, so the path must stay stable.
 const Base = "/kvmapp/.os-update"
 
 // Helper runs APK and software transactions with the inherited update lock,
@@ -74,7 +74,7 @@ func readJSON(name string, v any) error {
 	return json.Unmarshal(b, v)
 }
 
-// InstalledVersion reports the application release recorded by nanokvm-app.
+// InstalledVersion reports the application release recorded by nanokvm.
 func InstalledVersion() string {
 	v, _ := os.ReadFile(versionFile)
 	return strings.TrimSpace(string(v))

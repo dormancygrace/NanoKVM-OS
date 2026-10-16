@@ -29,11 +29,12 @@
       "reset2": "Per veure els passos detallats, consulta aquest document:",
       "reset3": "Compte web per defecte:",
       "reset4": "Compte SSH per defecte:",
-      "change1": "Aquesta acció canviarà les següents contrasenyes:",
+      "change1": "Per al compte d’administrador integrat, aquesta acció canvia les contrasenyes següents:",
       "change2": "Contrasenya d'inici de sessió web",
       "change3": "Contrasenya root del sistema (inici de sessió SSH)",
       "change4": "Per restablir les contrasenyes, mantingues premut el botó BOOT del NanoKVM."
-    }
+    },
+    "placeholderCurrentPassword": "Contrasenya actual"
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -100,7 +101,9 @@
       "videoError": "Error de visualització de vídeo",
       "noHdmi": "No s'ha detectat cap senyal HDMI",
       "unavailable": "La pantalla no es pot mostrar ara"
-    }
+    },
+    "codec": "Còdec",
+    "retryJoin": "Torna-ho a provar"
   },
   "keyboard": {
     "title": "Teclat",
@@ -118,10 +121,10 @@
     "dropdownRussian": "rus",
     "dropdownSpanish": "Espanyol",
     "shortcut": {
-      "title": "Dreceres",
+      "title": "Dreceres de teclat",
       "custom": "Personalitzat",
       "capture": "Feu clic aquí per capturar la drecera",
-      "clear": "Clar",
+      "clear": "Neteja",
       "save": "Desa",
       "captureTips": "Capturar tecles del sistema (com la tecla Windows) requereix permís de pantalla completa.",
       "enterFullScreen": "Canvia el mode de pantalla completa."
@@ -152,6 +155,10 @@
         "activate": "Activa les tecles",
         "input": "Premeu la drecera..."
       }
+    },
+    "sequences": {
+      "title": "Seqüències de tecles",
+      "sent": "Enviat"
     }
   },
   "mouse": {
@@ -250,14 +257,17 @@
     "flowControlHard": "Maquinari",
     "dataBits": "Bits de dades",
     "stopBits": "Bits de parada",
-    "confirm": "D'acord"
+    "confirm": "D'acord",
+    "usbSerial": "Consola sèrie USB"
   },
   "wol": {
     "title": "Wake-on-LAN",
     "sending": "Enviant comanda...",
     "sent": "Comanda enviada",
     "input": "Introdueix la MAC",
-    "ok": "D'acord"
+    "ok": "D'acord",
+    "name": "Nom del dispositiu",
+    "cancel": "Cancel·la"
   },
   "download": {
     "title": "Descarregador d'imatges",
@@ -273,7 +283,8 @@
     "success": "Descàrrega correcta",
     "checksumFailed": "Descàrrega fallida: ha fallat la verificació SHA-256",
     "cancel": "Cancel·la",
-    "cancelFailed": "No sha pogut cancel·lar la descàrrega"
+    "cancelFailed": "No sha pogut cancel·lar la descàrrega",
+    "downloading": "S'està baixant"
   },
   "power": {
     "title": "Alimentació",
@@ -312,7 +323,13 @@
       "ip": "IP",
       "image": "Versió de la imatge",
       "hostname": "Nom del dispositiu",
-      "hostnameUpdated": "Nom actualitzat. Reinicia per aplicar."
+      "hostnameUpdated": "Nom actualitzat. Reinicia per aplicar.",
+      "credits": {
+        "button": "Crèdits",
+        "title": "Crèdits",
+        "close": "Tanca"
+      },
+      "documentation": "Documentació"
     },
     "appearance": {
       "title": "Aparença",
@@ -332,6 +349,9 @@
         "keyboardLedStatusDesc": "Mostra l’estat de Bloq Num, Bloq Maj i Bloq Despl de l’ordinador remot",
         "icons": "Icones del submenú",
         "iconsDesc": "Mostra les icones del submenú a la barra de menús"
+      },
+      "buttonColor": {
+        "save": "Aplica"
       }
     },
     "keyboardLedStatus": {
@@ -382,7 +402,10 @@
       "reboot": "Reinicia",
       "rebootDesc": "Segur que vols reiniciar el NanoKVM?",
       "okBtn": "Sí",
-      "cancelBtn": "No"
+      "cancelBtn": "No",
+      "cpuFrequency": {
+        "title": "Freqüència de la CPU i overclocking"
+      }
     },
     "network": {
       "title": "Xarxa",
@@ -399,11 +422,22 @@
         "password": "Contrasenya",
         "joinBtn": "Connecta",
         "confirmBtn": "D'acord",
-        "cancelBtn": "Cancel·la"
+        "cancelBtn": "Cancel·la",
+        "band": "Banda de freqüència",
+        "manual": "Connecta manualment",
+        "hidden": "Xarxa oculta",
+        "security": "Seguretat",
+        "open": "Xarxa oberta",
+        "loading": "Carregant...",
+        "reconnect": "Torna a connectar"
       },
       "tls": {
         "description": "Activa el protocol HTTPS",
-        "tip": "Atenció: Usar HTTPS pot augmentar la latència, sobretot amb vídeo MJPEG."
+        "tip": "Atenció: Usar HTTPS pot augmentar la latència, sobretot amb vídeo MJPEG.",
+        "certificate": {
+          "title": "Certificat",
+          "remove": "Elimina"
+        }
       },
       "ethernet": {
         "title": "IPv4 Ethernet",
@@ -423,7 +457,8 @@
         "save": "Desa",
         "unsaved": "Canvis no desats",
         "saveFailed": "No s'ha pogut desar la configuració.",
-        "loadFailed": "No s'ha pogut carregar la configuració."
+        "loadFailed": "No s'ha pogut carregar la configuració.",
+        "disabled": "Desactivat"
       },
       "dns": {
         "title": "DNS",
@@ -446,6 +481,11 @@
         "subnetMask": "Màscara de subxarxa",
         "router": "Encaminador",
         "none": "Cap"
+      },
+      "general": "General",
+      "gateway": {
+        "title": "Passarel·la preferida",
+        "auto": "Automàtic"
       }
     },
     "tailscale": {
@@ -458,7 +498,7 @@
       "install": "Instal·la",
       "installing": "Instal·lant",
       "failed": "Error en la instal·lació",
-      "retry": "Actualitza i torna-ho a provar. O instal·la manualment",
+      "retry": "Torneu a provar la instal·lació.",
       "notRunning": "Tailscale no s'està executant. Si us plau, inicieu-lo per continuar.",
       "run": "Comença",
       "notLogin": "El dispositiu no està vinculat. Inicia sessió per vincular-lo.",
@@ -474,17 +514,167 @@
       "uninstall": "Desinstal·la Tailscale",
       "uninstallDesc": "Esteu segur que voleu desinstal·lar Tailscale?",
       "okBtn": "Sí",
-      "cancelBtn": "No"
+      "cancelBtn": "No",
+      "moreActions": "Més accions"
     },
     "account": {
-      "title": "Compte",
+      "title": "Usuaris",
       "webAccount": "Nom del compte web",
       "password": "Contrasenya",
       "updateBtn": "Canvia",
       "logoutBtn": "Tanca sessió",
       "logoutDesc": "Segur que vols tancar sessió?",
       "okBtn": "Sí",
-      "cancelBtn": "No"
+      "cancelBtn": "No",
+      "role": "Rol",
+      "roles": {
+        "admin": "Administrador",
+        "user": "Usuari"
+      },
+      "users": {
+        "title": "Usuaris",
+        "create": "Crea un usuari",
+        "enabled": "Activat",
+        "disabled": "Desactivat",
+        "deviceOwner": "Propietari del dispositiu",
+        "rename": "Canvia el nom",
+        "resetPassword": "Restableix la contrasenya",
+        "delete": "Suprimeix"
+      }
+    },
+    "software": {
+      "indexSchedule": {
+        "save": "Desa"
+      },
+      "addons": {
+        "title": "Complements",
+        "packages": "Paquets"
+      },
+      "title": "Programari",
+      "available": "Paquets disponibles",
+      "updatesTab": "Actualitzacions",
+      "search": "Cerca",
+      "install": "Instal·la",
+      "installed": "Paquets instal·lats",
+      "remove": "Elimina"
+    },
+    "updates": {
+      "apk": {
+        "title": "Actualitzacions de paquets",
+        "log": "Registre d’actualització"
+      },
+      "title": "Actualitzacions",
+      "installed": "Instal·lat"
+    },
+    "memory": {
+      "title": "Memòria",
+      "available": "Disponible",
+      "size": "Capacitat",
+      "used": "Utilitzat",
+      "algorithm": "Compressió",
+      "videoUnknown": "Desconegut"
+    },
+    "system": {
+      "general": "General",
+      "logs": {
+        "title": "Registres",
+        "sources": {
+          "kernel": "Nucli"
+        },
+        "refresh": "Actualitza"
+      },
+      "diagnostics": {
+        "overview": "Estat",
+        "title": "Diagnòstic",
+        "refresh": "Actualitza",
+        "application": "Aplicació"
+      },
+      "services": "Serveis",
+      "device": "Dispositiu"
+    },
+    "usb": {
+      "internet": {
+        "title": "Internet per USB",
+        "states": {
+          "loading": "Carregant..."
+        }
+      },
+      "title": "Funcions USB",
+      "apply": "Aplica",
+      "cancel": "Descarta els canvis",
+      "identity": {
+        "title": "Identificació USB"
+      },
+      "userDisk": {
+        "title": "Disc de l’usuari",
+        "create": "Crea",
+        "delete": "Suprimeix",
+        "files": {
+          "title": "Fitxers del disc de l’usuari",
+          "refresh": "Actualitza",
+          "browse": "Explora els fitxers",
+          "up": "Puja un nivell",
+          "upload": "Puja fitxers",
+          "cancel": "Cancel·la",
+          "folderName": "Nom de la carpeta nova",
+          "mkdir": "Crea una carpeta",
+          "download": "Baixa",
+          "delete": "Suprimeix",
+          "empty": "Aquesta carpeta és buida.",
+          "errors": {
+            "notEmpty": "La carpeta no és buida."
+          },
+          "previous": "Pàgina anterior",
+          "next": "Pàgina següent"
+        }
+      },
+      "serialConsole": {
+        "title": "Consola Linux sense pantalla"
+      },
+      "devices": {
+        "network": {
+          "title": "Xarxa virtual"
+        },
+        "disk": {
+          "title": "Disc virtual"
+        },
+        "serial": {
+          "title": "Consola sèrie USB"
+        },
+        "keyboard": {
+          "title": "Teclat"
+        }
+      }
+    },
+    "netbird": {
+      "moreActions": "Més accions",
+      "loginSuccess": "Ja he iniciat la sessió",
+      "deviceName": "Nom del dispositiu",
+      "version": "Versió",
+      "loading": "Carregant...",
+      "run": "Comença",
+      "deviceIP": "IP del dispositiu",
+      "okBtn": "Sí",
+      "error": {
+        "installFailed": "Error en la instal·lació"
+      }
+    },
+    "rustdesk": {
+      "absent": "No instal·lat",
+      "stopped": "Aturat",
+      "install": "Instal·la",
+      "remove": "Elimina",
+      "save": "Desa la configuració",
+      "server": "Servidor",
+      "passwordMode": "Contrasenya",
+      "temporaryPassword": "Contrasenya temporal",
+      "newPassword": "Contrasenya nova",
+      "advanced": "Configuració avançada",
+      "saved": "S’ha desat la configuració",
+      "unknownVersion": "Desconegut"
+    },
+    "extensions": {
+      "title": "Extensions"
     }
   },
   "picoclaw": {
@@ -499,7 +689,8 @@
       "kvmTitle": "Control remot",
       "kvmDescription": "Opera l'amfitrió remot mitjançant NanoKVM.",
       "switched": "Rol d'agent canviat",
-      "switchFailed": "No s'ha pogut canviar la funció d'agent"
+      "switchFailed": "No s'ha pogut canviar la funció d'agent",
+      "label": "Rol de l’agent"
     },
     "send": "Envia",
     "cancel": "Cancel·la",
@@ -517,22 +708,22 @@
     "connection": {
       "runtime": {
         "checking": "Comprovació",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "S’està restaurant PicoClaw",
         "ready": "Temps d'execució a punt",
         "stopped": "El temps d'execució s'ha aturat",
         "blockedByMCP": "El control MCP extern està actiu",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "L’entorn d’execució està actiu, però el MCP extern controla actualment les entrades del dispositiu.",
+        "readyWithoutControl": "L’entorn d’execució està actiu. Concediu a PicoClaw el control del dispositiu abans de tornar a connectar.",
         "unavailable": "Temps d'execució no disponible",
         "configError": "Error de configuració"
       },
       "transport": {
         "connecting": "En connexió",
         "connected": "Connectat",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "Desconnectat",
+        "reconnect": "Torna a connectar",
+        "reconnectDescription": "Torna a connectar amb la sessió activa de PicoClaw.",
+        "reconnectBlocked": "PicoClaw necessita controlar el dispositiu per tornar a connectar."
       },
       "run": {
         "idle": "Inactiu",
@@ -549,19 +740,19 @@
     },
     "control": {
       "picoclaw": "Control del dispositiu: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw pot enviar entrades de teclat i ratolí. L’entrada manual es pot posar en pausa.",
       "mcp": "Control del dispositiu: MCP extern",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "Control del dispositiu: desactivat",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "El MCP extern pot enviar entrades al dispositiu. PicoClaw no prendrà el control de les entrades.",
+      "off": "Control del dispositiu: manual / sense IA",
+      "offDescription": "La IA no enviarà entrades de teclat ni de ratolí. El control manual continuarà disponible.",
+      "transitioning": "Control del dispositiu: canvi en curs",
+      "transitioningDescription": "S’està sincronitzant el control del dispositiu. Espereu un moment.",
       "grant": "Concedeix control",
       "release": "Allibera",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "Control del dispositiu: retorn en curs",
+      "releasingDescription": "S’està retornant el control del dispositiu. PicoClaw ha deixat d’enviar entrades.",
       "granted": "Control de PicoClaw concedit",
       "released": "Control de PicoClaw alliberat",
       "grantFailed": "No s'ha pogut concedir el control a PicoClaw",
@@ -644,7 +835,8 @@
       "description": "Inicieu el temps d'execució per començar a utilitzar l'assistent PicoClaw.",
       "switchFromMCP": "Switch to PicoClaw and start",
       "takeoverAndStart": "Take over and start"
-    }
+    },
+    "moreActions": "Més accions"
   },
   "error": {
     "title": "Hi ha hagut un error",
@@ -656,5 +848,110 @@
   "menu": {
     "collapse": "Amaga menú",
     "expand": "Mostra menú"
+  },
+  "audio": {
+    "listen": "Escolta",
+    "resume": "Reprèn l’àudio",
+    "volume": "Volum"
+  },
+  "sessionControl": {
+    "viewOnly": "Només visualització",
+    "take": "Pren el control",
+    "release": "Bloqueja aquesta sessió"
+  },
+  "dateTime": {
+    "title": "Data i hora",
+    "deviceTime": "Hora del dispositiu",
+    "timezone": "Fus horari",
+    "format": "Format de l’hora",
+    "preview": "Previsualització",
+    "synchronized": "Sincronitzat",
+    "waiting": "Sincronització no confirmada",
+    "save": "Desa"
+  },
+  "recorder": {
+    "title": "Enregistrament de vídeo",
+    "start": "Inicia l’enregistrament",
+    "stop": "Atura l’enregistrament"
+  },
+  "screenshot": {
+    "take": "Fes una captura de pantalla"
+  },
+  "vpn": {
+    "rename": "Canvia el nom",
+    "profileName": "Nom del perfil",
+    "credentials": "Credencials",
+    "username": "Nom d’usuari",
+    "password": "Contrasenya",
+    "save": "Desa",
+    "enable": "Activa",
+    "delete": "Suprimeix",
+    "states": {
+      "reconnecting": "S’està tornant a connectar",
+      "error": "Error",
+      "connecting": "En connexió",
+      "connected": "Connectat",
+      "idle": "Inactiu"
+    },
+    "confirm": "Sí"
+  },
+  "dashboard": {
+    "title": "Tauler de control",
+    "freeStorage": "Espai lliure",
+    "uptime": "Temps d’activitat",
+    "kernel": "Nucli",
+    "memory": "Memòria",
+    "cache": "Memòria cau",
+    "compression": "Compressió",
+    "storage": "Emmagatzematge",
+    "dataStorage": "Dades",
+    "bootStorage": "Arrencada",
+    "readOnly": "Només lectura",
+    "disconnected": "Sense connexió",
+    "deviceTime": "Hora del dispositiu",
+    "timezone": "Fus horari",
+    "synchronization": "Sincronització",
+    "synchronized": "Sincronitzat",
+    "notSynchronized": "Sincronització no confirmada",
+    "noProfiles": "No hi ha perfils",
+    "states": {
+      "waiting": "En espera",
+      "error": "Error",
+      "stopped": "Aturat",
+      "notInstall": "No instal·lat",
+      "notRunning": "Aturat",
+      "notLogin": "No s’ha iniciat la sessió",
+      "connected": "Connectat",
+      "idle": "Inactiu",
+      "running": "Connectat",
+      "connecting": "En connexió",
+      "auth": "Es requereix autenticació"
+    },
+    "device": "Dispositiu",
+    "connected": "Connectat"
+  },
+  "videoSettings": {
+    "image": "Imatge",
+    "mode": "Mode",
+    "browserSection": "Aquest navegador",
+    "player": "Reproductor",
+    "landscape": "Monitor horitzontal",
+    "transport": "Transport",
+    "powerCycleCancel": "Cancel·la",
+    "apply": "Aplica",
+    "discard": "Descarta els canvis",
+    "bitrate": "Taxa de bits",
+    "captureOn": "Captura activada",
+    "captureOff": "Captura desactivada",
+    "input": "Entrada HDMI",
+    "output": "Flux codificat",
+    "monitor": "Monitor HDMI",
+    "portrait": "Monitor vertical",
+    "retry": "Torna-ho a provar"
+  },
+  "capture": {
+    "start": "Activa la captura",
+    "stop": "Desactiva la captura",
+    "off": "Captura desactivada"
   }
 }

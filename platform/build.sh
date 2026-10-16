@@ -22,8 +22,8 @@
 #              zlib-ng
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   verify     compare the outputs with expected.sha256
-#   payloads   contents of the eight nanokvm-* packages, from packages.list
-#   packages   signed APK repository of the eight packages
+#   payloads   contents of the ten NanoKVM packages, from packages.list
+#   packages   signed APK repository of the ten packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -672,7 +672,7 @@ firmware() {
     cp "$out/firmware/wireless-regdb-2026.09.03/LICENSE" "$f/licenses/wireless-regdb-LICENSE"
 }
 
-# Assemble the eight package payloads from packages.list.
+# Assemble the ten package payloads from packages.list.
 payloads() {
     local p=$out/payloads gen pkg type path mode src dest file
     rm -rf "$p"
@@ -681,6 +681,7 @@ payloads() {
     mkdir -p "$gen/kvm"
     # Written below once the application payload is complete.
     : > "$gen/build-manifest.json"
+    : > "$gen/web-build-manifest.json"
     printf '+kvmapp/kvm\n' > "$gen/protected-paths"
     # No longer read by this tree. Applications up to v2.6-a3 check it to pick
     # the GPIO ABI v2, HDMI reset driver and runtime defaults; drop it once
@@ -721,17 +722,19 @@ payloads() {
         esac
     done < "$here/packages.list"
     # What the application payload was built from, for support requests.
-    "$host/python3" - "$p/app/kvmapp" "$version" "$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo unknown)" \
+    for component in app web; do
+        "$host/python3" - "$p/$component/kvmapp" "$version" "$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo unknown)" \
         "$([ -z "$(git -C "$repo" status --porcelain 2>/dev/null)" ] && echo false || echo true)" <<'PY'
 import hashlib, json, sys
 from pathlib import Path
 root, version, commit, dirty = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4] == 'true'
-manifest = root / 'build-manifest.json'
+manifest = root / ('web-build-manifest.json' if root.parent.name == 'web' else 'build-manifest.json')
 files = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
          for p in sorted(root.rglob('*')) if p.is_file() and not p.is_symlink() and p != manifest}
 manifest.write_text(json.dumps({'version': version, 'source_dirty': dirty, 'source_base_commit': commit,
                                 'files': files}, indent=2) + '\n')
 PY
+    done
 }
 
 # The packages, rootfs and image steps create files of several owners and run
@@ -888,7 +891,7 @@ signing_key() {
     keyname=$(basename "$keyfile" .rsa)
 }
 
-# Build the eight packages with abuild in an Alpine riscv64 tree.
+# Build the ten packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu

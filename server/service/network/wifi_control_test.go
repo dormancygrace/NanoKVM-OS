@@ -130,6 +130,10 @@ func TestWifiHardwareAndStatus(t *testing.T) {
 	if !w.enabled() || w.present() {
 		t.Fatal("default-on / absent adapter")
 	}
+	// Issue 215: a board without Wi-Fi must not report Wi-Fi as on.
+	if d := w.status(); d.Supported || d.Enabled || d.Connected {
+		t.Fatalf("absent adapter reported %+v", d)
+	}
 	if err := os.MkdirAll(filepath.Join(net, "device"), 0700); err != nil {
 		t.Fatal(err)
 	}

@@ -47,6 +47,16 @@ start() {
         mount -o remount,background_gc=off / || ewarn "f2fs background GC stays on"
     fi
 
+    # APK index cache in RAM: every index refresh rewrote about 4.5 MB of the
+    # SD card. apk fetches missing indexes again on first use after a boot.
+    if ! mountpoint -q /var/cache/apk; then
+        mkdir -p /var/cache/apk
+        # Once: the copies that earlier releases kept on the SD card.
+        rm -f /var/cache/apk/APKINDEX.*.tar.gz
+        mount -t tmpfs -o nosuid,nodev,noexec,size=16m,mode=0755 apk-cache /var/cache/apk ||
+            ewarn "APK indexes stay on the SD card"
+    fi
+
     rm -rf /mnt/data
     ln -s "$compatibility_data" /mnt/data
     for source in /usr/share/nanokvm/board-defaults/*; do

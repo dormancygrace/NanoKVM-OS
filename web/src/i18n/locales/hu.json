@@ -29,11 +29,12 @@
       "reset2": "A részletes lépésekért tekintse meg ezt a dokumentumot:",
       "reset3": "Alapértelmezett webes fiók:",
       "reset4": "Alapértelmezett SSH-fiók:",
-      "change1": "Vegye figyelembe, hogy ez a művelet a következő jelszavakat módosítja:",
+      "change1": "A beépített rendszergazdai fiók esetén ez a művelet a következő jelszavakat módosítja:",
       "change2": "Webes bejelentkezési jelszó",
       "change3": "Rendszer root jelszava (SSH bejelentkezési jelszó)",
       "change4": "A jelszavak visszaállításához tartsa lenyomva a BOOT gombot a NanoKVM-en."
-    }
+    },
+    "placeholderCurrentPassword": "Jelenlegi jelszó"
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -51,7 +52,7 @@
     }
   },
   "screen": {
-    "scale": "Skála",
+    "scale": "Méretezés",
     "title": "Képernyő",
     "video": "Videó mód",
     "controlRegion": {
@@ -100,7 +101,9 @@
       "videoError": "Videómegjelenítési hiba",
       "noHdmi": "Nem észlelhető HDMI-jel",
       "unavailable": "A kép jelenleg nem jeleníthető meg"
-    }
+    },
+    "codec": "Kodek",
+    "retryJoin": "Újrapróbálkozás"
   },
   "keyboard": {
     "title": "Billentyűzet",
@@ -118,22 +121,22 @@
     "dropdownRussian": "orosz",
     "dropdownSpanish": "spanyol",
     "shortcut": {
-      "title": "Parancsikonok",
-      "custom": "Egyedi",
-      "capture": "Kattintson ide a parancsikon rögzítéséhez",
-      "clear": "Tiszta",
+      "title": "Billentyűparancsok",
+      "custom": "Egyéni",
+      "capture": "Kattintson ide a billentyűparancs rögzítéséhez",
+      "clear": "Törlés",
       "save": "Mentés",
       "captureTips": "A rendszerszintű billentyűk (például a Windows billentyű) rögzítéséhez teljes képernyős engedély szükséges.",
       "enterFullScreen": "Teljes képernyős mód váltása."
     },
     "leaderKey": {
       "title": "Leader billentyű",
-      "desc": "Kerülje ki a böngésző korlátozásait, és küldje el a rendszer parancsikonjait közvetlenül a távoli gazdagépnek.",
+      "desc": "Kerülje meg a böngésző korlátozásait, és küldje el a rendszer billentyűparancsait közvetlenül a távoli gépnek.",
       "howToUse": "Használat",
       "simultaneous": {
         "title": "Egyidejű üzemmód",
         "desc1": "Tartsa lenyomva a Leader billentyűt, majd nyomja meg a gyorsbillentyűt.",
-        "desc2": "Intuitív, de ütközhet a rendszer parancsikonjaival."
+        "desc2": "Intuitív, de ütközhet a rendszer billentyűparancsaival."
       },
       "sequential": {
         "title": "Szekvenciális mód",
@@ -150,8 +153,12 @@
       "recorder": {
         "rec": "REC",
         "activate": "Billentyűk aktiválása",
-        "input": "Kérjük, nyomja meg a parancsikont..."
+        "input": "Nyomja meg a billentyűparancsot…"
       }
+    },
+    "sequences": {
+      "title": "Billentyűsorozatok",
+      "sent": "Elküldve"
     }
   },
   "mouse": {
@@ -250,14 +257,17 @@
     "flowControlHard": "Hardveres",
     "dataBits": "Adatbitek",
     "stopBits": "Stop bitek",
-    "confirm": "Ok"
+    "confirm": "Ok",
+    "usbSerial": "USB soros konzol"
   },
   "wol": {
     "title": "Wake-on-LAN",
     "sending": "Parancs küldése...",
     "sent": "Parancs elküldve",
     "input": "Adja meg a MAC címet",
-    "ok": "Ok"
+    "ok": "Ok",
+    "name": "Eszköz neve",
+    "cancel": "Mégse"
   },
   "download": {
     "title": "Képletöltő",
@@ -273,7 +283,8 @@
     "success": "Sikeres letöltés",
     "checksumFailed": "Sikertelen letöltés: a SHA-256 ellenőrzése sikertelen",
     "cancel": "Mégse",
-    "cancelFailed": "A letöltés megszakítása sikertelen"
+    "cancelFailed": "A letöltés megszakítása sikertelen",
+    "downloading": "Letöltés"
   },
   "power": {
     "title": "Bekapcsolás",
@@ -312,7 +323,13 @@
       "ip": "IP",
       "image": "Képfájl verzió",
       "hostname": "Gazdanév",
-      "hostnameUpdated": "Gazdanév frissítve. Az alkalmazáshoz indítsa újra."
+      "hostnameUpdated": "Gazdanév frissítve. Az alkalmazáshoz indítsa újra.",
+      "credits": {
+        "button": "Közreműködők",
+        "title": "Közreműködők",
+        "close": "Bezárás"
+      },
+      "documentation": "Dokumentáció"
     },
     "appearance": {
       "title": "Megjelenés",
@@ -332,6 +349,9 @@
         "keyboardLedStatusDesc": "A távoli számítógép Num Lock, Caps Lock és Scroll Lock állapotának megjelenítése",
         "icons": "Almenü ikonok",
         "iconsDesc": "Almenüikonok megjelenítése a menüsorban"
+      },
+      "buttonColor": {
+        "save": "Alkalmazás"
       }
     },
     "keyboardLedStatus": {
@@ -382,7 +402,10 @@
       "reboot": "Újraindítás",
       "rebootDesc": "Biztos, hogy újra akarja indítani a NanoKVM-t?",
       "okBtn": "Igen",
-      "cancelBtn": "Nem"
+      "cancelBtn": "Nem",
+      "cpuFrequency": {
+        "title": "CPU-órajel és túlhajtás"
+      }
     },
     "network": {
       "title": "Hálózat",
@@ -399,11 +422,22 @@
         "password": "Jelszó",
         "joinBtn": "Csatlakozás",
         "confirmBtn": "OK",
-        "cancelBtn": "Mégse"
+        "cancelBtn": "Mégse",
+        "band": "Frekvenciasáv",
+        "manual": "Kézi csatlakozás",
+        "hidden": "Rejtett hálózat",
+        "security": "Biztonság",
+        "open": "Nyílt hálózat",
+        "loading": "Betöltés...",
+        "reconnect": "Újracsatlakozás"
       },
       "tls": {
         "description": "HTTPS protokoll engedélyezése",
-        "tip": "Figyelem: A HTTPS használata növelheti a késleltetést, különösen MJPEG videó módban."
+        "tip": "Figyelem: A HTTPS használata növelheti a késleltetést, különösen MJPEG videó módban.",
+        "certificate": {
+          "title": "Tanúsítvány",
+          "remove": "Eltávolítás"
+        }
       },
       "ethernet": {
         "title": "Ethernet IPv4",
@@ -423,7 +457,8 @@
         "save": "Mentés",
         "unsaved": "Nem mentett módosítások",
         "saveFailed": "A konfiguráció mentése nem sikerült.",
-        "loadFailed": "A konfiguráció betöltése nem sikerült."
+        "loadFailed": "A konfiguráció betöltése nem sikerült.",
+        "disabled": "Letiltva"
       },
       "dns": {
         "title": "DNS",
@@ -446,6 +481,11 @@
         "subnetMask": "Alhálózati maszk",
         "router": "Router",
         "none": "Nincs"
+      },
+      "general": "Általános",
+      "gateway": {
+        "title": "Előnyben részesített átjáró",
+        "auto": "Automatikus"
       }
     },
     "tailscale": {
@@ -458,7 +498,7 @@
       "install": "Telepítés",
       "installing": "Telepítés folyamatban",
       "failed": "Telepítés sikertelen",
-      "retry": "Frissítse az oldalt, majd próbálja újra. Vagy próbálja meg manuálisan telepíteni.",
+      "retry": "Próbálja meg újra a telepítést.",
       "notRunning": "Tailscale nem fut. Kérjük, indítsa el a folytatáshoz.",
       "run": "Indítás",
       "notLogin": "Az eszköz még nincs kötve. Kérem, jelentkezzen be és kösse az eszközt a fiókjához.",
@@ -474,17 +514,169 @@
       "uninstall": "Eltávolítás Tailscale",
       "uninstallDesc": "Biztosan eltávolítja a Tailscale alkalmazást?",
       "okBtn": "Yes",
-      "cancelBtn": "No"
+      "cancelBtn": "No",
+      "moreActions": "További műveletek"
     },
     "account": {
-      "title": "Fiók",
+      "title": "Felhasználók",
       "webAccount": "Webes fiók neve",
       "password": "Jelszó",
       "updateBtn": "Update",
       "logoutBtn": "Kijelentkezés",
       "logoutDesc": "Biztos, hogy ki szeretne jelentkezni?",
       "okBtn": "Igen",
-      "cancelBtn": "Nem"
+      "cancelBtn": "Nem",
+      "role": "Szerepkör",
+      "roles": {
+        "admin": "Rendszergazda",
+        "user": "Felhasználó"
+      },
+      "users": {
+        "title": "Felhasználók",
+        "create": "Felhasználó létrehozása",
+        "enabled": "Engedélyezve",
+        "disabled": "Letiltva",
+        "deviceOwner": "Eszköztulajdonos",
+        "rename": "Átnevezés",
+        "resetPassword": "Jelszó visszaállítása",
+        "delete": "Törlés"
+      }
+    },
+    "software": {
+      "indexSchedule": {
+        "save": "Mentés"
+      },
+      "addons": {
+        "title": "Kiegészítők",
+        "packages": "Csomagok"
+      },
+      "title": "Szoftverek",
+      "available": "Elérhető csomagok",
+      "updatesTab": "Frissítések",
+      "search": "Keresés",
+      "install": "Telepítés",
+      "installed": "Telepített csomagok",
+      "remove": "Eltávolítás"
+    },
+    "updates": {
+      "apk": {
+        "title": "Csomagfrissítések",
+        "log": "Frissítési napló"
+      },
+      "title": "Frissítések",
+      "installed": "Telepítve"
+    },
+    "memory": {
+      "title": "Memória",
+      "available": "Elérhető",
+      "size": "Kapacitás",
+      "used": "Felhasznált",
+      "algorithm": "Tömörítés",
+      "videoUnknown": "Ismeretlen"
+    },
+    "system": {
+      "general": "Általános",
+      "logs": {
+        "title": "Naplók",
+        "sources": {
+          "kernel": "Rendszermag"
+        },
+        "refresh": "Frissítés"
+      },
+      "diagnostics": {
+        "overview": "Állapot",
+        "title": "Diagnosztika",
+        "refresh": "Frissítés",
+        "application": "Alkalmazás"
+      },
+      "services": "Szolgáltatások",
+      "device": "Eszköz"
+    },
+    "usb": {
+      "internet": {
+        "title": "Internet USB-n keresztül",
+        "states": {
+          "loading": "Betöltés..."
+        }
+      },
+      "title": "USB-funkciók",
+      "apply": "Alkalmazás",
+      "cancel": "Módosítások elvetése",
+      "identity": {
+        "title": "USB-azonosítók"
+      },
+      "userDisk": {
+        "title": "Felhasználói lemez",
+        "create": "Létrehozás",
+        "delete": "Törlés",
+        "files": {
+          "title": "Fájlok a felhasználói lemezen",
+          "refresh": "Frissítés",
+          "browse": "Fájlok böngészése",
+          "up": "Szülőmappa",
+          "upload": "Fájlok feltöltése",
+          "cancel": "Mégse",
+          "folderName": "Új mappa neve",
+          "mkdir": "Mappa létrehozása",
+          "download": "Letöltés",
+          "delete": "Törlés",
+          "empty": "Ez a mappa üres.",
+          "errors": {
+            "notEmpty": "A mappa nem üres."
+          },
+          "previous": "Előző oldal",
+          "next": "Következő oldal"
+        }
+      },
+      "serialConsole": {
+        "title": "Linux-konzol monitor nélkül"
+      },
+      "devices": {
+        "network": {
+          "title": "Virtuális hálózat"
+        },
+        "disk": {
+          "title": "Virtuális lemez"
+        },
+        "serial": {
+          "title": "USB soros konzol"
+        },
+        "keyboard": {
+          "title": "Billentyűzet"
+        }
+      }
+    },
+    "netbird": {
+      "moreActions": "További műveletek",
+      "loginSuccess": "Bejelentkeztem",
+      "deviceName": "Eszköz neve",
+      "version": "Verzió",
+      "loading": "Betöltés...",
+      "run": "Indítás",
+      "login": "Bejelentkezés",
+      "deviceIP": "Eszköz IP",
+      "okBtn": "Igen",
+      "cancelBtn": "Nem",
+      "error": {
+        "installFailed": "Telepítés sikertelen"
+      }
+    },
+    "rustdesk": {
+      "absent": "Nincs telepítve",
+      "stopped": "Leállítva",
+      "install": "Telepítés",
+      "remove": "Eltávolítás",
+      "save": "Beállítások mentése",
+      "server": "Kiszolgáló",
+      "passwordMode": "Jelszó",
+      "temporaryPassword": "Ideiglenes jelszó",
+      "newPassword": "Új jelszó",
+      "advanced": "Speciális beállítások",
+      "saved": "Beállítások mentve",
+      "unknownVersion": "Ismeretlen"
+    },
+    "extensions": {
+      "title": "Bővítmények"
     }
   },
   "picoclaw": {
@@ -499,7 +691,8 @@
       "kvmTitle": "Távoli vezérlés",
       "kvmDescription": "Működtesse a távoli gazdagépet az NanoKVM segítségével.",
       "switched": "Ügynöki szerepkör megváltozott",
-      "switchFailed": "Nem sikerült váltani az ügynöki szerepkört"
+      "switchFailed": "Nem sikerült váltani az ügynöki szerepkört",
+      "label": "Ügynök szerepköre"
     },
     "send": "Küldés",
     "cancel": "Mégse",
@@ -517,22 +710,22 @@
     "connection": {
       "runtime": {
         "checking": "Ellenőrzés",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "A PicoClaw helyreállítása",
         "ready": "Runtime kész",
         "stopped": "Runtime leállt",
         "blockedByMCP": "A külső MCP-vezérlés aktív",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "A futtatókörnyezet működik, de az eszköz bemenetét jelenleg a külső MCP vezérli.",
+        "readyWithoutControl": "A futtatókörnyezet működik. Újracsatlakozás előtt adja át az eszköz vezérlését a PicoClaw számára.",
         "unavailable": "Runtime nem érhető el",
         "configError": "Konfigurációs hiba"
       },
       "transport": {
         "connecting": "Csatlakozás",
         "connected": "Csatlakoztatva",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "Nincs kapcsolat",
+        "reconnect": "Újracsatlakozás",
+        "reconnectDescription": "Újracsatlakozás a futó PicoClaw-munkamenethez.",
+        "reconnectBlocked": "Az újracsatlakozáshoz a PicoClaw számára át kell adni az eszköz vezérlését."
       },
       "run": {
         "idle": "Üresjárat",
@@ -549,19 +742,19 @@
     },
     "control": {
       "picoclaw": "Eszközvezérlés: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "A PicoClaw billentyűzet- és egérbemenetet küldhet. A kézi bevitel szünetelhet.",
       "mcp": "Eszközvezérlés: külső MCP",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "Eszközvezérlés: kikapcsolva",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "A külső MCP bemenetet küldhet az eszköznek. A PicoClaw nem veszi át a bemenet vezérlését.",
+      "off": "Eszközvezérlés: kézi / MI nélkül",
+      "offDescription": "Az MI nem küld billentyűzet- vagy egérbemenetet. A kézi vezérlés továbbra is elérhető.",
+      "transitioning": "Eszközvezérlés: váltás folyamatban",
+      "transitioningDescription": "Az eszközvezérlés szinkronizálása folyamatban van. Kérjük, várjon.",
       "grant": "Vezérlés átadása",
       "release": "Vezérlés feloldása",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "Eszközvezérlés: visszaadás folyamatban",
+      "releasingDescription": "Az eszköz vezérlésének visszaadása folyamatban van. A PicoClaw leállította a bemenet küldését.",
       "granted": "PicoClaw-vezérlés megadva",
       "released": "PicoClaw-vezérlés feloldva",
       "grantFailed": "Nem sikerült megadni a PicoClaw-vezérlést",
@@ -643,7 +836,8 @@
       "description": "Indítsa el a Runtime-ot a PicoClaw segéd használatának megkezdéséhez.",
       "switchFromMCP": "Switch to PicoClaw and start",
       "takeoverAndStart": "Take over and start"
-    }
+    },
+    "moreActions": "További műveletek"
   },
   "error": {
     "title": "Problémába ütköztünk",
@@ -655,5 +849,111 @@
   "menu": {
     "collapse": "Menü összecsukása",
     "expand": "Bontsa ki a menüt"
+  },
+  "audio": {
+    "listen": "Hallgatás",
+    "resume": "Hang folytatása",
+    "volume": "Hangerő"
+  },
+  "sessionControl": {
+    "viewOnly": "Csak megtekintés",
+    "take": "Vezérlés átvétele",
+    "release": "Munkamenet zárolása"
+  },
+  "dateTime": {
+    "title": "Dátum és idő",
+    "deviceTime": "Eszközidő",
+    "timezone": "Időzóna",
+    "format": "Időformátum",
+    "preview": "Előnézet",
+    "synchronized": "Szinkronizálva",
+    "waiting": "A szinkronizálás nincs megerősítve",
+    "save": "Mentés"
+  },
+  "recorder": {
+    "title": "Videófelvétel",
+    "start": "Felvétel indítása",
+    "stop": "Felvétel leállítása"
+  },
+  "screenshot": {
+    "take": "Képernyőkép készítése"
+  },
+  "vpn": {
+    "rename": "Átnevezés",
+    "profileName": "Profil neve",
+    "credentials": "Hitelesítési adatok",
+    "username": "Felhasználónév",
+    "password": "Jelszó",
+    "save": "Mentés",
+    "enable": "Engedélyezés",
+    "delete": "Törlés",
+    "states": {
+      "reconnecting": "Újracsatlakozás",
+      "error": "Hiba",
+      "connecting": "Csatlakozás",
+      "connected": "Csatlakoztatva",
+      "idle": "Üresjárat"
+    },
+    "confirm": "Igen",
+    "cancel": "Nem"
+  },
+  "dashboard": {
+    "title": "Áttekintés",
+    "freeStorage": "Szabad hely",
+    "uptime": "Üzemidő",
+    "kernel": "Rendszermag",
+    "memory": "Memória",
+    "cache": "Gyorsítótár",
+    "compression": "Tömörítés",
+    "storage": "Tárhely",
+    "dataStorage": "Adatok",
+    "bootStorage": "Rendszerindítás",
+    "readOnly": "Csak olvasható",
+    "disconnected": "Nincs kapcsolat",
+    "deviceTime": "Eszközidő",
+    "timezone": "Időzóna",
+    "synchronization": "Szinkronizálás",
+    "synchronized": "Szinkronizálva",
+    "notSynchronized": "A szinkronizálás nincs megerősítve",
+    "noProfiles": "Nincsenek profilok",
+    "states": {
+      "waiting": "Várakozás",
+      "error": "Hiba",
+      "stopped": "Leállítva",
+      "notInstall": "Nincs telepítve",
+      "notRunning": "Leállítva",
+      "notLogin": "Nincs bejelentkezve",
+      "connected": "Csatlakoztatva",
+      "idle": "Üresjárat",
+      "running": "Csatlakoztatva",
+      "connecting": "Csatlakozás",
+      "auth": "Hitelesítés szükséges"
+    },
+    "device": "Eszköz",
+    "connected": "Csatlakoztatva"
+  },
+  "videoSettings": {
+    "image": "Kép",
+    "mode": "Mód",
+    "browserSection": "Ez a böngésző",
+    "player": "Lejátszó",
+    "landscape": "Fekvő monitor",
+    "transport": "Átvitel",
+    "powerCycleCancel": "Mégse",
+    "apply": "Alkalmazás",
+    "discard": "Módosítások elvetése",
+    "bitrate": "Bitráta",
+    "captureOn": "Képfogadás engedélyezve",
+    "captureOff": "Képfogadás letiltva",
+    "input": "HDMI-bemenet",
+    "output": "Kódolt adatfolyam",
+    "monitor": "HDMI-monitor",
+    "portrait": "Álló monitor",
+    "retry": "Újrapróbálkozás"
+  },
+  "capture": {
+    "start": "Képfogadás engedélyezése",
+    "stop": "Képfogadás letiltása",
+    "off": "Képfogadás letiltva"
   }
 }

@@ -72,6 +72,40 @@ func (r Runtime) status(s Status) error {
 	return r.save("status.json", s)
 }
 
+// NetbootPort is the port of the network boot menu listener announced to iPXE
+// clients, or 0. The file lives in the runtime directory: a reboot ends
+// network boot, as it ends an image mount.
+func (r Runtime) NetbootPort() int {
+	data, err := os.ReadFile(filepath.Join(r.Run, "netboot.port"))
+	if err != nil {
+		return 0
+	}
+	port, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil || port < 1024 || port > 65535 {
+		return 0
+	}
+	return port
+}
+
+// SetNetbootPort records (port > 0) or clears (port 0) the menu port. The next
+// Apply rewrites the DHCP configuration.
+func (r Runtime) SetNetbootPort(port int) error {
+	path := filepath.Join(r.Run, "netboot.port")
+	if port == 0 {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	if port < 1024 || port > 65535 {
+		return fmt.Errorf("invalid network boot port %d", port)
+	}
+	if err := os.MkdirAll(r.Run, 0700); err != nil {
+		return err
+	}
+	return atomicFile(path, []byte(strconv.Itoa(port)+"\n"))
+}
+
 // WatchNeeded is true only while the gadget provides a DHCP-managed USB
 // network. Local-only NCM still needs reconciliation; HID-only mode does not.
 func (r Runtime) WatchNeeded() bool {
@@ -370,7 +404,7 @@ func (r Runtime) Apply(preferred string, stop bool) (err error) {
 				guard := ruleset(p, "", false, owned)
 				if _, e = r.command(guard, "nft", "-f", "-"); e == nil {
 					_ = r.forwarding(&a, "", transit)
-					_ = r.daemon(dnsConfig(r.Resolv, a.Prefix, false))
+					_ = r.daemon(dnsConfig(r.Resolv, a.Prefix, false, r.NetbootPort()))
 					a.Rules = ruleset(p, "", false, false)
 					a.Uplink = ""
 					a.Routing = ""
@@ -451,7 +485,7 @@ func (r Runtime) Apply(preferred string, stop bool) (err error) {
 		if e = r.forwarding(&a, "", foreign); e != nil {
 			return e
 		}
-		if e = r.daemon(dnsConfig(r.Resolv, a.Prefix, false)); e != nil {
+		if e = r.daemon(dnsConfig(r.Resolv, a.Prefix, false, r.NetbootPort())); e != nil {
 			return e
 		}
 		a.Uplink = ""
@@ -575,7 +609,7 @@ func (r Runtime) Apply(preferred string, stop bool) (err error) {
 	if err = r.forwarding(&a, uplink, foreign); err != nil {
 		return err
 	}
-	config := dnsConfig(r.Resolv, prefix, uplink != "")
+	config := dnsConfig(r.Resolv, prefix, uplink != "", r.NetbootPort())
 	if err = r.daemon(config); err != nil {
 		return err
 	}

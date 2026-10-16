@@ -1,1 +1,395 @@
-{}
+{
+  "picoclaw": {
+    "connection": {
+      "runtime": {
+        "restoring": "משחזר את PicoClaw",
+        "readyBlockedByMCP": "סביבת הריצה פועלת, אך MCP חיצוני שולט כרגע בקלט למכשיר.",
+        "readyWithoutControl": "סביבת הריצה פועלת. יש לתת ל-PicoClaw שליטה במכשיר לפני התחברות מחדש."
+      },
+      "transport": {
+        "disconnected": "מנותק",
+        "reconnect": "התחברות מחדש",
+        "reconnectDescription": "התחברות מחדש להפעלת PicoClaw הפעילה.",
+        "reconnectBlocked": "PicoClaw זקוק לשליטה במכשיר לפני התחברות מחדש."
+      }
+    },
+    "control": {
+      "picoclawDescription": "PicoClaw יכול לשלוח קלט מהמקלדת ומהעכבר. הקלט הידני עשוי להיעצר זמנית.",
+      "mcpDescription": "MCP חיצוני יכול לשלוח קלט למכשיר. PicoClaw לא ישתלט על הקלט.",
+      "off": "שליטה במכשיר: ידנית / ללא AI",
+      "offDescription": "AI לא ישלח קלט מהמקלדת או מהעכבר. השליטה הידנית נשארת זמינה.",
+      "transitioning": "שליטה במכשיר: מעבר מתבצע",
+      "transitioningDescription": "מצב השליטה במכשיר מסתנכרן. נא להמתין.",
+      "releasing": "מחזיר את השליטה…",
+      "switching": "מבצע מעבר…",
+      "releasingLabel": "שליטה במכשיר: החזרת שליטה",
+      "releasingDescription": "השליטה במכשיר מוחזרת. PicoClaw הפסיק לשלוח קלט."
+    },
+    "moreActions": "פעולות נוספות",
+    "agent": {
+      "label": "תפקיד הסוכן"
+    },
+    "cancel": "ביטול",
+    "install": {
+      "stages": {
+        "installed": "מותקן"
+      }
+    },
+    "model": {
+      "save": "שמירה"
+    },
+    "uninstall": {
+      "menuLabel": "הסרת התקנה",
+      "confirmOk": "הסרת התקנה",
+      "confirmCancel": "ביטול"
+    },
+    "history": {
+      "deleteConfirmOk": "מחיקה",
+      "deleteConfirmCancel": "ביטול"
+    },
+    "start": {
+      "enableConfirmCancel": "ביטול"
+    }
+  },
+  "auth": {
+    "tips": {
+      "change1": "בחשבון מנהל המערכת המובנה, פעולה זו משנה את הסיסמאות הבאות:"
+    },
+    "placeholderUsername": "שם משתמש",
+    "placeholderPassword": "סיסמה",
+    "placeholderCurrentPassword": "הסיסמה הנוכחית",
+    "cancel": "ביטול"
+  },
+  "settings": {
+    "tailscale": {
+      "retry": "נא לנסות להתקין שוב.",
+      "moreActions": "פעולות נוספות",
+      "loginSuccess": "התחברתי",
+      "deviceName": "שם המכשיר"
+    },
+    "software": {
+      "indexSchedule": {
+        "save": "שמירה"
+      },
+      "addons": {
+        "title": "תוספים",
+        "packages": "חבילות"
+      },
+      "title": "תוכנה",
+      "available": "חבילות זמינות",
+      "updatesTab": "עדכונים",
+      "search": "חיפוש",
+      "install": "התקנה",
+      "installed": "חבילות מותקנות",
+      "remove": "הסרה"
+    },
+    "updates": {
+      "apk": {
+        "title": "עדכוני חבילות",
+        "log": "יומן עדכונים"
+      },
+      "title": "עדכונים",
+      "installed": "מותקן"
+    },
+    "memory": {
+      "title": "זיכרון",
+      "available": "זמין",
+      "size": "קיבולת",
+      "used": "בשימוש",
+      "algorithm": "דחיסה"
+    },
+    "system": {
+      "general": "כללי",
+      "logs": {
+        "title": "יומנים",
+        "sources": {
+          "kernel": "ליבה"
+        },
+        "refresh": "רענון"
+      },
+      "diagnostics": {
+        "overview": "מצב",
+        "title": "אבחון",
+        "refresh": "רענון",
+        "application": "יישום"
+      },
+      "services": "שירותים"
+    },
+    "title": "הגדרות",
+    "mcp": {
+      "cancelBtn": "ביטול"
+    },
+    "about": {
+      "title": "אודות",
+      "credits": {
+        "button": "תודות",
+        "title": "תודות"
+      },
+      "documentation": "תיעוד"
+    },
+    "appearance": {
+      "buttonColor": {
+        "save": "החלה"
+      },
+      "title": "מראה"
+    },
+    "device": {
+      "cpuFrequency": {
+        "title": "תדר מעבד והמהרה"
+      },
+      "mouseJiggler": {
+        "disable": "השבתה"
+      }
+    },
+    "usb": {
+      "internet": {
+        "title": "אינטרנט דרך USB"
+      },
+      "title": "תצורת פונקציות USB",
+      "apply": "החלה",
+      "cancel": "ביטול השינויים",
+      "identity": {
+        "title": "זהות USB"
+      },
+      "userDisk": {
+        "title": "דיסק משתמש",
+        "create": "יצירה",
+        "delete": "מחיקה",
+        "files": {
+          "title": "קבצים בדיסק המשתמש",
+          "refresh": "רענון",
+          "browse": "עיון בקבצים",
+          "up": "תיקיית האב",
+          "upload": "העלאת קבצים",
+          "cancel": "ביטול",
+          "folderName": "שם התיקייה החדשה",
+          "mkdir": "יצירת תיקייה",
+          "download": "הורדה",
+          "delete": "מחיקה",
+          "empty": "התיקייה הזו ריקה.",
+          "errors": {
+            "notEmpty": "התיקייה אינה ריקה."
+          },
+          "previous": "העמוד הקודם",
+          "next": "העמוד הבא"
+        }
+      },
+      "serialConsole": {
+        "title": "מסוף Linux ללא צג"
+      },
+      "devices": {
+        "network": {
+          "title": "רשת וירטואלית"
+        },
+        "disk": {
+          "title": "דיסק וירטואלי"
+        },
+        "serial": {
+          "title": "מסוף טורי דרך USB"
+        }
+      }
+    },
+    "network": {
+      "title": "רשת",
+      "general": "כללי",
+      "gateway": {
+        "title": "שער מועדף",
+        "auto": "אוטומטי"
+      },
+      "wifi": {
+        "band": "תחום תדרים",
+        "manual": "התחברות ידנית",
+        "hidden": "רשת מוסתרת",
+        "security": "אבטחה",
+        "open": "רשת פתוחה",
+        "password": "סיסמה",
+        "cancelBtn": "ביטול",
+        "reconnect": "התחברות מחדש"
+      },
+      "tls": {
+        "certificate": {
+          "title": "תעודה",
+          "remove": "הסרה"
+        }
+      },
+      "ethernet": {
+        "disabled": "מושבת",
+        "save": "שמירה"
+      },
+      "dns": {
+        "save": "שמירה"
+      }
+    },
+    "netbird": {
+      "moreActions": "פעולות נוספות",
+      "loginSuccess": "התחברתי",
+      "deviceName": "שם המכשיר",
+      "version": "גרסה"
+    },
+    "rustdesk": {
+      "absent": "לא מותקן",
+      "stopped": "נעצר",
+      "install": "התקנה",
+      "remove": "הסרה",
+      "save": "שמירת הגדרות",
+      "server": "שרת",
+      "passwordMode": "סיסמה",
+      "temporaryPassword": "סיסמה זמנית",
+      "newPassword": "סיסמה חדשה",
+      "advanced": "הגדרות מתקדמות",
+      "saved": "ההגדרות נשמרו"
+    },
+    "account": {
+      "title": "משתמשים",
+      "role": "תפקיד",
+      "roles": {
+        "admin": "מנהל מערכת",
+        "user": "משתמש"
+      },
+      "password": "סיסמה",
+      "users": {
+        "title": "משתמשים",
+        "create": "יצירת משתמש",
+        "enabled": "מופעל",
+        "disabled": "מושבת",
+        "deviceOwner": "בעל המכשיר",
+        "rename": "שינוי שם",
+        "resetPassword": "איפוס סיסמה",
+        "delete": "מחיקה"
+      }
+    },
+    "extensions": {
+      "title": "הרחבות"
+    }
+  },
+  "keyboard": {
+    "shortcut": {
+      "clear": "ניקוי",
+      "custom": "מותאם אישית",
+      "title": "קיצורי מקלדת",
+      "save": "שמירה"
+    },
+    "sequences": {
+      "title": "רצפי מקשים",
+      "sent": "נשלח"
+    }
+  },
+  "screen": {
+    "scale": "קנה מידה",
+    "codec": "מקודד",
+    "controlRegion": {
+      "cancel": "ביטול"
+    },
+    "retryJoin": "ניסיון חוזר"
+  },
+  "audio": {
+    "listen": "האזנה",
+    "resume": "חידוש השמע",
+    "volume": "עוצמת קול"
+  },
+  "sessionControl": {
+    "viewOnly": "צפייה בלבד",
+    "take": "קבלת שליטה",
+    "release": "נעילת ההפעלה הזו"
+  },
+  "dateTime": {
+    "title": "תאריך ושעה",
+    "deviceTime": "שעת המכשיר",
+    "timezone": "אזור זמן",
+    "format": "תבנית שעה",
+    "preview": "תצוגה מקדימה",
+    "synchronized": "מסונכרן",
+    "waiting": "הסנכרון לא אושר",
+    "save": "שמירה"
+  },
+  "recorder": {
+    "title": "הקלטת וידאו",
+    "start": "התחלת הקלטה",
+    "stop": "עצירת הקלטה"
+  },
+  "screenshot": {
+    "take": "צילום מסך"
+  },
+  "vpn": {
+    "rename": "שינוי שם",
+    "profileName": "שם הפרופיל",
+    "credentials": "פרטי התחברות",
+    "username": "שם משתמש",
+    "password": "סיסמה",
+    "save": "שמירה",
+    "enable": "הפעלה",
+    "delete": "מחיקה",
+    "states": {
+      "reconnecting": "מתחבר מחדש",
+      "error": "שגיאה"
+    }
+  },
+  "dashboard": {
+    "title": "לוח בקרה",
+    "freeStorage": "שטח פנוי",
+    "uptime": "זמן פעילות",
+    "kernel": "ליבה",
+    "memory": "זיכרון",
+    "cache": "מטמון",
+    "compression": "דחיסה",
+    "storage": "אחסון",
+    "dataStorage": "נתונים",
+    "bootStorage": "אתחול",
+    "readOnly": "לקריאה בלבד",
+    "disconnected": "אין חיבור",
+    "deviceTime": "שעת המכשיר",
+    "timezone": "אזור זמן",
+    "synchronization": "סנכרון",
+    "synchronized": "מסונכרן",
+    "notSynchronized": "הסנכרון לא אושר",
+    "noProfiles": "אין פרופילים",
+    "states": {
+      "waiting": "ממתין",
+      "error": "שגיאה",
+      "stopped": "נעצר",
+      "notInstall": "לא מותקן",
+      "notRunning": "נעצר",
+      "notLogin": "לא מחובר לחשבון"
+    }
+  },
+  "videoSettings": {
+    "image": "תמונה",
+    "mode": "מצב",
+    "browserSection": "הדפדפן הזה",
+    "player": "נגן",
+    "landscape": "צג לרוחב",
+    "transport": "שיטת העברה",
+    "powerCycleCancel": "ביטול",
+    "apply": "החלה",
+    "discard": "ביטול השינויים",
+    "bitrate": "קצב סיביות",
+    "captureOn": "לכידה מופעלת",
+    "captureOff": "לכידה מושבתת",
+    "input": "קלט HDMI",
+    "output": "זרם מקודד",
+    "monitor": "צג HDMI",
+    "portrait": "צג לאורך",
+    "retry": "ניסיון חוזר"
+  },
+  "capture": {
+    "start": "הפעלת לכידה",
+    "stop": "השבתת לכידה",
+    "off": "לכידה מושבתת"
+  },
+  "script": {
+    "delete": "מחיקה"
+  },
+  "terminal": {
+    "usbSerial": "מסוף טורי דרך USB"
+  },
+  "wol": {
+    "name": "שם המכשיר",
+    "cancel": "ביטול"
+  },
+  "download": {
+    "cancel": "ביטול"
+  },
+  "error": {
+    "refresh": "רענון"
+  }
+}

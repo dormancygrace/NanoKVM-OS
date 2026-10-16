@@ -4,7 +4,7 @@
 - the toolchain, the Linux kernel and all kernel modules, U-Boot, OpenSBI, `fip.bin`, the initramfs and the `boot.sd` images;
 - the SOPHGO media libraries, the board service `kvm_system`, the server, the update helpers and the web UI;
 - the board tools, the EDID profiles and the firmware files;
-- the eight `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
+- the ten `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
 Every upstream input is pinned in `sources.lock` and checked when it is downloaded. The outputs of the build steps are checked against `expected.sha256`. The OpenSBI/FIP candidate passed host checks and ROM UART RAM boot on SG2002 with Linux 7.2.9, timer/PLIC, fixed PMU counters and live video. The full image installs the built `fip.bin` on the SD card; the test stand cold-boots from it (see [opensbi/README.md](opensbi/README.md)).
 
@@ -17,14 +17,14 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/licenses/initramfs/` (Buildroot `legal-info`: `manifest.csv` and the license texts of the initramfs userland and C library) | `nanokvm-kernel-sg2002`, `/usr/share/licenses/nanokvm-kernel-sg2002/initramfs` |
 | `images/u-boot.bin`, `images/fip.bin` | boot partition of the SD image |
 | `images/opensbi/*`, `images/fip-manifest.json` | host build provenance and loader checks |
-| `images/native/*.so` (6 HDMI-light libraries) | `nanokvm-app`, `/kvmapp/server/dl_lib` |
-| `images/system/kvm_system` | `nanokvm-app`, `/kvmapp/kvm_system` |
-| `images/server/NanoKVM-Server`, `nkos-update`, `nkos-apply-updates`, `nkos-usb-internet` | `nanokvm-app`, `nanokvm-base` |
-| `images/web/` | `nanokvm-app`, `/kvmapp/server/web` |
-| `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm-app`, `nanokvm-firmware-sg2002` |
+| `images/native/*.so` (6 HDMI-light libraries) | `nanokvm`, `/kvmapp/server/dl_lib` |
+| `images/system/kvm_system` | `nanokvm`, `/kvmapp/kvm_system` |
+| `images/server/NanoKVM-Server`, `nkos-update`, `nkos-apply-updates`, `nkos-usb-internet` | `nanokvm`, `nanokvm-base` |
+| `images/web/` | `nanokvm-web`, `/kvmapp/server/web` |
+| `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm`, `nanokvm-firmware-sg2002` |
 | `images/tools/zlib-ng/` (zlib-ng as `libz.so.1`, its license) | `nanokvm-zlib`, in place of Alpine's `zlib` |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware-sg2002` |
-| `release/apk/` | the signed APK repository of the eight packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
+| `release/apk/` | the signed APK repository of the ten packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
 | `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt`, `release/installed-licenses.txt` | the root file system, its package versions and their declared licenses |
 | `release/image/NanoKVM-OS-Image-<image-version>-apps-<application-version>.img.zip`, `SHA256SUMS` | the SD card image |
 
@@ -81,7 +81,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`). Re
 | `sources.lock` | Every upstream input: archives by SHA-256, Git trees by commit and tree id |
 | `build.sh` | All build steps |
 | `expected.sha256` | Hash of every output in `images/`; `build.sh verify` fails if an output is missing, differs or is not listed |
-| `packages.list` | The contents of the eight APK packages: each file, its mode and where it comes from |
+| `packages.list` | The contents of the ten APK packages: each file, its mode and where it comes from |
 | `kernel/` | `config` and patches for kernel.org Linux 7.2.10 |
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi and cryptodev; `sg2002-aes/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.10 |
@@ -183,8 +183,34 @@ RustDesk performance build, measurement limits and release checksum policy.
 
 ## HDMI-light media runtime
 
-The standard build and `nanokvm-app` ship the complete six-library HDMI-light bundle. Open MPI components are linked into `libkvm_mmf.so`; the four vendor algorithm DSOs remain separate. `platform/build.sh native` always selects this bundle. `NANOKVM_MMF_PROFILE=full` is retained only for explicit comparison builds through the lower-level MMF script.
+The standard build and `nanokvm` ship the complete six-library HDMI-light bundle. Open MPI components are linked into `libkvm_mmf.so`; the four vendor algorithm DSOs remain separate. `platform/build.sh native` always selects this bundle. `NANOKVM_MMF_PROFILE=full` is retained only for explicit comparison builds through the lower-level MMF script.
 
-APK owns the old MPI library paths and removes files no longer shipped when upgrading `nanokvm-app`; the existing transaction hook restarts the application after the update. Do not overlay individual libraries in a running process or retain old MPI DSOs alongside the new set. Native license notices are included in the application package.
+APK owns the old MPI library paths and removes files no longer shipped when upgrading `nanokvm`; the existing transaction hook restarts the application after the update. Do not overlay individual libraries in a running process or retain old MPI DSOs alongside the new set. Native license notices are included in the application package.
 
 See the [build description](../docs/hdmi-light-experiment-20261011.md) and [scoped hardware measurements](../docs/hdmi-light-hardware-20261011.md): about 0.63 MiB lower server PSS in the measured mode, no demonstrated CPU improvement; wider hardware qualification remains outstanding.
+
+
+### Application package split
+
+The build produces nine core APKs. `nanokvm` owns the server, board service,
+native libraries and application scripts; `nanokvm-web` owns
+`/kvmapp/server/web`. `nanokvm-app` is a file-free compatibility metapackage
+(revision r2 for v3.0-a1) depending on both. Keep it while older installations
+and `nanokvm-release` depend on the old package name. The new packages declare
+`replaces=nanokvm-app` so APK can transfer ownership during the upgrade.
+The OpenRC service is still named `nanokvm-app`.
+
+The browser package requires `nanokvm-web-api=1`, provided by the server.
+Increment this contract version when the browser/server API becomes incompatible,
+and update both recipes together. Compatible fixes may increment either package's
+`pkgrel` independently. Do not pin their revisions to each other.
+The backend requires `nanokvm-base>=3.0_alpha1-r1`, which contains the updated
+transaction helper: web-only updates require a browser reload, not a service
+restart. Backend and native-library updates still restart a running server.
+The initial migration can restart it because the previous hook captures the old
+combined runtime tree before the transaction.
+
+`/kvmapp/build-manifest.json` covers only backend files;
+`/kvmapp/web-build-manifest.json` covers only browser files. Both record their
+source commit. Package revisions are visible through Software, diagnostic reports,
+or `apk info -v nanokvm nanokvm-web nanokvm-app`.

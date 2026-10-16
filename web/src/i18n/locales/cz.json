@@ -208,7 +208,7 @@
           "h": "help: vypsat příkazy na konzoli",
           "f": "jednorázově spustit nástroj pro nouzové uvolnění paměti (OOM killer)"
         },
-        "desc": "Alt + SysRq + klávesa na linuxovém hostiteli (je třeba, aby kernel.sysrq příkaz povolovalo).."
+        "desc": "Alt + SysRq + klávesa na linuxovém hostiteli (je třeba, aby kernel.sysrq příkaz povolovalo)."
       },
       "title": "Klávesové sekvence",
       "tips": "Stisknuto NanoKVM s pevným časováním – je třeba, aby tento panel (prohlížeče) měl v držení ovládání vstupu.",
@@ -437,7 +437,7 @@
       "reportIssue": "Nahlásit problém",
       "bundledVersion": "Aplikace obsažené v tomto obrazu",
       "description": "Komunitní firmware pro NanoKVM.",
-      "upstreamCredit": "Založeno na původním projektu NanoKVM od Sispeed. Děkujeme jeho autorům a přispěvatelům."
+      "upstreamCredit": "Založeno na původním projektu NanoKVM od Sipeed. Děkujeme jeho autorům a přispěvatelům."
     },
     "appearance": {
       "title": "Vzhled",
@@ -655,7 +655,7 @@
         "invalidVlan": "Je třeba, aby VLAN ID bylo z rozmezí 1 až 4094",
         "linkUpNoAddress": "Povoleno · kabel připojen · žádná IPv4 adresa",
         "linkUpAddress": "Povoleno · kabel připojen · {{address}}",
-        "interfaceDown": "Povoleno v nastavení · rozhraní je nyní schozené"
+        "interfaceDown": "Povoleno v nastavení · rozhraní je nyní shozené"
       },
       "dns": {
         "title": "DNS",
@@ -1143,7 +1143,7 @@
         "states": {
           "error": "Ze sériového portu nebylo možné číst.",
           "password": "Odpovědi z výzvy o heslo: probíhá přihlašování na sériovém portu.",
-          "busy": "USB sériové konzole je otevřena v terminálu. Zavřete a zkuste to znovu.",
+          "busy": "USB sériová konzole je otevřena v terminálu. Zavřete a zkuste to znovu.",
           "unavailable": "USB sériový port není na tomto NanoKVM zapnutý.",
           "text": "Počítač něco poslal, ale nejedná se o výzvu k přihlášení.",
           "shell": "Na sériovém portu je otevřena relace shellu.",
@@ -1204,7 +1204,7 @@
       "key": "Veřejný klíč serveru (volitelné)",
       "registering": "Čeká se na server pro identifikátory",
       "audioMuted": "Přenos zvuku prostřednictvím RustDesk je vypnutý.",
-      "sameServer": "Nastavte stejný uživatelsky určený server s identifikátory a veřejný klíč v i RustDesk klientovi.",
+      "sameServer": "Nastavte stejný uživatelsky určený server s identifikátory a veřejný klíč i v RustDesk klientovi.",
       "passwordRequired": "Zadejte heslo (8 až 64 bajtů)",
       "description": "Vzdálený přístup k počítači připojenému k NanoKVM (pomocí RustDesk).",
       "deletion": "Odebrat balíček? Nastavení pro server, heslo a identifikátor zařízení zůstanou zachovány.",
@@ -1462,7 +1462,7 @@
       "transport": "v případě tohoto transportu není k dispozici",
       "receiver": "nepodporováno tímto HDMI přijímačem",
       "portrait": "nepodporováno tímto profilem na výšku",
-      "mjpeg-4k": "není k dispozici, když z HDMI má rozlišení 3840 × 2160 – použijte H.264 nebo H.265",
+      "mjpeg-4k": "není k dispozici, když vstup HDMI má rozlišení 3840 × 2160 – použijte H.264 nebo H.265",
       "video-memory": "vyžaduje režim s větší videopamětí – QHD nebo UHD (Nastavení → Paměť a pak restartovat)"
     },
     "bitrateAuto": "Automaticky · {{value}} Mbit/s",
@@ -1499,11 +1499,11 @@
     "modeHint": "Rozlišení a obnovovací frekvence, kterými počítač vykresluje, propagované NanoKVM monitorem (proud nese stejné tempo). Při provedení změny nakrátko odpojí a znovu připojí HDMI.",
     "bitrateCeiling": "Horní hranice pro pohyb (video, posouvání) – nehybný obraz posílá mnohem méně. Automaticky se řídí režimem, Úsporné se hodí pro připojení na dálku nebo přes mobilní síť.",
     "bitrateLimit": "omezit na {{value}} Mbit/s",
-    "codecHint": "Pro ten stejný obraz, H.256 vytváří o cca třetinu nižší objem datového toku, H.264 je ale přehrávatelný ve více prohlížečích.",
+    "codecHint": "Pro ten stejný obraz, H.265 vytváří o cca třetinu nižší objem datového toku, H.264 je ale přehrávatelný ve více prohlížečích.",
     "browserSectionHint": "Uloženo v tomto prohlížeči (ostatním prohlížejícím zůstane jejich).",
     "fpsOverrideHint": "Nastaveno režimem – měňte pouze pro frekvence, které režimy nenabízejí.",
     "fpsDelivered": "Doručováno: až {{fps}} sním./s při {{size}}",
-    "mjpegChromaFallback_video": "Pouze jeden výstup zachytávání podporuje šířky větší než 1920 pixelů. MJPEG používá 4:2:0 zatímco oba proudy jsou širší; 4:2:2 bude navráceno po skončení proudu videa nebo pokud se oba proudy zmenší.",
+    "mjpegChromaFallback_video": "Pouze jeden výstup zachytávání podporuje šířky větší než 1920 pixelů. MJPEG používá 4:2:0 zatímco oba proudy jsou širší; 4:2:2 bude navráceno po skončení proudu videa nebo pokud se zmenší alespoň jeden z proudů.",
     "mjpegChromaFallback_diagnostic": "Ve stávajícím režimu zachytávání není 4:2:2 k dispozici.",
     "mjpegChromaFallback_hardware": "Po chybě zachytávání náhradně používá 4:2:0. Pokud je signál stabilní, zkuste znovu 4:2:2.",
     "mjpegChromaFallback_pending": "4:2:2 bude použito pro příští zachycený snímek.",
@@ -1634,14 +1634,14 @@
     "openvpnUninstallWarning": "OpenVPN bude zastaveno a odebráno. Stávající profily a nastavení i tak v zařízení zůstanou.",
     "openvpnLimit": "Nejvýše 16 profilů (256 KiB na soubor a kombinovaný profil).",
     "openvpnInstallDescription": "Nainstalovat OpenVPN v případě potřeby. Existující profily jsou zachovány.",
-    "description": "Naimportujte WireGuard profily a povolte ten, který potřebujte. Zapnutý profil se znovupřipojí i po restartu.",
+    "description": "Naimportujte WireGuard profily a povolte ten, který potřebujete. Zapnutý profil se znovu připojí i po restartu.",
     "requestFailed": "Spojení přerušeno. Než budete zkoušet znovu, připojte se k NanoKVM znovu a zkontrolujte stav tunelu.",
     "systemRequired": "Systémové nástroje pro WireGuard chybí. Nainstalujte obraz systému obsahující podporu pro WireGuard.",
     "routingNote": "Ve výchozím stavu je směrována pouze podsíť rozhraní. Pokud chcete přidávat trasy na protějšky, povolte „Směrovat povolené IP adresy“.",
     "routeAllowedIPs": "Směrovat povolené IP adresy",
-    "routingHelp": "Přidat trasy z AllowedIP adres, včetně výchozí trasy pro 0.0.0.0/0 nebo ::/0.",
+    "routingHelp": "Přidat trasy z AllowedIPs adres, včetně výchozí trasy pro 0.0.0.0/0 nebo ::/0.",
     "openvpnNote": "Profily OpenVPN je třeba povolovat jeden po druhém. Povolené profily se po restartu znovu připojí. Jsou podporovány směrované TUN profily (TAP, skripty a interaktivní SSO/MFA ověřování nejsou). Po dobu trvání (vpn) připojení je nastavení DNS z (vpn) serveru uplatňováno v rámci veškerého fungování zařízení.",
-    "note": "Profily OpenVPN je třeba povolovat jeden po druhém. Po naimportování není provedeno automatické připojení. Pro nastavení DNS je možné použít IP adresy („executable hooks“ a Saveconfig nejsou podporovány. Nečinnost znamená, že tunel nemá žádné nedávné ustavení spojení, nikoli nezbytně že spojení spadlo."
+    "note": "Současně může být povolen pouze jeden profil WireGuard. Po naimportování není provedeno automatické připojení. Pro nastavení DNS je možné použít IP adresy; „executable hooks“ a SaveConfig nejsou podporovány. Nečinnost znamená, že tunel nemá žádné nedávné ustavení spojení, nikoli nezbytně že spojení spadlo."
   },
   "dateTime": {
     "save": "Uložit",

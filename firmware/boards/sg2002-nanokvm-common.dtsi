@@ -275,6 +275,15 @@
 		};
 	};
 };
+// The SDHCI base clock, from which the driver divides the card clock, is the
+// functional clock CLK_SD0 (100 MHz); CLK_AXI4_SD0 (300 MHz) clocks the
+// registers and DMA. cv180x.dtsi names them the other way round, so a 50 MHz
+// request divided 300 MHz by 6 and the bus ran at 16.7 MHz: 8 MB/s from the
+// SD card (issue #247).
+&sdhci0 {
+	clocks = <&clk CLK_SD0>, <&clk CLK_AXI4_SD0>;
+	clock-names = "core", "bus";
+};
 &sdhci1 {
 	// Module VDDIO is tied to VDD3V3_SYS; no 1.8 V switching circuitry.
 	no-1-8-v;

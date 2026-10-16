@@ -44,6 +44,37 @@ export function deleteUserDisk() {
   return http.post('/api/storage/user-disk/delete');
 }
 
+// Network boot: the official iPXE image on the virtual disk loads the
+// netboot.xyz menus over USB internet sharing.
+export type NetbootStatus = {
+  enabled: boolean;
+  secureBoot: boolean;
+  ipxe: string;
+  netbootxyz: string;
+  checkedAt: string;
+  menu?: string;
+  menuFetches: number;
+  lastFetch?: number;
+  usbNetwork: boolean;
+  virtualDisk: boolean;
+  usbInternet: { enabled: boolean; state: string; uplink?: string };
+  browserMedia: boolean;
+};
+// Downloads of the iPXE images (about 13 MB) can take minutes on Wi-Fi.
+const netbootTimeout = 11 * 60 * 1000;
+export function getNetboot() {
+  return http.get('/api/storage/netboot');
+}
+export function updateNetboot() {
+  return http.post('/api/storage/netboot/update', undefined, { timeout: netbootTimeout });
+}
+export function enableNetboot(secureBoot: boolean) {
+  return http.post('/api/storage/netboot/enable', { secureBoot }, { timeout: netbootTimeout });
+}
+export function disableNetboot() {
+  return http.post('/api/storage/netboot/disable');
+}
+
 export function getRemoteMedia() {
   return http.get('/api/storage/remote');
 }

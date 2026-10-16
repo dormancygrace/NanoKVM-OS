@@ -126,6 +126,11 @@ func (s *Service) ConnectRemote(c *gin.Context) {
 		fail(errors.New("Browser media is already connected"))
 		return
 	}
+	if s.netboot != nil {
+		s.mu.Unlock()
+		fail(errors.New("Turn off network boot before connecting an ISO"))
+		return
+	}
 	current, err := os.ReadFile(mountDevice)
 	if err != nil {
 		s.mu.Unlock()

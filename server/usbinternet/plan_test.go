@@ -48,11 +48,11 @@ func TestOwnedTableAndForeignPolicies(t *testing.T) {
 	}
 }
 func TestNoGatewayOrIPv6WhenLocal(t *testing.T) {
-	cfg := dnsConfig("/run/test", "10.20.30", false)
+	cfg := dnsConfig("/run/test", "10.20.30", false, 0)
 	if !strings.Contains(cfg, "port=0\ndhcp-option=3\ndhcp-option=6\n") {
 		t.Fatal(cfg)
 	}
-	active := dnsConfig("/run/test", "10.20.30", true)
+	active := dnsConfig("/run/test", "10.20.30", true, 0)
 	if !strings.Contains(active, "dhcp-option=3,10.20.30.1") || !strings.Contains(active, "dhcp-option=6,10.20.30.1") {
 		t.Fatal(active)
 	}
@@ -62,6 +62,43 @@ func TestNoGatewayOrIPv6WhenLocal(t *testing.T) {
 		}
 	}
 }
+func TestNetbootMenuOnlyForIPXE(t *testing.T) {
+	for _, sharing := range []bool{false, true} {
+		cfg := dnsConfig("/run/test", "10.20.30", sharing, 8070)
+		if !strings.Contains(cfg, "dhcp-match=set:ipxe,175\ndhcp-boot=tag:ipxe,http://10.20.30.1:8070/boot.ipxe\n") {
+			t.Fatal(cfg)
+		}
+		if strings.Count(cfg, "dhcp-boot=") != 1 {
+			t.Fatal("untagged boot file:", cfg)
+		}
+	}
+	if cfg := dnsConfig("/run/test", "10.20.30", true, 0); strings.Contains(cfg, "dhcp-boot") || strings.Contains(cfg, "dhcp-match") {
+		t.Fatal(cfg)
+	}
+}
+
+func TestNetbootPortFile(t *testing.T) {
+	r := Runtime{Run: t.TempDir()}
+	if r.NetbootPort() != 0 {
+		t.Fatal("port without a file")
+	}
+	if err := r.SetNetbootPort(80); err == nil {
+		t.Fatal("privileged port accepted")
+	}
+	if err := r.SetNetbootPort(8070); err != nil || r.NetbootPort() != 8070 {
+		t.Fatal(err, r.NetbootPort())
+	}
+	if err := os.WriteFile(filepath.Join(r.Run, "netboot.port"), []byte("x\n"), 0600); err != nil || r.NetbootPort() != 0 {
+		t.Fatal("malformed port used")
+	}
+	if err := r.SetNetbootPort(0); err != nil || r.NetbootPort() != 0 {
+		t.Fatal(err)
+	}
+	if err := r.SetNetbootPort(0); err != nil {
+		t.Fatal("clearing twice:", err)
+	}
+}
+
 func TestPolicyOffloadAndUSBOnlyRules(t *testing.T) {
 	rules := ruleset(netip.MustParsePrefix("10.20.30.0/24"), "wlan0", true, true)
 	if strings.Contains(rules, "flags offload") || strings.Contains(rules, "flush ruleset") || !strings.Contains(rules, "flow add @usb_fast") {

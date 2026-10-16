@@ -10,7 +10,7 @@ import (
 
 func storageRouter(r *gin.Engine) {
 	service := storage.NewService()
-	go service.CleanupNetboot()
+	service.CleanupNetboot()
 	api := r.Group("/api").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
 
 	api.GET("/storage/remote", service.RemoteStatus)

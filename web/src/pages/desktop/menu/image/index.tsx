@@ -184,7 +184,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
             <RemoteImage isOpen={isModalOpen} onConnected={setRemoteConnected} />
           </div>
           <div style={{ display: source === 'network' ? undefined : 'none' }}>
-            <Netboot isOpen={isModalOpen && source === 'network'} onEnabled={setNetbootEnabled} />
+            <Netboot isOpen={isModalOpen} onEnabled={setNetbootEnabled} />
           </div>
           {netbootEnabled && source !== 'network' && (
             <span className="text-sm text-neutral-400">{t('image.netboot.inUse')}</span>

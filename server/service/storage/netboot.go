@@ -387,6 +387,9 @@ func (s *Service) enableNetboot(ctx context.Context, secureBoot bool) (int, erro
 		return fail(-2, err)
 	}
 	if err = mountNetbootImage(image, true, false); err != nil {
+		// The mount can fail after writing the LUN (for example while
+		// rebinding USB). Do not leave that partial mount behind.
+		err = errors.Join(err, ejectNetbootImage())
 		s.mu.Unlock()
 		n.close()
 		return fail(-2, err)
@@ -416,25 +419,45 @@ func (s *Service) DisableNetboot(c *gin.Context) {
 	rsp.OkRspWithData(c, status)
 }
 
-func (s *Service) disableNetboot() (int, error) {
-	s.mu.Lock()
-	n := s.netboot
-	var ejectErr error
-	if n != nil {
-		n.close()
-		s.netboot = nil
-		if current, err := os.ReadFile(mountDevice); err == nil && strings.TrimSpace(string(current)) == n.image {
-			ejectErr = mountNetbootImage("", false, true)
-		}
+// ejectNetbootImage also works when the storage function has been unlinked
+// or the gadget is unbound. Ejecting does not need to rebind the whole gadget,
+// which would interrupt the host's USB network connection.
+func ejectNetbootImage() error {
+	current, err := os.ReadFile(mountDevice)
+	if os.IsNotExist(err) {
+		return nil
 	}
-	s.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	if !strings.HasPrefix(strings.TrimSpace(string(current)), netbootDir+string(filepath.Separator)) {
+		return nil
+	}
+	return ejectLocalImage(true, os.WriteFile)
+}
+
+func (s *Service) disableNetboot() (int, error) {
 	st, err := loadNetbootState()
 	if err != nil {
 		return -2, err
 	}
-	if err = errors.Join(ejectErr, undoNetboot(&st)); err != nil {
+	s.mu.Lock()
+	// Keep the session and cleanup markers until cleanup succeeds. A
+	// failed disable must remain retryable, including after a server restart.
+	err = ejectNetbootImage()
+	s.mu.Unlock()
+	if err != nil {
 		return -2, err
 	}
+	if err = undoNetboot(&st); err != nil {
+		return -2, err
+	}
+	s.mu.Lock()
+	if n := s.netboot; n != nil {
+		n.close()
+		s.netboot = nil
+	}
+	s.mu.Unlock()
 	return 0, nil
 }
 
@@ -442,25 +465,24 @@ func (s *Service) disableNetboot() (int, error) {
 // have left network boot on (the menu port, sharing it enabled, its image on
 // the virtual disk). Without a session nothing serves the menu any more.
 func (s *Service) CleanupNetboot() {
+	s.netbootOp.Lock()
+	defer s.netbootOp.Unlock()
 	st, err := loadNetbootState()
 	if err != nil {
 		log.Warnf("network boot: %v", err)
+		return
+	}
+	s.mu.Lock()
+	err = ejectNetbootImage()
+	s.mu.Unlock()
+	if err != nil {
+		log.Warnf("network boot: eject the iPXE image: %v", err)
 		return
 	}
 	r := netbootRuntime()
 	if r.NetbootPort() == 0 && !st.SharingByNetboot {
 		return
 	}
-	s.netbootOp.Lock()
-	defer s.netbootOp.Unlock()
-	s.mu.Lock()
-	if current, err := os.ReadFile(mountDevice); err == nil &&
-		strings.HasPrefix(strings.TrimSpace(string(current)), netbootDir+string(filepath.Separator)) {
-		if err := mountNetbootImage("", false, true); err != nil {
-			log.Warnf("network boot: eject the iPXE image: %v", err)
-		}
-	}
-	s.mu.Unlock()
 	if err := undoNetboot(&st); err != nil {
 		log.Warnf("network boot: undo after restart: %v", err)
 	}

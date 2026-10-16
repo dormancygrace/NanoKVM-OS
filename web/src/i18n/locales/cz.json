@@ -304,17 +304,17 @@
     "forceEjectDesc": "Tento obraz je pořád ještě využíván vzdáleným hostitelem. Vynucení vysunutí může přerušit čekající čtení nebo zápisy. Pokračovat?",
     "netboot": {
       "tab": "Zavedení ze sítě",
-      "hint": "Zavést systém tohoto počítače z nabídek netboot.xyz: instalátory, systémy spouštěné z výměnných médií a nástroje jsou načítány z Internetu prostřednictvím NanoKVM. Na něm je uložen pouze iPXE obraz.",
+      "hint": "Zavést systém tohoto počítače z nabídek netboot.xyz: instalátory, systémy spouštěné bez instalace a nástroje jsou načítány z Internetu prostřednictvím NanoKVM. Na něm je uložen pouze iPXE obraz.",
       "versions": "iPXE {{ipxe}} · netboot.xyz {{netbootxyz}}",
-      "notDownloaded": "Zatím ještě nestaženo. Zapnutí zavádění ze sítě povede ke stažení nejnovějšího iPXE (přibližně 13B) a výběru nejnovějšího vydání netboot.xyz.",
+      "notDownloaded": "Zatím ještě nestaženo. Zapnutí zavádění ze sítě povede ke stažení nejnovějšího iPXE (přibližně 13 MB) a výběru nejnovějšího vydání netboot.xyz.",
       "checked": "Zkontrolováno {{date}}",
       "update": "Zjistit dostupnost případných aktualizací",
       "updating": "Aktualizování…",
       "secureBoot": "UEFI Secure Boot",
       "secureBootHint": "Použije iPXE obraz podepsaný pro Secure Boot (pouze UEFI na X86-64). Při zapnutém Secure Boot, je z netboot.xyz možné instalovat Debian, Devuan a Kali – pro fungování ostatních položek je třeba Secure Boot vypnout (v rozhraní nastavení firmwaru počítače).",
-      "needComposition": "Nejprve v nastaveních USB vypněte USB síť a virtuální disk.",
+      "needComposition": "Nejprve v nastaveních USB zapněte USB síť a virtuální disk.",
       "browserMedia": "Nejprve ISO odpojte od tohoto počítače.",
-      "enableNote": "Nahradí připojený obraz a zapne sdílení připojení k Internetu přes USB, dokud je zavádění ze sítě vypnuté.",
+      "enableNote": "Nahradí připojený obraz a zapne sdílení připojení k Internetu přes USB. Sdílení zůstane zapnuté, dokud zavádění ze sítě nevypnete.",
       "enable": "Zapnout zavádění ze sítě",
       "enabling": "Zapínání…",
       "disable": "Vypnout zavádění ze sítě",
@@ -456,11 +456,11 @@
         "andrewMoryakov": "Začlenění NetBird klienta a nastavení, posílené zabezpečení životního cyklu VPN a obsluha zotavování, ověřování artefaktů a regresní CI.",
         "watermeko": "Ověřovaná a zrušitelná stahování a OTA aktualizace, práce na nízkých latencích a zero-copy pro H.264, nastavitelné oblasti vstupu a opravy myši.",
         "scpcom": "Virtuální médium, spolehlivost stahování a ukládání; uzamykání HID; opravy názvu hostitele a sítě; a pročištění nativního MMF.",
-        "lingkongSky": "Automatizované hýbání myší, upravování názvu hostitele a webu, pojmenované položky v rámci probouzení po síti (WoL), potvrzování napájení a ovládání stránkování paměti.",
+        "lingkongSky": "Automatizované hýbání myší, upravování názvu hostitele a titulku webu, pojmenované položky v rámci probouzení po síti (WoL), potvrzování napájení a ovládání stránkování paměti.",
         "yuryPekishev": "Ruské rozložení virtuální klávesnice a převádění z ruštiny do angličtiny pro vkládaný vstup z klávesnice.",
-        "thomasPressnell": "Podpora pro trvalé povolení či zakázání HDMI a rozdělení ovládacích prvků pro USB gadget, datovou přílohu a virtuální médium.",
+        "thomasPressnell": "Podpora pro trvalé povolení či zakázání HDMI a rozdělení ovládacích prvků pro USB gadget, datové připojení a virtuální médium.",
         "s33g": "Logo a text na přihlašovací obrazovce, popisky nástrojů v jejich pruhu, lokalizovatelná chybová hlášení a vývojářské makety, nevyžadující fyzické zařízení.",
-        "rockymtngeek": "Testování hardwaru LT6911D, podrobná diagnostické záznamy událostí a potvrzení funkčnosti opravy zachytávání."
+        "rockymtngeek": "Testování hardwaru LT6911D, podrobné diagnostické záznamy událostí a potvrzení funkčnosti opravy zachytávání."
       },
       "applicationVersion": "Aplikace",
       "documentation": "Dokumentace",
@@ -473,7 +473,7 @@
       "bundledVersion": "Aplikace obsažené v tomto obrazu",
       "description": "Komunitní firmware pro NanoKVM.",
       "upstreamCredit": "Založeno na původním projektu NanoKVM od Sipeed. Děkujeme jeho autorům a přispěvatelům.",
-      "specialThanksWife": "Mé ženě – za její trpělivost, podporu a že vydržela to, že jsem s ní netrávil čas kvůli nejintenzivnějším fází vývoje."
+      "specialThanksWife": "Mé ženě – za její trpělivost, podporu a za to, že snášela mou nepřítomnost během nejintenzivnější fáze vývoje."
     },
     "appearance": {
       "title": "Vzhled",
@@ -911,7 +911,7 @@
         "downloadError": "Nebylo možné si stáhnout diagnostické hlášení",
         "description": "Stav pro podporu (pouze pro čtení). Sběr je umístěn do mezipaměti a nikdy neprovede změny na zařízení.",
         "video": "HDMI a zachytávání videa",
-        "operationFailed": "Nejnovější operace se nezdařila; hlášení úmyslně vynechává svůj holý záznam událostí.",
+        "operationFailed": "Poslední operace se nezdařila; hlášení úmyslně vynechává nezpracovaný záznam této operace.",
         "usb": "USB gadget"
       },
       "logs": {
@@ -943,7 +943,7 @@
         "unavailable": "Zdroj tohoto záznamu událostí není pro zvolené zavedení systému k dispozici.",
         "archiveUnavailable": "Trvalé archivy záznamu událostí nejsou k dispozici. I tak je ale možné si prohlížet stávající záznam.",
         "noHistory": "Dřívější zavádění budou k dispozici po příštím restartu zařízení.",
-        "collected": "Čtení v {{time}} · {{count}} lines"
+        "collected": "Načteno v {{time}} · Počet řádků: {{count}}"
       },
       "general": "Obecné",
       "services": "Služby",
@@ -1076,7 +1076,7 @@
       "loadError": "Nebylo možné číst stav paměti",
       "changeError": "Nebylo možné změnit nastavení odkládání stránek",
       "videoModeUnavailable": "Aby bylo možné povolit přepínání, zaktualizujte balíček obsahující jádro systému.",
-      "videoModeDescription": "Paměť je vyhrazena pouze pro video; Linux ji nikdy nepoužije. FHD je výchozí a postačí na 1920 x 1080. Režimy na šířku a 2560 x 1440 vyžadují QHD, 3840 x 2160 vyžaduje UHD. Změny se projeví po restartu.",
+      "videoModeDescription": "Paměť je vyhrazena pouze pro video; Linux ji nikdy nepoužije. FHD je výchozí a postačí na 1920 × 1080. Režim na výšku a rozlišení 2560 × 1440 vyžadují QHD, rozlišení 3840 × 2160 vyžaduje UHD. Změny se projeví po restartu.",
       "videoRes_fhd": "FHD – 1920 × 1080 · 40 MiB",
       "videoRes_qhd": "QHD – 2560 × 1440 · 56 MiB",
       "videoRes_uhd": "UHD – 3840 × 2160 · 104 MiB",

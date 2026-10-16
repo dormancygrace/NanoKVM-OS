@@ -1,30 +1,38 @@
 name: Release build
 
-# Builds every pinned output of platform/build.sh on a GitHub runner and checks
-# it against platform/expected.sha256. No signing keys are involved: this is
-# the first step towards building and signing releases in CI. The packages,
-# rootfs and image steps follow once the outputs reproduce here.
+# Builds every output of platform/build.sh on a GitHub runner and publishes
+# their hashes (OUTPUT/images/SHA256SUMS) as the outputs-sha256 artifact. On a
+# pull request it also comments with the outputs that differ from the build
+# of main the pull request merges into. No signing keys are involved: the
+# packages, rootfs and image steps follow with signing in CI.
 on:
-  workflow_dispatch:
-  # A change to this workflow proves itself with a full build.
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '*.md', '**/README.md']
   pull_request:
-    paths:
-      - .github/workflows/release-build.yml
+    paths-ignore: ['docs/**', '*.md', '**/README.md']
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
   group: release-build-${{ github.ref }}
-  cancel-in-progress: false
+  # A newer push to a pull request replaces its build; every build of main finishes.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
-    name: Build and check the pinned outputs
-    # The pins come from Ubuntu 26.04 hosts: the kernel configuration depends on
-    # the host OpenSSL (OPENSSL_SUPPORTS_ML_DSA needs 3.5, which 24.04 lacks).
+    name: Build and hash the outputs
+    # Ubuntu 26.04: the kernel configuration depends on the host OpenSSL
+    # (OPENSSL_SUPPORTS_ML_DSA needs 3.5, which 24.04 lacks).
     runs-on: ubuntu-26.04
     timeout-minutes: 330
+    permissions:
+      contents: read
+      # The outputs-sha256 artifact of a main build, and the comment.
+      actions: read
+      pull-requests: write
     env:
       # A fixed absolute path: the cached toolchain is not relocatable.
       OUT: /home/runner/nanokvm-out
@@ -43,6 +51,9 @@ jobs:
           df -h /
 
       - uses: actions/checkout@v7
+        with:
+          # The history of main, to find the main build to compare with.
+          fetch-depth: 0
 
       # Buildroot's requirements, the kernel and U-Boot host tools.
       - name: Host packages
@@ -62,6 +73,7 @@ jobs:
           echo "toolchain=toolchain-$ImageOS-$id" >> "$GITHUB_OUTPUT"
           echo "downloads=downloads-${{ hashFiles('platform/sources.lock', 'firmware/buildroot/**') }}" >> "$GITHUB_OUTPUT"
 
+      # Pull requests read the caches that builds of main saved.
       - name: Restore downloads
         id: downloads
         uses: actions/cache/restore@v6
@@ -109,34 +121,65 @@ jobs:
           # No Git record of the patched trees: it serves local patch work only.
           NANOKVM_PATCH_GIT: '0'
         run: |
-          platform/build.sh -o "$OUT" kernel modules uboot opensbi fip initramfs boot native system server
+          platform/build.sh -o "$OUT" kernel modules uboot opensbi fip initramfs boot native system tools server
           # The Go build cache (about 1 GB) is not reused within a run.
           rm -rf "$OUT/server/gocache"
-          platform/build.sh -o "$OUT" web tools firmware
+          platform/build.sh -o "$OUT" web firmware
           du -sh "$OUT" "$OUT"/* 2>/dev/null | sort -h | tail -8
           df -h /
 
-      - name: Check against expected.sha256
-        run: platform/build.sh -o "$OUT" verify
-
-      # On a mismatch, the hashes of every output, to compare with the pins.
-      - name: Hashes of the outputs
-        if: always()
-        run: |
-          cd "$OUT/images" 2>/dev/null || exit 0
-          find . -type f ! -name SHA256SUMS -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sed 's|  \./|  |' > "$RUNNER_TEMP/outputs.sha256"
-          diff <(grep -v '^#' "$GITHUB_WORKSPACE/platform/expected.sha256" | grep . | LC_ALL=C sort -k2) \
-               <(LC_ALL=C sort -k2 "$RUNNER_TEMP/outputs.sha256") > "$RUNNER_TEMP/pins.diff" || true
-          echo "$(grep -c '^<' "$RUNNER_TEMP/pins.diff" || true) pinned hashes differ or are missing"
-          head -60 "$RUNNER_TEMP/pins.diff"
+      - name: Hashes
+        run: platform/build.sh -o "$OUT" hashes
 
       - name: Upload hashes
-        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: outputs-sha256
-          path: |
-            ${{ runner.temp }}/outputs.sha256
-            ${{ runner.temp }}/pins.diff
-          if-no-files-found: ignore
-          retention-days: 14
+          path: ${{ env.OUT }}/images/SHA256SUMS
+          retention-days: 90
+
+      # The merge commit's first parent is the tip of main. Its build, or the
+      # newest build of an earlier main commit (a commit that changes only
+      # documentation is not built), is the reference.
+      - name: Compare with main
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          base=$(git rev-parse HEAD^1)
+          run='' sha=''
+          while read -r id head; do
+            if git merge-base --is-ancestor "$head" "$base" 2>/dev/null; then run=$id sha=$head; break; fi
+          done < <(gh run list --workflow release-build.yml --branch main --status success --limit 100 \
+                     --json databaseId,headSha --jq '.[] | "\(.databaseId) \(.headSha)"')
+          report=$RUNNER_TEMP/outputs.md
+          if [ -z "$run" ]; then
+            printf '### Build outputs\n\nNo build of main to compare with yet.\n\n' > "$report"
+          else
+            gh run download "$run" -n outputs-sha256 -D "$RUNNER_TEMP/main"
+            label="the build of main at ${sha:0:10}"
+            [ "$sha" = "$base" ] || label="$label; main is at ${base:0:10}, and outputs it changed since are listed too"
+            python3 scripts/compare-outputs.py "$RUNNER_TEMP/main/SHA256SUMS" "$OUT/images/SHA256SUMS" \
+              --markdown --title 'Build outputs' --base "$label" > "$report"
+          fi
+          printf 'Hashes: `outputs-sha256` artifact of [this run](%s).\n' "$RUN_URL" >> "$report"
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+
+      # One comment per pull request, updated by each build. A pull request
+      # from a fork has a read-only token and gets the job summary only.
+      - name: Comment on the pull request
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          marker='<!-- release-build-outputs -->'
+          body="$marker"$'\n'"$(cat "$RUNNER_TEMP/outputs.md")"
+          id=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+                 --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" > /dev/null
+          fi

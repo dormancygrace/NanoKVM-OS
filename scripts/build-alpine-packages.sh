@@ -7,8 +7,8 @@
 #
 # The payload tree is prepared by the NanoKVM image staging step. It may either
 # contain package directories directly or contain one directory per profile:
-#   PAYLOAD_ROOT/stock/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,app,web,release}
-#   PAYLOAD_ROOT/c906-scalar/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,app,web,release}
+#   PAYLOAD_ROOT/stock/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,app,web,exfatprogs,i2c-tools,release}
+#   PAYLOAD_ROOT/c906-scalar/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,app,web,exfatprogs,i2c-tools,release}
 # Without keys/, nanokvm-keys holds firmware/alpine/keys; without release/,
 # a release marker is generated.
 #
@@ -63,7 +63,7 @@ else
 	PROFILE_ROOT=$PAYLOAD_ROOT
 fi
 
-for required in base kernel-sg2002 kmod-sg2002 firmware-sg2002 app web; do
+for required in base kernel-sg2002 kmod-sg2002 firmware-sg2002 app web exfatprogs i2c-tools; do
 	if [ ! -d "$PROFILE_ROOT/$required" ]; then
 		echo "build-alpine-packages: missing payload $PROFILE_ROOT/$required" >&2
 		exit 1
@@ -129,6 +129,8 @@ archive_payload nanokvm-kmod-sg2002 "$PROFILE_ROOT/kmod-sg2002"
 archive_payload nanokvm-firmware-sg2002 "$PROFILE_ROOT/firmware-sg2002"
 archive_payload nanokvm "$PROFILE_ROOT/app"
 archive_payload nanokvm-web "$PROFILE_ROOT/web"
+archive_payload nanokvm-exfatprogs "$PROFILE_ROOT/exfatprogs"
+archive_payload nanokvm-i2c-tools "$PROFILE_ROOT/i2c-tools"
 release_payload=$(make_release_payload)
 archive_payload nanokvm-release "$release_payload"
 
@@ -184,7 +186,7 @@ prepare_recipe() {
 }
 
 for pkg in nanokvm-keys nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 \
-	 nanokvm nanokvm-web nanokvm-app nanokvm-release; do
+	 nanokvm nanokvm-web nanokvm-app nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-release; do
 	echo "building $pkg ($PROFILE)"
 	prepare_recipe "$pkg"
 	(
@@ -207,8 +209,8 @@ tar -tzf "$index" | grep -qE '(^|/)\.SIGN\.RSA256\.' || {
 	exit 1
 }
 apk_count=$(find "$REPODEST" -type f -name '*.apk' | wc -l)
-[ "$apk_count" -ge 9 ] || {
-	echo "build-alpine-packages: expected at least nine APKs, found $apk_count" >&2
+[ "$apk_count" -ge 11 ] || {
+	echo "build-alpine-packages: expected at least eleven APKs, found $apk_count" >&2
 	exit 1
 }
 find "$REPODEST" -type f -name '*.apk' -print | while IFS= read -r apk; do

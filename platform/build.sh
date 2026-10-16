@@ -18,11 +18,12 @@
 #   system     kvm_system board service
 #   server     NanoKVM-Server and update/USB internet helpers
 #   web        web UI
-#   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio
+#   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
+#              exfatprogs, i2c-tools
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   verify     compare the outputs with expected.sha256
-#   payloads   contents of the nine NanoKVM packages, from packages.list
-#   packages   signed APK repository of the nine packages
+#   payloads   contents of the eleven NanoKVM packages, from packages.list
+#   packages   signed APK repository of the eleven packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -614,6 +615,37 @@ tools() {
     "${cross}gcc" "${cpu_flags[@]}" -static -Wall -Wextra -Werror "$repo/firmware/boards/nkos-board-probe.c" -o "$t/nkos-board-probe"
     "${cross}strip" -o "$img/tools/nkos-board-probe" "$t/nkos-board-probe"
 
+    # exfatprogs and i2c-tools in place of Alpine's community packages
+    # (nanokvm-exfatprogs, nanokvm-i2c-tools). mkfs.exfat needs libblkid, which
+    # the toolchain has only as a shared library: exfatprogs links it and the C
+    # library dynamically (Alpine's libblkid on the device); i2c-tools is static.
+    local b exf i2c
+    exf=$(lock exfatprogs | awk '{ print $2 }'); exf=${exf##*/}
+    i2c=$(lock i2c-tools | awk '{ print $2 }'); i2c=${i2c##*/}
+    tar -xJf "$dl/$exf" -C "$t"
+    exf=$t/${exf%.tar.xz} i2c=$t/${i2c%.tar.gz}
+    (cd "$exf" &&
+        ./configure --host=riscv64-buildroot-linux-musl --prefix=/usr CC="${cross}gcc" AR="${cross}ar" \
+            RANLIB="${cross}ranlib" STRIP="${cross}strip" PKG_CONFIG="$host/pkg-config" \
+            CFLAGS="${cpu_flags[*]} -g0" > "$t/exfatprogs-configure.log" &&
+        make -j"$jobs" > "$t/exfatprogs-make.log")
+    mkdir -p "$img/tools/exfatprogs" "$img/tools/i2c-tools"
+    for b in mkfs/mkfs.exfat fsck/fsck.exfat tune/tune.exfat label/exfatlabel dump/dump.exfat exfat2img/exfat2img; do
+        "${cross}strip" --remove-section=.comment --remove-section=.note \
+            -o "$img/tools/exfatprogs/${b##*/}" "$exf/$b"
+        # libtool records the toolchain's library directory, a build-host path.
+        "$host/patchelf" --remove-rpath "$img/tools/exfatprogs/${b##*/}"
+    done
+    cp "$exf/COPYING" "$img/tools/exfatprogs/"
+    tar -xzf "$dl/${i2c##*/}.tar.gz" -C "$t"
+    make -C "$i2c" -j"$jobs" CC="${cross}gcc" AR="${cross}ar" CFLAGS="${cpu_flags[*]} -g0 -Wall" \
+        LDFLAGS=-static BUILD_DYNAMIC_LIB=0 BUILD_STATIC_LIB=1 USE_STATIC_LIB=1 > "$t/i2c-tools-make.log"
+    for b in i2cdetect i2cget i2cset i2cdump i2ctransfer; do
+        "${cross}strip" --remove-section=.comment --remove-section=.note \
+            -o "$img/tools/i2c-tools/$b" "$i2c/tools/$b"
+    done
+    cp "$i2c/COPYING" "$i2c/COPYING.LGPL" "$img/tools/i2c-tools/"
+
     unpack_git tinyalsa . "$t/tinyalsa"
     "$py" "$repo/scripts/build-usb-audio.py" --output "$t/usb-audio" --buildroot-output "$bo" \
         --kernel-source "$ksrc" --kernel-output "$kbuild" --tinyalsa "$t/tinyalsa" \
@@ -653,7 +685,7 @@ firmware() {
     cp "$out/firmware/wireless-regdb-2026.09.03/LICENSE" "$f/licenses/wireless-regdb-LICENSE"
 }
 
-# Assemble the nine package payloads from packages.list.
+# Assemble the eleven package payloads from packages.list.
 payloads() {
     local p=$out/payloads gen pkg type path mode src dest file
     rm -rf "$p"
@@ -872,7 +904,7 @@ signing_key() {
     keyname=$(basename "$keyfile" .rsa)
 }
 
-# Build the nine packages with abuild in an Alpine riscv64 tree.
+# Build the eleven packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu
@@ -938,7 +970,7 @@ rootfs() {
     for pub in "$repo"/firmware/alpine/keys/*.pub; do install -m 0644 "$pub" "$r/etc/apk/keys/"; done
     # The v3 index, as on the device.
     printf '%s\n' /mnt/nanokvm-apk/recipes/riscv64/Packages.adb https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
-        https://dl-cdn.alpinelinux.org/alpine/v3.24/community > "$r/etc/apk/repositories"
+        > "$r/etc/apk/repositories"
     BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache add nanokvm-release
     rmdir "$r/mnt/nanokvm-apk"
     # The repositories of the device: the v3 index of NanoKVM OS releases
@@ -1012,7 +1044,7 @@ source_archive() {
     mkdir -p "$stage/$name/upstream/buildroot-packages" "$stage/$name/NanoKVM-OS"
     # The GPL-licensed inputs of the image. The rest of sources.lock is
     # fetched from its upstream by build.sh and is not redistributed here.
-    for pkg in buildroot linux u-boot osdrv aic8800 cryptodev sipeed-sdk opensbi busybox; do
+    for pkg in buildroot linux u-boot osdrv aic8800 cryptodev sipeed-sdk opensbi busybox exfatprogs i2c-tools; do
         url=$(lock "$pkg" | awk '{ print $2 }')
         if [[ $url == *.git ]]; then cp "$dl/$pkg.tar" "$stage/$name/upstream/"
         else cp "$dl/${url##*/}" "$stage/$name/upstream/"; fi

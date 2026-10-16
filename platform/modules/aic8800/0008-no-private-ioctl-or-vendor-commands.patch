@@ -1,0 +1,109 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: build without the private ioctl and vendor commands
+
+The fdrv module always built aic_priv_cmd.c, reached through the Android
+private ioctl SIOCDEVPRIVATE+1, and aic_vendor.c, registered as nl80211
+vendor commands. They are factory test and calibration tools: RF test
+modes, efuse and flash reads and writes, transmit power overrides. Writes
+to efuse cannot be undone (MAC address, crystal and power calibration).
+Nothing on NanoKVM uses them; country and power settings go through
+cfg80211.
+
+Both are now behind CONFIG_AIC_PRIV_CMD and CONFIG_AIC_VENDOR_CMD, off by
+default. The ioctl returns -EOPNOTSUPP like any other unknown private
+command, and the wiphy registers no vendor commands.
+
+diff --git a/aic8800_fdrv/Makefile b/aic8800_fdrv/Makefile
+index 8a81998..13dee31 100644
+--- a/aic8800_fdrv/Makefile
++++ b/aic8800_fdrv/Makefile
+@@ -106,6 +106,11 @@ CONFIG_LOFT_CALIB = n
+ CONFIG_FILTER_TCP_ACK =y
+ CONFIG_RESV_MEM_SUPPORT ?= y
+ CONFIG_GKI = n
++
++# Android private ioctl (SIOCDEVPRIVATE+1) and nl80211 vendor commands:
++# test and calibration tools, including eFuse and flash writes.
++CONFIG_AIC_PRIV_CMD ?= n
++CONFIG_AIC_VENDOR_CMD ?= n
+ CONFIG_TEMP_COMP = n
+ CONFIG_TEMP_CONTROL = n
+ CONFIG_EXT_FEM_8800DCDW = n
+@@ -187,13 +192,11 @@ $(MODULE_NAME)-y := \
+ 	rwnx_v7.o              \
+ 	ipc_host.o             \
+ 	rwnx_tdls.o            \
+-	aic_vendor.o	       \
+ 	md5.o                  \
+ 	aicwf_compat_8800dc.o  \
+ 	aicwf_compat_8800d80.o \
+ 	rwnx_wakelock.o		\
+ 	regdb.o				   \
+-	aic_priv_cmd.o		\
+ 	aicwf_rx_prealloc.o
+ 
+ $(MODULE_NAME)-$(CONFIG_BAND_STEERING)    += aicwf_manager.o    \
+@@ -216,6 +219,8 @@ $(MODULE_NAME)-$(CONFIG_USB_SUPPORT)     += usb_host.o
+ $(MODULE_NAME)-$(CONFIG_USB_SUPPORT)     += aicwf_txrxif.o
+ $(MODULE_NAME)-$(CONFIG_USB_SUPPORT)     += aicwf_usb.o
+ $(MODULE_NAME)-$(CONFIG_GKI)     += rwnx_gki.o
++$(MODULE_NAME)-$(CONFIG_AIC_PRIV_CMD)   += aic_priv_cmd.o
++$(MODULE_NAME)-$(CONFIG_AIC_VENDOR_CMD) += aic_vendor.o
+ 
+ 
+ 
+@@ -299,6 +304,8 @@ ccflags-$(CONFIG_FILTER_TCP_ACK) += -DCONFIG_FILTER_TCP_ACK
+ ccflags-$(CONFIG_SDIO_BT) += -DCONFIG_SDIO_BT
+ ccflags-$(CONFIG_RESV_MEM_SUPPORT) += -DCONFIG_RESV_MEM_SUPPORT
+ ccflags-$(CONFIG_GKI) += -DCONFIG_GKI
++ccflags-$(CONFIG_AIC_PRIV_CMD) += -DCONFIG_AIC_PRIV_CMD
++ccflags-$(CONFIG_AIC_VENDOR_CMD) += -DCONFIG_AIC_VENDOR_CMD
+ ccflags-$(CONFIG_TEMP_COMP) += -DCONFIG_TEMP_COMP
+ ccflags-$(CONFIG_TEMP_CONTROL) += -DCONFIG_TEMP_CONTROL
+ ccflags-$(CONFIG_POWER_LIMIT) += -DCONFIG_POWER_LIMIT
+diff --git a/aic8800_fdrv/rwnx_main.c b/aic8800_fdrv/rwnx_main.c
+index 11fd305..7913a1b 100644
+--- a/aic8800_fdrv/rwnx_main.c
++++ b/aic8800_fdrv/rwnx_main.c
+@@ -55,7 +55,9 @@
+ #ifdef CONFIG_SDIO_BT
+ #include "aic_btsdio.h"
+ #endif
++#ifdef CONFIG_AIC_PRIV_CMD
+ #include "aic_priv_cmd.h"
++#endif
+ #ifdef CONFIG_BAND_STEERING
+ #include "aicwf_manager.h"
+ #endif
+@@ -1427,7 +1429,11 @@ static int rwnx_do_ioctl(struct net_device *net, struct ifreq *req, void __user
+ 		break;
+ 	case (SIOCDEVPRIVATE+1):
+ 		AICWFDBG(LOGINFO, "IOCTL PRIVATE\n");
++#ifdef CONFIG_AIC_PRIV_CMD
+ 		ret = android_priv_cmd(net, req, cmd);
++#else
++		ret = -EOPNOTSUPP;
++#endif
+ 		break;
+ 	case (SIOCDEVPRIVATE+2):
+ 		AICWFDBG(LOGINFO, "IOCTL PRIVATE+2\n");
+@@ -5713,7 +5719,9 @@ static const struct wiphy_wowlan_support aic_wowlan_support = {
+ /**
+  *
+  */
++#ifdef CONFIG_AIC_VENDOR_CMD
+ extern int aicwf_vendor_init(struct wiphy *wiphy);
++#endif
+ extern txpwr_idx_conf_t nvram_txpwr_idx;
+ 
+ int rwnx_ic_system_init(struct rwnx_hw *rwnx_hw){
+@@ -6319,7 +6327,9 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
+ 		rwnx_limits_dfs[0].types = BIT(NL80211_IFTYPE_MONITOR);
+ 	}
+ 
++#ifdef CONFIG_AIC_VENDOR_CMD
+ 	aicwf_vendor_init(wiphy);
++#endif
+ 
+ 	ret = wiphy_register(wiphy);
+ 	if (ret) {

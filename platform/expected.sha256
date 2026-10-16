@@ -175,7 +175,7 @@ d9e164c90fd76f767bb7f5d5041a1e0f7b69096d7a408ff605920f909207ee14  firmware/lib/f
 aba1d1d437a2b91cb8c9c9edbe5c17125c0f509367e88904577f559c99f92654  initramfs.cpio.zst
 d4f759c2d0f283605737e81f4677fbd606302afe5541af2b94a03443bc4b6df9  lib/modules/7.2.10-nanokvm-os-r5/extra/8733bs.ko
 8b186b104ddcd11bddce130c2eeefd7cc8e3c1f5041682dcb9ae28fd442378c1  lib/modules/7.2.10-nanokvm-os-r5/extra/aic8800_bsp.ko
-645c4091a22a9aacabc3b2f825bc1efcabb5e801052230c001e554d429eef557  lib/modules/7.2.10-nanokvm-os-r5/extra/aic8800_fdrv.ko
+64bab91576e9ca86aefabad7fffdc2f3547b2bdeb2763165b5c7f41c4f791f2f  lib/modules/7.2.10-nanokvm-os-r5/extra/aic8800_fdrv.ko
 c1a20ee5891d1ba5e294a65a820e5168c43ae8d571e8553f100feb55f731905e  lib/modules/7.2.10-nanokvm-os-r5/extra/cryptodev.ko
 eea48ec7201684158bbde8d3af7cddd7da4fc8825bbc09910c4f4dca20fae96f  lib/modules/7.2.10-nanokvm-os-r5/extra/cv181x_base.ko
 1b0f3e9982ec38318f5997d5eb7c7fb9e81b17f5a4aa5a7d34eed34109ecd2a3  lib/modules/7.2.10-nanokvm-os-r5/extra/cv181x_dwa.ko

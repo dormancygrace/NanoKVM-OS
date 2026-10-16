@@ -48,16 +48,33 @@ func TestUtilityDoesNotRestartAndStoppedServiceStaysStopped(t *testing.T) {
 		t.Fatal("stopped service started")
 	}
 }
-func TestAddedRemovedWebAssetsAndSingleRestart(t *testing.T) {
+func TestWebOnlyUpdateDoesNotRestartButBackendDoes(t *testing.T) {
 	d := t.TempDir()
-	p := filepath.Join(d, "index.html")
-	os.WriteFile(p, []byte("old"), 0600)
-	s := snapshot{Targets: []target{fixture(t, "nanokvm-app", "service", nil, []string{d})}}
-	os.Remove(p)
-	os.WriteFile(filepath.Join(d, "new.js"), []byte("new"), 0600)
+	web := filepath.Join(d, "server/web")
+	os.MkdirAll(web, 0755)
+	os.MkdirAll(filepath.Join(d, "server/dl_lib"), 0755)
+	binary := filepath.Join(d, "server/NanoKVM-Server")
+	os.WriteFile(binary, []byte("old"), 0755)
+	index := filepath.Join(web, "index.html")
+	os.WriteFile(index, []byte("old"), 0644)
+	paths, trees := appRuntimePaths(d)
+	s := snapshot{Targets: []target{fixture(t, "nanokvm-app", "service", paths, trees)}}
+	os.Remove(index)
+	os.WriteFile(filepath.Join(web, "new.js"), []byte("new"), 0644)
 	todo, _ := plan(s, func(target) bool { return true })
+	if len(todo) != 0 {
+		t.Fatal("web-only update restarts video server")
+	}
+	replace(t, binary)
+	todo, _ = plan(s, func(target) bool { return true })
 	if len(todo) != 1 {
-		t.Fatal("asset changes must restart app once")
+		t.Fatal("backend update must restart app once")
+	}
+	s = snapshot{Targets: []target{fixture(t, "nanokvm-app", "service", paths, trees)}}
+	os.WriteFile(filepath.Join(d, "server/dl_lib/new.so"), []byte("new library"), 0644)
+	todo, _ = plan(s, func(target) bool { return true })
+	if len(todo) != 1 {
+		t.Fatal("native library update must restart app once")
 	}
 }
 func TestKernelIsDeferredNotRestarted(t *testing.T) {

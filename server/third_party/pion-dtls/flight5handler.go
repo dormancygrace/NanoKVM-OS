@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
+	"slices"
 
 	"github.com/pion/dtls/v3/pkg/crypto/clientcertificate"
 	"github.com/pion/dtls/v3/pkg/crypto/prf"
@@ -152,7 +153,7 @@ func flight5Generate(
 
 	// handshakeMessageServerKeyExchange is optional for PSK
 	if len(serverKeyExchangeData) == 0 {
-		alertPtr, err := handleServerKeyExchange(conn, state, cfg, &handshake.MessageServerKeyExchange{})
+		alertPtr, err := handleServerKeyExchange(cache, state, cfg, &handshake.MessageServerKeyExchange{})
 		if err != nil {
 			return nil, alertPtr, err
 		}
@@ -209,9 +210,11 @@ func flight5Generate(
 			handshakeCachePullRule{handshake.TypeClientKeyExchange, cfg.initialEpoch, true, false},
 		), merged...)
 
-		// Find compatible signature scheme
-
-		signatureHashAlgo, err := signaturehash.SelectSignatureScheme(state.remoteCertRequestAlgs, signer)
+		// Honor local policy while retaining the peer's preference order.
+		schemes := slices.DeleteFunc(slices.Clone(state.remoteCertRequestAlgs), func(scheme signaturehash.Algorithm) bool {
+			return !slices.Contains(cfg.localSignatureSchemes, scheme)
+		})
+		signatureHashAlgo, err := signaturehash.SelectSignatureScheme(schemes, signer)
 		if err != nil {
 			return nil, &alert.Alert{Level: alert.Fatal, Description: alert.InsufficientSecurity}, err
 		}

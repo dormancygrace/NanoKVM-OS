@@ -4,9 +4,9 @@ NanoKVM OS uses native APK packages in the writable system root. Routine
 updates preserve settings, user data and independently installed packages;
 flashing a full SD image is a separate operation that replaces the card.
 
-## Updating v2.0-a2 or newer to v2.5-a1
+## Updating v2.0-a2 or newer to v3.1.0
 
-**v2.5-a1 is an alpha release.** Read the [release notes](RELEASE-v2.5-a1.md).
+Read the [v3.1.0 release notes](RELEASE-v3.1.0.md).
 Use **Settings → System → Updates** (on a2: **Settings → Updates → Package
 updates**), or run as root:
 
@@ -17,13 +17,30 @@ reboot
 ```
 
 `apk update` refreshes repository indexes; `apk upgrade` installs the available
-updates. The seven core release packages total 36.5 MiB; optional add-ons and
+updates. The nine core release packages total 34.5 MiB; optional add-ons and
 Alpine dependency updates are additional.
 
-The kernel and matching modules update to **7.2.9-nanokvm-os-r1**. Reboot to load
+The kernel and matching modules update to **7.2.10-nanokvm-os-r5**. Reboot to load
 them. Completed component transactions refresh affected services through
 **OpenRC**; an application update briefly disconnects video/control, and no
 separate apply command is required. APK updates preserve the existing bootloader.
+
+## Update notices and component versions
+
+**Settings → System → Updates** lists the installed NanoKVM OS packages, the
+Alpine release and the running kernel (and the kernel of the next boot, when
+an update changed it).
+
+Once a day, and a few minutes after every boot, the device checks the NanoKVM
+OS repository for newer versions. The check fetches only the NanoKVM index (a
+few KiB), never the Alpine indexes, and installs nothing. When updates are
+available, administrators see a dot on the settings button and a notice with
+the new versions. **Check for updates daily** on the same page turns the check
+off; it is stored as `/etc/kvm/update-check.disabled`.
+
+APK keeps its repository indexes in RAM (a tmpfs on `/var/cache/apk`), so
+refreshing them no longer writes to the SD card. After a boot, apk downloads
+them again on first use; **Software → Packages** offers the refresh.
 
 ## Packages previously installed from local files
 
@@ -53,7 +70,7 @@ allowing them to obtain the update and keys through their existing repository.
 No manual key download or repository edit is required for the official URL.
 Custom repositories and C906 overlay entries are left unchanged.
 
-The legacy index contains the seven core packages. The v3 index also includes
+The legacy index contains the nine core packages. The v3 index also includes
 the optional RustDesk APK; install it from Software after updating the system.
 
 ## Other migration cases
@@ -72,9 +89,9 @@ the optional RustDesk APK; install it from Software after updating the system.
 
 Use **Settings → Software → Packages**, or `apk add NAME` / `apk del NAME`.
 APK resolves dependencies and verifies signatures. Software → Add-ons manages
-RustDesk and PicoClaw; PicoClaw uses its official upstream release download
-rather than an APK package.
+RustDesk, PicoClaw and acme.sh. RustDesk comes from the signed NanoKVM repository;
+PicoClaw and acme.sh use their upstream release downloads.
 
-**Image v1.0-a1** is the installation bundle, while **v2.5-a1** is the current
+**Image v1.3** is the installation bundle, while **v3.1.0** is the current
 application release. Component updates keep the original image identity;
 About shows both versions. Reflashing is not required for routine updates.

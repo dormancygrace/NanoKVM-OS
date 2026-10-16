@@ -20,7 +20,7 @@ import (
 
 // Runtime-only metadata survives an application restart, not a power loss.
 // The partial image remains hidden from the mountable image list until complete.
-const imageResumePath = "/run/nanokvm-download-resume.json"
+var imageResumePath = "/run/nanokvm-download-resume.json"
 
 type imageResume struct {
 	URL      string `json:"url"`
@@ -78,7 +78,7 @@ func loadImageResume(path string) (*imageResume, error) {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return nil, errors.New("invalid saved download URL")
 	}
-	if filepath.Dir(job.Path) != "/data" || !strings.HasPrefix(filepath.Base(job.Path), ".nanokvm-download-") || filepath.Clean(job.Path) != job.Path {
+	if filepath.Dir(job.Path) != imageDirectory || !strings.HasPrefix(filepath.Base(job.Path), ".nanokvm-download-") || !imageTransferTemp(filepath.Base(job.Path)) || filepath.Clean(job.Path) != job.Path {
 		return nil, errors.New("invalid saved partial image path")
 	}
 	// A job saved by an earlier version follows the policy of a new download.
@@ -188,12 +188,11 @@ func (s *Service) resumeImageDownload() {
 			err = closeErr
 		}
 		if err == nil {
-			err = installImage("/data", job.Path, job.Filename)
+			err = installImage(imageDirectory, job.Path, job.Filename)
 		}
-		// On an error retain the hidden partial file; never publish mixed data.
-		if errors.Is(err, context.Canceled) {
-			_ = os.Remove(job.Path)
-		}
+		// A completed attempt no longer has resume metadata. Do not leave an
+		// orphan on failure; a process crash still keeps the saved checkpoint.
+		_ = os.Remove(job.Path)
 		_ = os.Remove(imageResumePath)
 		s.completeImageDownload(done, err)
 	}()

@@ -134,6 +134,9 @@ type Cmd struct {
 	// Timeout bounds the apk run itself, counted once it holds the lock. Zero
 	// leaves only the context.
 	Timeout time.Duration
+	// MemoryKiB is the memory this run needs, for runs that load less than
+	// the default repositories (one small index). Zero uses requiredKiB.
+	MemoryKiB int64
 
 	ctx context.Context
 }
@@ -182,7 +185,7 @@ func (c *Cmd) run() error {
 			return &notStartedError{err}
 		}
 		defer lock.Close()
-		if err = checkMemory(); err != nil {
+		if err = checkMemory(c.required()); err != nil {
 			return &notStartedError{err}
 		}
 	}
@@ -256,7 +259,14 @@ func acquire(ctx context.Context, wait time.Duration) (*os.File, error) {
 // running) and stores them at about 2:1 (measured mem_used_total against
 // orig_data_size), so swapping frees at most half of min(SwapFree, AnonPages).
 // An unreadable meminfo blocks nothing.
-func checkMemory() error {
+func (c *Cmd) required() int64 {
+	if c.MemoryKiB > 0 {
+		return c.MemoryKiB
+	}
+	return requiredKiB
+}
+
+func checkMemory(required int64) error {
 	info, err := readMemInfo(memInfoPath)
 	if err != nil {
 		return nil
@@ -266,8 +276,8 @@ func checkMemory() error {
 		return nil
 	}
 	budget := available + min(info["SwapFree"], info["AnonPages"])/2
-	if budget < requiredKiB {
-		return &LowMemoryError{AvailableKiB: budget, RequiredKiB: requiredKiB}
+	if budget < required {
+		return &LowMemoryError{AvailableKiB: budget, RequiredKiB: required}
 	}
 	return nil
 }

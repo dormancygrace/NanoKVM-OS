@@ -11,9 +11,10 @@ import {
 import { useAuth } from '@/contexts/auth.ts';
 import { Alert, Button, Divider, Modal, Spin, Tooltip, type TooltipProps } from 'antd';
 import clsx from 'clsx';
-import { useAtom, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   ArrowLeftIcon,
+  BluetoothIcon,
   BotIcon,
   ChevronRightIcon,
   ClockIcon,
@@ -38,6 +39,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
 import { getAddonInventory, type AddonInventory } from '@/api/addons';
+import { getBluetoothState } from '@/api/vm.ts';
 import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { addonInventoryAtom } from '@/jotai/addons';
@@ -45,6 +47,7 @@ import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk.ts';
 import { settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
+import { updateNoticeAtom } from '@/jotai/updates.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
 import { RustDeskIcon } from '@/components/icons/rustdesk';
 import { MobileMenuItemContext } from '@/components/mobile-menu-context.ts';
@@ -103,6 +106,17 @@ const WifiSettings = lazy(() =>
 const EthernetSettings = lazy(() =>
   import('./network').then((module) => ({ default: module.EthernetSettings }))
 );
+const BluetoothSettings = lazy(() =>
+  import('./network').then((module) => ({ default: module.BluetoothSettings }))
+);
+
+// Marks the settings button and System > Updates while updates are available.
+const UpdateDot = () => (
+  <span
+    aria-hidden
+    className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-blue-500 ring-2 ring-neutral-800"
+  />
+);
 
 const PageLoading = () => (
   <div className="flex justify-center pt-10">
@@ -122,11 +136,28 @@ export const Settings = ({
   const { t } = useTranslation();
   const { account } = useAuth();
   const isAdmin = account.role === 'admin';
+  const updateNotice = useAtomValue(updateNoticeAtom);
+  const updatesAvailable = isAdmin && !!updateNotice?.enabled && updateNotice.updates.length > 0;
 
   const [request, setRequest] = useAtom(settingsRequestAtom);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [currentTab, setCurrentTab] = useState('dashboard');
+  // Network > Bluetooth is listed only where the Wi-Fi chip has Bluetooth.
+  const [hasBluetooth, setHasBluetooth] = useState(false);
+
+  useEffect(() => {
+    if (!isModalOpen || !isAdmin) return;
+    let active = true;
+    getBluetoothState()
+      .then((rsp) => {
+        if (active && rsp.code === 0) setHasBluetooth(!!rsp.data?.available);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [isModalOpen, isAdmin]);
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<SettingsGroup>>(new Set());
   const [rustDeskStatus] = useAtom(rustDeskStatusAtom);
   const [inventory, setInventory] = useAtom(addonInventoryAtom);
@@ -161,6 +192,15 @@ export const Settings = ({
             icon: <EthernetPortIcon size={16} />,
             component: <EthernetSettings />
           },
+          ...(hasBluetooth
+            ? [
+                {
+                  id: 'network-bluetooth',
+                  icon: <BluetoothIcon size={16} />,
+                  component: <BluetoothSettings />
+                }
+              ]
+            : []),
           { id: 'vpn', icon: <GlobeLockIcon size={16} />, component: <VPNList open={changeTab} /> },
           {
             id: 'vpn-wireguard',
@@ -383,6 +423,7 @@ export const Settings = ({
     if (id === 'network-general') return t('settings.network.general');
     if (id === 'network-wifi') return t('settings.network.wifi.title');
     if (id === 'network-ethernet') return t('settings.network.ethernet.name');
+    if (id === 'network-bluetooth') return 'Bluetooth';
     if (id === 'vpn') return t('settings.vpn.title');
     if (id === 'vpn-openvpn') return 'OpenVPN';
     if (id === 'vpn-tailscale') return 'Tailscale';
@@ -423,7 +464,11 @@ export const Settings = ({
       >
         <div
           role="button"
-          aria-label={t('settings.title')}
+          aria-label={
+            updatesAvailable
+              ? `${t('settings.title')}: ${t('settings.updates.notice.title')}`
+              : t('settings.title')
+          }
           tabIndex={0}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -437,8 +482,9 @@ export const Settings = ({
             openModal();
           }}
         >
-          <div className="flex items-center justify-center text-neutral-300 hover:text-white">
+          <div className="relative flex items-center justify-center text-neutral-300 hover:text-white">
             <SettingsIcon size={18} className="block" />
+            {updatesAvailable && <UpdateDot />}
           </div>
         </div>
       </Tooltip>
@@ -524,8 +570,10 @@ export const Settings = ({
                       )}
                       onClick={() => changeTab(tab.id)}
                     >
-                      <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+                      <div className="relative flex h-[18px] w-[18px] shrink-0 items-center justify-center">
                         {tab.icon}
+                        {updatesAvailable &&
+                          (tab.id === 'system' || tab.id === 'system-updates') && <UpdateDot />}
                       </div>
                       <span
                         className={mobile ? 'truncate text-sm' : 'hidden truncate text-sm sm:block'}
@@ -567,49 +615,57 @@ export const Settings = ({
           </div>
 
           {(!mobile || detailOpen) && (
-            <ScrollArea
-              viewportRef={scrollViewportRef}
-              className="box-border min-h-0 min-w-0 flex-1 rounded-r-lg bg-neutral-900/50 px-3 [&_[data-slot=scroll-area-scrollbar]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:p-0 [&_[data-slot=scroll-area-thumb]]:bg-neutral-500/30"
+            <div
+              className={clsx(
+                'box-border min-h-0 min-w-0 flex-1 rounded-r-lg bg-neutral-900/50',
+                !mobile && 'pt-14'
+              )}
             >
-              <div className="flex h-full w-full min-w-0 justify-center">
-                <div
-                  className={clsx(
-                    'w-full min-w-0 pb-10',
-                    currentTab === 'dashboard' ? 'max-w-[820px]' : 'max-w-[600px]',
-                    mobile ? 'pt-5' : 'pt-14'
-                  )}
-                >
-                  <ErrorBoundary
-                    key={currentTab}
-                    fallback={<Alert type="error" showIcon message={t('error.title')} />}
-                  >
-                    {!mobile && currentTab !== 'about' && (
-                      <>
-                        <div className="flex items-center gap-2">
-                          {collection && (
-                            <Button
-                              type="text"
-                              size="small"
-                              aria-label={t('settings.back')}
-                              disabled={isLocked}
-                              icon={<ArrowLeftIcon size={16} />}
-                              onClick={() => changeTab(collection)}
-                            />
-                          )}
-                          <h2 className="text-fg m-0 text-base font-medium">
-                            {pageTitle(currentTab)}
-                          </h2>
-                        </div>
-                        <Divider className="opacity-50" />
-                      </>
+              {/* Keep the desktop close button above, outside the scrolling viewport. */}
+              <ScrollArea
+                viewportRef={scrollViewportRef}
+                className="h-full px-3 [&_[data-slot=scroll-area-scrollbar]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:p-0 [&_[data-slot=scroll-area-thumb]]:bg-neutral-500/30"
+              >
+                <div className="flex h-full w-full min-w-0 justify-center">
+                  <div
+                    className={clsx(
+                      'w-full min-w-0 pb-10',
+                      currentTab === 'dashboard' ? 'max-w-[820px]' : 'max-w-[600px]',
+                      mobile && 'pt-5'
                     )}
-                    <Suspense fallback={<PageLoading />}>
-                      {(tabs.find((tab) => tab.id === currentTab) ?? tabs[0]).component}
-                    </Suspense>
-                  </ErrorBoundary>
+                  >
+                    <ErrorBoundary
+                      key={currentTab}
+                      fallback={<Alert type="error" showIcon message={t('error.title')} />}
+                    >
+                      {!mobile && currentTab !== 'about' && (
+                        <>
+                          <div className="flex items-center gap-2">
+                            {collection && (
+                              <Button
+                                type="text"
+                                size="small"
+                                aria-label={t('settings.back')}
+                                disabled={isLocked}
+                                icon={<ArrowLeftIcon size={16} />}
+                                onClick={() => changeTab(collection)}
+                              />
+                            )}
+                            <h2 className="text-fg m-0 text-base font-medium">
+                              {pageTitle(currentTab)}
+                            </h2>
+                          </div>
+                          <Divider className="opacity-50" />
+                        </>
+                      )}
+                      <Suspense fallback={<PageLoading />}>
+                        {(tabs.find((tab) => tab.id === currentTab) ?? tabs[0]).component}
+                      </Suspense>
+                    </ErrorBoundary>
+                  </div>
                 </div>
-              </div>
-            </ScrollArea>
+              </ScrollArea>
+            </div>
           )}
         </div>
       </Modal>

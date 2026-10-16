@@ -98,8 +98,7 @@ absent from the default `nanokvm-release` dependency set.
 
 The NanoKVM repository is a rolling package channel within the selected
 stable Alpine branch. New signed revisions become available through ordinary
-`apk update` and `apk upgrade`; the same indexes are inputs to attended image
-builds. First-party entries in `/etc/apk/world` normally use unversioned package
+`apk update` and `apk upgrade`. First-party entries in `/etc/apk/world` normally use unversioned package
 names so a newer signed revision can be selected. Exact version constraints are
 reserved for an explicit operator hold or a reproducibility test.
 
@@ -231,15 +230,6 @@ binaries. The profile is changed to `stock` only after APK succeeds. No partitio
 rootfs replacement, backup copies or permanent update wrapper are involved.
 Subsequent updates use ordinary `apk update` / `apk upgrade`. Do not run an
 unrestricted `apk upgrade --available` against a partial set of repositories.
-
-## Request-driven images
-
-`scripts/build-alpine-personal-image.sh` is the backend primitive for an
-Attended Sysupgrade style service. A request selects `stock` or
-`c906-scalar`, adds explicit APK names, pins the base rootfs and normal FIT by
-SHA256, then installs from the ordered signed repositories and emits the same
-hash-bound recovery bundle. See `attended/README.md` for the request and VM
-build interface.
 
 ## Stock and tuned builds
 

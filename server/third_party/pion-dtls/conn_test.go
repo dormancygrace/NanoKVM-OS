@@ -3716,3 +3716,155 @@ func TestEnqueueEncryptedPacketsCopiesData(t *testing.T) {
 
 	assert.Equal(t, []byte{0x17, 0xfe, 0xfd, 0x00, 0x01}, conn.encryptedPackets[0].data)
 }
+
+func TestCertificateVerifyHonorsLocalSignatureSchemes(t *testing.T) {
+	certificate, err := selfsign.GenerateSelfSigned()
+	assert.NoError(t, err)
+	cases := []struct {
+		name           string
+		requested      []hash.Algorithm
+		local          []tls.SignatureScheme
+		insecureHashes bool
+		want           hash.Algorithm
+	}{
+		{"reject MD5", []hash.Algorithm{hash.MD5}, nil, false, hash.None},
+		{"reject SHA1", []hash.Algorithm{hash.SHA1}, nil, false, hash.None},
+		{"reject SHA224", []hash.Algorithm{hash.SHA224}, nil, false, hash.None},
+		{
+			name:      "reject excluded SHA384",
+			requested: []hash.Algorithm{hash.SHA384},
+			local:     []tls.SignatureScheme{tls.ECDSAWithP256AndSHA256},
+		},
+		{"skip weak hashes", []hash.Algorithm{hash.MD5, hash.SHA1, hash.SHA256}, nil, false, hash.SHA256},
+		{"retain peer preference", []hash.Algorithm{hash.SHA384, hash.SHA256}, nil, false, hash.SHA384},
+		{
+			name:           "explicit SHA1 opt in",
+			requested:      []hash.Algorithm{hash.SHA1},
+			local:          []tls.SignatureScheme{tls.ECDSAWithP256AndSHA256, tls.ECDSAWithSHA1},
+			insecureHashes: true,
+			want:           hash.SHA1,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			ca, cb := dpipe.Pipe()
+			defer ca.Close() //nolint:errcheck
+			defer cb.Close() //nolint:errcheck
+			client, clientErr := Client(dtlsnet.PacketConnFromConn(ca), ca.RemoteAddr(), &Config{
+				Certificates:       []tls.Certificate{certificate},
+				InsecureSkipVerify: true,
+				SignatureSchemes:   tc.local,
+				InsecureHashes:     tc.insecureHashes,
+			})
+			assert.NoError(t, clientErr)
+			defer client.Close() //nolint:errcheck
+			server, serverErr := Server(dtlsnet.PacketConnFromConn(cb), cb.RemoteAddr(), &Config{
+				Certificates:   []tls.Certificate{certificate},
+				ClientAuth:     RequireAnyClientCert,
+				InsecureHashes: true,
+				SignatureSchemes: []tls.SignatureScheme{
+					tls.ECDSAWithP256AndSHA256, tls.ECDSAWithP384AndSHA384, tls.ECDSAWithSHA1, 0x0103, 0x0303,
+				},
+				CertificateRequestMessageHook: func(request handshake.MessageCertificateRequest) handshake.Message {
+					request.SignatureHashAlgorithms = nil
+					for _, requestedHash := range tc.requested {
+						request.SignatureHashAlgorithms = append(request.SignatureHashAlgorithms, signaturehash.Algorithm{
+							Hash: requestedHash, Signature: signature.ECDSA,
+						})
+					}
+
+					return &request
+				},
+			})
+			assert.NoError(t, serverErr)
+			defer server.Close() //nolint:errcheck
+			serverDone := make(chan error, 1)
+			go func() { serverDone <- server.HandshakeContext(ctx) }()
+			clientErr = client.HandshakeContext(ctx)
+			serverErr = <-serverDone
+			if tc.want == hash.None {
+				assert.ErrorContains(t, clientErr, "no SignatureScheme satisfy this Config")
+				assert.Error(t, serverErr)
+				assert.Empty(t, client.state.localCertificatesVerify)
+
+				return
+			}
+			assert.NoError(t, clientErr)
+			assert.NoError(t, serverErr)
+			cached := server.handshakeCache.pull(handshakeCachePullRule{typ: handshake.TypeCertificateVerify, isClient: true})[0]
+			assert.NotNil(t, cached)
+			message := &handshake.Handshake{}
+			assert.NoError(t, message.Unmarshal(cached.data))
+			verify, ok := message.Message.(*handshake.MessageCertificateVerify)
+			assert.True(t, ok)
+			assert.Equal(t, tc.want, verify.HashAlgorithm)
+			assert.Equal(t, signature.ECDSA, verify.SignatureAlgorithm)
+		})
+	}
+}
+
+func TestEarlyApplicationDataDoesNotBlockFinished(t *testing.T) {
+	for _, isClient := range []bool{false, true} {
+		t.Run(fmt.Sprint(isClient), func(t *testing.T) {
+			ca, cb := dpipe.Pipe()
+			defer ca.Close() //nolint:errcheck
+			defer cb.Close() //nolint:errcheck
+			certificate, err := selfsign.GenerateSelfSigned()
+			if !assert.NoError(t, err) {
+				return
+			}
+			conn, err := createConn(dtlsnet.PacketConnFromConn(ca), ca.RemoteAddr(), &Config{
+				Certificates: []tls.Certificate{certificate}, InsecureSkipVerify: true,
+			}, isClient, nil)
+			if !assert.NoError(t, err) {
+				return
+			}
+			conn.state.cipherSuite = &ciphersuite.TLSEcdheEcdsaWithAes128GcmSha256{}
+			peer := &ciphersuite.TLSEcdheEcdsaWithAes128GcmSha256{}
+			secret, random := make([]byte, 48), make([]byte, 32)
+			assert.NoError(t, conn.state.cipherSuite.Init(secret, random, random, isClient))
+			assert.NoError(t, peer.Init(secret, random, random, !isClient))
+			conn.setRemoteEpoch(1)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			var records [][]byte
+			for seq := range 3 {
+				record := &recordlayer.RecordLayer{
+					Header:  recordlayer.Header{Version: protocol.Version1_2, Epoch: 1, SequenceNumber: uint64(seq)},
+					Content: &protocol.ApplicationData{Data: []byte{byte(seq)}},
+				}
+				if seq == 2 {
+					record.Content = &handshake.Handshake{Message: &handshake.MessageFinished{VerifyData: make([]byte, 12)}}
+				}
+				raw, marshalErr := record.Marshal()
+				assert.NoError(t, marshalErr)
+				raw, encryptErr := peer.Encrypt(record, raw)
+				assert.NoError(t, encryptErr)
+				records = append(records, raw)
+			}
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				for _, raw := range records {
+					_, _, alertPtr, packetErr := conn.handleIncomingPacket(ctx, raw, ca.RemoteAddr(), true)
+					assert.NoError(t, packetErr)
+					assert.Nil(t, alertPtr)
+				}
+			}()
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+				cancel()
+				<-done
+				assert.FailNow(t, "early application data blocked Finished processing")
+			}
+			assert.False(t, conn.isHandshakeCompletedSuccessfully())
+			assert.Len(t, conn.decrypted, 1)
+			assert.Equal(t, []byte{0}, <-conn.decrypted)
+			finished := conn.handshakeCache.pull(handshakeCachePullRule{handshake.TypeFinished, 1, !isClient, false})
+			assert.NotNil(t, finished[0], "Finished must reach the handshake parser")
+		})
+	}
+}

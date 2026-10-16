@@ -321,7 +321,7 @@
       "reset2": "Pour les étapes détaillées, veuillez consulter ce document :",
       "reset3": "Compte Web par défaut :",
       "reset4": "Compte SSH par défaut :",
-      "change1": "Veuillez noter que cette action modifiera les mots de passe suivants :",
+      "change1": "Pour le compte administrateur intégré, cette action modifie les mots de passe suivants :",
       "change2": "Mot de passe de connexion Web",
       "change3": "Mot de passe racine du système (mot de passe de connexion SSH)",
       "change4": "Pour réinitialiser les mots de passe, appuyez et maintenez enfoncé le bouton BOOT sur le NanoKVM."
@@ -471,7 +471,7 @@
       }
     },
     "shortcut": {
-      "title": "Raccourcis",
+      "title": "Raccourcis clavier",
       "custom": "Personnalisé",
       "capture": "Cliquez ici pour capturer le raccourci",
       "clear": "Effacer",
@@ -591,6 +591,29 @@
       "tf3": "Insérez la carte TF dans un lecteur de carte et connectez-la à votre ordinateur.",
       "tf4": "Copiez le fichier image dans le répertoire /data de la carte TF sur votre ordinateur.",
       "tf5": "Réinsérez la carte TF dans le NanoKVM."
+    },
+    "netboot": {
+      "tab": "Démarrage réseau",
+      "hint": "Démarrez cet ordinateur depuis les menus netboot.xyz : installateurs, systèmes live et outils sont chargés depuis Internet via le NanoKVM. Seule l'image iPXE est stockée sur le NanoKVM.",
+      "versions": "iPXE {{ipxe}} · netboot.xyz {{netbootxyz}}",
+      "notDownloaded": "Pas encore téléchargé. Activer le démarrage réseau télécharge le dernier iPXE (environ 13 Mo) et sélectionne la dernière version de netboot.xyz.",
+      "checked": "Vérifié le {{date}}",
+      "update": "Rechercher des mises à jour",
+      "updating": "Mise à jour…",
+      "secureBoot": "UEFI Secure Boot",
+      "secureBootHint": "Utilise l'image iPXE signée pour Secure Boot (x86-64 UEFI uniquement). Avec Secure Boot, netboot.xyz installe Debian, Devuan et Kali ; les autres entrées nécessitent de désactiver Secure Boot dans le firmware de l'ordinateur.",
+      "needComposition": "Activez d'abord le réseau USB et le disque virtuel dans les paramètres USB.",
+      "browserMedia": "Déconnectez d'abord l'ISO de cet ordinateur.",
+      "enableNote": "Remplace l'image montée et active le partage Internet par USB jusqu'à la désactivation du démarrage réseau.",
+      "enable": "Activer le démarrage réseau",
+      "enabling": "Activation…",
+      "disable": "Désactiver le démarrage réseau",
+      "on": "Activé : démarrez l'ordinateur depuis le lecteur CD/DVD du NanoKVM.",
+      "waiting": "En attente du chargement du menu par l'ordinateur.",
+      "fetched": "L'ordinateur a chargé le menu (requêtes : {{n}}, dernière à {{time}}).",
+      "noUplink": "Le NanoKVM n'a pas de connexion Internet à partager ; netboot.xyz ne se chargera pas.",
+      "inUse": "Le démarrage réseau est activé. Désactivez-le pour monter une autre image.",
+      "failed": "Échec du démarrage réseau. Réessayez."
     }
   },
   "script": {
@@ -651,6 +674,7 @@
     "uploadbox": "Déposez le fichier ici ou cliquez pour sélectionner",
     "inputfile": "Veuillez saisir le fichier image",
     "NoISO": "Aucun ISO",
+    "imageFileRequired": "Sélectionnez un fichier image ISO ou IMG",
     "sha256": "SHA-256 (facultatif)",
     "sha256Placeholder": "Saisissez une somme de contrôle SHA-256 de 64 caractères",
     "invalidSHA256": "SHA-256 doit être une chaîne hexadécimale de 64 caractères",
@@ -742,18 +766,40 @@
       "title": "Mises à jour",
       "description": "Mettez à jour NanoKVM OS à l'aide de paquets signés. Les mises à jour système redémarrent l'appareil ; les mises à jour de l'application déconnectent brièvement la vidéo et le contrôle.",
       "installed": "Installé",
-      "alpineOptions": "Options de l'image",
-      "alpineTitle": "Réinstaller le système",
-      "alpineDisclaimer": "Remplace le système par une image nouvellement construite. Les paramètres enregistrés sont restaurés et les paquets sélectionnés sont inclus. Les autres fichiers de la partition système sont supprimés. L'appareil redémarrera.",
-      "alpineProfile": "Profil de construction",
-      "alpinePackages": "Paquets à inclure",
-      "alpineBuild": "Construire l'image",
-      "alpineStage": "Télécharger l'image",
-      "alpineInstall": "Réinstaller et redémarrer",
-      "alpineConfirm": "Formater la partition système, installer cette image Alpine et redémarrer maintenant ?",
-      "alpineBuilderMissing": "Le générateur d'images assisté n'est pas configuré. Définissez alpine.builderURL ou utilisez un bundle de récupération vérifié manuellement.",
       "requestFailed": "La requête de mise à jour a échoué. Vérifiez la connectivité de l'appareil et réessayez.",
-      "reconnecting": "En attente de la reconnexion de l'appareil…"
+      "reconnecting": "En attente de la reconnexion de l'appareil…",
+      "components": {
+        "title": "Composants",
+        "description": "Paquets NanoKVM OS installés. Une version plus récente trouvée lors de la dernière vérification apparaît à côté de la version installée.",
+        "available": "{{version}} disponible",
+        "alpine": "Alpine Linux",
+        "kernel": "Noyau en cours",
+        "kernelNext": "{{version}} après un redémarrage",
+        "names": {
+          "system": "NanoKVM OS",
+          "release": "Informations de version",
+          "app": "Application",
+          "web": "Interface web",
+          "base": "Base du système",
+          "kernel": "Noyau",
+          "modules": "Modules du noyau",
+          "firmware": "Micrologiciel de la carte",
+          "keys": "Clés de signature",
+          "rustdesk": "RustDesk"
+        }
+      },
+      "notice": {
+        "title": "Mise à jour de NanoKVM OS disponible",
+        "open": "Ouvrir les mises à jour",
+        "auto": "Rechercher les mises à jour chaque jour",
+        "autoDescription": "Consulte le dépôt NanoKVM OS une fois par jour et affiche un avis lorsqu’une version plus récente est disponible. Rien n’est installé automatiquement.",
+        "check": "Vérifier maintenant",
+        "checked": "Dernière vérification : {{time}}",
+        "never": "Pas encore vérifié",
+        "failed": "La dernière vérification a échoué : {{message}}",
+        "unavailable": "Aucun dépôt NanoKVM OS n’est configuré.",
+        "upToDate": "NanoKVM OS est à jour"
+      }
     },
     "memory": {
       "videoMode": "Allocation de la mémoire vidéo",
@@ -1185,10 +1231,41 @@
         "ejectFirst": "Éjectez d'abord le lecteur sur l'ordinateur pour qu'aucune écriture ne reste inachevée ; les périphériques USB se reconnectent ensuite.",
         "created": "Disque utilisateur créé",
         "turnOffFirst": "Désactivez d'abord le disque utilisateur.",
-        "busy": "Le disque utilisateur est en cours de création ou de suppression. Réessayez une fois l'opération terminée.",
+        "busy": "Le disque est occupé. Attendez puis réessayez.",
         "missing": "L'image du disque utilisateur a disparu. Créez-la à nouveau.",
         "failed": "La requête du disque utilisateur a échoué.",
-        "notice": "Monter ou éjecter une image de CD/disque reconnecte aussi les périphériques USB ; l'ordinateur revoit ensuite le disque utilisateur avec ce qu'il y a écrit. L'image entière est allouée sur la carte SD à sa création, les grandes tailles prennent donc un certain temps."
+        "notice": "Monter ou éjecter une image de CD/disque reconnecte aussi les périphériques USB ; l'ordinateur revoit ensuite le disque utilisateur avec ce qu'il y a écrit. L'image entière est allouée sur la carte SD à sa création, les grandes tailles prennent donc un certain temps.",
+        "files": {
+          "title": "Fichiers du disque utilisateur",
+          "host": "Éjectez le disque sur l’ordinateur, puis désactivez le disque utilisateur ci-dessus pour gérer ses fichiers.",
+          "hint": "Une fois terminé, activez le disque utilisateur ci-dessus pour rendre les fichiers accessibles à l’ordinateur. Les fichiers existants ne sont jamais écrasés.",
+          "refresh": "Actualiser",
+          "browse": "Parcourir les fichiers",
+          "up": "Dossier parent",
+          "upload": "Envoyer des fichiers",
+          "transferring": "Transfert et enregistrement… Attendez la fin avant de connecter le disque.",
+          "cancel": "Annuler",
+          "space": "{{free}} libres sur {{total}}",
+          "folderName": "Nom du nouveau dossier",
+          "mkdir": "Créer un dossier",
+          "download": "Télécharger",
+          "delete": "Supprimer",
+          "empty": "Ce dossier est vide.",
+          "deleteTitle": "Supprimer cet élément ?",
+          "deleteConfirm": "Supprimer {{name}} ? Seuls les dossiers vides peuvent être supprimés.",
+          "errors": {
+            "host": "L’ordinateur utilise le disque. Éjectez-le et désactivez-le ci-dessus.",
+            "busy": "Le disque est occupé. Attendez puis réessayez.",
+            "path": "Nom de fichier ou de dossier invalide.",
+            "exists": "Un fichier ou dossier portant ce nom existe déjà.",
+            "missing": "Le disque, fichier ou dossier n’existe plus. Actualisez ou remontez.",
+            "space": "Espace insuffisant ou fichier dépassant la limite FAT32 de 4 Gio moins 1 octet.",
+            "notEmpty": "Le dossier n’est pas vide.",
+            "io": "L’opération a échoué. Vérifiez le disque et les journaux système, puis actualisez."
+          },
+          "previous": "Page précédente",
+          "next": "Page suivante"
+        }
       },
       "serialConsole": {
         "title": "Console Linux sans écran",
@@ -1499,6 +1576,13 @@
         "none": "Aucun",
         "server": "Serveur DNS {{index}}",
         "remove": "Supprimer le serveur DNS {{index}}"
+      },
+      "bluetooth": {
+        "off": "Désactivé : les pilotes Bluetooth ne sont pas chargés.",
+        "on": "Activé : les pilotes Bluetooth sont chargés.",
+        "tip": "NanoKVM n’a pas encore de fonctions Bluetooth : l’activer charge seulement les pilotes. Le réglage s’applique immédiatement et à chaque démarrage.",
+        "version": "Version Bluetooth",
+        "unavailable": "Cet appareil n’a pas de Bluetooth pris en charge par NanoKVM OS."
       }
     },
     "tailscale": {
@@ -1516,7 +1600,7 @@
       "install": "Installer",
       "installing": "Installation",
       "failed": "Installation échouée",
-      "retry": "Veuillez rafraîchir et réessayer. Ou essayez d'installer manuellement",
+      "retry": "Veuillez réessayer l’installation.",
       "notRunning": "Tailscale n'est pas en cours d'exécution. Veuillez le démarrer pour continuer.",
       "run": "Début",
       "notLogin": "L'appareil n'est pas relié. Connectez-vous et liez cet appareil à votre compte.",
@@ -1649,7 +1733,7 @@
       "sameServer": "Configurez le même serveur d'ID personnalisé et la même clé publique dans le client RustDesk."
     },
     "account": {
-      "title": "Compte",
+      "title": "Utilisateurs",
       "webAccount": "Nom du compte Web",
       "role": "Rôle",
       "roles": {
@@ -1719,22 +1803,22 @@
     "connection": {
       "runtime": {
         "checking": "Vérification",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "Restauration de PicoClaw",
         "ready": "Runtime prêt",
         "stopped": "Runtime arrêté",
         "blockedByMCP": "Le contrôle MCP externe est actif",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "L’environnement d’exécution fonctionne, mais le MCP externe contrôle actuellement les entrées de l’appareil.",
+        "readyWithoutControl": "L’environnement d’exécution fonctionne. Accordez le contrôle de l’appareil à PicoClaw avant de vous reconnecter.",
         "unavailable": "Runtime indisponible",
         "configError": "Erreur de configuration"
       },
       "transport": {
         "connecting": "Connexion",
         "connected": "Connecté",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "Déconnecté",
+        "reconnect": "Reconnecter",
+        "reconnectDescription": "Se reconnecter à la session PicoClaw en cours.",
+        "reconnectBlocked": "PicoClaw doit contrôler l’appareil pour pouvoir se reconnecter."
       },
       "run": {
         "idle": "Inactif",
@@ -1751,19 +1835,19 @@
     },
     "control": {
       "picoclaw": "Contrôle de l'appareil : PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw peut envoyer des commandes au clavier et à la souris. La saisie manuelle peut être suspendue.",
       "mcp": "Contrôle de l'appareil : MCP externe",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "Contrôle de l'appareil : désactivé",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "Le MCP externe peut envoyer des commandes à l’appareil. PicoClaw ne prendra pas le contrôle des entrées.",
+      "off": "Contrôle de l’appareil : manuel / sans IA",
+      "offDescription": "L’IA n’enverra aucune commande au clavier ni à la souris. Le contrôle manuel reste disponible.",
+      "transitioning": "Contrôle de l’appareil : changement en cours",
+      "transitioningDescription": "Synchronisation du contrôle de l’appareil. Veuillez patienter.",
       "grant": "Accorder le contrôle",
       "release": "Libérer",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "Contrôle de l’appareil : restitution en cours",
+      "releasingDescription": "Le contrôle de l’appareil est en cours de restitution. PicoClaw a cessé d’envoyer des commandes.",
       "granted": "Contrôle PicoClaw accordé",
       "released": "Contrôle PicoClaw libéré",
       "grantFailed": "Échec de l'octroi du contrôle PicoClaw",

@@ -22,8 +22,8 @@
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   verify     compare the outputs with expected.sha256
-#   payloads   contents of the eight nanokvm-* packages, from packages.list
-#   packages   signed APK repository of the eight packages
+#   payloads   contents of the ten NanoKVM packages, from packages.list
+#   packages   signed APK repository of the ten packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -637,7 +637,14 @@ tools() {
     "$host/cmake" --build "$t/zlib-ng/build" -j "$jobs"
     mkdir -p "$img/tools/zlib-ng"
     "${cross}strip" --strip-unneeded --remove-section=.comment --remove-section=.note \
-        -o "$img/tools/zlib-ng/libz.so.1.3.1.zlib-ng" "$t/zlib-ng/build/libz.so.1.3.1.zlib-ng"
+        -o "$img/tools/zlib-ng/libz.so.1.3.2.zlib-ng" "$t/zlib-ng/build/libz.so.1.3.2.zlib-ng"
+    # nanokvm-zlib provides zlib 1.3.2 and so:libz.so.1: it must export every
+    # symbol, with its version node, that Alpine's libz.so.1.3.2 exports.
+    "${cross}readelf" --dyn-syms -W "$img/tools/zlib-ng/libz.so.1.3.2.zlib-ng" |
+        awk '$7 != "UND" && $5 != "LOCAL" && $8 ~ /@/ { print $8 }' | sed 's/@@/@/' | LC_ALL=C sort -u > "$t/zlib-ng/symbols"
+    local missing
+    missing=$(LC_ALL=C comm -23 "$repo/firmware/alpine/packages/nanokvm-zlib/zlib-1.3.2.symbols" "$t/zlib-ng/symbols")
+    [ -z "$missing" ] || { echo "zlib-ng does not export these zlib 1.3.2 symbols:" $missing >&2; exit 1; }
     cp "$t/zlib-ng/LICENSE.md" "$img/tools/zlib-ng/"
 
     # liblzma for the server's xz decoder, from the release commit: the 2024
@@ -693,7 +700,7 @@ firmware() {
     cp "$out/firmware/wireless-regdb-2026.09.03/LICENSE" "$f/licenses/wireless-regdb-LICENSE"
 }
 
-# Assemble the eight package payloads from packages.list.
+# Assemble the ten package payloads from packages.list.
 payloads() {
     local p=$out/payloads gen pkg type path mode src dest file
     rm -rf "$p"
@@ -702,6 +709,7 @@ payloads() {
     mkdir -p "$gen/kvm"
     # Written below once the application payload is complete.
     : > "$gen/build-manifest.json"
+    : > "$gen/web-build-manifest.json"
     printf '+kvmapp/kvm\n' > "$gen/protected-paths"
     # No longer read by this tree. Applications up to v2.6-a3 check it to pick
     # the GPIO ABI v2, HDMI reset driver and runtime defaults; drop it once
@@ -742,17 +750,19 @@ payloads() {
         esac
     done < "$here/packages.list"
     # What the application payload was built from, for support requests.
-    "$host/python3" - "$p/app/kvmapp" "$version" "$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo unknown)" \
+    for component in app web; do
+        "$host/python3" - "$p/$component/kvmapp" "$version" "$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo unknown)" \
         "$([ -z "$(git -C "$repo" status --porcelain 2>/dev/null)" ] && echo false || echo true)" <<'PY'
 import hashlib, json, sys
 from pathlib import Path
 root, version, commit, dirty = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4] == 'true'
-manifest = root / 'build-manifest.json'
+manifest = root / ('web-build-manifest.json' if root.parent.name == 'web' else 'build-manifest.json')
 files = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
          for p in sorted(root.rglob('*')) if p.is_file() and not p.is_symlink() and p != manifest}
 manifest.write_text(json.dumps({'version': version, 'source_dirty': dirty, 'source_base_commit': commit,
                                 'files': files}, indent=2) + '\n')
 PY
+    done
 }
 
 # The packages, rootfs and image steps create files of several owners and run
@@ -812,6 +822,12 @@ in_userns() (
 )
 
 qemu=$out/qemu/qemu-riscv64-static
+# Our userspace code uses the C906's T-Head extensions (cpu-profile.json), which
+# qemu's default RISC-V CPU lacks, and the chroot steps run some of it: zlib-ng
+# as libz.so.1 in apk and kmod. qemu has no XTheadVector, which nothing loaded
+# there uses. (-cpu thead-c906 would warn on every program about zfa.)
+qemu_cpu=rv64,xtheadba=true,xtheadbb=true,xtheadbs=true,xtheadcmo=true,xtheadcondmov=true,xtheadfmemidx=true
+qemu_cpu=$qemu_cpu,xtheadmac=true,xtheadmemidx=true,xtheadmempair=true,xtheadsync=true
 prepare_qemu() {
     local pin
     pin=$(lock qemu | awk '{ print $3 }')
@@ -861,7 +877,7 @@ in_chroot() (
     trap 'rc=$?; umount -l "$root/dev"; umount -l "$root/proc"; umount -l "$root/sys"
           [ -z "${BIND:-}" ] || umount -l "$root${BIND#*:}"; exit $rc' EXIT
     cp -L /etc/resolv.conf "$root/etc/resolv.conf"
-    chroot "$root" "$@"
+    QEMU_CPU=$qemu_cpu chroot "$root" "$@"
 )
 
 # The APK signing keys: -k KEY and -e ECKEY, or with -d local test keys created
@@ -909,7 +925,7 @@ signing_key() {
     keyname=$(basename "$keyfile" .rsa)
 }
 
-# Build the eight packages with abuild in an Alpine riscv64 tree.
+# Build the ten packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu
@@ -976,7 +992,9 @@ rootfs() {
     # The v3 index, as on the device.
     printf '%s\n' /mnt/nanokvm-apk/recipes/riscv64/Packages.adb https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
         https://dl-cdn.alpinelinux.org/alpine/v3.24/community > "$r/etc/apk/repositories"
-    BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache add nanokvm-release
+    # --preserve-env keeps QEMU_CPU for the package scripts and triggers, which
+    # load the new libz.so.1 (kmod's depmod, for one).
+    BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache --preserve-env add nanokvm-release
     rmdir "$r/mnt/nanokvm-apk"
     # The repositories of the device: the v3 index of NanoKVM OS releases
     # (nanokvm-keys switches older devices to it) and Alpine.
@@ -994,7 +1012,7 @@ rootfs() {
     [ -d "$r/lib/modules/$(cat "$r/usr/lib/nanokvm/boot/kernel.release")" ] || {
         echo "rootfs: boot.sd and modules differ" >&2; exit 1; }
     # nanokvm-zlib replaces Alpine's zlib; both installed would share libz.so.1.
-    ! grep -qx 'P:zlib' "$r/lib/apk/db/installed" && [ "$(readlink "$r/usr/lib/libz.so.1")" = libz.so.1.3.1.zlib-ng ] || {
+    ! grep -qx 'P:zlib' "$r/lib/apk/db/installed" && [ "$(readlink "$r/usr/lib/libz.so.1")" = libz.so.1.3.2.zlib-ng ] || {
         echo "rootfs: libz.so.1 is not nanokvm-zlib's" >&2; exit 1; }
     # Every trusted key belongs to a package (nanokvm-keys, alpine-keys), so
     # that updates can add and remove keys; this also catches an .apk-new.

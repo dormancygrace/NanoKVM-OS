@@ -101,11 +101,17 @@ jobs:
         # Only the disposable network namespace is changed; Ubuntu restricts
         # unprivileged user namespaces, so let the test create it as root.
         run: sudo python3 tests/test-dhcp-gateway.py
+      - name: APK application split migration
+        run: |
+          docker run --rm --volume "$PWD:/src:ro" --workdir /src alpine:3.24 sh -ec '
+            apk add --no-cache python3
+            python3 tests/test-split-app-packages.py --apk /sbin/apk
+          '
       - name: Script tests
         run: |
           set -e
           for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-sd-image-boot alpine-network \
-                   alpine-recovery-password alpine-recovery-settings alpine-builder-cleanup alpine-firstboot-storage-errors alpine-service-deps board-selection usb-state capture-restart \
+                   alpine-recovery-password alpine-recovery-settings alpine-firstboot-storage-errors alpine-service-deps board-selection usb-state capture-restart \
                    s15-packaging kvm-system-lifecycle kvm-file-inputs hdmi-detection-cache hdmi-receiver-start \
                    mmf-light-link native-bundle-abi monitor-edids nanokvm-service-stop net-probe server-supervisor oled-detect oled-ip-window platform-build \
                    portrait-edid serial-console-disk startup-aes-policy wifi-selector upstream-watch kernel-update-pr upstream-update-prs \

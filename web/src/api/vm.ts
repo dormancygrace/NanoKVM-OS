@@ -223,6 +223,28 @@ export function disableMdns() {
   return http.post('/api/vm/mdns/disable');
 }
 
+export type BluetoothState = {
+  available: boolean;
+  enabled: boolean;
+  loaded: boolean;
+  version: string;
+};
+
+// get Bluetooth state and version
+export function getBluetoothState() {
+  return http.get('/api/vm/bluetooth');
+}
+
+// load Bluetooth now and at every boot
+export function enableBluetooth() {
+  return http.post('/api/vm/bluetooth/enable');
+}
+
+// unload Bluetooth and keep it off at boot
+export function disableBluetooth() {
+  return http.post('/api/vm/bluetooth/disable');
+}
+
 // enable / disable TLS
 export function setTLS(enabled: boolean) {
   return http.post('/api/vm/tls', { enabled });

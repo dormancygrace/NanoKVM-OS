@@ -328,6 +328,15 @@ class CoverageTests(unittest.TestCase):
             with self.subTest(cadence=cadence), self.assertRaisesRegex(ValueError, 'Unknown source cadence'):
                 u.select_sources([dict(name='bad', cadence='quartery')], cadence)
 
+    def test_split_app_packages_are_not_alpine_dependencies(self):
+        with patch.object(u, 'request_bytes', return_value=WatchTests.alpine_index('3.5.9-r0')):
+            results = {item['name']: item for item in u.check_alpine_inventory(ROOT)}
+        for name in ('nanokvm', 'nanokvm-web', 'nanokvm-app'):
+            self.assertNotIn('Alpine: ' + name, results)
+        self.assertEqual(results['Alpine: openssl']['status'], 'repository-managed')
+        self.assertEqual(results['Alpine: curl']['status'], 'error',
+                         'missing external packages must still be reported')
+
     def test_alpine_fetch_failure_is_error(self):
         with patch.object(u, 'request_bytes', side_effect=OSError('mirror down')):
             results = u.check_alpine_inventory(ROOT)

@@ -133,6 +133,8 @@ def check_alpine_inventory(root=ROOT):
                     if item.startswith(('!', 'nanokvm-')):
                         continue
                     name = re.split(r'[<>=~]', item)[0]
+                    if name == 'nanokvm':
+                        continue
                     if not re.fullmatch(r'[a-zA-Z0-9+_.-]+', name):
                         raise ValueError('Unrecognized APK dependency: ' + item)
                     packages.add(name)

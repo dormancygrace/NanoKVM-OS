@@ -29,11 +29,12 @@
       "reset2": "Voor gedetailleerde stappen kunt u dit document raadplegen:",
       "reset3": "Standaard webaccount:",
       "reset4": "Standaard SSH-account:",
-      "change1": "Houd er rekening mee dat deze actie de volgende wachtwoorden zal wijzigen:",
+      "change1": "Voor het ingebouwde beheerdersaccount wijzigt deze actie de volgende wachtwoorden:",
       "change2": "Web login wachtwoord",
       "change3": "Systeem root-wachtwoord (SSH-inlogwachtwoord)",
       "change4": "Om de wachtwoorden opnieuw in te stellen, houdt u de BOOT-knop op de NanoKVM ingedrukt."
-    }
+    },
+    "placeholderCurrentPassword": "Huidig wachtwoord"
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -100,7 +101,9 @@
       "videoError": "Fout bij videoweergave",
       "noHdmi": "Geen HDMI-signaal gedetecteerd",
       "unavailable": "Het scherm kan nu niet worden weergegeven"
-    }
+    },
+    "codec": "Codec",
+    "retryJoin": "Opnieuw proberen"
   },
   "keyboard": {
     "title": "Toetsenbord",
@@ -118,22 +121,22 @@
     "dropdownRussian": "Russisch",
     "dropdownSpanish": "Spaans",
     "shortcut": {
-      "title": "Snelkoppelingen",
+      "title": "Sneltoetsen",
       "custom": "Aangepast",
-      "capture": "Klik hier om de snelkoppeling vast te leggen",
-      "clear": "Duidelijk",
+      "capture": "Klik hier om de sneltoets vast te leggen",
+      "clear": "Wissen",
       "save": "Opslaan",
       "captureTips": "Voor het vastleggen van systeemtoetsen (zoals de Windows-toets) is toestemming voor volledig scherm vereist.",
       "enterFullScreen": "Schakelen naar volledig scherm."
     },
     "leaderKey": {
       "title": "Leader-toets",
-      "desc": "Omzeil browserbeperkingen en stuur systeemsnelkoppelingen rechtstreeks naar de externe host.",
+      "desc": "Omzeil browserbeperkingen en stuur systeemsneltoetsen rechtstreeks naar de externe host.",
       "howToUse": "Hoe te gebruiken",
       "simultaneous": {
         "title": "Gelijktijdige modus",
         "desc1": "Houd de Leader-toets ingedrukt en druk daarna op de sneltoets.",
-        "desc2": "Intuïtief, maar kan conflicteren met systeemsnelkoppelingen."
+        "desc2": "Intuïtief, maar kan conflicteren met systeemsneltoetsen."
       },
       "sequential": {
         "title": "Sequentiële modus",
@@ -150,8 +153,12 @@
       "recorder": {
         "rec": "OPN",
         "activate": "Toetsen activeren",
-        "input": "Druk op de snelkoppeling..."
+        "input": "Druk op de sneltoets…"
       }
+    },
+    "sequences": {
+      "title": "Toetsreeksen",
+      "sent": "Verzonden"
     }
   },
   "mouse": {
@@ -250,14 +257,17 @@
     "flowControlHard": "Hardware",
     "dataBits": "Databits",
     "stopBits": "Stopbits",
-    "confirm": "Ok"
+    "confirm": "Ok",
+    "usbSerial": "Seriële USB-console"
   },
   "wol": {
     "title": "Wake-on-LAN",
     "sending": "Commando wordt verzonden...",
     "sent": "Commando verzonden",
     "input": "Voer het MAC-adres in",
-    "ok": "Ok"
+    "ok": "Ok",
+    "name": "Apparaatnaam",
+    "cancel": "Annuleren"
   },
   "download": {
     "title": "Afbeeldingdownloader",
@@ -273,7 +283,8 @@
     "success": "Download geslaagd",
     "checksumFailed": "Download mislukt: SHA-256-verificatie mislukt",
     "cancel": "Annuleren",
-    "cancelFailed": "Download annuleren mislukt"
+    "cancelFailed": "Download annuleren mislukt",
+    "downloading": "Downloaden"
   },
   "power": {
     "title": "Aan/uit",
@@ -312,7 +323,13 @@
       "ip": "IP",
       "image": "Image versie",
       "hostname": "Hostnaam",
-      "hostnameUpdated": "Hostnaam bijgewerkt. Start opnieuw op om toe te passen."
+      "hostnameUpdated": "Hostnaam bijgewerkt. Start opnieuw op om toe te passen.",
+      "credits": {
+        "button": "Bijdragers",
+        "title": "Bijdragers",
+        "close": "Sluiten"
+      },
+      "documentation": "Documentatie"
     },
     "appearance": {
       "title": "Uiterlijk",
@@ -332,6 +349,9 @@
         "keyboardLedStatusDesc": "Toon de Num Lock-, Caps Lock- en Scroll Lock-status van de externe computer",
         "icons": "Submenupictogrammen",
         "iconsDesc": "Submenupictogrammen weergeven in de menubalk"
+      },
+      "buttonColor": {
+        "save": "Toepassen"
       }
     },
     "keyboardLedStatus": {
@@ -382,7 +402,10 @@
       "reboot": "Opnieuw opstarten",
       "rebootDesc": "Weet u zeker dat u NanoKVM opnieuw wilt opstarten?",
       "okBtn": "Ja",
-      "cancelBtn": "Nee"
+      "cancelBtn": "Nee",
+      "cpuFrequency": {
+        "title": "CPU-frequentie en overklokken"
+      }
     },
     "network": {
       "title": "Netwerk",
@@ -399,11 +422,22 @@
         "password": "Wachtwoord",
         "joinBtn": "Verbinden",
         "confirmBtn": "OK",
-        "cancelBtn": "Annuleren"
+        "cancelBtn": "Annuleren",
+        "band": "Frequentieband",
+        "manual": "Handmatig verbinden",
+        "hidden": "Verborgen netwerk",
+        "security": "Beveiliging",
+        "open": "Open netwerk",
+        "loading": "Laden...",
+        "reconnect": "Opnieuw verbinden"
       },
       "tls": {
         "description": "HTTPS-protocol inschakelen",
-        "tip": "Let op: HTTPS gebruiken kan de latentie verhogen, vooral in MJPEG-videomodus."
+        "tip": "Let op: HTTPS gebruiken kan de latentie verhogen, vooral in MJPEG-videomodus.",
+        "certificate": {
+          "title": "Certificaat",
+          "remove": "Verwijderen"
+        }
       },
       "ethernet": {
         "title": "Ethernet IPv4",
@@ -423,7 +457,8 @@
         "save": "Opslaan",
         "unsaved": "Niet-opgeslagen wijzigingen",
         "saveFailed": "Ethernetinstellingen opslaan mislukt",
-        "loadFailed": "Ethernetinstellingen laden mislukt"
+        "loadFailed": "Ethernetinstellingen laden mislukt",
+        "disabled": "Uitgeschakeld"
       },
       "dns": {
         "title": "DNS",
@@ -446,6 +481,11 @@
         "subnetMask": "Subnetmasker",
         "router": "Router",
         "none": "Geen"
+      },
+      "general": "Algemeen",
+      "gateway": {
+        "title": "Voorkeursgateway",
+        "auto": "Automatisch"
       }
     },
     "tailscale": {
@@ -458,7 +498,7 @@
       "install": "Installeren",
       "installing": "Installeren bezig",
       "failed": "Installatie mislukt",
-      "retry": "Vernieuw en probeer opnieuw. Of probeer handmatig te installeren",
+      "retry": "Probeer de installatie opnieuw.",
       "notRunning": "Tailscale is niet actief. Start het programma om door te gaan.",
       "run": "Begin",
       "notLogin": "Het apparaat is nog niet gekoppeld. Log in en koppel dit apparaat aan uw account.",
@@ -474,17 +514,169 @@
       "uninstall": "Verwijderen Tailscale",
       "uninstallDesc": "Weet u zeker dat u Tailscale wilt verwijderen?",
       "okBtn": "Ja",
-      "cancelBtn": "Nee"
+      "cancelBtn": "Nee",
+      "moreActions": "Meer acties"
     },
     "account": {
-      "title": "Account",
+      "title": "Gebruikers",
       "webAccount": "Web Account Naam",
       "password": "Wachtwoord",
       "updateBtn": "Update",
       "logoutBtn": "Afmelden",
       "logoutDesc": "Weet u zeker dat u wilt uitloggen?",
       "okBtn": "Ja",
-      "cancelBtn": "Nee"
+      "cancelBtn": "Nee",
+      "role": "Rol",
+      "roles": {
+        "admin": "Beheerder",
+        "user": "Gebruiker"
+      },
+      "users": {
+        "title": "Gebruikers",
+        "create": "Gebruiker aanmaken",
+        "enabled": "Ingeschakeld",
+        "disabled": "Uitgeschakeld",
+        "deviceOwner": "Apparaateigenaar",
+        "rename": "Hernoemen",
+        "resetPassword": "Wachtwoord opnieuw instellen",
+        "delete": "Verwijderen"
+      }
+    },
+    "software": {
+      "indexSchedule": {
+        "save": "Opslaan"
+      },
+      "addons": {
+        "title": "Uitbreidingspakketten",
+        "packages": "Pakketten"
+      },
+      "title": "Software",
+      "available": "Beschikbare pakketten",
+      "updatesTab": "Updates",
+      "search": "Zoeken",
+      "install": "Installeren",
+      "installed": "Geïnstalleerde pakketten",
+      "remove": "Verwijderen"
+    },
+    "updates": {
+      "apk": {
+        "title": "Pakketupdates",
+        "log": "Updatelogboek"
+      },
+      "title": "Updates",
+      "installed": "Geïnstalleerd"
+    },
+    "memory": {
+      "title": "Geheugen",
+      "available": "Beschikbaar",
+      "size": "Capaciteit",
+      "used": "Gebruikt",
+      "algorithm": "Compressie",
+      "videoUnknown": "Onbekend"
+    },
+    "system": {
+      "general": "Algemeen",
+      "logs": {
+        "title": "Logboeken",
+        "sources": {
+          "kernel": "Kernel"
+        },
+        "refresh": "Vernieuwen"
+      },
+      "diagnostics": {
+        "overview": "Status",
+        "title": "Diagnostiek",
+        "refresh": "Vernieuwen",
+        "application": "Toepassing"
+      },
+      "services": "Diensten",
+      "device": "Apparaat"
+    },
+    "usb": {
+      "internet": {
+        "title": "Internet via USB",
+        "states": {
+          "loading": "Laden..."
+        }
+      },
+      "title": "USB-functies",
+      "apply": "Toepassen",
+      "cancel": "Wijzigingen verwerpen",
+      "identity": {
+        "title": "USB-identiteit"
+      },
+      "userDisk": {
+        "title": "Gebruikersschijf",
+        "create": "Aanmaken",
+        "delete": "Verwijderen",
+        "files": {
+          "title": "Bestanden op de gebruikersschijf",
+          "refresh": "Vernieuwen",
+          "browse": "Bestanden bekijken",
+          "up": "Bovenliggende map",
+          "upload": "Bestanden uploaden",
+          "cancel": "Annuleren",
+          "folderName": "Naam van nieuwe map",
+          "mkdir": "Map aanmaken",
+          "download": "Downloaden",
+          "delete": "Verwijderen",
+          "empty": "Deze map is leeg.",
+          "errors": {
+            "notEmpty": "De map is niet leeg."
+          },
+          "previous": "Vorige pagina",
+          "next": "Volgende pagina"
+        }
+      },
+      "serialConsole": {
+        "title": "Linux-console zonder beeldscherm"
+      },
+      "devices": {
+        "network": {
+          "title": "Virtueel netwerk"
+        },
+        "disk": {
+          "title": "Virtuele schijf"
+        },
+        "serial": {
+          "title": "Seriële USB-console"
+        },
+        "keyboard": {
+          "title": "Toetsenbord"
+        }
+      }
+    },
+    "netbird": {
+      "moreActions": "Meer acties",
+      "loginSuccess": "Ik ben aangemeld",
+      "deviceName": "Apparaatnaam",
+      "version": "Versie",
+      "loading": "Laden...",
+      "run": "Begin",
+      "login": "Inloggen",
+      "deviceIP": "Apparaat IP",
+      "okBtn": "Ja",
+      "cancelBtn": "Nee",
+      "error": {
+        "installFailed": "Installatie mislukt"
+      }
+    },
+    "rustdesk": {
+      "absent": "Niet geïnstalleerd",
+      "stopped": "Gestopt",
+      "install": "Installeren",
+      "remove": "Verwijderen",
+      "save": "Instellingen opslaan",
+      "server": "Server",
+      "passwordMode": "Wachtwoord",
+      "temporaryPassword": "Tijdelijk wachtwoord",
+      "newPassword": "Nieuw wachtwoord",
+      "advanced": "Geavanceerde instellingen",
+      "saved": "Instellingen opgeslagen",
+      "unknownVersion": "Onbekend"
+    },
+    "extensions": {
+      "title": "Uitbreidingen"
     }
   },
   "picoclaw": {
@@ -499,7 +691,8 @@
       "kvmTitle": "Bediening op afstand",
       "kvmDescription": "Bedien de externe host via NanoKVM.",
       "switched": "Agentrol gewijzigd",
-      "switchFailed": "Kan agentrol niet wisselen"
+      "switchFailed": "Kan agentrol niet wisselen",
+      "label": "Agentrol"
     },
     "send": "Verzenden",
     "cancel": "Annuleren",
@@ -517,22 +710,22 @@
     "connection": {
       "runtime": {
         "checking": "Controleren",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "PicoClaw herstellen",
         "ready": "Runtime gereed",
         "stopped": "Runtime gestopt",
         "blockedByMCP": "Externe MCP-bediening is actief",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "De runtime is actief, maar externe MCP bestuurt momenteel de invoer van het apparaat.",
+        "readyWithoutControl": "De runtime is actief. Geef PicoClaw de besturing over het apparaat voordat u opnieuw verbinding maakt.",
         "unavailable": "Runtime niet beschikbaar",
         "configError": "Configuratiefout"
       },
       "transport": {
         "connecting": "Verbinden",
         "connected": "Verbonden",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "Niet verbonden",
+        "reconnect": "Opnieuw verbinden",
+        "reconnectDescription": "Opnieuw verbinding maken met de actieve PicoClaw-sessie.",
+        "reconnectBlocked": "PicoClaw heeft besturing over het apparaat nodig om opnieuw verbinding te maken."
       },
       "run": {
         "idle": "Inactief",
@@ -549,19 +742,19 @@
     },
     "control": {
       "picoclaw": "Apparaatbediening: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw kan toetsenbord- en muisinvoer versturen. Handmatige invoer kan tijdelijk worden onderbroken.",
       "mcp": "Apparaatbediening: externe MCP",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "Apparaatbediening: uit",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "Externe MCP kan invoer naar het apparaat versturen. PicoClaw neemt de invoer niet over.",
+      "off": "Apparaatbediening: handmatig / zonder AI",
+      "offDescription": "AI verstuurt geen toetsenbord- of muisinvoer. Handmatige bediening blijft beschikbaar.",
+      "transitioning": "Apparaatbediening: overschakelen",
+      "transitioningDescription": "De apparaatbediening wordt gesynchroniseerd. Even geduld.",
       "grant": "Bediening geven",
       "release": "Vrijgeven",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "Apparaatbediening: besturing teruggeven",
+      "releasingDescription": "De besturing over het apparaat wordt teruggegeven. PicoClaw is gestopt met het versturen van invoer.",
       "granted": "PicoClaw-bediening gegeven",
       "released": "PicoClaw-bediening vrijgegeven",
       "grantFailed": "Kan PicoClaw-bediening niet geven",
@@ -643,7 +836,8 @@
       "description": "Start de runtime om de PicoClaw assistent te gaan gebruiken.",
       "switchFromMCP": "Switch to PicoClaw and start",
       "takeoverAndStart": "Take over and start"
-    }
+    },
+    "moreActions": "Meer acties"
   },
   "error": {
     "title": "Er is een probleem opgetreden",
@@ -655,5 +849,111 @@
   "menu": {
     "collapse": "Menu samenvouwen",
     "expand": "Menu uitvouwen"
+  },
+  "audio": {
+    "listen": "Luisteren",
+    "resume": "Audio hervatten",
+    "volume": "Volume"
+  },
+  "sessionControl": {
+    "viewOnly": "Alleen bekijken",
+    "take": "Besturing overnemen",
+    "release": "Deze sessie vergrendelen"
+  },
+  "dateTime": {
+    "title": "Datum en tijd",
+    "deviceTime": "Apparaattijd",
+    "timezone": "Tijdzone",
+    "format": "Tijdnotatie",
+    "preview": "Voorbeeld",
+    "synchronized": "Gesynchroniseerd",
+    "waiting": "Synchronisatie niet bevestigd",
+    "save": "Opslaan"
+  },
+  "recorder": {
+    "title": "Video-opname",
+    "start": "Opname starten",
+    "stop": "Opname stoppen"
+  },
+  "screenshot": {
+    "take": "Schermafbeelding maken"
+  },
+  "vpn": {
+    "rename": "Hernoemen",
+    "profileName": "Profielnaam",
+    "credentials": "Inloggegevens",
+    "username": "Gebruikersnaam",
+    "password": "Wachtwoord",
+    "save": "Opslaan",
+    "enable": "Inschakelen",
+    "delete": "Verwijderen",
+    "states": {
+      "reconnecting": "Opnieuw verbinden",
+      "error": "Fout",
+      "connecting": "Verbinden",
+      "connected": "Verbonden",
+      "idle": "Inactief"
+    },
+    "confirm": "Ja",
+    "cancel": "Nee"
+  },
+  "dashboard": {
+    "title": "Overzicht",
+    "freeStorage": "Vrije ruimte",
+    "uptime": "Uptime",
+    "kernel": "Kernel",
+    "memory": "Geheugen",
+    "cache": "Cache",
+    "compression": "Compressie",
+    "storage": "Opslag",
+    "dataStorage": "Gegevens",
+    "bootStorage": "Opstarten",
+    "readOnly": "Alleen-lezen",
+    "disconnected": "Geen verbinding",
+    "deviceTime": "Apparaattijd",
+    "timezone": "Tijdzone",
+    "synchronization": "Synchronisatie",
+    "synchronized": "Gesynchroniseerd",
+    "notSynchronized": "Synchronisatie niet bevestigd",
+    "noProfiles": "Geen profielen",
+    "states": {
+      "waiting": "Wachten",
+      "error": "Fout",
+      "stopped": "Gestopt",
+      "notInstall": "Niet geïnstalleerd",
+      "notRunning": "Gestopt",
+      "notLogin": "Niet aangemeld",
+      "connected": "Verbonden",
+      "idle": "Inactief",
+      "running": "Verbonden",
+      "connecting": "Verbinden",
+      "auth": "Authenticatie vereist"
+    },
+    "device": "Apparaat",
+    "connected": "Verbonden"
+  },
+  "videoSettings": {
+    "image": "Beeld",
+    "mode": "Modus",
+    "browserSection": "Deze browser",
+    "player": "Speler",
+    "landscape": "Liggende monitor",
+    "transport": "Transport",
+    "powerCycleCancel": "Annuleren",
+    "apply": "Toepassen",
+    "discard": "Wijzigingen verwerpen",
+    "bitrate": "Bitsnelheid",
+    "captureOn": "Beeldopname ingeschakeld",
+    "captureOff": "Beeldopname uitgeschakeld",
+    "input": "HDMI-ingang",
+    "output": "Gecodeerde stream",
+    "monitor": "HDMI-monitor",
+    "portrait": "Staande monitor",
+    "retry": "Opnieuw proberen"
+  },
+  "capture": {
+    "start": "Beeldopname inschakelen",
+    "stop": "Beeldopname uitschakelen",
+    "off": "Beeldopname uitgeschakeld"
   }
 }

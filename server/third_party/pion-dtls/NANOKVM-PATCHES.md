@@ -1,10 +1,10 @@
 # NanoKVM DTLS changes
 
-Base: `github.com/pion/dtls/v3 v3.1.12`. The upstream MIT license and tests are
+Base: `github.com/pion/dtls/v3 v3.1.13`. The upstream MIT license and tests are
 retained. The original module is available through the Go module proxy for comparison.
 
 NanoKVM changes the DTLS 1.2 server's cipher-suite intersection order in
-`flight0handler.go`: the server walks its configured suites first and chooses
+`negotiateClientHello` in `flight0handler.go` (including the cookie retry): the server walks its configured suites first and chooses
 the first suite also offered by the client. Client-side selection, certificate
 filtering, signature verification, cryptographic implementations, and SRTP
 profile negotiation remain upstream behavior. Since v3.1.12 a server whose
@@ -22,3 +22,11 @@ returning EOF after closure. The previous select could randomly choose the
 closed signal over the final record; the unmodified upstream BasicIO test
 reproduced this 9 times in 100 runs during integration. Cryptographic validation is unchanged. A regression test
 covers the ready record and EOF signals together.
+
+The v3.1.13 integration retains upstream's handshake authentication and resource
+limits, including Finished verification, signature/key binding, cookie-retry
+negotiation, RSA key-size limits and bounded transcript caching. Its ECDSA
+empty-digest regression fixture uses an equivalent zero-valued digest to create
+the adversarial signature on Go 1.27; the original rejection assertions remain.
+Additional NanoKVM tests cover malformed CBC records and empty/padded connection-ID
+inner plaintext. No production cryptographic implementation is changed locally.

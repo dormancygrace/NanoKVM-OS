@@ -29,11 +29,12 @@
       "reset2": "자세한 절차는 이 문서를 참조하세요:",
       "reset3": "웹 기본 계정:",
       "reset4": "SSH 기본 계정:",
-      "change1": "이 작업을 수행하면 다음 비밀번호가 변경됩니다:",
+      "change1": "기본 제공 관리자 계정에서는 이 작업으로 다음 비밀번호가 변경됩니다:",
       "change2": "웹 로그인 비밀번호",
       "change3": "시스템 루트 비밀번호 (SSH 로그인 비밀번호)",
       "change4": "비밀번호를 재설정하려면 NanoKVM의 BOOT 버튼을 길게 누르세요."
-    }
+    },
+    "placeholderCurrentPassword": "현재 비밀번호"
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -51,7 +52,7 @@
     }
   },
   "screen": {
-    "scale": "규모",
+    "scale": "화면 배율",
     "title": "화면",
     "video": "비디오 모드",
     "controlRegion": {
@@ -100,7 +101,9 @@
       "videoError": "비디오 표시 오류",
       "noHdmi": "HDMI 신호가 감지되지 않았습니다",
       "unavailable": "지금은 화면을 표시할 수 없습니다"
-    }
+    },
+    "codec": "코덱",
+    "retryJoin": "다시 시도"
   },
   "keyboard": {
     "title": "키보드",
@@ -118,17 +121,17 @@
     "dropdownRussian": "러시아어",
     "dropdownSpanish": "스페인어",
     "shortcut": {
-      "title": "바로가기",
-      "custom": "관습",
-      "capture": "바로가기를 캡처하려면 여기를 클릭하세요",
-      "clear": "클리어",
+      "title": "키보드 단축키",
+      "custom": "사용자 지정",
+      "capture": "단축키를 기록하려면 여기를 클릭하세요",
+      "clear": "지우기",
       "save": "저장",
       "captureTips": "Windows 키와 같은 시스템 수준 키를 캡처하려면 전체 화면 권한이 필요합니다.",
       "enterFullScreen": "전체 화면 모드를 전환합니다."
     },
     "leaderKey": {
       "title": "리더 키",
-      "desc": "브라우저 제한을 우회하고 시스템 바로가기를 원격 호스트에 직접 보냅니다.",
+      "desc": "브라우저 제한을 우회하고 시스템 단축키를 원격 호스트에 직접 보냅니다.",
       "howToUse": "사용방법",
       "simultaneous": {
         "title": "동시 모드",
@@ -152,6 +155,10 @@
         "activate": "키 활성화",
         "input": "단축키를 눌러주세요..."
       }
+    },
+    "sequences": {
+      "title": "키 시퀀스",
+      "sent": "전송됨"
     }
   },
   "mouse": {
@@ -250,14 +257,17 @@
     "flowControlHard": "하드웨어",
     "dataBits": "데이터 비트",
     "stopBits": "정지 비트",
-    "confirm": "확인"
+    "confirm": "확인",
+    "usbSerial": "USB 시리얼 콘솔"
   },
   "wol": {
     "title": "Wake-on-LAN",
     "sending": "패킷 전송 중...",
     "sent": "패킷 전송 완료",
     "input": "MAC주소를 입력하세요.",
-    "ok": "확인"
+    "ok": "확인",
+    "name": "장치 이름",
+    "cancel": "취소"
   },
   "download": {
     "title": "이미지 다운로드",
@@ -273,7 +283,8 @@
     "success": "다운로드 성공",
     "checksumFailed": "다운로드 실패: SHA-256 검증 실패",
     "cancel": "취소",
-    "cancelFailed": "다운로드 취소 실패"
+    "cancelFailed": "다운로드 취소 실패",
+    "downloading": "다운로드 중"
   },
   "power": {
     "title": "전원",
@@ -312,7 +323,13 @@
       "ip": "IP",
       "image": "이미지 버전",
       "hostname": "호스트 이름",
-      "hostnameUpdated": "호스트 이름이 업데이트되었습니다. 적용하려면 재부팅하세요."
+      "hostnameUpdated": "호스트 이름이 업데이트되었습니다. 적용하려면 재부팅하세요.",
+      "credits": {
+        "button": "기여자",
+        "title": "기여자",
+        "close": "닫기"
+      },
+      "documentation": "문서"
     },
     "appearance": {
       "title": "디자인",
@@ -332,6 +349,9 @@
         "keyboardLedStatusDesc": "원격 컴퓨터의 Num Lock, Caps Lock, Scroll Lock 상태 표시",
         "icons": "하위 메뉴 아이콘",
         "iconsDesc": "메뉴 바에 하위 메뉴 아이콘을 표시합니다"
+      },
+      "buttonColor": {
+        "save": "적용"
       }
     },
     "keyboardLedStatus": {
@@ -382,7 +402,10 @@
       "reboot": "재부팅",
       "rebootDesc": "NanoKVM을 재부팅하시겠습니까?",
       "okBtn": "네",
-      "cancelBtn": "아니오"
+      "cancelBtn": "아니오",
+      "cpuFrequency": {
+        "title": "CPU 주파수 및 오버클럭"
+      }
     },
     "network": {
       "title": "네트워크",
@@ -399,11 +422,22 @@
         "password": "비밀번호",
         "joinBtn": "연결",
         "confirmBtn": "확인",
-        "cancelBtn": "취소"
+        "cancelBtn": "취소",
+        "band": "주파수 대역",
+        "manual": "수동으로 연결",
+        "hidden": "숨겨진 네트워크",
+        "security": "보안",
+        "open": "개방형 네트워크",
+        "loading": "불러오는 중...",
+        "reconnect": "다시 연결"
       },
       "tls": {
         "description": "HTTPS 프로토콜 활성화",
-        "tip": "주의: HTTPS 사용 시 특히 MJPEG 비디오 모드에서 지연 시간이 증가할 수 있습니다."
+        "tip": "주의: HTTPS 사용 시 특히 MJPEG 비디오 모드에서 지연 시간이 증가할 수 있습니다.",
+        "certificate": {
+          "title": "인증서",
+          "remove": "제거"
+        }
       },
       "ethernet": {
         "title": "Ethernet IPv4",
@@ -423,7 +457,8 @@
         "save": "저장",
         "unsaved": "저장되지 않은 변경 사항",
         "saveFailed": "구성을 저장하지 못했습니다.",
-        "loadFailed": "구성을 불러오지 못했습니다."
+        "loadFailed": "구성을 불러오지 못했습니다.",
+        "disabled": "비활성화됨"
       },
       "dns": {
         "title": "DNS",
@@ -446,6 +481,11 @@
         "subnetMask": "서브넷 마스크",
         "router": "라우터",
         "none": "없음"
+      },
+      "general": "일반",
+      "gateway": {
+        "title": "기본 게이트웨이 선택",
+        "auto": "자동"
       }
     },
     "tailscale": {
@@ -458,7 +498,7 @@
       "install": "설치",
       "installing": "설치중",
       "failed": "설치 실패",
-      "retry": "새로고침하고 다시 시도하거나, 수동으로 설치하세요",
+      "retry": "설치를 다시 시도하세요.",
       "notRunning": "Tailscale이 실행되고 있지 않습니다. 계속하려면 시작해 주세요.",
       "run": "시작",
       "notLogin": "이 기기는 현재 연동 되지 않았습니다. 로그인해서 계정에 이 장치를 연동하세요.",
@@ -474,17 +514,169 @@
       "uninstall": "Tailscale 제거",
       "uninstallDesc": "정말로 Tailscale을 제거할까요?",
       "okBtn": "네",
-      "cancelBtn": "아니오"
+      "cancelBtn": "아니오",
+      "moreActions": "추가 작업"
     },
     "account": {
-      "title": "계정",
+      "title": "사용자",
       "webAccount": "웹 계정",
       "password": "비밀번호",
       "updateBtn": "업데이트",
       "logoutBtn": "로그아웃",
       "logoutDesc": "정말로 로그아웃 하시겠습니까?",
       "okBtn": "네",
-      "cancelBtn": "아니오"
+      "cancelBtn": "아니오",
+      "role": "역할",
+      "roles": {
+        "admin": "관리자",
+        "user": "사용자"
+      },
+      "users": {
+        "title": "사용자",
+        "create": "사용자 만들기",
+        "enabled": "활성화됨",
+        "disabled": "비활성화됨",
+        "deviceOwner": "장치 소유자",
+        "rename": "이름 변경",
+        "resetPassword": "비밀번호 재설정",
+        "delete": "삭제"
+      }
+    },
+    "software": {
+      "indexSchedule": {
+        "save": "저장"
+      },
+      "addons": {
+        "title": "추가 기능",
+        "packages": "패키지"
+      },
+      "title": "소프트웨어",
+      "available": "사용 가능한 패키지",
+      "updatesTab": "업데이트",
+      "search": "검색",
+      "install": "설치",
+      "installed": "설치된 패키지",
+      "remove": "제거"
+    },
+    "updates": {
+      "apk": {
+        "title": "패키지 업데이트",
+        "log": "업데이트 로그"
+      },
+      "title": "업데이트",
+      "installed": "설치됨"
+    },
+    "memory": {
+      "title": "메모리",
+      "available": "사용 가능",
+      "size": "용량",
+      "used": "사용량",
+      "algorithm": "압축",
+      "videoUnknown": "알 수 없음"
+    },
+    "system": {
+      "general": "일반",
+      "logs": {
+        "title": "로그",
+        "sources": {
+          "kernel": "커널"
+        },
+        "refresh": "새로 고침"
+      },
+      "diagnostics": {
+        "overview": "상태",
+        "title": "진단",
+        "refresh": "새로 고침",
+        "application": "애플리케이션"
+      },
+      "services": "서비스",
+      "device": "장치"
+    },
+    "usb": {
+      "internet": {
+        "title": "USB를 통한 인터넷",
+        "states": {
+          "loading": "불러오는 중..."
+        }
+      },
+      "title": "USB 기능 구성",
+      "apply": "적용",
+      "cancel": "변경 사항 취소",
+      "identity": {
+        "title": "USB 식별 정보"
+      },
+      "userDisk": {
+        "title": "사용자 디스크",
+        "create": "만들기",
+        "delete": "삭제",
+        "files": {
+          "title": "사용자 디스크의 파일",
+          "refresh": "새로 고침",
+          "browse": "파일 찾아보기",
+          "up": "상위 폴더",
+          "upload": "파일 업로드",
+          "cancel": "취소",
+          "folderName": "새 폴더 이름",
+          "mkdir": "폴더 만들기",
+          "download": "다운로드",
+          "delete": "삭제",
+          "empty": "이 폴더는 비어 있습니다.",
+          "errors": {
+            "notEmpty": "폴더가 비어 있지 않습니다."
+          },
+          "previous": "이전 페이지",
+          "next": "다음 페이지"
+        }
+      },
+      "serialConsole": {
+        "title": "모니터 없이 사용하는 Linux 콘솔"
+      },
+      "devices": {
+        "network": {
+          "title": "가상 네트워크"
+        },
+        "disk": {
+          "title": "가상 디스크"
+        },
+        "serial": {
+          "title": "USB 시리얼 콘솔"
+        },
+        "keyboard": {
+          "title": "키보드"
+        }
+      }
+    },
+    "netbird": {
+      "moreActions": "추가 작업",
+      "loginSuccess": "로그인했습니다",
+      "deviceName": "장치 이름",
+      "version": "버전",
+      "loading": "불러오는 중...",
+      "run": "시작",
+      "login": "로그인",
+      "deviceIP": "장치 IP",
+      "okBtn": "네",
+      "cancelBtn": "아니오",
+      "error": {
+        "installFailed": "설치 실패"
+      }
+    },
+    "rustdesk": {
+      "absent": "설치되지 않음",
+      "stopped": "중지됨",
+      "install": "설치",
+      "remove": "제거",
+      "save": "설정 저장",
+      "server": "서버",
+      "passwordMode": "비밀번호",
+      "temporaryPassword": "임시 비밀번호",
+      "newPassword": "새 비밀번호",
+      "advanced": "고급 설정",
+      "saved": "설정이 저장되었습니다",
+      "unknownVersion": "알 수 없음"
+    },
+    "extensions": {
+      "title": "확장 기능"
     }
   },
   "picoclaw": {
@@ -499,7 +691,8 @@
       "kvmTitle": "원격 제어",
       "kvmDescription": "NanoKVM을 통한 원격 호스트 제어.",
       "switched": "에이전트 역할 변경됨",
-      "switchFailed": "에이전트 역할 변경에 실패했습니다"
+      "switchFailed": "에이전트 역할 변경에 실패했습니다",
+      "label": "에이전트 역할"
     },
     "send": "전송",
     "cancel": "취소",
@@ -517,22 +710,22 @@
     "connection": {
       "runtime": {
         "checking": "확인 중",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "PicoClaw 복원 중",
         "ready": "런타임 준비됨",
         "stopped": "런타임 중지됨",
         "blockedByMCP": "외부 MCP 제어가 활성화되어 있습니다",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "실행 환경은 작동 중이지만 현재 외부 MCP가 장치 입력을 제어하고 있습니다.",
+        "readyWithoutControl": "실행 환경이 작동 중입니다. 다시 연결하기 전에 PicoClaw에 장치 제어 권한을 부여하세요.",
         "unavailable": "런타임 사용 불가",
         "configError": "구성 에러"
       },
       "transport": {
         "connecting": "연결 중",
         "connected": "연결됨",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "연결 끊김",
+        "reconnect": "다시 연결",
+        "reconnectDescription": "실행 중인 PicoClaw 세션에 다시 연결합니다.",
+        "reconnectBlocked": "다시 연결하려면 PicoClaw에 장치 제어 권한이 있어야 합니다."
       },
       "run": {
         "idle": "대기",
@@ -549,19 +742,19 @@
     },
     "control": {
       "picoclaw": "장치 제어: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw가 키보드와 마우스 입력을 보낼 수 있습니다. 수동 입력이 일시 중지될 수 있습니다.",
       "mcp": "장치 제어: 외부 MCP",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "장치 제어: 꺼짐",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "외부 MCP가 장치에 입력을 보낼 수 있습니다. PicoClaw는 입력 제어권을 가져오지 않습니다.",
+      "off": "장치 제어: 수동 / AI 사용 안 함",
+      "offDescription": "AI는 키보드나 마우스 입력을 보내지 않습니다. 수동 제어는 계속 사용할 수 있습니다.",
+      "transitioning": "장치 제어: 전환 중",
+      "transitioningDescription": "장치 제어 상태를 동기화하고 있습니다. 잠시 기다려 주세요.",
       "grant": "제어 권한 부여",
       "release": "해제",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "장치 제어: 제어권 반환 중",
+      "releasingDescription": "장치 제어권을 반환하고 있습니다. PicoClaw가 입력 전송을 중지했습니다.",
       "granted": "PicoClaw 제어 권한이 부여되었습니다",
       "released": "PicoClaw 제어가 해제되었습니다",
       "grantFailed": "PicoClaw 제어 권한 부여에 실패했습니다",
@@ -642,7 +835,8 @@
       "description": "런타임을 시작하여 PicoClaw 어시스턴트 사용을 시작하세요.",
       "switchFromMCP": "Switch to PicoClaw and start",
       "takeoverAndStart": "Take over and start"
-    }
+    },
+    "moreActions": "추가 작업"
   },
   "error": {
     "title": "문제가 발생했습니다.",
@@ -654,5 +848,111 @@
   "menu": {
     "collapse": "메뉴 접기",
     "expand": "메뉴 펼치기"
+  },
+  "audio": {
+    "listen": "듣기",
+    "resume": "오디오 재개",
+    "volume": "음량"
+  },
+  "sessionControl": {
+    "viewOnly": "보기 전용",
+    "take": "제어권 가져오기",
+    "release": "이 세션 잠금"
+  },
+  "dateTime": {
+    "title": "날짜 및 시간",
+    "deviceTime": "장치 시간",
+    "timezone": "시간대",
+    "format": "시간 형식",
+    "preview": "미리 보기",
+    "synchronized": "동기화됨",
+    "waiting": "동기화 확인 안 됨",
+    "save": "저장"
+  },
+  "recorder": {
+    "title": "비디오 녹화",
+    "start": "녹화 시작",
+    "stop": "녹화 중지"
+  },
+  "screenshot": {
+    "take": "스크린샷 찍기"
+  },
+  "vpn": {
+    "rename": "이름 변경",
+    "profileName": "프로필 이름",
+    "credentials": "인증 정보",
+    "username": "사용자 이름",
+    "password": "비밀번호",
+    "save": "저장",
+    "enable": "활성화",
+    "delete": "삭제",
+    "states": {
+      "reconnecting": "다시 연결 중",
+      "error": "오류",
+      "connecting": "연결 중",
+      "connected": "연결됨",
+      "idle": "대기"
+    },
+    "confirm": "네",
+    "cancel": "아니오"
+  },
+  "dashboard": {
+    "title": "대시보드",
+    "freeStorage": "여유 공간",
+    "uptime": "가동 시간",
+    "kernel": "커널",
+    "memory": "메모리",
+    "cache": "캐시",
+    "compression": "압축",
+    "storage": "저장 공간",
+    "dataStorage": "데이터",
+    "bootStorage": "부팅",
+    "readOnly": "읽기 전용",
+    "disconnected": "연결 없음",
+    "deviceTime": "장치 시간",
+    "timezone": "시간대",
+    "synchronization": "동기화",
+    "synchronized": "동기화됨",
+    "notSynchronized": "동기화 확인 안 됨",
+    "noProfiles": "프로필 없음",
+    "states": {
+      "waiting": "대기 중",
+      "error": "오류",
+      "stopped": "중지됨",
+      "notInstall": "설치되지 않음",
+      "notRunning": "중지됨",
+      "notLogin": "로그인되지 않음",
+      "connected": "연결됨",
+      "idle": "대기",
+      "running": "연결됨",
+      "connecting": "연결 중",
+      "auth": "인증 필요"
+    },
+    "device": "장치",
+    "connected": "연결됨"
+  },
+  "videoSettings": {
+    "image": "영상",
+    "mode": "모드",
+    "browserSection": "이 브라우저",
+    "player": "플레이어",
+    "landscape": "가로 방향 모니터",
+    "transport": "전송 방식",
+    "powerCycleCancel": "취소",
+    "apply": "적용",
+    "discard": "변경 사항 취소",
+    "bitrate": "비트레이트",
+    "captureOn": "캡처 활성화됨",
+    "captureOff": "캡처 비활성화됨",
+    "input": "HDMI 입력",
+    "output": "인코딩된 스트림",
+    "monitor": "HDMI 모니터",
+    "portrait": "세로 방향 모니터",
+    "retry": "다시 시도"
+  },
+  "capture": {
+    "start": "캡처 활성화",
+    "stop": "캡처 비활성화",
+    "off": "캡처 비활성화됨"
   }
 }

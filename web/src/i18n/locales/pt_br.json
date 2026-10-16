@@ -29,11 +29,12 @@
       "reset2": "Para etapas detalhadas, por favor, consulte este documento:",
       "reset3": "Conta padrão da Web:",
       "reset4": "Conta padrão SSH:",
-      "change1": "Por favor, note que esta ação irá alterar as seguintes senhas:",
+      "change1": "Para a conta de administrador integrada, esta ação altera as seguintes senhas:",
       "change2": "Senha de login da Web",
       "change3": "Senha root do sistema (senha de login SSH)",
       "change4": "Para redefinir as senhas, pressione e segure o botão BOOT no NanoKVM."
-    }
+    },
+    "placeholderCurrentPassword": "Senha atual"
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -100,7 +101,9 @@
       "videoError": "Erro na exibição de vídeo",
       "noHdmi": "Nenhum sinal HDMI detectado",
       "unavailable": "A tela não pode ser exibida agora"
-    }
+    },
+    "codec": "Codec",
+    "retryJoin": "Tentar novamente"
   },
   "keyboard": {
     "title": "Teclado",
@@ -118,7 +121,7 @@
     "dropdownRussian": "Russo",
     "dropdownSpanish": "Espanhol",
     "shortcut": {
-      "title": "Atalhos",
+      "title": "Atalhos de teclado",
       "custom": "Personalizado",
       "capture": "Clique aqui para capturar o atalho",
       "clear": "Limpar",
@@ -152,6 +155,10 @@
         "activate": "Ativar teclas",
         "input": "Por favor, pressione o atalho..."
       }
+    },
+    "sequences": {
+      "title": "Sequências de teclas",
+      "sent": "Enviado"
     }
   },
   "mouse": {
@@ -250,14 +257,17 @@
     "flowControlHard": "Hardware",
     "dataBits": "Bits de dados",
     "stopBits": "Bits de parada",
-    "confirm": "Ok"
+    "confirm": "Ok",
+    "usbSerial": "Console serial USB"
   },
   "wol": {
     "title": "Wake-on-LAN",
     "sending": "Enviando comando...",
     "sent": "Comando enviado",
     "input": "Por favor, digite o MAC",
-    "ok": "Ok"
+    "ok": "Ok",
+    "name": "Nome do dispositivo",
+    "cancel": "Cancelar"
   },
   "download": {
     "title": "Baixador de Imagens",
@@ -273,7 +283,8 @@
     "success": "Download concluído",
     "checksumFailed": "Falha no download: a verificação SHA-256 falhou",
     "cancel": "Cancelar",
-    "cancelFailed": "Falha ao cancelar o download"
+    "cancelFailed": "Falha ao cancelar o download",
+    "downloading": "Baixando"
   },
   "power": {
     "title": "Energia",
@@ -312,7 +323,13 @@
       "ip": "IP",
       "image": "Versão da Imagem",
       "hostname": "Nome do Host",
-      "hostnameUpdated": "Nome do host atualizado. Reinicie para aplicar."
+      "hostnameUpdated": "Nome do host atualizado. Reinicie para aplicar.",
+      "credits": {
+        "button": "Créditos",
+        "title": "Créditos",
+        "close": "Fechar"
+      },
+      "documentation": "Documentação"
     },
     "appearance": {
       "title": "Aparência",
@@ -332,6 +349,9 @@
         "keyboardLedStatusDesc": "Exibir o estado de Num Lock, Caps Lock e Scroll Lock do computador remoto",
         "icons": "Ícones do submenu",
         "iconsDesc": "Exibir ícones de submenus na barra de menu"
+      },
+      "buttonColor": {
+        "save": "Aplicar"
       }
     },
     "keyboardLedStatus": {
@@ -382,7 +402,10 @@
       "reboot": "Reiniciar",
       "rebootDesc": "Tem certeza de que deseja reiniciar o NanoKVM?",
       "okBtn": "Sim",
-      "cancelBtn": "Não"
+      "cancelBtn": "Não",
+      "cpuFrequency": {
+        "title": "Frequência da CPU e overclock"
+      }
     },
     "network": {
       "title": "Rede",
@@ -399,11 +422,22 @@
         "password": "Senha",
         "joinBtn": "Entrar",
         "confirmBtn": "OK",
-        "cancelBtn": "Cancelar"
+        "cancelBtn": "Cancelar",
+        "band": "Faixa de frequência",
+        "manual": "Conectar manualmente",
+        "hidden": "Rede oculta",
+        "security": "Segurança",
+        "open": "Rede aberta",
+        "loading": "Carregando...",
+        "reconnect": "Reconectar"
       },
       "tls": {
         "description": "Habilitar protocolo HTTPS",
-        "tip": "Atenção: O uso de HTTPS pode aumentar a latência, especialmente com o modo de vídeo MJPEG."
+        "tip": "Atenção: O uso de HTTPS pode aumentar a latência, especialmente com o modo de vídeo MJPEG.",
+        "certificate": {
+          "title": "Certificado",
+          "remove": "Remover"
+        }
       },
       "ethernet": {
         "title": "Ethernet IPv4",
@@ -423,7 +457,8 @@
         "save": "Salvar",
         "unsaved": "Alterações não salvas",
         "saveFailed": "Falha ao salvar as configurações de Ethernet",
-        "loadFailed": "Falha ao carregar as configurações de Ethernet"
+        "loadFailed": "Falha ao carregar as configurações de Ethernet",
+        "disabled": "Desativado"
       },
       "dns": {
         "title": "DNS",
@@ -446,6 +481,11 @@
         "subnetMask": "Máscara de sub-rede",
         "router": "Roteador",
         "none": "Nenhum"
+      },
+      "general": "Geral",
+      "gateway": {
+        "title": "Gateway preferido",
+        "auto": "Automático"
       }
     },
     "tailscale": {
@@ -458,7 +498,7 @@
       "install": "Instalar",
       "installing": "Instalando",
       "failed": "Falha na instalação",
-      "retry": "Por favor, atualize e tente novamente. Ou tente instalar manualmente",
+      "retry": "Tente instalar novamente.",
       "notRunning": "Tailscale não está em execução. Por favor, inicie-o para continuar.",
       "run": "Iniciar",
       "notLogin": "O dispositivo ainda não foi vinculado. Por favor, faça login e vincule este dispositivo à sua conta.",
@@ -474,17 +514,169 @@
       "uninstall": "Desinstalar Tailscale",
       "uninstallDesc": "Tem certeza de que deseja desinstalar Tailscale?",
       "okBtn": "Sim",
-      "cancelBtn": "Não"
+      "cancelBtn": "Não",
+      "moreActions": "Mais ações"
     },
     "account": {
-      "title": "Conta",
+      "title": "Usuários",
       "webAccount": "Nome da Conta Web",
       "password": "Senha",
       "updateBtn": "Alterar",
       "logoutBtn": "Sair",
       "logoutDesc": "Tem certeza de que deseja sair?",
       "okBtn": "Sim",
-      "cancelBtn": "Não"
+      "cancelBtn": "Não",
+      "role": "Função",
+      "roles": {
+        "admin": "Administrador",
+        "user": "Usuário"
+      },
+      "users": {
+        "title": "Usuários",
+        "create": "Criar usuário",
+        "enabled": "Ativado",
+        "disabled": "Desativado",
+        "deviceOwner": "Proprietário do dispositivo",
+        "rename": "Renomear",
+        "resetPassword": "Redefinir senha",
+        "delete": "Excluir"
+      }
+    },
+    "software": {
+      "indexSchedule": {
+        "save": "Salvar"
+      },
+      "addons": {
+        "title": "Complementos",
+        "packages": "Pacotes"
+      },
+      "title": "Software",
+      "available": "Pacotes disponíveis",
+      "updatesTab": "Atualizações",
+      "search": "Pesquisar",
+      "install": "Instalar",
+      "installed": "Pacotes instalados",
+      "remove": "Remover"
+    },
+    "updates": {
+      "apk": {
+        "title": "Atualizações de pacotes",
+        "log": "Log de atualização"
+      },
+      "title": "Atualizações",
+      "installed": "Instalado"
+    },
+    "memory": {
+      "title": "Memória",
+      "available": "Disponível",
+      "size": "Capacidade",
+      "used": "Usado",
+      "algorithm": "Compressão",
+      "videoUnknown": "Desconhecido"
+    },
+    "system": {
+      "general": "Geral",
+      "logs": {
+        "title": "Logs",
+        "sources": {
+          "kernel": "Kernel"
+        },
+        "refresh": "Atualizar"
+      },
+      "diagnostics": {
+        "overview": "Status",
+        "title": "Diagnóstico",
+        "refresh": "Atualizar",
+        "application": "Aplicativo"
+      },
+      "services": "Serviços",
+      "device": "Dispositivo"
+    },
+    "usb": {
+      "internet": {
+        "title": "Internet por USB",
+        "states": {
+          "loading": "Carregando..."
+        }
+      },
+      "title": "Funções USB",
+      "apply": "Aplicar",
+      "cancel": "Descartar alterações",
+      "identity": {
+        "title": "Identidade USB"
+      },
+      "userDisk": {
+        "title": "Disco do usuário",
+        "create": "Criar",
+        "delete": "Excluir",
+        "files": {
+          "title": "Arquivos no disco do usuário",
+          "refresh": "Atualizar",
+          "browse": "Explorar arquivos",
+          "up": "Pasta acima",
+          "upload": "Enviar arquivos",
+          "cancel": "Cancelar",
+          "folderName": "Nome da nova pasta",
+          "mkdir": "Criar pasta",
+          "download": "Baixar",
+          "delete": "Excluir",
+          "empty": "Esta pasta está vazia.",
+          "errors": {
+            "notEmpty": "A pasta não está vazia."
+          },
+          "previous": "Página anterior",
+          "next": "Próxima página"
+        }
+      },
+      "serialConsole": {
+        "title": "Console Linux sem monitor"
+      },
+      "devices": {
+        "network": {
+          "title": "Rede virtual"
+        },
+        "disk": {
+          "title": "Disco virtual"
+        },
+        "serial": {
+          "title": "Console serial USB"
+        },
+        "keyboard": {
+          "title": "Teclado"
+        }
+      }
+    },
+    "netbird": {
+      "moreActions": "Mais ações",
+      "loginSuccess": "Já entrei na conta",
+      "deviceName": "Nome do dispositivo",
+      "version": "Versão",
+      "loading": "Carregando...",
+      "run": "Iniciar",
+      "login": "Login",
+      "deviceIP": "IP do Dispositivo",
+      "okBtn": "Sim",
+      "cancelBtn": "Não",
+      "error": {
+        "installFailed": "Falha na instalação"
+      }
+    },
+    "rustdesk": {
+      "absent": "Não instalado",
+      "stopped": "Parado",
+      "install": "Instalar",
+      "remove": "Remover",
+      "save": "Salvar configurações",
+      "server": "Servidor",
+      "passwordMode": "Senha",
+      "temporaryPassword": "Senha temporária",
+      "newPassword": "Nova senha",
+      "advanced": "Configurações avançadas",
+      "saved": "Configurações salvas",
+      "unknownVersion": "Desconhecido"
+    },
+    "extensions": {
+      "title": "Extensões"
     }
   },
   "picoclaw": {
@@ -499,7 +691,8 @@
       "kvmTitle": "Controle remoto",
       "kvmDescription": "Opera o host remoto por meio de NanoKVM.",
       "switched": "Função de agente trocada",
-      "switchFailed": "Falha ao mudar de função de agente"
+      "switchFailed": "Falha ao mudar de função de agente",
+      "label": "Função do agente"
     },
     "send": "Enviar",
     "cancel": "Cancelar",
@@ -517,22 +710,22 @@
     "connection": {
       "runtime": {
         "checking": "Verificando",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "Restaurando o PicoClaw",
         "ready": "Runtime pronto",
         "stopped": "Runtime interrompido",
         "blockedByMCP": "O controle MCP externo está ativo",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "O ambiente de execução está ativo, mas o MCP externo controla as entradas do dispositivo no momento.",
+        "readyWithoutControl": "O ambiente de execução está ativo. Conceda ao PicoClaw o controle do dispositivo antes de reconectar.",
         "unavailable": "Runtime indisponível",
         "configError": "Erro de configuração"
       },
       "transport": {
         "connecting": "Conectando",
         "connected": "Conectado",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "Desconectado",
+        "reconnect": "Reconectar",
+        "reconnectDescription": "Reconectar à sessão ativa do PicoClaw.",
+        "reconnectBlocked": "O PicoClaw precisa controlar o dispositivo antes de reconectar."
       },
       "run": {
         "idle": "Inativo",
@@ -549,19 +742,19 @@
     },
     "control": {
       "picoclaw": "Controle do dispositivo: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "O PicoClaw pode enviar entradas de teclado e mouse. A entrada manual pode ser pausada.",
       "mcp": "Controle do dispositivo: MCP externo",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "Controle do dispositivo: desativado",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "O MCP externo pode enviar entradas ao dispositivo. O PicoClaw não assumirá o controle das entradas.",
+      "off": "Controle do dispositivo: manual / sem IA",
+      "offDescription": "A IA não enviará entradas de teclado ou mouse. O controle manual continuará disponível.",
+      "transitioning": "Controle do dispositivo: alternando",
+      "transitioningDescription": "O controle do dispositivo está sendo sincronizado. Aguarde.",
       "grant": "Conceder controle",
       "release": "Liberar",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "Controle do dispositivo: devolvendo o controle",
+      "releasingDescription": "O controle do dispositivo está sendo devolvido. O PicoClaw parou de enviar entradas.",
       "granted": "Controle do PicoClaw concedido",
       "released": "Controle do PicoClaw liberado",
       "grantFailed": "Falha ao conceder controle ao PicoClaw",
@@ -644,7 +837,8 @@
       "description": "Inicie o runtime para começar a usar o assistente PicoClaw.",
       "switchFromMCP": "Switch to PicoClaw and start",
       "takeoverAndStart": "Take over and start"
-    }
+    },
+    "moreActions": "Mais ações"
   },
   "error": {
     "title": "Encontramos um problema",
@@ -656,5 +850,111 @@
   "menu": {
     "collapse": "Recolher Menu",
     "expand": "Expandir Menu"
+  },
+  "audio": {
+    "listen": "Ouvir",
+    "resume": "Retomar áudio",
+    "volume": "Volume"
+  },
+  "sessionControl": {
+    "viewOnly": "Somente visualização",
+    "take": "Assumir o controle",
+    "release": "Bloquear esta sessão"
+  },
+  "dateTime": {
+    "title": "Data e hora",
+    "deviceTime": "Hora do dispositivo",
+    "timezone": "Fuso horário",
+    "format": "Formato de hora",
+    "preview": "Prévia",
+    "synchronized": "Sincronizado",
+    "waiting": "Sincronização não confirmada",
+    "save": "Salvar"
+  },
+  "recorder": {
+    "title": "Gravação de vídeo",
+    "start": "Iniciar gravação",
+    "stop": "Parar gravação"
+  },
+  "screenshot": {
+    "take": "Capturar tela"
+  },
+  "vpn": {
+    "rename": "Renomear",
+    "profileName": "Nome do perfil",
+    "credentials": "Credenciais",
+    "username": "Nome de usuário",
+    "password": "Senha",
+    "save": "Salvar",
+    "enable": "Ativar",
+    "delete": "Excluir",
+    "states": {
+      "reconnecting": "Reconectando",
+      "error": "Erro",
+      "connecting": "Conectando",
+      "connected": "Conectado",
+      "idle": "Inativo"
+    },
+    "confirm": "Sim",
+    "cancel": "Não"
+  },
+  "dashboard": {
+    "title": "Painel",
+    "freeStorage": "Espaço livre",
+    "uptime": "Tempo de atividade",
+    "kernel": "Kernel",
+    "memory": "Memória",
+    "cache": "Cache",
+    "compression": "Compressão",
+    "storage": "Armazenamento",
+    "dataStorage": "Dados",
+    "bootStorage": "Inicialização",
+    "readOnly": "Somente leitura",
+    "disconnected": "Sem conexão",
+    "deviceTime": "Hora do dispositivo",
+    "timezone": "Fuso horário",
+    "synchronization": "Sincronização",
+    "synchronized": "Sincronizado",
+    "notSynchronized": "Sincronização não confirmada",
+    "noProfiles": "Nenhum perfil",
+    "states": {
+      "waiting": "Aguardando",
+      "error": "Erro",
+      "stopped": "Parado",
+      "notInstall": "Não instalado",
+      "notRunning": "Parado",
+      "notLogin": "Não conectado à conta",
+      "connected": "Conectado",
+      "idle": "Inativo",
+      "running": "Conectado",
+      "connecting": "Conectando",
+      "auth": "Autenticação necessária"
+    },
+    "device": "Dispositivo",
+    "connected": "Conectado"
+  },
+  "videoSettings": {
+    "image": "Imagem",
+    "mode": "Modo",
+    "browserSection": "Este navegador",
+    "player": "Reprodutor",
+    "landscape": "Monitor na horizontal",
+    "transport": "Transporte",
+    "powerCycleCancel": "Cancelar",
+    "apply": "Aplicar",
+    "discard": "Descartar alterações",
+    "bitrate": "Taxa de bits",
+    "captureOn": "Captura ativada",
+    "captureOff": "Captura desativada",
+    "input": "Entrada HDMI",
+    "output": "Fluxo codificado",
+    "monitor": "Monitor HDMI",
+    "portrait": "Monitor na vertical",
+    "retry": "Tentar novamente"
+  },
+  "capture": {
+    "start": "Ativar captura",
+    "stop": "Desativar captura",
+    "off": "Captura desativada"
   }
 }

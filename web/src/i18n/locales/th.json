@@ -29,11 +29,12 @@
       "reset2": "สำหรับวิธีแบบลงลึก โปรดอ่าน::",
       "reset3": "ค่าเริ่มต้นบัญชีเว็บ:",
       "reset4": "ค่าเริ่มต้นบัญชี SSH:",
-      "change1": "โปรดทราบ การกระทำนี้จะเปลี่ยนรหัสดีงกล่าว:",
+      "change1": "สำหรับบัญชีผู้ดูแลระบบในตัว การดำเนินการนี้จะเปลี่ยนรหัสผ่านต่อไปนี้:",
       "change2": "รหัสผ่านเว็บไชต์",
       "change3": "รหัส Root ของระบบ (ใช้เข้า SSH)",
       "change4": "เพื่อรีเช็ทรหัสผ่าน, กรุณากดปุ่ม BOOT บนอุปกรณ์ NanoKVM ค้างไว้."
-    }
+    },
+    "placeholderCurrentPassword": "รหัสผ่านปัจจุบัน"
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -51,7 +52,7 @@
     }
   },
   "screen": {
-    "scale": "สเกล",
+    "scale": "อัตราส่วนการแสดงผล",
     "title": "หน้าจอ",
     "video": "โหมดวีดีโอ",
     "controlRegion": {
@@ -100,15 +101,17 @@
       "videoError": "ข้อผิดพลาดในการแสดงวิดีโอ",
       "noHdmi": "ไม่พบสัญญาณ HDMI",
       "unavailable": "ไม่สามารถแสดงหน้าจอได้ในขณะนี้"
-    }
+    },
+    "codec": "ตัวแปลงสัญญาณ",
+    "retryJoin": "ลองอีกครั้ง"
   },
   "keyboard": {
-    "title": "คีบอร์ด",
+    "title": "แป้นพิมพ์",
     "paste": "วาง",
     "tips": "รองรับเฉพาะตัวอักษรและสัญลักษณ์มาตรฐานของแป้นพิมพ์เท่านั้น",
     "placeholder": "กรุณาป้อน",
     "submit": "ยืนยัน",
-    "virtual": "คีบอร์ด",
+    "virtual": "แป้นพิมพ์",
     "readClipboard": "อ่านจากคลิปบอร์ด",
     "clipboardPermissionDenied": "การอนุญาตคลิปบอร์ดถูกปฏิเสธ โปรดอนุญาตการเข้าถึงคลิปบอร์ดในเบราว์เซอร์ของคุณ",
     "clipboardReadError": "ไม่สามารถอ่านคลิปบอร์ดได้",
@@ -118,22 +121,22 @@
     "dropdownRussian": "รัสเซีย",
     "dropdownSpanish": "ภาษาสเปน",
     "shortcut": {
-      "title": "ทางลัด",
+      "title": "แป้นพิมพ์ลัด",
       "custom": "กำหนดเอง",
-      "capture": "คลิกที่นี่เพื่อจับภาพทางลัด",
-      "clear": "ชัดเจน",
+      "capture": "คลิกที่นี่เพื่อบันทึกแป้นพิมพ์ลัด",
+      "clear": "ล้าง",
       "save": "บันทึก",
       "captureTips": "การจับปุ่มระดับระบบ (เช่น ปุ่ม Windows) ต้องได้รับสิทธิ์โหมดเต็มหน้าจอ",
       "enterFullScreen": "สลับโหมดเต็มหน้าจอ"
     },
     "leaderKey": {
       "title": "ปุ่ม Leader",
-      "desc": "ข้ามข้อจำกัดของเบราว์เซอร์และส่งทางลัดของระบบไปยังโฮสต์ระยะไกลโดยตรง",
+      "desc": "ข้ามข้อจำกัดของเบราว์เซอร์และส่งแป้นพิมพ์ลัดของระบบไปยังโฮสต์ระยะไกลโดยตรง",
       "howToUse": "วิธีการใช้งาน",
       "simultaneous": {
         "title": "โหมดพร้อมกัน",
         "desc1": "กดปุ่ม Leader ค้างไว้ แล้วกดปุ่มลัด",
-        "desc2": "ใช้งานง่าย แต่อาจขัดแย้งกับทางลัดของระบบ"
+        "desc2": "ใช้งานง่าย แต่อาจขัดแย้งกับแป้นพิมพ์ลัดของระบบ"
       },
       "sequential": {
         "title": "โหมดต่อเนื่อง",
@@ -150,8 +153,12 @@
       "recorder": {
         "rec": "บันทึก",
         "activate": "เปิดใช้งานปุ่ม",
-        "input": "กรุณากดทางลัด..."
+        "input": "กรุณากดแป้นพิมพ์ลัด…"
       }
+    },
+    "sequences": {
+      "title": "ลำดับปุ่ม",
+      "sent": "ส่งแล้ว"
     }
   },
   "mouse": {
@@ -250,14 +257,17 @@
     "flowControlHard": "ฮาร์ดแวร์",
     "dataBits": "บิตข้อมูล",
     "stopBits": "บิตหยุด",
-    "confirm": "ยืนยัน"
+    "confirm": "ยืนยัน",
+    "usbSerial": "คอนโซลอนุกรม USB"
   },
   "wol": {
     "title": "Wake-on-LAN",
     "sending": "กำลังส่งคำสั่ง...",
     "sent": "ส่งคำสั่งแล้ว",
     "input": "กรุณาใส่ MAC Address ของเครื่องที่ต้องการปลุก",
-    "ok": "ยืนยัน"
+    "ok": "ยืนยัน",
+    "name": "ชื่ออุปกรณ์",
+    "cancel": "ยกเลิก"
   },
   "download": {
     "title": "ดาวโหลด Disk Image",
@@ -273,7 +283,8 @@
     "success": "ดาวน์โหลดสำเร็จ",
     "checksumFailed": "ดาวน์โหลดล้มเหลว: การตรวจสอบ SHA-256 ล้มเหลว",
     "cancel": "ยกเลิก",
-    "cancelFailed": "ยกเลิกการดาวน์โหลดไม่สำเร็จ"
+    "cancelFailed": "ยกเลิกการดาวน์โหลดไม่สำเร็จ",
+    "downloading": "กำลังดาวน์โหลด"
   },
   "power": {
     "title": "เปิด/ปิด",
@@ -312,7 +323,13 @@
       "ip": "IP",
       "image": "เวอร์ชั่น Image ระบบ",
       "hostname": "ชื่อโฮสต์",
-      "hostnameUpdated": "อัปเดตชื่อโฮสต์แล้ว รีบูตเพื่อใช้"
+      "hostnameUpdated": "อัปเดตชื่อโฮสต์แล้ว รีบูตเพื่อใช้",
+      "credits": {
+        "button": "ผู้มีส่วนร่วม",
+        "title": "ผู้มีส่วนร่วม",
+        "close": "ปิด"
+      },
+      "documentation": "เอกสารประกอบ"
     },
     "appearance": {
       "title": "ลักษณะการแสดงผล",
@@ -332,6 +349,9 @@
         "keyboardLedStatusDesc": "แสดงสถานะ Num Lock, Caps Lock และ Scroll Lock ของคอมพิวเตอร์ระยะไกล",
         "icons": "ไอคอนเมนูย่อย",
         "iconsDesc": "แสดงไอคอนเมนูย่อยในแถบเมนู"
+      },
+      "buttonColor": {
+        "save": "นำไปใช้"
       }
     },
     "keyboardLedStatus": {
@@ -382,7 +402,10 @@
       "reboot": "รีบูต",
       "rebootDesc": "คุณแน่ใจหรือไม่ว่าต้องการรีบูต NanoKVM",
       "okBtn": "ใช่",
-      "cancelBtn": "ไม่ใช่"
+      "cancelBtn": "ไม่ใช่",
+      "cpuFrequency": {
+        "title": "ความถี่ CPU และการโอเวอร์คล็อก"
+      }
     },
     "network": {
       "title": "เครือข่าย",
@@ -399,11 +422,22 @@
         "password": "รหัสผ่าน",
         "joinBtn": "เข้าร่วม",
         "confirmBtn": "ตกลง",
-        "cancelBtn": "ยกเลิก"
+        "cancelBtn": "ยกเลิก",
+        "band": "ย่านความถี่",
+        "manual": "เชื่อมต่อด้วยตนเอง",
+        "hidden": "เครือข่ายที่ซ่อนอยู่",
+        "security": "ความปลอดภัย",
+        "open": "เครือข่ายแบบเปิด",
+        "loading": "กำลังโหลด...",
+        "reconnect": "เชื่อมต่ออีกครั้ง"
       },
       "tls": {
         "description": "เปิดใช้งานโปรโตคอล HTTPS",
-        "tip": "โปรดทราบ: การใช้ HTTPS อาจเพิ่มความหน่วง โดยเฉพาะในโหมดวิดีโอ MJPEG"
+        "tip": "โปรดทราบ: การใช้ HTTPS อาจเพิ่มความหน่วง โดยเฉพาะในโหมดวิดีโอ MJPEG",
+        "certificate": {
+          "title": "ใบรับรอง",
+          "remove": "นำออก"
+        }
       },
       "ethernet": {
         "title": "อีเทอร์เน็ต IPv4",
@@ -423,7 +457,8 @@
         "save": "บันทึก",
         "unsaved": "การเปลี่ยนแปลงที่ยังไม่ได้บันทึก",
         "saveFailed": "บันทึกการตั้งค่า Ethernet ไม่สำเร็จ",
-        "loadFailed": "โหลดการตั้งค่า Ethernet ไม่สำเร็จ"
+        "loadFailed": "โหลดการตั้งค่า Ethernet ไม่สำเร็จ",
+        "disabled": "ปิดใช้งานแล้ว"
       },
       "dns": {
         "title": "DNS",
@@ -446,6 +481,11 @@
         "subnetMask": "ซับเน็ตมาสก์",
         "router": "เราเตอร์",
         "none": "ไม่มี"
+      },
+      "general": "ทั่วไป",
+      "gateway": {
+        "title": "เกตเวย์ที่ต้องการ",
+        "auto": "อัตโนมัติ"
       }
     },
     "tailscale": {
@@ -458,7 +498,7 @@
       "install": "ติดตั้ง",
       "installing": "กำลังติดตั้ง",
       "failed": "การติดตั้งล้มเหลว",
-      "retry": "กรุณารีเฟรชและลองใหม่ หรือพยายามติดตั้งด้วยตนเอง",
+      "retry": "โปรดลองติดตั้งอีกครั้ง",
       "notRunning": "Tailscale ไม่ทำงาน กรุณาเริ่มต้นเพื่อดำเนินการต่อ",
       "run": "เริ่ม",
       "notLogin": "อุปกรณ์ยังไม่ได้ผูกบัญชี กรุณาล็อกอินและผูกอุปกรณ์นี้กับบัญชีของคุณ",
@@ -474,17 +514,168 @@
       "uninstall": "ถอนการติดตั้ง Tailscale",
       "uninstallDesc": "คุณแน่ใจหรือไม่ว่าต้องการถอนการติดตั้ง Tailscale",
       "okBtn": "ใช่",
-      "cancelBtn": "ไม่ใช่"
+      "cancelBtn": "ไม่ใช่",
+      "moreActions": "การดำเนินการเพิ่มเติม"
     },
     "account": {
-      "title": "บัญชี",
+      "title": "ผู้ใช้",
       "webAccount": "ชื่อผู้ใช้",
       "password": "รหัสผ่าน",
       "updateBtn": "ยืนยัน",
       "logoutBtn": "ออกจากระบบ",
       "logoutDesc": "คุณแน่ใจที่จะออกจากระบบหรือไม่?",
       "okBtn": "ใช่",
-      "cancelBtn": "ไม่ใช่"
+      "cancelBtn": "ไม่ใช่",
+      "role": "บทบาท",
+      "roles": {
+        "admin": "ผู้ดูแลระบบ",
+        "user": "ผู้ใช้"
+      },
+      "users": {
+        "title": "ผู้ใช้",
+        "create": "สร้างผู้ใช้",
+        "enabled": "เปิดใช้งานแล้ว",
+        "disabled": "ปิดใช้งานแล้ว",
+        "deviceOwner": "เจ้าของอุปกรณ์",
+        "rename": "เปลี่ยนชื่อ",
+        "resetPassword": "รีเซ็ตรหัสผ่าน",
+        "delete": "ลบ"
+      }
+    },
+    "software": {
+      "indexSchedule": {
+        "save": "บันทึก"
+      },
+      "addons": {
+        "title": "ส่วนเสริม",
+        "packages": "แพ็กเกจ"
+      },
+      "title": "ซอฟต์แวร์",
+      "available": "แพ็กเกจที่มีให้ใช้",
+      "updatesTab": "การอัปเดต",
+      "search": "ค้นหา",
+      "install": "ติดตั้ง",
+      "installed": "แพ็กเกจที่ติดตั้งแล้ว",
+      "remove": "นำออก"
+    },
+    "updates": {
+      "apk": {
+        "title": "การอัปเดตแพ็กเกจ",
+        "log": "บันทึกการอัปเดต"
+      },
+      "title": "การอัปเดต",
+      "installed": "ติดตั้งแล้ว"
+    },
+    "memory": {
+      "title": "หน่วยความจำ",
+      "available": "พร้อมใช้งาน",
+      "size": "ความจุ",
+      "used": "ใช้แล้ว",
+      "algorithm": "การบีบอัด",
+      "videoUnknown": "ไม่ทราบ"
+    },
+    "system": {
+      "general": "ทั่วไป",
+      "logs": {
+        "title": "บันทึกเหตุการณ์",
+        "sources": {
+          "kernel": "เคอร์เนล"
+        },
+        "refresh": "รีเฟรช"
+      },
+      "diagnostics": {
+        "overview": "สถานะ",
+        "title": "การวินิจฉัย",
+        "refresh": "รีเฟรช",
+        "application": "แอปพลิเคชัน"
+      },
+      "services": "บริการ",
+      "device": "อุปกรณ์"
+    },
+    "usb": {
+      "internet": {
+        "title": "อินเทอร์เน็ตผ่าน USB",
+        "states": {
+          "loading": "กำลังโหลด..."
+        }
+      },
+      "title": "การกำหนดฟังก์ชัน USB",
+      "apply": "นำไปใช้",
+      "cancel": "ละทิ้งการเปลี่ยนแปลง",
+      "identity": {
+        "title": "ข้อมูลระบุตัวตน USB"
+      },
+      "userDisk": {
+        "title": "ดิสก์ผู้ใช้",
+        "create": "สร้าง",
+        "delete": "ลบ",
+        "files": {
+          "title": "ไฟล์บนดิสก์ผู้ใช้",
+          "refresh": "รีเฟรช",
+          "browse": "เรียกดูไฟล์",
+          "up": "โฟลเดอร์แม่",
+          "upload": "อัปโหลดไฟล์",
+          "cancel": "ยกเลิก",
+          "folderName": "ชื่อโฟลเดอร์ใหม่",
+          "mkdir": "สร้างโฟลเดอร์",
+          "download": "ดาวน์โหลด",
+          "delete": "ลบ",
+          "empty": "โฟลเดอร์นี้ว่างเปล่า",
+          "errors": {
+            "notEmpty": "โฟลเดอร์ไม่ว่างเปล่า"
+          },
+          "previous": "หน้าก่อนหน้า",
+          "next": "หน้าถัดไป"
+        }
+      },
+      "serialConsole": {
+        "title": "คอนโซล Linux ที่ไม่มีจอภาพ"
+      },
+      "devices": {
+        "network": {
+          "title": "เครือข่ายเสมือน"
+        },
+        "disk": {
+          "title": "ดิสก์เสมือน"
+        },
+        "serial": {
+          "title": "คอนโซลอนุกรม USB"
+        },
+        "keyboard": {
+          "title": "คีบอร์ด"
+        }
+      }
+    },
+    "netbird": {
+      "moreActions": "การดำเนินการเพิ่มเติม",
+      "loginSuccess": "ฉันลงชื่อเข้าใช้แล้ว",
+      "deviceName": "ชื่ออุปกรณ์",
+      "version": "เวอร์ชัน",
+      "loading": "กำลังโหลด...",
+      "run": "เริ่ม",
+      "deviceIP": "IP อุปกรณ์",
+      "okBtn": "ใช่",
+      "cancelBtn": "ไม่ใช่",
+      "error": {
+        "installFailed": "การติดตั้งล้มเหลว"
+      }
+    },
+    "rustdesk": {
+      "absent": "ยังไม่ได้ติดตั้ง",
+      "stopped": "หยุดแล้ว",
+      "install": "ติดตั้ง",
+      "remove": "นำออก",
+      "save": "บันทึกการตั้งค่า",
+      "server": "เซิร์ฟเวอร์",
+      "passwordMode": "รหัสผ่าน",
+      "temporaryPassword": "รหัสผ่านชั่วคราว",
+      "newPassword": "รหัสผ่านใหม่",
+      "advanced": "การตั้งค่าขั้นสูง",
+      "saved": "บันทึกการตั้งค่าแล้ว",
+      "unknownVersion": "ไม่ทราบ"
+    },
+    "extensions": {
+      "title": "ส่วนขยาย"
     }
   },
   "picoclaw": {
@@ -499,7 +690,8 @@
       "kvmTitle": "การควบคุมระยะไกล",
       "kvmDescription": "ใช้งานโฮสต์ระยะไกลผ่าน NanoKVM",
       "switched": "เปลี่ยนบทบาทตัวแทนแล้ว",
-      "switchFailed": "ไม่สามารถเปลี่ยนบทบาทตัวแทนได้"
+      "switchFailed": "ไม่สามารถเปลี่ยนบทบาทตัวแทนได้",
+      "label": "บทบาทของเอเจนต์"
     },
     "send": "ส่ง",
     "cancel": "ยกเลิก",
@@ -517,22 +709,22 @@
     "connection": {
       "runtime": {
         "checking": "กำลังตรวจสอบ",
-        "restoring": "Restoring PicoClaw",
+        "restoring": "กำลังกู้คืน PicoClaw",
         "ready": "Runtime พร้อมใช้งาน",
         "stopped": "หยุด Runtime แล้ว",
         "blockedByMCP": "การควบคุม MCP ภายนอกกำลังทำงาน",
-        "readyBlockedByMCP": "The runtime is running, but external MCP currently controls device input.",
-        "readyWithoutControl": "The runtime is running. Grant PicoClaw device control before reconnecting.",
+        "readyBlockedByMCP": "สภาพแวดล้อมการทำงานกำลังทำงานอยู่ แต่ MCP ภายนอกกำลังควบคุมอินพุตของอุปกรณ์",
+        "readyWithoutControl": "สภาพแวดล้อมการทำงานกำลังทำงานอยู่ โปรดให้สิทธิ์ PicoClaw ควบคุมอุปกรณ์ก่อนเชื่อมต่ออีกครั้ง",
         "unavailable": "Runtime ไม่พร้อมใช้งาน",
         "configError": "ข้อผิดพลาดในการกำหนดค่า"
       },
       "transport": {
         "connecting": "กำลังเชื่อมต่อ",
         "connected": "เชื่อมต่อแล้ว",
-        "disconnected": "Disconnected",
-        "reconnect": "Reconnect",
-        "reconnectDescription": "Reconnect to the running PicoClaw session.",
-        "reconnectBlocked": "PicoClaw needs device control before reconnecting."
+        "disconnected": "ไม่ได้เชื่อมต่อ",
+        "reconnect": "เชื่อมต่ออีกครั้ง",
+        "reconnectDescription": "เชื่อมต่อกับเซสชัน PicoClaw ที่กำลังทำงานอยู่อีกครั้ง",
+        "reconnectBlocked": "PicoClaw ต้องมีสิทธิ์ควบคุมอุปกรณ์ก่อนเชื่อมต่ออีกครั้ง"
       },
       "run": {
         "idle": "ไม่ได้ใช้งาน",
@@ -549,19 +741,19 @@
     },
     "control": {
       "picoclaw": "การควบคุมอุปกรณ์: PicoClaw",
-      "picoclawDescription": "PicoClaw can write keyboard and mouse input. Manual input may pause.",
+      "picoclawDescription": "PicoClaw สามารถส่งอินพุตจากแป้นพิมพ์และเมาส์ได้ การป้อนข้อมูลด้วยตนเองอาจหยุดชั่วคราว",
       "mcp": "การควบคุมอุปกรณ์: MCP ภายนอก",
-      "mcpDescription": "External MCP can write to the device. PicoClaw will not take over input.",
-      "off": "การควบคุมอุปกรณ์: ปิด",
-      "offDescription": "AI will not write keyboard or mouse input. Manual control remains available.",
-      "transitioning": "Device control: switching",
-      "transitioningDescription": "Device control is syncing. Please wait.",
+      "mcpDescription": "MCP ภายนอกสามารถส่งอินพุตไปยังอุปกรณ์ได้ PicoClaw จะไม่เข้าควบคุมอินพุต",
+      "off": "การควบคุมอุปกรณ์: ด้วยตนเอง / ไม่ใช้ AI",
+      "offDescription": "AI จะไม่ส่งอินพุตจากแป้นพิมพ์หรือเมาส์ คุณยังควบคุมด้วยตนเองได้",
+      "transitioning": "การควบคุมอุปกรณ์: กำลังสลับ",
+      "transitioningDescription": "กำลังซิงค์สถานะการควบคุมอุปกรณ์ โปรดรอ",
       "grant": "มอบการควบคุม",
       "release": "ปล่อย",
       "releasing": "Releasing...",
       "switching": "Switching...",
-      "releasingLabel": "Device control: releasing",
-      "releasingDescription": "Device control is being returned. PicoClaw has stopped current writes.",
+      "releasingLabel": "การควบคุมอุปกรณ์: กำลังคืนการควบคุม",
+      "releasingDescription": "กำลังคืนการควบคุมอุปกรณ์ PicoClaw หยุดส่งอินพุตแล้ว",
       "granted": "มอบการควบคุม PicoClaw แล้ว",
       "released": "ปล่อยการควบคุม PicoClaw แล้ว",
       "grantFailed": "ไม่สามารถมอบการควบคุม PicoClaw ได้",
@@ -642,7 +834,8 @@
       "description": "เริ่ม Runtime เพื่อเริ่มใช้ผู้ช่วย PicoClaw",
       "switchFromMCP": "Switch to PicoClaw and start",
       "takeoverAndStart": "Take over and start"
-    }
+    },
+    "moreActions": "การดำเนินการเพิ่มเติม"
   },
   "error": {
     "title": "เราเจอปัญหา",
@@ -654,5 +847,111 @@
   "menu": {
     "collapse": "ย่อเมนู",
     "expand": "ขยายเมนู"
+  },
+  "audio": {
+    "listen": "ฟัง",
+    "resume": "เล่นเสียงต่อ",
+    "volume": "ระดับเสียง"
+  },
+  "sessionControl": {
+    "viewOnly": "ดูอย่างเดียว",
+    "take": "เข้าควบคุม",
+    "release": "ล็อกเซสชันนี้"
+  },
+  "dateTime": {
+    "title": "วันที่และเวลา",
+    "deviceTime": "เวลาของอุปกรณ์",
+    "timezone": "เขตเวลา",
+    "format": "รูปแบบเวลา",
+    "preview": "ตัวอย่าง",
+    "synchronized": "ซิงค์แล้ว",
+    "waiting": "ยังไม่ยืนยันการซิงค์",
+    "save": "บันทึก"
+  },
+  "recorder": {
+    "title": "การบันทึกวิดีโอ",
+    "start": "เริ่มบันทึก",
+    "stop": "หยุดบันทึก"
+  },
+  "screenshot": {
+    "take": "ถ่ายภาพหน้าจอ"
+  },
+  "vpn": {
+    "rename": "เปลี่ยนชื่อ",
+    "profileName": "ชื่อโปรไฟล์",
+    "credentials": "ข้อมูลรับรอง",
+    "username": "ชื่อผู้ใช้",
+    "password": "รหัสผ่าน",
+    "save": "บันทึก",
+    "enable": "เปิดใช้งาน",
+    "delete": "ลบ",
+    "states": {
+      "reconnecting": "กำลังเชื่อมต่ออีกครั้ง",
+      "error": "ข้อผิดพลาด",
+      "connecting": "กำลังเชื่อมต่อ",
+      "connected": "เชื่อมต่อแล้ว",
+      "idle": "ไม่ได้ใช้งาน"
+    },
+    "confirm": "ใช่",
+    "cancel": "ไม่ใช่"
+  },
+  "dashboard": {
+    "title": "ภาพรวม",
+    "freeStorage": "พื้นที่ว่าง",
+    "uptime": "ระยะเวลาทำงาน",
+    "kernel": "เคอร์เนล",
+    "memory": "หน่วยความจำ",
+    "cache": "แคช",
+    "compression": "การบีบอัด",
+    "storage": "พื้นที่จัดเก็บ",
+    "dataStorage": "ข้อมูล",
+    "bootStorage": "การบูต",
+    "readOnly": "อ่านอย่างเดียว",
+    "disconnected": "ไม่มีการเชื่อมต่อ",
+    "deviceTime": "เวลาของอุปกรณ์",
+    "timezone": "เขตเวลา",
+    "synchronization": "การซิงค์",
+    "synchronized": "ซิงค์แล้ว",
+    "notSynchronized": "ยังไม่ยืนยันการซิงค์",
+    "noProfiles": "ไม่มีโปรไฟล์",
+    "states": {
+      "waiting": "กำลังรอ",
+      "error": "ข้อผิดพลาด",
+      "stopped": "หยุดแล้ว",
+      "notInstall": "ยังไม่ได้ติดตั้ง",
+      "notRunning": "หยุดแล้ว",
+      "notLogin": "ยังไม่ได้ลงชื่อเข้าใช้",
+      "connected": "เชื่อมต่อแล้ว",
+      "idle": "ไม่ได้ใช้งาน",
+      "running": "เชื่อมต่อแล้ว",
+      "connecting": "กำลังเชื่อมต่อ",
+      "auth": "จำเป็นต้องมีการรับรองความถูกต้อง"
+    },
+    "device": "อุปกรณ์",
+    "connected": "เชื่อมต่อแล้ว"
+  },
+  "videoSettings": {
+    "image": "ภาพ",
+    "mode": "โหมด",
+    "browserSection": "เบราว์เซอร์นี้",
+    "player": "ตัวเล่น",
+    "landscape": "จอภาพแนวนอน",
+    "transport": "วิธีการส่งข้อมูล",
+    "powerCycleCancel": "ยกเลิก",
+    "apply": "นำไปใช้",
+    "discard": "ละทิ้งการเปลี่ยนแปลง",
+    "bitrate": "บิตเรต",
+    "captureOn": "เปิดการจับภาพแล้ว",
+    "captureOff": "ปิดการจับภาพแล้ว",
+    "input": "อินพุต HDMI",
+    "output": "สตรีมที่เข้ารหัสแล้ว",
+    "monitor": "จอภาพ HDMI",
+    "portrait": "จอภาพแนวตั้ง",
+    "retry": "ลองอีกครั้ง"
+  },
+  "capture": {
+    "start": "เปิดการจับภาพ",
+    "stop": "ปิดการจับภาพ",
+    "off": "ปิดการจับภาพแล้ว"
   }
 }

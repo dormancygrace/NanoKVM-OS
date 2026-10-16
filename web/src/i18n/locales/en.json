@@ -591,6 +591,29 @@
       "tf3": "Insert the TF card into a card reader and connect it to your computer.",
       "tf4": "Copy the image file to the /data directory on the TF card.",
       "tf5": "Insert the TF card into the NanoKVM."
+    },
+    "netboot": {
+      "tab": "Network boot",
+      "hint": "Boot this computer from the netboot.xyz menus: installers, live systems and tools load from the internet through the NanoKVM. Only the iPXE image is stored on the NanoKVM.",
+      "versions": "iPXE {{ipxe}} · netboot.xyz {{netbootxyz}}",
+      "notDownloaded": "Not downloaded yet. Turning network boot on downloads the latest iPXE (about 13 MB) and selects the latest netboot.xyz release.",
+      "checked": "Checked {{date}}",
+      "update": "Check for updates",
+      "updating": "Updating…",
+      "secureBoot": "UEFI Secure Boot",
+      "secureBootHint": "Uses the iPXE image signed for Secure Boot (x86-64 UEFI only). With Secure Boot on, netboot.xyz installs Debian, Devuan and Kali; other entries need Secure Boot turned off in the computer's firmware.",
+      "needComposition": "Turn on USB network and the virtual disk in the USB settings first.",
+      "browserMedia": "Disconnect the ISO from this computer first.",
+      "enableNote": "Replaces the mounted image and turns on USB internet sharing until network boot is turned off.",
+      "enable": "Turn on network boot",
+      "enabling": "Turning on…",
+      "disable": "Turn off network boot",
+      "on": "On: boot the computer from the NanoKVM CD/DVD drive.",
+      "waiting": "Waiting for the computer to load the menu.",
+      "fetched": "The computer loaded the menu (requests: {{n}}, last at {{time}}).",
+      "noUplink": "The NanoKVM has no internet connection to share; netboot.xyz will not load.",
+      "inUse": "Network boot is on. Turn it off to mount another image.",
+      "failed": "Network boot failed. Try again."
     }
   },
   "script": {
@@ -651,6 +674,7 @@
     "uploadbox": "Drop file here or click to select",
     "inputfile": "Please enter the image file",
     "NoISO": "No ISO",
+    "imageFileRequired": "Select an ISO or IMG image file",
     "sha256": "SHA-256 (optional)",
     "sha256Placeholder": "Enter a 64-character SHA-256 checksum",
     "invalidSHA256": "SHA-256 must be a 64-character hexadecimal string",
@@ -742,18 +766,40 @@
       "title": "Updates",
       "description": "Update NanoKVM OS using signed packages. System updates restart the device; application updates briefly disconnect video and control.",
       "installed": "Installed",
-      "alpineOptions": "Image options",
-      "alpineTitle": "Reinstall system",
-      "alpineDisclaimer": "Replace the system with a newly built image. Saved settings are restored and selected packages are included. Other files on the system partition are removed. The device will restart.",
-      "alpineProfile": "Build profile",
-      "alpinePackages": "Packages to include",
-      "alpineBuild": "Build image",
-      "alpineStage": "Download image",
-      "alpineInstall": "Reinstall and restart",
-      "alpineConfirm": "Format the system partition, install this Alpine image, and reboot now?",
-      "alpineBuilderMissing": "The attended image builder is not configured. Set alpine.builderURL or use a manually verified recovery bundle.",
       "requestFailed": "The update request failed. Check device connectivity and retry.",
-      "reconnecting": "Waiting for the device to reconnect…"
+      "reconnecting": "Waiting for the device to reconnect…",
+      "components": {
+        "title": "Components",
+        "description": "Installed NanoKVM OS packages. A newer version found by the last check is shown next to the installed one.",
+        "available": "{{version}} available",
+        "alpine": "Alpine Linux",
+        "kernel": "Running kernel",
+        "kernelNext": "{{version}} after a restart",
+        "names": {
+          "system": "NanoKVM OS",
+          "release": "Release information",
+          "app": "Application",
+          "web": "Web interface",
+          "base": "System base",
+          "kernel": "Kernel",
+          "modules": "Kernel modules",
+          "firmware": "Board firmware",
+          "keys": "Signing keys",
+          "rustdesk": "RustDesk"
+        }
+      },
+      "notice": {
+        "title": "NanoKVM OS update available",
+        "open": "Open updates",
+        "auto": "Check for updates daily",
+        "autoDescription": "Looks at the NanoKVM OS repository once a day and shows a notice when a newer version is available. Nothing is installed automatically.",
+        "check": "Check now",
+        "checked": "Last checked {{time}}",
+        "never": "Not checked yet",
+        "failed": "The last check failed: {{message}}",
+        "unavailable": "No NanoKVM OS repository is configured.",
+        "upToDate": "NanoKVM OS is up to date"
+      }
     },
     "memory": {
       "videoMode": "Video memory allocation",
@@ -1185,10 +1231,41 @@
         "ejectFirst": "Eject the drive on the computer first, so nothing is left half-written; then the USB devices reconnect.",
         "created": "User disk created",
         "turnOffFirst": "Turn the user disk off first.",
-        "busy": "The user disk is being created or deleted. Try again when it is done.",
+        "busy": "The disk is busy. Wait for the current operation and try again.",
         "missing": "The user disk image is gone. Create it again.",
         "failed": "The user disk request failed.",
-        "notice": "Mounting or ejecting a CD/disk image reconnects the USB devices too; the computer sees the user disk again afterwards with what it wrote. The whole image is allocated on the SD card at creation, so the large sizes take a while."
+        "notice": "Mounting or ejecting a CD/disk image reconnects the USB devices too; the computer sees the user disk again afterwards with what it wrote. The whole image is allocated on the SD card at creation, so the large sizes take a while.",
+        "files": {
+          "title": "Files on the user disk",
+          "host": "Eject this drive on the computer, then turn the user disk off above to manage its files.",
+          "hint": "Turn the user disk on above when finished to make the files available to the computer. Existing files are never overwritten.",
+          "refresh": "Refresh",
+          "browse": "Browse files",
+          "up": "Up",
+          "upload": "Upload files",
+          "transferring": "Transferring and saving… Wait for completion before connecting the disk.",
+          "cancel": "Cancel",
+          "space": "{{free}} free of {{total}}",
+          "folderName": "New folder name",
+          "mkdir": "Create folder",
+          "download": "Download",
+          "delete": "Delete",
+          "empty": "This folder is empty.",
+          "deleteTitle": "Delete this item?",
+          "deleteConfirm": "Delete {{name}}? Only empty folders can be deleted.",
+          "errors": {
+            "host": "The computer owns the disk. Eject it and turn it off above.",
+            "busy": "The disk is busy. Wait for the current operation and try again.",
+            "path": "Invalid file or folder name.",
+            "exists": "A file or folder with this name already exists.",
+            "missing": "The disk, file or folder no longer exists. Refresh or go up.",
+            "space": "Not enough free space, or the file exceeds FAT32’s 4 GiB minus 1 byte limit.",
+            "notEmpty": "The folder is not empty.",
+            "io": "The operation failed. Check the disk and system logs, then refresh."
+          },
+          "previous": "Previous page",
+          "next": "Next page"
+        }
       },
       "serialConsole": {
         "title": "Headless Linux console",
@@ -1499,6 +1576,13 @@
         "none": "None",
         "server": "DNS server {{index}}",
         "remove": "Remove DNS server {{index}}"
+      },
+      "bluetooth": {
+        "off": "Off: the Bluetooth drivers are not loaded.",
+        "on": "On: the Bluetooth drivers are loaded.",
+        "tip": "NanoKVM has no Bluetooth features yet: turning it on only loads the drivers. The setting applies at once and at every boot.",
+        "version": "Bluetooth version",
+        "unavailable": "This device has no Bluetooth that NanoKVM OS supports."
       }
     },
     "tailscale": {

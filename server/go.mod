@@ -13,7 +13,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/mervick/aes-bridge-go v0.0.0-20250728011030-7e095cdac2f2
 	github.com/modelcontextprotocol/go-sdk v1.8.0
-	github.com/pion/dtls/v3 v3.1.12
+	github.com/pion/dtls/v3 v3.1.13
 	github.com/pion/ice/v4 v4.4.7
 	github.com/pion/interceptor v0.1.49
 	github.com/pion/rtcp v1.2.19

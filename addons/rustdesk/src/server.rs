@@ -2148,7 +2148,34 @@ mod tests {
         )
         .await
         .unwrap();
-        time::sleep(Duration::from_millis(10)).await;
+        // The reply is a network-reader barrier: both moves and the button
+        // event are queued before the first HID response is released. A fixed
+        // sleep can release it early on a loaded runner and expose the
+        // intermediate (200, 100) move instead of the coalesced final position.
+        write_message(
+            &mut client,
+            &Message {
+                union: Some(message::Union::TestDelay(TestDelay {
+                    time: 789,
+                    from_client: true,
+                    ..Default::default()
+                })),
+            },
+        )
+        .await
+        .unwrap();
+        let barrier: Message = time::timeout(Duration::from_secs(2), read_message(&mut client))
+            .await
+            .expect("network reader stalled while the HID response was pending")
+            .unwrap();
+        assert!(matches!(
+            barrier.union,
+            Some(message::Union::TestDelay(TestDelay {
+                time: 789,
+                from_client: false,
+                ..
+            }))
+        ));
         let _ = third_frame_sender.send(());
         let video: Message = time::timeout(Duration::from_secs(2), read_message(&mut client))
             .await

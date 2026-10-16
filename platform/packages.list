@@ -18,8 +18,8 @@
 keys  tree  /etc/apk/keys                                 0644  firmware/alpine/keys
 
 # nanokvm-zlib: zlib-ng in zlib-compatible mode, in place of Alpine's zlib
-zlib  file  /usr/lib/libz.so.1.3.1.zlib-ng                0755  @tools/zlib-ng/libz.so.1.3.1.zlib-ng
-zlib  link  /usr/lib/libz.so.1                            -     libz.so.1.3.1.zlib-ng
+zlib  file  /usr/lib/libz.so.1.3.2.zlib-ng                0755  @tools/zlib-ng/libz.so.1.3.2.zlib-ng
+zlib  link  /usr/lib/libz.so.1                            -     libz.so.1.3.2.zlib-ng
 zlib  file  /usr/share/licenses/nanokvm-zlib/LICENSE.md   0644  @tools/zlib-ng/LICENSE.md
 
 # nanokvm-base: OpenRC services, compatibility scripts and board tools
@@ -105,7 +105,7 @@ base  file  /usr/sbin/nkos-update                         0755  @server/nkos-upd
 base  link  /usr/sbin/watchdog                            -     /sbin/watchdog
 base  file  /usr/share/licenses/nanokvm-base/busybox-LICENSE 0644 @tools/busybox-LICENSE
 
-# nanokvm-app: server, web UI, native libraries and the board service
+# nanokvm: server, native libraries and the board service (app payload)
 app   file  /kvmapp/build-manifest.json                   0644  %build-manifest.json
 app   file  /kvmapp/version                               0644  %version
 # Video defaults of a new installation; protected from upgrades by base.
@@ -125,11 +125,12 @@ app   file  /kvmapp/picoclaw/skills/kvm-control/SKILL.md  0644  kvmapp/picoclaw/
 app   file  /kvmapp/picoclaw/skills/kvm-control/scripts/nanokvm-bridge.sh 0755 kvmapp/picoclaw/skills/kvm-control/scripts/nanokvm-bridge.sh
 app   file  /kvmapp/server/NanoKVM-Server                 0755  @server/NanoKVM-Server
 app   tree  /kvmapp/server/dl_lib                         0644  @native
-app   tree  /usr/share/licenses/nanokvm-app/native           0644  @native-licenses
+app   tree  /usr/share/licenses/nanokvm/native           0644  @native-licenses
 # Linked statically into NanoKVM-Server (server/internal/decompress).
-app   file  /usr/share/licenses/nanokvm-app/zlib-ng-LICENSE.md 0644 @tools/zlib-ng/LICENSE.md
-app   file  /usr/share/licenses/nanokvm-app/liblzma-COPYING.0BSD 0644 @tools/xz/COPYING.0BSD
-app   tree  /kvmapp/server/web                            0644  @web
+app   file  /usr/share/licenses/nanokvm/zlib-ng-LICENSE.md 0644 @tools/zlib-ng/LICENSE.md
+app   file  /usr/share/licenses/nanokvm/liblzma-COPYING.0BSD 0644 @tools/xz/COPYING.0BSD
+web   tree  /kvmapp/server/web                            0644  @web
+web   file  /kvmapp/web-build-manifest.json                0644  %web-build-manifest.json
 app   file  /kvmapp/system/bin/usb-audio-capture          0755  @tools/usb-audio-capture
 app   file  /kvmapp/system/init.d/S03usbdev               0755  kvmapp/system/init.d/S03usbdev
 app   file  /kvmapp/system/init.d/S03usbhid               0755  kvmapp/system/init.d/S03usbhid

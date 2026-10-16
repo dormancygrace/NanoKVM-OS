@@ -29,6 +29,7 @@
 #   source     write the corresponding-source archive of the outputs
 #   clean      delete OUTPUT/apk-builder and OUTPUT/rootfs, whose files belong
 #              to subordinate IDs (see packages)
+#   toolchain-id  print the identity of the toolchain inputs (a cache key)
 #
 # Checked outputs are in OUTPUT/images (default: build/platform/images), the
 # APK repository and the SD card image in OUTPUT/release. The packages step
@@ -49,7 +50,7 @@ jobs=$(nproc)
 key=
 eckey=
 devkey=
-usage() { sed -n '2,41p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '2,42p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 while getopts o:j:k:e:dh opt; do
     case $opt in
         o) out=$OPTARG ;; j) jobs=$OPTARG ;; k) key=$(realpath "$OPTARG") ;; e) eckey=$(realpath "$OPTARG") ;;
@@ -1041,6 +1042,7 @@ for step in "${steps[@]}"; do
         packages|rootfs|image|clean)
             if [ "${NANOKVM_USERNS:-0}" = 1 ]; then log "$step"; "$step"; else in_userns "$step"; fi ;;
         source) log source; source_archive ;;
+        toolchain-id) toolchain_id ;;
         *) usage ;;
     esac
 done

@@ -11,7 +11,7 @@ import {
 import { useAuth } from '@/contexts/auth.ts';
 import { Alert, Button, Divider, Modal, Spin, Tooltip, type TooltipProps } from 'antd';
 import clsx from 'clsx';
-import { useAtom, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   ArrowLeftIcon,
   BluetoothIcon,
@@ -47,6 +47,7 @@ import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk.ts';
 import { settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
+import { updateNoticeAtom } from '@/jotai/updates.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
 import { RustDeskIcon } from '@/components/icons/rustdesk';
 import { MobileMenuItemContext } from '@/components/mobile-menu-context.ts';
@@ -109,6 +110,14 @@ const BluetoothSettings = lazy(() =>
   import('./network').then((module) => ({ default: module.BluetoothSettings }))
 );
 
+// Marks the settings button and System > Updates while updates are available.
+const UpdateDot = () => (
+  <span
+    aria-hidden
+    className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-blue-500 ring-2 ring-neutral-800"
+  />
+);
+
 const PageLoading = () => (
   <div className="flex justify-center pt-10">
     <Spin size="small" />
@@ -127,6 +136,8 @@ export const Settings = ({
   const { t } = useTranslation();
   const { account } = useAuth();
   const isAdmin = account.role === 'admin';
+  const updateNotice = useAtomValue(updateNoticeAtom);
+  const updatesAvailable = isAdmin && !!updateNotice?.enabled && updateNotice.updates.length > 0;
 
   const [request, setRequest] = useAtom(settingsRequestAtom);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -453,7 +464,11 @@ export const Settings = ({
       >
         <div
           role="button"
-          aria-label={t('settings.title')}
+          aria-label={
+            updatesAvailable
+              ? `${t('settings.title')}: ${t('settings.updates.notice.title')}`
+              : t('settings.title')
+          }
           tabIndex={0}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -467,8 +482,9 @@ export const Settings = ({
             openModal();
           }}
         >
-          <div className="flex items-center justify-center text-neutral-300 hover:text-white">
+          <div className="relative flex items-center justify-center text-neutral-300 hover:text-white">
             <SettingsIcon size={18} className="block" />
+            {updatesAvailable && <UpdateDot />}
           </div>
         </div>
       </Tooltip>
@@ -554,8 +570,10 @@ export const Settings = ({
                       )}
                       onClick={() => changeTab(tab.id)}
                     >
-                      <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+                      <div className="relative flex h-[18px] w-[18px] shrink-0 items-center justify-center">
                         {tab.icon}
+                        {updatesAvailable &&
+                          (tab.id === 'system' || tab.id === 'system-updates') && <UpdateDot />}
                       </div>
                       <span
                         className={mobile ? 'truncate text-sm' : 'hidden truncate text-sm sm:block'}

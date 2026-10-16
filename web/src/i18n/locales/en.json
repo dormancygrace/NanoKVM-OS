@@ -767,7 +767,39 @@
       "description": "Update NanoKVM OS using signed packages. System updates restart the device; application updates briefly disconnect video and control.",
       "installed": "Installed",
       "requestFailed": "The update request failed. Check device connectivity and retry.",
-      "reconnecting": "Waiting for the device to reconnect…"
+      "reconnecting": "Waiting for the device to reconnect…",
+      "components": {
+        "title": "Components",
+        "description": "Installed NanoKVM OS packages. A newer version found by the last check is shown next to the installed one.",
+        "available": "{{version}} available",
+        "alpine": "Alpine Linux",
+        "kernel": "Running kernel",
+        "kernelNext": "{{version}} after a restart",
+        "names": {
+          "system": "NanoKVM OS",
+          "release": "Release information",
+          "app": "Application",
+          "web": "Web interface",
+          "base": "System base",
+          "kernel": "Kernel",
+          "modules": "Kernel modules",
+          "firmware": "Board firmware",
+          "keys": "Signing keys",
+          "rustdesk": "RustDesk"
+        }
+      },
+      "notice": {
+        "title": "NanoKVM OS update available",
+        "open": "Open updates",
+        "auto": "Check for updates daily",
+        "autoDescription": "Looks at the NanoKVM OS repository once a day and shows a notice when a newer version is available. Nothing is installed automatically.",
+        "check": "Check now",
+        "checked": "Last checked {{time}}",
+        "never": "Not checked yet",
+        "failed": "The last check failed: {{message}}",
+        "unavailable": "No NanoKVM OS repository is configured.",
+        "upToDate": "NanoKVM OS is up to date"
+      }
     },
     "memory": {
       "videoMode": "Video memory allocation",

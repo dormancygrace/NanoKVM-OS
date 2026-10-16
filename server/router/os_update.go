@@ -1,6 +1,9 @@
 package router
 
 import (
+	"context"
+	"errors"
+
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/osupdate"
@@ -23,7 +26,26 @@ func osUpdateRouter(r *gin.Engine) {
 		// Pages up to 3.1 read alpine.enabled without a check; this one keeps
 		// such a page working while an update replaces it.
 		updateReply(c, gin.H{"installed": gin.H{"version": osupdate.InstalledVersion()}, "apk": osupdate.GetAPKStatus(),
+			"components": osupdate.GetComponents(), "notice": osupdate.GetNotice(),
 			"alpine": gin.H{"enabled": false}}, nil)
+	})
+	// The menu polls this for its update badge: a file read, no apk run.
+	api.GET("/notice", func(c *gin.Context) {
+		updateReply(c, osupdate.GetNotice(), nil)
+	})
+	api.PUT("/notice", func(c *gin.Context) {
+		var req struct {
+			Enabled *bool `json:"enabled"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil || req.Enabled == nil {
+			updateReply(c, nil, errors.New("enabled is required"))
+			return
+		}
+		updateReply(c, nil, osupdate.SetNoticeEnabled(*req.Enabled))
+	})
+	api.POST("/notice/check", func(c *gin.Context) {
+		go func() { _ = osupdate.CheckUpdates(context.Background(), true) }()
+		updateReply(c, nil, nil)
 	})
 	api.POST("/apk/:action", func(c *gin.Context) {
 		updateReply(c, nil, osupdate.StartAPK(c.Param("action")))

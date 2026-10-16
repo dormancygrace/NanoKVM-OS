@@ -25,6 +25,7 @@ const (
 
 var apkPackageName = regexp.MustCompile(`^[a-z0-9][a-z0-9+_.-]{0,127}$`)
 var apkPackageVersion = regexp.MustCompile(`^(.+)-([0-9][A-Za-z0-9._+~:-]*)$`)
+var apkBareVersion = regexp.MustCompile(`^[0-9][A-Za-z0-9._+~:-]*$`)
 
 // SoftwarePackage is deliberately small: package catalogues can be large and
 // are searched page by page rather than sent wholesale to the browser.
@@ -187,11 +188,18 @@ func parseSoftwareUpdates(output string) []SoftwareUpdate {
 			available = fields[2]
 		}
 		current := apkPackageVersion.FindStringSubmatch(installed)
-		candidate := apkPackageVersion.FindStringSubmatch(available)
-		if len(current) != 3 || len(candidate) != 3 || !apkPackageName.MatchString(current[1]) {
+		if len(current) != 3 || !apkPackageName.MatchString(current[1]) {
 			continue
 		}
-		updates = append(updates, SoftwareUpdate{Name: current[1], Installed: current[2], Available: candidate[2]})
+		// apk 3 prints the available version alone ("< 3.1.0-r0"); a full
+		// name-version is accepted too.
+		version := available
+		if candidate := apkPackageVersion.FindStringSubmatch(available); len(candidate) == 3 && candidate[1] == current[1] {
+			version = candidate[2]
+		} else if !apkBareVersion.MatchString(available) {
+			continue
+		}
+		updates = append(updates, SoftwareUpdate{Name: current[1], Installed: current[2], Available: version})
 	}
 	sort.Slice(updates, func(i, j int) bool { return updates[i].Name < updates[j].Name })
 	return updates
@@ -406,5 +414,7 @@ func RunSoftware(action, name string) (result error) {
 	if result != nil {
 		return fmt.Errorf("APK %s failed: %w", action, result)
 	}
+	// Installed versions changed, or the indexes did: bring the notice up to date.
+	_ = CheckUpdates(ctx, action == "refresh")
 	return saveSoftwareStatus(SoftwareStatus{State: "succeeded", Action: action, Package: name, Message: "APK operation completed"})
 }

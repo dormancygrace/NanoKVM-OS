@@ -123,6 +123,13 @@ A changed kernel also needs a new release name: update `CONFIG_LOCALVERSION` in 
 
 The Release build workflow (`.github/workflows/release-build.yml`) builds every push to main and every pull request that can change an output. It publishes `SHA256SUMS` as the `outputs-sha256` artifact and comments on the pull request with the outputs that differ from the main build it starts from (`scripts/compare-outputs.py`). An output that changes although none of its inputs did means the build is not reproducible: treat it as a bug. `opensbi/build-manifest.json` records the hash of `build.sh`, so it changes with every edit of `build.sh`.
 
+To check that a local build reproduces a CI build, download that run's hashes and compare:
+
+```sh
+gh run download RUN-ID -n outputs-sha256 -D ci
+scripts/compare-outputs.py --check ci/SHA256SUMS build/platform/images/SHA256SUMS
+```
+
 The release uses GCC 16.2 / Binutils 2.47 and the component profiles in `cpu-profile.json`: kernel and modules use `-O3` without LTO and with `-mno-strict-align` (the C906 handles misaligned access in hardware), while source-owned userspace uses scalar `-O2`.
 
 Kernel, device trees and modules change with the reviewed C906 vector-context, video-clock and memory-profile updates. The AIC8800 driver includes the cfg80211 compatibility patch. U-Boot, the initramfs, FIT images, native media libraries, system service and native tools are built from the pinned inputs. Closed SOPHGO ISP/3A objects remain pinned binary inputs: relinking does not recompile those objects. Go uses its own compiler; the profile applies to its C/C++ interoperability code.

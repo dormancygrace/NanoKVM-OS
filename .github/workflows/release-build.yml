@@ -138,13 +138,14 @@ jobs:
           path: ${{ env.OUT }}/images/SHA256SUMS
           retention-days: 90
 
-      # The merge commit's first parent is the tip of main. Its build, or the
-      # newest build of an earlier main commit (a commit that changes only
-      # documentation is not built), is the reference.
+      # The merge commit's first parent is the tip of the base branch. The
+      # reference is the newest build of a main commit it contains (a commit
+      # that changes only documentation is not built).
       - name: Compare with main
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.base_ref }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           base=$(git rev-parse HEAD^1)
@@ -156,10 +157,12 @@ jobs:
           report=$RUNNER_TEMP/outputs.md
           if [ -z "$run" ]; then
             printf '### Build outputs\n\nNo build of main to compare with yet.\n\n' > "$report"
+          elif ! gh run download "$run" -n outputs-sha256 -D "$RUNNER_TEMP/main"; then
+            # An expired artifact or an API error must not fail a good build.
+            printf '### Build outputs\n\nThe hashes of the main build %s could not be downloaded.\n\n' "$run" > "$report"
           else
-            gh run download "$run" -n outputs-sha256 -D "$RUNNER_TEMP/main"
             label="the build of main at ${sha:0:10}"
-            [ "$sha" = "$base" ] || label="$label; main is at ${base:0:10}, and outputs it changed since are listed too"
+            [ "$sha" = "$base" ] || label="$label; $BASE_REF is at ${base:0:10}, so outputs changed since then are listed too"
             python3 scripts/compare-outputs.py "$RUNNER_TEMP/main/SHA256SUMS" "$OUT/images/SHA256SUMS" \
               --markdown --title 'Build outputs' --base "$label" > "$report"
           fi
@@ -176,8 +179,9 @@ jobs:
         run: |
           marker='<!-- release-build-outputs -->'
           body="$marker"$'\n'"$(cat "$RUNNER_TEMP/outputs.md")"
+          # sed reads to the end, unlike head: no SIGPIPE for gh under pipefail.
           id=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
-                 --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -1)
+                 --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | sed -n 1p)
           if [ -n "$id" ]; then
             gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" > /dev/null
           else

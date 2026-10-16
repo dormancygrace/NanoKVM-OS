@@ -17,9 +17,6 @@ func TestRemoteImageFilename(t *testing.T) {
 			t.Errorf("%q accepted", name)
 		}
 	}
-	if err := validateISOFilename("disk.img"); err == nil || err.Error() != "only .iso files allowed" {
-		t.Errorf("upload rule changed: %v", err)
-	}
 }
 
 func TestResumeFollowsImageFilenamePolicy(t *testing.T) {

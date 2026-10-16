@@ -1300,17 +1300,8 @@
         "description": "Zaktualizovat nainstalované balíčky z nastavených repozitářů. Nastavení jsou zachována. Služby jsou automaticky zrestartovány, ale aktualizace jádra systému vyžadují restart.",
         "confirm": "Nainstalovat tyto aktualizace balíčků? Může se stát, že video a ovládání se nakrátko odpojí."
       },
-      "alpineTitle": "Přeinstalovat systém",
-      "alpineProfile": "Profil sestavení",
-      "alpineStage": "Stáhnout si obraz",
-      "alpineOptions": "Předvolby obrazu",
-      "alpineBuild": "Sestavit obraz",
-      "alpineInstall": "Přeinstalovat a restartovat",
-      "alpinePackages": "Balíčky k zahrnutí",
       "reconnecting": "Čeká se na opětovné připojení zařízení…",
       "description": "Zaktualizovat NanoKVM OS (použitím podepsaných balíčků). Aktualizace systému zařízení povede k restartu zařízení, aktualizace aplikací jen k krátkému odpojení videa a ovládání.",
-      "alpineDisclaimer": "Nahradit systém nově sestaveným obrazem. Uložená nastavení jsou obnovena a zvolené balíčky jsou obsaženy. Ostatní soubory, nacházející se na systémovém oddílu, jsou odebrány. Zařízení se restartuje.",
-      "alpineConfirm": "Naformátovat systémový oddíl, nainstalovat tento Alpine obraz a restartovat nyní?",
       "requestFailed": "Požadavek na aktualizaci se nezdařil. Zkontrolujte konektivitu zařízení a zkuste znovu."
     },
     "extensions": {

@@ -21,7 +21,9 @@ concurrency:
 jobs:
   build:
     name: Build and check the pinned outputs
-    runs-on: ubuntu-24.04
+    # The pins come from Ubuntu 26.04 hosts: the kernel configuration depends on
+    # the host OpenSSL (OPENSSL_SUPPORTS_ML_DSA needs 3.5, which 24.04 lacks).
+    runs-on: ubuntu-26.04
     timeout-minutes: 330
     env:
       # A fixed absolute path: the cached toolchain is not relocatable.
@@ -56,7 +58,8 @@ jobs:
         run: |
           id=$(platform/build.sh -o "$OUT" toolchain-id)
           [ ${#id} = 64 ]
-          echo "toolchain=toolchain-$id" >> "$GITHUB_OUTPUT"
+          # Its host programs link the runner's C library: one cache per runner image.
+          echo "toolchain=toolchain-$ImageOS-$id" >> "$GITHUB_OUTPUT"
           echo "downloads=downloads-${{ hashFiles('platform/sources.lock', 'firmware/buildroot/**') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore downloads

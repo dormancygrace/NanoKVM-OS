@@ -49,12 +49,15 @@ stop_services() {
     stop_process NanoKVM-Server || return 1
     server_supervisor wait || return 1
     stop_process kvm_system || return 1
-    rm -rf /tmp/kvm_system /tmp/server
+    remove_legacy_links
 }
+
+server=/kvmapp/server/NanoKVM-Server
+hardware_daemon=/kvmapp/kvm_system/kvm_system
 
 start_background() {
     executable="$1"
-    if [ "$executable" = /tmp/server/NanoKVM-Server ]; then
+    if [ "$executable" = "$server" ]; then
         # Preserve the currently tested Go sysmon policy; 0 explicitly disables it.
         : "${NANOKVM_SYSMON_TIMER_SLACK_NS:=250000}"
         # Sysmon sleep floor while GOMAXPROCS=1; 0 explicitly disables it.
@@ -74,24 +77,24 @@ start_background() {
         : "${LD_LIBRARY_PATH:=/kvmapp/server/dl_lib}"
         export LD_LIBRARY_PATH
     fi
-    if [ "$executable" = /tmp/server/NanoKVM-Server ]; then
+    if [ "$executable" = "$server" ]; then
         nohup /kvmapp/system/init.d/nanokvm-server-supervisor run "$executable" </dev/null >/dev/null 2>&1 &
     else
         nohup "$executable" </dev/null >/dev/null 2>&1 &
     fi
-    if [ "$executable" = /tmp/kvm_system/kvm_system ]; then
+    if [ "$executable" = "$hardware_daemon" ]; then
         # Let the OOM killer take helpers such as apk before the hardware
         # daemon. NanoKVM-Server sets the same value for itself at start.
         { echo -300 > "/proc/$!/oom_score_adj"; } 2>/dev/null || true
     fi
 }
 
-prepare_runtime_directory() {
-    directory="$1"
-    rm -rf "/tmp/$directory"
-    # Executables and libraries use reclaimable file-backed page cache.
-    # Keep the established /tmp paths without duplicating the app in tmpfs.
-    ln -s "/kvmapp/$directory" "/tmp/$directory"
+# The stock firmware copied the programs to /tmp so that its updater could
+# overwrite /kvmapp under them; later releases left symlinks there. apk
+# replaces a file by renaming over it, so the services run from /kvmapp and
+# keep the old file open until they restart.
+remove_legacy_links() {
+    rm -rf /tmp/kvm_system /tmp/server
 }
 
 prepare_hdmi_receiver() {
@@ -137,12 +140,11 @@ start_services() {
         prepare_hdmi_receiver || return 1
     fi
 
-    prepare_runtime_directory kvm_system || return 1
-    start_background /tmp/kvm_system/kvm_system
+    remove_legacy_links
+    start_background "$hardware_daemon"
 
     if ! pidof NanoKVM-Server >/dev/null 2>&1; then
-        prepare_runtime_directory server || return 1
-        start_background /tmp/server/NanoKVM-Server
+        start_background "$server"
     fi
 }
 

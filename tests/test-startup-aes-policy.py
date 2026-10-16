@@ -13,7 +13,7 @@ with tempfile.TemporaryDirectory() as directory:
     output = directory / "environment"
     fixture = definitions
     fixture += '\nnohup() { printf "%s" "$NANOKVM_SRTP_AES" > "' + str(output) + '"; }\n'
-    fixture += "start_background /tmp/server/NanoKVM-Server\nwait\n"
+    fixture += "start_background /kvmapp/server/NanoKVM-Server\nwait\n"
     for requested, expected in [(None, "hardware"), ("", "hardware"), ("software", "software"), ("hardware", "hardware")]:
         env = os.environ.copy()
         env.pop("NANOKVM_SRTP_AES", None)

@@ -1,0 +1,54 @@
+diff --git a/arch/riscv/lib/csum.c b/arch/riscv/lib/csum.c
+--- a/arch/riscv/lib/csum.c
++++ b/arch/riscv/lib/csum.c
+@@ -82,7 +82,50 @@ do_csum_common(const unsigned long *ptr,
+ 	 * Do 32-bit reads on RV32 and 64-bit reads otherwise. This should be
+ 	 * faster than doing 32-bit reads on architectures that support larger
+ 	 * reads.
++	 *
++	 * Eight, then four words per iteration first: on a single-issue core
++	 * such as the C906 the loop control is a third of the instructions of
++	 * the plain loop. The order of additions, and so the result, is the
++	 * same. The differences are signed: below one word, ptr is already
++	 * past end.
+ 	 */
++	while (end - ptr >= 8) {
++		unsigned long d0 = ptr[0], d1 = ptr[1], d2 = ptr[2], d3 = ptr[3];
++		unsigned long d4 = ptr[4], d5 = ptr[5], d6 = ptr[6], d7 = ptr[7];
++
++		csum += data;
++		carry += csum < data;
++		csum += d0;
++		carry += csum < d0;
++		csum += d1;
++		carry += csum < d1;
++		csum += d2;
++		carry += csum < d2;
++		csum += d3;
++		carry += csum < d3;
++		csum += d4;
++		carry += csum < d4;
++		csum += d5;
++		carry += csum < d5;
++		csum += d6;
++		carry += csum < d6;
++		data = d7;
++		ptr += 8;
++	}
++	while (end - ptr >= 4) {
++		unsigned long d0 = ptr[0], d1 = ptr[1], d2 = ptr[2], d3 = ptr[3];
++
++		csum += data;
++		carry += csum < data;
++		csum += d0;
++		carry += csum < d0;
++		csum += d1;
++		carry += csum < d1;
++		csum += d2;
++		carry += csum < d2;
++		data = d3;
++		ptr += 4;
++	}
+ 	while (ptr < end) {
+ 		csum += data;
+ 		carry += csum < data;

@@ -36,8 +36,8 @@ payloads; `nanokvm-keys` refuses anything but public keys in `/etc/apk/keys`.
 `nanokvm-zlib` installs zlib-ng in zlib-compatible mode as `libz.so.1`, which
 apk, curl, OpenSSH, kmod and eudev load. Built for the C906 (see
 `docs/component-build-profiles.md`), it inflates about 36% faster than Alpine's
-zlib 1.3.2 on the device, and `apk verify` of an 8.4 MB package takes 12% less
-time. The package provides `zlib` and `so:libz.so.1` and replaces `zlib`, so
+zlib 1.3.2 on the device (measured with zlib-ng 2.3.3), and with the pinned
+develop commit `apk verify` of Alpine's python3 package takes 16% less time. The package provides `zlib` and `so:libz.so.1` and replaces `zlib`, so
 installing it, or upgrading to a `nanokvm-release` that depends on it, removes
 Alpine's `zlib` in the same transaction. `zlib-dev` asks for an exact `zlib`
 version and cannot be installed next to it.

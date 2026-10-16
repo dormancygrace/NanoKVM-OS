@@ -31,7 +31,7 @@
     "crypto-js": "4.2.0",
     "i18next": "26.4.3",
     "jotai": "3.0.1",
-    "lucide-react": "1.55.0",
+    "lucide-react": "1.56.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-draggable": "4.7.2",

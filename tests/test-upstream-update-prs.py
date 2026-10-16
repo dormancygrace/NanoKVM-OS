@@ -53,7 +53,7 @@ class ProposalTests(unittest.TestCase):
         all_names = {s['name'] for s in json.loads((self.root / '.github/upstream-watch.json').read_text())['sources']}
         self.assertEqual(all_names - names, {'Linux', 'OpenSSL (stock Alpine)',
                                            'QEMU Ubuntu build helper', 'OneKVM RustDesk reference'})
-        self.assertEqual(len(names), 30)
+        self.assertEqual(len(names), 32)
         self.assertEqual(self.source('aic8800')['repo'], 'radxa-pkg/aic8800')
         for name in ('Go runtime', 'Patched Pion dtls/v3', 'Patched Pion ice/v4',
                      'Patched Pion srtp/v3', 'GCC compiler', 'Alpine stable branch'):

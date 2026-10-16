@@ -567,49 +567,57 @@ export const Settings = ({
           </div>
 
           {(!mobile || detailOpen) && (
-            <ScrollArea
-              viewportRef={scrollViewportRef}
-              className="box-border min-h-0 min-w-0 flex-1 rounded-r-lg bg-neutral-900/50 px-3 [&_[data-slot=scroll-area-scrollbar]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:p-0 [&_[data-slot=scroll-area-thumb]]:bg-neutral-500/30"
+            <div
+              className={clsx(
+                'box-border min-h-0 min-w-0 flex-1 rounded-r-lg bg-neutral-900/50',
+                !mobile && 'pt-14'
+              )}
             >
-              <div className="flex h-full w-full min-w-0 justify-center">
-                <div
-                  className={clsx(
-                    'w-full min-w-0 pb-10',
-                    currentTab === 'dashboard' ? 'max-w-[820px]' : 'max-w-[600px]',
-                    mobile ? 'pt-5' : 'pt-14'
-                  )}
-                >
-                  <ErrorBoundary
-                    key={currentTab}
-                    fallback={<Alert type="error" showIcon message={t('error.title')} />}
-                  >
-                    {!mobile && currentTab !== 'about' && (
-                      <>
-                        <div className="flex items-center gap-2">
-                          {collection && (
-                            <Button
-                              type="text"
-                              size="small"
-                              aria-label={t('settings.back')}
-                              disabled={isLocked}
-                              icon={<ArrowLeftIcon size={16} />}
-                              onClick={() => changeTab(collection)}
-                            />
-                          )}
-                          <h2 className="text-fg m-0 text-base font-medium">
-                            {pageTitle(currentTab)}
-                          </h2>
-                        </div>
-                        <Divider className="opacity-50" />
-                      </>
+              {/* Keep the desktop close button above, outside the scrolling viewport. */}
+              <ScrollArea
+                viewportRef={scrollViewportRef}
+                className="h-full px-3 [&_[data-slot=scroll-area-scrollbar]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:p-0 [&_[data-slot=scroll-area-thumb]]:bg-neutral-500/30"
+              >
+                <div className="flex h-full w-full min-w-0 justify-center">
+                  <div
+                    className={clsx(
+                      'w-full min-w-0 pb-10',
+                      currentTab === 'dashboard' ? 'max-w-[820px]' : 'max-w-[600px]',
+                      mobile && 'pt-5'
                     )}
-                    <Suspense fallback={<PageLoading />}>
-                      {(tabs.find((tab) => tab.id === currentTab) ?? tabs[0]).component}
-                    </Suspense>
-                  </ErrorBoundary>
+                  >
+                    <ErrorBoundary
+                      key={currentTab}
+                      fallback={<Alert type="error" showIcon message={t('error.title')} />}
+                    >
+                      {!mobile && currentTab !== 'about' && (
+                        <>
+                          <div className="flex items-center gap-2">
+                            {collection && (
+                              <Button
+                                type="text"
+                                size="small"
+                                aria-label={t('settings.back')}
+                                disabled={isLocked}
+                                icon={<ArrowLeftIcon size={16} />}
+                                onClick={() => changeTab(collection)}
+                              />
+                            )}
+                            <h2 className="text-fg m-0 text-base font-medium">
+                              {pageTitle(currentTab)}
+                            </h2>
+                          </div>
+                          <Divider className="opacity-50" />
+                        </>
+                      )}
+                      <Suspense fallback={<PageLoading />}>
+                        {(tabs.find((tab) => tab.id === currentTab) ?? tabs[0]).component}
+                      </Suspense>
+                    </ErrorBoundary>
+                  </div>
                 </div>
-              </div>
-            </ScrollArea>
+              </ScrollArea>
+            </div>
           )}
         </div>
       </Modal>

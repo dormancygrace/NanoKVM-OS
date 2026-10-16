@@ -944,8 +944,7 @@ rootfs() {
     # The repositories of the device: the v3 index of NanoKVM OS releases
     # (nanokvm-keys switches older devices to it) and Alpine.
     printf '%s\n' https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
-        https://dl-cdn.alpinelinux.org/alpine/v3.24/community \
-        '@edgecommunity https://dl-cdn.alpinelinux.org/alpine/edge/community' > "$r/etc/apk/repositories"
+        https://dl-cdn.alpinelinux.org/alpine/v3.24/community > "$r/etc/apk/repositories"
     rm -f "$r/etc/resolv.conf"
     # The settings APIs call these; refuse an incomplete root.
     for path in usr/sbin/nkos-usb-internet etc/init.d/nanokvm-usb-internet usr/sbin/iw usr/sbin/nanokvm_update_edid etc/init.d/nanokvm-policy \

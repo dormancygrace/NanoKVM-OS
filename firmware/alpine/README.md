@@ -82,19 +82,23 @@ The target repository list is:
    (`https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb`; see
    [signing keys](#signing-keys));
 2. Alpine v3.24 `main`;
-3. Alpine v3.24 `community`;
-4. Alpine `edge/community`, tagged as `@edgecommunity`.
+3. Alpine v3.24 `community`.
 
 The experimental `c906-scalar` profile and its recipes, qualification tools and
 benchmark evidence are retained under `tuning/`. Its repository is only used
 when explicitly requested; it is not required to build or run a stock image.
 
-The edge repository is never used as an untagged upgrade source. The VPN UI
-requests `tailscale@edgecommunity`, `tailscale-openrc@edgecommunity`,
-`netbird@edgecommunity` and `netbird-openrc@edgecommunity` explicitly. This
-keeps the rest of the operating system on Alpine 3.24. OpenVPN comes from the
-stable Alpine repository. OpenVPN, Tailscale and NetBird are optional and are
-absent from the default `nanokvm-release` dependency set.
+Tailscale, NetBird and OpenVPN come from the stable Alpine repositories. They
+are optional and absent from the default `nanokvm-release` dependency set.
+
+Releases up to 3.1 also listed Alpine `edge/community`, tagged as
+`@edgecommunity`, for Tailscale and NetBird. Every apk run then parsed its index
+too: about 30% of the time of an `apk version` and 10 MB of memory on the
+device. The server removes that line once (`server/osupdate/edge.go`): world
+entries `NAME@edgecommunity` become `NAME>=INSTALLED`, so a package installed
+from edge is not downgraded to the older stable build and follows the stable
+branch once it catches up, and only then does the line go. A world entry with a
+tag that no repository has would stop every apk transaction.
 
 The NanoKVM repository is a rolling package channel within the selected
 stable Alpine branch. New signed revisions become available through ordinary

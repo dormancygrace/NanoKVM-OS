@@ -31,11 +31,7 @@ func (s *Service) Install(c *gin.Context) {
 	}
 	defer operationMutex.Unlock()
 	if !isInstalled() {
-		if err := apkpkg.InstallTagged(
-			"edgecommunity",
-			"https://dl-cdn.alpinelinux.org/alpine/edge/community",
-			"netbird", "netbird-openrc",
-		); err != nil {
+		if err := apkpkg.Install("netbird", "netbird-openrc"); err != nil {
 			rsp.ErrRsp(c, -1, "NetBird installation failed: "+err.Error())
 			return
 		}

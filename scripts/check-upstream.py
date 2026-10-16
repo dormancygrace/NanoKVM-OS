@@ -151,12 +151,6 @@ def check_alpine_inventory(root=ROOT):
             url = 'https://dl-cdn.alpinelinux.org/alpine/' + channel + '/riscv64/APKINDEX.tar.gz'
             for name, v in alpine_index(request_bytes(url), 'riscv64').items():
                 available.setdefault(name, (v, url))
-        missing = packages - available.keys()
-        if missing & optional:
-            url = 'https://dl-cdn.alpinelinux.org/alpine/edge/community/riscv64/APKINDEX.tar.gz'
-            edge = alpine_index(request_bytes(url), 'riscv64')
-            for name in missing & optional & edge.keys():
-                available[name] = (edge[name], url)
         return [dict(name='Alpine: ' + name, path=path, current='stock signed APK channel',
                      latest=available.get(name, ('?', ''))[0], link=available.get(name, ('?', ''))[1],
                      status='repository-managed' if name in available else 'error',

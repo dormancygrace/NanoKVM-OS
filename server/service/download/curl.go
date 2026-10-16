@@ -43,6 +43,13 @@ func downloadCurlTransfer(ctx context.Context, rawURL string, dst *os.File, expe
 	if offset > 0 && (resume == nil || !strongETag(resume.ETag) || resume.Total <= offset) {
 		return errors.New("partial image has no valid resume validator")
 	}
+	budget, err := imageWriteBudget(dst)
+	if err != nil {
+		return err
+	}
+	if offset > 0 && resume.Total-offset > budget {
+		return errImageSpace
+	}
 	headers, err := os.CreateTemp("", "nanokvm-image-headers-*")
 	if err != nil {
 		return err
@@ -94,6 +101,7 @@ func downloadCurlTransfer(ctx context.Context, rawURL string, dst *os.File, expe
 	defer func() { close(stop); <-stopped }()
 	for attempt := 0; attempt < 2; attempt++ {
 		args := curlImageArgs(rawURL, headerPath, attempt == 0)
+		args = append(args, "--max-filesize", strconv.FormatInt(budget, 10))
 		if offset > 0 {
 			args = append(args, "--continue-at", strconv.FormatInt(offset, 10), "--header", "If-Range: "+resume.ETag)
 		}
@@ -134,6 +142,9 @@ func downloadCurlTransfer(ctx context.Context, rawURL string, dst *os.File, expe
 		// bytes arrived, using OpenSSL's verified default suites. Never retry a
 		// certificate failure or append a restarted response to a partial image.
 		var exit *exec.ExitError
+		if errors.As(err, &exit) && exit.ExitCode() == 63 {
+			return errImageSpace
+		}
 		info, statErr := dst.Stat()
 		if attempt == 0 && errors.As(err, &exit) && exit.ExitCode() == 35 && statErr == nil && info.Size() == offset {
 			continue

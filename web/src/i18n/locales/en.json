@@ -674,6 +674,7 @@
     "uploadbox": "Drop file here or click to select",
     "inputfile": "Please enter the image file",
     "NoISO": "No ISO",
+    "imageFileRequired": "Select an ISO or IMG image file",
     "sha256": "SHA-256 (optional)",
     "sha256Placeholder": "Enter a 64-character SHA-256 checksum",
     "invalidSHA256": "SHA-256 must be a 64-character hexadecimal string",

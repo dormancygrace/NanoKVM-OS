@@ -3,6 +3,7 @@ package download
 import (
 	"NanoKVM-Server/internal/sg2002aes"
 	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/storage"
 	"NanoKVM-Server/utils"
 	"bytes"
 	"context"
@@ -29,7 +30,6 @@ import (
 type downloadStatus string
 
 const (
-	transferSentinelPath                        = utils.TransferSentinelPath
 	downloadStatusIdle           downloadStatus = "idle"
 	downloadStatusInProgress     downloadStatus = "in_progress"
 	downloadStatusSuccess        downloadStatus = "success"
@@ -38,8 +38,10 @@ const (
 )
 
 var (
+	transferSentinelPath  = utils.TransferSentinelPath
 	errDownloadInProgress = errors.New("download in progress")
 	errSHA256Mismatch     = errors.New("sha256 mismatch")
+	imageDirectory        = "/data"
 	validISOFilename      = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 )
 
@@ -57,6 +59,7 @@ func NewService() *Service {
 	// The old process is gone; restore a validated partial download if present.
 	_ = os.Remove(transferSentinelPath)
 	s := &Service{downloadStatus: downloadStatusIdle}
+	cleanupImageTransfers(imageDirectory, imageResumePath)
 	s.resumeImageDownload()
 	return s
 }
@@ -171,26 +174,6 @@ func (s *Service) ImageEnabled(c *gin.Context) {
 	rsp.OkRspWithData(c, &proto.ImageEnabledRsp{Enabled: true})
 }
 
-func isISO9660(path string) (bool, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return false, err
-	}
-	defer f.Close()
-
-	// ISO-9660 magic "CD001" at offset 32769.
-	if _, err = f.Seek(0x8001, io.SeekStart); err != nil {
-		return false, err
-	}
-
-	buf := make([]byte, 5)
-	if _, err = io.ReadFull(f, buf); err != nil {
-		return false, err
-	}
-
-	return string(buf) == "CD001", nil
-}
-
 func (s *Service) StatusImage(c *gin.Context) {
 	var rsp proto.Response
 
@@ -229,6 +212,27 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 		s.finishDownload(done, finalStatus)
 	}()
 
+	dir, err := os.Open(imageDirectory)
+	if err != nil {
+		rsp.ErrRsp(c, -1, err.Error())
+		return
+	}
+	budget, err := imageWriteBudget(dir)
+	dir.Close()
+	if err != nil {
+		rsp.ErrRsp(c, -1, err.Error())
+		return
+	}
+	// Leave room for multipart headers, not unlimited auxiliary form fields.
+	requestLimit := budget
+	if requestLimit < (1<<63-1)-(64<<10) {
+		requestLimit += 64 << 10
+	}
+	if c.Request.ContentLength > requestLimit {
+		rsp.ErrRsp(c, -1, errImageSpace.Error())
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, requestLimit)
 	reader, err := c.Request.MultipartReader()
 	if err != nil {
 		log.Error("invalid multipart data")
@@ -252,16 +256,14 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 		}
 
 		filename := part.FileName()
-		if err := validateISOFilename(filename); err != nil {
-			_ = part.Close()
+		if err := validateRemoteImageFilename(filename); err != nil {
 			rsp.ErrRsp(c, -1, err.Error())
 			return
 		}
 		s.setDownloadFile(done, filename)
 
-		out, err := os.CreateTemp("/data", ".nanokvm-upload-*")
+		out, err := os.CreateTemp(imageDirectory, ".nanokvm-upload-*")
 		if err != nil {
-			_ = part.Close()
 			log.Error("cannot create temporary file")
 			rsp.ErrRsp(c, -1, "cannot create temporary file")
 			return
@@ -269,12 +271,21 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 		tempPath := out.Name()
 		defer os.Remove(tempPath)
 
+		budget, err := imageWriteBudget(out)
+		if err != nil {
+			out.Close()
+			rsp.ErrRsp(c, -1, err.Error())
+			return
+		}
 		lw := newLoggingWriter(out, c.Request.ContentLength, func(progress transferProgress) {
 			s.setDownloadProgress(done, progress)
 		})
-		_, copyErr := copyImage(lw, part, expectedSHA256)
+		_, copyErr := copyImageWithin(lw, part, expectedSHA256, budget)
 		lw.stopTicker()
-		partCloseErr := part.Close()
+		var partCloseErr error
+		if copyErr == nil {
+			partCloseErr = part.Close()
+		}
 		outCloseErr := out.Close()
 		if errors.Is(copyErr, errSHA256Mismatch) {
 			finalStatus = downloadStatusChecksumFailed
@@ -283,18 +294,21 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 		}
 		if copyErr != nil || partCloseErr != nil || outCloseErr != nil {
 			log.Error("write failed")
-			rsp.ErrRsp(c, -1, "write failed")
+			if copyErr != nil {
+				rsp.ErrRsp(c, -1, copyErr.Error())
+			} else {
+				rsp.ErrRsp(c, -1, "write failed")
+			}
 			return
 		}
 
-		valid, err := isISO9660(tempPath)
-		if err != nil || !valid {
-			rsp.ErrRsp(c, -1, "file is not a valid ISO image")
+		if err := validateUploadedImage(tempPath, filename); err != nil {
+			rsp.ErrRsp(c, -1, err.Error())
 			return
 		}
 
-		if err := installImage("/data", tempPath, filename); err != nil {
-			rsp.ErrRsp(c, -1, "cannot install uploaded image")
+		if err := installImage(imageDirectory, tempPath, filename); err != nil {
+			rsp.ErrRsp(c, -1, err.Error())
 			return
 		}
 
@@ -310,12 +324,7 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 	rsp.ErrRsp(c, -1, "file is required")
 }
 
-func validateISOFilename(filename string) error {
-	return validateImageFilename(filename, ".iso")
-}
-
-// validateRemoteImageFilename also accepts .img disk images, which the
-// storage page lists and mounts as well.
+// Browser uploads, URL downloads and resumptions use the same filename policy.
 func validateRemoteImageFilename(filename string) error {
 	return validateImageFilename(filename, ".iso", ".img")
 }
@@ -347,7 +356,7 @@ func installImage(dir, tempPath, filename string) error {
 	if err != nil {
 		return err
 	}
-	return os.Rename(tempPath, destPath)
+	return storage.InstallImage(tempPath, destPath)
 }
 
 func (s *Service) DownloadImage(c *gin.Context) {
@@ -438,7 +447,7 @@ func (s *Service) downloadRemoteImage(
 	filename string,
 	onProgress func(transferProgress),
 ) error {
-	tempFile, err := os.CreateTemp("/data", ".nanokvm-download-*")
+	tempFile, err := os.CreateTemp(imageDirectory, ".nanokvm-download-*")
 	if err != nil {
 		return fmt.Errorf("create temporary image failed: %w", err)
 	}
@@ -469,7 +478,7 @@ func (s *Service) downloadRemoteImage(
 		return ctx.Err()
 	}
 
-	if err := installImage("/data", tempPath, filename); err != nil {
+	if err := installImage(imageDirectory, tempPath, filename); err != nil {
 		return fmt.Errorf("install downloaded image failed: %w", err)
 	}
 
@@ -478,7 +487,7 @@ func (s *Service) downloadRemoteImage(
 
 // Keep host development and bases without curl functional. Release firmware
 // ships curl/OpenSSL and takes the native TLS path above.
-func downloadGoImage(ctx context.Context, rawURL string, dst io.Writer, expected []byte, progress func(transferProgress)) error {
+func downloadGoImage(ctx context.Context, rawURL string, dst *os.File, expected []byte, progress func(transferProgress)) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return err
@@ -491,9 +500,19 @@ func downloadGoImage(ctx context.Context, rawURL string, dst io.Writer, expected
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download response status %d", resp.StatusCode)
 	}
+	budget, err := imageWriteBudget(dst)
+	if err != nil {
+		return err
+	}
+	if resp.ContentLength > budget {
+		return errImageSpace
+	}
 	lw := newLoggingWriter(dst, resp.ContentLength, progress)
 	defer lw.stopTicker()
-	_, err = copyImage(lw, resp.Body, expected)
+	n, err := copyImageWithin(lw, resp.Body, expected, budget)
+	if err == nil && resp.ContentLength >= 0 && n != resp.ContentLength {
+		return io.ErrUnexpectedEOF
+	}
 	return err
 }
 

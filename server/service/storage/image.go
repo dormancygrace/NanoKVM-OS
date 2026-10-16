@@ -127,6 +127,9 @@ func (e *imageMountError) Error() string { return e.msg }
 // virtual disk and rebinds the gadget so the host sees the new medium. Callers
 // hold s.mu.
 func mountLocalImage(file string, cdrom, force bool) error {
+	h := hid.GetHid()
+	h.Lock()
+	defer h.Unlock()
 	if err := requireActiveUSBStorage(); err != nil {
 		log.Warnf("USB storage is unavailable: %s", err)
 		return &imageMountError{-3, "Enable USB storage before mounting an image"}
@@ -195,13 +198,8 @@ func mountLocalImage(file string, cdrom, force bool) error {
 	// eMMC partition as a USB disk — causing Legacy BIOS boot hangs.
 	// See: https://github.com/sipeed/NanoKVM/issues/633
 
-	h := hid.GetHid()
-	h.Lock()
 	h.CloseNoLock()
-	defer func() {
-		h.OpenNoLock()
-		h.Unlock()
-	}()
+	defer h.OpenNoLock()
 
 	// reset usb
 	commands := []string{
@@ -312,6 +310,8 @@ func (s *Service) GetCdRom(c *gin.Context) {
 }
 
 func (s *Service) DeleteImage(c *gin.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var req proto.DeleteImageReq
 	var rsp proto.Response
 
@@ -326,8 +326,8 @@ func (s *Service) DeleteImage(c *gin.Context) {
 		return
 	}
 
-	if err := os.Remove(file); err != nil {
-		rsp.ErrRsp(c, -3, "remove file failed")
+	if err := RemoveImage(file); err != nil {
+		rsp.ErrRsp(c, -3, err.Error())
 		log.Errorf("failed to remove file %s: %s", file, err)
 		return
 	}

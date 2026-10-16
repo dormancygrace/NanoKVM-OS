@@ -423,6 +423,9 @@ func (s *Service) DisableNetboot(c *gin.Context) {
 // or the gadget is unbound. Ejecting does not need to rebind the whole gadget,
 // which would interrupt the host's USB network connection.
 func ejectNetbootImage() error {
+	h := hid.GetHid()
+	h.Lock()
+	defer h.Unlock()
 	current, err := os.ReadFile(mountDevice)
 	if os.IsNotExist(err) {
 		return nil

@@ -1229,13 +1229,6 @@
         "current": "Všechny nainstalované balíčky jsou aktuální",
         "rebootRequired": "Aktualizace jsou nainstalované. Aby začalo být používáno nové jádro nebo součásti systému, zařízení restartujte."
       },
-      "alpineTitle": "Přeinstalovat systém",
-      "alpineProfile": "Profil sestavení",
-      "alpineStage": "Stáhnout si obraz",
-      "alpineOptions": "Předvolby obrazu",
-      "alpineBuild": "Sestavit obraz",
-      "alpineInstall": "Přeinstalovat a restartovat",
-      "alpinePackages": "Balíčky k zahrnutí",
       "reconnecting": "Čeká se na opětovné připojení zařízení…"
     },
     "extensions": {

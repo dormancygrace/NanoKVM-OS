@@ -1,19 +1,12 @@
 #!/usr/bin/env python3
-"""Stock builds work without C906 inputs; migration respects APK failures/holds."""
-import importlib.util
-import json
+"""Stock packages refuse C906 metadata; migration respects APK failures/holds."""
 import os
 from pathlib import Path
 import subprocess
 import tempfile
-import types
 import unittest
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("builder", ROOT / "scripts/serve-alpine-personal-builder.py")
-builder = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(builder)
 
 
 class StockProfileTests(unittest.TestCase):
@@ -21,30 +14,6 @@ class StockProfileTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-
-    def test_cli_defaults_stock_and_tuned_requires_opt_in(self):
-        args = ["sh", str(ROOT / "scripts/build-alpine-personal-image.sh"),
-                "--validate-only", "--base-rootfs", "base.tar.gz", "--base-sha256", "0" * 64,
-                "--boot-fit", "boot.sd", "--boot-sha256", "1" * 64,
-                "--nanokvm-repo", "https://example.test/nanokvm", "--repo-key", "test.pub",
-                "--output", "output"]
-        result = subprocess.run(args, capture_output=True, text=True, check=True)
-        self.assertIn("profile=stock", result.stdout)
-        self.assertNotIn("c906", result.stdout)
-        # NanoKVM repositories are read through their v3 index.
-        self.assertIn("  https://example.test/nanokvm/riscv64/Packages.adb\n", result.stdout)
-        self.assertNotIn("  https://example.test/nanokvm\n", result.stdout)
-        result = subprocess.run(args + ["--profile", "c906-scalar"], capture_output=True, text=True)
-        self.assertNotEqual(result.returncode, 0)
-        result = subprocess.run(args + ["--profile", "c906-scalar", "--tuned-repo", "https://example.test/c906"], capture_output=True, text=True, check=True)
-        self.assertIn("profile=c906-scalar", result.stdout)
-        self.assertIn("  https://example.test/c906/riscv64/Packages.adb\n", result.stdout)
-        # An explicit v3 index URL is kept as it is.
-        explicit = [a.replace("https://example.test/nanokvm", "https://example.test/x/Packages.adb") for a in args]
-        result = subprocess.run(explicit, capture_output=True, text=True, check=True)
-        self.assertIn("  https://example.test/x/Packages.adb\n", result.stdout)
-        result = subprocess.run(args + ["--runtime-tuned-repo", "https://example.test/c906"], capture_output=True, text=True)
-        self.assertNotEqual(result.returncode, 0)
 
     def test_package_builder_rejects_mislabeled_release(self):
         payloads = self.root / "payloads"
@@ -58,43 +27,6 @@ class StockProfileTests(unittest.TestCase):
                                 env=env, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("release metadata does not match stock", result.stderr)
-
-    def config(self, tuned=False):
-        for name in ("base", "boot", "qemu", "scripts/build-alpine-personal-image.sh",
-                     "scripts/build-alpine-update-bundle.sh", "scripts/build-alpine-recovery-fit.py",
-                     "firmware/alpine/recovery/init", "repo/riscv64/APKINDEX.tar.gz",
-                     "repo/riscv64/Packages.adb", "key.pub"):
-            p = self.root / name
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text("PUBLIC KEY" if name == "key.pub" else "fixture")
-        data = dict(project_root=str(self.root), base_rootfs="base", boot_fit="boot",
-                    nanokvm_repo="repo", repo_keys=["key.pub"], qemu_static="qemu",
-                    base_sha256=builder.sha256(self.root / "base"), boot_sha256=builder.sha256(self.root / "boot"))
-        if tuned:
-            data["tuned_repo"] = "repo"
-        p = self.root / "config.json"
-        p.write_text(json.dumps(data))
-        return builder.BuilderConfig(p)
-
-    def test_server_without_tuned_repo(self):
-        config = self.config()
-        self.assertIsNone(config.tuned_repo)
-        with patch.object(builder, "repository_index_sha256", return_value="official-index"):
-            self.assertEqual(len(config.build_id("stock", [])), 24)
-            with self.assertRaisesRegex(ValueError, "not enabled"):
-                config.build_id("c906-scalar", [])
-        handler = object.__new__(builder.RequestHandler)
-        handler.server = types.SimpleNamespace(config=config, local_url="http://127.0.0.1:8080")
-        command = handler.build_command("stock", [], self.root / "output")
-        self.assertNotIn("--tuned-repo", command)
-
-    def test_tuned_still_available_explicitly(self):
-        config = self.config(tuned=True)
-        with patch.object(builder, "repository_index_sha256", return_value="official-index"):
-            self.assertNotEqual(config.build_id("stock", []), config.build_id("c906-scalar", []))
-        handler = object.__new__(builder.RequestHandler)
-        handler.server = types.SimpleNamespace(config=config, local_url="http://127.0.0.1:8080")
-        self.assertIn("--tuned-repo", handler.build_command("c906-scalar", [], self.root / "output"))
 
     def migration(self, mode, fail=False, custom=False, fix_fail=False, checksum_hold=False, v3=False):
         index = "/riscv64/Packages.adb" if v3 else ""

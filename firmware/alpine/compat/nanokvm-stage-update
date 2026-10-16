@@ -1,5 +1,5 @@
 #!/bin/sh
-# Verify and stage one NanoKVM Alpine personal-image bundle.
+# Verify and stage one NanoKVM Alpine recovery bundle.
 set -eu
 
 usage() {

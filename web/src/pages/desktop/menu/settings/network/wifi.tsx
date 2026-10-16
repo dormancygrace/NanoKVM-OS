@@ -244,22 +244,14 @@ export const Wifi = () => {
     <div className="space-y-6">
       {statusFailed && <Alert type="error" showIcon message={tr('statusFailed')} />}
 
-      <SettingsSection
-        description={
-          state && (!state.supported || state.model)
-            ? state.supported
-              ? state.model
-              : tr('notDetected')
-            : undefined
-        }
-      >
+      <SettingsSection description={state?.supported && state.model ? state.model : undefined}>
         <SettingRow
           label={tr('title')}
           description={
             !state ? (
               tr('loading')
             ) : !state.supported ? (
-              ''
+              <StatusBadge tone="neutral">{tr('notDetected')}</StatusBadge>
             ) : state.apMode ? (
               tr('apMode')
             ) : state.connected && enabled ? (
@@ -278,7 +270,7 @@ export const Wifi = () => {
             id="wifi-enabled"
             aria-label={tr('title')}
             aria-describedby="wifi-enabled-description"
-            checked={enabled}
+            checked={!!state?.supported && enabled}
             loading={(busy && !scanning && !modal) || !!pending}
             disabled={!state?.supported || state.apMode || locked}
             onChange={toggle}

@@ -767,7 +767,39 @@
       "description": "Aktualisieren Sie NanoKVM OS mit signierten Paketen. System-Updates starten das Gerät neu; Anwendungs-Updates unterbrechen Video und Steuerung kurz.",
       "installed": "Installiert",
       "requestFailed": "Die Update-Anfrage ist fehlgeschlagen. Überprüfen Sie die Verbindung zum Gerät und versuchen Sie es erneut.",
-      "reconnecting": "Warten, bis sich das Gerät wieder verbindet…"
+      "reconnecting": "Warten, bis sich das Gerät wieder verbindet…",
+      "components": {
+        "title": "Komponenten",
+        "description": "Installierte NanoKVM-OS-Pakete. Eine neuere Version aus der letzten Prüfung steht neben der installierten.",
+        "available": "{{version}} verfügbar",
+        "alpine": "Alpine Linux",
+        "kernel": "Laufender Kernel",
+        "kernelNext": "{{version}} nach einem Neustart",
+        "names": {
+          "system": "NanoKVM OS",
+          "release": "Release-Informationen",
+          "app": "Anwendung",
+          "web": "Weboberfläche",
+          "base": "Systembasis",
+          "kernel": "Kernel",
+          "modules": "Kernelmodule",
+          "firmware": "Board-Firmware",
+          "keys": "Signaturschlüssel",
+          "rustdesk": "RustDesk"
+        }
+      },
+      "notice": {
+        "title": "NanoKVM-OS-Update verfügbar",
+        "open": "Updates öffnen",
+        "auto": "Täglich nach Updates suchen",
+        "autoDescription": "Prüft einmal am Tag das NanoKVM-OS-Repository und zeigt einen Hinweis, wenn eine neuere Version verfügbar ist. Es wird nichts automatisch installiert.",
+        "check": "Jetzt prüfen",
+        "checked": "Zuletzt geprüft: {{time}}",
+        "never": "Noch nicht geprüft",
+        "failed": "Die letzte Prüfung ist fehlgeschlagen: {{message}}",
+        "unavailable": "Kein NanoKVM-OS-Repository konfiguriert.",
+        "upToDate": "NanoKVM OS ist aktuell"
+      }
     },
     "memory": {
       "videoMode": "Videospeicherzuweisung",

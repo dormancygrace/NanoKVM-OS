@@ -25,6 +25,23 @@ them. Completed component transactions refresh affected services through
 **OpenRC**; an application update briefly disconnects video/control, and no
 separate apply command is required. APK updates preserve the existing bootloader.
 
+## Update notices and component versions
+
+**Settings → System → Updates** lists the installed NanoKVM OS packages, the
+Alpine release and the running kernel (and the kernel of the next boot, when
+an update changed it).
+
+Once a day, and a few minutes after every boot, the device checks the NanoKVM
+OS repository for newer versions. The check fetches only the NanoKVM index (a
+few KiB), never the Alpine indexes, and installs nothing. When updates are
+available, administrators see a dot on the settings button and a notice with
+the new versions. **Check for updates daily** on the same page turns the check
+off; it is stored as `/etc/kvm/update-check.disabled`.
+
+APK keeps its repository indexes in RAM (a tmpfs on `/var/cache/apk`), so
+refreshing them no longer writes to the SD card. After a boot, apk downloads
+them again on first use; **Software → Packages** offers the refresh.
+
 ## Packages previously installed from local files
 
 Installing local `.apk` files can leave file pins in `/etc/apk/world`, keeping

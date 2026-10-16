@@ -1,17 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, message } from 'antd';
+import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
+import type { Components, UpdateNotice } from '@/api/updates.ts';
 import { http } from '@/lib/http';
 import { formatVersion } from '@/lib/version';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { updateNoticeAtom } from '@/jotai/updates.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
 
 import { APKUpdates, type APKState } from './apk';
+import { ComponentList, UpdateCheck } from './components';
 
 type State = {
   apk?: APKState;
   installed: { version: string };
+  components?: Components;
+  notice?: UpdateNotice;
 };
 
 export const Updates = () => {
@@ -19,23 +25,26 @@ export const Updates = () => {
   const [state, setState] = useState<State | null>(null);
   const [busy, setBusy] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
+  const setNotice = useSetAtom(updateNoticeAtom);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       const rsp = await http.get('/api/os/update');
       if (rsp.code === 0) {
         setState(rsp.data);
+        // Keep the settings badge in step with what this page shows.
+        if (rsp.data.notice) setNotice(rsp.data.notice);
         setReconnecting(false);
       }
     } catch {
       setReconnecting(true);
     }
-  }
+  }, [setNotice]);
   useEffect(() => {
     void refresh();
     const stopPolling = pollWhileVisible(refresh, 3000);
     return () => stopPolling();
-  }, []);
+  }, [refresh]);
 
   async function action(name: string, data?: unknown) {
     setBusy(true);
@@ -55,6 +64,8 @@ export const Updates = () => {
       <SettingRow label={t('settings.updates.installed')}>
         <span>{state?.installed.version ? formatVersion(state.installed.version) : '—'}</span>
       </SettingRow>
+      {state && <ComponentList components={state.components} />}
+      {state && <UpdateCheck notice={state.notice} onChange={refresh} />}
       {state && <APKUpdates state={state.apk} busy={busy} action={action} />}
       {reconnecting && <Alert type="info" message={t('settings.updates.reconnecting')} />}
     </div>

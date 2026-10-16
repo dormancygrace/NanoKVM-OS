@@ -38,14 +38,11 @@ import { H264ModeNotification } from './notification.tsx';
 import { ActionOverlay } from './picoclaw/action-overlay.tsx';
 import { Screen } from './screen';
 import { AutoRegion } from './screen/auto-region.tsx';
-import {
-  getMediaSize,
-  isInputRegionCompatible,
-  isMediaReady
-} from './screen/geometry.ts';
+import { getMediaSize, isInputRegionCompatible, isMediaReady } from './screen/geometry.ts';
 import { InputRegionOverlay } from './screen/input-region-overlay.tsx';
 import { ManualRegion } from './screen/manual-region.tsx';
 import { preloadPlayer } from './screen/players.ts';
+import { UpdateNotification } from './update-notification.tsx';
 import { VideoRecovery } from './video-recovery.tsx';
 
 const isDirectSupported = () => window.isSecureContext && !!window.VideoDecoder;
@@ -351,6 +348,7 @@ export const Desktop = () => {
       <Head title={t('head.desktop')} />
 
       <H264ModeNotification />
+      <UpdateNotification />
       <ControlNotice />
       {recovery.active && <VideoRecovery retrying={recovery.retrying} />}
 

@@ -767,7 +767,39 @@
       "description": "使用签名软件包更新 NanoKVM OS。系统更新会重启设备；应用更新会短暂断开视频和控制。",
       "installed": "已安装",
       "requestFailed": "更新请求失败。请检查设备连接后重试。",
-      "reconnecting": "正在等待设备重新连接…"
+      "reconnecting": "正在等待设备重新连接…",
+      "components": {
+        "title": "组件",
+        "description": "已安装的 NanoKVM OS 软件包。如果上次检查发现了更新的版本，会显示在已安装版本旁边。",
+        "available": "可用 {{version}}",
+        "alpine": "Alpine Linux",
+        "kernel": "运行中的内核",
+        "kernelNext": "重启后为 {{version}}",
+        "names": {
+          "system": "NanoKVM OS",
+          "release": "版本信息",
+          "app": "应用程序",
+          "web": "网页界面",
+          "base": "系统基础",
+          "kernel": "内核",
+          "modules": "内核模块",
+          "firmware": "板载固件",
+          "keys": "签名密钥",
+          "rustdesk": "RustDesk"
+        }
+      },
+      "notice": {
+        "title": "NanoKVM OS 有可用更新",
+        "open": "打开更新",
+        "auto": "每天检查更新",
+        "autoDescription": "每天检查一次 NanoKVM OS 软件仓库，有新版本时显示通知。不会自动安装任何内容。",
+        "check": "立即检查",
+        "checked": "上次检查：{{time}}",
+        "never": "尚未检查",
+        "failed": "上次检查失败：{{message}}",
+        "unavailable": "未配置 NanoKVM OS 软件仓库。",
+        "upToDate": "NanoKVM OS 已是最新"
+      }
     },
     "memory": {
       "videoMode": "视频内存分配",

@@ -767,7 +767,39 @@
       "description": "Actualiza NanoKVM OS con paquetes firmados. Las actualizaciones del sistema reinician el dispositivo; las de la aplicación desconectan brevemente el vídeo y el control.",
       "installed": "Instalado",
       "requestFailed": "La solicitud de actualización falló. Comprueba la conectividad del dispositivo y vuelve a intentarlo.",
-      "reconnecting": "Esperando a que el dispositivo se reconecte…"
+      "reconnecting": "Esperando a que el dispositivo se reconecte…",
+      "components": {
+        "title": "Componentes",
+        "description": "Paquetes de NanoKVM OS instalados. Junto a cada uno se muestra la versión más reciente que encontró la última comprobación.",
+        "available": "{{version}} disponible",
+        "alpine": "Alpine Linux",
+        "kernel": "Kernel en uso",
+        "kernelNext": "{{version}} tras reiniciar",
+        "names": {
+          "system": "NanoKVM OS",
+          "release": "Información de la versión",
+          "app": "Aplicación",
+          "web": "Interfaz web",
+          "base": "Base del sistema",
+          "kernel": "Kernel",
+          "modules": "Módulos del kernel",
+          "firmware": "Firmware de la placa",
+          "keys": "Claves de firma",
+          "rustdesk": "RustDesk"
+        }
+      },
+      "notice": {
+        "title": "Actualización de NanoKVM OS disponible",
+        "open": "Abrir actualizaciones",
+        "auto": "Buscar actualizaciones a diario",
+        "autoDescription": "Consulta el repositorio de NanoKVM OS una vez al día y muestra un aviso cuando hay una versión más reciente. No se instala nada automáticamente.",
+        "check": "Comprobar ahora",
+        "checked": "Última comprobación: {{time}}",
+        "never": "Aún no se ha comprobado",
+        "failed": "La última comprobación falló: {{message}}",
+        "unavailable": "No hay ningún repositorio de NanoKVM OS configurado.",
+        "upToDate": "NanoKVM OS está actualizado"
+      }
     },
     "memory": {
       "videoMode": "Asignación de memoria de vídeo",

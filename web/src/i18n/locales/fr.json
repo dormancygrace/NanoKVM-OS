@@ -767,7 +767,39 @@
       "description": "Mettez à jour NanoKVM OS à l'aide de paquets signés. Les mises à jour système redémarrent l'appareil ; les mises à jour de l'application déconnectent brièvement la vidéo et le contrôle.",
       "installed": "Installé",
       "requestFailed": "La requête de mise à jour a échoué. Vérifiez la connectivité de l'appareil et réessayez.",
-      "reconnecting": "En attente de la reconnexion de l'appareil…"
+      "reconnecting": "En attente de la reconnexion de l'appareil…",
+      "components": {
+        "title": "Composants",
+        "description": "Paquets NanoKVM OS installés. Une version plus récente trouvée lors de la dernière vérification apparaît à côté de la version installée.",
+        "available": "{{version}} disponible",
+        "alpine": "Alpine Linux",
+        "kernel": "Noyau en cours",
+        "kernelNext": "{{version}} après un redémarrage",
+        "names": {
+          "system": "NanoKVM OS",
+          "release": "Informations de version",
+          "app": "Application",
+          "web": "Interface web",
+          "base": "Base du système",
+          "kernel": "Noyau",
+          "modules": "Modules du noyau",
+          "firmware": "Micrologiciel de la carte",
+          "keys": "Clés de signature",
+          "rustdesk": "RustDesk"
+        }
+      },
+      "notice": {
+        "title": "Mise à jour de NanoKVM OS disponible",
+        "open": "Ouvrir les mises à jour",
+        "auto": "Rechercher les mises à jour chaque jour",
+        "autoDescription": "Consulte le dépôt NanoKVM OS une fois par jour et affiche un avis lorsqu’une version plus récente est disponible. Rien n’est installé automatiquement.",
+        "check": "Vérifier maintenant",
+        "checked": "Dernière vérification : {{time}}",
+        "never": "Pas encore vérifié",
+        "failed": "La dernière vérification a échoué : {{message}}",
+        "unavailable": "Aucun dépôt NanoKVM OS n’est configuré.",
+        "upToDate": "NanoKVM OS est à jour"
+      }
     },
     "memory": {
       "videoMode": "Allocation de la mémoire vidéo",

@@ -134,10 +134,13 @@ func RunAPK(action string) (result error) {
 		if upgrades == "" {
 			state = "up-to-date"
 		}
+		// The notice has an index of its own; a manual check refreshes it too.
+		_ = CheckUpdates(ctx, true)
 		return saveAPKStatus(APKStatus{State: state, Upgrades: upgrades})
 	}
 	if e := run("upgrade"); e != nil {
 		return fmt.Errorf("APK upgrade failed: %w", e)
 	}
+	_ = CheckUpdates(ctx, false)
 	return saveAPKStatus(APKStatus{State: "installed"})
 }

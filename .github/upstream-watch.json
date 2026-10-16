@@ -304,6 +304,18 @@
       }
     },
     {
+      "name": "zlib-ng",
+      "lock_entry": "zlib-ng",
+      "path": "platform/sources.lock",
+      "pattern": "^zlib-ng\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-release-commit",
+      "repo": "zlib-ng/zlib-ng",
+      "pull_request": {
+        "id": "zlib-ng",
+        "mode": "git-pin"
+      }
+    },
+    {
       "name": "BusyBox devmem applet",
       "lock_entry": "busybox",
       "path": "platform/sources.lock",

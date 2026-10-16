@@ -1,8 +1,9 @@
-# Contents of the seven nanokvm-* APK packages (firmware/alpine/packages).
+# Contents of the twelve nanokvm-* APK packages (firmware/alpine/packages).
 #
 #   package  type  path  mode  source
 #
-# package: keys, base, app, release, firmware-sg2002, kernel-sg2002, kmod-sg2002
+# package: keys, base, app, release, firmware-sg2002, kernel-sg2002, kmod-sg2002,
+#          zlib
 # type:    file  one file
 #          tree  every file below a directory, with this mode; directories 0755
 #          dir   a directory with a mode other than 0755
@@ -16,8 +17,13 @@
 # packages step adds the local test key.
 keys  tree  /etc/apk/keys                                 0644  firmware/alpine/keys
 
+# nanokvm-zlib: zlib-ng in zlib-compatible mode, in place of Alpine's zlib
+zlib  file  /usr/lib/libz.so.1.3.2.zlib-ng                0755  @tools/zlib-ng/libz.so.1.3.2.zlib-ng
+zlib  link  /usr/lib/libz.so.1                            -     libz.so.1.3.2.zlib-ng
+zlib  file  /usr/share/licenses/nanokvm-zlib/LICENSE.md   0644  @tools/zlib-ng/LICENSE.md
+
 # nanokvm-base: OpenRC services, compatibility scripts and board tools
-base  file  /etc/init.d/nanokvm-usb-internet             0755  firmware/alpine/openrc/nanokvm-usb-internet
+base  file  /etc/init.d/nanokvm-usb-internet            0755  firmware/alpine/openrc/nanokvm-usb-internet
 base  file  /usr/sbin/nkos-usb-internet                  0755  @server/nkos-usb-internet
 base  file  /etc/apk/commit_hooks.d/50-nanokvm-apply      0755  firmware/alpine/compat/50-nanokvm-apply
 base  file  /etc/apk/protected_paths.d/nanokvm.list       0644  %protected-paths

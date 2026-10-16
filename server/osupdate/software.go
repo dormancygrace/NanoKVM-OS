@@ -120,6 +120,7 @@ var protectedPackages = map[string]bool{
 	"nanokvm-kernel-sg2002":   true,
 	"nanokvm-kmod-sg2002":     true,
 	"nanokvm-firmware-sg2002": true,
+	"nanokvm-zlib":            true,
 }
 
 func checkRemovable(name string) error {

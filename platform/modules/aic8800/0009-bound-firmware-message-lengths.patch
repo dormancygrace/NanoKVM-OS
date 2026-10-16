@@ -10,15 +10,16 @@ message's param_len, from the firmware too, against what the bus
 delivered.
 
 The SDIO receive paths now pass a configuration message on only when its
-header arrived, and cut param_len to the received bytes (with a rate
-limited warning). The scan result handler drops frames shorter than a probe
-response header or longer than the message. The firmware is trusted to
+header arrived and the declared payload fits the received bytes (with a
+rate limited warning otherwise). Truncated messages are dropped: changing
+param_len cannot make a fixed-size handler safe. The scan result handler
+checks its indication header before reading length, then drops frames
+shorter than a probe response header or longer than the message. The firmware is trusted to
 send sane data; this keeps a firmware bug or a corrupted transfer from
 becoming an out-of-bounds read. USB paths are not built on NanoKVM and are
 unchanged.
 
 diff --git a/aic8800_fdrv/aicwf_txrxif.c b/aic8800_fdrv/aicwf_txrxif.c
-index 555a8de..b4797c3 100644
 --- a/aic8800_fdrv/aicwf_txrxif.c
 +++ b/aic8800_fdrv/aicwf_txrxif.c
 @@ -28,6 +28,29 @@
@@ -43,7 +44,7 @@ index 555a8de..b4797c3 100644
 +	if (e2a->param_len > room) {
 +		pr_warn_ratelimited("aicwf: firmware message 0x%x: param_len %u, received %u\n",
 +				    e2a->id, e2a->param_len, room);
-+		e2a->param_len = room;
++		return false;
 +	}
 +	return true;
 +}
@@ -51,7 +52,7 @@ index 555a8de..b4797c3 100644
  #ifdef CONFIG_PREALLOC_RX_SKB
  void aicwf_rxframe_queue_init_2(struct rx_frame_queue *pq, int max_len)
  {
-@@ -349,7 +372,8 @@ int aicwf_process_rxframes(struct aicwf_rx_priv *rx_priv)
+@@ -349,7 +372,8 @@
  				}
  
  				memcpy(msg, data, aggr_len + 4);
@@ -61,7 +62,7 @@ index 555a8de..b4797c3 100644
  					rwnx_rx_handle_msg(rx_priv->sdiodev->rwnx_hw, (struct ipc_e2a_msg *)(msg + 4));
  
  				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_DATA_CFM)
-@@ -422,7 +446,8 @@ int aicwf_process_rxframes(struct aicwf_rx_priv *rx_priv)
+@@ -422,7 +446,8 @@
  				}
  
  				memcpy(msg, data, aggr_len + 4);
@@ -72,13 +73,30 @@ index 555a8de..b4797c3 100644
  
  				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_DATA_CFM)
 diff --git a/aic8800_fdrv/rwnx_msg_rx.c b/aic8800_fdrv/rwnx_msg_rx.c
-index ef9be46..837fd6d 100644
 --- a/aic8800_fdrv/rwnx_msg_rx.c
 +++ b/aic8800_fdrv/rwnx_msg_rx.c
-@@ -725,6 +725,14 @@ static inline int rwnx_rx_scanu_result_ind(struct rwnx_hw *rwnx_hw,
+@@ -718,12 +718,29 @@
+ 	struct cfg80211_bss *bss = NULL;
+ 	struct ieee80211_channel *chan;
+ 	struct scanu_result_ind *ind = (struct scanu_result_ind *)msg->param;
+-	struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *)ind->payload;
++	struct ieee80211_mgmt *mgmt;
+ 	u64 tsf;
+ 	u8 *ie;
+ 	size_t ielen;
  	u16 capability, beacon_interval;
- 	u16 len = ind->length;
- 
+-	u16 len = ind->length;
++	u16 len;
++
++	/* Check the indication header before reading any of its fields. */
++	if (msg->param_len < offsetof(struct scanu_result_ind, payload)) {
++		pr_warn_ratelimited("%s: short scan indication: %u bytes\n", __func__,
++				    msg->param_len);
++		return 0;
++	}
++	len = ind->length;
++	mgmt = (struct ieee80211_mgmt *)ind->payload;
++
 +	/* A probe response or beacon header, and inside the message. */
 +	if (len < offsetof(struct ieee80211_mgmt, u.probe_resp.variable) ||
 +	    offsetof(struct scanu_result_ind, payload) + len > msg->param_len) {
@@ -86,7 +104,6 @@ index ef9be46..837fd6d 100644
 +				    len, msg->param_len);
 +		return 0;
 +	}
-+
+ 
  	chan = ieee80211_get_channel(rwnx_hw->wiphy, ind->center_freq);
  
- 	if (chan != NULL) {

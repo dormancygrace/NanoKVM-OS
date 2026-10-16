@@ -15,12 +15,12 @@ a frame) is enough; the data comes from the card only.
 The loop now stops at a frame that does not fit in what is left, drops
 the rest of that transfer with a rate-limited warning, never pulls more
 than skb->len, and treats fewer than 4 bytes (shorter than a frame
-header) as padding. Only the sk_buff path changes, the one NanoKVM
-builds; the CONFIG_PREALLOC_RX_SKB path is not built and stays as it
-was.
+header) as padding. Apply the same bounds and capped cursor advance to
+the preallocated path, enabled by the parent Makefile in NanoKVM builds.
+A malformed preallocated cursor ends the transfer instead of BUG_ON.
+Neither path forms a pointer beyond the end for absent alignment padding.
 
 diff --git a/aic8800_fdrv/aicwf_txrxif.c b/aic8800_fdrv/aicwf_txrxif.c
-index b4797c3..c2f012f 100644
 --- a/aic8800_fdrv/aicwf_txrxif.c
 +++ b/aic8800_fdrv/aicwf_txrxif.c
 @@ -28,6 +28,12 @@
@@ -36,7 +36,19 @@ index b4797c3..c2f012f 100644
  /*
   * A message from the firmware is the 4-byte bus header and aggr_len bytes.
   * Handlers trust param_len, which also comes from the firmware: keep it
-@@ -290,7 +296,7 @@ static bool aicwf_another_ptk(struct sk_buff *skb)
+@@ -271,9 +277,8 @@
+     u8 *read = buffer->read;
+     u16 aggr_len = 0;
+ 
+-    BUG_ON((read - buffer->start)%4 != 0);
+-
+-    if(read == NULL || read >= buffer->end) {
++    if (read == NULL || read < buffer->start || read >= buffer->end ||
++        buffer->end - read < 4 || (read - buffer->start) % RX_ALIGNMENT) {
+         return false;
+     }
+ 
+@@ -290,7 +295,7 @@
  	u8 *data;
  	u16 aggr_len = 0;
  
@@ -45,7 +57,50 @@ index b4797c3..c2f012f 100644
  		return false;
  	}
  	data = skb->data;
-@@ -411,6 +417,10 @@ int aicwf_process_rxframes(struct aicwf_rx_priv *rx_priv)
+@@ -337,6 +342,10 @@
+ 			pkt_len = (*data | (*(data + 1) << 8));
+ 
+ 			if ((data[2] & SDIO_TYPE_CFG) != SDIO_TYPE_CFG) { // type : data
++				if ((u32)pkt_len + RX_HWHRD_LEN > buffer->end - data) {
++					aicwf_rx_frame_too_long((u32)pkt_len + RX_HWHRD_LEN, buffer->end - data);
++					break;
++				}
+ 				aggr_len = pkt_len + RX_HWHRD_LEN;
+ 
+ 				if (aggr_len & (RX_ALIGNMENT - 1))
+@@ -347,16 +356,20 @@
+ 				skb_inblock = __dev_alloc_skb(aggr_len + CCMP_OR_WEP_INFO, GFP_KERNEL);
+ 				if (skb_inblock == NULL) {
+ 					txrx_err("no more space! skip\n");
+-					buffer->read = buffer->read + adjust_len;
++					buffer->read += min_t(u32, adjust_len, buffer->end - buffer->read);
+ 					continue;
+ 				}
+ 
+ 				skb_put(skb_inblock, aggr_len);
+ 				memcpy(skb_inblock->data, data, aggr_len);
+ 				rwnx_rxdataind_aicwf(rx_priv->sdiodev->rwnx_hw, skb_inblock, (void *)rx_priv);
+-				buffer->read = buffer->read + adjust_len;
++				buffer->read += min_t(u32, adjust_len, buffer->end - buffer->read);
+ 			} else {
+ 				//  type : config
++				if ((u32)pkt_len + 4 > buffer->end - data) {
++					aicwf_rx_frame_too_long((u32)pkt_len + 4, buffer->end - data);
++					break;
++				}
+ 				aggr_len = pkt_len;
+ 
+ 				if (aggr_len & (RX_ALIGNMENT - 1))
+@@ -382,7 +395,7 @@
+ 				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_PRINT)
+ 					rwnx_rx_handle_print(rx_priv->sdiodev->rwnx_hw, msg + 4, aggr_len);
+ 
+-				buffer->read = buffer->read + (adjust_len + 4);
++				buffer->read += min_t(u32, adjust_len + 4, buffer->end - buffer->read);
+ 				kfree(msg);
+ 			}
+ 		}
+@@ -411,6 +424,10 @@
  			pkt_len = (*skb->data | (*(skb->data + 1) << 8));
  
  			if ((skb->data[2] & SDIO_TYPE_CFG) != SDIO_TYPE_CFG) { // type : data
@@ -56,7 +111,7 @@ index b4797c3..c2f012f 100644
  				aggr_len = pkt_len + RX_HWHRD_LEN;
  
  				if (aggr_len & (RX_ALIGNMENT - 1))
-@@ -421,16 +431,20 @@ int aicwf_process_rxframes(struct aicwf_rx_priv *rx_priv)
+@@ -421,16 +438,20 @@
  				skb_inblock = __dev_alloc_skb(aggr_len + CCMP_OR_WEP_INFO, GFP_KERNEL);
  				if (skb_inblock == NULL) {
  					txrx_err("no more space! skip\n");
@@ -79,7 +134,7 @@ index b4797c3..c2f012f 100644
  				aggr_len = pkt_len;
  
  				if (aggr_len & (RX_ALIGNMENT - 1))
-@@ -456,7 +470,7 @@ int aicwf_process_rxframes(struct aicwf_rx_priv *rx_priv)
+@@ -456,7 +477,7 @@
  				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_PRINT)
  					rwnx_rx_handle_print(rx_priv->sdiodev->rwnx_hw, msg + 4, aggr_len);
  

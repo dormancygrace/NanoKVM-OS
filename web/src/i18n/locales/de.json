@@ -1554,6 +1554,13 @@
         "none": "Keine",
         "server": "DNS-Server {{index}}",
         "remove": "DNS-Server {{index}} entfernen"
+      },
+      "bluetooth": {
+        "off": "Aus: Die Bluetooth-Treiber werden nicht geladen.",
+        "on": "An: Die Bluetooth-Treiber sind geladen.",
+        "tip": "NanoKVM hat noch keine Bluetooth-Funktionen: Einschalten lädt nur die Treiber. Die Einstellung gilt sofort und bei jedem Start.",
+        "version": "Bluetooth-Version",
+        "unavailable": "Dieses Gerät hat kein von NanoKVM OS unterstütztes Bluetooth."
       }
     },
     "tailscale": {

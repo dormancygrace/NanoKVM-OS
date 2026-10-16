@@ -1554,6 +1554,13 @@
         "none": "Aucun",
         "server": "Serveur DNS {{index}}",
         "remove": "Supprimer le serveur DNS {{index}}"
+      },
+      "bluetooth": {
+        "off": "Désactivé : les pilotes Bluetooth ne sont pas chargés.",
+        "on": "Activé : les pilotes Bluetooth sont chargés.",
+        "tip": "NanoKVM n’a pas encore de fonctions Bluetooth : l’activer charge seulement les pilotes. Le réglage s’applique immédiatement et à chaque démarrage.",
+        "version": "Version Bluetooth",
+        "unavailable": "Cet appareil n’a pas de Bluetooth pris en charge par NanoKVM OS."
       }
     },
     "tailscale": {

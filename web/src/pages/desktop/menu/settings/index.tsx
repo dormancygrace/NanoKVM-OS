@@ -14,6 +14,7 @@ import clsx from 'clsx';
 import { useAtom, useSetAtom } from 'jotai';
 import {
   ArrowLeftIcon,
+  BluetoothIcon,
   BotIcon,
   ChevronRightIcon,
   ClockIcon,
@@ -38,6 +39,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
 import { getAddonInventory, type AddonInventory } from '@/api/addons';
+import { getBluetoothState } from '@/api/vm.ts';
 import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { addonInventoryAtom } from '@/jotai/addons';
@@ -103,6 +105,9 @@ const WifiSettings = lazy(() =>
 const EthernetSettings = lazy(() =>
   import('./network').then((module) => ({ default: module.EthernetSettings }))
 );
+const BluetoothSettings = lazy(() =>
+  import('./network').then((module) => ({ default: module.BluetoothSettings }))
+);
 
 const PageLoading = () => (
   <div className="flex justify-center pt-10">
@@ -127,6 +132,21 @@ export const Settings = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [currentTab, setCurrentTab] = useState('dashboard');
+  // Network > Bluetooth is listed only where the Wi-Fi chip has Bluetooth.
+  const [hasBluetooth, setHasBluetooth] = useState(false);
+
+  useEffect(() => {
+    if (!isModalOpen || !isAdmin) return;
+    let active = true;
+    getBluetoothState()
+      .then((rsp) => {
+        if (active && rsp.code === 0) setHasBluetooth(!!rsp.data?.available);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [isModalOpen, isAdmin]);
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<SettingsGroup>>(new Set());
   const [rustDeskStatus] = useAtom(rustDeskStatusAtom);
   const [inventory, setInventory] = useAtom(addonInventoryAtom);
@@ -161,6 +181,15 @@ export const Settings = ({
             icon: <EthernetPortIcon size={16} />,
             component: <EthernetSettings />
           },
+          ...(hasBluetooth
+            ? [
+                {
+                  id: 'network-bluetooth',
+                  icon: <BluetoothIcon size={16} />,
+                  component: <BluetoothSettings />
+                }
+              ]
+            : []),
           { id: 'vpn', icon: <GlobeLockIcon size={16} />, component: <VPNList open={changeTab} /> },
           {
             id: 'vpn-wireguard',
@@ -383,6 +412,7 @@ export const Settings = ({
     if (id === 'network-general') return t('settings.network.general');
     if (id === 'network-wifi') return t('settings.network.wifi.title');
     if (id === 'network-ethernet') return t('settings.network.ethernet.name');
+    if (id === 'network-bluetooth') return 'Bluetooth';
     if (id === 'vpn') return t('settings.vpn.title');
     if (id === 'vpn-openvpn') return 'OpenVPN';
     if (id === 'vpn-tailscale') return 'Tailscale';

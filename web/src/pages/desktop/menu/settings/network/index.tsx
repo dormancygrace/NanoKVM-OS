@@ -1,5 +1,6 @@
 import { SettingsSection } from '@/components/ui/settings.tsx';
 
+import { Bluetooth } from './bluetooth.tsx';
 import { DNS } from './dns.tsx';
 import { Ethernet } from './ethernet.tsx';
 import { Gateway } from './gateway.tsx';
@@ -27,3 +28,5 @@ export const Network = () => (
 export const WifiSettings = () => <Wifi />;
 
 export const EthernetSettings = () => <Ethernet />;
+
+export const BluetoothSettings = () => <Bluetooth />;

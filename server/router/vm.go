@@ -118,6 +118,10 @@ func vmRouter(r *gin.Engine) {
 	admin.POST("/vm/mdns/enable", service.EnableMdns)   // enable mDNS
 	admin.POST("/vm/mdns/disable", service.DisableMdns) // disable mDNS
 
+	admin.GET("/vm/bluetooth", service.GetBluetoothState)         // get Bluetooth state and version
+	admin.POST("/vm/bluetooth/enable", service.EnableBluetooth)   // load Bluetooth now and at boot
+	admin.POST("/vm/bluetooth/disable", service.DisableBluetooth) // unload Bluetooth, not at boot
+
 	admin.POST("/vm/tls", service.SetTls)                                  // enable/disable TLS
 	admin.GET("/vm/tls", service.GetTls)                                   // HTTPS and certificate status
 	admin.POST("/vm/tls/certificate", service.UploadTlsCertificate)        // install a custom certificate

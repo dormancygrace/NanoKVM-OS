@@ -1554,6 +1554,13 @@
         "none": "None",
         "server": "DNS server {{index}}",
         "remove": "Remove DNS server {{index}}"
+      },
+      "bluetooth": {
+        "off": "Off: the Bluetooth drivers are not loaded.",
+        "on": "On: the Bluetooth drivers are loaded.",
+        "tip": "NanoKVM has no Bluetooth features yet: turning it on only loads the drivers. The setting applies at once and at every boot.",
+        "version": "Bluetooth version",
+        "unavailable": "This device has no Bluetooth that NanoKVM OS supports."
       }
     },
     "tailscale": {

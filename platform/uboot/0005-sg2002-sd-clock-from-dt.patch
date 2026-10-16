@@ -1,0 +1,70 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] mmc: cv1800b: divide the card clock from the "core" clock
+
+The driver assumed a 375 MHz base clock. The functional CLK_SD0 that the
+boot firmware leaves runs at 100 MHz, so a 25 MHz request gave 6.25 MHz
+and fatload read about 3 MB/s. Take the rate of the "core" clock, and
+give "core" the functional CLK_SD0: cv18xx.dtsi names CLK_AXI4_SD0, the
+register and DMA clock, "core".
+
+---
+diff --git a/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi b/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
+index f3d9ba1..d03430b 100644
+--- a/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
++++ b/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
+@@ -6,5 +6,12 @@
+ };
+ 
+ &sdhci0 {
++	/*
++	 * The base clock the controller divides for the card is the functional
++	 * CLK_SD0; CLK_AXI4_SD0 clocks the registers and DMA. cv18xx.dtsi names
++	 * them the other way round.
++	 */
++	clocks = <&clk CLK_SD0>, <&clk CLK_AXI4_SD0>;
++	clock-names = "core", "bus";
+ 	max-frequency = <25000000>;
+ };
+diff --git a/drivers/mmc/cv1800b_sdhci.c b/drivers/mmc/cv1800b_sdhci.c
+index cf1c57a..edb3f30 100644
+--- a/drivers/mmc/cv1800b_sdhci.c
++++ b/drivers/mmc/cv1800b_sdhci.c
+@@ -3,6 +3,7 @@
+  * Copyright (c) 2024, Kongyang Liu <seashell11234455@gmail.com>
+  */
+ 
++#include <clk.h>
+ #include <dm.h>
+ #include <mmc.h>
+ #include <sdhci.h>
+@@ -109,6 +110,8 @@ static int cv1800b_sdhci_probe(struct udevice *dev)
+ 	struct mmc_uclass_priv *upriv = dev_get_uclass_priv(dev);
+ 	struct cv1800b_sdhci_plat *plat = dev_get_plat(dev);
+ 	struct sdhci_host *host = dev_get_priv(dev);
++	struct clk clk;
++	ulong rate;
+ 	int ret;
+ 
+ 	host->name = dev->name;
+@@ -121,6 +124,21 @@ static int cv1800b_sdhci_probe(struct udevice *dev)
+ 	host->ops = &cv1800b_sdhci_sd_ops;
+ 	host->max_clk = MMC_MAX_CLOCK;
+ 
++	/*
++	 * The card clock is divided from the "core" clock. Without its rate
++	 * the divider assumes 375 MHz: from the 100 MHz CLK_SD0 the boot
++	 * firmware leaves, a 25 MHz request then gave 6.25 MHz.
++	 */
++	ret = clk_get_by_name(dev, "core", &clk);
++	if (!ret) {
++		ret = clk_enable(&clk);
++		if (ret)
++			return ret;
++		rate = clk_get_rate(&clk);
++		if (rate && !IS_ERR_VALUE(rate))
++			host->max_clk = rate;
++	}
++
+ 	if (dev_read_bool(dev, "no-1-8-v"))
+ 		host->quirks |= SDHCI_QUIRK_NO_1_8_V;
+ 

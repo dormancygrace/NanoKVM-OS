@@ -24,6 +24,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm`, `nanokvm-firmware-sg2002` |
 | `images/tools/zlib-ng/` (zlib-ng as `libz.so.1`, its license) | `nanokvm-zlib`, in place of Alpine's `zlib` |
 | `images/tools/exfatprogs/`, `images/tools/i2c-tools/` (exfatprogs 1.4.3 and i2c-tools 4.4 with their licenses) | `nanokvm-exfatprogs`, `nanokvm-i2c-tools` |
+| `images/tools/xz/COPYING.0BSD` (liblzma license; zlib-ng and liblzma are also linked statically into NanoKVM-Server for its gzip and xz readers) | `nanokvm`, `/usr/share/licenses/nanokvm` |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware-sg2002` |
 | `release/apk/` | the signed APK repository of the twelve packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
 | `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt`, `release/installed-licenses.txt` | the root file system, its package versions and their declared licenses |

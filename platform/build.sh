@@ -16,10 +16,10 @@
 #   boot       board device trees and boot.sd images like nanokvm-kernel-sg2002
 #   native     SOPHGO media libraries, libkvm_mmf and libkvm
 #   system     kvm_system board service
+#   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
+#              exfatprogs, i2c-tools, zlib-ng, and zlib-ng and liblzma for the server
 #   server     NanoKVM-Server and update/USB internet helpers
 #   web        web UI
-#   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
-#              exfatprogs, i2c-tools, zlib-ng
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   verify     compare the outputs with expected.sha256
 #   payloads   contents of the twelve NanoKVM packages, from packages.list
@@ -64,7 +64,7 @@ shift $((OPTIND - 1))
 out=$(realpath -m "$out")
 steps=("$@")
 [ "${#steps[@]}" -gt 0 ] || steps=(fetch toolchain kernel modules uboot opensbi fip initramfs boot
-    native system server web tools firmware verify payloads packages rootfs image)
+    native system tools server web firmware verify payloads packages rootfs image)
 # Fail before a long build, not at the signing steps.
 case " ${steps[*]} " in
     *" packages "* | *" rootfs "*)
@@ -540,7 +540,7 @@ server() {
     "$host/python3" "$repo/firmware/cpu/sysmon-runtime/prepare.py" --base "$s/go" --output "$s/goroot" > /dev/null
     GOMODCACHE=$dl/go-mod GOPATH=$s/gopath GOCACHE=$s/gocache GOFLAGS=-mod=readonly GOTOOLCHAIN=local \
         "$host/python3" "$repo/scripts/build-server-existing-libs.py" --libraries "$img/native" \
-        --buildroot-output "$bo" --go "$s/goroot/bin/go" --output "$s/out"
+        --compression "$out/tools/compress" --buildroot-output "$bo" --go "$s/goroot/bin/go" --output "$s/out"
     cp "$s/out/NanoKVM-Server.stripped" "$img/server/NanoKVM-Server"
     cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" "$img/server/"
 }
@@ -677,6 +677,27 @@ tools() {
     missing=$(LC_ALL=C comm -23 "$repo/firmware/alpine/packages/nanokvm-zlib/zlib-1.3.2.symbols" "$t/zlib-ng/symbols")
     [ -z "$missing" ] || { echo "zlib-ng does not export these zlib 1.3.2 symbols:" $missing >&2; exit 1; }
     cp "$t/zlib-ng/LICENSE.md" "$img/tools/zlib-ng/"
+
+    # liblzma for the server's xz decoder, from the release commit: the 2024
+    # backdoor was in generated files of release tarballs, not in Git. C906
+    # flags do not speed up its decoder; the profile is kept for uniformity.
+    unpack_git xz . "$t/xz"
+    "$host/cmake" -S "$t/xz" -B "$t/xz/build" -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=riscv64 \
+        -DCMAKE_C_COMPILER="${cross}gcc" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG \
+        -DCMAKE_C_FLAGS="${cpu_flags[*]/_xtheadvector/} -ffile-prefix-map=$t/xz=xz" \
+        -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DXZ_NLS=OFF -DXZ_DOC=OFF -DXZ_TOOL_XZ=OFF -DXZ_TOOL_XZDEC=OFF \
+        -DXZ_TOOL_LZMADEC=OFF -DXZ_TOOL_LZMAINFO=OFF
+    "$host/cmake" --build "$t/xz/build" -j "$jobs"
+    mkdir -p "$img/tools/xz"
+    cp "$t/xz/COPYING.0BSD" "$img/tools/xz/"
+
+    # Headers and static libraries that the server step links its gzip and xz
+    # readers against (server/internal/decompress).
+    local dev=$t/compress
+    mkdir -p "$dev/include" "$dev/lib"
+    cp "$t/zlib-ng/build/zlib.h" "$t/zlib-ng/build/zconf.h" "$t/zlib-ng/build/zlib_name_mangling.h" "$dev/include/"
+    cp -r "$t/xz/src/liblzma/api/lzma.h" "$t/xz/src/liblzma/api/lzma" "$dev/include/"
+    cp "$t/zlib-ng/build/libz.a" "$t/xz/build/liblzma.a" "$dev/lib/"
 }
 
 # Firmware files: AIC8800 Wi-Fi firmware from the Radxa package that the

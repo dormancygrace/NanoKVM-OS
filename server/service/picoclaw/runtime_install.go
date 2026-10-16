@@ -2,7 +2,6 @@ package picoclaw
 
 import (
 	"archive/tar"
-	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -17,6 +16,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"NanoKVM-Server/internal/decompress"
 	"NanoKVM-Server/internal/sg2002aes"
 )
 
@@ -378,7 +378,7 @@ func extractPicoclawBinary(archivePath string, destinationDir string) (string, e
 	}
 	defer file.Close()
 
-	gzipReader, err := gzip.NewReader(file)
+	gzipReader, err := decompress.NewGzipReader(file)
 	if err != nil {
 		return "", fmt.Errorf("failed to read archive: %w", err)
 	}

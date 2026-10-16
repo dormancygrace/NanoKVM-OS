@@ -2,7 +2,6 @@ package acme
 
 import (
 	"archive/tar"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -19,6 +18,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"NanoKVM-Server/internal/decompress"
 	"NanoKVM-Server/utils"
 )
 
@@ -194,7 +194,7 @@ func extract(tarball, dest, tag string) error {
 		return err
 	}
 	defer f.Close()
-	gz, err := gzip.NewReader(f)
+	gz, err := decompress.NewGzipReader(f)
 	if err != nil {
 		return err
 	}

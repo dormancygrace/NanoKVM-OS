@@ -53,7 +53,12 @@ class NativeBundleABITests(unittest.TestCase):
             go.parent.mkdir(parents=True)
             go.write_text('#!/bin/sh\necho reached > "$(dirname "$0")/reached"\nexit 42\n')
             go.chmod(0o755)
+            compression = root / 'compress'
+            for name in ('include/zlib.h', 'include/lzma.h', 'lib/libz.a', 'lib/liblzma.a'):
+                (compression / name).parent.mkdir(parents=True, exist_ok=True)
+                (compression / name).write_text('')
             args = ['build-server-existing-libs.py', '--libraries', str(libraries),
+                    '--compression', str(compression),
                     '--buildroot-output', str(root / 'buildroot'), '--go', str(go),
                     '--output', str(root / 'output')]
             errors = io.StringIO()

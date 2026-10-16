@@ -42,6 +42,14 @@ installing it, or upgrading to a `nanokvm-release` that depends on it, removes
 Alpine's `zlib` in the same transaction. `zlib-dev` asks for an exact `zlib`
 version and cannot be installed next to it.
 
+The build pins a zlib-ng develop commit (see `platform/sources.lock`): no
+zlib-ng release yet exports the zlib 1.3.2 API (`*_z` functions,
+`deflateUsed`) that Alpine's zlib 1.3.2 offers. `platform/build.sh` compares
+the dynamic symbols of the built library with `nanokvm-zlib/zlib-1.3.2.symbols`
+(taken from Alpine's `libz.so.1.3.2`) and fails if any is missing. Move the pin
+to the first release that has this API, and refresh the symbol list when
+Alpine moves to a newer zlib.
+
 ## Sophgo `devmem` dependency
 
 Sophgo `libsys.so` invokes `devmem ADDRESS 32 VALUE` during `CVI_SYS_Init`.

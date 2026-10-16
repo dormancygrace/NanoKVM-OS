@@ -33,6 +33,8 @@ tinyalsa  https://github.com/tinyalsa/tinyalsa.git  961babfe962e71d952ae734074cc
 # compat builds): no release has the zlib 1.3.2 API yet, which nanokvm-zlib must
 # export in place of Alpine's zlib. Move to the next release once it has it.
 zlib-ng    https://github.com/zlib-ng/zlib-ng.git            1ab945a841245634cc770b9c3d0e0150734ad013  .=8528d417a2c71d921a39c3ea63c1ed36de64e0a9
+# An xz release commit (Git, not a release tarball); liblzma in the server.
+xz         https://github.com/tukaani-project/xz.git         d3e650e63c110e830fd5391e7f8b45df0b91d3da  .=e19bc9622e52690e60dbc516d473fe0b90b4e63a
 opus       https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz          6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1
 exfatprogs https://github.com/exfatprogs/exfatprogs/releases/download/1.4.3/exfatprogs-1.4.3.tar.xz  57226a8ec1bfbce06d68a42cde8cd980414a9457882e691fbce4a4f86c8d5f08
 i2c-tools  https://www.kernel.org/pub/software/utils/i2c-tools/i2c-tools-4.4.tar.gz  04d1e3b0cd88df8fb96e7709f374dd0b3561191b4c0363eaf873a074b8b7cb22

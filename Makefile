@@ -40,7 +40,7 @@ vision:
 	@$(PLATFORM) native
 
 release-build:
-	@$(PLATFORM) fetch toolchain kernel modules uboot opensbi fip initramfs boot native system server web tools firmware hashes
+	@$(PLATFORM) fetch toolchain kernel modules uboot opensbi fip initramfs boot native system tools server web firmware hashes
 
 package:
 	@$(PLATFORM) payloads packages

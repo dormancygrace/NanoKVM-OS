@@ -1,6 +1,6 @@
 pkgname=nanokvm-app
 pkgver=${PKGVER:-0.1.0}
-pkgrel=2
+pkgrel=0
 pkgdesc="NanoKVM application compatibility metapackage"
 url="https://github.com/dormancygrace/NanoKVM-OS"
 arch="riscv64"

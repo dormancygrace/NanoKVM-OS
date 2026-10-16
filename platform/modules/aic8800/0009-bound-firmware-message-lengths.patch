@@ -1,0 +1,92 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: bound firmware message and scan frame lengths
+
+A scan result carries the received beacon or probe response with its
+length. The handler took the information elements as that length minus
+36 bytes (the 24-byte header and 12 fixed bytes) without a check: a
+shorter length wrapped the size_t, and cfg80211_inform_bss() would read
+far past the frame. Nothing checked the length against the message either, and the
+message's param_len, from the firmware too, against what the bus
+delivered.
+
+The SDIO receive paths now pass a configuration message on only when its
+header arrived, and cut param_len to the received bytes (with a rate
+limited warning). The scan result handler drops frames shorter than a probe
+response header or longer than the message. The firmware is trusted to
+send sane data; this keeps a firmware bug or a corrupted transfer from
+becoming an out-of-bounds read. USB paths are not built on NanoKVM and are
+unchanged.
+
+diff --git a/aic8800_fdrv/aicwf_txrxif.c b/aic8800_fdrv/aicwf_txrxif.c
+index 555a8de..b4797c3 100644
+--- a/aic8800_fdrv/aicwf_txrxif.c
++++ b/aic8800_fdrv/aicwf_txrxif.c
+@@ -28,6 +28,29 @@
+ #endif
+ #include "aic_bsp_export.h"
+ 
++/*
++ * A message from the firmware is the 4-byte bus header and aggr_len bytes.
++ * Handlers trust param_len, which also comes from the firmware: keep it
++ * inside what was received.
++ */
++static inline bool aicwf_e2a_msg_fits(u8 *msg, u32 aggr_len)
++{
++	struct ipc_e2a_msg *e2a = (struct ipc_e2a_msg *)(msg + 4);
++	u32 room;
++
++	if (aggr_len < offsetof(struct ipc_e2a_msg, param)) {
++		pr_warn_ratelimited("aicwf: short firmware message: %u bytes\n", aggr_len);
++		return false;
++	}
++	room = aggr_len - offsetof(struct ipc_e2a_msg, param);
++	if (e2a->param_len > room) {
++		pr_warn_ratelimited("aicwf: firmware message 0x%x: param_len %u, received %u\n",
++				    e2a->id, e2a->param_len, room);
++		e2a->param_len = room;
++	}
++	return true;
++}
++
+ #ifdef CONFIG_PREALLOC_RX_SKB
+ void aicwf_rxframe_queue_init_2(struct rx_frame_queue *pq, int max_len)
+ {
+@@ -349,7 +372,8 @@ int aicwf_process_rxframes(struct aicwf_rx_priv *rx_priv)
+ 				}
+ 
+ 				memcpy(msg, data, aggr_len + 4);
+-				if (((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_CMD_RSP) && (rx_priv->sdiodev->bus_if->state != BUS_DOWN_ST))
++				if (((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_CMD_RSP) && (rx_priv->sdiodev->bus_if->state != BUS_DOWN_ST) &&
++				    aicwf_e2a_msg_fits(msg, aggr_len))
+ 					rwnx_rx_handle_msg(rx_priv->sdiodev->rwnx_hw, (struct ipc_e2a_msg *)(msg + 4));
+ 
+ 				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_DATA_CFM)
+@@ -422,7 +446,8 @@ int aicwf_process_rxframes(struct aicwf_rx_priv *rx_priv)
+ 				}
+ 
+ 				memcpy(msg, data, aggr_len + 4);
+-				if (((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_CMD_RSP) && (rx_priv->sdiodev->bus_if->state != BUS_DOWN_ST))
++				if (((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_CMD_RSP) && (rx_priv->sdiodev->bus_if->state != BUS_DOWN_ST) &&
++				    aicwf_e2a_msg_fits(msg, aggr_len))
+ 					rwnx_rx_handle_msg(rx_priv->sdiodev->rwnx_hw, (struct ipc_e2a_msg *)(msg + 4));
+ 
+ 				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_DATA_CFM)
+diff --git a/aic8800_fdrv/rwnx_msg_rx.c b/aic8800_fdrv/rwnx_msg_rx.c
+index ef9be46..837fd6d 100644
+--- a/aic8800_fdrv/rwnx_msg_rx.c
++++ b/aic8800_fdrv/rwnx_msg_rx.c
+@@ -725,6 +725,14 @@ static inline int rwnx_rx_scanu_result_ind(struct rwnx_hw *rwnx_hw,
+ 	u16 capability, beacon_interval;
+ 	u16 len = ind->length;
+ 
++	/* A probe response or beacon header, and inside the message. */
++	if (len < offsetof(struct ieee80211_mgmt, u.probe_resp.variable) ||
++	    offsetof(struct scanu_result_ind, payload) + len > msg->param_len) {
++		pr_warn_ratelimited("%s: frame length %u, message %u\n", __func__,
++				    len, msg->param_len);
++		return 0;
++	}
++
+ 	chan = ieee80211_get_channel(rwnx_hw->wiphy, ind->center_freq);
+ 
+ 	if (chan != NULL) {

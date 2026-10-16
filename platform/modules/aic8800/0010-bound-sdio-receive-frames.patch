@@ -1,0 +1,145 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: keep SDIO receive frames inside the transfer
+
+A transfer from the card is a whole number of 512-byte blocks holding
+several frames, each behind a 2-byte length the firmware writes. The SDIO
+receive loop never compared that length with what was left of the
+transfer. A length past the end made memcpy() read kernel memory beyond
+the buffer into a frame or a firmware message, and skb_pull() of more than
+skb->len does nothing: the loop then handled the same bytes forever. The
+receive thread runs SCHED_FIFO, so on the single-core SG2002 that stalls
+everything else down to the real-time throttling share, until a reboot.
+A firmware fault or a receive stream out of step (a read starting inside
+a frame) is enough; the data comes from the card only.
+
+The loop now stops at a frame that does not fit in what is left, drops
+the rest of that transfer with a rate-limited warning, never pulls more
+than skb->len, and treats fewer than 4 bytes (shorter than a frame
+header) as padding. Apply the same bounds and capped cursor advance to
+the preallocated path, enabled by the parent Makefile in NanoKVM builds.
+A malformed preallocated cursor ends the transfer instead of BUG_ON.
+Neither path forms a pointer beyond the end for absent alignment padding.
+
+diff --git a/aic8800_fdrv/aicwf_txrxif.c b/aic8800_fdrv/aicwf_txrxif.c
+--- a/aic8800_fdrv/aicwf_txrxif.c
++++ b/aic8800_fdrv/aicwf_txrxif.c
+@@ -28,6 +28,12 @@
+ #endif
+ #include "aic_bsp_export.h"
+ 
++static inline void aicwf_rx_frame_too_long(u32 need, u32 left)
++{
++	pr_warn_ratelimited("aicwf: rx frame of %u bytes, %u left in the transfer: dropping the rest\n",
++			    need, left);
++}
++
+ /*
+  * A message from the firmware is the 4-byte bus header and aggr_len bytes.
+  * Handlers trust param_len, which also comes from the firmware: keep it
+@@ -271,9 +277,8 @@
+     u8 *read = buffer->read;
+     u16 aggr_len = 0;
+ 
+-    BUG_ON((read - buffer->start)%4 != 0);
+-
+-    if(read == NULL || read >= buffer->end) {
++    if (read == NULL || read < buffer->start || read >= buffer->end ||
++        buffer->end - read < 4 || (read - buffer->start) % RX_ALIGNMENT) {
+         return false;
+     }
+ 
+@@ -290,7 +295,7 @@
+ 	u8 *data;
+ 	u16 aggr_len = 0;
+ 
+-	if (skb->data == NULL || skb->len == 0) {
++	if (skb->data == NULL || skb->len < 4) {
+ 		return false;
+ 	}
+ 	data = skb->data;
+@@ -337,6 +342,10 @@
+ 			pkt_len = (*data | (*(data + 1) << 8));
+ 
+ 			if ((data[2] & SDIO_TYPE_CFG) != SDIO_TYPE_CFG) { // type : data
++				if ((u32)pkt_len + RX_HWHRD_LEN > buffer->end - data) {
++					aicwf_rx_frame_too_long((u32)pkt_len + RX_HWHRD_LEN, buffer->end - data);
++					break;
++				}
+ 				aggr_len = pkt_len + RX_HWHRD_LEN;
+ 
+ 				if (aggr_len & (RX_ALIGNMENT - 1))
+@@ -347,16 +356,20 @@
+ 				skb_inblock = __dev_alloc_skb(aggr_len + CCMP_OR_WEP_INFO, GFP_KERNEL);
+ 				if (skb_inblock == NULL) {
+ 					txrx_err("no more space! skip\n");
+-					buffer->read = buffer->read + adjust_len;
++					buffer->read += min_t(u32, adjust_len, buffer->end - buffer->read);
+ 					continue;
+ 				}
+ 
+ 				skb_put(skb_inblock, aggr_len);
+ 				memcpy(skb_inblock->data, data, aggr_len);
+ 				rwnx_rxdataind_aicwf(rx_priv->sdiodev->rwnx_hw, skb_inblock, (void *)rx_priv);
+-				buffer->read = buffer->read + adjust_len;
++				buffer->read += min_t(u32, adjust_len, buffer->end - buffer->read);
+ 			} else {
+ 				//  type : config
++				if ((u32)pkt_len + 4 > buffer->end - data) {
++					aicwf_rx_frame_too_long((u32)pkt_len + 4, buffer->end - data);
++					break;
++				}
+ 				aggr_len = pkt_len;
+ 
+ 				if (aggr_len & (RX_ALIGNMENT - 1))
+@@ -382,7 +395,7 @@
+ 				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_PRINT)
+ 					rwnx_rx_handle_print(rx_priv->sdiodev->rwnx_hw, msg + 4, aggr_len);
+ 
+-				buffer->read = buffer->read + (adjust_len + 4);
++				buffer->read += min_t(u32, adjust_len + 4, buffer->end - buffer->read);
+ 				kfree(msg);
+ 			}
+ 		}
+@@ -411,6 +424,10 @@
+ 			pkt_len = (*skb->data | (*(skb->data + 1) << 8));
+ 
+ 			if ((skb->data[2] & SDIO_TYPE_CFG) != SDIO_TYPE_CFG) { // type : data
++				if ((u32)pkt_len + RX_HWHRD_LEN > skb->len) {
++					aicwf_rx_frame_too_long((u32)pkt_len + RX_HWHRD_LEN, skb->len);
++					break;
++				}
+ 				aggr_len = pkt_len + RX_HWHRD_LEN;
+ 
+ 				if (aggr_len & (RX_ALIGNMENT - 1))
+@@ -421,16 +438,20 @@
+ 				skb_inblock = __dev_alloc_skb(aggr_len + CCMP_OR_WEP_INFO, GFP_KERNEL);
+ 				if (skb_inblock == NULL) {
+ 					txrx_err("no more space! skip\n");
+-					skb_pull(skb, adjust_len);
++					skb_pull(skb, min_t(u32, adjust_len, skb->len));
+ 					continue;
+ 				}
+ 
+ 				skb_put(skb_inblock, aggr_len);
+ 				memcpy(skb_inblock->data, data, aggr_len);
+ 				rwnx_rxdataind_aicwf(rx_priv->sdiodev->rwnx_hw, skb_inblock, (void *)rx_priv);
+-				skb_pull(skb, adjust_len);
++				skb_pull(skb, min_t(u32, adjust_len, skb->len));
+ 			} else {
+ 				//  type : config
++				if ((u32)pkt_len + 4 > skb->len) {
++					aicwf_rx_frame_too_long((u32)pkt_len + 4, skb->len);
++					break;
++				}
+ 				aggr_len = pkt_len;
+ 
+ 				if (aggr_len & (RX_ALIGNMENT - 1))
+@@ -456,7 +477,7 @@
+ 				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_PRINT)
+ 					rwnx_rx_handle_print(rx_priv->sdiodev->rwnx_hw, msg + 4, aggr_len);
+ 
+-				skb_pull(skb, adjust_len+4);
++				skb_pull(skb, min_t(u32, adjust_len + 4, skb->len));
+ 				kfree(msg);
+ 			}
+ 		}

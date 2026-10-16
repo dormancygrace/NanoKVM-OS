@@ -34,6 +34,7 @@ var (
 	bluetoothMu        sync.Mutex
 
 	bluetoothReadyTimeout = 5 * time.Second
+	bluetoothReplyTimeout = 2 * time.Second
 )
 
 const (
@@ -115,6 +116,25 @@ func bluetoothConfOwned() bool {
 }
 
 func applyBluetooth(enabled bool) error {
+	// The boot setting changes first; if the module command then fails, put
+	// the previous one back so boot and run time keep agreeing.
+	previous, err := os.ReadFile(bluetoothConf)
+	hadPrevious := err == nil
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	restore := func(cause error) error {
+		var undo error
+		if hadPrevious {
+			undo = writeBluetoothConfContent(string(previous))
+		} else {
+			undo = removeBluetoothConf()
+		}
+		if undo != nil {
+			return errors.Join(cause, fmt.Errorf("restore the Bluetooth boot setting: %w", undo))
+		}
+		return cause
+	}
 	if enabled {
 		if err := writeBluetoothConf(); err != nil {
 			return err
@@ -123,7 +143,7 @@ func applyBluetooth(enabled bool) error {
 			return nil
 		}
 		if err := bluetoothRun("modprobe", bluetoothModule); err != nil {
-			return err
+			return restore(err)
 		}
 		// hci0 answers management commands only after its HCI init; wait for
 		// it so that the state the page reads next has the version.
@@ -142,7 +162,7 @@ func applyBluetooth(enabled bool) error {
 		// Not "modprobe -r": it would also remove aic8800_fdrv, which the
 		// HCI module leaves unused, and with it Wi-Fi.
 		if err := bluetoothRun("rmmod", bluetoothModule); err != nil {
-			return err
+			return restore(err)
 		}
 	}
 	if moduleLoaded("bluetooth") {
@@ -160,7 +180,11 @@ func writeBluetoothConf() error {
 	} else if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	content := bluetoothConfMarker + "softdep " + bluetoothWifiMod + " post: " + bluetoothModule + "\n"
+	return writeBluetoothConfContent(bluetoothConfMarker + "softdep " + bluetoothWifiMod + " post: " + bluetoothModule + "\n")
+}
+
+// Atomic: a crash leaves the old file or the new one, never a partial one.
+func writeBluetoothConfContent(content string) error {
 	dir := filepath.Dir(bluetoothConf)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -243,10 +267,6 @@ func readBluetoothVersion() (string, error) {
 	if err := unix.Bind(fd, &unix.SockaddrHCI{Dev: 0xffff, Channel: unix.HCI_CHANNEL_CONTROL}); err != nil {
 		return "", err
 	}
-	timeout := unix.NsecToTimeval((2 * time.Second).Nanoseconds())
-	if err := unix.SetsockoptTimeval(fd, unix.SOL_SOCKET, unix.SO_RCVTIMEO, &timeout); err != nil {
-		return "", err
-	}
 	const readInfo = 0x0004
 	req := make([]byte, 6)
 	binary.LittleEndian.PutUint16(req[0:], readInfo)
@@ -255,13 +275,38 @@ func readBluetoothVersion() (string, error) {
 		return "", err
 	}
 	buf := make([]byte, 512)
-	for {
+	read := func(left time.Duration) ([]byte, error) {
+		// A zero SO_RCVTIMEO would mean no timeout at all.
+		timeout := unix.NsecToTimeval(max(left, time.Millisecond).Nanoseconds())
+		if err := unix.SetsockoptTimeval(fd, unix.SOL_SOCKET, unix.SO_RCVTIMEO, &timeout); err != nil {
+			return nil, err
+		}
 		n, err := unix.Read(fd, buf)
+		if err != nil {
+			return nil, err
+		}
+		return buf[:n], nil
+	}
+	return readBluetoothReply(read, func(ev []byte) (string, bool, error) {
+		return parseBluetoothReadInfo(ev, index)
+	}, bluetoothReplyTimeout)
+}
+
+// One deadline for the whole exchange: other management events arriving
+// meanwhile do not extend it, as a per-read timeout alone would.
+func readBluetoothReply(read func(left time.Duration) ([]byte, error),
+	parse func([]byte) (string, bool, error), timeout time.Duration) (string, error) {
+	deadline := time.Now().Add(timeout)
+	for {
+		left := time.Until(deadline)
+		if left <= 0 {
+			return "", os.ErrDeadlineExceeded
+		}
+		ev, err := read(left)
 		if err != nil {
 			return "", err
 		}
-		version, done, err := parseBluetoothReadInfo(buf[:n], index)
-		if done {
+		if version, done, err := parse(ev); done {
 			return version, err
 		}
 	}

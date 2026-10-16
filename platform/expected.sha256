@@ -175,7 +175,8 @@ d9e164c90fd76f767bb7f5d5041a1e0f7b69096d7a408ff605920f909207ee14  firmware/lib/f
 aba1d1d437a2b91cb8c9c9edbe5c17125c0f509367e88904577f559c99f92654  initramfs.cpio.zst
 d4f759c2d0f283605737e81f4677fbd606302afe5541af2b94a03443bc4b6df9  lib/modules/7.2.10-nanokvm-os-r5/extra/8733bs.ko
 befa34e0a3e6f76b3317d4b1ff89885cd151eb553f6eb45d94cc5163503873ee  lib/modules/7.2.10-nanokvm-os-r5/extra/aic8800_bsp.ko
-64bab91576e9ca86aefabad7fffdc2f3547b2bdeb2763165b5c7f41c4f791f2f  lib/modules/7.2.10-nanokvm-os-r5/extra/aic8800_fdrv.ko
+034a727ae38873f737b318be4caf01b0aac510944370a2fba4c0e5cfaaaa811f  lib/modules/7.2.10-nanokvm-os-r5/extra/aic8800_btsdio.ko
+3ecc24dabcbdd4a7a7bcd19c97f0e17f607ab4108859ccd1a9bd4e256c299fa7  lib/modules/7.2.10-nanokvm-os-r5/extra/aic8800_fdrv.ko
 c1a20ee5891d1ba5e294a65a820e5168c43ae8d571e8553f100feb55f731905e  lib/modules/7.2.10-nanokvm-os-r5/extra/cryptodev.ko
 eea48ec7201684158bbde8d3af7cddd7da4fc8825bbc09910c4f4dca20fae96f  lib/modules/7.2.10-nanokvm-os-r5/extra/cv181x_base.ko
 1b0f3e9982ec38318f5997d5eb7c7fb9e81b17f5a4aa5a7d34eed34109ecd2a3  lib/modules/7.2.10-nanokvm-os-r5/extra/cv181x_dwa.ko
@@ -259,13 +260,13 @@ ebaff8988a1167bda5723695d9669ecfc1e1cfaac51e0bc5668851ced76fd8d4  lib/modules/7.
 f21396284bf240f9a6eb4e510fa6cd1e0fd0e2820849abe5cbbba288fa87c8b2  lib/modules/7.2.10-nanokvm-os-r5/modules.builtin.alias.bin
 3fcd70c31466970db5c7a4a74ffc52953115e7073ef78d673d68306ceab2408b  lib/modules/7.2.10-nanokvm-os-r5/modules.builtin.bin
 838b3a106807faab52aa38ad44d5309ef4144cd2f402e3618865aeecb843683a  lib/modules/7.2.10-nanokvm-os-r5/modules.builtin.modinfo
-6df6356fafbe93a95bca10e805d41051e28a292dd114a19287a64e75e3ba1dde  lib/modules/7.2.10-nanokvm-os-r5/modules.dep
-11e1a09eb809f6dedccc98e16abb18505ffd8c5843c555ce45a96e81f14c73ef  lib/modules/7.2.10-nanokvm-os-r5/modules.dep.bin
+9cddd5effff670c2341e806bdb8445eb62b38679ab361f78c216993dbff70b9c  lib/modules/7.2.10-nanokvm-os-r5/modules.dep
+2f905f5726d206bc32eb81b2ff199ac2e244da4095f28396a6aca5cf38e47878  lib/modules/7.2.10-nanokvm-os-r5/modules.dep.bin
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  lib/modules/7.2.10-nanokvm-os-r5/modules.devname
 c7c7d50acbba9eb6f147f4bd6ccb2de85fccdf5cdd6c56e117568b9d65a42258  lib/modules/7.2.10-nanokvm-os-r5/modules.order
 ac2de753255c506934be29e69261f1485f51ee9cf9c2bf467bcc0c4cf95f8713  lib/modules/7.2.10-nanokvm-os-r5/modules.softdep
-c4a06c762a7da4f22ff6304958abc664df328c1f78aaad2314bc294811ecd92b  lib/modules/7.2.10-nanokvm-os-r5/modules.symbols
-59438d6a36ba375464daf185a4903473861198fccf02f9b7b4cfa39e458a6c98  lib/modules/7.2.10-nanokvm-os-r5/modules.symbols.bin
+bea6a141297b2093acb07548f876a746551b551cc90b2f6a29b0b0c140348a2d  lib/modules/7.2.10-nanokvm-os-r5/modules.symbols
+6c75fc361150b3bf52128f59124dd613e5eccb868c600b75fa0b6942efbc9162  lib/modules/7.2.10-nanokvm-os-r5/modules.symbols.bin
 a1fffe1059d8150b5d402b3f284f507025a8d4b5881810cb17b3fda8b8ab9304  lib/modules/7.2.10-nanokvm-os-r5/modules.weakdep
 bbfc9843646d483c334664f651c208b9839626891d8f17604db2146962f43548  licenses/initramfs/busybox-1.38.0/LICENSE
 b5a136ed67798e51fe2e0ca0b2a21cb01b904ff0c9f7d563a6292e276607e58f  licenses/initramfs/busybox-1.38.0/archival/libarchive/bz/LICENSE
@@ -304,7 +305,7 @@ c0325a8ca1e060f3defdafa8da0603021ad3a673f7faff55066bdf5dabd28e89  native/libisp_
 d267eec8577e7f1414c6b715e732142f62f4589347475afbff570ece27489eed  opensbi/build-manifest.json
 044bd5138ca57aae2a6b4e925bf4189f2d0d440417f586b8e043d36f5e205d51  opensbi/fw_dynamic.bin
 2496f479c07c8743fd16b26cf39574d83b47bdc7e3b6a6cdb500e0941cdd4a0d  opensbi/sg2002.dtb
-4146c8343f0b5bbec9985f2ca5ee23ed50a8defe635cd22415d31809cc909645  server/NanoKVM-Server
+a896134312cef26cf917e8b33e6f73e0793648102df8e993af8d751c71bbc685  server/NanoKVM-Server
 e53ea8b08a3d22282a7b133b7984570291d3a4d029ae1f6cc2ae8be0dba904a6  server/nkos-apply-updates
 3e0565371b32bd4625629bcadbbe5b301fcd4134d3d28063574f87bb9c7f20aa  server/nkos-update
 fe942818dce64745aa1aee3ff4f47fbd15541b4e264c7a81cc06beaf317660e0  server/nkos-usb-internet

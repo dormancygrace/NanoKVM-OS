@@ -2,6 +2,7 @@ package vm
 
 import (
 	"encoding/binary"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -141,6 +142,72 @@ func TestBluetoothOnWaitsForController(t *testing.T) {
 	}
 	if d := time.Since(start); d > 2*time.Second {
 		t.Fatalf("waited %s", d)
+	}
+}
+
+// A failed module command puts the previous boot setting back.
+func TestBluetoothRestoresBootSettingOnFailure(t *testing.T) {
+	bluetoothFixture(t)
+	failing := errors.New("injected")
+	ok := bluetoothRun
+	bluetoothRun = func(name string, args ...string) error {
+		if name == "modprobe" && len(args) == 1 {
+			return failing
+		}
+		return ok(name, args...)
+	}
+	if err := applyBluetooth(true); !errors.Is(err, failing) {
+		t.Fatalf("enable error = %v", err)
+	}
+	if _, err := os.Stat(bluetoothConf); !os.IsNotExist(err) {
+		t.Fatal("a failed enable left Bluetooth on for the next boot")
+	}
+
+	bluetoothRun = ok
+	if err := applyBluetooth(true); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(bluetoothConf)
+	bluetoothRun = func(name string, args ...string) error {
+		if name == "rmmod" {
+			return failing
+		}
+		return ok(name, args...)
+	}
+	if err := applyBluetooth(false); !errors.Is(err, failing) {
+		t.Fatalf("disable error = %v", err)
+	}
+	if after, err := os.ReadFile(bluetoothConf); err != nil || string(after) != string(before) {
+		t.Fatalf("a failed disable dropped the boot setting: %q %v", after, err)
+	}
+	if !moduleLoaded(bluetoothModule) || !bluetoothState().Enabled {
+		t.Fatal("state no longer says on")
+	}
+}
+
+// Unrelated management events do not extend the reply deadline.
+func TestBluetoothReplyDeadline(t *testing.T) {
+	start := time.Now()
+	reads := 0
+	_, err := readBluetoothReply(func(left time.Duration) ([]byte, error) {
+		reads++
+		if left <= 0 || left > 50*time.Millisecond {
+			t.Errorf("read %d given %s", reads, left)
+		}
+		time.Sleep(5 * time.Millisecond)
+		return []byte{0x06, 0x00, 0x00, 0x00, 0x00, 0x00}, nil // an unrelated event
+	}, func(ev []byte) (string, bool, error) { return parseBluetoothReadInfo(ev, 0) }, 50*time.Millisecond)
+	if !errors.Is(err, os.ErrDeadlineExceeded) {
+		t.Fatalf("err = %v", err)
+	}
+	if d := time.Since(start); d > 300*time.Millisecond {
+		t.Fatalf("took %s for a 50 ms deadline", d)
+	}
+	// A read error ends the exchange at once.
+	failing := errors.New("injected")
+	if _, err := readBluetoothReply(func(time.Duration) ([]byte, error) { return nil, failing },
+		func([]byte) (string, bool, error) { return "", false, nil }, time.Second); !errors.Is(err, failing) {
+		t.Fatalf("read error = %v", err)
 	}
 }
 

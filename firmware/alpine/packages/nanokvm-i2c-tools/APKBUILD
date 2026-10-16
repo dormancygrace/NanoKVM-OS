@@ -1,0 +1,27 @@
+pkgname=nanokvm-i2c-tools
+pkgver=${PKGVER:-0.1.0}
+pkgrel=0
+pkgdesc="I2C tools (i2c-tools), built for the C906"
+url="https://i2c.wiki.kernel.org/index.php/I2C_Tools"
+arch="riscv64"
+license="GPL-2.0-or-later AND LGPL-2.1-or-later"
+# In place of Alpine's i2c-tools from the community repository, which the image
+# does not use: installing this package removes it, and a dependency on
+# i2c-tools is satisfied by this one.
+provides="i2c-tools=4.4-r100"
+replaces="i2c-tools"
+provider_priority=100
+source="$pkgname-$pkgver.tar.gz"
+# Static programs from build.sh (tools step), built with the image's toolchain.
+options="!check !strip !tracedeps"
+
+build() {
+	:
+}
+
+package() {
+	mkdir -p "$pkgdir"
+	cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
+}
+
+sha256sums=""

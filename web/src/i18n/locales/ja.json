@@ -674,6 +674,7 @@
     "uploadbox": "ここにファイルをドロップするか、クリックして選択してください",
     "inputfile": "画像ファイルを入力してください",
     "NoISO": "ISO なし",
+    "imageFileRequired": "ISO または IMG イメージファイルを選択してください",
     "sha256": "SHA-256（任意）",
     "sha256Placeholder": "64 文字の SHA-256 チェックサムを入力してください",
     "invalidSHA256": "SHA-256 は 64 文字の 16 進数文字列である必要があります",

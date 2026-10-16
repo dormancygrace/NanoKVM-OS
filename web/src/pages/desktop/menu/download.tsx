@@ -1,4 +1,3 @@
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { ChangeEvent, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Button, Divider, Input } from 'antd';
 import type { InputRef } from 'antd';
@@ -10,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { cancelDownloadImage, downloadImage, imageEnabled, statusImage } from '@/api/download.ts';
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
 import { readTransferProgress, transferBytes } from '@/lib/download-progress';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
 
@@ -266,9 +266,9 @@ export const DownloadImage = () => {
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
-    if (!file || !file.name.toLowerCase().endsWith('.iso')) {
+    if (!file || !/\.(iso|img)$/i.test(file.name)) {
       setStatus('failed');
-      setLog(t('download.NoISO'));
+      setLog(t('download.imageFileRequired'));
       return;
     }
     setIsRemoteDownloading(false);
@@ -282,9 +282,9 @@ export const DownloadImage = () => {
   function upload(file: File | null) {
     if (!file) return;
 
-    if (!file || !file.name.toLowerCase().endsWith('.iso')) {
+    if (!file || !/\.(iso|img)$/i.test(file.name)) {
       setStatus('failed');
-      setLog(t('download.NoISO'));
+      setLog(t('download.imageFileRequired'));
       return;
     }
 
@@ -432,9 +432,9 @@ export const DownloadImage = () => {
                   e.preventDefault();
                   setIsDragging(false);
                   const file = e.dataTransfer.files?.[0] ?? null;
-                  if (!file || !file.name.toLowerCase().endsWith('.iso')) {
+                  if (!file || !/\.(iso|img)$/i.test(file.name)) {
                     setStatus('failed');
-                    setLog(t('download.NoISO'));
+                    setLog(t('download.imageFileRequired'));
                     return;
                   }
                   setStatus('idle');
@@ -463,6 +463,7 @@ export const DownloadImage = () => {
                 <Input
                   id="file-upload"
                   type="file"
+                  accept=".iso,.img"
                   onChange={handleFileChange}
                   disabled={status === 'in_progress'}
                   className="hidden"

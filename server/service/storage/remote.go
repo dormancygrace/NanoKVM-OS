@@ -184,6 +184,9 @@ func (s *Service) ConnectRemote(c *gin.Context) {
 		device.Close() // unblock gadget reads before removing the medium
 		s.mu.Lock()
 		defer s.mu.Unlock()
+		h := hid.GetHid()
+		h.Lock()
+		defer h.Unlock()
 		if data, _ := os.ReadFile(mountDevice); strings.TrimSpace(string(data)) == remotemedia.DevicePath {
 			if err := os.WriteFile(mountDevice, []byte("\n"), 0600); err != nil {
 				// Host prevention of medium removal must not retain disconnected media.
@@ -194,6 +197,8 @@ func (s *Service) ConnectRemote(c *gin.Context) {
 	// Re-enumerate after insertion, as the existing SD-image mount does.
 	// Hosts cache the SCSI device type, so a CD-ROM/drive switch needs this.
 	s.mu.Lock()
+	h := hid.GetHid()
+	h.Lock()
 	for _, item := range []struct{ path, value string }{{roFlag, "1"}, {cdromFlag, "1"}, {inquiryString, fmt.Sprintf("%-8s%-16s%04x", "NanoKVM", "Remote ISO", 0x0520)}, {mountDevice, remotemedia.DevicePath}} {
 		if err = os.WriteFile(item.path, []byte(item.value), 0600); err != nil {
 			break
@@ -205,6 +210,7 @@ func (s *Service) ConnectRemote(c *gin.Context) {
 	if err == nil {
 		r.mounted = true
 	}
+	h.Unlock()
 	s.mu.Unlock()
 	if err != nil {
 		fail(fmt.Errorf("Connect remote ISO: %w", err))
@@ -234,6 +240,7 @@ func (s *Service) ConnectRemote(c *gin.Context) {
 
 // Reconnect only the controller already bound to this gadget. Keep HID file
 // descriptors synchronized with the disconnect, matching local image mounts.
+// Caller holds the HID lock across LUN insertion and re-enumeration.
 func reconnectRemoteUSB() error {
 	const path = "/sys/kernel/config/usb_gadget/g0/UDC"
 	controller, err := os.ReadFile(path)
@@ -244,9 +251,8 @@ func reconnectRemoteUSB() error {
 		return errors.New("USB gadget is not connected")
 	}
 	h := hid.GetHid()
-	h.Lock()
 	h.CloseNoLock()
-	defer func() { h.OpenNoLock(); h.Unlock() }()
+	defer h.OpenNoLock()
 	if err = os.WriteFile(path, []byte("\n"), 0600); err != nil {
 		return err
 	}

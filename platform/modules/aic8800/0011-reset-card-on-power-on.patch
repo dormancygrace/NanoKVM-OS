@@ -1,0 +1,113 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: reset the card when power comes back
+
+Unloading and loading aic8800_fdrv again, or anything else that turns the
+Wi-Fi subsystem off and on, left Bluetooth dead: the stack's first command,
+HCI_Reset, timed out (or a later one failed as unknown), and hci0 never
+came up. A normal boot was fine.
+
+aicbsp_platform_power_off() and _on() only act on Allwinner, Rockchip and
+Amlogic. Elsewhere the chip kept running across "power off", and power on
+downloaded the Bluetooth patch and the Wi-Fi firmware into a running chip.
+Wi-Fi restarts from that; the Bluetooth core does not answer any more.
+
+NanoKVM's device tree gives the card an mmc-pwrseq-simple with the chip's
+reset line (GPIO 26). BSP now keeps a reference to the card from its first
+probe and, when power comes back after that on the other platforms, resets
+it with mmc_hw_reset(): with no function driver bound, the MMC core cycles
+the pwrseq (reset asserted, 200 ms post-power-on delay) and re-initialises
+the card before the drivers probe it. The first power on after boot is
+unchanged. The reference is dropped when aic8800_bsp unloads.
+
+diff --git a/aic8800_bsp/aic_bsp_main.c b/aic8800_bsp/aic_bsp_main.c
+index 9a36d28..9e6ba04 100644
+--- a/aic8800_bsp/aic_bsp_main.c
++++ b/aic8800_bsp/aic_bsp_main.c
+@@ -448,6 +448,7 @@ static int __init aicbsp_init(void)
+ }
+ 
+ void aicbsp_sdio_exit(void);
++void aicbsp_put_card(void);
+ extern struct aic_sdio_dev *aicbsp_sdiodev;
+ 
+ static void __exit aicbsp_exit(void)
+@@ -462,6 +463,7 @@ static void __exit aicbsp_exit(void)
+ 	platform_device_put(aicbsp_pdev);
+ 	platform_driver_unregister(&aicbsp_driver);
+ 	mutex_destroy(&aicbsp_power_lock);
++	aicbsp_put_card();
+ 	aicbsp_resv_mem_deinit();
+ #ifdef CONFIG_PREALLOC_TXQ
+     aicwf_prealloc_txq_free();
+diff --git a/aic8800_bsp/aicsdio.c b/aic8800_bsp/aicsdio.c
+index 368d415..001206a 100644
+--- a/aic8800_bsp/aicsdio.c
++++ b/aic8800_bsp/aicsdio.c
+@@ -295,6 +295,49 @@ void *aicbsp_get_drvdata(void *args)
+ }
+ 
+ 
++/* The card, kept from the first probe for a reset when power comes back. */
++static struct mmc_card *aicbsp_card;
++
++static void aicbsp_keep_card(struct mmc_card *card)
++{
++	if (aicbsp_card)
++		return;
++	get_device(&card->dev);
++	aicbsp_card = card;
++}
++
++void aicbsp_put_card(void)
++{
++	if (!aicbsp_card)
++		return;
++	put_device(&aicbsp_card->dev);
++	aicbsp_card = NULL;
++}
++
++/*
++ * Without platform power control, power_off leaves the chip running, and
++ * a firmware download into the running chip leaves its Bluetooth core
++ * mute: HCI_Reset times out. When power comes back after the first probe,
++ * reset the card through its mmc-pwrseq instead. No function driver is
++ * bound then, so the MMC core power-cycles and re-initialises it at once.
++ */
++static void aicbsp_reset_card(void)
++{
++	struct mmc_card *card = aicbsp_card;
++	struct sdio_func *func;
++	int ret;
++
++	/* A card that went away (host->card moved on) stays alone. */
++	if (!card || card->host->card != card || !device_is_registered(&card->dev) ||
++	    !card->sdio_func[0])
++		return;
++	func = card->sdio_func[0];
++	sdio_claim_host(func);
++	ret = mmc_hw_reset(card);
++	sdio_release_host(func);
++	printk("aicbsp: card reset before power on: %d\n", ret);
++}
++
+ static int aicbsp_sdio_probe(struct sdio_func *func,
+ 	const struct sdio_device_id *id)
+ {
+@@ -330,6 +373,7 @@ static int aicbsp_sdio_probe(struct sdio_func *func,
+ 
+ 	host = func->card->host;
+ 	host->caps |= MMC_CAP_NONREMOVABLE;
++	aicbsp_keep_card(func->card);
+ 
+ 	func = func->card->sdio_func[1 - 1]; //replace 2 with 1
+ 
+@@ -535,6 +579,9 @@ static int aicbsp_platform_power_on(void)
+ 	int ret = 0;
+ 	struct semaphore aic_chipup_sem;
+ 	sdio_dbg("%s\n", __func__);
++#if !defined(CONFIG_PLATFORM_ALLWINNER) && !defined(CONFIG_PLATFORM_AMLOGIC) && !defined(CONFIG_PLATFORM_ROCKCHIP2)
++	aicbsp_reset_card();
++#endif
+ 
+ #ifdef CONFIG_PLATFORM_ALLWINNER
+ 	if (aicbsp_bus_index < 0)

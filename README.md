@@ -76,6 +76,7 @@ Configure the USB gadget through presets (KVM, with USB network, with the serial
 | --- | --- |
 | **Keyboard and pointers** | Browser control, with normal and HID compatibility profiles |
 | **Virtual media** | SD-backed images or direct ISO mounting from your computer without first copying the ISO to the card; CD/DVD images up to 31.625 GiB |
+| **Network boot** | Boot the managed computer from the [netboot.xyz](docs/netboot.md) menus over USB network, with the official iPXE images (UEFI Secure Boot signed one included) |
 | **User disk** | A writable FAT32 USB drive backed by an image on the SD card, for BIOS update files, profiles and logs; selectable sizes from 64 MiB to 4 GiB |
 | **USB network** | Local access to NanoKVM through the USB NCM adapter |
 | **Internet over USB NCM** | Share the NanoKVM Ethernet/Wi-Fi uplink with the managed computer |

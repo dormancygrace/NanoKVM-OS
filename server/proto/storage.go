@@ -18,6 +18,12 @@ type GetCdRomRsp struct {
 	Cdrom int64 `json:"cdrom"`
 }
 
+// EnableNetbootReq picks the iPXE image: the one signed for UEFI Secure Boot
+// (x86-64 UEFI only) or the one for every firmware without Secure Boot.
+type EnableNetbootReq struct {
+	SecureBoot bool `json:"secureBoot"`
+}
+
 type DeleteImageReq struct {
 	File string `json:"file" validate:"required"`
 }

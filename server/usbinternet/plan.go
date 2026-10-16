@@ -167,12 +167,18 @@ func ruleset(subnet netip.Prefix, uplink string, flow, exists bool) string {
 	return s.String()
 }
 
-func dnsConfig(resolv, prefix string, sharing bool) string {
+// bootPort > 0 hands iPXE clients (DHCP option 175) the network boot menu on
+// this address. Other clients, including the operating system booted from
+// it, never see a boot file.
+func dnsConfig(resolv, prefix string, sharing bool, bootPort int) string {
 	cfg := fmt.Sprintf("interface=usb0\nexcept-interface=lo\nbind-interfaces\nlisten-address=%s.1\nno-hosts\nlog-facility=-\ndomain-needed\nbogus-priv\nuser=nobody\npid-file=\nleasefile-ro\nquiet-dhcp\ndhcp-authoritative\ndhcp-range=%s.100,%s.200,255.255.255.0,2m\n", prefix, prefix, prefix)
 	if sharing {
 		cfg += fmt.Sprintf("resolv-file=%s\ndhcp-option=3,%s.1\ndhcp-option=6,%s.1\n", resolv, prefix, prefix)
 	} else {
 		cfg += "port=0\ndhcp-option=3\ndhcp-option=6\n"
+	}
+	if bootPort > 0 {
+		cfg += fmt.Sprintf("dhcp-match=set:ipxe,175\ndhcp-boot=tag:ipxe,http://%s.1:%d/boot.ipxe\n", prefix, bootPort)
 	}
 	// No enable-ra, DHCPv6 range or IPv6 DNS/router advertisement.
 	return cfg

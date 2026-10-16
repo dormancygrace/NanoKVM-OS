@@ -591,6 +591,29 @@
       "tf3": "Insérez la carte TF dans un lecteur de carte et connectez-la à votre ordinateur.",
       "tf4": "Copiez le fichier image dans le répertoire /data de la carte TF sur votre ordinateur.",
       "tf5": "Réinsérez la carte TF dans le NanoKVM."
+    },
+    "netboot": {
+      "tab": "Démarrage réseau",
+      "hint": "Démarrez cet ordinateur depuis les menus netboot.xyz : installateurs, systèmes live et outils sont chargés depuis Internet via le NanoKVM. Seule l'image iPXE est stockée sur le NanoKVM.",
+      "versions": "iPXE {{ipxe}} · netboot.xyz {{netbootxyz}}",
+      "notDownloaded": "Pas encore téléchargé. Activer le démarrage réseau télécharge le dernier iPXE (environ 13 Mo) et sélectionne la dernière version de netboot.xyz.",
+      "checked": "Vérifié le {{date}}",
+      "update": "Rechercher des mises à jour",
+      "updating": "Mise à jour…",
+      "secureBoot": "UEFI Secure Boot",
+      "secureBootHint": "Utilise l'image iPXE signée pour Secure Boot (x86-64 UEFI uniquement). Avec Secure Boot, netboot.xyz installe Debian, Devuan et Kali ; les autres entrées nécessitent de désactiver Secure Boot dans le firmware de l'ordinateur.",
+      "needComposition": "Activez d'abord le réseau USB et le disque virtuel dans les paramètres USB.",
+      "browserMedia": "Déconnectez d'abord l'ISO de cet ordinateur.",
+      "enableNote": "Remplace l'image montée et active le partage Internet par USB jusqu'à la désactivation du démarrage réseau.",
+      "enable": "Activer le démarrage réseau",
+      "enabling": "Activation…",
+      "disable": "Désactiver le démarrage réseau",
+      "on": "Activé : démarrez l'ordinateur depuis le lecteur CD/DVD du NanoKVM.",
+      "waiting": "En attente du chargement du menu par l'ordinateur.",
+      "fetched": "L'ordinateur a chargé le menu (requêtes : {{n}}, dernière à {{time}}).",
+      "noUplink": "Le NanoKVM n'a pas de connexion Internet à partager ; netboot.xyz ne se chargera pas.",
+      "inUse": "Le démarrage réseau est activé. Désactivez-le pour monter une autre image.",
+      "failed": "Échec du démarrage réseau. Réessayez."
     }
   },
   "script": {

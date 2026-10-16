@@ -76,6 +76,10 @@ func (s *Service) MountImage(c *gin.Context) {
 		c.JSON(409, gin.H{"code": -2, "msg": "Disconnect browser media before mounting another image"})
 		return
 	}
+	if s.netboot != nil {
+		c.JSON(409, gin.H{"code": -2, "msg": "Turn off network boot before mounting another image"})
+		return
+	}
 
 	var req proto.MountImageReq
 	var rsp proto.Response
@@ -97,22 +101,45 @@ func (s *Service) MountImage(c *gin.Context) {
 			return
 		}
 	}
-	if err := requireActiveUSBStorage(); err != nil {
-		log.Warnf("USB storage is unavailable: %s", err)
-		rsp.ErrRsp(c, -3, "Enable USB storage before mounting an image")
+	if err := mountLocalImage(file, req.Cdrom, req.Force); err != nil {
+		var mountErr *imageMountError
+		if errors.As(err, &mountErr) {
+			rsp.ErrRsp(c, mountErr.code, mountErr.msg)
+		} else {
+			rsp.ErrRsp(c, -2, "mount image failed")
+		}
 		return
 	}
 
-	if file != "" && req.Cdrom {
+	rsp.OkRsp(c)
+	log.Debugf("mount image %s success", file)
+}
+
+// imageMountError carries the API code and message of a failed mount.
+type imageMountError struct {
+	code int
+	msg  string
+}
+
+func (e *imageMountError) Error() string { return e.msg }
+
+// mountLocalImage puts an already validated file (or no file: eject) on the
+// virtual disk and rebinds the gadget so the host sees the new medium. Callers
+// hold s.mu.
+func mountLocalImage(file string, cdrom, force bool) error {
+	if err := requireActiveUSBStorage(); err != nil {
+		log.Warnf("USB storage is unavailable: %s", err)
+		return &imageMountError{-3, "Enable USB storage before mounting an image"}
+	}
+
+	if file != "" && cdrom {
 		info, statErr := os.Stat(file)
 		if statErr != nil || !info.Mode().IsRegular() {
-			rsp.ErrRsp(c, -2, "Cannot read the selected optical image")
-			return
+			return &imageMountError{-2, "Cannot read the selected optical image"}
 		}
 		_, dvdErr := os.Stat(filepath.Join(filepath.Dir(mountDevice), "dvd"))
 		if err := remotemedia.ValidateOptical(uint64(info.Size()), dvdErr == nil); err != nil {
-			rsp.ErrRsp(c, -2, err.Error())
-			return
+			return &imageMountError{-2, err.Error()}
 		}
 	}
 
@@ -121,51 +148,46 @@ func (s *Service) MountImage(c *gin.Context) {
 	// set to 1 when mount image and the CD-ROM is enabled
 	// Always apply the selected mode, including after a remote DVD disconnect.
 	flag := "0"
-	if file != "" && req.Cdrom {
+	if file != "" && cdrom {
 		flag = "1"
 	}
 
 	// unmount
-	if err := ejectLocalImage(req.Force, os.WriteFile); err != nil {
+	if err := ejectLocalImage(force, os.WriteFile); err != nil {
 		log.Errorf("unmount file failed: %s", err)
-		rsp.ErrRsp(c, -4, "unmount image failed")
-		return
+		return &imageMountError{-4, "unmount image failed"}
 	}
 
 	// ro flag
 	if err := os.WriteFile(roFlag, []byte(flag), 0o666); err != nil {
 		log.Errorf("set ro flag failed: %s", err)
-		rsp.ErrRsp(c, -2, "set ro flag failed")
-		return
+		return &imageMountError{-2, "set ro flag failed"}
 	}
 
 	// cdrom flag
 	if err := os.WriteFile(cdromFlag, []byte(flag), 0o666); err != nil {
 		log.Errorf("set cdrom flag failed: %s", err)
-		rsp.ErrRsp(c, -2, "set cdrom flag failed")
-		return
+		return &imageMountError{-2, "set cdrom flag failed"}
 	}
 
 	inquiryVen := "NanoKVM"
 	inquiryPrd := "USB Mass Storage"
 	inquiryVer := 0x0520
-	if req.Cdrom {
+	if cdrom {
 		inquiryPrd = "USB CD/DVD-ROM"
 	}
 	inquiryData := fmt.Sprintf("%-8s%-16s%04x", inquiryVen, inquiryPrd, inquiryVer)
 
 	if err := os.WriteFile(inquiryString, []byte(inquiryData), 0o666); err != nil {
 		log.Errorf("set inquiry %s failed: %s", inquiryData, err)
-		rsp.ErrRsp(c, -2, "set inquiry failed")
-		return
+		return &imageMountError{-2, "set inquiry failed"}
 	}
 
 	// mount
 	if file != "" {
 		if err := os.WriteFile(mountDevice, []byte(file), 0o666); err != nil {
 			log.Errorf("mount file %s failed: %s", file, err)
-			rsp.ErrRsp(c, -2, "mount image failed")
-			return
+			return &imageMountError{-2, "mount image failed"}
 		}
 	}
 	// Without a file the device stays unmounted (no media).
@@ -190,14 +212,11 @@ func (s *Service) MountImage(c *gin.Context) {
 	for _, command := range commands {
 		err := exec.Command("sh", "-c", command).Run()
 		if err != nil {
-			rsp.ErrRsp(c, -2, "execute command failed")
-			return
+			return &imageMountError{-2, "execute command failed"}
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-
-	rsp.OkRsp(c)
-	log.Debugf("mount image %s success", file)
+	return nil
 }
 
 func requireActiveUSBStorage() error {

@@ -591,6 +591,29 @@
       "tf3": "Inserta la tarjeta SD en un lector de tarjetas y conéctalo a tu computadora.",
       "tf4": "Copia el archivo de imagen en el directorio /data de la tarjeta SD.",
       "tf5": "Inserta la tarjeta SD en el NanoKVM."
+    },
+    "netboot": {
+      "tab": "Arranque por red",
+      "hint": "Arranca este ordenador desde los menús de netboot.xyz: instaladores, sistemas live y herramientas se cargan desde internet a través del NanoKVM. En el NanoKVM solo se guarda la imagen de iPXE.",
+      "versions": "iPXE {{ipxe}} · netboot.xyz {{netbootxyz}}",
+      "notDownloaded": "Aún no descargado. Al activar el arranque por red se descarga el iPXE más reciente (unos 13 MB) y se elige la última versión de netboot.xyz.",
+      "checked": "Comprobado {{date}}",
+      "update": "Buscar actualizaciones",
+      "updating": "Actualizando…",
+      "secureBoot": "UEFI Secure Boot",
+      "secureBootHint": "Usa la imagen de iPXE firmada para Secure Boot (solo x86-64 UEFI). Con Secure Boot activado, netboot.xyz instala Debian, Devuan y Kali; para las demás entradas hay que desactivar Secure Boot en el firmware del ordenador.",
+      "needComposition": "Activa primero la red USB y el disco virtual en los ajustes de USB.",
+      "browserMedia": "Desconecta primero la ISO de este ordenador.",
+      "enableNote": "Sustituye la imagen montada y activa la conexión compartida a internet por USB hasta que se desactive el arranque por red.",
+      "enable": "Activar arranque por red",
+      "enabling": "Activando…",
+      "disable": "Desactivar arranque por red",
+      "on": "Activado: arranca el ordenador desde la unidad de CD/DVD del NanoKVM.",
+      "waiting": "Esperando a que el ordenador cargue el menú.",
+      "fetched": "El ordenador cargó el menú (solicitudes: {{n}}, la última a las {{time}}).",
+      "noUplink": "El NanoKVM no tiene conexión a internet para compartir; netboot.xyz no se cargará.",
+      "inUse": "El arranque por red está activado. Desactívalo para montar otra imagen.",
+      "failed": "Error en el arranque por red. Inténtalo de nuevo."
     }
   },
   "script": {

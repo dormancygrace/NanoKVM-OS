@@ -27,12 +27,14 @@ jobs:
       # A fixed absolute path: the cached toolchain is not relocatable.
       OUT: /home/runner/nanokvm-out
     steps:
-      # The runner has about 14 GB free; the toolchain step alone needs about
-      # 13 GB while it builds. The preinstalled SDKs are not used; the tool
-      # cache goes too, so no setup-* action can run after this step.
-      - name: Free disk space
+      # A toolchain build needs about 25 GB. GitHub guarantees only 14 GB, but
+      # the runners had 86 GB free (2026-10-16); the cleanup, 3.5 minutes of
+      # removing preinstalled SDKs and the tool cache (no setup-* action can
+      # run after it), runs only when space is short.
+      - name: Disk space
         run: |
           df -h /
+          [ "$(df --output=avail -k / | tail -1)" -lt $((30 * 1024 * 1024)) ] || exit 0
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
             /opt/hostedtoolcache /usr/local/share/boost /usr/share/swift /usr/local/share/powershell
           sudo docker image prune -af > /dev/null 2>&1 || true
@@ -52,7 +54,9 @@ jobs:
       - name: Cache keys
         id: keys
         run: |
-          echo "toolchain=toolchain-$(platform/build.sh -o "$OUT" toolchain-id)" >> "$GITHUB_OUTPUT"
+          id=$(platform/build.sh -o "$OUT" toolchain-id)
+          [ ${#id} = 64 ]
+          echo "toolchain=toolchain-$id" >> "$GITHUB_OUTPUT"
           echo "downloads=downloads-${{ hashFiles('platform/sources.lock', 'firmware/buildroot/**') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore downloads
@@ -98,8 +102,15 @@ jobs:
           key: ${{ steps.keys.outputs.downloads }}
 
       - name: Build
+        env:
+          # No Git record of the patched trees: it serves local patch work only.
+          NANOKVM_PATCH_GIT: '0'
         run: |
-          platform/build.sh -o "$OUT" kernel modules uboot opensbi fip initramfs boot native system server web tools firmware
+          platform/build.sh -o "$OUT" kernel modules uboot opensbi fip initramfs boot native system server
+          # The Go build cache (about 1 GB) is not reused within a run.
+          rm -rf "$OUT/server/gocache"
+          platform/build.sh -o "$OUT" web tools firmware
+          du -sh "$OUT" "$OUT"/* 2>/dev/null | sort -h | tail -8
           df -h /
 
       - name: Check against expected.sha256

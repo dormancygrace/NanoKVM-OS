@@ -189,12 +189,14 @@ unpack_git() (
 # Apply <dir>/*.patch in name order, then record the prepared tree in a
 # separate <tree>.git, so a change can be saved as the next patch (README).
 # The repository stays outside the tree to keep version strings unchanged.
+# NANOKVM_PATCH_GIT=0 skips the record (CI: 0.8 GB less for the kernel and U-Boot).
 apply_patches() {
     local tree=$1 patch
     for patch in "$2"/*.patch; do
         GIT_CEILING_DIRECTORIES=$(dirname "$tree") git -C "$tree" apply --whitespace=nowarn "$patch"
     done
     rm -rf "$tree.git"
+    [ "${NANOKVM_PATCH_GIT:-1}" != 0 ] || return 0
     git --git-dir="$tree.git" --work-tree="$tree" init -q
     git --git-dir="$tree.git" --work-tree="$tree" -c core.autocrlf=false add -A -f
     git --git-dir="$tree.git" --work-tree="$tree" -c gc.auto=0 -c user.name=platform -c user.email=platform@localhost \

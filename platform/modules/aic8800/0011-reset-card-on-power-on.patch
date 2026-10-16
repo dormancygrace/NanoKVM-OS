@@ -12,12 +12,14 @@ downloaded the Bluetooth patch and the Wi-Fi firmware into a running chip.
 Wi-Fi restarts from that; the Bluetooth core does not answer any more.
 
 NanoKVM's device tree gives the card an mmc-pwrseq-simple with the chip's
-reset line (GPIO 26). BSP now keeps a reference to the card from its first
-probe and, when power comes back after that on the other platforms, resets
-it with mmc_hw_reset(): with no function driver bound, the MMC core cycles
-the pwrseq (reset asserted, 200 ms post-power-on delay) and re-initialises
-the card before the drivers probe it. The first power on after boot is
-unchanged. The reference is dropped when aic8800_bsp unloads.
+reset line (GPIO 26). BSP now keeps a reference to the card of its latest
+probe (a re-enumerated card replaces it) and, when power comes back after
+that on the other platforms, resets it with mmc_hw_reset(): with no
+function driver bound, the MMC core cycles the pwrseq (reset asserted, 200
+ms post-power-on delay) and re-initialises the card before the drivers
+probe it. A failed reset fails the power on, so no firmware is loaded into
+a card in an unknown state. The first power on after boot is unchanged.
+The reference is dropped when aic8800_bsp unloads.
 
 diff --git a/aic8800_bsp/aic_bsp_main.c b/aic8800_bsp/aic_bsp_main.c
 index 9a36d28..9e6ba04 100644
@@ -40,30 +42,40 @@ index 9a36d28..9e6ba04 100644
  #ifdef CONFIG_PREALLOC_TXQ
      aicwf_prealloc_txq_free();
 diff --git a/aic8800_bsp/aicsdio.c b/aic8800_bsp/aicsdio.c
-index 368d415..001206a 100644
+index 368d415..d6a3905 100644
 --- a/aic8800_bsp/aicsdio.c
 +++ b/aic8800_bsp/aicsdio.c
-@@ -295,6 +295,49 @@ void *aicbsp_get_drvdata(void *args)
+@@ -295,6 +295,69 @@ void *aicbsp_get_drvdata(void *args)
  }
  
  
-+/* The card, kept from the first probe for a reset when power comes back. */
++/*
++ * The card from the latest probe, kept for a reset when power comes back. A
++ * card that was removed and enumerated again is a new struct: its probe
++ * replaces the reference.
++ */
++static DEFINE_MUTEX(aicbsp_card_lock);
 +static struct mmc_card *aicbsp_card;
 +
 +static void aicbsp_keep_card(struct mmc_card *card)
 +{
-+	if (aicbsp_card)
-+		return;
-+	get_device(&card->dev);
-+	aicbsp_card = card;
++	mutex_lock(&aicbsp_card_lock);
++	if (card != aicbsp_card) {
++		get_device(&card->dev);
++		if (aicbsp_card)
++			put_device(&aicbsp_card->dev);
++		aicbsp_card = card;
++	}
++	mutex_unlock(&aicbsp_card_lock);
 +}
 +
 +void aicbsp_put_card(void)
 +{
-+	if (!aicbsp_card)
-+		return;
-+	put_device(&aicbsp_card->dev);
++	mutex_lock(&aicbsp_card_lock);
++	if (aicbsp_card)
++		put_device(&aicbsp_card->dev);
 +	aicbsp_card = NULL;
++	mutex_unlock(&aicbsp_card_lock);
 +}
 +
 +/*
@@ -72,28 +84,38 @@ index 368d415..001206a 100644
 + * mute: HCI_Reset times out. When power comes back after the first probe,
 + * reset the card through its mmc-pwrseq instead. No function driver is
 + * bound then, so the MMC core power-cycles and re-initialises it at once.
++ * A failed reset fails the power on: no firmware goes into a card in an
++ * unknown state.
 + */
-+static void aicbsp_reset_card(void)
++static int aicbsp_reset_card(void)
 +{
-+	struct mmc_card *card = aicbsp_card;
++	struct mmc_card *card;
 +	struct sdio_func *func;
-+	int ret;
++	int ret = 0;
 +
++	mutex_lock(&aicbsp_card_lock);
++	card = aicbsp_card;
 +	/* A card that went away (host->card moved on) stays alone. */
-+	if (!card || card->host->card != card || !device_is_registered(&card->dev) ||
-+	    !card->sdio_func[0])
-+		return;
-+	func = card->sdio_func[0];
-+	sdio_claim_host(func);
-+	ret = mmc_hw_reset(card);
-+	sdio_release_host(func);
-+	printk("aicbsp: card reset before power on: %d\n", ret);
++	if (card && card->host->card == card && device_is_registered(&card->dev) &&
++	    card->sdio_func[0]) {
++		func = card->sdio_func[0];
++		sdio_claim_host(func);
++		ret = mmc_hw_reset(card);
++		sdio_release_host(func);
++		printk("aicbsp: card reset before power on: %d\n", ret);
++	}
++	mutex_unlock(&aicbsp_card_lock);
++	/*
++	 * 1: with function drivers bound the core resets through a rescan; the
++	 * notifier probe waited for below sees the card again.
++	 */
++	return ret < 0 ? ret : 0;
 +}
 +
  static int aicbsp_sdio_probe(struct sdio_func *func,
  	const struct sdio_device_id *id)
  {
-@@ -330,6 +373,7 @@ static int aicbsp_sdio_probe(struct sdio_func *func,
+@@ -330,6 +393,7 @@ static int aicbsp_sdio_probe(struct sdio_func *func,
  
  	host = func->card->host;
  	host->caps |= MMC_CAP_NONREMOVABLE;
@@ -101,12 +123,14 @@ index 368d415..001206a 100644
  
  	func = func->card->sdio_func[1 - 1]; //replace 2 with 1
  
-@@ -535,6 +579,9 @@ static int aicbsp_platform_power_on(void)
+@@ -535,6 +599,11 @@ static int aicbsp_platform_power_on(void)
  	int ret = 0;
  	struct semaphore aic_chipup_sem;
  	sdio_dbg("%s\n", __func__);
 +#if !defined(CONFIG_PLATFORM_ALLWINNER) && !defined(CONFIG_PLATFORM_AMLOGIC) && !defined(CONFIG_PLATFORM_ROCKCHIP2)
-+	aicbsp_reset_card();
++	ret = aicbsp_reset_card();
++	if (ret < 0)
++		return ret;
 +#endif
  
  #ifdef CONFIG_PLATFORM_ALLWINNER

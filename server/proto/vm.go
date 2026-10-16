@@ -240,6 +240,13 @@ type GetMdnsStateRsp struct {
 	Enabled bool `json:"enabled"`
 }
 
+type GetBluetoothStateRsp struct {
+	Available bool   `json:"available"` // AIC Wi-Fi driver running and the HCI module shipped
+	Enabled   bool   `json:"enabled"`   // loaded at boot
+	Loaded    bool   `json:"loaded"`    // the HCI module is loaded now
+	Version   string `json:"version"`   // core specification version the controller reports, e.g. "5.2"; empty unless loaded
+}
+
 type SetHostnameReq struct {
 	Hostname string `validate:"required"`
 }

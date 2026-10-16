@@ -1553,6 +1553,13 @@
         "none": "Нет",
         "server": "DNS-сервер {{index}}",
         "remove": "Удалить DNS-сервер {{index}}"
+      },
+      "bluetooth": {
+        "off": "Выключен: драйверы Bluetooth не загружаются.",
+        "on": "Включён: драйверы Bluetooth загружены.",
+        "tip": "В NanoKVM пока нет функций Bluetooth: включение только загружает драйверы. Настройка действует сразу и при каждой загрузке.",
+        "version": "Версия Bluetooth",
+        "unavailable": "На этом устройстве нет Bluetooth, который поддерживает NanoKVM OS."
       }
     },
     "tailscale": {

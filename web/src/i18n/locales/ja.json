@@ -1553,6 +1553,13 @@
         "none": "なし",
         "server": "DNS サーバー {{index}}",
         "remove": "DNS サーバー {{index}} を削除"
+      },
+      "bluetooth": {
+        "off": "オフ：Bluetooth ドライバーを読み込みません。",
+        "on": "オン：Bluetooth ドライバーを読み込んでいます。",
+        "tip": "NanoKVM にはまだ Bluetooth の機能がありません。オンにしてもドライバーを読み込むだけです。設定はすぐに、また起動のたびに適用されます。",
+        "version": "Bluetooth バージョン",
+        "unavailable": "このデバイスには NanoKVM OS が対応する Bluetooth がありません。"
       }
     },
     "tailscale": {

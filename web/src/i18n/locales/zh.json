@@ -1553,6 +1553,13 @@
         "none": "无",
         "server": "DNS 服务器 {{index}}",
         "remove": "移除 DNS 服务器 {{index}}"
+      },
+      "bluetooth": {
+        "off": "关闭：不加载蓝牙驱动。",
+        "on": "开启：已加载蓝牙驱动。",
+        "tip": "NanoKVM 目前还没有蓝牙功能：开启只会加载驱动。设置立即生效，并在每次启动时生效。",
+        "version": "蓝牙版本",
+        "unavailable": "此设备没有 NanoKVM OS 支持的蓝牙。"
       }
     },
     "tailscale": {

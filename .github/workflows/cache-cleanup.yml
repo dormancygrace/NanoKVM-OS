@@ -52,6 +52,15 @@ jobs:
           echo "$(wc -l < delete.txt) caches to delete, $(awk '{ s += $2 } END { print int(s / 1048576) }' delete.txt) MiB"
           while read -r id _ key; do
             echo "delete $key"
-            # Evicted in the meantime: nothing to do.
-            gh cache delete "$id" || echo "  already gone"
+            # Ignore only an eviction race. Permission, rate-limit, server
+            # and network failures must fail the job so cleanup cannot stall silently.
+            if gh api --method DELETE "repos/$GH_REPO/actions/caches/$id" --include \
+                > delete.response 2> delete.err; then
+              :
+            elif grep -qE '^HTTP/[0-9.]+ 404([[:space:]]|$)' delete.response; then
+              echo "  already gone"
+            else
+              cat delete.err >&2
+              exit 1
+            fi
           done < delete.txt

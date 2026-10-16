@@ -260,8 +260,8 @@ func netbootxyzAvailable(ctx context.Context, tag string) error {
 }
 
 // updateNetbootReleases installs the latest iPXE images and selects the
-// latest netboot.xyz release. It returns the new state; the old iPXE files
-// are removed only after the new state is saved.
+// latest netboot.xyz release. It returns the new state and keeps the old iPXE
+// files: callers remove them (removeOldIPXE) once nothing has them mounted.
 func updateNetbootReleases(ctx context.Context, st netbootState) (netbootState, error) {
 	ipxeRel, err := latestGitHubRelease(ctx, "ipxe/ipxe")
 	if err != nil {
@@ -302,7 +302,6 @@ func updateNetbootReleases(ctx context.Context, st netbootState) (netbootState, 
 	if err = saveNetbootState(next); err != nil {
 		return st, err
 	}
-	removeOldIPXE(next.IPXE)
 	return next, nil
 }
 

@@ -6,8 +6,8 @@
 
 **Browser KVM, Internet over USB, remote access and a full Alpine system — on SG2002 NanoKVM hardware.**
 
-[![Applications: v3.0-a1 Alpha](https://img.shields.io/badge/applications-v3.0--a1%20Alpha-orange)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.0-a1)
-[![Image: v1.2-a1 Alpha](https://img.shields.io/badge/SD%20image-v1.2--a1%20Alpha-orange)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.0-a1)
+[![Applications: v3.1.0](https://img.shields.io/badge/applications-v3.1.0-blue)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.1.0)
+[![Image: v1.3](https://img.shields.io/badge/SD%20image-v1.3-blue)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.1.0)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
@@ -23,7 +23,7 @@
 
 Underneath the interface is **Alpine Linux 3.24 on a writable F2FS root**, with ordinary APK packages, OpenRC services and official Alpine userspace. You can install software, update individual components and retain your settings without rebuilding or reflashing the entire card.
 
-**Current alpha: applications v3.0-a1, bundled in Image v1.2-a1 — Massive Overhaul.** This release collects the changes since v2.5-a1, including the unpublished v2.6 alpha series: reworked video controls and memory modes, recovery and performance improvements, USB storage and serial tools, Wi-Fi preferences, HTTPS/ACME, add-on updates, and community translations. See the [complete release notes](docs/RELEASE-v3.0-a1.md).
+**Applications v3.1.0, bundled in Image v1.3 — Boot. Transfer. Accelerate.** Network boot through netboot.xyz, a browser file manager for the USB user disk, safer image transfers, faster SHA-256, kernel and Wi-Fi improvements, optional Bluetooth, and separate server/UI packages build on the v3.0 overhaul. See the [complete release notes](docs/RELEASE-v3.1.0.md).
 
 > [!IMPORTANT]
 > **Help wanted — NanoKVM Cube, Lite and PCIe testers!**
@@ -77,7 +77,7 @@ Configure the USB gadget through presets (KVM, with USB network, with the serial
 | **Keyboard and pointers** | Browser control, with normal and HID compatibility profiles |
 | **Virtual media** | SD-backed images or direct ISO mounting from your computer without first copying the ISO to the card; CD/DVD images up to 31.625 GiB |
 | **Network boot** | Boot the managed computer from the [netboot.xyz](docs/netboot.md) menus over USB network, with the official iPXE images (UEFI Secure Boot signed one included) |
-| **User disk** | A writable FAT32 USB drive backed by an image on the SD card, for BIOS update files, profiles and logs; selectable sizes from 64 MiB to 4 GiB |
+| **User disk** | A writable FAT32 USB drive backed by an image on the SD card, for BIOS update files, profiles and logs; selectable sizes from 64 MiB to 4 GiB; browse folders, upload/download files and manage contents while detached from the computer |
 | **USB network** | Local access to NanoKVM through the USB NCM adapter |
 | **Internet over USB NCM** | Share the NanoKVM Ethernet/Wi-Fi uplink with the managed computer |
 | **USB Serial / CDC ACM** | Reach a configured host serial console through the browser terminal |
@@ -92,6 +92,7 @@ ATX power/reset controls are available on supported boards. **Wake-on-LAN** incl
 
 - **Ethernet and Wi-Fi controls**, hostname, DNS, gateway, IPv6 and mDNS settings. Ethernet shows live link status and the current address; static IPv4 accepts CIDR notation and an optional gateway for direct computer connections.
 - **2.4 / 5 GHz Wi-Fi** on compatible adapters: automatic scanning across both bands, grouped network entries, signal-strength icons, hidden-network setup and a preferred band. **5 GHz is preferred by default**, with fallback to 2.4 GHz.
+- **Bluetooth controller switch** on supported AIC8800 boards, off by default. Enable it under Network without coupling the Bluetooth module to Wi-Fi; this is a controller switch, not a peripheral-pairing interface.
 - A single **VPN overview** for **WireGuard, OpenVPN 2, Tailscale and NetBird**, with installation state, version and connection/profile controls. OpenVPN, Tailscale and NetBird are optional APK installations.
 - **WireGuard `.conf` profiles** with an explicit Route Allowed IPs option; **OpenVPN routed TUN `.ovpn` profiles**, including referenced certificate/key files in the same upload.
 - **HTTPS from first boot** with a unique device certificate and HTTP redirect. Newly generated certificates use ECDSA P-256; existing certificates are preserved. A **custom certificate** (your own CA or a public one) can be uploaded in Settings → Network and takes effect for new connections without a restart; a custom pair that cannot be loaded never blocks start-up (the generated one stands in). **Let's Encrypt / ZeroSSL / Buypass / Google** certificates through **acme.sh**, installed from its latest release on demand: HTTP-01 on port 80 or DNS-01 with every DNS provider acme.sh ships, renewed from the server and served without a restart. SSH can be enabled from settings.
@@ -156,16 +157,16 @@ Already helping with an issue? Add your results there instead of opening a dupli
 
 <a id="install"></a>
 
-## 🚀 Install: Image v1.2-a1
+## 🚀 Install: Image v1.3
 
-**Image v1.2-a1 bundles applications v3.0-a1. Both are alpha releases.**
+**Image v1.3 bundles applications v3.1.0.**
 
-1. Download the [full SD image](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.0-a1/NanoKVM-OS-Image-v1.2-a1-apps-v3.0-a1.img.zip) and [SHA256SUMS](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.0-a1/SHA256SUMS).
+1. Download the [full SD image](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.1.0/NanoKVM-OS-Image-v1.3-apps-v3.1.0.img.zip) and [SHA256SUMS](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.1.0/SHA256SUMS).
 2. Verify the ZIP checksum, extract the `.img` and flash it to an SD card of at least **2 GB**. Flashing replaces the card's existing installation and data.
 3. Boot NanoKVM, allow automatic board selection and its restart to finish, then open `https://DEVICE-IP/`.
 4. Sign in with **admin / admin** and set a new password when prompted. For the administrator, this also sets the Linux root password used by SSH. SSH is disabled by default.
 
-The ZIP is **64.0 MiB**. The image uses a **64 MiB boot partition** and **768 MiB F2FS root**; first boot creates an exFAT data partition in the remaining space. See [installation details](docs/INSTALL.md).
+The image uses a **64 MiB boot partition** and **768 MiB F2FS root**; first boot creates an exFAT data partition in the remaining space. See [installation details](docs/INSTALL.md).
 
 Image and application versions are independent: later APK updates preserve the original image identity. **About** shows the installed image, its bundled applications and the current application version.
 
@@ -181,7 +182,7 @@ apk upgrade
 reboot
 ```
 
-Updates retain settings, user data and independently installed packages. The seven core v3.0-a1 packages total **34.3 MiB**; add-ons and Alpine dependency updates are additional. The kernel and matching modules update to **7.2.10-nanokvm-os-r5** and need a reboot. Application service updates use OpenRC automatically; no separate apply command is needed.
+Updates retain settings, user data and independently installed packages. The nine core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. The kernel and matching modules update to **7.2.10-nanokvm-os-r5** and need a reboot. Application service updates use OpenRC automatically; no separate apply command is needed.
 
 - **Local `.apk` installations:** file-pinned packages may require an `apk add` step before upgrading; see [update instructions](docs/UPDATES.md).
 - **Signing transition:** `nanokvm-keys` installs the public keys and moves the official repository to the RSA/ECDSA-signed v3 index automatically. The RSA-signed legacy index remains available for older installations.
@@ -194,7 +195,7 @@ Component updates preserve the installed bootloader. A full image includes the r
 
 ## 🧪 Release status and limits
 
-- **v3.0-a1 / Image v1.2-a1 is alpha.** The rebuilt artifacts passed host tests, source and image integrity checks, and signature verification. An earlier candidate was tested on hardware; the final refresh was not installed on the test device. See the [release notes](docs/RELEASE-v3.0-a1.md).
+- **v3.1.0 / Image v1.3:** see the [release notes](docs/RELEASE-v3.1.0.md) for completed checks and hardware-testing limits. The final image has not been installed on the development device; earlier component tests are listed separately.
 - Frame-rate targets, portrait modes and H.265 decoding depend on the source, receiver, memory profile and client. Viewers share the active codec and encoder settings.
 - USB functions share a limited endpoint budget; not every combination can be enabled together. Internet sharing is IPv4-only.
 - OpenVPN supports routed TUN profiles; TAP, scripts and interactive SSO/MFA are not supported.
@@ -211,7 +212,7 @@ For a local test build, after installing the [host prerequisites](platform/READM
 ```sh
 git clone https://github.com/dormancygrace/NanoKVM-OS.git
 cd NanoKVM-OS
-git checkout v3.0-a1
+git checkout v3.1.0
 platform/build.sh -d
 ```
 

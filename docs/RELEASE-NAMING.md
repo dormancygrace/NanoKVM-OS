@@ -21,6 +21,13 @@ version in About. A new full image gets an independently selected image version.
 Values live in `firmware/alpine/release.env`; the SD builder and build manifest
 use them directly. The legacy v1 naming helper remains for archived artifacts.
 
+## v3.1.0 release
+
+Applications use **v3.1.0** (APK version **3.1.0**) and the full image uses
+**Image v1.3**, as selected by the maintainer. The image name is
+`NanoKVM-OS-Image-v1.3-apps-v3.1.0.img.zip`. These versions have no alpha
+suffix. GitHub publication is a separate maintainer-approved step.
+
 ## Legacy naming (v1 releases)
 
 For archived v1 artifacts, use `python3 scripts/release_names.py VERSION` as the source of names.

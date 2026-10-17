@@ -1,0 +1,76 @@
+name: APK repository
+
+# Serves the NanoKVM OS APK repository on GitHub Pages. It is assembled from
+# the packages and indexes attached to the published releases
+# (scripts/assemble-apk-repo.py), so publishing a release publishes its
+# packages. Pull requests that change this workflow or the script assemble and
+# check the repository without deploying it.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/apk-repository.yml
+      - scripts/assemble-apk-repo.py
+      - tests/test-assemble-apk-repo.py
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer release waits instead of being cancelled.
+concurrency:
+  group: apk-repository-${{ github.event_name == 'pull_request' && github.ref || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  assemble:
+    name: Assemble and check
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Assemble
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/assemble-apk-repo.py --output site
+
+      # As a device sees it: each release key alone verifies the v3 index,
+      # every package carries a trusted signature, and apk reads the repository.
+      - name: Check with apk
+        run: |
+          branch=$(ls site/alpine)
+          docker run --rm -v "$PWD/site:/site:ro" -v "$PWD/firmware/alpine/keys:/keys:ro" -e "branch=$branch" \
+            alpine:3.24 sh -euc '
+              repo=/site/alpine/$branch/riscv64
+              for key in /keys/*.pub; do
+                dir=$(mktemp -d); cp "$key" "$dir/"
+                apk --keys-dir "$dir" verify "$repo/Packages.adb"
+              done
+              apk --keys-dir /keys verify "$repo"/*.apk
+              root=$(mktemp -d)
+              mkdir -p "$root/etc/apk/keys"
+              cp /keys/*.pub "$root/etc/apk/keys/"
+              echo "$repo/Packages.adb" > "$root/etc/apk/repositories"
+              apk --root "$root" --arch riscv64 add --initdb --no-scripts
+              apk --root "$root" --arch riscv64 update
+              apk --root "$root" --arch riscv64 search -e nanokvm-release | grep "^nanokvm-release-"'
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    name: Deploy
+    if: github.event_name != 'pull_request'
+    needs: assemble
+    runs-on: ubuntu-26.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5

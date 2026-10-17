@@ -192,6 +192,17 @@ the packages need no ECDSA signature.
 3. Check the published indexes from a scratch root, for example
    `apk --keys-dir DIR verify Packages.adb` with only one of the keys in `DIR`.
 
+The APK repository workflow deploys the same repository to GitHub Pages, at
+`https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb`,
+whenever a GitHub release that carries the packages, both indexes and
+`SHA256SUMS` is published. The workflow
+(`.github/workflows/apk-repository.yml`, `scripts/assemble-apk-repo.py`) takes
+the indexes of the newest such release and the packages that the indexes of
+the newest three releases name, checks each file against its release's
+`SHA256SUMS` and the index, and verifies the result with Alpine's apk before it
+deploys. The page `https://dormancygrace.github.io/NanoKVM-OS/` lists the
+repository line and the public keys.
+
 ### Moving to the ECDSA key alone
 
 - While devices on 2.0 or earlier may still update, keep publishing

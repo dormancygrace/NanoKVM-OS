@@ -6,8 +6,8 @@
 
 **Browser KVM, Internet over USB, remote access and a full Alpine system — on SG2002 NanoKVM hardware.**
 
-[![Applications: v3.1.0](https://img.shields.io/badge/applications-v3.1.0-blue)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.1.0)
-[![Image: v1.3](https://img.shields.io/badge/SD%20image-v1.3-blue)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.1.0)
+[![Applications: v3.2.0](https://img.shields.io/badge/applications-v3.2.0-blue)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.2.0)
+[![Image: v1.4](https://img.shields.io/badge/SD%20image-v1.4-blue)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.2.0)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
@@ -23,7 +23,7 @@
 
 Underneath the interface is **Alpine Linux 3.24 on a writable F2FS root**, with ordinary APK packages, OpenRC services and official Alpine userspace. You can install software, update individual components and retain your settings without rebuilding or reflashing the entire card.
 
-**Applications v3.1.0, bundled in Image v1.3 — Boot. Transfer. Accelerate.** Network boot through netboot.xyz, a browser file manager for the USB user disk, safer image transfers, faster SHA-256, kernel and Wi-Fi improvements, optional Bluetooth, and separate server/UI packages build on the v3.0 overhaul. See the [complete release notes](docs/RELEASE-v3.1.0.md).
+**Applications v3.2.0, bundled in Image v1.4 — Unleash the Card. Lighten the Load.** Corrected SD/SDIO clocks, faster native decompression, visible update notifications and a stable Alpine package foundation. See the [complete release notes](docs/RELEASE-v3.2.0.md).
 
 > [!IMPORTANT]
 > **Help wanted — NanoKVM Cube, Lite and PCIe testers!**
@@ -157,11 +157,11 @@ Already helping with an issue? Add your results there instead of opening a dupli
 
 <a id="install"></a>
 
-## 🚀 Install: Image v1.3
+## 🚀 Install: Image v1.4
 
-**Image v1.3 bundles applications v3.1.0.**
+**Image v1.4 bundles applications v3.2.0.**
 
-1. Download the [full SD image](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.1.0/NanoKVM-OS-Image-v1.3-apps-v3.1.0.img.zip) and [SHA256SUMS](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.1.0/SHA256SUMS).
+1. Download the [full SD image](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.2.0/NanoKVM-OS-Image-v1.4-apps-v3.2.0.img.zip) and [SHA256SUMS](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.2.0/SHA256SUMS).
 2. Verify the ZIP checksum, extract the `.img` and flash it to an SD card of at least **2 GB**. Flashing replaces the card's existing installation and data.
 3. Boot NanoKVM, allow automatic board selection and its restart to finish, then open `https://DEVICE-IP/`.
 4. Sign in with **admin / admin** and set a new password when prompted. For the administrator, this also sets the Linux root password used by SSH. SSH is disabled by default.
@@ -182,7 +182,7 @@ apk upgrade
 reboot
 ```
 
-Updates retain settings, user data and independently installed packages. The nine core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. The kernel and matching modules update to **7.2.10-nanokvm-os-r5** and need a reboot. Application service updates use OpenRC automatically; no separate apply command is needed.
+Updates retain settings, user data and independently installed packages. The twelve core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. The kernel release remains **7.2.10-nanokvm-os-r5**; the updated boot images correct SD/SDIO clocks and need a reboot. Application service updates use OpenRC automatically; no separate apply command is needed.
 
 - **Local `.apk` installations:** file-pinned packages may require an `apk add` step before upgrading; see [update instructions](docs/UPDATES.md).
 - **Signing transition:** `nanokvm-keys` installs the public keys and moves the official repository to the RSA/ECDSA-signed v3 index automatically. The RSA-signed legacy index remains available for older installations.
@@ -194,6 +194,8 @@ Component updates preserve the installed bootloader. A full image includes the r
 <a id="limitations"></a>
 
 ## 🧪 Release status and limits
+
+- **v3.2.0 / Image v1.4:** local release candidate; hardware qualification remains outstanding. See the [validation record](docs/VALIDATION-v3.2.0.md) for completed checks and remaining device coverage.
 
 - **v3.1.0 / Image v1.3:** all nine release packages passed an upgrade and reboot on the PCIe development device, with settings retained and Direct H.264/H.265, WebRTC H.264 and MJPEG checked in Chrome. The SD image passed host-side integrity and filesystem checks; it was not freshly flashed in this round. See the [validation record](docs/VALIDATION-v3.1.0.md) for the scope and limits.
 - Frame-rate targets, portrait modes and H.265 decoding depend on the source, receiver, memory profile and client. Viewers share the active codec and encoder settings.
@@ -212,13 +214,13 @@ For a local test build, after installing the [host prerequisites](platform/READM
 ```sh
 git clone https://github.com/dormancygrace/NanoKVM-OS.git
 cd NanoKVM-OS
-git checkout v3.1.0
+git checkout v3.2.0
 platform/build.sh -d
 ```
 
 `-d` generates **local test signing keys**. Official release builds require the maintainer's RSA and ECDSA keys; test-signed packages are not official updates. See [build and signing instructions](platform/README.md).
 
-The platform uses **Linux 7.2.10**, **U-Boot 2026.10**, **OpenSBI 1.9** and a **GCC 16.2 / T-Head C906** toolchain. Kernel/modules use `-O3` without LTO; native userspace uses the reviewed scalar `-O2` profile. Web builds use **Node.js 24 LTS**. Ordinary userspace, including OpenSSL, comes from official Alpine repositories; the optional C906 package profile is retained for experiments.
+The platform uses **Linux 7.2.10**, **U-Boot 2026.10**, **OpenSBI 1.9** and a **GCC 16.2 / T-Head C906** toolchain. Kernel/modules use `-O3` without LTO; native userspace uses the reviewed scalar `-O2` profile. Web builds use **Node.js 24 LTS**. Most ordinary userspace, including OpenSSL, comes from official Alpine repositories; exfatprogs, i2c-tools and the zlib-compatible zlib-ng library are maintained in NanoKVM packages; the optional C906 package profile is retained for experiments.
 
 Pinned platform inputs, Go modules and the web lockfile fix their respective source versions. Alpine 3.24 repositories continue receiving updates, so later builds can install newer Alpine packages; the build records them in `release/installed-packages.txt`.
 

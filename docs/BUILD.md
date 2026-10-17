@@ -21,10 +21,13 @@ cd web && pnpm install --frozen-lockfile && pnpm dev
 ```
 
 ```sh
-cd server && CGO_ENABLED=0 go test -tags teststub,nomsgpack ./...
+cd server && go test -tags teststub,nomsgpack ./...
 ```
 
-A release-equivalent server needs the NanoKVM Go runtime (`firmware/cpu/sysmon-runtime`, which also adds the C906 ChaCha20 of `firmware/cpu/go-crypto-c906`) and the native libraries of the same build; `platform/build.sh native server` builds both. See [UPDATES.md](UPDATES.md) for the native APK update flow.
+Host server tests require a C compiler, zlib and liblzma development headers,
+and xz-utils (on Ubuntu: `zlib1g-dev liblzma-dev xz-utils`).
+
+A release-equivalent server needs the NanoKVM Go runtime (`firmware/cpu/sysmon-runtime`, which also adds the C906 ChaCha20 of `firmware/cpu/go-crypto-c906`) and the native libraries of the same build; `platform/build.sh native tools server` builds the native libraries, compression libraries and server. See [UPDATES.md](UPDATES.md) for the native APK update flow.
 
 ## Dependency maintenance
 

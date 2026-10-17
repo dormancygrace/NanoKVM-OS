@@ -260,25 +260,26 @@ class AddonWorkflowTests(unittest.TestCase):
         self.assertIn('contents: write', publish)
         self.assertIn("if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true", publish)
 
-    def test_addon_revision_requires_both_tag_inventories(self):
+    def test_addon_revision_requires_the_tag_inventory(self):
+        # The revision counts this repository's tags only; the archived
+        # packages repository is never asked.
         match = re.search(r'^      - name: Version\n(.*?)(?=^      - |\Z)', self.ADDON, re.M | re.S)
         script = textwrap.dedent(match[1].split('        run: |\n', 1)[1])
+        version = re.search(r'^version = "(.*)"$', (ROOT / 'addons/rustdesk/Cargo.toml').read_text(), re.M)[1]
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / 'gh').write_text("""#!/bin/sh
 case "$*" in
   *repos/example/current/tags*) [ "$FAIL" != current ] || exit 17
-    echo nanokvm-rustdesk-0.5.3-r8 ;;
-  *repos/example/old/tags*) [ "$FAIL" != old ] || exit 18
-    echo nanokvm-rustdesk-0.5.3-r5 ;;
+    echo nanokvm-rustdesk-$VERSION-r8 ;;
   *) exit 99 ;;
 esac
 """)
             (root / 'gh').chmod(0o755)
             env = {**os.environ, 'PATH': str(root) + ':' + os.environ['PATH'],
-                   'GITHUB_REPOSITORY': 'example/current', 'OLD_REPOSITORY': 'example/old',
+                   'GITHUB_REPOSITORY': 'example/current', 'VERSION': version,
                    'GITHUB_OUTPUT': str(root / 'output'), 'RUNNER_TEMP': str(root)}
-            for failure in ('none', 'current', 'old'):
+            for failure in ('none', 'current'):
                 with self.subTest(failure=failure):
                     (root / 'output').write_text('')
                     result = subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=ROOT,

@@ -52,7 +52,7 @@ The independent kernel job runs on main with the same daily schedule, even if an
 
 A version has a dedicated branch and at most one PR. Later runs leave open or closed PRs and maintainer edits alone; closing a proposal rejects that version. A newer version can create a new proposal. A retry after branch creation can finish opening the missing PR without rewriting the branch.
 
-These are source-update proposals: kernel patches, olddefconfig changes, drivers and device behavior still require review and a coordinated build/test. The publisher keeps the qualified output hashes in platform/expected.sha256 unchanged; they must be regenerated from validated outputs before merging. No kernel build, signature verification, automatic merge or deployment is claimed.
+These are source-update proposals: kernel patches, olddefconfig changes, drivers and device behavior still require review and a coordinated build/test. The Release build workflow comments on such a PR with the outputs it changes; they must be qualified before merging. No kernel build, signature verification, automatic merge or deployment is claimed.
 
 The publisher jobs have contents/pull-requests write permissions; the report job remains read-only. Repository Actions settings must allow GitHub Actions to create pull requests; default token permissions remain read-only. It uses GITHUB_TOKEN without a personal token. GitHub can require a maintainer to select **Approve workflows to run** on these PRs before CI starts ([GitHub behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)).
 

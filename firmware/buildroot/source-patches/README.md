@@ -17,5 +17,5 @@ Host U-Boot tools in this profile use GnuTLS, not host OpenSSL; FIT signature
 support is not selected. Do not infer system OpenSSL versions from Buildroot.
 
 Changes invalidate the platform toolchain input fingerprint. Do not relabel
-old output as rebuilt or replace `platform/expected.sha256` without a complete
-platform build and output qualification.
+old output as rebuilt: a change here needs a complete platform build and output
+qualification.

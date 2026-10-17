@@ -6,7 +6,7 @@
 - the board tools, the EDID profiles and the firmware files;
 - the twelve `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
-Every upstream input is pinned in `sources.lock` and checked when it is downloaded. The outputs of the build steps are checked against `expected.sha256`. The OpenSBI/FIP candidate passed host checks and ROM UART RAM boot on SG2002 with Linux 7.2.9, timer/PLIC, fixed PMU counters and live video. The full image installs the built `fip.bin` on the SD card; the test stand cold-boots from it (see [opensbi/README.md](opensbi/README.md)).
+Every upstream input is pinned in `sources.lock` and checked when it is downloaded. Two builds of the same tree give identical outputs, and CI lists the outputs that each change alters (see [Verification](#verification)). The OpenSBI/FIP candidate passed host checks and ROM UART RAM boot on SG2002 with Linux 7.2.9, timer/PLIC, fixed PMU counters and live video. The full image installs the built `fip.bin` on the SD card; the test stand cold-boots from it (see [opensbi/README.md](opensbi/README.md)).
 
 | Output | Shipped in |
 |---|---|
@@ -50,6 +50,7 @@ application version separately. Existing installations retain their original
 
 On a Linux x86-64 host (tested on Ubuntu 24.04) with:
 - the [Buildroot requirements](https://buildroot.org/downloads/manual/manual.html#requirement), plus `git` 2.27 or newer, `curl`, `openssl`, `libssl-dev`, `flex` and `bison`;
+- OpenSSL 3.5 or newer on the host: the kernel configuration records whether the host OpenSSL supports ML-DSA (`CONFIG_OPENSSL_SUPPORTS_ML_DSA`), so an older one fails the `kernel` step's configuration check. The pins come from Ubuntu 26.04;
 - for the packages, rootfs and image steps: Linux 6.7 or newer, `newuidmap` and `newgidmap` (package `uidmap`), and subordinate IDs for the build user in `/etc/subuid` and `/etc/subgid` (Ubuntu adds them for every user).
 
 ```sh
@@ -61,7 +62,7 @@ release signing, supply both keys as described [below](#signing-key).
 
 The build needs no root. The packages, rootfs and image steps run as root of a user namespace: it maps the subordinate IDs, so that the root file system gets its real owners, and starts riscv64 programs through qemu in the namespace's own `binfmt_misc`. Files in `OUTPUT/apk-builder` and `OUTPUT/rootfs` then belong to subordinate IDs; `build.sh clean` deletes them.
 
-The first run downloads about 2 GB and needs about 25 GB of disk space. Building the toolchain takes most of the first run (20 minutes on 16 threads); the other steps take about 10 minutes. Later runs reuse the toolchain while its inputs are unchanged: the Buildroot pin, `firmware/buildroot` and the toolchain recipe in `build.sh`. If one of them changes, `build.sh` refuses the old toolchain and names the directories to delete. Steps can be run on their own, for example `platform/build.sh kernel modules verify`. The step order is in `build.sh --help`. Use `-o DIR` for another output directory and `-j N` for the number of jobs.
+The first run downloads about 2 GB and needs about 25 GB of disk space. Building the toolchain takes most of the first run (20 minutes on 16 threads); the other steps take about 10 minutes. Later runs reuse the toolchain while its inputs are unchanged: the Buildroot pin, `firmware/buildroot` and the toolchain recipe in `build.sh`. If one of them changes, `build.sh` refuses the old toolchain and names the directories to delete. Steps can be run on their own, for example `platform/build.sh kernel modules hashes`. The step order is in `build.sh --help`. Use `-o DIR` for another output directory and `-j N` for the number of jobs.
 
 Go modules, npm packages and Alpine packages are downloaded during the build and checked against `server/go.sum`, `web/pnpm-lock.yaml` and the signed Alpine indexes. Alpine updates its 3.24 packages with security fixes, so a later build installs their newer versions; `release/installed-packages.txt` lists the versions in the image.
 
@@ -82,7 +83,6 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`). Re
 | `opensbi/` | upstream generic SG2002 configuration, M-mode DT, FDT handoff and C906 draft VS compatibility patches |
 | `sources.lock` | Every upstream input: archives by SHA-256, Git trees by commit and tree id |
 | `build.sh` | All build steps |
-| `expected.sha256` | Hash of every output in `images/`; `build.sh verify` fails if an output is missing, differs or is not listed |
 | `packages.list` | The contents of the twelve APK packages: each file, its mode and where it comes from |
 | `kernel/` | `config` and patches for kernel.org Linux 7.2.10 |
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi and cryptodev; `sg2002-aes/` is the CryptoDMA driver source |
@@ -113,13 +113,24 @@ Each component is an upstream tree from `sources.lock` with the patches of its d
    git add -A && git diff --cached > platform/kernel/0002-my-change.patch
    unset GIT_DIR GIT_WORK_TREE
    ```
-4. Run `build.sh verify`. It names every output that changed. Update `expected.sha256` only for the outputs you meant to change, move them to the section of new binaries, and say so in the commit.
+4. Keep a copy of `build/platform/images/SHA256SUMS` from before the change, run `build.sh hashes` after it, and compare: `scripts/compare-outputs.py OLD-SHA256SUMS build/platform/images/SHA256SUMS` names every output that changed. Only the outputs you meant to change should be listed; say which in the commit. The pull request gets the same comparison against main from CI.
 
 A changed kernel also needs a new release name: update `CONFIG_LOCALVERSION` in `kernel/config` and `release` in `build.sh`. `build.sh` sets the fixed build user, host and timestamps, so that two builds of the same tree are identical.
 
 ## Verification
 
-`build.sh verify` compares every output in `images/` with `expected.sha256` and rejects missing, changed or unlisted files. The release uses GCC 16.2 / Binutils 2.47 and the component profiles in `cpu-profile.json`: kernel and modules use `-O3` without LTO and with `-mno-strict-align` (the C906 handles misaligned access in hardware), while source-owned userspace uses scalar `-O2`.
+`build.sh hashes` writes `images/SHA256SUMS`, the hash of every output. Two builds of the same tree give the same hashes.
+
+The Release build workflow (`.github/workflows/release-build.yml`) builds every push to main and every pull request that can change an output. It publishes `SHA256SUMS` as the `outputs-sha256` artifact and comments on the pull request with the outputs that differ from the main build it starts from (`scripts/compare-outputs.py`). An output that changes although none of its inputs did means the build is not reproducible: treat it as a bug. `opensbi/build-manifest.json` records the hash of `build.sh`, so it changes with every edit of `build.sh`.
+
+To check that a local build reproduces a CI build, download that run's hashes and compare:
+
+```sh
+gh run download RUN-ID -n outputs-sha256 -D ci
+scripts/compare-outputs.py --check ci/SHA256SUMS build/platform/images/SHA256SUMS
+```
+
+The release uses GCC 16.2 / Binutils 2.47 and the component profiles in `cpu-profile.json`: kernel and modules use `-O3` without LTO and with `-mno-strict-align` (the C906 handles misaligned access in hardware), while source-owned userspace uses scalar `-O2`.
 
 Kernel, device trees and modules change with the reviewed C906 vector-context, video-clock and memory-profile updates. The AIC8800 driver includes the cfg80211 compatibility patch. U-Boot, the initramfs, FIT images, native media libraries, system service and native tools are built from the pinned inputs. Closed SOPHGO ISP/3A objects remain pinned binary inputs: relinking does not recompile those objects. Go uses its own compiler; the profile applies to its C/C++ interoperability code.
 
@@ -135,7 +146,7 @@ The audit checks the last effective optimization, ISA and ABI options. Kernel vD
 
 APK signatures depend on the signing key; the root filesystem also depends on the current official Alpine 3.24 package versions. They are listed in `release/installed-packages.txt`. Existing installations with the optional C906 overlay require the documented stock-package migration; installing a NanoKVM application update alone does not replace every Alpine package.
 
-A matching hash verifies the expected build outputs, not hardware operation. Boot-test new U-Boot/FIT images, media capture and encoding, and Wi-Fi on a device before publishing. A passing build does not establish compatibility with hardware variants that were not available for testing.
+Identical hashes show that a build reproduces, not that it works on hardware. Boot-test new U-Boot/FIT images, media capture and encoding, and Wi-Fi on a device before publishing. A passing build does not establish compatibility with hardware variants that were not available for testing.
 
 ## Corresponding source
 
@@ -171,8 +182,8 @@ even when only the `busybox` target is requested. Keep this profile limited to
 the actual platform dependency graph.
 
 Recipe cleanup changes the toolchain input fingerprint. Existing output must not
-be reused under a new fingerprint; the next full platform build must still pass
-`verify` against `expected.sha256`. A dependency/configuration check alone does
+be reused under a new fingerprint; the next full platform build must still
+reproduce every output the change does not touch. A dependency/configuration check alone does
 not qualify newly built boot images.
 
 ## Component optimization profiles

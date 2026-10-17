@@ -4,9 +4,9 @@
 Reads the tag names of this repository on standard input, one per line, and
 prints the next revision for VERSION (the crate version): one more than the
 highest nanokvm-rustdesk-VERSION-rN tag, or 0 for a version that has none.
-The archived NanoKVM-OS-packages repository holds 0.5.3-r0 to r5 only; this
-repository has 0.5.3-r6, so its tags alone give the next revision of any
-version.
+For 0.5.3, this repository already has r6 after the archived
+NanoKVM-OS-packages repository's r5. New source versions start at zero;
+retired versions from the archive are not republished by this workflow.
 """
 import re
 import sys

@@ -19,7 +19,7 @@ The original bundled version stays visible alongside the current application
 version in About. A new full image gets an independently selected image version.
 
 Values live in `firmware/alpine/release.env`; the SD builder and build manifest
-use them directly. The legacy v1 naming helper remains for archived artifacts.
+use them directly. Legacy v1 naming is documented below for archived artifacts.
 
 ## Stable releases
 

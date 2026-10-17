@@ -38,25 +38,30 @@ jobs:
         run: python3 scripts/assemble-apk-repo.py --output site
 
       # As a device sees it: each release key alone verifies the v3 index,
-      # every package carries a trusted signature, and apk reads the repository.
+      # core packages carry trusted signatures; pinned add-ons are authenticated
+      # through the signed index, and apk reads/fetches them as a device does.
       - name: Check with apk
         run: |
           branch=$(ls site/alpine)
-          docker run --rm -v "$PWD/site:/site:ro" -v "$PWD/firmware/alpine/keys:/keys:ro" -e "branch=$branch" \
+          docker run --rm -v "$PWD/site:/site:ro" -v "$PWD/firmware/alpine/keys:/keys:ro" -v "$PWD/scripts:/scripts:ro" -e "branch=$branch" \
             alpine:3.24 sh -euc '
               repo=/site/alpine/$branch/riscv64
               for key in /keys/*.pub; do
                 dir=$(mktemp -d); cp "$key" "$dir/"
                 apk --keys-dir "$dir" verify "$repo/Packages.adb"
               done
-              apk --keys-dir /keys verify "$repo"/*.apk
+              apk add --no-cache python3 > /dev/null
+              python3 /scripts/addon_packages.py --verify --output "$repo" --keys /keys
               root=$(mktemp -d)
               mkdir -p "$root/etc/apk/keys"
               cp /keys/*.pub "$root/etc/apk/keys/"
               echo "$repo/Packages.adb" > "$root/etc/apk/repositories"
               apk --root "$root" --arch riscv64 add --initdb --no-scripts
               apk --root "$root" --arch riscv64 update
-              apk --root "$root" --arch riscv64 search -e nanokvm-release | grep "^nanokvm-release-"'
+              apk --root "$root" --arch riscv64 search -e nanokvm-release | grep "^nanokvm-release-"
+              if apk --root "$root" --arch riscv64 search -e nanokvm-rustdesk | grep -q "^nanokvm-rustdesk-"; then
+                apk --root "$root" --arch riscv64 fetch --stdout nanokvm-rustdesk > /dev/null
+              fi'
 
       - uses: actions/upload-pages-artifact@v5
         with:

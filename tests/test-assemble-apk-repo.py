@@ -8,6 +8,7 @@ import json
 import tarfile
 import tempfile
 import unittest
+from unittest import mock
 import sys
 from pathlib import Path
 
@@ -129,6 +130,37 @@ class AssembleTests(unittest.TestCase):
         self.assertEqual((self.repo() / 'Packages.adb').read_bytes(), b'adb v4')
         self.assertNotIn(name, [a['name'] for a in self.fake.list[-1]['assets']])
         self.assertNotIn(name, a.index_packages((self.repo() / 'APKINDEX.tar.gz').read_bytes()))
+
+    def test_repository_verification_only_relaxes_exact_pinned_addons(self):
+        name, item, data = self.external_addon()
+        self.run_assemble(keep=1)
+        self.assertEqual(json.loads((self.repo() / 'addons.json').read_text()),
+                         {'packages': {name: item}})
+        with mock.patch.object(a.addon_packages.subprocess, 'run') as run:
+            a.addon_packages.verify_repository(self.repo(), 'apk', self.keys)
+        calls = [c.args[0] for c in run.call_args_list]
+        self.assertEqual(len(calls), 2)
+        for command in calls:
+            self.assertEqual('--allow-untrusted' in command, command[-1].endswith(name))
+        # A modified add-on cannot reach the relaxed apk invocation.
+        (self.repo() / name).write_bytes(data + b'tamper')
+        with mock.patch.object(a.addon_packages.subprocess, 'run') as run:
+            with self.assertRaisesRegex(ValueError, 'pinned size or SHA256'):
+                a.addon_packages.verify_repository(self.repo())
+            run.assert_not_called()
+
+    def test_repository_verification_rejects_unsigned_unpinned_package(self):
+        self.external_addon()
+        self.run_assemble(keep=1)
+        unpinned = self.repo() / 'unexpected-1-r0.apk'
+        unpinned.write_bytes(b'unsigned')
+        def verify(command, **kwargs):
+            if command[-1] == str(unpinned):
+                self.assertNotIn('--allow-untrusted', command)
+                raise a.addon_packages.subprocess.CalledProcessError(1, command)
+        with mock.patch.object(a.addon_packages.subprocess, 'run', side_effect=verify):
+            with self.assertRaises(a.addon_packages.subprocess.CalledProcessError):
+                a.addon_packages.verify_repository(self.repo())
 
     def test_optional_addon_corruption_is_rejected(self):
         _, item, _ = self.external_addon()

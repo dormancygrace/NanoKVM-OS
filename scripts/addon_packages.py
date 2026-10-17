@@ -3,12 +3,14 @@
 
 The release carries addons.json; the APKs remain in their own source releases.
 Both release signing and Pages assembly use the same manifest and checks.
-APK signature verification is additionally performed by apk when indexing.
+Core APK signatures are verified separately. Checksum-pinned unsigned add-ons
+are authenticated on devices by the signed APK v3 index.
 """
 import argparse
 import hashlib
 import json
 import re
+import subprocess
 import urllib.request
 from pathlib import Path
 
@@ -47,11 +49,33 @@ def fetch(url):
         return response.read()
 
 
+def verify_repository(output, apk='apk', keys=None):
+    """Verify signatures except for explicitly pinned, byte-verified add-ons."""
+    entries = manifest((output / 'addons.json').read_bytes())
+    for name, item in entries.items():
+        checked(name, item, lambda url: (output / name).read_bytes())
+    for package in sorted(output.glob('*.apk')):
+        command = [apk]
+        if keys is not None:
+            command += ['--keys-dir', str(keys)]
+        if package.name in entries:
+            command += ['--allow-untrusted']
+        subprocess.run(command + ['verify', str(package)], check=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--manifest', type=Path, required=True)
+    parser.add_argument('--manifest', type=Path)
+    parser.add_argument('--verify', action='store_true', help='verify an assembled repository')
+    parser.add_argument('--apk', default='apk')
+    parser.add_argument('--keys', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
+    if args.verify:
+        verify_repository(args.output, args.apk, args.keys)
+        return
+    if args.manifest is None:
+        parser.error('--manifest is required for downloading')
     packages = manifest(args.manifest.read_bytes())
     args.output.mkdir(parents=True, exist_ok=True)
     for name, item in packages.items():

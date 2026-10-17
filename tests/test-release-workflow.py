@@ -64,6 +64,8 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertLess(packages.index('/bin/sh /build/src/scripts/build-alpine-packages.sh stock'),
                         packages.index('scripts/addon_packages.py'))
         self.assertLess(packages.index('scripts/addon_packages.py'), packages.index('/sbin/apk --sign-key'))
+        self.assertLess(packages.index('/sbin/apk verify ./*.apk'), packages.index('scripts/addon_packages.py'))
+        self.assertIn('--allow-untrusted mkndx', packages)
 
     def test_only_version_tags_and_the_button_release(self):
         self.assertRegex(RELEASE, r"push:\n    tags: \['v\*'\]\n")

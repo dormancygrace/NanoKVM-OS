@@ -170,6 +170,10 @@ def assemble(output, published, keep, branch, keys, fetch=fetch):
         else:
             raise ValueError(f'No release carries {name}')
         (repo / name).write_bytes(data)
+    # Preserve the verified pins of retained add-ons for the package check.
+    (repo / 'addons.json').write_text(json.dumps({'packages': {
+        name: addons[name] for name in sorted(wanted) if name in addons
+    }}, indent=2) + '\n')
     (output / 'keys').mkdir()
     key_links = []
     for key in sorted(Path(keys).glob('*.pub')):

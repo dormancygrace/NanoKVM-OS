@@ -1054,6 +1054,9 @@ packages() (
         SOURCE_DATE_EPOCH="$(git -C "$repo" log -1 --format=%ct)" PAYLOAD_ROOT=/build/payloads \
         REPODEST=/build/repo SRCDEST=/build/distfiles ABUILD_FLAGS='-F -d' PKGVERSIONS=/build/versions/versions.txt \
         /bin/sh /build/src/scripts/build-alpine-packages.sh stock
+    # Verify every core/reused package before accepting checksum-pinned add-ons.
+    # The optional APKs may be unsigned; their trust comes from the signed index.
+    in_chroot "$b" /bin/sh -c 'cd /build/repo/stock/recipes/riscv64 && /sbin/apk verify ./*.apk'
     # APK v3 add-ons cannot be indexed by abuild's legacy apk index applet.
     # Fetch only after the core v2 index is complete; mkndx below includes them.
     # They remain optional and are never installed into the SD image.
@@ -1061,10 +1064,10 @@ packages() (
         --output "$b/build/repo/stock/recipes/riscv64"
     # The apk v3 index next to APKINDEX.tar.gz, signed with the EC key and,
     # while 2.0 devices that trust only the RSA key may read it, the RSA key.
-    # mkndx checks the packages with the builder's /etc/apk/keys.
+    # Core signatures were checked above; add-on bytes match addons.json.
     install -m 0600 "$ecfile" "$b/root/.abuild/index-ec.key"
     in_chroot "$b" /bin/sh -c 'cd /build/repo/stock/recipes/riscv64 &&
-        /sbin/apk --sign-key "$1" --sign-key /root/.abuild/index-ec.key mkndx \
+        /sbin/apk --sign-key "$1" --sign-key /root/.abuild/index-ec.key --allow-untrusted mkndx \
             --description "$2" --output Packages.adb ./*.apk' \
         sh "/root/.abuild/$keyname.rsa" "NanoKVM OS $version"
     rm -f "$b/root/.abuild/$keyname.rsa" "$b/root/.abuild/index-ec.key"

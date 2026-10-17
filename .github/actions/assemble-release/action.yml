@@ -11,6 +11,9 @@ inputs:
   keys:
     description: 'platform/build.sh key options: -k KEY -e ECKEY, or -d for local test keys'
     required: true
+  image:
+    description: attach the SD image (it is always built, as a check that the packages install)
+    default: 'true'
 runs:
   using: composite
   steps:
@@ -48,6 +51,7 @@ runs:
       shell: bash
       env:
         OUT: ${{ inputs.out }}
+        IMAGE: ${{ inputs.image }}
       run: |
         a=$OUT/assets
         rm -rf "$a"
@@ -58,8 +62,8 @@ runs:
             p["changed"] and print(p["apk"])' "$repo/packages.json" |
           while read -r apk; do cp "$repo/$apk" "$a/"; done
         cp "$repo/APKINDEX.tar.gz" "$repo/Packages.adb" "$repo/packages.json" "$a/"
-        cp "$OUT"/release/image/*.img.zip "$OUT/release/image/build-manifest.json" \
-          "$OUT/release/installed-packages.txt" "$OUT/release/installed-licenses.txt" "$a/"
+        [ "$IMAGE" != true ] || cp "$OUT"/release/image/*.img.zip "$OUT/release/image/build-manifest.json" "$a/"
+        cp "$OUT/release/installed-packages.txt" "$OUT/release/installed-licenses.txt" "$a/"
         cp "$OUT"/NanoKVM-OS-*-source.tar.xz "$a/"
         (cd "$a" && sha256sum -- * > "$RUNNER_TEMP/SHA256SUMS" && mv "$RUNNER_TEMP/SHA256SUMS" .)
         ls -la "$a"

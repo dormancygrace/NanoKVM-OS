@@ -3,8 +3,11 @@
 packages and indexes attached to the GitHub releases.
 
 The newest published release that carries Packages.adb supplies both indexes.
+Newest means the highest vX.Y.Z (releases with other tags, from before that
+scheme, rank below, by publication time): a minor release published from its
+draft after a patch release must not replace the patch's indexes.
 Every package that the indexes of the newest KEEP such releases name is kept,
-so a device whose cached index is a release or two old still finds its files.
+so a device whose cached index is a few releases old still finds its files.
 Each package comes from the newest release that has it and must match that
 release's SHA256SUMS and the size its index records.
 
@@ -29,6 +32,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = 'dormancygrace/NanoKVM-OS'
+VERSION = re.compile(r'v(\d+)\.(\d+)\.(\d+)')
 INDEXES = ('APKINDEX.tar.gz', 'Packages.adb')
 MARKER = '.nanokvm-apk-repository'
 MARKER_CONTENT = 'NanoKVM APK repository assembler v1\n'
@@ -53,8 +57,13 @@ def releases(repository, fetch=fetch):
         found += [r for r in batch if not r['draft'] and r.get('published_at')
                   and {a['name'] for a in r['assets']} >= {*INDEXES, 'SHA256SUMS'}]
         if len(batch) < 100:
-            return sorted(found, key=lambda r: r['published_at'], reverse=True)
+            return sorted(found, key=order, reverse=True)
         page += 1
+
+
+def order(release):
+    match = VERSION.fullmatch(release['tag_name'])
+    return (1, tuple(map(int, match.groups())), '') if match else (0, (), release['published_at'])
 
 
 def asset(release, name, fetch=fetch):
@@ -105,6 +114,18 @@ def alpine_branch(root=ROOT):
     return re.search(r'^ALPINE_VERSION="([0-9]+\.[0-9]+)"', text, re.M)[1]
 
 
+def install_link(published):
+    """The newest image, for new cards: not every release carries one."""
+    for release in published:
+        image = next((a for a in release['assets'] if a['name'].endswith('.img.zip')), None)
+        if image:
+            sums = next(a for a in release['assets'] if a['name'] == 'SHA256SUMS')
+            return (f'\n<p>To install on a new SD card: <a href="{escape(image["browser_download_url"])}">'
+                    f'{escape(image["name"])}</a> (<a href="{escape(sums["browser_download_url"])}">SHA256SUMS</a>), '
+                    f'from release {escape(release["tag_name"])}. It updates itself to the current release.</p>')
+    return ''
+
+
 def assemble(output, published, keep, branch, keys, fetch=fetch):
     if not published:
         raise ValueError('No published release carries Packages.adb')
@@ -147,7 +168,7 @@ def assemble(output, published, keep, branch, keys, fetch=fetch):
 <p>APK repository of <a href="https://github.com/{REPOSITORY}">NanoKVM OS</a>, release {escape(newest['tag_name'])}.
 Devices use the line <code><a href="{line}">{line}</a></code> in
 <code>/etc/apk/repositories</code>; the <code>nanokvm-keys</code> package installs the signing keys.</p>
-<ul>{"".join(key_links)}</ul>
+<ul>{"".join(key_links)}</ul>{install_link(published)}
 ''')
     (output / '.nojekyll').write_text('')
     (output / MARKER).write_text(MARKER_CONTENT)
@@ -157,7 +178,7 @@ Devices use the line <code><a href="{line}">{line}</a></code> in
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--keep', type=int, default=3, help='releases whose packages stay available (default 3)')
+    parser.add_argument('--keep', type=int, default=6, help='releases whose packages stay available (default 6)')
     parser.add_argument('--repository', default=REPOSITORY)
     args = parser.parse_args()
     if args.keep < 1:

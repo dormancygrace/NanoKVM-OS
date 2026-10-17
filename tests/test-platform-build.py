@@ -157,6 +157,15 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     }
     assert (web / "server/web/fixture").exists(), "web package must own browser assets"
     assert not (app / "enhanced-stage-manifest.json").exists(), "obsolete stage manifest retained"
+    # The release button supplies versions without modifying release.env.
+    result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(out), "payloads"],
+                            env={**os.environ, "NANOKVM_VERSION": "v9.8.7"},
+                            capture_output=True, text=True)
+    expect(result, True, "workflow version overrides release.env")
+    assert (release / "kvmapp/version").read_text().strip() == "9.8.7"
+    assert 'VERSION="v9.8.7"' in (release / "etc/nanokvm-release").read_text()
+    assert json.loads(manifest_path.read_text()) == manifest
+    assert json.loads(web_manifest_path.read_text()) == web_manifest
     # Execute the installed file directly: this checks its shebang and mode as
     # well as its presence, without starting target binaries or touching /run.
     expect(subprocess.run([str(supervisor), "wait"], capture_output=True, text=True,

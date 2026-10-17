@@ -98,9 +98,11 @@ esac
 # Keep builds inside OUTPUT from finding an enclosing Git checkout.
 export GIT_CEILING_DIRECTORIES=$out
 
-version=$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")
+# The Release workflow sets the versions of a release; local builds read
+# firmware/alpine/release.env.
+version=${NANOKVM_VERSION:-$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")}
 # Official Alpine packages.
-image_version=$(sed -n 's/^NANOKVM_IMAGE_VERSION=//p' "$repo/firmware/alpine/release.env")
+image_version=${NANOKVM_IMAGE_VERSION:-$(sed -n 's/^NANOKVM_IMAGE_VERSION=//p' "$repo/firmware/alpine/release.env")}
 profile=stock
 release=7.2.10-nanokvm-os-r5
 # Fixed build times keep identical inputs reproducible. The kernel timestamp
@@ -1006,7 +1008,7 @@ previous_file() {
 # release with packages.json, every package gets the release version.
 package_versions() {
     local v=$b/build/versions apkver dir=$b/build/repo/stock/recipes/riscv64 file sum previous=()
-    apkver=$(sed -n 's/^NANOKVM_APK_VERSION=//p' "$repo/firmware/alpine/release.env")
+    apkver=${NANOKVM_APK_VERSION:-$(sed -n 's/^NANOKVM_APK_VERSION=//p' "$repo/firmware/alpine/release.env")}
     mkdir -p "$v"
     if [ -n "${NANOKVM_PREVIOUS:-}" ] && previous_file packages.json "$v/previous.json"; then
         previous=(--previous "$v/previous.json")

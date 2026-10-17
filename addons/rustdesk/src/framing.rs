@@ -496,6 +496,16 @@ mod tests {
             let mut writes = Writes::default();
             write_message(&mut writes, &message).await.unwrap();
             assert_eq!(writes.0.len(), 1, "size={size}");
+            // The RustDesk prefix: little-endian length << 2, low bits the
+            // prefix width minus one.
+            let length = message.encoded_len();
+            let (prefix, width) = match length {
+                0..=0x3f => (length << 2, 1),
+                0x40..=0x3fff => ((length << 2) | 1, 2),
+                0x4000..=0x3fffff => ((length << 2) | 2, 3),
+                _ => ((length << 2) | 3, 4),
+            };
+            assert_eq!(writes.0[0][..width], prefix.to_le_bytes()[..width]);
             let mut wire = writes.0[0].as_slice();
             let payload = super::read_payload(&mut wire, super::MAX_PACKET_LENGTH)
                 .await

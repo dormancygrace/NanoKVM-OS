@@ -26,7 +26,10 @@ import json
 import os
 import re
 import shutil
+import sys
 import tarfile
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -41,13 +44,26 @@ MARKER_CONTENT = 'NanoKVM APK repository assembler v1\n'
 PAGES_URL = 'https://dormancygrace.github.io/NanoKVM-OS'
 
 
-def fetch(url, accept='application/octet-stream'):
+RETRY_DELAYS = (5, 10, 20, 30, 60)
+RETRY_STATUS = {404, 429, 500, 502, 503, 504}
+
+
+def fetch(url, accept='application/octet-stream', sleep=time.sleep):
     headers = {'Accept': accept, 'User-Agent': 'nanokvm-apk-repo'}
     token = os.environ.get('GH_TOKEN')
     if token and url.startswith('https://api.github.com/'):
         headers['Authorization'] = 'Bearer ' + token
-    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=120) as response:
-        return response.read()
+    # The files of a release that was published a moment ago, which is what
+    # starts this script, can answer 404 for a while; so can a busy server.
+    for delay in (*RETRY_DELAYS, None):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=120) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            if delay is None or error.code not in RETRY_STATUS:
+                raise
+            print(f'{url}: HTTP {error.code}, retrying in {delay} s', file=sys.stderr)
+        sleep(delay)
 
 
 def releases(repository, fetch=fetch):

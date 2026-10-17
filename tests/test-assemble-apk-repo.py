@@ -222,8 +222,13 @@ class AssembleTests(unittest.TestCase):
         redirect = (self.out / 'latest-image/index.html').read_text()
         self.assertIn('url=https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.3.0', redirect)
         self.assertNotIn('/tag/v3.3.1', redirect)
-        # Publishing the next image advances both the badge and the destination.
+        # A prerelease image must not replace the stable image either.
         self.fake.list[-1]['draft'] = False
+        self.fake.list[-1]['prerelease'] = True
+        self.run_assemble(keep=1)
+        self.assertEqual(json.loads((self.out / 'latest-image/badge.json').read_text())['message'], 'v1.5')
+        # Publishing the next stable image advances both badge and destination.
+        self.fake.list[-1]['prerelease'] = False
         self.run_assemble(keep=1)
         self.assertEqual(json.loads((self.out / 'latest-image/badge.json').read_text())['message'], 'v1.6')
         self.assertIn('/tag/v3.4.0', (self.out / 'latest-image/index.html').read_text())

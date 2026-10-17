@@ -151,6 +151,8 @@ def image_badge(output, published):
     message, color = 'not available', 'lightgrey'
     target = f'https://github.com/{REPOSITORY}/releases'
     for release in published:
+        if release.get('prerelease'):
+            continue
         image = next((a for a in release['assets'] if re.fullmatch(
             r'NanoKVM-OS-Image-(v.+)-apps-v.+\.img\.zip', a['name'])), None)
         if image:

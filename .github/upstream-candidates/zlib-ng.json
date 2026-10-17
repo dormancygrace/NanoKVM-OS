@@ -1,0 +1,12 @@
+{
+  "component": "zlib-ng",
+  "current": "1ab945a841245634cc770b9c3d0e0150734ad013",
+  "candidate": "2.3.3 (12731092979c)",
+  "candidate_key": "2.3.3 (12731092979c)",
+  "status": "pending-review",
+  "upstream": "https://github.com/zlib-ng/zlib-ng/releases/tag/2.3.3",
+  "source_path": "platform/sources.lock",
+  "strategy": "git-pin",
+  "evidence": {},
+  "pin_files_updated": []
+}

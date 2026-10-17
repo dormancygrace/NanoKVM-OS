@@ -1,6 +1,6 @@
 # v3.2.0 / Image v1.4 validation
 
-This record covers the local release candidate based on main through PR #252.
+This record covers the published release based on main through PR #252.
 It does not claim a release-candidate installation or SD-image boot on hardware.
 
 ## Source and build checks
@@ -16,12 +16,17 @@ It does not claim a release-candidate installation or SD-image boot on hardware.
 
 ## Artifact validation
 
-Packaging uses the official RSA and ECDSA keys. Before publication, check the
-package versions/ownership and signatures, both repository indexes, manifests,
-source archive, image partition geometry and FAT/F2FS consistency. The prepared
-release's `build-manifest.json` records the completed artifact checks and exact
-source commit; `SHA256SUMS` identifies the assets. No private settings, SSH keys
-or optional add-ons belong in the image.
+The twelve core packages passed ownership/version and signature checks. Both
+repository indexes passed signature verification, including independent RSA
+and ECDSA verification of the v3 index. ZIP contents, partition hashes and
+geometry, FAT/F2FS checks and the embedded FIP identity all passed. All 2,433
+source-archive file hashes were verified; all 20 GitHub asset SHA-256 digests
+matched the local files. The dependency-solving dry run from the 3.1.0 package
+database to 3.2.0 succeeded without running package scripts.
+
+The release's `build-manifest.json` records these checks and source commit
+`fb75b43b9ac30857076196dcfbe04adbef8194b9`; `SHA256SUMS` identifies the assets.
+The image contains no private settings, SSH keys or optional add-ons.
 
 ## Hardware coverage and limits
 

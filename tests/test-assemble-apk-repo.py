@@ -273,5 +273,38 @@ class AssembleTests(unittest.TestCase):
         self.assertRegex(a.alpine_branch(), r'^\d+\.\d+$')
 
 
+class Fetch(unittest.TestCase):
+    """The files of a just-published release may answer 404 for a while."""
+
+    def responses(self, *answers):
+        def urlopen(request, timeout):
+            answer = next(answers_left)
+            if isinstance(answer, int):
+                raise a.urllib.error.HTTPError(request.full_url, answer, 'status', {}, None)
+            return io.BytesIO(answer)
+        answers_left = iter(answers)
+        return mock.patch.object(a.urllib.request, 'urlopen', urlopen)
+
+    def test_a_missing_file_is_retried_until_it_appears(self):
+        sleeps = []
+        with self.responses(404, 404, b'data'), mock.patch('sys.stderr', io.StringIO()):
+            self.assertEqual(a.fetch('https://example.invalid/x', sleep=sleeps.append), b'data')
+        self.assertEqual(sleeps, list(a.RETRY_DELAYS[:2]))
+
+    def test_a_file_that_stays_missing_fails_after_the_last_retry(self):
+        sleeps = []
+        with self.responses(*[404] * (len(a.RETRY_DELAYS) + 1)), mock.patch('sys.stderr', io.StringIO()):
+            with self.assertRaises(a.urllib.error.HTTPError):
+                a.fetch('https://example.invalid/x', sleep=sleeps.append)
+        self.assertEqual(sleeps, list(a.RETRY_DELAYS))
+
+    def test_other_errors_fail_at_once(self):
+        sleeps = []
+        with self.responses(403):
+            with self.assertRaises(a.urllib.error.HTTPError):
+                a.fetch('https://example.invalid/x', sleep=sleeps.append)
+        self.assertEqual(sleeps, [])
+
+
 if __name__ == '__main__':
     unittest.main()

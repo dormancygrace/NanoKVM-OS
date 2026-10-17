@@ -227,6 +227,20 @@ fn next_flush(grid: time::Instant, now: time::Instant) -> time::Instant {
     now + Duration::from_nanos((interval - into_frame) as u64)
 }
 
+// Keep a due timer ready until the pending batch is consumed. Other select
+// branches may finish after its deadline; they must not postpone that batch.
+fn arm_pending_flush(
+    mut timer: std::pin::Pin<&mut time::Sleep>,
+    grid: time::Instant,
+    pending: bool,
+    armed: &mut bool,
+) {
+    if pending && !*armed {
+        timer.as_mut().reset(next_flush(grid, time::Instant::now()));
+    }
+    *armed = pending;
+}
+
 fn take_relative_chunk(x: &mut i64, y: &mut i64) -> (i32, i32) {
     let chunk_x = (*x).clamp(-127, 127) as i32;
     let chunk_y = (*y).clamp(-127, 127) as i32;
@@ -644,13 +658,14 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         let flush_grid = time::Instant::now();
         let flush_timer = time::sleep_until(flush_grid + INPUT_FLUSH_INTERVAL);
         tokio::pin!(flush_timer);
+        let mut flush_armed = false;
         let result = loop {
-            if pending_move.is_some() {
-                let now = time::Instant::now();
-                if flush_timer.deadline() <= now {
-                    flush_timer.as_mut().reset(next_flush(flush_grid, now));
-                }
-            }
+            arm_pending_flush(
+                flush_timer.as_mut(),
+                flush_grid,
+                pending_move.is_some(),
+                &mut flush_armed,
+            );
             let event = tokio::select! {
                 event = input_receiver.recv() => event,
                 _ = heartbeat.tick() => {
@@ -658,6 +673,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                     continue;
                 },
                 _ = &mut flush_timer, if pending_move.is_some() => {
+                    flush_armed = false;
                     if let Some(movement) = pending_move.take() {
                         active=true;
                         if let Err(error) = movement.flush(&mut input).await {
@@ -702,6 +718,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                                 PendingPointerMove::Relative { template, .. } => template,
                             };
                             if let Err(event) = pending.merge(event) {
+                                flush_armed = false;
                                 if let Some(movement) = pending_move.take() {
                                     active = true;
                                     if let Err(error) = movement.flush(&mut input).await {
@@ -1410,6 +1427,40 @@ mod tests {
         assert!(limits.try_session("id:client-b".to_owned()).is_none());
         drop(second_path);
         assert!(limits.try_session("id:client-b".to_owned()).is_some());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn pointer_flush_stays_due_after_competing_work() {
+        let grid = time::Instant::now();
+        let timer = time::sleep_until(grid);
+        tokio::pin!(timer);
+        let mut armed = false;
+        super::arm_pending_flush(timer.as_mut(), grid, true, &mut armed);
+        let deadline = timer.deadline();
+        assert_eq!(deadline - grid, super::INPUT_FLUSH_INTERVAL);
+        // A heartbeat or another ready input branch held the worker past the
+        // frame boundary. Re-entering select must deliver this batch now.
+        time::advance(Duration::from_millis(20)).await;
+        super::arm_pending_flush(timer.as_mut(), grid, true, &mut armed);
+        assert_eq!(timer.deadline(), deadline);
+        time::timeout(Duration::ZERO, timer.as_mut()).await.unwrap();
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn pointer_flush_rearms_after_discard_or_consumption() {
+        let grid = time::Instant::now();
+        let timer = time::sleep_until(grid);
+        tokio::pin!(timer);
+        let mut armed = false;
+        for _ in 0..2 {
+            super::arm_pending_flush(timer.as_mut(), grid, false, &mut armed);
+            time::advance(Duration::from_millis(101)).await;
+            super::arm_pending_flush(timer.as_mut(), grid, true, &mut armed);
+            let delay = timer.deadline() - time::Instant::now();
+            assert!(delay > Duration::ZERO && delay <= super::INPUT_FLUSH_INTERVAL);
+            time::advance(delay).await;
+            timer.as_mut().await;
+        }
     }
 
     #[test]

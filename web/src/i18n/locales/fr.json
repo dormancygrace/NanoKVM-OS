@@ -1416,7 +1416,12 @@
         "password": "Mot de passe",
         "joinBtn": "Rejoindre",
         "confirmBtn": "OK",
-        "cancelBtn": "Annuler"
+        "cancelBtn": "Annuler",
+        "connection": {
+          "channel": "canal {{channel}}",
+          "speed": "{{speed}} Mbit/s",
+          "ip": "IP {{ip}}"
+        }
       },
       "tls": {
         "confirmEnable": "Activer HTTPS ?",

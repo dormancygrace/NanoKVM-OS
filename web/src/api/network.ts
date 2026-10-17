@@ -147,6 +147,18 @@ export type WifiStatus = {
   preferredBand: WifiBand;
   busy: boolean;
   error: string;
+  connection?: WifiConnection;
+};
+// The current association; a value the driver does not report is missing.
+export type WifiConnection = {
+  frequency: number;
+  channel?: number;
+  width?: string;
+  signal?: number;
+  linkSpeed?: number;
+  generation?: number;
+  keyMgmt?: string;
+  ip?: string;
 };
 export type WifiSecurity = 'wpa' | 'wpa-wpa2' | 'wpa2' | 'wpa3' | 'wpa2-wpa3' | 'open';
 export type WifiNetwork = {

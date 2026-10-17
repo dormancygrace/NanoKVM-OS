@@ -1416,7 +1416,12 @@
         "password": "Пароль",
         "joinBtn": "Подключить",
         "confirmBtn": "ОК",
-        "cancelBtn": "Отмена"
+        "cancelBtn": "Отмена",
+        "connection": {
+          "channel": "канал {{channel}}",
+          "speed": "{{speed}} Мбит/с",
+          "ip": "IP {{ip}}"
+        }
       },
       "tls": {
         "confirmEnable": "Включить HTTPS?",

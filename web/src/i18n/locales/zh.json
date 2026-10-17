@@ -1416,7 +1416,12 @@
         "password": "密码",
         "joinBtn": "加入",
         "confirmBtn": "确定",
-        "cancelBtn": "取消"
+        "cancelBtn": "取消",
+        "connection": {
+          "channel": "信道 {{channel}}",
+          "speed": "{{speed}} Mbps",
+          "ip": "IP {{ip}}"
+        }
       },
       "tls": {
         "confirmEnable": "开启 HTTPS？",

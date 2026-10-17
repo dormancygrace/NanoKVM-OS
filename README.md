@@ -110,7 +110,7 @@ ATX power/reset controls are available on supported boards. **Wake-on-LAN** incl
 | **[PicoClaw](https://github.com/sipeed/picoclaw)** | Install, update or remove the official latest RISC-V release from Software → Add-ons. Configure the model, API key and endpoint for remote-control or general-assistant use. Its navigation entry appears only while installed. |
 | **[acme.sh](https://github.com/acmesh-official/acme.sh)** | Install on demand from Software → Add-ons, then configure HTTPS certificates in Settings → Network. Issue and renew certificates through ACME using HTTP-01 or DNS-01 with supported DNS providers; renewed certificates take effect without restarting the service. |
 
-RustDesk can forward USB audio; its integration does not include clipboard, file transfer, terminal, chat or ATX control. Its [signed packages and corresponding sources](https://github.com/dormancygrace/NanoKVM-OS-packages/releases) are published separately from the base image.
+RustDesk can forward USB audio; its integration does not include clipboard, file transfer, terminal, chat or ATX control. Its [packages and corresponding sources](https://github.com/dormancygrace/NanoKVM-OS/releases?q=nanokvm-rustdesk) are published separately from the base image.
 
 PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM APK**. An **MCP endpoint** with enable/disable and API-key controls is also available under System for external AI clients.
 

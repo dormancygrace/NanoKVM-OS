@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """The package revision of the next RustDesk add-on release.
 
-Reads the tag names of every repository that published add-on releases on
-standard input, one per line, and prints the next revision for VERSION (the
-crate version): one more than the highest nanokvm-rustdesk-VERSION-rN tag, or
-0 for a version that has none.
+Reads the tag names of this repository on standard input, one per line, and
+prints the next revision for VERSION (the crate version): one more than the
+highest nanokvm-rustdesk-VERSION-rN tag, or 0 for a version that has none.
+For 0.5.3, this repository already has r6 after the archived
+NanoKVM-OS-packages repository's r5. New source versions start at zero;
+retired versions from the archive are not republished by this workflow.
 """
 import re
 import sys

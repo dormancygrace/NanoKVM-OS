@@ -16,9 +16,9 @@ from pathlib import Path
 
 
 # Add-on releases: this repository's nanokvm-rustdesk-* releases (the RustDesk
-# add-on workflow), and the separate packages repository that held them before.
-SOURCES = ('https://github.com/dormancygrace/NanoKVM-OS/releases/download/nanokvm-rustdesk-',
-           'https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/')
+# add-on workflow). No published release pins one from the archived
+# NanoKVM-OS-packages repository.
+SOURCES = ('https://github.com/dormancygrace/NanoKVM-OS/releases/download/nanokvm-rustdesk-',)
 
 
 def manifest(data):

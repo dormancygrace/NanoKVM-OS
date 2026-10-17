@@ -115,7 +115,7 @@ class AssembleTests(unittest.TestCase):
     def external_addon(self):
         name = 'nanokvm-rustdesk-0.5.3-r5.apk'
         data = b'signed optional APK'
-        url = 'https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/r5/' + name
+        url = 'https://github.com/dormancygrace/NanoKVM-OS/releases/download/nanokvm-rustdesk-0.5.3-r5/' + name
         item = {'url': url, 'sha256': hashlib.sha256(data).hexdigest(), 'size': len(data)}
         self.fake.files[url] = data
         self.fake.release('v4', '2026-04-01T00:00:00Z', [('nanokvm', '4-r0')], extra={
@@ -185,8 +185,10 @@ class AssembleTests(unittest.TestCase):
         main = 'https://github.com/dormancygrace/NanoKVM-OS/releases/download/nanokvm-rustdesk-0.5.3-r6/' + name
         self.assertIn(name, a.addon_packages.manifest(json.dumps({'packages': {name: {**item, 'url': main}}})))
         other_release = 'https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.3.0/' + name
+        old_repository = 'https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/r5/' + name
         for bad_name, bad_item in [('../evil.apk', item), (name, {**item, 'url': 'http://evil/evil.apk'}),
                                    (name, {**item, 'url': other_release}),
+                                   (name, {**item, 'url': old_repository}),
                                    (name, {**item, 'sha256': 'bad'}), (name, {**item, 'size': -1})]:
             with self.subTest(name=bad_name, item=bad_item):
                 with self.assertRaises(ValueError):

@@ -99,7 +99,7 @@ runner with the pinned compiler and the cached NanoKVM toolchain's musl linker,
 checks it, and publishes the release `nanokvm-rustdesk-VERSION-rN` in this
 repository: the APK, the corresponding source with the vendored crates, the
 production APKBUILD and SHA256SUMS. N is one more than the highest revision of
-VERSION, counting the releases of the former NanoKVM-OS-packages repository.
+VERSION in this repository's releases.
 The release is never the repository's latest; that is NanoKVM OS.
 
 Nothing is signed there. Devices trust the add-on through the signed index of a
@@ -127,7 +127,7 @@ minimum version); rustup is not required for those distribution builds.
 
 For an unsigned local test package from the repository root, with cargo,
 fakeroot, a riscv64 musl GCC and apk-tools 3 mkpkg available:
-fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/nanokvm-rustdesk-0.5.3-r0/nanokvm-rustdesk-0.5.3-source.tar.gz
+fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS/releases/download/nanokvm-rustdesk-VERSION-rN/nanokvm-rustdesk-VERSION-source.tar.gz
 
 The exported source can also cross-build directly without repository scripts:
 CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=/path/to/riscv64-linux-gcc cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl

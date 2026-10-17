@@ -360,7 +360,7 @@ dependencies = [
 
 [[package]]
 name = "nanokvm-rustdesk"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "base64",
  "blake2",

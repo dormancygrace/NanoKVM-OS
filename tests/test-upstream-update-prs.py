@@ -177,7 +177,7 @@ class ProposalTests(unittest.TestCase):
         collect.assert_called_once_with(cadence='quarterly')
 
     def test_generic_publisher_accepts_only_candidate_new_files(self):
-        plan = dict(latest='2.0', branch='codex/upstream-example-1234', title='review: example',
+        plan = dict(latest='2.0', branch='deps/upstream-example-1234', title='review: example',
                     body='A candidate, not an active dependency update.',
                     files={'.github/upstream-candidates/example.json': '{}\n'})
         responses = [[], {'object': {'sha': 'base'}}, [], {'tree': {'sha': 'parent'}},

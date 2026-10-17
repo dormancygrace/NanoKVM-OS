@@ -160,10 +160,11 @@ python3 gen_chacha_linux.py --binutils $B --check ../../../platform/kernel/0040-
 ```
 
 `linux-test/` is a module that carries the same assembly and glue, checks
-them against `chacha_block_generic()` and times them on the device. Results
-and the kernel-side selection are in `docs/kernel-chacha-xtheadvector-20261012.md`:
-81 MB/s for a 1420-byte WireGuard packet and 93 MB/s for 16 KiB, against 42
-for the generic kernel code.
+them against `chacha_block_generic()` and times them on the device: 81 MB/s
+for a 1420-byte WireGuard packet and 93 MB/s for 16 KiB, against 42 for the
+generic kernel code. Poly1305 stays scalar: at 211-249 MB/s it is not the
+limit, and a 64-bit vector datapath multiplies no faster than scalar
+`mul`/`mulhu`.
 
 ## GHASH in the Linux kernel
 
@@ -185,8 +186,7 @@ python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platfo
 ```
 
 `linux-test/ghash_c906_test.c` carries the same assembly and key preparation
-and checks them on the device. Results are in
-`docs/kernel-ghash-c906-20261012.md`: 27-29 MB/s for the scalar function and
+and checks them on the device: 27-29 MB/s for the scalar function and
 42-53 MB/s for the vector one, against 14-15 for the kernel's generic GHASH,
 which limits `gcm(aes)` on the SG2002.
 

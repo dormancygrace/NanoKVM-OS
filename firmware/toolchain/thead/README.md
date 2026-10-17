@@ -33,8 +33,7 @@ reported as automatic vectorization.
 That loop restriction does not exclude vector lowering of compiler built-ins.
 The later `-O2` cryptodev comparison binary contains compiler-generated
 XTheadVector string comparison and buffer-copy sequences in `main`; those paths
-executed successfully on C906 on both kernels. See the
-[disassembly and runtime evidence](../../../docs/VALIDATION.md).
+executed successfully on C906 on both kernels.
 This is separate from loop auto-vectorization and does not reclassify every
 ambiguous vector mnemonic in a mixed Go/C binary.
 
@@ -62,7 +61,3 @@ faulting instruction and exception-table semantics are retained.
 Sources: [GCC constraints](https://gcc.gnu.org/onlinedocs/gcc/Machine-Constraints.html),
 [GCC's XTheadMemIdx inline-assembly issue](https://gcc.gnu.org/pipermail/gcc-patches/2023-December/639406.html),
 [T-Head extension specifications](https://github.com/XUANTIE-RV/thead-extension-spec).
-
-## Device results
-
-The [2026-09-10 qualification](../../../docs/VALIDATION.md) records actual boot, shipped instruction hashes, paired software speeds, DMA counter proof and the limits of browser qualification.

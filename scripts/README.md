@@ -30,15 +30,10 @@ separately. The main entry points are:
 | Script | Purpose |
 |---|---|
 | build-alpine-packages.sh | Build the signed NanoKVM APK repository from exported payloads. |
-| build-alpine-tuned-packages.sh | Build the signed seven-package C906 scalar overlay. |
-| qualify-alpine-c906-repo.py | Filter the built C906 overlay to the production-qualified families and regenerate signed APKINDEX.tar.gz and Packages.adb. |
 | build-alpine-update-bundle.sh | Package a root and normal FIT into the tested recovery bundle. |
 | build-alpine-recovery-fit.py | Build recovery bound to the root and normal-FIT hashes. |
-| benchmark-alpine-c906.sh | Capture timings, identity and correctness evidence. |
-| summarize-alpine-benchmarks.py | Compare the two raw timing directories. |
 
-See firmware/alpine/README.md for architecture and the physical recovery path,
-and firmware/alpine/tuning/README.md for compiler policy.
+See firmware/alpine/README.md for architecture and the physical recovery path.
 
 ## Make targets
 

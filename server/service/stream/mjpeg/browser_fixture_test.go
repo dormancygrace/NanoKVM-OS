@@ -18,7 +18,7 @@ import (
 func TestMjpegPaintBrowserFixture(t *testing.T) {
 	addr := os.Getenv("NANOKVM_MJPEG_FIXTURE_ADDR")
 	if addr == "" {
-		t.Skip("set NANOKVM_MJPEG_FIXTURE_ADDR=127.0.0.1:port for Chrome Main QA")
+		t.Skip("set NANOKVM_MJPEG_FIXTURE_ADDR=127.0.0.1:port for browser QA")
 	}
 	if addr != "127.0.0.1:18747" {
 		t.Fatal("fixture must use its dedicated loopback address")
@@ -95,7 +95,7 @@ document.getElementById('start').onclick=()=>{
 			return
 		}
 	})
-	t.Log("Chrome Main fixture at http://" + addr)
+	t.Log("Browser fixture at http://" + addr)
 	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 3 * time.Second}
 	t.Fatal(server.ListenAndServe())
 }

@@ -24,15 +24,14 @@ on missing handshakes is provided; Idle alone does not establish tunnel failure.
 ## OpenVPN
 
 Upload `.ovpn` files with any referenced certificate/key files in the same
-selection. The GUI uses OpenVPN 3 Core 3.12-dev pinned at
-`87fd40bb583cc89787c0bf4da79744f0e6d02ac3`, with the upstream Linux `ovpn` DCO ABI.
+selection. The GUI runs Alpine's OpenVPN 2 client (`openvpn`), installed from
+VPN settings, and shows whether a tunnel uses the kernel's data-channel offload.
 Enter requested username/password or private-key passphrase through the profile
 controls. Routed TUN profiles are supported; TAP, executable scripts and
 interactive SSO/MFA are not. Server DNS applies to the whole device while
 connected and is restored on disconnect. Arbitrary providers are not guaranteed
-compatible. The system OpenVPN 2 command-line tool is separate from the GUI.
+compatible.
 
 ## Tailscale
 
 Open the Tailscale submenu to use its existing installation/login controls.
-Tailscale account login was not part of this release's VPN validation.

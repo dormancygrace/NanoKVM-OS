@@ -6,9 +6,8 @@
 #     ./scripts/build-alpine-packages.sh stock
 #
 # The payload tree is prepared by the NanoKVM image staging step. It may either
-# contain package directories directly or contain one directory per profile:
+# contain package directories directly or below the profile directory:
 #   PAYLOAD_ROOT/stock/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,bootloader-sg2002,app,web,zlib,exfatprogs,i2c-tools,release}
-#   PAYLOAD_ROOT/c906-scalar/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,bootloader-sg2002,app,web,zlib,exfatprogs,i2c-tools,release}
 # Without keys/, nanokvm-keys holds firmware/alpine/keys; without release/,
 # a release marker is generated.
 #
@@ -19,7 +18,7 @@ set -eu
 
 usage() {
 	cat >&2 <<'EOF'
-usage: build-alpine-packages.sh [stock|c906-scalar]
+usage: build-alpine-packages.sh [stock]
 
 Environment:
   PAYLOAD_ROOT  payload tree (default: work/alpine/payloads)
@@ -33,7 +32,7 @@ EOF
 
 PROFILE=${1:-stock}
 case "$PROFILE" in
-	stock|c906-scalar) ;;
+	stock) ;;
 	-h|--help) usage; exit 0 ;;
 	*) usage; exit 2 ;;
 esac

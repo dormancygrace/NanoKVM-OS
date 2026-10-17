@@ -37,12 +37,5 @@ NANOKVM_SYSROOT=/absolute/image/root nanokvm-wifi-tx-policy normal
 The base package installs the tool (platform/packages.list). It does not select
 `normal` automatically. The compatibility/vendor init script remains unchanged.
 
-Qualification: repeated live temporary scheduling trials showed improvement
-for encrypted H.264, including approximately30 FPS at10 Mb/s for one client and
-55.9 RTP marker FPS/client at5 Mb/s for two. The helper's configuration lifecycle
-and actual device BusyBox `modprobe -D` parsing were tested, with the profile
-removed afterward. A full boot/module-startup test with the option still needs
-qualification on the release image. Do not treat the parser
-test as a successful reboot or browser-decoding test.
-
-See [qualification and remaining limits](../../../docs/VALIDATION.md).
+In live trials `normal` raised encrypted H.264 over Wi-Fi to about 30 FPS at
+10 Mb/s for one viewer. A full boot with the option set is not yet tested.

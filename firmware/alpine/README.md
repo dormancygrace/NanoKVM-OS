@@ -39,9 +39,8 @@ read-write and stores a fresh archive of the old `/etc/kvm`; after extraction it
 restores those settings with their ownership and modes onto F2FS. p3 is then
 mounted read-write at `/data` with `nosuid`, `nodev` and `noexec`. It has no
 rollback or A/B state.
-The complete path, including the following normal reboot, passed on the physical
-device; exact hashes and logs are under
-`firmware/alpine/evidence/2026-09-19-recovery`.
+The complete path, including the following normal reboot, has been tested on
+a device.
 
 
 Build all update payloads from a prepared Alpine root in one command:
@@ -97,10 +96,6 @@ the line when `apk list --orphaned` shows no installed package that only
 them, and while an index cannot be read (apk then warns and reports every
 package as orphaned). `/etc/kvm/apk-community.chosen` records that the decision
 is made, by the server or by the user, and it is not made again.
-
-The experimental `c906-scalar` profile and its recipes, qualification tools and
-benchmark evidence are retained under `tuning/`. Its repository is only used
-when explicitly requested; it is not required to build or run a stock image.
 
 Tailscale and NetBird come from the stable Alpine `community` repository,
 OpenVPN from `main`. They are optional and absent from the default
@@ -261,50 +256,7 @@ rootfs replacement, backup copies or permanent update wrapper are involved.
 Subsequent updates use ordinary `apk update` / `apk upgrade`. Do not run an
 unrestricted `apk upgrade --available` against a partial set of repositories.
 
-## Stock and tuned builds
-
-The stock image uses official Alpine package binaries plus the same NanoKVM
-kernel, DTB, modules, firmware and application payload as the tuned image.
-
-The retained experimental tuning target is scalar C906 code with the existing `lp64d`
-ABI:
-
-```
--O2
--march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov
-       _xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx
-       _xtheadmempair_xtheadsync
--mtune=thead-c906
--mno-fence-tso
--mabi=lp64d
-```
-
-`xtheadvector` is tested separately in selected leaf functions. It is not
-enabled globally: C906 XTheadVector follows the legacy 0.7.1 model and is
-incompatible with standard RVV 1.0 code.
-
 ## Development staging commands
-
-For the pre-install development path, stage Alpine below the running NanoKVM
-root at `/mnt/alpine-test`:
-
-```sh
-PORT_DIR=/tmp/nanokvm-alpine-port \
-  ./scripts/stage-alpine-rootfs.sh
-```
-
-Build the manual test FIT:
-
-```sh
-./scripts/build-alpine-probe-fit.py
-```
-
-Load it from U-Boot over UART:
-
-```
-fatload mmc 0:1 0x81800000 boot-alpine-test.sd
-bootm 0x81800000#config-sg2002_licheervnano_sd_minimal
-```
 
 The package payloads come from the `payloads` step of `platform/build.sh`,
 which writes `OUTPUT/payloads` from `platform/packages.list`. To build a

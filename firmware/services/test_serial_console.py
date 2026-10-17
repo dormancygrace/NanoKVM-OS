@@ -274,7 +274,7 @@ class ScriptTest(unittest.TestCase):
                 r = self.assertReadOnly(h, SHELLS[0], 'status', code=2)
 
     def test_missing_cdc_acm_hints(self):
-        # seen on the Proxmox matrix: Ubuntu cloud images lack linux-modules-extra,
+        # seen on Proxmox VE guests: Ubuntu cloud images lack linux-modules-extra,
         # Debian genericcloud images run a cloud kernel without USB drivers
         r = self.host(cdc=None, os_release='ID=ubuntu\nPRETTY_NAME="Ubuntu 24.04.5 LTS"\n').run(SHELLS[0])
         self.assertEqual(r.returncode, 2)
@@ -320,7 +320,7 @@ class ScriptTest(unittest.TestCase):
         self.assertEqual((h.root / 'etc/udev/rules.d/90-nanokvm-serial-console.rules').read_text(), 'ATTRS{serial}=="old"\n')
 
     def test_a_login_set_up_by_hand_is_left_alone(self):
-        # the Proxmox host on 2026-10-11: the rule from the docs, under another
+        # a host set up by hand: the rule from the docs, under another
         # name, and its getty running (systemd keeps the invocation link)
         h = self.host()
         (h.root / 'etc/udev/rules.d').mkdir(parents=True)

@@ -16,10 +16,6 @@ RustDesk remains a separate optional `nanokvm-rustdesk` APK. It is absent from t
 
 The acme.sh card in Software > Add-ons uses the same optional installer as Network settings. Its settings shortcut opens the existing HTTPS/ACME controls; it does not install anything or change certificates by itself.
 
-## Verification
-
-Go tests cover default-off behavior, invalid times, preservation of unrelated cron entries, idempotent saves, disabling while retaining the selected time, command failures, and an index refresh that calls only `apk update`. Frontend type/lint checks and translation-key checks cover the new controls. Actual cron execution and repository discovery must additionally be verified on Alpine.
-
 ## Explicit RustDesk upgrades
 
 The Update button uses `apk add --upgrade nanokvm-rustdesk`. Older

@@ -6,7 +6,7 @@
 - the board tools, the EDID profiles and the firmware files;
 - the thirteen `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
-Every upstream input is pinned in `sources.lock` and checked when it is downloaded. Two builds of the same tree give identical outputs, and CI lists the outputs that each change alters (see [Verification](#verification)). The OpenSBI/FIP candidate passed host checks and ROM UART RAM boot on SG2002 with Linux 7.2.9, timer/PLIC, fixed PMU counters and live video. The full image installs the built `fip.bin` on the SD card; the test stand cold-boots from it (see [opensbi/README.md](opensbi/README.md)).
+Every upstream input is pinned in `sources.lock` and checked when it is downloaded. Two builds of the same tree give identical outputs, and CI lists the outputs that each change alters (see [Verification](#verification)). The full image and the `nanokvm-bootloader-sg2002` package install the built `fip.bin` (see [opensbi/README.md](opensbi/README.md)).
 
 | Output | Shipped in |
 |---|---|
@@ -206,7 +206,7 @@ The standard build and `nanokvm` ship the complete six-library HDMI-light bundle
 
 APK owns the old MPI library paths and removes files no longer shipped when upgrading `nanokvm`; the existing transaction hook restarts the application after the update. Do not overlay individual libraries in a running process or retain old MPI DSOs alongside the new set. Native license notices are included in the application package.
 
-See the [build description](../docs/hdmi-light-experiment-20261011.md) and [scoped hardware measurements](../docs/hdmi-light-hardware-20261011.md): about 0.63 MiB lower server PSS in the measured mode, no demonstrated CPU improvement; wider hardware qualification remains outstanding.
+Measured on a NanoKVM PCIe: about 0.63 MiB lower server PSS, no demonstrated CPU improvement.
 
 
 ### Application package split

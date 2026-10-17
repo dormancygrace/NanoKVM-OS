@@ -7,7 +7,7 @@ import (
 )
 
 // Parameter sets as the SG2002 encoder emits them in SmartP at 2560x1440
-// (captured from the stand), and the rewrite that Chrome's hardware decoder
+// (captured from a NanoKVM), and the rewrite that Chrome's hardware decoder
 // accepted on the same capture (170 of 170 frames instead of an error at the
 // first background frame).
 const (

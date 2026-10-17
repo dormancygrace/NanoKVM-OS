@@ -30,6 +30,7 @@ const RENDEZVOUS_PORT: u16 = 21116;
 const RELAY_PORT: u16 = 21117;
 const REGISTER_INTERVAL: Duration = Duration::from_secs(20);
 const RETRY_INTERVAL: Duration = Duration::from_secs(3);
+const MAX_RETRY_INTERVAL: Duration = Duration::from_secs(60);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(8);
 
 pub async fn run(
@@ -40,7 +41,12 @@ pub async fn run(
     limits: server::ClientLimits,
 ) -> io::Result<()> {
     let webrtc = crate::webrtc::Manager::default();
+    // An unreachable ID server (no network, wrong name) is retried with a
+    // growing delay, and the same failure is logged once, not every retry.
+    let mut delay = RETRY_INTERVAL;
+    let mut last_error = String::new();
     loop {
+        let started = time::Instant::now();
         let result = run_once(
             Arc::clone(&config),
             Arc::clone(&onekvm_identity),
@@ -53,16 +59,26 @@ pub async fn run(
         if *shutdown.borrow() {
             return Ok(());
         }
+        // A connection that lasted counts as recovered: start over.
+        if started.elapsed() >= MAX_RETRY_INTERVAL {
+            delay = RETRY_INTERVAL;
+            last_error.clear();
+        }
         if let Err(error) = result {
-            eprintln!(
-                "RustDesk ID server {}: {error}; retrying",
-                config.rendezvous_server
-            );
+            let error = error.to_string();
+            if error != last_error {
+                eprintln!(
+                    "RustDesk ID server {}: {error}; retrying",
+                    config.rendezvous_server
+                );
+                last_error = error;
+            }
         }
         tokio::select! {
-            _ = time::sleep(RETRY_INTERVAL) => {}
+            _ = time::sleep(delay) => {}
             _ = shutdown.changed() => return Ok(()),
         }
+        delay = (delay * 2).min(MAX_RETRY_INTERVAL);
     }
 }
 
@@ -88,6 +104,7 @@ async fn run_once(
     socket.connect(remote).await?;
     crate::status::disconnected();
     let mut registered = false;
+    let mut rejection = String::new();
     let mut last_ack = time::Instant::now();
     let mut timer = time::interval(RETRY_INTERVAL);
     timer.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
@@ -131,6 +148,7 @@ async fn run_once(
                                     eprintln!("RustDesk ID {} registered with {hbbs}", rustdesk_identity.id);
                                 }
                                 registered = true;
+                                rejection.clear();
                                 last_ack = time::Instant::now();
                                 crate::status::registered();
                                 timer = time::interval(REGISTER_INTERVAL);
@@ -138,7 +156,12 @@ async fn run_once(
                             result => {
                                 registered = false;
                                 crate::status::disconnected();
-                                eprintln!("RustDesk ID registration rejected by {hbbs}: {result:?}");
+                                // Every retry gets the same answer; log it once.
+                                let reason = format!("{result:?}");
+                                if reason != rejection {
+                                    eprintln!("RustDesk ID registration rejected by {hbbs}: {reason}");
+                                    rejection = reason;
+                                }
                             }
                         }
                     }

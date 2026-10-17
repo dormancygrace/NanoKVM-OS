@@ -14,7 +14,7 @@ use crypto_box::{
 use rand::{distr::Alphanumeric, RngExt};
 use sha2::{Digest, Sha256};
 use tokio::{
-    io::{AsyncRead, AsyncWrite},
+    io::{AsyncRead, AsyncWrite, BufReader},
     net::{TcpListener, TcpStream, UnixStream},
     sync::{mpsc, watch, OwnedSemaphorePermit, Semaphore},
     task::JoinSet,
@@ -23,7 +23,10 @@ use tokio::{
 
 use crate::{
     config::Config,
-    framing::{read_message, write_message, FrameReader, FrameWriter, SessionKey},
+    framing::{
+        read_message_within, write_message, FrameReader, FrameWriter, SessionKey,
+        MAX_LOGIN_PACKET_LENGTH, MAX_PACKET_LENGTH,
+    },
     identity::RustDeskIdentity,
     input::InputState,
     onekvm::{self, Codec, HidClient, Identity, MediaFrame, MediaSubscriber, VideoInfo},
@@ -41,6 +44,9 @@ const LOGIN_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_PASSWORD_ATTEMPTS: usize = 5;
 const MEDIA_TIMEOUT: Duration = Duration::from_secs(5);
 const INPUT_FLUSH_INTERVAL: Duration = Duration::from_millis(16);
+// A connected viewer keeps its temporary-password reconnect grace alive;
+// refreshing it once a second is plenty for a 30 s grace.
+const SESSION_TOUCH_INTERVAL: Duration = Duration::from_secs(1);
 const MOUSE_TYPE_MASK: i32 = 0x07;
 const MOUSE_TYPE_MOVE: i32 = 0;
 const MOUSE_TYPE_MOVE_RELATIVE: i32 = 5;
@@ -213,6 +219,14 @@ impl PendingPointerMove {
     }
 }
 
+// The first INPUT_FLUSH_INTERVAL boundary after `now` on the grid that
+// starts at `grid`.
+fn next_flush(grid: time::Instant, now: time::Instant) -> time::Instant {
+    let interval = INPUT_FLUSH_INTERVAL.as_nanos();
+    let into_frame = now.saturating_duration_since(grid).as_nanos() % interval;
+    now + Duration::from_nanos((interval - into_frame) as u64)
+}
+
 fn take_relative_chunk(x: &mut i64, y: &mut i64) -> (i32, i32) {
     let chunk_x = (*x).clamp(-127, 127) as i32;
     let chunk_y = (*y).clamp(-127, 127) as i32;
@@ -270,12 +284,26 @@ pub async fn run(
 
     let _status_guard = crate::status::Guard;
     let mut status_tick = time::interval(Duration::from_secs(2));
+    // The status file only feeds the web UI. A failed write must not stop the
+    // endpoint; it is logged once per kind of failure, not every tick.
+    let mut status_error: Option<io::ErrorKind> = None;
     eprintln!("RustDesk direct-IP endpoint listening on {address}");
     loop {
         tokio::select! {
             _ = status_tick.tick() => {
                 let count = limits.sessions.lock().unwrap_or_else(|p| p.into_inner()).clients.len();
-                crate::status::write(&rustdesk_identity.id, count)?;
+                match crate::status::write(&rustdesk_identity.id, count) {
+                    Ok(()) => {
+                        if status_error.take().is_some() {
+                            eprintln!("RustDesk status file is written again");
+                        }
+                    }
+                    Err(error) => {
+                        if status_error.replace(error.kind()) != Some(error.kind()) {
+                            eprintln!("RustDesk status file not written: {error}");
+                        }
+                    }
+                }
             }
             signal = shutdown_signal() => {
                 signal?;
@@ -405,7 +433,11 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         None => None,
     };
     let (reader, writer) = tokio::io::split(stream);
-    let mut reader = FrameReader::new(reader, session_key.clone());
+    // Viewer input arrives as many small packets; the buffer reads a length
+    // prefix and its payload, often several packets, in one call. Large
+    // packets bypass it.
+    let mut reader = FrameReader::new(BufReader::new(reader), session_key.clone());
+    reader.set_max_length(MAX_LOGIN_PACKET_LENGTH);
     let mut writer = FrameWriter::new(writer, session_key);
     let hash = Hash {
         salt: rustdesk_identity.password_salt.clone(),
@@ -498,6 +530,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             return Ok(());
         }
     };
+    reader.set_max_length(MAX_PACKET_LENGTH);
 
     let video_info = time::timeout(
         MEDIA_TIMEOUT,
@@ -603,22 +636,28 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         let mut pending_move: Option<PendingPointerMove> = None;
         // A fixed cadence mirrors requestAnimationFrame more closely than
         // sleeping 16 ms after the first event: movement waits only until the
-        // next frame boundary (about 8 ms on average), not a full frame.
+        // next frame boundary (about 8 ms on average), not a full frame. The
+        // timer is armed only while movement is pending, so an idle session
+        // does not wake every frame.
         let mut heartbeat = time::interval(Duration::from_secs(2));
         heartbeat.tick().await;
-        let mut flush_tick = time::interval_at(
-            time::Instant::now() + INPUT_FLUSH_INTERVAL,
-            INPUT_FLUSH_INTERVAL,
-        );
-        flush_tick.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+        let flush_grid = time::Instant::now();
+        let flush_timer = time::sleep_until(flush_grid + INPUT_FLUSH_INTERVAL);
+        tokio::pin!(flush_timer);
         let result = loop {
+            if pending_move.is_some() {
+                let now = time::Instant::now();
+                if flush_timer.deadline() <= now {
+                    flush_timer.as_mut().reset(next_flush(flush_grid, now));
+                }
+            }
             let event = tokio::select! {
                 event = input_receiver.recv() => event,
                 _ = heartbeat.tick() => {
                     if enabled { active=true; if let Err(error) = input.heartbeat().await { break Err(error); } }
                     continue;
                 },
-                _ = flush_tick.tick() => {
+                _ = &mut flush_timer, if pending_move.is_some() => {
                     if let Some(movement) = pending_move.take() {
                         active=true;
                         if let Err(error) = movement.flush(&mut input).await {
@@ -738,9 +777,11 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let (audio_task, mut audio_state) =
         crate::audio::start(config.audio_socket.clone(), can_audio, audio_setting);
     let incoming_limits = limits.clone();
-    let incoming_login = login.clone();
+    let incoming_session = crate::auth::Credentials::session(&login);
     let incoming_task = tokio::spawn(async move {
         let mut enabled = input_allowed;
+        // Admission has just refreshed the reconnect grace.
+        let mut last_touch = time::Instant::now();
         loop {
             // A stalled/half-open peer releases HID and its viewer slot. The
             // whole stream ends on timeout, so partial reads are never reused.
@@ -749,14 +790,17 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 .unwrap_or_else(|_| {
                     Err(io::Error::new(io::ErrorKind::TimedOut, "peer idle timeout"))
                 });
-            if message.is_ok() {
-                if let Some(credentials) = incoming_limits
-                    .credentials
-                    .lock()
-                    .unwrap_or_else(|p| p.into_inner())
-                    .as_mut()
-                {
-                    credentials.touch(&incoming_login);
+            if let Some(session) = incoming_session.as_ref() {
+                if message.is_ok() && last_touch.elapsed() >= SESSION_TOUCH_INTERVAL {
+                    last_touch = time::Instant::now();
+                    if let Some(credentials) = incoming_limits
+                        .credentials
+                        .lock()
+                        .unwrap_or_else(|p| p.into_inner())
+                        .as_mut()
+                    {
+                        credentials.touch(session);
+                    }
                 }
             }
             match message {
@@ -1111,7 +1155,10 @@ async fn identity_handshake<S: AsyncRead + AsyncWrite + Unpin>(
     )
     .await?;
 
-    let response: Message = time::timeout(LOGIN_TIMEOUT, read_message(stream))
+    let response: Message = time::timeout(
+        LOGIN_TIMEOUT,
+        read_message_within(stream, MAX_LOGIN_PACKET_LENGTH),
+    )
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "secure handshake timed out"))??;
     let Some(message::Union::PublicKey(public_key)) = response.union else {

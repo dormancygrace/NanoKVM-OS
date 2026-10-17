@@ -22,7 +22,10 @@ build() {
         --target riscv64-alpine-linux-musl
 }
 check() {
-    cargo test --locked --offline
+    # The same settings as build(); an explicit target keeps the static CRT
+    # flag away from proc-macros, which cannot be linked statically.
+    cargo --config "$srcdir/$pkgname-c906.toml" test --locked --offline \
+        --target riscv64-alpine-linux-musl
 }
 package() {
     install -Dm755 target/riscv64-alpine-linux-musl/release/nanokvm-rustdesk "$pkgdir/usr/bin/nanokvm-rustdesk"
@@ -37,4 +40,4 @@ package() {
 
 sha512sums="bf010b3cea105d6d20bee64ff195c9274f7344f0f784a23bf2ce28b5f336cba91048236c389cad516a681e6bdbf50bcc98bee2a3c95a349b55aea7bd61e48a98  nanokvm-rustdesk-0.5.3-source.tar.gz
 56ccd6558b9a5f58ac62aac11a16ab8647343bb206cacb05b5082289382841c89426e654cd6bcdb5378e0395d58905d1ce939d1a44ad4c7a485d8745e4508a1a  nanokvm-rustdesk.initd
-daf2883b86ff066fc555eb06fcc7814403545c2e5272cab4f1cdbf16ad64883a39e0c8fa6b28a5dcec6d7ca562eab55c2790897a81061564446594c73aaf88b3  nanokvm-rustdesk-c906.toml"
+9a4bd23459b892e1adf2ac3710fb525123136eee5396aa6261063ab55f5ec99ea42490dbc8856fc789e499d1de4dd1dd68cf9c4cfd7dcc30a88aab66f98117fa  nanokvm-rustdesk-c906.toml"

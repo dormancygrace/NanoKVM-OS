@@ -129,6 +129,9 @@ jobs:
           du -sh "$OUT" "$OUT"/* 2>/dev/null | sort -h | tail -8
           df -h /
 
+      - name: Check exfat output
+        run: python3 tests/test-exfatprogs-output.py --images "$OUT/images"
+
       - name: Hashes
         run: platform/build.sh -o "$OUT" hashes
 

@@ -627,10 +627,13 @@ tools() {
     i2c=$(lock i2c-tools | awk '{ print $2 }'); i2c=${i2c##*/}
     tar -xJf "$dl/$exf" -C "$t"
     exf=$t/${exf%.tar.xz} i2c=$t/${i2c%.tar.gz}
+    # Link the SONAME directly: libtool's libblkid.la injects an absolute
+    # sysroot RPATH. Removing its tag later leaves the path in .dynstr and
+    # makes mkfs.exfat differ between hosts even after stripping.
     (cd "$exf" &&
         ./configure --host=riscv64-buildroot-linux-musl --prefix=/usr CC="${cross}gcc" AR="${cross}ar" \
             RANLIB="${cross}ranlib" STRIP="${cross}strip" PKG_CONFIG="$host/pkg-config" \
-            CFLAGS="${cpu_flags[*]} -g0" > "$t/exfatprogs-configure.log" &&
+            BLKID_LIBS="-l:libblkid.so.1" CFLAGS="${cpu_flags[*]} -g0" > "$t/exfatprogs-configure.log" &&
         make -j"$jobs" > "$t/exfatprogs-make.log")
     mkdir -p "$img/tools/exfatprogs" "$img/tools/i2c-tools"
     for b in mkfs/mkfs.exfat fsck/fsck.exfat tune/tune.exfat label/exfatlabel dump/dump.exfat exfat2img/exfat2img; do

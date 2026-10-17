@@ -1423,7 +1423,12 @@
         "password": "パスワード",
         "joinBtn": "接続",
         "confirmBtn": "OK",
-        "cancelBtn": "キャンセル"
+        "cancelBtn": "キャンセル",
+        "connection": {
+          "channel": "チャンネル {{channel}}",
+          "speed": "{{speed}} Mbps",
+          "ip": "IP {{ip}}"
+        }
       },
       "tls": {
         "confirmEnable": "HTTPS をオンにしますか？",

@@ -9,10 +9,45 @@ import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { confirmAction } from '@/components/ui/confirm.ts';
 import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
+import { WifiBandTag } from './wifi-band';
 import { groupWifiNetworks, type WifiGroup } from './wifi-networks';
 import { WifiSignal } from './wifi-signal';
 
 type Pending = { until: number; enabled?: boolean; ssid?: string };
+
+// wpa_supplicant's key management of the association, as users know it.
+function keyMgmtLabel(keyMgmt: string, open: string) {
+  if (/SAE/.test(keyMgmt)) return 'WPA3';
+  if (/^(WPA2-|FT-PSK)/.test(keyMgmt)) return 'WPA2';
+  if (keyMgmt === 'WPA-PSK') return 'WPA';
+  if (keyMgmt === 'NONE') return open;
+  if (/EAP|802\.1X/.test(keyMgmt)) return '802.1X';
+  return keyMgmt;
+}
+
+// Channel, signal, rate and address of the current Wi-Fi connection; its
+// band is tagged next to the network name.
+const ConnectionDetails = ({ connection: c }: { connection: api.WifiConnection }) => {
+  const { t } = useTranslation();
+  const join = (parts: (string | false | undefined)[]) => parts.filter(Boolean).join(' · ');
+  const radio = join([
+    !!c.channel && t('settings.network.wifi.connection.channel', { channel: c.channel }),
+    c.width,
+    !!c.generation && `Wi-Fi ${c.generation}`
+  ]);
+  const link = join([
+    c.signal !== undefined && `${c.signal} dBm`,
+    !!c.linkSpeed && t('settings.network.wifi.connection.speed', { speed: c.linkSpeed }),
+    !!c.keyMgmt && keyMgmtLabel(c.keyMgmt, t('settings.network.wifi.open'))
+  ]);
+  return (
+    <div className="text-fg-muted space-y-1 text-xs">
+      {radio && <div>{radio}</div>}
+      {link && <div>{link}</div>}
+      {c.ip && <div>{t('settings.network.wifi.connection.ip', { ip: c.ip })}</div>}
+    </div>
+  );
+};
 
 // Failures of a radio operation that only the status poll can detect.
 function notifyFailure(key: 'operationFailed' | 'connectionTimeout') {
@@ -255,9 +290,15 @@ export const Wifi = () => {
             ) : state.apMode ? (
               tr('apMode')
             ) : state.connected && enabled ? (
-              <StatusBadge tone="success">
-                <span className="break-words">{state.ssid}</span>
-              </StatusBadge>
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge tone="success">
+                    <span className="break-words">{state.ssid}</span>
+                  </StatusBadge>
+                  {state.band && <WifiBandTag band={state.band} />}
+                </div>
+                {state.connection && <ConnectionDetails connection={state.connection} />}
+              </div>
             ) : enabled ? (
               tr('description')
             ) : (
@@ -335,9 +376,9 @@ export const Wifi = () => {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 text-sm">
                         <span className="break-all">{network.ssid}</span>
-                        <span className="border-line text-fg-muted rounded border px-1.5 py-0.5 text-xs">
-                          {network.bands.join(' / ')} GHz
-                        </span>
+                        {network.bands.map((band) => (
+                          <WifiBandTag key={band} band={band} />
+                        ))}
                       </div>
                       <div className="text-fg-muted text-xs">
                         {Array.from(

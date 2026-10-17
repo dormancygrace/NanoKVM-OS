@@ -390,6 +390,7 @@ func (w radioControl) status() *proto.GetWifiRsp {
 	if err != nil {
 		return d
 	}
+	c := &proto.WifiConnection{}
 	for _, line := range strings.Split(out, "\n") {
 		key, value, ok := strings.Cut(line, "=")
 		if !ok {
@@ -401,15 +402,56 @@ func (w radioControl) status() *proto.GetWifiRsp {
 		case "ssid":
 			d.Ssid = decodeSSID(value)
 		case "freq":
-			freq, _ := strconv.Atoi(value)
-			d.Band = bandFor(freq)
+			c.Frequency, _ = strconv.Atoi(value)
+			d.Band = bandFor(c.Frequency)
+		case "wifi_generation":
+			c.Generation, _ = strconv.Atoi(value)
+		case "key_mgmt":
+			c.KeyMgmt = value
+		case "ip_address":
+			c.IP = value
 		}
 	}
 	if !d.Connected {
 		d.Ssid = ""
 		d.Band = ""
+		return d
 	}
+	// Signal and rate are best effort: the connection is known without them.
+	if poll, err := w.request("SIGNAL_POLL"); err == nil {
+		for _, line := range strings.Split(poll, "\n") {
+			key, value, ok := strings.Cut(strings.TrimSpace(line), "=")
+			if !ok {
+				continue
+			}
+			switch key {
+			case "RSSI":
+				c.Signal, _ = strconv.Atoi(value)
+			case "LINKSPEED":
+				c.LinkSpeed, _ = strconv.Atoi(value)
+			case "WIDTH":
+				c.Width = value
+			}
+		}
+	}
+	c.Channel = channelFor(c.Frequency)
+	d.Connection = c
 	return d
+}
+
+// channelFor is the IEEE 802.11 channel number of a frequency in MHz.
+func channelFor(freq int) int {
+	switch {
+	case freq == 2484:
+		return 14
+	case freq >= 2412 && freq <= 2472:
+		return (freq - 2407) / 5
+	case freq >= 5160 && freq <= 5885:
+		return (freq - 5000) / 5
+	case freq >= 5955 && freq <= 7115:
+		return (freq - 5950) / 5
+	}
+	return 0
 }
 
 type wifiProfile struct {

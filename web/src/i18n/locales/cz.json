@@ -629,7 +629,12 @@
         "bandsUnavailable": "Nebylo možné číst frekvenční pásma adaptéru.",
         "operationFailed": "Nebylo možné uplatnit nastavení Wi-Fi. Zkuste to znovu.",
         "applying": "Uplatňování… Může se stát, že spojení s tímto zařízením bude nakrátko přerušené.",
-        "confirmDisableDescription": "Bez ethernetu NanoKVM opustí síť a tato stránka ztratí své spojení."
+        "confirmDisableDescription": "Bez ethernetu NanoKVM opustí síť a tato stránka ztratí své spojení.",
+        "connection": {
+          "channel": "kanál {{channel}}",
+          "speed": "{{speed}} Mbit/s",
+          "ip": "IP {{ip}}"
+        }
       },
       "tls": {
         "description": "Povolit protokol HTTPS",

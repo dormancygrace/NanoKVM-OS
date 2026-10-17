@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"NanoKVM-Server/proto"
 )
 
 func TestWifiProfileValidation(t *testing.T) {
@@ -122,10 +124,13 @@ func TestWifiHardwareAndStatus(t *testing.T) {
 		}
 		return "", errors.New("unexpected command " + name)
 	}, request: func(command string) (string, error) {
-		if command != "STATUS" {
-			return "", errors.New("unexpected request " + command)
+		switch command {
+		case "STATUS":
+			return "wpa_state=COMPLETED\nssid=Actual\x20Network\nfreq=5180\nwifi_generation=6\nkey_mgmt=SAE\nip_address=192.0.2.5", nil
+		case "SIGNAL_POLL":
+			return "RSSI=-65\nLINKSPEED=137\nNOISE=-92\nFREQUENCY=5180\nWIDTH=40 MHz\nCENTER_FRQ1=5190\n", nil
 		}
-		return "wpa_state=COMPLETED\nssid=Actual\x20Network\nfreq=5180", nil
+		return "", errors.New("unexpected request " + command)
 	}}
 	if !w.enabled() || w.present() {
 		t.Fatal("default-on / absent adapter")
@@ -146,6 +151,10 @@ func TestWifiHardwareAndStatus(t *testing.T) {
 	if !d.Supported || !d.Connected || d.Ssid != "Actual Network" || d.Model != "AIC8801" || d.Band != "5" || d.PreferredBand != "5" || len(d.Bands) != 2 {
 		t.Fatalf("%+v", d)
 	}
+	want := proto.WifiConnection{Frequency: 5180, Channel: 36, Width: "40 MHz", Signal: -65, LinkSpeed: 137, Generation: 6, KeyMgmt: "SAE", IP: "192.0.2.5"}
+	if d.Connection == nil || *d.Connection != want {
+		t.Fatalf("connection %+v", d.Connection)
+	}
 	_ = os.WriteFile(filepath.Join(etc, "wifi.disabled"), nil, 0600)
 	d = w.status()
 	if d.Enabled || d.Connected {
@@ -155,8 +164,16 @@ func TestWifiHardwareAndStatus(t *testing.T) {
 	w.run = func(string, ...string) (string, error) { return "", errors.New("unavailable") }
 	w.request = func(string) (string, error) { return "", errors.New("unavailable") }
 	d = w.status()
-	if d.Connected || len(d.Bands) != 0 {
+	if d.Connected || len(d.Bands) != 0 || d.Connection != nil {
 		t.Fatal("invented state on command failure")
+	}
+}
+
+func TestWifiChannelOfFrequency(t *testing.T) {
+	for freq, channel := range map[int]int{2412: 1, 2437: 6, 2472: 13, 2484: 14, 5180: 36, 5745: 149, 5825: 165, 5955: 1, 6115: 33, 0: 0, 3000: 0} {
+		if got := channelFor(freq); got != channel {
+			t.Errorf("%d MHz: channel %d, want %d", freq, got, channel)
+		}
 	}
 }
 

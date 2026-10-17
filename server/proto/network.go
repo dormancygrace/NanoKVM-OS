@@ -36,6 +36,21 @@ type GetWifiRsp struct {
 	// PreferredBand affects subsequent association attempts only. Reading or
 	// changing it never tears down an existing Wi-Fi connection.
 	PreferredBand string `json:"preferredBand"`
+	// The current association, while connected.
+	Connection *WifiConnection `json:"connection,omitempty"`
+}
+
+// WifiConnection comes from wpa_supplicant's STATUS and SIGNAL_POLL. A value
+// that the driver does not report is zero or empty.
+type WifiConnection struct {
+	Frequency  int    `json:"frequency"`            // MHz
+	Channel    int    `json:"channel,omitempty"`    // IEEE channel of the frequency
+	Width      string `json:"width,omitempty"`      // channel width, such as "40 MHz"
+	Signal     int    `json:"signal,omitempty"`     // dBm
+	LinkSpeed  int    `json:"linkSpeed,omitempty"`  // Mbit/s
+	Generation int    `json:"generation,omitempty"` // Wi-Fi 4, 5, 6...
+	KeyMgmt    string `json:"keyMgmt,omitempty"`    // wpa_supplicant key_mgmt, such as SAE
+	IP         string `json:"ip,omitempty"`
 }
 
 type SetWifiBandPreferenceReq struct {

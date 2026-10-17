@@ -3,10 +3,12 @@ package osupdate
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 
 	"NanoKVM-Server/internal/apkrun"
@@ -39,6 +41,9 @@ func communityFixture(t *testing.T, repositories string) string {
 	apkExecutable = filepath.Join(dir, "apk")
 	script := `#!/bin/sh
 [ "$1" = --repositories-file ] && [ "$3" = list ] && [ "$4" = --orphaned ] || exit 99
+if [ -n "$CHECK_DB_LOCK" ]; then
+    if flock -n "$CHECK_DB_LOCK" true; then echo 'database unlocked during query' >&2; exit 98; fi
+fi
 [ -n "$WARN" ] && echo "$WARN" >&2
 if grep -q community "$2"; then printf '%b' "$WITH"; else printf '%b' "$WITHOUT"; fi
 `
@@ -48,6 +53,7 @@ if grep -q community "$2"; then printf '%b' "$WITH"; else printf '%b' "$WITHOUT"
 	t.Setenv("WITH", "")
 	t.Setenv("WITHOUT", "")
 	t.Setenv("WARN", "")
+	t.Setenv("CHECK_DB_LOCK", "")
 	return dir
 }
 
@@ -213,4 +219,80 @@ func TestCommunityMigration(t *testing.T) {
 			t.Fatalf("%q", got)
 		}
 	})
+}
+
+func TestCommunityMigrationHonorsChoiceMadeBeforeLock(t *testing.T) {
+	dir := communityFixture(t, communityRepositories)
+	updateLock = func() (*os.File, error) {
+		// A manual enable finished after the migration's initial marker check.
+		if err := markCommunityChosen(); err != nil {
+			return nil, err
+		}
+		return os.Open(dir)
+	}
+	if err := MigrateCommunityDefault(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, repositoriesPath); got != communityRepositories {
+		t.Fatalf("migration overrode the user's choice: %q", got)
+	}
+}
+
+func TestCommunityLocksDatabaseAcrossQueries(t *testing.T) {
+	for _, migration := range []bool{false, true} {
+		t.Run(fmt.Sprint("migration=", migration), func(t *testing.T) {
+			communityFixture(t, communityRepositories)
+			t.Setenv("CHECK_DB_LOCK", apkDBLockPath)
+			var err error
+			if migration {
+				err = MigrateCommunityDefault(context.Background())
+			} else {
+				_, err = SetCommunity(false)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if read(t, repositoriesPath) != communityOff {
+				t.Fatal("repository not disabled")
+			}
+			f, err := os.OpenFile(apkDBLockPath, os.O_RDWR, 0600)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+			if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+				t.Fatal("database lock leaked:", err)
+			}
+		})
+	}
+}
+
+func TestCommunityWaitsForExternalApk(t *testing.T) {
+	for _, migration := range []bool{false, true} {
+		t.Run(fmt.Sprint("migration=", migration), func(t *testing.T) {
+			communityFixture(t, communityRepositories)
+			f, err := os.OpenFile(apkDBLockPath, os.O_CREATE|os.O_RDWR, 0600)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+			if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+				t.Fatal(err)
+			}
+			if migration {
+				err = MigrateCommunityDefault(context.Background())
+			} else {
+				_, err = SetCommunity(false)
+			}
+			if !errors.Is(err, errEdgeBusy) {
+				t.Fatalf("got %v, want busy", err)
+			}
+			if read(t, repositoriesPath) != communityRepositories {
+				t.Fatal("repositories changed during external transaction")
+			}
+			if _, err := os.Stat(communityMarkerPath); !os.IsNotExist(err) {
+				t.Fatal("decision recorded during external transaction:", err)
+			}
+		})
+	}
 }

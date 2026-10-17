@@ -184,17 +184,23 @@ func communityNeeded(ctx context.Context, repositories, url string) ([]string, e
 	return needed, nil
 }
 
-// writeCommunity switches the line under apk's database lock, as the edge
-// migration does: every apk transaction holds it.
-func writeCommunity(url string, enabled bool) error {
+// lockCommunityDB keeps the installed package set stable across both orphan
+// queries and the repository decision. Callers already hold the update lock;
+// apk's read-only list command does not take this database lock.
+func lockCommunityDB() (*os.File, error) {
 	fd, err := syscall.Open(apkDBLockPath, syscall.O_RDWR|syscall.O_CREAT|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0600)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer syscall.Close(fd)
 	if err = syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		return errEdgeBusy
+		syscall.Close(fd)
+		return nil, errEdgeBusy
 	}
+	return os.NewFile(uintptr(fd), apkDBLockPath), nil
+}
+
+// writeCommunity switches the line while the caller holds lockCommunityDB.
+func writeCommunity(url string, enabled bool) error {
 	data, err := os.ReadFile(repositoriesPath)
 	if err != nil {
 		return err
@@ -232,6 +238,11 @@ func SetCommunity(enabled bool) (CommunityChange, error) {
 		return CommunityChange{}, err
 	}
 	defer lock.Close()
+	dbLock, err := lockCommunityDB()
+	if err != nil {
+		return CommunityChange{}, err
+	}
+	defer dbLock.Close()
 	url, err := lockedCommunityURL()
 	if err != nil {
 		return CommunityChange{}, err
@@ -263,6 +274,11 @@ func SetCommunity(enabled bool) (CommunityChange, error) {
 // EnableCommunityLocked switches the repository on for an install of
 // community packages. The caller holds Lock().
 func EnableCommunityLocked() error {
+	dbLock, err := lockCommunityDB()
+	if err != nil {
+		return err
+	}
+	defer dbLock.Close()
 	url, err := lockedCommunityURL()
 	if err != nil {
 		return err
@@ -284,6 +300,17 @@ func MigrateCommunityDefault(ctx context.Context) error {
 		return err
 	}
 	defer lock.Close()
+	// A user request may have completed between the fast path and Lock().
+	if _, err := os.Stat(communityMarkerPath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	dbLock, err := lockCommunityDB()
+	if err != nil {
+		return err
+	}
+	defer dbLock.Close()
 	data, err := os.ReadFile(repositoriesPath)
 	if err != nil {
 		return err

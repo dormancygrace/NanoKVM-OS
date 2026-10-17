@@ -342,20 +342,6 @@ func sysctlFile(t *testing.T, name, file string) string {
 	return strings.TrimSpace(string(got))
 }
 
-// dhcpv6Stub replaces the DHCPv6 client helper with one that logs its
-// calls, and returns the log.
-func dhcpv6Stub(t *testing.T) string {
-	t.Helper()
-	dir := t.TempDir()
-	log := filepath.Join(dir, "calls")
-	stub := filepath.Join(dir, "dhcpv6")
-	if err := os.WriteFile(stub, []byte("#!/bin/sh\necho \"$*\" >> "+log+"\n"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("NANOKVM_DHCPV6", stub)
-	return log
-}
-
 func takeCalls(t *testing.T, log string) string {
 	t.Helper()
 	data, _ := os.ReadFile(log)
@@ -366,7 +352,7 @@ func takeCalls(t *testing.T, log string) string {
 // Ethernet or Wi-Fi with IPv6 runs its DHCPv6 client next to SLAAC.
 func TestIPv6RunsTheDHCPv6ClientWhileOn(t *testing.T) {
 	ipv6Fixture(t)
-	log := dhcpv6Stub(t)
+	log := os.Getenv("NANOKVM_DHCPV6") + ".log"
 	if err := applyIPv6(ipv6Policy{"wlan0": dhcpv6If(true)}); err != nil {
 		t.Fatal(err)
 	}

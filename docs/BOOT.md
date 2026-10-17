@@ -6,7 +6,8 @@
    partition of the SD card (`/boot` in Linux) by that file name.
 2. **FSBL** (BL2, in `fip.bin`): DDR init, then OpenSBI and U-Boot from the
    same file.
-3. **OpenSBI** (M-mode, see `platform/opensbi/README.md`).
+3. **OpenSBI** (M-mode, see `platform/opensbi/README.md`). It boots without
+   a banner (`FW_OPTIONS=0x1`); Linux logs the SBI version.
 4. **U-Boot** (S-mode). It reads `uEnv.txt`, loads `boot.sd` from the boot
    partition, checks its hashes and boots it.
 5. **Linux** from `boot.sd` (a FIT: lz4 kernel, initramfs, board device tree),
@@ -17,7 +18,7 @@ package rewrites `boot.sd` (`nanokvm-activate-kernel`).
 
 ## What the ROM does
 
-Observed on the test stand (NanoKVM PCIe), 2026-10-17, from its UART log:
+Observed on a NanoKVM PCIe, 2026-10-17, from its UART log:
 
 - **Every boot** first offers about 1 s to a UART download (`URPL`), then
   initializes the SD card (`SDI`) and loads `fip.bin` (`BS/SD`).
@@ -47,7 +48,6 @@ partition and takes two variables from it, ignoring any other:
 
 The file can be edited from Linux or, with the card in a reader, from a PC.
 Images write a commented template. U-Boot from earlier images does not read it.
-The test stand sets `bootdelay=1`.
 
 ## Testing a FIP without writing it
 
@@ -77,17 +77,13 @@ during the rename, at worst the file is missing, and the ROM then offers its
 USB window as well. The previous `fip.bin` may stay on the boot partition
 under another name: the ROM ignores it, and it is what recovery copies back.
 
-Keep maintenance copies on the host, not on the shared test stand: copies
-left there once filled `/data` with gigabytes and the f2fs root completely.
-That rule is for work on the stand; it does not restrict the product.
-
 ## Recovery
 
 **With a card reader:** remove the card, copy a good `fip.bin` to its FAT boot
 partition, verify the hash.
 
-**Without one, over UART** (done three times on 2026-10-17, for a missing,
-a bad-header and a truncated `fip.bin`): run the ROM UART download tool with a
+**Without one, over UART** (done for a missing, a bad-header and a truncated
+`fip.bin`): run the ROM UART download tool with a
 good FIP; it catches the next cycle of the ROM's loop, with no power cycle.
 Set the pads, `run bootcmd`, and in Linux put the good file back
 (`mv /boot/fip.keep /boot/fip.bin` when the previous copy was kept, or copy

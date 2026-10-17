@@ -6,11 +6,11 @@
     images {
         kernel-1 {
             description = "NanoKVM OS Linux";
-            data = /incbin/("Image.zst");
+            data = /incbin/("Image.lz4");
             type = "kernel";
             arch = "riscv";
             os = "linux";
-            compression = "zstd";
+            compression = "lz4";
             load = <0x80200000>;
             entry = <0x80200000>;
             // U-Boot checks this on every boot. sha256 runs at about 14.5 MB/s

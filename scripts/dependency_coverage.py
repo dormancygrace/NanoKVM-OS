@@ -86,7 +86,7 @@ BUILDROOT_FEATURES = {
 }
 BUILDROOT_RECIPES = {
     'BUSYBOX': 'busybox', 'E2FSPROGS': 'e2fsprogs', 'F2FS_TOOLS': 'f2fs-tools',
-    'LZ4': 'lz4', 'HOST_DTC': 'dtc', 'HOST_KMOD': 'kmod', 'HOST_PATCHELF': 'patchelf',
+    'LZ4': 'lz4', 'HOST_LZ4': 'lz4', 'HOST_DTC': 'dtc', 'HOST_KMOD': 'kmod', 'HOST_PATCHELF': 'patchelf',
     'HOST_PYTHON3': 'python3', 'HOST_UBOOT_TOOLS': 'uboot-tools', 'HOST_ZSTD': 'zstd',
     'HOST_CMAKE': 'cmake', 'HOST_DOSFSTOOLS': 'dosfstools', 'HOST_MTOOLS': 'mtools',
     'HOST_F2FS_TOOLS': 'f2fs-tools',

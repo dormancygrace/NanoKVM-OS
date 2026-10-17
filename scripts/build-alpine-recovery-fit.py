@@ -99,7 +99,7 @@ def main() -> None:
         build_root / "installer-initramfs.cpio.list",
         build_root / "kernel-output/usr/gen_init_cpio",
         build_root / "installer-initramfs/busybox",
-        boot_dir / "Image.zst",
+        boot_dir / "Image.lz4",
         boot_dir / "board.dtb",
         boot_dir / "boot.its",
         build_root / "buildroot-output/host/bin/mkimage",
@@ -140,7 +140,7 @@ def main() -> None:
         with gzip.GzipFile(fileobj=stream, mode="wb", filename="", mtime=0) as compressor:
             compressor.write(cpio_path.read_bytes())
 
-    for name in ("Image.zst", "board.dtb", "boot.its"):
+    for name in ("Image.lz4", "board.dtb", "boot.its"):
         shutil.copyfile(boot_dir / name, output / name)
     mkimage = build_root / "buildroot-output/host/bin/mkimage"
     fit_path = output / "boot-alpine-recovery.sd"

@@ -22,8 +22,8 @@
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
-#   payloads   contents of the twelve NanoKVM packages, from packages.list
-#   packages   signed APK repository of the twelve packages
+#   payloads   contents of the thirteen NanoKVM packages, from packages.list
+#   packages   signed APK repository of the thirteen packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -403,6 +403,16 @@ fip() {
         --output "$f/fip.bin" --report "$f/manifest.json"
     cp "$f/fip.bin" "$img/fip.bin"
     cp "$f/manifest.json" "$img/fip-manifest.json"
+    # Licenses of what fip.bin contains, for nanokvm-bootloader-sg2002.
+    local l=$img/fip-licenses
+    rm -rf "$l"
+    mkdir -p "$l"
+    cp "$out/opensbi/src/COPYING.BSD" "$l/opensbi-COPYING.BSD"
+    cp "$out/uboot/src/Licenses/README" "$l/u-boot-Licenses-README"
+    cp "$out/uboot/src/Licenses/gpl-2.0.txt" "$l/u-boot-gpl-2.0.txt"
+    printf '%s\n' 'The FSBL (BL2) and DDR parameters in fip.bin are the Sophgo binaries of' \
+        'platform/fip/base-fip.bin; their source is fsbl/ in the Sipeed SDK pinned in' \
+        'platform/sources.lock (sipeed-sdk).' > "$l/fsbl-NOTICE"
 }
 
 initramfs() {
@@ -741,7 +751,7 @@ firmware() {
     cp "$out/firmware/wireless-regdb-2026.09.03/LICENSE" "$f/licenses/wireless-regdb-LICENSE"
 }
 
-# Assemble the twelve package payloads from packages.list.
+# Assemble the thirteen package payloads from packages.list.
 payloads() {
     local p=$out/payloads gen pkg type path mode src dest file
     rm -rf "$p"
@@ -966,7 +976,7 @@ signing_key() {
     keyname=$(basename "$keyfile" .rsa)
 }
 
-# Build the twelve packages with abuild in an Alpine riscv64 tree.
+# Build the thirteen packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu

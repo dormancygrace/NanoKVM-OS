@@ -17,7 +17,7 @@ reboot
 ```
 
 `apk update` refreshes repository indexes; `apk upgrade` installs the available
-updates. This release has twelve core packages; optional add-ons and Alpine dependency
+updates. This release has thirteen core packages; optional add-ons and Alpine dependency
 updates are additional.
 
 The kernel release remains **7.2.10-nanokvm-os-r5**. Reboot to load the updated
@@ -70,7 +70,7 @@ allowing them to obtain the update and keys through their existing repository.
 No manual key download or repository edit is required for the official URL.
 Custom repositories and C906 overlay entries are left unchanged.
 
-The legacy index contains the twelve core packages. The v3 index also includes
+The legacy index contains the thirteen core packages. The v3 index also includes
 the optional RustDesk APK; install it from Software after updating the system.
 
 ## Other migration cases

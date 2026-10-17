@@ -110,7 +110,7 @@ jobs:
       - name: Script tests
         run: |
           set -e
-          for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-sd-image-boot alpine-network \
+          for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-bootloader-activation alpine-sd-image-boot alpine-network \
                    alpine-recovery-password alpine-recovery-settings alpine-firstboot-storage-errors alpine-service-deps board-selection usb-state capture-restart \
                    s15-packaging kvm-system-lifecycle kvm-file-inputs hdmi-detection-cache hdmi-receiver-start \
                    mmf-light-link native-bundle-abi monitor-edids nanokvm-service-stop net-probe server-supervisor oled-detect oled-ip-window platform-build compare-outputs release-build \

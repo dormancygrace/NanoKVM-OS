@@ -13,8 +13,10 @@
 5. **Linux** from `boot.sd` (a FIT: lz4 kernel, initramfs, board device tree),
    then the root file system on `mmcblk0p2`.
 
-No package updates `fip.bin`: it comes only with a full SD image. The kernel
-package rewrites `boot.sd` (`nanokvm-activate-kernel`).
+`nanokvm-bootloader-sg2002` carries `fip.bin`; its trigger puts it on the boot
+partition (`activate-bootloader`), so devices get a new bootloader with an
+ordinary update. The kernel package rewrites `boot.sd`
+(`nanokvm-activate-kernel`).
 
 ## What the ROM does
 
@@ -70,12 +72,28 @@ the card. The U-Boot changes of #252 and #256 were measured this way.
 
 ## Updating fip.bin
 
-Stage the new file on the boot partition, verify its SHA-256 there, and
-replace `fip.bin` by renaming a temporary file on the same file system; flush
-before rebooting. A power cut during the copy leaves the old file in place;
-during the rename, at worst the file is missing, and the ROM then offers its
-USB window as well. The previous `fip.bin` may stay on the boot partition
-under another name: the ROM ignores it, and it is what recovery copies back.
+`nanokvm-bootloader-sg2002` installs `/usr/lib/nanokvm/bootloader/fip.bin`.
+After the transaction its trigger (`/usr/libexec/nanokvm/activate-bootloader`):
+
+1. does nothing when `/boot/fip.bin` already has the package's SHA-256, when
+   `/etc/kvm/bootloader-update.disabled` exists, or during image assembly;
+   it refuses while recovery is active (`/boot/rec`);
+2. writes `/boot/fip.new`, flushes it and checks its SHA-256 as read from the
+   card (direct I/O, not the page cache); on a mismatch it removes it and
+   leaves `fip.bin` alone;
+3. renames `fip.bin` to `fip.prev` (after removing an older `fip.prev`), then
+   `fip.new` to `fip.bin`, flushing after each step, and checks the result;
+4. asks for a reboot.
+
+If activation fails after moving the old file, it attempts to restore
+fip.prev and still reports failure. If rollback also fails, repair
+/boot/fip.bin before rebooting.
+
+No rename replaces an existing file. Between completed, flushed steps the
+boot partition has the old `fip.bin`, the new one, or none; with none the ROM also offers its
+USB window. `fip.prev` is what recovery puts back. The ROM ignores both other
+names. FAT is not journaled: a power cut during a metadata write can also
+damage the filesystem, so these steps cannot guarantee power-loss safety.
 
 ## Recovery
 
@@ -86,9 +104,9 @@ partition, verify the hash.
 `fip.bin`): run the ROM UART download tool with a
 good FIP; it catches the next cycle of the ROM's loop, with no power cycle.
 Set the pads, `run bootcmd`, and in Linux put the good file back
-(`mv /boot/fip.keep /boot/fip.bin` when the previous copy was kept, or copy
-one over SSH). A good file can also be written from that U-Boot with
-`fatload` and `fatwrite`.
+(`mv /boot/fip.prev /boot/fip.bin`, or copy one over SSH). From that U-Boot
+alone: `fatload mmc 0:1 0x85000000 fip.prev; fatwrite mmc 0:1 0x85000000
+fip.bin ${filesize}`.
 
 **Over USB:** when `fip.bin` is missing, the ROM also waits 1 s per cycle for
 a USB download (VID:PID 3346:1000). The SDK has a USB download tool; this

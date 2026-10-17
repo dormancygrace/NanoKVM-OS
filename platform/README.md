@@ -200,7 +200,7 @@ The standard build and `nanokvm` ship the complete six-library HDMI-light bundle
 
 APK owns the old MPI library paths and removes files no longer shipped when upgrading `nanokvm`; the existing transaction hook restarts the application after the update. Do not overlay individual libraries in a running process or retain old MPI DSOs alongside the new set. Native license notices are included in the application package.
 
-See the [build description](../docs/hdmi-light-experiment-20261011.md) and [scoped hardware measurements](../docs/hdmi-light-hardware-20261011.md): about 0.63 MiB lower server PSS in the measured mode, no demonstrated CPU improvement; wider hardware qualification remains outstanding.
+Measured on a NanoKVM PCIe: about 0.63 MiB lower server PSS, no demonstrated CPU improvement.
 
 
 ### Application package split

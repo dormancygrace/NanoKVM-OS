@@ -175,28 +175,6 @@ shutil.copytree(root/"server/service/stream/audio/capture",go_transport/"native/
 shutil.copyfile(root/"scripts/build-usb-audio.py",go_transport/"build-usb-audio.py.integration")
 shutil.copyfile(root/"scripts/nanokvm_cpu_profile.py",go_transport/"nanokvm_cpu_profile.py.integration")
 
-(stage/"docs").mkdir(exist_ok=True)
-for name in ["rustdesk-1.5-review.md","rustdesk-1.5-migration.md","rustdesk-usb-audio.md"]:
-    shutil.copyfile(root/"docs"/name,stage/"docs"/name)
-# Raw diagnostic reports contain private device/controller IDs; publish only
-# the generic plan and summarized qualification evidence.
-(stage/"docs/rustdesk-device-test.md").write_text("""# Device qualification
-
-Historical 0.2-series lab tests verified public ID registration and encrypted
-relay video. Raw diagnostic identifiers and local host/device paths are kept
-only in the development workspace. See rustdesk-1.5-migration.md for the current
-candidate's host/device qualification evidence and transport limits.
-""")
-(stage/"docs/rustdesk-handoff.md").write_text("""# Device test plan
-
-Use a coordinated test slot. Upgrade the NanoKVM app with bridge=1, webrtc=1, audio=1 and auto-codec=1
-before installing the add-on. Verify the installed add-on and protocol versions,
-public source URL/digest, identity/config preservation, registration, temporary
-password rotation and reconnect, actual 1.5-client encrypted relay/WebRTC video,
-view-only behavior, input ownership/release and transport cleanup under bounded
-CPU/RSS. Restore test settings afterwards. Do not create device backups or leave
-uploaded APKs/source archives on device storage.
-""")
 shutil.copyfile(root/"server/service/rustdesk/webrtc_socket_test.go",go_transport/"webrtc_socket_test.go.integration")
 archive=output/f"nanokvm-rustdesk-{version}-source.tar.gz"
 with tarfile.open(archive,"w:gz") as tar:tar.add(stage,arcname=stage.name)

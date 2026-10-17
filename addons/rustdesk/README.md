@@ -30,8 +30,7 @@ encrypted hbbs TCP; the signed RustDesk identity binds the local DTLS fingerprin
 Relay remains available when the ID server cannot route signaling. Relay-only
 ICE requests use the TCP relay because no TURN configuration is supplied. The
 first data channel must be ordered and fully reliable. Configure the same custom
-ID server and public key in the client; see docs/rustdesk-1.5-migration.md for
-device qualification and transport limits.
+ID server and public key in the client.
 
 Only one session owns input. An existing browser controller blocks external
 input. Browser joins stay view-only while RustDesk owns control; explicit
@@ -137,12 +136,8 @@ a configured repository containing the package.
 Host tests cover the protocol password challenge, rejected logins, continued
 video during a slow HID reply, input mapping, crypto/framing and persistent
 identity. Go tests with hardware stubs validate application logic only.
-Live HDMI, USB, client compatibility and registration require coordinated
-testing on the real device before production use.
-
-The accepted 0.5.3-r0 build, evidence and current limitations are recorded in
-[finalization](../../docs/rustdesk-0.5.3-finalization.md). The integration handoff
-is in [rustdesk-handoff.md](../../docs/rustdesk-handoff.md).
+Test live HDMI, USB, client compatibility and registration on your own device
+before relying on the add-on.
 
 ## Versions and upstream reference
 
@@ -160,8 +155,6 @@ DTLS, advertises KX v0 in the signed identity, and does not add secretbox framin
 The IPC bridge and daemon bound message sizes, fragment reassembly, ICE queues,
 pending handshakes and session teardown. View-only ControlPermissions cannot
 submit HID, acquire an input lease or send release events.
-Host verification is distinct from device/client qualification; see
-docs/rustdesk-1.5-migration.md for the current evidence and remaining limits.
 
 Client OptionMessage.disable_keyboard is honored at login and during a session.
 Switching to view-only discards queued movement, releases held input and ends
@@ -202,7 +195,6 @@ for info query the USB function without starting ALSA capture. The bridge and
 Rust daemon bound packet sizes to 1275 bytes and release subscriptions on
 mute, disconnect or shutdown. Rendezvous audio permission uses the canonical
 1.5 two-bit permission slot and cannot be overridden by a client option.
-See docs/rustdesk-usb-audio.md for qualification evidence and limits.
 
 ## Remote access USB defaults
 
@@ -261,11 +253,8 @@ that buffer in place. The existing tag-prefix wire format, KX directions and
 nonce counter rules are retained. Buffers above 1 MiB are released after the
 frame; the maximum wire frame is 8 MiB.
 
-The explicit RVV 0.7.1 Salsa prototype is preserved in the separate
-`codex/c906-salsa-rvv07-20261005` research branch. Its correctness passed on
-C906, including low-counter wrap, eight output alignments, guards and all
-eight VXRM/VXSAT control pairs. CPU measurements showed mostly slower
-encryption than the scalar in-place path. Production uses RustCrypto scalar
+An explicit RVV 0.7.1 Salsa prototype was correct on C906 but mostly slower
+than the scalar in-place path. Production uses RustCrypto scalar
 XSalsa20-Poly1305; no vector feature or extra assembly compiler is required.
 
 With a static musl linker and the release profile:
@@ -307,12 +296,6 @@ unresolved; no external throughput improvement is claimed. The interop test
 requests no audio or HID input and sends finite normal protocol keepalives.
 No application encoder or Go scanner change is part of this optimization.
 
-For a fresh private package revision, the packaging builder also accepts
+For a new package revision, the packaging builder also accepts
 `--package-revision N`. Run its ownership stage under `fakeroot`, keep each
-output directory separate, and retain the matching source archive with the
-private APK.
-
-The 2026-10-12 hbb_common reference refresh to `94ec710894ec` changes only its
-standalone Cargo patches. Its protobuf files are identical to the previous
-reference; the add-on does not import that Cargo manifest or require a protocol
-migration.
+output directory separate, and keep the matching source archive with the APK.

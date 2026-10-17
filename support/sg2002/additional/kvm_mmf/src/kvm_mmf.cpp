@@ -113,15 +113,28 @@ static VENC_PACK_S *venc_pack_storage[MMF_VENC_MAX_CHN];
 static CVI_U32 venc_pack_capacity[MMF_VENC_MAX_CHN];
 
 /*
- * H.26x encoder tuning. The defaults are the measured choice (see
- * docs/venc-tuning-*.md); /run/nanokvm-venc-tune, a volatile key=value file,
- * overrides them for A/B measurements and is read when a channel is created.
+ * H.26x encoder tuning. /run/nanokvm-venc-tune, a volatile key=value file,
+ * overrides the defaults below for A/B measurements and is read when a channel
+ * is created.
  *
  * Every viewer asks for an IDR when it needs one (a new subscriber, WebRTC
  * PLI, Direct and RustDesk recovery), so periodic IDRs only cost bits and
  * delay: at 2560x1440 an IDR is a few hundred KB in one frame period. One
  * every idr_seconds is kept as a safety net; a requested IDR restarts the
  * count (the driver resets its GOP counter).
+ *
+ * QP floor 20: with a lower floor CBR keeps refining a static picture on
+ * every frame (static 1440p desktop: 0.51 Mbit/s at 20, 0.77 at 14/12, 9.7 at
+ * 2/0), and 20 looks no worse than 16/14 or 14/12.
+ *
+ * The GOP is NormalP, with no further encoder features. SmartP (GOP 30,
+ * 60 fps) made a virtual I frame every 0.5 s, a ~250 KB background IDR every
+ * 2.5 s at 1440p, and kept an extra reference frame in ION. VBR does not lower
+ * the static bitrate; AVBR needs a VI motion level that frames sent with
+ * SendFrame do not carry; super-frame re-encoding doubles the encode work; SAO
+ * and the H.265 fast preset need a driver parameter, and 1440p60 leaves no
+ * hardware headroom (about 15 of 16.7 ms per frame); the driver keeps intra
+ * refresh off.
  */
 struct venc_tuning_t {
 	int idr_seconds = 10;
@@ -572,7 +585,7 @@ static CVI_S32 _mmf_sys_init(SIZE_S stSize)
 	u32BlkSize = MAX(u32BlkSize, u32BlkRotSize);
 	stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkSize	= u32BlkSize;
 	// The pipeline serializes encoder leases. Two source surfaces
-    // retain producer/VPSS overlap and leave room for SmartP reference frames.
+    // retain producer/VPSS overlap.
 #ifdef NANOKVM_OS
     stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt = 2;
 #else

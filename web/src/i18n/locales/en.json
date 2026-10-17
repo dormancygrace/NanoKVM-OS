@@ -766,7 +766,6 @@
       "apk": {
         "title": "Package updates",
         "description": "Update installed packages from the configured repositories. Settings are kept. Services restart automatically; a kernel update requires a reboot.",
-        "kernel": "Running kernel",
         "check": "Check for updates",
         "install": "Install updates",
         "confirm": "Install these package updates? Video and control may briefly disconnect.",
@@ -808,7 +807,6 @@
         "open": "Open updates",
         "auto": "Check for updates daily",
         "autoDescription": "Looks at the NanoKVM OS repository once a day and shows a notice when a newer version is available. Nothing is installed automatically.",
-        "check": "Check now",
         "checked": "Last checked {{time}}",
         "never": "Not checked yet",
         "failed": "The last check failed: {{message}}",

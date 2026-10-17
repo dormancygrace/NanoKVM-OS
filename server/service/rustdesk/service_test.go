@@ -436,6 +436,24 @@ func TestUpdateButtonOnlyReceivesAPKUpgradeCandidates(t *testing.T) {
 	}
 }
 
+// Output that is not the JSON answer says nothing about the package. It must
+// fail, so that it is retried, instead of being cached as "not available".
+func TestUnreadableRepositoryQueryIsAFailure(t *testing.T) {
+	s := NewService(NewBridge())
+	s.run = func(context.Context, string, ...string) ([]byte, error) {
+		return []byte("WARNING: something\n"), nil
+	}
+	if _, available, err := s.repositoryVersion(false); err == nil || available {
+		t.Fatalf("available %v, err %v", available, err)
+	}
+	s.run = func(context.Context, string, ...string) ([]byte, error) {
+		return []byte("[\n]\n"), nil
+	}
+	if _, available, err := s.repositoryVersion(false); err != nil || available {
+		t.Fatalf("no match: available %v, err %v", available, err)
+	}
+}
+
 func TestRustDeskVersionComesFromInstalledDaemonMetadata(t *testing.T) {
 	temporaryConfig(t)
 	for _, tc := range []struct {

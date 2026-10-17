@@ -766,7 +766,6 @@
       "apk": {
         "title": "Actualizaciones de paquetes",
         "description": "Actualiza los paquetes instalados desde los repositorios configurados. La configuración se conserva. Los servicios se reinician automáticamente; una actualización del kernel requiere reiniciar.",
-        "kernel": "Kernel en ejecución",
         "check": "Buscar actualizaciones",
         "install": "Instalar actualizaciones",
         "confirm": "¿Instalar estas actualizaciones de paquetes? El vídeo y el control pueden desconectarse brevemente.",
@@ -808,7 +807,6 @@
         "open": "Abrir actualizaciones",
         "auto": "Buscar actualizaciones a diario",
         "autoDescription": "Consulta el repositorio de NanoKVM OS una vez al día y muestra un aviso cuando hay una versión más reciente. No se instala nada automáticamente.",
-        "check": "Comprobar ahora",
         "checked": "Última comprobación: {{time}}",
         "never": "Aún no se ha comprobado",
         "failed": "La última comprobación falló: {{message}}",

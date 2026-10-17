@@ -12,12 +12,16 @@ export type APKState = {
   reboot: boolean;
   kernel: string;
 };
+// `known` says that the last update check already found NanoKVM OS updates.
+// Installing refreshes the indexes itself, so it needs no check here first.
 export const APKUpdates = ({
   state,
+  known,
   busy,
   action
 }: {
   state?: APKState;
+  known: boolean;
   busy: boolean;
   action: (name: string) => Promise<void>;
 }) => {
@@ -32,13 +36,11 @@ export const APKUpdates = ({
     previous.current = state?.state;
   }, [state?.state, tr]);
   const working = busy || ['checking', 'installing', 'rebooting'].includes(state?.state || '');
+  const installable = state?.state === 'ready' || known;
   return (
     <Panel className="space-y-4">
       <div className="font-medium">{tr('title')}</div>
       <p className="text-fg-muted mt-0 text-sm">{tr('description')}</p>
-      <div className="text-sm">
-        {tr('kernel')}: {state?.kernel || '—'}
-      </div>
       {state?.state === 'ready' && state.upgrades && (
         <pre className="text-fg m-0 max-h-48 overflow-auto text-xs whitespace-pre-wrap">
           {state.upgrades}
@@ -55,12 +57,12 @@ export const APKUpdates = ({
         <Popconfirm
           title={tr('confirm')}
           onConfirm={() => action('apk/install')}
-          disabled={working || state?.state !== 'ready'}
+          disabled={working || !installable}
         >
           <Button
             type="primary"
             loading={state?.state === 'installing'}
-            disabled={working || state?.state !== 'ready'}
+            disabled={working || !installable}
           >
             {tr('install')}
           </Button>

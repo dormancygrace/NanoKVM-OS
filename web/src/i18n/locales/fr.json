@@ -766,7 +766,6 @@
       "apk": {
         "title": "Mises à jour des paquets",
         "description": "Mettez à jour les paquets installés depuis les dépôts configurés. Les paramètres sont conservés. Les services redémarrent automatiquement ; une mise à jour du noyau nécessite un redémarrage.",
-        "kernel": "Noyau en cours d'exécution",
         "check": "Rechercher des mises à jour",
         "install": "Installer les mises à jour",
         "confirm": "Installer ces mises à jour de paquets ? La vidéo et le contrôle peuvent être brièvement déconnectés.",
@@ -808,7 +807,6 @@
         "open": "Ouvrir les mises à jour",
         "auto": "Rechercher les mises à jour chaque jour",
         "autoDescription": "Consulte le dépôt NanoKVM OS une fois par jour et affiche un avis lorsqu’une version plus récente est disponible. Rien n’est installé automatiquement.",
-        "check": "Vérifier maintenant",
         "checked": "Dernière vérification : {{time}}",
         "never": "Pas encore vérifié",
         "failed": "La dernière vérification a échoué : {{message}}",

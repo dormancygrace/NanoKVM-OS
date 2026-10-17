@@ -273,6 +273,7 @@ func gather() snapshot {
 	}
 	for _, t := range []target{
 		{Name: "kernel boot payload", Kind: "reboot", Trees: []string{"/usr/lib/nanokvm/boot"}},
+		{Name: "bootloader", Kind: "reboot", Trees: []string{"/usr/lib/nanokvm/bootloader"}},
 		{Name: "kernel modules and device firmware", Kind: "reboot", Trees: []string{"/lib/modules", "/lib/firmware", "/usr/share/fw_vcodec"}},
 		{Name: "core runtime", Kind: "reboot", Paths: []string{"/bin/busybox", "/sbin/init", "/sbin/openrc", "/sbin/openrc-run"}},
 	} {

@@ -68,7 +68,7 @@ That candidate still carried the small-core reservation. The FIP built without i
 
 During the RAM test the SD FIP was not replaced. Since then the full image installs the built FIP on the SD card: on 2026-10-14 the test stand (NanoKVM PCIe) had `fip.bin` SHA-256 `38cbdbf32a25fbfa1d7a0a1197f7b4cfa0ed145fb8ffc2197e257f0575713db1`, the value in `../expected.sha256`, and cold-booted from it after a power cycle. Deterministic build manifests retain their build-time hardware_validation=pending field; a separate hardware report links measured results to the exact artifact hash.
 
-ROM UART bypasses SD ROM pad initialization. RAM U-Boot needs volatile SD0 settings before mmc rescan: SD0_PWR_EN mux 0x03001038=0, SD power 0x030001f4=0x1209, and CMD/D0-D3 pads 0x03001a04..0x03001a14=0x44. These are register changes, not SD writes. The ROM-only host adapter uses an empty partition/program list and excludes the persistent programming stage. Loading the original host FIP into RAM and booting the unchanged SD Linux was verified first. This does not by itself prove that a damaged SD FIP can be repaired.
+Loading a FIP into RAM through the ROM UART loader, and the SD pad setup it needs, are described in [docs/BOOT.md](../../docs/BOOT.md#testing-a-fip-without-writing-it).
 
 ## Known limitations
 
@@ -85,12 +85,13 @@ ROM UART bypasses SD ROM pad initialization. RAM U-Boot needs volatile SD0 setti
 
 ## Upgrade and recovery
 
-An application/APK update does not replace `/boot/fip.bin`. FIP takes effect at the next boot.
+An application/APK update does not replace `/boot/fip.bin`; FIP takes effect at
+the next boot. How the ROM behaves with a missing or damaged `fip.bin`, how to
+replace it and how to recover without a card reader are in
+[docs/BOOT.md](../../docs/BOOT.md).
 
-Before hardware work, obtain an exclusive maintenance window and explicit handback from any runtime owner. On the host, retain the exact installed FIP and its verified hash, the candidate and manifests, and a UART log. Confirm physical power control and the ability to remove/read/write the SD card. UART alone does not establish a recovery path. Do not put precautionary rollback copies on the device or SD card.
-
-With UART attached at 115200 8N1 and DTR/RTS disabled, stage the candidate FIP, verify its SHA-256 on the target, and replace the boot-partition FIP using a same-filesystem temporary file and rename. Flush writes before reboot. Capture the full boot from FSBL through OpenSBI and U-Boot to Linux. Check the OpenSBI version, timer/PLIC initialization, both domain regions, DT address and S-mode handoff; then check kernel boot, reserved-memory warnings, SBI PMU, storage/network, application/video and a second cold boot. Retain the current and two previous boot-log archives.
-
-If boot fails before SSH is available, power off, remove the SD card and restore the host's original FIP to the FAT boot partition using an external reader. Verify the restored hash, eject safely and power on with UART capture. If the card cannot be accessed, stop and obtain physical recovery support. Do not attempt OTP/eFuse changes or an unverified UART downloader.
-
-The assembled SD image is for a separate test card or a deliberately approved reimage; writing it erases the destination card's partition table and files. A FIP-only upgrade preserves the installed OS and user data.
+When qualifying a new OpenSBI, capture the full boot from FSBL through OpenSBI
+and U-Boot to Linux. Check the OpenSBI version, timer/PLIC initialization, both
+domain regions, DT address and S-mode handoff; then kernel boot,
+reserved-memory warnings, SBI PMU, storage/network, application/video and a
+second cold boot.

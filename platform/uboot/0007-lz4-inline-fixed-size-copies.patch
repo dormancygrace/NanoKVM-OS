@@ -1,0 +1,26 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] lib: lz4: inline the decoder's fixed-size copies
+
+U-Boot builds with -fno-builtin, so each memcpy() of 8, 16 or 18 bytes
+in the decoder's inner loop was a function call. Use __builtin_memcpy()
+there, as Linux does with LZ4_memcpy().
+
+---
+diff --git a/lib/lz4.c b/lib/lz4.c
+index 11b4a4d..f06aca4 100644
+--- a/lib/lz4.c
++++ b/lib/lz4.c
+@@ -37,6 +37,13 @@
+ 
+ #define FORCE_INLINE inline __attribute__((always_inline))
+ 
++/*
++ * U-Boot builds with -fno-builtin: every memcpy() here, of 8, 16 or 18
++ * bytes in the inner loop, became a call. Copies of a constant size are
++ * inlined as builtins, as Linux does with LZ4_memcpy().
++ */
++#define memcpy(dst, src, size) __builtin_memcpy(dst, src, size)
++
+ __rcode static FORCE_INLINE u16 LZ4_readLE16(const void *src)
+ {
+ 	return get_unaligned_le16(src);

@@ -182,7 +182,7 @@ apk upgrade
 reboot
 ```
 
-Updates retain settings, user data and independently installed packages. The twelve core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. The kernel release remains **7.2.10-nanokvm-os-r5**; the updated boot images correct SD/SDIO clocks and need a reboot. Application service updates use OpenRC automatically; no separate apply command is needed.
+Updates retain settings, user data and independently installed packages. The thirteen core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. The kernel release remains **7.2.10-nanokvm-os-r5**; the updated boot images correct SD/SDIO clocks and need a reboot. Application service updates use OpenRC automatically; no separate apply command is needed.
 
 - **Local `.apk` installations:** file-pinned packages may require an `apk add` step before upgrading; see [update instructions](docs/UPDATES.md).
 - **Signing transition:** `nanokvm-keys` installs the public keys and moves the official repository to the RSA/ECDSA-signed v3 index automatically. The RSA-signed legacy index remains available for older installations.

@@ -713,6 +713,16 @@
         "saved": "Zeitplan für die Indexaktualisierung gespeichert",
         "failed": "Der Zeitplan für die Indexaktualisierung konnte nicht geladen oder gespeichert werden"
       },
+      "community": {
+        "label": "Alpine-Community-Repository",
+        "hint": "Pakete, die von der Alpine-Community gepflegt werden, etwa Tailscale und NetBird. Standardmäßig aus: NanoKVM OS benötigt nichts daraus, und jeder Paketvorgang würde seinen Index laden. Die Installation von Tailscale oder NetBird schaltet es ein.",
+        "unavailable": "Es ist kein Alpine-main-Repository eingerichtet, daher kann das Community-Repository hier nicht hinzugefügt werden.",
+        "needed": "Wird noch von installierten Paketen benötigt: {{packages}}. Entfernen Sie diese zuerst, um das Repository auszuschalten.",
+        "enabled": "Community-Repository eingeschaltet; Indizes werden aktualisiert",
+        "disabled": "Community-Repository ausgeschaltet",
+        "failed": "Die Einstellung des Community-Repositorys konnte nicht geladen oder geändert werden",
+        "vpnNote": "Die Installation schaltet das Alpine-Community-Repository ein."
+      },
       "addons": {
         "title": "Add-ons",
         "packages": "Pakete",

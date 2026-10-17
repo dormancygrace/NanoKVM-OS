@@ -713,6 +713,16 @@
         "saved": "索引刷新计划已保存",
         "failed": "无法加载或保存索引刷新计划"
       },
+      "community": {
+        "label": "Alpine community 软件源",
+        "hint": "由 Alpine 社区维护的软件包，例如 Tailscale 和 NetBird。默认关闭：NanoKVM OS 不需要其中的任何内容，而每次软件包操作都会加载它的索引。安装 Tailscale 或 NetBird 时会自动开启。",
+        "unavailable": "未配置 Alpine main 软件源，因此无法在此添加 community 软件源。",
+        "needed": "已安装的软件包仍需要它：{{packages}}。请先移除这些软件包再关闭该软件源。",
+        "enabled": "已开启 community 软件源，正在刷新索引",
+        "disabled": "已关闭 community 软件源",
+        "failed": "无法加载或更改 community 软件源设置",
+        "vpnNote": "安装时会开启 Alpine community 软件源。"
+      },
       "addons": {
         "title": "附加组件",
         "packages": "软件包",

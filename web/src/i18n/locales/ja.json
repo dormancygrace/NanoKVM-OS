@@ -713,6 +713,16 @@
         "saved": "インデックス更新スケジュールを保存しました",
         "failed": "インデックス更新スケジュールを読み込みまたは保存できませんでした"
       },
+      "community": {
+        "label": "Alpine community リポジトリ",
+        "hint": "Tailscale や NetBird など、Alpine コミュニティが管理するパッケージです。既定ではオフです。NanoKVM OS はここから何も必要とせず、パッケージ操作のたびにインデックスを読み込むことになるためです。Tailscale または NetBird をインストールするとオンになります。",
+        "unavailable": "Alpine main リポジトリが設定されていないため、ここでは community リポジトリを追加できません。",
+        "needed": "インストール済みのパッケージがまだ必要としています: {{packages}}。リポジトリをオフにするには、先にそれらを削除してください。",
+        "enabled": "community リポジトリをオンにしました。インデックスを更新しています",
+        "disabled": "community リポジトリをオフにしました",
+        "failed": "community リポジトリの設定を読み込めない、または変更できませんでした",
+        "vpnNote": "インストールすると Alpine community リポジトリがオンになります。"
+      },
       "addons": {
         "title": "アドオン",
         "packages": "パッケージ",

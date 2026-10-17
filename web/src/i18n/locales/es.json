@@ -713,6 +713,16 @@
         "saved": "Programación de actualización de índices guardada",
         "failed": "No se pudo cargar o guardar la programación de actualización de índices"
       },
+      "community": {
+        "label": "Repositorio community de Alpine",
+        "hint": "Paquetes mantenidos por la comunidad de Alpine, como Tailscale y NetBird. Está desactivado por defecto: NanoKVM OS no necesita nada de él y cada operación de paquetes cargaría su índice. Instalar Tailscale o NetBird lo activa.",
+        "unavailable": "No hay un repositorio main de Alpine configurado, por lo que aquí no se puede añadir el repositorio community.",
+        "needed": "Aún lo necesitan paquetes instalados: {{packages}}. Elimínelos primero para desactivar el repositorio.",
+        "enabled": "Repositorio community activado; actualizando los índices",
+        "disabled": "Repositorio community desactivado",
+        "failed": "No se pudo cargar ni cambiar la configuración del repositorio community",
+        "vpnNote": "La instalación activa el repositorio community de Alpine."
+      },
       "addons": {
         "title": "Complementos",
         "packages": "Paquetes",

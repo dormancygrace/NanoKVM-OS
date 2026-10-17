@@ -69,6 +69,21 @@ func osUpdateRouter(r *gin.Engine) {
 		}
 		updateReply(c, nil, osupdate.SetIndexSchedule(schedule))
 	})
+	api.GET("/software/community", func(c *gin.Context) {
+		status, err := osupdate.GetCommunity()
+		updateReply(c, status, err)
+	})
+	api.PUT("/software/community", func(c *gin.Context) {
+		var req struct {
+			Enabled *bool `json:"enabled"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil || req.Enabled == nil {
+			updateReply(c, nil, errors.New("enabled is required"))
+			return
+		}
+		change, err := osupdate.SetCommunity(*req.Enabled)
+		updateReply(c, change, err)
+	})
 	api.GET("/software/search", func(c *gin.Context) {
 		packages, err := osupdate.SearchSoftware(c.Query("query"))
 		updateReply(c, gin.H{"packages": packages}, err)

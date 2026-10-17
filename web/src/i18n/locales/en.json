@@ -752,7 +752,12 @@
       "removeTitle": "Remove {{package}}?",
       "removeDescription": "APK will perform this removal and its dependency changes exactly as shown below. This cannot be undone automatically.",
       "started": "APK operation started",
-      "running": "APK is {{action}} {{package}}",
+      "operation": {
+        "refresh": "Refreshing package indexes…",
+        "install": "Installing {{package}}…",
+        "remove": "Removing {{package}}…",
+        "upgrade": "Upgrading all packages…"
+      },
       "succeeded": "APK operation completed",
       "failed": "APK operation failed",
       "requestFailed": "The software request failed. Check device connectivity and retry."

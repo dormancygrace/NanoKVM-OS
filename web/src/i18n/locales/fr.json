@@ -752,7 +752,12 @@
       "removeTitle": "Supprimer {{package}} ?",
       "removeDescription": "APK effectuera cette suppression et les modifications de dépendances exactement comme indiqué ci-dessous. Cette action ne peut pas être annulée automatiquement.",
       "started": "Opération APK démarrée",
-      "running": "APK en cours : {{action}} {{package}}",
+      "operation": {
+        "refresh": "Actualisation des index de paquets…",
+        "install": "Installation de {{package}}…",
+        "remove": "Suppression de {{package}}…",
+        "upgrade": "Mise à niveau de tous les paquets…"
+      },
       "succeeded": "Opération APK terminée",
       "failed": "Échec de l'opération APK",
       "requestFailed": "La requête logicielle a échoué. Vérifiez la connectivité de l'appareil et réessayez."

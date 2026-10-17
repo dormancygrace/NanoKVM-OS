@@ -46,6 +46,9 @@ const protectedPackages = new Set([
   'nanokvm-bootloader-sg2002'
 ]);
 
+// Server actions with their own progress text (settings.software.operation.*).
+const operationActions = new Set(['refresh', 'install', 'remove', 'upgrade']);
+
 export const Software = () => {
   const { t } = useTranslation();
   const [state, setState] = useState<SoftwareState>();
@@ -61,6 +64,7 @@ export const Software = () => {
   const [searching, setSearching] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionStarted, setActionStarted] = useState(false);
+  const [finishedOperations, setFinishedOperations] = useState(0);
   const [removal, setRemoval] = useState<{ name: string; preview: string }>();
   const refreshInFlight = useRef(false);
   const updatesInFlight = useRef(false);
@@ -99,7 +103,10 @@ export const Software = () => {
       setState((current) =>
         current ? { ...current, operation: nextOperation, indexes: rsp.data.indexes } : current
       );
-      if (previousState === 'running' && nextOperation.state !== 'running') void refresh();
+      if (previousState === 'running' && nextOperation.state !== 'running') {
+        void refresh();
+        setFinishedOperations((count) => count + 1);
+      }
     } catch {
       // Status polling is passive. It must never interrupt the user with a toast.
     }
@@ -203,9 +210,10 @@ export const Software = () => {
     }
   }, [t]);
 
+  // A finished operation changes what can be upgraded: reload the list.
   useEffect(() => {
     if (activeTab === 'updates') void loadUpdates();
-  }, [activeTab, loadUpdates]);
+  }, [activeTab, loadUpdates, finishedOperations]);
 
   const indexWarning =
     state?.indexes?.state === 'missing' ? (
@@ -313,10 +321,13 @@ export const Software = () => {
             <Alert
               type="info"
               showIcon
-              message={t('settings.software.running', {
-                action: state.operation.action,
-                package: state.operation.package || ''
-              })}
+              message={
+                state.operation.action && operationActions.has(state.operation.action)
+                  ? t(`settings.software.operation.${state.operation.action}`, {
+                      package: state.operation.package || ''
+                    })
+                  : t('settings.software.started')
+              }
             />
           )}
           {showOperation && state?.operation.state === 'failed' && (
@@ -327,11 +338,7 @@ export const Software = () => {
             />
           )}
           {showOperation && state?.operation.state === 'succeeded' && (
-            <Alert
-              type="success"
-              showIcon
-              message={state.operation.message || t('settings.software.succeeded')}
-            />
+            <Alert type="success" showIcon message={t('settings.software.succeeded')} />
           )}
           <Panel className="space-y-3">
             <div className="flex items-center justify-between gap-3 font-medium">

@@ -30,6 +30,29 @@ payloads; `nanokvm-keys` refuses anything but public keys in `/etc/apk/keys`.
 `nanokvm-base` depends on `nanokvm-keys`, which owns the repository keys (see
 [signing keys](../README.md#signing-keys)).
 
+## Package versions
+
+Each package has its own version: the release in which its content last
+changed. The content is the payload tree (paths, modes, links and file
+contents) and the recipe directory. `scripts/package-versions.py` compares
+both with the `packages.json` of the previous release:
+
+- an unchanged package keeps its published version, and the release reuses its
+  published file instead of rebuilding it;
+- a changed package gets the release's APK version;
+- `nanokvm-release` always changes, since it carries the release version;
+- `nanokvm-kernel-sg2002` and `nanokvm-kmod-sg2002` change together, because
+  the kernel requires its modules at exactly its own version.
+
+`nanokvm-app` and `nanokvm-release` depend on the versions chosen for the other
+packages (`V_nanokvm_web` and so on in the build environment). The release
+requires every selected component version directly, including the server and
+web UI, because a reused `nanokvm-app` retains its older dependencies. A device may
+therefore show `nanokvm-web` 3.3.0 next to `nanokvm-release` 3.5.0. The packages
+step reads the previous repository from `NANOKVM_PREVIOUS`, a URL or a
+directory with `packages.json`; without it every package gets the release
+version, as before. It writes `packages.json` next to the indexes.
+
 ## Bootloader
 
 `nanokvm-bootloader-sg2002` carries `fip.bin` (Sophgo FSBL, OpenSBI, U-Boot)

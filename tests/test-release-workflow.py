@@ -40,6 +40,13 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('keys: -d', job(RELEASE, 'dry-run'))
         self.assertIn("if: github.event_name != 'push'", job(RELEASE, 'dry-run'))
 
+    def test_unchanged_packages_come_from_the_published_repository(self):
+        previous = re.search(r'^  NANOKVM_PREVIOUS: (\S+)$', RELEASE, re.M)[1]
+        self.assertRegex(previous, r'^https://dormancygrace\.github\.io/NanoKVM-OS/alpine/v[0-9.]+/riscv64$')
+        action = (ROOT / '.github/actions/assemble-release/action.yml').read_text()
+        self.assertIn('p["changed"] and print(p["apk"])', action)
+        self.assertIn('"$repo/packages.json" "$a/"', action)
+
     def test_only_version_tags_trigger_a_signed_release(self):
         self.assertRegex(RELEASE, r"push:\n    tags: \['v\*'\]\n")
         self.assertNotRegex(RELEASE, r'push:\n    branches')

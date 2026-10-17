@@ -27,6 +27,9 @@ Environment:
   ABUILD        abuild command (default: abuild)
   ABUILD_FLAGS  optional abuild flags (for example -F in an isolated chroot)
   PKGVER        package version (default: firmware/alpine/release.env)
+  PKGVERSIONS   optional file of "NAME VERSION CHANGED" lines
+                (scripts/package-versions.py). A package with CHANGED 0 keeps
+                its published file, which must already be in the repository.
 EOF
 }
 
@@ -46,6 +49,26 @@ ABUILD_FLAGS=${ABUILD_FLAGS:-}
 # shellcheck source=firmware/alpine/release.env
 . "$ROOT/firmware/alpine/release.env"
 PKGVER=${PKGVER:-$NANOKVM_APK_VERSION}
+PKGVERSIONS=${PKGVERSIONS:-}
+[ -z "$PKGVERSIONS" ] || [ -f "$PKGVERSIONS" ] || {
+	echo "build-alpine-packages: $PKGVERSIONS is missing" >&2
+	exit 1
+}
+
+# The version of package $1, and whether it is built (1) or reused (0).
+pkg_version() {
+	if [ -n "$PKGVERSIONS" ]; then
+		awk -v n="$1" '$1 == n { print $2; found = 1 } END { exit !found }' "$PKGVERSIONS" || {
+			echo "build-alpine-packages: $PKGVERSIONS has no version for $1" >&2
+			exit 1
+		}
+	else
+		echo "$PKGVER"
+	fi
+}
+pkg_changed() {
+	[ -z "$PKGVERSIONS" ] || [ "$(awk -v n="$1" '$1 == n { print $3 }' "$PKGVERSIONS")" = 1 ]
+}
 
 command -v "$ABUILD" >/dev/null 2>&1 || {
 	echo "build-alpine-packages: abuild is required" >&2
@@ -111,7 +134,8 @@ make_keys_payload() {
 archive_payload() {
 	pkg=$1
 	payload=$2
-	version=${3:-$PKGVER}
+	pkg_changed "$pkg" || return 0
+	version=$(pkg_version "$pkg")
 	top="$WORK/$pkg-$version"
 	rm -rf "$top"
 	mkdir -p "$top"
@@ -137,6 +161,12 @@ archive_payload nanokvm-release "$release_payload"
 
 export CARCH=riscv64
 export REPODEST SRCDEST PKGVER
+# The versions of the other packages, for the dependencies of nanokvm-app and
+# nanokvm-release: V_nanokvm_web for nanokvm-web, and so on.
+for pkg in nanokvm-keys nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002 \
+	 nanokvm nanokvm-web nanokvm-app nanokvm-zlib nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-release; do
+	export "V_$(echo "$pkg" | tr - _)=$(pkg_version "$pkg")"
+done
 
 # abuild signs each package and the index with abuild-sign and no type, which
 # means RSA: RSA with SHA-1. abuild has no setting for the type, so a wrapper
@@ -170,10 +200,12 @@ prepare_recipe() {
 	# A source name without an URL is local to the APKBUILD directory. Keep the
 	# generated archive there so both `abuild checksum` and the actual build read
 	# the same bytes; SRCDEST remains the persistent archive cache/output.
-	version=$PKGVER
+	version=$(pkg_version "$pkg")
 	cp "$SRCDEST/$pkg-$version.tar.gz" "$recipe_dir/"
 	(
 		cd "$recipe_dir"
+		PKGVER=$version
+		export PKGVER
 		run_abuild checksum
 	)
 	if grep -q 'sha256sums=""' "$recipe_dir/APKBUILD"; then
@@ -188,10 +220,22 @@ prepare_recipe() {
 
 for pkg in nanokvm-keys nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002 \
 	 nanokvm nanokvm-web nanokvm-app nanokvm-zlib nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-release; do
-	echo "building $pkg ($PROFILE)"
+	version=$(pkg_version "$pkg")
+	if ! pkg_changed "$pkg"; then
+		# abuild indexes every package in the directory, this one included.
+		[ -f "$REPODEST/recipes/$CARCH/$pkg-$version-r0.apk" ] || {
+			echo "build-alpine-packages: unchanged $pkg-$version-r0.apk is not in $REPODEST/recipes/$CARCH" >&2
+			exit 1
+		}
+		echo "keeping $pkg $version (unchanged)"
+		continue
+	fi
+	echo "building $pkg $version ($PROFILE)"
 	prepare_recipe "$pkg"
 	(
 		cd "$WORK/recipes/$pkg"
+		PKGVER=$version
+		export PKGVER
 		run_abuild -r
 	)
 done

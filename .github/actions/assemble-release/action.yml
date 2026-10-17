@@ -2,7 +2,8 @@ name: Assemble a release
 description: >
   The packages, root file system and SD image from the outputs of a release
   build (the release-build artifact), and the release assets with their
-  SHA256SUMS in OUTPUT/assets.
+  SHA256SUMS in OUTPUT/assets. Of the packages, the assets hold those that
+  changed; the others stay in the release that first carried them.
 inputs:
   out:
     description: platform/build.sh OUTPUT, prepared by the prepare-build action
@@ -52,7 +53,11 @@ runs:
         rm -rf "$a"
         mkdir -p "$a"
         repo=$OUT/release/apk/recipes/riscv64
-        cp "$repo"/*.apk "$repo/APKINDEX.tar.gz" "$repo/Packages.adb" "$a/"
+        python3 -c 'import json, sys
+        for p in json.load(open(sys.argv[1]))["packages"].values():
+            p["changed"] and print(p["apk"])' "$repo/packages.json" |
+          while read -r apk; do cp "$repo/$apk" "$a/"; done
+        cp "$repo/APKINDEX.tar.gz" "$repo/Packages.adb" "$repo/packages.json" "$a/"
         cp "$OUT"/release/image/*.img.zip "$OUT/release/image/build-manifest.json" \
           "$OUT/release/installed-packages.txt" "$OUT/release/installed-licenses.txt" "$a/"
         cp "$OUT"/NanoKVM-OS-*-source.tar.xz "$a/"

@@ -5,7 +5,7 @@ pkgdesc="NanoKVM application compatibility metapackage"
 url="https://github.com/dormancygrace/NanoKVM-OS"
 arch="riscv64"
 license="GPL-3.0-only"
-depends="nanokvm>=$pkgver-r0 nanokvm-web>=$pkgver-r0"
+depends="nanokvm>=${V_nanokvm:-$pkgver}-r0 nanokvm-web>=${V_nanokvm_web:-$pkgver}-r0"
 options="!check !strip !tracedeps"
 
 build() {

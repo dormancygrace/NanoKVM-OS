@@ -28,6 +28,9 @@ concurrency:
 env:
   # A fixed absolute path: the cached toolchain is not relocatable.
   OUT: /home/runner/nanokvm-out
+  # The published repository: a package whose content is unchanged keeps its
+  # version and file from there (scripts/package-versions.py).
+  NANOKVM_PREVIOUS: https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64
   # The release keys, under their names in firmware/alpine/keys.
   RSA_KEY_NAME: dgrace-6aaddbb6
   EC_KEY_NAME: nkos-release-ec-b8e89b66

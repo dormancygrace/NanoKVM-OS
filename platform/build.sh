@@ -40,7 +40,9 @@
 # and with KEY. Both public keys must be in firmware/alpine/keys: the image
 # trusts those, and nanokvm-keys owns them. For local tests -d uses test keys
 # in OUTPUT/keys instead, created on the first run; such an image also trusts
-# them, so never publish it.
+# them, so never publish it. With NANOKVM_PREVIOUS (the URL or directory of the
+# published repository's riscv64/ with packages.json) a package whose content
+# is unchanged keeps its published version and file (scripts/package-versions.py).
 set -euo pipefail
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin LC_ALL=C TZ=UTC
 umask 022
@@ -51,7 +53,7 @@ jobs=$(nproc)
 key=
 eckey=
 devkey=
-usage() { sed -n '2,42p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '2,45p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 while getopts o:j:k:e:dh opt; do
     case $opt in
         o) out=$OPTARG ;; j) jobs=$OPTARG ;; k) key=$(realpath "$OPTARG") ;; e) eckey=$(realpath "$OPTARG") ;;
@@ -979,6 +981,47 @@ signing_key() {
     keyname=$(basename "$keyfile" .rsa)
 }
 
+# Copy $1 of the published repository NANOKVM_PREVIOUS (an URL or a
+# directory) to $2. Returns 1 when it does not have $1.
+previous_file() {
+    local code
+    case $NANOKVM_PREVIOUS in
+        http://*|https://*)
+            code=$(curl -sS -L -o "$2" -w '%{http_code}' "$NANOKVM_PREVIOUS/$1") || {
+                echo "Cannot read $NANOKVM_PREVIOUS/$1" >&2; exit 1; }
+            [ "$code" != 200 ] || return 0
+            rm -f "$2"
+            [ "$code" = 404 ] || { echo "$NANOKVM_PREVIOUS/$1: HTTP $code" >&2; exit 1; }
+            return 1 ;;
+        *)
+            [ -f "$NANOKVM_PREVIOUS/$1" ] || return 1
+            cp "$NANOKVM_PREVIOUS/$1" "$2" ;;
+    esac
+}
+
+# The version of each package (scripts/package-versions.py): a package keeps
+# the version and the file it was published with while its payload and recipe
+# stay the same. NANOKVM_PREVIOUS is the published repository directory with
+# the packages.json of the previous release. Without it, or before the first
+# release with packages.json, every package gets the release version.
+package_versions() {
+    local v=$b/build/versions apkver dir=$b/build/repo/stock/recipes/riscv64 file sum previous=()
+    apkver=$(sed -n 's/^NANOKVM_APK_VERSION=//p' "$repo/firmware/alpine/release.env")
+    mkdir -p "$v"
+    if [ -n "${NANOKVM_PREVIOUS:-}" ] && previous_file packages.json "$v/previous.json"; then
+        previous=(--previous "$v/previous.json")
+    fi
+    "$host/python3" "$repo/scripts/package-versions.py" select --payloads "$b/build/payloads" \
+        --recipes "$repo/firmware/alpine/packages" --version "$apkver" "${previous[@]}" --output "$v"
+    [ "${#previous[@]}" -gt 0 ] || return 0
+    mkdir -p "$dir"
+    "$host/python3" "$repo/scripts/package-versions.py" reused --versions "$v/versions.json" --previous "$v/previous.json" > "$v/reused"
+    while read -r file sum; do
+        previous_file "$file" "$dir/$file" || { echo "$NANOKVM_PREVIOUS/$file is missing" >&2; exit 1; }
+        echo "$sum  $dir/$file" | sha256sum -c --quiet || { echo "$file differs from packages.json" >&2; exit 1; }
+    done < "$v/reused"
+}
+
 # Build the thirteen packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
@@ -999,12 +1042,15 @@ packages() (
     install -m 0600 "$keyfile" "$b/root/.abuild/$keyname.rsa"
     install -m 0644 "$keyfile.pub" "$b/root/.abuild/$keyname.rsa.pub"
     install -m 0644 "$keyfile.pub" "$b/etc/apk/keys/$keyname.rsa.pub"
+    # Reused packages carry the release signature, also with -d.
+    for pub in "$repo"/firmware/alpine/keys/*.pub; do install -m 0644 "$pub" "$b/etc/apk/keys/"; done
+    package_versions
     printf 'PACKAGER="NanoKVM OS"\nPACKAGER_PRIVKEY="/root/.abuild/%s.rsa"\n' "$keyname" > "$b/root/.abuild/abuild.conf"
     # -F: abuild runs as root of the namespace. -d: the packages compile
     # nothing, so their dependencies are not installed in the builder.
     in_chroot "$b" /usr/bin/env -i HOME=/root PATH=/usr/sbin:/usr/bin:/sbin:/bin \
         SOURCE_DATE_EPOCH="$(git -C "$repo" log -1 --format=%ct)" PAYLOAD_ROOT=/build/payloads \
-        REPODEST=/build/repo SRCDEST=/build/distfiles ABUILD_FLAGS='-F -d' \
+        REPODEST=/build/repo SRCDEST=/build/distfiles ABUILD_FLAGS='-F -d' PKGVERSIONS=/build/versions/versions.txt \
         /bin/sh /build/src/scripts/build-alpine-packages.sh stock
     # The apk v3 index next to APKINDEX.tar.gz, signed with the EC key and,
     # while 2.0 devices that trust only the RSA key may read it, the RSA key.
@@ -1028,6 +1074,8 @@ packages() (
     cp -a "$b/build/repo/stock/." "$rel/apk/"
     cp "$keyfile.pub" "$rel/apk/$keyname.rsa.pub"
     cp "$ecpub" "$rel/apk/"
+    "$host/python3" "$repo/scripts/package-versions.py" manifest \
+        --versions "$b/build/versions/versions.json" --repo "$rel/apk/recipes/riscv64"
 )
 
 # Alpine 3.24 root file system: the minirootfs with nanokvm-release from the

@@ -1,0 +1,19 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] riscv: dts: sg2002: read the SD card in High Speed mode
+
+The 25 MHz cap was set while the divider still assumed a 375 MHz base
+clock. With the card clock divided from CLK_SD0 it gives a real 25 MHz;
+let U-Boot use SD High Speed (50 MHz), as Linux does.
+
+---
+diff --git a/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi b/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
+index d03430b..389cfbe 100644
+--- a/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
++++ b/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
+@@ -13,5 +13,5 @@
+ 	 */
+ 	clocks = <&clk CLK_SD0>, <&clk CLK_AXI4_SD0>;
+ 	clock-names = "core", "bus";
+-	max-frequency = <25000000>;
++	max-frequency = <50000000>;
+ };

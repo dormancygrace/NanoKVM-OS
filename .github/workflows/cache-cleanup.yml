@@ -1,0 +1,66 @@
+name: Cache cleanup
+
+# The repository has 10 GB of Actions cache. CodeQL saves new overlay
+# databases (about 80 MB) for every analysis of main and never removes the
+# old ones; a changed toolchain leaves its previous build (about 240 MB)
+# behind. Once the limit is reached GitHub evicts the least recently used
+# entries, which are then the pnpm and Go caches of the CI jobs. This keeps
+# the newest CodeQL database per language and the newest toolchain per runner
+# image on main, and deletes the older ones. Newest by creation: a pull request
+# on older toolchain inputs keeps using the old toolchain, which must not make
+# it look newer than the one main builds now.
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clean:
+    name: Delete superseded caches
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # Listing and deleting caches.
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Delete
+        run: |
+          gh cache list --ref refs/heads/main --limit 1000 --sort created_at --order desc \
+            --json id,key,sizeInBytes > caches.json
+          # Group: the CodeQL language (the key up to the language hash), or
+          # the toolchain and runner image. The first entry of a group, the
+          # newest, stays.
+          python3 - > delete.txt <<'PY'
+          import json, re
+          seen = set()
+          for c in json.load(open('caches.json')):
+              m = (re.match(r'(codeql-overlay-base-database-\d+-[0-9a-f]+)-', c['key'])
+                   or re.match(r'(toolchain-[a-z0-9]+)-[0-9a-f]{64}$', c['key']))
+              if not m:
+                  continue
+              if m.group(1) in seen:
+                  print(c['id'], c['sizeInBytes'], c['key'])
+              else:
+                  seen.add(m.group(1))
+          PY
+          echo "$(wc -l < delete.txt) caches to delete, $(awk '{ s += $2 } END { print int(s / 1048576) }' delete.txt) MiB"
+          while read -r id _ key; do
+            echo "delete $key"
+            # Ignore only an eviction race. Permission, rate-limit, server
+            # and network failures must fail the job so cleanup cannot stall silently.
+            if gh api --method DELETE "repos/$GH_REPO/actions/caches/$id" --include \
+                > delete.response 2> delete.err; then
+              :
+            elif grep -qE '^HTTP/[0-9.]+ 404([[:space:]]|$)' delete.response; then
+              echo "  already gone"
+            else
+              cat delete.err >&2
+              exit 1
+            fi
+          done < delete.txt

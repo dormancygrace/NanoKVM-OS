@@ -13,7 +13,7 @@ PLATFORM = bash platform/build.sh -o "$(OUT)" -j "$(JOBS)" $(PLATFORM_ARGS)
 help:
 	@echo "NanoKVM OS — pinned Alpine/platform build"
 	@echo "  platform/all/release - Complete SD image and APKs (set PLATFORM_ARGS)"
-	@echo "  release-build        - Build and verify components before packaging"
+	@echo "  release-build        - Build the components and write their hashes"
 	@echo "  package              - Assemble and sign APKs from built components"
 	@echo "  app/support/vision   - Rebuild server/board service/native libraries"
 	@echo "  web                  - Build web/dist for frontend development"
@@ -40,7 +40,7 @@ vision:
 	@$(PLATFORM) native
 
 release-build:
-	@$(PLATFORM) fetch toolchain kernel modules uboot opensbi fip initramfs boot native system server web tools firmware verify
+	@$(PLATFORM) fetch toolchain kernel modules uboot opensbi fip initramfs boot native system tools server web firmware hashes
 
 package:
 	@$(PLATFORM) payloads packages

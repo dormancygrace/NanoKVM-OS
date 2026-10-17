@@ -56,7 +56,6 @@ class KernelPRTests(unittest.TestCase):
         plan = self.plan()
         self.assertEqual(plan['latest'], self.next)
         self.assertEqual(set(plan['files']), set(FILES) - {'.github/upstream-watch.json'})
-        self.assertNotIn('platform/expected.sha256', plan['files'])
         manifest = json.loads(plan['files']['firmware/sources.json'])
         self.assertEqual(manifest['linux'], dict(version=self.next, url=plan['url'], sha256=self.digest))
         old_manifest = json.loads(before['firmware/sources.json'])
@@ -138,7 +137,7 @@ class KernelPRTests(unittest.TestCase):
         pr = writes[3][1]
         self.assertTrue(pr['draft'])
         self.assertEqual(pr['base'], 'main')
-        self.assertIn('platform/expected.sha256', pr['body'])
+        self.assertIn('Release build', pr['body'])
         self.assertIn('olddefconfig', pr['body'])
 
     def test_retry_after_branch_creation_does_not_rewrite_branch(self):

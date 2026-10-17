@@ -238,7 +238,7 @@ def proposal(source, result, root=ROOT):
 - Review the upstream changes and preserve NanoKVM patches, generated code and protocol compatibility.
 - Update remaining version guards, companion metadata, source hashes and configuration as needed.
 - Run relevant tests and rebuild affected outputs. Qualify hardware changes in a coordinated device window.
-- Update platform/expected.sha256 only from verified build outputs; this bot leaves those hashes unchanged.
+- Check the Release build comment for the outputs this PR changes, and qualify them.
 
 No automatic merge or device installation is enabled. For GITHUB_TOKEN-created PRs, select Approve workflows to run if GitHub requires it.
 """

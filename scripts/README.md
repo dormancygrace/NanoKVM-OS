@@ -46,7 +46,7 @@ The root Makefile delegates to the same pinned platform builder:
 
 ```sh
 make platform PLATFORM_ARGS=-d       # complete image with local test keys
-make release-build                  # build and verify components
+make release-build                  # build components and write their hashes
 make package PLATFORM_ARGS='-k path/to/key.rsa -e path/to/key.key'
 ```
 

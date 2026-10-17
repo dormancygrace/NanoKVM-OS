@@ -165,22 +165,26 @@ the packages need no ECDSA signature.
 
 ### Publishing a release
 
-Releases come from main, where every change has been tested on a device
-before it was merged:
+Release reviewed changes from main, with device checks appropriate to the
+changes before publication:
 
 - **Patch release** (v3.4.1): fixes, whenever needed. In GitHub, Actions →
-  Release → Run workflow, kind `patch`. Its notes list the merged pull
-  requests, and it is published as soon as the sign job is approved.
+  Release → Run workflow, kind `patch` and **Use workflow from: main**. Its notes list
+  the merged pull requests, and it is published as soon as the sign job is approved.
 - **Minor release** (v3.5.0): new features, about once a month. Kind `minor`;
   it stays a draft until its notes are written and it is published.
 - **A patch of the current line from a branch**, when main already holds
   changes that should not ship yet: create `release/X.Y` from the newest
   `vX.Y.Z` tag (`git push origin vX.Y.Z:refs/heads/release/X.Y`), merge the
-  fix into main and cherry-pick it there, and run a patch release with `ref`
-  `release/X.Y`. Devices follow one repository, the newest release, so this
+  fix into main and cherry-pick it there, and run a patch release with
+  `release/X.Y` selected in **Use workflow from**. Devices follow one
+  repository, the newest release, so this
   works only while X.Y is the newest line; the workflow refuses it otherwise.
   It also needs a tag that contains this release workflow (from the first
   release made with it on), since older trees ignore the computed version.
+
+Use **Use workflow from** to select the source branch; there is no separate
+checkout ref. Every job uses the same commit selected when the run starts.
 
 The workflow (`.github/workflows/release.yml`) takes the next version after the
 newest release (`scripts/next-release.py`; drafts count), builds everything on
@@ -197,6 +201,10 @@ The SD image is always built, as a check that the packages install from
 scratch, but attached only with `image` checked: when first boot, the card
 layout or installation changes, since a new card runs the image's code until
 its first update. The bootloader needs no image; its package updates it.
+New image numbers also reserve those held by drafts. Release notes start
+from a published tag, never an unpublished draft. Publication uploads all
+assets to a draft first; retrying an already published release only restarts
+the repository update and does not replace public assets.
 The page of the APK repository links the newest image for new cards.
 
 A pushed `vX.Y.Z` tag releases with the versions of

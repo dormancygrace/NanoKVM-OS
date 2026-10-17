@@ -45,7 +45,14 @@ def next_release(releases, kind, ref, image):
     version = (major, minor, patch + 1) if kind == 'patch' else (major, minor + 1, 0)
     if version in versions:
         raise ValueError(f'v{".".join(map(str, version))} exists already')
-    images = [tuple(map(int, m.groups())) for r in releases if not r['draft']
+    published = [tuple(map(int, m.groups())) for r in releases if not r['draft']
+                 and (m := RELEASE.fullmatch(r['tag_name']))]
+    # A draft reserves its version, but may have no tag until publication.
+    # For the first published release of a line, include changes since the
+    # latest published earlier line.
+    previous_line = [v for v in published if v[:2] == version[:2] and v < version]
+    previous = max(previous_line or [v for v in published if v < version], default=None)
+    images = [tuple(map(int, m.groups())) for r in releases if not r['draft'] or image
               for a in r['assets'] if (m := IMAGE.match(a['name']))]
     if not images:
         raise ValueError('no published image')
@@ -54,7 +61,7 @@ def next_release(releases, kind, ref, image):
         image_minor += 1
     text = '.'.join(map(str, version))
     return {'version': 'v' + text, 'apk_version': text, 'image_version': f'v{image_major}.{image_minor}',
-            'previous': 'v' + '.'.join(map(str, (major, minor, patch)))}
+            'previous': 'v' + '.'.join(map(str, previous)) if previous else ''}
 
 
 def main():

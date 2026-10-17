@@ -58,6 +58,23 @@ class NextReleaseTests(unittest.TestCase):
         releases = [release('v3.3.0', 'v1.5', draft=True)] + RELEASES
         self.assertEqual(n.next_release(releases, 'patch', 'main', False)['image_version'], 'v1.4')
 
+    def test_notes_skip_unpublished_drafts(self):
+        for tag in ('v3.2.1', 'v3.3.0'):
+            with self.subTest(tag=tag):
+                releases = [release(tag, draft=True)] + RELEASES
+                result = n.next_release(releases, 'patch', 'main', False)
+                self.assertEqual(result['previous'], 'v3.2.0')
+
+    def test_notes_prefer_a_published_release_of_the_same_line(self):
+        releases = [release('v3.3.2', draft=True), release('v3.3.1'), release('v3.2.9')] + RELEASES
+        result = n.next_release(releases, 'patch', 'main', False)
+        self.assertEqual(result['version'], 'v3.3.3')
+        self.assertEqual(result['previous'], 'v3.3.1')
+
+    def test_new_images_reserve_draft_numbers(self):
+        releases = [release('v3.3.0', 'v1.5', draft=True)] + RELEASES
+        self.assertEqual(n.next_release(releases, 'patch', 'main', True)['image_version'], 'v1.6')
+
     def test_other_refs_are_refused(self):
         with self.assertRaisesRegex(ValueError, 'from main or a release/X.Y branch'):
             n.next_release(RELEASES, 'patch', 'feature/x', False)

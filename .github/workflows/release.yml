@@ -24,10 +24,6 @@ on:
         type: choice
         options: [patch, minor]
         default: patch
-      ref:
-        description: 'Branch to release: main, or release/X.Y for a patch of X.Y'
-        type: string
-        default: main
       image:
         description: 'Publish a new SD image (first-boot, layout or install changes)'
         type: boolean
@@ -43,6 +39,7 @@ on:
       - .github/workflows/release.yml
       - .github/actions/**
       - scripts/next-release.py
+      - scripts/publish-release.sh
 
 permissions:
   contents: read
@@ -75,13 +72,22 @@ jobs:
       image: ${{ steps.version.outputs.image }}
       draft: ${{ steps.version.outputs.draft }}
       publish: ${{ steps.version.outputs.publish }}
-      sha: ${{ steps.version.outputs.sha }}
       previous: ${{ steps.version.outputs.previous }}
       skip: ${{ steps.version.outputs.skip }}
     steps:
+      # Use GitHub's branch selector, never a second caller-controlled checkout.
+      # Reject other refs before sourcing or executing anything from the tree.
+      - name: Validate release branch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          [[ "$GITHUB_REF" == refs/heads/main || "$GITHUB_REF" =~ ^refs/heads/release/[0-9]+\.[0-9]+$ ]] || {
+            echo 'Select main or release/X.Y in Use workflow from' >&2
+            exit 1
+          }
+
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || '' }}
+          ref: ${{ github.sha }}
 
       - name: Version
         id: version
@@ -89,7 +95,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
           KIND: ${{ inputs.kind }}
-          REF: ${{ inputs.ref }}
+          REF: ${{ github.ref_name }}
           IMAGE: ${{ inputs.image }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
@@ -122,7 +128,6 @@ jobs:
               printf 'version=%s\napk_version=%s\nimage_version=%s\nimage=true\ndraft=true\npublish=false\n' \
                 "$NANOKVM_VERSION" "$NANOKVM_APK_VERSION" "$NANOKVM_IMAGE_VERSION" >> "$GITHUB_OUTPUT" ;;
           esac
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: ./.github/actions/prepare-build
         if: steps.version.outputs.skip != 'true'
@@ -170,7 +175,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.build.outputs.sha }}
+          ref: ${{ github.sha }}
 
       - uses: ./.github/actions/prepare-build
         with:
@@ -204,27 +209,12 @@ jobs:
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
-          SHA: ${{ needs.build.outputs.sha }}
+          SHA: ${{ github.sha }}
           IMAGE: ${{ needs.build.outputs.image }}
           DRAFT: ${{ needs.build.outputs.draft }}
           PREVIOUS: ${{ needs.build.outputs.previous }}
-        # A rerun after a failed upload replaces the assets of its own draft.
-        run: |
-          title="NanoKVM OS $NANOKVM_VERSION"
-          [ "$IMAGE" != true ] || title="$title · Image $NANOKVM_IMAGE_VERSION"
-          if [ "$(gh release view "$NANOKVM_VERSION" --json isDraft -q .isDraft 2>/dev/null)" = true ]; then
-            gh release upload "$NANOKVM_VERSION" --clobber "$OUT"/assets/*
-            [ "$DRAFT" = true ] || gh release edit "$NANOKVM_VERSION" --draft=false
-          else
-            flags=()
-            [ "$DRAFT" != true ] || flags+=(--draft)
-            case $NANOKVM_VERSION in *-*) flags+=(--prerelease) ;; esac
-            # Notes from the previous release of the same line.
-            [ -z "$PREVIOUS" ] || flags+=(--notes-start-tag "$PREVIOUS")
-            gh release create "$NANOKVM_VERSION" --target "$SHA" "${flags[@]}" \
-              --title "$title" --generate-notes "$OUT"/assets/*
-          fi
-          [ "$DRAFT" = true ] || gh workflow run apk-repository.yml --ref "${{ github.event.repository.default_branch }}"
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: bash scripts/publish-release.sh
 
   dry-run:
     name: Assemble with test keys
@@ -239,7 +229,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.build.outputs.sha }}
+          ref: ${{ github.sha }}
 
       - uses: ./.github/actions/prepare-build
         with:

@@ -6,8 +6,8 @@
 
 **Browser KVM, Internet over USB, remote access and a full Alpine system — on SG2002 NanoKVM hardware.**
 
-[![Applications: v3.2.0](https://img.shields.io/badge/applications-v3.2.0-blue)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.2.0)
-[![Image: v1.4](https://img.shields.io/badge/SD%20image-v1.4-blue)](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.2.0)
+[![Latest applications](https://img.shields.io/github/v/release/dormancygrace/NanoKVM-OS?filter=v*&label=applications&color=blue)](https://github.com/dormancygrace/NanoKVM-OS/releases/latest)
+[![Latest SD image](https://img.shields.io/endpoint?url=https%3A%2F%2Fdormancygrace.github.io%2FNanoKVM-OS%2Flatest-image%2Fbadge.json)](https://dormancygrace.github.io/NanoKVM-OS/latest-image/)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 
@@ -23,7 +23,7 @@
 
 Underneath the interface is **Alpine Linux 3.24 on a writable F2FS root**, with ordinary APK packages, OpenRC services and official Alpine userspace. You can install software, update individual components and retain your settings without rebuilding or reflashing the entire card.
 
-**Applications v3.2.0, bundled in Image v1.4 — Unleash the Card. Lighten the Load.** Corrected SD/SDIO clocks, faster native decompression, visible update notifications and a stable Alpine package foundation. See the [complete release notes](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.2.0).
+See the [latest application release](https://github.com/dormancygrace/NanoKVM-OS/releases/latest) for what’s new, or get the [latest SD image](https://dormancygrace.github.io/NanoKVM-OS/latest-image/) for a fresh installation. Applications and images have separate version numbers; package-only updates keep the previous image available.
 
 > [!IMPORTANT]
 > **Help wanted — NanoKVM Cube, Lite and PCIe testers!**

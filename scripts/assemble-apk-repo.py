@@ -16,6 +16,7 @@ The result, below OUTPUT:
                          packages.json (the version and content of each package)
   keys/                  the public release keys (firmware/alpine/keys)
   index.html             the repository lines
+  latest-image/          automatic README badge and redirect to its image release
 """
 import argparse
 import gzip
@@ -32,6 +33,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from urllib.parse import quote
 
 import addon_packages
 
@@ -144,6 +146,31 @@ def install_link(published):
     return ''
 
 
+def image_badge(output, published):
+    """Keep the README image version and destination together across hotfixes."""
+    message, color = 'not available', 'lightgrey'
+    target = f'https://github.com/{REPOSITORY}/releases'
+    for release in published:
+        image = next((a for a in release['assets'] if re.fullmatch(
+            r'NanoKVM-OS-Image-(v.+)-apps-v.+\.img\.zip', a['name'])), None)
+        if image:
+            message = re.fullmatch(r'NanoKVM-OS-Image-(v.+)-apps-v.+\.img\.zip', image['name'])[1]
+            color = 'blue'
+            target += '/tag/' + quote(release['tag_name'], safe='')
+            break
+    directory = Path(output) / 'latest-image'
+    directory.mkdir()
+    (directory / 'badge.json').write_text(json.dumps({
+        'schemaVersion': 1, 'label': 'SD image', 'message': message, 'color': color,
+    }) + '\n')
+    (directory / 'index.html').write_text(f'''<!doctype html>
+<meta charset="utf-8">
+<title>NanoKVM OS — latest SD image</title>
+<meta http-equiv="refresh" content="0; url={escape(target)}">
+<p><a href="{escape(target)}">Latest NanoKVM OS SD image: {escape(message)}</a></p>
+''')
+
+
 def assemble(output, published, keep, branch, keys, fetch=fetch):
     if not published:
         raise ValueError('No published release carries Packages.adb')
@@ -205,6 +232,7 @@ Devices use the line <code><a href="{line}">{line}</a></code> in
 <code>/etc/apk/repositories</code>; the <code>nanokvm-keys</code> package installs the signing keys.</p>
 <ul>{"".join(key_links)}</ul>{install_link(published)}
 ''')
+    image_badge(output, published)
     (output / '.nojekyll').write_text('')
     (output / MARKER).write_text(MARKER_CONTENT)
     return newest['tag_name'], sorted(wanted)

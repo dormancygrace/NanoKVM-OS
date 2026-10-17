@@ -675,7 +675,7 @@
         "subnetMask": "Maska podsítě",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Brána",
-        "gatewayPlaceholder": "192.168.10.1 (volitelné)",
+        "gatewayPlaceholder": "Volitelné",
         "invalid": "Neplatná IP adresa",
         "save": "Uložit",
         "unsaved": "Neuložené změny",

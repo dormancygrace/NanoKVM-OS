@@ -1550,7 +1550,7 @@
         "subnetMask": "子网掩码",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "网关",
-        "gatewayPlaceholder": "192.168.10.1（可选）",
+        "gatewayPlaceholder": "可选",
         "invalid": "请输入有效的 IPv4 地址、子网掩码和网关",
         "vlan": "VLAN",
         "vlanDescription": "在 eth0.<ID> 上使用所选的 DHCP 或静态 IPv4 配置",

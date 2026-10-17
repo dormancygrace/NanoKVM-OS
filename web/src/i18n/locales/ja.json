@@ -1550,7 +1550,7 @@
         "subnetMask": "サブネットマスク",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "ゲートウェイ",
-        "gatewayPlaceholder": "192.168.10.1（任意）",
+        "gatewayPlaceholder": "任意",
         "invalid": "無効な IP アドレスです",
         "vlan": "VLAN",
         "vlanDescription": "選択した DHCP または固定 IPv4 の設定を eth0.<ID> で使用します",

@@ -452,7 +452,7 @@
         "subnetMask": "Maschera di sottorete",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Gateway",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "Facoltativo",
         "invalid": "Indirizzo IP non valido",
         "save": "Salva",
         "unsaved": "Modifiche non salvate",

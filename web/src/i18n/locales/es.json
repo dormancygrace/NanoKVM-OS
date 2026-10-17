@@ -1550,7 +1550,7 @@
         "subnetMask": "Máscara de subred",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Puerta de enlace",
-        "gatewayPlaceholder": "192.168.10.1 (opcional)",
+        "gatewayPlaceholder": "Opcional",
         "invalid": "Dirección IP no válida",
         "vlan": "VLAN",
         "vlanDescription": "Usar la configuración IPv4 DHCP o estática seleccionada en eth0.<ID>",

@@ -452,7 +452,7 @@
         "subnetMask": "Alhálózati maszk",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Átjáró",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "Nem kötelező",
         "invalid": "Érvénytelen IP-cím",
         "save": "Mentés",
         "unsaved": "Nem mentett módosítások",

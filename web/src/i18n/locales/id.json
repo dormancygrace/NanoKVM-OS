@@ -452,7 +452,7 @@
         "subnetMask": "Masker subnet",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Gateway",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "Opsional",
         "invalid": "Alamat IP tidak valid",
         "save": "Simpan",
         "unsaved": "Perubahan belum disimpan",

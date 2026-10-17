@@ -1550,7 +1550,7 @@
         "subnetMask": "Masque de sous-réseau",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Passerelle",
-        "gatewayPlaceholder": "192.168.10.1 (facultatif)",
+        "gatewayPlaceholder": "Facultatif",
         "invalid": "Adresse IP non valide",
         "vlan": "VLAN",
         "vlanDescription": "Utiliser la configuration IPv4 DHCP ou statique sélectionnée sur eth0.<ID>",

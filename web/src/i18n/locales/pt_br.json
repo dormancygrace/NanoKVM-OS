@@ -452,7 +452,7 @@
         "subnetMask": "Máscara de sub-rede",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Gateway",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "Opcional",
         "invalid": "Insira um endereço IPv4, uma máscara de sub-rede e um gateway válidos",
         "save": "Salvar",
         "unsaved": "Alterações não salvas",

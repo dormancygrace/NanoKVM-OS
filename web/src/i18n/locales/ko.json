@@ -452,7 +452,7 @@
         "subnetMask": "서브넷 마스크",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "게이트웨이",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "선택 사항",
         "invalid": "유효하지 않은 IP 주소",
         "save": "저장",
         "unsaved": "저장되지 않은 변경 사항",

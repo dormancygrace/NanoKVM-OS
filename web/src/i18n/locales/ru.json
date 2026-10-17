@@ -1550,7 +1550,7 @@
         "subnetMask": "Маска подсети",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Шлюз",
-        "gatewayPlaceholder": "192.168.10.1 (необязательно)",
+        "gatewayPlaceholder": "Необязательно",
         "invalid": "Введите корректные IPv4-адрес, маску подсети и шлюз",
         "vlan": "VLAN",
         "vlanDescription": "Применить выбранный DHCP или статический IPv4 к eth0.<ID>",

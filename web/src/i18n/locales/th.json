@@ -452,7 +452,7 @@
         "subnetMask": "ซับเน็ตมาสก์",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "เกตเวย์",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "ไม่บังคับ",
         "invalid": "ป้อนที่อยู่ IPv4 ซับเน็ตมาสก์ และเกตเวย์ที่ถูกต้อง",
         "save": "บันทึก",
         "unsaved": "การเปลี่ยนแปลงที่ยังไม่ได้บันทึก",

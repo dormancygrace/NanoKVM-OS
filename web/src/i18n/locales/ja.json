@@ -1532,7 +1532,18 @@
         "private": "プライベートアドレス",
         "disconnectHint": "IPv6 を無効にすると IPv6 の接続が閉じられます。IPv4 アドレスで再接続できます。",
         "loadFailed": "IPv6 の状態を読み取れませんでした。",
-        "saveFailed": "IPv6 を切り替えられませんでした。IPv6 で接続している場合は、IPv4 で再接続してください。"
+        "saveFailed": "IPv6 を切り替えられませんでした。IPv6 で接続している場合は、IPv4 で再接続してください。",
+        "configuration": "設定",
+        "dhcpv6Description": "ルーター広告（SLAAC）と DHCPv6 からのアドレス。",
+        "staticDescription": "プレフィックス長付きの固定アドレスと、任意のゲートウェイ。",
+        "static": "静的",
+        "address": "アドレス",
+        "addressPlaceholder": "アドレス/プレフィックス長",
+        "gateway": "ゲートウェイ",
+        "gatewayPlaceholder": "任意",
+        "invalid": "プレフィックス長付きの IPv6 アドレスを入力してください。ゲートウェイは IPv6 アドレスである必要があります。",
+        "save": "保存",
+        "cancel": "キャンセル"
       },
       "ethernet": {
         "title": "Ethernet IPv4",

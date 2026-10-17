@@ -1532,7 +1532,18 @@
         "private": "Private Adresse",
         "disconnectHint": "Das Deaktivieren von IPv6 schließt IPv6-Verbindungen. Sie können sich über die IPv4-Adresse erneut verbinden.",
         "loadFailed": "IPv6-Status konnte nicht gelesen werden.",
-        "saveFailed": "IPv6 konnte nicht geändert werden. Wenn Sie über IPv6 verbunden sind, verbinden Sie sich über IPv4 erneut."
+        "saveFailed": "IPv6 konnte nicht geändert werden. Wenn Sie über IPv6 verbunden sind, verbinden Sie sich über IPv4 erneut.",
+        "configuration": "Konfiguration",
+        "dhcpv6Description": "Adressen aus Router-Advertisements (SLAAC) und von DHCPv6.",
+        "staticDescription": "Eine feste Adresse mit Präfixlänge und ein optionales Gateway.",
+        "static": "Statisch",
+        "address": "Adresse",
+        "addressPlaceholder": "Adresse/Präfixlänge",
+        "gateway": "Gateway",
+        "gatewayPlaceholder": "Optional",
+        "invalid": "Geben Sie eine IPv6-Adresse mit Präfixlänge ein; das Gateway muss eine IPv6-Adresse sein.",
+        "save": "Speichern",
+        "cancel": "Abbrechen"
       },
       "ethernet": {
         "title": "Ethernet IPv4",

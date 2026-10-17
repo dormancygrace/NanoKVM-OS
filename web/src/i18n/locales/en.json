@@ -1532,7 +1532,18 @@
         "private": "Private address",
         "disconnectHint": "Disabling IPv6 closes IPv6 connections. You can reconnect using the IPv4 address.",
         "loadFailed": "Failed to read IPv6 status.",
-        "saveFailed": "Failed to change IPv6. If connected over IPv6, reconnect using IPv4."
+        "saveFailed": "Failed to change IPv6. If connected over IPv6, reconnect using IPv4.",
+        "configuration": "Configuration",
+        "dhcpv6Description": "Addresses from router advertisements (SLAAC) and from DHCPv6.",
+        "staticDescription": "A fixed address with its prefix length, and an optional gateway.",
+        "static": "Static",
+        "address": "Address",
+        "addressPlaceholder": "Address/prefix length",
+        "gateway": "Gateway",
+        "gatewayPlaceholder": "Optional",
+        "invalid": "Enter an IPv6 address with its prefix length; the gateway must be an IPv6 address.",
+        "save": "Save",
+        "cancel": "Cancel"
       },
       "ethernet": {
         "title": "Ethernet IPv4",

@@ -1532,7 +1532,18 @@
         "private": "私有地址",
         "disconnectHint": "禁用 IPv6 会关闭 IPv6 连接。你可以使用 IPv4 地址重新连接。",
         "loadFailed": "读取 IPv6 状态失败。",
-        "saveFailed": "更改 IPv6 失败。如果通过 IPv6 连接，请使用 IPv4 重新连接。"
+        "saveFailed": "更改 IPv6 失败。如果通过 IPv6 连接，请使用 IPv4 重新连接。",
+        "configuration": "配置",
+        "dhcpv6Description": "来自路由器通告（SLAAC）和 DHCPv6 的地址。",
+        "staticDescription": "带前缀长度的固定地址和可选网关。",
+        "static": "静态",
+        "address": "地址",
+        "addressPlaceholder": "地址/前缀长度",
+        "gateway": "网关",
+        "gatewayPlaceholder": "可选",
+        "invalid": "请输入带前缀长度的 IPv6 地址；网关必须是 IPv6 地址。",
+        "save": "保存",
+        "cancel": "取消"
       },
       "ethernet": {
         "title": "以太网 IPv4",

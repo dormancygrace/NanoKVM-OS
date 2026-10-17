@@ -1,4 +1,5 @@
 # Ethernet and Wi-Fi have their own IPv6 setting; an interface that appears
 # after boot (the Wi-Fi driver loads when Wi-Fi is turned on) would otherwise
-# start with the default of the other interfaces.
+# start with the default of the other interfaces, and without its DHCPv6
+# client.
 ACTION=="add", SUBSYSTEM=="net", KERNEL=="eth0|wlan0", RUN+="/usr/libexec/nanokvm/legacy/S02ipv6 interface %k"

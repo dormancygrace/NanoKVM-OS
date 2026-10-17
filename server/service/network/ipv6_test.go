@@ -14,6 +14,24 @@ import (
 
 var ipv6FixtureNames = []string{"all", "default", "lo", "eth0", "wlan0", "usb0"}
 
+func dhcpv6If(on bool) ipv6Setting {
+	if on {
+		return ipv6Setting{Mode: ipv6DHCPv6}
+	}
+	return ipv6Setting{}
+}
+
+// stubCommand writes a command that logs its arguments to <dir>/<name>.log.
+func stubCommand(t *testing.T, dir, name string) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	script := "#!/bin/sh\necho \"$*\" >> " + path + ".log\n"
+	if err := os.WriteFile(path, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 func ipv6Fixture(t *testing.T) {
 	t.Helper()
 	previousConfig, previousRoot := ipv6ConfigFile, ipv6SysctlRoot
@@ -21,6 +39,14 @@ func ipv6Fixture(t *testing.T) {
 	root := t.TempDir()
 	ipv6ConfigFile = filepath.Join(root, "settings/ipv6")
 	ipv6SysctlRoot = filepath.Join(root, "proc")
+	// The script must never touch the host's network in a test.
+	run := filepath.Join(root, "run")
+	if err := os.MkdirAll(run, 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("NANOKVM_IPV6_RUN", run)
+	t.Setenv("NANOKVM_IP", stubCommand(t, root, "ip"))
+	t.Setenv("NANOKVM_DHCPV6", stubCommand(t, root, "dhcpv6"))
 	for _, name := range ipv6FixtureNames {
 		path := filepath.Join(ipv6SysctlRoot, name)
 		if err := os.MkdirAll(path, 0755); err != nil {
@@ -69,7 +95,7 @@ func TestIPv6DefaultsAndPersistentTransitions(t *testing.T) {
 		t.Fatalf("missing config: %v %v", policy, err)
 	}
 	for _, step := range []struct{ eth0, wlan0 bool }{{false, false}, {true, false}, {false, true}, {true, true}, {false, false}} {
-		policy := ipv6Policy{"eth0": step.eth0, "wlan0": step.wlan0}
+		policy := ipv6Policy{"eth0": dhcpv6If(step.eth0), "wlan0": dhcpv6If(step.wlan0)}
 		if err := applyIPv6(policy); err != nil {
 			t.Fatal(err)
 		}
@@ -77,7 +103,7 @@ func TestIPv6DefaultsAndPersistentTransitions(t *testing.T) {
 			t.Fatal(err)
 		}
 		got, err := readIPv6Policy()
-		if err != nil || got["eth0"] != step.eth0 || got["wlan0"] != step.wlan0 {
+		if err != nil || got["eth0"] != dhcpv6If(step.eth0) || got["wlan0"] != dhcpv6If(step.wlan0) {
 			t.Fatalf("persistent policy: %v %v", got, err)
 		}
 		// Reapplying an unchanged policy must leave the interface state intact.
@@ -98,7 +124,7 @@ func TestIPv6ReadsTheSettingFromBeforeInterfaces(t *testing.T) {
 			t.Fatal(err)
 		}
 		policy, err := readIPv6Policy()
-		if err != nil || policy["eth0"] != both || policy["wlan0"] != both {
+		if err != nil || policy["eth0"] != dhcpv6If(both) || policy["wlan0"] != dhcpv6If(both) {
 			t.Fatalf("%q: %v %v", content, policy, err)
 		}
 		runIPv6Script(t, "start")
@@ -120,7 +146,7 @@ func runIPv6Script(t *testing.T, args ...string) {
 // setting); udev then applies its own.
 func TestIPv6AppliesTheSettingToAnInterfaceAddedLater(t *testing.T) {
 	ipv6Fixture(t)
-	policy := ipv6Policy{"eth0": true, "wlan0": false}
+	policy := ipv6Policy{"eth0": dhcpv6If(true)}
 	if err := applyIPv6(policy); err != nil {
 		t.Fatal(err)
 	}
@@ -189,17 +215,17 @@ func TestIPv6SwitchesOneInterfaceOrBoth(t *testing.T) {
 		t.Fatal(err)
 	}
 	encoded, _ := json.Marshal(status.Interfaces)
-	if !status.Enabled || string(encoded) != `[{"name":"eth0","enabled":true,"active":true,"present":true},{"name":"wlan0","enabled":false,"active":false,"present":true}]` {
+	if !status.Enabled || string(encoded) != `[{"name":"eth0","enabled":true,"mode":"dhcpv6","address":"","gateway":"","active":true,"present":true},{"name":"wlan0","enabled":false,"mode":"","address":"","gateway":"","active":false,"present":true}]` {
 		t.Fatalf("status %s, enabled %t", encoded, status.Enabled)
 	}
 }
 
 func TestIPv6RejectsCorruptConfigAndReportsUnsupportedKernel(t *testing.T) {
 	ipv6Fixture(t)
-	if err := writeIPv6Policy(ipv6Policy{"eth0": true}); err != nil {
+	if err := writeIPv6Policy(ipv6Policy{"eth0": dhcpv6If(true)}); err != nil {
 		t.Fatal(err)
 	}
-	for _, content := range []string{"yes", "eth0=2", "usb0=1", "eth0"} {
+	for _, content := range []string{"yes", "eth0=2", "usb0=1", "eth0", "eth0=dhcpv6", "eth0=static", "eth0=static eth0.address=fe80::/64x", "eth0.mtu=1280", "wlan0.gateway=10.0.0.1"} {
 		if err := os.WriteFile(ipv6ConfigFile, []byte(content), 0600); err != nil {
 			t.Fatal(err)
 		}
@@ -208,10 +234,146 @@ func TestIPv6RejectsCorruptConfigAndReportsUnsupportedKernel(t *testing.T) {
 		}
 	}
 	ipv6SysctlRoot = filepath.Join(t.TempDir(), "no-ipv6")
-	if err := applyIPv6(ipv6Policy{"wlan0": true}); err == nil {
+	if err := applyIPv6(ipv6Policy{"wlan0": dhcpv6If(true)}); err == nil {
 		t.Fatal("enabled unsupported IPv6")
 	}
 	if err := applyIPv6(ipv6Policy{}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestIPv6StaticAddressAndGateway(t *testing.T) {
+	ipv6Fixture(t)
+	for _, name := range []string{"eth0", "wlan0"} {
+		for _, file := range []string{"autoconf", "keep_addr_on_down"} {
+			value := "1\n"
+			if file == "keep_addr_on_down" {
+				value = "0\n"
+			}
+			if err := os.WriteFile(filepath.Join(ipv6SysctlRoot, name, file), []byte(value), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	ipLog := os.Getenv("NANOKVM_IP") + ".log"
+	clientLog := os.Getenv("NANOKVM_DHCPV6") + ".log"
+	setIPv6Request(t, `{"enabled":true,"interface":"wlan0","mode":"static","address":"2001:db8::10/64","gateway":"2001:db8::1"}`)
+	if sysctlFile(t, "wlan0", "autoconf") != "0" || sysctlFile(t, "wlan0", "keep_addr_on_down") != "1" {
+		t.Fatal("static Wi-Fi keeps SLAAC or loses its address when down")
+	}
+	if calls := takeCalls(t, ipLog); calls != "-6 addr replace 2001:db8::10/64 dev wlan0\n-6 route replace default via 2001:db8::1 dev wlan0 metric 300" {
+		t.Fatalf("ip calls %q", calls)
+	}
+	if calls := takeCalls(t, clientLog); calls != "stop eth0\nstop wlan0" {
+		t.Fatalf("client calls %q", calls)
+	}
+	// Another address without a gateway: the old ones are taken off.
+	setIPv6Request(t, `{"enabled":true,"interface":"wlan0","mode":"static","address":"2001:db8::20/64","gateway":""}`)
+	if calls := takeCalls(t, ipLog); calls != "-6 route del default via 2001:db8::1 dev wlan0\n-6 addr del 2001:db8::10/64 dev wlan0\n-6 addr replace 2001:db8::20/64 dev wlan0" {
+		t.Fatalf("ip calls %q", calls)
+	}
+	if calls := takeCalls(t, clientLog); calls != "stop eth0\nstop wlan0" {
+		t.Fatalf("client calls %q", calls)
+	}
+	// Back to DHCPv6: the static address goes, SLAAC and the client return,
+	// and IPv6 restarts on the interface for new router advertisements.
+	setIPv6Request(t, `{"enabled":true,"interface":"wlan0","mode":"dhcpv6"}`)
+	if calls := takeCalls(t, ipLog); calls != "-6 addr del 2001:db8::20/64 dev wlan0" {
+		t.Fatalf("ip calls %q", calls)
+	}
+	if sysctlFile(t, "wlan0", "autoconf") != "1" || sysctlFile(t, "wlan0", "keep_addr_on_down") != "0" || sysctlValue(t, "wlan0") != "0" {
+		t.Fatal("DHCPv6 mode not restored")
+	}
+	if calls := takeCalls(t, clientLog); calls != "stop eth0\nstart wlan0" {
+		t.Fatalf("client calls %q", calls)
+	}
+	// The static address is kept for the next time static is chosen.
+	policy, _ := readIPv6Policy()
+	if policy["wlan0"] != (ipv6Setting{Mode: ipv6DHCPv6, Address: "2001:db8::20/64"}) {
+		t.Fatalf("policy %+v", policy["wlan0"])
+	}
+	for _, body := range []string{
+		`{"enabled":true,"interface":"eth0","mode":"static"}`,
+		`{"enabled":true,"interface":"eth0","mode":"static","address":"192.0.2.1/24"}`,
+		`{"enabled":true,"interface":"eth0","mode":"static","address":"2001:db8::1"}`,
+		`{"enabled":true,"interface":"eth0","mode":"static","address":"2001:db8::1/64","gateway":"10.0.0.1"}`,
+		`{"enabled":true,"interface":"eth0","mode":"static","address":"2001:db8::1/64 dev lo"}`,
+		`{"enabled":true,"mode":"static","address":"2001:db8::1/64"}`,
+		`{"enabled":true,"interface":"eth0","mode":"slaac"}`,
+	} {
+		response := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(response)
+		ctx.Request = httptest.NewRequest("POST", "/api/network/ipv6", strings.NewReader(body))
+		ctx.Request.Header.Set("Content-Type", "application/json")
+		(&Service{}).SetIPv6(ctx)
+		if !strings.Contains(response.Body.String(), `"code":-1`) {
+			t.Fatalf("%s accepted: %s", body, response.Body.String())
+		}
+	}
+}
+
+func sysctlFile(t *testing.T, name, file string) string {
+	t.Helper()
+	got, err := os.ReadFile(filepath.Join(ipv6SysctlRoot, name, file))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimSpace(string(got))
+}
+
+// dhcpv6Stub replaces the DHCPv6 client helper with one that logs its
+// calls, and returns the log.
+func dhcpv6Stub(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	stub := filepath.Join(dir, "dhcpv6")
+	if err := os.WriteFile(stub, []byte("#!/bin/sh\necho \"$*\" >> "+log+"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("NANOKVM_DHCPV6", stub)
+	return log
+}
+
+func takeCalls(t *testing.T, log string) string {
+	t.Helper()
+	data, _ := os.ReadFile(log)
+	_ = os.Remove(log)
+	return strings.TrimSpace(string(data))
+}
+
+// Ethernet or Wi-Fi with IPv6 runs its DHCPv6 client next to SLAAC.
+func TestIPv6RunsTheDHCPv6ClientWhileOn(t *testing.T) {
+	ipv6Fixture(t)
+	log := dhcpv6Stub(t)
+	if err := applyIPv6(ipv6Policy{"wlan0": dhcpv6If(true)}); err != nil {
+		t.Fatal(err)
+	}
+	if calls := takeCalls(t, log); calls != "stop eth0\nstart wlan0" {
+		t.Fatalf("client calls %q", calls)
+	}
+	if err := applyIPv6(ipv6Policy{"eth0": dhcpv6If(true)}); err != nil {
+		t.Fatal(err)
+	}
+	if calls := takeCalls(t, log); calls != "start eth0\nstop wlan0" {
+		t.Fatalf("client calls %q", calls)
+	}
+	if err := writeIPv6Policy(ipv6Policy{"eth0": dhcpv6If(true)}); err != nil {
+		t.Fatal(err)
+	}
+	// udev adds Wi-Fi, which is off: only its client is told.
+	runIPv6Script(t, "interface", "wlan0")
+	if calls := takeCalls(t, log); calls != "stop wlan0" {
+		t.Fatalf("client calls %q", calls)
+	}
+	// An interface that does not exist yet gets no client.
+	if err := os.RemoveAll(filepath.Join(ipv6SysctlRoot, "wlan0")); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyIPv6(ipv6Policy{"eth0": dhcpv6If(true), "wlan0": dhcpv6If(true)}); err != nil {
+		t.Fatal(err)
+	}
+	if calls := takeCalls(t, log); calls != "start eth0" {
+		t.Fatalf("client calls %q", calls)
 	}
 }

@@ -1532,7 +1532,18 @@
         "private": "Adresse privée",
         "disconnectHint": "La désactivation d'IPv6 ferme les connexions IPv6. Vous pouvez vous reconnecter avec l'adresse IPv4.",
         "loadFailed": "Échec de la lecture de l'état IPv6.",
-        "saveFailed": "Échec de la modification d'IPv6. Si vous êtes connecté via IPv6, reconnectez-vous via IPv4."
+        "saveFailed": "Échec de la modification d'IPv6. Si vous êtes connecté via IPv6, reconnectez-vous via IPv4.",
+        "configuration": "Configuration",
+        "dhcpv6Description": "Adresses des annonces du routeur (SLAAC) et de DHCPv6.",
+        "staticDescription": "Une adresse fixe avec sa longueur de préfixe et une passerelle facultative.",
+        "static": "Statique",
+        "address": "Adresse",
+        "addressPlaceholder": "Adresse/longueur de préfixe",
+        "gateway": "Passerelle",
+        "gatewayPlaceholder": "Facultatif",
+        "invalid": "Saisissez une adresse IPv6 avec sa longueur de préfixe ; la passerelle doit être une adresse IPv6.",
+        "save": "Enregistrer",
+        "cancel": "Annuler"
       },
       "ethernet": {
         "title": "IPv4 Ethernet",

@@ -20,7 +20,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--linker",type=Path,required=True,help="riscv64 musl GCC")
 parser.add_argument("--apk",type=Path,required=True,help="host apk-tools 3 with mkpkg")
 parser.add_argument("--output",type=Path,required=True)
-parser.add_argument("--package-revision", type=int, help="package revision for this fresh source/build; defaults to the recipe")
+parser.add_argument("--package-revision", type=int, help="package revision for this fresh source/build; defaults to the recipe for the same version, otherwise zero")
 source_group=parser.add_mutually_exclusive_group(required=True)
 source_group.add_argument("--source-url",help="immutable public URL for this package revision source archive")
 source_group.add_argument("--local-only",action="store_true",help="local unpublished package with corresponding source beside the APK")
@@ -32,13 +32,16 @@ pkg=root/"firmware/alpine/packages/nanokvm-rustdesk"
 recipe=(pkg/"APKBUILD").read_text()
 pkgver=re.search(r"^pkgver=(\S+)$",recipe,re.M).group(1)
 revision=re.search(r"^pkgrel=([0-9]+)$",recipe,re.M).group(1)
+# The checked-in recipe pins the last published archive. A new source version
+# must build before the release-and-pin workflow can replace that recipe.
+if pkgver != version:
+    revision="0"
 if args.package_revision is not None:
     if args.package_revision < 0:
         parser.error("--package-revision must be nonnegative")
     revision=str(args.package_revision)
-    recipe=re.sub(r"^pkgrel=[0-9]+$", "pkgrel="+revision, recipe, flags=re.M)
-if pkgver != version:
-    raise SystemExit("APKBUILD pkgver must match Cargo.toml")
+recipe=re.sub(r"^pkgver=\S+$", lambda _: "pkgver="+version, recipe, flags=re.M)
+recipe=re.sub(r"^pkgrel=[0-9]+$", "pkgrel="+revision, recipe, flags=re.M)
 package_version=f"{version}-r{revision}"
 if args.source_url and not args.source_url.startswith("https://"):
     raise SystemExit("--source-url must be an HTTPS URL")

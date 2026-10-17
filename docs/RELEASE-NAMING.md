@@ -29,7 +29,6 @@ version **3.1.0**) in **Image v1.3**, published as
 
 ## Legacy naming (v1 releases)
 
-For archived v1 artifacts, use `python3 scripts/release_names.py VERSION` as the source of names.
 The OS version and Git tag retain SemVer. Starting with beta-11, release titles and filenames share
 the `NanoKVM-OS-v` prefix and use a hyphen before the prerelease number.
 

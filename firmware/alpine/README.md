@@ -273,27 +273,6 @@ incompatible with standard RVV 1.0 code.
 
 ## Development staging commands
 
-For the pre-install development path, stage Alpine below the running NanoKVM
-root at `/mnt/alpine-test`:
-
-```sh
-PORT_DIR=/tmp/nanokvm-alpine-port \
-  ./scripts/stage-alpine-rootfs.sh
-```
-
-Build the manual test FIT:
-
-```sh
-./scripts/build-alpine-probe-fit.py
-```
-
-Load it from U-Boot over UART:
-
-```
-fatload mmc 0:1 0x81800000 boot-alpine-test.sd
-bootm 0x81800000#config-sg2002_licheervnano_sd_minimal
-```
-
 The package payloads come from the `payloads` step of `platform/build.sh`,
 which writes `OUTPUT/payloads` from `platform/packages.list`. To build a
 signed repository from them on an Alpine builder with a configured `abuild`

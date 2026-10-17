@@ -152,8 +152,16 @@ func runCommand(ctx context.Context, name string, args ...string) ([]byte, error
 	if name == "apk" {
 		// The shared runner queues apk behind runs of other services and
 		// processes within the context's deadline, and lowers the priority of
-		// repository queries itself.
-		data, err = apkrun.Command(ctx, name, args...).CombinedOutput()
+		// repository queries itself. Only stdout is the answer: a warning on
+		// stderr would make a JSON query unreadable.
+		cmd := apkrun.Command(ctx, name, args...)
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout, cmd.Stderr = &stdout, &stderr
+		err = cmd.Run()
+		data = stdout.Bytes()
+		if err != nil {
+			data = append(stderr.Bytes(), data...)
+		}
 	} else {
 		argv := append([]string{name}, args...)
 		if name == "rc-service" && len(args) > 1 && (args[1] == "start" || args[1] == "restart") {
@@ -515,8 +523,10 @@ func (s *Service) repositoryVersion(upgradable bool) (string, bool, error) {
 		Name    string `json:"name"`
 		Version string `json:"version"`
 	}
-	if json.Unmarshal(data, &packages) != nil {
-		return "", false, nil
+	// Unreadable output says nothing about the package: report a failure,
+	// which is retried, instead of caching "not available".
+	if err = json.Unmarshal(data, &packages); err != nil {
+		return "", false, fmt.Errorf("unexpected apk query output: %w", err)
 	}
 	for _, p := range packages {
 		if p.Name == Package && p.Version != "" {

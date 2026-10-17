@@ -165,35 +165,44 @@ the packages need no ECDSA signature.
 
 ### Publishing a release
 
-1. Set the application and APK versions in `firmware/alpine/release.env`, and
-   keep the image version unless the release brings a new image. Merge the
-   change.
-2. Push the tag, which must equal `NANOKVM_VERSION`, for example
-   `git tag v3.3.0 && git push origin v3.3.0`.
-3. The Release workflow (`.github/workflows/release.yml`) builds everything
-   from the tag on a GitHub runner, without the signing keys. Its sign job then
-   waits in the `release` environment until a maintainer approves it. It signs
-   the packages and both indexes with the release keys (the environment
-   secrets `APK_RSA_KEY` and `APK_EC_KEY`: unencrypted PEM private keys of
-   `dgrace-6aaddbb6.rsa.pub` and `nkos-release-ec-b8e89b66.pub`), builds the
-   root file system and the SD image, and creates a draft GitHub release with
-   the packages that changed, both indexes, `packages.json`, the image, the
-   source archive and `SHA256SUMS`. An unchanged package keeps its version and
-   stays in the release that first carried it
-   ([package versions](packages/README.md#package-versions)).
-4. Write the release notes in the draft and publish it. Publishing it
-   publishes the packages (see below).
-5. While devices still read `https://nkos.pesin.pro/repos/nanokvm/riscv64/`,
-   upload the release's `*.apk` files (those of unchanged packages are already
-   there), `APKINDEX.tar.gz` and `Packages.adb` there too: the packages first and the two indexes last, so that no index
-   names a package that is not there yet, and keep older package files for
-   clients with a cached index. Check the indexes from a scratch root, for
-   example `apk --keys-dir DIR verify Packages.adb` with only one of the keys
-   in `DIR`.
+Releases come from main, where every change has been tested on a device
+before it was merged:
 
-A pull request that changes the release process, or a manual run of the
-workflow, builds the same release with local test keys and keeps it as an
-artifact. A local build signs the same way with
+- **Patch release** (v3.4.1): fixes, whenever needed. In GitHub, Actions →
+  Release → Run workflow, kind `patch`. Its notes list the merged pull
+  requests, and it is published as soon as the sign job is approved.
+- **Minor release** (v3.5.0): new features, about once a month. Kind `minor`;
+  it stays a draft until its notes are written and it is published.
+- **A patch of an older line**, when main already holds changes that should
+  not ship yet: create `release/X.Y` from the `vX.Y.0` tag
+  (`git push origin vX.Y.0:refs/heads/release/X.Y`), merge the fix into main
+  and cherry-pick it there, and run a patch release with `ref` `release/X.Y`.
+
+The workflow (`.github/workflows/release.yml`) takes the next version after the
+newest release (`scripts/next-release.py`; drafts count), builds everything on
+a GitHub runner without the signing keys, and then waits in the `release`
+environment until a maintainer approves the sign job. That job signs the
+packages that changed and both indexes with the release keys (the environment
+secrets `APK_RSA_KEY` and `APK_EC_KEY`: unencrypted PEM private keys of
+`dgrace-6aaddbb6.rsa.pub` and `nkos-release-ec-b8e89b66.pub`) and attaches
+them with `packages.json`, the source archive and `SHA256SUMS`. An unchanged
+package keeps its version and stays in the release that first carried it
+([package versions](packages/README.md#package-versions)).
+
+The SD image is always built, as a check that the packages install from
+scratch, but attached only with `image` checked: when first boot, the card
+layout or installation changes, since a new card runs the image's code until
+its first update. The bootloader needs no image; its package updates it.
+
+A pushed `vX.Y.Z` tag releases with the versions of
+`firmware/alpine/release.env`, as a draft with the image. While devices still
+read `https://nkos.pesin.pro/repos/nanokvm/riscv64/`, upload each release's
+`*.apk` files, `APKINDEX.tar.gz` and `Packages.adb` there too: the packages
+first and the two indexes last, keeping older package files for clients with a
+cached index.
+
+A pull request that changes the release process, or a run with `dry_run`,
+builds the same release with local test keys and keeps it as an artifact. A local build signs the same way with
 `platform/build.sh -o OUTPUT -k KEY.rsa -e KEY.key`, each private key next to
 its public key.
 
@@ -203,7 +212,7 @@ whenever a GitHub release that carries the packages, both indexes and
 `SHA256SUMS` is published. The workflow
 (`.github/workflows/apk-repository.yml`, `scripts/assemble-apk-repo.py`) takes
 the indexes of the newest such release and the packages that the indexes of
-the newest three releases name, checks each file against its release's
+the newest six releases name, checks each file against its release's
 `SHA256SUMS` and the index, and verifies the result with Alpine's apk before it
 deploys. The page `https://dormancygrace.github.io/NanoKVM-OS/` lists the
 repository line and the public keys.

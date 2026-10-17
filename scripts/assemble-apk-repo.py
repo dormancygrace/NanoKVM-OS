@@ -4,7 +4,7 @@ packages and indexes attached to the GitHub releases.
 
 The newest published release that carries Packages.adb supplies both indexes.
 Every package that the indexes of the newest KEEP such releases name is kept,
-so a device whose cached index is a release or two old still finds its files.
+so a device whose cached index is a few releases old still finds its files.
 Each package comes from the newest release that has it and must match that
 release's SHA256SUMS and the size its index records.
 
@@ -157,7 +157,7 @@ Devices use the line <code><a href="{line}">{line}</a></code> in
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--keep', type=int, default=3, help='releases whose packages stay available (default 3)')
+    parser.add_argument('--keep', type=int, default=6, help='releases whose packages stay available (default 6)')
     parser.add_argument('--repository', default=REPOSITORY)
     args = parser.parse_args()
     if args.keep < 1:

@@ -1,28 +1,55 @@
 name: Release
 
-# Builds a release from its tag and attaches it to a draft GitHub release: the
-# packages and both APK indexes, the SD image, the corresponding-source archive
-# and SHA256SUMS. The build job has no secrets. The sign job runs in the
-# protected `release` environment, so the signing keys are used only after a
-# maintainer approves the run. Publishing the draft publishes the packages
-# (apk-repository.yml).
+# Releases NanoKVM OS. Run it by hand ("Run workflow"): a patch release
+# (v3.4.1) or a minor one (v3.5.0) from main, or a patch release from a
+# release/X.Y branch. The version follows the newest release
+# (scripts/next-release.py). A pushed vX.Y.Z tag also releases, with the
+# versions of firmware/alpine/release.env.
 #
-# Pull requests that change the release process, and manual runs, do the same
+# The build job has no secrets. The sign job runs in the protected `release`
+# environment, so the signing keys are used only after a maintainer approves
+# the run. It signs the packages that changed and both indexes, and attaches
+# them with packages.json, the source archive and SHA256SUMS to the release;
+# the SD image only when asked. A patch release is published at once, which
+# publishes its packages (apk-repository.yml); a minor release and a pushed tag
+# stay drafts for their notes.
+#
+# Pull requests that change the release process, and dry runs, build the same
 # with local test keys and keep the assets as an artifact; nothing is published.
 on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: 'patch: fixes (v3.4.1); minor: a new feature release (v3.5.0)'
+        type: choice
+        options: [patch, minor]
+        default: patch
+      ref:
+        description: 'Branch to release: main, or release/X.Y for a patch of X.Y'
+        type: string
+        default: main
+      image:
+        description: 'Publish a new SD image (first-boot, layout or install changes)'
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Test keys; publish nothing'
+        type: boolean
+        default: false
   push:
     tags: ['v*']
   pull_request:
     paths:
       - .github/workflows/release.yml
       - .github/actions/**
-  workflow_dispatch:
+      - scripts/next-release.py
 
 permissions:
   contents: read
 
+# One release at a time; a second run waits instead of picking the same version.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -43,20 +70,51 @@ jobs:
     timeout-minutes: 330
     outputs:
       version: ${{ steps.version.outputs.version }}
+      apk_version: ${{ steps.version.outputs.apk_version }}
+      image_version: ${{ steps.version.outputs.image_version }}
       image: ${{ steps.version.outputs.image }}
+      draft: ${{ steps.version.outputs.draft }}
+      publish: ${{ steps.version.outputs.publish }}
+      sha: ${{ steps.version.outputs.sha }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || '' }}
 
       - name: Version
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          KIND: ${{ inputs.kind }}
+          REF: ${{ inputs.ref }}
+          IMAGE: ${{ inputs.image }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           . firmware/alpine/release.env
-          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "$NANOKVM_VERSION" ]; then
-            echo "Tag $GITHUB_REF_NAME, but firmware/alpine/release.env says $NANOKVM_VERSION" >&2
-            exit 1
-          fi
-          echo "version=$NANOKVM_VERSION" >> "$GITHUB_OUTPUT"
-          echo "image=$NANOKVM_IMAGE_VERSION" >> "$GITHUB_OUTPUT"
+          case $EVENT in
+            workflow_dispatch)
+              image=()
+              [ "$IMAGE" != true ] || image=(--image)
+              gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' | jq -s . |
+                python3 scripts/next-release.py --kind "$KIND" --ref "$REF" "${image[@]}" > "$RUNNER_TEMP/next"
+              cat "$RUNNER_TEMP/next" >> "$GITHUB_OUTPUT"
+              echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+              [ "$KIND" = minor ] && echo draft=true >> "$GITHUB_OUTPUT" || echo draft=false >> "$GITHUB_OUTPUT"
+              [ "$DRY_RUN" = true ] && echo publish=false >> "$GITHUB_OUTPUT" || echo publish=true >> "$GITHUB_OUTPUT"
+              cat "$RUNNER_TEMP/next" ;;
+            push)
+              if [ "$GITHUB_REF_NAME" != "$NANOKVM_VERSION" ]; then
+                echo "Tag $GITHUB_REF_NAME, but firmware/alpine/release.env says $NANOKVM_VERSION" >&2
+                exit 1
+              fi
+              printf 'version=%s\napk_version=%s\nimage_version=%s\nimage=true\ndraft=true\npublish=true\n' \
+                "$NANOKVM_VERSION" "$NANOKVM_APK_VERSION" "$NANOKVM_IMAGE_VERSION" >> "$GITHUB_OUTPUT" ;;
+            *)
+              printf 'version=%s\napk_version=%s\nimage_version=%s\nimage=true\ndraft=true\npublish=false\n' \
+                "$NANOKVM_VERSION" "$NANOKVM_APK_VERSION" "$NANOKVM_IMAGE_VERSION" >> "$GITHUB_OUTPUT" ;;
+          esac
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: ./.github/actions/prepare-build
         with:
@@ -65,14 +123,16 @@ jobs:
       - name: Build
         env:
           NANOKVM_PATCH_GIT: '0'
-          VERSION: ${{ steps.version.outputs.version }}
+          NANOKVM_VERSION: ${{ steps.version.outputs.version }}
+          NANOKVM_APK_VERSION: ${{ steps.version.outputs.apk_version }}
+          NANOKVM_IMAGE_VERSION: ${{ steps.version.outputs.image_version }}
         run: |
           platform/build.sh -o "$OUT" kernel modules uboot opensbi fip initramfs boot native system tools server
           # The Go build cache (about 1 GB) is not reused within a run.
           rm -rf "$OUT/server/gocache"
           platform/build.sh -o "$OUT" web firmware hashes source
           # A tar keeps the file modes, which an artifact drops.
-          tar -C "$OUT" -cf "$RUNNER_TEMP/release-build.tar" images "NanoKVM-OS-$VERSION-source.tar.xz"
+          tar -C "$OUT" -cf "$RUNNER_TEMP/release-build.tar" images "NanoKVM-OS-$NANOKVM_VERSION-source.tar.xz"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -81,16 +141,25 @@ jobs:
           retention-days: 7
 
   sign:
-    name: Sign and draft the release
-    if: github.event_name == 'push'
+    name: Sign and release
+    if: needs.build.outputs.publish == 'true'
     needs: build
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     environment: release
     permissions:
       contents: write
+      # Starts apk-repository.yml: a release created with this token
+      # triggers no workflow by itself.
+      actions: write
+    env:
+      NANOKVM_VERSION: ${{ needs.build.outputs.version }}
+      NANOKVM_APK_VERSION: ${{ needs.build.outputs.apk_version }}
+      NANOKVM_IMAGE_VERSION: ${{ needs.build.outputs.image_version }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.build.outputs.sha }}
 
       - uses: ./.github/actions/prepare-build
         with:
@@ -115,35 +184,48 @@ jobs:
         with:
           out: ${{ env.OUT }}
           keys: -k ${{ runner.temp }}/keys/${{ env.RSA_KEY_NAME }}.rsa -e ${{ runner.temp }}/keys/${{ env.EC_KEY_NAME }}.key
+          image: ${{ needs.build.outputs.image }}
 
       - name: Remove the keys
         if: always()
         run: rm -rf "$RUNNER_TEMP/keys"
 
-      - name: Draft release
+      - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.build.outputs.version }}
+          SHA: ${{ needs.build.outputs.sha }}
           IMAGE: ${{ needs.build.outputs.image }}
+          DRAFT: ${{ needs.build.outputs.draft }}
         # A rerun after a failed upload replaces the assets of its own draft.
         run: |
-          if [ "$(gh release view "$VERSION" --json isDraft -q .isDraft 2>/dev/null)" = true ]; then
-            gh release upload "$VERSION" --clobber "$OUT"/assets/*
+          title="NanoKVM OS $NANOKVM_VERSION"
+          [ "$IMAGE" != true ] || title="$title · Image $NANOKVM_IMAGE_VERSION"
+          if [ "$(gh release view "$NANOKVM_VERSION" --json isDraft -q .isDraft 2>/dev/null)" = true ]; then
+            gh release upload "$NANOKVM_VERSION" --clobber "$OUT"/assets/*
+            [ "$DRAFT" = true ] || gh release edit "$NANOKVM_VERSION" --draft=false
           else
             flags=()
-            case $VERSION in *-*) flags+=(--prerelease) ;; esac
-            gh release create "$VERSION" --draft --verify-tag "${flags[@]}" \
-              --title "NanoKVM OS $VERSION · Image $IMAGE" --generate-notes "$OUT"/assets/*
+            [ "$DRAFT" != true ] || flags+=(--draft)
+            case $NANOKVM_VERSION in *-*) flags+=(--prerelease) ;; esac
+            gh release create "$NANOKVM_VERSION" --target "$SHA" "${flags[@]}" \
+              --title "$title" --generate-notes "$OUT"/assets/*
           fi
+          [ "$DRAFT" = true ] || gh workflow run apk-repository.yml --ref "${{ github.event.repository.default_branch }}"
 
   dry-run:
     name: Assemble with test keys
-    if: github.event_name != 'push'
+    if: needs.build.outputs.publish != 'true'
     needs: build
     runs-on: ubuntu-26.04
     timeout-minutes: 120
+    env:
+      NANOKVM_VERSION: ${{ needs.build.outputs.version }}
+      NANOKVM_APK_VERSION: ${{ needs.build.outputs.apk_version }}
+      NANOKVM_IMAGE_VERSION: ${{ needs.build.outputs.image_version }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.build.outputs.sha }}
 
       - uses: ./.github/actions/prepare-build
         with:
@@ -153,6 +235,7 @@ jobs:
         with:
           out: ${{ env.OUT }}
           keys: -d
+          image: ${{ needs.build.outputs.image }}
 
       - uses: actions/upload-artifact@v7
         with:

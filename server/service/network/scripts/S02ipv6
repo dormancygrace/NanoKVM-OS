@@ -16,6 +16,7 @@
 #   S02ipv6 [start]            apply the saved configuration
 #   S02ipv6 apply eth0=1 ...   apply the given setting (missing ones are off)
 #   S02ipv6 interface NAME     apply the saved configuration to one interface
+#   S02ipv6 down NAME          stop its client before an interface goes down
 set -eu
 : "${NANOKVM_IPV6_CONF:=/etc/kvm/network/ipv6}"
 : "${NANOKVM_IPV6_SYSCTL:=/proc/sys/net/ipv6/conf}"
@@ -112,11 +113,20 @@ static_off() {
 }
 
 static_on() {
+    # A down link has no connected route for its gateway. Keep the saved
+    # policy pending; S30eth/S30wifi reconcile it after bringing the link up.
+    "$NANOKVM_IP" -o link show dev "$1" | grep -qE '<([^>]*,)?UP(,|>)' || return 0
     address=$(address_of "$1")
     gateway=$(gateway_of "$1")
     record_file=$(record "$1")
+    old_address='' old_gateway=''
     if [ -f "$record_file" ]; then
         read -r old_address old_gateway < "$record_file" || true
+    fi
+    # Journal the attempted state before changing addresses/routes. If a
+    # later ip command fails, applying the previous policy can remove it.
+    printf '%s %s\n' "$address" "$gateway" > "$record_file"
+    if [ -n "$old_address$old_gateway" ]; then
         if [ -n "${old_gateway:-}" ] && [ "$old_gateway" != "$gateway" ]; then
             "$NANOKVM_IP" -6 route del default via "$old_gateway" dev "$1" 2>/dev/null || true
         fi
@@ -173,6 +183,10 @@ case "${1:-start}" in
         saved
         [ -d "$NANOKVM_IPV6_SYSCTL" ] || exit 0
         apply_interface "$name"
+        exit 0
+        ;;
+    down)
+        case "${2:-}" in eth0|wlan0) "$NANOKVM_DHCPV6" stop "$2" ;; *) exit 2 ;; esac
         exit 0
         ;;
     stop) exit 0 ;;

@@ -151,3 +151,18 @@ func adoptResolvConf() error {
 	log.Infof("handed %s to openresolv", etcResolvFile)
 	return nil
 }
+
+// DHCPv6 publishes per-link entries alongside nkos.base. Manual DNS must
+// withdraw those automatic entries without removing a VPN's resolver.
+func clearDHCPv6Resolvers() error {
+	tool, err := exec.LookPath("resolvconf")
+	if err != nil {
+		return nil
+	}
+	for _, name := range ipv6Interfaces {
+		if err := resolvconfRunner(tool, "", "-d", "nkos.dhcpv6."+name, "-f"); err != nil {
+			return fmt.Errorf("remove DHCPv6 DNS for %s: %w", name, err)
+		}
+	}
+	return nil
+}

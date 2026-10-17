@@ -21,14 +21,15 @@ drop() {
 }
 
 name_servers() {
-    [ -n "${dns:-}" ] || return 0
     command -v resolvconf >/dev/null 2>&1 || return 0
     mode=$(cat "$MODE" 2>/dev/null || true)
-    if [ "$mode" = dhcp ] || { [ -z "$mode" ] && [ ! -f "$BOOT" ]; }; then
+    if [ -n "${dns:-}" ] && { [ "$mode" = dhcp ] || { [ -z "$mode" ] && [ ! -f "$BOOT" ]; }; }; then
         {
             if [ -n "${search:-}" ]; then echo "search $search"; fi
             for server in $dns; do echo "nameserver $server"; done
         } | resolvconf -a "$key"
+    else
+        resolvconf -d "$key" -f
     fi
 }
 

@@ -27,6 +27,9 @@ func stubCommand(t *testing.T, dir, name string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
 	script := "#!/bin/sh\necho \"$*\" >> " + path + ".log\n"
+	if name == "ip" {
+		script = "#!/bin/sh\nif [ \"$1\" = -o ]; then echo '2: eth0: <BROADCAST,UP,LOWER_UP>'; exit 0; fi\n" + strings.TrimPrefix(script, "#!/bin/sh\n")
+	}
 	if err := os.WriteFile(path, []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}

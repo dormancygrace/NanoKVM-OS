@@ -9,7 +9,7 @@ mkdir -p "$work/bin" "$work/boot" "$work/etc" "$work/run"
 cat > "$work/bin/ip" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$*" >> "$NANOKVM_TEST_IP_CALLS"
-if [ "${NANOKVM_TEST_IP_SHOW_INET:-0}" = 1 ] && [ "$*" = 'a show dev eth0.100' ]; then
+if [ "${NANOKVM_TEST_IP_SHOW_INET:-0}" = 1 ] && [ "$*" = '-4 a show dev eth0.100' ]; then
     printf '%s\n' 'inet 10.20.0.2/24'
 fi
 exit 0
@@ -88,7 +88,7 @@ run_eth start
 grep -Fqx 'link add link eth0 name eth0.100 type vlan id 100' "$work/ip.calls"
 grep -Fqx '8021q' "$work/modprobe.calls"
 grep -Fqx 'link set dev eth0.100 up' "$work/ip.calls"
-grep -Fqx 'addr flush dev eth0.100' "$work/ip.calls"
+grep -Fqx -- '-4 addr flush dev eth0.100' "$work/ip.calls"
 if grep -Fqx 'addr flush dev eth0' "$work/ip.calls"; then
     echo 'VLAN start flushed the eth0 address' >&2
     exit 1
@@ -137,7 +137,7 @@ if grep -q 'link add link eth0' "$work/ip.calls"; then
     echo 'VLAN created without eth.vlan' >&2
     exit 1
 fi
-grep -Fqx 'addr flush dev eth0' "$work/ip.calls"
+grep -Fqx -- '-4 addr flush dev eth0' "$work/ip.calls"
 attempts=0
 while ! grep -q -- '-i eth0 ' "$work/udhcpc.call"; do
     attempts=$((attempts + 1))

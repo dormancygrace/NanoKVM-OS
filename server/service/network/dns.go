@@ -134,6 +134,10 @@ func setManualDNS(servers []string) error {
 		return err
 	}
 
+	if err := clearDHCPv6Resolvers(); err != nil {
+		return err
+	}
+
 	if err := renderResolvConf(etcResolvFile, normalized); err != nil {
 		return err
 	}

@@ -448,7 +448,7 @@
         "dhcpDescription": "IP-cím automatikus lekérése DHCP használatával.",
         "staticDescription": "Az IP-cím kézi beállítása.",
         "ipAddress": "IP-cím",
-        "addressPlaceholder": "192.168.10.32",
+        "addressPlaceholder": "192.168.10.32/24",
         "subnetMask": "Alhálózati maszk",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Átjáró",
@@ -458,7 +458,14 @@
         "unsaved": "Nem mentett módosítások",
         "saveFailed": "A konfiguráció mentése nem sikerült.",
         "loadFailed": "A konfiguráció betöltése nem sikerült.",
-        "disabled": "Letiltva"
+        "disabled": "Letiltva",
+        "enable": "Ethernet",
+        "interfaceDown": "Engedélyezve a beállításoknál - interfész jelenleg nem linkel",
+        "linkUpAddress": "Engedélyezve - kábel csatlakoztatva - {{address}}",
+        "linkUpNoAddress": "Engedélyezve - kábel csatlakoztatva - nincs IPv4 cím",
+        "noCable": "Engedélyezve - kábel nincs csatlakoztatva",
+        "disconnectWarning": "A mentés azonnal lecsatlakoztatja az Ethernet-et. Győződjön meg, hogy más management kapcsolat elérhető.",
+        "name": "Ethernet"
       },
       "dns": {
         "title": "DNS",
@@ -486,6 +493,23 @@
       "gateway": {
         "title": "Előnyben részesített átjáró",
         "auto": "Automatikus"
+      },
+      "acme": {
+        "uninstalled": "acme.sh eltávolítva",
+        "failed": "A művelet meghiúsult.",
+        "uninstallConfirm": "A következők törölve: acme.sh, CA felhasználó, a kiállított tanúsítvány és a beállítások. A https kapcsolat újra a generált tanúsítványt használja."
+      },
+      "ipv6": {
+        "description": "Kikapcsolva alapból. A változások újraindítások közt megőrződnek.",
+        "enable": "IPv6 engedélyezése",
+        "unsupported": "Ebben a kernel-ben nincs IPv6.",
+        "waiting": "Várakozás IPv6 címre…",
+        "global": "Globális cím",
+        "linkLocal": "Csak lokális kapcsolat",
+        "private": "Privát cím",
+        "disconnectHint": "Az IPv6 kikapcsolása lezár minden IPv6 kapcsolatot. Újra tud csatlakozni IPv4 címmel.",
+        "loadFailed": "Hiba az IPv6 státusz beolvasásakor.",
+        "saveFailed": "Hiba az IPv6 változtatásakor. Ha IPv6-on keresztül volt csatlakozva, csatlakozzon újra IPv4-gyel."
       }
     },
     "tailscale": {
@@ -853,7 +877,14 @@
   "audio": {
     "listen": "Hallgatás",
     "resume": "Hang folytatása",
-    "volume": "Hangerő"
+    "volume": "Hangerő",
+    "receiving": "Hang-csomagok fogadva",
+    "waiting": "Várakozás hangra",
+    "errors": {
+      "connection": "Hang-csatlakozás megszakadt. Engedélyezd a Hallgasd-ot, hogy újracsatlakozzon.",
+      "timeout": "Hang-csatlakozás időtúllépés. Ellenőrizd a hálózatot és próbáld újra.",
+      "playback": "A böngésző nem tudta elindítani a hanglejásztást. Nyomd meg a Hallgasd-ot, hogy újrapróbálkozzon."
+    }
   },
   "sessionControl": {
     "viewOnly": "Csak megtekintés",

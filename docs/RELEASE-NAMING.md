@@ -19,7 +19,7 @@ The original bundled version stays visible alongside the current application
 version in About. A new full image gets an independently selected image version.
 
 Values live in `firmware/alpine/release.env`; the SD builder and build manifest
-use them directly. The legacy v1 naming helper remains for archived artifacts.
+use them directly. Legacy v1 naming is documented below for archived artifacts.
 
 ## Stable releases
 
@@ -29,7 +29,6 @@ version **3.1.0**) in **Image v1.3**, published as
 
 ## Legacy naming (v1 releases)
 
-For archived v1 artifacts, use `python3 scripts/release_names.py VERSION` as the source of names.
 The OS version and Git tag retain SemVer. Starting with beta-11, release titles and filenames share
 the `NanoKVM-OS-v` prefix and use a hyphen before the prerelease number.
 

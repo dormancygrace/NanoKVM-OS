@@ -20,7 +20,12 @@ type Config struct {
 	Servers  []string `json:"servers"`
 	Timezone string   `json:"timezone"`
 	Format   string   `json:"format"`
+	// The order of day, month and year in the interface: "auto" follows the
+	// interface language.
+	DateFormat string `json:"dateFormat"`
 }
+
+var dateFormats = []string{"auto", "dmy", "mdy", "ymd"}
 
 type Store struct {
 	Dir     string
@@ -66,6 +71,9 @@ func Validate(c Config) error {
 	if c.Format != "24" && c.Format != "12" {
 		return errors.New("time format must be 24 or 12")
 	}
+	if !slices.Contains(dateFormats, c.DateFormat) {
+		return errors.New("date format must be auto, dmy, mdy or ymd")
+	}
 	data, err := zoneData(c.Timezone)
 	if err != nil {
 		return err
@@ -102,11 +110,15 @@ func (s *Store) daemonConfigPath() string { return filepath.Join(s.Dir, "chrony.
 func (s *Store) configPath() string { return filepath.Join(s.Dir, "kvm/date-time.json") }
 
 func (s *Store) read() (Config, error) {
-	c := Config{Servers: []string{"0.pool.ntp.org", "1.pool.ntp.org", "2.pool.ntp.org", "3.pool.ntp.org"}, Timezone: "UTC", Format: "24"}
+	c := Config{Servers: []string{"0.pool.ntp.org", "1.pool.ntp.org", "2.pool.ntp.org", "3.pool.ntp.org"}, Timezone: "UTC", Format: "24", DateFormat: "auto"}
 	data, err := os.ReadFile(s.configPath())
 	if err == nil {
 		if err = json.Unmarshal(data, &c); err != nil {
 			return c, err
+		}
+		// Saved before the date format existed.
+		if c.DateFormat == "" {
+			c.DateFormat = "auto"
 		}
 		return c, Validate(c)
 	}
@@ -189,6 +201,10 @@ func atomicWrite(path string, data []byte) error {
 // Save changes the active time daemon configuration and installs the selected TZif.
 // Only a server-list change restarts the time daemon; display preferences never step the clock.
 func (s *Store) Save(c Config) error {
+	// A page from before the date format sends none.
+	if c.DateFormat == "" {
+		c.DateFormat = "auto"
+	}
 	if err := Validate(c); err != nil {
 		return err
 	}

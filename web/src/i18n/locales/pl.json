@@ -452,7 +452,7 @@
         "subnetMask": "Maska podsieci",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Brama",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "Opcjonalnie",
         "invalid": "Wprowadź poprawny adres IPv4, maskę podsieci i bramę",
         "save": "Zapisz",
         "unsaved": "Niezapisane zmiany",

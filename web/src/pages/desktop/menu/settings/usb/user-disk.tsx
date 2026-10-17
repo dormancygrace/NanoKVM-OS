@@ -130,6 +130,10 @@ export const UserDisk = ({
     await load();
   }
 
+  // Without the virtual disk the card stays for an existing image, whose
+  // files remain reachable here, and for turning a user disk off.
+  if (!disk && !enabled && !status?.exists) return null;
+
   const state = !status
     ? undefined
     : !status.exists

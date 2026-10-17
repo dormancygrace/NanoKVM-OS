@@ -1,19 +1,12 @@
 {
   "component": "Patched Pion dtls/v3",
-  "current": "3.1.12",
-  "candidate": "3.1.13",
-  "candidate_key": "3.1.13",
-  "status": "integrated",
+  "current": "3.1.13",
+  "candidate": "3.1.14",
+  "candidate_key": "3.1.14",
+  "status": "pending-review",
   "upstream": "https://github.com/pion/dtls/tags",
   "source_path": "server/go.mod",
   "strategy": "review",
-  "evidence": {
-    "upstream_commit": "da75e4d43330019d54a93ce7d926cdc0325f3b32",
-    "upstream_manifest": "server/third_party/pion-dtls/UPSTREAM-SHA256.json",
-    "patch_notes": "server/third_party/pion-dtls/NANOKVM-PATCHES.md"
-  },
-  "pin_files_updated": [
-    "server/go.mod",
-    "server/third_party/pion-dtls"
-  ]
+  "evidence": {},
+  "pin_files_updated": []
 }

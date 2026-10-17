@@ -85,10 +85,15 @@ After the transaction its trigger (`/usr/libexec/nanokvm/activate-bootloader`):
    `fip.new` to `fip.bin`, flushing after each step, and checks the result;
 4. asks for a reboot.
 
-No rename replaces an existing file, so after a power cut the boot partition
-has the old `fip.bin`, the new one, or none; with none the ROM also offers its
+If activation fails after moving the old file, it attempts to restore
+fip.prev and still reports failure. If rollback also fails, repair
+/boot/fip.bin before rebooting.
+
+No rename replaces an existing file. Between completed, flushed steps the
+boot partition has the old `fip.bin`, the new one, or none; with none the ROM also offers its
 USB window. `fip.prev` is what recovery puts back. The ROM ignores both other
-names.
+names. FAT is not journaled: a power cut during a metadata write can also
+damage the filesystem, so these steps cannot guarantee power-loss safety.
 
 ## Recovery
 

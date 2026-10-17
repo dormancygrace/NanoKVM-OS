@@ -20,12 +20,29 @@ mkdir -p /run
 exec 9>/run/nanokvm-boot.lock
 flock -x 9
 mounted=0
+previous_saved=0
 mkdir -p /boot
 if ! mountpoint -q /boot; then
     mount -t vfat /dev/mmcblk0p1 /boot
     mounted=1
 fi
-cleanup() { [ "$mounted" = 0 ] || umount /boot; }
+cleanup() {
+    result=$?
+    trap - EXIT
+    # A detected I/O failure is recoverable while Linux is still running.
+    # Keep a nonzero status even if restoring the previous FIP succeeds.
+    if [ "$result" != 0 ] && [ "$previous_saved" = 1 ]; then
+        if rm -f /boot/fip.bin && mv /boot/fip.prev /boot/fip.bin && sync /boot; then
+            echo 'Bootloader update failed; previous fip.bin restored.' >&2
+        else
+            echo 'Bootloader rollback failed; do not reboot before repairing /boot/fip.bin.' >&2
+        fi
+    fi
+    if [ "$mounted" = 1 ]; then
+        umount /boot || result=1
+    fi
+    exit "$result"
+}
 trap cleanup EXIT
 awk '$1 == "/dev/mmcblk0p1" && $2 == "/boot" && $3 == "vfat" { found=1 } END { exit !found }' /proc/mounts
 [ ! -e /boot/rec ] || { echo 'Recovery is active; bootloader update refused' >&2; exit 1; }
@@ -48,11 +65,13 @@ if [ -f /boot/fip.bin ]; then
     rm -f /boot/fip.prev
     sync /boot
     mv /boot/fip.bin /boot/fip.prev
+    previous_saved=1
     sync /boot
 fi
 mv /boot/fip.new /boot/fip.bin
 sync /boot
 [ "$(oncard /boot/fip.bin)" = "$want" ] || { echo 'Installed bootloader does not match the package.' >&2; exit 1; }
+previous_saved=0
 printf '%s\n' 'Bootloader updated; reboot to use it.' > /run/reboot-required
 printf '%s\n' nanokvm-bootloader-sg2002 >> /run/reboot-required.pkgs
 echo "NanoKVM bootloader $want installed; the previous one is /boot/fip.prev; reboot required."

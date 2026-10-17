@@ -1,0 +1,158 @@
+name: Release
+
+# Builds a release from its tag and attaches it to a draft GitHub release: the
+# packages and both APK indexes, the SD image, the corresponding-source archive
+# and SHA256SUMS. The build job has no secrets. The sign job runs in the
+# protected `release` environment, so the signing keys are used only after a
+# maintainer approves the run. Publishing the draft publishes the packages
+# (apk-repository.yml).
+#
+# Pull requests that change the release process, and manual runs, do the same
+# with local test keys and keep the assets as an artifact; nothing is published.
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - .github/actions/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # A fixed absolute path: the cached toolchain is not relocatable.
+  OUT: /home/runner/nanokvm-out
+  # The release keys, under their names in firmware/alpine/keys.
+  RSA_KEY_NAME: dgrace-6aaddbb6
+  EC_KEY_NAME: nkos-release-ec-b8e89b66
+
+jobs:
+  build:
+    name: Build
+    # Ubuntu 26.04: the kernel configuration depends on the host OpenSSL.
+    runs-on: ubuntu-26.04
+    timeout-minutes: 330
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      image: ${{ steps.version.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Version
+        id: version
+        run: |
+          . firmware/alpine/release.env
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "$NANOKVM_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME, but firmware/alpine/release.env says $NANOKVM_VERSION" >&2
+            exit 1
+          fi
+          echo "version=$NANOKVM_VERSION" >> "$GITHUB_OUTPUT"
+          echo "image=$NANOKVM_IMAGE_VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/prepare-build
+        with:
+          out: ${{ env.OUT }}
+
+      - name: Build
+        env:
+          NANOKVM_PATCH_GIT: '0'
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          platform/build.sh -o "$OUT" kernel modules uboot opensbi fip initramfs boot native system tools server
+          # The Go build cache (about 1 GB) is not reused within a run.
+          rm -rf "$OUT/server/gocache"
+          platform/build.sh -o "$OUT" web firmware hashes source
+          # A tar keeps the file modes, which an artifact drops.
+          tar -C "$OUT" -cf "$RUNNER_TEMP/release-build.tar" images "NanoKVM-OS-$VERSION-source.tar.xz"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-build
+          path: ${{ runner.temp }}/release-build.tar
+          retention-days: 7
+
+  sign:
+    name: Sign and draft the release
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-26.04
+    timeout-minutes: 120
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/prepare-build
+        with:
+          out: ${{ env.OUT }}
+
+      # Each private key next to its public key from firmware/alpine/keys, as
+      # platform/build.sh pairs them; it refuses keys that are not there.
+      - name: Signing keys
+        env:
+          RSA_KEY: ${{ secrets.APK_RSA_KEY }}
+          EC_KEY: ${{ secrets.APK_EC_KEY }}
+        run: |
+          [ -n "$RSA_KEY" ] && [ -n "$EC_KEY" ] || { echo 'APK_RSA_KEY and APK_EC_KEY are not set' >&2; exit 1; }
+          k=$RUNNER_TEMP/keys
+          install -d -m 0700 "$k"
+          (umask 077
+           printf '%s\n' "$RSA_KEY" > "$k/$RSA_KEY_NAME.rsa"
+           printf '%s\n' "$EC_KEY" > "$k/$EC_KEY_NAME.key")
+          cp "firmware/alpine/keys/$RSA_KEY_NAME.rsa.pub" "firmware/alpine/keys/$EC_KEY_NAME.pub" "$k/"
+
+      - uses: ./.github/actions/assemble-release
+        with:
+          out: ${{ env.OUT }}
+          keys: -k ${{ runner.temp }}/keys/${{ env.RSA_KEY_NAME }}.rsa -e ${{ runner.temp }}/keys/${{ env.EC_KEY_NAME }}.key
+
+      - name: Remove the keys
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"
+
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+          IMAGE: ${{ needs.build.outputs.image }}
+        # A rerun after a failed upload replaces the assets of its own draft.
+        run: |
+          if [ "$(gh release view "$VERSION" --json isDraft -q .isDraft 2>/dev/null)" = true ]; then
+            gh release upload "$VERSION" --clobber "$OUT"/assets/*
+          else
+            flags=()
+            case $VERSION in *-*) flags+=(--prerelease) ;; esac
+            gh release create "$VERSION" --draft --verify-tag "${flags[@]}" \
+              --title "NanoKVM OS $VERSION · Image $IMAGE" --generate-notes "$OUT"/assets/*
+          fi
+
+  dry-run:
+    name: Assemble with test keys
+    if: github.event_name != 'push'
+    needs: build
+    runs-on: ubuntu-26.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/prepare-build
+        with:
+          out: ${{ env.OUT }}
+
+      - uses: ./.github/actions/assemble-release
+        with:
+          out: ${{ env.OUT }}
+          keys: -d
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-test-keys
+          path: ${{ env.OUT }}/assets
+          retention-days: 7

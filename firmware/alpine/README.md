@@ -165,27 +165,34 @@ the packages need no ECDSA signature.
 
 ### Publishing a release
 
-1. Set the application and APK versions in `firmware/alpine/release.env`;
-   retain the independently versioned image value unless releasing a new image.
-   For this release: applications `v2.5-a1`, APK `2.5_alpha1`, image `v1.0-a1`.
-   Keep both private keys outside the source tree, each with its public key
-   next to it: `dgrace-6aaddbb6.rsa` / `dgrace-6aaddbb6.rsa.pub` and
-   `nkos-release-ec-b8e89b66.key` / `nkos-release-ec-b8e89b66.pub`.
-   Use an unencrypted EC private key; encrypted-key builds have not been tested.
-   Build with both release keys:
+1. Set the application and APK versions in `firmware/alpine/release.env`, and
+   keep the image version unless the release brings a new image. Merge the
+   change.
+2. Push the tag, which must equal `NANOKVM_VERSION`, for example
+   `git tag v3.3.0 && git push origin v3.3.0`.
+3. The Release workflow (`.github/workflows/release.yml`) builds everything
+   from the tag on a GitHub runner, without the signing keys. Its sign job then
+   waits in the `release` environment until a maintainer approves it. It signs
+   the packages and both indexes with the release keys (the environment
+   secrets `APK_RSA_KEY` and `APK_EC_KEY`: unencrypted PEM private keys of
+   `dgrace-6aaddbb6.rsa.pub` and `nkos-release-ec-b8e89b66.pub`), builds the
+   root file system and the SD image, and creates a draft GitHub release with
+   the packages, both indexes, the image, the source archive and `SHA256SUMS`.
+4. Write the release notes in the draft and publish it. Publishing it
+   publishes the packages (see below).
+5. While devices still read `https://nkos.pesin.pro/repos/nanokvm/riscv64/`,
+   upload the release's `*.apk` files, `APKINDEX.tar.gz` and `Packages.adb`
+   there too: the packages first and the two indexes last, so that no index
+   names a package that is not there yet, and keep older package files for
+   clients with a cached index. Check the indexes from a scratch root, for
+   example `apk --keys-dir DIR verify Packages.adb` with only one of the keys
+   in `DIR`.
 
-   ```sh
-   platform/build.sh -o OUTPUT -k /secure/dgrace-6aaddbb6.rsa -e /secure/nkos-release-ec-b8e89b66.key
-   ```
-
-2. Upload the contents of `OUTPUT/release/apk/recipes/riscv64/` (the `*.apk`
-   files, `APKINDEX.tar.gz` and `Packages.adb`) to
-   `https://nkos.pesin.pro/repos/nanokvm/riscv64/`, replacing the previous
-   release. Upload the packages first and the two indexes last, so that no
-   index names a package that is not there yet. Keep older package files available
-   for clients that still have a cached index; do not delete them during upload.
-3. Check the published indexes from a scratch root, for example
-   `apk --keys-dir DIR verify Packages.adb` with only one of the keys in `DIR`.
+A pull request that changes the release process, or a manual run of the
+workflow, builds the same release with local test keys and keeps it as an
+artifact. A local build signs the same way with
+`platform/build.sh -o OUTPUT -k KEY.rsa -e KEY.key`, each private key next to
+its public key.
 
 The APK repository workflow deploys the same repository to GitHub Pages, at
 `https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb`,

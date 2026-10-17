@@ -1048,9 +1048,11 @@ rootfs() {
     BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache --preserve-env add nanokvm-release
     rmdir "$r/mnt/nanokvm-apk"
     # The repositories of the device: the v3 index of NanoKVM OS releases
-    # (nanokvm-keys switches older devices to it) and Alpine.
+    # (nanokvm-keys switches older devices to it) and Alpine main. Community is
+    # off until the Software page or a Tailscale or NetBird install turns it on
+    # (server/osupdate/community.go).
     printf '%s\n' https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
-        https://dl-cdn.alpinelinux.org/alpine/v3.24/community > "$r/etc/apk/repositories"
+        > "$r/etc/apk/repositories"
     rm -f "$r/etc/resolv.conf"
     # The settings APIs call these; refuse an incomplete root.
     for path in usr/sbin/nkos-usb-internet etc/init.d/nanokvm-usb-internet usr/sbin/iw usr/sbin/nanokvm_update_edid etc/init.d/nanokvm-policy \

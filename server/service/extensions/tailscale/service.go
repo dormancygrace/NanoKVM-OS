@@ -40,7 +40,7 @@ func (s *Service) Install(c *gin.Context) {
 	}
 	defer operationMutex.Unlock()
 	if !isInstalled() {
-		if err := apkpkg.Install("tailscale", "tailscale-openrc"); err != nil {
+		if err := apkpkg.InstallCommunity("tailscale", "tailscale-openrc"); err != nil {
 			rsp.ErrRsp(c, -1, "Tailscale installation failed: "+err.Error())
 			return
 		}

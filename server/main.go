@@ -39,7 +39,7 @@ func main() {
 	go logs.RunArchive(ctx)
 	go acme.RunRenewal(ctx)
 	go osupdate.RunNoticeSchedule(ctx)
-	go osupdate.RunEdgeMigration(ctx)
+	go osupdate.RunRepositoryMigrations(ctx)
 	defer func() { stopMemory(); dispose() }()
 
 	run()

@@ -81,15 +81,30 @@ The target repository list is:
 1. the signed NanoKVM repository, read through its v3 index
    (`https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb`; see
    [signing keys](#signing-keys));
-2. Alpine v3.24 `main`;
-3. Alpine v3.24 `community`.
+2. Alpine v3.24 `main`.
+
+Alpine v3.24 `community` is off by default: the image needs nothing from it,
+and every apk run would parse its index too. The Software page switches it on
+(placed right after `main`, from the same mirror), and installing Tailscale or
+NetBird does so itself. The page refuses to switch it off while installed
+packages come only from it, and names them.
+
+Devices from releases up to 3.2 list `community`. The server decides once
+(`server/osupdate/community.go`), after the edge migration below: it removes
+the line when `apk list --orphaned` shows no installed package that only
+`community` provides, and keeps it otherwise. It waits while `exfatprogs` or
+`i2c-tools` from `community` are still installed, until `nanokvm-base` replaces
+them, and while an index cannot be read (apk then warns and reports every
+package as orphaned). `/etc/kvm/apk-community.chosen` records that the decision
+is made, by the server or by the user, and it is not made again.
 
 The experimental `c906-scalar` profile and its recipes, qualification tools and
 benchmark evidence are retained under `tuning/`. Its repository is only used
 when explicitly requested; it is not required to build or run a stock image.
 
-Tailscale, NetBird and OpenVPN come from the stable Alpine repositories. They
-are optional and absent from the default `nanokvm-release` dependency set.
+Tailscale and NetBird come from the stable Alpine `community` repository,
+OpenVPN from `main`. They are optional and absent from the default
+`nanokvm-release` dependency set.
 
 Releases up to 3.1 also listed Alpine `edge/community`, tagged as
 `@edgecommunity`, for Tailscale and NetBird. Every apk run then parsed its index

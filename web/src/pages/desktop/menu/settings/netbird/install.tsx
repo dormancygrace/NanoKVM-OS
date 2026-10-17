@@ -45,7 +45,7 @@ export const Install = ({ setIsLocked, onSuccess }: InstallProps) => {
     <>
       <ExtensionInstallResult
         title={t('settings.netbird.notInstall')}
-        description={t('settings.netbird.installDescription')}
+        description={`${t('settings.netbird.installDescription')} ${t('settings.software.community.vpnNote')}`}
         actionLabel={isLoading ? t('settings.netbird.installing') : t('settings.netbird.install')}
         loading={isLoading}
         onInstall={install}

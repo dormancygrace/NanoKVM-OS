@@ -713,6 +713,16 @@
         "saved": "Planification de l'actualisation des index enregistrée",
         "failed": "Impossible de charger ou d'enregistrer la planification de l'actualisation des index"
       },
+      "community": {
+        "label": "Dépôt community d'Alpine",
+        "hint": "Paquets maintenus par la communauté Alpine, comme Tailscale et NetBird. Désactivé par défaut : NanoKVM OS n'en a pas besoin et chaque opération sur les paquets chargerait son index. L'installation de Tailscale ou de NetBird l'active.",
+        "unavailable": "Aucun dépôt main d'Alpine n'est configuré ; le dépôt community ne peut donc pas être ajouté ici.",
+        "needed": "Encore requis par des paquets installés : {{packages}}. Supprimez-les d'abord pour désactiver le dépôt.",
+        "enabled": "Dépôt community activé ; actualisation des index",
+        "disabled": "Dépôt community désactivé",
+        "failed": "Impossible de charger ou de modifier le réglage du dépôt community",
+        "vpnNote": "L'installation active le dépôt community d'Alpine."
+      },
       "addons": {
         "title": "Modules complémentaires",
         "packages": "Paquets",

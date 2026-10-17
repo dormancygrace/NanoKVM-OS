@@ -167,3 +167,31 @@ func TestDHCPHooksActWithoutArguments(t *testing.T) {
 		t.Fatalf("an explicit deconfig must do nothing, got\n%s", got)
 	}
 }
+
+func TestManualDNSWithdrawsOnlyDHCPv6Resolvers(t *testing.T) {
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "resolvconf"), []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	old := resolvconfRunner
+	t.Cleanup(func() { resolvconfRunner = old })
+	entries := map[string]bool{"nkos.base": true, "nkos.dhcpv6.eth0": true, "nkos.dhcpv6.wlan0": true, "tun0": true}
+	resolvconfRunner = func(tool, input string, args ...string) error {
+		if len(args) != 3 || args[0] != "-d" || args[2] != "-f" {
+			t.Fatalf("unexpected resolver command: %v", args)
+		}
+		delete(entries, args[1])
+		return nil
+	}
+	if err := clearDHCPv6Resolvers(); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(entries, map[string]bool{"nkos.base": true, "tun0": true}) {
+		t.Fatalf("manual DNS kept automatic servers or removed VPN DNS: %v", entries)
+	}
+	resolvconfRunner = func(string, string, ...string) error { return errors.New("resolver failed") }
+	if err := clearDHCPv6Resolvers(); err == nil {
+		t.Fatal("resolver removal failure was hidden")
+	}
+}

@@ -5,9 +5,11 @@ import (
 	_ "embed"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,41 +31,206 @@ type ipv6Address struct {
 	Address   string `json:"address"`
 	Scope     string `json:"scope"`
 	MTU       int    `json:"mtu"`
+	// Where a global address of Ethernet or Wi-Fi came from: slaac,
+	// dhcpv6 or static; empty for link-local and other interfaces.
+	Source string `json:"source,omitempty"`
+}
+
+// The DHCPv6 client (scripts/nanokvm-dhcpv6-event) and S02ipv6 record the
+// address they set here.
+var ipv6RunDir = "/run"
+
+// recordedIPv6 is the address in a record file's first word, if any.
+func recordedIPv6(file string) netip.Addr {
+	data, err := os.ReadFile(filepath.Join(ipv6RunDir, file))
+	if err != nil {
+		return netip.Addr{}
+	}
+	fields := strings.Fields(string(data))
+	if len(fields) == 0 {
+		return netip.Addr{}
+	}
+	prefix, err := netip.ParsePrefix(fields[0])
+	if err != nil {
+		return netip.Addr{}
+	}
+	return prefix.Addr()
+}
+
+func ipv6Source(iface string, ip netip.Addr) string {
+	if !slices.Contains(ipv6Interfaces, iface) || ip.IsLinkLocalUnicast() {
+		return ""
+	}
+	switch ip {
+	case recordedIPv6("udhcpc6." + iface + ".addr"):
+		return ipv6DHCPv6
+	case recordedIPv6("ipv6-static." + iface):
+		return ipv6Static
+	}
+	return "slaac"
+}
+
+// Ethernet and Wi-Fi have their own IPv6 setting; other interfaces (USB
+// network, VPNs) have IPv6 when either of them has (scripts/S02ipv6).
+var ipv6Interfaces = []string{"eth0", "wlan0"}
+
+// How an interface with IPv6 gets its address, as for IPv4: automatically
+// (SLAAC from router advertisements and DHCPv6) or a static address.
+const (
+	ipv6DHCPv6 = "dhcpv6"
+	ipv6Static = "static"
+)
+
+type ipv6Interface struct {
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
+	// Mode is dhcpv6 or static while IPv6 is on, empty while it is off.
+	Mode string `json:"mode"`
+	// The static address (with its prefix length) and gateway; kept while
+	// another mode is chosen, so that they come back with static.
+	Address string `json:"address"`
+	Gateway string `json:"gateway"`
+	Active  bool   `json:"active"`
+	Present bool   `json:"present"`
+}
+
+// ipv6Setting is the IPv6 of one managed interface.
+type ipv6Setting struct {
+	Mode    string // "", ipv6DHCPv6 or ipv6Static
+	Address string // static address with prefix length, such as 2001:db8::10/64
+	Gateway string // optional static gateway
+}
+
+// validate checks a static address and gateway; they are passed to ip(8).
+func (s ipv6Setting) validate() error {
+	if s.Address != "" {
+		prefix, err := netip.ParsePrefix(s.Address)
+		if err != nil || !prefix.Addr().Is6() || prefix.Addr().Is4In6() || prefix.Addr().Zone() != "" ||
+			prefix.Addr().IsUnspecified() || prefix.Addr().IsMulticast() || prefix.Addr().IsLoopback() {
+			return fmt.Errorf("invalid IPv6 address")
+		}
+	}
+	if s.Gateway != "" {
+		gateway, err := netip.ParseAddr(s.Gateway)
+		if err != nil || !gateway.Is6() || gateway.Is4In6() || gateway.Zone() != "" ||
+			gateway.IsUnspecified() || gateway.IsMulticast() || gateway.IsLoopback() {
+			return fmt.Errorf("invalid IPv6 gateway")
+		}
+	}
+	if s.Mode == ipv6Static && s.Address == "" {
+		return fmt.Errorf("static IPv6 needs an address")
+	}
+	return nil
 }
 
 type ipv6Status struct {
-	Enabled   bool          `json:"enabled"`
-	Active    bool          `json:"active"`
-	Supported bool          `json:"supported"`
-	Addresses []ipv6Address `json:"addresses"`
+	// Enabled says whether any interface has IPv6, for pages from before
+	// the per-interface setting.
+	Enabled    bool            `json:"enabled"`
+	Active     bool            `json:"active"`
+	Supported  bool            `json:"supported"`
+	Addresses  []ipv6Address   `json:"addresses"`
+	Interfaces []ipv6Interface `json:"interfaces"`
 }
 
-func readIPv6Preference() (bool, error) {
+// ipv6Policy is the IPv6 setting of each managed interface; a missing one is off.
+type ipv6Policy map[string]ipv6Setting
+
+// The configuration file's value of each mode: 1 is automatic, as it was
+// before static addresses.
+var ipv6Values = map[string]string{"0": "", "1": ipv6DHCPv6, "static": ipv6Static}
+
+// parseIPv6Policy reads "eth0=static eth0.address=2001:db8::10/64
+// eth0.gateway=2001:db8::1 wlan0=1"; an older "1" or "0" sets both.
+func parseIPv6Policy(text string) (ipv6Policy, error) {
+	policy := ipv6Policy{}
+	invalid := fmt.Errorf("invalid IPv6 configuration")
+	for _, field := range strings.Fields(text) {
+		if field == "0" || field == "1" {
+			for _, name := range ipv6Interfaces {
+				setting := policy[name]
+				setting.Mode = ipv6Values[field]
+				policy[name] = setting
+			}
+			continue
+		}
+		key, value, ok := strings.Cut(field, "=")
+		name, attribute, _ := strings.Cut(key, ".")
+		if !ok || !slices.Contains(ipv6Interfaces, name) {
+			return nil, invalid
+		}
+		setting := policy[name]
+		switch attribute {
+		case "":
+			mode, known := ipv6Values[value]
+			if !known {
+				return nil, invalid
+			}
+			setting.Mode = mode
+		case "address":
+			setting.Address = value
+		case "gateway":
+			setting.Gateway = value
+		default:
+			return nil, invalid
+		}
+		policy[name] = setting
+	}
+	for _, setting := range policy {
+		if setting.validate() != nil {
+			return nil, invalid
+		}
+	}
+	return policy, nil
+}
+
+func (p ipv6Policy) any() bool {
+	for _, name := range ipv6Interfaces {
+		if p[name].Mode != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func (p ipv6Policy) words() []string {
+	words := make([]string, 0, 3*len(ipv6Interfaces))
+	for _, name := range ipv6Interfaces {
+		setting := p[name]
+		value := "0"
+		switch setting.Mode {
+		case ipv6DHCPv6:
+			value = "1"
+		case ipv6Static:
+			value = "static"
+		}
+		words = append(words, name+"="+value)
+		if setting.Address != "" {
+			words = append(words, name+".address="+setting.Address)
+		}
+		if setting.Gateway != "" {
+			words = append(words, name+".gateway="+setting.Gateway)
+		}
+	}
+	return words
+}
+
+func readIPv6Policy() (ipv6Policy, error) {
 	data, err := os.ReadFile(ipv6ConfigFile)
 	if os.IsNotExist(err) {
-		return false, nil
+		return ipv6Policy{}, nil
 	}
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	switch strings.TrimSpace(string(data)) {
-	case "0":
-		return false, nil
-	case "1":
-		return true, nil
-	default:
-		return false, fmt.Errorf("invalid IPv6 configuration")
-	}
+	return parseIPv6Policy(string(data))
 }
 
-func applyIPv6(enabled bool) error {
-	value := "0"
-	if enabled {
-		value = "1"
-	}
+func applyIPv6(policy ipv6Policy) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-s", "--", "apply", value)
+	args := append([]string{"-s", "--", "apply"}, policy.words()...)
+	cmd := exec.CommandContext(ctx, "/bin/sh", args...)
 	cmd.Stdin = strings.NewReader(ipv6BootScript)
 	cmd.Env = append(os.Environ(), "NANOKVM_IPV6_SYSCTL="+ipv6SysctlRoot)
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -72,7 +239,7 @@ func applyIPv6(enabled bool) error {
 	return nil
 }
 
-func writeIPv6Preference(enabled bool) error {
+func writeIPv6Policy(policy ipv6Policy) error {
 	dir := filepath.Dir(ipv6ConfigFile)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -83,11 +250,7 @@ func writeIPv6Preference(enabled bool) error {
 	}
 	defer os.Remove(f.Name())
 	defer f.Close()
-	value := "0\n"
-	if enabled {
-		value = "1\n"
-	}
-	if _, err = f.WriteString(value); err != nil {
+	if _, err = f.WriteString(strings.Join(policy.words(), "\n") + "\n"); err != nil {
 		return err
 	}
 	if err = f.Sync(); err != nil {
@@ -103,7 +266,7 @@ func writeIPv6Preference(enabled bool) error {
 func InitializeIPv6() error {
 	ipv6Mutation.Lock()
 	defer ipv6Mutation.Unlock()
-	enabled, err := readIPv6Preference()
+	policy, err := readIPv6Policy()
 	if err != nil {
 		return err
 	}
@@ -117,16 +280,29 @@ func InitializeIPv6() error {
 			return err
 		}
 	}
-	return applyIPv6(enabled)
+	return applyIPv6(policy)
 }
 
 func getIPv6Status() (ipv6Status, error) {
-	status := ipv6Status{Addresses: []ipv6Address{}}
-	enabled, err := readIPv6Preference()
+	status := ipv6Status{Addresses: []ipv6Address{}, Interfaces: []ipv6Interface{}}
+	policy, err := readIPv6Policy()
 	if err != nil {
 		return status, err
 	}
-	status.Enabled = enabled
+	status.Enabled = policy.any()
+	for _, name := range ipv6Interfaces {
+		state, err := os.ReadFile(filepath.Join(ipv6SysctlRoot, name, "disable_ipv6"))
+		setting := policy[name]
+		status.Interfaces = append(status.Interfaces, ipv6Interface{
+			Name:    name,
+			Enabled: setting.Mode != "",
+			Mode:    setting.Mode,
+			Address: setting.Address,
+			Gateway: setting.Gateway,
+			Active:  err == nil && strings.TrimSpace(string(state)) == "0",
+			Present: err == nil,
+		})
+	}
 	state, err := os.ReadFile(filepath.Join(ipv6SysctlRoot, "default/disable_ipv6"))
 	if os.IsNotExist(err) {
 		return status, nil
@@ -161,7 +337,14 @@ func getIPv6Status() (ipv6Status, error) {
 			} else if ip.IsPrivate() {
 				scope = "private"
 			}
-			status.Addresses = append(status.Addresses, ipv6Address{iface.Name, addr.String(), scope, mtu})
+			parsed, _ := netip.AddrFromSlice(ip)
+			status.Addresses = append(status.Addresses, ipv6Address{
+				Interface: iface.Name,
+				Address:   addr.String(),
+				Scope:     scope,
+				MTU:       mtu,
+				Source:    ipv6Source(iface.Name, parsed.Unmap()),
+			})
 		}
 	}
 	return status, nil
@@ -182,21 +365,61 @@ func (s *Service) GetIPv6(c *gin.Context) {
 func (s *Service) SetIPv6(c *gin.Context) {
 	var req struct {
 		Enabled *bool `json:"enabled" validate:"required"`
+		// One managed interface; none sets them all, as pages from before
+		// the per-interface setting do.
+		Interface string `json:"interface"`
+		// dhcpv6 or static when enabling; none keeps the interface's mode,
+		// or DHCPv6 for an interface that was off. Address and gateway are
+		// the static ones and are kept when omitted.
+		Mode    string  `json:"mode"`
+		Address *string `json:"address"`
+		Gateway *string `json:"gateway"`
 	}
 	var rsp proto.Response
 	if err := proto.ParseFormRequest(c, &req); err != nil {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
+	if (req.Interface != "" && !slices.Contains(ipv6Interfaces, req.Interface)) ||
+		(req.Mode != "" && req.Mode != ipv6DHCPv6 && req.Mode != ipv6Static) ||
+		(req.Interface == "" && (req.Mode != "" || req.Address != nil || req.Gateway != nil)) {
+		rsp.ErrRsp(c, -1, "invalid arguments")
+		return
+	}
 	ipv6Mutation.Lock()
 	defer ipv6Mutation.Unlock()
-	previous, err := readIPv6Preference()
+	previous, err := readIPv6Policy()
 	if err != nil {
 		rsp.ErrRsp(c, -1, "failed to read IPv6 configuration")
 		return
 	}
-	if err = applyIPv6(*req.Enabled); err == nil {
-		err = writeIPv6Preference(*req.Enabled)
+	next := ipv6Policy{}
+	for _, name := range ipv6Interfaces {
+		setting := previous[name]
+		if req.Interface == "" || req.Interface == name {
+			if req.Address != nil {
+				setting.Address = strings.TrimSpace(*req.Address)
+			}
+			if req.Gateway != nil {
+				setting.Gateway = strings.TrimSpace(*req.Gateway)
+			}
+			switch {
+			case !*req.Enabled:
+				setting.Mode = ""
+			case req.Mode != "":
+				setting.Mode = req.Mode
+			case setting.Mode == "":
+				setting.Mode = ipv6DHCPv6
+			}
+			if err := setting.validate(); err != nil {
+				rsp.ErrRsp(c, -1, err.Error())
+				return
+			}
+		}
+		next[name] = setting
+	}
+	if err = applyIPv6(next); err == nil {
+		err = writeIPv6Policy(next)
 	}
 	if err != nil {
 		rollbackErr := applyIPv6(previous)

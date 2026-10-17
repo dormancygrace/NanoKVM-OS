@@ -9,6 +9,7 @@ import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { confirmAction } from '@/components/ui/confirm.ts';
 import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
+import { IPv6 } from './ipv6.tsx';
 import { WifiBandTag } from './wifi-band';
 import { groupWifiNetworks, type WifiGroup } from './wifi-networks';
 import { WifiSignal } from './wifi-signal';
@@ -346,6 +347,8 @@ export const Wifi = () => {
           </div>
         )}
       </SettingsSection>
+
+      {state?.supported && <IPv6 name="wlan0" />}
 
       {canConfigure && (
         <SettingsSection

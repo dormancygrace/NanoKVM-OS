@@ -1,0 +1,52 @@
+#!/bin/sh
+# udhcpc6 event script of nanokvm-dhcpv6: the leased address and its DNS
+# servers. busybox passes interface, ipv6 (the address), lease (seconds), dns
+# and search. Only this address is ever removed: SLAAC and link-local
+# addresses of the interface stay.
+set -u
+: "${NANOKVM_DHCPV6_RUN:=/run}"
+interface=${interface:?Missing interface}
+record="$NANOKVM_DHCPV6_RUN/udhcpc6.$interface.addr"
+key="nkos.dhcpv6.$interface"
+# The DNS page decides whether DHCP may set the name servers (99-nanokvm-dns).
+MODE=/etc/kvm/network/dns.mode
+BOOT=/boot/resolv.conf
+
+drop() {
+    if [ -f "$record" ]; then
+        ip -6 addr del "$(cat "$record")" dev "$interface" 2>/dev/null || true
+        rm -f "$record"
+    fi
+    resolvconf -d "$key" -f 2>/dev/null || true
+}
+
+name_servers() {
+    command -v resolvconf >/dev/null 2>&1 || return 0
+    mode=$(cat "$MODE" 2>/dev/null || true)
+    if [ -n "${dns:-}" ] && { [ "$mode" = dhcp ] || { [ -z "$mode" ] && [ ! -f "$BOOT" ]; }; }; then
+        {
+            if [ -n "${search:-}" ]; then echo "search $search"; fi
+            for server in $dns; do echo "nameserver $server"; done
+        } | resolvconf -a "$key"
+    else
+        resolvconf -d "$key" -f
+    fi
+}
+
+case "${1:-}" in
+    bound|renew)
+        [ -n "${ipv6:-}" ] || exit 0
+        address="$ipv6/128"
+        if [ -f "$record" ] && [ "$(cat "$record")" != "$address" ]; then
+            ip -6 addr del "$(cat "$record")" dev "$interface" 2>/dev/null || true
+        fi
+        lifetime=${lease:-forever}
+        ip -6 addr replace "$address" dev "$interface" valid_lft "$lifetime" preferred_lft "$lifetime" || exit 1
+        echo "$address" > "$record"
+        name_servers
+        ;;
+    deconfig|leasefail|nak)
+        drop
+        ;;
+esac
+exit 0

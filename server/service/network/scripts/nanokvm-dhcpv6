@@ -1,0 +1,43 @@
+#!/bin/sh
+# The DHCPv6 client of one interface (busybox udhcpc6), for S02ipv6.
+#
+#   dhcpv6 start IFACE   start the client unless it runs
+#   dhcpv6 stop IFACE    stop it and remove the address and DNS it set
+#
+# The client runs detached, so that the caller (the server or udev) neither
+# waits for a lease nor takes the client down when it exits. It adds to the
+# SLAAC addresses; router advertisements give the default route.
+set -u
+: "${NANOKVM_DHCPV6_RUN:=/run}"
+: "${NANOKVM_DHCPV6_EVENT:=/usr/libexec/nanokvm/dhcpv6-event}"
+action=${1:?Missing action}
+iface=${2:?Missing interface}
+pid="$NANOKVM_DHCPV6_RUN/udhcpc6.$iface.pid"
+record="$NANOKVM_DHCPV6_RUN/udhcpc6.$iface.addr"
+
+running() {
+    [ -f "$pid" ] && kill -0 "$(cat "$pid")" 2>/dev/null
+}
+
+case "$action" in
+    start)
+        running && exit 0
+        # Many networks have SLAAC only: ask three times, then once a minute,
+        # and keep the attempts out of the system log (SD card writes).
+        setsid udhcpc6 -f -i "$iface" -p "$pid" -s "$NANOKVM_DHCPV6_EVENT" \
+            -t 3 -T 2 -A 60 </dev/null >/dev/null 2>&1 &
+        ;;
+    stop)
+        if running; then kill "$(cat "$pid")" 2>/dev/null || true; fi
+        rm -f "$pid"
+        # The event script records the address; remove it here instead of
+        # relying on the client to deconfigure when it is stopped.
+        if [ -f "$record" ]; then
+            ip -6 addr del "$(cat "$record")" dev "$iface" 2>/dev/null || true
+            rm -f "$record"
+        fi
+        resolvconf -d "nkos.dhcpv6.$iface" -f 2>/dev/null || true
+        ;;
+    *) exit 2 ;;
+esac
+exit 0

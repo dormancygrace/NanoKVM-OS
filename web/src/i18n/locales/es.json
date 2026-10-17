@@ -1540,7 +1540,18 @@
         "private": "Dirección privada",
         "disconnectHint": "Desactivar IPv6 cierra las conexiones IPv6. Puedes volver a conectarte con la dirección IPv4.",
         "loadFailed": "No se pudo leer el estado de IPv6.",
-        "saveFailed": "No se pudo cambiar IPv6. Si estás conectado por IPv6, vuelve a conectarte por IPv4."
+        "saveFailed": "No se pudo cambiar IPv6. Si estás conectado por IPv6, vuelve a conectarte por IPv4.",
+        "configuration": "Configuración",
+        "dhcpv6Description": "Direcciones de los anuncios del router (SLAAC) y de DHCPv6.",
+        "staticDescription": "Una dirección fija con su longitud de prefijo y una puerta de enlace opcional.",
+        "static": "Estática",
+        "address": "Dirección",
+        "addressPlaceholder": "Dirección/longitud de prefijo",
+        "gateway": "Puerta de enlace",
+        "gatewayPlaceholder": "Opcional",
+        "invalid": "Introduzca una dirección IPv6 con su longitud de prefijo; la puerta de enlace debe ser una dirección IPv6.",
+        "save": "Guardar",
+        "cancel": "Cancelar"
       },
       "ethernet": {
         "title": "IPv4 de Ethernet",

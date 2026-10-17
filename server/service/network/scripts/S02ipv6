@@ -1,29 +1,207 @@
 #!/bin/sh
-# Persistent IPv6 policy; apply before interfaces are created. Keep ::1 usable.
+# Persistent IPv6 policy per interface: Ethernet (eth0) and Wi-Fi (wlan0) each
+# have their own setting; other interfaces (USB network, VPNs) have IPv6 when
+# either of them has. Applied before interfaces are created and again for an
+# interface udev adds later. Keep ::1 usable.
+#
+# As for IPv4, Ethernet or Wi-Fi with IPv6 is configured automatically (1:
+# SLAAC from router advertisements, which also give the default route, and
+# DHCPv6, whose client runs meanwhile) or statically (static: an address
+# with its prefix length and an optional gateway).
+#
+# The configuration file holds lines such as "eth0=1", "wlan0=static",
+# "wlan0.address=2001:db8::10/64" and "wlan0.gateway=2001:db8::1"; an older
+# "1" or "0" means both interfaces. A missing file means IPv6 is off.
+#
+#   S02ipv6 [start]            apply the saved configuration
+#   S02ipv6 apply eth0=1 ...   apply the given setting (missing ones are off)
+#   S02ipv6 interface NAME     apply the saved configuration to one interface
+#   S02ipv6 down NAME          stop its client before an interface goes down
 set -eu
 : "${NANOKVM_IPV6_CONF:=/etc/kvm/network/ipv6}"
 : "${NANOKVM_IPV6_SYSCTL:=/proc/sys/net/ipv6/conf}"
+: "${NANOKVM_IPV6_RUN:=/run}"
+: "${NANOKVM_DHCPV6:=/usr/libexec/nanokvm/dhcpv6}"
+: "${NANOKVM_IP:=ip}"
+
+parse() {
+    eth0=0 wlan0=0 eth0_address='' eth0_gateway='' wlan0_address='' wlan0_gateway=''
+    for item in "$@"; do
+        case "$item" in
+            0|1) eth0=$item wlan0=$item ;;
+            eth0=0|eth0=1|eth0=static) eth0=${item#*=} ;;
+            wlan0=0|wlan0=1|wlan0=static) wlan0=${item#*=} ;;
+            eth0.address=*) eth0_address=${item#*=} ;;
+            eth0.gateway=*) eth0_gateway=${item#*=} ;;
+            wlan0.address=*) wlan0_address=${item#*=} ;;
+            wlan0.gateway=*) wlan0_gateway=${item#*=} ;;
+            '') ;;
+            *) echo "Invalid IPv6 configuration: $item" >&2; exit 1 ;;
+        esac
+    done
+}
+
+saved() {
+    if [ -f "$NANOKVM_IPV6_CONF" ]; then
+        # shellcheck disable=SC2046 # one word per line
+        parse $(cat "$NANOKVM_IPV6_CONF")
+    else
+        parse
+    fi
+}
+
+# The setting of a managed interface: 0, 1 or static; its static address
+# and gateway.
+setting() {
+    case "$1" in eth0) echo "$eth0" ;; wlan0) echo "$wlan0" ;; esac
+}
+address_of() {
+    case "$1" in eth0) echo "$eth0_address" ;; wlan0) echo "$wlan0_address" ;; esac
+}
+gateway_of() {
+    case "$1" in eth0) echo "$eth0_gateway" ;; wlan0) echo "$wlan0_gateway" ;; esac
+}
+
+# disable_ipv6 value for an interface: its own setting, or "any" for others.
+wanted() {
+    case "$1" in
+        lo) echo 0 ;;
+        eth0|wlan0) [ "$(setting "$1")" != 0 ] && echo 0 || echo 1 ;;
+        *) [ "$eth0" != 0 ] || [ "$wlan0" != 0 ] && echo 0 || echo 1 ;;
+    esac
+}
+
+# Functions share variables (sh has no locals): each uses names of its own.
+sysctl_set() {
+    sysctl_file="$NANOKVM_IPV6_SYSCTL/$1/$2"
+    [ -f "$sysctl_file" ] || return 0
+    if [ "$(cat "$sysctl_file")" != "$3" ]; then printf '%s\n' "$3" > "$sysctl_file"; fi
+}
+
+set_value() { sysctl_set "$1" disable_ipv6 "$2"; }
+
+# SLAAC on or off; back on for an interface with IPv6, restart IPv6 on it,
+# which solicits router advertisements again, so that addresses return now.
+autoconf() {
+    autoconf_file="$NANOKVM_IPV6_SYSCTL/$1/autoconf"
+    [ -f "$autoconf_file" ] || return 0
+    autoconf_was=$(cat "$autoconf_file")
+    sysctl_set "$1" autoconf "$2"
+    if [ "$autoconf_was" = 0 ] && [ "$2" = 1 ] && [ "$(wanted "$1")" = 0 ]; then
+        set_value "$1" 1
+        set_value "$1" 0
+    fi
+}
+
+# The static address and gateway set on an interface, kept in /run so that
+# a changed or removed one can be taken off again.
+record() { echo "$NANOKVM_IPV6_RUN/ipv6-static.$1"; }
+
+static_off() {
+    record_file=$(record "$1")
+    if [ -f "$record_file" ]; then
+        read -r old_address old_gateway < "$record_file" || true
+        if [ -n "${old_gateway:-}" ]; then
+            "$NANOKVM_IP" -6 route del default via "$old_gateway" dev "$1" 2>/dev/null || true
+        fi
+        if [ -n "${old_address:-}" ]; then
+            "$NANOKVM_IP" -6 addr del "$old_address" dev "$1" 2>/dev/null || true
+        fi
+        rm -f "$record_file"
+    fi
+    sysctl_set "$1" keep_addr_on_down 0
+}
+
+static_on() {
+    # A down link has no connected route for its gateway. Keep the saved
+    # policy pending; S30eth/S30wifi reconcile it after bringing the link up.
+    "$NANOKVM_IP" -o link show dev "$1" | grep -qE '<([^>]*,)?UP(,|>)' || return 0
+    address=$(address_of "$1")
+    gateway=$(gateway_of "$1")
+    record_file=$(record "$1")
+    old_address='' old_gateway=''
+    if [ -f "$record_file" ]; then
+        read -r old_address old_gateway < "$record_file" || true
+    fi
+    # Journal the attempted state before changing addresses/routes. If a
+    # later ip command fails, applying the previous policy can remove it.
+    printf '%s %s\n' "$address" "$gateway" > "$record_file"
+    if [ -n "$old_address$old_gateway" ]; then
+        if [ -n "${old_gateway:-}" ] && [ "$old_gateway" != "$gateway" ]; then
+            "$NANOKVM_IP" -6 route del default via "$old_gateway" dev "$1" 2>/dev/null || true
+        fi
+        if [ -n "${old_address:-}" ] && [ "$old_address" != "$address" ]; then
+            "$NANOKVM_IP" -6 addr del "$old_address" dev "$1" 2>/dev/null || true
+        fi
+    fi
+    [ -n "$address" ] || { rm -f "$record_file"; return 0; }
+    # A static address survives the interface going down and up again.
+    sysctl_set "$1" keep_addr_on_down 1
+    "$NANOKVM_IP" -6 addr replace "$address" dev "$1"
+    if [ -n "$gateway" ]; then
+        # Preferred over routes from router advertisements (metric 1024),
+        # Ethernet over Wi-Fi, as for IPv4.
+        metric=200
+        [ "$1" = wlan0 ] && metric=300
+        "$NANOKVM_IP" -6 route replace default via "$gateway" dev "$1" metric "$metric"
+    fi
+    printf '%s %s\n' "$address" "$gateway" > "$record_file"
+}
+
+apply_interface() {
+    set_value "$1" "$(wanted "$1")"
+    case "$1" in
+        eth0|wlan0)
+            # Only for an interface that exists; udev applies it to a later one.
+            [ -d "$NANOKVM_IPV6_SYSCTL/$1" ] || return 0
+            case "$(setting "$1")" in
+                1)
+                    static_off "$1"
+                    autoconf "$1" 1
+                    "$NANOKVM_DHCPV6" start "$1" || true
+                    ;;
+                static)
+                    "$NANOKVM_DHCPV6" stop "$1" || true
+                    autoconf "$1" 0
+                    static_on "$1"
+                    ;;
+                *)
+                    "$NANOKVM_DHCPV6" stop "$1" || true
+                    static_off "$1"
+                    autoconf "$1" 1
+                    ;;
+            esac
+            ;;
+    esac
+}
+
 case "${1:-start}" in
-    start|restart)
-        enabled=0
-        if [ -f "$NANOKVM_IPV6_CONF" ]; then enabled=$(cat "$NANOKVM_IPV6_CONF"); fi
+    start|restart) saved ;;
+    apply) shift; parse "$@" ;;
+    interface)
+        name=${2:?Missing interface}
+        saved
+        [ -d "$NANOKVM_IPV6_SYSCTL" ] || exit 0
+        apply_interface "$name"
+        exit 0
         ;;
-    apply) enabled=${2:?Missing IPv6 state} ;;
+    down)
+        case "${2:-}" in eth0|wlan0) "$NANOKVM_DHCPV6" stop "$2" ;; *) exit 2 ;; esac
+        exit 0
+        ;;
     stop) exit 0 ;;
     *) exit 2 ;;
 esac
-case "$enabled" in 0) disabled=1 ;; 1) disabled=0 ;; *) echo 'Invalid IPv6 configuration' >&2; exit 1 ;; esac
-# A kernel without IPv6 already satisfies the disabled policy.
-if [ ! -d "$NANOKVM_IPV6_SYSCTL" ]; then [ "$enabled" = 0 ]; exit; fi
-for name in default all; do
-    file="$NANOKVM_IPV6_SYSCTL/$name/disable_ipv6"
-    if [ "$(cat "$file")" != "$disabled" ]; then printf '%s\n' "$disabled" > "$file"; fi
+
+others=$(wanted other)
+# A kernel without IPv6 already satisfies a policy with IPv6 off.
+if [ ! -d "$NANOKVM_IPV6_SYSCTL" ]; then [ "$others" = 1 ]; exit; fi
+# "all" also rewrites every existing interface, so it comes first and the
+# interfaces are reconciled after it; "default" is what new ones start with.
+set_value all "$others"
+set_value default "$others"
+for dir in "$NANOKVM_IPV6_SYSCTL"/*/; do
+    name=$(basename "$dir")
+    case "$name" in all|default) continue ;; esac
+    apply_interface "$name"
 done
-# Also reconcile existing interfaces individually: another service may have
-# changed one while all/default retained their previous values.
-for file in "$NANOKVM_IPV6_SYSCTL"/*/disable_ipv6; do
-    case "$file" in */all/*|*/default/*|*/lo/*) continue ;; esac
-    if [ "$(cat "$file")" != "$disabled" ]; then printf '%s\n' "$disabled" > "$file"; fi
-done
-file="$NANOKVM_IPV6_SYSCTL/lo/disable_ipv6"
-if [ -f "$file" ] && [ "$(cat "$file")" != 0 ]; then printf '0\n' > "$file"; fi

@@ -101,6 +101,8 @@ jobs:
         # Only the disposable network namespace is changed; Ubuntu restricts
         # unprivileged user namespaces, so let the test create it as root.
         run: sudo python3 tests/test-dhcp-gateway.py
+      - name: IPv6 policy and interface restart tests
+        run: sudo python3 tests/test-ipv6-policy.py
       - name: APK application split migration
         run: |
           docker run --rm --volume "$PWD:/src:ro" --workdir /src alpine:3.24 sh -ec '

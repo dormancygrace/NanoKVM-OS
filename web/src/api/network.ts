@@ -114,6 +114,19 @@ export function setGatewayPreference(preferred: GatewayPreference) {
   return http.post('/api/network/gateway', { preferred });
 }
 
+// Ethernet and Wi-Fi each have an IPv6 setting of their own: automatic
+// (SLAAC and DHCPv6) or a static address, as for IPv4.
+export type IPv6Mode = 'dhcpv6' | 'static';
+export type IPv6Interface = {
+  name: 'eth0' | 'wlan0';
+  enabled: boolean;
+  mode: IPv6Mode | '';
+  // The static address with its prefix length, and the optional gateway.
+  address: string;
+  gateway: string;
+  active: boolean;
+  present: boolean;
+};
 export type IPv6Status = {
   enabled: boolean;
   active: boolean;
@@ -123,15 +136,22 @@ export type IPv6Status = {
     address: string;
     scope: 'global' | 'linkLocal' | 'private';
     mtu: number;
+    // Where a global address of Ethernet or Wi-Fi came from.
+    source?: 'slaac' | 'dhcpv6' | 'static';
   }[];
+  // Missing on a server from before the per-interface setting.
+  interfaces?: IPv6Interface[];
 };
 
 export function getIPv6() {
   return http.get('/api/network/ipv6');
 }
 
-export function setIPv6(enabled: boolean) {
-  return http.post('/api/network/ipv6', { enabled });
+export function setIPv6(
+  iface: IPv6Interface['name'],
+  setting: { enabled: boolean; mode?: IPv6Mode; address?: string; gateway?: string }
+) {
+  return http.post('/api/network/ipv6', { ...setting, interface: iface });
 }
 
 export type WifiBand = '2.4' | '5';

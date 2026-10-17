@@ -794,7 +794,18 @@
         "unsupported": "V případě tohoto jádra systému není IPv6 k dispozici.",
         "saveFailed": "Nepodařilo se změnit IPv6. Pokud jste připojení přes IPv6, připojte se znovu pomocí IPv4.",
         "disconnectHint": "Zakázání IPv6 zavře IPv6 spojení. Opět se připojit je možné pomocí IPv4 adresy.",
-        "description": "Ve výchozím stavu zakázáno. Změny jsou zachovány napříč restarty."
+        "description": "Ve výchozím stavu zakázáno. Změny jsou zachovány napříč restarty.",
+        "configuration": "Konfigurace",
+        "dhcpv6Description": "Adresy z oznámení směrovače (SLAAC) a z DHCPv6.",
+        "staticDescription": "Pevná adresa s délkou prefixu a volitelná brána.",
+        "static": "Statická",
+        "address": "Adresa",
+        "addressPlaceholder": "Adresa/délka prefixu",
+        "gateway": "Brána",
+        "gatewayPlaceholder": "Volitelné",
+        "invalid": "Zadejte adresu IPv6 s délkou prefixu; brána musí být adresa IPv6.",
+        "save": "Uložit",
+        "cancel": "Zrušit"
       }
     },
     "tailscale": {

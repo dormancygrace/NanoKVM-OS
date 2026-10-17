@@ -15,6 +15,7 @@
 : "${NANOKVM_UDHCPD:=udhcpd}"
 : "${NANOKVM_IFCONFIG:=ifconfig}"
 : "${NANOKVM_IP:=ip}"
+: "${NANOKVM_IPV6_INIT:=/etc/init.d/S02ipv6}"
 : "${NANOKVM_KILLALL:=killall}"
 : "${NANOKVM_CHOWN:=chown}"
 : "${NANOKVM_IW:=iw}"
@@ -261,6 +262,9 @@ start() {
     fi
     import_boot_credentials || return 1
     "$NANOKVM_IP" link set dev wlan0 up || return 1
+    if [ -x "$NANOKVM_IPV6_INIT" ]; then
+        "$NANOKVM_IPV6_INIT" interface wlan0 || return 1
+    fi
 
     if [ ! -s "$WIFI_SSID_FILE" ] || { [ ! -s "$WIFI_PASS_FILE" ] && [ "$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.security" 2>/dev/null)" != open ]; }; then
         echo "WiFi credentials are not configured; leaving wlan0 idle"
@@ -327,6 +331,9 @@ ap_start() {
     "$NANOKVM_IP" route del default dev wlan0 2>/dev/null || true
     "$NANOKVM_IP" addr flush dev wlan0 || return 1
     "$NANOKVM_IP" addr add "$ipv4_prefix.1/24" dev wlan0 || return 1
+    if [ -x "$NANOKVM_IPV6_INIT" ]; then
+        "$NANOKVM_IPV6_INIT" interface wlan0 || return 1
+    fi
     "$NANOKVM_HOSTAPD" -B -i wlan0 "$HOSTAPD_CONFIG" || return 1
     "$NANOKVM_UDHCPD" -S "$UDHCPD_CONFIG" || return 1
 
@@ -334,6 +341,9 @@ ap_start() {
 }
 
 stop() {
+    if [ -x "$NANOKVM_IPV6_INIT" ]; then
+        "$NANOKVM_IPV6_INIT" down wlan0 || return 1
+    fi
     "$NANOKVM_KILLALL" hostapd 2>/dev/null || true
     # The USB network runs a separate udhcpd. Stop only our AP instance.
     if [ -r "$UDHCPD_PID" ]; then

@@ -47,6 +47,11 @@ base  file  /etc/init.d/nanokvm-storage                   0755  firmware/alpine/
 base  file  /etc/init.d/nanokvm-usb                       0755  firmware/alpine/openrc/nanokvm-usb
 base  file  /etc/init.d/nanokvm-watchdog                  0755  firmware/alpine/openrc/nanokvm-watchdog
 base  dir   /usr/libexec/nanokvm                          0700
+# Applies the per-interface IPv6 setting to Ethernet or Wi-Fi added after boot.
+base  file  /usr/lib/udev/rules.d/90-nanokvm-ipv6.rules    0644  server/service/network/scripts/90-nanokvm-ipv6.rules
+# The DHCPv6 client of an interface whose IPv6 address comes from DHCPv6.
+base  file  /usr/libexec/nanokvm/dhcpv6                    0755  server/service/network/scripts/nanokvm-dhcpv6
+base  file  /usr/libexec/nanokvm/dhcpv6-event              0755  server/service/network/scripts/nanokvm-dhcpv6-event
 base  file  /usr/libexec/nanokvm/console-policy            0755  firmware/alpine/compat/nanokvm-console-policy
 base  file  /usr/libexec/nanokvm/activate-kernel          0755  firmware/alpine/compat/nanokvm-activate-kernel
 base  file  /usr/libexec/nanokvm/firstboot-storage        0755  firmware/alpine/compat/nanokvm-firstboot-storage

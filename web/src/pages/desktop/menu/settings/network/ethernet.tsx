@@ -8,6 +8,8 @@ import type { EthernetConfig, EthernetMode } from '@/api/network.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
+import { IPv6 } from './ipv6.tsx';
+
 function isIPv4(value: string) {
   const parts = value.trim().split('.');
   return (
@@ -298,6 +300,9 @@ export const Ethernet = () => {
           </Button>
         </div>
       )}
+
+      {/* Applied at once, unlike the IPv4 settings above and their Save. */}
+      <IPv6 name="eth0" />
     </div>
   );
 };

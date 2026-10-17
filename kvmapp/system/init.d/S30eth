@@ -8,6 +8,7 @@ RESERVE_INET="192.168.90.1/22"
 : "${NANOKVM_ETH_VLAN:=/boot/eth.vlan}"
 : "${NANOKVM_ETH_VLAN_STATE:=/run/nanokvm-eth-vlan}"
 : "${NANOKVM_IP:=ip}"
+: "${NANOKVM_IPV6_INIT:=/etc/init.d/S02ipv6}"
 : "${NANOKVM_MODPROBE:=modprobe}"
 : "${NANOKVM_UDHCPC:=udhcpc}"
 : "${NANOKVM_ARPING:=arping}"
@@ -97,7 +98,7 @@ start() {
     if [ -x /etc/init.d/S29qdisc ]; then
         /etc/init.d/S29qdisc eth0 || echo "Could not apply fq_codel to eth0" >&2
     fi
-    "$NANOKVM_IP" addr flush dev "$eth_iface"
+    "$NANOKVM_IP" -4 addr flush dev "$eth_iface"
     if [ -e "$NANOKVM_ETH_CONFIG" ]; then
         while IFS= read -r line || [ -n "$line" ]; do
             line=${line%%#*}
@@ -138,13 +139,13 @@ start() {
             break
         done < "$NANOKVM_ETH_CONFIG"
 
-        "$NANOKVM_IP" a show dev "$eth_iface" | grep inet > /dev/null || {
+        "$NANOKVM_IP" -4 a show dev "$eth_iface" | grep inet > /dev/null || {
             set -- -S -B -i "$eth_iface" -t 3 -T 1 -A 5 -b -O 121 -p "$NANOKVM_ETH_DHCP_PID"
             if value=$(dhcp_hostname); then
                 set -- "$@" -x "hostname:$value" -F "$value"
             fi
             "$NANOKVM_UDHCPC" "$@" >/dev/null 2>&1
-            "$NANOKVM_IP" a show dev "$eth_iface" | grep inet > /dev/null
+            "$NANOKVM_IP" -4 a show dev "$eth_iface" | grep inet > /dev/null
         } || {
             inet=$RESERVE_INET
             addr=${inet%/*}
@@ -157,9 +158,16 @@ start() {
         fi
         "$NANOKVM_UDHCPC" "$@" &
     fi
+    # Restarting an existing link does not generate a udev add event.
+    if [ -x "$NANOKVM_IPV6_INIT" ]; then
+        "$NANOKVM_IPV6_INIT" interface eth0 || return 1
+    fi
 }
 
 stop() {
+    if [ -x "$NANOKVM_IPV6_INIT" ]; then
+        "$NANOKVM_IPV6_INIT" down eth0 || return 1
+    fi
     if [ -f "$NANOKVM_ETH_DHCP_PID" ]; then
         kill "$(cat "$NANOKVM_ETH_DHCP_PID")" 2>/dev/null || true
         rm -f "$NANOKVM_ETH_DHCP_PID"

@@ -13,8 +13,8 @@ through usb0 is explicitly dropped.
 2. In Settings → USB, enable USB network (NCM) and apply the composition.
 3. Turn on Internet over USB. This does not rebind the USB gadget.
 4. Let the managed computer obtain an address through DHCP. If its old lease
-   does not renew promptly, reconnect USB or renew DHCP yourself. Codex has not
-   modified the managed Windows network configuration.
+   does not renew promptly, reconnect USB or renew DHCP on that computer;
+   NanoKVM does not change its network configuration.
 
 The UI shows the chosen gateway/interface, waiting for NCM/uplink, explicitly
 disabled DHCP, subnet conflict or service failure. “Active” means sharing is
@@ -128,46 +128,15 @@ cd ..
 sudo python3 tests/test-usb-internet-netns.py
 ```
 
-The WSL kernel lacks flowtable support; its tests cover normal-forwarding fallback.
-Hardware qualification on SG2002 and a physical Windows NCM host was completed
-on 2026-10-05 using matching temporarily staged base components and application:
+Kernels without flowtable support (WSL's, for example) exercise the
+normal-forwarding fallback.
 
-- Real Chrome Main GUI enable/disable, local DHCP without gateway/DNS, actual
-  Wi-Fi NAT, gateway DNS, direct DNS and certificate-verified HTTPS passed.
-- Software flowtable datapath was demonstrated with matched forward counters:
-  20 UDP DNS queries counted as 1 forwarded packet with flowtable versus 20
-  without; 10 keep-alive HTTPS requests counted as 4 versus 30 TCP packets.
-  NF_CT_NETLINK is unavailable, so conntrack OFFLOAD tags could not be queried.
-- Foreign-forward policy suppression, USB source-specific WireGuard route
-  waiting, logical gadget detach/rebind and reboot persistence passed.
-- On usb0, TSO/SG/checksum/hardware GRO requests are rejected; GSO remains
-  effectively off despite a requested-on flag. Software GRO toggles and 12
-  short local TCP on/off runs passed without increasing error/drop counters.
-  The current u_ether RX path uses netif_rx rather than GRO. A reliable GRO
-  speed improvement was not established.
-- Actual Ethernet uplink (carrier 0), physical cable unplug, real Wi-Fi uplink
-  removal and a controlled NAT throughput/CPU comparison remain untested in
-  this window. Namespace link/uplink-switch tests remain valid.
-- Original application/web/S30/S35 files were restored (192 matching SHA-256
-  hashes), along with the exact original nft rules. NCM and sharing were left
-  off; HID/audio and RustDesk were left on under the user's latest instruction.
-  All rollback captures stayed on the host, with no device/SD backups.
-
-Detailed host evidence is under work/hardware-20261005; the Windows task's
-outputs/hardware-test-results.md contains the user-facing hardware report.
-Do not alter Windows networking automatically, retain device/SD backups,
-publish an OS release or merge this branch as part of this work.
+On `usb0` the gadget driver rejects TSO, scatter-gather, checksum offload and
+hardware GRO, and its receive path uses `netif_rx`; software GRO has shown no
+speed gain.
 
 ## References
 
 - [Linux flowtable behavior and limitations](https://docs.kernel.org/networking/nf_flowtable.html)
 - [Linux forwarding sysctls](https://docs.kernel.org/networking/ip-sysctl.html)
 - [dnsmasq configuration and DHCP options](https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html)
-
-## v2.5-a1 integration
-
-The platform package manifest explicitly includes the helper, OpenRC watcher and
-Alpine S30usbnet in both compatibility locations. The rootfs build rejects missing
-helper/service files. This adapts commits 143deaa and e7a2d61 to the current build
-without changing toolchain inputs or installing an Alpine helper into legacy
-Buildroot images.

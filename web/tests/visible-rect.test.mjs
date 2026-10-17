@@ -6,7 +6,7 @@ import { halvedVisibleRect } from '../src/pages/desktop/screen/visible-rect.ts';
 const rect = (width, height) => ({ x: 0, y: 0, width, height });
 
 test('only an exactly halved visible rectangle is corrected', () => {
-  // Edge 155, H.265 2560x1440 (seen on the stand).
+  // Edge 155, H.265 2560x1440 (seen on a NanoKVM).
   assert.deepEqual(
     halvedVisibleRect({ codedWidth: 2560, codedHeight: 1440, visibleRect: rect(1280, 720) }),
     rect(2560, 1440)

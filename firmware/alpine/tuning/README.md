@@ -74,10 +74,7 @@ approved source packages:
 
 The signed legacy APKINDEX.tar.gz has 46 entries and is kept alongside the
 apk-tools v3 Packages.adb. Every APK is listed once in manifest.tsv, all
-package and index signatures verify with the repository public key, and the
-two index hashes are recorded under
-firmware/alpine/evidence/2026-09-19-full-c906. The build log is retained
-outside Git under work/alpine/tuned-full-build.log because it is large.
+package and index signatures verify with the repository public key.
 
 Use a dedicated signing key supplied outside the checkout:
 
@@ -127,6 +124,4 @@ The qualified repository is derived only from the already signed APKs in the
 full experimental repository. Its indexes, manifest and checksums are
 regenerated after filtering so APK cannot select an omitted higher revision.
 Official Alpine `main` and `community` remain after it in the repository list,
-which supplies stock `xz`, `zlib` and every package outside the overlay. Device
-results and the selection rationale are recorded in
-`firmware/alpine/evidence/2026-09-19-full-c906`.
+which supplies stock `xz`, `zlib` and every package outside the overlay.

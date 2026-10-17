@@ -19,6 +19,3 @@ SRTCP and fallback. Each selected size also receives a warmup-output comparison.
 Timing checks errors and hardware hit counts but does not independently verify
 every timed ciphertext. Output reports benchmark-process CPU, not whole-system
 or server CPU. All session material is synthetic and must remain diagnostic.
-
-See firmware/crypto/SRTP-PAYLOAD-COST-2026-09-09.md at the repository root for the
-physical result and limitations; no production cutoff change is implied.

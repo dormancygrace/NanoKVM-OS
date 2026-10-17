@@ -18,6 +18,10 @@ import (
 	"time"
 )
 
+// Byte limits of the WebRTC bridge: a message must hold a whole video frame,
+// fragments match the 60000-byte data-channel fragments of upstream RustDesk,
+// signalling JSON is bounded as on the IPC socket, and inbound messages are
+// control messages only.
 const rtcMaxMessage = 8 << 20
 const rtcMaxFragment = 60000
 const rtcMaxSignal = 64 << 10

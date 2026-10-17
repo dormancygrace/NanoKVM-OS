@@ -1,6 +1,6 @@
 # SG2002 OpenSBI
 
-The platform builds upstream [OpenSBI v1.9](https://github.com/riscv-software-src/opensbi/releases/tag/v1.9), commit `cbf9f6734dd85a982c63e3cb5db7ffe09da839ca`, released 2026-07-01 and verified as the latest stable release on 2026-10-05. The source/tree pins are in `../sources.lock`. This replaces the vendor 0.9 MONITOR in the generated FIP.
+The platform builds upstream [OpenSBI v1.9](https://github.com/riscv-software-src/opensbi/releases/tag/v1.9), commit `cbf9f6734dd85a982c63e3cb5db7ffe09da839ca`, released 2026-07-01. The source/tree pins are in `../sources.lock`. This replaces the vendor 0.9 MONITOR in the generated FIP.
 
 ## Build and memory contract
 
@@ -58,15 +58,13 @@ python3 tests/test-opensbi-reservations.py \
 
 This uses calculated PMP fixtures, native scalar cell-decoding adapters and the real U-Boot copy/deduplication code. It verifies exact-range deduplication, the additional RW range, stable repeated copies, detection of an oversized overlapping static range, that neither the firmware DT nor any of the 25 Linux DTBs has a reservation in the small-core range and that the copy adds none (the pre-change firmware DT, or a board DT with a `c906l` node, fails). It does not execute OpenSBI or simulate C906 hardware.
 
-## SG2002 RAM hardware result (2026-10-05)
+## Hardware status
 
-FIP SHA-256 `76e50ecc3fab0da16f2ab750e6f79a67ec2dedeac9397c5f437343e6008e3692` passed ROM UART RAM loading on Sipeed NanoKVM PCIe. OpenSBI 1.9 handed off to the unchanged U-Boot and installed Linux 7.2.9 with normal bootcmd/bootargs. Runtime SBI version is 3.0, implementation version 0x10009. Linux imported both 256/64 KiB firmware reservations and the 2 MiB small-core reservation (the candidate DT then still carried it; it has since been removed).
-
-Timer and PLIC device interrupts progress, both application services start, and Chrome Main displays an advancing HDMI stopwatch. A bounded perf_event_open counting probe opened cycles and instructions together; both values increased (108515 to 921149 cycles, 71670 to 774880 instructions). No Oops/panic/overlap diagnostics appeared. This checks counting, not PMU overflow sampling, raw events, multicore IPI/RFENCE or vector context switching.
-
-That candidate still carried the small-core reservation. The FIP built without it differs from the tested one only in the embedded M-mode DT (the fw_dynamic.bin, FIP and manifest hashes in `../expected.sha256` changed) and was not part of the RAM test; the SD result below covers it.
-
-During the RAM test the SD FIP was not replaced. Since then the full image installs the built FIP on the SD card: on 2026-10-14 the test stand (NanoKVM PCIe) had `fip.bin` SHA-256 `38cbdbf32a25fbfa1d7a0a1197f7b4cfa0ed145fb8ffc2197e257f0575713db1`, the value in `../expected.sha256`, and cold-booted from it after a power cycle. Deterministic build manifests retain their build-time hardware_validation=pending field; a separate hardware report links measured results to the exact artifact hash.
+OpenSBI 1.9 boots on a NanoKVM PCIe from the SD card: SBI 3.0
+(implementation 0x10009), timer and PLIC interrupts, both firmware
+reservations in Linux, and the SBI PMU cycle and instruction counters. Not
+covered: PMU overflow sampling, raw events, multicore IPI/RFENCE and vector
+context switching.
 
 Loading a FIP into RAM through the ROM UART loader, and the SD pad setup it needs, are described in [docs/BOOT.md](../../docs/BOOT.md#testing-a-fip-without-writing-it).
 
@@ -85,8 +83,8 @@ Loading a FIP into RAM through the ROM UART loader, and the SD pad setup it need
 
 ## Upgrade and recovery
 
-An application/APK update does not replace `/boot/fip.bin`; FIP takes effect at
-the next boot. How the ROM behaves with a missing or damaged `fip.bin`, how to
+The `nanokvm-bootloader-sg2002` package replaces `/boot/fip.bin`; the new FIP
+takes effect at the next boot. How the ROM behaves with a missing or damaged `fip.bin`, how to
 replace it and how to recover without a card reader are in
 [docs/BOOT.md](../../docs/BOOT.md).
 

@@ -51,11 +51,3 @@ before new transfers or automatic resumption start.
 A crash can leave a checkpoint for automatic ETag/Range-validated resumption;
 a completed failed or cancelled attempt cleans up its temporary file.
 The resumable metadata remains runtime-only and does not survive a reboot.
-
-## Verification
-
-Regression tests cover attached-image removal/replacement, case and hard-link
-aliases, unknown LUN state, composition-lock serialization, size bounds for
-known and chunked HTTP responses, remaining-byte budgets, browser ISO/UDF/IMG
-uploads, exact-name cleanup and a complete startup-cleanup/resumption round trip.
-Hardware validation is separate from these host tests.

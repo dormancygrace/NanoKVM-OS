@@ -13,7 +13,7 @@ import (
 const (
 	// smartPFixedSPS with a VUI that only carries the signal type.
 	smartPColourSPS = "420102016000000300000300000300000300960000a001402005a1653e49306b96f9a808080804"
-	// SG2002 H.264 Main 4K, no VUI (venc dump from the stand).
+	// SG2002 H.264 Main 4K, no VUI (venc dump from a NanoKVM).
 	standH264SPS       = "674d4033a6803c0043e4"
 	standH264ColourSPS = "674d4033a6803c0043e9a808080810"
 	standH264PPS       = "68ee3880"

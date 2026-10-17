@@ -12,6 +12,11 @@
  * The engine owns buffer, crypto_output and desc between crypto_start_locked()
  * and crypto_finish_locked(); the GHASH in between reads only the caller's
  * scatterlists. GHASH is lib/crypto's (the C906 assembly with patch 0041).
+ *
+ * The engine lock stays held across each chunk's GHASH (up to about 0.1 ms
+ * with the vector GHASH), so hardware SRTP requests wait behind a gcm(aes)
+ * request. Below about 4 KiB this gains little over the template: a
+ * one-chunk encryption overlaps only the associated data.
  */
 #include <crypto/internal/aead.h>
 #include <crypto/gcm.h>

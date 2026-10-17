@@ -802,7 +802,6 @@
         "open": "打开更新",
         "auto": "每天检查更新",
         "autoDescription": "每天检查一次 NanoKVM OS 软件仓库，有新版本时显示通知。不会自动安装任何内容。",
-        "check": "立即检查",
         "checked": "上次检查：{{time}}",
         "never": "尚未检查",
         "failed": "上次检查失败：{{message}}",

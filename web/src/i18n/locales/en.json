@@ -802,7 +802,6 @@
         "open": "Open updates",
         "auto": "Check for updates daily",
         "autoDescription": "Looks at the NanoKVM OS repository once a day and shows a notice when a newer version is available. Nothing is installed automatically.",
-        "check": "Check now",
         "checked": "Last checked {{time}}",
         "never": "Not checked yet",
         "failed": "The last check failed: {{message}}",

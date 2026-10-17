@@ -118,6 +118,11 @@ func RunAPK(action string) (result error) {
 		return cmd.Run()
 	}
 	if e := run("update"); e != nil {
+		// The page has one check for both: an unreachable Alpine mirror must
+		// not keep the NanoKVM OS repository from being checked.
+		if action == "check" {
+			_ = CheckUpdates(ctx, true)
+		}
 		return fmt.Errorf("APK index refresh failed: %w", e)
 	}
 	if action == "check" {

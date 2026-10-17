@@ -1,13 +1,8 @@
 import { useState } from 'react';
-import { Alert, Button, message, Switch, Tag } from 'antd';
+import { Alert, message, Spin, Switch, Tag } from 'antd';
 import { useTranslation } from 'react-i18next';
 
-import {
-  checkForUpdates,
-  setUpdateNoticeEnabled,
-  type Components,
-  type UpdateNotice
-} from '@/api/updates.ts';
+import { setUpdateNoticeEnabled, type Components, type UpdateNotice } from '@/api/updates.ts';
 import { componentLabel } from '@/lib/update-components.ts';
 import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
@@ -103,21 +98,14 @@ export const UpdateCheck = ({
           onChange={(enabled) => run(() => setUpdateNoticeEnabled(enabled))}
         />
       </SettingRow>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <span className="text-fg-muted">
-          {notice?.state === 'unavailable'
-            ? tr('unavailable')
-            : checked
-              ? tr('checked', { time: checked })
-              : tr('never')}
-        </span>
-        <Button
-          loading={checking}
-          disabled={busy || notice?.state === 'unavailable'}
-          onClick={() => run(checkForUpdates)}
-        >
-          {tr('check')}
-        </Button>
+      {/* Checked from Package updates: one check covers both repositories. */}
+      <div className="text-fg-muted flex items-center gap-2 text-sm">
+        {notice?.state === 'unavailable'
+          ? tr('unavailable')
+          : checked
+            ? tr('checked', { time: checked })
+            : tr('never')}
+        {checking && <Spin size="small" />}
       </div>
       {notice?.state === 'ok' && notice.updates.length === 0 && (
         <Alert type="success" showIcon message={tr('upToDate')} />

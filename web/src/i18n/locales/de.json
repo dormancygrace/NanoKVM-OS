@@ -802,7 +802,6 @@
         "open": "Updates öffnen",
         "auto": "Täglich nach Updates suchen",
         "autoDescription": "Prüft einmal am Tag das NanoKVM-OS-Repository und zeigt einen Hinweis, wenn eine neuere Version verfügbar ist. Es wird nichts automatisch installiert.",
-        "check": "Jetzt prüfen",
         "checked": "Zuletzt geprüft: {{time}}",
         "never": "Noch nicht geprüft",
         "failed": "Die letzte Prüfung ist fehlgeschlagen: {{message}}",

@@ -14,12 +14,12 @@ import (
 	"NanoKVM-Server/internal/apkrun"
 )
 
-const communityRepositories = `https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb
+const communityRepositories = `https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb
 https://dl-cdn.alpinelinux.org/alpine/v3.24/main
 https://dl-cdn.alpinelinux.org/alpine/v3.24/community
 `
 
-const communityOff = `https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb
+const communityOff = `https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb
 https://dl-cdn.alpinelinux.org/alpine/v3.24/main
 `
 

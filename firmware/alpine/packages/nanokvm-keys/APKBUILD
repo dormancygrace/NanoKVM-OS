@@ -9,8 +9,9 @@ arch="noarch"
 license="GPL-3.0-only"
 source="$pkgname-$pkgver.tar.gz"
 options="!check !strip !tracedeps"
-# Moves the NanoKVM repository line to the v3 index once the keys are in place.
-install="$pkgname.post-install"
+# Moves the official NanoKVM repository line to GitHub Pages once the keys are
+# in place, after an install and after an upgrade.
+install="$pkgname.post-install $pkgname.post-upgrade"
 
 build() {
 	:

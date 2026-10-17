@@ -77,9 +77,8 @@ NanoKVM still supplies its SG2002 kernel, drivers, board firmware and applicatio
 
 The target repository list is:
 
-1. the signed NanoKVM repository, read through its v3 index
-   (`https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb`; see
-   [signing keys](#signing-keys));
+1. the signed NanoKVM repository on GitHub Pages, read through its v3 index
+   (`https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb`; see [signing keys](#signing-keys));
 2. Alpine v3.24 `main`.
 
 Alpine v3.24 `community` is off by default: the image needs nothing from it,
@@ -153,12 +152,15 @@ The repository has two indexes of the same abuild packages in `riscv64/`:
   use the repository line `https://nkos.pesin.pro/repos/nanokvm`, read this
   index and trust only the RSA key.
 - `Packages.adb`, the apk-tools v3 index, signed with the ECDSA key and, during
-  the transition, the RSA key; apk accepts it if it trusts either key. Images
-  from 2.5 on use the line
-  `https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb`. When an older
-  device installs 2.5, the post-install script of `nanokvm-keys` changes its
-  NanoKVM line to that URL, after the keys are in place. Alpine's lines and any
-  other line stay as they are.
+  the transition, the RSA key; apk accepts it if it trusts either key.
+
+Releases up to 3.2 were published on `nkos.pesin.pro`; images from 2.5 on read
+`https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb`. From 3.3 on the
+repository is on GitHub Pages, at `https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb`. After `nanokvm-keys` is installed
+or upgraded, its script moves either earlier official line there, once the keys
+are in place; Alpine's lines and any other line stay as they are. 3.3 is also
+published on `nkos.pesin.pro`, so that devices still reading it find the
+release that moves them.
 
 apk checks a package from an index against the package hash in that index, so
 the packages need no ECDSA signature.

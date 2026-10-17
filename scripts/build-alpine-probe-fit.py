@@ -84,7 +84,7 @@ fi
     source_fit = base / "boot" / "pcie"
     if not source_fit.is_dir():
         raise SystemExit(f"missing release FIT directory: {source_fit}")
-    for name in ("Image.zst", "board.dtb", "boot.its"):
+    for name in ("Image.lz4", "board.dtb", "boot.its"):
         shutil.copyfile(source_fit / name, args.output / name)
     mkimage = Path(
         str(Path.home() / ".local/share/nkos-build/buildroot-output/host/bin/mkimage")

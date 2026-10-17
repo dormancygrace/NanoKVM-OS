@@ -817,7 +817,7 @@
       "videoRes_fhd": "FHD — 1920 × 1080 · 40 MiB",
       "videoRes_qhd": "QHD — 2560 × 1440 · 56 MiB",
       "videoRes_uhd": "UHD — 3840 × 2160 · 104 MiB",
-      "zramAuto": "Hälfte des RAM ({{size}} MiB)",
+      "zramAuto": "Automatisch ({{size}} MiB)",
       "videoActive": "Derzeit aktiv",
       "videoUnknown": "Unbekannt",
       "videoModeUnavailable": "Aktualisieren Sie das Kernel-Paket, um das Umschalten zu ermöglichen.",

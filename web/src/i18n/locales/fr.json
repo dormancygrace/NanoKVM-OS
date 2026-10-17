@@ -817,7 +817,7 @@
       "videoRes_fhd": "FHD — 1920 × 1080 · 40 MiB",
       "videoRes_qhd": "QHD — 2560 × 1440 · 56 MiB",
       "videoRes_uhd": "UHD — 3840 × 2160 · 104 MiB",
-      "zramAuto": "Moitié de la RAM ({{size}} MiB)",
+      "zramAuto": "Automatique ({{size}} MiB)",
       "videoActive": "Actuellement actif",
       "videoUnknown": "Inconnu",
       "videoModeUnavailable": "Mettez à jour le paquet du noyau pour activer le changement de mode.",

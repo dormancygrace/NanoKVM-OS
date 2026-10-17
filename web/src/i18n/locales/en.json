@@ -817,7 +817,7 @@
       "videoRes_fhd": "FHD — 1920 × 1080 · 40 MiB",
       "videoRes_qhd": "QHD — 2560 × 1440 · 56 MiB",
       "videoRes_uhd": "UHD — 3840 × 2160 · 104 MiB",
-      "zramAuto": "Half of RAM ({{size}} MiB)",
+      "zramAuto": "Auto ({{size}} MiB)",
       "videoActive": "Currently active",
       "videoUnknown": "Unknown",
       "videoModeUnavailable": "Update the kernel package to enable switching.",

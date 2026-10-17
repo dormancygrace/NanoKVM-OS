@@ -1071,7 +1071,7 @@
       "video": "Vyrovnávací paměti videa (ION)",
       "zramTitle": "Zapnout ZRAM swap",
       "actualRam": "Úložiště stránek v operační paměti",
-      "zramAuto": "Polovina operační paměti ({{size}} MiB)",
+      "zramAuto": "Automaticky ({{size}} MiB)",
       "recompressTitle": "Znovu zkomprimovat zřídka používané stránky pomocí ZSTD",
       "loadError": "Nebylo možné číst stav paměti",
       "changeError": "Nebylo možné změnit nastavení odkládání stránek",

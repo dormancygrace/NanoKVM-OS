@@ -78,7 +78,7 @@ Pin-update PRs hash downloaded archive bytes over HTTPS without extracting or ex
 
 Every proposal includes a small .github/upstream-candidates/<component>.json record and is a draft. **Review-only PRs do not change an active dependency.** Their record preserves the candidate, links and integration work; merging it acknowledges the notification, not completion of an upgrade. Active pins must be updated and validated separately before calling the dependency upgraded.
 
-Each component/candidate has a deterministic branch. A rerun preserves open PRs and manual edits; closed proposals are not recreated. Changed candidates may create new PRs. Merged candidate records also suppress repeated notifications. Neither publisher rewrites existing proposal branches, enables auto-merge, installs software, nor changes qualified output hashes.
+Each component/candidate has a deterministic branch, `deps/upstream-<component>-<digest>` (Linux: `deps/upstream-linux-<version>`). The bots recognise a candidate by the branch name after its prefix, so proposals opened under an earlier prefix still count. A rerun preserves open PRs and manual edits; closed proposals are not recreated. Changed candidates may create new PRs. Merged candidate records also suppress repeated notifications. Neither publisher rewrites existing proposal branches, enables auto-merge, installs software, nor changes qualified output hashes.
 
 QEMU, stock Alpine APK updates and the OneKVM reference remain report-only. Dependabot continues owning normal npm/Go/Cargo/Docker/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
 

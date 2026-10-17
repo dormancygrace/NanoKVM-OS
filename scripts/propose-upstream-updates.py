@@ -22,7 +22,7 @@ CHANGED = {'update available', 'upstream changes', 'review module release',
 
 def branch_for(identifier, target):
     digest = hashlib.sha256(target.encode()).hexdigest()[:16]
-    return 'codex/upstream-' + identifier + '-' + digest
+    return publisher.BRANCH_PREFIX + 'upstream-' + identifier + '-' + digest
 
 
 def policies(root=ROOT):
@@ -261,6 +261,7 @@ def main():
     args = parser.parse_args()
     summary = []
     failures = []
+    pulls = publisher.pull_requests() if args.publish else []
     for source, result in collect(cadence=args.cadence):
         status = result['status']
         item = dict(name=source['name'], status=status, current=result['current'], latest=result['latest'])
@@ -270,10 +271,7 @@ def main():
             if status in CHANGED or (source.get('kind') == 'github-channel' and status == 'repository-managed'):
                 key = result.get('candidate_key', result['latest'])
                 branch = branch_for(source['pull_request']['id'], key)
-                existing = []
-                if args.publish:
-                    owner = publisher.REPOSITORY.split('/')[0]
-                    existing = publisher.api('pulls?state=all&head=' + owner + ':' + branch + '&base=main&per_page=100')
+                existing = publisher.proposed(branch, pulls)
                 if existing:
                     item['pr'] = existing[0]['html_url']
                     item['status'] = 'already proposed'

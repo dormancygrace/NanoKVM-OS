@@ -84,15 +84,6 @@ def current_pin(root, source):
     return matches[0]
 
 
-def alpine_version(value):
-    # OpenSSL stable APK versions. Fail visibly for a new syntax, never guess
-    # APK ordering or compare revision strings lexicographically.
-    match = re.fullmatch(r'(\d+(?:\.\d+)*)-r(\d+)', value)
-    if not match:
-        raise ValueError('Unsupported stable Alpine version: ' + value)
-    return version(match[1]), int(match[2])
-
-
 def alpine_index(raw, arch):
     # Metadata only: no extraction and no execution of package code.
     with tarfile.open(fileobj=io.BytesIO(raw), mode='r:gz') as archive:
@@ -160,32 +151,6 @@ def check_alpine_inventory(root=ROOT):
         return [dict(name='Alpine package inventory', path=path, current='?', latest='?', link='', status='error', detail=str(error))]
 
 
-def check_alpine(source, root, commit, result):
-    branch = current_pin(root, source['branch_pin'])
-    if not re.fullmatch(r'\d+\.\d+', branch):
-        raise ValueError('Invalid Alpine stable branch')
-    recipe_url = ('https://gitlab.alpinelinux.org/api/v4/projects/alpine%2Faports/repository/files/'
-                  + urllib.parse.quote(source['aport'] + '/APKBUILD', safe='') + '/raw?ref=' + commit)
-    recipe = request(recipe_url)
-    versions = re.findall(r'^pkgver=(\d+(?:\.\d+)*)$', recipe, re.MULTILINE)
-    revisions = re.findall(r'^pkgrel=(\d+)$', recipe, re.MULTILINE)
-    if len(versions) != 1 or len(revisions) != 1:
-        raise ValueError('Expected literal stable pkgver/pkgrel in pinned Alpine recipe')
-    baseline = versions[0] + '-r' + revisions[0]
-    # Compare the original Alpine recipe revision, not the local +1. Otherwise
-    # an upstream r1 security fix would be hidden by our independently built r1.
-    expected = versions[0] + '-r' + str(int(revisions[0]) + 1)
-    url = ('https://dl-cdn.alpinelinux.org/alpine/v' + branch + '/'
-           + source['aport'].split('/')[0] + '/' + source['arch'] + '/APKINDEX.tar.gz')
-    latest = alpine_packages(request_bytes(url), source['packages'], source['arch'])
-    a, b = alpine_version(baseline), alpine_version(latest)
-    status = 'C906 rebuild required' if b > a else ('current' if a == b else 'pinned recipe ahead')
-    result.update(current=baseline + ' (Alpine recipe; C906 build: ' + expected + ')',
-                  latest=latest, link=url, status=status,
-                  detail='Alpine v' + branch + ' ' + source['arch'] + ': ' + ', '.join(source['packages'])
-                         + '; recipe pin ' + commit[:12] + '; installed/published C906 APKs are not inspected')
-
-
 def check(source, root=ROOT):
     result = dict(name=source['name'], path=source['path'], current='?', latest='?', status='error', link='')
     try:
@@ -200,9 +165,7 @@ def check(source, root=ROOT):
             latest = alpine_packages(request_bytes(url), source['packages'], source['arch'])
             result.update(current='Alpine v' + current + ' package channel', latest=latest,
                           link=url, status='repository-managed',
-                          detail='Stock signed APKs; installed device versions are not inspected. Use apk update and apk upgrade; no C906 rebuild is required')
-        elif kind == 'alpine-package':
-            check_alpine(source, root, current, result)
+                          detail='Stock signed APKs; installed device versions are not inspected. Use apk update and apk upgrade')
         elif kind == 'npm':
             data = json.loads(request('https://registry.npmjs.org/' + urllib.parse.quote(source['package'], safe='') + '/latest'))
             latest = data['version']
@@ -323,7 +286,7 @@ def render(results):
               '- Do not overwrite patched Pion sources by only bumping go.mod versions.',
               '- Selected Buildroot packages and compiler/libc recipes follow the stable Buildroot release pin. Development-branch recipe changes do not produce reports or PRs; GCC stable releases are checked separately.',
               '- Production OpenSSL uses the stock signed Alpine riscv64 repository. Repository-managed rows show availability, not the installed device version.',
-              '- The optional C906 rebuild recipe is retained for research and is not a production update requirement. This watcher does not run apk upgrade or change devices.',
+              '- This watcher does not run apk upgrade or change devices.',
               '- Retired Buildroot OpenVPN 3/Asio, Superfile, private apk-tools and vendor-libc loader recipes are excluded; they do not describe the current Alpine package set.',
               '- Alpine branch monitoring does not update installed APKs. APK package revisions and firmware release approval remain separate.',
               '- OpenSBI releases are monitored separately. Opaque base-FIP/vendor blobs follow the SDK source pin; local patches and historical experiments require manual qualification.',

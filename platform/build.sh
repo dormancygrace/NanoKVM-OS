@@ -372,13 +372,15 @@ opensbi() {
     "$host/dtc" -I dts -O dtb -o "$o/build/sg2002.dtb" "$here/opensbi/sg2002.dts"
     # Portable scalar instructions: C906's draft vector ISA is not RVV 1.0.
     # Keep upstream -O2 and separate RO/RW firmware PMP regions.
+    # FW_OPTIONS=0x1: no boot banner. It printed about 2800 characters,
+    # 0.24 s on the 115200 baud console; Linux logs the SBI version.
     SOURCE_DATE_EPOCH=1782907200 make -C "$o/src" O="$o/build" -j"$jobs" \
         CROSS_COMPILE="$cross" \
         PLATFORM=generic PLATFORM_DEFCONFIG=nanokvm_defconfig \
         PLATFORM_RISCV_XLEN=64 PLATFORM_RISCV_ISA=rv64imac_zicsr_zifencei PLATFORM_RISCV_ABI=lp64 \
         FW_TEXT_START=0x80000000 FW_DYNAMIC=y FW_JUMP=n FW_PAYLOAD=n \
         FW_FDT_PATH="$o/build/sg2002.dtb" FW_FDT_PADDING=0 FW_DYNAMIC_FDT_ADDR=0x80100000 \
-        REPRODUCIBLE=y OPENSBI_VERSION_GIT=
+        FW_OPTIONS=0x1 REPRODUCIBLE=y OPENSBI_VERSION_GIT=
     "$host/python3" "$repo/scripts/nanokvm-opensbi-manifest.py" \
         --elf "$o/build/platform/generic/firmware/fw_dynamic.elf" \
         --binary "$o/build/platform/generic/firmware/fw_dynamic.bin" \

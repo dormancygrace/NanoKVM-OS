@@ -100,6 +100,11 @@ The build also uses these parts of the repository:
 - `server/`, `web/`, `support/sg2002/` (including `nanokvm_update_edid/`), `kvmapp/`: the application;
 - `scripts/`: the component builders that `build.sh` calls.
 
+## U-Boot console and uEnv.txt
+
+U-Boot boots at once; `uEnv.txt` on the boot partition can reopen the serial
+console window and add kernel options. See [docs/BOOT.md](../docs/BOOT.md).
+
 ## Changing a component
 
 Each component is an upstream tree from `sources.lock` with the patches of its directory applied in name order. To change one:

@@ -452,7 +452,7 @@
         "subnetMask": "子網路遮罩",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "閘道",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "選填",
         "invalid": "請輸入有效的 IPv4 位址、子網路遮罩與閘道",
         "save": "儲存",
         "unsaved": "有未儲存的變更",
@@ -542,6 +542,9 @@
         "delete": "刪除"
       }
     },
+    "security": {
+      "title": "安全性"
+    },
     "software": {
       "indexSchedule": {
         "save": "儲存"
@@ -589,7 +592,6 @@
         "refresh": "重新整理",
         "application": "應用程式"
       },
-      "services": "服務",
       "device": "設備"
     },
     "usb": {

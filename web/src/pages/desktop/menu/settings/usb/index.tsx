@@ -222,7 +222,7 @@ export const Usb = () => {
           onChange={(next) => void toggleUsb(next)}
         />
       </SettingRow>
-      <UsbInternet usbBusy={loading} />
+      <UsbInternet usbBusy={loading} network={Boolean(status?.network)} />
       {enabled && (
         <>
           <div className="space-y-4">

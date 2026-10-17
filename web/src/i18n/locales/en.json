@@ -36,12 +36,17 @@
     "deviceTime": "Device time",
     "timezone": "Time zone",
     "format": "Time format",
-    "hour24": "24 hours (14:30)",
-    "hour12": "12 hours (2:30 PM)",
+    "hour24": "24 hours",
+    "hour12": "12 hours",
     "preview": "Preview",
+    "dateFormat": "Date format",
+    "dateAuto": "Language default",
+    "dateDmy": "DD.MM.YYYY",
+    "dateMdy": "MM/DD/YYYY",
+    "dateYmd": "YYYY-MM-DD",
     "servers": "NTP servers",
     "serversHelp": "Choose or enter 1–6 hostnames or IP addresses. Changing servers restarts time synchronization.",
-    "scope": "Time zone applies to the device. The time format is shared across the interface, including VPN handshake times.",
+    "scope": "Time zone applies to the device. The time and date formats are shared across the interface, including VPN handshake times.",
     "synchronized": "Synchronized",
     "waiting": "Synchronization not confirmed",
     "save": "Save",
@@ -752,7 +757,12 @@
       "removeTitle": "Remove {{package}}?",
       "removeDescription": "APK will perform this removal and its dependency changes exactly as shown below. This cannot be undone automatically.",
       "started": "APK operation started",
-      "running": "APK is {{action}} {{package}}",
+      "operation": {
+        "refresh": "Refreshing package indexes…",
+        "install": "Installing {{package}}…",
+        "remove": "Removing {{package}}…",
+        "upgrade": "Upgrading all packages…"
+      },
       "succeeded": "APK operation completed",
       "failed": "APK operation failed",
       "requestFailed": "The software request failed. Check device connectivity and retry."
@@ -761,7 +771,6 @@
       "apk": {
         "title": "Package updates",
         "description": "Update installed packages from the configured repositories. Settings are kept. Services restart automatically; a kernel update requires a reboot.",
-        "kernel": "Running kernel",
         "check": "Check for updates",
         "install": "Install updates",
         "confirm": "Install these package updates? Video and control may briefly disconnect.",
@@ -803,7 +812,6 @@
         "open": "Open updates",
         "auto": "Check for updates daily",
         "autoDescription": "Looks at the NanoKVM OS repository once a day and shows a notice when a newer version is available. Nothing is installed automatically.",
-        "check": "Check now",
         "checked": "Last checked {{time}}",
         "never": "Not checked yet",
         "failed": "The last check failed: {{message}}",
@@ -817,7 +825,7 @@
       "videoRes_fhd": "FHD — 1920 × 1080 · 40 MiB",
       "videoRes_qhd": "QHD — 2560 × 1440 · 56 MiB",
       "videoRes_uhd": "UHD — 3840 × 2160 · 104 MiB",
-      "zramAuto": "Half of RAM ({{size}} MiB)",
+      "zramAuto": "Auto ({{size}} MiB)",
       "videoActive": "Currently active",
       "videoUnknown": "Unknown",
       "videoModeUnavailable": "Update the kernel package to enable switching.",
@@ -931,7 +939,6 @@
           "pending-reboot": "reboot pending"
         }
       },
-      "services": "Services",
       "device": "Device",
       "performance": "Performance",
       "ssh": {
@@ -1455,7 +1462,8 @@
           "reload": "Reload",
           "reloaded": "Certificate reloaded",
           "offNote": "HTTPS is off; the certificate is used once it is turned on.",
-          "failed": "The certificate was not changed."
+          "failed": "The certificate was not changed.",
+          "details": "Certificate details"
         }
       },
       "acme": {
@@ -1566,7 +1574,7 @@
         "subnetMask": "Subnet mask",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Gateway",
-        "gatewayPlaceholder": "192.168.10.1 (optional)",
+        "gatewayPlaceholder": "Optional",
         "invalid": "Enter a valid IPv4 address, subnet mask, and gateway",
         "vlan": "VLAN",
         "vlanDescription": "Use the selected DHCP or static IPv4 configuration on eth0.<ID>",
@@ -1792,6 +1800,9 @@
         "saveFailed": "Failed to save user",
         "deleteFailed": "Failed to delete user"
       }
+    },
+    "security": {
+      "title": "Security"
     },
     "extensions": {
       "title": "Extensions"

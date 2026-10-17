@@ -452,7 +452,7 @@
         "subnetMask": "Маска підмережі",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Шлюз",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "Необов’язково",
         "invalid": "Введіть коректні IPv4-адресу, маску підмережі та шлюз",
         "save": "Зберегти",
         "unsaved": "Незбережені зміни",
@@ -542,6 +542,9 @@
         "delete": "Видалити"
       }
     },
+    "security": {
+      "title": "Безпека"
+    },
     "software": {
       "indexSchedule": {
         "save": "Зберегти"
@@ -589,7 +592,6 @@
         "refresh": "Оновити",
         "application": "Застосунок"
       },
-      "services": "Служби",
       "device": "Пристрій"
     },
     "usb": {

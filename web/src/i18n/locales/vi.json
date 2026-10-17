@@ -452,7 +452,7 @@
         "subnetMask": "Mặt nạ mạng con",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Cổng kết nối",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "Tùy chọn",
         "invalid": "Nhập địa chỉ IPv4, mặt nạ mạng con và cổng kết nối hợp lệ",
         "save": "Lưu",
         "unsaved": "Thay đổi chưa lưu",
@@ -542,6 +542,9 @@
         "delete": "Xóa"
       }
     },
+    "security": {
+      "title": "Bảo mật"
+    },
     "software": {
       "indexSchedule": {
         "save": "Lưu"
@@ -589,7 +592,6 @@
         "refresh": "Làm mới",
         "application": "Ứng dụng"
       },
-      "services": "Dịch vụ",
       "device": "Thiết bị"
     },
     "usb": {

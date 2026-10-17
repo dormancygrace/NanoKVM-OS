@@ -452,7 +452,7 @@
         "subnetMask": "Alt Ağ Maskesi",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Ağ Geçidi",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "İsteğe bağlı",
         "invalid": "Geçerli bir IPv4 adresi, alt ağ maskesi ve ağ geçidi girin",
         "save": "Kaydet",
         "unsaved": "Kaydedilmemiş değişiklikler",
@@ -542,6 +542,9 @@
         "delete": "Sil"
       }
     },
+    "security": {
+      "title": "Güvenlik"
+    },
     "software": {
       "indexSchedule": {
         "save": "Kaydet"
@@ -589,7 +592,6 @@
         "refresh": "Yenile",
         "application": "Uygulama"
       },
-      "services": "Hizmetler",
       "device": "Cihaz"
     },
     "usb": {

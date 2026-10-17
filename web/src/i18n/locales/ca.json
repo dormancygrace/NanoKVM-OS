@@ -452,7 +452,7 @@
         "subnetMask": "Màscara de subxarxa",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Passarel·la",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "Opcional",
         "invalid": "Adreça IP no vàlida",
         "save": "Desa",
         "unsaved": "Canvis no desats",
@@ -542,6 +542,9 @@
         "delete": "Suprimeix"
       }
     },
+    "security": {
+      "title": "Seguretat"
+    },
     "software": {
       "indexSchedule": {
         "save": "Desa"
@@ -589,7 +592,6 @@
         "refresh": "Actualitza",
         "application": "Aplicació"
       },
-      "services": "Serveis",
       "device": "Dispositiu"
     },
     "usb": {

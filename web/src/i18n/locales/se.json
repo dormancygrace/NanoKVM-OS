@@ -452,7 +452,7 @@
         "subnetMask": "Nätmask",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Gateway",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "Valfritt",
         "invalid": "Ange en giltig IPv4-adress, nätmask och gateway",
         "save": "Spara",
         "unsaved": "Osparade ändringar",
@@ -542,6 +542,9 @@
         "delete": "Ta bort"
       }
     },
+    "security": {
+      "title": "Säkerhet"
+    },
     "software": {
       "indexSchedule": {
         "save": "Spara"
@@ -589,7 +592,6 @@
         "refresh": "Uppdatera",
         "application": "Program"
       },
-      "services": "Tjänster",
       "device": "Enhet"
     },
     "usb": {

@@ -36,12 +36,17 @@
     "deviceTime": "Heure de l'appareil",
     "timezone": "Fuseau horaire",
     "format": "Format de l'heure",
-    "hour24": "24 heures (14:30)",
-    "hour12": "12 heures (2:30 PM)",
+    "hour24": "24 heures",
+    "hour12": "12 heures",
     "preview": "Aperçu",
+    "dateFormat": "Format de la date",
+    "dateAuto": "Selon la langue",
+    "dateDmy": "JJ.MM.AAAA",
+    "dateMdy": "MM/JJ/AAAA",
+    "dateYmd": "AAAA-MM-JJ",
     "servers": "Serveurs NTP",
     "serversHelp": "Choisissez ou saisissez de 1 à 6 noms d'hôte ou adresses IP. La modification des serveurs redémarre la synchronisation de l'heure.",
-    "scope": "Le fuseau horaire s'applique à l'appareil. Le format de l'heure est commun à toute l'interface, y compris les heures de handshake VPN.",
+    "scope": "Le fuseau horaire s'applique à l'appareil. Les formats de l'heure et de la date sont communs à toute l'interface, y compris les heures de handshake VPN.",
     "synchronized": "Synchronisé",
     "waiting": "Synchronisation non confirmée",
     "save": "Enregistrer",
@@ -752,7 +757,12 @@
       "removeTitle": "Supprimer {{package}} ?",
       "removeDescription": "APK effectuera cette suppression et les modifications de dépendances exactement comme indiqué ci-dessous. Cette action ne peut pas être annulée automatiquement.",
       "started": "Opération APK démarrée",
-      "running": "APK en cours : {{action}} {{package}}",
+      "operation": {
+        "refresh": "Actualisation des index de paquets…",
+        "install": "Installation de {{package}}…",
+        "remove": "Suppression de {{package}}…",
+        "upgrade": "Mise à niveau de tous les paquets…"
+      },
       "succeeded": "Opération APK terminée",
       "failed": "Échec de l'opération APK",
       "requestFailed": "La requête logicielle a échoué. Vérifiez la connectivité de l'appareil et réessayez."
@@ -761,7 +771,6 @@
       "apk": {
         "title": "Mises à jour des paquets",
         "description": "Mettez à jour les paquets installés depuis les dépôts configurés. Les paramètres sont conservés. Les services redémarrent automatiquement ; une mise à jour du noyau nécessite un redémarrage.",
-        "kernel": "Noyau en cours d'exécution",
         "check": "Rechercher des mises à jour",
         "install": "Installer les mises à jour",
         "confirm": "Installer ces mises à jour de paquets ? La vidéo et le contrôle peuvent être brièvement déconnectés.",
@@ -803,7 +812,6 @@
         "open": "Ouvrir les mises à jour",
         "auto": "Rechercher les mises à jour chaque jour",
         "autoDescription": "Consulte le dépôt NanoKVM OS une fois par jour et affiche un avis lorsqu’une version plus récente est disponible. Rien n’est installé automatiquement.",
-        "check": "Vérifier maintenant",
         "checked": "Dernière vérification : {{time}}",
         "never": "Pas encore vérifié",
         "failed": "La dernière vérification a échoué : {{message}}",
@@ -817,7 +825,7 @@
       "videoRes_fhd": "FHD — 1920 × 1080 · 40 MiB",
       "videoRes_qhd": "QHD — 2560 × 1440 · 56 MiB",
       "videoRes_uhd": "UHD — 3840 × 2160 · 104 MiB",
-      "zramAuto": "Moitié de la RAM ({{size}} MiB)",
+      "zramAuto": "Automatique ({{size}} MiB)",
       "videoActive": "Actuellement actif",
       "videoUnknown": "Inconnu",
       "videoModeUnavailable": "Mettez à jour le paquet du noyau pour activer le changement de mode.",
@@ -931,7 +939,6 @@
           "pending-reboot": "redémarrage en attente"
         }
       },
-      "services": "Services",
       "device": "Appareil",
       "performance": "Performances",
       "ssh": {
@@ -1455,7 +1462,8 @@
           "reload": "Recharger",
           "reloaded": "Certificat rechargé",
           "offNote": "HTTPS est désactivé ; le certificat sera utilisé dès son activation.",
-          "failed": "Le certificat n'a pas été modifié."
+          "failed": "Le certificat n'a pas été modifié.",
+          "details": "Détails du certificat"
         }
       },
       "acme": {
@@ -1566,7 +1574,7 @@
         "subnetMask": "Masque de sous-réseau",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Passerelle",
-        "gatewayPlaceholder": "192.168.10.1 (facultatif)",
+        "gatewayPlaceholder": "Facultatif",
         "invalid": "Adresse IP non valide",
         "vlan": "VLAN",
         "vlanDescription": "Utiliser la configuration IPv4 DHCP ou statique sélectionnée sur eth0.<ID>",
@@ -1792,6 +1800,9 @@
         "saveFailed": "Échec de l'enregistrement de l'utilisateur",
         "deleteFailed": "Échec de la suppression de l'utilisateur"
       }
+    },
+    "security": {
+      "title": "Sécurité"
     },
     "extensions": {
       "title": "Extensions"

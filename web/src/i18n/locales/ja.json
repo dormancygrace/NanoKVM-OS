@@ -36,12 +36,17 @@
     "deviceTime": "デバイスの時刻",
     "timezone": "タイムゾーン",
     "format": "時刻形式",
-    "hour24": "24 時間（14:30）",
-    "hour12": "12 時間（2:30 PM）",
+    "hour24": "24 時間",
+    "hour12": "12 時間",
     "preview": "プレビュー",
+    "dateFormat": "日付形式",
+    "dateAuto": "言語に合わせる",
+    "dateDmy": "DD.MM.YYYY",
+    "dateMdy": "MM/DD/YYYY",
+    "dateYmd": "YYYY-MM-DD",
     "servers": "NTP サーバー",
     "serversHelp": "ホスト名または IP アドレスを 1–6 個選択または入力してください。サーバーを変更すると時刻同期が再起動されます。",
-    "scope": "タイムゾーンはデバイスに適用されます。時刻形式は VPN のハンドシェイク時刻を含め、インターフェース全体で共通です。",
+    "scope": "タイムゾーンはデバイスに適用されます。時刻と日付の形式は VPN のハンドシェイク時刻を含め、インターフェース全体で共通です。",
     "synchronized": "同期済み",
     "waiting": "同期が確認されていません",
     "save": "保存",
@@ -752,7 +757,12 @@
       "removeTitle": "{{package}} を削除しますか？",
       "removeDescription": "APK は以下に示すとおりにこの削除と依存関係の変更を実行します。自動的に元に戻すことはできません。",
       "started": "APK の処理を開始しました",
-      "running": "APK 処理中：{{action}} {{package}}",
+      "operation": {
+        "refresh": "パッケージインデックスを更新中…",
+        "install": "{{package}} をインストール中…",
+        "remove": "{{package}} を削除中…",
+        "upgrade": "すべてのパッケージをアップグレード中…"
+      },
       "succeeded": "APK の処理が完了しました",
       "failed": "APK の処理に失敗しました",
       "requestFailed": "ソフトウェアのリクエストに失敗しました。デバイスの接続を確認して再試行してください。"
@@ -761,7 +771,6 @@
       "apk": {
         "title": "パッケージのアップデート",
         "description": "設定済みのリポジトリからインストール済みのパッケージを更新します。設定は保持されます。サービスは自動的に再起動されます。カーネルの更新には再起動が必要です。",
-        "kernel": "実行中のカーネル",
         "check": "アップデートを確認",
         "install": "アップデートをインストール",
         "confirm": "これらのパッケージのアップデートをインストールしますか？映像と操作が一時的に切断される場合があります。",
@@ -803,7 +812,6 @@
         "open": "アップデートを開く",
         "auto": "毎日アップデートを確認",
         "autoDescription": "1 日 1 回 NanoKVM OS リポジトリを確認し、新しいバージョンがあれば通知します。自動ではインストールしません。",
-        "check": "今すぐ確認",
         "checked": "最終確認：{{time}}",
         "never": "まだ確認していません",
         "failed": "前回の確認に失敗しました：{{message}}",
@@ -817,7 +825,7 @@
       "videoRes_fhd": "FHD — 1920 × 1080 · 40 MiB",
       "videoRes_qhd": "QHD — 2560 × 1440 · 56 MiB",
       "videoRes_uhd": "UHD — 3840 × 2160 · 104 MiB",
-      "zramAuto": "RAM の半分（{{size}} MiB）",
+      "zramAuto": "自動（{{size}} MiB）",
       "videoActive": "現在有効",
       "videoUnknown": "不明",
       "videoModeUnavailable": "切り替えを有効にするには、カーネルパッケージを更新してください。",
@@ -931,7 +939,6 @@
           "pending-reboot": "再起動待ち"
         }
       },
-      "services": "サービス",
       "device": "デバイス",
       "performance": "パフォーマンス",
       "ssh": {
@@ -1455,7 +1462,8 @@
           "reload": "再読み込み",
           "reloaded": "証明書を再読み込みしました",
           "offNote": "HTTPS はオフです。オンにすると証明書が使用されます。",
-          "failed": "証明書は変更されませんでした。"
+          "failed": "証明書は変更されませんでした。",
+          "details": "証明書の詳細"
         }
       },
       "acme": {
@@ -1566,7 +1574,7 @@
         "subnetMask": "サブネットマスク",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "ゲートウェイ",
-        "gatewayPlaceholder": "192.168.10.1（任意）",
+        "gatewayPlaceholder": "任意",
         "invalid": "無効な IP アドレスです",
         "vlan": "VLAN",
         "vlanDescription": "選択した DHCP または固定 IPv4 の設定を eth0.<ID> で使用します",
@@ -1792,6 +1800,9 @@
         "saveFailed": "ユーザーの保存に失敗しました",
         "deleteFailed": "ユーザーの削除に失敗しました"
       }
+    },
+    "security": {
+      "title": "セキュリティ"
     },
     "extensions": {
       "title": "拡張機能"

@@ -36,12 +36,17 @@
     "deviceTime": "Hora del dispositivo",
     "timezone": "Zona horaria",
     "format": "Formato de hora",
-    "hour24": "24 horas (14:30)",
-    "hour12": "12 horas (2:30 PM)",
+    "hour24": "24 horas",
+    "hour12": "12 horas",
     "preview": "Vista previa",
+    "dateFormat": "Formato de fecha",
+    "dateAuto": "Según el idioma",
+    "dateDmy": "DD.MM.AAAA",
+    "dateMdy": "MM/DD/AAAA",
+    "dateYmd": "AAAA-MM-DD",
     "servers": "Servidores NTP",
     "serversHelp": "Elige o introduce de 1 a 6 nombres de host o direcciones IP. Al cambiar los servidores se reinicia la sincronización horaria.",
-    "scope": "La zona horaria se aplica al dispositivo. El formato de hora es común a toda la interfaz, incluidas las horas de handshake de la VPN.",
+    "scope": "La zona horaria se aplica al dispositivo. Los formatos de hora y fecha son comunes a toda la interfaz, incluidas las horas de handshake de la VPN.",
     "synchronized": "Sincronizada",
     "waiting": "Sincronización no confirmada",
     "save": "Guardar",
@@ -752,7 +757,12 @@
       "removeTitle": "¿Eliminar {{package}}?",
       "removeDescription": "APK realizará esta eliminación y sus cambios de dependencias exactamente como se muestra a continuación. No se puede deshacer automáticamente.",
       "started": "Operación APK iniciada",
-      "running": "APK: {{action}} {{package}}",
+      "operation": {
+        "refresh": "Actualizando los índices de paquetes…",
+        "install": "Instalando {{package}}…",
+        "remove": "Eliminando {{package}}…",
+        "upgrade": "Actualizando todos los paquetes…"
+      },
       "succeeded": "Operación APK completada",
       "failed": "La operación APK falló",
       "requestFailed": "La solicitud de software falló. Comprueba la conectividad del dispositivo y vuelve a intentarlo."
@@ -761,7 +771,6 @@
       "apk": {
         "title": "Actualizaciones de paquetes",
         "description": "Actualiza los paquetes instalados desde los repositorios configurados. La configuración se conserva. Los servicios se reinician automáticamente; una actualización del kernel requiere reiniciar.",
-        "kernel": "Kernel en ejecución",
         "check": "Buscar actualizaciones",
         "install": "Instalar actualizaciones",
         "confirm": "¿Instalar estas actualizaciones de paquetes? El vídeo y el control pueden desconectarse brevemente.",
@@ -803,7 +812,6 @@
         "open": "Abrir actualizaciones",
         "auto": "Buscar actualizaciones a diario",
         "autoDescription": "Consulta el repositorio de NanoKVM OS una vez al día y muestra un aviso cuando hay una versión más reciente. No se instala nada automáticamente.",
-        "check": "Comprobar ahora",
         "checked": "Última comprobación: {{time}}",
         "never": "Aún no se ha comprobado",
         "failed": "La última comprobación falló: {{message}}",
@@ -817,7 +825,7 @@
       "videoRes_fhd": "FHD — 1920 × 1080 · 40 MiB",
       "videoRes_qhd": "QHD — 2560 × 1440 · 56 MiB",
       "videoRes_uhd": "UHD — 3840 × 2160 · 104 MiB",
-      "zramAuto": "Mitad de la RAM ({{size}} MiB)",
+      "zramAuto": "Automático ({{size}} MiB)",
       "videoActive": "Activo actualmente",
       "videoUnknown": "Desconocido",
       "videoModeUnavailable": "Actualiza el paquete del kernel para habilitar el cambio.",
@@ -931,7 +939,6 @@
           "pending-reboot": "reinicio pendiente"
         }
       },
-      "services": "Servicios",
       "device": "Dispositivo",
       "performance": "Rendimiento",
       "ssh": {
@@ -1455,7 +1462,8 @@
           "reload": "Recargar",
           "reloaded": "Certificado recargado",
           "offNote": "HTTPS está desactivado; el certificado se usará en cuanto se active.",
-          "failed": "No se cambió el certificado."
+          "failed": "No se cambió el certificado.",
+          "details": "Detalles del certificado"
         }
       },
       "acme": {
@@ -1566,7 +1574,7 @@
         "subnetMask": "Máscara de subred",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Puerta de enlace",
-        "gatewayPlaceholder": "192.168.10.1 (opcional)",
+        "gatewayPlaceholder": "Opcional",
         "invalid": "Dirección IP no válida",
         "vlan": "VLAN",
         "vlanDescription": "Usar la configuración IPv4 DHCP o estática seleccionada en eth0.<ID>",
@@ -1792,6 +1800,9 @@
         "saveFailed": "No se pudo guardar el usuario",
         "deleteFailed": "No se pudo eliminar el usuario"
       }
+    },
+    "security": {
+      "title": "Seguridad"
     },
     "extensions": {
       "title": "Extensiones"

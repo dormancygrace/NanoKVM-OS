@@ -661,7 +661,8 @@
           "removed": "Vytvořený certifikát je používán",
           "offNote": "HTTPS je vypnuté; certifikát je používán když je zapnuté.",
           "removeConfirm": "Nahraný certifikát a soukromý klíč jsou vymazány ze zařízení.",
-          "pending": "Certifikát na disku zatím ještě není tím poskytovaným"
+          "pending": "Certifikát na disku zatím ještě není tím poskytovaným",
+          "details": "Podrobnosti certifikátu"
         },
         "confirmDisable": "Vypnout HTTPS?",
         "confirmEnable": "Zapnout HTTPS?",
@@ -680,7 +681,7 @@
         "subnetMask": "Maska podsítě",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Brána",
-        "gatewayPlaceholder": "192.168.10.1 (volitelné)",
+        "gatewayPlaceholder": "Volitelné",
         "invalid": "Neplatná IP adresa",
         "save": "Uložit",
         "unsaved": "Neuložené změny",
@@ -878,6 +879,9 @@
       "role": "Role",
       "logoutFailed": "Odhlášení se nezdařilo – tato relace je pořád ještě přihlášená."
     },
+    "security": {
+      "title": "Zabezpečení"
+    },
     "system": {
       "diagnostics": {
         "apk": "APK",
@@ -962,7 +966,6 @@
         "collected": "Načteno v {{time}} · Počet řádků: {{count}}"
       },
       "general": "Obecné",
-      "services": "Služby",
       "title": "Systém",
       "performance": "Výkon",
       "device": "Zařízení",
@@ -1012,7 +1015,12 @@
       "started": "Operace s APK zahájena",
       "searchPlaceholder": "Hledat název balíčku",
       "updateAvailable": "Balíčky pro které jsou k dispozici aktualizace",
-      "running": "APK je {{action}} {{package}}",
+      "operation": {
+        "refresh": "Znovunačítání rejstříků balíčků…",
+        "install": "Instalace balíčku {{package}}…",
+        "remove": "Odebírání balíčku {{package}}…",
+        "upgrade": "Přechod všech balíčků na novější verze…"
+      },
       "upToDate": "Všechny nainstalované balíčky jsou aktuální.",
       "searchHint": "Hledání bude zahájeno automaticky, jakmile přestanete psát.",
       "description": "Spravovat balíčky z nastavených repozitářů distribuce Alpine. Změny balíčků používají stejnou databázi APK a služby, jako SSH.",
@@ -1087,7 +1095,7 @@
       "video": "Vyrovnávací paměti videa (ION)",
       "zramTitle": "Zapnout ZRAM swap",
       "actualRam": "Úložiště stránek v operační paměti",
-      "zramAuto": "Polovina operační paměti ({{size}} MiB)",
+      "zramAuto": "Automaticky ({{size}} MiB)",
       "recompressTitle": "Znovu zkomprimovat zřídka používané stránky pomocí ZSTD",
       "loadError": "Nebylo možné číst stav paměti",
       "changeError": "Nebylo možné změnit nastavení odkládání stránek",
@@ -1338,7 +1346,6 @@
       "title": "Aktualizace",
       "apk": {
         "title": "Aktualizace balíčků",
-        "kernel": "Spuštěné jádro systému",
         "log": "Záznam událostí z aktualizace",
         "reboot": "Restartovat zařízení",
         "install": "Nainstalovat aktualizace",
@@ -1763,19 +1770,24 @@
   "dateTime": {
     "save": "Uložit",
     "preview": "Náhled",
+    "dateFormat": "Formát data",
+    "dateAuto": "Podle jazyka",
+    "dateDmy": "DD.MM.RRRR",
+    "dateMdy": "MM/DD/RRRR",
+    "dateYmd": "RRRR-MM-DD",
     "synchronized": "Synchronizováno",
     "deviceTime": "Čas v zařízení",
     "servers": "NTP servery",
     "timezone": "Časové pásmo",
     "format": "Formát času",
     "title": "Datum a čas",
-    "hour24": "24 hodinový (14:30)",
+    "hour24": "24 hodinový",
     "waiting": "Synchronizace nepotvrzena",
-    "hour12": "12 hodinový (2:30 PM)",
+    "hour12": "12 hodinový",
     "saved": "Nastavení data a času uložena",
     "loadFailed": "Nebylo možné číst čas v zařízení. Zkontrolujte připojení.",
     "serversHelp": "Zvolte nebo zadejte 1-6 názvů hostitelů či IP adres. Změna serverů restartuje synchronizaci času.",
-    "scope": "Časové pásmo je uplatňováno na zařízení. Formát času je sdílen napříč rozhraním, včetně časů ustavení VPN spojení.",
+    "scope": "Časové pásmo je uplatňováno na zařízení. Formát času a data je sdílen napříč rozhraním, včetně časů ustavení VPN spojení.",
     "saveFailed": "Nastavení nebylo možné uplatnit. Zkontrolujte adresy serverů a připojení zařízení."
   },
   "sessionControl": {

@@ -452,7 +452,7 @@
         "subnetMask": "Maschera di sottorete",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Gateway",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "Facoltativo",
         "invalid": "Indirizzo IP non valido",
         "save": "Salva",
         "unsaved": "Modifiche non salvate",
@@ -542,6 +542,9 @@
         "delete": "Elimina"
       }
     },
+    "security": {
+      "title": "Sicurezza"
+    },
     "software": {
       "indexSchedule": {
         "save": "Salva"
@@ -589,7 +592,6 @@
         "refresh": "Aggiorna",
         "application": "Applicazione"
       },
-      "services": "Servizi",
       "device": "Dispositivo"
     },
     "usb": {

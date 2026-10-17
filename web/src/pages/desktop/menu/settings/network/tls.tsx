@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, message, Switch } from 'antd';
+import { Button, Collapse, message, Switch } from 'antd';
 import axios from 'axios';
 import { FileUpIcon, RefreshCwIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -127,6 +127,41 @@ export const Tls = () => {
   );
 };
 
+type CertificateInfo = NonNullable<TlsStatus['certificate']>;
+
+const CertificateFields = ({
+  info,
+  date
+}: {
+  info: CertificateInfo;
+  date: (iso: string) => string;
+}) => {
+  const { t } = useTranslation();
+  return (
+    <dl className="text-fg-muted m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+      <dt className="m-0">{t('settings.network.tls.certificate.subject')}</dt>
+      <dd className="text-fg m-0 break-all">{info.subject}</dd>
+      <dt className="m-0">{t('settings.network.tls.certificate.issuer')}</dt>
+      <dd className="m-0 break-all">
+        {info.issuer}
+        {info.selfSigned && ` · ${t('settings.network.tls.certificate.selfSigned')}`}
+      </dd>
+      {certificateNames(info).length > 0 && (
+        <>
+          <dt className="m-0">{t('settings.network.tls.certificate.names')}</dt>
+          <dd className="m-0 break-all">{certificateNames(info).join(', ')}</dd>
+        </>
+      )}
+      <dt className="m-0">{t('settings.network.tls.certificate.validity')}</dt>
+      <dd className={info.expired ? 'text-danger m-0' : 'm-0'}>
+        {date(info.notBefore)} – {date(info.notAfter)} · {info.keyType}
+      </dd>
+      <dt className="m-0">SHA-256</dt>
+      <dd className="m-0 font-mono break-all">{info.fingerprint}</dd>
+    </dl>
+  );
+};
+
 /*
  * The certificate HTTPS presents. Uploading a pair or returning to the
  * generated one applies to new connections at once; the server does not
@@ -234,27 +269,24 @@ const Certificate = ({
         )}
       </SettingRow>
       {info && (
-        <dl className="text-fg-muted m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-          <dt className="m-0">{t('settings.network.tls.certificate.subject')}</dt>
-          <dd className="text-fg m-0 break-all">{info.subject}</dd>
-          <dt className="m-0">{t('settings.network.tls.certificate.issuer')}</dt>
-          <dd className="m-0 break-all">
-            {info.issuer}
-            {info.selfSigned && ` · ${t('settings.network.tls.certificate.selfSigned')}`}
-          </dd>
-          {certificateNames(info).length > 0 && (
-            <>
-              <dt className="m-0">{t('settings.network.tls.certificate.names')}</dt>
-              <dd className="m-0 break-all">{certificateNames(info).join(', ')}</dd>
-            </>
-          )}
-          <dt className="m-0">{t('settings.network.tls.certificate.validity')}</dt>
-          <dd className={info.expired ? 'text-danger m-0' : 'm-0'}>
-            {date(info.notBefore)} – {date(info.notAfter)} · {info.keyType}
-          </dd>
-          <dt className="m-0">SHA-256</dt>
-          <dd className="m-0 font-mono break-all">{info.fingerprint}</dd>
-        </dl>
+        // The state above says what kind of certificate is in use; its fields
+        // are for checking it, so they stay folded until asked for.
+        <Collapse
+          ghost
+          size="small"
+          className="-mx-2"
+          items={[
+            {
+              key: 'details',
+              label: (
+                <span className="text-fg-muted text-xs">
+                  {t('settings.network.tls.certificate.details')}
+                </span>
+              ),
+              children: <CertificateFields info={info} date={date} />
+            }
+          ]}
+        />
       )}
       {status && !status.enabled && (
         <p className="text-fg-muted m-0 text-xs">{t('settings.network.tls.certificate.offNote')}</p>

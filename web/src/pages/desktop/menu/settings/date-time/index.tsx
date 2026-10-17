@@ -3,7 +3,12 @@ import { Alert, Button, Select, Spin } from 'antd';
 import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
-import { formatDeviceTime, type DateTimeConfig } from '@/lib/date-time.ts';
+import {
+  formatDeviceDay,
+  formatDeviceTime,
+  type DateFormat,
+  type DateTimeConfig
+} from '@/lib/date-time.ts';
 import { http } from '@/lib/http.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
@@ -147,6 +152,32 @@ export function DateTimeSettings() {
                   { value: '12', label: t('dateTime.hour12') }
                 ]}
                 onChange={(format) => change({ format })}
+              />
+            </SettingRow>
+            <SettingRow
+              label={t('dateTime.dateFormat')}
+              description={
+                <>
+                  {t('dateTime.preview')}:{' '}
+                  {formatDeviceDay(status.now + elapsed, config, i18n.language)}
+                </>
+              }
+              htmlFor="date-time-date-format"
+            >
+              <Select
+                id="date-time-date-format"
+                aria-label={t('dateTime.dateFormat')}
+                aria-describedby="date-time-date-format-description"
+                style={{ width: 180 }}
+                value={config.dateFormat ?? 'auto'}
+                disabled={busy}
+                options={[
+                  { value: 'auto', label: t('dateTime.dateAuto') },
+                  { value: 'dmy', label: t('dateTime.dateDmy') },
+                  { value: 'mdy', label: t('dateTime.dateMdy') },
+                  { value: 'ymd', label: t('dateTime.dateYmd') }
+                ]}
+                onChange={(dateFormat: DateFormat) => change({ dateFormat })}
               />
             </SettingRow>
             <SettingRow

@@ -23,6 +23,7 @@ import {
   GlobeLockIcon,
   InfoIcon,
   LayoutDashboardIcon,
+  LockIcon,
   MemoryStickIcon,
   NetworkIcon,
   PackageIcon,
@@ -89,6 +90,7 @@ const VPNList = lazy(() => import('./vpn/list').then((module) => ({ default: mod
 const WireGuard = lazy(() => import('./vpn').then((module) => ({ default: module.WireGuard })));
 const OpenVPN = lazy(() => import('./vpn/openvpn').then((module) => ({ default: module.OpenVPN })));
 const System = lazy(() => import('./system').then((module) => ({ default: module.System })));
+const Security = lazy(() => import('./security').then((module) => ({ default: module.Security })));
 const Diagnostics = lazy(() =>
   import('./system/diagnostics').then((module) => ({ default: module.Diagnostics }))
 );
@@ -225,6 +227,7 @@ export const Settings = ({
           { id: 'system', icon: <ShieldIcon size={16} />, component: null },
           { id: 'system-general', icon: <SettingsIcon size={16} />, component: <System /> },
           { id: 'system-users', icon: <UserRoundIcon size={16} />, component: <Account /> },
+          { id: 'system-security', icon: <LockIcon size={16} />, component: <Security /> },
           {
             id: 'system-date-time',
             icon: <ClockIcon size={16} />,
@@ -245,7 +248,7 @@ export const Settings = ({
             component: (
               <Addons
                 onOpenRustDesk={() => changeTab('software-rustdesk')}
-                onOpenAcme={() => changeTab('network-general')}
+                onOpenAcme={() => changeTab('system-security')}
                 onOpen={() => {
                   closeModal();
                   setPicoclawOpen(true);
@@ -432,6 +435,7 @@ export const Settings = ({
     if (id === 'system') return t('settings.system.title');
     if (id === 'system-general') return t('settings.system.general');
     if (id === 'system-users') return t('settings.account.title');
+    if (id === 'system-security') return t('settings.security.title');
     if (id === 'system-date-time') return t('dateTime.title');
     if (id === 'system-updates') return t('settings.updates.title');
     if (id === 'system-mcp') return t('settings.mcp.title');

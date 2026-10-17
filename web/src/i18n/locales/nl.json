@@ -452,7 +452,7 @@
         "subnetMask": "Subnetmasker",
         "subnetMaskPlaceholder": "255.255.255.0",
         "gateway": "Gateway",
-        "gatewayPlaceholder": "192.168.10.1",
+        "gatewayPlaceholder": "Optioneel",
         "invalid": "Voer een geldig IPv4-adres, subnetmasker en gateway in",
         "save": "Opslaan",
         "unsaved": "Niet-opgeslagen wijzigingen",
@@ -542,6 +542,9 @@
         "delete": "Verwijderen"
       }
     },
+    "security": {
+      "title": "Beveiliging"
+    },
     "software": {
       "indexSchedule": {
         "save": "Opslaan"
@@ -589,7 +592,6 @@
         "refresh": "Vernieuwen",
         "application": "Toepassing"
       },
-      "services": "Diensten",
       "device": "Apparaat"
     },
     "usb": {

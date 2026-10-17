@@ -761,7 +761,6 @@
       "apk": {
         "title": "Mises à jour des paquets",
         "description": "Mettez à jour les paquets installés depuis les dépôts configurés. Les paramètres sont conservés. Les services redémarrent automatiquement ; une mise à jour du noyau nécessite un redémarrage.",
-        "kernel": "Noyau en cours d'exécution",
         "check": "Rechercher des mises à jour",
         "install": "Installer les mises à jour",
         "confirm": "Installer ces mises à jour de paquets ? La vidéo et le contrôle peuvent être brièvement déconnectés.",

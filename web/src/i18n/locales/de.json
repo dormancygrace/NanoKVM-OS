@@ -761,7 +761,6 @@
       "apk": {
         "title": "Paket-Updates",
         "description": "Aktualisieren Sie installierte Pakete aus den konfigurierten Repositorys. Einstellungen bleiben erhalten. Dienste starten automatisch neu; ein Kernel-Update erfordert einen Neustart.",
-        "kernel": "Laufender Kernel",
         "check": "Nach Updates suchen",
         "install": "Updates installieren",
         "confirm": "Diese Paket-Updates installieren? Video und Steuerung können kurz unterbrochen werden.",

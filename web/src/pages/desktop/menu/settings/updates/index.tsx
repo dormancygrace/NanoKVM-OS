@@ -66,7 +66,14 @@ export const Updates = () => {
       </SettingRow>
       {state && <ComponentList components={state.components} />}
       {state && <UpdateCheck notice={state.notice} onChange={refresh} />}
-      {state && <APKUpdates state={state.apk} busy={busy} action={action} />}
+      {state && (
+        <APKUpdates
+          state={state.apk}
+          known={!!state.components?.packages.some((component) => component.available)}
+          busy={busy}
+          action={action}
+        />
+      )}
       {reconnecting && <Alert type="info" message={t('settings.updates.reconnecting')} />}
     </div>
   );

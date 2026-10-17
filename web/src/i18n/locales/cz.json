@@ -1322,7 +1322,6 @@
       "title": "Aktualizace",
       "apk": {
         "title": "Aktualizace balíčků",
-        "kernel": "Spuštěné jádro systému",
         "log": "Záznam událostí z aktualizace",
         "reboot": "Restartovat zařízení",
         "install": "Nainstalovat aktualizace",

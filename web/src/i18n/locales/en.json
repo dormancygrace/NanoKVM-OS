@@ -761,7 +761,6 @@
       "apk": {
         "title": "Package updates",
         "description": "Update installed packages from the configured repositories. Settings are kept. Services restart automatically; a kernel update requires a reboot.",
-        "kernel": "Running kernel",
         "check": "Check for updates",
         "install": "Install updates",
         "confirm": "Install these package updates? Video and control may briefly disconnect.",

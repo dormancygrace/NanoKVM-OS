@@ -761,7 +761,6 @@
       "apk": {
         "title": "Actualizaciones de paquetes",
         "description": "Actualiza los paquetes instalados desde los repositorios configurados. La configuración se conserva. Los servicios se reinician automáticamente; una actualización del kernel requiere reiniciar.",
-        "kernel": "Kernel en ejecución",
         "check": "Buscar actualizaciones",
         "install": "Instalar actualizaciones",
         "confirm": "¿Instalar estas actualizaciones de paquetes? El vídeo y el control pueden desconectarse brevemente.",

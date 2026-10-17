@@ -5,12 +5,7 @@ import { useAtom, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import { availableUpdates, getUpdateNotice, type UpdateNotice } from '@/api/updates.ts';
-import {
-  componentLabel,
-  getSeenUpdates,
-  setSeenUpdates,
-  updateSignature
-} from '@/lib/update-components.ts';
+import { getSeenUpdates, setSeenUpdates, updateSignature } from '@/lib/update-components.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { settingsRequestAtom } from '@/jotai/settings.ts';
 import { updateNoticeAtom } from '@/jotai/updates.ts';
@@ -59,16 +54,8 @@ export const UpdateNotification = () => {
     setSeenUpdates(signature);
     api.info({
       key: NOTIFICATION_KEY,
+      // Only that an update exists: the Updates page lists the versions.
       title: t('settings.updates.notice.title'),
-      description: (
-        <ul className="m-0 list-none p-0 text-sm">
-          {updates.map((update) => (
-            <li key={update.name}>
-              {componentLabel(t, update.name)}: {update.installed} → {update.available}
-            </li>
-          ))}
-        </ul>
-      ),
       actions: (
         <Button
           type="primary"
@@ -84,7 +71,7 @@ export const UpdateNotification = () => {
       placement: 'topRight',
       duration: 0
     });
-  }, [signature, updates, api, t, setRequest]);
+  }, [signature, api, t, setRequest]);
 
   return <>{contextHolder}</>;
 };

@@ -23,7 +23,7 @@ RELEASES = [release('v3.2.0', 'v1.4'), release('v3.1.0', 'v1.3'), release('v3.0-
 class NextReleaseTests(unittest.TestCase):
     def test_patch_and_minor_from_main(self):
         self.assertEqual(n.next_release(RELEASES, 'patch', 'main', False),
-                         {'version': 'v3.2.1', 'apk_version': '3.2.1', 'image_version': 'v1.4'})
+                         {'version': 'v3.2.1', 'apk_version': '3.2.1', 'image_version': 'v1.4', 'previous': 'v3.2.0'})
         self.assertEqual(n.next_release(RELEASES, 'minor', 'main', False)['version'], 'v3.3.0')
 
     def test_a_new_image_gets_the_next_image_version(self):
@@ -32,12 +32,19 @@ class NextReleaseTests(unittest.TestCase):
     def test_a_release_without_an_image_keeps_the_last_image_version(self):
         releases = [release('v3.2.1')] + RELEASES
         self.assertEqual(n.next_release(releases, 'patch', 'main', False),
-                         {'version': 'v3.2.2', 'apk_version': '3.2.2', 'image_version': 'v1.4'})
+                         {'version': 'v3.2.2', 'apk_version': '3.2.2', 'image_version': 'v1.4', 'previous': 'v3.2.1'})
 
     def test_a_release_branch_continues_its_own_line(self):
-        releases = [release('v3.3.0'), release('v3.2.1')] + RELEASES
+        releases = [release('v3.2.1')] + RELEASES
         self.assertEqual(n.next_release(releases, 'patch', 'release/3.2', False)['version'], 'v3.2.2')
+
+    def test_no_patch_of_an_older_line_once_a_newer_one_is_released(self):
+        releases = [release('v3.3.0'), release('v3.2.1')] + RELEASES
         self.assertEqual(n.next_release(releases, 'patch', 'main', False)['version'], 'v3.3.1')
+        with self.assertRaisesRegex(ValueError, 'v3.3.0 is released already'):
+            n.next_release(releases, 'patch', 'release/3.2', False)
+        with self.assertRaisesRegex(ValueError, 'v3.3.0 is released already'):
+            n.next_release([release('v3.3.0', draft=True)] + RELEASES, 'patch', 'release/3.2', False)
         with self.assertRaisesRegex(ValueError, 'patch releases only'):
             n.next_release(releases, 'minor', 'release/3.2', False)
         with self.assertRaisesRegex(ValueError, 'no vX.Y.Z release to follow'):

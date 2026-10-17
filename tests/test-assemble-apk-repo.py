@@ -109,6 +109,24 @@ class AssembleTests(unittest.TestCase):
         self.assertEqual(sorted(p.name for p in self.repo().glob('*.apk')), ['nanokvm-4-r0.apk', 'nanokvm-web-3-r0.apk'])
         self.assertEqual((self.repo() / 'nanokvm-web-3-r0.apk').read_bytes(), b'nanokvm-web 3-r0')
 
+    def test_the_highest_version_is_newest_not_the_latest_published(self):
+        self.fake.release('v3.3.1', '2026-05-01T00:00:00Z', [('nanokvm', '31-r0')])
+        self.fake.release('v3.3.0', '2026-06-01T00:00:00Z', [('nanokvm', '30-r0')])  # its draft published later
+        self.fake.release('v3.2.9', '2026-07-01T00:00:00Z', [('nanokvm', '29-r0')])
+        self.assertEqual(self.run_assemble(keep=1)[0], 'v3.3.1')
+        self.assertEqual(sorted(p.name for p in self.repo().glob('*.apk')), ['nanokvm-31-r0.apk'])
+
+    def test_the_page_links_the_newest_image(self):
+        self.run_assemble()
+        self.assertNotIn('new SD card', (self.out / 'index.html').read_text())
+        self.fake.release('v2.0.0', '2026-01-05T00:00:00Z', [('nanokvm', '20-r0')],
+                          extra={'NanoKVM-OS-Image-v1.4-apps-v2.0.0.img.zip': b'image'})
+        self.fake.release('v2.0.1', '2026-01-06T00:00:00Z', [('nanokvm', '21-r0')])
+        self.run_assemble()
+        page = (self.out / 'index.html').read_text()
+        self.assertIn('NanoKVM-OS-Image-v1.4-apps-v2.0.0.img.zip', page)
+        self.assertIn('from release v2.0.0', page)
+
     def test_drafts_and_releases_without_indexes_or_sums_are_skipped(self):
         self.fake.release('v9', '2026-09-01T00:00:00Z', [('nanokvm', '9-r0')], draft=True)
         self.fake.release('v8', '2026-08-01T00:00:00Z', [('nanokvm', '8-r0')], sums=False)

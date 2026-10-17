@@ -5,11 +5,14 @@
          releasing main, of vX.Y.* when releasing a release/X.Y branch
   minor  vX.(Y+1).0 after the newest release; only from main
 
-Drafts count, so two runs cannot pick one version. The image version is that
-of the newest published image; with --image, its minor plus one.
+Drafts count, so two runs cannot pick one version. Devices follow one
+repository, the newest release, so a patch of a line is refused once a newer
+line has a release. The image version is that of the newest published image;
+with --image, its minor plus one.
 
 Reads the JSON of GitHub's release list (drafts included) on standard input and
-prints key=value lines for $GITHUB_OUTPUT: version, apk_version, image_version.
+prints key=value lines for $GITHUB_OUTPUT: version, apk_version, image_version,
+and previous (the release the notes start from).
 """
 import argparse
 import json
@@ -28,7 +31,12 @@ def next_release(releases, kind, ref, image):
     elif m := BRANCH.fullmatch(ref):
         if kind != 'patch':
             raise ValueError('a release branch takes patch releases only')
-        line = [v for v in versions if v[:2] == tuple(map(int, m.groups()))]
+        branch = tuple(map(int, m.groups()))
+        line = [v for v in versions if v[:2] == branch]
+        newer = [v for v in versions if v[:2] > branch]
+        if newer:
+            raise ValueError(f'v{".".join(map(str, max(newer)))} is released already; devices follow the '
+                             'newest line, so they would never receive a patch of an older one')
     else:
         raise ValueError(f'release from main or a release/X.Y branch, not {ref}')
     if not line:
@@ -45,7 +53,8 @@ def next_release(releases, kind, ref, image):
     if image:
         image_minor += 1
     text = '.'.join(map(str, version))
-    return {'version': 'v' + text, 'apk_version': text, 'image_version': f'v{image_major}.{image_minor}'}
+    return {'version': 'v' + text, 'apk_version': text, 'image_version': f'v{image_major}.{image_minor}',
+            'previous': 'v' + '.'.join(map(str, (major, minor, patch)))}
 
 
 def main():

@@ -38,7 +38,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
             self.assertNotIn('environment:', job(RELEASE, name))
             self.assertNotIn('${{ secrets.', job(RELEASE, name))
         self.assertIn('keys: -d', job(RELEASE, 'dry-run'))
-        self.assertIn("if: needs.build.outputs.publish != 'true'", job(RELEASE, 'dry-run'))
+        self.assertIn("if: needs.build.outputs.publish != 'true' && needs.build.outputs.skip != 'true'", job(RELEASE, 'dry-run'))
         # Only a hand-started run or a pushed tag publishes; a pull request never does.
         build = job(RELEASE, 'build')
         self.assertRegex(build, r"\*\)\n\s+printf .*\\npublish=false\\n")
@@ -66,6 +66,11 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('. firmware/alpine/release.env', build)
         self.assertIn('"$GITHUB_REF_NAME" != "$NANOKVM_VERSION"', build)
         self.assertIn('python3 scripts/next-release.py', build)
+
+    def test_the_tag_of_a_published_draft_releases_nothing_again(self):
+        build = job(RELEASE, 'build')
+        self.assertIn('gh release view "$GITHUB_REF_NAME"', build)
+        self.assertEqual(build.count("if: steps.version.outputs.skip != 'true'"), 3)
 
     def test_both_workflows_prepare_the_build_alike(self):
         self.assertIn('uses: ./.github/actions/prepare-build', BUILD)

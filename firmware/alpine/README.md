@@ -173,10 +173,14 @@ before it was merged:
   requests, and it is published as soon as the sign job is approved.
 - **Minor release** (v3.5.0): new features, about once a month. Kind `minor`;
   it stays a draft until its notes are written and it is published.
-- **A patch of an older line**, when main already holds changes that should
-  not ship yet: create `release/X.Y` from the `vX.Y.0` tag
-  (`git push origin vX.Y.0:refs/heads/release/X.Y`), merge the fix into main
-  and cherry-pick it there, and run a patch release with `ref` `release/X.Y`.
+- **A patch of the current line from a branch**, when main already holds
+  changes that should not ship yet: create `release/X.Y` from the newest
+  `vX.Y.Z` tag (`git push origin vX.Y.Z:refs/heads/release/X.Y`), merge the
+  fix into main and cherry-pick it there, and run a patch release with `ref`
+  `release/X.Y`. Devices follow one repository, the newest release, so this
+  works only while X.Y is the newest line; the workflow refuses it otherwise.
+  It also needs a tag that contains this release workflow (from the first
+  release made with it on), since older trees ignore the computed version.
 
 The workflow (`.github/workflows/release.yml`) takes the next version after the
 newest release (`scripts/next-release.py`; drafts count), builds everything on
@@ -193,6 +197,7 @@ The SD image is always built, as a check that the packages install from
 scratch, but attached only with `image` checked: when first boot, the card
 layout or installation changes, since a new card runs the image's code until
 its first update. The bootloader needs no image; its package updates it.
+The page of the APK repository links the newest image for new cards.
 
 A pushed `vX.Y.Z` tag releases with the versions of
 `firmware/alpine/release.env`, as a draft with the image. While devices still
@@ -211,7 +216,7 @@ The APK repository workflow deploys the same repository to GitHub Pages, at
 whenever a GitHub release that carries the packages, both indexes and
 `SHA256SUMS` is published. The workflow
 (`.github/workflows/apk-repository.yml`, `scripts/assemble-apk-repo.py`) takes
-the indexes of the newest such release and the packages that the indexes of
+the indexes of the newest such release (the highest version) and the packages that the indexes of
 the newest six releases name, checks each file against its release's
 `SHA256SUMS` and the index, and verifies the result with Alpine's apk before it
 deploys. The page `https://dormancygrace.github.io/NanoKVM-OS/` lists the

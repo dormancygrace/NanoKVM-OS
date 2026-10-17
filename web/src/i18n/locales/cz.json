@@ -1134,7 +1134,7 @@
         "deleteConfirm": "Obraz a vše v něm je odebráno z SD karty.",
         "recreate": "Načisto zformátovat",
         "files": {
-          "host": "Pokud chcete spravovat soubory na uživatelském disku, vysuňte na počítači jednotku, která ho představuje a poté uživatelský disk vypněte.",
+          "host": "Pokud chcete spravovat soubory na uživatelském disku, vysuňte na počítači jednotku, která ho představuje, a poté uživatelský disk vypněte.",
           "hint": "Aby byly soubory na uživatelském disku k dispozici na počítači, disk zapněte. Existující soubory nejsou nikdy přepsány.",
           "refresh": "Znovu načíst",
           "browse": "Procházet soubory",
@@ -1152,9 +1152,9 @@
           "errors": {
             "host": "Disk je v tuto chvíli vlastněn počítačem. Vysuňte a vypněte ho výše.",
             "busy": "Disk je vytížený operací. Vyčkejte na dokončení stávající operace a zkuste znovu.",
-            "path": "Neplaný název souboru nebo složky.",
+            "path": "Neplatný název souboru nebo složky.",
             "exists": "Takto nazvaný soubor nebo složka už zde existuje.",
-            "missing": "Disk, soubor nebo složka už neexistuje. Načtete znovu nebo přejděte o úroveň výše.",
+            "missing": "Disk, soubor nebo složka už neexistuje. Načtěte znovu nebo přejděte o úroveň výše.",
             "space": "Nedostatek volného místa nebo soubor překračuje limit velikosti pro FAT32 (4 GiB mínus 1 bajt).",
             "notEmpty": "Složka není prázdná.",
             "io": "Operace se nezdařila. Zkontrolujte disk a systémové záznamy událostí, poté načtěte znovu."
@@ -1246,11 +1246,11 @@
           "text": "Počítač něco poslal, ale nejedná se o výzvu k přihlášení.",
           "shell": "Na sériovém portu je otevřena relace shellu.",
           "login": "Výzva k přihlášení odpovídá na sériovém portu.",
-          "silent": "Žádná odpověď v rámci 5 sekund: počítač zatím ještě0 nemá přihlašování na sériovém portu, nebo USB sériový port není připojen."
+          "silent": "Žádná odpověď v rámci 5 sekund: počítač zatím ještě nemá přihlašování na sériovém portu, nebo USB sériový port není připojen."
         },
         "fromUsbNetwork": "Přes USB síť, když počítač nemá žádnou jinou síť:",
         "fromNetwork": "Přes síť, v shellu na počítači, jako root:",
-        "description": "Skript na tomto NanoKVM nastaví přihlášení na USB sériovém portu na připojeném počítači. Nejprve načte systém a pokud to nemůže udělat bezpečně, ponechá zálohy a může vzít zpět své změny.",
+        "description": "Skript na tomto NanoKVM nastaví na připojeném počítači přihlašování přes USB sériový port. Nejprve zkontroluje systém a odmítne provést změny, pokud je nelze provést bezpečně. Uchovává zálohy a umožňuje vrátit provedené změny.",
         "diskAttached": "Pomocný disk „NanoKVM Setup Disk“ je připojený k počítači jako jednotka pouze pro čtení. Bez sítě:",
         "diskPending": "Pomocný disk se na počítači objeví jakmile se USB zařízení znovu připojí.",
         "diskStale": "Pomocný disk byl zaktualizován – počítač nový uvidí jakmile se USB zařízení znovu připojí.",

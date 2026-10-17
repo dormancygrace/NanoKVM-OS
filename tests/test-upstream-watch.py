@@ -126,44 +126,6 @@ class WatchTests(unittest.TestCase):
         retired = {'openvpn3', 'Asio', 'Superfile upstream', 'apk-tools', 'nanokvm-vendor-libc'}
         self.assertFalse(retired.intersection(s['name'] for s in sources))
 
-    def test_alpine_baseline_revision_not_local_increment(self):
-        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
-        source = dict(name='Optional C906 recipe', path='scripts/build-alpine-tuned-packages.sh',
-                      pattern=r'^APORTS_COMMIT=\$\{APORTS_COMMIT:-([0-9a-f]{40})\}',
-                      kind='alpine-package', aport='main/openssl', arch='riscv64',
-                      packages=['openssl', 'libssl3', 'libcrypto3'],
-                      branch_pin=dict(path='scripts/build-alpine-packages.sh',
-                                      pattern=r'ALPINE_VERSION="([0-9.]+)"'))
-        for upstream, expected in [('3.5.8-r0', 'current'), ('3.5.8-r1', 'C906 rebuild required'),
-                                   ('3.5.8-r10', 'C906 rebuild required'), ('3.5.9-r0', 'C906 rebuild required'),
-                                   ('3.5.7-r10', 'pinned recipe ahead')]:
-            with self.subTest(upstream=upstream), patch.object(u, 'request', return_value='pkgver=3.5.8\npkgrel=0\n') as recipe, patch.object(u, 'request_bytes', return_value=self.alpine_index(upstream)) as index:
-                result = u.check(source)
-                self.assertEqual(result['status'], expected)
-                self.assertIn('C906 build: 3.5.8-r1', result['current'])
-                self.assertIn('/v3.24/main/riscv64/APKINDEX.tar.gz', index.call_args.args[0])
-                self.assertIn('ref=' + u.current_pin(ROOT, source), recipe.call_args.args[0])
-        self.assertGreater(u.alpine_version('3.5.8-r10'), u.alpine_version('3.5.8-r2'))
-
-    def test_alpine_missing_subpackage_and_recipe_failure_are_visible(self):
-        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
-        source = dict(name='Optional C906 recipe', path='scripts/build-alpine-tuned-packages.sh',
-                      pattern=r'^APORTS_COMMIT=\$\{APORTS_COMMIT:-([0-9a-f]{40})\}',
-                      kind='alpine-package', aport='main/openssl', arch='riscv64',
-                      packages=['openssl', 'libssl3', 'libcrypto3'],
-                      branch_pin=dict(path='scripts/build-alpine-packages.sh',
-                                      pattern=r'ALPINE_VERSION="([0-9.]+)"'))
-        with patch.object(u, 'request', return_value='pkgver=3.5.8\npkgrel=0\n'), patch.object(u, 'request_bytes', return_value=self.alpine_index('3.5.9-r0', missing='libssl3')):
-            result = u.check(source)
-            self.assertEqual(result['status'], 'error')
-            self.assertIn('Missing Alpine packages: libssl3', result['detail'])
-        with patch.object(u, 'request', return_value='pkgver=$(false)\npkgrel=0\n'):
-            self.assertEqual(u.check(source)['status'], 'error')
-        with patch.object(u, 'request', side_effect=OSError('unavailable')):
-            self.assertEqual(u.check(source)['status'], 'error')
-        with self.assertRaises(ValueError):
-            u.alpine_version('3.6.0_rc1-r0')
-
     def test_versions_numeric_and_no_downgrade(self):
         self.assertGreater(u.version('7.2.10'), u.version('7.2.9'))
         self.assertEqual(u.version('2026.08'), u.version('2026.8.0'))

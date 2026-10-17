@@ -97,7 +97,7 @@ esac
 export GIT_CEILING_DIRECTORIES=$out
 
 version=$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")
-# Official Alpine packages; the c906-scalar overlay is not built here.
+# Official Alpine packages.
 image_version=$(sed -n 's/^NANOKVM_IMAGE_VERSION=//p' "$repo/firmware/alpine/release.env")
 profile=stock
 release=7.2.10-nanokvm-os-r5

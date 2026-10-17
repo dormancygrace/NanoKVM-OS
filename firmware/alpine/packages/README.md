@@ -24,9 +24,7 @@ zlib/                     usr/lib/libz.so.1 (zlib-ng) and its license
 release/                  etc/nanokvm-release and build profile metadata
 ```
 
-The helper also accepts `PAYLOAD_ROOT/<profile>/...` (for example
-`PAYLOAD_ROOT/stock/app` and `PAYLOAD_ROOT/c906-scalar/app`) so stock and tuned
-repositories can be generated from the same checkout. Files containing device
+The helper also accepts `PAYLOAD_ROOT/stock/...`. Files containing device
 identity, private keys, `/data`, or user settings must not be put in these
 payloads; `nanokvm-keys` refuses anything but public keys in `/etc/apk/keys`.
 `nanokvm-base` depends on `nanokvm-keys`, which owns the repository keys (see
@@ -83,15 +81,11 @@ PAYLOAD_ROOT=/path/to/payloads \
   ./scripts/build-alpine-packages.sh stock
 ```
 
-`platform/build.sh payloads` produces `stock` payloads, and the package builder
-defaults to the same profile. The package builder also accepts `c906-scalar`
-for separately supplied payloads with matching release metadata; the platform
-assembler does not produce that experimental profile. Mismatched metadata is
-rejected.
+`platform/build.sh payloads` produces `stock` payloads, the only profile the
+package builder accepts. Mismatched release metadata is rejected.
 
 The APK repository URL is `REPODEST/stock/recipes`; package files and the
-signed index are below its `riscv64` architecture directory. A C906 repository
-is built with `c906-scalar` as the profile. The script does not install
+signed index are below its `riscv64` architecture directory. The script does not install
 packages, modify a device, or contact the NanoKVM.
 
 The helper copies each recipe to a temporary build directory and runs

@@ -83,8 +83,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(sed -n 's/^version = "\(.*\)"$/\1/p' addons/rustdesk/Cargo.toml | head -1)
-          revision=$({ gh api --paginate "repos/$GITHUB_REPOSITORY/tags?per_page=100" --jq '.[].name'
-                       gh api --paginate "repos/$OLD_REPOSITORY/tags?per_page=100" --jq '.[].name'; } |
+          # Both requests must succeed. A grouped pipeline inside $(...)
+          # can hide failure of the first request when the second succeeds.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/tags?per_page=100" --jq '.[].name' > "$RUNNER_TEMP/current-tags"
+          gh api --paginate "repos/$OLD_REPOSITORY/tags?per_page=100" --jq '.[].name' > "$RUNNER_TEMP/old-tags"
+          revision=$(cat "$RUNNER_TEMP/current-tags" "$RUNNER_TEMP/old-tags" |
                      python3 scripts/next-rustdesk-revision.py "$version")
           tag=nanokvm-rustdesk-$version-r$revision
           {

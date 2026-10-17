@@ -249,6 +249,36 @@ class AddonWorkflowTests(unittest.TestCase):
         self.assertIn('contents: write', publish)
         self.assertIn("if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true", publish)
 
+    def test_addon_revision_requires_both_tag_inventories(self):
+        match = re.search(r'^      - name: Version\n(.*?)(?=^      - |\Z)', self.ADDON, re.M | re.S)
+        script = textwrap.dedent(match[1].split('        run: |\n', 1)[1])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'gh').write_text("""#!/bin/sh
+case "$*" in
+  *repos/example/current/tags*) [ "$FAIL" != current ] || exit 17
+    echo nanokvm-rustdesk-0.5.3-r8 ;;
+  *repos/example/old/tags*) [ "$FAIL" != old ] || exit 18
+    echo nanokvm-rustdesk-0.5.3-r5 ;;
+  *) exit 99 ;;
+esac
+""")
+            (root / 'gh').chmod(0o755)
+            env = {**os.environ, 'PATH': str(root) + ':' + os.environ['PATH'],
+                   'GITHUB_REPOSITORY': 'example/current', 'OLD_REPOSITORY': 'example/old',
+                   'GITHUB_OUTPUT': str(root / 'output'), 'RUNNER_TEMP': str(root)}
+            for failure in ('none', 'current', 'old'):
+                with self.subTest(failure=failure):
+                    (root / 'output').write_text('')
+                    result = subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=ROOT,
+                                            env={**env, 'FAIL': failure}, capture_output=True, text=True)
+                    if failure == 'none':
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertIn('revision=9', (root / 'output').read_text())
+                    else:
+                        self.assertNotEqual(result.returncode, 0, result.stdout)
+                        self.assertEqual((root / 'output').read_text(), '')
+
     def test_the_add_on_release_is_never_the_latest(self):
         self.assertIn('--latest=false', job(self.ADDON, 'publish'))
         self.assertNotIn('${{ secrets.', self.ADDON)

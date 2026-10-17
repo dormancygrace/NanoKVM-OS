@@ -117,6 +117,4 @@ checks that an invalid value is rejected. Other processes share the single
 core and the scheduler already stretches 20 us sleeps under load, so the
 thresholds are loose and the absolute rates vary with device load.
 
-Hardware/application results and limitations are summarized in
-[validation](../../../docs/VALIDATION.md); these smoke tests do not qualify
-browser latency.
+These smoke tests do not measure browser latency.

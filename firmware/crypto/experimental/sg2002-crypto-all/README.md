@@ -33,11 +33,9 @@ After installing on the matching device, `crypto-bench --kat` checks boundaries,
 
 The results below describe the September 2026 experiments and their original software environment, including OpenSSL 3.6.4. They are retained for reproducibility, not presented as measurements of the current OpenSSL 4 firmware. `summarize.py` expects the original named CSV inputs; it is not a general-purpose report generator.
 
-The [public qualification summary](../../../../docs/VALIDATION.md) separates short functional checks, matched kernel batches and endurance limitations. CPU time is distinct from wall throughput.
-
 For 16 KiB AES-256-GCM records, OpenSSL software measured 5.90 MiB/s and 2.604 ms CPU; hardware AES + software GHASH measured 12.03 MiB/s and 1.196 ms CPU (54% less CPU work). Base64 decoding is an exception to hardware benefits: at 87,384 input bytes it used 23.22 ms CPU/MiB versus 15.87 in software. Small operations can also lose to ioctl/copy overhead; hardware selection must be based on workload size.
 
-These are physical-device functional checks and bounded microbenchmarks with capture disabled. They do not qualify long concurrent video/TLS loads or explain prior H.265/AES SoC hangs. GHASH/HMAC/GCM are not separate native SG2002 CryptoDMA engines. TRNG is a separate block and was not included in these deterministic-algorithm measurements. SM3 appears in a newer generic vendor driver, but SG2002 TRM marks its descriptor bit reserved; it is not advertised here.
+These are functional checks and bounded microbenchmarks with capture disabled, not long concurrent video/TLS loads. GHASH/HMAC/GCM are not separate native SG2002 CryptoDMA engines. TRNG is a separate block and was not included in these deterministic-algorithm measurements. SM3 appears in a newer generic vendor driver, but SG2002 TRM marks its descriptor bit reserved; it is not advertised here.
 
 ## Primary sources
 
@@ -57,7 +55,7 @@ openssl speed -elapsed -seconds 3 -bytes 16384 -engine devcrypto -evp aes-256-ct
 openssl dgst -engine devcrypto -engine_impl -sha256 example.bin
 ```
 
-The OpenSSL engine advertises AES-128/192/256 ECB/CBC/CTR, DES/3DES CBC, SHA1/SHA256. It does not implement AES-GCM. Standard `CIOCAUTHCRYPT` **does** provide AES-GCM using Linux `gcm(aes)` with hardware AES-CTR and software GHASH. Use `cryptodev-gcm-bench.c` to reproduce that path; use `cryptodev-bench.c` for the other standard algorithms. Compile either with the cross compiler, `-O2 -Wall -Wextra -Werror -Iplatform/modules/sg2002-aes -Ifirmware/crypto/cryptodev-linux -lcrypto`. Full measurements, the tag-length session limitation, and installation/release boundaries are in [standard API evidence](../../../../docs/VALIDATION.md).
+The OpenSSL engine advertises AES-128/192/256 ECB/CBC/CTR, DES/3DES CBC, SHA1/SHA256. It does not implement AES-GCM. Standard `CIOCAUTHCRYPT` **does** provide AES-GCM using Linux `gcm(aes)` with hardware AES-CTR and software GHASH. Use `cryptodev-gcm-bench.c` to reproduce that path; use `cryptodev-bench.c` for the other standard algorithms. Compile either with the cross compiler, `-O2 -Wall -Wextra -Werror -Iplatform/modules/sg2002-aes -Ifirmware/crypto/cryptodev-linux -lcrypto`.
 
 ### Longer matched standard-API batches
 

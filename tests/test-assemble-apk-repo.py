@@ -89,6 +89,13 @@ class AssembleTests(unittest.TestCase):
         self.assertTrue((self.out / 'keys/release.rsa.pub').exists())
         self.assertIn('alpine/v3.24/riscv64/Packages.adb', (self.out / 'index.html').read_text())
 
+    def test_packages_json_of_the_newest_release_is_published(self):
+        self.run_assemble()
+        self.assertFalse((self.repo() / 'packages.json').exists())
+        self.fake.release('v4', '2026-04-01T00:00:00Z', [('nanokvm', '4-r0')], extra={'packages.json': b'{}'})
+        self.run_assemble()
+        self.assertEqual((self.repo() / 'packages.json').read_bytes(), b'{}')
+
     def test_an_unchanged_package_comes_from_an_older_release(self):
         # v4 publishes only nanokvm; its index still names nanokvm-web 3.
         self.fake.release('v4', '2026-04-01T00:00:00Z', [('nanokvm', '4-r0')])

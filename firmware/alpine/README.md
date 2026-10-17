@@ -177,12 +177,15 @@ the packages need no ECDSA signature.
    secrets `APK_RSA_KEY` and `APK_EC_KEY`: unencrypted PEM private keys of
    `dgrace-6aaddbb6.rsa.pub` and `nkos-release-ec-b8e89b66.pub`), builds the
    root file system and the SD image, and creates a draft GitHub release with
-   the packages, both indexes, the image, the source archive and `SHA256SUMS`.
+   the packages that changed, both indexes, `packages.json`, the image, the
+   source archive and `SHA256SUMS`. An unchanged package keeps its version and
+   stays in the release that first carried it
+   ([package versions](packages/README.md#package-versions)).
 4. Write the release notes in the draft and publish it. Publishing it
    publishes the packages (see below).
 5. While devices still read `https://nkos.pesin.pro/repos/nanokvm/riscv64/`,
-   upload the release's `*.apk` files, `APKINDEX.tar.gz` and `Packages.adb`
-   there too: the packages first and the two indexes last, so that no index
+   upload the release's `*.apk` files (those of unchanged packages are already
+   there), `APKINDEX.tar.gz` and `Packages.adb` there too: the packages first and the two indexes last, so that no index
    names a package that is not there yet, and keep older package files for
    clients with a cached index. Check the indexes from a scratch root, for
    example `apk --keys-dir DIR verify Packages.adb` with only one of the keys

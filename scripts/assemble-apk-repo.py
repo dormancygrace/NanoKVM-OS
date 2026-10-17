@@ -9,7 +9,8 @@ Each package comes from the newest release that has it and must match that
 release's SHA256SUMS and the size its index records.
 
 The result, below OUTPUT:
-  alpine/vX.Y/riscv64/   *.apk, APKINDEX.tar.gz (v2 index), Packages.adb (v3)
+  alpine/vX.Y/riscv64/   *.apk, APKINDEX.tar.gz (v2 index), Packages.adb (v3),
+                         packages.json (the version and content of each package)
   keys/                  the public release keys (firmware/alpine/keys)
   index.html             the repository lines
 """
@@ -120,6 +121,9 @@ def assemble(output, published, keep, branch, keys, fetch=fetch):
     newest = published[0]
     for name in INDEXES:
         (repo / name).write_bytes(checked(newest, name, sums[newest['tag_name']], fetch))
+    # The next release reads it to keep unchanged packages; older releases have none.
+    if 'packages.json' in {a['name'] for a in newest['assets']}:
+        (repo / 'packages.json').write_bytes(checked(newest, 'packages.json', sums[newest['tag_name']], fetch))
     # The size each package has in the newest index that names it.
     wanted = {}
     for release in reversed(published[:keep]):

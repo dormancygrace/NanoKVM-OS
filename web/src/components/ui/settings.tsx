@@ -69,7 +69,7 @@ export const SettingRow = ({
     >
       {/* The label takes the free space: beside it the control ends up on the
           right, and a control wrapped onto its own line starts on the left. */}
-      <div className={clsx('min-w-0 space-y-0.5', !stacked && 'flex-1')}>
+      <div className={clsx('min-w-0 space-y-0.5', !stacked && 'flex-auto')}>
         <div className="text-fg flex items-center gap-1.5">
           {htmlFor ? <label htmlFor={htmlFor}>{label}</label> : <span>{label}</span>}
           {help && <HelpTip title={help} />}

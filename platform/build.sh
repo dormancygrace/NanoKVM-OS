@@ -1084,8 +1084,9 @@ image() {
 # The hash of every output. CI publishes them for each build of main and
 # lists the outputs a pull request changes (scripts/compare-outputs.py).
 hashes() {
-    (cd "$img" && find . -type f ! -name SHA256SUMS -print0 | LC_ALL=C sort -z | xargs -0 sha256sum |
+    (cd "$img" && find . -type f ! -name SHA256SUMS -print0 | LC_ALL=C sort -z | xargs -0 -r sha256sum |
         sed 's|  \./|  |' > SHA256SUMS)
+    [ -s "$img/SHA256SUMS" ] || { echo "No build outputs in $img" >&2; return 1; }
     echo "$(wc -l < "$img/SHA256SUMS") outputs: $img/SHA256SUMS"
 }
 

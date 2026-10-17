@@ -30,7 +30,12 @@ def read(path):
         m = re.fullmatch(r'([0-9a-f]{64}) [ *](.+)', line)
         if not m:
             sys.exit(f'{path}:{number}: not a sha256sum line')
-        sums[m.group(2).removeprefix('./')] = m.group(1)
+        name = m.group(2).removeprefix('./')
+        if name == '-':
+            sys.exit(f'{path}:{number}: stdin is not a build output')
+        sums[name] = m.group(1)
+    if not sums:
+        sys.exit(f'{path}: no build outputs')
     return sums
 
 

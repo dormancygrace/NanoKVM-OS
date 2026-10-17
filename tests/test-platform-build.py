@@ -43,6 +43,11 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     out = root / "out"
     images = out / "images"
 
+    images.mkdir(parents=True)
+    expect(build(tree, out, "hashes"), False, "empty output tree is rejected", "No build outputs")
+    (images / "SHA256SUMS").write_text("old manifest\n")
+    expect(build(tree, out, "hashes"), False, "manifest alone is not a build", "No build outputs")
+
     outputs = {"Image": b"kernel", "u-boot.bin": b"loader", "boot/alpha.sd": b"fit"}
     for name, data in outputs.items():
         (images / name).parent.mkdir(parents=True, exist_ok=True)

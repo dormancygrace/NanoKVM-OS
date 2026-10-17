@@ -17,8 +17,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-build-${{ github.ref }}
-  # A newer push to a pull request replaces its build; every build of main finishes.
+  group: release-build-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  # Only PR runs share a group. Main/dispatch runs have separate pending slots,
+  # so a newer push cannot discard a main build before it starts.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

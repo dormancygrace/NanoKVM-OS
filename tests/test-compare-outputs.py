@@ -72,6 +72,17 @@ class CompareOutputsTests(unittest.TestCase):
         r = subprocess.run([sys.executable, str(SCRIPT), str(a), str(b), '--check'], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
+    def test_empty_and_stdin_manifests_are_rejected(self):
+        digest = hashlib.sha256(b'').hexdigest()
+        for contents in ('', '# no files\n', f'{digest}  -\n'):
+            with self.subTest(contents=contents):
+                a = self.root / 'empty'
+                a.write_text(contents)
+                result = subprocess.run([sys.executable, str(SCRIPT), str(a), str(a), '--check'],
+                                        capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn('identical', result.stdout)
+
     def test_bad_line(self):
         a = self.root / 'a'
         a.write_text('not a hash\n')

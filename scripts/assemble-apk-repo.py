@@ -30,6 +30,8 @@ import tarfile
 import urllib.request
 from pathlib import Path
 
+import addon_packages
+
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = 'dormancygrace/NanoKVM-OS'
 VERSION = re.compile(r'v(\d+)\.(\d+)\.(\d+)')
@@ -139,6 +141,11 @@ def assemble(output, published, keep, branch, keys, fetch=fetch):
     repo = output / 'alpine' / ('v' + branch) / 'riscv64'
     repo.mkdir(parents=True)
     sums = {r['tag_name']: checksums(asset(r, 'SHA256SUMS', fetch).decode()) for r in published}
+    addons = {}
+    for release in reversed(published):
+        if 'addons.json' in {a['name'] for a in release['assets']}:
+            data = checked(release, 'addons.json', sums[release['tag_name']], fetch)
+            addons.update(addon_packages.manifest(data))
     newest = published[0]
     for name in INDEXES:
         (repo / name).write_bytes(checked(newest, name, sums[newest['tag_name']], fetch))
@@ -152,9 +159,13 @@ def assemble(output, published, keep, branch, keys, fetch=fetch):
         wanted.update(index_packages(index))
     for name, size in sorted(wanted.items()):
         source = next((r for r in published if name in {a['name'] for a in r['assets']}), None)
-        if source is None:
+        if source is not None:
+            data = checked(source, name, sums[source['tag_name']], fetch, size)
+        elif name in addons:
+            data = addon_packages.checked(name, addons[name], fetch, size)
+        else:
             raise ValueError(f'No release carries {name}')
-        (repo / name).write_bytes(checked(source, name, sums[source['tag_name']], fetch, size))
+        (repo / name).write_bytes(data)
     (output / 'keys').mkdir()
     key_links = []
     for key in sorted(Path(keys).glob('*.pub')):

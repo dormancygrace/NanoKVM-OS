@@ -4,9 +4,10 @@ NanoKVM OS uses native APK packages in the writable system root. Routine
 updates preserve settings, user data and independently installed packages;
 flashing a full SD image is a separate operation that replaces the card.
 
-## Updating v2.0-a2 or newer to v3.2.0
+## Updating an existing installation
 
-Read the [v3.2.0 release notes](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.2.0).
+Read the [current release notes](https://github.com/dormancygrace/NanoKVM-OS/releases/latest).
+The native update path supports v2.0-a2 and newer.
 Use **Settings → System → Updates** (on a2: **Settings → Updates → Package
 updates**), or run as root:
 
@@ -20,10 +21,12 @@ reboot
 updates. This release has thirteen core packages; optional add-ons and Alpine dependency
 updates are additional.
 
-The kernel release remains **7.2.10-nanokvm-os-r5**. Reboot to load the updated
-boot images with corrected SD/SDIO clocks. Completed component transactions refresh affected services through
+Reboot when requested to activate updated kernel or bootloader files.
+Completed component transactions refresh affected services through
 **OpenRC**; an application update briefly disconnects video/control, and no
-separate apply command is required. APK updates preserve the existing bootloader.
+separate apply command is required. Since v3.3.0, `nanokvm-bootloader-sg2002`
+also updates the bootloader on the SD card. It verifies the written file and
+keeps `/boot/fip.prev` for recovery; see [bootloader updates](BOOT.md#updating-fipbin).
 
 ## Update notices and component versions
 
@@ -71,8 +74,9 @@ allowing them to obtain the update and keys through their existing repository.
 No manual key download or repository edit is required for the official URL.
 Custom repositories and C906 overlay entries are left unchanged.
 
-The legacy index contains the thirteen core packages. The v3 index also includes
-the optional RustDesk APK; install it from Software after updating the system.
+Both indexes include the thirteen core packages and the optional RustDesk APK.
+RustDesk remains a separate add-on; install it from Software after updating
+the system. It is not installed in the full SD image.
 
 ## Other migration cases
 
@@ -93,6 +97,19 @@ APK resolves dependencies and verifies signatures. Software → Add-ons manages
 RustDesk, PicoClaw and acme.sh. RustDesk comes from the signed NanoKVM repository;
 PicoClaw and acme.sh use their upstream release downloads.
 
-**Image v1.4** is the installation bundle, while **v3.2.0** is the current
-application release. Component updates keep the original image identity;
+Full SD images and application releases have independent versions.
+Component updates keep the original image identity;
 About shows both versions. Reflashing is not required for routine updates.
+
+## Component versions and support
+
+Starting with v3.3.0, each package keeps its version until its content changes.
+`nanokvm-release` identifies the overall release and requires its selected
+component versions. Different installed component versions are therefore normal.
+
+The v3.3.0 transition is also published on the previous `nkos.pesin.pro`
+repository so existing devices can obtain the automatic switch to Pages.
+That repository stays at 3.3.0; subsequent releases are served on Pages.
+
+Releases before 3.3 receive no further fixes. Compatibility for upgrading from
+those releases remains in 3.4 and 3.5; removal is planned for 3.6 after an audit.

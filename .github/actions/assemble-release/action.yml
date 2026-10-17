@@ -62,6 +62,7 @@ runs:
             p["changed"] and print(p["apk"])' "$repo/packages.json" |
           while read -r apk; do cp "$repo/$apk" "$a/"; done
         cp "$repo/APKINDEX.tar.gz" "$repo/Packages.adb" "$repo/packages.json" "$a/"
+        cp "$repo/addons.json" "$a/"
         [ "$IMAGE" != true ] || cp "$OUT"/release/image/*.img.zip "$OUT/release/image/build-manifest.json" "$a/"
         cp "$OUT/release/installed-packages.txt" "$OUT/release/installed-licenses.txt" "$a/"
         cp "$OUT"/NanoKVM-OS-*-source.tar.xz "$a/"

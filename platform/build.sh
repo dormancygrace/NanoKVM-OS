@@ -1047,6 +1047,10 @@ packages() (
     # Reused packages carry the release signature, also with -d.
     for pub in "$repo"/firmware/alpine/keys/*.pub; do install -m 0644 "$pub" "$b/etc/apk/keys/"; done
     package_versions
+    # Optional add-ons enter the indexes, never the installed image package set.
+    # The APK stays in its separate release; addons.json tells Pages where to fetch it.
+    python3 "$repo/scripts/addon_packages.py" --manifest "$repo/firmware/alpine/addons.json" \
+        --output "$b/build/repo/stock/recipes/riscv64"
     printf 'PACKAGER="NanoKVM OS"\nPACKAGER_PRIVKEY="/root/.abuild/%s.rsa"\n' "$keyname" > "$b/root/.abuild/abuild.conf"
     # -F: abuild runs as root of the namespace. -d: the packages compile
     # nothing, so their dependencies are not installed in the builder.
@@ -1076,6 +1080,7 @@ packages() (
     cp -a "$b/build/repo/stock/." "$rel/apk/"
     cp "$keyfile.pub" "$rel/apk/$keyname.rsa.pub"
     cp "$ecpub" "$rel/apk/"
+    cp "$repo/firmware/alpine/addons.json" "$rel/apk/recipes/riscv64/"
     "$host/python3" "$repo/scripts/package-versions.py" manifest \
         --versions "$b/build/versions/versions.json" --repo "$rel/apk/recipes/riscv64"
 )

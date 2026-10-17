@@ -7,7 +7,9 @@ instead.
 ## Fresh SD card
 
 1. Download `NanoKVM-OS-Image-*.img.zip` and `SHA256SUMS` from the
-   [latest release](https://github.com/dormancygrace/NanoKVM-OS/releases/latest).
+   [image download page](https://dormancygrace.github.io/NanoKVM-OS/).
+   It links the newest full image; a newer application release may contain
+   package updates only.
 2. Verify the ZIP checksum, extract the `.img` and flash it to an SD card of
    at least **2 GB**.
 3. Boot NanoKVM. First boot creates the exFAT data partition in the remaining

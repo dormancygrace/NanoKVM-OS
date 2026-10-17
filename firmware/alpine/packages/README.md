@@ -139,3 +139,16 @@ matching source bundle alongside the image and packages; the upstream URL alone
 is not the release source bundle. The historical
 `firmware/sources/busybox-1.36.1.tar.bz2` is retained for the devmem executable
 shipped with v2.0-b4 and is not an input to new builds.
+
+## Optional add-ons in the release repository
+
+`firmware/alpine/addons.json` pins already-signed optional APKs from their
+separate releases by URL, SHA-256 and size. The package step downloads them
+before generating both indexes; APK verifies their release signatures.
+They are not dependencies of `nanokvm-release` and are not installed in images.
+
+CI attaches `addons.json`, not the add-on APK, to the OS release. Pages checks
+this manifest against the release's `SHA256SUMS`, fetches each indexed add-on
+from its own release and checks its hash and index size. When releasing a new
+add-on revision, update this pin before the next OS repository publication.
+Keep old add-on release assets available for cached indexes.

@@ -8,9 +8,11 @@ import json
 import tarfile
 import tempfile
 import unittest
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'scripts'))
 spec = importlib.util.spec_from_file_location('assemble', ROOT / 'scripts/assemble-apk-repo.py')
 a = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(a)
@@ -108,6 +110,51 @@ class AssembleTests(unittest.TestCase):
         self.run_assemble(keep=1)
         self.assertEqual(sorted(p.name for p in self.repo().glob('*.apk')), ['nanokvm-4-r0.apk', 'nanokvm-web-3-r0.apk'])
         self.assertEqual((self.repo() / 'nanokvm-web-3-r0.apk').read_bytes(), b'nanokvm-web 3-r0')
+
+    def external_addon(self):
+        name = 'nanokvm-rustdesk-0.5.3-r5.apk'
+        data = b'signed optional APK'
+        url = 'https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/r5/' + name
+        item = {'url': url, 'sha256': hashlib.sha256(data).hexdigest(), 'size': len(data)}
+        self.fake.files[url] = data
+        self.fake.release('v4', '2026-04-01T00:00:00Z', [('nanokvm', '4-r0')], extra={
+            'addons.json': json.dumps({'packages': {name: item}}).encode(),
+            'APKINDEX.tar.gz': apkindex([('nanokvm', '4-r0', len('nanokvm 4-r0')),
+                                       ('nanokvm-rustdesk', '0.5.3-r5', len(data))])})
+        return name, item, data
+
+    def test_optional_addon_from_separate_release_is_available(self):
+        name, _, data = self.external_addon()
+        self.run_assemble(keep=1)
+        self.assertEqual((self.repo() / name).read_bytes(), data)
+        self.assertEqual((self.repo() / 'Packages.adb').read_bytes(), b'adb v4')
+        self.assertNotIn(name, [a['name'] for a in self.fake.list[-1]['assets']])
+
+    def test_optional_addon_corruption_is_rejected(self):
+        _, item, _ = self.external_addon()
+        self.fake.files[item['url']] = b'tampered'
+        with self.assertRaisesRegex(ValueError, 'pinned size or SHA256'):
+            self.run_assemble(keep=1)
+
+    def test_optional_addon_index_size_must_match(self):
+        name, item, _ = self.external_addon()
+        item['size'] += 1
+        with self.assertRaisesRegex(ValueError, 'size differs from its index'):
+            a.addon_packages.checked(name, item, self.fake.fetch, size=item['size'] - 1)
+
+    def test_optional_addon_manifest_must_match_release_checksums(self):
+        self.external_addon()
+        self.fake.files['https://dl.test/v4/addons.json'] = b'{}'
+        with self.assertRaisesRegex(ValueError, 'SHA256SUMS'):
+            self.run_assemble(keep=1)
+
+    def test_optional_addon_manifest_rejects_unsafe_names_and_sources(self):
+        name, item, _ = self.external_addon()
+        for bad_name, bad_item in [('../evil.apk', item), (name, {**item, 'url': 'http://evil/evil.apk'}),
+                                   (name, {**item, 'sha256': 'bad'}), (name, {**item, 'size': -1})]:
+            with self.subTest(name=bad_name, item=bad_item):
+                with self.assertRaises(ValueError):
+                    a.addon_packages.manifest(json.dumps({'packages': {bad_name: bad_item}}))
 
     def test_the_highest_version_is_newest_not_the_latest_published(self):
         self.fake.release('v3.3.1', '2026-05-01T00:00:00Z', [('nanokvm', '31-r0')])

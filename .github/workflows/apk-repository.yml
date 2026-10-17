@@ -13,6 +13,8 @@ on:
     paths:
       - .github/workflows/apk-repository.yml
       - scripts/assemble-apk-repo.py
+      - scripts/addon_packages.py
+      - firmware/alpine/addons.json
       - tests/test-assemble-apk-repo.py
 
 permissions:

@@ -21,7 +21,7 @@ kmod-sg2002/             lib/modules/<kernel-release>/
 firmware-sg2002/         lib/firmware/ and optional usr/share/ data
 app/                      kvmapp/ and application files below /
 zlib/                     usr/lib/libz.so.1 (zlib-ng) and its license
-release/                  etc/nanokvm-release and build profile metadata
+release/                  etc/nanokvm-release, kvmapp/version and build profile metadata
 ```
 
 The helper also accepts `PAYLOAD_ROOT/stock/...`. Files containing device

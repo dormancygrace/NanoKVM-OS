@@ -132,8 +132,15 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     release_values = dict(line.split("=", 1) for line in
                           (tree / "firmware/alpine/release.env").read_text().splitlines()
                           if line and not line.startswith("#"))
-    assert manifest["version"] == release_values["NANOKVM_VERSION"], "manifest release version is stale"
-    assert (app / "version").read_text().strip() == manifest["version"].removeprefix("v")
+    # The release version and source commit belong to nanokvm-release only, so
+    # that the application package changes only when its files do.
+    assert set(manifest) == {"files"}, "the application manifest lists file hashes only"
+    assert not (app / "version").exists(), "/kvmapp/version belongs to nanokvm-release"
+    release = out / "payloads/release"
+    assert (release / "kvmapp/version").read_text().strip() == release_values["NANOKVM_VERSION"].removeprefix("v")
+    release_file = (release / "etc/nanokvm-release").read_text()
+    assert f'VERSION="{release_values["NANOKVM_VERSION"]}"' in release_file
+    assert 'SOURCE_COMMIT="' in release_file
     expected_files = {str(path.relative_to(app)): hashlib.sha256(path.read_bytes()).hexdigest()
                       for path in app.rglob("*")
                       if path.is_file() and not path.is_symlink() and path != manifest_path}
@@ -143,6 +150,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     web_manifest = json.loads(web_manifest_path.read_text())
     assert not (app / "server/web").exists(), "backend must not own browser assets"
     assert not any(name.startswith("server/web/") for name in manifest["files"])
+    assert set(web_manifest) == {"files"}, "the web manifest lists file hashes only"
     assert web_manifest["files"] == {
         str(path.relative_to(web)): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in web.rglob("*") if path.is_file() and path != web_manifest_path

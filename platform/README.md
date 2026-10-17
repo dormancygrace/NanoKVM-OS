@@ -241,6 +241,9 @@ The initial migration can restart it because the previous hook captures the old
 combined runtime tree before the transaction.
 
 `/kvmapp/build-manifest.json` covers only backend files;
-`/kvmapp/web-build-manifest.json` covers only browser files. Both record their
-source commit. Package revisions are visible through Software, diagnostic reports,
+`/kvmapp/web-build-manifest.json` covers only browser files. They list file
+hashes only. The release version (`/kvmapp/version`, `VERSION` in
+`/etc/nanokvm-release`) and the source commit (`SOURCE_COMMIT`) belong to
+`nanokvm-release`, so `nanokvm` and `nanokvm-web` change only when their files
+do. Package revisions are visible through Software, diagnostic reports,
 or `apk info -v nanokvm nanokvm-web nanokvm-app`.

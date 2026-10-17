@@ -113,7 +113,6 @@ base  file  /usr/share/licenses/nanokvm-base/busybox-LICENSE 0644 @tools/busybox
 
 # nanokvm: server, native libraries and the board service (app payload)
 app   file  /kvmapp/build-manifest.json                   0644  %build-manifest.json
-app   file  /kvmapp/version                               0644  %version
 # Video defaults of a new installation; protected from upgrades by base.
 app   file  /kvmapp/kvm/fps                               0644  %kvm/fps
 app   file  /kvmapp/kvm/qlty                              0644  %kvm/qlty
@@ -154,6 +153,7 @@ app   link  /kvmapp/system/tool/nanokvm_update_edid       -     /usr/sbin/nanokv
 
 # nanokvm-release: the release marker that depends on the tested package set
 release file /etc/nanokvm-release                         0644  %nanokvm-release
+release file /kvmapp/version                              0644  %version
 release file /etc/nanokvm-build-profile                   0644  %nanokvm-build-profile
 
 # nanokvm-firmware-sg2002: Wi-Fi, video codec and HDMI firmware

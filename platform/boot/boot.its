@@ -13,7 +13,11 @@
             compression = "zstd";
             load = <0x80200000>;
             entry = <0x80200000>;
-            hash-1 { algo = "sha256"; };
+            // U-Boot checks this on every boot. sha256 runs at about 14.5 MB/s
+            // there, 0.6 s for the kernel and initramfs; crc32 detects the
+            // same read errors. The device tree keeps sha256, which
+            // compose-fit substitutes per board.
+            hash-1 { algo = "crc32"; };
         };
         ramdisk-1 {
             description = "NanoKVM OS initramfs";
@@ -23,7 +27,7 @@
             os = "linux";
             // Linux unpacks the zstd cpio; U-Boot passes these bytes unchanged.
             compression = "none";
-            hash-1 { algo = "sha256"; };
+            hash-1 { algo = "crc32"; };
         };
         fdt-sg2002_licheervnano_sd_minimal {
             description = "NanoKVM OS SG2002 board";

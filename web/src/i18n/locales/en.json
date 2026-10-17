@@ -713,6 +713,16 @@
         "saved": "Index refresh schedule saved",
         "failed": "Could not load or save the index refresh schedule"
       },
+      "community": {
+        "label": "Alpine community repository",
+        "hint": "Packages maintained by the Alpine community, such as Tailscale and NetBird. It is off by default: NanoKVM OS needs nothing from it, and every package operation would load its index. Installing Tailscale or NetBird turns it on.",
+        "unavailable": "No Alpine main repository is configured, so the community repository cannot be added here.",
+        "needed": "Still needed by installed packages: {{packages}}. Remove them first to turn the repository off.",
+        "enabled": "Community repository turned on; refreshing the indexes",
+        "disabled": "Community repository turned off",
+        "failed": "Could not load or change the community repository setting",
+        "vpnNote": "The install turns on Alpine's community repository."
+      },
       "addons": {
         "title": "Add-ons",
         "packages": "Packages",

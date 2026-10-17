@@ -6,6 +6,7 @@ package dtls
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"slices"
 
 	"github.com/pion/dtls/v3/internal/ciphersuite/types"
@@ -73,11 +74,14 @@ func flight3Parse(
 					state.extendedMasterSecret = true
 				}
 			case *extension.ALPN:
-				if len(ext.ProtocolNameList) > 1 { // This should be exactly 1, the zero case is handle when unmarshalling
+				if len(ext.ProtocolNameList) != 1 {
 					return 0, &alert.Alert{
 						Level:       alert.Fatal,
 						Description: alert.InternalError,
 					}, extension.ErrALPNInvalidFormat // Meh, internal error?
+				}
+				if err := validateServerSelectedALPN(cache, cfg.initialEpoch, ext.ProtocolNameList[0]); err != nil {
+					return 0, &alert.Alert{Level: alert.Fatal, Description: alert.IllegalParameter}, err
 				}
 				state.NegotiatedProtocol = ext.ProtocolNameList[0]
 			case *extension.ConnectionID:
@@ -115,15 +119,27 @@ func flight3Parse(
 		state.remoteRandom = serverHelloMsg.Random
 		cfg.log.Tracef("[handshake] use cipher suite: %s", selectedCipherSuite.String())
 
-		if len(serverHelloMsg.SessionID) > 0 && bytes.Equal(state.SessionID, serverHelloMsg.SessionID) {
+		// Only the session offered in ClientHello can be resumed. A full
+		// handshake's ServerHello may be parsed again while its flight arrives.
+		if state.resumeSession != nil && bytes.Equal(state.resumeSession.ID, serverHelloMsg.SessionID) {
+			if state.resumeSession.CipherSuiteID != state.cipherSuite.ID() {
+				return 0, &alert.Alert{Level: alert.Fatal, Description: alert.IllegalParameter}, errInvalidCipherSuite
+			}
+			if state.resumeSession.ExtendedMasterSecret != state.extendedMasterSecret {
+				return 0, &alert.Alert{Level: alert.Fatal, Description: alert.HandshakeFailure}, errSessionEMSMismatch
+			}
+
 			return handleResumption(ctx, conn, state, cache, cfg)
 		}
 
-		if len(state.SessionID) > 0 {
+		if state.resumeSession != nil {
 			cfg.log.Tracef("[handshake] clean old session : %s", state.SessionID)
-			if err := cfg.sessionStore.Del(state.SessionID); err != nil {
+			if err := cfg.sessionStore.Del(conn.sessionKey()); err != nil {
 				return 0, &alert.Alert{Level: alert.Fatal, Description: alert.InternalError}, err
 			}
+			state.resumeSession = nil
+			state.PeerCertificates = nil
+			state.IdentityHint = nil
 		}
 
 		if cfg.sessionStore == nil {
@@ -215,6 +231,9 @@ func handleResumption(
 	if !bytes.Equal(expectedVerifyData, finished.VerifyData) {
 		return 0, &alert.Alert{Level: alert.Fatal, Description: alert.HandshakeFailure}, errVerifyDataMismatch
 	}
+	if err := verifyResumedConnection(state, cfg); err != nil {
+		return 0, &alert.Alert{Level: alert.Fatal, Description: alert.BadCertificate}, err
+	}
 
 	clientRandom := state.localRandom.MarshalFixed()
 	cfg.writeKeyLog(keyLogLabelTLS12, clientRandom[:], state.masterSecret)
@@ -244,6 +263,7 @@ func handleServerKeyExchange(
 			return &alert.Alert{Level: alert.Fatal, Description: alert.InternalError}, err
 		}
 		state.IdentityHint = keyExchangeMessage.IdentityHint
+		state.pskHash = sha256.Sum256(psk)
 		switch state.cipherSuite.KeyExchangeAlgorithm() {
 		case types.KeyExchangeAlgorithmPsk:
 			state.preMasterSecret = prf.PSKPreMasterSecret(psk)
@@ -281,18 +301,9 @@ func handleServerKeyExchange(
 }
 
 func validateServerSelectedCurve(cache *handshakeCache, epoch uint16, curve elliptic.Curve) error {
-	// Use the latest ClientHello's wire bytes, including hook changes and retries.
-	items := cache.pull(handshakeCachePullRule{handshake.TypeClientHello, epoch, true, false})
-	if items[0] == nil {
-		return errLengthMismatch
-	}
-	message := &handshake.Handshake{}
-	if err := message.Unmarshal(items[0].data); err != nil {
+	hello, err := cachedClientHello(cache, epoch)
+	if err != nil {
 		return err
-	}
-	hello, ok := message.Message.(*handshake.MessageClientHello)
-	if !ok {
-		return errLengthMismatch
 	}
 	for _, ext := range hello.Extensions {
 		if groups, ok := ext.(*extension.SupportedEllipticCurves); ok && !slices.Contains(groups.EllipticCurves, curve) {
@@ -300,7 +311,6 @@ func validateServerSelectedCurve(cache *handshakeCache, epoch uint16, curve elli
 		}
 	}
 
-	// Without supported_groups, the server may choose any supported curve.
 	return nil
 }
 
@@ -351,7 +361,7 @@ func flight3Generate(
 		})
 	}
 
-	if len(cfg.serverName) > 0 {
+	if shouldSendServerName(cfg.serverName) {
 		extensions = append(extensions, &extension.ServerName{ServerName: cfg.serverName})
 	}
 
@@ -393,4 +403,36 @@ func flight3Generate(
 			},
 		},
 	}, nil, nil
+}
+
+func cachedClientHello(cache *handshakeCache, epoch uint16) (*handshake.MessageClientHello, error) {
+	// Use the latest ClientHello's wire bytes, including hook changes and retries.
+	items := cache.pull(handshakeCachePullRule{handshake.TypeClientHello, epoch, true, false})
+	if items[0] == nil {
+		return nil, errLengthMismatch
+	}
+	message := &handshake.Handshake{}
+	if err := message.Unmarshal(items[0].data); err != nil {
+		return nil, err
+	}
+	hello, ok := message.Message.(*handshake.MessageClientHello)
+	if !ok {
+		return nil, errLengthMismatch
+	}
+
+	return hello, nil
+}
+
+func validateServerSelectedALPN(cache *handshakeCache, epoch uint16, selected string) error {
+	hello, err := cachedClientHello(cache, epoch)
+	if err != nil {
+		return err
+	}
+	for _, ext := range hello.Extensions {
+		if alpn, ok := ext.(*extension.ALPN); ok && slices.Contains(alpn.ProtocolNameList, selected) {
+			return nil
+		}
+	}
+
+	return extension.ErrALPNInvalidFormat
 }

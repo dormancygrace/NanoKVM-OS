@@ -7,6 +7,7 @@ import { http } from '@/lib/http';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { Panel } from '@/components/ui/settings.tsx';
 
+import { CommunityRepository } from './community';
 import { IndexSchedule } from './index-schedule';
 import styles from './mobile-tabs.module.css';
 
@@ -376,6 +377,7 @@ export const Software = () => {
     <div className="space-y-6">
       <p className="text-fg-muted mt-0 text-sm">{t('settings.software.description')}</p>
       <IndexSchedule />
+      <CommunityRepository disabled={working} onEnabled={() => void run('refresh')} />
       {indexWarning}
       <Button icon={<RefreshCwIcon size={16} />} disabled={working} onClick={() => run('refresh')}>
         {t('settings.software.refresh')}

@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -36,6 +37,24 @@ class PackageVersionTests(unittest.TestCase):
 
     def versions(self, chosen):
         return {n: p['version'] for n, p in chosen.items() if p['changed']}
+
+    def test_release_requires_every_selected_component_version_directly(self):
+        # The unchanged compatibility metapackage retains its old constraints;
+        # the release must require the tested versions even with it installed.
+        versions = {name: '3.3.0' for name in pv.PACKAGES}
+        for name in ('nanokvm', 'nanokvm-web', 'nanokvm-exfatprogs', 'nanokvm-i2c-tools'):
+            versions[name] = '3.4.0'
+        env = {**os.environ, 'PKGVER': '3.4.0',
+               **{'V_' + n.replace('-', '_'): v for n, v in versions.items()}}
+        result = subprocess.run(
+            ['sh', '-c', '. "$1"; printf "%s" "$depends"', 'sh',
+             str(ROOT / 'firmware/alpine/packages/nanokvm-release/APKBUILD')],
+            env=env, capture_output=True, text=True, check=True)
+        deps = result.stdout.split()
+        for name, version in versions.items():
+            if name != 'nanokvm-release':
+                with self.subTest(package=name):
+                    self.assertIn(f'{name}>={version}-r0', deps)
 
     def test_first_release_changes_everything(self):
         chosen = self.publish('3.3.0')

@@ -45,7 +45,9 @@ both with the `packages.json` of the previous release:
   the kernel requires its modules at exactly its own version.
 
 `nanokvm-app` and `nanokvm-release` depend on the versions chosen for the other
-packages (`V_nanokvm_web` and so on in the build environment). A device may
+packages (`V_nanokvm_web` and so on in the build environment). The release
+requires every selected component version directly, including the server and
+web UI, because a reused `nanokvm-app` retains its older dependencies. A device may
 therefore show `nanokvm-web` 3.3.0 next to `nanokvm-release` 3.5.0. The packages
 step reads the previous repository from `NANOKVM_PREVIOUS`, a URL or a
 directory with `packages.json`; without it every package gets the release

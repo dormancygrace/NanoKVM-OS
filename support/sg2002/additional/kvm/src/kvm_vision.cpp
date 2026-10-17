@@ -77,7 +77,7 @@
 #define vi_detection_idle_poll_ms 100U
 #define hdmi_mode_max_age_ms 1000U
 #define ion_summary_path "/sys/kernel/debug/ion/cvi_carveout_heap_dump/summary"
-/* 3840x2160 H.265 holds 102.7 MiB of ION on the stand, H.264 no more, the
+/* 3840x2160 H.265 holds 102.7 MiB of ION on a NanoKVM, H.264 no more, the
  * same after bitrate, fps and codec changes: the VI blocks, three NV21 VPSS
  * buffers, the reconstruction frames, an 8 MiB bitstream and codec tables.
  * MJPEG is not available at 2160p. The UHD video memory mode provides

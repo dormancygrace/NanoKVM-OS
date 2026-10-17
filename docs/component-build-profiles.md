@@ -1,8 +1,7 @@
 # Component build profiles for SG2002/C906
 
 NanoKVM-owned source builds use a component profile rather than one global
-optimization level. These defaults follow the C906 measurements made on
-2026-10-04.
+optimization level. These defaults follow measurements on the C906.
 
 | Component | Compiler and optimization | Vectorization / LTO |
 | --- | --- | --- |
@@ -35,8 +34,7 @@ handling.
 
 ## RustDesk build
 
-There is one build: the release profile is the qualified C906 build (the
-former `performance` profile, which 0.5.3-r2 was published with). Use the
+There is one build: the release profile is the C906 build. Use the
 existing packaging builder with its required --linker, --apk, --output and
 corresponding-source selection.
 
@@ -56,27 +54,12 @@ emit legacy RVV 0.7.1.
 
 ## Evidence and limits
 
-- The kernel comparison used 19 cases, three repetitions per batch, with
-  GCC -> Clang Full LTO -> GCC -> Clang no-LTO -> GCC, identical userspace
-  and 1 GHz. There were 285 timing rows. Relative to GCC -O3, Clang Full
-  LTO increased getpid latency by 26.3%, pipe768 by 28.6% and UDP loopback
-  by 4.0–6.5%; getrandom4KiB and tmpfs open/close improved by 14.8% and
-  27.7%. There is no universal kernel-speed winner. GCC versus Clang also
-  includes compiler-capability and tune differences.
-- Opus scalar -O2 float used 8.32% of one core on the measured tone; scalar
-  -O3 float used 8.51%, and vector float variants used 11.28–13.05%.
-  The vector -O3 fixed variant had an unresolved signal differential.
-- RustDesk XSalsa20-Poly1305 on 16KiB reached 18.55 MiB/s with the performance
-  profile versus 13.33 MiB/s for generic -O2. Scalar T-Head -O2 already
-  reached 18.43 MiB/s: most of the gain comes from T-Head targeting, and
-  fat LTO is not a universal improvement for session setup.
-- The remaining native/system per-component winners are not established;
-  -O2 scalar is the baseline, not a claim that every library was timed.
-- Hardware AES/SHA dispatch and small-packet fallback are runtime integration
-  work. This change does not enable a new engine/provider or alter TLS
-  algorithms based on compiler flags.
-
-Existing reference output checksums describe the earlier firmware artifacts.
-Regenerate and qualify the complete release output set before replacing those
-references. This PR changes source build recipes; it does not publish APKs,
-replace release images or deploy new userspace to the stand.
+- Kernel: neither GCC nor Clang, with or without LTO, is faster across the
+  board. Clang Full LTO slowed system calls and loopback networking and sped
+  up others, so the kernel stays on GCC -O3.
+- Opus: scalar float -O2 uses the least CPU; the vector variants used more.
+- RustDesk XSalsa20-Poly1305: most of the gain over generic -O2 comes from
+  T-Head targeting, not from LTO.
+- Other native components use scalar -O2 as the baseline; not every library
+  was timed.
+- Compiler flags do not select hardware AES/SHA or change TLS algorithms.

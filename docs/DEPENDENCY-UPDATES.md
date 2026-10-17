@@ -25,7 +25,7 @@ Intentional exceptions have separate monitoring:
 
 The last two are intentionally handled as manual update candidates, not silently treated as current. Dependabot does not generate updates for ignored module paths, including security updates; these exceptions therefore still need maintainer security review.
 
-The Go, frontend, script and additional-Go-module CI suites remain mandatory. RustDesk now has a host `cargo test --locked` job so Cargo dependency PRs are actually exercised. Existing device-only RustDesk tests stay explicitly ignored without a coordinated device; host CI does not claim hardware qualification.
+The Go, frontend, script and additional-Go-module CI suites remain mandatory. RustDesk now has a host `cargo test --locked` job so Cargo dependency PRs are actually exercised. Device-only RustDesk tests are marked ignored and do not run in CI.
 
 ## Independent upstream checks
 
@@ -52,7 +52,7 @@ The independent kernel job runs on main with the same daily schedule, even if an
 
 A version has a dedicated branch and at most one PR. Later runs leave open or closed PRs and maintainer edits alone; closing a proposal rejects that version. A newer version can create a new proposal. A retry after branch creation can finish opening the missing PR without rewriting the branch.
 
-These are source-update proposals: kernel patches, olddefconfig changes, drivers and device behavior still require review and a coordinated build/test. The Release build workflow comments on such a PR with the outputs it changes; they must be qualified before merging. No kernel build, signature verification, automatic merge or deployment is claimed.
+These are source-update proposals: kernel patches, olddefconfig changes, drivers and device behavior still require review, a build and a device test. The Release build workflow comments on such a PR with the outputs it changes; they must be qualified before merging. No kernel build, signature verification, automatic merge or deployment is claimed.
 
 The publisher jobs have contents/pull-requests write permissions; the report job remains read-only. Repository Actions settings must allow GitHub Actions to create pull requests; default token permissions remain read-only. It uses GITHUB_TOKEN without a personal token. GitHub can require a maintainer to select **Approve workflows to run** on these PRs before CI starts ([GitHub behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)).
 
@@ -80,7 +80,7 @@ Every proposal includes a small .github/upstream-candidates/<component>.json rec
 
 Each component/candidate has a deterministic branch. A rerun preserves open PRs and manual edits; closed proposals are not recreated. Changed candidates may create new PRs. Merged candidate records also suppress repeated notifications. Neither publisher rewrites existing proposal branches, enables auto-merge, installs software, nor changes qualified output hashes.
 
-QEMU, stock Alpine APK updates and the OneKVM reference remain report-only; they were outside the requested PR scope. Dependabot continues owning normal npm/Go/Cargo/Docker/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
+QEMU, stock Alpine APK updates and the OneKVM reference remain report-only. Dependabot continues owning normal npm/Go/Cargo/Docker/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
 
 Run python3 scripts/propose-upstream-updates.py for a read-only preview (including archive hashing). Add --publish to create PRs, and optionally --output /tmp/upstream-candidates.json to save the result summary. tests/test-upstream-update-prs.py checks policy coverage, pin preparation, notification deduplication and publication; it runs in CI.
 
@@ -112,10 +112,3 @@ Run `python3 tests/test-upstream-watch.py` for offline contracts, or `python3 sc
 Dependency availability does not prove compatibility. Native changes need matching hashes, preservation of local patches, rebuilds and relevant validation. Node major changes, Alpine branch migrations, firmware and module ABI changes remain explicit decisions. Actual package installation verifies APK signatures; the watcher only reads metadata over HTTPS.
 
 References: [Dependabot configuration](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference), [supported ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories), [default cooldown](https://github.blog/changelog/2026-07-14-dependabot-version-updates-introduce-default-package-cooldown/).
-
-### Audit on 2026-10-12
-
-- ESLint 10.12.0 is visible independently of the three-day PR cooldown (the previous October 5 run occurred before that waiting period elapsed).
-- U-Boot 2026.10 is reported from stable tags; the archive index still advertised 2026.07 during this audit.
-- The CORS wrapper was updated to `v0.0.0-20261008204034-5d834403882d` after isolated and integrated validation. The upstream diff changes the wrapper's dependency files, not its Go implementation.
-- Follow-up AES migration: the old module moved to `aes-everywhere-legacy`; its successor is the separate `aes-bridge-go` repository. Tests now use its `EncryptLegacy` API at `v0.0.0-20250728011030-7e095cdac2f2` (the latest Go-resolvable commit; Go source matches upstream v2.0.0). The old dependency was removed. Fixed OpenSSL vectors, form/JSON login coverage, malformed-ciphertext rejection and UTF-8/block-boundary compatibility are retained. Production decryption stays in the validated standard-library implementation; this change does not alter the wire format or switch clients to GCM.

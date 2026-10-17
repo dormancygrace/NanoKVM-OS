@@ -58,7 +58,6 @@ drift. It can also exercise the real cross-compiler with `--compiler PATH`.
 Component output directories contain `cpu-profile*.json` with the policy hash,
 compiler identity and flags used by the build script. These files describe only
 our compiled objects, not the flags originally used for vendor binary objects.
-The `BUILD-*.md` files next to this one describe how earlier releases were built. Their scripts have been replaced by `platform/build.sh`.
 
 The policy also covers the standalone EDID, board-probe and devmem tools. A
 builder records its compiler and supplied flags in `cpu-profile*.json`; conflicting

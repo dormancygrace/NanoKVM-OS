@@ -1,8 +1,8 @@
 # Current release naming
 
 Starting with **NanoKVM OS v2.5-a1**, application releases and full SD images
-are versioned independently. Both `a` releases are alpha, marked as GitHub
-prereleases until the maintainer explicitly promotes them.
+are versioned independently. Alpha (`a`) releases are marked as GitHub
+prereleases.
 
 | Artifact | First release with independent image version |
 |---|---|
@@ -21,12 +21,11 @@ version in About. A new full image gets an independently selected image version.
 Values live in `firmware/alpine/release.env`; the SD builder and build manifest
 use them directly. The legacy v1 naming helper remains for archived artifacts.
 
-## v3.1.0 release
+## Stable releases
 
-Applications use **v3.1.0** (APK version **3.1.0**) and the full image uses
-**Image v1.3**, as selected by the maintainer. The image name is
-`NanoKVM-OS-Image-v1.3-apps-v3.1.0.img.zip`. These versions have no alpha
-suffix. GitHub publication is a separate maintainer-approved step.
+Stable versions have no suffix: for example applications **v3.1.0** (APK
+version **3.1.0**) in **Image v1.3**, published as
+`NanoKVM-OS-Image-v1.3-apps-v3.1.0.img.zip`.
 
 ## Legacy naming (v1 releases)
 
@@ -47,10 +46,3 @@ Internal sequence numbers and build qualifiers do not appear in published filena
 Beta-10 is the final compatibility exception: it retains the old image name so beta-9
 discovers it. The legacy `.nkos` updater has since been removed; NanoKVM OS v2 updates
 through native APK packages.
-
-## Beta-11 publication
-
-By explicit release instruction, beta-11 uses GitHub tag `v1.0.0-beta.11` and the
-Latest release designation. Version/sequence remain `1.0.0-beta.11` / 27.
-Only `NanoKVM-OS-v1.0.0-beta-11.img.zip` and `SHA256SUMS` are published;
-there is no beta-11 `.nkos` asset.

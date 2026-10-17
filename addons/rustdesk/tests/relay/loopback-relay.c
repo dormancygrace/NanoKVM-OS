@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Finite loopback-only relay fixture for one coordinated encrypted interop test.
+// Finite loopback-only relay fixture for one encrypted interop test.
 #define _GNU_SOURCE
 #include <sys/socket.h>
 #include <sys/select.h>

@@ -39,9 +39,8 @@ read-write and stores a fresh archive of the old `/etc/kvm`; after extraction it
 restores those settings with their ownership and modes onto F2FS. p3 is then
 mounted read-write at `/data` with `nosuid`, `nodev` and `noexec`. It has no
 rollback or A/B state.
-The complete path, including the following normal reboot, passed on the physical
-device; exact hashes and logs are under
-`firmware/alpine/evidence/2026-09-19-recovery`.
+The complete path, including the following normal reboot, has been tested on
+a device.
 
 
 Build all update payloads from a prepared Alpine root in one command:

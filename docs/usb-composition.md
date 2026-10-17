@@ -207,14 +207,14 @@ another getty on NanoKVM's `/dev/ttyGS0`, for example the rule above's
 equivalent in `/etc/udev/rules.d/`:
 
 ```udev
-ACTION=="add", SUBSYSTEM=="tty", KERNEL=="ttyACM[0-9]*", ATTRS{idVendor}=="3346", ATTRS{idProduct}=="1009", ATTRS{serial}=="d19506b31359c372", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="systemd", ENV{SYSTEMD_WANTS}+="serial-getty@%k.service"
+ACTION=="add", SUBSYSTEM=="tty", KERNEL=="ttyACM[0-9]*", ATTRS{idVendor}=="3346", ATTRS{idProduct}=="1009", ATTRS{serial}=="YOUR-SERIAL", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="systemd", ENV{SYSTEMD_WANTS}+="serial-getty@%k.service"
 ```
 
 Use the unit's actual identifiers, reload udev rules, then reconnect the USB
 device during a maintenance window. Do not assume numbering stays `ttyACM0`
 when other serial devices exist. The USB serial number comes from the chip UID;
 `0123456789ABCDEF` is only the normal profile's fallback when no usable UID is
-available. The audited unit reports `d19506b31359c372` on both sides of USB.
+available.
 
 Select `/dev/ttyGS0` in NanoKVM's terminal and press Enter. The line settings
 there are nominal: the terminal opens the gadget port at 9600 8N1 without flow
@@ -225,14 +225,12 @@ NanoKVM and reads the answer for up to five seconds: a login prompt, a
 password prompt, an open shell (its prompt ends the text), other text, or
 nothing. It refuses while the web terminal holds the port.
 
-## Verification boundary
+## Limits
 
-The 2026-09-05 runtime audit verified 65,536 bytes in each direction (including
-all byte values), reopening the Windows COM port, and the full terminal
-WebSocket / serial bridge / CDC ACM path (then through picocom). The managed host was Windows; Linux's CDC
-driver, getty authentication, unplug/replug rules and boot behavior remain
-explicit follow-up checks on a real Linux host. Virtual ACM is a USB byte
-stream: its baud setting is not a measurement of physical UART throughput.
+Virtual ACM is a USB byte stream: its baud setting is not a measurement of
+physical UART throughput. The serial path has mostly been tested with a
+Windows host; Linux hosts (getty authentication, replug rules, boot behaviour)
+have had less testing.
 
 See the [Linux gadget serial documentation](https://docs.kernel.org/usb/gadget_serial.html)
 for the host/device distinction and the
@@ -251,16 +249,9 @@ updating HID attributes. Function objects themselves are reused.
 
 An already-unbound controller must not be unbound again: the vendor kernel
 returns ENODEV. Both profiles now check UDC state before unbinding, including
-when `start` follows `stop`. The new transaction exposed this on hardware and
-successfully restored the previous composition before the script fix.
+when `start` follows `stop`.
 
-The composition-editor runtime tests on 2026-09-05 covered all five presets,
-keyboard + network + disk + serial, absolute-pointer + network, and restoration
-to the standard composition. Every enumerated Windows device reported Code 0.
-Console, headless and keyboard/network/disk/serial each passed 65,536 bytes in
-both ACM directions and COM-port reopening; simultaneous USB-network pings had
-no loss. No reboot or Windows driver installation was needed. Cold-boot and a
-physical Linux-host login remain outside this test. Unit tests cover file
+Unit tests cover file
 rollback (including a second rollback failure), explicit false/missing fields,
 all 128 manual selections and both budget directions; browser tests cover draft
 editing, cancellation, conflict and error recovery.

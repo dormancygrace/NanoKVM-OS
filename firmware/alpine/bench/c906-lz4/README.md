@@ -37,8 +37,8 @@ python3 firmware/alpine/bench/c906-lz4/build.py --kernel KERNEL_SOURCE \
   --cross CROSS_COMPILER_PREFIX --cflags 'EXACT_PRODUCTION_KCFLAGS'
 ```
 
-Use a coordinated hardware window, load the existing LZ4 modules as necessary,
-and load the new probe. The misc device is root-only, `/dev/c906-lz4` (0600).
+On a test device, load the existing LZ4 modules as necessary, and load the new
+probe. The misc device is root-only, `/dev/c906-lz4` (0600).
 Requests operate solely on generated data within private allocated buffers;
 there is no production compression hook. The ioctl validates sizes, offsets,
 variant, operation and iteration count. Buffers are released when the client

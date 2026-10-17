@@ -12,7 +12,7 @@ import (
 
 // SHA-256 on the SG2002 crypto engine, through the sg2002-aes module's
 // SG2002_CRYPTO_RUN ioctl: whole 64-byte blocks, at most shaChunk bytes per
-// request, the big-endian chaining state in and out. On the stand (MB/s,
+// request, the big-endian chaining state in and out. On a NanoKVM (MB/s,
 // crypto/sha256 with the C906 block against the engine): 4 KiB 23 against
 // 110, 1 MiB 22 against 149, at a tenth of the CPU time. Below 1 KiB the
 // request costs more than it saves.

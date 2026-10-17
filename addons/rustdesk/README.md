@@ -270,8 +270,8 @@ modified-tag handling, input/output guards and size/alignment boundaries.
 `bench` compares the allocation API, detached scalar API and current adapter.
 `frame-bench` compares the original protobuf/allocating encrypted writer with
 the actual current writer, using an observable sink. It records process CPU
-time, wall time and heap allocations. Run measurements in a coordinated slot;
-raw results and device access belong outside the public repository. These
+time, wall time and heap allocations. Run measurements on an otherwise idle
+device. These
 measurements do not include the encoder, network or client video decoder.
 
 On the qualified C906 build (then the `performance` profile), the actual writer benchmark measured

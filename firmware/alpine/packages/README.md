@@ -144,7 +144,9 @@ shipped with v2.0-b4 and is not an input to new builds.
 
 `firmware/alpine/addons.json` pins already-signed optional APKs from their
 separate releases by URL, SHA-256 and size. The package step downloads them
-before generating both indexes; APK verifies their release signatures.
+after generating the core v2 index and before generating the v3 index; APK
+verifies their release signatures. Native APK v3 add-ons cannot be represented
+in the legacy v2 index.
 They are not dependencies of `nanokvm-release` and are not installed in images.
 
 CI attaches `addons.json`, not the add-on APK, to the OS release. Pages checks

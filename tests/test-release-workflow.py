@@ -56,6 +56,15 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('p["changed"] and print(p["apk"])', action)
         self.assertIn('"$repo/packages.json" "$a/"', action)
 
+    def test_v3_addons_are_fetched_after_the_legacy_index_is_built(self):
+        build = (ROOT / 'platform/build.sh').read_text()
+        start = build.index('packages() (')
+        stop = build.index('rootfs() {', start)
+        packages = build[start:stop]
+        self.assertLess(packages.index('/bin/sh /build/src/scripts/build-alpine-packages.sh stock'),
+                        packages.index('scripts/addon_packages.py'))
+        self.assertLess(packages.index('scripts/addon_packages.py'), packages.index('/sbin/apk --sign-key'))
+
     def test_only_version_tags_and_the_button_release(self):
         self.assertRegex(RELEASE, r"push:\n    tags: \['v\*'\]\n")
         self.assertNotRegex(RELEASE, r'push:\n    branches')

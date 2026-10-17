@@ -74,7 +74,8 @@ allowing them to obtain the update and keys through their existing repository.
 No manual key download or repository edit is required for the official URL.
 Custom repositories and C906 overlay entries are left unchanged.
 
-Both indexes include the thirteen core packages and the optional RustDesk APK.
+The legacy index includes the thirteen core packages. The v3 index also
+includes RustDesk, whose APK v3 format cannot appear in a legacy index.
 RustDesk remains a separate add-on; install it from Software after updating
 the system. It is not installed in the full SD image.
 

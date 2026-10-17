@@ -157,6 +157,10 @@ def assemble(output, published, keep, branch, keys, fetch=fetch):
     for release in reversed(published[:keep]):
         index = checked(release, 'APKINDEX.tar.gz', sums[release['tag_name']], fetch)
         wanted.update(index_packages(index))
+        # Native APK v3 add-ons occur only in Packages.adb, not the v2 index.
+        if 'addons.json' in {a['name'] for a in release['assets']}:
+            data = checked(release, 'addons.json', sums[release['tag_name']], fetch)
+            wanted.update({name: item['size'] for name, item in addon_packages.manifest(data).items()})
     for name, size in sorted(wanted.items()):
         source = next((r for r in published if name in {a['name'] for a in r['assets']}), None)
         if source is not None:

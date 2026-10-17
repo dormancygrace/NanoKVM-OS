@@ -119,8 +119,7 @@ class AssembleTests(unittest.TestCase):
         self.fake.files[url] = data
         self.fake.release('v4', '2026-04-01T00:00:00Z', [('nanokvm', '4-r0')], extra={
             'addons.json': json.dumps({'packages': {name: item}}).encode(),
-            'APKINDEX.tar.gz': apkindex([('nanokvm', '4-r0', len('nanokvm 4-r0')),
-                                       ('nanokvm-rustdesk', '0.5.3-r5', len(data))])})
+            'APKINDEX.tar.gz': apkindex([('nanokvm', '4-r0', len('nanokvm 4-r0'))])})
         return name, item, data
 
     def test_optional_addon_from_separate_release_is_available(self):
@@ -129,6 +128,7 @@ class AssembleTests(unittest.TestCase):
         self.assertEqual((self.repo() / name).read_bytes(), data)
         self.assertEqual((self.repo() / 'Packages.adb').read_bytes(), b'adb v4')
         self.assertNotIn(name, [a['name'] for a in self.fake.list[-1]['assets']])
+        self.assertNotIn(name, a.index_packages((self.repo() / 'APKINDEX.tar.gz').read_bytes()))
 
     def test_optional_addon_corruption_is_rejected(self):
         _, item, _ = self.external_addon()

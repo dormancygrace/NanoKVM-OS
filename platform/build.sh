@@ -1047,10 +1047,6 @@ packages() (
     # Reused packages carry the release signature, also with -d.
     for pub in "$repo"/firmware/alpine/keys/*.pub; do install -m 0644 "$pub" "$b/etc/apk/keys/"; done
     package_versions
-    # Optional add-ons enter the indexes, never the installed image package set.
-    # The APK stays in its separate release; addons.json tells Pages where to fetch it.
-    python3 "$repo/scripts/addon_packages.py" --manifest "$repo/firmware/alpine/addons.json" \
-        --output "$b/build/repo/stock/recipes/riscv64"
     printf 'PACKAGER="NanoKVM OS"\nPACKAGER_PRIVKEY="/root/.abuild/%s.rsa"\n' "$keyname" > "$b/root/.abuild/abuild.conf"
     # -F: abuild runs as root of the namespace. -d: the packages compile
     # nothing, so their dependencies are not installed in the builder.
@@ -1058,6 +1054,11 @@ packages() (
         SOURCE_DATE_EPOCH="$(git -C "$repo" log -1 --format=%ct)" PAYLOAD_ROOT=/build/payloads \
         REPODEST=/build/repo SRCDEST=/build/distfiles ABUILD_FLAGS='-F -d' PKGVERSIONS=/build/versions/versions.txt \
         /bin/sh /build/src/scripts/build-alpine-packages.sh stock
+    # APK v3 add-ons cannot be indexed by abuild's legacy apk index applet.
+    # Fetch only after the core v2 index is complete; mkndx below includes them.
+    # They remain optional and are never installed into the SD image.
+    python3 "$repo/scripts/addon_packages.py" --manifest "$repo/firmware/alpine/addons.json" \
+        --output "$b/build/repo/stock/recipes/riscv64"
     # The apk v3 index next to APKINDEX.tar.gz, signed with the EC key and,
     # while 2.0 devices that trust only the RSA key may read it, the RSA key.
     # mkndx checks the packages with the builder's /etc/apk/keys.

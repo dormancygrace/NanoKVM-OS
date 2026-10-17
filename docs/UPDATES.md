@@ -57,11 +57,12 @@ reboot
 
 ## Signed indexes and automatic key migration
 
-`nanokvm-keys` installs and owns the public release keys. Its installation moves
-the official NanoKVM repository from the legacy URL to:
+`nanokvm-keys` installs and owns the public release keys. Installing or
+upgrading it moves the official NanoKVM repository from the earlier URLs on
+`nkos.pesin.pro` to GitHub Pages:
 
 ```text
-https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb
+https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb
 ```
 
 The v3 index is signed with both RSA and ECDSA P-256 during the transition.

@@ -8,13 +8,13 @@ import (
 	"testing"
 )
 
-const edgeRepositories = `https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb
+const edgeRepositories = `https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb
 https://dl-cdn.alpinelinux.org/alpine/v3.24/main
 https://dl-cdn.alpinelinux.org/alpine/v3.24/community
 @edgecommunity https://dl-cdn.alpinelinux.org/alpine/edge/community
 `
 
-const edgeWithoutLine = `https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb
+const edgeWithoutLine = `https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb
 https://dl-cdn.alpinelinux.org/alpine/v3.24/main
 https://dl-cdn.alpinelinux.org/alpine/v3.24/community
 `

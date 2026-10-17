@@ -1252,8 +1252,8 @@
         "fromNetwork": "Přes síť, v shellu na počítači, jako root:",
         "description": "Skript na tomto NanoKVM nastaví na připojeném počítači přihlašování přes USB sériový port. Nejprve zkontroluje systém a odmítne provést změny, pokud je nelze provést bezpečně. Uchovává zálohy a umožňuje vrátit provedené změny.",
         "diskAttached": "Pomocný disk „NanoKVM Setup Disk“ je připojený k počítači jako jednotka pouze pro čtení. Bez sítě:",
-        "diskPending": "Pomocný disk se na počítači objeví jakmile se USB zařízení znovu připojí.",
-        "diskStale": "Pomocný disk byl zaktualizován – počítač nový uvidí jakmile se USB zařízení znovu připojí.",
+        "diskPending": "Pomocný disk se na počítači objeví, jakmile se USB zařízení znovu připojí.",
+        "diskStale": "Pomocný disk byl zaktualizován – počítač nový uvidí, jakmile se USB zařízení znovu připojí.",
         "diskNeedsDisk": "Pro získání pomocného disku povolte také virtuální disk: jednotka pouze pro čtení obsahující skript – pro počítač bez sítě."
       },
       "pointerProfile": "Profil absolutně polohovaného ukazatele",

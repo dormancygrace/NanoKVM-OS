@@ -1132,7 +1132,36 @@
         "missing": "Obraz uživatelského disku je pryč. Vytvořte ho znovu.",
         "ejectFirst": "Nejprve na počítači dejte pokyn pro vysunutí jednotky, aby nezůstalo nic napůl zapsané; poté se USB zařízení znovu připojí.",
         "deleteConfirm": "Obraz a vše v něm je odebráno z SD karty.",
-        "recreate": "Načisto zformátovat"
+        "recreate": "Načisto zformátovat",
+        "files": {
+          "host": "Pokud chcete spravovat soubory na uživatelském disku, vysuňte na počítači jednotku, která ho představuje a poté uživatelský disk vypněte.",
+          "hint": "Aby byly soubory na uživatelském disku k dispozici na počítači, disk zapněte. Existující soubory nejsou nikdy přepsány.",
+          "refresh": "Znovu načíst",
+          "browse": "Procházet soubory",
+          "upload": "Nahrát soubory",
+          "transferring": "Přenášení a ukládání… Vyčkejte na dokončení, než budete disk připojovat.",
+          "cancel": "Zrušit",
+          "space": "{{free}} volné z {{total}}",
+          "folderName": "Název nové složky",
+          "mkdir": "Vytvořit složku",
+          "download": "Stáhnout",
+          "delete": "Smazat",
+          "empty": "Tato složka je prázdná.",
+          "deleteTitle": "Smazat tuto položku?",
+          "deleteConfirm": "Smazat {{name}}? Mazat lze pouze prázdné složky.",
+          "errors": {
+            "host": "Disk je v tuto chvíli vlastněn počítačem. Vysuňte a vypněte ho výše.",
+            "busy": "Disk je vytížený operací. Vyčkejte na dokončení stávající operace a zkuste znovu.",
+            "path": "Neplaný název souboru nebo složky.",
+            "exists": "Takto nazvaný soubor nebo složka už zde existuje.",
+            "missing": "Disk, soubor nebo složka už neexistuje. Načtete znovu nebo přejděte o úroveň výše.",
+            "space": "Nedostatek volného místa nebo soubor překračuje limit velikosti pro FAT32 (4 GiB mínus 1 bajt).",
+            "notEmpty": "Složka není prázdná.",
+            "io": "Operace se nezdařila. Zkontrolujte disk a systémové záznamy událostí, poté načtěte znovu."
+          },
+          "previous": "Předchozí stránka",
+          "next": "Následující stránka"
+        }
       },
       "pointerProfileDefault": "Výchozí",
       "presets": {
@@ -1216,10 +1245,16 @@
           "unavailable": "USB sériový port není na tomto NanoKVM zapnutý.",
           "text": "Počítač něco poslal, ale nejedná se o výzvu k přihlášení.",
           "shell": "Na sériovém portu je otevřena relace shellu.",
-          "login": "Výzva k přihlášení odpovídá na sériovém portu."
+          "login": "Výzva k přihlášení odpovídá na sériovém portu.",
+          "silent": "Žádná odpověď v rámci 5 sekund: počítač zatím ještě0 nemá přihlašování na sériovém portu, nebo USB sériový port není připojen."
         },
         "fromUsbNetwork": "Přes USB síť, když počítač nemá žádnou jinou síť:",
-        "fromNetwork": "Přes síť, v shellu na počítači, jako root:"
+        "fromNetwork": "Přes síť, v shellu na počítači, jako root:",
+        "description": "Skript na tomto NanoKVM nastaví přihlášení na USB sériovém portu na připojeném počítači. Nejprve načte systém a pokud to nemůže udělat bezpečně, ponechá zálohy a může vzít zpět své změny.",
+        "diskAttached": "Pomocný disk „NanoKVM Setup Disk“ je připojený k počítači jako jednotka pouze pro čtení. Bez sítě:",
+        "diskPending": "Pomocný disk se na počítači objeví jakmile se USB zařízení znovu připojí.",
+        "diskStale": "Pomocný disk byl zaktualizován – počítač nový uvidí jakmile se USB zařízení znovu připojí.",
+        "diskNeedsDisk": "Pro získání pomocného disku povolte také virtuální disk: jednotka pouze pro čtení obsahující skript – pro počítač bez sítě."
       },
       "pointerProfile": "Profil absolutně polohovaného ukazatele",
       "reconnectNotice": "Uplatnění krátce odpojí a opět připojí USB zařízení.",

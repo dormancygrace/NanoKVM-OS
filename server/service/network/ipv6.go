@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,39 +32,86 @@ type ipv6Address struct {
 	MTU       int    `json:"mtu"`
 }
 
-type ipv6Status struct {
-	Enabled   bool          `json:"enabled"`
-	Active    bool          `json:"active"`
-	Supported bool          `json:"supported"`
-	Addresses []ipv6Address `json:"addresses"`
+// Ethernet and Wi-Fi have their own IPv6 setting; other interfaces (USB
+// network, VPNs) have IPv6 when either of them has (scripts/S02ipv6).
+var ipv6Interfaces = []string{"eth0", "wlan0"}
+
+type ipv6Interface struct {
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
+	Active  bool   `json:"active"`
+	Present bool   `json:"present"`
 }
 
-func readIPv6Preference() (bool, error) {
+type ipv6Status struct {
+	// Enabled says whether any interface has IPv6, for pages from before
+	// the per-interface setting.
+	Enabled    bool            `json:"enabled"`
+	Active     bool            `json:"active"`
+	Supported  bool            `json:"supported"`
+	Addresses  []ipv6Address   `json:"addresses"`
+	Interfaces []ipv6Interface `json:"interfaces"`
+}
+
+// ipv6Policy is the IPv6 setting of each managed interface; a missing one is off.
+type ipv6Policy map[string]bool
+
+// parseIPv6Policy reads "eth0=1 wlan0=0"; an older "1" or "0" sets both.
+func parseIPv6Policy(text string) (ipv6Policy, error) {
+	policy := ipv6Policy{}
+	for _, field := range strings.Fields(text) {
+		if field == "0" || field == "1" {
+			for _, name := range ipv6Interfaces {
+				policy[name] = field == "1"
+			}
+			continue
+		}
+		name, value, ok := strings.Cut(field, "=")
+		if !ok || !slices.Contains(ipv6Interfaces, name) || (value != "0" && value != "1") {
+			return nil, fmt.Errorf("invalid IPv6 configuration")
+		}
+		policy[name] = value == "1"
+	}
+	return policy, nil
+}
+
+func (p ipv6Policy) any() bool {
+	for _, name := range ipv6Interfaces {
+		if p[name] {
+			return true
+		}
+	}
+	return false
+}
+
+func (p ipv6Policy) words() []string {
+	words := make([]string, 0, len(ipv6Interfaces))
+	for _, name := range ipv6Interfaces {
+		value := "0"
+		if p[name] {
+			value = "1"
+		}
+		words = append(words, name+"="+value)
+	}
+	return words
+}
+
+func readIPv6Policy() (ipv6Policy, error) {
 	data, err := os.ReadFile(ipv6ConfigFile)
 	if os.IsNotExist(err) {
-		return false, nil
+		return ipv6Policy{}, nil
 	}
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	switch strings.TrimSpace(string(data)) {
-	case "0":
-		return false, nil
-	case "1":
-		return true, nil
-	default:
-		return false, fmt.Errorf("invalid IPv6 configuration")
-	}
+	return parseIPv6Policy(string(data))
 }
 
-func applyIPv6(enabled bool) error {
-	value := "0"
-	if enabled {
-		value = "1"
-	}
+func applyIPv6(policy ipv6Policy) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-s", "--", "apply", value)
+	args := append([]string{"-s", "--", "apply"}, policy.words()...)
+	cmd := exec.CommandContext(ctx, "/bin/sh", args...)
 	cmd.Stdin = strings.NewReader(ipv6BootScript)
 	cmd.Env = append(os.Environ(), "NANOKVM_IPV6_SYSCTL="+ipv6SysctlRoot)
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -72,7 +120,7 @@ func applyIPv6(enabled bool) error {
 	return nil
 }
 
-func writeIPv6Preference(enabled bool) error {
+func writeIPv6Policy(policy ipv6Policy) error {
 	dir := filepath.Dir(ipv6ConfigFile)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -83,11 +131,7 @@ func writeIPv6Preference(enabled bool) error {
 	}
 	defer os.Remove(f.Name())
 	defer f.Close()
-	value := "0\n"
-	if enabled {
-		value = "1\n"
-	}
-	if _, err = f.WriteString(value); err != nil {
+	if _, err = f.WriteString(strings.Join(policy.words(), "\n") + "\n"); err != nil {
 		return err
 	}
 	if err = f.Sync(); err != nil {
@@ -103,7 +147,7 @@ func writeIPv6Preference(enabled bool) error {
 func InitializeIPv6() error {
 	ipv6Mutation.Lock()
 	defer ipv6Mutation.Unlock()
-	enabled, err := readIPv6Preference()
+	policy, err := readIPv6Policy()
 	if err != nil {
 		return err
 	}
@@ -117,16 +161,25 @@ func InitializeIPv6() error {
 			return err
 		}
 	}
-	return applyIPv6(enabled)
+	return applyIPv6(policy)
 }
 
 func getIPv6Status() (ipv6Status, error) {
-	status := ipv6Status{Addresses: []ipv6Address{}}
-	enabled, err := readIPv6Preference()
+	status := ipv6Status{Addresses: []ipv6Address{}, Interfaces: []ipv6Interface{}}
+	policy, err := readIPv6Policy()
 	if err != nil {
 		return status, err
 	}
-	status.Enabled = enabled
+	status.Enabled = policy.any()
+	for _, name := range ipv6Interfaces {
+		state, err := os.ReadFile(filepath.Join(ipv6SysctlRoot, name, "disable_ipv6"))
+		status.Interfaces = append(status.Interfaces, ipv6Interface{
+			Name:    name,
+			Enabled: policy[name],
+			Active:  err == nil && strings.TrimSpace(string(state)) == "0",
+			Present: err == nil,
+		})
+	}
 	state, err := os.ReadFile(filepath.Join(ipv6SysctlRoot, "default/disable_ipv6"))
 	if os.IsNotExist(err) {
 		return status, nil
@@ -182,21 +235,35 @@ func (s *Service) GetIPv6(c *gin.Context) {
 func (s *Service) SetIPv6(c *gin.Context) {
 	var req struct {
 		Enabled *bool `json:"enabled" validate:"required"`
+		// One managed interface; none sets them all, as pages from before
+		// the per-interface setting do.
+		Interface string `json:"interface"`
 	}
 	var rsp proto.Response
 	if err := proto.ParseFormRequest(c, &req); err != nil {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
+	if req.Interface != "" && !slices.Contains(ipv6Interfaces, req.Interface) {
+		rsp.ErrRsp(c, -1, "invalid arguments")
+		return
+	}
 	ipv6Mutation.Lock()
 	defer ipv6Mutation.Unlock()
-	previous, err := readIPv6Preference()
+	previous, err := readIPv6Policy()
 	if err != nil {
 		rsp.ErrRsp(c, -1, "failed to read IPv6 configuration")
 		return
 	}
-	if err = applyIPv6(*req.Enabled); err == nil {
-		err = writeIPv6Preference(*req.Enabled)
+	next := ipv6Policy{}
+	for _, name := range ipv6Interfaces {
+		next[name] = previous[name]
+		if req.Interface == "" || req.Interface == name {
+			next[name] = *req.Enabled
+		}
+	}
+	if err = applyIPv6(next); err == nil {
+		err = writeIPv6Policy(next)
 	}
 	if err != nil {
 		rollbackErr := applyIPv6(previous)

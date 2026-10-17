@@ -3,12 +3,17 @@ import { Alert, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import { getIPv6, setIPv6 } from '@/api/network.ts';
-import type { IPv6Status } from '@/api/network.ts';
+import type { IPv6Interface, IPv6Status } from '@/api/network.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
-import { Panel, SettingRow } from '@/components/ui/settings.tsx';
+import { Panel, SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
-export const IPv6 = () => {
+/*
+ * IPv6 of one interface (Ethernet or Wi-Fi) and its addresses. Other
+ * interfaces, such as the USB network and VPNs, have IPv6 when either of
+ * the two has it.
+ */
+export const IPv6 = ({ name }: { name: IPv6Interface['name'] }) => {
   const { t } = useTranslation();
   const [status, setStatus] = useState<IPv6Status | null>(null);
   const [saving, setSaving] = useState(false);
@@ -36,7 +41,7 @@ export const IPv6 = () => {
     if (saving) return;
     setSaving(true);
     try {
-      const rsp = await setIPv6(enabled);
+      const rsp = await setIPv6(enabled, name);
       if (rsp.code !== 0) {
         showRequestError(rsp, 'settings.network.ipv6.saveFailed');
         return;
@@ -49,37 +54,36 @@ export const IPv6 = () => {
     }
   }
 
+  const iface = status?.interfaces?.find((item) => item.name === name);
+  const enabled = iface?.enabled ?? false;
+  const addresses = status?.addresses.filter((address) => address.interface === name) ?? [];
+  const id = `ipv6-${name}`;
   return (
-    <div className="space-y-3">
+    <SettingsSection title="IPv6">
       {error && <Alert type="error" showIcon message={error} />}
-      <SettingRow
-        label="IPv6"
-        description={t('settings.network.ipv6.description')}
-        htmlFor="network-ipv6"
-      >
+      <SettingRow label="IPv6" description={t('settings.network.ipv6.description')} htmlFor={id}>
         <Switch
-          id="network-ipv6"
+          id={id}
           aria-label={t('settings.network.ipv6.enable')}
-          aria-describedby="network-ipv6-description"
-          checked={status?.enabled ?? false}
+          aria-describedby={`${id}-description`}
+          checked={enabled}
           loading={saving}
-          disabled={!status?.supported || saving}
-          onChange={(enabled) => void change(enabled)}
+          disabled={!status?.supported || !iface || saving}
+          onChange={(next) => void change(next)}
         />
       </SettingRow>
       {status && !status.supported && (
         <div className="text-fg-muted text-xs">{t('settings.network.ipv6.unsupported')}</div>
       )}
-      {status?.enabled && (
+      {enabled && (
         <Panel className="space-y-3">
-          {status.addresses.length === 0 ? (
+          {addresses.length === 0 ? (
             <div className="text-fg-muted text-sm">{t('settings.network.ipv6.waiting')}</div>
           ) : (
-            status.addresses.map((address) => (
-              <div key={`${address.interface}/${address.address}`} className="space-y-1">
+            addresses.map((address) => (
+              <div key={address.address} className="space-y-1">
                 <div className="text-fg-muted flex items-center gap-2 text-xs">
-                  <span>{address.interface}</span>
-                  <span>· {t(`settings.network.ipv6.${address.scope}`)}</span>
+                  <span>{t(`settings.network.ipv6.${address.scope}`)}</span>
                   {address.mtu > 0 && <span>· MTU {address.mtu}</span>}
                 </div>
                 <div className="text-fg font-mono text-sm break-all select-text">
@@ -91,6 +95,6 @@ export const IPv6 = () => {
           <div className="text-fg-muted text-xs">{t('settings.network.ipv6.disconnectHint')}</div>
         </Panel>
       )}
-    </div>
+    </SettingsSection>
   );
 };

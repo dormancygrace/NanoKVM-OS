@@ -21,7 +21,7 @@
 #   server     NanoKVM-Server and update/USB internet helpers
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
-#   verify     compare the outputs with expected.sha256
+#   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
 #   payloads   contents of the twelve NanoKVM packages, from packages.list
 #   packages   signed APK repository of the twelve packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
@@ -30,8 +30,9 @@
 #   source     write the corresponding-source archive of the outputs
 #   clean      delete OUTPUT/apk-builder and OUTPUT/rootfs, whose files belong
 #              to subordinate IDs (see packages)
+#   toolchain-id  print the identity of the toolchain inputs (a cache key)
 #
-# Checked outputs are in OUTPUT/images (default: build/platform/images), the
+# Outputs are in OUTPUT/images (default: build/platform/images), the
 # APK repository and the SD card image in OUTPUT/release. The packages step
 # signs the packages and APKINDEX.tar.gz (RSA256) with -k KEY, an abuild .rsa
 # private key with its .rsa.pub next to it, and the apk v3 index Packages.adb
@@ -64,7 +65,7 @@ shift $((OPTIND - 1))
 out=$(realpath -m "$out")
 steps=("$@")
 [ "${#steps[@]}" -gt 0 ] || steps=(fetch toolchain kernel modules uboot opensbi fip initramfs boot
-    native system tools server web firmware verify payloads packages rootfs image)
+    native system tools server web firmware hashes payloads packages rootfs image)
 # Fail before a long build, not at the signing steps.
 case " ${steps[*]} " in
     *" packages "* | *" rootfs "*)
@@ -189,12 +190,14 @@ unpack_git() (
 # Apply <dir>/*.patch in name order, then record the prepared tree in a
 # separate <tree>.git, so a change can be saved as the next patch (README).
 # The repository stays outside the tree to keep version strings unchanged.
+# NANOKVM_PATCH_GIT=0 skips the record (CI: 0.8 GB less for the kernel and U-Boot).
 apply_patches() {
     local tree=$1 patch
     for patch in "$2"/*.patch; do
         GIT_CEILING_DIRECTORIES=$(dirname "$tree") git -C "$tree" apply --whitespace=nowarn "$patch"
     done
     rm -rf "$tree.git"
+    [ "${NANOKVM_PATCH_GIT:-1}" != 0 ] || return 0
     git --git-dir="$tree.git" --work-tree="$tree" init -q
     git --git-dir="$tree.git" --work-tree="$tree" -c core.autocrlf=false add -A -f
     git --git-dir="$tree.git" --work-tree="$tree" -c gc.auto=0 -c user.name=platform -c user.email=platform@localhost \
@@ -624,10 +627,13 @@ tools() {
     i2c=$(lock i2c-tools | awk '{ print $2 }'); i2c=${i2c##*/}
     tar -xJf "$dl/$exf" -C "$t"
     exf=$t/${exf%.tar.xz} i2c=$t/${i2c%.tar.gz}
+    # Link the SONAME directly: libtool's libblkid.la injects an absolute
+    # sysroot RPATH. Removing its tag later leaves the path in .dynstr and
+    # makes mkfs.exfat differ between hosts even after stripping.
     (cd "$exf" &&
         ./configure --host=riscv64-buildroot-linux-musl --prefix=/usr CC="${cross}gcc" AR="${cross}ar" \
             RANLIB="${cross}ranlib" STRIP="${cross}strip" PKG_CONFIG="$host/pkg-config" \
-            CFLAGS="${cpu_flags[*]} -g0" > "$t/exfatprogs-configure.log" &&
+            BLKID_LIBS="-l:libblkid.so.1" CFLAGS="${cpu_flags[*]} -g0" > "$t/exfatprogs-configure.log" &&
         make -j"$jobs" > "$t/exfatprogs-make.log")
     mkdir -p "$img/tools/exfatprogs" "$img/tools/i2c-tools"
     for b in mkfs/mkfs.exfat fsck/fsck.exfat tune/tune.exfat label/exfatlabel dump/dump.exfat exfat2img/exfat2img; do
@@ -1078,20 +1084,13 @@ image() {
         --output "$rel/image" --version "$version" --image-version "$image_version"
 }
 
-verify() {
-    local unlisted
-    # Every listed output must exist and match, and every output must be listed.
-    (cd "$img" && sha256sum --quiet --strict -c "$here/expected.sha256") || {
-        echo "Outputs are missing or differ from expected.sha256" >&2; exit 1; }
-    unlisted=$(cd "$img" && find . -type f ! -name SHA256SUMS | sed 's|^\./||' | LC_ALL=C sort |
-        LC_ALL=C comm -23 - <(awk '$1 !~ /^#/ && NF { print $2 }' "$here/expected.sha256" | LC_ALL=C sort))
-    if [ -n "$unlisted" ]; then
-        printf 'Outputs not in expected.sha256:\n%s\n' "$unlisted" >&2
-        exit 1
-    fi
-    echo "All $(awk '$1 !~ /^#/ && NF' "$here/expected.sha256" | wc -l) outputs match expected.sha256."
-    (cd "$img" && find . -type f ! -name SHA256SUMS -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > SHA256SUMS)
-    echo "Checksums of every output: $img/SHA256SUMS"
+# The hash of every output. CI publishes them for each build of main and
+# lists the outputs a pull request changes (scripts/compare-outputs.py).
+hashes() {
+    (cd "$img" && find . -type f ! -name SHA256SUMS -print0 | LC_ALL=C sort -z | xargs -0 -r sha256sum |
+        sed 's|  \./|  |' > SHA256SUMS)
+    [ -s "$img/SHA256SUMS" ] || { echo "No build outputs in $img" >&2; return 1; }
+    echo "$(wc -l < "$img/SHA256SUMS") outputs: $img/SHA256SUMS"
 }
 
 source_archive() {
@@ -1124,11 +1123,12 @@ source_archive() {
 
 for step in "${steps[@]}"; do
     case $step in
-        fetch|toolchain|kernel|modules|uboot|opensbi|fip|initramfs|boot|native|system|server|web|tools|firmware|verify|payloads)
+        fetch|toolchain|kernel|modules|uboot|opensbi|fip|initramfs|boot|native|system|server|web|tools|firmware|hashes|payloads)
             log "$step"; "$step" ;;
         packages|rootfs|image|clean)
             if [ "${NANOKVM_USERNS:-0}" = 1 ]; then log "$step"; "$step"; else in_userns "$step"; fi ;;
         source) log source; source_archive ;;
+        toolchain-id) toolchain_id ;;
         *) usage ;;
     esac
 done

@@ -752,7 +752,12 @@
       "removeTitle": "移除 {{package}}？",
       "removeDescription": "APK 将严格按照下方所示执行此移除及其依赖变更。此操作无法自动撤销。",
       "started": "APK 操作已开始",
-      "running": "APK 正在{{action}} {{package}}",
+      "operation": {
+        "refresh": "正在刷新软件包索引…",
+        "install": "正在安装 {{package}}…",
+        "remove": "正在移除 {{package}}…",
+        "upgrade": "正在升级全部软件包…"
+      },
       "succeeded": "APK 操作已完成",
       "failed": "APK 操作失败",
       "requestFailed": "软件请求失败。请检查设备连接后重试。"

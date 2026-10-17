@@ -752,7 +752,12 @@
       "removeTitle": "{{package}} を削除しますか？",
       "removeDescription": "APK は以下に示すとおりにこの削除と依存関係の変更を実行します。自動的に元に戻すことはできません。",
       "started": "APK の処理を開始しました",
-      "running": "APK 処理中：{{action}} {{package}}",
+      "operation": {
+        "refresh": "パッケージインデックスを更新中…",
+        "install": "{{package}} をインストール中…",
+        "remove": "{{package}} を削除中…",
+        "upgrade": "すべてのパッケージをアップグレード中…"
+      },
       "succeeded": "APK の処理が完了しました",
       "failed": "APK の処理に失敗しました",
       "requestFailed": "ソフトウェアのリクエストに失敗しました。デバイスの接続を確認して再試行してください。"

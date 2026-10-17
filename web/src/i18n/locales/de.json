@@ -752,7 +752,12 @@
       "removeTitle": "{{package}} entfernen?",
       "removeDescription": "APK führt diese Entfernung und die zugehörigen Abhängigkeitsänderungen genau wie unten gezeigt aus. Dies kann nicht automatisch rückgängig gemacht werden.",
       "started": "APK-Vorgang gestartet",
-      "running": "APK: {{action}} {{package}}",
+      "operation": {
+        "refresh": "Paketindizes werden aktualisiert…",
+        "install": "{{package}} wird installiert…",
+        "remove": "{{package}} wird entfernt…",
+        "upgrade": "Alle Pakete werden aktualisiert…"
+      },
       "succeeded": "APK-Vorgang abgeschlossen",
       "failed": "APK-Vorgang fehlgeschlagen",
       "requestFailed": "Die Software-Anfrage ist fehlgeschlagen. Überprüfen Sie die Verbindung zum Gerät und versuchen Sie es erneut."

@@ -31,6 +31,43 @@ type ipv6Address struct {
 	Address   string `json:"address"`
 	Scope     string `json:"scope"`
 	MTU       int    `json:"mtu"`
+	// Where a global address of Ethernet or Wi-Fi came from: slaac,
+	// dhcpv6 or static; empty for link-local and other interfaces.
+	Source string `json:"source,omitempty"`
+}
+
+// The DHCPv6 client (scripts/nanokvm-dhcpv6-event) and S02ipv6 record the
+// address they set here.
+var ipv6RunDir = "/run"
+
+// recordedIPv6 is the address in a record file's first word, if any.
+func recordedIPv6(file string) netip.Addr {
+	data, err := os.ReadFile(filepath.Join(ipv6RunDir, file))
+	if err != nil {
+		return netip.Addr{}
+	}
+	fields := strings.Fields(string(data))
+	if len(fields) == 0 {
+		return netip.Addr{}
+	}
+	prefix, err := netip.ParsePrefix(fields[0])
+	if err != nil {
+		return netip.Addr{}
+	}
+	return prefix.Addr()
+}
+
+func ipv6Source(iface string, ip netip.Addr) string {
+	if !slices.Contains(ipv6Interfaces, iface) || ip.IsLinkLocalUnicast() {
+		return ""
+	}
+	switch ip {
+	case recordedIPv6("udhcpc6." + iface + ".addr"):
+		return ipv6DHCPv6
+	case recordedIPv6("ipv6-static." + iface):
+		return ipv6Static
+	}
+	return "slaac"
 }
 
 // Ethernet and Wi-Fi have their own IPv6 setting; other interfaces (USB
@@ -300,7 +337,14 @@ func getIPv6Status() (ipv6Status, error) {
 			} else if ip.IsPrivate() {
 				scope = "private"
 			}
-			status.Addresses = append(status.Addresses, ipv6Address{iface.Name, addr.String(), scope, mtu})
+			parsed, _ := netip.AddrFromSlice(ip)
+			status.Addresses = append(status.Addresses, ipv6Address{
+				Interface: iface.Name,
+				Address:   addr.String(),
+				Scope:     scope,
+				MTU:       mtu,
+				Source:    ipv6Source(iface.Name, parsed.Unmap()),
+			})
 		}
 	}
 	return status, nil

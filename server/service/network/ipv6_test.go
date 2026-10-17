@@ -3,6 +3,7 @@ package network
 import (
 	"encoding/json"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -308,6 +309,26 @@ func TestIPv6StaticAddressAndGateway(t *testing.T) {
 		(&Service{}).SetIPv6(ctx)
 		if !strings.Contains(response.Body.String(), `"code":-1`) {
 			t.Fatalf("%s accepted: %s", body, response.Body.String())
+		}
+	}
+}
+
+func TestIPv6AddressSource(t *testing.T) {
+	previous := ipv6RunDir
+	t.Cleanup(func() { ipv6RunDir = previous })
+	ipv6RunDir = t.TempDir()
+	// The DHCPv6 client records the address in busybox's expanded form.
+	_ = os.WriteFile(filepath.Join(ipv6RunDir, "udhcpc6.wlan0.addr"), []byte("2a02:014c:bd40:0300:0000:0000:0000:01ce/128\n"), 0600)
+	_ = os.WriteFile(filepath.Join(ipv6RunDir, "ipv6-static.eth0"), []byte("2001:db8::10/64 2001:db8::1\n"), 0600)
+	for _, c := range []struct{ iface, address, want string }{
+		{"wlan0", "2a02:14c:bd40:300::1ce", "dhcpv6"},
+		{"wlan0", "2a02:14c:bd40:300:aab5:8eff:fe22:67b8", "slaac"},
+		{"wlan0", "fe80::aab5:8eff:fe22:67b8", ""},
+		{"eth0", "2001:db8::10", "static"},
+		{"usb0", "2001:db8::99", ""},
+	} {
+		if got := ipv6Source(c.iface, netip.MustParseAddr(c.address)); got != c.want {
+			t.Errorf("%s %s: %q, want %q", c.iface, c.address, got, c.want)
 		}
 	}
 }

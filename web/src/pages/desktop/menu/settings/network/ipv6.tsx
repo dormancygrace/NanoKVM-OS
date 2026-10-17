@@ -179,6 +179,16 @@ export const IPv6 = ({ name }: { name: IPv6Interface['name'] }) => {
                 <div key={address.address} className="space-y-1">
                   <div className="text-fg-muted flex items-center gap-2 text-xs">
                     <span>{tr(address.scope)}</span>
+                    {address.source && (
+                      <span>
+                        ·{' '}
+                        {address.source === 'static'
+                          ? tr('static')
+                          : address.source === 'dhcpv6'
+                            ? 'DHCPv6'
+                            : 'SLAAC'}
+                      </span>
+                    )}
                     {address.mtu > 0 && <span>· MTU {address.mtu}</span>}
                   </div>
                   <div className="text-fg font-mono text-sm break-all select-text">

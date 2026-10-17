@@ -136,6 +136,8 @@ export type IPv6Status = {
     address: string;
     scope: 'global' | 'linkLocal' | 'private';
     mtu: number;
+    // Where a global address of Ethernet or Wi-Fi came from.
+    source?: 'slaac' | 'dhcpv6' | 'static';
   }[];
   // Missing on a server from before the per-interface setting.
   interfaces?: IPv6Interface[];

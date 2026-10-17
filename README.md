@@ -10,6 +10,7 @@
 [![Latest SD image](https://img.shields.io/endpoint?url=https%3A%2F%2Fdormancygrace.github.io%2FNanoKVM-OS%2Flatest-image%2Fbadge.json)](https://dormancygrace.github.io/NanoKVM-OS/latest-image/)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa)](https://github.com/sponsors/dormancygrace)
 
 [🚀 Install](#install) · [✨ Features](#features) · [📦 Releases](https://github.com/dormancygrace/NanoKVM-OS/releases) · [🔌 Hardware](#compatibility) · [🔄 Update](#updates) · [💻 Build](#build) · [🧪 Help test](#help-test) · [🐛 Issues](https://github.com/dormancygrace/NanoKVM-OS/issues)
 
@@ -239,6 +240,12 @@ The language menu includes 25 languages, with partial translations falling back 
 Thank you to **[Pavel Borecki](https://hosted.weblate.org/user/pavelbo/)** for Czech, **[Alexander-Ger-Reich](https://github.com/Alexander-Ger-Reich)** for German and English UI maintenance, and **[polyzium](https://github.com/polyzium)** for Russian localization — and to everyone who translates, reviews, and improves the words on screen. See the [translation credits and contribution guide](TRANSLATING.md#translation-credits).
 
 **[Hosted Weblate](https://hosted.weblate.org/engage/nanokvm-os/)** is our community translation platform. Thank you to the Weblate project for the tools and hosting that let people contribute directly from their browser. [Help translate NanoKVM OS](https://hosted.weblate.org/engage/nanokvm-os/).
+
+## 💖 Support development
+
+If NanoKVM OS makes your hardware more useful, consider [sponsoring Gleb Pesin on GitHub](https://github.com/sponsors/dormancygrace). Your support helps fund development time and hardware testing. One-time and monthly contributions of any amount are welcome.
+
+Testing, bug reports, translations and code contributions are just as valuable. Thank you for helping improve NanoKVM OS.
 
 ## ❤️ Credits and licenses
 

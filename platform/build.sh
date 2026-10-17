@@ -22,8 +22,8 @@
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
-#   payloads   contents of the twelve NanoKVM packages, from packages.list
-#   packages   signed APK repository of the twelve packages
+#   payloads   contents of the thirteen NanoKVM packages, from packages.list
+#   packages   signed APK repository of the thirteen packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -372,13 +372,15 @@ opensbi() {
     "$host/dtc" -I dts -O dtb -o "$o/build/sg2002.dtb" "$here/opensbi/sg2002.dts"
     # Portable scalar instructions: C906's draft vector ISA is not RVV 1.0.
     # Keep upstream -O2 and separate RO/RW firmware PMP regions.
+    # FW_OPTIONS=0x1: no boot banner. It printed about 2800 characters,
+    # 0.24 s on the 115200 baud console; Linux logs the SBI version.
     SOURCE_DATE_EPOCH=1782907200 make -C "$o/src" O="$o/build" -j"$jobs" \
         CROSS_COMPILE="$cross" \
         PLATFORM=generic PLATFORM_DEFCONFIG=nanokvm_defconfig \
         PLATFORM_RISCV_XLEN=64 PLATFORM_RISCV_ISA=rv64imac_zicsr_zifencei PLATFORM_RISCV_ABI=lp64 \
         FW_TEXT_START=0x80000000 FW_DYNAMIC=y FW_JUMP=n FW_PAYLOAD=n \
         FW_FDT_PATH="$o/build/sg2002.dtb" FW_FDT_PADDING=0 FW_DYNAMIC_FDT_ADDR=0x80100000 \
-        REPRODUCIBLE=y OPENSBI_VERSION_GIT=
+        FW_OPTIONS=0x1 REPRODUCIBLE=y OPENSBI_VERSION_GIT=
     "$host/python3" "$repo/scripts/nanokvm-opensbi-manifest.py" \
         --elf "$o/build/platform/generic/firmware/fw_dynamic.elf" \
         --binary "$o/build/platform/generic/firmware/fw_dynamic.bin" \
@@ -401,6 +403,16 @@ fip() {
         --output "$f/fip.bin" --report "$f/manifest.json"
     cp "$f/fip.bin" "$img/fip.bin"
     cp "$f/manifest.json" "$img/fip-manifest.json"
+    # Licenses of what fip.bin contains, for nanokvm-bootloader-sg2002.
+    local l=$img/fip-licenses
+    rm -rf "$l"
+    mkdir -p "$l"
+    cp "$out/opensbi/src/COPYING.BSD" "$l/opensbi-COPYING.BSD"
+    cp "$out/uboot/src/Licenses/README" "$l/u-boot-Licenses-README"
+    cp "$out/uboot/src/Licenses/gpl-2.0.txt" "$l/u-boot-gpl-2.0.txt"
+    printf '%s\n' 'The FSBL (BL2) and DDR parameters in fip.bin are the Sophgo binaries of' \
+        'platform/fip/base-fip.bin; their source is fsbl/ in the Sipeed SDK pinned in' \
+        'platform/sources.lock (sipeed-sdk).' > "$l/fsbl-NOTICE"
 }
 
 initramfs() {
@@ -739,7 +751,7 @@ firmware() {
     cp "$out/firmware/wireless-regdb-2026.09.03/LICENSE" "$f/licenses/wireless-regdb-LICENSE"
 }
 
-# Assemble the twelve package payloads from packages.list.
+# Assemble the thirteen package payloads from packages.list.
 payloads() {
     local p=$out/payloads gen pkg type path mode src dest file
     rm -rf "$p"
@@ -964,7 +976,7 @@ signing_key() {
     keyname=$(basename "$keyfile" .rsa)
 }
 
-# Build the twelve packages with abuild in an Alpine riscv64 tree.
+# Build the thirteen packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu

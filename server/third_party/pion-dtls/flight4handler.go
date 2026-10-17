@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/x509"
 
@@ -92,7 +93,7 @@ func flight4Parse(
 			}
 		}
 
-		return flight6, nil, nil
+		return finishClientFlight(state, cfg)
 	}
 
 	switch cfg.clientAuth {
@@ -124,7 +125,7 @@ func flight4Parse(
 		}
 	}
 
-	return flight6, nil, nil
+	return finishClientFlight(state, cfg)
 }
 
 // flight4ProcessClientFlight retains progress while waiting for CertificateVerify.
@@ -132,7 +133,7 @@ func flight4Parse(
 //
 //nolint:gocognit,gocyclo,lll,cyclop,maintidx
 func flight4ProcessClientFlight(state *State, cache *handshakeCache, cfg *handshakeConfig) (bool, *alert.Alert, error) {
-	if state.clientKeyExchange == nil {
+	if state.clientKeyExchange == nil { //nolint:nestif
 		seq, msgs, ok := cache.fullPullMap(state.handshakeRecvSequence, state.cipherSuite,
 			handshakeCachePullRule{handshake.TypeCertificate, cfg.initialEpoch, true, true},
 			handshakeCachePullRule{handshake.TypeClientKeyExchange, cfg.initialEpoch, true, false},
@@ -149,6 +150,9 @@ func flight4ProcessClientFlight(state *State, cache *handshakeCache, cfg *handsh
 		}
 
 		if h, hasCert := msgs[handshake.TypeCertificate].(*handshake.MessageCertificate); hasCert {
+			if cfg.clientAuth == NoClientCert {
+				return false, &alert.Alert{Level: alert.Fatal, Description: alert.UnexpectedMessage}, errInvalidCertificate
+			}
 			state.PeerCertificates = h.Certificate
 			// If the client offer its certificate, just disable session resumption.
 			// Otherwise, we have to store the certificate identitfication and expire time.
@@ -242,6 +246,7 @@ func flight4ProcessClientFlight(state *State, cache *handshakeCache, cfg *handsh
 				return false, &alert.Alert{Level: alert.Fatal, Description: alert.InternalError}, err
 			}
 			state.IdentityHint = clientKeyExchange.IdentityHint
+			state.pskHash = sha256.Sum256(psk)
 			switch state.cipherSuite.KeyExchangeAlgorithm() {
 			case CipherSuiteKeyExchangeAlgorithmPsk:
 				preMasterSecret = prf.PSKPreMasterSecret(psk)
@@ -295,17 +300,6 @@ func flight4ProcessClientFlight(state *State, cache *handshakeCache, cfg *handsh
 			return false, &alert.Alert{Level: alert.Fatal, Description: alert.InternalError}, err
 		}
 		cfg.writeKeyLog(keyLogLabelTLS12, clientRandom[:], state.masterSecret)
-	}
-
-	if len(state.SessionID) > 0 {
-		s := Session{
-			ID:     state.SessionID,
-			Secret: state.masterSecret,
-		}
-		cfg.log.Tracef("[handshake] save new session: %x", s.ID)
-		if err := cfg.sessionStore.Set(state.SessionID, s); err != nil {
-			return false, &alert.Alert{Level: alert.Fatal, Description: alert.InternalError}, err
-		}
 	}
 
 	state.handshakeRecvSequence = seq
@@ -409,11 +403,15 @@ func flight4Generate(
 
 	switch {
 	case state.cipherSuite.AuthenticationType() == CipherSuiteAuthenticationTypeCertificate:
-		certificate, err := cfg.getCertificate(&ClientHelloInfo{
-			ServerName:   state.serverName,
-			CipherSuites: []ciphersuite.ID{state.cipherSuite.ID()},
-			RandomBytes:  state.remoteRandom.RandomBytes,
-		})
+		certificate := state.serverCertificate
+		var err error
+		if certificate == nil {
+			certificate, err = cfg.getCertificate(&ClientHelloInfo{
+				ServerName:   state.serverName,
+				CipherSuites: []ciphersuite.ID{state.cipherSuite.ID()},
+				RandomBytes:  state.remoteRandom.RandomBytes,
+			})
+		}
 		if err != nil {
 			return nil, &alert.Alert{Level: alert.Fatal, Description: alert.HandshakeFailure}, err
 		}
@@ -559,4 +557,14 @@ func flight4Generate(
 	})
 
 	return pkts, nil, nil
+}
+
+func finishClientFlight(state *State, cfg *handshakeConfig) (flightVal, *alert.Alert, error) {
+	if len(state.SessionID) > 0 && cfg.sessionStore != nil {
+		if err := cfg.sessionStore.Set(state.SessionID, state.session()); err != nil {
+			return 0, &alert.Alert{Level: alert.Fatal, Description: alert.InternalError}, err
+		}
+	}
+
+	return flight6, nil, nil
 }

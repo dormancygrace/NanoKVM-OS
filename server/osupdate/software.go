@@ -108,19 +108,20 @@ func validPackageName(name string) error {
 }
 
 var protectedPackages = map[string]bool{
-	"apk-tools":               true,
-	"busybox":                 true,
-	"musl":                    true,
-	"openrc":                  true,
-	"nanokvm-app":             true,
-	"nanokvm":                 true,
-	"nanokvm-web":             true,
-	"nanokvm-base":            true,
-	"nanokvm-release":         true,
-	"nanokvm-kernel-sg2002":   true,
-	"nanokvm-kmod-sg2002":     true,
-	"nanokvm-firmware-sg2002": true,
-	"nanokvm-zlib":            true,
+	"apk-tools":                 true,
+	"busybox":                   true,
+	"musl":                      true,
+	"openrc":                    true,
+	"nanokvm-app":               true,
+	"nanokvm":                   true,
+	"nanokvm-web":               true,
+	"nanokvm-base":              true,
+	"nanokvm-release":           true,
+	"nanokvm-kernel-sg2002":     true,
+	"nanokvm-kmod-sg2002":       true,
+	"nanokvm-firmware-sg2002":   true,
+	"nanokvm-zlib":              true,
+	"nanokvm-bootloader-sg2002": true,
 }
 
 func checkRemovable(name string) error {

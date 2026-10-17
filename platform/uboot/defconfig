@@ -14,25 +14,33 @@ CONFIG_RISCV_SMODE=y
 # CONFIG_RISCV_ISA_F is not set
 # CONFIG_RISCV_ISA_D is not set
 CONFIG_FIT=y
-CONFIG_BOOTSTD_FULL=y
-# CONFIG_BOOTMETH_EFI_BOOTMGR is not set
+# CONFIG_FIT_PRINT is not set
+# CONFIG_BOOTSTD is not set
+# CONFIG_EFI_LOADER is not set
 CONFIG_SD_BOOT=y
-CONFIG_BOOTCOMMAND="setenv bootargs root=/dev/mmcblk0p2 rootwait rw console=ttyS0,115200 earlycon=sbi riscv.fwsz=0x80000 release loglevel=0 mitigations=off; setenv fdt_high 0x8cffffff; setenv initrd_high 0x8cffffff; if fatload mmc 0:1 0x85000000 boot.sd; then bootm 0x85000000#config-sg2002_licheervnano_sd_minimal; fi"
+CONFIG_USE_BOOTCOMMAND=y
+CONFIG_BOOTCOMMAND="setenv bootargs root=/dev/mmcblk0p2 rootwait rw console=ttyS0,115200 earlycon=sbi riscv.fwsz=0x80000 release loglevel=0 mitigations=off ${extraargs}; setenv fdt_high 0x8cffffff; setenv initrd_high 0x8cffffff; if fatload mmc 0:1 0x85000000 boot.sd; then bootm 0x85000000#config-sg2002_licheervnano_sd_minimal; fi"
+CONFIG_USE_PREBOOT=y
+CONFIG_PREBOOT="if fatload mmc 0:1 0x85000000 uEnv.txt; then env import -t -r 0x85000000 ${filesize} bootdelay extraargs; fi"
+CONFIG_HUSH_PARSER=y
 CONFIG_SYS_CBSIZE=512
 CONFIG_SYS_PBSIZE=544
 CONFIG_BOARD_INIT=y
 CONFIG_SYS_PROMPT="nanokvm# "
 # CONFIG_CMD_BOOTDEV is not set
 CONFIG_CMD_MBR=y
+CONFIG_CMD_FAT=y
 CONFIG_CMD_MMC=y
 CONFIG_CMD_POWEROFF=y
 # CONFIG_CMD_MII is not set
-CONFIG_CMD_SYSBOOT=y
-CONFIG_CMD_EXT4_WRITE=y
+# CONFIG_CMD_SYSBOOT is not set
+# CONFIG_CMD_ELF is not set
+# CONFIG_CMD_SF is not set
 # CONFIG_ISO_PARTITION is not set
 # CONFIG_EFI_PARTITION is not set
 CONFIG_ENV_OVERWRITE=y
-CONFIG_NET_RANDOM_ETHADDR=y
+CONFIG_FAT_WRITE=y
+# CONFIG_NET is not set
 CONFIG_CLK_SOPHGO_CV1800B=y
 CONFIG_MMC=y
 CONFIG_MMC_IO_VOLTAGE=y
@@ -40,15 +48,11 @@ CONFIG_MMC_UHS_SUPPORT=y
 CONFIG_MMC_SDHCI=y
 CONFIG_MMC_SDHCI_ADMA=y
 CONFIG_MMC_SDHCI_CV1800B=y
-CONFIG_SPI_FLASH_MACRONIX=y
-CONFIG_ETH_DESIGNWARE=y
 CONFIG_SYS_NS16550=y
 CONFIG_SYS_NS16550_MEM32=y
-CONFIG_SPI=y
-CONFIG_CV1800B_SPIF=y
 CONFIG_SYSRESET=y
 CONFIG_SYSRESET_CV1800B=y
-CONFIG_BOOTDELAY=3
+CONFIG_BOOTDELAY=-2
 CONFIG_ZSTD=y
 # CONFIG_MMC_TRACE is not set
 # CONFIG_TOOLS_MKEFICAPSULE is not set

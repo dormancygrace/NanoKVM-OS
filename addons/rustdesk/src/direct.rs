@@ -322,7 +322,7 @@ mod tests {
         client.await.unwrap();
     }
     #[tokio::test]
-    #[ignore = "requires an explicitly configured own NanoKVM target and coordinated device slot"]
+    #[ignore = "requires an explicitly configured own NanoKVM target"]
     async fn own_device_direct_tcp_encrypted_video() {
         use crate::{
             framing::{read_message, write_message, FrameReader, FrameWriter, SessionKey},

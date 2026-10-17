@@ -3,6 +3,16 @@
 import argparse, hashlib, json, os, shutil, struct, subprocess, zipfile
 from pathlib import Path
 
+# U-Boot imports only these variables from it, before the autoboot countdown
+# (platform/uboot/defconfig, CONFIG_PREBOOT); a line starting with # is ignored.
+UENV = """# Read by U-Boot at every boot; other variables are ignored.
+# Seconds to wait for a key on the serial console before booting; -2 boots
+# at once and ignores keys (the default), 0 only stops on a key already sent.
+#bootdelay=-2
+# Appended to the kernel command line.
+#extraargs=
+"""
+
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--rootfs-archive',type=Path,required=True)
 p.add_argument('--fip',type=Path,required=True)
@@ -64,7 +74,7 @@ with bootimage.open('xb') as stream:stream.truncate(64*1024*1024)
 run(tool('mkfs.fat'),'--invariant','-F','16','-S','512','-s','4','-R','4','-n','boot',bootimage)
 files=out/'boot-files';files.mkdir()
 run('sh',bootset/'compose-fit',bootset,'detect',files/'boot.sd');shutil.copy2(a.fip,files/'fip.bin')
-(files/'uEnv.txt').write_text('showlogo=echo NanoKVM OS\n')
+(files/'uEnv.txt').write_text(UENV)
 (files/'hostname.prefix').write_text('kvm')
 # Origin metadata belongs to the SD image, never to an upgradable APK.
 image_metadata={'image_version':a.image_version,'bundled_application_version':a.version}

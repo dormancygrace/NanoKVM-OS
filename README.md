@@ -182,14 +182,14 @@ apk upgrade
 reboot
 ```
 
-Updates retain settings, user data and independently installed packages. The twelve core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. The kernel release remains **7.2.10-nanokvm-os-r5**; the updated boot images correct SD/SDIO clocks and need a reboot. Application service updates use OpenRC automatically; no separate apply command is needed.
+Updates retain settings, user data and independently installed packages. The thirteen core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. The kernel release remains **7.2.10-nanokvm-os-r5**; the updated boot images correct SD/SDIO clocks and need a reboot. Application service updates use OpenRC automatically; no separate apply command is needed.
 
 - **Local `.apk` installations:** file-pinned packages may require an `apk add` step before upgrading; see [update instructions](docs/UPDATES.md).
 - **Signing transition:** `nanokvm-keys` installs the public keys and moves the official repository to the RSA/ECDSA-signed v3 index automatically. The RSA-signed legacy index remains available for older installations.
 - **C906 overlay installations:** follow the [stock Alpine migration instructions](firmware/alpine/README.md#existing-c906-installations). Updating NanoKVM alone does not remove the overlay.
 - **Stock firmware, pre-v2 releases or the original v2.0-a1:** install the full SD image. Legacy `.nkos` updates do not migrate the system to Alpine.
 
-Component updates preserve the installed bootloader. A full image includes the rebuilt bootloader as well as the applications and system packages.
+The bootloader package updates fip.bin on existing installations; see [bootloader updates and recovery](docs/BOOT.md#updating-fipbin). A full image includes the rebuilt bootloader as well as the applications and system packages.
 
 <a id="limitations"></a>
 

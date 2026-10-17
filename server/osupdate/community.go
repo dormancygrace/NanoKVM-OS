@@ -312,14 +312,18 @@ func MigrateCommunityDefault(ctx context.Context) error {
 	return markCommunityChosen()
 }
 
-// RunCommunityMigration retries the decision until it is made.
+// RunCommunityMigration retries the decision until it is made. An offline
+// device fails the same way on every try: each message is logged once, so the
+// retries do not fill the boot log archives.
 func RunCommunityMigration(ctx context.Context) {
+	logged := ""
 	for {
 		err := MigrateCommunityDefault(ctx)
 		if err == nil {
 			return
 		}
-		if !errors.Is(err, errCommunityHold) && !errors.Is(err, errEdgeBusy) {
+		if !errors.Is(err, errCommunityHold) && !errors.Is(err, errEdgeBusy) && err.Error() != logged {
+			logged = err.Error()
 			log.Warnf("Alpine community repository: %s", err)
 		}
 		select {

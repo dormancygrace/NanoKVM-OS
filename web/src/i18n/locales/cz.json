@@ -996,7 +996,12 @@
       "started": "Operace s APK zahájena",
       "searchPlaceholder": "Hledat název balíčku",
       "updateAvailable": "Balíčky pro které jsou k dispozici aktualizace",
-      "running": "APK je {{action}} {{package}}",
+      "operation": {
+        "refresh": "Znovunačítání rejstříků balíčků…",
+        "install": "Instalace balíčku {{package}}…",
+        "remove": "Odebírání balíčku {{package}}…",
+        "upgrade": "Přechod všech balíčků na novější verze…"
+      },
       "upToDate": "Všechny nainstalované balíčky jsou aktuální.",
       "searchHint": "Hledání bude zahájeno automaticky, jakmile přestanete psát.",
       "description": "Spravovat balíčky z nastavených repozitářů distribuce Alpine. Změny balíčků používají stejnou databázi APK a služby, jako SSH.",

@@ -752,7 +752,12 @@
       "removeTitle": "¿Eliminar {{package}}?",
       "removeDescription": "APK realizará esta eliminación y sus cambios de dependencias exactamente como se muestra a continuación. No se puede deshacer automáticamente.",
       "started": "Operación APK iniciada",
-      "running": "APK: {{action}} {{package}}",
+      "operation": {
+        "refresh": "Actualizando los índices de paquetes…",
+        "install": "Instalando {{package}}…",
+        "remove": "Eliminando {{package}}…",
+        "upgrade": "Actualizando todos los paquetes…"
+      },
       "succeeded": "Operación APK completada",
       "failed": "La operación APK falló",
       "requestFailed": "La solicitud de software falló. Comprueba la conectividad del dispositivo y vuelve a intentarlo."

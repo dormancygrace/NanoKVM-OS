@@ -542,6 +542,9 @@
         "delete": "Ta bort"
       }
     },
+    "security": {
+      "title": "Säkerhet"
+    },
     "software": {
       "indexSchedule": {
         "save": "Spara"
@@ -589,7 +592,6 @@
         "refresh": "Uppdatera",
         "application": "Program"
       },
-      "services": "Tjänster",
       "device": "Enhet"
     },
     "usb": {

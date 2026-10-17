@@ -939,7 +939,6 @@
           "pending-reboot": "Neustart ausstehend"
         }
       },
-      "services": "Dienste",
       "device": "Gerät",
       "performance": "Leistung",
       "ssh": {
@@ -1458,7 +1457,8 @@
           "reload": "Neu laden",
           "reloaded": "Zertifikat neu geladen",
           "offNote": "HTTPS ist ausgeschaltet; das Zertifikat wird verwendet, sobald es eingeschaltet ist.",
-          "failed": "Das Zertifikat wurde nicht geändert."
+          "failed": "Das Zertifikat wurde nicht geändert.",
+          "details": "Zertifikatdetails"
         }
       },
       "acme": {
@@ -1784,6 +1784,9 @@
         "saveFailed": "Benutzer konnte nicht gespeichert werden",
         "deleteFailed": "Benutzer konnte nicht gelöscht werden"
       }
+    },
+    "security": {
+      "title": "Sicherheit"
     },
     "extensions": {
       "title": "Erweiterungen"

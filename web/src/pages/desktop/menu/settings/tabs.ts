@@ -34,6 +34,8 @@ const aliases: Record<string, string> = {
   'network-netbird': 'vpn-netbird',
   'network-wireguard': 'vpn-wireguard',
   'network-openvpn': 'vpn-openvpn',
+  // HTTPS, its certificate and SSH moved to System > Security.
+  security: 'system-security',
   extensions: 'software-addons',
   'extensions-rustdesk': 'software-rustdesk'
 };

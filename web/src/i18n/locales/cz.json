@@ -656,7 +656,8 @@
           "removed": "Vytvořený certifikát je používán",
           "offNote": "HTTPS je vypnuté; certifikát je používán když je zapnuté.",
           "removeConfirm": "Nahraný certifikát a soukromý klíč jsou vymazány ze zařízení.",
-          "pending": "Certifikát na disku zatím ještě není tím poskytovaným"
+          "pending": "Certifikát na disku zatím ještě není tím poskytovaným",
+          "details": "Podrobnosti certifikátu"
         },
         "confirmDisable": "Vypnout HTTPS?",
         "confirmEnable": "Zapnout HTTPS?",
@@ -862,6 +863,9 @@
       "role": "Role",
       "logoutFailed": "Odhlášení se nezdařilo – tato relace je pořád ještě přihlášená."
     },
+    "security": {
+      "title": "Zabezpečení"
+    },
     "system": {
       "diagnostics": {
         "apk": "APK",
@@ -946,7 +950,6 @@
         "collected": "Načteno v {{time}} · Počet řádků: {{count}}"
       },
       "general": "Obecné",
-      "services": "Služby",
       "title": "Systém",
       "performance": "Výkon",
       "device": "Zařízení",

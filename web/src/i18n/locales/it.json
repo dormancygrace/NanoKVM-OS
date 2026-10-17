@@ -542,6 +542,9 @@
         "delete": "Elimina"
       }
     },
+    "security": {
+      "title": "Sicurezza"
+    },
     "software": {
       "indexSchedule": {
         "save": "Salva"
@@ -589,7 +592,6 @@
         "refresh": "Aggiorna",
         "application": "Applicazione"
       },
-      "services": "Servizi",
       "device": "Dispositivo"
     },
     "usb": {

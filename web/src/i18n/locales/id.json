@@ -542,6 +542,9 @@
         "delete": "Hapus"
       }
     },
+    "security": {
+      "title": "Keamanan"
+    },
     "software": {
       "indexSchedule": {
         "save": "Simpan"
@@ -589,7 +592,6 @@
         "refresh": "Segarkan",
         "application": "Aplikasi"
       },
-      "services": "Layanan",
       "device": "Perangkat"
     },
     "usb": {

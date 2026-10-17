@@ -542,6 +542,9 @@
         "delete": "Slett"
       }
     },
+    "security": {
+      "title": "Sikkerhet"
+    },
     "software": {
       "indexSchedule": {
         "save": "Lagre"
@@ -589,7 +592,6 @@
         "refresh": "Oppdater",
         "application": "Program"
       },
-      "services": "Tjenester",
       "device": "Enhet"
     },
     "usb": {

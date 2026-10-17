@@ -939,7 +939,6 @@
           "pending-reboot": "reinicio pendiente"
         }
       },
-      "services": "Servicios",
       "device": "Dispositivo",
       "performance": "Rendimiento",
       "ssh": {
@@ -1458,7 +1457,8 @@
           "reload": "Recargar",
           "reloaded": "Certificado recargado",
           "offNote": "HTTPS está desactivado; el certificado se usará en cuanto se active.",
-          "failed": "No se cambió el certificado."
+          "failed": "No se cambió el certificado.",
+          "details": "Detalles del certificado"
         }
       },
       "acme": {
@@ -1784,6 +1784,9 @@
         "saveFailed": "No se pudo guardar el usuario",
         "deleteFailed": "No se pudo eliminar el usuario"
       }
+    },
+    "security": {
+      "title": "Seguridad"
     },
     "extensions": {
       "title": "Extensiones"

@@ -939,7 +939,6 @@
           "pending-reboot": "等待重启"
         }
       },
-      "services": "服务",
       "device": "设备",
       "performance": "性能",
       "ssh": {
@@ -1458,7 +1457,8 @@
           "reload": "重新加载",
           "reloaded": "证书已重新加载",
           "offNote": "HTTPS 已关闭；开启后将使用此证书。",
-          "failed": "证书未更改。"
+          "failed": "证书未更改。",
+          "details": "证书详情"
         }
       },
       "acme": {
@@ -1784,6 +1784,9 @@
         "saveFailed": "保存用户失败",
         "deleteFailed": "删除用户失败"
       }
+    },
+    "security": {
+      "title": "安全"
     },
     "extensions": {
       "title": "扩展"

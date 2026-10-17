@@ -112,8 +112,7 @@
         "title": "אבחון",
         "refresh": "רענון",
         "application": "יישום"
-      },
-      "services": "שירותים"
+      }
     },
     "title": "הגדרות",
     "mcp": {
@@ -257,6 +256,9 @@
         "resetPassword": "איפוס סיסמה",
         "delete": "מחיקה"
       }
+    },
+    "security": {
+      "title": "אבטחה"
     },
     "extensions": {
       "title": "הרחבות"

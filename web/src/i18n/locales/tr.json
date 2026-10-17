@@ -542,6 +542,9 @@
         "delete": "Sil"
       }
     },
+    "security": {
+      "title": "Güvenlik"
+    },
     "software": {
       "indexSchedule": {
         "save": "Kaydet"
@@ -589,7 +592,6 @@
         "refresh": "Yenile",
         "application": "Uygulama"
       },
-      "services": "Hizmetler",
       "device": "Cihaz"
     },
     "usb": {

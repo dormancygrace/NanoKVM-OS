@@ -542,6 +542,9 @@
         "delete": "Видалити"
       }
     },
+    "security": {
+      "title": "Безпека"
+    },
     "software": {
       "indexSchedule": {
         "save": "Зберегти"
@@ -589,7 +592,6 @@
         "refresh": "Оновити",
         "application": "Застосунок"
       },
-      "services": "Служби",
       "device": "Пристрій"
     },
     "usb": {

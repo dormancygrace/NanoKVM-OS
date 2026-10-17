@@ -16,6 +16,7 @@ The result, below OUTPUT:
 import argparse
 import gzip
 import hashlib
+from html import escape
 import io
 import json
 import os
@@ -28,6 +29,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = 'dormancygrace/NanoKVM-OS'
 INDEXES = ('APKINDEX.tar.gz', 'Packages.adb')
+MARKER = '.nanokvm-apk-repository'
+MARKER_CONTENT = 'NanoKVM APK repository assembler v1\n'
+PAGES_URL = 'https://dormancygrace.github.io/NanoKVM-OS'
 
 
 def fetch(url, accept='application/octet-stream'):
@@ -106,7 +110,8 @@ def assemble(output, published, keep, branch, keys, fetch=fetch):
     output = Path(output)
     if output.exists():
         # Replace only an earlier result of this script, never another directory.
-        if any(output.iterdir()) and not (output / '.nojekyll').is_file():
+        marker = output / MARKER
+        if any(output.iterdir()) and not (marker.is_file() and marker.read_text() == MARKER_CONTENT):
             raise ValueError(f'{output} is not empty and not an assembled repository')
         shutil.rmtree(output)
     repo = output / 'alpine' / ('v' + branch) / 'riscv64'
@@ -126,18 +131,22 @@ def assemble(output, published, keep, branch, keys, fetch=fetch):
             raise ValueError(f'No release carries {name}')
         (repo / name).write_bytes(checked(source, name, sums[source['tag_name']], fetch, size))
     (output / 'keys').mkdir()
+    key_links = []
     for key in sorted(Path(keys).glob('*.pub')):
         shutil.copy(key, output / 'keys' / key.name)
-    line = f'alpine/v{branch}/riscv64/Packages.adb'
+        key_links.append(f'<li><a href="keys/{escape(key.name)}">{escape(key.name)}</a></li>')
+    line = f'{PAGES_URL}/alpine/v{branch}/riscv64/Packages.adb'
     (output / 'index.html').write_text(f'''<!doctype html>
 <meta charset="utf-8">
 <title>NanoKVM OS packages</title>
 <h1>NanoKVM OS packages</h1>
-<p>APK repository of <a href="https://github.com/{REPOSITORY}">NanoKVM OS</a>, release {newest['tag_name']}.
-Devices use the line <code><a href="{line}">{line}</a></code> relative to this page in
-<code>/etc/apk/repositories</code>; the <code>nanokvm-keys</code> package installs the <a href="keys/">signing keys</a>.</p>
+<p>APK repository of <a href="https://github.com/{REPOSITORY}">NanoKVM OS</a>, release {escape(newest['tag_name'])}.
+Devices use the line <code><a href="{line}">{line}</a></code> in
+<code>/etc/apk/repositories</code>; the <code>nanokvm-keys</code> package installs the signing keys.</p>
+<ul>{"".join(key_links)}</ul>
 ''')
     (output / '.nojekyll').write_text('')
+    (output / MARKER).write_text(MARKER_CONTENT)
     return newest['tag_name'], sorted(wanted)
 
 

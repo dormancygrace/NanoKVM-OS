@@ -141,6 +141,21 @@ class AssembleTests(unittest.TestCase):
         self.run_assemble()  # an empty directory
         self.run_assemble()  # an earlier result
 
+    def test_nojekyll_does_not_authorize_deleting_an_unrelated_site(self):
+        self.out.mkdir()
+        (self.out / '.nojekyll').write_text('')
+        (self.out / 'notes.txt').write_text('keep')
+        with self.assertRaisesRegex(ValueError, 'not an assembled repository'):
+            self.run_assemble()
+        self.assertEqual((self.out / 'notes.txt').read_text(), 'keep')
+
+    def test_landing_page_has_a_usable_repository_url_and_key_links(self):
+        self.run_assemble()
+        page = (self.out / 'index.html').read_text()
+        self.assertIn('https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb', page)
+        self.assertIn('href="keys/release.rsa.pub"', page)
+        self.assertNotIn('href="keys/"', page)
+
     def test_no_release_fails(self):
         self.fake.list = []
         with self.assertRaisesRegex(ValueError, 'No published release'):

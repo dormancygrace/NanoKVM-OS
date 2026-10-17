@@ -13,7 +13,6 @@ in [docs/BUILD.md](../docs/BUILD.md) and [platform/README.md](../platform/README
 | `crypto/` | cryptodev-linux with the NanoKVM patch, and SG2002 crypto benchmarks |
 | `mpi/` | Media library compatibility code and the vendor ISP object list |
 | `probes/` | Capture and encoder probes built by `scripts/build-capture-qualification.py` |
-| [release/](release/README.md) | Notes, checksums and manifests of the published v2.0 releases |
 | `sensor/` | LT6911 HDMI receiver driver patches |
 | `services/` | Serial console and serial bridge services with their tests |
 | `sources/` | BusyBox 1.36.1 source, kept for the GPL while v2.0-b4 is supported |

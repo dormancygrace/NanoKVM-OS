@@ -23,7 +23,7 @@
 
 Underneath the interface is **Alpine Linux 3.24 on a writable F2FS root**, with ordinary APK packages, OpenRC services and official Alpine userspace. You can install software, update individual components and retain your settings without rebuilding or reflashing the entire card.
 
-**Applications v3.2.0, bundled in Image v1.4 — Unleash the Card. Lighten the Load.** Corrected SD/SDIO clocks, faster native decompression, visible update notifications and a stable Alpine package foundation. See the [complete release notes](docs/RELEASE-v3.2.0.md).
+**Applications v3.2.0, bundled in Image v1.4 — Unleash the Card. Lighten the Load.** Corrected SD/SDIO clocks, faster native decompression, visible update notifications and a stable Alpine package foundation. See the [complete release notes](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.2.0).
 
 > [!IMPORTANT]
 > **Help wanted — NanoKVM Cube, Lite and PCIe testers!**
@@ -195,9 +195,7 @@ Component updates preserve the installed bootloader. A full image includes the r
 
 ## 🧪 Release status and limits
 
-- **v3.2.0 / Image v1.4:** published with verified packages, sources and image files; final-device qualification remains outstanding. See the [validation record](docs/VALIDATION-v3.2.0.md) for completed checks and remaining device coverage.
-
-- **v3.1.0 / Image v1.3:** all nine release packages passed an upgrade and reboot on the PCIe development device, with settings retained and Direct H.264/H.265, WebRTC H.264 and MJPEG checked in Chrome. The SD image passed host-side integrity and filesystem checks; it was not freshly flashed in this round. See the [validation record](docs/VALIDATION-v3.1.0.md) for the scope and limits.
+- **v3.2.0 / Image v1.4:** published with verified packages, sources and image files. It is developed and tested on the NanoKVM PCIe; reports from other models are welcome ([help test](#help-test)).
 - Frame-rate targets, portrait modes and H.265 decoding depend on the source, receiver, memory profile and client. Viewers share the active codec and encoder settings.
 - USB functions share a limited endpoint budget; not every combination can be enabled together. Internet sharing is IPv4-only.
 - OpenVPN supports routed TUN profiles; TAP, scripts and interactive SSO/MFA are not supported.

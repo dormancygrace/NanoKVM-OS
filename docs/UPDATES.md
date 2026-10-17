@@ -6,7 +6,7 @@ flashing a full SD image is a separate operation that replaces the card.
 
 ## Updating v2.0-a2 or newer to v3.2.0
 
-Read the [v3.2.0 release notes](RELEASE-v3.2.0.md).
+Read the [v3.2.0 release notes](https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.2.0).
 Use **Settings → System → Updates** (on a2: **Settings → Updates → Package
 updates**), or run as root:
 
@@ -79,7 +79,7 @@ the optional RustDesk APK; install it from Software after updating the system.
   Updating NanoKVM packages alone does not replace the overlay.
 - **Coming from a2 with OpenVPN 3:** the supported optional client is now
   OpenVPN 2. Install it from VPN settings before reconnecting; existing profile
-  files are retained. See the [b1 migration notes](RELEASE-v2.0-b1.md).
+  files are retained.
 - **Stock firmware or pre-v2 betas:** use the [full SD image](INSTALL.md).
   Legacy `.nkos` packages do not migrate the system to Alpine.
 - **Original v2.0-a1 image:** it predates the ready-to-use native update path

@@ -771,7 +771,12 @@ payloads() {
     printf '%s' 15000 > "$gen/kvm/qlty"
     printf '%s' 0 > "$gen/kvm/res"
     printf '%s' h265 > "$gen/kvm/type"
-    printf 'NAME="NanoKVM OS"\nVERSION="%s"\nALPINE_VERSION="3.24"\nBUILD_PROFILE="%s"\n' "$version" "$profile" > "$gen/nanokvm-release"
+    # The release version and source commit live only in nanokvm-release, so
+    # that a component package changes only when its files do.
+    commit=$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo unknown)
+    [ -z "$(git -C "$repo" status --porcelain 2>/dev/null)" ] || commit=$commit-dirty
+    printf 'NAME="NanoKVM OS"\nVERSION="%s"\nALPINE_VERSION="3.24"\nBUILD_PROFILE="%s"\nSOURCE_COMMIT="%s"\n' \
+        "$version" "$profile" "$commit" > "$gen/nanokvm-release"
     printf '%s\n' "$profile" > "$gen/nanokvm-build-profile"
     resolve() {
         case $1 in
@@ -800,18 +805,16 @@ payloads() {
             *) echo "packages.list: unknown type $type" >&2; exit 1 ;;
         esac
     done < "$here/packages.list"
-    # What the application payload was built from, for support requests.
+    # The files of each application payload, for support requests.
     for component in app web; do
-        "$host/python3" - "$p/$component/kvmapp" "$version" "$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo unknown)" \
-        "$([ -z "$(git -C "$repo" status --porcelain 2>/dev/null)" ] && echo false || echo true)" <<'PY'
+        "$host/python3" - "$p/$component/kvmapp" <<'PY'
 import hashlib, json, sys
 from pathlib import Path
-root, version, commit, dirty = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4] == 'true'
+root = Path(sys.argv[1])
 manifest = root / ('web-build-manifest.json' if root.parent.name == 'web' else 'build-manifest.json')
 files = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
          for p in sorted(root.rglob('*')) if p.is_file() and not p.is_symlink() and p != manifest}
-manifest.write_text(json.dumps({'version': version, 'source_dirty': dirty, 'source_base_commit': commit,
-                                'files': files}, indent=2) + '\n')
+manifest.write_text(json.dumps({'files': files}, indent=2) + '\n')
 PY
     done
 }

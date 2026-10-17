@@ -6,7 +6,7 @@
 - the board tools, the EDID profiles and the firmware files;
 - the thirteen `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
-Every upstream input is pinned in `sources.lock` and checked when it is downloaded. Two builds of the same tree give identical outputs, and CI lists the outputs that each change alters (see [Verification](#verification)). The OpenSBI/FIP candidate passed host checks and ROM UART RAM boot on SG2002 with Linux 7.2.9, timer/PLIC, fixed PMU counters and live video. The full image installs the built `fip.bin` on the SD card; the test stand cold-boots from it (see [opensbi/README.md](opensbi/README.md)).
+Every upstream input is pinned in `sources.lock` and checked when it is downloaded. Two builds of the same tree give identical outputs, and CI lists the outputs that each change alters (see [Verification](#verification)). The full image and the `nanokvm-bootloader-sg2002` package install the built `fip.bin` (see [opensbi/README.md](opensbi/README.md)).
 
 | Output | Shipped in |
 |---|---|

@@ -102,17 +102,8 @@ The build also uses these parts of the repository:
 
 ## U-Boot console and uEnv.txt
 
-U-Boot boots at once (`bootdelay` is -2): there is no countdown to stop on the
-serial console. Before it would start, it reads `uEnv.txt` on the FAT boot
-partition (`/boot/uEnv.txt` in Linux) and takes two variables from it, ignoring
-any other:
-
-- `bootdelay=1` opens a one-second window to stop autoboot with a key on the
-  serial console (115200 8N1); `0` stops only on a key already sent.
-- `extraargs=...` is appended to the kernel command line.
-
-The file can be edited from Linux or, with the card in a reader, from a PC.
-Images write a commented template. U-Boot from earlier images does not read it.
+U-Boot boots at once; `uEnv.txt` on the boot partition can reopen the serial
+console window and add kernel options. See [docs/BOOT.md](../docs/BOOT.md).
 
 ## Changing a component
 

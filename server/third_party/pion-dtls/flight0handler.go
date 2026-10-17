@@ -4,6 +4,7 @@
 package dtls
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"slices"
@@ -61,6 +62,9 @@ func flight0Parse(
 	if cfg.insecureSkipHelloVerify {
 		nextFlight = flight4
 	}
+	if nextFlight == flight2 {
+		return flight2, nil, nil
+	}
 
 	return negotiateClientHello(clientHello, state, cfg, nextFlight)
 }
@@ -114,8 +118,8 @@ func negotiateClientHello(
 			sawSupportedGroups = true
 			offeredEllipticCurves = ext.EllipticCurves
 		case *extension.UseSRTP:
-			profile, ok := findMatchingSRTPProfile(cfg.localSRTPProtectionProfiles, ext.ProtectionProfiles)
-			if !ok {
+			profile, found := findMatchingSRTPProfile(cfg.localSRTPProtectionProfiles, ext.ProtectionProfiles)
+			if !found {
 				return 0, &alert.Alert{Level: alert.Fatal, Description: alert.InsufficientSecurity}, errServerNoMatchingSRTPProfile
 			}
 			state.setSRTPProtectionProfile(profile)
@@ -146,6 +150,24 @@ func negotiateClientHello(
 	// expect one to be sent.
 	if state.remoteConnectionID == nil {
 		state.setLocalConnectionID(nil)
+	}
+	if state.cipherSuite.AuthenticationType() == CipherSuiteAuthenticationTypeCertificate {
+		offeredIDs := make([]CipherSuiteID, len(cipherSuites))
+		for i, suite := range cipherSuites {
+			offeredIDs[i] = suite.ID()
+		}
+		certificate, err := cfg.getCertificate(&ClientHelloInfo{
+			ServerName: state.serverName, CipherSuites: offeredIDs, RandomBytes: state.remoteRandom.RandomBytes,
+		})
+		if err != nil {
+			return 0, &alert.Alert{Level: alert.Fatal, Description: alert.HandshakeFailure}, err
+		}
+		state.serverCertificate = certificate
+		usable := filterCipherSuitesForCertificate(certificate, cfg.localCipherSuites)
+		// NanoKVM: keep the server preference after SNI certificate filtering too.
+		if state.cipherSuite, ok = findMatchingCipherSuite(usable, cipherSuites); !ok {
+			return 0, &alert.Alert{Level: alert.Fatal, Description: alert.HandshakeFailure}, errCipherSuiteNoIntersection
+		}
 	}
 
 	if cfg.extendedMasterSecret == RequireExtendedMasterSecret && !state.extendedMasterSecret {
@@ -232,33 +254,46 @@ func selectEllipticCurve(configured, offered []elliptic.Curve) (elliptic.Curve, 
 	return 0, false
 }
 
+//nolint:cyclop // Check cached authentication and negotiation before installing the session.
 func handleHelloResume(
 	sessionID []byte,
 	state *State,
 	cfg *handshakeConfig,
 	next flightVal,
 ) (flightVal, *alert.Alert, error) {
-	if len(sessionID) > 0 && cfg.sessionStore != nil {
-		if s, err := cfg.sessionStore.Get(sessionID); err != nil {
-			return 0, &alert.Alert{Level: alert.Fatal, Description: alert.InternalError}, err
-		} else if s.ID != nil {
-			cfg.log.Tracef("[handshake] resume session: %x", sessionID)
+	if next == flight2 || len(sessionID) == 0 || cfg.sessionStore == nil {
+		return next, nil, nil
+	}
+	session, err := cfg.sessionStore.Get(sessionID)
+	if err != nil {
+		return 0, &alert.Alert{Level: alert.Fatal, Description: alert.InternalError}, err
+	}
+	if !session.usable(cfg, false) || !bytes.Equal(session.ID, sessionID) {
+		return next, nil, nil
+	}
+	// RFC 7627 section 5.3 requires aborting an EMS session's
+	// abbreviated handshake when the client omits the extension.
+	if session.ExtendedMasterSecret && !state.extendedMasterSecret {
+		return 0, &alert.Alert{Level: alert.Fatal, Description: alert.HandshakeFailure}, errSessionEMSMismatch
+	}
+	if session.CipherSuiteID != state.cipherSuite.ID() || session.ExtendedMasterSecret != state.extendedMasterSecret {
+		return next, nil, nil
+	}
+	cfg.log.Tracef("[handshake] resume session: %x", sessionID)
 
-			state.SessionID = sessionID
-			state.masterSecret = s.Secret
+	state.SessionID = sessionID
+	state.masterSecret = session.Secret
+	state.IdentityHint = bytes.Clone(session.IdentityHint)
+	state.PeerCertificates = session.PeerCertificates
 
-			if err := state.initCipherSuite(); err != nil {
-				return 0, &alert.Alert{Level: alert.Fatal, Description: alert.InternalError}, err
-			}
-
-			clientRandom := state.localRandom.MarshalFixed()
-			cfg.writeKeyLog(keyLogLabelTLS12, clientRandom[:], state.masterSecret)
-
-			return flight4b, nil, nil
-		}
+	if err := state.initCipherSuite(); err != nil {
+		return 0, &alert.Alert{Level: alert.Fatal, Description: alert.InternalError}, err
 	}
 
-	return next, nil, nil
+	clientRandom := state.localRandom.MarshalFixed()
+	cfg.writeKeyLog(keyLogLabelTLS12, clientRandom[:], state.masterSecret)
+
+	return flight4b, nil, nil
 }
 
 func flight0Generate(

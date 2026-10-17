@@ -68,7 +68,7 @@ func TestFlight4_Process_CertificateVerify(t *testing.T) {
 		cipherSuite: &flight4TestMockCipherSuite{t: t},
 	}
 	cache := newHandshakeCache()
-	cfg := &handshakeConfig{}
+	cfg := &handshakeConfig{clientAuth: RequireAnyClientCert}
 
 	rawCertificate := []byte{
 		0x0b, 0x00, 0x01, 0x9b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -328,6 +328,6 @@ func TestFlight4StoresSessionOnce(t *testing.T) {
 		require.Nil(t, alertPtr)
 		require.Zero(t, flight)
 	}
-	require.Equal(t, 1, store.calls)
+	require.Zero(t, store.calls, "an unfinished handshake must not publish a resumable session")
 	require.Equal(t, 1, pskCalls)
 }

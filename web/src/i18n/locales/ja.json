@@ -931,7 +931,6 @@
           "pending-reboot": "再起動待ち"
         }
       },
-      "services": "サービス",
       "device": "デバイス",
       "performance": "パフォーマンス",
       "ssh": {
@@ -1450,7 +1449,8 @@
           "reload": "再読み込み",
           "reloaded": "証明書を再読み込みしました",
           "offNote": "HTTPS はオフです。オンにすると証明書が使用されます。",
-          "failed": "証明書は変更されませんでした。"
+          "failed": "証明書は変更されませんでした。",
+          "details": "証明書の詳細"
         }
       },
       "acme": {
@@ -1776,6 +1776,9 @@
         "saveFailed": "ユーザーの保存に失敗しました",
         "deleteFailed": "ユーザーの削除に失敗しました"
       }
+    },
+    "security": {
+      "title": "セキュリティ"
     },
     "extensions": {
       "title": "拡張機能"

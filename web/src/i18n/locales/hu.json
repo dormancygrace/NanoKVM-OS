@@ -542,6 +542,9 @@
         "delete": "Törlés"
       }
     },
+    "security": {
+      "title": "Biztonság"
+    },
     "software": {
       "indexSchedule": {
         "save": "Mentés"
@@ -589,7 +592,6 @@
         "refresh": "Frissítés",
         "application": "Alkalmazás"
       },
-      "services": "Szolgáltatások",
       "device": "Eszköz"
     },
     "usb": {

@@ -542,6 +542,9 @@
         "delete": "ลบ"
       }
     },
+    "security": {
+      "title": "ความปลอดภัย"
+    },
     "software": {
       "indexSchedule": {
         "save": "บันทึก"
@@ -589,7 +592,6 @@
         "refresh": "รีเฟรช",
         "application": "แอปพลิเคชัน"
       },
-      "services": "บริการ",
       "device": "อุปกรณ์"
     },
     "usb": {

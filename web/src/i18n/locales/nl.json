@@ -542,6 +542,9 @@
         "delete": "Verwijderen"
       }
     },
+    "security": {
+      "title": "Beveiliging"
+    },
     "software": {
       "indexSchedule": {
         "save": "Opslaan"
@@ -589,7 +592,6 @@
         "refresh": "Vernieuwen",
         "application": "Toepassing"
       },
-      "services": "Diensten",
       "device": "Apparaat"
     },
     "usb": {

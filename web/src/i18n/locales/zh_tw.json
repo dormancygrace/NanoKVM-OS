@@ -542,6 +542,9 @@
         "delete": "刪除"
       }
     },
+    "security": {
+      "title": "安全性"
+    },
     "software": {
       "indexSchedule": {
         "save": "儲存"
@@ -589,7 +592,6 @@
         "refresh": "重新整理",
         "application": "應用程式"
       },
-      "services": "服務",
       "device": "設備"
     },
     "usb": {

@@ -541,6 +541,9 @@
         "delete": "Slet"
       }
     },
+    "security": {
+      "title": "Sikkerhed"
+    },
     "software": {
       "indexSchedule": {
         "save": "Gem"
@@ -588,7 +591,6 @@
         "refresh": "Opdater",
         "application": "Program"
       },
-      "services": "Tjenester",
       "device": "Enhed"
     },
     "usb": {

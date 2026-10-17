@@ -542,6 +542,9 @@
         "delete": "Xóa"
       }
     },
+    "security": {
+      "title": "Bảo mật"
+    },
     "software": {
       "indexSchedule": {
         "save": "Lưu"
@@ -589,7 +592,6 @@
         "refresh": "Làm mới",
         "application": "Ứng dụng"
       },
-      "services": "Dịch vụ",
       "device": "Thiết bị"
     },
     "usb": {

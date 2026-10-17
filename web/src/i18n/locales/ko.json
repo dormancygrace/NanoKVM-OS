@@ -542,6 +542,9 @@
         "delete": "삭제"
       }
     },
+    "security": {
+      "title": "보안"
+    },
     "software": {
       "indexSchedule": {
         "save": "저장"
@@ -589,7 +592,6 @@
         "refresh": "새로 고침",
         "application": "애플리케이션"
       },
-      "services": "서비스",
       "device": "장치"
     },
     "usb": {

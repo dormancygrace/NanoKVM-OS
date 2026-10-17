@@ -542,6 +542,9 @@
         "delete": "Suprimeix"
       }
     },
+    "security": {
+      "title": "Seguretat"
+    },
     "software": {
       "indexSchedule": {
         "save": "Desa"
@@ -589,7 +592,6 @@
         "refresh": "Actualitza",
         "application": "Aplicació"
       },
-      "services": "Serveis",
       "device": "Dispositiu"
     },
     "usb": {

@@ -931,7 +931,6 @@
           "pending-reboot": "reboot pending"
         }
       },
-      "services": "Services",
       "device": "Device",
       "performance": "Performance",
       "ssh": {
@@ -1450,7 +1449,8 @@
           "reload": "Reload",
           "reloaded": "Certificate reloaded",
           "offNote": "HTTPS is off; the certificate is used once it is turned on.",
-          "failed": "The certificate was not changed."
+          "failed": "The certificate was not changed.",
+          "details": "Certificate details"
         }
       },
       "acme": {
@@ -1776,6 +1776,9 @@
         "saveFailed": "Failed to save user",
         "deleteFailed": "Failed to delete user"
       }
+    },
+    "security": {
+      "title": "Security"
     },
     "extensions": {
       "title": "Extensions"

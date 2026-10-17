@@ -7,7 +7,6 @@ import { Gateway } from './gateway.tsx';
 import { NetworkInformation } from './information.tsx';
 import { IPv6 } from './ipv6.tsx';
 import { Mdns } from './mdns';
-import { Tls } from './tls.tsx';
 import { Wifi } from './wifi.tsx';
 
 export const Network = () => (
@@ -20,7 +19,6 @@ export const Network = () => (
     <SettingsSection>
       <IPv6 />
       <Mdns />
-      <Tls />
     </SettingsSection>
   </div>
 );

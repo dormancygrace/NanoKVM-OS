@@ -1,9 +1,9 @@
-# Contents of the twelve nanokvm-* APK packages (firmware/alpine/packages).
+# Contents of the thirteen nanokvm-* APK packages (firmware/alpine/packages).
 #
 #   package  type  path  mode  source
 #
 # package: keys, base, app, release, firmware-sg2002, kernel-sg2002, kmod-sg2002,
-#          zlib
+#          zlib, bootloader-sg2002
 # type:    file  one file
 #          tree  every file below a directory, with this mode; directories 0755
 #          dir   a directory with a mode other than 0755
@@ -16,6 +16,12 @@
 # nanokvm-keys: the public keys that the packages are signed with. With -d the
 # packages step adds the local test key.
 keys  tree  /etc/apk/keys                                 0644  firmware/alpine/keys
+
+# nanokvm-bootloader-sg2002: fip.bin (FSBL, OpenSBI, U-Boot); its trigger
+# puts it on the boot partition (docs/BOOT.md)
+bootloader-sg2002 file /usr/lib/nanokvm/bootloader/fip.bin  0644  @fip.bin
+bootloader-sg2002 file /usr/libexec/nanokvm/activate-bootloader 0755 firmware/alpine/packages/nanokvm-bootloader-sg2002/activate-bootloader
+bootloader-sg2002 tree /usr/share/licenses/nanokvm-bootloader-sg2002 0644 @fip-licenses
 
 # nanokvm-zlib: zlib-ng in zlib-compatible mode, in place of Alpine's zlib
 zlib  file  /usr/lib/libz.so.1.3.2.zlib-ng                0755  @tools/zlib-ng/libz.so.1.3.2.zlib-ng

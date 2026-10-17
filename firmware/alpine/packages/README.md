@@ -31,6 +31,14 @@ payloads; `nanokvm-keys` refuses anything but public keys in `/etc/apk/keys`.
 `nanokvm-base` depends on `nanokvm-keys`, which owns the repository keys (see
 [signing keys](../README.md#signing-keys)).
 
+## Bootloader
+
+`nanokvm-bootloader-sg2002` carries `fip.bin` (Sophgo FSBL, OpenSBI, U-Boot)
+and the licenses of its parts. Its trigger puts the file on the boot partition
+without ever leaving it with a partly written `fip.bin`; see
+[docs/BOOT.md](../../../docs/BOOT.md#updating-fipbin). A device opts out with
+`/etc/kvm/bootloader-update.disabled`.
+
 ## zlib-ng in place of Alpine's zlib
 
 `nanokvm-zlib` installs zlib-ng in zlib-compatible mode as `libz.so.1`, which

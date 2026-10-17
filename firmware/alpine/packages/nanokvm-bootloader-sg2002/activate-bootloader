@@ -1,0 +1,58 @@
+#!/bin/sh
+# Internal APK trigger: put the packaged fip.bin (FSBL, OpenSBI, U-Boot) on the
+# boot partition. The ROM loads /boot/fip.bin by that name and has no fallback
+# copy (docs/BOOT.md), so every step leaves the old file, no file or the new
+# file there: the new file is written beside it and checked on the card, the
+# old one is renamed to fip.prev, and only then the new one to fip.bin. No
+# rename replaces an existing file. With no file the ROM also offers its USB
+# download window; fip.prev is the copy that recovery puts back.
+set -eu
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+payload=/usr/lib/nanokvm/bootloader/fip.bin
+optout=/etc/kvm/bootloader-update.disabled
+[ -s "$payload" ] || { echo 'Bootloader payload is missing' >&2; exit 1; }
+if [ -e "$optout" ]; then
+    echo "Bootloader update skipped: $optout exists."
+    exit 0
+fi
+# Serialize with kernel activation and the video memory selection.
+mkdir -p /run
+exec 9>/run/nanokvm-boot.lock
+flock -x 9
+mounted=0
+mkdir -p /boot
+if ! mountpoint -q /boot; then
+    mount -t vfat /dev/mmcblk0p1 /boot
+    mounted=1
+fi
+cleanup() { [ "$mounted" = 0 ] || umount /boot; }
+trap cleanup EXIT
+awk '$1 == "/dev/mmcblk0p1" && $2 == "/boot" && $3 == "vfat" { found=1 } END { exit !found }' /proc/mounts
+[ ! -e /boot/rec ] || { echo 'Recovery is active; bootloader update refused' >&2; exit 1; }
+want=$(sha256sum "$payload" | cut -d ' ' -f 1)
+# The card's own bytes, not the page cache.
+oncard() { dd if="$1" bs=64k iflag=direct 2>/dev/null | sha256sum | cut -d ' ' -f 1; }
+if [ -f /boot/fip.bin ] && [ "$(oncard /boot/fip.bin)" = "$want" ]; then
+    rm -f /boot/fip.new
+    exit 0
+fi
+rm -f /boot/fip.new
+cp "$payload" /boot/fip.new
+sync /boot/fip.new
+if [ "$(oncard /boot/fip.new)" != "$want" ]; then
+    rm -f /boot/fip.new
+    echo 'The bootloader written to /boot does not match the package; fip.bin is unchanged.' >&2
+    exit 1
+fi
+if [ -f /boot/fip.bin ]; then
+    rm -f /boot/fip.prev
+    sync /boot
+    mv /boot/fip.bin /boot/fip.prev
+    sync /boot
+fi
+mv /boot/fip.new /boot/fip.bin
+sync /boot
+[ "$(oncard /boot/fip.bin)" = "$want" ] || { echo 'Installed bootloader does not match the package.' >&2; exit 1; }
+printf '%s\n' 'Bootloader updated; reboot to use it.' > /run/reboot-required
+printf '%s\n' nanokvm-bootloader-sg2002 >> /run/reboot-required.pkgs
+echo "NanoKVM bootloader $want installed; the previous one is /boot/fip.prev; reboot required."

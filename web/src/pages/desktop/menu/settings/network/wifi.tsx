@@ -25,14 +25,9 @@ function keyMgmtLabel(keyMgmt: string, open: string) {
   return keyMgmt;
 }
 
-// Band, channel, signal, rate and address of the current Wi-Fi connection.
-const ConnectionDetails = ({
-  band,
-  connection: c
-}: {
-  band: string;
-  connection: api.WifiConnection;
-}) => {
+// Channel, signal, rate and address of the current Wi-Fi connection; its
+// band is tagged next to the network name.
+const ConnectionDetails = ({ connection: c }: { connection: api.WifiConnection }) => {
   const { t } = useTranslation();
   const join = (parts: (string | false | undefined)[]) => parts.filter(Boolean).join(' · ');
   const radio = join([
@@ -47,10 +42,7 @@ const ConnectionDetails = ({
   ]);
   return (
     <div className="text-fg-muted space-y-1 text-xs">
-      <div className="flex flex-wrap items-center gap-2">
-        {band && <WifiBandTag band={band} />}
-        {radio && <span>{radio}</span>}
-      </div>
+      {radio && <div>{radio}</div>}
       {link && <div>{link}</div>}
       {c.ip && <div>{t('settings.network.wifi.connection.ip', { ip: c.ip })}</div>}
     </div>
@@ -299,12 +291,13 @@ export const Wifi = () => {
               tr('apMode')
             ) : state.connected && enabled ? (
               <div className="space-y-1.5">
-                <StatusBadge tone="success">
-                  <span className="break-words">{state.ssid}</span>
-                </StatusBadge>
-                {state.connection && (
-                  <ConnectionDetails band={state.band} connection={state.connection} />
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge tone="success">
+                    <span className="break-words">{state.ssid}</span>
+                  </StatusBadge>
+                  {state.band && <WifiBandTag band={state.band} />}
+                </div>
+                {state.connection && <ConnectionDetails connection={state.connection} />}
               </div>
             ) : enabled ? (
               tr('description')

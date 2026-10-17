@@ -91,6 +91,23 @@ CLI validation: nanokvm-rustdesk --check --config /etc/nanokvm-rustdesk/config.j
 Use the normal apk and rc-service/rc-update commands for manual lifecycle.
 NANOKVM_RUSTDESK_DATA overrides the identity directory for isolated tests.
 
+## Releases
+
+Run Actions → RustDesk add-on → Run workflow on main after merging a change to
+the add-on (`.github/workflows/rustdesk.yml`). It builds the APK on a GitHub
+runner with the pinned compiler and the cached NanoKVM toolchain's musl linker,
+checks it, and publishes the release `nanokvm-rustdesk-VERSION-rN` in this
+repository: the APK, the corresponding source with the vendored crates, the
+production APKBUILD and SHA256SUMS. N is one more than the highest revision of
+VERSION, counting the releases of the former NanoKVM-OS-packages repository.
+The release is never the repository's latest; that is NanoKVM OS.
+
+Nothing is signed there. Devices trust the add-on through the signed index of a
+NanoKVM OS release, which pins it by size and SHA-256 in
+`firmware/alpine/addons.json`. The run therefore opens a pull request that pins
+the new release and updates the recipe; merge it before the next NanoKVM OS
+release, which then serves the add-on. `dry_run` builds and checks only.
+
 ## Build and source
 
 Cargo.lock pins the Rust dependencies; no native codec or crypto library is
@@ -119,7 +136,7 @@ Install the Rust riscv64gc-unknown-linux-musl target first. Keep the linker
 symlink name intact for Buildroot wrappers. The builder produces a static RV64GC
 binary without vector instructions and root:root payload ownership. It exports
 adapted source, Cargo.lock, vendored dependencies and packaging recipes as a
-separate source archive published in NanoKVM-OS-packages. The APK installs only
+separate source archive published in the add-on's release. The APK installs only
 LICENSE, NOTICE, upstream.json and source.json (public URL and SHA-256), alongside
 the binary and lifecycle files. It never installs the source archive or vendored
 crates. The installed web link opens the source for the exact package revision.

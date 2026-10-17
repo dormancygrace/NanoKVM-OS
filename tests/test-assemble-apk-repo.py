@@ -150,7 +150,11 @@ class AssembleTests(unittest.TestCase):
 
     def test_optional_addon_manifest_rejects_unsafe_names_and_sources(self):
         name, item, _ = self.external_addon()
+        main = 'https://github.com/dormancygrace/NanoKVM-OS/releases/download/nanokvm-rustdesk-0.5.3-r6/' + name
+        self.assertIn(name, a.addon_packages.manifest(json.dumps({'packages': {name: {**item, 'url': main}}})))
+        other_release = 'https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.3.0/' + name
         for bad_name, bad_item in [('../evil.apk', item), (name, {**item, 'url': 'http://evil/evil.apk'}),
+                                   (name, {**item, 'url': other_release}),
                                    (name, {**item, 'sha256': 'bad'}), (name, {**item, 'size': -1})]:
             with self.subTest(name=bad_name, item=bad_item):
                 with self.assertRaises(ValueError):

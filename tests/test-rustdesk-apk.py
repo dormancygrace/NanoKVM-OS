@@ -118,7 +118,8 @@ version = re.search(r"^  version: (\S+)$", original, re.M).group(1)
 run(base + ["add", "--upgrade", str(package)])
 assert not (root / "usr/share/nanokvm-rustdesk/source.tar.gz").exists()
 record = json.loads((root / "usr/share/nanokvm-rustdesk/source.json").read_text())
-assert record["url"].startswith("https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/")
+assert record["url"].startswith(("https://github.com/dormancygrace/NanoKVM-OS/releases/download/nanokvm-rustdesk-",
+                                 "https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/"))
 assert re.fullmatch(r"[0-9a-f]{64}", record["sha256"])
 assert record["package_version"] == version
 major, rel = version.rsplit("-r", 1)

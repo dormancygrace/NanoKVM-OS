@@ -13,12 +13,18 @@ import urllib.request
 from pathlib import Path
 
 
+# Add-on releases: this repository's nanokvm-rustdesk-* releases (the RustDesk
+# add-on workflow), and the separate packages repository that held them before.
+SOURCES = ('https://github.com/dormancygrace/NanoKVM-OS/releases/download/nanokvm-rustdesk-',
+           'https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/')
+
+
 def manifest(data):
     packages = json.loads(data)['packages']
     for name, item in packages.items():
         if not re.fullmatch(r'[a-z0-9][a-z0-9+_.-]*[.]apk', name):
             raise ValueError(f'Invalid add-on filename: {name}')
-        if not item['url'].startswith('https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/'):
+        if not item['url'].startswith(SOURCES):
             raise ValueError(f'Invalid add-on source: {name}')
         if not re.fullmatch(r'[a-f0-9]{64}', item['sha256']):
             raise ValueError(f'Invalid add-on SHA256: {name}')

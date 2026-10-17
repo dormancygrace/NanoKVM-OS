@@ -239,5 +239,20 @@ else:
                              [['release', 'view'], ['workflow', 'run']])
 
 
+
+class AddonWorkflowTests(unittest.TestCase):
+    ADDON = (ROOT / '.github/workflows/rustdesk.yml').read_text()
+
+    def test_only_the_publish_job_may_write(self):
+        self.assertNotIn('write', job(self.ADDON, 'build'))
+        publish = job(self.ADDON, 'publish')
+        self.assertIn('contents: write', publish)
+        self.assertIn("if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true", publish)
+
+    def test_the_add_on_release_is_never_the_latest(self):
+        self.assertIn('--latest=false', job(self.ADDON, 'publish'))
+        self.assertNotIn('${{ secrets.', self.ADDON)
+
+
 if __name__ == '__main__':
     unittest.main()

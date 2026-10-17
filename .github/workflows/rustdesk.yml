@@ -1,0 +1,224 @@
+name: RustDesk add-on
+
+# Builds the optional RustDesk add-on (addons/rustdesk) and publishes it as a
+# release of its own, nanokvm-rustdesk-VERSION-rN: the APK, its corresponding
+# source with the vendored crates, the production APKBUILD and SHA256SUMS.
+# Run it by hand (Actions → RustDesk add-on → Run workflow) after merging a
+# change to the add-on. Nothing is signed here: the APK is an apk-tools 3
+# package that devices trust through the signed index of a NanoKVM OS release,
+# which pins it by size and SHA-256 in firmware/alpine/addons.json. The run
+# therefore opens a pull request that pins the new release; merge it before
+# the next NanoKVM OS release, which then serves the add-on.
+#
+# Pull requests that change the add-on's build, and dry runs, build and test
+# without publishing and keep the result as an artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build and test only; publish nothing'
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - .github/workflows/rustdesk.yml
+      - scripts/build-rustdesk-addon.py
+      - scripts/next-rustdesk-revision.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rustdesk-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The cached toolchain (prepare-build) supplies the riscv64 musl linker.
+  OUT: /home/runner/nanokvm-out
+  # Add-on releases before this workflow; kept for the revision count.
+  OLD_REPOSITORY: dormancygrace/NanoKVM-OS-packages
+
+jobs:
+  # The build runs the crates' build scripts and the packaging builder with a
+  # read-only token; only the publish job below may write.
+  build:
+    name: Build and check
+    # The runner image of the cached toolchain (release-build.yml).
+    runs-on: ubuntu-26.04
+    timeout-minutes: 120
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      revision: ${{ steps.version.outputs.revision }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Validate the branch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          [ "$GITHUB_REF" = refs/heads/main ] || { echo 'Run the add-on release from main' >&2; exit 1; }
+
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/prepare-build
+        with:
+          out: ${{ env.OUT }}
+
+      # rustup reads addons/rustdesk/rust-toolchain.toml: the pinned compiler
+      # and the riscv64 musl target.
+      - name: Rust
+        run: |
+          if ! command -v rustup > /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+            export PATH=$HOME/.cargo/bin:$PATH
+          fi
+          cd addons/rustdesk
+          rustc --version
+          cargo --version
+          # The builder vendors the crates offline.
+          cargo fetch --locked
+
+      - name: Version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' addons/rustdesk/Cargo.toml | head -1)
+          # Both requests must succeed. A grouped pipeline inside $(...)
+          # can hide failure of the first request when the second succeeds.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/tags?per_page=100" --jq '.[].name' > "$RUNNER_TEMP/current-tags"
+          gh api --paginate "repos/$OLD_REPOSITORY/tags?per_page=100" --jq '.[].name' > "$RUNNER_TEMP/old-tags"
+          revision=$(cat "$RUNNER_TEMP/current-tags" "$RUNNER_TEMP/old-tags" |
+                     python3 scripts/next-rustdesk-revision.py "$version")
+          tag=nanokvm-rustdesk-$version-r$revision
+          {
+            echo "version=$version"
+            echo "revision=$revision"
+            echo "tag=$tag"
+            echo "url=https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/nanokvm-rustdesk-$version-source.tar.gz"
+          } >> "$GITHUB_OUTPUT"
+          echo "$tag"
+
+      # apk mkpkg records the owner of every payload file, which must be
+      # root:root. The builder runs under fakeroot, and apk runs in an Alpine
+      # container as real root (fakeroot cannot reach the container): it gives
+      # the payload to root for mkpkg and back to the runner afterwards.
+      - name: Host apk
+        run: |
+          sudo apt-get install -y --no-install-recommends fakeroot
+          cat > "$RUNNER_TEMP/apk" <<'EOF'
+          #!/bin/sh
+          files=
+          output=
+          prev=
+          for arg; do
+            [ "$prev" = --files ] && files=$arg
+            [ "$prev" = --output ] && output=$arg
+            prev=$arg
+          done
+          exec docker run --rm -v "$HOME:$HOME" -v "$RUNNER_TEMP:$RUNNER_TEMP" -v /tmp:/tmp -w "$PWD" \
+            -e FILES="$files" -e OUTPUT="$output" -e OWNER="$HOST_OWNER" alpine:3.24 sh -euc '
+              [ -z "$FILES" ] || chown -R 0:0 "$FILES"
+              status=0; apk "$@" || status=$?
+              [ -z "$FILES" ] || chown -R "$OWNER" "$FILES"
+              [ ! -e "$OUTPUT" ] || chown "$OWNER" "$OUTPUT"
+              exit $status' apk "$@"
+          EOF
+          chmod 0755 "$RUNNER_TEMP/apk"
+          echo "HOST_OWNER=$(id -u):$(id -g)" >> "$GITHUB_ENV"
+
+      - name: Build
+        env:
+          REVISION: ${{ steps.version.outputs.revision }}
+          SOURCE_URL: ${{ steps.version.outputs.url }}
+        run: |
+          fakeroot python3 scripts/build-rustdesk-addon.py \
+            --linker "$OUT/buildroot-output/host/bin/riscv64-buildroot-linux-musl-gcc" \
+            --apk "$RUNNER_TEMP/apk" --output "$RUNNER_TEMP/addon" \
+            --package-revision "$REVISION" --source-url "$SOURCE_URL"
+          (cd "$RUNNER_TEMP/addon" && sha256sum -- * > "$RUNNER_TEMP/SHA256SUMS" && mv "$RUNNER_TEMP/SHA256SUMS" .)
+          ls -la "$RUNNER_TEMP/addon"
+          cat "$RUNNER_TEMP/addon/SHA256SUMS"
+
+      # What devices get: the version, the static riscv64 daemon and its init
+      # script, and a source record that names this release's source archive.
+      - name: Check the package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          REVISION: ${{ steps.version.outputs.revision }}
+          SOURCE_URL: ${{ steps.version.outputs.url }}
+        run: |
+          a=$RUNNER_TEMP/addon
+          docker run --rm -v "$a:$a" -e VERSION -e REVISION -e SOURCE_URL alpine:3.24 sh -euc '
+            apk add --no-cache file python3 > /dev/null
+            apk=$1/nanokvm-rustdesk-$VERSION-r$REVISION.apk
+            apk adbdump "$apk" | grep -qx "  version: $VERSION-r$REVISION"
+            d=$(mktemp -d)
+            apk extract --allow-untrusted --destination "$d" "$apk"
+            # Rust links a static musl binary as static-pie.
+            file "$d/usr/bin/nanokvm-rustdesk" | grep -qE "RISC-V.*(statically|static-pie) linked"
+            test -x "$d/etc/init.d/nanokvm-rustdesk"
+            python3 - "$d/usr/share/nanokvm-rustdesk/source.json" "$1/nanokvm-rustdesk-$VERSION-source.tar.gz" <<"PY"
+          import hashlib, json, os, sys
+          record = json.load(open(sys.argv[1]))
+          assert record["url"] == os.environ["SOURCE_URL"], record
+          assert record["sha256"] == hashlib.sha256(open(sys.argv[2], "rb").read()).hexdigest(), record
+          assert record["package_version"] == os.environ["VERSION"] + "-r" + os.environ["REVISION"], record
+          PY
+            echo "package checked"' sh "$a"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rustdesk-addon
+          path: ${{ runner.temp }}/addon
+          retention-days: 14
+
+  publish:
+    name: Release and pin
+    if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true
+    needs: build
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: rustdesk-addon
+          path: ${{ runner.temp }}/addon
+
+      # If a run fails after the release exists, finish the pin by hand: a rerun
+      # would count that release and build the next revision.
+      - name: Release and pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+          VERSION: ${{ needs.build.outputs.version }}
+          REVISION: ${{ needs.build.outputs.revision }}
+        run: |
+          a=$RUNNER_TEMP/addon
+          apk=nanokvm-rustdesk-$VERSION-r$REVISION.apk
+          # Not the repository's latest release: that is NanoKVM OS.
+          gh release create "$TAG" --target "$GITHUB_SHA" --latest=false \
+            --title "RustDesk add-on $VERSION-r$REVISION" \
+            --notes "Optional RustDesk add-on for NanoKVM OS, built from $GITHUB_SHA. Devices receive it with the first NanoKVM OS release after firmware/alpine/addons.json pins it." \
+            "$a"/*
+          branch=rustdesk/pin-$VERSION-r$REVISION
+          git switch -c "$branch"
+          cp "$a/APKBUILD" firmware/alpine/packages/nanokvm-rustdesk/APKBUILD
+          python3 - "$a/$apk" "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$apk" <<'PY'
+          import hashlib, json, sys
+          from pathlib import Path
+          apk, url = Path(sys.argv[1]), sys.argv[2]
+          data = apk.read_bytes()
+          entry = {'url': url, 'sha256': hashlib.sha256(data).hexdigest(), 'size': len(data)}
+          Path('firmware/alpine/addons.json').write_text(json.dumps({'packages': {apk.name: entry}}, indent=2) + '\n')
+          PY
+          git add firmware/alpine/addons.json firmware/alpine/packages/nanokvm-rustdesk/APKBUILD
+          git -c user.name='Gleb Pesin' -c user.email=dormancygrace@gmail.com \
+            commit -q -m "addons: pin the RustDesk add-on $VERSION-r$REVISION" \
+            -m "Built from $GITHUB_SHA by the RustDesk add-on workflow; the release is $TAG."
+          git push -q origin "$branch"
+          gh pr create --base main --head "$branch" --title "addons: pin the RustDesk add-on $VERSION-r$REVISION" \
+            --body "Pins [$TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG), built from $GITHUB_SHA by the RustDesk add-on workflow. Merge before the next NanoKVM OS release so that it serves this add-on; until then devices keep the previous one."

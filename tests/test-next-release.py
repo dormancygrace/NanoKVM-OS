@@ -75,6 +75,10 @@ class NextReleaseTests(unittest.TestCase):
         releases = [release('v3.3.0', 'v1.5', draft=True)] + RELEASES
         self.assertEqual(n.next_release(releases, 'patch', 'main', True)['image_version'], 'v1.6')
 
+    def test_add_on_releases_do_not_count(self):
+        releases = [release('nanokvm-rustdesk-0.5.3-r6')] + RELEASES
+        self.assertEqual(n.next_release(releases, 'patch', 'main', False)['version'], 'v3.2.1')
+
     def test_other_refs_are_refused(self):
         with self.assertRaisesRegex(ValueError, 'from main or a release/X.Y branch'):
             n.next_release(RELEASES, 'patch', 'feature/x', False)

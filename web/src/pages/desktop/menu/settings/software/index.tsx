@@ -42,7 +42,8 @@ const protectedPackages = new Set([
   'nanokvm-kernel-sg2002',
   'nanokvm-kmod-sg2002',
   'nanokvm-firmware-sg2002',
-  'nanokvm-zlib'
+  'nanokvm-zlib',
+  'nanokvm-bootloader-sg2002'
 ]);
 
 export const Software = () => {

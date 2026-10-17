@@ -31,8 +31,6 @@ kvmapp/kvm_system/kvm_system
 /kvmapp/system/bin/picocom
 /kvmapp/system/share/picocom/
 
-# Generated isolated networking tools, source and license bundle.
-
 # Local Alpine builders, keys, payloads and device test artifacts.
 /work/
 
